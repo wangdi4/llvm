@@ -55,21 +55,27 @@ public:
 	virtual void EventStatusChanged(cl_event event)=0;
 
 	/* Memory Object Callbacks */
-	virtual void BufferCreate (cl_mem /* memobj */, cl_context /* context */, size_t, void*, bool)=0;
-	virtual void BufferMap (cl_mem /* memobj */, cl_map_flags)=0;
+	virtual void BufferCreate (cl_mem /* memobj */, cl_context /* context */,
+                               size_t, void*, bool, unsigned int traceCookie)=0;
+	virtual void BufferMap (cl_mem /* memobj */, cl_map_flags,
+                            unsigned int traceCookie)=0;
 	virtual void BufferUnmap (cl_mem, cl_command_queue, cl_event*)=0;
-	virtual void BufferEnqueue (cl_command_queue, cl_event*, cl_mem)=0;
+	virtual void BufferEnqueue (cl_command_queue, cl_event*, cl_mem,
+                                unsigned int traceCookie)=0;
 	virtual void SubBufferCreate (cl_mem /* parent buffer */, cl_mem /* sub buffer */,
 								  cl_buffer_create_type /* buffer create type */,
 								  const void* /* buffer create info */,
-								  cl_context)=0;
+								  cl_context,
+                                  unsigned int traceCookie)=0;
 	virtual void ImageCreate (cl_mem /* memobj */, cl_context /* context */,
-							  const cl_image_desc*, void*, bool /* from external object */ )=0;
-	virtual void ImageMap(cl_mem, cl_map_flags)=0;
+							  const cl_image_desc*, void*,
+                              bool /* from external object */,
+                              unsigned int traceCookie)=0;
+	virtual void ImageMap(cl_mem, cl_map_flags, unsigned int traceCookie)=0;
 	virtual void ImageUnmap(cl_mem, cl_command_queue, cl_event*)=0;
 	virtual void ImageEnqueue(cl_command_queue,			// clEnqueue<CopyImage/WriteImage/CopyBufferToImage/FillImage>
-							  cl_event*,	
-							  cl_mem)=0;
+							  cl_event*, cl_mem,
+							  unsigned int traceCookie)=0;
 	//virtual void ImageChangedCallBack(cl_event, cl_int, ImageInfo*)=0;
 	virtual void MemObjectFree (cl_mem /* memobj */)=0;
 	virtual void MemObjectReleased (cl_mem)=0;	// called when kernel no longer exists in Profiler & RT
@@ -87,7 +93,7 @@ public:
 	virtual void KernelCreate (cl_kernel /* kernel */, cl_program /* program */)=0;
 	virtual void KernelFree (cl_kernel /* kernel */)=0;	// clReleaseKernel
 	virtual void KernelSetArg (cl_kernel /* kernel */, cl_uint /* arg_index */, size_t /* argSize */,const void* /* arg_value */ )=0;
-	virtual void KernelEnqueue (cl_kernel, cl_command_queue, cl_event*)=0;
+	virtual void KernelEnqueue (cl_kernel, cl_command_queue, cl_event*, unsigned int traceCookie)=0;
 	virtual void KernelReleased (cl_kernel)=0;	// called when kernel no longer exists in Profiler & RT
 
 	/* Command Callbacks */
@@ -96,7 +102,8 @@ public:
 	/* generic Callbacks */
 	virtual void ObjectInfo(const void* /* obj */, const pair<string,string> data[],const int dataLength)=0;
 	virtual void ObjectRetain( const void* obj)=0;
-	virtual void TraceCall( const char* call, cl_int errcode_ret, OclParameters* parameters)=0;
+	virtual void TraceCall( const char* call, cl_int errcode_ret,
+                            OclParameters* parameters, unsigned int* traceCookie = NULL)=0;
 
 	virtual ~oclNotifier() {}
 };
@@ -158,21 +165,24 @@ public:
 	virtual void EventStatusChanged(cl_event event);
 
 	/* Memory Object Callbacks */
-	virtual void BufferCreate (cl_mem /* memobj */, cl_context /* context */, size_t, void*, bool);
-	virtual void BufferMap (cl_mem /* memobj */, cl_map_flags);
+	virtual void BufferCreate (cl_mem /* memobj */, cl_context /* context */,
+                               size_t, void*, bool, unsigned int traceCookie);
+	virtual void BufferMap (cl_mem /* memobj */, cl_map_flags, unsigned int traceCookie);
 	virtual void BufferUnmap (cl_mem, cl_command_queue, cl_event*);
-	virtual void BufferEnqueue (cl_command_queue, cl_event*, cl_mem);
+	virtual void BufferEnqueue (cl_command_queue, cl_event*, cl_mem, unsigned int traceCookie);
 	virtual void SubBufferCreate (cl_mem /* parent buffer */, cl_mem /* sub buffer */,
 								  cl_buffer_create_type /* buffer create type */,
 								  const void* /* buffer create info */,
-								  cl_context);
+								  cl_context, unsigned int traceCookie);
 	virtual void ImageCreate (cl_mem /* memobj */, cl_context /* context */,
-							  const cl_image_desc*, void*, bool /* from external object */ );
-	virtual void ImageMap(cl_mem, cl_map_flags);
+							  const cl_image_desc*,
+                              void*, bool /* from external object */,
+                              unsigned int traceCookie);
+	virtual void ImageMap(cl_mem, cl_map_flags, unsigned int traceCookie);
 	virtual void ImageUnmap(cl_mem, cl_command_queue, cl_event*);
 	virtual void ImageEnqueue(cl_command_queue,			// clEnqueue<CopyImage/WriteImage/CopyBufferToImage/FillImage>
-							  cl_event*,	
-							  cl_mem);
+							  cl_event*, cl_mem,
+                              unsigned int traceCookie);
 	virtual void MemObjectFree (cl_mem /* memobj */);
 	virtual void MemObjectReleased (cl_mem);	// called when kernel no longer exists in Profiler & RT
 
@@ -189,7 +199,7 @@ public:
 	virtual void KernelCreate (cl_kernel /* kernel */, cl_program /* program */);
 	virtual void KernelFree (cl_kernel /* kernel */);
 	virtual void KernelSetArg (cl_kernel /* kernel */, cl_uint /* arg_index */, size_t /* argSize */,const void* /* arg_value */ );
-	virtual void KernelEnqueue (cl_kernel, cl_command_queue, cl_event*);
+	virtual void KernelEnqueue (cl_kernel, cl_command_queue, cl_event*, unsigned int traceCookie);
 	virtual void KernelReleased (cl_kernel);	// called when kernel no longer exists in Profiler & RT
 
 	/* Command Callbacks */
@@ -198,7 +208,8 @@ public:
 	/* generic Callbacks */
 	virtual void ObjectInfo(const void* /* obj */, const pair<string,string> data[],const int dataLength);
 	virtual void ObjectRetain( const void* obj);
-	virtual void TraceCall( const char* call, cl_int errcode_ret, OclParameters* parameters);
+	virtual void TraceCall( const char* call, cl_int errcode_ret,
+                            OclParameters* parameters, unsigned int* traceCookie = NULL);
 
 
 
@@ -213,6 +224,8 @@ public:
 	static void releaseCommandData(CommandData* data);
 
 	const char* enableKernelArgumentInfo(const char* options);
+    unsigned int getTraceCookie();
+    vector<cl_device_id> getProgramDevices(cl_program program);
 
 
 private:
@@ -223,4 +236,5 @@ private:
 
 	set<oclNotifier*> notifiers; //the container that keeps all the notifiers
 	Intel::OpenCL::Utils::AtomicCounter commandsIDs; //gives unique ids to commands
+    Intel::OpenCL::Utils::AtomicCounter traceCookie;
 };

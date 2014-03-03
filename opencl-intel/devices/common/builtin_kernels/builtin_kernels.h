@@ -38,7 +38,7 @@ class OMPExecutorThread;
 #endif
 class BuiltInProgram : public Intel::OpenCL::DeviceBackend::ICLDevBackendProgram_
 {
-public:	
+public:
 	BuiltInProgram() {};
 
 	cl_dev_err_code ParseFunctionList(const char* szBuiltInKernelList);
@@ -48,16 +48,17 @@ public:
     const Intel::OpenCL::DeviceBackend::ICLDevBackendCodeContainer* GetProgramCodeContainer() const {return NULL;}
 
 	cl_dev_err_code GetKernelByName(
-        const char* pKernelName, 
+        const char* pKernelName,
         const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_** ppKernel) const;
 
     int GetKernelsCount() const { return (int)m_mapKernels.size(); }
 
 	virtual cl_dev_err_code	GetKernel(
-        int kernelIndex, 
+        int kernelIndex,
         const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_** pKernel) const;
 
     virtual const Intel::OpenCL::DeviceBackend::ICLDevBackendProgramJITCodeProperties* GetProgramJITCodeProperties() const {return NULL;}
+    virtual size_t GetGlobalVariableTotalSize() const {return 0;}
 
 protected:
 	// Stores a list of MKL kernels perticipated in the Built-In kernel program
@@ -128,7 +129,7 @@ protected:
 	cl_dev_err_code CreateBuiltInKernel(const char* szMKLFuncName, IBuiltInKernel* *pMKLExecutor) const;
 
 	typedef std::map<std::string, fn_BuiltInFunctionCreate*>	KernelCreatorMap_t;
-	
+
 	KernelCreatorMap_t	m_mapKernelCreators;
 	size_t				m_stKernelNameStrLength;			// Holds the total size of the list of built-in functions
 

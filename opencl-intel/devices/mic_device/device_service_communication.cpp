@@ -584,36 +584,17 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
         size_t initial_2mb_pool_size = tMicConfig.Device_Initial2MBPoolSizeInMB();
         if (initial_2mb_pool_size > 0)
         {
-            COIBUFFER pool;
-            initial_2mb_pool_size *= (1024*1024);
-            result = COIBufferCreate( initial_2mb_pool_size, 
-                                      COI_BUFFER_NORMAL, COI_OPTIMIZE_HUGE_PAGE_SIZE|COI_OPTIMIZE_NO_DMA,
-                                      NULL,    // no init data
-                                      1, &m_process,
-                                      &pool );
+            initial_2mb_pool_size *= (1024*1024); // MiB
+            result = COIProcessSetCacheSize( m_process, 
+                                    initial_2mb_pool_size,                COI_CACHE_MODE_ONDEMAND_SYNC | COI_CACHE_ACTION_GROW_NOW,
+                                    MIC_DEV_INITIAL_BUFFER_PREALLOCATION, COI_CACHE_MODE_ONDEMAND_SYNC | COI_CACHE_ACTION_NONE,
+                                    0, NULL, NULL );
 
             assert(result == COI_SUCCESS);
             if (result != COI_SUCCESS)
             {
                 break;
             }
-
-            // force real device allocation
-            result = COIBufferSetState( pool, m_process, COI_BUFFER_VALID, COI_BUFFER_NO_MOVE, 0, NULL, NULL );
-
-            assert(result == COI_SUCCESS);
-
-            result = COIBufferDestroy( pool );
-       
-            assert(result == COI_SUCCESS);
-
-            if (result != COI_SUCCESS)
-            {
-                break;
-            }
-
-            // wait for some time to allow COI finish deletion            
-            clSleep(100); // 100 millisec
         }
         
     }

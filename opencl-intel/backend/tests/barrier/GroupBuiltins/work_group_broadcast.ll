@@ -1,4 +1,4 @@
-; RUN: opt -B-GroupBuiltins -verify -S < %s | FileCheck %s
+; RUN: opt -runtimelib %p/WGBuiltins32.ll -B-GroupBuiltins -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ; This test checks the GroupBuiltin pass

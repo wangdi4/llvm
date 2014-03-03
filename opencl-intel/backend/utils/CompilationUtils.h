@@ -191,7 +191,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isWorkGroupScanInclusiveMax(const std::string&);
 
     static bool isWorkGroupBuiltin(const std::string&);
-    static bool isWorkGroupUniformBuiltin(const std::string&, const Module*);
+    static bool isWorkGroupAsyncOrPipeBuiltin(const std::string&, const Module*);
     static bool isWorkGroupScan(const std::string&);
     static bool isWorkGroupMin(const std::string&);
     static bool isWorkGroupMax(const std::string&);
@@ -269,9 +269,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     //////////////////////////////////////////////////////////////////
     static std::string mangledGetGID();
     //////////////////////////////////////////////////////////////////
-   // @brief returns the mangled name of the function get_global_size
+    // @brief returns the mangled name of the function get_global_size
     //////////////////////////////////////////////////////////////////
     static std::string mangledGetGlobalSize();
+    //////////////////////////////////////////////////////////////////
+    // @brief returns the mangled name of the function get_global_offset
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledGetGlobalOffset();
     //////////////////////////////////////////////////////////////////
     // @brief: returns the mangled name of the function get_local_id
     //////////////////////////////////////////////////////////////////
