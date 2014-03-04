@@ -144,12 +144,10 @@ typedef _Atomic(float) atomic_float;
 typedef _Atomic(double) atomic_double;
 #endif
 
-#if __32bit__ == 1
 typedef _Atomic(intptr_t) atomic_intptr_t;
 typedef _Atomic(uintptr_t) atomic_uintptr_t;
 typedef _Atomic(size_t) atomic_size_t;
 typedef _Atomic(ptrdiff_t) atomic_ptrdiff_t;
-#endif
 
 /**
  * ndrange_t is an opaque struct pointer
