@@ -15,8 +15,11 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Function.h"
 
-#include <cfloat>
-#include <climits>
+#if defined(__APPLE__)
+  #include <OpenCL/cl.h>
+#else
+  #include <CL/cl.h>
+#endif
 
 using namespace Intel::OpenCL::DeviceBackend;
 
@@ -71,22 +74,26 @@ namespace intel {
       // Initial value for work_group_..._max: MIN
       switch (dataEnum) {
         case reflection::PRIMITIVE_INT:
-          pInitVal = ConstantInt::get(pInt32Type, INT_MIN);
+          pInitVal = ConstantInt::get(pInt32Type, CL_INT_MIN);
           break;
         case reflection::PRIMITIVE_UINT:
           pInitVal = ConstantInt::get(pInt32Type, 0);
           break;
         case reflection::PRIMITIVE_LONG:
-          pInitVal = ConstantInt::get(pInt64Type, LONG_MIN);
+          pInitVal = ConstantInt::get(pInt64Type, CL_LONG_MIN);
           break;
         case reflection::PRIMITIVE_ULONG:
           pInitVal = ConstantInt::get(pInt64Type, 0);
           break;
         case reflection::PRIMITIVE_FLOAT:
-          pInitVal = ConstantFP::get(pFloatType, FLT_MIN);
+          //pInitVal = ConstantFP::get(pFloatType, CL_FLT_MIN);
+          // Workaround: to pass compilation on non-windows OS
+          pInitVal = ConstantFP::get(pFloatType, 1.175494350822287507969e-38f);
           break;
         case reflection::PRIMITIVE_DOUBLE:
-          pInitVal = ConstantFP::get(pDoubleType, DBL_MIN);
+          //pInitVal = ConstantFP::get(pDoubleType, CL_DBL_MIN);
+          // Workaround: to pass compilation on non-windows OS
+          pInitVal = ConstantFP::get(pDoubleType, 2.225073858507201383090e-308);
           break;
         default:
           assert(0 && "Unsupported WG argument type");
@@ -96,22 +103,26 @@ namespace intel {
       // Initial value for work_group_..._min: MAX
       switch (dataEnum) {
         case reflection::PRIMITIVE_INT:
-          pInitVal = ConstantInt::get(pInt32Type, INT_MAX);
+          pInitVal = ConstantInt::get(pInt32Type, CL_INT_MAX);
           break;
         case reflection::PRIMITIVE_UINT:
-          pInitVal = ConstantInt::get(pInt32Type, UINT_MAX);
+          pInitVal = ConstantInt::get(pInt32Type, CL_UINT_MAX);
           break;
         case reflection::PRIMITIVE_LONG:
-          pInitVal = ConstantInt::get(pInt64Type, LONG_MAX);
+          pInitVal = ConstantInt::get(pInt64Type, CL_LONG_MAX);
           break;
         case reflection::PRIMITIVE_ULONG:
-          pInitVal = ConstantInt::get(pInt64Type, ULONG_MAX);
+          pInitVal = ConstantInt::get(pInt64Type, CL_ULONG_MAX);
           break;
         case reflection::PRIMITIVE_FLOAT:
-          pInitVal = ConstantFP::get(pFloatType, FLT_MAX);
+          //pInitVal = ConstantFP::get(pFloatType, CL_FLT_MAX);
+          // Workaround: to pass compilation on non-windows OS
+          pInitVal = ConstantFP::get(pFloatType, 340282346638528859811704183484516925440.0f);
           break;
         case reflection::PRIMITIVE_DOUBLE:
-          pInitVal = ConstantFP::get(pDoubleType, DBL_MAX);
+          //pInitVal = ConstantFP::get(pDoubleType, CL_DBL_MAX);
+          // Workaround: to pass compilation on non-windows OS
+          pInitVal = ConstantFP::get(pDoubleType, 1.7976931348623157e+308);
           break;
         default:
           assert(0 && "Unsupported WG argument type");
@@ -252,7 +263,7 @@ namespace intel {
 
     // Handle WorkGroup built-ins
     TInstructionVector callWgFunc = m_util.getWGCallInstructions(CALL_BI_TYPE_WG);
-    TFuncEntryMap funcFirstInst;
+    TFunctionSet visitedFunctions;
     for (unsigned idx = 0; idx < callWgFunc.size(); idx++) {
       CallInst *pWgCallInst = cast<CallInst>(callWgFunc[idx]);
       // Replace call to WG-wide function with that to per-WI function 
@@ -261,10 +272,23 @@ namespace intel {
       // Collect info about caller function (where the call resides)
       Function *pFunc = pWgCallInst->getParent()->getParent();
       Instruction *pFirstInstr = pFunc->getEntryBlock().begin();
-      // We keep function's 1st instruction BEFORE any allocas & initializations
-      // will be inserted above it, the rest of "inserts" of caller function
-      // won't succeed because of existing entry for the same function
-      funcFirstInst.insert(TFuncEntryPair(pFunc, pFirstInstr));
+      // Mark the function as visited.
+      if (visitedFunctions.insert(pFunc)) {
+        // This is the first time we visit this function.
+        //
+        // This pass creates alloca instructions and initialize them as part
+        // of the solution to resolve a work group builtin.
+        // These allocas are uniform for all work items in a group.
+        // However, barrier pass handles all allocas as non-uniform.
+        // So, in order to prevent that, we add a marker "dummyBarrier" at begin
+        // of the function, and make sure all alloca and initialization instructions
+        // are added before this marker. Need to add the marker only once.
+        Instruction *pDummyBarrierCall = m_util.createDummyBarrier();
+        pDummyBarrierCall->insertBefore(pFirstInstr);
+        // Update the first instruction to be the marker. All alloca & initialize
+        // instructions will be created before this first instruction.
+        pFirstInstr = pDummyBarrierCall;
+      }
 
       // Info about this function call
       unsigned numArgs = pWgCallInst->getNumArgOperands();
@@ -362,9 +386,7 @@ namespace intel {
         params.push_back(pLoadResult);
         //    --- remangle with unique name (derived from original WG function name)
         //        [Note that the signature is as of original WG function]
-        reflection::FunctionDescriptor fd = demangle(funcName.c_str());
-        fd.name = FINALIZE_WG_FUNCTION_PREFIX + fd.name;
-        std::string finalizeFuncName = mangle(fd);
+        std::string finalizeFuncName = CompilationUtils::appendWorkGroupFinalizePrefix(funcName);
         //    --- create function
         //    --- get the new function declaration out of built-in module.
         Function *LibFunc = builtinModule->getFunction(finalizeFuncName);
@@ -386,15 +408,6 @@ namespace intel {
       // 7. Discard old function call
       pWgCallInst->replaceAllUsesWith(pNewCall);
       pWgCallInst->eraseFromParent();
-
-    }
-
-    // Add dummyBarrier after allocas & initializations of WG function return value accumulators
-    for (TFuncEntryMap::iterator func_it = funcFirstInst.begin(), 
-                                 func_it_end = funcFirstInst.end();
-                                 func_it != func_it_end; func_it++) {
-      Instruction *pDummyBarrierCall = m_util.createDummyBarrier();
-      pDummyBarrierCall->insertBefore(func_it->second);
     }
 
     return !callWGSimpleFunc.empty() || !callWgFunc.empty();

@@ -233,6 +233,9 @@ cl_err_code ConfigFile::WriteFile(string fileName, ConfigFile& cf)
 
 OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
 {
+#ifdef BUILD_2_0_RT
+    return OPENCL_VERSION_2_0;
+#else
     // first look in environment variable or configuration file
     std::string ver = m_pConfigFile->Read("ForceOCLCPUVersion", std::string(""));   // we are using this name to be aligned with GEN
     if ("1.2" == ver)
@@ -258,4 +261,5 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
     default:
         return OPENCL_VERSION_1_2;  // this is the default if there is nothing else (until we are officially OpenCL 2.0)
     }
+#endif
 }

@@ -1805,6 +1805,10 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
         {
             argInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_VOLATILE;
         }
+        if (pTypeQualifier->getString().find("pipe") != llvm::StringRef::npos)
+        {
+            argInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_PIPE;
+        }
 
         // Type name
         MDString* pTypeName = dyn_cast<MDString>(pTypeNames->getOperand(i));
