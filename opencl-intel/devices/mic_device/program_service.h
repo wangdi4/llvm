@@ -130,6 +130,8 @@ public:
     cl_dev_err_code GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN valueSize,
                     void* OUT value, size_t* OUT valueSizeRet ) const;
 
+    cl_dev_err_code GetGlobalVariableTotalSize( cl_dev_program IN prog, size_t* OUT size) const;
+
     // internal methods to be used for MIC DA
 
     // get Backend kernel object

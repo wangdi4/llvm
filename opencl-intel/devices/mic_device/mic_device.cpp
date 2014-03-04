@@ -247,7 +247,7 @@ void MICDevice::unloadRelease()
     m_mic_instancies = NULL;
 
     delete m_mic_instancies_mutex;
-    m_mic_instancies_mutex = NULL;   
+    m_mic_instancies_mutex = NULL;
 }
 
 
@@ -304,7 +304,7 @@ const void* MICDevice::clDevFEDeviceInfo() const
 {
   if ( NULL == MICDevInfo.sExtensionStrings)
   {
-    MICDevInfo.sExtensionStrings = 
+    MICDevInfo.sExtensionStrings =
       MICSysInfo::getInstance().getSupportedOclExtensions( m_uiMicId );
   }
 
@@ -329,7 +329,7 @@ cl_dev_err_code MICDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
     {
         return CL_DEV_ERROR_FAIL;
     }
-    
+
     // TODO: Not implemented yet
     assert( false && "MIC clDevPartition not implemented yet" );
     return CL_DEV_NOT_SUPPORTED;
@@ -345,7 +345,7 @@ cl_dev_err_code MICDevice::clDevReleaseSubdevice(  cl_dev_subdevice_id IN subdev
     {
         return CL_DEV_SUCCESS;
     }
-    
+
     // TODO: Not implemented yet
     assert( false && "MIC clDevReleaseSubdevice not implemented yet" );
     return CL_DEV_NOT_SUPPORTED;
@@ -355,13 +355,13 @@ cl_dev_err_code MICDevice::clDevReleaseSubdevice(  cl_dev_subdevice_id IN subdev
  clDevCreateCommandList
     Call commandListFactory to create command list
 ********************************************************************************************************************/
-cl_dev_err_code MICDevice::CreateCommandList( bool external_list, 
+cl_dev_err_code MICDevice::CreateCommandList( bool external_list,
                                               cl_dev_cmd_list_props IN props, cl_dev_subdevice_id IN subdevice_id, cl_dev_cmd_list* OUT list)
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevCreateCommandList Function enter");
     CommandList* tCommandList;
-    cl_dev_err_code ret = CommandList::commandListFactory(props, subdevice_id, 
-                                                          m_pNotificationPort, m_pDeviceServiceComm, 
+    cl_dev_err_code ret = CommandList::commandListFactory(props, subdevice_id,
+                                                          m_pNotificationPort, m_pDeviceServiceComm,
                                                           m_pFrameworkCallBacks, m_pProgramService, &m_overhead_data,
 #ifdef USE_ITT
                                                           g_pGPAData,
@@ -387,7 +387,7 @@ cl_dev_err_code MICDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
     {
         return CL_DEV_ERROR_FAIL;
     }
-    
+
     return CreateCommandList( true, props, subdevice_id, list );
 }
 
@@ -401,7 +401,7 @@ cl_dev_err_code MICDevice::clDevFlushCommandList( cl_dev_cmd_list IN list)
     {
         return CL_DEV_SUCCESS;
     }
-    
+
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevFlushCommandList Function enter");
     CommandList* pList = (CommandList*)list;
     if (NULL == pList)
@@ -420,7 +420,7 @@ cl_dev_err_code MICDevice::clDevRetainCommandList( cl_dev_cmd_list IN list)
     {
         return CL_DEV_ERROR_FAIL;
     }
-    
+
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevRetainCommandList Function enter");
     CommandList* pList = (CommandList*)list;
     if (NULL == pList)
@@ -439,7 +439,7 @@ cl_dev_err_code MICDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
     {
         return CL_DEV_SUCCESS;
     }
-    
+
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevReleaseCommandList Function enter");
     CommandList* pList = (CommandList*)list;
     if (NULL == pList)
@@ -467,7 +467,7 @@ cl_dev_err_code MICDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_
     {
         return CL_DEV_ERROR_FAIL;
     }
-    
+
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevCommandListExecute Function enter");
     if (NULL != list)
     {
@@ -482,17 +482,17 @@ cl_dev_err_code MICDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_
     {
         // default list was requested for out-of-bound actions
         cl_dev_err_code err;
-        
+
         if (NULL == m_defaultCommandList)
         {
-            
+
             err = CreateCommandList( false, CL_DEV_LIST_ENABLE_OOO, 0, (cl_dev_cmd_list*)&m_defaultCommandList );
             if (CL_DEV_FAILED(err))
             {
                 return err;
             }
         }
-        
+
         err = m_defaultCommandList->commandListExecute(cmds,count);
         if (CL_DEV_FAILED(err))
         {
@@ -513,7 +513,7 @@ cl_dev_err_code MICDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN lis
     {
         return CL_DEV_NOT_SUPPORTED;
     }
-    
+
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevCommandListWaitCompletion Function enter");
 
     if (NULL != list)
@@ -537,7 +537,7 @@ cl_dev_err_code MICDevice::clDevCommandListCancel(cl_dev_cmd_list IN list)
     {
         return CL_DEV_NOT_SUPPORTED;
     }
-    
+
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCommandListCancel Function enter"));
 
     if (NULL != list)
@@ -565,7 +565,7 @@ void MICDevice::clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease)
     {
         return;
     }
-    
+
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevReleaseCommand Function enter");
 
     if (cmdToRelease)
@@ -593,7 +593,7 @@ cl_dev_err_code MICDevice::clDevGetSupportedImageFormats( cl_mem_flags IN flags,
     {
         return CL_DEV_ERROR_FAIL;
     }
-    
+
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevGetSupportedImageFormats Function enter");
     return (cl_dev_err_code)m_pMemoryAllocator->GetSupportedImageFormats(flags, imageType,numEntries, formats, numEntriesRet);
 
@@ -605,7 +605,7 @@ cl_dev_err_code MICDevice::clDevGetMemoryAllocProperties( cl_mem_object_type IN 
     {
         return CL_DEV_ERROR_FAIL;
     }
-    
+
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevGetMemoryAllocProperties Function enter");
     return m_pMemoryAllocator->GetAllocProperties(memObjType, pAllocProp);
 }
@@ -622,7 +622,7 @@ cl_dev_err_code MICDevice::clDevCreateMemoryObject( cl_dev_subdevice_id IN node_
     {
         return CL_DEV_ERROR_FAIL;
     }
-    
+
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevCreateMemoryObject Function enter");
     return m_pMemoryAllocator->CreateObject(node_id, flags, format, dim_count, dim_size, pBSService, pMemObj);
 }
@@ -637,7 +637,7 @@ cl_dev_err_code MICDevice::clDevCheckProgramBinary( size_t IN binSize, const voi
     {
         return CL_DEV_ERROR_FAIL;
     }
-    
+
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevCheckProgramBinary Function enter");
     return (cl_dev_err_code)m_pProgramService->CheckProgramBinary(binSize, bin );
 }
@@ -653,7 +653,7 @@ cl_dev_err_code MICDevice::clDevCreateProgram( size_t IN binSize, const void* IN
     {
         return CL_DEV_ERROR_FAIL;
     }
-    
+
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevCreateProgram Function enter");
     return (cl_dev_err_code)m_pProgramService->CreateProgram(binSize, bin, prop, prog );
 }
@@ -669,7 +669,7 @@ cl_dev_err_code MICDevice::clDevCreateBuiltInKernelProgram(const char* szKernelN
     {
         return CL_DEV_ERROR_FAIL;
     }
-    
+
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevCreateProgram Function enter");
     return (cl_dev_err_code)m_pProgramService->CreateBuiltInKernelProgram(szKernelNames, prog);
 }
@@ -685,7 +685,7 @@ cl_dev_err_code MICDevice::clDevBuildProgram( cl_dev_program IN prog, const char
     {
         return CL_DEV_ERROR_FAIL;
     }
-    
+
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevBuildProgram Function enter");
     return (cl_dev_err_code)m_pProgramService->BuildProgram(prog, options, buildStatus);
 }
@@ -701,7 +701,7 @@ cl_dev_err_code MICDevice::clDevReleaseProgram( cl_dev_program IN prog )
     {
         return CL_DEV_SUCCESS;
     }
-    
+
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevReleaseProgram Function enter");
     return (cl_dev_err_code)m_pProgramService->ReleaseProgram( prog );
 }
@@ -716,7 +716,7 @@ cl_dev_err_code MICDevice::clDevUnloadCompiler()
     {
         return CL_DEV_SUCCESS;
     }
-    
+
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevUnloadCompiler Function enter");
     return (cl_dev_err_code)m_pProgramService->UnloadCompiler();
 }
@@ -730,7 +730,7 @@ cl_dev_err_code MICDevice::clDevGetProgramBinary( cl_dev_program IN prog, size_t
     {
         return CL_DEV_ERROR_FAIL;
     }
-    
+
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevGetProgramBinary Function enter");
     return (cl_dev_err_code)m_pProgramService->GetProgramBinary(prog, size, binary, sizeRet );
 }
@@ -744,9 +744,22 @@ cl_dev_err_code MICDevice::clDevGetBuildLog( cl_dev_program IN prog, size_t IN s
     {
         return CL_DEV_ERROR_FAIL;
     }
-    
+
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevGetBuildLog Function enter");
     return (cl_dev_err_code)m_pProgramService->GetBuildLog(prog, size, log, sizeRet);
+}
+/*******************************************************************************************************************
+clDevGetGlobalVariableTotalSize
+    Call programService to get the size of program variables in global address space.
+**********************************************************************************************************************/
+cl_dev_err_code MICDevice::clDevGetGlobalVariableTotalSize( cl_dev_program IN prog, size_t* OUT size)
+{
+    if (isDeviceLibraryUnloaded())
+    {
+        return CL_DEV_ERROR_FAIL;
+    }
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevGetGlobalVariableTotalSize Function enter"));
+    return (cl_dev_err_code)m_pProgramService->GetGlobalVariableTotalSize(prog, size);
 }
 /*******************************************************************************************************************
 clDevUnloadCompiler
@@ -758,7 +771,7 @@ cl_dev_err_code MICDevice::clDevGetSupportedBinaries( size_t IN count, cl_prog_b
     {
         return CL_DEV_ERROR_FAIL;
     }
-    
+
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevGetSupportedBinaries Function enter");
     return (cl_dev_err_code)m_pProgramService->GetSupportedBinaries(count,types,sizeRet );
 }
@@ -772,7 +785,7 @@ cl_dev_err_code MICDevice::clDevGetKernelId( cl_dev_program IN prog, const char*
     {
         return CL_DEV_ERROR_FAIL;
     }
-    
+
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevGetKernelId Function enter");
     return (cl_dev_err_code)m_pProgramService->GetKernelId(prog, name, kernelId );
 }
@@ -787,7 +800,7 @@ cl_dev_err_code MICDevice::clDevGetProgramKernels( cl_dev_program IN prog, cl_ui
     {
         return CL_DEV_ERROR_FAIL;
     }
-    
+
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevGetProgramKernels Function enter");
     return (cl_dev_err_code)m_pProgramService->GetProgramKernels(prog, numKernels, kernels,numKernelsRet );
 }
@@ -802,7 +815,7 @@ cl_dev_err_code MICDevice::clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
     {
         return CL_DEV_ERROR_FAIL;
     }
-    
+
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevGetKernelInfo Function enter");
     return (cl_dev_err_code)m_pProgramService->GetKernelInfo(kernel, param, valueSize,value,valueSizeRet );
 }
@@ -822,7 +835,7 @@ cl_dev_err_code MICDevice::clDevSetLogger(IOCLDevLogDescriptor *pLogDescriptor)
     {
         return CL_DEV_ERROR_FAIL;
     }
-    
+
     if ( NULL != m_pLogDescriptor )
     {
         m_pLogDescriptor->clLogReleaseClient(m_iLogHandle);
@@ -868,7 +881,7 @@ void MICDevice::clDevCloseDeviceInt(bool preserve_object)
 
     if (NULL != m_defaultCommandList)
     {
-        clDevReleaseCommandList((cl_dev_cmd_list*)m_defaultCommandList); 
+        clDevReleaseCommandList((cl_dev_cmd_list*)m_defaultCommandList);
         m_defaultCommandList = NULL;
     }
 
@@ -882,8 +895,8 @@ void MICDevice::clDevCloseDeviceInt(bool preserve_object)
     {
         delete m_pProgramService;
         m_pProgramService = NULL;
-    } 
-    
+    }
+
     if ( NULL != m_pMemoryAllocator )
     {
         m_pMemoryAllocator->Release();

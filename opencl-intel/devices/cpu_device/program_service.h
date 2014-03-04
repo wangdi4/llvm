@@ -1,9 +1,9 @@
 
 // Copyright (c) 2006-2008 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -15,7 +15,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -95,6 +95,8 @@ public:
 
     cl_dev_err_code GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN valueSize,
                     void* OUT value, size_t* OUT valueSizeRet ) const;
+
+    cl_dev_err_code GetGlobalVariableTotalSize( cl_dev_program IN prog, size_t* OUT size) const;
 
 /****************************************************************************************************************
  GetSupportedImageFormats
