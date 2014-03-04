@@ -90,7 +90,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
             cl_rt_memobj_creation_flags    creation_flags
             );
 
-        cl_err_code UpdateHostPtr(cl_mem_flags    clMemFlags, void* pHostPtr) {return CL_INVALID_OPERATION;}
+        cl_err_code UpdateHostPtr(cl_mem_flags clMemFlags, void* pHostPtr);
 
         // returns NULL if data is ready and locked on given device, 
         // non-NULL if data is in the process of copying. Returned event may be added to dependency list

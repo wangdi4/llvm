@@ -1538,73 +1538,70 @@ cl_mem ContextModule::CreateBuffer(cl_context clContext,
         return CL_INVALID_HANDLE;
     }
 
-	cl_err_code clErr = CheckMemObjectParameters(clFlags, NULL, CL_MEM_OBJECT_BUFFER, 0, 0, 0, 0, 0, 0, pHostPtr);
-	if ( !((CL_INVALID_IMAGE_FORMAT_DESCRIPTOR == clErr) || (CL_SUCCESS == clErr)) )
-	{
-		if (NULL != pErrcodeRet)
-		{
-			*pErrcodeRet =  clErr;
-		}
-		return CL_INVALID_HANDLE;
-	}
+    cl_err_code clErr = CheckMemObjectParameters(clFlags, NULL, CL_MEM_OBJECT_BUFFER, 0, 0, 0, 0, 0, 0, pHostPtr);
+    if ( !((CL_INVALID_IMAGE_FORMAT_DESCRIPTOR == clErr) || (CL_SUCCESS == clErr)) )
+    {
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet =  clErr;
+        }
+        return CL_INVALID_HANDLE;
+    }
 
-	SharedPtr<MemoryObject> pBuffer;
-	SharedPtr<SVMBuffer> pSvmBuf = pContext->GetSVMBufferContainingAddr(pHostPtr);	// we assume that the cl_mem and SVM buffer share the same context
-	if (pSvmBuf != NULL && (clFlags & (CL_MEM_USE_HOST_PTR | CL_MEM_COPY_HOST_PTR)))
-	{
-		if (!pSvmBuf->IsContainedInBuffer(pHostPtr, szSize))
-		{
-			if (NULL != pErrcodeRet)
-			{
-				*pErrcodeRet = CL_INVALID_BUFFER_SIZE;	// this error code isn't specified in the spec
-			}
-			return CL_INVALID_HANDLE;
-		}
-	}
-	if (pSvmBuf != NULL && (clFlags & CL_MEM_USE_HOST_PTR))
-	{
-		if (pSvmBuf->GetAddr() == pHostPtr && szSize == pSvmBuf->GetSize())
-		{
-			pBuffer = pSvmBuf;
-			pContext->AddSvmBufferAsMemBuffer(pSvmBuf);
-		}
-		else
-		{
-			cl_buffer_region bufRegion;
-			bufRegion.origin = (char*)pHostPtr - (char*)pSvmBuf->GetAddr();
-			bufRegion.size = szSize;
-			clErr = pContext->CreateSubBuffer(pSvmBuf, clFlags, CL_BUFFER_CREATE_TYPE_REGION, &bufRegion, &pBuffer);
-		}		
-	}
-	else
-	{
-		clErr = pContext->CreateBuffer(clFlags, szSize, pHostPtr, &pBuffer);
-	}
+    SharedPtr<MemoryObject> pBuffer;
+    SharedPtr<SVMBuffer> pSvmBuf = pContext->GetSVMBufferContainingAddr(pHostPtr);	// we assume that the cl_mem and SVM buffer share the same context
+    if (pSvmBuf != NULL && (clFlags & (CL_MEM_USE_HOST_PTR | CL_MEM_COPY_HOST_PTR)))
+    {
+        if (!pSvmBuf->IsContainedInBuffer(pHostPtr, szSize))
+        {
+            if (NULL != pErrcodeRet)
+            {
+                *pErrcodeRet = CL_INVALID_BUFFER_SIZE;	// this error code isn't specified in the spec
+            }
+            return CL_INVALID_HANDLE;
+        }
+    }
 
-	if (CL_FAILED(clErr))
-	{
-		LOG_ERROR(TEXT("pContext->CreateBuffer(%d, %d, %d, %d) = %s"), clFlags, szSize, pHostPtr, &pBuffer, ClErrTxt(clErr))
-		if (NULL != pErrcodeRet)
-		{
-			*pErrcodeRet = CL_ERR_OUT(clErr);
-		}
-		return CL_INVALID_HANDLE;
-	}	
-	clErr = m_mapMemObjects.AddObject(pBuffer, false);
-	if (CL_FAILED(clErr))
-	{
-		LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"), pBuffer.GetPtr(), pBuffer->GetHandle(), ClErrTxt(clErr))
-		if (NULL != pErrcodeRet)
-		{
-			*pErrcodeRet = CL_ERR_OUT(clErr);
-		}
-		return CL_INVALID_HANDLE;
-	}
-	if (NULL != pErrcodeRet)
-	{
-		*pErrcodeRet = CL_SUCCESS;
-	}
-	return pBuffer->GetHandle();
+    if (pSvmBuf != NULL && (clFlags & CL_MEM_USE_HOST_PTR))
+    {
+        cl_buffer_region bufRegion;
+        bufRegion.origin = (char*)pHostPtr - (char*)pSvmBuf->GetAddr();
+        bufRegion.size = szSize;
+        clErr = pContext->CreateSubBuffer(pSvmBuf, clFlags, CL_BUFFER_CREATE_TYPE_REGION, &bufRegion, &pBuffer);
+        if (CL_SUCCEEDED(clErr))
+        {
+            pBuffer->UpdateHostPtr(pBuffer->GetFlags(), pHostPtr);
+        }
+    }
+    else
+    {
+        clErr = pContext->CreateBuffer(clFlags, szSize, pHostPtr, &pBuffer);
+    }
+
+    if (CL_FAILED(clErr))
+    {
+        LOG_ERROR(TEXT("pContext->CreateBuffer(%d, %d, %d, %d) = %s"), clFlags, szSize, pHostPtr, &pBuffer, ClErrTxt(clErr))
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_ERR_OUT(clErr);
+        }
+        return CL_INVALID_HANDLE;
+    }
+    clErr = m_mapMemObjects.AddObject(pBuffer, false);
+    if (CL_FAILED(clErr))
+    {
+        LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"), pBuffer.GetPtr(), pBuffer->GetHandle(), ClErrTxt(clErr))
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_ERR_OUT(clErr);
+        }
+        return CL_INVALID_HANDLE;
+    }
+    if (NULL != pErrcodeRet)
+    {
+        *pErrcodeRet = CL_SUCCESS;
+    }
+    return pBuffer->GetHandle();
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::CreateSubBuffer
@@ -1642,24 +1639,24 @@ cl_mem ContextModule::CreateSubBuffer(cl_mem                clBuffer,
 
     SharedPtr<Context> pContext = pMemObj->GetContext();
 
-	// check memory object is a Buffer not Image2D/3D
-	if (pMemObj->GetType() != CL_MEM_OBJECT_BUFFER)
-	{
-		iErr = CL_INVALID_MEM_OBJECT;		
-		return CL_INVALID_HANDLE;
-	}
-			
-	if (NULL != pMemObj->GetParent())
-	{
-		if (pMemObj->GetParent().DynamicCast<SVMBuffer>() == NULL)
-		{
-			iErr = CL_INVALID_MEM_OBJECT;
-			return CL_INVALID_HANDLE;
-		}
-		/* When creating a cl_mem buffer from an SVM buffer, if size < SVMBuffer.m_size, we return a sub-buffer of SVMBuffer.m_memObj. However, if the user creates a sub-buffer of
-		   this cl_mem buffer, we can't create a sub-buffer of a sub-buffer. So the solution is to create a sub-buffer of the SVMBuffer itself. */
-		pMemObj = pMemObj->GetParent();
-	}
+    // check memory object is a Buffer not Image2D/3D
+    if (pMemObj->GetType() != CL_MEM_OBJECT_BUFFER)
+    {
+        iErr = CL_INVALID_MEM_OBJECT;		
+        return CL_INVALID_HANDLE;
+    }
+
+    if (NULL != pMemObj->GetParent())
+    {
+        if (pMemObj->GetParent().DynamicCast<SVMBuffer>() == NULL)
+        {
+            iErr = CL_INVALID_MEM_OBJECT;
+            return CL_INVALID_HANDLE;
+        }
+        /* When creating a cl_mem buffer from an SVM buffer, we return a sub-buffer of SVMBuffer.m_memObj. However, if the user creates a sub-buffer of
+           this cl_mem buffer, we can't create a sub-buffer of a sub-buffer. So the solution is to create a sub-buffer of the SVMBuffer itself. */
+        pMemObj = pMemObj->GetParent();
+    }
 
     SharedPtr<MemoryObject> pBuffer = NULL;
     cl_err_code clErr = pContext->CreateSubBuffer(pMemObj, clFlags, buffer_create_type, buffer_create_info, &pBuffer);

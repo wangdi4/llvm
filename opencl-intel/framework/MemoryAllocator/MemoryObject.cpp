@@ -89,6 +89,7 @@ cl_err_code    MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize,
 
     size_t szSize = 0;
     size_t szParam = 0;
+    cl_bool bParam = CL_FALSE;
     cl_context clContext = 0;
     cl_mem    clMem = 0;
     const void * pValue = NULL;
@@ -142,6 +143,18 @@ cl_err_code    MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize,
         szSize = sizeof(size_t);
         szParam = m_stOrigin[0];
         pValue = &szParam;
+        break;
+    case CL_MEM_USES_SVM_POINTER:
+        szSize = sizeof(cl_bool);
+        if (m_pContext->IsSVMPointer(m_pHostPtr))
+        {
+            bParam = CL_TRUE;
+        }
+        else
+        {
+            bParam = CL_FALSE;
+        }
+        pValue = &bParam;
         break;
 #if defined (DX_MEDIA_SHARING)
     /* We handle the following values here and not in D3DResource, because it is required to return CL_INVALID_DX9_RESOURCE_INTEL in case the object is not a Direct3D

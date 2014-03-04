@@ -887,6 +887,20 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             }
             return CL_DEV_SUCCESS;
         }
+        case( CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS):
+        {
+            *pinternalRetunedValueSize = sizeof(cl_uint);
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+                *(cl_uint*)paramVal = CPU_MAX_READ_WRITE_IMAGE_ARGS;
+            }
+            return CL_DEV_SUCCESS;
+        }
         case( CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE):
         {               
             *pinternalRetunedValueSize = sizeof(cl_ulong);
