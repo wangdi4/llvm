@@ -230,14 +230,14 @@ set( CLANG ${TOOL_BINARY_DIR}/clang )
 
 add_custom_command( TARGET ${TARGET_NAME}
                     PRE_BUILD
-                    COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_12}  ${TRIPLE} -DCPU -o ${OPENCL_PCH_OUT_DIR}/opencl_.pch ${REDIRECTION_OPTION}
+                    COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_12}  ${TRIPLE} -o ${OPENCL_PCH_OUT_DIR}/opencl_.pch ${REDIRECTION_OPTION}
                     COMMENT "Generate non-optimized Intel OpenCL precompiled headers"
                     DEPENDS ${CLANG} ${OCL_CLANG_HEADERS}/opencl_.h
                     VERBATIM
 )
 add_custom_command( TARGET ${TARGET_NAME}
                     PRE_BUILD
-                    COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_20} ${TRIPLE} -DCPU -o ${OPENCL_PCH_OUT_DIR}/opencl20_.pch ${REDIRECTION_OPTION}
+                    COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_20} ${TRIPLE} -o ${OPENCL_PCH_OUT_DIR}/opencl20_.pch ${REDIRECTION_OPTION}
                     COMMENT "Generate non-optimized Intel OpenCL20 precompiled headers"
                     DEPENDS ${CLANG} ${OCL_CLANG_HEADERS}/opencl_.h
                     VERBATIM
