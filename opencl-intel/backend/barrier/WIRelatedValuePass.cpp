@@ -161,17 +161,24 @@ namespace intel {
     Function *origFunc = pInst->getCalledFunction();
     std::string origFuncName = origFunc->getName().str();
 
-    if(CompilationUtils::isGetGlobalId(origFuncName) ||
-       CompilationUtils::isGetLocalId(origFuncName)) {
-        //These functions return WI Id, they indeed related on WI Id
-        return true;
+    if ( CompilationUtils::isGetGlobalId(origFuncName) ||
+         CompilationUtils::isGetLocalId(origFuncName) ) {
+      //These functions return WI Id, they are indeed WI Id related
+      return true;
     }
 
-    if ( CompilationUtils::isWorkGroupScan(origFuncName) ) {
-      // WG scan functions related to WI Id
+    std::string origWGFuncName = origFuncName;
+    if ( CompilationUtils::hasWorkGroupFinalizePrefix(origFuncName) ) {
+      // Remove the finalize prefix from work group function to
+      // get the original work group function name to check against below.
+      origWGFuncName = CompilationUtils::removeWorkGroupFinalizePrefix(origFuncName);
+    }
+
+    if ( CompilationUtils::isWorkGroupScan(origWGFuncName) ) {
+      // WG scan functions are WI Id related
       return true;
-    } else if (CompilationUtils::isWorkGroupUniform(origFuncName) ) {
-      // WG uniform functions unrelated to WI Id
+    } else if ( CompilationUtils::isWorkGroupUniform(origWGFuncName) ) {
+      // WG uniform functions are WI Id unrelated
       return false;
     }
 
