@@ -14240,13 +14240,13 @@ ndrange_t const_func __attribute__((overloadable)) ndrange_1D( size_t global_wor
 ndrange_t const_func __attribute__((overloadable)) ndrange_1D( size_t global_work_size, size_t local_work_size);
 ndrange_t const_func __attribute__((overloadable)) ndrange_1D( size_t global_work_offset, size_t global_work_size, size_t local_work_size);
 
-ndrange_t const_func __attribute__((overloadable)) ndrange_2D( size_t global_work_size[2]);
-ndrange_t const_func __attribute__((overloadable)) ndrange_2D( size_t global_work_size[2], size_t local_work_size[2]);
-ndrange_t const_func __attribute__((overloadable)) ndrange_2D( size_t global_work_offset[2], size_t global_work_size[2], size_t local_work_size[2]);
+ndrange_t const_func __attribute__((overloadable)) ndrange_2D( const size_t global_work_size[2]);
+ndrange_t const_func __attribute__((overloadable)) ndrange_2D( const size_t global_work_size[2], const size_t local_work_size[2]);
+ndrange_t const_func __attribute__((overloadable)) ndrange_2D( const size_t global_work_offset[2], const size_t global_work_size[2], const size_t local_work_size[2]);
 
-ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_work_size[3]);
-ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_work_size[3], size_t local_work_size[3]);
-ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_work_offset[3], size_t global_work_size[3], size_t local_work_size[3]);
+ndrange_t const_func __attribute__((overloadable)) ndrange_3D( const size_t global_work_size[3]);
+ndrange_t const_func __attribute__((overloadable)) ndrange_3D( const size_t global_work_size[3], const size_t local_work_size[3]);
+ndrange_t const_func __attribute__((overloadable)) ndrange_3D( const size_t global_work_offset[3], const size_t global_work_size[3], const size_t local_work_size[3]);
 
 void __attribute__((overloadable)) __attribute__((always_inline)) retain_event(clk_event_t event);
 void __attribute__((overloadable)) __attribute__((always_inline)) release_event(clk_event_t event);

@@ -100,21 +100,21 @@ ndrange_t const_func __attribute__((overloadable))
 }
 
 ndrange_t const_func __attribute__((overloadable))
-    __attribute__((always_inline)) ndrange_2D(size_t global_work_size[2]) {
+    __attribute__((always_inline)) ndrange_2D(const size_t global_work_size[2]) {
   size_t global_work_offset[2] = { 0, 0 };
   size_t local_work_size[2] = { 0, 0 };
   return ndrange_2D(global_work_offset, global_work_size, local_work_size);
 }
 ndrange_t const_func __attribute__((overloadable))
     __attribute__((always_inline))
-    ndrange_2D(size_t global_work_size[2], size_t local_work_size[2]) {
+    ndrange_2D(const size_t global_work_size[2], const size_t local_work_size[2]) {
   size_t global_work_offset[2]= { 0, 0 };
   return ndrange_2D(global_work_offset, global_work_size, local_work_size);
 }
 ndrange_t const_func __attribute__((overloadable))
     __attribute__((always_inline))
-    ndrange_2D(size_t global_work_offset[2], size_t global_work_size[2],
-               size_t local_work_size[2]) {
+    ndrange_2D(const size_t global_work_offset[2], const size_t global_work_size[2],
+               const size_t local_work_size[2]) {
   ndrange_t T;
   T.workDimension = 2;
   T.globalWorkOffset[0] = global_work_offset[0];
@@ -127,21 +127,21 @@ ndrange_t const_func __attribute__((overloadable))
 }
 
 ndrange_t const_func __attribute__((overloadable))
-    __attribute__((always_inline)) ndrange_3D(size_t global_work_size[3]) {
+    __attribute__((always_inline)) ndrange_3D(const size_t global_work_size[3]) {
   size_t global_work_offset[3] = { 0, 0, 0 };
   size_t local_work_size[3] = { 0, 0, 0 };
   return ndrange_3D(global_work_offset, global_work_size, local_work_size);
 }
 ndrange_t const_func __attribute__((overloadable))
     __attribute__((always_inline))
-    ndrange_3D(size_t global_work_size[3], size_t local_work_size[3]) {
+    ndrange_3D(const size_t global_work_size[3], const size_t local_work_size[3]) {
   size_t global_work_offset[3] = { 0, 0, 0 };
   return ndrange_3D(global_work_offset, global_work_size, local_work_size);
 }
 ndrange_t const_func __attribute__((overloadable))
     __attribute__((always_inline))
-    ndrange_3D(size_t global_work_offset[3], size_t global_work_size[3],
-               size_t local_work_size[3]) {
+    ndrange_3D(const size_t global_work_offset[3], const size_t global_work_size[3],
+               const size_t local_work_size[3]) {
   ndrange_t T;
   T.workDimension = 3;
   T.globalWorkOffset[0] = global_work_offset[0];
