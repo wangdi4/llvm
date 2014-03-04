@@ -17,15 +17,9 @@ File Name:  ProgramBuilder.h
 \*****************************************************************************/
 #pragma once
 
-#include <assert.h>
-#include <string>
-#include <vector>
-#include "exceptions.h"
-#include "cl_dev_backend_api.h"
-#include "CompilationUtils.h"
-
+#include "ICLDevBackendOptions.h"
 #include "IAbstractBackendFactory.h"
-#include "Optimizer.h"
+#include "ICompilerConfig.h"
 
 namespace llvm {
     class ExecutionEngine;
@@ -40,7 +34,6 @@ namespace llvm {
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 class BuiltinModule;
-class ICompilerConfig;
 class Program;
 class Kernel;
 class KernelProperties;
@@ -81,7 +74,7 @@ protected:
     KernelJITProperties* CreateKernelJITProperties(unsigned int vectorSize) const;
 
     KernelProperties* CreateKernelProperties(const Program* pProgram,
-                                             Function *func,
+                                             llvm::Function *func,
                                              const ProgramBuildResult& buildResult) const;
 
     /// @brief abstract factory method to create mapper from block to Kernel.
@@ -107,7 +100,7 @@ protected:
 
 private:
     /// @brief Update the size of the variables in global adress space used by the program.
-    void updateGlobalVariableTotalSize(Program* pProgram, Module* pModule);
+    void updateGlobalVariableTotalSize(Program* pProgram, llvm::Module* pModule);
 };
 
 }}}

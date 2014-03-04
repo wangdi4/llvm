@@ -15,17 +15,11 @@ to any intellectual property rights is granted herein.
 File Name:  Program.cpp
 
 \*****************************************************************************/
-#include "Program.h"
-#include "Kernel.h"
-
-#ifdef OCL_DEV_BACKEND_PLUGINS
-#include "plugin_manager.h"
-#endif
-
-#include "exceptions.h"
-#include "cl_device_api.h"
 #include "BitCodeContainer.h"
-
+#include "Kernel.h"
+#include "Program.h"
+#include "cl_device_api.h"
+#include "exceptions.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 

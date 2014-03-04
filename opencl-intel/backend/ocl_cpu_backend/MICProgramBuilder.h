@@ -24,7 +24,7 @@ File Name:  MICProgramBuilder.h
 #ifdef OCL_DEV_BACKEND_PLUGINS
 #include "plugin_manager.h"
 #endif
-
+#include "IMICCompilerConfig.h"
 
 #include <string>
 
@@ -37,7 +37,6 @@ namespace llvm {
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class IAbstractBackendFactory;
 class ICLDevBackendOptions;
-class IMICCompilerConfig;
 class Kernel;
 class KernelJITProperties;
 class KernelProperties;
@@ -48,8 +47,8 @@ class Program;
 class ProgramBuildResult;
 
 //*****************************************************************************************
-// Provides the module optimization and code generation functionality. 
-// 
+// Provides the module optimization and code generation functionality.
+//
 class MICProgramBuilder : public ProgramBuilder
 {
 public:
@@ -65,11 +64,11 @@ protected:
     const Compiler* GetCompiler() const { return &m_compiler; }
 
     KernelSet* CreateKernels(Program* pProgram,
-                             llvm::Module* pModule, 
+                             llvm::Module* pModule,
                              ProgramBuildResult& buildResult) const;
 
     void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule, const ICLDevBackendOptions* pOptions) const;
-    
+
     /// @brief create mapper from block to Kernel
     virtual IBlockToKernelMapper * CreateBlockToKernelMapper(Program* pProgram,
       const llvm::Module* pModule) const;
@@ -85,7 +84,7 @@ private:
 
     void AddKernelJIT( const MICProgram* pProgram, Kernel* pKernel, llvm::Module* pModule, llvm::Function* pFunc, KernelJITProperties* pProps) const;
 
-    void CopyJitHolder(const LLVMModuleJITHolder* from, ModuleJITHolder* to) const;
+    void CopyJitHolder(const llvm::LLVMModuleJITHolder* from, ModuleJITHolder* to) const;
 
     // Klockwork Issue
     MICProgramBuilder ( const MICProgramBuilder& x );

@@ -16,21 +16,13 @@ File Name:  MICCompileService.cpp
 
 \*****************************************************************************/
 
-#include "exceptions.h"
 #include "MICCompileService.h"
-#include "ProgramBuilder.h"
-#include "MICProgram.h"
-#include "BitCodeContainer.h"
-#include "plugin_manager.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Support/raw_ostream.h"
-#include "BitCodeContainer.h"
 #include "MICDeviceBackendFactory.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 MICCompileService::MICCompileService(const IMICCompilerConfig& config)
-:m_programBuilder(MICDeviceBackendFactory::GetInstance(), config) 
+:m_programBuilder(MICDeviceBackendFactory::GetInstance(), config)
 {
     m_backendFactory = MICDeviceBackendFactory::GetInstance();
 }

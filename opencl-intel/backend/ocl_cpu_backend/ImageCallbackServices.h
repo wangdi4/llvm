@@ -19,18 +19,14 @@ File Name:  ImageCallbackService.h
 #pragma once
 
 #include "cl_dev_backend_api.h"
-#include "ImageCallbackManager.h"
-#include "ICLDevBackendProgram.h"
-#include "BackendConfiguration.h"
-#include "cl_device_api.h"
 #include "cl_types.h"
-//#include "cl.h"
+#include "CompilerConfig.h"
+#include "CPUDetect.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-
 /**
- * This interface class is responsible for the image callback services, i.e., 
+ * This interface class is responsible for the image callback services, i.e.,
  * giving the callback module to the device, and supplying the API for image creation/deletion
  * functions in the BE
  ***/
@@ -56,7 +52,7 @@ public:
      **/
     cl_dev_err_code CreateImageObject(cl_mem_obj_descriptor* pImageObject, void* auxObject) const;
 
-    /** 
+    /**
     *  Releases the auxilary data from the image object
     **/
 
@@ -67,11 +63,11 @@ public:
     ***/
 
     const cl_image_format* GetSupportedImageFormats(unsigned int *numFormats, cl_mem_object_type imageType, cl_mem_flags flags);
- 
+
     void Release();
 
 private:
-    /* 
+    /*
      * Initializes the given pointer to 'trap' function.
      */
     void InitializeToTrap(void* arr[], size_t) const;

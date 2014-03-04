@@ -15,52 +15,34 @@ Copyright (c) Intel Corporation (2010).
 File Name:  CPUProgramBuilder.cpp
 
 \*****************************************************************************/
-#include <set>
-#include <vector>
-#include <string>
-#include "cl_types.h"
-#include "cpu_dev_limits.h"
-#include "ProgramBuilder.h"
-#include "Optimizer.h"
-#include "VecConfig.h"
-#include "Program.h"
+
+#include "CPUBlockToKernelMapper.h"
+#include "CPUJITContainer.h"
+#include "CPUProgramBuilder.h"
+#include "CompilationUtils.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
-#include "CPUDetect.h"
-#include "BuiltinModule.h"
-#include "exceptions.h"
-#include "BuiltinModuleManager.h"
+#include "MetaDataApi.h"
+#include "Program.h"
 #include "StaticObjectLoader.h"
-#include "plugin_manager.h"
+
+#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Type.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/Support/ManagedStatic.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/TargetSelect.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Argument.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/LLVMContext.h"
-#include "CPUProgramBuilder.h"
-#include "CPUJITContainer.h"
-#include "CompilationUtils.h"
-#include "MetaDataApi.h"
-#include "CPUBlockToKernelMapper.h"
 
-using std::string;
+#include <vector>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
 
 namespace Utils
 {
@@ -266,7 +248,7 @@ IBlockToKernelMapper * CPUProgramBuilder::CreateBlockToKernelMapper(Program* pPr
 
 
 void CPUProgramBuilder::PostBuildProgramStep(Program* pProgram, llvm::Module* pModule,
-  const ICLDevBackendOptions* pOptions) const 
+  const ICLDevBackendOptions* pOptions) const
 {
   assert(pProgram && pModule && "inputs are NULL");
 

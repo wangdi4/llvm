@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010-2014).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -12,28 +12,20 @@ Copyright (c) Intel Corporation (2010-2012).
     use of the code. No license, express or implied, by estoppels or otherwise,
     to any intellectual property rights is granted herein.
 
-File Name:  MICCompileService.h
+File Name:  IMICCompilerConfig.h
 
 \*****************************************************************************/
 #pragma once
 
-#include "CompileService.h"
-#include "IMICCompilerConfig.h"
-#include "MICProgramBuilder.h"
-#include "ProgramBuilder.h"
+#include "ICompilerConfig.h"
+#include "TargetDescription.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-class MICCompileService: public CompileService
+class IMICCompilerConfig : public virtual ICompilerConfig
 {
 public:
-    MICCompileService(const IMICCompilerConfig& config);
-    virtual ~MICCompileService() {}
-
-    ProgramBuilder* GetProgramBuilder() { return &m_programBuilder; }
-
-private:
-    MICProgramBuilder m_programBuilder;
+    virtual const TargetDescription& GetTargetDescription() const=0;
 };
 
-}}}
+}}} // namespace
