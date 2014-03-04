@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2007 Intel Corporation
+// Copyright (c) 2006-2014 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -8822,7 +8822,7 @@ Function:
     clGetDeviceIDsFromVAMediaAdapterINTEL
 
 \******************************************************************************/
-CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromVAMediaAdapterINTEL(
+CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromVA_APIMediaAdapterINTEL(
         cl_platform_id                platform,
         cl_va_api_device_source_intel media_adapter_type,
         void                          *media_adapter,
@@ -8867,8 +8867,6 @@ CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromVAMediaAdapterINTEL(
             continue;
         }
 
-        dpy = (VADisplay) media_adapter;
-
         switch( media_adapter_set )
         {
         case CL_PREFERRED_DEVICES_FOR_VA_API_INTEL:
@@ -8896,16 +8894,16 @@ ERROR_HANDLER:
 /******************************************************************************\
 
 Function:
-    clEnqueueReleaseVAMediaSurfacesINTEL
+     clEnqueueReleaseVA_APIMediaSurfacesINTEL
 
 \******************************************************************************/
-CL_API_ENTRY cl_int CL_API_CALL clEnqueueReleaseVAMediaSurfacesINTEL(
+CL_API_ENTRY cl_int CL_API_CALL  clEnqueueReleaseVA_APIMediaSurfacesINTEL(
                                       cl_command_queue command_queue,
                                       cl_uint          num_objects,
                                       const cl_mem     *mem_objects,
                                       cl_uint          num_events_in_wait_list,
                                       const cl_event   *event_wait_list,
-                                      cl_event         *ocl_event )
+                                      cl_event         *event )
 {
     cl_int errorCode = CL_SUCCESS;
     if( command_queue == NULL )
@@ -8919,13 +8917,13 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueReleaseVAMediaSurfacesINTEL(
         return CL_INVALID_COMMAND_QUEUE;
     }
 
-    errorCode = ( (SOCLEntryPointsTable*)queue->m_cmdQueueDEV )->crtDispatch->clEnqueueReleaseVAMediaSurfacesINTEL(
+    errorCode = ( (SOCLEntryPointsTable*)queue->m_cmdQueueDEV )->crtDispatch->clEnqueueReleaseVA_APIMediaSurfacesINTEL(
                                                                 command_queue,
                                                                 num_objects,
                                                                 mem_objects,
                                                                 num_events_in_wait_list,
                                                                 event_wait_list,
-                                                                ocl_event );
+                                                                event );
 
     return errorCode;
 }
@@ -8933,16 +8931,16 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueReleaseVAMediaSurfacesINTEL(
 /******************************************************************************\
 
 Function:
-    clEnqueueAcquireVAMediaSurfacesINTEL
+    clEnqueueAcquireVA_APIMediaSurfacesINTEL
 
 \******************************************************************************/
-CL_API_ENTRY cl_int CL_API_CALL clEnqueueAcquireVAMediaSurfacesINTEL(
+CL_API_ENTRY cl_int CL_API_CALL clEnqueueAcquireVA_APIMediaSurfacesINTEL(
                                     cl_command_queue command_queue,
                                     cl_uint          num_objects,
                                     const cl_mem     *mem_objects,
                                     cl_uint          num_events_in_wait_list,
                                     const cl_event   *event_wait_list,
-                                    cl_event         *ocl_event )
+                                    cl_event         *event )
 {
     cl_int errorCode   = CL_SUCCESS;
 
@@ -8957,13 +8955,13 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueAcquireVAMediaSurfacesINTEL(
         return CL_INVALID_COMMAND_QUEUE;
     }
 
-    errorCode = ( (SOCLEntryPointsTable*)queue->m_cmdQueueDEV )->crtDispatch->clEnqueueAcquireVAMediaSurfacesINTEL(
+    errorCode = ( (SOCLEntryPointsTable*)queue->m_cmdQueueDEV )->crtDispatch->clEnqueueAcquireVA_APIMediaSurfacesINTEL(
                                                                     command_queue,
                                                                     num_objects,
                                                                     mem_objects,
                                                                     num_events_in_wait_list,
                                                                     event_wait_list,
-                                                                    ocl_event );
+                                                                    event );
 
     return errorCode;
 }
@@ -8971,10 +8969,10 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueAcquireVAMediaSurfacesINTEL(
 /******************************************************************************\
 
 Function:
-    clCreateFromVAMediaSurfaceINTEL
+    clCreateFromVA_APIMediaSurfaceINTEL
 
 \******************************************************************************/
-CL_API_ENTRY cl_mem CL_API_CALL clCreateFromVAMediaSurfaceINTEL(
+CL_API_ENTRY cl_mem CL_API_CALL clCreateFromVA_APIMediaSurfaceINTEL(
                                                     cl_context   context,
                                                     cl_mem_flags flags,
                                                     VASurfaceID  *surface,
@@ -8993,7 +8991,7 @@ CL_API_ENTRY cl_mem CL_API_CALL clCreateFromVAMediaSurfaceINTEL(
         goto FINISH;
     }
 
-    CLMem = ( (SOCLEntryPointsTable* ) context)->crtDispatch->clCreateFromVAMediaSurfaceINTEL(
+    CLMem = ( (SOCLEntryPointsTable* ) context)->crtDispatch->clCreateFromVA_APIMediaSurfaceINTEL(
                                                                         context,
                                                                         flags,
                                                                         surface,
@@ -9078,22 +9076,21 @@ CLAPI_EXPORT void * CL_API_CALL clGetExtensionFunctionAddress(
     }
 #else
 #ifdef LIBVA_SHARING
-//INTEL vendor extensions for Linux
-    if( funcname && !strcmp( funcname, "clGetDeviceIDsFromVAMediaAdapterINTEL" ) )
+    if( funcname && !strcmp( funcname, "clGetDeviceIDsFromVA_APIMediaAdapterINTEL" ) )
     {
-        return ( ( void* )( ptrdiff_t )( clGetDeviceIDsFromVAMediaAdapterINTEL ) );
+        return ( ( void* )( ptrdiff_t )( clGetDeviceIDsFromVA_APIMediaAdapterINTEL ) );
     }
-    if( funcname && !strcmp( funcname, "clCreateFromVAMediaSurfaceINTEL" ) )
+    if( funcname && !strcmp( funcname, "clCreateFromVA_APIMediaSurfaceINTEL" ) )
     {
-        return ( ( void* )( ptrdiff_t )( clCreateFromVAMediaSurfaceINTEL ) );
+        return ( ( void* )( ptrdiff_t )( clCreateFromVA_APIMediaSurfaceINTEL ) );
     }
-    if( funcname && !strcmp( funcname, "clEnqueueAcquireVAMediaSurfacesINTEL" ) )
+    if( funcname && !strcmp( funcname, "clEnqueueAcquireVA_APIMediaSurfacesINTEL" ) )
     {
-        return ( ( void* )( ptrdiff_t )( clEnqueueAcquireVAMediaSurfacesINTEL ) );
+        return ( ( void* )( ptrdiff_t )( clEnqueueAcquireVA_APIMediaSurfacesINTEL ) );
     }
-    if( funcname && !strcmp( funcname, "clEnqueueReleaseVAMediaSurfacesINTEL" ) )
+    if( funcname && !strcmp( funcname, "clEnqueueReleaseVA_APIMediaSurfacesINTEL" ) )
     {
-        return ( ( void* )( ptrdiff_t )( clEnqueueReleaseVAMediaSurfacesINTEL ) );
+        return ( ( void* )( ptrdiff_t )( clEnqueueReleaseVA_APIMediaSurfacesINTEL ) );
     }
 #endif
 #endif

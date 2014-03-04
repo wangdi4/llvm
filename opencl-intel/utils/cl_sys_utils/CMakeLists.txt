@@ -8,8 +8,12 @@
 set( TARGET_NAME cl_sys_utils )
  
 if( DISABLE_NUMA_SUPPORT )
-  add_definitions( -DDISABLE_NUMA_SUPPORT )
+    add_definitions( -DDISABLE_NUMA_SUPPORT )
 endif( DISABLE_NUMA_SUPPORT )
+
+if ( BUILD_2_0_RT )
+    add_definitions( -DBUILD_2_0_RT )
+endif ( BUILD_2_0_RT )
 
 include_directories( AFTER
             ../cl_hw_utils/export
@@ -37,13 +41,13 @@ add_library (${TARGET_NAME} STATIC ${TARGET_SOURCES} ${UTILS_ASM_ADD_TO_SOURCES_
 
 # add Version.lib in Windows for GetModuleProductVersion()
 if( WIN32 )
-  target_link_libraries( ${TARGET_NAME} Version.lib )
+    target_link_libraries( ${TARGET_NAME} Version.lib )
 endif( WIN32 ) 
 
 if( WIN32 OR ANDROID )
-  target_link_libraries( ${TARGET_NAME} cl_hw_utils )
+    target_link_libraries( ${TARGET_NAME} cl_hw_utils )
 else( WIN32 OR ANDROID )
-  target_link_libraries( ${TARGET_NAME} cl_hw_utils numa rt )
+    target_link_libraries( ${TARGET_NAME} cl_hw_utils numa rt )
 endif( WIN32 OR ANDROID )
  
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME} )

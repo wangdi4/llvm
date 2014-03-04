@@ -89,12 +89,12 @@ inline bool GetStringValueFromRegistry( HKEY       top_hkey,
 
 #endif
 
-inline bool GetCpuPathFromRegistry( std::string &cpuPath )
+inline bool GetCpuPathFromRegistry( const std::string valueName, std::string &cpuPath )
 {
 #if defined( _WIN32 )
     const char *regPath = "SOFTWARE\\Intel\\OpenCL";
     char pCpuPath[MAX_PATH];
-    bool retVal = GetStringValueFromRegistry( HKEY_LOCAL_MACHINE, regPath, "cpu_path", pCpuPath, MAX_PATH );
+	bool retVal = GetStringValueFromRegistry( HKEY_LOCAL_MACHINE, regPath, valueName.c_str(), pCpuPath, MAX_PATH );
 
     if( retVal )
     {

@@ -49,7 +49,18 @@ crt_err_code CrtConfig::Init()
 
     // CPU-runtime library:
     std::string libName;
-    if( OCLCRT::Utils::GetCpuPathFromRegistry( libName ) )
+    std::string valueName;
+
+    if (emulatorEnabled())
+    {
+        valueName = "cpu_2_0_emulator_path";
+    }
+    else
+    {
+        valueName = "cpu_path"; 
+    }
+
+    if( OCLCRT::Utils::GetCpuPathFromRegistry( valueName, libName ) )
     {
         // full path library name
         libName = libName + "\\" + OCLCRT::Utils::FormatLibNameForOS( cpuRuntimeLibName );
@@ -60,8 +71,26 @@ crt_err_code CrtConfig::Init()
     }
     m_libraryNames.push_back( libName );
 
-    // GPU-runtime library:
-    m_libraryNames.push_back( OCLCRT::Utils::FormatLibNameForOS( gpuRuntimeLibName ) );
+    if (!emulatorEnabled())
+    {
+        // GPU-runtime library:
+        m_libraryNames.push_back( OCLCRT::Utils::FormatLibNameForOS( gpuRuntimeLibName ) );
+    }
 
     return CRT_SUCCESS;
+}
+
+bool CrtConfig::emulatorEnabled()
+{
+#if defined( _WIN32 )
+    char *emulatorVal = getenv("ENABLE_2_0_EMULATOR");
+    if (emulatorVal)
+    {
+        if(_stricmp(emulatorVal, "True") == 0)
+        {
+            return true;
+        }
+    }
+#endif
+    return false;
 }
