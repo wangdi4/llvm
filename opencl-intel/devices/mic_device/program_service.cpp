@@ -719,12 +719,12 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
     CommandTracer cmdTracer;
     cmdTracer.set_command_type((char*)"Build");
     cmdTracer.set_current_time_command_host_time_start();
-    
+
     ICLDevBackendCompilationService* compiler = GetCompilationService();
-    
+
     cl_build_status status = CL_BUILD_ERROR;
     cl_dev_err_code ret    = CL_DEV_OUT_OF_MEMORY;
-    
+
     if (NULL != compiler)
     {
         MICBackendOptions buildOptions( m_DevService);
@@ -733,7 +733,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
         ret = compiler->BuildProgram(pEntry->pProgram, &buildOptions);
         MicDbgLog(m_pLogDescriptor, m_iLogHandle, "Build Done (%d)", ret);
     }
-    
+
     if (CL_DEV_SUCCEEDED(ret))
     {
         pEntry->copy_to_device_ok = BuildKernelData( pEntry );
@@ -744,7 +744,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
     }
 
     pEntry->clBuildStatus = status;
-    
+
     cmdTracer.set_command_id((uint64_t)pEntry);
     cmdTracer.set_current_time_command_host_time_end();
 
@@ -753,10 +753,10 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
         (NULL != (p = strstr(options, "-dump-opt-llvm="))))
     {
         assert( pEntry->pProgram && "Program must be created already");
-        
+
         MICBackendOptions dumpOptions( m_DevService );
         dumpOptions.init_for_dump(p);
-        
+
         compiler->DumpCodeContainer( pEntry->pProgram->GetProgramCodeContainer(), &dumpOptions);
     }
 
@@ -1177,6 +1177,29 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
         }
     }
 
+    return CL_DEV_SUCCESS;
+}
+
+cl_dev_err_code ProgramService::GetGlobalVariableTotalSize( cl_dev_program IN prog, size_t* OUT size) const
+{
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetGlobalVariableTotalSize enter"));
+
+    // Return error if program was not built yet.
+    TProgramEntry* pEntry = (TProgramEntry*)prog;
+    if( NULL == pEntry )
+    {
+        MicInfoLog(m_pLogDescriptor, m_iLogHandle, "Requested program not found (%0X)", (size_t)prog);
+        return CL_DEV_INVALID_PROGRAM;
+    }
+
+    if ( pEntry->clBuildStatus != CL_BUILD_SUCCESS )
+    {
+        return CL_DEV_INVALID_PROGRAM;
+    }
+
+    // Just return what back-end gives us.
+    ICLDevBackendProgram_ *pProgram = pEntry->pProgram;
+    *size = pProgram->GetGlobalVariableTotalSize();
     return CL_DEV_SUCCESS;
 }
 

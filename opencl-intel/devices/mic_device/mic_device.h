@@ -59,8 +59,8 @@ struct PerformanceDataStore
     cl_ulong    execution_overhead;
 
     static const cl_ulong NOT_MEASURED = (cl_ulong)(-1);
-    
-    PerformanceDataStore() :  execution_overhead(NOT_MEASURED) {};      
+
+    PerformanceDataStore() :  execution_overhead(NOT_MEASURED) {};
 };
 
 class MICDevice : public IOCLDeviceAgent, public IOCLDeviceFECompilerDescription
@@ -79,7 +79,7 @@ private:
 
     set<CommandList*>               m_commandListsSet;
     OclMutex                        m_commandListsSetLock;
-    
+
     PerformanceDataStore            m_overhead_data;
 
     // static set to handle all existing MIC DA instances
@@ -91,8 +91,8 @@ private:
     // Return true if dev exist in m_mic_instancies
     static bool UnregisterMicDevice( MICDevice* dev );
 
-    cl_dev_err_code CreateCommandList( bool external_list, 
-                                       cl_dev_cmd_list_props IN props, cl_dev_subdevice_id IN subdevice_id, 
+    cl_dev_err_code CreateCommandList( bool external_list,
+                                       cl_dev_cmd_list_props IN props, cl_dev_subdevice_id IN subdevice_id,
                                        cl_dev_cmd_list* OUT list);
 
     void  clDevCloseDeviceInt( bool preserve_object = false );
@@ -152,6 +152,7 @@ public:
                              cl_uint* OUT numKernelsRet );
     cl_dev_err_code clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN valueSize,
                         void* OUT value, size_t* OUT valueSizeRet );
+    cl_dev_err_code clDevGetGlobalVariableTotalSize( cl_dev_program IN prog, size_t* OUT size);
     cl_ulong    clDevGetPerformanceCounter();
     cl_dev_err_code    clDevSetLogger(IOCLDevLogDescriptor *);
     const IOCLDeviceFECompilerDescription& clDevGetFECompilerDecription() const { return *this; };

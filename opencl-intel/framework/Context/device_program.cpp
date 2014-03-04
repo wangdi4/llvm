@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2012 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -36,18 +36,18 @@ using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
 
-DeviceProgram::DeviceProgram() : m_state(DEVICE_PROGRAM_INVALID), 
+DeviceProgram::DeviceProgram() : m_state(DEVICE_PROGRAM_INVALID),
 m_bBuiltFromSource(false), m_bFECompilerSuccess(false), m_bIsClone(false), m_pDevice(NULL),
 m_deviceHandle(0), m_programHandle(0), m_parentProgramHandle(0), m_parentProgramContext(0),
-m_uiBuildLogSize(0), m_szBuildLog(NULL), m_emptyString('\0'), m_szBuildOptions(NULL), 
+m_uiBuildLogSize(0), m_szBuildLog(NULL), m_emptyString('\0'), m_szBuildOptions(NULL),
 m_pBinaryBits(NULL), m_uiBinaryBitsSize(0), m_clBinaryBitsType(CL_PROGRAM_BINARY_TYPE_NONE),
 m_currentAccesses(0)
 {
 }
 
-DeviceProgram::DeviceProgram(const Intel::OpenCL::Framework::DeviceProgram &dp) : 
-m_state(DEVICE_PROGRAM_INVALID), m_bBuiltFromSource(false), 
-m_bFECompilerSuccess(false), m_bIsClone(true), m_pDevice(NULL), m_deviceHandle(0), 
+DeviceProgram::DeviceProgram(const Intel::OpenCL::Framework::DeviceProgram &dp) :
+m_state(DEVICE_PROGRAM_INVALID), m_bBuiltFromSource(false),
+m_bFECompilerSuccess(false), m_bIsClone(true), m_pDevice(NULL), m_deviceHandle(0),
 m_programHandle(0), m_parentProgramHandle(0), m_emptyString('\0'), m_szBuildOptions(NULL),
 m_pBinaryBits(NULL), m_uiBinaryBitsSize(0), m_clBinaryBitsType(CL_PROGRAM_BINARY_TYPE_NONE),
 m_currentAccesses(0)
@@ -156,7 +156,7 @@ cl_err_code DeviceProgram::SetBinary(size_t uiBinarySize, const unsigned char* p
     else
     {
         // anything else is considered executable
-        clBinaryType = CL_PROGRAM_BINARY_TYPE_EXECUTABLE; 
+        clBinaryType = CL_PROGRAM_BINARY_TYPE_EXECUTABLE;
     }
 
     if (piBinaryStatus)
@@ -232,7 +232,7 @@ cl_err_code DeviceProgram::SetBuildLogInternal(const char* szBuildLog)
         return CL_SUCCESS;
     }
 
-    
+
     m_szBuildLog = new char[uiLogSize];
     if (!m_szBuildLog)
     {
@@ -290,7 +290,7 @@ bool DeviceProgram::Acquire()
 	return false;
 }
 
-cl_build_status DeviceProgram::GetBuildStatus() const 
+cl_build_status DeviceProgram::GetBuildStatus() const
 {
 	switch (m_state)
 	{
@@ -448,6 +448,30 @@ cl_err_code DeviceProgram::GetBuildInfo(cl_program_build_info clParamName, size_
 		}
 
 		break;
+
+	case CL_PROGRAM_BUILD_GLOBAL_VARIABLE_TOTAL_SIZE:
+		{
+			if (sizeof(size_t) > uiParamValueSize)
+			{
+				return CL_INVALID_VALUE;
+			}
+			cl_dev_err_code clDevErr = m_pDevice->GetDeviceAgent()->clDevGetGlobalVariableTotalSize(m_programHandle, (size_t*)pParamValue);
+			if CL_DEV_FAILED(clDevErr)
+			{
+				if (CL_DEV_INVALID_PROGRAM == clDevErr)
+				{
+					return CL_INVALID_PROGRAM;
+				} else {
+					return CL_INVALID_VALUE;
+				}
+			}
+			if (NULL != puiParamValueSizeRet)
+			{
+				*puiParamValueSizeRet = sizeof(size_t);
+			}
+			return CL_SUCCESS;
+			break;
+		}
 
 	default:
 		return CL_INVALID_VALUE;
