@@ -361,7 +361,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
 
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("BuildProgram enter"));
 
-    TProgramEntry* pEntry = (TProgramEntry*)prog;
+    TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
 
     // Program already built?
     if (CL_BUILD_SUCCESS == pEntry->clBuildStatus)
@@ -441,7 +441,7 @@ cl_dev_err_code ProgramService::ReleaseProgram( cl_dev_program IN prog )
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("ReleaseProgram enter"));
 
-    TProgramEntry* pEntry = (TProgramEntry*)prog;
+    TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
 
     DeleteProgramEntry(pEntry);
 
@@ -490,7 +490,7 @@ cl_dev_err_code ProgramService::GetProgramBinary( cl_dev_program IN prog,
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetProgramBinary enter"));
 
-    TProgramEntry* pEntry = (TProgramEntry*)prog;
+    TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
     ICLDevBackendProgram_ *pProg = pEntry->pProgram;
 
     const ICLDevBackendCodeContainer* pCodeContainer = pProg->GetProgramCodeContainer();
@@ -527,7 +527,7 @@ cl_dev_err_code ProgramService::GetBuildLog( cl_dev_program IN prog,
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetBuildLog enter"));
 
-    TProgramEntry* pEntry = (TProgramEntry*)prog;
+    TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
     ICLDevBackendProgram_ *pProg = pEntry->pProgram;
 
     const char* pLog = pProg->GetBuildLog();
@@ -611,7 +611,7 @@ cl_dev_err_code ProgramService::GetKernelId( cl_dev_program IN prog, const char*
         return CL_DEV_INVALID_VALUE;
     }
 
-    TProgramEntry* pEntry = (TProgramEntry*)prog;
+    TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
 
     if ( pEntry->clBuildStatus != CL_BUILD_SUCCESS )
     {
@@ -660,7 +660,7 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetProgramKernels enter"));
 
-    TProgramEntry* pEntry = (TProgramEntry*)prog;
+    TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
 
     if ( pEntry->clBuildStatus != CL_BUILD_SUCCESS )
     {
@@ -677,8 +677,24 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
         {
             return CL_DEV_INVALID_VALUE;
         }
-
         *numKernelsRet = uiNumProgKernels;
+
+        // [OpenCL 2.0] Exclude block kernels
+        OclAutoMutex mu(&pEntry->muMap);
+        for(unsigned int i=0; i<uiNumProgKernels; ++i)
+        {
+            const ICLDevBackendKernel_* pKernel;
+            iRet = pEntry->pProgram->GetKernel(i, &pKernel);
+            if ( CL_DEV_FAILED(iRet) )
+            {
+                CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Failed to retrieve kernels<%X>"), iRet);
+                return iRet;
+            }
+            if( pKernel->GetKernelProporties()->IsBlock() )
+            {
+              *numKernelsRet -= 1;
+            }
+        }
         return CL_DEV_SUCCESS;
     }
 
@@ -717,6 +733,11 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
             pEntry->mapKernels[szKernelName] = mapEntry;
         }
 
+        // Skip block kernels
+        if( pKernel->GetKernelProporties()->IsBlock() )
+        {
+          continue;
+        }
         kernels[i] = (cl_dev_kernel)&(pEntry->mapKernels[szKernelName]);
     }
 
