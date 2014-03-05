@@ -23,6 +23,8 @@ target triple = "i686-pc-win32"
 ; CHECK-NOT: call2 = tail call i32 @_Z14work_group_alli(i32 %conv)
 ; CHECK:  %CallWGForItem = call i32 @_Z14work_group_alliPi(i32 %conv, i32* %AllocaWGResult)
 ; CHECK-NEXT: call void @_Z7barrierj(i32 1)
+; CHECK-NEXT: store i32 1, i32* %AllocaWGResult
+; CHECK-NEXT: call void @dummybarrier.()
 ; CHECK: %tobool = icmp eq i32 %CallWGForItem, 0
 
 
@@ -65,6 +67,7 @@ declare i32 @_Z14work_group_alli(i32) nounwind readnone
 ; CHECK-NEXT: call void @_Z7barrierj(i32 1)
 ; CHECK-NEXT: %LoadWGFinalResult = load <4 x i32>* %AllocaWGResult
 ; CHECK-NEXT: %CallFinalizeWG = call <4 x i32> @_Z25__finalize_work_group_allDv4_i(<4 x i32> %LoadWGFinalResult)
+; CHECK-NEXT: store <4 x i32> <i32 1, i32 1, i32 1, i32 1>, <4 x i32>* %AllocaWGResult
 ; CHECK-NEXT: call void @dummybarrier.()
 ; CHECK: %tobool = icmp eq <4 x i32> %CallFinalizeWG, zeroinitializer
 
