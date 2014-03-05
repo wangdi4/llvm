@@ -98,7 +98,7 @@ namespace intel {
       PointerType* ptr = cast<PointerType>(it->getType());
       assert(ptr && "Global variable is always a pointer.");
       if (IS_ADDR_SPACE_GLOBAL(ptr->getAddressSpace())) {
-        totalSize += TD.getTypeStoreSize(ptr->getContainedType(0));
+        totalSize += TD.getTypeAllocSize(ptr->getContainedType(0));
       }
     }
     return totalSize;
