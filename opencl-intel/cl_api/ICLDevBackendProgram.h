@@ -92,8 +92,7 @@ public:
         const ICLDevBackendKernel_** ppKernel) const = 0;
 
     /**
-     * Gets how many kernels in the program.
-     * [OpenCL 2.0] block kernels may be counted too.
+     * Gets how many kernels in the program
      *
      * @returns
      *  if the program already build:
