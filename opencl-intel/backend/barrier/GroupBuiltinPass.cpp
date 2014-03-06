@@ -283,8 +283,7 @@ namespace intel {
         // So, in order to prevent that, we add a marker "dummyBarrier" at begin
         // of the function, and make sure all alloca and initialization instructions
         // are added before this marker. Need to add the marker only once.
-        Instruction *pDummyBarrierCall = m_util.createDummyBarrier();
-        pDummyBarrierCall->insertBefore(pFirstInstr);
+        Instruction *pDummyBarrierCall = m_util.createDummyBarrier(pFirstInstr);
         // Update the first instruction to be the marker. All alloca & initialize
         // instructions will be created before this first instruction.
         pFirstInstr = pDummyBarrierCall;
@@ -399,13 +398,15 @@ namespace intel {
         CallInst *pFinalizeCall = CallInst::Create(pFinalizeFunc, ArrayRef<Value*>(params), "CallFinalizeWG", pWgCallInst);
         assert(pFinalizeCall && "Couldn't create CALL instruction!");
 
-        // d. Create dummy barrier immediately AFTER finalization call
-        (void) m_util.createDummyBarrier(pWgCallInst);
-
         pNewCall = pFinalizeCall;
       }
 
-      // 7. Discard old function call
+      // 7. re-initialize the alloca (in case we are in a loop) and create dummy barrier
+      //    immediately AFTER it to assure we initialize once per work-group
+      (void) new StoreInst(pInitValue, pResult, pWgCallInst);
+      (void) m_util.createDummyBarrier(pWgCallInst);
+
+      // 8. Discard old function call
       pWgCallInst->replaceAllUsesWith(pNewCall);
       pWgCallInst->eraseFromParent();
     }

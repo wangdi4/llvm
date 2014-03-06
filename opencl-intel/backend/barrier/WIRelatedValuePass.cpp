@@ -159,6 +159,10 @@ namespace intel {
 
     //Check if the function is in the table of functions
     Function *origFunc = pInst->getCalledFunction();
+    if ( !origFunc ) {
+      assert("Unexpected indirect call!");
+      return true;
+    }
     std::string origFuncName = origFunc->getName().str();
 
     if ( CompilationUtils::isGetGlobalId(origFuncName) ||
@@ -180,6 +184,11 @@ namespace intel {
     } else if ( CompilationUtils::isWorkGroupUniform(origWGFuncName) ) {
       // WG uniform functions are WI Id unrelated
       return false;
+    }
+
+    if ( CompilationUtils::isAtomicBuiltin(origFuncName) ) {
+      // Atomic built-ins are WI Id related
+      return true;
     }
 
     //Check if function is not declared inside "this" module
