@@ -388,63 +388,97 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             curArg.size_in_bytes |= (uiElemSize << 16);
             break;
           }
+          // pModule->getPointerSize() returns 1 for x32 and 2 for x64
           curArg.size_in_bytes = pModule->getPointerSize()*4;
           // Detect pointer qualifier
-          // Test for image
-          //const std::string &imgArg = pFunc->getParent()->getTypeName(PTy->getElementType());
+          // Test for opaque types: images, queue_t, pipe_t
           StructType *ST = dyn_cast<StructType>(PTy->getElementType());
           if(ST) {
-            const std::string &imgArg = ST->getName().str();
-            if ( std::string::npos != imgArg.find("opencl.image"))    // Image identifier was found
+            char const oclOpaquePref[] = "opencl.";
+            const size_t oclOpaquePrefLen = sizeof(oclOpaquePref) - 1; // sizeof also counts the terminating 0
+
+            if (ST->getName().startswith(oclOpaquePref))
             {
-              // TODO: Why default type is INTEGER????
-              curArg.type = CL_KRNL_ARG_INT;
-
-              // Get dimension image type
-              if(imgArg.find("opencl.image1d_t") != std::string::npos)
+              const StringRef structName = ST->getName().substr(oclOpaquePrefLen);
+              // Get opencl opaque type.
+              // It is safe to use startswith while there are no names which aren't prefix of another name.
+              if(structName.startswith("image1d_t"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_1D;
-              else if (imgArg.find("opencl.image1d_array_t") != std::string::npos)
+              else if (structName.startswith("image1d_array_t"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_1D_ARR;
-              else if (imgArg.find("opencl.image1d_buffer_t") != std::string::npos)
+              else if (structName.startswith("image1d_buffer_t"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_1D_BUF;
-              else if (imgArg.find("opencl.image2d_t") != std::string::npos)
+              else if (structName.startswith("image2d_t"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_2D;
-              else if (imgArg.find("opencl.image2d_array_t") != std::string::npos)
+              else if (structName.startswith("image2d_array_t"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_2D_ARR;
-              else if (imgArg.find("opencl.image2d_depth_t") != std::string::npos)
+              else if (structName.startswith("image2d_depth_t"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_2D_DEPTH;
-              else if (imgArg.find("opencl.image2d_array_depth_t") != std::string::npos)
+              else if (structName.startswith("image2d_array_depth_t"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH;
-              else if (imgArg.find("opencl.image3d_t") != std::string::npos)
+              else if (structName.startswith("image3d_t"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_3D;
+              else if (structName.startswith("pipe_t"))
+                  curArg.type = CL_KRNL_ARG_PTR_PIPE_T;
+              else if (structName.startswith("queue_t"))
+                  curArg.type = CL_KRNL_ARG_PTR_QUEUE_T;
+              else
+                  // TODO: Why default type is INTEGER????
+                  curArg.type = CL_KRNL_ARG_INT;
 
-              // Setup image pointer
-              if(curArg.type != CL_KRNL_ARG_INT) {
-  #ifdef __APPLE__
-                MDNode *tmpMD = dyn_cast<MDNode>(MDImgAccess->getOperand(i+1));
-                assert((tmpMD->getNumOperands() > 0) && "image MD arg type is empty");
-                MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
-                assert(tag->getString() == "image" && "image MD arg type is not 'image'");
-                tag = dyn_cast<MDString>(tmpMD->getOperand(1));
-                curArg.access = (tag->getString() == "read") ? CL_KERNEL_ARG_ACCESS_READ_ONLY :
-                                CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
-  #else
-                isMemoryObject = true;
-                curArg.access = (kmd->getArgAccessQualifierItem(i) == READ_ONLY) ?
-                                CL_KERNEL_ARG_ACCESS_READ_ONLY : CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
-  #endif
-                break;
+              switch(curArg.type) {
+                case CL_KRNL_ARG_PTR_IMG_1D:
+                case CL_KRNL_ARG_PTR_IMG_1D_ARR:
+                case CL_KRNL_ARG_PTR_IMG_1D_BUF:
+                case CL_KRNL_ARG_PTR_IMG_2D:
+                case CL_KRNL_ARG_PTR_IMG_2D_ARR:
+                case CL_KRNL_ARG_PTR_IMG_2D_DEPTH:
+                case CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH:
+                case CL_KRNL_ARG_PTR_IMG_3D:
+                // Setup image pointer
+#ifdef __APPLE__
+                  MDNode *tmpMD = dyn_cast<MDNode>(MDImgAccess->getOperand(i+1));
+                  assert((tmpMD->getNumOperands() > 0) && "image MD arg type is empty");
+                  MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
+                  assert(tag->getString() == "image" && "image MD arg type is not 'image'");
+                  tag = dyn_cast<MDString>(tmpMD->getOperand(1));
+                  curArg.access = (tag->getString() == "read") ? CL_KERNEL_ARG_ACCESS_READ_ONLY :
+                                  CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
+#else
+                  isMemoryObject = true;
+                  curArg.access = (kmd->getArgAccessQualifierItem(i) == READ_ONLY) ?
+                                  CL_KERNEL_ARG_ACCESS_READ_ONLY : CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
+#endif
+                  break;
+                // FIXME: what about Apple?
+                case CL_KRNL_ARG_PTR_PIPE_T:
+                  // FIXME: uncomment the following two lines once CSSD100018969 is resovled.
+                  //curArg.access = (kmd->getArgAccessQualifierItem(i) == READ_ONLY) ?
+                  //                CL_KERNEL_ARG_ACCESS_READ_ONLY : CL_KERNEL_ARG_ACCESS_WRITE_ONLY;
+                  // fall through
+                case CL_KRNL_ARG_PTR_QUEUE_T:
+                  isMemoryObject = true;
+                  break;
+
+                default:
+                  assert(false && "did you forget to handle a new special OpenCL C opaque type?");
+                  break;
               }
+              // Check this is a special OpenCL C opaque type.
+              if(CL_KRNL_ARG_INT != curArg.type)
+                break;
             }
           }
 
-          //test for structs
           llvm::Type *Ty = PTy->getContainedType(0);
-          if ( true == Ty->isStructTy() ) // struct or struct*
+          if ( Ty->isStructTy() ) // struct or struct*
           {
-            if(PTy->getAddressSpace() == 0) //We're dealing with real struct and not struct pointer
+            // Deal with structs passed by value. These are user-defined structs and ndrange_t.
+            if(PTy->getAddressSpace() == 0)
             {
               llvm::StructType *STy = llvm::cast<llvm::StructType>(Ty);
+              assert(!STy->isOpaque() &&
+                     "cannot handle user-defined opaque types with an unknown size");
 #if LLVM_VERSION == 3425
               TargetData dataLayout(pModule);
 #else

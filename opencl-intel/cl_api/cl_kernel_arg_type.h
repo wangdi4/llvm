@@ -38,7 +38,9 @@ enum cl_kernel_arg_type
     CL_KRNL_ARG_PTR_IMG_1D,           //!< Argument is a pointer to 1D image
     CL_KRNL_ARG_PTR_IMG_1D_ARR,       //!< Argument is a pointer to 1D image array
     CL_KRNL_ARG_PTR_IMG_1D_BUF,       //!< Argument is a pointer to 1D image buffer
-    CL_KRNL_ARG_PTR_BLOCK_LITERAL     //!< Argument is a pointer to Block Literal structure
+    CL_KRNL_ARG_PTR_BLOCK_LITERAL,    //!< Argument is a pointer to Block Literal structure
+    CL_KRNL_ARG_PTR_QUEUE_T,          //!< Argument is a pointer to device execution queue
+    CL_KRNL_ARG_PTR_PIPE_T            //!< Argument is a pointer to a pipe
 };
 
 /*! \struct cl_kernel_argument
