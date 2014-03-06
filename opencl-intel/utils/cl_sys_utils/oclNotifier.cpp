@@ -30,7 +30,7 @@
 
 //TODO: Ofir, refactor the cl files code
 #include <fstream>
-
+#include <stdexcept>
 
 #define CHECK_FOR_NULL(ptr) if (!ptr) return
 
@@ -157,50 +157,61 @@ void NotifierCollection::EventStatusChanged(cl_event event)
 	NOTIFY(EventStatusChanged, event);
 }
 
-void NotifierCollection::BufferCreate( cl_mem memobj, cl_context context, size_t size, void* hostPtr, bool fromGL )
+void NotifierCollection::BufferCreate(cl_mem memobj, cl_context context,
+                                      size_t size, void* hostPtr,
+                                      bool fromGL,
+                                      unsigned int cookie)
 {
 	CHECK_FOR_NULL(memobj);
 	CHECK_FOR_NULL(context);
-	NOTIFY(BufferCreate, memobj, context, size, hostPtr, fromGL);
+	NOTIFY(BufferCreate, memobj, context, size,
+           hostPtr, fromGL, cookie);
 }
-void NotifierCollection::BufferMap(cl_mem memobj, cl_map_flags mapFlags)
+void NotifierCollection::BufferMap(cl_mem memobj, cl_map_flags mapFlags,
+                                   unsigned int cookie)
 {
 	CHECK_FOR_NULL(memobj);
-	NOTIFY(BufferMap, memobj, mapFlags);
+	NOTIFY(BufferMap, memobj, mapFlags, cookie);
 }
 void NotifierCollection::BufferUnmap(cl_mem memobj, cl_command_queue queue, cl_event* event)
 {
 	CHECK_FOR_NULL(memobj);
 	NOTIFY(BufferUnmap, memobj, queue, event);
 }
-void NotifierCollection::BufferEnqueue (cl_command_queue queue, cl_event* event, cl_mem memobj)
+void NotifierCollection::BufferEnqueue (cl_command_queue queue, cl_event* event,
+                                        cl_mem memobj, unsigned int cookie)
 {
 	CHECK_FOR_NULL(memobj);
-	NOTIFY(BufferEnqueue, queue, event, memobj);
+	NOTIFY(BufferEnqueue, queue, event, memobj, cookie);
 }
 void NotifierCollection::SubBufferCreate(cl_mem parentBuffer,
 										 cl_mem subBuffer,
 										 cl_buffer_create_type bufferCreateType,
 										 const void* bufferCreateInfo,
-										 cl_context context)
+										 cl_context context,
+                                         unsigned int cookie)
 {
 	CHECK_FOR_NULL(parentBuffer);
 	CHECK_FOR_NULL(subBuffer);
 	NOTIFY(SubBufferCreate, parentBuffer, subBuffer,
-		   bufferCreateType, bufferCreateInfo, context);
+		   bufferCreateType, bufferCreateInfo, context,
+           cookie);
 }
 void NotifierCollection::ImageCreate(cl_mem memobj, cl_context context, 
 									 const cl_image_desc* imageDesc,
-									 void* hostPtr, bool fromGL)
+									 void* hostPtr, bool fromGL,
+                                     unsigned int cookie)
 {
 	CHECK_FOR_NULL(memobj);
 	CHECK_FOR_NULL(context);
-	NOTIFY(ImageCreate, memobj, context, imageDesc, hostPtr, fromGL);
+	NOTIFY(ImageCreate, memobj, context, imageDesc,
+           hostPtr, fromGL, cookie);
 }
-void NotifierCollection::ImageMap(cl_mem memobj, cl_map_flags mapFlags)
+void NotifierCollection::ImageMap(cl_mem memobj, cl_map_flags mapFlags,
+                                  unsigned int cookie)
 {
 	CHECK_FOR_NULL(memobj);
-	NOTIFY(ImageMap, memobj, mapFlags);
+	NOTIFY(ImageMap, memobj, mapFlags, cookie);
 }
 void NotifierCollection::ImageUnmap(cl_mem memobj, cl_command_queue queue, cl_event* event)
 {
@@ -208,9 +219,10 @@ void NotifierCollection::ImageUnmap(cl_mem memobj, cl_command_queue queue, cl_ev
 }
 void NotifierCollection::ImageEnqueue(cl_command_queue queue,
 									  cl_event* event,
-									  cl_mem memobj)
+									  cl_mem memobj,
+                                      unsigned int cookie)
 {
-	NOTIFY(ImageEnqueue, queue, event, memobj);
+	NOTIFY(ImageEnqueue, queue, event, memobj, cookie);
 }
 void NotifierCollection::MemObjectFree( cl_mem memobj )
 {
@@ -268,9 +280,12 @@ void NotifierCollection::KernelSetArg (cl_kernel kernel, cl_uint arg_index, size
 	CHECK_FOR_NULL(kernel);
 	NOTIFY(KernelSetArg, kernel, arg_index, arg_size, arg_value);
 }
-void NotifierCollection::KernelEnqueue (cl_kernel kernel, cl_command_queue queue, cl_event* event)
+void NotifierCollection::KernelEnqueue (cl_kernel kernel,
+                                        cl_command_queue queue,
+                                        cl_event* event,
+                                        unsigned int cookie)
 {
-	NOTIFY(KernelEnqueue, kernel, queue, event);
+	NOTIFY(KernelEnqueue, kernel, queue, event, cookie);
 }
 void NotifierCollection::KernelReleased (cl_kernel kernel)
 {
@@ -291,9 +306,11 @@ void NotifierCollection::ObjectRetain( const void* obj){
 	CHECK_FOR_NULL(obj);
 	NOTIFY(ObjectRetain, obj);	
 }
-void NotifierCollection::TraceCall( const char* call, cl_int errcode_ret, OclParameters* parameters){
+void NotifierCollection::TraceCall(const char* call, cl_int errcode_ret,
+                                   OclParameters* parameters,
+                                   unsigned int *cookie){
 	CHECK_FOR_NULL(call);
-	NOTIFY(TraceCall, call, errcode_ret, parameters);
+	NOTIFY(TraceCall, call, errcode_ret, parameters, cookie);
 }
 
 
@@ -404,3 +421,36 @@ const char* NotifierCollection::enableKernelArgumentInfo(const char* options){
 	STRCAT_S(newOptions, dstSize, CL_KERNEL_ARG_INFO_OPTION); 
 	return newOptions;
 }
+unsigned int NotifierCollection::getTraceCookie()
+{
+    return static_cast<unsigned int>(traceCookie++);
+}
+vector<cl_device_id> NotifierCollection::getProgramDevices(cl_program program)
+{
+    cl_int err = CL_INVALID_PROGRAM;
+    size_t deviceSizeInBytes = 0;
+    size_t numDevices = 0;
+    err = _clGetProgramInfoINTERNAL(program, CL_PROGRAM_DEVICES, 0,
+                                    NULL, &deviceSizeInBytes);
+    if (CL_SUCCESS != err) {
+        stringstream ss;
+        ss << "Unable to get no. of devices of program. " 
+           << "err = " << err;
+        throw runtime_error(ss.str());
+    }
+	numDevices = deviceSizeInBytes / sizeof(cl_device_id);
+    vector<cl_device_id> vec(numDevices, NULL);
+	err = _clGetProgramInfoINTERNAL(program,
+                                    CL_PROGRAM_DEVICES,
+                                    deviceSizeInBytes,
+									(void *)&vec[0], NULL);
+    if (CL_SUCCESS != err) {
+        stringstream ss;
+        ss << "Unable to get program devices. " 
+           << "err = " << err;
+        throw runtime_error(ss.str());
+    }
+
+    return vec;
+}
+

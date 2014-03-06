@@ -382,11 +382,6 @@ namespace Intel { namespace OpenCL { namespace Utils {
         */
         void init(unsigned int size, bool initVal);
         /*
-           Reset atomically the appropriate bit in bit field array.
-           On success, return the initial value of the appropriate bit, otherwise return -1.
-        */
-        long bitTestAndReset(unsigned int bitNum);
-        /*
            Set atomically the appropriate bit in bit field array.
            On success, return the initial value of the appropriate bit, otherwise return -1.
         */

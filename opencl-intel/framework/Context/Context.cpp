@@ -852,11 +852,6 @@ cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pH
     return CL_SUCCESS;
 }
 
-void Context::AddSvmBufferAsMemBuffer(const SharedPtr<SVMBuffer>& pSvmBuffer)
-{
-    m_mapMemObjects.AddObject(pSvmBuffer);
-}
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Context::CreateSubBuffer
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1650,6 +1645,17 @@ ConstSharedPtr<SVMBuffer> Context::GetSVMBufferContainingAddr(const void* ptr) c
 {
     return const_cast<Context*>(this)->GetSVMBufferContainingAddr(const_cast<void*>(ptr));
 }
+
+bool Context::IsSVMPointer(const void* ptr) const
+{
+    if (NULL != ptr &&
+        NULL != GetSVMBufferContainingAddr(ptr))
+    {
+        return true;
+    }
+    return false;
+}
+
 cl_err_code Context::CreatePipe(cl_uint uiPipePacketSize, cl_uint uiPipeMaxPackets, SharedPtr<MemoryObject>& pPipe, void* pHostPtr)
 {
 	cl_err_code err = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, CL_MEM_OBJECT_PIPE, CL_MEMOBJ_GFX_SHARE_NONE, this, &pPipe);

@@ -17,16 +17,13 @@ File Name: MICCompiler.h
 \*****************************************************************************/
 #pragma once
 
+#include "Compiler.h"
+#include "ICompilerConfig.h"
+#include "IMICCompilerConfig.h"
+#include "MICJITEngine/include/IFunctionAddressResolver.h"
+
 #include <assert.h>
 #include <string>
-#include "Compiler.h"
-#include "CPUDetect.h"
-#include "exceptions.h"
-#include "MICCompilerConfig.h"
-#include "MICKernel.h"
-#include "Optimizer.h"
-#include "llvm/Support/raw_ostream.h"
-#include "MICJITEngine/include/IFunctionAddressResolver.h"
 
 namespace llvm {
     class ExecutionEngine;
@@ -42,10 +39,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 class BuiltinLibrary;
 class BuiltinModule;
-class MICCompilerConfig;
 
 //*****************************************************************************************
-// Wrapper of the Backend interface IDynamicFunctionsResolver to behave as 
+// Wrapper of the Backend interface IDynamicFunctionsResolver to behave as
 // llvm::IFunctionAddressResolver
 
 class FunctionResolverWrapper : public llvm::IFunctionAddressResolver
@@ -69,8 +65,8 @@ private:
 };
 
 //*****************************************************************************************
-// Provides the module optimization and code generation functionality. 
-// 
+// Provides the module optimization and code generation functionality.
+//
 class MICCompiler: public Compiler
 {
 public:
@@ -100,7 +96,6 @@ protected:
     // to expose that interface and createExecution engine after constuctor is called.
     virtual void CreateExecutionEngine( llvm::Module* pModule );
 
-
 private:
     // Disable copy ctor and assignment operator
     MICCompiler( const MICCompiler& );
@@ -109,7 +104,6 @@ private:
     void SelectMICConfiguration(const ICompilerConfig& config);
 
     llvm::MICCodeGenerationEngine* CreateMICCodeGenerationEngine( llvm::Module* pRtlModule ) const;
-
 
 private:
     BuiltinModule*           m_pBuiltinModule;

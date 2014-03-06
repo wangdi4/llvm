@@ -204,7 +204,7 @@ public:
 
 	void Cancel() { SetError(CL_DEV_COMMAND_CANCELLED); }
 
-	virtual Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+	virtual Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
 
     virtual void Launch() { Execute(); }
 

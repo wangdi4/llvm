@@ -15,23 +15,18 @@ to any intellectual property rights is granted herein.
 File Name:  Program.cpp
 
 \*****************************************************************************/
-#include "Program.h"
-#include "Kernel.h"
-
-#ifdef OCL_DEV_BACKEND_PLUGINS
-#include "plugin_manager.h"
-#endif
-
-#include "exceptions.h"
-#include "cl_device_api.h"
 #include "BitCodeContainer.h"
-
+#include "Kernel.h"
+#include "Program.h"
+#include "cl_device_api.h"
+#include "exceptions.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 Program::Program():
     m_pCodeContainer(NULL),
-    m_kernels(NULL)
+    m_kernels(NULL),
+    m_globalVariableTotalSize(0)
 {}
 
 Program::~Program()
@@ -45,12 +40,12 @@ Program::~Program()
 unsigned long long int Program::GetProgramID() const
 {
     assert(false && "NotImplemented");
-    return 0; 
+    return 0;
 }
 
 const char* Program::GetBuildLog() const
 {
-    return m_buildLog.empty() ? "" : m_buildLog.c_str(); 
+    return m_buildLog.empty() ? "" : m_buildLog.c_str();
 }
 
 const ICLDevBackendCodeContainer* Program::GetProgramCodeContainer() const
@@ -64,18 +59,18 @@ const ICLDevBackendProgramJITCodeProperties* Program::GetProgramJITCodePropertie
     return NULL;
 }
 
-cl_dev_err_code Program::GetKernelByName(const char* IN pKernelName, 
+cl_dev_err_code Program::GetKernelByName(const char* IN pKernelName,
                                          const ICLDevBackendKernel_** OUT pKernel) const
 {
     if( !m_kernels.get() || m_kernels->Empty())
     {
         return CL_DEV_INVALID_KERNEL_NAME;
     }
-    
+
     try
     {
         *pKernel = (ICLDevBackendKernel_*)m_kernels->GetKernel(pKernelName);
-        return CL_DEV_SUCCESS; 
+        return CL_DEV_SUCCESS;
     }
     catch(Exceptions::DeviceBackendExceptionBase& )
     {
@@ -93,7 +88,17 @@ int Program::GetKernelsCount() const
     return m_kernels->GetCount();
 }
 
-cl_dev_err_code Program::GetKernel(int kernelIndex, 
+int Program::GetNonBlockKernelsCount() const
+{
+    if(!m_kernels.get())
+    {
+        return 0;
+    }
+
+    return m_kernels->GetCount() - m_kernels->GetBlockCount();
+}
+
+cl_dev_err_code Program::GetKernel(int kernelIndex,
                                    const ICLDevBackendKernel_** OUT ppKernel) const
 {
     if( !m_kernels.get() || m_kernels->Empty())
@@ -103,9 +108,16 @@ cl_dev_err_code Program::GetKernel(int kernelIndex,
     //TODO: exception handling
 
     *ppKernel = m_kernels->GetKernel(kernelIndex);
-    return CL_DEV_SUCCESS; 
+    return CL_DEV_SUCCESS;
 }
 
+size_t Program::GetGlobalVariableTotalSize() const {
+  return m_globalVariableTotalSize;
+}
+
+void Program::SetGlobalVariableTotalSize(size_t size) {
+  m_globalVariableTotalSize = size;
+}
 
 void Program::SetBitCodeContainer(BitCodeContainer* bitCodeContainer)
 {
@@ -117,15 +129,15 @@ void Program::SetBuildLog( const std::string& buildLog )
     m_buildLog = buildLog;
 }
 
-void Program::SetKernelSet( KernelSet* pKernels) 
-{ 
-    m_kernels.reset(pKernels); 
+void Program::SetKernelSet( KernelSet* pKernels)
+{
+    m_kernels.reset(pKernels);
 }
 
 void Program::SetModule( void* pModule)
-{ 
+{
     assert(m_pCodeContainer && "code container should be initialized by now");
-    m_pCodeContainer->SetModule(pModule); 
+    m_pCodeContainer->SetModule(pModule);
 }
 
 bool Program::GetDisableOpt() const

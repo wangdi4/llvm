@@ -19,7 +19,9 @@ File Name:  ExecutionService.h
 
 #include "cl_dev_backend_api.h"
 #include "IAbstractBackendFactory.h"
+#ifdef OCL_DEV_BACKEND_PLUGINS
 #include "plugin_manager.h"
+#endif
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -34,7 +36,7 @@ public:
      * @returns the target machine description size in bytes
      */
     virtual size_t GetTargetMachineDescriptionSize() const;
-    
+
     /**
      * Gets the target machine description in the already allocated buffer
      *
@@ -44,21 +46,21 @@ public:
      *
      * @returns CL_DEV_SUCCESS and the pTargetDescription will be filled with the
      *  description in case of success; otherwise:
-     *  CL_DEV_INVALID_VALUE in case pTargetDescription == NULL 
+     *  CL_DEV_INVALID_VALUE in case pTargetDescription == NULL
      *  CL_DEV_ERROR_FAIL in any other error
      */
     virtual cl_dev_err_code GetTargetMachineDescription(
-        void* pTargetDescription, 
+        void* pTargetDescription,
         size_t descriptionSize) const;
-    
+
     /**
      * Releases the Execution Service
      */
     virtual void Release();
-    
+
 protected:
     // pointer to the Backend Factory, not owned by this class
-    IAbstractBackendFactory* m_pBackendFactory; 
+    IAbstractBackendFactory* m_pBackendFactory;
 
     #ifdef OCL_DEV_BACKEND_PLUGINS
     mutable Intel::OpenCL::PluginManager m_pluginManager;

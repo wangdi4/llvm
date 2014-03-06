@@ -17,15 +17,9 @@ File Name:  ProgramBuilder.h
 \*****************************************************************************/
 #pragma once
 
-#include <assert.h>
-#include <string>
-#include <vector>
-#include "exceptions.h"
-#include "cl_dev_backend_api.h"
-#include "CompilationUtils.h"
-
+#include "ICLDevBackendOptions.h"
 #include "IAbstractBackendFactory.h"
-#include "Optimizer.h"
+#include "ICompilerConfig.h"
 
 namespace llvm {
     class ExecutionEngine;
@@ -40,7 +34,6 @@ namespace llvm {
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 class BuiltinModule;
-class ICompilerConfig;
 class Program;
 class Kernel;
 class KernelProperties;
@@ -50,8 +43,8 @@ class BuiltinLibrary;
 class Compiler;
 
 //*****************************************************************************************
-// Provides the module optimization and code generation functionality. 
-// 
+// Provides the module optimization and code generation functionality.
+//
 class ProgramBuilder
 {
 public:
@@ -75,17 +68,17 @@ protected:
     virtual void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule, const ICLDevBackendOptions* pOptions) const = 0;
 
     virtual KernelSet* CreateKernels(Program* pProgram,
-                             llvm::Module* pModule, 
+                             llvm::Module* pModule,
                              ProgramBuildResult& buildResult) const = 0;
 
     KernelJITProperties* CreateKernelJITProperties(unsigned int vectorSize) const;
-    
-    KernelProperties* CreateKernelProperties(const Program* pProgram, 
-                                             Function *func, 
+
+    KernelProperties* CreateKernelProperties(const Program* pProgram,
+                                             llvm::Function *func,
                                              const ProgramBuildResult& buildResult) const;
-   
+
     /// @brief abstract factory method to create mapper from block to Kernel.
-    /// Can be implemented differently for CPU and MIC. 
+    /// Can be implemented differently for CPU and MIC.
     /// MIC will probably call this inside deserialization step
     /// CPU calls it inside PostOptimizationProcessing step
     /// When Block static resolution pass is ready we can implement is std::vector storage
@@ -102,8 +95,12 @@ protected:
 protected:
 
     // pointer to the containers factory (not owned by this class)
-    IAbstractBackendFactory* m_pBackendFactory; 
+    IAbstractBackendFactory* m_pBackendFactory;
     bool m_useVTune;
+
+private:
+    /// @brief Update the size of the variables in global adress space used by the program.
+    void updateGlobalVariableTotalSize(Program* pProgram, llvm::Module* pModule);
 };
 
 }}}

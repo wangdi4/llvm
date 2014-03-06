@@ -25,6 +25,22 @@
 
 using namespace Intel::OpenCL::TaskExecutor;
 
+IThreadLibTaskGroup::TaskGroupStatus TbbTaskGroup::Wait()
+{
+    switch (m_tskGrp.wait())
+    {
+    case tbb::not_complete:
+        return IThreadLibTaskGroup::NOT_COMPLETE;
+    case tbb::complete:
+        return IThreadLibTaskGroup::COMPLETE;
+    case tbb::canceled:
+        return IThreadLibTaskGroup::CANCELED;
+    default:
+        assert(false && "invalid return code from tbb::task_group::wait");
+        return (IThreadLibTaskGroup::TaskGroupStatus)-1;
+    }
+}
+
 void TaskGroup::WaitForAll()
 {
     TEDeviceStateAutoLock lock(*m_device);
@@ -209,10 +225,10 @@ void out_of_order_command_list::WaitForIdle()
     m_device->Execute(waiter);
 }
 
-void base_command_list::Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, ITaskGroup& taskGroup)
+void base_command_list::Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, IThreadLibTaskGroup& taskGroup)
 {
     ExecuteContainerBody functor(pTask, *this);
-    static_cast<TaskGroup&>(taskGroup).EnqueueFunc(functor);
+    static_cast<TbbTaskGroup&>(taskGroup).Run(functor);
 }
 
 unsigned int immediate_command_list::Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask)

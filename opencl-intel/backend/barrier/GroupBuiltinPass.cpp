@@ -6,16 +6,20 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #include "GroupBuiltinPass.h"
 #include "OCLPassSupport.h"
+#include "InitializePasses.h"
 #include "CompilationUtils.h"
-#include <NameMangleAPI.h>
-#include <FunctionDescriptor.h>
-#include <ParameterType.h>
+#include "NameMangleAPI.h"
+#include "FunctionDescriptor.h"
+#include "ParameterType.h"
 
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Function.h"
 
-#include <cfloat>
-#include <climits>
+#if defined(__APPLE__)
+  #include <OpenCL/cl.h>
+#else
+  #include <CL/cl.h>
+#endif
 
 using namespace Intel::OpenCL::DeviceBackend;
 
@@ -26,7 +30,9 @@ namespace intel {
 
   char GroupBuiltin::ID = 0;
 
-  OCL_INITIALIZE_PASS(GroupBuiltin, "B-GroupBuiltins", "Barrier Pass - Handle WorkGroup BI calls", false, true)
+  OCL_INITIALIZE_PASS_BEGIN(GroupBuiltin, "B-GroupBuiltins", "Barrier Pass - Handle WorkGroup BI calls", false, true)
+  OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+  OCL_INITIALIZE_PASS_END(GroupBuiltin, "B-GroupBuiltins", "Barrier Pass - Handle WorkGroup BI calls", false, true)
 
   GroupBuiltin::GroupBuiltin() : ModulePass(ID) {}
 
@@ -68,22 +74,26 @@ namespace intel {
       // Initial value for work_group_..._max: MIN
       switch (dataEnum) {
         case reflection::PRIMITIVE_INT:
-          pInitVal = ConstantInt::get(pInt32Type, INT_MIN);
+          pInitVal = ConstantInt::get(pInt32Type, CL_INT_MIN);
           break;
         case reflection::PRIMITIVE_UINT:
           pInitVal = ConstantInt::get(pInt32Type, 0);
           break;
         case reflection::PRIMITIVE_LONG:
-          pInitVal = ConstantInt::get(pInt64Type, LONG_MIN);
+          pInitVal = ConstantInt::get(pInt64Type, CL_LONG_MIN);
           break;
         case reflection::PRIMITIVE_ULONG:
           pInitVal = ConstantInt::get(pInt64Type, 0);
           break;
         case reflection::PRIMITIVE_FLOAT:
-          pInitVal = ConstantFP::get(pFloatType, FLT_MIN);
+          //pInitVal = ConstantFP::get(pFloatType, CL_FLT_MIN);
+          // Workaround: to pass compilation on non-windows OS
+          pInitVal = ConstantFP::get(pFloatType, 1.175494350822287507969e-38f);
           break;
         case reflection::PRIMITIVE_DOUBLE:
-          pInitVal = ConstantFP::get(pDoubleType, DBL_MIN);
+          //pInitVal = ConstantFP::get(pDoubleType, CL_DBL_MIN);
+          // Workaround: to pass compilation on non-windows OS
+          pInitVal = ConstantFP::get(pDoubleType, 2.225073858507201383090e-308);
           break;
         default:
           assert(0 && "Unsupported WG argument type");
@@ -93,22 +103,26 @@ namespace intel {
       // Initial value for work_group_..._min: MAX
       switch (dataEnum) {
         case reflection::PRIMITIVE_INT:
-          pInitVal = ConstantInt::get(pInt32Type, INT_MAX);
+          pInitVal = ConstantInt::get(pInt32Type, CL_INT_MAX);
           break;
         case reflection::PRIMITIVE_UINT:
-          pInitVal = ConstantInt::get(pInt32Type, UINT_MAX);
+          pInitVal = ConstantInt::get(pInt32Type, CL_UINT_MAX);
           break;
         case reflection::PRIMITIVE_LONG:
-          pInitVal = ConstantInt::get(pInt64Type, LONG_MAX);
+          pInitVal = ConstantInt::get(pInt64Type, CL_LONG_MAX);
           break;
         case reflection::PRIMITIVE_ULONG:
-          pInitVal = ConstantInt::get(pInt64Type, ULONG_MAX);
+          pInitVal = ConstantInt::get(pInt64Type, CL_ULONG_MAX);
           break;
         case reflection::PRIMITIVE_FLOAT:
-          pInitVal = ConstantFP::get(pFloatType, FLT_MAX);
+          //pInitVal = ConstantFP::get(pFloatType, CL_FLT_MAX);
+          // Workaround: to pass compilation on non-windows OS
+          pInitVal = ConstantFP::get(pFloatType, 340282346638528859811704183484516925440.0f);
           break;
         case reflection::PRIMITIVE_DOUBLE:
-          pInitVal = ConstantFP::get(pDoubleType, DBL_MAX);
+          //pInitVal = ConstantFP::get(pDoubleType, CL_DBL_MAX);
+          // Workaround: to pass compilation on non-windows OS
+          pInitVal = ConstantFP::get(pDoubleType, 1.7976931348623157e+308);
           break;
         default:
           assert(0 && "Unsupported WG argument type");
@@ -230,24 +244,26 @@ namespace intel {
     m_pSizeT = (m_pModule->getPointerSize() == Module::Pointer64)? 
                                           Type::getInt64Ty(*m_pLLVMContext): 
                                           Type::getInt32Ty(*m_pLLVMContext);
+    Module* builtinModule = getAnalysis<BuiltinLibInfo>().getBuiltinModule();
+    assert(builtinModule && "Builtin module were not initialized!");
 
     //Initialize barrier utils class with current module
     m_util.init(&M);
 
-    // Handle async built-ins
-    TInstructionVector callWGUniformFunc = m_util.getWGCallInstructions(CALL_BI_TYPE_WG_UNIFORM);
-    for (unsigned idx = 0; idx < callWGUniformFunc.size(); idx++) {
-      CallInst *pWGUniformCallInst = cast<CallInst>(callWGUniformFunc[idx]);
+    // Handle async and pipe work-group built-ins
+    TInstructionVector callWGSimpleFunc = m_util.getWGCallInstructions(CALL_BI_TYPE_WG_ASYNC_OR_PIPE);
+    for (unsigned idx = 0; idx < callWGSimpleFunc.size(); idx++) {
+      CallInst *pWGSimpleCallInst = cast<CallInst>(callWGSimpleFunc[idx]);
       // Add Barrier before async function call instruction
-      m_util.createBarrier(pWGUniformCallInst);
+      m_util.createBarrier(pWGSimpleCallInst);
       // Add dummyBarrier after async function call instruction
       Instruction *pDummyBarrierCall = m_util.createDummyBarrier();
-      pDummyBarrierCall->insertAfter(pWGUniformCallInst);
+      pDummyBarrierCall->insertAfter(pWGSimpleCallInst);
     }
 
     // Handle WorkGroup built-ins
     TInstructionVector callWgFunc = m_util.getWGCallInstructions(CALL_BI_TYPE_WG);
-    TFuncEntryMap funcFirstInst;
+    TFunctionSet visitedFunctions;
     for (unsigned idx = 0; idx < callWgFunc.size(); idx++) {
       CallInst *pWgCallInst = cast<CallInst>(callWgFunc[idx]);
       // Replace call to WG-wide function with that to per-WI function 
@@ -256,10 +272,22 @@ namespace intel {
       // Collect info about caller function (where the call resides)
       Function *pFunc = pWgCallInst->getParent()->getParent();
       Instruction *pFirstInstr = pFunc->getEntryBlock().begin();
-      // We keep function's 1st instruction BEFORE any allocas & initializations
-      // will be inserted above it, the rest of "inserts" of caller function
-      // won't succeed because of existing entry for the same function
-      funcFirstInst.insert(TFuncEntryPair(pFunc, pFirstInstr));
+      // Mark the function as visited.
+      if (visitedFunctions.insert(pFunc)) {
+        // This is the first time we visit this function.
+        //
+        // This pass creates alloca instructions and initialize them as part
+        // of the solution to resolve a work group builtin.
+        // These allocas are uniform for all work items in a group.
+        // However, barrier pass handles all allocas as non-uniform.
+        // So, in order to prevent that, we add a marker "dummyBarrier" at begin
+        // of the function, and make sure all alloca and initialization instructions
+        // are added before this marker. Need to add the marker only once.
+        Instruction *pDummyBarrierCall = m_util.createDummyBarrier(pFirstInstr);
+        // Update the first instruction to be the marker. All alloca & initialize
+        // instructions will be created before this first instruction.
+        pFirstInstr = pDummyBarrierCall;
+      }
 
       // Info about this function call
       unsigned numArgs = pWgCallInst->getNumArgOperands();
@@ -276,14 +304,12 @@ namespace intel {
 
       // 3. Extend function parameter list with pointer to of the accumulated result
 
-      //   a. At first - produce argument type & parameter lists for the new callee
-      SmallVector<Type*,  2> argTypes;
+      //   a. At first - produce parameter list for the new callee
       SmallVector<Value*, 2> params;
       if (!CompilationUtils::isWorkGroupBroadCast(funcName)) {
         //    For all WG function, but broadcasts - keep original arguments intact
         for (unsigned idx = 0; idx < numArgs; idx++) {
           Value *pArg = pWgCallInst->getArgOperand(idx);
-          argTypes.push_back(pArg->getType());
           params.push_back(pArg);
         }
       } else {
@@ -291,19 +317,15 @@ namespace intel {
         //    followed by LINEAR local ID of the WI
         //     --- original 'gentype' argument
         Value *pArg = pWgCallInst->getArgOperand(0);
-        argTypes.push_back(pArg->getType());
         params.push_back(pArg);
         //     --- linear form of local_id parameter
         pArg = calculateLinearID(pWgCallInst);
-        argTypes.push_back(m_pSizeT);
         params.push_back(pArg);
        //     --- linear local ID of the WI
         pArg = getLinearID(pWgCallInst);
-        argTypes.push_back(m_pSizeT);
         params.push_back(pArg);
       }
       //      Append pointer to return value accumulator
-      argTypes.push_back(pResult->getType());
       params.push_back(pResult);
 
       //   b. Remangle the function name upon appended accumulated result's pointer
@@ -329,12 +351,13 @@ namespace intel {
       std::string newFuncName = mangle(fd);
 
       //   c. Create function declaration object (unless the module contains it already)
-      FunctionType *pNewFuncType = FunctionType::get(pRetType, argTypes, false);
-      Function *pNewFunc = dyn_cast<Function>(M.getOrInsertFunction(newFuncName, pNewFuncType));
+      //      --- get the new function declaration out of built-in module.
+      Function *LibFunc = builtinModule->getFunction(newFuncName);
+      assert(LibFunc && "WG builtin is not supported in built-in module");
+      Function *pNewFunc = dyn_cast<Function>(m_pModule->getOrInsertFunction(
+        LibFunc->getName(), LibFunc->getFunctionType(), LibFunc->getAttributes()));
       assert(pNewFunc && "Non-function object with the same signature identified in the module");
-      pNewFunc->setAttributes(pCallee->getAttributes());
-      pNewFunc->setLinkage(pCallee->getLinkage());
-      pNewFunc->setCallingConv(pCallee->getCallingConv());
+
 
       // 4. Prepare the call with that to function with extended parameter list
       CallInst *pNewCall = CallInst::Create(pNewFunc, ArrayRef<Value*>(params), "CallWGForItem", pWgCallInst);
@@ -357,46 +380,38 @@ namespace intel {
         LoadInst *pLoadResult = new LoadInst(pResult, "LoadWGFinalResult", pWgCallInst);
 
         // b. Create finalization function object:
-        //    --- argument and parameter lists
-        SmallVector<Type*,  8> argTypes;
+        //    --- parameter list
         SmallVector<Value*, 8> params;
-        argTypes.push_back(pRetType);
         params.push_back(pLoadResult);
         //    --- remangle with unique name (derived from original WG function name)
         //        [Note that the signature is as of original WG function]
-        reflection::FunctionDescriptor fd = demangle(funcName.c_str());
-        fd.name = FINALIZE_WG_FUNCTION_PREFIX + fd.name;
-        std::string finalizeFuncName = mangle(fd);
+        std::string finalizeFuncName = CompilationUtils::appendWorkGroupFinalizePrefix(funcName);
         //    --- create function
-        FunctionType *pFinalizeFuncType = FunctionType::get(pRetType, argTypes, false);
-        Function *pFinalizeFunc = dyn_cast<Function>(M.getOrInsertFunction(finalizeFuncName, pFinalizeFuncType));
+        //    --- get the new function declaration out of built-in module.
+        Function *LibFunc = builtinModule->getFunction(finalizeFuncName);
+        assert(LibFunc && "WG builtin is not supported in built-in module");
+        Function *pFinalizeFunc = dyn_cast<Function>(m_pModule->getOrInsertFunction(
+          LibFunc->getName(), LibFunc->getFunctionType(), LibFunc->getAttributes()));
         assert(pFinalizeFunc && "Non-function object with the same signature identified in the module");
 
         // c. Create call to finalization function object
         CallInst *pFinalizeCall = CallInst::Create(pFinalizeFunc, ArrayRef<Value*>(params), "CallFinalizeWG", pWgCallInst);
         assert(pFinalizeCall && "Couldn't create CALL instruction!");
 
-        // d. Create dummy barrier immediately AFTER finalization call
-        (void) m_util.createDummyBarrier(pWgCallInst);
-
         pNewCall = pFinalizeCall;
       }
 
-      // 7. Discard old function call
+      // 7. re-initialize the alloca (in case we are in a loop) and create dummy barrier
+      //    immediately AFTER it to assure we initialize once per work-group
+      (void) new StoreInst(pInitValue, pResult, pWgCallInst);
+      (void) m_util.createDummyBarrier(pWgCallInst);
+
+      // 8. Discard old function call
       pWgCallInst->replaceAllUsesWith(pNewCall);
       pWgCallInst->eraseFromParent();
-
     }
 
-    // Add dummyBarrier after allocas & initializations of WG function return value accumulators
-    for (TFuncEntryMap::iterator func_it = funcFirstInst.begin(), 
-                                 func_it_end = funcFirstInst.end();
-                                 func_it != func_it_end; func_it++) {
-      Instruction *pDummyBarrierCall = m_util.createDummyBarrier();
-      pDummyBarrierCall->insertBefore(func_it->second);
-    }
-
-    return !callWGUniformFunc.empty() || !callWgFunc.empty();
+    return !callWGSimpleFunc.empty() || !callWgFunc.empty();
   }
 
 

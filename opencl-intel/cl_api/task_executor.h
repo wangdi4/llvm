@@ -201,6 +201,36 @@ struct RootDeviceCreationParam
 };
 
 /**
+ * This class represents a task group that is implemented using a native task group class of the threading library (in TBB, it is tbb::task_group).
+ * It is required because in TBB our implementation of class ITaskGroup is required for some scenarios, but not appropriate for others.
+ */
+class IThreadLibTaskGroup : public Intel::OpenCL::Utils::ReferenceCountedObject
+{
+public:
+
+    PREPARE_SHARED_PTR(IThreadLibTaskGroup)
+
+    virtual ~IThreadLibTaskGroup() { }
+
+    /**
+     * Status of the IThreadLibTaskGroup
+     */
+    enum TaskGroupStatus
+    {
+        NOT_COMPLETE, // Not cancelled and not all tasks in group have completed. 
+        COMPLETE,     // Not cancelled and all tasks in group have completed
+        CANCELED      // Task group received cancellation request
+    };
+
+    /**
+     * Wait until all functors have been run
+     * @return the status of this IThreadLibTaskGroup after the wait has been completed
+     */
+    virtual TaskGroupStatus Wait() = 0;
+    
+};
+
+/**
  * This class represents a group of tasks
  */
 class ITaskGroup : public Intel::OpenCL::Utils::ReferenceCountedObject
@@ -250,7 +280,7 @@ public:
     virtual long    Release() = 0;
 
     // For NDRange commands return the ITaskGroup used to group its children; for other commands return NULL
-    virtual ITaskGroup* GetNDRangeChildrenTaskGroup() = 0;
+    virtual IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() = 0;
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -340,7 +370,7 @@ public:
     virtual bool            Flush() = 0;
 
     // Immediately spawn a task without enqueuing it first in order to save the lock on the queue.
-    virtual void            Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, ITaskGroup& taskGroup) = 0;
+    virtual void            Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, IThreadLibTaskGroup& taskGroup) = 0;
     // whether this ITaskList supports device-side enqueuing of commands
     virtual bool            DoesSupportDeviceSideCommandEnqueue() const = 0;
 
@@ -368,7 +398,7 @@ public:
     virtual Intel::OpenCL::Utils::ConstSharedPtr<ITEDevice>  GetDevice() const = 0;
 
     // Returns an ITaskGroup for NDRange commands to use to wait for their children
-    virtual Intel::OpenCL::Utils::SharedPtr<ITaskGroup>      GetNDRangeChildrenTaskGroup() = 0;
+    virtual Intel::OpenCL::Utils::SharedPtr<IThreadLibTaskGroup> GetNDRangeChildrenTaskGroup() = 0;
 };
 
 class ITaskExecutorObserver;
@@ -540,9 +570,9 @@ public:
 
     /**
      * @param device a ITEDevice
-     * @return a new ITaskGroup in device
+     * @return a new IThreadLibTaskGroup in device
      */
-    virtual Intel::OpenCL::Utils::SharedPtr<ITaskGroup> CreateTaskGroup(const Intel::OpenCL::Utils::SharedPtr<ITEDevice>& device) = 0;
+    virtual Intel::OpenCL::Utils::SharedPtr<IThreadLibTaskGroup> CreateTaskGroup(const Intel::OpenCL::Utils::SharedPtr<ITEDevice>& device) = 0;
     
 protected:
 

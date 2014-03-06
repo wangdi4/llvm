@@ -16,14 +16,11 @@ File Name:  ImageCallbackManager.h
 
 \*****************************************************************************/
 #pragma once
-#include <map>
 #include "CPUDetect.h"
+#include "ICompilerConfig.h"
 #include "ImageCallbackLibrary.h"
 
-namespace llvm
-{ 
-class LLVMContext;
-}
+#include <map>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -32,7 +29,7 @@ class ImageCallbackFunctions;
 
 //*****************************************************************************************
 // Responsible for loading builtin modules in a lazy fashion. This is a singleton class.
-// 
+//
 class ImageCallbackManager
 {
 private:
@@ -52,7 +49,7 @@ public:
      * Singleton instance
      */
     static ImageCallbackManager* GetInstance();
-    
+
     /**
      * Initializes the \see BuiltinsLibrary for the given cpu if it hasn't been loaded before.
      */

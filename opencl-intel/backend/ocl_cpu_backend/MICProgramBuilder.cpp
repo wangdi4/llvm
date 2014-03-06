@@ -18,20 +18,15 @@ File Name:  MICProgramBuilder.cpp
 
 #include "MICProgramBuilder.h"
 
-#include "Compiler.h"
-#include "CompilerConfig.h"
 #include "IAbstractBackendFactory.h"
+#include "CompilationUtils.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
 #include "MetaDataApi.h"
-#include "MICCompiler.h"
-#include "MICCompilerConfig.h"
 #include "MICJITContainer.h"
 #include "MICKernel.h"
 #include "MICProgram.h"
-#include "ModuleJITHolder.h"
 #include "Program.h"
-#include "ProgramBuilder.h"
 
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
@@ -44,20 +39,10 @@ File Name:  MICProgramBuilder.cpp
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ExecutionEngine/LLVMModuleJITHolder.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/Support/raw_ostream.h"
 
-#include <string>
 #include <vector>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
-/*
- * Utility methods
- */
-namespace Utils 
-{
- 
-}
 
 MICProgramBuilder::MICProgramBuilder(IAbstractBackendFactory* pBackendFactory, const IMICCompilerConfig& config):
     ProgramBuilder(pBackendFactory, config),
@@ -81,7 +66,7 @@ MICKernel* MICProgramBuilder::CreateKernel(llvm::Function* pFunc, const std::str
 }
 
 KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
-                                    llvm::Module* pModule, 
+                                    llvm::Module* pModule,
                                     ProgramBuildResult& buildResult) const
 {
     buildResult.LogS() << "Build started\n";
@@ -99,27 +84,27 @@ KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
         KernelInfoMetaDataHandle kimd = mdUtils.getKernelsInfoItem(pFunc);
         // Obtain kernel wrapper function from metadata info
         llvm::Function *pWrapperFunc = kimd->getKernelWrapper(); //TODO: stripPointerCasts());
-        
-        // Create a kernel and kernel JIT properties 
-        std::auto_ptr<KernelProperties> spMICKernelProps( CreateKernelProperties( pProgram, 
-                                                                                  pFunc, 
+
+        // Create a kernel and kernel JIT properties
+        std::auto_ptr<KernelProperties> spMICKernelProps( CreateKernelProperties( pProgram,
+                                                                                  pFunc,
                                                                                   buildResult));
         // get the vector size used to generate the function
         unsigned int vecSize = kimd->isVectorizedWidthHasValue() ? kimd->getVectorizedWidth() : 1;
         spMICKernelProps->SetMinGroupSizeFactorial(vecSize);
-                                                                              
+
         std::auto_ptr<KernelJITProperties> spKernelJITProps( CreateKernelJITProperties( vecSize ));
 
-        // Create a kernel 
-        std::auto_ptr<MICKernel> spKernel( CreateKernel( pFunc, 
+        // Create a kernel
+        std::auto_ptr<MICKernel> spKernel( CreateKernel( pFunc,
                                                          pWrapperFunc->getName().str(),
                                                          spMICKernelProps.get()));
         spKernel->SetKernelID(kernelId);
 
-        AddKernelJIT( static_cast<const MICProgram*>(pProgram), 
-                      spKernel.get(), 
-                      pModule, 
-                      pWrapperFunc, 
+        AddKernelJIT( static_cast<const MICProgram*>(pProgram),
+                      spKernel.get(),
+                      pModule,
+                      pWrapperFunc,
                       spKernelJITProps.release());
 
         //TODO (AABOUD): is this redundant code?
@@ -171,11 +156,11 @@ KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
         {
             buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was not vectorized\n";
         }
-        else 
+        else
         {
             buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was successfully vectorized\n";
         }
-#ifdef OCL_DEV_BACKEND_PLUGINS  
+#ifdef OCL_DEV_BACKEND_PLUGINS
         // Notify the plugin managerModuleJITHolder
         m_pluginManager.OnCreateKernel(pProgram, spKernel.get(), pFunc);
 #endif
@@ -183,7 +168,7 @@ KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
         spMICKernelProps.release();
     }
     //LLVMBackend::GetInstance()->m_logger->Log(Logger::DEBUG_LEVEL, L"Iterating completed");
-    
+
     buildResult.LogS() << "Done.";
     //LLVMBackend::GetInstance()->m_logger->Log(Logger::INFO_LEVEL, L"Exit");
     return spKernels.release();

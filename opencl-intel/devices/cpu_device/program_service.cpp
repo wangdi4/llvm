@@ -53,9 +53,9 @@ static cl_prog_binary_desc gSupportedBinTypes[] =
 };
 static  unsigned int    UNUSED(gSupportedBinTypesCount) = sizeof(gSupportedBinTypes)/sizeof(cl_prog_binary_desc);
 
-ProgramService::ProgramService(cl_int devId, 
-                               IOCLFrameworkCallbacks *devCallbacks, 
-                               IOCLDevLogDescriptor *logDesc, 
+ProgramService::ProgramService(cl_int devId,
+                               IOCLFrameworkCallbacks *devCallbacks,
+                               IOCLDevLogDescriptor *logDesc,
                                CPUDeviceConfig *config,
                                ICLDevBackendServiceFactory* pBackendFactory) :
     m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0),
@@ -72,7 +72,7 @@ ProgramService::ProgramService(cl_int devId,
             m_iLogHandle = 0;
         }
     }
-    
+
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CPUDevice: Program Service - Created"));
 }
 
@@ -117,8 +117,8 @@ ProgramService::~ProgramService()
 cl_dev_err_code ProgramService::Init()
 {
 	ProgramConfig programConfig;
-    programConfig.InitFromCpuConfig(*m_pCPUConfig);   
-    
+    programConfig.InitFromCpuConfig(*m_pCPUConfig);
+
     ICLDevBackendCompilationService* pCompiler = NULL;
     cl_dev_err_code ret = m_pBackendFactory->GetCompilationService(&programConfig, &pCompiler);
     if( CL_DEV_FAILED(ret) )
@@ -361,7 +361,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
 
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("BuildProgram enter"));
 
-    TProgramEntry* pEntry = (TProgramEntry*)prog;
+    TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
 
     // Program already built?
     if (CL_BUILD_SUCCESS == pEntry->clBuildStatus)
@@ -396,7 +396,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
 
     cl_build_status status = CL_DEV_SUCCEEDED(ret) ? CL_BUILD_SUCCESS : CL_BUILD_ERROR;
     pEntry->clBuildStatus = status;
-    
+
     // if the user requested -dump-opt-asm, emit the asm of this module into a file
     if( CL_DEV_SUCCEEDED(ret) && (NULL != options) && ('\0' != *options) &&
         (NULL != (p = strstr(options, "-dump-opt-asm="))))
@@ -441,7 +441,7 @@ cl_dev_err_code ProgramService::ReleaseProgram( cl_dev_program IN prog )
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("ReleaseProgram enter"));
 
-    TProgramEntry* pEntry = (TProgramEntry*)prog;
+    TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
 
     DeleteProgramEntry(pEntry);
 
@@ -490,7 +490,7 @@ cl_dev_err_code ProgramService::GetProgramBinary( cl_dev_program IN prog,
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetProgramBinary enter"));
 
-    TProgramEntry* pEntry = (TProgramEntry*)prog;
+    TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
     ICLDevBackendProgram_ *pProg = pEntry->pProgram;
 
     const ICLDevBackendCodeContainer* pCodeContainer = pProg->GetProgramCodeContainer();
@@ -527,7 +527,7 @@ cl_dev_err_code ProgramService::GetBuildLog( cl_dev_program IN prog,
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetBuildLog enter"));
 
-    TProgramEntry* pEntry = (TProgramEntry*)prog;
+    TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
     ICLDevBackendProgram_ *pProg = pEntry->pProgram;
 
     const char* pLog = pProg->GetBuildLog();
@@ -549,8 +549,8 @@ cl_dev_err_code ProgramService::GetBuildLog( cl_dev_program IN prog,
         return CL_DEV_INVALID_VALUE;
     }
 
-    MEMCPY_S( log, size, pLog, stLogSize);    
-    
+    MEMCPY_S( log, size, pLog, stLogSize);
+
     if ( NULL != sizeRet )
     {
         *sizeRet = stLogSize;
@@ -611,7 +611,7 @@ cl_dev_err_code ProgramService::GetKernelId( cl_dev_program IN prog, const char*
         return CL_DEV_INVALID_VALUE;
     }
 
-    TProgramEntry* pEntry = (TProgramEntry*)prog;
+    TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
 
     if ( pEntry->clBuildStatus != CL_BUILD_SUCCESS )
     {
@@ -660,14 +660,15 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetProgramKernels enter"));
 
-    TProgramEntry* pEntry = (TProgramEntry*)prog;
+    TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
 
     if ( pEntry->clBuildStatus != CL_BUILD_SUCCESS )
     {
         return CL_DEV_INVALID_PROGRAM;
     }
 
-    unsigned int    uiNumProgKernels = pEntry->pProgram->GetKernelsCount();
+    unsigned int const uiAllProgKernels = pEntry->pProgram->GetKernelsCount();
+    unsigned int const uiNonBlockProgKernels = pEntry->pProgram->GetNonBlockKernelsCount();
     cl_dev_err_code         iRet;
 
     // Check input parameters
@@ -678,18 +679,18 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
             return CL_DEV_INVALID_VALUE;
         }
 
-        *numKernelsRet = uiNumProgKernels;
+        *numKernelsRet = uiNonBlockProgKernels;
         return CL_DEV_SUCCESS;
     }
 
-    if ( (NULL==kernels) || (num_kernels < uiNumProgKernels) )
+    if ( (NULL==kernels) || (num_kernels < uiNonBlockProgKernels) )
     {
         return CL_DEV_INVALID_VALUE;
     }
 
     OclAutoMutex mu(&pEntry->muMap);
     // Retrieve kernels from program and store internally
-    for(unsigned int i=0; i<uiNumProgKernels; ++i)
+    for(unsigned int i=0, ret_kernel_idx=0; i<uiAllProgKernels; ++i)
     {
         const ICLDevBackendKernel_* pKernel;
 
@@ -716,13 +717,18 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
             // Add new ID to program's Name2ID map
             pEntry->mapKernels[szKernelName] = mapEntry;
         }
+        // Skip block kernels
+        if( pKernel->GetKernelProporties()->IsBlock() )
+        {
+          continue;
+        }
 
-        kernels[i] = (cl_dev_kernel)&(pEntry->mapKernels[szKernelName]);
+        kernels[ret_kernel_idx++] = (cl_dev_kernel)&(pEntry->mapKernels[szKernelName]);
     }
 
     if ( NULL != numKernelsRet )
     {
-        *numKernelsRet = uiNumProgKernels;
+        *numKernelsRet = uiNonBlockProgKernels;
     }
 
     return CL_DEV_SUCCESS;
@@ -833,10 +839,33 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
         {
             MEMCPY_S(value, value_size, pValue, stValSize);
         } else {
-           memset(value, 0, stValSize);
-    	  }
+            memset(value, 0, stValSize);
+        }
     }
 
+    return CL_DEV_SUCCESS;
+}
+
+cl_dev_err_code ProgramService::GetGlobalVariableTotalSize( cl_dev_program IN prog, size_t* OUT size) const
+{
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetGlobalVariableTotalSize enter"));
+
+    // Return error if program was not built yet.
+    TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
+    if( NULL == pEntry )
+    {
+        CpuInfoLog(m_pLogDescriptor, m_iLogHandle, "Requested program not found (%0X)", (size_t)prog);
+        return CL_DEV_INVALID_PROGRAM;
+    }
+
+    if ( pEntry->clBuildStatus != CL_BUILD_SUCCESS )
+    {
+        return CL_DEV_INVALID_PROGRAM;
+    }
+
+    // Just return what back-end gives us.
+    ICLDevBackendProgram_ *pProgram = pEntry->pProgram;
+    *size = pProgram->GetGlobalVariableTotalSize();
     return CL_DEV_SUCCESS;
 }
 

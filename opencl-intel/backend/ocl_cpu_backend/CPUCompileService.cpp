@@ -16,29 +16,12 @@ File Name:  CPUCompileService.cpp
 
 \*****************************************************************************/
 
-#include "exceptions.h"
+#include "BitCodeContainer.h"
 #include "CPUCompileService.h"
-#include "ProgramBuilder.h"
-#include "Program.h"
-#include "BitCodeContainer.h"
-#include "plugin_manager.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Support/raw_ostream.h"
-#include "BitCodeContainer.h"
 #include "CPUDeviceBackendFactory.h"
+#include "exceptions.h"
 
-#include "llvm/Target/TargetMachine.h"
-#include "llvm/MC/MCAsmInfo.h"
-#include "llvm/MC/MCInst.h"
-#include "llvm/Support/MemoryObject.h"
-#include "llvm/MC/MCDisassembler.h"
-#include "llvm/MC/MCInstPrinter.h"
-#include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/PassManager.h"
-
-
-#include <sstream>
+#include "llvm/IR/Module.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -66,7 +49,7 @@ cl_dev_err_code CPUCompileService::DumpJITCodeContainer( const ICLDevBackendCode
     }
     catch( std::bad_alloc& )
     {
-        return CL_DEV_OUT_OF_MEMORY; 
+        return CL_DEV_OUT_OF_MEMORY;
     }
 }
 

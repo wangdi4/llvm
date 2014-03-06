@@ -319,11 +319,15 @@ protected:
  */
 class KernelSet {
 public:
+  KernelSet();
+
   ~KernelSet();
 
-  void AddKernel(Kernel *pKernel) { m_kernels.push_back(pKernel); }
+  void AddKernel(Kernel *pKernel);
 
   size_t GetCount() const { return m_kernels.size(); }
+
+  size_t GetBlockCount() const { return m_blockKernelsCount; }
 
   bool Empty() const { return m_kernels.empty(); }
 
@@ -333,6 +337,7 @@ public:
 
 private:
   std::vector<Kernel *> m_kernels;
+  size_t                m_blockKernelsCount;
 };
 }
 }

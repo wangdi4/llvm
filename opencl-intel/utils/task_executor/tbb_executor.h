@@ -82,7 +82,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
         typedef TBB_ThreadManager<TBB_PerActiveThreadData> ThreadManager;
         ThreadManager& GetThreadManager() { return m_threadManager; };
 
-        virtual SharedPtr<ITaskGroup> CreateTaskGroup(const SharedPtr<ITEDevice>& device);
+        virtual SharedPtr<IThreadLibTaskGroup> CreateTaskGroup(const SharedPtr<ITEDevice>& device);
 
     protected:
         // Load TBB library explicitly

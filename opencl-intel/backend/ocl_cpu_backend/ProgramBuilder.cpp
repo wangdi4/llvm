@@ -33,7 +33,6 @@ File Name:  ProgramBuilder.cpp
 #include "BuiltinModule.h"
 #include "exceptions.h"
 #include "BuiltinModuleManager.h"
-#include "plugin_manager.h"
 #include "MetaDataApi.h"
 #include "BitCodeContainer.h"
 #include "BlockUtils.h"
@@ -142,11 +141,11 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
 
             pProgram->SetKernelSet( pKernels );
         }
-        
+
         // call post build method
         PostBuildProgramStep( pProgram, spModule.get(), pOptions );
+        updateGlobalVariableTotalSize(pProgram, spModule.get());
         pProgram->SetModule( spModule.release() );
-
     }
     catch( Exceptions::DeviceBackendExceptionBase& e )
     {
@@ -158,6 +157,16 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
 
     pProgram->SetBuildLog( buildResult.GetBuildLog());
     return buildResult.GetBuildResult();
+}
+
+void ProgramBuilder::updateGlobalVariableTotalSize(Program* pProgram, Module* pModule)
+{
+    MetaDataUtils mdUtils(pModule);
+    // ModuleInfo is missing only when we build image built-ins and we don't
+    // care about the size of global variables in the program.
+    if (mdUtils.empty_ModuleInfoList()) return;
+    Intel::ModuleInfoMetaDataHandle handle = mdUtils.getModuleInfoListItem(0);
+    pProgram->SetGlobalVariableTotalSize(handle->getGlobalVariableTotalSize());
 }
 
 KernelJITProperties* ProgramBuilder::CreateKernelJITProperties( unsigned int vectorSize) const
@@ -172,7 +181,6 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
                                                          Function *func,
                                                          const ProgramBuildResult& buildResult) const
 {
-
     // Set optimal WG size
     unsigned int optWGSize = 128; // TODO: to be checked
 
@@ -288,7 +296,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
       assert(FuncInfo && "Couldn't find this kernel in the kernel list");
       if(NULL == FuncInfo)
         throw Exceptions::CompilerException("Internal Error. FuncInfo is NULL");
-      
+
       MDNode *MDVecTHint = NULL;
       //look for vec_type_hint metadata
       for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {

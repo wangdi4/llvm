@@ -1,4 +1,5 @@
 #include "ImageCallbackServices.h"
+#include "ImageCallbackManager.h"
 #include "cl_types.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -217,7 +218,7 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
     }
 
     pImageObject->imageAuxData = (image_aux_data*)auxObject;
-    image_aux_data* pImageAuxData = (image_aux_data*)pImageObject->imageAuxData;  //using this pointer for the clarity of the code 
+    image_aux_data* pImageAuxData = (image_aux_data*)pImageObject->imageAuxData;  //using this pointer for the clarity of the code
     pImageAuxData->pData = pImageObject->pData;
     pImageAuxData->dim_count = pImageObject->dim_count;
     pImageAuxData->format = pImageObject->format;
@@ -271,7 +272,7 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
         pImageAuxData->offset[2] = pImageAuxData->pitch[1];
 
     pImageAuxData->dimmask = (1<<(pImageAuxData->dim_count*4))-1;
-    
+
     ImageCallbackFunctions* pImageCallbackFuncs = ImageCallbackManager::GetInstance()->getCallbackFunctions(m_CpuId);
 
     for(unsigned int i = 0; i<ARRAY_SIZE(pImageAuxData->read_img_callback_int); i++)
@@ -306,11 +307,11 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
         pImageAuxData->coord_translate_f_callback[NONE_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk( FLT_CBK, NONE_TRUE_NEAREST);//pImageCallbackFuncs->GetFNoneTrueNearest();
         pImageAuxData->coord_translate_f_callback[CLAMP_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk( FLT_CBK, NONE_TRUE_NEAREST);//pImageCallbackFuncs->GetFNoneTrueNearest();
         pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk( FLT_CBK, CLAMPTOEDGE_TRUE_NEAREST);//pImageCallbackFuncs->GetFClampToEdgeTrueNearest();
-        pImageAuxData->coord_translate_f_callback[REPEAT_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk( FLT_CBK, REPEAT_TRUE_NEAREST);//pImageCallbackFuncs->GetFRepeatTrueNearest();   
-        pImageAuxData->coord_translate_f_callback[MIRRORED_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk( FLT_CBK, MIRRORED_TRUE_NEAREST);//pImageCallbackFuncs->GetFMirroredTrueNearest();  
+        pImageAuxData->coord_translate_f_callback[REPEAT_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk( FLT_CBK, REPEAT_TRUE_NEAREST);//pImageCallbackFuncs->GetFRepeatTrueNearest();
+        pImageAuxData->coord_translate_f_callback[MIRRORED_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk( FLT_CBK, MIRRORED_TRUE_NEAREST);//pImageCallbackFuncs->GetFMirroredTrueNearest();
     }
 
-    static const unsigned int nearestSamplers[] = 
+    static const unsigned int nearestSamplers[] =
     {
         NONE_FALSE_NEAREST,
         CLAMP_FALSE_NEAREST,
@@ -324,7 +325,7 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
         MIRRORED_TRUE_NEAREST
     };
 
-    static const unsigned int linearSamplers[] = 
+    static const unsigned int linearSamplers[] =
     {
         NONE_FALSE_LINEAR,
         CLAMP_FALSE_LINEAR,
@@ -354,8 +355,8 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
         pImageAuxData->coord_translate_f_callback[NONE_TRUE_LINEAR] = pImageCallbackFuncs->GetTranslationCbk( FLT_CBK, NONE_TRUE_LINEAR);//pImageCallbackFuncs->GetFNoneTrueNearest();
         pImageAuxData->coord_translate_f_callback[CLAMP_TRUE_LINEAR] = pImageCallbackFuncs->GetTranslationCbk( FLT_CBK, NONE_TRUE_LINEAR);//pImageCallbackFuncs->GetFNoneTrueNearest();
         pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_TRUE_LINEAR] = pImageCallbackFuncs->GetTranslationCbk( FLT_CBK, CLAMPTOEDGE_TRUE_LINEAR);//pImageCallbackFuncs->GetFClampToEdgeTrueNearest();
-        pImageAuxData->coord_translate_f_callback[REPEAT_TRUE_LINEAR] = pImageCallbackFuncs->GetTranslationCbk( FLT_CBK, REPEAT_TRUE_LINEAR);//pImageCallbackFuncs->GetFRepeatTrueNearest();   
-        pImageAuxData->coord_translate_f_callback[MIRRORED_TRUE_LINEAR] = pImageCallbackFuncs->GetTranslationCbk( FLT_CBK, MIRRORED_TRUE_LINEAR);//pImageCallbackFuncs->GetFMirroredTrueNearest();  
+        pImageAuxData->coord_translate_f_callback[REPEAT_TRUE_LINEAR] = pImageCallbackFuncs->GetTranslationCbk( FLT_CBK, REPEAT_TRUE_LINEAR);//pImageCallbackFuncs->GetFRepeatTrueNearest();
+        pImageAuxData->coord_translate_f_callback[MIRRORED_TRUE_LINEAR] = pImageCallbackFuncs->GetTranslationCbk( FLT_CBK, MIRRORED_TRUE_LINEAR);//pImageCallbackFuncs->GetFMirroredTrueNearest();
     }
 
     /////////////////////////////Read & write image callbacks
@@ -425,7 +426,7 @@ cl_dev_err_code ImageCallbackService::DeleteImageObject(cl_mem_obj_descriptor* p
 {
   //this function does nothing meaningful in the meantime, because the allocation is done on the device...
   *auxObject=pImageObject->imageAuxData;
-  
+
   return CL_DEV_SUCCESS;
 }
 

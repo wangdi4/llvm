@@ -28,7 +28,6 @@ File Name:  Compiler.cpp
 #include "BuiltinModule.h"
 #include "exceptions.h"
 #include "BuiltinModuleManager.h"
-#include "plugin_manager.h"
 #include "CompilationUtils.h"
 
 #include "llvm/Support/Casting.h"

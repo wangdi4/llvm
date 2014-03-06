@@ -26,8 +26,6 @@
 
 #include <cl_sys_defines.h>
 
-using Intel::OpenCL::TaskExecutor::ITaskGroup;
-
 namespace Intel { namespace OpenCL { namespace DeviceCommands {
 
 /**
@@ -53,7 +51,7 @@ public:
     /**
      * @return ITaskGroup of the KernelCommand's parent (used to let the parent wait for its children)
      */
-    SharedPtr<ITaskGroup> GetParentTaskGroup()
+    SharedPtr<Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup> GetParentTaskGroup()
     {
       if (m_parent != NULL)
       {
@@ -129,11 +127,6 @@ protected:
     void WaitForChildrenCompletion();
 
     /**
-     * Is any waiting child exist (not thread safe)
-     */
-    bool IsWaitingChildExist() { return (NULL!=m_waitingChildrenForKernelGlobal); }
-
-    /**
      * Signal that the current work group has finished its execution
      */
     void SubmitCommands(CommandSubmitionLists* pNewCommands);
@@ -145,7 +138,7 @@ protected:
 
     AtomicCounter                  m_numUserDependecies;
     SharedPtr<KernelCommand>       m_parent;
-    SharedPtr<ITaskGroup>          m_childrenTaskGroup;
+    SharedPtr<Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup> m_childrenTaskGroup;
     Intel::OpenCL::Utils::AtomicPointer<CommandToExecuteList_t> m_waitingChildrenForKernelGlobal;
 };
 

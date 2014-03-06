@@ -36,5 +36,7 @@ public:
     std::string& getPlatformLibName(cl_uint index);
     ~CrtConfig();
 private:
+	bool emulatorEnabled();
+
     std::vector<std::string>    m_libraryNames;
 };
