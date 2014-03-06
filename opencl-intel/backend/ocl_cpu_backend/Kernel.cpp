@@ -536,12 +536,20 @@ cl_dev_err_code Kernel::RestoreThreadState(ICLDevExecutionState &state) const {
   return CL_DEV_SUCCESS;
 }
 
+KernelSet::KernelSet() : m_kernels(NULL), m_blockKernelsCount(0)
+{}
+
 KernelSet::~KernelSet() {
   for (std::vector<Kernel *>::const_iterator i = m_kernels.begin(),
                                              e = m_kernels.end();
        i != e; ++i) {
     delete *i;
   }
+}
+
+void KernelSet::AddKernel(Kernel *pKernel) {
+  m_kernels.push_back(pKernel);
+  m_blockKernelsCount += pKernel->GetKernelProporties()->IsBlock() ? 1 : 0;
 }
 
 Kernel *KernelSet::GetKernel(int index) const {

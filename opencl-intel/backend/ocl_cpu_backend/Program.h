@@ -86,13 +86,26 @@ public:
         const ICLDevBackendKernel_** ppKernel) const;
 
     /**
+     * OpenCL 2.0 introduced a feature called Extended Execution. Programs may have so called
+     * block kernels which can be enqueued for execution w\o host interaction from inside
+     * running kernels.
+     * This method returns how many non-block kernels in the program. I.e. the kernels
+     * enqueud for execution by a host.
+     *
+     * @returns
+     *  if the program already build:
+     *      the number of the non-block kernels in the program will be returned
+     */
+    virtual int GetNonBlockKernelsCount() const;
+
+    /**
      * Gets how many kernels in the program
      *
      * @returns
      *  if the program already build:
      *      the number of the kernels in the program will be returned
      *  else
-     *      -1 will be returned
+     *      0 will be returned
      */
     virtual int GetKernelsCount() const;
 

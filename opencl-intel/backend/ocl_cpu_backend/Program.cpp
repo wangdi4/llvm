@@ -88,6 +88,16 @@ int Program::GetKernelsCount() const
     return m_kernels->GetCount();
 }
 
+int Program::GetNonBlockKernelsCount() const
+{
+    if(!m_kernels.get())
+    {
+        return 0;
+    }
+
+    return m_kernels->GetCount() - m_kernels->GetBlockCount();
+}
+
 cl_dev_err_code Program::GetKernel(int kernelIndex,
                                    const ICLDevBackendKernel_** OUT ppKernel) const
 {

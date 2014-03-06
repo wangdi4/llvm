@@ -682,7 +682,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
 
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "BuildProgram enter");
 
-    TProgramEntry* pEntry = (TProgramEntry*)prog;
+    TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
 
     if (NULL == pEntry)
     {
@@ -785,7 +785,7 @@ cl_dev_err_code ProgramService::ReleaseProgram( cl_dev_program IN prog )
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "ReleaseProgram enter");
 
-    TProgramEntry* pEntry = (TProgramEntry*)prog;
+    TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
 
     if (NULL == pEntry)
     {
@@ -844,7 +844,7 @@ cl_dev_err_code ProgramService::GetProgramBinary( cl_dev_program IN prog,
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "GetProgramBinary enter");
 
-    TProgramEntry* entry = (TProgramEntry*)prog;
+    TProgramEntry* entry = reinterpret_cast<TProgramEntry*>(prog);
 
     if( NULL == entry )
     {
@@ -888,7 +888,7 @@ cl_dev_err_code ProgramService::GetBuildLog( cl_dev_program IN prog,
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "GetBuildLog enter");
 
-    TProgramEntry* entry = (TProgramEntry*)prog;
+    TProgramEntry* entry = reinterpret_cast<TProgramEntry*>(prog);
 
     if( NULL == entry )
     {
@@ -979,7 +979,7 @@ cl_dev_err_code ProgramService::GetKernelId( cl_dev_program IN prog, const char*
         return CL_DEV_INVALID_VALUE;
     }
 
-    TProgramEntry* pEntry = (TProgramEntry*)prog;
+    TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
 
     if( NULL == pEntry )
     {
@@ -1008,9 +1008,11 @@ cl_dev_err_code ProgramService::GetKernelId( cl_dev_program IN prog, const char*
 cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
                          cl_uint* OUT numKernelsRet )
 {
+    // FIXME: [OpenCL 2.0] Take into accound the block kernels. See the CPU implementation
+    //        of GetProgramKernels
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "GetProgramKernels enter");
 
-    TProgramEntry* pEntry = (TProgramEntry*)prog;
+    TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
 
     if( NULL == pEntry )
     {
@@ -1023,7 +1025,7 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
         return CL_DEV_INVALID_PROGRAM;
     }
 
-    size_t          uiNumProgKernels = pEntry->mapName2Kernels.size();
+    size_t const uiNumProgKernels = pEntry->mapName2Kernels.size();
 
     // Check input parameters
     if ( (0==num_kernels) && (NULL==kernels) )
@@ -1185,7 +1187,7 @@ cl_dev_err_code ProgramService::GetGlobalVariableTotalSize( cl_dev_program IN pr
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetGlobalVariableTotalSize enter"));
 
     // Return error if program was not built yet.
-    TProgramEntry* pEntry = (TProgramEntry*)prog;
+    TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
     if( NULL == pEntry )
     {
         MicInfoLog(m_pLogDescriptor, m_iLogHandle, "Requested program not found (%0X)", (size_t)prog);
