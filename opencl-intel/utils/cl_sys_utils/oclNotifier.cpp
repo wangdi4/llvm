@@ -224,6 +224,20 @@ void NotifierCollection::ImageEnqueue(cl_command_queue queue,
 {
 	NOTIFY(ImageEnqueue, queue, event, memobj, cookie);
 }
+//void NotifierCollection::PipeCreate(
+//    cl_mem pipe,
+//    cl_context context,
+//    cl_mem_flags memFlags,
+//    cl_uint packetSize,
+//    cl_uint maxPackets,
+//    const cl_pipe_properties *props,
+//    unsigned int traceCookie)
+//{
+//    CHECK_FOR_NULL(pipe);
+//    NOTIFY(PipeCreate, pipe, context, memFlags,
+//        packetSize, maxPackets, props, traceCookie);
+//}
+
 void NotifierCollection::MemObjectFree( cl_mem memobj )
 {
 	CHECK_FOR_NULL(memobj);
@@ -319,6 +333,35 @@ void NotifierCollection::commandQueueProfiling( cl_command_queue_properties &pro
 	IF_EMPTY_RETURN; //we don't want to change anything if we don't have notifiers...
 	//CHECK_FOR_NULL(properties); this is not a pointer, no need.
 	properties |= CL_QUEUE_PROFILING_ENABLE;
+}
+vector<cl_queue_properties> NotifierCollection::commandQueueProfiling(const cl_queue_properties* properties)
+{
+    vector<cl_queue_properties> propsWithProfiling;
+    const cl_queue_properties* pCurProperty = NULL;
+    cl_command_queue_properties cmdQueuePropValue = 0;
+
+    bool addedProfilingProp = false;
+    for (pCurProperty = properties; pCurProperty; pCurProperty+= 2)
+    {
+        if (CL_QUEUE_PROPERTIES == *pCurProperty) {
+            cmdQueuePropValue = *(pCurProperty + 1);
+            commandQueueProfiling(cmdQueuePropValue);
+            addQueueProperty(propsWithProfiling,
+                CL_QUEUE_PROPERTIES, cmdQueuePropValue);
+            addedProfilingProp = true;
+        } else {
+            addQueueProperty(propsWithProfiling,
+                *pCurProperty, *(pCurProperty + 1));
+        }
+    }
+
+    if (!addedProfilingProp) {
+        addQueueProperty(propsWithProfiling,
+            CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE);
+    }
+
+    propsWithProfiling.push_back(0);
+    return propsWithProfiling;
 }
 CommandData* NotifierCollection::commandEventProfiling( cl_event **pEvent )
 {
@@ -453,4 +496,11 @@ vector<cl_device_id> NotifierCollection::getProgramDevices(cl_program program)
 
     return vec;
 }
-
+inline void NotifierCollection::addQueueProperty(
+    vector<cl_queue_properties>& queueProps,
+    cl_queue_properties key,
+    cl_queue_properties value)
+{
+    queueProps.push_back(key);
+    queueProps.push_back(value);
+}
