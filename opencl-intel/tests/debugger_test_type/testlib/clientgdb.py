@@ -343,7 +343,7 @@ class ClientGDB(TestClient):
         for output in [self._command("info args"), self._command("info locals")]:
             # Remove the first line (which is the 'info locals' command echoed back)
             # and the last line (which is the '(gdb)' prompt)
-            ret.extend([line for line in output.split("\r\n")[1:-1]])
+            ret.extend([line for line in output.split("\r\n")[1:-1] if not re.match('^[ }]', line)])
         return ret
 
     def var_query_type(self, varname, stackframe=None):
@@ -544,6 +544,7 @@ class ClientGDB(TestClient):
                 cmps[idx] = s.group(1)
 
         ret = ",".join(cmps)
+        ret = ret.replace(' ', '')
         logd("result of print command: " + ret)
         return ret
 

@@ -37,7 +37,7 @@ class TestComplexDataStructures(DebuggerTestCase):
         # will print arrays and vectors and user-defined types slightly differently.
         if self.use_gdb:
             self.assertEqual(self.client.var_query_value('ulongArr'), '{0,1,2,3,4,5,6,7},{8,9,10,11,12,13,14,15}')
-            self.assertEqual(self.client.var_query_value('complexArr'), '{r = 0,i = 0},{r = 1,i = -1}')
+            self.assertEqual(self.client.var_query_value('complexArr'), '{r=0,i=0},{r=1,i=-1}')
             self.assertEqual(self.client.var_query_value('dim4Arr'),'{{1,2,3,4},{5,6,7,8},{9,10,11,12}},{{21,22,23,24},{25,26,27,28},{29,30,31,32}}')
 
         else:

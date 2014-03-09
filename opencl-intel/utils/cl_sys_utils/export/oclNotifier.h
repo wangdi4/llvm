@@ -26,7 +26,30 @@ typedef struct OclParameters {
 } OclParameters;
 
 
-#define ADD_PARAMETER(params, par) params.parameters.push_back(make_pair(#par, stringify(par)))
+#define ADD_PARAMETER(params, par) addParameter(params, #par, par);
+inline std::string stripLeadingZeros(std::string &s)
+{
+    if (s.length() == 0) {
+        return s;
+    }
+	size_t i;
+	for (i = 0 ; (i < s.length()) && (s[i] == '0') ; i++)
+    {
+    }
+	if (i == s.length()) {
+		return "0";
+	}
+	return s.substr(i);
+}
+template<typename T> inline void addParameter(OclParameters& params, string paramName, const T& x)
+{
+    params.parameters.push_back(make_pair(paramName, stripLeadingZeros(stringify(x))));
+}
+inline void addParameter(OclParameters& params, string paramName, const char* c)
+{
+    params.parameters.push_back(make_pair(paramName, stringify(c)));
+}
+
 // an abstract class that one can implement and register in order to get callbacks 
 class oclNotifier
 {
@@ -76,7 +99,14 @@ public:
 	virtual void ImageEnqueue(cl_command_queue,			// clEnqueue<CopyImage/WriteImage/CopyBufferToImage/FillImage>
 							  cl_event*, cl_mem,
 							  unsigned int traceCookie)=0;
-	//virtual void ImageChangedCallBack(cl_event, cl_int, ImageInfo*)=0;
+	//virtual void PipeCreate(cl_mem pipe,
+ //                           cl_context context,
+ //                           cl_mem_flags memFlags,
+ //                           cl_uint packetSize,
+ //                           cl_uint maxPackets,
+ //                           const cl_pipe_properties *props,
+ //                           unsigned int traceCookie)=0;
+    //virtual void ImageChangedCallBack(cl_event, cl_int, ImageInfo*)=0;
 	virtual void MemObjectFree (cl_mem /* memobj */)=0;
 	virtual void MemObjectReleased (cl_mem)=0;	// called when kernel no longer exists in Profiler & RT
 
@@ -183,6 +213,13 @@ public:
 	virtual void ImageEnqueue(cl_command_queue,			// clEnqueue<CopyImage/WriteImage/CopyBufferToImage/FillImage>
 							  cl_event*, cl_mem,
                               unsigned int traceCookie);
+	//virtual void PipeCreate(cl_mem pipe,
+ //                           cl_context context,
+ //                           cl_mem_flags memFlags,
+ //                           cl_uint packetSize,
+ //                           cl_uint maxPackets,
+ //                           const cl_pipe_properties *props,
+ //                           unsigned int traceCookie);
 	virtual void MemObjectFree (cl_mem /* memobj */);
 	virtual void MemObjectReleased (cl_mem);	// called when kernel no longer exists in Profiler & RT
 
@@ -218,6 +255,7 @@ public:
 
 	/* functions that make profiling ready to work */
 	void commandQueueProfiling(cl_command_queue_properties &properties);
+    vector<cl_queue_properties> commandQueueProfiling(const cl_queue_properties* properties);
 	CommandData* commandEventProfiling(cl_event **pEvent);
 
 	void createCommandEvents(cl_event *event, CommandData *data);
@@ -233,6 +271,10 @@ private:
 	NotifierCollection() {}
     NotifierCollection(const NotifierCollection&);
     NotifierCollection& operator=(const NotifierCollection&);
+
+    inline void addQueueProperty(vector<cl_queue_properties>& queueProps,
+                                cl_queue_properties key,
+                                cl_queue_properties value);
 
 	set<oclNotifier*> notifiers; //the container that keeps all the notifiers
 	Intel::OpenCL::Utils::AtomicCounter commandsIDs; //gives unique ids to commands
