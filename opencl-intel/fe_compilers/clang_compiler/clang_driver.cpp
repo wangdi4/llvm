@@ -263,7 +263,7 @@ ClangFECompilerCompileTask::ClangFECompilerCompileTask(Intel::OpenCL::FECompiler
 
 ClangFECompilerCompileTask::~ClangFECompilerCompileTask()
 {
-    delete m_pOutIR;
+    delete [] m_pOutIR;
 }
 
 void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListType &BEArgList, const char *buildOpts)
@@ -1004,7 +1004,7 @@ ClangFECompilerLinkTask::ClangFECompilerLinkTask(Intel::OpenCL::FECompilerAPI::F
 
 ClangFECompilerLinkTask::~ClangFECompilerLinkTask()
 {
-  delete m_pOutIR;
+  delete [] m_pOutIR;
 }
 
 #ifdef USE_COMMON_CLANG
