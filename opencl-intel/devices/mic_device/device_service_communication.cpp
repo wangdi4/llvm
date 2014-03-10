@@ -84,7 +84,7 @@ const char* const DeviceServiceCommunication::m_device_function_names[DeviceServ
 
 
 DeviceServiceCommunication::DeviceServiceCommunication(unsigned int uiMicId) 
-    : m_uiMicId(uiMicId), m_process(NULL), m_pipe(NULL), m_uiNumActiveThreads(0)
+    : m_uiMicId(uiMicId), m_process(NULL), m_pipe(NULL), m_uiNumActiveThreads(0), m_initCompleted(false)
 {
     memset(m_device_functions, 0, sizeof(m_device_functions));
 }
@@ -120,7 +120,7 @@ void DeviceServiceCommunication::freeDevice(bool releaseCoiObjects)
 {
     COIRESULT result = COI_ERROR;
 
-    WaitForCompletion();
+    waitForInitialization();
 
     if (releaseCoiObjects)
     {
@@ -194,13 +194,13 @@ void DeviceServiceCommunication::freeDevice(bool releaseCoiObjects)
 
 COIPROCESS DeviceServiceCommunication::getDeviceProcessHandle() 
 {
-    WaitForCompletion();
+    waitForInitialization();
     return m_process;
 }
 
 COIFUNCTION DeviceServiceCommunication::getDeviceFunction( DEVICE_SIDE_FUNCTION id ) 
 {
-    WaitForCompletion();
+    waitForInitialization();
     if ( id >= LAST_DEVICE_SIDE_FUNCTION )
     {
         assert( false && "Too large Device Entry point Function ID" );
@@ -246,7 +246,7 @@ bool DeviceServiceCommunication::runServiceFunction(
         bufferAccessFlags = NULL;
     }
 
-    WaitForCompletion();
+    waitForInitialization();
 
     COIPIPELINE pipe = (NULL != use_pipeline) ? use_pipeline : m_pipe;
 
@@ -616,6 +616,8 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
             m_process = NULL;
         }
     }
+    
+    m_initCompleted = true;
 
     return 0;
 }

@@ -101,6 +101,15 @@ private:
     /* Entry point for the initializer thread. */
     static void* initEntryPoint(void* arg);
     
+    void waitForInitialization()
+    {
+        if (true == m_initCompleted)
+        {
+            return;
+        }
+        WaitForCompletion();
+    }
+    
     /* Set in additionalEnvVars all the VTune env variables (Those starts with __OCL_MIC_INTEL_) as name=value. */
     void getVTuneEnvVars(vector<char*>& additionalEnvVars);
 
@@ -110,6 +119,8 @@ private:
     COIPIPELINE     m_pipe;
 
     unsigned int m_uiNumActiveThreads;
+    
+    volatile bool m_initCompleted;
 
     static const char* const m_device_function_names[DEVICE_SIDE_FUNCTION_COUNT];
     COIFUNCTION m_device_functions[DEVICE_SIDE_FUNCTION_COUNT];
