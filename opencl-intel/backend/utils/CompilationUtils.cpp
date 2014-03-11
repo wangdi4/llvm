@@ -454,8 +454,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                 case CL_KRNL_ARG_PTR_PIPE_T:
                   // FIXME: uncomment the following two lines once CSSD100018969 is resovled.
                   //curArg.access = (kmd->getArgAccessQualifierItem(i) == READ_ONLY) ?
-                  //                CL_KERNEL_ARG_ACCESS_READ_ONLY : CL_KERNEL_ARG_ACCESS_WRITE_ONLY;
-                  // fall through
+                  //                CL_KERNEL_ARG_ACCESS_READ_ONLY : CL_KERNEL_ARG_ACCESS_WRITE_ONLY;                  
+                  isMemoryObject = true;
+                  break;
                 case CL_KRNL_ARG_PTR_QUEUE_T:
                   isMemoryObject = false;
                   break;
