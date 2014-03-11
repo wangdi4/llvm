@@ -87,6 +87,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code         SetCommandQueueProperty ( cl_command_queue clCommandQueue, cl_command_queue_properties clProperties, cl_bool bEnable, cl_command_queue_properties* pclOldProperties);
         cl_err_code         Flush                   ( cl_command_queue clCommandQueue);
         cl_err_code         Finish                  ( cl_command_queue clCommandQueue);
+        SharedPtr<OclCommandQueue> GetCommandQueue(cl_command_queue clCommandQueue);
 
         // Out Of Order Execution synch commands
         // ---------------------
@@ -165,8 +166,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		ocl_gpa_data *      GetGPAData() const { return m_pGPAData; }
     private:
-	    // Private functions
-        SharedPtr<OclCommandQueue>    GetCommandQueue(cl_command_queue clCommandQueue);
+	    // Private functions        
 
 		bool				IsValidQueueHandle(cl_command_queue clCommandQueue);
 

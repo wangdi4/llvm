@@ -457,7 +457,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                   //                CL_KERNEL_ARG_ACCESS_READ_ONLY : CL_KERNEL_ARG_ACCESS_WRITE_ONLY;
                   // fall through
                 case CL_KRNL_ARG_PTR_QUEUE_T:
-                  isMemoryObject = true;
+                  isMemoryObject = false;
                   break;
 
                 default:

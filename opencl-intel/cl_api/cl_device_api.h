@@ -1033,6 +1033,11 @@ public:
                                            cl_dev_cmd_list* OUT list
                                            ) = 0;
 
+    /*! \param[in] list a valid handle to a device command list
+        \retval the address of the device command list
+    */
+    virtual void* clDevGetCommandListPtr(cl_dev_cmd_list IN list) { return NULL; }
+
     //!     This function flushes the content of a list, all waiting commands are sent to execution.
     /*!
         \param[in]    list        A valid (non zero) handle to device command list.
