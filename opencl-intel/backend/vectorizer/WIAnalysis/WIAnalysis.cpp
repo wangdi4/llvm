@@ -795,7 +795,12 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const GetElementPtrInst* inst
   const Value* lastInd = inst->getOperand(num);
   WIAnalysis::WIDependancy lastIndDep = getDependency(lastInd);
 
-  if (opPtr->getType() != inst->getType())
+  // SOA Alloca related pointer will be turned into SOA format.
+  // Thus, it is allowed to assume: PTR + UNI = PTR
+  const bool  isIndirectGep = opPtr->getType() != inst->getType() &&
+    !m_soaAllocaAnalysis->isSoaAllocaScalarRelated(opPtr);
+
+  if (isIndirectGep)
     return gep_conversion_for_indirection[depPtr][lastIndDep];
   else
     return gep_conversion[depPtr][lastIndDep];
