@@ -34,6 +34,7 @@
 #include "svm_buffer.h"
 #include "Context.h"
 #include "context_module.h"
+#include "framework_proxy.h"
 
 #include <cl_sys_defines.h>
 #include <cl_objects_map.h>
@@ -888,6 +889,24 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
         }
         cl_uint  value       = pSampler->GetValue();
         clArg.SetValue(clArg.GetSize(), &value);
+    }
+    else if (clArg.IsQueueId())
+    {
+        if (sizeof(cl_command_queue) != szSize)
+        {
+            return CL_INVALID_ARG_SIZE;
+        }
+
+        const cl_command_queue queueId = *(cl_command_queue*)pValue;
+        ExecutionModule& pExecutionModule = *FrameworkProxy::Instance()->GetExecutionModule();
+        const SharedPtr<OclCommandQueue> pQueue = pExecutionModule.GetCommandQueue(queueId);
+        if (NULL == pQueue)
+        {
+            return CL_INVALID_QUEUE;
+        }
+
+        void* const pCmdListPtr = pQueue->GetDeviceCommandListPtr();
+        clArg.SetValue(clArg.GetSize(), &pCmdListPtr);
     }
     else
     {    // other type = check size

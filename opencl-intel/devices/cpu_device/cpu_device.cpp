@@ -1332,6 +1332,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             int revision = 0;
             int build = 0;
             std::stringstream driverVerStream;
+            driverVerStream.imbue(std::locale("C"));   // override the current locale, so we don't get things like commas inside the numbers
             if (GetModuleProductVersion(__FUNCTION__, &major, &minor, &revision, &build))
             {
                 // format is (Major version).(Minor version).(Revision number).(Build number)
@@ -1908,6 +1909,13 @@ cl_dev_err_code CPUDevice::clDevReleaseSubdevice(  cl_dev_subdevice_id IN subdev
         delete pSubdeviceData;
     }
     return CL_DEV_SUCCESS;
+}
+
+void* CPUDevice::clDevGetCommandListPtr(cl_dev_cmd_list IN list)
+{
+    assert(NULL != list);
+    cl_dev_internal_cmd_list& internalList = *reinterpret_cast<cl_dev_internal_cmd_list*>(list);
+    return internalList.pCmd_list.GetPtr();
 }
 
 // Execution commands
