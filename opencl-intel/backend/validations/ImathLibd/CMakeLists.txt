@@ -58,15 +58,17 @@ if (WIN32)
 
 else (WIN32)
      # search for the icc cpu compiler
+    set( ICC_DIR "/opt/intel/composerxe/bin")
+
     set (ICC_CPU_CL icpc)
     set (ICC_CPU_LD icpc)
 
-    find_program (ICC_CPU_COMPILER_PROGRAM ${ICC_CPU_CL} NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH NO_CMAKE_SYSTEM_PATH NO_CMAKE_FIND_ROOT_PATH)
+    find_program (ICC_CPU_COMPILER_PROGRAM ${ICC_CPU_CL} ${ICC_DIR})
     if (${ICC_CPU_COMPILER_PROGRAM} STREQUAL "ICC_CPU_COMPILER_PROGRAM-NOTFOUND")
         message (FATAL_ERROR "ICC(CPU) ${ICC_CPU_COMPILER_PROGRAM} is not installed in the system")
     endif()
 
-    # search for the compilervars script (intel compiler 12)
+    # search for the compilervars script (intel compiler 12 or 13)
     set (ICC_COMPILER_VARS compilervars.sh)
     string(REPLACE "${ICC_PLATFORM}/${ICC_CPU_CL}" ${ICC_COMPILER_VARS} ICC_CPU_ENV_SCRIPT "${ICC_CPU_COMPILER_PROGRAM}")
     string(REPLACE "${ICC_CPU_CL}" ${ICC_COMPILER_VARS} ICC_CPU_ENV_SCRIPT "${ICC_CPU_ENV_SCRIPT}")
