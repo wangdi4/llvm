@@ -6,6 +6,7 @@ include_directories(BEFORE "PostDominanceFrontier")
 include_directories(BEFORE "SoaAllocaAnalysis")
 include_directories(BEFORE "Utils")
 include_directories(BEFORE "WIAnalysis")
+include_directories(BEFORE "Predication")
 include_directories(BEFORE "OCLBranchProbability")
 
 include_directories(

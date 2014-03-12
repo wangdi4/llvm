@@ -263,6 +263,14 @@ bool Mangler::isMangeledGatherPrefetch(const std::string& name) {
   return name.find(prefix_gather_prefetch) != std::string::npos;
 }
 
+bool Mangler::isAllZero(const std::string& name) {
+  return name.find(Mangler::name_allZero) == 0;
+}
+
+bool Mangler::isAllOne(const std::string& name) {
+  return name.find(Mangler::name_allOne) == 0;
+}
+
 bool Mangler::isMangledPrefetch(const std::string& name) {
   std::string mangledName = name;
   // First remove masked function prefix.

@@ -31,6 +31,48 @@ Instruction *PacketizeFunction::findInsertPoint(Value * val)
   return --iter;
 }
 
+bool PacketizeFunction::isInsertNeededToObtainVectorizedValue(Value * origValue) {
+  V_ASSERT((
+    origValue->getType()->isIntegerTy() ||
+    origValue->getType()->isFloatingPointTy())
+    && "Trying to get a packetized value of non-primitive type!");
+  if (!isa<Instruction>(origValue))
+    return false;
+  if (!m_VCM.count(origValue))
+    return false;
+  // Entry is found in VCM
+  VCMEntry * foundEntry = m_VCM[origValue];
+  if (foundEntry->vectorValue != NULL)
+  {
+    // Vectored value is found (pre-prepared)
+    return false;
+  }
+  // Vectored value does not exist, need to create it
+  if (foundEntry->isScalarRemoved == false)
+  {
+    V_ASSERT(!origValue->getType()->isVectorTy() && "Original value is expected to be scalar");
+    // Original value is kept, so just need to broadcast it
+    //  %temp   = insertelement <4 x Type> undef  , Type %value, i32 0
+    //  %vector = shufflevector <4 x Type> %temp, <4 x Type> %undef, <4 x i32> <0,0,0,0>
+
+    // it's better to broadcast a single value than to scalarize the operation,
+    // so here we return false.
+    return false;
+  }
+
+  // Cannot use original value. Must assemble the multi-scalars
+  //   %temp.vect.0 = insertelement <4 x type> undef       , type %scalar.0, i32 0
+  //   %temp.vect.1 = insertelement <4 x type> %indx.vect.0, type %scalar.1, i32 1
+  //   %temp.vect.2 = insertelement <4 x type> %indx.vect.1, type %scalar.2, i32 2
+  //   %temp.vect.3 = insertelement <4 x type> %indx.vect.2, type %scalar.3, i32 3
+  V_ASSERT(NULL != foundEntry->multiScalarValues[0] && "expected to find multi-scalar");
+
+  // If we are going to use many insert elemenets to create this vector,
+  // then if the vector is a PHI-Node, perhaps it is better
+  // to duplicate the PHI-Node instead, so we return true.
+  return true;
+}
+
 void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValue,
                                               Instruction * origInst)
 {
@@ -83,6 +125,7 @@ void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValu
             Value *constIndex = ConstantInt::get(Type::getInt32Ty(context()), index);
             Instruction *newInst = InsertElementInst::Create(prevResult,
               foundEntry->multiScalarValues[index] , constIndex, "temp.vect");
+
             V_ASSERT(newInst && "inst creation failure");
             VectorizerUtils::SetDebugLocBy(newInst, origInst);
             newInst->insertAfter(findInsertPoint(insertPoint));
@@ -183,6 +226,7 @@ void PacketizeFunction::obtainMultiScalarValues(Value *retValues[],
             Value * constIndex = ConstantInt::get(Type::getInt32Ty(context()), index);
             Instruction *newEE =
               ExtractElementInst::Create(foundEntry->vectorValue, constIndex, "extract");
+
             VectorizerUtils::SetDebugLocBy(newEE, origInst);
             retValues[index] = newEE;
             foundEntry->multiScalarValues[index] = newEE;

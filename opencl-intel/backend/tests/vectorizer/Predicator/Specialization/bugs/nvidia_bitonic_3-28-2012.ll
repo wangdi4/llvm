@@ -12,10 +12,10 @@ target triple = "i686-pc-win32"
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
 ; CHECK: header{{[0-9]*}}:
 ; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
-; CHECK: footer{{[0-9]*}}:                                 ; preds = %header{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:
 ; CHECK: header{{[0-9]*}}:
 ; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
-; CHECK: footer{{[0-9]*}}:                                 ; preds = %header{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:
 ; CHECK: ret
 
 

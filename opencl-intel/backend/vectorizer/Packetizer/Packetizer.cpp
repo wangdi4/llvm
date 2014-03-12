@@ -5,6 +5,7 @@ Agreement between Intel and Apple dated August 26, 2005; under the Category 2 In
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
 #include "Packetizer.h"
+#include "Predicator.h"
 #include "VectorizerUtils.h"
 #include "FunctionDescriptor.h"
 #include "FakeExtractInsert.h"
@@ -138,6 +139,8 @@ bool PacketizeFunction::runOnFunction(Function &F)
   m_allocaCtr = 0;
   )
 
+  postponePHINodesAfterExtracts();
+
   obtainTranspose();
 
   // Iterate over all the instructions. Always hold the iterator at the instruction
@@ -212,6 +215,126 @@ bool PacketizeFunction::runOnFunction(Function &F)
 
   V_PRINT(packetizer, "\nCompleted vectorizing function: " << m_currFunc->getName() << "\n");
   return true;
+}
+
+void PacketizeFunction::postponePHINodesAfterExtracts() {
+  bool somethingChanged = true;
+  while (somethingChanged) {
+    // if an extractElement uses a phi-node which uses another phi-node,
+    // we might need to iterate several times.
+    somethingChanged = false;
+    for (Function::iterator it = m_currFunc->begin(), e = m_currFunc->end();
+      it != e; ++it) { // each BB
+
+        BasicBlock* BB = it;
+
+        // currently we use the following to ensure we only postpone phi-nodes
+        // which are the results of allones.
+        // this is in order to ensure no heuristics changes for allones,
+        // but perhaps we can do better by avoiding it.
+        Predicator::AllOnesBlockType
+          blockType = Predicator::getAllOnesBlockType(BB);
+        if (!(blockType == Predicator::EXIT ||
+          blockType == Predicator::SINGLE_BLOCK_LOOP_EXIT)) {
+            continue;
+        }
+
+        // duplicate a vector of pointers to the instructions of BB,
+        // to safely iterate over the instructions.
+        // infact, we only need the phi-nodes.
+        std::vector<PHINode*> inBB;
+        for (BasicBlock::iterator bbi=BB->begin(), bbe=BB->end();
+          bbi != bbe; ++ bbi) {
+            PHINode* phi = dyn_cast<PHINode>(bbi);
+            if (!phi) {
+              // no more phi-nodes in this block.
+              break;
+            }
+            inBB.push_back(phi);
+        }
+
+        for (std::vector<PHINode*>::iterator bbi = inBB.begin(),
+          bbe = inBB.end(); bbi != bbe; ++ bbi) { // each instruction
+            PHINode* phi = *bbi;
+
+            /// check extracts:
+            SmallVector<ExtractElementInst *, 16> extracts;
+            Value *vectorValue = phi;
+            bool allUserExtract = false;
+            if (obtainExtracts(vectorValue, extracts, allUserExtract)) {
+              if (!allUserExtract) continue;
+              // need to postpone the phi after the extracts.
+              // (otherwise we might lose a transpose opportunity)
+              bool allIndexesAreConsts = true;
+              for (unsigned int i = 0; i < extracts.size(); i++) {
+                if (!extracts[i]) {
+                  continue;
+                }
+                Value* Idx = extracts[i]->getIndexOperand();
+                if (isa<Instruction>(Idx)) {
+                  allIndexesAreConsts = false;
+                  break;
+                }
+              }
+              // if not all of the indexes are consts, we shouldn't
+              // move the extracts to be before the phi, because
+              // we might not have the indexes ready yet.
+              if (!allIndexesAreConsts) continue;
+
+
+              somethingChanged = true;
+              // create phi nodes of the extract values to replace
+              // the original phi.
+              SmallVector<PHINode *, 16> newPHIs;
+              for (unsigned int i = 0; i < extracts.size(); i++) {
+                if (!extracts[i]) {
+                  newPHIs.push_back(NULL);
+                  continue;
+                }
+                PHINode* newPhi = PHINode::Create(extracts[i]->getType(),
+                  phi->getNumIncomingValues(),
+                  extracts[i]->getName()+"_phi",
+                  phi);
+                extracts[i]->replaceAllUsesWith(newPhi);
+                newPHIs.push_back(newPhi);
+                VectorizerUtils::SetDebugLocBy(newPhi, phi);
+              }
+
+              for (unsigned int i = 0; i < phi->getNumIncomingValues(); i++) {
+                Value* incoming = phi->getIncomingValue(i);
+                Instruction* instIncoming = dyn_cast<Instruction>(incoming);
+                BasicBlock* incomingBlock = phi->getIncomingBlock(i);
+                Instruction* loc = NULL;
+                if (instIncoming) {
+                  loc = ++BasicBlock::iterator(instIncoming);
+                }
+                else {
+                  loc = incomingBlock->getTerminator();
+                }
+                V_ASSERT(loc && "missing a location for the extracts");
+
+                for (unsigned int j = 0; j < extracts.size(); j++) {
+                  if (!extracts[j]) {
+                    continue;
+                  }
+                  ExtractElementInst* newExtract = ExtractElementInst::Create(incoming, extracts[j]->getIndexOperand(),
+                    "extract", loc);
+                  newPHIs[j]->addIncoming(newExtract, incomingBlock);
+                }
+              }
+
+              // remove old phi and extracts
+              for (unsigned int i = 0; i < extracts.size(); ++i) {
+                if (!extracts[i]) {
+                  continue;
+                }
+                extracts[i]->eraseFromParent();
+              }
+              phi->eraseFromParent();
+            }
+        }
+    }
+  }
 }
 
 bool PacketizeFunction::canTransposeMemory(Value* addr, Value* origVal, bool isLoad, bool isScatterGather, bool isMasked) {
@@ -303,8 +426,28 @@ void PacketizeFunction::obtainTransposeAndStore(Instruction* SI, Value* storeAdd
   bool canObtaindInserts = obtainInsertElts(prevIEI, &inserts[0], n, insertToBeStored, true) ;
 
   // We cannot transpose + store in case we do not have the insert sequence
-  // or if there are some other users except the store instruction
-  if (!canObtaindInserts || (insertToBeStored->getNumUses() != 1)) return;
+  if (!canObtaindInserts) return;
+  // or if there are some other users except the store instruction.
+  // however, we can transpose + store if the other user is a duplicate
+  // store created inside an all-ones bypass.
+  if (insertToBeStored->getNumUses() != 1) {
+    if (insertToBeStored->getNumUses() != 2) {
+      return;
+    }
+    // check if there are two users as result of allones duplication.
+    Value::use_iterator it = insertToBeStored->use_begin();
+    Instruction* user = dyn_cast<Instruction>(*it);
+    if (!user)
+      return;
+    Predicator::AllOnesBlockType blockType =
+      Predicator::getAllOnesBlockType(user->getParent());
+    if (!(blockType == Predicator::ORIGINAL ||
+      blockType == Predicator::ALLONES ||
+      blockType == Predicator::SINGLE_BLOCK_LOOP_ALLONES ||
+      blockType == Predicator::SINGLE_BLOCK_LOOP_ORIGINAL)) {
+        return;
+    }
+  }
 
   inserts.resize(n);
   for (unsigned i = 0; i < inserts.size(); ++i) {
@@ -378,13 +521,25 @@ void PacketizeFunction::dispatchInstructionToPacketize(Instruction *I)
     return generateSequentialIndices(I);
   }
 
-
   if (WIAnalysis::UNIFORM == m_depAnalysis->whichDepend(I))
   {
     // since we are never getting uniform values from other dependencies
     // (even though sub consecutive consecutive = uniform)
     // we can just not packetize all uniform values
-    return useOriginalConstantInstruction(I);
+
+    // that is, unless it is an all-ones call-function, which returns
+    // a uniform value, but still needs to be packetized.
+    bool isAllOneCallFunction = false;
+    CallInst* inst = dyn_cast<CallInst>(I);
+    if (inst && inst->getCalledFunction()) {
+      StringRef funcName = inst->getCalledFunction()->getName();
+      if (Mangler::isAllOne(funcName)) {
+        isAllOneCallFunction = true;
+      }
+    }
+    if (!isAllOneCallFunction) {
+      return useOriginalConstantInstruction(I);
+    }
   }
 
   switch (I->getOpcode())
@@ -1430,6 +1585,22 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
     V_PRINT(vectorizer_stat, "<<<<NoVectorFuncCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(CI->getOpcode()) <<" Failed to convert return value to vectorized function:" <<origFuncName<<"\n");
     V_STAT(m_noVectorFuncCtr++;)
     return duplicateNonPacketizableInst(CI);
+  }
+
+  // if this function call returns a uniform value,
+  // its users will not be handled by the packetizer,
+  // because they are also uniform,
+  // so we need to replace the usage with the usage of the
+  // new instruction.
+  // currently, this is only supposed to happen for
+  // an allones call and the branch that uses it.
+  if (WIAnalysis::UNIFORM == m_depAnalysis->whichDepend(CI)) {
+    V_ASSERT(CI->getNumUses() == 1 && "expected one branch uses the allones");
+    V_ASSERT(m_VCM.count(CI) && "missing packetized allone call");
+    V_ASSERT(m_VCM[CI]->multiScalarValues[0] ==
+      m_VCM[CI]->multiScalarValues[1] && "expected same scalar value for allones call");
+
+    CI->replaceAllUsesWith(m_VCM[CI]->multiScalarValues[0]);
   }
 
   // Remove original instruction
@@ -2550,6 +2721,30 @@ void PacketizeFunction::packetizeInstruction(PHINode *PI)
     V_PRINT(vectorizer_stat, "<<<<NonPrimitiveCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(PI->getOpcode()) <<" instruction's return type is not primitive\n");
     V_STAT(m_nonPrimitiveCtr[PI->getOpcode()]++;)
     return duplicateNonPacketizableInst(PI);
+  }
+
+  // If in order to obtain vectorized value we need
+  // to use multiple scalar and create insertElement instructions
+  // then it is better to duplicate the PHI.
+  // (perhaps the phi-users will create the insertElement instructions
+  // anyway, in which case we gain nothing, but the users
+  // might also be scalars themselves.)
+  bool allIncomingValuesDemandMultipleScalars = true;
+  for (unsigned inputNum = 0; inputNum < numValues; inputNum++)
+  {
+    Value * origVal = PI->getIncomingValue(inputNum);
+    allIncomingValuesDemandMultipleScalars &=
+      isInsertNeededToObtainVectorizedValue(origVal);
+  }
+  if (allIncomingValuesDemandMultipleScalars) {
+    // currently only duplicating the phi in such a case
+    // if it is a phi created out of the all-ones bypasses.
+    Predicator::AllOnesBlockType blockType =
+      Predicator::getAllOnesBlockType(PI->getParent());
+    if (blockType == Predicator::EXIT ||
+      blockType == Predicator::SINGLE_BLOCK_LOOP_EXIT) {
+        return duplicateNonPacketizableInst(PI);
+    }
   }
 
   Type * vectorPHIType = VectorType::get(retType, m_packetWidth);

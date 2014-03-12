@@ -6,6 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #include "WIAnalysis.h"
 #include "Mangler.h"
+#include "Predicator.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 #include "CompilationUtils.h"
@@ -111,7 +112,6 @@ WIAnalysis::WIAnalysis() : FunctionPass(ID), m_rtServices(NULL) {
 
 
 bool WIAnalysis::runOnFunction(Function &F) {
-
   m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
    V_ASSERT(m_rtServices && "Runtime services were not initialized!");
 
@@ -485,7 +485,10 @@ void WIAnalysis::updateCfDependency(const TerminatorInst *inst) {
         BranchInst* br = dyn_cast<BranchInst>(term);
         assert(br && "br cannot be null");
 
-        if (br->isConditional()) {
+        // an allones branch is a uniform branch.
+        bool branchIsAllOnes = (Predicator::getAllOnesBranch(br->getParent()) != NULL);
+
+        if (br->isConditional() && !branchIsAllOnes) {
           updateDepMap(term, WIAnalysis::RANDOM);
           // This region is going to be part of a larger region that is going
           // to be predicated
@@ -774,6 +777,12 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
       break; // Uniformity check failed. no need to continue
     }
   }
+
+  // support all-ones. An allones branch is a uniform branch.
+  if (Mangler::isAllOne(origFuncName)) {
+    return WIAnalysis::UNIFORM;
+  }
+
   if (isAllUniform) return WIAnalysis::UNIFORM;
   return WIAnalysis::RANDOM;
 }
