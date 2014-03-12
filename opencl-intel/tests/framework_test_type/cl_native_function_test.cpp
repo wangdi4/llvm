@@ -20,39 +20,19 @@
 #define BUFFER_SIZE 128	// number of iterations the test will do 
 #define MAX_BUFFS 3			//max number of arguments to a kernel
 
-//define the max ULP of each native function (sorted by definition on spec)
-//ULP=0 probably mean that the implementation 
-//of the native functions is the same as the regular one
-//other ULPs based on try and error (for now...)
-#define COS_ULP 4096
-#define DIVIDE_ULP 4700
-#define EXP_ULP 2500
-#define EXP2_ULP 2500
-#define EXP10_ULP 2500
-#define LOG_ULP 3000
-#define LOG2_ULP 1000
-#define LOG10_ULP 1000
-#define POWR_ULP 2500
-#define RECIP_ULP 4500
-#define RSQRT_ULP 4500
-#define SIN_ULP 2300
-#define SQRT_ULP 1 
-#define TAN_ULP 4000
-
-#define D_COS_ULP 60000000
-#define D_DIVIDE_ULP 60000000
-#define D_EXP_ULP 60000000
-#define D_EXP2_ULP 20000000
-#define D_EXP10_ULP 20000000
-#define D_LOG_ULP 3000
-#define D_LOG2_ULP 2000
-#define D_LOG10_ULP 2000
-#define D_POWR_ULP 65000000
-#define D_RECIP_ULP 10
-#define D_RSQRT_ULP 1000000
-#define D_SIN_ULP 60000000
-#define D_SQRT_ULP 10 
-#define D_TAN_ULP 5000000
+// Define the max. ULP error of native functions.
+// The following is an extract from the SVML 3.3 doc.
+//   ch. 10.2.1 “Native” functions specifics
+// Since v1.0 native functions produce half-mantissa accurate results
+//   (8192 ulp in single precision, 2 ** 27 ulp in double precision) throughout
+//   the whole input domain. Edge case and special values behavior is
+//   compliant with generic spec.
+// Future releases requirements: native functions may completely lose
+//   accuracy of results (in terms of relative error) on edge case values
+//   in which cases they shall provide asymptotic results. Special values
+//   behavior is not yet defined.
+#define NATIVE_SP_MAX_ERROR_ULP 8192
+#define NATIVE_DP_MAX_ERROR_ULP 134217728
 
 #define PXSTR(p, s) p STR(s)
 #define XSTR(s) STR(s)
@@ -178,39 +158,39 @@ kernel void native_test(__global double##vec* pBuff,__global int##vec* pULP)  \
 #undef isgreater
 #endif
 
-#define RUNTESTS_FLOATS(name,func,buff,buffnum)	\
-	RunFunctionTest(NAME_VEC(name,float,),XSTR(NATIVE_TEST_FLOAT(func,)),1,context,queue,buff,buffnum,stBuffSize,bResult,name##_ULP); \
-	RunFunctionTest(NAME_VEC(name,float,2),XSTR(NATIVE_TEST_FLOAT(func,2)),2,context,queue,buff,buffnum,stBuffSize,bResult,name##_ULP); \
-	RunFunctionTest(NAME_VEC(name,float,3),XSTR(NATIVE_TEST_FLOAT(func,3)),3,context,queue,buff,buffnum,stBuffSize,bResult,name##_ULP); \
-	RunFunctionTest(NAME_VEC(name,float,4),XSTR(NATIVE_TEST_FLOAT(func,4)),4,context,queue,buff,buffnum,stBuffSize,bResult,name##_ULP); \
-	RunFunctionTest(NAME_VEC(name,float,8),XSTR(NATIVE_TEST_FLOAT(func,8)),8,context,queue,buff,buffnum,stBuffSize,bResult,name##_ULP); \
-	RunFunctionTest(NAME_VEC(name,float,16),XSTR(NATIVE_TEST_FLOAT(func,16)),16,context,queue,buff,buffnum,stBuffSize,bResult,name##_ULP); \
+#define RUNTESTS_FLOATS(name,func,buff,buffnum) \
+  RunFunctionTest(NAME_VEC(name,float,),XSTR(NATIVE_TEST_FLOAT(func,)),1,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_SP_MAX_ERROR_ULP); \
+  RunFunctionTest(NAME_VEC(name,float,2),XSTR(NATIVE_TEST_FLOAT(func,2)),2,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_SP_MAX_ERROR_ULP); \
+  RunFunctionTest(NAME_VEC(name,float,3),XSTR(NATIVE_TEST_FLOAT(func,3)),3,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_SP_MAX_ERROR_ULP); \
+  RunFunctionTest(NAME_VEC(name,float,4),XSTR(NATIVE_TEST_FLOAT(func,4)),4,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_SP_MAX_ERROR_ULP); \
+  RunFunctionTest(NAME_VEC(name,float,8),XSTR(NATIVE_TEST_FLOAT(func,8)),8,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_SP_MAX_ERROR_ULP); \
+  RunFunctionTest(NAME_VEC(name,float,16),XSTR(NATIVE_TEST_FLOAT(func,16)),16,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_SP_MAX_ERROR_ULP); \
 
-#define RUNTESTS_DOUBLES(name,func,buff,buffnum)	\
-	RunFunctionTest(NAME_VEC(name,double,), XSTR(NATIVE_TEST_DOUBLE(func,)),1,context,queue,buff,buffnum,stBuffSize,bResult,D_##name##_ULP); \
-	RunFunctionTest(NAME_VEC(name,double,2),XSTR(NATIVE_TEST_DOUBLE(func,2)),2,context,queue,buff,buffnum,stBuffSize,bResult,D_##name##_ULP); \
-	RunFunctionTest(NAME_VEC(name,double,3),XSTR(NATIVE_TEST_DOUBLE(func,3)),3,context,queue,buff,buffnum,stBuffSize,bResult,D_##name##_ULP); \
-	RunFunctionTest(NAME_VEC(name,double,4),XSTR(NATIVE_TEST_DOUBLE(func,4)),4,context,queue,buff,buffnum,stBuffSize,bResult,D_##name##_ULP); \
-	RunFunctionTest(NAME_VEC(name,double,8),XSTR(NATIVE_TEST_DOUBLE(func,8)),8,context,queue,buff,buffnum,stBuffSize,bResult,D_##name##_ULP); \
-	RunFunctionTest(NAME_VEC(name,double,16),XSTR(NATIVE_TEST_DOUBLE(func,16)),16,context,queue,buff,buffnum,stBuffSize,bResult,D_##name##_ULP); \
+#define RUNTESTS_DOUBLES(name,func,buff,buffnum)  \
+  RunFunctionTest(NAME_VEC(name,double,), XSTR(NATIVE_TEST_DOUBLE(func,)),1,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_DP_MAX_ERROR_ULP); \
+  RunFunctionTest(NAME_VEC(name,double,2),XSTR(NATIVE_TEST_DOUBLE(func,2)),2,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_DP_MAX_ERROR_ULP); \
+  RunFunctionTest(NAME_VEC(name,double,3),XSTR(NATIVE_TEST_DOUBLE(func,3)),3,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_DP_MAX_ERROR_ULP); \
+  RunFunctionTest(NAME_VEC(name,double,4),XSTR(NATIVE_TEST_DOUBLE(func,4)),4,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_DP_MAX_ERROR_ULP); \
+  RunFunctionTest(NAME_VEC(name,double,8),XSTR(NATIVE_TEST_DOUBLE(func,8)),8,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_DP_MAX_ERROR_ULP); \
+  RunFunctionTest(NAME_VEC(name,double,16),XSTR(NATIVE_TEST_DOUBLE(func,16)),16,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_DP_MAX_ERROR_ULP); \
 
 
-#define RUNTESTS_SPECIAL_FLOATS(name,func,buff,buffnum)	\
-	RunFunctionTest(NAME_VEC(name,float,),XSTR(NATIVE_##name()),1,context,queue,buff,buffnum,stBuffSize,bResult,name##_ULP); \
-	RunFunctionTest(NAME_VEC(name,float,2),XSTR(NATIVE_##name(2)),2,context,queue,buff,buffnum,stBuffSize,bResult,name##_ULP); \
-	RunFunctionTest(NAME_VEC(name,float,3),XSTR(NATIVE_##name(3)),3,context,queue,buff,buffnum,stBuffSize,bResult,name##_ULP); \
-	RunFunctionTest(NAME_VEC(name,float,4),XSTR(NATIVE_##name(4)),4,context,queue,buff,buffnum,stBuffSize,bResult,name##_ULP); \
-	RunFunctionTest(NAME_VEC(name,float,8),XSTR(NATIVE_##name(8)),8,context,queue,buff,buffnum,stBuffSize,bResult,name##_ULP); \
-	RunFunctionTest(NAME_VEC(name,float,16),XSTR(NATIVE_##name(16)),16,context,queue,buff,buffnum,stBuffSize,bResult,name##_ULP); \
+#define RUNTESTS_SPECIAL_FLOATS(name,func,buff,buffnum) \
+  RunFunctionTest(NAME_VEC(name,float,),XSTR(NATIVE_##name()),1,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_SP_MAX_ERROR_ULP); \
+  RunFunctionTest(NAME_VEC(name,float,2),XSTR(NATIVE_##name(2)),2,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_SP_MAX_ERROR_ULP); \
+  RunFunctionTest(NAME_VEC(name,float,3),XSTR(NATIVE_##name(3)),3,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_SP_MAX_ERROR_ULP); \
+  RunFunctionTest(NAME_VEC(name,float,4),XSTR(NATIVE_##name(4)),4,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_SP_MAX_ERROR_ULP); \
+  RunFunctionTest(NAME_VEC(name,float,8),XSTR(NATIVE_##name(8)),8,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_SP_MAX_ERROR_ULP); \
+  RunFunctionTest(NAME_VEC(name,float,16),XSTR(NATIVE_##name(16)),16,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_SP_MAX_ERROR_ULP); \
 
-#define RUNTESTS_SPECIAL_DOUBLES(name,func,buff,buffnum)	\
-	RunFunctionTest(NAME_VEC(name,double,),XSTR(NATIVE_##name##_DOUBLE()),1,context,queue,buff,buffnum,stBuffSize,bResult,D_##name##_ULP); \
-	RunFunctionTest(NAME_VEC(name,double,2),XSTR(NATIVE_##name##_DOUBLE(2)),2,context,queue,buff,buffnum,stBuffSize,bResult,D_##name##_ULP); \
-	RunFunctionTest(NAME_VEC(name,double,3),XSTR(NATIVE_##name##_DOUBLE(3)),3,context,queue,buff,buffnum,stBuffSize,bResult,D_##name##_ULP); \
-	RunFunctionTest(NAME_VEC(name,double,4),XSTR(NATIVE_##name##_DOUBLE(4)),4,context,queue,buff,buffnum,stBuffSize,bResult,D_##name##_ULP); \
-	RunFunctionTest(NAME_VEC(name,double,8),XSTR(NATIVE_##name##_DOUBLE(8)),8,context,queue,buff,buffnum,stBuffSize,bResult,D_##name##_ULP); \
-  RunFunctionTest(NAME_VEC(name,double,16),XSTR(NATIVE_##name##_DOUBLE(16)),16,context,queue,buff,buffnum,stBuffSize,bResult,D_##name##_ULP); \
-	//TODO: once convert_int3(long3) implemented uncomment vec 3 and delete the temporary one
+#define RUNTESTS_SPECIAL_DOUBLES(name,func,buff,buffnum)  \
+  RunFunctionTest(NAME_VEC(name,double,),XSTR(NATIVE_##name##_DOUBLE()),1,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_DP_MAX_ERROR_ULP); \
+  RunFunctionTest(NAME_VEC(name,double,2),XSTR(NATIVE_##name##_DOUBLE(2)),2,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_DP_MAX_ERROR_ULP); \
+  RunFunctionTest(NAME_VEC(name,double,3),XSTR(NATIVE_##name##_DOUBLE(3)),3,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_DP_MAX_ERROR_ULP); \
+  RunFunctionTest(NAME_VEC(name,double,4),XSTR(NATIVE_##name##_DOUBLE(4)),4,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_DP_MAX_ERROR_ULP); \
+  RunFunctionTest(NAME_VEC(name,double,8),XSTR(NATIVE_##name##_DOUBLE(8)),8,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_DP_MAX_ERROR_ULP); \
+  RunFunctionTest(NAME_VEC(name,double,16),XSTR(NATIVE_##name##_DOUBLE(16)),16,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_DP_MAX_ERROR_ULP); \
+  //TODO: once convert_int3(long3) implemented uncomment vec 3 and delete the temporary one
 
 #if !defined (__ANDROID__) // Android OS doesn't support fp64
 const char Pragma[] = "#pragma OPENCL EXTENSION cl_khr_fp64 : enable";
