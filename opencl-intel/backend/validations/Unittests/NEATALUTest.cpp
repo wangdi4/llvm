@@ -10465,8 +10465,8 @@ TYPED_TEST(NEATAluTypedMath, copysign)
         }
         // 2.5 (-x1,x2), -y0
         testVal = NEATALU::copysign<T>(NEATValue(-x1,x2), NEATValue(-y0));    
-        // numbers from 0 to x2 became negative, so result interval is (-x2,0)
-        refMax = 0; 
+        // numbers from 0 to x2 became negative, so result interval is (-x2,-0)
+        refMax = T(-0.0);
         refMin = RefALU::copysign<T>(x2, -y0);
         EXPECT_TRUE( Utils::eq<T>(*testVal.GetMin<T>(),refMin));
         EXPECT_TRUE( Utils::eq<T>(*testVal.GetMax<T>(),refMax));
@@ -10479,6 +10479,7 @@ TYPED_TEST(NEATAluTypedMath, copysign)
         for(uint32_t i = 0; i<vectorWidth; ++i)
         {            
             refMin = RefALU::copysign<T>(xVec2[i], yVec0[i]);
+            refMax = T(-0.0);
             EXPECT_TRUE( Utils::eq<T>(*testVec[i].GetMin<T>(),refMin));
             EXPECT_TRUE( Utils::eq<T>(*testVec[i].GetMax<T>(),refMax));
         }
@@ -10729,8 +10730,8 @@ TYPED_TEST(NEATAluTypedMath, copysign)
         }
         // 4.5 (-x1,x2) (-y2,-y1)
         testVal = NEATALU::copysign<T>(NEATValue(-x1,x2), NEATValue(-y2,-y1));
-        // numbers from 0 to x2 became negative, so result interval is (-x2,0)
-        refMax = 0;
+        // numbers from 0 to x2 became negative, so result interval is (-x2,-0)
+        refMax = T(-0.0);
         refMin = RefALU::copysign<T>(x2, -y2);
         EXPECT_TRUE( Utils::eq<T>(*testVal.GetMin<T>(),refMin));
         EXPECT_TRUE( Utils::eq<T>(*testVal.GetMax<T>(),refMax));
@@ -10743,6 +10744,11 @@ TYPED_TEST(NEATAluTypedMath, copysign)
         for(uint32_t i = 0; i<vectorWidth; ++i)
         {
             refMin = RefALU::copysign<T>(xVec2[i], yVec2[i]);
+            refMax = T(-0.0);
+            if(!Utils::eq<T>(*testVec[i].GetMax<T>(),refMax)) {
+                refVal = *testVec[i].GetMax<T>();
+                testVal = NEATALU::copysign<T>(xNEATVec[i], yNEATVec[i]);
+            }
             EXPECT_TRUE( Utils::eq<T>(*testVec[i].GetMin<T>(),refMin));
             EXPECT_TRUE( Utils::eq<T>(*testVec[i].GetMax<T>(),refMax));
         }
