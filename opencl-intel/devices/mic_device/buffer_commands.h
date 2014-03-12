@@ -124,8 +124,7 @@ public:
        That means that We must call to 'process_finish()' as the last command in order to execute the last chunk. */
     virtual void process_chunk( CommonMemoryChunk::Chunk& chunk );
 
-    ProcessCommonMemoryChunk( const COIEVENT* external_dependency, COIPROCESS processOfTarget ) : 
-        ProcessMemoryChunk<CommonMemoryChunk::Chunk>(external_dependency), 
+    ProcessCommonMemoryChunk( const COIEVENT* external_dependency, COIPROCESS processOfTarget = NULL ) : ProcessMemoryChunk<CommonMemoryChunk::Chunk>(external_dependency), 
         m_readyToFireChunk(false), m_memObjOfHostPtr(NULL), m_processOfTarget(processOfTarget) {};
 
     /* return the hostPtr of the memobj that we use in order to execute Copy instead of read / write */
@@ -136,18 +135,15 @@ public:
 protected:
 
     /* Perform optimized Copy / Read / Write */
-    bool processActionOptimized(cl_dev_cmd_type type, 
-                                void* readBuff, size_t readOffset, 
-                                void* writeBuff, size_t writeOffset, 
-                                size_t size, 
-                                const COIEVENT* dependecies, uint32_t num_dependencies, 
-                                COIEVENT* fired_event);
+    bool processActionOptimized(cl_dev_cmd_type type, void* readBuff, size_t readOffset, void* writeBuff, size_t writeOffset, size_t size, const COIEVENT* dependecies, uint32_t num_dependencies, COIEVENT* fired_event, bool forceValidOnSingleDevice = true);
 
 private:
 
-    bool                 m_readyToFireChunk;
-    MICDevMemoryObject*  m_memObjOfHostPtr;
-    COIPROCESS           m_processOfTarget;
+    bool                m_readyToFireChunk;
+
+    MICDevMemoryObject*    m_memObjOfHostPtr;
+
+    COIPROCESS            m_processOfTarget;
 };
 
 
@@ -196,11 +192,11 @@ class BufferCommands : public Command
 {
 public:
 
-    PREPARE_SHARED_PTR(Command)
+	PREPARE_SHARED_PTR(Command)
 
-    bool commandEnqueuedToPipe() { return false; };
+	bool commandEnqueuedToPipe() { return false; };
 
-    void eventProfilingCall(COI_NOTIFICATIONS& type);
+	void eventProfilingCall(COI_NOTIFICATIONS& type);
 
 protected:
 
@@ -234,7 +230,7 @@ class ReadWriteMemObject : public BufferCommands
 
 public:
 
-    PREPARE_SHARED_PTR(Command)
+	PREPARE_SHARED_PTR(Command)
 
     static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
 
@@ -256,7 +252,9 @@ class CopyMemObject : public BufferCommands
 
 public:
 
-    PREPARE_SHARED_PTR(Command)
+	PREPARE_SHARED_PTR(Command)
+
+	virtual ~CopyMemObject();
 
     /* static function for CopyMemObject Command creation */
     static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
@@ -267,6 +265,11 @@ private:
 
     /* Private constructor because We like to create Commands only by the factory method */
     CopyMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
+
+    char* m_srcBufferMirror;
+
+    MICDevMemoryObject*    m_memObjOfHostPtr;
+
 };
 
 class MapMemObject : public BufferCommands
@@ -274,9 +277,9 @@ class MapMemObject : public BufferCommands
 
 public:
 
-    PREPARE_SHARED_PTR(Command)
+	PREPARE_SHARED_PTR(Command)
 
-    /* static function for MapMemObject Command creation */
+	/* static function for MapMemObject Command creation */
     static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
 
     cl_dev_err_code execute();
@@ -295,9 +298,9 @@ class UnmapMemObject : public BufferCommands
 
 public:
 
-    PREPARE_SHARED_PTR(Command)
+	PREPARE_SHARED_PTR(Command)
 
-    /* static function for UnmapMemObject Command creation */
+	/* static function for UnmapMemObject Command creation */
     static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
 
     cl_dev_err_code execute();
@@ -316,9 +319,9 @@ class MigrateMemObject : public BufferCommands
 {
 public:
 
-    PREPARE_SHARED_PTR(Command)
+	PREPARE_SHARED_PTR(Command)
 
-    /* static function for MigrateMemObject Command creation */
+	/* static function for MigrateMemObject Command creation */
     static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
 
     cl_dev_err_code execute();
