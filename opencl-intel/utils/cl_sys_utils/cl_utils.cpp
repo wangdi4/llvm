@@ -1520,7 +1520,16 @@ bool GetCpuVersion( char *pCpuVersion, size_t bufferSize )
     // pCpuPath is expected to be MAX_PATH in size
     if( NULL != pCpuVersion )
     {
-        return GetStringValueFromRegistryOrETC( HKEY_LOCAL_MACHINE, regPath, "cpu_version", pCpuVersion, bufferSize );
+        string valueName;
+        if (EmulatorEnabled())
+        {
+            valueName = "cpu_2_0_emulator_version";
+        }
+        else
+        {
+            valueName = "cpu_version";
+        }
+        return GetStringValueFromRegistryOrETC( HKEY_LOCAL_MACHINE, regPath, valueName.c_str(), pCpuVersion, bufferSize );
     }
 #endif
     return false;
@@ -1529,13 +1538,16 @@ bool GetCpuVersion( char *pCpuVersion, size_t bufferSize )
 bool EmulatorEnabled()
 {
 #if defined( _WIN32 )
-	char *emulatorVal = getenv("ENABLE_2_0_EMULATOR");
-    if (emulatorVal)
+	const char *regPath = "SOFTWARE\\Intel\\OpenCL";
+    char emulatorVal[16];
+	bool retVal = GetStringValueFromRegistryOrETC( HKEY_LOCAL_MACHINE, regPath, "ocl_2_0_enabled", emulatorVal, 16 );
+
+    if(retVal)
     {
-		if(_stricmp(emulatorVal, "True") == 0)
-		{
-			return true;
-		}
+        if(_stricmp(emulatorVal, "true") == 0)
+        {
+            return true;
+        }
     }
 #endif
 	return false;

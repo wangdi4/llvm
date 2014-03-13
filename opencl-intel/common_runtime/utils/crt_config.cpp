@@ -83,10 +83,14 @@ crt_err_code CrtConfig::Init()
 bool CrtConfig::emulatorEnabled()
 {
 #if defined( _WIN32 )
-    char *emulatorVal = getenv("ENABLE_2_0_EMULATOR");
-    if (emulatorVal)
+
+    const char *regPath = "SOFTWARE\\Intel\\OpenCL";
+    char emulatorVal[16];
+    bool retVal = OCLCRT::Utils::GetStringValueFromRegistry(HKEY_LOCAL_MACHINE, regPath, "ocl_2_0_enabled", emulatorVal, 16);
+
+    if(retVal)
     {
-        if(_stricmp(emulatorVal, "True") == 0)
+        if(_stricmp(emulatorVal, "true") == 0)
         {
             return true;
         }
