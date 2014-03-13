@@ -2076,8 +2076,8 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
             pList->push_back("__OPENCL_C_VERSION__=200");
             pBEArgList->push_back("-cl-std=CL2.0");
         }
-        else if (*opt_i == "-cl-uniform-workgroup-size") {
-            pBEArgList->push_back("-cl-uniform-workgroup-size");
+        else if (*opt_i == "-cl-uniform-work-group-size") {
+            pBEArgList->push_back("-cl-uniform-work-group-size");
         }
         else if (*opt_i == "-triple") {
             // Expect the target triple as the next token
