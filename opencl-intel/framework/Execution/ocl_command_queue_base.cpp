@@ -140,76 +140,70 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
     return CL_SUCCESS;
 }
 
-/**
- * @fn cl_err_code IOclCommandQueueBase::EnqueueWaitEventsProlog(Command& cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList)
- */
-cl_err_code IOclCommandQueueBase::EnqueueWaitEventsProlog(const SharedPtr<QueueEvent>& pQueueEvent, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList)
-{    
-    const cl_err_code errVal = m_pEventsManager->RegisterEvents(pQueueEvent, uNumEventsInWaitList, pEventWaitList);
-    if(CL_FAILED(errVal))
-    {
-        m_pEventsManager->ReleaseEvent(pQueueEvent->GetHandle());
 
+
+cl_err_code IOclCommandQueueBase::EnqueueRuntimeCommandWaitEvents(RUNTIME_COMMAND_TYPE type, 
+                                                    Command* pCommand, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList, cl_event* pEvent)
+{
+    const SharedPtr<QueueEvent>& pQueueEvent  = pCommand->GetEvent();
+    cl_event                     pEventHandle = pQueueEvent->GetHandle();
+    assert(NULL != pQueueEvent);    // klocwork
+
+    cl_err_code errVal = CL_SUCCESS;
+
+    m_pEventsManager->RegisterQueueEvent(pQueueEvent, pEvent);
+
+    AddFloatingDependence(pQueueEvent);
+    errVal = m_pEventsManager->RegisterEvents(pQueueEvent, uNumEventsInWaitList, pEventWaitList);
+
+    if( CL_FAILED(errVal))
+    {
+        RemoveFloatingDependence(pQueueEvent);
+        if (NULL == pEvent)
+        {
+            m_pEventsManager->ReleaseEvent(pEventHandle);
+        }
         return errVal;
     }
+
+    switch (type)
+    {
+        case JUST_WAIT:
+            errVal = EnqueueWaitForEvents(pCommand);
+            break;
+
+        case MARKER:
+            errVal = EnqueueMarkerWaitForEvents(pCommand);
+            break;
+
+        case BARRIER:
+            errVal = EnqueueBarrierWaitForEvents(pCommand);
+            break;
+
+        default:
+            assert( 0 && "Unknown runtime command type" );
+            errVal = CL_ERR_FAILURE;
+    }
+
+    // RemoveFloatingDependence() must to be after Enqueue; this prevents a situation where the current
+    // command is dependent on another command which just finished (the other one) After ::RegisterEvents
+    // and before ::Enqueue resulting in a situation where the same command gets submitted twice; once here
+    // by ::Enqueue and the other one by ::NotifyCommandStatusChange of the other command.
+    RemoveFloatingDependence(pQueueEvent);
+
+    //If the event is not visible to the user, remove its floating reference count and as a result the pendency representing the object is visible to the user
+    if (NULL == pEvent)
+    {
+        m_pEventsManager->ReleaseEvent(pEventHandle);
+    }
+    
+    if (CL_FAILED(errVal))
+    {
+        return CL_ERR_FAILURE;
+    }
+
     return CL_SUCCESS;
-}
 
-cl_err_code IOclCommandQueueBase::EnqueueWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* cpEventWaitList)
-{
-    const SharedPtr<QueueEvent>& pCmdEvent    = cmd->GetEvent();
-    cl_event                     pEventHandle = pCmdEvent->GetHandle();
-    
-    AddFloatingDependence(pCmdEvent);
-    cl_err_code errVal = EnqueueWaitEventsProlog(pCmdEvent, uNumEventsInWaitList, cpEventWaitList);
-    if (CL_FAILED(errVal))
-    {
-        RemoveFloatingDependence(pCmdEvent);
-        return errVal;
-    }
-    errVal = EnqueueWaitForEvents(cmd);
-    RemoveFloatingDependence(pCmdEvent);
-    m_pEventsManager->ReleaseEvent(pEventHandle);
-    return errVal;
-}
-
-/**
- * @fn cl_err_code IOclCommandQueueBase::EnqueueMarkerWaitEvents(Command* cmd, cl_uint uNumEvetsInWaitList, const cl_event* pEventWaitList)
- */
-cl_err_code IOclCommandQueueBase::EnqueueMarkerWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* cpEventWaitList)
-{
-    const SharedPtr<QueueEvent>& pCmdEvent = cmd->GetEvent();
-    
-    AddFloatingDependence(pCmdEvent);
-    
-    cl_err_code errVal = EnqueueWaitEventsProlog(pCmdEvent, uNumEventsInWaitList, cpEventWaitList);
-    if (CL_FAILED(errVal))
-    {
-        RemoveFloatingDependence(pCmdEvent);
-        return errVal;
-    }
-    errVal = EnqueueMarkerWaitForEvents(cmd);
-    RemoveFloatingDependence(pCmdEvent);
-    return errVal;
-}
-
-/**
- * @fn cl_err_code IOclCommandQueueBase::EnqueueBarrierWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList)
- */
-cl_err_code IOclCommandQueueBase::EnqueueBarrierWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* cpEventWaitList)
-{
-    const SharedPtr<QueueEvent>& pCmdEvent = cmd->GetEvent();
-    
-    AddFloatingDependence(pCmdEvent);
-    cl_err_code errVal = EnqueueWaitEventsProlog(pCmdEvent, uNumEventsInWaitList, cpEventWaitList);
-    if (CL_FAILED(errVal))
-    {
-        RemoveFloatingDependence(pCmdEvent);
-        return errVal;
-    }
-    errVal = EnqueueBarrierWaitForEvents(cmd);
-    RemoveFloatingDependence(pCmdEvent);
-    return errVal;
 }
 
 cl_err_code IOclCommandQueueBase::WaitForCompletion(const SharedPtr<QueueEvent>& pEvent)

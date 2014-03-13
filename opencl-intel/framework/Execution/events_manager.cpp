@@ -187,7 +187,7 @@ cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents, const cl_event* ev
         SharedPtr<QueueEvent> pQueueEvent = evtIt->DynamicCast<QueueEvent>();
         if ( (NULL != pQueueEvent) && (pQueueEvent->GetCommand()->GetExecutionType() == DEVICE_EXECUTION_TYPE))
         {
-            const SharedPtr<IOclCommandQueueBase>& pQueueEventQueue = pQueueEvent->GetEventQueue();
+            const SharedPtr<IOclCommandQueueBase> pQueueEventQueue = pQueueEvent->GetEventQueue();
             if ((NULL != pQueueEventQueue) && !CL_FAILED(pQueueEventQueue->WaitForCompletion(pQueueEvent)) ) // CL_SUCCEDDED() != (!CL_FAILED())
             {
                 bWaitForEventSuccess = true;
@@ -287,8 +287,7 @@ cl_err_code EventsManager::RegisterEvents(const SharedPtr<OclEvent>& pEvent, cl_
                 SharedPtr<QueueEvent> pDependOnEvent = vOclEvents[ui].DynamicCast<QueueEvent>();
                 if ( NULL != pDependOnEvent )
                 {
-                    if ((pDependOnEvent->GetEventQueue()) && 
-                        (queueId == pDependOnEvent->GetEventQueue()->GetId()))
+                    if (queueId == pDependOnEvent->GetEventQueueId())
                     {
                         // Do not register
                         vOclEvents[ui] = NULL;
