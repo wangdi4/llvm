@@ -452,9 +452,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                   break;
                 // FIXME: what about Apple?
                 case CL_KRNL_ARG_PTR_PIPE_T:
-                  // FIXME: uncomment the following two lines once CSSD100018969 is resovled.
-                  //curArg.access = (kmd->getArgAccessQualifierItem(i) == READ_ONLY) ?
-                  //                CL_KERNEL_ARG_ACCESS_READ_ONLY : CL_KERNEL_ARG_ACCESS_WRITE_ONLY;                  
+                  // The default access qualifier for pipes is read_only.
+                  curArg.access = (kmd->getArgAccessQualifierItem(i) == WRITE_ONLY) ?
+                                  CL_KERNEL_ARG_ACCESS_WRITE_ONLY : CL_KERNEL_ARG_ACCESS_READ_ONLY;
                   isMemoryObject = true;
                   break;
                 case CL_KRNL_ARG_PTR_QUEUE_T:
