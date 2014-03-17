@@ -2052,8 +2052,6 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
         else if (*opt_i == "-cl-finite-math-only") {
             pList->push_back("-cl-finite-math-only");
             pBEArgList->push_back(*opt_i);
-            pList->push_back("-D");
-            pList->push_back("__FINITE_MATH_ONLY__=1");
         }
         else if (*opt_i == "-cl-fast-relaxed-math") {
             pList->push_back("-cl-fast-relaxed-math");
