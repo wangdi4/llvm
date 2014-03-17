@@ -260,23 +260,28 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
         return OPENCL_VERSION_2_0;
     default:
 #ifdef _WIN32
-        {
-            int cpuInfo[4] = {-1};
-            __cpuid(cpuInfo, 1);
-
-            const int iModel = (cpuInfo[0] >> 4) & 0xf;
-            if (iModel >= 0xd)  // Broadwell and up
-            {
-                return OPENCL_VERSION_2_0;
-            }
-            else
-            {
-                return OPENCL_VERSION_1_2;
-            }
-        }
+        return GetOpenclVerByCpuModel();
 #else
         return OPENCL_VERSION_1_2;
 #endif
     }
 #endif
 }
+
+#ifdef _WIN32
+OPENCL_VERSION Intel::OpenCL::Utils::GetOpenclVerByCpuModel()
+{
+    int cpuInfo[4] = {-1};
+    __cpuid(cpuInfo, 1);
+
+    const int iModel = (cpuInfo[0] >> 4) & 0xf, iExtendedModel = (cpuInfo[0] >> 16) & 0xf;
+    if (iModel >= 0xd && 0x3 == iExtendedModel)  // Broadwell and up
+    {
+        return OPENCL_VERSION_2_0;
+    }
+    else
+    {
+        return OPENCL_VERSION_1_2;
+    }
+}
+#endif
