@@ -224,19 +224,19 @@ void NotifierCollection::ImageEnqueue(cl_command_queue queue,
 {
 	NOTIFY(ImageEnqueue, queue, event, memobj, cookie);
 }
-//void NotifierCollection::PipeCreate(
-//    cl_mem pipe,
-//    cl_context context,
-//    cl_mem_flags memFlags,
-//    cl_uint packetSize,
-//    cl_uint maxPackets,
-//    const cl_pipe_properties *props,
-//    unsigned int traceCookie)
-//{
-//    CHECK_FOR_NULL(pipe);
-//    NOTIFY(PipeCreate, pipe, context, memFlags,
-//        packetSize, maxPackets, props, traceCookie);
-//}
+void NotifierCollection::PipeCreate(
+    cl_mem pipe,
+    cl_context context,
+    cl_mem_flags memFlags,
+    cl_uint packetSize,
+    cl_uint maxPackets,
+    const cl_pipe_properties *props,
+    unsigned int traceCookie)
+{
+    CHECK_FOR_NULL(pipe);
+    NOTIFY(PipeCreate, pipe, context, memFlags,
+        packetSize, maxPackets, props, traceCookie);
+}
 
 void NotifierCollection::MemObjectFree( cl_mem memobj )
 {
@@ -341,7 +341,7 @@ vector<cl_queue_properties> NotifierCollection::commandQueueProfiling(const cl_q
     cl_command_queue_properties cmdQueuePropValue = 0;
 
     bool addedProfilingProp = false;
-    for (pCurProperty = properties; pCurProperty; pCurProperty+= 2)
+    for (pCurProperty = properties; pCurProperty && *pCurProperty; pCurProperty+= 2)
     {
         if (CL_QUEUE_PROPERTIES == *pCurProperty) {
             cmdQueuePropValue = *(pCurProperty + 1);
