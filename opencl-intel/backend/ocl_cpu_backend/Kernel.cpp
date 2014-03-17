@@ -82,11 +82,13 @@ Kernel::Kernel(const std::string &name,
                const std::vector<unsigned int> &memArgs,
                KernelProperties *pProps)
     : m_name(name), m_CSRMask(0), m_CSRFlags(0), m_explicitArgs(args),
+      m_RequiredUniformKernelArgsAlignment(MinRequiredKernelArgAlignment),
       m_memArgs(memArgs), m_pProps(pProps) {
   if (!m_explicitArgs.empty()) {
     // calculates the whole explicit arguments buffer size
     // offset of the last argument in the buffer + argumentSize
-    // and adjust alignment
+    // and adjust each argument at least to size_t alignment
+    // because of the implicit arguments
     const cl_kernel_argument &lastArg = m_explicitArgs.back();
     m_explicitArgsSizeInBytes = ImplicitArgsUtils::getAdjustedAlignment(
         lastArg.offset_in_bytes + TypeAlignment::getSize(lastArg),
@@ -107,7 +109,6 @@ Kernel::Kernel(const std::string &name,
   m_CSRFlags |= _MM_ROUND_NEAREST; // Default
 
   // calculating the required alignment for the arguments buffer
-  m_RequiredUniformKernelArgsAlignment = MinRequiredKernelArgAlignment;
   for (unsigned int i = 0; i < m_explicitArgs.size(); ++i) {
     if (m_RequiredUniformKernelArgsAlignment < TypeAlignment::getAlignment(m_explicitArgs[i])) {
       m_RequiredUniformKernelArgsAlignment = TypeAlignment::getAlignment(m_explicitArgs[i]);
