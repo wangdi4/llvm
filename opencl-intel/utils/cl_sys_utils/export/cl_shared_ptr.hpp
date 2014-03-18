@@ -128,6 +128,12 @@ void SharedPtr<T>::HandleRefCnt0(T* ptr)
 }
 
 template<typename T>
+void ConstSharedPtr<T>::HandleRefCnt0(const T* ptr)
+{
+    (const_cast<T*>(ptr))->Cleanup();
+}
+
+template<typename T>
 void LifetimeObjectContainer<T>::add( const SharedPtr<T>& ptr )
 {
     if (!isZombie( ptr.GetPtr() ))

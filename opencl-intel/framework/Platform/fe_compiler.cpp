@@ -42,69 +42,69 @@ using namespace Intel::OpenCL::FECompilerAPI;
 using namespace Intel::OpenCL::TaskExecutor;
 
 FrontEndCompiler::FrontEndCompiler() : 
-		OCLObject<_cl_object>(NULL, "FrontEndCompiler"),
-		m_pfnCreateInstance(NULL),
-		m_pszModuleName(NULL),
-		m_pFECompiler(NULL),
-		m_pLoggerClient(NULL)
+        OCLObject<_cl_object>(NULL, "FrontEndCompiler"),
+        m_pfnCreateInstance(NULL),
+        m_pszModuleName(NULL),
+        m_pFECompiler(NULL),
+        m_pLoggerClient(NULL)
 {
 }
 
 FrontEndCompiler::~FrontEndCompiler()
 {
-	FreeResources();
+    FreeResources();
 }
 
 cl_err_code FrontEndCompiler::Initialize(const char * psModuleName, const void *pDeviceInfo, size_t stDevInfoSize)
 {
-	FreeResources();
+    FreeResources();
 
-	INIT_LOGGER_CLIENT(TEXT("FrontEndCompiler"), LL_DEBUG);
+    INIT_LOGGER_CLIENT(TEXT("FrontEndCompiler"), LL_DEBUG);
 
-	if ( !m_dlModule.Load(Intel::OpenCL::Utils::GetFullModuleNameForLoad(psModuleName)) )
-	{
-		LOG_ERROR(TEXT("Can't find compiler module %s)"), psModuleName);
-		return CL_COMPILER_NOT_AVAILABLE;
-	}
+    if ( !m_dlModule.Load(Intel::OpenCL::Utils::GetFullModuleNameForLoad(psModuleName)) )
+    {
+        LOG_ERROR(TEXT("Can't find compiler module %s)"), psModuleName);
+        return CL_COMPILER_NOT_AVAILABLE;
+    }
 
-	m_pfnCreateInstance = (fnCreateFECompilerInstance*)m_dlModule.GetFunctionPtrByName("CreateFrontEndInstance");
-	if ( NULL == m_pfnCreateInstance )
-	{
-		LOG_ERROR(TEXT("%s"), TEXT("Can't find entry function"));
-		return CL_COMPILER_NOT_AVAILABLE;
-	}
+    m_pfnCreateInstance = (fnCreateFECompilerInstance*)m_dlModule.GetFunctionPtrByName("CreateFrontEndInstance");
+    if ( NULL == m_pfnCreateInstance )
+    {
+        LOG_ERROR(TEXT("%s"), TEXT("Can't find entry function"));
+        return CL_COMPILER_NOT_AVAILABLE;
+    }
 
-	m_pszModuleName = STRDUP(psModuleName);
+    m_pszModuleName = STRDUP(psModuleName);
 
-	cl_err_code err = m_pfnCreateInstance(pDeviceInfo, stDevInfoSize, &m_pFECompiler);
-	if ( CL_FAILED(err) )
-	{
-		LOG_ERROR(TEXT("FECompiler::CreateInstance() failed with %x"), err);
-	}
+    cl_err_code err = m_pfnCreateInstance(pDeviceInfo, stDevInfoSize, &m_pFECompiler);
+    if ( CL_FAILED(err) )
+    {
+        LOG_ERROR(TEXT("FECompiler::CreateInstance() failed with %x"), err);
+    }
 
-	return err;
+    return err;
 }
 
 void FrontEndCompiler::FreeResources()
 {
-	RELEASE_LOGGER_CLIENT;
+    RELEASE_LOGGER_CLIENT;
 
-	if ( NULL != m_pFECompiler )
-	{
+    if ( NULL != m_pFECompiler )
+    {
         if (!m_bTerminate)
         {
-		    m_pFECompiler->Release();
+            m_pFECompiler->Release();
         }
-		m_pFECompiler = NULL;
-	}
+        m_pFECompiler = NULL;
+    }
 
-	if ( NULL != m_pszModuleName )
-	{
-		free((void*)m_pszModuleName);
-		m_pszModuleName = NULL;
-		m_dlModule.Close();
-		m_pfnCreateInstance = NULL;
-	}
+    if ( NULL != m_pszModuleName )
+    {
+        free((void*)m_pszModuleName);
+        m_pszModuleName = NULL;
+        m_dlModule.Close();
+        m_pfnCreateInstance = NULL;
+    }
 }
 
 
@@ -195,7 +195,7 @@ cl_err_code FrontEndCompiler::LinkProgram(const void**  ppBinaries,
     LOG_DEBUG(TEXT("Enter CompileProgram(ppBinaries=%d, uiNumInputBinaries=%d, puiBinariesSizes=%d, szOptions=%d, ppBinary=%d, puiBinarySize=%d, pszLinkLog=%d)"),
         ppBinaries, uiNumInputBinaries, puiBinariesSizes, szOptions, ppBinary, puiBinarySize, pszLinkLog);
 
-    IOCLFEBinaryResult*	        pResult;
+    IOCLFEBinaryResult*            pResult;
     FELinkProgramsDescriptor    linkDesc;
 
     linkDesc.pBinaryContainers = ppBinaries;

@@ -129,8 +129,6 @@ Intel::OpenCL::Utils::AtomicCounter Intel::OpenCL::ClangFE::ClangFECompiler::s_l
 // ClangFECompiler class implementation
 ClangFECompiler::ClangFECompiler(const void* pszDeviceInfo)
 {
-     m_bLllvmActive = true;
-
     long prev = s_llvmReferenceCount++;
     if ( 0 == prev )
     {
@@ -140,6 +138,7 @@ ClangFECompiler::ClangFECompiler(const void* pszDeviceInfo)
 #else
         InitClangDriver();
 #endif
+        m_bLllvmActive = true;   
     }
 
     CLANG_DEV_INFO *pDevInfo = (CLANG_DEV_INFO *)pszDeviceInfo;
