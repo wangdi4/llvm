@@ -18,7 +18,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include <list>
 #include <map>
-#include <string>
 
 #include "CompilationUtils.h"
 
@@ -37,7 +36,7 @@ extern "C" {
 #define NAME_RELAXED_2_0 "_rm"
 
 // the length of "_rm" is 3, the length of "cos" is 3, so NAME_RELAXED_2_0_LEN_3 = 6, these
-// defines are used in macroses like RELAXED_MATH_2_0_P1_vX and if prefixes/postfixes like "_rm" will be changed 
+// defines are used in macroses like RELAXED_MATH_2_0_P1_vX and if prefixes/postfixes like "_rm" will be changed
 // to new ones with different length, it will be enough to change only defines NAME_RELAXED_2_0_LEN_3 ... NAME_RELAXED_2_0_LEN_6
 
 #define NAME_RELAXED_2_0_LEN_3 6
@@ -46,10 +45,10 @@ extern "C" {
 #define NAME_RELAXED_2_0_LEN_6 9
 
 #define INSERT_MAP_TO_NATIVE(map, func, type, length, native_length)        \
-    map.insert ( pair<std::string, std::string>("_Z" #length #func type, "_Z" #native_length "native_" #func type) );
+    map.insert ( FRMMap::value_type("_Z" #length #func type, "_Z" #native_length "native_" #func type) );
 
 #define INSERT_MAP_TO_RELAXED_20(map, func, type, length, ocl20_length)        \
-    map.insert ( pair<std::string, std::string>("_Z" #length #func type, "_Z" #ocl20_length #func NAME_RELAXED_2_0 type) );
+    map.insert ( FRMMap::value_type("_Z" #length #func type, "_Z" #ocl20_length #func NAME_RELAXED_2_0 type) );
 
 // native built-ins, one argument, float version
 #define    RELAXED_P1_vX(map, func,           length, native_length)     \
@@ -266,9 +265,13 @@ namespace intel{
 
     char RelaxedPass::ID = 0;
 
-    void RelaxedPass::replaceFunctions(std::map<std::string, std::string> &mapIn)
+    RelaxedPass::FRMMap const& RelaxedPass::selectFRMMap(llvm::Module const& M) const
     {
-        m_relaxedFunctions = mapIn;
+        if (Intel::OpenCL::DeviceBackend::CompilationUtils::getCLVersionFromModuleOrDefault(M) <
+            Intel::OpenCL::DeviceBackend::OclVersion::CL_VER_2_0)
+            return m_relaxedFunctions;
+        else
+            return m_relaxedFunctions_2_0;
     }
 
 
@@ -278,23 +281,21 @@ namespace intel{
     ///        Also, initialize instance variables.
     bool RelaxedPass::runOnModule(Module &M)
     {
+        FRMMap const& relaxedFunctions = selectFRMMap(M);
         bool changed = false;
-
-        if (Intel::OpenCL::DeviceBackend::CompilationUtils::getCLVersionFromModuleOrDefault(M) ==
-            Intel::OpenCL::DeviceBackend::OclVersion::CL_VER_2_0)
-            replaceFunctions(m_relaxedFunctions_2_0);
 
         Module::iterator it,e;
         for (it = M.begin(), e=M.end(); it != e; ++it)
         {
-            std::string pFuncName = it->getName().str();
-            if ( ( it->isDeclaration() ) && ( m_relaxedFunctions.count( pFuncName ) != 0 ) )
+            FRMMap::const_iterator frmNameIt = relaxedFunctions.find( it->getName() );
+
+            if ( ( it->isDeclaration() ) && ( relaxedFunctions.end() != frmNameIt ) )
             {
                 Function* pFunction = &*it;
-                std::string stRelaxedName = m_relaxedFunctions[pFuncName];
                 FunctionType* pType = pFunction->getFunctionType();
 
-                Function* pRelaxedFunction = dyn_cast<Function>(M.getOrInsertFunction( stRelaxedName, pType, pFunction->getAttributes() ));
+                Function* pRelaxedFunction = dyn_cast<Function>(M.getOrInsertFunction(
+                    frmNameIt->second, pType, pFunction->getAttributes() ));
                 assert(NULL != pRelaxedFunction);
                 pFunction->replaceAllUsesWith(pRelaxedFunction);
 

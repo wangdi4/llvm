@@ -99,13 +99,13 @@ public:
 	virtual void ImageEnqueue(cl_command_queue,			// clEnqueue<CopyImage/WriteImage/CopyBufferToImage/FillImage>
 							  cl_event*, cl_mem,
 							  unsigned int traceCookie)=0;
-	//virtual void PipeCreate(cl_mem pipe,
- //                           cl_context context,
- //                           cl_mem_flags memFlags,
- //                           cl_uint packetSize,
- //                           cl_uint maxPackets,
- //                           const cl_pipe_properties *props,
- //                           unsigned int traceCookie)=0;
+	virtual void PipeCreate(cl_mem pipe,
+                            cl_context context,
+                            cl_mem_flags memFlags,
+                            cl_uint packetSize,
+                            cl_uint maxPackets,
+                            const cl_pipe_properties *props,
+                            unsigned int traceCookie)=0;
     //virtual void ImageChangedCallBack(cl_event, cl_int, ImageInfo*)=0;
 	virtual void MemObjectFree (cl_mem /* memobj */)=0;
 	virtual void MemObjectReleased (cl_mem)=0;	// called when kernel no longer exists in Profiler & RT
@@ -213,13 +213,13 @@ public:
 	virtual void ImageEnqueue(cl_command_queue,			// clEnqueue<CopyImage/WriteImage/CopyBufferToImage/FillImage>
 							  cl_event*, cl_mem,
                               unsigned int traceCookie);
-	//virtual void PipeCreate(cl_mem pipe,
- //                           cl_context context,
- //                           cl_mem_flags memFlags,
- //                           cl_uint packetSize,
- //                           cl_uint maxPackets,
- //                           const cl_pipe_properties *props,
- //                           unsigned int traceCookie);
+	virtual void PipeCreate(cl_mem pipe,
+                            cl_context context,
+                            cl_mem_flags memFlags,
+                            cl_uint packetSize,
+                            cl_uint maxPackets,
+                            const cl_pipe_properties *props,
+                            unsigned int traceCookie);
 	virtual void MemObjectFree (cl_mem /* memobj */);
 	virtual void MemObjectReleased (cl_mem);	// called when kernel no longer exists in Profiler & RT
 

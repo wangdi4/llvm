@@ -18,6 +18,8 @@ namespace intel{
     class RelaxedPass : public ModulePass
     {
     public:
+        typedef std::map<const StringRef, const StringRef> FRMMap;
+
         /// @brief Constructor, add mapping for relaxed functions
         RelaxedPass();
 
@@ -30,18 +32,16 @@ namespace intel{
         /// @brief Pass identification, replacement for typeid
         static char ID;
 
-    protected:
-
+    private:
         /// @brief Map for relaxed functions substitution
-        std::map<std::string, std::string> m_relaxedFunctions;
+        FRMMap m_relaxedFunctions;
 
         /// @brief Map for OCL 2.0 relaxed functions desribed in table 7.2
-        std::map<std::string, std::string> m_relaxedFunctions_2_0;
+        FRMMap m_relaxedFunctions_2_0;
 
-        /// @brief input - std::map<std::string, std::string> mapIn 
-        /// this functions seeks key form mapIn in the m_relaxedFunctions and
-        /// if it is found, replaces value in m_relaxedFunctions by value from mapIn
-        void replaceFunctions(std::map<std::string, std::string> &mapIn);
+        /// @brief This functions selects which mapping is to be used. The decision
+        ///        is based on the OpenCL C version taken from the module
+        FRMMap const& selectFRMMap(llvm::Module const& M) const;
     };
 
 }// namespace intel

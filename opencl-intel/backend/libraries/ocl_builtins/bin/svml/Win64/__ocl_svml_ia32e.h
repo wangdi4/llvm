@@ -244,6 +244,109 @@ extern "C" {
         typedef struct { double16_avx r1;
                                          double16_avx r2; } double16x2_avx;
 
+        typedef int                      int1_uisa;
+        typedef unsigned                 uint1_uisa;
+        typedef struct { __m128i v1; }  int2_uisa;
+        typedef struct { __m128i v1; }  int3_uisa;
+        typedef struct { __m128i v1; }  int4_uisa;
+        typedef struct { __m256i v1; }  int8_uisa;
+        typedef struct { __m512i v1; }  int16_uisa;
+        typedef struct { __m512i v1;
+                         __m512i v2; }  int32_uisa;
+        typedef int2_uisa                uint2_uisa;
+        typedef int3_uisa                uint3_uisa;
+        typedef int4_uisa                uint4_uisa;
+        typedef int8_uisa                uint8_uisa;
+        typedef int16_uisa               uint16_uisa;
+        typedef int32_uisa               uint32_uisa;
+
+        typedef __int64                long1_uisa;
+        typedef unsigned __int64        ulong1_uisa;
+        typedef struct { __m128i v1; }  long2_uisa;
+        typedef struct { __m256i v1; }  long3_uisa;
+        typedef struct { __m256i v1; }  long4_uisa;
+        typedef struct { __m512i v1; }  long8_uisa;
+        typedef struct { __m512i v1;
+                         __m512i v2; }  long16_uisa;
+        typedef long2_uisa               ulong2_uisa;
+        typedef long3_uisa               ulong3_uisa;
+        typedef long4_uisa               ulong4_uisa;
+        typedef long8_uisa               ulong8_uisa;
+        typedef long16_uisa              ulong16_uisa;
+
+        typedef float                   float1_uisa;
+        typedef struct { __m128 v1; }  float2_uisa;
+        typedef struct { __m128 v1; }  float3_uisa;
+        typedef struct { __m128 v1; }  float4_uisa;
+        typedef struct { __m256 v1; }  float8_uisa;
+        typedef struct { __m512 v1; }  float16_uisa;
+        typedef struct { __m512 v1;
+                         __m512 v2; }  float32_uisa;
+
+        typedef double                  double1_uisa;
+        typedef struct { __m128d v1; }  double2_uisa;
+        typedef struct { __m256d v1; }  double3_uisa;
+        typedef struct { __m256d v1; }  double4_uisa;
+        typedef struct { __m512d v1; }  double8_uisa;
+        typedef struct { __m512d v1;
+                         __m512d v2; }  double16_uisa;
+
+        typedef struct { int1_uisa r1;
+                                         int1_uisa r2; } int1x2_uisa;
+        typedef struct { int2_uisa r1;
+                                         int2_uisa r2; } int2x2_uisa;
+        typedef struct { int4_uisa r1;
+                                         int4_uisa r2; } int3x2_uisa;
+        typedef struct { int4_uisa r1;
+                                         int4_uisa r2; } int4x2_uisa;
+        typedef struct { int8_uisa r1;
+                                         int8_uisa r2; } int8x2_uisa;
+        typedef struct { int16_uisa r1;
+                                         int16_uisa r2; } int16x2_uisa;
+        typedef struct { int32_uisa r1;
+                                         int32_uisa r2; } int32x2_uisa;
+
+        typedef struct { long1_uisa r1;
+                                         long1_uisa r2; } long1x2_uisa;
+        typedef struct { long2_uisa r1;
+                                         long2_uisa r2; } long2x2_uisa;
+        typedef struct { long4_uisa r1;
+                                         long4_uisa r2; } long3x2_uisa;
+        typedef struct { long4_uisa r1;
+                                         long4_uisa r2; } long4x2_uisa;
+        typedef struct { long8_uisa r1;
+                                         long8_uisa r2; } long8x2_uisa;
+        typedef struct { long16_uisa r1;
+                                         long16_uisa r2; } long16x2_uisa;
+
+        typedef struct { float1_uisa r1;
+                                         float1_uisa r2; } float1x2_uisa;
+        typedef struct { float2_uisa r1;
+                                         float2_uisa r2; } float2x2_uisa;
+        typedef struct { float4_uisa r1;
+                                         float4_uisa r2; } float3x2_uisa;
+        typedef struct { float4_uisa r1;
+                                         float4_uisa r2; } float4x2_uisa;
+        typedef struct { float8_uisa r1;
+                                         float8_uisa r2; } float8x2_uisa;
+        typedef struct { float16_uisa r1;
+                                         float16_uisa r2; } float16x2_uisa;
+        typedef struct { float32_uisa r1;
+                                         float32_uisa r2; } float32x2_uisa;
+
+        typedef struct { double1_uisa r1;
+                                         double1_uisa r2; } double1x2_uisa;
+        typedef struct { double2_uisa r1;
+                                         double2_uisa r2; } double2x2_uisa;
+        typedef struct { double4_uisa r1;
+                                         double4_uisa r2; } double3x2_uisa;
+        typedef struct { double4_uisa r1;
+                                         double4_uisa r2; } double4x2_uisa;
+        typedef struct { double8_uisa r1;
+                                         double8_uisa r2; } double8x2_uisa;
+        typedef struct { double16_uisa r1;
+                                         double16_uisa r2; } double16x2_uisa;
+
            #if (defined __OCL_SVML_AVX)
 
           typedef int1_avx  int1;
@@ -313,6 +416,81 @@ extern "C" {
           typedef double4x2_avx  double4x2;
           typedef double8x2_avx  double8x2;
           typedef double16x2_avx double16x2;
+
+           #elif (defined __OCL_SVML_UISA)
+
+          typedef int1_uisa  int1;
+          typedef int2_uisa  int2;
+          typedef int3_uisa  int3;
+          typedef int4_uisa  int4;
+          typedef int8_uisa  int8;
+          typedef int16_uisa int16;
+          typedef int32_uisa int32;
+          typedef uint1_uisa  uint1;
+          typedef uint2_uisa  uint2;
+          typedef uint3_uisa  uint3;
+          typedef uint4_uisa  uint4;
+          typedef uint8_uisa  uint8;
+          typedef uint16_uisa uint16;
+          typedef uint32_uisa uint32;
+
+          typedef long1_uisa  long1;
+          typedef long2_uisa  long2;
+          typedef long3_uisa  long3;
+          typedef long4_uisa  long4;
+          typedef long8_uisa  long8;
+          typedef long16_uisa long16;
+          typedef ulong1_uisa  ulong1;
+          typedef ulong2_uisa  ulong2;
+          typedef ulong3_uisa  ulong3;
+          typedef ulong4_uisa  ulong4;
+          typedef ulong8_uisa  ulong8;
+          typedef ulong16_uisa ulong16;
+
+          typedef float1_uisa  float1;
+          typedef float2_uisa  float2;
+          typedef float3_uisa  float3;
+          typedef float4_uisa  float4;
+          typedef float8_uisa  float8;
+          typedef float16_uisa float16;
+          typedef float32_uisa float32;
+
+          typedef double1_uisa  double1;
+          typedef double2_uisa  double2;
+          typedef double3_uisa  double3;
+          typedef double4_uisa  double4;
+          typedef double8_uisa  double8;
+          typedef double16_uisa double16;
+
+          typedef int1x2_uisa  int1x2;
+          typedef int2x2_uisa  int2x2;
+          typedef int3x2_uisa  int3x2;
+          typedef int4x2_uisa  int4x2;
+          typedef int8x2_uisa  int8x2;
+          typedef int16x2_uisa int16x2;
+          typedef int32x2_uisa int32x2;
+
+          typedef long1x2_uisa  long1x2;
+          typedef long2x2_uisa  long2x2;
+          typedef long3x2_uisa  long3x2;
+          typedef long4x2_uisa  long4x2;
+          typedef long8x2_uisa  long8x2;
+          typedef long16x2_uisa long16x2;
+
+          typedef float1x2_uisa  float1x2;
+          typedef float2x2_uisa  float2x2;
+          typedef float3x2_uisa  float3x2;
+          typedef float4x2_uisa  float4x2;
+          typedef float8x2_uisa  float8x2;
+          typedef float16x2_uisa float16x2;
+          typedef float32x2_uisa float32x2;
+
+          typedef double1x2_uisa  double1x2;
+          typedef double2x2_uisa  double2x2;
+          typedef double3x2_uisa  double3x2;
+          typedef double4x2_uisa  double4x2;
+          typedef double8x2_uisa  double8x2;
+          typedef double16x2_uisa double16x2;
 
            #else
 
@@ -901,6 +1079,178 @@ extern "C" {
     float1_avx __ocl_svml_l9_erfcf1 (float1_avx a);
     #pragma linkage     __ocl_svml_l9_erfcf1_linkage   = ( result(xmm0) parameters(xmm0) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_erfcf1_linkage ( __ocl_svml_l9_erfcf1 )
+
+    float1_uisa __ocl_svml_b3_invf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf1_linkage ( __ocl_svml_b3_invf1 )
+
+    float1_uisa __ocl_svml_b3_divf1 (float1_uisa a, float1_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf1_linkage ( __ocl_svml_b3_divf1 )
+
+    float1_uisa __ocl_svml_b3_sqrtf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrtf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrtf1_linkage ( __ocl_svml_b3_sqrtf1 )
+
+    float1_uisa __ocl_svml_b3_rsqrtf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrtf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrtf1_linkage ( __ocl_svml_b3_rsqrtf1 )
+
+    float1_uisa __ocl_svml_b3_cbrtf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cbrtf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cbrtf1_linkage ( __ocl_svml_b3_cbrtf1 )
+
+    float1_uisa __ocl_svml_b3_rcbrtf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_rcbrtf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rcbrtf1_linkage ( __ocl_svml_b3_rcbrtf1 )
+
+    float1_uisa __ocl_svml_b3_hypotf1 (float1_uisa a, float1_uisa b);
+    #pragma linkage     __ocl_svml_b3_hypotf1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_hypotf1_linkage ( __ocl_svml_b3_hypotf1 )
+
+    float1_uisa __ocl_svml_b3_powf1 (float1_uisa a, float1_uisa b);
+    #pragma linkage     __ocl_svml_b3_powf1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powf1_linkage ( __ocl_svml_b3_powf1 )
+
+    float1_uisa __ocl_svml_b3_powrf1 (float1_uisa a, float1_uisa b);
+    #pragma linkage     __ocl_svml_b3_powrf1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powrf1_linkage ( __ocl_svml_b3_powrf1 )
+
+    float1_uisa __ocl_svml_b3_pownf1 (float1_uisa a, int1_uisa b);
+    #pragma linkage     __ocl_svml_b3_pownf1_linkage   = ( result(xmm0) parameters(xmm0,ecx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pownf1_linkage ( __ocl_svml_b3_pownf1 )
+
+    float1_uisa __ocl_svml_b3_rootnf1 (float1_uisa a, int1_uisa b);
+    #pragma linkage     __ocl_svml_b3_rootnf1_linkage   = ( result(xmm0) parameters(xmm0,ecx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rootnf1_linkage ( __ocl_svml_b3_rootnf1 )
+
+    float1_uisa __ocl_svml_b3_expf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf1_linkage ( __ocl_svml_b3_expf1 )
+
+    float1_uisa __ocl_svml_b3_exp2f1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f1_linkage ( __ocl_svml_b3_exp2f1 )
+
+    float1_uisa __ocl_svml_b3_exp10f1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f1_linkage ( __ocl_svml_b3_exp10f1 )
+
+    float1_uisa __ocl_svml_b3_expm1f1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_expm1f1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expm1f1_linkage ( __ocl_svml_b3_expm1f1 )
+
+    float1_uisa __ocl_svml_b3_logf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf1_linkage ( __ocl_svml_b3_logf1 )
+
+    float1_uisa __ocl_svml_b3_log10f1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_log10f1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log10f1_linkage ( __ocl_svml_b3_log10f1 )
+
+    float1_uisa __ocl_svml_b3_log2f1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f1_linkage ( __ocl_svml_b3_log2f1 )
+
+    float1_uisa __ocl_svml_b3_log1pf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1pf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1pf1_linkage ( __ocl_svml_b3_log1pf1 )
+
+    float1_uisa __ocl_svml_b3_sinf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf1_linkage ( __ocl_svml_b3_sinf1 )
+
+    float1_uisa __ocl_svml_b3_cosf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf1_linkage ( __ocl_svml_b3_cosf1 )
+
+    float1_uisa __ocl_svml_b3_sincosf1 (float1_uisa a, float1_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincosf1_linkage   = ( result(xmm0) parameters(xmm0,rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosf1_linkage ( __ocl_svml_b3_sincosf1 )
+
+    float1x2_uisa __ocl_svml_b3_sincosregf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_sincosregf1_linkage   = ( result(xmm0 xmm1) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosregf1_linkage ( __ocl_svml_b3_sincosregf1 )
+
+    float1_uisa __ocl_svml_b3_tanf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf1_linkage ( __ocl_svml_b3_tanf1 )
+
+    float1_uisa __ocl_svml_b3_sinpif1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinpif1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinpif1_linkage ( __ocl_svml_b3_sinpif1 )
+
+    float1_uisa __ocl_svml_b3_cospif1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cospif1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cospif1_linkage ( __ocl_svml_b3_cospif1 )
+
+    float1_uisa __ocl_svml_b3_tanpif1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanpif1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanpif1_linkage ( __ocl_svml_b3_tanpif1 )
+
+    float1_uisa __ocl_svml_b3_acosf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_acosf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acosf1_linkage ( __ocl_svml_b3_acosf1 )
+
+    float1_uisa __ocl_svml_b3_asinf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinf1_linkage ( __ocl_svml_b3_asinf1 )
+
+    float1_uisa __ocl_svml_b3_atanf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanf1_linkage ( __ocl_svml_b3_atanf1 )
+
+    float1_uisa __ocl_svml_b3_atan2f1 (float1_uisa a, float1_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2f1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2f1_linkage ( __ocl_svml_b3_atan2f1 )
+
+    float1_uisa __ocl_svml_b3_asinpif1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinpif1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinpif1_linkage ( __ocl_svml_b3_asinpif1 )
+
+    float1_uisa __ocl_svml_b3_acospif1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_acospif1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acospif1_linkage ( __ocl_svml_b3_acospif1 )
+
+    float1_uisa __ocl_svml_b3_atanpif1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanpif1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanpif1_linkage ( __ocl_svml_b3_atanpif1 )
+
+    float1_uisa __ocl_svml_b3_atan2pif1 (float1_uisa a, float1_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2pif1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2pif1_linkage ( __ocl_svml_b3_atan2pif1 )
+
+    float1_uisa __ocl_svml_b3_sinhf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinhf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinhf1_linkage ( __ocl_svml_b3_sinhf1 )
+
+    float1_uisa __ocl_svml_b3_coshf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_coshf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_coshf1_linkage ( __ocl_svml_b3_coshf1 )
+
+    float1_uisa __ocl_svml_b3_tanhf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanhf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanhf1_linkage ( __ocl_svml_b3_tanhf1 )
+
+    float1_uisa __ocl_svml_b3_asinhf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinhf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinhf1_linkage ( __ocl_svml_b3_asinhf1 )
+
+    float1_uisa __ocl_svml_b3_acoshf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_acoshf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acoshf1_linkage ( __ocl_svml_b3_acoshf1 )
+
+    float1_uisa __ocl_svml_b3_atanhf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanhf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanhf1_linkage ( __ocl_svml_b3_atanhf1 )
+
+    float1_uisa __ocl_svml_b3_erff1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_erff1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erff1_linkage ( __ocl_svml_b3_erff1 )
+
+    float1_uisa __ocl_svml_b3_erfcf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_erfcf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erfcf1_linkage ( __ocl_svml_b3_erfcf1 )
 
     float1_sse __ocl_svml_h8_fmaf1 (float1_sse a, float1_sse b, float1_sse c);
     #pragma linkage     __ocl_svml_h8_fmaf1_linkage   = ( result(xmm0) parameters(xmm0,xmm1,xmm2) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
@@ -1814,6 +2164,310 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_cvti32tofprtzf1_linkage   = ( result(xmm0) parameters(rcx) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_cvti32tofprtzf1_linkage ( __ocl_svml_l9_cvti32tofprtzf1 )
 
+    float1_uisa __ocl_svml_b3_fmaf1 (float1_uisa a, float1_uisa b, float1_uisa c);
+    #pragma linkage     __ocl_svml_b3_fmaf1_linkage   = ( result(xmm0) parameters(xmm0,xmm1,xmm2) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmaf1_linkage ( __ocl_svml_b3_fmaf1 )
+
+    float1_uisa __ocl_svml_b3_fabsf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_fabsf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fabsf1_linkage ( __ocl_svml_b3_fabsf1 )
+
+    float1_uisa __ocl_svml_b3_fminf1 (float1_uisa a, float1_uisa b);
+    #pragma linkage     __ocl_svml_b3_fminf1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fminf1_linkage ( __ocl_svml_b3_fminf1 )
+
+    float1_uisa __ocl_svml_b3_fmaxf1 (float1_uisa a, float1_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmaxf1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmaxf1_linkage ( __ocl_svml_b3_fmaxf1 )
+
+    float1_uisa __ocl_svml_b3_maxmagf1 (float1_uisa a, float1_uisa b);
+    #pragma linkage     __ocl_svml_b3_maxmagf1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_maxmagf1_linkage ( __ocl_svml_b3_maxmagf1 )
+
+    float1_uisa __ocl_svml_b3_minmagf1 (float1_uisa a, float1_uisa b);
+    #pragma linkage     __ocl_svml_b3_minmagf1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_minmagf1_linkage ( __ocl_svml_b3_minmagf1 )
+
+    float1_uisa __ocl_svml_b3_nanf1 (uint1_uisa a);
+    #pragma linkage     __ocl_svml_b3_nanf1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nanf1_linkage ( __ocl_svml_b3_nanf1 )
+
+    float1_uisa __ocl_svml_b3_ceilf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_ceilf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ceilf1_linkage ( __ocl_svml_b3_ceilf1 )
+
+    float1_uisa __ocl_svml_b3_floorf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_floorf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_floorf1_linkage ( __ocl_svml_b3_floorf1 )
+
+    float1_uisa __ocl_svml_b3_roundf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_roundf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_roundf1_linkage ( __ocl_svml_b3_roundf1 )
+
+    float1_uisa __ocl_svml_b3_truncf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_truncf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_truncf1_linkage ( __ocl_svml_b3_truncf1 )
+
+    float1_uisa __ocl_svml_b3_rintf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_rintf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rintf1_linkage ( __ocl_svml_b3_rintf1 )
+
+    float1_uisa __ocl_svml_b3_nearbyintf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_nearbyintf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nearbyintf1_linkage ( __ocl_svml_b3_nearbyintf1 )
+
+    float1_uisa __ocl_svml_b3_fmodf1 (float1_uisa a, float1_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmodf1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmodf1_linkage ( __ocl_svml_b3_fmodf1 )
+
+    float1_uisa __ocl_svml_b3_modff1 (float1_uisa a, float1_uisa* c);
+    #pragma linkage     __ocl_svml_b3_modff1_linkage   = ( result(xmm0) parameters(xmm0,rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_modff1_linkage ( __ocl_svml_b3_modff1 )
+
+    float1_uisa __ocl_svml_b3_remainderf1 (float1_uisa a, float1_uisa b);
+    #pragma linkage     __ocl_svml_b3_remainderf1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_remainderf1_linkage ( __ocl_svml_b3_remainderf1 )
+
+    float1_uisa __ocl_svml_b3_remquof1 (float1_uisa a, float1_uisa b, int1_uisa* c);
+    #pragma linkage     __ocl_svml_b3_remquof1_linkage   = ( result(xmm0) parameters(xmm0,xmm1,rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_remquof1_linkage ( __ocl_svml_b3_remquof1 )
+
+    float1_uisa __ocl_svml_b3_copysignf1 (float1_uisa a, float1_uisa b);
+    #pragma linkage     __ocl_svml_b3_copysignf1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_copysignf1_linkage ( __ocl_svml_b3_copysignf1 )
+
+    float1_uisa __ocl_svml_b3_frexpf1 (float1_uisa a, int1_uisa* c);
+    #pragma linkage     __ocl_svml_b3_frexpf1_linkage   = ( result(xmm0) parameters(xmm0,rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_frexpf1_linkage ( __ocl_svml_b3_frexpf1 )
+
+    float1_uisa __ocl_svml_b3_fdimf1 (float1_uisa a, float1_uisa b);
+    #pragma linkage     __ocl_svml_b3_fdimf1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fdimf1_linkage ( __ocl_svml_b3_fdimf1 )
+
+    float1_uisa __ocl_svml_b3_logbf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_logbf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logbf1_linkage ( __ocl_svml_b3_logbf1 )
+
+    int1_uisa __ocl_svml_b3_ilogbf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_ilogbf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ilogbf1_linkage ( __ocl_svml_b3_ilogbf1 )
+
+    float1_uisa __ocl_svml_b3_nextafterf1 (float1_uisa a, float1_uisa b);
+    #pragma linkage     __ocl_svml_b3_nextafterf1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nextafterf1_linkage ( __ocl_svml_b3_nextafterf1 )
+
+    float1_uisa __ocl_svml_b3_ldexpf1 (float1_uisa a, int1_uisa b);
+    #pragma linkage     __ocl_svml_b3_ldexpf1_linkage   = ( result(xmm0) parameters(xmm0,ecx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ldexpf1_linkage ( __ocl_svml_b3_ldexpf1 )
+
+    float1_uisa __ocl_svml_b3_fractf1 (float1_uisa a, float1_uisa* c);
+    #pragma linkage     __ocl_svml_b3_fractf1_linkage   = ( result(xmm0) parameters(xmm0,rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fractf1_linkage ( __ocl_svml_b3_fractf1 )
+
+    float1_uisa __ocl_svml_b3_tgammaf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_tgammaf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tgammaf1_linkage ( __ocl_svml_b3_tgammaf1 )
+
+    float1_uisa __ocl_svml_b3_lgammaf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_lgammaf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_lgammaf1_linkage ( __ocl_svml_b3_lgammaf1 )
+
+    float1_uisa __ocl_svml_b3_lgammarf1 (float1_uisa a, int1_uisa* c);
+    #pragma linkage     __ocl_svml_b3_lgammarf1_linkage   = ( result(xmm0) parameters(xmm0,rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_lgammarf1_linkage ( __ocl_svml_b3_lgammarf1 )
+
+    ulong1_uisa __ocl_svml_b3_cvtfptou64rtenosatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtenosatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtenosatf1_linkage ( __ocl_svml_b3_cvtfptou64rtenosatf1 )
+
+    ulong1_uisa __ocl_svml_b3_cvtfptou64rtesatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtesatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtesatf1_linkage ( __ocl_svml_b3_cvtfptou64rtesatf1 )
+
+    ulong1_uisa __ocl_svml_b3_cvtfptou64rtnnosatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtnnosatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtnnosatf1_linkage ( __ocl_svml_b3_cvtfptou64rtnnosatf1 )
+
+    ulong1_uisa __ocl_svml_b3_cvtfptou64rtnsatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtnsatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtnsatf1_linkage ( __ocl_svml_b3_cvtfptou64rtnsatf1 )
+
+    ulong1_uisa __ocl_svml_b3_cvtfptou64rtpnosatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtpnosatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtpnosatf1_linkage ( __ocl_svml_b3_cvtfptou64rtpnosatf1 )
+
+    ulong1_uisa __ocl_svml_b3_cvtfptou64rtpsatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtpsatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtpsatf1_linkage ( __ocl_svml_b3_cvtfptou64rtpsatf1 )
+
+    ulong1_uisa __ocl_svml_b3_cvtfptou64rtznosatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtznosatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtznosatf1_linkage ( __ocl_svml_b3_cvtfptou64rtznosatf1 )
+
+    ulong1_uisa __ocl_svml_b3_cvtfptou64rtzsatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtzsatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtzsatf1_linkage ( __ocl_svml_b3_cvtfptou64rtzsatf1 )
+
+    long1_uisa __ocl_svml_b3_cvtfptoi64rtenosatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtenosatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtenosatf1_linkage ( __ocl_svml_b3_cvtfptoi64rtenosatf1 )
+
+    long1_uisa __ocl_svml_b3_cvtfptoi64rtesatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtesatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtesatf1_linkage ( __ocl_svml_b3_cvtfptoi64rtesatf1 )
+
+    long1_uisa __ocl_svml_b3_cvtfptoi64rtnnosatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtnnosatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtnnosatf1_linkage ( __ocl_svml_b3_cvtfptoi64rtnnosatf1 )
+
+    long1_uisa __ocl_svml_b3_cvtfptoi64rtnsatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtnsatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtnsatf1_linkage ( __ocl_svml_b3_cvtfptoi64rtnsatf1 )
+
+    long1_uisa __ocl_svml_b3_cvtfptoi64rtpnosatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtpnosatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtpnosatf1_linkage ( __ocl_svml_b3_cvtfptoi64rtpnosatf1 )
+
+    long1_uisa __ocl_svml_b3_cvtfptoi64rtpsatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtpsatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtpsatf1_linkage ( __ocl_svml_b3_cvtfptoi64rtpsatf1 )
+
+    long1_uisa __ocl_svml_b3_cvtfptoi64rtznosatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtznosatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtznosatf1_linkage ( __ocl_svml_b3_cvtfptoi64rtznosatf1 )
+
+    long1_uisa __ocl_svml_b3_cvtfptoi64rtzsatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtzsatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtzsatf1_linkage ( __ocl_svml_b3_cvtfptoi64rtzsatf1 )
+
+    uint1_uisa __ocl_svml_b3_cvtfptou32rtenosatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtenosatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtenosatf1_linkage ( __ocl_svml_b3_cvtfptou32rtenosatf1 )
+
+    uint1_uisa __ocl_svml_b3_cvtfptou32rtesatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtesatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtesatf1_linkage ( __ocl_svml_b3_cvtfptou32rtesatf1 )
+
+    uint1_uisa __ocl_svml_b3_cvtfptou32rtnnosatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtnnosatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtnnosatf1_linkage ( __ocl_svml_b3_cvtfptou32rtnnosatf1 )
+
+    uint1_uisa __ocl_svml_b3_cvtfptou32rtnsatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtnsatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtnsatf1_linkage ( __ocl_svml_b3_cvtfptou32rtnsatf1 )
+
+    uint1_uisa __ocl_svml_b3_cvtfptou32rtpnosatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtpnosatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtpnosatf1_linkage ( __ocl_svml_b3_cvtfptou32rtpnosatf1 )
+
+    uint1_uisa __ocl_svml_b3_cvtfptou32rtpsatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtpsatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtpsatf1_linkage ( __ocl_svml_b3_cvtfptou32rtpsatf1 )
+
+    uint1_uisa __ocl_svml_b3_cvtfptou32rtznosatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtznosatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtznosatf1_linkage ( __ocl_svml_b3_cvtfptou32rtznosatf1 )
+
+    uint1_uisa __ocl_svml_b3_cvtfptou32rtzsatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtzsatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtzsatf1_linkage ( __ocl_svml_b3_cvtfptou32rtzsatf1 )
+
+    int1_uisa __ocl_svml_b3_cvtfptoi32rtenosatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtenosatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtenosatf1_linkage ( __ocl_svml_b3_cvtfptoi32rtenosatf1 )
+
+    int1_uisa __ocl_svml_b3_cvtfptoi32rtesatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtesatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtesatf1_linkage ( __ocl_svml_b3_cvtfptoi32rtesatf1 )
+
+    int1_uisa __ocl_svml_b3_cvtfptoi32rtnnosatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtnnosatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtnnosatf1_linkage ( __ocl_svml_b3_cvtfptoi32rtnnosatf1 )
+
+    int1_uisa __ocl_svml_b3_cvtfptoi32rtnsatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtnsatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtnsatf1_linkage ( __ocl_svml_b3_cvtfptoi32rtnsatf1 )
+
+    int1_uisa __ocl_svml_b3_cvtfptoi32rtpnosatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtpnosatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtpnosatf1_linkage ( __ocl_svml_b3_cvtfptoi32rtpnosatf1 )
+
+    int1_uisa __ocl_svml_b3_cvtfptoi32rtpsatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtpsatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtpsatf1_linkage ( __ocl_svml_b3_cvtfptoi32rtpsatf1 )
+
+    int1_uisa __ocl_svml_b3_cvtfptoi32rtznosatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtznosatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtznosatf1_linkage ( __ocl_svml_b3_cvtfptoi32rtznosatf1 )
+
+    int1_uisa __ocl_svml_b3_cvtfptoi32rtzsatf1 (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtzsatf1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtzsatf1_linkage ( __ocl_svml_b3_cvtfptoi32rtzsatf1 )
+
+    float1_uisa __ocl_svml_b3_cvtu64tofprtef1 (ulong1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtef1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtef1_linkage ( __ocl_svml_b3_cvtu64tofprtef1 )
+
+    float1_uisa __ocl_svml_b3_cvtu64tofprtnf1 (ulong1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtnf1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtnf1_linkage ( __ocl_svml_b3_cvtu64tofprtnf1 )
+
+    float1_uisa __ocl_svml_b3_cvtu64tofprtpf1 (ulong1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtpf1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtpf1_linkage ( __ocl_svml_b3_cvtu64tofprtpf1 )
+
+    float1_uisa __ocl_svml_b3_cvtu64tofprtzf1 (ulong1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtzf1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtzf1_linkage ( __ocl_svml_b3_cvtu64tofprtzf1 )
+
+    float1_uisa __ocl_svml_b3_cvti64tofprtef1 (long1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtef1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtef1_linkage ( __ocl_svml_b3_cvti64tofprtef1 )
+
+    float1_uisa __ocl_svml_b3_cvti64tofprtnf1 (long1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtnf1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtnf1_linkage ( __ocl_svml_b3_cvti64tofprtnf1 )
+
+    float1_uisa __ocl_svml_b3_cvti64tofprtpf1 (long1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtpf1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtpf1_linkage ( __ocl_svml_b3_cvti64tofprtpf1 )
+
+    float1_uisa __ocl_svml_b3_cvti64tofprtzf1 (long1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtzf1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtzf1_linkage ( __ocl_svml_b3_cvti64tofprtzf1 )
+
+    float1_uisa __ocl_svml_b3_cvtu32tofprtef1 (uint1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtef1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtef1_linkage ( __ocl_svml_b3_cvtu32tofprtef1 )
+
+    float1_uisa __ocl_svml_b3_cvtu32tofprtnf1 (uint1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtnf1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtnf1_linkage ( __ocl_svml_b3_cvtu32tofprtnf1 )
+
+    float1_uisa __ocl_svml_b3_cvtu32tofprtpf1 (uint1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtpf1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtpf1_linkage ( __ocl_svml_b3_cvtu32tofprtpf1 )
+
+    float1_uisa __ocl_svml_b3_cvtu32tofprtzf1 (uint1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtzf1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtzf1_linkage ( __ocl_svml_b3_cvtu32tofprtzf1 )
+
+    float1_uisa __ocl_svml_b3_cvti32tofprtef1 (int1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtef1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtef1_linkage ( __ocl_svml_b3_cvti32tofprtef1 )
+
+    float1_uisa __ocl_svml_b3_cvti32tofprtnf1 (int1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtnf1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtnf1_linkage ( __ocl_svml_b3_cvti32tofprtnf1 )
+
+    float1_uisa __ocl_svml_b3_cvti32tofprtpf1 (int1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtpf1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtpf1_linkage ( __ocl_svml_b3_cvti32tofprtpf1 )
+
+    float1_uisa __ocl_svml_b3_cvti32tofprtzf1 (int1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtzf1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtzf1_linkage ( __ocl_svml_b3_cvti32tofprtzf1 )
+
     double1_sse __ocl_svml_h8_inv1 (double1_sse a);
     #pragma linkage     __ocl_svml_h8_inv1_linkage   = ( result(xmm0) parameters(xmm0) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_h8_inv1_linkage ( __ocl_svml_h8_inv1 )
@@ -2329,6 +2983,178 @@ extern "C" {
     double1_avx __ocl_svml_l9_erfc1 (double1_avx a);
     #pragma linkage     __ocl_svml_l9_erfc1_linkage   = ( result(xmm0) parameters(xmm0) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_erfc1_linkage ( __ocl_svml_l9_erfc1 )
+
+    double1_uisa __ocl_svml_b3_inv1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_inv1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_inv1_linkage ( __ocl_svml_b3_inv1 )
+
+    double1_uisa __ocl_svml_b3_div1 (double1_uisa a, double1_uisa b);
+    #pragma linkage     __ocl_svml_b3_div1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_div1_linkage ( __ocl_svml_b3_div1 )
+
+    double1_uisa __ocl_svml_b3_sqrt1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrt1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrt1_linkage ( __ocl_svml_b3_sqrt1 )
+
+    double1_uisa __ocl_svml_b3_rsqrt1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrt1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrt1_linkage ( __ocl_svml_b3_rsqrt1 )
+
+    double1_uisa __ocl_svml_b3_cbrt1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cbrt1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cbrt1_linkage ( __ocl_svml_b3_cbrt1 )
+
+    double1_uisa __ocl_svml_b3_rcbrt1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_rcbrt1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rcbrt1_linkage ( __ocl_svml_b3_rcbrt1 )
+
+    double1_uisa __ocl_svml_b3_hypot1 (double1_uisa a, double1_uisa b);
+    #pragma linkage     __ocl_svml_b3_hypot1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_hypot1_linkage ( __ocl_svml_b3_hypot1 )
+
+    double1_uisa __ocl_svml_b3_pow1 (double1_uisa a, double1_uisa b);
+    #pragma linkage     __ocl_svml_b3_pow1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pow1_linkage ( __ocl_svml_b3_pow1 )
+
+    double1_uisa __ocl_svml_b3_powr1 (double1_uisa a, double1_uisa b);
+    #pragma linkage     __ocl_svml_b3_powr1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powr1_linkage ( __ocl_svml_b3_powr1 )
+
+    double1_uisa __ocl_svml_b3_pown1 (double1_uisa a, int1_uisa b);
+    #pragma linkage     __ocl_svml_b3_pown1_linkage   = ( result(xmm0) parameters(xmm0,ecx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pown1_linkage ( __ocl_svml_b3_pown1 )
+
+    double1_uisa __ocl_svml_b3_rootn1 (double1_uisa a, int1_uisa b);
+    #pragma linkage     __ocl_svml_b3_rootn1_linkage   = ( result(xmm0) parameters(xmm0,ecx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rootn1_linkage ( __ocl_svml_b3_rootn1 )
+
+    double1_uisa __ocl_svml_b3_exp1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp1_linkage ( __ocl_svml_b3_exp1 )
+
+    double1_uisa __ocl_svml_b3_exp21 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp21_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp21_linkage ( __ocl_svml_b3_exp21 )
+
+    double1_uisa __ocl_svml_b3_exp101 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp101_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp101_linkage ( __ocl_svml_b3_exp101 )
+
+    double1_uisa __ocl_svml_b3_expm11 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_expm11_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expm11_linkage ( __ocl_svml_b3_expm11 )
+
+    double1_uisa __ocl_svml_b3_log1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1_linkage ( __ocl_svml_b3_log1 )
+
+    double1_uisa __ocl_svml_b3_log101 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_log101_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log101_linkage ( __ocl_svml_b3_log101 )
+
+    double1_uisa __ocl_svml_b3_log21 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_log21_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log21_linkage ( __ocl_svml_b3_log21 )
+
+    double1_uisa __ocl_svml_b3_log1p1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1p1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1p1_linkage ( __ocl_svml_b3_log1p1 )
+
+    double1_uisa __ocl_svml_b3_sin1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_sin1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sin1_linkage ( __ocl_svml_b3_sin1 )
+
+    double1_uisa __ocl_svml_b3_cos1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cos1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cos1_linkage ( __ocl_svml_b3_cos1 )
+
+    double1_uisa __ocl_svml_b3_sincos1 (double1_uisa a, double1_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincos1_linkage   = ( result(xmm0) parameters(xmm0,rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincos1_linkage ( __ocl_svml_b3_sincos1 )
+
+    double1x2_uisa __ocl_svml_b3_sincosreg1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_sincosreg1_linkage   = ( result(xmm0 xmm1) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosreg1_linkage ( __ocl_svml_b3_sincosreg1 )
+
+    double1_uisa __ocl_svml_b3_tan1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_tan1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tan1_linkage ( __ocl_svml_b3_tan1 )
+
+    double1_uisa __ocl_svml_b3_sinpi1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinpi1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinpi1_linkage ( __ocl_svml_b3_sinpi1 )
+
+    double1_uisa __ocl_svml_b3_cospi1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cospi1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cospi1_linkage ( __ocl_svml_b3_cospi1 )
+
+    double1_uisa __ocl_svml_b3_tanpi1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanpi1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanpi1_linkage ( __ocl_svml_b3_tanpi1 )
+
+    double1_uisa __ocl_svml_b3_acos1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_acos1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acos1_linkage ( __ocl_svml_b3_acos1 )
+
+    double1_uisa __ocl_svml_b3_asin1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_asin1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asin1_linkage ( __ocl_svml_b3_asin1 )
+
+    double1_uisa __ocl_svml_b3_atan1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_atan1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan1_linkage ( __ocl_svml_b3_atan1 )
+
+    double1_uisa __ocl_svml_b3_atan21 (double1_uisa a, double1_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan21_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan21_linkage ( __ocl_svml_b3_atan21 )
+
+    double1_uisa __ocl_svml_b3_asinpi1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinpi1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinpi1_linkage ( __ocl_svml_b3_asinpi1 )
+
+    double1_uisa __ocl_svml_b3_acospi1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_acospi1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acospi1_linkage ( __ocl_svml_b3_acospi1 )
+
+    double1_uisa __ocl_svml_b3_atanpi1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanpi1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanpi1_linkage ( __ocl_svml_b3_atanpi1 )
+
+    double1_uisa __ocl_svml_b3_atan2pi1 (double1_uisa a, double1_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2pi1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2pi1_linkage ( __ocl_svml_b3_atan2pi1 )
+
+    double1_uisa __ocl_svml_b3_sinh1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinh1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinh1_linkage ( __ocl_svml_b3_sinh1 )
+
+    double1_uisa __ocl_svml_b3_cosh1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosh1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosh1_linkage ( __ocl_svml_b3_cosh1 )
+
+    double1_uisa __ocl_svml_b3_tanh1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanh1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanh1_linkage ( __ocl_svml_b3_tanh1 )
+
+    double1_uisa __ocl_svml_b3_asinh1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinh1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinh1_linkage ( __ocl_svml_b3_asinh1 )
+
+    double1_uisa __ocl_svml_b3_acosh1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_acosh1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acosh1_linkage ( __ocl_svml_b3_acosh1 )
+
+    double1_uisa __ocl_svml_b3_atanh1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanh1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanh1_linkage ( __ocl_svml_b3_atanh1 )
+
+    double1_uisa __ocl_svml_b3_erf1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_erf1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erf1_linkage ( __ocl_svml_b3_erf1 )
+
+    double1_uisa __ocl_svml_b3_erfc1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_erfc1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erfc1_linkage ( __ocl_svml_b3_erfc1 )
 
     double1_sse __ocl_svml_h8_fma1 (double1_sse a, double1_sse b, double1_sse c);
     #pragma linkage     __ocl_svml_h8_fma1_linkage   = ( result(xmm0) parameters(xmm0,xmm1,xmm2) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
@@ -3290,6 +4116,326 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_cvtfp64tofp32rtz1_linkage   = ( result(xmm0) parameters(xmm0) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_cvtfp64tofp32rtz1_linkage ( __ocl_svml_l9_cvtfp64tofp32rtz1 )
 
+    double1_uisa __ocl_svml_b3_fma1 (double1_uisa a, double1_uisa b, double1_uisa c);
+    #pragma linkage     __ocl_svml_b3_fma1_linkage   = ( result(xmm0) parameters(xmm0,xmm1,xmm2) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fma1_linkage ( __ocl_svml_b3_fma1 )
+
+    double1_uisa __ocl_svml_b3_fabs1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_fabs1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fabs1_linkage ( __ocl_svml_b3_fabs1 )
+
+    double1_uisa __ocl_svml_b3_fmin1 (double1_uisa a, double1_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmin1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmin1_linkage ( __ocl_svml_b3_fmin1 )
+
+    double1_uisa __ocl_svml_b3_fmax1 (double1_uisa a, double1_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmax1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmax1_linkage ( __ocl_svml_b3_fmax1 )
+
+    double1_uisa __ocl_svml_b3_maxmag1 (double1_uisa a, double1_uisa b);
+    #pragma linkage     __ocl_svml_b3_maxmag1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_maxmag1_linkage ( __ocl_svml_b3_maxmag1 )
+
+    double1_uisa __ocl_svml_b3_minmag1 (double1_uisa a, double1_uisa b);
+    #pragma linkage     __ocl_svml_b3_minmag1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_minmag1_linkage ( __ocl_svml_b3_minmag1 )
+
+    double1_uisa __ocl_svml_b3_nan1 (ulong1_uisa a);
+    #pragma linkage     __ocl_svml_b3_nan1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nan1_linkage ( __ocl_svml_b3_nan1 )
+
+    double1_uisa __ocl_svml_b3_ceil1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_ceil1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ceil1_linkage ( __ocl_svml_b3_ceil1 )
+
+    double1_uisa __ocl_svml_b3_floor1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_floor1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_floor1_linkage ( __ocl_svml_b3_floor1 )
+
+    double1_uisa __ocl_svml_b3_round1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_round1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_round1_linkage ( __ocl_svml_b3_round1 )
+
+    double1_uisa __ocl_svml_b3_trunc1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_trunc1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_trunc1_linkage ( __ocl_svml_b3_trunc1 )
+
+    double1_uisa __ocl_svml_b3_rint1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_rint1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rint1_linkage ( __ocl_svml_b3_rint1 )
+
+    double1_uisa __ocl_svml_b3_nearbyint1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_nearbyint1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nearbyint1_linkage ( __ocl_svml_b3_nearbyint1 )
+
+    double1_uisa __ocl_svml_b3_fmod1 (double1_uisa a, double1_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmod1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmod1_linkage ( __ocl_svml_b3_fmod1 )
+
+    double1_uisa __ocl_svml_b3_modf1 (double1_uisa a, double1_uisa* c);
+    #pragma linkage     __ocl_svml_b3_modf1_linkage   = ( result(xmm0) parameters(xmm0,rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_modf1_linkage ( __ocl_svml_b3_modf1 )
+
+    double1_uisa __ocl_svml_b3_remainder1 (double1_uisa a, double1_uisa b);
+    #pragma linkage     __ocl_svml_b3_remainder1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_remainder1_linkage ( __ocl_svml_b3_remainder1 )
+
+    double1_uisa __ocl_svml_b3_remquo1 (double1_uisa a, double1_uisa b, int1_uisa* c);
+    #pragma linkage     __ocl_svml_b3_remquo1_linkage   = ( result(xmm0) parameters(xmm0,xmm1,rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_remquo1_linkage ( __ocl_svml_b3_remquo1 )
+
+    double1_uisa __ocl_svml_b3_copysign1 (double1_uisa a, double1_uisa b);
+    #pragma linkage     __ocl_svml_b3_copysign1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_copysign1_linkage ( __ocl_svml_b3_copysign1 )
+
+    double1_uisa __ocl_svml_b3_frexp1 (double1_uisa a, int1_uisa* c);
+    #pragma linkage     __ocl_svml_b3_frexp1_linkage   = ( result(xmm0) parameters(xmm0,rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_frexp1_linkage ( __ocl_svml_b3_frexp1 )
+
+    double1_uisa __ocl_svml_b3_fdim1 (double1_uisa a, double1_uisa b);
+    #pragma linkage     __ocl_svml_b3_fdim1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fdim1_linkage ( __ocl_svml_b3_fdim1 )
+
+    double1_uisa __ocl_svml_b3_logb1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_logb1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logb1_linkage ( __ocl_svml_b3_logb1 )
+
+    int1_uisa __ocl_svml_b3_ilogb1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_ilogb1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ilogb1_linkage ( __ocl_svml_b3_ilogb1 )
+
+    double1_uisa __ocl_svml_b3_nextafter1 (double1_uisa a, double1_uisa b);
+    #pragma linkage     __ocl_svml_b3_nextafter1_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nextafter1_linkage ( __ocl_svml_b3_nextafter1 )
+
+    double1_uisa __ocl_svml_b3_ldexp1 (double1_uisa a, int1_uisa b);
+    #pragma linkage     __ocl_svml_b3_ldexp1_linkage   = ( result(xmm0) parameters(xmm0,ecx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ldexp1_linkage ( __ocl_svml_b3_ldexp1 )
+
+    double1_uisa __ocl_svml_b3_fract1 (double1_uisa a, double1_uisa* c);
+    #pragma linkage     __ocl_svml_b3_fract1_linkage   = ( result(xmm0) parameters(xmm0,rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fract1_linkage ( __ocl_svml_b3_fract1 )
+
+    double1_uisa __ocl_svml_b3_tgamma1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_tgamma1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tgamma1_linkage ( __ocl_svml_b3_tgamma1 )
+
+    double1_uisa __ocl_svml_b3_lgamma1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_lgamma1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_lgamma1_linkage ( __ocl_svml_b3_lgamma1 )
+
+    double1_uisa __ocl_svml_b3_lgammar1 (double1_uisa a, int1_uisa* c);
+    #pragma linkage     __ocl_svml_b3_lgammar1_linkage   = ( result(xmm0) parameters(xmm0,rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_lgammar1_linkage ( __ocl_svml_b3_lgammar1 )
+
+    ulong1_uisa __ocl_svml_b3_cvtfptou64rtenosat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtenosat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtenosat1_linkage ( __ocl_svml_b3_cvtfptou64rtenosat1 )
+
+    ulong1_uisa __ocl_svml_b3_cvtfptou64rtesat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtesat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtesat1_linkage ( __ocl_svml_b3_cvtfptou64rtesat1 )
+
+    ulong1_uisa __ocl_svml_b3_cvtfptou64rtnnosat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtnnosat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtnnosat1_linkage ( __ocl_svml_b3_cvtfptou64rtnnosat1 )
+
+    ulong1_uisa __ocl_svml_b3_cvtfptou64rtnsat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtnsat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtnsat1_linkage ( __ocl_svml_b3_cvtfptou64rtnsat1 )
+
+    ulong1_uisa __ocl_svml_b3_cvtfptou64rtpnosat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtpnosat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtpnosat1_linkage ( __ocl_svml_b3_cvtfptou64rtpnosat1 )
+
+    ulong1_uisa __ocl_svml_b3_cvtfptou64rtpsat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtpsat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtpsat1_linkage ( __ocl_svml_b3_cvtfptou64rtpsat1 )
+
+    ulong1_uisa __ocl_svml_b3_cvtfptou64rtznosat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtznosat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtznosat1_linkage ( __ocl_svml_b3_cvtfptou64rtznosat1 )
+
+    ulong1_uisa __ocl_svml_b3_cvtfptou64rtzsat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtzsat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtzsat1_linkage ( __ocl_svml_b3_cvtfptou64rtzsat1 )
+
+    long1_uisa __ocl_svml_b3_cvtfptoi64rtenosat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtenosat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtenosat1_linkage ( __ocl_svml_b3_cvtfptoi64rtenosat1 )
+
+    long1_uisa __ocl_svml_b3_cvtfptoi64rtesat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtesat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtesat1_linkage ( __ocl_svml_b3_cvtfptoi64rtesat1 )
+
+    long1_uisa __ocl_svml_b3_cvtfptoi64rtnnosat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtnnosat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtnnosat1_linkage ( __ocl_svml_b3_cvtfptoi64rtnnosat1 )
+
+    long1_uisa __ocl_svml_b3_cvtfptoi64rtnsat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtnsat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtnsat1_linkage ( __ocl_svml_b3_cvtfptoi64rtnsat1 )
+
+    long1_uisa __ocl_svml_b3_cvtfptoi64rtpnosat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtpnosat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtpnosat1_linkage ( __ocl_svml_b3_cvtfptoi64rtpnosat1 )
+
+    long1_uisa __ocl_svml_b3_cvtfptoi64rtpsat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtpsat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtpsat1_linkage ( __ocl_svml_b3_cvtfptoi64rtpsat1 )
+
+    long1_uisa __ocl_svml_b3_cvtfptoi64rtznosat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtznosat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtznosat1_linkage ( __ocl_svml_b3_cvtfptoi64rtznosat1 )
+
+    long1_uisa __ocl_svml_b3_cvtfptoi64rtzsat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtzsat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtzsat1_linkage ( __ocl_svml_b3_cvtfptoi64rtzsat1 )
+
+    uint1_uisa __ocl_svml_b3_cvtfptou32rtenosat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtenosat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtenosat1_linkage ( __ocl_svml_b3_cvtfptou32rtenosat1 )
+
+    uint1_uisa __ocl_svml_b3_cvtfptou32rtesat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtesat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtesat1_linkage ( __ocl_svml_b3_cvtfptou32rtesat1 )
+
+    uint1_uisa __ocl_svml_b3_cvtfptou32rtnnosat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtnnosat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtnnosat1_linkage ( __ocl_svml_b3_cvtfptou32rtnnosat1 )
+
+    uint1_uisa __ocl_svml_b3_cvtfptou32rtnsat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtnsat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtnsat1_linkage ( __ocl_svml_b3_cvtfptou32rtnsat1 )
+
+    uint1_uisa __ocl_svml_b3_cvtfptou32rtpnosat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtpnosat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtpnosat1_linkage ( __ocl_svml_b3_cvtfptou32rtpnosat1 )
+
+    uint1_uisa __ocl_svml_b3_cvtfptou32rtpsat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtpsat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtpsat1_linkage ( __ocl_svml_b3_cvtfptou32rtpsat1 )
+
+    uint1_uisa __ocl_svml_b3_cvtfptou32rtznosat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtznosat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtznosat1_linkage ( __ocl_svml_b3_cvtfptou32rtznosat1 )
+
+    uint1_uisa __ocl_svml_b3_cvtfptou32rtzsat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtzsat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtzsat1_linkage ( __ocl_svml_b3_cvtfptou32rtzsat1 )
+
+    int1_uisa __ocl_svml_b3_cvtfptoi32rtenosat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtenosat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtenosat1_linkage ( __ocl_svml_b3_cvtfptoi32rtenosat1 )
+
+    int1_uisa __ocl_svml_b3_cvtfptoi32rtesat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtesat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtesat1_linkage ( __ocl_svml_b3_cvtfptoi32rtesat1 )
+
+    int1_uisa __ocl_svml_b3_cvtfptoi32rtnnosat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtnnosat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtnnosat1_linkage ( __ocl_svml_b3_cvtfptoi32rtnnosat1 )
+
+    int1_uisa __ocl_svml_b3_cvtfptoi32rtnsat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtnsat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtnsat1_linkage ( __ocl_svml_b3_cvtfptoi32rtnsat1 )
+
+    int1_uisa __ocl_svml_b3_cvtfptoi32rtpnosat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtpnosat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtpnosat1_linkage ( __ocl_svml_b3_cvtfptoi32rtpnosat1 )
+
+    int1_uisa __ocl_svml_b3_cvtfptoi32rtpsat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtpsat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtpsat1_linkage ( __ocl_svml_b3_cvtfptoi32rtpsat1 )
+
+    int1_uisa __ocl_svml_b3_cvtfptoi32rtznosat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtznosat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtznosat1_linkage ( __ocl_svml_b3_cvtfptoi32rtznosat1 )
+
+    int1_uisa __ocl_svml_b3_cvtfptoi32rtzsat1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtzsat1_linkage   = ( result(rax) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtzsat1_linkage ( __ocl_svml_b3_cvtfptoi32rtzsat1 )
+
+    double1_uisa __ocl_svml_b3_cvtu64tofprte1 (ulong1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprte1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprte1_linkage ( __ocl_svml_b3_cvtu64tofprte1 )
+
+    double1_uisa __ocl_svml_b3_cvtu64tofprtn1 (ulong1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtn1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtn1_linkage ( __ocl_svml_b3_cvtu64tofprtn1 )
+
+    double1_uisa __ocl_svml_b3_cvtu64tofprtp1 (ulong1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtp1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtp1_linkage ( __ocl_svml_b3_cvtu64tofprtp1 )
+
+    double1_uisa __ocl_svml_b3_cvtu64tofprtz1 (ulong1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtz1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtz1_linkage ( __ocl_svml_b3_cvtu64tofprtz1 )
+
+    double1_uisa __ocl_svml_b3_cvti64tofprte1 (long1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprte1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprte1_linkage ( __ocl_svml_b3_cvti64tofprte1 )
+
+    double1_uisa __ocl_svml_b3_cvti64tofprtn1 (long1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtn1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtn1_linkage ( __ocl_svml_b3_cvti64tofprtn1 )
+
+    double1_uisa __ocl_svml_b3_cvti64tofprtp1 (long1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtp1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtp1_linkage ( __ocl_svml_b3_cvti64tofprtp1 )
+
+    double1_uisa __ocl_svml_b3_cvti64tofprtz1 (long1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtz1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtz1_linkage ( __ocl_svml_b3_cvti64tofprtz1 )
+
+    double1_uisa __ocl_svml_b3_cvtu32tofprte1 (uint1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprte1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprte1_linkage ( __ocl_svml_b3_cvtu32tofprte1 )
+
+    double1_uisa __ocl_svml_b3_cvtu32tofprtn1 (uint1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtn1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtn1_linkage ( __ocl_svml_b3_cvtu32tofprtn1 )
+
+    double1_uisa __ocl_svml_b3_cvtu32tofprtp1 (uint1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtp1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtp1_linkage ( __ocl_svml_b3_cvtu32tofprtp1 )
+
+    double1_uisa __ocl_svml_b3_cvtu32tofprtz1 (uint1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtz1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtz1_linkage ( __ocl_svml_b3_cvtu32tofprtz1 )
+
+    double1_uisa __ocl_svml_b3_cvti32tofprte1 (int1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprte1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprte1_linkage ( __ocl_svml_b3_cvti32tofprte1 )
+
+    double1_uisa __ocl_svml_b3_cvti32tofprtn1 (int1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtn1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtn1_linkage ( __ocl_svml_b3_cvti32tofprtn1 )
+
+    double1_uisa __ocl_svml_b3_cvti32tofprtp1 (int1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtp1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtp1_linkage ( __ocl_svml_b3_cvti32tofprtp1 )
+
+    double1_uisa __ocl_svml_b3_cvti32tofprtz1 (int1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtz1_linkage   = ( result(xmm0) parameters(rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtz1_linkage ( __ocl_svml_b3_cvti32tofprtz1 )
+
+    float1_uisa __ocl_svml_b3_cvtfp64tofp32rte1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfp64tofp32rte1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfp64tofp32rte1_linkage ( __ocl_svml_b3_cvtfp64tofp32rte1 )
+
+    float1_uisa __ocl_svml_b3_cvtfp64tofp32rtn1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfp64tofp32rtn1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfp64tofp32rtn1_linkage ( __ocl_svml_b3_cvtfp64tofp32rtn1 )
+
+    float1_uisa __ocl_svml_b3_cvtfp64tofp32rtp1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfp64tofp32rtp1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfp64tofp32rtp1_linkage ( __ocl_svml_b3_cvtfp64tofp32rtp1 )
+
+    float1_uisa __ocl_svml_b3_cvtfp64tofp32rtz1 (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfp64tofp32rtz1_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfp64tofp32rtz1_linkage ( __ocl_svml_b3_cvtfp64tofp32rtz1 )
+
     int1_sse __ocl_svml_h8_idiv1 (int1_sse a, int1_sse b);
 
     int1_sse __ocl_svml_h8_irem1 (int1_sse a, int1_sse b);
@@ -3308,6 +4454,12 @@ extern "C" {
 
     int1x2_avx __ocl_svml_l9_idivrem1 (int1_avx a, int1_avx b);
 
+    int1_uisa __ocl_svml_b3_idiv1 (int1_uisa a, int1_uisa b);
+
+    int1_uisa __ocl_svml_b3_irem1 (int1_uisa a, int1_uisa b);
+
+    int1x2_uisa __ocl_svml_b3_idivrem1 (int1_uisa a, int1_uisa b);
+
     int1_sse __ocl_svml_h8_udiv1 (int1_sse a, int1_sse b);
 
     int1_sse __ocl_svml_h8_urem1 (int1_sse a, int1_sse b);
@@ -3325,6 +4477,12 @@ extern "C" {
     int1_avx __ocl_svml_l9_urem1 (int1_avx a, int1_avx b);
 
     int1x2_avx __ocl_svml_l9_udivrem1 (int1_avx a, int1_avx b);
+
+    int1_uisa __ocl_svml_b3_udiv1 (int1_uisa a, int1_uisa b);
+
+    int1_uisa __ocl_svml_b3_urem1 (int1_uisa a, int1_uisa b);
+
+    int1x2_uisa __ocl_svml_b3_udivrem1 (int1_uisa a, int1_uisa b);
 
     float2_sse __ocl_svml_h8_invf2 (float2_sse a);
     #pragma linkage     __ocl_svml_h8_invf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
@@ -3841,6 +4999,178 @@ extern "C" {
     float2_avx __ocl_svml_l9_erfcf2 (float2_avx a);
     #pragma linkage     __ocl_svml_l9_erfcf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_erfcf2_linkage ( __ocl_svml_l9_erfcf2 )
+
+    float2_uisa __ocl_svml_b3_invf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf2_linkage ( __ocl_svml_b3_invf2 )
+
+    float2_uisa __ocl_svml_b3_divf2 (float2_uisa a, float2_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf2_linkage ( __ocl_svml_b3_divf2 )
+
+    float2_uisa __ocl_svml_b3_sqrtf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrtf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrtf2_linkage ( __ocl_svml_b3_sqrtf2 )
+
+    float2_uisa __ocl_svml_b3_rsqrtf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrtf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrtf2_linkage ( __ocl_svml_b3_rsqrtf2 )
+
+    float2_uisa __ocl_svml_b3_cbrtf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cbrtf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cbrtf2_linkage ( __ocl_svml_b3_cbrtf2 )
+
+    float2_uisa __ocl_svml_b3_rcbrtf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_rcbrtf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rcbrtf2_linkage ( __ocl_svml_b3_rcbrtf2 )
+
+    float2_uisa __ocl_svml_b3_hypotf2 (float2_uisa a, float2_uisa b);
+    #pragma linkage     __ocl_svml_b3_hypotf2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_hypotf2_linkage ( __ocl_svml_b3_hypotf2 )
+
+    float2_uisa __ocl_svml_b3_powf2 (float2_uisa a, float2_uisa b);
+    #pragma linkage     __ocl_svml_b3_powf2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powf2_linkage ( __ocl_svml_b3_powf2 )
+
+    float2_uisa __ocl_svml_b3_powrf2 (float2_uisa a, float2_uisa b);
+    #pragma linkage     __ocl_svml_b3_powrf2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powrf2_linkage ( __ocl_svml_b3_powrf2 )
+
+    float2_uisa __ocl_svml_b3_pownf2 (float2_uisa a, int2_uisa b);
+    #pragma linkage     __ocl_svml_b3_pownf2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pownf2_linkage ( __ocl_svml_b3_pownf2 )
+
+    float2_uisa __ocl_svml_b3_rootnf2 (float2_uisa a, int2_uisa b);
+    #pragma linkage     __ocl_svml_b3_rootnf2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rootnf2_linkage ( __ocl_svml_b3_rootnf2 )
+
+    float2_uisa __ocl_svml_b3_expf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf2_linkage ( __ocl_svml_b3_expf2 )
+
+    float2_uisa __ocl_svml_b3_exp2f2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f2_linkage ( __ocl_svml_b3_exp2f2 )
+
+    float2_uisa __ocl_svml_b3_exp10f2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f2_linkage ( __ocl_svml_b3_exp10f2 )
+
+    float2_uisa __ocl_svml_b3_expm1f2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_expm1f2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expm1f2_linkage ( __ocl_svml_b3_expm1f2 )
+
+    float2_uisa __ocl_svml_b3_logf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf2_linkage ( __ocl_svml_b3_logf2 )
+
+    float2_uisa __ocl_svml_b3_log10f2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_log10f2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log10f2_linkage ( __ocl_svml_b3_log10f2 )
+
+    float2_uisa __ocl_svml_b3_log2f2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f2_linkage ( __ocl_svml_b3_log2f2 )
+
+    float2_uisa __ocl_svml_b3_log1pf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1pf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1pf2_linkage ( __ocl_svml_b3_log1pf2 )
+
+    float2_uisa __ocl_svml_b3_sinf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf2_linkage ( __ocl_svml_b3_sinf2 )
+
+    float2_uisa __ocl_svml_b3_cosf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf2_linkage ( __ocl_svml_b3_cosf2 )
+
+    float2_uisa __ocl_svml_b3_sincosf2 (float2_uisa a, float2_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincosf2_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosf2_linkage ( __ocl_svml_b3_sincosf2 )
+
+    float2x2_uisa __ocl_svml_b3_sincosregf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_sincosregf2_linkage   = ( result((xmm0 xmm1)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosregf2_linkage ( __ocl_svml_b3_sincosregf2 )
+
+    float2_uisa __ocl_svml_b3_tanf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf2_linkage ( __ocl_svml_b3_tanf2 )
+
+    float2_uisa __ocl_svml_b3_sinpif2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinpif2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinpif2_linkage ( __ocl_svml_b3_sinpif2 )
+
+    float2_uisa __ocl_svml_b3_cospif2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cospif2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cospif2_linkage ( __ocl_svml_b3_cospif2 )
+
+    float2_uisa __ocl_svml_b3_tanpif2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanpif2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanpif2_linkage ( __ocl_svml_b3_tanpif2 )
+
+    float2_uisa __ocl_svml_b3_acosf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_acosf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acosf2_linkage ( __ocl_svml_b3_acosf2 )
+
+    float2_uisa __ocl_svml_b3_asinf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinf2_linkage ( __ocl_svml_b3_asinf2 )
+
+    float2_uisa __ocl_svml_b3_atanf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanf2_linkage ( __ocl_svml_b3_atanf2 )
+
+    float2_uisa __ocl_svml_b3_atan2f2 (float2_uisa a, float2_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2f2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2f2_linkage ( __ocl_svml_b3_atan2f2 )
+
+    float2_uisa __ocl_svml_b3_asinpif2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinpif2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinpif2_linkage ( __ocl_svml_b3_asinpif2 )
+
+    float2_uisa __ocl_svml_b3_acospif2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_acospif2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acospif2_linkage ( __ocl_svml_b3_acospif2 )
+
+    float2_uisa __ocl_svml_b3_atanpif2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanpif2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanpif2_linkage ( __ocl_svml_b3_atanpif2 )
+
+    float2_uisa __ocl_svml_b3_atan2pif2 (float2_uisa a, float2_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2pif2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2pif2_linkage ( __ocl_svml_b3_atan2pif2 )
+
+    float2_uisa __ocl_svml_b3_sinhf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinhf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinhf2_linkage ( __ocl_svml_b3_sinhf2 )
+
+    float2_uisa __ocl_svml_b3_coshf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_coshf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_coshf2_linkage ( __ocl_svml_b3_coshf2 )
+
+    float2_uisa __ocl_svml_b3_tanhf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanhf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanhf2_linkage ( __ocl_svml_b3_tanhf2 )
+
+    float2_uisa __ocl_svml_b3_asinhf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinhf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinhf2_linkage ( __ocl_svml_b3_asinhf2 )
+
+    float2_uisa __ocl_svml_b3_acoshf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_acoshf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acoshf2_linkage ( __ocl_svml_b3_acoshf2 )
+
+    float2_uisa __ocl_svml_b3_atanhf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanhf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanhf2_linkage ( __ocl_svml_b3_atanhf2 )
+
+    float2_uisa __ocl_svml_b3_erff2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_erff2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erff2_linkage ( __ocl_svml_b3_erff2 )
+
+    float2_uisa __ocl_svml_b3_erfcf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_erfcf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erfcf2_linkage ( __ocl_svml_b3_erfcf2 )
 
     float2_sse __ocl_svml_h8_fmaf2 (float2_sse a, float2_sse b, float2_sse c);
     #pragma linkage     __ocl_svml_h8_fmaf2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),(xmm2)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
@@ -4754,6 +6084,310 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_cvti32tofprtzf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_cvti32tofprtzf2_linkage ( __ocl_svml_l9_cvti32tofprtzf2 )
 
+    float2_uisa __ocl_svml_b3_fmaf2 (float2_uisa a, float2_uisa b, float2_uisa c);
+    #pragma linkage     __ocl_svml_b3_fmaf2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),(xmm2)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmaf2_linkage ( __ocl_svml_b3_fmaf2 )
+
+    float2_uisa __ocl_svml_b3_fabsf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_fabsf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fabsf2_linkage ( __ocl_svml_b3_fabsf2 )
+
+    float2_uisa __ocl_svml_b3_fminf2 (float2_uisa a, float2_uisa b);
+    #pragma linkage     __ocl_svml_b3_fminf2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fminf2_linkage ( __ocl_svml_b3_fminf2 )
+
+    float2_uisa __ocl_svml_b3_fmaxf2 (float2_uisa a, float2_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmaxf2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmaxf2_linkage ( __ocl_svml_b3_fmaxf2 )
+
+    float2_uisa __ocl_svml_b3_maxmagf2 (float2_uisa a, float2_uisa b);
+    #pragma linkage     __ocl_svml_b3_maxmagf2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_maxmagf2_linkage ( __ocl_svml_b3_maxmagf2 )
+
+    float2_uisa __ocl_svml_b3_minmagf2 (float2_uisa a, float2_uisa b);
+    #pragma linkage     __ocl_svml_b3_minmagf2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_minmagf2_linkage ( __ocl_svml_b3_minmagf2 )
+
+    float2_uisa __ocl_svml_b3_nanf2 (uint2_uisa a);
+    #pragma linkage     __ocl_svml_b3_nanf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nanf2_linkage ( __ocl_svml_b3_nanf2 )
+
+    float2_uisa __ocl_svml_b3_ceilf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_ceilf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ceilf2_linkage ( __ocl_svml_b3_ceilf2 )
+
+    float2_uisa __ocl_svml_b3_floorf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_floorf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_floorf2_linkage ( __ocl_svml_b3_floorf2 )
+
+    float2_uisa __ocl_svml_b3_roundf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_roundf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_roundf2_linkage ( __ocl_svml_b3_roundf2 )
+
+    float2_uisa __ocl_svml_b3_truncf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_truncf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_truncf2_linkage ( __ocl_svml_b3_truncf2 )
+
+    float2_uisa __ocl_svml_b3_rintf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_rintf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rintf2_linkage ( __ocl_svml_b3_rintf2 )
+
+    float2_uisa __ocl_svml_b3_nearbyintf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_nearbyintf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nearbyintf2_linkage ( __ocl_svml_b3_nearbyintf2 )
+
+    float2_uisa __ocl_svml_b3_fmodf2 (float2_uisa a, float2_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmodf2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmodf2_linkage ( __ocl_svml_b3_fmodf2 )
+
+    float2_uisa __ocl_svml_b3_modff2 (float2_uisa a, float2_uisa* c);
+    #pragma linkage     __ocl_svml_b3_modff2_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_modff2_linkage ( __ocl_svml_b3_modff2 )
+
+    float2_uisa __ocl_svml_b3_remainderf2 (float2_uisa a, float2_uisa b);
+    #pragma linkage     __ocl_svml_b3_remainderf2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_remainderf2_linkage ( __ocl_svml_b3_remainderf2 )
+
+    float2_uisa __ocl_svml_b3_remquof2 (float2_uisa a, float2_uisa b, int2_uisa* c);
+    #pragma linkage     __ocl_svml_b3_remquof2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_remquof2_linkage ( __ocl_svml_b3_remquof2 )
+
+    float2_uisa __ocl_svml_b3_copysignf2 (float2_uisa a, float2_uisa b);
+    #pragma linkage     __ocl_svml_b3_copysignf2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_copysignf2_linkage ( __ocl_svml_b3_copysignf2 )
+
+    float2_uisa __ocl_svml_b3_frexpf2 (float2_uisa a, int2_uisa* c);
+    #pragma linkage     __ocl_svml_b3_frexpf2_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_frexpf2_linkage ( __ocl_svml_b3_frexpf2 )
+
+    float2_uisa __ocl_svml_b3_fdimf2 (float2_uisa a, float2_uisa b);
+    #pragma linkage     __ocl_svml_b3_fdimf2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fdimf2_linkage ( __ocl_svml_b3_fdimf2 )
+
+    float2_uisa __ocl_svml_b3_logbf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_logbf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logbf2_linkage ( __ocl_svml_b3_logbf2 )
+
+    int2_uisa __ocl_svml_b3_ilogbf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_ilogbf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ilogbf2_linkage ( __ocl_svml_b3_ilogbf2 )
+
+    float2_uisa __ocl_svml_b3_nextafterf2 (float2_uisa a, float2_uisa b);
+    #pragma linkage     __ocl_svml_b3_nextafterf2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nextafterf2_linkage ( __ocl_svml_b3_nextafterf2 )
+
+    float2_uisa __ocl_svml_b3_ldexpf2 (float2_uisa a, int2_uisa b);
+    #pragma linkage     __ocl_svml_b3_ldexpf2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ldexpf2_linkage ( __ocl_svml_b3_ldexpf2 )
+
+    float2_uisa __ocl_svml_b3_fractf2 (float2_uisa a, float2_uisa* c);
+    #pragma linkage     __ocl_svml_b3_fractf2_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fractf2_linkage ( __ocl_svml_b3_fractf2 )
+
+    float2_uisa __ocl_svml_b3_tgammaf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_tgammaf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tgammaf2_linkage ( __ocl_svml_b3_tgammaf2 )
+
+    float2_uisa __ocl_svml_b3_lgammaf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_lgammaf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_lgammaf2_linkage ( __ocl_svml_b3_lgammaf2 )
+
+    float2_uisa __ocl_svml_b3_lgammarf2 (float2_uisa a, int2_uisa* c);
+    #pragma linkage     __ocl_svml_b3_lgammarf2_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_lgammarf2_linkage ( __ocl_svml_b3_lgammarf2 )
+
+    ulong2_uisa __ocl_svml_b3_cvtfptou64rtenosatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtenosatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtenosatf2_linkage ( __ocl_svml_b3_cvtfptou64rtenosatf2 )
+
+    ulong2_uisa __ocl_svml_b3_cvtfptou64rtesatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtesatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtesatf2_linkage ( __ocl_svml_b3_cvtfptou64rtesatf2 )
+
+    ulong2_uisa __ocl_svml_b3_cvtfptou64rtnnosatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtnnosatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtnnosatf2_linkage ( __ocl_svml_b3_cvtfptou64rtnnosatf2 )
+
+    ulong2_uisa __ocl_svml_b3_cvtfptou64rtnsatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtnsatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtnsatf2_linkage ( __ocl_svml_b3_cvtfptou64rtnsatf2 )
+
+    ulong2_uisa __ocl_svml_b3_cvtfptou64rtpnosatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtpnosatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtpnosatf2_linkage ( __ocl_svml_b3_cvtfptou64rtpnosatf2 )
+
+    ulong2_uisa __ocl_svml_b3_cvtfptou64rtpsatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtpsatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtpsatf2_linkage ( __ocl_svml_b3_cvtfptou64rtpsatf2 )
+
+    ulong2_uisa __ocl_svml_b3_cvtfptou64rtznosatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtznosatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtznosatf2_linkage ( __ocl_svml_b3_cvtfptou64rtznosatf2 )
+
+    ulong2_uisa __ocl_svml_b3_cvtfptou64rtzsatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtzsatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtzsatf2_linkage ( __ocl_svml_b3_cvtfptou64rtzsatf2 )
+
+    long2_uisa __ocl_svml_b3_cvtfptoi64rtenosatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtenosatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtenosatf2_linkage ( __ocl_svml_b3_cvtfptoi64rtenosatf2 )
+
+    long2_uisa __ocl_svml_b3_cvtfptoi64rtesatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtesatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtesatf2_linkage ( __ocl_svml_b3_cvtfptoi64rtesatf2 )
+
+    long2_uisa __ocl_svml_b3_cvtfptoi64rtnnosatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtnnosatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtnnosatf2_linkage ( __ocl_svml_b3_cvtfptoi64rtnnosatf2 )
+
+    long2_uisa __ocl_svml_b3_cvtfptoi64rtnsatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtnsatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtnsatf2_linkage ( __ocl_svml_b3_cvtfptoi64rtnsatf2 )
+
+    long2_uisa __ocl_svml_b3_cvtfptoi64rtpnosatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtpnosatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtpnosatf2_linkage ( __ocl_svml_b3_cvtfptoi64rtpnosatf2 )
+
+    long2_uisa __ocl_svml_b3_cvtfptoi64rtpsatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtpsatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtpsatf2_linkage ( __ocl_svml_b3_cvtfptoi64rtpsatf2 )
+
+    long2_uisa __ocl_svml_b3_cvtfptoi64rtznosatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtznosatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtznosatf2_linkage ( __ocl_svml_b3_cvtfptoi64rtznosatf2 )
+
+    long2_uisa __ocl_svml_b3_cvtfptoi64rtzsatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtzsatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtzsatf2_linkage ( __ocl_svml_b3_cvtfptoi64rtzsatf2 )
+
+    uint2_uisa __ocl_svml_b3_cvtfptou32rtenosatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtenosatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtenosatf2_linkage ( __ocl_svml_b3_cvtfptou32rtenosatf2 )
+
+    uint2_uisa __ocl_svml_b3_cvtfptou32rtesatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtesatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtesatf2_linkage ( __ocl_svml_b3_cvtfptou32rtesatf2 )
+
+    uint2_uisa __ocl_svml_b3_cvtfptou32rtnnosatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtnnosatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtnnosatf2_linkage ( __ocl_svml_b3_cvtfptou32rtnnosatf2 )
+
+    uint2_uisa __ocl_svml_b3_cvtfptou32rtnsatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtnsatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtnsatf2_linkage ( __ocl_svml_b3_cvtfptou32rtnsatf2 )
+
+    uint2_uisa __ocl_svml_b3_cvtfptou32rtpnosatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtpnosatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtpnosatf2_linkage ( __ocl_svml_b3_cvtfptou32rtpnosatf2 )
+
+    uint2_uisa __ocl_svml_b3_cvtfptou32rtpsatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtpsatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtpsatf2_linkage ( __ocl_svml_b3_cvtfptou32rtpsatf2 )
+
+    uint2_uisa __ocl_svml_b3_cvtfptou32rtznosatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtznosatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtznosatf2_linkage ( __ocl_svml_b3_cvtfptou32rtznosatf2 )
+
+    uint2_uisa __ocl_svml_b3_cvtfptou32rtzsatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtzsatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtzsatf2_linkage ( __ocl_svml_b3_cvtfptou32rtzsatf2 )
+
+    int2_uisa __ocl_svml_b3_cvtfptoi32rtenosatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtenosatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtenosatf2_linkage ( __ocl_svml_b3_cvtfptoi32rtenosatf2 )
+
+    int2_uisa __ocl_svml_b3_cvtfptoi32rtesatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtesatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtesatf2_linkage ( __ocl_svml_b3_cvtfptoi32rtesatf2 )
+
+    int2_uisa __ocl_svml_b3_cvtfptoi32rtnnosatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtnnosatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtnnosatf2_linkage ( __ocl_svml_b3_cvtfptoi32rtnnosatf2 )
+
+    int2_uisa __ocl_svml_b3_cvtfptoi32rtnsatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtnsatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtnsatf2_linkage ( __ocl_svml_b3_cvtfptoi32rtnsatf2 )
+
+    int2_uisa __ocl_svml_b3_cvtfptoi32rtpnosatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtpnosatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtpnosatf2_linkage ( __ocl_svml_b3_cvtfptoi32rtpnosatf2 )
+
+    int2_uisa __ocl_svml_b3_cvtfptoi32rtpsatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtpsatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtpsatf2_linkage ( __ocl_svml_b3_cvtfptoi32rtpsatf2 )
+
+    int2_uisa __ocl_svml_b3_cvtfptoi32rtznosatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtznosatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtznosatf2_linkage ( __ocl_svml_b3_cvtfptoi32rtznosatf2 )
+
+    int2_uisa __ocl_svml_b3_cvtfptoi32rtzsatf2 (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtzsatf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtzsatf2_linkage ( __ocl_svml_b3_cvtfptoi32rtzsatf2 )
+
+    float2_uisa __ocl_svml_b3_cvtu64tofprtef2 (ulong2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtef2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtef2_linkage ( __ocl_svml_b3_cvtu64tofprtef2 )
+
+    float2_uisa __ocl_svml_b3_cvtu64tofprtnf2 (ulong2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtnf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtnf2_linkage ( __ocl_svml_b3_cvtu64tofprtnf2 )
+
+    float2_uisa __ocl_svml_b3_cvtu64tofprtpf2 (ulong2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtpf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtpf2_linkage ( __ocl_svml_b3_cvtu64tofprtpf2 )
+
+    float2_uisa __ocl_svml_b3_cvtu64tofprtzf2 (ulong2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtzf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtzf2_linkage ( __ocl_svml_b3_cvtu64tofprtzf2 )
+
+    float2_uisa __ocl_svml_b3_cvti64tofprtef2 (long2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtef2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtef2_linkage ( __ocl_svml_b3_cvti64tofprtef2 )
+
+    float2_uisa __ocl_svml_b3_cvti64tofprtnf2 (long2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtnf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtnf2_linkage ( __ocl_svml_b3_cvti64tofprtnf2 )
+
+    float2_uisa __ocl_svml_b3_cvti64tofprtpf2 (long2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtpf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtpf2_linkage ( __ocl_svml_b3_cvti64tofprtpf2 )
+
+    float2_uisa __ocl_svml_b3_cvti64tofprtzf2 (long2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtzf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtzf2_linkage ( __ocl_svml_b3_cvti64tofprtzf2 )
+
+    float2_uisa __ocl_svml_b3_cvtu32tofprtef2 (uint2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtef2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtef2_linkage ( __ocl_svml_b3_cvtu32tofprtef2 )
+
+    float2_uisa __ocl_svml_b3_cvtu32tofprtnf2 (uint2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtnf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtnf2_linkage ( __ocl_svml_b3_cvtu32tofprtnf2 )
+
+    float2_uisa __ocl_svml_b3_cvtu32tofprtpf2 (uint2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtpf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtpf2_linkage ( __ocl_svml_b3_cvtu32tofprtpf2 )
+
+    float2_uisa __ocl_svml_b3_cvtu32tofprtzf2 (uint2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtzf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtzf2_linkage ( __ocl_svml_b3_cvtu32tofprtzf2 )
+
+    float2_uisa __ocl_svml_b3_cvti32tofprtef2 (int2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtef2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtef2_linkage ( __ocl_svml_b3_cvti32tofprtef2 )
+
+    float2_uisa __ocl_svml_b3_cvti32tofprtnf2 (int2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtnf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtnf2_linkage ( __ocl_svml_b3_cvti32tofprtnf2 )
+
+    float2_uisa __ocl_svml_b3_cvti32tofprtpf2 (int2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtpf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtpf2_linkage ( __ocl_svml_b3_cvti32tofprtpf2 )
+
+    float2_uisa __ocl_svml_b3_cvti32tofprtzf2 (int2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtzf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtzf2_linkage ( __ocl_svml_b3_cvti32tofprtzf2 )
+
     double2_sse __ocl_svml_h8_inv2 (double2_sse a);
     #pragma linkage     __ocl_svml_h8_inv2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_h8_inv2_linkage ( __ocl_svml_h8_inv2 )
@@ -5269,6 +6903,178 @@ extern "C" {
     double2_avx __ocl_svml_l9_erfc2 (double2_avx a);
     #pragma linkage     __ocl_svml_l9_erfc2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_erfc2_linkage ( __ocl_svml_l9_erfc2 )
+
+    double2_uisa __ocl_svml_b3_inv2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_inv2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_inv2_linkage ( __ocl_svml_b3_inv2 )
+
+    double2_uisa __ocl_svml_b3_div2 (double2_uisa a, double2_uisa b);
+    #pragma linkage     __ocl_svml_b3_div2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_div2_linkage ( __ocl_svml_b3_div2 )
+
+    double2_uisa __ocl_svml_b3_sqrt2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrt2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrt2_linkage ( __ocl_svml_b3_sqrt2 )
+
+    double2_uisa __ocl_svml_b3_rsqrt2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrt2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrt2_linkage ( __ocl_svml_b3_rsqrt2 )
+
+    double2_uisa __ocl_svml_b3_cbrt2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cbrt2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cbrt2_linkage ( __ocl_svml_b3_cbrt2 )
+
+    double2_uisa __ocl_svml_b3_rcbrt2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_rcbrt2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rcbrt2_linkage ( __ocl_svml_b3_rcbrt2 )
+
+    double2_uisa __ocl_svml_b3_hypot2 (double2_uisa a, double2_uisa b);
+    #pragma linkage     __ocl_svml_b3_hypot2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_hypot2_linkage ( __ocl_svml_b3_hypot2 )
+
+    double2_uisa __ocl_svml_b3_pow2 (double2_uisa a, double2_uisa b);
+    #pragma linkage     __ocl_svml_b3_pow2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pow2_linkage ( __ocl_svml_b3_pow2 )
+
+    double2_uisa __ocl_svml_b3_powr2 (double2_uisa a, double2_uisa b);
+    #pragma linkage     __ocl_svml_b3_powr2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powr2_linkage ( __ocl_svml_b3_powr2 )
+
+    double2_uisa __ocl_svml_b3_pown2 (double2_uisa a, int2_uisa b);
+    #pragma linkage     __ocl_svml_b3_pown2_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pown2_linkage ( __ocl_svml_b3_pown2 )
+
+    double2_uisa __ocl_svml_b3_rootn2 (double2_uisa a, int2_uisa b);
+    #pragma linkage     __ocl_svml_b3_rootn2_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rootn2_linkage ( __ocl_svml_b3_rootn2 )
+
+    double2_uisa __ocl_svml_b3_exp2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2_linkage ( __ocl_svml_b3_exp2 )
+
+    double2_uisa __ocl_svml_b3_exp22 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp22_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp22_linkage ( __ocl_svml_b3_exp22 )
+
+    double2_uisa __ocl_svml_b3_exp102 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp102_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp102_linkage ( __ocl_svml_b3_exp102 )
+
+    double2_uisa __ocl_svml_b3_expm12 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_expm12_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expm12_linkage ( __ocl_svml_b3_expm12 )
+
+    double2_uisa __ocl_svml_b3_log2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2_linkage ( __ocl_svml_b3_log2 )
+
+    double2_uisa __ocl_svml_b3_log102 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_log102_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log102_linkage ( __ocl_svml_b3_log102 )
+
+    double2_uisa __ocl_svml_b3_log22 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_log22_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log22_linkage ( __ocl_svml_b3_log22 )
+
+    double2_uisa __ocl_svml_b3_log1p2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1p2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1p2_linkage ( __ocl_svml_b3_log1p2 )
+
+    double2_uisa __ocl_svml_b3_sin2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_sin2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sin2_linkage ( __ocl_svml_b3_sin2 )
+
+    double2_uisa __ocl_svml_b3_cos2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cos2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cos2_linkage ( __ocl_svml_b3_cos2 )
+
+    double2_uisa __ocl_svml_b3_sincos2 (double2_uisa a, double2_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincos2_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincos2_linkage ( __ocl_svml_b3_sincos2 )
+
+    double2x2_uisa __ocl_svml_b3_sincosreg2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_sincosreg2_linkage   = ( result((xmm0 xmm1)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosreg2_linkage ( __ocl_svml_b3_sincosreg2 )
+
+    double2_uisa __ocl_svml_b3_tan2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_tan2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tan2_linkage ( __ocl_svml_b3_tan2 )
+
+    double2_uisa __ocl_svml_b3_sinpi2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinpi2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinpi2_linkage ( __ocl_svml_b3_sinpi2 )
+
+    double2_uisa __ocl_svml_b3_cospi2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cospi2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cospi2_linkage ( __ocl_svml_b3_cospi2 )
+
+    double2_uisa __ocl_svml_b3_tanpi2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanpi2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanpi2_linkage ( __ocl_svml_b3_tanpi2 )
+
+    double2_uisa __ocl_svml_b3_acos2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_acos2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acos2_linkage ( __ocl_svml_b3_acos2 )
+
+    double2_uisa __ocl_svml_b3_asin2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_asin2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asin2_linkage ( __ocl_svml_b3_asin2 )
+
+    double2_uisa __ocl_svml_b3_atan2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_atan2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2_linkage ( __ocl_svml_b3_atan2 )
+
+    double2_uisa __ocl_svml_b3_atan22 (double2_uisa a, double2_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan22_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan22_linkage ( __ocl_svml_b3_atan22 )
+
+    double2_uisa __ocl_svml_b3_asinpi2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinpi2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinpi2_linkage ( __ocl_svml_b3_asinpi2 )
+
+    double2_uisa __ocl_svml_b3_acospi2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_acospi2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acospi2_linkage ( __ocl_svml_b3_acospi2 )
+
+    double2_uisa __ocl_svml_b3_atanpi2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanpi2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanpi2_linkage ( __ocl_svml_b3_atanpi2 )
+
+    double2_uisa __ocl_svml_b3_atan2pi2 (double2_uisa a, double2_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2pi2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2pi2_linkage ( __ocl_svml_b3_atan2pi2 )
+
+    double2_uisa __ocl_svml_b3_sinh2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinh2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinh2_linkage ( __ocl_svml_b3_sinh2 )
+
+    double2_uisa __ocl_svml_b3_cosh2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosh2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosh2_linkage ( __ocl_svml_b3_cosh2 )
+
+    double2_uisa __ocl_svml_b3_tanh2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanh2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanh2_linkage ( __ocl_svml_b3_tanh2 )
+
+    double2_uisa __ocl_svml_b3_asinh2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinh2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinh2_linkage ( __ocl_svml_b3_asinh2 )
+
+    double2_uisa __ocl_svml_b3_acosh2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_acosh2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acosh2_linkage ( __ocl_svml_b3_acosh2 )
+
+    double2_uisa __ocl_svml_b3_atanh2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanh2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanh2_linkage ( __ocl_svml_b3_atanh2 )
+
+    double2_uisa __ocl_svml_b3_erf2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_erf2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erf2_linkage ( __ocl_svml_b3_erf2 )
+
+    double2_uisa __ocl_svml_b3_erfc2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_erfc2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erfc2_linkage ( __ocl_svml_b3_erfc2 )
 
     double2_sse __ocl_svml_h8_fma2 (double2_sse a, double2_sse b, double2_sse c);
     #pragma linkage     __ocl_svml_h8_fma2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),(xmm2)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
@@ -6230,6 +8036,326 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_cvtfp64tofp32rtz2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_cvtfp64tofp32rtz2_linkage ( __ocl_svml_l9_cvtfp64tofp32rtz2 )
 
+    double2_uisa __ocl_svml_b3_fma2 (double2_uisa a, double2_uisa b, double2_uisa c);
+    #pragma linkage     __ocl_svml_b3_fma2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),(xmm2)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fma2_linkage ( __ocl_svml_b3_fma2 )
+
+    double2_uisa __ocl_svml_b3_fabs2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_fabs2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fabs2_linkage ( __ocl_svml_b3_fabs2 )
+
+    double2_uisa __ocl_svml_b3_fmin2 (double2_uisa a, double2_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmin2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmin2_linkage ( __ocl_svml_b3_fmin2 )
+
+    double2_uisa __ocl_svml_b3_fmax2 (double2_uisa a, double2_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmax2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmax2_linkage ( __ocl_svml_b3_fmax2 )
+
+    double2_uisa __ocl_svml_b3_maxmag2 (double2_uisa a, double2_uisa b);
+    #pragma linkage     __ocl_svml_b3_maxmag2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_maxmag2_linkage ( __ocl_svml_b3_maxmag2 )
+
+    double2_uisa __ocl_svml_b3_minmag2 (double2_uisa a, double2_uisa b);
+    #pragma linkage     __ocl_svml_b3_minmag2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_minmag2_linkage ( __ocl_svml_b3_minmag2 )
+
+    double2_uisa __ocl_svml_b3_nan2 (ulong2_uisa a);
+    #pragma linkage     __ocl_svml_b3_nan2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nan2_linkage ( __ocl_svml_b3_nan2 )
+
+    double2_uisa __ocl_svml_b3_ceil2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_ceil2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ceil2_linkage ( __ocl_svml_b3_ceil2 )
+
+    double2_uisa __ocl_svml_b3_floor2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_floor2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_floor2_linkage ( __ocl_svml_b3_floor2 )
+
+    double2_uisa __ocl_svml_b3_round2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_round2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_round2_linkage ( __ocl_svml_b3_round2 )
+
+    double2_uisa __ocl_svml_b3_trunc2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_trunc2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_trunc2_linkage ( __ocl_svml_b3_trunc2 )
+
+    double2_uisa __ocl_svml_b3_rint2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_rint2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rint2_linkage ( __ocl_svml_b3_rint2 )
+
+    double2_uisa __ocl_svml_b3_nearbyint2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_nearbyint2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nearbyint2_linkage ( __ocl_svml_b3_nearbyint2 )
+
+    double2_uisa __ocl_svml_b3_fmod2 (double2_uisa a, double2_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmod2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmod2_linkage ( __ocl_svml_b3_fmod2 )
+
+    double2_uisa __ocl_svml_b3_modf2 (double2_uisa a, double2_uisa* c);
+    #pragma linkage     __ocl_svml_b3_modf2_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_modf2_linkage ( __ocl_svml_b3_modf2 )
+
+    double2_uisa __ocl_svml_b3_remainder2 (double2_uisa a, double2_uisa b);
+    #pragma linkage     __ocl_svml_b3_remainder2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_remainder2_linkage ( __ocl_svml_b3_remainder2 )
+
+    double2_uisa __ocl_svml_b3_remquo2 (double2_uisa a, double2_uisa b, int2_uisa* c);
+    #pragma linkage     __ocl_svml_b3_remquo2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_remquo2_linkage ( __ocl_svml_b3_remquo2 )
+
+    double2_uisa __ocl_svml_b3_copysign2 (double2_uisa a, double2_uisa b);
+    #pragma linkage     __ocl_svml_b3_copysign2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_copysign2_linkage ( __ocl_svml_b3_copysign2 )
+
+    double2_uisa __ocl_svml_b3_frexp2 (double2_uisa a, int2_uisa* c);
+    #pragma linkage     __ocl_svml_b3_frexp2_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_frexp2_linkage ( __ocl_svml_b3_frexp2 )
+
+    double2_uisa __ocl_svml_b3_fdim2 (double2_uisa a, double2_uisa b);
+    #pragma linkage     __ocl_svml_b3_fdim2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fdim2_linkage ( __ocl_svml_b3_fdim2 )
+
+    double2_uisa __ocl_svml_b3_logb2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_logb2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logb2_linkage ( __ocl_svml_b3_logb2 )
+
+    int2_uisa __ocl_svml_b3_ilogb2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_ilogb2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ilogb2_linkage ( __ocl_svml_b3_ilogb2 )
+
+    double2_uisa __ocl_svml_b3_nextafter2 (double2_uisa a, double2_uisa b);
+    #pragma linkage     __ocl_svml_b3_nextafter2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nextafter2_linkage ( __ocl_svml_b3_nextafter2 )
+
+    double2_uisa __ocl_svml_b3_ldexp2 (double2_uisa a, int2_uisa b);
+    #pragma linkage     __ocl_svml_b3_ldexp2_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ldexp2_linkage ( __ocl_svml_b3_ldexp2 )
+
+    double2_uisa __ocl_svml_b3_fract2 (double2_uisa a, double2_uisa* c);
+    #pragma linkage     __ocl_svml_b3_fract2_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fract2_linkage ( __ocl_svml_b3_fract2 )
+
+    double2_uisa __ocl_svml_b3_tgamma2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_tgamma2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tgamma2_linkage ( __ocl_svml_b3_tgamma2 )
+
+    double2_uisa __ocl_svml_b3_lgamma2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_lgamma2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_lgamma2_linkage ( __ocl_svml_b3_lgamma2 )
+
+    double2_uisa __ocl_svml_b3_lgammar2 (double2_uisa a, int2_uisa* c);
+    #pragma linkage     __ocl_svml_b3_lgammar2_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_lgammar2_linkage ( __ocl_svml_b3_lgammar2 )
+
+    ulong2_uisa __ocl_svml_b3_cvtfptou64rtenosat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtenosat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtenosat2_linkage ( __ocl_svml_b3_cvtfptou64rtenosat2 )
+
+    ulong2_uisa __ocl_svml_b3_cvtfptou64rtesat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtesat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtesat2_linkage ( __ocl_svml_b3_cvtfptou64rtesat2 )
+
+    ulong2_uisa __ocl_svml_b3_cvtfptou64rtnnosat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtnnosat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtnnosat2_linkage ( __ocl_svml_b3_cvtfptou64rtnnosat2 )
+
+    ulong2_uisa __ocl_svml_b3_cvtfptou64rtnsat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtnsat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtnsat2_linkage ( __ocl_svml_b3_cvtfptou64rtnsat2 )
+
+    ulong2_uisa __ocl_svml_b3_cvtfptou64rtpnosat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtpnosat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtpnosat2_linkage ( __ocl_svml_b3_cvtfptou64rtpnosat2 )
+
+    ulong2_uisa __ocl_svml_b3_cvtfptou64rtpsat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtpsat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtpsat2_linkage ( __ocl_svml_b3_cvtfptou64rtpsat2 )
+
+    ulong2_uisa __ocl_svml_b3_cvtfptou64rtznosat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtznosat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtznosat2_linkage ( __ocl_svml_b3_cvtfptou64rtznosat2 )
+
+    ulong2_uisa __ocl_svml_b3_cvtfptou64rtzsat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtzsat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtzsat2_linkage ( __ocl_svml_b3_cvtfptou64rtzsat2 )
+
+    long2_uisa __ocl_svml_b3_cvtfptoi64rtenosat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtenosat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtenosat2_linkage ( __ocl_svml_b3_cvtfptoi64rtenosat2 )
+
+    long2_uisa __ocl_svml_b3_cvtfptoi64rtesat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtesat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtesat2_linkage ( __ocl_svml_b3_cvtfptoi64rtesat2 )
+
+    long2_uisa __ocl_svml_b3_cvtfptoi64rtnnosat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtnnosat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtnnosat2_linkage ( __ocl_svml_b3_cvtfptoi64rtnnosat2 )
+
+    long2_uisa __ocl_svml_b3_cvtfptoi64rtnsat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtnsat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtnsat2_linkage ( __ocl_svml_b3_cvtfptoi64rtnsat2 )
+
+    long2_uisa __ocl_svml_b3_cvtfptoi64rtpnosat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtpnosat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtpnosat2_linkage ( __ocl_svml_b3_cvtfptoi64rtpnosat2 )
+
+    long2_uisa __ocl_svml_b3_cvtfptoi64rtpsat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtpsat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtpsat2_linkage ( __ocl_svml_b3_cvtfptoi64rtpsat2 )
+
+    long2_uisa __ocl_svml_b3_cvtfptoi64rtznosat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtznosat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtznosat2_linkage ( __ocl_svml_b3_cvtfptoi64rtznosat2 )
+
+    long2_uisa __ocl_svml_b3_cvtfptoi64rtzsat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtzsat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtzsat2_linkage ( __ocl_svml_b3_cvtfptoi64rtzsat2 )
+
+    uint2_uisa __ocl_svml_b3_cvtfptou32rtenosat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtenosat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtenosat2_linkage ( __ocl_svml_b3_cvtfptou32rtenosat2 )
+
+    uint2_uisa __ocl_svml_b3_cvtfptou32rtesat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtesat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtesat2_linkage ( __ocl_svml_b3_cvtfptou32rtesat2 )
+
+    uint2_uisa __ocl_svml_b3_cvtfptou32rtnnosat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtnnosat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtnnosat2_linkage ( __ocl_svml_b3_cvtfptou32rtnnosat2 )
+
+    uint2_uisa __ocl_svml_b3_cvtfptou32rtnsat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtnsat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtnsat2_linkage ( __ocl_svml_b3_cvtfptou32rtnsat2 )
+
+    uint2_uisa __ocl_svml_b3_cvtfptou32rtpnosat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtpnosat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtpnosat2_linkage ( __ocl_svml_b3_cvtfptou32rtpnosat2 )
+
+    uint2_uisa __ocl_svml_b3_cvtfptou32rtpsat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtpsat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtpsat2_linkage ( __ocl_svml_b3_cvtfptou32rtpsat2 )
+
+    uint2_uisa __ocl_svml_b3_cvtfptou32rtznosat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtznosat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtznosat2_linkage ( __ocl_svml_b3_cvtfptou32rtznosat2 )
+
+    uint2_uisa __ocl_svml_b3_cvtfptou32rtzsat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtzsat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtzsat2_linkage ( __ocl_svml_b3_cvtfptou32rtzsat2 )
+
+    int2_uisa __ocl_svml_b3_cvtfptoi32rtenosat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtenosat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtenosat2_linkage ( __ocl_svml_b3_cvtfptoi32rtenosat2 )
+
+    int2_uisa __ocl_svml_b3_cvtfptoi32rtesat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtesat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtesat2_linkage ( __ocl_svml_b3_cvtfptoi32rtesat2 )
+
+    int2_uisa __ocl_svml_b3_cvtfptoi32rtnnosat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtnnosat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtnnosat2_linkage ( __ocl_svml_b3_cvtfptoi32rtnnosat2 )
+
+    int2_uisa __ocl_svml_b3_cvtfptoi32rtnsat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtnsat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtnsat2_linkage ( __ocl_svml_b3_cvtfptoi32rtnsat2 )
+
+    int2_uisa __ocl_svml_b3_cvtfptoi32rtpnosat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtpnosat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtpnosat2_linkage ( __ocl_svml_b3_cvtfptoi32rtpnosat2 )
+
+    int2_uisa __ocl_svml_b3_cvtfptoi32rtpsat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtpsat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtpsat2_linkage ( __ocl_svml_b3_cvtfptoi32rtpsat2 )
+
+    int2_uisa __ocl_svml_b3_cvtfptoi32rtznosat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtznosat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtznosat2_linkage ( __ocl_svml_b3_cvtfptoi32rtznosat2 )
+
+    int2_uisa __ocl_svml_b3_cvtfptoi32rtzsat2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtzsat2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtzsat2_linkage ( __ocl_svml_b3_cvtfptoi32rtzsat2 )
+
+    double2_uisa __ocl_svml_b3_cvtu64tofprte2 (ulong2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprte2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprte2_linkage ( __ocl_svml_b3_cvtu64tofprte2 )
+
+    double2_uisa __ocl_svml_b3_cvtu64tofprtn2 (ulong2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtn2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtn2_linkage ( __ocl_svml_b3_cvtu64tofprtn2 )
+
+    double2_uisa __ocl_svml_b3_cvtu64tofprtp2 (ulong2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtp2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtp2_linkage ( __ocl_svml_b3_cvtu64tofprtp2 )
+
+    double2_uisa __ocl_svml_b3_cvtu64tofprtz2 (ulong2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtz2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtz2_linkage ( __ocl_svml_b3_cvtu64tofprtz2 )
+
+    double2_uisa __ocl_svml_b3_cvti64tofprte2 (long2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprte2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprte2_linkage ( __ocl_svml_b3_cvti64tofprte2 )
+
+    double2_uisa __ocl_svml_b3_cvti64tofprtn2 (long2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtn2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtn2_linkage ( __ocl_svml_b3_cvti64tofprtn2 )
+
+    double2_uisa __ocl_svml_b3_cvti64tofprtp2 (long2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtp2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtp2_linkage ( __ocl_svml_b3_cvti64tofprtp2 )
+
+    double2_uisa __ocl_svml_b3_cvti64tofprtz2 (long2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtz2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtz2_linkage ( __ocl_svml_b3_cvti64tofprtz2 )
+
+    double2_uisa __ocl_svml_b3_cvtu32tofprte2 (uint2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprte2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprte2_linkage ( __ocl_svml_b3_cvtu32tofprte2 )
+
+    double2_uisa __ocl_svml_b3_cvtu32tofprtn2 (uint2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtn2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtn2_linkage ( __ocl_svml_b3_cvtu32tofprtn2 )
+
+    double2_uisa __ocl_svml_b3_cvtu32tofprtp2 (uint2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtp2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtp2_linkage ( __ocl_svml_b3_cvtu32tofprtp2 )
+
+    double2_uisa __ocl_svml_b3_cvtu32tofprtz2 (uint2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtz2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtz2_linkage ( __ocl_svml_b3_cvtu32tofprtz2 )
+
+    double2_uisa __ocl_svml_b3_cvti32tofprte2 (int2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprte2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprte2_linkage ( __ocl_svml_b3_cvti32tofprte2 )
+
+    double2_uisa __ocl_svml_b3_cvti32tofprtn2 (int2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtn2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtn2_linkage ( __ocl_svml_b3_cvti32tofprtn2 )
+
+    double2_uisa __ocl_svml_b3_cvti32tofprtp2 (int2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtp2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtp2_linkage ( __ocl_svml_b3_cvti32tofprtp2 )
+
+    double2_uisa __ocl_svml_b3_cvti32tofprtz2 (int2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtz2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtz2_linkage ( __ocl_svml_b3_cvti32tofprtz2 )
+
+    float2_uisa __ocl_svml_b3_cvtfp64tofp32rte2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfp64tofp32rte2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfp64tofp32rte2_linkage ( __ocl_svml_b3_cvtfp64tofp32rte2 )
+
+    float2_uisa __ocl_svml_b3_cvtfp64tofp32rtn2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfp64tofp32rtn2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfp64tofp32rtn2_linkage ( __ocl_svml_b3_cvtfp64tofp32rtn2 )
+
+    float2_uisa __ocl_svml_b3_cvtfp64tofp32rtp2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfp64tofp32rtp2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfp64tofp32rtp2_linkage ( __ocl_svml_b3_cvtfp64tofp32rtp2 )
+
+    float2_uisa __ocl_svml_b3_cvtfp64tofp32rtz2 (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfp64tofp32rtz2_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfp64tofp32rtz2_linkage ( __ocl_svml_b3_cvtfp64tofp32rtz2 )
+
     int2_sse __ocl_svml_h8_idiv2 (int2_sse a, int2_sse b);
     #pragma linkage     __ocl_svml_h8_idiv2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_h8_idiv2_linkage ( __ocl_svml_h8_idiv2 )
@@ -6266,6 +8392,18 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_idivrem2_linkage   = ( result((xmm0 xmm1)) parameters((xmm0),(xmm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_idivrem2_linkage ( __ocl_svml_l9_idivrem2 )
 
+    int2_uisa __ocl_svml_b3_idiv2 (int2_uisa a, int2_uisa b);
+    #pragma linkage     __ocl_svml_b3_idiv2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_idiv2_linkage ( __ocl_svml_b3_idiv2 )
+
+    int2_uisa __ocl_svml_b3_irem2 (int2_uisa a, int2_uisa b);
+    #pragma linkage     __ocl_svml_b3_irem2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_irem2_linkage ( __ocl_svml_b3_irem2 )
+
+    int2x2_uisa __ocl_svml_b3_idivrem2 (int2_uisa a, int2_uisa b);
+    #pragma linkage     __ocl_svml_b3_idivrem2_linkage   = ( result((xmm0 xmm1)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_idivrem2_linkage ( __ocl_svml_b3_idivrem2 )
+
     int2_sse __ocl_svml_h8_udiv2 (int2_sse a, int2_sse b);
     #pragma linkage     __ocl_svml_h8_udiv2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_h8_udiv2_linkage ( __ocl_svml_h8_udiv2 )
@@ -6301,6 +8439,18 @@ extern "C" {
     int2x2_avx __ocl_svml_l9_udivrem2 (int2_avx a, int2_avx b);
     #pragma linkage     __ocl_svml_l9_udivrem2_linkage   = ( result((xmm0 xmm1)) parameters((xmm0),(xmm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_udivrem2_linkage ( __ocl_svml_l9_udivrem2 )
+
+    int2_uisa __ocl_svml_b3_udiv2 (int2_uisa a, int2_uisa b);
+    #pragma linkage     __ocl_svml_b3_udiv2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_udiv2_linkage ( __ocl_svml_b3_udiv2 )
+
+    int2_uisa __ocl_svml_b3_urem2 (int2_uisa a, int2_uisa b);
+    #pragma linkage     __ocl_svml_b3_urem2_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_urem2_linkage ( __ocl_svml_b3_urem2 )
+
+    int2x2_uisa __ocl_svml_b3_udivrem2 (int2_uisa a, int2_uisa b);
+    #pragma linkage     __ocl_svml_b3_udivrem2_linkage   = ( result((xmm0 xmm1)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_udivrem2_linkage ( __ocl_svml_b3_udivrem2 )
 
     float3_sse __ocl_svml_h8_invf3 (float3_sse a);
     #pragma linkage     __ocl_svml_h8_invf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
@@ -6817,6 +8967,178 @@ extern "C" {
     float3_avx __ocl_svml_l9_erfcf3 (float3_avx a);
     #pragma linkage     __ocl_svml_l9_erfcf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_erfcf3_linkage ( __ocl_svml_l9_erfcf3 )
+
+    float3_uisa __ocl_svml_b3_invf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf3_linkage ( __ocl_svml_b3_invf3 )
+
+    float3_uisa __ocl_svml_b3_divf3 (float3_uisa a, float3_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf3_linkage ( __ocl_svml_b3_divf3 )
+
+    float3_uisa __ocl_svml_b3_sqrtf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrtf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrtf3_linkage ( __ocl_svml_b3_sqrtf3 )
+
+    float3_uisa __ocl_svml_b3_rsqrtf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrtf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrtf3_linkage ( __ocl_svml_b3_rsqrtf3 )
+
+    float3_uisa __ocl_svml_b3_cbrtf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cbrtf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cbrtf3_linkage ( __ocl_svml_b3_cbrtf3 )
+
+    float3_uisa __ocl_svml_b3_rcbrtf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_rcbrtf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rcbrtf3_linkage ( __ocl_svml_b3_rcbrtf3 )
+
+    float3_uisa __ocl_svml_b3_hypotf3 (float3_uisa a, float3_uisa b);
+    #pragma linkage     __ocl_svml_b3_hypotf3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_hypotf3_linkage ( __ocl_svml_b3_hypotf3 )
+
+    float3_uisa __ocl_svml_b3_powf3 (float3_uisa a, float3_uisa b);
+    #pragma linkage     __ocl_svml_b3_powf3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powf3_linkage ( __ocl_svml_b3_powf3 )
+
+    float3_uisa __ocl_svml_b3_powrf3 (float3_uisa a, float3_uisa b);
+    #pragma linkage     __ocl_svml_b3_powrf3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powrf3_linkage ( __ocl_svml_b3_powrf3 )
+
+    float3_uisa __ocl_svml_b3_pownf3 (float3_uisa a, int3_uisa b);
+    #pragma linkage     __ocl_svml_b3_pownf3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pownf3_linkage ( __ocl_svml_b3_pownf3 )
+
+    float3_uisa __ocl_svml_b3_rootnf3 (float3_uisa a, int3_uisa b);
+    #pragma linkage     __ocl_svml_b3_rootnf3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rootnf3_linkage ( __ocl_svml_b3_rootnf3 )
+
+    float3_uisa __ocl_svml_b3_expf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf3_linkage ( __ocl_svml_b3_expf3 )
+
+    float3_uisa __ocl_svml_b3_exp2f3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f3_linkage ( __ocl_svml_b3_exp2f3 )
+
+    float3_uisa __ocl_svml_b3_exp10f3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f3_linkage ( __ocl_svml_b3_exp10f3 )
+
+    float3_uisa __ocl_svml_b3_expm1f3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_expm1f3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expm1f3_linkage ( __ocl_svml_b3_expm1f3 )
+
+    float3_uisa __ocl_svml_b3_logf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf3_linkage ( __ocl_svml_b3_logf3 )
+
+    float3_uisa __ocl_svml_b3_log10f3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_log10f3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log10f3_linkage ( __ocl_svml_b3_log10f3 )
+
+    float3_uisa __ocl_svml_b3_log2f3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f3_linkage ( __ocl_svml_b3_log2f3 )
+
+    float3_uisa __ocl_svml_b3_log1pf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1pf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1pf3_linkage ( __ocl_svml_b3_log1pf3 )
+
+    float3_uisa __ocl_svml_b3_sinf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf3_linkage ( __ocl_svml_b3_sinf3 )
+
+    float3_uisa __ocl_svml_b3_cosf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf3_linkage ( __ocl_svml_b3_cosf3 )
+
+    float3_uisa __ocl_svml_b3_sincosf3 (float3_uisa a, float3_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincosf3_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosf3_linkage ( __ocl_svml_b3_sincosf3 )
+
+    float3x2_uisa __ocl_svml_b3_sincosregf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_sincosregf3_linkage   = ( result((xmm0 xmm1)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosregf3_linkage ( __ocl_svml_b3_sincosregf3 )
+
+    float3_uisa __ocl_svml_b3_tanf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf3_linkage ( __ocl_svml_b3_tanf3 )
+
+    float3_uisa __ocl_svml_b3_sinpif3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinpif3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinpif3_linkage ( __ocl_svml_b3_sinpif3 )
+
+    float3_uisa __ocl_svml_b3_cospif3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cospif3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cospif3_linkage ( __ocl_svml_b3_cospif3 )
+
+    float3_uisa __ocl_svml_b3_tanpif3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanpif3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanpif3_linkage ( __ocl_svml_b3_tanpif3 )
+
+    float3_uisa __ocl_svml_b3_acosf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_acosf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acosf3_linkage ( __ocl_svml_b3_acosf3 )
+
+    float3_uisa __ocl_svml_b3_asinf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinf3_linkage ( __ocl_svml_b3_asinf3 )
+
+    float3_uisa __ocl_svml_b3_atanf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanf3_linkage ( __ocl_svml_b3_atanf3 )
+
+    float3_uisa __ocl_svml_b3_atan2f3 (float3_uisa a, float3_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2f3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2f3_linkage ( __ocl_svml_b3_atan2f3 )
+
+    float3_uisa __ocl_svml_b3_asinpif3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinpif3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinpif3_linkage ( __ocl_svml_b3_asinpif3 )
+
+    float3_uisa __ocl_svml_b3_acospif3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_acospif3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acospif3_linkage ( __ocl_svml_b3_acospif3 )
+
+    float3_uisa __ocl_svml_b3_atanpif3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanpif3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanpif3_linkage ( __ocl_svml_b3_atanpif3 )
+
+    float3_uisa __ocl_svml_b3_atan2pif3 (float3_uisa a, float3_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2pif3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2pif3_linkage ( __ocl_svml_b3_atan2pif3 )
+
+    float3_uisa __ocl_svml_b3_sinhf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinhf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinhf3_linkage ( __ocl_svml_b3_sinhf3 )
+
+    float3_uisa __ocl_svml_b3_coshf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_coshf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_coshf3_linkage ( __ocl_svml_b3_coshf3 )
+
+    float3_uisa __ocl_svml_b3_tanhf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanhf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanhf3_linkage ( __ocl_svml_b3_tanhf3 )
+
+    float3_uisa __ocl_svml_b3_asinhf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinhf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinhf3_linkage ( __ocl_svml_b3_asinhf3 )
+
+    float3_uisa __ocl_svml_b3_acoshf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_acoshf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acoshf3_linkage ( __ocl_svml_b3_acoshf3 )
+
+    float3_uisa __ocl_svml_b3_atanhf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanhf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanhf3_linkage ( __ocl_svml_b3_atanhf3 )
+
+    float3_uisa __ocl_svml_b3_erff3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_erff3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erff3_linkage ( __ocl_svml_b3_erff3 )
+
+    float3_uisa __ocl_svml_b3_erfcf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_erfcf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erfcf3_linkage ( __ocl_svml_b3_erfcf3 )
 
     float3_sse __ocl_svml_h8_fmaf3 (float3_sse a, float3_sse b, float3_sse c);
     #pragma linkage     __ocl_svml_h8_fmaf3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),(xmm2)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
@@ -7730,6 +10052,310 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_cvti32tofprtzf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_cvti32tofprtzf3_linkage ( __ocl_svml_l9_cvti32tofprtzf3 )
 
+    float3_uisa __ocl_svml_b3_fmaf3 (float3_uisa a, float3_uisa b, float3_uisa c);
+    #pragma linkage     __ocl_svml_b3_fmaf3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),(xmm2)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmaf3_linkage ( __ocl_svml_b3_fmaf3 )
+
+    float3_uisa __ocl_svml_b3_fabsf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_fabsf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fabsf3_linkage ( __ocl_svml_b3_fabsf3 )
+
+    float3_uisa __ocl_svml_b3_fminf3 (float3_uisa a, float3_uisa b);
+    #pragma linkage     __ocl_svml_b3_fminf3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fminf3_linkage ( __ocl_svml_b3_fminf3 )
+
+    float3_uisa __ocl_svml_b3_fmaxf3 (float3_uisa a, float3_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmaxf3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmaxf3_linkage ( __ocl_svml_b3_fmaxf3 )
+
+    float3_uisa __ocl_svml_b3_maxmagf3 (float3_uisa a, float3_uisa b);
+    #pragma linkage     __ocl_svml_b3_maxmagf3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_maxmagf3_linkage ( __ocl_svml_b3_maxmagf3 )
+
+    float3_uisa __ocl_svml_b3_minmagf3 (float3_uisa a, float3_uisa b);
+    #pragma linkage     __ocl_svml_b3_minmagf3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_minmagf3_linkage ( __ocl_svml_b3_minmagf3 )
+
+    float3_uisa __ocl_svml_b3_nanf3 (uint3_uisa a);
+    #pragma linkage     __ocl_svml_b3_nanf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nanf3_linkage ( __ocl_svml_b3_nanf3 )
+
+    float3_uisa __ocl_svml_b3_ceilf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_ceilf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ceilf3_linkage ( __ocl_svml_b3_ceilf3 )
+
+    float3_uisa __ocl_svml_b3_floorf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_floorf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_floorf3_linkage ( __ocl_svml_b3_floorf3 )
+
+    float3_uisa __ocl_svml_b3_roundf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_roundf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_roundf3_linkage ( __ocl_svml_b3_roundf3 )
+
+    float3_uisa __ocl_svml_b3_truncf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_truncf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_truncf3_linkage ( __ocl_svml_b3_truncf3 )
+
+    float3_uisa __ocl_svml_b3_rintf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_rintf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rintf3_linkage ( __ocl_svml_b3_rintf3 )
+
+    float3_uisa __ocl_svml_b3_nearbyintf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_nearbyintf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nearbyintf3_linkage ( __ocl_svml_b3_nearbyintf3 )
+
+    float3_uisa __ocl_svml_b3_fmodf3 (float3_uisa a, float3_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmodf3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmodf3_linkage ( __ocl_svml_b3_fmodf3 )
+
+    float3_uisa __ocl_svml_b3_modff3 (float3_uisa a, float3_uisa* c);
+    #pragma linkage     __ocl_svml_b3_modff3_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_modff3_linkage ( __ocl_svml_b3_modff3 )
+
+    float3_uisa __ocl_svml_b3_remainderf3 (float3_uisa a, float3_uisa b);
+    #pragma linkage     __ocl_svml_b3_remainderf3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_remainderf3_linkage ( __ocl_svml_b3_remainderf3 )
+
+    float3_uisa __ocl_svml_b3_remquof3 (float3_uisa a, float3_uisa b, int3_uisa* c);
+    #pragma linkage     __ocl_svml_b3_remquof3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_remquof3_linkage ( __ocl_svml_b3_remquof3 )
+
+    float3_uisa __ocl_svml_b3_copysignf3 (float3_uisa a, float3_uisa b);
+    #pragma linkage     __ocl_svml_b3_copysignf3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_copysignf3_linkage ( __ocl_svml_b3_copysignf3 )
+
+    float3_uisa __ocl_svml_b3_frexpf3 (float3_uisa a, int3_uisa* c);
+    #pragma linkage     __ocl_svml_b3_frexpf3_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_frexpf3_linkage ( __ocl_svml_b3_frexpf3 )
+
+    float3_uisa __ocl_svml_b3_fdimf3 (float3_uisa a, float3_uisa b);
+    #pragma linkage     __ocl_svml_b3_fdimf3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fdimf3_linkage ( __ocl_svml_b3_fdimf3 )
+
+    float3_uisa __ocl_svml_b3_logbf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_logbf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logbf3_linkage ( __ocl_svml_b3_logbf3 )
+
+    int3_uisa __ocl_svml_b3_ilogbf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_ilogbf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ilogbf3_linkage ( __ocl_svml_b3_ilogbf3 )
+
+    float3_uisa __ocl_svml_b3_nextafterf3 (float3_uisa a, float3_uisa b);
+    #pragma linkage     __ocl_svml_b3_nextafterf3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nextafterf3_linkage ( __ocl_svml_b3_nextafterf3 )
+
+    float3_uisa __ocl_svml_b3_ldexpf3 (float3_uisa a, int3_uisa b);
+    #pragma linkage     __ocl_svml_b3_ldexpf3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ldexpf3_linkage ( __ocl_svml_b3_ldexpf3 )
+
+    float3_uisa __ocl_svml_b3_fractf3 (float3_uisa a, float3_uisa* c);
+    #pragma linkage     __ocl_svml_b3_fractf3_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fractf3_linkage ( __ocl_svml_b3_fractf3 )
+
+    float3_uisa __ocl_svml_b3_tgammaf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_tgammaf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tgammaf3_linkage ( __ocl_svml_b3_tgammaf3 )
+
+    float3_uisa __ocl_svml_b3_lgammaf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_lgammaf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_lgammaf3_linkage ( __ocl_svml_b3_lgammaf3 )
+
+    float3_uisa __ocl_svml_b3_lgammarf3 (float3_uisa a, int3_uisa* c);
+    #pragma linkage     __ocl_svml_b3_lgammarf3_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_lgammarf3_linkage ( __ocl_svml_b3_lgammarf3 )
+
+    ulong3_uisa __ocl_svml_b3_cvtfptou64rtenosatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtenosatf3_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtenosatf3_linkage ( __ocl_svml_b3_cvtfptou64rtenosatf3 )
+
+    ulong3_uisa __ocl_svml_b3_cvtfptou64rtesatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtesatf3_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtesatf3_linkage ( __ocl_svml_b3_cvtfptou64rtesatf3 )
+
+    ulong3_uisa __ocl_svml_b3_cvtfptou64rtnnosatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtnnosatf3_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtnnosatf3_linkage ( __ocl_svml_b3_cvtfptou64rtnnosatf3 )
+
+    ulong3_uisa __ocl_svml_b3_cvtfptou64rtnsatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtnsatf3_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtnsatf3_linkage ( __ocl_svml_b3_cvtfptou64rtnsatf3 )
+
+    ulong3_uisa __ocl_svml_b3_cvtfptou64rtpnosatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtpnosatf3_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtpnosatf3_linkage ( __ocl_svml_b3_cvtfptou64rtpnosatf3 )
+
+    ulong3_uisa __ocl_svml_b3_cvtfptou64rtpsatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtpsatf3_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtpsatf3_linkage ( __ocl_svml_b3_cvtfptou64rtpsatf3 )
+
+    ulong3_uisa __ocl_svml_b3_cvtfptou64rtznosatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtznosatf3_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtznosatf3_linkage ( __ocl_svml_b3_cvtfptou64rtznosatf3 )
+
+    ulong3_uisa __ocl_svml_b3_cvtfptou64rtzsatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtzsatf3_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtzsatf3_linkage ( __ocl_svml_b3_cvtfptou64rtzsatf3 )
+
+    long3_uisa __ocl_svml_b3_cvtfptoi64rtenosatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtenosatf3_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtenosatf3_linkage ( __ocl_svml_b3_cvtfptoi64rtenosatf3 )
+
+    long3_uisa __ocl_svml_b3_cvtfptoi64rtesatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtesatf3_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtesatf3_linkage ( __ocl_svml_b3_cvtfptoi64rtesatf3 )
+
+    long3_uisa __ocl_svml_b3_cvtfptoi64rtnnosatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtnnosatf3_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtnnosatf3_linkage ( __ocl_svml_b3_cvtfptoi64rtnnosatf3 )
+
+    long3_uisa __ocl_svml_b3_cvtfptoi64rtnsatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtnsatf3_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtnsatf3_linkage ( __ocl_svml_b3_cvtfptoi64rtnsatf3 )
+
+    long3_uisa __ocl_svml_b3_cvtfptoi64rtpnosatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtpnosatf3_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtpnosatf3_linkage ( __ocl_svml_b3_cvtfptoi64rtpnosatf3 )
+
+    long3_uisa __ocl_svml_b3_cvtfptoi64rtpsatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtpsatf3_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtpsatf3_linkage ( __ocl_svml_b3_cvtfptoi64rtpsatf3 )
+
+    long3_uisa __ocl_svml_b3_cvtfptoi64rtznosatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtznosatf3_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtznosatf3_linkage ( __ocl_svml_b3_cvtfptoi64rtznosatf3 )
+
+    long3_uisa __ocl_svml_b3_cvtfptoi64rtzsatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtzsatf3_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtzsatf3_linkage ( __ocl_svml_b3_cvtfptoi64rtzsatf3 )
+
+    uint3_uisa __ocl_svml_b3_cvtfptou32rtenosatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtenosatf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtenosatf3_linkage ( __ocl_svml_b3_cvtfptou32rtenosatf3 )
+
+    uint3_uisa __ocl_svml_b3_cvtfptou32rtesatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtesatf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtesatf3_linkage ( __ocl_svml_b3_cvtfptou32rtesatf3 )
+
+    uint3_uisa __ocl_svml_b3_cvtfptou32rtnnosatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtnnosatf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtnnosatf3_linkage ( __ocl_svml_b3_cvtfptou32rtnnosatf3 )
+
+    uint3_uisa __ocl_svml_b3_cvtfptou32rtnsatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtnsatf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtnsatf3_linkage ( __ocl_svml_b3_cvtfptou32rtnsatf3 )
+
+    uint3_uisa __ocl_svml_b3_cvtfptou32rtpnosatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtpnosatf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtpnosatf3_linkage ( __ocl_svml_b3_cvtfptou32rtpnosatf3 )
+
+    uint3_uisa __ocl_svml_b3_cvtfptou32rtpsatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtpsatf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtpsatf3_linkage ( __ocl_svml_b3_cvtfptou32rtpsatf3 )
+
+    uint3_uisa __ocl_svml_b3_cvtfptou32rtznosatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtznosatf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtznosatf3_linkage ( __ocl_svml_b3_cvtfptou32rtznosatf3 )
+
+    uint3_uisa __ocl_svml_b3_cvtfptou32rtzsatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtzsatf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtzsatf3_linkage ( __ocl_svml_b3_cvtfptou32rtzsatf3 )
+
+    int3_uisa __ocl_svml_b3_cvtfptoi32rtenosatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtenosatf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtenosatf3_linkage ( __ocl_svml_b3_cvtfptoi32rtenosatf3 )
+
+    int3_uisa __ocl_svml_b3_cvtfptoi32rtesatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtesatf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtesatf3_linkage ( __ocl_svml_b3_cvtfptoi32rtesatf3 )
+
+    int3_uisa __ocl_svml_b3_cvtfptoi32rtnnosatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtnnosatf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtnnosatf3_linkage ( __ocl_svml_b3_cvtfptoi32rtnnosatf3 )
+
+    int3_uisa __ocl_svml_b3_cvtfptoi32rtnsatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtnsatf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtnsatf3_linkage ( __ocl_svml_b3_cvtfptoi32rtnsatf3 )
+
+    int3_uisa __ocl_svml_b3_cvtfptoi32rtpnosatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtpnosatf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtpnosatf3_linkage ( __ocl_svml_b3_cvtfptoi32rtpnosatf3 )
+
+    int3_uisa __ocl_svml_b3_cvtfptoi32rtpsatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtpsatf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtpsatf3_linkage ( __ocl_svml_b3_cvtfptoi32rtpsatf3 )
+
+    int3_uisa __ocl_svml_b3_cvtfptoi32rtznosatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtznosatf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtznosatf3_linkage ( __ocl_svml_b3_cvtfptoi32rtznosatf3 )
+
+    int3_uisa __ocl_svml_b3_cvtfptoi32rtzsatf3 (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtzsatf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtzsatf3_linkage ( __ocl_svml_b3_cvtfptoi32rtzsatf3 )
+
+    float3_uisa __ocl_svml_b3_cvtu64tofprtef3 (ulong3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtef3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtef3_linkage ( __ocl_svml_b3_cvtu64tofprtef3 )
+
+    float3_uisa __ocl_svml_b3_cvtu64tofprtnf3 (ulong3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtnf3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtnf3_linkage ( __ocl_svml_b3_cvtu64tofprtnf3 )
+
+    float3_uisa __ocl_svml_b3_cvtu64tofprtpf3 (ulong3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtpf3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtpf3_linkage ( __ocl_svml_b3_cvtu64tofprtpf3 )
+
+    float3_uisa __ocl_svml_b3_cvtu64tofprtzf3 (ulong3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtzf3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtzf3_linkage ( __ocl_svml_b3_cvtu64tofprtzf3 )
+
+    float3_uisa __ocl_svml_b3_cvti64tofprtef3 (long3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtef3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtef3_linkage ( __ocl_svml_b3_cvti64tofprtef3 )
+
+    float3_uisa __ocl_svml_b3_cvti64tofprtnf3 (long3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtnf3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtnf3_linkage ( __ocl_svml_b3_cvti64tofprtnf3 )
+
+    float3_uisa __ocl_svml_b3_cvti64tofprtpf3 (long3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtpf3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtpf3_linkage ( __ocl_svml_b3_cvti64tofprtpf3 )
+
+    float3_uisa __ocl_svml_b3_cvti64tofprtzf3 (long3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtzf3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtzf3_linkage ( __ocl_svml_b3_cvti64tofprtzf3 )
+
+    float3_uisa __ocl_svml_b3_cvtu32tofprtef3 (uint3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtef3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtef3_linkage ( __ocl_svml_b3_cvtu32tofprtef3 )
+
+    float3_uisa __ocl_svml_b3_cvtu32tofprtnf3 (uint3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtnf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtnf3_linkage ( __ocl_svml_b3_cvtu32tofprtnf3 )
+
+    float3_uisa __ocl_svml_b3_cvtu32tofprtpf3 (uint3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtpf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtpf3_linkage ( __ocl_svml_b3_cvtu32tofprtpf3 )
+
+    float3_uisa __ocl_svml_b3_cvtu32tofprtzf3 (uint3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtzf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtzf3_linkage ( __ocl_svml_b3_cvtu32tofprtzf3 )
+
+    float3_uisa __ocl_svml_b3_cvti32tofprtef3 (int3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtef3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtef3_linkage ( __ocl_svml_b3_cvti32tofprtef3 )
+
+    float3_uisa __ocl_svml_b3_cvti32tofprtnf3 (int3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtnf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtnf3_linkage ( __ocl_svml_b3_cvti32tofprtnf3 )
+
+    float3_uisa __ocl_svml_b3_cvti32tofprtpf3 (int3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtpf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtpf3_linkage ( __ocl_svml_b3_cvti32tofprtpf3 )
+
+    float3_uisa __ocl_svml_b3_cvti32tofprtzf3 (int3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtzf3_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtzf3_linkage ( __ocl_svml_b3_cvti32tofprtzf3 )
+
     double3_sse __ocl_svml_h8_inv3 (double3_sse a);
     #pragma linkage     __ocl_svml_h8_inv3_linkage   = ( result((xmm0 xmm1)) parameters((xmm0 xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_h8_inv3_linkage ( __ocl_svml_h8_inv3 )
@@ -8245,6 +10871,178 @@ extern "C" {
     double3_avx __ocl_svml_l9_erfc3 (double3_avx a);
     #pragma linkage     __ocl_svml_l9_erfc3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_erfc3_linkage ( __ocl_svml_l9_erfc3 )
+
+    double3_uisa __ocl_svml_b3_inv3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_inv3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_inv3_linkage ( __ocl_svml_b3_inv3 )
+
+    double3_uisa __ocl_svml_b3_div3 (double3_uisa a, double3_uisa b);
+    #pragma linkage     __ocl_svml_b3_div3_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_div3_linkage ( __ocl_svml_b3_div3 )
+
+    double3_uisa __ocl_svml_b3_sqrt3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrt3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrt3_linkage ( __ocl_svml_b3_sqrt3 )
+
+    double3_uisa __ocl_svml_b3_rsqrt3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrt3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrt3_linkage ( __ocl_svml_b3_rsqrt3 )
+
+    double3_uisa __ocl_svml_b3_cbrt3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cbrt3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cbrt3_linkage ( __ocl_svml_b3_cbrt3 )
+
+    double3_uisa __ocl_svml_b3_rcbrt3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_rcbrt3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rcbrt3_linkage ( __ocl_svml_b3_rcbrt3 )
+
+    double3_uisa __ocl_svml_b3_hypot3 (double3_uisa a, double3_uisa b);
+    #pragma linkage     __ocl_svml_b3_hypot3_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_hypot3_linkage ( __ocl_svml_b3_hypot3 )
+
+    double3_uisa __ocl_svml_b3_pow3 (double3_uisa a, double3_uisa b);
+    #pragma linkage     __ocl_svml_b3_pow3_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pow3_linkage ( __ocl_svml_b3_pow3 )
+
+    double3_uisa __ocl_svml_b3_powr3 (double3_uisa a, double3_uisa b);
+    #pragma linkage     __ocl_svml_b3_powr3_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powr3_linkage ( __ocl_svml_b3_powr3 )
+
+    double3_uisa __ocl_svml_b3_pown3 (double3_uisa a, int3_uisa b);
+    #pragma linkage     __ocl_svml_b3_pown3_linkage   = ( result((ymm0)) parameters((ymm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pown3_linkage ( __ocl_svml_b3_pown3 )
+
+    double3_uisa __ocl_svml_b3_rootn3 (double3_uisa a, int3_uisa b);
+    #pragma linkage     __ocl_svml_b3_rootn3_linkage   = ( result((ymm0)) parameters((ymm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rootn3_linkage ( __ocl_svml_b3_rootn3 )
+
+    double3_uisa __ocl_svml_b3_exp3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp3_linkage ( __ocl_svml_b3_exp3 )
+
+    double3_uisa __ocl_svml_b3_exp23 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp23_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp23_linkage ( __ocl_svml_b3_exp23 )
+
+    double3_uisa __ocl_svml_b3_exp103 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp103_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp103_linkage ( __ocl_svml_b3_exp103 )
+
+    double3_uisa __ocl_svml_b3_expm13 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_expm13_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expm13_linkage ( __ocl_svml_b3_expm13 )
+
+    double3_uisa __ocl_svml_b3_log3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_log3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log3_linkage ( __ocl_svml_b3_log3 )
+
+    double3_uisa __ocl_svml_b3_log103 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_log103_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log103_linkage ( __ocl_svml_b3_log103 )
+
+    double3_uisa __ocl_svml_b3_log23 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_log23_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log23_linkage ( __ocl_svml_b3_log23 )
+
+    double3_uisa __ocl_svml_b3_log1p3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1p3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1p3_linkage ( __ocl_svml_b3_log1p3 )
+
+    double3_uisa __ocl_svml_b3_sin3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_sin3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sin3_linkage ( __ocl_svml_b3_sin3 )
+
+    double3_uisa __ocl_svml_b3_cos3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cos3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cos3_linkage ( __ocl_svml_b3_cos3 )
+
+    double3_uisa __ocl_svml_b3_sincos3 (double3_uisa a, double3_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincos3_linkage   = ( result((ymm0)) parameters((ymm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincos3_linkage ( __ocl_svml_b3_sincos3 )
+
+    double3x2_uisa __ocl_svml_b3_sincosreg3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_sincosreg3_linkage   = ( result((ymm0 ymm1)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosreg3_linkage ( __ocl_svml_b3_sincosreg3 )
+
+    double3_uisa __ocl_svml_b3_tan3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_tan3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tan3_linkage ( __ocl_svml_b3_tan3 )
+
+    double3_uisa __ocl_svml_b3_sinpi3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinpi3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinpi3_linkage ( __ocl_svml_b3_sinpi3 )
+
+    double3_uisa __ocl_svml_b3_cospi3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cospi3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cospi3_linkage ( __ocl_svml_b3_cospi3 )
+
+    double3_uisa __ocl_svml_b3_tanpi3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanpi3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanpi3_linkage ( __ocl_svml_b3_tanpi3 )
+
+    double3_uisa __ocl_svml_b3_acos3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_acos3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acos3_linkage ( __ocl_svml_b3_acos3 )
+
+    double3_uisa __ocl_svml_b3_asin3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_asin3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asin3_linkage ( __ocl_svml_b3_asin3 )
+
+    double3_uisa __ocl_svml_b3_atan3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_atan3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan3_linkage ( __ocl_svml_b3_atan3 )
+
+    double3_uisa __ocl_svml_b3_atan23 (double3_uisa a, double3_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan23_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan23_linkage ( __ocl_svml_b3_atan23 )
+
+    double3_uisa __ocl_svml_b3_asinpi3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinpi3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinpi3_linkage ( __ocl_svml_b3_asinpi3 )
+
+    double3_uisa __ocl_svml_b3_acospi3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_acospi3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acospi3_linkage ( __ocl_svml_b3_acospi3 )
+
+    double3_uisa __ocl_svml_b3_atanpi3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanpi3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanpi3_linkage ( __ocl_svml_b3_atanpi3 )
+
+    double3_uisa __ocl_svml_b3_atan2pi3 (double3_uisa a, double3_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2pi3_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2pi3_linkage ( __ocl_svml_b3_atan2pi3 )
+
+    double3_uisa __ocl_svml_b3_sinh3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinh3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinh3_linkage ( __ocl_svml_b3_sinh3 )
+
+    double3_uisa __ocl_svml_b3_cosh3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosh3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosh3_linkage ( __ocl_svml_b3_cosh3 )
+
+    double3_uisa __ocl_svml_b3_tanh3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanh3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanh3_linkage ( __ocl_svml_b3_tanh3 )
+
+    double3_uisa __ocl_svml_b3_asinh3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinh3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinh3_linkage ( __ocl_svml_b3_asinh3 )
+
+    double3_uisa __ocl_svml_b3_acosh3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_acosh3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acosh3_linkage ( __ocl_svml_b3_acosh3 )
+
+    double3_uisa __ocl_svml_b3_atanh3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanh3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanh3_linkage ( __ocl_svml_b3_atanh3 )
+
+    double3_uisa __ocl_svml_b3_erf3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_erf3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erf3_linkage ( __ocl_svml_b3_erf3 )
+
+    double3_uisa __ocl_svml_b3_erfc3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_erfc3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erfc3_linkage ( __ocl_svml_b3_erfc3 )
 
     double3_sse __ocl_svml_h8_fma3 (double3_sse a, double3_sse b, double3_sse c);
 
@@ -9204,6 +12002,326 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_cvtfp64tofp32rtz3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_cvtfp64tofp32rtz3_linkage ( __ocl_svml_l9_cvtfp64tofp32rtz3 )
 
+    double3_uisa __ocl_svml_b3_fma3 (double3_uisa a, double3_uisa b, double3_uisa c);
+    #pragma linkage     __ocl_svml_b3_fma3_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1),(ymm2)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fma3_linkage ( __ocl_svml_b3_fma3 )
+
+    double3_uisa __ocl_svml_b3_fabs3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_fabs3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fabs3_linkage ( __ocl_svml_b3_fabs3 )
+
+    double3_uisa __ocl_svml_b3_fmin3 (double3_uisa a, double3_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmin3_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmin3_linkage ( __ocl_svml_b3_fmin3 )
+
+    double3_uisa __ocl_svml_b3_fmax3 (double3_uisa a, double3_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmax3_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmax3_linkage ( __ocl_svml_b3_fmax3 )
+
+    double3_uisa __ocl_svml_b3_maxmag3 (double3_uisa a, double3_uisa b);
+    #pragma linkage     __ocl_svml_b3_maxmag3_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_maxmag3_linkage ( __ocl_svml_b3_maxmag3 )
+
+    double3_uisa __ocl_svml_b3_minmag3 (double3_uisa a, double3_uisa b);
+    #pragma linkage     __ocl_svml_b3_minmag3_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_minmag3_linkage ( __ocl_svml_b3_minmag3 )
+
+    double3_uisa __ocl_svml_b3_nan3 (ulong3_uisa a);
+    #pragma linkage     __ocl_svml_b3_nan3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nan3_linkage ( __ocl_svml_b3_nan3 )
+
+    double3_uisa __ocl_svml_b3_ceil3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_ceil3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ceil3_linkage ( __ocl_svml_b3_ceil3 )
+
+    double3_uisa __ocl_svml_b3_floor3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_floor3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_floor3_linkage ( __ocl_svml_b3_floor3 )
+
+    double3_uisa __ocl_svml_b3_round3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_round3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_round3_linkage ( __ocl_svml_b3_round3 )
+
+    double3_uisa __ocl_svml_b3_trunc3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_trunc3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_trunc3_linkage ( __ocl_svml_b3_trunc3 )
+
+    double3_uisa __ocl_svml_b3_rint3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_rint3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rint3_linkage ( __ocl_svml_b3_rint3 )
+
+    double3_uisa __ocl_svml_b3_nearbyint3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_nearbyint3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nearbyint3_linkage ( __ocl_svml_b3_nearbyint3 )
+
+    double3_uisa __ocl_svml_b3_fmod3 (double3_uisa a, double3_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmod3_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmod3_linkage ( __ocl_svml_b3_fmod3 )
+
+    double3_uisa __ocl_svml_b3_modf3 (double3_uisa a, double3_uisa* c);
+    #pragma linkage     __ocl_svml_b3_modf3_linkage   = ( result((ymm0)) parameters((ymm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_modf3_linkage ( __ocl_svml_b3_modf3 )
+
+    double3_uisa __ocl_svml_b3_remainder3 (double3_uisa a, double3_uisa b);
+    #pragma linkage     __ocl_svml_b3_remainder3_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_remainder3_linkage ( __ocl_svml_b3_remainder3 )
+
+    double3_uisa __ocl_svml_b3_remquo3 (double3_uisa a, double3_uisa b, int3_uisa* c);
+    #pragma linkage     __ocl_svml_b3_remquo3_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_remquo3_linkage ( __ocl_svml_b3_remquo3 )
+
+    double3_uisa __ocl_svml_b3_copysign3 (double3_uisa a, double3_uisa b);
+    #pragma linkage     __ocl_svml_b3_copysign3_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_copysign3_linkage ( __ocl_svml_b3_copysign3 )
+
+    double3_uisa __ocl_svml_b3_frexp3 (double3_uisa a, int3_uisa* c);
+    #pragma linkage     __ocl_svml_b3_frexp3_linkage   = ( result((ymm0)) parameters((ymm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_frexp3_linkage ( __ocl_svml_b3_frexp3 )
+
+    double3_uisa __ocl_svml_b3_fdim3 (double3_uisa a, double3_uisa b);
+    #pragma linkage     __ocl_svml_b3_fdim3_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fdim3_linkage ( __ocl_svml_b3_fdim3 )
+
+    double3_uisa __ocl_svml_b3_logb3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_logb3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logb3_linkage ( __ocl_svml_b3_logb3 )
+
+    int3_uisa __ocl_svml_b3_ilogb3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_ilogb3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ilogb3_linkage ( __ocl_svml_b3_ilogb3 )
+
+    double3_uisa __ocl_svml_b3_nextafter3 (double3_uisa a, double3_uisa b);
+    #pragma linkage     __ocl_svml_b3_nextafter3_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nextafter3_linkage ( __ocl_svml_b3_nextafter3 )
+
+    double3_uisa __ocl_svml_b3_ldexp3 (double3_uisa a, int3_uisa b);
+    #pragma linkage     __ocl_svml_b3_ldexp3_linkage   = ( result((ymm0)) parameters((ymm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ldexp3_linkage ( __ocl_svml_b3_ldexp3 )
+
+    double3_uisa __ocl_svml_b3_fract3 (double3_uisa a, double3_uisa* c);
+    #pragma linkage     __ocl_svml_b3_fract3_linkage   = ( result((ymm0)) parameters((ymm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fract3_linkage ( __ocl_svml_b3_fract3 )
+
+    double3_uisa __ocl_svml_b3_tgamma3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_tgamma3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tgamma3_linkage ( __ocl_svml_b3_tgamma3 )
+
+    double3_uisa __ocl_svml_b3_lgamma3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_lgamma3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_lgamma3_linkage ( __ocl_svml_b3_lgamma3 )
+
+    double3_uisa __ocl_svml_b3_lgammar3 (double3_uisa a, int3_uisa* c);
+    #pragma linkage     __ocl_svml_b3_lgammar3_linkage   = ( result((ymm0)) parameters((ymm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_lgammar3_linkage ( __ocl_svml_b3_lgammar3 )
+
+    ulong3_uisa __ocl_svml_b3_cvtfptou64rtenosat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtenosat3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtenosat3_linkage ( __ocl_svml_b3_cvtfptou64rtenosat3 )
+
+    ulong3_uisa __ocl_svml_b3_cvtfptou64rtesat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtesat3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtesat3_linkage ( __ocl_svml_b3_cvtfptou64rtesat3 )
+
+    ulong3_uisa __ocl_svml_b3_cvtfptou64rtnnosat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtnnosat3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtnnosat3_linkage ( __ocl_svml_b3_cvtfptou64rtnnosat3 )
+
+    ulong3_uisa __ocl_svml_b3_cvtfptou64rtnsat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtnsat3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtnsat3_linkage ( __ocl_svml_b3_cvtfptou64rtnsat3 )
+
+    ulong3_uisa __ocl_svml_b3_cvtfptou64rtpnosat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtpnosat3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtpnosat3_linkage ( __ocl_svml_b3_cvtfptou64rtpnosat3 )
+
+    ulong3_uisa __ocl_svml_b3_cvtfptou64rtpsat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtpsat3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtpsat3_linkage ( __ocl_svml_b3_cvtfptou64rtpsat3 )
+
+    ulong3_uisa __ocl_svml_b3_cvtfptou64rtznosat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtznosat3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtznosat3_linkage ( __ocl_svml_b3_cvtfptou64rtznosat3 )
+
+    ulong3_uisa __ocl_svml_b3_cvtfptou64rtzsat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtzsat3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtzsat3_linkage ( __ocl_svml_b3_cvtfptou64rtzsat3 )
+
+    long3_uisa __ocl_svml_b3_cvtfptoi64rtenosat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtenosat3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtenosat3_linkage ( __ocl_svml_b3_cvtfptoi64rtenosat3 )
+
+    long3_uisa __ocl_svml_b3_cvtfptoi64rtesat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtesat3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtesat3_linkage ( __ocl_svml_b3_cvtfptoi64rtesat3 )
+
+    long3_uisa __ocl_svml_b3_cvtfptoi64rtnnosat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtnnosat3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtnnosat3_linkage ( __ocl_svml_b3_cvtfptoi64rtnnosat3 )
+
+    long3_uisa __ocl_svml_b3_cvtfptoi64rtnsat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtnsat3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtnsat3_linkage ( __ocl_svml_b3_cvtfptoi64rtnsat3 )
+
+    long3_uisa __ocl_svml_b3_cvtfptoi64rtpnosat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtpnosat3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtpnosat3_linkage ( __ocl_svml_b3_cvtfptoi64rtpnosat3 )
+
+    long3_uisa __ocl_svml_b3_cvtfptoi64rtpsat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtpsat3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtpsat3_linkage ( __ocl_svml_b3_cvtfptoi64rtpsat3 )
+
+    long3_uisa __ocl_svml_b3_cvtfptoi64rtznosat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtznosat3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtznosat3_linkage ( __ocl_svml_b3_cvtfptoi64rtznosat3 )
+
+    long3_uisa __ocl_svml_b3_cvtfptoi64rtzsat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtzsat3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtzsat3_linkage ( __ocl_svml_b3_cvtfptoi64rtzsat3 )
+
+    uint3_uisa __ocl_svml_b3_cvtfptou32rtenosat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtenosat3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtenosat3_linkage ( __ocl_svml_b3_cvtfptou32rtenosat3 )
+
+    uint3_uisa __ocl_svml_b3_cvtfptou32rtesat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtesat3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtesat3_linkage ( __ocl_svml_b3_cvtfptou32rtesat3 )
+
+    uint3_uisa __ocl_svml_b3_cvtfptou32rtnnosat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtnnosat3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtnnosat3_linkage ( __ocl_svml_b3_cvtfptou32rtnnosat3 )
+
+    uint3_uisa __ocl_svml_b3_cvtfptou32rtnsat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtnsat3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtnsat3_linkage ( __ocl_svml_b3_cvtfptou32rtnsat3 )
+
+    uint3_uisa __ocl_svml_b3_cvtfptou32rtpnosat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtpnosat3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtpnosat3_linkage ( __ocl_svml_b3_cvtfptou32rtpnosat3 )
+
+    uint3_uisa __ocl_svml_b3_cvtfptou32rtpsat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtpsat3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtpsat3_linkage ( __ocl_svml_b3_cvtfptou32rtpsat3 )
+
+    uint3_uisa __ocl_svml_b3_cvtfptou32rtznosat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtznosat3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtznosat3_linkage ( __ocl_svml_b3_cvtfptou32rtznosat3 )
+
+    uint3_uisa __ocl_svml_b3_cvtfptou32rtzsat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtzsat3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtzsat3_linkage ( __ocl_svml_b3_cvtfptou32rtzsat3 )
+
+    int3_uisa __ocl_svml_b3_cvtfptoi32rtenosat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtenosat3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtenosat3_linkage ( __ocl_svml_b3_cvtfptoi32rtenosat3 )
+
+    int3_uisa __ocl_svml_b3_cvtfptoi32rtesat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtesat3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtesat3_linkage ( __ocl_svml_b3_cvtfptoi32rtesat3 )
+
+    int3_uisa __ocl_svml_b3_cvtfptoi32rtnnosat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtnnosat3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtnnosat3_linkage ( __ocl_svml_b3_cvtfptoi32rtnnosat3 )
+
+    int3_uisa __ocl_svml_b3_cvtfptoi32rtnsat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtnsat3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtnsat3_linkage ( __ocl_svml_b3_cvtfptoi32rtnsat3 )
+
+    int3_uisa __ocl_svml_b3_cvtfptoi32rtpnosat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtpnosat3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtpnosat3_linkage ( __ocl_svml_b3_cvtfptoi32rtpnosat3 )
+
+    int3_uisa __ocl_svml_b3_cvtfptoi32rtpsat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtpsat3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtpsat3_linkage ( __ocl_svml_b3_cvtfptoi32rtpsat3 )
+
+    int3_uisa __ocl_svml_b3_cvtfptoi32rtznosat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtznosat3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtznosat3_linkage ( __ocl_svml_b3_cvtfptoi32rtznosat3 )
+
+    int3_uisa __ocl_svml_b3_cvtfptoi32rtzsat3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtzsat3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtzsat3_linkage ( __ocl_svml_b3_cvtfptoi32rtzsat3 )
+
+    double3_uisa __ocl_svml_b3_cvtu64tofprte3 (ulong3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprte3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprte3_linkage ( __ocl_svml_b3_cvtu64tofprte3 )
+
+    double3_uisa __ocl_svml_b3_cvtu64tofprtn3 (ulong3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtn3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtn3_linkage ( __ocl_svml_b3_cvtu64tofprtn3 )
+
+    double3_uisa __ocl_svml_b3_cvtu64tofprtp3 (ulong3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtp3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtp3_linkage ( __ocl_svml_b3_cvtu64tofprtp3 )
+
+    double3_uisa __ocl_svml_b3_cvtu64tofprtz3 (ulong3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtz3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtz3_linkage ( __ocl_svml_b3_cvtu64tofprtz3 )
+
+    double3_uisa __ocl_svml_b3_cvti64tofprte3 (long3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprte3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprte3_linkage ( __ocl_svml_b3_cvti64tofprte3 )
+
+    double3_uisa __ocl_svml_b3_cvti64tofprtn3 (long3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtn3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtn3_linkage ( __ocl_svml_b3_cvti64tofprtn3 )
+
+    double3_uisa __ocl_svml_b3_cvti64tofprtp3 (long3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtp3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtp3_linkage ( __ocl_svml_b3_cvti64tofprtp3 )
+
+    double3_uisa __ocl_svml_b3_cvti64tofprtz3 (long3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtz3_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtz3_linkage ( __ocl_svml_b3_cvti64tofprtz3 )
+
+    double3_uisa __ocl_svml_b3_cvtu32tofprte3 (uint3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprte3_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprte3_linkage ( __ocl_svml_b3_cvtu32tofprte3 )
+
+    double3_uisa __ocl_svml_b3_cvtu32tofprtn3 (uint3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtn3_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtn3_linkage ( __ocl_svml_b3_cvtu32tofprtn3 )
+
+    double3_uisa __ocl_svml_b3_cvtu32tofprtp3 (uint3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtp3_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtp3_linkage ( __ocl_svml_b3_cvtu32tofprtp3 )
+
+    double3_uisa __ocl_svml_b3_cvtu32tofprtz3 (uint3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtz3_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtz3_linkage ( __ocl_svml_b3_cvtu32tofprtz3 )
+
+    double3_uisa __ocl_svml_b3_cvti32tofprte3 (int3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprte3_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprte3_linkage ( __ocl_svml_b3_cvti32tofprte3 )
+
+    double3_uisa __ocl_svml_b3_cvti32tofprtn3 (int3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtn3_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtn3_linkage ( __ocl_svml_b3_cvti32tofprtn3 )
+
+    double3_uisa __ocl_svml_b3_cvti32tofprtp3 (int3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtp3_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtp3_linkage ( __ocl_svml_b3_cvti32tofprtp3 )
+
+    double3_uisa __ocl_svml_b3_cvti32tofprtz3 (int3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtz3_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtz3_linkage ( __ocl_svml_b3_cvti32tofprtz3 )
+
+    float3_uisa __ocl_svml_b3_cvtfp64tofp32rte3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfp64tofp32rte3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfp64tofp32rte3_linkage ( __ocl_svml_b3_cvtfp64tofp32rte3 )
+
+    float3_uisa __ocl_svml_b3_cvtfp64tofp32rtn3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfp64tofp32rtn3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfp64tofp32rtn3_linkage ( __ocl_svml_b3_cvtfp64tofp32rtn3 )
+
+    float3_uisa __ocl_svml_b3_cvtfp64tofp32rtp3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfp64tofp32rtp3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfp64tofp32rtp3_linkage ( __ocl_svml_b3_cvtfp64tofp32rtp3 )
+
+    float3_uisa __ocl_svml_b3_cvtfp64tofp32rtz3 (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfp64tofp32rtz3_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfp64tofp32rtz3_linkage ( __ocl_svml_b3_cvtfp64tofp32rtz3 )
+
     int3_sse __ocl_svml_h8_idiv3 (int3_sse a, int3_sse b);
     #pragma linkage     __ocl_svml_h8_idiv3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_h8_idiv3_linkage ( __ocl_svml_h8_idiv3 )
@@ -9240,6 +12358,18 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_idivrem3_linkage   = ( result((xmm0 xmm1)) parameters((xmm0),(xmm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_idivrem3_linkage ( __ocl_svml_l9_idivrem3 )
 
+    int3_uisa __ocl_svml_b3_idiv3 (int3_uisa a, int3_uisa b);
+    #pragma linkage     __ocl_svml_b3_idiv3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_idiv3_linkage ( __ocl_svml_b3_idiv3 )
+
+    int3_uisa __ocl_svml_b3_irem3 (int3_uisa a, int3_uisa b);
+    #pragma linkage     __ocl_svml_b3_irem3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_irem3_linkage ( __ocl_svml_b3_irem3 )
+
+    int3x2_uisa __ocl_svml_b3_idivrem3 (int3_uisa a, int3_uisa b);
+    #pragma linkage     __ocl_svml_b3_idivrem3_linkage   = ( result((xmm0 xmm1)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_idivrem3_linkage ( __ocl_svml_b3_idivrem3 )
+
     int3_sse __ocl_svml_h8_udiv3 (int3_sse a, int3_sse b);
     #pragma linkage     __ocl_svml_h8_udiv3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_h8_udiv3_linkage ( __ocl_svml_h8_udiv3 )
@@ -9275,6 +12405,18 @@ extern "C" {
     int3x2_avx __ocl_svml_l9_udivrem3 (int3_avx a, int3_avx b);
     #pragma linkage     __ocl_svml_l9_udivrem3_linkage   = ( result((xmm0 xmm1)) parameters((xmm0),(xmm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_udivrem3_linkage ( __ocl_svml_l9_udivrem3 )
+
+    int3_uisa __ocl_svml_b3_udiv3 (int3_uisa a, int3_uisa b);
+    #pragma linkage     __ocl_svml_b3_udiv3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_udiv3_linkage ( __ocl_svml_b3_udiv3 )
+
+    int3_uisa __ocl_svml_b3_urem3 (int3_uisa a, int3_uisa b);
+    #pragma linkage     __ocl_svml_b3_urem3_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_urem3_linkage ( __ocl_svml_b3_urem3 )
+
+    int3x2_uisa __ocl_svml_b3_udivrem3 (int3_uisa a, int3_uisa b);
+    #pragma linkage     __ocl_svml_b3_udivrem3_linkage   = ( result((xmm0 xmm1)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_udivrem3_linkage ( __ocl_svml_b3_udivrem3 )
 
     float4_sse __ocl_svml_h8_invf4 (float4_sse a);
     #pragma linkage     __ocl_svml_h8_invf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
@@ -9791,6 +12933,178 @@ extern "C" {
     float4_avx __ocl_svml_l9_erfcf4 (float4_avx a);
     #pragma linkage     __ocl_svml_l9_erfcf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_erfcf4_linkage ( __ocl_svml_l9_erfcf4 )
+
+    float4_uisa __ocl_svml_b3_invf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf4_linkage ( __ocl_svml_b3_invf4 )
+
+    float4_uisa __ocl_svml_b3_divf4 (float4_uisa a, float4_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf4_linkage ( __ocl_svml_b3_divf4 )
+
+    float4_uisa __ocl_svml_b3_sqrtf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrtf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrtf4_linkage ( __ocl_svml_b3_sqrtf4 )
+
+    float4_uisa __ocl_svml_b3_rsqrtf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrtf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrtf4_linkage ( __ocl_svml_b3_rsqrtf4 )
+
+    float4_uisa __ocl_svml_b3_cbrtf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cbrtf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cbrtf4_linkage ( __ocl_svml_b3_cbrtf4 )
+
+    float4_uisa __ocl_svml_b3_rcbrtf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_rcbrtf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rcbrtf4_linkage ( __ocl_svml_b3_rcbrtf4 )
+
+    float4_uisa __ocl_svml_b3_hypotf4 (float4_uisa a, float4_uisa b);
+    #pragma linkage     __ocl_svml_b3_hypotf4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_hypotf4_linkage ( __ocl_svml_b3_hypotf4 )
+
+    float4_uisa __ocl_svml_b3_powf4 (float4_uisa a, float4_uisa b);
+    #pragma linkage     __ocl_svml_b3_powf4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powf4_linkage ( __ocl_svml_b3_powf4 )
+
+    float4_uisa __ocl_svml_b3_powrf4 (float4_uisa a, float4_uisa b);
+    #pragma linkage     __ocl_svml_b3_powrf4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powrf4_linkage ( __ocl_svml_b3_powrf4 )
+
+    float4_uisa __ocl_svml_b3_pownf4 (float4_uisa a, int4_uisa b);
+    #pragma linkage     __ocl_svml_b3_pownf4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pownf4_linkage ( __ocl_svml_b3_pownf4 )
+
+    float4_uisa __ocl_svml_b3_rootnf4 (float4_uisa a, int4_uisa b);
+    #pragma linkage     __ocl_svml_b3_rootnf4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rootnf4_linkage ( __ocl_svml_b3_rootnf4 )
+
+    float4_uisa __ocl_svml_b3_expf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf4_linkage ( __ocl_svml_b3_expf4 )
+
+    float4_uisa __ocl_svml_b3_exp2f4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f4_linkage ( __ocl_svml_b3_exp2f4 )
+
+    float4_uisa __ocl_svml_b3_exp10f4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f4_linkage ( __ocl_svml_b3_exp10f4 )
+
+    float4_uisa __ocl_svml_b3_expm1f4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_expm1f4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expm1f4_linkage ( __ocl_svml_b3_expm1f4 )
+
+    float4_uisa __ocl_svml_b3_logf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf4_linkage ( __ocl_svml_b3_logf4 )
+
+    float4_uisa __ocl_svml_b3_log10f4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_log10f4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log10f4_linkage ( __ocl_svml_b3_log10f4 )
+
+    float4_uisa __ocl_svml_b3_log2f4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f4_linkage ( __ocl_svml_b3_log2f4 )
+
+    float4_uisa __ocl_svml_b3_log1pf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1pf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1pf4_linkage ( __ocl_svml_b3_log1pf4 )
+
+    float4_uisa __ocl_svml_b3_sinf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf4_linkage ( __ocl_svml_b3_sinf4 )
+
+    float4_uisa __ocl_svml_b3_cosf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf4_linkage ( __ocl_svml_b3_cosf4 )
+
+    float4_uisa __ocl_svml_b3_sincosf4 (float4_uisa a, float4_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincosf4_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosf4_linkage ( __ocl_svml_b3_sincosf4 )
+
+    float4x2_uisa __ocl_svml_b3_sincosregf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_sincosregf4_linkage   = ( result((xmm0 xmm1)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosregf4_linkage ( __ocl_svml_b3_sincosregf4 )
+
+    float4_uisa __ocl_svml_b3_tanf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf4_linkage ( __ocl_svml_b3_tanf4 )
+
+    float4_uisa __ocl_svml_b3_sinpif4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinpif4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinpif4_linkage ( __ocl_svml_b3_sinpif4 )
+
+    float4_uisa __ocl_svml_b3_cospif4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cospif4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cospif4_linkage ( __ocl_svml_b3_cospif4 )
+
+    float4_uisa __ocl_svml_b3_tanpif4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanpif4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanpif4_linkage ( __ocl_svml_b3_tanpif4 )
+
+    float4_uisa __ocl_svml_b3_acosf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_acosf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acosf4_linkage ( __ocl_svml_b3_acosf4 )
+
+    float4_uisa __ocl_svml_b3_asinf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinf4_linkage ( __ocl_svml_b3_asinf4 )
+
+    float4_uisa __ocl_svml_b3_atanf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanf4_linkage ( __ocl_svml_b3_atanf4 )
+
+    float4_uisa __ocl_svml_b3_atan2f4 (float4_uisa a, float4_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2f4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2f4_linkage ( __ocl_svml_b3_atan2f4 )
+
+    float4_uisa __ocl_svml_b3_asinpif4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinpif4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinpif4_linkage ( __ocl_svml_b3_asinpif4 )
+
+    float4_uisa __ocl_svml_b3_acospif4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_acospif4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acospif4_linkage ( __ocl_svml_b3_acospif4 )
+
+    float4_uisa __ocl_svml_b3_atanpif4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanpif4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanpif4_linkage ( __ocl_svml_b3_atanpif4 )
+
+    float4_uisa __ocl_svml_b3_atan2pif4 (float4_uisa a, float4_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2pif4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2pif4_linkage ( __ocl_svml_b3_atan2pif4 )
+
+    float4_uisa __ocl_svml_b3_sinhf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinhf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinhf4_linkage ( __ocl_svml_b3_sinhf4 )
+
+    float4_uisa __ocl_svml_b3_coshf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_coshf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_coshf4_linkage ( __ocl_svml_b3_coshf4 )
+
+    float4_uisa __ocl_svml_b3_tanhf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanhf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanhf4_linkage ( __ocl_svml_b3_tanhf4 )
+
+    float4_uisa __ocl_svml_b3_asinhf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinhf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinhf4_linkage ( __ocl_svml_b3_asinhf4 )
+
+    float4_uisa __ocl_svml_b3_acoshf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_acoshf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acoshf4_linkage ( __ocl_svml_b3_acoshf4 )
+
+    float4_uisa __ocl_svml_b3_atanhf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanhf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanhf4_linkage ( __ocl_svml_b3_atanhf4 )
+
+    float4_uisa __ocl_svml_b3_erff4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_erff4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erff4_linkage ( __ocl_svml_b3_erff4 )
+
+    float4_uisa __ocl_svml_b3_erfcf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_erfcf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erfcf4_linkage ( __ocl_svml_b3_erfcf4 )
 
     float4_sse __ocl_svml_h8_fmaf4 (float4_sse a, float4_sse b, float4_sse c);
     #pragma linkage     __ocl_svml_h8_fmaf4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),(xmm2)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
@@ -10704,6 +14018,310 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_cvti32tofprtzf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_cvti32tofprtzf4_linkage ( __ocl_svml_l9_cvti32tofprtzf4 )
 
+    float4_uisa __ocl_svml_b3_fmaf4 (float4_uisa a, float4_uisa b, float4_uisa c);
+    #pragma linkage     __ocl_svml_b3_fmaf4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),(xmm2)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmaf4_linkage ( __ocl_svml_b3_fmaf4 )
+
+    float4_uisa __ocl_svml_b3_fabsf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_fabsf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fabsf4_linkage ( __ocl_svml_b3_fabsf4 )
+
+    float4_uisa __ocl_svml_b3_fminf4 (float4_uisa a, float4_uisa b);
+    #pragma linkage     __ocl_svml_b3_fminf4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fminf4_linkage ( __ocl_svml_b3_fminf4 )
+
+    float4_uisa __ocl_svml_b3_fmaxf4 (float4_uisa a, float4_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmaxf4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmaxf4_linkage ( __ocl_svml_b3_fmaxf4 )
+
+    float4_uisa __ocl_svml_b3_maxmagf4 (float4_uisa a, float4_uisa b);
+    #pragma linkage     __ocl_svml_b3_maxmagf4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_maxmagf4_linkage ( __ocl_svml_b3_maxmagf4 )
+
+    float4_uisa __ocl_svml_b3_minmagf4 (float4_uisa a, float4_uisa b);
+    #pragma linkage     __ocl_svml_b3_minmagf4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_minmagf4_linkage ( __ocl_svml_b3_minmagf4 )
+
+    float4_uisa __ocl_svml_b3_nanf4 (uint4_uisa a);
+    #pragma linkage     __ocl_svml_b3_nanf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nanf4_linkage ( __ocl_svml_b3_nanf4 )
+
+    float4_uisa __ocl_svml_b3_ceilf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_ceilf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ceilf4_linkage ( __ocl_svml_b3_ceilf4 )
+
+    float4_uisa __ocl_svml_b3_floorf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_floorf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_floorf4_linkage ( __ocl_svml_b3_floorf4 )
+
+    float4_uisa __ocl_svml_b3_roundf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_roundf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_roundf4_linkage ( __ocl_svml_b3_roundf4 )
+
+    float4_uisa __ocl_svml_b3_truncf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_truncf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_truncf4_linkage ( __ocl_svml_b3_truncf4 )
+
+    float4_uisa __ocl_svml_b3_rintf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_rintf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rintf4_linkage ( __ocl_svml_b3_rintf4 )
+
+    float4_uisa __ocl_svml_b3_nearbyintf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_nearbyintf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nearbyintf4_linkage ( __ocl_svml_b3_nearbyintf4 )
+
+    float4_uisa __ocl_svml_b3_fmodf4 (float4_uisa a, float4_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmodf4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmodf4_linkage ( __ocl_svml_b3_fmodf4 )
+
+    float4_uisa __ocl_svml_b3_modff4 (float4_uisa a, float4_uisa* c);
+    #pragma linkage     __ocl_svml_b3_modff4_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_modff4_linkage ( __ocl_svml_b3_modff4 )
+
+    float4_uisa __ocl_svml_b3_remainderf4 (float4_uisa a, float4_uisa b);
+    #pragma linkage     __ocl_svml_b3_remainderf4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_remainderf4_linkage ( __ocl_svml_b3_remainderf4 )
+
+    float4_uisa __ocl_svml_b3_remquof4 (float4_uisa a, float4_uisa b, int4_uisa* c);
+    #pragma linkage     __ocl_svml_b3_remquof4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_remquof4_linkage ( __ocl_svml_b3_remquof4 )
+
+    float4_uisa __ocl_svml_b3_copysignf4 (float4_uisa a, float4_uisa b);
+    #pragma linkage     __ocl_svml_b3_copysignf4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_copysignf4_linkage ( __ocl_svml_b3_copysignf4 )
+
+    float4_uisa __ocl_svml_b3_frexpf4 (float4_uisa a, int4_uisa* c);
+    #pragma linkage     __ocl_svml_b3_frexpf4_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_frexpf4_linkage ( __ocl_svml_b3_frexpf4 )
+
+    float4_uisa __ocl_svml_b3_fdimf4 (float4_uisa a, float4_uisa b);
+    #pragma linkage     __ocl_svml_b3_fdimf4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fdimf4_linkage ( __ocl_svml_b3_fdimf4 )
+
+    float4_uisa __ocl_svml_b3_logbf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_logbf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logbf4_linkage ( __ocl_svml_b3_logbf4 )
+
+    int4_uisa __ocl_svml_b3_ilogbf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_ilogbf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ilogbf4_linkage ( __ocl_svml_b3_ilogbf4 )
+
+    float4_uisa __ocl_svml_b3_nextafterf4 (float4_uisa a, float4_uisa b);
+    #pragma linkage     __ocl_svml_b3_nextafterf4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nextafterf4_linkage ( __ocl_svml_b3_nextafterf4 )
+
+    float4_uisa __ocl_svml_b3_ldexpf4 (float4_uisa a, int4_uisa b);
+    #pragma linkage     __ocl_svml_b3_ldexpf4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ldexpf4_linkage ( __ocl_svml_b3_ldexpf4 )
+
+    float4_uisa __ocl_svml_b3_fractf4 (float4_uisa a, float4_uisa* c);
+    #pragma linkage     __ocl_svml_b3_fractf4_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fractf4_linkage ( __ocl_svml_b3_fractf4 )
+
+    float4_uisa __ocl_svml_b3_tgammaf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_tgammaf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tgammaf4_linkage ( __ocl_svml_b3_tgammaf4 )
+
+    float4_uisa __ocl_svml_b3_lgammaf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_lgammaf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_lgammaf4_linkage ( __ocl_svml_b3_lgammaf4 )
+
+    float4_uisa __ocl_svml_b3_lgammarf4 (float4_uisa a, int4_uisa* c);
+    #pragma linkage     __ocl_svml_b3_lgammarf4_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_lgammarf4_linkage ( __ocl_svml_b3_lgammarf4 )
+
+    ulong4_uisa __ocl_svml_b3_cvtfptou64rtenosatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtenosatf4_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtenosatf4_linkage ( __ocl_svml_b3_cvtfptou64rtenosatf4 )
+
+    ulong4_uisa __ocl_svml_b3_cvtfptou64rtesatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtesatf4_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtesatf4_linkage ( __ocl_svml_b3_cvtfptou64rtesatf4 )
+
+    ulong4_uisa __ocl_svml_b3_cvtfptou64rtnnosatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtnnosatf4_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtnnosatf4_linkage ( __ocl_svml_b3_cvtfptou64rtnnosatf4 )
+
+    ulong4_uisa __ocl_svml_b3_cvtfptou64rtnsatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtnsatf4_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtnsatf4_linkage ( __ocl_svml_b3_cvtfptou64rtnsatf4 )
+
+    ulong4_uisa __ocl_svml_b3_cvtfptou64rtpnosatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtpnosatf4_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtpnosatf4_linkage ( __ocl_svml_b3_cvtfptou64rtpnosatf4 )
+
+    ulong4_uisa __ocl_svml_b3_cvtfptou64rtpsatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtpsatf4_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtpsatf4_linkage ( __ocl_svml_b3_cvtfptou64rtpsatf4 )
+
+    ulong4_uisa __ocl_svml_b3_cvtfptou64rtznosatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtznosatf4_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtznosatf4_linkage ( __ocl_svml_b3_cvtfptou64rtznosatf4 )
+
+    ulong4_uisa __ocl_svml_b3_cvtfptou64rtzsatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtzsatf4_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtzsatf4_linkage ( __ocl_svml_b3_cvtfptou64rtzsatf4 )
+
+    long4_uisa __ocl_svml_b3_cvtfptoi64rtenosatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtenosatf4_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtenosatf4_linkage ( __ocl_svml_b3_cvtfptoi64rtenosatf4 )
+
+    long4_uisa __ocl_svml_b3_cvtfptoi64rtesatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtesatf4_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtesatf4_linkage ( __ocl_svml_b3_cvtfptoi64rtesatf4 )
+
+    long4_uisa __ocl_svml_b3_cvtfptoi64rtnnosatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtnnosatf4_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtnnosatf4_linkage ( __ocl_svml_b3_cvtfptoi64rtnnosatf4 )
+
+    long4_uisa __ocl_svml_b3_cvtfptoi64rtnsatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtnsatf4_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtnsatf4_linkage ( __ocl_svml_b3_cvtfptoi64rtnsatf4 )
+
+    long4_uisa __ocl_svml_b3_cvtfptoi64rtpnosatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtpnosatf4_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtpnosatf4_linkage ( __ocl_svml_b3_cvtfptoi64rtpnosatf4 )
+
+    long4_uisa __ocl_svml_b3_cvtfptoi64rtpsatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtpsatf4_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtpsatf4_linkage ( __ocl_svml_b3_cvtfptoi64rtpsatf4 )
+
+    long4_uisa __ocl_svml_b3_cvtfptoi64rtznosatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtznosatf4_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtznosatf4_linkage ( __ocl_svml_b3_cvtfptoi64rtznosatf4 )
+
+    long4_uisa __ocl_svml_b3_cvtfptoi64rtzsatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtzsatf4_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtzsatf4_linkage ( __ocl_svml_b3_cvtfptoi64rtzsatf4 )
+
+    uint4_uisa __ocl_svml_b3_cvtfptou32rtenosatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtenosatf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtenosatf4_linkage ( __ocl_svml_b3_cvtfptou32rtenosatf4 )
+
+    uint4_uisa __ocl_svml_b3_cvtfptou32rtesatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtesatf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtesatf4_linkage ( __ocl_svml_b3_cvtfptou32rtesatf4 )
+
+    uint4_uisa __ocl_svml_b3_cvtfptou32rtnnosatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtnnosatf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtnnosatf4_linkage ( __ocl_svml_b3_cvtfptou32rtnnosatf4 )
+
+    uint4_uisa __ocl_svml_b3_cvtfptou32rtnsatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtnsatf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtnsatf4_linkage ( __ocl_svml_b3_cvtfptou32rtnsatf4 )
+
+    uint4_uisa __ocl_svml_b3_cvtfptou32rtpnosatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtpnosatf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtpnosatf4_linkage ( __ocl_svml_b3_cvtfptou32rtpnosatf4 )
+
+    uint4_uisa __ocl_svml_b3_cvtfptou32rtpsatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtpsatf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtpsatf4_linkage ( __ocl_svml_b3_cvtfptou32rtpsatf4 )
+
+    uint4_uisa __ocl_svml_b3_cvtfptou32rtznosatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtznosatf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtznosatf4_linkage ( __ocl_svml_b3_cvtfptou32rtznosatf4 )
+
+    uint4_uisa __ocl_svml_b3_cvtfptou32rtzsatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtzsatf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtzsatf4_linkage ( __ocl_svml_b3_cvtfptou32rtzsatf4 )
+
+    int4_uisa __ocl_svml_b3_cvtfptoi32rtenosatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtenosatf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtenosatf4_linkage ( __ocl_svml_b3_cvtfptoi32rtenosatf4 )
+
+    int4_uisa __ocl_svml_b3_cvtfptoi32rtesatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtesatf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtesatf4_linkage ( __ocl_svml_b3_cvtfptoi32rtesatf4 )
+
+    int4_uisa __ocl_svml_b3_cvtfptoi32rtnnosatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtnnosatf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtnnosatf4_linkage ( __ocl_svml_b3_cvtfptoi32rtnnosatf4 )
+
+    int4_uisa __ocl_svml_b3_cvtfptoi32rtnsatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtnsatf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtnsatf4_linkage ( __ocl_svml_b3_cvtfptoi32rtnsatf4 )
+
+    int4_uisa __ocl_svml_b3_cvtfptoi32rtpnosatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtpnosatf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtpnosatf4_linkage ( __ocl_svml_b3_cvtfptoi32rtpnosatf4 )
+
+    int4_uisa __ocl_svml_b3_cvtfptoi32rtpsatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtpsatf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtpsatf4_linkage ( __ocl_svml_b3_cvtfptoi32rtpsatf4 )
+
+    int4_uisa __ocl_svml_b3_cvtfptoi32rtznosatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtznosatf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtznosatf4_linkage ( __ocl_svml_b3_cvtfptoi32rtznosatf4 )
+
+    int4_uisa __ocl_svml_b3_cvtfptoi32rtzsatf4 (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtzsatf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtzsatf4_linkage ( __ocl_svml_b3_cvtfptoi32rtzsatf4 )
+
+    float4_uisa __ocl_svml_b3_cvtu64tofprtef4 (ulong4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtef4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtef4_linkage ( __ocl_svml_b3_cvtu64tofprtef4 )
+
+    float4_uisa __ocl_svml_b3_cvtu64tofprtnf4 (ulong4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtnf4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtnf4_linkage ( __ocl_svml_b3_cvtu64tofprtnf4 )
+
+    float4_uisa __ocl_svml_b3_cvtu64tofprtpf4 (ulong4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtpf4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtpf4_linkage ( __ocl_svml_b3_cvtu64tofprtpf4 )
+
+    float4_uisa __ocl_svml_b3_cvtu64tofprtzf4 (ulong4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtzf4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtzf4_linkage ( __ocl_svml_b3_cvtu64tofprtzf4 )
+
+    float4_uisa __ocl_svml_b3_cvti64tofprtef4 (long4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtef4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtef4_linkage ( __ocl_svml_b3_cvti64tofprtef4 )
+
+    float4_uisa __ocl_svml_b3_cvti64tofprtnf4 (long4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtnf4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtnf4_linkage ( __ocl_svml_b3_cvti64tofprtnf4 )
+
+    float4_uisa __ocl_svml_b3_cvti64tofprtpf4 (long4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtpf4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtpf4_linkage ( __ocl_svml_b3_cvti64tofprtpf4 )
+
+    float4_uisa __ocl_svml_b3_cvti64tofprtzf4 (long4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtzf4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtzf4_linkage ( __ocl_svml_b3_cvti64tofprtzf4 )
+
+    float4_uisa __ocl_svml_b3_cvtu32tofprtef4 (uint4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtef4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtef4_linkage ( __ocl_svml_b3_cvtu32tofprtef4 )
+
+    float4_uisa __ocl_svml_b3_cvtu32tofprtnf4 (uint4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtnf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtnf4_linkage ( __ocl_svml_b3_cvtu32tofprtnf4 )
+
+    float4_uisa __ocl_svml_b3_cvtu32tofprtpf4 (uint4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtpf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtpf4_linkage ( __ocl_svml_b3_cvtu32tofprtpf4 )
+
+    float4_uisa __ocl_svml_b3_cvtu32tofprtzf4 (uint4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtzf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtzf4_linkage ( __ocl_svml_b3_cvtu32tofprtzf4 )
+
+    float4_uisa __ocl_svml_b3_cvti32tofprtef4 (int4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtef4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtef4_linkage ( __ocl_svml_b3_cvti32tofprtef4 )
+
+    float4_uisa __ocl_svml_b3_cvti32tofprtnf4 (int4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtnf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtnf4_linkage ( __ocl_svml_b3_cvti32tofprtnf4 )
+
+    float4_uisa __ocl_svml_b3_cvti32tofprtpf4 (int4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtpf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtpf4_linkage ( __ocl_svml_b3_cvti32tofprtpf4 )
+
+    float4_uisa __ocl_svml_b3_cvti32tofprtzf4 (int4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtzf4_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtzf4_linkage ( __ocl_svml_b3_cvti32tofprtzf4 )
+
     double4_sse __ocl_svml_h8_inv4 (double4_sse a);
     #pragma linkage     __ocl_svml_h8_inv4_linkage   = ( result((xmm0 xmm1)) parameters((xmm0 xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_h8_inv4_linkage ( __ocl_svml_h8_inv4 )
@@ -11219,6 +14837,178 @@ extern "C" {
     double4_avx __ocl_svml_l9_erfc4 (double4_avx a);
     #pragma linkage     __ocl_svml_l9_erfc4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_erfc4_linkage ( __ocl_svml_l9_erfc4 )
+
+    double4_uisa __ocl_svml_b3_inv4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_inv4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_inv4_linkage ( __ocl_svml_b3_inv4 )
+
+    double4_uisa __ocl_svml_b3_div4 (double4_uisa a, double4_uisa b);
+    #pragma linkage     __ocl_svml_b3_div4_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_div4_linkage ( __ocl_svml_b3_div4 )
+
+    double4_uisa __ocl_svml_b3_sqrt4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrt4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrt4_linkage ( __ocl_svml_b3_sqrt4 )
+
+    double4_uisa __ocl_svml_b3_rsqrt4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrt4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrt4_linkage ( __ocl_svml_b3_rsqrt4 )
+
+    double4_uisa __ocl_svml_b3_cbrt4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cbrt4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cbrt4_linkage ( __ocl_svml_b3_cbrt4 )
+
+    double4_uisa __ocl_svml_b3_rcbrt4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_rcbrt4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rcbrt4_linkage ( __ocl_svml_b3_rcbrt4 )
+
+    double4_uisa __ocl_svml_b3_hypot4 (double4_uisa a, double4_uisa b);
+    #pragma linkage     __ocl_svml_b3_hypot4_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_hypot4_linkage ( __ocl_svml_b3_hypot4 )
+
+    double4_uisa __ocl_svml_b3_pow4 (double4_uisa a, double4_uisa b);
+    #pragma linkage     __ocl_svml_b3_pow4_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pow4_linkage ( __ocl_svml_b3_pow4 )
+
+    double4_uisa __ocl_svml_b3_powr4 (double4_uisa a, double4_uisa b);
+    #pragma linkage     __ocl_svml_b3_powr4_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powr4_linkage ( __ocl_svml_b3_powr4 )
+
+    double4_uisa __ocl_svml_b3_pown4 (double4_uisa a, int4_uisa b);
+    #pragma linkage     __ocl_svml_b3_pown4_linkage   = ( result((ymm0)) parameters((ymm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pown4_linkage ( __ocl_svml_b3_pown4 )
+
+    double4_uisa __ocl_svml_b3_rootn4 (double4_uisa a, int4_uisa b);
+    #pragma linkage     __ocl_svml_b3_rootn4_linkage   = ( result((ymm0)) parameters((ymm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rootn4_linkage ( __ocl_svml_b3_rootn4 )
+
+    double4_uisa __ocl_svml_b3_exp4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp4_linkage ( __ocl_svml_b3_exp4 )
+
+    double4_uisa __ocl_svml_b3_exp24 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp24_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp24_linkage ( __ocl_svml_b3_exp24 )
+
+    double4_uisa __ocl_svml_b3_exp104 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp104_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp104_linkage ( __ocl_svml_b3_exp104 )
+
+    double4_uisa __ocl_svml_b3_expm14 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_expm14_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expm14_linkage ( __ocl_svml_b3_expm14 )
+
+    double4_uisa __ocl_svml_b3_log4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_log4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log4_linkage ( __ocl_svml_b3_log4 )
+
+    double4_uisa __ocl_svml_b3_log104 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_log104_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log104_linkage ( __ocl_svml_b3_log104 )
+
+    double4_uisa __ocl_svml_b3_log24 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_log24_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log24_linkage ( __ocl_svml_b3_log24 )
+
+    double4_uisa __ocl_svml_b3_log1p4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1p4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1p4_linkage ( __ocl_svml_b3_log1p4 )
+
+    double4_uisa __ocl_svml_b3_sin4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_sin4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sin4_linkage ( __ocl_svml_b3_sin4 )
+
+    double4_uisa __ocl_svml_b3_cos4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cos4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cos4_linkage ( __ocl_svml_b3_cos4 )
+
+    double4_uisa __ocl_svml_b3_sincos4 (double4_uisa a, double4_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincos4_linkage   = ( result((ymm0)) parameters((ymm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincos4_linkage ( __ocl_svml_b3_sincos4 )
+
+    double4x2_uisa __ocl_svml_b3_sincosreg4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_sincosreg4_linkage   = ( result((ymm0 ymm1)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosreg4_linkage ( __ocl_svml_b3_sincosreg4 )
+
+    double4_uisa __ocl_svml_b3_tan4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_tan4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tan4_linkage ( __ocl_svml_b3_tan4 )
+
+    double4_uisa __ocl_svml_b3_sinpi4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinpi4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinpi4_linkage ( __ocl_svml_b3_sinpi4 )
+
+    double4_uisa __ocl_svml_b3_cospi4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cospi4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cospi4_linkage ( __ocl_svml_b3_cospi4 )
+
+    double4_uisa __ocl_svml_b3_tanpi4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanpi4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanpi4_linkage ( __ocl_svml_b3_tanpi4 )
+
+    double4_uisa __ocl_svml_b3_acos4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_acos4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acos4_linkage ( __ocl_svml_b3_acos4 )
+
+    double4_uisa __ocl_svml_b3_asin4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_asin4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asin4_linkage ( __ocl_svml_b3_asin4 )
+
+    double4_uisa __ocl_svml_b3_atan4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_atan4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan4_linkage ( __ocl_svml_b3_atan4 )
+
+    double4_uisa __ocl_svml_b3_atan24 (double4_uisa a, double4_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan24_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan24_linkage ( __ocl_svml_b3_atan24 )
+
+    double4_uisa __ocl_svml_b3_asinpi4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinpi4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinpi4_linkage ( __ocl_svml_b3_asinpi4 )
+
+    double4_uisa __ocl_svml_b3_acospi4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_acospi4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acospi4_linkage ( __ocl_svml_b3_acospi4 )
+
+    double4_uisa __ocl_svml_b3_atanpi4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanpi4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanpi4_linkage ( __ocl_svml_b3_atanpi4 )
+
+    double4_uisa __ocl_svml_b3_atan2pi4 (double4_uisa a, double4_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2pi4_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2pi4_linkage ( __ocl_svml_b3_atan2pi4 )
+
+    double4_uisa __ocl_svml_b3_sinh4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinh4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinh4_linkage ( __ocl_svml_b3_sinh4 )
+
+    double4_uisa __ocl_svml_b3_cosh4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosh4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosh4_linkage ( __ocl_svml_b3_cosh4 )
+
+    double4_uisa __ocl_svml_b3_tanh4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanh4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanh4_linkage ( __ocl_svml_b3_tanh4 )
+
+    double4_uisa __ocl_svml_b3_asinh4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinh4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinh4_linkage ( __ocl_svml_b3_asinh4 )
+
+    double4_uisa __ocl_svml_b3_acosh4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_acosh4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acosh4_linkage ( __ocl_svml_b3_acosh4 )
+
+    double4_uisa __ocl_svml_b3_atanh4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanh4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanh4_linkage ( __ocl_svml_b3_atanh4 )
+
+    double4_uisa __ocl_svml_b3_erf4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_erf4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erf4_linkage ( __ocl_svml_b3_erf4 )
+
+    double4_uisa __ocl_svml_b3_erfc4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_erfc4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erfc4_linkage ( __ocl_svml_b3_erfc4 )
 
     double4_sse __ocl_svml_h8_fma4 (double4_sse a, double4_sse b, double4_sse c);
 
@@ -12178,6 +15968,326 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_cvtfp64tofp32rtz4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_cvtfp64tofp32rtz4_linkage ( __ocl_svml_l9_cvtfp64tofp32rtz4 )
 
+    double4_uisa __ocl_svml_b3_fma4 (double4_uisa a, double4_uisa b, double4_uisa c);
+    #pragma linkage     __ocl_svml_b3_fma4_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1),(ymm2)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fma4_linkage ( __ocl_svml_b3_fma4 )
+
+    double4_uisa __ocl_svml_b3_fabs4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_fabs4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fabs4_linkage ( __ocl_svml_b3_fabs4 )
+
+    double4_uisa __ocl_svml_b3_fmin4 (double4_uisa a, double4_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmin4_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmin4_linkage ( __ocl_svml_b3_fmin4 )
+
+    double4_uisa __ocl_svml_b3_fmax4 (double4_uisa a, double4_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmax4_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmax4_linkage ( __ocl_svml_b3_fmax4 )
+
+    double4_uisa __ocl_svml_b3_maxmag4 (double4_uisa a, double4_uisa b);
+    #pragma linkage     __ocl_svml_b3_maxmag4_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_maxmag4_linkage ( __ocl_svml_b3_maxmag4 )
+
+    double4_uisa __ocl_svml_b3_minmag4 (double4_uisa a, double4_uisa b);
+    #pragma linkage     __ocl_svml_b3_minmag4_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_minmag4_linkage ( __ocl_svml_b3_minmag4 )
+
+    double4_uisa __ocl_svml_b3_nan4 (ulong4_uisa a);
+    #pragma linkage     __ocl_svml_b3_nan4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nan4_linkage ( __ocl_svml_b3_nan4 )
+
+    double4_uisa __ocl_svml_b3_ceil4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_ceil4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ceil4_linkage ( __ocl_svml_b3_ceil4 )
+
+    double4_uisa __ocl_svml_b3_floor4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_floor4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_floor4_linkage ( __ocl_svml_b3_floor4 )
+
+    double4_uisa __ocl_svml_b3_round4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_round4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_round4_linkage ( __ocl_svml_b3_round4 )
+
+    double4_uisa __ocl_svml_b3_trunc4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_trunc4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_trunc4_linkage ( __ocl_svml_b3_trunc4 )
+
+    double4_uisa __ocl_svml_b3_rint4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_rint4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rint4_linkage ( __ocl_svml_b3_rint4 )
+
+    double4_uisa __ocl_svml_b3_nearbyint4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_nearbyint4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nearbyint4_linkage ( __ocl_svml_b3_nearbyint4 )
+
+    double4_uisa __ocl_svml_b3_fmod4 (double4_uisa a, double4_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmod4_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmod4_linkage ( __ocl_svml_b3_fmod4 )
+
+    double4_uisa __ocl_svml_b3_modf4 (double4_uisa a, double4_uisa* c);
+    #pragma linkage     __ocl_svml_b3_modf4_linkage   = ( result((ymm0)) parameters((ymm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_modf4_linkage ( __ocl_svml_b3_modf4 )
+
+    double4_uisa __ocl_svml_b3_remainder4 (double4_uisa a, double4_uisa b);
+    #pragma linkage     __ocl_svml_b3_remainder4_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_remainder4_linkage ( __ocl_svml_b3_remainder4 )
+
+    double4_uisa __ocl_svml_b3_remquo4 (double4_uisa a, double4_uisa b, int4_uisa* c);
+    #pragma linkage     __ocl_svml_b3_remquo4_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_remquo4_linkage ( __ocl_svml_b3_remquo4 )
+
+    double4_uisa __ocl_svml_b3_copysign4 (double4_uisa a, double4_uisa b);
+    #pragma linkage     __ocl_svml_b3_copysign4_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_copysign4_linkage ( __ocl_svml_b3_copysign4 )
+
+    double4_uisa __ocl_svml_b3_frexp4 (double4_uisa a, int4_uisa* c);
+    #pragma linkage     __ocl_svml_b3_frexp4_linkage   = ( result((ymm0)) parameters((ymm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_frexp4_linkage ( __ocl_svml_b3_frexp4 )
+
+    double4_uisa __ocl_svml_b3_fdim4 (double4_uisa a, double4_uisa b);
+    #pragma linkage     __ocl_svml_b3_fdim4_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fdim4_linkage ( __ocl_svml_b3_fdim4 )
+
+    double4_uisa __ocl_svml_b3_logb4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_logb4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logb4_linkage ( __ocl_svml_b3_logb4 )
+
+    int4_uisa __ocl_svml_b3_ilogb4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_ilogb4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ilogb4_linkage ( __ocl_svml_b3_ilogb4 )
+
+    double4_uisa __ocl_svml_b3_nextafter4 (double4_uisa a, double4_uisa b);
+    #pragma linkage     __ocl_svml_b3_nextafter4_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nextafter4_linkage ( __ocl_svml_b3_nextafter4 )
+
+    double4_uisa __ocl_svml_b3_ldexp4 (double4_uisa a, int4_uisa b);
+    #pragma linkage     __ocl_svml_b3_ldexp4_linkage   = ( result((ymm0)) parameters((ymm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ldexp4_linkage ( __ocl_svml_b3_ldexp4 )
+
+    double4_uisa __ocl_svml_b3_fract4 (double4_uisa a, double4_uisa* c);
+    #pragma linkage     __ocl_svml_b3_fract4_linkage   = ( result((ymm0)) parameters((ymm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fract4_linkage ( __ocl_svml_b3_fract4 )
+
+    double4_uisa __ocl_svml_b3_tgamma4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_tgamma4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tgamma4_linkage ( __ocl_svml_b3_tgamma4 )
+
+    double4_uisa __ocl_svml_b3_lgamma4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_lgamma4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_lgamma4_linkage ( __ocl_svml_b3_lgamma4 )
+
+    double4_uisa __ocl_svml_b3_lgammar4 (double4_uisa a, int4_uisa* c);
+    #pragma linkage     __ocl_svml_b3_lgammar4_linkage   = ( result((ymm0)) parameters((ymm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_lgammar4_linkage ( __ocl_svml_b3_lgammar4 )
+
+    ulong4_uisa __ocl_svml_b3_cvtfptou64rtenosat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtenosat4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtenosat4_linkage ( __ocl_svml_b3_cvtfptou64rtenosat4 )
+
+    ulong4_uisa __ocl_svml_b3_cvtfptou64rtesat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtesat4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtesat4_linkage ( __ocl_svml_b3_cvtfptou64rtesat4 )
+
+    ulong4_uisa __ocl_svml_b3_cvtfptou64rtnnosat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtnnosat4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtnnosat4_linkage ( __ocl_svml_b3_cvtfptou64rtnnosat4 )
+
+    ulong4_uisa __ocl_svml_b3_cvtfptou64rtnsat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtnsat4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtnsat4_linkage ( __ocl_svml_b3_cvtfptou64rtnsat4 )
+
+    ulong4_uisa __ocl_svml_b3_cvtfptou64rtpnosat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtpnosat4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtpnosat4_linkage ( __ocl_svml_b3_cvtfptou64rtpnosat4 )
+
+    ulong4_uisa __ocl_svml_b3_cvtfptou64rtpsat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtpsat4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtpsat4_linkage ( __ocl_svml_b3_cvtfptou64rtpsat4 )
+
+    ulong4_uisa __ocl_svml_b3_cvtfptou64rtznosat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtznosat4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtznosat4_linkage ( __ocl_svml_b3_cvtfptou64rtznosat4 )
+
+    ulong4_uisa __ocl_svml_b3_cvtfptou64rtzsat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtzsat4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtzsat4_linkage ( __ocl_svml_b3_cvtfptou64rtzsat4 )
+
+    long4_uisa __ocl_svml_b3_cvtfptoi64rtenosat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtenosat4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtenosat4_linkage ( __ocl_svml_b3_cvtfptoi64rtenosat4 )
+
+    long4_uisa __ocl_svml_b3_cvtfptoi64rtesat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtesat4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtesat4_linkage ( __ocl_svml_b3_cvtfptoi64rtesat4 )
+
+    long4_uisa __ocl_svml_b3_cvtfptoi64rtnnosat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtnnosat4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtnnosat4_linkage ( __ocl_svml_b3_cvtfptoi64rtnnosat4 )
+
+    long4_uisa __ocl_svml_b3_cvtfptoi64rtnsat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtnsat4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtnsat4_linkage ( __ocl_svml_b3_cvtfptoi64rtnsat4 )
+
+    long4_uisa __ocl_svml_b3_cvtfptoi64rtpnosat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtpnosat4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtpnosat4_linkage ( __ocl_svml_b3_cvtfptoi64rtpnosat4 )
+
+    long4_uisa __ocl_svml_b3_cvtfptoi64rtpsat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtpsat4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtpsat4_linkage ( __ocl_svml_b3_cvtfptoi64rtpsat4 )
+
+    long4_uisa __ocl_svml_b3_cvtfptoi64rtznosat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtznosat4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtznosat4_linkage ( __ocl_svml_b3_cvtfptoi64rtznosat4 )
+
+    long4_uisa __ocl_svml_b3_cvtfptoi64rtzsat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtzsat4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtzsat4_linkage ( __ocl_svml_b3_cvtfptoi64rtzsat4 )
+
+    uint4_uisa __ocl_svml_b3_cvtfptou32rtenosat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtenosat4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtenosat4_linkage ( __ocl_svml_b3_cvtfptou32rtenosat4 )
+
+    uint4_uisa __ocl_svml_b3_cvtfptou32rtesat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtesat4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtesat4_linkage ( __ocl_svml_b3_cvtfptou32rtesat4 )
+
+    uint4_uisa __ocl_svml_b3_cvtfptou32rtnnosat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtnnosat4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtnnosat4_linkage ( __ocl_svml_b3_cvtfptou32rtnnosat4 )
+
+    uint4_uisa __ocl_svml_b3_cvtfptou32rtnsat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtnsat4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtnsat4_linkage ( __ocl_svml_b3_cvtfptou32rtnsat4 )
+
+    uint4_uisa __ocl_svml_b3_cvtfptou32rtpnosat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtpnosat4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtpnosat4_linkage ( __ocl_svml_b3_cvtfptou32rtpnosat4 )
+
+    uint4_uisa __ocl_svml_b3_cvtfptou32rtpsat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtpsat4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtpsat4_linkage ( __ocl_svml_b3_cvtfptou32rtpsat4 )
+
+    uint4_uisa __ocl_svml_b3_cvtfptou32rtznosat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtznosat4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtznosat4_linkage ( __ocl_svml_b3_cvtfptou32rtznosat4 )
+
+    uint4_uisa __ocl_svml_b3_cvtfptou32rtzsat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtzsat4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtzsat4_linkage ( __ocl_svml_b3_cvtfptou32rtzsat4 )
+
+    int4_uisa __ocl_svml_b3_cvtfptoi32rtenosat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtenosat4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtenosat4_linkage ( __ocl_svml_b3_cvtfptoi32rtenosat4 )
+
+    int4_uisa __ocl_svml_b3_cvtfptoi32rtesat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtesat4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtesat4_linkage ( __ocl_svml_b3_cvtfptoi32rtesat4 )
+
+    int4_uisa __ocl_svml_b3_cvtfptoi32rtnnosat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtnnosat4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtnnosat4_linkage ( __ocl_svml_b3_cvtfptoi32rtnnosat4 )
+
+    int4_uisa __ocl_svml_b3_cvtfptoi32rtnsat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtnsat4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtnsat4_linkage ( __ocl_svml_b3_cvtfptoi32rtnsat4 )
+
+    int4_uisa __ocl_svml_b3_cvtfptoi32rtpnosat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtpnosat4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtpnosat4_linkage ( __ocl_svml_b3_cvtfptoi32rtpnosat4 )
+
+    int4_uisa __ocl_svml_b3_cvtfptoi32rtpsat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtpsat4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtpsat4_linkage ( __ocl_svml_b3_cvtfptoi32rtpsat4 )
+
+    int4_uisa __ocl_svml_b3_cvtfptoi32rtznosat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtznosat4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtznosat4_linkage ( __ocl_svml_b3_cvtfptoi32rtznosat4 )
+
+    int4_uisa __ocl_svml_b3_cvtfptoi32rtzsat4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtzsat4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtzsat4_linkage ( __ocl_svml_b3_cvtfptoi32rtzsat4 )
+
+    double4_uisa __ocl_svml_b3_cvtu64tofprte4 (ulong4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprte4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprte4_linkage ( __ocl_svml_b3_cvtu64tofprte4 )
+
+    double4_uisa __ocl_svml_b3_cvtu64tofprtn4 (ulong4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtn4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtn4_linkage ( __ocl_svml_b3_cvtu64tofprtn4 )
+
+    double4_uisa __ocl_svml_b3_cvtu64tofprtp4 (ulong4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtp4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtp4_linkage ( __ocl_svml_b3_cvtu64tofprtp4 )
+
+    double4_uisa __ocl_svml_b3_cvtu64tofprtz4 (ulong4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtz4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtz4_linkage ( __ocl_svml_b3_cvtu64tofprtz4 )
+
+    double4_uisa __ocl_svml_b3_cvti64tofprte4 (long4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprte4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprte4_linkage ( __ocl_svml_b3_cvti64tofprte4 )
+
+    double4_uisa __ocl_svml_b3_cvti64tofprtn4 (long4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtn4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtn4_linkage ( __ocl_svml_b3_cvti64tofprtn4 )
+
+    double4_uisa __ocl_svml_b3_cvti64tofprtp4 (long4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtp4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtp4_linkage ( __ocl_svml_b3_cvti64tofprtp4 )
+
+    double4_uisa __ocl_svml_b3_cvti64tofprtz4 (long4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtz4_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtz4_linkage ( __ocl_svml_b3_cvti64tofprtz4 )
+
+    double4_uisa __ocl_svml_b3_cvtu32tofprte4 (uint4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprte4_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprte4_linkage ( __ocl_svml_b3_cvtu32tofprte4 )
+
+    double4_uisa __ocl_svml_b3_cvtu32tofprtn4 (uint4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtn4_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtn4_linkage ( __ocl_svml_b3_cvtu32tofprtn4 )
+
+    double4_uisa __ocl_svml_b3_cvtu32tofprtp4 (uint4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtp4_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtp4_linkage ( __ocl_svml_b3_cvtu32tofprtp4 )
+
+    double4_uisa __ocl_svml_b3_cvtu32tofprtz4 (uint4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtz4_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtz4_linkage ( __ocl_svml_b3_cvtu32tofprtz4 )
+
+    double4_uisa __ocl_svml_b3_cvti32tofprte4 (int4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprte4_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprte4_linkage ( __ocl_svml_b3_cvti32tofprte4 )
+
+    double4_uisa __ocl_svml_b3_cvti32tofprtn4 (int4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtn4_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtn4_linkage ( __ocl_svml_b3_cvti32tofprtn4 )
+
+    double4_uisa __ocl_svml_b3_cvti32tofprtp4 (int4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtp4_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtp4_linkage ( __ocl_svml_b3_cvti32tofprtp4 )
+
+    double4_uisa __ocl_svml_b3_cvti32tofprtz4 (int4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtz4_linkage   = ( result((ymm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtz4_linkage ( __ocl_svml_b3_cvti32tofprtz4 )
+
+    float4_uisa __ocl_svml_b3_cvtfp64tofp32rte4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfp64tofp32rte4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfp64tofp32rte4_linkage ( __ocl_svml_b3_cvtfp64tofp32rte4 )
+
+    float4_uisa __ocl_svml_b3_cvtfp64tofp32rtn4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfp64tofp32rtn4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfp64tofp32rtn4_linkage ( __ocl_svml_b3_cvtfp64tofp32rtn4 )
+
+    float4_uisa __ocl_svml_b3_cvtfp64tofp32rtp4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfp64tofp32rtp4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfp64tofp32rtp4_linkage ( __ocl_svml_b3_cvtfp64tofp32rtp4 )
+
+    float4_uisa __ocl_svml_b3_cvtfp64tofp32rtz4 (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfp64tofp32rtz4_linkage   = ( result((xmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfp64tofp32rtz4_linkage ( __ocl_svml_b3_cvtfp64tofp32rtz4 )
+
     int4_sse __ocl_svml_h8_idiv4 (int4_sse a, int4_sse b);
     #pragma linkage     __ocl_svml_h8_idiv4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_h8_idiv4_linkage ( __ocl_svml_h8_idiv4 )
@@ -12214,6 +16324,18 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_idivrem4_linkage   = ( result((xmm0 xmm1)) parameters((xmm0),(xmm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_idivrem4_linkage ( __ocl_svml_l9_idivrem4 )
 
+    int4_uisa __ocl_svml_b3_idiv4 (int4_uisa a, int4_uisa b);
+    #pragma linkage     __ocl_svml_b3_idiv4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_idiv4_linkage ( __ocl_svml_b3_idiv4 )
+
+    int4_uisa __ocl_svml_b3_irem4 (int4_uisa a, int4_uisa b);
+    #pragma linkage     __ocl_svml_b3_irem4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_irem4_linkage ( __ocl_svml_b3_irem4 )
+
+    int4x2_uisa __ocl_svml_b3_idivrem4 (int4_uisa a, int4_uisa b);
+    #pragma linkage     __ocl_svml_b3_idivrem4_linkage   = ( result((xmm0 xmm1)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_idivrem4_linkage ( __ocl_svml_b3_idivrem4 )
+
     int4_sse __ocl_svml_h8_udiv4 (int4_sse a, int4_sse b);
     #pragma linkage     __ocl_svml_h8_udiv4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_h8_udiv4_linkage ( __ocl_svml_h8_udiv4 )
@@ -12249,6 +16371,18 @@ extern "C" {
     int4x2_avx __ocl_svml_l9_udivrem4 (int4_avx a, int4_avx b);
     #pragma linkage     __ocl_svml_l9_udivrem4_linkage   = ( result((xmm0 xmm1)) parameters((xmm0),(xmm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_udivrem4_linkage ( __ocl_svml_l9_udivrem4 )
+
+    int4_uisa __ocl_svml_b3_udiv4 (int4_uisa a, int4_uisa b);
+    #pragma linkage     __ocl_svml_b3_udiv4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_udiv4_linkage ( __ocl_svml_b3_udiv4 )
+
+    int4_uisa __ocl_svml_b3_urem4 (int4_uisa a, int4_uisa b);
+    #pragma linkage     __ocl_svml_b3_urem4_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_urem4_linkage ( __ocl_svml_b3_urem4 )
+
+    int4x2_uisa __ocl_svml_b3_udivrem4 (int4_uisa a, int4_uisa b);
+    #pragma linkage     __ocl_svml_b3_udivrem4_linkage   = ( result((xmm0 xmm1)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_udivrem4_linkage ( __ocl_svml_b3_udivrem4 )
 
     float8_sse __ocl_svml_h8_invf8 (float8_sse a);
     #pragma linkage     __ocl_svml_h8_invf8_linkage   = ( result((xmm0 xmm1)) parameters((xmm0 xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
@@ -12765,6 +16899,178 @@ extern "C" {
     float8_avx __ocl_svml_l9_erfcf8 (float8_avx a);
     #pragma linkage     __ocl_svml_l9_erfcf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_erfcf8_linkage ( __ocl_svml_l9_erfcf8 )
+
+    float8_uisa __ocl_svml_b3_invf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf8_linkage ( __ocl_svml_b3_invf8 )
+
+    float8_uisa __ocl_svml_b3_divf8 (float8_uisa a, float8_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf8_linkage ( __ocl_svml_b3_divf8 )
+
+    float8_uisa __ocl_svml_b3_sqrtf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrtf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrtf8_linkage ( __ocl_svml_b3_sqrtf8 )
+
+    float8_uisa __ocl_svml_b3_rsqrtf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrtf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrtf8_linkage ( __ocl_svml_b3_rsqrtf8 )
+
+    float8_uisa __ocl_svml_b3_cbrtf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cbrtf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cbrtf8_linkage ( __ocl_svml_b3_cbrtf8 )
+
+    float8_uisa __ocl_svml_b3_rcbrtf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_rcbrtf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rcbrtf8_linkage ( __ocl_svml_b3_rcbrtf8 )
+
+    float8_uisa __ocl_svml_b3_hypotf8 (float8_uisa a, float8_uisa b);
+    #pragma linkage     __ocl_svml_b3_hypotf8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_hypotf8_linkage ( __ocl_svml_b3_hypotf8 )
+
+    float8_uisa __ocl_svml_b3_powf8 (float8_uisa a, float8_uisa b);
+    #pragma linkage     __ocl_svml_b3_powf8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powf8_linkage ( __ocl_svml_b3_powf8 )
+
+    float8_uisa __ocl_svml_b3_powrf8 (float8_uisa a, float8_uisa b);
+    #pragma linkage     __ocl_svml_b3_powrf8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powrf8_linkage ( __ocl_svml_b3_powrf8 )
+
+    float8_uisa __ocl_svml_b3_pownf8 (float8_uisa a, int8_uisa b);
+    #pragma linkage     __ocl_svml_b3_pownf8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pownf8_linkage ( __ocl_svml_b3_pownf8 )
+
+    float8_uisa __ocl_svml_b3_rootnf8 (float8_uisa a, int8_uisa b);
+    #pragma linkage     __ocl_svml_b3_rootnf8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rootnf8_linkage ( __ocl_svml_b3_rootnf8 )
+
+    float8_uisa __ocl_svml_b3_expf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf8_linkage ( __ocl_svml_b3_expf8 )
+
+    float8_uisa __ocl_svml_b3_exp2f8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f8_linkage ( __ocl_svml_b3_exp2f8 )
+
+    float8_uisa __ocl_svml_b3_exp10f8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f8_linkage ( __ocl_svml_b3_exp10f8 )
+
+    float8_uisa __ocl_svml_b3_expm1f8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_expm1f8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expm1f8_linkage ( __ocl_svml_b3_expm1f8 )
+
+    float8_uisa __ocl_svml_b3_logf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf8_linkage ( __ocl_svml_b3_logf8 )
+
+    float8_uisa __ocl_svml_b3_log10f8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_log10f8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log10f8_linkage ( __ocl_svml_b3_log10f8 )
+
+    float8_uisa __ocl_svml_b3_log2f8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f8_linkage ( __ocl_svml_b3_log2f8 )
+
+    float8_uisa __ocl_svml_b3_log1pf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1pf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1pf8_linkage ( __ocl_svml_b3_log1pf8 )
+
+    float8_uisa __ocl_svml_b3_sinf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf8_linkage ( __ocl_svml_b3_sinf8 )
+
+    float8_uisa __ocl_svml_b3_cosf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf8_linkage ( __ocl_svml_b3_cosf8 )
+
+    float8_uisa __ocl_svml_b3_sincosf8 (float8_uisa a, float8_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincosf8_linkage   = ( result((ymm0)) parameters((ymm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosf8_linkage ( __ocl_svml_b3_sincosf8 )
+
+    float8x2_uisa __ocl_svml_b3_sincosregf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_sincosregf8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosregf8_linkage ( __ocl_svml_b3_sincosregf8 )
+
+    float8_uisa __ocl_svml_b3_tanf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf8_linkage ( __ocl_svml_b3_tanf8 )
+
+    float8_uisa __ocl_svml_b3_sinpif8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinpif8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinpif8_linkage ( __ocl_svml_b3_sinpif8 )
+
+    float8_uisa __ocl_svml_b3_cospif8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cospif8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cospif8_linkage ( __ocl_svml_b3_cospif8 )
+
+    float8_uisa __ocl_svml_b3_tanpif8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanpif8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanpif8_linkage ( __ocl_svml_b3_tanpif8 )
+
+    float8_uisa __ocl_svml_b3_acosf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_acosf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acosf8_linkage ( __ocl_svml_b3_acosf8 )
+
+    float8_uisa __ocl_svml_b3_asinf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinf8_linkage ( __ocl_svml_b3_asinf8 )
+
+    float8_uisa __ocl_svml_b3_atanf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanf8_linkage ( __ocl_svml_b3_atanf8 )
+
+    float8_uisa __ocl_svml_b3_atan2f8 (float8_uisa a, float8_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2f8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2f8_linkage ( __ocl_svml_b3_atan2f8 )
+
+    float8_uisa __ocl_svml_b3_asinpif8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinpif8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinpif8_linkage ( __ocl_svml_b3_asinpif8 )
+
+    float8_uisa __ocl_svml_b3_acospif8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_acospif8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acospif8_linkage ( __ocl_svml_b3_acospif8 )
+
+    float8_uisa __ocl_svml_b3_atanpif8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanpif8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanpif8_linkage ( __ocl_svml_b3_atanpif8 )
+
+    float8_uisa __ocl_svml_b3_atan2pif8 (float8_uisa a, float8_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2pif8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2pif8_linkage ( __ocl_svml_b3_atan2pif8 )
+
+    float8_uisa __ocl_svml_b3_sinhf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinhf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinhf8_linkage ( __ocl_svml_b3_sinhf8 )
+
+    float8_uisa __ocl_svml_b3_coshf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_coshf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_coshf8_linkage ( __ocl_svml_b3_coshf8 )
+
+    float8_uisa __ocl_svml_b3_tanhf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanhf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanhf8_linkage ( __ocl_svml_b3_tanhf8 )
+
+    float8_uisa __ocl_svml_b3_asinhf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinhf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinhf8_linkage ( __ocl_svml_b3_asinhf8 )
+
+    float8_uisa __ocl_svml_b3_acoshf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_acoshf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acoshf8_linkage ( __ocl_svml_b3_acoshf8 )
+
+    float8_uisa __ocl_svml_b3_atanhf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanhf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanhf8_linkage ( __ocl_svml_b3_atanhf8 )
+
+    float8_uisa __ocl_svml_b3_erff8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_erff8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erff8_linkage ( __ocl_svml_b3_erff8 )
+
+    float8_uisa __ocl_svml_b3_erfcf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_erfcf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erfcf8_linkage ( __ocl_svml_b3_erfcf8 )
 
     float8_sse __ocl_svml_h8_fmaf8 (float8_sse a, float8_sse b, float8_sse c);
 
@@ -13676,6 +17982,310 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_cvti32tofprtzf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_cvti32tofprtzf8_linkage ( __ocl_svml_l9_cvti32tofprtzf8 )
 
+    float8_uisa __ocl_svml_b3_fmaf8 (float8_uisa a, float8_uisa b, float8_uisa c);
+    #pragma linkage     __ocl_svml_b3_fmaf8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1),(ymm2)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmaf8_linkage ( __ocl_svml_b3_fmaf8 )
+
+    float8_uisa __ocl_svml_b3_fabsf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_fabsf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fabsf8_linkage ( __ocl_svml_b3_fabsf8 )
+
+    float8_uisa __ocl_svml_b3_fminf8 (float8_uisa a, float8_uisa b);
+    #pragma linkage     __ocl_svml_b3_fminf8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fminf8_linkage ( __ocl_svml_b3_fminf8 )
+
+    float8_uisa __ocl_svml_b3_fmaxf8 (float8_uisa a, float8_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmaxf8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmaxf8_linkage ( __ocl_svml_b3_fmaxf8 )
+
+    float8_uisa __ocl_svml_b3_maxmagf8 (float8_uisa a, float8_uisa b);
+    #pragma linkage     __ocl_svml_b3_maxmagf8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_maxmagf8_linkage ( __ocl_svml_b3_maxmagf8 )
+
+    float8_uisa __ocl_svml_b3_minmagf8 (float8_uisa a, float8_uisa b);
+    #pragma linkage     __ocl_svml_b3_minmagf8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_minmagf8_linkage ( __ocl_svml_b3_minmagf8 )
+
+    float8_uisa __ocl_svml_b3_nanf8 (uint8_uisa a);
+    #pragma linkage     __ocl_svml_b3_nanf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nanf8_linkage ( __ocl_svml_b3_nanf8 )
+
+    float8_uisa __ocl_svml_b3_ceilf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_ceilf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ceilf8_linkage ( __ocl_svml_b3_ceilf8 )
+
+    float8_uisa __ocl_svml_b3_floorf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_floorf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_floorf8_linkage ( __ocl_svml_b3_floorf8 )
+
+    float8_uisa __ocl_svml_b3_roundf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_roundf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_roundf8_linkage ( __ocl_svml_b3_roundf8 )
+
+    float8_uisa __ocl_svml_b3_truncf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_truncf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_truncf8_linkage ( __ocl_svml_b3_truncf8 )
+
+    float8_uisa __ocl_svml_b3_rintf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_rintf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rintf8_linkage ( __ocl_svml_b3_rintf8 )
+
+    float8_uisa __ocl_svml_b3_nearbyintf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_nearbyintf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nearbyintf8_linkage ( __ocl_svml_b3_nearbyintf8 )
+
+    float8_uisa __ocl_svml_b3_fmodf8 (float8_uisa a, float8_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmodf8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmodf8_linkage ( __ocl_svml_b3_fmodf8 )
+
+    float8_uisa __ocl_svml_b3_modff8 (float8_uisa a, float8_uisa* c);
+    #pragma linkage     __ocl_svml_b3_modff8_linkage   = ( result((ymm0)) parameters((ymm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_modff8_linkage ( __ocl_svml_b3_modff8 )
+
+    float8_uisa __ocl_svml_b3_remainderf8 (float8_uisa a, float8_uisa b);
+    #pragma linkage     __ocl_svml_b3_remainderf8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_remainderf8_linkage ( __ocl_svml_b3_remainderf8 )
+
+    float8_uisa __ocl_svml_b3_remquof8 (float8_uisa a, float8_uisa b, int8_uisa* c);
+    #pragma linkage     __ocl_svml_b3_remquof8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_remquof8_linkage ( __ocl_svml_b3_remquof8 )
+
+    float8_uisa __ocl_svml_b3_copysignf8 (float8_uisa a, float8_uisa b);
+    #pragma linkage     __ocl_svml_b3_copysignf8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_copysignf8_linkage ( __ocl_svml_b3_copysignf8 )
+
+    float8_uisa __ocl_svml_b3_frexpf8 (float8_uisa a, int8_uisa* c);
+    #pragma linkage     __ocl_svml_b3_frexpf8_linkage   = ( result((ymm0)) parameters((ymm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_frexpf8_linkage ( __ocl_svml_b3_frexpf8 )
+
+    float8_uisa __ocl_svml_b3_fdimf8 (float8_uisa a, float8_uisa b);
+    #pragma linkage     __ocl_svml_b3_fdimf8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fdimf8_linkage ( __ocl_svml_b3_fdimf8 )
+
+    float8_uisa __ocl_svml_b3_logbf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_logbf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logbf8_linkage ( __ocl_svml_b3_logbf8 )
+
+    int8_uisa __ocl_svml_b3_ilogbf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_ilogbf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ilogbf8_linkage ( __ocl_svml_b3_ilogbf8 )
+
+    float8_uisa __ocl_svml_b3_nextafterf8 (float8_uisa a, float8_uisa b);
+    #pragma linkage     __ocl_svml_b3_nextafterf8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nextafterf8_linkage ( __ocl_svml_b3_nextafterf8 )
+
+    float8_uisa __ocl_svml_b3_ldexpf8 (float8_uisa a, int8_uisa b);
+    #pragma linkage     __ocl_svml_b3_ldexpf8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ldexpf8_linkage ( __ocl_svml_b3_ldexpf8 )
+
+    float8_uisa __ocl_svml_b3_fractf8 (float8_uisa a, float8_uisa* c);
+    #pragma linkage     __ocl_svml_b3_fractf8_linkage   = ( result((ymm0)) parameters((ymm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fractf8_linkage ( __ocl_svml_b3_fractf8 )
+
+    float8_uisa __ocl_svml_b3_tgammaf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_tgammaf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tgammaf8_linkage ( __ocl_svml_b3_tgammaf8 )
+
+    float8_uisa __ocl_svml_b3_lgammaf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_lgammaf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_lgammaf8_linkage ( __ocl_svml_b3_lgammaf8 )
+
+    float8_uisa __ocl_svml_b3_lgammarf8 (float8_uisa a, int8_uisa* c);
+    #pragma linkage     __ocl_svml_b3_lgammarf8_linkage   = ( result((ymm0)) parameters((ymm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_lgammarf8_linkage ( __ocl_svml_b3_lgammarf8 )
+
+    ulong8_uisa __ocl_svml_b3_cvtfptou64rtenosatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtenosatf8_linkage   = ( result((zmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtenosatf8_linkage ( __ocl_svml_b3_cvtfptou64rtenosatf8 )
+
+    ulong8_uisa __ocl_svml_b3_cvtfptou64rtesatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtesatf8_linkage   = ( result((zmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtesatf8_linkage ( __ocl_svml_b3_cvtfptou64rtesatf8 )
+
+    ulong8_uisa __ocl_svml_b3_cvtfptou64rtnnosatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtnnosatf8_linkage   = ( result((zmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtnnosatf8_linkage ( __ocl_svml_b3_cvtfptou64rtnnosatf8 )
+
+    ulong8_uisa __ocl_svml_b3_cvtfptou64rtnsatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtnsatf8_linkage   = ( result((zmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtnsatf8_linkage ( __ocl_svml_b3_cvtfptou64rtnsatf8 )
+
+    ulong8_uisa __ocl_svml_b3_cvtfptou64rtpnosatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtpnosatf8_linkage   = ( result((zmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtpnosatf8_linkage ( __ocl_svml_b3_cvtfptou64rtpnosatf8 )
+
+    ulong8_uisa __ocl_svml_b3_cvtfptou64rtpsatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtpsatf8_linkage   = ( result((zmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtpsatf8_linkage ( __ocl_svml_b3_cvtfptou64rtpsatf8 )
+
+    ulong8_uisa __ocl_svml_b3_cvtfptou64rtznosatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtznosatf8_linkage   = ( result((zmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtznosatf8_linkage ( __ocl_svml_b3_cvtfptou64rtznosatf8 )
+
+    ulong8_uisa __ocl_svml_b3_cvtfptou64rtzsatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtzsatf8_linkage   = ( result((zmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtzsatf8_linkage ( __ocl_svml_b3_cvtfptou64rtzsatf8 )
+
+    long8_uisa __ocl_svml_b3_cvtfptoi64rtenosatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtenosatf8_linkage   = ( result((zmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtenosatf8_linkage ( __ocl_svml_b3_cvtfptoi64rtenosatf8 )
+
+    long8_uisa __ocl_svml_b3_cvtfptoi64rtesatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtesatf8_linkage   = ( result((zmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtesatf8_linkage ( __ocl_svml_b3_cvtfptoi64rtesatf8 )
+
+    long8_uisa __ocl_svml_b3_cvtfptoi64rtnnosatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtnnosatf8_linkage   = ( result((zmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtnnosatf8_linkage ( __ocl_svml_b3_cvtfptoi64rtnnosatf8 )
+
+    long8_uisa __ocl_svml_b3_cvtfptoi64rtnsatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtnsatf8_linkage   = ( result((zmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtnsatf8_linkage ( __ocl_svml_b3_cvtfptoi64rtnsatf8 )
+
+    long8_uisa __ocl_svml_b3_cvtfptoi64rtpnosatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtpnosatf8_linkage   = ( result((zmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtpnosatf8_linkage ( __ocl_svml_b3_cvtfptoi64rtpnosatf8 )
+
+    long8_uisa __ocl_svml_b3_cvtfptoi64rtpsatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtpsatf8_linkage   = ( result((zmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtpsatf8_linkage ( __ocl_svml_b3_cvtfptoi64rtpsatf8 )
+
+    long8_uisa __ocl_svml_b3_cvtfptoi64rtznosatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtznosatf8_linkage   = ( result((zmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtznosatf8_linkage ( __ocl_svml_b3_cvtfptoi64rtznosatf8 )
+
+    long8_uisa __ocl_svml_b3_cvtfptoi64rtzsatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtzsatf8_linkage   = ( result((zmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtzsatf8_linkage ( __ocl_svml_b3_cvtfptoi64rtzsatf8 )
+
+    uint8_uisa __ocl_svml_b3_cvtfptou32rtenosatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtenosatf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtenosatf8_linkage ( __ocl_svml_b3_cvtfptou32rtenosatf8 )
+
+    uint8_uisa __ocl_svml_b3_cvtfptou32rtesatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtesatf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtesatf8_linkage ( __ocl_svml_b3_cvtfptou32rtesatf8 )
+
+    uint8_uisa __ocl_svml_b3_cvtfptou32rtnnosatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtnnosatf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtnnosatf8_linkage ( __ocl_svml_b3_cvtfptou32rtnnosatf8 )
+
+    uint8_uisa __ocl_svml_b3_cvtfptou32rtnsatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtnsatf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtnsatf8_linkage ( __ocl_svml_b3_cvtfptou32rtnsatf8 )
+
+    uint8_uisa __ocl_svml_b3_cvtfptou32rtpnosatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtpnosatf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtpnosatf8_linkage ( __ocl_svml_b3_cvtfptou32rtpnosatf8 )
+
+    uint8_uisa __ocl_svml_b3_cvtfptou32rtpsatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtpsatf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtpsatf8_linkage ( __ocl_svml_b3_cvtfptou32rtpsatf8 )
+
+    uint8_uisa __ocl_svml_b3_cvtfptou32rtznosatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtznosatf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtznosatf8_linkage ( __ocl_svml_b3_cvtfptou32rtznosatf8 )
+
+    uint8_uisa __ocl_svml_b3_cvtfptou32rtzsatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtzsatf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtzsatf8_linkage ( __ocl_svml_b3_cvtfptou32rtzsatf8 )
+
+    int8_uisa __ocl_svml_b3_cvtfptoi32rtenosatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtenosatf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtenosatf8_linkage ( __ocl_svml_b3_cvtfptoi32rtenosatf8 )
+
+    int8_uisa __ocl_svml_b3_cvtfptoi32rtesatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtesatf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtesatf8_linkage ( __ocl_svml_b3_cvtfptoi32rtesatf8 )
+
+    int8_uisa __ocl_svml_b3_cvtfptoi32rtnnosatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtnnosatf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtnnosatf8_linkage ( __ocl_svml_b3_cvtfptoi32rtnnosatf8 )
+
+    int8_uisa __ocl_svml_b3_cvtfptoi32rtnsatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtnsatf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtnsatf8_linkage ( __ocl_svml_b3_cvtfptoi32rtnsatf8 )
+
+    int8_uisa __ocl_svml_b3_cvtfptoi32rtpnosatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtpnosatf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtpnosatf8_linkage ( __ocl_svml_b3_cvtfptoi32rtpnosatf8 )
+
+    int8_uisa __ocl_svml_b3_cvtfptoi32rtpsatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtpsatf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtpsatf8_linkage ( __ocl_svml_b3_cvtfptoi32rtpsatf8 )
+
+    int8_uisa __ocl_svml_b3_cvtfptoi32rtznosatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtznosatf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtznosatf8_linkage ( __ocl_svml_b3_cvtfptoi32rtznosatf8 )
+
+    int8_uisa __ocl_svml_b3_cvtfptoi32rtzsatf8 (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtzsatf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtzsatf8_linkage ( __ocl_svml_b3_cvtfptoi32rtzsatf8 )
+
+    float8_uisa __ocl_svml_b3_cvtu64tofprtef8 (ulong8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtef8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtef8_linkage ( __ocl_svml_b3_cvtu64tofprtef8 )
+
+    float8_uisa __ocl_svml_b3_cvtu64tofprtnf8 (ulong8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtnf8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtnf8_linkage ( __ocl_svml_b3_cvtu64tofprtnf8 )
+
+    float8_uisa __ocl_svml_b3_cvtu64tofprtpf8 (ulong8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtpf8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtpf8_linkage ( __ocl_svml_b3_cvtu64tofprtpf8 )
+
+    float8_uisa __ocl_svml_b3_cvtu64tofprtzf8 (ulong8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtzf8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtzf8_linkage ( __ocl_svml_b3_cvtu64tofprtzf8 )
+
+    float8_uisa __ocl_svml_b3_cvti64tofprtef8 (long8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtef8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtef8_linkage ( __ocl_svml_b3_cvti64tofprtef8 )
+
+    float8_uisa __ocl_svml_b3_cvti64tofprtnf8 (long8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtnf8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtnf8_linkage ( __ocl_svml_b3_cvti64tofprtnf8 )
+
+    float8_uisa __ocl_svml_b3_cvti64tofprtpf8 (long8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtpf8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtpf8_linkage ( __ocl_svml_b3_cvti64tofprtpf8 )
+
+    float8_uisa __ocl_svml_b3_cvti64tofprtzf8 (long8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtzf8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtzf8_linkage ( __ocl_svml_b3_cvti64tofprtzf8 )
+
+    float8_uisa __ocl_svml_b3_cvtu32tofprtef8 (uint8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtef8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtef8_linkage ( __ocl_svml_b3_cvtu32tofprtef8 )
+
+    float8_uisa __ocl_svml_b3_cvtu32tofprtnf8 (uint8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtnf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtnf8_linkage ( __ocl_svml_b3_cvtu32tofprtnf8 )
+
+    float8_uisa __ocl_svml_b3_cvtu32tofprtpf8 (uint8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtpf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtpf8_linkage ( __ocl_svml_b3_cvtu32tofprtpf8 )
+
+    float8_uisa __ocl_svml_b3_cvtu32tofprtzf8 (uint8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtzf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtzf8_linkage ( __ocl_svml_b3_cvtu32tofprtzf8 )
+
+    float8_uisa __ocl_svml_b3_cvti32tofprtef8 (int8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtef8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtef8_linkage ( __ocl_svml_b3_cvti32tofprtef8 )
+
+    float8_uisa __ocl_svml_b3_cvti32tofprtnf8 (int8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtnf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtnf8_linkage ( __ocl_svml_b3_cvti32tofprtnf8 )
+
+    float8_uisa __ocl_svml_b3_cvti32tofprtpf8 (int8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtpf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtpf8_linkage ( __ocl_svml_b3_cvti32tofprtpf8 )
+
+    float8_uisa __ocl_svml_b3_cvti32tofprtzf8 (int8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtzf8_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtzf8_linkage ( __ocl_svml_b3_cvti32tofprtzf8 )
+
     double8_avx __ocl_svml_e9_inv8 (double8_avx a);
     #pragma linkage     __ocl_svml_e9_inv8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_e9_inv8_linkage ( __ocl_svml_e9_inv8 )
@@ -14019,6 +18629,178 @@ extern "C" {
     double8_avx __ocl_svml_l9_erfc8 (double8_avx a);
     #pragma linkage     __ocl_svml_l9_erfc8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_erfc8_linkage ( __ocl_svml_l9_erfc8 )
+
+    double8_uisa __ocl_svml_b3_inv8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_inv8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_inv8_linkage ( __ocl_svml_b3_inv8 )
+
+    double8_uisa __ocl_svml_b3_div8 (double8_uisa a, double8_uisa b);
+    #pragma linkage     __ocl_svml_b3_div8_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_div8_linkage ( __ocl_svml_b3_div8 )
+
+    double8_uisa __ocl_svml_b3_sqrt8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrt8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrt8_linkage ( __ocl_svml_b3_sqrt8 )
+
+    double8_uisa __ocl_svml_b3_rsqrt8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrt8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrt8_linkage ( __ocl_svml_b3_rsqrt8 )
+
+    double8_uisa __ocl_svml_b3_cbrt8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cbrt8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cbrt8_linkage ( __ocl_svml_b3_cbrt8 )
+
+    double8_uisa __ocl_svml_b3_rcbrt8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_rcbrt8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rcbrt8_linkage ( __ocl_svml_b3_rcbrt8 )
+
+    double8_uisa __ocl_svml_b3_hypot8 (double8_uisa a, double8_uisa b);
+    #pragma linkage     __ocl_svml_b3_hypot8_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_hypot8_linkage ( __ocl_svml_b3_hypot8 )
+
+    double8_uisa __ocl_svml_b3_pow8 (double8_uisa a, double8_uisa b);
+    #pragma linkage     __ocl_svml_b3_pow8_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pow8_linkage ( __ocl_svml_b3_pow8 )
+
+    double8_uisa __ocl_svml_b3_powr8 (double8_uisa a, double8_uisa b);
+    #pragma linkage     __ocl_svml_b3_powr8_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powr8_linkage ( __ocl_svml_b3_powr8 )
+
+    double8_uisa __ocl_svml_b3_pown8 (double8_uisa a, int8_uisa b);
+    #pragma linkage     __ocl_svml_b3_pown8_linkage   = ( result((zmm0)) parameters((zmm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pown8_linkage ( __ocl_svml_b3_pown8 )
+
+    double8_uisa __ocl_svml_b3_rootn8 (double8_uisa a, int8_uisa b);
+    #pragma linkage     __ocl_svml_b3_rootn8_linkage   = ( result((zmm0)) parameters((zmm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rootn8_linkage ( __ocl_svml_b3_rootn8 )
+
+    double8_uisa __ocl_svml_b3_exp8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp8_linkage ( __ocl_svml_b3_exp8 )
+
+    double8_uisa __ocl_svml_b3_exp28 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp28_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp28_linkage ( __ocl_svml_b3_exp28 )
+
+    double8_uisa __ocl_svml_b3_exp108 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp108_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp108_linkage ( __ocl_svml_b3_exp108 )
+
+    double8_uisa __ocl_svml_b3_expm18 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_expm18_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expm18_linkage ( __ocl_svml_b3_expm18 )
+
+    double8_uisa __ocl_svml_b3_log8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_log8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log8_linkage ( __ocl_svml_b3_log8 )
+
+    double8_uisa __ocl_svml_b3_log108 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_log108_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log108_linkage ( __ocl_svml_b3_log108 )
+
+    double8_uisa __ocl_svml_b3_log28 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_log28_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log28_linkage ( __ocl_svml_b3_log28 )
+
+    double8_uisa __ocl_svml_b3_log1p8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1p8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1p8_linkage ( __ocl_svml_b3_log1p8 )
+
+    double8_uisa __ocl_svml_b3_sin8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_sin8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sin8_linkage ( __ocl_svml_b3_sin8 )
+
+    double8_uisa __ocl_svml_b3_cos8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cos8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cos8_linkage ( __ocl_svml_b3_cos8 )
+
+    double8_uisa __ocl_svml_b3_sincos8 (double8_uisa a, double8_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincos8_linkage   = ( result((zmm0)) parameters((zmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincos8_linkage ( __ocl_svml_b3_sincos8 )
+
+    double8x2_uisa __ocl_svml_b3_sincosreg8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_sincosreg8_linkage   = ( result((zmm0 zmm1)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosreg8_linkage ( __ocl_svml_b3_sincosreg8 )
+
+    double8_uisa __ocl_svml_b3_tan8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_tan8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tan8_linkage ( __ocl_svml_b3_tan8 )
+
+    double8_uisa __ocl_svml_b3_sinpi8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinpi8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinpi8_linkage ( __ocl_svml_b3_sinpi8 )
+
+    double8_uisa __ocl_svml_b3_cospi8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cospi8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cospi8_linkage ( __ocl_svml_b3_cospi8 )
+
+    double8_uisa __ocl_svml_b3_tanpi8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanpi8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanpi8_linkage ( __ocl_svml_b3_tanpi8 )
+
+    double8_uisa __ocl_svml_b3_acos8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_acos8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acos8_linkage ( __ocl_svml_b3_acos8 )
+
+    double8_uisa __ocl_svml_b3_asin8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_asin8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asin8_linkage ( __ocl_svml_b3_asin8 )
+
+    double8_uisa __ocl_svml_b3_atan8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_atan8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan8_linkage ( __ocl_svml_b3_atan8 )
+
+    double8_uisa __ocl_svml_b3_atan28 (double8_uisa a, double8_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan28_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan28_linkage ( __ocl_svml_b3_atan28 )
+
+    double8_uisa __ocl_svml_b3_asinpi8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinpi8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinpi8_linkage ( __ocl_svml_b3_asinpi8 )
+
+    double8_uisa __ocl_svml_b3_acospi8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_acospi8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acospi8_linkage ( __ocl_svml_b3_acospi8 )
+
+    double8_uisa __ocl_svml_b3_atanpi8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanpi8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanpi8_linkage ( __ocl_svml_b3_atanpi8 )
+
+    double8_uisa __ocl_svml_b3_atan2pi8 (double8_uisa a, double8_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2pi8_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2pi8_linkage ( __ocl_svml_b3_atan2pi8 )
+
+    double8_uisa __ocl_svml_b3_sinh8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinh8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinh8_linkage ( __ocl_svml_b3_sinh8 )
+
+    double8_uisa __ocl_svml_b3_cosh8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosh8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosh8_linkage ( __ocl_svml_b3_cosh8 )
+
+    double8_uisa __ocl_svml_b3_tanh8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanh8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanh8_linkage ( __ocl_svml_b3_tanh8 )
+
+    double8_uisa __ocl_svml_b3_asinh8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinh8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinh8_linkage ( __ocl_svml_b3_asinh8 )
+
+    double8_uisa __ocl_svml_b3_acosh8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_acosh8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acosh8_linkage ( __ocl_svml_b3_acosh8 )
+
+    double8_uisa __ocl_svml_b3_atanh8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanh8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanh8_linkage ( __ocl_svml_b3_atanh8 )
+
+    double8_uisa __ocl_svml_b3_erf8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_erf8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erf8_linkage ( __ocl_svml_b3_erf8 )
+
+    double8_uisa __ocl_svml_b3_erfc8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_erfc8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erfc8_linkage ( __ocl_svml_b3_erfc8 )
 
     double8_avx __ocl_svml_e9_fma8 (double8_avx a, double8_avx b, double8_avx c);
 
@@ -14656,6 +19438,326 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_cvtfp64tofp32rtz8_linkage   = ( result((ymm0)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_cvtfp64tofp32rtz8_linkage ( __ocl_svml_l9_cvtfp64tofp32rtz8 )
 
+    double8_uisa __ocl_svml_b3_fma8 (double8_uisa a, double8_uisa b, double8_uisa c);
+    #pragma linkage     __ocl_svml_b3_fma8_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1),(zmm2)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fma8_linkage ( __ocl_svml_b3_fma8 )
+
+    double8_uisa __ocl_svml_b3_fabs8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_fabs8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fabs8_linkage ( __ocl_svml_b3_fabs8 )
+
+    double8_uisa __ocl_svml_b3_fmin8 (double8_uisa a, double8_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmin8_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmin8_linkage ( __ocl_svml_b3_fmin8 )
+
+    double8_uisa __ocl_svml_b3_fmax8 (double8_uisa a, double8_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmax8_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmax8_linkage ( __ocl_svml_b3_fmax8 )
+
+    double8_uisa __ocl_svml_b3_maxmag8 (double8_uisa a, double8_uisa b);
+    #pragma linkage     __ocl_svml_b3_maxmag8_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_maxmag8_linkage ( __ocl_svml_b3_maxmag8 )
+
+    double8_uisa __ocl_svml_b3_minmag8 (double8_uisa a, double8_uisa b);
+    #pragma linkage     __ocl_svml_b3_minmag8_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_minmag8_linkage ( __ocl_svml_b3_minmag8 )
+
+    double8_uisa __ocl_svml_b3_nan8 (ulong8_uisa a);
+    #pragma linkage     __ocl_svml_b3_nan8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nan8_linkage ( __ocl_svml_b3_nan8 )
+
+    double8_uisa __ocl_svml_b3_ceil8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_ceil8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ceil8_linkage ( __ocl_svml_b3_ceil8 )
+
+    double8_uisa __ocl_svml_b3_floor8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_floor8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_floor8_linkage ( __ocl_svml_b3_floor8 )
+
+    double8_uisa __ocl_svml_b3_round8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_round8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_round8_linkage ( __ocl_svml_b3_round8 )
+
+    double8_uisa __ocl_svml_b3_trunc8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_trunc8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_trunc8_linkage ( __ocl_svml_b3_trunc8 )
+
+    double8_uisa __ocl_svml_b3_rint8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_rint8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rint8_linkage ( __ocl_svml_b3_rint8 )
+
+    double8_uisa __ocl_svml_b3_nearbyint8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_nearbyint8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nearbyint8_linkage ( __ocl_svml_b3_nearbyint8 )
+
+    double8_uisa __ocl_svml_b3_fmod8 (double8_uisa a, double8_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmod8_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmod8_linkage ( __ocl_svml_b3_fmod8 )
+
+    double8_uisa __ocl_svml_b3_modf8 (double8_uisa a, double8_uisa* c);
+    #pragma linkage     __ocl_svml_b3_modf8_linkage   = ( result((zmm0)) parameters((zmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_modf8_linkage ( __ocl_svml_b3_modf8 )
+
+    double8_uisa __ocl_svml_b3_remainder8 (double8_uisa a, double8_uisa b);
+    #pragma linkage     __ocl_svml_b3_remainder8_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_remainder8_linkage ( __ocl_svml_b3_remainder8 )
+
+    double8_uisa __ocl_svml_b3_remquo8 (double8_uisa a, double8_uisa b, int8_uisa* c);
+    #pragma linkage     __ocl_svml_b3_remquo8_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_remquo8_linkage ( __ocl_svml_b3_remquo8 )
+
+    double8_uisa __ocl_svml_b3_copysign8 (double8_uisa a, double8_uisa b);
+    #pragma linkage     __ocl_svml_b3_copysign8_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_copysign8_linkage ( __ocl_svml_b3_copysign8 )
+
+    double8_uisa __ocl_svml_b3_frexp8 (double8_uisa a, int8_uisa* c);
+    #pragma linkage     __ocl_svml_b3_frexp8_linkage   = ( result((zmm0)) parameters((zmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_frexp8_linkage ( __ocl_svml_b3_frexp8 )
+
+    double8_uisa __ocl_svml_b3_fdim8 (double8_uisa a, double8_uisa b);
+    #pragma linkage     __ocl_svml_b3_fdim8_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fdim8_linkage ( __ocl_svml_b3_fdim8 )
+
+    double8_uisa __ocl_svml_b3_logb8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_logb8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logb8_linkage ( __ocl_svml_b3_logb8 )
+
+    int8_uisa __ocl_svml_b3_ilogb8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_ilogb8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ilogb8_linkage ( __ocl_svml_b3_ilogb8 )
+
+    double8_uisa __ocl_svml_b3_nextafter8 (double8_uisa a, double8_uisa b);
+    #pragma linkage     __ocl_svml_b3_nextafter8_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nextafter8_linkage ( __ocl_svml_b3_nextafter8 )
+
+    double8_uisa __ocl_svml_b3_ldexp8 (double8_uisa a, int8_uisa b);
+    #pragma linkage     __ocl_svml_b3_ldexp8_linkage   = ( result((zmm0)) parameters((zmm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ldexp8_linkage ( __ocl_svml_b3_ldexp8 )
+
+    double8_uisa __ocl_svml_b3_fract8 (double8_uisa a, double8_uisa* c);
+    #pragma linkage     __ocl_svml_b3_fract8_linkage   = ( result((zmm0)) parameters((zmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fract8_linkage ( __ocl_svml_b3_fract8 )
+
+    double8_uisa __ocl_svml_b3_tgamma8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_tgamma8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tgamma8_linkage ( __ocl_svml_b3_tgamma8 )
+
+    double8_uisa __ocl_svml_b3_lgamma8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_lgamma8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_lgamma8_linkage ( __ocl_svml_b3_lgamma8 )
+
+    double8_uisa __ocl_svml_b3_lgammar8 (double8_uisa a, int8_uisa* c);
+    #pragma linkage     __ocl_svml_b3_lgammar8_linkage   = ( result((zmm0)) parameters((zmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_lgammar8_linkage ( __ocl_svml_b3_lgammar8 )
+
+    ulong8_uisa __ocl_svml_b3_cvtfptou64rtenosat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtenosat8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtenosat8_linkage ( __ocl_svml_b3_cvtfptou64rtenosat8 )
+
+    ulong8_uisa __ocl_svml_b3_cvtfptou64rtesat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtesat8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtesat8_linkage ( __ocl_svml_b3_cvtfptou64rtesat8 )
+
+    ulong8_uisa __ocl_svml_b3_cvtfptou64rtnnosat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtnnosat8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtnnosat8_linkage ( __ocl_svml_b3_cvtfptou64rtnnosat8 )
+
+    ulong8_uisa __ocl_svml_b3_cvtfptou64rtnsat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtnsat8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtnsat8_linkage ( __ocl_svml_b3_cvtfptou64rtnsat8 )
+
+    ulong8_uisa __ocl_svml_b3_cvtfptou64rtpnosat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtpnosat8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtpnosat8_linkage ( __ocl_svml_b3_cvtfptou64rtpnosat8 )
+
+    ulong8_uisa __ocl_svml_b3_cvtfptou64rtpsat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtpsat8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtpsat8_linkage ( __ocl_svml_b3_cvtfptou64rtpsat8 )
+
+    ulong8_uisa __ocl_svml_b3_cvtfptou64rtznosat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtznosat8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtznosat8_linkage ( __ocl_svml_b3_cvtfptou64rtznosat8 )
+
+    ulong8_uisa __ocl_svml_b3_cvtfptou64rtzsat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtzsat8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtzsat8_linkage ( __ocl_svml_b3_cvtfptou64rtzsat8 )
+
+    long8_uisa __ocl_svml_b3_cvtfptoi64rtenosat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtenosat8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtenosat8_linkage ( __ocl_svml_b3_cvtfptoi64rtenosat8 )
+
+    long8_uisa __ocl_svml_b3_cvtfptoi64rtesat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtesat8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtesat8_linkage ( __ocl_svml_b3_cvtfptoi64rtesat8 )
+
+    long8_uisa __ocl_svml_b3_cvtfptoi64rtnnosat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtnnosat8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtnnosat8_linkage ( __ocl_svml_b3_cvtfptoi64rtnnosat8 )
+
+    long8_uisa __ocl_svml_b3_cvtfptoi64rtnsat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtnsat8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtnsat8_linkage ( __ocl_svml_b3_cvtfptoi64rtnsat8 )
+
+    long8_uisa __ocl_svml_b3_cvtfptoi64rtpnosat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtpnosat8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtpnosat8_linkage ( __ocl_svml_b3_cvtfptoi64rtpnosat8 )
+
+    long8_uisa __ocl_svml_b3_cvtfptoi64rtpsat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtpsat8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtpsat8_linkage ( __ocl_svml_b3_cvtfptoi64rtpsat8 )
+
+    long8_uisa __ocl_svml_b3_cvtfptoi64rtznosat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtznosat8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtznosat8_linkage ( __ocl_svml_b3_cvtfptoi64rtznosat8 )
+
+    long8_uisa __ocl_svml_b3_cvtfptoi64rtzsat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtzsat8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtzsat8_linkage ( __ocl_svml_b3_cvtfptoi64rtzsat8 )
+
+    uint8_uisa __ocl_svml_b3_cvtfptou32rtenosat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtenosat8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtenosat8_linkage ( __ocl_svml_b3_cvtfptou32rtenosat8 )
+
+    uint8_uisa __ocl_svml_b3_cvtfptou32rtesat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtesat8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtesat8_linkage ( __ocl_svml_b3_cvtfptou32rtesat8 )
+
+    uint8_uisa __ocl_svml_b3_cvtfptou32rtnnosat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtnnosat8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtnnosat8_linkage ( __ocl_svml_b3_cvtfptou32rtnnosat8 )
+
+    uint8_uisa __ocl_svml_b3_cvtfptou32rtnsat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtnsat8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtnsat8_linkage ( __ocl_svml_b3_cvtfptou32rtnsat8 )
+
+    uint8_uisa __ocl_svml_b3_cvtfptou32rtpnosat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtpnosat8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtpnosat8_linkage ( __ocl_svml_b3_cvtfptou32rtpnosat8 )
+
+    uint8_uisa __ocl_svml_b3_cvtfptou32rtpsat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtpsat8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtpsat8_linkage ( __ocl_svml_b3_cvtfptou32rtpsat8 )
+
+    uint8_uisa __ocl_svml_b3_cvtfptou32rtznosat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtznosat8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtznosat8_linkage ( __ocl_svml_b3_cvtfptou32rtznosat8 )
+
+    uint8_uisa __ocl_svml_b3_cvtfptou32rtzsat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtzsat8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtzsat8_linkage ( __ocl_svml_b3_cvtfptou32rtzsat8 )
+
+    int8_uisa __ocl_svml_b3_cvtfptoi32rtenosat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtenosat8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtenosat8_linkage ( __ocl_svml_b3_cvtfptoi32rtenosat8 )
+
+    int8_uisa __ocl_svml_b3_cvtfptoi32rtesat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtesat8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtesat8_linkage ( __ocl_svml_b3_cvtfptoi32rtesat8 )
+
+    int8_uisa __ocl_svml_b3_cvtfptoi32rtnnosat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtnnosat8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtnnosat8_linkage ( __ocl_svml_b3_cvtfptoi32rtnnosat8 )
+
+    int8_uisa __ocl_svml_b3_cvtfptoi32rtnsat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtnsat8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtnsat8_linkage ( __ocl_svml_b3_cvtfptoi32rtnsat8 )
+
+    int8_uisa __ocl_svml_b3_cvtfptoi32rtpnosat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtpnosat8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtpnosat8_linkage ( __ocl_svml_b3_cvtfptoi32rtpnosat8 )
+
+    int8_uisa __ocl_svml_b3_cvtfptoi32rtpsat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtpsat8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtpsat8_linkage ( __ocl_svml_b3_cvtfptoi32rtpsat8 )
+
+    int8_uisa __ocl_svml_b3_cvtfptoi32rtznosat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtznosat8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtznosat8_linkage ( __ocl_svml_b3_cvtfptoi32rtznosat8 )
+
+    int8_uisa __ocl_svml_b3_cvtfptoi32rtzsat8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtzsat8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtzsat8_linkage ( __ocl_svml_b3_cvtfptoi32rtzsat8 )
+
+    double8_uisa __ocl_svml_b3_cvtu64tofprte8 (ulong8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprte8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprte8_linkage ( __ocl_svml_b3_cvtu64tofprte8 )
+
+    double8_uisa __ocl_svml_b3_cvtu64tofprtn8 (ulong8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtn8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtn8_linkage ( __ocl_svml_b3_cvtu64tofprtn8 )
+
+    double8_uisa __ocl_svml_b3_cvtu64tofprtp8 (ulong8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtp8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtp8_linkage ( __ocl_svml_b3_cvtu64tofprtp8 )
+
+    double8_uisa __ocl_svml_b3_cvtu64tofprtz8 (ulong8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtz8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtz8_linkage ( __ocl_svml_b3_cvtu64tofprtz8 )
+
+    double8_uisa __ocl_svml_b3_cvti64tofprte8 (long8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprte8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprte8_linkage ( __ocl_svml_b3_cvti64tofprte8 )
+
+    double8_uisa __ocl_svml_b3_cvti64tofprtn8 (long8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtn8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtn8_linkage ( __ocl_svml_b3_cvti64tofprtn8 )
+
+    double8_uisa __ocl_svml_b3_cvti64tofprtp8 (long8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtp8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtp8_linkage ( __ocl_svml_b3_cvti64tofprtp8 )
+
+    double8_uisa __ocl_svml_b3_cvti64tofprtz8 (long8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtz8_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtz8_linkage ( __ocl_svml_b3_cvti64tofprtz8 )
+
+    double8_uisa __ocl_svml_b3_cvtu32tofprte8 (uint8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprte8_linkage   = ( result((zmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprte8_linkage ( __ocl_svml_b3_cvtu32tofprte8 )
+
+    double8_uisa __ocl_svml_b3_cvtu32tofprtn8 (uint8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtn8_linkage   = ( result((zmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtn8_linkage ( __ocl_svml_b3_cvtu32tofprtn8 )
+
+    double8_uisa __ocl_svml_b3_cvtu32tofprtp8 (uint8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtp8_linkage   = ( result((zmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtp8_linkage ( __ocl_svml_b3_cvtu32tofprtp8 )
+
+    double8_uisa __ocl_svml_b3_cvtu32tofprtz8 (uint8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtz8_linkage   = ( result((zmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtz8_linkage ( __ocl_svml_b3_cvtu32tofprtz8 )
+
+    double8_uisa __ocl_svml_b3_cvti32tofprte8 (int8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprte8_linkage   = ( result((zmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprte8_linkage ( __ocl_svml_b3_cvti32tofprte8 )
+
+    double8_uisa __ocl_svml_b3_cvti32tofprtn8 (int8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtn8_linkage   = ( result((zmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtn8_linkage ( __ocl_svml_b3_cvti32tofprtn8 )
+
+    double8_uisa __ocl_svml_b3_cvti32tofprtp8 (int8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtp8_linkage   = ( result((zmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtp8_linkage ( __ocl_svml_b3_cvti32tofprtp8 )
+
+    double8_uisa __ocl_svml_b3_cvti32tofprtz8 (int8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtz8_linkage   = ( result((zmm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtz8_linkage ( __ocl_svml_b3_cvti32tofprtz8 )
+
+    float8_uisa __ocl_svml_b3_cvtfp64tofp32rte8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfp64tofp32rte8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfp64tofp32rte8_linkage ( __ocl_svml_b3_cvtfp64tofp32rte8 )
+
+    float8_uisa __ocl_svml_b3_cvtfp64tofp32rtn8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfp64tofp32rtn8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfp64tofp32rtn8_linkage ( __ocl_svml_b3_cvtfp64tofp32rtn8 )
+
+    float8_uisa __ocl_svml_b3_cvtfp64tofp32rtp8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfp64tofp32rtp8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfp64tofp32rtp8_linkage ( __ocl_svml_b3_cvtfp64tofp32rtp8 )
+
+    float8_uisa __ocl_svml_b3_cvtfp64tofp32rtz8 (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfp64tofp32rtz8_linkage   = ( result((ymm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfp64tofp32rtz8_linkage ( __ocl_svml_b3_cvtfp64tofp32rtz8 )
+
     int8_sse __ocl_svml_h8_idiv8 (int8_sse a, int8_sse b);
     #pragma linkage     __ocl_svml_h8_idiv8_linkage   = ( result((xmm0 xmm1)) parameters((xmm0 xmm1),(xmm2 xmm3)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_h8_idiv8_linkage ( __ocl_svml_h8_idiv8 )
@@ -14692,6 +19794,18 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_idivrem8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0),(ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_idivrem8_linkage ( __ocl_svml_l9_idivrem8 )
 
+    int8_uisa __ocl_svml_b3_idiv8 (int8_uisa a, int8_uisa b);
+    #pragma linkage     __ocl_svml_b3_idiv8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_idiv8_linkage ( __ocl_svml_b3_idiv8 )
+
+    int8_uisa __ocl_svml_b3_irem8 (int8_uisa a, int8_uisa b);
+    #pragma linkage     __ocl_svml_b3_irem8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_irem8_linkage ( __ocl_svml_b3_irem8 )
+
+    int8x2_uisa __ocl_svml_b3_idivrem8 (int8_uisa a, int8_uisa b);
+    #pragma linkage     __ocl_svml_b3_idivrem8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_idivrem8_linkage ( __ocl_svml_b3_idivrem8 )
+
     int8_sse __ocl_svml_h8_udiv8 (int8_sse a, int8_sse b);
     #pragma linkage     __ocl_svml_h8_udiv8_linkage   = ( result((xmm0 xmm1)) parameters((xmm0 xmm1),(xmm2 xmm3)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_h8_udiv8_linkage ( __ocl_svml_h8_udiv8 )
@@ -14727,6 +19841,18 @@ extern "C" {
     int8x2_avx __ocl_svml_l9_udivrem8 (int8_avx a, int8_avx b);
     #pragma linkage     __ocl_svml_l9_udivrem8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0),(ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_udivrem8_linkage ( __ocl_svml_l9_udivrem8 )
+
+    int8_uisa __ocl_svml_b3_udiv8 (int8_uisa a, int8_uisa b);
+    #pragma linkage     __ocl_svml_b3_udiv8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_udiv8_linkage ( __ocl_svml_b3_udiv8 )
+
+    int8_uisa __ocl_svml_b3_urem8 (int8_uisa a, int8_uisa b);
+    #pragma linkage     __ocl_svml_b3_urem8_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_urem8_linkage ( __ocl_svml_b3_urem8 )
+
+    int8x2_uisa __ocl_svml_b3_udivrem8 (int8_uisa a, int8_uisa b);
+    #pragma linkage     __ocl_svml_b3_udivrem8_linkage   = ( result((ymm0 ymm1)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_udivrem8_linkage ( __ocl_svml_b3_udivrem8 )
 
     float16_avx __ocl_svml_e9_invf16 (float16_avx a);
     #pragma linkage     __ocl_svml_e9_invf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
@@ -15071,6 +20197,178 @@ extern "C" {
     float16_avx __ocl_svml_l9_erfcf16 (float16_avx a);
     #pragma linkage     __ocl_svml_l9_erfcf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_erfcf16_linkage ( __ocl_svml_l9_erfcf16 )
+
+    float16_uisa __ocl_svml_b3_invf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf16_linkage ( __ocl_svml_b3_invf16 )
+
+    float16_uisa __ocl_svml_b3_divf16 (float16_uisa a, float16_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf16_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf16_linkage ( __ocl_svml_b3_divf16 )
+
+    float16_uisa __ocl_svml_b3_sqrtf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrtf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrtf16_linkage ( __ocl_svml_b3_sqrtf16 )
+
+    float16_uisa __ocl_svml_b3_rsqrtf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrtf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrtf16_linkage ( __ocl_svml_b3_rsqrtf16 )
+
+    float16_uisa __ocl_svml_b3_cbrtf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cbrtf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cbrtf16_linkage ( __ocl_svml_b3_cbrtf16 )
+
+    float16_uisa __ocl_svml_b3_rcbrtf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_rcbrtf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rcbrtf16_linkage ( __ocl_svml_b3_rcbrtf16 )
+
+    float16_uisa __ocl_svml_b3_hypotf16 (float16_uisa a, float16_uisa b);
+    #pragma linkage     __ocl_svml_b3_hypotf16_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_hypotf16_linkage ( __ocl_svml_b3_hypotf16 )
+
+    float16_uisa __ocl_svml_b3_powf16 (float16_uisa a, float16_uisa b);
+    #pragma linkage     __ocl_svml_b3_powf16_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powf16_linkage ( __ocl_svml_b3_powf16 )
+
+    float16_uisa __ocl_svml_b3_powrf16 (float16_uisa a, float16_uisa b);
+    #pragma linkage     __ocl_svml_b3_powrf16_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powrf16_linkage ( __ocl_svml_b3_powrf16 )
+
+    float16_uisa __ocl_svml_b3_pownf16 (float16_uisa a, int16_uisa b);
+    #pragma linkage     __ocl_svml_b3_pownf16_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pownf16_linkage ( __ocl_svml_b3_pownf16 )
+
+    float16_uisa __ocl_svml_b3_rootnf16 (float16_uisa a, int16_uisa b);
+    #pragma linkage     __ocl_svml_b3_rootnf16_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rootnf16_linkage ( __ocl_svml_b3_rootnf16 )
+
+    float16_uisa __ocl_svml_b3_expf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf16_linkage ( __ocl_svml_b3_expf16 )
+
+    float16_uisa __ocl_svml_b3_exp2f16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f16_linkage ( __ocl_svml_b3_exp2f16 )
+
+    float16_uisa __ocl_svml_b3_exp10f16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f16_linkage ( __ocl_svml_b3_exp10f16 )
+
+    float16_uisa __ocl_svml_b3_expm1f16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_expm1f16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expm1f16_linkage ( __ocl_svml_b3_expm1f16 )
+
+    float16_uisa __ocl_svml_b3_logf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf16_linkage ( __ocl_svml_b3_logf16 )
+
+    float16_uisa __ocl_svml_b3_log10f16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_log10f16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log10f16_linkage ( __ocl_svml_b3_log10f16 )
+
+    float16_uisa __ocl_svml_b3_log2f16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f16_linkage ( __ocl_svml_b3_log2f16 )
+
+    float16_uisa __ocl_svml_b3_log1pf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1pf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1pf16_linkage ( __ocl_svml_b3_log1pf16 )
+
+    float16_uisa __ocl_svml_b3_sinf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf16_linkage ( __ocl_svml_b3_sinf16 )
+
+    float16_uisa __ocl_svml_b3_cosf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf16_linkage ( __ocl_svml_b3_cosf16 )
+
+    float16_uisa __ocl_svml_b3_sincosf16 (float16_uisa a, float16_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincosf16_linkage   = ( result((zmm0)) parameters((zmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosf16_linkage ( __ocl_svml_b3_sincosf16 )
+
+    float16x2_uisa __ocl_svml_b3_sincosregf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_sincosregf16_linkage   = ( result(((zmm0)(zmm1))) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosregf16_linkage ( __ocl_svml_b3_sincosregf16 )
+
+    float16_uisa __ocl_svml_b3_tanf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf16_linkage ( __ocl_svml_b3_tanf16 )
+
+    float16_uisa __ocl_svml_b3_sinpif16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinpif16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinpif16_linkage ( __ocl_svml_b3_sinpif16 )
+
+    float16_uisa __ocl_svml_b3_cospif16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cospif16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cospif16_linkage ( __ocl_svml_b3_cospif16 )
+
+    float16_uisa __ocl_svml_b3_tanpif16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanpif16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanpif16_linkage ( __ocl_svml_b3_tanpif16 )
+
+    float16_uisa __ocl_svml_b3_acosf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_acosf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acosf16_linkage ( __ocl_svml_b3_acosf16 )
+
+    float16_uisa __ocl_svml_b3_asinf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinf16_linkage ( __ocl_svml_b3_asinf16 )
+
+    float16_uisa __ocl_svml_b3_atanf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanf16_linkage ( __ocl_svml_b3_atanf16 )
+
+    float16_uisa __ocl_svml_b3_atan2f16 (float16_uisa a, float16_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2f16_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2f16_linkage ( __ocl_svml_b3_atan2f16 )
+
+    float16_uisa __ocl_svml_b3_asinpif16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinpif16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinpif16_linkage ( __ocl_svml_b3_asinpif16 )
+
+    float16_uisa __ocl_svml_b3_acospif16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_acospif16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acospif16_linkage ( __ocl_svml_b3_acospif16 )
+
+    float16_uisa __ocl_svml_b3_atanpif16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanpif16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanpif16_linkage ( __ocl_svml_b3_atanpif16 )
+
+    float16_uisa __ocl_svml_b3_atan2pif16 (float16_uisa a, float16_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2pif16_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2pif16_linkage ( __ocl_svml_b3_atan2pif16 )
+
+    float16_uisa __ocl_svml_b3_sinhf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinhf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinhf16_linkage ( __ocl_svml_b3_sinhf16 )
+
+    float16_uisa __ocl_svml_b3_coshf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_coshf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_coshf16_linkage ( __ocl_svml_b3_coshf16 )
+
+    float16_uisa __ocl_svml_b3_tanhf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanhf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanhf16_linkage ( __ocl_svml_b3_tanhf16 )
+
+    float16_uisa __ocl_svml_b3_asinhf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinhf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinhf16_linkage ( __ocl_svml_b3_asinhf16 )
+
+    float16_uisa __ocl_svml_b3_acoshf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_acoshf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acoshf16_linkage ( __ocl_svml_b3_acoshf16 )
+
+    float16_uisa __ocl_svml_b3_atanhf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanhf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanhf16_linkage ( __ocl_svml_b3_atanhf16 )
+
+    float16_uisa __ocl_svml_b3_erff16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_erff16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erff16_linkage ( __ocl_svml_b3_erff16 )
+
+    float16_uisa __ocl_svml_b3_erfcf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_erfcf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erfcf16_linkage ( __ocl_svml_b3_erfcf16 )
 
     float16_avx __ocl_svml_e9_fmaf16 (float16_avx a, float16_avx b, float16_avx c);
 
@@ -15676,6 +20974,800 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_cvti32tofprtzf16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_cvti32tofprtzf16_linkage ( __ocl_svml_l9_cvti32tofprtzf16 )
 
+    float16_uisa __ocl_svml_b3_fmaf16 (float16_uisa a, float16_uisa b, float16_uisa c);
+    #pragma linkage     __ocl_svml_b3_fmaf16_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1),(zmm2)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmaf16_linkage ( __ocl_svml_b3_fmaf16 )
+
+    float16_uisa __ocl_svml_b3_fabsf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_fabsf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fabsf16_linkage ( __ocl_svml_b3_fabsf16 )
+
+    float16_uisa __ocl_svml_b3_fminf16 (float16_uisa a, float16_uisa b);
+    #pragma linkage     __ocl_svml_b3_fminf16_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fminf16_linkage ( __ocl_svml_b3_fminf16 )
+
+    float16_uisa __ocl_svml_b3_fmaxf16 (float16_uisa a, float16_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmaxf16_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmaxf16_linkage ( __ocl_svml_b3_fmaxf16 )
+
+    float16_uisa __ocl_svml_b3_maxmagf16 (float16_uisa a, float16_uisa b);
+    #pragma linkage     __ocl_svml_b3_maxmagf16_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_maxmagf16_linkage ( __ocl_svml_b3_maxmagf16 )
+
+    float16_uisa __ocl_svml_b3_minmagf16 (float16_uisa a, float16_uisa b);
+    #pragma linkage     __ocl_svml_b3_minmagf16_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_minmagf16_linkage ( __ocl_svml_b3_minmagf16 )
+
+    float16_uisa __ocl_svml_b3_nanf16 (uint16_uisa a);
+    #pragma linkage     __ocl_svml_b3_nanf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nanf16_linkage ( __ocl_svml_b3_nanf16 )
+
+    float16_uisa __ocl_svml_b3_ceilf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_ceilf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ceilf16_linkage ( __ocl_svml_b3_ceilf16 )
+
+    float16_uisa __ocl_svml_b3_floorf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_floorf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_floorf16_linkage ( __ocl_svml_b3_floorf16 )
+
+    float16_uisa __ocl_svml_b3_roundf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_roundf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_roundf16_linkage ( __ocl_svml_b3_roundf16 )
+
+    float16_uisa __ocl_svml_b3_truncf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_truncf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_truncf16_linkage ( __ocl_svml_b3_truncf16 )
+
+    float16_uisa __ocl_svml_b3_rintf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_rintf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rintf16_linkage ( __ocl_svml_b3_rintf16 )
+
+    float16_uisa __ocl_svml_b3_nearbyintf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_nearbyintf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nearbyintf16_linkage ( __ocl_svml_b3_nearbyintf16 )
+
+    float16_uisa __ocl_svml_b3_fmodf16 (float16_uisa a, float16_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmodf16_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmodf16_linkage ( __ocl_svml_b3_fmodf16 )
+
+    float16_uisa __ocl_svml_b3_modff16 (float16_uisa a, float16_uisa* c);
+    #pragma linkage     __ocl_svml_b3_modff16_linkage   = ( result((zmm0)) parameters((zmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_modff16_linkage ( __ocl_svml_b3_modff16 )
+
+    float16_uisa __ocl_svml_b3_remainderf16 (float16_uisa a, float16_uisa b);
+    #pragma linkage     __ocl_svml_b3_remainderf16_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_remainderf16_linkage ( __ocl_svml_b3_remainderf16 )
+
+    float16_uisa __ocl_svml_b3_remquof16 (float16_uisa a, float16_uisa b, int16_uisa* c);
+    #pragma linkage     __ocl_svml_b3_remquof16_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_remquof16_linkage ( __ocl_svml_b3_remquof16 )
+
+    float16_uisa __ocl_svml_b3_copysignf16 (float16_uisa a, float16_uisa b);
+    #pragma linkage     __ocl_svml_b3_copysignf16_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_copysignf16_linkage ( __ocl_svml_b3_copysignf16 )
+
+    float16_uisa __ocl_svml_b3_frexpf16 (float16_uisa a, int16_uisa* c);
+    #pragma linkage     __ocl_svml_b3_frexpf16_linkage   = ( result((zmm0)) parameters((zmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_frexpf16_linkage ( __ocl_svml_b3_frexpf16 )
+
+    float16_uisa __ocl_svml_b3_fdimf16 (float16_uisa a, float16_uisa b);
+    #pragma linkage     __ocl_svml_b3_fdimf16_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fdimf16_linkage ( __ocl_svml_b3_fdimf16 )
+
+    float16_uisa __ocl_svml_b3_logbf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_logbf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logbf16_linkage ( __ocl_svml_b3_logbf16 )
+
+    int16_uisa __ocl_svml_b3_ilogbf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_ilogbf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ilogbf16_linkage ( __ocl_svml_b3_ilogbf16 )
+
+    float16_uisa __ocl_svml_b3_nextafterf16 (float16_uisa a, float16_uisa b);
+    #pragma linkage     __ocl_svml_b3_nextafterf16_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nextafterf16_linkage ( __ocl_svml_b3_nextafterf16 )
+
+    float16_uisa __ocl_svml_b3_ldexpf16 (float16_uisa a, int16_uisa b);
+    #pragma linkage     __ocl_svml_b3_ldexpf16_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ldexpf16_linkage ( __ocl_svml_b3_ldexpf16 )
+
+    float16_uisa __ocl_svml_b3_fractf16 (float16_uisa a, float16_uisa* c);
+    #pragma linkage     __ocl_svml_b3_fractf16_linkage   = ( result((zmm0)) parameters((zmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fractf16_linkage ( __ocl_svml_b3_fractf16 )
+
+    float16_uisa __ocl_svml_b3_tgammaf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_tgammaf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tgammaf16_linkage ( __ocl_svml_b3_tgammaf16 )
+
+    float16_uisa __ocl_svml_b3_lgammaf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_lgammaf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_lgammaf16_linkage ( __ocl_svml_b3_lgammaf16 )
+
+    float16_uisa __ocl_svml_b3_lgammarf16 (float16_uisa a, int16_uisa* c);
+    #pragma linkage     __ocl_svml_b3_lgammarf16_linkage   = ( result((zmm0)) parameters((zmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_lgammarf16_linkage ( __ocl_svml_b3_lgammarf16 )
+
+    ulong16_uisa __ocl_svml_b3_cvtfptou64rtenosatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtenosatf16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtenosatf16_linkage ( __ocl_svml_b3_cvtfptou64rtenosatf16 )
+
+    ulong16_uisa __ocl_svml_b3_cvtfptou64rtesatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtesatf16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtesatf16_linkage ( __ocl_svml_b3_cvtfptou64rtesatf16 )
+
+    ulong16_uisa __ocl_svml_b3_cvtfptou64rtnnosatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtnnosatf16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtnnosatf16_linkage ( __ocl_svml_b3_cvtfptou64rtnnosatf16 )
+
+    ulong16_uisa __ocl_svml_b3_cvtfptou64rtnsatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtnsatf16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtnsatf16_linkage ( __ocl_svml_b3_cvtfptou64rtnsatf16 )
+
+    ulong16_uisa __ocl_svml_b3_cvtfptou64rtpnosatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtpnosatf16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtpnosatf16_linkage ( __ocl_svml_b3_cvtfptou64rtpnosatf16 )
+
+    ulong16_uisa __ocl_svml_b3_cvtfptou64rtpsatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtpsatf16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtpsatf16_linkage ( __ocl_svml_b3_cvtfptou64rtpsatf16 )
+
+    ulong16_uisa __ocl_svml_b3_cvtfptou64rtznosatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtznosatf16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtznosatf16_linkage ( __ocl_svml_b3_cvtfptou64rtznosatf16 )
+
+    ulong16_uisa __ocl_svml_b3_cvtfptou64rtzsatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtzsatf16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtzsatf16_linkage ( __ocl_svml_b3_cvtfptou64rtzsatf16 )
+
+    long16_uisa __ocl_svml_b3_cvtfptoi64rtenosatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtenosatf16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtenosatf16_linkage ( __ocl_svml_b3_cvtfptoi64rtenosatf16 )
+
+    long16_uisa __ocl_svml_b3_cvtfptoi64rtesatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtesatf16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtesatf16_linkage ( __ocl_svml_b3_cvtfptoi64rtesatf16 )
+
+    long16_uisa __ocl_svml_b3_cvtfptoi64rtnnosatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtnnosatf16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtnnosatf16_linkage ( __ocl_svml_b3_cvtfptoi64rtnnosatf16 )
+
+    long16_uisa __ocl_svml_b3_cvtfptoi64rtnsatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtnsatf16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtnsatf16_linkage ( __ocl_svml_b3_cvtfptoi64rtnsatf16 )
+
+    long16_uisa __ocl_svml_b3_cvtfptoi64rtpnosatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtpnosatf16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtpnosatf16_linkage ( __ocl_svml_b3_cvtfptoi64rtpnosatf16 )
+
+    long16_uisa __ocl_svml_b3_cvtfptoi64rtpsatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtpsatf16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtpsatf16_linkage ( __ocl_svml_b3_cvtfptoi64rtpsatf16 )
+
+    long16_uisa __ocl_svml_b3_cvtfptoi64rtznosatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtznosatf16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtznosatf16_linkage ( __ocl_svml_b3_cvtfptoi64rtznosatf16 )
+
+    long16_uisa __ocl_svml_b3_cvtfptoi64rtzsatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtzsatf16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtzsatf16_linkage ( __ocl_svml_b3_cvtfptoi64rtzsatf16 )
+
+    uint16_uisa __ocl_svml_b3_cvtfptou32rtenosatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtenosatf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtenosatf16_linkage ( __ocl_svml_b3_cvtfptou32rtenosatf16 )
+
+    uint16_uisa __ocl_svml_b3_cvtfptou32rtesatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtesatf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtesatf16_linkage ( __ocl_svml_b3_cvtfptou32rtesatf16 )
+
+    uint16_uisa __ocl_svml_b3_cvtfptou32rtnnosatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtnnosatf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtnnosatf16_linkage ( __ocl_svml_b3_cvtfptou32rtnnosatf16 )
+
+    uint16_uisa __ocl_svml_b3_cvtfptou32rtnsatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtnsatf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtnsatf16_linkage ( __ocl_svml_b3_cvtfptou32rtnsatf16 )
+
+    uint16_uisa __ocl_svml_b3_cvtfptou32rtpnosatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtpnosatf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtpnosatf16_linkage ( __ocl_svml_b3_cvtfptou32rtpnosatf16 )
+
+    uint16_uisa __ocl_svml_b3_cvtfptou32rtpsatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtpsatf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtpsatf16_linkage ( __ocl_svml_b3_cvtfptou32rtpsatf16 )
+
+    uint16_uisa __ocl_svml_b3_cvtfptou32rtznosatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtznosatf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtznosatf16_linkage ( __ocl_svml_b3_cvtfptou32rtznosatf16 )
+
+    uint16_uisa __ocl_svml_b3_cvtfptou32rtzsatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtzsatf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtzsatf16_linkage ( __ocl_svml_b3_cvtfptou32rtzsatf16 )
+
+    int16_uisa __ocl_svml_b3_cvtfptoi32rtenosatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtenosatf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtenosatf16_linkage ( __ocl_svml_b3_cvtfptoi32rtenosatf16 )
+
+    int16_uisa __ocl_svml_b3_cvtfptoi32rtesatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtesatf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtesatf16_linkage ( __ocl_svml_b3_cvtfptoi32rtesatf16 )
+
+    int16_uisa __ocl_svml_b3_cvtfptoi32rtnnosatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtnnosatf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtnnosatf16_linkage ( __ocl_svml_b3_cvtfptoi32rtnnosatf16 )
+
+    int16_uisa __ocl_svml_b3_cvtfptoi32rtnsatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtnsatf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtnsatf16_linkage ( __ocl_svml_b3_cvtfptoi32rtnsatf16 )
+
+    int16_uisa __ocl_svml_b3_cvtfptoi32rtpnosatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtpnosatf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtpnosatf16_linkage ( __ocl_svml_b3_cvtfptoi32rtpnosatf16 )
+
+    int16_uisa __ocl_svml_b3_cvtfptoi32rtpsatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtpsatf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtpsatf16_linkage ( __ocl_svml_b3_cvtfptoi32rtpsatf16 )
+
+    int16_uisa __ocl_svml_b3_cvtfptoi32rtznosatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtznosatf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtznosatf16_linkage ( __ocl_svml_b3_cvtfptoi32rtznosatf16 )
+
+    int16_uisa __ocl_svml_b3_cvtfptoi32rtzsatf16 (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtzsatf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtzsatf16_linkage ( __ocl_svml_b3_cvtfptoi32rtzsatf16 )
+
+    float16_uisa __ocl_svml_b3_cvtu64tofprtef16 (ulong16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtef16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtef16_linkage ( __ocl_svml_b3_cvtu64tofprtef16 )
+
+    float16_uisa __ocl_svml_b3_cvtu64tofprtnf16 (ulong16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtnf16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtnf16_linkage ( __ocl_svml_b3_cvtu64tofprtnf16 )
+
+    float16_uisa __ocl_svml_b3_cvtu64tofprtpf16 (ulong16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtpf16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtpf16_linkage ( __ocl_svml_b3_cvtu64tofprtpf16 )
+
+    float16_uisa __ocl_svml_b3_cvtu64tofprtzf16 (ulong16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtzf16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtzf16_linkage ( __ocl_svml_b3_cvtu64tofprtzf16 )
+
+    float16_uisa __ocl_svml_b3_cvti64tofprtef16 (long16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtef16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtef16_linkage ( __ocl_svml_b3_cvti64tofprtef16 )
+
+    float16_uisa __ocl_svml_b3_cvti64tofprtnf16 (long16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtnf16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtnf16_linkage ( __ocl_svml_b3_cvti64tofprtnf16 )
+
+    float16_uisa __ocl_svml_b3_cvti64tofprtpf16 (long16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtpf16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtpf16_linkage ( __ocl_svml_b3_cvti64tofprtpf16 )
+
+    float16_uisa __ocl_svml_b3_cvti64tofprtzf16 (long16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtzf16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtzf16_linkage ( __ocl_svml_b3_cvti64tofprtzf16 )
+
+    float16_uisa __ocl_svml_b3_cvtu32tofprtef16 (uint16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtef16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtef16_linkage ( __ocl_svml_b3_cvtu32tofprtef16 )
+
+    float16_uisa __ocl_svml_b3_cvtu32tofprtnf16 (uint16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtnf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtnf16_linkage ( __ocl_svml_b3_cvtu32tofprtnf16 )
+
+    float16_uisa __ocl_svml_b3_cvtu32tofprtpf16 (uint16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtpf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtpf16_linkage ( __ocl_svml_b3_cvtu32tofprtpf16 )
+
+    float16_uisa __ocl_svml_b3_cvtu32tofprtzf16 (uint16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtzf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtzf16_linkage ( __ocl_svml_b3_cvtu32tofprtzf16 )
+
+    float16_uisa __ocl_svml_b3_cvti32tofprtef16 (int16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtef16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtef16_linkage ( __ocl_svml_b3_cvti32tofprtef16 )
+
+    float16_uisa __ocl_svml_b3_cvti32tofprtnf16 (int16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtnf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtnf16_linkage ( __ocl_svml_b3_cvti32tofprtnf16 )
+
+    float16_uisa __ocl_svml_b3_cvti32tofprtpf16 (int16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtpf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtpf16_linkage ( __ocl_svml_b3_cvti32tofprtpf16 )
+
+    float16_uisa __ocl_svml_b3_cvti32tofprtzf16 (int16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtzf16_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtzf16_linkage ( __ocl_svml_b3_cvti32tofprtzf16 )
+
+    double16_uisa __ocl_svml_b3_inv16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_inv16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_inv16_linkage ( __ocl_svml_b3_inv16 )
+
+    double16_uisa __ocl_svml_b3_div16 (double16_uisa a, double16_uisa b);
+    #pragma linkage     __ocl_svml_b3_div16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_div16_linkage ( __ocl_svml_b3_div16 )
+
+    double16_uisa __ocl_svml_b3_sqrt16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrt16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrt16_linkage ( __ocl_svml_b3_sqrt16 )
+
+    double16_uisa __ocl_svml_b3_rsqrt16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrt16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrt16_linkage ( __ocl_svml_b3_rsqrt16 )
+
+    double16_uisa __ocl_svml_b3_cbrt16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cbrt16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cbrt16_linkage ( __ocl_svml_b3_cbrt16 )
+
+    double16_uisa __ocl_svml_b3_rcbrt16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_rcbrt16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rcbrt16_linkage ( __ocl_svml_b3_rcbrt16 )
+
+    double16_uisa __ocl_svml_b3_hypot16 (double16_uisa a, double16_uisa b);
+    #pragma linkage     __ocl_svml_b3_hypot16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_hypot16_linkage ( __ocl_svml_b3_hypot16 )
+
+    double16_uisa __ocl_svml_b3_pow16 (double16_uisa a, double16_uisa b);
+    #pragma linkage     __ocl_svml_b3_pow16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pow16_linkage ( __ocl_svml_b3_pow16 )
+
+    double16_uisa __ocl_svml_b3_powr16 (double16_uisa a, double16_uisa b);
+    #pragma linkage     __ocl_svml_b3_powr16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powr16_linkage ( __ocl_svml_b3_powr16 )
+
+    double16_uisa __ocl_svml_b3_pown16 (double16_uisa a, int16_uisa b);
+    #pragma linkage     __ocl_svml_b3_pown16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pown16_linkage ( __ocl_svml_b3_pown16 )
+
+    double16_uisa __ocl_svml_b3_rootn16 (double16_uisa a, int16_uisa b);
+    #pragma linkage     __ocl_svml_b3_rootn16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rootn16_linkage ( __ocl_svml_b3_rootn16 )
+
+    double16_uisa __ocl_svml_b3_exp16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp16_linkage ( __ocl_svml_b3_exp16 )
+
+    double16_uisa __ocl_svml_b3_exp216 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp216_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp216_linkage ( __ocl_svml_b3_exp216 )
+
+    double16_uisa __ocl_svml_b3_exp1016 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp1016_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp1016_linkage ( __ocl_svml_b3_exp1016 )
+
+    double16_uisa __ocl_svml_b3_expm116 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_expm116_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expm116_linkage ( __ocl_svml_b3_expm116 )
+
+    double16_uisa __ocl_svml_b3_log16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_log16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log16_linkage ( __ocl_svml_b3_log16 )
+
+    double16_uisa __ocl_svml_b3_log1016 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1016_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1016_linkage ( __ocl_svml_b3_log1016 )
+
+    double16_uisa __ocl_svml_b3_log216 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_log216_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log216_linkage ( __ocl_svml_b3_log216 )
+
+    double16_uisa __ocl_svml_b3_log1p16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1p16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1p16_linkage ( __ocl_svml_b3_log1p16 )
+
+    double16_uisa __ocl_svml_b3_sin16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_sin16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sin16_linkage ( __ocl_svml_b3_sin16 )
+
+    double16_uisa __ocl_svml_b3_cos16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cos16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cos16_linkage ( __ocl_svml_b3_cos16 )
+
+    double16_uisa __ocl_svml_b3_sincos16 (double16_uisa a, double16_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincos16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincos16_linkage ( __ocl_svml_b3_sincos16 )
+
+    double16x2_uisa __ocl_svml_b3_sincosreg16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_sincosreg16_linkage   = ( result(((zmm0 zmm1)(zmm2 zmm3))) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosreg16_linkage ( __ocl_svml_b3_sincosreg16 )
+
+    double16_uisa __ocl_svml_b3_tan16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_tan16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tan16_linkage ( __ocl_svml_b3_tan16 )
+
+    double16_uisa __ocl_svml_b3_sinpi16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinpi16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinpi16_linkage ( __ocl_svml_b3_sinpi16 )
+
+    double16_uisa __ocl_svml_b3_cospi16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cospi16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cospi16_linkage ( __ocl_svml_b3_cospi16 )
+
+    double16_uisa __ocl_svml_b3_tanpi16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanpi16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanpi16_linkage ( __ocl_svml_b3_tanpi16 )
+
+    double16_uisa __ocl_svml_b3_acos16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_acos16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acos16_linkage ( __ocl_svml_b3_acos16 )
+
+    double16_uisa __ocl_svml_b3_asin16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_asin16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asin16_linkage ( __ocl_svml_b3_asin16 )
+
+    double16_uisa __ocl_svml_b3_atan16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_atan16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan16_linkage ( __ocl_svml_b3_atan16 )
+
+    double16_uisa __ocl_svml_b3_atan216 (double16_uisa a, double16_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan216_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan216_linkage ( __ocl_svml_b3_atan216 )
+
+    double16_uisa __ocl_svml_b3_asinpi16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinpi16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinpi16_linkage ( __ocl_svml_b3_asinpi16 )
+
+    double16_uisa __ocl_svml_b3_acospi16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_acospi16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acospi16_linkage ( __ocl_svml_b3_acospi16 )
+
+    double16_uisa __ocl_svml_b3_atanpi16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanpi16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanpi16_linkage ( __ocl_svml_b3_atanpi16 )
+
+    double16_uisa __ocl_svml_b3_atan2pi16 (double16_uisa a, double16_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2pi16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2pi16_linkage ( __ocl_svml_b3_atan2pi16 )
+
+    double16_uisa __ocl_svml_b3_sinh16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinh16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinh16_linkage ( __ocl_svml_b3_sinh16 )
+
+    double16_uisa __ocl_svml_b3_cosh16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosh16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosh16_linkage ( __ocl_svml_b3_cosh16 )
+
+    double16_uisa __ocl_svml_b3_tanh16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanh16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanh16_linkage ( __ocl_svml_b3_tanh16 )
+
+    double16_uisa __ocl_svml_b3_asinh16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinh16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinh16_linkage ( __ocl_svml_b3_asinh16 )
+
+    double16_uisa __ocl_svml_b3_acosh16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_acosh16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acosh16_linkage ( __ocl_svml_b3_acosh16 )
+
+    double16_uisa __ocl_svml_b3_atanh16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanh16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanh16_linkage ( __ocl_svml_b3_atanh16 )
+
+    double16_uisa __ocl_svml_b3_erf16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_erf16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erf16_linkage ( __ocl_svml_b3_erf16 )
+
+    double16_uisa __ocl_svml_b3_erfc16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_erfc16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erfc16_linkage ( __ocl_svml_b3_erfc16 )
+
+    double16_uisa __ocl_svml_b3_fma16 (double16_uisa a, double16_uisa b, double16_uisa c);
+
+    double16_uisa __ocl_svml_b3_fabs16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_fabs16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fabs16_linkage ( __ocl_svml_b3_fabs16 )
+
+    double16_uisa __ocl_svml_b3_fmin16 (double16_uisa a, double16_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmin16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmin16_linkage ( __ocl_svml_b3_fmin16 )
+
+    double16_uisa __ocl_svml_b3_fmax16 (double16_uisa a, double16_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmax16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmax16_linkage ( __ocl_svml_b3_fmax16 )
+
+    double16_uisa __ocl_svml_b3_maxmag16 (double16_uisa a, double16_uisa b);
+    #pragma linkage     __ocl_svml_b3_maxmag16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_maxmag16_linkage ( __ocl_svml_b3_maxmag16 )
+
+    double16_uisa __ocl_svml_b3_minmag16 (double16_uisa a, double16_uisa b);
+    #pragma linkage     __ocl_svml_b3_minmag16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_minmag16_linkage ( __ocl_svml_b3_minmag16 )
+
+    double16_uisa __ocl_svml_b3_nan16 (ulong16_uisa a);
+    #pragma linkage     __ocl_svml_b3_nan16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nan16_linkage ( __ocl_svml_b3_nan16 )
+
+    double16_uisa __ocl_svml_b3_ceil16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_ceil16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ceil16_linkage ( __ocl_svml_b3_ceil16 )
+
+    double16_uisa __ocl_svml_b3_floor16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_floor16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_floor16_linkage ( __ocl_svml_b3_floor16 )
+
+    double16_uisa __ocl_svml_b3_round16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_round16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_round16_linkage ( __ocl_svml_b3_round16 )
+
+    double16_uisa __ocl_svml_b3_trunc16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_trunc16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_trunc16_linkage ( __ocl_svml_b3_trunc16 )
+
+    double16_uisa __ocl_svml_b3_rint16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_rint16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rint16_linkage ( __ocl_svml_b3_rint16 )
+
+    double16_uisa __ocl_svml_b3_nearbyint16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_nearbyint16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nearbyint16_linkage ( __ocl_svml_b3_nearbyint16 )
+
+    double16_uisa __ocl_svml_b3_fmod16 (double16_uisa a, double16_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmod16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmod16_linkage ( __ocl_svml_b3_fmod16 )
+
+    double16_uisa __ocl_svml_b3_modf16 (double16_uisa a, double16_uisa* c);
+    #pragma linkage     __ocl_svml_b3_modf16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_modf16_linkage ( __ocl_svml_b3_modf16 )
+
+    double16_uisa __ocl_svml_b3_remainder16 (double16_uisa a, double16_uisa b);
+    #pragma linkage     __ocl_svml_b3_remainder16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_remainder16_linkage ( __ocl_svml_b3_remainder16 )
+
+    double16_uisa __ocl_svml_b3_remquo16 (double16_uisa a, double16_uisa b, int16_uisa* c);
+    #pragma linkage     __ocl_svml_b3_remquo16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_remquo16_linkage ( __ocl_svml_b3_remquo16 )
+
+    double16_uisa __ocl_svml_b3_copysign16 (double16_uisa a, double16_uisa b);
+    #pragma linkage     __ocl_svml_b3_copysign16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_copysign16_linkage ( __ocl_svml_b3_copysign16 )
+
+    double16_uisa __ocl_svml_b3_frexp16 (double16_uisa a, int16_uisa* c);
+    #pragma linkage     __ocl_svml_b3_frexp16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_frexp16_linkage ( __ocl_svml_b3_frexp16 )
+
+    double16_uisa __ocl_svml_b3_fdim16 (double16_uisa a, double16_uisa b);
+    #pragma linkage     __ocl_svml_b3_fdim16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fdim16_linkage ( __ocl_svml_b3_fdim16 )
+
+    double16_uisa __ocl_svml_b3_logb16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_logb16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logb16_linkage ( __ocl_svml_b3_logb16 )
+
+    int16_uisa __ocl_svml_b3_ilogb16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_ilogb16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ilogb16_linkage ( __ocl_svml_b3_ilogb16 )
+
+    double16_uisa __ocl_svml_b3_nextafter16 (double16_uisa a, double16_uisa b);
+    #pragma linkage     __ocl_svml_b3_nextafter16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nextafter16_linkage ( __ocl_svml_b3_nextafter16 )
+
+    double16_uisa __ocl_svml_b3_ldexp16 (double16_uisa a, int16_uisa b);
+    #pragma linkage     __ocl_svml_b3_ldexp16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ldexp16_linkage ( __ocl_svml_b3_ldexp16 )
+
+    double16_uisa __ocl_svml_b3_fract16 (double16_uisa a, double16_uisa* c);
+    #pragma linkage     __ocl_svml_b3_fract16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fract16_linkage ( __ocl_svml_b3_fract16 )
+
+    double16_uisa __ocl_svml_b3_tgamma16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_tgamma16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tgamma16_linkage ( __ocl_svml_b3_tgamma16 )
+
+    double16_uisa __ocl_svml_b3_lgamma16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_lgamma16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_lgamma16_linkage ( __ocl_svml_b3_lgamma16 )
+
+    double16_uisa __ocl_svml_b3_lgammar16 (double16_uisa a, int16_uisa* c);
+    #pragma linkage     __ocl_svml_b3_lgammar16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_lgammar16_linkage ( __ocl_svml_b3_lgammar16 )
+
+    ulong16_uisa __ocl_svml_b3_cvtfptou64rtenosat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtenosat16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtenosat16_linkage ( __ocl_svml_b3_cvtfptou64rtenosat16 )
+
+    ulong16_uisa __ocl_svml_b3_cvtfptou64rtesat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtesat16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtesat16_linkage ( __ocl_svml_b3_cvtfptou64rtesat16 )
+
+    ulong16_uisa __ocl_svml_b3_cvtfptou64rtnnosat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtnnosat16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtnnosat16_linkage ( __ocl_svml_b3_cvtfptou64rtnnosat16 )
+
+    ulong16_uisa __ocl_svml_b3_cvtfptou64rtnsat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtnsat16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtnsat16_linkage ( __ocl_svml_b3_cvtfptou64rtnsat16 )
+
+    ulong16_uisa __ocl_svml_b3_cvtfptou64rtpnosat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtpnosat16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtpnosat16_linkage ( __ocl_svml_b3_cvtfptou64rtpnosat16 )
+
+    ulong16_uisa __ocl_svml_b3_cvtfptou64rtpsat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtpsat16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtpsat16_linkage ( __ocl_svml_b3_cvtfptou64rtpsat16 )
+
+    ulong16_uisa __ocl_svml_b3_cvtfptou64rtznosat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtznosat16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtznosat16_linkage ( __ocl_svml_b3_cvtfptou64rtznosat16 )
+
+    ulong16_uisa __ocl_svml_b3_cvtfptou64rtzsat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou64rtzsat16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou64rtzsat16_linkage ( __ocl_svml_b3_cvtfptou64rtzsat16 )
+
+    long16_uisa __ocl_svml_b3_cvtfptoi64rtenosat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtenosat16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtenosat16_linkage ( __ocl_svml_b3_cvtfptoi64rtenosat16 )
+
+    long16_uisa __ocl_svml_b3_cvtfptoi64rtesat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtesat16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtesat16_linkage ( __ocl_svml_b3_cvtfptoi64rtesat16 )
+
+    long16_uisa __ocl_svml_b3_cvtfptoi64rtnnosat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtnnosat16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtnnosat16_linkage ( __ocl_svml_b3_cvtfptoi64rtnnosat16 )
+
+    long16_uisa __ocl_svml_b3_cvtfptoi64rtnsat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtnsat16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtnsat16_linkage ( __ocl_svml_b3_cvtfptoi64rtnsat16 )
+
+    long16_uisa __ocl_svml_b3_cvtfptoi64rtpnosat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtpnosat16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtpnosat16_linkage ( __ocl_svml_b3_cvtfptoi64rtpnosat16 )
+
+    long16_uisa __ocl_svml_b3_cvtfptoi64rtpsat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtpsat16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtpsat16_linkage ( __ocl_svml_b3_cvtfptoi64rtpsat16 )
+
+    long16_uisa __ocl_svml_b3_cvtfptoi64rtznosat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtznosat16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtznosat16_linkage ( __ocl_svml_b3_cvtfptoi64rtznosat16 )
+
+    long16_uisa __ocl_svml_b3_cvtfptoi64rtzsat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi64rtzsat16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi64rtzsat16_linkage ( __ocl_svml_b3_cvtfptoi64rtzsat16 )
+
+    uint16_uisa __ocl_svml_b3_cvtfptou32rtenosat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtenosat16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtenosat16_linkage ( __ocl_svml_b3_cvtfptou32rtenosat16 )
+
+    uint16_uisa __ocl_svml_b3_cvtfptou32rtesat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtesat16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtesat16_linkage ( __ocl_svml_b3_cvtfptou32rtesat16 )
+
+    uint16_uisa __ocl_svml_b3_cvtfptou32rtnnosat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtnnosat16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtnnosat16_linkage ( __ocl_svml_b3_cvtfptou32rtnnosat16 )
+
+    uint16_uisa __ocl_svml_b3_cvtfptou32rtnsat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtnsat16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtnsat16_linkage ( __ocl_svml_b3_cvtfptou32rtnsat16 )
+
+    uint16_uisa __ocl_svml_b3_cvtfptou32rtpnosat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtpnosat16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtpnosat16_linkage ( __ocl_svml_b3_cvtfptou32rtpnosat16 )
+
+    uint16_uisa __ocl_svml_b3_cvtfptou32rtpsat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtpsat16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtpsat16_linkage ( __ocl_svml_b3_cvtfptou32rtpsat16 )
+
+    uint16_uisa __ocl_svml_b3_cvtfptou32rtznosat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtznosat16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtznosat16_linkage ( __ocl_svml_b3_cvtfptou32rtznosat16 )
+
+    uint16_uisa __ocl_svml_b3_cvtfptou32rtzsat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtzsat16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtzsat16_linkage ( __ocl_svml_b3_cvtfptou32rtzsat16 )
+
+    int16_uisa __ocl_svml_b3_cvtfptoi32rtenosat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtenosat16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtenosat16_linkage ( __ocl_svml_b3_cvtfptoi32rtenosat16 )
+
+    int16_uisa __ocl_svml_b3_cvtfptoi32rtesat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtesat16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtesat16_linkage ( __ocl_svml_b3_cvtfptoi32rtesat16 )
+
+    int16_uisa __ocl_svml_b3_cvtfptoi32rtnnosat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtnnosat16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtnnosat16_linkage ( __ocl_svml_b3_cvtfptoi32rtnnosat16 )
+
+    int16_uisa __ocl_svml_b3_cvtfptoi32rtnsat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtnsat16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtnsat16_linkage ( __ocl_svml_b3_cvtfptoi32rtnsat16 )
+
+    int16_uisa __ocl_svml_b3_cvtfptoi32rtpnosat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtpnosat16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtpnosat16_linkage ( __ocl_svml_b3_cvtfptoi32rtpnosat16 )
+
+    int16_uisa __ocl_svml_b3_cvtfptoi32rtpsat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtpsat16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtpsat16_linkage ( __ocl_svml_b3_cvtfptoi32rtpsat16 )
+
+    int16_uisa __ocl_svml_b3_cvtfptoi32rtznosat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtznosat16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtznosat16_linkage ( __ocl_svml_b3_cvtfptoi32rtznosat16 )
+
+    int16_uisa __ocl_svml_b3_cvtfptoi32rtzsat16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtzsat16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtzsat16_linkage ( __ocl_svml_b3_cvtfptoi32rtzsat16 )
+
+    double16_uisa __ocl_svml_b3_cvtu64tofprte16 (ulong16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprte16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprte16_linkage ( __ocl_svml_b3_cvtu64tofprte16 )
+
+    double16_uisa __ocl_svml_b3_cvtu64tofprtn16 (ulong16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtn16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtn16_linkage ( __ocl_svml_b3_cvtu64tofprtn16 )
+
+    double16_uisa __ocl_svml_b3_cvtu64tofprtp16 (ulong16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtp16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtp16_linkage ( __ocl_svml_b3_cvtu64tofprtp16 )
+
+    double16_uisa __ocl_svml_b3_cvtu64tofprtz16 (ulong16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu64tofprtz16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu64tofprtz16_linkage ( __ocl_svml_b3_cvtu64tofprtz16 )
+
+    double16_uisa __ocl_svml_b3_cvti64tofprte16 (long16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprte16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprte16_linkage ( __ocl_svml_b3_cvti64tofprte16 )
+
+    double16_uisa __ocl_svml_b3_cvti64tofprtn16 (long16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtn16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtn16_linkage ( __ocl_svml_b3_cvti64tofprtn16 )
+
+    double16_uisa __ocl_svml_b3_cvti64tofprtp16 (long16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtp16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtp16_linkage ( __ocl_svml_b3_cvti64tofprtp16 )
+
+    double16_uisa __ocl_svml_b3_cvti64tofprtz16 (long16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti64tofprtz16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti64tofprtz16_linkage ( __ocl_svml_b3_cvti64tofprtz16 )
+
+    double16_uisa __ocl_svml_b3_cvtu32tofprte16 (uint16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprte16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprte16_linkage ( __ocl_svml_b3_cvtu32tofprte16 )
+
+    double16_uisa __ocl_svml_b3_cvtu32tofprtn16 (uint16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtn16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtn16_linkage ( __ocl_svml_b3_cvtu32tofprtn16 )
+
+    double16_uisa __ocl_svml_b3_cvtu32tofprtp16 (uint16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtp16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtp16_linkage ( __ocl_svml_b3_cvtu32tofprtp16 )
+
+    double16_uisa __ocl_svml_b3_cvtu32tofprtz16 (uint16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtz16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtz16_linkage ( __ocl_svml_b3_cvtu32tofprtz16 )
+
+    double16_uisa __ocl_svml_b3_cvti32tofprte16 (int16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprte16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprte16_linkage ( __ocl_svml_b3_cvti32tofprte16 )
+
+    double16_uisa __ocl_svml_b3_cvti32tofprtn16 (int16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtn16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtn16_linkage ( __ocl_svml_b3_cvti32tofprtn16 )
+
+    double16_uisa __ocl_svml_b3_cvti32tofprtp16 (int16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtp16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtp16_linkage ( __ocl_svml_b3_cvti32tofprtp16 )
+
+    double16_uisa __ocl_svml_b3_cvti32tofprtz16 (int16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtz16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtz16_linkage ( __ocl_svml_b3_cvti32tofprtz16 )
+
+    float16_uisa __ocl_svml_b3_cvtfp64tofp32rte16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfp64tofp32rte16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfp64tofp32rte16_linkage ( __ocl_svml_b3_cvtfp64tofp32rte16 )
+
+    float16_uisa __ocl_svml_b3_cvtfp64tofp32rtn16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfp64tofp32rtn16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfp64tofp32rtn16_linkage ( __ocl_svml_b3_cvtfp64tofp32rtn16 )
+
+    float16_uisa __ocl_svml_b3_cvtfp64tofp32rtp16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfp64tofp32rtp16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfp64tofp32rtp16_linkage ( __ocl_svml_b3_cvtfp64tofp32rtp16 )
+
+    float16_uisa __ocl_svml_b3_cvtfp64tofp32rtz16 (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfp64tofp32rtz16_linkage   = ( result((zmm0)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfp64tofp32rtz16_linkage ( __ocl_svml_b3_cvtfp64tofp32rtz16 )
+
     int16_avx __ocl_svml_e9_idiv16 (int16_avx a, int16_avx b);
     #pragma linkage     __ocl_svml_e9_idiv16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),(ymm2 ymm3)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_e9_idiv16_linkage ( __ocl_svml_e9_idiv16 )
@@ -15700,6 +21792,18 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_idivrem16_linkage   = ( result(((ymm0 ymm1)(ymm2 ymm3))) parameters((ymm0 ymm1),(ymm2 ymm3)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_idivrem16_linkage ( __ocl_svml_l9_idivrem16 )
 
+    int16_uisa __ocl_svml_b3_idiv16 (int16_uisa a, int16_uisa b);
+    #pragma linkage     __ocl_svml_b3_idiv16_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_idiv16_linkage ( __ocl_svml_b3_idiv16 )
+
+    int16_uisa __ocl_svml_b3_irem16 (int16_uisa a, int16_uisa b);
+    #pragma linkage     __ocl_svml_b3_irem16_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_irem16_linkage ( __ocl_svml_b3_irem16 )
+
+    int16x2_uisa __ocl_svml_b3_idivrem16 (int16_uisa a, int16_uisa b);
+    #pragma linkage     __ocl_svml_b3_idivrem16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_idivrem16_linkage ( __ocl_svml_b3_idivrem16 )
+
     int16_avx __ocl_svml_e9_udiv16 (int16_avx a, int16_avx b);
     #pragma linkage     __ocl_svml_e9_udiv16_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),(ymm2 ymm3)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_e9_udiv16_linkage ( __ocl_svml_e9_udiv16 )
@@ -15723,6 +21827,398 @@ extern "C" {
     int16x2_avx __ocl_svml_l9_udivrem16 (int16_avx a, int16_avx b);
     #pragma linkage     __ocl_svml_l9_udivrem16_linkage   = ( result(((ymm0 ymm1)(ymm2 ymm3))) parameters((ymm0 ymm1),(ymm2 ymm3)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_udivrem16_linkage ( __ocl_svml_l9_udivrem16 )
+
+    int16_uisa __ocl_svml_b3_udiv16 (int16_uisa a, int16_uisa b);
+    #pragma linkage     __ocl_svml_b3_udiv16_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_udiv16_linkage ( __ocl_svml_b3_udiv16 )
+
+    int16_uisa __ocl_svml_b3_urem16 (int16_uisa a, int16_uisa b);
+    #pragma linkage     __ocl_svml_b3_urem16_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_urem16_linkage ( __ocl_svml_b3_urem16 )
+
+    int16x2_uisa __ocl_svml_b3_udivrem16 (int16_uisa a, int16_uisa b);
+    #pragma linkage     __ocl_svml_b3_udivrem16_linkage   = ( result((zmm0 zmm1)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_udivrem16_linkage ( __ocl_svml_b3_udivrem16 )
+
+    float32_uisa __ocl_svml_b3_invf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf32_linkage ( __ocl_svml_b3_invf32 )
+
+    float32_uisa __ocl_svml_b3_divf32 (float32_uisa a, float32_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf32_linkage ( __ocl_svml_b3_divf32 )
+
+    float32_uisa __ocl_svml_b3_sqrtf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrtf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrtf32_linkage ( __ocl_svml_b3_sqrtf32 )
+
+    float32_uisa __ocl_svml_b3_rsqrtf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrtf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrtf32_linkage ( __ocl_svml_b3_rsqrtf32 )
+
+    float32_uisa __ocl_svml_b3_cbrtf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cbrtf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cbrtf32_linkage ( __ocl_svml_b3_cbrtf32 )
+
+    float32_uisa __ocl_svml_b3_rcbrtf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_rcbrtf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rcbrtf32_linkage ( __ocl_svml_b3_rcbrtf32 )
+
+    float32_uisa __ocl_svml_b3_hypotf32 (float32_uisa a, float32_uisa b);
+    #pragma linkage     __ocl_svml_b3_hypotf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_hypotf32_linkage ( __ocl_svml_b3_hypotf32 )
+
+    float32_uisa __ocl_svml_b3_powf32 (float32_uisa a, float32_uisa b);
+    #pragma linkage     __ocl_svml_b3_powf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powf32_linkage ( __ocl_svml_b3_powf32 )
+
+    float32_uisa __ocl_svml_b3_powrf32 (float32_uisa a, float32_uisa b);
+    #pragma linkage     __ocl_svml_b3_powrf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powrf32_linkage ( __ocl_svml_b3_powrf32 )
+
+    float32_uisa __ocl_svml_b3_pownf32 (float32_uisa a, int32_uisa b);
+    #pragma linkage     __ocl_svml_b3_pownf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pownf32_linkage ( __ocl_svml_b3_pownf32 )
+
+    float32_uisa __ocl_svml_b3_rootnf32 (float32_uisa a, int32_uisa b);
+    #pragma linkage     __ocl_svml_b3_rootnf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rootnf32_linkage ( __ocl_svml_b3_rootnf32 )
+
+    float32_uisa __ocl_svml_b3_expf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf32_linkage ( __ocl_svml_b3_expf32 )
+
+    float32_uisa __ocl_svml_b3_exp2f32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f32_linkage ( __ocl_svml_b3_exp2f32 )
+
+    float32_uisa __ocl_svml_b3_exp10f32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f32_linkage ( __ocl_svml_b3_exp10f32 )
+
+    float32_uisa __ocl_svml_b3_expm1f32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_expm1f32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expm1f32_linkage ( __ocl_svml_b3_expm1f32 )
+
+    float32_uisa __ocl_svml_b3_logf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf32_linkage ( __ocl_svml_b3_logf32 )
+
+    float32_uisa __ocl_svml_b3_log10f32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_log10f32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log10f32_linkage ( __ocl_svml_b3_log10f32 )
+
+    float32_uisa __ocl_svml_b3_log2f32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f32_linkage ( __ocl_svml_b3_log2f32 )
+
+    float32_uisa __ocl_svml_b3_log1pf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1pf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1pf32_linkage ( __ocl_svml_b3_log1pf32 )
+
+    float32_uisa __ocl_svml_b3_sinf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf32_linkage ( __ocl_svml_b3_sinf32 )
+
+    float32_uisa __ocl_svml_b3_cosf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf32_linkage ( __ocl_svml_b3_cosf32 )
+
+    float32_uisa __ocl_svml_b3_sincosf32 (float32_uisa a, float32_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincosf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosf32_linkage ( __ocl_svml_b3_sincosf32 )
+
+    float32x2_uisa __ocl_svml_b3_sincosregf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_sincosregf32_linkage   = ( result(((zmm0 zmm1)(zmm2 zmm3))) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosregf32_linkage ( __ocl_svml_b3_sincosregf32 )
+
+    float32_uisa __ocl_svml_b3_tanf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf32_linkage ( __ocl_svml_b3_tanf32 )
+
+    float32_uisa __ocl_svml_b3_sinpif32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinpif32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinpif32_linkage ( __ocl_svml_b3_sinpif32 )
+
+    float32_uisa __ocl_svml_b3_cospif32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cospif32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cospif32_linkage ( __ocl_svml_b3_cospif32 )
+
+    float32_uisa __ocl_svml_b3_tanpif32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanpif32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanpif32_linkage ( __ocl_svml_b3_tanpif32 )
+
+    float32_uisa __ocl_svml_b3_acosf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_acosf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acosf32_linkage ( __ocl_svml_b3_acosf32 )
+
+    float32_uisa __ocl_svml_b3_asinf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinf32_linkage ( __ocl_svml_b3_asinf32 )
+
+    float32_uisa __ocl_svml_b3_atanf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanf32_linkage ( __ocl_svml_b3_atanf32 )
+
+    float32_uisa __ocl_svml_b3_atan2f32 (float32_uisa a, float32_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2f32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2f32_linkage ( __ocl_svml_b3_atan2f32 )
+
+    float32_uisa __ocl_svml_b3_asinpif32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinpif32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinpif32_linkage ( __ocl_svml_b3_asinpif32 )
+
+    float32_uisa __ocl_svml_b3_acospif32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_acospif32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acospif32_linkage ( __ocl_svml_b3_acospif32 )
+
+    float32_uisa __ocl_svml_b3_atanpif32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanpif32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanpif32_linkage ( __ocl_svml_b3_atanpif32 )
+
+    float32_uisa __ocl_svml_b3_atan2pif32 (float32_uisa a, float32_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2pif32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2pif32_linkage ( __ocl_svml_b3_atan2pif32 )
+
+    float32_uisa __ocl_svml_b3_sinhf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinhf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinhf32_linkage ( __ocl_svml_b3_sinhf32 )
+
+    float32_uisa __ocl_svml_b3_coshf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_coshf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_coshf32_linkage ( __ocl_svml_b3_coshf32 )
+
+    float32_uisa __ocl_svml_b3_tanhf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanhf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanhf32_linkage ( __ocl_svml_b3_tanhf32 )
+
+    float32_uisa __ocl_svml_b3_asinhf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinhf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinhf32_linkage ( __ocl_svml_b3_asinhf32 )
+
+    float32_uisa __ocl_svml_b3_acoshf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_acoshf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acoshf32_linkage ( __ocl_svml_b3_acoshf32 )
+
+    float32_uisa __ocl_svml_b3_atanhf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanhf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanhf32_linkage ( __ocl_svml_b3_atanhf32 )
+
+    float32_uisa __ocl_svml_b3_erff32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_erff32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erff32_linkage ( __ocl_svml_b3_erff32 )
+
+    float32_uisa __ocl_svml_b3_erfcf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_erfcf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erfcf32_linkage ( __ocl_svml_b3_erfcf32 )
+
+    float32_uisa __ocl_svml_b3_fmaf32 (float32_uisa a, float32_uisa b, float32_uisa c);
+    #pragma linkage     __ocl_svml_b3_fmaf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3),(zmm4 zmm5)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmaf32_linkage ( __ocl_svml_b3_fmaf32 )
+
+    float32_uisa __ocl_svml_b3_fabsf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_fabsf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fabsf32_linkage ( __ocl_svml_b3_fabsf32 )
+
+    float32_uisa __ocl_svml_b3_fminf32 (float32_uisa a, float32_uisa b);
+    #pragma linkage     __ocl_svml_b3_fminf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fminf32_linkage ( __ocl_svml_b3_fminf32 )
+
+    float32_uisa __ocl_svml_b3_fmaxf32 (float32_uisa a, float32_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmaxf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmaxf32_linkage ( __ocl_svml_b3_fmaxf32 )
+
+    float32_uisa __ocl_svml_b3_maxmagf32 (float32_uisa a, float32_uisa b);
+    #pragma linkage     __ocl_svml_b3_maxmagf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_maxmagf32_linkage ( __ocl_svml_b3_maxmagf32 )
+
+    float32_uisa __ocl_svml_b3_minmagf32 (float32_uisa a, float32_uisa b);
+    #pragma linkage     __ocl_svml_b3_minmagf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_minmagf32_linkage ( __ocl_svml_b3_minmagf32 )
+
+    float32_uisa __ocl_svml_b3_nanf32 (uint32_uisa a);
+    #pragma linkage     __ocl_svml_b3_nanf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nanf32_linkage ( __ocl_svml_b3_nanf32 )
+
+    float32_uisa __ocl_svml_b3_ceilf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_ceilf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ceilf32_linkage ( __ocl_svml_b3_ceilf32 )
+
+    float32_uisa __ocl_svml_b3_floorf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_floorf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_floorf32_linkage ( __ocl_svml_b3_floorf32 )
+
+    float32_uisa __ocl_svml_b3_roundf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_roundf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_roundf32_linkage ( __ocl_svml_b3_roundf32 )
+
+    float32_uisa __ocl_svml_b3_truncf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_truncf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_truncf32_linkage ( __ocl_svml_b3_truncf32 )
+
+    float32_uisa __ocl_svml_b3_rintf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_rintf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rintf32_linkage ( __ocl_svml_b3_rintf32 )
+
+    float32_uisa __ocl_svml_b3_nearbyintf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_nearbyintf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nearbyintf32_linkage ( __ocl_svml_b3_nearbyintf32 )
+
+    float32_uisa __ocl_svml_b3_fmodf32 (float32_uisa a, float32_uisa b);
+    #pragma linkage     __ocl_svml_b3_fmodf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmodf32_linkage ( __ocl_svml_b3_fmodf32 )
+
+    float32_uisa __ocl_svml_b3_modff32 (float32_uisa a, float32_uisa* c);
+    #pragma linkage     __ocl_svml_b3_modff32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_modff32_linkage ( __ocl_svml_b3_modff32 )
+
+    float32_uisa __ocl_svml_b3_remainderf32 (float32_uisa a, float32_uisa b);
+    #pragma linkage     __ocl_svml_b3_remainderf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_remainderf32_linkage ( __ocl_svml_b3_remainderf32 )
+
+    float32_uisa __ocl_svml_b3_remquof32 (float32_uisa a, float32_uisa b, int32_uisa* c);
+    #pragma linkage     __ocl_svml_b3_remquof32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_remquof32_linkage ( __ocl_svml_b3_remquof32 )
+
+    float32_uisa __ocl_svml_b3_copysignf32 (float32_uisa a, float32_uisa b);
+    #pragma linkage     __ocl_svml_b3_copysignf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_copysignf32_linkage ( __ocl_svml_b3_copysignf32 )
+
+    float32_uisa __ocl_svml_b3_frexpf32 (float32_uisa a, int32_uisa* c);
+    #pragma linkage     __ocl_svml_b3_frexpf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_frexpf32_linkage ( __ocl_svml_b3_frexpf32 )
+
+    float32_uisa __ocl_svml_b3_fdimf32 (float32_uisa a, float32_uisa b);
+    #pragma linkage     __ocl_svml_b3_fdimf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fdimf32_linkage ( __ocl_svml_b3_fdimf32 )
+
+    float32_uisa __ocl_svml_b3_logbf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_logbf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logbf32_linkage ( __ocl_svml_b3_logbf32 )
+
+    int32_uisa __ocl_svml_b3_ilogbf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_ilogbf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ilogbf32_linkage ( __ocl_svml_b3_ilogbf32 )
+
+    float32_uisa __ocl_svml_b3_nextafterf32 (float32_uisa a, float32_uisa b);
+    #pragma linkage     __ocl_svml_b3_nextafterf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_nextafterf32_linkage ( __ocl_svml_b3_nextafterf32 )
+
+    float32_uisa __ocl_svml_b3_ldexpf32 (float32_uisa a, int32_uisa b);
+    #pragma linkage     __ocl_svml_b3_ldexpf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_ldexpf32_linkage ( __ocl_svml_b3_ldexpf32 )
+
+    float32_uisa __ocl_svml_b3_fractf32 (float32_uisa a, float32_uisa* c);
+    #pragma linkage     __ocl_svml_b3_fractf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fractf32_linkage ( __ocl_svml_b3_fractf32 )
+
+    float32_uisa __ocl_svml_b3_tgammaf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_tgammaf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tgammaf32_linkage ( __ocl_svml_b3_tgammaf32 )
+
+    float32_uisa __ocl_svml_b3_lgammaf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_lgammaf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_lgammaf32_linkage ( __ocl_svml_b3_lgammaf32 )
+
+    float32_uisa __ocl_svml_b3_lgammarf32 (float32_uisa a, int32_uisa* c);
+    #pragma linkage     __ocl_svml_b3_lgammarf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_lgammarf32_linkage ( __ocl_svml_b3_lgammarf32 )
+
+    uint32_uisa __ocl_svml_b3_cvtfptou32rtenosatf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtenosatf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtenosatf32_linkage ( __ocl_svml_b3_cvtfptou32rtenosatf32 )
+
+    uint32_uisa __ocl_svml_b3_cvtfptou32rtesatf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtesatf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtesatf32_linkage ( __ocl_svml_b3_cvtfptou32rtesatf32 )
+
+    uint32_uisa __ocl_svml_b3_cvtfptou32rtnnosatf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtnnosatf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtnnosatf32_linkage ( __ocl_svml_b3_cvtfptou32rtnnosatf32 )
+
+    uint32_uisa __ocl_svml_b3_cvtfptou32rtnsatf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtnsatf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtnsatf32_linkage ( __ocl_svml_b3_cvtfptou32rtnsatf32 )
+
+    uint32_uisa __ocl_svml_b3_cvtfptou32rtpnosatf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtpnosatf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtpnosatf32_linkage ( __ocl_svml_b3_cvtfptou32rtpnosatf32 )
+
+    uint32_uisa __ocl_svml_b3_cvtfptou32rtpsatf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtpsatf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtpsatf32_linkage ( __ocl_svml_b3_cvtfptou32rtpsatf32 )
+
+    uint32_uisa __ocl_svml_b3_cvtfptou32rtznosatf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtznosatf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtznosatf32_linkage ( __ocl_svml_b3_cvtfptou32rtznosatf32 )
+
+    uint32_uisa __ocl_svml_b3_cvtfptou32rtzsatf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptou32rtzsatf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptou32rtzsatf32_linkage ( __ocl_svml_b3_cvtfptou32rtzsatf32 )
+
+    int32_uisa __ocl_svml_b3_cvtfptoi32rtenosatf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtenosatf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtenosatf32_linkage ( __ocl_svml_b3_cvtfptoi32rtenosatf32 )
+
+    int32_uisa __ocl_svml_b3_cvtfptoi32rtesatf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtesatf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtesatf32_linkage ( __ocl_svml_b3_cvtfptoi32rtesatf32 )
+
+    int32_uisa __ocl_svml_b3_cvtfptoi32rtnnosatf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtnnosatf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtnnosatf32_linkage ( __ocl_svml_b3_cvtfptoi32rtnnosatf32 )
+
+    int32_uisa __ocl_svml_b3_cvtfptoi32rtnsatf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtnsatf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtnsatf32_linkage ( __ocl_svml_b3_cvtfptoi32rtnsatf32 )
+
+    int32_uisa __ocl_svml_b3_cvtfptoi32rtpnosatf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtpnosatf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtpnosatf32_linkage ( __ocl_svml_b3_cvtfptoi32rtpnosatf32 )
+
+    int32_uisa __ocl_svml_b3_cvtfptoi32rtpsatf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtpsatf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtpsatf32_linkage ( __ocl_svml_b3_cvtfptoi32rtpsatf32 )
+
+    int32_uisa __ocl_svml_b3_cvtfptoi32rtznosatf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtznosatf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtznosatf32_linkage ( __ocl_svml_b3_cvtfptoi32rtznosatf32 )
+
+    int32_uisa __ocl_svml_b3_cvtfptoi32rtzsatf32 (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtfptoi32rtzsatf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtfptoi32rtzsatf32_linkage ( __ocl_svml_b3_cvtfptoi32rtzsatf32 )
+
+    float32_uisa __ocl_svml_b3_cvtu32tofprtef32 (uint32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtef32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtef32_linkage ( __ocl_svml_b3_cvtu32tofprtef32 )
+
+    float32_uisa __ocl_svml_b3_cvtu32tofprtnf32 (uint32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtnf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtnf32_linkage ( __ocl_svml_b3_cvtu32tofprtnf32 )
+
+    float32_uisa __ocl_svml_b3_cvtu32tofprtpf32 (uint32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtpf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtpf32_linkage ( __ocl_svml_b3_cvtu32tofprtpf32 )
+
+    float32_uisa __ocl_svml_b3_cvtu32tofprtzf32 (uint32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvtu32tofprtzf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvtu32tofprtzf32_linkage ( __ocl_svml_b3_cvtu32tofprtzf32 )
+
+    float32_uisa __ocl_svml_b3_cvti32tofprtef32 (int32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtef32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtef32_linkage ( __ocl_svml_b3_cvti32tofprtef32 )
+
+    float32_uisa __ocl_svml_b3_cvti32tofprtnf32 (int32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtnf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtnf32_linkage ( __ocl_svml_b3_cvti32tofprtnf32 )
+
+    float32_uisa __ocl_svml_b3_cvti32tofprtpf32 (int32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtpf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtpf32_linkage ( __ocl_svml_b3_cvti32tofprtpf32 )
+
+    float32_uisa __ocl_svml_b3_cvti32tofprtzf32 (int32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cvti32tofprtzf32_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cvti32tofprtzf32_linkage ( __ocl_svml_b3_cvti32tofprtzf32 )
 
     float1_sse __ocl_svml_h8_cosf1_half (float1_sse a);
     #pragma linkage     __ocl_svml_h8_cosf1_half_linkage   = ( result(xmm0) parameters(xmm0) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
@@ -15892,6 +22388,62 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_tanf1_half_linkage   = ( result(xmm0) parameters(xmm0) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_tanf1_half_linkage ( __ocl_svml_l9_tanf1_half )
 
+    float1_uisa __ocl_svml_b3_cosf1_half (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf1_half_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf1_half_linkage ( __ocl_svml_b3_cosf1_half )
+
+    float1_uisa __ocl_svml_b3_divf1_half (float1_uisa a, float1_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf1_half_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf1_half_linkage ( __ocl_svml_b3_divf1_half )
+
+    float1_uisa __ocl_svml_b3_expf1_half (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf1_half_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf1_half_linkage ( __ocl_svml_b3_expf1_half )
+
+    float1_uisa __ocl_svml_b3_exp2f1_half (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f1_half_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f1_half_linkage ( __ocl_svml_b3_exp2f1_half )
+
+    float1_uisa __ocl_svml_b3_exp10f1_half (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f1_half_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f1_half_linkage ( __ocl_svml_b3_exp10f1_half )
+
+    float1_uisa __ocl_svml_b3_logf1_half (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf1_half_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf1_half_linkage ( __ocl_svml_b3_logf1_half )
+
+    float1_uisa __ocl_svml_b3_log2f1_half (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f1_half_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f1_half_linkage ( __ocl_svml_b3_log2f1_half )
+
+    float1_uisa __ocl_svml_b3_log10f1_half (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_log10f1_half_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log10f1_half_linkage ( __ocl_svml_b3_log10f1_half )
+
+    float1_uisa __ocl_svml_b3_powrf1_half (float1_uisa a, float1_uisa b);
+    #pragma linkage     __ocl_svml_b3_powrf1_half_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powrf1_half_linkage ( __ocl_svml_b3_powrf1_half )
+
+    float1_uisa __ocl_svml_b3_invf1_half (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf1_half_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf1_half_linkage ( __ocl_svml_b3_invf1_half )
+
+    float1_uisa __ocl_svml_b3_rsqrtf1_half (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrtf1_half_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrtf1_half_linkage ( __ocl_svml_b3_rsqrtf1_half )
+
+    float1_uisa __ocl_svml_b3_sinf1_half (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf1_half_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf1_half_linkage ( __ocl_svml_b3_sinf1_half )
+
+    float1_uisa __ocl_svml_b3_sqrtf1_half (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrtf1_half_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrtf1_half_linkage ( __ocl_svml_b3_sqrtf1_half )
+
+    float1_uisa __ocl_svml_b3_tanf1_half (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf1_half_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf1_half_linkage ( __ocl_svml_b3_tanf1_half )
+
     float2_sse __ocl_svml_h8_cosf2_half (float2_sse a);
     #pragma linkage     __ocl_svml_h8_cosf2_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_h8_cosf2_half_linkage ( __ocl_svml_h8_cosf2_half )
@@ -16059,6 +22611,62 @@ extern "C" {
     float2_avx __ocl_svml_l9_tanf2_half (float2_avx a);
     #pragma linkage     __ocl_svml_l9_tanf2_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_tanf2_half_linkage ( __ocl_svml_l9_tanf2_half )
+
+    float2_uisa __ocl_svml_b3_cosf2_half (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf2_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf2_half_linkage ( __ocl_svml_b3_cosf2_half )
+
+    float2_uisa __ocl_svml_b3_divf2_half (float2_uisa a, float2_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf2_half_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf2_half_linkage ( __ocl_svml_b3_divf2_half )
+
+    float2_uisa __ocl_svml_b3_expf2_half (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf2_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf2_half_linkage ( __ocl_svml_b3_expf2_half )
+
+    float2_uisa __ocl_svml_b3_exp2f2_half (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f2_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f2_half_linkage ( __ocl_svml_b3_exp2f2_half )
+
+    float2_uisa __ocl_svml_b3_exp10f2_half (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f2_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f2_half_linkage ( __ocl_svml_b3_exp10f2_half )
+
+    float2_uisa __ocl_svml_b3_logf2_half (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf2_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf2_half_linkage ( __ocl_svml_b3_logf2_half )
+
+    float2_uisa __ocl_svml_b3_log2f2_half (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f2_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f2_half_linkage ( __ocl_svml_b3_log2f2_half )
+
+    float2_uisa __ocl_svml_b3_log10f2_half (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_log10f2_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log10f2_half_linkage ( __ocl_svml_b3_log10f2_half )
+
+    float2_uisa __ocl_svml_b3_powrf2_half (float2_uisa a, float2_uisa b);
+    #pragma linkage     __ocl_svml_b3_powrf2_half_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powrf2_half_linkage ( __ocl_svml_b3_powrf2_half )
+
+    float2_uisa __ocl_svml_b3_invf2_half (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf2_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf2_half_linkage ( __ocl_svml_b3_invf2_half )
+
+    float2_uisa __ocl_svml_b3_rsqrtf2_half (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrtf2_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrtf2_half_linkage ( __ocl_svml_b3_rsqrtf2_half )
+
+    float2_uisa __ocl_svml_b3_sinf2_half (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf2_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf2_half_linkage ( __ocl_svml_b3_sinf2_half )
+
+    float2_uisa __ocl_svml_b3_sqrtf2_half (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrtf2_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrtf2_half_linkage ( __ocl_svml_b3_sqrtf2_half )
+
+    float2_uisa __ocl_svml_b3_tanf2_half (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf2_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf2_half_linkage ( __ocl_svml_b3_tanf2_half )
 
     float3_sse __ocl_svml_h8_cosf3_half (float3_sse a);
     #pragma linkage     __ocl_svml_h8_cosf3_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
@@ -16228,6 +22836,62 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_tanf3_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_tanf3_half_linkage ( __ocl_svml_l9_tanf3_half )
 
+    float3_uisa __ocl_svml_b3_cosf3_half (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf3_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf3_half_linkage ( __ocl_svml_b3_cosf3_half )
+
+    float3_uisa __ocl_svml_b3_divf3_half (float3_uisa a, float3_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf3_half_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf3_half_linkage ( __ocl_svml_b3_divf3_half )
+
+    float3_uisa __ocl_svml_b3_expf3_half (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf3_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf3_half_linkage ( __ocl_svml_b3_expf3_half )
+
+    float3_uisa __ocl_svml_b3_exp2f3_half (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f3_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f3_half_linkage ( __ocl_svml_b3_exp2f3_half )
+
+    float3_uisa __ocl_svml_b3_exp10f3_half (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f3_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f3_half_linkage ( __ocl_svml_b3_exp10f3_half )
+
+    float3_uisa __ocl_svml_b3_logf3_half (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf3_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf3_half_linkage ( __ocl_svml_b3_logf3_half )
+
+    float3_uisa __ocl_svml_b3_log2f3_half (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f3_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f3_half_linkage ( __ocl_svml_b3_log2f3_half )
+
+    float3_uisa __ocl_svml_b3_log10f3_half (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_log10f3_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log10f3_half_linkage ( __ocl_svml_b3_log10f3_half )
+
+    float3_uisa __ocl_svml_b3_powrf3_half (float3_uisa a, float3_uisa b);
+    #pragma linkage     __ocl_svml_b3_powrf3_half_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powrf3_half_linkage ( __ocl_svml_b3_powrf3_half )
+
+    float3_uisa __ocl_svml_b3_invf3_half (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf3_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf3_half_linkage ( __ocl_svml_b3_invf3_half )
+
+    float3_uisa __ocl_svml_b3_rsqrtf3_half (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrtf3_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrtf3_half_linkage ( __ocl_svml_b3_rsqrtf3_half )
+
+    float3_uisa __ocl_svml_b3_sinf3_half (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf3_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf3_half_linkage ( __ocl_svml_b3_sinf3_half )
+
+    float3_uisa __ocl_svml_b3_sqrtf3_half (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrtf3_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrtf3_half_linkage ( __ocl_svml_b3_sqrtf3_half )
+
+    float3_uisa __ocl_svml_b3_tanf3_half (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf3_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf3_half_linkage ( __ocl_svml_b3_tanf3_half )
+
     float4_sse __ocl_svml_h8_cosf4_half (float4_sse a);
     #pragma linkage     __ocl_svml_h8_cosf4_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_h8_cosf4_half_linkage ( __ocl_svml_h8_cosf4_half )
@@ -16395,6 +23059,62 @@ extern "C" {
     float4_avx __ocl_svml_l9_tanf4_half (float4_avx a);
     #pragma linkage     __ocl_svml_l9_tanf4_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_tanf4_half_linkage ( __ocl_svml_l9_tanf4_half )
+
+    float4_uisa __ocl_svml_b3_cosf4_half (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf4_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf4_half_linkage ( __ocl_svml_b3_cosf4_half )
+
+    float4_uisa __ocl_svml_b3_divf4_half (float4_uisa a, float4_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf4_half_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf4_half_linkage ( __ocl_svml_b3_divf4_half )
+
+    float4_uisa __ocl_svml_b3_expf4_half (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf4_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf4_half_linkage ( __ocl_svml_b3_expf4_half )
+
+    float4_uisa __ocl_svml_b3_exp2f4_half (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f4_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f4_half_linkage ( __ocl_svml_b3_exp2f4_half )
+
+    float4_uisa __ocl_svml_b3_exp10f4_half (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f4_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f4_half_linkage ( __ocl_svml_b3_exp10f4_half )
+
+    float4_uisa __ocl_svml_b3_logf4_half (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf4_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf4_half_linkage ( __ocl_svml_b3_logf4_half )
+
+    float4_uisa __ocl_svml_b3_log2f4_half (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f4_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f4_half_linkage ( __ocl_svml_b3_log2f4_half )
+
+    float4_uisa __ocl_svml_b3_log10f4_half (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_log10f4_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log10f4_half_linkage ( __ocl_svml_b3_log10f4_half )
+
+    float4_uisa __ocl_svml_b3_powrf4_half (float4_uisa a, float4_uisa b);
+    #pragma linkage     __ocl_svml_b3_powrf4_half_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powrf4_half_linkage ( __ocl_svml_b3_powrf4_half )
+
+    float4_uisa __ocl_svml_b3_invf4_half (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf4_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf4_half_linkage ( __ocl_svml_b3_invf4_half )
+
+    float4_uisa __ocl_svml_b3_rsqrtf4_half (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrtf4_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrtf4_half_linkage ( __ocl_svml_b3_rsqrtf4_half )
+
+    float4_uisa __ocl_svml_b3_sinf4_half (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf4_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf4_half_linkage ( __ocl_svml_b3_sinf4_half )
+
+    float4_uisa __ocl_svml_b3_sqrtf4_half (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrtf4_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrtf4_half_linkage ( __ocl_svml_b3_sqrtf4_half )
+
+    float4_uisa __ocl_svml_b3_tanf4_half (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf4_half_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf4_half_linkage ( __ocl_svml_b3_tanf4_half )
 
     float8_sse __ocl_svml_h8_cosf8_half (float8_sse a);
     #pragma linkage     __ocl_svml_h8_cosf8_half_linkage   = ( result((xmm0 xmm1)) parameters((xmm0 xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
@@ -16564,6 +23284,62 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_tanf8_half_linkage   = ( result((ymm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_tanf8_half_linkage ( __ocl_svml_l9_tanf8_half )
 
+    float8_uisa __ocl_svml_b3_cosf8_half (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf8_half_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf8_half_linkage ( __ocl_svml_b3_cosf8_half )
+
+    float8_uisa __ocl_svml_b3_divf8_half (float8_uisa a, float8_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf8_half_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf8_half_linkage ( __ocl_svml_b3_divf8_half )
+
+    float8_uisa __ocl_svml_b3_expf8_half (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf8_half_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf8_half_linkage ( __ocl_svml_b3_expf8_half )
+
+    float8_uisa __ocl_svml_b3_exp2f8_half (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f8_half_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f8_half_linkage ( __ocl_svml_b3_exp2f8_half )
+
+    float8_uisa __ocl_svml_b3_exp10f8_half (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f8_half_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f8_half_linkage ( __ocl_svml_b3_exp10f8_half )
+
+    float8_uisa __ocl_svml_b3_logf8_half (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf8_half_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf8_half_linkage ( __ocl_svml_b3_logf8_half )
+
+    float8_uisa __ocl_svml_b3_log2f8_half (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f8_half_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f8_half_linkage ( __ocl_svml_b3_log2f8_half )
+
+    float8_uisa __ocl_svml_b3_log10f8_half (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_log10f8_half_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log10f8_half_linkage ( __ocl_svml_b3_log10f8_half )
+
+    float8_uisa __ocl_svml_b3_powrf8_half (float8_uisa a, float8_uisa b);
+    #pragma linkage     __ocl_svml_b3_powrf8_half_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powrf8_half_linkage ( __ocl_svml_b3_powrf8_half )
+
+    float8_uisa __ocl_svml_b3_invf8_half (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf8_half_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf8_half_linkage ( __ocl_svml_b3_invf8_half )
+
+    float8_uisa __ocl_svml_b3_rsqrtf8_half (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrtf8_half_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrtf8_half_linkage ( __ocl_svml_b3_rsqrtf8_half )
+
+    float8_uisa __ocl_svml_b3_sinf8_half (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf8_half_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf8_half_linkage ( __ocl_svml_b3_sinf8_half )
+
+    float8_uisa __ocl_svml_b3_sqrtf8_half (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrtf8_half_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrtf8_half_linkage ( __ocl_svml_b3_sqrtf8_half )
+
+    float8_uisa __ocl_svml_b3_tanf8_half (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf8_half_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf8_half_linkage ( __ocl_svml_b3_tanf8_half )
+
     float16_avx __ocl_svml_e9_cosf16_half (float16_avx a);
     #pragma linkage     __ocl_svml_e9_cosf16_half_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_e9_cosf16_half_linkage ( __ocl_svml_e9_cosf16_half )
@@ -16675,6 +23451,118 @@ extern "C" {
     float16_avx __ocl_svml_l9_tanf16_half (float16_avx a);
     #pragma linkage     __ocl_svml_l9_tanf16_half_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_tanf16_half_linkage ( __ocl_svml_l9_tanf16_half )
+
+    float16_uisa __ocl_svml_b3_cosf16_half (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf16_half_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf16_half_linkage ( __ocl_svml_b3_cosf16_half )
+
+    float16_uisa __ocl_svml_b3_divf16_half (float16_uisa a, float16_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf16_half_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf16_half_linkage ( __ocl_svml_b3_divf16_half )
+
+    float16_uisa __ocl_svml_b3_expf16_half (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf16_half_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf16_half_linkage ( __ocl_svml_b3_expf16_half )
+
+    float16_uisa __ocl_svml_b3_exp2f16_half (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f16_half_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f16_half_linkage ( __ocl_svml_b3_exp2f16_half )
+
+    float16_uisa __ocl_svml_b3_exp10f16_half (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f16_half_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f16_half_linkage ( __ocl_svml_b3_exp10f16_half )
+
+    float16_uisa __ocl_svml_b3_logf16_half (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf16_half_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf16_half_linkage ( __ocl_svml_b3_logf16_half )
+
+    float16_uisa __ocl_svml_b3_log2f16_half (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f16_half_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f16_half_linkage ( __ocl_svml_b3_log2f16_half )
+
+    float16_uisa __ocl_svml_b3_log10f16_half (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_log10f16_half_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log10f16_half_linkage ( __ocl_svml_b3_log10f16_half )
+
+    float16_uisa __ocl_svml_b3_powrf16_half (float16_uisa a, float16_uisa b);
+    #pragma linkage     __ocl_svml_b3_powrf16_half_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powrf16_half_linkage ( __ocl_svml_b3_powrf16_half )
+
+    float16_uisa __ocl_svml_b3_invf16_half (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf16_half_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf16_half_linkage ( __ocl_svml_b3_invf16_half )
+
+    float16_uisa __ocl_svml_b3_rsqrtf16_half (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrtf16_half_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrtf16_half_linkage ( __ocl_svml_b3_rsqrtf16_half )
+
+    float16_uisa __ocl_svml_b3_sinf16_half (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf16_half_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf16_half_linkage ( __ocl_svml_b3_sinf16_half )
+
+    float16_uisa __ocl_svml_b3_sqrtf16_half (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrtf16_half_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrtf16_half_linkage ( __ocl_svml_b3_sqrtf16_half )
+
+    float16_uisa __ocl_svml_b3_tanf16_half (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf16_half_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf16_half_linkage ( __ocl_svml_b3_tanf16_half )
+
+    float32_uisa __ocl_svml_b3_cosf32_half (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf32_half_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf32_half_linkage ( __ocl_svml_b3_cosf32_half )
+
+    float32_uisa __ocl_svml_b3_divf32_half (float32_uisa a, float32_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf32_half_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf32_half_linkage ( __ocl_svml_b3_divf32_half )
+
+    float32_uisa __ocl_svml_b3_expf32_half (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf32_half_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf32_half_linkage ( __ocl_svml_b3_expf32_half )
+
+    float32_uisa __ocl_svml_b3_exp2f32_half (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f32_half_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f32_half_linkage ( __ocl_svml_b3_exp2f32_half )
+
+    float32_uisa __ocl_svml_b3_exp10f32_half (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f32_half_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f32_half_linkage ( __ocl_svml_b3_exp10f32_half )
+
+    float32_uisa __ocl_svml_b3_logf32_half (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf32_half_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf32_half_linkage ( __ocl_svml_b3_logf32_half )
+
+    float32_uisa __ocl_svml_b3_log2f32_half (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f32_half_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f32_half_linkage ( __ocl_svml_b3_log2f32_half )
+
+    float32_uisa __ocl_svml_b3_log10f32_half (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_log10f32_half_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log10f32_half_linkage ( __ocl_svml_b3_log10f32_half )
+
+    float32_uisa __ocl_svml_b3_powrf32_half (float32_uisa a, float32_uisa b);
+    #pragma linkage     __ocl_svml_b3_powrf32_half_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powrf32_half_linkage ( __ocl_svml_b3_powrf32_half )
+
+    float32_uisa __ocl_svml_b3_invf32_half (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf32_half_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf32_half_linkage ( __ocl_svml_b3_invf32_half )
+
+    float32_uisa __ocl_svml_b3_rsqrtf32_half (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrtf32_half_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrtf32_half_linkage ( __ocl_svml_b3_rsqrtf32_half )
+
+    float32_uisa __ocl_svml_b3_sinf32_half (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf32_half_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf32_half_linkage ( __ocl_svml_b3_sinf32_half )
+
+    float32_uisa __ocl_svml_b3_sqrtf32_half (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrtf32_half_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrtf32_half_linkage ( __ocl_svml_b3_sqrtf32_half )
+
+    float32_uisa __ocl_svml_b3_tanf32_half (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf32_half_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf32_half_linkage ( __ocl_svml_b3_tanf32_half )
 
     float1_sse __ocl_svml_h8_cosf1_rm (float1_sse a);
     #pragma linkage     __ocl_svml_h8_cosf1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
@@ -16832,6 +23720,58 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_fmaf1_rm_linkage   = ( result(xmm0) parameters(xmm0,xmm1,xmm2) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_fmaf1_rm_linkage ( __ocl_svml_l9_fmaf1_rm )
 
+    float1_uisa __ocl_svml_b3_cosf1_rm (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf1_rm_linkage ( __ocl_svml_b3_cosf1_rm )
+
+    float1_uisa __ocl_svml_b3_divf1_rm (float1_uisa a, float1_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf1_rm_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf1_rm_linkage ( __ocl_svml_b3_divf1_rm )
+
+    float1_uisa __ocl_svml_b3_expf1_rm (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf1_rm_linkage ( __ocl_svml_b3_expf1_rm )
+
+    float1_uisa __ocl_svml_b3_exp2f1_rm (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f1_rm_linkage ( __ocl_svml_b3_exp2f1_rm )
+
+    float1_uisa __ocl_svml_b3_exp10f1_rm (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f1_rm_linkage ( __ocl_svml_b3_exp10f1_rm )
+
+    float1_uisa __ocl_svml_b3_logf1_rm (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf1_rm_linkage ( __ocl_svml_b3_logf1_rm )
+
+    float1_uisa __ocl_svml_b3_log2f1_rm (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f1_rm_linkage ( __ocl_svml_b3_log2f1_rm )
+
+    float1_uisa __ocl_svml_b3_powf1_rm (float1_uisa a, float1_uisa b);
+    #pragma linkage     __ocl_svml_b3_powf1_rm_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powf1_rm_linkage ( __ocl_svml_b3_powf1_rm )
+
+    float1_uisa __ocl_svml_b3_invf1_rm (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf1_rm_linkage ( __ocl_svml_b3_invf1_rm )
+
+    float1_uisa __ocl_svml_b3_sinf1_rm (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf1_rm_linkage ( __ocl_svml_b3_sinf1_rm )
+
+    float1_uisa __ocl_svml_b3_sincosf1_rm (float1_uisa a, float1_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincosf1_rm_linkage   = ( result(xmm0) parameters(xmm0,rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosf1_rm_linkage ( __ocl_svml_b3_sincosf1_rm )
+
+    float1_uisa __ocl_svml_b3_tanf1_rm (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf1_rm_linkage ( __ocl_svml_b3_tanf1_rm )
+
+    float1_uisa __ocl_svml_b3_fmaf1_rm (float1_uisa a, float1_uisa b, float1_uisa c);
+    #pragma linkage     __ocl_svml_b3_fmaf1_rm_linkage   = ( result(xmm0) parameters(xmm0,xmm1,xmm2) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmaf1_rm_linkage ( __ocl_svml_b3_fmaf1_rm )
+
     float2_sse __ocl_svml_h8_cosf2_rm (float2_sse a);
     #pragma linkage     __ocl_svml_h8_cosf2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_h8_cosf2_rm_linkage ( __ocl_svml_h8_cosf2_rm )
@@ -16987,6 +23927,58 @@ extern "C" {
     float2_avx __ocl_svml_l9_fmaf2_rm (float2_avx a, float2_avx b, float2_avx c);
     #pragma linkage     __ocl_svml_l9_fmaf2_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),(xmm2)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_fmaf2_rm_linkage ( __ocl_svml_l9_fmaf2_rm )
+
+    float2_uisa __ocl_svml_b3_cosf2_rm (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf2_rm_linkage ( __ocl_svml_b3_cosf2_rm )
+
+    float2_uisa __ocl_svml_b3_divf2_rm (float2_uisa a, float2_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf2_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf2_rm_linkage ( __ocl_svml_b3_divf2_rm )
+
+    float2_uisa __ocl_svml_b3_expf2_rm (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf2_rm_linkage ( __ocl_svml_b3_expf2_rm )
+
+    float2_uisa __ocl_svml_b3_exp2f2_rm (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f2_rm_linkage ( __ocl_svml_b3_exp2f2_rm )
+
+    float2_uisa __ocl_svml_b3_exp10f2_rm (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f2_rm_linkage ( __ocl_svml_b3_exp10f2_rm )
+
+    float2_uisa __ocl_svml_b3_logf2_rm (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf2_rm_linkage ( __ocl_svml_b3_logf2_rm )
+
+    float2_uisa __ocl_svml_b3_log2f2_rm (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f2_rm_linkage ( __ocl_svml_b3_log2f2_rm )
+
+    float2_uisa __ocl_svml_b3_powf2_rm (float2_uisa a, float2_uisa b);
+    #pragma linkage     __ocl_svml_b3_powf2_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powf2_rm_linkage ( __ocl_svml_b3_powf2_rm )
+
+    float2_uisa __ocl_svml_b3_invf2_rm (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf2_rm_linkage ( __ocl_svml_b3_invf2_rm )
+
+    float2_uisa __ocl_svml_b3_sinf2_rm (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf2_rm_linkage ( __ocl_svml_b3_sinf2_rm )
+
+    float2_uisa __ocl_svml_b3_sincosf2_rm (float2_uisa a, float2_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincosf2_rm_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosf2_rm_linkage ( __ocl_svml_b3_sincosf2_rm )
+
+    float2_uisa __ocl_svml_b3_tanf2_rm (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf2_rm_linkage ( __ocl_svml_b3_tanf2_rm )
+
+    float2_uisa __ocl_svml_b3_fmaf2_rm (float2_uisa a, float2_uisa b, float2_uisa c);
+    #pragma linkage     __ocl_svml_b3_fmaf2_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),(xmm2)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmaf2_rm_linkage ( __ocl_svml_b3_fmaf2_rm )
 
     float3_sse __ocl_svml_h8_cosf3_rm (float3_sse a);
     #pragma linkage     __ocl_svml_h8_cosf3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
@@ -17144,6 +24136,58 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_fmaf3_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),(xmm2)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_fmaf3_rm_linkage ( __ocl_svml_l9_fmaf3_rm )
 
+    float3_uisa __ocl_svml_b3_cosf3_rm (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf3_rm_linkage ( __ocl_svml_b3_cosf3_rm )
+
+    float3_uisa __ocl_svml_b3_divf3_rm (float3_uisa a, float3_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf3_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf3_rm_linkage ( __ocl_svml_b3_divf3_rm )
+
+    float3_uisa __ocl_svml_b3_expf3_rm (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf3_rm_linkage ( __ocl_svml_b3_expf3_rm )
+
+    float3_uisa __ocl_svml_b3_exp2f3_rm (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f3_rm_linkage ( __ocl_svml_b3_exp2f3_rm )
+
+    float3_uisa __ocl_svml_b3_exp10f3_rm (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f3_rm_linkage ( __ocl_svml_b3_exp10f3_rm )
+
+    float3_uisa __ocl_svml_b3_logf3_rm (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf3_rm_linkage ( __ocl_svml_b3_logf3_rm )
+
+    float3_uisa __ocl_svml_b3_log2f3_rm (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f3_rm_linkage ( __ocl_svml_b3_log2f3_rm )
+
+    float3_uisa __ocl_svml_b3_powf3_rm (float3_uisa a, float3_uisa b);
+    #pragma linkage     __ocl_svml_b3_powf3_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powf3_rm_linkage ( __ocl_svml_b3_powf3_rm )
+
+    float3_uisa __ocl_svml_b3_invf3_rm (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf3_rm_linkage ( __ocl_svml_b3_invf3_rm )
+
+    float3_uisa __ocl_svml_b3_sinf3_rm (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf3_rm_linkage ( __ocl_svml_b3_sinf3_rm )
+
+    float3_uisa __ocl_svml_b3_sincosf3_rm (float3_uisa a, float3_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincosf3_rm_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosf3_rm_linkage ( __ocl_svml_b3_sincosf3_rm )
+
+    float3_uisa __ocl_svml_b3_tanf3_rm (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf3_rm_linkage ( __ocl_svml_b3_tanf3_rm )
+
+    float3_uisa __ocl_svml_b3_fmaf3_rm (float3_uisa a, float3_uisa b, float3_uisa c);
+    #pragma linkage     __ocl_svml_b3_fmaf3_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),(xmm2)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmaf3_rm_linkage ( __ocl_svml_b3_fmaf3_rm )
+
     float4_sse __ocl_svml_h8_cosf4_rm (float4_sse a);
     #pragma linkage     __ocl_svml_h8_cosf4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_h8_cosf4_rm_linkage ( __ocl_svml_h8_cosf4_rm )
@@ -17300,6 +24344,58 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_fmaf4_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),(xmm2)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_fmaf4_rm_linkage ( __ocl_svml_l9_fmaf4_rm )
 
+    float4_uisa __ocl_svml_b3_cosf4_rm (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf4_rm_linkage ( __ocl_svml_b3_cosf4_rm )
+
+    float4_uisa __ocl_svml_b3_divf4_rm (float4_uisa a, float4_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf4_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf4_rm_linkage ( __ocl_svml_b3_divf4_rm )
+
+    float4_uisa __ocl_svml_b3_expf4_rm (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf4_rm_linkage ( __ocl_svml_b3_expf4_rm )
+
+    float4_uisa __ocl_svml_b3_exp2f4_rm (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f4_rm_linkage ( __ocl_svml_b3_exp2f4_rm )
+
+    float4_uisa __ocl_svml_b3_exp10f4_rm (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f4_rm_linkage ( __ocl_svml_b3_exp10f4_rm )
+
+    float4_uisa __ocl_svml_b3_logf4_rm (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf4_rm_linkage ( __ocl_svml_b3_logf4_rm )
+
+    float4_uisa __ocl_svml_b3_log2f4_rm (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f4_rm_linkage ( __ocl_svml_b3_log2f4_rm )
+
+    float4_uisa __ocl_svml_b3_powf4_rm (float4_uisa a, float4_uisa b);
+    #pragma linkage     __ocl_svml_b3_powf4_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powf4_rm_linkage ( __ocl_svml_b3_powf4_rm )
+
+    float4_uisa __ocl_svml_b3_invf4_rm (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf4_rm_linkage ( __ocl_svml_b3_invf4_rm )
+
+    float4_uisa __ocl_svml_b3_sinf4_rm (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf4_rm_linkage ( __ocl_svml_b3_sinf4_rm )
+
+    float4_uisa __ocl_svml_b3_sincosf4_rm (float4_uisa a, float4_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincosf4_rm_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosf4_rm_linkage ( __ocl_svml_b3_sincosf4_rm )
+
+    float4_uisa __ocl_svml_b3_tanf4_rm (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf4_rm_linkage ( __ocl_svml_b3_tanf4_rm )
+
+    float4_uisa __ocl_svml_b3_fmaf4_rm (float4_uisa a, float4_uisa b, float4_uisa c);
+    #pragma linkage     __ocl_svml_b3_fmaf4_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),(xmm2)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmaf4_rm_linkage ( __ocl_svml_b3_fmaf4_rm )
+
     float8_sse __ocl_svml_h8_cosf8_rm (float8_sse a);
     #pragma linkage     __ocl_svml_h8_cosf8_rm_linkage   = ( result((xmm0 xmm1)) parameters((xmm0 xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_h8_cosf8_rm_linkage ( __ocl_svml_h8_cosf8_rm )
@@ -17454,6 +24550,58 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_fmaf8_rm_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1),(ymm2)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_fmaf8_rm_linkage ( __ocl_svml_l9_fmaf8_rm )
 
+    float8_uisa __ocl_svml_b3_cosf8_rm (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf8_rm_linkage ( __ocl_svml_b3_cosf8_rm )
+
+    float8_uisa __ocl_svml_b3_divf8_rm (float8_uisa a, float8_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf8_rm_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf8_rm_linkage ( __ocl_svml_b3_divf8_rm )
+
+    float8_uisa __ocl_svml_b3_expf8_rm (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf8_rm_linkage ( __ocl_svml_b3_expf8_rm )
+
+    float8_uisa __ocl_svml_b3_exp2f8_rm (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f8_rm_linkage ( __ocl_svml_b3_exp2f8_rm )
+
+    float8_uisa __ocl_svml_b3_exp10f8_rm (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f8_rm_linkage ( __ocl_svml_b3_exp10f8_rm )
+
+    float8_uisa __ocl_svml_b3_logf8_rm (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf8_rm_linkage ( __ocl_svml_b3_logf8_rm )
+
+    float8_uisa __ocl_svml_b3_log2f8_rm (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f8_rm_linkage ( __ocl_svml_b3_log2f8_rm )
+
+    float8_uisa __ocl_svml_b3_powf8_rm (float8_uisa a, float8_uisa b);
+    #pragma linkage     __ocl_svml_b3_powf8_rm_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powf8_rm_linkage ( __ocl_svml_b3_powf8_rm )
+
+    float8_uisa __ocl_svml_b3_invf8_rm (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf8_rm_linkage ( __ocl_svml_b3_invf8_rm )
+
+    float8_uisa __ocl_svml_b3_sinf8_rm (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf8_rm_linkage ( __ocl_svml_b3_sinf8_rm )
+
+    float8_uisa __ocl_svml_b3_sincosf8_rm (float8_uisa a, float8_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincosf8_rm_linkage   = ( result((ymm0)) parameters((ymm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosf8_rm_linkage ( __ocl_svml_b3_sincosf8_rm )
+
+    float8_uisa __ocl_svml_b3_tanf8_rm (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf8_rm_linkage ( __ocl_svml_b3_tanf8_rm )
+
+    float8_uisa __ocl_svml_b3_fmaf8_rm (float8_uisa a, float8_uisa b, float8_uisa c);
+    #pragma linkage     __ocl_svml_b3_fmaf8_rm_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1),(ymm2)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmaf8_rm_linkage ( __ocl_svml_b3_fmaf8_rm )
+
     float16_avx __ocl_svml_e9_cosf16_rm (float16_avx a);
     #pragma linkage     __ocl_svml_e9_cosf16_rm_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_e9_cosf16_rm_linkage ( __ocl_svml_e9_cosf16_rm )
@@ -17553,6 +24701,110 @@ extern "C" {
     #pragma use_linkage __ocl_svml_l9_tanf16_rm_linkage ( __ocl_svml_l9_tanf16_rm )
 
     float16_avx __ocl_svml_l9_fmaf16_rm (float16_avx a, float16_avx b, float16_avx c);
+
+    float16_uisa __ocl_svml_b3_cosf16_rm (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf16_rm_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf16_rm_linkage ( __ocl_svml_b3_cosf16_rm )
+
+    float16_uisa __ocl_svml_b3_divf16_rm (float16_uisa a, float16_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf16_rm_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf16_rm_linkage ( __ocl_svml_b3_divf16_rm )
+
+    float16_uisa __ocl_svml_b3_expf16_rm (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf16_rm_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf16_rm_linkage ( __ocl_svml_b3_expf16_rm )
+
+    float16_uisa __ocl_svml_b3_exp2f16_rm (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f16_rm_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f16_rm_linkage ( __ocl_svml_b3_exp2f16_rm )
+
+    float16_uisa __ocl_svml_b3_exp10f16_rm (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f16_rm_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f16_rm_linkage ( __ocl_svml_b3_exp10f16_rm )
+
+    float16_uisa __ocl_svml_b3_logf16_rm (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf16_rm_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf16_rm_linkage ( __ocl_svml_b3_logf16_rm )
+
+    float16_uisa __ocl_svml_b3_log2f16_rm (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f16_rm_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f16_rm_linkage ( __ocl_svml_b3_log2f16_rm )
+
+    float16_uisa __ocl_svml_b3_powf16_rm (float16_uisa a, float16_uisa b);
+    #pragma linkage     __ocl_svml_b3_powf16_rm_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powf16_rm_linkage ( __ocl_svml_b3_powf16_rm )
+
+    float16_uisa __ocl_svml_b3_invf16_rm (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf16_rm_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf16_rm_linkage ( __ocl_svml_b3_invf16_rm )
+
+    float16_uisa __ocl_svml_b3_sinf16_rm (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf16_rm_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf16_rm_linkage ( __ocl_svml_b3_sinf16_rm )
+
+    float16_uisa __ocl_svml_b3_sincosf16_rm (float16_uisa a, float16_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincosf16_rm_linkage   = ( result((zmm0)) parameters((zmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosf16_rm_linkage ( __ocl_svml_b3_sincosf16_rm )
+
+    float16_uisa __ocl_svml_b3_tanf16_rm (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf16_rm_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf16_rm_linkage ( __ocl_svml_b3_tanf16_rm )
+
+    float16_uisa __ocl_svml_b3_fmaf16_rm (float16_uisa a, float16_uisa b, float16_uisa c);
+    #pragma linkage     __ocl_svml_b3_fmaf16_rm_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1),(zmm2)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmaf16_rm_linkage ( __ocl_svml_b3_fmaf16_rm )
+
+    float32_uisa __ocl_svml_b3_cosf32_rm (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf32_rm_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf32_rm_linkage ( __ocl_svml_b3_cosf32_rm )
+
+    float32_uisa __ocl_svml_b3_divf32_rm (float32_uisa a, float32_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf32_rm_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf32_rm_linkage ( __ocl_svml_b3_divf32_rm )
+
+    float32_uisa __ocl_svml_b3_expf32_rm (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf32_rm_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf32_rm_linkage ( __ocl_svml_b3_expf32_rm )
+
+    float32_uisa __ocl_svml_b3_exp2f32_rm (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f32_rm_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f32_rm_linkage ( __ocl_svml_b3_exp2f32_rm )
+
+    float32_uisa __ocl_svml_b3_exp10f32_rm (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f32_rm_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f32_rm_linkage ( __ocl_svml_b3_exp10f32_rm )
+
+    float32_uisa __ocl_svml_b3_logf32_rm (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf32_rm_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf32_rm_linkage ( __ocl_svml_b3_logf32_rm )
+
+    float32_uisa __ocl_svml_b3_log2f32_rm (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f32_rm_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f32_rm_linkage ( __ocl_svml_b3_log2f32_rm )
+
+    float32_uisa __ocl_svml_b3_powf32_rm (float32_uisa a, float32_uisa b);
+    #pragma linkage     __ocl_svml_b3_powf32_rm_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powf32_rm_linkage ( __ocl_svml_b3_powf32_rm )
+
+    float32_uisa __ocl_svml_b3_invf32_rm (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf32_rm_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf32_rm_linkage ( __ocl_svml_b3_invf32_rm )
+
+    float32_uisa __ocl_svml_b3_sinf32_rm (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf32_rm_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf32_rm_linkage ( __ocl_svml_b3_sinf32_rm )
+
+    float32_uisa __ocl_svml_b3_sincosf32_rm (float32_uisa a, float32_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincosf32_rm_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosf32_rm_linkage ( __ocl_svml_b3_sincosf32_rm )
+
+    float32_uisa __ocl_svml_b3_tanf32_rm (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf32_rm_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf32_rm_linkage ( __ocl_svml_b3_tanf32_rm )
+
+    float32_uisa __ocl_svml_b3_fmaf32_rm (float32_uisa a, float32_uisa b, float32_uisa c);
+    #pragma linkage     __ocl_svml_b3_fmaf32_rm_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3),(zmm4 zmm5)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_fmaf32_rm_linkage ( __ocl_svml_b3_fmaf32_rm )
 
     float1_sse __ocl_svml_h8_invf1_native (float1_sse a);
     #pragma linkage     __ocl_svml_h8_invf1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
@@ -18070,6 +25322,178 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_erfcf1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_erfcf1_native_linkage ( __ocl_svml_l9_erfcf1_native )
 
+    float1_uisa __ocl_svml_b3_invf1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf1_native_linkage ( __ocl_svml_b3_invf1_native )
+
+    float1_uisa __ocl_svml_b3_divf1_native (float1_uisa a, float1_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf1_native_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf1_native_linkage ( __ocl_svml_b3_divf1_native )
+
+    float1_uisa __ocl_svml_b3_sqrtf1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrtf1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrtf1_native_linkage ( __ocl_svml_b3_sqrtf1_native )
+
+    float1_uisa __ocl_svml_b3_rsqrtf1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrtf1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrtf1_native_linkage ( __ocl_svml_b3_rsqrtf1_native )
+
+    float1_uisa __ocl_svml_b3_cbrtf1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cbrtf1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cbrtf1_native_linkage ( __ocl_svml_b3_cbrtf1_native )
+
+    float1_uisa __ocl_svml_b3_rcbrtf1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_rcbrtf1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rcbrtf1_native_linkage ( __ocl_svml_b3_rcbrtf1_native )
+
+    float1_uisa __ocl_svml_b3_hypotf1_native (float1_uisa a, float1_uisa b);
+    #pragma linkage     __ocl_svml_b3_hypotf1_native_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_hypotf1_native_linkage ( __ocl_svml_b3_hypotf1_native )
+
+    float1_uisa __ocl_svml_b3_powf1_native (float1_uisa a, float1_uisa b);
+    #pragma linkage     __ocl_svml_b3_powf1_native_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powf1_native_linkage ( __ocl_svml_b3_powf1_native )
+
+    float1_uisa __ocl_svml_b3_powrf1_native (float1_uisa a, float1_uisa b);
+    #pragma linkage     __ocl_svml_b3_powrf1_native_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powrf1_native_linkage ( __ocl_svml_b3_powrf1_native )
+
+    float1_uisa __ocl_svml_b3_pownf1_native (float1_uisa a, int1_uisa b);
+    #pragma linkage     __ocl_svml_b3_pownf1_native_linkage   = ( result(xmm0) parameters(xmm0,ecx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pownf1_native_linkage ( __ocl_svml_b3_pownf1_native )
+
+    float1_uisa __ocl_svml_b3_rootnf1_native (float1_uisa a, int1_uisa b);
+    #pragma linkage     __ocl_svml_b3_rootnf1_native_linkage   = ( result(xmm0) parameters(xmm0,ecx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rootnf1_native_linkage ( __ocl_svml_b3_rootnf1_native )
+
+    float1_uisa __ocl_svml_b3_expf1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf1_native_linkage ( __ocl_svml_b3_expf1_native )
+
+    float1_uisa __ocl_svml_b3_exp2f1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f1_native_linkage ( __ocl_svml_b3_exp2f1_native )
+
+    float1_uisa __ocl_svml_b3_exp10f1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f1_native_linkage ( __ocl_svml_b3_exp10f1_native )
+
+    float1_uisa __ocl_svml_b3_expm1f1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_expm1f1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expm1f1_native_linkage ( __ocl_svml_b3_expm1f1_native )
+
+    float1_uisa __ocl_svml_b3_logf1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf1_native_linkage ( __ocl_svml_b3_logf1_native )
+
+    float1_uisa __ocl_svml_b3_log10f1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_log10f1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log10f1_native_linkage ( __ocl_svml_b3_log10f1_native )
+
+    float1_uisa __ocl_svml_b3_log2f1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f1_native_linkage ( __ocl_svml_b3_log2f1_native )
+
+    float1_uisa __ocl_svml_b3_log1pf1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1pf1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1pf1_native_linkage ( __ocl_svml_b3_log1pf1_native )
+
+    float1_uisa __ocl_svml_b3_sinf1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf1_native_linkage ( __ocl_svml_b3_sinf1_native )
+
+    float1_uisa __ocl_svml_b3_cosf1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf1_native_linkage ( __ocl_svml_b3_cosf1_native )
+
+    float1_uisa __ocl_svml_b3_sincosf1_native (float1_uisa a, float1_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincosf1_native_linkage   = ( result(xmm0) parameters(xmm0,rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosf1_native_linkage ( __ocl_svml_b3_sincosf1_native )
+
+    float1x2_uisa __ocl_svml_b3_sincosregf1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_sincosregf1_native_linkage   = ( result(xmm0 xmm1) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosregf1_native_linkage ( __ocl_svml_b3_sincosregf1_native )
+
+    float1_uisa __ocl_svml_b3_tanf1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf1_native_linkage ( __ocl_svml_b3_tanf1_native )
+
+    float1_uisa __ocl_svml_b3_sinpif1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinpif1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinpif1_native_linkage ( __ocl_svml_b3_sinpif1_native )
+
+    float1_uisa __ocl_svml_b3_cospif1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cospif1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cospif1_native_linkage ( __ocl_svml_b3_cospif1_native )
+
+    float1_uisa __ocl_svml_b3_tanpif1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanpif1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanpif1_native_linkage ( __ocl_svml_b3_tanpif1_native )
+
+    float1_uisa __ocl_svml_b3_acosf1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_acosf1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acosf1_native_linkage ( __ocl_svml_b3_acosf1_native )
+
+    float1_uisa __ocl_svml_b3_asinf1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinf1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinf1_native_linkage ( __ocl_svml_b3_asinf1_native )
+
+    float1_uisa __ocl_svml_b3_atanf1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanf1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanf1_native_linkage ( __ocl_svml_b3_atanf1_native )
+
+    float1_uisa __ocl_svml_b3_atan2f1_native (float1_uisa a, float1_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2f1_native_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2f1_native_linkage ( __ocl_svml_b3_atan2f1_native )
+
+    float1_uisa __ocl_svml_b3_asinpif1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinpif1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinpif1_native_linkage ( __ocl_svml_b3_asinpif1_native )
+
+    float1_uisa __ocl_svml_b3_acospif1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_acospif1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acospif1_native_linkage ( __ocl_svml_b3_acospif1_native )
+
+    float1_uisa __ocl_svml_b3_atanpif1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanpif1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanpif1_native_linkage ( __ocl_svml_b3_atanpif1_native )
+
+    float1_uisa __ocl_svml_b3_atan2pif1_native (float1_uisa a, float1_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2pif1_native_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2pif1_native_linkage ( __ocl_svml_b3_atan2pif1_native )
+
+    float1_uisa __ocl_svml_b3_sinhf1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinhf1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinhf1_native_linkage ( __ocl_svml_b3_sinhf1_native )
+
+    float1_uisa __ocl_svml_b3_coshf1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_coshf1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_coshf1_native_linkage ( __ocl_svml_b3_coshf1_native )
+
+    float1_uisa __ocl_svml_b3_tanhf1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanhf1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanhf1_native_linkage ( __ocl_svml_b3_tanhf1_native )
+
+    float1_uisa __ocl_svml_b3_asinhf1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinhf1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinhf1_native_linkage ( __ocl_svml_b3_asinhf1_native )
+
+    float1_uisa __ocl_svml_b3_acoshf1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_acoshf1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acoshf1_native_linkage ( __ocl_svml_b3_acoshf1_native )
+
+    float1_uisa __ocl_svml_b3_atanhf1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanhf1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanhf1_native_linkage ( __ocl_svml_b3_atanhf1_native )
+
+    float1_uisa __ocl_svml_b3_erff1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_erff1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erff1_native_linkage ( __ocl_svml_b3_erff1_native )
+
+    float1_uisa __ocl_svml_b3_erfcf1_native (float1_uisa a);
+    #pragma linkage     __ocl_svml_b3_erfcf1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erfcf1_native_linkage ( __ocl_svml_b3_erfcf1_native )
+
     double1_sse __ocl_svml_h8_inv1_native (double1_sse a);
     #pragma linkage     __ocl_svml_h8_inv1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_h8_inv1_native_linkage ( __ocl_svml_h8_inv1_native )
@@ -18585,6 +26009,178 @@ extern "C" {
     double1_avx __ocl_svml_l9_erfc1_native (double1_avx a);
     #pragma linkage     __ocl_svml_l9_erfc1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_erfc1_native_linkage ( __ocl_svml_l9_erfc1_native )
+
+    double1_uisa __ocl_svml_b3_inv1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_inv1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_inv1_native_linkage ( __ocl_svml_b3_inv1_native )
+
+    double1_uisa __ocl_svml_b3_div1_native (double1_uisa a, double1_uisa b);
+    #pragma linkage     __ocl_svml_b3_div1_native_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_div1_native_linkage ( __ocl_svml_b3_div1_native )
+
+    double1_uisa __ocl_svml_b3_sqrt1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrt1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrt1_native_linkage ( __ocl_svml_b3_sqrt1_native )
+
+    double1_uisa __ocl_svml_b3_rsqrt1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrt1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrt1_native_linkage ( __ocl_svml_b3_rsqrt1_native )
+
+    double1_uisa __ocl_svml_b3_cbrt1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cbrt1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cbrt1_native_linkage ( __ocl_svml_b3_cbrt1_native )
+
+    double1_uisa __ocl_svml_b3_rcbrt1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_rcbrt1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rcbrt1_native_linkage ( __ocl_svml_b3_rcbrt1_native )
+
+    double1_uisa __ocl_svml_b3_hypot1_native (double1_uisa a, double1_uisa b);
+    #pragma linkage     __ocl_svml_b3_hypot1_native_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_hypot1_native_linkage ( __ocl_svml_b3_hypot1_native )
+
+    double1_uisa __ocl_svml_b3_pow1_native (double1_uisa a, double1_uisa b);
+    #pragma linkage     __ocl_svml_b3_pow1_native_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pow1_native_linkage ( __ocl_svml_b3_pow1_native )
+
+    double1_uisa __ocl_svml_b3_powr1_native (double1_uisa a, double1_uisa b);
+    #pragma linkage     __ocl_svml_b3_powr1_native_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powr1_native_linkage ( __ocl_svml_b3_powr1_native )
+
+    double1_uisa __ocl_svml_b3_pown1_native (double1_uisa a, int1_uisa b);
+    #pragma linkage     __ocl_svml_b3_pown1_native_linkage   = ( result(xmm0) parameters(xmm0,ecx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pown1_native_linkage ( __ocl_svml_b3_pown1_native )
+
+    double1_uisa __ocl_svml_b3_rootn1_native (double1_uisa a, int1_uisa b);
+    #pragma linkage     __ocl_svml_b3_rootn1_native_linkage   = ( result(xmm0) parameters(xmm0,ecx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rootn1_native_linkage ( __ocl_svml_b3_rootn1_native )
+
+    double1_uisa __ocl_svml_b3_exp1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp1_native_linkage ( __ocl_svml_b3_exp1_native )
+
+    double1_uisa __ocl_svml_b3_exp21_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp21_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp21_native_linkage ( __ocl_svml_b3_exp21_native )
+
+    double1_uisa __ocl_svml_b3_exp101_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp101_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp101_native_linkage ( __ocl_svml_b3_exp101_native )
+
+    double1_uisa __ocl_svml_b3_expm11_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_expm11_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expm11_native_linkage ( __ocl_svml_b3_expm11_native )
+
+    double1_uisa __ocl_svml_b3_log1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1_native_linkage ( __ocl_svml_b3_log1_native )
+
+    double1_uisa __ocl_svml_b3_log101_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_log101_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log101_native_linkage ( __ocl_svml_b3_log101_native )
+
+    double1_uisa __ocl_svml_b3_log21_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_log21_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log21_native_linkage ( __ocl_svml_b3_log21_native )
+
+    double1_uisa __ocl_svml_b3_log1p1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1p1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1p1_native_linkage ( __ocl_svml_b3_log1p1_native )
+
+    double1_uisa __ocl_svml_b3_sin1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_sin1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sin1_native_linkage ( __ocl_svml_b3_sin1_native )
+
+    double1_uisa __ocl_svml_b3_cos1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cos1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cos1_native_linkage ( __ocl_svml_b3_cos1_native )
+
+    double1_uisa __ocl_svml_b3_sincos1_native (double1_uisa a, double1_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincos1_native_linkage   = ( result(xmm0) parameters(xmm0,rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincos1_native_linkage ( __ocl_svml_b3_sincos1_native )
+
+    double1x2_uisa __ocl_svml_b3_sincosreg1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_sincosreg1_native_linkage   = ( result(xmm0 xmm1) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosreg1_native_linkage ( __ocl_svml_b3_sincosreg1_native )
+
+    double1_uisa __ocl_svml_b3_tan1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_tan1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tan1_native_linkage ( __ocl_svml_b3_tan1_native )
+
+    double1_uisa __ocl_svml_b3_sinpi1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinpi1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinpi1_native_linkage ( __ocl_svml_b3_sinpi1_native )
+
+    double1_uisa __ocl_svml_b3_cospi1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cospi1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cospi1_native_linkage ( __ocl_svml_b3_cospi1_native )
+
+    double1_uisa __ocl_svml_b3_tanpi1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanpi1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanpi1_native_linkage ( __ocl_svml_b3_tanpi1_native )
+
+    double1_uisa __ocl_svml_b3_acos1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_acos1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acos1_native_linkage ( __ocl_svml_b3_acos1_native )
+
+    double1_uisa __ocl_svml_b3_asin1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_asin1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asin1_native_linkage ( __ocl_svml_b3_asin1_native )
+
+    double1_uisa __ocl_svml_b3_atan1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_atan1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan1_native_linkage ( __ocl_svml_b3_atan1_native )
+
+    double1_uisa __ocl_svml_b3_atan21_native (double1_uisa a, double1_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan21_native_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan21_native_linkage ( __ocl_svml_b3_atan21_native )
+
+    double1_uisa __ocl_svml_b3_asinpi1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinpi1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinpi1_native_linkage ( __ocl_svml_b3_asinpi1_native )
+
+    double1_uisa __ocl_svml_b3_acospi1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_acospi1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acospi1_native_linkage ( __ocl_svml_b3_acospi1_native )
+
+    double1_uisa __ocl_svml_b3_atanpi1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanpi1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanpi1_native_linkage ( __ocl_svml_b3_atanpi1_native )
+
+    double1_uisa __ocl_svml_b3_atan2pi1_native (double1_uisa a, double1_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2pi1_native_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2pi1_native_linkage ( __ocl_svml_b3_atan2pi1_native )
+
+    double1_uisa __ocl_svml_b3_sinh1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinh1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinh1_native_linkage ( __ocl_svml_b3_sinh1_native )
+
+    double1_uisa __ocl_svml_b3_cosh1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosh1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosh1_native_linkage ( __ocl_svml_b3_cosh1_native )
+
+    double1_uisa __ocl_svml_b3_tanh1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanh1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanh1_native_linkage ( __ocl_svml_b3_tanh1_native )
+
+    double1_uisa __ocl_svml_b3_asinh1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinh1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinh1_native_linkage ( __ocl_svml_b3_asinh1_native )
+
+    double1_uisa __ocl_svml_b3_acosh1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_acosh1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acosh1_native_linkage ( __ocl_svml_b3_acosh1_native )
+
+    double1_uisa __ocl_svml_b3_atanh1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanh1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanh1_native_linkage ( __ocl_svml_b3_atanh1_native )
+
+    double1_uisa __ocl_svml_b3_erf1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_erf1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erf1_native_linkage ( __ocl_svml_b3_erf1_native )
+
+    double1_uisa __ocl_svml_b3_erfc1_native (double1_uisa a);
+    #pragma linkage     __ocl_svml_b3_erfc1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erfc1_native_linkage ( __ocl_svml_b3_erfc1_native )
 
     float2_sse __ocl_svml_h8_invf2_native (float2_sse a);
     #pragma linkage     __ocl_svml_h8_invf2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
@@ -19102,6 +26698,178 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_erfcf2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_erfcf2_native_linkage ( __ocl_svml_l9_erfcf2_native )
 
+    float2_uisa __ocl_svml_b3_invf2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf2_native_linkage ( __ocl_svml_b3_invf2_native )
+
+    float2_uisa __ocl_svml_b3_divf2_native (float2_uisa a, float2_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf2_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf2_native_linkage ( __ocl_svml_b3_divf2_native )
+
+    float2_uisa __ocl_svml_b3_sqrtf2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrtf2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrtf2_native_linkage ( __ocl_svml_b3_sqrtf2_native )
+
+    float2_uisa __ocl_svml_b3_rsqrtf2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrtf2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrtf2_native_linkage ( __ocl_svml_b3_rsqrtf2_native )
+
+    float2_uisa __ocl_svml_b3_cbrtf2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cbrtf2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cbrtf2_native_linkage ( __ocl_svml_b3_cbrtf2_native )
+
+    float2_uisa __ocl_svml_b3_rcbrtf2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_rcbrtf2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rcbrtf2_native_linkage ( __ocl_svml_b3_rcbrtf2_native )
+
+    float2_uisa __ocl_svml_b3_hypotf2_native (float2_uisa a, float2_uisa b);
+    #pragma linkage     __ocl_svml_b3_hypotf2_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_hypotf2_native_linkage ( __ocl_svml_b3_hypotf2_native )
+
+    float2_uisa __ocl_svml_b3_powf2_native (float2_uisa a, float2_uisa b);
+    #pragma linkage     __ocl_svml_b3_powf2_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powf2_native_linkage ( __ocl_svml_b3_powf2_native )
+
+    float2_uisa __ocl_svml_b3_powrf2_native (float2_uisa a, float2_uisa b);
+    #pragma linkage     __ocl_svml_b3_powrf2_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powrf2_native_linkage ( __ocl_svml_b3_powrf2_native )
+
+    float2_uisa __ocl_svml_b3_pownf2_native (float2_uisa a, int2_uisa b);
+    #pragma linkage     __ocl_svml_b3_pownf2_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pownf2_native_linkage ( __ocl_svml_b3_pownf2_native )
+
+    float2_uisa __ocl_svml_b3_rootnf2_native (float2_uisa a, int2_uisa b);
+    #pragma linkage     __ocl_svml_b3_rootnf2_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rootnf2_native_linkage ( __ocl_svml_b3_rootnf2_native )
+
+    float2_uisa __ocl_svml_b3_expf2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf2_native_linkage ( __ocl_svml_b3_expf2_native )
+
+    float2_uisa __ocl_svml_b3_exp2f2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f2_native_linkage ( __ocl_svml_b3_exp2f2_native )
+
+    float2_uisa __ocl_svml_b3_exp10f2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f2_native_linkage ( __ocl_svml_b3_exp10f2_native )
+
+    float2_uisa __ocl_svml_b3_expm1f2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_expm1f2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expm1f2_native_linkage ( __ocl_svml_b3_expm1f2_native )
+
+    float2_uisa __ocl_svml_b3_logf2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf2_native_linkage ( __ocl_svml_b3_logf2_native )
+
+    float2_uisa __ocl_svml_b3_log10f2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_log10f2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log10f2_native_linkage ( __ocl_svml_b3_log10f2_native )
+
+    float2_uisa __ocl_svml_b3_log2f2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f2_native_linkage ( __ocl_svml_b3_log2f2_native )
+
+    float2_uisa __ocl_svml_b3_log1pf2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1pf2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1pf2_native_linkage ( __ocl_svml_b3_log1pf2_native )
+
+    float2_uisa __ocl_svml_b3_sinf2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf2_native_linkage ( __ocl_svml_b3_sinf2_native )
+
+    float2_uisa __ocl_svml_b3_cosf2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf2_native_linkage ( __ocl_svml_b3_cosf2_native )
+
+    float2_uisa __ocl_svml_b3_sincosf2_native (float2_uisa a, float2_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincosf2_native_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosf2_native_linkage ( __ocl_svml_b3_sincosf2_native )
+
+    float2x2_uisa __ocl_svml_b3_sincosregf2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_sincosregf2_native_linkage   = ( result((xmm0 xmm1)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosregf2_native_linkage ( __ocl_svml_b3_sincosregf2_native )
+
+    float2_uisa __ocl_svml_b3_tanf2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf2_native_linkage ( __ocl_svml_b3_tanf2_native )
+
+    float2_uisa __ocl_svml_b3_sinpif2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinpif2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinpif2_native_linkage ( __ocl_svml_b3_sinpif2_native )
+
+    float2_uisa __ocl_svml_b3_cospif2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cospif2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cospif2_native_linkage ( __ocl_svml_b3_cospif2_native )
+
+    float2_uisa __ocl_svml_b3_tanpif2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanpif2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanpif2_native_linkage ( __ocl_svml_b3_tanpif2_native )
+
+    float2_uisa __ocl_svml_b3_acosf2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_acosf2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acosf2_native_linkage ( __ocl_svml_b3_acosf2_native )
+
+    float2_uisa __ocl_svml_b3_asinf2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinf2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinf2_native_linkage ( __ocl_svml_b3_asinf2_native )
+
+    float2_uisa __ocl_svml_b3_atanf2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanf2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanf2_native_linkage ( __ocl_svml_b3_atanf2_native )
+
+    float2_uisa __ocl_svml_b3_atan2f2_native (float2_uisa a, float2_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2f2_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2f2_native_linkage ( __ocl_svml_b3_atan2f2_native )
+
+    float2_uisa __ocl_svml_b3_asinpif2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinpif2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinpif2_native_linkage ( __ocl_svml_b3_asinpif2_native )
+
+    float2_uisa __ocl_svml_b3_acospif2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_acospif2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acospif2_native_linkage ( __ocl_svml_b3_acospif2_native )
+
+    float2_uisa __ocl_svml_b3_atanpif2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanpif2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanpif2_native_linkage ( __ocl_svml_b3_atanpif2_native )
+
+    float2_uisa __ocl_svml_b3_atan2pif2_native (float2_uisa a, float2_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2pif2_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2pif2_native_linkage ( __ocl_svml_b3_atan2pif2_native )
+
+    float2_uisa __ocl_svml_b3_sinhf2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinhf2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinhf2_native_linkage ( __ocl_svml_b3_sinhf2_native )
+
+    float2_uisa __ocl_svml_b3_coshf2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_coshf2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_coshf2_native_linkage ( __ocl_svml_b3_coshf2_native )
+
+    float2_uisa __ocl_svml_b3_tanhf2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanhf2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanhf2_native_linkage ( __ocl_svml_b3_tanhf2_native )
+
+    float2_uisa __ocl_svml_b3_asinhf2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinhf2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinhf2_native_linkage ( __ocl_svml_b3_asinhf2_native )
+
+    float2_uisa __ocl_svml_b3_acoshf2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_acoshf2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acoshf2_native_linkage ( __ocl_svml_b3_acoshf2_native )
+
+    float2_uisa __ocl_svml_b3_atanhf2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanhf2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanhf2_native_linkage ( __ocl_svml_b3_atanhf2_native )
+
+    float2_uisa __ocl_svml_b3_erff2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_erff2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erff2_native_linkage ( __ocl_svml_b3_erff2_native )
+
+    float2_uisa __ocl_svml_b3_erfcf2_native (float2_uisa a);
+    #pragma linkage     __ocl_svml_b3_erfcf2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erfcf2_native_linkage ( __ocl_svml_b3_erfcf2_native )
+
     double2_sse __ocl_svml_h8_inv2_native (double2_sse a);
     #pragma linkage     __ocl_svml_h8_inv2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_h8_inv2_native_linkage ( __ocl_svml_h8_inv2_native )
@@ -19617,6 +27385,178 @@ extern "C" {
     double2_avx __ocl_svml_l9_erfc2_native (double2_avx a);
     #pragma linkage     __ocl_svml_l9_erfc2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_erfc2_native_linkage ( __ocl_svml_l9_erfc2_native )
+
+    double2_uisa __ocl_svml_b3_inv2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_inv2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_inv2_native_linkage ( __ocl_svml_b3_inv2_native )
+
+    double2_uisa __ocl_svml_b3_div2_native (double2_uisa a, double2_uisa b);
+    #pragma linkage     __ocl_svml_b3_div2_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_div2_native_linkage ( __ocl_svml_b3_div2_native )
+
+    double2_uisa __ocl_svml_b3_sqrt2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrt2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrt2_native_linkage ( __ocl_svml_b3_sqrt2_native )
+
+    double2_uisa __ocl_svml_b3_rsqrt2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrt2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrt2_native_linkage ( __ocl_svml_b3_rsqrt2_native )
+
+    double2_uisa __ocl_svml_b3_cbrt2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cbrt2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cbrt2_native_linkage ( __ocl_svml_b3_cbrt2_native )
+
+    double2_uisa __ocl_svml_b3_rcbrt2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_rcbrt2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rcbrt2_native_linkage ( __ocl_svml_b3_rcbrt2_native )
+
+    double2_uisa __ocl_svml_b3_hypot2_native (double2_uisa a, double2_uisa b);
+    #pragma linkage     __ocl_svml_b3_hypot2_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_hypot2_native_linkage ( __ocl_svml_b3_hypot2_native )
+
+    double2_uisa __ocl_svml_b3_pow2_native (double2_uisa a, double2_uisa b);
+    #pragma linkage     __ocl_svml_b3_pow2_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pow2_native_linkage ( __ocl_svml_b3_pow2_native )
+
+    double2_uisa __ocl_svml_b3_powr2_native (double2_uisa a, double2_uisa b);
+    #pragma linkage     __ocl_svml_b3_powr2_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powr2_native_linkage ( __ocl_svml_b3_powr2_native )
+
+    double2_uisa __ocl_svml_b3_pown2_native (double2_uisa a, int2_uisa b);
+    #pragma linkage     __ocl_svml_b3_pown2_native_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pown2_native_linkage ( __ocl_svml_b3_pown2_native )
+
+    double2_uisa __ocl_svml_b3_rootn2_native (double2_uisa a, int2_uisa b);
+    #pragma linkage     __ocl_svml_b3_rootn2_native_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rootn2_native_linkage ( __ocl_svml_b3_rootn2_native )
+
+    double2_uisa __ocl_svml_b3_exp2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2_native_linkage ( __ocl_svml_b3_exp2_native )
+
+    double2_uisa __ocl_svml_b3_exp22_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp22_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp22_native_linkage ( __ocl_svml_b3_exp22_native )
+
+    double2_uisa __ocl_svml_b3_exp102_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp102_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp102_native_linkage ( __ocl_svml_b3_exp102_native )
+
+    double2_uisa __ocl_svml_b3_expm12_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_expm12_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expm12_native_linkage ( __ocl_svml_b3_expm12_native )
+
+    double2_uisa __ocl_svml_b3_log2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2_native_linkage ( __ocl_svml_b3_log2_native )
+
+    double2_uisa __ocl_svml_b3_log102_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_log102_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log102_native_linkage ( __ocl_svml_b3_log102_native )
+
+    double2_uisa __ocl_svml_b3_log22_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_log22_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log22_native_linkage ( __ocl_svml_b3_log22_native )
+
+    double2_uisa __ocl_svml_b3_log1p2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1p2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1p2_native_linkage ( __ocl_svml_b3_log1p2_native )
+
+    double2_uisa __ocl_svml_b3_sin2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_sin2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sin2_native_linkage ( __ocl_svml_b3_sin2_native )
+
+    double2_uisa __ocl_svml_b3_cos2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cos2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cos2_native_linkage ( __ocl_svml_b3_cos2_native )
+
+    double2_uisa __ocl_svml_b3_sincos2_native (double2_uisa a, double2_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincos2_native_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincos2_native_linkage ( __ocl_svml_b3_sincos2_native )
+
+    double2x2_uisa __ocl_svml_b3_sincosreg2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_sincosreg2_native_linkage   = ( result((xmm0 xmm1)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosreg2_native_linkage ( __ocl_svml_b3_sincosreg2_native )
+
+    double2_uisa __ocl_svml_b3_tan2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_tan2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tan2_native_linkage ( __ocl_svml_b3_tan2_native )
+
+    double2_uisa __ocl_svml_b3_sinpi2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinpi2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinpi2_native_linkage ( __ocl_svml_b3_sinpi2_native )
+
+    double2_uisa __ocl_svml_b3_cospi2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cospi2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cospi2_native_linkage ( __ocl_svml_b3_cospi2_native )
+
+    double2_uisa __ocl_svml_b3_tanpi2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanpi2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanpi2_native_linkage ( __ocl_svml_b3_tanpi2_native )
+
+    double2_uisa __ocl_svml_b3_acos2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_acos2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acos2_native_linkage ( __ocl_svml_b3_acos2_native )
+
+    double2_uisa __ocl_svml_b3_asin2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_asin2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asin2_native_linkage ( __ocl_svml_b3_asin2_native )
+
+    double2_uisa __ocl_svml_b3_atan2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_atan2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2_native_linkage ( __ocl_svml_b3_atan2_native )
+
+    double2_uisa __ocl_svml_b3_atan22_native (double2_uisa a, double2_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan22_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan22_native_linkage ( __ocl_svml_b3_atan22_native )
+
+    double2_uisa __ocl_svml_b3_asinpi2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinpi2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinpi2_native_linkage ( __ocl_svml_b3_asinpi2_native )
+
+    double2_uisa __ocl_svml_b3_acospi2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_acospi2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acospi2_native_linkage ( __ocl_svml_b3_acospi2_native )
+
+    double2_uisa __ocl_svml_b3_atanpi2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanpi2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanpi2_native_linkage ( __ocl_svml_b3_atanpi2_native )
+
+    double2_uisa __ocl_svml_b3_atan2pi2_native (double2_uisa a, double2_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2pi2_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2pi2_native_linkage ( __ocl_svml_b3_atan2pi2_native )
+
+    double2_uisa __ocl_svml_b3_sinh2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinh2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinh2_native_linkage ( __ocl_svml_b3_sinh2_native )
+
+    double2_uisa __ocl_svml_b3_cosh2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosh2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosh2_native_linkage ( __ocl_svml_b3_cosh2_native )
+
+    double2_uisa __ocl_svml_b3_tanh2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanh2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanh2_native_linkage ( __ocl_svml_b3_tanh2_native )
+
+    double2_uisa __ocl_svml_b3_asinh2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinh2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinh2_native_linkage ( __ocl_svml_b3_asinh2_native )
+
+    double2_uisa __ocl_svml_b3_acosh2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_acosh2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acosh2_native_linkage ( __ocl_svml_b3_acosh2_native )
+
+    double2_uisa __ocl_svml_b3_atanh2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanh2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanh2_native_linkage ( __ocl_svml_b3_atanh2_native )
+
+    double2_uisa __ocl_svml_b3_erf2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_erf2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erf2_native_linkage ( __ocl_svml_b3_erf2_native )
+
+    double2_uisa __ocl_svml_b3_erfc2_native (double2_uisa a);
+    #pragma linkage     __ocl_svml_b3_erfc2_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erfc2_native_linkage ( __ocl_svml_b3_erfc2_native )
 
     float3_sse __ocl_svml_h8_invf3_native (float3_sse a);
     #pragma linkage     __ocl_svml_h8_invf3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
@@ -20134,6 +28074,178 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_erfcf3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_erfcf3_native_linkage ( __ocl_svml_l9_erfcf3_native )
 
+    float3_uisa __ocl_svml_b3_invf3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf3_native_linkage ( __ocl_svml_b3_invf3_native )
+
+    float3_uisa __ocl_svml_b3_divf3_native (float3_uisa a, float3_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf3_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf3_native_linkage ( __ocl_svml_b3_divf3_native )
+
+    float3_uisa __ocl_svml_b3_sqrtf3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrtf3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrtf3_native_linkage ( __ocl_svml_b3_sqrtf3_native )
+
+    float3_uisa __ocl_svml_b3_rsqrtf3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrtf3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrtf3_native_linkage ( __ocl_svml_b3_rsqrtf3_native )
+
+    float3_uisa __ocl_svml_b3_cbrtf3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cbrtf3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cbrtf3_native_linkage ( __ocl_svml_b3_cbrtf3_native )
+
+    float3_uisa __ocl_svml_b3_rcbrtf3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_rcbrtf3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rcbrtf3_native_linkage ( __ocl_svml_b3_rcbrtf3_native )
+
+    float3_uisa __ocl_svml_b3_hypotf3_native (float3_uisa a, float3_uisa b);
+    #pragma linkage     __ocl_svml_b3_hypotf3_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_hypotf3_native_linkage ( __ocl_svml_b3_hypotf3_native )
+
+    float3_uisa __ocl_svml_b3_powf3_native (float3_uisa a, float3_uisa b);
+    #pragma linkage     __ocl_svml_b3_powf3_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powf3_native_linkage ( __ocl_svml_b3_powf3_native )
+
+    float3_uisa __ocl_svml_b3_powrf3_native (float3_uisa a, float3_uisa b);
+    #pragma linkage     __ocl_svml_b3_powrf3_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powrf3_native_linkage ( __ocl_svml_b3_powrf3_native )
+
+    float3_uisa __ocl_svml_b3_pownf3_native (float3_uisa a, int3_uisa b);
+    #pragma linkage     __ocl_svml_b3_pownf3_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pownf3_native_linkage ( __ocl_svml_b3_pownf3_native )
+
+    float3_uisa __ocl_svml_b3_rootnf3_native (float3_uisa a, int3_uisa b);
+    #pragma linkage     __ocl_svml_b3_rootnf3_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rootnf3_native_linkage ( __ocl_svml_b3_rootnf3_native )
+
+    float3_uisa __ocl_svml_b3_expf3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf3_native_linkage ( __ocl_svml_b3_expf3_native )
+
+    float3_uisa __ocl_svml_b3_exp2f3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f3_native_linkage ( __ocl_svml_b3_exp2f3_native )
+
+    float3_uisa __ocl_svml_b3_exp10f3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f3_native_linkage ( __ocl_svml_b3_exp10f3_native )
+
+    float3_uisa __ocl_svml_b3_expm1f3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_expm1f3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expm1f3_native_linkage ( __ocl_svml_b3_expm1f3_native )
+
+    float3_uisa __ocl_svml_b3_logf3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf3_native_linkage ( __ocl_svml_b3_logf3_native )
+
+    float3_uisa __ocl_svml_b3_log10f3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_log10f3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log10f3_native_linkage ( __ocl_svml_b3_log10f3_native )
+
+    float3_uisa __ocl_svml_b3_log2f3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f3_native_linkage ( __ocl_svml_b3_log2f3_native )
+
+    float3_uisa __ocl_svml_b3_log1pf3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1pf3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1pf3_native_linkage ( __ocl_svml_b3_log1pf3_native )
+
+    float3_uisa __ocl_svml_b3_sinf3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf3_native_linkage ( __ocl_svml_b3_sinf3_native )
+
+    float3_uisa __ocl_svml_b3_cosf3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf3_native_linkage ( __ocl_svml_b3_cosf3_native )
+
+    float3_uisa __ocl_svml_b3_sincosf3_native (float3_uisa a, float3_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincosf3_native_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosf3_native_linkage ( __ocl_svml_b3_sincosf3_native )
+
+    float3x2_uisa __ocl_svml_b3_sincosregf3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_sincosregf3_native_linkage   = ( result((xmm0 xmm1)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosregf3_native_linkage ( __ocl_svml_b3_sincosregf3_native )
+
+    float3_uisa __ocl_svml_b3_tanf3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf3_native_linkage ( __ocl_svml_b3_tanf3_native )
+
+    float3_uisa __ocl_svml_b3_sinpif3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinpif3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinpif3_native_linkage ( __ocl_svml_b3_sinpif3_native )
+
+    float3_uisa __ocl_svml_b3_cospif3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cospif3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cospif3_native_linkage ( __ocl_svml_b3_cospif3_native )
+
+    float3_uisa __ocl_svml_b3_tanpif3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanpif3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanpif3_native_linkage ( __ocl_svml_b3_tanpif3_native )
+
+    float3_uisa __ocl_svml_b3_acosf3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_acosf3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acosf3_native_linkage ( __ocl_svml_b3_acosf3_native )
+
+    float3_uisa __ocl_svml_b3_asinf3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinf3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinf3_native_linkage ( __ocl_svml_b3_asinf3_native )
+
+    float3_uisa __ocl_svml_b3_atanf3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanf3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanf3_native_linkage ( __ocl_svml_b3_atanf3_native )
+
+    float3_uisa __ocl_svml_b3_atan2f3_native (float3_uisa a, float3_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2f3_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2f3_native_linkage ( __ocl_svml_b3_atan2f3_native )
+
+    float3_uisa __ocl_svml_b3_asinpif3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinpif3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinpif3_native_linkage ( __ocl_svml_b3_asinpif3_native )
+
+    float3_uisa __ocl_svml_b3_acospif3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_acospif3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acospif3_native_linkage ( __ocl_svml_b3_acospif3_native )
+
+    float3_uisa __ocl_svml_b3_atanpif3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanpif3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanpif3_native_linkage ( __ocl_svml_b3_atanpif3_native )
+
+    float3_uisa __ocl_svml_b3_atan2pif3_native (float3_uisa a, float3_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2pif3_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2pif3_native_linkage ( __ocl_svml_b3_atan2pif3_native )
+
+    float3_uisa __ocl_svml_b3_sinhf3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinhf3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinhf3_native_linkage ( __ocl_svml_b3_sinhf3_native )
+
+    float3_uisa __ocl_svml_b3_coshf3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_coshf3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_coshf3_native_linkage ( __ocl_svml_b3_coshf3_native )
+
+    float3_uisa __ocl_svml_b3_tanhf3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanhf3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanhf3_native_linkage ( __ocl_svml_b3_tanhf3_native )
+
+    float3_uisa __ocl_svml_b3_asinhf3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinhf3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinhf3_native_linkage ( __ocl_svml_b3_asinhf3_native )
+
+    float3_uisa __ocl_svml_b3_acoshf3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_acoshf3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acoshf3_native_linkage ( __ocl_svml_b3_acoshf3_native )
+
+    float3_uisa __ocl_svml_b3_atanhf3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanhf3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanhf3_native_linkage ( __ocl_svml_b3_atanhf3_native )
+
+    float3_uisa __ocl_svml_b3_erff3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_erff3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erff3_native_linkage ( __ocl_svml_b3_erff3_native )
+
+    float3_uisa __ocl_svml_b3_erfcf3_native (float3_uisa a);
+    #pragma linkage     __ocl_svml_b3_erfcf3_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erfcf3_native_linkage ( __ocl_svml_b3_erfcf3_native )
+
     double3_sse __ocl_svml_h8_inv3_native (double3_sse a);
     #pragma linkage     __ocl_svml_h8_inv3_native_linkage   = ( result((xmm0 xmm1)) parameters((xmm0 xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_h8_inv3_native_linkage ( __ocl_svml_h8_inv3_native )
@@ -20649,6 +28761,178 @@ extern "C" {
     double3_avx __ocl_svml_l9_erfc3_native (double3_avx a);
     #pragma linkage     __ocl_svml_l9_erfc3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_erfc3_native_linkage ( __ocl_svml_l9_erfc3_native )
+
+    double3_uisa __ocl_svml_b3_inv3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_inv3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_inv3_native_linkage ( __ocl_svml_b3_inv3_native )
+
+    double3_uisa __ocl_svml_b3_div3_native (double3_uisa a, double3_uisa b);
+    #pragma linkage     __ocl_svml_b3_div3_native_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_div3_native_linkage ( __ocl_svml_b3_div3_native )
+
+    double3_uisa __ocl_svml_b3_sqrt3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrt3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrt3_native_linkage ( __ocl_svml_b3_sqrt3_native )
+
+    double3_uisa __ocl_svml_b3_rsqrt3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrt3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrt3_native_linkage ( __ocl_svml_b3_rsqrt3_native )
+
+    double3_uisa __ocl_svml_b3_cbrt3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cbrt3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cbrt3_native_linkage ( __ocl_svml_b3_cbrt3_native )
+
+    double3_uisa __ocl_svml_b3_rcbrt3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_rcbrt3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rcbrt3_native_linkage ( __ocl_svml_b3_rcbrt3_native )
+
+    double3_uisa __ocl_svml_b3_hypot3_native (double3_uisa a, double3_uisa b);
+    #pragma linkage     __ocl_svml_b3_hypot3_native_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_hypot3_native_linkage ( __ocl_svml_b3_hypot3_native )
+
+    double3_uisa __ocl_svml_b3_pow3_native (double3_uisa a, double3_uisa b);
+    #pragma linkage     __ocl_svml_b3_pow3_native_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pow3_native_linkage ( __ocl_svml_b3_pow3_native )
+
+    double3_uisa __ocl_svml_b3_powr3_native (double3_uisa a, double3_uisa b);
+    #pragma linkage     __ocl_svml_b3_powr3_native_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powr3_native_linkage ( __ocl_svml_b3_powr3_native )
+
+    double3_uisa __ocl_svml_b3_pown3_native (double3_uisa a, int3_uisa b);
+    #pragma linkage     __ocl_svml_b3_pown3_native_linkage   = ( result((ymm0)) parameters((ymm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pown3_native_linkage ( __ocl_svml_b3_pown3_native )
+
+    double3_uisa __ocl_svml_b3_rootn3_native (double3_uisa a, int3_uisa b);
+    #pragma linkage     __ocl_svml_b3_rootn3_native_linkage   = ( result((ymm0)) parameters((ymm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rootn3_native_linkage ( __ocl_svml_b3_rootn3_native )
+
+    double3_uisa __ocl_svml_b3_exp3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp3_native_linkage ( __ocl_svml_b3_exp3_native )
+
+    double3_uisa __ocl_svml_b3_exp23_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp23_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp23_native_linkage ( __ocl_svml_b3_exp23_native )
+
+    double3_uisa __ocl_svml_b3_exp103_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp103_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp103_native_linkage ( __ocl_svml_b3_exp103_native )
+
+    double3_uisa __ocl_svml_b3_expm13_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_expm13_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expm13_native_linkage ( __ocl_svml_b3_expm13_native )
+
+    double3_uisa __ocl_svml_b3_log3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_log3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log3_native_linkage ( __ocl_svml_b3_log3_native )
+
+    double3_uisa __ocl_svml_b3_log103_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_log103_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log103_native_linkage ( __ocl_svml_b3_log103_native )
+
+    double3_uisa __ocl_svml_b3_log23_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_log23_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log23_native_linkage ( __ocl_svml_b3_log23_native )
+
+    double3_uisa __ocl_svml_b3_log1p3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1p3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1p3_native_linkage ( __ocl_svml_b3_log1p3_native )
+
+    double3_uisa __ocl_svml_b3_sin3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_sin3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sin3_native_linkage ( __ocl_svml_b3_sin3_native )
+
+    double3_uisa __ocl_svml_b3_cos3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cos3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cos3_native_linkage ( __ocl_svml_b3_cos3_native )
+
+    double3_uisa __ocl_svml_b3_sincos3_native (double3_uisa a, double3_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincos3_native_linkage   = ( result((ymm0)) parameters((ymm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincos3_native_linkage ( __ocl_svml_b3_sincos3_native )
+
+    double3x2_uisa __ocl_svml_b3_sincosreg3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_sincosreg3_native_linkage   = ( result((ymm0 ymm1)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosreg3_native_linkage ( __ocl_svml_b3_sincosreg3_native )
+
+    double3_uisa __ocl_svml_b3_tan3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_tan3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tan3_native_linkage ( __ocl_svml_b3_tan3_native )
+
+    double3_uisa __ocl_svml_b3_sinpi3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinpi3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinpi3_native_linkage ( __ocl_svml_b3_sinpi3_native )
+
+    double3_uisa __ocl_svml_b3_cospi3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cospi3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cospi3_native_linkage ( __ocl_svml_b3_cospi3_native )
+
+    double3_uisa __ocl_svml_b3_tanpi3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanpi3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanpi3_native_linkage ( __ocl_svml_b3_tanpi3_native )
+
+    double3_uisa __ocl_svml_b3_acos3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_acos3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acos3_native_linkage ( __ocl_svml_b3_acos3_native )
+
+    double3_uisa __ocl_svml_b3_asin3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_asin3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asin3_native_linkage ( __ocl_svml_b3_asin3_native )
+
+    double3_uisa __ocl_svml_b3_atan3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_atan3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan3_native_linkage ( __ocl_svml_b3_atan3_native )
+
+    double3_uisa __ocl_svml_b3_atan23_native (double3_uisa a, double3_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan23_native_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan23_native_linkage ( __ocl_svml_b3_atan23_native )
+
+    double3_uisa __ocl_svml_b3_asinpi3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinpi3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinpi3_native_linkage ( __ocl_svml_b3_asinpi3_native )
+
+    double3_uisa __ocl_svml_b3_acospi3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_acospi3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acospi3_native_linkage ( __ocl_svml_b3_acospi3_native )
+
+    double3_uisa __ocl_svml_b3_atanpi3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanpi3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanpi3_native_linkage ( __ocl_svml_b3_atanpi3_native )
+
+    double3_uisa __ocl_svml_b3_atan2pi3_native (double3_uisa a, double3_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2pi3_native_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2pi3_native_linkage ( __ocl_svml_b3_atan2pi3_native )
+
+    double3_uisa __ocl_svml_b3_sinh3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinh3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinh3_native_linkage ( __ocl_svml_b3_sinh3_native )
+
+    double3_uisa __ocl_svml_b3_cosh3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosh3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosh3_native_linkage ( __ocl_svml_b3_cosh3_native )
+
+    double3_uisa __ocl_svml_b3_tanh3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanh3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanh3_native_linkage ( __ocl_svml_b3_tanh3_native )
+
+    double3_uisa __ocl_svml_b3_asinh3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinh3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinh3_native_linkage ( __ocl_svml_b3_asinh3_native )
+
+    double3_uisa __ocl_svml_b3_acosh3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_acosh3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acosh3_native_linkage ( __ocl_svml_b3_acosh3_native )
+
+    double3_uisa __ocl_svml_b3_atanh3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanh3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanh3_native_linkage ( __ocl_svml_b3_atanh3_native )
+
+    double3_uisa __ocl_svml_b3_erf3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_erf3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erf3_native_linkage ( __ocl_svml_b3_erf3_native )
+
+    double3_uisa __ocl_svml_b3_erfc3_native (double3_uisa a);
+    #pragma linkage     __ocl_svml_b3_erfc3_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erfc3_native_linkage ( __ocl_svml_b3_erfc3_native )
 
     float4_sse __ocl_svml_h8_invf4_native (float4_sse a);
     #pragma linkage     __ocl_svml_h8_invf4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
@@ -21166,6 +29450,178 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_erfcf4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_erfcf4_native_linkage ( __ocl_svml_l9_erfcf4_native )
 
+    float4_uisa __ocl_svml_b3_invf4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf4_native_linkage ( __ocl_svml_b3_invf4_native )
+
+    float4_uisa __ocl_svml_b3_divf4_native (float4_uisa a, float4_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf4_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf4_native_linkage ( __ocl_svml_b3_divf4_native )
+
+    float4_uisa __ocl_svml_b3_sqrtf4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrtf4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrtf4_native_linkage ( __ocl_svml_b3_sqrtf4_native )
+
+    float4_uisa __ocl_svml_b3_rsqrtf4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrtf4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrtf4_native_linkage ( __ocl_svml_b3_rsqrtf4_native )
+
+    float4_uisa __ocl_svml_b3_cbrtf4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cbrtf4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cbrtf4_native_linkage ( __ocl_svml_b3_cbrtf4_native )
+
+    float4_uisa __ocl_svml_b3_rcbrtf4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_rcbrtf4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rcbrtf4_native_linkage ( __ocl_svml_b3_rcbrtf4_native )
+
+    float4_uisa __ocl_svml_b3_hypotf4_native (float4_uisa a, float4_uisa b);
+    #pragma linkage     __ocl_svml_b3_hypotf4_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_hypotf4_native_linkage ( __ocl_svml_b3_hypotf4_native )
+
+    float4_uisa __ocl_svml_b3_powf4_native (float4_uisa a, float4_uisa b);
+    #pragma linkage     __ocl_svml_b3_powf4_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powf4_native_linkage ( __ocl_svml_b3_powf4_native )
+
+    float4_uisa __ocl_svml_b3_powrf4_native (float4_uisa a, float4_uisa b);
+    #pragma linkage     __ocl_svml_b3_powrf4_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powrf4_native_linkage ( __ocl_svml_b3_powrf4_native )
+
+    float4_uisa __ocl_svml_b3_pownf4_native (float4_uisa a, int4_uisa b);
+    #pragma linkage     __ocl_svml_b3_pownf4_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pownf4_native_linkage ( __ocl_svml_b3_pownf4_native )
+
+    float4_uisa __ocl_svml_b3_rootnf4_native (float4_uisa a, int4_uisa b);
+    #pragma linkage     __ocl_svml_b3_rootnf4_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rootnf4_native_linkage ( __ocl_svml_b3_rootnf4_native )
+
+    float4_uisa __ocl_svml_b3_expf4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf4_native_linkage ( __ocl_svml_b3_expf4_native )
+
+    float4_uisa __ocl_svml_b3_exp2f4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f4_native_linkage ( __ocl_svml_b3_exp2f4_native )
+
+    float4_uisa __ocl_svml_b3_exp10f4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f4_native_linkage ( __ocl_svml_b3_exp10f4_native )
+
+    float4_uisa __ocl_svml_b3_expm1f4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_expm1f4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expm1f4_native_linkage ( __ocl_svml_b3_expm1f4_native )
+
+    float4_uisa __ocl_svml_b3_logf4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf4_native_linkage ( __ocl_svml_b3_logf4_native )
+
+    float4_uisa __ocl_svml_b3_log10f4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_log10f4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log10f4_native_linkage ( __ocl_svml_b3_log10f4_native )
+
+    float4_uisa __ocl_svml_b3_log2f4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f4_native_linkage ( __ocl_svml_b3_log2f4_native )
+
+    float4_uisa __ocl_svml_b3_log1pf4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1pf4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1pf4_native_linkage ( __ocl_svml_b3_log1pf4_native )
+
+    float4_uisa __ocl_svml_b3_sinf4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf4_native_linkage ( __ocl_svml_b3_sinf4_native )
+
+    float4_uisa __ocl_svml_b3_cosf4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf4_native_linkage ( __ocl_svml_b3_cosf4_native )
+
+    float4_uisa __ocl_svml_b3_sincosf4_native (float4_uisa a, float4_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincosf4_native_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosf4_native_linkage ( __ocl_svml_b3_sincosf4_native )
+
+    float4x2_uisa __ocl_svml_b3_sincosregf4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_sincosregf4_native_linkage   = ( result((xmm0 xmm1)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosregf4_native_linkage ( __ocl_svml_b3_sincosregf4_native )
+
+    float4_uisa __ocl_svml_b3_tanf4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf4_native_linkage ( __ocl_svml_b3_tanf4_native )
+
+    float4_uisa __ocl_svml_b3_sinpif4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinpif4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinpif4_native_linkage ( __ocl_svml_b3_sinpif4_native )
+
+    float4_uisa __ocl_svml_b3_cospif4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cospif4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cospif4_native_linkage ( __ocl_svml_b3_cospif4_native )
+
+    float4_uisa __ocl_svml_b3_tanpif4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanpif4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanpif4_native_linkage ( __ocl_svml_b3_tanpif4_native )
+
+    float4_uisa __ocl_svml_b3_acosf4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_acosf4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acosf4_native_linkage ( __ocl_svml_b3_acosf4_native )
+
+    float4_uisa __ocl_svml_b3_asinf4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinf4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinf4_native_linkage ( __ocl_svml_b3_asinf4_native )
+
+    float4_uisa __ocl_svml_b3_atanf4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanf4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanf4_native_linkage ( __ocl_svml_b3_atanf4_native )
+
+    float4_uisa __ocl_svml_b3_atan2f4_native (float4_uisa a, float4_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2f4_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2f4_native_linkage ( __ocl_svml_b3_atan2f4_native )
+
+    float4_uisa __ocl_svml_b3_asinpif4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinpif4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinpif4_native_linkage ( __ocl_svml_b3_asinpif4_native )
+
+    float4_uisa __ocl_svml_b3_acospif4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_acospif4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acospif4_native_linkage ( __ocl_svml_b3_acospif4_native )
+
+    float4_uisa __ocl_svml_b3_atanpif4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanpif4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanpif4_native_linkage ( __ocl_svml_b3_atanpif4_native )
+
+    float4_uisa __ocl_svml_b3_atan2pif4_native (float4_uisa a, float4_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2pif4_native_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2pif4_native_linkage ( __ocl_svml_b3_atan2pif4_native )
+
+    float4_uisa __ocl_svml_b3_sinhf4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinhf4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinhf4_native_linkage ( __ocl_svml_b3_sinhf4_native )
+
+    float4_uisa __ocl_svml_b3_coshf4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_coshf4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_coshf4_native_linkage ( __ocl_svml_b3_coshf4_native )
+
+    float4_uisa __ocl_svml_b3_tanhf4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanhf4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanhf4_native_linkage ( __ocl_svml_b3_tanhf4_native )
+
+    float4_uisa __ocl_svml_b3_asinhf4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinhf4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinhf4_native_linkage ( __ocl_svml_b3_asinhf4_native )
+
+    float4_uisa __ocl_svml_b3_acoshf4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_acoshf4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acoshf4_native_linkage ( __ocl_svml_b3_acoshf4_native )
+
+    float4_uisa __ocl_svml_b3_atanhf4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanhf4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanhf4_native_linkage ( __ocl_svml_b3_atanhf4_native )
+
+    float4_uisa __ocl_svml_b3_erff4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_erff4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erff4_native_linkage ( __ocl_svml_b3_erff4_native )
+
+    float4_uisa __ocl_svml_b3_erfcf4_native (float4_uisa a);
+    #pragma linkage     __ocl_svml_b3_erfcf4_native_linkage   = ( result((xmm0)) parameters((xmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erfcf4_native_linkage ( __ocl_svml_b3_erfcf4_native )
+
     double4_sse __ocl_svml_h8_inv4_native (double4_sse a);
     #pragma linkage     __ocl_svml_h8_inv4_native_linkage   = ( result((xmm0 xmm1)) parameters((xmm0 xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_h8_inv4_native_linkage ( __ocl_svml_h8_inv4_native )
@@ -21681,6 +30137,178 @@ extern "C" {
     double4_avx __ocl_svml_l9_erfc4_native (double4_avx a);
     #pragma linkage     __ocl_svml_l9_erfc4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_erfc4_native_linkage ( __ocl_svml_l9_erfc4_native )
+
+    double4_uisa __ocl_svml_b3_inv4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_inv4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_inv4_native_linkage ( __ocl_svml_b3_inv4_native )
+
+    double4_uisa __ocl_svml_b3_div4_native (double4_uisa a, double4_uisa b);
+    #pragma linkage     __ocl_svml_b3_div4_native_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_div4_native_linkage ( __ocl_svml_b3_div4_native )
+
+    double4_uisa __ocl_svml_b3_sqrt4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrt4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrt4_native_linkage ( __ocl_svml_b3_sqrt4_native )
+
+    double4_uisa __ocl_svml_b3_rsqrt4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrt4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrt4_native_linkage ( __ocl_svml_b3_rsqrt4_native )
+
+    double4_uisa __ocl_svml_b3_cbrt4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cbrt4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cbrt4_native_linkage ( __ocl_svml_b3_cbrt4_native )
+
+    double4_uisa __ocl_svml_b3_rcbrt4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_rcbrt4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rcbrt4_native_linkage ( __ocl_svml_b3_rcbrt4_native )
+
+    double4_uisa __ocl_svml_b3_hypot4_native (double4_uisa a, double4_uisa b);
+    #pragma linkage     __ocl_svml_b3_hypot4_native_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_hypot4_native_linkage ( __ocl_svml_b3_hypot4_native )
+
+    double4_uisa __ocl_svml_b3_pow4_native (double4_uisa a, double4_uisa b);
+    #pragma linkage     __ocl_svml_b3_pow4_native_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pow4_native_linkage ( __ocl_svml_b3_pow4_native )
+
+    double4_uisa __ocl_svml_b3_powr4_native (double4_uisa a, double4_uisa b);
+    #pragma linkage     __ocl_svml_b3_powr4_native_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powr4_native_linkage ( __ocl_svml_b3_powr4_native )
+
+    double4_uisa __ocl_svml_b3_pown4_native (double4_uisa a, int4_uisa b);
+    #pragma linkage     __ocl_svml_b3_pown4_native_linkage   = ( result((ymm0)) parameters((ymm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pown4_native_linkage ( __ocl_svml_b3_pown4_native )
+
+    double4_uisa __ocl_svml_b3_rootn4_native (double4_uisa a, int4_uisa b);
+    #pragma linkage     __ocl_svml_b3_rootn4_native_linkage   = ( result((ymm0)) parameters((ymm0),(xmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rootn4_native_linkage ( __ocl_svml_b3_rootn4_native )
+
+    double4_uisa __ocl_svml_b3_exp4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp4_native_linkage ( __ocl_svml_b3_exp4_native )
+
+    double4_uisa __ocl_svml_b3_exp24_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp24_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp24_native_linkage ( __ocl_svml_b3_exp24_native )
+
+    double4_uisa __ocl_svml_b3_exp104_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp104_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp104_native_linkage ( __ocl_svml_b3_exp104_native )
+
+    double4_uisa __ocl_svml_b3_expm14_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_expm14_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expm14_native_linkage ( __ocl_svml_b3_expm14_native )
+
+    double4_uisa __ocl_svml_b3_log4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_log4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log4_native_linkage ( __ocl_svml_b3_log4_native )
+
+    double4_uisa __ocl_svml_b3_log104_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_log104_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log104_native_linkage ( __ocl_svml_b3_log104_native )
+
+    double4_uisa __ocl_svml_b3_log24_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_log24_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log24_native_linkage ( __ocl_svml_b3_log24_native )
+
+    double4_uisa __ocl_svml_b3_log1p4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1p4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1p4_native_linkage ( __ocl_svml_b3_log1p4_native )
+
+    double4_uisa __ocl_svml_b3_sin4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_sin4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sin4_native_linkage ( __ocl_svml_b3_sin4_native )
+
+    double4_uisa __ocl_svml_b3_cos4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cos4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cos4_native_linkage ( __ocl_svml_b3_cos4_native )
+
+    double4_uisa __ocl_svml_b3_sincos4_native (double4_uisa a, double4_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincos4_native_linkage   = ( result((ymm0)) parameters((ymm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincos4_native_linkage ( __ocl_svml_b3_sincos4_native )
+
+    double4x2_uisa __ocl_svml_b3_sincosreg4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_sincosreg4_native_linkage   = ( result((ymm0 ymm1)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosreg4_native_linkage ( __ocl_svml_b3_sincosreg4_native )
+
+    double4_uisa __ocl_svml_b3_tan4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_tan4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tan4_native_linkage ( __ocl_svml_b3_tan4_native )
+
+    double4_uisa __ocl_svml_b3_sinpi4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinpi4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinpi4_native_linkage ( __ocl_svml_b3_sinpi4_native )
+
+    double4_uisa __ocl_svml_b3_cospi4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cospi4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cospi4_native_linkage ( __ocl_svml_b3_cospi4_native )
+
+    double4_uisa __ocl_svml_b3_tanpi4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanpi4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanpi4_native_linkage ( __ocl_svml_b3_tanpi4_native )
+
+    double4_uisa __ocl_svml_b3_acos4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_acos4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acos4_native_linkage ( __ocl_svml_b3_acos4_native )
+
+    double4_uisa __ocl_svml_b3_asin4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_asin4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asin4_native_linkage ( __ocl_svml_b3_asin4_native )
+
+    double4_uisa __ocl_svml_b3_atan4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_atan4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan4_native_linkage ( __ocl_svml_b3_atan4_native )
+
+    double4_uisa __ocl_svml_b3_atan24_native (double4_uisa a, double4_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan24_native_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan24_native_linkage ( __ocl_svml_b3_atan24_native )
+
+    double4_uisa __ocl_svml_b3_asinpi4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinpi4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinpi4_native_linkage ( __ocl_svml_b3_asinpi4_native )
+
+    double4_uisa __ocl_svml_b3_acospi4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_acospi4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acospi4_native_linkage ( __ocl_svml_b3_acospi4_native )
+
+    double4_uisa __ocl_svml_b3_atanpi4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanpi4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanpi4_native_linkage ( __ocl_svml_b3_atanpi4_native )
+
+    double4_uisa __ocl_svml_b3_atan2pi4_native (double4_uisa a, double4_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2pi4_native_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2pi4_native_linkage ( __ocl_svml_b3_atan2pi4_native )
+
+    double4_uisa __ocl_svml_b3_sinh4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinh4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinh4_native_linkage ( __ocl_svml_b3_sinh4_native )
+
+    double4_uisa __ocl_svml_b3_cosh4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosh4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosh4_native_linkage ( __ocl_svml_b3_cosh4_native )
+
+    double4_uisa __ocl_svml_b3_tanh4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanh4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanh4_native_linkage ( __ocl_svml_b3_tanh4_native )
+
+    double4_uisa __ocl_svml_b3_asinh4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinh4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinh4_native_linkage ( __ocl_svml_b3_asinh4_native )
+
+    double4_uisa __ocl_svml_b3_acosh4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_acosh4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acosh4_native_linkage ( __ocl_svml_b3_acosh4_native )
+
+    double4_uisa __ocl_svml_b3_atanh4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanh4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanh4_native_linkage ( __ocl_svml_b3_atanh4_native )
+
+    double4_uisa __ocl_svml_b3_erf4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_erf4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erf4_native_linkage ( __ocl_svml_b3_erf4_native )
+
+    double4_uisa __ocl_svml_b3_erfc4_native (double4_uisa a);
+    #pragma linkage     __ocl_svml_b3_erfc4_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erfc4_native_linkage ( __ocl_svml_b3_erfc4_native )
 
     float8_sse __ocl_svml_h8_invf8_native (float8_sse a);
     #pragma linkage     __ocl_svml_h8_invf8_native_linkage   = ( result((xmm0 xmm1)) parameters((xmm0 xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
@@ -22198,6 +30826,178 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_erfcf8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_erfcf8_native_linkage ( __ocl_svml_l9_erfcf8_native )
 
+    float8_uisa __ocl_svml_b3_invf8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf8_native_linkage ( __ocl_svml_b3_invf8_native )
+
+    float8_uisa __ocl_svml_b3_divf8_native (float8_uisa a, float8_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf8_native_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf8_native_linkage ( __ocl_svml_b3_divf8_native )
+
+    float8_uisa __ocl_svml_b3_sqrtf8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrtf8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrtf8_native_linkage ( __ocl_svml_b3_sqrtf8_native )
+
+    float8_uisa __ocl_svml_b3_rsqrtf8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrtf8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrtf8_native_linkage ( __ocl_svml_b3_rsqrtf8_native )
+
+    float8_uisa __ocl_svml_b3_cbrtf8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cbrtf8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cbrtf8_native_linkage ( __ocl_svml_b3_cbrtf8_native )
+
+    float8_uisa __ocl_svml_b3_rcbrtf8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_rcbrtf8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rcbrtf8_native_linkage ( __ocl_svml_b3_rcbrtf8_native )
+
+    float8_uisa __ocl_svml_b3_hypotf8_native (float8_uisa a, float8_uisa b);
+    #pragma linkage     __ocl_svml_b3_hypotf8_native_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_hypotf8_native_linkage ( __ocl_svml_b3_hypotf8_native )
+
+    float8_uisa __ocl_svml_b3_powf8_native (float8_uisa a, float8_uisa b);
+    #pragma linkage     __ocl_svml_b3_powf8_native_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powf8_native_linkage ( __ocl_svml_b3_powf8_native )
+
+    float8_uisa __ocl_svml_b3_powrf8_native (float8_uisa a, float8_uisa b);
+    #pragma linkage     __ocl_svml_b3_powrf8_native_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powrf8_native_linkage ( __ocl_svml_b3_powrf8_native )
+
+    float8_uisa __ocl_svml_b3_pownf8_native (float8_uisa a, int8_uisa b);
+    #pragma linkage     __ocl_svml_b3_pownf8_native_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pownf8_native_linkage ( __ocl_svml_b3_pownf8_native )
+
+    float8_uisa __ocl_svml_b3_rootnf8_native (float8_uisa a, int8_uisa b);
+    #pragma linkage     __ocl_svml_b3_rootnf8_native_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rootnf8_native_linkage ( __ocl_svml_b3_rootnf8_native )
+
+    float8_uisa __ocl_svml_b3_expf8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf8_native_linkage ( __ocl_svml_b3_expf8_native )
+
+    float8_uisa __ocl_svml_b3_exp2f8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f8_native_linkage ( __ocl_svml_b3_exp2f8_native )
+
+    float8_uisa __ocl_svml_b3_exp10f8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f8_native_linkage ( __ocl_svml_b3_exp10f8_native )
+
+    float8_uisa __ocl_svml_b3_expm1f8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_expm1f8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expm1f8_native_linkage ( __ocl_svml_b3_expm1f8_native )
+
+    float8_uisa __ocl_svml_b3_logf8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf8_native_linkage ( __ocl_svml_b3_logf8_native )
+
+    float8_uisa __ocl_svml_b3_log10f8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_log10f8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log10f8_native_linkage ( __ocl_svml_b3_log10f8_native )
+
+    float8_uisa __ocl_svml_b3_log2f8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f8_native_linkage ( __ocl_svml_b3_log2f8_native )
+
+    float8_uisa __ocl_svml_b3_log1pf8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1pf8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1pf8_native_linkage ( __ocl_svml_b3_log1pf8_native )
+
+    float8_uisa __ocl_svml_b3_sinf8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf8_native_linkage ( __ocl_svml_b3_sinf8_native )
+
+    float8_uisa __ocl_svml_b3_cosf8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf8_native_linkage ( __ocl_svml_b3_cosf8_native )
+
+    float8_uisa __ocl_svml_b3_sincosf8_native (float8_uisa a, float8_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincosf8_native_linkage   = ( result((ymm0)) parameters((ymm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosf8_native_linkage ( __ocl_svml_b3_sincosf8_native )
+
+    float8x2_uisa __ocl_svml_b3_sincosregf8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_sincosregf8_native_linkage   = ( result((ymm0 ymm1)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosregf8_native_linkage ( __ocl_svml_b3_sincosregf8_native )
+
+    float8_uisa __ocl_svml_b3_tanf8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf8_native_linkage ( __ocl_svml_b3_tanf8_native )
+
+    float8_uisa __ocl_svml_b3_sinpif8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinpif8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinpif8_native_linkage ( __ocl_svml_b3_sinpif8_native )
+
+    float8_uisa __ocl_svml_b3_cospif8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cospif8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cospif8_native_linkage ( __ocl_svml_b3_cospif8_native )
+
+    float8_uisa __ocl_svml_b3_tanpif8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanpif8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanpif8_native_linkage ( __ocl_svml_b3_tanpif8_native )
+
+    float8_uisa __ocl_svml_b3_acosf8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_acosf8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acosf8_native_linkage ( __ocl_svml_b3_acosf8_native )
+
+    float8_uisa __ocl_svml_b3_asinf8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinf8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinf8_native_linkage ( __ocl_svml_b3_asinf8_native )
+
+    float8_uisa __ocl_svml_b3_atanf8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanf8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanf8_native_linkage ( __ocl_svml_b3_atanf8_native )
+
+    float8_uisa __ocl_svml_b3_atan2f8_native (float8_uisa a, float8_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2f8_native_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2f8_native_linkage ( __ocl_svml_b3_atan2f8_native )
+
+    float8_uisa __ocl_svml_b3_asinpif8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinpif8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinpif8_native_linkage ( __ocl_svml_b3_asinpif8_native )
+
+    float8_uisa __ocl_svml_b3_acospif8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_acospif8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acospif8_native_linkage ( __ocl_svml_b3_acospif8_native )
+
+    float8_uisa __ocl_svml_b3_atanpif8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanpif8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanpif8_native_linkage ( __ocl_svml_b3_atanpif8_native )
+
+    float8_uisa __ocl_svml_b3_atan2pif8_native (float8_uisa a, float8_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2pif8_native_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2pif8_native_linkage ( __ocl_svml_b3_atan2pif8_native )
+
+    float8_uisa __ocl_svml_b3_sinhf8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinhf8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinhf8_native_linkage ( __ocl_svml_b3_sinhf8_native )
+
+    float8_uisa __ocl_svml_b3_coshf8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_coshf8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_coshf8_native_linkage ( __ocl_svml_b3_coshf8_native )
+
+    float8_uisa __ocl_svml_b3_tanhf8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanhf8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanhf8_native_linkage ( __ocl_svml_b3_tanhf8_native )
+
+    float8_uisa __ocl_svml_b3_asinhf8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinhf8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinhf8_native_linkage ( __ocl_svml_b3_asinhf8_native )
+
+    float8_uisa __ocl_svml_b3_acoshf8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_acoshf8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acoshf8_native_linkage ( __ocl_svml_b3_acoshf8_native )
+
+    float8_uisa __ocl_svml_b3_atanhf8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanhf8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanhf8_native_linkage ( __ocl_svml_b3_atanhf8_native )
+
+    float8_uisa __ocl_svml_b3_erff8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_erff8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erff8_native_linkage ( __ocl_svml_b3_erff8_native )
+
+    float8_uisa __ocl_svml_b3_erfcf8_native (float8_uisa a);
+    #pragma linkage     __ocl_svml_b3_erfcf8_native_linkage   = ( result((ymm0)) parameters((ymm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erfcf8_native_linkage ( __ocl_svml_b3_erfcf8_native )
+
     double8_avx __ocl_svml_e9_inv8_native (double8_avx a);
     #pragma linkage     __ocl_svml_e9_inv8_native_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_e9_inv8_native_linkage ( __ocl_svml_e9_inv8_native )
@@ -22542,6 +31342,178 @@ extern "C" {
     #pragma linkage     __ocl_svml_l9_erfc8_native_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_erfc8_native_linkage ( __ocl_svml_l9_erfc8_native )
 
+    double8_uisa __ocl_svml_b3_inv8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_inv8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_inv8_native_linkage ( __ocl_svml_b3_inv8_native )
+
+    double8_uisa __ocl_svml_b3_div8_native (double8_uisa a, double8_uisa b);
+    #pragma linkage     __ocl_svml_b3_div8_native_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_div8_native_linkage ( __ocl_svml_b3_div8_native )
+
+    double8_uisa __ocl_svml_b3_sqrt8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrt8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrt8_native_linkage ( __ocl_svml_b3_sqrt8_native )
+
+    double8_uisa __ocl_svml_b3_rsqrt8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrt8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrt8_native_linkage ( __ocl_svml_b3_rsqrt8_native )
+
+    double8_uisa __ocl_svml_b3_cbrt8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cbrt8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cbrt8_native_linkage ( __ocl_svml_b3_cbrt8_native )
+
+    double8_uisa __ocl_svml_b3_rcbrt8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_rcbrt8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rcbrt8_native_linkage ( __ocl_svml_b3_rcbrt8_native )
+
+    double8_uisa __ocl_svml_b3_hypot8_native (double8_uisa a, double8_uisa b);
+    #pragma linkage     __ocl_svml_b3_hypot8_native_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_hypot8_native_linkage ( __ocl_svml_b3_hypot8_native )
+
+    double8_uisa __ocl_svml_b3_pow8_native (double8_uisa a, double8_uisa b);
+    #pragma linkage     __ocl_svml_b3_pow8_native_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pow8_native_linkage ( __ocl_svml_b3_pow8_native )
+
+    double8_uisa __ocl_svml_b3_powr8_native (double8_uisa a, double8_uisa b);
+    #pragma linkage     __ocl_svml_b3_powr8_native_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powr8_native_linkage ( __ocl_svml_b3_powr8_native )
+
+    double8_uisa __ocl_svml_b3_pown8_native (double8_uisa a, int8_uisa b);
+    #pragma linkage     __ocl_svml_b3_pown8_native_linkage   = ( result((zmm0)) parameters((zmm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pown8_native_linkage ( __ocl_svml_b3_pown8_native )
+
+    double8_uisa __ocl_svml_b3_rootn8_native (double8_uisa a, int8_uisa b);
+    #pragma linkage     __ocl_svml_b3_rootn8_native_linkage   = ( result((zmm0)) parameters((zmm0),(ymm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rootn8_native_linkage ( __ocl_svml_b3_rootn8_native )
+
+    double8_uisa __ocl_svml_b3_exp8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp8_native_linkage ( __ocl_svml_b3_exp8_native )
+
+    double8_uisa __ocl_svml_b3_exp28_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp28_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp28_native_linkage ( __ocl_svml_b3_exp28_native )
+
+    double8_uisa __ocl_svml_b3_exp108_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp108_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp108_native_linkage ( __ocl_svml_b3_exp108_native )
+
+    double8_uisa __ocl_svml_b3_expm18_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_expm18_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expm18_native_linkage ( __ocl_svml_b3_expm18_native )
+
+    double8_uisa __ocl_svml_b3_log8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_log8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log8_native_linkage ( __ocl_svml_b3_log8_native )
+
+    double8_uisa __ocl_svml_b3_log108_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_log108_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log108_native_linkage ( __ocl_svml_b3_log108_native )
+
+    double8_uisa __ocl_svml_b3_log28_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_log28_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log28_native_linkage ( __ocl_svml_b3_log28_native )
+
+    double8_uisa __ocl_svml_b3_log1p8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1p8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1p8_native_linkage ( __ocl_svml_b3_log1p8_native )
+
+    double8_uisa __ocl_svml_b3_sin8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_sin8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sin8_native_linkage ( __ocl_svml_b3_sin8_native )
+
+    double8_uisa __ocl_svml_b3_cos8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cos8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cos8_native_linkage ( __ocl_svml_b3_cos8_native )
+
+    double8_uisa __ocl_svml_b3_sincos8_native (double8_uisa a, double8_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincos8_native_linkage   = ( result((zmm0)) parameters((zmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincos8_native_linkage ( __ocl_svml_b3_sincos8_native )
+
+    double8x2_uisa __ocl_svml_b3_sincosreg8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_sincosreg8_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosreg8_native_linkage ( __ocl_svml_b3_sincosreg8_native )
+
+    double8_uisa __ocl_svml_b3_tan8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_tan8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tan8_native_linkage ( __ocl_svml_b3_tan8_native )
+
+    double8_uisa __ocl_svml_b3_sinpi8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinpi8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinpi8_native_linkage ( __ocl_svml_b3_sinpi8_native )
+
+    double8_uisa __ocl_svml_b3_cospi8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cospi8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cospi8_native_linkage ( __ocl_svml_b3_cospi8_native )
+
+    double8_uisa __ocl_svml_b3_tanpi8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanpi8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanpi8_native_linkage ( __ocl_svml_b3_tanpi8_native )
+
+    double8_uisa __ocl_svml_b3_acos8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_acos8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acos8_native_linkage ( __ocl_svml_b3_acos8_native )
+
+    double8_uisa __ocl_svml_b3_asin8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_asin8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asin8_native_linkage ( __ocl_svml_b3_asin8_native )
+
+    double8_uisa __ocl_svml_b3_atan8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_atan8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan8_native_linkage ( __ocl_svml_b3_atan8_native )
+
+    double8_uisa __ocl_svml_b3_atan28_native (double8_uisa a, double8_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan28_native_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan28_native_linkage ( __ocl_svml_b3_atan28_native )
+
+    double8_uisa __ocl_svml_b3_asinpi8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinpi8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinpi8_native_linkage ( __ocl_svml_b3_asinpi8_native )
+
+    double8_uisa __ocl_svml_b3_acospi8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_acospi8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acospi8_native_linkage ( __ocl_svml_b3_acospi8_native )
+
+    double8_uisa __ocl_svml_b3_atanpi8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanpi8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanpi8_native_linkage ( __ocl_svml_b3_atanpi8_native )
+
+    double8_uisa __ocl_svml_b3_atan2pi8_native (double8_uisa a, double8_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2pi8_native_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2pi8_native_linkage ( __ocl_svml_b3_atan2pi8_native )
+
+    double8_uisa __ocl_svml_b3_sinh8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinh8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinh8_native_linkage ( __ocl_svml_b3_sinh8_native )
+
+    double8_uisa __ocl_svml_b3_cosh8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosh8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosh8_native_linkage ( __ocl_svml_b3_cosh8_native )
+
+    double8_uisa __ocl_svml_b3_tanh8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanh8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanh8_native_linkage ( __ocl_svml_b3_tanh8_native )
+
+    double8_uisa __ocl_svml_b3_asinh8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinh8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinh8_native_linkage ( __ocl_svml_b3_asinh8_native )
+
+    double8_uisa __ocl_svml_b3_acosh8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_acosh8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acosh8_native_linkage ( __ocl_svml_b3_acosh8_native )
+
+    double8_uisa __ocl_svml_b3_atanh8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanh8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanh8_native_linkage ( __ocl_svml_b3_atanh8_native )
+
+    double8_uisa __ocl_svml_b3_erf8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_erf8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erf8_native_linkage ( __ocl_svml_b3_erf8_native )
+
+    double8_uisa __ocl_svml_b3_erfc8_native (double8_uisa a);
+    #pragma linkage     __ocl_svml_b3_erfc8_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erfc8_native_linkage ( __ocl_svml_b3_erfc8_native )
+
     float16_avx __ocl_svml_e9_invf16_native (float16_avx a);
     #pragma linkage     __ocl_svml_e9_invf16_native_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_e9_invf16_native_linkage ( __ocl_svml_e9_invf16_native )
@@ -22885,6 +31857,522 @@ extern "C" {
     float16_avx __ocl_svml_l9_erfcf16_native (float16_avx a);
     #pragma linkage     __ocl_svml_l9_erfcf16_native_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_erfcf16_native_linkage ( __ocl_svml_l9_erfcf16_native )
+
+    float16_uisa __ocl_svml_b3_invf16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf16_native_linkage ( __ocl_svml_b3_invf16_native )
+
+    float16_uisa __ocl_svml_b3_divf16_native (float16_uisa a, float16_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf16_native_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf16_native_linkage ( __ocl_svml_b3_divf16_native )
+
+    float16_uisa __ocl_svml_b3_sqrtf16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrtf16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrtf16_native_linkage ( __ocl_svml_b3_sqrtf16_native )
+
+    float16_uisa __ocl_svml_b3_rsqrtf16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrtf16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrtf16_native_linkage ( __ocl_svml_b3_rsqrtf16_native )
+
+    float16_uisa __ocl_svml_b3_cbrtf16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cbrtf16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cbrtf16_native_linkage ( __ocl_svml_b3_cbrtf16_native )
+
+    float16_uisa __ocl_svml_b3_rcbrtf16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_rcbrtf16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rcbrtf16_native_linkage ( __ocl_svml_b3_rcbrtf16_native )
+
+    float16_uisa __ocl_svml_b3_hypotf16_native (float16_uisa a, float16_uisa b);
+    #pragma linkage     __ocl_svml_b3_hypotf16_native_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_hypotf16_native_linkage ( __ocl_svml_b3_hypotf16_native )
+
+    float16_uisa __ocl_svml_b3_powf16_native (float16_uisa a, float16_uisa b);
+    #pragma linkage     __ocl_svml_b3_powf16_native_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powf16_native_linkage ( __ocl_svml_b3_powf16_native )
+
+    float16_uisa __ocl_svml_b3_powrf16_native (float16_uisa a, float16_uisa b);
+    #pragma linkage     __ocl_svml_b3_powrf16_native_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powrf16_native_linkage ( __ocl_svml_b3_powrf16_native )
+
+    float16_uisa __ocl_svml_b3_pownf16_native (float16_uisa a, int16_uisa b);
+    #pragma linkage     __ocl_svml_b3_pownf16_native_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pownf16_native_linkage ( __ocl_svml_b3_pownf16_native )
+
+    float16_uisa __ocl_svml_b3_rootnf16_native (float16_uisa a, int16_uisa b);
+    #pragma linkage     __ocl_svml_b3_rootnf16_native_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rootnf16_native_linkage ( __ocl_svml_b3_rootnf16_native )
+
+    float16_uisa __ocl_svml_b3_expf16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf16_native_linkage ( __ocl_svml_b3_expf16_native )
+
+    float16_uisa __ocl_svml_b3_exp2f16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f16_native_linkage ( __ocl_svml_b3_exp2f16_native )
+
+    float16_uisa __ocl_svml_b3_exp10f16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f16_native_linkage ( __ocl_svml_b3_exp10f16_native )
+
+    float16_uisa __ocl_svml_b3_expm1f16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_expm1f16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expm1f16_native_linkage ( __ocl_svml_b3_expm1f16_native )
+
+    float16_uisa __ocl_svml_b3_logf16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf16_native_linkage ( __ocl_svml_b3_logf16_native )
+
+    float16_uisa __ocl_svml_b3_log10f16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_log10f16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log10f16_native_linkage ( __ocl_svml_b3_log10f16_native )
+
+    float16_uisa __ocl_svml_b3_log2f16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f16_native_linkage ( __ocl_svml_b3_log2f16_native )
+
+    float16_uisa __ocl_svml_b3_log1pf16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1pf16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1pf16_native_linkage ( __ocl_svml_b3_log1pf16_native )
+
+    float16_uisa __ocl_svml_b3_sinf16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf16_native_linkage ( __ocl_svml_b3_sinf16_native )
+
+    float16_uisa __ocl_svml_b3_cosf16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf16_native_linkage ( __ocl_svml_b3_cosf16_native )
+
+    float16_uisa __ocl_svml_b3_sincosf16_native (float16_uisa a, float16_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincosf16_native_linkage   = ( result((zmm0)) parameters((zmm0),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosf16_native_linkage ( __ocl_svml_b3_sincosf16_native )
+
+    float16x2_uisa __ocl_svml_b3_sincosregf16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_sincosregf16_native_linkage   = ( result(((zmm0)(zmm1))) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosregf16_native_linkage ( __ocl_svml_b3_sincosregf16_native )
+
+    float16_uisa __ocl_svml_b3_tanf16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf16_native_linkage ( __ocl_svml_b3_tanf16_native )
+
+    float16_uisa __ocl_svml_b3_sinpif16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinpif16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinpif16_native_linkage ( __ocl_svml_b3_sinpif16_native )
+
+    float16_uisa __ocl_svml_b3_cospif16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cospif16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cospif16_native_linkage ( __ocl_svml_b3_cospif16_native )
+
+    float16_uisa __ocl_svml_b3_tanpif16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanpif16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanpif16_native_linkage ( __ocl_svml_b3_tanpif16_native )
+
+    float16_uisa __ocl_svml_b3_acosf16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_acosf16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acosf16_native_linkage ( __ocl_svml_b3_acosf16_native )
+
+    float16_uisa __ocl_svml_b3_asinf16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinf16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinf16_native_linkage ( __ocl_svml_b3_asinf16_native )
+
+    float16_uisa __ocl_svml_b3_atanf16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanf16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanf16_native_linkage ( __ocl_svml_b3_atanf16_native )
+
+    float16_uisa __ocl_svml_b3_atan2f16_native (float16_uisa a, float16_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2f16_native_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2f16_native_linkage ( __ocl_svml_b3_atan2f16_native )
+
+    float16_uisa __ocl_svml_b3_asinpif16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinpif16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinpif16_native_linkage ( __ocl_svml_b3_asinpif16_native )
+
+    float16_uisa __ocl_svml_b3_acospif16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_acospif16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acospif16_native_linkage ( __ocl_svml_b3_acospif16_native )
+
+    float16_uisa __ocl_svml_b3_atanpif16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanpif16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanpif16_native_linkage ( __ocl_svml_b3_atanpif16_native )
+
+    float16_uisa __ocl_svml_b3_atan2pif16_native (float16_uisa a, float16_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2pif16_native_linkage   = ( result((zmm0)) parameters((zmm0),(zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2pif16_native_linkage ( __ocl_svml_b3_atan2pif16_native )
+
+    float16_uisa __ocl_svml_b3_sinhf16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinhf16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinhf16_native_linkage ( __ocl_svml_b3_sinhf16_native )
+
+    float16_uisa __ocl_svml_b3_coshf16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_coshf16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_coshf16_native_linkage ( __ocl_svml_b3_coshf16_native )
+
+    float16_uisa __ocl_svml_b3_tanhf16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanhf16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanhf16_native_linkage ( __ocl_svml_b3_tanhf16_native )
+
+    float16_uisa __ocl_svml_b3_asinhf16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinhf16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinhf16_native_linkage ( __ocl_svml_b3_asinhf16_native )
+
+    float16_uisa __ocl_svml_b3_acoshf16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_acoshf16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acoshf16_native_linkage ( __ocl_svml_b3_acoshf16_native )
+
+    float16_uisa __ocl_svml_b3_atanhf16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanhf16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanhf16_native_linkage ( __ocl_svml_b3_atanhf16_native )
+
+    float16_uisa __ocl_svml_b3_erff16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_erff16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erff16_native_linkage ( __ocl_svml_b3_erff16_native )
+
+    float16_uisa __ocl_svml_b3_erfcf16_native (float16_uisa a);
+    #pragma linkage     __ocl_svml_b3_erfcf16_native_linkage   = ( result((zmm0)) parameters((zmm0)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erfcf16_native_linkage ( __ocl_svml_b3_erfcf16_native )
+
+    double16_uisa __ocl_svml_b3_inv16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_inv16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_inv16_native_linkage ( __ocl_svml_b3_inv16_native )
+
+    double16_uisa __ocl_svml_b3_div16_native (double16_uisa a, double16_uisa b);
+    #pragma linkage     __ocl_svml_b3_div16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_div16_native_linkage ( __ocl_svml_b3_div16_native )
+
+    double16_uisa __ocl_svml_b3_sqrt16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrt16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrt16_native_linkage ( __ocl_svml_b3_sqrt16_native )
+
+    double16_uisa __ocl_svml_b3_rsqrt16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrt16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrt16_native_linkage ( __ocl_svml_b3_rsqrt16_native )
+
+    double16_uisa __ocl_svml_b3_cbrt16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cbrt16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cbrt16_native_linkage ( __ocl_svml_b3_cbrt16_native )
+
+    double16_uisa __ocl_svml_b3_rcbrt16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_rcbrt16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rcbrt16_native_linkage ( __ocl_svml_b3_rcbrt16_native )
+
+    double16_uisa __ocl_svml_b3_hypot16_native (double16_uisa a, double16_uisa b);
+    #pragma linkage     __ocl_svml_b3_hypot16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_hypot16_native_linkage ( __ocl_svml_b3_hypot16_native )
+
+    double16_uisa __ocl_svml_b3_pow16_native (double16_uisa a, double16_uisa b);
+    #pragma linkage     __ocl_svml_b3_pow16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pow16_native_linkage ( __ocl_svml_b3_pow16_native )
+
+    double16_uisa __ocl_svml_b3_powr16_native (double16_uisa a, double16_uisa b);
+    #pragma linkage     __ocl_svml_b3_powr16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powr16_native_linkage ( __ocl_svml_b3_powr16_native )
+
+    double16_uisa __ocl_svml_b3_pown16_native (double16_uisa a, int16_uisa b);
+    #pragma linkage     __ocl_svml_b3_pown16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pown16_native_linkage ( __ocl_svml_b3_pown16_native )
+
+    double16_uisa __ocl_svml_b3_rootn16_native (double16_uisa a, int16_uisa b);
+    #pragma linkage     __ocl_svml_b3_rootn16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rootn16_native_linkage ( __ocl_svml_b3_rootn16_native )
+
+    double16_uisa __ocl_svml_b3_exp16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp16_native_linkage ( __ocl_svml_b3_exp16_native )
+
+    double16_uisa __ocl_svml_b3_exp216_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp216_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp216_native_linkage ( __ocl_svml_b3_exp216_native )
+
+    double16_uisa __ocl_svml_b3_exp1016_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp1016_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp1016_native_linkage ( __ocl_svml_b3_exp1016_native )
+
+    double16_uisa __ocl_svml_b3_expm116_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_expm116_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expm116_native_linkage ( __ocl_svml_b3_expm116_native )
+
+    double16_uisa __ocl_svml_b3_log16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_log16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log16_native_linkage ( __ocl_svml_b3_log16_native )
+
+    double16_uisa __ocl_svml_b3_log1016_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1016_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1016_native_linkage ( __ocl_svml_b3_log1016_native )
+
+    double16_uisa __ocl_svml_b3_log216_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_log216_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log216_native_linkage ( __ocl_svml_b3_log216_native )
+
+    double16_uisa __ocl_svml_b3_log1p16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1p16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1p16_native_linkage ( __ocl_svml_b3_log1p16_native )
+
+    double16_uisa __ocl_svml_b3_sin16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_sin16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sin16_native_linkage ( __ocl_svml_b3_sin16_native )
+
+    double16_uisa __ocl_svml_b3_cos16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cos16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cos16_native_linkage ( __ocl_svml_b3_cos16_native )
+
+    double16_uisa __ocl_svml_b3_sincos16_native (double16_uisa a, double16_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincos16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincos16_native_linkage ( __ocl_svml_b3_sincos16_native )
+
+    double16x2_uisa __ocl_svml_b3_sincosreg16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_sincosreg16_native_linkage   = ( result(((zmm0 zmm1)(zmm2 zmm3))) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosreg16_native_linkage ( __ocl_svml_b3_sincosreg16_native )
+
+    double16_uisa __ocl_svml_b3_tan16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_tan16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tan16_native_linkage ( __ocl_svml_b3_tan16_native )
+
+    double16_uisa __ocl_svml_b3_sinpi16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinpi16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinpi16_native_linkage ( __ocl_svml_b3_sinpi16_native )
+
+    double16_uisa __ocl_svml_b3_cospi16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cospi16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cospi16_native_linkage ( __ocl_svml_b3_cospi16_native )
+
+    double16_uisa __ocl_svml_b3_tanpi16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanpi16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanpi16_native_linkage ( __ocl_svml_b3_tanpi16_native )
+
+    double16_uisa __ocl_svml_b3_acos16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_acos16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acos16_native_linkage ( __ocl_svml_b3_acos16_native )
+
+    double16_uisa __ocl_svml_b3_asin16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_asin16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asin16_native_linkage ( __ocl_svml_b3_asin16_native )
+
+    double16_uisa __ocl_svml_b3_atan16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_atan16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan16_native_linkage ( __ocl_svml_b3_atan16_native )
+
+    double16_uisa __ocl_svml_b3_atan216_native (double16_uisa a, double16_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan216_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan216_native_linkage ( __ocl_svml_b3_atan216_native )
+
+    double16_uisa __ocl_svml_b3_asinpi16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinpi16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinpi16_native_linkage ( __ocl_svml_b3_asinpi16_native )
+
+    double16_uisa __ocl_svml_b3_acospi16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_acospi16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acospi16_native_linkage ( __ocl_svml_b3_acospi16_native )
+
+    double16_uisa __ocl_svml_b3_atanpi16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanpi16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanpi16_native_linkage ( __ocl_svml_b3_atanpi16_native )
+
+    double16_uisa __ocl_svml_b3_atan2pi16_native (double16_uisa a, double16_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2pi16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2pi16_native_linkage ( __ocl_svml_b3_atan2pi16_native )
+
+    double16_uisa __ocl_svml_b3_sinh16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinh16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinh16_native_linkage ( __ocl_svml_b3_sinh16_native )
+
+    double16_uisa __ocl_svml_b3_cosh16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosh16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosh16_native_linkage ( __ocl_svml_b3_cosh16_native )
+
+    double16_uisa __ocl_svml_b3_tanh16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanh16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanh16_native_linkage ( __ocl_svml_b3_tanh16_native )
+
+    double16_uisa __ocl_svml_b3_asinh16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinh16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinh16_native_linkage ( __ocl_svml_b3_asinh16_native )
+
+    double16_uisa __ocl_svml_b3_acosh16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_acosh16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acosh16_native_linkage ( __ocl_svml_b3_acosh16_native )
+
+    double16_uisa __ocl_svml_b3_atanh16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanh16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanh16_native_linkage ( __ocl_svml_b3_atanh16_native )
+
+    double16_uisa __ocl_svml_b3_erf16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_erf16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erf16_native_linkage ( __ocl_svml_b3_erf16_native )
+
+    double16_uisa __ocl_svml_b3_erfc16_native (double16_uisa a);
+    #pragma linkage     __ocl_svml_b3_erfc16_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erfc16_native_linkage ( __ocl_svml_b3_erfc16_native )
+
+    float32_uisa __ocl_svml_b3_invf32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_invf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_invf32_native_linkage ( __ocl_svml_b3_invf32_native )
+
+    float32_uisa __ocl_svml_b3_divf32_native (float32_uisa a, float32_uisa b);
+    #pragma linkage     __ocl_svml_b3_divf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_divf32_native_linkage ( __ocl_svml_b3_divf32_native )
+
+    float32_uisa __ocl_svml_b3_sqrtf32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_sqrtf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sqrtf32_native_linkage ( __ocl_svml_b3_sqrtf32_native )
+
+    float32_uisa __ocl_svml_b3_rsqrtf32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_rsqrtf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rsqrtf32_native_linkage ( __ocl_svml_b3_rsqrtf32_native )
+
+    float32_uisa __ocl_svml_b3_cbrtf32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cbrtf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cbrtf32_native_linkage ( __ocl_svml_b3_cbrtf32_native )
+
+    float32_uisa __ocl_svml_b3_rcbrtf32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_rcbrtf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rcbrtf32_native_linkage ( __ocl_svml_b3_rcbrtf32_native )
+
+    float32_uisa __ocl_svml_b3_hypotf32_native (float32_uisa a, float32_uisa b);
+    #pragma linkage     __ocl_svml_b3_hypotf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_hypotf32_native_linkage ( __ocl_svml_b3_hypotf32_native )
+
+    float32_uisa __ocl_svml_b3_powf32_native (float32_uisa a, float32_uisa b);
+    #pragma linkage     __ocl_svml_b3_powf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powf32_native_linkage ( __ocl_svml_b3_powf32_native )
+
+    float32_uisa __ocl_svml_b3_powrf32_native (float32_uisa a, float32_uisa b);
+    #pragma linkage     __ocl_svml_b3_powrf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_powrf32_native_linkage ( __ocl_svml_b3_powrf32_native )
+
+    float32_uisa __ocl_svml_b3_pownf32_native (float32_uisa a, int32_uisa b);
+    #pragma linkage     __ocl_svml_b3_pownf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_pownf32_native_linkage ( __ocl_svml_b3_pownf32_native )
+
+    float32_uisa __ocl_svml_b3_rootnf32_native (float32_uisa a, int32_uisa b);
+    #pragma linkage     __ocl_svml_b3_rootnf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_rootnf32_native_linkage ( __ocl_svml_b3_rootnf32_native )
+
+    float32_uisa __ocl_svml_b3_expf32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_expf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expf32_native_linkage ( __ocl_svml_b3_expf32_native )
+
+    float32_uisa __ocl_svml_b3_exp2f32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp2f32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp2f32_native_linkage ( __ocl_svml_b3_exp2f32_native )
+
+    float32_uisa __ocl_svml_b3_exp10f32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_exp10f32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_exp10f32_native_linkage ( __ocl_svml_b3_exp10f32_native )
+
+    float32_uisa __ocl_svml_b3_expm1f32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_expm1f32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_expm1f32_native_linkage ( __ocl_svml_b3_expm1f32_native )
+
+    float32_uisa __ocl_svml_b3_logf32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_logf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_logf32_native_linkage ( __ocl_svml_b3_logf32_native )
+
+    float32_uisa __ocl_svml_b3_log10f32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_log10f32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log10f32_native_linkage ( __ocl_svml_b3_log10f32_native )
+
+    float32_uisa __ocl_svml_b3_log2f32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_log2f32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log2f32_native_linkage ( __ocl_svml_b3_log2f32_native )
+
+    float32_uisa __ocl_svml_b3_log1pf32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_log1pf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_log1pf32_native_linkage ( __ocl_svml_b3_log1pf32_native )
+
+    float32_uisa __ocl_svml_b3_sinf32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinf32_native_linkage ( __ocl_svml_b3_sinf32_native )
+
+    float32_uisa __ocl_svml_b3_cosf32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cosf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cosf32_native_linkage ( __ocl_svml_b3_cosf32_native )
+
+    float32_uisa __ocl_svml_b3_sincosf32_native (float32_uisa a, float32_uisa* c);
+    #pragma linkage     __ocl_svml_b3_sincosf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),rcx) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosf32_native_linkage ( __ocl_svml_b3_sincosf32_native )
+
+    float32x2_uisa __ocl_svml_b3_sincosregf32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_sincosregf32_native_linkage   = ( result(((zmm0 zmm1)(zmm2 zmm3))) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sincosregf32_native_linkage ( __ocl_svml_b3_sincosregf32_native )
+
+    float32_uisa __ocl_svml_b3_tanf32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanf32_native_linkage ( __ocl_svml_b3_tanf32_native )
+
+    float32_uisa __ocl_svml_b3_sinpif32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinpif32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinpif32_native_linkage ( __ocl_svml_b3_sinpif32_native )
+
+    float32_uisa __ocl_svml_b3_cospif32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_cospif32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_cospif32_native_linkage ( __ocl_svml_b3_cospif32_native )
+
+    float32_uisa __ocl_svml_b3_tanpif32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanpif32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanpif32_native_linkage ( __ocl_svml_b3_tanpif32_native )
+
+    float32_uisa __ocl_svml_b3_acosf32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_acosf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acosf32_native_linkage ( __ocl_svml_b3_acosf32_native )
+
+    float32_uisa __ocl_svml_b3_asinf32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinf32_native_linkage ( __ocl_svml_b3_asinf32_native )
+
+    float32_uisa __ocl_svml_b3_atanf32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanf32_native_linkage ( __ocl_svml_b3_atanf32_native )
+
+    float32_uisa __ocl_svml_b3_atan2f32_native (float32_uisa a, float32_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2f32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2f32_native_linkage ( __ocl_svml_b3_atan2f32_native )
+
+    float32_uisa __ocl_svml_b3_asinpif32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinpif32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinpif32_native_linkage ( __ocl_svml_b3_asinpif32_native )
+
+    float32_uisa __ocl_svml_b3_acospif32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_acospif32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acospif32_native_linkage ( __ocl_svml_b3_acospif32_native )
+
+    float32_uisa __ocl_svml_b3_atanpif32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanpif32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanpif32_native_linkage ( __ocl_svml_b3_atanpif32_native )
+
+    float32_uisa __ocl_svml_b3_atan2pif32_native (float32_uisa a, float32_uisa b);
+    #pragma linkage     __ocl_svml_b3_atan2pif32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1),(zmm2 zmm3)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atan2pif32_native_linkage ( __ocl_svml_b3_atan2pif32_native )
+
+    float32_uisa __ocl_svml_b3_sinhf32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_sinhf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_sinhf32_native_linkage ( __ocl_svml_b3_sinhf32_native )
+
+    float32_uisa __ocl_svml_b3_coshf32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_coshf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_coshf32_native_linkage ( __ocl_svml_b3_coshf32_native )
+
+    float32_uisa __ocl_svml_b3_tanhf32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_tanhf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_tanhf32_native_linkage ( __ocl_svml_b3_tanhf32_native )
+
+    float32_uisa __ocl_svml_b3_asinhf32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_asinhf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_asinhf32_native_linkage ( __ocl_svml_b3_asinhf32_native )
+
+    float32_uisa __ocl_svml_b3_acoshf32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_acoshf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_acoshf32_native_linkage ( __ocl_svml_b3_acoshf32_native )
+
+    float32_uisa __ocl_svml_b3_atanhf32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_atanhf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_atanhf32_native_linkage ( __ocl_svml_b3_atanhf32_native )
+
+    float32_uisa __ocl_svml_b3_erff32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_erff32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erff32_native_linkage ( __ocl_svml_b3_erff32_native )
+
+    float32_uisa __ocl_svml_b3_erfcf32_native (float32_uisa a);
+    #pragma linkage     __ocl_svml_b3_erfcf32_native_linkage   = ( result((zmm0 zmm1)) parameters((zmm0 zmm1)) preserved( zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, k4, k5, k6, k7, rsi, rdi ) )
+    #pragma use_linkage __ocl_svml_b3_erfcf32_native_linkage ( __ocl_svml_b3_erfcf32_native )
 
 #ifdef __cplusplus
 }

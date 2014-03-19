@@ -13,7 +13,7 @@ set(TARGET_INCLUDE_FILES
 )
 
 find_package(OpenGL REQUIRED)
-find_package(OpenCL REQUIRED)
+find_library(OPENCL_LIBRARIES OpenCL)
 
 include_directories(
     ${BACKEND_ROOT_DIR}/optimizer
