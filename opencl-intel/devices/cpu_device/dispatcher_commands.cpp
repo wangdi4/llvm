@@ -1350,6 +1350,7 @@ void DeviceNDRange::NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigned uS
     default:
         assert(0 && "Invalid execution status");
     }
+    // no need to call DispatcherCommand::NotifyCommandStatusChanged because we don't need to return to RT
 }
 
 #ifdef __INCLUDE_MKL__

@@ -166,11 +166,16 @@ unsigned long long Intel::OpenCL::Utils::ProfilingTimerResolution()
 /////////////////////////////////////////////////////////////////////////////////////////
 // HostTime - Return host time in nano second
 /////////////////////////////////////////////////////////////////////////////////////////
-unsigned long long Intel::OpenCL::Utils::HostTime()
+unsigned long long Intel::OpenCL::Utils::AccurateHostTime()
 {
 	struct timespec tp;
 	clock_gettime(CLOCK_MONOTONIC, &tp);
 	return (unsigned long long)(tp.tv_sec) * 1000000000 + tp.tv_nsec;
+}
+
+unsigned long long Intel::OpenCL::Utils::HostTime()
+{
+    return AccurateHostTime();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
