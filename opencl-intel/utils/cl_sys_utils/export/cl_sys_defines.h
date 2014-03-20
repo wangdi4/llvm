@@ -118,6 +118,8 @@ typedef void*                            CONDITION_VAR;
 
 #define THREAD_LOCAL            __declspec(thread)
 
+#define OS_DLL_POST(fileName) ((fileName) + ".dll")
+
 // -----------------------------------------------------------
 //         Not Windows (Linux / Android )    
 // -----------------------------------------------------------
@@ -220,6 +222,8 @@ typedef pthread_rwlock_t            READ_WRITE_LOCK;
 #include <sys/syscall.h>
 
 #define THREAD_LOCAL            __thread
+
+#define OS_DLL_POST(fileName) ("lib" + (fileName) + ".so")
 
 // -----------------------------
 // Android Sched Utils

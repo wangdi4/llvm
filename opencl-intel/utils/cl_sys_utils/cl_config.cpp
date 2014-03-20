@@ -274,8 +274,12 @@ OPENCL_VERSION Intel::OpenCL::Utils::GetOpenclVerByCpuModel()
     int cpuInfo[4] = {-1};
     __cpuid(cpuInfo, 1);
 
-    const int iModel = (cpuInfo[0] >> 4) & 0xf, iExtendedModel = (cpuInfo[0] >> 16) & 0xf;
-    if (iModel >= 0xd && 0x3 == iExtendedModel)  // Broadwell and up
+    const short i16ProcessorSignature = (short)(cpuInfo[0] >> 4);	
+    if (0x306d == i16ProcessorSignature ||	// Broadwell ULT Client
+		    0x4067 == i16ProcessorSignature ||	// Broadwell Client Halo
+		    0x406e == i16ProcessorSignature ||	// Skylake ULT/ULX
+		    0x506e == i16ProcessorSignature		// Skylake DT/Halo
+		    )
     {
         return OPENCL_VERSION_2_0;
     }

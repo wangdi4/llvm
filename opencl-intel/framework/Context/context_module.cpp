@@ -192,7 +192,6 @@ void ContextModule::ShutDown(bool wait_for_finish)
     m_mapContexts.ReleaseAllObjects(false);
 
     m_pPlatformModule->RemoveAllDevices(true);
-    m_pPlatformModule->ReleaseFECompilers(false);
 
     // 7. Ensure that all devices really closed
 #ifdef _DEBUG

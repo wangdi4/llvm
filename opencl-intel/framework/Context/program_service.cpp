@@ -677,13 +677,6 @@ cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>&    program,
         SharedPtr<Device> pDevice = ppDevicePrograms[i]->GetDevice()->GetRootDevice();
 
         arrFeCompilers[i] = pDevice->GetFrontEndCompiler();
-        if (NULL == arrFeCompilers[i])
-        {
-          // No FE compiler assigned, need to allocate one
-          FrameworkProxy::Instance()->GetPlatformModule()->InitFECompiler(pDevice);
-          arrFeCompilers[i] = pDevice->GetFrontEndCompiler();
-        }
-
         char* szUnrecognizedOptions = new char[buildOptions.size() + 1];
         if (!arrFeCompilers[i]->CheckCompileOptions(buildOptions.c_str(), &szUnrecognizedOptions))
         {
@@ -962,13 +955,6 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>&   program,
         SharedPtr<Device> pDevice = ppDevicePrograms[i]->GetDevice()->GetRootDevice();
 
         arrFeCompilers[i] = pDevice->GetFrontEndCompiler();
-        if (NULL == arrFeCompilers[i])
-        {
-            // No FE compiler assigned, need to allocate one
-            FrameworkProxy::Instance()->GetPlatformModule()->InitFECompiler(pDevice);
-            arrFeCompilers[i] = pDevice->GetFrontEndCompiler();
-        }
-
         char* szUnrecognizedOptions = new char[buildOptions.size() + 1];
         if (!arrFeCompilers[i]->CheckLinkOptions(buildOptions.c_str(), &szUnrecognizedOptions))
         {
@@ -1209,13 +1195,6 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
         SharedPtr<Device> pDevice = ppDevicePrograms[i]->GetDevice()->GetRootDevice();
 
         arrFeCompilers[i] = pDevice->GetFrontEndCompiler();
-        if (NULL == arrFeCompilers[i])
-        {
-            // No FE compiler assigned, need to allocate one
-            FrameworkProxy::Instance()->GetPlatformModule()->InitFECompiler(pDevice);
-            arrFeCompilers[i] = pDevice->GetFrontEndCompiler();
-        }
-
         char* szUnrecognizedOptions = new char[buildOptions.size() + 1];
         if (!arrFeCompilers[i]->CheckCompileOptions(buildOptions.c_str(), &szUnrecognizedOptions))
         {

@@ -259,16 +259,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code CloseDeviceInstance();
 
         /******************************************************************************************
-        * Function:     SetFrontEndCompiler
-        * Description:    Set the front-end compiler to the device
-        * Arguments:    pFrontEndCompiler [in]    pointer to the front-end compiler
-        * Return value:    void
-        * Author:        Uri Levy
-        * Date:            December 2008
-        ******************************************************************************************/
-        void SetFrontEndCompiler(const SharedPtr<FrontEndCompiler>& pFrontEndCompiler) { m_pFrontEndCompiler = pFrontEndCompiler; }
-
-        /******************************************************************************************
         * Function:     GetFrontEndCompiler
         * Description:    Get the front-end compiler of the device
         * Arguments:    N/A
@@ -276,7 +266,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Author:        Uri Levy
         * Date:            December 2008
         ******************************************************************************************/
-        const SharedPtr<FrontEndCompiler>& GetFrontEndCompiler() const { return m_pFrontEndCompiler; }
+        const SharedPtr<FrontEndCompiler>& GetFrontEndCompiler() const;
 
         IOCLDeviceAgent*    GetDeviceAgent() {return m_pDevice;}
 
@@ -358,13 +348,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_int clLogReleaseClient(cl_int client_id);
         cl_int clLogAddLine(cl_int client_id, cl_int log_level, const char* IN source_file, const char* IN function_name, cl_int IN line_num, const char* IN message, ...);
 
+        void InitFECompiler() const;
+
         ///////////////////////////////////////////////////////////////////////////////////////////
         // class private members
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         Intel::OpenCL::Utils::OclDynamicLib         m_dlModule;
         // front-end compiler
-        SharedPtr<FrontEndCompiler>                 m_pFrontEndCompiler;
+        mutable SharedPtr<FrontEndCompiler>         m_pFrontEndCompiler;
+        mutable volatile bool                       m_bFrontEndCompilerDone;
 
         // Pointer to the device GetInfo function.
         fn_clDevGetDeviceInfo*                      m_pFnClDevGetDeviceInfo;
@@ -373,7 +366,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         Intel::OpenCL::Utils::AtomicCounter         m_pDeviceRefCount;     // holds the reference count for the associated IOCLDevice
 
-        Utils::OclSpinMutex                         m_deviceInitializationMutex;
+        mutable Utils::OclSpinMutex                 m_deviceInitializationMutex;
 
         std::map<cl_int, Intel::OpenCL::Utils::LoggerClient*>    m_mapDeviceLoggerClinets; // OpenCL device's logger clients
 
