@@ -56,7 +56,7 @@ static std::string buildLibName (const char* s){
 }
 
 OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration * oclProgramConfig,
-                             const std::string cpuArch)
+        const std::string cpuArch): C(new llvm::LLVMContext)
 {
     std::string programFile = oclProgramConfig->GetProgramFilePath();
     switch (oclProgramConfig->GetProgramFileType())
@@ -230,7 +230,6 @@ void OpenCLProgram::setContainer()
 }
 
 llvm::Module* OpenCLProgram::ParseToModule(void) const{
-    llvm::Module* ret;
     cl_prog_container_header *oclProgramContainerHeader =
         this->GetProgramContainer();
     unsigned int oclProgramContainerSize = this->GetProgramContainerSize();
@@ -245,11 +244,6 @@ llvm::Module* OpenCLProgram::ParseToModule(void) const{
     // Create llvm module from program.
 
     // TODO: check all pointer initializations.
-    llvm::LLVMContext* pLLVMContext = new llvm::LLVMContext;
-    if (0 == pLLVMContext)
-    {
-        throw Exception::TestReferenceRunnerException("Unable to create LLVM context.");
-    }
 
     const char* pIR;    // Pointer to LLVM representation
     pIR = (const char*)oclProgramContainerHeader +
@@ -258,7 +252,8 @@ llvm::Module* OpenCLProgram::ParseToModule(void) const{
         sizeof(cl_llvm_prog_header);
     // Create Memory buffer to store IR data
     llvm::StringRef bitCodeStr(pIR, stIRsize);
-    llvm::MemoryBuffer* pMemBuffer = llvm::MemoryBuffer::getMemBufferCopy(bitCodeStr);
+    llvm::MemoryBuffer* pMemBuffer(
+            llvm::MemoryBuffer::getMemBuffer(bitCodeStr, "", false));
     if (0 == pMemBuffer)
     {
         throw Exception::TestReferenceRunnerException("Can't create LLVM memory buffer from\
@@ -266,12 +261,12 @@ llvm::Module* OpenCLProgram::ParseToModule(void) const{
     }
 
     std::string strLastError;
-    ret = ParseBitcodeFile(pMemBuffer, *pLLVMContext, &strLastError);
-    if (0 == pMemBuffer)
+    llvm::Module* ret = ParseBitcodeFile(pMemBuffer, *C, &strLastError);
+    if (!ret)
     {
         throw Exception::TestReferenceRunnerException("Unable to parse bytecode into\
                                            LLVM module");
     }
-  DEBUG(llvm::dbgs() << "Module LLVM code: " << *ret << "\n");
-  return ret;
+    DEBUG(llvm::dbgs() << "Module LLVM code: " << *ret << "\n");
+    return ret;
 }

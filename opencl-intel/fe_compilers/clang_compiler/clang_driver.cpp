@@ -523,9 +523,8 @@ int ClangFECompilerCompileTask::StoreOutput(TC::STB_TranslateOutputArgs* pOutput
         if ( pOutputArgs->pOutput && pOutputArgs->OutputSize )
         {
           // Add module level SPIR related stuff
-          llvm::OwningPtr<MemoryBuffer> pBinBuff (MemoryBuffer::getMemBufferCopy(StringRef(BufferStart, BufferSize)));
-          if( !pBinBuff)
-              throw std::bad_alloc();
+          llvm::OwningPtr<MemoryBuffer> pBinBuff( MemoryBuffer::getMemBuffer(
+                  StringRef(BufferStart, BufferSize), "", false));
 
           string ErrorMessage;
           llvm::Module *M = ParseBitcodeFile(pBinBuff.get(), getGlobalContext(), &ErrorMessage);
@@ -535,10 +534,10 @@ int ClangFECompilerCompileTask::StoreOutput(TC::STB_TranslateOutputArgs* pOutput
               return CL_OUT_OF_HOST_MEMORY;
           }
 
-          llvm::OwningPtr<PassManager> Passes(new PassManager());
-          Passes->add(new DataLayout(M)); // Use correct DataLayout
-          Passes->add(createSPIRMetadataAdderPass(m_BEArgList, CLSTDSet));
-          Passes->run(*M);
+          PassManager Passes;
+          Passes.add(new DataLayout(M)); // Use correct DataLayout
+          Passes.add(createSPIRMetadataAdderPass(m_BEArgList, CLSTDSet));
+          Passes.run(*M);
 
           WriteBitcodeToFile(M, SPIRstream);
           SPIRstream.flush();
@@ -641,7 +640,7 @@ int ClangFECompilerCompileTask::Compile()
 
     char* prc_id = CLSTDSet >= 200 ? "#102" : "#101";
 
-    std::auto_ptr<llvm::MemoryBuffer> pchBuff( (llvm::MemoryBuffer *)LoadPchResourceBuffer(prc_id));
+    llvm::OwningPtr<llvm::MemoryBuffer> pchBuff( (llvm::MemoryBuffer *)LoadPchResourceBuffer(prc_id));
     if( !pchBuff.get() )
     {
         LOG_ERROR(TEXT("%s"), "Failed to load pchBuff");
@@ -732,9 +731,9 @@ int ClangFECompilerCompileTask::Compile()
   }
 
   // Prepare input Buffer
-  llvm::MemoryBuffer *inputBuffer = llvm::MemoryBuffer::getMemBuffer(
+  llvm::OwningPtr<llvm::MemoryBuffer> inputBuffer(llvm::MemoryBuffer::getMemBuffer(
         m_pProgDesc->pProgramSource,
-        m_source_filename);
+        m_source_filename));
 
   // Prepare output buffer
   SmallVector<char, 4096>   IRbinary;
@@ -756,7 +755,8 @@ int ClangFECompilerCompileTask::Compile()
   llvm::OwningPtr<CompilerInstance> Clang(new CompilerInstance());
 
   // Set our buffers
-  Clang->SetInputBuffer(inputBuffer);
+  // CompilerInstance takes ownership over its buffers
+  Clang->SetInputBuffer(inputBuffer.take());
   Clang->SetOutputStream(&IRStream);
   Clang->setDiagnostics(Diags.getPtr());
 
@@ -791,7 +791,8 @@ int ClangFECompilerCompileTask::Compile()
 
   for (unsigned int i = 0; i < m_pProgDesc->uiNumInputHeaders; ++i)
   {
-      llvm::MemoryBuffer *header = llvm::MemoryBuffer::getMemBufferCopy(m_pProgDesc->pInputHeaders[i], m_pProgDesc->pszInputHeadersNames[i]);
+      llvm::MemoryBuffer *header = llvm::MemoryBuffer::getMemBuffer(m_pProgDesc->pInputHeaders[i], m_pProgDesc->pszInputHeadersNames[i]);
+      // CompilerInstance takes ownership over its buffers
       Clang->AddInMemoryHeader(header, m_pProgDesc->pszInputHeadersNames[i]);
   }
 
@@ -804,7 +805,7 @@ int ClangFECompilerCompileTask::Compile()
   HGLOBAL hBytes = NULL;
   char *pData = NULL;
   size_t dResSize = NULL;
-  llvm::MemoryBuffer *pchBuff = NULL;
+  llvm::OwningPtr<llvm::MemoryBuffer> pchBuff(0);
 
 #if defined (_WIN32)
 #if defined (_M_X64)
@@ -872,7 +873,7 @@ int ClangFECompilerCompileTask::Compile()
 
   if( dResSize > 0 )
   {
-    pchBuff = llvm::MemoryBuffer::getMemBufferCopy(StringRef(pData, dResSize));
+    pchBuff.reset(llvm::MemoryBuffer::getMemBuffer(StringRef(pData, dResSize), "", false));
   }
   else
   {
@@ -880,9 +881,9 @@ int ClangFECompilerCompileTask::Compile()
     Success = false;
   }
 
-  if( NULL != pchBuff )
+  if( NULL != pchBuff.get() )
   {
-    Clang->SetPchBuffer(pchBuff);
+    Clang->SetPchBuffer(pchBuff.take());
   }
   else
   {
@@ -924,16 +925,18 @@ int ClangFECompilerCompileTask::Compile()
     string ErrorMessage;
     const char*  BufferStart = (const char*)IRbinary.begin();
     size_t BufferSize = IRbinary.size();
-    llvm::OwningPtr<MemoryBuffer> pBinBuff (MemoryBuffer::getMemBufferCopy(StringRef((const char *)(IRbinary.begin()), IRbinary.size())));
+    llvm::OwningPtr<MemoryBuffer> pBinBuff(MemoryBuffer::getMemBuffer(
+                StringRef((const char *)(IRbinary.begin()), IRbinary.size()),
+                "", false));
     llvm::SmallVector<char, 4096>   SPIRbinary;
     llvm::raw_svector_ostream SPIRstream(SPIRbinary);
     {
         LLVMContext ctx;
         llvm::Module *M = ParseBitcodeFile(pBinBuff.get(), ctx, &ErrorMessage);
-        llvm::OwningPtr<PassManager> Passes(new PassManager());
-        Passes->add(new DataLayout(M)); // Use correct DataLayout
-        Passes->add(createSPIRMetadataAdderPass(m_BEArgList, CLSTDSet));
-        Passes->run(*M);
+        PassManager Passes;
+        Passes.add(new DataLayout(M)); // Use correct DataLayout
+        Passes.add(createSPIRMetadataAdderPass(m_BEArgList, CLSTDSet));
+        Passes.run(*M);
         WriteBitcodeToFile(M, SPIRstream);
         SPIRstream.flush();
         BufferStart = (const char*)SPIRbinary.begin();
@@ -1137,8 +1140,10 @@ int ClangFECompilerLinkTask::Link()
             void *pIR = (void*)(pProgHeader+1);
 
             string ErrorMessage;
-            MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef((const char *)(m_pProgDesc->pBinaryContainers[0]), m_pProgDesc->puiBinariesSizes[0]));
-            llvm::Module *M = ParseBitcodeFile(pBinBuff, getGlobalContext(), &ErrorMessage);
+            OwningPtr<MemoryBuffer> pBinBuff(MemoryBuffer::getMemBuffer(
+                    StringRef((const char *)(m_pProgDesc->pBinaryContainers[0]), m_pProgDesc->puiBinariesSizes[0]),
+                    "", false));
+            llvm::Module *M = ParseBitcodeFile(pBinBuff.get(), getGlobalContext(), &ErrorMessage);
 
             if (NULL == M)
             {
@@ -1317,8 +1322,11 @@ int ClangFECompilerLinkTask::Link()
                   sizeof(cl_llvm_prog_header); //Skip the build flags for now
 
     }
-    std::auto_ptr<MemoryBuffer> pBinBuff (MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize)));
-    std::auto_ptr<llvm::Module> composite(ParseBitcodeFile(pBinBuff.get(), Context, &ErrorMessage));
+    llvm::OwningPtr<MemoryBuffer> pBinBuff(
+            MemoryBuffer::getMemBuffer(
+                StringRef(pBinary, uiBinarySize),
+                "" ,false));
+    llvm::OwningPtr<llvm::Module> composite(ParseBitcodeFile(pBinBuff.get(), Context, &ErrorMessage));
 
     if (composite.get() == 0)
     {
@@ -1350,8 +1358,11 @@ int ClangFECompilerLinkTask::Link()
                       sizeof(cl_llvm_prog_header); //Skip the build flags for now
         }
 
-        std::auto_ptr<MemoryBuffer> pBinBuff (MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize)));
-        std::auto_ptr<llvm::Module> M(ParseBitcodeFile(pBinBuff.get(), Context, &ErrorMessage));
+        llvm::OwningPtr<MemoryBuffer> pBinBuff(
+                MemoryBuffer::getMemBuffer(
+                    StringRef(pBinary, uiBinarySize),
+                    "", false));
+        llvm::OwningPtr<llvm::Module> M(ParseBitcodeFile(pBinBuff.get(), Context, &ErrorMessage));
 
         if (M.get() == 0)
         {
@@ -1640,13 +1651,14 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
                     sizeof(cl_prog_container_header) + // Skip the container
                     sizeof(cl_llvm_prog_header); //Skip the build flags
 
-    MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize));
+    llvm::OwningPtr<MemoryBuffer> pBinBuff(MemoryBuffer::getMemBuffer(
+                StringRef(pBinary, uiBinarySize), "", false));
 
     #ifdef USE_COMMON_CLANG
     if( pBin && TC::GetKernelArgsInfoPlugin )
     {
         struct STB_GetKernelArgsInfoArgs KernelArgsInfo;
-        TC::GetKernelArgsInfoPlugin(pBinBuff, szKernelName, &KernelArgsInfo);
+        TC::GetKernelArgsInfoPlugin(pBinBuff.get(), szKernelName, &KernelArgsInfo);
         int retVal = TranslateArgsInfoValues(&KernelArgsInfo);
         if( TC::ReleaseKernelArgsInfoPlugin)
         {
@@ -1655,7 +1667,8 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
         return retVal;
     }
     #else
-    std::auto_ptr<llvm::Module> pModule(ParseIR(pBinBuff, Err, Context));
+    // parseIR takes ownership of the buffer, so release it
+    std::auto_ptr<llvm::Module> pModule(ParseIR(pBinBuff.take(), Err, Context));
 
     if (NULL == pModule.get())
     {
