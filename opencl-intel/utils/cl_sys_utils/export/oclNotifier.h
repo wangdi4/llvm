@@ -5,26 +5,47 @@
 #include <set>
 #include <list>
 #include "cl_synch_objects.h"
+#include "oclEventsMapper.h"
+
+using Intel::OpenCL::Utils::EventsMapper;
+using Intel::OpenCL::Utils::OclMutex;
+using Intel::OpenCL::Utils::AtomicCounter;
+
 using namespace std;
 
+typedef struct {
+    // All objects related to this command.
+    list<void*> objects;
+    
+    // Key-value pairs of per-command info.
+    list< pair<string,string> > data;
 
-//a struct to help send commands in a more elegant way
-typedef struct CommandData {
-	list<void*> objects; //object related to the command
-	list< pair< string,string > > data; //all kind of other useful data
-	bool ownEvent;	//a flag to know if it is our responsibility to free the event monitoring this command
-	long key;	// a unique key that represent this command
-	Intel::OpenCL::Utils::AtomicCounter refCounter; //holds the number of callbacks that will use this struct
-	cl_event *pEvent;	// pointer to the event that we create if user hasn't provided one
-	bool needRelease;	// determines if we need to release the CL resources of the event
-	const char* funcName;	// useful for functions that do not appear in CL_EVENT_COMMAND_TYPE
+    // A unique key that represents a command instance.
+    long key;
+
+    // Work-around for commands that do not appear in CL_EVENT_COMMAND_TYPE,
+    // (due to a bug in Gen runtime).
+	string funcName;
+
+    // Helpful member for determining when to release the cb data.
+	AtomicCounter refCounter;
+
+    // Used if user didn't provide an event, so that event
+    // status querying is still possible.
+    cl_event ourEvent;
+
+    // The event we pass to CommandCallBack function.
+    // This is used due to the existence of wrapper events
+    // for the original (user) events.
+    cl_event callbackEvent;
+
 } CommandData;
+
 
 //a struct to help send function parameters in a more elegant way 
 typedef struct OclParameters {
 	list< pair< string,string > > parameters; //name and value
 } OclParameters;
-
 
 #define ADD_PARAMETER(params, par) addParameter(params, #par, par);
 inline std::string stripLeadingZeros(std::string &s)
@@ -73,9 +94,12 @@ public:
 	virtual void CommandQueueFree (cl_command_queue /* queue */)=0;
 
 	/* Event Callbacks */
-	virtual void EventCreate (cl_event, bool, string* cmdName = NULL)=0;
+	virtual void EventCreate (cl_event event,
+                              bool internalEvent,
+                              string cmdName = "")=0;
 	virtual void EventFree (cl_event event)=0;
-	virtual void EventStatusChanged(cl_event event)=0;
+	virtual void EventReleased (cl_event event)=0;
+    virtual void EventStatusChanged(cl_event event)=0;
 
 	/* Memory Object Callbacks */
 	virtual void BufferCreate (cl_mem /* memobj */, cl_context /* context */,
@@ -190,8 +214,11 @@ public:
 	virtual void CommandQueueFree (cl_command_queue /* queue */);
 
 	/* Event Callbacks */
-	virtual void EventCreate (cl_event, bool, string* cmdName = NULL);
+	virtual void EventCreate (cl_event event,
+                              bool internalEvent,
+                              string cmdName = "");
 	virtual void EventFree (cl_event event);
+    virtual void EventReleased (cl_event event);
 	virtual void EventStatusChanged(cl_event event);
 
 	/* Memory Object Callbacks */
@@ -252,23 +279,25 @@ public:
 
 	/******* Helper methods *******/
 
-
 	/* functions that make profiling ready to work */
 	void commandQueueProfiling(cl_command_queue_properties &properties);
     vector<cl_queue_properties> commandQueueProfiling(const cl_queue_properties* properties);
-	CommandData* commandEventProfiling(cl_event **pEvent);
-
-	void createCommandEvents(cl_event *event, CommandData *data);
+	
+    CommandData* createCommandAndEvent(cl_event** pEvent);
+	void profileCommand(cl_event profiledEvent, cl_event callbackEvent, CommandData *data);
 	static void releaseCommandData(CommandData* data);
 
 	const char* enableKernelArgumentInfo(const char* options);
     unsigned int getTraceCookie();
     vector<cl_device_id> getProgramDevices(cl_program program);
 
+    void setEventsMapper(EventsMapper* pEventsMapper);
+    cl_event getNotifierEvent(cl_event userEvent);
+    cl_event getUserEvent(cl_event notifierEvent);
 
 private:
 	//singleton
-	NotifierCollection() {}
+	NotifierCollection(): m_eventsMapper(NULL) {}
     NotifierCollection(const NotifierCollection&);
     NotifierCollection& operator=(const NotifierCollection&);
 
@@ -277,6 +306,8 @@ private:
                                 cl_queue_properties value);
 
 	set<oclNotifier*> notifiers; //the container that keeps all the notifiers
-	Intel::OpenCL::Utils::AtomicCounter commandsIDs; //gives unique ids to commands
-    Intel::OpenCL::Utils::AtomicCounter traceCookie;
+	AtomicCounter commandsIDs; //gives unique ids to commands
+    AtomicCounter traceCookie;
+    OclMutex m_lock;
+    EventsMapper* m_eventsMapper;
 };
