@@ -35,6 +35,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
     extern unsigned long long    MaxClockFrequency();
     extern unsigned long long    ProfilingTimerResolution();
     extern unsigned long long    HostTime();
+    extern unsigned long long    AccurateHostTime();
     extern void                  GetProcessName(char* pProcName, size_t strLen);
     extern unsigned int          GetProcessId();
     extern void                  GetModuleDirectoryImp(const void* addr, char* szModuleDir, size_t strLen);

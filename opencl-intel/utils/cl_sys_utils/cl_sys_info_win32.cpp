@@ -138,11 +138,41 @@ unsigned long long Intel::OpenCL::Utils::ProfilingTimerResolution()
 	return (unsigned long long)(1e9/freq.QuadPart);
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////
+// HostTime - Return host time in nano second
+/////////////////////////////////////////////////////////////////////////////////////////
+static double timerRes = (double)ProfilingTimerResolution();
 
 unsigned long long Intel::OpenCL::Utils::HostTime()
 {
-  unsigned int uiAux;
-  return __rdtscp(&uiAux);
+	//Generates the rdtsc instruction, which returns the processor time stamp. 
+	//The processor time stamp records the number of clock cycles since the last reset.
+	LARGE_INTEGER tiks;
+
+	QueryPerformanceCounter(&tiks);
+
+	//Convert from ticks to nano second
+	return (unsigned long long)(tiks.QuadPart * timerRes);
+}
+
+unsigned long long Intel::OpenCL::Utils::AccurateHostTime()
+{
+    static int iIsRdtscpSupported = -1;
+    if (-1 == iIsRdtscpSupported)
+    {
+        int cpuInfo[4];
+        __cpuid(cpuInfo, 0x80000001);
+        iIsRdtscpSupported = (1 == ((cpuInfo[3] >> 27) & 0x1)) ? 1 : 0;
+    }
+    if (iIsRdtscpSupported)
+    {
+        unsigned int uiAux;
+        return __rdtscp(&uiAux);
+    }
+    else
+    {
+        return HostTime();
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
