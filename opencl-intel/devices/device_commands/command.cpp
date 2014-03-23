@@ -80,7 +80,7 @@ void DeviceCommand::NotifyCommandFinished(cl_dev_err_code err)
 void DeviceCommand::SignalComplete(cl_dev_err_code err)
 { 	
   if (m_bIsProfilingEnabled)
-	{
+  {
     const unsigned long long ulCompleteTime = AccurateHostTime();
     const long long lStartExecTime = (long long)m_ulStartExecTime, lCompleteTime = (long long)ulCompleteTime;
     /* Because TSC values in different cores are slightly different, we can get negative time slices. Therefore we check this (but we are careful to identify a wrap-around) and
@@ -93,11 +93,11 @@ void DeviceCommand::SignalComplete(cl_dev_err_code err)
     {
         m_ulCompleteTime = ulCompleteTime - m_ulStartExecTime;
     }    
-		if (NULL != m_pExecTimeUserPtr)
-		{
-			((cl_long*)m_pExecTimeUserPtr)[1] = m_ulExecTime;
-		}
-	}
+    if (NULL != m_pExecTimeUserPtr)
+    {
+        ((cl_long*)m_pExecTimeUserPtr)[1] = m_ulExecTime;
+    }
+  }
 
 	SetError(err);
 	OclAutoMutex mutex(&m_mutex);	// m_bCompleted and m_waitingCommandsForThis are protected together (see AddWaitListDependencies)
@@ -111,10 +111,10 @@ void DeviceCommand::SignalComplete(cl_dev_err_code err)
 
 void DeviceCommand::StartExecutionProfiling()
 {
-	if (m_bIsProfilingEnabled)
-	{
-    m_ulStartExecTime = AccurateHostTime();
-	}
+    if (m_bIsProfilingEnabled)
+    {
+        m_ulStartExecTime = AccurateHostTime();
+    }
 }
 
 void DeviceCommand::StopExecutionProfiling()
