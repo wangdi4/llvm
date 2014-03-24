@@ -4,13 +4,14 @@
 // AVX math implementation
 //////////////////////////////////////////////////////////////////////////////////////////////
 
+// Redefine "special care" types inherited from SSE4.2 to make ocl-tblgen use them instead
 list<OclType> math_svml_vF_expand = [v16f64];
 list<OclType> math_svml_vFpvI32_expand = [v16f64];
-list<OclType> math_svml_vFpvF_expand = [v8f64, v16f64];
+list<OclType> math_svml_vFpvF_expand = [v16f64];
 list<OclType> math_svml_vF32_expand = [v3f32];
 list<OclType> math_svml_vF32vF32_expand = [v3f32, v16f32];
-
-
+// get back to the generic implementation of FRM built-ins for AVX and its inheritors
+list<OclType> math_svml_vFRM_expand = [];
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////

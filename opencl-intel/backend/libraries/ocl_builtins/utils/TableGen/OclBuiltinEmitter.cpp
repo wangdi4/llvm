@@ -54,6 +54,7 @@
 #include <algorithm>
 #include <string>
 #include <vector>
+#include <memory>
 
 using namespace llvm;
 
@@ -926,7 +927,37 @@ OclBuiltinImpl::appendImpl(const Record* R)
     return;
   }
 
-  Impl* impl = new Impl;
+  std::auto_ptr<Impl> impl;
+  // Types
+  {
+    std::vector<Record*> Tys;
+    const RecordVal* RV = R->getValue("Types");
+    if (VarInit* FI = dyn_cast<VarInit>(RV->getValue())) {
+      const RecordVal* IV = m_DB.getRecord()->getValue(FI->getName());
+      assert(dyn_cast<ListInit>(IV->getValue()) && "Invalid OclBuiltinImpl record.");
+      ListInit* List = dyn_cast<ListInit>(IV->getValue());
+      for (unsigned i = 0; i != List->getSize(); ++i) {
+        DefInit* DI = dyn_cast<DefInit>(List->getElement(i));
+        assert(DI && "Invalid OclBuiltinImpl record, list is not entirely DefInit.");
+        Tys.push_back(DI->getDef());
+      }
+    } else {
+      Tys = R->getValueAsListOfDefs("Types");
+    }
+    // Empty type list is a way to get back to a previous OclBuiltinImpl for all types.
+    if(Tys.size() == 0) return;
+
+    impl.reset(new Impl);
+    for (std::vector<Record*>::const_iterator I = Tys.begin(), E = Tys.end(); I != E; ++I) {
+      if (!m_Proto->isValidType((*I)->getName())) {
+        if (GenOCLBuiltinVerbose)
+          GENOCL_WARNING("'" << R->getName() << "' specifies invalid type '" << (*I)->getName() << "'.\n");
+        continue;
+      }
+      impl->m_Types.push_back(m_DB.getOclType((*I)->getName()));
+    }
+  }
+
   impl->m_Record = R;
   // IsDeclOnly
   impl->m_IsDeclOnly = R->getValueAsBit("IsDeclOnly");
@@ -949,33 +980,6 @@ OclBuiltinImpl::appendImpl(const Record* R)
       }
     }
   }
-  // Types
-  {
-    
-    std::vector<Record*> Tys;
-    const RecordVal* RV = R->getValue("Types");
-    if (VarInit* FI = dyn_cast<VarInit>(RV->getValue())) {
-      const RecordVal* IV = m_DB.getRecord()->getValue(FI->getName());
-      assert(dyn_cast<ListInit>(IV->getValue()) && "Invalid OclBuiltinImpl record.");
-      ListInit* List = dyn_cast<ListInit>(IV->getValue());
-      for (unsigned i = 0; i != List->getSize(); ++i) {
-        DefInit* DI = dyn_cast<DefInit>(List->getElement(i));
-        assert(DI && "Invalid OclBuiltinImpl record, list is not entirely DefInit.");
-        Tys.push_back(DI->getDef());
-      }
-    } else
-      Tys = R->getValueAsListOfDefs("Types");
-    assert(Tys.size() > 0 && "Invalid OclBuiltinImpl record with empty type list.");
-
-    for (std::vector<Record*>::const_iterator I = Tys.begin(), E = Tys.end(); I != E; ++I) {
-      if (!m_Proto->isValidType((*I)->getName())) {
-        if (GenOCLBuiltinVerbose)
-          GENOCL_WARNING("'" << R->getName() << "' specifies invalid type '" << (*I)->getName() << "'.\n");
-        continue;
-      }
-      impl->m_Types.push_back(m_DB.getOclType((*I)->getName()));
-    }
-  }
   // Impl
   {
     const RecordVal* RV = R->getValue("Impl");
@@ -986,7 +990,7 @@ OclBuiltinImpl::appendImpl(const Record* R)
     } else
       impl->m_Code = R->getValueAsString("Impl");
   }
-  m_Impls.push_back(impl);
+  m_Impls.push_back(impl.release());
 }
 
 

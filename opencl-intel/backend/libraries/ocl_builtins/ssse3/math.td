@@ -284,6 +284,7 @@ list<OclType> math_svml_vF_expand = [v16f64, v8f64, v16f32];
 list<OclType> math_svml_vF64_expand = [v16f64, v8f64];
 list<OclType> math_svml_vF_promote = [v3f32, v3f64];
 list<OclType> math_svml_vF32_expand = [v3f32, v16f32];
+list<OclType> math_svml_vFRM_expand = [v16f32];
 
 // vXfX = f(vXfX, vXfX)
 list<OclType> math_svml_vFvF_expand = [v16f32, v8f64, v16f64];
@@ -779,55 +780,35 @@ OclBuiltinImpl native_powr_svml_promote = OclBuiltinImpl<native_powr, [v3f64], 0
 OclBuiltinImpl native_tanh_svml_expand = OclBuiltinImpl<native_tanh, math_svml_vF_expand, 0, Expand1>;
 OclBuiltinImpl native_tanh_svml_promote = OclBuiltinImpl<native_tanh, [v3f64], 0, Promote1_v3_to_v4>;
 
+// OpenCL 2.0 -cl-fast-relax-math functions
 // cos_rm
-OclBuiltinImpl cos_svml_rm = OclBuiltinImpl<cos_rm, cos_rm.Types, 0, [{
-    return __ocl_svml_$Target_cos$SVMLSuffix_rm($Arg0VarName);
-  }]>;
+OclBuiltinImpl cos_svml_rm_expand = OclBuiltinImpl<cos_rm, math_svml_vFRM_expand, 0, Expand1>;
 
 // exp_rm
-OclBuiltinImpl exp_svml_rm = OclBuiltinImpl<exp_rm, exp_rm.Types, 0, [{
-    return __ocl_svml_$Target_exp$SVMLSuffix_rm($Arg0VarName);
-  }]>;
+OclBuiltinImpl exp_svml_rm_expand = OclBuiltinImpl<exp_rm, math_svml_vFRM_expand, 0, Expand1>;
 
 // exp2_rm
-OclBuiltinImpl exp2_svml_rm = OclBuiltinImpl<exp2_rm, exp2_rm.Types, 0, [{
-    return __ocl_svml_$Target_exp2$SVMLSuffix_rm($Arg0VarName);
-  }]>;
+OclBuiltinImpl exp2_svml_rm_expand = OclBuiltinImpl<exp2_rm, math_svml_vFRM_expand, 0, Expand1>;
 
 // exp10_rm
-OclBuiltinImpl exp10_svml_rm = OclBuiltinImpl<exp10_rm, exp10_rm.Types, 0, [{
-    return __ocl_svml_$Target_exp10$SVMLSuffix_rm($Arg0VarName);
-  }]>;
+OclBuiltinImpl exp10_svml_rm_expand = OclBuiltinImpl<exp10_rm, math_svml_vFRM_expand, 0, Expand1>;
 
 // log_rm
-OclBuiltinImpl log_svml_rm = OclBuiltinImpl<log_rm, log_rm.Types, 0, [{
-    return __ocl_svml_$Target_log$SVMLSuffix_rm($Arg0VarName);
-  }]>;
+OclBuiltinImpl log_svml_rm_expand = OclBuiltinImpl<log_rm, math_svml_vFRM_expand, 0, Expand1>;
 
 // log2_rm
-OclBuiltinImpl log2_svml_rm = OclBuiltinImpl<log2_rm, log2_rm.Types, 0, [{
-    return __ocl_svml_$Target_log2$SVMLSuffix_rm($Arg0VarName);
-  }]>;
+OclBuiltinImpl log2_svml_rm_expand = OclBuiltinImpl<log2_rm, math_svml_vFRM_expand, 0, Expand1>;
 
 // pow_rm
-OclBuiltinImpl pow_svml_rm = OclBuiltinImpl<pow_rm, pow_rm.Types, 0, [{
-    return __ocl_svml_$Target_pow$SVMLSuffix_rm($Arg0VarName, $Arg1VarName);
-  }]>;
+OclBuiltinImpl pow_svml_rm_expand = OclBuiltinImpl<pow_rm, math_svml_vFRM_expand, 0, Expand2>;
 
 // sin_rm
-OclBuiltinImpl sin_svml_rm = OclBuiltinImpl<sin_rm, sin_rm.Types, 0, [{
-    return __ocl_svml_$Target_sin$SVMLSuffix_rm($Arg0VarName);
-  }]>;
+OclBuiltinImpl sin_svml_rm_expand = OclBuiltinImpl<sin_rm, math_svml_vFRM_expand, 0, Expand1>;
 
 // sincos_rm
-code sincos_svml_rm = [{
-    return __ocl_svml_$Target_sincos$SVMLSuffix_rm($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
-  }];
-OclBuiltinImpl sincos_pas_svml_rm = OclBuiltinImpl<sincos_pas_rm, sincos_pas_rm.Types, 0, sincos_svml_rm>;
-OclBuiltinImpl sincos_las_svml_rm = OclBuiltinImpl<sincos_las_rm, sincos_las_rm.Types, 0, sincos_svml_rm>;
-OclBuiltinImpl sincos_gas_svml_rm = OclBuiltinImpl<sincos_gas_rm, sincos_gas_rm.Types, 0, sincos_svml_rm>;
+OclBuiltinImpl sincos_pas_svml_rm_expand = OclBuiltinImpl<sincos_pas_rm, math_svml_vFRM_expand, 0, Expand_2Ptr>;
+OclBuiltinImpl sincos_las_svml_rm_expand = OclBuiltinImpl<sincos_las_rm, math_svml_vFRM_expand, 0, Expand_2Ptr>;
+OclBuiltinImpl sincos_gas_svml_rm_expand = OclBuiltinImpl<sincos_gas_rm, math_svml_vFRM_expand, 0, Expand_2Ptr>;
 
 // tan_rm
-OclBuiltinImpl tan_svml_rm = OclBuiltinImpl<tan_rm, tan_rm.Types, 0, [{
-    return __ocl_svml_$Target_tan$SVMLSuffix_rm($Arg0VarName);
-  }]>;
+OclBuiltinImpl tan_svml_rm_expand = OclBuiltinImpl<tan_rm, math_svml_vFRM_expand, 0, Expand1>;
