@@ -747,6 +747,7 @@ int ClangFECompilerCompileTask::Compile()
   llvm::IntrusiveRefCntPtr<DiagnosticIDs> DiagID = new DiagnosticIDs();
   llvm::IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions();
   DiagOpts->ShowCarets = 0;
+  DiagOpts->ShowPresumedLoc = true;
   TextDiagnosticPrinter *DiagsPrinter = new TextDiagnosticPrinter(errStream, DiagOpts.getPtr());
   llvm::IntrusiveRefCntPtr<DiagnosticsEngine> Diags =
     new DiagnosticsEngine(DiagID, &*DiagOpts, DiagsPrinter);
