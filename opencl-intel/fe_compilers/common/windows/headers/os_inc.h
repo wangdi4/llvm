@@ -20,7 +20,7 @@ Copyright 2000 - 2008 Intel Corporation All Rights Reserved.
 
 File Name: os_inc.h
 
-Abstract: 
+Abstract:
 
 Notes:THIS IS A WINDOWS SPECIFIC FILE
 
@@ -45,14 +45,12 @@ Notes:THIS IS A WINDOWS SPECIFIC FILE
 
 using namespace std;
 
-
 // this is the only definition we need from ntstatus.h
 #ifndef NULL
     #define NULL 0
 #endif
 
 #define OSAPI   WINAPI
-
 
 //OS specific system calls...
 #define OSInitializeCriticalSection             InitializeCriticalSection
@@ -64,10 +62,10 @@ using namespace std;
 
 //Library Load functions and definitions
 #ifdef _M_X64
-static const char name_libfcl[] = "common_clang64.dll";
+static const char name_libfcl[] = "igdfcl64.dll";
 static const char name_libbcl[] = "igdbcl64.dll";
 #else
-static const char name_libfcl[] = "common_clang32.dll";
+static const char name_libfcl[] = "igdfcl32.dll";
 static const char name_libbcl[] = "igdbcl32.dll";
 #endif
 
@@ -84,13 +82,10 @@ typedef OS_HMODULE OS_HINSTANCE;
 
 namespace OCLRT
 {
-
     //OS structures and methods
 
     //Data Types:
     typedef CRITICAL_SECTION            OS_CRITICAL_SECTION;
 
     static const OS_HMODULE OS_HMNULL = NULL;
-
 }; // namespace
-

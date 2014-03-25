@@ -48,7 +48,6 @@ File Name:  CPUProgramBuilder.cpp
 #include <vector>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
 namespace Utils
 {
 /**
@@ -82,8 +81,10 @@ bool IsKernel(llvm::Module* pModule, const char* szFuncName)
     // Function not found
     return false;
 }
-
 }
+
+using namespace Intel::OpenCL::ELFUtils;
+
 CPUProgramBuilder::CPUProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& config):
     ProgramBuilder(pBackendFactory, config),
     m_compiler(config)
@@ -115,11 +116,11 @@ void CPUProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Pr
     size_t optModuleSize = pCache->getCachedModule().size();
     size_t objSize = pCache->getCachedObject()->getBufferSize();
 
-    std::auto_ptr<CacheBinaryHandler::CacheBinaryWriter> pWriter(new CacheBinaryHandler::CacheBinaryWriter());
+    std::auto_ptr<CacheBinaryWriter> pWriter(new CacheBinaryWriter());
 
     // fill the IR bit code
     const char* irStart = ((const char*)(pProgram->GetProgramIRCodeContainer()->GetCode()));
-    pWriter->AddSection(CacheBinaryHandler::g_irSectionName, irStart, irSize);
+    pWriter->AddSection(g_irSectionName, irStart, irSize);
 
     // fill offload image in the object buffer
     std::vector<char> metaStart(serializationSize);
@@ -127,23 +128,22 @@ void CPUProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Pr
         SERIALIZE_PERSISTENT_IMAGE,
         pProgram,
         &(metaStart[0]), serializationSize);
-    pWriter->AddSection(CacheBinaryHandler::g_metaSectionName, &(metaStart[0]), serializationSize);
+    pWriter->AddSection(g_metaSectionName, &(metaStart[0]), serializationSize);
 
     // fill the raw module bits
     const std::string& optModule = pCache->getCachedModule();
-    pWriter->AddSection(CacheBinaryHandler::g_optSectionName, &optModule[0], optModuleSize);
+    pWriter->AddSection(g_optSectionName, &optModule[0], optModuleSize);
 
     // fill the Object bits
     const char* objStart = pCache->getCachedObject()->getBuffer().data();
-    pWriter->AddSection(CacheBinaryHandler::g_objSectionName, objStart, objSize);
+    pWriter->AddSection(g_objSectionName, objStart, objSize);
 
     // get the binary
     size_t binarySize = pWriter->GetBinarySize();
-    std::vector<char> pBinaryBlob(binarySize+sizeof(cl_prog_container_header));
-    if(pWriter->GetBinary(&(pBinaryBlob[0])+sizeof(cl_prog_container_header)))
+    std::vector<char> pBinaryBlob(binarySize);
+    if(pWriter->GetBinary(&(pBinaryBlob[0])))
     {
-        ((cl_prog_container_header*)&(pBinaryBlob[0]))->container_size = binarySize;
-        ObjectCodeContainer* pObjectCodeContainer = new ObjectCodeContainer((cl_prog_container_header*)&(pBinaryBlob[0]));
+        ObjectCodeContainer* pObjectCodeContainer = new ObjectCodeContainer(&pBinaryBlob[0], binarySize);
         pProgram->SetObjectCodeContainer(pObjectCodeContainer);
     }
     else
@@ -160,26 +160,26 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
     assert(pCachedObject && "Object Code Container is null");
 
     // get sizes
-    CacheBinaryHandler::CacheBinaryReader reader = CacheBinaryHandler::CacheBinaryReader(pCachedObject,cacheSize);
-    size_t serializationSize = reader.GetSectionSize(CacheBinaryHandler::g_metaSectionName);
-    size_t optModuleSize = reader.GetSectionSize(CacheBinaryHandler::g_optSectionName);
-    size_t objectSize = reader.GetSectionSize(CacheBinaryHandler::g_objSectionName);
+    CacheBinaryReader reader = CacheBinaryReader(pCachedObject,cacheSize);
+    size_t serializationSize = reader.GetSectionSize(g_metaSectionName);
+    size_t optModuleSize = reader.GetSectionSize(g_optSectionName);
+    size_t objectSize = reader.GetSectionSize(g_objSectionName);
 
     // get the buffers entries
-    const char* bitCodeBuffer = (const char*)reader.GetSectionData(CacheBinaryHandler::g_irSectionName);
+    const char* bitCodeBuffer = (const char*)reader.GetSectionData(g_irSectionName);
     assert(bitCodeBuffer && "BitCode Buffer is null");
 
-    const char* serializationBuffer = (const char*)reader.GetSectionData(CacheBinaryHandler::g_metaSectionName);
+    const char* serializationBuffer = (const char*)reader.GetSectionData(g_metaSectionName);
     assert(serializationBuffer && "Serialization Buffer is null");
 
-    const char* optModuleBuffer = (const char*)reader.GetSectionData(CacheBinaryHandler::g_optSectionName);
+    const char* optModuleBuffer = (const char*)reader.GetSectionData(g_optSectionName);
     assert(optModuleBuffer && "OptModule Buffer is null");
 
-    const char* objectBuffer = (const char*)reader.GetSectionData(CacheBinaryHandler::g_objSectionName);
+    const char* objectBuffer = (const char*)reader.GetSectionData(g_objSectionName);
     assert(objectBuffer && "Object Buffer is null");
 
     // Set IR
-    BitCodeContainer* bcc = new BitCodeContainer((const cl_prog_container_header*)bitCodeBuffer);
+    BitCodeContainer* bcc = new BitCodeContainer(bitCodeBuffer, reader.GetSectionSize(g_irSectionName));
     pProgram->SetBitCodeContainer(bcc);
 
     // update the builtin module
@@ -189,8 +189,9 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
     llvm::StringRef data = llvm::StringRef(optModuleBuffer, optModuleSize);
     std::auto_ptr<llvm::MemoryBuffer> Buffer(llvm::MemoryBuffer::getMemBufferCopy(data));
 
-    llvm::Module* pModule = GetCompiler()->ParseModuleIR(Buffer.get());
-    GetCompiler()->CreateExecutionEngine(pModule);
+    Compiler* pCompiler = GetCompiler();
+    llvm::Module* pModule = pCompiler->ParseModuleIR(Buffer.get());
+    pCompiler->CreateExecutionEngine(pModule);
 
     llvm::ExecutionEngine* pEngine = (llvm::ExecutionEngine*)GetCompiler()->GetExecutionEngine();
 
@@ -274,7 +275,6 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
                      pWrapperFunc,
                      spKernelJITProps.release());
 
-
         //TODO (AABOUD): is this redundant code?
         const llvm::Type *vTypeHint = NULL; //pFunc->getVectTypeHint(); //TODO: Read from metadata (Guy)
         bool dontVectorize = false;
@@ -342,7 +342,6 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
     return spKernels.release();
 }
 
-
 void CPUProgramBuilder::AddKernelJIT(CPUProgram* pProgram, Kernel* pKernel, llvm::Module* pModule,
                                      llvm::Function* pFunc, KernelJITProperties* pProps) const
 {
@@ -373,14 +372,12 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Modu
         CPUProgram* pCPUProgram = static_cast<CPUProgram*>(pProgram);
         pCPUProgram->GetExecutionEngine()->setObjectCache(pObjectLoader.release());
     }
-
 }
 
 IBlockToKernelMapper * CPUProgramBuilder::CreateBlockToKernelMapper(Program* pProgram, const llvm::Module* pModule) const
 {
     return new CPUBlockToKernelMapper(pProgram, pModule);
 }
-
 
 void CPUProgramBuilder::PostBuildProgramStep(Program* pProgram, llvm::Module* pModule,
   const ICLDevBackendOptions* pOptions) const
@@ -394,5 +391,4 @@ void CPUProgramBuilder::PostBuildProgramStep(Program* pProgram, llvm::Module* pM
   // set in RuntimeService new BlockToKernelMapper object
   pProgram->GetRuntimeService()->SetBlockToKernelMapper(pMapper);
 }
-
 }}} // namespace

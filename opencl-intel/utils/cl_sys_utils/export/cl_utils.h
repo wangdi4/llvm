@@ -31,6 +31,7 @@
 #include <cl_device_api.h>
 #include <cl_monitor.h>
 #include <map>
+#include <vector>
 #include <string>
 #include <locale>
 #include <iostream>
@@ -139,6 +140,18 @@ std::string FormatClError(const std::string& Base, cl_int CLError);
 //    char * chars - the chars to "clean" from the source string
 /////////////////////////////////////////////////////////////////////////
 std::string TrimString (const std::string& sSource, const char *chars = " \t");
+
+
+/////////////////////////////////////////////////////////////////////////
+// SplitString
+//  Split the string using given delimiter 
+//  Input: 
+//    string s - the string to split
+//    char dlim - the char to use as a delimiter
+/////////////////////////////////////////////////////////////////////////
+std::vector<std::string> &SplitString(const std::string &s, char delim, std::vector<std::string> &elems);
+std::vector<std::string> SplitString(const std::string &s, char delim);
+
 
 /**************************************************************************************************
 * Function: 	XXXtoString

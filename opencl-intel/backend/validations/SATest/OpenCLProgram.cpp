@@ -16,6 +16,7 @@ File Name:  OpenCLProgram.cpp
 
 \*****************************************************************************/
 #include "OpenCLProgram.h"
+#include "common_clang.h"
 #include "cl_types.h"
 #include "exceptions.h"
 #include "SATestException.h"
@@ -42,7 +43,7 @@ File Name:  OpenCLProgram.cpp
 
 using namespace Validation;
 using namespace Intel::OpenCL::DeviceBackend;
-using namespace Intel::OpenCL::FECompilerAPI;
+using namespace Intel::OpenCL::ClangFE;
 using std::string;
 
 static std::string buildLibName (const char* s){
@@ -115,15 +116,7 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration * oclProgramConfig,
                 //
                 //Allocating the container
                 //
-                this->containerSize = result->GetIRSize();
-                this->pContainer = (cl_prog_container_header*)(new char[containerSize]);
-                memcpy(this->pContainer,
-                  result->GetIR(),
-                  this->containerSize
-                );
-                //
-                //cleanup
-                //
+                m_buffer.assign((const char*)result->GetIR(), (const char*)result->GetIR() + result->GetIRSize());
                 result->Release();
                 //we have an issue here. When uncommenting the line, the unloading
                 //of clang causes the teardown of static llvm variables, which
@@ -138,23 +131,10 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration * oclProgramConfig,
                 llvm::LLVMContext context;
                 std::auto_ptr<llvm::Module> M(llvm::ParseAssemblyFile(programFile,
                                                 err, context));
-
                 llvm::SmallVector<char, 8> buffer;
                 llvm::raw_svector_ostream outStream(buffer);
                 WriteBitcodeToFile(M.get(), outStream);
-                int bufferSize = buffer.size();
-
-                containerSize = sizeof(cl_prog_container_header) +
-                                                sizeof(cl_llvm_prog_header);
-                containerSize += (unsigned int)bufferSize;
-                setContainer();
-                pContainer->container_size = (unsigned int)bufferSize +
-                                                sizeof(cl_llvm_prog_header);
-                char* pContainerPosition = ((char*)pContainer) +
-                    sizeof(cl_prog_container_header)+ sizeof(cl_llvm_prog_header);
-                for (unsigned i = 0, e = bufferSize; i != e; ++i) {
-                    pContainerPosition[i] = buffer[i];
-                }
+                m_buffer.assign(buffer.begin(), buffer.end());
             }
             break;
         case BC:
@@ -168,74 +148,32 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration * oclProgramConfig,
 
 OpenCLProgram::~OpenCLProgram(void)
 {
-  delete [] pContainer;
 }
 
-cl_prog_container_header* OpenCLProgram::GetProgramContainer() const
+const char* OpenCLProgram::GetProgramContainer() const
 {
-  return pContainer;
+    return m_buffer.data();
 }
 
 unsigned int OpenCLProgram::GetProgramContainerSize() const
 {
-  return containerSize;
+    return m_buffer.size();
 }
 
 void OpenCLProgram::BCOpenCLProgram(const string& programFile)
 {
-  const char* szFileName = programFile.c_str();
-
-  containerSize = sizeof(cl_prog_container_header) + sizeof(cl_llvm_prog_header);
-
-  FILE* pIRfile = NULL;
-
-#ifdef _WIN32
-  fopen_s(&pIRfile, szFileName, "rb");
-#else
-  pIRfile = fopen(szFileName, "rb");
-#endif
-
-  if ( NULL == pIRfile )
-  {
-      throw Exception::IOError("Unable to open file with LLVM program");
-  }
-  fseek(pIRfile, 0, SEEK_END);
-  unsigned int fileSizeUint = (unsigned int)(ftell (pIRfile));
-  fseek(pIRfile, 0, SEEK_SET);
-
-  containerSize += fileSizeUint;
-
-  // Construct program container
-  setContainer();
-
-  pContainer->container_size = fileSizeUint + sizeof(cl_llvm_prog_header);
-  fread(((char*)pContainer) + sizeof(cl_prog_container_header) +
-                sizeof(cl_llvm_prog_header), 1, (size_t)fileSizeUint, pIRfile);
-  fclose(pIRfile);
+    std::ifstream testFile(programFile.c_str(), std::ios::binary);
+    m_buffer.assign(std::istreambuf_iterator<char>(testFile),
+                    std::istreambuf_iterator<char>());    
 }
 
-void OpenCLProgram::setContainer()
-{
-  pContainer = (cl_prog_container_header*)(new char[containerSize]);
-  memset(pContainer, 0, sizeof(cl_prog_container_header) +
-                                        sizeof(cl_llvm_prog_header));
-
-  // Container mask
-  memcpy((void*)pContainer->mask, _CL_CONTAINER_MASK_, sizeof(pContainer->mask));
-
-  pContainer->container_type = CL_PROG_CNT_PRIVATE;
-  pContainer->description.bin_type = CL_PROG_BIN_EXECUTABLE_LLVM;
-  pContainer->description.bin_ver_major = 1;
-  pContainer->description.bin_ver_minor = 1;
-}
 
 llvm::Module* OpenCLProgram::ParseToModule(void) const{
-    cl_prog_container_header *oclProgramContainerHeader =
-        this->GetProgramContainer();
-    unsigned int oclProgramContainerSize = this->GetProgramContainerSize();
+    const char* pIR = this->GetProgramContainer();
+    size_t stIRsize = this->GetProgramContainerSize();
 
     // Input parameters validation
-    if(0 == oclProgramContainerSize || 0 == oclProgramContainerHeader)
+    if(NULL == pIR || 0 == stIRsize)
     {
         throw Exception::TestReferenceRunnerException("Program container is invalid.");
     }
@@ -243,17 +181,9 @@ llvm::Module* OpenCLProgram::ParseToModule(void) const{
     //////////////////////////////////////////////////////////////////////
     // Create llvm module from program.
 
-    // TODO: check all pointer initializations.
-
-    const char* pIR;    // Pointer to LLVM representation
-    pIR = (const char*)oclProgramContainerHeader +
-        sizeof(cl_prog_container_header) + sizeof(cl_llvm_prog_header);
-    size_t stIRsize = oclProgramContainerHeader->container_size -
-        sizeof(cl_llvm_prog_header);
     // Create Memory buffer to store IR data
     llvm::StringRef bitCodeStr(pIR, stIRsize);
-    llvm::MemoryBuffer* pMemBuffer(
-            llvm::MemoryBuffer::getMemBuffer(bitCodeStr, "", false));
+    llvm::MemoryBuffer* pMemBuffer = llvm::MemoryBuffer::getMemBuffer(bitCodeStr, "", false);
     if (0 == pMemBuffer)
     {
         throw Exception::TestReferenceRunnerException("Can't create LLVM memory buffer from\

@@ -5,7 +5,6 @@
 #include "ICLDevBackendKernel.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
 /**
  * This interface represent the bitcode container responsible
  * for holding the bitcode buffer
@@ -39,7 +38,6 @@ public:
 
     virtual ~ICLDevBackendProgramJITCodeProperties() {}
 };
-
 
 /**
  * An interface class to OpenCL program object provided by the Back-end Compiler
@@ -157,7 +155,6 @@ public:
      */
     virtual size_t GetGlobalVariableTotalSize() const = 0;
 };
-
 }}} // namespace
 
 #endif // ICLDevBackendProgram_H

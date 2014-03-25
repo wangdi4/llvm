@@ -31,12 +31,18 @@ void CPUProgram::ReleaseExecutionEngine()
     // since this module is owned by compiler
     if (m_pExecutionEngine)
     {
-      if (m_pBIModule) 
-        m_pExecutionEngine->removeModule(static_cast<llvm::Module*>(m_pBIModule));
-      if (m_pIRCodeContainer->GetModule())
-        m_pExecutionEngine->removeModule(static_cast<llvm::Module*>(m_pIRCodeContainer->GetModule()));
-      delete m_pExecutionEngine;
-      m_pExecutionEngine = NULL;
+        if (m_pBIModule) 
+        {
+            m_pExecutionEngine->removeModule(static_cast<llvm::Module*>(m_pBIModule));
+        }
+
+        if (m_pIRCodeContainer->GetModule())
+        {
+            m_pExecutionEngine->removeModule(static_cast<llvm::Module*>(m_pIRCodeContainer->GetModule()));
+        }
+
+        delete m_pExecutionEngine;
+        m_pExecutionEngine = NULL;
     }
 }
 

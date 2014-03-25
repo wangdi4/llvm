@@ -28,6 +28,7 @@
 #include "fe_compiler.h"
 #include "observer.h"
 #include "cl_sys_info.h"
+#include "common_clang.h"
 
 #include <cl_sys_defines.h>
 #include <task_executor.h>
@@ -40,6 +41,7 @@ using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::FECompilerAPI;
 using namespace Intel::OpenCL::TaskExecutor;
+using namespace Intel::OpenCL::ClangFE;
 
 FrontEndCompiler::FrontEndCompiler() : 
         OCLObject<_cl_object>(NULL, "FrontEndCompiler"),
@@ -246,7 +248,7 @@ cl_err_code FrontEndCompiler::LinkProgram(const void**  ppBinaries,
 
     if (NULL != pbIsLibrary)
     {
-        *pbIsLibrary = pResult->IsLibrary();
+        *pbIsLibrary = pResult->GetIRType() == Intel::OpenCL::ClangFE::IR_TYPE_LIBRARY;
     }
 
     pResult->Release();
@@ -254,19 +256,20 @@ cl_err_code FrontEndCompiler::LinkProgram(const void**  ppBinaries,
     return CL_SUCCESS;
 }
 
-bool FrontEndCompiler::CheckCompileOptions(const char* szOptions, char** szUnrecognizedOptions) const
+bool FrontEndCompiler::CheckCompileOptions(const char* szOptions, char* szUnrecognizedOptions, size_t uiUnrecognizedOptionsSize) const
 {
-    return m_pFECompiler->CheckCompileOptions(szOptions, szUnrecognizedOptions);
+    return m_pFECompiler->CheckCompileOptions(szOptions, szUnrecognizedOptions, uiUnrecognizedOptionsSize);
 }
 
-bool FrontEndCompiler::CheckLinkOptions(const char* szOptions, char** szUnrecognizedOptions) const
+bool FrontEndCompiler::CheckLinkOptions(const char* szOptions, char* szUnrecognizedOptions, size_t uiUnrecongnizedOptionsSize) const
 {
-  return m_pFECompiler->CheckLinkOptions(szOptions, szUnrecognizedOptions);
+  return m_pFECompiler->CheckLinkOptions(szOptions, szUnrecognizedOptions, uiUnrecongnizedOptionsSize);
 }
 
 cl_err_code FrontEndCompiler::GetKernelArgInfo(const void*        pBin, 
+                                               size_t             uiBinarySize,
                                                const char*        szKernelName, 
-                                               FEKernelArgInfo*   *ppArgInfo) const
+                                               IOCLFEKernelArgInfo*   *ppArgInfo) const
 {
     LOG_DEBUG(TEXT("Enter GetKernelArgInfo(pBin=%p, szKernelName=<%s>, ppArgInfo=%p)"), (void*)pBin, szKernelName, (void*)ppArgInfo);
 
@@ -275,7 +278,7 @@ cl_err_code FrontEndCompiler::GetKernelArgInfo(const void*        pBin,
         return CL_INVALID_VALUE;
     }
 
-    int err = m_pFECompiler->GetKernelArgInfo(pBin, szKernelName, ppArgInfo);
+    int err = m_pFECompiler->GetKernelArgInfo(pBin, uiBinarySize, szKernelName, ppArgInfo);
 
     LOG_DEBUG(TEXT("Exit GetKernelArgInfo(pBin=%p, szKernelName=<%s>, ppArgInfo=%p, err=%d)"), (void*)pBin, szKernelName, (void*)ppArgInfo, err);
 

@@ -43,11 +43,8 @@ namespace llvm
     class Function;
 }
 
-
 namespace Intel { namespace OpenCL {
-
 namespace DeviceBackend {
-
     class ICLDevBackendKernel_;
     class ICLDevBackendProgram_;
 
@@ -66,14 +63,14 @@ namespace DeviceBackend {
 
         virtual void OnCreateKernel(const ICLDevBackendProgram_* pProgram,
                                     const ICLDevBackendKernel_* pKernel,
-                                    const llvm::Function* pFunction) = 0;
+                                    const void* pFunction) = 0;
 
-        virtual void OnCreateProgram(const _cl_prog_container_header* pContainer,
+        virtual void OnCreateProgram(const void * pBinary,
+                                     size_t uiBinarySize,
                                      const ICLDevBackendProgram_* pProgram) =0;
 
         virtual void OnReleaseProgram(const ICLDevBackendProgram_* pProgram) =0;
     };
-
 }//DeviceBackend
 
 namespace Frontend {
@@ -92,7 +89,6 @@ namespace Frontend {
 
         virtual ~ICLFrontendPlugin(){};
     };
-
 }//Forntend
 
 //Serves as a query system for BE/FE plugin
@@ -105,7 +101,6 @@ struct IPlugin{
     virtual Frontend::ICLFrontendPlugin* getFrontendPlugin() = 0;
     virtual ~IPlugin() {};
 };
-
 }}
 
 #ifdef __cplusplus

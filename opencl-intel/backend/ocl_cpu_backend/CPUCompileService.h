@@ -34,6 +34,7 @@ public:
     CPUCompileService(const ICompilerConfig& config);
     virtual ~CPUCompileService() { }
 
+    const ProgramBuilder* GetProgramBuilder() const { return &m_programBuilder; }
     ProgramBuilder* GetProgramBuilder() { return &m_programBuilder; }
 
     cl_dev_err_code DumpJITCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,

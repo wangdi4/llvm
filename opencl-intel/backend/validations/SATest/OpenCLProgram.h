@@ -49,7 +49,7 @@ public:
 
     /// @brief Returns program container
     /// @return Program container of this OpenCL program
-    cl_prog_container_header* GetProgramContainer() const;
+    const char* GetProgramContainer() const;
 
     /// @brief Returns size of program container
     /// @return Size of program container of this OpenCL program
@@ -65,16 +65,10 @@ private:
     /// @param [IN] programFile Name of OpenCL test program file
     void BCOpenCLProgram(const std::string& programFile);
 
-    /// @brief sets the pContainer's arguments
-    void setContainer();
-
 private:
 
     /// @brief OpenCL program byte code container
-    cl_prog_container_header* pContainer;
-
-    /// @brief Size of OpenCL program container
-    unsigned int containerSize;
+    std::vector<char> m_buffer;
 
     // LLVM Context used for creation of LLVM state
     const llvm::OwningPtr<llvm::LLVMContext> C;

@@ -26,7 +26,6 @@ File Name:  PluginsTest.cpp
 #include <stdio.h>
 #include <string>
 
-
 #ifdef WIN32
 #include <direct.h>
 #include <Windows.h>
@@ -36,8 +35,6 @@ File Name:  PluginsTest.cpp
 #include <unistd.h>
 #define GetCurrentDir getcwd
 #endif
-
-using namespace llvm;
 
 TEST_F(BackEndTests_Plugins, PluginLoadSuccess)
 {
@@ -55,11 +52,7 @@ TEST_F(BackEndTests_Plugins, PluginLoadSuccess)
     ASSERT_EQ(putenv(&(envString[0])), 0);
 #endif
 
-    // init the backend - should also load the plugin dll
-    cl_dev_err_code ret = GetInstance().Init(NULL);
-    ASSERT_EQ(CL_DEV_SUCCESS, ret);
-
-    // load the plugin dll again and get the exported function
+    // load the plugin dll and get the exported function
     try
     {
         m_dll.Load(PLUGIN_DLL_NAME);
@@ -77,18 +70,13 @@ TEST_F(BackEndTests_Plugins, PluginLoadSuccess)
     // To detect that the plugin is loaded, we can create an event that will
     // make the plugin "do something", the event CreateProgram, will lead to
     // the plugin's method OnCreateProgram which will change the flag
-    CreateTestEvent();
+    Intel::OpenCL::PluginManager manager;
+    CreateTestEvent(&manager);
 
     // now, plugin's method OnCreateProgram should have changed the 'pluginWorked' flag
     // check if the flag really changed - should be true
-#ifdef OCL_DEV_BACKEND_PLUGINS
     ASSERT_TRUE(getFlag());
-#else
-    ASSERT_FALSE(getFlag());
-#endif
 }
-
-
 
 TEST_F(BackEndTests_Plugins, PluginLoadWrongPath)
 {
@@ -108,14 +96,14 @@ TEST_F(BackEndTests_Plugins, PluginLoadWrongPath)
 #endif
 
     try{
-      Intel::OpenCL::PluginManager pluginManger;
+      // PluginManager is initialized in lazy fashion - so need to generate even to trigger the initialization
+      Intel::OpenCL::PluginManager manager;
+      CreateTestEvent(&manager);
     } catch (Intel::OpenCL::PluginManagerException e){
       return;
     }
     FAIL() << "exception was expected";
 }
-
-
 
 TEST_F(BackEndTests_Plugins, PluginLoadEmptyPath)
 {
@@ -144,11 +132,9 @@ TEST_F(BackEndTests_Plugins, PluginLoadEmptyPath)
     ASSERT_TRUE(STRING_EQ("", env2));
 
     // init the backend - should success
-    cl_dev_err_code ret = GetInstance().Init(NULL);
-    ASSERT_EQ(CL_DEV_SUCCESS, ret);
+    Intel::OpenCL::PluginManager manager;
+    CreateTestEvent(&manager);
 }
-
-
 
 TEST_F(BackEndTests_Plugins, PluginLoadSuccess2)
 {
@@ -168,7 +154,6 @@ TEST_F(BackEndTests_Plugins, PluginLoadSuccess2)
     ASSERT_FALSE(env);
 
     // init the backend - should success
-    cl_dev_err_code ret = GetInstance().Init(NULL);
-    ASSERT_EQ(CL_DEV_SUCCESS, ret);
+    Intel::OpenCL::PluginManager manager;
+    CreateTestEvent(&manager);
 }
-

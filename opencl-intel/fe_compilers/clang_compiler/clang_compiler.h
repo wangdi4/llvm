@@ -11,56 +11,50 @@
 #include <frontend_api.h>
 #include "clang_device_info.h"
 #include "cl_config.h"
+#include "common_clang.h"
 
-#ifdef OCLFRONTEND_PLUGINS 
-#include "plugin_manager.h"
-#endif
 
 
 namespace Intel { namespace OpenCL { namespace ClangFE {
 
-	class ClangFECompiler : public Intel::OpenCL::FECompilerAPI::IOCLFECompiler
-	{
-	public:
-		ClangFECompiler(const void* pszDeviceInfo);
+    class ClangFECompiler : public Intel::OpenCL::FECompilerAPI::IOCLFECompiler
+    {
+    public:
+        ClangFECompiler(const void* pszDeviceInfo);
 
-		  // IOCLFECompiler
+          // IOCLFECompiler
         int CompileProgram(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, 
-                           Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult* *pBinaryResult);
+                           IOCLFEBinaryResult* *pBinaryResult);
 
         int LinkPrograms(Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor* pProgDesc, 
-                         Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult* *pBinaryResult);
+                         IOCLFEBinaryResult* *pBinaryResult);
 
         int GetKernelArgInfo(const void*        pBin,
+                             size_t             uiBinarySize,
                              const char*        szKernelName,
-                             Intel::OpenCL::FECompilerAPI::FEKernelArgInfo*   *pArgInfo);
+                             Intel::OpenCL::ClangFE::IOCLFEKernelArgInfo*   *pArgInfo);
 
         bool CheckCompileOptions(const char*  szOptions,
-                                 char**       szUnrecognizedOptions);
+                                 char*        szUnrecognizedOptions,
+                                 size_t       uiUnrecognizedOptionsSize);
 
         bool CheckLinkOptions(const char*  szOptions,
-                              char**       szUnrecognizedOptions);
+                              char*       szUnrecognizedOptions,
+                              size_t       uiUnrecognizedOptionsSize);
 
-		void Release()
-		{
-			delete this;
-		}
+        void Release()
+        {
+            delete this;
+        }
 
         static void ShutDown();
-        
-	protected:
-		virtual ~ClangFECompiler();
 
-		CLANG_DEV_INFO	m_sDeviceInfo;
+    protected:
+        virtual ~ClangFECompiler();
 
-		// Static members
-		static Intel::OpenCL::Utils::AtomicCounter	s_llvmReferenceCount;
-        static volatile bool                        m_bLllvmActive;
+        CLANG_DEV_INFO	m_sDeviceInfo;
+
         Intel::OpenCL::Utils::BasicCLConfigWrapper  m_config;
-        
-    #ifdef OCLFRONTEND_PLUGINS 
-    mutable Intel::OpenCL::PluginManager m_pluginManager;
-    #endif //OCLFRONTEND_PLUGINS
-	};
+    };
 
 }}}

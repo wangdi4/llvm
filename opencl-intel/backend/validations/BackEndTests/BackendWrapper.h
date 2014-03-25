@@ -19,8 +19,8 @@ File Name:  BackendWrapper.h
 #define BACKEND_WRAPPER_H
 
 /** @brief Common classes for the backend tests.
- *
- */
+*
+*/
 
 #include <gtest/gtest.h>                // Test framework
 #include "BE_DynamicLib.h"
@@ -29,7 +29,9 @@ File Name:  BackendWrapper.h
 #include "mem_utils.h"
 #include "CPUDetect.h"
 #include <string>
+#include <vector>
 #include "BWOptions.h"                  // the implemented Options classes
+#include "plugin_manager.h"
 #include "Exception.h"
 
 using namespace Intel::OpenCL::DeviceBackend;
@@ -65,7 +67,6 @@ using namespace Intel::OpenCL::DeviceBackend;
 #define BW_CPU_DEVICE  "cpu"
 #define BW_MIC_DEVICE  "mic"
 
-
 /// @brief the plugin dll path environment variable
 #define PLUGIN_ENVIRONMENT_VAR          "OCLBACKEND_PLUGINS"
 
@@ -79,12 +80,9 @@ typedef Validation::auto_ptr_ex<ICLDevBackendSerializationService, Validation::R
 /// @brief the plugin exported function
 typedef bool (*PLUGIN_EXPORT_F)();
 
-
-
-
-/** @brief BackendWrapper: This class hides the internals of loading and calling OCL CPU Backend. 
- *        +base class for FactoryMethds, CompilationsService & Plugins test cases classes
- */
+/** @brief BackendWrapper: This class hides the internals of loading and calling OCL CPU Backend.
+*        +base class for FactoryMethds, CompilationsService & Plugins test cases classes
+*/
 class BackendWrapper : public ::testing::Test
 {
 public:
@@ -107,15 +105,15 @@ public:
     ICLDevBackendServiceFactory* GetBackendServiceFactory();
     void Release();
 
-    /// @brief CreateProgramContainer: create a valid program container 
-    cl_prog_container_header* CreateProgramContainer(const std::string& programFile);
+    /// @brief CreateProgramContainer: create a valid program container
+    void CreateProgramContainer(const std::string& programFile, std::vector<char>& buffer);
 
 protected:
     /** @brief SetUp(), TearDown(): called by the gtest, shared for FactoryMethods tests
-     *        and CompilationService tests, responsible for initiating the BackendWrapper
-     *        class and terminating it
-     *        overload them if necessary (in PluginTest for example)
-     */
+    *        and CompilationService tests, responsible for initiating the BackendWrapper
+    *        class and terminating it
+    *        overload them if necessary (in PluginTest for example)
+    */
     virtual void SetUp();
     virtual void TearDown();
 
@@ -129,24 +127,14 @@ protected:
 
     /// @brief true only if the backend m_funcInit is called successfully
     bool backendInitiated;
-    /// @brief program byte code container
-    cl_prog_container_header* pContainer;
-
-    /// @brief Size of the program container
-    unsigned int containerSize;
 
     void TestBody(){}
-
 };//BackendWrapper
 
-
-
-
-
 /** @brief classes that inherit from BackendWrapper
- *   this gives the option to overload SetUp and TearDown
- *   useful for Plugin Tests for example
- */
+*   this gives the option to overload SetUp and TearDown
+*   useful for Plugin Tests for example
+*/
 
 /// @brief dummy inheritance, only for the output of gtest
 class BackEndTests_FactoryMethods : public BackendWrapper {};
@@ -162,12 +150,44 @@ public:
     ///        in our case the event is CreateProgram
     void CreateTestEvent();
 
+    void CreateTestEvent(Intel::OpenCL::PluginManager* pManager);
+
 protected:
     virtual void SetUp();
 
     Intel::OpenCL::DeviceBackend::Utils::BE_DynamicLib m_dll;
     /// @brief the plugin exported function (see SamplePlugin)
     PLUGIN_EXPORT_F getFlag;
+};
+
+class OCLProgramMock: public ICLDevBackendProgram_
+{
+public:
+    ~OCLProgramMock(){}
+
+    unsigned long long int GetProgramID() const { return 0; }
+
+    const char* GetBuildLog() const { return ""; }
+
+    virtual const ICLDevBackendCodeContainer* GetProgramCodeContainer() const { return NULL; }
+
+    virtual const ICLDevBackendCodeContainer* GetProgramIRCodeContainer() const { return NULL; }
+
+    virtual cl_dev_err_code GetKernelByName(
+        const char* pKernelName,
+        const ICLDevBackendKernel_** ppKernel) const { return CL_DEV_ERROR_FAIL; }
+
+    virtual int GetNonBlockKernelsCount() const { return 0; }
+
+    virtual int GetKernelsCount() const { return 0; }
+
+    virtual cl_dev_err_code	GetKernel(
+        int kernelIndex,
+        const ICLDevBackendKernel_** pKernel) const { return CL_DEV_ERROR_FAIL; }
+
+    virtual const ICLDevBackendProgramJITCodeProperties* GetProgramJITCodeProperties() const { return NULL; }
+
+    virtual size_t GetGlobalVariableTotalSize() const { return 0; }
 };
 
 #endif // BACKEND_WRAPPER_H
