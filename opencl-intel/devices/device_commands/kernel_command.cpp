@@ -57,6 +57,7 @@ cl_dev_err_code KernelCommand::AddChildKernelToLists(const SharedPtr<KernelComma
         pChildLists->waitingChildrenForWorkGroup = pNewKernel;
         break;
     default:
+        assert(false && "invalid flag");
         return CL_DEV_INVALID_VALUE;
 	}
 

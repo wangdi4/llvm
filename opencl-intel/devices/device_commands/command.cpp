@@ -58,23 +58,24 @@ bool DeviceCommand::AddWaitListDependencies(const clk_event_t* pEventWaitList, c
 
 void DeviceCommand::NotifyCommandFinished(cl_dev_err_code err)
 {
-	ASSERT_RET(m_numDependencies > 0, "m_numDependencies > 0");
-	const long lCurrentDependencies = --m_numDependencies;
-	if (CL_DEV_FAILED(err))
-	{
-		SetError(err);
-	}
-	if (0 == lCurrentDependencies)
-	{
-		if (CL_DEV_SUCCEEDED(GetError()))
-		{
-			Launch();
-		}
-		else
-		{
-			SignalComplete(GetError());
-		}
-	}
+    ASSERT_RET(m_numDependencies > 0, "m_numDependencies > 0");
+    const long lCurrentDependencies = --m_numDependencies;
+    if (CL_DEV_FAILED(err))
+    {
+        SetError(err);
+    }
+    if (0 == lCurrentDependencies)
+    {
+        m_commandsThisIsWaitingFor.clear();
+        if (CL_DEV_SUCCEEDED(GetError()))
+        {
+            Launch();
+        }
+        else
+        {
+            SignalComplete(GetError());
+        }
+    }
 }
 
 void DeviceCommand::SignalComplete(cl_dev_err_code err)
@@ -99,14 +100,15 @@ void DeviceCommand::SignalComplete(cl_dev_err_code err)
     }
   }
 
-	SetError(err);
-	OclAutoMutex mutex(&m_mutex);	// m_bCompleted and m_waitingCommandsForThis are protected together (see AddWaitListDependencies)
-	m_bCompleted = true;
-	
-	for (std::vector<SharedPtr<DeviceCommand> >::iterator iter = m_waitingCommandsForThis.begin(); iter != m_waitingCommandsForThis.end(); iter++)
-	{
-		(*iter)->NotifyCommandFinished(GetError());
-	}
+    SetError(err);
+    OclAutoMutex mutex(&m_mutex);   // m_bCompleted and m_waitingCommandsForThis are protected together (see AddWaitListDependencies)
+    m_bCompleted = true;
+
+    for (std::vector<SharedPtr<DeviceCommand> >::iterator iter = m_waitingCommandsForThis.begin(); iter != m_waitingCommandsForThis.end(); iter++)
+    {
+        (*iter)->NotifyCommandFinished(GetError());
+    }
+    m_waitingCommandsForThis.clear();
 }
 
 void DeviceCommand::StartExecutionProfiling()
