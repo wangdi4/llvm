@@ -584,14 +584,27 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
         size_t initial_2mb_pool_size = tMicConfig.Device_Initial2MBPoolSizeInMB();
         if (initial_2mb_pool_size > 0)
         {
+            bool ok = false;
             initial_2mb_pool_size *= (1024*1024); // MiB
             result = COIProcessSetCacheSize( m_process, 
                                     initial_2mb_pool_size,                COI_CACHE_MODE_ONDEMAND_SYNC | COI_CACHE_ACTION_GROW_NOW,
                                     MIC_DEV_INITIAL_BUFFER_PREALLOCATION, COI_CACHE_MODE_ONDEMAND_SYNC | COI_CACHE_ACTION_NONE,
                                     0, NULL, NULL );
 
-            assert(result == COI_SUCCESS);
-            if (result != COI_SUCCESS)
+            switch (result)
+            {
+                case COI_SUCCESS:
+                case COI_RESOURCE_EXHAUSTED:
+                case COI_OUT_OF_MEMORY:
+                    ok = true;
+                    break;
+
+                default:
+                    assert(false && "Device memory reservation (COIProcessSetCacheSize) failed");
+                    
+            }
+
+            if (!ok)
             {
                 break;
             }
