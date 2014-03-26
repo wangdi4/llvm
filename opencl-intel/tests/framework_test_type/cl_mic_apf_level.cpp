@@ -33,7 +33,7 @@ struct expected_s{
   int numPF;
   int numGPF;
 } expected[] = {
-    {0, 0}, {6, 0}, {10, 0}, {10, 4}
+    {0, 0}, {10, 0}, {14, 0}, {14, 4}
 };
 
 const char *ocl_test_program[] = {\
