@@ -113,6 +113,9 @@ private:
     /* Set in additionalEnvVars all the VTune env variables (Those starts with __OCL_MIC_INTEL_) as name=value. */
     void getVTuneEnvVars(vector<char*>& additionalEnvVars);
 
+    /* setup COI device buffer cache memory pools */
+    bool setupBufferMemoryPools( const MICDeviceConfig& tMicConfig );
+
     unsigned int    m_uiMicId;
 
     COIPROCESS      m_process;
