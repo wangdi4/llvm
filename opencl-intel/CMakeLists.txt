@@ -310,7 +310,7 @@ file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt
 #define KBVERSIONSTRING \"1.2.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n")
 
 if(WIN32)
-    file(WRITE ${OCL_BINARY_DIR}/version.ini "[Version]\nPackVer=3.1.${BUILDVER_WC_REVISION}")
+    file(WRITE ${OCL_BINARY_DIR}/version.ini "[Version]\nPackVer=${PRODUCTVER_MAJOR}.${PRODUCTVER_MINOR}.${BUILDVER_WC_REVISION}")
     install(FILES ${OCL_BINARY_DIR}/version.ini DESTINATION ./)
 endif()
 file(WRITE ${OCL_BINARY_DIR}/version.txt "${PRODUCTVER_MAJOR}.${PRODUCTVER_MINOR}.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}")
