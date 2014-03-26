@@ -87,11 +87,11 @@ std::vector<std::string> tokenize(const std::string& str, const std::string& del
 
 // Start capturing stdout
 //
-void CaptureStdout();
+bool CaptureStdout();
 
 // Start capturing stderr
 //
-void CaptureStderr();
+bool CaptureStderr();
 
 // Stop capturing stdout and return the captured string
 //
