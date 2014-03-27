@@ -293,18 +293,6 @@ void PacketizeFunction::postponePHINodesAfterExtracts() {
       it != e; ++it) { // each BB
 
         BasicBlock* BB = it;
-
-        // currently we use the following to ensure we only postpone phi-nodes
-        // which are the results of allones.
-        // this is in order to ensure no heuristics changes for allones,
-        // but perhaps we can do better by avoiding it.
-        Predicator::AllOnesBlockType
-          blockType = Predicator::getAllOnesBlockType(BB);
-        if (!(blockType == Predicator::EXIT ||
-          blockType == Predicator::SINGLE_BLOCK_LOOP_EXIT)) {
-            continue;
-        }
-
         // duplicate a vector of pointers to the instructions of BB,
         // to safely iterate over the instructions.
         // infact, we only need the phi-nodes.
@@ -609,17 +597,20 @@ void PacketizeFunction::dispatchInstructionToPacketize(Instruction *I)
     // (even though sub consecutive consecutive = uniform)
     // we can just not packetize all uniform values
 
-    // that is, unless it is an all-ones call-function, which returns
-    // a uniform value, but still needs to be packetized.
-    bool isAllOneCallFunction = false;
+    // that is, unless it is an all-ones or all-zeroes call-function,
+    // which returns a uniform value, but still needs to be packetized.
+    bool isAllOneAllZeroFunctionCall = false;
     CallInst* inst = dyn_cast<CallInst>(I);
     if (inst && inst->getCalledFunction()) {
       StringRef funcName = inst->getCalledFunction()->getName();
       if (Mangler::isAllOne(funcName)) {
-        isAllOneCallFunction = true;
+        isAllOneAllZeroFunctionCall = true;
+      }
+      else if (Mangler::isAllZero(funcName)) {
+        isAllOneAllZeroFunctionCall = true;
       }
     }
-    if (!isAllOneCallFunction) {
+    if (!isAllOneAllZeroFunctionCall) {
       return useOriginalConstantInstruction(I);
     }
   }
@@ -1712,12 +1703,16 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   // so we need to replace the usage with the usage of the
   // new instruction.
   // currently, this is only supposed to happen for
-  // an allones call and the branch that uses it.
+  // an allones/allzeroes call and the branch that uses it.
+  // (sometimes it is not even used at all, if branch
+  // after allzero is uniform)
   if (WIAnalysis::UNIFORM == m_depAnalysis->whichDepend(CI)) {
-    V_ASSERT(CI->getNumUses() == 1 && "expected one branch uses the allones");
-    V_ASSERT(m_VCM.count(CI) && "missing packetized allone call");
+    V_ASSERT(CI->getNumUses() <= 1
+            && "expected at most one branch uses the allones/allzeroes");
+    V_ASSERT(m_VCM.count(CI) && "missing packetized allone/allzeroes call");
     V_ASSERT(m_VCM[CI]->multiScalarValues[0] ==
-      m_VCM[CI]->multiScalarValues[1] && "expected same scalar value for allones call");
+      m_VCM[CI]->multiScalarValues[1]
+      && "expected same scalar value for allones/allzeroes call");
 
     CI->replaceAllUsesWith(m_VCM[CI]->multiScalarValues[0]);
   }
@@ -2895,21 +2890,39 @@ void PacketizeFunction::packetizeInstruction(PHINode *PI)
   // anyway, in which case we gain nothing, but the users
   // might also be scalars themselves.)
   bool allIncomingValuesDemandMultipleScalars = true;
+  bool otherUsersMightStillNeedScalars = false;
   for (unsigned inputNum = 0; inputNum < numValues; inputNum++)
   {
     Value * origVal = PI->getIncomingValue(inputNum);
     allIncomingValuesDemandMultipleScalars &=
       isInsertNeededToObtainVectorizedValue(origVal);
+
+    for (Value::use_iterator it = origVal->use_begin(), e = origVal->use_end();
+      it != e; ++ it) {
+        if (isa<Instruction>(*it) && !isa<PHINode>(*it)) {
+          otherUsersMightStillNeedScalars = true;
+        }
+    }
   }
   if (allIncomingValuesDemandMultipleScalars) {
-    // currently only duplicating the phi in such a case
-    // if it is a phi created out of the all-ones bypasses.
+    // if it is a phi created out of the all-ones bypasses,
+    // duplicate anyway (even if there are other users)
     Predicator::AllOnesBlockType blockType =
       Predicator::getAllOnesBlockType(PI->getParent());
     if (blockType == Predicator::EXIT ||
       blockType == Predicator::SINGLE_BLOCK_LOOP_EXIT) {
         // not collecting statistics when duplicating phi-nodes, not a real instruction.
         return duplicateNonPacketizableInst(PI);
+    }
+    // for allones phi-nodes, we know the phi-nodes comes after
+    // all the users in the function instruction iterator, so we safely
+    // duplicate phis.
+    // however, for other phi-nodes, we want to know
+    // no other user will construct the vector anyway. if some user might,
+    // then we are going to construct the vector now, to avoid constructing
+    // it twice.
+    if (!otherUsersMightStillNeedScalars) {
+      return duplicateNonPacketizableInst(PI);
     }
   }
 

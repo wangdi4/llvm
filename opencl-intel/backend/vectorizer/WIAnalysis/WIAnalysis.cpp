@@ -502,10 +502,15 @@ void WIAnalysis::updateCfDependency(const TerminatorInst *inst) {
         BranchInst* br = dyn_cast<BranchInst>(term);
         assert(br && "br cannot be null");
 
-        // an allones branch is a uniform branch.
+        // allones and allzeroes branches are uniform.
         bool branchIsAllOnes = (Predicator::getAllOnesBranch(br->getParent()) != NULL);
+        CallInst* callInst =
+          br->isConditional() ? dyn_cast<CallInst>(br->getCondition()) : NULL;
+        bool branchIsAllZeroes = callInst &&
+          callInst->getCalledFunction() &&
+          Mangler::isAllZero(callInst->getCalledFunction()->getName());
 
-        if (br->isConditional() && !branchIsAllOnes) {
+        if (br->isConditional() && !branchIsAllOnes && !branchIsAllZeroes) {
           updateDepMap(term, WIAnalysis::RANDOM);
           // This region is going to be part of a larger region that is going
           // to be predicated
@@ -795,8 +800,8 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
     }
   }
 
-  // support all-ones. An allones branch is a uniform branch.
-  if (Mangler::isAllOne(origFuncName)) {
+  // An allones and allzeroes branches are uniform branch.
+  if (Mangler::isAllOne(origFuncName) || Mangler::isAllZero(origFuncName)) {
     return WIAnalysis::UNIFORM;
   }
 
