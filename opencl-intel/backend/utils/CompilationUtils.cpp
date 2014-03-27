@@ -422,9 +422,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                   curArg.type = CL_KRNL_ARG_PTR_PIPE_T;
               else if (structName.startswith("queue_t"))
                   curArg.type = CL_KRNL_ARG_PTR_QUEUE_T;
-              else
+              else {
+                  assert(false && "did you forget to handle a new special OpenCL C opaque type?");
                   // TODO: Why default type is INTEGER????
                   curArg.type = CL_KRNL_ARG_INT;
+              }
 
               switch(curArg.type) {
                 case CL_KRNL_ARG_PTR_IMG_1D:
@@ -462,12 +464,16 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                   break;
 
                 default:
-                  assert(false && "did you forget to handle a new special OpenCL C opaque type?");
                   break;
               }
               // Check this is a special OpenCL C opaque type.
               if(CL_KRNL_ARG_INT != curArg.type)
                 break;
+            }
+            else if(dyn_cast<PointerType>(PTy->getElementType()))
+            {
+              // Pointer to pointer case.
+              assert(false && "pointer to pointer is not allowed in kernel arguments");
             }
           }
 
