@@ -535,6 +535,18 @@ Function* Predicator::createPredicatedFunction(Instruction *inst,
 void Predicator::replaceInstructionByPredicatedOne(Instruction* original,
                                                    Instruction* predicated) {
   VectorizerUtils::SetDebugLocBy(predicated, original);
+  // need to keep m_predicatedSelect dictionary updated.
+  if (m_valuableAllOnesBlocks.count(original->getParent())) {
+    for (Value::use_iterator it = original->use_begin(),
+       e = original->use_end(); it != e ; ++it) {
+         Instruction* inst = dyn_cast<Instruction>(*it);
+         if (inst && m_predicatedSelects.count(inst) && 
+                       m_predicatedSelects[inst] == original)   {
+           m_predicatedSelects[inst] = predicated;
+         }
+    }
+  }
+
   original->replaceAllUsesWith(predicated);
   // if we are going to duplicate this block and create
   // an allones version, we want to keep for now the original
