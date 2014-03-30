@@ -144,6 +144,20 @@ def __ocl_masked_store8   : OclBuiltin<"__ocl_masked_store_$Arg1Type",   (outs),
 }
 }
 
+let Types = [v8i64, v8f64] in {
+let NeedForwardDecl = 1 in {
+def __ocl_imasked_load8   : OclBuiltin<"__ocl_imasked_load_$ReturnType",   (outs gentype:$ret), (ins pgentype:$pLoadAdd, v1u8:$mask), [], [], 0, 0>, PRIVATE;
+def __ocl_imasked_store8   : OclBuiltin<"__ocl_imasked_store_$Arg1Type",   (outs), (ins pgentype:$pStoreAdd, gentype:$data, v1u8:$mask),[], [], 0, 0>, PRIVATE;
+}
+}
+
+let Types = [v16i32, v16i64, v16f32, v16f64] in {
+let NeedForwardDecl = 1 in {
+def __ocl_imasked_load16   : OclBuiltin<"__ocl_imasked_load_$ReturnType",   (outs gentype:$ret), (ins pgentype:$pLoadAdd, v1u16:$mask), [], [], 0, 0>, PRIVATE;
+def __ocl_imasked_store16   : OclBuiltin<"__ocl_imasked_store_$Arg1Type",   (outs), (ins pgentype:$pStoreAdd, gentype:$data, v1u16:$mask),[], [], 0, 0>, PRIVATE;
+}
+}
+
 // ****************************************************************************
 //               __ocl_helper_shuffle/__ocl_helper_shuffle2
 // These helper functions are only declarations (no implementation needed)
