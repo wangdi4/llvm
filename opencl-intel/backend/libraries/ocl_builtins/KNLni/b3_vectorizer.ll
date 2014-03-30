@@ -354,9 +354,24 @@ entry:
   ret i1 %res
 }
 
-define i1 @__ocl_allZero_v16(<16 x i1> %t) {
+define i1 @__ocl_allZero_v16(<16 x i1> %pred) {
 entry:
-  %ipred = bitcast <16 x i1> %t to i16
+  %ipred = bitcast <16 x i1> %pred to i16
   %res = icmp eq i16 %ipred, 0
   ret i1 %res
 }
+
+define i1 @__ocl_allZero_v8(<8 x i1> %pred) {
+entry:
+  %ipred = bitcast <8 x i1> %pred to i8
+  %res = icmp eq i8 %ipred, 0
+  ret i1 %res
+}
+
+define i1 @__ocl_allOne_v8(<8 x i1> %pred) {
+entry:
+  %ipred = bitcast <8 x i1> %pred to i8
+  %res = icmp eq i8 %ipred, -1
+  ret i1 %res
+}
+
