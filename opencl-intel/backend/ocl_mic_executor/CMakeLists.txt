@@ -236,18 +236,19 @@ set(TARGET_SOURCES
     ../ocl_cpu_backend/shared_builtin_functions.cpp
     ../ocl_cpu_backend/mic_builtin_functions.cpp
     ../ocl_cpu_backend/TargetDescription.cpp
-     ../ocl_cpu_backend/MICDeviceBackendFactory.cpp
+    ../ocl_cpu_backend/MICDeviceBackendFactory.cpp
+    ../ocl_cpu_backend/Serializer.cpp
     ../ocl_cpu_backend/ExecutionService.cpp
     ../ocl_cpu_backend/MICExecutionService.cpp
     ../ocl_cpu_backend/MICSerializationService.cpp
     ../ocl_cpu_backend/Program.cpp
     ../ocl_cpu_backend/MICProgram.cpp
     MICDeviceBitCodeContainer.cpp
+    ../ocl_cpu_backend/ObjectCodeContainer.cpp
     ../ocl_cpu_backend/ModuleJITHolder.cpp
     ../ocl_cpu_backend/Kernel.cpp
     ../ocl_cpu_backend/MICKernel.cpp
     ../ocl_cpu_backend/KernelProperties.cpp
-    ../ocl_cpu_backend/MICKernelProperties.cpp
     ../ocl_cpu_backend/MICJITContainer.cpp
     ../utils/TypeAlignment.cpp
     ../utils/ImplicitArgsUtils.cpp

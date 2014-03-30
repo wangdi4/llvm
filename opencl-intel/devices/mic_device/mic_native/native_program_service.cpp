@@ -394,7 +394,7 @@ cl_dev_err_code ProgramService::add_program(
     tls.setTls(ProgramServiceTls::PROGRAM_MEMORY_MANAGER, prog_entry->exec_memory_manager);
 
     // 2. Deserialize program
-    cl_dev_err_code be_err = GetSerializationService()->DeSerializeProgram( &(prog_entry->pProgram) , prog_blob, prog_blob_size );
+    cl_dev_err_code be_err = GetSerializationService()->DeSerializeProgram(SERIALIZE_OFFLOAD_IMAGE, &(prog_entry->pProgram) , prog_blob, prog_blob_size );
 
     if (CL_DEV_FAILED(be_err))
     {
