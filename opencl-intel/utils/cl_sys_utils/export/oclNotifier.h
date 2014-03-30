@@ -32,10 +32,8 @@ inline std::string stripLeadingZeros(std::string &s)
     if (s.length() == 0) {
         return s;
     }
-	size_t i;
-	for (i = 0 ; (i < s.length()) && (s[i] == '0') ; i++)
-    {
-    }
+	size_t i = 0;
+	for (; i < s.length() && s[i] == '0'; i++) {}
 	if (i == s.length()) {
 		return "0";
 	}

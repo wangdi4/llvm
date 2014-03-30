@@ -47,6 +47,7 @@ public:
 
     virtual KernelProperties* CreateKernelProperties() = 0;
     virtual KernelJITProperties* CreateKernelJITProperties() = 0;
+    virtual IKernelJITContainer* CreateKernelJITContainer() = 0;
 };
 
 }}} // namespace

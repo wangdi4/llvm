@@ -1,6 +1,8 @@
 add_subdirectory( cl_hw_utils )
 add_subdirectory( cl_logger )
 add_subdirectory( cl_sys_utils )
+add_subdirectory( CLElfLib )
+add_subdirectory( cache_binary_handler )
 
 if(WIN32)
     add_subdirectory( dyn_cl_sys_utils )

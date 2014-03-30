@@ -204,6 +204,7 @@ cl_dev_err_code ProgramService::CheckProgramBinary (size_t IN binSize, const voi
     {
     // Supported program binaries
     case CL_PROG_BIN_EXECUTABLE_LLVM:          // The container should contain valid LLVM-IR
+    case CL_PROG_BIN_BUILT_OBJECT:             // The container contains binary object
         break;
 
     case CL_PROG_OBJ_X86:           // The container should contain binary buffer of object file
@@ -281,6 +282,7 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
     switch(pProgCont->description.bin_type)
     {
     case CL_PROG_BIN_EXECUTABLE_LLVM:
+    case CL_PROG_BIN_BUILT_OBJECT:
         assert(m_pBackendCompiler);
         ret = m_pBackendCompiler->CreateProgram(pProgCont, &pEntry->pProgram);
         break;
@@ -403,7 +405,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
     {
         assert( pEntry->pProgram && "Program must be created already");
         ProgramDumpConfig dumpOptions(p);
-        m_pBackendCompiler->DumpJITCodeContainer( pEntry->pProgram->GetProgramCodeContainer(),
+        m_pBackendCompiler->DumpJITCodeContainer( pEntry->pProgram->GetProgramIRCodeContainer(),
             dumpOptions.GetStringValue(CL_DEV_BACKEND_OPTION_DUMPFILE,""));
     }
 
@@ -413,7 +415,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
     {
         assert( pEntry->pProgram && "Program must be created already");
         ProgramDumpConfig dumpOptions(p);
-        m_pBackendCompiler->DumpCodeContainer( pEntry->pProgram->GetProgramCodeContainer(), &dumpOptions);
+        m_pBackendCompiler->DumpCodeContainer( pEntry->pProgram->GetProgramIRCodeContainer(), &dumpOptions);
     }
 
     if ( NULL != buildStatus )
