@@ -22,9 +22,11 @@ File Name:  CPUProgramBuilder.h
 #include "ICompilerConfig.h"
 #include "ProgramBuilder.h"
 #include "cl_dev_backend_api.h"
+
 #ifdef OCL_DEV_BACKEND_PLUGINS
 #include "plugin_manager.h"
 #endif
+#include "ObjectCodeCache.h"
 
 #include <string>
 
@@ -83,6 +85,10 @@ protected:
     virtual void PostBuildProgramStep(Program* pProgram, llvm::Module* pModule,
       const ICLDevBackendOptions* pOptions) const ;
 
+    // reloads the program container from the cached binary object
+    virtual void ReloadProgramFromCachedExecutable(Program* pProgram);
+    // builds binary object for the built program
+    virtual void BuildProgramCachedExecutable(ObjectCodeCache* pCache, Program* pProgram) const;
 
 private:
 

@@ -29,11 +29,15 @@ void CPUProgram::ReleaseExecutionEngine()
 {
     // We have to remove the built-ins module from execEngine
     // since this module is owned by compiler
-    if (m_pBIModule) 
-      m_pExecutionEngine->removeModule((llvm::Module*)m_pBIModule);
-    if (m_pCodeContainer->GetModule())
-      m_pExecutionEngine->removeModule((llvm::Module*)m_pCodeContainer->GetModule());
-    delete m_pExecutionEngine;
+    if (m_pExecutionEngine)
+    {
+      if (m_pBIModule) 
+        m_pExecutionEngine->removeModule(static_cast<llvm::Module*>(m_pBIModule));
+      if (m_pIRCodeContainer->GetModule())
+        m_pExecutionEngine->removeModule(static_cast<llvm::Module*>(m_pIRCodeContainer->GetModule()));
+      delete m_pExecutionEngine;
+      m_pExecutionEngine = NULL;
+    }
 }
 
 CPUProgram::~CPUProgram()
@@ -45,6 +49,14 @@ CPUProgram::~CPUProgram()
 
 void* CPUProgram::GetPointerToFunction(llvm::Function* F) {
     return m_pExecutionEngine->getPointerToFunction(F);
+}
+
+void CPUProgram::Deserialize(IInputStream& ist, SerializationStatus* stats)
+{
+    void* pModule = (NULL != m_pIRCodeContainer) ? m_pIRCodeContainer->GetModule() : NULL;
+    stats->SetPointerMark("pModule", pModule);
+    stats->SetPointerMark("pProgram", this);
+    Program::Deserialize(ist, stats);
 }
 
 }}}

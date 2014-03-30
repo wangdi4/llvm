@@ -344,9 +344,9 @@ void executeKernels(uint32_t         in_BufferCount,
     ICLDevBackendProgram_ *pProgram;
     DEBUG_PRINT("Program deserialization has started ...\n");
     DEBUG_PRINT("Program blob: %p, blob size: %d\n", in_ppBufferPointers[0], uint32_t(in_pBufferLengths[0]));
-    DEBUG_PRINT("First blob simbol: %s\n", (char*)in_ppBufferPointers[0]);
+    DEBUG_PRINT("First blob symbol: %s\n", (char*)in_ppBufferPointers[0]);
 
-    CHECK_RESULT(serializer->DeSerializeProgram(&pProgram, in_ppBufferPointers[0], size_t(in_pBufferLengths[0])));
+    CHECK_RESULT(serializer->DeSerializeProgram(SERIALIZE_OFFLOAD_IMAGE, &pProgram, in_ppBufferPointers[0], size_t(in_pBufferLengths[0])));
     DEBUG_PRINT("done.\n");
     deserializationTimer.Stop();
 
