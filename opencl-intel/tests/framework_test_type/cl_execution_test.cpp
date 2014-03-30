@@ -331,10 +331,11 @@ bool clExecutionTest()
         // Print kernel output
         //
         printf("\n ==== Validating Results ==== \n");
+        double allowed_epsilon = 0.00001;
         for (unsigned int i=0; i<BUFFERS_LENGTH; i++)
         {
           double diff = fabs(expexted_result - (double)dst[0]);
-          if (diff > 0.00001 ) {
+          if (diff > allowed_epsilon) {
             bResult = false;
             printf("\n ERROR: Expected = 0x%x, Received = 0x%x, diff = %e\n",
                    *(int *)&expexted_result, *(int *)(&dst[i]), diff);
