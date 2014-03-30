@@ -11,5 +11,6 @@ class KNL : AVX2 {
   include "KNLni/vloadstore.td"
   include "KNLni/integers.td"
   include "KNLni/relational.td"
+  include "KNLni/masked_load_store.td"
 }
 
