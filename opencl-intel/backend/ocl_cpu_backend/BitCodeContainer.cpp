@@ -37,7 +37,7 @@ BitCodeContainer::~BitCodeContainer()
     delete m_pBuffer;
 }
 
-const void* BitCodeContainer::GetCode() const
+const cl_prog_container_header* BitCodeContainer::GetCode() const
 {
     return m_pBuffer->GetContainerHeader();
 }

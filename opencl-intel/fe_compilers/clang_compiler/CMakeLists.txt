@@ -6,6 +6,10 @@
 use_eh(TRUE)
 use_rtti(FALSE)
 
+if( USE_COMMON_CLANG )
+    add_subdirectory( CLElfLib  )
+endif()
+
 # set that name of the main output file as a target name
 set( TARGET_NAME clang_compiler${BUILD_PLATFORM} )
 
@@ -77,7 +81,6 @@ include_directories( AFTER
             ${CMAKE_SOURCE_DIR}/backend/ocl_cpu_backend/export
             ${CMAKE_SOURCE_DIR}/backend/dynamic_lib
             ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
-            ${CMAKE_SOURCE_DIR}/utils/cache_binary_handler
             ${OCL_BINARY_DIR}
             ${CMAKE_BINARY_DIR}/include
             )
@@ -90,7 +93,13 @@ else()
     include_directories( AFTER
         ../common/linux/headers
     )
-endif() 
+endif()
+            
+if (USE_COMMON_CLANG)
+    include_directories( AFTER
+        CLElfLib
+    )
+endif()    
 
 if (WIN32)
     if (CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -166,13 +175,9 @@ else()
 endif()
 endif (NOT INCLUDE_MIC_DEVICE)
 
-target_link_libraries( ${TARGET_NAME} 
-                           CacheBinaryHandler
-                           CLElfLib
-)
-
 if (USE_COMMON_CLANG)
     target_link_libraries( ${TARGET_NAME} 
+                           CLElfLib
                            OclPluginManager
                            metadataapi
                            dynamic_load

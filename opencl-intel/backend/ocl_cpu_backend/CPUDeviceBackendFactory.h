@@ -47,8 +47,6 @@ public:
 
     virtual KernelProperties* CreateKernelProperties();
     virtual KernelJITProperties* CreateKernelJITProperties();
-    virtual IKernelJITContainer* CreateKernelJITContainer();
- 
 protected:
     static CPUDeviceBackendFactory* s_pInstance;
 };

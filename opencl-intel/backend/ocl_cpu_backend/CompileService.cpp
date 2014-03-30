@@ -20,7 +20,6 @@ File Name:  CompileService.cpp
 #include "CompileService.h"
 #include "Program.h"
 #include "BitCodeContainer.h"
-#include "ObjectCodeContainer.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
@@ -58,17 +57,8 @@ cl_dev_err_code CompileService::CreateProgram( const cl_prog_container_header* p
         }
 
         std::auto_ptr<Program> spProgram(m_backendFactory->CreateProgram());
-
-        if(CL_PROG_BIN_BUILT_OBJECT == pByteCodeContainer->description.bin_type)
-        {
-            ObjectCodeContainer* objCodeContainer = new ObjectCodeContainer(pByteCodeContainer);
-            spProgram->SetObjectCodeContainer(objCodeContainer);
-        }
-        else
-        {
-            BitCodeContainer* bitCodeContainer = new BitCodeContainer(pByteCodeContainer);
-            spProgram->SetBitCodeContainer(bitCodeContainer);
-        }
+        BitCodeContainer* bitCodeContainer = new BitCodeContainer(pByteCodeContainer);
+        spProgram->SetBitCodeContainer(bitCodeContainer);
         *ppProgram = spProgram.release();
 #ifdef OCL_DEV_BACKEND_PLUGINS
         // Notify the plugin manager

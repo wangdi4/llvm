@@ -20,14 +20,11 @@ File Name:  Program.cpp
 #include "Program.h"
 #include "cl_device_api.h"
 #include "exceptions.h"
-#include "ObjectCodeContainer.h"
-#include "Serializer.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 Program::Program():
-    m_pObjectCodeContainer(NULL),
-    m_pIRCodeContainer(NULL),
+    m_pCodeContainer(NULL),
     m_kernels(NULL),
     m_globalVariableTotalSize(0)
 {}
@@ -36,9 +33,9 @@ Program::~Program()
 {
     m_kernels.reset(NULL);
 
-    delete m_pObjectCodeContainer;
-    delete m_pIRCodeContainer;
+    delete m_pCodeContainer;
 }
+
 
 unsigned long long int Program::GetProgramID() const
 {
@@ -51,14 +48,9 @@ const char* Program::GetBuildLog() const
     return m_buildLog.empty() ? "" : m_buildLog.c_str();
 }
 
-const ICLDevBackendCodeContainer* Program::GetProgramIRCodeContainer() const
-{
-    return m_pIRCodeContainer;
-}
-
 const ICLDevBackendCodeContainer* Program::GetProgramCodeContainer() const
 {
-    return m_pObjectCodeContainer ? m_pObjectCodeContainer: GetProgramIRCodeContainer();
+    return m_pCodeContainer;
 }
 
 const ICLDevBackendProgramJITCodeProperties* Program::GetProgramJITCodeProperties() const
@@ -66,8 +58,6 @@ const ICLDevBackendProgramJITCodeProperties* Program::GetProgramJITCodePropertie
     assert(false && "NotImplemented");
     return NULL;
 }
-
-
 
 cl_dev_err_code Program::GetKernelByName(const char* IN pKernelName,
                                          const ICLDevBackendKernel_** OUT pKernel) const
@@ -129,21 +119,9 @@ void Program::SetGlobalVariableTotalSize(size_t size) {
   m_globalVariableTotalSize = size;
 }
 
-void Program::SetObjectCodeContainer(ObjectCodeContainer* pObjCodeContainer)
-{
-    delete m_pObjectCodeContainer;
-    m_pObjectCodeContainer = pObjCodeContainer;
-}
-
-ObjectCodeContainer* Program::GetObjectCodeContainer()
-{
-    return m_pObjectCodeContainer;
-}
-
 void Program::SetBitCodeContainer(BitCodeContainer* bitCodeContainer)
 {
-    delete m_pIRCodeContainer;
-    m_pIRCodeContainer = bitCodeContainer;
+    m_pCodeContainer = bitCodeContainer;
 }
 
 void Program::SetBuildLog( const std::string& buildLog )
@@ -158,86 +136,39 @@ void Program::SetKernelSet( KernelSet* pKernels)
 
 void Program::SetModule( void* pModule)
 {
-    assert(m_pIRCodeContainer && "code container should be initialized by now");
-    m_pIRCodeContainer->SetModule(pModule);
-}
-
-void* Program::GetModule()
-{ 
-    assert(m_pIRCodeContainer && "code container should be initialized by now");
-    return m_pIRCodeContainer->GetModule(); 
+    assert(m_pCodeContainer && "code container should be initialized by now");
+    m_pCodeContainer->SetModule(pModule);
 }
 
 bool Program::GetDisableOpt() const
 {
-    assert(m_pIRCodeContainer && "code container should be initialized by now");
-    return m_pIRCodeContainer->GetProgramHeader()->bDisableOpt;
+    assert(m_pCodeContainer && "code container should be initialized by now");
+    return m_pCodeContainer->GetProgramHeader()->bDisableOpt;
 }
 
 bool Program::GetDebugInfoFlag() const
 {
-    assert(m_pIRCodeContainer && "code container should be initialized by now");
-    return m_pIRCodeContainer->GetProgramHeader()->bDebugInfo;
+    assert(m_pCodeContainer && "code container should be initialized by now");
+    return m_pCodeContainer->GetProgramHeader()->bDebugInfo;
 }
 
 bool Program::GetProfilingFlag() const
 {
-    assert(m_pIRCodeContainer && "code container should be initialized by now");
-    return m_pIRCodeContainer->GetProgramHeader()->bProfiling;
+    assert(m_pCodeContainer && "code container should be initialized by now");
+    return m_pCodeContainer->GetProgramHeader()->bProfiling;
 }
 
 bool Program::GetFastRelaxedMath() const
 {
-    assert(m_pIRCodeContainer && "code container should be initialized by now");
-    return m_pIRCodeContainer->GetProgramHeader()->bFastRelaxedMath;
+    assert(m_pCodeContainer && "code container should be initialized by now");
+    return m_pCodeContainer->GetProgramHeader()->bFastRelaxedMath;
 }
 
 bool Program::GetDAZ() const
 {
-    assert(m_pIRCodeContainer && "code container should be initialized by now");
-    return m_pIRCodeContainer->GetProgramHeader()->bDenormsAreZero;
+    assert(m_pCodeContainer && "code container should be initialized by now");
+    return m_pCodeContainer->GetProgramHeader()->bDenormsAreZero;
 }
 
-void Program::Serialize(IOutputStream& ost, SerializationStatus* stats) const
-{
-    Serializer::SerialString(m_buildLog, ost);
-
-    unsigned int kernelsCount = m_kernels->GetCount();
-    Serializer::SerialPrimitive<unsigned int>(&kernelsCount, ost);
-    for(unsigned int i = 0; i < m_kernels->GetCount(); ++i)
-    {
-        Kernel* currentKernel = m_kernels->GetKernel(i);
-        Serializer::SerialPointerHint((const void**)&currentKernel, ost); 
-        if(NULL != currentKernel)
-        {
-            currentKernel->Serialize(ost, stats);
-        }
-    }
-    unsigned long long int tmp = (unsigned long long int)m_globalVariableTotalSize;
-    Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
-}
-
-void Program::Deserialize(IInputStream& ist, SerializationStatus* stats)
-{
-    Serializer::DeserialString(m_buildLog, ist);
-
-    unsigned int kernelsCount = 0;
-    Serializer::DeserialPrimitive<unsigned int>(&kernelsCount, ist);
-    m_kernels.reset(new KernelSet());
-    for(unsigned int i = 0; i < kernelsCount; ++i)
-    {
-        Kernel* currentKernel = NULL;
-        Serializer::DeserialPointerHint((void**)(&currentKernel), ist); 
-        if(NULL != currentKernel)
-        {
-            currentKernel = stats->GetBackendFactory()->CreateKernel();
-            currentKernel->Deserialize(ist, stats);
-        }
-        m_kernels->AddKernel(currentKernel);
-    }
-    unsigned long long int tmp;
-    Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
-    m_globalVariableTotalSize = (size_t)tmp;
-}
 
 }}}

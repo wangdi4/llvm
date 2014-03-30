@@ -58,11 +58,6 @@ public:
     MICProgramBuilder(IAbstractBackendFactory* pBackendFactory, const IMICCompilerConfig& pConfig);
     ~MICProgramBuilder();
 
-    // reloads the program from his object binary
-    virtual void ReloadProgramFromCachedExecutable(Program* pProgram);
-    // builds object binary for the built program
-    virtual void BuildProgramCachedExecutable(ObjectCodeCache* pCache, Program* pProgram) const; 
-
 protected:
 
     Compiler* GetCompiler() { return &m_compiler; }

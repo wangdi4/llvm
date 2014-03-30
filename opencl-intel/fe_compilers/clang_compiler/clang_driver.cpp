@@ -23,7 +23,6 @@
 ///////////////////////////////////////////////////////////
 
 #include "stdafx.h"
-#include "cache_binary_handler.h"
 
 #ifndef USE_COMMON_CLANG
 #include "clang/Basic/Diagnostic.h"
@@ -522,7 +521,7 @@ int ClangFECompilerCompileTask::StoreOutput(TC::STB_TranslateOutputArgs* pOutput
         llvm::raw_svector_ostream SPIRstream(SPIRbinary);
 
         if ( pOutputArgs->pOutput && pOutputArgs->OutputSize )
-        {binary_cpu_link_header
+        {
           // Add module level SPIR related stuff
           llvm::OwningPtr<MemoryBuffer> pBinBuff( MemoryBuffer::getMemBuffer(
                   StringRef(BufferStart, BufferSize), "", false));
@@ -629,7 +628,7 @@ int ClangFECompilerCompileTask::Compile()
             compileOptions.append(" ");
         }
     }
-/*------------------------------------------*/
+
     // Create the input ELF binary
     ElfWriterPtr pElfWriter( CLElfLib::CElfWriter::Create( CLElfLib::EH_TYPE_OPENCL_SOURCE,
                                                            CLElfLib::EH_MACHINE_NONE,
@@ -705,7 +704,6 @@ int ClangFECompilerCompileTask::Compile()
     {
         throw std::bad_alloc();
     }
-/*------------------------------------------*/
 
     // create unique data for new thread
     TC::STB_TranslationCode code = { TC::TB_DATA_FORMAT_ELF, TC::TB_DATA_FORMAT_LLVM_BINARY };
@@ -1099,9 +1097,6 @@ int ClangFECompilerLinkTask::Link()
 
     //Don't need actual linker...
     bool isSPIR = false;
-    //Check if the given binary is cached object
-    CacheBinaryHandler::CacheBinaryReader cacheReader(m_pProgDesc->pBinaryContainers[0], m_pProgDesc->puiBinariesSizes[0]);
-    bool isBinaryObject = cacheReader.IsCachedObject();
     if(1 == m_pProgDesc->uiNumBinaries) {
         isSPIR = (((const char*)(m_pProgDesc->pBinaryContainers[0]))[0] == 'B') &&
         (((const char*)(m_pProgDesc->pBinaryContainers[0]))[1] == 'C');
@@ -1117,8 +1112,6 @@ int ClangFECompilerLinkTask::Link()
 
         m_stOutIRSize = m_pProgDesc->puiBinariesSizes[0];
         if (isSPIR) m_stOutIRSize += sizeof(cl_llvm_prog_header) + sizeof(cl_prog_container_header);
-        //In case of binary object (mostly it will be ELF) then we need to warp it with header
-        if (isBinaryObject) m_stOutIRSize += sizeof(cl_prog_container_header);
 
         m_pOutIR = new char[m_stOutIRSize];
         if ( NULL == m_pOutIR )
@@ -1177,23 +1170,6 @@ int ClangFECompilerLinkTask::Link()
             MEMCPY_S(pIR, m_pProgDesc->puiBinariesSizes[0],
                 m_pProgDesc->pBinaryContainers[0], m_pProgDesc->puiBinariesSizes[0]);
         }
-        else if (isBinaryObject)
-        {
-            cl_prog_container_header*   pHeader = (cl_prog_container_header*)m_pOutIR;
-            MEMCPY_S(pHeader->mask, 4, _CL_CONTAINER_MASK_, 4);
-            pHeader->container_size = m_pProgDesc->puiBinariesSizes[0];
-            pHeader->container_type = CL_PROG_CNT_PRIVATE;
-            pHeader->description.bin_type = CL_PROG_BIN_BUILT_OBJECT;
-            //TODO[JIT-SAVE]: need to support versions later 
-            pHeader->description.bin_ver_major = 1;
-            pHeader->description.bin_ver_minor = 0;     
-
-            void* pObject = (char*)pHeader + sizeof(cl_prog_container_header);
-            MEMCPY_S(pObject, m_pProgDesc->puiBinariesSizes[0],
-                m_pProgDesc->pBinaryContainers[0], m_pProgDesc->puiBinariesSizes[0]); 
-
-            return CL_SUCCESS;  
-        } 
         else
         {
             MEMCPY_S(m_pOutIR, m_stOutIRSize, m_pProgDesc->pBinaryContainers[0], m_stOutIRSize);
@@ -1332,20 +1308,14 @@ int ClangFECompilerLinkTask::Link()
     size_t uiBinarySize = 0;
 
     // Initialize the module with the first binary
-    // In case we have more than binary (real linking) then in Binary Objects we need to discard the JIT
-    // and recompile by getting the IR from the object
     cl_prog_container_header* pHeader = (cl_prog_container_header*) m_pProgDesc->pBinaryContainers[0];
-    if(isBinaryObject)
-        pHeader = (cl_prog_container_header*) cacheReader.GetSectionData(CacheBinaryHandler::g_irSectionName);
 
     cl_llvm_prog_header* pProgHeader = (cl_llvm_prog_header*)((char*)pHeader + sizeof(cl_prog_container_header));
 
-    if ( llvm::isRawBitcode((const unsigned char*)pHeader, NULL) ) {
-         uiBinarySize = m_pProgDesc->puiBinariesSizes[0];
- 
-        if(isBinaryObject)
-            uiBinarySize = cacheReader.GetSectionSize(CacheBinaryHandler::g_irSectionName);
-        pBinary = (char*)pHeader;
+    if ( llvm::isRawBitcode((const unsigned char*)m_pProgDesc->pBinaryContainers[0], NULL) ) {
+        uiBinarySize = m_pProgDesc->puiBinariesSizes[0];
+        pBinary = (char*)m_pProgDesc->pBinaryContainers[0];
+
     } else {
         uiBinarySize = pHeader->container_size - sizeof(cl_llvm_prog_header);
         pBinary = (char*)pHeader +
@@ -1375,22 +1345,11 @@ int ClangFECompilerLinkTask::Link()
     // Now go over the rest of the binaries and add them
     for (unsigned int i = 1; i < m_pProgDesc->uiNumBinaries; ++i)
     {
-        CacheBinaryHandler::CacheBinaryReader reader(m_pProgDesc->pBinaryContainers[i], m_pProgDesc->puiBinariesSizes[i]);
-
-        bool isBinaryObject = reader.IsCachedObject();
-        const void* pContainer = m_pProgDesc->pBinaryContainers[i];
-        if ( isBinaryObject ) {
-            pContainer = reader.GetSectionData(CacheBinaryHandler::g_irSectionName);
-        }
-
-        if ( llvm::isRawBitcode((const unsigned char*)pContainer, NULL) ) {
-             uiBinarySize = m_pProgDesc->puiBinariesSizes[i];
-
-            if ( isBinaryObject )
-                uiBinarySize = reader.GetSectionSize(CacheBinaryHandler::g_irSectionName);
-            pBinary = (char*)pContainer;
+        if ( llvm::isRawBitcode((const unsigned char*)m_pProgDesc->pBinaryContainers[i], NULL) ) {
+            uiBinarySize = m_pProgDesc->puiBinariesSizes[i];
+            pBinary = (char*)m_pProgDesc->pBinaryContainers[i];
         } else {
-            pHeader = (cl_prog_container_header*) pContainer;
+            pHeader = (cl_prog_container_header*) m_pProgDesc->pBinaryContainers[i];
             pProgHeader = (cl_llvm_prog_header*)((char*)pHeader + sizeof(cl_prog_container_header));
 
             uiBinarySize = pHeader->container_size - sizeof(cl_llvm_prog_header);
@@ -1686,12 +1645,6 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
     LLVMContext Context;
 
     cl_prog_container_header* pHeader = (cl_prog_container_header*) pBin;
-    // if we point on a binary object then need to ask for the IR
-    if (CL_PROG_BIN_BUILT_OBJECT == pHeader->description.bin_type)
-    {
-        CacheBinaryHandler::CacheBinaryReader reader((char*)pBin + sizeof(cl_prog_container_header), ((cl_prog_container_header*)pBin)->container_size);
-        pHeader = (cl_prog_container_header*)reader.GetSectionData(CacheBinaryHandler::g_irSectionName);
-    }
 
     size_t uiBinarySize = pHeader->container_size - sizeof(cl_llvm_prog_header);
 

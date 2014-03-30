@@ -19,7 +19,7 @@ File Name:  MICDeviceBackendFactory.cpp
 #include "MICDeviceBackendFactory.h"
 #include "MICProgram.h"
 #include "MICKernel.h"
-#include "MICJITContainer.h"
+#include "MICKernelProperties.h"
 #include <assert.h>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -68,17 +68,12 @@ Kernel* MICDeviceBackendFactory::CreateKernel(
 
 KernelProperties* MICDeviceBackendFactory::CreateKernelProperties()
 {
-    return new KernelProperties();
+    return new MICKernelProperties();
 }
 
 KernelJITProperties* MICDeviceBackendFactory::CreateKernelJITProperties()
 {
-    return new KernelJITProperties();
-}
-
-IKernelJITContainer* MICDeviceBackendFactory::CreateKernelJITContainer()
-{
-    return new MICJITContainer();
+    return new MICKernelJITProperties();
 }
 
 }}} // namespace

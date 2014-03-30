@@ -136,7 +136,6 @@ cl_err_code DeviceProgram::SetBinary(size_t uiBinarySize, const unsigned char* p
             break;
 
         case CL_PROG_BIN_EXECUTABLE_LLVM:
-        case CL_PROG_BIN_BUILT_OBJECT:
             clBinaryType = CL_PROGRAM_BINARY_TYPE_EXECUTABLE;
             break;
 
@@ -153,10 +152,6 @@ cl_err_code DeviceProgram::SetBinary(size_t uiBinarySize, const unsigned char* p
     {
         // binary is SPIR - its intermediate by spec
         clBinaryType = CL_PROGRAM_BINARY_TYPE_INTERMEDIATE;
-    }
-    else if ( _CL_OBJECT_BITCODE_MASK_ == ((const int*)pBinary)[0] )
-    {
-        clBinaryType = CL_PROGRAM_BINARY_TYPE_EXECUTABLE;
     }
     else
     {
@@ -648,12 +643,6 @@ cl_err_code DeviceProgram::SetDeviceHandleInternal(cl_dev_program programHandle)
 bool DeviceProgram::CheckProgramBinary(size_t uiBinSize, const void *pBinary)
 {
     const cl_prog_container_header* pProgCont = (cl_prog_container_header*)pBinary;
-
-    //If it is Binary Object, no other checks needed
-    if ( _CL_OBJECT_BITCODE_MASK_ == ((const int*)pBinary)[0] )
-    {
-        return true;
-    }
 
     // If it is SPIR binary, no other checks needed
     if ( !memcmp(_CL_LLVM_BITCODE_MASK_, pBinary, sizeof(_CL_LLVM_BITCODE_MASK_) - 1) )

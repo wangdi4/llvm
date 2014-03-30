@@ -62,8 +62,7 @@ enum cl_prog_binary_type
     CL_PROG_BIN_CUBIN,              //!< Container holds NVidia CUBbinary
     CL_PROG_BIN_COMPILED_SPIR,      //!< Container holds compiled SPIR intermediate
     CL_PROG_BIN_LINKED_SPIR,        //!< Container holds linked SPIR intermediate
-    CL_PROG_BIN_CUSTOM,             //!< Container holds custom device binary
-    CL_PROG_BIN_BUILT_OBJECT        //!< Container holds already built ocl program (JIT and IR)
+    CL_PROG_BIN_CUSTOM              //!< Container holds custom device binary
 };
 
 /*! \enum cl_prog_container_type
@@ -153,28 +152,6 @@ struct cl_prog_program
 */
 #define _CL_LLVM_BITCODE_MASK_        "BC"
 
-/*! \def _CL_OBJECT_BITCODE_MASK_
-    \brief This header signal object binary bitcode stream
-*/
-#define _CL_OBJECT_BITCODE_MASK_      0x464c457f
-#define MAX_SECTIONS_IN_OBJECT        8
-
-//!< list of section indices in the binary object
-#define IR_SECTION_INDEX         0
-#define OFFLOAD_SECTION_INDEX    1
-#define OPT_IR_SECTION_INDEX     2
-#define OBJECT_SECTION_INDEX     3
-#define CHECK_INDEX              4
-
-/*! \struct cl_binary_container_header
- *  \brief This strcuture defines a specific container for binary objects (cached programs)
- */
-typedef struct _cl_object_container_header
-{
-    cl_char                 mask[4];       //!< A container identifier mask must be 0x7f ELF
-    unsigned int            total_size;    //!< total size of the container
-    unsigned int            section_size[8];//!< container sections sizes
-} cl_object_container_header;
 /*! \struct cl_prog_container_header
  *  \brief This structure defines a specific container for binaries or IR of OCL programs
  */

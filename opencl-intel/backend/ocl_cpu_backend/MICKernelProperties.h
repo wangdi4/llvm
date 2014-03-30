@@ -12,36 +12,42 @@ Copyright (c) Intel Corporation (2010).
     use of the code. No license, express or implied, by estoppels or otherwise,
     to any intellectual property rights is granted herein.
 
-File Name:  ObjectCodeContainer.h
+File Name:  MICKernelProperties.h
 
 \*****************************************************************************/
+// NOTICE: THIS CLASS WILL BE SERIALIZED TO THE DEVICE, IF YOU MAKE ANY CHANGE 
+//  OF THE CLASS FIELDS YOU SHOULD UPDATE THE SERILIZE METHODS  
 #pragma once
 
-#include "cl_dev_backend_api.h"
-#include "cl_types.h"
-
+#include "KernelProperties.h"
+#include "Serializer.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-/**
- * Represents the container for Binary Object which contains serialized data
- * for the whole ocl program
- */
-class ObjectCodeContainer : public ICLDevBackendCodeContainer
+class SerializationStatus;
+
+class MICKernelJITProperties : public KernelJITProperties
 {
 public:
-    ObjectCodeContainer(const cl_prog_container_header* pObjectCodeContainer);
-    ~ObjectCodeContainer();
+    /**
+     * Serialization methods for the class (used by the serialization service)
+     */
+    void Serialize(IOutputStream& ost, SerializationStatus* stats);
+    void Deserialize(IInputStream& ist, SerializationStatus* stats);
+};
 
-    const void* GetCode() const;
-    size_t GetCodeSize() const;
+class MICKernelProperties : public KernelProperties
+{
+public:
+    MICKernelProperties() : KernelProperties() { };
 
-    const void* GetObject() const;
-    size_t GetObjectSize() const;
+    MICKernelProperties(KernelProperties* pKernelProps);
 
-private:
-    cl_prog_container_header* m_pObjectCodeContainer; 
+    /**
+     * Serialization methods for the class (used by the serialization service)
+     */
+    void Serialize(IOutputStream& ost, SerializationStatus* stats);
+    void Deserialize(IInputStream& ist, SerializationStatus* stats);
 };
 
 }}} // namespace
-

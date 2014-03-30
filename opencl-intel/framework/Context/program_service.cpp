@@ -282,9 +282,7 @@ bool LinkTask::Execute()
     {
         // update RT binary container - device will check for this
         cl_prog_container_header* pHeader = (cl_prog_container_header*)pBinary;
-        // in case of object no change needed
-        if ( CL_PROG_BIN_BUILT_OBJECT != pHeader->description.bin_type )
-            pHeader->description.bin_type = CL_PROG_BIN_EXECUTABLE_LLVM;
+        pHeader->description.bin_type = CL_PROG_BIN_EXECUTABLE_LLVM;
 
         m_pDeviceProgram->SetBinaryInternal(uiBinarySize, pBinary, CL_PROGRAM_BINARY_TYPE_EXECUTABLE);
     }

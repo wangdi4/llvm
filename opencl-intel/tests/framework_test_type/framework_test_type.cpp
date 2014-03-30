@@ -127,21 +127,6 @@ TEST(FrameworkTestType, Test_clBuildProgramWithSourceTest)
     EXPECT_TRUE(clBuildProgramWithSourceTest());
 }
 
-TEST(FrameworkTestType, Test_clCheckJITSaveLoadTest)
-{
-    EXPECT_TRUE(clCheckJITSaveLoadTest());
-}
-
-TEST(FrameworkTestType, Test_clCheckJITSaveTest)
-{
-    EXPECT_TRUE(clCheckJITSaveTest());
-}
-
-TEST(FrameworkTestType, Test_clJITLoadTest)
-{
-    EXPECT_TRUE(clCheckJITLoadTest());
-}
-
 TEST(FrameworkTestType, Test_clBuildProgramTwiceTest)
 {
     EXPECT_TRUE(clBuildProgramTwiceTest());

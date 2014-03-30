@@ -20,9 +20,6 @@ File Name:  ProgramBuilder.h
 #include "ICLDevBackendOptions.h"
 #include "IAbstractBackendFactory.h"
 #include "ICompilerConfig.h"
-#include "ObjectCodeCache.h"
-
-#include "Program.h"
 
 namespace llvm {
     class ExecutionEngine;
@@ -45,13 +42,6 @@ class ProgramBuildResult;
 class BuiltinLibrary;
 class Compiler;
 
-namespace Utils {
-/// @returns the memory buffer of the Program object bytecode
-llvm::MemoryBuffer* GetProgramMemoryBuffer(Program* pProgram);
-/// @brief helper funtion to set RuntimeService in Kernel objects from KernelSet
-void UpdateKernelsWithRuntimeService( const RuntimeServiceSharedPtr& rs, KernelSet * pKernels);
-}
-
 //*****************************************************************************************
 // Provides the module optimization and code generation functionality.
 //
@@ -62,7 +52,7 @@ public:
      * Ctor
      */
     ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& config);
-    virtual ~ProgramBuilder();
+    ~ProgramBuilder();
 
 public:
     /**
@@ -86,15 +76,6 @@ protected:
     KernelProperties* CreateKernelProperties(const Program* pProgram,
                                              llvm::Function *func,
                                              const ProgramBuildResult& buildResult) const;
-
-
-    // checks if the given program has an object binary to be loaded from
-    virtual bool CheckIfProgramHasCachedExecutable(Program* pProgram) const;
-    // reloads the program from his object binary
-    virtual void ReloadProgramFromCachedExecutable(Program* pProgram) = 0;
-    // builds object binary for the built program
-    virtual void BuildProgramCachedExecutable(ObjectCodeCache* pCache, Program* pProgram) const = 0;
-
 
     /// @brief abstract factory method to create mapper from block to Kernel.
     /// Can be implemented differently for CPU and MIC.

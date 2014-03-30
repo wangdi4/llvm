@@ -26,7 +26,7 @@ File Name:  MICCompiler.cpp
 #include "VecConfig.h"
 #include "MICProgram.h"
 #include "MICKernel.h"
-#include "KernelProperties.h"
+#include "MICKernelProperties.h"
 #include "CPUDetect.h"
 #include "BuiltinModule.h"
 #include "exceptions.h"

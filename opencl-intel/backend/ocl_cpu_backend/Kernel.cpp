@@ -21,7 +21,6 @@ File Name:  Kernel.cpp
 #include "ImplicitArgsUtils.h"
 #include "TypeAlignment.h"
 #include "exceptions.h"
-#include "Serializer.h"
 
 #if defined (__MIC__) || defined(__MIC2__)
   #include "mic_dev_limits.h"
@@ -536,100 +535,6 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
 cl_dev_err_code Kernel::RestoreThreadState(ICLDevExecutionState &state) const {
   _mm_setcsr(state.MXCSRstate);
   return CL_DEV_SUCCESS;
-}
-
-void Kernel::Serialize(IOutputStream& ost, SerializationStatus* stats) const
-{
-  Serializer::SerialString(m_name, ost);
-
-  // Serialize the CSRMask and CSRFlags
-  Serializer::SerialPrimitive<unsigned int>(&m_CSRMask, ost);
-  Serializer::SerialPrimitive<unsigned int>(&m_CSRFlags, ost);
-
-  // Serialize the kernel arguments (one by one)
-  unsigned int vectorSize = m_explicitArgs.size();
-  Serializer::SerialPrimitive<unsigned int>(&vectorSize, ost);
-  for (size_t i = 0; i < vectorSize; ++i) {
-    Serializer::SerialPrimitive<cl_kernel_argument>(&m_explicitArgs[i], ost);
-  }
-
-  // Serialize explicit argument buffer size
-  Serializer::SerialPrimitive<unsigned int>(&m_explicitArgsSizeInBytes, ost);
-  // Serialize explicit argument buffer alignment
-  Serializer::SerialPrimitive<unsigned int>(&m_RequiredUniformKernelArgsAlignment, ost);
-
-  // Serial memory object information
-  vectorSize = m_memArgs.size();
-  Serializer::SerialPrimitive<unsigned int>(&vectorSize, ost);
-  for (size_t i = 0; i < vectorSize; ++i) {
-    Serializer::SerialPrimitive<unsigned int>(&m_memArgs[i], ost);
-  }
-
-  Serializer::SerialPointerHint((const void **)&m_pProps, ost);
-  if (NULL != m_pProps) {
-    m_pProps->Serialize(ost, stats);
-  }
-
-  // Serial the kernel JIT's (one by one)
-  vectorSize = m_JITs.size();
-  Serializer::SerialPrimitive<unsigned int>(&vectorSize, ost);
-  for (std::vector<IKernelJITContainer *>::const_iterator it = m_JITs.begin();
-       it != m_JITs.end(); ++it) {
-    IKernelJITContainer *currentArgument = (*it);
-    Serializer::SerialPointerHint((const void **)&currentArgument, ost);
-    if (NULL != currentArgument) {
-      currentArgument->Serialize(ost, stats);
-    }
-  }
-}
-
-void Kernel::Deserialize(IInputStream& ist, SerializationStatus* stats)
-{
-  Serializer::DeserialString(m_name, ist);
-
-  // Deserialize the CSRMask and CSRFlags
-  Serializer::DeserialPrimitive<unsigned int>(&m_CSRMask, ist);
-  Serializer::DeserialPrimitive<unsigned int>(&m_CSRFlags, ist);
-
-  // Deserial the kernel arguments (one by one)
-  unsigned int vectorSize = 0;
-  Serializer::DeserialPrimitive<unsigned int>(&vectorSize, ist);
-  m_explicitArgs.resize(vectorSize);
-  for (size_t i = 0; i < vectorSize; ++i) {
-    Serializer::DeserialPrimitive<cl_kernel_argument>(&m_explicitArgs[i], ist);
-  }
-
-  // Deserial explicit argument buffer size
-  Serializer::DeserialPrimitive<unsigned int>(&m_explicitArgsSizeInBytes, ist);
-  // Deserial explicit argument buffer alignment
-  Serializer::DeserialPrimitive<unsigned int>(&m_RequiredUniformKernelArgsAlignment, ist);
-
-  // Deserial memory object information
-  Serializer::DeserialPrimitive<unsigned int>(&vectorSize, ist);
-  m_memArgs.resize(vectorSize);
-  for (size_t i = 0; i < vectorSize; ++i) {
-    Serializer::DeserialPrimitive<unsigned int>(&m_memArgs[i], ist);
-  }
-
-  Serializer::DeserialPointerHint((void **)&m_pProps, ist);
-  if (NULL != m_pProps) {
-    m_pProps = 
-        stats->GetBackendFactory()->CreateKernelProperties();
-    m_pProps->Deserialize(ist, stats);
-  }
-
-  Serializer::DeserialPrimitive<unsigned int>(&vectorSize, ist);
-  for (unsigned int i = 0; i < vectorSize; ++i) {
-    IKernelJITContainer *currentArgument = NULL;
-    Serializer::DeserialPointerHint((void **)&currentArgument, ist);
-    if (NULL != currentArgument) {
-      currentArgument = 
-          stats->GetBackendFactory()->CreateKernelJITContainer();
-      currentArgument->Deserialize(ist, stats);
-    }
-    m_JITs.push_back(currentArgument);
-  }
-
 }
 
 KernelSet::KernelSet() : m_kernels(NULL), m_blockKernelsCount(0)

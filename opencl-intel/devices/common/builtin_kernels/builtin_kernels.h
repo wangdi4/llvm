@@ -46,7 +46,6 @@ public:
     unsigned long long int GetProgramID() const {return (unsigned long long int)this;}
     const char* GetBuildLog() const {return NULL;}
     const Intel::OpenCL::DeviceBackend::ICLDevBackendCodeContainer* GetProgramCodeContainer() const {return NULL;}
-    const Intel::OpenCL::DeviceBackend::ICLDevBackendCodeContainer* GetProgramIRCodeContainer() const {return NULL;}
 
     cl_dev_err_code GetKernelByName(const char* pKernelName,
                                     const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_** ppKernel) const;

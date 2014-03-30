@@ -517,7 +517,6 @@ cl_dev_err_code ProgramService::CheckProgramBinary (size_t IN binSize, const voi
     {
     // Supported program binaries
     case CL_PROG_BIN_EXECUTABLE_LLVM:// The container should contain valid LLVM-IR
-    case CL_PROG_BIN_BUILT_OBJECT:// The container contains binary object
         break;
 
     case CL_PROG_OBJ_X86:            // The container should contain binary buffer of object file
@@ -591,7 +590,6 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
     switch(pProgCont->description.bin_type)
     {
     case CL_PROG_BIN_EXECUTABLE_LLVM:
-    case CL_PROG_BIN_BUILT_OBJECT:
         {
             ICLDevBackendCompilationService* compiler = GetCompilationService();
             if (NULL == compiler)
@@ -759,7 +757,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
         MICBackendOptions dumpOptions( m_DevService );
         dumpOptions.init_for_dump(p);
 
-        compiler->DumpCodeContainer( pEntry->pProgram->GetProgramIRCodeContainer(), &dumpOptions);
+        compiler->DumpCodeContainer( pEntry->pProgram->GetProgramCodeContainer(), &dumpOptions);
     }
 
     if ( NULL != buildStatus )
@@ -1247,7 +1245,7 @@ bool ProgramService::BuildKernelData(TProgramEntry* pEntry)
     // copy program to device and get back list of kernel structs on device
     COPY_PROGRAM_TO_DEVICE_INPUT_STRUCT input;
 
-    input.required_executable_size = program->GetProgramJITCodeProperties()->GetJITCodeSize();
+    input.required_executable_size = program->GetProgramCodeContainer()->GetCodeSize();
     input.number_of_kernels        = kernels_count;
 
     // allocate output strcut on my stack
@@ -1322,7 +1320,7 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
             break;
         }
 
-        be_err = serializer->GetSerializationBlobSize( SERIALIZE_OFFLOAD_IMAGE, pProgram, &prog_blob_size);
+        be_err = serializer->GetSerializationBlobSize( SERIALIZE_TO_DEVICE, pProgram, &prog_blob_size);
 
         assert( CL_DEV_SUCCEEDED(be_err) && (prog_blob_size > 0) && "MIC BE GetSerializationBlobSize()" );
 
@@ -1379,7 +1377,7 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
         cmdTracer.set_current_time_build_serialize_time_start();
 #endif
         // 4. Serialize program
-        be_err = serializer->SerializeProgram( SERIALIZE_OFFLOAD_IMAGE, pProgram, blob, prog_blob_size );
+        be_err = serializer->SerializeProgram( SERIALIZE_TO_DEVICE, pProgram, blob, prog_blob_size );
 #ifdef __MIC_TRACER__
         cmdTracer.set_current_time_build_serialize_time_end();
 #endif

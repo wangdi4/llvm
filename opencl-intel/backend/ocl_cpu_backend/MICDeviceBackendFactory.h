@@ -47,7 +47,6 @@ public:
 
     virtual KernelProperties* CreateKernelProperties();
     virtual KernelJITProperties* CreateKernelJITProperties();
-    virtual IKernelJITContainer* CreateKernelJITContainer();
 
     protected:
     static MICDeviceBackendFactory* s_pInstance;
