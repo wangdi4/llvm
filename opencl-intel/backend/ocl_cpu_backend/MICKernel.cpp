@@ -142,7 +142,7 @@ const void *MICKernel::ResolveEntryPointHandle(const void *Handle) const {
   return GetKernelJIT(1)->GetJITCode();
 }
 
-void MICKernel::Serialize(IOutputStream &ost, SerializationStatus *stats) {
+void MICKernel::Serialize(IOutputStream &ost, SerializationStatus *stats) const {
   Serializer::SerialPrimitive<unsigned long long int>(&m_kernelID, ost);
   Kernel::Serialize(ost, stats);
 }

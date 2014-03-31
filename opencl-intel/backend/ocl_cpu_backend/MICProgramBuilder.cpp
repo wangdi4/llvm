@@ -70,6 +70,7 @@ MICKernel* MICProgramBuilder::CreateKernel(llvm::Function* pFunc, const std::str
 
 void MICProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
 {
+#if 0
     cl_object_container_header* pObjectHeader = 
         (cl_object_container_header*)(pProgram->GetProgramCodeContainer()->GetCode());    
 
@@ -90,10 +91,12 @@ void MICProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
     BitCodeContainer* bcc = 
         new BitCodeContainer((const cl_prog_container_header*)bitCodeBuffer);
     pProgram->SetBitCodeContainer(bcc);
+#endif
 }
 
 void MICProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Program* pProgram) const
 {
+#if 0
     // get required sizes
     size_t offload_size = 0;
     std::auto_ptr<MICSerializationService> pMICSerializationService(new MICSerializationService(NULL));
@@ -138,6 +141,7 @@ void MICProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Pr
     ObjectCodeContainer* pObjectCodeContainer = 
         new ObjectCodeContainer((cl_prog_container_header*)Blob.data());
     pProgram->SetObjectCodeContainer(pObjectCodeContainer);
+#endif
 }
 
 KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,

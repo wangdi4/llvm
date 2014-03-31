@@ -316,7 +316,7 @@ cl_dev_err_code MICSerializationService::DeSerializeProgram(
         stats.SetBackendFactory(m_pBackendFactory);
 
         std::auto_ptr<ICLDevBackendProgram_> tmpProgram(stats.GetBackendFactory()->CreateProgram());
-        cl_dev_err_code err = ReloadProgram(serializationType, *ppProgram, pBlob, blobSize);
+        cl_dev_err_code err = ReloadProgram(serializationType, tmpProgram.get(), pBlob, blobSize);
         if(CL_DEV_SUCCESS == err) *ppProgram = tmpProgram.release();
         return err;
     }
