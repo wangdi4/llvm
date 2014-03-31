@@ -18,8 +18,20 @@ File Name:  CPUJITContainer.cpp
 #include "CPUJITContainer.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
+#include "CPUProgram.h"
+
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Function.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
+
+CPUJITContainer::CPUJITContainer():
+    m_pFuncCode(NULL),
+    m_pFunction(NULL),
+    m_pModule(NULL),
+    m_pProps(NULL) 
+{}
 
 CPUJITContainer::CPUJITContainer(const void* pFuncCode,
                                  llvm::Function* pFunction,
@@ -34,6 +46,56 @@ CPUJITContainer::CPUJITContainer(const void* pFuncCode,
 CPUJITContainer::~CPUJITContainer()
 {
     delete m_pProps;
+}
+
+void CPUJITContainer::Serialize(IOutputStream& ost, SerializationStatus* stats) const
+{
+    Serializer::SerialPointerHint((const void**)&m_pFuncCode, ost);
+    Serializer::SerialPointerHint((const void**)&m_pFunction, ost);
+    if(NULL != m_pFunction)
+    {
+        std::string name = m_pFunction->getName();
+        Serializer::SerialString(name, ost);
+    }
+    Serializer::SerialPointerHint((const void**)&m_pModule, ost);
+    Serializer::SerialPointerHint((const void**)&m_pProps, ost);
+    if(NULL != m_pProps)
+    {
+        m_pProps->Serialize(ost, stats);
+    }
+}
+
+void CPUJITContainer::Deserialize(IInputStream& ist, SerializationStatus* stats)
+{
+    std::string name;
+    Serializer::DeserialPointerHint((void**)&m_pFuncCode, ist);
+    Serializer::DeserialPointerHint((void**)&m_pFunction, ist);
+    if(NULL != m_pFunction)
+    {
+        Serializer::DeserialString(name, ist);
+    }
+    Serializer::DeserialPointerHint((void**)&m_pModule, ist);
+    Serializer::DeserialPointerHint((void**)&m_pProps, ist);
+    if(NULL != m_pProps)
+    {
+        m_pProps = stats->GetBackendFactory()->CreateKernelJITProperties();
+        m_pProps->Deserialize(ist, stats);
+    }
+    
+    if(NULL != m_pModule)
+    {
+        m_pModule = (llvm::Module*)stats->GetPointerMark("pModule");
+        if(NULL != m_pModule && NULL != m_pFunction)
+        {
+            m_pFunction = m_pModule->getFunction(name.c_str());
+        }
+    }
+    
+    CPUProgram* pProgram = (CPUProgram*)stats->GetPointerMark("pProgram");
+    if(NULL != pProgram && NULL != m_pFuncCode)
+    {
+        m_pFuncCode = pProgram->GetExecutionEngine()->getPointerToFunction(m_pFunction);
+    }
 }
 
 }}} // namespace

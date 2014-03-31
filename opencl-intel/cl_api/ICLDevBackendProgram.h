@@ -16,9 +16,9 @@ public:
     virtual ~ICLDevBackendCodeContainer() {}
 
     /**
-     * @returns a pointer to the bitcode buffer
+     * @returns a pointer to the binary bitcode representation buffer of the program
      */
-    virtual const cl_prog_container_header* GetCode() const = 0;
+    virtual const void* GetCode() const = 0;
 
     /**
      * @returns the size of the bitcode buffer
@@ -31,12 +31,12 @@ public:
  */
 class ICLDevBackendProgramJITCodeProperties
 {
+public:
     /**
      * @returns the size of the JIT code
      */
-    virtual size_t GetCodeSize() const = 0;
+    virtual size_t GetJITCodeSize() const = 0;
 
-public:
     virtual ~ICLDevBackendProgramJITCodeProperties() {}
 };
 
@@ -72,6 +72,11 @@ public:
      * @returns code container interface.
      */
     virtual const ICLDevBackendCodeContainer* GetProgramCodeContainer() const = 0;
+
+    /**
+     * @returns the program IR bitcode container
+     */
+    virtual const ICLDevBackendCodeContainer* GetProgramIRCodeContainer() const = 0;
 
     /**
      * Retrieves a pointer to a kernel object by kernel name

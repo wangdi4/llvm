@@ -21,6 +21,7 @@ File Name:  CPUDeviceBackendFactory.cpp
 #include "Kernel.h"
 #include "CPUKernel.h"
 #include "KernelProperties.h"
+#include "CPUJITContainer.h"
 #include <assert.h>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -75,6 +76,11 @@ KernelProperties* CPUDeviceBackendFactory::CreateKernelProperties()
 KernelJITProperties* CPUDeviceBackendFactory::CreateKernelJITProperties()
 {
     return new KernelJITProperties();
+}
+
+IKernelJITContainer* CPUDeviceBackendFactory::CreateKernelJITContainer()
+{
+    return new CPUJITContainer();
 }
 
 }}} // namespace

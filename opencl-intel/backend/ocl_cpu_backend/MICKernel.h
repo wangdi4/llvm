@@ -66,8 +66,8 @@ public:
     /**
      * Serialization methods for the class (used by the serialization service)
      */
-    void Serialize(IOutputStream& ost, SerializationStatus* stats);
-    void Deserialize(IInputStream& ist, SerializationStatus* stats);
+    virtual void Serialize(IOutputStream& ost, SerializationStatus* stats) const;
+    virtual void Deserialize(IInputStream& ist, SerializationStatus* stats);
 
 protected:
     unsigned long long int m_kernelID;
