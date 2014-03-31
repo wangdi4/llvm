@@ -1,0 +1,183 @@
+#include "CL/cl.h"
+#include "cl_types.h"
+#include <stdio.h>
+#include "FrameworkTest.h"
+#include <memory>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+
+extern cl_device_type gDeviceType;
+
+bool TestBinaryRun(cl_program& program, cl_context cxContext, cl_device_id device)
+{
+    bool bResult = true;
+    size_t szGlobalWorkSize = 8;
+    cl_int iRet;
+    cl_kernel kern = clCreateKernel(program, "test_kernel", &iRet);
+    bResult = SilentCheck(L"clCreateKernel", CL_SUCCESS, iRet);
+
+    std::vector<int> pDst(szGlobalWorkSize);
+    for(size_t i = 0; i < szGlobalWorkSize; ++i) pDst[i] = 0;
+    std::vector<int> pSrcA(szGlobalWorkSize);
+    for(size_t i = 0; i < szGlobalWorkSize; ++i) pSrcA[i] = i % 2;
+    std::vector<int> pSrcB(szGlobalWorkSize);
+    for(size_t i = 0; i < szGlobalWorkSize; ++i) pSrcB[i] = 10;
+
+    cl_int ciErrNum;
+    cl_command_queue cqCommandQueue = clCreateCommandQueue(cxContext, device, 0, &ciErrNum);
+    bResult &= Check(L"clCreateCommandQueue(...)", CL_SUCCESS, ciErrNum);
+
+    cl_mem cmDevDst = clCreateBuffer(cxContext, CL_MEM_READ_WRITE , sizeof(cl_int) * szGlobalWorkSize, NULL, &ciErrNum);
+    ciErrNum = clEnqueueWriteBuffer(cqCommandQueue,
+                                  cmDevDst,
+                                  CL_TRUE,
+                                  0,
+                                  sizeof(cl_int) * szGlobalWorkSize,
+                                  &(pDst[0]),
+                                  0,
+                                  NULL,
+                                  NULL);
+    bResult &= Check(L"clEnqueueWriteBuffer(Dst)", CL_SUCCESS, ciErrNum);
+
+    cl_mem cmDevSrcA = clCreateBuffer(cxContext, CL_MEM_READ_ONLY, sizeof(cl_int) * szGlobalWorkSize, NULL, &ciErrNum);
+    ciErrNum = clEnqueueWriteBuffer(cqCommandQueue,
+                                  cmDevSrcA,
+                                  CL_TRUE,
+                                  0,
+                                  sizeof(cl_int) * szGlobalWorkSize,
+                                  &(pSrcA[0]),
+                                  0,
+                                  NULL,
+                                  NULL);
+    bResult &= Check(L"clEnqueueWriteBuffer(SrcA)", CL_SUCCESS, ciErrNum);
+
+    cl_mem cmDevSrcB = clCreateBuffer(cxContext, CL_MEM_READ_ONLY, sizeof(cl_int) * szGlobalWorkSize, NULL, &ciErrNum);
+    ciErrNum = clEnqueueWriteBuffer(cqCommandQueue,
+                                  cmDevSrcB,
+                                  CL_TRUE,
+                                  0,
+                                  sizeof(cl_int) * szGlobalWorkSize,
+                                  &(pSrcB[0]),
+                                  0,
+                                  NULL,
+                                  NULL);
+    bResult &= Check(L"clEnqueueWriteBuffer(SrcB)", CL_SUCCESS, ciErrNum);
+
+
+    if ( bResult )
+    {
+        iRet = clSetKernelArg(kern, 0, sizeof(cl_mem), (void*)&cmDevDst);
+        bResult &= Check(L"clSetKernelArg(0)", CL_SUCCESS, iRet);
+        iRet = clSetKernelArg(kern, 1, sizeof(cl_mem), (void*)&cmDevSrcA);
+        bResult &= Check(L"clSetKernelArg(1)", CL_SUCCESS, iRet);
+        iRet = clSetKernelArg(kern, 2, sizeof(cl_mem), (void*)&cmDevSrcB);
+        bResult &= Check(L"clSetKernelArg(2)", CL_SUCCESS, iRet);
+    }
+
+    ciErrNum = clEnqueueNDRangeKernel (cqCommandQueue,
+            kern,
+            1,
+            NULL,
+            &szGlobalWorkSize,
+            &szGlobalWorkSize,
+            0,
+            NULL,
+            NULL);
+    bResult &= Check(L"clEnqueueNDRangeKernel()", CL_SUCCESS, ciErrNum);
+
+    std::vector<int> pRead(szGlobalWorkSize);
+    ciErrNum = clEnqueueReadBuffer(cqCommandQueue, 
+              cmDevDst, CL_TRUE, 0, sizeof(cl_int) * szGlobalWorkSize, 
+              &(pRead[0]), 0, NULL, NULL);
+    bResult &= Check(L"clEnqueueReadBuffer()", CL_SUCCESS, ciErrNum);
+
+    bool bCheck = true;
+    for(size_t i = 0; i < szGlobalWorkSize; ++i)
+    {
+        bCheck &= (pRead[i] == ((i % 2) * -5 + 10));
+        printf(" {%d} ", pRead[i]);
+    }
+    printf("validation check: %s\n", bCheck ? "PASS" : "FAIL");
+    bResult &= bCheck;
+
+    if (cmDevSrcA)clReleaseMemObject(cmDevSrcA);
+    if (cmDevSrcB)clReleaseMemObject(cmDevSrcB);
+    if (cmDevDst)clReleaseMemObject(cmDevDst);
+    clReleaseKernel(kern);
+    return bResult;
+}
+
+bool clCheckJITLoadTest()
+{
+    bool bResult = true;
+    return bResult; // TEMPORARY
+
+    printf("clCheckJITSaveTest\n");
+
+    cl_platform_id platform = 0;
+    cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
+    bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+    if (!bResult)
+    {
+        return bResult;
+    }
+
+    cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
+
+    cl_uint uiNumDevices = 0;
+    // get device(s)
+    iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
+    if (CL_SUCCESS != iRet)
+    {
+        printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
+        return false;
+    }
+
+    std::vector<cl_device_id> devices(uiNumDevices);
+    iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, &devices[0], NULL);
+    if (CL_SUCCESS != iRet)
+    {
+        printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
+        return false;
+    }
+
+    // create context
+    cl_context context = clCreateContext(prop, uiNumDevices, &devices[0], NULL, NULL, &iRet);
+    if (CL_SUCCESS != iRet)
+    {
+        printf("clCreateContext = %s\n",ClErrTxt(iRet));
+        return false;
+    }
+    printf("context = %p\n", context);
+
+    // read the cached binary from a file
+    FILE * pFile = fopen("/home/work/magabari/git-src/sdk-cp/install/RH64/Debug/bin/jit.bin", "rb");
+    
+    // obtain file size:
+    fseek (pFile , 0 , SEEK_END);
+    size_t size = ftell (pFile);
+    rewind (pFile);
+
+    // allocate buffer
+    char* pBuffer = new char[size];
+
+    // copy the file content to the buffer
+    fread(pBuffer, 1, size, pFile);
+    fclose(pFile);
+
+    // create program with binary
+    cl_int status;
+    cl_program clBinaryProg = clCreateProgramWithBinary(context, uiNumDevices, &devices[0], &size, (const unsigned char**)&pBuffer, &status, &iRet);
+    bResult &= Check(L"clCreateProgramWithBinary", CL_SUCCESS, iRet);
+
+    iRet = clBuildProgram(clBinaryProg, uiNumDevices, &devices[0], NULL, NULL, NULL);
+    bResult &= Check(L"clBuildProgram", CL_SUCCESS, iRet); 
+
+    printf("Testing the loaded binary .. \n");
+    bResult &= TestBinaryRun(clBinaryProg, context, devices[0]);
+    return bResult;
+}
+

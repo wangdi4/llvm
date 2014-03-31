@@ -165,6 +165,9 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     CPUKernel.h
     CPUProgram.h
     CPUProgramBuilder.h
+    CPUSerializationService.h
+    ObjectCodeCache.h
+    ObjectCodeContainer.h
     CompileService.h
     CompiledModule.h
     Compiler.h
@@ -219,6 +222,10 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     KernelProperties.cpp
     Logger.cpp
     Program.cpp
+    Serializer.cpp
+    ObjectCodeCache.cpp
+    CPUSerializationService.cpp
+    ObjectCodeContainer.cpp
     ProgramBuilder.cpp
     ProgramContainerMemoryBuffer.cpp
     ServiceFactory.cpp
@@ -244,7 +251,6 @@ if (INCLUDE_MIC_DEVICE)
     MICDeviceBackendFactory.h
     MICJITContainer.h
     MICKernel.h
-    MICKernelProperties.h
     MICProgram.h
     MICProgramBuilder.h
     MICSerializationService.h
@@ -259,7 +265,6 @@ if (INCLUDE_MIC_DEVICE)
     MICDeviceBackendFactory.cpp
     MICJITContainer.cpp
     MICKernel.cpp
-    MICKernelProperties.cpp
     MICProgram.cpp
     MICProgramBuilder.cpp
     MICSerializationService.cpp
@@ -317,6 +322,7 @@ include_directories(
     ${BACKEND_ROOT_DIR}/dynamic_lib
     ${BACKEND_ROOT_DIR}/utils
     ${BACKEND_ROOT_DIR}/metadata_api
+    ${BACKEND_ROOT_DIR}/../utils/cache_binary_handler
     ${CMAKE_BINARY_DIR}/include/
     ${OCL_BINARY_DIR}
 )
@@ -407,6 +413,8 @@ target_link_libraries (${TARGET_NAME}
     dynamic_load
     cl_sys_utils
     metadataapi
+    CacheBinaryHandler
+    CLElfLib
 
     # LLVM LIBS
     ${LLVM_MODULE_LIBS}

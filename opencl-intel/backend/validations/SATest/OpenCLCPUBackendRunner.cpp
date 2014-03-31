@@ -356,7 +356,7 @@ void OpenCLCPUBackendRunner::Run(IRunResult* runResult,
     if (!pOCLRunConfig->GetValue<std::string>(RC_BR_DUMP_OPTIMIZED_LLVM_IR, "").empty() )
     {
         //currently dumping to the file is temporary unsupported
-        const ICLDevBackendCodeContainer* pCodeContainer = programHolder.getProgram()->GetProgramCodeContainer();
+        const ICLDevBackendCodeContainer* pCodeContainer = programHolder.getProgram()->GetProgramIRCodeContainer();
         ProgramDumpConfig dumpOptions(pOCLRunConfig);
         spCompileService->DumpCodeContainer( pCodeContainer, &dumpOptions);
     }
@@ -366,7 +366,7 @@ void OpenCLCPUBackendRunner::Run(IRunResult* runResult,
         std::string filename = Utils::GetDataFilePath( pOCLRunConfig->GetValue<std::string>(RC_BR_DUMP_JIT, ""),
                                                        pOCLProgramConfig->GetBaseDirectory());
 
-        spCompileService->DumpJITCodeContainer(programHolder.getProgram()->GetProgramCodeContainer(),
+        spCompileService->DumpJITCodeContainer(programHolder.getProgram()->GetProgramIRCodeContainer(),
             filename);
     }
 
