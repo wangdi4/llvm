@@ -565,15 +565,6 @@ bool BuildProgramSynch(cl_context	        context,
 using namespace std;
 
 
-static string read_file_contents(string filename)
-{
-    ifstream stream(filename.c_str());
-    stringstream sstr;
-    sstr << stream.rdbuf();
-    return sstr.str();
-}
-
-
 // Disable Microsoft deprecation warnings for POSIX functions called from
 // this class (creat, dup, dup2, and close)
 //
@@ -648,7 +639,7 @@ public:
             uncaptured_fd_ = -1;
         }
 
-        const string content = read_file_contents(filename_);
+        const string content = ReadFileContents(filename_);
         return content;
     }
 

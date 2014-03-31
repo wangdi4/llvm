@@ -19,8 +19,10 @@ string read_file_contents(string filename)
 {
     ifstream stream(filename.c_str());
     if (stream.fail())
+    {
         return "";
-    
+    }
+
     stringstream sstr;
     sstr << stream.rdbuf();
     return sstr.str();

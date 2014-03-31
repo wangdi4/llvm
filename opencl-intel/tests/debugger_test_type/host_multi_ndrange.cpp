@@ -23,7 +23,7 @@ static void host_multi_ndrange_internal(
     string cl_code;
 
     if (extra_args.size() == 1) {
-        cl_code = read_file_contents(extra_args[0]);
+        cl_code = ReadFileContents(extra_args[0]);
         if (cl_code.size() == 0)
             throw runtime_error("host_multi_ndrange can't read kernel from file: " + extra_args[0]);
         DTT_LOG("Additional CL file name: " + extra_args[0]);
