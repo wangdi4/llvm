@@ -38,12 +38,10 @@
 #include <limits>
 #include <math.h>
 #include <cassert>
+#include <fstream>
 
-#if defined(_WIN32) && defined (_MSC_VER)
-    #define MAKE_HEX_FLOAT(x,y,z)  ((float)ldexp( (float)(y), z))
-#else
-    #define MAKE_HEX_FLOAT(x,y,z)  ((float)ldexp( (float)(y), z))
-#endif
+#define MAKE_HEX_FLOAT(x,y,z)  ((float)ldexp( (float)(y), z))
+#define IS_64_BIT (sizeof(void*) == 8)
 
 // assert macroes:
 
@@ -405,3 +403,13 @@ bool GetCpuVersion( char *pCpuVersion, size_t bufferSize );
 * Date:			March 2014
 **************************************************************************************************/
 bool EmulatorEnabled();
+
+/**
+ * @return the text content of filePath
+ */
+string ReadFileContents(const string& filePath);
+
+/**
+ * @Write the given text to the file
+ */
+void WriteContentToFile(const string& content, const string& filePath);

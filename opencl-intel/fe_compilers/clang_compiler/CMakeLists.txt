@@ -78,6 +78,7 @@ include_directories( AFTER
             ${CMAKE_SOURCE_DIR}/backend/dynamic_lib
             ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
             ${CMAKE_SOURCE_DIR}/utils/cache_binary_handler
+            ${CMAKE_SOURCE_DIR}/utils/CLElfLib
             ${OCL_BINARY_DIR}
             ${CMAKE_BINARY_DIR}/include
             )
