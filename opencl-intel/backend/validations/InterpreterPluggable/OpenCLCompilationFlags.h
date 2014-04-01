@@ -27,8 +27,8 @@ namespace llvm
     enum RefCompilationFlags
     {
         CL_STD_20,
-        CL_FAST_RELAXED_MATH
-        // FIXME: add -cl-uniform-work-group-size after Clang support is done.
+        CL_FAST_RELAXED_MATH,
+        CL_UNIFORM_WORK_GROUP_SIZE
     };
     typedef std::vector<RefCompilationFlags> CompilationFlagsList;
 

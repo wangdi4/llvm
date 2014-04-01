@@ -29,7 +29,7 @@ namespace llvm{
         if(metadata != NULL)
         {
             MDNode* flag = metadata->getOperand(0);
-            for(uint32_t i =0; i< flag->getNumOperands() && flag; ++i)
+            for(uint32_t i =0; flag && (i < flag->getNumOperands()); ++i)
             {
                 MDString* flagName = dyn_cast<MDString>(flag->getOperand(i));
                 if(flagName->getString() == "-cl-fast-relaxed-math")
@@ -39,6 +39,10 @@ namespace llvm{
                 else if(flagName->getString() == "-cl-std=CL2.0")
                 {
                     flags.push_back(CL_STD_20);
+                }
+                else if(flagName->getString() == "-cl-uniform-work-group-size")
+                {
+                    flags.push_back(CL_UNIFORM_WORK_GROUP_SIZE);
                 }
             }
         }
