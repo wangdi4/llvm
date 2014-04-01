@@ -522,7 +522,7 @@ int ClangFECompilerCompileTask::StoreOutput(TC::STB_TranslateOutputArgs* pOutput
         llvm::raw_svector_ostream SPIRstream(SPIRbinary);
 
         if ( pOutputArgs->pOutput && pOutputArgs->OutputSize )
-        {binary_cpu_link_header
+        {
           // Add module level SPIR related stuff
           llvm::OwningPtr<MemoryBuffer> pBinBuff( MemoryBuffer::getMemBuffer(
                   StringRef(BufferStart, BufferSize), "", false));
