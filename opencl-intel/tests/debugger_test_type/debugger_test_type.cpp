@@ -132,7 +132,7 @@ int main(int argc, char** argv)
         DTTOptions options = DTTOptions(flags);
 
         string cl_file_name = args[2];
-        string cl_code = read_file_contents(cl_file_name);
+        string cl_code = ReadFileContents(cl_file_name);
         if (cl_code.size() == 0)
             throw runtime_error("Can't read kernel from file: " + cl_file_name);
         args.erase(args.begin(), args.begin() + 3);

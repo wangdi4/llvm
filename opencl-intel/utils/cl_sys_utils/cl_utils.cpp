@@ -1311,7 +1311,7 @@ cl_ushort float2half_rte( float f )
     union{ float f; cl_uint u; } u = {f};
     cl_uint sign = (u.u >> 16) & 0x8000;
     float x = fabsf(f);
-    
+
     //Nan
     if( x != x )
     {
@@ -1320,11 +1320,11 @@ cl_ushort float2half_rte( float f )
         u.u |= 0x0200;      //silence the NaN
         return u.u | sign;
     }
-    
+
     // overflow
     if( x >= MAKE_HEX_FLOAT(0, 0x1ffeL, 3) )
         return 0x7c00 | sign;
-    
+
     // underflow
     if( x <= MAKE_HEX_FLOAT(0, 0x1L, -25) )
         return sign;    // The halfway case can return 0x0001 or 0. 0 is even.
@@ -1332,7 +1332,7 @@ cl_ushort float2half_rte( float f )
     // very small
     if( x < MAKE_HEX_FLOAT(0, 0x18L, -28) )
         return sign | 1;
-    
+
     // half denormal
     if( x < MAKE_HEX_FLOAT(0, 0x1L, -14) )
     {
@@ -1535,16 +1535,16 @@ bool GetCpuPath( char *pCpuPath, size_t bufferSize )
     // pCpuPath is expected to be MAX_PATH in size
     if( NULL != pCpuPath )
     {
-		string valueName;
-		if (EmulatorEnabled())
-		{
-			valueName = "cpu_2_0_emulator_path";
-		}
-		else
-		{
-			valueName = "cpu_path";
-		}
-		return GetStringValueFromRegistryOrETC( HKEY_LOCAL_MACHINE, regPath, valueName.c_str(), pCpuPath, bufferSize );
+        string valueName;
+        if (EmulatorEnabled())
+        {
+            valueName = "cpu_2_0_emulator_path";
+        }
+        else
+        {
+            valueName = "cpu_path";
+        }
+        return GetStringValueFromRegistryOrETC( HKEY_LOCAL_MACHINE, regPath, valueName.c_str(), pCpuPath, bufferSize );
     }
 #endif
     return false;
@@ -1576,9 +1576,9 @@ bool GetCpuVersion( char *pCpuVersion, size_t bufferSize )
 bool EmulatorEnabled()
 {
 #if defined( _WIN32 )
-	const char *regPath = "SOFTWARE\\Intel\\OpenCL";
+    const char *regPath = "SOFTWARE\\Intel\\OpenCL";
     char emulatorVal[16];
-	bool retVal = GetStringValueFromRegistryOrETC( HKEY_LOCAL_MACHINE, regPath, "ocl_2_0_enabled", emulatorVal, 16 );
+    bool retVal = GetStringValueFromRegistryOrETC( HKEY_LOCAL_MACHINE, regPath, "ocl_2_0_enabled", emulatorVal, 16 );
 
     if(retVal)
     {
@@ -1588,6 +1588,32 @@ bool EmulatorEnabled()
         }
     }
 #endif
-	return false;
+    return false;
+}
+
+string ReadFileContents(const string& filePath)
+{
+    ifstream stream(filePath.c_str());
+    if (!stream.good())
+    {
+        return "";
+    }
+
+    stringstream sstr;
+    sstr << stream.rdbuf();
+    stream.close();
+    return sstr.str();
+}
+
+void WriteContentToFile(const string& content, const string& filePath)
+{
+    ofstream stream(filePath.c_str());
+    if (!stream.good())
+    {
+        return;
+    }
+
+    stream << content;
+    stream.close();
 }
 
