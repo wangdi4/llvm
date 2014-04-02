@@ -392,7 +392,7 @@ cl_dev_err_code MICDevMemoryObject::Init()
     uint32_t no_dma = 0;
     if ((0 == ((CL_MEM_USE_HOST_PTR|CL_MEM_ALLOC_HOST_PTR) & m_memFlags)) && (!m_Allocator.ImmediateHostPinningForced()))
     {
-        no_dma = 0;
+        no_dma = COI_OPTIMIZE_NO_DMA;
     }
     
     COIRESULT coi_err;
