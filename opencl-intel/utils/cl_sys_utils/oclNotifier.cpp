@@ -149,10 +149,10 @@ void NotifierCollection::EventCreate (
 	CHECK_FOR_NULL(event);
     NOTIFY(EventCreate, event, internalEvent, cmdName);
 }
-void NotifierCollection::EventFree (cl_event event)
+void NotifierCollection::EventFree(cl_event event, bool internalRelease)
 {
 	CHECK_FOR_NULL(event);
-	NOTIFY(EventFree, event);
+	NOTIFY(EventFree, event, internalRelease);
 }
 void NotifierCollection::EventReleased(cl_event event)
 {
@@ -246,10 +246,10 @@ void NotifierCollection::PipeCreate(
         packetSize, maxPackets, props, traceCookie);
 }
 
-void NotifierCollection::MemObjectFree( cl_mem memobj )
+void NotifierCollection::MemObjectFree(cl_mem memobj, bool internalRelease)
 {
 	CHECK_FOR_NULL(memobj);
-	NOTIFY(MemObjectFree, memobj);	
+	NOTIFY(MemObjectFree, memobj, internalRelease);	
 }
 void NotifierCollection::MemObjectReleased(cl_mem memobj)
 {
@@ -324,9 +324,10 @@ void NotifierCollection::ObjectInfo( const void* obj, const pair<string,string> 
 	CHECK_FOR_NULL(obj);
 	NOTIFY(ObjectInfo, obj, data, dataLength);	
 }
-void NotifierCollection::ObjectRetain( const void* obj){
+void NotifierCollection::ObjectRetain(const void* obj, bool internalRetain)
+{
 	CHECK_FOR_NULL(obj);
-	NOTIFY(ObjectRetain, obj);	
+	NOTIFY(ObjectRetain, obj, internalRetain);
 }
 void NotifierCollection::TraceCall(const char* call, cl_int errcode_ret,
                                    OclParameters* parameters,
