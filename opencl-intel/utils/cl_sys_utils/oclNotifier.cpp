@@ -292,10 +292,10 @@ void NotifierCollection::KernelCreate( cl_kernel kernel, cl_program program )
 	CHECK_FOR_NULL(program);
 	NOTIFY(KernelCreate, kernel, program);
 }
-void NotifierCollection::KernelFree( cl_kernel kernel )
+void NotifierCollection::KernelFree( cl_kernel kernel, bool internalRelease )
 {
 	CHECK_FOR_NULL(kernel);
-	NOTIFY(KernelFree, kernel);	
+	NOTIFY(KernelFree, kernel, internalRelease);	
 }
 void NotifierCollection::KernelSetArg (cl_kernel kernel, cl_uint arg_index, size_t arg_size,const void* arg_value )
 {
@@ -412,12 +412,52 @@ void NotifierCollection::profileCommand(
     CHECK_FOR_NULL(callbackEvent);
     CHECK_FOR_NULL(commandData);
 
+    bool failed = false;
+
     bool weOwnEvent = (NULL != commandData->ourEvent);
     EventCreate(callbackEvent, weOwnEvent, commandData->funcName);
 
+    commandData->retained = false;
     if (!weOwnEvent)
     {
-        _clRetainEventINTERNAL(callbackEvent);
+        cl_int err = _clRetainEventINTERNAL(callbackEvent);
+        if (CL_SUCCESS == err)
+        {
+            commandData->retained = true;
+        }
+        else
+        {
+            failed = true;
+        }
+    }
+    else
+    {
+        commandData->retained = true;
+    }
+
+    if (failed)
+    {
+		releaseCommandData(commandData);
+        return;
+    }
+
+    list<OclRetainer*>::iterator it = commandData->retainers.begin();
+    for ( ; it != commandData->retainers.end(); ++it)
+    {
+        OclRetainer* retainer = (*it);
+        if (false == retainer->hasRetained())
+        {
+            failed = true;
+            break;
+        }
+    }
+
+    if (failed)
+    {
+        // TODO (Ofir): add error handling report to the client
+        // (show something like: command will not be monitored)
+		releaseCommandData(commandData);
+        return;
     }
 
     commandData->callbackEvent = callbackEvent;
@@ -453,10 +493,16 @@ void NotifierCollection::profileCommand(
 void NotifierCollection::releaseCommandData(CommandData* data)
 {
 	CHECK_FOR_NULL(data);
-    if (NULL != data->callbackEvent)
+    if (NULL != data->callbackEvent && data->retained)
     {
         _clReleaseEventINTERNAL(data->callbackEvent);
     }
+    list<OclRetainer*>::iterator it = data->retainers.begin();
+    for ( ; it != data->retainers.end(); ++it)
+    {
+        delete (*it);
+    }
+
 	delete data;
 }
 

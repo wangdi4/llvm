@@ -6,6 +6,7 @@
 #include <list>
 #include "cl_synch_objects.h"
 #include "oclEventsMapper.h"
+#include "oclRetainers.h"
 
 using Intel::OpenCL::Utils::EventsMapper;
 using Intel::OpenCL::Utils::OclMutex;
@@ -13,9 +14,15 @@ using Intel::OpenCL::Utils::AtomicCounter;
 
 using namespace std;
 
-typedef struct {
+// TODO (Ofir): move this to a separate header file
+
+typedef struct CommandData {
     // All objects related to this command.
     list<void*> objects;
+
+    // Used to keep the associated objects alive while
+    // we monitor the commands.
+    list<OclRetainer*> retainers;
     
     // Key-value pairs of per-command info.
     list< pair<string,string> > data;
@@ -38,6 +45,15 @@ typedef struct {
     // This is used due to the existence of wrapper events
     // for the original (user) events.
     cl_event callbackEvent;
+
+    // Associated memobj with the event, optional field.
+    // It is used for retaining & releasing the user memory object
+    // (to ensure it still exists during monitoring).
+    cl_mem memobj;
+
+    // True if the user event was successfully retained,
+    // false otherwise.
+    bool retained;
 
 } CommandData;
 
@@ -143,7 +159,7 @@ public:
 
 	/* Kernel Callbacks */
 	virtual void KernelCreate (cl_kernel /* kernel */, cl_program /* program */)=0;
-	virtual void KernelFree (cl_kernel /* kernel */)=0;	// clReleaseKernel
+	virtual void KernelFree (cl_kernel /* kernel */, bool internalRelease)=0;	// clReleaseKernel
 	virtual void KernelSetArg (cl_kernel /* kernel */, cl_uint /* arg_index */, size_t /* argSize */,const void* /* arg_value */ )=0;
 	virtual void KernelEnqueue (cl_kernel, cl_command_queue, cl_event*, unsigned int traceCookie)=0;
 	virtual void KernelReleased (cl_kernel)=0;	// called when kernel no longer exists in Profiler & RT
@@ -259,7 +275,7 @@ public:
 
 	/* Kernel Callbacks */
 	virtual void KernelCreate (cl_kernel /* kernel */, cl_program /* program */);
-	virtual void KernelFree (cl_kernel /* kernel */);
+	virtual void KernelFree (cl_kernel /* kernel */, bool internalRelease);
 	virtual void KernelSetArg (cl_kernel /* kernel */, cl_uint /* arg_index */, size_t /* argSize */,const void* /* arg_value */ );
 	virtual void KernelEnqueue (cl_kernel, cl_command_queue, cl_event*, unsigned int traceCookie);
 	virtual void KernelReleased (cl_kernel);	// called when kernel no longer exists in Profiler & RT
