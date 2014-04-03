@@ -49,6 +49,9 @@
 #define RTLD_NOW 2
 #endif
 
+#define KILOBYTE 1024
+#define MEGABYTE (1024*KILOBYTE)
+
 using namespace std;
 
 using namespace Intel::OpenCL::MICDevice;
@@ -293,6 +296,93 @@ void DeviceServiceCommunication::getVTuneEnvVars(vector<char*>& additionalEnvVar
     }
 }
 
+static inline bool isCOIPoolRetValOk( COIRESULT result )
+{
+    return ((COI_SUCCESS            == result) ||
+            (COI_RESOURCE_EXHAUSTED == result) ||
+            (COI_OUT_OF_MEMORY      == result));
+}
+
+//
+// Create Device memory cache for OpenCL buffers
+// 
+// 1. If 2M paged buffers are disabled - disable 2M paged pool on device, otherwise disable 4K paged pool on device
+//    Disabled pool doesn't mean pool will not be created - itr means that pool will not be created upfront and will be allocated 
+//    on demand only and if demand cannot be fulfilled without swapping out existing buffers from the same pool
+//
+// 2. Pool is created with following params:
+//    2.1 Immediately allocate INIT size
+//    2.2 Prefer pool on-demand extension until FINI size
+//    2.3 Prefer swapping out existing buffers after pool reached FINI size
+//
+bool DeviceServiceCommunication::setupBufferMemoryPools( const MICDeviceConfig& tMicConfig )
+{
+    COIRESULT result = COI_ERROR;
+
+    size_t initial      = tMicConfig.Device_Initial2MBPoolSizeInMB() * MEGABYTE; // MiB
+    size_t final        = tMicConfig.Device_Final2MBPoolSizeInMB() * MEGABYTE;     // MiB;
+    size_t max_possible = MIC_MAX_GLOBAL_MEM_SIZE( m_uiMicId );
+
+    if ((0 == final) || (final > max_possible))
+    {
+        final = max_possible;
+    }
+
+    if (initial > final)
+    {
+        initial = final;   
+    }
+
+    // decide on 4K vs 2M
+    size_t initial_4kb_pool_size = 0;
+    size_t final_4kb_pool_size = 0;
+    size_t initial_2mb_pool_size = 0;
+    size_t final_2mb_pool_size   = 0;
+
+    if (0 == tMicConfig.Device_2MB_BufferMinSizeInKB())
+    {
+        // 2M pagess disabled - use 4K instead
+        initial_4kb_pool_size = initial;
+        final_4kb_pool_size   = final;
+    }
+    else
+    {
+        initial_2mb_pool_size = initial;
+        final_2mb_pool_size   = final;
+    }
+
+    if (initial > 0)
+    {
+        result = COIProcessSetCacheSize( m_process, 
+                                         initial_2mb_pool_size, COI_CACHE_MODE_ONDEMAND_SYNC | COI_CACHE_ACTION_GROW_NOW,
+                                         initial_4kb_pool_size, COI_CACHE_MODE_ONDEMAND_SYNC | COI_CACHE_ACTION_GROW_NOW,
+                                         0, NULL, NULL );
+
+        if (! isCOIPoolRetValOk(result))
+        {
+            assert(false && "Device memory inital reservation (COIProcessSetCacheSize) failed");            
+            return false;
+        }        
+    }
+
+    if (final > initial)
+    {
+        result = COIProcessSetCacheSize( m_process, 
+                                         final_2mb_pool_size, COI_CACHE_MODE_ONDEMAND_SYNC | COI_CACHE_ACTION_NONE,
+                                         final_4kb_pool_size, COI_CACHE_MODE_ONDEMAND_SYNC | COI_CACHE_ACTION_NONE,
+                                         0, NULL, NULL );
+
+        if (! isCOIPoolRetValOk(result))
+        {
+            assert(false && "Device memory final limit set (COIProcessSetCacheSize) failed");            
+            return false;
+        }        
+    }
+
+    return true;
+    
+}
+
 
 RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
 {
@@ -333,7 +423,7 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
         mic_device_options.stop_at_load                        = tMicConfig.Device_StopAtLoad();
         mic_device_options.use_affinity                        = tMicConfig.Device_UseAffinity();
         mic_device_options.threads_per_core                    = tMicConfig.Device_ThreadsPerCore();
-        mic_device_options.num_of_cores		                   = tMicConfig.Device_NumCores();
+        mic_device_options.num_of_cores                        = tMicConfig.Device_NumCores();
         mic_device_options.ignore_core_0                       = tMicConfig.Device_IgnoreCore0();
         mic_device_options.ignore_last_core                    = tMicConfig.Device_IgnoreLastCore();
         mic_device_options.use_TBB_grain_size                  = tMicConfig.Device_TbbGrainSize();
@@ -579,35 +669,10 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
         }
         m_uiNumActiveThreads = retVal.uiNumActiveThreads;
 
-        // Create inital 2MB pool on device
-        // Workaround until COI will implement this functionality
-        size_t initial_2mb_pool_size = tMicConfig.Device_Initial2MBPoolSizeInMB();
-        if (initial_2mb_pool_size > 0)
+        if (!setupBufferMemoryPools(tMicConfig))
         {
-            bool ok = false;
-            initial_2mb_pool_size *= (1024*1024); // MiB
-            result = COIProcessSetCacheSize( m_process, 
-                                    initial_2mb_pool_size,                COI_CACHE_MODE_ONDEMAND_SYNC | COI_CACHE_ACTION_GROW_NOW,
-                                    MIC_DEV_INITIAL_BUFFER_PREALLOCATION, COI_CACHE_MODE_ONDEMAND_SYNC | COI_CACHE_ACTION_NONE,
-                                    0, NULL, NULL );
-
-            switch (result)
-            {
-                case COI_SUCCESS:
-                case COI_RESOURCE_EXHAUSTED:
-                case COI_OUT_OF_MEMORY:
-                    ok = true;
-                    break;
-
-                default:
-                    assert(false && "Device memory reservation (COIProcessSetCacheSize) failed");
-                    
-            }
-
-            if (!ok)
-            {
-                break;
-            }
+            err = CL_DEV_ERROR_FAIL;
+            break;
         }
         
     }
