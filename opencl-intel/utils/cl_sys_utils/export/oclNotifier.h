@@ -95,7 +95,7 @@ public:
 	virtual void EventCreate (cl_event event,
                               bool internalEvent,
                               string cmdName = "")=0;
-	virtual void EventFree (cl_event event)=0;
+	virtual void EventFree (cl_event event, bool internalRelease)=0;
 	virtual void EventReleased (cl_event event)=0;
     virtual void EventStatusChanged(cl_event event)=0;
 
@@ -129,7 +129,7 @@ public:
                             const cl_pipe_properties *props,
                             unsigned int traceCookie)=0;
     //virtual void ImageChangedCallBack(cl_event, cl_int, ImageInfo*)=0;
-	virtual void MemObjectFree (cl_mem /* memobj */)=0;
+	virtual void MemObjectFree (cl_mem /* memobj */, bool internalRelease)=0;
 	virtual void MemObjectReleased (cl_mem)=0;	// called when kernel no longer exists in Profiler & RT
 
 	/* Sampler Callbacks */
@@ -153,7 +153,7 @@ public:
 
 	/* generic Callbacks */
 	virtual void ObjectInfo(const void* /* obj */, const pair<string,string> data[],const int dataLength)=0;
-	virtual void ObjectRetain( const void* obj)=0;
+	virtual void ObjectRetain(const void* obj, bool internalRetain)=0;
 	virtual void TraceCall( const char* call, cl_int errcode_ret,
                             OclParameters* parameters, unsigned int* traceCookie = NULL)=0;
 
@@ -215,7 +215,7 @@ public:
 	virtual void EventCreate (cl_event event,
                               bool internalEvent,
                               string cmdName = "");
-	virtual void EventFree (cl_event event);
+	virtual void EventFree (cl_event event, bool internalRelease);
     virtual void EventReleased (cl_event event);
 	virtual void EventStatusChanged(cl_event event);
 
@@ -245,7 +245,7 @@ public:
                             cl_uint maxPackets,
                             const cl_pipe_properties *props,
                             unsigned int traceCookie);
-	virtual void MemObjectFree (cl_mem /* memobj */);
+	virtual void MemObjectFree (cl_mem /* memobj */, bool internalRelease);
 	virtual void MemObjectReleased (cl_mem);	// called when kernel no longer exists in Profiler & RT
 
 	/* Sampler Callbacks */
@@ -269,7 +269,7 @@ public:
 
 	/* generic Callbacks */
 	virtual void ObjectInfo(const void* /* obj */, const pair<string,string> data[],const int dataLength);
-	virtual void ObjectRetain( const void* obj);
+	virtual void ObjectRetain(const void* obj, bool internalRetain);
 	virtual void TraceCall( const char* call, cl_int errcode_ret,
                             OclParameters* parameters, unsigned int* traceCookie = NULL);
 
