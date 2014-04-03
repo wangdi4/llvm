@@ -111,12 +111,12 @@ bool CPUDetect::IsProcessorType(EProcessorType processorType)
     {
     case PT_ALL:
         return true;
-    	break;
+        break;
     case PT_ATOM:
         if (m_ucFamily == 0x6 &&
-             (m_ucExtendedModel == 0x35 ||  // CloverTrail
-              m_ucExtendedModel == 0x36 ||  // CedarTrail
-              m_ucExtendedModel == 0x37))   // Baytrail
+            (m_ucExtendedModel == 0x35 ||  // CloverTrail
+            m_ucExtendedModel == 0x36 ||  // CedarTrail
+            m_ucExtendedModel == 0x37))   // Baytrail
         {
             return true;
         }
@@ -133,14 +133,33 @@ bool CPUDetect::IsProcessorType(EProcessorType processorType)
             return true;
         }
         break;
-	case PT_PENRYN:
+    case PT_PENRYN:
         if (m_ucFamily == 0xF && m_ucModel == 0x6)
         {
             return true;
         }
         break;
-	case PT_NEHALEM:
+    case PT_NEHALEM:
+        if (m_ucFamily == 0xF && m_ucModel == 0xE)
+        {
+            return true;
+        }
+        break;
+    case PT_SANDYBRIDGE:
+        // IMPORTANT NOTE!!! At the time of updating this file (17/4/2014) BDW identifies as SNB, needs to be investigated further (osarid)
+        if (m_ucFamily == 0x6 && m_ucModel == 0xD)
+        {
+            return true;
+        }
+        break;
+    case PT_IVYBRIDGE:
         if (m_ucFamily == 0x6 && m_ucModel == 0xA)
+        {
+            return true;
+        }
+        break;
+    case PT_HASWELL:
+        if (m_ucFamily == 0x6 && m_ucModel == 0xC)
         {
             return true;
         }

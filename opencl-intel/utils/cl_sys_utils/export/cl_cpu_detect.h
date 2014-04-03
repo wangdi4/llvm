@@ -60,7 +60,9 @@ namespace Intel { namespace OpenCL { namespace Utils {
         PT_PENRYN,
         PT_NEHALEM,
         PT_SANDYBRIDGE,
-        PT_HASWELL
+        PT_IVYBRIDGE,
+        PT_HASWELL,
+        PT_BROADWELL
     };
 
 	// CPU detection class (singleton)
