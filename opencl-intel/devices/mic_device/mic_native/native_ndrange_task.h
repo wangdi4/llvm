@@ -45,17 +45,19 @@ class NDRangeTask : virtual public Intel::OpenCL::TaskExecutor::ITaskSet,
 public:
     PREPARE_SHARED_PTR(NDRangeTask)
 
-    NDRangeTask( uint32_t lockBufferCount, void** pLockBuffers, Intel::OpenCL::MICDevice::ndrange_dispatcher_data* pDispatcherData, size_t uiDispatchSize );
+    NDRangeTask( uint32_t lockBufferCount, void** pLockBuffers, Intel::OpenCL::MICDevice::ndrange_dispatcher_data* pDispatcherData, size_t uiDispatchSize, QueueOnDevice* pQueue );
     ~NDRangeTask();
+
+    static SharedPtr<NDRangeTask> Allocate(uint32_t lockBufferCount, void** pLockBuffers, Intel::OpenCL::MICDevice::ndrange_dispatcher_data* pDispatcherData, size_t uiDispatchSize, QueueOnDevice* pQueue)
+    {
+        return new NDRangeTask(lockBufferCount, pLockBuffers, pDispatcherData, uiDispatchSize, pQueue);
+    }
 
     // TaskHandlerBase methods
     bool PrepareTask();
 
     // TaskHandler methods
-#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
-    const NDRangeTask& GetAsCommandTypeConst() const { return *this; }
-#endif
-    Intel::OpenCL::TaskExecutor::ITaskBase* GetAsITaskBase() { return static_cast<Intel::OpenCL::TaskExecutor::ITaskBase*>(this);}
+    Intel::OpenCL::TaskExecutor::ITaskBase* GetAsITaskBase() { return this; };
 
     // ITaskSet methods 
     // Returns true in case current task is a synchronization point
@@ -93,19 +95,12 @@ public:
     // Return false when command execution fails
     bool    Finish(Intel::OpenCL::TaskExecutor::FINISH_REASON reason);
 
+    // Releases task object, shall be called instead of delete operator.
+    long    Release() { return releaseImp(); };
+
     // Task execution routine, will be called by task executor instead of Init() if CommandList is canceled. If Init() was already called,
     // Cancel() is not called - normal processing is continued
     void Cancel();
-
-    // Releases task object, shall be called instead of delete operator.
-    long    Release() 
-	{ 
-#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
-	    if (m_bDuplicated) 
-#endif
-		    delete this; 
-		return 0; 
-    }
 
     // Optimize By
     Intel::OpenCL::TaskExecutor::TASK_PRIORITY         GetPriority() const { return Intel::OpenCL::TaskExecutor::TASK_PRIORITY_MEDIUM;}
@@ -122,10 +117,6 @@ public:
 
 protected:
     friend class TaskHandler<NDRangeTask, Intel::OpenCL::MICDevice::ndrange_dispatcher_data >;
-#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
-    // Copy constructor used for task duplication
-    NDRangeTask(const NDRangeTask& o);
-#endif
 
     const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_*       m_pKernel;
     const Intel::OpenCL::DeviceBackend::ICLDevBackendKernelRunner*  m_pRunner;

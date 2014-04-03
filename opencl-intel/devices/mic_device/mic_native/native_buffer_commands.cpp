@@ -69,37 +69,37 @@ void execute_command_fill_mem_object(uint32_t         in_BufferCount,
     QueueOnDevice* pQueue = (QueueOnDevice*)fillMemObjDispatchData->deviceQueuePtr;
     assert(NULL != pQueue && "pQueue must be valid");
 
-#ifdef _DEBUG
-    TlsAccessor tlsAccessor;
-    const QueueOnDevice* pTLSQueue = QueueOnDevice::getCurrentQueue( &tlsAccessor );
-    assert( pTLSQueue == pQueue && "Queue handle doesn't match");
-#endif
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
-    FillMemObjTask* fillMemObjTask = new FillMemObjTask(in_BufferCount, in_ppBufferPointers, fillMemObjDispatchData, in_MiscDataLength);
+    cl_dev_err_code err = CL_DEV_SUCCESS;
 
-    cl_dev_err_code err = fillMemObjTask->getTaskError();
-    if ( CL_DEV_SUCCEEDED(err) )
+    if (pQueue->IsAsyncExecution())
     {
-        err = pQueue->Execute(fillMemObjTask);
-    }
-#else
-    FillMemObjTask fillMemObjTask(in_BufferCount, in_ppBufferPointers, fillMemObjDispatchData, in_MiscDataLength);
-    // Increase ref. count to prevent undesired deletion
-    fillMemObjTask.IncRefCnt();
+        SharedPtr<FillMemObjTask> fillMemObjTask = FillMemObjTask::Allocate(in_BufferCount, in_ppBufferPointers, fillMemObjDispatchData, in_MiscDataLength, pQueue);
 
-    cl_dev_err_code err = fillMemObjTask.getTaskError();
-    if ( CL_DEV_SUCCEEDED(err) )
+        err = fillMemObjTask->getTaskError();
+        if ( CL_DEV_SUCCEEDED(err) )
+        {
+            err = pQueue->Execute(fillMemObjTask->GetAsTaskHandlerBase());
+        }
+	}
+    else
     {
-        err = pQueue->Execute(fillMemObjTask.GetAsTaskHandlerBase());
+        FillMemObjTask fillMemObjTask(in_BufferCount, in_ppBufferPointers, fillMemObjDispatchData, in_MiscDataLength, pQueue);
+        // Increase ref. count to prevent undesired deletion
+        fillMemObjTask.IncRefCnt();
+    
+        err = fillMemObjTask.getTaskError();
+        if ( CL_DEV_SUCCEEDED(err) )
+        {
+            err = pQueue->Execute(fillMemObjTask.GetAsTaskHandlerBase());
+        }
     }
-#endif
 
     *((cl_dev_err_code*)in_pReturnValue) = err;
 }
 
 
-FillMemObjTask::FillMemObjTask( uint32_t lockBufferCount, void** pLockBuffers, fill_mem_obj_dispatcher_data* pDispatcherData, size_t uiDispatchSize) :
-    TaskHandler<FillMemObjTask, fill_mem_obj_dispatcher_data >(lockBufferCount, pLockBuffers, pDispatcherData, uiDispatchSize),
+FillMemObjTask::FillMemObjTask( uint32_t lockBufferCount, void** pLockBuffers, fill_mem_obj_dispatcher_data* pDispatcherData, size_t uiDispatchSize, QueueOnDevice* pQueue) :
+    TaskHandler<FillMemObjTask, fill_mem_obj_dispatcher_data >(lockBufferCount, pLockBuffers, pDispatcherData, uiDispatchSize, pQueue),
     m_fillBufPtr((char*)(pLockBuffers[0])), m_fillBufPtrAnchor((char*)(pLockBuffers[0]))
 #ifdef USE_ITT
     ,m_pIttFillBufferName(NULL), m_pIttFillBufferDomain(NULL)
@@ -124,17 +124,6 @@ FillMemObjTask::FillMemObjTask( uint32_t lockBufferCount, void** pLockBuffers, f
 #endif
 }
 
-#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
-FillMemObjTask::FillMemObjTask( const FillMemObjTask& o) :
-    TaskHandler<FillMemObjTask, fill_mem_obj_dispatcher_data >( o ),
-    m_fillBufPtr(o.m_fillBufPtr), m_fillBufPtrAnchor(o.m_fillBufPtrAnchor)
-#ifdef USE_ITT
-    ,m_pIttFillBufferName(o.m_pIttFillBufferName), m_pIttFillBufferDomain(o.m_pIttFillBufferDomain)
-#endif
-{
-}
-#endif
-
 bool FillMemObjTask::PrepareTask()
 {
 #ifdef ENABLE_MIC_TRACER
@@ -148,29 +137,16 @@ bool FillMemObjTask::PrepareTask()
     }
 #endif
 
+#ifdef MIC_USE_COI_BUFFS_REF_NEW_API
+	m_bufferPointers = NULL;
+#endif
+
     return true;
 }
 
 void FillMemObjTask::Cancel()
 {
-    // Notify start if exists
-    if ( NULL!= m_dispatcherData->startEvent.isRegistered )
-    {
-        COIEventSignalUserEvent(m_dispatcherData->startEvent.cmdEvent);
-    }
-
-#ifdef ENABLE_MIC_TRACER
-    commandTracer().set_current_time_tbb_exe_in_device_time_start();
-    commandTracer().set_current_time_tbb_exe_in_device_time_end();
-#endif
-
-    setTaskError(CL_DEV_COMMAND_CANCELLED);
-    // Notify finish if exists
-    if ( NULL!= m_dispatcherData->endEvent.isRegistered )
-    {
-        COIEventSignalUserEvent(m_dispatcherData->endEvent.cmdEvent);
-    }
-
+    m_pQueue->CancelTask(this);
 #ifdef USE_ITT
     if ( gMicGPAData.bUseGPA)
     {
@@ -204,23 +180,23 @@ int FillMemObjTask::Init(size_t region[], unsigned int& regCount)
     }
 #endif
 	// Notify start if exists
-    if ( NULL!= m_dispatcherData->startEvent.isRegistered )
+    if ( NULL!= m_pDispatcherData->startEvent.isRegistered )
     {
-        COIEventSignalUserEvent(m_dispatcherData->startEvent.cmdEvent);
+        COIEventSignalUserEvent(m_pDispatcherData->startEvent.cmdEvent);
     }
 
 #ifdef ENABLE_MIC_TRACER
     commandTracer().set_current_time_tbb_exe_in_device_time_start();
 #endif
 
-	m_fillBufPtr = m_fillBufPtr + m_dispatcherData->from_offset;
-	unsigned int tPatternSize = m_dispatcherData->pattern_size;
-	assert((tPatternSize >= 1) && (tPatternSize <= MAX_PATTERN_SIZE));
-	size_t tRegion = m_dispatcherData->vRegion[0];
-	assert((tRegion > 0) && (tRegion % tPatternSize == 0));
-	memcpy(m_patternToUse, m_dispatcherData->pattern, tPatternSize);
-    assert(1 == m_dispatcherData->dim_count && "Fill buffer can be one dimension");
-	regCount = 1;
+    m_fillBufPtr = m_fillBufPtr + m_pDispatcherData->from_offset;
+    unsigned int tPatternSize = m_pDispatcherData->pattern_size;
+    assert((tPatternSize >= 1) && (tPatternSize <= MAX_PATTERN_SIZE));
+    size_t tRegion = m_pDispatcherData->vRegion[0];
+    assert((tRegion > 0) && (tRegion % tPatternSize == 0));
+    memcpy(m_patternToUse, m_pDispatcherData->pattern, tPatternSize);
+    assert(1 == m_pDispatcherData->dim_count && "Fill buffer can be one dimension");
+    regCount = 1;
 	while (tPatternSize < MAX_PATTERN_SIZE)
 	{
 		memcpy(&((char*)m_patternToUse)[tPatternSize], &((char*)m_patternToUse)[0], tPatternSize);
@@ -236,7 +212,7 @@ int FillMemObjTask::Init(size_t region[], unsigned int& regCount)
         assert(((numBytesCpyForAlignFix > 0) && (numBytesCpyForAlignFix < alignRestriction)));
         memcpy(m_fillBufPtr, m_patternToUse, numBytesCpyForAlignFix);
         // if the amount of copied bytes are not dividing by original size of the pattern than we should arrange the pattern.
-        if (0 != numBytesCpyForAlignFix % m_dispatcherData->pattern_size)
+        if (0 != numBytesCpyForAlignFix % m_pDispatcherData->pattern_size)
         {
             memcpy(m_patternToUse, ((char*)m_patternToUse) + numBytesCpyForAlignFix, MAX_PATTERN_SIZE - numBytesCpyForAlignFix);
             memcpy(((char*)m_patternToUse) + (MAX_PATTERN_SIZE - numBytesCpyForAlignFix), m_fillBufPtr, numBytesCpyForAlignFix);
@@ -262,13 +238,13 @@ int FillMemObjTask::Init(size_t region[], unsigned int& regCount)
 #endif
 
 		m_serialExecution = true;
-		tPatternSize = m_dispatcherData->pattern_size;
+		tPatternSize = m_pDispatcherData->pattern_size;
 
 		if (tRegion < (MAX_PATTERN_SIZE + alignRestriction))
 		{
 			for (unsigned int i = 0; i < tRegion; i += tPatternSize)
 			{
-				memcpy(&(m_fillBufPtr[i]), m_dispatcherData->pattern, tPatternSize);
+				memcpy(&(m_fillBufPtr[i]), m_pDispatcherData->pattern, tPatternSize);
 			}
 		}
 		else
@@ -276,12 +252,12 @@ int FillMemObjTask::Init(size_t region[], unsigned int& regCount)
 			int i = intrinCopy(0, tRegion);
 			for (; i <= (tRegion - tPatternSize); i += tPatternSize)
 			{
-				memcpy(&(m_fillBufPtr[i]), m_dispatcherData->pattern, tPatternSize);
+				memcpy(&(m_fillBufPtr[i]), m_pDispatcherData->pattern, tPatternSize);
 			}
             if (i < tRegion)
             {
                 assert((tRegion - i) < tPatternSize);
-                memcpy(&(m_fillBufPtr[i]), m_dispatcherData->pattern, tRegion - i);
+                memcpy(&(m_fillBufPtr[i]), m_pDispatcherData->pattern, tRegion - i);
             }
 		}
 		m_coveredSize = tRegion + numBytesCpyForAlignFix;
@@ -416,58 +392,26 @@ bool FillMemObjTask::ExecuteIteration(size_t x, size_t y, size_t z, void* data_f
 
 bool FillMemObjTask::Finish(Intel::OpenCL::TaskExecutor::FINISH_REASON reason)
 {
-	const unsigned int tSizeRemain = m_dispatcherData->vRegion[0] - m_coveredSize;
-	if (tSizeRemain > 0)
-	{
-		char* tFillBuffPtr = m_fillBufPtrAnchor + m_dispatcherData->from_offset + m_coveredSize;
-		const unsigned int patternSize = m_dispatcherData->pattern_size;
-		const char* pattern = (char*)m_patternToUse;
+    const unsigned int tSizeRemain = m_pDispatcherData->vRegion[0] - m_coveredSize;
+    if (tSizeRemain > 0)
+    {
+        char* tFillBuffPtr = m_fillBufPtrAnchor + m_pDispatcherData->from_offset + m_coveredSize;
+        const unsigned int patternSize = m_pDispatcherData->pattern_size;
+        const char* pattern = (char*)m_patternToUse;
         unsigned int i = 0;
-		for (; i <= (tSizeRemain - patternSize); i += patternSize)
-		{
-			memcpy(&(tFillBuffPtr[i]), pattern, patternSize);
-		}
+        for (; i <= (tSizeRemain - patternSize); i += patternSize)
+        {
+            memcpy(&(tFillBuffPtr[i]), pattern, patternSize);
+        }
         if (i < tSizeRemain)
         {
             assert((tSizeRemain - i) < patternSize);
             memcpy(&(tFillBuffPtr[i]), pattern, tSizeRemain - i);
         }
-	}
-
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
-#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    if ( gMicGPAData.bUseGPA )
-    {
-      static __thread __itt_string_handle* pTaskName = NULL;
-      if ( NULL == pTaskName )
-      {
-        pTaskName = __itt_string_handle_create("FillMemObjTask::Finish->m_releasehandler->addTask(this)");
-      }
-      __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
     }
-#endif
-    m_releasehandler->addTask(this);
-#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    // Monitor only IN-ORDER queue
-    if ( gMicGPAData.bUseGPA )
-    {
-      __itt_task_end(gMicGPAData.pDeviceDomain);
-    }
-#endif
-#else
-    // Release COI resources
-    FiniTask();
 
-#ifdef ENABLE_MIC_TRACER
-    commandTracer().set_current_time_tbb_exe_in_device_time_end();
-#endif
+    m_pQueue->FinishTask( this );
 
-    // Notify finish if exists
-    if ( NULL!= m_dispatcherData->endEvent.isRegistered )
-    {
-        COIEventSignalUserEvent(m_dispatcherData->endEvent.cmdEvent);
-    }
-#endif
 #ifdef USE_ITT
     if ( gMicGPAData.bUseGPA)
     {

@@ -46,15 +46,18 @@ class FillMemObjTask : virtual public Intel::OpenCL::TaskExecutor::ITaskSet, vir
 public:
     PREPARE_SHARED_PTR(FillMemObjTask)
 
-    FillMemObjTask( uint32_t lockBufferCount, void** pLockBuffers, Intel::OpenCL::MICDevice::fill_mem_obj_dispatcher_data* pDispatcherData, size_t uiDispatchSize );
+    FillMemObjTask( uint32_t lockBufferCount, void** pLockBuffers, Intel::OpenCL::MICDevice::fill_mem_obj_dispatcher_data* pDispatcherData, size_t uiDispatchSize, QueueOnDevice* pQueue );
+
+    static SharedPtr<FillMemObjTask> Allocate( uint32_t lockBufferCount, void** pLockBuffers, Intel::OpenCL::MICDevice::fill_mem_obj_dispatcher_data* pDispatcherData, size_t uiDispatchSize, QueueOnDevice* pQueue )
+    {
+        return new FillMemObjTask(lockBufferCount, pLockBuffers, pDispatcherData, uiDispatchSize, pQueue);
+    };
+
     
     // TaskHandler methods
     bool PrepareTask();
 
     // TaskHandler methods
-#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION	
-    const FillMemObjTask& GetAsCommandTypeConst() const { return *this; }
-#endif
     Intel::OpenCL::TaskExecutor::ITaskBase* GetAsITaskBase() { return static_cast<Intel::OpenCL::TaskExecutor::ITaskBase*>(this);}
 
     // ITask methods 
@@ -71,9 +74,6 @@ public:
 
     // Task execution routine, will be called by task executor instead of Execute() if CommandList is canceled
     void    Cancel();    
-
-    // Releases task object, shall be called instead of delete operator.
-    long    Release() { delete this; return 0; }
 
     Intel::OpenCL::TaskExecutor::TASK_PRIORITY   GetPriority() const { return Intel::OpenCL::TaskExecutor::TASK_PRIORITY_MEDIUM;}
 
@@ -104,6 +104,9 @@ public:
     // Return false when command execution fails
     bool Finish(Intel::OpenCL::TaskExecutor::FINISH_REASON reason);
 
+    // Releases task object, shall be called instead of delete operator.
+    long    Release() { return releaseImp(); };
+
     // Task execution routine, will be called by task executor instead of Init() if CommandList is canceled. If Init() was already called,
     // Cancel() is not called - normal processing is continued
     // virtual void    Cancel() = 0;
@@ -116,10 +119,6 @@ public:
 	
 protected:
     friend class TaskHandler<FillMemObjTask, Intel::OpenCL::MICDevice::fill_mem_obj_dispatcher_data >;
-#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
-    // Copy constructor used for task duplication
-    FillMemObjTask(const FillMemObjTask& o);
-#endif 
 
 #ifdef USE_ITT
     __itt_string_handle*        m_pIttFillBufferName;

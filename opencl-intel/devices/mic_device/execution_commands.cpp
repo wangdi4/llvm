@@ -26,8 +26,20 @@
 
 #include <source/COIBuffer_source.h>
 
+#ifdef MIC_USE_COI_BUFFS_REF_NEW_API
+#include <algorithm>
+#endif
+
 using namespace Intel::OpenCL::MICDevice;
 using namespace Intel::OpenCL::DeviceBackend;
+
+COI_ACCESS_FLAGS ExecutionCommand::m_sCoiAccessFlas[2][ExecutionCommand::LAST] = {{COI_SINK_READ, COI_SINK_WRITE, COI_SINK_WRITE_ENTIRE}, 
+#ifdef MIC_USE_COI_BUFFS_REF_NEW_API
+                                                                                  {COI_SINK_READ_ADDREF, COI_SINK_WRITE_ADDREF, COI_SINK_WRITE_ENTIRE_ADDREF}
+#else
+	                                                                              {COI_SINK_READ, COI_SINK_WRITE, COI_SINK_WRITE_ENTIRE}
+#endif
+                                                                                 };
 
 //
 //  ExecutionCommand Object
@@ -142,7 +154,9 @@ cl_dev_err_code ExecutionCommand::execute()
             init_profiling_mode();
         }
 
-        registerProfilingContext(true);
+        bool cmdUseSyncQueue = m_pCommandList->isSyncQueue(getDispatcherData()->deviceQueuePtr);
+
+        registerProfilingContext(!cmdUseSyncQueue);
 
 #ifdef ENABLE_MIC_TRACER
         // Set command type for the tracer.
@@ -183,12 +197,8 @@ cl_dev_err_code ExecutionCommand::execute()
         }
 #endif
 
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
-		COIEVENT* pEvent = NULL;
-#else
-        // Use completion event for in order queue's only
-        COIEVENT* pEvent = m_pCommandList->isInOrderCommandList() ? &m_endEvent.cmdEvent: NULL;
-#endif
+        // Use completion event for sync queue's only
+        COIEVENT* pEvent = cmdUseSyncQueue ? &m_endEvent.cmdEvent: NULL;
 
         COIRESULT result = COIPipelineRunFunction(pipe,
                                 func,
@@ -222,7 +232,7 @@ cl_dev_err_code ExecutionCommand::execute()
     return executePostDispatchProcess(true);
 }
 
-void ExecutionCommand::AddMemoryObject( MICDevMemoryObject *memObj, bool isConstAccess )
+void ExecutionCommand::AddMemoryObject( MICDevMemoryObject *memObj, bool isConstAccess, bool bufferAddRef )
 {
     // Set the COIBUFFER of coiBuffsArr[currCoiBuffIndex] to be the COIBUFFER that hold the data of the buffer.
     m_coiBuffsArr.push_back(memObj->clDevMemObjGetCoiBufferHandler());
@@ -230,7 +240,7 @@ void ExecutionCommand::AddMemoryObject( MICDevMemoryObject *memObj, bool isConst
     // TODO - Change the flag according to the information about the argument (Not implemented yet by the BE)            
     if ( isConstAccess )
     {
-        m_accessFlagsArr.push_back(COI_SINK_READ);
+        m_accessFlagsArr.push_back(m_sCoiAccessFlas[bufferAddRef][SINK_READ]);
     }
     else
     {
@@ -239,11 +249,11 @@ void ExecutionCommand::AddMemoryObject( MICDevMemoryObject *memObj, bool isConst
 
         if (CL_MEM_READ_ONLY == (CL_MEM_READ_ONLY & mem_flags))
         {
-            m_accessFlagsArr.push_back(COI_SINK_READ);
+            m_accessFlagsArr.push_back(m_sCoiAccessFlas[bufferAddRef][SINK_READ]);
         }
         else
         {
-            m_accessFlagsArr.push_back(COI_SINK_WRITE);
+            m_accessFlagsArr.push_back(m_sCoiAccessFlas[bufferAddRef][SINK_WRITE]);
         }
     }
 }
@@ -260,6 +270,25 @@ void ExecutionCommand::fireCallBack(void* arg)
         }
         __itt_task_begin(m_pCommandList->GetGPAInfo()->pDeviceDomain, __itt_null, __itt_null, pTaskName);
     }
+#endif
+
+    m_pCommandList->releaseDeviceQueue();
+
+#ifdef MIC_USE_COI_BUFFS_REF_NEW_API
+	if ((!m_pCommandList->isSyncQueue(getDispatcherData()->deviceQueuePtr)) && (m_coiBuffsArr.size() > 0))
+	{
+		COIPROCESS proc = m_pCommandList->getDeviceProcess();
+		// We would like to release each buffer instance once, so I will sort the buffers and releaseRefCnt iff the previous pointer is not the current pointer.
+		std::sort( m_coiBuffsArr.begin(), m_coiBuffsArr.end() );
+		COIBufferReleaseRefcnt( proc, m_coiBuffsArr[0], 1);
+		for (unsigned int i = 1; i < m_coiBuffsArr.size(); ++i)
+		{
+			if (m_coiBuffsArr[i] != m_coiBuffsArr[i - 1])
+			{
+				COIBufferReleaseRefcnt( proc, m_coiBuffsArr[i], 1);
+			}
+		}
+	}
 #endif
 
     if (CL_DEV_SUCCESS == m_lastError)
@@ -460,6 +489,13 @@ cl_dev_err_code NDRange::init()
         // Now fill the parameters
         ndrange_dispatcher_data* dispatcherData = (ndrange_dispatcher_data*)m_pDispatchData;
 
+		// set unique command identifier
+        dispatcherData->commandIdentifier = (uint64_t)m_pCmd->id;
+        // set device side command queue pointer
+        dispatcherData->deviceQueuePtr = m_pCommandList->acquireDeviceQueue();
+
+        bool isSyncQueue = m_pCommandList->isSyncQueue(dispatcherData->deviceQueuePtr);
+
         // Get device side kernel address and set kernel directive
         dispatcherData->kernelAddress = ProgramService::GetDeviceSideKernel(cmdParams->kernel);
         if (0 == dispatcherData->kernelAddress)
@@ -487,13 +523,8 @@ cl_dev_err_code NDRange::init()
               memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_ACCELERATOR, 0, (void**)&mem_descriptor);
               recorderMemoryObjects.push_back(mem_descriptor);
             }
-            AddMemoryObject(memObj, CL_KRNL_ARG_PTR_CONST == paramDesc.type);
+            AddMemoryObject(memObj, CL_KRNL_ARG_PTR_CONST == paramDesc.type, !isSyncQueue);
         }
-
-        // set unique command identifier
-        dispatcherData->commandIdentifier = (uint64_t)m_pCmd->id;
-        // set device side command queue pointer
-        dispatcherData->deviceQueuePtr = m_pCommandList->getDeviceQueueAddress();
 
         pUniformArgs->minWorkGroupNum = m_pCommandList->getDeviceServiceComm()->GetNumActiveThreads(); // Need to put MIC configuration here
         assert ( pUniformArgs->minWorkGroupNum > 0 && "Invalid number of active threads on device");
@@ -514,11 +545,10 @@ cl_dev_err_code NDRange::init()
         {
             m_funcId = DeviceServiceCommunication::EXECUTE_NATIVE_KERNEL;
         }
-#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
-        // If the CommandList is OOO
-        if ( !m_pCommandList->isInOrderCommandList() )
+
+        // If the Command going to use aysnc device queue
+        if ( !isSyncQueue )
         {
-#endif
             if ( m_pCmd->profiling )
             {
                 assert(m_pCommandList->isProfilingEnabled() && "Profiling is set for command, but list is not supporting it");
@@ -526,9 +556,7 @@ cl_dev_err_code NDRange::init()
             }
             // Register completion barrier
             registerBarrier(m_endEvent);
-#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
         }
-#endif
         dispatcherData->startEvent = m_startEvent;
         dispatcherData->endEvent = m_endEvent;
     }
@@ -582,8 +610,9 @@ cl_dev_err_code FillMemObject::init()
 
         const cl_mem_obj_descriptor& pMemObj = pMicMemObj->clDevMemObjGetDescriptorRaw();
 
-        m_fillDispatchData.deviceQueuePtr = m_pCommandList->getDeviceQueueAddress();
         m_fillDispatchData.commandIdentifier = (uint64_t)m_pCmd->id;
+        m_fillDispatchData.deviceQueuePtr = m_pCommandList->acquireDeviceQueue();
+		bool isSyncQueue = m_pCommandList->isSyncQueue(m_fillDispatchData.deviceQueuePtr);
 
         // copy the dimension value
         assert(pMemObj.dim_count == cmdParams->dim_count);
@@ -608,13 +637,13 @@ cl_dev_err_code FillMemObject::init()
         m_fillDispatchData.pattern_size = cmdParams->pattern_size;
 
         // Optimization which send the COI buffer as COI_SINK_WRITE_ENTIRE if the user like to over-write the whole buffer.
-        COI_ACCESS_FLAGS dstBuffAccessFlag = COI_SINK_WRITE_ENTIRE;
+        COI_ACCESS_FLAGS dstBuffAccessFlag = m_sCoiAccessFlas[!isSyncQueue][SINK_WRITE_ENTIRE];
         for (unsigned int i = 0; i < m_fillDispatchData.dim_count; i++)
         {
             if ((cmdParams->offset[i] != 0) || ((pMemObj.memObjType == CL_MEM_OBJECT_BUFFER) && (cmdParams->region[i] != pMemObj.dimensions.buffer_size)) ||
               ((pMemObj.memObjType != CL_MEM_OBJECT_BUFFER) && (cmdParams->region[i] != pMemObj.dimensions.dim[i])))
             {
-                dstBuffAccessFlag = COI_SINK_WRITE;
+                dstBuffAccessFlag = m_sCoiAccessFlas[!isSyncQueue][SINK_WRITE];
                 break;
             }
         }
@@ -624,11 +653,9 @@ cl_dev_err_code FillMemObject::init()
         m_accessFlagsArr.push_back(dstBuffAccessFlag);
 
         // Register start barrier
-#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION		
-        // If it is OutOfOrderCommandList, add BARRIER directive to postExeDirectives
-        if ( !m_pCommandList->isInOrderCommandList() )
+        // If the command is going to use async queue on device
+        if ( !isSyncQueue )
         {
-#endif
             // Register start barrier
             if ( m_pCmd->profiling )
             {
@@ -637,9 +664,7 @@ cl_dev_err_code FillMemObject::init()
             }
             // Register completion barrier
             registerBarrier(m_endEvent);
-#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
         }
-#endif
 
         m_fillDispatchData.startEvent = m_startEvent;
         m_fillDispatchData.endEvent = m_endEvent;

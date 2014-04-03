@@ -139,7 +139,13 @@ public:
 
     void getLastDependentBarrier(COIEVENT* barrier, unsigned int* numDependencies, bool isExecutionTask);
 
-    uint64_t getDeviceQueueAddress() const { return m_pDeviceAddress; }
+    /* return the address of the queue on device according to the amount of the commands that currently on device.'
+       Call it only once per device command!!! */
+    uint64_t acquireDeviceQueue();
+    /* Call it when commands that execute on device completed. */
+    void releaseDeviceQueue() { m_numCommandsEnq --; };
+
+    bool isSyncQueue(uint64_t pQueue) const { return (pQueue == m_pDeviceQueueAddress.device_sync_queue_address); };
 
     const DeviceServiceCommunication* getDeviceServiceComm() const { return m_pDeviceServiceComm;}
 
@@ -204,7 +210,9 @@ private:
     AtomicCounter                         m_refCounter;
     // the pipe line to MIC device
     COIPIPELINE                           m_pipe;
-    uint64_t                              m_pDeviceAddress;
+    // Queues addresses on device.
+    DEVICE_QUEUE_STRUCT                   m_pDeviceQueueAddress;
+
     // pointer to static function that create Command object
     static fnCommandCreate_t*             m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE];
     // Sub device ID
@@ -227,6 +235,11 @@ private:
     bool                                  m_isProfilingEnabled;
 
     volatile bool                         m_bIsCanceled;
+
+    // Can be '-1' - No batch, '0' batch all commands (execution commands), '1' - Batch only if at least one command is executing on the device.
+	int                                   m_batchAfter;
+	// Num commands that enqueued to device
+	AtomicCounter                         m_numCommandsEnq;
 
     // ITT/GPA data
 #ifdef USE_ITT

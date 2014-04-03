@@ -98,13 +98,8 @@ cl_dev_err_code Command::executePostDispatchProcess(bool lastCmdWasExecution, bo
 
 void Command::registerProfilingContext(bool mayReplaceByUserEvent)
 {
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
     // If it is command that does not control by user events than set this command as the context otherwise set NULL as the context.
     (false == mayReplaceByUserEvent) ? COINotificationCallbackSetContext(this) : COINotificationCallbackSetContext(NULL);
-#else
-    // If in order queue or it is command that does not control by user events than set this command as the context otherwise set NULL as the context.
-    ((m_pCommandList->isInOrderCommandList()) || (false == mayReplaceByUserEvent)) ? COINotificationCallbackSetContext(this) : COINotificationCallbackSetContext(NULL);
-#endif
 }
 
 void Command::fireCallBack(void* arg)

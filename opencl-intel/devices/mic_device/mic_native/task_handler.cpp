@@ -19,16 +19,13 @@
 // problem reports or change requests be submitted to it directly
 
 #include "task_handler.h"
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
 #include "native_thread_pool.h"
 #include "tbb_memory_allocator.h"
-#endif
+#include "device_queue.h"
 
 #include <cl_shared_ptr.hpp>
 #include <sink/COIBuffer_sink.h>
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
 #include <common/COIPerf_common.h>
-#endif
 
 using namespace Intel::OpenCL::MICDeviceNative;
 
@@ -36,25 +33,19 @@ using namespace Intel::OpenCL::MICDeviceNative;
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 TaskHandlerBase::TaskHandlerBase(
-    uint32_t lockBufferCount, void** pLockBuffers
+    uint32_t lockBufferCount, void** pLockBuffers, QueueOnDevice* pQueue
 #ifdef ENABLE_MIC_TRACER
     , size_t* pLockBufferSizes,
 #endif
     ) :
     m_bufferCount(lockBufferCount), 
-#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION	
-	m_bufferPointers(pLockBuffers),
+    m_bufferPointers(pLockBuffers),
 #ifdef ENABLE_MIC_TRACER
     m_bufferSizes(pLockBufferSizes),
 #endif
-#endif
-    m_errorCode(CL_DEV_SUCCESS), 
-#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION		
-	m_bDuplicated(false)
-#else
-    m_releasehandler(TaskReleaseHandler::getInstance()),
+    m_errorCode(CL_DEV_SUCCESS),
+    m_releasehandler(NULL),
     m_nextTaskToRelease(NULL)
-#endif
 {
 #ifdef ENABLE_MIC_TRACER
   // Set arrival time to device for the tracer
@@ -62,7 +53,9 @@ TaskHandlerBase::TaskHandlerBase(
   // Set command ID for the tracer
   m_commandTracer.set_command_id((size_t)(getDispatcherData().commandIdentifier));
 #endif
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+  if ((pQueue) && (pQueue->IsAsyncExecution()))
+  {
+#ifndef MIC_USE_COI_BUFFS_REF_NEW_API
     // Allocate memory for buffer pointers
     assert(m_bufferCount > 0 && "Command expected to use buffers");
     m_bufferPointers = (void**)Intel::OpenCL::TaskExecutor::ScalableMemAllocator::scalableMalloc(sizeof(void*) * m_bufferCount);
@@ -85,86 +78,42 @@ TaskHandlerBase::TaskHandlerBase(
       }
     }
 #endif
+	m_releasehandler = TaskReleaseHandler::getInstance();
+  }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
-TaskHandlerBase::TaskHandlerBase(const TaskHandlerBase& o) :
-  //m_pQueue(o.m_pQueue),
-  m_bufferCount(o.m_bufferCount),
-  m_errorCode(CL_DEV_SUCCESS),
-  m_bDuplicated(true)
-{
-    // Allocate memory for buffer pointers
-    // TODO: Use TBB scalable allocator
-    assert(m_bufferCount>0 && "Command expected to use buffers");
-    m_bufferPointers = new void*[m_bufferCount];
-    assert( NULL!=m_bufferPointers && "Buffer pointer allocation failed" );
-    memcpy(m_bufferPointers, o.m_bufferPointers, sizeof(void*)*m_bufferCount);
-#ifdef ENABLE_MIC_TRACER
-    m_bufferSizes = new size_t[m_bufferCount];
-    assert(0 && "Buffer sizes allocation failed" );
-    memcpy(m_bufferSizes, o.m_bufferSizes, sizeof(size_t)*m_bufferCount);
-#endif
-    COIRESULT result = COI_SUCCESS;
-    // In case of non blocking task, shall lock all input buffers.
-    for (uint32_t i = 0; i < m_bufferCount; ++i)
-    {
-      // add ref in order to save the buffer on the device
-      result = COIBufferAddRef(m_bufferPointers[i]);
-      if (result != COI_SUCCESS)
-      {
-        setTaskError( CL_DEV_ERROR_FAIL );
-      }
-    }
-}
-#endif
-
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
+#ifndef MIC_USE_COI_BUFFS_REF_NEW_API
 bool TaskHandlerBase::FiniTask()
 {
-#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
-    if ( m_bDuplicated )
+    COIRESULT coiErr = COI_SUCCESS;
+    for (unsigned int i = 0; i < m_bufferCount; i++)
     {
-#endif
-        COIRESULT coiErr = COI_SUCCESS;
-        for (unsigned int i = 0; i < m_bufferCount; i++)
-        {
-            // decrement ref in order to release the buffer
-            coiErr = COIBufferReleaseRef(m_bufferPointers[i]);
-            assert(COI_SUCCESS == coiErr);
-        }
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
-	    assert(m_bufferCount > 0 && "Command expected to use buffers");
-        Intel::OpenCL::TaskExecutor::ScalableMemAllocator::scalableFree(m_bufferPointers);
-#else
-        delete []m_bufferPointers;
-#endif
-        m_bufferPointers = NULL;
-#ifdef ENABLE_MIC_TRACER
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
-        Intel::OpenCL::TaskExecutor::ScalableMemAllocator::scalableFree(m_bufferSizes);
-#else
-        delete []m_bufferSizes;
-#endif
-        m_bufferSizes = NULL;
-#endif
-#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
+        // decrement ref in order to release the buffer
+        coiErr = COIBufferReleaseRef(m_bufferPointers[i]);
+        assert(COI_SUCCESS == coiErr);
     }
+   
+    assert(m_bufferCount > 0 && "Command expected to use buffers");
+    Intel::OpenCL::TaskExecutor::ScalableMemAllocator::scalableFree(m_bufferPointers);
+
+    m_bufferPointers = NULL;
+#ifdef ENABLE_MIC_TRACER
+    Intel::OpenCL::TaskExecutor::ScalableMemAllocator::scalableFree(m_bufferSizes);
+    m_bufferSizes = NULL;
 #endif
+
     return true;
 }
+#endif
 
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
 void* TaskReleaseHandler::DummyTask::m_dummyBuffer = NULL;
 size_t TaskReleaseHandler::DummyTask::m_dummyBufferSize = 0;
 TaskReleaseHandler* TaskReleaseHandler::m_singleton = NULL;
 
-TaskReleaseHandler::TaskReleaseHandler() : OclThread(), m_head(NULL), m_tail(NULL), m_event(true), m_finish(false)
+TaskReleaseHandler::TaskReleaseHandler() : OclThread(), m_head(NULL), m_tail(NULL), m_event(true), m_finish(false), m_initDone(0)
 #ifdef USE_ITT
     ,m_pIttTaskReleaseName(NULL), m_pIttTaskReleaseDomain(NULL)
 #endif
@@ -176,6 +125,7 @@ TaskReleaseHandler::~TaskReleaseHandler()
 	m_finish = true;
 	m_event.Signal();
 	WaitForOsThreadCompletion(GetThreadHandle());
+	m_initDone = 0;
 }
 
 void TaskReleaseHandler::addTask(const Intel::OpenCL::Utils::SharedPtr< TaskHandlerBase >& task)
@@ -227,6 +177,10 @@ RETURN_TYPE_ENTRY_POINT TaskReleaseHandler::Run()
 	const uint64_t cyclesToSpin = freq / 10;
 	unsigned long long spin_up_to = 0;
 	Intel::OpenCL::Utils::SharedPtr< TaskHandlerBase > nextTask = NULL;
+
+	// In this point the initialization completed
+	TAS(&m_initDone, 1);
+
     while ((!m_finish) || (NULL != m_head))
     {
         if (NULL == m_head)
@@ -299,6 +253,6 @@ RETURN_TYPE_ENTRY_POINT TaskReleaseHandler::Run()
 #endif
         }
     }
+    ThreadPool::getInstance()->ReturnAffinitizationResource();
     return (RETURN_TYPE_ENTRY_POINT)NULL;
 }
-#endif

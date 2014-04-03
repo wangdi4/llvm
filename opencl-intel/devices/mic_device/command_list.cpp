@@ -23,7 +23,9 @@
 #include "execution_commands.h"
 #include "buffer_commands.h"
 #include "memory_allocator.h"
+#include "mic_sys_info.h"
 
+#include "cl_sys_defines.h"
 #include <hw_utils.h>
 
 #include <source/COIEvent_source.h>
@@ -63,13 +65,15 @@ CommandList::CommandList(const SharedPtr<NotificationPort>& pNotificationPort,
                          ) :
         m_validBarrier(false), m_pNotificationPort(pNotificationPort),
         m_pDeviceServiceComm(pDeviceServiceComm), m_pFrameworkCallBacks(pFrameworkCallBacks),
-        m_pProgramService(pProgramService), m_pipe(NULL), m_pDeviceAddress(0), m_subDeviceId(subDeviceId),
-        m_pOverhead_data(pOverheadData), m_lastCommand(NULL), m_isInOrderQueue(isInOrder), m_isProfilingEnabled(isProfiling), m_bIsCanceled(false)
+        m_pProgramService(pProgramService), m_pipe(NULL), m_pDeviceQueueAddress(), m_subDeviceId(subDeviceId),
+        m_pOverhead_data(pOverheadData), m_lastCommand(NULL), m_isInOrderQueue(isInOrder), m_isProfilingEnabled(isProfiling), m_bIsCanceled(false),
+        m_batchAfter(MIN(MICSysInfo::getInstance().getMicDeviceConfig().Device_BatchMode(), 1)), m_numCommandsEnq(0)
 #ifdef USE_ITT
         ,m_pGPAData(pGPAData)
 #endif
 {
     m_refCounter = 1;
+    m_pDeviceQueueAddress.init();
 #ifdef _DEBUG
     m_numOfConcurrentExecutions = 0;
 #endif
@@ -360,7 +364,8 @@ cl_dev_err_code CommandList::initCommandListOnDevice()
     data.is_in_order_queue = isInOrderCommandList();
 
     INIT_QUEUE_ON_DEVICE_OUTPUT_STRUCT data_out;
-    data_out.device_queue_address = 0;
+    data_out.device_queue_addresses.device_sync_queue_address = 0;
+    data_out.device_queue_addresses.device_async_queue_address = 0;
     data_out.ret_code             = CL_DEV_SUCCESS;
 
     cl_dev_err_code res = runBlockingFuncOnDevice(DeviceServiceCommunication::INIT_COMMANDS_QUEUE,
@@ -379,8 +384,9 @@ cl_dev_err_code CommandList::initCommandListOnDevice()
         return res;
     }
 
-    assert( 0 != data_out.device_queue_address && "Queue creationFailed to create queue on device");
-    m_pDeviceAddress = data_out.device_queue_address;
+    assert( ((0 != data_out.device_queue_addresses.device_sync_queue_address) || (0 != data_out.device_queue_addresses.device_async_queue_address)) && "Queue creationFailed to create queue on device");
+    m_pDeviceQueueAddress.device_sync_queue_address = data_out.device_queue_addresses.device_sync_queue_address;
+    m_pDeviceQueueAddress.device_async_queue_address = data_out.device_queue_addresses.device_async_queue_address;
     return res;
 }
 
@@ -390,7 +396,7 @@ cl_dev_err_code CommandList::releaseCommandListOnDevice()
     cl_dev_err_code devRes;
 
     res = runBlockingFuncOnDevice(DeviceServiceCommunication::RELEASE_COMMANDS_QUEUE,
-        &m_pDeviceAddress, sizeof(m_pDeviceAddress),
+        &m_pDeviceQueueAddress, sizeof(m_pDeviceQueueAddress),
         &devRes, sizeof(devRes));
 
     assert( CL_DEV_SUCCEEDED(res) && CL_DEV_SUCCEEDED(devRes) && "Failed to release queue");
@@ -399,9 +405,9 @@ cl_dev_err_code CommandList::releaseCommandListOnDevice()
 
 cl_dev_err_code CommandList::cancelCommandList()
 {
-    assert( 0 != m_pDeviceAddress );
+    assert( (0 != m_pDeviceQueueAddress.device_sync_queue_address) && (0 != m_pDeviceQueueAddress.device_async_queue_address) );
 
-    if (0 == m_pDeviceAddress)
+    if ((0 == m_pDeviceQueueAddress.device_sync_queue_address) || (0 == m_pDeviceQueueAddress.device_async_queue_address))
     {
         return CL_DEV_INVALID_VALUE;
     }
@@ -411,7 +417,7 @@ cl_dev_err_code CommandList::cancelCommandList()
     // run cancel command in a service pipeline - in parallel to running and queued commands
     utility_function_options    data;
     data.request                            = QUEUE_CANCEL;
-    data.options.queue_cancel.queue_address = m_pDeviceAddress;
+    data.options.queue_cancel.queue_address = m_pDeviceQueueAddress;
 
     bool ok = m_pDeviceServiceComm->runServiceFunction( DeviceServiceCommunication::EXECUTE_DEVICE_UTILITY,
                                                         sizeof(data),  &data, 
@@ -477,6 +483,21 @@ void CommandList::resetLastCommand(const SharedPtr<Command>& oldCommand)
     {
         m_lastCommand = NULL;
     }
+}
+
+uint64_t CommandList::acquireDeviceQueue() 
+{
+	uint64_t address = 0;
+	long tNumEnq = ++ m_numCommandsEnq;
+	if (((m_batchAfter < 0) || (tNumEnq <= m_batchAfter)) && (m_isInOrderQueue))
+	{
+		address = m_pDeviceQueueAddress.device_sync_queue_address;
+	}
+	else
+	{
+		address = m_pDeviceQueueAddress.device_async_queue_address;
+	}
+	return address; 
 }
 
 void CommandList::getLastDependentBarrier(COIEVENT* barrier, unsigned int* numDependencies, bool isExecutionTask)
