@@ -2,6 +2,7 @@
 // KNL math implementation
 //////////////////////////////////////////////////////////////////////////////////////////////
 
+// Redefine "special care" types inherited from AVX2 to make ocl-tblgen use them instead
 list<OclType> math_svml_vF_expand = [v16f64];
 list<OclType> math_svml_vFpvI32_expand = [v16f64];
 list<OclType> math_svml_vFpvF_expand = [v16f64];
