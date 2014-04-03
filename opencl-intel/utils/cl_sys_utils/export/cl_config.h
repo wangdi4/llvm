@@ -537,6 +537,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
          * @return the dynamically detected OpenCL version (according to registry in Windows and /etc/ in Linux)
          */        
         OPENCL_VERSION GetOpenCLVersion() const;
+        bool DisableStackDump() const { return m_pConfigFile->Read<bool>("CL_DISABLE_STACK_TRACE", false ); }
 	
 	private:
 		BasicCLConfigWrapper(const BasicCLConfigWrapper&);

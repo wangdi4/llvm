@@ -21,11 +21,55 @@ File Name:  CompilerConfig.cpp
 #include "llvm/Support/Debug.h"
 
 #include <stdlib.h> // getenv
+#include <string.h>
 #include <sstream>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 const char* CPU_ARCH_AUTO = "auto";
+
+void GlobalCompilerConfig::LoadDefaults()
+{
+    m_enableTiming = false;
+    m_disableStackDump = false;
+    m_infoOutputFile = "";
+}
+
+static bool parseBool(const char *val) {
+    if (!strcmp(val, "0")     ||
+        !strcmp(val, "FALSE") ||
+        !strcmp(val, "False") ||
+        !strcmp(val, "false") ||
+        !strcmp(val, "NO")    ||
+        !strcmp(val, "No")    ||
+        !strcmp(val, "no")    ||
+        !strcmp(val, "F")     ||
+        !strcmp(val, "f")     ||
+        !strcmp(val, "N")     ||
+        !strcmp(val, "n")     ||
+        !strcmp(val, "NONE")  ||
+        !strcmp(val, "None")  ||
+        !strcmp(val, "none"))
+        return false;
+    return true;
+}
+
+void GlobalCompilerConfig::LoadConfig()
+{
+    if (const char *pEnv = getenv("VOLCANO_ENABLE_TIMING"))
+    {
+        m_enableTiming = !strcmp(pEnv, "TRUE");
+    }
+    if (const char *pEnv = getenv("CL_DISABLE_STACK_TRACE"))
+    {
+        m_disableStackDump = parseBool(pEnv);
+    }
+    if (const char *pEnv = getenv("VOLCANO_INFO_OUTPUT_FILE"))
+    {
+        m_infoOutputFile = pEnv;
+    }
+
+}
 
 void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
 {

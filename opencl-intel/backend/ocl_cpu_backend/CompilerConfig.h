@@ -31,8 +31,8 @@ DEFINE_EXCEPTION(BadConfigException)
 class GlobalCompilerConfig: public IGlobalCompilerConfig
 {
 public:
-    void LoadDefaults() { m_enableTiming = false; }
-    void LoadConfig() {}
+    void LoadDefaults();
+    void LoadConfig();
     void SkipBuiltins();
     void ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions);
 
