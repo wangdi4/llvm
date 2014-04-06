@@ -15,8 +15,8 @@ Copyright (c) Intel Corporation (2010).
 File Name:  MICSerializationService.h
 
 \*****************************************************************************/
-#ifndef __SERIALIZATION_SERVICE
-#define __SERIALIZATION_SERVICE
+#ifndef __MIC_SERIALIZATION_SERVICE
+#define __MIC_SERIALIZATION_SERVICE
 
 #include "cl_dev_backend_api.h"
 #include "IAbstractBackendFactory.h"
@@ -26,27 +26,6 @@ File Name:  MICSerializationService.h
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 class TargetDescription;
-
-class SerializationStatus
-{
-public:
-    SerializationStatus();
-    
-    void  SetPointerMark(const std::string& mark, void* pointer);
-    void* GetPointerMark(const std::string& mark);
-    
-    void SetJITAllocator(ICLDevBackendJITAllocator* pJITAllocator);
-    ICLDevBackendJITAllocator* GetJITAllocator();
-
-    void SetBackendFactory(IAbstractBackendFactory* pBackendFactory);
-    IAbstractBackendFactory* GetBackendFactory();
-    
-private:
-    ICLDevBackendJITAllocator* m_pJITAllocator;
-    IAbstractBackendFactory* m_pBackendFactory;
-    
-    std::map<std::string, void*> m_marksMap;
-};
 
 class DefaultJITMemoryManager : public ICLDevBackendJITAllocator
 {
@@ -82,10 +61,15 @@ public:
         const ICLDevBackendProgram_* pProgram, 
         void* pBlob, size_t blobSize) const;
 
+    virtual cl_dev_err_code ReloadProgram(
+        cl_serialization_type serializationType, 
+        ICLDevBackendProgram_* pProgram, 
+        const void* pBlob, size_t blobSize) const;
+
     virtual cl_dev_err_code DeSerializeProgram(
+        cl_serialization_type serializationType, 
         ICLDevBackendProgram_** ppProgram, 
-        const void* pBlob,
-        size_t blobSize) const;
+        const void* pBlob, size_t blobSize) const;
     
     virtual void ReleaseProgram(ICLDevBackendProgram_* pProgram) const;
 
@@ -113,4 +97,4 @@ private:
 
 }}} // namespace
 
-#endif // __SERIALIZATION_SERVICE
+#endif // __MIC_SERIALIZATION_SERVICE

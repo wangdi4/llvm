@@ -11,8 +11,8 @@ set( TARGET_SOURCE_FILES
     imathLibd.cpp
     stdafx.cpp
 )
-  
- # project header files
+
+# project header files
 set( TARGET_HEADER_FILES
     stdafx.h
     targetver.h
@@ -20,7 +20,7 @@ set( TARGET_HEADER_FILES
 )
 
 include_directories(
-    ${BACKEND_ROOT_DIR}/../cl_api 
+    ${BACKEND_ROOT_DIR}/../cl_api
 )
 
 if (CMAKE_SIZEOF_VOID_P EQUAL 4)
@@ -33,7 +33,7 @@ endif ()
 # we have to set proper compiler options:
 if (WIN32)
 set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:source /fp:strict /Qlong-double /Qpc80 /Qprec-div" )
-set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /fp:source /fp:strict /Qlong-double /Qpc80 /Qprec-div" ) 
+set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /fp:source /fp:strict /Qlong-double /Qpc80 /Qprec-div" )
 else ()
 set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fp-model extended -pc80 -prec-div" )
 set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fp-model extended -pc80 -prec-div" )
@@ -49,8 +49,8 @@ if (WIN32)
         ${TARGET_SOURCE_FILES}
         ${TARGET_HEADER_FILES}
     )
-    
-    install(TARGETS ${TARGET_NAME} 
+
+    install(TARGETS ${TARGET_NAME}
         RUNTIME DESTINATION bin
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION bin)
@@ -58,15 +58,17 @@ if (WIN32)
 
 else (WIN32)
      # search for the icc cpu compiler
+    set( ICC_DIR "/opt/intel/composerxe/bin")
+
     set (ICC_CPU_CL icpc)
     set (ICC_CPU_LD icpc)
 
-    find_program (ICC_CPU_COMPILER_PROGRAM ${ICC_CPU_CL} NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH NO_CMAKE_SYSTEM_PATH NO_CMAKE_FIND_ROOT_PATH)
+    find_program (ICC_CPU_COMPILER_PROGRAM ${ICC_CPU_CL} ${ICC_DIR} NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH NO_CMAKE_SYSTEM_PATH NO_CMAKE_FIND_ROOT_PATH)
     if (${ICC_CPU_COMPILER_PROGRAM} STREQUAL "ICC_CPU_COMPILER_PROGRAM-NOTFOUND")
         message (FATAL_ERROR "ICC(CPU) ${ICC_CPU_COMPILER_PROGRAM} is not installed in the system")
     endif()
 
-    # search for the compilervars script (intel compiler 12)
+    # search for the compilervars script (intel compiler 12 or 13)
     set (ICC_COMPILER_VARS compilervars.sh)
     string(REPLACE "${ICC_PLATFORM}/${ICC_CPU_CL}" ${ICC_COMPILER_VARS} ICC_CPU_ENV_SCRIPT "${ICC_CPU_COMPILER_PROGRAM}")
     string(REPLACE "${ICC_CPU_CL}" ${ICC_COMPILER_VARS} ICC_CPU_ENV_SCRIPT "${ICC_CPU_ENV_SCRIPT}")
@@ -105,7 +107,7 @@ else (WIN32)
     set (IMATHLIBD_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
     message (STATUS " ${TARGET_NAME} sources are in: ${IMATHLIBD_SOURCE_DIR}")
 
-    # target directory for .dll/.so 
+    # target directory for .dll/.so
     set(IMATHLIBD_INSTALL_DIR ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR})
     set(IMATHLIBD_LIB_DIR ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR})
     message (STATUS "IMATHLIBD library will be in: ${IMATHLIBD_INSTALL_DIR}")
@@ -125,10 +127,10 @@ else (WIN32)
 
       get_filename_component (NAMEF ${INPUT_FILE} NAME_WE )
       set (OUTPUT_FILE ${NAMEF}${CMAKE_C_OUTPUT_EXTENSION} )
-      
+
       add_custom_command (
         OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}
-        COMMAND ${COMPILER_SCRIPT} $<CONFIGURATION> ${INPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE} 
+        COMMAND ${COMPILER_SCRIPT} $<CONFIGURATION> ${INPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE}
         MAIN_DEPENDENCY ${INPUT_FILE}
         DEPENDS ${COMPILER_SCRIPT} ${TARGET_HEADER_FILES}
         IMPLICIT_DEPENDS CXX ${INPUT_FILE}
@@ -163,13 +165,13 @@ else (WIN32)
         set (PDB_FILE ${TARGET_NAME}.pdb)
 
         # Compile all files and prepare a 'TMP_FILES' list of object files
-        foreach (FILE ${ARGN})   
+        foreach (FILE ${ARGN})
             compile_c( ${COMPILER_SCRIPT} TMP_OBJ ${FILE} ${OUTPUT_DIR})
             set (TMP_FILES "${TMP_FILES} ${TMP_OBJ}")
             list (APPEND TMP_FILES_DEPEND ${TMP_OBJ})
         endforeach (FILE)
 
-        # link C library 
+        # link C library
         add_custom_command (
           OUTPUT ${IMATHLIBD_INSTALL_DIR}/${OUTPUT_FILE}
           COMMAND ${LINKER_SCRIPT} $<CONFIGURATION> ${IMATHLIBD_INSTALL_DIR}/${OUTPUT_FILE} ${IMATHLIBD_INSTALL_DIR}/${PDB_FILE} ${IMATHLIBD_LIB_DIR}/${IMPLIB_FILE} ${TMP_FILES}
@@ -201,17 +203,17 @@ else (WIN32)
 
     # configuring ICC compiler and linker scripts (the configured scripts are in ${CMAKE_CURRENT_BINARY_DIR})
     configure_file (${ICC_CPU_COMPILER_SCRIPT} ${CMAKE_CURRENT_BINARY_DIR}/${ICC_CPU_COMPILER_SCRIPT} @ONLY)
-    configure_file (${ICC_CPU_LINKER_SCRIPT}   ${CMAKE_CURRENT_BINARY_DIR}/${ICC_CPU_LINKER_SCRIPT} @ONLY) 
+    configure_file (${ICC_CPU_LINKER_SCRIPT}   ${CMAKE_CURRENT_BINARY_DIR}/${ICC_CPU_LINKER_SCRIPT} @ONLY)
 
     # redefine ICC compiler and linker scripts to their new locations
     set (ICC_CPU_COMPILER_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/${ICC_CPU_COMPILER_SCRIPT})
     set (ICC_CPU_LINKER_SCRIPT   ${CMAKE_CURRENT_BINARY_DIR}/${ICC_CPU_LINKER_SCRIPT})
-      
+
 
     # intermediate directory for OpenCL and ICC compilation/link
     # note that platform is already accounted by ${CMAKE_CURRENT_BINARY_DIR}
     set (INTERMEDIATE_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
-     
+
     # build DLL/.so file out of C code (by ICC) and copy it to install directory
     add_c_library( ${ICC_CPU_LINKER_SCRIPT} ${ICC_CPU_COMPILER_SCRIPT} OUTPUT_C_LIB ${TARGET_NAME} ${INTERMEDIATE_OUTPUT_DIR} ${TARGET_SOURCE_FILES})
 
@@ -226,6 +228,6 @@ else (WIN32)
     )
 
     install( FILES ${IMATHLIBD_LIB_DIR}/${OUTPUT_C_LIB} DESTINATION bin)
-    
+
 endif (WIN32)
 

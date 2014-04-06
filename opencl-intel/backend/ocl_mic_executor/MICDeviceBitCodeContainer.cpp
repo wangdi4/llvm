@@ -36,7 +36,7 @@ BitCodeContainer::~BitCodeContainer()
 {
 }
 
-const cl_prog_container_header* BitCodeContainer::GetCode() const
+const void* BitCodeContainer::GetCode() const
 {
     return NULL;
 }

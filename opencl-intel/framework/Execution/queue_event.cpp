@@ -44,7 +44,8 @@ using namespace Intel::OpenCL::Utils;
 QueueEvent::QueueEvent(const SharedPtr<IOclCommandQueueBase>& cmdQueue) :
     OclEvent(cmdQueue?cmdQueue->GetParentHandle():CL_INVALID_HANDLE),
     m_bProfilingEnabled(false), m_pCommand(NULL), m_pEventQueue(cmdQueue),
-    m_pEventQueueHandle(m_pEventQueue->GetHandle()), m_bEverIssuedToDevice(false)
+    m_pEventQueueHandle(m_pEventQueue->GetHandle()), m_pEventQueueId(m_pEventQueue->GetId()), 
+    m_pEventQueueIsOOO(m_pEventQueue->IsOutOfOrderExecModeEnabled()), m_bEverIssuedToDevice(false)
 {
     m_sProfilingInfo.m_ulCommandQueued    = 0;
     m_sProfilingInfo.m_ulCommandSubmit    = 0;
@@ -358,16 +359,11 @@ void QueueEvent::DoneWithDependencies(const SharedPtr<OclEvent>& pEvent)
 {
     if (EVENT_STATE_HAS_DEPENDENCIES == GetEventState())
     {
-        SharedPtr<QueueEvent>                pQEvent  = pEvent.DynamicCast<QueueEvent>();
-        SharedPtr<IOclCommandQueueBase> pQEventQueue  = NULL;
-        if (NULL != pQEvent)
-        {
-            pQEventQueue = pQEvent->GetEventQueue();
-        }
+        SharedPtr<QueueEvent>   pQEvent    = pEvent.DynamicCast<QueueEvent>();
+        
+        bool                    bSameQueue = ((NULL != pQEvent) && (pQEvent->GetEventQueueId() == m_pEventQueueId));
 
-        bool bOOO       = m_pEventQueue->IsOutOfOrderExecModeEnabled();
-        bool bSameQueue = ((NULL != pQEventQueue) && (pQEventQueue->GetId() == m_pEventQueue->GetId()));
-        if (bSameQueue && !bOOO)
+        if (bSameQueue && !m_pEventQueueIsOOO)
         {
             //If we're both on the same in-order command queue, the other event will flush it so I don't need to
             SetEventState(EVENT_STATE_READY_TO_EXECUTE);
@@ -376,6 +372,7 @@ void QueueEvent::DoneWithDependencies(const SharedPtr<OclEvent>& pEvent)
         {
             //Else, I need to notify my queue that I'm ready to execute
             //I need to cache my own event queue since once I set my state to "ready to execute" I may complete and NULLify/deref my queue
+            // no need to lock here as we are still EVENT_STATE_HAS_DEPENDENCIES and queue may be reset only after execution
             SharedPtr<IOclCommandQueueBase> pMyEventQueue = m_pEventQueue;
             SetEventState(EVENT_STATE_READY_TO_EXECUTE);
             pMyEventQueue->NotifyStateChange(this, EVENT_STATE_HAS_DEPENDENCIES, EVENT_STATE_READY_TO_EXECUTE);
@@ -388,20 +385,23 @@ void QueueEvent::NotifyComplete(cl_int returnCode /* = CL_SUCCESS */)
     NotifyObservers(returnCode);
     m_pEventQueue->NotifyStateChange(this, EVENT_STATE_EXECUTING_ON_DEVICE, EVENT_STATE_DONE);
     //No longer need my queue reference
-    m_pEventQueue = NULL;
+    {
+        // Lock required because of races with EventsManager::WaitForEvents that may be used from other thread
+        OclAutoMutex lock( &m_queueLock );
+        m_pEventQueue = NULL;
+    }
     MarkAsComplete();
 }
 
-void QueueEvent::SetEventQueue(const SharedPtr<IOclCommandQueueBase>& pQueue)
+const SharedPtr<IOclCommandQueueBase> QueueEvent::GetEventQueue() const 
 {
-    m_pEventQueue = pQueue;
-    m_pEventQueueHandle = m_pEventQueue->GetHandle();
+    // Lock required because of races with QueueEvent::NotifyComplete that may be used from other thread
+    m_queueLock.Lock();
+    const SharedPtr<IOclCommandQueueBase> queue = m_pEventQueue;
+    m_queueLock.Unlock();
+    return queue;
 }
 
-cl_command_queue QueueEvent::GetQueueHandle() const
-{
-    return GetEventQueue()->GetHandle();
-}
 cl_int QueueEvent::GetReturnCode() const
 {
     return m_pCommand->GetReturnCode();

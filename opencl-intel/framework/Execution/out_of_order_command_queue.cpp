@@ -37,17 +37,17 @@ using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
 OutOfOrderCommandQueue::OutOfOrderCommandQueue(
-	SharedPtr<Context>                    pContext,
-	cl_device_id                clDefaultDeviceID, 
-	cl_command_queue_properties clProperties,
-	EventsManager*              pEventManager
-	) :
-	IOclCommandQueueBase(pContext, clDefaultDeviceID, clProperties, pEventManager),
-	m_depOnAll(NULL),
-	m_commandsInExecution(0),
-	m_lastBarrier(NULL),
-	m_unflushedCommands(0)
-{		
+    SharedPtr<Context>                    pContext,
+    cl_device_id                clDefaultDeviceID, 
+    cl_command_queue_properties clProperties,
+    EventsManager*              pEventManager
+    ) :
+    IOclCommandQueueBase(pContext, clDefaultDeviceID, clProperties, pEventManager),
+    m_depOnAll(NULL),
+    m_commandsInExecution(0),
+    m_lastBarrier(NULL),
+    m_unflushedCommands(0)
+{        
 }
 
 OutOfOrderCommandQueue::~OutOfOrderCommandQueue() 
@@ -57,12 +57,12 @@ OutOfOrderCommandQueue::~OutOfOrderCommandQueue()
 cl_err_code OutOfOrderCommandQueue::Initialize()
 {
      cl_dev_subdevice_id subdevice_id = m_pContext->GetSubdeviceId(m_clDefaultDeviceHandle);
-	 cl_dev_err_code retDev = m_pDefaultDevice->GetDeviceAgent()->clDevCreateCommandList(CL_DEV_LIST_ENABLE_OOO, subdevice_id, &m_clDevCmdListId);
-	 if (CL_DEV_FAILED(retDev))
-	 {
-		 m_clDevCmdListId = 0;
-		 return CL_OUT_OF_RESOURCES;
-	 }
+     cl_dev_err_code retDev = m_pDefaultDevice->GetDeviceAgent()->clDevCreateCommandList(CL_DEV_LIST_ENABLE_OOO, subdevice_id, &m_clDevCmdListId);
+     if (CL_DEV_FAILED(retDev))
+     {
+         m_clDevCmdListId = 0;
+         return CL_OUT_OF_RESOURCES;
+     }
 
      Command* pDepOnAll = new MarkerCommand(this, 0);
      if (NULL == pDepOnAll)
@@ -72,8 +72,8 @@ cl_err_code OutOfOrderCommandQueue::Initialize()
      // This floating dependence will be resolved at the completion of clEnqueueMarker/Barrier sequence to this queue (AddDependentOnAll)
      pDepOnAll->GetEvent()->AddFloatingDependence();
      pDepOnAll->GetEvent()->Release();
-	 m_depOnAll = pDepOnAll;
-	 return CL_SUCCESS;	
+     m_depOnAll = pDepOnAll;
+     return CL_SUCCESS;    
 }
 
 long OutOfOrderCommandQueue::Release()
@@ -81,59 +81,56 @@ long OutOfOrderCommandQueue::Release()
     const long ref = IOclCommandQueueBase::Release();
     if (0 == ref && m_depOnAll)
     {
-    	m_depOnAll->GetEvent()->RemoveFloatingDependence();
-    	m_depOnAll = NULL;
-#if 0    	
-        delete m_depOnAll;
-#endif        
+        m_depOnAll->GetEvent()->RemoveFloatingDependence();
+        m_depOnAll = NULL;
     }
     return ref;
 }
 
 void OutOfOrderCommandQueue::Submit(Command* cmd)
 {
-	if ( m_bProfilingEnabled )
-	{
-		cmd->GetEvent()->SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT,
-			m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
-	}
-	cmd->SetDevCmdListId(m_clDevCmdListId);
-	cmd->GetEvent()->SetEventState(EVENT_STATE_ISSUED_TO_DEVICE);
+    if ( m_bProfilingEnabled )
+    {
+        cmd->GetEvent()->SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT,
+            m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
+    }
+    cmd->SetDevCmdListId(m_clDevCmdListId);
+    cmd->GetEvent()->SetEventState(EVENT_STATE_ISSUED_TO_DEVICE);
     cl_err_code res = (m_bCancelAll) ? cmd->Cancel() : cmd->Execute();
-	if (CL_SUCCEEDED(res))
-	{
-		if ( RUNTIME_EXECUTION_TYPE != cmd->GetExecutionType() )
-		{
-			++m_unflushedCommands;
-			// Must flush here or risk deadlock if the tbb task is exiting and this was the last operation done in user code
+    if (CL_SUCCEEDED(res))
+    {
+        if ( RUNTIME_EXECUTION_TYPE != cmd->GetExecutionType() )
+        {
+            ++m_unflushedCommands;
+            // Must flush here or risk deadlock if the tbb task is exiting and this was the last operation done in user code
             Flush(false);
-		}
-	}
-	else // Not succeeded, check real value
-	{
-		if (res == CL_DONE_ON_RUNTIME )
-		{
-			cmd->GetEvent()->SetEventState(EVENT_STATE_DONE);
-			cmd->CommandDone();
-		}
-		else
-		{
-			assert(res == CL_NOT_READY);
-		}
-	}
+        }
+    }
+    else // Not succeeded, check real value
+    {
+        if (res == CL_DONE_ON_RUNTIME )
+        {
+            cmd->GetEvent()->SetEventState(EVENT_STATE_DONE);
+            cmd->CommandDone();
+        }
+        else
+        {
+            assert(res == CL_NOT_READY);
+        }
+    }
 }
 
 cl_err_code OutOfOrderCommandQueue::Enqueue(Command* cmd)
 {
-	OclAutoMutex mu(&m_muLastBarrer);
-	
-	SharedPtr<OclEvent> cmdEvent = cmd->GetEvent();
-	m_depOnAll->GetEvent()->AddDependentOn(cmdEvent);
+    OclAutoMutex mu(&m_muLastBarrer);
+    
+    SharedPtr<OclEvent> cmdEvent = cmd->GetEvent();
+    m_depOnAll->GetEvent()->AddDependentOn(cmdEvent);
     if (NULL != m_lastBarrier)
     {
         cmdEvent->AddDependentOn( m_lastBarrier );
     }
-	return CL_SUCCESS;
+    return CL_SUCCESS;
 }
 
 cl_err_code OutOfOrderCommandQueue::EnqueueMarkerWaitForEvents(Command* marker)
@@ -156,7 +153,7 @@ cl_err_code OutOfOrderCommandQueue::EnqueueBarrierWaitForEvents(Command* barrier
 {
     if (!barrier->IsDependentOnEvents())
     {
-		OclAutoMutex mu(&m_muLastBarrer);
+        OclAutoMutex mu(&m_muLastBarrer);
         m_lastBarrier = barrier->GetEvent();
         const cl_err_code ret = AddDependentOnAll(barrier);
         return ret;
@@ -165,57 +162,57 @@ cl_err_code OutOfOrderCommandQueue::EnqueueBarrierWaitForEvents(Command* barrier
 }
 
 cl_err_code OutOfOrderCommandQueue::EnqueueWaitForEvents(Command* cmd)
-{		
-	OclAutoMutex mu(&m_muLastBarrer);
+{        
+    OclAutoMutex mu(&m_muLastBarrer);
 
-	SharedPtr<OclEvent> cmdEvent = cmd->GetEvent();
-	m_depOnAll->GetEvent()->AddDependentOn(cmdEvent);
+    SharedPtr<OclEvent> cmdEvent = cmd->GetEvent();
+    m_depOnAll->GetEvent()->AddDependentOn(cmdEvent);
     if (NULL != m_lastBarrier)
     {
         cmdEvent->AddDependentOn( m_lastBarrier );
     }
     m_lastBarrier = cmdEvent;
-	return CL_SUCCESS;	
+    return CL_SUCCESS;    
 }
 
 cl_err_code OutOfOrderCommandQueue::Flush(bool bBlocking)
-{	
-	long prev = m_unflushedCommands.exchange(0);
-	if (prev > 0)
-	{
-		m_pDefaultDevice->GetDeviceAgent()->clDevFlushCommandList(m_clDevCmdListId);
-	}
+{    
+    long prev = m_unflushedCommands.exchange(0);
+    if (prev > 0)
+    {
+        m_pDefaultDevice->GetDeviceAgent()->clDevFlushCommandList(m_clDevCmdListId);
+    }
 
-	return CL_SUCCESS;	
+    return CL_SUCCESS;    
 }
 
 cl_err_code OutOfOrderCommandQueue::NotifyStateChange( const SharedPtr<QueueEvent>& pEvent, OclEventState prevColor, OclEventState newColor )
-{	
-	if ((EVENT_STATE_READY_TO_EXECUTE == newColor) || m_bCancelAll)
-	{
-		Command* cmd = pEvent->GetCommand();
-		if ( cmd->isControlCommand() )
-		{
-			bool isMarker = (CL_COMMAND_MARKER == cmd->GetCommandType());
-			// Control command is Ready
-			pEvent->SetEventState(EVENT_STATE_ISSUED_TO_DEVICE);
-			cmd->Execute(); // CommandDone() and color change are applied inside Execute() call.
+{    
+    if ((EVENT_STATE_READY_TO_EXECUTE == newColor) || m_bCancelAll)
+    {
+        Command* cmd = pEvent->GetCommand();
+        if ( cmd->isControlCommand() )
+        {
+            bool isMarker = (CL_COMMAND_MARKER == cmd->GetCommandType());
+            // Control command is Ready
+            pEvent->SetEventState(EVENT_STATE_ISSUED_TO_DEVICE);
+            cmd->Execute(); // CommandDone() and color change are applied inside Execute() call.
 
-			if ( !isMarker )
-			{							
-				OclAutoMutex mu(&m_muLastBarrer);
+            if ( !isMarker )
+            {                            
+                OclAutoMutex mu(&m_muLastBarrer);
                 if (pEvent == m_lastBarrier)
                 {
                     m_lastBarrier = NULL;
                 }
-			}
-		}
-		else
-		{
-			Submit(cmd);
-		}
+            }
+        }
+        else
+        {
+            Submit(cmd);
+        }
     }
-	return CL_SUCCESS;
+    return CL_SUCCESS;
 }
 
 
@@ -224,7 +221,7 @@ cl_err_code OutOfOrderCommandQueue::AddDependentOnAll(Command* cmd)
 {
     assert(NULL != cmd);
 
-	Command* pNewDepOnAll = new MarkerCommand(this, 0);
+    Command* pNewDepOnAll = new MarkerCommand(this, 0);
     if (NULL == pNewDepOnAll)
     {
         return CL_OUT_OF_HOST_MEMORY;
@@ -233,21 +230,17 @@ cl_err_code OutOfOrderCommandQueue::AddDependentOnAll(Command* cmd)
     SharedPtr<QueueEvent> pNewDepnOnAllEvent = pNewDepOnAll->GetEvent();
     SharedPtr<QueueEvent> pCommandEvent      = cmd->GetEvent();
 
-	pNewDepnOnAllEvent->AddFloatingDependence();
+    pNewDepnOnAllEvent->AddFloatingDependence();
     pNewDepnOnAllEvent->Release();
     
     // First of all create a new "depends on all" object and put it in place.
     // Then link dependencies: new "dep on all" depends on command (marker/barrier) depends on old "dep on all"
     // Finally remove the floating dependence to allow the thing to resolve in due course.
 
-	Command* pOldDepOnAll = (Command*)m_depOnAll.exchange(pNewDepOnAll);
+    Command* pOldDepOnAll = (Command*)m_depOnAll.exchange(pNewDepOnAll);
     SharedPtr<QueueEvent> pOldDepOnAllEvent = pOldDepOnAll->GetEvent();
-#if 0    
-	pOldDepOnAllEvent->AddFloatingDependence();
-	pOldDepOnAllEvent->SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
-#endif	
-	pCommandEvent->AddDependentOn(pOldDepOnAllEvent);
-	pOldDepOnAllEvent->RemoveFloatingDependence();
+    pCommandEvent->AddDependentOn(pOldDepOnAllEvent);
+    pOldDepOnAllEvent->RemoveFloatingDependence();
     return CL_SUCCESS;
 }
 

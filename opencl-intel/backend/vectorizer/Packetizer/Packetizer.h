@@ -230,6 +230,14 @@ private:
   /// @return True if this value can be transposed, False otherwise
   bool canTransposeMemory(Value* addr, Value* origVal, bool isLoad, bool isScatterGather, bool isMasked);
 
+  /// @brief When obtaining a load-transpose instruction,
+  /// we can only obtain it if all of its users are extractElement instructions.
+  /// a PHI-Node user can ruin this optimization opportunity for no reason,
+  /// so in this method we 'postpone' such phi-nodes, that is,
+  /// move the extractElement instructions upwards, and replace
+  /// the phi with (vector_width) scalar phis.
+  void postponePHINodesAfterExtracts();
+
   /// @brief Obtains information about extracts and inserts that will need to be transposed
   /// This function has side effects through the m_storeTranspMap, m_loadTranspMap and
   /// m_removedInst fields.
@@ -288,6 +296,12 @@ private:
   /// @param val value to work on
   /// @return Instruction to be added after
   Instruction * findInsertPoint(Value * val);
+
+  /// @brief Check what needs to be done in order to obtain the vectorized value.
+  /// If this requires creating multiple (vector_width) InsertElement instructions,
+  /// returns true. Otherwise returns false.
+  /// @param origValue the value that we might want to vectorize.
+  bool isInsertNeededToObtainVectorizedValue(Value * origValue);
 
   /// @brief Provides vectorized values, to be used as inputs to "currently"
   ///  converted instructions. If value requires preparation (found, but not

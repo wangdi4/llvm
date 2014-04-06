@@ -21,6 +21,7 @@ File Name:  Kernel.cpp
 #include "ImplicitArgsUtils.h"
 #include "TypeAlignment.h"
 #include "exceptions.h"
+#include "Serializer.h"
 
 #if defined (__MIC__) || defined(__MIC2__)
   #include "mic_dev_limits.h"
@@ -82,11 +83,13 @@ Kernel::Kernel(const std::string &name,
                const std::vector<unsigned int> &memArgs,
                KernelProperties *pProps)
     : m_name(name), m_CSRMask(0), m_CSRFlags(0), m_explicitArgs(args),
+      m_RequiredUniformKernelArgsAlignment(MinRequiredKernelArgAlignment),
       m_memArgs(memArgs), m_pProps(pProps) {
   if (!m_explicitArgs.empty()) {
     // calculates the whole explicit arguments buffer size
     // offset of the last argument in the buffer + argumentSize
-    // and adjust alignment
+    // and adjust each argument at least to size_t alignment
+    // because of the implicit arguments
     const cl_kernel_argument &lastArg = m_explicitArgs.back();
     m_explicitArgsSizeInBytes = ImplicitArgsUtils::getAdjustedAlignment(
         lastArg.offset_in_bytes + TypeAlignment::getSize(lastArg),
@@ -107,7 +110,6 @@ Kernel::Kernel(const std::string &name,
   m_CSRFlags |= _MM_ROUND_NEAREST; // Default
 
   // calculating the required alignment for the arguments buffer
-  m_RequiredUniformKernelArgsAlignment = MinRequiredKernelArgAlignment;
   for (unsigned int i = 0; i < m_explicitArgs.size(); ++i) {
     if (m_RequiredUniformKernelArgsAlignment < TypeAlignment::getAlignment(m_explicitArgs[i])) {
       m_RequiredUniformKernelArgsAlignment = TypeAlignment::getAlignment(m_explicitArgs[i]);
@@ -536,12 +538,114 @@ cl_dev_err_code Kernel::RestoreThreadState(ICLDevExecutionState &state) const {
   return CL_DEV_SUCCESS;
 }
 
+void Kernel::Serialize(IOutputStream& ost, SerializationStatus* stats) const
+{
+  Serializer::SerialString(m_name, ost);
+
+  // Serialize the CSRMask and CSRFlags
+  Serializer::SerialPrimitive<unsigned int>(&m_CSRMask, ost);
+  Serializer::SerialPrimitive<unsigned int>(&m_CSRFlags, ost);
+
+  // Serialize the kernel arguments (one by one)
+  unsigned int vectorSize = m_explicitArgs.size();
+  Serializer::SerialPrimitive<unsigned int>(&vectorSize, ost);
+  for (size_t i = 0; i < vectorSize; ++i) {
+    Serializer::SerialPrimitive<cl_kernel_argument>(&m_explicitArgs[i], ost);
+  }
+
+  // Serialize explicit argument buffer size
+  Serializer::SerialPrimitive<unsigned int>(&m_explicitArgsSizeInBytes, ost);
+  // Serialize explicit argument buffer alignment
+  Serializer::SerialPrimitive<unsigned int>(&m_RequiredUniformKernelArgsAlignment, ost);
+
+  // Serial memory object information
+  vectorSize = m_memArgs.size();
+  Serializer::SerialPrimitive<unsigned int>(&vectorSize, ost);
+  for (size_t i = 0; i < vectorSize; ++i) {
+    Serializer::SerialPrimitive<unsigned int>(&m_memArgs[i], ost);
+  }
+
+  Serializer::SerialPointerHint((const void **)&m_pProps, ost);
+  if (NULL != m_pProps) {
+    m_pProps->Serialize(ost, stats);
+  }
+
+  // Serial the kernel JIT's (one by one)
+  vectorSize = m_JITs.size();
+  Serializer::SerialPrimitive<unsigned int>(&vectorSize, ost);
+  for (std::vector<IKernelJITContainer *>::const_iterator it = m_JITs.begin();
+       it != m_JITs.end(); ++it) {
+    IKernelJITContainer *currentArgument = (*it);
+    Serializer::SerialPointerHint((const void **)&currentArgument, ost);
+    if (NULL != currentArgument) {
+      currentArgument->Serialize(ost, stats);
+    }
+  }
+}
+
+void Kernel::Deserialize(IInputStream& ist, SerializationStatus* stats)
+{
+  Serializer::DeserialString(m_name, ist);
+
+  // Deserialize the CSRMask and CSRFlags
+  Serializer::DeserialPrimitive<unsigned int>(&m_CSRMask, ist);
+  Serializer::DeserialPrimitive<unsigned int>(&m_CSRFlags, ist);
+
+  // Deserial the kernel arguments (one by one)
+  unsigned int vectorSize = 0;
+  Serializer::DeserialPrimitive<unsigned int>(&vectorSize, ist);
+  m_explicitArgs.resize(vectorSize);
+  for (size_t i = 0; i < vectorSize; ++i) {
+    Serializer::DeserialPrimitive<cl_kernel_argument>(&m_explicitArgs[i], ist);
+  }
+
+  // Deserial explicit argument buffer size
+  Serializer::DeserialPrimitive<unsigned int>(&m_explicitArgsSizeInBytes, ist);
+  // Deserial explicit argument buffer alignment
+  Serializer::DeserialPrimitive<unsigned int>(&m_RequiredUniformKernelArgsAlignment, ist);
+
+  // Deserial memory object information
+  Serializer::DeserialPrimitive<unsigned int>(&vectorSize, ist);
+  m_memArgs.resize(vectorSize);
+  for (size_t i = 0; i < vectorSize; ++i) {
+    Serializer::DeserialPrimitive<unsigned int>(&m_memArgs[i], ist);
+  }
+
+  Serializer::DeserialPointerHint((void **)&m_pProps, ist);
+  if (NULL != m_pProps) {
+    m_pProps = 
+        stats->GetBackendFactory()->CreateKernelProperties();
+    m_pProps->Deserialize(ist, stats);
+  }
+
+  Serializer::DeserialPrimitive<unsigned int>(&vectorSize, ist);
+  for (unsigned int i = 0; i < vectorSize; ++i) {
+    IKernelJITContainer *currentArgument = NULL;
+    Serializer::DeserialPointerHint((void **)&currentArgument, ist);
+    if (NULL != currentArgument) {
+      currentArgument = 
+          stats->GetBackendFactory()->CreateKernelJITContainer();
+      currentArgument->Deserialize(ist, stats);
+    }
+    m_JITs.push_back(currentArgument);
+  }
+
+}
+
+KernelSet::KernelSet() : m_kernels(NULL), m_blockKernelsCount(0)
+{}
+
 KernelSet::~KernelSet() {
   for (std::vector<Kernel *>::const_iterator i = m_kernels.begin(),
                                              e = m_kernels.end();
        i != e; ++i) {
     delete *i;
   }
+}
+
+void KernelSet::AddKernel(Kernel *pKernel) {
+  m_kernels.push_back(pKernel);
+  m_blockKernelsCount += pKernel->GetKernelProporties()->IsBlock() ? 1 : 0;
 }
 
 Kernel *KernelSet::GetKernel(int index) const {

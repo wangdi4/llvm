@@ -888,10 +888,7 @@ bool NDRange::Finish(FINISH_REASON reason)
 {
     StopExecutionProfiling();
     // Need to notify all kernel children and wait for their completion
-    if ( IsWaitingChildExist() )
-    {
-        WaitForChildrenCompletion();
-    }
+    WaitForChildrenCompletion();
 
     // regular stuff:
 #ifdef _DEBUG
@@ -1282,7 +1279,7 @@ bool MigrateMemObject::Execute()
 
 AtomicCounter DeviceNDRange::sm_cmdIdCnt;
 
-void DeviceNDRange::InitCmdDesc(const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel,
+void DeviceNDRange::InitBlockCmdDesc(const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel,
         const void* pBlockLiteral, size_t stBlockSize,
         const size_t* pLocalSizes, size_t stLocalSizeCount,
         const _ndrange_t* pNDRange)
@@ -1298,32 +1295,40 @@ void DeviceNDRange::InitCmdDesc(const Intel::OpenCL::DeviceBackend::ICLDevBacken
         m_paramKernel.glb_wrk_offs[i] = pNDRange->globalWorkOffset[i];
         m_paramKernel.glb_wrk_size[i] = pNDRange->globalWorkSize[i];
         m_paramKernel.lcl_wrk_size[UNIFORM_WG_SIZE_INDEX][i] = pNDRange->localWorkSize[i];
-        // local size may be 0
-        const size_t nonUniLocalSize = pNDRange->localWorkSize[i] == 0 ? 0 : pNDRange->globalWorkSize[i] % pNDRange->localWorkSize[i];
+        // work-group size may be 0
+        const size_t nonUniLocalSize = pNDRange->localWorkSize[i] == 0 ?
+                                                                     0 :
+                                                                     pNDRange->globalWorkSize[i] % pNDRange->localWorkSize[i];
         // if the remainder is 0 set non-unifrom size to uniform value
-        m_paramKernel.lcl_wrk_size[NONUNIFORM_WG_SIZE_INDEX][i] = nonUniLocalSize == 0 ? pNDRange->localWorkSize[i] : nonUniLocalSize;
+        m_paramKernel.lcl_wrk_size[NONUNIFORM_WG_SIZE_INDEX][i] = nonUniLocalSize == 0 ?
+                                                                  pNDRange->localWorkSize[i] :
+                                                                  nonUniLocalSize;
     }
 
-    size_t exp_arg_size = pKernel->GetExplicitArgumentBufferSize();
-    unsigned alignment = pKernel->GetArgumentBufferRequiredAlignment();
-    size_t local_arg_offset = ALIGN_UP(stBlockSize,alignment);
-    assert( (exp_arg_size == (local_arg_offset+stLocalSizeCount*sizeof(size_t)) ) && "Explicit argument size is not as expected" );
+    size_t const exp_arg_size = pKernel->GetExplicitArgumentBufferSize();
+    size_t const sizeof_loc_sizes_buf = stLocalSizeCount * sizeof(size_t);
+    // Align block's size to sizes of local buffers or the implicit arguments
+    size_t const local_arg_offset = ALIGN_UP(stBlockSize, sizeof(size_t));
+    assert( (exp_arg_size == (local_arg_offset + sizeof_loc_sizes_buf) ) &&
+            "Explicit arguments buffer size is not as expected" );
 
-    // We should allocate also space for implicit args
-    size_t total_size = exp_arg_size+sizeof(cl_uniform_kernel_args);
+    // We should also allocate space for the implicit arguments
+    size_t const total_size = exp_arg_size + sizeof(cl_uniform_kernel_args);
 
-    char* pAllocatedContext = (char*)ALIGNED_MALLOC(total_size, alignment);
+    char* pAllocatedContext = (char*)ALIGNED_MALLOC(total_size,
+                                                    pKernel->GetArgumentBufferRequiredAlignment());
     m_paramKernel.uiNonArgSvmBuffersCount = 0;
     m_paramKernel.arg_size = total_size;
     m_paramKernel.arg_values = pAllocatedContext;
 
-    // Fist we put block literal
+    // Copy the block literal (w\ all captured variables)
     MEMCPY_S(pAllocatedContext, exp_arg_size, pBlockLiteral, stBlockSize);
-    // Second we insert local buffer size
-    MEMCPY_S(pAllocatedContext+local_arg_offset, exp_arg_size-local_arg_offset, pLocalSizes, stLocalSizeCount*sizeof(size_t));
+    // Copy local buffer sizes
+    MEMCPY_S(pAllocatedContext + local_arg_offset, exp_arg_size - local_arg_offset, pLocalSizes, sizeof_loc_sizes_buf);
 
     m_cmdDesc.type = CL_DEV_CMD_EXEC_KERNEL;
-    m_cmdDesc.id = (cl_dev_cmd_id)(DeviceNDRange::GetNextCmdId() | (1L << (sizeof(long) * 8 - 1)));    // device NDRange IDs have their MSB set, while in host NDRange IDs they're reset
+    // device NDRange IDs have their MSB set, while in host NDRange IDs they're reset
+    m_cmdDesc.id = (cl_dev_cmd_id)(DeviceNDRange::GetNextCmdId() | (1L << (sizeof(long) * 8 - 1)));
     m_cmdDesc.data = this;
     m_cmdDesc.device_agent_data = NULL;
     m_cmdDesc.profiling = GetList()->IsProfilingEnabled();
@@ -1345,6 +1350,7 @@ void DeviceNDRange::NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigned uS
     default:
         assert(0 && "Invalid execution status");
     }
+    // no need to call DispatcherCommand::NotifyCommandStatusChanged because we don't need to return to RT
 }
 
 #ifdef __INCLUDE_MKL__

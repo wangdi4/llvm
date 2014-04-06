@@ -89,6 +89,7 @@ cl_err_code    MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize,
 
     size_t szSize = 0;
     size_t szParam = 0;
+    cl_bool bParam = CL_FALSE;
     cl_context clContext = 0;
     cl_mem    clMem = 0;
     const void * pValue = NULL;
@@ -143,6 +144,18 @@ cl_err_code    MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize,
         szParam = m_stOrigin[0];
         pValue = &szParam;
         break;
+    case CL_MEM_USES_SVM_POINTER:
+        szSize = sizeof(cl_bool);
+        if (m_pContext->IsSVMPointer(m_pHostPtr))
+        {
+            bParam = CL_TRUE;
+        }
+        else
+        {
+            bParam = CL_FALSE;
+        }
+        pValue = &bParam;
+        break;
 #if defined (DX_MEDIA_SHARING)
     /* We handle the following values here and not in D3DResource, because it is required to return CL_INVALID_DX9_RESOURCE_INTEL in case the object is not a Direct3D
         shared object and not CL_INVALID_VALUE. */
@@ -156,7 +169,7 @@ cl_err_code    MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize,
             {
                 return CL_INVALID_DX9_RESOURCE_INTEL;
             }
-            const D3D9Context& d3d9Context = *pD3d9Resource->GetContext().DynamicCast<const D3D9Context>();
+            const D3D9Context& d3d9Context = *pD3d9Resource->GetContext().DynamicCast<D3D9Context>();
             if (d3d9Context.GetD3dDefinitions().GetVersion() != ID3DSharingDefinitions::D3D9_INTEL)
             {
                 return CL_INVALID_DX9_RESOURCE_INTEL;
@@ -180,7 +193,7 @@ cl_err_code    MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize,
     case CL_MEM_DX9_SHARED_HANDLE_INTEL:
         {
             const D3D9Surface* const pD3d9Surface = dynamic_cast<const D3D9Surface*>(this);
-            if (NULL == pD3d9Surface || pD3d9Surface->GetContext().DynamicCast<const D3D9Context>()->GetD3dDefinitions().GetVersion() != ID3DSharingDefinitions::D3D9_INTEL)
+            if (NULL == pD3d9Surface || pD3d9Surface->GetContext().DynamicCast<D3D9Context>()->GetD3dDefinitions().GetVersion() != ID3DSharingDefinitions::D3D9_INTEL)
             {
                 return CL_INVALID_DX9_RESOURCE_INTEL;                
             }
@@ -191,7 +204,7 @@ cl_err_code    MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize,
     case CL_MEM_DX9_MEDIA_ADAPTER_TYPE_KHR:
         {
             const D3D9Surface* const pD3d9Surface = dynamic_cast<const D3D9Surface*>(this);
-            if (NULL == pD3d9Surface || pD3d9Surface->GetContext().DynamicCast<const D3D9Context>()->GetD3dDefinitions().GetVersion() != ID3DSharingDefinitions::D3D9_KHR)
+            if (NULL == pD3d9Surface || pD3d9Surface->GetContext().DynamicCast<D3D9Context>()->GetD3dDefinitions().GetVersion() != ID3DSharingDefinitions::D3D9_KHR)
             {
                 return CL_INVALID_DX9_MEDIA_SURFACE_KHR;
             }
@@ -202,7 +215,7 @@ cl_err_code    MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize,
     case CL_MEM_DX9_MEDIA_SURFACE_INFO_KHR:
         {
             const D3D9Surface* const pD3d9Surface = dynamic_cast<const D3D9Surface*>(this);
-            if (NULL == pD3d9Surface || pD3d9Surface->GetContext().DynamicCast<const D3D9Context>()->GetD3dDefinitions().GetVersion() != ID3DSharingDefinitions::D3D9_KHR)
+            if (NULL == pD3d9Surface || pD3d9Surface->GetContext().DynamicCast<D3D9Context>()->GetD3dDefinitions().GetVersion() != ID3DSharingDefinitions::D3D9_KHR)
             {
                 return CL_INVALID_DX9_MEDIA_SURFACE_KHR;
             }

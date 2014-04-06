@@ -17,48 +17,49 @@ File Name:  CPUCompiler.cpp
 \*****************************************************************************/
 #define NOMINMAX
 
-#include <vector>
-#include <string>
-#include <sstream>
-#include <iosfwd>
-#include "cl_types.h"
-#include "cpu_dev_limits.h"
+#include "BuiltinModule.h"
+#include "BuiltinModuleManager.h"
 #include "CPUCompiler.h"
 #include "CPUDetect.h"
-#include "BuiltinModule.h"
-#include "exceptions.h"
 #include "CompilationUtils.h"
-#include "BuiltinModuleManager.h"
+#include "cl_types.h"
+#include "cpu_dev_limits.h"
+#include "exceptions.h"
+
+// Reference a symbol in JIT.cpp and MCJIT.cpp so that static or global constructors are called
+#include "llvm/ADT/Triple.h"
+#include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include "llvm/ExecutionEngine/JIT.h"
+#include "llvm/ExecutionEngine/JITEventListener.h"
 #include "llvm/ExecutionEngine/JITMemoryManager.h"
+#include "llvm/ExecutionEngine/MCJIT.h"
+#include "llvm/IR/Argument.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Type.h"
+#include "llvm/PassManager.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/ManagedStatic.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/TargetRegistry.h"
-#include "llvm/IR/DataLayout.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/raw_ostream.h"
 
-// Reference a symbol in JIT.cpp and MCJIT.cpp so that static or global constructors are called
-#include "llvm/ExecutionEngine/JIT.h"
-#include "llvm/ExecutionEngine/MCJIT.h"
-
-#include "llvm/ExecutionEngine/JITEventListener.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Argument.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/ADT/Triple.h"
-using std::string;
+
+#include <iosfwd>
+#include <sstream>
+#include <string>
+#include <vector>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -113,15 +114,15 @@ void SplitString( const std::string& s, const char* d, std::vector<std::string>&
 
 /**
  * Joins the given strings (as a vector of strings) using
- * the supplied delimiter. 
+ * the supplied delimiter.
  * Returns: joined string
  */
 std::string JoinStrings( const std::vector<std::string>& vs, const char* d)
 {
     std::vector<std::string>::const_iterator i = vs.begin();
-    std::vector<std::string>::const_iterator e = vs.end();    
+    std::vector<std::string>::const_iterator e = vs.end();
     std::stringstream ss;
-    
+
     if( i != e )
     {
         ss << *i++;
@@ -324,7 +325,7 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
     llvm::StringRef MCPU  = m_CpuId.GetCPUName();
     llvm::StringRef MArch = "";
 
-    string strErr;
+    std::string strErr;
     bool AllocateGVsWithCode = true;
     CodeGenOpt::Level OLevel = llvm::CodeGenOpt::Default;
 
@@ -355,7 +356,7 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
     else
       targetOpt.AllowFPOpFusion = llvm::FPOpFusion::Standard;
     builder.setTargetOptions(targetOpt);
-    
+
     llvm::ExecutionEngine* pExecEngine = builder.create();
 
     if ( NULL == pExecEngine )
@@ -363,7 +364,7 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
         throw Exceptions::CompilerException("Failed to create execution engine");
     }
 
-    if (m_pVTuneListener) 
+    if (m_pVTuneListener)
         pExecEngine->RegisterJITEventListener(m_pVTuneListener);
 
     return pExecEngine;
@@ -388,7 +389,7 @@ void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) c
     const llvm::Target *pTarget = llvm::TargetRegistry::lookupTarget(triple.getTriple(), err);
 
 
-    if( !err.empty() || NULL == pTarget ) 
+    if( !err.empty() || NULL == pTarget )
     {
         throw Exceptions::CompilerException(std::string("Failed to retrieve the target for given module during dump operation:") + err);
     }
@@ -412,14 +413,14 @@ void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) c
     {
         throw Exceptions::CompilerException("Failed to create TargetMachine object");
     }
-    
+
     // Build up all of the passes that we want to do to the module.
     PassManager pm;
 
     llvm::raw_fd_ostream out(filename.c_str(), err, llvm::raw_fd_ostream::F_Binary);
 
-    if (!err.empty()) 
-    { 
+    if (!err.empty())
+    {
         throw Exceptions::CompilerException(std::string("Failed to open the target file for dump:") + err);
     }
 

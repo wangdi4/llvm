@@ -4290,24 +4290,42 @@ public:
         NEATValue flushedX = flush<T>(x);
         NEATValue flushedY = flush<T>(y);
 
+        T minY = *flushedY.GetMin<T>();
+        T maxY = *flushedY.GetMax<T>();
+
         // if x is accurate and y is interval with yMin <0 and yMax >0
         // result values are -x and x exactly with no allowed interval 
         // between these values, so result is UNKNOWN
-        if ( flushedX.IsAcc() && 
-            Utils::lt<T>(*flushedY.GetMin<T>(),T(0.0)) && 
-            Utils::gt<T>(*flushedY.GetMax<T>(),T(0.0)) )
-            return NEATValue(NEATValue::UNKNOWN);
+        if ( flushedX.IsAcc() ) { 
+            if ( Utils::lt<T>(minY,T(0.0)) && 
+                 Utils::gt<T>(maxY,T(0.0)) )
+                return NEATValue(NEATValue::UNKNOWN);
+            else {
+                // if flushedY.GetMin and flushedY.GetMax have the same sign,
+                // it doesn't matter min Y value or max Y value to be used 
+                T resAccVal = RefALU::copysign(*flushedX.GetAcc<T>(),minY);
+                return NEATValue(resAccVal,resAccVal);
+            }
+        }
+        
+        T minX = *flushedX.GetMin<T>();
+        T maxX = *flushedX.GetMax<T>();
 
         T val[5];
 
-        val[0] = RefALU::copysign(*flushedX.GetMin<T>(),*flushedY.GetMin<T>());
-        val[1] = RefALU::copysign(*flushedX.GetMin<T>(),*flushedY.GetMax<T>());
-        val[2] = RefALU::copysign(*flushedX.GetMax<T>(),*flushedY.GetMin<T>());
-        val[3] = RefALU::copysign(*flushedX.GetMax<T>(),*flushedY.GetMax<T>());
+        val[0] = RefALU::copysign(minX,minY);
+        val[1] = RefALU::copysign(minX,maxY);
+        val[2] = RefALU::copysign(maxX,minY);
+        val[3] = RefALU::copysign(maxX,maxY);
         val[4] = val[0];
 
-        if (flushedX.Includes<T>(T(0.0)))
-            val[4] = T(0.0);
+        //if( Utils::lt<T>(minX,T(-0.0)) && Utils::gt<T>(maxX,T(0.0)) ) {
+        if( flushedX.Includes<T>(0) ) {
+            if( Utils::lt<T>(maxY,T(0.0)) )
+                val[4] = T(-0.0);
+            else
+                val[4] = T(0.0);
+        }
 
         T min=T(0), max=T(0);
         NEATValue res;

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include "FrameworkTest.h"
 #include "string.h"
+#include "cl_config.h"
 
 /**************************************************************************************************
 * clGetPlatformInfoTest
@@ -10,6 +11,8 @@
 * Get platform info (CL_PLATFORM_PROFILE)
 * Get platform info (CL_PLATFORM_VERSION)
 **************************************************************************************************/
+using namespace Intel::OpenCL::Utils;
+
 bool clGetPlatformInfoTest()
 {
 	printf("---------------------------------------\n");
@@ -87,7 +90,18 @@ bool clGetPlatformInfoTest()
 	if (CL_SUCCEEDED(iRes))
 	{
 #ifdef _WIN32
-		bResult &= CheckStr(L"check value", "OpenCL 1.2 WINDOWS", platformInfoStr);
+      switch (GetOpenclVerByCpuModel())
+      {
+      case OPENCL_VERSION_1_2:
+          bResult &= CheckStr(L"check value", "OpenCL 1.2 WINDOWS", platformInfoStr);
+          break;
+      case OPENCL_VERSION_2_0:
+          bResult &= CheckStr(L"check value", "OpenCL 2.0 WINDOWS", platformInfoStr);
+          break;
+      default:
+          bResult = false;
+      }
+		
 #else
 		bResult &= CheckStr(L"check value", "OpenCL 1.2 LINUX", platformInfoStr);
 #endif

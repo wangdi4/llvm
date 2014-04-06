@@ -191,7 +191,7 @@ find_package(LLVM REQUIRED)
 
 # QTGUI
 if (BUILD_QTGUI AND NOT ANDROID)
-    set( QT_VERSION "4.8.1" )
+    set( QT_VERSION "4.8.5" )
     if(DEFINED QT_REVISION) # QT_REVISION is a variable that can be defined in Build.py. It is not defined by default.
        set( QT_VERSION ${QT_REVISION})
     endif()
@@ -278,7 +278,7 @@ if (GIT_REVISIONS)
                     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
                     OUTPUT_VARIABLE GIT_DESCRIPTION)
     STRING(REGEX MATCH ".+-([0-9]*)-[0-9a-zA-Z]+" GIT_VERSION ${GIT_DESCRIPTION})
-    math(EXPR BUILDVER_WC_REVISION "75186 + ${CMAKE_MATCH_1}")
+    math(EXPR BUILDVER_WC_REVISION "0 + ${CMAKE_MATCH_1}")
 
     execute_process(COMMAND ${GIT_EXECUTABLE} log -1 --format=%H
                     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
@@ -288,6 +288,8 @@ if (GIT_REVISIONS)
 endif (GIT_REVISIONS)
 message(STATUS "Current build version is ${BUILDVER_WC_REVISION}")
 
+set(PRODUCTVER_MAJOR 10)
+set(PRODUCTVER_MINOR 0)
 math(EXPR BUILDVER_16_BIT_MAJOR "${BUILDVER_WC_REVISION} / 65536")
 math(EXPR BUILDVER_16_BIT_MINOR "${BUILDVER_WC_REVISION} % 65536")
 
@@ -299,17 +301,19 @@ file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt
 #else
     #define BUILDVERSIONSTR "\"(Build[DEBUG]\ ${BUILDVER_WC_REVISION})"\"
 #endif\n
+#define PRODUCTVERSION_MAJOR ${PRODUCTVER_MAJOR}\n
+#define PRODUCTVERSION_MINOR ${PRODUCTVER_MINOR}\n
 #define BUILDVERSION16BIT_MAJOR ${BUILDVER_16_BIT_MAJOR}\n
 #define BUILDVERSION16BIT_MINOR ${BUILDVER_16_BIT_MINOR}\n
-#define VERSIONSTRING \"4.1.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n
-#define IOCVERSIONSTRING \"1.4.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n
-#define KBVERSIONSTRING \"1.2.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n")
+#define VERSIONSTRING \"${PRODUCTVER_MAJOR}.${PRODUCTVER_MINOR}.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n
+#define IOCVERSIONSTRING \"1.5.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n
+#define KBVERSIONSTRING \"1.3.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n")
 
 if(WIN32)
-    file(WRITE ${OCL_BINARY_DIR}/version.ini "[Version]\nPackVer=3.1.${BUILDVER_WC_REVISION}")
+    file(WRITE ${OCL_BINARY_DIR}/version.ini "[Version]\nPackVer=${PRODUCTVER_MAJOR}.${PRODUCTVER_MINOR}.${BUILDVER_WC_REVISION}")
     install(FILES ${OCL_BINARY_DIR}/version.ini DESTINATION ./)
 endif()
-file(WRITE ${OCL_BINARY_DIR}/version.txt "4.1.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}")
+file(WRITE ${OCL_BINARY_DIR}/version.txt "${PRODUCTVER_MAJOR}.${PRODUCTVER_MINOR}.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}")
 
 #copy the version file to install folder
 install(FILES ${OCL_BINARY_DIR}/version.txt DESTINATION ./)
@@ -539,8 +543,13 @@ if (WIN32)
     install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/CommonFiles    DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/convert_rgb_to_yuv DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/block_max_filter DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
+    install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/block_min_filter DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/box_filter      DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
+    install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/column_filter   DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/dilate_filter   DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
+    install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/erode_filter   DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
+    install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/linear_filter   DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
+    install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/median_filter   DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/row_filter      DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/OpenCLWizard/JumpStartTemplate               DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration                  PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/OpenCLWizard/VCProjects_2010  DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OpenCL_Wizard PATTERN .svn EXCLUDE)

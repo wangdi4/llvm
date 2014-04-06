@@ -37,7 +37,7 @@
 //    Enable build of pipe_functions.c for OpenCL 1.2 by replacing "pipe int" with "__global struct pipe_t *".
 //    The workaround relies on BuiltInFuncImport pass which maps different structure types of the same arguments.
 //    Look for CSSD100017148 in src/backend/passes/BuiltInFuncImport/BuiltInFuncImport.cpp
-#define PIPE_T __global struct pipe_t*
+typedef __global struct pipe_t* PIPE_T;
 
 // There are no declarations of OpenCL 2.0 builtins in opencl_.h for named address space
 // but in the library they has to be called directly because the library
@@ -204,11 +204,7 @@ ALWAYS_INLINE static void intel_unlock_pipe_write( __global pipe_control_intel_t
 
 /////////////////////////////////////////////////////////////////////
 // Work Item Reservations
-// NOTE: The pipe's packet type doesn't affect mangling.
-//
-// NOTE: Built-ins with opaque types in the argument lists must always be inlined if they are called by other built-ins.
-//       Otherwise LLVM Module Verifier fails at BuiltInFuncImport pass.
-ALWAYS_INLINE reserve_id_t RESERVE_READ_PIPE( PIPE_T pipe_, uint num_packets, uint size_of_packet )
+reserve_id_t RESERVE_READ_PIPE( PIPE_T pipe_, uint num_packets, uint size_of_packet )
 {
   INTEL_PIPE_DPF( "ENTER: reserve_read_pipe( num_packets = %d)\n", num_packets );
   __global pipe_control_intel_t* p = PTOC(pipe_);
@@ -276,7 +272,7 @@ ALWAYS_INLINE reserve_id_t RESERVE_READ_PIPE( PIPE_T pipe_, uint num_packets, ui
   return retVal;
 }
 
-ALWAYS_INLINE reserve_id_t RESERVE_WRITE_PIPE( PIPE_T pipe_, uint num_packets, uint size_of_packet )
+reserve_id_t RESERVE_WRITE_PIPE( PIPE_T pipe_, uint num_packets, uint size_of_packet )
 {
   INTEL_PIPE_DPF( "ENTER: reserve_write_pipe( num_packets = %d)\n", num_packets );
   __global pipe_control_intel_t* p = PTOC(pipe_);
@@ -342,7 +338,7 @@ ALWAYS_INLINE reserve_id_t RESERVE_WRITE_PIPE( PIPE_T pipe_, uint num_packets, u
   return retVal;
 }
 
-ALWAYS_INLINE void COMMIT_READ_PIPE( PIPE_T pipe_, reserve_id_t reserve_id, uint size_of_packet )
+void COMMIT_READ_PIPE( PIPE_T pipe_, reserve_id_t reserve_id, uint size_of_packet )
 {
   INTEL_PIPE_DPF( "ENTER: commit_read_pipe( reserve_id = %08X)\n", reserve_id );
   __global pipe_control_intel_t* p = PTOC(pipe_);
@@ -351,7 +347,7 @@ ALWAYS_INLINE void COMMIT_READ_PIPE( PIPE_T pipe_, reserve_id_t reserve_id, uint
   INTEL_PIPE_DPF( "EXIT: commit_read_pipe\n" );
 }
 
-ALWAYS_INLINE void COMMIT_WRITE_PIPE( PIPE_T pipe_, reserve_id_t reserve_id, uint size_of_packet )
+void COMMIT_WRITE_PIPE( PIPE_T pipe_, reserve_id_t reserve_id, uint size_of_packet )
 {
   INTEL_PIPE_DPF( "ENTER: commit_write_pipe( reserve_id = %08X)\n", reserve_id );
   __global pipe_control_intel_t* p = PTOC(pipe_);

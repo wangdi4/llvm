@@ -25,12 +25,12 @@
 // in any way.
 /////////////////////////////////////////////////////////////////////////
 
+#include <stdexcept>
 #include "oclNotifier.h"
 #include "oclInternalFunctions.h"
 
-//TODO: Ofir, refactor the cl files code
-#include <fstream>
-
+using std::runtime_error;
+using Intel::OpenCL::Utils::OclAutoMutex;
 
 #define CHECK_FOR_NULL(ptr) if (!ptr) return
 
@@ -49,8 +49,8 @@ static void CL_CALLBACK commandCallBack(cl_event event, cl_int event_command_exe
 	CHECK_FOR_NULL(user_data);
 	NotifierCollection* notifiers = NotifierCollection::Instance();
 	CommandData* commandData = (CommandData*) user_data;
-	notifiers->CommandCallBack(event,event_command_exec_status,commandData); 
-	//delete objects
+    cl_event cbEvent = commandData->callbackEvent;
+	notifiers->CommandCallBack(cbEvent, event_command_exec_status, commandData); 
 	if (--commandData->refCounter == 0){
 		NotifierCollection::releaseCommandData(commandData);
 	}
@@ -141,15 +141,23 @@ void NotifierCollection::CommandQueueFree( cl_command_queue queue )
 	NOTIFY(CommandQueueFree, queue);	
 }
 
-void NotifierCollection::EventCreate (cl_event event, bool internalEvent, string* cmdName)
+void NotifierCollection::EventCreate (
+    cl_event event,
+    bool internalEvent,
+    string cmdName)
 {
 	CHECK_FOR_NULL(event);
-	NOTIFY(EventCreate, event, internalEvent, cmdName);
+    NOTIFY(EventCreate, event, internalEvent, cmdName);
 }
-void NotifierCollection::EventFree (cl_event event)
+void NotifierCollection::EventFree(cl_event event, bool internalRelease)
 {
 	CHECK_FOR_NULL(event);
-	NOTIFY(EventFree, event);
+	NOTIFY(EventFree, event, internalRelease);
+}
+void NotifierCollection::EventReleased(cl_event event)
+{
+	CHECK_FOR_NULL(event);
+	NOTIFY(EventReleased, event);
 }
 void NotifierCollection::EventStatusChanged(cl_event event)
 {
@@ -157,50 +165,61 @@ void NotifierCollection::EventStatusChanged(cl_event event)
 	NOTIFY(EventStatusChanged, event);
 }
 
-void NotifierCollection::BufferCreate( cl_mem memobj, cl_context context, size_t size, void* hostPtr, bool fromGL )
+void NotifierCollection::BufferCreate(cl_mem memobj, cl_context context,
+                                      size_t size, void* hostPtr,
+                                      bool fromGL,
+                                      unsigned int cookie)
 {
 	CHECK_FOR_NULL(memobj);
 	CHECK_FOR_NULL(context);
-	NOTIFY(BufferCreate, memobj, context, size, hostPtr, fromGL);
+	NOTIFY(BufferCreate, memobj, context, size,
+           hostPtr, fromGL, cookie);
 }
-void NotifierCollection::BufferMap(cl_mem memobj, cl_map_flags mapFlags)
+void NotifierCollection::BufferMap(cl_mem memobj, cl_map_flags mapFlags,
+                                   unsigned int cookie)
 {
 	CHECK_FOR_NULL(memobj);
-	NOTIFY(BufferMap, memobj, mapFlags);
+	NOTIFY(BufferMap, memobj, mapFlags, cookie);
 }
 void NotifierCollection::BufferUnmap(cl_mem memobj, cl_command_queue queue, cl_event* event)
 {
 	CHECK_FOR_NULL(memobj);
 	NOTIFY(BufferUnmap, memobj, queue, event);
 }
-void NotifierCollection::BufferEnqueue (cl_command_queue queue, cl_event* event, cl_mem memobj)
+void NotifierCollection::BufferEnqueue (cl_command_queue queue, cl_event* event,
+                                        cl_mem memobj, unsigned int cookie)
 {
 	CHECK_FOR_NULL(memobj);
-	NOTIFY(BufferEnqueue, queue, event, memobj);
+	NOTIFY(BufferEnqueue, queue, event, memobj, cookie);
 }
 void NotifierCollection::SubBufferCreate(cl_mem parentBuffer,
 										 cl_mem subBuffer,
 										 cl_buffer_create_type bufferCreateType,
 										 const void* bufferCreateInfo,
-										 cl_context context)
+										 cl_context context,
+                                         unsigned int cookie)
 {
 	CHECK_FOR_NULL(parentBuffer);
 	CHECK_FOR_NULL(subBuffer);
 	NOTIFY(SubBufferCreate, parentBuffer, subBuffer,
-		   bufferCreateType, bufferCreateInfo, context);
+		   bufferCreateType, bufferCreateInfo, context,
+           cookie);
 }
 void NotifierCollection::ImageCreate(cl_mem memobj, cl_context context, 
 									 const cl_image_desc* imageDesc,
-									 void* hostPtr, bool fromGL)
+									 void* hostPtr, bool fromGL,
+                                     unsigned int cookie)
 {
 	CHECK_FOR_NULL(memobj);
 	CHECK_FOR_NULL(context);
-	NOTIFY(ImageCreate, memobj, context, imageDesc, hostPtr, fromGL);
+	NOTIFY(ImageCreate, memobj, context, imageDesc,
+           hostPtr, fromGL, cookie);
 }
-void NotifierCollection::ImageMap(cl_mem memobj, cl_map_flags mapFlags)
+void NotifierCollection::ImageMap(cl_mem memobj, cl_map_flags mapFlags,
+                                  unsigned int cookie)
 {
 	CHECK_FOR_NULL(memobj);
-	NOTIFY(ImageMap, memobj, mapFlags);
+	NOTIFY(ImageMap, memobj, mapFlags, cookie);
 }
 void NotifierCollection::ImageUnmap(cl_mem memobj, cl_command_queue queue, cl_event* event)
 {
@@ -208,14 +227,29 @@ void NotifierCollection::ImageUnmap(cl_mem memobj, cl_command_queue queue, cl_ev
 }
 void NotifierCollection::ImageEnqueue(cl_command_queue queue,
 									  cl_event* event,
-									  cl_mem memobj)
+									  cl_mem memobj,
+                                      unsigned int cookie)
 {
-	NOTIFY(ImageEnqueue, queue, event, memobj);
+	NOTIFY(ImageEnqueue, queue, event, memobj, cookie);
 }
-void NotifierCollection::MemObjectFree( cl_mem memobj )
+void NotifierCollection::PipeCreate(
+    cl_mem pipe,
+    cl_context context,
+    cl_mem_flags memFlags,
+    cl_uint packetSize,
+    cl_uint maxPackets,
+    const cl_pipe_properties *props,
+    unsigned int traceCookie)
+{
+    CHECK_FOR_NULL(pipe);
+    NOTIFY(PipeCreate, pipe, context, memFlags,
+        packetSize, maxPackets, props, traceCookie);
+}
+
+void NotifierCollection::MemObjectFree(cl_mem memobj, bool internalRelease)
 {
 	CHECK_FOR_NULL(memobj);
-	NOTIFY(MemObjectFree, memobj);	
+	NOTIFY(MemObjectFree, memobj, internalRelease);	
 }
 void NotifierCollection::MemObjectReleased(cl_mem memobj)
 {
@@ -258,19 +292,22 @@ void NotifierCollection::KernelCreate( cl_kernel kernel, cl_program program )
 	CHECK_FOR_NULL(program);
 	NOTIFY(KernelCreate, kernel, program);
 }
-void NotifierCollection::KernelFree( cl_kernel kernel )
+void NotifierCollection::KernelFree( cl_kernel kernel, bool internalRelease )
 {
 	CHECK_FOR_NULL(kernel);
-	NOTIFY(KernelFree, kernel);	
+	NOTIFY(KernelFree, kernel, internalRelease);	
 }
 void NotifierCollection::KernelSetArg (cl_kernel kernel, cl_uint arg_index, size_t arg_size,const void* arg_value )
 {
 	CHECK_FOR_NULL(kernel);
 	NOTIFY(KernelSetArg, kernel, arg_index, arg_size, arg_value);
 }
-void NotifierCollection::KernelEnqueue (cl_kernel kernel, cl_command_queue queue, cl_event* event)
+void NotifierCollection::KernelEnqueue (cl_kernel kernel,
+                                        cl_command_queue queue,
+                                        cl_event* event,
+                                        unsigned int cookie)
 {
-	NOTIFY(KernelEnqueue, kernel, queue, event);
+	NOTIFY(KernelEnqueue, kernel, queue, event, cookie);
 }
 void NotifierCollection::KernelReleased (cl_kernel kernel)
 {
@@ -287,13 +324,16 @@ void NotifierCollection::ObjectInfo( const void* obj, const pair<string,string> 
 	CHECK_FOR_NULL(obj);
 	NOTIFY(ObjectInfo, obj, data, dataLength);	
 }
-void NotifierCollection::ObjectRetain( const void* obj){
+void NotifierCollection::ObjectRetain(const void* obj, bool internalRetain)
+{
 	CHECK_FOR_NULL(obj);
-	NOTIFY(ObjectRetain, obj);	
+	NOTIFY(ObjectRetain, obj, internalRetain);
 }
-void NotifierCollection::TraceCall( const char* call, cl_int errcode_ret, OclParameters* parameters){
+void NotifierCollection::TraceCall(const char* call, cl_int errcode_ret,
+                                   OclParameters* parameters,
+                                   unsigned int *cookie){
 	CHECK_FOR_NULL(call);
-	NOTIFY(TraceCall, call, errcode_ret, parameters);
+	NOTIFY(TraceCall, call, errcode_ret, parameters, cookie);
 }
 
 
@@ -303,87 +343,166 @@ void NotifierCollection::commandQueueProfiling( cl_command_queue_properties &pro
 	//CHECK_FOR_NULL(properties); this is not a pointer, no need.
 	properties |= CL_QUEUE_PROFILING_ENABLE;
 }
-CommandData* NotifierCollection::commandEventProfiling( cl_event **pEvent )
+vector<cl_queue_properties> NotifierCollection::commandQueueProfiling(const cl_queue_properties* properties)
 {
-	IF_EMPTY_RETURN NULL; //we don't want to change anything if we don't have notifiers...
-	CHECK_FOR_NULL(pEvent) NULL;
-	CommandData* commandData = new CommandData; //dynamic allocation - should be released in the CommandCallBack
-	commandData->ownEvent = true;
-	commandData->pEvent = NULL;
-	commandData->needRelease = false;	// will change to true if following enqueue operation succeeded
-	commandData->funcName = NULL;
-	if (*pEvent != NULL){ 
-		//user has the event, just retain it so we can release it when we want to (retain is only after event is created)
-		commandData->ownEvent = false;
-	} else {
-		*pEvent = new cl_event; //dynamic allocation - we will need to release it in CommandCallBack (event member)
-		**pEvent = NULL;
-		commandData->pEvent = *pEvent;	// keep track of allocated event to be released in CommandCallBack or releaseCommandData
-	}
-	return commandData;
+    vector<cl_queue_properties> propsWithProfiling;
+    const cl_queue_properties* pCurProperty = NULL;
+    cl_command_queue_properties cmdQueuePropValue = 0;
+
+    bool addedProfilingProp = false;
+    for (pCurProperty = properties; pCurProperty && *pCurProperty; pCurProperty+= 2)
+    {
+        if (CL_QUEUE_PROPERTIES == *pCurProperty) {
+            cmdQueuePropValue = *(pCurProperty + 1);
+            commandQueueProfiling(cmdQueuePropValue);
+            addQueueProperty(propsWithProfiling,
+                CL_QUEUE_PROPERTIES, cmdQueuePropValue);
+            addedProfilingProp = true;
+        } else {
+            addQueueProperty(propsWithProfiling,
+                *pCurProperty, *(pCurProperty + 1));
+        }
+    }
+
+    if (!addedProfilingProp) {
+        addQueueProperty(propsWithProfiling,
+            CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE);
+    }
+
+    propsWithProfiling.push_back(0);
+    return propsWithProfiling;
 }
 
-void NotifierCollection::createCommandEvents(cl_event* event, CommandData *commandData){
-	IF_EMPTY_RETURN; //we don't want to change anything if we don't have notifiers...
-	CHECK_FOR_NULL(event);
-	CHECK_FOR_NULL(commandData);
-	// retain is at least 1 since the event can be either the user event
-	// and then we don't want to lose it so we retain it, or it's our event
-	// and the preceding enqueue succeeded so retain is set to 1
-	commandData->needRelease = true;
-	bool isOwnEvent = commandData->ownEvent;
-	string *cmdName = NULL;
-	if (NULL != commandData->funcName) {
-		cmdName = new string(commandData->funcName);
-	}
-	EventCreate(*event, isOwnEvent, cmdName); //TODO: consider moving it...
-	delete cmdName;
-	if (isOwnEvent == false){
-		_clRetainEventINTERNAL( *event); //we need to retain it so it won't be released before we have completed with it.
-		commandData->pEvent = event;	// we'll need it for clReleaseEvent later
-	}
+CommandData* NotifierCollection::createCommandAndEvent(cl_event** pEvent)
+{
+	IF_EMPTY_RETURN NULL;
+    assert(pEvent != NULL);
 
-	//take id
-	commandData->key = (long) commandsIDs; //TODO: think about guids
+    // Will be released in commandCallBack.
+    CommandData* commandData = NULL;
+    try
+    {
+	    commandData = new CommandData;
+    }
+    catch (bad_alloc)
+    {
+        // TODO: add logging / callback in the notifier for errors.
+        return NULL;
+    }
+
+    commandData->callbackEvent = NULL;
+    commandData->ourEvent = NULL;
+    if (NULL == *pEvent)
+    {
+        *pEvent = &(commandData->ourEvent);
+    }
+
+    return commandData;
+}
+
+// Subscribes to callbacks for all execution states of the event
+// in order to provide real-time event status to the notifiers.
+void NotifierCollection::profileCommand(
+    cl_event profiledEvent,
+    cl_event callbackEvent,
+    CommandData* commandData)
+{
+    IF_EMPTY_RETURN;
+    CHECK_FOR_NULL(profiledEvent);
+    CHECK_FOR_NULL(callbackEvent);
+    CHECK_FOR_NULL(commandData);
+
+    bool failed = false;
+
+    bool weOwnEvent = (NULL != commandData->ourEvent);
+    EventCreate(callbackEvent, weOwnEvent, commandData->funcName);
+
+    commandData->retained = false;
+    if (!weOwnEvent)
+    {
+        cl_int err = _clRetainEventINTERNAL(callbackEvent);
+        if (CL_SUCCESS == err)
+        {
+            commandData->retained = true;
+        }
+        else
+        {
+            failed = true;
+        }
+    }
+    else
+    {
+        commandData->retained = true;
+    }
+
+    if (failed)
+    {
+		releaseCommandData(commandData);
+        return;
+    }
+
+    list<OclRetainer*>::iterator it = commandData->retainers.begin();
+    for ( ; it != commandData->retainers.end(); ++it)
+    {
+        OclRetainer* retainer = (*it);
+        if (false == retainer->hasRetained())
+        {
+            failed = true;
+            break;
+        }
+    }
+
+    if (failed)
+    {
+        // TODO (Ofir): add error handling report to the client
+        // (show something like: command will not be monitored)
+		releaseCommandData(commandData);
+        return;
+    }
+
+    commandData->callbackEvent = callbackEvent;
+	commandData->key = (long) commandsIDs;
 	++commandsIDs;
-	//set callbacks for all types
-	commandData->refCounter = 3;
+    commandData->refCounter = 3;
 	cl_int err;
-	err = _clSetEventCallbackINTERNAL(*event, CL_SUBMITTED, &commandCallBack, (void*) commandData);
-	if ( err != CL_SUCCESS){
-		//log
+	err = _clSetEventCallbackINTERNAL(profiledEvent, CL_SUBMITTED, &commandCallBack, (void*) commandData);
+	if (err != CL_SUCCESS)
+    {
+		// TODO: add logging
 		commandData->refCounter--;
 	}
 
-	err = _clSetEventCallbackINTERNAL(*event, CL_RUNNING, &commandCallBack, (void*) commandData);
-	if ( err != CL_SUCCESS){
-		//log
-		//TODO: think about sending an error notification massage 
+	err = _clSetEventCallbackINTERNAL(profiledEvent, CL_RUNNING, &commandCallBack, (void*) commandData);
+	if (err != CL_SUCCESS)
+    {
 		commandData->refCounter--;
 	}
 
-	err = _clSetEventCallbackINTERNAL(*event, CL_COMPLETE, &commandCallBack, (void*) commandData);
-	if ( err != CL_SUCCESS){
-		//log 
-		if (--commandData->refCounter == 0){
+	err = _clSetEventCallbackINTERNAL(profiledEvent, CL_COMPLETE, &commandCallBack, (void*) commandData);
+	if (err != CL_SUCCESS)
+    {
+		if (--commandData->refCounter == 0)
+        {
 			releaseCommandData(commandData);
 		}
 	}
-	//from here commandData considered invalid because all the eventCallbacks might have happened
-
+	
+    // From here commandData is considered invalid, because all 
+    // the event callbacks might have already executed.
 }
 void NotifierCollection::releaseCommandData(CommandData* data)
 {
 	CHECK_FOR_NULL(data);
-	cl_event* pEvent = data->pEvent;
-	if (data->needRelease)
-	{
-		_clReleaseEventINTERNAL(*pEvent);
-	}
-	if (data->ownEvent)
-	{
-		delete pEvent;
-	}
+    if (NULL != data->callbackEvent && data->retained)
+    {
+        _clReleaseEventINTERNAL(data->callbackEvent);
+    }
+    list<OclRetainer*>::iterator it = data->retainers.begin();
+    for ( ; it != data->retainers.end(); ++it)
+    {
+        delete (*it);
+    }
+
 	delete data;
 }
 
@@ -403,4 +522,72 @@ const char* NotifierCollection::enableKernelArgumentInfo(const char* options){
 	STRCAT_S(newOptions, dstSize, " ");
 	STRCAT_S(newOptions, dstSize, CL_KERNEL_ARG_INFO_OPTION); 
 	return newOptions;
+}
+unsigned int NotifierCollection::getTraceCookie()
+{
+    return static_cast<unsigned int>(traceCookie++);
+}
+vector<cl_device_id> NotifierCollection::getProgramDevices(cl_program program)
+{
+    cl_int err = CL_INVALID_PROGRAM;
+    size_t deviceSizeInBytes = 0;
+    size_t numDevices = 0;
+    err = _clGetProgramInfoINTERNAL(program, CL_PROGRAM_DEVICES, 0,
+                                    NULL, &deviceSizeInBytes);
+    if (CL_SUCCESS != err) {
+        stringstream ss;
+        ss << "Unable to get no. of devices of program. " 
+           << "err = " << err;
+        throw runtime_error(ss.str());
+    }
+	numDevices = deviceSizeInBytes / sizeof(cl_device_id);
+    vector<cl_device_id> vec(numDevices, NULL);
+	err = _clGetProgramInfoINTERNAL(program,
+                                    CL_PROGRAM_DEVICES,
+                                    deviceSizeInBytes,
+									(void *)&vec[0], NULL);
+    if (CL_SUCCESS != err) {
+        stringstream ss;
+        ss << "Unable to get program devices. " 
+           << "err = " << err;
+        throw runtime_error(ss.str());
+    }
+
+    return vec;
+}
+void NotifierCollection::setEventsMapper(EventsMapper* pEventsMapper)
+{
+    OclAutoMutex M(&m_lock);
+    m_eventsMapper = pEventsMapper;
+}
+cl_event NotifierCollection::getNotifierEvent(cl_event userEvent)
+{
+    OclAutoMutex M(&m_lock);
+    cl_event notifierEvent = NULL;
+    notifierEvent = m_eventsMapper->getNotifierEvent(userEvent);
+    if (NULL == notifierEvent)
+    {
+        notifierEvent = userEvent;
+    }
+    return notifierEvent;
+}
+cl_event NotifierCollection::getUserEvent(cl_event notifierEvent)
+{
+    OclAutoMutex M(&m_lock);
+    cl_event userEvent = m_eventsMapper->getUserEvent(notifierEvent);
+    if (NULL == userEvent)
+    { 
+        // The event is not shadowed.
+        userEvent = notifierEvent;
+    }
+    return userEvent;
+}
+
+inline void NotifierCollection::addQueueProperty(
+    vector<cl_queue_properties>& queueProps,
+    cl_queue_properties key,
+    cl_queue_properties value)
+{
+    queueProps.push_back(key);
+    queueProps.push_back(value);
 }

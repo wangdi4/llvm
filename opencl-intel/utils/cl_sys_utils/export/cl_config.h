@@ -499,6 +499,10 @@ namespace Intel { namespace OpenCL { namespace Utils {
         OPENCL_VERSION_2_0 =        2
     };
 
+#ifdef _WIN32
+    OPENCL_VERSION GetOpenclVerByCpuModel();
+#endif
+
     /**
      * This is the base class to all config wrappers.
      */

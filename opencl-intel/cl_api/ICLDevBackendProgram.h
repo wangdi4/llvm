@@ -16,9 +16,9 @@ public:
     virtual ~ICLDevBackendCodeContainer() {}
 
     /**
-     * @returns a pointer to the bitcode buffer
+     * @returns a pointer to the binary bitcode representation buffer of the program
      */
-    virtual const cl_prog_container_header* GetCode() const = 0;
+    virtual const void* GetCode() const = 0;
 
     /**
      * @returns the size of the bitcode buffer
@@ -31,12 +31,12 @@ public:
  */
 class ICLDevBackendProgramJITCodeProperties
 {
+public:
     /**
      * @returns the size of the JIT code
      */
-    virtual size_t GetCodeSize() const = 0;
+    virtual size_t GetJITCodeSize() const = 0;
 
-public:
     virtual ~ICLDevBackendProgramJITCodeProperties() {}
 };
 
@@ -60,10 +60,10 @@ public:
      * Gets the program build log
      *
      * @Returns
-     *  if the log already exist , pointer to the build log will be returned; otherwise NULL 
+     *  if the log already exist , pointer to the build log will be returned; otherwise NULL
      *  will be returned
      */
-	virtual const char* GetBuildLog() const = 0;
+    virtual const char* GetBuildLog() const = 0;
 
     /**
      * Gets the program Code Container; Program code is an abstraction which contain all
@@ -72,6 +72,11 @@ public:
      * @returns code container interface.
      */
     virtual const ICLDevBackendCodeContainer* GetProgramCodeContainer() const = 0;
+
+    /**
+     * @returns the program IR bitcode container
+     */
+    virtual const ICLDevBackendCodeContainer* GetProgramIRCodeContainer() const = 0;
 
     /**
      * Retrieves a pointer to a kernel object by kernel name
@@ -87,9 +92,22 @@ public:
      *  else
      *      CL_DEV_NOT_SUPPORTED will be returned
      */
-	virtual cl_dev_err_code GetKernelByName(
-        const char* pKernelName, 
+    virtual cl_dev_err_code GetKernelByName(
+        const char* pKernelName,
         const ICLDevBackendKernel_** ppKernel) const = 0;
+
+    /**
+     * OpenCL 2.0 introduced a feature called Extended Execution. Programs may have so called
+     * block kernels which can be enqueued for execution w\o host interaction from inside
+     * running kernels.
+     * This method returns how many non-block kernels in the program. I.e. the kernels
+     * enqueud for execution by a host.
+     *
+     * @returns
+     *  if the program already build:
+     *      the number of the non-block kernels in the program will be returned
+     */
+    virtual int GetNonBlockKernelsCount() const = 0;
 
     /**
      * Gets how many kernels in the program
@@ -98,7 +116,7 @@ public:
      *  if the program already build:
      *      the number of the kernels in the program will be returned
      *  else
-     *      -1 will be returned
+     *      0 will be returned
      */
     virtual int GetKernelsCount() const = 0;
 
@@ -116,8 +134,8 @@ public:
      *  else
      *      CL_DEV_NOT_SUPPORTED will be returned
      */
-	virtual cl_dev_err_code	GetKernel(
-        int kernelIndex, 
+    virtual cl_dev_err_code	GetKernel(
+        int kernelIndex,
         const ICLDevBackendKernel_** pKernel) const = 0;
 
     /**
@@ -126,6 +144,18 @@ public:
      * @returns JIT code properties interface, NULL in case of failure
      */
     virtual const ICLDevBackendProgramJITCodeProperties* GetProgramJITCodeProperties() const = 0;
+
+    /**
+     * Gets The total amount of storage, in bytes, used by
+     * program variables in the global address space.
+     *
+     * @returns
+     *  if the program already build:
+     *      the total size of global variables in program
+     *  otherwise
+     *      0 will be returned
+     */
+    virtual size_t GetGlobalVariableTotalSize() const = 0;
 };
 
 }}} // namespace

@@ -43,6 +43,8 @@ namespace intel {
 /// Support for dynamic loading of modules under Linux
 char Predicator::ID = 0;
 
+const int MAX_NUMBER_OF_BLOCKS_IN_AN_ALLONES_BYPASS = 6;
+
 OCL_INITIALIZE_PASS_BEGIN(Predicator, "predicate", "Predicate Function", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfo)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominanceFrontier)
@@ -530,6 +532,31 @@ Function* Predicator::createPredicatedFunction(Instruction *inst,
   return f;
 }
 
+void Predicator::replaceInstructionByPredicatedOne(Instruction* original,
+                                                   Instruction* predicated) {
+  VectorizerUtils::SetDebugLocBy(predicated, original);
+  // need to keep m_predicatedSelect dictionary updated.
+  if (m_valuableAllOnesBlocks.count(original->getParent())) {
+    for (Value::use_iterator it = original->use_begin(),
+       e = original->use_end(); it != e ; ++it) {
+         Instruction* inst = dyn_cast<Instruction>(*it);
+         if (inst && m_predicatedSelects.count(inst) && 
+                       m_predicatedSelects[inst] == original)   {
+           m_predicatedSelects[inst] = predicated;
+         }
+    }
+  }
+
+  original->replaceAllUsesWith(predicated);
+  // if we are going to duplicate this block and create
+  // an allones version, we want to keep for now the original
+  // instruction as well, and we will remove it to the duplicated block later.
+  if (m_valuableAllOnesBlocks.count(original->getParent()))
+    m_predicatedToOriginalInst[predicated]=original;
+  else
+    original->eraseFromParent();
+}
+
 Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
   // Preplace Load with call to function
   if (LoadInst* load = dyn_cast<LoadInst>(inst)) {
@@ -543,9 +570,7 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
 
     CallInst* call =
       CallInst::Create(func, ArrayRef<Value*>(params), "pLoad", inst);
-    VectorizerUtils::SetDebugLocBy(call, load);
-    load->replaceAllUsesWith(call);
-    load->eraseFromParent();
+    replaceInstructionByPredicatedOne(load, call);
     return call;
   }
 
@@ -562,9 +587,7 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
     params.push_back(store->getOperand(1));
     CallInst* call =
       CallInst::Create(func, ArrayRef<Value*>(params), "", inst);
-    VectorizerUtils::SetDebugLocBy(call, store);
-    store->replaceAllUsesWith(call);
-    store->eraseFromParent();
+    replaceInstructionByPredicatedOne(store, call);
     return call;
   }
 
@@ -637,9 +660,7 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
     as.addAttributes(func->getContext(), AttributeSet::ReturnIndex, callAttr.getRetAttributes());
     pcall->setAttributes(as);
 #endif
-    VectorizerUtils::SetDebugLocBy(pcall, call);
-    call->replaceAllUsesWith(pcall);
-    call->eraseFromParent();
+    replaceInstructionByPredicatedOne(call, pcall);
     return pcall;
   }
 
@@ -719,6 +740,14 @@ void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
       V_ASSERT(select != user);
       (user)->replaceUsesOfWith(inst, select);
     }
+  }
+
+  // if we are going to create an allone bypass for the basic block
+  // that contains inst, we want to map the select into inst.
+  // the reason is that in the allone bypass, we can use
+  // inst instead of the select instrcution.
+  if (m_valuableAllOnesBlocks.count(inst->getParent())) {
+    m_predicatedSelects[select] = inst;
   }
 }
 
@@ -1274,6 +1303,9 @@ void Predicator::predicateFunction(Function *F) {
   m_toPredicate.clear();
   m_outsideUsers.clear();
   m_optimizedMasks.clear();
+  m_valuableAllOnesBlocks.clear();
+  m_predicatedToOriginalInst.clear();
+  m_predicatedSelects.clear();
 
   // Get Dominator and Post-Dominator analysis passes
   PostDominatorTree* PDT = &getAnalysis<PostDominatorTree>();
@@ -1292,6 +1324,10 @@ void Predicator::predicateFunction(Function *F) {
   /// information. This is formation is the dominator-frontier properties of
   /// the original graph.
   specializer.CollectDominanceInfo();
+
+  // calculates the allones heuristics. That is, which block should be
+  // bypassed by an allones bypass.
+  calculateHeuristic(F);
 
   // Collect efficient mask generation
   if (EnableOptMasks) {
@@ -1350,6 +1386,7 @@ void Predicator::predicateFunction(Function *F) {
        it = m_outsideUsers.begin(), e=m_outsideUsers.end(); it != e; ++it) {
     selectOutsideUsedInstructions(*it);
   }
+
   /// 1.replace all side effect instructions with function calls
   /// 2.insert previous-select for instructions which are used outside
   /// the basic block
@@ -1362,8 +1399,22 @@ void Predicator::predicateFunction(Function *F) {
 
   V_ASSERT(!verifyFunction(*F) && "I broke this module");
 
-  /// Insert bypass cfg (specialization)
+  /// Insert all zero bypasses (specialization)
   specializer.specializeFunction();
+
+  // Note it is important to check all-ones only after checking for all-zeroes.
+  // If the mask is all-zeroes, then checking for all-ones, then for all-zeroes, and then
+  // doing nothing more (=bypassing) will be twice is costly than testing
+  // for all-zero first (2 conditional branches instead of 1).
+  // If the mask is all-ones, then there is more code to be executed
+  // other than the testing of the masks
+  // (this code probably contains loads/stores, otherwise the heuristic would not
+  // place an all-one bypass), and thus the extra condition is relatively cheap.
+
+  /// Insert all one bypasses
+  insertAllOnesBypasses();
+
+  V_ASSERT(!verifyFunction(*F) && "I broke this module");
 
   V_PRINT(predicate, "Final:"<<*F<<"\n");
 }
@@ -1378,6 +1429,728 @@ Value* Predicator::getInMask(BasicBlock* block) {
   if (m_inMask.find(block) != m_inMask.end()) return m_inMask[block];
   return NULL;
 }
+
+void Predicator::insertAllOnesBypassesSingleBlockLoopCase(BasicBlock* original) {
+  // we are going to replace the original block, which is a loop,
+  // with the following structure.
+  //             entry
+  //               .         .
+  //all-ones -> all-ones      .
+  //             . .           .
+  //          test all zeroes  .
+  //          .    .          .
+  //         .   entry2      <- entry
+  //         .     .
+  //         .  original  <- original
+  //          .    .   .
+  //            . exit
+
+  // 1. Create Blocks
+ BasicBlock* entry = BasicBlock::Create(original->getContext(),
+    "allones_entry_"+original->getName(), original->getParent(), original);
+
+ BasicBlock* allOnes = BasicBlock::Create(original->getContext(),
+    "allones_"+original->getName(), original->getParent(), original);
+
+ BasicBlock* testAllZeroes = BasicBlock::Create(original->getContext(),
+    "test_all_zeroes_"+original->getName(), original->getParent(), original);
+
+ BasicBlock* entry2 = BasicBlock::Create(original->getContext(),
+    "predicated_entry_"+original->getName(), original->getParent(), original);
+
+  V_ASSERT(original->getNextNode() && "expecting a next node");
+  BasicBlock* exit = BasicBlock::Create(original->getContext(),
+    "post_"+original->getName(), original->getParent(), original->getNextNode());
+
+  // 2. Change pre-header of 'original' to point to 'entry' instead.
+  std::vector<BasicBlock*> preds(pred_begin(original),pred_end(original));
+  for (std::vector<BasicBlock*>::iterator  pred = preds.begin(), e2 = preds.end();
+    pred != e2; ++pred) {
+      if (*pred == original)
+        continue;
+      TerminatorInst* term = (*pred)->getTerminator();
+      BranchInst* br = dyn_cast<BranchInst>(term);
+      V_ASSERT(br && "expected branch");
+      for (unsigned int i = 0; i < br->getNumSuccessors(); ++i) {
+        if (br->getSuccessor(i) == original) {
+          br->setSuccessor(i, entry);
+        }
+      }
+  }
+
+  // 3. At the end of the 'entry' block, test the mask for allones,
+  //    and decide accordingly whether to go to allone block
+  //    (which is not predicated), or to entry2, leading to original.
+  V_ASSERT(m_inMask.count(original) && "missing in mask");
+  Value* mask = m_inMask[original];
+  LoadInst* loadMask = new LoadInst(mask, "block_mask", entry);
+  CallInst* isAllOnes = CallInst::Create(m_allone, loadMask, "isAllOnes", entry);
+  BranchInst::Create(allOnes, entry2, isAllOnes, entry);
+
+  // 4. fill allones block with duplicate instructions.
+  std::map<Instruction*,Instruction*> originalToAllOnesInst;
+  for (BasicBlock::iterator ii = original->begin(), e2 = original->end();
+    ii != e2; ++ii) {
+      Instruction* inst = ii;
+      Instruction* clone;
+      if (m_predicatedSelects.count(inst)) {
+        // no need to duplicate the select, since mask is allones.
+        // simply use the value.
+        V_ASSERT(originalToAllOnesInst.count(m_predicatedSelects[inst]) &&
+          "original inst should have been cloned before reaching the select");
+        originalToAllOnesInst[inst] = originalToAllOnesInst[m_predicatedSelects[inst]];
+        continue;
+      }
+      else if (m_predicatedToOriginalInst.count(inst)) {
+        // predicated instruction to remain in original.
+        // non predicated instruction to be moved into allones.
+        Instruction* originalNonPredicatedInst = m_predicatedToOriginalInst[inst];
+        clone = originalNonPredicatedInst->clone();
+        clone->takeName(originalNonPredicatedInst);
+        // playing with fire here: removing the originalNonPredicatedInst
+        // while iterating the parent. This should be Ok, as we have not yet reached it.
+        originalNonPredicatedInst->eraseFromParent();
+      }
+      else {
+        // the original instruction remains in the original block,
+        // and a copy of it goes into the allones block.
+        clone = inst->clone();
+      }
+      allOnes->getInstList().push_back(clone);
+
+      // handle inblock instruction arguments for the allones block.
+      originalToAllOnesInst[inst]=clone;
+      for (unsigned int i = 0; i < clone->getNumOperands(); ++i) {
+        Value* op = clone->getOperand(i);
+        Instruction* opInst = dyn_cast<Instruction>(op);
+        if (opInst) {
+          if (opInst->getParent() == original) {
+            if (originalToAllOnesInst.count(opInst)) {
+              clone->replaceUsesOfWith(opInst, originalToAllOnesInst[opInst]);
+            }
+          }
+        }
+      }
+  }
+
+  // 5. fix phi nodes in allones block.
+  for (BasicBlock::iterator ii = allOnes->begin(), e = allOnes->end();
+    ii != e; ++ii) {
+      PHINode* phi = dyn_cast<PHINode>(ii);
+      if (!phi) {
+        break;
+      }
+      V_ASSERT(phi->getNumIncomingValues() == 2 && "expected 2 incoming vals");
+      for (unsigned int i = 0; i < phi->getNumIncomingValues(); i++) {
+        if (phi->getIncomingBlock(i) == original) {
+          phi->setIncomingBlock(i, allOnes);
+          Value* val = phi->getIncomingValue(i);
+          Instruction* valInst = dyn_cast<Instruction>(val);
+          if (!valInst || valInst->getParent() != original) {
+            continue;
+          }
+          V_ASSERT(originalToAllOnesInst.count(valInst) && "missing allones instruction");
+
+          phi->setIncomingValue(i, originalToAllOnesInst[valInst]);
+        }
+        else {
+          phi->setIncomingBlock(i, entry);
+        }
+      }
+  }
+
+
+  // 6. replace exit condition in the allones block.
+  // if the condition is allzero, it should be replaced with allones.
+  // but the condition might also be uniform, in which case
+  // the condition itself remains unchanged,
+  // only the successors must be replaced.
+  bool isAllZeroCondition = true; // start by assuming non-uniform.
+  TerminatorInst* allOnesTerminator = allOnes->getTerminator();
+  BranchInst* allOnesBr = dyn_cast<BranchInst>(allOnesTerminator);
+  V_ASSERT(allOnesBr && allOnesBr->isConditional() && "expected conditional branch");
+  Value* condition = allOnesBr->getCondition();
+  CallInst* callCond = dyn_cast<CallInst>(condition);
+  if (!callCond || callCond->getCalledFunction() != m_allzero) {
+    // if not an allzero, it must be a uniform condition.
+    isAllZeroCondition = false;
+    V_ASSERT(m_WIA->whichDepend(original->getTerminator()) == WIAnalysis::UNIFORM
+      && "condition must be uniform if not allZero");
+
+    for (unsigned int i = 0; i < allOnesBr->getNumSuccessors(); i++) {
+      if (allOnesBr->getSuccessor(i) == original) {
+        allOnesBr->setSuccessor(i, allOnes);
+      }
+      else {
+        allOnesBr->setSuccessor(i, testAllZeroes);
+      }
+    }
+  }
+  else { // condition is allzero. Replace with allones.
+    allOnes->getTerminator()->eraseFromParent();
+    V_ASSERT(callCond->getNumUses() == 0 && "expected no users");
+    callCond->setCalledFunction(m_allone);
+    BranchInst::Create(allOnes, testAllZeroes, callCond, allOnes);
+  }
+
+  // 7. fill test all zero
+  if (isAllZeroCondition) {
+    CallInst* allZeroCall = CallInst::Create(m_allzero, callCond->getArgOperand(0), "isAllZero", testAllZeroes);
+    BranchInst::Create(exit, entry2, allZeroCall, testAllZeroes);
+  }
+  else { // if loop condition is uniform, no need to test for allzeroes
+    BranchInst::Create(exit, entry2, m_one, testAllZeroes);
+  }
+
+  // 8. Create PHI-Nodes inside entry2 for values that are
+  // used in phi-nodes inside original.
+  // also fix phi-nodes inside original.
+  for (BasicBlock::iterator ii = original->begin(), e = original->end();
+    ii != e; ++ii) {
+      PHINode* phi = dyn_cast<PHINode>(ii);
+      if (!phi) {
+        break;
+      }
+      V_ASSERT(phi->getNumIncomingValues() == 2 && "expected 2 incoming vals");
+      for (unsigned int i = 0; i < phi->getNumIncomingValues(); i++) {
+        if (phi->getIncomingBlock(i) == original) {
+          Value* val = phi->getIncomingValue(i);
+          Instruction* valInst = dyn_cast<Instruction>(val);
+          if (!valInst) {
+            continue;
+          }
+          PHINode* newPhi = PHINode::Create(phi->getType(), 2, "pred_phi_"+phi->getName(), entry2);
+          V_ASSERT(originalToAllOnesInst.count(valInst) && "missing allones inst");
+          unsigned int otherIndex = 1-i;
+          newPhi->addIncoming(originalToAllOnesInst[valInst], testAllZeroes);
+          newPhi->addIncoming(phi->getIncomingValue(otherIndex), entry);
+
+          phi->setIncomingValue(otherIndex, newPhi);
+          phi->setIncomingBlock(otherIndex, entry2);
+          break;
+        }
+      }
+  }
+
+  // 9. Put terminator in entry2
+  BranchInst::Create(original, entry2);
+
+  // 10. insert phi-nodes at exit to choose between the allones or predicated values.
+  for (BasicBlock::iterator ii = original->begin(), e2 = original->end();
+    ii != e2; ++ii) {
+      PHINode* predicationPhi = NULL;
+      // changing users, so we need to iterate on copy.
+      std::vector<Value*> users(ii->use_begin(), ii->use_end());
+      for (std::vector<Value*>::iterator user = users.begin(), e3 = users.end();
+        user != e3; ++ user) {
+          Instruction* userInst = dyn_cast<Instruction>(*user);
+          if (userInst) { // if user is an instruction
+            if (userInst->getParent() != original) { // user is outside this block
+              // the user should use a phi instead.
+              if (!predicationPhi) {
+                V_ASSERT(originalToAllOnesInst.count(ii)
+                  && "missing allones version");
+                predicationPhi = PHINode::Create(ii->getType(), 2,
+                  ii->getName()+"_predication_phi", exit);
+
+                predicationPhi->addIncoming(ii,original);
+                predicationPhi->addIncoming(originalToAllOnesInst[ii],testAllZeroes);
+              }
+              userInst->replaceUsesOfWith(ii,predicationPhi);
+            }
+          }
+      }
+  }
+
+  // 11. change terminator  in original and put terminator in exit.
+  BasicBlock* originalSuccessor = NULL;
+  TerminatorInst* originalTerm = original->getTerminator();
+  BranchInst* originalBr = dyn_cast<BranchInst>(originalTerm);
+  V_ASSERT(originalBr && originalBr->getNumSuccessors() == 2 && "expected conditional branch");
+  for (unsigned int i = 0; i < originalBr->getNumSuccessors(); i++) {
+    if (originalBr->getSuccessor(i) != original) {
+      originalSuccessor = originalBr->getSuccessor(i);
+      originalBr->setSuccessor(i, exit);
+      break;
+    }
+  }
+  V_ASSERT(originalSuccessor && "missing original succcessor");
+  BranchInst::Create(originalSuccessor, exit);
+
+
+
+  // 12. change phi-nodes at the successors of exit (which now follow exit
+  //    instead of original).
+  // there is actually just one successor: originalSuccessor.
+  for (BasicBlock::iterator bbi = originalSuccessor->begin(),
+    e3 = originalSuccessor->end(); bbi != e3; ++bbi) {
+      PHINode* phi = dyn_cast<PHINode>(bbi);
+      if (!phi) {
+        break;
+      }
+
+      for (unsigned int i = 0; i < phi->getNumIncomingValues(); i++) {
+        if (phi->getIncomingBlock(i) == original) {
+          phi->setIncomingBlock(i, exit);
+        }
+      }
+  }
+}
+
+
+static bool isSingleBlockLoop(BasicBlock* BB) {
+  for (pred_iterator it = pred_begin(BB), e = pred_end(BB);
+    it != e; ++it) {
+      if (*it == BB) {
+        return true;
+      }
+  }
+  return false;
+}
+
+void Predicator::insertAllOnesBypasses() {
+  for (std::set<BasicBlock*>::iterator it = m_valuableAllOnesBlocks.begin(),
+    e = m_valuableAllOnesBlocks.end(); it != e; ++it) {
+      // for each block to be bypassed
+      BasicBlock* original = *it;
+      if (isSingleBlockLoop(original)) {
+        // we treat loops made of a single block as a special case
+        // (which is more efficient)
+        insertAllOnesBypassesSingleBlockLoopCase(original);
+        continue;
+      }
+
+      // we are going to replace the original block, with a structure of four blocks:
+      //              entry
+      //             .     .
+      //            .       .
+      //       original    allones
+      //            .       .
+      //             .     .
+      //              exit
+      // We will do the following:
+      // 1. Create the entry, exit, and allones BBs.
+      // 2. Change predecessors of 'original' to point to 'entry' instead.
+      // 3. Move and duplicate instructions:
+      //     a. instructions before the first predicated instruction of original
+      //        are moved to entry.
+      //     b. instructions between the first and last predicated instruction of
+      //        are cloned to appear both in the original BB and in the
+      //        allones BB. the allones BB uses non-predicated instructions
+      //        instead of the predicated ones.
+      //     c. instructions after the last predicated instruction of original
+      //        are moved to exit.
+      // 4. Put terminators in original and allones leading into exit.
+      // 5. insert phi-nodes at exit to choose between the allones or predicated values.
+      // 6. At the end of the 'entry' block, test the mask for allones,
+      //    and decide accordingly whether to go to allone block
+      //    (which is not predicated), or to original (which is predicated).
+      // 7. change phinodes at the successors of exit (which now follow exit
+      //    instead of original)
+
+
+      // preliminaries:
+      // find last predicated instruction in the block.
+      Instruction* lastPredicatedInst = NULL;
+      for (BasicBlock::iterator ii = original->begin(), e2 = original->end();
+        ii != e2; ++ii) {
+          if (m_predicatedToOriginalInst.count(ii)) {
+            lastPredicatedInst = ii;
+          }
+      }
+      if (!lastPredicatedInst) {
+        // no point duplicating this block if it has no predicated instructions.
+        continue;
+      }
+
+      // 1. Create the entry, exit, and allones BBs.
+      BasicBlock*  allOnes = BasicBlock::Create(original->getContext(),
+        original->getName() + "_allOnes", original->getParent(), original);
+
+      BasicBlock* entry = BasicBlock::Create(original->getContext(),
+        "pre_"+original->getName(), original->getParent(), allOnes);
+      V_ASSERT(original->getNextNode() && "expecting a next node");
+      BasicBlock* exit = BasicBlock::Create(original->getContext(),
+        "post_"+original->getName(), original->getParent(), original->getNextNode());
+
+      // 2. Change predecessors of 'original' to point to 'entry' instead.
+      // note that a block can be his own predecessor, so need
+      // to make a copy of the preds and run on the copy.
+      std::vector<BasicBlock*> preds(pred_begin(original),pred_end(original));
+      for (std::vector<BasicBlock*>::iterator  pred = preds.begin(), e2 = preds.end();
+        pred != e2; ++pred) {
+          TerminatorInst* term = (*pred)->getTerminator();
+          BranchInst* br = dyn_cast<BranchInst>(term);
+          V_ASSERT(br && "expected branch");
+          for (unsigned int i = 0; i < br->getNumSuccessors(); ++i) {
+            if (br->getSuccessor(i) == original) {
+              br->setSuccessor(i, entry);
+            }
+          }
+      }
+
+
+      // 3. Move and duplicate instructions
+      std::vector<Instruction*> toRemove;
+      std::map<Instruction*,Instruction*> originalToAllOnesInst;
+      bool beforeFirstPredicatedInstruction = true;
+      bool afterLastPredicatedInstruction = false;
+      for (BasicBlock::iterator ii = original->begin(), e2 = original->end();
+        ii != e2; ++ii) {
+          if (beforeFirstPredicatedInstruction &&
+            m_predicatedToOriginalInst.count(ii)) {
+            beforeFirstPredicatedInstruction = false;
+          }
+          Instruction* inst = ii;
+          Instruction* clone;
+          if (beforeFirstPredicatedInstruction) {
+            // move into entry.
+            clone = inst->clone();
+            clone->takeName(inst);
+            entry->getInstList().push_back(clone);
+            inst->replaceAllUsesWith(clone);
+            toRemove.push_back(inst);
+            continue;
+          }
+          else if (afterLastPredicatedInstruction) {
+            // move into exit
+            clone = inst->clone();
+            clone->takeName(inst);
+            exit->getInstList().push_back(clone);
+            inst->replaceAllUsesWith(clone);
+            toRemove.push_back(inst);
+            continue;
+          }
+          else if (m_predicatedToOriginalInst.count(inst)) {
+            // predicated instruction to remain in original.
+            // non predicated instruction to be moved into allones.
+            Instruction* originalNonPredicatedInst = m_predicatedToOriginalInst[inst];
+            clone = originalNonPredicatedInst->clone();
+            clone->takeName(originalNonPredicatedInst);
+            // playing with fire here: removing the originalNonPredicatedInst
+            // while iterating the parent. This should be Ok, as we have not yet reached it.
+            originalNonPredicatedInst->eraseFromParent();
+            if (inst == lastPredicatedInst) {
+              afterLastPredicatedInstruction = true;
+            }
+          }
+          else {
+            // the original instruction remains in the original block,
+            // and a copy of it goes into the allones block.
+            clone = inst->clone();
+          }
+          allOnes->getInstList().push_back(clone);
+
+          // handle inblock instruction arguments for the allones block.
+          originalToAllOnesInst[inst]=clone;
+          for (unsigned int i = 0; i < clone->getNumOperands(); ++i) {
+            Value* op = clone->getOperand(i);
+            Instruction* opInst = dyn_cast<Instruction>(op);
+            if (opInst) {
+              if (opInst->getParent() == original) {
+                V_ASSERT(originalToAllOnesInst.count(opInst) && "missing allones");
+                clone->replaceUsesOfWith(opInst, originalToAllOnesInst[opInst]);
+              }
+            }
+          }
+      }
+      V_ASSERT(!beforeFirstPredicatedInstruction && afterLastPredicatedInstruction
+        && "loop didn't finished as expected");
+
+      for (std::vector<Instruction*>::iterator
+        toRem = toRemove.begin(), e2 = toRemove.end(); toRem != e2; ++toRem) {
+          (*toRem)->eraseFromParent();
+      }
+
+      // 4. Put terminators in original and allones leading into exit.
+      BranchInst::Create(exit, allOnes);
+      BranchInst::Create(exit, original);
+
+      // 5. insert phi-nodes at exit to choose between the allones or predicated values.
+      Instruction* firstInExitBlock = exit->begin();
+      for (BasicBlock::iterator ii = original->begin(), e2 = original->end();
+        ii != e2; ++ii) {
+          PHINode* predicationPhi = NULL;
+          // changing users, so we need to iterate on copy.
+          std::vector<Value*> users(ii->use_begin(), ii->use_end());
+          for (std::vector<Value*>::iterator user = users.begin(), e3 = users.end();
+            user != e3; ++ user) {
+              Instruction* userInst = dyn_cast<Instruction>(*user);
+              if (userInst) { // if user is an instruction
+                if (userInst->getParent() != original) { // user is outside this block
+                  // the user should use a phi instead.
+                  if (!predicationPhi) {
+                    V_ASSERT(originalToAllOnesInst.count(ii)
+                             && "missing allones version");
+                    predicationPhi = PHINode::Create(ii->getType(), 2,
+                      ii->getName()+"_predication_phi", firstInExitBlock);
+
+                    predicationPhi->addIncoming(ii,original);
+                    predicationPhi->addIncoming(originalToAllOnesInst[ii],allOnes);
+                  }
+                  userInst->replaceUsesOfWith(ii,predicationPhi);
+                }
+              }
+          }
+      }
+
+      // 6. At the end of the 'entry' block, test the mask for allones,
+      //    and decide accordingly whether to go to allone block
+      //    (which is not predicated), or to original (which is predicated).
+      V_ASSERT(m_inMask.count(original) && "missing in mask");
+      Value* mask = m_inMask[original];
+      LoadInst* loadMask = new LoadInst(mask, "block_mask", entry);
+      CallInst* isAllOnes = CallInst::Create(m_allone, loadMask, "isAllOnes", entry);
+      BranchInst::Create(allOnes, original, isAllOnes, entry);
+
+      // 7. change phi-nodes at the successors of exit (which now follow exit
+      //    instead of original)
+      for (succ_iterator succ = succ_begin(exit), e2 = succ_end(exit);
+        succ != e2; ++succ) {
+          for (BasicBlock::iterator bbi = succ->begin(), e3 = succ->end();
+            bbi != e3; ++bbi) {
+              PHINode* phi = dyn_cast<PHINode>(bbi);
+              if (!phi) {
+                break;
+              }
+
+              for (unsigned int i = 0; i < phi->getNumIncomingValues(); i++) {
+                if (phi->getIncomingBlock(i) == original) {
+                  phi->setIncomingBlock(i, exit);
+                }
+              }
+
+          }
+      }
+
+    }
+}
+
+// returns the terminator of BB if its a branch conditional on allones.
+// otherwise returns NULL.
+BranchInst* Predicator::getAllOnesBranch(BasicBlock* BB) {
+  TerminatorInst* term = BB->getTerminator();
+  V_ASSERT(term && "terminator cannot be null");
+  BranchInst* br = dyn_cast<BranchInst>(term);
+  if (!br) return NULL;
+
+  if (br->isConditional()) {
+    Value* cond = br->getCondition();
+    CallInst* condCall = dyn_cast<CallInst>(cond);
+    if (condCall && condCall->getCalledFunction()) {
+      StringRef name = condCall->getCalledFunction()->getName();
+      if (Mangler::isAllOne(name))
+        return br;
+    }
+  }
+  return NULL;
+}
+
+// recursively (by checking type of predecessors) gets the allones block type.
+static Predicator::AllOnesBlockType getAllOnesBlockTypeRec(BasicBlock* BB, int recursionLevel) {
+  // allones blocks doesn't contain loops other than single block loops.
+  // if recursion level is high, then we are in a loop, so
+  // this is not an allones blcok.
+  if (recursionLevel > MAX_NUMBER_OF_BLOCKS_IN_AN_ALLONES_BYPASS+1) {
+    return Predicator::NONE;
+  }
+  bool isBlockALoop = isSingleBlockLoop(BB);
+  BranchInst* allOnesBranch = Predicator::getAllOnesBranch(BB);
+  // 1. first handle blocks that end with an allones branch.
+  if (allOnesBranch) {
+    if (isBlockALoop) {
+      // note a block could also be SINGLE_BLOCK_LOOP_ALLONES
+      // without terminating in an allones branch. (could be a uniform branch)
+      return Predicator::SINGLE_BLOCK_LOOP_ALLONES;
+    }
+    else for (unsigned int i = 0; i < allOnesBranch->getNumSuccessors(); i++) {
+      if (isSingleBlockLoop(allOnesBranch->getSuccessor(i))) {
+        return Predicator::SINGLE_BLOCK_LOOP_ENTRY;
+      }
+    }
+    return Predicator::ENTRY;
+  }
+
+  // 2. then handle blocks that are a self-loop.
+  if (isBlockALoop) {
+    for (pred_iterator it = pred_begin(BB), e = pred_end(BB); it != e; ++it) {
+      if (*it != BB) {
+        Predicator::AllOnesBlockType predType = getAllOnesBlockTypeRec(*it, recursionLevel+1);
+        if (predType == Predicator::SINGLE_BLOCK_LOOP_ENTRY_TO_ORIGINAL) {
+          return Predicator::SINGLE_BLOCK_LOOP_ORIGINAL;
+        }
+        else if (predType == Predicator::SINGLE_BLOCK_LOOP_ENTRY) {
+          return Predicator::SINGLE_BLOCK_LOOP_ALLONES;
+        }
+      }
+    }
+    return Predicator::NONE;
+  }
+
+  // 3. then handle all the rest.
+  for (pred_iterator it = pred_begin(BB), e = pred_end(BB); it != e; ++it) {
+    V_ASSERT(*it != BB && "BB shouldn't be a self-loop!");
+    Predicator::AllOnesBlockType predType = getAllOnesBlockTypeRec(*it, recursionLevel+1);
+    if (predType == Predicator::NONE) {
+      return Predicator::NONE;
+    }
+    else if (predType == Predicator::ENTRY) {
+      // either all ones or original.
+      BranchInst* entryBranch = Predicator::getAllOnesBranch(*it);
+      V_ASSERT(entryBranch && "expected a valid allones branch in entry");
+      V_ASSERT(entryBranch->getNumOperands() >= 3 &&
+        "not enough operands for allones");
+      if (entryBranch->getOperand(2) == BB) return Predicator::ALLONES;
+      V_ASSERT((entryBranch->getOperand(1) == BB) && "should be this block");
+      return Predicator::ORIGINAL;
+    }
+    else if (predType == Predicator::ORIGINAL ||
+      predType == Predicator::ALLONES) {
+        return Predicator::EXIT;
+    }
+    else if (predType == Predicator::EXIT) {
+      return Predicator::NONE;
+    }
+    else if (predType == Predicator::SINGLE_BLOCK_LOOP_ENTRY) {
+      // could not be SINGLE_BLOCK_LOOP_ALLONES, because that
+      // is already handled when handling self-loop blocks.
+      return Predicator::SINGLE_BLOCK_LOOP_ENTRY_TO_ORIGINAL;
+    }
+    else if (predType == Predicator::SINGLE_BLOCK_LOOP_ALLONES) {
+      // could not be SINGLE_BLOCK_LOOP_ALLONES, because that
+      // is already handled when handling self-loop blocks.
+      return Predicator::SINGLE_BLOCK_LOOP_TEST_ALLZEROES;
+    }
+    else if (predType == Predicator::SINGLE_BLOCK_LOOP_ORIGINAL) {
+      // could not be SINGLE_BLOCK_LOOP_ORIGINAL, because that
+      // is already handled when handling self-loop blocks.
+      return  Predicator::SINGLE_BLOCK_LOOP_EXIT;
+    }
+    else if (predType == Predicator::SINGLE_BLOCK_LOOP_EXIT) {
+      return Predicator::NONE;
+    }
+    V_ASSERT(predType !=
+     Predicator::SINGLE_BLOCK_LOOP_ENTRY_TO_ORIGINAL &&
+     "original should have been caught at self-loop blocks");
+
+    // if pred is Predicator::SINGLE_BLOCK_LOOP_TEST_ALLZEROES,
+    // then two options for type, we will find out using the other predecessor.
+  }
+  return Predicator::NONE;
+}
+
+Predicator::AllOnesBlockType Predicator::getAllOnesBlockType(BasicBlock* BB) {
+  return getAllOnesBlockTypeRec(BB, 0);
+}
+
+// assumes it gets a SINGLE_BLOCK_LOOP_ORIGINAL block,
+// and returns its SIGLE_BLOCK_LOOP_ALLONES twin.
+BasicBlock* Predicator::getAllOnesSingleLoopBlock(BasicBlock* originalSingleLoop) {
+  V_ASSERT(getAllOnesBlockType(originalSingleLoop) ==
+    Predicator::SINGLE_BLOCK_LOOP_ORIGINAL &&
+    "expected original single block loop");
+
+  pred_iterator pred_it = pred_begin(originalSingleLoop);
+  V_ASSERT(pred_it != pred_end(originalSingleLoop) &&
+    "expected to find entry to original");
+  BasicBlock* entryToOriginal = *pred_it;
+  V_ASSERT(Predicator::getAllOnesBlockType(entryToOriginal) ==
+    Predicator::SINGLE_BLOCK_LOOP_ENTRY_TO_ORIGINAL &&
+    "block type misfit");
+
+  for (pred_iterator pred_it2 = pred_begin(entryToOriginal),
+    pred_e = pred_end(entryToOriginal);
+    pred_it2 != pred_e; ++pred_it2) {
+      BasicBlock* pred2 = *pred_it2;
+      if (Predicator::getAllOnesBlockType(pred2) ==
+        Predicator::SINGLE_BLOCK_LOOP_ENTRY) {
+          // go over successors of the entry.
+          for (succ_iterator succ_it = succ_begin(pred2),
+            succ_e = succ_end(pred2);
+            succ_it != succ_e; ++succ_it) {
+              if (getAllOnesBlockType(*succ_it)
+                == Predicator::SINGLE_BLOCK_LOOP_ALLONES) {
+                  return *succ_it;
+              }
+          }
+      }
+  }
+
+  V_ASSERT(false && "couldn't find single block loop allones");
+  return originalSingleLoop;
+}
+
+// assumes it gets an ORIGINAL,
+// and returns its ENTRY predecessor.
+BasicBlock* Predicator::getEntryBlockFromOriginal(BasicBlock* original) {
+  V_ASSERT(getAllOnesBlockType(original) ==
+    Predicator::ORIGINAL && "expected original block type");
+
+  pred_iterator pred_it = pred_begin(original);
+  V_ASSERT(pred_it != pred_end(original) && "expected to find entry");
+  BasicBlock* entry = *pred_it;
+  V_ASSERT(getAllOnesBlockType(entry) ==
+    Predicator::ENTRY && "block type misfit");
+
+  return entry;
+}
+
+// assumes it gets a SINGLE_BLOCK_LOOP_ORIGINAL block,
+// and returns the corresponding SINGLE_BLOCK_LOOP_ENTRY.
+BasicBlock* Predicator::getEntryBlockFromLoopOriginal(BasicBlock* loopOriginal) {
+  V_ASSERT(getAllOnesBlockType(loopOriginal) ==
+    Predicator::SINGLE_BLOCK_LOOP_ORIGINAL &&
+    "expected original single block loop");
+
+  pred_iterator pred_it = pred_begin(loopOriginal);
+  V_ASSERT(pred_it != pred_end(loopOriginal) && "expected to find entry to original");
+  BasicBlock* entryToOriginal = *pred_it;
+  V_ASSERT(getAllOnesBlockType(entryToOriginal) ==
+    Predicator::SINGLE_BLOCK_LOOP_ENTRY_TO_ORIGINAL &&
+    "block type misfit");
+
+  for (pred_iterator pred_it2 = pred_begin(entryToOriginal),
+    pred_e = pred_end(entryToOriginal);
+    pred_it2 != pred_e; ++pred_it2) {
+      BasicBlock* pred2 = *pred_it2;
+      if (getAllOnesBlockType(pred2) ==
+        Predicator::SINGLE_BLOCK_LOOP_ENTRY) {
+          return pred2;
+      }
+  }
+  V_ASSERT(false && "failed to find entry");
+  return loopOriginal;
+}
+
+
+
+bool Predicator::blockHasLoadStore(BasicBlock* BB) {
+  for (BasicBlock::iterator it = BB->begin(), e = BB->end();
+        it != e; ++it) { // for each instruction
+          if (isa<LoadInst>(it) || isa<StoreInst>(it)) {
+            return true;
+          }
+      }
+
+  return false;
+}
+
+void Predicator::calculateHeuristic(Function* F) {
+  // if desired, turn off allones by not marking any blocks to be bypassed.
+  if (getenv("all-ones-off")) {
+    return;
+  }
+  // the heuristics is a simple check if a divergent block has loads / stores.
+  // this proved to be better than several more sophisticated alternatives.
+  for (Function::iterator it = F->begin(), e = F->end(); it != e; ++it) {
+    if (m_WIA->isDivergentBlock(it) && blockHasLoadStore(it)) {
+      m_valuableAllOnesBlocks.insert(it);
+    }
+  }
+}
+
+
+
 
 } // namespace intel
 

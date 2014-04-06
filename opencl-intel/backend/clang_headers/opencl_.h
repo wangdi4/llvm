@@ -144,12 +144,10 @@ typedef _Atomic(float) atomic_float;
 typedef _Atomic(double) atomic_double;
 #endif
 
-#if __32bit__ == 1
 typedef _Atomic(intptr_t) atomic_intptr_t;
 typedef _Atomic(uintptr_t) atomic_uintptr_t;
 typedef _Atomic(size_t) atomic_size_t;
 typedef _Atomic(ptrdiff_t) atomic_ptrdiff_t;
-#endif
 
 /**
  * ndrange_t is an opaque struct pointer
@@ -185,7 +183,7 @@ typedef _Atomic(ptrdiff_t) atomic_ptrdiff_t;
 /**
  * A constant expression of type float representing a quiet NaN.
  */
-#define NAN as_float(__builtin_nanf((char const *)""))
+#define NAN as_float(__builtin_nanf((private char const *)""))
 
 #define FP_ILOGB0        INT_MIN
 #define FP_ILOGBNAN      INT_MAX
@@ -14242,13 +14240,13 @@ ndrange_t const_func __attribute__((overloadable)) ndrange_1D( size_t global_wor
 ndrange_t const_func __attribute__((overloadable)) ndrange_1D( size_t global_work_size, size_t local_work_size);
 ndrange_t const_func __attribute__((overloadable)) ndrange_1D( size_t global_work_offset, size_t global_work_size, size_t local_work_size);
 
-ndrange_t const_func __attribute__((overloadable)) ndrange_2D( size_t global_work_size[2]);
-ndrange_t const_func __attribute__((overloadable)) ndrange_2D( size_t global_work_size[2], size_t local_work_size[2]);
-ndrange_t const_func __attribute__((overloadable)) ndrange_2D( size_t global_work_offset[2], size_t global_work_size[2], size_t local_work_size[2]);
+ndrange_t const_func __attribute__((overloadable)) ndrange_2D( const size_t global_work_size[2]);
+ndrange_t const_func __attribute__((overloadable)) ndrange_2D( const size_t global_work_size[2], const size_t local_work_size[2]);
+ndrange_t const_func __attribute__((overloadable)) ndrange_2D( const size_t global_work_offset[2], const size_t global_work_size[2], const size_t local_work_size[2]);
 
-ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_work_size[3]);
-ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_work_size[3], size_t local_work_size[3]);
-ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_work_offset[3], size_t global_work_size[3], size_t local_work_size[3]);
+ndrange_t const_func __attribute__((overloadable)) ndrange_3D( const size_t global_work_size[3]);
+ndrange_t const_func __attribute__((overloadable)) ndrange_3D( const size_t global_work_size[3], const size_t local_work_size[3]);
+ndrange_t const_func __attribute__((overloadable)) ndrange_3D( const size_t global_work_offset[3], const size_t global_work_size[3], const size_t local_work_size[3]);
 
 void __attribute__((overloadable)) __attribute__((always_inline)) retain_event(clk_event_t event);
 void __attribute__((overloadable)) __attribute__((always_inline)) release_event(clk_event_t event);

@@ -3,9 +3,9 @@
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; CHECK: @__Vectorized_.vandermonde_prod
-; CHECK: br i1 %shouldexit, label %for.end13.loopexit, label %for.end.us
+; CHECK: br i1 %shouldexit, label %post_for.end.us, label %for.end.us
 ; CHECK: for.cond.for.end13_crit_edge.us-lcssa:            ; preds = %entry
-; CHECK: for.end13.loopexit:                               ; preds = %for.end.us
+; CHECK: for.end13.loopexit:                               ; preds = %post_for.end.us
 ; CHECK-NOT: br i1 %shouldexit, label %for.cond.for.end13_crit_edge.us-lcssa, label %for.end.us
 ; CHECK-NOT: for.cond.for.end13_crit_edge.us-lcssa:            ; preds = %for.end.us, %entry
 ; CHECK-NOT: for.end13.loopexit:                               ; No predecessors!

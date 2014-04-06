@@ -225,6 +225,13 @@
                     "elements": [
                         {
                             "location": "named",
+                            "key":      "global_variable_total_size",
+                            "name":     "GlobalVariableTotalSize",
+                            "metatype": "int64_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
                             "key":      "gen_addr_space_pointer_counter",
                             "name":     "GAScounter",
                             "metatype": "int32_item",
@@ -251,6 +258,10 @@
     "int32_item": {
                     "is_container":     false,
                     "type":             "int32_t"
+                },
+    "int64_item": {
+                    "is_container":     false,
+                    "type":             "int64_t"
                 },
     "bool_item": {
                     "is_container":     false,

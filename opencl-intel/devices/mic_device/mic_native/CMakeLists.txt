@@ -28,6 +28,11 @@ if (MIC_USE_OMP)
     set( OMP_COMPILER_FLAG -openmp)
 endif(MIC_USE_OMP)
 
+set( COI_BUFFER_ADDREF_FLAG )
+if ( USE_COI_BUFFS_REF_NEW_API )
+    set ( COI_BUFFER_ADDREF_FLAG -DMIC_USE_COI_BUFFS_REF_NEW_API )
+endif ( USE_COI_BUFFS_REF_NEW_API )
+
 #
 # Set Backend dependencies
 #
@@ -386,6 +391,7 @@ list( APPEND MIC_FLAGS
                 -I ${CMAKE_SOURCE_DIR}/externals/tbb/include
                 -D${TASK_EXECUTOR_FLAG} -DTBB_PREVIEW_LOCAL_OBSERVER=1 -DTBB_PREVIEW_TASK_ARENA=1
                 ${MIC_DA_OMP_FLAG}
+                ${COI_BUFFER_ADDREF_FLAG}
                 -DKNC_CARD
                 -fPIC
                 )
@@ -407,9 +413,7 @@ if ( ENABLE_MIC_TRACER )
     list( APPEND MIC_FLAGS -DENABLE_MIC_TRACER )
 endif ( ENABLE_MIC_TRACER )
 
-if ( ENABLE_MIC_CMD_BATCHING )
-    list( APPEND MIC_FLAGS -DMIC_COMMAND_BATCHING_OPTIMIZATION -I ${UTILS_DIR}/task_executor )
-endif ( ENABLE_MIC_CMD_BATCHING )	
+list( APPEND MIC_FLAGS -I ${UTILS_DIR}/task_executor )
 
 option( ENABLE_MIC_TBB_TRACER OFF )
 if ( ENABLE_MIC_TBB_TRACER )

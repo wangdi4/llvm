@@ -21,6 +21,7 @@ File Name:  CPUJITContainer.h
 #include "cl_device_api.h"
 #include "Kernel.h"
 #include "CPUCompiler.h"
+#include "Serializer.h"
 
 namespace llvm {
     class Module;
@@ -32,6 +33,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class CPUJITContainer: public IKernelJITContainer
 {
 public:
+    CPUJITContainer();
+
     CPUJITContainer(const void* pFuncCode,
                  llvm::Function* pFunction,
                  llvm::Module* pModule,
@@ -53,10 +56,9 @@ public:
     /**
      * Serialization methods for the class (used by the serialization service)
      */
-/*
-    void Serialize(IOutputStream& ost, SerializationStatus* stats);
+    void Serialize(IOutputStream& ost, SerializationStatus* stats) const;
     void Deserialize(IInputStream& ist, SerializationStatus* stats);
-*/
+
 private:
     const void*            m_pFuncCode;
     llvm::Function*        m_pFunction;

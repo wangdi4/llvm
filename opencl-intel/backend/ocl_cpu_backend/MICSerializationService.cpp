@@ -189,7 +189,6 @@ MICSerializationService::MICSerializationService(const ICLDevBackendOptions* pBa
         m_pJITAllocator = pJITMemManager;
     }
     
-    m_pBackendFactory = 0; 
     m_pBackendFactory = MICDeviceBackendFactory::GetInstance(); 
     assert(m_pBackendFactory && "Backend Factory is null");
 }
@@ -198,7 +197,7 @@ cl_dev_err_code MICSerializationService::GetSerializationBlobSize(
         cl_serialization_type serializationType,
         const ICLDevBackendProgram_* pProgram, size_t* pSize) const
 {
-    assert((SERIALIZE_TO_DEVICE == serializationType) && "Serialization type not supported");
+    assert((SERIALIZE_OFFLOAD_IMAGE == serializationType) && "Serialization type not supported");
     CountingOutputStream cs;
 
     SerializationStatus stats;
@@ -213,43 +212,13 @@ cl_dev_err_code MICSerializationService::SerializeProgram(
         const ICLDevBackendProgram_* pProgram, 
         void* pBlob, size_t blobSize) const
 {
-    assert((SERIALIZE_TO_DEVICE == serializationType) && "Serialization type not supported");
+    assert((SERIALIZE_OFFLOAD_IMAGE == serializationType) && "Serialization type not supported");
     OutputBufferStream obs((char*)pBlob, blobSize);
 
     SerializationStatus stats;
     static_cast<const MICProgram*>(pProgram)->Serialize(obs, &stats);
 
     return CL_DEV_SUCCESS;
-}
-
-cl_dev_err_code MICSerializationService::DeSerializeProgram(
-        ICLDevBackendProgram_** ppProgram, 
-        const void* pBlob,
-        size_t blobSize) const
-{
-    assert(m_pJITAllocator && "JIT memory Allocator is null");
-
-    try
-    {
-        SerializationStatus stats;
-        stats.SetJITAllocator(m_pJITAllocator);
-        stats.SetBackendFactory(m_pBackendFactory);
-
-        InputBufferStream ibs((char*)pBlob, blobSize);
-        *ppProgram = stats.GetBackendFactory()->CreateProgram();
-        
-        static_cast<MICProgram*>(*ppProgram)->Deserialize(ibs, &stats);
-
-        return CL_DEV_SUCCESS;
-    }
-    catch( Exceptions::SerializationException& )
-    {
-        return CL_DEV_ERROR_FAIL;
-    }
-    catch( std::bad_alloc& )
-    {
-        return CL_DEV_OUT_OF_MEMORY; 
-    }
 }
 
 void MICSerializationService::ReleaseProgram(ICLDevBackendProgram_* pProgram) const
@@ -305,57 +274,60 @@ cl_dev_err_code MICSerializationService::DeSerializeTargetDescription(
     }
 }
 
+cl_dev_err_code MICSerializationService::ReloadProgram(
+        cl_serialization_type serializationType, 
+        ICLDevBackendProgram_* pProgram, 
+        const void* pBlob, size_t blobSize) const
+{
+    assert(m_pJITAllocator && "JIT memory Allocator is null");
+
+    try
+    {
+        SerializationStatus stats;
+        stats.SetJITAllocator(m_pJITAllocator);
+        stats.SetBackendFactory(m_pBackendFactory);
+
+        InputBufferStream ibs((char*)pBlob, blobSize);
+        
+        static_cast<MICProgram*>(pProgram)->Deserialize(ibs, &stats);
+
+        return CL_DEV_SUCCESS;
+    }
+    catch( Exceptions::SerializationException& )
+    {
+        return CL_DEV_ERROR_FAIL;
+    }
+    catch( std::bad_alloc& )
+    {
+        return CL_DEV_OUT_OF_MEMORY; 
+    }
+}
+
+
+cl_dev_err_code MICSerializationService::DeSerializeProgram(
+        cl_serialization_type serializationType, 
+        ICLDevBackendProgram_** ppProgram, 
+        const void* pBlob, size_t blobSize) const
+{
+
+    try
+    {
+        SerializationStatus stats;
+        stats.SetBackendFactory(m_pBackendFactory);
+
+        std::auto_ptr<ICLDevBackendProgram_> tmpProgram(stats.GetBackendFactory()->CreateProgram());
+        cl_dev_err_code err = ReloadProgram(serializationType, tmpProgram.get(), pBlob, blobSize);
+        if(CL_DEV_SUCCESS == err) *ppProgram = tmpProgram.release();
+        return err;
+    }
+    catch( std::bad_alloc& )
+    {
+        return CL_DEV_OUT_OF_MEMORY; 
+    }
+}
+
 void MICSerializationService::Release()
 {
-}
-
-SerializationStatus::SerializationStatus():
-    m_pJITAllocator(NULL),
-    m_pBackendFactory(NULL)
-    {}
-
-void SerializationStatus::SetPointerMark(const std::string& mark, void* pointer)
-{
-    size_t count = m_marksMap.count(mark);
-    if ( 0 != count)
-    {
-        assert( false && "Mark already exist on the serialization status");
-        return ;
-    }
-
-    m_marksMap[mark] = pointer;
-}
-
-void* SerializationStatus::GetPointerMark(const std::string& mark)
-{
-    size_t count = m_marksMap.count(mark);
-    if ( 0 == count )
-    {
-        assert( false && "Mark do not exist on the serialization status");
-        return NULL;
-    }
-
-    return m_marksMap[mark];
-}
-
-void SerializationStatus::SetJITAllocator(ICLDevBackendJITAllocator* pJITAllocator)
-{
-    m_pJITAllocator = pJITAllocator;
-}
-
-ICLDevBackendJITAllocator* SerializationStatus::GetJITAllocator()
-{
-    return m_pJITAllocator;
-}
-
-void SerializationStatus::SetBackendFactory(IAbstractBackendFactory* pBackendFactory)
-{
-    m_pBackendFactory = pBackendFactory;
-}
-
-IAbstractBackendFactory* SerializationStatus::GetBackendFactory()
-{
-    return m_pBackendFactory;
 }
 
 }}} // namespace

@@ -18,20 +18,18 @@ File Name:  MICProgramBuilder.cpp
 
 #include "MICProgramBuilder.h"
 
-#include "Compiler.h"
-#include "CompilerConfig.h"
 #include "IAbstractBackendFactory.h"
+#include "CompilationUtils.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
 #include "MetaDataApi.h"
-#include "MICCompiler.h"
-#include "MICCompilerConfig.h"
 #include "MICJITContainer.h"
 #include "MICKernel.h"
 #include "MICProgram.h"
-#include "ModuleJITHolder.h"
 #include "Program.h"
-#include "ProgramBuilder.h"
+#include "MICSerializationService.h"
+#include "BitCodeContainer.h"
+#include "ObjectCodeContainer.h"
 
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
@@ -44,20 +42,10 @@ File Name:  MICProgramBuilder.cpp
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ExecutionEngine/LLVMModuleJITHolder.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/Support/raw_ostream.h"
 
-#include <string>
 #include <vector>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
-/*
- * Utility methods
- */
-namespace Utils 
-{
- 
-}
 
 MICProgramBuilder::MICProgramBuilder(IAbstractBackendFactory* pBackendFactory, const IMICCompilerConfig& config):
     ProgramBuilder(pBackendFactory, config),
@@ -80,8 +68,84 @@ MICKernel* MICProgramBuilder::CreateKernel(llvm::Function* pFunc, const std::str
     return static_cast<MICKernel*>(m_pBackendFactory->CreateKernel( funcName, arguments, memoryArguments, pProps ));
 }
 
+void MICProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
+{
+#if 0
+    cl_object_container_header* pObjectHeader = 
+        (cl_object_container_header*)(pProgram->GetProgramCodeContainer()->GetCode());    
+
+    size_t      bitCodeSize   = pObjectHeader->section_size[IR_SECTION_INDEX];
+    size_t      offloadSize   = pObjectHeader->section_size[OFFLOAD_SECTION_INDEX];
+
+    const char* objectBuffer = ((const char*)pProgram->GetProgramCodeContainer()->GetCode());
+    const char* bitCodeBuffer = objectBuffer + sizeof(cl_object_container_header);
+    const char* offloadBuffer = objectBuffer + sizeof(cl_object_container_header) + bitCodeSize;    
+
+    MICSerializationService* pMICSerializationService = new MICSerializationService(NULL);
+    pMICSerializationService->ReloadProgram(
+        SERIALIZE_OFFLOAD_IMAGE,
+        pProgram, 
+        offloadBuffer,
+        offloadSize);
+
+    BitCodeContainer* bcc = 
+        new BitCodeContainer((const cl_prog_container_header*)bitCodeBuffer);
+    pProgram->SetBitCodeContainer(bcc);
+#endif
+}
+
+void MICProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Program* pProgram) const
+{
+#if 0
+    // get required sizes
+    size_t offload_size = 0;
+    std::auto_ptr<MICSerializationService> pMICSerializationService(new MICSerializationService(NULL));
+    pMICSerializationService->GetSerializationBlobSize(
+        SERIALIZE_OFFLOAD_IMAGE, pProgram, &offload_size);
+
+    size_t ir_size = pProgram->GetProgramIRCodeContainer()->GetCodeSize();
+    size_t head_size = sizeof(cl_prog_container_header) + sizeof(cl_object_container_header);
+
+    // create buffer to be filled
+    std::vector<char> Blob(head_size + ir_size + offload_size);
+    
+    // fill offload image in the object buffer
+    pMICSerializationService->SerializeProgram(
+        SERIALIZE_OFFLOAD_IMAGE, 
+        pProgram,
+        Blob.data()+head_size+ir_size, offload_size);
+
+    // fill the head bits
+    cl_object_container_header* pObjectHeader = 
+        (cl_object_container_header*)(Blob.data() + sizeof(cl_prog_container_header));
+    // first 4 bytes = 0x7f E L F (CODE)
+    (*pObjectHeader).mask[0] = 127;
+    (*pObjectHeader).mask[1] = 'E';
+    (*pObjectHeader).mask[2] = 'L';
+    (*pObjectHeader).mask[3] = 'F';
+
+    // total size of the object binary buffer
+    (*pObjectHeader).total_size = head_size+ir_size+offload_size; 
+    // size of the IR bit code
+    (*pObjectHeader).section_size[IR_SECTION_INDEX] = ir_size;
+    // size of the offload bits
+    (*pObjectHeader).section_size[OFFLOAD_SECTION_INDEX] = offload_size;
+    // should be zero
+    (*pObjectHeader).section_size[CHECK_INDEX] = 0;
+
+    // fill the IR bit code
+    const char* pIRStart =  ((const char*)(pProgram->GetProgramIRCodeContainer()->GetCode()));
+    std::copy(pIRStart, pIRStart+ir_size, Blob.data()+head_size);
+
+    // fill the Object and attach it to the program
+    ObjectCodeContainer* pObjectCodeContainer = 
+        new ObjectCodeContainer((cl_prog_container_header*)Blob.data());
+    pProgram->SetObjectCodeContainer(pObjectCodeContainer);
+#endif
+}
+
 KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
-                                    llvm::Module* pModule, 
+                                    llvm::Module* pModule,
                                     ProgramBuildResult& buildResult) const
 {
     buildResult.LogS() << "Build started\n";
@@ -99,27 +163,27 @@ KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
         KernelInfoMetaDataHandle kimd = mdUtils.getKernelsInfoItem(pFunc);
         // Obtain kernel wrapper function from metadata info
         llvm::Function *pWrapperFunc = kimd->getKernelWrapper(); //TODO: stripPointerCasts());
-        
-        // Create a kernel and kernel JIT properties 
-        std::auto_ptr<KernelProperties> spMICKernelProps( CreateKernelProperties( pProgram, 
-                                                                                  pFunc, 
+
+        // Create a kernel and kernel JIT properties
+        std::auto_ptr<KernelProperties> spMICKernelProps( CreateKernelProperties( pProgram,
+                                                                                  pFunc,
                                                                                   buildResult));
         // get the vector size used to generate the function
         unsigned int vecSize = kimd->isVectorizedWidthHasValue() ? kimd->getVectorizedWidth() : 1;
         spMICKernelProps->SetMinGroupSizeFactorial(vecSize);
-                                                                              
+
         std::auto_ptr<KernelJITProperties> spKernelJITProps( CreateKernelJITProperties( vecSize ));
 
-        // Create a kernel 
-        std::auto_ptr<MICKernel> spKernel( CreateKernel( pFunc, 
+        // Create a kernel
+        std::auto_ptr<MICKernel> spKernel( CreateKernel( pFunc,
                                                          pWrapperFunc->getName().str(),
                                                          spMICKernelProps.get()));
         spKernel->SetKernelID(kernelId);
 
-        AddKernelJIT( static_cast<const MICProgram*>(pProgram), 
-                      spKernel.get(), 
-                      pModule, 
-                      pWrapperFunc, 
+        AddKernelJIT( static_cast<const MICProgram*>(pProgram),
+                      spKernel.get(),
+                      pModule,
+                      pWrapperFunc,
                       spKernelJITProps.release());
 
         //TODO (AABOUD): is this redundant code?
@@ -171,11 +235,11 @@ KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
         {
             buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was not vectorized\n";
         }
-        else 
+        else
         {
             buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was successfully vectorized\n";
         }
-#ifdef OCL_DEV_BACKEND_PLUGINS  
+#ifdef OCL_DEV_BACKEND_PLUGINS
         // Notify the plugin managerModuleJITHolder
         m_pluginManager.OnCreateKernel(pProgram, spKernel.get(), pFunc);
 #endif
@@ -183,7 +247,7 @@ KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
         spMICKernelProps.release();
     }
     //LLVMBackend::GetInstance()->m_logger->Log(Logger::DEBUG_LEVEL, L"Iterating completed");
-    
+
     buildResult.LogS() << "Done.";
     //LLVMBackend::GetInstance()->m_logger->Log(Logger::INFO_LEVEL, L"Exit");
     return spKernels.release();

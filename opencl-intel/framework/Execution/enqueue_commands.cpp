@@ -75,6 +75,7 @@ Command::Command( const SharedPtr<IOclCommandQueueBase>& cmdQueue ):
     m_pCommandQueue(cmdQueue),
     m_returnCode(CL_SUCCESS),
     m_bIsBeingDeleted(false),
+    m_bEventDetached(false),
     m_memory_objects_acquired(false)    
 {
     memset(&m_DevCmd, 0, sizeof(cl_dev_cmd_desc));
@@ -96,19 +97,23 @@ Command::~Command()
     m_pDevice->GetDeviceAgent()->clDevReleaseCommand(&m_DevCmd);
     m_pDevice = NULL;
     GPA_DestroyCommand();
-    m_pCommandQueue = NULL;    
-    assert(m_Event.GetRefCnt() >= 0 && m_Event.GetRefCnt() <= 1);
-    if (m_Event.GetRefCnt() == 1)
+    m_pCommandQueue = NULL;  
+    if (m_bEventDetached)
     {
-        // In this case Command is being deleted explicitly, not through the event, so we need to free the event ourselves.
-        m_Event = NULL;
+        assert( 0 == m_Event.GetRefCnt() );
+
+        /* m_Event has already been destroyed in DetachEventSharedPtr() - it's deletion triggered the call to ~Command(), 
+            so we need to nullify it without decreasing its reference counter, otherwise we would decrement a
+            reference counter of an object that had already been destroyed. */
+        m_Event.NullifyWithoutDecRefCnt();        
     }
     else
     {
-        /* m_Event has already been destroyed - it's deletion triggered the call to ~Command(), so we need to nullify it without decreasing its reference counter, otherwise we would decrement a
-            reference counter of an object that had already been destroyed. */
-        m_Event.NullifyWithoutDecRefCnt();        
-    }    
+        assert( 1 == m_Event.GetRefCnt() );
+
+        // In this case Command is being deleted explicitly, not through the event, so we need to free the event ourselves.
+        m_Event = NULL;
+    }
     assert( (false == m_memory_objects_acquired) && "RelinquishMemoryObjects() was not called!");
     assert( (false == m_memory_objects_acquired) && "RelinquishMemoryObjects() was not called!");
     RELEASE_LOGGER_CLIENT;
@@ -123,6 +128,18 @@ cl_err_code Command::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList
     }
     // 'this' may disapper during Enqueue if it was successful!
     return GetCommandQueue().StaticCast<IOclCommandQueueBase>()->EnqueueCommand( this, bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent );
+}
+
+/******************************************************************
+ *
+ * Since the command holds the shared pointer to the event that is responsible for its own deletion, 
+ * we need to do this here to break this cycle.
+ *
+ ******************************************************************/
+void inline Command::DetachEventSharedPtr()
+{
+    m_bEventDetached = true;
+    m_Event.DecRefCnt();
 }
 
 /******************************************************************
@@ -198,7 +215,8 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
         m_Event->SetEventState(EVENT_STATE_DONE);
 
         m_Event->AddProfilerMarker("COMPLETED", ITT_SHOW_COMPLETED_MARKER);
-        m_Event.DecRefCnt();    // Since the command holds the shared pointer to the event that is responsible for its own deletion, we need to do this here to break this cycle.
+        DetachEventSharedPtr();    
+        
         break;
 
     default:
@@ -325,8 +343,6 @@ void Command::prepare_command_descriptor( cl_dev_cmd_type type, void* params, si
 
     m_DevCmd.profiling   = (m_pCommandQueue->IsProfilingEnabled() ? true : false );
     m_DevCmd.data         = static_cast<ICmdStatusChangedObserver*>(this);
-
-    m_Event->SetEventQueue(m_pCommandQueue);
 }
 
 cl_err_code Command::Cancel()
@@ -2460,7 +2476,7 @@ cl_err_code RuntimeCommand::Execute()
     LogDebugA("Command - DONE  : %s (Id: %d)", GetCommandName(), m_Event->GetId());
     CommandDone();
     m_Event->SetEventState(EVENT_STATE_DONE);
-    m_Event = NULL;
+    DetachEventSharedPtr();
     return m_returnCode;
 }
 

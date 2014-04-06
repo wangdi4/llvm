@@ -266,3 +266,8 @@ cl_err_code OclCommandQueue::CancelAll()
     }
     return CL_SUCCESS;
 }
+
+void* OclCommandQueue::GetDeviceCommandListPtr()
+{
+    return m_pDefaultDevice->GetDeviceAgent()->clDevGetCommandListPtr(m_clDevCmdListId);
+}

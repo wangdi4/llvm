@@ -1,6 +1,7 @@
 #include "CL/cl.h"
 #include "cl_types.h"
 #include <stdio.h>
+#include <math.h>
 #include "FrameworkTest.h"
 #ifdef _WIN32
 #include <windows.h>
@@ -28,7 +29,7 @@ void CL_CALLBACK _KerenlTestFunc( void* params);
  **************************************************************************************************/
 struct SKernelTestParams
 {
-    size_t      szInBuffer1Size;    
+    size_t      szInBuffer1Size;
     cl_uint*    pInBuffer1;
     size_t      szInBuffer2Size;
     cl_uint*    pInBuffer2;
@@ -40,7 +41,7 @@ void CL_CALLBACK _KerenlTestFunc( void* params)
 {
     // Set function arguments
     SKernelTestParams*  pKernelTestParams   = (SKernelTestParams*)params;
-    size_t              szInBuffer1Size     = pKernelTestParams->szInBuffer1Size;  
+    size_t              szInBuffer1Size     = pKernelTestParams->szInBuffer1Size;
     cl_uint*            pInBuffer1          = pKernelTestParams->pInBuffer1;
     size_t              szInBuffer2Size     = pKernelTestParams->szInBuffer2Size;
     cl_uint*            pInBuffer2          = pKernelTestParams->pInBuffer2;
@@ -61,27 +62,27 @@ bool test_native_kernel(cl_command_queue queue1, cl_mem buffer_srcA, cl_mem buff
     static const int iDstSize = 40;
 
     // Create buffers
-    cl_uint srcA[] = {1,2,3,4,5,6,7}; 
+    cl_uint srcA[] = {1,2,3,4,5,6,7};
     cl_uint srcB[] = {0,1,0,1};
     cl_uint dst[iDstSize] = {0};
 
     // Write buffers
     iRet = clEnqueueWriteBuffer (queue1, buffer_srcA, CL_FALSE, 0, 7*sizeof(cl_uint), srcA, 0, NULL, NULL);
-	if (CL_SUCCESS != iRet)
-	{
-		printf("clEnqueueWriteBuffer(1) = %s\n",ClErrTxt(iRet));
-		return false;
-	}
+    if (CL_SUCCESS != iRet)
+    {
+      printf("clEnqueueWriteBuffer(1) = %s\n",ClErrTxt(iRet));
+      return false;
+    }
     iRet = clEnqueueWriteBuffer (queue1, buffer_srcB, CL_FALSE, 0, 4*sizeof(cl_uint), srcB, 0, NULL, NULL);
-	if (CL_SUCCESS != iRet)
-	{
-		printf("clEnqueueWriteBuffer(1) = %s\n",ClErrTxt(iRet));
-		return false;
-	}
+    if (CL_SUCCESS != iRet)
+    {
+      printf("clEnqueueWriteBuffer(1) = %s\n",ClErrTxt(iRet));
+      return false;
+    }
 
     // Execute kernel
     // Prepare arguments
-    SKernelTestParams params = { 7, NULL, 4, NULL, NULL, iDstSize};    
+    SKernelTestParams params = { 7, NULL, 4, NULL, NULL, iDstSize};
     cl_mem memList[] = { buffer_srcA, buffer_srcB, buffer_dst};
     void* ppArgsMemLoc[3];
     ppArgsMemLoc[0]= (void*)(&(params.pInBuffer1));
@@ -89,19 +90,19 @@ bool test_native_kernel(cl_command_queue queue1, cl_mem buffer_srcA, cl_mem buff
     ppArgsMemLoc[2]= (void*)(&(params.pOutBuffer));
 
     iRet = clEnqueueNativeKernel( queue1, _KerenlTestFunc, &params, sizeof(SKernelTestParams), 3, memList, (const void**)ppArgsMemLoc, 0, NULL, NULL);
-	if (CL_SUCCESS != iRet)
-	{
-		printf("clEnqueueNativeKernel(1) = %s\n",ClErrTxt(iRet));
-		return false;
-	}
+    if (CL_SUCCESS != iRet)
+    {
+      printf("clEnqueueNativeKernel(1) = %s\n",ClErrTxt(iRet));
+      return false;
+    }
 
     //Read output and print
     iRet = clEnqueueReadBuffer (queue1, buffer_dst, CL_TRUE,  0, iDstSize*sizeof(cl_uint), dst, 0, NULL, NULL);
-	if (CL_SUCCESS != iRet)
-	{
-		printf("clEnqueueReadBuffer(1) = %s\n",ClErrTxt(iRet));
-		return false;
-	}
+    if (CL_SUCCESS != iRet)
+    {
+      printf("clEnqueueReadBuffer(1) = %s\n",ClErrTxt(iRet));
+      return false;
+    }
 
     //
     // Print kernel output
@@ -122,109 +123,110 @@ bool test_native_kernel(cl_command_queue queue1, cl_mem buffer_srcA, cl_mem buff
  **************************************************************************************************/
 bool clExecutionTest()
 {
-	printf("---------------------------------------\n");
-	printf("clExecutionTest\n");
-	printf("---------------------------------------\n");
-	const char *ocl_test_program[] = {\
-	"__kernel void dot_product (__global const float4 *a, __global const float4 *b, __global float4 *c, int numElements)\n"\
-	"{\n"\
-    "if ( get_global_size(0) != numElements ) return;\n"\
-	"int tid = get_global_id(0);\n"\
-	"c[tid] = fma(a[tid], b[tid], c[tid]);\n"\
-	"}\n"
-	};
+    printf("---------------------------------------\n");
+    printf("clExecutionTest\n");
+    printf("---------------------------------------\n");
+    const char *ocl_test_program[] = {\
+      "__kernel void dot_product (__global const float4 *a, __global const float4 *b, __global float4 *c, int numElements)\n"\
+      "{\n"\
+      "if ( get_global_size(0) != numElements ) return;\n"\
+      "int tid = get_global_id(0);\n"\
+      "c[tid] = fma(a[tid], b[tid], c[tid]);\n"\
+      "}\n"
+    };
 
-	bool bResult = true;
-	cl_uint uiNumDevices = 0;
-	cl_device_id * pDevices;
-	size_t * pBinarySizes;
-	cl_int * pBinaryStatus; 
-	cl_context context;
+    bool bResult = true;
+    cl_uint uiNumDevices = 0;
+    cl_device_id * pDevices;
+    size_t * pBinarySizes;
+    cl_int * pBinaryStatus;
+    cl_context context;
 
-	cl_platform_id platform = 0;
+    cl_platform_id platform = 0;
 
-	cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= SilentCheck(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+    cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
+    bResult &= SilentCheck(L"clGetPlatformIDs", CL_SUCCESS, iRet);
 
-	if (!bResult)
-	{
-		return bResult;
-	}
+    if (!bResult)
+    {
+      return bResult;
+    }
 
-	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
+    cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
-	// get device(s)
-	iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
-	bResult &= SilentCheck(L"clGetDeviceIDs",CL_SUCCESS, iRet);
-	if (!bResult)
-	{
-		return bResult;
-	}
+    // get device(s)
+    iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
+    bResult &= SilentCheck(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+    if (!bResult)
+    {
+      return bResult;
+    }
 
-	// initialize arrays
-	pDevices = new cl_device_id[uiNumDevices];
-	pBinarySizes = new size_t[uiNumDevices];
-	pBinaryStatus = new cl_int[uiNumDevices];
+    // initialize arrays
+    pDevices = new cl_device_id[uiNumDevices];
+    pBinarySizes = new size_t[uiNumDevices];
+    pBinaryStatus = new cl_int[uiNumDevices];
 
-	iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, pDevices, NULL);
-	bResult &= SilentCheck(L"clGetDeviceIDs",CL_SUCCESS, iRet);
-	if (!bResult)
-	{
-		delete []pDevices;
-		delete []pBinarySizes;
-		delete []pBinaryStatus;
-		return bResult;
-	}
+    iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, pDevices, NULL);
+    bResult &= SilentCheck(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+    if (!bResult)
+    {
+      delete []pDevices;
+      delete []pBinarySizes;
+      delete []pBinaryStatus;
+      return bResult;
+    }
 
-	// create context
-	context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
-	bResult &= SilentCheck(L"clCreateContext",CL_SUCCESS, iRet);
-	if (!bResult)
-	{
-		delete []pDevices;
-		delete []pBinarySizes;
-		delete []pBinaryStatus;
-		return bResult;
-	}
-	printf("context = %p\n", context);
+    // create context
+    context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
+    bResult &= SilentCheck(L"clCreateContext",CL_SUCCESS, iRet);
+    if (!bResult)
+    {
+      delete []pDevices;
+      delete []pBinarySizes;
+      delete []pBinaryStatus;
+      return bResult;
+    }
+    printf("context = %p\n", context);
 
-    //
-    // Create queue
-    //
-    cl_command_queue queue1 = clCreateCommandQueue (context, pDevices[0], 0 /*no properties*/, &iRet);
-	bResult &= SilentCheck(L"clCreateCommandQueue - queue1", CL_SUCCESS, iRet);
+      //
+      // Create queue
+      //
+      cl_command_queue queue1 = clCreateCommandQueue (context, pDevices[0], 0 /*no properties*/, &iRet);
+    bResult &= SilentCheck(L"clCreateCommandQueue - queue1", CL_SUCCESS, iRet);
 
-	cl_context cntxInfo;
-	iRet = clGetCommandQueueInfo(queue1, CL_QUEUE_CONTEXT, sizeof(cl_context), &cntxInfo, NULL);
-	bResult &= SilentCheck(L"clGetCommandQueueInfo", CL_SUCCESS, iRet);
-	bResult &= CheckHandle(L"clGetCommandQueueInfo - context", context, cntxInfo);
+    cl_context cntxInfo;
+    iRet = clGetCommandQueueInfo(queue1, CL_QUEUE_CONTEXT, sizeof(cl_context), &cntxInfo, NULL);
+    bResult &= SilentCheck(L"clGetCommandQueueInfo", CL_SUCCESS, iRet);
+    bResult &= CheckHandle(L"clGetCommandQueueInfo - context", context, cntxInfo);
 
-	// create program with source
-	cl_program program = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &iRet);
-	bResult &= SilentCheck(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+    // create program with source
+    cl_program program = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &iRet);
+    bResult &= SilentCheck(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
 
-	iRet = clBuildProgram(program, uiNumDevices, pDevices, "-cl-denorms-are-zero", NULL, NULL);
-	bResult &= SilentCheck(L"clBuildProgram", CL_SUCCESS, iRet);
+    iRet = clBuildProgram(program, uiNumDevices, pDevices, "-cl-denorms-are-zero", NULL, NULL);
+    bResult &= SilentCheck(L"clBuildProgram", CL_SUCCESS, iRet);
 
     //
     // Create Kernel
     //
     cl_kernel kernel1 = clCreateKernel(program, "dot_product", &iRet);
-	bResult &= SilentCheck(L"clCreateKernel - dot_product", CL_SUCCESS, iRet);
+    bResult &= SilentCheck(L"clCreateKernel - dot_product", CL_SUCCESS, iRet);
 
     //
     // From here down it is the program execution implementation
     //
-    cl_float srcA[BUFFERS_LENGTH]; 
-    cl_float srcB[BUFFERS_LENGTH]; 
+    cl_float srcA[BUFFERS_LENGTH];
+    cl_float srcB[BUFFERS_LENGTH];
     cl_float dst[BUFFERS_LENGTH];
 
     for(int j = 0; j < BUFFERS_LENGTH; j++)
     {
-        srcA[j] = FLT_MIN;
-        srcB[j] = 0.1f;
+        srcA[j] = 0.2f;
+        srcB[j] = 0.3f;
         dst[j] = 0.0f;
     }
+    double expexted_result = 0.06; // dst += A*B
 
     //
     // Create buffers
@@ -242,9 +244,9 @@ bool clExecutionTest()
 
 #ifdef NATIVE_KERNEL_TEST
     test_native_kernel(queue1, buffer_srcA, buffer_srcB, buffer_dst);
-	delete []pDevices;
-	delete []pBinarySizes;
-	delete []pBinaryStatus;
+    delete []pDevices;
+    delete []pBinarySizes;
+    delete []pBinaryStatus;
     return bResult;
 #endif
 
@@ -272,20 +274,20 @@ bool clExecutionTest()
 
     iRet = clEnqueueWriteBuffer (queue1, buffer_srcB, false, 0, size* BUFFERS_LENGTH, srcB, 0, NULL, NULL);
     bResult &= SilentCheck(L"clEnqueueWriteBuffer - srcB", CL_SUCCESS, iRet);
-    
-	iRet = clEnqueueWriteBuffer (queue1, buffer_dst, false, 0, size* BUFFERS_LENGTH, dst, 0, NULL, NULL);
-	bResult &= SilentCheck(L"clEnqueueWriteBuffer - srcB", CL_SUCCESS, iRet);
+
+    iRet = clEnqueueWriteBuffer (queue1, buffer_dst, false, 0, size* BUFFERS_LENGTH, dst, 0, NULL, NULL);
+    bResult &= SilentCheck(L"clEnqueueWriteBuffer - srcB", CL_SUCCESS, iRet);
     //
     // Execute kernel - dot_product
     //
-    
+  
 #ifdef TASK_TEST
     for (int index=0; index < 10; index++ )
     {
-        iRet = clEnqueueTask(queue1, kernel1, 0, NULL, NULL);        
+        iRet = clEnqueueTask(queue1, kernel1, 0, NULL, NULL);
     }
     iRet = clEnqueueReadBuffer (queue1, buffer_dst, CL_TRUE,  0, size*BUFFERS_LENGTH, dst, 0, NULL, NULL);
-    bResult &= SilentCheck(L"clEnqueueReadBuffer", CL_SUCCESS, iRet);    
+    bResult &= SilentCheck(L"clEnqueueReadBuffer", CL_SUCCESS, iRet);
 
     //
     // Print kernel output
@@ -304,39 +306,43 @@ bool clExecutionTest()
 
     for (int index =0; index < 4; index++)
     {
-	    for(int j = 0; j < BUFFERS_LENGTH; j++)
-		{
-	        dst[j] = 0.0f;
-		}
-	    iRet = clEnqueueWriteBuffer (queue1, buffer_dst, false, 0, size* BUFFERS_LENGTH, dst, 0, NULL, NULL);
-	    bResult &= SilentCheck(L"clEnqueueWriteBuffer - dst", CL_SUCCESS, iRet);
+        for(int j = 0; j < BUFFERS_LENGTH; j++)
+        {
+          dst[j] = 0.0f;
+        }
+        iRet = clEnqueueWriteBuffer (queue1, buffer_dst, false, 0, size* BUFFERS_LENGTH, dst, 0, NULL, NULL);
+        bResult &= SilentCheck(L"clEnqueueWriteBuffer - dst", CL_SUCCESS, iRet);
 
-		cl_event ndrEvent;
+        cl_event ndrEvent;
         iRet = clEnqueueNDRangeKernel(queue1, kernel1, 1, NULL, global_work_size, local_work_size, 0, NULL, &ndrEvent);
-        bResult &= SilentCheck(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
-
-		iRet = clWaitForEvents(1, &ndrEvent);
-		bResult &= SilentCheck(L"clWaitForCompletion", CL_SUCCESS, iRet);
+        bResult &= SilentCheck(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
+  
+        iRet = clWaitForEvents(1, &ndrEvent);
+        bResult &= SilentCheck(L"clWaitForCompletion", CL_SUCCESS, iRet);
         clReleaseEvent(ndrEvent);
 
         //
         // Read results. wait for completion - blocking!
         //
         iRet = clEnqueueReadBuffer (queue1, buffer_dst, CL_TRUE,  0, size*BUFFERS_LENGTH, dst, 0, NULL, NULL);
-        bResult &= SilentCheck(L"clEnqueueReadBuffer", CL_SUCCESS, iRet);    
-
+        bResult &= SilentCheck(L"clEnqueueReadBuffer", CL_SUCCESS, iRet);
+  
         //
         // Print kernel output
         //
         printf("\n ==== Validating Results ==== \n");
+        double allowed_epsilon = 0.00001;
         for (unsigned int i=0; i<BUFFERS_LENGTH; i++)
         {
-			if (dst[i] != 0.0f )
-			{
-				bResult = false;
-			}
+          double diff = fabs(expexted_result - (double)dst[0]);
+          if (diff > allowed_epsilon) {
+            bResult = false;
+            printf("\n ERROR: Expected = 0x%x, Received = 0x%x, diff = %e\n",
+                   *(int *)&expexted_result, *(int *)(&dst[i]), diff);
+            break;
+          }
         }
-		printf("\n ==== Result: %d\n", bResult);
+        printf("\n ==== Result: %d \n", bResult);
     }
 #endif
     //
@@ -366,9 +372,9 @@ bool clExecutionTest()
     iRet = clReleaseContext(context);
     bResult &= SilentCheck(L"clReleaseContext - context", CL_SUCCESS, iRet);
 
-	delete []pDevices;
-	delete []pBinarySizes;
-	delete []pBinaryStatus;
+    delete []pDevices;
+    delete []pBinarySizes;
+    delete []pBinaryStatus;
 
     return bResult;
-}
+  }

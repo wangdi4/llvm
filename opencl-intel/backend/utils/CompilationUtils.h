@@ -189,9 +189,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isWorkGroupReduceMax(const std::string&);
     static bool isWorkGroupScanExclusiveMax(const std::string&);
     static bool isWorkGroupScanInclusiveMax(const std::string&);
+    static bool hasWorkGroupFinalizePrefix(const std::string&);
+    static std::string appendWorkGroupFinalizePrefix(const std::string&);
+    static std::string removeWorkGroupFinalizePrefix(const std::string&);
 
     static bool isWorkGroupBuiltin(const std::string&);
-    static bool isWorkGroupUniformBuiltin(const std::string&, const Module*);
+    static bool isWorkGroupAsyncOrPipeBuiltin(const std::string&, const Module*);
     static bool isWorkGroupScan(const std::string&);
     static bool isWorkGroupMin(const std::string&);
     static bool isWorkGroupMax(const std::string&);
@@ -244,6 +247,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const std::string NAME_WORK_GROUP_REDUCE_MAX;
     static const std::string NAME_WORK_GROUP_SCAN_EXCLUSIVE_MAX;
     static const std::string NAME_WORK_GROUP_SCAN_INCLUSIVE_MAX;
+    static const std::string NAME_FINALIZE_WG_FUNCTION_PREFIX;
 
     //images
     static const std::string OCL_IMG_PREFIX;
@@ -269,9 +273,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     //////////////////////////////////////////////////////////////////
     static std::string mangledGetGID();
     //////////////////////////////////////////////////////////////////
-   // @brief returns the mangled name of the function get_global_size
+    // @brief returns the mangled name of the function get_global_size
     //////////////////////////////////////////////////////////////////
     static std::string mangledGetGlobalSize();
+    //////////////////////////////////////////////////////////////////
+    // @brief returns the mangled name of the function get_global_offset
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledGetGlobalOffset();
     //////////////////////////////////////////////////////////////////
     // @brief: returns the mangled name of the function get_local_id
     //////////////////////////////////////////////////////////////////

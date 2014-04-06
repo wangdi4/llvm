@@ -87,6 +87,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_WORK_GROUP_REDUCE_MAX = "work_group_reduce_max";
   const std::string CompilationUtils::NAME_WORK_GROUP_SCAN_EXCLUSIVE_MAX = "work_group_scan_exclusive_max";
   const std::string CompilationUtils::NAME_WORK_GROUP_SCAN_INCLUSIVE_MAX = "work_group_scan_inclusive_max";
+  const std::string CompilationUtils::NAME_FINALIZE_WG_FUNCTION_PREFIX = "__finalize_";
 
   //Images
   const std::string CompilationUtils::OCL_IMG_PREFIX  = "opencl.image";
@@ -187,7 +188,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           /* work group built-ins */
           CompilationUtils::isWorkGroupBuiltin(func_name)  ||
           /* built-ins synced as if were called by a single work item */
-          CompilationUtils::isWorkGroupUniformBuiltin(func_name, pModule) ) {
+          CompilationUtils::isWorkGroupAsyncOrPipeBuiltin(func_name, pModule) ) {
             // Found synchronized built-in declared in the module add it to the container set.
             functionSet.insert(&*fi);
       }
@@ -387,63 +388,104 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             curArg.size_in_bytes |= (uiElemSize << 16);
             break;
           }
+          // pModule->getPointerSize() returns 1 for x32 and 2 for x64
           curArg.size_in_bytes = pModule->getPointerSize()*4;
           // Detect pointer qualifier
-          // Test for image
-          //const std::string &imgArg = pFunc->getParent()->getTypeName(PTy->getElementType());
+          // Test for opaque types: images, queue_t, pipe_t
           StructType *ST = dyn_cast<StructType>(PTy->getElementType());
           if(ST) {
-            const std::string &imgArg = ST->getName().str();
-            if ( std::string::npos != imgArg.find("opencl.image"))    // Image identifier was found
+            char const oclOpaquePref[] = "opencl.";
+            const size_t oclOpaquePrefLen = sizeof(oclOpaquePref) - 1; // sizeof also counts the terminating 0
+
+            if (ST->getName().startswith(oclOpaquePref))
             {
-              // TODO: Why default type is INTEGER????
-              curArg.type = CL_KRNL_ARG_INT;
-
-              // Get dimension image type
-              if(imgArg.find("opencl.image1d_t") != std::string::npos)
+              const StringRef structName = ST->getName().substr(oclOpaquePrefLen);
+              // Get opencl opaque type.
+              // It is safe to use startswith while there are no names which aren't prefix of another name.
+              if(structName.startswith("image1d_t"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_1D;
-              else if (imgArg.find("opencl.image1d_array_t") != std::string::npos)
+              else if (structName.startswith("image1d_array_t"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_1D_ARR;
-              else if (imgArg.find("opencl.image1d_buffer_t") != std::string::npos)
+              else if (structName.startswith("image1d_buffer_t"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_1D_BUF;
-              else if (imgArg.find("opencl.image2d_t") != std::string::npos)
+              else if (structName.startswith("image2d_t"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_2D;
-              else if (imgArg.find("opencl.image2d_array_t") != std::string::npos)
+              else if (structName.startswith("image2d_array_t"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_2D_ARR;
-              else if (imgArg.find("opencl.image2d_depth_t") != std::string::npos)
+              else if (structName.startswith("image2d_depth_t"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_2D_DEPTH;
-              else if (imgArg.find("opencl.image2d_array_depth_t") != std::string::npos)
+              else if (structName.startswith("image2d_array_depth_t"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH;
-              else if (imgArg.find("opencl.image3d_t") != std::string::npos)
+              else if (structName.startswith("image3d_t"))
                   curArg.type = CL_KRNL_ARG_PTR_IMG_3D;
-
-              // Setup image pointer
-              if(curArg.type != CL_KRNL_ARG_INT) {
-  #ifdef __APPLE__
-                MDNode *tmpMD = dyn_cast<MDNode>(MDImgAccess->getOperand(i+1));
-                assert((tmpMD->getNumOperands() > 0) && "image MD arg type is empty");
-                MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
-                assert(tag->getString() == "image" && "image MD arg type is not 'image'");
-                tag = dyn_cast<MDString>(tmpMD->getOperand(1));
-                curArg.access = (tag->getString() == "read") ? CL_KERNEL_ARG_ACCESS_READ_ONLY :
-                                CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
-  #else
-                isMemoryObject = true;
-                curArg.access = (kmd->getArgAccessQualifierItem(i) == READ_ONLY) ?
-                                CL_KERNEL_ARG_ACCESS_READ_ONLY : CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
-  #endif
-                break;
+              else if (structName.startswith("pipe_t"))
+                  curArg.type = CL_KRNL_ARG_PTR_PIPE_T;
+              else if (structName.startswith("queue_t"))
+                  curArg.type = CL_KRNL_ARG_PTR_QUEUE_T;
+              else {
+                  assert(false && "did you forget to handle a new special OpenCL C opaque type?");
+                  // TODO: Why default type is INTEGER????
+                  curArg.type = CL_KRNL_ARG_INT;
               }
+
+              switch(curArg.type) {
+                case CL_KRNL_ARG_PTR_IMG_1D:
+                case CL_KRNL_ARG_PTR_IMG_1D_ARR:
+                case CL_KRNL_ARG_PTR_IMG_1D_BUF:
+                case CL_KRNL_ARG_PTR_IMG_2D:
+                case CL_KRNL_ARG_PTR_IMG_2D_ARR:
+                case CL_KRNL_ARG_PTR_IMG_2D_DEPTH:
+                case CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH:
+                case CL_KRNL_ARG_PTR_IMG_3D:
+                // Setup image pointer
+#ifdef __APPLE__
+                  MDNode *tmpMD = dyn_cast<MDNode>(MDImgAccess->getOperand(i+1));
+                  assert((tmpMD->getNumOperands() > 0) && "image MD arg type is empty");
+                  MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
+                  assert(tag->getString() == "image" && "image MD arg type is not 'image'");
+                  tag = dyn_cast<MDString>(tmpMD->getOperand(1));
+                  curArg.access = (tag->getString() == "read") ? CL_KERNEL_ARG_ACCESS_READ_ONLY :
+                                  CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
+#else
+                  isMemoryObject = true;
+                  curArg.access = (kmd->getArgAccessQualifierItem(i) == READ_ONLY) ?
+                                  CL_KERNEL_ARG_ACCESS_READ_ONLY : CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
+#endif
+                  break;
+                // FIXME: what about Apple?
+                case CL_KRNL_ARG_PTR_PIPE_T:
+                  // The default access qualifier for pipes is read_only.
+                  curArg.access = (kmd->getArgAccessQualifierItem(i) == WRITE_ONLY) ?
+                                  CL_KERNEL_ARG_ACCESS_WRITE_ONLY : CL_KERNEL_ARG_ACCESS_READ_ONLY;
+                  isMemoryObject = true;
+                  break;
+                case CL_KRNL_ARG_PTR_QUEUE_T:
+                  isMemoryObject = false;
+                  break;
+
+                default:
+                  break;
+              }
+              // Check this is a special OpenCL C opaque type.
+              if(CL_KRNL_ARG_INT != curArg.type)
+                break;
+            }
+            else if(dyn_cast<PointerType>(PTy->getElementType()))
+            {
+              // Pointer to pointer case.
+              assert(false && "pointer to pointer is not allowed in kernel arguments");
             }
           }
 
-          //test for structs
           llvm::Type *Ty = PTy->getContainedType(0);
-          if ( true == Ty->isStructTy() ) // struct or struct*
+          if ( Ty->isStructTy() ) // struct or struct*
           {
-            if(PTy->getAddressSpace() == 0) //We're dealing with real struct and not struct pointer
+            // Deal with structs passed by value. These are user-defined structs and ndrange_t.
+            if(PTy->getAddressSpace() == 0)
             {
               llvm::StructType *STy = llvm::cast<llvm::StructType>(Ty);
+              assert(!STy->isOpaque() &&
+                     "cannot handle user-defined opaque types with an unknown size");
 #if LLVM_VERSION == 3425
               TargetData dataLayout(pModule);
 #else
@@ -720,6 +762,10 @@ std::string CompilationUtils::mangledGetGlobalSize() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_GLOBAL_SIZE.c_str());
 }
 
+std::string CompilationUtils::mangledGetGlobalOffset() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_GLOBAL_OFFSET.c_str());
+}
+
 std::string CompilationUtils::mangledGetLID() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_LID.c_str());
 }
@@ -903,7 +949,7 @@ bool CompilationUtils::isWorkGroupScanInclusiveMin(const std::string& S) {
 }
 
 bool CompilationUtils::isWorkGroupReduceMax(const std::string& S) {
-  return (S == CompilationUtils::NAME_WORK_GROUP_REDUCE_MAX);
+  return isMangleOf(S, CompilationUtils::NAME_WORK_GROUP_REDUCE_MAX);
 }
 
 bool CompilationUtils::isWorkGroupScanExclusiveMax(const std::string& S) {
@@ -914,12 +960,34 @@ bool CompilationUtils::isWorkGroupScanInclusiveMax(const std::string& S) {
   return isMangleOf(S, NAME_WORK_GROUP_SCAN_INCLUSIVE_MAX);
 }
 
+bool CompilationUtils::hasWorkGroupFinalizePrefix(const std::string& S) {
+  if (!isMangledName(S.c_str())) return false;
+  std::string funcName = stripName(S.c_str());
+  return StringRef(funcName).startswith(NAME_FINALIZE_WG_FUNCTION_PREFIX);
+}
+
+std::string CompilationUtils::appendWorkGroupFinalizePrefix(const std::string& S) {
+  assert(isMangledName(S.c_str()) && "expected mangled name of work group built-in");
+  reflection::FunctionDescriptor fd = demangle(S.c_str());
+  fd.name = NAME_FINALIZE_WG_FUNCTION_PREFIX + fd.name;
+  std::string finalizeFuncName = mangle(fd);
+  return finalizeFuncName;
+}
+
+std::string CompilationUtils::removeWorkGroupFinalizePrefix(const std::string& S) {
+  assert(hasWorkGroupFinalizePrefix(S) && "expected finilize prefix");
+  reflection::FunctionDescriptor fd = demangle(S.c_str());
+  fd.name = fd.name.substr(NAME_FINALIZE_WG_FUNCTION_PREFIX.size());
+  std::string funcName = mangle(fd);
+  return funcName;
+}
+
 bool CompilationUtils::isWorkGroupBuiltin(const std::string& S) {
   return isWorkGroupUniform(S) ||
          isWorkGroupScan(S);
 }
 
-bool CompilationUtils::isWorkGroupUniformBuiltin(const std::string& S, const Module* pModule) {
+bool CompilationUtils::isWorkGroupAsyncOrPipeBuiltin(const std::string& S, const Module* pModule) {
   return CompilationUtils::isAsyncWorkGroupCopy(S) ||
          CompilationUtils::isAsyncWorkGroupStridedCopy(S) ||
          (OclVersion::CL_VER_2_0 <= getCLVersionFromModuleOrDefault(*pModule) && (

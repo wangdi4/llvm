@@ -282,7 +282,9 @@ bool LinkTask::Execute()
     {
         // update RT binary container - device will check for this
         cl_prog_container_header* pHeader = (cl_prog_container_header*)pBinary;
-        pHeader->description.bin_type = CL_PROG_BIN_EXECUTABLE_LLVM;
+        // in case of object no change needed
+        if ( CL_PROG_BIN_BUILT_OBJECT != pHeader->description.bin_type )
+            pHeader->description.bin_type = CL_PROG_BIN_EXECUTABLE_LLVM;
 
         m_pDeviceProgram->SetBinaryInternal(uiBinarySize, pBinary, CL_PROGRAM_BINARY_TYPE_EXECUTABLE);
     }
@@ -677,13 +679,6 @@ cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>&    program,
         SharedPtr<Device> pDevice = ppDevicePrograms[i]->GetDevice()->GetRootDevice();
 
         arrFeCompilers[i] = pDevice->GetFrontEndCompiler();
-        if (NULL == arrFeCompilers[i])
-        {
-          // No FE compiler assigned, need to allocate one
-          FrameworkProxy::Instance()->GetPlatformModule()->InitFECompiler(pDevice);
-          arrFeCompilers[i] = pDevice->GetFrontEndCompiler();
-        }
-
         char* szUnrecognizedOptions = new char[buildOptions.size() + 1];
         if (!arrFeCompilers[i]->CheckCompileOptions(buildOptions.c_str(), &szUnrecognizedOptions))
         {
@@ -962,13 +957,6 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>&   program,
         SharedPtr<Device> pDevice = ppDevicePrograms[i]->GetDevice()->GetRootDevice();
 
         arrFeCompilers[i] = pDevice->GetFrontEndCompiler();
-        if (NULL == arrFeCompilers[i])
-        {
-            // No FE compiler assigned, need to allocate one
-            FrameworkProxy::Instance()->GetPlatformModule()->InitFECompiler(pDevice);
-            arrFeCompilers[i] = pDevice->GetFrontEndCompiler();
-        }
-
         char* szUnrecognizedOptions = new char[buildOptions.size() + 1];
         if (!arrFeCompilers[i]->CheckLinkOptions(buildOptions.c_str(), &szUnrecognizedOptions))
         {
@@ -1209,13 +1197,6 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
         SharedPtr<Device> pDevice = ppDevicePrograms[i]->GetDevice()->GetRootDevice();
 
         arrFeCompilers[i] = pDevice->GetFrontEndCompiler();
-        if (NULL == arrFeCompilers[i])
-        {
-            // No FE compiler assigned, need to allocate one
-            FrameworkProxy::Instance()->GetPlatformModule()->InitFECompiler(pDevice);
-            arrFeCompilers[i] = pDevice->GetFrontEndCompiler();
-        }
-
         char* szUnrecognizedOptions = new char[buildOptions.size() + 1];
         if (!arrFeCompilers[i]->CheckCompileOptions(buildOptions.c_str(), &szUnrecognizedOptions))
         {

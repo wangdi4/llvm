@@ -35,6 +35,8 @@
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
+    using Intel::OpenCL::Utils::OclSpinMutex;
+
     class Command;
 
 
@@ -60,12 +62,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         ~QueueEvent();
 
-        const SharedPtr<IOclCommandQueueBase>&   GetEventQueue() const { return m_pEventQueue;}
-        void SetEventQueue(const SharedPtr<IOclCommandQueueBase>& pQueue);
+        const SharedPtr<IOclCommandQueueBase>   GetEventQueue() const;
 
-        cl_command_queue GetEventQueueHandle() const { return m_pEventQueueHandle; }
+        cl_command_queue GetEventQueueHandle()  const { return m_pEventQueueHandle; }
+        cl_int           GetEventQueueId()      const { return m_pEventQueueId; }
 
-        cl_command_queue GetQueueHandle() const;
         cl_int           GetReturnCode() const;
         // OCLObject implementation
         cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize, void * paramValue, size_t * szParamValueSizeRet) const;
@@ -112,8 +113,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
         bool                    m_bCommandStartValid;
         bool                    m_bCommandEndValid;
         Command*                m_pCommand;                 // Pointer to the command represented by this event
+
+        mutable OclSpinMutex    m_queueLock;
         SharedPtr<IOclCommandQueueBase>   m_pEventQueue;    // Pointer to the queue that this event was enqueued on
         cl_command_queue        m_pEventQueueHandle;        // A cached copy of m_pEventQueue's handle to use in QueueEvent::GetInfo
+        cl_int                  m_pEventQueueId;            // A cached copy of m_pEventQueue's id
+        bool                    m_pEventQueueIsOOO;         // A cached copy of m_pEventQueue's OOO status
     
     private:
 

@@ -66,7 +66,7 @@ namespace intel {
         return true;
       }
       if (CompilationUtils::isWorkGroupBuiltin(calledFuncName) ||
-          CompilationUtils::isWorkGroupUniformBuiltin(calledFuncName, pFunc->getParent())) {
+          CompilationUtils::isWorkGroupAsyncOrPipeBuiltin(calledFuncName, pFunc->getParent())) {
         return true;
       }
     }
@@ -89,6 +89,21 @@ namespace intel {
 
   char KernelInfoWrapper::ID = 0;
 
+  size_t KernelInfoWrapper::getProgramGlobalVariableTotalSize(const Module& M) {
+    // if there is no global variables - return 0
+    if (M.global_empty()) return 0;
+    size_t totalSize = 0;
+    const DataLayout &TD = getAnalysis<DataLayout>();
+    for (Module::const_global_iterator it = M.global_begin(); it != M.global_end(); ++it) {
+      PointerType* ptr = cast<PointerType>(it->getType());
+      assert(ptr && "Global variable is always a pointer.");
+      if (IS_ADDR_SPACE_GLOBAL(ptr->getAddressSpace())) {
+        totalSize += TD.getTypeAllocSize(ptr->getContainedType(0));
+      }
+    }
+    return totalSize;
+  }
+
   bool KernelInfoWrapper::runOnModule(Module& M) {
     Intel::MetaDataUtils mdUtils(&M);
     KernelInfoPass* pKernelInfoPass = new KernelInfoPass(&mdUtils);
@@ -107,6 +122,12 @@ namespace intel {
         assert(pFunc && "got NULL kernel");
         FPM.run(*pFunc);
     }
+
+    if (mdUtils.empty_ModuleInfoList()) {
+      mdUtils.addModuleInfoListItem(Intel::ModuleInfoMetaDataHandle(Intel::ModuleInfoMetaData::get()));
+    }
+    Intel::ModuleInfoMetaDataHandle handle = mdUtils.getModuleInfoListItem(0);
+    handle->setGlobalVariableTotalSize(getProgramGlobalVariableTotalSize(M));
 
     //Save Metadata to the module
     mdUtils.save(M.getContext());

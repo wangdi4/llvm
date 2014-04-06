@@ -535,12 +535,9 @@ cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(const SharedPtr<IOclComma
         return err;
     }
 
-    SharedPtr<QueueEvent> markerEvent = pMarkerCommand->GetEvent();
-    m_pEventsManager->RegisterQueueEvent(markerEvent, pEvent);
-    err = pCommandQueue->EnqueueMarkerWaitEvents(pMarkerCommand, uiNumEvents, pEventList);
+    err = pCommandQueue->EnqueueRuntimeCommandWaitEvents(IOclCommandQueueBase::MARKER, pMarkerCommand, uiNumEvents, pEventList, pEvent);
     if (CL_FAILED(err))
     {
-        m_pEventsManager->ReleaseEvent(markerEvent->GetHandle());
         pMarkerCommand->CommandDone();
         delete pMarkerCommand;
     }
@@ -574,19 +571,10 @@ cl_err_code ExecutionModule::EnqueueBarrierWithWaitList(cl_command_queue clComma
         delete pBarrierCommand;
         return err;
     }
-
-    if ( NULL != pEvent )
-    {
-        m_pEventsManager->RegisterQueueEvent(pBarrierCommand->GetEvent(), pEvent);
-    }
     
-    err = pCommandQueue->EnqueueBarrierWaitEvents(pBarrierCommand, uiNumEvents, pEventList);
+    err = pCommandQueue->EnqueueRuntimeCommandWaitEvents(IOclCommandQueueBase::BARRIER, pBarrierCommand, uiNumEvents, pEventList, pEvent);
     if (CL_FAILED(err))
     {
-        if ( NULL != pEvent )
-        {
-            m_pEventsManager->ReleaseEvent(pBarrierCommand->GetEvent()->GetHandle());
-        }        
         pBarrierCommand->CommandDone();
         delete pBarrierCommand;
     }
@@ -637,12 +625,11 @@ cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue clCommandQueu
         return errVal;
     }
 
-    errVal = pCommandQueue->EnqueueWaitEvents(pWaitForEventsCommand, uiNumEvents, cpEventList);
+    errVal = pCommandQueue->EnqueueRuntimeCommandWaitEvents(IOclCommandQueueBase::JUST_WAIT, pWaitForEventsCommand, uiNumEvents, cpEventList, NULL);
     if ( CL_FAILED(errVal) )
     {
         pWaitForEventsCommand->CommandDone();
         delete pWaitForEventsCommand;
-        return errVal;
     }
 
     return errVal;

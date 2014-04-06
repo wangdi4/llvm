@@ -142,7 +142,10 @@ bool opencl_printf_test()
         kernel.setArg(0, buf_in);
         kernel.setArg(1, buf_out);
 
-        CaptureStdout();
+        if (!CaptureStdout()) {
+          fprintf(stderr, "Can't create a temporary file for capturing stdout\n");
+          return false;
+        }
         queue.enqueueNDRangeKernel(
             kernel, 
             cl::NullRange, 

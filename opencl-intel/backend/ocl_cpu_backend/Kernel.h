@@ -27,6 +27,7 @@ File Name:  Kernel.h
 #include "cl_dev_backend_api.h"
 #include "cl_device_api.h"
 #include "RuntimeService.h"
+#include "Serializer.h"
 
 #ifdef OCL_DEV_BACKEND_PLUGINS
 #include "plugin_manager.h"
@@ -52,6 +53,12 @@ public:
    * JITContainer methods
    */
   virtual KernelJITProperties *GetProps() const = 0;
+
+  /**
+   * Serialization methods for the class (used by the serialization service)
+   */
+  virtual void Serialize(IOutputStream& ost, SerializationStatus* stats) const = 0;
+  virtual void Deserialize(IInputStream& ist, SerializationStatus* stats) = 0;
 };
 
 class Kernel : public ICLDevBackendKernel_, public ICLDevBackendKernelRunner {
@@ -279,6 +286,12 @@ public:
     m_RuntimeService = rs;
   }
 
+  /**
+   * Serialization methods for the class (used by the serialization service)
+   */
+  virtual void Serialize(IOutputStream& ost, SerializationStatus* stats) const;
+  virtual void Deserialize(IInputStream& ist, SerializationStatus* stats);
+
 protected:
   void DebugPrintUniformKernelArgs(const cl_uniform_kernel_args *Arguments,
                                    size_t offsetToImplicit,
@@ -319,11 +332,15 @@ protected:
  */
 class KernelSet {
 public:
+  KernelSet();
+
   ~KernelSet();
 
-  void AddKernel(Kernel *pKernel) { m_kernels.push_back(pKernel); }
+  void AddKernel(Kernel *pKernel);
 
   size_t GetCount() const { return m_kernels.size(); }
+
+  size_t GetBlockCount() const { return m_blockKernelsCount; }
 
   bool Empty() const { return m_kernels.empty(); }
 
@@ -333,6 +350,7 @@ public:
 
 private:
   std::vector<Kernel *> m_kernels;
+  size_t                m_blockKernelsCount;
 };
 }
 }

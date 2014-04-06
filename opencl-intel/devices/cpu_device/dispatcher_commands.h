@@ -111,7 +111,7 @@ public:
     TASK_PRIORITY   GetPriority() const { return TASK_PRIORITY_MEDIUM;}
 
     void    Cancel() { NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, cl_int(CL_DEV_COMMAND_CANCELLED)); }
-    Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+    Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
 
 protected:
 
@@ -224,7 +224,7 @@ public:
 
     bool IsCompleted() const { return CommandBaseClass<ITaskSet>::IsCompleted(); }
 
-    ITaskGroup* GetNDRangeChildrenTaskGroup() { return GetParentTaskGroup().GetPtr(); }
+    IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return GetParentTaskGroup().GetPtr(); }
     char* GetParamsPtr() { return (char*)(((cl_dev_cmd_param_kernel*)m_pCmd->params)->arg_values); }
 
     KernelCommand* AllocateChildCommand(ITaskList* pList, const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel,
@@ -285,7 +285,7 @@ public:
         m_deviceNDRangeContextAllocator(deviceNDRangeContextAllocator)
 #endif
         {
-            InitCmdDesc(pKernel, pBlockLiteral, stBlockSize, pLocalSizes, stLocalSizeCount, pNDRange);
+            InitBlockCmdDesc(pKernel, pBlockLiteral, stBlockSize, pLocalSizes, stLocalSizeCount, pNDRange);
         } 
 
     /**
@@ -309,7 +309,7 @@ public:
 
 private:
 
-    void InitCmdDesc(const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel,
+    void InitBlockCmdDesc(const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel,
         const void* pBlockLiteral, size_t stBlockSize,
         const size_t* pLocalSizes, size_t stLocalSizeCount,
         const _ndrange_t* pNDRange );    

@@ -1,6 +1,8 @@
 #ifndef ICLDevBackendOptions_H
 #define ICLDevBackendOptions_H
 
+#include <cstdlib>
+
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 /*! \enum cl_dev_backend_options
@@ -47,8 +49,8 @@ enum ETransposeSize
     TRANSPOSE_SIZE_AUTO = 0, // Automatic selection. Backend will selectet if and how to vectorize based on heuristics
     TRANSPOSE_SIZE_1,        // Scalar mode. Do not use the vectorizer
     TRANSPOSE_SIZE_4  = 4,   // Force the vectorization with packetization size of 4
-    TRANSPOSE_SIZE_8  = 8,   // Force the vectorization with packetization size of 8 
-    TRANSPOSE_SIZE_16 = 16   // Force the vectorization with packetization size of 16 
+    TRANSPOSE_SIZE_8  = 8,   // Force the vectorization with packetization size of 8
+    TRANSPOSE_SIZE_16 = 16   // Force the vectorization with packetization size of 16
 };
 
 /*! \dump_IR_options
@@ -85,20 +87,20 @@ public:
      * @param default value to return
      */
     virtual bool GetBooleanValue(
-        int optionId, 
+        int optionId,
         bool defaultValue) const = 0;
 
     virtual int GetIntValue(
-        int optionId, 
+        int optionId,
         int defaultValue) const = 0;
 
     virtual const char* GetStringValue(
-        int optionId, 
+        int optionId,
         const char* defaultValue) const = 0;
 
     virtual bool GetValue(
-        int optionId, 
-        void* Value, 
+        int optionId,
+        void* Value,
         size_t* pSize) const = 0;
 };
 

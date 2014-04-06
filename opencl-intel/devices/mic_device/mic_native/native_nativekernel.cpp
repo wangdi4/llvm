@@ -28,10 +28,6 @@
 #include "native_common_macros.h"
 #include "mic_logger.h"
 
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
-#include "tbb_memory_allocator.h"
-#endif
-
 // TODO: Move to system utils
 #include "mic_native_logger.h"
 
@@ -66,39 +62,38 @@ void execute_command_nativekernel(uint32_t   in_BufferCount,
 
     QueueOnDevice* pQueue = (QueueOnDevice*)(ndrangeDispatchData->deviceQueuePtr);
     assert(NULL != pQueue && "pQueue must be valid");
+    
+    cl_dev_err_code err = CL_DEV_SUCCESS;
 
-#ifdef _DEBUG
-    TlsAccessor tlsAccessor;
-    const QueueOnDevice* pTLSQueue = QueueOnDevice::getCurrentQueue( &tlsAccessor );
-    assert( pTLSQueue == pQueue && "Queue handle doesn't match");
-#endif
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
-    NativeKernelTask* nativeKernelTask = new NativeKernelTask(pQueue, in_BufferCount, in_ppBufferPointers, ndrangeDispatchData, in_MiscDataLength);
-
-    cl_dev_err_code err = nativeKernelTask->getTaskError();
-    if ( CL_DEV_SUCCEEDED(err) )
+    if (pQueue->IsAsyncExecution())
     {
-        err = pQueue->Execute(nativeKernelTask);
-    }
-#else
-    NativeKernelTask nativeKernelTask(pQueue, in_BufferCount, in_ppBufferPointers, ndrangeDispatchData, in_MiscDataLength);
+        SharedPtr<NativeKernelTask> nativeKernelTask = NativeKernelTask::Allocate(in_BufferCount, in_ppBufferPointers, ndrangeDispatchData, in_MiscDataLength, pQueue);
 
-    cl_dev_err_code err = nativeKernelTask.getTaskError();
-    if ( CL_DEV_SUCCEEDED(err) )
-    {
-        // Increase ref. count to prevent undesired deletion
-        nativeKernelTask.IncRefCnt();
-        err = pQueue->Execute(nativeKernelTask.GetAsTaskHandlerBase());
+        err = nativeKernelTask->getTaskError();
+        if ( CL_DEV_SUCCEEDED(err) )
+        {
+            err = pQueue->Execute(nativeKernelTask->GetAsTaskHandlerBase());
+        }
     }
-#endif
+    else
+    {
+        NativeKernelTask nativeKernelTask(in_BufferCount, in_ppBufferPointers, ndrangeDispatchData, in_MiscDataLength, pQueue);
+
+        cl_dev_err_code err = nativeKernelTask.getTaskError();
+        if ( CL_DEV_SUCCEEDED(err) )
+        {
+            // Increase ref. count to prevent undesired deletion
+            nativeKernelTask.IncRefCnt();
+            err = pQueue->Execute(nativeKernelTask.GetAsTaskHandlerBase());
+        }
+	}
 
     *((cl_dev_err_code*)in_pReturnValue) = err;
     MicInfoLog(MicNativeLogDescriptor::getLoggerClient(), MicNativeLogDescriptor::getClientId(), "%s", "[MIC SERVER] exit execute_NDRange");
 }
 
-NativeKernelTask::NativeKernelTask( QueueOnDevice* pQueue, uint32_t lockBufferCount, void** pLockBuffers, ndrange_dispatcher_data* pDispatcherData, size_t uiDispatchSize ) :
-    TaskHandler<NativeKernelTask, ndrange_dispatcher_data >(lockBufferCount, pLockBuffers, pDispatcherData, uiDispatchSize),
-    m_pQueue(pQueue)
+NativeKernelTask::NativeKernelTask( uint32_t lockBufferCount, void** pLockBuffers, ndrange_dispatcher_data* pDispatcherData, size_t uiDispatchSize, QueueOnDevice* pQueue ) :
+    TaskHandler<NativeKernelTask, ndrange_dispatcher_data >(lockBufferCount, pLockBuffers, pDispatcherData, uiDispatchSize, pQueue)
 #ifdef ENABLE_MIC_TRACER
     ,m_tbb_perf_data(*this)
 #endif
@@ -107,19 +102,6 @@ NativeKernelTask::NativeKernelTask( QueueOnDevice* pQueue, uint32_t lockBufferCo
 #endif
 {
 }
-
-#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
-NativeKernelTask::NativeKernelTask( const NativeKernelTask& o) :
-    TaskHandler<NativeKernelTask, ndrange_dispatcher_data >( o )
-#ifdef ENABLE_MIC_TRACER
-    ,m_tbb_perf_data(*this)
-#endif
-#ifdef USE_ITT
-    ,m_pIttKernelName(o.m_pIttKernelName), m_pIttKernelDomain(o.m_pIttKernelDomain)
-#endif
-{
-}
-#endif
 
 NativeKernelTask::~NativeKernelTask()
 {
@@ -145,8 +127,8 @@ bool NativeKernelTask::PrepareTask()
 #ifdef USE_ITT
     if ( gMicGPAData.bUseGPA)
     {
-        m_pIttKernelName = ProgramService::get_itt_kernel_name(m_dispatcherData->kernelAddress);
-        m_pIttKernelDomain = ProgramService::get_itt_kernel_domain(m_dispatcherData->kernelAddress);
+        m_pIttKernelName = ProgramService::get_itt_kernel_name(m_pDispatcherData->kernelAddress);
+        m_pIttKernelDomain = ProgramService::get_itt_kernel_domain(m_pDispatcherData->kernelAddress);
         // Use kernel specific domain if possible, if not available switch to global domain
         if ( NULL == m_pIttKernelDomain )
         {
@@ -155,7 +137,7 @@ bool NativeKernelTask::PrepareTask()
     }
 #endif
 
-    m_pKernel = static_cast<const Intel::OpenCL::BuiltInKernels::IBuiltInKernel*>(ProgramService::GetKernelPointer(m_dispatcherData->kernelAddress));
+    m_pKernel = static_cast<const Intel::OpenCL::BuiltInKernels::IBuiltInKernel*>(ProgramService::GetKernelPointer(m_pDispatcherData->kernelAddress));
 
     // Now we should patch memory object pointers
     const cl_kernel_argument* pParamInfo = m_pKernel->GetKernelParams();
@@ -163,7 +145,7 @@ bool NativeKernelTask::PrepareTask()
     const unsigned int* pMemArgsInx = m_pKernel->GetMemoryObjectArgumentIndexes();
     size_t              argSize     = m_pKernel->GetExplicitArgumentBufferSize();
 
-    m_pKernelArgs = ((char*)m_dispatcherData) + sizeof(ndrange_dispatcher_data);
+    m_pKernelArgs = ((char*)m_pDispatcherData) + sizeof(ndrange_dispatcher_data);
 
     unsigned int currentLockedBuffer = 0;
     for(unsigned int i=0; i<numMemArgs; ++i)
@@ -175,6 +157,10 @@ bool NativeKernelTask::PrepareTask()
         *loc = m_bufferPointers[currentLockedBuffer];
         currentLockedBuffer++;
     }
+
+#ifdef MIC_USE_COI_BUFFS_REF_NEW_API
+	m_bufferPointers = NULL;
+#endif
 
     return true;
 }
@@ -224,19 +210,8 @@ bool NativeKernelTask::Execute()
     }
 #endif
 
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
-    m_releasehandler->addTask(this);
-#else
+    m_pQueue->FinishTask( this );
 
-	// Release COI resources, before signaling to runtime
-    FiniTask();
-
-    // Notify end if exists
-    if ( m_dispatcherData->endEvent.isRegistered )
-    {
-        COIEventSignalUserEvent(m_dispatcherData->endEvent.cmdEvent);
-    }
-#endif
 #ifdef USE_ITT
     if ( gMicGPAData.bUseGPA)
     {
@@ -249,45 +224,11 @@ bool NativeKernelTask::Execute()
 
 void NativeKernelTask::Cancel()
 {
-    // TODO: What if task already started
-    // Notify end if exists
-    if ( m_dispatcherData->startEvent.isRegistered )
-    {
-        COIEventSignalUserEvent(m_dispatcherData->startEvent.cmdEvent);
-    }
-
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
-#ifdef ENABLE_MIC_TRACER
-    commandTracer().set_current_time_tbb_exe_in_device_time_start();
-#endif
-    setTaskError( CL_DEV_COMMAND_CANCELLED );
-
-    m_releasehandler->addTask(this);
-#else
-
-
-    // Release COI resources, before signaling to runtime
-    FiniTask();
-
-
-#ifdef ENABLE_MIC_TRACER
-    commandTracer().set_current_time_tbb_exe_in_device_time_start();
-    commandTracer().set_current_time_tbb_exe_in_device_time_end();
-#endif
-    setTaskError( CL_DEV_COMMAND_CANCELLED );
-
-    // Notify end if exists
-    if (m_dispatcherData->endEvent.isRegistered )
-    {
-        COIEventSignalUserEvent(m_dispatcherData->endEvent.cmdEvent);
-    }
-
+    m_pQueue->CancelTask(this);
 #ifdef USE_ITT
     if ( gMicGPAData.bUseGPA )
     {
         __itt_task_end(m_pIttKernelDomain);
     }
-#endif
-
 #endif
 }

@@ -24,6 +24,7 @@ File Name:  KernelProperties.h
 #include "cl_dev_backend_api.h"
 #include "ICLDevBackendKernel.h"
 #include "TargetArch.h"
+#include "Serializer.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -37,6 +38,12 @@ public:
 
     unsigned int GetVectorSize() const{ return m_vectorSize;}
     bool GetUseVTune() const          { return m_useVTune;}
+
+    /**
+     * Serialization methods for the class (used by the serialization service)
+     */
+    virtual void Serialize(IOutputStream& ost, SerializationStatus* stats) const;
+    virtual void Deserialize(IInputStream& ist, SerializationStatus* stats);
 
 protected:
     bool m_useVTune;
@@ -175,6 +182,13 @@ public:
     bool          IsVectorizedWithTail() const { return m_isVectorizedWithTail; }
     // Get size of pointer in bytes
     unsigned int  GetPointerSize()     const { return m_uiSizeT;}
+
+    /**
+     * Serialization methods for the class (used by the serialization service)
+     */
+    virtual void Serialize(IOutputStream& ost, SerializationStatus* stats) const;
+    virtual void Deserialize(IInputStream& ist, SerializationStatus* stats); 
+
 
 protected:
     bool m_hasBarrier;

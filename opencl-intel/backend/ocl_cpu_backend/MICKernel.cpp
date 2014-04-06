@@ -142,109 +142,34 @@ const void *MICKernel::ResolveEntryPointHandle(const void *Handle) const {
   return GetKernelJIT(1)->GetJITCode();
 }
 
-void MICKernel::Serialize(IOutputStream &ost, SerializationStatus *stats) {
+void MICKernel::Serialize(IOutputStream &ost, SerializationStatus *stats) const {
   Serializer::SerialPrimitive<unsigned long long int>(&m_kernelID, ost);
-  Serializer::SerialString(m_name, ost);
-
-  // Serialize the CSRMask and CSRFlags
-  Serializer::SerialPrimitive<unsigned int>(&m_CSRMask, ost);
-  Serializer::SerialPrimitive<unsigned int>(&m_CSRFlags, ost);
-
-  // Serialize the kernel arguments (one by one)
-  unsigned int vectorSize = m_explicitArgs.size();
-  Serializer::SerialPrimitive<unsigned int>(&vectorSize, ost);
-  for (size_t i = 0; i < vectorSize; ++i) {
-    Serializer::SerialPrimitive<cl_kernel_argument>(&m_explicitArgs[i], ost);
-  }
-
-  // Serialize explicit argument buffer size
-  Serializer::SerialPrimitive<unsigned int>(&m_explicitArgsSizeInBytes, ost);
-  // Serialize explicit argument buffer alignment
-  Serializer::SerialPrimitive<unsigned int>(&m_RequiredUniformKernelArgsAlignment, ost);
-
-  // Serial memory object information
-  vectorSize = m_memArgs.size();
-  Serializer::SerialPrimitive<unsigned int>(&vectorSize, ost);
-  for (size_t i = 0; i < vectorSize; ++i) {
-    Serializer::SerialPrimitive<unsigned int>(&m_memArgs[i], ost);
-  }
-
-  Serializer::SerialPointerHint((const void **)&m_pProps, ost);
-  if (NULL != m_pProps) {
-    static_cast<MICKernelProperties *>(m_pProps)->Serialize(ost, stats);
-  }
-
-  // Serial the kernel JIT's (one by one)
-  vectorSize = m_JITs.size();
-  Serializer::SerialPrimitive<unsigned int>(&vectorSize, ost);
-  for (std::vector<IKernelJITContainer *>::const_iterator it = m_JITs.begin();
-       it != m_JITs.end(); ++it) {
-    MICJITContainer *currentArgument = (MICJITContainer *)(*it);
-    Serializer::SerialPointerHint((const void **)&currentArgument, ost);
-    if (NULL != currentArgument) {
-      currentArgument->Serialize(ost, stats);
-    }
-  }
+  Kernel::Serialize(ost, stats);
 }
 
 void MICKernel::Deserialize(IInputStream &ist, SerializationStatus *stats) {
   Serializer::DeserialPrimitive<unsigned long long int>(&m_kernelID, ist);
-  Serializer::DeserialString(m_name, ist);
+  Kernel::Deserialize(ist, stats);
 
-  // Deserialize the CSRMask and CSRFlags
-  Serializer::DeserialPrimitive<unsigned int>(&m_CSRMask, ist);
-  Serializer::DeserialPrimitive<unsigned int>(&m_CSRFlags, ist);
-
-  // Deserial the kernel arguments (one by one)
-  unsigned int vectorSize = 0;
-  Serializer::DeserialPrimitive<unsigned int>(&vectorSize, ist);
-  m_explicitArgs.resize(vectorSize);
-  for (size_t i = 0; i < vectorSize; ++i) {
-    Serializer::DeserialPrimitive<cl_kernel_argument>(&m_explicitArgs[i], ist);
-  }
-
-  // Deserial explicit argument buffer size
-  Serializer::DeserialPrimitive<unsigned int>(&m_explicitArgsSizeInBytes, ist);
-  // Deserial explicit argument buffer alignment
-  Serializer::DeserialPrimitive<unsigned int>(&m_RequiredUniformKernelArgsAlignment, ist);
-
-  // Deserial memory object information
-  Serializer::DeserialPrimitive<unsigned int>(&vectorSize, ist);
-  m_memArgs.resize(vectorSize);
-  for (size_t i = 0; i < vectorSize; ++i) {
-    Serializer::DeserialPrimitive<unsigned int>(&m_memArgs[i], ist);
-  }
-
-  Serializer::DeserialPointerHint((void **)&m_pProps, ist);
-  if (NULL != m_pProps) {
-    m_pProps = static_cast<MICKernelProperties *>(
-        stats->GetBackendFactory()->CreateKernelProperties());
-    static_cast<MICKernelProperties *>(m_pProps)->Deserialize(ist, stats);
-  }
-
-  Serializer::DeserialPrimitive<unsigned int>(&vectorSize, ist);
-  for (unsigned int i = 0; i < vectorSize; ++i) {
-    MICJITContainer *currentArgument = NULL;
-    Serializer::DeserialPointerHint((void **)&currentArgument, ist);
-    if (NULL != currentArgument) {
-      currentArgument = new MICJITContainer();
-      currentArgument->Deserialize(ist, stats);
 #ifdef KNC_CARD
+  for (unsigned int i = 0; i < m_JITs.size(); ++i) {
+    MICJITContainer *currentArgument = static_cast<MICJITContainer*>(m_JITs[i]);
+    if (NULL != currentArgument) {
       // Register with VTune
-      MICKernelJITProperties *props =
-          static_cast<MICKernelJITProperties *>(currentArgument->GetProps());
+      KernelJITProperties *props =
+          static_cast<KernelJITProperties *>(currentArgument->GetProps());
       if (props->GetUseVTune()) {
         ModuleJITHolder *MJH =
             (ModuleJITHolder *)stats->GetPointerMark("pModuleJITHolder");
         registerWithVTune(MJH, currentArgument->GetFuncID(), GetKernelName(),
                           currentArgument->GetJITCodeSize(),
                           currentArgument->GetJITCode());
-      }
-#endif
+      }     
     }
-    m_JITs.push_back(currentArgument);
   }
+#endif 
 }
+
 }
 }
 } // namespace

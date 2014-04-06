@@ -49,7 +49,7 @@ const ICLDevBackendProgramJITCodeProperties* MICProgram::GetProgramJITCodeProper
     return this;
 }
 
-size_t MICProgram::GetCodeSize() const
+size_t MICProgram::GetJITCodeSize() const
 {
     return (size_t)m_pModuleJITHolder->GetJITCodeSize();
 }
@@ -59,33 +59,19 @@ void MICProgram::Serialize(IOutputStream& ost, SerializationStatus* stats) const
     //Serializer::SerialPrimitive<unsigned long long int>(&m_programID, ost);
     // NOTICE: NO Need to serialize the LLVM bit code to the device
 
-    Serializer::SerialString(m_buildLog, ost);
-
     Serializer::SerialPointerHint((const void**)&m_pModuleJITHolder, ost); 
     if(NULL != m_pModuleJITHolder.get())
     {
         m_pModuleJITHolder->Serialize(ost, stats);
     }
 
-    unsigned int kernelsCount = m_kernels->GetCount();
-    Serializer::SerialPrimitive<unsigned int>(&kernelsCount, ost);
-    for(unsigned int i = 0; i < m_kernels->GetCount(); ++i)
-    {
-        MICKernel* currentKernel = static_cast<MICKernel*>(m_kernels->GetKernel(i));
-        Serializer::SerialPointerHint((const void**)&currentKernel, ost); 
-        if(NULL != currentKernel)
-        {
-            currentKernel->Serialize(ost, stats);
-        }
-    }
+    Program::Serialize(ost, stats);
 }
 
 void MICProgram::Deserialize(IInputStream& ist, SerializationStatus* stats)
 {
     //Serializer::DeserialPrimitive<unsigned long long int>(&m_programID, ist);
-    m_pCodeContainer = NULL;
-    Serializer::DeserialString(m_buildLog, ist);
-   
+
     int* ptrHint;
     Serializer::DeserialPointerHint((void**)(&ptrHint), ist); 
     if(NULL != ptrHint)
@@ -95,20 +81,7 @@ void MICProgram::Deserialize(IInputStream& ist, SerializationStatus* stats)
     }
     stats->SetPointerMark("pModuleJITHolder", m_pModuleJITHolder.get());
 
-    unsigned int kernelsCount = 0;
-    Serializer::DeserialPrimitive<unsigned int>(&kernelsCount, ist);
-    m_kernels.reset(new KernelSet());
-    for(unsigned int i = 0; i < kernelsCount; ++i)
-    {
-        MICKernel* currentKernel = NULL;
-        Serializer::DeserialPointerHint((void**)(&currentKernel), ist); 
-        if(NULL != currentKernel)
-        {
-            currentKernel = static_cast<MICKernel*>(stats->GetBackendFactory()->CreateKernel());
-            currentKernel->Deserialize(ist, stats);
-        }
-        m_kernels->AddKernel(currentKernel);
-    }
+    Program::Deserialize(ist, stats);
 }
 
 

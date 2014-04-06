@@ -909,4 +909,3 @@ code fract_ret2ptr = [{
     *$Arg1VarName = res;
   }];
 OclBuiltinImpl fract_ret2ptr_pas = OclBuiltinImpl<fract_pas2, [v4f32, v8f32, v16f32, v4f64, v8f64, v16f64], 0, fract_ret2ptr>;
-

@@ -62,7 +62,8 @@ enum cl_prog_binary_type
     CL_PROG_BIN_CUBIN,              //!< Container holds NVidia CUBbinary
     CL_PROG_BIN_COMPILED_SPIR,      //!< Container holds compiled SPIR intermediate
     CL_PROG_BIN_LINKED_SPIR,        //!< Container holds linked SPIR intermediate
-    CL_PROG_BIN_CUSTOM              //!< Container holds custom device binary
+    CL_PROG_BIN_CUSTOM,             //!< Container holds custom device binary
+    CL_PROG_BIN_BUILT_OBJECT        //!< Container holds already built ocl program (JIT and IR)
 };
 
 /*! \enum cl_prog_container_type
@@ -152,6 +153,28 @@ struct cl_prog_program
 */
 #define _CL_LLVM_BITCODE_MASK_        "BC"
 
+/*! \def _CL_OBJECT_BITCODE_MASK_
+    \brief This header signal object binary bitcode stream
+*/
+#define _CL_OBJECT_BITCODE_MASK_      0x464c457f
+#define MAX_SECTIONS_IN_OBJECT        8
+
+//!< list of section indices in the binary object
+#define IR_SECTION_INDEX         0
+#define OFFLOAD_SECTION_INDEX    1
+#define OPT_IR_SECTION_INDEX     2
+#define OBJECT_SECTION_INDEX     3
+#define CHECK_INDEX              4
+
+/*! \struct cl_binary_container_header
+ *  \brief This strcuture defines a specific container for binary objects (cached programs)
+ */
+typedef struct _cl_object_container_header
+{
+    cl_char                 mask[4];       //!< A container identifier mask must be 0x7f ELF
+    unsigned int            total_size;    //!< total size of the container
+    unsigned int            section_size[8];//!< container sections sizes
+} cl_object_container_header;
 /*! \struct cl_prog_container_header
  *  \brief This structure defines a specific container for binaries or IR of OCL programs
  */
@@ -352,7 +375,7 @@ enum cl_dev_bs_flags
 // Backing Store update operations mode
 enum cl_dev_bs_update_state
 {
-    CL_DEV_BS_UPDATE_COMPLETED = 0,         //! Update operation completed 
+    CL_DEV_BS_UPDATE_COMPLETED = 0,         //! Update operation completed
     CL_DEV_BS_UPDATE_LAUNCHED               //! Update operation launched asyncronously
 };
 
@@ -641,7 +664,7 @@ typedef cl_dev_err_code (fn_clDevGetDeviceInfo)(
     \param[in]  deviceListSize          Specifies the number of IDs (unsigned int) that can be stored in deviceIdsList.
                                         If deviceIdsList != NULL that deviceListSize must be greater than 0.
     \param[out] deviceIdsList           A pointer to memory location where appropriate values for each device ID will be store. If paramVal is NULL, it is ignored
-    \param[out] deviceIdsListSizeRet    If deviceIdsList!= NULL it store the actual amount of IDs being store in deviceIdsList. 
+    \param[out] deviceIdsListSizeRet    If deviceIdsList!= NULL it store the actual amount of IDs being store in deviceIdsList.
                                         If deviceIdsList == NULL and deviceIdsListSizeRet than it store the amount of available devices.
                                         If deviceIdsListSizeRet is NULL, it is ignored.
     \retval     CL_DEV_SUCCESS          If function is executed successfully.
@@ -798,7 +821,7 @@ public:
 
     //! Report that asynchronous Update operation has finished
     /*!
-        \param[in]  handle      An operation handle that was provided during the call to 
+        \param[in]  handle      An operation handle that was provided during the call to
                                 IOCLDevMemoryObject::Update* API
 
         \param[in]  dev_error   Error code (CL_DEV_SUCCESS, etc for errors)
@@ -869,8 +892,8 @@ public:
         \retval CL_DEV_INVALID_OPERATION    If sub-buffer can't be created
     */
     virtual cl_dev_err_code clDevMemObjCreateSubObject( cl_mem_flags mem_flags,
-                                    const size_t IN *origin, 
-                                    const size_t IN *size, 
+                                    const size_t IN *origin,
+                                    const size_t IN *size,
                                     IOCLDevRTMemObjectService IN *pBSService,
                                     IOCLDevMemoryObject* OUT *ppSubObject ) = 0;
 
@@ -878,10 +901,10 @@ public:
     //! Device->BackingStore
     //! Note: this operation is called from inside IOCLDevRTMemObjectService per-memory-object lock
     /*
-        \param[in]   operation_handle       Opaque handle to be provided back to 
+        \param[in]   operation_handle       Opaque handle to be provided back to
                                             IOCLDevRTMemObjectService::BackingStoreUpdateFinished() API
                                             if asynchronous operation mode was used
-                                            
+
         \param[out]  pUpdateState           Pointer to operation mode, chosen by IOCLDevMemoryObject:
                                             CL_DEV_BS_UPDATE_COMPLETED - update completed synchronously
                                             CL_DEV_BS_UPDATE_LAUNCHED  - update was launched asynchronously
@@ -890,18 +913,18 @@ public:
 
         \retval      CL_DEV_SUCCESS         The function is executed successfully.
         \retval      CL_DEV_*               Error occured
-    */                                        
-    virtual cl_dev_err_code clDevMemObjUpdateBackingStore( 
+    */
+    virtual cl_dev_err_code clDevMemObjUpdateBackingStore(
                                 void* operation_handle, cl_dev_bs_update_state* pUpdateState ) = 0;
-    
+
     //! Muilti-device data sharing - update device data by copying data from Backing Store
     //! BackingStore->Device
     //! Note: this operation is called from inside IOCLDevRTMemObjectService per-memory-object lock
     /*
-        \param[in]   operation_handle       Opaque handle to be provided back to 
+        \param[in]   operation_handle       Opaque handle to be provided back to
                                             IOCLDevRTMemObjectService::BackingStoreUpdateFinished() API
                                             if asynchronous operation mode was used
-                                            
+
         \param[out]  pUpdateState           Pointer to operation mode, chosen by IOCLDevMemoryObject:
                                             CL_DEV_BS_UPDATE_COMPLETED - update completed synchronously
                                             CL_DEV_BS_UPDATE_LAUNCHED  - update was launched asynchronously
@@ -910,8 +933,8 @@ public:
 
         \retval      CL_DEV_SUCCESS         The function is executed successfully.
         \retval      CL_DEV_*               Error occured
-    */                                        
-    virtual cl_dev_err_code clDevMemObjUpdateFromBackingStore( 
+    */
+    virtual cl_dev_err_code clDevMemObjUpdateFromBackingStore(
                                 void* operation_handle, cl_dev_bs_update_state* pUpdateState ) = 0;
 
     //! Muilti-device data sharing - invalidate device data - device data is no longer valid.
@@ -920,7 +943,7 @@ public:
     /*
         \retval      CL_DEV_SUCCESS         The function is executed successfully.
         \retval      CL_DEV_*               Error occured
-    */                                        
+    */
     virtual cl_dev_err_code clDevMemObjInvalidateData( ) = 0;
 
     //!     This function deletes previously created memory object.
@@ -983,7 +1006,7 @@ public:
             props                       The desired partitioning criterion
             num_requested_subdevices    An upper bound on the amount of sub-devices to be created
             num_subdevices              The number of sub-devices to be generated if using CL_DEV_PARTITION_BY_COUNTS or BY_NAMES
-            parent_device_id            The ID of the parent device. NULL if the parent device is the root device. 
+            parent_device_id            The ID of the parent device. NULL if the parent device is the root device.
             param                       An optional param: the partition size in case of PARTITION_EQUALLY, the count list if BY_COUNTS, the name list if BY_NAMES etc
         Output
             num_subdevices              The number of sub-devices to be generated if partitioning equally or by affinity
@@ -1000,7 +1023,7 @@ public:
                                                cl_uint*              INOUT  num_subdevices,
                                                void*                 IN     param,
                                                cl_dev_subdevice_id*  OUT    subdevice_ids
-                                            ) = 0;    
+                                            ) = 0;
 
     /* clDevReleaseSubdevice
         Description
@@ -1032,6 +1055,11 @@ public:
                                                         cl_dev_subdevice_id   IN subdevice_id,
                                            cl_dev_cmd_list* OUT list
                                            ) = 0;
+
+    /*! \param[in] list a valid handle to a device command list
+        \retval the address of the device command list
+    */
+    virtual void* clDevGetCommandListPtr(cl_dev_cmd_list IN list) { return NULL; }
 
     //!     This function flushes the content of a list, all waiting commands are sent to execution.
     /*!
@@ -1226,7 +1254,7 @@ public:
         \retval     CL_DEV_NOT_SUPPORTED            One of the functions in the list is not supported by the device
         \retval     CL_DEV_OUT_OF_MEMORY            If the device failed to allocate memory for the program.
     */
-    virtual cl_dev_err_code clDevCreateBuiltInKernelProgram( 
+    virtual cl_dev_err_code clDevCreateBuiltInKernelProgram(
                                            const char* IN szBuiltInNames,
                                            cl_dev_program* OUT prog
                                            ) = 0;
@@ -1348,6 +1376,17 @@ public:
                                              cl_uint* OUT num_kernels_ret
                                              ) = 0;
 
+    //! Returns the total amount of storage, in bytes, used by program variables in the global address space.
+    /*!
+        \param[in]  prog        A handle to created program object.
+        \param[out] size        Size in bytes of program variables in the global address space.
+        \retval     CL_DEV_SUCCESS          The function was executed successfully.
+        \retval     CL_DEV_INVALID_PROGRAM  If program is not valid program object.
+    */
+    virtual cl_dev_err_code clDevGetGlobalVariableTotalSize( cl_dev_program IN prog,
+                                          size_t* OUT size
+                                          ) = 0;
+
     //! Returns information about the kernel in program object.
     /*!
         \param[in]  kernel          An identifier of kernel in program object
@@ -1384,7 +1423,7 @@ public:
     virtual const IOCLDeviceFECompilerDescription& clDevGetFECompilerDecription() const = 0;
 
     //!    De-initialize internal state of the device agent and releases all allocated data.
-    virtual void clDevCloseDevice() = 0;    
+    virtual void clDevCloseDevice() = 0;
 
 };
 
@@ -1447,7 +1486,7 @@ public:
 class WGContextBase
 {
 
-public:    
+public:
 
     /**
      * Constructor

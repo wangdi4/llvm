@@ -18,11 +18,39 @@ File Name:  Serializer.h
 #ifndef __SERIALIZER
 #define __SERIALIZER
 #include "exceptions.h"
+#include "IAbstractBackendFactory.h"
 #include <malloc.h>
+#include <map>
+#include <string>
+
 /**
  * This file contains utlity functions which will be used for serialization
  */
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
+
+    /**
+     * This class saves some flow stages in the serialization process
+     */
+    class SerializationStatus
+    {
+    public:
+        SerializationStatus();
+    
+        void  SetPointerMark(const std::string& mark, void* pointer);
+        void* GetPointerMark(const std::string& mark);
+    
+        void SetJITAllocator(ICLDevBackendJITAllocator* pJITAllocator);
+        ICLDevBackendJITAllocator* GetJITAllocator();
+
+        void SetBackendFactory(IAbstractBackendFactory* pBackendFactory);
+        IAbstractBackendFactory* GetBackendFactory();
+    
+    private:
+        ICLDevBackendJITAllocator* m_pJITAllocator;
+        IAbstractBackendFactory* m_pBackendFactory;
+    
+        std::map<std::string, void*> m_marksMap;
+    };
 
     /**
      * This class reperesents interface for output serialization stream
@@ -107,7 +135,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         }
 
         template<class T>
-        static void SerialPrimitivesBuffer(const T* item, int length, IOutputStream& stream)
+        static void SerialPrimitivesBuffer(const T* item, unsigned int length, IOutputStream& stream)
         {
             stream.Write((const char*)length, sizeof(length));
             if(0 == length) return ;
@@ -116,7 +144,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         }
 
         template<class T>
-        static void DeserialPrimitivesBuffer(T*& item, int& length, IInputStream& stream)
+        static void DeserialPrimitivesBuffer(T*& item, unsigned int& length, IInputStream& stream)
         {
             stream.Read((char *)&length, sizeof(length));
             if (0 == length)

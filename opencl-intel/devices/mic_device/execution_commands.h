@@ -48,7 +48,7 @@ protected:
     virtual ~ExecutionCommand();
 
 
-    void AddMemoryObject( MICDevMemoryObject *memObj, bool isConstAccess );
+    void AddMemoryObject( MICDevMemoryObject *memObj, bool isConstAccess, bool bufferAddRef );
 
     /* Initialize the appropriate execution command. */
     virtual cl_dev_err_code init() = 0;
@@ -56,6 +56,8 @@ protected:
     virtual void fireCallBack(void* arg);
 
     void init_profiling_mode();
+
+    const dispatcher_data* getDispatcherData() { return (const dispatcher_data*)m_pDispatchData; };
 
     vector<COIBUFFER>           m_coiBuffsArr;           // List of buffers required for COI command
     vector<COI_ACCESS_FLAGS>    m_accessFlagsArr;        // the access flags of the COIBUFFERs array
@@ -68,6 +70,16 @@ protected:
     uint16_t                    m_uiDispatchDataSize;
 
     DeviceServiceCommunication::DEVICE_SIDE_FUNCTION        m_funcId;
+
+    enum ACCESS_FLAGS
+    {
+        SINK_READ = 0,
+        SINK_WRITE,
+        SINK_WRITE_ENTIRE,
+        LAST
+    };
+
+	static COI_ACCESS_FLAGS m_sCoiAccessFlas[2][LAST];
 };
 
 ////////////////////////////////////////////////////////////////////////////////////

@@ -33,11 +33,13 @@ File Name:  ProgramBuilder.cpp
 #include "BuiltinModule.h"
 #include "exceptions.h"
 #include "BuiltinModuleManager.h"
-#include "plugin_manager.h"
 #include "MetaDataApi.h"
 #include "BitCodeContainer.h"
 #include "BlockUtils.h"
 #include "CompilationUtils.h"
+#include "cache_binary_handler.h"
+#include "ObjectCodeContainer.h"
+
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -75,7 +77,7 @@ namespace Utils
  */
 llvm::MemoryBuffer* GetProgramMemoryBuffer(Program* pProgram)
 {
-    const BitCodeContainer* pCodeContainer = static_cast<const BitCodeContainer*>(pProgram->GetProgramCodeContainer());
+    const BitCodeContainer* pCodeContainer = static_cast<const BitCodeContainer*>(pProgram->GetProgramIRCodeContainer());
     return (llvm::MemoryBuffer*)pCodeContainer->GetMemoryBuffer();
 }
 
@@ -100,6 +102,19 @@ ProgramBuilder::~ProgramBuilder()
 {
 }
 
+bool ProgramBuilder::CheckIfProgramHasCachedExecutable(Program* pProgram) const
+{
+    assert(pProgram && "pProgram is null");
+    if (NULL != pProgram->GetObjectCodeContainer())
+    {
+        const char* pObject = (const char*)pProgram->GetObjectCodeContainer()->GetCode();
+        size_t objectSize = pProgram->GetObjectCodeContainer()->GetCodeSize();
+        CacheBinaryHandler::CacheBinaryReader reader(pObject, objectSize);
+        return reader.IsCachedObject();
+    }
+    return false;
+}
+
 cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBackendOptions* pOptions)
 {
     assert(pProgram && "Program parameter must not be NULL");
@@ -107,6 +122,13 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
 
     try
     {
+        if(CheckIfProgramHasCachedExecutable(pProgram))
+        {
+             std::string log = "Reload Program Binary Object.";
+             ReloadProgramFromCachedExecutable(pProgram);
+             pProgram->SetBuildLog(log);
+             return CL_DEV_SUCCESS;
+        }
         Compiler* pCompiler = GetCompiler();
 
         CompilerBuildOptions buildOptions(pProgram->GetDebugInfoFlag(),
@@ -119,6 +141,9 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
         std::auto_ptr<llvm::Module> spModule( pCompiler->BuildProgram( Utils::GetProgramMemoryBuffer(pProgram),
                                                                        &buildOptions,
                                                                        &buildResult));
+
+        std::auto_ptr<ObjectCodeCache> pObjectCodeCache(new ObjectCodeCache(NULL, NULL, 0));
+        ((llvm::ExecutionEngine*)pCompiler->GetExecutionEngine())->setObjectCache(pObjectCodeCache.get());
 
         pProgram->SetExecutionEngine(pCompiler->GetExecutionEngine());
         pProgram->SetBuiltinModule(pCompiler->GetRtlModule());
@@ -142,11 +167,13 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
 
             pProgram->SetKernelSet( pKernels );
         }
-        
+
         // call post build method
         PostBuildProgramStep( pProgram, spModule.get(), pOptions );
+        updateGlobalVariableTotalSize(pProgram, spModule.get());
         pProgram->SetModule( spModule.release() );
 
+        BuildProgramCachedExecutable(pObjectCodeCache.get(), pProgram);
     }
     catch( Exceptions::DeviceBackendExceptionBase& e )
     {
@@ -158,6 +185,16 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
 
     pProgram->SetBuildLog( buildResult.GetBuildLog());
     return buildResult.GetBuildResult();
+}
+
+void ProgramBuilder::updateGlobalVariableTotalSize(Program* pProgram, Module* pModule)
+{
+    MetaDataUtils mdUtils(pModule);
+    // ModuleInfo is missing only when we build image built-ins and we don't
+    // care about the size of global variables in the program.
+    if (mdUtils.empty_ModuleInfoList()) return;
+    Intel::ModuleInfoMetaDataHandle handle = mdUtils.getModuleInfoListItem(0);
+    pProgram->SetGlobalVariableTotalSize(handle->getGlobalVariableTotalSize());
 }
 
 KernelJITProperties* ProgramBuilder::CreateKernelJITProperties( unsigned int vectorSize) const
@@ -172,7 +209,6 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
                                                          Function *func,
                                                          const ProgramBuildResult& buildResult) const
 {
-
     // Set optimal WG size
     unsigned int optWGSize = 128; // TODO: to be checked
 
@@ -288,7 +324,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
       assert(FuncInfo && "Couldn't find this kernel in the kernel list");
       if(NULL == FuncInfo)
         throw Exceptions::CompilerException("Internal Error. FuncInfo is NULL");
-      
+
       MDNode *MDVecTHint = NULL;
       //look for vec_type_hint metadata
       for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {

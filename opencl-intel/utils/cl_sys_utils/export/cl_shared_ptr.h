@@ -628,24 +628,21 @@ public:
     template<typename S>
     ConstSharedPtr<S> DynamicCast() const
     {
-        S* const pS = dynamic_cast<S*>(this->m_ptr);
+        const S* const pS = dynamic_cast<const S*>(this->m_ptr);
         return pS;
     }
 
     template<typename S>
     ConstSharedPtr<S> StaticCast() const
     {
-        S* const pS = static_cast<S*>(this->m_ptr);
+        const S* const pS = static_cast<const S*>(this->m_ptr);
         return pS;
     }
 
 protected:
 
     // overriden method
-    virtual void HandleRefCnt0(const T* ptr)
-    {
-        assert("ConstSharedPtr shouldn't delete objects" && false);
-    }
+    virtual void HandleRefCnt0(const T* ptr);
     
 };
 

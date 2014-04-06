@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2011).
+Copyright (c) Intel Corporation (2010-2014).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -15,18 +15,39 @@ Copyright (c) Intel Corporation (2011).
 File Name:  MICCompilerConfig.h
 
 \*****************************************************************************/
-#pragma once
 
-#include "cl_dev_backend_api.h"
+#ifndef MIC_COMPILER_CONFIG_H
+#define MIC_COMPILER_CONFIG_H
+
+#include "IMICCompilerConfig.h"
 #include "CompilerConfig.h"
-#include "TargetDescription.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
+class ICLDevBackendOptions;
 
-class IMICCompilerConfig : public virtual ICompilerConfig
+class MICCompilerConfig: public CompilerConfig, public IMICCompilerConfig
 {
 public:
-    virtual const TargetDescription& GetTargetDescription() const=0;
-};
+    // MIC CompilerConfiguration methods
+    void LoadConfig();
+    void ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions);
 
-}}} // namespace
+    std::string GetCpuArch() const     { return CompilerConfig::GetCpuArch(); }
+    std::string GetCpuFeatures() const { return CompilerConfig::GetCpuFeatures(); }
+    ETransposeSize GetTransposeSize() const   { return CompilerConfig::GetTransposeSize(); }
+    bool  GetUseVTune() const                 { return CompilerConfig::GetUseVTune(); }
+    bool  GetLoadBuiltins() const             { return CompilerConfig::GetLoadBuiltins(); }
+    std::vector<int> GetIRDumpOptionsAfter() const { return CompilerConfig::GetIRDumpOptionsAfter(); }
+    std::vector<int> GetIRDumpOptionsBefore() const { return CompilerConfig::GetIRDumpOptionsBefore(); }
+    std::string GetDumpIRDir() const { return CompilerConfig::GetDumpIRDir(); }
+    bool GetDumpHeuristicIRFlag() const { return CompilerConfig::GetDumpHeuristicIRFlag(); }
+
+    const TargetDescription& GetTargetDescription() const { return m_TargetDescription; }
+
+protected:
+    TargetDescription m_TargetDescription;
+
+};
+}}}
+#endif //MIC_COMPILER_CONFIG_H
+

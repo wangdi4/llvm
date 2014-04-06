@@ -15,52 +15,39 @@ Copyright (c) Intel Corporation (2010).
 File Name:  CPUProgramBuilder.cpp
 
 \*****************************************************************************/
-#include <set>
-#include <vector>
-#include <string>
-#include "cl_types.h"
-#include "cpu_dev_limits.h"
-#include "ProgramBuilder.h"
-#include "Optimizer.h"
-#include "VecConfig.h"
-#include "Program.h"
+
+#include "CPUBlockToKernelMapper.h"
+#include "CPUJITContainer.h"
+#include "CPUProgramBuilder.h"
+#include "CompilationUtils.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
-#include "CPUDetect.h"
-#include "BuiltinModule.h"
-#include "exceptions.h"
-#include "BuiltinModuleManager.h"
+#include "MetaDataApi.h"
+#include "Program.h"
 #include "StaticObjectLoader.h"
-#include "plugin_manager.h"
+
+#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Type.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/Support/ManagedStatic.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/TargetSelect.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Argument.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/LLVMContext.h"
-#include "CPUProgramBuilder.h"
-#include "CPUJITContainer.h"
-#include "CompilationUtils.h"
-#include "MetaDataApi.h"
-#include "CPUBlockToKernelMapper.h"
 
-using std::string;
+#include "BitCodeContainer.h"
+#include "CPUSerializationService.h"
+#include "ObjectCodeContainer.h"
+#include "cache_binary_handler.h"
+
+#include <vector>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
 
 namespace Utils
 {
@@ -105,6 +92,127 @@ CPUProgramBuilder::CPUProgramBuilder(IAbstractBackendFactory* pBackendFactory, c
 
 CPUProgramBuilder::~CPUProgramBuilder()
 {
+}
+
+void CPUProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Program* pProgram) const
+{
+    assert(pCache && "Object Cache is null");
+    assert(pProgram && "Program Object is null");
+
+    if(pCache->getCachedModule().empty() || NULL == pCache->getCachedObject())
+    {
+        pProgram->SetObjectCodeContainer(NULL);
+        return ;
+    }
+
+    // calculate the required buffer size
+    size_t serializationSize = 0;
+    std::auto_ptr<CPUSerializationService> pCPUSerializationService(new CPUSerializationService(NULL));
+    pCPUSerializationService->GetSerializationBlobSize(
+        SERIALIZE_PERSISTENT_IMAGE, pProgram, &serializationSize);
+
+    size_t irSize = pProgram->GetProgramIRCodeContainer()->GetCodeSize();
+    size_t optModuleSize = pCache->getCachedModule().size();
+    size_t objSize = pCache->getCachedObject()->getBufferSize();
+
+    std::auto_ptr<CacheBinaryHandler::CacheBinaryWriter> pWriter(new CacheBinaryHandler::CacheBinaryWriter());
+
+    // fill the IR bit code
+    const char* irStart = ((const char*)(pProgram->GetProgramIRCodeContainer()->GetCode()));
+    pWriter->AddSection(CacheBinaryHandler::g_irSectionName, irStart, irSize);
+
+    // fill offload image in the object buffer
+    std::vector<char> metaStart(serializationSize);
+    pCPUSerializationService->SerializeProgram(
+        SERIALIZE_PERSISTENT_IMAGE, 
+        pProgram,
+        &(metaStart[0]), serializationSize);
+    pWriter->AddSection(CacheBinaryHandler::g_metaSectionName, &(metaStart[0]), serializationSize);
+
+    // fill the raw module bits
+    const std::string& optModule = pCache->getCachedModule();
+    pWriter->AddSection(CacheBinaryHandler::g_optSectionName, &optModule[0], optModuleSize);
+
+    // fill the Object bits
+    const char* objStart = pCache->getCachedObject()->getBuffer().data();
+    pWriter->AddSection(CacheBinaryHandler::g_objSectionName, objStart, objSize);
+
+    // get the binary
+    size_t binarySize = pWriter->GetBinarySize();
+    std::vector<char> pBinaryBlob(binarySize+sizeof(cl_prog_container_header));
+    if(pWriter->GetBinary(&(pBinaryBlob[0])+sizeof(cl_prog_container_header)))
+    {
+        ((cl_prog_container_header*)&(pBinaryBlob[0]))->container_size = binarySize;
+        ObjectCodeContainer* pObjectCodeContainer = new ObjectCodeContainer((cl_prog_container_header*)&(pBinaryBlob[0]));
+        pProgram->SetObjectCodeContainer(pObjectCodeContainer);
+    }
+    else
+    {
+        pProgram->SetObjectCodeContainer(NULL);
+    }
+}
+
+void CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
+{
+    const char* pCachedObject = 
+        (char*)(pProgram->GetObjectCodeContainer()->GetCode());
+    size_t cacheSize = pProgram->GetObjectCodeContainer()->GetCodeSize();
+    assert(pCachedObject && "Object Code Container is null");
+
+    // get sizes
+    CacheBinaryHandler::CacheBinaryReader reader = CacheBinaryHandler::CacheBinaryReader(pCachedObject,cacheSize);
+    size_t serializationSize = reader.GetSectionSize(CacheBinaryHandler::g_metaSectionName);
+    size_t optModuleSize = reader.GetSectionSize(CacheBinaryHandler::g_optSectionName);
+    size_t objectSize = reader.GetSectionSize(CacheBinaryHandler::g_objSectionName);
+
+    // get the buffers entries
+    const char* bitCodeBuffer = (const char*)reader.GetSectionData(CacheBinaryHandler::g_irSectionName);
+    const char* serializationBuffer = (const char*)reader.GetSectionData(CacheBinaryHandler::g_metaSectionName);
+    const char* optModuleBuffer = (const char*)reader.GetSectionData(CacheBinaryHandler::g_optSectionName);
+    const char* objectBuffer = (const char*)reader.GetSectionData(CacheBinaryHandler::g_objSectionName);
+
+    // Set IR
+    BitCodeContainer* bcc = new BitCodeContainer((const cl_prog_container_header*)bitCodeBuffer);
+    pProgram->SetBitCodeContainer(bcc);
+
+    // update the builtin module
+    pProgram->SetBuiltinModule(GetCompiler()->GetRtlModule());
+
+    // parse the optimized module
+    llvm::StringRef data = llvm::StringRef(optModuleBuffer, optModuleSize);
+    std::auto_ptr<llvm::MemoryBuffer> Buffer(llvm::MemoryBuffer::getMemBufferCopy(data));
+
+    llvm::Module* pModule = GetCompiler()->ParseModuleIR(Buffer.get());
+    GetCompiler()->CreateExecutionEngine(pModule);
+
+    llvm::ExecutionEngine* pEngine = (llvm::ExecutionEngine*)GetCompiler()->GetExecutionEngine();
+
+    // create cache manager
+    pProgram->SetExecutionEngine(pEngine);
+    pProgram->SetModule(pModule);
+
+    ObjectCodeCache* pCache = new ObjectCodeCache((llvm::Module*)pProgram->GetModule(), objectBuffer, objectSize);
+    pEngine->setObjectCache(pCache);
+
+    // deserialize the management objects
+    std::auto_ptr<CPUSerializationService> pCPUSerializationService(new CPUSerializationService(NULL));
+    pCPUSerializationService->ReloadProgram(
+        SERIALIZE_PERSISTENT_IMAGE,
+        pProgram, 
+        serializationBuffer,
+        serializationSize); 
+
+    // init refcounted runtime service shared storage between program and kernels
+    RuntimeServiceSharedPtr lRuntimeService =
+                          RuntimeServiceSharedPtr(new RuntimeServiceImpl);
+    // set runtime service for the program
+    pProgram->SetRuntimeService(lRuntimeService);
+
+    // update kernels with RuntimeService
+    Utils::UpdateKernelsWithRuntimeService( lRuntimeService, pProgram->GetKernelSet() );
+
+    // update kernel mapper (OCL2.0)
+    PostBuildProgramStep( pProgram, pModule, NULL );
 }
 
 Kernel* CPUProgramBuilder::CreateKernel(llvm::Function* pFunc, const std::string& funcName, KernelProperties* pProps) const
@@ -266,7 +374,7 @@ IBlockToKernelMapper * CPUProgramBuilder::CreateBlockToKernelMapper(Program* pPr
 
 
 void CPUProgramBuilder::PostBuildProgramStep(Program* pProgram, llvm::Module* pModule,
-  const ICLDevBackendOptions* pOptions) const 
+  const ICLDevBackendOptions* pOptions) const
 {
   assert(pProgram && pModule && "inputs are NULL");
 

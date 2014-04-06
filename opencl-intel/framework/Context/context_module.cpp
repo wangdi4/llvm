@@ -86,6 +86,46 @@ cl_err_code ContextModule::Release(  bool bTerminate )
     return CL_SUCCESS;
 }
 
+ namespace Intel { namespace OpenCL { namespace Framework {
+ 
+ //////////////////////////////////////////////////////////////////////////
+ // Get All Objects from map
+ //////////////////////////////////////////////////////////////////////////
+ template <class Object>
+ class AllObjectsFilter
+ {
+ public:
+     typedef std::vector<SharedPtr<Object> >        ObjectsList;
+     
+     AllObjectsFilter( ObjectsList& out_list ) : m_out_list(out_list) {}
+ 
+     bool operator()(const SharedPtr<OCLObject< typename Object::OCLObjectHandleType > >& obj)
+     {
+         Object* pObj = dynamic_cast<Object*>(obj.GetPtr());
+
+         if (NULL != pObj)
+         {
+             m_out_list.push_back(pObj);
+         }
+         
+         return true;
+     }
+ 
+ private:
+     ObjectsList& m_out_list;
+     
+ };
+ 
+ template < class Object >
+ static void GetAllObjects( OCLObjectsMap<typename Object::OCLObjectHandleType>&  mapObjects, typename AllObjectsFilter<Object>::ObjectsList& to_remove )
+ {
+     to_remove.reserve( mapObjects.Count() );
+ 
+     AllObjectsFilter<Object> filter( to_remove );
+     mapObjects.ForEach(filter);
+ }
+ }}} 
+
  /******************************************************************
  * 
  * Forcibly shutdown all contextes 
@@ -128,10 +168,10 @@ void ContextModule::ShutDown(bool wait_for_finish)
         for ( queue_list_it = queue_list.begin(); queue_list_it != queue_list_it_end; ++queue_list_it)
         {
             SharedPtr<OclCommandQueue> pQueue = (*queue_list_it);
-			if (pQueue.DynamicCast<IOclCommandQueueBase>() != NULL)
-			{
-				execution_module->Finish(pQueue.DynamicCast<IOclCommandQueueBase>());
-			}
+            if (pQueue.DynamicCast<IOclCommandQueueBase>() != NULL)
+            {
+                execution_module->Finish(pQueue.DynamicCast<IOclCommandQueueBase>());
+            }
         }
     }
 
@@ -152,7 +192,6 @@ void ContextModule::ShutDown(bool wait_for_finish)
     m_mapContexts.ReleaseAllObjects(false);
 
     m_pPlatformModule->RemoveAllDevices(true);
-    m_pPlatformModule->ReleaseFECompilers(false);
 
     // 7. Ensure that all devices really closed
 #ifdef _DEBUG
@@ -169,7 +208,7 @@ void ContextModule::ShutDown(bool wait_for_finish)
 #else
     m_pPlatformModule->WaitForAllDevices();
 #endif
-	
+    
     // At that point still some internal threads in different DLLs may handle SharedPtr's destruction
     // We need to wait until all of them will end their work.
     // We will do this in the TerminateProcess() function by calling shutdown callbacks of all DLLs to ensure their
@@ -819,31 +858,27 @@ cl_err_code ContextModule::ReleaseProgram(cl_program clProgram)
 void ContextModule::RemoveAllPrograms( bool preserve_user_handles )
 {
     m_mapPrograms.DisableAdding();
-    std::list<_cl_program_int*> to_remove;
-    for (cl_uint ui=0; ui<m_mapPrograms.Count(); ++ui)
-    {
-        SharedPtr<Program> obj = m_mapPrograms.GetObjectByIndex(ui).DynamicCast<Program>();
-        SharedPtr<Context> pContext = (NULL != obj) ? obj->GetContext() : SharedPtr<Context>(NULL);
 
-        if (NULL != pContext)
-        {
-            cl_program handle = obj->GetHandle();
-            pContext->RemoveProgram(handle);
-            to_remove.push_back( (_cl_program_int*)handle );
-        }
-    }
+    AllObjectsFilter<Program>::ObjectsList to_remove;
+    GetAllObjects<Program>( m_mapPrograms, to_remove );
 
     if (preserve_user_handles)
     {
         m_mapPrograms.SetPreserveUserHandles();
     }
 
-    for (std::list<_cl_program_int*>::iterator it = to_remove.begin(); it != to_remove.end(); ++it)
+    for (AllObjectsFilter<Program>::ObjectsList::iterator it = to_remove.begin(); it != to_remove.end(); ++it)
     {
-        m_mapPrograms.RemoveObject( *it );
+        SharedPtr<Program>& pObj = *it;
+     
+        cl_program handle = pObj->GetHandle();
+        pObj->GetContext()->RemoveProgram(handle);
+        m_mapPrograms.RemoveObject( (_cl_program_int*)handle );
     }
 
+    to_remove.clear();
     m_mapPrograms.ReleaseAllObjects(false);
+    
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1263,31 +1298,27 @@ cl_int ContextModule::ReleaseKernel(cl_kernel clKernel)
 void ContextModule::RemoveAllKernels( bool preserve_user_handles )
 {
     m_mapKernels.DisableAdding();
-    std::list<_cl_kernel_int*> to_remove;
-    for (cl_uint ui=0; ui<m_mapKernels.Count(); ++ui)
-    {
-        SharedPtr<Kernel> obj = m_mapKernels.GetObjectByIndex(ui).DynamicCast<Kernel>();
-        SharedPtr<Program> pProgram = (NULL != obj) ? obj->GetProgram() : SharedPtr<Program>(NULL);
 
-        if (NULL != pProgram)
-        {
-            cl_kernel handle = obj->GetHandle();
-            pProgram->RemoveKernel(handle);
-            to_remove.push_back( (_cl_kernel_int*)handle );
-        }
-    }
+    AllObjectsFilter<Kernel>::ObjectsList to_remove;
+    GetAllObjects<Kernel>( m_mapKernels, to_remove );
 
     if (preserve_user_handles)
     {
         m_mapKernels.SetPreserveUserHandles();
     }
 
-    for (std::list<_cl_kernel_int*>::iterator it = to_remove.begin(); it != to_remove.end(); ++it)
+    for (AllObjectsFilter<Kernel>::ObjectsList::iterator it = to_remove.begin(); it != to_remove.end(); ++it)
     {
-        m_mapKernels.RemoveObject( *it );
+        SharedPtr<Kernel>& pObj = *it;
+        
+        cl_kernel handle = pObj->GetHandle();
+        pObj->GetProgram()->RemoveKernel(handle);
+        m_mapKernels.RemoveObject( (_cl_kernel_int*)handle );
     }
 
+    to_remove.clear();
     m_mapKernels.ReleaseAllObjects(false);
+    
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1318,82 +1349,82 @@ cl_int ContextModule::SetKernelArg(cl_kernel clKernel,
 
 cl_int ContextModule::SetKernelArgSVMPointer(cl_kernel clKernel, cl_uint uiArgIndex, const void* pArgValue)
 {
-	SharedPtr<Kernel> pKernel = m_mapKernels.GetOCLObject((_cl_kernel_int*)clKernel).StaticCast<Kernel>();
-	if (NULL == pKernel)
-	{
-		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned NULL"), clKernel, &pKernel);
-		return CL_INVALID_KERNEL;
-	}
-	
+    SharedPtr<Kernel> pKernel = m_mapKernels.GetOCLObject((_cl_kernel_int*)clKernel).StaticCast<Kernel>();
+    if (NULL == pKernel)
+    {
+        LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned NULL"), clKernel, &pKernel);
+        return CL_INVALID_KERNEL;
+    }
+    
     cl_err_code err = pKernel->SetKernelArg(uiArgIndex, sizeof(void*), pArgValue, true);
-	return CL_ERR_OUT(err);
+    return CL_ERR_OUT(err);
 }
 
 cl_int ContextModule::SetKernelExecInfo(cl_kernel clKernel, cl_kernel_exec_info paramName, size_t szParamValueSize, const void* pParamValue)
 {
-	SharedPtr<Kernel> pKernel = m_mapKernels.GetOCLObject((_cl_kernel_int*)clKernel).StaticCast<Kernel>();
-	if (NULL == pKernel)
-	{
-		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned NULL"), clKernel, &pKernel);
-		return CL_INVALID_KERNEL;
-	}
-	if (NULL == pParamValue)
-	{
-		return CL_INVALID_VALUE;
-	}
-	return pKernel->GetContext()->SetKernelExecInfo(pKernel, paramName, szParamValueSize, pParamValue);		
+    SharedPtr<Kernel> pKernel = m_mapKernels.GetOCLObject((_cl_kernel_int*)clKernel).StaticCast<Kernel>();
+    if (NULL == pKernel)
+    {
+        LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned NULL"), clKernel, &pKernel);
+        return CL_INVALID_KERNEL;
+    }
+    if (NULL == pParamValue)
+    {
+        return CL_INVALID_VALUE;
+    }
+    return pKernel->GetContext()->SetKernelExecInfo(pKernel, paramName, szParamValueSize, pParamValue);        
 }
 
 cl_mem ContextModule::CreatePipe(cl_context context, cl_mem_flags flags, cl_uint uiPipePacketSize, cl_uint uiPipeMaxPackets, const cl_pipe_properties* pProperties, void* pHostPtr,
     size_t* pSizeRet, cl_int* piErrcodeRet)
 {
-	cl_err_code err;
-	SharedPtr<Context> pContext = GetContext(context);
-	if (NULL == pContext)
-	{
-		if (NULL != piErrcodeRet)
-		{
-			*piErrcodeRet = CL_INVALID_CONTEXT;
-		}
-		return CL_INVALID_HANDLE;
-	}
-	err = CheckMemObjectParameters(flags, NULL, CL_MEM_OBJECT_PIPE, 0, 0, 0, 0, 0, 0, NULL);
-	if (CL_FAILED(err) || NULL != pProperties)
-	{
-		if (NULL != piErrcodeRet)
-		{
-			*piErrcodeRet = CL_INVALID_VALUE;
-		}
-		return CL_INVALID_HANDLE;
-	}
+    cl_err_code err;
+    SharedPtr<Context> pContext = GetContext(context);
+    if (NULL == pContext)
+    {
+        if (NULL != piErrcodeRet)
+        {
+            *piErrcodeRet = CL_INVALID_CONTEXT;
+        }
+        return CL_INVALID_HANDLE;
+    }
+    err = CheckMemObjectParameters(flags, NULL, CL_MEM_OBJECT_PIPE, 0, 0, 0, 0, 0, 0, NULL);
+    if (CL_FAILED(err) || NULL != pProperties)
+    {
+        if (NULL != piErrcodeRet)
+        {
+            *piErrcodeRet = CL_INVALID_VALUE;
+        }
+        return CL_INVALID_HANDLE;
+    }
 
-	cl_uint uiMinPipeMaxPacketSize = 0;
-	const tSetOfDevices* pDevs = pContext->GetAllRootDevices();
-	for (tSetOfDevices::const_iterator iter = pDevs->begin(); iter != pDevs->end(); iter++)
-	{
-		cl_uint uiPipeMaxPacketSize;
-		const cl_err_code err = (*iter)->GetInfo(CL_DEVICE_PIPE_MAX_PACKET_SIZE, sizeof(uiPipeMaxPacketSize), &uiPipeMaxPacketSize, NULL);		
-		if (CL_FAILED(err))
-		{
-			if (NULL != piErrcodeRet)
-			{
-				*piErrcodeRet = err;
-			}
-			return CL_INVALID_HANDLE;
-		}
-		if (0 == uiMinPipeMaxPacketSize || uiPipeMaxPacketSize < uiMinPipeMaxPacketSize)
-		{
-			uiMinPipeMaxPacketSize = uiPipeMaxPacketSize;
-		}
-	}
-	if (0 == uiPipePacketSize || 0 == uiPipeMaxPackets || uiPipePacketSize > uiMinPipeMaxPacketSize)
-	{
-		if (NULL != piErrcodeRet)
-		{
-			*piErrcodeRet = CL_INVALID_PIPE_SIZE;
-		}
-		return CL_INVALID_HANDLE;
-	}
+    cl_uint uiMinPipeMaxPacketSize = 0;
+    const tSetOfDevices* pDevs = pContext->GetAllRootDevices();
+    for (tSetOfDevices::const_iterator iter = pDevs->begin(); iter != pDevs->end(); iter++)
+    {
+        cl_uint uiPipeMaxPacketSize;
+        const cl_err_code err = (*iter)->GetInfo(CL_DEVICE_PIPE_MAX_PACKET_SIZE, sizeof(uiPipeMaxPacketSize), &uiPipeMaxPacketSize, NULL);        
+        if (CL_FAILED(err))
+        {
+            if (NULL != piErrcodeRet)
+            {
+                *piErrcodeRet = err;
+            }
+            return CL_INVALID_HANDLE;
+        }
+        if (0 == uiMinPipeMaxPacketSize || uiPipeMaxPacketSize < uiMinPipeMaxPacketSize)
+        {
+            uiMinPipeMaxPacketSize = uiPipeMaxPacketSize;
+        }
+    }
+    if (0 == uiPipePacketSize || 0 == uiPipeMaxPackets || uiPipePacketSize > uiMinPipeMaxPacketSize)
+    {
+        if (NULL != piErrcodeRet)
+        {
+            *piErrcodeRet = CL_INVALID_PIPE_SIZE;
+        }
+        return CL_INVALID_HANDLE;
+    }
 
     // handling INTEL extension for CRT
     if (NULL != pSizeRet)
@@ -1424,40 +1455,40 @@ cl_mem ContextModule::CreatePipe(cl_context context, cl_mem_flags flags, cl_uint
         ASSERT_RET_VAL(NULL == pHostPtr, "this combination isn't expected from CRT", CL_INVALID_HANDLE);
     }
 
-	SharedPtr<MemoryObject> pPipe;
-	err = pContext->CreatePipe(uiPipePacketSize, uiPipeMaxPackets, pPipe, pHostPtr);
-	if (CL_FAILED(err))
-	{
-		if (NULL != piErrcodeRet)
-		{
-			*piErrcodeRet = err;
-		}
-		return CL_INVALID_HANDLE;
-	}
-	err = m_mapMemObjects.AddObject(pPipe, false);
-	if (CL_FAILED(err))
-	{
-		if (NULL != piErrcodeRet)
-		{
-			*piErrcodeRet = err;
-		}
-		return CL_INVALID_HANDLE;
-	}
-	if (NULL != piErrcodeRet)
-	{
-		*piErrcodeRet = CL_SUCCESS;
-	}
-	return pPipe->GetHandle();
+    SharedPtr<MemoryObject> pPipe;
+    err = pContext->CreatePipe(uiPipePacketSize, uiPipeMaxPackets, pPipe, pHostPtr);
+    if (CL_FAILED(err))
+    {
+        if (NULL != piErrcodeRet)
+        {
+            *piErrcodeRet = err;
+        }
+        return CL_INVALID_HANDLE;
+    }
+    err = m_mapMemObjects.AddObject(pPipe, false);
+    if (CL_FAILED(err))
+    {
+        if (NULL != piErrcodeRet)
+        {
+            *piErrcodeRet = err;
+        }
+        return CL_INVALID_HANDLE;
+    }
+    if (NULL != piErrcodeRet)
+    {
+        *piErrcodeRet = CL_SUCCESS;
+    }
+    return pPipe->GetHandle();
 }
 
 cl_int ContextModule::GetPipeInfo(cl_mem pipe, cl_pipe_info paramName, size_t szParamValueSize, void *pParamValue, size_t* pszParamValueSizeRet)
 {
-	SharedPtr<Pipe> pPipe = m_mapMemObjects.GetOCLObject((_cl_mem_int*)pipe).StaticCast<Pipe>();
-	if (NULL == pPipe)
-	{
-		return CL_INVALID_MEM_OBJECT;
-	}
-	return pPipe->GetPipeInfo(paramName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+    SharedPtr<Pipe> pPipe = m_mapMemObjects.GetOCLObject((_cl_mem_int*)pipe).StaticCast<Pipe>();
+    if (NULL == pPipe)
+    {
+        return CL_INVALID_MEM_OBJECT;
+    }
+    return pPipe->GetPipeInfo(paramName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1538,73 +1569,70 @@ cl_mem ContextModule::CreateBuffer(cl_context clContext,
         return CL_INVALID_HANDLE;
     }
 
-	cl_err_code clErr = CheckMemObjectParameters(clFlags, NULL, CL_MEM_OBJECT_BUFFER, 0, 0, 0, 0, 0, 0, pHostPtr);
-	if ( !((CL_INVALID_IMAGE_FORMAT_DESCRIPTOR == clErr) || (CL_SUCCESS == clErr)) )
-	{
-		if (NULL != pErrcodeRet)
-		{
-			*pErrcodeRet =  clErr;
-		}
-		return CL_INVALID_HANDLE;
-	}
+    cl_err_code clErr = CheckMemObjectParameters(clFlags, NULL, CL_MEM_OBJECT_BUFFER, 0, 0, 0, 0, 0, 0, pHostPtr);
+    if ( !((CL_INVALID_IMAGE_FORMAT_DESCRIPTOR == clErr) || (CL_SUCCESS == clErr)) )
+    {
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet =  clErr;
+        }
+        return CL_INVALID_HANDLE;
+    }
 
-	SharedPtr<MemoryObject> pBuffer;
-	SharedPtr<SVMBuffer> pSvmBuf = pContext->GetSVMBufferContainingAddr(pHostPtr);	// we assume that the cl_mem and SVM buffer share the same context
-	if (pSvmBuf != NULL && (clFlags & (CL_MEM_USE_HOST_PTR | CL_MEM_COPY_HOST_PTR)))
-	{
-		if (!pSvmBuf->IsContainedInBuffer(pHostPtr, szSize))
-		{
-			if (NULL != pErrcodeRet)
-			{
-				*pErrcodeRet = CL_INVALID_BUFFER_SIZE;	// this error code isn't specified in the spec
-			}
-			return CL_INVALID_HANDLE;
-		}
-	}
-	if (pSvmBuf != NULL && (clFlags & CL_MEM_USE_HOST_PTR))
-	{
-		if (pSvmBuf->GetAddr() == pHostPtr && szSize == pSvmBuf->GetSize())
-		{
-			pBuffer = pSvmBuf;
-			pContext->AddSvmBufferAsMemBuffer(pSvmBuf);
-		}
-		else
-		{
-			cl_buffer_region bufRegion;
-			bufRegion.origin = (char*)pHostPtr - (char*)pSvmBuf->GetAddr();
-			bufRegion.size = szSize;
-			clErr = pContext->CreateSubBuffer(pSvmBuf, clFlags, CL_BUFFER_CREATE_TYPE_REGION, &bufRegion, &pBuffer);
-		}		
-	}
-	else
-	{
-		clErr = pContext->CreateBuffer(clFlags, szSize, pHostPtr, &pBuffer);
-	}
+    SharedPtr<MemoryObject> pBuffer;
+    SharedPtr<SVMBuffer> pSvmBuf = pContext->GetSVMBufferContainingAddr(pHostPtr);    // we assume that the cl_mem and SVM buffer share the same context
+    if (pSvmBuf != NULL && (clFlags & (CL_MEM_USE_HOST_PTR | CL_MEM_COPY_HOST_PTR)))
+    {
+        if (!pSvmBuf->IsContainedInBuffer(pHostPtr, szSize))
+        {
+            if (NULL != pErrcodeRet)
+            {
+                *pErrcodeRet = CL_INVALID_BUFFER_SIZE;    // this error code isn't specified in the spec
+            }
+            return CL_INVALID_HANDLE;
+        }
+    }
 
-	if (CL_FAILED(clErr))
-	{
-		LOG_ERROR(TEXT("pContext->CreateBuffer(%d, %d, %d, %d) = %s"), clFlags, szSize, pHostPtr, &pBuffer, ClErrTxt(clErr))
-		if (NULL != pErrcodeRet)
-		{
-			*pErrcodeRet = CL_ERR_OUT(clErr);
-		}
-		return CL_INVALID_HANDLE;
-	}	
-	clErr = m_mapMemObjects.AddObject(pBuffer, false);
-	if (CL_FAILED(clErr))
-	{
-		LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"), pBuffer.GetPtr(), pBuffer->GetHandle(), ClErrTxt(clErr))
-		if (NULL != pErrcodeRet)
-		{
-			*pErrcodeRet = CL_ERR_OUT(clErr);
-		}
-		return CL_INVALID_HANDLE;
-	}
-	if (NULL != pErrcodeRet)
-	{
-		*pErrcodeRet = CL_SUCCESS;
-	}
-	return pBuffer->GetHandle();
+    if (pSvmBuf != NULL && (clFlags & CL_MEM_USE_HOST_PTR))
+    {
+        cl_buffer_region bufRegion;
+        bufRegion.origin = (char*)pHostPtr - (char*)pSvmBuf->GetAddr();
+        bufRegion.size = szSize;
+        clErr = pContext->CreateSubBuffer(pSvmBuf, clFlags, CL_BUFFER_CREATE_TYPE_REGION, &bufRegion, &pBuffer);
+        if (CL_SUCCEEDED(clErr))
+        {
+            pBuffer->UpdateHostPtr(pBuffer->GetFlags(), pHostPtr);
+        }
+    }
+    else
+    {
+        clErr = pContext->CreateBuffer(clFlags, szSize, pHostPtr, &pBuffer);
+    }
+
+    if (CL_FAILED(clErr))
+    {
+        LOG_ERROR(TEXT("pContext->CreateBuffer(%d, %d, %d, %d) = %s"), clFlags, szSize, pHostPtr, &pBuffer, ClErrTxt(clErr))
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_ERR_OUT(clErr);
+        }
+        return CL_INVALID_HANDLE;
+    }
+    clErr = m_mapMemObjects.AddObject(pBuffer, false);
+    if (CL_FAILED(clErr))
+    {
+        LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"), pBuffer.GetPtr(), pBuffer->GetHandle(), ClErrTxt(clErr))
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_ERR_OUT(clErr);
+        }
+        return CL_INVALID_HANDLE;
+    }
+    if (NULL != pErrcodeRet)
+    {
+        *pErrcodeRet = CL_SUCCESS;
+    }
+    return pBuffer->GetHandle();
 }
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::CreateSubBuffer
@@ -1642,24 +1670,24 @@ cl_mem ContextModule::CreateSubBuffer(cl_mem                clBuffer,
 
     SharedPtr<Context> pContext = pMemObj->GetContext();
 
-	// check memory object is a Buffer not Image2D/3D
-	if (pMemObj->GetType() != CL_MEM_OBJECT_BUFFER)
-	{
-		iErr = CL_INVALID_MEM_OBJECT;		
-		return CL_INVALID_HANDLE;
-	}
-			
-	if (NULL != pMemObj->GetParent())
-	{
-		if (pMemObj->GetParent().DynamicCast<SVMBuffer>() == NULL)
-		{
-			iErr = CL_INVALID_MEM_OBJECT;
-			return CL_INVALID_HANDLE;
-		}
-		/* When creating a cl_mem buffer from an SVM buffer, if size < SVMBuffer.m_size, we return a sub-buffer of SVMBuffer.m_memObj. However, if the user creates a sub-buffer of
-		   this cl_mem buffer, we can't create a sub-buffer of a sub-buffer. So the solution is to create a sub-buffer of the SVMBuffer itself. */
-		pMemObj = pMemObj->GetParent();
-	}
+    // check memory object is a Buffer not Image2D/3D
+    if (pMemObj->GetType() != CL_MEM_OBJECT_BUFFER)
+    {
+        iErr = CL_INVALID_MEM_OBJECT;        
+        return CL_INVALID_HANDLE;
+    }
+
+    if (NULL != pMemObj->GetParent())
+    {
+        if (pMemObj->GetParent().DynamicCast<SVMBuffer>() == NULL)
+        {
+            iErr = CL_INVALID_MEM_OBJECT;
+            return CL_INVALID_HANDLE;
+        }
+        /* When creating a cl_mem buffer from an SVM buffer, we return a sub-buffer of SVMBuffer.m_memObj. However, if the user creates a sub-buffer of
+           this cl_mem buffer, we can't create a sub-buffer of a sub-buffer. So the solution is to create a sub-buffer of the SVMBuffer itself. */
+        pMemObj = pMemObj->GetParent();
+    }
 
     SharedPtr<MemoryObject> pBuffer = NULL;
     cl_err_code clErr = pContext->CreateSubBuffer(pMemObj, clFlags, buffer_create_type, buffer_create_info, &pBuffer);
@@ -1736,7 +1764,7 @@ cl_mem ContextModule::CreateImage(cl_context context,
     cl_mem clMemObj = CL_INVALID_HANDLE;
 
     if (!image_desc || 0 != image_desc->num_mip_levels || 0 != image_desc->num_samples ||
-		(CL_MEM_OBJECT_IMAGE1D_BUFFER != image_desc->image_type && CL_MEM_OBJECT_IMAGE2D != image_desc->image_type && NULL != image_desc->mem_object))
+        (CL_MEM_OBJECT_IMAGE1D_BUFFER != image_desc->image_type && CL_MEM_OBJECT_IMAGE2D != image_desc->image_type && NULL != image_desc->mem_object))
     {
         if (errcode_ret)
         {
@@ -1750,35 +1778,35 @@ cl_mem ContextModule::CreateImage(cl_context context,
         clMemObj = CreateScalarImage<1, CL_MEM_OBJECT_IMAGE1D>(context, flags, image_format, image_desc->image_width, 0, 0, 0, 0, host_ptr, errcode_ret);
         break;
     case CL_MEM_OBJECT_IMAGE1D_BUFFER:
-		clMemObj = CreateImageBuffer<1, CL_MEM_OBJECT_IMAGE1D_BUFFER>(context, flags, image_format, *image_desc, image_desc->mem_object, errcode_ret);
+        clMemObj = CreateImageBuffer<1, CL_MEM_OBJECT_IMAGE1D_BUFFER>(context, flags, image_format, *image_desc, image_desc->mem_object, errcode_ret);
         break;
     case CL_MEM_OBJECT_IMAGE2D:
         if (NULL == image_desc->mem_object)
-		{
-			clMemObj = CreateScalarImage<2, CL_MEM_OBJECT_IMAGE2D>(context, flags, image_format, image_desc->image_width, image_desc->image_height, 0, image_desc->image_row_pitch, 0, host_ptr,
-				errcode_ret);
-		}
-		else
-		{
-			cl_mem_object_type objType;
-			if (CL_FAILED(GetMemObjectInfo(image_desc->mem_object, CL_MEM_TYPE, sizeof(objType), &objType, NULL)) ||
-				(objType != CL_MEM_OBJECT_BUFFER && objType != CL_MEM_OBJECT_IMAGE2D))
-			{
-				if (errcode_ret != NULL)
-				{
-					*errcode_ret = CL_INVALID_IMAGE_DESCRIPTOR;
-				}
-				return CL_INVALID_HANDLE;
-			}
-			if (CL_MEM_OBJECT_BUFFER == objType)
-			{
-				clMemObj = CreateImageBuffer<2, CL_MEM_OBJECT_IMAGE2D>(context, flags, image_format, *image_desc, image_desc->mem_object, errcode_ret);
-			}
-			else
-			{
-				clMemObj = Create2DImageFromImage(context, flags, image_format, image_desc, image_desc->mem_object, errcode_ret);
-			}
-		}
+        {
+            clMemObj = CreateScalarImage<2, CL_MEM_OBJECT_IMAGE2D>(context, flags, image_format, image_desc->image_width, image_desc->image_height, 0, image_desc->image_row_pitch, 0, host_ptr,
+                errcode_ret);
+        }
+        else
+        {
+            cl_mem_object_type objType;
+            if (CL_FAILED(GetMemObjectInfo(image_desc->mem_object, CL_MEM_TYPE, sizeof(objType), &objType, NULL)) ||
+                (objType != CL_MEM_OBJECT_BUFFER && objType != CL_MEM_OBJECT_IMAGE2D))
+            {
+                if (errcode_ret != NULL)
+                {
+                    *errcode_ret = CL_INVALID_IMAGE_DESCRIPTOR;
+                }
+                return CL_INVALID_HANDLE;
+            }
+            if (CL_MEM_OBJECT_BUFFER == objType)
+            {
+                clMemObj = CreateImageBuffer<2, CL_MEM_OBJECT_IMAGE2D>(context, flags, image_format, *image_desc, image_desc->mem_object, errcode_ret);
+            }
+            else
+            {
+                clMemObj = Create2DImageFromImage(context, flags, image_format, image_desc, image_desc->mem_object, errcode_ret);
+            }
+        }
         break;
     case CL_MEM_OBJECT_IMAGE3D:
         clMemObj = CreateScalarImage<3, CL_MEM_OBJECT_IMAGE3D>(context, flags, image_format, image_desc->image_width,
@@ -1801,25 +1829,25 @@ cl_mem ContextModule::CreateImage(cl_context context,
 
 bool ContextModule::Check2DImageFromBufferPitch(const ConstSharedPtr<GenericMemObject>& pBuffer, const cl_image_desc& desc, const cl_image_format& format) const
 {
-	const tSetOfDevices& devices = *pBuffer->GetContext()->GetAllRootDevices();
+    const tSetOfDevices& devices = *pBuffer->GetContext()->GetAllRootDevices();
 
-	cl_uint uiMaxImgPitchAlign = 0;
-	for (tSetOfDevices::const_iterator iter = devices.begin(); iter != devices.end(); iter++)
-	{
-		cl_uint uiImgPitchAlign;
-		(*iter)->GetInfo(CL_DEVICE_IMAGE_PITCH_ALIGNMENT, sizeof(uiImgPitchAlign), &uiImgPitchAlign, NULL);
-		if (uiImgPitchAlign > uiMaxImgPitchAlign)
-		{
-			uiMaxImgPitchAlign = uiImgPitchAlign;
-		}
-	}
-	if (0 == uiMaxImgPitchAlign)
-	{
-		return false;
-	}
+    cl_uint uiMaxImgPitchAlign = 0;
+    for (tSetOfDevices::const_iterator iter = devices.begin(); iter != devices.end(); iter++)
+    {
+        cl_uint uiImgPitchAlign;
+        (*iter)->GetInfo(CL_DEVICE_IMAGE_PITCH_ALIGNMENT, sizeof(uiImgPitchAlign), &uiImgPitchAlign, NULL);
+        if (uiImgPitchAlign > uiMaxImgPitchAlign)
+        {
+            uiMaxImgPitchAlign = uiImgPitchAlign;
+        }
+    }
+    if (0 == uiMaxImgPitchAlign)
+    {
+        return false;
+    }
 
-	const size_t szRowPitch = desc.image_row_pitch > 0 ? desc.image_row_pitch : desc.image_width * clGetPixelBytesCount(&format);
-	return szRowPitch % uiMaxImgPitchAlign == 0;
+    const size_t szRowPitch = desc.image_row_pitch > 0 ? desc.image_row_pitch : desc.image_width * clGetPixelBytesCount(&format);
+    return szRowPitch % uiMaxImgPitchAlign == 0;
 }
 
 cl_mem ContextModule::CreateImageArray(cl_context clContext,
@@ -1926,37 +1954,37 @@ cl_mem ContextModule::CreateImageArray(cl_context clContext,
 }
 
 cl_mem ContextModule::Create2DImageFromImage(cl_context context, cl_mem_flags flags, const cl_image_format* pImageFormat, const cl_image_desc* pImageDesc, cl_mem otherImgHandle,
-	cl_int* piErrcodeRet)
+    cl_int* piErrcodeRet)
 {
-	SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)context).DynamicCast<Context>();
-	SharedPtr<MemoryObject> pOtherImg = pContext->GetMemObject(otherImgHandle);
-	size_t szOtherWidth, szOtherHeight, szOtherRowPitch;
-	cl_image_format otherImgFormat;
+    SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)context).DynamicCast<Context>();
+    SharedPtr<MemoryObject> pOtherImg = pContext->GetMemObject(otherImgHandle);
+    size_t szOtherWidth, szOtherHeight, szOtherRowPitch;
+    cl_image_format otherImgFormat;
 
-	pOtherImg->GetImageInfo(CL_IMAGE_WIDTH, sizeof(szOtherWidth), &szOtherWidth, NULL);
-	pOtherImg->GetImageInfo(CL_IMAGE_HEIGHT, sizeof(szOtherHeight), &szOtherHeight, NULL);
-	pOtherImg->GetImageInfo(CL_IMAGE_ROW_PITCH, sizeof(szOtherRowPitch), &szOtherRowPitch, NULL);
-	pOtherImg->GetImageInfo(CL_IMAGE_FORMAT, sizeof(otherImgFormat), &otherImgFormat, NULL);
+    pOtherImg->GetImageInfo(CL_IMAGE_WIDTH, sizeof(szOtherWidth), &szOtherWidth, NULL);
+    pOtherImg->GetImageInfo(CL_IMAGE_HEIGHT, sizeof(szOtherHeight), &szOtherHeight, NULL);
+    pOtherImg->GetImageInfo(CL_IMAGE_ROW_PITCH, sizeof(szOtherRowPitch), &szOtherRowPitch, NULL);
+    pOtherImg->GetImageInfo(CL_IMAGE_FORMAT, sizeof(otherImgFormat), &otherImgFormat, NULL);
 
-	if (pImageDesc->image_width != szOtherWidth || pImageDesc->image_height != szOtherHeight || pImageDesc->image_row_pitch != szOtherRowPitch ||
-		!((pImageFormat->image_channel_order == CL_sBGRA && otherImgFormat.image_channel_order == CL_BGRA) ||
-		  (pImageFormat->image_channel_order == CL_BGRA && otherImgFormat.image_channel_order == CL_sBGRA) ||
-		  (pImageFormat->image_channel_order == CL_sRGBA && otherImgFormat.image_channel_order == CL_RGBA) ||
-		  (pImageFormat->image_channel_order == CL_RGBA && otherImgFormat.image_channel_order == CL_sRGBA) ||
-		  (pImageFormat->image_channel_order == CL_sRGB && otherImgFormat.image_channel_order == CL_RGB) ||
-		  (pImageFormat->image_channel_order == CL_RGB && otherImgFormat.image_channel_order == CL_sRGB) ||
-		  (pImageFormat->image_channel_order == CL_sRGBx && otherImgFormat.image_channel_order == CL_RGBx) ||
-		  (pImageFormat->image_channel_order == CL_RGBx && otherImgFormat.image_channel_order == CL_sRGBx)))
-	{
-		if (piErrcodeRet != NULL)
-		{
-			*piErrcodeRet = CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
-		}
-		return NULL;
-	}
-	void* const pData = pOtherImg->GetBackingStoreData();
-	return CreateScalarImage<2, CL_MEM_OBJECT_IMAGE2D>(context, flags, pImageFormat, pImageDesc->image_width, pImageDesc->image_height, 1, pImageDesc->image_row_pitch, 0, pData,
-		piErrcodeRet, true);
+    if (pImageDesc->image_width != szOtherWidth || pImageDesc->image_height != szOtherHeight || pImageDesc->image_row_pitch != szOtherRowPitch ||
+        !((pImageFormat->image_channel_order == CL_sBGRA && otherImgFormat.image_channel_order == CL_BGRA) ||
+          (pImageFormat->image_channel_order == CL_BGRA && otherImgFormat.image_channel_order == CL_sBGRA) ||
+          (pImageFormat->image_channel_order == CL_sRGBA && otherImgFormat.image_channel_order == CL_RGBA) ||
+          (pImageFormat->image_channel_order == CL_RGBA && otherImgFormat.image_channel_order == CL_sRGBA) ||
+          (pImageFormat->image_channel_order == CL_sRGB && otherImgFormat.image_channel_order == CL_RGB) ||
+          (pImageFormat->image_channel_order == CL_RGB && otherImgFormat.image_channel_order == CL_sRGB) ||
+          (pImageFormat->image_channel_order == CL_sRGBx && otherImgFormat.image_channel_order == CL_RGBx) ||
+          (pImageFormat->image_channel_order == CL_RGBx && otherImgFormat.image_channel_order == CL_sRGBx)))
+    {
+        if (piErrcodeRet != NULL)
+        {
+            *piErrcodeRet = CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
+        }
+        return NULL;
+    }
+    void* const pData = pOtherImg->GetBackingStoreData();
+    return CreateScalarImage<2, CL_MEM_OBJECT_IMAGE2D>(context, flags, pImageFormat, pImageDesc->image_width, pImageDesc->image_height, 1, pImageDesc->image_row_pitch, 0, pData,
+        piErrcodeRet, true);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -2026,31 +2054,25 @@ typedef std::list<SharedPtr<MemoryObject> >  MemObjListType;
 void ContextModule::RemoveAllMemObjects( bool preserve_user_handles )
 {
     m_mapMemObjects.DisableAdding();
-    std::list<_cl_mem_int*> to_remove;
-    for (cl_uint ui=0; ui<m_mapMemObjects.Count(); ++ui)
-    {
-        SharedPtr<MemoryObject> obj = m_mapMemObjects.GetObjectByIndex(ui).DynamicCast<MemoryObject>();
-        SharedPtr<Context> pContext = (NULL != obj) ? obj->GetContext() : SharedPtr<Context>(NULL);
 
-        if (NULL != pContext)
-        {
-            cl_mem handle = obj->GetHandle();
-            pContext->RemoveMemObject(handle);
-            to_remove.push_back( (_cl_mem_int*)handle );
-        }
-    }
+    AllObjectsFilter<MemoryObject>::ObjectsList to_remove;
+    GetAllObjects<MemoryObject>( m_mapMemObjects, to_remove );
 
-    
     if (preserve_user_handles)
     {
         m_mapMemObjects.SetPreserveUserHandles();
     }
 
-    for (std::list<_cl_mem_int*>::iterator it = to_remove.begin(); it != to_remove.end(); ++it)
+    for (AllObjectsFilter<MemoryObject>::ObjectsList::iterator it = to_remove.begin(); it != to_remove.end(); ++it)
     {
-        m_mapMemObjects.RemoveObject( *it );
+        SharedPtr<MemoryObject>& pObj = *it;
+     
+        cl_mem handle = pObj->GetHandle();
+        pObj->GetContext()->RemoveMemObject(handle);
+        m_mapMemObjects.RemoveObject( (_cl_mem_int*) handle );
     }
 
+    to_remove.clear();
     m_mapMemObjects.ReleaseAllObjects(false);
 
     // Remove all mapped regions
@@ -2063,6 +2085,7 @@ void ContextModule::RemoveAllMemObjects( bool preserve_user_handles )
         obj->ReleaseAllMappedRegions();
     }
     mapped_list.clear();
+    
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -2164,50 +2187,50 @@ cl_sampler ContextModule::CreateSamplerWithProperties(cl_context clContext, cons
     std::set<cl_sampler_properties> specifiedNames;
     cl_int iErrCode = CL_SUCCESS;
 
-	  while (NULL != pSamplerProperties && 0 != *pSamplerProperties && CL_SUCCEEDED(iErrCode))
-	  {
-		    const cl_sampler_properties name = *(pSamplerProperties++);
-		    if (specifiedNames.find(name) != specifiedNames.end())	// the same property name cannot be specified more than once
-		    {
-			      iErrCode = CL_INVALID_VALUE;
-			      break;
-		    }
-		    specifiedNames.insert(name);
-		    const cl_sampler_properties value = *(pSamplerProperties++);
+      while (NULL != pSamplerProperties && 0 != *pSamplerProperties && CL_SUCCEEDED(iErrCode))
+      {
+            const cl_sampler_properties name = *(pSamplerProperties++);
+            if (specifiedNames.find(name) != specifiedNames.end())    // the same property name cannot be specified more than once
+            {
+                  iErrCode = CL_INVALID_VALUE;
+                  break;
+            }
+            specifiedNames.insert(name);
+            const cl_sampler_properties value = *(pSamplerProperties++);
 
-		    switch (name)
-		    {
-		    case CL_SAMPLER_NORMALIZED_COORDS:
-			      if (CL_TRUE != value && CL_FALSE != value)
-			      {
-				    iErrCode = CL_INVALID_VALUE;
-				    break;
-			      }
-			      bNormalizedCoords = (cl_bool)value;
-			      break;
-		    case CL_SAMPLER_ADDRESSING_MODE:
-    		    if (CL_ADDRESS_MIRRORED_REPEAT != value &&
-		            CL_ADDRESS_REPEAT != value &&
-		            CL_ADDRESS_CLAMP_TO_EDGE != value &&
-		            CL_ADDRESS_CLAMP != value &&
-		            CL_ADDRESS_NONE != value)
-		        {
-		        iErrCode = CL_INVALID_VALUE;
-		        break;
-		        }
-			      clAddressingMode = (cl_addressing_mode)value;
-			      break;
-		    case CL_SAMPLER_FILTER_MODE:
-			      if (CL_FILTER_NEAREST != value && CL_FILTER_LINEAR != value)
-			      {
-				    iErrCode = CL_INVALID_VALUE;
-				    break;
-			      }
-			      clFilterMode = (cl_filter_mode)value;
-			      break;
-		    default:
-			      iErrCode = CL_INVALID_VALUE;
-		    }
+            switch (name)
+            {
+            case CL_SAMPLER_NORMALIZED_COORDS:
+                  if (CL_TRUE != value && CL_FALSE != value)
+                  {
+                    iErrCode = CL_INVALID_VALUE;
+                    break;
+                  }
+                  bNormalizedCoords = (cl_bool)value;
+                  break;
+            case CL_SAMPLER_ADDRESSING_MODE:
+                if (CL_ADDRESS_MIRRORED_REPEAT != value &&
+                    CL_ADDRESS_REPEAT != value &&
+                    CL_ADDRESS_CLAMP_TO_EDGE != value &&
+                    CL_ADDRESS_CLAMP != value &&
+                    CL_ADDRESS_NONE != value)
+                {
+                iErrCode = CL_INVALID_VALUE;
+                break;
+                }
+                  clAddressingMode = (cl_addressing_mode)value;
+                  break;
+            case CL_SAMPLER_FILTER_MODE:
+                  if (CL_FILTER_NEAREST != value && CL_FILTER_LINEAR != value)
+                  {
+                    iErrCode = CL_INVALID_VALUE;
+                    break;
+                  }
+                  clFilterMode = (cl_filter_mode)value;
+                  break;
+            default:
+                  iErrCode = CL_INVALID_VALUE;
+            }
     }
     if (CL_SUCCEEDED(iErrCode))
     {
@@ -2217,10 +2240,10 @@ cl_sampler ContextModule::CreateSamplerWithProperties(cl_context clContext, cons
     {
         if (NULL != pErrcodeRet)
         {
-		        *pErrcodeRet = iErrCode;
+                *pErrcodeRet = iErrCode;
         }
         return CL_INVALID_HANDLE;
-    }	
+    }    
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -2339,31 +2362,27 @@ cl_int ContextModule::ReleaseSampler(cl_sampler clSampler)
 void ContextModule::RemoveAllSamplers(bool preserve_user_handles)
 {
     m_mapSamplers.DisableAdding();
-    std::list<_cl_sampler_int*> to_remove;
-    for (cl_uint ui=0; ui<m_mapSamplers.Count(); ++ui)
-    {
-        SharedPtr<Sampler> obj = m_mapSamplers.GetObjectByIndex(ui).DynamicCast<Sampler>();
-        SharedPtr<Context> pContext = (NULL != obj) ? obj->GetContext() : SharedPtr<Context>(NULL);
-
-        if (NULL != pContext)
-        {
-            cl_sampler handle = obj->GetHandle();
-            pContext->RemoveSampler(handle);
-            to_remove.push_back( (_cl_sampler_int*)handle );
-        }
-    }
     
+    AllObjectsFilter<Sampler>::ObjectsList to_remove;
+    GetAllObjects<Sampler>( m_mapSamplers, to_remove );
+
     if (preserve_user_handles)
     {
         m_mapSamplers.SetPreserveUserHandles();
     }
 
-    for (std::list<_cl_sampler_int*>::iterator it = to_remove.begin(); it != to_remove.end(); ++it)
+    for (AllObjectsFilter<Sampler>::ObjectsList::iterator it = to_remove.begin(); it != to_remove.end(); ++it)
     {
-        m_mapSamplers.RemoveObject( *it );
+        SharedPtr<Sampler>& pObj = *it;
+
+        cl_sampler handle = pObj->GetHandle();
+        pObj->GetContext()->RemoveSampler(handle);
+        m_mapSamplers.RemoveObject( (_cl_sampler_int*)handle );
     }
 
+    to_remove.clear();
     m_mapSamplers.ReleaseAllObjects(false);
+
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -2411,8 +2430,8 @@ cl_mem ContextModule::CreateFromGLBuffer(cl_context clContext,
                           int * pErrcodeRet)
 {
 #if defined (_WIN32)  //TODO GL support for Linux
-	LOG_INFO(TEXT("Enter CreateFromGLBuffer (clContext=%d, clFlags=%d, pErrcodeRet=%d)"), 
-		clContext, clMemFlags, pErrcodeRet);
+    LOG_INFO(TEXT("Enter CreateFromGLBuffer (clContext=%d, clFlags=%d, pErrcodeRet=%d)"), 
+        clContext, clMemFlags, pErrcodeRet);
     
     cl_err_code clErr = CheckMemObjectParameters(clMemFlags, NULL, CL_GL_OBJECT_BUFFER, 0, 0, 0, 0, 0, 0, NULL);
     if (CL_FAILED(clErr))
@@ -2523,8 +2542,8 @@ cl_mem ContextModule::CreateFromGLTexture(cl_context clContext,
                              cl_int * pErrcodeRet)
 {
 #if defined (_WIN32)  //TODO GL support for Linux
-	LOG_INFO(TEXT("Enter params(clContext=%x, clFlags=%x, glTextureTarget=%d, glMipLevel=%d, glTexture=%d)"), 
-		clContext, clMemFlags, glTextureTarget, glMipLevel, glTexture);
+    LOG_INFO(TEXT("Enter params(clContext=%x, clFlags=%x, glTextureTarget=%d, glMipLevel=%d, glTexture=%d)"), 
+        clContext, clMemFlags, glTextureTarget, glMipLevel, glTexture);
 
     cl_mem_object_type clObjType = ConvertGLTargetToCLObject(glTextureTarget);
     cl_err_code clErr = CheckMemObjectParameters(clMemFlags, NULL, clObjType, 0, 0, 0, 0, 0, 0, NULL);
@@ -2603,8 +2622,8 @@ cl_mem ContextModule::CreateFromGLRenderbuffer(cl_context clContext,
                                 cl_int * pErrcodeRet)
 {
 #if defined (_WIN32)  //TODO GL support for Linux
-	LOG_INFO(TEXT("Enter CreateFromGLRenderbuffer (clContext=%d, clFlags=%d, glRenderBuffer=%d, pErrcodeRet=%d)"), 
-		clContext, clMemFlags, glRenderBuffer, pErrcodeRet);
+    LOG_INFO(TEXT("Enter CreateFromGLRenderbuffer (clContext=%d, clFlags=%d, glRenderBuffer=%d, pErrcodeRet=%d)"), 
+        clContext, clMemFlags, glRenderBuffer, pErrcodeRet);
 
     SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)clContext).DynamicCast<Context>();
     if (NULL == pContext)
@@ -2778,10 +2797,10 @@ cl_err_code ContextModule::CheckMemObjectParameters(cl_mem_flags clMemFlags,
         return CL_INVALID_HOST_PTR;
     }
 
-	if (CL_MEM_OBJECT_IMAGE1D_BUFFER != clMemObjType && CL_MEM_OBJECT_IMAGE2D != clMemObjType && (NULL != pHostPtr) && !((CL_MEM_COPY_HOST_PTR|CL_MEM_USE_HOST_PTR)&clMemFlags) )
-	{
-		return CL_INVALID_HOST_PTR;
-	}
+    if (CL_MEM_OBJECT_IMAGE1D_BUFFER != clMemObjType && CL_MEM_OBJECT_IMAGE2D != clMemObjType && (NULL != pHostPtr) && !((CL_MEM_COPY_HOST_PTR|CL_MEM_USE_HOST_PTR)&clMemFlags) )
+    {
+        return CL_INVALID_HOST_PTR;
+    }
 
     if (NULL != clImageFormat)
     {
@@ -2826,12 +2845,12 @@ cl_err_code ContextModule::CheckMemObjectParameters(cl_mem_flags clMemFlags,
 }
 
 cl_err_code ContextModule::CheckContextSpecificParameters(SharedPtr<Context>pContext,
-										const cl_mem_object_type image_type,
-										const size_t image_width,
-										const size_t image_height,
-										const size_t image_depth,
-										const size_t array_size,
-										const void* pImgBufferHostPtr,
+                                        const cl_mem_object_type image_type,
+                                        const size_t image_width,
+                                        const size_t image_height,
+                                        const size_t image_depth,
+                                        const size_t array_size,
+                                        const void* pImgBufferHostPtr,
                                         cl_mem_flags bufFlags)
 {
     size_t maxW = (size_t)-1;
@@ -2878,22 +2897,22 @@ cl_err_code ContextModule::CheckContextSpecificParameters(SharedPtr<Context>pCon
             max1dFromBuffer = max1dFromBuffer > sz ? sz : max1dFromBuffer;
         }
 
-		if (isArray)
-		{
-			dev->GetInfo(CL_DEVICE_IMAGE_MAX_ARRAY_SIZE, sizeof(size_t), &sz, NULL);
-			maxArraySize = maxArraySize > sz ? sz : maxArraySize;
-		}
+        if (isArray)
+        {
+            dev->GetInfo(CL_DEVICE_IMAGE_MAX_ARRAY_SIZE, sizeof(size_t), &sz, NULL);
+            maxArraySize = maxArraySize > sz ? sz : maxArraySize;
+        }
 
         if (NULL != pImgBufferHostPtr && CL_MEM_OBJECT_IMAGE2D == image_type && (bufFlags & CL_MEM_USE_HOST_PTR))
-		{
-			cl_uint uiImgBaseAddrAlign;
-			dev->GetInfo(CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT, sizeof(uiImgBaseAddrAlign), &uiImgBaseAddrAlign, NULL);
-			if (!IS_ALIGNED_ON(pImgBufferHostPtr, uiImgBaseAddrAlign))
-			{
-				return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
-			}
-		}
-	}
+        {
+            cl_uint uiImgBaseAddrAlign;
+            dev->GetInfo(CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT, sizeof(uiImgBaseAddrAlign), &uiImgBaseAddrAlign, NULL);
+            if (!IS_ALIGNED_ON(pImgBufferHostPtr, uiImgBaseAddrAlign))
+            {
+                return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
+            }
+        }
+    }
 
     // Check (the minimum of) maximum sizes and return CL_INVALID_IMAGE_SIZE if exceeding it.
     switch (image_type)
@@ -3116,49 +3135,49 @@ cl_int ContextModule::GetKernelArgInfo(cl_kernel clKernel,
 
 void* ContextModule::SVMAlloc(cl_context context, cl_svm_mem_flags flags, size_t size, unsigned int uiAlignment)
 {
-	SharedPtr<Context> pContext = GetContext(context);
-	if (pContext == NULL)
-	{
-		LOG_ERROR(TEXT("context is not a valid context"), "");
-		return NULL;
-	}
-	if (flags & CL_MEM_SVM_ATOMICS && !(flags & CL_MEM_SVM_FINE_GRAIN_BUFFER))
-	{
-		LOG_ERROR(TEXT("flags does not contain CL_MEM_SVM_FINE_GRAIN_BUFFER but does contain CL_MEM_SVM_ATOMICS"), "");
-		return NULL;
-	}
-	if ((flags & ~(CL_MEM_READ_WRITE | CL_MEM_WRITE_ONLY | CL_MEM_READ_ONLY | CL_MEM_SVM_FINE_GRAIN_BUFFER | CL_MEM_SVM_ATOMICS)) != 0)
-	{
-		LOG_ERROR(TEXT("The values specified in flags are not valid i.e. don’t match those defined in table 5.13"), "");
-		return NULL;
-	}
-	if (0 == size)
-	{
-		LOG_ERROR(TEXT("size is 0"), "");
-		return NULL;
-	}
-	if (uiAlignment > 0 && (!IsPowerOf2(uiAlignment) || uiAlignment > sizeof(cl_long16)))
-	{
-		LOG_ERROR(TEXT("invalid alignment"), "");
-		return NULL;
-	}
-	return pContext->SVMAlloc(flags, size, uiAlignment);	
+    SharedPtr<Context> pContext = GetContext(context);
+    if (pContext == NULL)
+    {
+        LOG_ERROR(TEXT("context is not a valid context"), "");
+        return NULL;
+    }
+    if (flags & CL_MEM_SVM_ATOMICS && !(flags & CL_MEM_SVM_FINE_GRAIN_BUFFER))
+    {
+        LOG_ERROR(TEXT("flags does not contain CL_MEM_SVM_FINE_GRAIN_BUFFER but does contain CL_MEM_SVM_ATOMICS"), "");
+        return NULL;
+    }
+    if ((flags & ~(CL_MEM_READ_WRITE | CL_MEM_WRITE_ONLY | CL_MEM_READ_ONLY | CL_MEM_SVM_FINE_GRAIN_BUFFER | CL_MEM_SVM_ATOMICS)) != 0)
+    {
+        LOG_ERROR(TEXT("The values specified in flags are not valid i.e. don’t match those defined in table 5.13"), "");
+        return NULL;
+    }
+    if (0 == size)
+    {
+        LOG_ERROR(TEXT("size is 0"), "");
+        return NULL;
+    }
+    if (uiAlignment > 0 && (!IsPowerOf2(uiAlignment) || uiAlignment > sizeof(cl_long16)))
+    {
+        LOG_ERROR(TEXT("invalid alignment"), "");
+        return NULL;
+    }
+    return pContext->SVMAlloc(flags, size, uiAlignment);    
 }
 
 void ContextModule::SVMFree(cl_context context, void* pSvmPtr)
 {
-	SharedPtr<Context> pContext = GetContext(context);
-	if (pContext == NULL)
-	{
-		LOG_ERROR(TEXT("context is not a valid context"), "");
-		return;
-	}
-	if (NULL == pSvmPtr)
-	{
-		LOG_INFO(TEXT("pSvmPtr is NULL"), "")
-		return;
-	}
-	pContext->SVMFree(pSvmPtr);
+    SharedPtr<Context> pContext = GetContext(context);
+    if (pContext == NULL)
+    {
+        LOG_ERROR(TEXT("context is not a valid context"), "");
+        return;
+    }
+    if (NULL == pSvmPtr)
+    {
+        LOG_INFO(TEXT("pSvmPtr is NULL"), "")
+        return;
+    }
+    pContext->SVMFree(pSvmPtr);
 }
 
 //////////////////////////////////////////////////////////////////////////////

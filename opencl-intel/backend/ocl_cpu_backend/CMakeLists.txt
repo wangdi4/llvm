@@ -148,6 +148,7 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     IAbstractBackendFactory.h
     IDynamicFunctionsResolver.h
     IBlockToKernelMapper.h
+    ICompilerConfig.h
 
     BackendConfiguration.h
     BitCodeContainer.h
@@ -164,6 +165,9 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     CPUKernel.h
     CPUProgram.h
     CPUProgramBuilder.h
+    CPUSerializationService.h
+    ObjectCodeCache.h
+    ObjectCodeContainer.h
     CompileService.h
     CompiledModule.h
     Compiler.h
@@ -193,47 +197,53 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
   )
 
 set (OCL_CPU_BACKEND_SOURCE_FILES
-    CPUDeviceBackendFactory.cpp
-    shared_builtin_functions.cpp
-    cpu_builtin_functions.cpp
-    opencl20_ext_execution.cpp
-    TargetDescription.cpp
-    dllmain.cpp
-    opencl_printf_ext.cpp
-    opencl_cpu_printf_ext.cpp
-    Logger.cpp
-    ServiceFactory.cpp
-    CompileService.cpp
-    CPUCompileService.cpp
-    ExecutionService.cpp
-    CPUExecutionService.cpp
     BackendConfiguration.cpp
-    ProgramBuilder.cpp
-    Compiler.cpp
-    CPUCompiler.cpp
-    CPUProgramBuilder.cpp
-    BuiltinModuleManager.cpp
-    BuiltinModule.cpp
-    CPUBuiltinLibrary.cpp
-    Program.cpp
-    CPUProgram.cpp
     BitCodeContainer.cpp
-    ProgramContainerMemoryBuffer.cpp
-    Kernel.cpp
-    CPUKernel.cpp
-    KernelProperties.cpp
+    BuiltinModule.cpp
+    BuiltinModuleManager.cpp
+    CPUBlockToKernelMapper.cpp
+    CPUBuiltinLibrary.cpp
+    CPUCompileService.cpp
+    CPUCompiler.cpp
+    CPUDeviceBackendFactory.cpp
+    CPUExecutionService.cpp
     CPUJITContainer.cpp
+    CPUKernel.cpp
+    CPUProgram.cpp
+    CPUProgramBuilder.cpp
+    CompileService.cpp
+    Compiler.cpp
+    CompilerConfig.cpp
+    ExecutionService.cpp
     ImageCallbackLibrary.cpp
     ImageCallbackManager.cpp
     ImageCallbackServices.cpp
+    Kernel.cpp
+    KernelProperties.cpp
+    Logger.cpp
+    Program.cpp
+    Serializer.cpp
+    ObjectCodeCache.cpp
+    CPUSerializationService.cpp
+    ObjectCodeContainer.cpp
+    ProgramBuilder.cpp
+    ProgramContainerMemoryBuffer.cpp
+    ServiceFactory.cpp
+    TargetDescription.cpp
+    cpu_builtin_functions.cpp
     debuggingservicewrapper.cpp
+    dllmain.cpp
     ocl_debug_builtins.cpp
-    CPUBlockToKernelMapper.cpp
     ocl_mutex.cpp
+    opencl20_ext_execution.cpp
+    opencl_cpu_printf_ext.cpp
+    opencl_printf_ext.cpp
+    shared_builtin_functions.cpp
   )
 
 if (INCLUDE_MIC_DEVICE)
   list(APPEND OCL_CPU_BACKEND_INCLUDE_FILES
+    IMICCompilerConfig.h
     MICBuiltinLibrary.h
     MICCompileService.h
     MICCompiler.h
@@ -241,7 +251,6 @@ if (INCLUDE_MIC_DEVICE)
     MICDeviceBackendFactory.h
     MICJITContainer.h
     MICKernel.h
-    MICKernelProperties.h
     MICProgram.h
     MICProgramBuilder.h
     MICSerializationService.h
@@ -252,10 +261,10 @@ if (INCLUDE_MIC_DEVICE)
     MICBuiltinLibrary.cpp
     MICCompileService.cpp
     MICCompiler.cpp
+    MICCompilerConfig.cpp
     MICDeviceBackendFactory.cpp
     MICJITContainer.cpp
     MICKernel.cpp
-    MICKernelProperties.cpp
     MICProgram.cpp
     MICProgramBuilder.cpp
     MICSerializationService.cpp
@@ -307,13 +316,13 @@ include_directories(
     ${BACKEND_ROOT_DIR}/../utils/cl_sys_utils/export
     ${BACKEND_ROOT_DIR}/arch_headers
     ${BACKEND_ROOT_DIR}/vectorizer/Utils
-    ${BACKEND_ROOT_DIR}/plugin_manager
     ${BACKEND_ROOT_DIR}/../externals/itt/include
     ${BACKEND_ROOT_DIR}/optimizer
     ${BACKEND_ROOT_DIR}/plugin_manager
     ${BACKEND_ROOT_DIR}/dynamic_lib
     ${BACKEND_ROOT_DIR}/utils
     ${BACKEND_ROOT_DIR}/metadata_api
+    ${BACKEND_ROOT_DIR}/../utils/cache_binary_handler
     ${CMAKE_BINARY_DIR}/include/
     ${OCL_BINARY_DIR}
 )
@@ -404,6 +413,8 @@ target_link_libraries (${TARGET_NAME}
     dynamic_load
     cl_sys_utils
     metadataapi
+    CacheBinaryHandler
+    CLElfLib
 
     # LLVM LIBS
     ${LLVM_MODULE_LIBS}

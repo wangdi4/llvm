@@ -36,7 +36,7 @@ public:
     BitCodeContainer(const cl_prog_container_header* pByteCodeContainer);
     ~BitCodeContainer();
 
-    const cl_prog_container_header* GetCode() const;
+    const void* GetCode() const;
 
     size_t GetCodeSize() const;
 

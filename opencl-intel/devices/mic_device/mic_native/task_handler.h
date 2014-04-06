@@ -23,33 +23,27 @@
 #include <cl_shared_ptr.h>
 #include <task_executor.h>
 
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
 #include "cl_thread.h"
 #include "tbb_memory_allocator.h"
-#endif
 #include <malloc.h>
 
 #include "native_program_service.h"
 
 namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
 class TaskReleaseHandler;
-#endif
 
 //
 // TaskHandlerBase - state of specific task handled by QueueOnDevice
 //
 class TaskHandlerBase : virtual public Intel::OpenCL::Utils::ReferenceCountedObject
 {
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
     friend class TaskReleaseHandler;
-#endif
 public:
     PREPARE_SHARED_PTR(TaskHandlerBase);
 
     TaskHandlerBase(
-        uint32_t lockBufferCount, void** pLockBuffers
+        uint32_t lockBufferCount, void** pLockBuffers, QueueOnDevice* pQueue
 #ifdef ENABLE_MIC_TRACER
         , size_t* pLockBufferSizes
 #endif
@@ -57,7 +51,6 @@ public:
 
     virtual ~TaskHandlerBase() {};
 	
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION	
  // overload new and delete operators in order to use scalable allocator of tbb for new tasks.
     void* operator new (std::size_t size) throw (std::bad_alloc)
     {
@@ -68,21 +61,24 @@ public:
     {
         Intel::OpenCL::TaskExecutor::ScalableMemAllocator::scalableFree(ptr);
     }
-#else
-    // Creates a copy of the task
-    virtual TaskHandlerBase*     Duplicate() const = 0;
-#endif
 
     // Retrieve a pointer to ITaskBase
     virtual Intel::OpenCL::TaskExecutor::ITaskBase* GetAsITaskBase() = 0;
-#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
     virtual TaskHandlerBase*                        GetAsTaskHandlerBase() { return this;}
-#endif
 
     // Called before enqueue into the queue
     virtual bool PrepareTask() = 0;
 
+    virtual bool FinishSyncTask() = 0;
+    virtual bool FinishAsyncTask() = 0;
+    virtual bool CancelAsyncTask() = 0;
+    virtual bool CancelSyncTask() = 0;
+    virtual long ReleaseSyncTask() { return 0; };
+    virtual long ReleaseAsyncTask() { delete this; return 0; };
+
+#ifndef MIC_USE_COI_BUFFS_REF_NEW_API
     bool FiniTask();
+#endif
 
     void setTaskError( cl_dev_err_code errorCode )
     {
@@ -99,100 +95,141 @@ public:
 #endif
 
 protected:
-#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
-    TaskHandlerBase(const TaskHandlerBase& o);
-#else 
+
     virtual bool releaseResourcesAndSignal() = 0;
-#endif
 
     uint32_t              m_bufferCount;
+#ifdef MIC_USE_COI_BUFFS_REF_NEW_API
+	// m_bufferPointers valid only before completion of PrepareTask() func (before enqueueing to the queue)
+#endif
     void**                m_bufferPointers;
 #ifdef ENABLE_MIC_TRACER
     size_t*               m_bufferSizes;
 #endif
     cl_dev_err_code       m_errorCode;
 
-#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
-    bool                  m_bDuplicated;
-#endif
-
 #ifdef ENABLE_MIC_TRACER
     // Command tracer
     CommandTracer         m_commandTracer;
 #endif
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
     TaskReleaseHandler* m_releasehandler;
 
 private:
 
 	Intel::OpenCL::Utils::SharedPtr<TaskHandlerBase> m_nextTaskToRelease;
-#endif
-
 };
 
 template<class Command, typename dispatch_data_type > class TaskHandler : public TaskHandlerBase
 {
 public:
     TaskHandler(
-        //const QueueOnDevice* pQueue,
         uint32_t lockBufferCount,
         void** pLockBuffers,
 #ifdef ENABLE_MIC_TRACER
         size_t* pLockBufferSizes,
 #endif
         dispatch_data_type* pDispatcherData,
-        size_t uiDispatchSize
+        size_t uiDispatchSize,
+        QueueOnDevice* pQueue
         ) :
-        TaskHandlerBase(/*pQueue,*/ lockBufferCount, pLockBuffers
+        TaskHandlerBase( lockBufferCount, pLockBuffers, pQueue
 #ifdef ENABLE_MIC_TRACER
         , pLockBufferSizes
 #endif
-        )
-#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
-		,
-        m_dispatcherData(pDispatcherData),
-        m_uiDispatchSize(uiDispatchSize)
-#endif
-    {
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
-        assert(uiDispatchSize > 0 && "dispatch_data_type size should be greater than 0");
-        m_dispatcherData = (dispatch_data_type *)Intel::OpenCL::TaskExecutor::ScalableMemAllocator::scalableAlignedMalloc(uiDispatchSize, sizeof(size_t));
-        assert(m_dispatcherData && "Allocate memory to m_dispatcherData failed");
-        memcpy(m_dispatcherData, pDispatcherData, uiDispatchSize);
-#endif
-    }
-
-    virtual ~TaskHandler()
-    {
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
-        assert(m_dispatcherData && "m_dispatcherData shuoldn't be NULL pointer");
-        Intel::OpenCL::TaskExecutor::ScalableMemAllocator::scalableAlignedFree(m_dispatcherData);
-        m_dispatcherData = NULL;
-#else
-        if ( m_bDuplicated )
+        ),
+        m_pDispatcherData(pDispatcherData),
+        m_uiDispatchSize(uiDispatchSize),
+        m_pQueue(pQueue),
+        m_releaseDispatcherData(false)
         {
-            free(m_dispatcherData);
-            m_dispatcherData = NULL;
-        }
-#endif 
-    }
+            if (m_pQueue->IsAsyncExecution())
+            {
+                // In case of Async execution we should copy the dispatcher data content to local address.
+                assert(uiDispatchSize > 0 && "dispatch_data_type size should be greater than 0");
+                if (uiDispatchSize <= sizeof(m_dispatcherDataLocalMem))
+                {
+                    m_pDispatcherData = (dispatch_data_type*)(&m_dispatcherDataLocalMem);
+                }
+                else
+                {
+                    m_pDispatcherData = (dispatch_data_type *)Intel::OpenCL::TaskExecutor::ScalableMemAllocator::scalableAlignedMalloc(uiDispatchSize, sizeof(size_t));
+                    assert(m_pDispatcherData && "Allocate memory to m_dispatcherData failed");
+                    m_releaseDispatcherData = true;
+                }
+                memcpy(m_pDispatcherData, pDispatcherData, uiDispatchSize);
+		    }
+        };
 
-#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
-    virtual TaskHandlerBase* Duplicate() const
-    {
-        // TODO: convert to tbb::scalable_allocator and allocate memory for whole object at a time
-        TaskHandler* pNewHandler = new Command( this->GetAsCommandTypeConst() );
-        if ( NULL == pNewHandler )
+    virtual ~TaskHandler() 
+	{
+	    assert(m_pDispatcherData && "m_dispatcherData shuoldn't be NULL pointer");
+        if (m_releaseDispatcherData)
         {
-            assert (0 && "Task duplication failed" );
-            return NULL;
-        }
-        // Copy buffers and kernel parameters
-        return pNewHandler;
-    }
+            Intel::OpenCL::TaskExecutor::ScalableMemAllocator::scalableAlignedFree(m_pDispatcherData);        }        m_pDispatcherData = NULL;
+	};
 
-    virtual const Command&       GetAsCommandTypeConst() const = 0;
+    virtual bool FinishSyncTask()
+    {
+#ifdef ENABLE_MIC_TRACER
+        commandTracer().set_current_time_tbb_exe_in_device_time_end();
 #endif
+        return true;
+    };
+
+    virtual bool FinishAsyncTask()
+    {
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+        if ( gMicGPAData.bUseGPA )
+        {
+          static __thread __itt_string_handle* pTaskName = NULL;
+          if ( NULL == pTaskName )
+          {
+            pTaskName = __itt_string_handle_create("Finish->m_releasehandler->addTask(this)");
+          }
+          __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
+        }
+#endif
+        m_releasehandler->addTask(this);
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+        // Monitor only IN-ORDER queue
+        if ( gMicGPAData.bUseGPA )
+        {
+          __itt_task_end(gMicGPAData.pDeviceDomain);
+        }
+#endif
+
+	    return true;
+    };
+
+    virtual bool CancelSyncTask()
+    {
+#ifdef ENABLE_MIC_TRACER
+        commandTracer().set_current_time_tbb_exe_in_device_time_start();
+        commandTracer().set_current_time_tbb_exe_in_device_time_end();
+#endif
+        setTaskError( CL_DEV_COMMAND_CANCELLED );
+		return true;
+    };
+
+    virtual bool CancelAsyncTask()
+    {
+        // TODO: What if task already started
+        // Notify end if exists
+        if ( m_pDispatcherData->startEvent.isRegistered )
+        {
+            COIEventSignalUserEvent(m_pDispatcherData->startEvent.cmdEvent);
+        }
+	
+#ifdef ENABLE_MIC_TRACER
+        commandTracer().set_current_time_tbb_exe_in_device_time_start();
+#endif
+        setTaskError( CL_DEV_COMMAND_CANCELLED );
+
+	    m_releasehandler->addTask(this);
+		return true;
+    };
+
+
 
 #ifdef ENABLE_MIC_TRACER
     virtual const dispatcher_data& getDispatcherData() const
@@ -203,44 +240,43 @@ public:
 
 protected:
     // The received dispatcher_data
-    dispatch_data_type* m_dispatcherData;
+    dispatch_data_type* m_pDispatcherData;
 
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+    long    releaseImp() { return m_pQueue->ReleaseTask(this); };
+
     virtual bool releaseResourcesAndSignal()
 	{
+#ifndef MIC_USE_COI_BUFFS_REF_NEW_API
 		// Release COI resources, before signaling to runtime
         FiniTask();
+#endif
 
 #ifdef ENABLE_MIC_TRACER
         commandTracer().set_current_time_tbb_exe_in_device_time_end();
 #endif
 
         // Notify end if exists
-        if ( m_dispatcherData->endEvent.isRegistered )
+        if ( m_pDispatcherData->endEvent.isRegistered )
         {
-            COIEventSignalUserEvent(m_dispatcherData->endEvent.cmdEvent);
+            COIEventSignalUserEvent(m_pDispatcherData->endEvent.cmdEvent);
         }
 
 	    return true;
 	}
-#else
-    size_t              m_uiDispatchSize;
 
+    size_t               m_uiDispatchSize;
+	
+    QueueOnDevice* m_pQueue;
 
-    TaskHandler(const TaskHandler& o) :
-        TaskHandlerBase(o),
-        m_uiDispatchSize(o.m_uiDispatchSize)
-    {
-        m_dispatcherData = (dispatch_data_type *)memalign(sizeof(size_t), m_uiDispatchSize);
-        memcpy(m_dispatcherData, o.m_dispatcherData, m_uiDispatchSize);
-    }
-#endif
 private:
+    // Valid on Async task only and only if the dispatcher data size is not greater than this block of memory
+    char m_dispatcherDataLocalMem[4096];
+    bool m_releaseDispatcherData;
+
     // operator assigne is not allowed
     TaskHandler& operator= (const TaskHandler& o);
 };
 
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
 class TaskReleaseHandler : public OclThread
 {
 public:
@@ -252,6 +288,11 @@ public:
 		{
 			m_singleton = new TaskReleaseHandler();
 			m_singleton->Start();
+			// Wait until the thread completes its initialization
+			while (!m_singleton->initDone()) 
+			{ 
+				hw_pause();
+			}
 		}
 		return m_singleton;
 	};
@@ -272,7 +313,7 @@ private:
 	public:
 		// TODO: maybe create new dummy constructor to TaskHandlerBase and call it instead.
 		DummyTask() :
-            TaskHandlerBase(/*pQueue,*/ 1, &m_dummyBuffer
+            TaskHandlerBase( 1, &m_dummyBuffer, NULL
 #ifdef ENABLE_MIC_TRACER
             , &m_dummyBufferSize
 #endif
@@ -281,18 +322,24 @@ private:
 		}
 	private:
 
-		virtual Intel::OpenCL::TaskExecutor::ITaskBase* GetAsITaskBase() { return NULL; };
-		virtual bool PrepareTask() { return true; };
-		virtual bool releaseResourcesAndSignal() { return true; };
+        virtual Intel::OpenCL::TaskExecutor::ITaskBase* GetAsITaskBase() { return NULL; };
+        virtual bool PrepareTask() { return true; };
+        virtual bool releaseResourcesAndSignal() { return true; };
+        virtual bool FinishSyncTask() { return true; };
+        virtual bool FinishAsyncTask() { return true; };
+        virtual bool CancelSyncTask() { return true; };
+        virtual bool CancelAsyncTask() { return true; };
 
-		static void* m_dummyBuffer;
-		static size_t m_dummyBufferSize;
+        static void* m_dummyBuffer;
+        static size_t m_dummyBufferSize;
 	};
 
 	TaskReleaseHandler();
 	~TaskReleaseHandler();
 
 	RETURN_TYPE_ENTRY_POINT Run();
+
+	bool initDone() { return ( 1 == m_initDone ); };
 
 	Intel::OpenCL::Utils::SharedPtr< TaskHandlerBase > m_head;
 	Intel::OpenCL::Utils::SharedPtr< TaskHandlerBase > m_tail;
@@ -302,6 +349,8 @@ private:
 
 	volatile bool m_finish;
 
+	volatile long m_initDone;
+
 #ifdef USE_ITT
     __itt_string_handle*        m_pIttTaskReleaseName;
     __itt_domain*               m_pIttTaskReleaseDomain;
@@ -309,6 +358,5 @@ private:
 
 	static TaskReleaseHandler* m_singleton;
 };
-#endif
 
 }}}
