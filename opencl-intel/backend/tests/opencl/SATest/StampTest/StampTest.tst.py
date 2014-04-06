@@ -44,7 +44,7 @@ def deleteNeedlessFiles():
         os.remove(os.path.join(pathname, file))
 
 
-SAtestParameters = ' -OCL -VAL -neat=1 -tsize=1 -build-iterations=1 -execute-iterations=1';
+SAtestParameters = ' -VAL -neat=1 -tsize=1 -build-iterations=1 -execute-iterations=1';
 single_wg_on = ' -single_wg=1';
 single_wg_off = ' -single_wg=0';
 force_ref_off = ' -force_ref=0';

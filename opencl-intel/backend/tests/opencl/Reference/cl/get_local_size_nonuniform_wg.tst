@@ -1,4 +1,4 @@
-; RUN_xx: SATest -OCL -REF -config=%s.cfg -neat=1 | FileCheck %s
+; RUN_xx: SATest -REF -config=%s.cfg -neat=1 | FileCheck %s
 ; RUN: echo "Hello world!"
 ; CHECK: 2
 ; CHECK: 1

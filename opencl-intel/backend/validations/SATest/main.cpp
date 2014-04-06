@@ -45,7 +45,7 @@ ObjectFile("inject-object-file",
 // Enable VTune support in Volcano.
 llvm::cl::opt<bool>
 StopBeforeJIT("stop-before-jit",
-        llvm::cl::desc("Stops compilation after all optmization passes, but before binary generation."),
+        llvm::cl::desc("Stops compilation after all optimization passes, but before binary generation."),
         llvm::cl::init(false));
 
 llvm::cl::opt<std::string>
@@ -53,16 +53,6 @@ BaseDirectory("basedir",
            llvm::cl::desc("Base directory to use for configuration and data files lookup. "
                           "Default value - configuration file directory."),
            llvm::cl::value_desc("basedir"));
-
-
-llvm::cl::opt<RunnerFactory::PROGRAM_TYPE>
-ProgramType(llvm::cl::desc("Type of the test program:"),
-            llvm::cl::values(
-            clEnumValN(RunnerFactory::OPEN_CL, "OCL", "OpenCL program"),
-            clEnumValN(RunnerFactory::DIRECT_X, "DX", "DirectX program"),
-            clEnumValEnd
-            )
-            );
 
 llvm::cl::opt<ETransposeSize>
 TransposeSize("tsize",
@@ -76,7 +66,6 @@ TransposeSize("tsize",
          clEnumValEnd),
          llvm::cl::init(TRANSPOSE_SIZE_AUTO)
          );
-
 
 llvm::cl::opt<std::string>
 CPUArch("cpuarch",
@@ -139,7 +128,8 @@ TestMode(llvm::cl::desc("Test mode:"),
 
 llvm::cl::opt<std::string>
 PerformanceLog("csv-out",
-               llvm::cl::desc("Output the performance measurement to the file <filename>. If '-' filename is set the measurements data will be printed to the standard output stream."),
+               llvm::cl::desc("Output the performance measurement to the file <filename>. "
+                   "If '-' filename is set the measurements data will be printed to the standard output stream."),
                llvm::cl::value_desc("filename"),
                llvm::cl::init("-"));
 
@@ -164,7 +154,8 @@ DefaultLocalWGSize("default_wg_size",
 // turn on printing LLVM IR produced by Volcano after all optimization passes applied.
 llvm::cl::opt<std::string>
 OptimizedLLVMIRDumpFile("dump-llvm-file",
-                        llvm::cl::desc("Prints LLVM IR to the file <filename> after all optimization passes applied. If '-' filename is set the LLVM IR will be printed to the standard output stream."),
+                        llvm::cl::desc("Prints LLVM IR to the file <filename> after all optimization passes applied. "
+                            "If '-' filename is set the LLVM IR will be printed to the standard output stream."),
                         llvm::cl::value_desc("filename"),
                         llvm::cl::init(""));
 
@@ -213,7 +204,8 @@ PrintIRBefore("dump-IR-before",
 llvm::cl::opt<std::string>
 DumpIRDir("dump-IR-dir",
            llvm::cl::ValueOptional,
-           llvm::cl::desc("The directory for dumping IR files (if dump-IR flags are up, this directory will be used). If '-' direname isn't set, the files will be dumped to current directory."),
+           llvm::cl::desc("The directory for dumping IR files (if dump-IR flags are up, this directory will be used). "
+                          "If '-' dirname isn't set, the files will be dumped to current directory."),
            llvm::cl::value_desc("dirname"),
            llvm::cl::init("./"));
 
@@ -226,14 +218,16 @@ DumpHeuristicIR("dump-heuristic-IR",
 llvm::cl::opt<std::string>
 DumpJIT("dump-JIT",
            llvm::cl::ValueOptional,
-           llvm::cl::desc("Prints JIT code to the file <filename> after the build is complete. The <filename> could be an absolute path or relative to the base directory."),
+           llvm::cl::desc("Prints JIT code to the file <filename> after the build is complete. "
+                          "The <filename> could be an absolute path or relative to the base directory."),
            llvm::cl::value_desc("filename"));
 
 // Enable -time-passes in Volcano
 llvm::cl::opt<std::string>
 TimePasses("dump-time-passes",
            llvm::cl::ValueOptional,
-           llvm::cl::desc("Generates compilation time detailed report for all the passes and print it to the file <filename>. The <filename> could be an absolute path or relative to the base directory."),
+           llvm::cl::desc("Generates compilation time detailed report for all the passes and print it to the file <filename>. "
+                          "The <filename> could be an absolute path or relative to the base directory."),
            llvm::cl::value_desc("filename"));
 
 // Seed for random input data generator
@@ -243,7 +237,7 @@ RandomDGSeed("seed",
                    llvm::cl::init(time(NULL)));
 
 // Command line example:
-// SATest.exe -OCL -config=test.cfg
+// SATest.exe -config=test.cfg
 // WARNING! To run OCL_CPU_DEVICE_BACKEND successfully built-in DLLs and RTLs is needed!
 
 int main(int argc, char *argv[])
@@ -255,14 +249,11 @@ int main(int argc, char *argv[])
     try
     {
         // Run test
-        IRunConfiguration* runConfig = RunnerFactory::GetInstance(ProgramType).CreateRunConfiguration();
+        IRunConfiguration* runConfig = RunnerFactory::GetInstance().CreateRunConfiguration();
         runConfig->InitFromCommandLine();
 
-        SATest test(ProgramType,
-                     ConfigFile,
-                     BaseDirectory,
-                     runConfig);
-        test.Run( TestMode, runConfig);
+        SATest test(ConfigFile, BaseDirectory, runConfig);
+        test.Run(TestMode, runConfig);
         return 0;
     }
     catch (Exception::InvalidEnvironmentException e)
@@ -285,8 +276,8 @@ int main(int argc, char *argv[])
     }
     catch (Exceptions::DeviceBackendExceptionBase e)
     {
-        // Exception occured inside the backend
-        std::cerr << "Backend exception occured: "<< e.what() << endl;
+        // Exception occurred inside the back-end
+        std::cerr << "Back-end exception occurred: "<< e.what() << endl;
         return int(e.GetErrorCode());
     }
 }

@@ -1,2 +1,2 @@
-RUN: SATest -OCL -BUILD -config=%s.cfg -cpuarch="corei7"
+RUN: SATest -BUILD -config=%s.cfg -cpuarch="corei7"
 XFAIL:

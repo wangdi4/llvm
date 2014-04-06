@@ -36,12 +36,10 @@ namespace Validation
     public:
 
         /// @brief Constructor
-        /// @param [IN] programType Type of the test program (OpenCL / DirectX)
         /// @param [IN] configFileName Name of file that contains run configurations
         /// @param [IN] baseDirectory Directory to use in data file lookup
         /// @param [IN] pRunConfiguration Run configuration file
-        SATest( RunnerFactory::PROGRAM_TYPE programType,
-                const std::string& configFileName,
+        SATest( const std::string& configFileName,
                 const std::string& baseDirectory,
                 IRunConfiguration* pRunConfiguration);
 

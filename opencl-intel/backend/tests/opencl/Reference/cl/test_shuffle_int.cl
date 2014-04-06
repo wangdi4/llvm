@@ -1,4 +1,4 @@
-// RUN: SATest -OCL -VAL -config=%s.cfg -neat=0 --force_ref | FileCheck %s
+// RUN: SATest -VAL -config=%s.cfg -neat=0 --force_ref | FileCheck %s
 // CHECK: Test Passed.
 
 __kernel void test_shuffle_2_2_char_uchar( __global char2* aIn,

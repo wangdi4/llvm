@@ -1,4 +1,4 @@
-; RUN: SATest -OCL -VAL -config=%s.cfg -neat=1 --force_ref > %t
+; RUN: SATest -VAL -config=%s.cfg -neat=1 --force_ref > %t
 ; RUN: FileCheck %s <%t
 ;CHECK: 11.000000
 ;CHECK: 22.000000

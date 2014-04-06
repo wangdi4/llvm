@@ -1,1 +1,1 @@
-RUN: SATest -OCL -PERF -config=%s.cfg
+RUN: SATest -PERF -config=%s.cfg

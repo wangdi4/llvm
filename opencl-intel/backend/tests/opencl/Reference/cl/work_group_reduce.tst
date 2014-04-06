@@ -1,4 +1,4 @@
-; RUN: SATest -OCL -REF -config=%s.cfg -neat=0 >%t
+; RUN: SATest -REF -config=%s.cfg -neat=0 >%t
 ; RUN: FileCheck %s <%t
 ; CHECK: -453
 ; CHECK: -453

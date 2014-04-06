@@ -1,1 +1,1 @@
-RUN: SATest -OCL -VAL -config=%s.cfg -force_ref
+RUN: SATest -VAL -config=%s.cfg -force_ref

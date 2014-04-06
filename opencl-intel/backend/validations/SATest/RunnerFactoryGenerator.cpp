@@ -17,37 +17,20 @@ File Name:  RunnerFactoryGenerator.cpp
 \*****************************************************************************/
 #include "RunnerFactoryGenerator.h"
 #include "OpenCLFactory.h"
-#include "DXFactory.h"
 
 using namespace Validation;
 
-IRunnerFactory* RunnerFactory::s_dxFactory = NULL;
 IRunnerFactory* RunnerFactory::s_oclFactory = NULL;
 
 RunnerFactory::RunnerFactory()
 {
 }
 
-IRunnerFactory& RunnerFactory::GetInstance(PROGRAM_TYPE programType)
+IRunnerFactory& RunnerFactory::GetInstance()
 {
-    IRunnerFactory* retNullFactory = NULL;
-    // Create appropriate runner factory based on program type
-    if (programType == OPEN_CL) 
+    if( NULL == s_oclFactory)
     {
-        if( NULL == s_oclFactory)
-        {
-            s_oclFactory = new OpenCLFactory();
-        }
-        return *s_oclFactory;
-    } else if (programType == DIRECT_X) 
-    {
-        if( NULL == s_dxFactory)
-        {
-            s_dxFactory = new DXFactory();
-        }
-        return *s_dxFactory;
-    } else {
-        throw Exception::InvalidArgument("Unrecognized program type");
+        s_oclFactory = new OpenCLFactory();
     }
-    return *retNullFactory;
+    return *s_oclFactory;
 }

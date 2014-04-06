@@ -26,20 +26,15 @@ namespace Validation
     class RunnerFactory
     {
     public:
-        /// @brief PROGRAM_TYPE indicates whether the test program is an OpelCL kernel
-        /// or DirectX shader
-        typedef enum {OPEN_CL, DIRECT_X} PROGRAM_TYPE;
-
         /// @brief Returns appropriate instance of a runner factory
         /// @return Instance of a runner factory
-        static IRunnerFactory& GetInstance(PROGRAM_TYPE);
+        static IRunnerFactory& GetInstance();
 
     private:
         /// @brief Ctor.
         RunnerFactory();
 
         /// @brief Instance of a runner factory
-        static IRunnerFactory * s_dxFactory;
         static IRunnerFactory * s_oclFactory;
     };
 }

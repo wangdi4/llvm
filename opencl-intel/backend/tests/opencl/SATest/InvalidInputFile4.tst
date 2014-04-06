@@ -1,2 +1,2 @@
-RUN: SATest -OCL -VAL -config=%s.cfg -force_ref -detailed_stat
+RUN: SATest -VAL -config=%s.cfg -force_ref -detailed_stat
 XFAIL:

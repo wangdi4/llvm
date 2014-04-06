@@ -1,4 +1,4 @@
-// RUN: SATest -OCL -VAL -config=%s.cfg -neat=1 --force_ref
+// RUN: SATest -VAL -config=%s.cfg -neat=1 --force_ref
 // CHECK: Test Passed.
 #pragma OPENCL EXTENSION cl_khr_fp64: enable
 __kernel void test_def_f(char a, short b, int c, long d, float e, double f){ // from float to int(def rounding)
