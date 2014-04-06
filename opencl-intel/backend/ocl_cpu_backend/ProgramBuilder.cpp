@@ -149,6 +149,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
             outf << buffer;
         }
 
+        system(("cp " + filename + ".ll " + filename + "_org.ll").c_str());
         std::string llvmOCLBinPath(getenv("LLVM_OCL_DIR"));
         int res = system((llvmOCLBinPath + "/llvm-as " + filename + ".ll").c_str());
         if (res) {

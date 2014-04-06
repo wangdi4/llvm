@@ -334,7 +334,7 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
     //
     m_debug = pOptions->GetDebugInfoFlag();
 
-    //dumpModule(*(spModule.get()));
+    dumpModule(*(spModule.get()));
 
     pResult->SetBuildResult( CL_DEV_SUCCESS );
 

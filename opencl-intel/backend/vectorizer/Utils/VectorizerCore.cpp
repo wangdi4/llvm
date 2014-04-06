@@ -38,7 +38,7 @@ extern "C" FunctionPass* createAppleWIDepPrePacketizationPass();
 #ifndef __APPLE__
 extern "C" FunctionPass* createGatherScatterResolverPass();
 #endif
-extern "C" FunctionPass* createX86ResolverPass();
+extern "C" FunctionPass* createX86ResolverPass(Intel::ECPU cpuArch);
 extern "C" FunctionPass* createOCLBuiltinPreVectorizationPass();
 extern "C" FunctionPass* createWeightedInstCounter(bool, Intel::CPUId);
 extern "C" FunctionPass *createIRPrinterPass(std::string dumpDir, std::string dumpName);
@@ -48,7 +48,7 @@ static FunctionPass* createResolverPass(const Intel::CPUId& CpuId) {
 #ifndef __APPLE__
   if (CpuId.HasGatherScatter()) return createGatherScatterResolverPass();
 #endif
-  return createX86ResolverPass();
+  return createX86ResolverPass(CpuId.GetCPU());
 }
 
 static FunctionPass* createScalarizer(const Intel::CPUId& CpuId) {

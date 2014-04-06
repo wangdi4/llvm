@@ -15,6 +15,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/IR/Module.h"
+#include "TargetArch.h"
 
 using namespace llvm;
 
@@ -43,6 +44,7 @@ public:
   virtual void getAnalysisUsage(AnalysisUsage &AU) const { 
     AU.addRequired<BuiltinLibInfo>();
   }
+  virtual bool isBitMask(const VectorType& vecType) const { return false; }
 
 private:
   /// @brief Resolve a call-site. This is a target specific hook.
@@ -195,7 +197,8 @@ public:
   // Pass identification, replacement for typeid
   static char ID;
   /// @brief C'tor
-  X86Resolver() : FuncResolver(ID) {}
+  X86Resolver() : FuncResolver(ID), m_cpuArch(Intel::DEVICE_INVALID) {}
+  X86Resolver(Intel::ECPU cpuArch) : FuncResolver(ID), m_cpuArch(cpuArch) {}
 
   /// @brief Provides name of pass
   virtual const char *getPassName() const {
@@ -206,6 +209,11 @@ public:
   /// @param caller Instruction to resolve
   /// @return true if this call was handled by the resolver
   virtual bool TargetSpecificResolve(CallInst* caller) { return false; }
+
+  void setCpuArch(Intel::ECPU arch) { m_cpuArch = arch; }
+  virtual bool isBitMask(const VectorType& vecType) const;
+private:
+  Intel::ECPU m_cpuArch;
 };
 
 }

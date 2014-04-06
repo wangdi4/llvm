@@ -375,7 +375,8 @@ bool FuncResolver::isResolvedMaskedLoad(CallInst* caller) {
   VectorType* vecType = dyn_cast<VectorType>(ptrType->getElementType());
   V_ASSERT(vecType && "Pointer must be of vector type");
   // check availability of masked store BI
-  std::string funcName = Mangler::getMaskedLoadStoreBuiltinName(true, vecType);
+  std::string funcName =
+    Mangler::getMaskedLoadStoreBuiltinName(true, vecType, isBitMask(*vecType));
   Function* loadFuncRT = m_rtServices->findInRuntimeModule(funcName);
 
   if (loadFuncRT) {
@@ -497,7 +498,8 @@ bool FuncResolver::isResolvedMaskedStore(CallInst* caller) {
   VectorType* vecType = dyn_cast<VectorType>(ptrType->getElementType());
   V_ASSERT(vecType && "Pointer must be of vector type");
   // check availability of masked store BI
-  std::string funcName = Mangler::getMaskedLoadStoreBuiltinName(false, vecType);
+  std::string funcName =
+    Mangler::getMaskedLoadStoreBuiltinName(false, vecType, isBitMask(*vecType));
   Function* storeFuncRT = m_rtServices->findInRuntimeModule(funcName);
 
   if (storeFuncRT) {
@@ -603,8 +605,10 @@ Instruction* FuncResolver::extendMaskAsBIParameter(Function* maskLoadStoreBI, Va
   FunctionType* funcType = maskLoadStoreBI->getFunctionType();
   Type* extMaskType = funcType->getParamType(funcType->getNumParams() - 1);
   // SIGN-extend the mask to the argument type (as MSB of mask matters)
-  V_ASSERT(extMaskType->getScalarSizeInBits() >= Mask->getType()->getScalarSizeInBits() &&
-             "Extended mask type smaller than original mask type!");
+  //V_ASSERT(extMaskType->getScalarSizeInBits() >= Mask->getType()->getScalarSizeInBits() &&
+  //           "Extended mask type smaller than original mask type!");
+  if (CastInst::isBitCastable(Mask->getType(), extMaskType))
+    return CastInst::Create(Instruction::BitCast, Mask, extMaskType, "extmask");
   return CastInst::CreateSExtOrBitCast(Mask, extMaskType, "extmask");
 }
 
@@ -684,13 +688,22 @@ void FuncResolver::resolveRetByVectorBuiltin(CallInst* caller) {
   caller->eraseFromParent();
 }
 
+// Return true if the architecture supports mask registers and
+// the mask may be represented in a vector of i1 elements
+bool X86Resolver::isBitMask(const VectorType& vecType) const {
+  if ((m_cpuArch == Intel::CPU_KNL) &&
+      (vecType.getBitWidth() == 512 && vecType.getNumElements() <= 16))
+    return true;
+  return false;
+}
+
 } // namespace
 
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  FunctionPass* createX86ResolverPass() {
-    return new intel::X86Resolver();
+  FunctionPass* createX86ResolverPass(Intel::ECPU cpuArch) {
+    return new intel::X86Resolver(cpuArch);
   }
 }
 

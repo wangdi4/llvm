@@ -392,7 +392,7 @@ std::string Mangler::getTransposeBuiltinName(bool isLoad, bool isScatterGather, 
   return funcName.str();
 }
 
-std::string Mangler::getMaskedLoadStoreBuiltinName(bool isLoad, VectorType * vecType) {
+std::string Mangler::getMaskedLoadStoreBuiltinName(bool isLoad, VectorType * vecType, bool isBitMask) {
 
   // Determine load or store
   std::string baseFuncName;
@@ -419,7 +419,11 @@ std::string Mangler::getMaskedLoadStoreBuiltinName(bool isLoad, VectorType * vec
   }
 
   std::stringstream funcName;
-  funcName << "__ocl_masked_" << baseFuncName << typeName << vecType->getNumElements();
+  if (isBitMask)
+    funcName << "__ocl_imasked_";
+  else
+    funcName << "__ocl_masked_";
+  funcName << baseFuncName << typeName << vecType->getNumElements();
 
   return funcName.str();
 }

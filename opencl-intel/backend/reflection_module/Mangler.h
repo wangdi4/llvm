@@ -106,8 +106,9 @@ public:
   /// @brief Get mangled name for masked load/store function
   /// @param isLoad True if this is load, false otherwise
   /// @param vecType Vector type of the data to load/store
+  /// @param isBitMask Mask vector has 1-bit form
   /// @return name
-  static std::string getMaskedLoadStoreBuiltinName(bool isLoad, VectorType * vecType);
+  static std::string getMaskedLoadStoreBuiltinName(bool isLoad, VectorType * vecType, bool isBitMask);
 
   /// @brief returns fake builtin name for a given builtin name
   /// @param name - original builtin name
