@@ -23,6 +23,7 @@
 
 using namespace Intel::OpenCL::DeviceCommands;
 using Intel::OpenCL::Utils::OclAutoMutex;
+using Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup;
 
 cl_dev_err_code KernelCommand::AddChildKernelToLists(const SharedPtr<KernelCommand>& child, kernel_enqueue_flags_t flags, CommandSubmitionLists* pChildLists)
 {
@@ -53,9 +54,10 @@ cl_dev_err_code KernelCommand::AddChildKernelToLists(const SharedPtr<KernelComma
         break;
     case CLK_ENQUEUE_FLAGS_WAIT_WORK_GROUP:
         pNewKernel->next = pChildLists->waitingChildrenForWorkGroup;
-        pChildLists->waitingChildrenForWorkGroup->next = pNewKernel;
+        pChildLists->waitingChildrenForWorkGroup = pNewKernel;
         break;
     default:
+        assert(false && "invalid flag");
         return CL_DEV_INVALID_VALUE;
 	}
 
@@ -64,12 +66,6 @@ cl_dev_err_code KernelCommand::AddChildKernelToLists(const SharedPtr<KernelComma
 
 void KernelCommand::WaitForChildrenCompletion()
 { 
-	// since new children can't be added anymore at this pointer, there is no need for synchronization
-	if ( NULL == m_waitingChildrenForKernelGlobal)
-	{
-		return;
-	}
-
     while ( NULL != m_waitingChildrenForKernelGlobal )
     {
         CommandToExecuteList_t* pNextCommand = reinterpret_cast<CommandToExecuteList_t*>(m_waitingChildrenForKernelGlobal->next);
@@ -79,7 +75,13 @@ void KernelCommand::WaitForChildrenCompletion()
         m_waitingChildrenForKernelGlobal = pNextCommand;
     }
 
-    m_childrenTaskGroup->WaitForAll();    
+#ifdef _DEBUG
+    IThreadLibTaskGroup::TaskGroupStatus status = 
+#endif
+        m_childrenTaskGroup->Wait();
+#ifdef _DEBUG
+    assert(IThreadLibTaskGroup::COMPLETE == status && "IThreadLibTaskGroup::COMPLETE != status");
+#endif
 }
 
 void KernelCommand::SubmitCommands(CommandSubmitionLists* pNewCommands)

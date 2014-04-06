@@ -58,7 +58,7 @@ USE_SHUTDOWN_HANDLER(CPUDevice::WaitUntilShutdown);
 #if defined(_M_X64) || defined(__x86_64__)
     #define MEMORY_LIMIT (TotalPhysicalSize())
 #else
-    // When running on 32bit application on 64bit OS, the total physical size might exceed virtual evailable memory 
+    // When running on 32bit application on 64bit OS, the total physical size might exceed virtual evailable memory
     #define MEMORY_LIMIT    ( MIN(TotalPhysicalSize(), TotalVirtualSize()) )
 #endif
 
@@ -226,21 +226,21 @@ typedef struct _cl_dev_internal_cmd_list
     cl_dev_internal_subdevice_id* subdevice_id;
 } cl_dev_internal_cmd_list;
 
-CPUDevice::CPUDevice(cl_uint uiDevId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc): 
+CPUDevice::CPUDevice(cl_uint uiDevId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc):
     m_pProgramService(NULL),
     m_pMemoryAllocator(NULL),
     m_pTaskDispatcher(NULL),
-    m_pCPUDeviceConfig(NULL), 
-    m_pFrameworkCallBacks(devCallbacks), 
+    m_pCPUDeviceConfig(NULL),
+    m_pFrameworkCallBacks(devCallbacks),
     m_uiCpuId(uiDevId),
-    m_pLogDescriptor(logDesc), 
+    m_pLogDescriptor(logDesc),
     m_iLogHandle (0),
     m_defaultCommandList(NULL),
     m_numCores(0),
     m_pComputeUnitMap(NULL)
 #ifdef __HARD_TRAPPING__
     , m_bUseTrapping(false)
-#endif    
+#endif
 {
     m_bDeviceIsRunning = true;
 }
@@ -270,8 +270,8 @@ cl_dev_err_code CPUDevice::Init()
 
     // Enable VTune source level profiling
     GetCPUDevInfo(*m_pCPUDeviceConfig)->bEnableSourceLevelProfiling = m_pCPUDeviceConfig->UseVTune();
-    
-#ifdef __HARD_TRAPPING__    
+
+#ifdef __HARD_TRAPPING__
     m_bUseTrapping = m_pCPUDeviceConfig->UseTrapping();
 #endif
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CreateDevice function enter"));
@@ -292,9 +292,9 @@ cl_dev_err_code CPUDevice::Init()
         CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s %llu %s"), TEXT("WARNING: forced max memory allocation size ="), forcedMaxMemAllocSize, TEXT("bytes."));
     }
 
-    m_pProgramService = new ProgramService(m_uiCpuId, 
-                                           m_pFrameworkCallBacks, 
-                                           m_pLogDescriptor, 
+    m_pProgramService = new ProgramService(m_uiCpuId,
+                                           m_pFrameworkCallBacks,
+                                           m_pLogDescriptor,
                                            m_pCPUDeviceConfig,
                                            m_backendWrapper.GetBackendFactory());
     ret = m_pProgramService->Init();
@@ -315,7 +315,7 @@ cl_dev_err_code CPUDevice::Init()
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
-    
+
     return m_pTaskDispatcher->init();
 }
 
@@ -396,7 +396,7 @@ void CPUDevice::NotifyAffinity(threadid_t tid, unsigned int core_index)
 
     threadid_t   other_tid        = m_pCoreToThread[core_index];
     int          my_prev_core_idx = m_threadToCore[tid];
-    
+
     // The other tid is valid if there was another thread pinned to the core I want to move to
     bool         other_valid      = (other_tid != INVALID_THREAD_HANDLE) && (other_tid != tid);
     // Either I'm not relocating another thread, or I am. If I am, make sure that I'm relocating the thread which resides on the core I want to move to
@@ -433,7 +433,7 @@ void CPUDevice::NotifyAffinity(threadid_t tid, unsigned int core_index)
     }
     else
     {
-        m_pCoreToThread[my_prev_core_idx] = INVALID_THREAD_HANDLE;      
+        m_pCoreToThread[my_prev_core_idx] = INVALID_THREAD_HANDLE;
     }
 
 }
@@ -745,15 +745,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 //if OUT paramVal is NULL it should be ignored
                 if(NULL != paramVal)
                 {
-#ifdef ENABLE_KNL
-                    // TODO: enable images implementation on KNL!!!
-                    // At the moment we don't have them, so in order to pass
-                    // conformance tests we temporary pretend that KNL device
-                    // doesn't support images.
-                    *(cl_bool*)paramVal = CL_FALSE;
-#else
                     *(cl_bool*)paramVal = CL_TRUE;
-#endif
                 }
                 return CL_DEV_SUCCESS;
             }
@@ -896,6 +888,20 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             if(NULL != paramVal)
             {
                 *(cl_uint*)paramVal = CPU_MAX_WRITE_IMAGE_ARGS;
+            }
+            return CL_DEV_SUCCESS;
+        }
+        case( CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS):
+        {
+            *pinternalRetunedValueSize = sizeof(cl_uint);
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+                *(cl_uint*)paramVal = CPU_MAX_READ_WRITE_IMAGE_ARGS;
             }
             return CL_DEV_SUCCESS;
         }
@@ -1296,7 +1302,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             return CL_DEV_SUCCESS;
         }
         case( CL_DEVICE_OPENCL_C_VERSION):
-            {                
+            {
                 *pinternalRetunedValueSize = strlen(OPENCL_VERSION_1_2 == ver ? sOpenCLC12Str : sOpenCLC20Str) + 1;
                 if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
                 {
@@ -1330,6 +1336,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             int revision = 0;
             int build = 0;
             std::stringstream driverVerStream;
+            driverVerStream.imbue(std::locale("C"));   // override the current locale, so we don't get things like commas inside the numbers
             if (GetModuleProductVersion(__FUNCTION__, &major, &minor, &revision, &build))
             {
                 // format is (Major version).(Minor version).(Revision number).(Build number)
@@ -1391,7 +1398,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             }
             return CL_DEV_SUCCESS;
         }
-        
+
 
         case CL_DEVICE_PARTITION_PROPERTIES:
 #ifndef __ANDROID__
@@ -1478,7 +1485,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 else
                 {
                     *(size_t*)paramVal = (size_t)-1;
-                }                
+                }
             }
             return CL_DEV_SUCCESS;
         case CL_DEVICE_SVM_CAPABILITIES:
@@ -1563,12 +1570,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             {
                 *(size_t*)paramVal = 64 * 1024; // the same as VPG
             }
-            return CL_DEV_SUCCESS;       
+            return CL_DEV_SUCCESS;
         case CL_DEVICE_PREFERRED_LOCAL_ATOMIC_ALIGNMENT:
             *pinternalRetunedValueSize = sizeof(cl_uint);
             if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
-                return CL_DEV_INVALID_VALUE;                
+                return CL_DEV_INVALID_VALUE;
             }
             if (NULL != paramVal)
             {
@@ -1587,7 +1594,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
     \param[in]  deviceListSize          Specifies the size of memory pointed to by deviceIdsList.(in term of amount of IDs it can store)
                                         If deviceIdsList != NULL that deviceListSize must be greater than 0.
     \param[out] deviceIdsList           A pointer to memory location where appropriate values for each device ID will be store. If paramVal is NULL, it is ignored
-    \param[out] deviceIdsListSizeRet    If deviceIdsList!= NULL it store the actual amount of IDs being store in deviceIdsList. 
+    \param[out] deviceIdsListSizeRet    If deviceIdsList!= NULL it store the actual amount of IDs being store in deviceIdsList.
                                         If deviceIdsList == NULL and deviceIdsListSizeRet than it store the amount of available devices.
                                         If deviceIdsListSizeRet is NULL, it is ignored.
     \retval     CL_DEV_SUCCESS          If function is executed successfully.
@@ -1906,6 +1913,13 @@ cl_dev_err_code CPUDevice::clDevReleaseSubdevice(  cl_dev_subdevice_id IN subdev
         delete pSubdeviceData;
     }
     return CL_DEV_SUCCESS;
+}
+
+void* CPUDevice::clDevGetCommandListPtr(cl_dev_cmd_list IN list)
+{
+    assert(NULL != list);
+    cl_dev_internal_cmd_list& internalList = *reinterpret_cast<cl_dev_internal_cmd_list*>(list);
+    return internalList.pCmd_list.GetPtr();
 }
 
 // Execution commands
@@ -2278,6 +2292,15 @@ cl_dev_err_code CPUDevice::clDevGetBuildLog( cl_dev_program IN prog, size_t IN s
     return (cl_dev_err_code)m_pProgramService->GetBuildLog(prog, size, log, sizeRet);
 }
 /*******************************************************************************************************************
+clDevGetGlobalVariableTotalSize
+    Call programService to get the size of program variables in global address space.
+**********************************************************************************************************************/
+cl_dev_err_code CPUDevice::clDevGetGlobalVariableTotalSize( cl_dev_program IN prog, size_t* OUT size)
+{
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevGetGlobalVariableTotalSize Function enter"));
+    return (cl_dev_err_code)m_pProgramService->GetGlobalVariableTotalSize(prog, size);
+}
+/*******************************************************************************************************************
 clDevUnloadCompiler
     Call programService to get supported binary description
 **********************************************************************************************************************/
@@ -2428,8 +2451,8 @@ size_t CPUDevice::clDevFEDeviceInfoSize() const
    clDevGetDeviceInfo
 **************************************************************************************************************************/
 extern "C" cl_dev_err_code clDevGetDeviceInfo(  unsigned int IN    dev_id,
-                            cl_device_info  param, 
-                            size_t          valSize, 
+                            cl_device_info  param,
+                            size_t          valSize,
                             void*           paramVal,
                             size_t*         paramValSizeRet
                             )

@@ -20,30 +20,28 @@
 
 #include <iostream>
 #include <algorithm>
+#include <vector>
 #include "cpu_dev_test.h"
 #include "../framework_test_type/test_utils.h"
 #include "cl_synch_objects.h"
 #include "cl_sys_info.h"
 
 using Intel::OpenCL::Utils::OclBinarySemaphore;
+using std::vector;
+using std::count;
 
 struct NativeKernelParams
 {
 
-    NativeKernelParams(unsigned long ulNumProcessors, unsigned long ulNumProcessorsInDev, unsigned int uiMasterCpuId, affinityMask_t* pMask) : m_ulNumProcessors(ulNumProcessors),m_ulNumKernels(ulNumProcessorsInDev), m_processorsOccupied(new bool[ulNumProcessors]),
-			m_bDoubleAffinity(false), m_uiMasterCpuId(uiMasterCpuId), m_pMask(pMask)
-	{
-		std::fill(m_processorsOccupied, &m_processorsOccupied[ulNumProcessors], false);
-	}
-
-	~NativeKernelParams()
-	{
-		delete[] m_processorsOccupied;
-	}
+    NativeKernelParams(unsigned long ulNumProcessors, unsigned long ulNumProcessorsInDev, unsigned int uiMasterCpuId, affinityMask_t* pMask) : m_ulNumProcessors(ulNumProcessors),m_ulNumKernels(ulNumProcessorsInDev), m_processorsOccupied(ulNumProcessors),
+        m_bDoubleAffinity(false), m_uiMasterCpuId(uiMasterCpuId), m_pMask(pMask)
+    {
+        std::fill(m_processorsOccupied.begin(), m_processorsOccupied.end(), false);
+    }
 
     unsigned long                       m_ulNumProcessors;
     unsigned long                       m_ulNumKernels;
-    bool* const                         m_processorsOccupied;
+    vector<bool>                        m_processorsOccupied;
     volatile bool                       m_bDoubleAffinity;
     volatile unsigned int               m_uiMasterCpuId;
     affinityMask_t*                     m_pMask;
@@ -163,10 +161,15 @@ static bool AffinityTestForDevice(cl_dev_subdevice_id dev, NativeKernelParams* p
 #ifndef _WIN32
         if (NULL != params->m_pMask)
         {
+            const vector<bool>::difference_type numOccupiedProcessors = count(params->m_processorsOccupied.begin(), params->m_processorsOccupied.end(), true);
             for (unsigned long i = 0; i < params->m_ulNumProcessors; ++i)
-            {
-                bRes &= ((0 != CPU_ISSET(i, params->m_pMask)) == params->m_processorsOccupied[i]);
-            }
+            {                
+                bRes &= !params->m_processorsOccupied[i] || CPU_ISSET(i, params->m_pMask);                    
+            }            
+            bRes &= 
+                // in root device we allow one proccesor in the mask to be not occupied, since the number of workers is the number of processors in the device - 1
+                (!bMasterJoinsWork || CPU_COUNT(params->m_pMask) == numOccupiedProcessors || CPU_COUNT(params->m_pMask) - 1 == numOccupiedProcessors) &&
+                 (bMasterJoinsWork || CPU_COUNT(params->m_pMask) == numOccupiedProcessors);
         }
 #endif
 	}

@@ -60,10 +60,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
     public:
 
         PREPARE_SHARED_PTR(IOclCommandQueueBase) 
+
+        enum RUNTIME_COMMAND_TYPE 
+        {
+            JUST_WAIT = 0,
+            MARKER,
+            BARRIER
+        };
+        
         virtual cl_err_code EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
-        virtual cl_err_code EnqueueWaitEvents(Command* wfe, cl_uint uNumEventsInWaitList, const cl_event* cpEventWaitList);
-        virtual cl_err_code EnqueueMarkerWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList);
-        virtual cl_err_code EnqueueBarrierWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList);
+        virtual cl_err_code EnqueueRuntimeCommandWaitEvents(RUNTIME_COMMAND_TYPE type, 
+                                           Command* pCommand, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList, cl_event* pEvent);
         virtual cl_err_code WaitForCompletion(const SharedPtr<QueueEvent>& pEvent );            
         virtual ocl_gpa_data* GetGPAData() const { return m_pContext->GetGPAData(); }
 

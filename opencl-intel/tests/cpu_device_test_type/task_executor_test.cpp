@@ -69,7 +69,7 @@ public:
 
     void Cancel() {}
 
-	Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+	Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
 
 	// ITaskSet interface
 	int		Init(size_t region[], unsigned int &regCount)

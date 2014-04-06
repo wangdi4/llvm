@@ -63,6 +63,9 @@ using namespace Intel::OpenCL::Utils;
 #define    CL_CONFIG_MIC_DEVICE_PARALLEL_FILL_MAX_WORKERS               "CL_CONFIG_MIC_DEVICE_PARALLEL_FILL_MAX_WORKERS"            // int
 #define    CL_CONFIG_MIC_DEVICE_FORCE_BUFFERS_PINNING_ON_HOST           "CL_CONFIG_MIC_DEVICE_FORCE_BUFFERS_PINNING_ON_HOST"        // bool
 #define    CL_CONFIG_MIC_DEVICE_2MB_POOL_INIT_SIZE_MB                   "CL_CONFIG_MIC_DEVICE_2MB_POOL_INIT_SIZE_MB"                // size_t in MB
+#define    CL_CONFIG_MIC_DEVICE_2MB_POOL_FINI_SIZE_MB                   "CL_CONFIG_MIC_DEVICE_2MB_POOL_FINI_SIZE_MB"                // size_t in MB
+
+#define    CL_CONFIG_MIC_DEVICE_BATCH_MODE                              "CL_CONFIG_MIC_DEVICE_BATCH_MODE"                           // int
 
 #define    CL_CONFIG_MIC_DEVICE_PRINT_CONFIG                            "CL_CONFIG_MIC_DEVICE_PRINT_CONFIG"                         // bool
 
@@ -115,6 +118,9 @@ public:
     bool           Device_ForceBuffersPinning()    const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_FORCE_BUFFERS_PINNING_ON_HOST, false); }
 
     size_t         Device_Initial2MBPoolSizeInMB()  const { return m_pConfigFile->Read<size_t>(CL_CONFIG_MIC_DEVICE_2MB_POOL_INIT_SIZE_MB, 100); }
+    size_t         Device_Final2MBPoolSizeInMB()    const { return m_pConfigFile->Read<size_t>(CL_CONFIG_MIC_DEVICE_2MB_POOL_FINI_SIZE_MB, 0); }
+
+    int            Device_BatchMode() const { return m_pConfigFile->Read<int>(CL_CONFIG_MIC_DEVICE_BATCH_MODE, -1); };
 
     string         Device_offloadDevices()  const { return m_pConfigFile->Read<string>(OFFLOAD_DEVICES, ""); }
 
@@ -153,6 +159,7 @@ private:
         MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE, Device_IgnoreLastCore, "1 - do not use last MIC core" );
         MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_KB, Device_2MB_BufferMinSizeInKB, "0 - disabled, !=0 - minimum size of buffer in kilobytes to use 2MB pages"  );
         MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_2MB_POOL_INIT_SIZE_MB, Device_Initial2MBPoolSizeInMB, "0 - disabled, !=0 - initial size of 2MB pages pool"  );
+        MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_2MB_POOL_FINI_SIZE_MB, Device_Final2MBPoolSizeInMB, "0 - unlimited, !=0 - final preferred size of 2MB pages pool"  );
         MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE, Device_TbbGrainSize, "must not be 0, recommended number of WGs to schedule for same thread" );
         MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_TBB_SCHEDULER, Device_TbbScheduler, "opencl - use tbb:opencl_partitioner, affinity - tbb:affinity_partitioner, dynamic - tbb::auto_partitioner. Default or unknown - use opencl" );
         MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_TBB_BLOCK_OPTIMIZATION, Device_TbbBlockOptimization, "default_TBB_tile - optimize by square tiles using TBB default implementation, columns - optimize columns, rows - optimize rows, tiles - optimize square tiles" );
@@ -178,6 +185,8 @@ private:
         MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_PARALLEL_FILL_MAX_WORKERS, Device_ParallelFillMaxWorkers, "Max workers to use when calling to clEnqueueFillBuffer"  );
 
         MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_FORCE_BUFFERS_PINNING_ON_HOST, Device_ForceBuffersPinning, "For device-only buffers: 0 - pin host pages on demand, 1 - pin host pages at creation time" );
+
+        MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_BATCH_MODE, Device_BatchMode, "Select the execution batch mode '-1' - No batch (default), '0' - Full Batch, '1' - Mix mode, batch if at least on command is executing on the device" );
 
         std::cout << "--------------------------------------------------------" << std::endl << std::endl;
     }

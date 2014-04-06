@@ -17,14 +17,12 @@ File Name:  Compiler.h
 \*****************************************************************************/
 #pragma once
 
-#include <assert.h>
-#include <string>
-#include <set>
+#include "cl_dev_backend_api.h"
 #include "CPUDetect.h"
-#include "exceptions.h"
-#include "CompilerConfig.h"
-#include "Optimizer.h"
+#include "ICompilerConfig.h"
 #include "llvm/Support/raw_ostream.h"
+
+#include <string>
 
 namespace llvm {
     class ExecutionEngine;
@@ -41,7 +39,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 class BuiltinLibrary;
 class BuiltinModule;
-class CompilerConfig;
 class ProgramBuildResult;
 
 

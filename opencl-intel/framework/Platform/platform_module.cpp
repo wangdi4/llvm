@@ -49,12 +49,6 @@
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
-#if defined (_WIN32)
-#define OS_DLL_POST(fileName) ((fileName) + ".dll")
-#else
-#define OS_DLL_POST(fileName) ("lib" + (fileName) + ".so")
-#endif
-
 const char PlatformModule::m_vPlatformInfoStr[] = "FULL_PROFILE";
 const unsigned int PlatformModule::m_uiPlatformInfoStrSize = sizeof(m_vPlatformInfoStr) / sizeof(char);
 
@@ -153,42 +147,6 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
 
     return CL_SUCCESS;
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// PlatformModule::InitFECompilers
-///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code PlatformModule::InitFECompiler(SharedPtr<Device> pRootDevice)
-{
-    const IOCLDeviceFECompilerDescription& pFEConfig = pRootDevice->GetDeviceAgent()->clDevGetFECompilerDecription();
-    string strModule = pFEConfig.clDevFEModuleName();
-    SharedPtr<FrontEndCompiler> pFECompiler = FrontEndCompiler::Allocate();
-
-    if (NULL == pFECompiler)
-    {
-        return CL_OUT_OF_HOST_MEMORY;
-    }
-
-    cl_err_code clErrRet = pFECompiler->Initialize(OS_DLL_POST(strModule).c_str(),
-        pFEConfig.clDevFEDeviceInfo(), pFEConfig.clDevFEDeviceInfoSize() );
-    if (CL_FAILED(clErrRet))
-    {
-        pFECompiler->Release();
-        return clErrRet;
-    }
-
-    pRootDevice->SetFrontEndCompiler(pFECompiler);
-
-    // assign compiler in the objects map
-    m_mapFECompilers.AddObject(pFECompiler);
-    return CL_SUCCESS;
-}
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// PlatformModule::ReleaseFECompilers
-///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code PlatformModule::ReleaseFECompilers(bool bTerminate)
-{
-    m_mapFECompilers.ReleaseAllObjects(bTerminate);
-    return CL_SUCCESS;
-}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::Initialize
@@ -250,9 +208,6 @@ cl_err_code    PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OC
 cl_err_code    PlatformModule::Release(bool bTerminate)
 {
     LOG_INFO(TEXT("%s"), TEXT("Enter Release"));
-
-    // release front-end compilers
-    ReleaseFECompilers(bTerminate);
 
     // release devices
     m_mapDevices.ReleaseAllObjects(bTerminate);

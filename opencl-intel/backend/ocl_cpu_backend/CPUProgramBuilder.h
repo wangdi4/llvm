@@ -17,17 +17,18 @@ File Name:  CPUProgramBuilder.h
 \*****************************************************************************/
 #pragma once
 
-#include <assert.h>
-#include <string>
-#include "CPUDetect.h"
-#include "exceptions.h"
-#include "CompilerConfig.h"
-#include "cl_dev_backend_api.h"
-#include "Kernel.h"
-#include "Optimizer.h"
-#include "ProgramBuilder.h"
 #include "CPUCompiler.h"
 #include "CPUProgram.h"
+#include "ICompilerConfig.h"
+#include "ProgramBuilder.h"
+#include "cl_dev_backend_api.h"
+
+#ifdef OCL_DEV_BACKEND_PLUGINS
+#include "plugin_manager.h"
+#endif
+#include "ObjectCodeCache.h"
+
+#include <string>
 
 namespace llvm {
     class ExecutionEngine;
@@ -42,7 +43,6 @@ namespace llvm {
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 class BuiltinModule;
-class CompilerConfig;
 class Program;
 class Kernel;
 class KernelProperties;
@@ -90,6 +90,10 @@ protected:
     virtual void PostBuildProgramStep(Program* pProgram, llvm::Module* pModule,
       const ICLDevBackendOptions* pOptions) const ;
 
+    // reloads the program container from the cached binary object
+    virtual void ReloadProgramFromCachedExecutable(Program* pProgram);
+    // builds binary object for the built program
+    virtual void BuildProgramCachedExecutable(ObjectCodeCache* pCache, Program* pProgram) const;
 
 private:
 

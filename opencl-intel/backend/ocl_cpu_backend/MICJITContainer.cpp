@@ -17,7 +17,7 @@ File Name:  MICJITContainer.cpp
 \*****************************************************************************/
 
 #include "MICJITContainer.h"
-#include "MICKernelProperties.h"
+#include "KernelProperties.h"
 #include "Serializer.h"
 #include "MICSerializationService.h"
 #include "IAbstractBackendFactory.h"
@@ -92,14 +92,14 @@ MICJITContainer::~MICJITContainer()
     delete m_pProps;
 }
 
-void MICJITContainer::Serialize(IOutputStream& ost, SerializationStatus* stats)
+void MICJITContainer::Serialize(IOutputStream& ost, SerializationStatus* stats) const
 {
     Serializer::SerialPrimitive<unsigned long long int>(&m_funcID, ost);
 
     Serializer::SerialPointerHint((const void**)&m_pProps, ost);
     if(NULL != m_pProps)
     {
-        static_cast<MICKernelJITProperties*>(m_pProps)->Serialize(ost, stats);
+        m_pProps->Serialize(ost, stats);
     }
 }
 
@@ -110,8 +110,8 @@ void MICJITContainer::Deserialize(IInputStream& ist, SerializationStatus* stats)
     Serializer::DeserialPointerHint((void**)&m_pProps, ist);
     if(NULL != m_pProps)
     {
-        m_pProps =  static_cast<MICKernelJITProperties*>(stats->GetBackendFactory()->CreateKernelJITProperties());
-        static_cast<MICKernelJITProperties*>(m_pProps)->Deserialize(ist, stats);
+        m_pProps =  stats->GetBackendFactory()->CreateKernelJITProperties();
+        m_pProps->Deserialize(ist, stats);
     }
 
     m_pModuleJITHolder = (const ModuleJITHolder*)stats->GetPointerMark("pModuleJITHolder");

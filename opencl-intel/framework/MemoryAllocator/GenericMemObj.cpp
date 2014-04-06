@@ -413,6 +413,17 @@ cl_err_code GenericMemObject::InitializeSubObject(
     return CL_SUCCESS;
 }
 
+cl_err_code GenericMemObject::UpdateHostPtr(cl_mem_flags clMemFlags, void* pHostPtr)
+{
+    // Currently GenericMemObject doesn't support updating memory flags
+    if (m_clFlags != clMemFlags)
+    {
+        return CL_INVALID_OPERATION;
+    }
+
+    m_pHostPtr = pHostPtr;
+    return CL_SUCCESS;
+}
 
 const GenericMemObject::DeviceDescriptor* GenericMemObject::get_device( const FissionableDevice* dev ) const
 {
@@ -1425,46 +1436,40 @@ bool GenericMemObjectSubBuffer::IsSupportedByDevice(const SharedPtr<FissionableD
 }
 
 cl_err_code    GenericMemObjectSubBuffer::GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const
-{       
-    size_t szSize;
-    const void* pValue = NULL, *pHostPtr = NULL;
-    switch (iParamName)
+{
+    if (CL_MEM_HOST_PTR == iParamName && (m_rBuffer.GetFlags() & CL_MEM_USE_HOST_PTR))
     {
-    case CL_MEM_HOST_PTR:
+        const void* pHostPtr = NULL;
+        size_t szSize = sizeof(void*);
+        const void* pValue = &pHostPtr;
+
+        const IOCLDevBackingStore* pBackingStore, *pBufBackingStore;
+
+        cl_dev_err_code err = m_rBuffer.GetBackingStore(CL_DEV_BS_GET_IF_AVAILABLE, &pBufBackingStore);
+        assert(CL_SUCCEEDED(err));
+        const void* const pUserHostPtr = pBufBackingStore->GetUserProvidedHostMapPtr();
+        assert(NULL != pUserHostPtr);
+        err = GetBackingStore(CL_DEV_BS_GET_IF_AVAILABLE, &pBackingStore);
+        assert(CL_SUCCEEDED(err));
+        pHostPtr = (char*)pUserHostPtr + pBackingStore->GetDimentions()[0];
+
+        if (NULL != pParamValue && szParamValueSize < szSize)
         {
-            szSize = sizeof(void*);
-            pValue = &pHostPtr;
-            if (m_rBuffer.GetFlags() & CL_MEM_USE_HOST_PTR)
-            {
-                const IOCLDevBackingStore* pBackingStore, *pBufBackingStore;                
-
-                cl_dev_err_code err = m_rBuffer.GetBackingStore(CL_DEV_BS_GET_IF_AVAILABLE, &pBufBackingStore);
-                assert(CL_SUCCEEDED(err));
-                const void* const pUserHostPtr = pBufBackingStore->GetUserProvidedHostMapPtr();
-                assert(NULL != pUserHostPtr);
-                err = GetBackingStore(CL_DEV_BS_GET_IF_AVAILABLE, &pBackingStore);
-                assert(CL_SUCCEEDED(err));                
-                pHostPtr = (char*)pUserHostPtr + pBackingStore->GetDimentions()[0];
-            }           
+            LOG_ERROR(TEXT("szParamValueSize (=%d) < szSize (=%d)"), szParamValueSize, szSize);
+            return CL_INVALID_VALUE;
         }
-        break;
-    default:
-        return MemoryObject::GetInfo(iParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+        // return param value size
+        if (NULL != pszParamValueSizeRet)
+        {
+            *pszParamValueSizeRet = szSize;
+        }
+        if (NULL != pParamValue && szSize > 0 && pValue)
+        {
+            MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
+        }
+        return CL_SUCCESS;
     }
 
-    if (NULL != pParamValue && szParamValueSize < szSize)
-    {
-        LOG_ERROR(TEXT("szParamValueSize (=%d) < szSize (=%d)"), szParamValueSize, szSize);
-        return CL_INVALID_VALUE;
-    }
-    // return param value size
-    if (NULL != pszParamValueSizeRet)
-    {
-        *pszParamValueSizeRet = szSize;
-    }
-    if (NULL != pParamValue && szSize > 0 && pValue)
-    {
-        MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
-    }
-    return CL_SUCCESS;
+    return MemoryObject::GetInfo(iParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+
 }

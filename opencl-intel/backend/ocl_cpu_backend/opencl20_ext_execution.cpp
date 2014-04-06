@@ -107,7 +107,9 @@ static int enqueue_kernel_common(
   // in case desc field will happen to be used
   SmallVector<char, 256> bl(pBlockLiteral->GetSize());
   ::memcpy(&(bl[0]), block, pBlockLiteral->GetSize());
-  static_cast<BlockLiteral *>(block)->SetDescPtr(0);
+
+  BlockLiteral * pBl = reinterpret_cast<BlockLiteral *>(&bl[0]);
+  pBl->SetDescPtr(0);
 
   ///////////////////////////////////////////////////////////////////////
   // call enqueue
@@ -304,6 +306,7 @@ ocl20_get_kernel_wg_size(void *block, IDeviceCommandManager *DCM, const IBlockTo
   const ICLDevBackendKernelProporties* pKernelProps = pKernel->GetKernelProporties();
 
   DEBUG(dbgs() << "ocl20_get_kernel_wg_size. Called GetKernelWorkGroupSize\n");
+  DEBUG(dbgs() << "ocl20_get_kernel_wg_size. return value=" << pKernelProps->GetMaxWorkGroupSize(MAX_WORK_GROUP_SIZE, MAX_WG_PRIVATE_SIZE)<<"\n");
   return pKernelProps->GetMaxWorkGroupSize(MAX_WORK_GROUP_SIZE, MAX_WG_PRIVATE_SIZE);
 }
 

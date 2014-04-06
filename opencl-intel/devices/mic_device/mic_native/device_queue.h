@@ -38,92 +38,68 @@ namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 class QueueOnDevice
 {
 public:
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+
     QueueOnDevice( ThreadPool& thread_pool ) : m_thread_pool(thread_pool) {};
 
-    // return false on error
-    bool Init( bool isInOrder );
-
-    /* Run the task */
-    cl_dev_err_code Execute( TaskHandlerBase* task_handler);
-#else
-    virtual ~QueueOnDevice() {};
+    virtual ~QueueOnDevice() 
+    {
+        m_thread_pool.ReturnAffinitizationResource();
+    };
 
     // return false on error
-    virtual bool Init() = 0;
+    virtual bool Init( bool isInOrder = true );
 
     /* Run the task */
-    virtual cl_dev_err_code Execute( TaskHandlerBase* task_handler) = 0;
-#endif
+    virtual cl_dev_err_code Execute( TaskHandlerBase* task_handler);
+
+    virtual bool IsAsyncExecution() { return true; };
 
     void Cancel() const;
 
-#ifdef _DEBUG
-    static QueueOnDevice* getCurrentQueue( UtilsNative::TlsAccessor* tlsAccessor )
-        {
-            assert( NULL != tlsAccessor );
-            UtilsNative::QueueTls queueTls(tlsAccessor);
-            return (QueueOnDevice*)(queueTls.getTls(UtilsNative::QueueTls::QUEUE_TLS_ENTRY));
-        };
+    virtual bool FinishTask( TaskHandlerBase* pTask ) { return pTask->FinishAsyncTask(); };
 
-    static void setCurrentQueue( UtilsNative::TlsAccessor* tlsAccessor, QueueOnDevice* queue )
-        {
-            assert( NULL != tlsAccessor );
-            UtilsNative::QueueTls queueTls(tlsAccessor);
-            queueTls.setTls(UtilsNative::QueueTls::QUEUE_TLS_ENTRY, queue);
-        };
-#endif
+    virtual void CancelTask( TaskHandlerBase* pTask ) { pTask->CancelAsyncTask(); };
 
-	static QueueOnDevice* createQueueOnDevice( bool is_in_order );
+    virtual long ReleaseTask( TaskHandlerBase* pTask ) { return pTask->ReleaseAsyncTask(); };
 
 #ifdef __MIC_DA_OMP__
     static Intel::OpenCL::Utils::AtomicCounter m_sNumQueuesCreated;
 #endif
 
-#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
     Intel::OpenCL::TaskExecutor::ITaskList* GetTaskList() const { return m_task_list.GetPtr();}
-#endif
 protected:
-#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
-    QueueOnDevice( ThreadPool& thread_pool ) : m_thread_pool(thread_pool) {};
-#endif
+
+	// return false on error
+    bool initInt( Intel::OpenCL::TaskExecutor::TE_CMD_LIST_TYPE cmdListType );
+
+	/* Run the task */
+    cl_dev_err_code executeInt( TaskHandlerBase* task_handler);
 
     ThreadPool&                                                              m_thread_pool;
     Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskList>  m_task_list;
 };
 
-#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
-/* BlockingTaskHandler inherits from "TaskHandler" and implements the functionality for Blocking task management. */
-class InOrderQueueOnDevice : public QueueOnDevice
+/* Immediate execution of a Task. */
+class SyncQueueOnDevice : public QueueOnDevice
 {
-
 public:
-    InOrderQueueOnDevice( ThreadPool& thread_pool ) : QueueOnDevice( thread_pool ) {}
-    ~InOrderQueueOnDevice();
+
+    SyncQueueOnDevice( ThreadPool& thread_pool ) : QueueOnDevice( thread_pool ) {};
+    ~SyncQueueOnDevice();
+
+	// return false on error
+    virtual bool Init( bool isInOrder = true );
 
     /* Execute the task */
     virtual cl_dev_err_code Execute( TaskHandlerBase* task_handler);
-    //virtual cl_dev_err_code ExecuteImpl( const SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>& pTask );
 
-    // return false on error
-    bool Init();
+    virtual bool IsAsyncExecution() { return false; };
+
+    virtual bool FinishTask( TaskHandlerBase* pTask ) { return pTask->FinishSyncTask(); };
+
+    virtual void CancelTask( TaskHandlerBase* pTask ) { pTask->CancelSyncTask(); };
+	
+    virtual long ReleaseTask( TaskHandlerBase* pTask ) { return pTask->ReleaseSyncTask(); };
 };
-
-
-class OutOfOrderQueueOnDevice : public QueueOnDevice
-{
-public:
-    OutOfOrderQueueOnDevice( ThreadPool& thread_pool ) : QueueOnDevice( thread_pool ) {}
-    ~OutOfOrderQueueOnDevice() {};
-
-    /* Execute the task */
-    virtual cl_dev_err_code Execute( TaskHandlerBase* task_handler);
-    //virtual cl_dev_err_code ExecuteImpl( const TaskHandlerBase* task );
-
-    // return false on error
-    bool Init();
-};
-#endif
 
 }}}
-

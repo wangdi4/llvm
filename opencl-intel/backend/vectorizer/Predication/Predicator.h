@@ -45,6 +45,45 @@ public:
     return "Predicator";
   }
 
+  /// type of the block inside the allones structure:
+  // If not a single loop block, then one of:
+  //
+  //              entry
+  //             .     .
+  //            .       .
+  //       original    allones
+  //            .       .
+  //             .     .
+  //              exit
+  //
+  //
+  // If a single loop block, then one of:
+  //             entry
+  //               .         .
+  //all-ones -> all-ones      .
+  //             . .           .
+  //          test all zeroes  .
+  //          .    .          .
+  //         .   entry2      <- entry
+  //         .     .
+  //         .  original  <- original
+  //          .    .   .
+  //            . exit
+   enum AllOnesBlockType {
+      /// Block not related to an allone bypass.
+      NONE  = 0,
+      ENTRY = 1,
+      ORIGINAL = 2,
+      ALLONES = 3,
+      EXIT = 4,
+      SINGLE_BLOCK_LOOP_ENTRY = 5,
+      SINGLE_BLOCK_LOOP_ALLONES = 6,
+      SINGLE_BLOCK_LOOP_TEST_ALLZEROES = 7,
+      SINGLE_BLOCK_LOOP_ENTRY_TO_ORIGINAL = 8,
+      SINGLE_BLOCK_LOOP_ORIGINAL = 9,
+      SINGLE_BLOCK_LOOP_EXIT = 10
+  };
+
 private:
   /// Declare the type of our small instruction vector
   typedef SmallVector<Instruction*, 8> SmallInstVector;
@@ -127,6 +166,12 @@ private:
   /// @param tp pointer to consider
   /// @return name of type
   std::string getNameFromPointerType(Type* tp);
+  /// @brief replace the original instruction by the predicated one,
+  /// and saves the data for the allones bypasser if needed.
+  /// @param original instruction that is to be replaced.
+  /// @param predicated the predicated version of the same instruction.
+  void replaceInstructionByPredicatedOne(Instruction* original,
+                                         Instruction* predicated);
   /// @brief Create a functions call which represents a predicated instructions
   //  of the given type.
   /// @param inst Instruction to predicate
@@ -225,6 +270,22 @@ private:
   /// are in-loop cfg or simple merge.
   /// @param BB
   void maskIncoming_simpleMerge(BasicBlock *BB);
+  /// @brief calculates the heuristic that decides
+  /// which divergent branches should be allones bypassed.
+  /// this method runs before predication. The results are stored inside
+  /// m_heuristic decisions and used later.
+  void calculateHeuristic(Function* F);
+  /// @brief true if the given block holds load and/or store instructions.
+  bool blockHasLoadStore(BasicBlock* BB);
+  /// @brief inserts allones bypasses into the code, in places where the heuristics
+  /// suggested to do so.
+  void insertAllOnesBypasses();
+  /// @brief In case that the block we want to test for allones is
+  /// a loop consists of a single block, then we treat it differently
+  /// (in order to be more efficient).
+  /// @param original The single loop block.
+  void insertAllOnesBypassesSingleBlockLoopCase(BasicBlock* original);
+
   /*! \} */
 
 
@@ -280,6 +341,36 @@ public:
   Value* getInMask(BasicBlock* block);
   /*! \} */
 
+  /// @brief expects a block that is a single loop block and that has an 'allone'
+  /// single loop block twin. Returns the twin.
+  /// @param originalSingleLoop A block that is both a header and a latch of a
+  /// loop. This block should be predicated, but should also have an
+  /// allones uniform twin.
+  static BasicBlock* getAllOnesSingleLoopBlock(BasicBlock* originalSingleLoop);
+  /// @brief expects a block that is of AllOnesBlockType::ORIGINAL type.
+  /// returns the entry predecessor.
+  /// @param original A predicated block that was bypassed with an allones
+  /// bypass.
+  static BasicBlock* getEntryBlockFromOriginal(BasicBlock* original);
+  /// @brief expects a block that is of
+  /// AllOnesBlockType::SINGLE_BLOCK_LOOP_ORIGINAL type.
+  /// returns the corresponding SINGLE_BLOCK_LOOP_ENTRY.
+  /// @param loopOriginal A block that is both a header and a latch of a
+  /// loop. This block should be predicated, but should also have an
+  /// allones uniform twin.
+  static BasicBlock* getEntryBlockFromLoopOriginal(BasicBlock* loopOriginal);
+  /// @brief If this block is part of an allones bypass,
+  /// returns the specific AllOnesBlock type. Otherwise
+  /// returns AllOnesBlock::NONE
+  /// @param BB
+  static AllOnesBlockType getAllOnesBlockType(BasicBlock* BB);
+  /// @brief If this blocks ends with a conditional branch,
+  /// and the condition is a call instruction to the allones function,
+  /// then this method returns this conditional branch.
+  /// otherwise returns NULL.
+  /// @param BB
+  static BranchInst* getAllOnesBranch(BasicBlock* BB);
+
 private:
   /// Pointer to runtime service object
   const RuntimeServices * m_rtServices;
@@ -312,9 +403,21 @@ private:
   int m_maskedStoreCtr;
   /// Counter for masked call
   int m_maskedCallCtr;
-  
+
   // Work-item analysis pointer
   WIAnalysis* m_WIA;
+
+  /// blocks that the heuristic decides it is a good idea
+  /// to test their mask for allones.
+  std::set<BasicBlock*> m_valuableAllOnesBlocks;
+  /// when predicating an instruction, if the original instruction
+  /// is also going to be used for an allones block, create this mapping.
+  std::map<Instruction*,Instruction*> m_predicatedToOriginalInst;
+  /// when inserting a select instruction for instructions that are
+  /// used outside loops, create this mapping from the select instruction
+  /// into the first value that is used for the select (which is
+  /// the needed value if the mask is allones.)
+  std::map<Instruction*,Instruction*> m_predicatedSelects;
 };
 
 }

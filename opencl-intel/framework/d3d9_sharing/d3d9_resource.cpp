@@ -318,7 +318,7 @@ void D3D9Surface::FillDimensions(const D3DResourceInfo<IDirect3DResource9>& reso
 
 bool D3D9Surface::IsValidlyCreated(D3DResourceInfo<IDirect3DResource9>& resourceInfo) const
 {
-    const ID3DSharingDefinitions& d3d9Definitions = GetContext().DynamicCast<const D3D9Context>()->GetD3dDefinitions();
+    const ID3DSharingDefinitions& d3d9Definitions = GetContext().DynamicCast<D3D9Context>()->GetD3dDefinitions();
 
     // In Khronos spec it says that we should check that the surface has been created in D3DPOOL_DEFAULT just for adapter_type CL_ADAPTER_D3D9_KHR
     if (d3d9Definitions.GetVersion() == ID3DSharingDefinitions::D3D9_INTEL ||

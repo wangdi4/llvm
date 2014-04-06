@@ -49,7 +49,18 @@ crt_err_code CrtConfig::Init()
 
     // CPU-runtime library:
     std::string libName;
-    if( OCLCRT::Utils::GetCpuPathFromRegistry( libName ) )
+    std::string valueName;
+
+    if (emulatorEnabled())
+    {
+        valueName = "cpu_2_0_emulator_path";
+    }
+    else
+    {
+        valueName = "cpu_path"; 
+    }
+
+    if( OCLCRT::Utils::GetCpuPathFromRegistry( valueName, libName ) )
     {
         // full path library name
         libName = libName + "\\" + OCLCRT::Utils::FormatLibNameForOS( cpuRuntimeLibName );
@@ -60,8 +71,30 @@ crt_err_code CrtConfig::Init()
     }
     m_libraryNames.push_back( libName );
 
-    // GPU-runtime library:
-    m_libraryNames.push_back( OCLCRT::Utils::FormatLibNameForOS( gpuRuntimeLibName ) );
+    if (!emulatorEnabled())
+    {
+        // GPU-runtime library:
+        m_libraryNames.push_back( OCLCRT::Utils::FormatLibNameForOS( gpuRuntimeLibName ) );
+    }
 
     return CRT_SUCCESS;
+}
+
+bool CrtConfig::emulatorEnabled()
+{
+#if defined( _WIN32 )
+
+    const char *regPath = "SOFTWARE\\Intel\\OpenCL";
+    char emulatorVal[16];
+    bool retVal = OCLCRT::Utils::GetStringValueFromRegistry(HKEY_LOCAL_MACHINE, regPath, "ocl_2_0_enabled", emulatorVal, 16);
+
+    if(retVal)
+    {
+        if(_stricmp(emulatorVal, "true") == 0)
+        {
+            return true;
+        }
+    }
+#endif
+    return false;
 }

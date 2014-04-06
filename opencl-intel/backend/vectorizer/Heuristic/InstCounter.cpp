@@ -6,6 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #include "InstCounter.h"
 #include "WIAnalysis.h"
+#include "Predicator.h"
 #include "Mangler.h"
 #include "LoopUtils/LoopUtils.h"
 #include "OpenclRuntime.h"
@@ -45,7 +46,7 @@ OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(VectorizationPossibilityPass, "vectorpossible", "Check whether vectorization is possible", false, false)
 
 
-const float WeightedInstCounter::RATIO_MULTIPLIER = 0.98;
+const float WeightedInstCounter::RATIO_MULTIPLIER = 0.98f;
 const float WeightedInstCounter::ALL_ZERO_LOOP_PENALTY = 0;
 const float WeightedInstCounter::TID_EQUALITY_PENALTY = 0.1f;
 
@@ -219,6 +220,25 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
   LoopInfo *LI = &getAnalysis<LoopInfo>();
   // For each basic block, add up its weight
   for (Function::iterator BB = F.begin(), BBE = F.end(); BB != BBE; ++BB) {
+
+    bool discardPhis = false;
+    bool discardTerminator = false;
+
+    // Check if BB is an idom of an allOnes branch
+    // and if it does discard its phis cost
+    Predicator::AllOnesBlockType blockType = Predicator::getAllOnesBlockType(BB);
+    if (dyn_cast<PHINode>(BB->begin())) {
+
+      if (blockType == Predicator::EXIT) {
+        discardPhis = true;
+      }
+    }
+
+    if (blockType == Predicator::ALLONES ||
+      blockType == Predicator::ORIGINAL) {
+        discardTerminator = true;
+    }
+
     // Check if the basic block in a loop. If it is, we want to multiply
     // all of its instruction's weights by its tripcount.
     int TripCount = 1;
@@ -229,6 +249,10 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
 
     // And now, sum up all the instructions
     for (BasicBlock::iterator I = BB->begin(), IE=BB->end(); I != IE; ++I){
+      if (discardPhis && dyn_cast<PHINode>(I))
+        continue;
+      if (discardTerminator &&  dyn_cast<TerminatorInst>(I))
+        continue;
       m_totalWeight += Probability * TripCount *
                        getInstructionWeight(I, MemOpCostMap);
     }
@@ -429,10 +453,14 @@ int WeightedInstCounter::estimateCall(CallInst *Call)
       return CALL_FAKE_INSERT_EXTRACT_WEIGHT;
 
 
-    // allZero and allOne calls are cheap, it's basically a xor/ptest
-    if ((Name.startswith(Mangler::name_allZero)) ||
-        (Name.startswith(Mangler::name_allOne)))
+    // allZero are cheap, it's basically a xor/ptest
+    // allone we do not count at all, since we don't want allone-bypasses
+    // to effect the result of the heuristics.
+    if (Mangler::isAllZero(Name))
       return DEFAULT_WEIGHT;
+
+    if (Mangler::isAllOne(Name))
+      return 0;
 
     // See if we can find the function in the function cost table
     return getFuncCost(Name);
@@ -583,8 +611,20 @@ int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instructi
   // This has two reasons - a direct one (misprediction)
   // and an indirect one (to punish complex control flow).
   if (BranchInst* BR = dyn_cast<BranchInst>(I))
-    if (BR->isConditional())
+    if (BR->isConditional()) {
+      // we do not count allones branches, because we do not
+      // want the allones optimization to change heuristic results
+      // of kernels.
+      Value* Cond = BR->getCondition();
+      CallInst* CondCall = dyn_cast<CallInst>(Cond);
+      if (CondCall && CondCall->getCalledFunction()) {
+        StringRef Name = CondCall->getCalledFunction()->getName();
+        if (Mangler::isAllOne(Name))
+          return 0;
+      }
+
       return COND_BRANCH_WEIGHT;
+    }
 
   // For everything else - use a default weight
   return DEFAULT_WEIGHT;
@@ -632,7 +672,16 @@ void WeightedInstCounter::estimateIterations(Function &F,
 
     int Count = LOOP_ITER_GUESS;
     BasicBlock* Latch = L->getLoopLatch();
-    if (Latch)
+    // cheating heuristics to get the same results when applying allones.
+    // this is important when the condition of the latch is uniform.
+    // In such a case this loop will never be reached
+    // after the allones loop, and getSmallConstantTripCount() returns 0.
+    if (Predicator::getAllOnesBlockType(L->getHeader())
+      == Predicator::SINGLE_BLOCK_LOOP_ORIGINAL) {
+        Latch = Predicator::getAllOnesSingleLoopBlock(L->getHeader());
+        Count = SI->getSmallConstantTripCount(LI->getLoopFor(Latch), Latch);
+    }
+    else if (Latch)
       Count = SI->getSmallConstantTripCount(L, Latch);
 
     // getSmallConstantTripCount() returns 0 for non-constant trip counts
@@ -677,6 +726,14 @@ void WeightedInstCounter::
   DenseSet<Instruction*> DepSet;
   estimateDataDependence(F, DepSet);
 
+  // We want to make sure the heuristics gets the same result with or without
+  // the allones optimization. For this reason, we need to
+  // 'cheat' at the probability of some blocks.
+  // some blocks need to get the probability of the entry
+  // to allones block (which is why we need this map),
+  // and some blocks simply need to get a zero probability.
+  std::map<BasicBlock*, BasicBlock*> allOnesToEntryBlock;
+
   // Now do a VERY coarse measurement. The number of nodes on which a block
   // is control-dependent is the number of decision points. For a block to be
   // reached, all decisions need to go "its way".
@@ -696,6 +753,52 @@ void WeightedInstCounter::
     // Before vectorization, the probability is simple 1/(2^k) where k
     // is the number of branches the block is control-dependent on.
     int count = (int)Frontier.size();
+
+    // since we do not want the allones optimization to influence heuristics
+    // results (vs. without using allones), we have several specail cases.
+    Predicator::AllOnesBlockType blockType = Predicator::getAllOnesBlockType(BB);
+    switch (blockType)
+    {
+    case Predicator::ALLONES : // not counting, this is a duplication of ORIGINAL.
+    case Predicator::SINGLE_BLOCK_LOOP_ALLONES : // dup of SINGLE_BLOCK_LOOP_ORIGINAL
+    case Predicator::SINGLE_BLOCK_LOOP_ENTRY_TO_ORIGINAL : // overhead of allones
+    case Predicator::SINGLE_BLOCK_LOOP_EXIT : // overhead of allones
+    case Predicator::SINGLE_BLOCK_LOOP_TEST_ALLZEROES : // overhead of allones
+      ProbMap[BB] = 0;
+      continue;
+    // original is counted without the allones optimization,
+    // so we want to count it here as well. However,
+    // we need to make sure we give it the same probability
+    // as would have been given without the allones optimization.
+    // this probability is the on that 'entry' would get
+    // (since it has the same incoming edges original previously had).
+    case Predicator::ORIGINAL :
+      // find entry, and fill Prob at the end.
+      allOnesToEntryBlock[BB] = Predicator::getEntryBlockFromOriginal(BB);
+      continue;
+    // analogoues to original, but probability here
+    // should be half of that of the entry (and not identical),
+    // because there is another branch (without the allones bypasses version)
+    // for this reason, we divide it by 2 at the end.
+    case Predicator::SINGLE_BLOCK_LOOP_ORIGINAL :
+      // find entry, and fill Prob at the end.
+      allOnesToEntryBlock[BB] = Predicator::getEntryBlockFromLoopOriginal(BB);
+      continue;
+    case Predicator::NONE : // regular block treated normally.
+    // ENTRY and EXIT holds part of what is found in ORIGINAL block
+    // before the allones bypass (only part of the block is duplicated)
+    // so we need to count them normally as well.
+    case Predicator::ENTRY :
+    case Predicator::EXIT :
+    // SINGLE_BLOCK_LOOP_ENTRY should have probability zero (not be counted)
+    // but we do that later. First we calculate the probability
+    // to be used for the SINGLE_BLOCK_LOOP_ORIGINAL.
+    case Predicator::SINGLE_BLOCK_LOOP_ENTRY :
+      break;
+    default :
+      V_ASSERT(false && "unknown type");
+      break;
+    }
 
     if (!m_preVec)
     {
@@ -748,7 +851,7 @@ void WeightedInstCounter::
         // We believe case (a) is more common. There is no reason to punish guards, since
         // the logic of "all workitems must agree for the block to be skipped, which is rarer
         // then a single workitem satisfying the condition" no longer applies.
-        if ((Name.startswith(Mangler::name_allZero) || Name.startswith(Mangler::name_allOne))
+        if (Mangler::isAllZero(Name)
           && AllZOpType->isVectorTy()
           && (DepSet.find(CondCall) != DepSet.end()))
             count--;
@@ -756,13 +859,30 @@ void WeightedInstCounter::
         // A degenerate case - an allZero(true) branch is never taken.
         // If you depend on one of those, ignore this dependency.
         ConstantInt* ConstOp = dyn_cast<ConstantInt>(AllZOp);
-        if (Name.startswith(Mangler::name_allZero) &&
+        if (Mangler::isAllZero(Name) &&
             ConstOp && ConstOp->isOne())
               count--;
       }
     }
     ProbMap[BB] = 1.0/(pow(2.0, count));
   }
+
+  // We want to ensure that the allones optimization
+  // won't cause noises in the heuristics decision.
+  // (that is, will return the same result as without running the allones
+  // optimization.)
+  for (std::map<BasicBlock*,BasicBlock*>::iterator it = allOnesToEntryBlock.begin(),
+    e = allOnesToEntryBlock.end(); it != e; ++ it) {
+      if (Predicator::getAllOnesBlockType(it->second) ==
+        Predicator::SINGLE_BLOCK_LOOP_ENTRY) {
+          ProbMap[it->first] = ProbMap[it->second] / 2;
+          ProbMap[it->second] = 0;
+      }
+      else {
+         ProbMap[it->first] = ProbMap[it->second];
+      }
+  }
+
 }
 
 void WeightedInstCounter::estimateMemOpCosts(Function &F, DenseMap<Instruction*, int> &CostMap) const

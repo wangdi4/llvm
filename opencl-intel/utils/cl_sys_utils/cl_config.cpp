@@ -233,6 +233,9 @@ cl_err_code ConfigFile::WriteFile(string fileName, ConfigFile& cf)
 
 OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
 {
+#ifdef BUILD_2_0_RT
+    return OPENCL_VERSION_2_0;
+#else
     // first look in environment variable or configuration file
     std::string ver = m_pConfigFile->Read("ForceOCLCPUVersion", std::string(""));   // we are using this name to be aligned with GEN
     if ("1.2" == ver)
@@ -256,6 +259,33 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
     case 2:
         return OPENCL_VERSION_2_0;
     default:
-        return OPENCL_VERSION_1_2;  // this is the default if there is nothing else (until we are officially OpenCL 2.0)
+#ifdef _WIN32
+        return GetOpenclVerByCpuModel();
+#else
+        return OPENCL_VERSION_1_2;
+#endif
+    }
+#endif
+}
+
+#ifdef _WIN32
+OPENCL_VERSION Intel::OpenCL::Utils::GetOpenclVerByCpuModel()
+{
+    int cpuInfo[4] = {-1};
+    __cpuid(cpuInfo, 1);
+
+    const short i16ProcessorSignature = (short)(cpuInfo[0] >> 4);	
+    if (0x306d == i16ProcessorSignature ||	// Broadwell ULT Client
+		    0x4067 == i16ProcessorSignature ||	// Broadwell Client Halo
+		    0x406e == i16ProcessorSignature ||	// Skylake ULT/ULX
+		    0x506e == i16ProcessorSignature		// Skylake DT/Halo
+		    )
+    {
+        return OPENCL_VERSION_2_0;
+    }
+    else
+    {
+        return OPENCL_VERSION_1_2;
     }
 }
+#endif

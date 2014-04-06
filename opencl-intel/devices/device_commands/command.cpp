@@ -24,7 +24,7 @@
 
 using namespace Intel::OpenCL::DeviceCommands;
 using Intel::OpenCL::Utils::OclAutoMutex;
-using Intel::OpenCL::Utils::HostTime;
+using Intel::OpenCL::Utils::AccurateHostTime;
 
 void DeviceCommand::SetError(cl_dev_err_code err)
 {	
@@ -58,60 +58,72 @@ bool DeviceCommand::AddWaitListDependencies(const clk_event_t* pEventWaitList, c
 
 void DeviceCommand::NotifyCommandFinished(cl_dev_err_code err)
 {
-	ASSERT_RET(m_numDependencies > 0, "m_numDependencies > 0");
-	const long lCurrentDependencies = --m_numDependencies;
-	if (CL_DEV_FAILED(err))
-	{
-		SetError(err);
-	}
-	if (0 == lCurrentDependencies)
-	{
-		if (CL_DEV_SUCCEEDED(GetError()))
-		{
-			Launch();
-		}
-		else
-		{
-			SignalComplete(GetError());
-		}
-	}
+    ASSERT_RET(m_numDependencies > 0, "m_numDependencies > 0");
+    const long lCurrentDependencies = --m_numDependencies;
+    if (CL_DEV_FAILED(err))
+    {
+        SetError(err);
+    }
+    if (0 == lCurrentDependencies)
+    {
+        m_commandsThisIsWaitingFor.clear();
+        if (CL_DEV_SUCCEEDED(GetError()))
+        {
+            Launch();
+        }
+        else
+        {
+            SignalComplete(GetError());
+        }
+    }
 }
 
 void DeviceCommand::SignalComplete(cl_dev_err_code err)
 { 	
   if (m_bIsProfilingEnabled)
-	{
-		const unsigned long long ulCompleteTime = HostTime();
-    m_ulCompleteTime = ulCompleteTime - m_ulStartExecTime;
-		if (NULL != m_pExecTimeUserPtr)
-		{
-			((cl_long*)m_pExecTimeUserPtr)[1] = m_ulExecTime;
-		}
-	}
+  {
+    const unsigned long long ulCompleteTime = AccurateHostTime();
+    const long long lStartExecTime = (long long)m_ulStartExecTime, lCompleteTime = (long long)ulCompleteTime;
+    /* Because TSC values in different cores are slightly different, we can get negative time slices. Therefore we check this (but we are careful to identify a wrap-around) and
+       assign, which is the only reasonable value in this case. */
+    if (ulCompleteTime <= m_ulStartExecTime && !(lCompleteTime >= 0 && lStartExecTime < 0))
+    {
+        m_ulCompleteTime = 1;
+    }
+    else
+    {
+        m_ulCompleteTime = ulCompleteTime - m_ulStartExecTime;
+    }    
+    if (NULL != m_pExecTimeUserPtr)
+    {
+        ((cl_long*)m_pExecTimeUserPtr)[1] = m_ulExecTime;
+    }
+  }
 
-	SetError(err);
-	OclAutoMutex mutex(&m_mutex);	// m_bCompleted and m_waitingCommandsForThis are protected together (see AddWaitListDependencies)
-	m_bCompleted = true;
-	
-	for (std::vector<SharedPtr<DeviceCommand> >::iterator iter = m_waitingCommandsForThis.begin(); iter != m_waitingCommandsForThis.end(); iter++)
-	{
-		(*iter)->NotifyCommandFinished(GetError());
-	}
+    SetError(err);
+    OclAutoMutex mutex(&m_mutex);   // m_bCompleted and m_waitingCommandsForThis are protected together (see AddWaitListDependencies)
+    m_bCompleted = true;
+
+    for (std::vector<SharedPtr<DeviceCommand> >::iterator iter = m_waitingCommandsForThis.begin(); iter != m_waitingCommandsForThis.end(); iter++)
+    {
+        (*iter)->NotifyCommandFinished(GetError());
+    }
+    m_waitingCommandsForThis.clear();
 }
 
 void DeviceCommand::StartExecutionProfiling()
 {
-	if (m_bIsProfilingEnabled)
-	{
-		m_ulStartExecTime = HostTime();
-	}
+    if (m_bIsProfilingEnabled)
+    {
+        m_ulStartExecTime = AccurateHostTime();
+    }
 }
 
 void DeviceCommand::StopExecutionProfiling()
 {
 	if (m_bIsProfilingEnabled)
 	{
-		const unsigned long long ulEndExecTime = HostTime();
+		const unsigned long long ulEndExecTime = AccurateHostTime();
 		m_ulExecTime = ulEndExecTime - m_ulStartExecTime;
 		if (NULL != m_pExecTimeUserPtr)
 		{

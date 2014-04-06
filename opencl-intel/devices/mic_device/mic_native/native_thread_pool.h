@@ -27,6 +27,7 @@
 #include "task_executor.h"
 #include "native_globals.h"
 #include "thread_local_storage.h"
+#include <cl_synch_objects.h>
 #include <sched.h>
 
 namespace Intel { namespace OpenCL { namespace MICDeviceNative {
@@ -46,7 +47,7 @@ public:
     
     // if core of thread description was not found - return zero affinity
     bool is_enabled_thread( unsigned int core_thread_idx ) const { return (core_thread_idx < m_enabled_threads); };
-    cpu_set_t get_thread_affinity_mask( unsigned int core_thread_idx ) const;
+    cpu_set_t get_thread_affinity_mask( unsigned int core_thread_idx, bool force_enabled_threads = true ) const;
     unsigned int get_thread_os_hw_thread( unsigned int core_thread_idx ) const 
     { 
         return (core_thread_idx < m_enabled_threads) ? os_hw_thread_ids[core_thread_idx] : os_hw_thread_ids[0];
@@ -114,9 +115,8 @@ public:
     // Allocate all nessary resources for the current calling thread
     bool    ActivateCurrentMasterThread();
     bool    DeactivateCurrentMasterThread();
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
     bool    AffinitizeMasterThread();
-#endif
+    void    ReturnAffinitizationResource();
 
     // ITaskExecutorObserver
     virtual void* OnThreadEntry();
@@ -157,6 +157,7 @@ private:
     unsigned int  m_useNumberOfCores;
     unsigned int  m_useThreadsPerCore;
     unsigned int  m_numOfActivatedThreads;
+    unsigned int  m_numHWThreads;
     bool          m_useIgnoreFirstCore;
     bool          m_useIgnoreLastCore;
     bool          m_useAffinity;
@@ -168,10 +169,12 @@ private:
 
     // Global workers affinity mask 
     cpu_set_t m_globalWorkersAffinityMask;
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
-    // Global master threads affinity mask
+    // Vector of affinity masks (each mask contain only one HW thread that is not in m_globalWorkersAffinityMask and not HW thread 0 that belongs to app. main thread)
+    vector<cpu_set_t*> m_mastersAffinityMaskArr;
+    // Global master threads affinity mask (union of m_mastersAffinityMaskArr)
     cpu_set_t m_globalMastersAffinityMask;
-#endif
+    // Mutex guard for m_mastersAffinityMaskArr access.
+    Intel::OpenCL::Utils::OclNonReentrantSpinMutex m_affinityMasksGaurd;
 
     Intel::OpenCL::TaskExecutor::ITaskExecutor*         m_task_executor;
     SharedPtr<Intel::OpenCL::TaskExecutor::ITEDevice>   m_RootDevice;
@@ -198,6 +201,7 @@ private:
 
     static ThreadPool*     m_threadPool;
     static __thread bool  m_tbMasterInitalized;
+    static __thread cpu_set_t* m_tMasterAffiniityMask;
 };
 
 }}}

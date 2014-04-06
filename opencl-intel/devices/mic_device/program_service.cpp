@@ -517,6 +517,7 @@ cl_dev_err_code ProgramService::CheckProgramBinary (size_t IN binSize, const voi
     {
     // Supported program binaries
     case CL_PROG_BIN_EXECUTABLE_LLVM:// The container should contain valid LLVM-IR
+    case CL_PROG_BIN_BUILT_OBJECT:// The container contains binary object
         break;
 
     case CL_PROG_OBJ_X86:            // The container should contain binary buffer of object file
@@ -590,6 +591,7 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
     switch(pProgCont->description.bin_type)
     {
     case CL_PROG_BIN_EXECUTABLE_LLVM:
+    case CL_PROG_BIN_BUILT_OBJECT:
         {
             ICLDevBackendCompilationService* compiler = GetCompilationService();
             if (NULL == compiler)
@@ -682,7 +684,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
 
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "BuildProgram enter");
 
-    TProgramEntry* pEntry = (TProgramEntry*)prog;
+    TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
 
     if (NULL == pEntry)
     {
@@ -719,12 +721,12 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
     CommandTracer cmdTracer;
     cmdTracer.set_command_type((char*)"Build");
     cmdTracer.set_current_time_command_host_time_start();
-    
+
     ICLDevBackendCompilationService* compiler = GetCompilationService();
-    
+
     cl_build_status status = CL_BUILD_ERROR;
     cl_dev_err_code ret    = CL_DEV_OUT_OF_MEMORY;
-    
+
     if (NULL != compiler)
     {
         MICBackendOptions buildOptions( m_DevService);
@@ -733,7 +735,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
         ret = compiler->BuildProgram(pEntry->pProgram, &buildOptions);
         MicDbgLog(m_pLogDescriptor, m_iLogHandle, "Build Done (%d)", ret);
     }
-    
+
     if (CL_DEV_SUCCEEDED(ret))
     {
         pEntry->copy_to_device_ok = BuildKernelData( pEntry );
@@ -744,7 +746,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
     }
 
     pEntry->clBuildStatus = status;
-    
+
     cmdTracer.set_command_id((uint64_t)pEntry);
     cmdTracer.set_current_time_command_host_time_end();
 
@@ -753,11 +755,11 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
         (NULL != (p = strstr(options, "-dump-opt-llvm="))))
     {
         assert( pEntry->pProgram && "Program must be created already");
-        
+
         MICBackendOptions dumpOptions( m_DevService );
         dumpOptions.init_for_dump(p);
-        
-        compiler->DumpCodeContainer( pEntry->pProgram->GetProgramCodeContainer(), &dumpOptions);
+
+        compiler->DumpCodeContainer( pEntry->pProgram->GetProgramIRCodeContainer(), &dumpOptions);
     }
 
     if ( NULL != buildStatus )
@@ -785,7 +787,7 @@ cl_dev_err_code ProgramService::ReleaseProgram( cl_dev_program IN prog )
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "ReleaseProgram enter");
 
-    TProgramEntry* pEntry = (TProgramEntry*)prog;
+    TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
 
     if (NULL == pEntry)
     {
@@ -844,7 +846,7 @@ cl_dev_err_code ProgramService::GetProgramBinary( cl_dev_program IN prog,
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "GetProgramBinary enter");
 
-    TProgramEntry* entry = (TProgramEntry*)prog;
+    TProgramEntry* entry = reinterpret_cast<TProgramEntry*>(prog);
 
     if( NULL == entry )
     {
@@ -888,7 +890,7 @@ cl_dev_err_code ProgramService::GetBuildLog( cl_dev_program IN prog,
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "GetBuildLog enter");
 
-    TProgramEntry* entry = (TProgramEntry*)prog;
+    TProgramEntry* entry = reinterpret_cast<TProgramEntry*>(prog);
 
     if( NULL == entry )
     {
@@ -979,7 +981,7 @@ cl_dev_err_code ProgramService::GetKernelId( cl_dev_program IN prog, const char*
         return CL_DEV_INVALID_VALUE;
     }
 
-    TProgramEntry* pEntry = (TProgramEntry*)prog;
+    TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
 
     if( NULL == pEntry )
     {
@@ -1008,9 +1010,11 @@ cl_dev_err_code ProgramService::GetKernelId( cl_dev_program IN prog, const char*
 cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
                          cl_uint* OUT numKernelsRet )
 {
+    // FIXME: [OpenCL 2.0] Take into accound the block kernels. See the CPU implementation
+    //        of GetProgramKernels
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "GetProgramKernels enter");
 
-    TProgramEntry* pEntry = (TProgramEntry*)prog;
+    TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
 
     if( NULL == pEntry )
     {
@@ -1023,7 +1027,7 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
         return CL_DEV_INVALID_PROGRAM;
     }
 
-    size_t          uiNumProgKernels = pEntry->mapName2Kernels.size();
+    size_t const uiNumProgKernels = pEntry->mapName2Kernels.size();
 
     // Check input parameters
     if ( (0==num_kernels) && (NULL==kernels) )
@@ -1180,6 +1184,29 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
     return CL_DEV_SUCCESS;
 }
 
+cl_dev_err_code ProgramService::GetGlobalVariableTotalSize( cl_dev_program IN prog, size_t* OUT size) const
+{
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetGlobalVariableTotalSize enter"));
+
+    // Return error if program was not built yet.
+    TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
+    if( NULL == pEntry )
+    {
+        MicInfoLog(m_pLogDescriptor, m_iLogHandle, "Requested program not found (%0X)", (size_t)prog);
+        return CL_DEV_INVALID_PROGRAM;
+    }
+
+    if ( pEntry->clBuildStatus != CL_BUILD_SUCCESS )
+    {
+        return CL_DEV_INVALID_PROGRAM;
+    }
+
+    // Just return what back-end gives us.
+    ICLDevBackendProgram_ *pProgram = pEntry->pProgram;
+    *size = pProgram->GetGlobalVariableTotalSize();
+    return CL_DEV_SUCCESS;
+}
+
 //////////////////////////////////////////////////////////////////////////////////////
 //    Private methods
 void ProgramService::DeleteProgramEntry(TProgramEntry* pEntry)
@@ -1220,7 +1247,7 @@ bool ProgramService::BuildKernelData(TProgramEntry* pEntry)
     // copy program to device and get back list of kernel structs on device
     COPY_PROGRAM_TO_DEVICE_INPUT_STRUCT input;
 
-    input.required_executable_size = program->GetProgramCodeContainer()->GetCodeSize();
+    input.required_executable_size = program->GetProgramJITCodeProperties()->GetJITCodeSize();
     input.number_of_kernels        = kernels_count;
 
     // allocate output strcut on my stack
@@ -1295,7 +1322,7 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
             break;
         }
 
-        be_err = serializer->GetSerializationBlobSize( SERIALIZE_TO_DEVICE, pProgram, &prog_blob_size);
+        be_err = serializer->GetSerializationBlobSize( SERIALIZE_OFFLOAD_IMAGE, pProgram, &prog_blob_size);
 
         assert( CL_DEV_SUCCEEDED(be_err) && (prog_blob_size > 0) && "MIC BE GetSerializationBlobSize()" );
 
@@ -1352,7 +1379,7 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
         cmdTracer.set_current_time_build_serialize_time_start();
 #endif
         // 4. Serialize program
-        be_err = serializer->SerializeProgram( SERIALIZE_TO_DEVICE, pProgram, blob, prog_blob_size );
+        be_err = serializer->SerializeProgram( SERIALIZE_OFFLOAD_IMAGE, pProgram, blob, prog_blob_size );
 #ifdef __MIC_TRACER__
         cmdTracer.set_current_time_build_serialize_time_end();
 #endif

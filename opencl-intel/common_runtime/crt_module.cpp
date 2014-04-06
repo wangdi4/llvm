@@ -172,7 +172,12 @@ IcdDispatchMgr::IcdDispatchMgr()
     REGISTER_DISPATCH_ENTRYPOINT( clSetKernelExecInfo , clSetKernelExecInfo )
 
     REGISTER_DISPATCH_ENTRYPOINT( clCreateSamplerWithProperties , clCreateSamplerWithProperties )
-    REGISTER_DISPATCH_ENTRYPOINT( clGetKernelSubGroupInfoKHR , clGetKernelSubGroupInfoKHR )
+
+    //disabling this now as there is no CPU nor GPU support
+    //when reenabling GPU support a check must be added in clGetKernelSubGroupInfoKHR implementation
+    //so that CPU version is never called as this would cause a crash
+    //REGISTER_DISPATCH_ENTRYPOINT( clGetKernelSubGroupInfoKHR , clGetKernelSubGroupInfoKHR )
+
     // clEnqueueAcquireDX9MediaSurfacesKHR
     // clEnqueueReleaseDX9MediaSurfacesKHR
 

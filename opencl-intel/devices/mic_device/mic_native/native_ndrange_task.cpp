@@ -28,9 +28,7 @@
 #include "device_queue.h"
 #include "thread_local_storage.h"
 #include "native_common_macros.h"
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
 #include "tbb_memory_allocator.h"
-#endif
 #include "hw_exceptions_handler.h"
 #include "mic_logger.h"
 
@@ -69,37 +67,38 @@ void execute_command_ndrange(uint32_t        in_BufferCount,
     QueueOnDevice* pQueue = (QueueOnDevice*)(ndrangeDispatchData->deviceQueuePtr);
     assert(NULL != pQueue && "pQueue must be valid");
 
-#ifdef _DEBUG
-    TlsAccessor tlsAccessor;
-    const QueueOnDevice* pTLSQueue = QueueOnDevice::getCurrentQueue( &tlsAccessor );
-    assert( pTLSQueue == pQueue && "Queue handle doesn't match");
-#endif
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
-    NDRangeTask* ndRangeTask = new NDRangeTask(in_BufferCount, in_ppBufferPointers, ndrangeDispatchData, in_MiscDataLength);
+	cl_dev_err_code err = CL_DEV_SUCCESS;
 
-    cl_dev_err_code err = ndRangeTask->getTaskError();
-    if ( CL_DEV_SUCCEEDED(err) )
+    if (pQueue->IsAsyncExecution())
     {
-        err = pQueue->Execute(ndRangeTask);
-    }
-#else
-    NDRangeTask ndRangeTask(in_BufferCount, in_ppBufferPointers, ndrangeDispatchData, in_MiscDataLength);
+        SharedPtr<NDRangeTask> ndRangeTask = NDRangeTask::Allocate(in_BufferCount, in_ppBufferPointers, ndrangeDispatchData, in_MiscDataLength, pQueue);
 
-    cl_dev_err_code err = ndRangeTask.getTaskError();
-    if ( CL_DEV_SUCCEEDED(err) )
-    {
-        // Increase ref. count to prevent undesired deletion
-        ndRangeTask.IncRefCnt();
-        err = pQueue->Execute(ndRangeTask.GetAsTaskHandlerBase());
+        err = ndRangeTask->getTaskError();
+        if ( CL_DEV_SUCCEEDED(err) )
+        {
+            err = pQueue->Execute(ndRangeTask->GetAsTaskHandlerBase());
+        }
     }
-#endif
+    else
+    {
+        // In case of immediate queue, can allocate the task on the stack!
+        NDRangeTask ndRangeTask(in_BufferCount, in_ppBufferPointers, ndrangeDispatchData, in_MiscDataLength, pQueue);
+
+        err = ndRangeTask.getTaskError();
+        if ( CL_DEV_SUCCEEDED(err) )
+        {
+	        // Increase ref. count to prevent undesired deletion
+		    ndRangeTask.IncRefCnt();
+            err = pQueue->Execute(ndRangeTask.GetAsTaskHandlerBase());
+        }
+    }
 
     *((cl_dev_err_code*)in_pReturnValue) = err;
     MicInfoLog(MicNativeLogDescriptor::getLoggerClient(), MicNativeLogDescriptor::getClientId(), "%s", "[MIC SERVER] exit execute_NDRange");
 }
 
-NDRangeTask::NDRangeTask( uint32_t lockBufferCount, void** pLockBuffers, ndrange_dispatcher_data* pDispatcherData, size_t uiDispatchSize ) :
-    TaskHandler<NDRangeTask, ndrange_dispatcher_data >(lockBufferCount, pLockBuffers, pDispatcherData, uiDispatchSize),
+NDRangeTask::NDRangeTask( uint32_t lockBufferCount, void** pLockBuffers, ndrange_dispatcher_data* pDispatcherData, size_t uiDispatchSize, QueueOnDevice* pQueue ) :
+    TaskHandler<NDRangeTask, ndrange_dispatcher_data >(lockBufferCount, pLockBuffers, pDispatcherData, uiDispatchSize, pQueue),
       m_pKernel(NULL), m_pRunner(NULL), m_pKernelArgs(NULL), m_pUniformArgs(NULL),
       m_flushAtExit(false), m_bSecureExecution(gMicExecEnvOptions.kernel_safe_mode)
 #ifdef ENABLE_MIC_TRACER
@@ -113,34 +112,15 @@ NDRangeTask::NDRangeTask( uint32_t lockBufferCount, void** pLockBuffers, ndrange
 
 __thread ICLDevBackendKernelRunner::ICLDevExecutionState NDRangeTask::m_tExecutionState;
 
-#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
-NDRangeTask::NDRangeTask( const NDRangeTask& o) :
-    TaskHandler<NDRangeTask, ndrange_dispatcher_data >( o ),
-    m_flushAtExit(false),
-    m_bSecureExecution(o.m_bSecureExecution)
-#ifdef ENABLE_MIC_TRACER
-    ,m_tbb_perf_data(*this)
-#endif
-#ifdef USE_ITT
-    ,m_pIttKernelName(o.m_pIttKernelName), m_pIttKernelDomain(o.m_pIttKernelDomain)
-#endif
-{
-}
-#endif
-
 NDRangeTask::~NDRangeTask()
 {
 #ifdef ENABLE_MIC_TRACER
     m_tbb_perf_data.PerfDataFini();
 #endif
 
-    if ( m_pKernelArgs != (((char*)m_dispatcherData) + sizeof(ndrange_dispatcher_data)) )
+    if ( m_pKernelArgs != (((char*)m_pDispatcherData) + sizeof(ndrange_dispatcher_data)) )
     {
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
         Intel::OpenCL::TaskExecutor::ScalableMemAllocator::scalableAlignedFree(m_pKernelArgs);
-#else
-        free(m_pKernelArgs);
-#endif
         m_pKernelArgs = NULL;
     }
 }
@@ -162,8 +142,8 @@ bool NDRangeTask::PrepareTask()
 #ifdef USE_ITT
 if ( gMicGPAData.bUseGPA)
     {
-        m_pIttKernelName = ProgramService::get_itt_kernel_name(m_dispatcherData->kernelAddress);
-        m_pIttKernelDomain = ProgramService::get_itt_kernel_domain(m_dispatcherData->kernelAddress);
+        m_pIttKernelName = ProgramService::get_itt_kernel_name(m_pDispatcherData->kernelAddress);
+        m_pIttKernelDomain = ProgramService::get_itt_kernel_domain(m_pDispatcherData->kernelAddress);
         // Use kernel specific domain if possible, if not available switch to global domain
         if ( NULL == m_pIttKernelDomain )
         {
@@ -196,7 +176,7 @@ if ( gMicGPAData.bUseGPA)
     }
 #endif
 
-    m_pKernel = ProgramService::GetKernelPointer(m_dispatcherData->kernelAddress);
+    m_pKernel = ProgramService::GetKernelPointer(m_pDispatcherData->kernelAddress);
     m_pRunner = m_pKernel->GetKernelRunner();
 
     // Now we should patch memory object pointers
@@ -205,22 +185,17 @@ if ( gMicGPAData.bUseGPA)
     const unsigned int* pMemArgsInx = m_pKernel->GetMemoryObjectArgumentIndexes();
     size_t              argSize     = m_pKernel->GetExplicitArgumentBufferSize();
 
-    m_pKernelArgs = ((char*)m_dispatcherData) + sizeof(ndrange_dispatcher_data);
+    m_pKernelArgs = ((char*)m_pDispatcherData) + sizeof(ndrange_dispatcher_data);
     // Check if alignment of kernel arguments is enough
     size_t argAlignment = m_pKernel->GetArgumentBufferRequiredAlignment();
     if ( 0 != ((size_t)m_pKernelArgs & (argAlignment-1)) )
     {
         // Need to allocate properly aligned arguments
         size_t allocSize = argSize + sizeof(cl_uniform_kernel_args);
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
         void* pNewKernelArgs = Intel::OpenCL::TaskExecutor::ScalableMemAllocator::scalableAlignedMalloc(allocSize, argAlignment);
-#else
-        void* pNewKernelArgs = memalign(argAlignment, allocSize);
-#endif
         if ( NULL== pNewKernelArgs )
         {
             assert ( 0 && "Failed to allocate aligned kernel arguments buffer");
-            FiniTask();
             return false;
         }
         memcpy(pNewKernelArgs, m_pKernelArgs, allocSize);
@@ -244,7 +219,7 @@ if ( gMicGPAData.bUseGPA)
 #if 0
     printf("m_pUniformArgs->RuntimeInterface=%p\n", this);
     printf("Queue:%p, Kernel:%p(%p), SE:%d, EE:%d\n"\
-        (void*)m_dispatcherData->deviceQueuePtr, (void*)m_dispatcherData->kernelAddress, m_pKernel, (int)m_dispatcherData->startEvent.isRegistered, (int)m_dispatcherData->endEvent.isRegistered,
+        (void*)m_pDispatcherData->deviceQueuePtr, (void*)m_pDispatcherData->kernelAddress, m_pKernel, (int)m_pDispatcherData->startEvent.isRegistered, (int)m_pDispatcherData->endEvent.isRegistered,
         "\trunning on %d dims\n"
         "\tglobal size: [0]=%d, [1]=%d, [2]=%d\n"
         "\tuniform local size:     [0]=%d, [1]=%d, [2]=%d\n"
@@ -284,9 +259,9 @@ if ( gMicGPAData.bUseGPA)
     for (i = 0; i < m_dim; ++i)
     {
         // Set global work size in dimension "i" for the tracer.
-        commandTracer().set_global_work_size(m_dispatcherData->UniformKernelArgs.GlobalSize[i], i);
+        commandTracer().set_global_work_size(m_pDispatcherData->UniformKernelArgs.GlobalSize[i], i);
         // Set WG size in dimension "i" for the tracer.
-        commandTracer().set_work_group_size(m_dispatcherData->UniformKernelArgs.LocalSize[i], i);
+        commandTracer().set_work_group_size(m_pDispatcherData->UniformKernelArgs.LocalSize[i], i);
     }
     for (; i < MAX_WORK_DIM; ++i)
     {
@@ -302,6 +277,10 @@ if ( gMicGPAData.bUseGPA)
     {
         __itt_task_end(gMicGPAData.pDeviceDomain);
     }
+#endif
+
+#ifdef MIC_USE_COI_BUFFS_REF_NEW_API
+	m_bufferPointers = NULL;
 #endif
 
     return true;
@@ -390,9 +369,9 @@ int NDRangeTask::Init(size_t region[], unsigned int& regCount)
 #endif
 
     // Notify start if exists
-    if ( m_dispatcherData->startEvent.isRegistered )
+    if ( m_pDispatcherData->startEvent.isRegistered )
     {
-        COIEventSignalUserEvent(m_dispatcherData->startEvent.cmdEvent);
+        COIEventSignalUserEvent(m_pDispatcherData->startEvent.cmdEvent);
     }
 
     regCount = m_pUniformArgs->WorkDim;
@@ -613,40 +592,8 @@ bool NDRangeTask::Finish(FINISH_REASON reason)
         assert(COI_SUCCESS == coiErr && "Failed to Flush() printf buffer to host");
     }
 
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
-#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    if ( gMicGPAData.bUseGPA )
-    {
-      static __thread __itt_string_handle* pTaskName = NULL;
-      if ( NULL == pTaskName )
-      {
-        pTaskName = __itt_string_handle_create("NDRangeTask::Finish->m_releasehandler->addTask(this)");
-      }
-      __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
-    }
-#endif
-    m_releasehandler->addTask(this);
-#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    // Monitor only IN-ORDER queue
-    if ( gMicGPAData.bUseGPA )
-    {
-      __itt_task_end(gMicGPAData.pDeviceDomain);
-    }
-#endif
-#else
-    // Release COI resources, before signaling to runtime
-    FiniTask();
+    m_pQueue->FinishTask( this );
 
-#ifdef ENABLE_MIC_TRACER
-    commandTracer().set_current_time_tbb_exe_in_device_time_end();
-#endif
-
-    // Notify end if exists
-    if ( m_dispatcherData->endEvent.isRegistered )
-    {
-        COIEventSignalUserEvent(m_dispatcherData->endEvent.cmdEvent);
-    }
-#endif
 #ifdef USE_ITT
     if ( gMicGPAData.bUseGPA)
     {
@@ -659,42 +606,12 @@ bool NDRangeTask::Finish(FINISH_REASON reason)
 
 void NDRangeTask::Cancel()
 {
-    // TODO: What if task already started
-    // Notify end if exists
-    if ( m_dispatcherData->startEvent.isRegistered )
-    {
-        COIEventSignalUserEvent(m_dispatcherData->startEvent.cmdEvent);
-    }
-	
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
-#ifdef ENABLE_MIC_TRACER
-    commandTracer().set_current_time_tbb_exe_in_device_time_start();
-#endif
-    setTaskError( CL_DEV_COMMAND_CANCELLED );
-
-	m_releasehandler->addTask(this);
-#else
-    // Release COI resources, before signaling to runtime
-    FiniTask();
-
-#ifdef ENABLE_MIC_TRACER
-    commandTracer().set_current_time_tbb_exe_in_device_time_start();
-    commandTracer().set_current_time_tbb_exe_in_device_time_end();
-#endif
-    setTaskError( CL_DEV_COMMAND_CANCELLED );
-
-    // Notify end if exists
-    if (m_dispatcherData->endEvent.isRegistered )
-    {
-        COIEventSignalUserEvent(m_dispatcherData->endEvent.cmdEvent);
-    }
-
+    m_pQueue->CancelTask(this);
 #ifdef USE_ITT
     if ( gMicGPAData.bUseGPA)
     {
         __itt_task_end(m_pIttKernelDomain);
     }
-#endif
 #endif
 }
 

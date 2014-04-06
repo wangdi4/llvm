@@ -38,7 +38,9 @@ public:
   /// @brief Constructor
   /// @param doNoLoadAnalysis enables SmartGVN pass heuristic which decides
   ///        if GVN should hoist load operations out of loops.
-  SmartGVN(bool doNoLoadAnalysis = false);
+  /// @param memDependencyBBThreshold size of the basic block for memory denedency analysis.
+  ///        if GVN should hoist load operations out of loops.
+  SmartGVN(bool doNoLoadAnalysis = false, unsigned int memDependencyBBThreshold = 100);
   /// @brief execute pass on given module
   /// @param M module to optimize
   /// @returns True if module was modified
@@ -62,6 +64,8 @@ protected:
   /// noLoadAnalysis - true if SmartGVN is supposed to do additional analysis
   /// and configure NoLoad parameter of GVN pass.
   bool noLoadAnalysis;
+  /// Basic block limit for memory dependency analisys.
+  unsigned int memoryDependencyAnalysisThreshold;
 };
 
 } // namespace intel

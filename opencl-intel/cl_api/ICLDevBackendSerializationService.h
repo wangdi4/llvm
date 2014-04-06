@@ -9,8 +9,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 // Defines possible values for serialization behavior
 typedef enum _cl_serialization_type
 {
-	SERIALIZE_TO_DEVICE = 0,
-	SERIALIZE_FULL_IMAGE
+        SERIALIZE_OFFLOAD_IMAGE = 0,
+        SERIALIZE_PERSISTENT_IMAGE
 } cl_serialization_type;
 
 /**
@@ -79,6 +79,7 @@ public:
     /**
      * De-Serialize the given buffer to kernel object
      *
+     * @param serializationType to specify the serialization type
      * @param pKernel pointer to the kernel which will be resotored from the buffer
      * @param pBlob pointer to buffer which contains the serialization data
      * @param blobSize the size of the blob
@@ -88,9 +89,9 @@ public:
      *  else CL_DEV_ERROR_FAIL will be returned and pKernel will point to NULL
      */
     virtual cl_dev_err_code DeSerializeProgram(
+        cl_serialization_type serializationType,
         ICLDevBackendProgram_** ppProgram, 
-        const void* pBlob,
-        size_t blobSize) const = 0;
+        const void* pBlob, size_t blobSize) const = 0;
 
     /**
      * Release the deserialized program 

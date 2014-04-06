@@ -165,7 +165,7 @@ protected:
         void            Cancel()  { Shoot( CL_DEV_COMMAND_CANCELLED ); }
         long	        Release() { return 0; }
         TASK_PRIORITY   GetPriority() const { return TASK_PRIORITY_MEDIUM;}
-        Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+        Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
     protected:
         TaskDispatcher*			m_pTaskDispatcher;
         const cl_dev_cmd_desc*	m_pCmd;
@@ -212,7 +212,7 @@ public:
     bool	  Finish(FINISH_REASON reason) { ++m_endBarrier; return false;}
     long    Release() { return 0;}
     void    Cancel() { Finish(FINISH_EXECUTION_FAILED); };
-    Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+    Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
 
     TASK_PRIORITY	        GetPriority()                       const	{ return TASK_PRIORITY_MEDIUM;}
     TASK_SET_OPTIMIZATION OptimizeBy()                        const { return TASK_SET_OPTIMIZE_DEFAULT; }

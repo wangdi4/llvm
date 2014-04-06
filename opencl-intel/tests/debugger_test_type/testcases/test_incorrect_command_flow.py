@@ -12,10 +12,10 @@ class TestIncorrectCommandFlow(DebuggerTestCase):
         self.client.execute_debuggee(
             hostprog_name='ndrange_inout',
             cl_name=self.CLNAME)
-        self.client.connect_to_server()
+        self.client.connect_to_server(timeout=20)
         bp = (self.CLNAME, self.AFTER_LOOP_ROW)
         try:
-            self.client.debug_run([bp])
+            self.client.debug_run([bp], timeout=15)
         except Exception as e:
             if self.use_gdb:
                 # GDB error

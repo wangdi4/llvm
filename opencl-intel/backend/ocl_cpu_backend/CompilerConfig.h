@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010).
+Copyright (c) Intel Corporation (2010-2014).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -15,66 +15,106 @@ Copyright (c) Intel Corporation (2010).
 File Name:  CompilerConfig.h
 
 \*****************************************************************************/
-#pragma once
 
-#include <assert.h>
-#include <string>
-#include "cl_dev_backend_api.h"
-#include <vector>
+#ifndef COMPILER_CONFIG_H
+#define COMPILER_CONFIG_H
+
+#include "ICompilerConfig.h"
+#include "exceptions.h"
+
 #include <algorithm>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-/**
- * Global compiler configuration interface .
- *
- * This configuration is used for all the instances of the compiler
- * Internally it is mapped to the global LLVM state
- */ 
-class IGlobalCompilerConfig
+DEFINE_EXCEPTION(BadConfigException)
+
+class GlobalCompilerConfig: public IGlobalCompilerConfig
 {
 public:
-    virtual ~IGlobalCompilerConfig(){}
-    /**
-     * Time each pass, printing elapsed time for each on exit
-     */
-    virtual bool EnableTiming() const = 0; 
-    /**
-     * File to append -stats and -timer output to
-     */
-    virtual std::string InfoOutputFile() const = 0;
-    /**
-     * Disables printing the stack dump upon crash - used
-     * primarity to disable the SEH handling by llvm library 
-     * usually for SDE tracing support.
-     */
-    virtual bool DisableStackDump() const = 0;
+    void LoadDefaults() { m_enableTiming = false; }
+    void LoadConfig() {}
+    void SkipBuiltins();
+    void ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions);
+
+    bool EnableTiming() const { return m_enableTiming;  }
+    bool DisableStackDump() const { return m_disableStackDump; }
+    std::string InfoOutputFile() const { return m_infoOutputFile; }
+
+private:
+    bool m_enableTiming;
+    bool m_disableStackDump;
+    std::string m_infoOutputFile;
 };
 
 
-/**
- * Compiler configuration interface
- * 
- * This configuration is used for specific instance of the compiler
- */
-class ICompilerConfig
+
+//*****************************************************************************************
+// CompilerConfig implementation.
+//
+// Responsible for loading both default configuraiton as well as runtime
+// configuration passed to the backend.
+//
+// This class is used as an adapter from ICLDevBackendOptions to ICompilerConfig
+class CompilerConfig: public virtual ICompilerConfig
 {
 public:
-    virtual ~ICompilerConfig(){}
+    CompilerConfig():m_transposeSize(TRANSPOSE_SIZE_AUTO),
+                     m_useVTune(false),
+                     m_loadBuiltins(true),
+                     m_DumpIROptionAfter(NULL),
+                     m_DumpIROptionBefore(NULL),
+                     m_dumpHeuristicIR(false) {}
 
-    virtual std::string GetCpuArch() const = 0;
-    virtual std::string GetCpuFeatures() const = 0;
-    virtual ETransposeSize GetTransposeSize() const  = 0;
-    virtual bool  GetUseVTune() const = 0;
-    // sets whether we need built-in module to be loaded
-    // for current compiler
-    virtual bool  GetLoadBuiltins() const = 0;
-    virtual std::vector<int> GetIRDumpOptionsAfter() const = 0;
-    virtual std::vector<int> GetIRDumpOptionsBefore() const = 0;
-    virtual std::string GetDumpIRDir() const = 0;
-    virtual bool GetDumpHeuristicIRFlag() const = 0;
+    // CompilerConfiguration methods
+    void LoadDefaults();
+    virtual void LoadConfig();
+    void SkipBuiltins() { m_loadBuiltins = false; }
+    void ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions);
+    bool IsValidTransposeSize();
+
+    std::string GetCpuArch() const     { return m_cpuArch; }
+    std::string GetCpuFeatures() const { return m_cpuFeatures; }
+    ETransposeSize GetTransposeSize() const   { return m_transposeSize; }
+    bool  GetUseVTune() const                 { return m_useVTune; }
+    bool  GetLoadBuiltins() const             { return m_loadBuiltins; }
+    std::vector<int> GetIRDumpOptionsAfter() const
+    {
+        if(!m_DumpIROptionAfter){
+            std::vector<int> tempVecotr;
+            return tempVecotr;
+        }
+        std::vector<int> optionsVector(m_DumpIROptionAfter->begin(), m_DumpIROptionAfter->end());
+        //sort the vector for later use (binary_search)
+        std::sort(optionsVector.begin(), optionsVector.end());
+        return optionsVector;
+    }
+    std::vector<int> GetIRDumpOptionsBefore() const
+    {
+       if(!m_DumpIROptionBefore){
+            std::vector<int> tempVecotr;
+            return tempVecotr;
+        }
+        std::vector<int> optionsVector(m_DumpIROptionBefore->begin(), m_DumpIROptionBefore->end());
+        //sort the vector for later use (binary_search)
+        std::sort(optionsVector.begin(), optionsVector.end());
+        return optionsVector;
+    }
+    std::string GetDumpIRDir() const { return m_dumpIRDir; }
+
+    bool GetDumpHeuristicIRFlag() const { return m_dumpHeuristicIR; }
+
+protected:
+    std::string m_cpuArch;
+    std::string m_cpuFeatures;
+    ETransposeSize m_transposeSize;
+    bool        m_useVTune;
+    bool        m_loadBuiltins;
+    const std::vector<IRDumpOptions>* m_DumpIROptionAfter;
+    const std::vector<IRDumpOptions>* m_DumpIROptionBefore;
+    std::string m_dumpIRDir;
+    bool m_dumpHeuristicIR;
+
 };
-
-
 
 }}}
+#endif //COMPILER_CONFIG_H

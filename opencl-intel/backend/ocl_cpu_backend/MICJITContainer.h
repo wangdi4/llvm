@@ -23,7 +23,7 @@ File Name:  MICJITContainer.h
 #include "cl_device_api.h"
 #include "Kernel.h"
 #include "ModuleJITHolder.h"
-#include "MICKernelProperties.h"
+#include "KernelProperties.h"
 #include "Serializer.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -64,7 +64,7 @@ public:
     /**
      * Serialization methods for the class (used by the serialization service)
      */
-    void Serialize(IOutputStream& ost, SerializationStatus* stats);
+    void Serialize(IOutputStream& ost, SerializationStatus* stats) const;
     void Deserialize(IInputStream& ist, SerializationStatus* stats);
 
     unsigned long long int GetFuncID() { return m_funcID; }

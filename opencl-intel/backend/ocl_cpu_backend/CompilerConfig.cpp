@@ -1,0 +1,120 @@
+/*****************************************************************************\
+
+Copyright (c) Intel Corporation (2010-2014).
+
+    INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
+    LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
+    ASSISTANCE, INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL DOES NOT
+    PROVIDE ANY UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY
+    DISCLAIMS ANY WARRANTY OF MERCHANTABILITY, NONINFRINGEMENT, FITNESS FOR ANY
+    PARTICULAR PURPOSE, OR ANY OTHER WARRANTY.  Intel disclaims all liability,
+    including liability for infringement of any proprietary rights, relating to
+    use of the code. No license, express or implied, by estoppels or otherwise,
+    to any intellectual property rights is granted herein.
+
+File Name:  CompilerConfig.cpp
+
+\*****************************************************************************/
+
+#include "CompilerConfig.h"
+
+#include "llvm/Support/Debug.h"
+
+#include <stdlib.h> // getenv
+#include <sstream>
+
+namespace Intel { namespace OpenCL { namespace DeviceBackend {
+
+const char* CPU_ARCH_AUTO = "auto";
+
+void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
+{
+    if( NULL == pBackendOptions)
+    {
+        return;
+    }
+    m_infoOutputFile = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_TIME_PASSES, "");
+    m_enableTiming = !m_infoOutputFile.empty();
+    m_disableStackDump = pBackendOptions->GetBooleanValue((int)CL_DEV_BACKEND_OPTION_DISABLE_STACKDUMP, false);
+}
+
+void CompilerConfig::LoadDefaults()
+{
+    m_cpuArch = CPU_ARCH_AUTO;
+    m_transposeSize = TRANSPOSE_SIZE_AUTO;
+    m_cpuFeatures = "";
+    m_useVTune = true;
+}
+
+void CompilerConfig::LoadConfig()
+{
+    //TODO: Add validation code
+    if (const char *pEnv = getenv("VOLCANO_CPU_ARCH"))
+    {
+        m_cpuArch = pEnv;
+    }
+
+    if (const char *pEnv = getenv("VOLCANO_TRANSPOSE_SIZE"))
+    {
+        unsigned int size;
+        if ((std::stringstream(pEnv) >> size).fail())
+        {
+            throw  Exceptions::BadConfigException("Failed to load the transpose size from environment");
+        }
+        m_transposeSize = ETransposeSize(size);
+    }
+
+    if (const char *pEnv = getenv("VOLCANO_CPU_FEATURES"))
+    {
+        // The validity of the cpud features are checked upon parsing of optimizer options
+        m_cpuFeatures = pEnv;
+    }
+#ifndef NDEBUG
+    if (getenv("VOLCANO_DEBUG"))
+    {
+      llvm::DebugFlag = true;
+    }
+    if (const char *pEnv = getenv("VOLCANO_DEBUG_ONLY"))
+    {
+      llvm::setCurrentDebugType(pEnv);
+    }
+#endif
+}
+
+void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
+{
+    if( NULL == pBackendOptions)
+    {
+        return;
+    }
+    m_cpuArch       = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_SUBDEVICE, m_cpuArch.c_str());
+    m_cpuFeatures   = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES, m_cpuFeatures.c_str());
+    m_transposeSize = (ETransposeSize)pBackendOptions->GetIntValue((int)CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE, m_transposeSize);
+    m_useVTune      = pBackendOptions->GetBooleanValue((int)CL_DEV_BACKEND_OPTION_USE_VTUNE, m_useVTune);
+    pBackendOptions->GetValue((int)OPTION_IR_DUMPTYPE_AFTER, &m_DumpIROptionAfter, 0);
+    pBackendOptions->GetValue((int)OPTION_IR_DUMPTYPE_BEFORE, &m_DumpIROptionBefore, 0);
+    m_dumpIRDir     = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DUMP_IR_DIR, m_dumpIRDir.c_str());
+    m_dumpHeuristicIR = pBackendOptions->GetBooleanValue((int)CL_DEV_BACKEND_OPTION_DUMP_HEURISTIC_IR, m_dumpHeuristicIR);
+
+    // dont allow invalid transpose size
+    if(!IsValidTransposeSize())
+    {
+        throw Exceptions::BadConfigException("Invalid transpose size in the options", CL_DEV_INVALID_VALUE);
+    }
+}
+
+bool CompilerConfig::IsValidTransposeSize()
+{
+    if(m_transposeSize != TRANSPOSE_SIZE_AUTO &&
+       m_transposeSize != TRANSPOSE_SIZE_1 &&
+       m_transposeSize != TRANSPOSE_SIZE_4 &&
+       m_transposeSize != TRANSPOSE_SIZE_8 &&
+       m_transposeSize != TRANSPOSE_SIZE_16)
+    {
+        return false;
+    }
+    return true;
+}
+
+
+}}}

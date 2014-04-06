@@ -155,6 +155,26 @@ unsigned long long Intel::OpenCL::Utils::HostTime()
 	return (unsigned long long)(tiks.QuadPart * timerRes);
 }
 
+unsigned long long Intel::OpenCL::Utils::AccurateHostTime()
+{
+    static int iIsRdtscpSupported = -1;
+    if (-1 == iIsRdtscpSupported)
+    {
+        int cpuInfo[4];
+        __cpuid(cpuInfo, 0x80000001);
+        iIsRdtscpSupported = (1 == ((cpuInfo[3] >> 27) & 0x1)) ? 1 : 0;
+    }
+    if (iIsRdtscpSupported)
+    {
+        unsigned int uiAux;
+        return __rdtscp(&uiAux);
+    }
+    else
+    {
+        return HostTime();
+    }
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////
 // CurrentProcessName
 /////////////////////////////////////////////////////////////////////////////////////////

@@ -113,7 +113,7 @@ void OpenCLMICBackendRunner::Run(IRunResult* runResult,
         !pOCLRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false))
     {
         //currently dumping to the file is temporary unsupported
-        const ICLDevBackendCodeContainer* pCodeContainer = programHolder.getProgram()->GetProgramCodeContainer();
+        const ICLDevBackendCodeContainer* pCodeContainer = programHolder.getProgram()->GetProgramIRCodeContainer();
         spCompileService->DumpCodeContainer( pCodeContainer, &options);
     }
 
@@ -270,7 +270,7 @@ void OpenCLMICBackendRunner::SerializeProgram(ICLDevBackendSerializationService*
 {
     DEBUG(llvm::dbgs()<< "OpenCLMICBackendRunner starts program serialization.\n");
     size_t programSize = 0;
-    CHECK_BACKEND_RESULT(pSerializer->GetSerializationBlobSize(SERIALIZE_TO_DEVICE, pProgram, &programSize));
+    CHECK_BACKEND_RESULT(pSerializer->GetSerializationBlobSize(SERIALIZE_OFFLOAD_IMAGE, pProgram, &programSize));
 
     // First buffer - test program.
     m_coiFuncArgs.AddBuffer( programSize, m_procAndPipe.GetProcessHandler(), COI_SINK_READ,
@@ -278,7 +278,7 @@ void OpenCLMICBackendRunner::SerializeProgram(ICLDevBackendSerializationService*
     void *blob;
     m_coiFuncArgs.Map(COI_MAP_WRITE_ENTIRE_BUFFER, 0, NULL, (void**)&blob, 0);
     m_serializationTime.Start();
-    CHECK_BACKEND_RESULT(pSerializer->SerializeProgram(SERIALIZE_TO_DEVICE, pProgram, blob, programSize));
+    CHECK_BACKEND_RESULT(pSerializer->SerializeProgram(SERIALIZE_OFFLOAD_IMAGE, pProgram, blob, programSize));
     m_serializationTime.Stop();
     m_coiFuncArgs.UnMap();
 

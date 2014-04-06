@@ -552,24 +552,17 @@ bool BuildProgramSynch(cl_context	        context,
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <sys/stat.h>
+#include <sys/types.h>
 #ifdef _WIN32
 #include <io.h>
-#include <sys/stat.h>
 #include <windows.h>
 #else
 #include <stdlib.h>
+#include <fcntl.h>
 #endif
 
 using namespace std;
-
-
-static string read_file_contents(string filename)
-{
-    ifstream stream(filename.c_str());
-    stringstream sstr;
-    sstr << stream.rdbuf();
-    return sstr.str();
-}
 
 
 // Disable Microsoft deprecation warnings for POSIX functions called from
@@ -580,7 +573,32 @@ static string read_file_contents(string filename)
 #pragma warning(disable: 4996)
 #endif  // _MSC_VER
 
+// Create temporary file, return filename and descriptor
+static int CreateTemporaryFile(int fd, string& filename) {
+#ifdef _WIN32
+    char temp_dir_path[MAX_PATH + 1] = {'\0'};
+    char temp_file_path[MAX_PATH + 1] = {'\0'};
 
+    ::GetTempPathA(sizeof(temp_dir_path), temp_dir_path);
+    ::GetTempFileNameA(temp_dir_path, "redir",
+        0,  // Generate unique file name.
+        temp_file_path);
+    filename = temp_file_path;
+    return creat(temp_file_path, _S_IREAD | _S_IWRITE);
+#elif defined (__ANDROID__)
+    char temp_file_path[50];
+    sprintf(temp_file_path, "%s_%d_%d.out", "FrameworkTest", fd, gettid());
+    filename = temp_file_path;
+    return creat(temp_file_path, 0660);
+#else
+    char temp_file_path[] = "/tmp/redirXXXXXX";
+    int tmp_fd = mkstemp(temp_file_path);
+    filename = temp_file_path;
+    return tmp_fd;
+#endif
+}
+    
+  
 // Object that captures an output stream (stdout/stderr)
 //
 class CapturedStream 
@@ -588,35 +606,27 @@ class CapturedStream
 public:
     // The ctor redirects the stream to a temporary file.
     CapturedStream(int fd) 
-        : fd_(fd), uncaptured_fd_(dup(fd)) 
+        : fd_(fd), uncaptured_fd_(dup(fd)), initialized(false) {}
+    bool Initialize()
     {
-#ifdef _WIN32
-        char temp_dir_path[MAX_PATH + 1] = {'\0'}; 
-        char temp_file_path[MAX_PATH + 1] = {'\0'}; 
-
-        ::GetTempPathA(sizeof(temp_dir_path), temp_dir_path);
-        const UINT success = ::GetTempFileNameA(temp_dir_path,
-            "redir",
-            0,  // Generate unique file name.
-            temp_file_path);
-        const int captured_fd = creat(temp_file_path, _S_IREAD | _S_IWRITE);
-        filename_ = temp_file_path;
+        if (initialized)
+            return true;
+        int captured_fd = CreateTemporaryFile(fd_, filename_);
+        if (captured_fd == -1) {
+          cout << "ERROR: Can't create " << filename_.c_str() << "\n";
+          return false;
+        }
         fflush(NULL);
         dup2(captured_fd, fd_);
         close(captured_fd);
-#else
-        char filename_template[] = "/tmp/redirXXXXXX";
-        const int captured_fd = mkstemp(filename_template); 
-        filename_ = filename_template;
-        fflush(NULL);
-        dup2(captured_fd, fd_);
-        close(captured_fd);
-#endif
+        initialized = true;
+        return true;
     }
 
     ~CapturedStream() 
     {
-        remove(filename_.c_str());
+        if (initialized)
+            remove(filename_.c_str());
     }
 
     string GetCapturedString() 
@@ -629,7 +639,7 @@ public:
             uncaptured_fd_ = -1;
         }
 
-        const string content = read_file_contents(filename_);
+        const string content = ReadFileContents(filename_);
         return content;
     }
 
@@ -638,6 +648,7 @@ private:
     int uncaptured_fd_;
     // Name of the temporary file holding the output.
     string filename_;
+    bool initialized;
 };
 
 
@@ -658,9 +669,10 @@ static CapturedStream* g_captured_stdout = NULL;
 
 
 // Starts capturing an output stream (stdout/stderr).
-static void CaptureStream(int fd, const char* stream_name, CapturedStream** stream) 
+static bool CaptureStream(int fd, const char* stream_name, CapturedStream** stream)
 {
     *stream = new CapturedStream(fd);
+    return (*stream)->Initialize();
 }
 
 static string GetCapturedStream(CapturedStream** captured_stream) 
@@ -674,15 +686,15 @@ static string GetCapturedStream(CapturedStream** captured_stream)
 }
 
 
-void CaptureStdout() 
+bool CaptureStdout()
 {
-    CaptureStream(kStdOutFileno, "stdout", &g_captured_stdout);
+  return CaptureStream(kStdOutFileno, "stdout", &g_captured_stdout);
 }
 
 
-void CaptureStderr() 
+bool CaptureStderr()
 {
-    CaptureStream(kStdErrFileno, "stderr", &g_captured_stderr);
+   return CaptureStream(kStdErrFileno, "stderr", &g_captured_stderr);
 }
 
 string GetCapturedStdout() 

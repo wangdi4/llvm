@@ -138,8 +138,8 @@ foreach function_logic = ["reduce", "scan_exclusive", "scan_inclusive"] in {
 
 let Types = [ v4i32, v8i32, v16i32 ],
     Attrs = [OVERLOADABLE] in {
-  def work_group_all_finalize_helper : OclBuiltin<"work_group_all_finalize", (outs gentype:$ret), (ins gentype:$accum), [], [], 1, 0>;
-  def work_group_any_finalize_helper : OclBuiltin<"work_group_any_finalize", (outs gentype:$ret), (ins gentype:$accum), [], [], 1, 0>;
+  def work_group_all_finalize_helper : OclBuiltin<"__finalize_work_group_all", (outs gentype:$ret), (ins gentype:$accum), [], [], 1, 0>;
+  def work_group_any_finalize_helper : OclBuiltin<"__finalize_work_group_any", (outs gentype:$ret), (ins gentype:$accum), [], [], 1, 0>;
 }
 
 let Types = [ v4i32, v8i32, v16i32,
@@ -149,7 +149,7 @@ let Types = [ v4i32, v8i32, v16i32,
               v4f32, v8f32, v16f32,
               v4f64, v8f64, v16f64],
     Attrs = [OVERLOADABLE] in {
-  def work_group_reduce_add_finalize_helper : OclBuiltin<"work_group_reduce_add_finalize", (outs gentype:$ret), (ins gentype:$accum), [], [], 1, 0>;
-  def work_group_reduce_min_finalize_helper : OclBuiltin<"work_group_reduce_min_finalize", (outs gentype:$ret), (ins gentype:$accum), [], [], 1, 0>;
-  def work_group_reduce_max_finalize_helper : OclBuiltin<"work_group_reduce_max_finalize", (outs gentype:$ret), (ins gentype:$accum), [], [], 1, 0>;
+  def work_group_reduce_add_finalize_helper : OclBuiltin<"__finalize_work_group_reduce_add", (outs gentype:$ret), (ins gentype:$accum), [], [], 1, 0>;
+  def work_group_reduce_min_finalize_helper : OclBuiltin<"__finalize_work_group_reduce_min", (outs gentype:$ret), (ins gentype:$accum), [], [], 1, 0>;
+  def work_group_reduce_max_finalize_helper : OclBuiltin<"__finalize_work_group_reduce_max", (outs gentype:$ret), (ins gentype:$accum), [], [], 1, 0>;
 }

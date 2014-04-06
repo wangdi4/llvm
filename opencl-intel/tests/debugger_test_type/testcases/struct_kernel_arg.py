@@ -1,8 +1,7 @@
-from testlib.debuggertestcase import DebuggerTestCase, expectedFailureGDB
+from testlib.debuggertestcase import DebuggerTestCase
 
 
 class StructKernelArg(DebuggerTestCase):
-    @expectedFailureGDB
     def test_arg_values(self):
         CLNAME = 'struct_kernel_arg1.cl'
         self.client.execute_debuggee(

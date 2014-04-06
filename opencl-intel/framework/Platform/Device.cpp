@@ -46,7 +46,7 @@ using namespace Intel::OpenCL::Framework;
 PlatformModule* volatile Device::m_pPlatformModule = NULL;
 
 Device::Device(_cl_platform_id_int* platform) :
-    FissionableDevice(platform),m_iNextClientId(1), m_pDeviceRefCount(0), m_devId(0), m_pDevice(NULL)
+    FissionableDevice(platform),m_bFrontEndCompilerDone(false),m_iNextClientId(1), m_pDeviceRefCount(0), m_devId(0), m_pDevice(NULL)
 {
     // initialize logger client
     INIT_LOGGER_CLIENT(TEXT("Device"), LL_DEBUG);
@@ -435,6 +435,45 @@ void Device::clDevCmdStatusChanged(cl_dev_cmd_id cmd_id, void * pData, cl_int cm
                                       (cl_int(CL_DEV_COMMAND_CANCELLED)==status_result) ? CL_DEVICE_NOT_AVAILABLE : status_result, 
                                       timer);
     return;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// PlatformModule::InitFECompilers
+///////////////////////////////////////////////////////////////////////////////////////////////////
+void Device::InitFECompiler() const
+{
+    const IOCLDeviceFECompilerDescription& pFEConfig = m_pDevice->clDevGetFECompilerDecription();
+    string strModule = pFEConfig.clDevFEModuleName();
+    m_pFrontEndCompiler = FrontEndCompiler::Allocate();
+
+    if (NULL == m_pFrontEndCompiler)
+    {
+        assert( false && "Cannot allocate wrapper class for FrontEndCompiler" );
+        return;
+    }
+
+    cl_err_code clErrRet = m_pFrontEndCompiler->Initialize(OS_DLL_POST(strModule).c_str(),
+                                                           pFEConfig.clDevFEDeviceInfo(), 
+                                                           pFEConfig.clDevFEDeviceInfoSize() );
+    if (CL_FAILED(clErrRet))
+    {
+        assert( false && "FrontEndCompiler initialization failed" );
+        m_pFrontEndCompiler = NULL;
+    }
+}
+
+const SharedPtr<FrontEndCompiler>& Device::GetFrontEndCompiler() const 
+{ 
+    if (!m_bFrontEndCompilerDone)
+    {
+        OclAutoMutex CS(&m_deviceInitializationMutex);
+        if (!m_bFrontEndCompilerDone)
+        {
+            InitFECompiler();
+            m_bFrontEndCompilerDone = true;
+        }
+    }
+    return m_pFrontEndCompiler; 
 }
 
 cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property* props, cl_uint num_entries, cl_dev_subdevice_id* out_devices, cl_uint* num_devices, size_t* sizes)

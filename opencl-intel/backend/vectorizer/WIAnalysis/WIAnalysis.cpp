@@ -6,6 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #include "WIAnalysis.h"
 #include "Mangler.h"
+#include "Predicator.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 #include "CompilationUtils.h"
@@ -95,13 +96,22 @@ gep_conversion[WIAnalysis::NumDeps][WIAnalysis::NumDeps] = {
   /* RND */  {RND, RND, RND, RND, RND}
 };
 
+static const WIAnalysis::WIDependancy
+gep_conversion_for_indirection[WIAnalysis::NumDeps][WIAnalysis::NumDeps] = {
+  /* ptr\index UNI, SEQ, PTR, STR, RND */
+  /* UNI */  {UNI, PTR, RND, RND, RND},
+  /* SEQ */  {RND, RND, RND, RND, RND},
+  /* PTR */  {STR, RND, RND, RND, RND},
+  /* STR */  {RND, RND, RND, RND, RND},
+  /* RND */  {RND, RND, RND, RND, RND}
+};
+
 WIAnalysis::WIAnalysis() : FunctionPass(ID), m_rtServices(NULL) {
     initializeWIAnalysisPass(*llvm::PassRegistry::getPassRegistry());
 }
 
 
 bool WIAnalysis::runOnFunction(Function &F) {
-
   m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
    V_ASSERT(m_rtServices && "Runtime services were not initialized!");
 
@@ -475,7 +485,10 @@ void WIAnalysis::updateCfDependency(const TerminatorInst *inst) {
         BranchInst* br = dyn_cast<BranchInst>(term);
         assert(br && "br cannot be null");
 
-        if (br->isConditional()) {
+        // an allones branch is a uniform branch.
+        bool branchIsAllOnes = (Predicator::getAllOnesBranch(br->getParent()) != NULL);
+
+        if (br->isConditional() && !branchIsAllOnes) {
           updateDepMap(term, WIAnalysis::RANDOM);
           // This region is going to be part of a larger region that is going
           // to be predicated
@@ -764,6 +777,12 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
       break; // Uniformity check failed. no need to continue
     }
   }
+
+  // support all-ones. An allones branch is a uniform branch.
+  if (Mangler::isAllOne(origFuncName)) {
+    return WIAnalysis::UNIFORM;
+  }
+
   if (isAllUniform) return WIAnalysis::UNIFORM;
   return WIAnalysis::RANDOM;
 }
@@ -785,7 +804,15 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const GetElementPtrInst* inst
   const Value* lastInd = inst->getOperand(num);
   WIAnalysis::WIDependancy lastIndDep = getDependency(lastInd);
 
-  return gep_conversion[depPtr][lastIndDep];
+  // SOA Alloca related pointer will be turned into SOA format.
+  // Thus, it is allowed to assume: PTR + UNI = PTR
+  const bool  isIndirectGep = opPtr->getType() != inst->getType() &&
+    !m_soaAllocaAnalysis->isSoaAllocaScalarRelated(opPtr);
+
+  if (isIndirectGep)
+    return gep_conversion_for_indirection[depPtr][lastIndDep];
+  else
+    return gep_conversion[depPtr][lastIndDep];
 }
 
 WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const PHINode* inst) {
@@ -1053,6 +1080,54 @@ void WIAnalysis::calcInfoForBranch(const TerminatorInst *inst)
   schedConstraints.push_back(m_fullJoin);
   m_SchedulingConstraints[*(schedConstraints.begin())] = schedConstraints;
 
+}
+
+void WIAnalysis::print(raw_ostream &OS, const Module *M) const {
+  if ( !M ) {
+    OS << "No Module!\n";
+    return;
+  }
+  //Print Module
+  OS << *M;
+
+  //Run on all instructions and print their  WIdependency
+  OS << "\nWI related Values\n";
+  for ( Module::const_iterator fi = M->begin(), fe = M->end(); fi != fe; ++fi ) {
+    if (fi->isDeclaration()) continue;
+    OS << fi->getName().str() << ":\n";
+    for ( const_inst_iterator it = inst_begin(fi), e = inst_end(fi); it != e; ++it ) {
+      const Instruction* pInst = dyn_cast<Instruction>(&*it);
+      //void type instructions has no value (i.e. no name) don't print them!
+      if ( pInst->getType()->isVoidTy() ) continue;
+      DenseMap<const Value*, WIDependancy>::const_iterator itDep = m_deps.find(pInst);
+      if( itDep == m_deps.end()) {
+        assert(false && "Expect all instructions to have WI dependency at this point");
+        continue;
+      }
+      OS << pInst->getName().str() << " : ";
+      switch (itDep->second) {
+      case UNIFORM:
+        OS << "UNI";
+        break;
+      case CONSECUTIVE:
+        OS << "SEQ";
+        break;
+      case PTR_CONSECUTIVE:
+        OS << "PTR";
+        break;
+      case STRIDED:
+        OS << "SRT";
+        break;
+      case RANDOM:
+        OS << "RND";
+        break;
+      default:
+        assert(false && "Unknown WI dependency");
+        OS << "unknown";
+      }
+      OS << "\n";
+    }
+  }
 }
 
 } // namespace

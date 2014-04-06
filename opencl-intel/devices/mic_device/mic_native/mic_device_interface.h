@@ -87,9 +87,21 @@ struct INIT_QUEUE_ON_DEVICE_STRUCT
     bool is_in_order_queue;
 };
 
+struct DEVICE_QUEUE_STRUCT
+{
+    void init()
+    {
+        device_sync_queue_address = 0;
+        device_async_queue_address = 0;
+    };
+
+    uint64_t        device_sync_queue_address;
+    uint64_t        device_async_queue_address;
+};
+
 struct INIT_QUEUE_ON_DEVICE_OUTPUT_STRUCT
 {
-    uint64_t        device_queue_address;
+    DEVICE_QUEUE_STRUCT device_queue_addresses;
     cl_dev_err_code ret_code;
 };
 
@@ -198,7 +210,7 @@ enum UTILITY_FUNCTION_TYPE
 
 struct utility_function_queue_cancel
 {
-    uint64_t            queue_address;
+    DEVICE_QUEUE_STRUCT            queue_address;
 };
 
 struct utility_function_options {

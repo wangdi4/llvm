@@ -320,15 +320,6 @@ void AtomicBitField::init(unsigned int size, bool initVal)
 #pragma warning(pop) 
 #endif 
 
-long AtomicBitField::bitTestAndReset(unsigned int bitNum)
-{
-	if ((NULL == m_bitField) || (bitNum < 0) || (bitNum >= m_size))
-	{
-		return -1;
-	}
-	return InterlockedCompareExchange((m_bitField + bitNum), 0, 1);
-}
-
 long AtomicBitField::bitTestAndSet(unsigned int bitNum)
 {
 	if ((NULL == m_bitField) || (bitNum < 0) || (bitNum >= m_size))

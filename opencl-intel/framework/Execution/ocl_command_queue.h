@@ -92,6 +92,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code CancelAll();
         virtual void    ReleaseQueue() { }    // called when the user calls clReleaesCommandQueue for this OclCommandQueue
 
+        /**
+         * @return the address of device agent's command list
+         */
+        void* GetDeviceCommandListPtr();
+
         // Create a custom tracker in GAP that correspond to the OCL queue
         cl_err_code GPA_InitializeQueue();
         ocl_gpa_queue * GPA_GetQueue() { return m_pOclGpaQueue; }

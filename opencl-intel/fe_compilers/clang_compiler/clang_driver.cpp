@@ -23,6 +23,7 @@
 ///////////////////////////////////////////////////////////
 
 #include "stdafx.h"
+#include "cache_binary_handler.h"
 
 #ifndef USE_COMMON_CLANG
 #include "clang/Basic/Diagnostic.h"
@@ -263,7 +264,7 @@ ClangFECompilerCompileTask::ClangFECompilerCompileTask(Intel::OpenCL::FECompiler
 
 ClangFECompilerCompileTask::~ClangFECompilerCompileTask()
 {
-    delete m_pOutIR;
+    delete [] m_pOutIR;
 }
 
 void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListType &BEArgList, const char *buildOpts)
@@ -523,9 +524,8 @@ int ClangFECompilerCompileTask::StoreOutput(TC::STB_TranslateOutputArgs* pOutput
         if ( pOutputArgs->pOutput && pOutputArgs->OutputSize )
         {
           // Add module level SPIR related stuff
-          llvm::OwningPtr<MemoryBuffer> pBinBuff (MemoryBuffer::getMemBufferCopy(StringRef(BufferStart, BufferSize)));
-          if( !pBinBuff)
-              throw std::bad_alloc();
+          llvm::OwningPtr<MemoryBuffer> pBinBuff( MemoryBuffer::getMemBuffer(
+                  StringRef(BufferStart, BufferSize), "", false));
 
           string ErrorMessage;
           llvm::Module *M = ParseBitcodeFile(pBinBuff.get(), getGlobalContext(), &ErrorMessage);
@@ -535,10 +535,10 @@ int ClangFECompilerCompileTask::StoreOutput(TC::STB_TranslateOutputArgs* pOutput
               return CL_OUT_OF_HOST_MEMORY;
           }
 
-          llvm::OwningPtr<PassManager> Passes(new PassManager());
-          Passes->add(new DataLayout(M)); // Use correct DataLayout
-          Passes->add(createSPIRMetadataAdderPass(m_BEArgList, CLSTDSet));
-          Passes->run(*M);
+          PassManager Passes;
+          Passes.add(new DataLayout(M)); // Use correct DataLayout
+          Passes.add(createSPIRMetadataAdderPass(m_BEArgList, CLSTDSet));
+          Passes.run(*M);
 
           WriteBitcodeToFile(M, SPIRstream);
           SPIRstream.flush();
@@ -629,7 +629,7 @@ int ClangFECompilerCompileTask::Compile()
             compileOptions.append(" ");
         }
     }
-
+/*------------------------------------------*/
     // Create the input ELF binary
     ElfWriterPtr pElfWriter( CLElfLib::CElfWriter::Create( CLElfLib::EH_TYPE_OPENCL_SOURCE,
                                                            CLElfLib::EH_MACHINE_NONE,
@@ -641,7 +641,7 @@ int ClangFECompilerCompileTask::Compile()
 
     char* prc_id = CLSTDSet >= 200 ? "#102" : "#101";
 
-    std::auto_ptr<llvm::MemoryBuffer> pchBuff( (llvm::MemoryBuffer *)LoadPchResourceBuffer(prc_id));
+    llvm::OwningPtr<llvm::MemoryBuffer> pchBuff( (llvm::MemoryBuffer *)LoadPchResourceBuffer(prc_id));
     if( !pchBuff.get() )
     {
         LOG_ERROR(TEXT("%s"), "Failed to load pchBuff");
@@ -705,6 +705,7 @@ int ClangFECompilerCompileTask::Compile()
     {
         throw std::bad_alloc();
     }
+/*------------------------------------------*/
 
     // create unique data for new thread
     TC::STB_TranslationCode code = { TC::TB_DATA_FORMAT_ELF, TC::TB_DATA_FORMAT_LLVM_BINARY };
@@ -732,9 +733,9 @@ int ClangFECompilerCompileTask::Compile()
   }
 
   // Prepare input Buffer
-  llvm::MemoryBuffer *inputBuffer = llvm::MemoryBuffer::getMemBuffer(
+  llvm::OwningPtr<llvm::MemoryBuffer> inputBuffer(llvm::MemoryBuffer::getMemBuffer(
         m_pProgDesc->pProgramSource,
-        m_source_filename);
+        m_source_filename));
 
   // Prepare output buffer
   SmallVector<char, 4096>   IRbinary;
@@ -748,6 +749,7 @@ int ClangFECompilerCompileTask::Compile()
   llvm::IntrusiveRefCntPtr<DiagnosticIDs> DiagID = new DiagnosticIDs();
   llvm::IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions();
   DiagOpts->ShowCarets = 0;
+  DiagOpts->ShowPresumedLoc = true;
   TextDiagnosticPrinter *DiagsPrinter = new TextDiagnosticPrinter(errStream, DiagOpts.getPtr());
   llvm::IntrusiveRefCntPtr<DiagnosticsEngine> Diags =
     new DiagnosticsEngine(DiagID, &*DiagOpts, DiagsPrinter);
@@ -756,7 +758,8 @@ int ClangFECompilerCompileTask::Compile()
   llvm::OwningPtr<CompilerInstance> Clang(new CompilerInstance());
 
   // Set our buffers
-  Clang->SetInputBuffer(inputBuffer);
+  // CompilerInstance takes ownership over its buffers
+  Clang->SetInputBuffer(inputBuffer.take());
   Clang->SetOutputStream(&IRStream);
   Clang->setDiagnostics(Diags.getPtr());
 
@@ -791,7 +794,8 @@ int ClangFECompilerCompileTask::Compile()
 
   for (unsigned int i = 0; i < m_pProgDesc->uiNumInputHeaders; ++i)
   {
-      llvm::MemoryBuffer *header = llvm::MemoryBuffer::getMemBufferCopy(m_pProgDesc->pInputHeaders[i], m_pProgDesc->pszInputHeadersNames[i]);
+      llvm::MemoryBuffer *header = llvm::MemoryBuffer::getMemBuffer(m_pProgDesc->pInputHeaders[i], m_pProgDesc->pszInputHeadersNames[i]);
+      // CompilerInstance takes ownership over its buffers
       Clang->AddInMemoryHeader(header, m_pProgDesc->pszInputHeadersNames[i]);
   }
 
@@ -804,7 +808,7 @@ int ClangFECompilerCompileTask::Compile()
   HGLOBAL hBytes = NULL;
   char *pData = NULL;
   size_t dResSize = NULL;
-  llvm::MemoryBuffer *pchBuff = NULL;
+  llvm::OwningPtr<llvm::MemoryBuffer> pchBuff(0);
 
 #if defined (_WIN32)
 #if defined (_M_X64)
@@ -872,7 +876,7 @@ int ClangFECompilerCompileTask::Compile()
 
   if( dResSize > 0 )
   {
-    pchBuff = llvm::MemoryBuffer::getMemBufferCopy(StringRef(pData, dResSize));
+    pchBuff.reset(llvm::MemoryBuffer::getMemBuffer(StringRef(pData, dResSize), "", false));
   }
   else
   {
@@ -880,9 +884,9 @@ int ClangFECompilerCompileTask::Compile()
     Success = false;
   }
 
-  if( NULL != pchBuff )
+  if( NULL != pchBuff.get() )
   {
-    Clang->SetPchBuffer(pchBuff);
+    Clang->SetPchBuffer(pchBuff.take());
   }
   else
   {
@@ -924,16 +928,18 @@ int ClangFECompilerCompileTask::Compile()
     string ErrorMessage;
     const char*  BufferStart = (const char*)IRbinary.begin();
     size_t BufferSize = IRbinary.size();
-    llvm::OwningPtr<MemoryBuffer> pBinBuff (MemoryBuffer::getMemBufferCopy(StringRef((const char *)(IRbinary.begin()), IRbinary.size())));
+    llvm::OwningPtr<MemoryBuffer> pBinBuff(MemoryBuffer::getMemBuffer(
+                StringRef((const char *)(IRbinary.begin()), IRbinary.size()),
+                "", false));
     llvm::SmallVector<char, 4096>   SPIRbinary;
     llvm::raw_svector_ostream SPIRstream(SPIRbinary);
     {
         LLVMContext ctx;
         llvm::Module *M = ParseBitcodeFile(pBinBuff.get(), ctx, &ErrorMessage);
-        llvm::OwningPtr<PassManager> Passes(new PassManager());
-        Passes->add(new DataLayout(M)); // Use correct DataLayout
-        Passes->add(createSPIRMetadataAdderPass(m_BEArgList, CLSTDSet));
-        Passes->run(*M);
+        PassManager Passes;
+        Passes.add(new DataLayout(M)); // Use correct DataLayout
+        Passes.add(createSPIRMetadataAdderPass(m_BEArgList, CLSTDSet));
+        Passes.run(*M);
         WriteBitcodeToFile(M, SPIRstream);
         SPIRstream.flush();
         BufferStart = (const char*)SPIRbinary.begin();
@@ -1004,7 +1010,7 @@ ClangFECompilerLinkTask::ClangFECompilerLinkTask(Intel::OpenCL::FECompilerAPI::F
 
 ClangFECompilerLinkTask::~ClangFECompilerLinkTask()
 {
-  delete m_pOutIR;
+  delete [] m_pOutIR;
 }
 
 #ifdef USE_COMMON_CLANG
@@ -1093,6 +1099,9 @@ int ClangFECompilerLinkTask::Link()
 
     //Don't need actual linker...
     bool isSPIR = false;
+    //Check if the given binary is cached object
+    CacheBinaryHandler::CacheBinaryReader cacheReader(m_pProgDesc->pBinaryContainers[0], m_pProgDesc->puiBinariesSizes[0]);
+    bool isBinaryObject = cacheReader.IsCachedObject();
     if(1 == m_pProgDesc->uiNumBinaries) {
         isSPIR = (((const char*)(m_pProgDesc->pBinaryContainers[0]))[0] == 'B') &&
         (((const char*)(m_pProgDesc->pBinaryContainers[0]))[1] == 'C');
@@ -1108,6 +1117,8 @@ int ClangFECompilerLinkTask::Link()
 
         m_stOutIRSize = m_pProgDesc->puiBinariesSizes[0];
         if (isSPIR) m_stOutIRSize += sizeof(cl_llvm_prog_header) + sizeof(cl_prog_container_header);
+        //In case of binary object (mostly it will be ELF) then we need to warp it with header
+        if (isBinaryObject) m_stOutIRSize += sizeof(cl_prog_container_header);
 
         m_pOutIR = new char[m_stOutIRSize];
         if ( NULL == m_pOutIR )
@@ -1137,8 +1148,10 @@ int ClangFECompilerLinkTask::Link()
             void *pIR = (void*)(pProgHeader+1);
 
             string ErrorMessage;
-            MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef((const char *)(m_pProgDesc->pBinaryContainers[0]), m_pProgDesc->puiBinariesSizes[0]));
-            llvm::Module *M = ParseBitcodeFile(pBinBuff, getGlobalContext(), &ErrorMessage);
+            OwningPtr<MemoryBuffer> pBinBuff(MemoryBuffer::getMemBuffer(
+                    StringRef((const char *)(m_pProgDesc->pBinaryContainers[0]), m_pProgDesc->puiBinariesSizes[0]),
+                    "", false));
+            llvm::Module *M = ParseBitcodeFile(pBinBuff.get(), getGlobalContext(), &ErrorMessage);
 
             if (NULL == M)
             {
@@ -1164,6 +1177,23 @@ int ClangFECompilerLinkTask::Link()
             MEMCPY_S(pIR, m_pProgDesc->puiBinariesSizes[0],
                 m_pProgDesc->pBinaryContainers[0], m_pProgDesc->puiBinariesSizes[0]);
         }
+        else if (isBinaryObject)
+        {
+            cl_prog_container_header*   pHeader = (cl_prog_container_header*)m_pOutIR;
+            MEMCPY_S(pHeader->mask, 4, _CL_CONTAINER_MASK_, 4);
+            pHeader->container_size = m_pProgDesc->puiBinariesSizes[0];
+            pHeader->container_type = CL_PROG_CNT_PRIVATE;
+            pHeader->description.bin_type = CL_PROG_BIN_BUILT_OBJECT;
+            //TODO[JIT-SAVE]: need to support versions later 
+            pHeader->description.bin_ver_major = 1;
+            pHeader->description.bin_ver_minor = 0;     
+
+            void* pObject = (char*)pHeader + sizeof(cl_prog_container_header);
+            MEMCPY_S(pObject, m_pProgDesc->puiBinariesSizes[0],
+                m_pProgDesc->pBinaryContainers[0], m_pProgDesc->puiBinariesSizes[0]); 
+
+            return CL_SUCCESS;  
+        } 
         else
         {
             MEMCPY_S(m_pOutIR, m_stOutIRSize, m_pProgDesc->pBinaryContainers[0], m_stOutIRSize);
@@ -1302,14 +1332,20 @@ int ClangFECompilerLinkTask::Link()
     size_t uiBinarySize = 0;
 
     // Initialize the module with the first binary
+    // In case we have more than binary (real linking) then in Binary Objects we need to discard the JIT
+    // and recompile by getting the IR from the object
     cl_prog_container_header* pHeader = (cl_prog_container_header*) m_pProgDesc->pBinaryContainers[0];
+    if(isBinaryObject)
+        pHeader = (cl_prog_container_header*) cacheReader.GetSectionData(CacheBinaryHandler::g_irSectionName);
 
     cl_llvm_prog_header* pProgHeader = (cl_llvm_prog_header*)((char*)pHeader + sizeof(cl_prog_container_header));
 
-    if ( llvm::isRawBitcode((const unsigned char*)m_pProgDesc->pBinaryContainers[0], NULL) ) {
-        uiBinarySize = m_pProgDesc->puiBinariesSizes[0];
-        pBinary = (char*)m_pProgDesc->pBinaryContainers[0];
-
+    if ( llvm::isRawBitcode((const unsigned char*)pHeader, NULL) ) {
+         uiBinarySize = m_pProgDesc->puiBinariesSizes[0];
+ 
+        if(isBinaryObject)
+            uiBinarySize = cacheReader.GetSectionSize(CacheBinaryHandler::g_irSectionName);
+        pBinary = (char*)pHeader;
     } else {
         uiBinarySize = pHeader->container_size - sizeof(cl_llvm_prog_header);
         pBinary = (char*)pHeader +
@@ -1317,8 +1353,11 @@ int ClangFECompilerLinkTask::Link()
                   sizeof(cl_llvm_prog_header); //Skip the build flags for now
 
     }
-    std::auto_ptr<MemoryBuffer> pBinBuff (MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize)));
-    std::auto_ptr<llvm::Module> composite(ParseBitcodeFile(pBinBuff.get(), Context, &ErrorMessage));
+    llvm::OwningPtr<MemoryBuffer> pBinBuff(
+            MemoryBuffer::getMemBuffer(
+                StringRef(pBinary, uiBinarySize),
+                "" ,false));
+    llvm::OwningPtr<llvm::Module> composite(ParseBitcodeFile(pBinBuff.get(), Context, &ErrorMessage));
 
     if (composite.get() == 0)
     {
@@ -1336,11 +1375,22 @@ int ClangFECompilerLinkTask::Link()
     // Now go over the rest of the binaries and add them
     for (unsigned int i = 1; i < m_pProgDesc->uiNumBinaries; ++i)
     {
-        if ( llvm::isRawBitcode((const unsigned char*)m_pProgDesc->pBinaryContainers[i], NULL) ) {
-            uiBinarySize = m_pProgDesc->puiBinariesSizes[i];
-            pBinary = (char*)m_pProgDesc->pBinaryContainers[i];
+        CacheBinaryHandler::CacheBinaryReader reader(m_pProgDesc->pBinaryContainers[i], m_pProgDesc->puiBinariesSizes[i]);
+
+        bool isBinaryObject = reader.IsCachedObject();
+        const void* pContainer = m_pProgDesc->pBinaryContainers[i];
+        if ( isBinaryObject ) {
+            pContainer = reader.GetSectionData(CacheBinaryHandler::g_irSectionName);
+        }
+
+        if ( llvm::isRawBitcode((const unsigned char*)pContainer, NULL) ) {
+             uiBinarySize = m_pProgDesc->puiBinariesSizes[i];
+
+            if ( isBinaryObject )
+                uiBinarySize = reader.GetSectionSize(CacheBinaryHandler::g_irSectionName);
+            pBinary = (char*)pContainer;
         } else {
-            pHeader = (cl_prog_container_header*) m_pProgDesc->pBinaryContainers[i];
+            pHeader = (cl_prog_container_header*) pContainer;
             pProgHeader = (cl_llvm_prog_header*)((char*)pHeader + sizeof(cl_prog_container_header));
 
             uiBinarySize = pHeader->container_size - sizeof(cl_llvm_prog_header);
@@ -1350,8 +1400,11 @@ int ClangFECompilerLinkTask::Link()
                       sizeof(cl_llvm_prog_header); //Skip the build flags for now
         }
 
-        std::auto_ptr<MemoryBuffer> pBinBuff (MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize)));
-        std::auto_ptr<llvm::Module> M(ParseBitcodeFile(pBinBuff.get(), Context, &ErrorMessage));
+        llvm::OwningPtr<MemoryBuffer> pBinBuff(
+                MemoryBuffer::getMemBuffer(
+                    StringRef(pBinary, uiBinarySize),
+                    "", false));
+        llvm::OwningPtr<llvm::Module> M(ParseBitcodeFile(pBinBuff.get(), Context, &ErrorMessage));
 
         if (M.get() == 0)
         {
@@ -1633,6 +1686,12 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
     LLVMContext Context;
 
     cl_prog_container_header* pHeader = (cl_prog_container_header*) pBin;
+    // if we point on a binary object then need to ask for the IR
+    if (CL_PROG_BIN_BUILT_OBJECT == pHeader->description.bin_type)
+    {
+        CacheBinaryHandler::CacheBinaryReader reader((char*)pBin + sizeof(cl_prog_container_header), ((cl_prog_container_header*)pBin)->container_size);
+        pHeader = (cl_prog_container_header*)reader.GetSectionData(CacheBinaryHandler::g_irSectionName);
+    }
 
     size_t uiBinarySize = pHeader->container_size - sizeof(cl_llvm_prog_header);
 
@@ -1640,13 +1699,14 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
                     sizeof(cl_prog_container_header) + // Skip the container
                     sizeof(cl_llvm_prog_header); //Skip the build flags
 
-    MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize));
+    llvm::OwningPtr<MemoryBuffer> pBinBuff(MemoryBuffer::getMemBuffer(
+                StringRef(pBinary, uiBinarySize), "", false));
 
     #ifdef USE_COMMON_CLANG
     if( pBin && TC::GetKernelArgsInfoPlugin )
     {
         struct STB_GetKernelArgsInfoArgs KernelArgsInfo;
-        TC::GetKernelArgsInfoPlugin(pBinBuff, szKernelName, &KernelArgsInfo);
+        TC::GetKernelArgsInfoPlugin(pBinBuff.get(), szKernelName, &KernelArgsInfo);
         int retVal = TranslateArgsInfoValues(&KernelArgsInfo);
         if( TC::ReleaseKernelArgsInfoPlugin)
         {
@@ -1655,7 +1715,8 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
         return retVal;
     }
     #else
-    std::auto_ptr<llvm::Module> pModule(ParseIR(pBinBuff, Err, Context));
+    // parseIR takes ownership of the buffer, so release it
+    std::auto_ptr<llvm::Module> pModule(ParseIR(pBinBuff.take(), Err, Context));
 
     if (NULL == pModule.get())
     {
@@ -1804,6 +1865,10 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
         if (pTypeQualifier->getString().find("volatile") != llvm::StringRef::npos)
         {
             argInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_VOLATILE;
+        }
+        if (pTypeQualifier->getString().find("pipe") != llvm::StringRef::npos)
+        {
+            argInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_PIPE;
         }
 
         // Type name
@@ -2035,8 +2100,6 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
         else if (*opt_i == "-cl-finite-math-only") {
             pList->push_back("-cl-finite-math-only");
             pBEArgList->push_back(*opt_i);
-            pList->push_back("-D");
-            pList->push_back("__FINITE_MATH_ONLY__=1");
         }
         else if (*opt_i == "-cl-fast-relaxed-math") {
             pList->push_back("-cl-fast-relaxed-math");
@@ -2072,8 +2135,8 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
             pList->push_back("__OPENCL_C_VERSION__=200");
             pBEArgList->push_back("-cl-std=CL2.0");
         }
-        else if (*opt_i == "-cl-uniform-workgroup-size") {
-            // Don't complain, just ignore it for now
+        else if (*opt_i == "-cl-uniform-work-group-size") {
+            pBEArgList->push_back("-cl-uniform-work-group-size");
         }
         else if (*opt_i == "-triple") {
             // Expect the target triple as the next token

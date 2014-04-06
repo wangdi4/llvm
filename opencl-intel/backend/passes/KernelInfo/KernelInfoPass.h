@@ -9,6 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __KERNEL_INFO_H__
 
 #include "llvm/Pass.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Constants.h"
@@ -26,7 +27,7 @@ namespace Intel {
 
 namespace intel {
 
-  /// This pass is  a wrapper of the Kernel Info Pass, which currently outputs
+  /// This pass is a wrapper of the Kernel Info Pass, which currently outputs
   /// two information about the kernel: Has Barrier and Execution estimation
   /// This pass should run before the Barrier Pass, createPrepareKernelArgsPass
 
@@ -36,18 +37,27 @@ namespace intel {
     static char ID;
 
     /// @brief Constructor
-    KernelInfoWrapper() : ModulePass(ID) {
-    }
+    KernelInfoWrapper() : ModulePass(ID) {}
 
     /// @brief Provides name of pass
     virtual const char *getPassName() const {
       return "KernelInfoWrapper";
     }
 
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+      AU.addRequired<DataLayout>();
+      AU.setPreservesAll();
+    }
+
     /// @brief performs KernelInfo pass on the module
     bool runOnModule(Module& M);
 
   protected:
+
+    /// @brief Returns the total amount of storage, in bytes, used by
+    ///        program variables in the global address space.
+    /// @param M Program module.
+    size_t getProgramGlobalVariableTotalSize(const Module& M);
 
   };
 

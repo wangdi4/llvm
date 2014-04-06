@@ -48,7 +48,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class Device;
     class FissionableDevice;
     class OCLConfig;
-    class FrontEndCompiler;
 
     /**********************************************************************************************
     * Class name:    PlatformModule
@@ -158,17 +157,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         cl_err_code clRetainDevice(cl_device_id device);
 
-        /******************************************************************************************
-        * Function:     InitFECompiler
-        * Description:    Load OpenCL front-end compiler for the specific device.
-        * Arguments:    pRootDevice - a pointer to device for which FE should be initialized
-        * Return value:    CL_SUCCESS - The initializtion operation succeded
-        *                CL_ERR_FE_COMPILER_INIT_FAIL - one or more devices falied to initialize
-        * Author:        Uri Levy
-        * Date:            March 2008
-        ******************************************************************************************/
-        cl_err_code InitFECompiler(SharedPtr<Device> pRootDevice);
-
         bool CheckPlatformId(cl_platform_id clPlatform) const { return (clPlatform == &m_clPlatformId ) ||
             (clPlatform==NULL); }
 
@@ -176,7 +164,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // Utilities
         //
         void RemoveAllDevices(bool preserve_user_handles);
-        cl_err_code ReleaseFECompilers(bool bTerminate);
 
         void DeviceCreated() { ++m_activeDeviceCount; }
         void DeviceClosed()  { --m_activeDeviceCount; }
@@ -214,9 +201,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // default device
         SharedPtr<Device> m_pDefaultDevice;
-
-        // map list of all front-end compilers
-        OCLObjectsMap<_cl_object>    m_mapFECompilers;
 
         // A mutex to prevent concurrent calls to clCreateSubDevices
         Intel::OpenCL::Utils::OclMutex m_deviceFissionMutex;

@@ -6,10 +6,6 @@
 use_eh(TRUE)
 use_rtti(FALSE)
 
-if( USE_COMMON_CLANG )
-    add_subdirectory( CLElfLib  )
-endif()
-
 # set that name of the main output file as a target name
 set( TARGET_NAME clang_compiler${BUILD_PLATFORM} )
 
@@ -81,6 +77,8 @@ include_directories( AFTER
             ${CMAKE_SOURCE_DIR}/backend/ocl_cpu_backend/export
             ${CMAKE_SOURCE_DIR}/backend/dynamic_lib
             ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
+            ${CMAKE_SOURCE_DIR}/utils/cache_binary_handler
+            ${CMAKE_SOURCE_DIR}/utils/CLElfLib
             ${OCL_BINARY_DIR}
             ${CMAKE_BINARY_DIR}/include
             )
@@ -93,13 +91,7 @@ else()
     include_directories( AFTER
         ../common/linux/headers
     )
-endif()
-            
-if (USE_COMMON_CLANG)
-    include_directories( AFTER
-        CLElfLib
-    )
-endif()    
+endif() 
 
 if (WIN32)
     if (CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -124,9 +116,64 @@ install(TARGETS ${TARGET_NAME}
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION bin)
 
+if (NOT INCLUDE_MIC_DEVICE)
+if(NOT WIN32)
+    # fix the case when LLVM is built with MIC support, but we want OCL without MIC support.
+    if (${LLVM_COMPONENTS} MATCHES "(y86.*)")
+        set(LLVM_MODULE_LIBS "-lLLVMY86Disassembler -lLLVMY86CodeGen -lLLVMMICModuleJIT -lLLVMY86AsmParser -lLLVMY86Desc -lLLVMY86Info -lLLVMY86AsmPrinter -lLLVMY86Utils ${LLVM_MODULE_LIBS} -lpcg -lsvml -lirc")
+    endif()
+else()
+    # Try to find Y86 libraries on windows.
+    # Release mode
+    string(REPLACE "${CMAKE_CFG_INTDIR}" "Release" RELEASE_DIR ${LLVM_LIBRARY_DIR})
+    find_library(IS_Y86_TARGET LLVMY86CodeGen ${RELEASE_DIR})
+    if (IS_Y86_TARGET)
+        target_link_libraries(${TARGET_NAME} optimized
+            LLVMY86AsmParser
+            LLVMY86CodeGen
+            LLVMMICModuleJIT
+            LLVMY86Desc
+            LLVMY86AsmPrinter
+            LLVMY86Disassembler
+            LLVMY86Info
+            LLVMY86Utils
+            libpcg
+            svml_dispmt
+            libirc
+            libmmt
+            libdecimal
+            )
+    endif()
+    # Debug mode
+    string(REPLACE "${CMAKE_CFG_INTDIR}" "Debug" DEBUG_DIR ${LLVM_LIBRARY_DIR})
+    find_library(IS_Y86_TARGET LLVMY86CodeGen ${DEBUG_DIR})
+    if (IS_Y86_TARGET)
+        target_link_libraries(${TARGET_NAME} debug
+            LLVMY86AsmParser
+            LLVMY86CodeGen
+            LLVMMICModuleJIT
+            LLVMY86Desc
+            LLVMY86AsmPrinter
+            LLVMY86Disassembler
+            LLVMY86Info
+            LLVMY86Utils
+            libpcg
+            svml_dispmt
+            libirc
+            libmmt
+            libdecimal
+            )
+    endif()
+endif()
+endif (NOT INCLUDE_MIC_DEVICE)
+
+target_link_libraries( ${TARGET_NAME} 
+                           CacheBinaryHandler
+                           CLElfLib
+)
+
 if (USE_COMMON_CLANG)
     target_link_libraries( ${TARGET_NAME} 
-                           CLElfLib
                            OclPluginManager
                            metadataapi
                            dynamic_load
@@ -230,14 +277,14 @@ set( CLANG ${TOOL_BINARY_DIR}/clang )
 
 add_custom_command( TARGET ${TARGET_NAME}
                     PRE_BUILD
-                    COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_12}  ${TRIPLE} -DCPU -o ${OPENCL_PCH_OUT_DIR}/opencl_.pch ${REDIRECTION_OPTION}
+                    COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_12}  ${TRIPLE} -o ${OPENCL_PCH_OUT_DIR}/opencl_.pch ${REDIRECTION_OPTION}
                     COMMENT "Generate non-optimized Intel OpenCL precompiled headers"
                     DEPENDS ${CLANG} ${OCL_CLANG_HEADERS}/opencl_.h
                     VERBATIM
 )
 add_custom_command( TARGET ${TARGET_NAME}
                     PRE_BUILD
-                    COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_20} ${TRIPLE} -DCPU -o ${OPENCL_PCH_OUT_DIR}/opencl20_.pch ${REDIRECTION_OPTION}
+                    COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_20} ${TRIPLE} -o ${OPENCL_PCH_OUT_DIR}/opencl20_.pch ${REDIRECTION_OPTION}
                     COMMENT "Generate non-optimized Intel OpenCL20 precompiled headers"
                     DEPENDS ${CLANG} ${OCL_CLANG_HEADERS}/opencl_.h
                     VERBATIM

@@ -179,6 +179,11 @@ private:
       AU.addRequired<BuiltinLibInfo>();
     }
 
+    /// @brief print data collected by the pass on the given module
+    /// @param OS stream to print the info regarding the module into
+    /// @param M pointer to the Module
+    void print(raw_ostream &OS, const Module *M) const;
+
 private:
     // @brief pointer to Soa alloca analysis performed for this function
     SoaAllocaAnalysis *m_soaAllocaAnalysis;

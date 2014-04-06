@@ -169,7 +169,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         bool IsBeingDeleted() const { return m_bIsBeingDeleted; }
 
     protected:
-        Command(const Command& O) : ICmdStatusChangedObserver(), m_Event(NULL) {}
+
+        // call this to break event<>command sharedPtr loop and initiate command deletion
+        void DetachEventSharedPtr();
         
         // retrieve device specific descriptor of the memory object.
         // If descriptor is not ready on a device:
@@ -214,20 +216,22 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         void prepare_command_descriptor( cl_dev_cmd_type type, void* params, size_t params_size );
         
-        SharedPtr<QueueEvent> m_Event;    // An associated event object
+        SharedPtr<QueueEvent>           m_Event;    // An associated event object
 
-        cl_dev_cmd_desc             m_DevCmd;                   // Device command descriptor struct
-        cl_dev_cmd_list             m_clDevCmdListId;           // An handle of the device command list that this command should be queued on
-        SharedPtr<FissionableDevice>          m_pDevice;                  // A pointer to the device executing the command
-        SharedPtr<IOclCommandQueueBase>       m_pCommandQueue;            // A pointer to the command queue on which the command resides
-        cl_int                      m_returnCode;               // The result of the completed command. Can be CL_SUCCESS or one of the errors defined by the spec.
-        cl_command_type             m_commandType;              // Command type
+        cl_dev_cmd_desc                 m_DevCmd;                   // Device command descriptor struct
+        cl_dev_cmd_list                 m_clDevCmdListId;           // An handle of the device command list that this command should be queued on
+        SharedPtr<FissionableDevice>    m_pDevice;                  // A pointer to the device executing the command
+        SharedPtr<IOclCommandQueueBase> m_pCommandQueue;            // A pointer to the command queue on which the command resides
+        cl_int                          m_returnCode;               // The result of the completed command. Can be CL_SUCCESS or one of the errors defined by the spec.
+        cl_command_type                 m_commandType;              // Command type
         
-        ocl_gpa_command*            m_pGpaCommand;
-        bool                        m_bIsBeingDeleted;
+        ocl_gpa_command*                m_pGpaCommand;
+        bool                            m_bIsBeingDeleted;          // Command destructor is active - to be check during internal event destructor 
+        volatile bool                   m_bEventDetached;           // event already detached from the command
+        
 
         // Intermediate data
-        MemoryObjectArgList                 m_MemOclObjects;
+        MemoryObjectArgList             m_MemOclObjects;
         
         DECLARE_LOGGER_CLIENT;
     private:
@@ -1372,7 +1376,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         Intel::OpenCL::TaskExecutor::TASK_PRIORITY   GetPriority() const 
                         { return Intel::OpenCL::TaskExecutor::TASK_PRIORITY_MEDIUM;}
 
-        virtual Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+        virtual Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
 
     private:
 

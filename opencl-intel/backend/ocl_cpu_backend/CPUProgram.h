@@ -46,6 +46,11 @@ public:
 
     void* GetPointerToFunction(llvm::Function* F);
 
+    /**
+     * Serialization methods for the class (used by the serialization service)
+     */
+    virtual void Deserialize(IInputStream& ist, SerializationStatus* stats);
+
 private:
     llvm::ExecutionEngine*  m_pExecutionEngine;
     void *                  m_pBIModule;

@@ -62,19 +62,11 @@ void init_commands_queue(uint32_t         in_BufferCount,
     INIT_QUEUE_ON_DEVICE_STRUCT*        data     = (INIT_QUEUE_ON_DEVICE_STRUCT*)in_pMiscData;
     INIT_QUEUE_ON_DEVICE_OUTPUT_STRUCT* data_out = (INIT_QUEUE_ON_DEVICE_OUTPUT_STRUCT*)in_pReturnValue;
 
+    data_out->device_queue_addresses.device_sync_queue_address = NULL;
+    data_out->device_queue_addresses.device_async_queue_address = NULL;
 
-    data_out->device_queue_address = NULL;
-
-#ifdef _DEBUG
-    TlsAccessor tlsAccessor;
-    assert( NULL == QueueOnDevice::getCurrentQueue(&tlsAccessor) && "Queue is already set");
-    if ( NULL != QueueOnDevice::getCurrentQueue(&tlsAccessor) )
-    {
-        data_out->ret_code = CL_DEV_INVALID_OPERATION;
-        return;
-    }
-#endif
-    QueueOnDevice* pQueue = NULL;
+    QueueOnDevice* pAsyncQueue = NULL;
+    QueueOnDevice* pSyncQueue = NULL;
     
     ThreadPool* thread_pool = ThreadPool::getInstance();
     assert( (NULL != thread_pool) && "Thread pool not exists" );
@@ -92,34 +84,35 @@ void init_commands_queue(uint32_t         in_BufferCount,
     }
     thread_pool->startup_all_workers();
 #endif
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
-    pQueue = new QueueOnDevice( *thread_pool );
-#else
-    if (data->is_in_order_queue)
-    {
-        pQueue = new InOrderQueueOnDevice( *thread_pool );
-    }
-    else
-    {
-        pQueue = new OutOfOrderQueueOnDevice( *thread_pool );
-    }
-#endif
-    
-    if ( NULL == pQueue )
+
+    pAsyncQueue = new QueueOnDevice( *thread_pool );
+    if (NULL == pAsyncQueue)
     {
         data_out->ret_code = CL_DEV_OUT_OF_MEMORY;
         return;
     }
-
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
-    if (!pQueue->Init(data->is_in_order_queue))
-#else
-    if (!pQueue->Init())
-#endif
+    if (!pAsyncQueue->Init(data->is_in_order_queue))
     {
         data_out->ret_code = CL_DEV_OUT_OF_MEMORY;
-        delete pQueue;
+        delete pAsyncQueue;
         return;        
+    }
+	// create SyncQueueOnDevice only for inorder queue
+    if (data->is_in_order_queue)
+    {
+        pSyncQueue = new SyncQueueOnDevice( *thread_pool );
+        if (NULL == pSyncQueue)
+        {
+            data_out->ret_code = CL_DEV_OUT_OF_MEMORY;
+            return;
+        }
+        if (!pSyncQueue->Init())
+        {
+            data_out->ret_code = CL_DEV_OUT_OF_MEMORY;
+            delete pAsyncQueue;
+            delete pSyncQueue;
+            return;        
+        }
     }
 
 #if defined(USE_ITT)
@@ -129,10 +122,8 @@ void init_commands_queue(uint32_t         in_BufferCount,
     }
 #endif
 
-#ifdef _DEBUG
-    QueueOnDevice::setCurrentQueue( &tlsAccessor, pQueue );
-#endif
-    data_out->device_queue_address = (uint64_t)(size_t)pQueue;
+    data_out->device_queue_addresses.device_sync_queue_address = (uint64_t)(size_t)pSyncQueue;
+    data_out->device_queue_addresses.device_async_queue_address = (uint64_t)(size_t)pAsyncQueue;
     data_out->ret_code             = CL_DEV_SUCCESS;
 }
 
@@ -146,24 +137,43 @@ void release_commands_queue(uint32_t         in_BufferCount,
                             void*            in_pReturnValue,
                             uint16_t         in_ReturnValueLength)
 {
-    assert( (NULL!=in_pMiscData) &&  sizeof(QueueOnDevice*) == in_MiscDataLength        && "Expected queue pointer in function parameters");
+    assert( (NULL!=in_pMiscData) &&  sizeof(DEVICE_QUEUE_STRUCT) == in_MiscDataLength        && "Expected queue pointer in function parameters");
     assert( (NULL!=in_pReturnValue) &&  sizeof(cl_dev_err_code) == in_ReturnValueLength && "Expected return argument");
 
-    QueueOnDevice* pQueue = (QueueOnDevice*)(*(uint64_t*)in_pMiscData);
-    assert(NULL != pQueue && "pQueue must be valid");
+    DEVICE_QUEUE_STRUCT* pDeviceQueueAddresses = (DEVICE_QUEUE_STRUCT*)in_pMiscData;
+    QueueOnDevice* pAsyncQueue = (QueueOnDevice*)pDeviceQueueAddresses->device_async_queue_address;
+    QueueOnDevice* pSyncQueue = (QueueOnDevice*)pDeviceQueueAddresses->device_sync_queue_address;
 
-#ifdef _DEBUG
-    TlsAccessor tlsAccessor;
-    const QueueOnDevice* pTLSQueue = QueueOnDevice::getCurrentQueue( &tlsAccessor );
-    assert( pTLSQueue == pQueue && "Queue handles doesn't match");
-    QueueOnDevice::setCurrentQueue( &tlsAccessor, NULL );
-#endif
-
-    if ( NULL != pQueue )
+    if ( NULL != pAsyncQueue )
     {
-        delete pQueue;
+        delete pAsyncQueue;
+    }
+    if ( NULL != pSyncQueue )
+    {
+        delete pSyncQueue;
     }
     *((cl_dev_err_code*)in_pReturnValue) = CL_DEV_SUCCESS;
+}
+
+bool QueueOnDevice::Init( bool isInOrder)
+{
+    bool res = initInt( isInOrder ? TE_CMD_LIST_IN_ORDER : TE_CMD_LIST_OUT_OF_ORDER );
+    if (res)
+    {
+        // affinitize the thread in OOO queue only, in order queue create also SyncQueueOnDevice that affinitize the thread.
+        if (!isInOrder)
+        {
+            m_thread_pool.AffinitizeMasterThread();
+        }
+    }
+    return res;
+}
+
+cl_dev_err_code QueueOnDevice::Execute( TaskHandlerBase* task_handler )
+{
+    executeInt( task_handler );
+    m_task_list->Flush();
+    return CL_DEV_SUCCESS;
 }
 
 void QueueOnDevice::Cancel() const
@@ -172,11 +182,10 @@ void QueueOnDevice::Cancel() const
     m_task_list->Flush();
 }
 
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
-bool QueueOnDevice::Init( bool isInOrder )
+bool QueueOnDevice::initInt( TE_CMD_LIST_TYPE cmdListType )
 {
     m_task_list = m_thread_pool.getRootDevice()->CreateTaskList(
-                             CommandListCreationParam( isInOrder ? TE_CMD_LIST_IN_ORDER : TE_CMD_LIST_OUT_OF_ORDER, gMicExecEnvOptions.tbb_scheduler ));
+                             CommandListCreationParam( cmdListType, gMicExecEnvOptions.tbb_scheduler ));
 
     if (NULL == m_task_list)
     {
@@ -185,91 +194,37 @@ bool QueueOnDevice::Init( bool isInOrder )
         return false;
     }
 
-    m_thread_pool.AffinitizeMasterThread();
-
     return true;
 }
 
-cl_dev_err_code QueueOnDevice::Execute( TaskHandlerBase* task_handler )
+cl_dev_err_code QueueOnDevice::executeInt( TaskHandlerBase* task_handler )
 {
     task_handler->PrepareTask();
-
     ITaskBase* task = task_handler->GetAsITaskBase();
-
     m_task_list->Enqueue( task );
-    m_task_list->Flush();
-
     return CL_DEV_SUCCESS;
 }
-#else
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-InOrderQueueOnDevice::~InOrderQueueOnDevice()
+SyncQueueOnDevice::~SyncQueueOnDevice()
 {
     m_task_list = NULL;
     m_thread_pool.DeactivateCurrentMasterThread();
 }
 
 // return false on error
-bool InOrderQueueOnDevice::Init()
+bool SyncQueueOnDevice::Init( bool isInOrder )
 {
-    m_task_list = m_thread_pool.getRootDevice()->CreateTaskList( 
-                            CommandListCreationParam( TE_CMD_LIST_IMMEDIATE, gMicExecEnvOptions.tbb_scheduler ));
-
-    if (NULL == m_task_list)
+    bool res = initInt( TE_CMD_LIST_IMMEDIATE );
+    if (res)
     {
-        //Report Error
-        NATIVE_PRINTF("Cannot create in-order TaskList\n");
-        return false;
+        m_thread_pool.ActivateCurrentMasterThread();
     }
-    
-    m_thread_pool.ActivateCurrentMasterThread();
-
-    return true;
+    return res;
 }
 
-cl_dev_err_code InOrderQueueOnDevice::Execute( TaskHandlerBase* task_handler )
+cl_dev_err_code SyncQueueOnDevice::Execute( TaskHandlerBase* task_handler )
 {
-    task_handler->PrepareTask();
-
-    ITaskBase* pTask = task_handler->GetAsITaskBase();
-
-    m_task_list->Enqueue( pTask );
-    m_task_list->WaitForCompletion(NULL);
-
-    return CL_DEV_SUCCESS;
+    return executeInt( task_handler );
 }
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-bool OutOfOrderQueueOnDevice::Init()
-{
-    m_task_list = m_thread_pool.getRootDevice()->CreateTaskList(
-                             CommandListCreationParam( TE_CMD_LIST_OUT_OF_ORDER, gMicExecEnvOptions.tbb_scheduler ));
-
-    if (NULL == m_task_list)
-    {
-        //Report Error
-        NATIVE_PRINTF("Cannot create out-of-order TaskList\n");
-        return false;
-    }
-
-    return true;
-}
-
-cl_dev_err_code OutOfOrderQueueOnDevice::Execute( TaskHandlerBase* task_handler )
-{
-    TaskHandlerBase* newOOOTask = task_handler->Duplicate();
-
-    newOOOTask->PrepareTask();
-
-    ITaskBase* oooTask = newOOOTask->GetAsITaskBase();
-
-    m_task_list->Enqueue( oooTask );
-    m_task_list->Flush();
-
-    return CL_DEV_SUCCESS;
-}
-#endif

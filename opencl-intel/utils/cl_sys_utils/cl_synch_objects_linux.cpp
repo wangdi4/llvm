@@ -327,16 +327,6 @@ void AtomicBitField::init(unsigned int size, bool initVal)
     m_eventLock.Signal();
 }
 
-
-long AtomicBitField::bitTestAndReset(unsigned int bitNum)
-{
-    if ((NULL == m_bitField) || ((int)bitNum < 0) || (bitNum >= m_size))
-    {
-        return -1;
-    }
-    return __sync_val_compare_and_swap((m_bitField + bitNum), 1, 0);
-}
-
 long AtomicBitField::bitTestAndSet(unsigned int bitNum)
 {
     if ((NULL == m_bitField) || ((int)bitNum < 0) || (bitNum >= m_size))

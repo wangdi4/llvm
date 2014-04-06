@@ -126,7 +126,7 @@ namespace CRT_ICD_DISPATCH
         const void *                configuration );
 
 #ifdef LIBVA_SHARING
-    typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clEnqueueAcquireVAMediaSurfacesINTEL)(
+    typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clEnqueueAcquireVA_APIMediaSurfacesINTEL)(
         cl_command_queue            command_queue,
         cl_uint                     num_objects,
         const cl_mem *              mem_objects,
@@ -134,7 +134,7 @@ namespace CRT_ICD_DISPATCH
         const cl_event *            event_wait_list,
         cl_event *                  ocl_event );
 
-    typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clEnqueueReleaseVAMediaSurfacesINTEL)(
+    typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clEnqueueReleaseVA_APIMediaSurfacesINTEL)(
         cl_command_queue            command_queue,
         cl_uint                     num_objects,
         const cl_mem *              mem_objects,
@@ -142,7 +142,7 @@ namespace CRT_ICD_DISPATCH
         const cl_event *            event_wait_list,
         cl_event *                  ocl_event );
 
-    typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clGetDeviceIDsFromVAMediaAdapterINTEL)(
+    typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clGetDeviceIDsFromVA_APIMediaAdapterINTEL)(
         cl_platform_id                  platform,
         cl_va_api_device_source_intel   media_adapter_type,
         void *                          media_adapter,
@@ -151,7 +151,7 @@ namespace CRT_ICD_DISPATCH
         cl_device_id *                  devices,
         cl_uint *                       num_devices );
 
-    typedef CL_API_ENTRY cl_mem (CL_API_CALL *INTELpfn_clCreateFromVAMediaSurfaceINTEL)(
+    typedef CL_API_ENTRY cl_mem (CL_API_CALL *INTELpfn_clCreateFromVA_APIMediaSurfaceINTEL)(
         cl_context                  context,
         cl_mem_flags                flags,
         VASurfaceID *               surface,
@@ -160,10 +160,10 @@ namespace CRT_ICD_DISPATCH
         cl_int *                    errcode_ret );
 
 #else
-    typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clEnqueueAcquireVAMediaSurfacesINTEL)();
-    typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clEnqueueReleaseVAMediaSurfacesINTEL)();
-    typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clGetDeviceIDsFromVAMediaAdapterINTEL)();
-    typedef CL_API_ENTRY cl_mem (CL_API_CALL *INTELpfn_clCreateFromVAMediaSurfaceINTEL)();
+    typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clCreateFromVA_APIMediaSurfaceINTEL)();
+    typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clEnqueueReleaseVA_APIMediaSurfacesINTEL)();
+    typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clGetDeviceIDsFromVA_APIMediaAdapterINTEL)();
+    typedef CL_API_ENTRY cl_mem (CL_API_CALL *INTELpfn_clEnqueueAcquireVA_APIMediaSurfacesINTEL)();
 #endif //LIBVA_SHARING
 
     typedef CL_API_ENTRY cl_mem (CL_API_CALL *INTELpfn_clCreatePipeINTEL)(
@@ -178,37 +178,37 @@ namespace CRT_ICD_DISPATCH
 
     struct SOCLCRTDispatchTable
     {
-        KHRpfn_clGetKernelArgInfo                       clGetKernelArgInfo;
+        KHRpfn_clGetKernelArgInfo                           clGetKernelArgInfo;
 
         // DX9 interop APIs
-        INTELpfn_clGetDeviceIDsFromDX9INTEL             clGetDeviceIDsFromDX9INTEL;
-        INTELpfn_clCreateFromDX9MediaSurfaceINTEL       clCreateFromDX9MediaSurfaceINTEL;
-        INTELpfn_clEnqueueAcquireDX9ObjectsINTEL        clEnqueueAcquireDX9ObjectsINTEL;
-        INTELpfn_clEnqueueReleaseDX9ObjectsINTEL        clEnqueueReleaseDX9ObjectsINTEL;
+        INTELpfn_clGetDeviceIDsFromDX9INTEL                 clGetDeviceIDsFromDX9INTEL;
+        INTELpfn_clCreateFromDX9MediaSurfaceINTEL           clCreateFromDX9MediaSurfaceINTEL;
+        INTELpfn_clEnqueueAcquireDX9ObjectsINTEL            clEnqueueAcquireDX9ObjectsINTEL;
+        INTELpfn_clEnqueueReleaseDX9ObjectsINTEL            clEnqueueReleaseDX9ObjectsINTEL;
 
-        INTELpfn_clGetImageParamsINTEL                  clGetImageParamsINTEL;
+        INTELpfn_clGetImageParamsINTEL                      clGetImageParamsINTEL;
 
         // API to expose the Performance Counters to applications
-        INTELpfn_clCreatePerfCountersCommandQueueINTEL  clCreatePerfCountersCommandQueueINTEL;
+        INTELpfn_clCreatePerfCountersCommandQueueINTEL      clCreatePerfCountersCommandQueueINTEL;
 
         // Video Analytics Accelerator
-        INTELpfn_clCreateAcceleratorINTEL               clCreateAcceleratorINTEL;
-        INTELpfn_clGetAcceleratorInfoINTEL              clGetAcceleratorInfoINTEL;
-        INTELpfn_clRetainAcceleratorINTEL               clRetainAcceleratorINTEL;
-        INTELpfn_clReleaseAcceleratorINTEL              clReleaseAcceleratorINTEL;
+        INTELpfn_clCreateAcceleratorINTEL                   clCreateAcceleratorINTEL;
+        INTELpfn_clGetAcceleratorInfoINTEL                  clGetAcceleratorInfoINTEL;
+        INTELpfn_clRetainAcceleratorINTEL                   clRetainAcceleratorINTEL;
+        INTELpfn_clReleaseAcceleratorINTEL                  clReleaseAcceleratorINTEL;
 
         // API to expose the Kernel Instrumentation Query to applications
-        INTELpfn_clCreateProfiledProgramWithSourceINTEL clCreateProfiledProgramWithSourceINTEL;
-        INTELpfn_clCreateKernelProfilingJournalINTEL    clCreateKernelProfilingJournalINTEL;
+        INTELpfn_clCreateProfiledProgramWithSourceINTEL     clCreateProfiledProgramWithSourceINTEL;
+        INTELpfn_clCreateKernelProfilingJournalINTEL        clCreateKernelProfilingJournalINTEL;
 
         // VAMedia sharing extension
-        INTELpfn_clCreateFromVAMediaSurfaceINTEL        clCreateFromVAMediaSurfaceINTEL;
-        INTELpfn_clGetDeviceIDsFromVAMediaAdapterINTEL  clGetDeviceIDsFromVAMediaAdapterINTEL;
-        INTELpfn_clEnqueueReleaseVAMediaSurfacesINTEL   clEnqueueReleaseVAMediaSurfacesINTEL;
-        INTELpfn_clEnqueueAcquireVAMediaSurfacesINTEL   clEnqueueAcquireVAMediaSurfacesINTEL;
+        INTELpfn_clCreateFromVA_APIMediaSurfaceINTEL        clCreateFromVA_APIMediaSurfaceINTEL;
+        INTELpfn_clGetDeviceIDsFromVA_APIMediaAdapterINTEL  clGetDeviceIDsFromVA_APIMediaAdapterINTEL;
+        INTELpfn_clEnqueueReleaseVA_APIMediaSurfacesINTEL   clEnqueueReleaseVA_APIMediaSurfacesINTEL;
+        INTELpfn_clEnqueueAcquireVA_APIMediaSurfacesINTEL   clEnqueueAcquireVA_APIMediaSurfacesINTEL;
 
         // API to create pipe with host pointer
-        INTELpfn_clCreatePipeINTEL                      clCreatePipeINTEL;
+        INTELpfn_clCreatePipeINTEL                          clCreatePipeINTEL;
     };
 
     struct SOCLEntryPointsTable

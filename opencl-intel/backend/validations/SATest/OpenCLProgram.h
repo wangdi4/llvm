@@ -23,9 +23,14 @@ File Name: OpenCLProgram.h
 #include "cl_dev_backend_api.h"
 #include "OpenCLProgramConfiguration.h"
 #include "llvm/IR/Module.h"
+#include "llvm/ADT/OwningPtr.h"
 
 #include <string>
 
+namespace llvm
+{
+    class LLVMContext;
+}
 namespace Validation
 {
 /// @brief This class contains OpenCL test program information
@@ -71,6 +76,8 @@ private:
     /// @brief Size of OpenCL program container
     unsigned int containerSize;
 
+    // LLVM Context used for creation of LLVM state
+    const llvm::OwningPtr<llvm::LLVMContext> C;
 };
 
 class ProgramHolder

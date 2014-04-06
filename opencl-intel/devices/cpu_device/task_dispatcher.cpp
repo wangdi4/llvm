@@ -56,7 +56,7 @@ public:
 
     PREPARE_SHARED_PTR(InPlaceTaskList)
 
-    static SharedPtr<InPlaceTaskList> Allocate(const SharedPtr<ITaskGroup>& ndrangeChildrenTaskGroup, bool bImmediate = true)
+    static SharedPtr<InPlaceTaskList> Allocate(const SharedPtr<IThreadLibTaskGroup>& ndrangeChildrenTaskGroup, bool bImmediate = true)
     {
         return SharedPtr<InPlaceTaskList>(new InPlaceTaskList(ndrangeChildrenTaskGroup, bImmediate));
     }
@@ -78,7 +78,7 @@ public:
     virtual SharedPtr<ITEDevice> GetDevice() { return NULL; }
     virtual ConstSharedPtr<ITEDevice> GetDevice() const { return NULL; }
 
-    virtual SharedPtr<ITaskGroup> GetNDRangeChildrenTaskGroup() { return m_ndrangeChildrenTaskGroup; }
+    virtual SharedPtr<IThreadLibTaskGroup> GetNDRangeChildrenTaskGroup() { return m_ndrangeChildrenTaskGroup; }
 
     virtual void Launch(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask) { }
 
@@ -86,21 +86,21 @@ public:
 
     virtual bool IsProfilingEnabled() const { return false; }
 
-    void Spawn(const SharedPtr<ITaskBase> &,Intel::OpenCL::TaskExecutor::ITaskGroup &)
+    void Spawn(const SharedPtr<ITaskBase> &,Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup &)
     {
         assert(false && "Spawn shouldn't be called for InPlaceTaskList");
     }
 
 protected:
     bool m_immediate;    
-    SharedPtr<ITaskGroup> m_ndrangeChildrenTaskGroup;
+    SharedPtr<IThreadLibTaskGroup> m_ndrangeChildrenTaskGroup;
 
-    InPlaceTaskList(const SharedPtr<ITaskGroup>& ndrangeChildrenTaskGroup, bool bImmediate = true);
+    InPlaceTaskList(const SharedPtr<IThreadLibTaskGroup>& ndrangeChildrenTaskGroup, bool bImmediate = true);
 
     virtual void ExecuteInPlace(const SharedPtr<ITaskBase>& pTaskBase);
 };
 
-InPlaceTaskList::InPlaceTaskList(const SharedPtr<ITaskGroup>& ndrangeChildrenTaskGroup, bool bImmediate) :
+InPlaceTaskList::InPlaceTaskList(const SharedPtr<IThreadLibTaskGroup>& ndrangeChildrenTaskGroup, bool bImmediate) :
     m_immediate(bImmediate), m_ndrangeChildrenTaskGroup(ndrangeChildrenTaskGroup)
 {
     //No support for just synchronous at the moment

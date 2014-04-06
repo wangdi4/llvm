@@ -55,7 +55,7 @@ public:
     /**
      * @returns the size of the JIT code
      */
-    virtual size_t GetCodeSize() const;
+    virtual size_t GetJITCodeSize() const;
 
     /**
      * Serialization methods for the class (used by the serialization service)

@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2008 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -69,7 +69,7 @@ protected:
     std::vector<threadid_t>     m_pCoreToThread;      // Maps OpenCL core ID to OS thread id which is pinned to the core, which can then be used access the scoreboard above
     std::vector<bool>           m_pCoreInUse;         // Keeps track over used compute units to prevent overlap
 
-#ifdef __HARD_TRAPPING__		
+#ifdef __HARD_TRAPPING__
     bool                        m_bUseTrapping;       // Use worker thread trapping when device fission with core affinity is used
 #endif
     Intel::OpenCL::Utils::OclNonReentrantSpinMutex m_ComputeUnitScoreboardMutex;
@@ -77,7 +77,7 @@ protected:
 #ifdef __USE_TBB_SCALABLE_ALLOCATOR__
 	tbb::scalable_allocator<DeviceNDRange> m_deviceNDRangeAllocator;
 	tbb::scalable_allocator<char>          m_deviceNDRangeContextAllocator;
-#endif	
+#endif
 
     static volatile bool    m_bDeviceIsRunning;
 
@@ -116,6 +116,7 @@ public:
 
     // Device entry points
     cl_dev_err_code clDevCreateCommandList( cl_dev_cmd_list_props IN props, cl_dev_subdevice_id IN subdevice_id, cl_dev_cmd_list* OUT list);
+    void* clDevGetCommandListPtr(cl_dev_cmd_list IN list);
     cl_dev_err_code clDevFlushCommandList( cl_dev_cmd_list IN list);
     cl_dev_err_code clDevReleaseCommandList( cl_dev_cmd_list IN list );
     cl_dev_err_code clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
@@ -139,6 +140,7 @@ public:
     cl_dev_err_code clDevGetKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernelId );
     cl_dev_err_code clDevGetProgramKernels( cl_dev_program IN prog, cl_uint IN numKernels, cl_dev_kernel* OUT kernels,
                  cl_uint* OUT numKernelsRet );
+    cl_dev_err_code clDevGetGlobalVariableTotalSize( cl_dev_program IN prog, size_t* OUT size);
     cl_dev_err_code clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN valueSize,
 						void* OUT value, size_t* OUT valueSizeRet );
     cl_ulong	clDevGetPerformanceCounter();

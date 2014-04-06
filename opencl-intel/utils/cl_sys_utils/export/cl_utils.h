@@ -38,12 +38,10 @@
 #include <limits>
 #include <math.h>
 #include <cassert>
+#include <fstream>
 
-#if defined(_WIN32) && defined (_MSC_VER)
-    #define MAKE_HEX_FLOAT(x,y,z)  ((float)ldexp( (float)(y), z))
-#else
-    #define MAKE_HEX_FLOAT(x,y,z)  ((float)ldexp( (float)(y), z))
-#endif
+#define MAKE_HEX_FLOAT(x,y,z)  ((float)ldexp( (float)(y), z))
+#define IS_64_BIT (sizeof(void*) == 8)
 
 // assert macroes:
 
@@ -396,3 +394,22 @@ bool GetCpuPath( char *pCpuPath, size_t bufferSize );
  * @return the version of the CPU runtime
  */
 bool GetCpuVersion( char *pCpuVersion, size_t bufferSize );
+
+/**************************************************************************************************
+* Function: 	EmulatorEnabled
+* Description:	Returns true if and only if the OpenCL 2.0 emulator is enabled
+* Return value:	bool
+* Author:		Oded Perez
+* Date:			March 2014
+**************************************************************************************************/
+bool EmulatorEnabled();
+
+/**
+ * @return the text content of filePath
+ */
+string ReadFileContents(const string& filePath);
+
+/**
+ * @Write the given text to the file
+ */
+void WriteContentToFile(const string& content, const string& filePath);

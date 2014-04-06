@@ -92,6 +92,16 @@ public:
   /// @param name Name of function
   /// @return True if mask-related function name
   static bool isMaskTest(const std::string& name);
+  /// @brief Is this the all-zero function ?
+  /// @param name Name of function
+  /// @return True if this is the all-zero function name.
+  static bool isAllZero(const std::string& name);
+  /// @brief Is this the all-one function ?
+  /// @param name Name of function
+  /// @return True if this is the all-one function name.
+  static bool isAllOne(const std::string& name);
+
+
 
   /// @brief Get mangled name for transpose function
   /// @param isLoad True if this is load and transpose, false otherwise

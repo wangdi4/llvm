@@ -15,22 +15,23 @@ Copyright (c) Intel Corporation (2010).
 File Name:  Program.h
 
 \*****************************************************************************/
-// NOTICE: THIS CLASS WILL BE SERIALIZED TO THE DEVICE, IF YOU MAKE ANY CHANGE 
-//  OF THE CLASS FIELDS YOU SHOULD UPDATE THE SERILIZE METHODS  
+// NOTICE: THIS CLASS WILL BE SERIALIZED TO THE DEVICE, IF YOU MAKE ANY CHANGE
+//  OF THE CLASS FIELDS YOU SHOULD UPDATE THE SERILIZE METHODS
 #pragma once
 
-#include <assert.h>
-#include <string>
-#include <memory>
 #include "cl_dev_backend_api.h"
 #include "cl_types.h"
 #include "ICLDevBackendProgram.h"
 #include "RuntimeService.h"
+#include "Serializer.h"
+#include <string>
+#include <memory>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 class KernelSet;
 class BitCodeContainer;
+class ObjectCodeContainer;
 
 class Program: public ICLDevBackendProgram_
 {
@@ -48,21 +49,24 @@ public:
      * Gets the program build log
      *
      * @Returns
-     *  if the log already exist , pointer to the build log will be returned; otherwise NULL 
+     *  if the log already exist , pointer to the build log will be returned; otherwise NULL
      *  will be returned
      */
     virtual const char* GetBuildLog() const;
 
     /**
-     * Gets the program Code Size; Program code is an abstraction between which contain all
-     * the kernel's codes (the executable code with it's metadata)
-     *
-     * @returns the size of the kernel code, 0 in case of failure
+     * @returns the virtual IR code container which represents the program
      */
-    virtual const ICLDevBackendCodeContainer* GetProgramCodeContainer() const;
+    virtual const ICLDevBackendCodeContainer* GetProgramIRCodeContainer() const;
 
     /**
-     * Gets the program JIT Code Properties; 
+     * Gets the program Code; Program code is an abstraction between which contain all
+     * the kernel's codes (the executable code, the IR and with some metadata)
+     */
+     virtual const ICLDevBackendCodeContainer* GetProgramCodeContainer() const;
+
+    /**
+     * Gets the program JIT Code Properties;
      *
      * @returns JIT Code properties interface, NULL in case of failure
      */
@@ -83,8 +87,21 @@ public:
      *      CL_DEV_NOT_SUPPORTED will be returned
      */
     virtual cl_dev_err_code GetKernelByName(
-        const char* pKernelName, 
+        const char* pKernelName,
         const ICLDevBackendKernel_** ppKernel) const;
+
+    /**
+     * OpenCL 2.0 introduced a feature called Extended Execution. Programs may have so called
+     * block kernels which can be enqueued for execution w\o host interaction from inside
+     * running kernels.
+     * This method returns how many non-block kernels in the program. I.e. the kernels
+     * enqueud for execution by a host.
+     *
+     * @returns
+     *  if the program already build:
+     *      the number of the non-block kernels in the program will be returned
+     */
+    virtual int GetNonBlockKernelsCount() const;
 
     /**
      * Gets how many kernels in the program
@@ -93,7 +110,7 @@ public:
      *  if the program already build:
      *      the number of the kernels in the program will be returned
      *  else
-     *      -1 will be returned
+     *      0 will be returned
      */
     virtual int GetKernelsCount() const;
 
@@ -112,8 +129,32 @@ public:
      *      CL_DEV_NOT_SUPPORTED will be returned
      */
     virtual cl_dev_err_code GetKernel(
-        int kernelIndex, 
+        int kernelIndex,
         const ICLDevBackendKernel_** ppKernel) const;
+
+    /**
+     * Gets the total amount of storage, in bytes, used by
+     * program variables in the global address space.
+     *
+     * @returns
+     *  if the program already build:
+     *      the total size of global variables in program
+     *  otherwise
+     *      0 will be returned
+     */
+    virtual size_t GetGlobalVariableTotalSize() const;
+
+    /**
+     * Sets the total amount of storage, in bytes, used by
+     * program variables in the global address space.
+     */
+    void SetGlobalVariableTotalSize(size_t);
+
+    /**
+     * Sets the Object Code Container (program will take ownership of the container)
+     */
+    void SetObjectCodeContainer(ObjectCodeContainer* objCodeContainer);
+    ObjectCodeContainer* GetObjectCodeContainer();
 
     /**
      * Sets the Bit Code Container (program will take ownership of the container)
@@ -121,26 +162,27 @@ public:
     void SetBitCodeContainer(BitCodeContainer* bitCodeContainer);
 
     /*
-     * Program specific methods 
+     * Program specific methods
      */
     void SetBuildLog( const std::string& buildLog );
 
     /**
      * Store the given kernel set into the program
-     * 
+     *
      * Note: will take ownership on passed kernel set
      */
-    void SetKernelSet( KernelSet* pKernels); 
+    void SetKernelSet( KernelSet* pKernels);
+    KernelSet* GetKernelSet() { return m_kernels.get(); }
 
     /**
-     * Store the given LLVM module (as a plain pointer) 
+     * Store the given LLVM module (as a plain pointer)
      * into the program
      *
      * Note: will take ownership on passed module
      */
     void SetModule( void* pModule);
     virtual void SetBuiltinModule(void* pModule) {}
-    
+
     virtual void SetExecutionEngine(void *eE) {}
 
     bool GetDisableOpt() const;
@@ -162,12 +204,25 @@ public:
       m_RuntimeService = rs;
     }
 
+    /**
+     * Returns the LLVM module (as a plain pointer)
+     */
+    void* GetModule();
+
+    /**
+     * Serialization methods for the class (used by the serialization service)
+     */
+    virtual void Serialize(IOutputStream& ost, SerializationStatus* stats) const;
+    virtual void Deserialize(IInputStream& ist, SerializationStatus* stats); 
+
 protected:
-    BitCodeContainer* m_pCodeContainer;
+    ObjectCodeContainer* m_pObjectCodeContainer;
+    BitCodeContainer* m_pIRCodeContainer;
     std::string       m_buildLog;
     std::auto_ptr<KernelSet> m_kernels;
     /// Runtime service. Reference counted
     RuntimeServiceSharedPtr m_RuntimeService;
+    size_t            m_globalVariableTotalSize;
 
 private:
     // Disable copy ctor and assignment operator

@@ -57,6 +57,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class OCLObject : virtual public Intel::OpenCL::Utils::ReferenceCountedObject
     {
     public:
+        typedef HandleType OCLObjectHandleType;
 
         friend class Intel::OpenCL::Utils::SharedPtr<OCLObject<HandleType, ParentHandleType> >;
         friend class Intel::OpenCL::Utils::SharedPtr<const OCLObject<HandleType, ParentHandleType> >;
