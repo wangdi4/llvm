@@ -143,7 +143,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
                                                                        &buildResult));
 
         std::auto_ptr<ObjectCodeCache> pObjectCodeCache(new ObjectCodeCache(NULL, NULL, 0));
-        ((llvm::ExecutionEngine*)pCompiler->GetExecutionEngine())->setObjectCache(pObjectCodeCache.get());
+        pCompiler->SetObjectCache(pObjectCodeCache.get());
 
         pProgram->SetExecutionEngine(pCompiler->GetExecutionEngine());
         pProgram->SetBuiltinModule(pCompiler->GetRtlModule());

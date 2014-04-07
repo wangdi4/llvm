@@ -21,6 +21,7 @@ File Name:  CPUCompiler.cpp
 #include "BuiltinModuleManager.h"
 #include "CPUCompiler.h"
 #include "CPUDetect.h"
+#include "ObjectCodeCache.h"
 #include "CompilationUtils.h"
 #include "cl_types.h"
 #include "cpu_dev_limits.h"
@@ -429,6 +430,11 @@ void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) c
     pTargetMachine->addPassesToEmitFile(pm, fos, TargetMachine::CGFT_AssemblyFile, /*DisableVerify*/ true);
     pm.run(*pModule);
 
+}
+
+void CPUCompiler::SetObjectCache(ObjectCodeCache* pCache)
+{
+    ((llvm::ExecutionEngine*)GetExecutionEngine())->setObjectCache(pCache);
 }
 
 }}}
