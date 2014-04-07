@@ -272,6 +272,7 @@ project(OCL)
 
 # GIT
 set( BUILDVER_WC_REVISION 0)
+set( GIT_REVISION 0)
 if (GIT_REVISIONS)
     find_package(Git REQUIRED)
     execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --long --match=trunk
@@ -313,7 +314,7 @@ if(WIN32)
     file(WRITE ${OCL_BINARY_DIR}/version.ini "[Version]\nPackVer=${PRODUCTVER_MAJOR}.${PRODUCTVER_MINOR}.${BUILDVER_WC_REVISION}")
     install(FILES ${OCL_BINARY_DIR}/version.ini DESTINATION ./)
 endif()
-file(WRITE ${OCL_BINARY_DIR}/version.txt "${PRODUCTVER_MAJOR}.${PRODUCTVER_MINOR}.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}")
+file(WRITE ${OCL_BINARY_DIR}/version.txt "Version=${PRODUCTVER_MAJOR}.${PRODUCTVER_MINOR}.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\nInternalVersion=${GIT_REVISION}")
 
 #copy the version file to install folder
 install(FILES ${OCL_BINARY_DIR}/version.txt DESTINATION ./)
