@@ -1,4 +1,4 @@
-; RUN: SATest -OCL -REF -config=%s.cfg -neat=1
+; RUN: SATest -REF -config=%s.cfg -neat=1
 ; RUN: NEATChecker -r %s -a %s.neat -t 0
 ;CHECKNEAT: ACCURATE -31 ACCURATE -30 ACCURATE -30 ACCURATE -4
 ;CHECKNEAT: ACCURATE 11 ACCURATE 12 ACCURATE 12 ACCURATE -4

@@ -386,6 +386,17 @@ std::string getLocalHostName();
 std::string GetConfigFilePath();
 
 /**
+ * @fetch a registry entry 'valueName' into 'retValue' buffer of size 'size'
+ */
+#ifdef WIN32
+bool GetStringValueFromRegistryOrETC( HKEY       top_hkey,
+                                      const char *keyPath,
+                                      const char *valueName,
+                                      char       *retValue,
+                                      DWORD      size );
+#endif
+
+/**
  * @return the file path of the CPU runtime
  */
 bool GetCpuPath( char *pCpuPath, size_t bufferSize );

@@ -73,6 +73,7 @@ bool SmartGVN::runOnModule(Module &M)
     pm.add(new DataLayout(&M));
 #endif
     pm.add(llvm::createBasicAliasAnalysisPass());
+    pm.add(new llvm::DominatorTree());
     pm.add(llvm::createMemoryDependenceAnalysisPass(memoryDependencyAnalysisThreshold));
     pm.add(llvm::createGVNPass(GVNNoLoads));
     pm.run(M);

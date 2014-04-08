@@ -22,7 +22,7 @@ confstr = "-config=" + options.config
 
 try:
     # run SATest. it should fail
-    subprocess.check_output([execstr,"-OCL","-REF", confstr], stderr=subprocess.STDOUT)
+    subprocess.check_output([execstr,"-REF", confstr], stderr=subprocess.STDOUT)
     # if not failed generate exception. test fails.
     raise IOError
 except subprocess.CalledProcessError, e:
