@@ -25,7 +25,7 @@
 #include "crt_internals.h"
 #include <cl_secure_string.h>
 #include <cl_synch_objects.h>
-#include <crt_registry.h>
+#include <crt_named_pipe.h>
 #include <algorithm>
 #include <string>
 #include <numeric>
@@ -536,7 +536,7 @@ cl_context CL_API_CALL clCreateContext(
         // free allocated properties memory
         if( props )
         {
-            delete props;
+            delete[] props;
             props = NULL;
         }
     }
@@ -1053,7 +1053,7 @@ SET_ALIAS( clCreateCommandQueue );
 cl_command_queue CL_API_CALL clCreateCommandQueueWithProperties(
     cl_context                  context,
     cl_device_id                device,
-    const cl_queue_properties   *properties,
+    const cl_queue_properties*  properties,
     cl_int *                    errcode_ret )
 {
     _cl_command_queue_crt*  queue_handle    = NULL;
@@ -9009,6 +9009,43 @@ FINISH:
 }
 
 #endif
+
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+#ifdef _WIN32
+// This function enables us to determine if common-runtime
+// supports named pipe.
+// Returns CRT_FAIL on failure and CRT_SUCCESS on success.
+int CL_API_CALL GetCRTInfo(
+    crt_info    param_name,
+    size_t      param_value_size,
+    void *      param_value,
+    size_t *    param_value_size_ret )
+{
+    if( NULL != param_value &&
+        0 == param_value_size )
+    {
+        return CRT_FAIL;
+    }
+
+    switch( param_name )
+    {
+    case CRT_NAMED_PIPE:
+        if( param_value_size < sizeof(unsigned char) )
+        {
+            return CRT_FAIL;
+        }
+        *(unsigned char*)param_value = true;
+        break;
+    default:
+        return CRT_FAIL;
+    }
+
+    return CRT_SUCCESS;
+}
+#endif
+
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
@@ -9044,6 +9081,10 @@ CLAPI_EXPORT void * CL_API_CALL clGetExtensionFunctionAddress(
     if( funcname && !strcmp( funcname, "clCreatePerfCountersCommandQueueINTEL" ) )
     {
         return ( ( void* )( ptrdiff_t )GET_ALIAS( clCreatePerfCountersCommandQueueINTEL ) );
+    }
+    if( funcname && !strcmp( funcname, "GetCRTInfo" ) )
+    {
+        return ( ( void* )( ptrdiff_t )GET_ALIAS( GetCRTInfo ) );
     }
 #endif
 // no accelerators for Android

@@ -111,9 +111,5 @@ inline bool GetCpuPathFromRegistry( const std::string valueName, std::string &cp
     return false;
 }
 
-// Will return true when OpenCL API Debugger is enabled
-// Debugger is enabled when a PID-specific or global key exists, with value CL_CONFIG_API_DBG_ENABLE=1
-bool isAPIDebuggingEnabled();
-
 } // namespace Utils
 } // namespace OCLCRT

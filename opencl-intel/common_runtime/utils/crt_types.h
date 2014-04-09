@@ -133,3 +133,7 @@ inline bool IsPowerOf2(unsigned int uiNum)
     return __builtin_popcount(uiNum) == 1;
 #endif
 }
+
+// for GetCRTInfo()
+#define CRT_NAMED_PIPE 0x1000
+typedef unsigned int crt_info;
