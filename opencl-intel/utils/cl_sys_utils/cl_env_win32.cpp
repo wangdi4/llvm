@@ -42,5 +42,6 @@ cl_err_code Intel::OpenCL::Utils::GetEnvVar(std::string & strVarValue, const std
 		return CL_ERR_FAILURE;
 	}
     strVarValue = std::string(pBuffer);
+    free(pBuffer);
 	return CL_SUCCESS;
 }
