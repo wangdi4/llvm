@@ -109,6 +109,19 @@ public:
      */
     virtual void Launch() = 0;
 
+	/**
+	* Check memory stamp of the object
+	*/
+	bool CheckStamp() const
+	{
+		if (m_CMD_STAMP != CMD_STAMP)
+		{
+			return false;
+		}
+		return true;
+	}
+
+
 protected:
 
 	/**
@@ -119,8 +132,10 @@ protected:
 	DeviceCommand(ITaskList* list, ITaskBase* pMyTaskBase) :
 	    m_err(CL_DEV_SUCCESS), m_bCompleted(false), m_ulStartExecTime(0), m_ulExecTime(0),
 	    m_pExecTimeUserPtr(NULL), m_list(list),
-		m_pMyTaskBase(pMyTaskBase), m_bIsProfilingEnabled(NULL != list ? list->IsProfilingEnabled() : false)
-    { }
+		m_pMyTaskBase(pMyTaskBase), m_bIsProfilingEnabled(NULL != list ? list->IsProfilingEnabled() : false),
+    m_CMD_STAMP(CMD_STAMP)
+  { }
+
 
 	/**
 	 * Signal that this DeviceCommand is changing its state to CL_COMPLETE
@@ -159,6 +174,8 @@ private:
 	mutable OclSpinMutex m_mutex;
 	ITaskBase* const m_pMyTaskBase;
 	const bool m_bIsProfilingEnabled;
+	static const long CMD_STAMP = 0xEFEBDAEFEBDA7190; // memory stamp for detecting if the object belongs to the DeviceCommand class
+	const long m_CMD_STAMP;
 };
 
 /**
@@ -251,6 +268,7 @@ public:
         assert(false && "UserEvent shouldn't be launched");
     }
 
+  
 protected:
 	UserEvent() : DeviceCommand(NULL, NULL) { }
 };

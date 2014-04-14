@@ -244,6 +244,17 @@ ocl20_release_event(clk_event_t event, IDeviceCommandManager *DCM) {
   return;
 }
 
+extern "C" LLVM_BACKEND_API bool
+ocl20_is_valid_event(clk_event_t event, IDeviceCommandManager *DCM) {
+  DEBUG(dbgs() << "ocl20_is_valid_event. Entry point \n");
+  assert(DCM && "IDeviceCommandManager is NULL");
+
+  bool res = DCM->IsValidEvent(event);
+ 
+  DEBUG(dbgs() << "ocl20_is_valid_event. Called IsValidEvent\n");
+  return res;
+}
+
 extern "C" LLVM_BACKEND_API clk_event_t
 ocl20_create_user_event(IDeviceCommandManager *DCM) {
   DEBUG(dbgs() << "ocl20_create_user_event. Entry point \n");

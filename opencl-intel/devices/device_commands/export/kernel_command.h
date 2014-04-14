@@ -81,6 +81,8 @@ public:
 
     clk_event_t CreateUserEvent(int* piErrcodeRet);
 
+    virtual bool IsValidEvent(clk_event_t event) const;
+
     int SetEventStatus(clk_event_t event, int iStatus);
 
     void CaptureEventProfilingInfo(clk_event_t event, clk_profiling_info name, volatile void* pValue);

@@ -156,7 +156,7 @@ ndrange_t const_func __attribute__((overloadable))
   return T;
 }
 
-////////// - retain_event, release_event, create_user_event, set_user_event_status, capture_event_profiling_info
+////////// - retain_event, release_event, create_user_event, set_user_event_status, capture_event_profiling_info, is_valid_event
 extern void ocl20_retain_event(clk_event_t event, void *DCM);
 void __attribute__((always_inline)) __attribute__((overloadable))
     retain_event(clk_event_t event) {
@@ -193,6 +193,12 @@ void __attribute__((always_inline)) __attribute__((overloadable))
                                  global ulong *value) {
   void *DCM = __get_device_command_manager();
   return ocl20_capture_event_profiling_info(event, name, value, DCM);
+}
+
+extern bool ocl20_is_valid_event(clk_event_t event, void* DCM);
+bool __attribute__((overloadable)) __attribute__((always_inline)) is_valid_event(clk_event_t event) {
+  void* DCM = __get_device_command_manager();
+  return ocl20_is_valid_event(event, DCM);
 }
 
 ////////// - get_kernel_work_group_size

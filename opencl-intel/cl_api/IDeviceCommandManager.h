@@ -79,7 +79,14 @@ public:
 	 */
 	virtual int ReleaseEvent(clk_event_t event) = 0;
 
-	/**
+ 	/**
+	 * Is event valid
+	 * @param event the event whose status is to be checked
+	 * @retrun true if the event is valid or an false otherwise
+	 */
+	virtual bool IsValidEvent(clk_event_t event) const = 0;
+
+  /**
 	 * Create a user event
 	 * @param piErrcodeRet if it is not NULL, the completion status of this method will be assigned to this int
 	 * @return a valid non-zero event object
