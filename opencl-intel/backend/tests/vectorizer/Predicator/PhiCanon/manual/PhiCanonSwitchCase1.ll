@@ -13,13 +13,12 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: BB1:                                              ; preds = %entry
 ; CHECK: BB2:                                              ; preds = %BB1
 ; CHECK: phi-split-bb:                                     ; preds = %BB2, %BB2
-; CHECK:   %new_phi = phi float [ %arg2, %BB2 ], [ %arg2, %BB2 ]
 ; CHECK: phi-split-bb1:                                    ; preds = %BB1, %phi-split-bb
-; CHECK:   %new_phi2 = phi float [ %new_phi, %phi-split-bb ], [ %arg1, %BB1 ]
+; CHECK:   %new_phi = phi float [ %arg2, %phi-split-bb ], [ %arg1, %BB1 ]
 ; CHECK: BB3:                                              ; preds = %phi-split-bb1, %BB1
-; CHECK:   %res = phi float [ %arg1, %BB1 ], [ %new_phi2, %phi-split-bb1 ]
-; CHECK: phi-split-bb3:                                    ; preds = %BB2, %BB3
-; CHECK: END:                                              ; preds = %phi-split-bb3, %BB1
+; CHECK:   %res = phi float [ %arg1, %BB1 ], [ %new_phi, %phi-split-bb1 ]
+; CHECK: phi-split-bb[[tag1:[0-9]*]]:                                    ; preds = %BB2, %BB3
+; CHECK: END:                                              ; preds = %phi-split-bb[[tag1]], %BB1
 ; CHECK: ret
 
 define void @PhiCanonSwitchCase1(float %arg1, float %arg2, float addrspace(1)* nocapture %a) nounwind {

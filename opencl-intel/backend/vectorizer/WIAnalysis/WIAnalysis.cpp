@@ -406,6 +406,15 @@ void WIAnalysis::findDivergePartialJoins(const TerminatorInst *inst) {
   }
 }
 
+static bool phiHasEqualIncomignValues(PHINode* phi) {
+  for (unsigned int i = 1; i < phi->getNumIncomingValues(); i++) {
+    if (phi->getIncomingValue(0) != phi->getIncomingValue(i)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 // Mark each phi node in join or a partial join as divergent
 void WIAnalysis::markDependentPhiRandom() {
 
@@ -418,10 +427,14 @@ void WIAnalysis::markDependentPhiRandom() {
         instItr != m_fullJoin->end();
         ++instItr) {
 
-      Instruction *inst = dyn_cast<Instruction>(instItr);
-      if (!isa<PHINode>(inst))
+      if (PHINode* phi = dyn_cast<PHINode>(instItr)) {
+         if (!phiHasEqualIncomignValues(phi)) {
+           updateDepMap(phi, WIAnalysis::RANDOM);
+         }
+      }
+      else {
         break;
-      updateDepMap(inst, WIAnalysis::RANDOM);
+      }
     }
   }
 
@@ -433,10 +446,14 @@ void WIAnalysis::markDependentPhiRandom() {
     for (BasicBlock::iterator instItr = (*blkItr)->begin();
         instItr != (*blkItr)->end();
         ++instItr) {
-      Instruction *inst = dyn_cast<Instruction>(instItr);
-      if (!isa<PHINode>(inst))
+      if (PHINode* phi = dyn_cast<PHINode>(instItr)) {
+         if (!phiHasEqualIncomignValues(phi)) {
+           updateDepMap(phi, WIAnalysis::RANDOM);
+         }
+      }
+      else {
         break;
-      updateDepMap(inst, WIAnalysis::RANDOM);
+      }
     }
   }
 }
