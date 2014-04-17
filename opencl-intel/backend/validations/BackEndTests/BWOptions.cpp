@@ -12,7 +12,7 @@ including liability for infringement of any proprietary rights, relating to
 use of the code. No license, express or implied, by estoppels or otherwise,
 to any intellectual property rights is granted herein.
 
-File Name:  BWOptions.cpp 
+File Name:  BWOptions.cpp
 
 \*****************************************************************************/
 #include "BWOptions.h"
@@ -48,9 +48,9 @@ void* JITAllocator::AllocateExecutable(size_t size, size_t alignment)
 {
     size_t required_size = (size % PAGE_SIZE == 0) ? size : ((size_t)(size/PAGE_SIZE) + 1)*PAGE_SIZE;
 
-    size_t aligned_size = 
+    size_t aligned_size =
         required_size +    // required size
-        (alignment - 1) +  // for alignment 
+        (alignment - 1) +  // for alignment
         sizeof(void*) +    // for the free ptr
         sizeof(size_t);    // to save the original size (for mprotect)
     void* pMem = malloc(aligned_size);
