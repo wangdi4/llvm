@@ -81,6 +81,7 @@ void initializeDebugInfoPassPass(llvm::PassRegistry&);
 void initializeImplicitArgsAnalysisPass(llvm::PassRegistry&);
 void initializeSmartGVNPass(llvm::PassRegistry&);
 void initializeDeduceMaxWGDimPass(llvm::PassRegistry&);
+void initializeRenderscriptVectorizerPass(llvm::PassRegistry&);
 }
 
 #endif

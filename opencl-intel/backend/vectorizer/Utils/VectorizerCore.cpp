@@ -263,6 +263,8 @@ bool VectorizerCore::runOnFunction(Function &F) {
     fpm2.doInitialization();
     fpm2.run(F);
 
+    // If we reach the end of the function this means we choose to vectorize the kernel!!
+    m_isFunctionVectorized = true;
     if (autoVec)  {
       V_ASSERT(postCounter && "uninitialized postCounter");
       m_postWeight = postCounter->getWeight();
@@ -271,7 +273,6 @@ bool VectorizerCore::runOnFunction(Function &F) {
       if (Ratio >= WeightedInstCounter::RATIO_MULTIPLIER * m_packetWidth) {
         m_packetWidth = 1;
         m_isFunctionVectorized = false;
-        return true;
       }
       if (enableDebugPrints) {
         dbgPrint() << "Function: " << F.getName() << "\n";
@@ -285,8 +286,6 @@ bool VectorizerCore::runOnFunction(Function &F) {
       }
     }
   }
-  // If we reach the end of the function this means we choose to vectorize the kernel!!
-  m_isFunctionVectorized = true;
   return true;
 }
 
