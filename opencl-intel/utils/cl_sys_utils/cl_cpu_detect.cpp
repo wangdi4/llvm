@@ -106,7 +106,7 @@ bool CPUDetect::IsProcessorType(EProcessorType processorType)
     {
         return false;
     }
-
+    
     switch(processorType)
     {
     case PT_ALL:
@@ -146,20 +146,25 @@ bool CPUDetect::IsProcessorType(EProcessorType processorType)
         }
         break;
     case PT_SANDYBRIDGE:
-        // IMPORTANT NOTE!!! At the time of updating this file (17/4/2014) BDW identifies as SNB, needs to be investigated further (osarid)
-        if (m_ucFamily == 0x6 && m_ucModel == 0xD)
+        if (m_ucFamily == 0x6 && m_ucModel == 0xA && m_ucExtendedModel == 0x2A)
         {
             return true;
         }
         break;
     case PT_IVYBRIDGE:
-        if (m_ucFamily == 0x6 && m_ucModel == 0xA)
+        if (m_ucFamily == 0x6 && m_ucModel == 0xA && m_ucExtendedModel == 0x3A)
         {
             return true;
         }
         break;
     case PT_HASWELL:
         if (m_ucFamily == 0x6 && m_ucModel == 0xC)
+        {
+            return true;
+        }
+        break;
+    case PT_BROADWELL:
+        if (m_ucFamily == 0x6 && m_ucModel == 0xD && m_ucExtendedModel == 0x3D)
         {
             return true;
         }
