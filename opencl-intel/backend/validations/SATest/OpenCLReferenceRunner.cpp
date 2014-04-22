@@ -847,10 +847,17 @@ static void ConvertSizeTtoUint64T(const size_t *pI, std::vector<uint64_t>& O, ui
         O[i] = (uint64_t) pI[i];
 }
 
-static bool isOCL20OrGreater(llvm::Module * module) {
+static bool isWGSizeMustBeUniform(llvm::Module *module)
+{
     CompilationFlagsList flagsList = GetCompilationFlags(module);
-    return find (flagsList.begin(), flagsList.end(), CL_STD_20) !=
-                 flagsList.end();
+
+    const bool cl20 = find(flagsList.begin(), flagsList.end(), CL_STD_20)
+        != flagsList.end();
+
+    const bool uniformWGSize = find(flagsList.begin(), flagsList.end(), CL_UNIFORM_WORK_GROUP_SIZE)
+        != flagsList.end();
+
+    return !cl20 || uniformWGSize;
 }
 
 void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
@@ -900,7 +907,7 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
     // convert size_t to uint64_t
     ConvertSizeTtoUint64T(pKernelConfig->GetGlobalWorkOffset(), GlobalWorkOffset, workDim);
 
-    const bool isCL20 = isOCL20OrGreater(m_pModule);
+    const bool wgSizeMustUniform = isWGSizeMustBeUniform(m_pModule);
 
     // check usage of default local work size ( == 0 )
     for(uint32_t i=0; i < workDim; ++i)
@@ -914,35 +921,28 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
             // globalWorkSize[work_dim - 1] must be evenly divisible by
             // the corresponding values specified in
             // localWorkSize[0], .., localWorkSize[work_dim - 1]
-            if (globalWGSizes[i] % localWGSizes[i] != 0)
+            if (globalWGSizes[i] % localWGSizes[i] != 0 && wgSizeMustUniform)
             {
                 // SATest could get the value of localSize from .cfg only, so if globalWorkSize
                 // is not evenly divisible by localWorkSize, set localWGSizes to 1, then print 
                 // warning and continue working check 
                 // globalWGSizes[i] % localWGSizes[i] if it is not OCL 2.0
-                // FIXME: The non-unifrom work-group size is also not valid if
-                //        build option -cl-unifrom-work-group-size is specified.
-                //        Not supported by clang yet.
-                if(!isCL20)
-                    llvm::errs() << "[OpenCLReferenceRunner::RunKernel warning] workDim # "
-                    << i << " globalWorkSize = " << globalWGSizes[i] <<
-                    " is not evenly divisible by localWorkSize = " << 
-                    localWGSizes[i] << ", localWorkSize is set to 1 \n";
+                llvm::errs() << "[OpenCLReferenceRunner::RunKernel warning] workDim # "
+                    << i << " globalWorkSize = " << globalWGSizes[i]
+                    << " is not evenly divisible by localWorkSize = "
+                    << localWGSizes[i] << ", localWorkSize is set to 1 \n";
 
                 localWGSizes[i] = 1;
             }
-        } else {
+        }
+        else if (globalWGSizes[i] % localWGSizes[i] != 0 && wgSizeMustUniform)
+        {
             // throw exeption if it is not OCL 2.0, because 
             // globalWGSizes[i] % localWGSizes[i] != 0 is valid for OCL2.0
-            // FIXME: The non-unifrom work-group size is also not valid if
-            //        build option -cl-unifrom-work-group-size is specified.
-            //        Not supported by clang yet.
-            if ((!isCL20) && (globalWGSizes[i] % localWGSizes[i] != 0)) {
-                std::ostringstream s;
-                s << "workDim # " << i << " globalWorkSize = " << globalWGSizes[i] << 
-                " is not evenly divisible by localWorkSize = " << localWGSizes[i] << "\n";
-                throw TestReferenceRunnerException(s.str());
-            }
+            std::ostringstream s;
+            s << "workDim # " << i << " globalWorkSize = " << globalWGSizes[i] << 
+            " is not evenly divisible by localWorkSize = " << localWGSizes[i] << "\n";
+            throw TestReferenceRunnerException(s.str());
         }
     }
 
@@ -982,14 +982,8 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
     EngineBuilder builder(m_pModule);
     builder.setEngineKind(EngineKind::Interpreter);
 
-
-#define FOR3_LOCALWG \
-    for(uint64_t idx=0,lid_z=0;lid_z<localWGSizes[2];lid_z++)\
-    for(uint64_t lid_y=0;lid_y<localWGSizes[1];lid_y++)\
-    for(uint64_t lid_x=0;lid_x<localWGSizes[0];lid_x++,idx++)
-
     // initialize interpreters
-    FOR3_LOCALWG
+    for(uint64_t idx = 0; idx < totalLocalWIs; ++idx)
     {
         // Create interpreter instance.
         ExecutionEngine * pExecEngine = builder.create();
@@ -1029,6 +1023,12 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
         {
             for(uint64_t tid_x=0;tid_x<loopGlobalWGSizes[0];tid_x+=localWGSizes[0])
             {
+
+#define FOR3_LOCALWG \
+    for(uint64_t idx = 0, lid_z = 0; lid_z < wiStorage.GetLocalSize(tid_z, 2); ++lid_z)\
+    for(uint64_t lid_y = 0; lid_y < wiStorage.GetLocalSize(tid_y, 1); ++lid_y)\
+    for(uint64_t lid_x = 0; lid_x < wiStorage.GetLocalSize(tid_x, 0); ++lid_x, ++idx)
+
                 // Run static constructors.
                 FOR3_LOCALWG {
                     localEngines[idx]->runStaticConstructorsDestructors(false);
@@ -1129,11 +1129,12 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
                 {
                     localEngines[idx]->runStaticConstructorsDestructors(true);
                 }
+
+#undef FOR3_LOCALWG
+
             }
         }
     }
-
-#undef FOR3_LOCALWG
 
     for (uint32_t i=0; i<localEngines.size(); i++) {
         localEngines[i]->removeModule(m_pModule);

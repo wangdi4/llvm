@@ -52,6 +52,10 @@ public:
     }
     
     virtual uint64_t GetLocalSize(const uint32_t dimindx){
+        return GetLocalSize(m_GlobalID[dimindx], dimindx);
+    }
+
+    virtual uint64_t GetLocalSize(const uint32_t globalId, const uint32_t dimindx){
         //calculate number of work items in wg placed after last uniform wg
         //could be zero or less then m_LocalSize[dimindx]
         //zero case - all wg are uniform(there is no wg placed after last uniform wg)
@@ -61,7 +65,7 @@ public:
 
         //flag - determinates whether currently executing work item belongs to
         //wg that goes after last uniform wg or not
-        bool isAfterLastUniformWG = (m_GlobalID[dimindx] >= ( m_GlobalSize[dimindx] / m_LocalSize[dimindx] )*m_LocalSize[dimindx] );
+        bool isAfterLastUniformWG = (globalId >= ( m_GlobalSize[dimindx] / m_LocalSize[dimindx] )*m_LocalSize[dimindx] );
         //if lastLocalSize is zero - there is no non-iniform wg in dimention described as dimindx - return m_LocalSize
         //if isAfterLastUniformWG is false - current work item belongs to uniform wg
         //if we found not null-sized work group that goes after last uniform then return it size as
