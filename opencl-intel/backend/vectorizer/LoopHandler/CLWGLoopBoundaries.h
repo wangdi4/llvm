@@ -22,7 +22,7 @@ using namespace llvm;
 
 // class CLWGLoopBoundaries
 //-----------------------------------------------------------------------------
-// This class implements a pass that recieves an openCL kernel, and checks if 
+// This class implements a pass that recieves an openCL kernel, and checks if
 // it contains branches that have 2 properties:
 // a. They are uniform across all work items or they can be replaced by setting
 //    a boundary on the Work group loop (e.g. if get_global_id(0)<5 ).
@@ -33,16 +33,16 @@ using namespace llvm;
 //    if (get_global_id(0) >= dim.x || get_global_id(1) >= dim.y) return;
 //    kernel code..
 //
-// If early exit is found than the pass removes the branch, so the only the 
+// If early exit is found than the pass removes the branch, so the only the
 // kernel code remains, and calculate the new loop size to be used by the loop
-// generator. 
-// Finally it creates a function which returns the inital global ids and loop 
-// and work group loop sizes in LLVM array (even if no early exits found) and 
+// generator.
+// Finally it creates a function which returns the inital global ids and loop
+// and work group loop sizes in LLVM array (even if no early exits found) and
 // uniform early exit (0 - skip the kernel).
-// This array will conatin 2 entries per Jit dimension + 1 for unifrom early 
+// This array will conatin 2 entries per Jit dimension + 1 for unifrom early
 // exit.
 //
-// the former example will result with 
+// the former example will result with
 //  void __kernel foo( int4 dim, .... ) {
 //    kernel code..
 //
@@ -70,8 +70,8 @@ using namespace llvm;
 //    size_t uni = (0 < dim0_size) && (get_global_gid(0) < dim.y );
 //    retrun [uni, dim0_lower, dim0_size];
 //
-//  This pass and Loop Generator agree on the indices of the array using 
-//  interface implemented in CLWGBoundDecoder Class. 
+//  This pass and Loop Generator agree on the indices of the array using
+//  interface implemented in CLWGBoundDecoder Class.
 //-----------------------------------------------------------------------------
 
 namespace intel {
@@ -91,8 +91,8 @@ public:
   ///@param M - module to process.
   ///@returns true if the module changed
   virtual bool runOnModule(Module &M);
-  
-  ///@brief additional interface to be on a function not as Pass. 
+
+  ///@brief additional interface to be on a function not as Pass.
   ///@param F - function to process.
   ///@returns true if the function changed
   virtual bool runOnFunction(Function &F);
@@ -102,16 +102,16 @@ public:
     AU.addRequired<BuiltinLibInfo>();
   };
 
-private: 
+private:
   /// struct that contain boundary early exit description.
   struct TIDDesc{
-    Value *m_bound;         //actual bound 
+    Value *m_bound;         //actual bound
     unsigned m_dim;         //dimesnion of boundary
-    bool m_isUpperBound;    //true upper bound, false lower bound 
+    bool m_isUpperBound;    //true upper bound, false lower bound
     bool m_containsVal;     //true inclusive, false exclusive
     bool m_isSigned;        //true bound is signed comparison, false not
     bool m_isGID;           //true bound is on global id, false on local id
-    
+
     TIDDesc(Value *bound, unsigned dim, bool isUpperBound,
             bool containsVal, bool isSigned, bool isGID) :
       m_bound(bound), m_dim(dim), m_isUpperBound(isUpperBound),
@@ -139,7 +139,7 @@ private:
   Function *m_F;
   ///@brief Context of the current function.
   LLVMContext *m_context;
-  ///@brief size_t type 
+  ///@brief size_t type
   Type *m_indTy;
   ///@brief size_t one constant
   Constant *m_constOne;
@@ -206,7 +206,7 @@ private:
   ///@retruns as above.
   bool hasSideEffectInst(BasicBlock *BB);
 
-  ///@brief returns true if the block lead unconditionally to return 
+  ///@brief returns true if the block lead unconditionally to return
   ///       instruction with no side effect instructions.
   ///@param BB - basic block to check.
   ///@retruns as above.
@@ -244,7 +244,7 @@ private:
   ///@returns true iff this recurive and\or of icmp and uniform conditions
   bool collectCond (SmallVector<ICmpInst *, 4>& compares,
                     IVec &uniformConds, Instruction *root);
-  
+
   ///@brief Collect tid calls, and check uniformity of instructions in the
   ///       in the input block.
   ///@param BB - basic block to check.
@@ -253,12 +253,12 @@ private:
   ///@brief checks if the input cmp instruction is supported boundary compare
   ///       if so fills description of the boundary compare into eeVec.
   ///@param cmp - compare instruction to check.
-  ///@param bound - the early exit boundary.
+  ///@param bound - the early exit boundaries.
   ///@param tid - the get***id call.
   ///@param EETrueSide - inidicate whether early exit occurs if cmp is true.
   ///@param eeVec - vector of early exit description to fill.
   ///@returns true iff cmp is supported boundary compare.
-  bool obtainBoundaryEE(ICmpInst *cmp, Value *bound, Value *tid,
+  bool obtainBoundaryEE(ICmpInst *cmp, Value **bound, Value *tid,
                             bool EETrueSide, TIDDescVec& eeVec);
 
   ///@brief returns loop boundaries function declaration with the original
@@ -275,32 +275,31 @@ private:
   void recoverInstructions (VMap &valueMap, VVec &roots, BasicBlock *BB,
                             Function *newF);
 
-  ///@brief traces back the two input value if one is tid dependent and the 
-  ///       other is uniform, assuming the two are compared. currently only
-  ///       cases of direct comparison and truncations are supported.
+  ///@brief traces back the two input value if one is tid dependent and the
+  ///       other is uniform, assuming the two are compared.
   ///@param v1 - first input value.
   ///@param v2 - second input value.
   ///@param isCmpSigned - is this is a signed comparison.
   ///@param loc - place to put instructions to correct the bound.
-  ///@param bound - will hold the boundary value in case of success.
+  ///@param bound - will hold the boundary values in case of success.
   ///@params tid - will hold the get***id in case of success.
   ///@returns true iff succeeded to trace back bound.
   bool traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
-                Instruction *loc, Value *&bound, Value *&tid);
+                Instruction *loc, Value **bound, Value *&tid);
 
   ///@brief serves as easier interface for traceBackBound for tracking
   ///       compare instruction operands.
   ///@param cmp - compare instruction to inspect.
-  ///@param bound - will hold the boundary value in case of success.
+  ///@param bound - will hold the boundary values in case of success.
   ///@params tid - will hold the get***id in case of success.
-  bool traceBackCmp(ICmpInst *cmp, Value *&bound, Value *&tid);
+  bool traceBackCmp(ICmpInst *cmp, Value **bound, Value *&tid);
 
   ///@brief serves as easier interface for traceBackBound for tracking
   ///       min\max builtins opernads.
   ///@param - CI min\max builtin to inspect.
   ///@param bound - will hold the boundary value in case of success.
   ///@params tid - will hold the get***id in case of success.
-  bool traceBackMinMaxCall(CallInst *CI, Value *&bound, Value *&tid);
+  bool traceBackMinMaxCall(CallInst *CI, Value **bound, Value *&tid);
 
   ///@brief updates the internal data members with cmp-select boundary.
   ///@param cmp - compare for which cmp-select pattern was found.
@@ -338,7 +337,7 @@ private:
   ///@param BB - basic block to put instructions in.
   void recoverBoundInstructions(VMap &valueMap, BasicBlock *BB);
 
-  ///@brief Safely corrects the boundary value in case bound is on 
+  ///@brief Safely corrects the boundary value in case bound is on
   ///       local_id, or is inclusive\exclusive when it shouldn't.
   ///@param td - maps values from m_F to their clone in newF,
   ///@param BB - basic block to put instructions in.
@@ -347,7 +346,7 @@ private:
   ///@brief create the loop boundaries function for the current kernel.
   void createWGLoopBoundariesFunction();
 
-  ///@brief Run through all descriptions, and update m_loopSizes, 
+  ///@brief Run through all descriptions, and update m_loopSizes,
   //        m_lowerBounds according to the boundary descriptions.
   void obtainEEBoundaries(BasicBlock *BB, VMap &valueMap);
 
