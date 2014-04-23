@@ -384,6 +384,8 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   PM.add(llvm::createVerifierPass());
 #endif
 
+  // Unroll small loops with unknown trip count.
+  PM.add(llvm::createLoopUnrollPass(16, 0, 0, 1));
   // The ShiftZeroUpperBits pass should be added after the vectorizer because the vectorizer
   // may transform scalar shifts into vector shifts, and we want this pass to fix all vector
   // shift in this module.
