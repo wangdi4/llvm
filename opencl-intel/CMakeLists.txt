@@ -284,7 +284,20 @@ if (GIT_REVISIONS)
     execute_process(COMMAND ${GIT_EXECUTABLE} log -1 --format=%H
                     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
                     OUTPUT_VARIABLE GIT_REVISION)
-    file(WRITE ${OCL_BINARY_DIR}/revision.txt "REVISION=${GIT_REVISION}DESCRIBE=${GIT_DESCRIPTION}")
+		    
+    if ("${LLVM_PATH}" STREQUAL "")
+        set(LLVM_PATH_STRING 0)
+    else()
+        set(LLVM_PATH_STRING ${LLVM_PATH})
+    endif()
+    
+    if ("${LLVM_PATH_SPIR12}" STREQUAL "")
+        set(LLVM_PATH_SPIR12_STRING 0)
+    else()
+        set(LLVM_PATH_SPIR12_STRING ${LLVM_PATH_SPIR12})
+    endif()
+    
+    file(WRITE ${OCL_BINARY_DIR}/revision.txt "REVISION=${GIT_REVISION}DESCRIBE=${GIT_DESCRIPTION}LLVM_PATH=${LLVM_PATH_STRING}\nLLVM_PATH_SPIR12=${LLVM_PATH_SPIR12_STRING}")
     install(FILES ${OCL_BINARY_DIR}/revision.txt DESTINATION ./)    
 endif (GIT_REVISIONS)
 message(STATUS "Current build version is ${BUILDVER_WC_REVISION}")
