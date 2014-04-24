@@ -646,6 +646,14 @@ void FunctionSpecializer::specializeEdge(BypassInfo & bi) {
 
   if (!after) return;
 
+  // inform the predicator about the blocks that are bypassed
+  for (std::set<BasicBlock*>::iterator it = bi.m_skippedBlocks.begin(),
+    e = bi.m_skippedBlocks.end(); it != e; ++ it) {
+    if (m_PDT->dominates(*it, entry)) {
+      m_pred->blockIsBeingZeroBypassed(*it);
+    }
+  }
+
   // Creating launching and landing pads for bypass
   BasicBlock* src = createIntermediateBlock(before, entry, "header");
 
