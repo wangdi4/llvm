@@ -601,50 +601,68 @@ void FunctionSpecializer::ZeroBypassedMasks(BypassInfo & bi, BasicBlock *src,
 void FunctionSpecializer::specializeEdge(BypassInfo & bi) {
 
   V_ASSERT(!verifyFunction(*m_func) && "I broke this module");
-  
+
   V_ASSERT(bi.m_head && "no head!");
 
-  // Refining the incoming edge
+  // Refining the incoming edge (before -> head)
   BasicBlock* head = bi.m_head;
-  BasicBlock* entry = bi.m_root;
-  BasicBlock* before = entry->getSinglePredecessor();
+  BasicBlock* entry = bi.m_root;  // first block in the bypassed region.
+  BasicBlock* before = entry->getSinglePredecessor(); // blcok going into the
+                                                      // bypassed region.
   // if there are two edges entering the region ('loop' case) - take edge coming
   // from outside
   if (!before) {
     for (llvm::pred_iterator it = pred_begin(entry); it != pred_end(entry); ++it) {
       if (bi.m_skippedBlocks.find(*it) != bi.m_skippedBlocks.end()) continue;
-      if (before) {
-        // BUGBUG: sometimes linearizer's change of CFG leads to situation
-        // when dominance info collected earlier is no valid anymore (e.g., some
-        // region is being extended, or new dominance produced). In that case
-        // edge analysis vs. region containment info doesn't hold
-        before = NULL;
-        break;
-      }
       before = *it;
-    }
-  }
-  if (!before) return;
-
-  // Refining the outgoing edge
-  BasicBlock* exitBlock = bi.m_postDom;
-  BasicBlock* after = NULL;
-  // if there are two edges leaving the region ('loop' case) - take edge going
-  // outside of the loop
-  for (llvm::succ_iterator it = succ_begin(exitBlock); it != succ_end(exitBlock); ++it) {
-    if (bi.m_skippedBlocks.find(*it) != bi.m_skippedBlocks.end()) continue;
-    if (after) {
-      // BUGBUG: sometimes linearizer's change of CFG leads to situation
-      // when dominance info collected earlier is no valid anymore (e.g., some
-      // region is being extended, or new dominance produced). In that case
-      // edge analysis vs. region containment info doesn't hold
-      after = NULL;
       break;
     }
-    after = *it;
   }
+  V_ASSERT(before && "missing entering edge");
 
-  if (!after) return;
+  // Refining the outgoing edge (exitBlock -> after)
+  BasicBlock* exitBlock = NULL; // to be last block in the bypassed region.
+  BasicBlock* after = NULL; // to be first block after the bypassed region.
+  BasicBlock* exitCandidate = bi.m_postDom;
+  BasicBlock* afterCandidate = NULL;
+  while (!exitBlock) {
+    V_ASSERT(succ_begin(exitCandidate) != succ_end(exitCandidate) &&
+      "failed to find an exit block");
+    Loop* loop = m_LI->getLoopFor(exitCandidate);
+    bool isLatch = loop && loop->getLoopLatch() == exitCandidate;
+    if (!isLatch) {
+      // if exit candidate is not a latch, then after candidate is its
+      // only successor (remember we are running after predication)
+      V_ASSERT(std::distance(succ_begin(exitCandidate),succ_end(exitCandidate))
+        == 1 && "expected a single successor");
+      afterCandidate = *succ_begin(exitCandidate);
+    }
+    else { // take edge going outside the loop
+      for (llvm::succ_iterator it = succ_begin(exitCandidate);
+        it != succ_end(exitCandidate); ++it) {
+        if (loop->contains(*it)) continue;
+        afterCandidate = *it;
+        break;
+      }
+    }
+
+    if (bi.m_skippedBlocks.find(afterCandidate) == bi.m_skippedBlocks.end()) {
+      // normal case.
+      exitBlock = exitCandidate;
+      after = afterCandidate;
+      break;
+    }
+    else {
+      // edge is still inside the skipped region. This can happen if the region
+      // has endless loops in it (loops that has no exit condition).
+      // in such a case, the linearizer might not put the post_dom
+      // of the root last in the region, because for some basic-blocks in the region
+      // it is not a post dominator.
+      exitCandidate = afterCandidate;
+      continue;
+    }
+  }
+  V_ASSERT(after && "missing outgoing edge");
 
   // inform the predicator about the blocks that are bypassed
   for (std::set<BasicBlock*>::iterator it = bi.m_skippedBlocks.begin(),
@@ -665,7 +683,7 @@ void FunctionSpecializer::specializeEdge(BypassInfo & bi) {
   // Get the list of PHINodes which we need to insert (for skipped instructions)
   std::vector<std::pair<Instruction* , std::set<Instruction*> > > vals;
   findValuesToPhi(bi,  vals);
-  
+
   // Create the function call to 'is zero' to test if we need
   // to jump over this section
   V_ASSERT( mask && "Unable to find incoming mask for block");
@@ -747,6 +765,12 @@ void FunctionSpecializer::findValuesToPhi(
       for (Value::use_iterator us = inst->use_begin(),
            us_e = inst->use_end(); us != us_e ; ++us) {
         if (Instruction* iii = dyn_cast<Instruction>(*us)) {
+          // if this is a latch and the user is the loop header,
+          // no need for a new phi-node.
+          Loop* l = m_LI->getLoopFor(bi.m_postDom);
+          if (l && l->getLoopLatch() == bi.m_postDom &&
+              iii->getParent() == l->getHeader())
+              continue;
           // if the user of this instruction is not in skipped region
           // if this is a new BB
           if (! bi.m_skippedBlocks.count( iii->getParent()))  { deps.insert(iii);  }
