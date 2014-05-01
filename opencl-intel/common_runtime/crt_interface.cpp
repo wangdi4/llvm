@@ -9023,8 +9023,8 @@ int CL_API_CALL GetCRTInfo(
     void *      param_value,
     size_t *    param_value_size_ret )
 {
-    if( NULL != param_value &&
-        0 == param_value_size )
+    if( ( NULL != param_value && 0 == param_value_size ) ||
+        ( NULL == param_value && 0 != param_value_size ) )
     {
         return CRT_FAIL;
     }
@@ -9032,12 +9032,20 @@ int CL_API_CALL GetCRTInfo(
     switch( param_name )
     {
     case CRT_NAMED_PIPE:
-        if( param_value_size < sizeof(unsigned char) )
+        if( NULL != param_value_size_ret )
         {
-            return CRT_FAIL;
+            *param_value_size_ret = sizeof(unsigned char);
         }
-        *(unsigned char*)param_value = true;
+        if( NULL != param_value )
+        {
+            if( param_value_size < sizeof(unsigned char) )
+            {
+                return CRT_FAIL;
+            }
+            *(unsigned char*)param_value = true;
+        }
         break;
+
     default:
         return CRT_FAIL;
     }
@@ -9192,7 +9200,7 @@ void * CL_API_CALL clSVMAlloc(
     }
 
     pSvmPtr = gpuContext->dispatch->clSVMAlloc(
-                                        context,
+                                        gpuContext,
                                         flags,
                                         size,
                                         alignment );
@@ -9241,7 +9249,7 @@ void CL_API_CALL clSVMFree(
     }
 
     gpuContext->dispatch->clSVMFree(
-                            context,
+                            gpuContext,
                             svm_pointer );
 
     // remove the SVM pointer from cache
