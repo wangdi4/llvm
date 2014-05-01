@@ -1545,13 +1545,6 @@ bool Predicator::isMaskedUniformStoreOrLoad(Instruction* inst) {
 // any load/store instructions with uniform arguments.
 // (that is, the only non-uniform argument is the mask).
 void Predicator::blockIsBeingZeroBypassed(BasicBlock* BB) {
-  // This optimization changes the decision of the
-  // vectorizer heuristics, so in order to avoid regressions,
-  // we do not invoke it unless running on knc/knl.
-  if (m_rtServices->getPacketizationWidth() < 16) {
-    return;
-  }
-
   // need to duplicate instructions in order to safely iterate over them.
   // (going to remove instructions later)
   std::vector<Instruction*> inBB;
