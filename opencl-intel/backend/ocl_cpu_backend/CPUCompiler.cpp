@@ -181,6 +181,10 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
     {
         cpuFeatures |= CFS_AVX1;
     }
+    if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "+avx512f" ) != forcedFeatures.end())
+    {
+        cpuFeatures |= CFS_AVX512F;
+    }
 
     if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-sse41" ) != forcedFeatures.end())
     {
@@ -303,6 +307,9 @@ void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuF
     if (!DisableAVX && (selectedCpuId == Intel::CPU_HASWELL)) {
       m_forcedCpuFeatures.push_back("+avx2");
       m_forcedCpuFeatures.push_back("+f16c");
+    }
+    if (selectedCpuId == Intel::CPU_KNL) {
+      m_forcedCpuFeatures.push_back("+avx512f");
     }
 
     unsigned int selectedCpuFeatures = Utils::SelectCpuFeatures( selectedCpuId, m_forcedCpuFeatures );
