@@ -197,8 +197,7 @@ public:
   // Pass identification, replacement for typeid
   static char ID;
   /// @brief C'tor
-  X86Resolver() : FuncResolver(ID), m_cpuArch(Intel::DEVICE_INVALID) {}
-  X86Resolver(Intel::ECPU cpuArch) : FuncResolver(ID), m_cpuArch(cpuArch) {}
+  X86Resolver() : FuncResolver(ID) {}
 
   /// @brief Provides name of pass
   virtual const char *getPassName() const {
@@ -209,11 +208,6 @@ public:
   /// @param caller Instruction to resolve
   /// @return true if this call was handled by the resolver
   virtual bool TargetSpecificResolve(CallInst* caller) { return false; }
-
-  void setCpuArch(Intel::ECPU arch) { m_cpuArch = arch; }
-  virtual bool isBitMask(const VectorType& vecType) const;
-private:
-  Intel::ECPU m_cpuArch;
 };
 
 }

@@ -17,6 +17,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Version.h"
+#include <stdio.h>
 
 static const int __logs_vals[] = {-1, 0, 1, -1, 2, -1, -1, -1, 3, -1, -1, -1, -1, -1, -1, -1, 4};
 #define LOG_(x) __logs_vals[x]
@@ -359,8 +360,9 @@ bool PacketizeFunction::canTransposeMemory(Value* addr, Value* origVal, bool isL
   std::string funcName = Mangler::getTransposeBuiltinName(isLoad, isScatterGather, isMasked, origVecType, m_packetWidth);
   Function* transposeFuncRT = m_rtServices->findInRuntimeModule(funcName);
   // No proper transpose function for this load and packet width
-  if (!transposeFuncRT) return false;
-
+  if (!transposeFuncRT) 
+    return false;
+  
   return true;
 }
 
@@ -2537,7 +2539,12 @@ void PacketizeFunction::createLoadAndTranspose(Instruction* I, Value* loadPtrVal
     Type* ExtMaskType = getMaskTypeForTranpose(transposeFunc);
     V_ASSERT(ExtMaskType->getScalarSizeInBits() >= VectorMask->getType()->getScalarSizeInBits() &&
              "Extended mask type smaller than original mask type!");
-    Value* ExtMask = Builder.CreateSExtOrBitCast(VectorMask, ExtMaskType, "extmask");
+
+    Value* ExtMask;
+    if (CastInst::isBitCastable(VectorMask->getType(), ExtMaskType))
+      ExtMask = Builder.CreateBitCast(VectorMask, ExtMaskType, "extmask");
+    else
+      ExtMask = Builder.CreateSExtOrBitCast(VectorMask, ExtMaskType, "extmask");
     funcArgs.push_back(ExtMask);
   }
 

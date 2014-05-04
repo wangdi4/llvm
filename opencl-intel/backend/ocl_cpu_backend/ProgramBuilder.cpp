@@ -173,32 +173,14 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
             std::ofstream outf((filename+".ll").c_str());
             outf << buffer;
         }
-
-        system(("cp " + filename + ".ll " + filename + "_org.ll").c_str());
-        std::string llvmOCLBinPath(getenv("LLVM_OCL_DIR"));
-        int res = system((llvmOCLBinPath + "/llvm-as " + filename + ".ll").c_str());
-        if (res) {
-          system(("mv " + filename + ".ll " + filename + "_fail.ll").c_str());
-          throw Exceptions::DeviceBackendExceptionBase("llvm-as does not work", CL_DEV_ERROR_FAIL);
-        }
         std::string llvmKNLBinPath(getenv("LLVM_KNL_DIR"));
-        res = system((llvmKNLBinPath + "/llvm-dis " + filename + ".bc").c_str());
-        if (res) {
-          system(("mv " + filename + ".ll " + filename + "_fail.ll").c_str());
-          system(("mv " + filename + ".bc " + filename + "_fail.bc").c_str());
-          throw Exceptions::DeviceBackendExceptionBase("llvm-dis does not work", CL_DEV_ERROR_FAIL);
-        }
-
-        
         std::string llcOptions("-mcpu=knl -force-align-stack -code-model=large ");
         if (spModule.get()->getNamedMetadata("opencl.enable.FP_CONTRACT"))
           llcOptions += " -fp-contract=fast ";
         llcOptions += filename + ".ll ";
         llcOptions += "-filetype=obj -o " + filename + ".o";
-        res = system((llvmKNLBinPath + "/llc " + llcOptions).c_str());
-        if (res != 0) {
+        if (system((llvmKNLBinPath + "/llc " + llcOptions).c_str()) != 0) {
           system(("mv " + filename + ".ll " + filename + "_fail.ll").c_str());
-          system(("mv " + filename + ".bc " + filename + "_fail.bc").c_str());
           throw Exceptions::DeviceBackendExceptionBase("llc does not work", CL_DEV_ERROR_FAIL);
         }
         llvm::OwningPtr<llvm::MemoryBuffer> injectedObject;
@@ -210,7 +192,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
         LoadObject(pProgram, spModule.get(), injectedObject->getBufferStart(),
                    injectedObject->getBufferSize());
 //        system(std::string("rm " + filename + ".bc " + filename + ".ll " + filename + ".o").c_str());
-//        system(std::string("rm " + filename + ".bc " + filename + ".o").c_str());
+        system(std::string("rm " + filename + ".bc " + filename + ".o").c_str());
 #else // ENABLE_KNL
         PostOptimizationProcessing(pProgram, spModule.get(), pOptions);
 #endif // ENABLE_KNL

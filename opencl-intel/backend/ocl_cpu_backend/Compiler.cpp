@@ -290,7 +290,7 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
     {
         throw Exceptions::CompilerException("Program is not valid for this target", CL_DEV_INVALID_BINARY);
     }
-
+    dumpModule(*(spModule.get()));
     //
     // Apply IR=>IR optimizations
     //
@@ -333,7 +333,7 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
     //
     m_debug = pOptions->GetDebugInfoFlag();
 
-    dumpModule(*(spModule.get()));
+    //dumpModule(*(spModule.get()));
 
     pResult->SetBuildResult( CL_DEV_SUCCESS );
 

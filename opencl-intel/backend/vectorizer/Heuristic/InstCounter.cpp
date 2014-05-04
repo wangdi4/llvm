@@ -144,7 +144,7 @@ bool WeightedInstCounter::is64BitArch() const {
 }
 
 bool WeightedInstCounter::hasV16Support() const {
-  return m_cpuid.HasGatherScatter();
+  return m_cpuid.HasAVX512() || m_cpuid.HasKNC();
 }
 
 bool WeightedInstCounter::hasAVX() const {

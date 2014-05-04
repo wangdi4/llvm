@@ -344,7 +344,7 @@ void CPUProgramBuilder::AddKernelJIT(CPUProgram* pProgram, Kernel* pKernel, llvm
     pKernel->AddKernelJIT( pJIT );
 }
 
-void CPUProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Module* pModule, const ICLDevBackendOptions* pOptions) const
+void CPUProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule, const ICLDevBackendOptions* pOptions) const
 {
     char*  pInjectedObjStart = NULL;
     size_t injectedObjSize;
@@ -355,7 +355,7 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Modu
         && pInjectedObjStart != NULL)
     {
 #ifdef ENABLE_KNL
-        LoadObject(pProgram, pModule, pInjectedObjStart, injectedObjSize);
+        LoadObject(pProgram, spModule, pInjectedObjStart, injectedObjSize);
 #else
         std::auto_ptr<StaticObjectLoader> pObjectLoader(new StaticObjectLoader());
         // Build the MemoryBuffer object from the supplied options
