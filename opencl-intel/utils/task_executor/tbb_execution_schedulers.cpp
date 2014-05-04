@@ -186,12 +186,12 @@ void TBB_ExecutionSchedulers::opencl_executor(
 {
     //int nThreads = executor.GetCurrentDevice().teDevice->GetConcurrency();
     tbb::task_group_context& context = cmdList.GetTBBContext();
-
-#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
-    tbb::uneven::parallel_for(BlockedRange(dims, grainsize), TaskLoopBodySpecific(task), tbb::opencl_partitioner(tbb::task_arena::current_slot(), cmdList.GetTEDevice()->GetConcurrency() - 1, false), context);
-#else
-    tbb::uneven::parallel_for(BlockedRange(dims, grainsize), TaskLoopBodySpecific(task), tbb::opencl_partitioner(), context);
-#endif
+    
+    /* The opencl_partitioner constructor get as input the following values:
+        * current_slot() - The partitioner thread slot will be the current thread slot.
+        * The concurrency - will be 'The device concurrency - 1' because we create the device with N+1 threads (241) as default due to the reason that we have two modes, sync mode - in this mode the master thread can join and we use master + 239 workers, and async mode in this case we do not use the master thread so we need 240 workers (this is the reason why we create the device with 241 as concurrency).
+        * master can join - in sync mode the master thread will call this API and its slot is 0, so if current thread slot is 0 than master can join, otherwise it will not join. */
+    tbb::uneven::parallel_for(BlockedRange(dims, grainsize), TaskLoopBodySpecific(task), tbb::opencl_partitioner(tbb::task_arena::current_slot(), cmdList.GetTEDevice()->GetConcurrency() - 1, tbb::task_arena::current_slot() == 0), context);
 }
 
 #ifdef __MIC__
