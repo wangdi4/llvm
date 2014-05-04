@@ -750,7 +750,7 @@ void CrtModule::Shutdown()
 
     if( m_common_extensions != NULL )
     {
-        delete m_common_extensions;
+        delete[] m_common_extensions;
         m_common_extensions = NULL;
     }
     if( m_crtPlatformId != NULL )

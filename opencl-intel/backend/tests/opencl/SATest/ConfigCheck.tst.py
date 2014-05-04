@@ -24,7 +24,7 @@ execstr = os.path.join(os.path.abspath(os.getcwd()),"SATest")
 confstr = "-config=" + options.config
 try:
     # run SATest. it should fail
-    subprocess.check_output([execstr,"-OCL","-REF", confstr], stderr=subprocess.STDOUT)
+    subprocess.check_output([execstr,"-REF", confstr], stderr=subprocess.STDOUT)
     # if not failed generate exception. test fails.
     raise IOError
 except subprocess.CalledProcessError, e:
@@ -39,7 +39,7 @@ e.output.index("doesn't exist")
 confstr_1 = os.path.splitext(confstr)[0] + ".1.cfg"
 try:
     # run SATest. it should fail
-    subprocess.check_output([execstr,"-OCL","-REF", confstr_1], stderr=subprocess.STDOUT)
+    subprocess.check_output([execstr,"-REF", confstr_1], stderr=subprocess.STDOUT)
     # if not failed generate exception. test fails.
     raise IOError
 except subprocess.CalledProcessError, e:
@@ -52,7 +52,7 @@ e.output.index("can't be loaded : Error document empty")
 confstr_2 = os.path.splitext(confstr)[0] + ".2.cfg"
 try:
     # run SATest. it should fail
-    subprocess.check_output([execstr,"-OCL","-REF", confstr_2], stderr=subprocess.STDOUT)
+    subprocess.check_output([execstr,"-REF", confstr_2], stderr=subprocess.STDOUT)
     # if not failed generate exception. test fails.
     raise IOError
 except subprocess.CalledProcessError, e:

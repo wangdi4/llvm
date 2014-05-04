@@ -290,3 +290,23 @@ queue_t KernelCommand::GetDefaultQueueForDevice() const
     }
     return m_parent->GetDefaultQueueForDevice();
 }
+
+bool KernelCommand::IsValidEvent(clk_event_t event) const
+{
+    DeviceCommand* pEvent = reinterpret_cast<DeviceCommand*>(event);
+    if (NULL == pEvent)
+    {
+        return false;
+    }
+
+    if (!pEvent->CheckStamp())
+    {
+        return false;
+    }
+
+    if (pEvent->GetRefCnt() < 1)
+    {
+        return false;
+    }
+    return true;
+}

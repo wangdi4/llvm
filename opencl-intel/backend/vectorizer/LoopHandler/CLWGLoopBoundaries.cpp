@@ -47,7 +47,7 @@ bool CLWGLoopBoundaries::runOnModule(Module &M) {
 
   Intel::MetaDataUtils mdUtils(&M);
   if ( !mdUtils.isKernelsHasValue() ) {
-    //Module contains no MetaData information, thus it contains no kernels
+    // Module contains no MetaData information, thus it contains no kernels
     return changed;
   }
 
@@ -60,10 +60,10 @@ bool CLWGLoopBoundaries::runOnModule(Module &M) {
   for (; itr != end; ++itr) {
     Function *pFunc = (*itr)->getFunction();
     Intel::KernelInfoMetaDataHandle kimd = mdUtils.getKernelsInfoItem(pFunc);
-    //No need to check if NoBarrierPath Value exists, it is guaranteed that
-    //KernelAnalysisPass ran before CLWGLoopBoundries pass.
+    // No need to check if NoBarrierPath Value exists, it is guaranteed that
+    // KernelAnalysisPass ran before CLWGLoopBoundries pass.
     if (kimd->getNoBarrierPath()) {
-      //Kernel that should not be handled in Barrier path.
+      // Kernel that should not be handled in Barrier path.
       changed |= runOnFunction(*pFunc);
     }
   }
@@ -85,7 +85,7 @@ bool CLWGLoopBoundaries::isUniformByOps(Instruction *I) {
 }
 
 void CLWGLoopBoundaries::CollcectBlockData(BasicBlock *BB) {
-  // run over all instructions in the block (excluding the terminator)
+  // Run over all instructions in the block (excluding the terminator)
   for (BasicBlock::iterator I=BB->begin(), E= --(BB->end()); I!=E ; ++I) {
     if (CallInst *CI = dyn_cast<CallInst>(I)) {
       Function *F = CI->getCalledFunction();
@@ -118,18 +118,18 @@ void CLWGLoopBoundaries::processTIDCall(CallInst *CI, bool isGID) {
   assert (dim < MAX_WORK_DIM && "get***id with dim > (MAX_WORK_DIM-1)");
   // All dimension above m_numDim are uniform so we don't need to add them.
   if (dim < m_numDim) {
-    m_TIDs[CI] = std::pair<unsigned , bool>(dim, isGID);
+    m_TIDs[CI] = std::pair<unsigned, bool>(dim, isGID);
     m_TIDByDim[dim].push_back(CI);
   }
 }
 
 void CLWGLoopBoundaries::collectTIDData() {
   // First clear the tids fata structures
+  m_hasVariableTid = false;
   m_TIDs.clear();
   m_TIDByDim.clear();
   m_TIDByDim.resize(m_numDim); // allocate vector for each dimension
   // Go over all get_global_id
-  m_hasVariableTid = false;
   SmallVector<CallInst *, 4> gidCalls;
   LoopUtils::getAllCallInFunc(CompilationUtils::mangledGetGID(), m_F, gidCalls);
   for (unsigned i=0; i<gidCalls.size(); ++i) {
@@ -144,7 +144,6 @@ void CLWGLoopBoundaries::collectTIDData() {
 }
 
 bool CLWGLoopBoundaries::runOnFunction(Function& F) {
-
   m_F = &F;
   m_M = F.getParent();
   m_context = &F.getContext();
@@ -164,7 +163,6 @@ bool CLWGLoopBoundaries::runOnFunction(Function& F) {
   CollcectBlockData(&m_F->getEntryBlock());
   // Check if the function calls an atomic builtin.
   m_hasAtomicCalls = currentFunctionHasAtomicCalls();
-
 
   // Iteratively examines if the entry block branch is early exit branch,
   // min\max with uniform value.
@@ -282,18 +280,18 @@ bool CLWGLoopBoundaries::handleBuiltinBoundMinMax(Instruction *tidInst) {
   assert(CI->getNumArgOperands() == 2 && "bad min,max signature");
 
   // Track the boundary and the tid call.
-  Value *bound, *tid;
-  if (!traceBackMinMaxCall(CI, bound, tid)) return false;
+  Value *tid, *bound[2] = {0};
+  if (!traceBackMinMaxCall(CI, &bound[0], tid)) return false;
 
   // Get the tid properties from the map.
-  assert(m_TIDs.count(tid)  && bound && "non valid tid, bound");
+  assert(m_TIDs.count(tid) && *bound && "non valid tid, bound");
   std::pair<unsigned, bool> tidProp = m_TIDs[tid];
   unsigned dim = tidProp.first;
   bool isGID = tidProp.second;
 
   bool isUpperBound = isMinBltn; // Min creates upper bound, max lower bound.
   bool containsVal = true; // All min \ max are inclusive.
-  m_TIDDesc.push_back(TIDDesc(bound, dim, isUpperBound, containsVal,
+  m_TIDDesc.push_back(TIDDesc(*bound, dim, isUpperBound, containsVal,
                     isSigned, isGID));
   CI->replaceAllUsesWith(tidInst);
   m_toRemove.insert(CI);
@@ -332,10 +330,10 @@ bool CLWGLoopBoundaries::handleCmpSelectBoundary(Instruction *tidInst) {
       !(cmpOp1 == trueOp && cmpOp0 == falseOp)) return false;
 
   // Track the boundary and tid call.
-  Value *bound, *tid;
-  if (!traceBackCmp(cmp, bound, tid)) return false;
+  Value *tid, *bound[2] = {0};
+  if (!traceBackCmp(cmp, &bound[0], tid)) return false;
   // Update the eeVec with the boundary descriptions.
-  if (!obtainBoundaryCmpSelect(cmp, bound, tid, cmpOp0 == trueOp)) return false;
+  if (!obtainBoundaryCmpSelect(cmp, *bound, tid, cmpOp0 == trueOp)) return false;
   // Replace the uses of the select with the original tid call, and mark
   // redundant instructions for removal.
   SI->replaceAllUsesWith(tidInst);
@@ -501,42 +499,156 @@ bool CLWGLoopBoundaries::collectCond(SmallVector<ICmpInst *, 4>& compares,
     } else if (ICmpInst *cmp = dyn_cast<ICmpInst>(cur)) {
       compares.push_back(cmp);
     } else if (cur->getOpcode() == rootOp) {
-      // It is the same as root it's operands are new candidates
+      // It is the same as root it's operands are new candidates.
       Cands.push_back(cur->getOperand(0));
       Cands.push_back(cur->getOperand(1));
     } else {
       // Not in the pattern.
       return false;
     }
-  } while  (Cands.size());
+  } while (Cands.size());
   return true;
 }
 
 bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
-                                        Instruction *loc, Value *&bound, Value *&tid){
+                                        Instruction *loc, Value **bound,
+                                        Value *&tid) {
   // The input values should be tid dependent value compared with uniform one.
-  // First We find which is uniform and which is tid-dependent and abort otherwise.
+  // First we find which is uniform and which is tid-dependent and
+  // abort otherwise.
   bool isV1Uniform = isUniform(v1);
   bool isV2Uniform = isUniform(v2);
   if (isV1Uniform == isV2Uniform) return false;
-  bound = isV1Uniform ? v1 : v2;
-  tid = isV1Uniform ? v2 : v1;
+  *bound = isV1Uniform ? v1 : v2;
+  tid   = isV1Uniform ? v2 : v1;
 
   // The pattern of boundary condition is: comparison between TID and Uniform.
   // But more general pattern is comparison between f(TID) and Uniform.
-  // In that case the bound will be f_inverse(Unifrom). currently we support
-  // only truncation but this can be extended to more complex forms of f.
+  // In that case the bound will be f_inverse(Unifrom).
   while (Instruction *tidInst = dyn_cast<Instruction>(tid)) {
+    bool isFirstOperandUniform = isUniform(tidInst->getOperand(0));
     switch (tidInst->getOpcode()) {
       case Instruction::Trunc: {
         // If candidate is trunc instruction than we can safely extend the
         // bound to have equivalent condition according to sign of comparison.
         tid = tidInst->getOperand(0);
         if (isCmpSigned) {
-          bound = new SExtInst(bound, tid->getType(), "sext_cast", loc);
+          *bound = new SExtInst(*bound, tid->getType(), "sext_cast", loc);
+          assert((*(bound+1) == 0) &&
+            "Only one bound is tracked from signed comparison");
         } else {
-          bound = new ZExtInst(bound, tid->getType(), "zext_cast", loc);
+          *bound = new ZExtInst(*bound, tid->getType(), "zext_cast", loc);
+          if (*(bound+1)) {
+            *(bound+1) = new ZExtInst(*(bound+1), tid->getType(), "zext_cast",
+                                      loc);
+          }
         }
+        break;
+      }
+      case Instruction::Add: {
+        // At the moment we are looking for particular pattern:
+        //
+        //  (id + a) < b    // unsigned comparison
+        //
+        // We are trying to replace it with boundaries for id.
+        //
+        //  -a <= id
+        //  id < (b - a)
+        //
+        // In addition to that we should make sure there were no unsigned integer
+        // overflow during the boundary computations,
+        // otherwise boundaries would be incorrect.
+        //
+        // Comparison must be unsigned, otherwise it's not the pattern
+        // we are looking for.
+        if (isCmpSigned) return false;
+        tid = isFirstOperandUniform ? tidInst->getOperand(1):
+                                      tidInst->getOperand(0);
+        Value* leftBound = isFirstOperandUniform ? tidInst->getOperand(0):
+                                                   tidInst->getOperand(1);
+        assert((*bound)->getType() == leftBound->getType() &&
+            "Types must match.");
+        // Compute right (upper) boundary for the id:
+        //   id < (b - a)
+        // Unsigned overflow is now allowed, i.e. result value must be
+        // non-negative, otherwise it will result in wrong boundary at unsigned
+        // comparison.
+        // If overflow has happend, right boundary is less than left boundary,
+        // so there are no WI to execute. If we are dealing with slack
+        // inequality i.e. id <= (b - a), we need to set bounds so, there are
+        // no local id that will comply with both of them. We use the following
+        // bounds: (b - a + 1) <= id <= (b - a).
+        Value* rigthBound = *bound;
+        Instruction* rightOverflowCheck = new ICmpInst(loc, CmpInst::ICMP_SLT,
+          rigthBound, leftBound, "right_lt_left");
+        *bound =  BinaryOperator::Create(Instruction::Sub, *bound, leftBound,
+                  "right_boundary_align", loc);
+
+        // Compute left (lower) boundary for the id: -a <= id
+        // Add additional check for unsigned overflow i.e. -a < 0
+        *(bound+1) = BinaryOperator::CreateNeg(leftBound, "left_boundary",
+                      cast<Instruction>(*bound));
+        Value* zero = ConstantInt::get((*(bound+1))->getType(), 0);
+        Instruction* cmp = new ICmpInst(loc, CmpInst::ICMP_SLT, *(bound+1),
+                                        zero, "left_lt_zero");
+        *(bound+1) = SelectInst::Create(cmp, zero, *(bound+1),
+                                        "non_negative_left_bound", loc);
+        // If overflow has happend for right boundary computation,
+        // make left (lower) boundary greater than right (upper) boundary
+        // by incrementing right boundary value.
+        Value* one = ConstantInt::get((*bound)->getType(), 1);
+        BinaryOperator *leftPlusOne = BinaryOperator::Create(Instruction::Add,
+          *bound, one, "left_after_overflow", loc);
+        *(bound+1) = SelectInst::Create(rightOverflowCheck, leftPlusOne,
+          *(bound+1), "final_left_bound", loc);
+        break;
+      }
+      case Instruction::Sub: {
+        // At the moment we are looking for particular pattern:
+        //
+        //  (id - a) < b    // unsigned comparison
+        //
+        // We are trying to replace it with boundaries for id.
+        //
+        //  a <= id
+        //  id < (b + a)
+        //
+        // In addition to that we should make sure there were no unsigned integer
+        // overflow during the boundary computations,
+        // otherwise boundaries would be incorrect.
+        //
+        // Comparison must be unsigned, otherwise it's not the pattern
+        // we are looking for.
+        if (isCmpSigned) return false;
+        tid = isFirstOperandUniform ? tidInst->getOperand(1):
+                                      tidInst->getOperand(0);
+        Value* leftBound = isFirstOperandUniform ? tidInst->getOperand(0):
+                                                   tidInst->getOperand(1);
+        assert((*bound)->getType() == leftBound->getType() &&
+            "Types must match.");
+        // Compute right (upper) boundary for the id:
+        //   min(ID_MAX, b + a)
+        // Unsigned overflow is now allowed, otherwise it will result in wrong
+        // boundary at unsigned comparison.
+        Value* rightBound = *bound;
+        *bound = BinaryOperator::Create(Instruction::Add, *bound, leftBound,
+                 "right_boundary_align", loc);
+        Instruction* rightOverflowCheck = new ICmpInst(loc, CmpInst::ICMP_SLT,
+          *bound, rightBound, "right_lt_left");
+
+        // Compute left (lower) boundary for the id: max(0, a)
+        // Add additional check for unsigned overflow.
+        *(bound+1) = leftBound;
+        Value* zero = ConstantInt::get((*(bound+1))->getType(), 0);
+        Instruction* cmp = new ICmpInst(loc, CmpInst::ICMP_SLT, *(bound+1),
+                                        zero, "left_lt_zero");
+        *(bound+1) = SelectInst::Create(cmp, zero, *(bound+1),
+                                        "non_negative_left_bound", loc);
+        // If overflow has happend for right boundary computation,
+        // set upper bound to maximum possible value.
+        Value* max = ConstantInt::getAllOnesValue((*bound)->getType());
+        *bound = SelectInst::Create(rightOverflowCheck, max,
+          *bound, "final_left_bound", loc);
         break;
       }
       case Instruction::Call:
@@ -550,14 +662,14 @@ bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
   return false;
 }
 
-bool CLWGLoopBoundaries::traceBackCmp(ICmpInst *cmp, Value *&bound,
+bool CLWGLoopBoundaries::traceBackCmp(ICmpInst *cmp, Value **bound,
                                       Value *&tid) {
   Value *op0 = cmp->getOperand(0);
   Value *op1 = cmp->getOperand(1);
   return traceBackBound(op0, op1, cmp->isSigned(), cmp, bound, tid);
 }
 
-bool CLWGLoopBoundaries::traceBackMinMaxCall(CallInst *CI, Value *&bound,
+bool CLWGLoopBoundaries::traceBackMinMaxCall(CallInst *CI, Value **bound,
                                              Value *&tid) {
   Value *arg0 = CI->getArgOperand(0);
   Value *arg1 = CI->getArgOperand(1);
@@ -601,14 +713,14 @@ bool CLWGLoopBoundaries::isComparePredicateInclusive(CmpInst::Predicate p) {
           p == CmpInst::ICMP_SLE || p == CmpInst::ICMP_SGE);
 }
 
-bool CLWGLoopBoundaries::obtainBoundaryEE(ICmpInst *cmp, Value *bound,
+bool CLWGLoopBoundaries::obtainBoundaryEE(ICmpInst *cmp, Value **bound,
                                Value *tid, bool EETrueSide, TIDDescVec& eeVec){
   unsigned TIDInd = isUniform(cmp->getOperand(0)) ? 1 : 0;
   assert(isUniform(cmp->getOperand(1-TIDInd)) && // tid is compared to uniform
          !isUniform(cmp->getOperand(TIDInd)) &&  // tid is not uniform
           "exactly one of the operands must be uniform");
   // Get the tid properties from the map
-  assert(m_TIDs.count(tid)  && bound && "non valid tid, bound");
+  assert(m_TIDs.count(tid)  && bound && *bound && "non valid tid, bound");
   std::pair<unsigned, bool> tidProp = m_TIDs[tid];
   unsigned dim = tidProp.first;
   bool isGID = tidProp.second;
@@ -625,15 +737,15 @@ bool CLWGLoopBoundaries::obtainBoundaryEE(ICmpInst *cmp, Value *bound,
 
       // Since bound is the only valid value for the TID we can replace all
       // the calls with it.
-      replaceTidWithBound(isGID, dim, bound);
+      replaceTidWithBound(isGID, dim, *bound);
 
       // The bound is the only option for tid so we will fill it as both
       // upper bound and lower bound, both inclusive. sign of the comparison
       // is not important, since it is equality.
       // Note that we must still update the eeVec with the bounds since
       // the bound might be out of range (not in [0 - local_size))
-      eeVec.push_back(TIDDesc(bound, dim, true, true, false, isGID));
-      eeVec.push_back(TIDDesc(bound, dim, false, true, false, isGID));
+      eeVec.push_back(TIDDesc(*bound, dim, true, true, false, isGID));
+      eeVec.push_back(TIDDesc(*bound, dim, false, true, false, isGID));
       return true;
     } else {
       // In general we do not support case where single work item does not execute,
@@ -642,17 +754,17 @@ bool CLWGLoopBoundaries::obtainBoundaryEE(ICmpInst *cmp, Value *bound,
       // b. if (tid == bound) exit
       // However, if bound=0 we can treat this as exclusive lower bound since tid is
       // known to be >=0.
-      Constant *constBound = dyn_cast<Constant>(bound);
+      Constant *constBound = dyn_cast<Constant>(*bound);
       // In case the bound is not a constant try constant fold it.
       if (!constBound) {
-        Instruction *instBound = dyn_cast<Instruction>(bound);
+        Instruction *instBound = dyn_cast<Instruction>(*bound);
         if (instBound) {
           constBound = ConstantFoldInstruction(instBound);
         }
       }
 
       if (constBound && constBound->isNullValue()) {
-        eeVec.push_back(TIDDesc(bound, dim, false, false, false, isGID));
+        eeVec.push_back(TIDDesc(*bound, dim, false, false, false, isGID));
         return true;
       }
     }
@@ -681,8 +793,12 @@ bool CLWGLoopBoundaries::obtainBoundaryEE(ICmpInst *cmp, Value *bound,
   bool containsVal = isInclusive ^ EETrueSide;
 
   // Update the boundary descriptions vector with the current compare.
-  eeVec.push_back(TIDDesc(bound, dim, isUpper, containsVal, isSigned, isGID));
+  eeVec.push_back(TIDDesc(*bound, dim, isUpper, containsVal, isSigned, isGID));
 
+  if (!isSigned && *(bound+1)) {
+    // Second bound keeps the offset of the left bound which was 0.
+    eeVec.push_back(TIDDesc(*(bound+1), dim, !isUpper, true, false, isGID));
+  }
   return true;
 }
 
@@ -713,15 +829,15 @@ bool CLWGLoopBoundaries::isEarlyExitBranch(BranchInst *Br, bool EETrueSide) {
     if (!collectCond(compares, uniformConds, condInst)) return false;
   } else return false;
 
-  //Check that compares have supported pattern.
+  // Check that compares have supported pattern.
   TIDDescVec eeVec;
   for(SmallVector<ICmpInst *, 4>::iterator cmpIt = compares.begin(),
        cmpE = compares.end(); cmpIt != cmpE; ++cmpIt) {
     // We need to be able to track the original tid call and the bound.
-    Value *bound, *tid;
-    if (!traceBackCmp(*cmpIt, bound, tid)) return false;
+    Value *tid, *bound[2] = {0};
+    if (!traceBackCmp(*cmpIt, &bound[0], tid)) return false;
     // Finally we need to obtain the early exit description(s) into eeVec.
-    if (!obtainBoundaryEE(*cmpIt, bound, tid, EETrueSide, eeVec)) return false;
+    if (!obtainBoundaryEE(*cmpIt, &bound[0], tid, EETrueSide, eeVec)) return false;
   }
   // All compares are valid, so we can add them to the TIDDesc.
   m_TIDDesc.append(eeVec.begin(), eeVec.end());

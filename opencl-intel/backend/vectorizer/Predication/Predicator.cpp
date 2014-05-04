@@ -532,6 +532,18 @@ Function* Predicator::createPredicatedFunction(Instruction *inst,
   return f;
 }
 
+bool Predicator::keepOriginalInstructionAsWell(Instruction* original) {
+  if (m_valuableAllOnesBlocks.count(original->getParent())) {
+    return true; // for all-ones optimization
+  }
+  if ((isa<StoreInst>(original) || isa<LoadInst>(original)) &&
+    m_WIA->whichDepend(original) == WIAnalysis::UNIFORM) {
+      return true; // to later unpredicate a uniform store or load
+                   // if it is being allzero-bypassed.
+  }
+  return false;
+}
+
 void Predicator::replaceInstructionByPredicatedOne(Instruction* original,
                                                    Instruction* predicated) {
   VectorizerUtils::SetDebugLocBy(predicated, original);
@@ -551,7 +563,7 @@ void Predicator::replaceInstructionByPredicatedOne(Instruction* original,
   // if we are going to duplicate this block and create
   // an allones version, we want to keep for now the original
   // instruction as well, and we will remove it to the duplicated block later.
-  if (m_valuableAllOnesBlocks.count(original->getParent()))
+  if (keepOriginalInstructionAsWell(original))
     m_predicatedToOriginalInst[predicated]=original;
   else
     original->eraseFromParent();
@@ -1287,6 +1299,29 @@ bool Predicator::checkCanonicalForm(Function *F, LoopInfo *LI) {
   return true;
 }
 
+void Predicator::markLoopsThatBeginsWithFullMaskAsZeroBypassed() {
+  PostDominatorTree* PDT = &getAnalysis<PostDominatorTree>();
+  LoopInfo *LI = &getAnalysis<LoopInfo>();
+
+  for (LoopInfo::iterator it = LI->begin(), e = LI->end();
+    it != e; ++ it) { // for each loop
+    // if header is divergent but preheader is uniform
+    if (m_WIA->isDivergentBlock((*it)->getHeader()) &&
+      !m_WIA->isDivergentBlock((*it)->getLoopPreheader())) {
+      BasicBlock* header = (*it)->getHeader();
+      for (std::vector<BasicBlock*>::const_iterator
+        it2 = (*it)->getBlocks().begin(),
+        e2 = (*it)->getBlocks().end();
+        it2 != e2; ++it2) {
+        if (PDT->dominates(*it2, header)) {
+          // block will never be executed with a zero mask:
+          blockIsBeingZeroBypassed(*it2);
+        }
+      }
+    }
+  }
+}
+
 void Predicator::predicateFunction(Function *F) {
 
   //
@@ -1402,6 +1437,8 @@ void Predicator::predicateFunction(Function *F) {
   /// Insert all zero bypasses (specialization)
   specializer.specializeFunction();
 
+  markLoopsThatBeginsWithFullMaskAsZeroBypassed();
+
   // Note it is important to check all-ones only after checking for all-zeroes.
   // If the mask is all-zeroes, then checking for all-ones, then for all-zeroes, and then
   // doing nothing more (=bypassing) will be twice is costly than testing
@@ -1413,6 +1450,15 @@ void Predicator::predicateFunction(Function *F) {
 
   /// Insert all one bypasses
   insertAllOnesBypasses();
+
+  // clear original instructions that were previously kept but eventually unused/
+  // (if instruction was kept because it is a uniform load or store, but
+  // the block was not zero-bypassed and not allones-bypassed, the instruction
+  // should be cleared now. There shouldn't be any such instructions using
+  // the current allones heuristics, but in case we ever choose to change it,
+  // or that we turn the allones optimization off, this is needed.
+  clearRemainingOriginalInstructions();
+
 
   V_ASSERT(!verifyFunction(*F) && "I broke this module");
 
@@ -1428,6 +1474,93 @@ Value* Predicator::getEdgeMask(BasicBlock* A, BasicBlock* B) {
 Value* Predicator::getInMask(BasicBlock* block) {
   if (m_inMask.find(block) != m_inMask.end()) return m_inMask[block];
   return NULL;
+}
+
+// Used to unpredicate a masked store or load instructions
+// with uniform arguments, after it has turned out this block
+// is being bypassed by an allzero check. Assumes that the instruction
+// is present in m_predicatedToOriginalInst.
+// @param inst The instruction to unpredicate.
+void Predicator::unpredicateInstruction(Instruction* call) {
+  V_ASSERT(isa<CallInst>(call) && "expected a call instrcution");
+  V_ASSERT(m_predicatedToOriginalInst.count(call) &&
+    "missing predicated to original entry");
+
+  // simply use original instruction.
+  Instruction* original = m_predicatedToOriginalInst[call];
+
+   // need to keep m_predicatedSelect dictionary updated.
+  for (Value::use_iterator it = call->use_begin(),
+    e = call->use_end(); it != e ; ++it) {
+    Instruction* user = dyn_cast<Instruction>(*it);
+    if (user && m_predicatedSelects.count(user) &&
+                  m_predicatedSelects[user] == call)   {
+      m_predicatedSelects[user] = original;
+    }
+  }
+
+  m_predicatedToOriginalInst.erase(call);
+  call->replaceAllUsesWith(original);
+  call->eraseFromParent();
+}
+
+bool Predicator::isMaskedUniformStoreOrLoad(Instruction* inst) {
+  CallInst* call = dyn_cast<CallInst>(inst);
+  if (!call || !(call->getCalledFunction())) {
+    return false;
+  }
+
+  if (Mangler::isMangledLoad(call->getCalledFunction()->getName())) {
+    V_ASSERT(call->getNumArgOperands() == 2 && "expected 2 arguments");
+    if (m_WIA->whichDepend(call->getArgOperand(1)) == WIAnalysis::UNIFORM) {
+       V_ASSERT(m_predicatedToOriginalInst.count(call) &&
+        "missing predicated to original entry");
+      V_ASSERT(isa<LoadInst>(m_predicatedToOriginalInst[call]) && "expected a load");
+      // just to be on the safe side:
+      if (!isa<LoadInst>(m_predicatedToOriginalInst[call])) {
+        return false;
+      }
+      return true;
+    }
+    return false;
+  }
+  if (Mangler::isMangledStore(call->getCalledFunction()->getName())) {
+    V_ASSERT(call->getNumArgOperands() == 3 && "expected 3 arguments");
+    if (m_WIA->whichDepend(call->getArgOperand(1)) == WIAnalysis::UNIFORM &&
+      m_WIA->whichDepend(call->getArgOperand(2)) == WIAnalysis::UNIFORM) {
+      V_ASSERT(m_predicatedToOriginalInst.count(call) &&
+        "missing predicated to original entry");
+      V_ASSERT(isa<StoreInst>(m_predicatedToOriginalInst[call]) && "expected a store");
+       // just to be on the safe side:
+      if (!isa<StoreInst>(m_predicatedToOriginalInst[call])) {
+        return false;
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+// if a block is being bypassed, we can "unpredicate"
+// any load/store instructions with uniform arguments.
+// (that is, the only non-uniform argument is the mask).
+void Predicator::blockIsBeingZeroBypassed(BasicBlock* BB) {
+  // need to duplicate instructions in order to safely iterate over them.
+  // (going to remove instructions later)
+  std::vector<Instruction*> inBB;
+  for (BasicBlock::iterator bbi=BB->begin(), bbe=BB->end();
+    bbi != bbe; ++ bbi) {
+    if (m_predicatedToOriginalInst.count(bbi)) {
+      inBB.push_back(bbi);
+    }
+  }
+
+  for (std::vector<Instruction*>::iterator it = inBB.begin(), e = inBB.end();
+    it != e; ++ it) {
+    if (isMaskedUniformStoreOrLoad(*it)) {
+      unpredicateInstruction(*it);
+    }
+  }
 }
 
 void Predicator::insertAllOnesBypassesSingleBlockLoopCase(BasicBlock* original) {
@@ -1510,6 +1643,7 @@ void Predicator::insertAllOnesBypassesSingleBlockLoopCase(BasicBlock* original) 
         // playing with fire here: removing the originalNonPredicatedInst
         // while iterating the parent. This should be Ok, as we have not yet reached it.
         originalNonPredicatedInst->eraseFromParent();
+        m_predicatedToOriginalInst.erase(inst);
       }
       else {
         // the original instruction remains in the original block,
@@ -1713,6 +1847,21 @@ void Predicator::insertAllOnesBypasses() {
     e = m_valuableAllOnesBlocks.end(); it != e; ++it) {
       // for each block to be bypassed
       BasicBlock* original = *it;
+
+      // preliminaries:
+      // find last predicated instruction in the block.
+      Instruction* lastPredicatedInst = NULL;
+      for (BasicBlock::iterator ii = original->begin(), e2 = original->end();
+        ii != e2; ++ii) {
+          if (m_predicatedToOriginalInst.count(ii)) {
+            lastPredicatedInst = ii;
+          }
+      }
+      if (!lastPredicatedInst) {
+        // no point duplicating this block if it has no predicated instructions.
+        continue;
+      }
+
       if (isSingleBlockLoop(original)) {
         // we treat loops made of a single block as a special case
         // (which is more efficient)
@@ -1747,21 +1896,6 @@ void Predicator::insertAllOnesBypasses() {
       //    (which is not predicated), or to original (which is predicated).
       // 7. change phinodes at the successors of exit (which now follow exit
       //    instead of original)
-
-
-      // preliminaries:
-      // find last predicated instruction in the block.
-      Instruction* lastPredicatedInst = NULL;
-      for (BasicBlock::iterator ii = original->begin(), e2 = original->end();
-        ii != e2; ++ii) {
-          if (m_predicatedToOriginalInst.count(ii)) {
-            lastPredicatedInst = ii;
-          }
-      }
-      if (!lastPredicatedInst) {
-        // no point duplicating this block if it has no predicated instructions.
-        continue;
-      }
 
       // 1. Create the entry, exit, and allones BBs.
       BasicBlock*  allOnes = BasicBlock::Create(original->getContext(),
@@ -1830,6 +1964,7 @@ void Predicator::insertAllOnesBypasses() {
             // playing with fire here: removing the originalNonPredicatedInst
             // while iterating the parent. This should be Ok, as we have not yet reached it.
             originalNonPredicatedInst->eraseFromParent();
+            m_predicatedToOriginalInst.erase(inst);
             if (inst == lastPredicatedInst) {
               afterLastPredicatedInstruction = true;
             }
@@ -1924,6 +2059,15 @@ void Predicator::insertAllOnesBypasses() {
       }
 
     }
+}
+
+void Predicator::clearRemainingOriginalInstructions() {
+  for (std::map<Instruction*,Instruction*>::iterator
+    it = m_predicatedToOriginalInst.begin(),
+    e = m_predicatedToOriginalInst.end();
+    it != e; ++ it) {
+    it->second->eraseFromParent();
+  }
 }
 
 // returns the terminator of BB if its a branch conditional on allones.

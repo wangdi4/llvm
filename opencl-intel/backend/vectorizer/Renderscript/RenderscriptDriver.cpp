@@ -11,6 +11,8 @@ Copyright(c) 2011 - 2013 Intel Corporation. All Rights Reserved.
 #include "RenderscriptDriver.h"
 #include "VectorizerCore.h"
 #include "MetaDataApi.h"
+#include "OCLPassSupport.h"
+#include "InitializePasses.h"
 
 #include "llvm/Pass.h"
 #include "llvm/PassManager.h"
@@ -62,14 +64,19 @@ extern "C" void dumpModule(std::string tag,
 
 namespace intel {
 
-RenderscriptVectorizer::RenderscriptVectorizer(const Module * rt, const OptimizerConfig* pConfig,
+OCL_INITIALIZE_PASS_BEGIN(RenderscriptVectorizer, "rsVec", "render script vectorizer pass", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+OCL_INITIALIZE_PASS_END(RenderscriptVectorizer, "rsVec", "render script vectorizer pass", false, false)
+
+RenderscriptVectorizer::RenderscriptVectorizer(const OptimizerConfig* pConfig,
   SmallVectorImpl<Function*> &optimizerFunctions,
   SmallVectorImpl<int> &optimizerWidths) :
   ModulePass(ID),
-  m_runtimeModule(rt),
+  m_runtimeModule(NULL),
   m_numOfKernels(0),
   m_isModuleVectorized(false),
   m_pConfig(pConfig),
+  m_pCPUId(NULL),
   m_optimizerFunctions(&optimizerFunctions),
   m_optimizerWidths(&optimizerWidths)
 {
@@ -78,8 +85,42 @@ RenderscriptVectorizer::RenderscriptVectorizer(const Module * rt, const Optimize
   V_INIT_PRINT;
 }
 
+RenderscriptVectorizer::RenderscriptVectorizer() :
+  ModulePass(ID),
+  m_runtimeModule(NULL),
+  m_numOfKernels(0),
+  m_isModuleVectorized(false),
+  m_pConfig(NULL),
+  m_pCPUId(NULL),
+  m_optimizerFunctions(NULL),
+  m_optimizerWidths(NULL)
+{
+  // init debug prints
+  initializeLoopInfoPass(*PassRegistry::getPassRegistry());
+  m_pCPUId = new Intel::CPUId();
+  m_pConfig = new OptimizerConfig(*m_pCPUId,
+            0,
+            std::vector<int>(),
+            std::vector<int>(),
+            "",
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            0);
+  V_INIT_PRINT;
+}
+
 RenderscriptVectorizer::~RenderscriptVectorizer()
 {
+  if (m_pCPUId) {
+    // Can reach here only if run through opt using default constructor.
+    // In this case need to delete following (internally allocated) pointers.
+    delete m_pCPUId;
+    delete m_pConfig;
+  }
   // Close the debug log elegantly
   V_DESTROY_PRINT;
 }
@@ -106,6 +147,8 @@ bool RenderscriptVectorizer::runOnModule(Module &M)
     V_PRINT(wrapper, "Num of kernels is 0. Aborting!\n");
     return false;
   }
+  m_runtimeModule = getAnalysis<BuiltinLibInfo>().getBuiltinModule();
+  V_ASSERT(m_runtimeModule && "Runtime services were not initialized!");
   if (!m_runtimeModule)
   {
     V_PRINT(wrapper, "Failed to find runtime module. Aborting!\n");
@@ -155,14 +198,19 @@ bool RenderscriptVectorizer::runOnModule(Module &M)
       }
     }
     V_ASSERT(vectFuncWidth > 0 && "vect width for non vectoized kernels should be 1");
-    m_optimizerFunctions->push_back(vectFunc);
-    m_optimizerWidths->push_back(vectFuncWidth);
+    if (m_optimizerFunctions) {
+      m_optimizerFunctions->push_back(vectFunc);
+    }
+    if (m_optimizerWidths) {
+      m_optimizerWidths->push_back(vectFuncWidth);
+    }
 
   }
 
 
   {
     PassManager mpm;
+    mpm.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModule(), "rs"));
     mpm.add(createSpecialCaseBuiltinResolverPass());
     mpm.run(M);
   }
@@ -181,12 +229,12 @@ bool RenderscriptVectorizer::runOnModule(Module &M)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Interface functions for vectorizer
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-extern "C"
-  Pass *createRenderscriptVectorizerPass(const Module *runtimeModule, const intel::OptimizerConfig* pConfig,
+extern "C" Pass *createRenderscriptVectorizerPass(
+  const intel::OptimizerConfig* pConfig,
   SmallVectorImpl<Function*> &optimizerFunctions,
   SmallVectorImpl<int> &optimizerWidths)
 {
-  return new intel::RenderscriptVectorizer(runtimeModule, pConfig,
+  return new intel::RenderscriptVectorizer(pConfig,
     optimizerFunctions, optimizerWidths);
 }
 

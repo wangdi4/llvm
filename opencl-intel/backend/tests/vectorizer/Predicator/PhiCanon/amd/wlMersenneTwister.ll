@@ -13,19 +13,19 @@ target triple = "i686-pc-win32"
 ; CHECK: @lshift128
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
 ; CHECK: phi-split-bb:                                     ; preds = %LeafBlock37, %LeafBlock
-; CHECK: phi-split-bb1:                                    ; preds = %LeafBlock39, %phi-split-bb
-; CHECK: phi-split-bb2:                                    ; preds = %LeafBlock41, %phi-split-bb1
-; CHECK: phi-split-bb3:                                    ; preds = %LeafBlock47, %phi-split-bb2
-; CHECK: phi-split-bb4:                                    ; preds = %LeafBlock49, %phi-split-bb3
-; CHECK: phi-split-bb5:                                    ; preds = %LeafBlock53, %phi-split-bb4
-; CHECK: phi-split-bb6:                                    ; preds = %sw.bb128, %sw.bb139
-; CHECK: phi-split-bb10:                                   ; preds = %sw.bb110, %sw.bb117
-; CHECK: phi-split-bb15:                                   ; preds = %phi-split-bb6, %phi-split-bb10
-; CHECK: phi-split-bb20:                                   ; preds = %sw.bb96, %sw.bb103
-; CHECK: phi-split-bb25:                                   ; preds = %sw.bb, %sw.bb90
-; CHECK: phi-split-bb30:                                   ; preds = %phi-split-bb20, %phi-split-bb25
-; CHECK: phi-split-bb35:                                   ; preds = %phi-split-bb15, %phi-split-bb30
-; CHECK: phi-split-bb40:                                   ; preds = %for.end, %for.end328.loopexit
+; CHECK: phi-split-bb{{[0-9]*}}:                                    ; preds = %LeafBlock39, %phi-split-bb
+; CHECK: phi-split-bb{{[0-9]*}}:                                    ; preds = %LeafBlock41, %phi-split-bb1
+; CHECK: phi-split-bb{{[0-9]*}}:                                    ; preds = %LeafBlock47, %phi-split-bb2
+; CHECK: phi-split-bb{{[0-9]*}}:                                    ; preds = %LeafBlock49, %phi-split-bb3
+; CHECK: phi-split-bb{{[0-9]*}}:                                    ; preds = %LeafBlock53, %phi-split-bb4
+; CHECK: phi-split-bb[[tag1:[0-9]*]]:                                    ; preds = %sw.bb128, %sw.bb139
+; CHECK: phi-split-bb[[tag2:[0-9]*]]:                                   ; preds = %sw.bb110, %sw.bb117
+; CHECK: phi-split-bb[[tag3:[0-9]*]]:                                   ; preds = %phi-split-bb[[tag1]], %phi-split-bb[[tag2]]
+; CHECK: phi-split-bb[[tag4:[0-9]*]]:                                   ; preds = %sw.bb96, %sw.bb103
+; CHECK: phi-split-bb[[tag5:[0-9]*]]:                                   ; preds = %sw.bb, %sw.bb90
+; CHECK: phi-split-bb[[tag6:[0-9]*]]:                                   ; preds = %phi-split-bb[[tag4]], %phi-split-bb[[tag5]]
+; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %phi-split-bb[[tag3]], %phi-split-bb[[tag6]]
+; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %for.end, %for.end328.loopexit
 ; CHECK: ret
 
 define void @lshift128(<4 x i32> %input, i32 %shift, <4 x i32>* %output) nounwind {

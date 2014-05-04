@@ -270,11 +270,35 @@ private:
   /// are in-loop cfg or simple merge.
   /// @param BB
   void maskIncoming_simpleMerge(BasicBlock *BB);
+  /// @brief replaces a predicated instruction with a non-predicated one.
+  /// Assumes the predicated instruction
+  /// is present in m_predicatedToOriginalInst.
+  /// @param inst The instruction to unpredicate.
+  void unpredicateInstruction(Instruction* inst);
+  /// @brief check if the instruction is a masked store or load
+  /// with uniform parameters. That is, the mask is the only non-unifrom
+  /// parameter.
+  /// @param inst The instruction to check.
+  bool isMaskedUniformStoreOrLoad(Instruction* inst);
   /// @brief calculates the heuristic that decides
   /// which divergent branches should be allones bypassed.
   /// this method runs before predication. The results are stored inside
   /// m_heuristic decisions and used later.
   void calculateHeuristic(Function* F);
+  /// @brief upon predicating an instruction, tests whether
+  /// the original instruction should be kept as well, for later
+  /// use inside the predicator.
+  /// @param original the original (unpredicated) instruction.
+  bool keepOriginalInstructionAsWell(Instruction* original);
+  /// @brief erase original instructions that were kept
+  /// alongside their predicated version, but were eventually unused.
+  void clearRemainingOriginalInstructions();
+  /// @beief Loops that begin with full masks (all items
+  /// always reach them) but have divergent exit conditions,
+  /// are de-facto zero-bypassed, because they are never run
+  /// with empty (zero) masks. This method declares them as such,
+  /// and thus enables further optimizations for these loops.
+  void markLoopsThatBeginsWithFullMaskAsZeroBypassed();
   /// @brief true if the given block holds load and/or store instructions.
   bool blockHasLoadStore(BasicBlock* BB);
   /// @brief inserts allones bypasses into the code, in places where the heuristics
@@ -339,6 +363,12 @@ public:
   /// @brief requests the in-mask for edge in graph
   /// @param block src Block
   Value* getInMask(BasicBlock* block);
+  /// @brief The specializer uses this method to inform
+  /// the predicator that a block has been successfully bypassed
+  /// by an allzero bypass, and thus, if executed
+  /// can be assume to have a non-zero mask.
+  /// @param BB The basic block that is bypassed.
+  void blockIsBeingZeroBypassed(BasicBlock* BB);
   /*! \} */
 
   /// @brief expects a block that is a single loop block and that has an 'allone'

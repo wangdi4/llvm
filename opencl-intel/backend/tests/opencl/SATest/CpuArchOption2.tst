@@ -1,2 +1,2 @@
-RUN: SATest -OCL -BUILD -config=%s.cfg -cpuarch="Unsupported_CPU_ARCH"
+RUN: SATest -BUILD -config=%s.cfg -cpuarch="Unsupported_CPU_ARCH"
 XFAIL:

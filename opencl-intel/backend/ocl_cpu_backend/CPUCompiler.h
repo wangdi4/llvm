@@ -65,6 +65,8 @@ public:
 
     void DumpJIT( llvm::Module* pModule, const std::string& filename) const;
 
+    virtual void SetObjectCache(ObjectCodeCache* pCache);
+
 protected:
 
     /**

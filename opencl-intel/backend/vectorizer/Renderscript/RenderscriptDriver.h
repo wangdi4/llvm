@@ -17,6 +17,9 @@ Copyright(c) 2011 - 2013 Intel Corporation. All Rights Reserved.
 
 using namespace llvm;
 
+namespace Intel {
+  class CPUId;
+}
 
 namespace intel {
 class OptimizerConfig;
@@ -33,12 +36,20 @@ private:
 public:
     static char ID;
     /// @brief C'tor
-    /// @param rt Runtime module (contains declarations of all builtin funcs)
-    RenderscriptVectorizer(const Module * rt, const OptimizerConfig* pConfig,
-    SmallVectorImpl<Function*> &optimizerFunctions,
-    SmallVectorImpl<int> &optimizerWidths);
+    /// @param pConfig Optimizer configuration (contains also vectorizer configuration)
+    /// @param optimizerFunctions used to return list of vectorized functions
+    /// @param optimizerWidths used to return list of vectorized function width
+    RenderscriptVectorizer(const OptimizerConfig* pConfig,
+      SmallVectorImpl<Function*> &optimizerFunctions,
+      SmallVectorImpl<int> &optimizerWidths);
+
+    /// @brief Default C'tor
+    ///        Used only for opt
+    RenderscriptVectorizer();
+
     /// @brief D'tor
     ~RenderscriptVectorizer();
+
     /// @brief Provides name of pass
     virtual const char *getPassName() const {
         return "Intel RenderScript Vectorizer";
@@ -48,19 +59,19 @@ public:
     /// @param M module to optimize
     /// @returns True if module was modified
     virtual bool runOnModule(Module &M);
+
     /// @brief Inform about usage/mofication/dependency of this pass
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.addRequired<BuiltinLibInfo>();
     }
 
 private:
-    RenderscriptVectorizer(); // Do not implement
 
     /// @brief holds all the "original" (scalar) functions
     funcsVector m_scalarFuncsList;
 
     /// @brief Pointer to runtime module
-    const Module * m_runtimeModule;
+    const Module *m_runtimeModule;
 
     /// @brief Number of kernels in current module
     unsigned m_numOfKernels;
@@ -68,8 +79,11 @@ private:
     /// @brief Was current module vectorized
     bool m_isModuleVectorized;
 
-    /// Configuration options
+    /// @brief Configuration options
     const OptimizerConfig* m_pConfig;
+
+    /// @brief CPU Id
+    const Intel::CPUId *m_pCPUId;
 
     /// @brief pointer to optimizer vecorized functions buffer.
     SmallVectorImpl<Function*> *m_optimizerFunctions;

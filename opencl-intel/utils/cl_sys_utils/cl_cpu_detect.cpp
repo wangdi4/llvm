@@ -12,7 +12,7 @@
 // suppliers and licensors, and is protected by worldwide copyright and trade
 // secret laws and treaty provisions. No part of the Material may be used, copied,
 // reproduced, modified, published, uploaded, posted, transmitted, distributed,
-// or disclosed in any way without Intel’s prior express written permission.
+// or disclosed in any way without IntelÂ’s prior express written permission.
 //
 // No license under any patent, copyright, trade secret or other intellectual
 // property right is granted to or conferred upon you by disclosure or delivery
@@ -21,7 +21,7 @@
 // and approved by Intel in writing.
 //
 // Unless otherwise agreed by Intel in writing, you may not remove or alter this notice
-// or any other notice embedded in Materials by Intel or Intel’s suppliers or licensors
+// or any other notice embedded in Materials by Intel or IntelÂ’s suppliers or licensors
 // in any way.
 /////////////////////////////////////////////////////////////////////////
 
@@ -82,11 +82,11 @@ static const char* CPU_STRING = "GenuineIntel";
 
 cl_err_code Intel::OpenCL::Utils::IsCPUSupported()
 {
-    if( CPUDetect::GetInstance()->IsFeatureSupported(CFS_SSE41) )
-    {
-        return CL_SUCCESS;
-    }
-    return CL_ERR_CPU_NOT_SUPPORTED;
+        if( CPUDetect::GetInstance()->IsFeatureSupported(CFS_SSE41) )
+        {
+                return CL_SUCCESS;
+        }
+        return CL_ERR_CPU_NOT_SUPPORTED;
 }
 
 
@@ -114,9 +114,9 @@ bool CPUDetect::IsProcessorType(EProcessorType processorType)
         break;
     case PT_ATOM:
         if (m_ucFamily == 0x6 &&
-             (m_ucExtendedModel == 0x35 ||  // CloverTrail
-              m_ucExtendedModel == 0x36 ||  // CedarTrail
-              m_ucExtendedModel == 0x37))   // Baytrail
+            (m_ucExtendedModel == 0x35 ||  // CloverTrail
+            m_ucExtendedModel == 0x36 ||  // CedarTrail
+            m_ucExtendedModel == 0x37))   // Baytrail
         {
             return true;
         }
@@ -140,7 +140,31 @@ bool CPUDetect::IsProcessorType(EProcessorType processorType)
         }
         break;
     case PT_NEHALEM:
-        if (m_ucFamily == 0x6 && m_ucModel == 0xA)
+        if (m_ucFamily == 0xF && m_ucModel == 0xE)
+        {
+            return true;
+        }
+        break;
+    case PT_SANDYBRIDGE:
+        if (m_ucFamily == 0x6 && m_ucModel == 0xA && m_ucExtendedModel == 0x2A)
+        {
+            return true;
+        }
+        break;
+    case PT_IVYBRIDGE:
+        if (m_ucFamily == 0x6 && m_ucModel == 0xA && m_ucExtendedModel == 0x3A)
+        {
+            return true;
+        }
+        break;
+    case PT_HASWELL:
+        if (m_ucFamily == 0x6 && m_ucModel == 0xC)
+        {
+            return true;
+        }
+        break;
+    case PT_BROADWELL:
+        if (m_ucFamily == 0x6 && m_ucModel == 0xD && m_ucExtendedModel == 0x3D)
         {
             return true;
         }
@@ -158,7 +182,7 @@ bool CPUDetect::IsFeatureSupported(ECPUFeatureSupport featureType)
         return true;
     }
 
-    return (0 != (m_uiCPUFeatures & (unsigned int)featureType));
+        return (0 != (m_uiCPUFeatures & (unsigned int)featureType));
 }
 CPUDetect * CPUDetect::GetInstance()
 {
@@ -169,27 +193,27 @@ CPUDetect * CPUDetect::GetInstance()
 
 bool CPUDetect::ShouldBypassCPUCheck()
 {
-    string strVal;
-    cl_err_code err = GetEnvVar(strVal, "OCL_CFG_BYPASS_CPU_DETECT");
-    if (CL_SUCCEEDED(err))
-    {
-        return true;
-    }
-    return false;
+        string strVal;
+        cl_err_code err = GetEnvVar(strVal, "OCL_CFG_BYPASS_CPU_DETECT");
+        if (CL_SUCCEEDED(err))
+        {
+                return true;
+        }
+        return false;
 }
 
 CPUDetect::CPUDetect(void) :
-    m_bBypassCPUDetect(false),
-    m_bIsGenuineIntel (false),
-    m_ucStepping(0),
-    m_ucModel(0),
-    m_ucExtendedModel(0),
-    m_ucFamily(0),
-    m_ucType(0),
-    m_szCPUString(NULL),
-    m_szCPUBrandString(NULL),
-    m_uiCPUFeatures(0),
-    m_uiCoreCount(0)
+        m_bBypassCPUDetect(false),
+        m_bIsGenuineIntel (false),
+        m_ucStepping(0),
+        m_ucModel(0),
+        m_ucExtendedModel(0),
+        m_ucFamily(0),
+        m_ucType(0),
+        m_szCPUString(NULL),
+        m_szCPUBrandString(NULL),
+        m_uiCPUFeatures(0),
+        m_uiCoreCount(0)
 {
     m_bBypassCPUDetect = ShouldBypassCPUCheck();
     GetCPUInfo();
@@ -222,21 +246,21 @@ void CPUDetect::GetCPUInfo()
     MEMCPY_S( vcCPUString + 8, sizeof(vcCPUString) - 8, viCPUInfo + 2, sizeof(unsigned int));
 
     m_szCPUString = STRDUP(vcCPUString);
-    if(!m_szCPUString)
-    {
-        m_bIsGenuineIntel = false;
-    }
-    else
-    {
-        if (strcmp(m_szCPUString, CPU_STRING) == 0)
+        if(!m_szCPUString)
         {
-            m_bIsGenuineIntel = true;
+                m_bIsGenuineIntel = false;
         }
         else
         {
-            m_bIsGenuineIntel = false;
+                if (strcmp(m_szCPUString, CPU_STRING) == 0)
+                {
+                        m_bIsGenuineIntel = true;
+                }
+                else
+                {
+                        m_bIsGenuineIntel = false;
+                }
         }
-    }
 
     if (iValidIDs == 1)
     {
@@ -249,82 +273,82 @@ void CPUDetect::GetCPUInfo()
     m_ucExtendedModel = ((viCPUInfo[0] >> 12) & 0xf0) | m_ucModel;
     m_ucFamily = (viCPUInfo[0] >> 8) & 0xf;
     m_ucType = (viCPUInfo[0] >> 12) & 0x3;
-    m_uiCoreCount = (viCPUInfo[1] >> 16) & 0xff;
+        m_uiCoreCount = (viCPUInfo[1] >> 16) & 0xff;
 
-    m_uiCPUFeatures = 0;
-    if (viCPUInfo[3] & 0x04000000)
-    {
-        m_uiCPUFeatures |= CFS_SSE2;
-    }
+        m_uiCPUFeatures = 0;
+        if (viCPUInfo[3] & 0x04000000)
+        {
+                m_uiCPUFeatures |= CFS_SSE2;
+        }
 
-    if (viCPUInfo[2] & 0x00000001)
-    {
-        m_uiCPUFeatures |= CFS_SSE3;
-    }
+        if (viCPUInfo[2] & 0x00000001)
+        {
+                m_uiCPUFeatures |= CFS_SSE3;
+        }
 
-    if (viCPUInfo[2] & 0x00000200)
-    {
-        m_uiCPUFeatures |= CFS_SSSE3;
-    }
+        if (viCPUInfo[2] & 0x00000200)
+        {
+                m_uiCPUFeatures |= CFS_SSSE3;
+        }
 
-    if (viCPUInfo[2] & 0x00080000)
-    {
-        m_uiCPUFeatures |= CFS_SSE41;
-    }
+        if (viCPUInfo[2] & 0x00080000)
+        {
+                m_uiCPUFeatures |= CFS_SSE41;
+        }
 
-    if (viCPUInfo[2] & 0x00100000)
-    {
-        m_uiCPUFeatures |= CFS_SSE42;
-    }
+        if (viCPUInfo[2] & 0x00100000)
+        {
+                m_uiCPUFeatures |= CFS_SSE42;
+        }
 
-    if (viCPUInfo[2] & 0x10000000)
-    {
+        if (viCPUInfo[2] & 0x10000000)
+        {
 #if defined(_WIN32) && !defined(_M_X64)
-        // Use this inline asm in Win32 only
-        __asm
-        {
-            // specify 0 for XFEATURE_ENABLED_MASK register
-            mov ecx, 0
-            // XGETBV result in EDX:EAX
-            xgetbv
-            mov XCRInfo[0], eax
-            mov XCRInfo[1], edx
-        }
+            // Use this inline asm in Win32 only
+            __asm
+            {
+                // specify 0 for XFEATURE_ENABLED_MASK register
+                mov ecx, 0
+                    // XGETBV result in EDX:EAX
+                    xgetbv
+                    mov XCRInfo[0], eax
+                    mov XCRInfo[1], edx
+            }
 #elif defined(__ANDROID__)
-        // No support for AVX on android
-        XCRInfo[0] = XCRInfo[0] & ~0x00000006;
+            // No support for AVX on android
+            XCRInfo[0] = XCRInfo[0] & ~0x00000006;
 #else
-        xgetbv( XCRInfo )
+            xgetbv( XCRInfo )
 #endif
-        if ((XCRInfo[0] & 0x00000006) == 0x00000006)
-        {
-            m_uiCPUFeatures |= CFS_AVX10;
-            if ((viCPUInfo[2] & 0x1000) == 0x1000) // Check bit 12 for FMA
+            if ((XCRInfo[0] & 0x00000006) == 0x00000006)
             {
-                m_uiCPUFeatures |= CFS_FMA;
-            }
-            // AVX2 support
-            viCPUInfo[0] = viCPUInfo[1] = viCPUInfo[2] = viCPUInfo[3] =-1;
-            cpuid(viCPUInfo, 7, 0); //eax=7, ecx=0
-            if ((viCPUInfo[1] & 0x20) == 0x20) // EBX.AVX2[bit 5]
-            {
-                m_uiCPUFeatures |= CFS_AVX20;
-            }
-            if ((viCPUInfo[1] & 0x10000) == 0x10000) // EBX.AVX512F[bit 16]
-            {
-                m_uiCPUFeatures |= CFS_AVX512F;
+                m_uiCPUFeatures |= CFS_AVX10;
+                if ((viCPUInfo[2] & 0x1000) == 0x1000) // Check bit 12 for FMA
+                    {
+                        m_uiCPUFeatures |= CFS_FMA;
+                    }
+                    // AVX2 support
+                    viCPUInfo[0] = viCPUInfo[1] = viCPUInfo[2] = viCPUInfo[3] =-1;
+                    cpuid(viCPUInfo, 7, 0); //eax=7, ecx=0
+                    if ((viCPUInfo[1] & 0x20) == 0x20) // EBX.AVX2[bit 5]
+                    {
+                        m_uiCPUFeatures |= CFS_AVX20;
+                    }
+                    if ((viCPUInfo[1] & 0x10000) == 0x10000) // EBX.AVX512F[bit 16]
+                    {
+                        m_uiCPUFeatures |= CFS_AVX512F;
+                    }
             }
         }
-    }
 
     CPUID(viCPUInfo, 0x80000000);
     unsigned int iValidExIDs = viCPUInfo[0];
- 
+
     if (iValidExIDs < 0x80000004)
     {
 #if defined(__ANDROID__)
-      // Android is not supporting Brand String query
-      m_szCPUBrandString = STRDUP("Atom");
+        // Android is not supporting Brand String query
+        m_szCPUBrandString = STRDUP("Atom");
 #endif
     }
     else if (m_uiCPUFeatures & CFS_AVX512F) {

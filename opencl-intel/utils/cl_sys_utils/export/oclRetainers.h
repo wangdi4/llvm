@@ -15,7 +15,7 @@ public:
     {
         return m_retained;
     };
-
+    virtual ~OclRetainer() { };
 protected:
     bool m_retained;
 };
@@ -23,29 +23,10 @@ protected:
 class OclKernelRetainer : public OclRetainer
 {
 public:
-    OclKernelRetainer(cl_kernel kernel):
-        m_kernel(kernel)
-    {
-        retain();
-    }
-    ~OclKernelRetainer()
-    {
-        release();
-    }
-    virtual void retain()
-    {
-        cl_int err = _clRetainKernelINTERNAL(m_kernel, true);
-        m_retained = (CL_SUCCESS == err) ? true : false;
-
-    };
-    virtual void release()
-    {
-        if (m_retained)
-        {
-            _clReleaseKernelINTERNAL(m_kernel, true);
-            m_retained = false;
-        }
-    };
+    OclKernelRetainer(cl_kernel kernel);
+    ~OclKernelRetainer();
+    virtual void retain();
+    virtual void release();
 
 private:
     const cl_kernel m_kernel;
@@ -54,30 +35,10 @@ private:
 class OclMemObjRetainer : public OclRetainer
 {
 public:
-    OclMemObjRetainer(cl_mem memobj):
-        m_memobj(memobj)
-    {
-        retain();
-    }
-    ~OclMemObjRetainer()
-    {
-        release();
-    }
-
-    virtual void retain()
-    {
-        cl_int err = _clRetainMemObjectINTERNAL(m_memobj, true);
-        m_retained = (CL_SUCCESS == err) ? true : false;
-
-    };
-    virtual void release()
-    {
-        if (m_retained)
-        {
-            _clReleaseMemObjectINTERNAL(m_memobj, true);
-            m_retained = false;
-        }
-    };
+    OclMemObjRetainer(cl_mem memobj);
+    ~OclMemObjRetainer();
+    virtual void retain();
+    virtual void release();
 
 private:
     const cl_mem m_memobj;

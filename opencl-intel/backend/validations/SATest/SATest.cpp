@@ -41,11 +41,10 @@ File Name:  SATest.cpp
 using namespace Validation;
 using std::string;
 
-SATest::SATest(RunnerFactory::PROGRAM_TYPE programType,
-                 const string& configFileName,
-                 const string& baseDirectory,
-                 IRunConfiguration* pRunConfiguration):
-    m_factory(RunnerFactory::GetInstance(programType)),
+SATest::SATest(const string& configFileName,
+               const string& baseDirectory,
+               IRunConfiguration* pRunConfiguration):
+    m_factory(RunnerFactory::GetInstance()),
     m_pProgramConfiguration(NULL),
     m_pProgram(NULL)
 {

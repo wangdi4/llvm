@@ -13,19 +13,19 @@ target triple = "i686-pc-win32"
 ; CHECK: @lshift128
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
 ; CHECK: phi-split-bb:                                     ; preds = %LeafBlock29, %LeafBlock
-; CHECK: phi-split-bb1:                                    ; preds = %LeafBlock31, %phi-split-bb
-; CHECK: phi-split-bb2:                                    ; preds = %sw.bb87, %sw.bb94
-; CHECK: phi-split-bb6:                                    ; preds = %sw.bb, %sw.bb82
-; CHECK: phi-split-bb11:                                   ; preds = %phi-split-bb2, %phi-split-bb6
+; CHECK: phi-split-bb{{[0-9]*}}:                                    ; preds = %LeafBlock31, %phi-split-bb
+; CHECK: phi-split-bb[[tag1:[0-9]*]]:                                    ; preds = %sw.bb87, %sw.bb94
+; CHECK: phi-split-bb[[tag2:[0-9]*]]:                                    ; preds = %sw.bb, %sw.bb82
+; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %phi-split-bb[[tag1]], %phi-split-bb[[tag2]]
 ; CHECK: ret
 
 ; CHECK: @calPriceVega
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
 ; CHECK: phi-split-bb:                                     ; preds = %LeafBlock24, %LeafBlock
-; CHECK: phi-split-bb1:                                    ; preds = %LeafBlock26, %phi-split-bb
-; CHECK: phi-split-bb2:                                    ; preds = %sw.bb87.i, %sw.bb94.i
-; CHECK: phi-split-bb6:                                    ; preds = %sw.bb.i, %sw.bb82.i
-; CHECK: phi-split-bb11:                                   ; preds = %phi-split-bb2, %phi-split-bb6
+; CHECK: phi-split-bb{{[0-9]*}}:                                    ; preds = %LeafBlock26, %phi-split-bb
+; CHECK: phi-split-bb[[tag1:[0-9]*]]:                                    ; preds = %sw.bb87.i, %sw.bb94.i
+; CHECK: phi-split-bb[[tag2:[0-9]*]]:                                    ; preds = %sw.bb.i, %sw.bb82.i
+; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %phi-split-bb[[tag1]], %phi-split-bb[[tag2]]
 ; CHECK: ret
 
 define void @lshift128(<4 x i32> %input, i32 %shift, <4 x i32>* %output) nounwind {

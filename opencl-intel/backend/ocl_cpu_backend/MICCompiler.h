@@ -86,6 +86,8 @@ public:
      */
     llvm::Module* GetRtlModule() const;
 
+    virtual void SetObjectCache(ObjectCodeCache* pCache) { return ; }
+
 protected:
     llvm::Module* ParseModuleIR(llvm::MemoryBuffer* pIRBuffer);
 

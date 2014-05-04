@@ -21,7 +21,7 @@ RuntimeLib("runtimelib",
 
 static cl::opt<std::string>
 RuntimeServices("runtime",
-                  cl::desc("Runtime services type (ocl/dx/apple)"),
+                  cl::desc("Runtime services type (ocl/dx/apple/rs)"),
                   cl::value_desc("runtime_type"), cl::init("ocl"));
 
 static cl::opt<bool>
@@ -90,6 +90,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeDebugInfoPassPass(Registry);
     intel::initializeSmartGVNPass(Registry);
     intel::initializeDeduceMaxWGDimPass(Registry);
+    intel::initializeRenderscriptVectorizerPass(Registry);
 }
 
 

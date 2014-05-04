@@ -14251,6 +14251,7 @@ ndrange_t const_func __attribute__((overloadable)) ndrange_3D( const size_t glob
 void __attribute__((overloadable)) __attribute__((always_inline)) retain_event(clk_event_t event);
 void __attribute__((overloadable)) __attribute__((always_inline)) release_event(clk_event_t event);
 clk_event_t  __attribute__((always_inline)) create_user_event();
+bool __attribute__((overloadable)) __attribute__((always_inline)) is_valid_event(clk_event_t event);
 void __attribute__((overloadable)) __attribute__((always_inline)) set_user_event_status(clk_event_t event, int status);
 void __attribute__((overloadable)) __attribute__((always_inline)) capture_event_profiling_info(clk_event_t event, clk_profiling_info name, global ulong *value);
 

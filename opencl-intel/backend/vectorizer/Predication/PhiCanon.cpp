@@ -228,16 +228,23 @@ BasicBlock* PhiCanon::makeNewPhiBB(BasicBlock* toFix,
     Value* v0 = phi->getIncomingValueForBlock(prev0);
     Value* v1 = phi->getIncomingValueForBlock(prev1);
 
+    if (v0 != v1) {
       // Move them to a new PHI in the new block
       PHINode* phi_new = PHINode::Create(
         phi->getType(), 2, "new_phi", new_bb->begin());
       phi_new->addIncoming(v0, prev0);
       phi_new->addIncoming(v1, prev1);
 
-    // Replace old values with new PHI of new BB
-    phi->removeIncomingValue(prev0);
-    phi->removeIncomingValue(prev1);
-    phi->addIncoming(phi_new, new_bb);
+      // Replace old values with new PHI of new BB
+      phi->removeIncomingValue(prev0);
+      phi->removeIncomingValue(prev1);
+      phi->addIncoming(phi_new, new_bb);
+    }
+    else {
+      phi->removeIncomingValue(prev0);
+      phi->removeIncomingValue(prev1);
+      phi->addIncoming(v0, new_bb);
+    }
 
   }// for each PHI
 

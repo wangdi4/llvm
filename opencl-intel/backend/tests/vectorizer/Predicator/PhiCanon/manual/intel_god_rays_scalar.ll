@@ -11,19 +11,19 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: @evaluateRayScalar
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
 ; CHECK: phi-split-bb:                                     ; preds = %._crit_edge112, %61
-; CHECK: phi-split-bb4:                                    ; preds = %._crit_edge113, %53
-; CHECK: phi-split-bb9:                                    ; preds = %._crit_edge114, %44
-; CHECK: phi-split-bb14:                                   ; preds = %._crit_edge115, %36
-; CHECK: phi-split-bb19:                                   ; preds = %phi-split-bb9, %phi-split-bb14
-; CHECK: phi-split-bb24:                                   ; preds = %phi-split-bb4, %phi-split-bb19
-; CHECK: phi-split-bb29:                                   ; preds = %261, %265
-; CHECK: phi-split-bb33:                                   ; preds = %327, %331
-; CHECK: phi-split-bb37:                                   ; preds = %367, %372
-; CHECK: phi-split-bb42:                                   ; preds = %391, %394
-; CHECK: phi-split-bb43:                                   ; preds = %54, %57
-; CHECK: phi-split-bb44:                                   ; preds = %49, %phi-split-bb43
-; CHECK: phi-split-bb45:                                   ; preds = %41, %phi-split-bb44
-; CHECK: phi-split-bb46:                                   ; preds = %33, %phi-split-bb45
+; CHECK: phi-split-bb[[tag1:[0-9]*]]:                                    ; preds = %._crit_edge113, %53
+; CHECK: phi-split-bb[[tag2:[0-9]*]]:                                    ; preds = %._crit_edge114, %44
+; CHECK: phi-split-bb[[tag3:[0-9]*]]:                                   ; preds = %._crit_edge115, %36
+; CHECK: phi-split-bb[[tag4:[0-9]*]]:                                   ; preds = %phi-split-bb[[tag2]], %phi-split-bb[[tag3]]
+; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %phi-split-bb[[tag1]], %phi-split-bb[[tag4]]
+; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %261, %265
+; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %327, %331
+; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %367, %372
+; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %391, %394
+; CHECK: phi-split-bb[[tag5:[0-9]*]]:                                   ; preds = %54, %57
+; CHECK: phi-split-bb[[tag6:[0-9]*]]:                                   ; preds = %49, %phi-split-bb[[tag5]]
+; CHECK: phi-split-bb[[tag7:[0-9]*]]:                                   ; preds = %41, %phi-split-bb[[tag6]]
+; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %33, %phi-split-bb[[tag7]]
 ; CHECK: ret
 
 define void @evaluateRayScalar(float addrspace(1)* nocapture %inputImage, float addrspace(1)* nocapture %output, i32 %in_RayNum, <2 x i32> %imgSize, i32 %blend) nounwind {
@@ -752,19 +752,19 @@ declare i32 @_Z13get_global_idj(i32)
 ; CHECK: @intel_god_rays_scalar
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
 ; CHECK: phi-split-bb:                                     ; preds = %._crit_edge112.i, %60
-; CHECK: phi-split-bb4:                                    ; preds = %._crit_edge113.i, %52
-; CHECK: phi-split-bb9:                                    ; preds = %._crit_edge114.i, %43
-; CHECK: phi-split-bb14:                                   ; preds = %._crit_edge115.i, %35
-; CHECK: phi-split-bb19:                                   ; preds = %phi-split-bb9, %phi-split-bb14
-; CHECK: phi-split-bb24:                                   ; preds = %phi-split-bb4, %phi-split-bb19
-; CHECK: phi-split-bb29:                                   ; preds = %260, %264
-; CHECK: phi-split-bb33:                                   ; preds = %326, %330
-; CHECK: phi-split-bb37:                                   ; preds = %366, %371
-; CHECK: phi-split-bb42:                                   ; preds = %390, %393
-; CHECK: phi-split-bb43:                                   ; preds = %53, %56
-; CHECK: phi-split-bb44:                                   ; preds = %48, %phi-split-bb43
-; CHECK: phi-split-bb45:                                   ; preds = %40, %phi-split-bb44
-; CHECK: phi-split-bb46:                                   ; preds = %32, %phi-split-bb45
+; CHECK: phi-split-bb[[tag1:[0-9]*]]:                                    ; preds = %._crit_edge113.i, %52
+; CHECK: phi-split-bb[[tag2:[0-9]*]]:                                    ; preds = %._crit_edge114.i, %43
+; CHECK: phi-split-bb[[tag3:[0-9]*]]:                                   ; preds = %._crit_edge115.i, %35
+; CHECK: phi-split-bb[[tag4:[0-9]*]]:                                   ; preds = %phi-split-bb[[tag2]], %phi-split-bb[[tag3]]
+; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %phi-split-bb[[tag1]], %phi-split-bb[[tag4]]
+; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %260, %264
+; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %326, %330
+; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %366, %371
+; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %390, %393
+; CHECK: phi-split-bb[[tag5:[0-9]*]]:                                   ; preds = %53, %56
+; CHECK: phi-split-bb[[tag6:[0-9]*]]:                                   ; preds = %48, %phi-split-bb[[tag5]]
+; CHECK: phi-split-bb[[tag7:[0-9]*]]:                                   ; preds = %40, %phi-split-bb[[tag6]]
+; CHECK: phi-split-bb{{[0-9]*}}:                                   ; preds = %32, %phi-split-bb[[tag7]]
 ; CHECK: ret
 
 define void @intel_god_rays_scalar(<4 x float> addrspace(1)* nocapture %inputImage, <4 x float> addrspace(1)* nocapture %output, i32 %width, i32 %height, i32 %blend) nounwind {

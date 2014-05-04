@@ -617,7 +617,7 @@ public:
     cl_int  CreateCommandQueueWithProperties(
         cl_command_queue                queue_crt_handle,
         cl_device_id                    device,
-        const cl_queue_properties             *properties,
+        const cl_queue_properties *     properties,
         CrtQueue**                      crtQueue);
 
     cl_int CreateProgramWithSource(

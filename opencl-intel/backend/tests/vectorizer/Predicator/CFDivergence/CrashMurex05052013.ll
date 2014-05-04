@@ -7,8 +7,8 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK: @__Vectorized_.ocl_Kernel1
-; CHECK: for.cond5.preheader.i20.i:    ; preds = %post_cond.end.i49.i, %for.cond5.preheader.i20.i.loopexit
-; CHECK-NEXT: %indvars.iv14.i15.i = phi i64 [ %indvars.iv.next15.i46.i, %post_cond.end.i49.i ], [ 1, %for.cond5.preheader.i20.i.loopexit ]
+; CHECK: for.cond5.preheader.i20.i:    ; preds =
+; CHECK-NEXT: %indvars.iv14.i15.i = phi i64
 ; CHECK: ret
 
 declare float @_Z4fabsf(float) nounwind readnone

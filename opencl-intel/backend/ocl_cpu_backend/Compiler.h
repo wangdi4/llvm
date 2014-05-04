@@ -40,7 +40,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class BuiltinLibrary;
 class BuiltinModule;
 class ProgramBuildResult;
-
+class ObjectCodeCache;
 
 namespace Utils
 {
@@ -192,6 +192,8 @@ public:
     virtual llvm::Module* GetRtlModule() const = 0;
 
     llvm::Module* ParseModuleIR(llvm::MemoryBuffer* pIRBuffer);
+
+    virtual void SetObjectCache(ObjectCodeCache* pCache) = 0;
 
 protected:
 

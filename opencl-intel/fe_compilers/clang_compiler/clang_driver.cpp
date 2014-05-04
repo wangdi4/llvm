@@ -520,38 +520,38 @@ int ClangFECompilerCompileTask::StoreOutput(TC::STB_TranslateOutputArgs* pOutput
         size_t BufferSize = pOutputArgs->OutputSize;
         llvm::SmallVector<char, 4096>   SPIRbinary;
         llvm::raw_svector_ostream SPIRstream(SPIRbinary);
+        llvm::OwningPtr<llvm::LLVMContext> context( new llvm::LLVMContext() );
 
         if ( pOutputArgs->pOutput && pOutputArgs->OutputSize )
         {
-          // Add module level SPIR related stuff
-          llvm::OwningPtr<MemoryBuffer> pBinBuff( MemoryBuffer::getMemBuffer(
-                  StringRef(BufferStart, BufferSize), "", false));
+            // Add module level SPIR related stuff
+            llvm::OwningPtr<MemoryBuffer> pBinBuff( MemoryBuffer::getMemBuffer(StringRef(BufferStart, BufferSize), "", false));
 
-          string ErrorMessage;
-          llvm::Module *M = ParseBitcodeFile(pBinBuff.get(), getGlobalContext(), &ErrorMessage);
-          if(!M)
-          {
-              m_sLogString = ErrorMessage;
-              return CL_OUT_OF_HOST_MEMORY;
-          }
+            string ErrorMessage;
+            llvm::OwningPtr<llvm::Module> M( ParseBitcodeFile(pBinBuff.get(), *context, &ErrorMessage));
+            if(!M)
+            {
+                m_sLogString = ErrorMessage;
+                return CL_OUT_OF_HOST_MEMORY;
+            }
 
-          PassManager Passes;
-          Passes.add(new DataLayout(M)); // Use correct DataLayout
-          Passes.add(createSPIRMetadataAdderPass(m_BEArgList, CLSTDSet));
-          Passes.run(*M);
+            PassManager Passes;
+            Passes.add(new DataLayout(M.get())); // Use correct DataLayout
+            Passes.add(createSPIRMetadataAdderPass(m_BEArgList, CLSTDSet));
+            Passes.run(*M);
 
-          WriteBitcodeToFile(M, SPIRstream);
-          SPIRstream.flush();
-          BufferStart = (const char*)SPIRbinary.begin();
-          BufferSize  = SPIRbinary.size();
+            WriteBitcodeToFile(M.get(), SPIRstream);
+            SPIRstream.flush();
+            BufferStart = (const char*)SPIRbinary.begin();
+            BufferSize  = SPIRbinary.size();
 
-          stTotSize = BufferSize + sizeof(cl_prog_container_header) + sizeof(cl_llvm_prog_header);
-          m_pOutIR = new char[stTotSize];
-          if ( NULL == m_pOutIR )
-          {
+            stTotSize = BufferSize + sizeof(cl_prog_container_header) + sizeof(cl_llvm_prog_header);
+            m_pOutIR = new char[stTotSize];
+            if ( NULL == m_pOutIR )
+            {
             LOG_ERROR(TEXT("%s"), TEXT("Failed to allocate memory for buffer"));
             return CL_OUT_OF_HOST_MEMORY;
-          }
+            }
         }
 
         if ( NULL != m_pOutIR )
@@ -1128,6 +1128,8 @@ int ClangFECompilerLinkTask::Link()
             return CL_OUT_OF_HOST_MEMORY;
         }
 
+        llvm::OwningPtr<llvm::LLVMContext> context( new llvm::LLVMContext() );
+
         if (isSPIR)
         {
             cl_prog_container_header*   pHeader = (cl_prog_container_header*)m_pOutIR;
@@ -1151,9 +1153,9 @@ int ClangFECompilerLinkTask::Link()
             OwningPtr<MemoryBuffer> pBinBuff(MemoryBuffer::getMemBuffer(
                     StringRef((const char *)(m_pProgDesc->pBinaryContainers[0]), m_pProgDesc->puiBinariesSizes[0]),
                     "", false));
-            llvm::Module *M = ParseBitcodeFile(pBinBuff.get(), getGlobalContext(), &ErrorMessage);
+            OwningPtr<llvm::Module> M( ParseBitcodeFile(pBinBuff.get(), *context, &ErrorMessage) );
 
-            if (NULL == M)
+            if (!M)
             {
                 LOG_ERROR(TEXT("%s"), TEXT("Cannot parse SPIR binary"));
                 m_stOutIRSize = 0;

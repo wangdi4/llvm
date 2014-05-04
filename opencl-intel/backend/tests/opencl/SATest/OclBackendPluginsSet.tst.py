@@ -25,7 +25,7 @@ dumpstr = "-dump-llvm-file=" + options.llvm_file
 try:
     # set recorder enabling environment variable
     os.environ["OCLBACKEND_PLUGINS"]="xxx.xxx"
-    subprocess.check_output([execstr,"-OCL","-VAL", confstr,dumpstr], stderr=subprocess.STDOUT)
+    subprocess.check_output([execstr,"-VAL", confstr,dumpstr], stderr=subprocess.STDOUT)
     # run SATest. it should fail
     subprocess.check_output(execstr, stderr=subprocess.STDOUT)
     # if not failed generate exception. test fails.

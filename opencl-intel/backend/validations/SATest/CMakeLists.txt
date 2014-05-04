@@ -133,11 +133,6 @@ set (TARGET_HEADER_FILES
     RunnerFactoryGenerator.h
     SATest.h
     SATestException.h
-    DXProgram.h
-    DXProgramRunner.h
-    DXreferenceRunner.h
-    DXFactory.h
-    DXRunConfiguration.h
     WorkItemStorage.h
     WorkGroupStorage.h
     OpenCLArgsBuffer.h
@@ -158,11 +153,6 @@ set (TARGET_SOURCE_FILES
     PerformancePrinter.cpp
     RunnerFactoryGenerator.cpp
     SATest.cpp
-    DXReferenceRunner.cpp
-    DXFactory.cpp
-    DXRunConfiguration.cpp
-    DXProgram.cpp
-    DXProgramRunner.cpp
     OpenCLProgram.cpp
     OpenCLReferenceRunner.cpp
     OpenCLRunConfiguration.cpp

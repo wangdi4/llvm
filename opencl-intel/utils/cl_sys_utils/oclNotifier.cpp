@@ -352,19 +352,23 @@ vector<cl_queue_properties> NotifierCollection::commandQueueProfiling(const cl_q
     bool addedProfilingProp = false;
     for (pCurProperty = properties; pCurProperty && *pCurProperty; pCurProperty+= 2)
     {
-        if (CL_QUEUE_PROPERTIES == *pCurProperty) {
+        if (CL_QUEUE_PROPERTIES != *pCurProperty)
+        {
+            addQueueProperty(propsWithProfiling,
+                *pCurProperty, *(pCurProperty + 1));
+        }
+        else
+        {
             cmdQueuePropValue = *(pCurProperty + 1);
             commandQueueProfiling(cmdQueuePropValue);
             addQueueProperty(propsWithProfiling,
                 CL_QUEUE_PROPERTIES, cmdQueuePropValue);
             addedProfilingProp = true;
-        } else {
-            addQueueProperty(propsWithProfiling,
-                *pCurProperty, *(pCurProperty + 1));
         }
     }
 
-    if (!addedProfilingProp) {
+    if (!addedProfilingProp)
+    {
         addQueueProperty(propsWithProfiling,
             CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE);
     }
