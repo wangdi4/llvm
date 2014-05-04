@@ -55,3 +55,8 @@ let Types = [v1u8, v1u16, v1u32, v1u64],
 def helper_clz : OclBuiltin<"__ocl_helper_clz_$Arg0Symgentype", (outs gentype:$x), (ins gentype:$x), [], [], 0, 0>;
 def helper_ctz : OclBuiltin<"__ocl_helper_ctz_$Arg0Symgentype", (outs gentype:$x), (ins gentype:$x), [], [], 0, 0>;
 }
+
+let Types = [v1u16], IsDeclOnly = 1, NeedForwardDecl = 1 in {
+  def _ocl_mask_expand : OclBuiltin<"__ocl_expand_mask_4x16", (outs),
+  (ins gentype:$in, pgentype:$out0, pgentype:$out1, pgentype:$out2, pgentype:$out3), [], [], 0, 0>;
+}
