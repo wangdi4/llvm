@@ -692,6 +692,43 @@ _mm512_mask_storeu_ps (void *__P, __mmask16 __U, __m512 __A)
                                    (__mmask16) __U);
 }
 
+static __inline __m512i __attribute__ ((__always_inline__, __nodebug__))
+_mm512_permutex2var_epi32 (__m512i __A, __m512i __I, __m512i __B)
+{
+  return (__m512i) __builtin_ia32_vpermt2vard512_mask ((__v16si) __I
+                                                       /* idx */ ,
+                                                       (__v16si) __A,
+                                                       (__v16si) __B,
+                                                       (__mmask16) -1);
+}
+static __inline __m512i __attribute__ ((__always_inline__, __nodebug__))
+_mm512_permutex2var_epi64 (__m512i __A, __m512i __I, __m512i __B)
+{
+  return (__m512i) __builtin_ia32_vpermt2varq512_mask ((__v8di) __I
+                                                       /* idx */ ,
+                                                       (__v8di) __A,
+                                                       (__v8di) __B,
+                                                       (__mmask8) -1);
+}
+
+static __inline __m512d __attribute__ ((__always_inline__, __nodebug__))
+_mm512_permutex2var_pd (__m512d __A, __m512i __I, __m512d __B)
+{
+  return (__m512d) __builtin_ia32_vpermt2varpd512_mask ((__v8di) __I
+                                                        /* idx */ ,
+                                                        (__v8df) __A,
+                                                        (__v8df) __B,
+                                                        (__mmask8) -1);
+}
+static __inline __m512 __attribute__ ((__always_inline__, __nodebug__))
+_mm512_permutex2var_ps (__m512 __A, __m512i __I, __m512 __B)
+{
+  return (__m512) __builtin_ia32_vpermt2varps512_mask ((__v16si) __I
+                                                       /* idx */ ,
+                                                       (__v16sf) __A,
+                                                       (__v16sf) __B,
+                                                       (__mmask16) -1);
+}
 
 
 #endif // __KNLINTRIN_H
