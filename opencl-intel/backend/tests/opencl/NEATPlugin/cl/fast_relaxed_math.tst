@@ -1,4 +1,2 @@
-; RUN_xx: SATest -VAL --force_ref --neat -config=%s.cfg | FileCheck %s
-; see CSSD100018906
-; RUN: echo "Hello world!"
+; RUN: SATest -VAL --force_ref --neat -config=%s.cfg | FileCheck %s
 ; CHECK: Test Passed
