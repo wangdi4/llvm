@@ -44,9 +44,11 @@ def fmod          : REF_OclBuiltin<"fmod",      (outs gentype:$ret), (ins gentyp
 def fract_pas     : REF_OclBuiltin<"fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def fract_las     : REF_OclBuiltin<"fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, LOCAL;
 def fract_gas     : REF_OclBuiltin<"fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
+def fract_gnas    : REF_OclBuiltin<"fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, GENERIC;
 def frexp_pas     : REF_OclBuiltin<"frexp",     (outs gentype:$ret), (ins gentype:$x, pi32gentype:$iptr), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def frexp_las     : REF_OclBuiltin<"frexp",     (outs gentype:$ret), (ins gentype:$x, pi32gentype:$iptr), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, LOCAL;
 def frexp_gas     : REF_OclBuiltin<"frexp",     (outs gentype:$ret), (ins gentype:$x, pi32gentype:$iptr), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
+def frexp_gnas    : REF_OclBuiltin<"frexp",     (outs gentype:$ret), (ins gentype:$x, pi32gentype:$iptr), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, GENERIC;
 def hypot         : REF_OclBuiltin<"hypot",     (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], MathTemplate>;
 def ilogb         : REF_OclBuiltin<"ilogb",     (outs i32gentype:$ret), (ins gentype:$x), [], [], MathTemplate>;
 def ldexp         : REF_OclBuiltin<"ldexp",     (outs gentype:$ret), (ins gentype:$x, i32gentype:$k), [], [], TemplateAttr< [type0, vec0, vec1]> >;
@@ -55,6 +57,7 @@ def lgamma        : REF_OclBuiltin<"lgamma",    (outs gentype:$ret), (ins gentyp
 def lgamma_r_pas  : REF_OclBuiltin<"lgamma_r",  (outs gentype:$ret), (ins gentype:$x, pi32gentype:$signp), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def lgamma_r_las  : REF_OclBuiltin<"lgamma_r",  (outs gentype:$ret), (ins gentype:$x, pi32gentype:$signp), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, LOCAL;
 def lgamma_r_gas  : REF_OclBuiltin<"lgamma_r",  (outs gentype:$ret), (ins gentype:$x, pi32gentype:$signp), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
+def lgamma_r_gnas : REF_OclBuiltin<"lgamma_r",  (outs gentype:$ret), (ins gentype:$x, pi32gentype:$signp), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, GENERIC;
 def log           : REF_OclBuiltin<"log",       (outs gentype:$ret), (ins gentype:$x), [], [], MathTemplate>;
 def log2          : REF_OclBuiltin<"log2",      (outs gentype:$ret), (ins gentype:$x), [], [], MathTemplate>;
 def log10         : REF_OclBuiltin<"log10",     (outs gentype:$ret), (ins gentype:$x), [], [], MathTemplate>;
@@ -66,6 +69,7 @@ def minmag        : REF_OclBuiltin<"minmag",    (outs gentype:$ret), (ins gentyp
 def modf_pas      : REF_OclBuiltin<"modf",      (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def modf_las      : REF_OclBuiltin<"modf",      (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, LOCAL;
 def modf_gas      : REF_OclBuiltin<"modf",      (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
+def modf_gnas     : REF_OclBuiltin<"modf",      (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, GENERIC;
 def nan           : REF_OclBuiltin<"nan",       (outs gentype:$ret), (ins ugentype:$x), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">, type0, vec0]> >, Except<[v1f64, v2f64, v3f64, v4f64, v8f64, v16f64]>;
 def nan_s         : REF_OclBuiltin<"nan",       (outs gentype:$ret), (ins ugentype:$x), [], [], TemplateAttr< [OclBuiltinAttr<"u_double">, type0, vec0]> >, Except<[v1f32, v2f32, v3f32, v4f32, v8f32, v16f32]>;
 def nextafter     : REF_OclBuiltin<"nextafter", (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], MathTemplate>;
@@ -76,6 +80,7 @@ def remainder     : REF_OclBuiltin<"remainder", (outs gentype:$ret), (ins gentyp
 def remquo_pas    : REF_OclBuiltin<"remquo",    (outs gentype:$ret), (ins gentype:$x, gentype:$y, pi32gentype:$quo), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def remquo_las    : REF_OclBuiltin<"remquo",    (outs gentype:$ret), (ins gentype:$x, gentype:$y, pi32gentype:$quo), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, LOCAL;
 def remquo_gas    : REF_OclBuiltin<"remquo",    (outs gentype:$ret), (ins gentype:$x, gentype:$y, pi32gentype:$quo), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
+def remquo_gnas   : REF_OclBuiltin<"remquo",    (outs gentype:$ret), (ins gentype:$x, gentype:$y, pi32gentype:$quo), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, GENERIC;
 def rint          : REF_OclBuiltin<"rint",      (outs gentype:$ret), (ins gentype:$x), [], [], MathTemplate>;
 def rootn         : REF_OclBuiltin<"rootn",     (outs gentype:$ret), (ins gentype:$x, i32gentype:$y), [], [], MathTemplate>;
 def round         : REF_OclBuiltin<"round",     (outs gentype:$ret), (ins gentype:$x), [], [], MathTemplate>;
@@ -84,6 +89,7 @@ def sin           : REF_OclBuiltin<"sin",       (outs gentype:$ret), (ins gentyp
 def sincos_pas    : REF_OclBuiltin<"sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def sincos_las    : REF_OclBuiltin<"sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, LOCAL;
 def sincos_gas    : REF_OclBuiltin<"sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
+def sincos_gnas   : REF_OclBuiltin<"sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, GENERIC;
 def sinh          : REF_OclBuiltin<"sinh",      (outs gentype:$ret), (ins gentype:$x), [], [], MathTemplate>;
 def sinpi         : REF_OclBuiltin<"sinpi",     (outs gentype:$ret), (ins gentype:$x), [], [], MathTemplate>;
 def sqrt          : REF_OclBuiltin<"sqrt",      (outs gentype:$ret), (ins gentype:$x), [], [], MathTemplate>;
@@ -164,6 +170,7 @@ def native_fmod          : REF_OclBuiltin<"native_fmod",      (outs gentype:$ret
 def native_fract_pas     : REF_OclBuiltin<"native_fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, PRIVATE; // MIC
 def native_fract_las     : REF_OclBuiltin<"native_fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, LOCAL; // MIC
 def native_fract_gas     : REF_OclBuiltin<"native_fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, GLOBAL; // MIC
+def native_fract_gnas    : REF_OclBuiltin<"native_fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, GENERIC; // MIC
 def native_hypot         : REF_OclBuiltin<"native_hypot",     (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], MathTemplate>;
 def native_ilogb         : REF_OclBuiltin<"native_ilogb",     (outs i32gentype:$ret), (ins gentype:$x), [], [], MathTemplate>;
 def native_log1p         : REF_OclBuiltin<"native_log1p",     (outs gentype:$ret), (ins gentype:$x), [], [], MathTemplate>;
@@ -176,6 +183,7 @@ def native_rootn         : REF_OclBuiltin<"native_rootn",     (outs gentype:$ret
 def native_sincos_pas    : REF_OclBuiltin<"native_sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def native_sincos_las    : REF_OclBuiltin<"native_sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, LOCAL;
 def native_sincos_gas    : REF_OclBuiltin<"native_sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
+def native_sincos_gnas   : REF_OclBuiltin<"native_sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], MathTemplate>, ExceptAttr<[CONSTFUNC]>, GENERIC;
 def native_sinh          : REF_OclBuiltin<"native_sinh",      (outs gentype:$ret), (ins gentype:$x), [], [], MathTemplate>;
 def native_sinpi         : REF_OclBuiltin<"native_sinpi",     (outs gentype:$ret), (ins gentype:$x), [], [], MathTemplate>;
 def native_tanh          : REF_OclBuiltin<"native_tanh",      (outs gentype:$ret), (ins gentype:$x), [], [], MathTemplate>;
