@@ -636,3 +636,5 @@ else (WIN32)
 
 
 endif (WIN32)
+
+install(FILES setup/redist.txt DESTINATION ${MISC_INSTALLER_FOLDER})
