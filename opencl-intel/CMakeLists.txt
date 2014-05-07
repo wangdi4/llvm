@@ -589,7 +589,7 @@ if (WIN32)
     install(FILES setup/bom_files/installer_content_windows_mic.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)
 
     install(DIRECTORY setup/AddFiles/PTAC_Tool DESTINATION ${MISC_INSTALLER_FOLDER}/PTAC_Tool)  
-    install(FILES setup/redist.txt DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
+    
     install(FILES setup/LicenseAgreement.rtf DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
     install(FILES setup/llvm_release_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
     install(FILES setup/readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
@@ -637,4 +637,4 @@ else (WIN32)
 
 endif (WIN32)
 
-install(FILES setup/redist.txt DESTINATION ${MISC_INSTALLER_FOLDER})
+install(FILES setup/redist.txt DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
