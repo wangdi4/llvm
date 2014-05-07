@@ -2494,6 +2494,7 @@ static bool AreImageDimsSupportedByDevice(const MemoryObject& img, const Fission
     switch (clMemObjType)
     {
     case CL_MEM_OBJECT_IMAGE1D:
+    case CL_MEM_OBJECT_IMAGE1D_BUFFER:
         return IsImageDimSupportedByDevice(img, dev, CL_IMAGE_WIDTH, CL_DEVICE_IMAGE2D_MAX_WIDTH);
     case CL_MEM_OBJECT_IMAGE2D:
         return IsImageDimSupportedByDevice(img, dev, CL_IMAGE_WIDTH, CL_DEVICE_IMAGE2D_MAX_WIDTH) &&
@@ -2510,7 +2511,7 @@ static bool AreImageDimsSupportedByDevice(const MemoryObject& img, const Fission
             IsImageDimSupportedByDevice(img, dev, CL_IMAGE_HEIGHT, CL_DEVICE_IMAGE2D_MAX_HEIGHT) &&
             IsImageDimSupportedByDevice(img, dev, CL_IMAGE_ARRAY_SIZE, CL_DEVICE_IMAGE_MAX_ARRAY_SIZE);
     default:
-        assert(0);
+        assert(false && "Unknown image type");
         return false;
     }
 }
