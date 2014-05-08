@@ -92,6 +92,11 @@ extern DECLARE_LOGGER_CLIENT;
 
 USE_SHUTDOWN_HANDLER(ClangFECompiler::ShutDown);
 
+namespace llvm
+{
+  extern bool DisablePrettyStackTrace;
+}
+
 #ifdef USE_COMMON_CLANG
 namespace TC
 {
@@ -150,6 +155,8 @@ ClangFECompiler::ClangFECompiler(const void* pszDeviceInfo)
     m_sDeviceInfo.bDoubleSupport    = pDevInfo->bDoubleSupport;
     m_sDeviceInfo.bEnableSourceLevelProfiling = pDevInfo->bEnableSourceLevelProfiling;
     m_config.Initialize(GetConfigFilePath());
+    
+    llvm::DisablePrettyStackTrace = m_config.DisableStackDump();
 }
 
 ClangFECompiler::~ClangFECompiler()
