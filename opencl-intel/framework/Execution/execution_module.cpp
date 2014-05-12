@@ -1288,6 +1288,9 @@ cl_err_code ExecutionModule::EnqueueFillBuffer (cl_command_queue clCommandQueue,
 
         SharedPtr<FissionableDevice>pDevice = pCommandQueue->GetDefaultDevice();
         pDevice->GetInfo(CL_DEVICE_MEM_BASE_ADDR_ALIGN, sizeof(devAlignment), &devAlignment, NULL);
+        // CL_DEVICE_MEM_BASE_ADDR_ALIGN is in bits, convert to bytes
+        devAlignment /= 8;
+
         void *pData = pBuffer->GetBackingStoreData();
         // check there is BS data, and that it is not aligned with the queue device
         if (pData && ((cl_ulong)pData % devAlignment))
