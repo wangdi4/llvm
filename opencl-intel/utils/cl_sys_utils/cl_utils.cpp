@@ -47,7 +47,7 @@ using namespace Intel::OpenCL;
 
 bool clIsNumaAvailable()
 {
-	return false;
+    return false;
 }
 
 void clNUMASetLocalNodeAlloc()
@@ -56,84 +56,84 @@ void clNUMASetLocalNodeAlloc()
 
 void clSleep(int milliseconds)
 {
-	SleepEx(milliseconds, TRUE);
+    SleepEx(milliseconds, TRUE);
 }
 
 void clSetThreadAffinityMask(affinityMask_t* mask, threadid_t tid)
 {
-	assert(*mask <= (DWORD_PTR)-1);
-	if (0 == tid)
-	{        
-		SetThreadAffinityMask(GetCurrentThread(), (DWORD_PTR)*mask);
-	}
-	else
-	{
-		HANDLE tid_handle = OpenThread(THREAD_ALL_ACCESS, FALSE, tid);
-		SetThreadAffinityMask(tid_handle, (DWORD_PTR)*mask);
-		CloseHandle(tid_handle);
-	}
+    assert(*mask <= (DWORD_PTR)-1);
+    if (0 == tid)
+    {        
+        SetThreadAffinityMask(GetCurrentThread(), (DWORD_PTR)*mask);
+    }
+    else
+    {
+        HANDLE tid_handle = OpenThread(THREAD_ALL_ACCESS, FALSE, tid);
+        SetThreadAffinityMask(tid_handle, (DWORD_PTR)*mask);
+        CloseHandle(tid_handle);
+    }
 }
 
 void clGetThreadAffinityMask(affinityMask_t* mask, threadid_t tid)
 {
-	// Currently not supported on Windows
-	*mask = -1;
+    // Currently not supported on Windows
+    *mask = -1;
 }
 
 void clSetThreadAffinityToCore(unsigned int core, threadid_t tid)
 {
-	DWORD_PTR mask = 1 << core;
-	if (0 == tid)
-	{
-		SetThreadAffinityMask(GetCurrentThread(), mask);
-	}
-	else
-	{
-		HANDLE tid_handle = OpenThread(THREAD_ALL_ACCESS, FALSE, tid);
-		SetThreadAffinityMask(tid_handle, mask);
-		CloseHandle(tid_handle);
-	}
-	//printf("Thread %d is running on processor %d (expected %d)\n", GetCurrentThreadId(), GetCurrentProcessorNumber(), core);
+    DWORD_PTR mask = 1 << core;
+    if (0 == tid)
+    {
+        SetThreadAffinityMask(GetCurrentThread(), mask);
+    }
+    else
+    {
+        HANDLE tid_handle = OpenThread(THREAD_ALL_ACCESS, FALSE, tid);
+        SetThreadAffinityMask(tid_handle, mask);
+        CloseHandle(tid_handle);
+    }
+    //printf("Thread %d is running on processor %d (expected %d)\n", GetCurrentThreadId(), GetCurrentProcessorNumber(), core);
 }
 
 void clResetThreadAffinityMask(threadid_t tid)
 {
-	static const DWORD_PTR allMask = (DWORD_PTR)-1;
-	if (0 == tid)
-	{
-		SetThreadAffinityMask(GetCurrentThread(), allMask);
-	}
-	else
-	{
-		HANDLE tid_handle = OpenThread(THREAD_ALL_ACCESS, FALSE, tid);
-		SetThreadAffinityMask(tid_handle, allMask);
-		CloseHandle(tid_handle);
-	}
+    static const DWORD_PTR allMask = (DWORD_PTR)-1;
+    if (0 == tid)
+    {
+        SetThreadAffinityMask(GetCurrentThread(), allMask);
+    }
+    else
+    {
+        HANDLE tid_handle = OpenThread(THREAD_ALL_ACCESS, FALSE, tid);
+        SetThreadAffinityMask(tid_handle, allMask);
+        CloseHandle(tid_handle);
+    }
 }
 
 bool clTranslateAffinityMask(affinityMask_t* mask, unsigned int* IDs, size_t len)
 {
-	assert(mask);
-	assert(IDs);
-	assert(*mask <= (DWORD_PTR)-1);
-	DWORD_PTR localMask = (DWORD_PTR)*mask;
-	size_t i = 0;
-	size_t set_bits = 0;
-	while ((0 != localMask) && (set_bits < len))
-	{
-		if (localMask & 0x1)
-		{
-			IDs[set_bits++] = i;
-		}
-		++i;
-		localMask >>= 1;
-	}
-	return (len == set_bits) && (0 == localMask);
+    assert(mask);
+    assert(IDs);
+    assert(*mask <= (DWORD_PTR)-1);
+    DWORD_PTR localMask = (DWORD_PTR)*mask;
+    size_t i = 0;
+    size_t set_bits = 0;
+    while ((0 != localMask) && (set_bits < len))
+    {
+        if (localMask & 0x1)
+        {
+            IDs[set_bits++] = i;
+        }
+        ++i;
+        localMask >>= 1;
+    }
+    return (len == set_bits) && (0 == localMask);
 }
 
 threadid_t clMyThreadId()
 {
-	return GetCurrentThreadId();
+    return GetCurrentThreadId();
 }
 
 threadid_t clMyParentThreadId()
@@ -152,84 +152,84 @@ threadid_t clMyParentThreadId()
 
 #ifndef DISABLE_NUMA_SUPPORT
 
-	#include <numa.h>
-	bool clIsNumaAvailable()
-	{	
-		static int iNuma = -1;
-	
-		if ( -1 == iNuma )
-		{
-			iNuma = numa_available();
-		}
-		return (-1 != iNuma);
-	}
+    #include <numa.h>
+    bool clIsNumaAvailable()
+    {    
+        static int iNuma = -1;
+    
+        if ( -1 == iNuma )
+        {
+            iNuma = numa_available();
+        }
+        return (-1 != iNuma);
+    }
 
-	void clNUMASetLocalNodeAlloc()
-	{
-		numa_set_localalloc();
-	}
+    void clNUMASetLocalNodeAlloc()
+    {
+        numa_set_localalloc();
+    }
 #else
-	bool clIsNumaAvailable()
-	{	
-		return false;
-	}
+    bool clIsNumaAvailable()
+    {    
+        return false;
+    }
 
-	void clNUMASetLocalNodeAlloc()
-	{
-	}
-	
+    void clNUMASetLocalNodeAlloc()
+    {
+    }
+    
 #endif //DISABLE_NUMA_SUPPORT
 
 void clSleep(int milliseconds)
 {
-	usleep(1000 * milliseconds);
+    usleep(1000 * milliseconds);
 }
 
 void clSetThreadAffinityMask(affinityMask_t* mask, threadid_t tid)
 {
-	sched_setaffinity(tid, sizeof(affinityMask_t), mask);
+    sched_setaffinity(tid, sizeof(affinityMask_t), mask);
 }
 
 void clGetThreadAffinityMask(affinityMask_t* mask, threadid_t tid)
 {
-	sched_getaffinity(tid, sizeof(affinityMask_t), mask);
+    sched_getaffinity(tid, sizeof(affinityMask_t), mask);
 }
 
 void clSetThreadAffinityToCore(unsigned int core, threadid_t tid)
 {
-	affinityMask_t mask;
-	CPU_ZERO(&mask);
-	CPU_SET(core ,&mask);
-	sched_setaffinity(tid, sizeof(affinityMask_t), &mask);
+    affinityMask_t mask;
+    CPU_ZERO(&mask);
+    CPU_SET(core ,&mask);
+    sched_setaffinity(tid, sizeof(affinityMask_t), &mask);
 }
 void clResetThreadAffinityMask(threadid_t tid)
 {
-	affinityMask_t mask;
-	CPU_ZERO(&mask);
-	for (size_t i = 0; i < 4 * sizeof(unsigned long long) * 8; i++)	// we assume no more than 256 HW threads (writing generic code is too much effort)
-	{
-		CPU_SET(i, &mask);
-	}
-	sched_setaffinity(tid, sizeof(affinityMask_t), &mask);
+    affinityMask_t mask;
+    CPU_ZERO(&mask);
+    for (size_t i = 0; i < 4 * sizeof(unsigned long long) * 8; i++)    // we assume no more than 256 HW threads (writing generic code is too much effort)
+    {
+        CPU_SET(i, &mask);
+    }
+    sched_setaffinity(tid, sizeof(affinityMask_t), &mask);
 }
 bool clTranslateAffinityMask(affinityMask_t* mask, unsigned int* IDs, size_t len)
 {
-	assert(mask);
-	assert(IDs);
-	size_t set_bits = 0;
-	//Todo: assumes no more than 1024 HW threads
-	for (size_t i = 0; i < 1024; ++i)
-	{
-		if (CPU_ISSET(i, mask))
-		{
-			IDs[set_bits++] = i;
-		}
-		if (set_bits > len)
-		{
-			break;
-		}
-	}
-	return (len == set_bits);
+    assert(mask);
+    assert(IDs);
+    size_t set_bits = 0;
+    //Todo: assumes no more than 1024 HW threads
+    for (size_t i = 0; i < 1024; ++i)
+    {
+        if (CPU_ISSET(i, mask))
+        {
+            IDs[set_bits++] = i;
+        }
+        if (set_bits > len)
+        {
+            break;
+        }
+    }
+    return (len == set_bits);
 }
 
 threadid_t clMyThreadId()
@@ -237,7 +237,7 @@ threadid_t clMyThreadId()
     static __thread threadid_t myThreadId = (threadid_t)-1;
     if (-1 == myThreadId)
     {
-	      myThreadId = GET_CURRENT_THREAD_ID();
+          myThreadId = GET_CURRENT_THREAD_ID();
     }
     return myThreadId;
 }
@@ -252,22 +252,22 @@ threadid_t clMyParentThreadId()
 
 const char* ClErrTxt(cl_err_code error_code)
 {
-	switch(error_code)
-	{
-	// OpenCL error codes
-	case (CL_SUCCESS): return "CL_SUCCESS";
-	case (CL_DEVICE_NOT_FOUND): return "CL_DEVICE_NOT_FOUND";
-	case (CL_DEVICE_NOT_AVAILABLE): return "CL_DEVICE_NOT_AVAILABLE";
-	case (CL_COMPILER_NOT_AVAILABLE): return "CL_COMPILER_NOT_AVAILABLE";
-	case (CL_MEM_OBJECT_ALLOCATION_FAILURE): return "CL_MEM_OBJECT_ALLOCATION_FAILURE";
-	case (CL_OUT_OF_RESOURCES): return "CL_OUT_OF_RESOURCES";
-	case (CL_OUT_OF_HOST_MEMORY): return "CL_OUT_OF_HOST_MEMORY";
-	case (CL_PROFILING_INFO_NOT_AVAILABLE): return "CL_PROFILING_INFO_NOT_AVAILABLE";
-	case (CL_MEM_COPY_OVERLAP): return "CL_MEM_COPY_OVERLAP";
-	case (CL_IMAGE_FORMAT_MISMATCH): return "CL_IMAGE_FORMAT_MISMATCH";
-	case (CL_IMAGE_FORMAT_NOT_SUPPORTED): return "CL_IMAGE_FORMAT_NOT_SUPPORTED";
-	case (CL_BUILD_PROGRAM_FAILURE): return "CL_BUILD_PROGRAM_FAILURE";
-	case (CL_MAP_FAILURE): return "CL_MAP_FAILURE";
+    switch(error_code)
+    {
+    // OpenCL error codes
+    case (CL_SUCCESS): return "CL_SUCCESS";
+    case (CL_DEVICE_NOT_FOUND): return "CL_DEVICE_NOT_FOUND";
+    case (CL_DEVICE_NOT_AVAILABLE): return "CL_DEVICE_NOT_AVAILABLE";
+    case (CL_COMPILER_NOT_AVAILABLE): return "CL_COMPILER_NOT_AVAILABLE";
+    case (CL_MEM_OBJECT_ALLOCATION_FAILURE): return "CL_MEM_OBJECT_ALLOCATION_FAILURE";
+    case (CL_OUT_OF_RESOURCES): return "CL_OUT_OF_RESOURCES";
+    case (CL_OUT_OF_HOST_MEMORY): return "CL_OUT_OF_HOST_MEMORY";
+    case (CL_PROFILING_INFO_NOT_AVAILABLE): return "CL_PROFILING_INFO_NOT_AVAILABLE";
+    case (CL_MEM_COPY_OVERLAP): return "CL_MEM_COPY_OVERLAP";
+    case (CL_IMAGE_FORMAT_MISMATCH): return "CL_IMAGE_FORMAT_MISMATCH";
+    case (CL_IMAGE_FORMAT_NOT_SUPPORTED): return "CL_IMAGE_FORMAT_NOT_SUPPORTED";
+    case (CL_BUILD_PROGRAM_FAILURE): return "CL_BUILD_PROGRAM_FAILURE";
+    case (CL_MAP_FAILURE): return "CL_MAP_FAILURE";
     case (CL_MISALIGNED_SUB_BUFFER_OFFSET): return "CL_MISALIGNED_SUB_BUFFER_OFFSET";
     case (CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST): return "CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST";
     case (CL_COMPILE_PROGRAM_FAILURE): return "CL_COMPILE_PROGRAM_FAILURE";
@@ -275,63 +275,63 @@ const char* ClErrTxt(cl_err_code error_code)
     case (CL_LINK_PROGRAM_FAILURE): return "CL_LINK_PROGRAM_FAILURE";
     case (CL_DEVICE_PARTITION_FAILED): return "CL_DEVICE_PARTITION_FAILED";
     case (CL_KERNEL_ARG_INFO_NOT_AVAILABLE): return "CL_KERNEL_ARG_INFO_NOT_AVAILABLE";
-	case (CL_INVALID_VALUE): return "CL_INVALID_VALUE";
-	case (CL_INVALID_DEVICE_TYPE): return "CL_INVALID_DEVICE_TYPE";
-	case (CL_INVALID_PLATFORM): return "CL_INVALID_PLATFORM";
-	case (CL_INVALID_DEVICE): return "CL_INVALID_DEVICE";
-	case (CL_INVALID_CONTEXT): return "CL_INVALID_CONTEXT";
-	case (CL_INVALID_QUEUE_PROPERTIES): return "CL_INVALID_QUEUE_PROPERTIES";
-	case (CL_INVALID_COMMAND_QUEUE): return "CL_INVALID_COMMAND_QUEUE";
-	case (CL_INVALID_HOST_PTR): return "CL_INVALID_HOST_PTR";
-	case (CL_INVALID_MEM_OBJECT): return "CL_INVALID_MEM_OBJECT";
-	case (CL_INVALID_IMAGE_FORMAT_DESCRIPTOR): return "CL_INVALID_IMAGE_FORMAT_DESCRIPTOR";
-	case (CL_INVALID_IMAGE_SIZE): return "CL_INVALID_IMAGE_SIZE";
-	case (CL_INVALID_SAMPLER): return "CL_INVALID_SAMPLER";
-	case (CL_INVALID_BINARY): return "CL_INVALID_BINARY";
-	case (CL_INVALID_BUILD_OPTIONS): return "CL_INVALID_BUILD_OPTIONS";
-	case (CL_INVALID_PROGRAM): return "CL_INVALID_PROGRAM";
-	case (CL_INVALID_PROGRAM_EXECUTABLE): return "CL_INVALID_PROGRAM_EXECUTABLE";
-	case (CL_INVALID_KERNEL_NAME): return "CL_INVALID_KERNEL_NAME";
-	case (CL_INVALID_KERNEL_DEFINITION): return "CL_INVALID_KERNEL_DEFINITION";
-	case (CL_INVALID_KERNEL): return "CL_INVALID_KERNE";
-	case (CL_INVALID_ARG_INDEX): return "CL_INVALID_ARG_INDEX";
-	case (CL_INVALID_ARG_VALUE): return "CL_INVALID_ARG_VALUE";
-	case (CL_INVALID_ARG_SIZE): return "CL_INVALID_ARG_SIZE";
-	case (CL_INVALID_KERNEL_ARGS): return "CL_INVALID_KERNEL_ARGS";
-	case (CL_INVALID_WORK_DIMENSION): return "CL_INVALID_WORK_DIMENSION";
-	case (CL_INVALID_WORK_GROUP_SIZE): return "CL_INVALID_WORK_GROUP_SIZE";
-	case (CL_INVALID_WORK_ITEM_SIZE): return "CL_INVALID_WORK_ITEM_SIZE";
-	case (CL_INVALID_GLOBAL_OFFSET): return "CL_INVALID_GLOBAL_OFFSET";
-	case (CL_INVALID_EVENT_WAIT_LIST): return "CL_INVALID_EVENT_WAIT_LIST";
-	case (CL_INVALID_EVENT): return "CL_INVALID_EVENT";
-	case (CL_INVALID_OPERATION): return "CL_INVALID_OPERATION";
-	case (CL_INVALID_GL_OBJECT): return "CL_INVALID_GL_OBJECT";
-	case (CL_INVALID_BUFFER_SIZE): return "CL_INVALID_BUFFER_SIZE";
-	case (CL_INVALID_MIP_LEVEL): return "CL_INVALID_MIP_LEVE";
-	case (CL_INVALID_PROPERTY) : return "CL_INVALID_PROPERTY";
-	case (CL_INVALID_IMAGE_DESCRIPTOR) : return "CL_INVALID_IMAGE_DESCRIPTOR";
+    case (CL_INVALID_VALUE): return "CL_INVALID_VALUE";
+    case (CL_INVALID_DEVICE_TYPE): return "CL_INVALID_DEVICE_TYPE";
+    case (CL_INVALID_PLATFORM): return "CL_INVALID_PLATFORM";
+    case (CL_INVALID_DEVICE): return "CL_INVALID_DEVICE";
+    case (CL_INVALID_CONTEXT): return "CL_INVALID_CONTEXT";
+    case (CL_INVALID_QUEUE_PROPERTIES): return "CL_INVALID_QUEUE_PROPERTIES";
+    case (CL_INVALID_COMMAND_QUEUE): return "CL_INVALID_COMMAND_QUEUE";
+    case (CL_INVALID_HOST_PTR): return "CL_INVALID_HOST_PTR";
+    case (CL_INVALID_MEM_OBJECT): return "CL_INVALID_MEM_OBJECT";
+    case (CL_INVALID_IMAGE_FORMAT_DESCRIPTOR): return "CL_INVALID_IMAGE_FORMAT_DESCRIPTOR";
+    case (CL_INVALID_IMAGE_SIZE): return "CL_INVALID_IMAGE_SIZE";
+    case (CL_INVALID_SAMPLER): return "CL_INVALID_SAMPLER";
+    case (CL_INVALID_BINARY): return "CL_INVALID_BINARY";
+    case (CL_INVALID_BUILD_OPTIONS): return "CL_INVALID_BUILD_OPTIONS";
+    case (CL_INVALID_PROGRAM): return "CL_INVALID_PROGRAM";
+    case (CL_INVALID_PROGRAM_EXECUTABLE): return "CL_INVALID_PROGRAM_EXECUTABLE";
+    case (CL_INVALID_KERNEL_NAME): return "CL_INVALID_KERNEL_NAME";
+    case (CL_INVALID_KERNEL_DEFINITION): return "CL_INVALID_KERNEL_DEFINITION";
+    case (CL_INVALID_KERNEL): return "CL_INVALID_KERNE";
+    case (CL_INVALID_ARG_INDEX): return "CL_INVALID_ARG_INDEX";
+    case (CL_INVALID_ARG_VALUE): return "CL_INVALID_ARG_VALUE";
+    case (CL_INVALID_ARG_SIZE): return "CL_INVALID_ARG_SIZE";
+    case (CL_INVALID_KERNEL_ARGS): return "CL_INVALID_KERNEL_ARGS";
+    case (CL_INVALID_WORK_DIMENSION): return "CL_INVALID_WORK_DIMENSION";
+    case (CL_INVALID_WORK_GROUP_SIZE): return "CL_INVALID_WORK_GROUP_SIZE";
+    case (CL_INVALID_WORK_ITEM_SIZE): return "CL_INVALID_WORK_ITEM_SIZE";
+    case (CL_INVALID_GLOBAL_OFFSET): return "CL_INVALID_GLOBAL_OFFSET";
+    case (CL_INVALID_EVENT_WAIT_LIST): return "CL_INVALID_EVENT_WAIT_LIST";
+    case (CL_INVALID_EVENT): return "CL_INVALID_EVENT";
+    case (CL_INVALID_OPERATION): return "CL_INVALID_OPERATION";
+    case (CL_INVALID_GL_OBJECT): return "CL_INVALID_GL_OBJECT";
+    case (CL_INVALID_BUFFER_SIZE): return "CL_INVALID_BUFFER_SIZE";
+    case (CL_INVALID_MIP_LEVEL): return "CL_INVALID_MIP_LEVE";
+    case (CL_INVALID_PROPERTY) : return "CL_INVALID_PROPERTY";
+    case (CL_INVALID_IMAGE_DESCRIPTOR) : return "CL_INVALID_IMAGE_DESCRIPTOR";
     case (CL_INVALID_COMPILER_OPTIONS) : return "CL_INVALID_COMPILER_OPTIONS";
     case (CL_INVALID_LINKER_OPTIONS) : return "CL_INVALID_LINKER_OPTIONS";
     case (CL_INVALID_DEVICE_PARTITION_COUNT) : return "CL_INVALID_DEVICE_PARTITION_COUNT";
 
-		// OpenCL framework error codes
+        // OpenCL framework error codes
 
-	case (CL_ERR_LOGGER_FAILED): return "CL_ERR_LOGGER_FAILED";
-	case (CL_ERR_NOT_IMPLEMENTED): return "CL_ERR_NOT_IMPLEMENTED";
-	case (CL_ERR_NOT_SUPPORTED): return "CL_ERR_NOT_SUPPORTED";
-	case (CL_ERR_INITILIZATION_FAILED): return "CL_ERR_INITILIZATION_FAILED";
-	case (CL_ERR_PLATFORM_FAILED): return "CL_ERR_PLATFORM_FAILED";
-	case (CL_ERR_CONTEXT_FAILED): return "CL_ERR_CONTEXT_FAILED";
-	case (CL_ERR_EXECUTION_FAILED): return "CL_ERR_EXECUTION_FAILED";
-	case (CL_ERR_FILE_NOT_EXISTS): return "CL_ERR_FILE_NOT_EXISTS";
-	case (CL_ERR_KEY_NOT_FOUND): return "CL_ERR_KEY_NOT_FOUND";
-	case (CL_ERR_KEY_ALLREADY_EXISTS): return "CL_ERR_KEY_ALLREADY_EXISTS";
-	case (CL_ERR_LIST_EMPTY): return "CL_ERR_LIST_EMPTY";
-	case (CL_ERR_DEVICE_INIT_FAIL): return "CL_ERR_DEVICE_INIT_FAI";
-	case (CL_ERR_FE_COMPILER_INIT_FAIL): return "CL_ERR_FE_COMPILER_INIT_FAI";
-	default:
-		return "Unknown Error Code";
-	}
+    case (CL_ERR_LOGGER_FAILED): return "CL_ERR_LOGGER_FAILED";
+    case (CL_ERR_NOT_IMPLEMENTED): return "CL_ERR_NOT_IMPLEMENTED";
+    case (CL_ERR_NOT_SUPPORTED): return "CL_ERR_NOT_SUPPORTED";
+    case (CL_ERR_INITILIZATION_FAILED): return "CL_ERR_INITILIZATION_FAILED";
+    case (CL_ERR_PLATFORM_FAILED): return "CL_ERR_PLATFORM_FAILED";
+    case (CL_ERR_CONTEXT_FAILED): return "CL_ERR_CONTEXT_FAILED";
+    case (CL_ERR_EXECUTION_FAILED): return "CL_ERR_EXECUTION_FAILED";
+    case (CL_ERR_FILE_NOT_EXISTS): return "CL_ERR_FILE_NOT_EXISTS";
+    case (CL_ERR_KEY_NOT_FOUND): return "CL_ERR_KEY_NOT_FOUND";
+    case (CL_ERR_KEY_ALLREADY_EXISTS): return "CL_ERR_KEY_ALLREADY_EXISTS";
+    case (CL_ERR_LIST_EMPTY): return "CL_ERR_LIST_EMPTY";
+    case (CL_ERR_DEVICE_INIT_FAIL): return "CL_ERR_DEVICE_INIT_FAI";
+    case (CL_ERR_FE_COMPILER_INIT_FAIL): return "CL_ERR_FE_COMPILER_INIT_FAI";
+    default:
+        return "Unknown Error Code";
+    }
 }
 
 // used to make a macro definition into a string simply call DEFINE_TO_STRING with you defined macro "s"
@@ -346,133 +346,140 @@ const char* ClErrTxt(cl_err_code error_code)
 #define IF_DEFINE_APPEND_STRING_DEFAULT(bitfield, def, str) if ( ((bitfield) & (def)) != 0 ) str += string(DEFAULT_PREFIX) + #def + string(DEFAULT_SUFFIX)
 const string channelOrderToString(const cl_channel_order& co)
 {
-	switch (co) {
-		CASE_DEFINE_RETURN_STRING(CL_R);
-		CASE_DEFINE_RETURN_STRING(CL_A);
-		CASE_DEFINE_RETURN_STRING(CL_INTENSITY);
-		CASE_DEFINE_RETURN_STRING(CL_LUMINANCE);
-		CASE_DEFINE_RETURN_STRING(CL_RG);
-		CASE_DEFINE_RETURN_STRING(CL_RA);
-		CASE_DEFINE_RETURN_STRING(CL_RGB);
-		CASE_DEFINE_RETURN_STRING(CL_RGBA);
-		CASE_DEFINE_RETURN_STRING(CL_ARGB);
-		CASE_DEFINE_RETURN_STRING(CL_BGRA);
-		CASE_DEFINE_RETURN_STRING(CL_Rx);
-		CASE_DEFINE_RETURN_STRING(CL_RGx);
-		CASE_DEFINE_RETURN_STRING(CL_RGBx);
-		CASE_DEFINE_RETURN_STRING(CL_DEPTH);
-		CASE_DEFINE_RETURN_STRING(CL_DEPTH_STENCIL);
-		CASE_DEFINE_RETURN_STRING(CL_sRGB);
-		CASE_DEFINE_RETURN_STRING(CL_sRGBx);
-		CASE_DEFINE_RETURN_STRING(CL_sRGBA);
-		CASE_DEFINE_RETURN_STRING(CL_sBGRA);
-		CASE_DEFINE_RETURN_STRING(CL_ABGR);
-	default:
-		return "Not Recognized";
-	}
+    switch (co) {
+        CASE_DEFINE_RETURN_STRING(CL_R);
+        CASE_DEFINE_RETURN_STRING(CL_A);
+        CASE_DEFINE_RETURN_STRING(CL_INTENSITY);
+        CASE_DEFINE_RETURN_STRING(CL_LUMINANCE);
+        CASE_DEFINE_RETURN_STRING(CL_RG);
+        CASE_DEFINE_RETURN_STRING(CL_RA);
+        CASE_DEFINE_RETURN_STRING(CL_RGB);
+        CASE_DEFINE_RETURN_STRING(CL_RGBA);
+        CASE_DEFINE_RETURN_STRING(CL_ARGB);
+        CASE_DEFINE_RETURN_STRING(CL_BGRA);
+        CASE_DEFINE_RETURN_STRING(CL_Rx);
+        CASE_DEFINE_RETURN_STRING(CL_RGx);
+        CASE_DEFINE_RETURN_STRING(CL_RGBx);
+        CASE_DEFINE_RETURN_STRING(CL_DEPTH);
+        CASE_DEFINE_RETURN_STRING(CL_DEPTH_STENCIL);
+        CASE_DEFINE_RETURN_STRING(CL_sRGB);
+        CASE_DEFINE_RETURN_STRING(CL_sRGBx);
+        CASE_DEFINE_RETURN_STRING(CL_sRGBA);
+        CASE_DEFINE_RETURN_STRING(CL_sBGRA);
+        CASE_DEFINE_RETURN_STRING(CL_ABGR);
+    default:
+        return "Not Recognized";
+    }
 }
 const string channelTypeToString(const cl_channel_type& ct)
 {
-	switch (ct) {
-		CASE_DEFINE_RETURN_STRING(CL_SNORM_INT8);
-		CASE_DEFINE_RETURN_STRING(CL_SNORM_INT16);
-		CASE_DEFINE_RETURN_STRING(CL_UNORM_INT8);
-		CASE_DEFINE_RETURN_STRING(CL_UNORM_INT16);
-		CASE_DEFINE_RETURN_STRING(CL_UNORM_SHORT_565);
-		CASE_DEFINE_RETURN_STRING(CL_UNORM_SHORT_555);
-		CASE_DEFINE_RETURN_STRING(CL_UNORM_INT_101010);
-		CASE_DEFINE_RETURN_STRING(CL_SIGNED_INT8);
-		CASE_DEFINE_RETURN_STRING(CL_SIGNED_INT16);
-		CASE_DEFINE_RETURN_STRING(CL_SIGNED_INT32);
-		CASE_DEFINE_RETURN_STRING(CL_UNSIGNED_INT8);
-		CASE_DEFINE_RETURN_STRING(CL_UNSIGNED_INT16);
-		CASE_DEFINE_RETURN_STRING(CL_UNSIGNED_INT32);
-		CASE_DEFINE_RETURN_STRING(CL_HALF_FLOAT);
-		CASE_DEFINE_RETURN_STRING(CL_FLOAT);
-		CASE_DEFINE_RETURN_STRING(CL_UNORM_INT24);
-	default:
-		return "Not Recognized";
-	}
+    switch (ct)
+    {
+        CASE_DEFINE_RETURN_STRING(CL_SNORM_INT8);
+        CASE_DEFINE_RETURN_STRING(CL_SNORM_INT16);
+        CASE_DEFINE_RETURN_STRING(CL_UNORM_INT8);
+        CASE_DEFINE_RETURN_STRING(CL_UNORM_INT16);
+        CASE_DEFINE_RETURN_STRING(CL_UNORM_SHORT_565);
+        CASE_DEFINE_RETURN_STRING(CL_UNORM_SHORT_555);
+        CASE_DEFINE_RETURN_STRING(CL_UNORM_INT_101010);
+        CASE_DEFINE_RETURN_STRING(CL_SIGNED_INT8);
+        CASE_DEFINE_RETURN_STRING(CL_SIGNED_INT16);
+        CASE_DEFINE_RETURN_STRING(CL_SIGNED_INT32);
+        CASE_DEFINE_RETURN_STRING(CL_UNSIGNED_INT8);
+        CASE_DEFINE_RETURN_STRING(CL_UNSIGNED_INT16);
+        CASE_DEFINE_RETURN_STRING(CL_UNSIGNED_INT32);
+        CASE_DEFINE_RETURN_STRING(CL_HALF_FLOAT);
+        CASE_DEFINE_RETURN_STRING(CL_FLOAT);
+        CASE_DEFINE_RETURN_STRING(CL_UNORM_INT24);
+    default:
+        return "Not Recognized";
+    }
 }
 
 const string imageFormatToString (const cl_image_format& format){
-	return "{" + channelOrderToString(format.image_channel_order) + ", " + channelTypeToString(format.image_channel_data_type) + "}";
+    return "{" + channelOrderToString(format.image_channel_order) + ", " + channelTypeToString(format.image_channel_data_type) + "}";
 }
 
 const string memTypeToString(const cl_mem_object_type& mo)
 {
-	switch (mo) {
-		CASE_DEFINE_RETURN_STRING(CL_MEM_OBJECT_BUFFER);
-		CASE_DEFINE_RETURN_STRING(CL_MEM_OBJECT_IMAGE2D);
-		CASE_DEFINE_RETURN_STRING(CL_MEM_OBJECT_IMAGE3D);
-		CASE_DEFINE_RETURN_STRING(CL_MEM_OBJECT_IMAGE2D_ARRAY);
-		CASE_DEFINE_RETURN_STRING(CL_MEM_OBJECT_IMAGE1D);
-		CASE_DEFINE_RETURN_STRING(CL_MEM_OBJECT_IMAGE1D_ARRAY);
-		CASE_DEFINE_RETURN_STRING(CL_MEM_OBJECT_IMAGE1D_BUFFER);
-		CASE_DEFINE_RETURN_STRING(CL_MEM_OBJECT_PIPE);
-	default:
-		return "Not Recognized";
-	}
+    switch (mo)
+    {
+        CASE_DEFINE_RETURN_STRING(CL_MEM_OBJECT_BUFFER);
+        CASE_DEFINE_RETURN_STRING(CL_MEM_OBJECT_IMAGE2D);
+        CASE_DEFINE_RETURN_STRING(CL_MEM_OBJECT_IMAGE3D);
+        CASE_DEFINE_RETURN_STRING(CL_MEM_OBJECT_IMAGE2D_ARRAY);
+        CASE_DEFINE_RETURN_STRING(CL_MEM_OBJECT_IMAGE1D);
+        CASE_DEFINE_RETURN_STRING(CL_MEM_OBJECT_IMAGE1D_ARRAY);
+        CASE_DEFINE_RETURN_STRING(CL_MEM_OBJECT_IMAGE1D_BUFFER);
+        CASE_DEFINE_RETURN_STRING(CL_MEM_OBJECT_PIPE);
+    default:
+        return "Not Recognized";
+    }
 }
 
 const string memFlagsToString(const cl_mem_flags& flags)
 {
-	string str = "";
-	IF_DEFINE_APPEND_STRING_DEFAULT(flags,CL_MEM_READ_WRITE,str); 
-	IF_DEFINE_APPEND_STRING_DEFAULT(flags,CL_MEM_WRITE_ONLY,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(flags,CL_MEM_READ_ONLY,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(flags,CL_MEM_USE_HOST_PTR,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(flags,CL_MEM_ALLOC_HOST_PTR,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(flags,CL_MEM_COPY_HOST_PTR,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(flags,CL_MEM_HOST_WRITE_ONLY,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(flags,CL_MEM_HOST_READ_ONLY,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(flags,CL_MEM_HOST_NO_ACCESS,str);
-	if ( flags == 0)
-		return "None";
-	if ( str == "")
-		return "Not Recognized: " + stringify(flags);
+    string str = "";
+    IF_DEFINE_APPEND_STRING_DEFAULT(flags,CL_MEM_READ_WRITE,str);
+    IF_DEFINE_APPEND_STRING_DEFAULT(flags,CL_MEM_WRITE_ONLY,str);
+    IF_DEFINE_APPEND_STRING_DEFAULT(flags,CL_MEM_READ_ONLY,str);
+    IF_DEFINE_APPEND_STRING_DEFAULT(flags,CL_MEM_USE_HOST_PTR,str);
+    IF_DEFINE_APPEND_STRING_DEFAULT(flags,CL_MEM_ALLOC_HOST_PTR,str);
+    IF_DEFINE_APPEND_STRING_DEFAULT(flags,CL_MEM_COPY_HOST_PTR,str);
+    IF_DEFINE_APPEND_STRING_DEFAULT(flags,CL_MEM_HOST_WRITE_ONLY,str);
+    IF_DEFINE_APPEND_STRING_DEFAULT(flags,CL_MEM_HOST_READ_ONLY,str);
+    IF_DEFINE_APPEND_STRING_DEFAULT(flags,CL_MEM_HOST_NO_ACCESS,str);
+    if ( flags == 0)
+    {
+        return "None";
+    }
+    if ( str == "")
+    {
+        return "Not Recognized: " + stringify(flags);
+    }
 
-	return str.substr(strlen(DEFAULT_PREFIX)); //we don't want the first prefix
+    return str.substr(strlen(DEFAULT_PREFIX)); //we don't want the first prefix
 }
 
 const string addressingModeToString(const cl_addressing_mode& am)
 {
-	switch (am) {
-		CASE_DEFINE_RETURN_STRING(CL_ADDRESS_NONE);
-		CASE_DEFINE_RETURN_STRING(CL_ADDRESS_CLAMP_TO_EDGE);
-		CASE_DEFINE_RETURN_STRING(CL_ADDRESS_CLAMP);
-		CASE_DEFINE_RETURN_STRING(CL_ADDRESS_REPEAT);
-		CASE_DEFINE_RETURN_STRING(CL_ADDRESS_MIRRORED_REPEAT);
-	default:
-		return "Not Recognized";
-	}
+    switch (am)
+    {
+        CASE_DEFINE_RETURN_STRING(CL_ADDRESS_NONE);
+        CASE_DEFINE_RETURN_STRING(CL_ADDRESS_CLAMP_TO_EDGE);
+        CASE_DEFINE_RETURN_STRING(CL_ADDRESS_CLAMP);
+        CASE_DEFINE_RETURN_STRING(CL_ADDRESS_REPEAT);
+        CASE_DEFINE_RETURN_STRING(CL_ADDRESS_MIRRORED_REPEAT);
+    default:
+        return "Not Recognized";
+    }
 }
 
 const string filteringModeToString(const cl_filter_mode& fm)
 {
-	switch (fm) {
-		CASE_DEFINE_RETURN_STRING(CL_FILTER_LINEAR);
-		CASE_DEFINE_RETURN_STRING(CL_FILTER_NEAREST);
-	default:
-		return "Not Recognized";
-	}
+    switch (fm) {
+        CASE_DEFINE_RETURN_STRING(CL_FILTER_LINEAR);
+        CASE_DEFINE_RETURN_STRING(CL_FILTER_NEAREST);
+    default:
+        return "Not Recognized";
+    }
 }
 
 
 const string commandQueuePropertiesToString(const cl_command_queue_properties& prop){
-	string str = "";
-	IF_DEFINE_APPEND_STRING_DEFAULT(prop,CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(prop,CL_QUEUE_PROFILING_ENABLE,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(prop,CL_QUEUE_ON_DEVICE,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(prop,CL_QUEUE_ON_DEVICE_DEFAULT,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(prop,CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL,str);
-	//IF_DEFINE_APPEND_STRING_DEFAULT(prop,CL_QUEUE_IMMEDIATE_EXECUTION_ENABLE_EXT,str); //TODO: extension, add?
-	if ( prop == 0)
-		return "None";
-	if ( str == "")
-		return "Not Recognized: " + stringify(prop);
+    string str = "";
+    IF_DEFINE_APPEND_STRING_DEFAULT(prop,CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE,str);
+    IF_DEFINE_APPEND_STRING_DEFAULT(prop,CL_QUEUE_PROFILING_ENABLE,str);
+    IF_DEFINE_APPEND_STRING_DEFAULT(prop,CL_QUEUE_ON_DEVICE,str);
+    IF_DEFINE_APPEND_STRING_DEFAULT(prop,CL_QUEUE_ON_DEVICE_DEFAULT,str);
+    IF_DEFINE_APPEND_STRING_DEFAULT(prop,CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL,str);
+    //IF_DEFINE_APPEND_STRING_DEFAULT(prop,CL_QUEUE_IMMEDIATE_EXECUTION_ENABLE_EXT,str); //TODO: extension, add?
+    if ( prop == 0)
+        return "None";
+    if ( str == "")
+        return "Not Recognized: " + stringify(prop);
 
-	return  str.substr(strlen(DEFAULT_PREFIX));
+    return  str.substr(strlen(DEFAULT_PREFIX));
 }
 
 const string deviceTypeToString(const cl_device_type& type)
@@ -491,181 +498,186 @@ const string deviceTypeToString(const cl_device_type& type)
 }
 const string fpConfigToString(const cl_device_fp_config& fp_config)
 {
-	string str = "";
-	IF_DEFINE_APPEND_STRING_DEFAULT(fp_config,CL_FP_DENORM,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(fp_config,CL_FP_INF_NAN,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(fp_config,CL_FP_ROUND_TO_NEAREST,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(fp_config,CL_FP_ROUND_TO_ZERO,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(fp_config,CL_FP_ROUND_TO_INF,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(fp_config,CL_FP_FMA,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(fp_config,CL_FP_SOFT_FLOAT,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(fp_config,CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT,str);
-	if ( fp_config == 0)
-		return "None";
-	if ( str == "")
-		return "Not Recognized: " + stringify(fp_config);
+    string str = "";
+    IF_DEFINE_APPEND_STRING_DEFAULT(fp_config,CL_FP_DENORM,str);
+    IF_DEFINE_APPEND_STRING_DEFAULT(fp_config,CL_FP_INF_NAN,str);
+    IF_DEFINE_APPEND_STRING_DEFAULT(fp_config,CL_FP_ROUND_TO_NEAREST,str);
+    IF_DEFINE_APPEND_STRING_DEFAULT(fp_config,CL_FP_ROUND_TO_ZERO,str);
+    IF_DEFINE_APPEND_STRING_DEFAULT(fp_config,CL_FP_ROUND_TO_INF,str);
+    IF_DEFINE_APPEND_STRING_DEFAULT(fp_config,CL_FP_FMA,str);
+    IF_DEFINE_APPEND_STRING_DEFAULT(fp_config,CL_FP_SOFT_FLOAT,str);
+    IF_DEFINE_APPEND_STRING_DEFAULT(fp_config,CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT,str);
+    if ( fp_config == 0)
+        return "None";
+    if ( str == "")
+        return "Not Recognized: " + stringify(fp_config);
 
-	return str.substr(strlen(DEFAULT_PREFIX));
+    return str.substr(strlen(DEFAULT_PREFIX));
 }
 
 const string memCacheTypeToString(const cl_device_mem_cache_type& memType)
 {
-	switch (memType) {
-		CASE_DEFINE_RETURN_STRING(CL_NONE);
-		CASE_DEFINE_RETURN_STRING(CL_READ_ONLY_CACHE);
-		CASE_DEFINE_RETURN_STRING(CL_READ_WRITE_CACHE);
-	default:
-		return "Not Recognized";
-	}
+    switch (memType) {
+        CASE_DEFINE_RETURN_STRING(CL_NONE);
+        CASE_DEFINE_RETURN_STRING(CL_READ_ONLY_CACHE);
+        CASE_DEFINE_RETURN_STRING(CL_READ_WRITE_CACHE);
+    default:
+        return "Not Recognized";
+    }
 }
 
 
 const string localMemTypeToString(const cl_device_local_mem_type& memType)
 {
-	switch (memType) {
-		CASE_DEFINE_RETURN_STRING(CL_LOCAL);
-		CASE_DEFINE_RETURN_STRING(CL_GLOBAL);
-	default:
-		return "Not Recognized";
-	}
+    switch (memType) {
+        CASE_DEFINE_RETURN_STRING(CL_LOCAL);
+        CASE_DEFINE_RETURN_STRING(CL_GLOBAL);
+    default:
+        return "Not Recognized";
+    }
 }
 
 const string execCapabilitiesToString(const cl_device_exec_capabilities& execCap)
 {
-	string str = "";
-	IF_DEFINE_APPEND_STRING_DEFAULT(execCap,CL_EXEC_KERNEL,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(execCap,CL_EXEC_NATIVE_KERNEL,str);
-	if ( execCap == 0)
-		return "None";
-	if ( str == "")
-		return "Not Recognized: " + stringify(execCap);
+    string str = "";
+    IF_DEFINE_APPEND_STRING_DEFAULT(execCap,CL_EXEC_KERNEL,str);
+    IF_DEFINE_APPEND_STRING_DEFAULT(execCap,CL_EXEC_NATIVE_KERNEL,str);
+    if ( execCap == 0)
+        return "None";
+    if ( str == "")
+        return "Not Recognized: " + stringify(execCap);
 
-	return str.substr(strlen(DEFAULT_PREFIX));
+    return str.substr(strlen(DEFAULT_PREFIX));
 }
 
 const string commandTypeToString(const cl_command_type& type)
 {
-	switch (type) {
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_NDRANGE_KERNEL);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_TASK);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_NATIVE_KERNEL);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_READ_BUFFER);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_WRITE_BUFFER);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_COPY_BUFFER);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_READ_IMAGE);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_WRITE_IMAGE);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_COPY_IMAGE);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_COPY_IMAGE_TO_BUFFER);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_COPY_BUFFER_TO_IMAGE);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_MAP_BUFFER);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_MAP_IMAGE);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_UNMAP_MEM_OBJECT);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_MARKER);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_ACQUIRE_GL_OBJECTS);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_RELEASE_GL_OBJECTS);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_READ_BUFFER_RECT);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_WRITE_BUFFER_RECT);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_COPY_BUFFER_RECT);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_USER);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_BARRIER);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_MIGRATE_MEM_OBJECTS);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_FILL_BUFFER);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_FILL_IMAGE);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_SVM_FREE);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_SVM_MEMCPY);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_SVM_MEMFILL);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_SVM_MAP);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_SVM_UNMAP);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_GL_FENCE_SYNC_OBJECT_KHR);
-		#ifdef WIN32
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_ACQUIRE_D3D10_OBJECTS_KHR);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_RELEASE_D3D10_OBJECTS_KHR);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_ACQUIRE_D3D11_OBJECTS_KHR);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_RELEASE_D3D11_OBJECTS_KHR);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_ACQUIRE_DX9_MEDIA_SURFACES_KHR);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_RELEASE_DX9_MEDIA_SURFACES_KHR);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_ACQUIRE_DX9_OBJECTS_INTEL);
-		CASE_DEFINE_RETURN_STRING(CL_COMMAND_RELEASE_DX9_OBJECTS_INTEL);
-		#endif
-	default:
-		return "Not Recognized";
-	}
+    switch (type) {
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_NDRANGE_KERNEL);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_TASK);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_NATIVE_KERNEL);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_READ_BUFFER);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_WRITE_BUFFER);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_COPY_BUFFER);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_READ_IMAGE);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_WRITE_IMAGE);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_COPY_IMAGE);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_COPY_IMAGE_TO_BUFFER);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_COPY_BUFFER_TO_IMAGE);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_MAP_BUFFER);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_MAP_IMAGE);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_UNMAP_MEM_OBJECT);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_MARKER);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_ACQUIRE_GL_OBJECTS);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_RELEASE_GL_OBJECTS);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_READ_BUFFER_RECT);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_WRITE_BUFFER_RECT);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_COPY_BUFFER_RECT);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_USER);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_BARRIER);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_MIGRATE_MEM_OBJECTS);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_FILL_BUFFER);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_FILL_IMAGE);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_SVM_FREE);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_SVM_MEMCPY);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_SVM_MEMFILL);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_SVM_MAP);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_SVM_UNMAP);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_GL_FENCE_SYNC_OBJECT_KHR);
+        #ifdef WIN32
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_ACQUIRE_D3D10_OBJECTS_KHR);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_RELEASE_D3D10_OBJECTS_KHR);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_ACQUIRE_D3D11_OBJECTS_KHR);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_RELEASE_D3D11_OBJECTS_KHR);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_ACQUIRE_DX9_MEDIA_SURFACES_KHR);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_RELEASE_DX9_MEDIA_SURFACES_KHR);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_ACQUIRE_DX9_OBJECTS_INTEL);
+        CASE_DEFINE_RETURN_STRING(CL_COMMAND_RELEASE_DX9_OBJECTS_INTEL);
+        #endif
+    default:
+        return "Not Recognized";
+    }
 }
 
 const string executionStatusToString(const cl_int& status)
 {
-	switch (status) {
-		CASE_DEFINE_RETURN_STRING(CL_COMPLETE);
-		CASE_DEFINE_RETURN_STRING(CL_RUNNING);
-		CASE_DEFINE_RETURN_STRING(CL_SUBMITTED);
-		CASE_DEFINE_RETURN_STRING(CL_QUEUED);
-	default:
-		return "Not Recognized";
-	}
+    switch (status) {
+        CASE_DEFINE_RETURN_STRING(CL_COMPLETE);
+        CASE_DEFINE_RETURN_STRING(CL_RUNNING);
+        CASE_DEFINE_RETURN_STRING(CL_SUBMITTED);
+        CASE_DEFINE_RETURN_STRING(CL_QUEUED);
+    default:
+        return "Not Recognized";
+    }
 }
 
 const string buildStatusToString(const cl_build_status& status)
 {
-	switch (status) {
-		CASE_DEFINE_RETURN_STRING(CL_BUILD_NONE);
-		CASE_DEFINE_RETURN_STRING(CL_BUILD_SUCCESS);
-		CASE_DEFINE_RETURN_STRING(CL_BUILD_ERROR);
-		CASE_DEFINE_RETURN_STRING(CL_BUILD_IN_PROGRESS);
-	default:
-		return "Not Recognized";
-	}
+    switch (status) {
+        CASE_DEFINE_RETURN_STRING(CL_BUILD_NONE);
+        CASE_DEFINE_RETURN_STRING(CL_BUILD_SUCCESS);
+        CASE_DEFINE_RETURN_STRING(CL_BUILD_ERROR);
+        CASE_DEFINE_RETURN_STRING(CL_BUILD_IN_PROGRESS);
+    default:
+        return "Not Recognized";
+    }
 }
 
 const string binaryTypeToString(const cl_program_binary_type& type)
 {
-	switch (type) {
-		CASE_DEFINE_RETURN_STRING(CL_PROGRAM_BINARY_TYPE_NONE);
-		CASE_DEFINE_RETURN_STRING(CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT);
-		CASE_DEFINE_RETURN_STRING(CL_PROGRAM_BINARY_TYPE_LIBRARY);
-		CASE_DEFINE_RETURN_STRING(CL_PROGRAM_BINARY_TYPE_EXECUTABLE);
-		CASE_DEFINE_RETURN_STRING(CL_PROGRAM_BINARY_TYPE_INTERMEDIATE);
-	default:
-		return "Not Recognized";
-	}
+    switch (type) {
+        CASE_DEFINE_RETURN_STRING(CL_PROGRAM_BINARY_TYPE_NONE);
+        CASE_DEFINE_RETURN_STRING(CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT);
+        CASE_DEFINE_RETURN_STRING(CL_PROGRAM_BINARY_TYPE_LIBRARY);
+        CASE_DEFINE_RETURN_STRING(CL_PROGRAM_BINARY_TYPE_EXECUTABLE);
+        CASE_DEFINE_RETURN_STRING(CL_PROGRAM_BINARY_TYPE_INTERMEDIATE);
+    default:
+        return "Not Recognized";
+    }
 }
 
 const string addressQualifierToString_def(const cl_kernel_arg_address_qualifier& add)
 {
-	switch (add) {
-		CASE_DEFINE_RETURN_STRING(CL_KERNEL_ARG_ADDRESS_GLOBAL);
-		CASE_DEFINE_RETURN_STRING(CL_KERNEL_ARG_ADDRESS_LOCAL);
-		CASE_DEFINE_RETURN_STRING(CL_KERNEL_ARG_ADDRESS_CONSTANT);
-		CASE_DEFINE_RETURN_STRING(CL_KERNEL_ARG_ADDRESS_PRIVATE);
-	default:
-		return "Not Recognized";
-	}
+    switch (add) {
+        CASE_DEFINE_RETURN_STRING(CL_KERNEL_ARG_ADDRESS_GLOBAL);
+        CASE_DEFINE_RETURN_STRING(CL_KERNEL_ARG_ADDRESS_LOCAL);
+        CASE_DEFINE_RETURN_STRING(CL_KERNEL_ARG_ADDRESS_CONSTANT);
+        CASE_DEFINE_RETURN_STRING(CL_KERNEL_ARG_ADDRESS_PRIVATE);
+    default:
+        return "Not Recognized";
+    }
 }
 
 const string typeQualifierToString(const cl_kernel_arg_type_qualifier& type)
 {
-	string str = "";
-	IF_DEFINE_APPEND_STRING_DEFAULT(type,CL_KERNEL_ARG_TYPE_CONST,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(type,CL_KERNEL_ARG_TYPE_RESTRICT,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(type,CL_KERNEL_ARG_TYPE_VOLATILE,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(type,CL_KERNEL_ARG_TYPE_PIPE,str);
-	if ( type == 0) //	CL_KERNEL_ARG_TYPE_NONE = 0
-		return "CL_KERNEL_ARG_TYPE_NONE";
-	if ( str == "")
-		return "Not Recognized: " + stringify(type);
+    string str = "";
+    IF_DEFINE_APPEND_STRING_DEFAULT(type,CL_KERNEL_ARG_TYPE_CONST,str);
+    IF_DEFINE_APPEND_STRING_DEFAULT(type,CL_KERNEL_ARG_TYPE_RESTRICT,str);
+    IF_DEFINE_APPEND_STRING_DEFAULT(type,CL_KERNEL_ARG_TYPE_VOLATILE,str);
+    IF_DEFINE_APPEND_STRING_DEFAULT(type,CL_KERNEL_ARG_TYPE_PIPE,str);
+    if ( type == 0) //    CL_KERNEL_ARG_TYPE_NONE = 0
+    {
+        return "CL_KERNEL_ARG_TYPE_NONE";
+    }
 
-	return str.substr(strlen(DEFAULT_PREFIX));
+    if ( str == "")
+    {
+        return "Not Recognized: " + stringify(type);
+    }
+
+    return str.substr(strlen(DEFAULT_PREFIX));
 }
 
 const string accessQualifierToString_def(const cl_kernel_arg_access_qualifier& acc)
 {
-	switch (acc) {
-		CASE_DEFINE_RETURN_STRING(CL_KERNEL_ARG_ACCESS_READ_ONLY);
-		CASE_DEFINE_RETURN_STRING(CL_KERNEL_ARG_ACCESS_WRITE_ONLY);
-		CASE_DEFINE_RETURN_STRING(CL_KERNEL_ARG_ACCESS_READ_WRITE);
-		CASE_DEFINE_RETURN_STRING(CL_KERNEL_ARG_ACCESS_NONE);
-	default:
-		return "Not Recognized";
-	}
+    switch (acc) {
+        CASE_DEFINE_RETURN_STRING(CL_KERNEL_ARG_ACCESS_READ_ONLY);
+        CASE_DEFINE_RETURN_STRING(CL_KERNEL_ARG_ACCESS_WRITE_ONLY);
+        CASE_DEFINE_RETURN_STRING(CL_KERNEL_ARG_ACCESS_READ_WRITE);
+        CASE_DEFINE_RETURN_STRING(CL_KERNEL_ARG_ACCESS_NONE);
+    default:
+        return "Not Recognized";
+    }
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 // addressQualifierToString
@@ -915,27 +927,27 @@ cl_channel_type GetChannelTypeFromString(const string& Type)
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 cl_mem_object_type GetImageTypeFromString(const string& Type)
 {
-    if (Type == "CL_MEM_OBJECT_IMAGE1D")
+    if (Type == "CL_MEM_OBJECT_IMAGE1D" || Type == "image1d_t")
     {
         return CL_MEM_OBJECT_IMAGE1D;
     }
-    else if (Type == "CL_MEM_OBJECT_IMAGE1D_BUFFER")
+    else if (Type == "CL_MEM_OBJECT_IMAGE1D_BUFFER" || Type == "image1d_buffer_t")
     {
         return CL_MEM_OBJECT_IMAGE1D_BUFFER;
     }
-    else if (Type == "CL_MEM_OBJECT_IMAGE1D_ARRAY")
+    else if (Type == "CL_MEM_OBJECT_IMAGE1D_ARRAY"|| Type == "image1d_array_t")
     {
         return CL_MEM_OBJECT_IMAGE1D_ARRAY;
     }
-    else if (Type == "CL_MEM_OBJECT_IMAGE2D")
+    else if (Type == "CL_MEM_OBJECT_IMAGE2D"|| Type == "image2d_t")
     {
         return CL_MEM_OBJECT_IMAGE2D;
     }
-    else if (Type == "CL_MEM_OBJECT_IMAGE2D_ARRAY")
+    else if (Type == "CL_MEM_OBJECT_IMAGE2D_ARRAY"|| Type == "image2d_array_t")
     {
         return CL_MEM_OBJECT_IMAGE2D_ARRAY;
     }
-    else if (Type == "CL_MEM_OBJECT_IMAGE3D")
+    else if (Type == "CL_MEM_OBJECT_IMAGE3D"|| Type == "image3d_t")
     {
         return CL_MEM_OBJECT_IMAGE3D;
     }
@@ -1064,130 +1076,130 @@ cl_kernel_arg_access_qualifier GetAccessQualifierFromString(const std::string& A
 
 void clCopyMemoryRegion(SMemCpyParams* pCopyCmd)
 {
-	// Copy 1D array only
-	if ( 1 == pCopyCmd->uiDimCount )
-	{
-		//useless memcpy_s, this function is called from many different places
-		MEMCPY_S(pCopyCmd->pDst, pCopyCmd->vRegion[0], pCopyCmd->pSrc, pCopyCmd->vRegion[0]);
-		return;
-	}
+    // Copy 1D array only
+    if ( 1 == pCopyCmd->uiDimCount )
+    {
+        //useless memcpy_s, this function is called from many different places
+        MEMCPY_S(pCopyCmd->pDst, pCopyCmd->vRegion[0], pCopyCmd->pSrc, pCopyCmd->vRegion[0]);
+        return;
+    }
 
-	SMemCpyParams sRecParam;
+    SMemCpyParams sRecParam;
 
-	// Copy current parameters
-	memcpy(&sRecParam, pCopyCmd, sizeof(SMemCpyParams));
-	sRecParam.uiDimCount = pCopyCmd->uiDimCount-1;
-	// Make recursion
-	for(unsigned int i=0; i<pCopyCmd->vRegion[sRecParam.uiDimCount]; ++i)
-	{
-		clCopyMemoryRegion(&sRecParam);
-		sRecParam.pSrc = sRecParam.pSrc + pCopyCmd->vSrcPitch[sRecParam.uiDimCount-1];
-		sRecParam.pDst = sRecParam.pDst + pCopyCmd->vDstPitch[sRecParam.uiDimCount-1];
-	}
+    // Copy current parameters
+    memcpy(&sRecParam, pCopyCmd, sizeof(SMemCpyParams));
+    sRecParam.uiDimCount = pCopyCmd->uiDimCount-1;
+    // Make recursion
+    for(unsigned int i=0; i<pCopyCmd->vRegion[sRecParam.uiDimCount]; ++i)
+    {
+        clCopyMemoryRegion(&sRecParam);
+        sRecParam.pSrc = sRecParam.pSrc + pCopyCmd->vSrcPitch[sRecParam.uiDimCount-1];
+        sRecParam.pDst = sRecParam.pDst + pCopyCmd->vDstPitch[sRecParam.uiDimCount-1];
+    }
 }
 
 size_t clGetPixelBytesCount(const cl_image_format* pclImageFormat)
 {
-	if (NULL == pclImageFormat)
-	{
-		return 0;
-	}
-	size_t szBytesCount = 0, szElementsCount = 0;
+    if (NULL == pclImageFormat)
+    {
+        return 0;
+    }
+    size_t szBytesCount = 0, szElementsCount = 0;
 
-	// get size of element in bytes
-	switch(pclImageFormat->image_channel_data_type)
-	{
-	case CL_SNORM_INT8:
-	case CL_SIGNED_INT8:
-		szBytesCount = sizeof(cl_char);
-		break;
-	case CL_UNORM_INT8:
-	case CL_UNSIGNED_INT8:
-		szBytesCount = sizeof(cl_uchar);
-		break;
-	case CL_SNORM_INT16:
-	case CL_SIGNED_INT16:
-		szBytesCount = sizeof(cl_short);
-		break;
-	case CL_UNORM_SHORT_565:
-	case CL_UNORM_SHORT_555:
-	case CL_UNORM_INT16:
-	case CL_UNSIGNED_INT16:
-		szBytesCount = sizeof(cl_ushort);
-		break;
-	case CL_SIGNED_INT32:
-	case CL_UNORM_INT_101010:
-		szBytesCount = sizeof(cl_int);
-		break;
-	case CL_UNSIGNED_INT32:
-		szBytesCount = sizeof(cl_uint);
-		break;
-	case CL_HALF_FLOAT:
-		szBytesCount = sizeof(cl_half);
-		break;
-	case CL_FLOAT:
-		szBytesCount = sizeof(cl_float);
-		break;
-	default:
-		return 0;
-	}
+    // get size of element in bytes
+    switch(pclImageFormat->image_channel_data_type)
+    {
+    case CL_SNORM_INT8:
+    case CL_SIGNED_INT8:
+        szBytesCount = sizeof(cl_char);
+        break;
+    case CL_UNORM_INT8:
+    case CL_UNSIGNED_INT8:
+        szBytesCount = sizeof(cl_uchar);
+        break;
+    case CL_SNORM_INT16:
+    case CL_SIGNED_INT16:
+        szBytesCount = sizeof(cl_short);
+        break;
+    case CL_UNORM_SHORT_565:
+    case CL_UNORM_SHORT_555:
+    case CL_UNORM_INT16:
+    case CL_UNSIGNED_INT16:
+        szBytesCount = sizeof(cl_ushort);
+        break;
+    case CL_SIGNED_INT32:
+    case CL_UNORM_INT_101010:
+        szBytesCount = sizeof(cl_int);
+        break;
+    case CL_UNSIGNED_INT32:
+        szBytesCount = sizeof(cl_uint);
+        break;
+    case CL_HALF_FLOAT:
+        szBytesCount = sizeof(cl_half);
+        break;
+    case CL_FLOAT:
+        szBytesCount = sizeof(cl_float);
+        break;
+    default:
+        return 0;
+    }
 
-	// get number of elements in pixel
-	switch(pclImageFormat->image_channel_order)
-	{
-	case CL_R:
-	case CL_A:
-		szElementsCount = 1;
-		break;
-	case CL_RG:
-	case CL_RA:
-		szElementsCount = 2;
-		break;
-	case CL_RGB:
-		szElementsCount = 1;
-		break;
-	case CL_RGBA:
-		szElementsCount = 4;
-		break;
-	case CL_BGRA:
-	case CL_ARGB:
-	case CL_ABGR:
-		if (CL_UNORM_INT8 != pclImageFormat->image_channel_data_type && CL_SNORM_INT8 != pclImageFormat->image_channel_data_type && CL_SIGNED_INT8 != pclImageFormat->image_channel_data_type &&
-			CL_UNSIGNED_INT8 != pclImageFormat->image_channel_data_type)
-		{
-			return 0;
-		}
-		szElementsCount = 4;
-		break;
-	case CL_LUMINANCE:
-	case CL_INTENSITY:
-		szElementsCount = 1;
-		break;
-	case CL_DEPTH:
-		if (CL_UNORM_INT16 != pclImageFormat->image_channel_data_type && CL_FLOAT != pclImageFormat->image_channel_data_type)	// this isn't allowed
-		{
-			return 0;
-		}
-		return 1;
-	case CL_sRGB:
-	case CL_sRGBx:
-		if (CL_UNORM_INT8 != pclImageFormat->image_channel_data_type)
-		{
-			return 0;
-		}
-		return 3;
-	case CL_sRGBA:
-	case CL_sBGRA:
-		if (CL_UNORM_INT8 != pclImageFormat->image_channel_data_type)
-		{
-			return 0;
-		}
-		return 4;
-	default:
-		return 0;
-	}
+    // get number of elements in pixel
+    switch(pclImageFormat->image_channel_order)
+    {
+    case CL_R:
+    case CL_A:
+        szElementsCount = 1;
+        break;
+    case CL_RG:
+    case CL_RA:
+        szElementsCount = 2;
+        break;
+    case CL_RGB:
+        szElementsCount = 1;
+        break;
+    case CL_RGBA:
+        szElementsCount = 4;
+        break;
+    case CL_BGRA:
+    case CL_ARGB:
+    case CL_ABGR:
+        if (CL_UNORM_INT8 != pclImageFormat->image_channel_data_type && CL_SNORM_INT8 != pclImageFormat->image_channel_data_type && CL_SIGNED_INT8 != pclImageFormat->image_channel_data_type &&
+            CL_UNSIGNED_INT8 != pclImageFormat->image_channel_data_type)
+        {
+            return 0;
+        }
+        szElementsCount = 4;
+        break;
+    case CL_LUMINANCE:
+    case CL_INTENSITY:
+        szElementsCount = 1;
+        break;
+    case CL_DEPTH:
+        if (CL_UNORM_INT16 != pclImageFormat->image_channel_data_type && CL_FLOAT != pclImageFormat->image_channel_data_type)    // this isn't allowed
+        {
+            return 0;
+        }
+        return 1;
+    case CL_sRGB:
+    case CL_sRGBx:
+        if (CL_UNORM_INT8 != pclImageFormat->image_channel_data_type)
+        {
+            return 0;
+        }
+        return 3;
+    case CL_sRGBA:
+    case CL_sBGRA:
+        if (CL_UNORM_INT8 != pclImageFormat->image_channel_data_type)
+        {
+            return 0;
+        }
+        return 4;
+    default:
+        return 0;
+    }
 
-	return szBytesCount * szElementsCount;
+    return szBytesCount * szElementsCount;
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -1390,43 +1402,43 @@ float half2float( cl_ushort us )
 
 void CopyPattern(const void* pPattern, size_t szPatternSize, void* pBuffer, size_t szBufferSize)
 {
-	if (szPatternSize > sizeof(long long) || szBufferSize < sizeof(long long))
-	{
-		// for long patterns do memcpy
-		for (size_t offset=0 ; offset < szBufferSize ; offset += szPatternSize)
-		{		
-			// using memcpy intentionally, because MEMCPY_S has too much overhead in this loop
-			memcpy((char*)pBuffer + offset, pPattern, szPatternSize);
-		}
-	}
-	else if (szPatternSize > 1)
-	{
-		// for patterns the size of long long or smaller (but not a single byte) do direct assignments and save the overhead of calling memcpy
-		long long llPatten = 0;
-		for (size_t i = 0; i < sizeof(llPatten) / szPatternSize; i++)
-		{
-			// using memcpy intentionally, because MEMCPY_S has too much overhead in this loop
-			memcpy((char*)&llPatten + i * szPatternSize, pPattern, szPatternSize);
-		}
-		for (size_t offset = 0; offset < (szBufferSize % sizeof(llPatten) == 0 ? szBufferSize : szBufferSize - sizeof(llPatten)); offset += sizeof(llPatten))
-		{
-			*(long long*)((char*)pBuffer + offset) = llPatten;
-		}
-		// deal with the reminder
-		if (szBufferSize % sizeof(llPatten) != 0)
-		{
-			for (size_t offset = szBufferSize - szBufferSize % sizeof(llPatten); offset < szBufferSize; offset += szPatternSize)
-			{
-				// using memcpy intentionally, because MEMCPY_S has too much overhead in this loop
-				memcpy((char*)pBuffer + offset, pPattern, szPatternSize);
-			}			
-		}
-	}
-	else
-	{
-		// for single-byte patterns memset is the fastest
-		memset(pBuffer, ((char*)pPattern)[0], szBufferSize);
-	}
+    if (szPatternSize > sizeof(long long) || szBufferSize < sizeof(long long))
+    {
+        // for long patterns do memcpy
+        for (size_t offset=0 ; offset < szBufferSize ; offset += szPatternSize)
+        {        
+            // using memcpy intentionally, because MEMCPY_S has too much overhead in this loop
+            memcpy((char*)pBuffer + offset, pPattern, szPatternSize);
+        }
+    }
+    else if (szPatternSize > 1)
+    {
+        // for patterns the size of long long or smaller (but not a single byte) do direct assignments and save the overhead of calling memcpy
+        long long llPatten = 0;
+        for (size_t i = 0; i < sizeof(llPatten) / szPatternSize; i++)
+        {
+            // using memcpy intentionally, because MEMCPY_S has too much overhead in this loop
+            memcpy((char*)&llPatten + i * szPatternSize, pPattern, szPatternSize);
+        }
+        for (size_t offset = 0; offset < (szBufferSize % sizeof(llPatten) == 0 ? szBufferSize : szBufferSize - sizeof(llPatten)); offset += sizeof(llPatten))
+        {
+            *(long long*)((char*)pBuffer + offset) = llPatten;
+        }
+        // deal with the reminder
+        if (szBufferSize % sizeof(llPatten) != 0)
+        {
+            for (size_t offset = szBufferSize - szBufferSize % sizeof(llPatten); offset < szBufferSize; offset += szPatternSize)
+            {
+                // using memcpy intentionally, because MEMCPY_S has too much overhead in this loop
+                memcpy((char*)pBuffer + offset, pPattern, szPatternSize);
+            }            
+        }
+    }
+    else
+    {
+        // for single-byte patterns memset is the fastest
+        memset(pBuffer, ((char*)pPattern)[0], szBufferSize);
+    }
 }
 
 std::string GetConfigFilePath()
