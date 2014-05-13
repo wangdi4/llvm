@@ -25,18 +25,40 @@
 #include "stdafx.h"
 
 #include "isp_device.h"
+#include "isp_logger.h"
 
-#include <cl_sys_defines.h>
+#include <buildversion.h>
+#include <cl_sys_info.h>
 
+#include <string>
+#include <sstream>
 
-// TODO: remove this include
-#include <iostream>
+//TODO
+//#include <iostream>
+
+// TODO: verify this, change to 3
+#define ISP_MAX_WORK_ITEM_DIMENSIONS 1
+#define ISP_MAX_WORK_GROUP_SIZE 1
+static const size_t ISP_MAX_WORK_ITEM_SIZES[ISP_MAX_WORK_ITEM_DIMENSIONS] =
+{
+    ISP_MAX_WORK_GROUP_SIZE
+};
+
+#define ISP_GLOBAL_MEM_SIZE Intel::OpenCL::Utils::TotalPhysicalSize()
+
+#define VENDOR_STRING "Intel(R) Corporation"
 
 using namespace Intel::OpenCL::ISPDevice;
 
-char clISPDEVICE_CFG_PATH[MAX_PATH];
-
-ISPDevice::ISPDevice()
+ISPDevice::ISPDevice(cl_uint uiDevId, IOCLFrameworkCallbacks* frameworkCallbacks, IOCLDevLogDescriptor *logDesc) :
+    m_uiIspId(uiDevId),
+    m_pLogDescriptor(logDesc),
+    m_iLogHandle(0),
+    m_pFrameworkCallbacks(frameworkCallbacks),
+    m_pCameraShim(NULL),
+    m_pProgramService(NULL),
+    m_pMemoryAllocator(NULL),
+    m_pTaskDispatcher(NULL)
 {
 }
 
@@ -44,6 +66,69 @@ ISPDevice::~ISPDevice()
 {
 }
 
+cl_dev_err_code ISPDevice::Init()
+{
+    cl_dev_err_code ret = CL_DEV_SUCCESS;
+
+    // create the logger client before anything else
+    if (NULL != m_pLogDescriptor)
+    {
+        ret = (cl_dev_err_code) m_pLogDescriptor->clLogCreateClient(m_uiIspId, "ISP Device", &m_iLogHandle);
+        if (CL_DEV_FAILED(ret))
+        {
+            return CL_DEV_ERROR_FAIL;
+        }
+    }
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("ISPDevice initialize enter"));
+
+    // TODO: Hard-coded app name...
+    // TODO: change CameraShim to ISPCameraService
+    m_pCameraShim = CameraShim::instance("com.example.opencldemo", 0);
+    if (NULL == m_pCameraShim)
+    {
+        IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Connecting to Camera Service has failed"));
+        return CL_DEV_ERROR_FAIL;
+    }
+
+    m_pProgramService = new ISPProgramService(m_uiIspId, m_pLogDescriptor, m_pCameraShim);
+    if (NULL != m_pProgramService)
+    {
+        IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Cannot allocate memory for ISP program service"));
+        return CL_DEV_OUT_OF_MEMORY;
+    }
+    ret = m_pProgramService->Init();
+    if (CL_DEV_FAILED(ret))
+    {
+        IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Initializing ISP program service has failed"));
+        return CL_DEV_ERROR_FAIL;
+    }
+
+    m_pMemoryAllocator = new ISPMemoryAllocator(m_uiIspId, m_pLogDescriptor, ISP_GLOBAL_MEM_SIZE);
+    if (NULL != m_pMemoryAllocator)
+    {
+        IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Cannot allocate memory for ISP memory allocator"));
+        return CL_DEV_OUT_OF_MEMORY;
+    }
+    ret = m_pMemoryAllocator->Init();
+    if (CL_DEV_FAILED(ret))
+    {
+        IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Initializing ISP memory allocator has failed"));
+        return CL_DEV_ERROR_FAIL;
+    }
+
+    m_pTaskDispatcher = new ISPTaskDispatcher(m_uiIspId, m_pLogDescriptor, m_pFrameworkCallbacks, m_pCameraShim);
+    if (NULL != m_pTaskDispatcher)
+    {
+        IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Cannot allocate memory for ISP task dispatcher"));
+        return CL_DEV_OUT_OF_MEMORY;
+    }
+    ret = m_pTaskDispatcher->Init();
+    if (CL_DEV_FAILED(ret))
+    {
+        IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Initializing ISP task dispatcher has failed"));
+        return CL_DEV_ERROR_FAIL;
+    }
+}
 
 //Device Information function prototypes
 /************************************************************************************************************************
@@ -63,13 +148,13 @@ ISPDevice::~ISPDevice()
         CL_DEV_SUCCESS          If functions is executed successfully.
         CL_DEV_INVALID_VALUE    If param_name is not one of the supported values or if size in bytes specified by paramValSize is < size of return type as specified in OCL spec. table 4.3 and paramVal is not a NULL value
 **************************************************************************************************************************/
-cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_info IN param, size_t IN valSize, void* OUT paramVal,
-                size_t* OUT paramValSizeRet)
+cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_info IN param, size_t IN valSize,
+                                              void* OUT paramVal, size_t* OUT paramValSizeRet)
 {
     size_t  internalRetunedValueSize = valSize;
     size_t  *pinternalRetunedValueSize;
 
-    //if OUT paramValSize_ret is NULL it should be ignopred
+    //if OUT paramValSize_ret is NULL it should be ignored
     if(paramValSizeRet)
     {
         pinternalRetunedValueSize = paramValSizeRet;
@@ -79,7 +164,6 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         pinternalRetunedValueSize = &internalRetunedValueSize;
     }
 
-    // TODO: Not implemented yet
     switch (param)
     {
         case (CL_DEVICE_TYPE):
@@ -98,46 +182,127 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         }
 
         case (CL_DEVICE_VENDOR_ID):
+        {
+            *pinternalRetunedValueSize = sizeof(cl_uint);
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+                    *(cl_uint*)paramVal = 0x8086;
+            }
+            return CL_DEV_SUCCESS;
+        }
+
         case (CL_DEVICE_PARTITION_MAX_SUB_DEVICES):
+        {
+            *pinternalRetunedValueSize = sizeof(cl_uint);
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+                // No device partitions for now
+                *(cl_uint*)paramVal = 0;
+            }
+            return CL_DEV_SUCCESS;
+        }
+
         case (CL_DEVICE_MAX_COMPUTE_UNITS):
-        case (CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR):
-        case (CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT):
-        case (CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT):
-        case (CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT):
-        case (CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG):
-        case (CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE):
-        case (CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF ):
-        case (CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR ):
-        case (CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT):
-        case (CL_DEVICE_NATIVE_VECTOR_WIDTH_INT):
-        case (CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT):
-        case (CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG):
-        case (CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF ):
-        case (CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE):
-        case (CL_DEVICE_IMAGE_SUPPORT):
-        case (CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE):
-        case (CL_DEVICE_SINGLE_FP_CONFIG):
-        case (CL_DEVICE_DOUBLE_FP_CONFIG):
-        case (CL_DEVICE_IMAGE2D_MAX_WIDTH):
-        case (CL_DEVICE_IMAGE2D_MAX_HEIGHT):
-        case (CL_DEVICE_IMAGE3D_MAX_WIDTH):
-        case (CL_DEVICE_IMAGE3D_MAX_HEIGHT):
-        case (CL_DEVICE_IMAGE3D_MAX_DEPTH):
-        case (CL_DEVICE_MAX_PARAMETER_SIZE):
-        case (CL_DEVICE_MAX_SAMPLERS):
-        case (CL_DEVICE_MAX_READ_IMAGE_ARGS):
-        case (CL_DEVICE_MAX_WRITE_IMAGE_ARGS):
-        case (CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE):
-        case (CL_DEVICE_MAX_CONSTANT_ARGS ):
-        case (CL_DEVICE_MEM_BASE_ADDR_ALIGN):
+        {
+            *pinternalRetunedValueSize = sizeof(cl_uint);
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+                *(cl_uint*)paramVal = 1;
+            }
+            return CL_DEV_SUCCESS;
+        }
+
         case (CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS):
+        {
+            *pinternalRetunedValueSize = sizeof(cl_uint);
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+                *(cl_uint*)paramVal = ISP_MAX_WORK_ITEM_DIMENSIONS;
+            }
+            return CL_DEV_SUCCESS;
+        }
+
         case (CL_DEVICE_MAX_WORK_GROUP_SIZE):
+        {
+            *pinternalRetunedValueSize = sizeof(size_t);
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+                *(size_t*)paramVal = ISP_MAX_WORK_GROUP_SIZE;
+            }
+            return CL_DEV_SUCCESS;
+        }
+
         case (CL_DEVICE_MAX_WORK_ITEM_SIZES):
-        case (CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE):
-        case (CL_DEVICE_IMAGE_PITCH_ALIGNMENT):
-        case (CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT):
-        case (CL_DEVICE_GLOBAL_MEM_CACHE_SIZE):
-            return CL_DEV_NOT_SUPPORTED;
+        {
+            *pinternalRetunedValueSize = ISP_MAX_WORK_ITEM_DIMENSIONS * sizeof(size_t);
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+                // TODO: unsafe copy
+                memcpy(paramVal, ISP_MAX_WORK_ITEM_SIZES, *pinternalRetunedValueSize);
+            }
+            return CL_DEV_SUCCESS;
+        }
+
+        case (CL_DEVICE_MAX_MEM_ALLOC_SIZE):
+        case (CL_DEVICE_GLOBAL_MEM_SIZE):
+        {
+            *pinternalRetunedValueSize = sizeof(cl_ulong);
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+                *(cl_ulong*)paramVal = ISP_GLOBAL_MEM_SIZE;
+            }
+            return CL_DEV_SUCCESS;
+        }
+
+        case (CL_DEVICE_LOCAL_MEM_TYPE):
+        {
+            *pinternalRetunedValueSize = sizeof(cl_device_local_mem_type);
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+                *(cl_device_local_mem_type*)paramVal = CL_NONE;
+            }
+            return CL_DEV_SUCCESS;
+        }
 
         case (CL_DEVICE_LOCAL_MEM_SIZE):
         {
@@ -149,25 +314,27 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-                // TODO: change this. it was for debugging
-                *(cl_ulong*)paramVal = (32*1024);
+                *(cl_ulong*)paramVal = 0;
             }
             return CL_DEV_SUCCESS;
         }
 
-        case (CL_DEVICE_MAX_CLOCK_FREQUENCY):
-        case (CL_DEVICE_ADDRESS_BITS):
-        case (CL_DEVICE_PROFILING_TIMER_RESOLUTION):
-        case (CL_DEVICE_PRINTF_BUFFER_SIZE):
-        case (CL_DEVICE_GLOBAL_MEM_CACHE_TYPE):
-        case (CL_DEVICE_MAX_MEM_ALLOC_SIZE):
-        case (CL_DEVICE_GLOBAL_MEM_SIZE):
-        case (CL_DEVICE_ENDIAN_LITTLE):
-        case (CL_DEVICE_ERROR_CORRECTION_SUPPORT):
-        case (CL_DEVICE_LOCAL_MEM_TYPE):
         case (CL_DEVICE_AVAILABLE):
-            return CL_DEV_NOT_SUPPORTED;
+        {
+            *pinternalRetunedValueSize = sizeof(cl_bool);
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+                *(cl_bool*)paramVal = CL_TRUE;
+            }
+            return CL_DEV_SUCCESS;
+        }
 
+        //TODO
         case (CL_DEVICE_EXECUTION_CAPABILITIES):
         {
             *pinternalRetunedValueSize = sizeof(cl_device_exec_capabilities);
@@ -178,22 +345,123 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-                // TODO: change this. it was for debugging
-                cl_device_exec_capabilities execCapabilities = CL_EXEC_KERNEL;
-                *(cl_device_exec_capabilities*)paramVal = execCapabilities;
+                *(cl_device_exec_capabilities*)paramVal = (cl_device_exec_capabilities)0;
             }
             return CL_DEV_SUCCESS;
         }
 
-        case (CL_DEVICE_QUEUE_PROPERTIES ):
+        // TODO
         case (CL_DEVICE_HOST_UNIFIED_MEMORY):
+        {
+            *pinternalRetunedValueSize = sizeof(cl_bool);
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+                *(cl_bool*)paramVal = CL_TRUE;
+            }
+            return CL_DEV_SUCCESS;
+        }
+
         case (CL_DEVICE_NAME):
+        {
+            // TODO: hard coded for now...
+            const char* name = "Intel(R) Atom ISP";
+            *pinternalRetunedValueSize = (NULL == name) ? 0 : (strlen(name) + 1);
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if((NULL != paramVal) && (NULL != name))
+            {
+                STRCPY_S((char*)paramVal, valSize, name);
+            }
+            return CL_DEV_SUCCESS;
+        }
+
         case (CL_DEVICE_VENDOR):
+        {
+            *pinternalRetunedValueSize = strlen(VENDOR_STRING) + 1;
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+                STRCPY_S((char*)paramVal, valSize, VENDOR_STRING);
+            }
+            return CL_DEV_SUCCESS;
+        }
+
+        //TODO
         case (CL_DEVICE_PROFILE):
-        case (CL_DEVICE_OPENCL_C_VERSION):
+        {
+            *pinternalRetunedValueSize = strlen("EMBEDDED_PROFILE") + 1;
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+                STRCPY_S((char*)paramVal, valSize, "EMBEDDED_PROFILE");
+            }
+            return CL_DEV_SUCCESS;
+        }
+
         case (CL_DEVICE_VERSION):
-        case (CL_DRIVER_VERSION ):
-            return CL_DEV_NOT_SUPPORTED;
+        {
+            std::string sDeviceVersion = "OpenCL 1.2 ";
+            sDeviceVersion += BUILDVERSIONSTR;
+            *pinternalRetunedValueSize = sDeviceVersion.size() + 1;
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+                STRCPY_S((char*)paramVal, valSize, sDeviceVersion.c_str());
+            }
+            return CL_DEV_SUCCESS;
+        }
+
+        case (CL_DRIVER_VERSION):
+        {
+            int major = 0;
+            int minor = 0;
+            int revision = 0;
+            int build = 0;
+            std::stringstream driverVerStream;
+            if (Intel::OpenCL::Utils::GetModuleProductVersion(__FUNCTION__, &major, &minor, &revision, &build))
+            {
+                // format is (Major version).(Minor version).(Revision number).(Build number)
+                driverVerStream << major << "." << minor << "." << revision << "." << build;
+            }
+            else
+            {
+                // TODO: remove this once GetModuleProductVersion is implemented on Linux
+                driverVerStream << "1.2.0." << (int)BUILDVERSION;
+            }
+            std::string driverVer = driverVerStream.str();
+
+            *pinternalRetunedValueSize = driverVer.size() + 1;
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+                STRCPY_S((char*)paramVal, valSize, driverVer.c_str());
+            }
+            return CL_DEV_SUCCESS;
+        }
 
         case (CL_DEVICE_EXTENSIONS):
         {
@@ -205,17 +473,139 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-                // TODO: change this. it was for debugging
                 *(char*)paramVal = '\0';
             }
             return CL_DEV_SUCCESS;
         }
 
+        // TODO
         case (CL_DEVICE_BUILT_IN_KERNELS):
+        {
+            *pinternalRetunedValueSize = 1;
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+                *(char*)paramVal = '\0';
+            }
+            return CL_DEV_SUCCESS;
+        }
+
         case (CL_DEVICE_PARTITION_PROPERTIES):
+        {
+            *pinternalRetunedValueSize = sizeof(cl_device_partition_property);
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+                *(cl_device_partition_property*)paramVal = (cl_device_partition_property)0;
+            }
+            return CL_DEV_SUCCESS;
+        }
         case (CL_DEVICE_PARTITION_AFFINITY_DOMAIN):
+        {
+            *pinternalRetunedValueSize = sizeof(cl_device_affinity_domain);
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+                *((cl_device_affinity_domain*)paramVal) = (cl_device_affinity_domain)0;
+            }
+            return CL_DEV_SUCCESS;
+        }
+
+        // the below queries are considered not supported - i.e ISP cannot answer the query
+        // TODO: need to verify that with the team what to do with these queries
+        case (CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR):
+        case (CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT):
+        case (CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT):
+        case (CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT):
+        case (CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG):
+        case (CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF ):
+        case (CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR ):
+        case (CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT):
+        case (CL_DEVICE_NATIVE_VECTOR_WIDTH_INT):
+        case (CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT):
+        case (CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG):
+        case (CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF ):
+        case (CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE):
+
+        case (CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE):
+
+        case (CL_DEVICE_SINGLE_FP_CONFIG):
+        case (CL_DEVICE_DOUBLE_FP_CONFIG):
+
+        // TODO: image support
+        case (CL_DEVICE_IMAGE_SUPPORT):
+        case (CL_DEVICE_IMAGE2D_MAX_WIDTH):
+        case (CL_DEVICE_IMAGE2D_MAX_HEIGHT):
+        case (CL_DEVICE_IMAGE3D_MAX_WIDTH):
+        case (CL_DEVICE_IMAGE3D_MAX_HEIGHT):
+        case (CL_DEVICE_IMAGE3D_MAX_DEPTH):
+        case (CL_DEVICE_MAX_READ_IMAGE_ARGS):
+        case (CL_DEVICE_MAX_WRITE_IMAGE_ARGS):
         case (CL_DEVICE_IMAGE_MAX_ARRAY_SIZE):
         case (CL_DEVICE_IMAGE_MAX_BUFFER_SIZE):
+
+        case (CL_DEVICE_MAX_PARAMETER_SIZE):
+        case (CL_DEVICE_MAX_SAMPLERS):
+
+        case (CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE):
+        case (CL_DEVICE_MAX_CONSTANT_ARGS):
+
+        case (CL_DEVICE_MEM_BASE_ADDR_ALIGN):
+
+        case (CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE):
+
+        case (CL_DEVICE_IMAGE_PITCH_ALIGNMENT):
+        case (CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT):
+        case (CL_DEVICE_PREFERRED_PLATFORM_ATOMIC_ALIGNMENT):
+        case (CL_DEVICE_PREFERRED_GLOBAL_ATOMIC_ALIGNMENT):
+        case (CL_DEVICE_PREFERRED_LOCAL_ATOMIC_ALIGNMENT):
+
+        case (CL_DEVICE_MAX_CLOCK_FREQUENCY):
+        case (CL_DEVICE_ADDRESS_BITS):
+
+        case (CL_DEVICE_PROFILING_TIMER_RESOLUTION):
+
+        case (CL_DEVICE_PRINTF_BUFFER_SIZE):
+
+        case (CL_DEVICE_GLOBAL_MEM_CACHE_TYPE):
+
+        case (CL_PROGRAM_BUILD_GLOBAL_VARIABLE_TOTAL_SIZE):
+
+        case (CL_DEVICE_ENDIAN_LITTLE):
+
+        case (CL_DEVICE_ERROR_CORRECTION_SUPPORT):
+
+        case (CL_DEVICE_QUEUE_ON_HOST_PROPERTIES):
+
+        case (CL_DEVICE_OPENCL_C_VERSION):
+
+        case (CL_DEVICE_SVM_CAPABILITIES):
+
+        case (CL_DEVICE_MAX_PIPE_ARGS):
+        case (CL_DEVICE_PIPE_MAX_ACTIVE_RESERVATIONS):
+        case (CL_DEVICE_PIPE_MAX_PACKET_SIZE):
+
+        case (CL_DEVICE_QUEUE_ON_DEVICE_PREFERRED_SIZE):
+        case (CL_DEVICE_QUEUE_ON_DEVICE_MAX_SIZE):
+        case (CL_DEVICE_QUEUE_ON_DEVICE_PROPERTIES):
+        case (CL_DEVICE_MAX_ON_DEVICE_QUEUES):
+        case (CL_DEVICE_MAX_ON_DEVICE_EVENTS):
+
+        case (CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE):
+        case (CL_DEVICE_GLOBAL_VARIABLE_PREFERRED_TOTAL_SIZE):
+
             return CL_DEV_NOT_SUPPORTED;
 
         default:
@@ -243,12 +633,20 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
 **************************************************************************************************************************/
 cl_dev_err_code ISPDevice::clDevGetAvailableDeviceList(size_t IN  deviceListSize, unsigned int*   OUT deviceIdsList, size_t*   OUT deviceIdsListSizeRet)
 {
-    // TODO: Not implemented yet
     if (((NULL != deviceIdsList) && (0 == deviceListSize)) || ((NULL == deviceIdsList) && (NULL == deviceIdsListSizeRet)))
     {
         return CL_DEV_ERROR_FAIL;
     }
     assert(((deviceListSize > 0) || (NULL == deviceIdsList)) && "If deviceIdsList != NULL, deviceListSize must be 1 in case of ISP device");
+
+    // TODO: Hard-coded app name...
+    // TODO: change CameraShim to ISPCameraService
+    CameraShim* pCameraShim = CameraShim::instance("com.example.opencldemo", 0);
+    if (NULL == pCameraShim)
+    {
+        return CL_DEV_ERROR_FAIL;
+    }
+
     if (deviceIdsList)
     {
         deviceIdsList[0] = 0;
@@ -257,6 +655,7 @@ cl_dev_err_code ISPDevice::clDevGetAvailableDeviceList(size_t IN  deviceListSize
     {
         *deviceIdsListSizeRet = 1;
     }
+
     return CL_DEV_SUCCESS;
 }
 
@@ -268,32 +667,34 @@ cl_dev_err_code ISPDevice::clDevGetAvailableDeviceList(size_t IN  deviceListSize
 ********************************************************************************************************************/
 cl_dev_err_code ISPDevice::clDevPartition( cl_dev_partition_prop IN props, cl_uint IN num_requested_subdevices, cl_dev_subdevice_id IN parent_id, cl_uint* INOUT num_subdevices, void* param, cl_dev_subdevice_id* OUT subdevice_ids )
 {
-    // TODO: Not implemented yet
-    std::cout << "ISP clDevPartition is called." << std::endl;
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevPartition Function enter"));
+
+    IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevPartition should not have been called on ISP, it's not supported now"));
     return CL_DEV_NOT_SUPPORTED;
 }
-
 /****************************************************************************************************************
  clDevReleaseSubdevice
     Release a subdevice created by a clDevPartition call. Releases the appropriate SubdeviceTaskDispatcher object
 ********************************************************************************************************************/
 cl_dev_err_code ISPDevice::clDevReleaseSubdevice( cl_dev_subdevice_id IN subdevice_id )
 {
-    // TODO: Not implemented yet
-    std::cout << "ISP clDevReleaseSubdevice is called." << std::endl;
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevReleaseSubdevice Function enter"));
+
+    IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevReleaseSubdevice should not have been called on ISP, it's not supported now"));
     return CL_DEV_NOT_SUPPORTED;
 }
 
 // Execution commands
 /****************************************************************************************************************
  clDevCreateCommandList
-    Call TaskDispatcher to create command list
+    Call TaskDispatcher to create command queue
 ********************************************************************************************************************/
+// TODO: better change to clDevCreateCommandQueue
 cl_dev_err_code ISPDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN props, cl_dev_subdevice_id IN subdevice_id, cl_dev_cmd_list* OUT list )
 {
-    // TODO: Not implemented yet
-    std::cout << "ISP clDevCreateCommandList is called." << std::endl;
-    return CL_DEV_NOT_SUPPORTED;
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCreateCommandList Function enter"));
+
+    return m_pTaskDispatcher->CreateCommandList(props, subdevice_id, list);
 }
 
 /****************************************************************************************************************
@@ -302,9 +703,9 @@ cl_dev_err_code ISPDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
 ********************************************************************************************************************/
 cl_dev_err_code ISPDevice::clDevFlushCommandList( cl_dev_cmd_list IN list )
 {
-    // TODO: Not implemented yet
-    std::cout << "ISP clDevFlushCommandList is called." << std::endl;
-    return CL_DEV_NOT_SUPPORTED;
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevFlushCommandList Function enter"));
+
+    return m_pTaskDispatcher->FlushCommandList(list);
 }
 
 /****************************************************************************************************************
@@ -313,66 +714,77 @@ cl_dev_err_code ISPDevice::clDevFlushCommandList( cl_dev_cmd_list IN list )
 ********************************************************************************************************************/
 cl_dev_err_code ISPDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
 {
-    // TODO: Not implemented yet
-    std::cout << "ISP clDevReleaseCommandList is called." << std::endl;
-    return CL_DEV_NOT_SUPPORTED;
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevReleaseCommandList Function enter"));
+
+    return m_pTaskDispatcher->ReleaseCommandList(list);
 }
 
 /****************************************************************************************************************
  clDevCommandListExecute
     Call TaskDispatcher to execute command list
 ********************************************************************************************************************/
-cl_dev_err_code ISPDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count)
+cl_dev_err_code ISPDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count )
 {
-    // TODO: Not implemented yet
-    std::cout << "ISP clDevCommandListExecute is called." << std::endl;
-    return CL_DEV_NOT_SUPPORTED;
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCommandListExecute Function enter"));
+
+    return m_pTaskDispatcher->ExecuteCommandList(list, cmds, count);
 }
 
 /****************************************************************************************************************
  clDevCommandListWaitCompletion
-    Call clDevCommandListWaitCompletion to add calling thread to execution pool
+    Call TaskDispatcher to wait for command list to complete
 ********************************************************************************************************************/
-cl_dev_err_code ISPDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmdToWait)
+cl_dev_err_code ISPDevice::clDevCommandListWaitCompletion( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmdToWait )
 {
-    // TODO: Not implemented yet
-    std::cout << "ISP clDevCommandListWaitCompletion is called." << std::endl;
-    return CL_DEV_NOT_SUPPORTED;
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCommandListExecute Function enter"));
+
+    return m_pTaskDispatcher->WaitForCompletion(list, cmdToWait);
+}
+
+/****************************************************************************************************************
+ clDevCommandListCancel
+    Call TaskDispatcher to cancel execution of a command list
+********************************************************************************************************************/
+cl_dev_err_code ISPDevice::clDevCommandListCancel( cl_dev_cmd_list IN list )
+{
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCommandListCancel Function enter"));
+
+    return m_pTaskDispatcher->CancelCommandList(list);
 }
 
 /****************************************************************************************************************
  clDevReleaseCommand
+    Call TaskDispatcher to release a command
 ********************************************************************************************************************/
-void ISPDevice::clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease)
+cl_dev_err_code ISPDevice::clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease)
 {
-    // TODO: Not implemented yet
-    std::cout << "ISP clDevReleaseCommand is called." << std::endl;
-    // TODO: should clDevReleaseCommand return error code ?
-    //return CL_DEV_NOT_SUPPORTED;
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevReleaseCommand Function enter"));
+
+    return m_pTaskDispatcher->ReleaseCommand(cmdToRelease);
+}
+
+/****************************************************************************************************************
+ clDevGetSupportedImageFormats
+    Call Program Service to get supported image formats
+********************************************************************************************************************/
+cl_dev_err_code ISPDevice::clDevGetSupportedImageFormats( cl_mem_flags IN flags, cl_mem_object_type IN imageType,
+                cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet ) const
+{
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevGetSupportedImageFormats Function enter"));
+
+    return m_pProgramService->GetSupportedImageFormats(flags, imageType, numEntries, formats, numEntriesRet);
 }
 
 //Memory API's
-/****************************************************************************************************************
- clDevGetSupportedImageFormats
-    Call Memory Allocator to get supported image formats
-********************************************************************************************************************/
-cl_dev_err_code ISPDevice::clDevGetSupportedImageFormats( cl_mem_flags IN flags, cl_mem_object_type IN imageType,
-                cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet) const
-{
-    // TODO: Not implemented yet
-    std::cout << "ISP clDevGetSupportedImageFormats is called." << std::endl;
-    return CL_DEV_NOT_SUPPORTED;
-}
-
 /****************************************************************************************************************
  clDevGetMemoryAllocProperties
     Call Memory Allocator to get allocation properties
 ********************************************************************************************************************/
 cl_dev_err_code ISPDevice::clDevGetMemoryAllocProperties( cl_mem_object_type IN memObjType, cl_dev_alloc_prop* OUT pAllocProp )
 {
-    // TODO: Not implemented yet
-    std::cout << "ISP clDevGetMemoryAllocProperties is called." << std::endl;
-    return CL_DEV_NOT_SUPPORTED;
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevGetMemoryAllocProperties Function enter"));
+
+    return m_pMemoryAllocator->GetAllocProperties(memObjType, pAllocProp);
 }
 
 /****************************************************************************************************************
@@ -382,9 +794,9 @@ cl_dev_err_code ISPDevice::clDevGetMemoryAllocProperties( cl_mem_object_type IN 
 cl_dev_err_code ISPDevice::clDevCreateMemoryObject( cl_dev_subdevice_id node_id, cl_mem_flags IN flags, const cl_image_format* IN format,
                                     size_t  IN dim_count, const size_t* IN dim_size, IOCLDevRTMemObjectService* pRTService, IOCLDevMemoryObject* OUT *memObj)
 {
-    // TODO: Not implemented yet
-    std::cout << "ISP clDevCreateMemoryObject is called." << std::endl;
-    return CL_DEV_NOT_SUPPORTED;
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevGetMemoryAllocProperties Function enter"));
+
+    return m_pMemoryAllocator->CreateMemoryObject(node_id, flags, format, dim_count, dim_size, pRTService, memObj);
 }
 
 /****************************************************************************************************************
@@ -393,9 +805,9 @@ cl_dev_err_code ISPDevice::clDevCreateMemoryObject( cl_dev_subdevice_id node_id,
 ********************************************************************************************************************/
 cl_dev_err_code ISPDevice::clDevCheckProgramBinary( size_t IN binSize, const void* IN bin )
 {
-    // TODO: Not implemented yet
-    std::cout << "ISP clDevCheckProgramBinary is called." << std::endl;
-    return CL_DEV_NOT_SUPPORTED;
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCheckProgramBinary Function enter"));
+
+    return m_pProgramService->CheckProgramBinary(binSize, bin);
 }
 
 /*******************************************************************************************************************
@@ -404,20 +816,20 @@ clDevCreateProgram
 **********************************************************************************************************************/
 cl_dev_err_code ISPDevice::clDevCreateProgram( size_t IN binSize, const void* IN bin, cl_dev_binary_prop IN prop, cl_dev_program* OUT prog )
 {
-    // TODO: Not implemented yet
-    std::cout << "ISP clDevCreateProgram is called." << std::endl;
-    return CL_DEV_NOT_SUPPORTED;
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCreateProgram Function enter"));
+
+    return m_pProgramService->CreateProgram(binSize, bin, prop, prog);
 }
 
 /*******************************************************************************************************************
 clDevCreateBuiltInKernelProgram
-    Call programService to create program with build-in kernels
+    Call programService to create program with built-in kernels
 **********************************************************************************************************************/
 cl_dev_err_code ISPDevice::clDevCreateBuiltInKernelProgram( const char* IN szBuiltInNames, cl_dev_program* OUT prog )
 {
-    // TODO: Not implemented yet
-    std::cout << "ISP clDevCreateBuiltInKernelProgram is called." << std::endl;
-    return CL_DEV_NOT_SUPPORTED;
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCreateBuiltInKernelProgram Function enter"));
+
+    return m_pProgramService->CreateBuiltInKernelProgram(szBuiltInNames, prog);
 }
 
 /*******************************************************************************************************************
@@ -426,9 +838,9 @@ clDevBuildProgram
 **********************************************************************************************************************/
 cl_dev_err_code ISPDevice::clDevBuildProgram( cl_dev_program IN prog, const char* IN options, cl_build_status* OUT buildStatus )
 {
-    // TODO: Not implemented yet
-    std::cout << "ISP clDevBuildProgram is called." << std::endl;
-    return CL_DEV_NOT_SUPPORTED;
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevBuildProgram Function enter"));
+
+    return m_pProgramService->BuildProgram(prog, options, buildStatus);
 }
 
 /*******************************************************************************************************************
@@ -437,9 +849,9 @@ clDevReleaseProgram
 **********************************************************************************************************************/
 cl_dev_err_code ISPDevice::clDevReleaseProgram( cl_dev_program IN prog )
 {
-    // TODO: Not implemented yet
-    std::cout << "ISP clDevReleaseProgram is called." << std::endl;
-    return CL_DEV_NOT_SUPPORTED;
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevReleaseProgram Function enter"));
+
+    return m_pProgramService->ReleaseProgram(prog);
 }
 
 /*******************************************************************************************************************
@@ -448,8 +860,9 @@ clDevUnloadCompiler
 **********************************************************************************************************************/
 cl_dev_err_code ISPDevice::clDevUnloadCompiler()
 {
-    // TODO: Not implemented yet
-    std::cout << "ISP clDevUnloadCompiler is called." << std::endl;
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevReleaseProgram Function enter"));
+
+    IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevUnloadCompiler should not been called on ISP, it's not supported now"));
     return CL_DEV_NOT_SUPPORTED;
 }
 
@@ -459,9 +872,9 @@ clDevGetProgramBinary
 **********************************************************************************************************************/
 cl_dev_err_code ISPDevice::clDevGetProgramBinary( cl_dev_program IN prog, size_t IN size, void* OUT binary, size_t* OUT sizeRet )
 {
-    // TODO: Not implemented yet
-    std::cout << "ISP clDevGetProgramBinary is called." << std::endl;
-    return CL_DEV_NOT_SUPPORTED;
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevGetProgramBinary Function enter"));
+
+    return m_pProgramService->GetProgramBinary(prog, size, binary, sizeRet);
 }
 
 /*******************************************************************************************************************
@@ -470,9 +883,9 @@ clDevGetBuildLog
 **********************************************************************************************************************/
 cl_dev_err_code ISPDevice::clDevGetBuildLog( cl_dev_program IN prog, size_t IN size, char* OUT log, size_t* OUT sizeRet)
 {
-    // TODO: Not implemented yet
-    std::cout << "ISP clDevGetBuildLog is called." << std::endl;
-    return CL_DEV_NOT_SUPPORTED;
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevGetBuildLog Function enter"));
+
+    return m_pProgramService->GetBuildLog(prog, size, log, sizeRet);
 }
 
 /*******************************************************************************************************************
@@ -481,9 +894,9 @@ clDevGetSupportedBinaries
 **********************************************************************************************************************/
 cl_dev_err_code ISPDevice::clDevGetSupportedBinaries( size_t IN count, cl_prog_binary_desc* OUT types, size_t* OUT sizeRet )
 {
-    // TODO: Not implemented yet
-    std::cout << "ISP clDevGetSupportedBinaries is called." << std::endl;
-    return CL_DEV_NOT_SUPPORTED;
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevGetSupportedBinaries Function enter"));
+
+    return m_pProgramService->GetSupportedBinaries(count, types, sizeRet);
 }
 
 /*******************************************************************************************************************
@@ -492,9 +905,9 @@ clDevGetKernelId
 **********************************************************************************************************************/
 cl_dev_err_code ISPDevice::clDevGetKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernelId )
 {
-    // TODO: Not implemented yet
-    std::cout << "ISP clDevGetKernelId is called." << std::endl;
-    return CL_DEV_NOT_SUPPORTED;
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevGetKernelId Function enter"));
+
+    return m_pProgramService->GetKernelId(prog, name, kernelId);
 }
 
 /*******************************************************************************************************************
@@ -504,8 +917,20 @@ clDevGetProgramKernels
 cl_dev_err_code ISPDevice::clDevGetProgramKernels( cl_dev_program IN prog, cl_uint IN numKernels, cl_dev_kernel* OUT kernels,
                          cl_uint* OUT numKernelsRet )
 {
-    // TODO: Not implemented yet
-    std::cout << "ISP clDevGetProgramKernels is called." << std::endl;
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevGetProgramKernels Function enter"));
+
+    return m_pProgramService->GetProgramKernels(prog, numKernels, kernels, numKernelsRet);
+}
+
+/*******************************************************************************************************************
+clDevGetGlobalVariableTotalSize
+    Call programService to get the total size of global variables
+**********************************************************************************************************************/
+cl_dev_err_code ISPDevice::clDevGetGlobalVariableTotalSize( cl_dev_program IN prog, size_t* OUT size )
+{
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevGetGlobalVariableTotalSize Function enter"));
+
+    // TODO: can we support this interface ?
     return CL_DEV_NOT_SUPPORTED;
 }
 
@@ -516,9 +941,9 @@ clDevGetKernelInfo
 cl_dev_err_code ISPDevice::clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN valueSize,
                     void* OUT value, size_t* OUT valueSizeRet )
 {
-    // TODO: Not implemented yet
-    std::cout << "ISP clDevGetKernelInfo is called." << std::endl;
-    return CL_DEV_NOT_SUPPORTED;
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevGetKernelInfo Function enter"));
+
+    return m_pProgramService->GetKernelInfo(kernel, param, valueSize, value, valueSizeRet);
 }
 
 /*******************************************************************************************************************
@@ -527,9 +952,9 @@ clDevGetPerofrmanceCounter
 **********************************************************************************************************************/
 cl_ulong ISPDevice::clDevGetPerformanceCounter()
 {
-    // TODO: Not implemented yet
-    std::cout << "ISP clDevGetPerformanceCounter is called." << std::endl;
-    return CL_DEV_NOT_SUPPORTED;
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevGetPerformanceCounter Function enter"));
+
+    return Intel::OpenCL::Utils::HostTime();
 }
 
 /*******************************************************************************************************************
@@ -537,9 +962,22 @@ clDevSetLogger
 **********************************************************************************************************************/
 cl_dev_err_code ISPDevice::clDevSetLogger(IOCLDevLogDescriptor *pLogDescriptor)
 {
-    // TODO: Not implemented yet
-    std::cout << "ISP clDevSetLogger is called." << std::endl;
-    return CL_DEV_NOT_SUPPORTED;
+     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevSetLogger Function enter"));
+
+    if (NULL != m_pLogDescriptor)
+    {
+        m_pLogDescriptor->clLogReleaseClient(m_iLogHandle);
+    }
+    m_pLogDescriptor = pLogDescriptor;
+    if (NULL != m_pLogDescriptor)
+    {
+        cl_dev_err_code ret = (cl_dev_err_code)m_pLogDescriptor->clLogCreateClient(m_uiIspId, "ISP Device", &m_iLogHandle);
+        if (CL_DEV_FAILED(ret))
+        {
+            return CL_DEV_ERROR_FAIL;
+        }
+    }
+    return CL_DEV_SUCCESS;
 }
 
 /*******************************************************************************************************************
@@ -548,9 +986,54 @@ clDevCloseDevice
 **********************************************************************************************************************/
 void ISPDevice::clDevCloseDevice(void)
 {
-    // TODO: Not implemented yet
-    std::cout << "ISP clDevSetLogger is called." << std::endl;
-    //return CL_DEV_NOT_SUPPORTED;
+    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCloseDevice Function enter"));
+
+    if (NULL != m_pTaskDispatcher)
+    {
+        delete m_pTaskDispatcher;
+        m_pTaskDispatcher = NULL;
+    }
+    if (NULL != m_pMemoryAllocator)
+    {
+        delete m_pMemoryAllocator;
+        m_pMemoryAllocator = NULL;
+    }
+    if (NULL != m_pProgramService)
+    {
+        delete m_pProgramService;
+        m_pProgramService = NULL;
+    }
+    if (NULL != m_pCameraShim)
+    {
+        delete m_pCameraShim;
+        m_pCameraShim = NULL;
+    }
+
+    if (0 != m_iLogHandle)
+    {
+        m_pLogDescriptor->clLogReleaseClient(m_iLogHandle);
+    }
+
+    delete this;
+}
+
+/*******************************************************************************************************************
+clDevAllocateMemory
+    Allocate memory that is accessible from the host
+**********************************************************************************************************************/
+void* ISPDevice::clDevAllocateRawMemory( size_t IN allocSize, size_t IN alignment )
+{
+    // TODO: handle alignment
+    return m_pCameraShim->host_alloc(allocSize);
+}
+
+/*******************************************************************************************************************
+clDevFreeMemory
+    Releases a memory that was allocated by clDevAllocateMemory()
+**********************************************************************************************************************/
+void ISPDevice::clDevFreeRawMemory( void* IN allocatedMemory )
+{
+    m_pCameraShim->host_free(allocatedMemory);
 }
 
 
@@ -561,23 +1044,30 @@ void ISPDevice::clDevCloseDevice(void)
 /************************************************************************************************************************
 clDevCreateDeviceInstance
 **************************************************************************************************************************/
-extern "C" cl_dev_err_code clDevCreateDeviceInstance(  cl_uint      dev_id,
-                                   IOCLFrameworkCallbacks   *pDevCallBacks,
-                                   IOCLDevLogDescriptor     *pLogDesc,
-                                   IOCLDeviceAgent*         *pDevice
-                                   )
+extern "C" cl_dev_err_code clDevCreateDeviceInstance(cl_uint IN dev_id,
+                                   IOCLFrameworkCallbacks*   IN pDevCallBacks,
+                                   IOCLDevLogDescriptor*     IN pLogDesc,
+                                   IOCLDeviceAgent**        OUT ppDevice)
 {
-    if (NULL == pDevice)
+    if (NULL == ppDevice)
     {
         return CL_DEV_INVALID_OPERATION;
     }
-    // TODO: Not implemented yet
-    ISPDevice *pNewDevice = new ISPDevice();
+
+    ISPDevice *pNewDevice = new ISPDevice(dev_id, pDevCallBacks, pLogDesc);
     if ( NULL == pNewDevice )
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
-    *pDevice = pNewDevice;
+
+    cl_dev_err_code rc = pNewDevice->Init();
+    if(CL_DEV_FAILED(rc))
+    {
+        pNewDevice->clDevCloseDevice();
+        return rc;
+    }
+
+    *ppDevice = pNewDevice;
     return CL_DEV_SUCCESS;
 }
 
@@ -585,10 +1075,10 @@ extern "C" cl_dev_err_code clDevCreateDeviceInstance(  cl_uint      dev_id,
 clDevGetDeviceInfo
 **************************************************************************************************************************/
 extern "C" cl_dev_err_code clDevGetDeviceInfo(unsigned int IN dev_id,
-                            cl_device_info  param, 
-                            size_t          valSize, 
-                            void*           paramVal,
-                            size_t*         paramValSizeRet)
+                            cl_device_info  IN  param,
+                            size_t          IN  valSize,
+                            void*           OUT paramVal,
+                            size_t*         OUT paramValSizeRet)
 {
     return ISPDevice::clDevGetDeviceInfo(dev_id, param, valSize, paramVal, paramValSizeRet);
 }
@@ -604,47 +1094,12 @@ extern "C" cl_dev_err_code clDevGetAvailableDeviceList(size_t   IN  deviceListSi
 }
 
 /************************************************************************************************************************
-clDevErr2Txt
-*************************************************************************************************************************/
-extern "C" const char* clDevErr2Txt(cl_dev_err_code errorCode)
-{
-    // TODO: Not implemented yet
-    switch(errorCode)
-    {
-        case (CL_DEV_ERROR_FAIL): return "CL_DEV_ERROR_FAIL";
-        case (CL_DEV_INVALID_VALUE): return "CL_DEV_INVALID_VALUE";
-        case (CL_DEV_INVALID_PROPERTIES): return "CL_DEV_INVALID_PROPERTIES";
-        case (CL_DEV_OUT_OF_MEMORY): return "CL_DEV_OUT_OF_MEMORY";
-        case (CL_DEV_INVALID_COMMAND_LIST): return "CL_DEV_INVALID_COMMAND_LIST";
-        case (CL_DEV_INVALID_COMMAND_TYPE): return "CL_DEV_INVALID_COMMAND_TYPE";
-        case (CL_DEV_INVALID_MEM_OBJECT): return "CL_DEV_INVALID_MEM_OBJECT";
-        case (CL_DEV_INVALID_KERNEL): return "CL_DEV_INVALID_KERNEL";
-        case (CL_DEV_INVALID_OPERATION): return "CL_DEV_INVALID_OPERATION";
-        case (CL_DEV_INVALID_WRK_DIM): return "CL_DEV_INVALID_WRK_DIM";
-        case (CL_DEV_INVALID_WG_SIZE): return "CL_DEV_INVALID_WG_SIZE";
-        case (CL_DEV_INVALID_GLB_OFFSET): return "CL_DEV_INVALID_GLB_OFFSET";
-        case (CL_DEV_INVALID_WRK_ITEM_SIZE): return "CL_DEV_INVALID_WRK_ITEM_SIZE";
-        case (CL_DEV_INVALID_IMG_FORMAT): return "CL_DEV_INVALID_IMG_FORMAT";
-        case (CL_DEV_INVALID_IMG_SIZE): return "CL_DEV_INVALID_IMG_SIZE";
-        case (CL_DEV_OBJECT_ALLOC_FAIL): return "CL_DEV_INVALID_COMMAND_LIST";
-        case (CL_DEV_INVALID_BINARY): return "CL_DEV_INVALID_BINARY";
-        case (CL_DEV_INVALID_BUILD_OPTIONS): return "CL_DEV_INVALID_BUILD_OPTIONS";
-        case (CL_DEV_INVALID_PROGRAM): return "CL_DEV_INVALID_PROGRAM";
-        case (CL_DEV_BUILD_IN_PROGRESS): return "CL_DEV_BUILD_IN_PROGRESS";
-        case (CL_DEV_INVALID_KERNEL_NAME): return "CL_DEV_INVALID_KERNEL_NAME";
-
-        default: return "Unknown Error Code";
-    }
-}
-
-/************************************************************************************************************************
 clDevInitDeviceAgent
     This function initializes device agent internal data. This function should be called prior to any device agent calls.
-        retval     CL_DEV_SUCCESS          If function is executed successfully.
-        retval     CL_DEV_ERROR_FAIL	    If function failed to figure the IDs of the devices.
+        retval     CL_DEV_SUCCESS           If function is executed successfully.
+        retval     CL_DEV_ERROR_FAIL        If function failed to figure the IDs of the devices.
 *************************************************************************************************************************/
 extern "C" cl_dev_err_code clDevInitDeviceAgent(void)
 {
-    // TODO: Not implemented yet
     return CL_DEV_SUCCESS;
 }

@@ -139,16 +139,17 @@ public:
     cl_dev_err_code clDevGetSupportedBinaries( size_t IN count, cl_prog_binary_desc* OUT types, size_t* OUT sizeRet );
     cl_dev_err_code clDevGetKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernelId );
     cl_dev_err_code clDevGetProgramKernels( cl_dev_program IN prog, cl_uint IN numKernels, cl_dev_kernel* OUT kernels,
-                 cl_uint* OUT numKernelsRet );
+                cl_uint* OUT numKernelsRet );
     cl_dev_err_code clDevGetGlobalVariableTotalSize( cl_dev_program IN prog, size_t* OUT size);
     cl_dev_err_code clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN valueSize,
-						void* OUT value, size_t* OUT valueSizeRet );
-    cl_ulong	clDevGetPerformanceCounter();
-    cl_dev_err_code	clDevSetLogger(IOCLDevLogDescriptor *);
-    void		clDevCloseDevice(void);
-    void        clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease);
+                void* OUT value, size_t* OUT valueSizeRet );
+    cl_ulong        clDevGetPerformanceCounter();
+    cl_dev_err_code clDevSetLogger(IOCLDevLogDescriptor *);
+    void            clDevCloseDevice(void);
+    cl_dev_err_code clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease);
 
-    const IOCLDeviceFECompilerDescription& clDevGetFECompilerDecription() const {return *this;}
+    const IOCLDeviceFECompilerDescription* clDevGetFECompilerDecription() const { return this; };
+    IOCLDevRawMemoryAllocator* clDevGetRawMemoryAllocator() { return NULL; };
 
     // IOCLDeviceFECompilerDescription
     const char* clDevFEModuleName() const;

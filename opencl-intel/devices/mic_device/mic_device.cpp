@@ -559,11 +559,11 @@ cl_dev_err_code MICDevice::clDevCommandListCancel(cl_dev_cmd_list IN list)
     /*!
      * \param[in]   cmdToRelease the command to release
      */
-void MICDevice::clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease)
+cl_dev_err_code MICDevice::clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease)
 {
     if (isDeviceLibraryUnloaded())
     {
-        return;
+        return CL_DEV_NOT_SUPPORTED;
     }
 
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevReleaseCommand Function enter");
@@ -579,6 +579,8 @@ void MICDevice::clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease)
             pCmd->releaseCommand();
         }
     }
+
+    return CL_DEV_SUCCESS;
 }
 
 //Memory API's

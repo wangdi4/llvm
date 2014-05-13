@@ -2060,18 +2060,21 @@ cl_dev_err_code CPUDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
 /****************************************************************************************************************
  clDevReleaseCommand
 ********************************************************************************************************************/
-void CPUDevice::clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease)
+cl_dev_err_code CPUDevice::clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease)
 {
     ITaskBase* ptr = (ITaskBase*)cmdToRelease->device_agent_data;
     if (NULL == ptr)
     {
-        return;
+        // already released
+        return CL_DEV_SUCCESS;
     }
     long ref = ptr->DecRefCnt();
     if (0 == ref)
     {
         ptr->Cleanup();
     }
+
+    return CL_DEV_SUCCESS;
 }
 
 /****************************************************************************************************************

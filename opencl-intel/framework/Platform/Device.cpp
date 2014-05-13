@@ -442,8 +442,8 @@ void Device::clDevCmdStatusChanged(cl_dev_cmd_id cmd_id, void * pData, cl_int cm
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void Device::InitFECompiler() const
 {
-    const IOCLDeviceFECompilerDescription& pFEConfig = m_pDevice->clDevGetFECompilerDecription();
-    string strModule = pFEConfig.clDevFEModuleName();
+    const IOCLDeviceFECompilerDescription* pFEConfig = m_pDevice->clDevGetFECompilerDecription();
+    string strModule = pFEConfig->clDevFEModuleName();
     m_pFrontEndCompiler = FrontEndCompiler::Allocate();
 
     if (NULL == m_pFrontEndCompiler)
@@ -453,8 +453,8 @@ void Device::InitFECompiler() const
     }
 
     cl_err_code clErrRet = m_pFrontEndCompiler->Initialize(OS_DLL_POST(strModule).c_str(),
-                                                           pFEConfig.clDevFEDeviceInfo(), 
-                                                           pFEConfig.clDevFEDeviceInfoSize() );
+                                                           pFEConfig->clDevFEDeviceInfo(), 
+                                                           pFEConfig->clDevFEDeviceInfoSize() );
     if (CL_FAILED(clErrRet))
     {
         assert( false && "FrontEndCompiler initialization failed" );

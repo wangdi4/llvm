@@ -388,6 +388,7 @@ enum cl_dev_buffer_sharing_group_id
 {
     CL_DEV_CPU_BUFFER_SHARING_GROUP_ID = 0, //! All devices that may use the same Buffer IOCLDevMemoryObject implementation as CPU does
     CL_DEV_MIC_BUFFER_SHARING_GROUP_ID,     //! All devices that may use the same Buffer IOCLDevMemoryObject implementation as MIC does
+    CL_DEV_ISP_BUFFER_SHARING_GROUP_ID,     //! All devices that may use the same Buffer IOCLDevMemoryObject implementation as ISP does
 
     CL_DEV_MAX_BUFFER_SHARING_GROUP_ID      //! Last id
 };
@@ -396,6 +397,7 @@ enum cl_dev_image_sharing_group_id
 {
     CL_DEV_CPU_IMAGE_SHARING_GROUP_ID = 0,  //! All devices that may use the same Image IOCLDevMemoryObject implementation as CPU does
     CL_DEV_MIC_IMAGE_SHARING_GROUP_ID,      //! All devices that may use the same Image IOCLDevMemoryObject implementation as MIC does
+    CL_DEV_ISP_IMAGE_SHARING_GROUP_ID,      //! All devices that may use the same Image IOCLDevMemoryObject implementation as ISP does
 
     CL_DEV_MAX_IMAGE_SHARING_GROUP_ID       //! Last id
 };
@@ -425,7 +427,7 @@ struct cl_dev_alloc_prop
     size_t      preferred_alignment;//!< Specifies the preferred alignment in bytes for the memory object
     cl_ulong    maxBufferSize;      //!< Specifies the minimum size in bytes for the buffer memory object
     bool        imagesSupported;    //!< Device supports images
-    bool        hostUnified;        //!< Memory allocator may allocate memory in unified(accessible) with the host memory
+    bool        mustAllocRawMemory; //!< Device must allocate raw memory for memory object in Runtime
     bool        usedByDMA;          //!< Device may use DMA engine to access memory object
     bool        GLSharing;          //!< Device memory manager can accept GL sub-system memory object handles
     bool        DXSharing;          //!< Device memory manager can accept DX sub-system memory object handles
@@ -989,6 +991,34 @@ public:
 };
 
 /*!
+ \interface IOCLDevRawMemoryAllocator
+ \brief Memory allocator on device that can be used in Runtime.
+
+  This interface represents a device raw memory allocator, it would replace the normal heap allocator in Runtime.
+  Allocated memory is accessible from both host and device, Runtime can use this allocator for optimization purposes.
+  Device agents that report mustAllocRawMemory=true in cl_dev_alloc_prop should implement this interface.
+*/
+class IOCLDevRawMemoryAllocator
+{
+public:
+    //! This function allocates a memory region that is shared with host.
+    /*!
+        \param[in]  allocSize           Size of the requested allocation.
+        \param[in]  alignment           Memory alignment of the requested allocation.
+        \retval                         Pointer to allocated memory. NULL if allocation failed.
+    */
+    virtual void* clDevAllocateRawMemory( size_t IN allocSize,
+                                       size_t IN alignment ) = 0;
+
+    //! This function releases a memory that was previously allocated by clDevAllocateMemory().
+    /*!
+        \param[in]  allocatedMemory     Pointer to the memory that was previously allocated.
+    */
+    virtual void clDevFreeRawMemory( void* IN allocatedMemory ) = 0;
+
+};
+
+/*!
  \interface IOCLDeviceAgent
  \brief Device Agent interface.
 
@@ -1137,9 +1167,11 @@ public:
 
     //! Release a command
     /*!
-     * \param[in]   cmdToRelease the command to release
+     * \param[in]   cmdToRelease            the command to release
+       \retval      CL_DEV_SUCCESS          The function is executed successfully.
+       \retval      CL_DEV_INVALID_VALUE    If cmdToRelease is not a valid command.
      */
-    virtual void clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease) = 0;
+    virtual cl_dev_err_code clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease) = 0;
 
     //!This function returns the list of image formats supported by an OCL implementation when the information about
     //! an image memory object is specified and device supports image objects.
@@ -1420,12 +1452,23 @@ public:
     */
     virtual cl_dev_err_code clDevSetLogger(IOCLDevLogDescriptor* IN pLogger) = 0;
 
-    virtual const IOCLDeviceFECompilerDescription& clDevGetFECompilerDecription() const = 0;
-
     //!    De-initialize internal state of the device agent and releases all allocated data.
     virtual void clDevCloseDevice() = 0;
 
+    //! Retrieves Front-End compiler description for the device if available
+    /*!
+        \return     Front-End compiler description interface if available, NULL otherwise
+    */
+    virtual const IOCLDeviceFECompilerDescription* clDevGetFECompilerDecription() const = 0;
+
+    //! Retrieves Raw Memory Allocator for the device if available
+    /*!
+        \return     Raw Memory Allocator interface if available, NULL otherwise
+    */
+    virtual IOCLDevRawMemoryAllocator* clDevGetRawMemoryAllocator() = 0;
+
 };
+
 
 /*!
  \interface IOCLDevLogDescriptor

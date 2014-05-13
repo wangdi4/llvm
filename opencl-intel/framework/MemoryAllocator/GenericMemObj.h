@@ -761,17 +761,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         GenericMemObjectBackingStore(
-                               cl_mem_flags                clMemFlags,
-                               const cl_image_format*    pclImageFormat,
-                               unsigned int                dim_count,
-                               const size_t*            dimension,
-                               const size_t*            pitches,
-                               void*                    pHostPtr,
-                               size_t                   alignment,
-                               size_t                   preferred_alignment,
-                               bool                        used_by_DMA,
-                               ClHeap                    heap,
-                               cl_rt_memobj_creation_flags    creation_flags );
+                               cl_mem_flags                 clMemFlags,
+                               const cl_image_format*       pclImageFormat,
+                               unsigned int                 dim_count,
+                               const size_t*                dimension,
+                               const size_t*                pitches,
+                               void*                        pHostPtr,
+                               size_t                       alignment,
+                               size_t                       preferred_alignment,
+                               bool                         used_by_DMA,
+                               ClHeap                       heap,
+                               cl_rt_memobj_creation_flags  creation_flags,
+                               IOCLDevRawMemoryAllocator*   pRawMemoryAllocator);
 
         // for SubObject
         GenericMemObjectBackingStore(
@@ -837,7 +838,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t            m_preferred_alignment;
         size_t          m_raw_data_size;
 
-        ClHeap            m_heap;
+        ClHeap                      m_heap;
+        IOCLDevRawMemoryAllocator*  m_pRawMemoryAllocator;
 
         IOCLDevBackingStore* m_parent;
         AtomicCounter    m_refCount;
