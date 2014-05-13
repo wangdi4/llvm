@@ -1,0 +1,27 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.21005.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "APIDebugger", "APIDebugger.csproj", "{A444D034-BF45-4380-910D-BE5219ACCC39}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{68C22C60-387B-4048-A750-D364EBA77B2C}"
+	ProjectSection(SolutionItems) = preProject
+		TestSettings.testsettings = TestSettings.testsettings
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A444D034-BF45-4380-910D-BE5219ACCC39}.Debug|Win32.ActiveCfg = Debug|Any CPU
+		{A444D034-BF45-4380-910D-BE5219ACCC39}.Debug|Win32.Build.0 = Debug|Any CPU
+		{A444D034-BF45-4380-910D-BE5219ACCC39}.Release|Win32.ActiveCfg = Release|Any CPU
+		{A444D034-BF45-4380-910D-BE5219ACCC39}.Release|Win32.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
