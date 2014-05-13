@@ -46,6 +46,10 @@ add_subdirectory( cpu_device_test_type )
 add_subdirectory( framework_test_type )
 add_subdirectory( debugger_test_type )
 
+if (MSVC)
+  add_subdirectory( vs_test_type )
+endif (MSVC)
+ 
 if(INCLUDE_TOOLS AND NOT ANDROID)
   add_subdirectory( tools_test_type)
   add_subdirectory( KFC_test_type )
