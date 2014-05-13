@@ -351,15 +351,14 @@ static __inline __m512 __attribute__ ((__always_inline__, __nodebug__))
 _mm512_roundscale_ps (__m512 __A, const int __imm)
 {
   return (__m512) __builtin_ia32_rndscaleps_mask ((__v16sf) __A, __imm,
-              (__v16sf) _mm512_setzero_ps (), -1,
+              (__v16sf) __A, -1,
               _MM_FROUND_CUR_DIRECTION);
 }
 static __inline __m512d __attribute__ ((__always_inline__, __nodebug__))
 _mm512_roundscale_pd (__m512d __A, const int __imm)
 {
   return (__m512d) __builtin_ia32_rndscalepd_mask ((__v8df) __A, __imm,
-               (__v8df)
-               _mm512_setzero_pd (), -1,
+               (__v8df) __A, -1,
                _MM_FROUND_CUR_DIRECTION);
 }
 
@@ -730,5 +729,40 @@ _mm512_permutex2var_ps (__m512 __A, __m512i __I, __m512 __B)
                                                        (__mmask16) -1);
 }
 
+static __inline __m512 __attribute__ ((__always_inline__, __nodebug__))
+_mm512_floor_ps (__m512 __A)
+{
+  return (__m512) __builtin_ia32_rndscaleps_mask ((__v16sf) __A,
+                                                  _MM_FROUND_FLOOR,
+                                                  (__v16sf) __A, -1,
+                                                  _MM_FROUND_CUR_DIRECTION);
+}
+
+static __inline __m512d __attribute__ ((__always_inline__, __nodebug__))
+_mm512_floor_pd (__m512d __A)
+{
+  return (__m512d) __builtin_ia32_rndscalepd_mask ((__v8df) __A,
+                                                   _MM_FROUND_FLOOR,
+                                                   (__v8df) __A, -1,
+                                                   _MM_FROUND_CUR_DIRECTION);
+}
+
+static __inline __m512 __attribute__ ((__always_inline__, __nodebug__))
+_mm512_ceil_ps (__m512 __A)
+{
+  return (__m512) __builtin_ia32_rndscaleps_mask ((__v16sf) __A,
+                                                  _MM_FROUND_CEIL,
+                                                  (__v16sf) __A, -1,
+                                                  _MM_FROUND_CUR_DIRECTION);
+}
+
+static __inline __m512d __attribute__ ((__always_inline__, __nodebug__))
+_mm512_ceil_pd (__m512d __A)
+{
+  return (__m512d) __builtin_ia32_rndscalepd_mask ((__v8df) __A,
+                                                   _MM_FROUND_CEIL,
+                                                   (__v8df) __A, -1,
+                                                   _MM_FROUND_CUR_DIRECTION);
+}
 
 #endif // __KNLINTRIN_H

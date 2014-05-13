@@ -1,50 +1,34 @@
 ;; ------------------------------------
 ;;       GATHER/SCATTER 
 ;; ------------------------------------
-declare <16 x float> @llvm.x86.avx512.gather.dps.512 (<16 x i32>, i8*, i32);
-declare void @llvm.x86.avx512.scatter.dps.512 (i8*, <16 x i32>, <16 x float>, i32)
+declare <16 x float> @llvm.x86.avx512.gather.dps.512 (<16 x float>, i8*, <16 x i32>, i16, i32);
+declare void @llvm.x86.avx512.scatter.dps.512 (i8*, i16, <16 x i32>, <16 x float>, i32)
+declare <8 x double> @llvm.x86.avx512.gather.dpd.512 (<8 x double>, i8*, <8 x i32>, i8, i32);
+declare void @llvm.x86.avx512.scatter.dpd.512 (i8*, i8, <8 x i32>, <8 x double>, i32)
 
-declare <16 x float> @llvm.x86.avx512.gather.dps.mask.512 (<16 x float>, i16, <16 x i32>, i8*, i32)
-declare void @llvm.x86.avx512.scatter.dps.mask.512 (i8*, i16, <16 x i32>, <16 x float>, i32)
+declare <16 x i32> @llvm.x86.avx512.gather.dpi.512 (<16 x i32>, i8*, <16 x i32>, i16, i32)
+declare void @llvm.x86.avx512.scatter.dpi.512 (i8*, i16, <16 x i32>, <16 x i32>, i32)
+declare <8 x i64> @llvm.x86.avx512.gather.dpq.512 (<8 x i64>, i8*, <8 x i32>, i8, i32)
+declare void @llvm.x86.avx512.scatter.dpq.512 (i8*, i8, <8 x i32>, <8 x i64>, i32)
 
-declare <8 x double> @llvm.x86.avx512.gather.dpd.512 (<8 x i32>, i8*, i32);
-declare void @llvm.x86.avx512.scatter.dpd.512 (i8*, <8 x i32>, <8 x double>, i32)
-
-declare <8 x double> @llvm.x86.avx512.gather.dpd.mask.512 (<8 x double>, i8, <8 x i32>, i8*, i32)
-declare void @llvm.x86.avx512.scatter.dpd.mask.512 (i8*, i8, <8 x i32>, <8 x double>, i32)
-
-declare <16 x i32> @llvm.x86.avx512.gather.dpi.mask.512 (<16 x i32>, i16, <16 x i32>, i8*, i32)
-declare void @llvm.x86.avx512.scatter.dpi.mask.512 (i8*, i16, <16 x i32>, <16 x i32>, i32)
-declare <16 x i32> @llvm.x86.avx512.gather.dpi.512 (<16 x i32>, i8*, i32)
-declare void @llvm.x86.avx512.scatter.dpi.512 (i8*, <16 x i32>, <16 x i32>, i32)
-
-declare <8 x i64> @llvm.x86.avx512.gather.dpq.mask.512 (<8 x i64>, i8, <8 x i32>, i8*, i32)
-declare void @llvm.x86.avx512.scatter.dpq.mask.512 (i8*, i8, <8 x i32>, <8 x i64>, i32)
-declare <8 x i64> @llvm.x86.avx512.gather.dpq.512 (<8 x i32>, i8*, i32)
-declare void @llvm.x86.avx512.scatter.dpq.512 (i8*, <8 x i32>, <8 x i64>, i32)
-
-declare <8 x i32> @llvm.x86.avx512.gather.qpi.mask.512 (<8 x i32>, i8, <8 x i64>, i8*, i32)
-declare void @llvm.x86.avx512.scatter.qpi.mask.512 (i8*, i8, <8 x i64>, <8 x i32>, i32)
-declare <8 x i64> @llvm.x86.avx512.gather.qpq.mask.512 (<8 x i64>, i8, <8 x i64>, i8*, i32)
-declare void @llvm.x86.avx512.scatter.qpq.mask.512 (i8*, i8, <8 x i64>, <8 x i64>, i32)
+declare  void @llvm.x86.avx512.gatherpf.qps.512(i8, <8 x i64>, i8* , i32, i32)
+declare  void @llvm.x86.avx512.gatherpf.dps.512(i16, <16 x i32>, i8* , i32, i32)
+declare  void @llvm.x86.avx512.scatterpf.qps.512(i8, <8 x i64>, i8* , i32, i32)
+declare  void @llvm.x86.avx512.scatterpf.dps.512(i16, <16 x i32>, i8* , i32, i32)
 
 ;; ------------------------------------
 ;;       Gather for float
 ;; ------------------------------------
 define <16 x float> @gather.v16f32 (float* %addr, <16 x i32>%index) {
   %ptr = bitcast float *%addr to i8*
-  %t0 = call <16 x float> @llvm.x86.avx512.gather.dps.512(<16 x i32> %index, i8* %ptr,
-                                               i32 4); scale 4
+  %t0 = call <16 x float> @llvm.x86.avx512.gather.dps.512(<16 x float>undef, i8* %ptr, <16 x i32> %index, i16 -1, i32 4);
   ret <16 x float> %t0
 }
 
 define <16 x float> @masked_gather.v16f32 (<16 x i1> %mask, float* %addr, <16 x i32>%index) {
   %ptr = bitcast float *%addr to i8*
   %imask = bitcast <16 x i1> %mask to i16
-  %t0 = call <16 x float>  @llvm.x86.avx512.gather.dps.mask.512(<16 x float> undef,
-                                               i16 %imask,
-                                               <16 x i32> %index, i8* %ptr,
-                                               i32 4) ; scale 4
+  %t0 = call <16 x float>  @llvm.x86.avx512.gather.dps.512(<16 x float> zeroinitializer, i8* %ptr, <16 x i32> %index, i16 %imask, i32 4)
   ret <16 x float> %t0
 }
 
@@ -57,10 +41,8 @@ define <16 x double> @gather.v16f64 (double* %addr, <16 x i32> %index) {
             <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
   %index1 = shufflevector <16 x i32> %index, <16 x i32> undef,
             <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-  %t0 = call <8 x double> @llvm.x86.avx512.gather.dpd.512(<8 x i32> %index0, i8* %ptr,
-                                               i32 8) ; scale 8
-  %t1 = call <8 x double> @llvm.x86.avx512.gather.dpd.512(<8 x i32> %index1, i8* %ptr,
-                                               i32 8) ; scale 8
+  %t0 = call <8 x double> @llvm.x86.avx512.gather.dpd.512(<8 x double> undef, i8* %ptr, <8 x i32> %index0, i8 -1, i32 8)
+  %t1 = call <8 x double> @llvm.x86.avx512.gather.dpd.512(<8 x double> undef, i8* %ptr, <8 x i32> %index1, i8 -1, i32 8)
   %t2 = shufflevector <8 x double> %t0, <8 x double> %t1,
             <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7,
              i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
@@ -81,14 +63,8 @@ define <16 x double> @masked_gather.v16f64 (<16 x i1> %mask, double* %addr,
   %mask1 = shufflevector <16 x i1> %mask, <16 x i1> undef,
             <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
   %imask1 = bitcast <8 x i1> %mask1 to i8
-  %t0 = call <8 x double> @llvm.x86.avx512.gather.dpd.mask.512(<8 x double> undef,
-                                               i8 %imask0,
-                                               <8 x i32> %index0, i8* %ptr,
-                                               i32 8) ; scale 8
-  %t1 = call <8 x double> @llvm.x86.avx512.gather.dpd.mask.512(<8 x double> undef,
-                                               i8 %imask1,
-                                               <8 x i32> %index1, i8* %ptr,
-                                               i32 8) ; scale 8
+  %t0 = call <8 x double> @llvm.x86.avx512.gather.dpd.512(<8 x double> undef, i8* %ptr, <8 x i32> %index0, i8 %imask0, i32 8)
+  %t1 = call <8 x double> @llvm.x86.avx512.gather.dpd.512(<8 x double> undef, i8* %ptr, <8 x i32> %index1, i8 %imask1, i32 8)
   %t2 = shufflevector <8 x double> %t0, <8 x double> %t1,
             <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7,
              i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
@@ -100,10 +76,7 @@ define <16 x double> @masked_gather.v16f64 (<16 x i1> %mask, double* %addr,
 ;; ------------------------------------
 define <16 x i8> @masked_gather.v16i8 (<16 x i1> %mask, i8* %ptr, <16 x i32>%index) {
   %imask = bitcast <16 x i1> %mask to i16
-  %t0 = call <16 x i32>  @llvm.x86.avx512.gather.dpi.mask.512(<16 x i32> undef,
-                                               i16 %imask,
-                                               <16 x i32> %index, i8* %ptr,
-                                               i32 1) ; scale 1
+  %t0 = call <16 x i32>  @llvm.x86.avx512.gather.dpi.512(<16 x i32> undef, i8* %ptr, <16 x i32> %index, i16 %imask, i32 1) ; scale 1
   %t1 = trunc <16 x i32> %t0 to <16 x i8>
   ret <16 x i8> %t1
 }
@@ -114,10 +87,7 @@ define <16 x i8> @masked_gather.v16i8 (<16 x i1> %mask, i8* %ptr, <16 x i32>%ind
 define <16 x i16> @masked_gather.v16i16 (<16 x i1> %mask, i16* %addr, <16 x i32>%index) {
   %imask = bitcast <16 x i1> %mask to i16
   %ptr = bitcast i16 *%addr to i8*
-  %t0 = call <16 x i32>  @llvm.x86.avx512.gather.dpi.mask.512(<16 x i32> undef,
-                                               i16 %imask,
-                                               <16 x i32> %index, i8* %ptr,
-                                               i32 2) ; scale 2
+  %t0 = call <16 x i32>  @llvm.x86.avx512.gather.dpi.512(<16 x i32> undef, i8* %ptr, <16 x i32> %index, i16 %imask, i32 2) ; scale 2
   %t1 = trunc <16 x i32> %t0 to <16 x i16>
   ret <16 x i16> %t1
 }
@@ -126,19 +96,14 @@ define <16 x i16> @masked_gather.v16i16 (<16 x i1> %mask, i16* %addr, <16 x i32>
 ;; ------------------------------------
 define <16 x i32> @gather.v16i32 (i32* %addr, <16 x i32>%index) {
   %ptr = bitcast i32 *%addr to i8*
-  %t0 = call <16 x i32> @llvm.x86.avx512.gather.dpi.512(<16 x i32> %index, 
-                                                      i8* %ptr,
-                                                      i32 4) ; scale 4
+  %t0 = call <16 x i32> @llvm.x86.avx512.gather.dpi.512(<16 x i32> undef, i8* %ptr, <16 x i32> %index, i16 -1, i32 4) ; scale 4
   ret <16 x i32> %t0
 }
 
 define <16 x i32> @masked_gather.v16i32 (<16 x i1> %mask, i32* %addr, <16 x i32>%index) {
   %ptr = bitcast i32 *%addr to i8*
   %imask = bitcast <16 x i1> %mask to i16
-  %t0 = call <16 x i32>  @llvm.x86.avx512.gather.dpi.mask.512(<16 x i32> undef,
-                                               i16 %imask,
-                                               <16 x i32> %index, i8* %ptr,
-                                               i32 4) ; scale 4
+  %t0 = call <16 x i32>  @llvm.x86.avx512.gather.dpi.512(<16 x i32> undef, i8* %ptr, <16 x i32> %index, i16 %imask, i32 4) ; scale 4
   ret <16 x i32> %t0
 }
 
@@ -151,10 +116,8 @@ define <16 x i64> @gather.v16i64 (i64* %addr, <16 x i32> %index) {
             <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
   %index1 = shufflevector <16 x i32> %index, <16 x i32> undef,
             <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-  %t0 = call <8 x i64> @llvm.x86.avx512.gather.dpq.512(<8 x i32> %index0, i8* %ptr,
-                                               i32 8) ; scale 8
-  %t1 = call <8 x i64> @llvm.x86.avx512.gather.dpq.512(<8 x i32> %index1, i8* %ptr,
-                                               i32 8) ; scale 8
+  %t0 = call <8 x i64> @llvm.x86.avx512.gather.dpq.512(<8 x i64>undef, i8* %ptr, <8 x i32> %index0, i8 -1, i32 8) ; scale 8
+  %t1 = call <8 x i64> @llvm.x86.avx512.gather.dpq.512(<8 x i64>undef, i8* %ptr, <8 x i32> %index1, i8 -1, i32 8) ; scale 8
   %t2 = shufflevector <8 x i64> %t0, <8 x i64> %t1,
             <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7,
              i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
@@ -175,13 +138,11 @@ define <16 x i64> @masked_gather.v16i64 (<16 x i1> %mask, i64* %addr,
   %mask1 = shufflevector <16 x i1> %mask, <16 x i1> undef,
             <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
   %imask1 = bitcast <8 x i1> %mask1 to i8
-  %t0 = call <8 x i64> @llvm.x86.avx512.gather.dpq.mask.512(<8 x i64> undef,
-                                               i8 %imask0,
-                                               <8 x i32> %index0, i8* %ptr,
+  %t0 = call <8 x i64> @llvm.x86.avx512.gather.dpq.512(<8 x i64> undef, i8* %ptr,
+                                               <8 x i32> %index0, i8 %imask0,
                                                i32 8) ; scale 8
-  %t1 = call <8 x i64> @llvm.x86.avx512.gather.dpq.mask.512(<8 x i64> undef,
-                                               i8 %imask1,
-                                               <8 x i32> %index1, i8* %ptr,
+  %t1 = call <8 x i64> @llvm.x86.avx512.gather.dpq.512(<8 x i64> undef, i8* %ptr,
+                                               <8 x i32> %index1, i8 %imask1,
                                                i32 8) ; scale 8
   %t2 = shufflevector <8 x i64> %t0, <8 x i64> %t1,
             <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7,
@@ -194,7 +155,7 @@ define <16 x i64> @masked_gather.v16i64 (<16 x i1> %mask, i64* %addr,
 ;; ------------------------------------
 define void @scatter.v16f32 (float* %addr, <16 x i32>%index, <16 x float> %data) {
   %ptr = bitcast float *%addr to i8*
-  call void @llvm.x86.avx512.scatter.dps.512(i8* %ptr, <16 x i32> %index,
+  call void @llvm.x86.avx512.scatter.dps.512(i8* %ptr, i16 -1, <16 x i32> %index,
                                            <16 x float> %data, i32 4) ; scale 4
   ret void
 }
@@ -203,10 +164,8 @@ define void @masked_scatter.v16f32 (<16 x i1> %mask, float* %addr, <16 x i32>%in
                                     <16 x float> %data) {
   %ptr = bitcast float *%addr to i8*
   %imask = bitcast <16 x i1> %mask to i16
-  call void @llvm.x86.avx512.scatter.dps.mask.512(i8* %ptr,
-                                          i16 %imask,
-                                          <16 x i32> %index,
-                                          <16 x float> %data,
+  call void @llvm.x86.avx512.scatter.dps.512(i8* %ptr, i16 %imask,
+                                          <16 x i32> %index,  <16 x float> %data,
                                           i32 4) ; scale 4
   ret void
 }
@@ -224,12 +183,10 @@ define void @scatter.v16f64 (double* %addr, <16 x i32>%index, <16 x double> %dat
             <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
   %index1 = shufflevector <16 x i32> %index, <16 x i32> undef,
             <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-  call void @llvm.x86.avx512.scatter.dpd.512(i8* %ptr,
-                                    <8 x i32> %index0,
+  call void @llvm.x86.avx512.scatter.dpd.512(i8* %ptr, i8 -1, <8 x i32> %index0,
                                     <8 x double> %data0,
                                     i32 8) ; scale 8
-  call void @llvm.x86.avx512.scatter.dpd.512(i8* %ptr,
-                                    <8 x i32> %index1,
+  call void @llvm.x86.avx512.scatter.dpd.512(i8* %ptr, i8 -1, <8 x i32> %index1,
                                     <8 x double> %data1,
                                     i32 8) ; scale 8
   ret void
@@ -252,13 +209,11 @@ define void @masked_scatter.v16f64 (<16 x i1> %mask, double* %addr,
   %mask1 = shufflevector <16 x i1> %mask, <16 x i1> undef,
             <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
   %imask1 = bitcast <8 x i1> %mask1 to i8
-  call void @llvm.x86.avx512.scatter.dpd.mask.512(i8* %ptr,
-                                          i8 %imask0,
+  call void @llvm.x86.avx512.scatter.dpd.512(i8* %ptr, i8 %imask0,
                                           <8 x i32> %index0,
                                           <8 x double> %data0,
                                           i32 8) ; scale 8
-  call void @llvm.x86.avx512.scatter.dpd.mask.512(i8* %ptr,
-                                          i8 %imask1,
+  call void @llvm.x86.avx512.scatter.dpd.512(i8* %ptr, i8 %imask1,
                                           <8 x i32> %index1,
                                           <8 x double> %data1,
                                           i32 8) ; scale 8
@@ -270,7 +225,7 @@ define void @masked_scatter.v16f64 (<16 x i1> %mask, double* %addr,
 ;; ------------------------------------
 define void @scatter.v16i32 (i32* %addr, <16 x i32>%index, <16 x i32> %data) {
   %ptr = bitcast i32 *%addr to i8*
-  call void @llvm.x86.avx512.scatter.dpi.512(i8* %ptr,
+  call void @llvm.x86.avx512.scatter.dpi.512(i8* %ptr, i16 -1,
                                     <16 x i32> %index,
                                     <16 x i32> %data,
                                     i32 4) ; scale 4
@@ -281,7 +236,7 @@ define void @masked_scatter.v16i32 (<16 x i1> %mask, i32* %addr, <16 x i32>%inde
                                 <16 x i32> %data) {
   %ptr = bitcast i32 *%addr to i8*
   %imask = bitcast <16 x i1> %mask to i16
-  call void @llvm.x86.avx512.scatter.dpi.mask.512(i8* %ptr,
+  call void @llvm.x86.avx512.scatter.dpi.512(i8* %ptr,
                                           i16 %imask,
                                           <16 x i32> %index,
                                           <16 x i32> %data,
@@ -302,11 +257,11 @@ define void @scatter.v16i64 (i64* %addr, <16 x i32>%index, <16 x i64> %data) {
             <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
   %index1 = shufflevector <16 x i32> %index, <16 x i32> undef,
             <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-  call void @llvm.x86.avx512.scatter.dpq.512(i8* %ptr,
+  call void @llvm.x86.avx512.scatter.dpq.512(i8* %ptr, i8 -1,
                                     <8 x i32> %index0,
                                     <8 x i64> %data0,
                                     i32 8) ; scale 8
-  call void @llvm.x86.avx512.scatter.dpq.512(i8* %ptr,
+  call void @llvm.x86.avx512.scatter.dpq.512(i8* %ptr, i8 -1,
                                     <8 x i32> %index1,
                                     <8 x i64> %data1,
                                     i32 8) ; scale 8
@@ -330,16 +285,37 @@ define void @masked_scatter.v16i64 (<16 x i1> %mask, i64* %addr,
   %mask1 = shufflevector <16 x i1> %mask, <16 x i1> undef,
             <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
   %imask1 = bitcast <8 x i1> %mask1 to i8
-  call void @llvm.x86.avx512.scatter.dpq.mask.512(i8* %ptr,
+  call void @llvm.x86.avx512.scatter.dpq.512(i8* %ptr,
                                           i8 %imask0,
                                           <8 x i32> %index0,
                                           <8 x i64> %data0,
                                           i32 8) ; scale 8
-  call void @llvm.x86.avx512.scatter.dpq.mask.512(i8* %ptr,
+  call void @llvm.x86.avx512.scatter.dpq.512(i8* %ptr,
                                           i8 %imask1,
                                           <8 x i32> %index1,
                                           <8 x i64> %data1,
                                           i32 8) ; scale 8
+  ret void
+}
+
+define void @gatherpf.32(i8* %addr, <16 x i32> %index) {
+  call void @llvm.x86.avx512.gatherpf.dps.512(i16 -1, <16 x i32> %index, i8* %addr,
+                                               i32 4, ; scale 4
+                                               i32 1) ; prefetch to L2 cache, non exclusive
+  ret void
+}
+define void @masked_gatherpf.32(<16 x i1> %mask, i8* %addr, <16 x i32>%index) {
+  %imask = bitcast <16 x i1> %mask to i16
+
+  call void @llvm.x86.avx512.gatherpf.dps.512(i16 %imask, <16 x i32> %index,
+                                              i8* %addr, i32 4, ; scale 4
+                                              i32 1) ; prefetch to L2 cache, non exclusive
+  ret void
+}
+
+define void @gatherpf.v16f32(float* %addr, <16 x i32>%index) {
+  %ptr = bitcast float *%addr to i8*
+  call void @gatherpf.32(i8* %ptr, <16 x i32> %index)
   ret void
 }
 

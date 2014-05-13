@@ -53,3 +53,22 @@ OclBuiltinImpl native_sqrt_v16f32_impl = OclBuiltinImpl<native_sqrt, [v16f32], 0
     return __ocl_svml_b3_sqrtf16_native($Arg0VarName);
   }]>;
 
+// ceil float16
+OclBuiltinImpl ceil_v16f32_impl = OclBuiltinImpl<ceil, [v16f32], 0, [{
+  return _mm512_ceil_ps($Arg0VarName);
+  }]>;
+
+// floor float16
+OclBuiltinImpl floor_v16f32_impl = OclBuiltinImpl<floor, [v16f32], 0, [{
+  return _mm512_floor_ps($Arg0VarName);
+  }]>;
+
+// ceil double8
+OclBuiltinImpl ceil_v8f64_impl = OclBuiltinImpl<ceil, [v8f64], 0, [{
+  return _mm512_ceil_pd($Arg0VarName);
+  }]>;
+
+// floor double8
+OclBuiltinImpl floor_v8f64_impl = OclBuiltinImpl<floor, [v8f64], 0, [{
+  return _mm512_floor_pd($Arg0VarName);
+  }]>;

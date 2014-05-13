@@ -360,9 +360,10 @@ bool PacketizeFunction::canTransposeMemory(Value* addr, Value* origVal, bool isL
   std::string funcName = Mangler::getTransposeBuiltinName(isLoad, isScatterGather, isMasked, origVecType, m_packetWidth);
   Function* transposeFuncRT = m_rtServices->findInRuntimeModule(funcName);
   // No proper transpose function for this load and packet width
-  if (!transposeFuncRT) 
+  if (!transposeFuncRT) {
+    printf("%s is missing\n", funcName.c_str());
     return false;
-  
+  }
   return true;
 }
 
@@ -877,6 +878,8 @@ bool PacketizeFunction::isGatherScatterType(bool masked,
     return true;
   std::string gatherScatterName = Mangler::getGatherScatterName(masked, type, VecTy);
   Function* gatherScatterFunc = m_rtServices->findInRuntimeModule(gatherScatterName);
+  if (!gatherScatterFunc)
+    printf("Can't find %s\n", gatherScatterName.c_str());
   return (gatherScatterFunc != NULL);
 }
 

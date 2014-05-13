@@ -182,6 +182,7 @@ option(BUILD_QTGUI "Build the QT related projects"  OFF)
 option(INCLUDE_MIC_DEVICE "Include MIC device Into Build"  OFF)
 option(USE_ITT_INTERNAL "Report internal tasks start/stop to VTune" OFF)
 option(USE_HARD_TRAPPING "Use hard trapping for workers on CPU device"  ON)
+option(ENABLE_KNL "Enables KNL device development"  OFF)
 option(USE_COMMON_CLANG "Use VPG supplied common clang dll instead of internale implementation" OFF)
 
 # find the used external packages
@@ -454,6 +455,9 @@ if (INCLUDE_MIC_DEVICE)
     message ( "COI device lib directory    : ${COI_DEVICE_LIB_PATH}")
 endif (INCLUDE_MIC_DEVICE)
 
+if (ENABLE_KNL)
+    add_definitions(-DENABLE_KNL)
+endif (ENABLE_KNL)
 # paths
 #set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES )
 include_directories( BEFORE

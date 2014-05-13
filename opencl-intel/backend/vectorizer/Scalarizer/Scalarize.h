@@ -11,6 +11,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "SoaAllocaAnalysis.h"
 #include "Logger.h"
 #include "VectorizerCommon.h"
+#include "TargetArch.h"
 
 #include "llvm/Pass.h"
 #include "llvm/IR/Type.h"
@@ -42,7 +43,8 @@ namespace intel {
 class ScalarizeFunction : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid
-  ScalarizeFunction(bool supportScatterGather = false);
+  ScalarizeFunction(const Intel::CPUId& CpuId);
+  ScalarizeFunction() : FunctionPass(ID) {}
   ~ScalarizeFunction();
 
   /// @brief Provides name of pass
@@ -268,6 +270,9 @@ private:
 
   /// @brief flag to enable scatter/gather to/from memory.
   bool UseScatterGather;
+
+  /// @brief cpuid
+  Intel::ECPU m_Cpu;
 
   /// @brief This holds DataLayout of processed module
 #if LLVM_VERSION == 3425

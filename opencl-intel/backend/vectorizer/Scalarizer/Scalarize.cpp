@@ -30,12 +30,13 @@ OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(ScalarizeFunction, "scalarize", "Scalarize functions", false, false)
 
-ScalarizeFunction::ScalarizeFunction(bool SupportScatterGather) : FunctionPass(ID), m_rtServices(NULL)
+ScalarizeFunction::ScalarizeFunction(const Intel::CPUId& CpuId)
+  : FunctionPass(ID), m_rtServices(NULL), m_Cpu(CpuId.GetCPU())
 {
   initializeScalarizeFunctionPass(*llvm::PassRegistry::getPassRegistry());
 
   for (int i = 0; i < Instruction::OtherOpsEnd; i++) m_transposeCtr[i] = 0;
-  UseScatterGather = SupportScatterGather || EnableScatterGatherSubscript;
+  UseScatterGather = CpuId.HasGatherScatter() || EnableScatterGatherSubscript;
 
   // Initialize SCM buffers and allocation
   m_SCMAllocationArray = new SCMEntry[ESTIMATED_INST_NUM];
@@ -1526,10 +1527,10 @@ void ScalarizeFunction::resolveDeferredInstructions()
 
 bool ScalarizeFunction::isScalarizableLoadStoreType(VectorType *type) {
   // Scalarize Load/Store worth doing only if:
-  //  1. Gather/Scatter are supported
-  //  2. Load/Store type is a vector
-  //  3. Not vector type with 16 elements
-  return (UseScatterGather && (NULL != type) && (type->getNumElements() < 16));
+  //  1. KNC
+  //  2. Load/Store type is a vector with less than 16 elements
+
+  return ((type != NULL) && (m_Cpu == Intel::MIC_KNC) && (type->getNumElements() < 16));
 }
 
 } // Namespace
@@ -1538,8 +1539,8 @@ bool ScalarizeFunction::isScalarizableLoadStoreType(VectorType *type) {
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  FunctionPass* createScalarizerPass(bool scatterGather = false) {
-    return new intel::ScalarizeFunction(scatterGather);
+  FunctionPass* createScalarizerPass(const Intel::CPUId& CpuId) {
+    return new intel::ScalarizeFunction(CpuId);
   }
 }
 
