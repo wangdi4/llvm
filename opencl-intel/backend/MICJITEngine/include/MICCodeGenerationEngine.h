@@ -55,7 +55,7 @@ public:
   //Note: the returned value is a heap-allocated object.
   //The ownership on this object is transfered to the caller of that method.
   /////////////////////////////////////////////////////////////////////
-  const LLVMModuleJITHolder* getModuleHolder(llvm::Module& m, const std::string& outAsmFile) const;
+  LLVMModuleJITHolder* getModuleHolder(llvm::Module& m, const std::string& outAsmFile) const;
 
 private:
   TargetMachine &TM;

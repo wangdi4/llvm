@@ -76,7 +76,7 @@ public:
     MICCompiler(const IMICCompilerConfig& pConfig);
     virtual ~MICCompiler();
 
-    const llvm::LLVMModuleJITHolder* GetModuleHolder(llvm::Module& module,
+    llvm::LLVMModuleJITHolder* GetModuleHolder(llvm::Module& module,
         const std::string& dumpAsm) const;
 
     virtual void *GetExecutionEngine() { return m_pCGEngine; }

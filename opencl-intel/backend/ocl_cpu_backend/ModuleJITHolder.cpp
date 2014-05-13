@@ -34,7 +34,6 @@ class IInputStream;
 class IOutputStream;
 
 ModuleJITHolder::ModuleJITHolder():
-    m_pJITBuffer(NULL),
     m_pJITCode(NULL),
     m_JITCodeSize(0),
     m_alignment(0),
@@ -43,13 +42,17 @@ ModuleJITHolder::ModuleJITHolder():
 
 ModuleJITHolder::~ModuleJITHolder()
 {
-    if(NULL != m_pJITBuffer)
+    if(NULL != m_pJITAllocator && NULL != m_pJITCode)
     {
-        // in case m_pJITAllocator is NULL this means that PCG generated the JIT
-        if(NULL == m_pJITAllocator) free(m_pJITBuffer);
-        else m_pJITAllocator->FreeExecutable(m_pJITBuffer);
+        m_pJITAllocator->FreeExecutable(m_pJITCode);
     }
 }
+
+MemoryHolder &ModuleJITHolder::GetJITMemoryHolder()
+{
+    return m_memBuffer;
+}
+
 
 void ModuleJITHolder::SetJITCodeSize(int jitSize)
 {
@@ -71,33 +74,18 @@ size_t ModuleJITHolder::GetJITAlignment() const
     return m_alignment;
 }
 
-void ModuleJITHolder::SetJITCodeStartPoint(const void* pJITCodeStartpoint)
-{
-    m_pJITCode = (const char*)pJITCodeStartpoint;
-}
-
 const void* ModuleJITHolder::GetJITCodeStartPoint() const
 {
     return m_pJITCode;
-}
-
-void ModuleJITHolder::SetJITBufferPointer(void* pJITBuffer)
-{
-    m_pJITBuffer = (char*)pJITBuffer;
-}
-
-const void* ModuleJITHolder::GetJITBufferPointer() const
-{
-    return m_pJITBuffer;
 }
 
 void ModuleJITHolder::Serialize(IOutputStream& ost, SerializationStatus* stats)
 {
     // using unsigned long long int instead of size_t is because that size_t
     // varies in it's size relating to the platform (32/64 bit)
-    unsigned long long int tmp = (unsigned long long int)m_JITCodeSize;
+    unsigned long long int tmp = (unsigned long long int)m_memBuffer.getSize();
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
-    
+
     tmp = (unsigned long long int)m_alignment;
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
 
@@ -110,10 +98,16 @@ void ModuleJITHolder::Serialize(IOutputStream& ost, SerializationStatus* stats)
     {
         SerializeKernelInfo(it->first, it->second, ost);
     }
-    
-    for(size_t i = 0; i < m_JITCodeSize; i++)
+
+    for (unsigned chunkIdx = 0; chunkIdx < m_memBuffer.getNumChunks();
+        chunkIdx++)
     {
-        Serializer::SerialPrimitive<char>(&(m_pJITCode[i]), ost);
+      char *ptr = m_memBuffer.getChunkPtr(chunkIdx);
+      unsigned long long size = m_memBuffer.getChunkSize(chunkIdx);
+      for(size_t i = 0; i < size; i++)
+      {
+          Serializer::SerialPrimitive<char>(&(ptr[i]), ost);
+      }
     }
 }
 
@@ -122,13 +116,13 @@ void ModuleJITHolder::Deserialize(IInputStream& ist, SerializationStatus* stats)
     unsigned long long int tmp = 0;
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
     m_JITCodeSize = tmp;
-    
+
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
     m_alignment = tmp;
-    
+
     int mapSize = 0;
     Serializer::DeserialPrimitive<int>(&mapSize, ist);
-    
+
     m_KernelsMap.clear();
     for(int i = 0; i < mapSize; ++i)
     {
@@ -137,29 +131,25 @@ void ModuleJITHolder::Deserialize(IInputStream& ist, SerializationStatus* stats)
         DeserializeKernelInfo(kernelID, kernelInfo, ist);
         m_KernelsMap[kernelID] = kernelInfo;
     }
-    
 
     // Deserialize the JIT code itself
     ICLDevBackendJITAllocator* pAllocator = stats->GetJITAllocator();
     if(NULL == pAllocator) throw Exceptions::SerializationException("Cannot Get JIT Allocator");
-    
-    if(NULL != m_pJITBuffer)
+
+    if(NULL != m_pJITCode)
     {
-        m_pJITAllocator->FreeExecutable(m_pJITBuffer); // free by the old allocator
-        m_pJITBuffer = NULL;
+        m_pJITAllocator->FreeExecutable(m_pJITCode); // free by the old allocator
+        m_pJITCode = NULL;
     }
-    
+
     m_pJITAllocator = pAllocator;
-    m_pJITBuffer = (char*)(m_pJITAllocator->AllocateExecutable(sizeof(char) * m_JITCodeSize, m_alignment));
-    if(NULL == m_pJITBuffer) throw Exceptions::SerializationException("JIT Allocator Failed Allocating Memory");
-    
+    m_pJITCode = (char*)(m_pJITAllocator->AllocateExecutable(sizeof(char) * m_JITCodeSize, m_alignment));
+    if(NULL == m_pJITCode) throw Exceptions::SerializationException("JIT Allocator Failed Allocating Memory");
+
     for(size_t i = 0; i < m_JITCodeSize; i++)
     {
-        Serializer::DeserialPrimitive<char>(&(m_pJITBuffer[i]), ist);
+        Serializer::DeserialPrimitive<char>(&(m_pJITCode[i]), ist);
     }
-	  // we get the buffer already aligned so the pJITCode == pJITBuffer
-    m_pJITCode = m_pJITBuffer;
-
 }
 
 void ModuleJITHolder::SerializeKernelInfo(KernelID id, KernelInfo info,

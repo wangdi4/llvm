@@ -26,6 +26,9 @@ File Name:  ModuleJITHolder.h
 #include <string>
 #include <utility>
 #include <vector>
+#include <malloc.h>
+#include <assert.h>
+#include <stdint.h>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -63,6 +66,84 @@ struct KernelInfo {
 };
 
 /**
+ * Container for chunks of allocated memory
+ */
+class MemoryHolder {
+public:
+
+  MemoryHolder() : m_size(0) {}
+
+  ~MemoryHolder() {
+    for (unsigned i = 0; i < m_chunks.size(); i++)
+      m_chunks[i].release();
+    m_chunks.clear();
+  }
+
+  void addChunk(char *ptr, uint64_t size) {
+    m_chunks.push_back(ChunkHolder(ptr, size));
+    m_size += size;
+  }
+
+  // return total JIT size held by this MemoryHolder
+  uint64_t getSize() const {
+    return m_size;
+  }
+
+  // the following 3 methods are used for serialization
+  unsigned getNumChunks() const {
+    return m_chunks.size();
+  }
+
+  char *getChunkPtr(unsigned i) const {
+    assert (i < m_chunks.size() && "trying to access non-existing memory chunk");
+    if (i >= m_chunks.size()) return NULL;
+    return m_chunks[i].getPtr();
+  }
+
+  uint64_t getChunkSize(unsigned i) const {
+    assert (i < m_chunks.size() && "trying to access non-existing memory chunk");
+    if (i >= m_chunks.size()) return 0;
+    return m_chunks[i].getSize();
+  }
+
+private:
+
+  class ChunkHolder {
+  public:
+    ChunkHolder(char *ptr, uint64_t size) :
+      m_allocPtr(ptr), m_size(size) {}
+
+    // free memory owned by this chunk
+    void release() {
+      if (m_allocPtr != NULL) {
+        free(m_allocPtr);
+        m_allocPtr = NULL;
+      }
+    }
+
+    char *getPtr() const {
+      return m_allocPtr;
+    }
+    // get net size of JIT held by this chunk
+    uint64_t getSize() const {
+      return m_size;
+    }
+
+  private:
+
+    ChunkHolder();
+
+    char *m_allocPtr;               // pointer to allocated memory
+    uint64_t m_size;      // size of use memory in this chunk
+  };
+
+private:
+  std::vector<ChunkHolder> m_chunks;
+  // total size used for JIT in all chunks
+  uint64_t m_size;
+};
+
+/**
  * Represent JIT Code Holder for Module, which contains the main properties about
  * the jitted code, used in case the JIT is for the whole module at once
  */
@@ -73,46 +154,34 @@ public:
     virtual ~ModuleJITHolder();
 
     /**
+     * @return the whole JIT Buffer (Code\Data) size
+     */
+    virtual MemoryHolder &GetJITMemoryHolder();
+
+    /**
      * @effects sets the JIT code buffer size
      */
     virtual void SetJITCodeSize(int jitSize);
 
     /**
-     * @return the whole JIT Buffer (Code\Data) size
+     * @return the whole JIT Buffer (Code\Data)
      */
     virtual int GetJITCodeSize() const;
-    
+
     /**
      * @effects sets the required alignment for the executable code
      */
     virtual void SetJITAlignment(size_t alignment);
-    
+
     /**
      * @return the required alignment for the executable code
      */
     virtual size_t GetJITAlignment() const;
 
     /**
-     * @effects sets the JIT code buffer startpoint for execution
-     */
-    virtual void SetJITCodeStartPoint(const void* pJITCodeStartpoint);
-
-    /**
      * @return the JIT Buffer (Code/Data) start point for execution
      */
     virtual const void* GetJITCodeStartPoint() const;
-    
-    /**
-     * @effects sets the JIT code buffer startpoint for freeing the JIT
-     *      NOTE: gets ownership of the JIT code
-     */
-    virtual void SetJITBufferPointer(void* pJITBuffer);
-
-    /**
-     * @return the JIT Buffer (Code/Data) start point, assuming that all
-     *    the JIT code in continunios memory
-     */
-    virtual const void* GetJITBufferPointer() const;
 
     /**
      * @effects registers a new kernel, for each kernel need to specifiy 
@@ -126,7 +195,7 @@ public:
      *    of the JIT buffer); Exception will be raised if errors occurs
      */
     virtual int GetKernelEntryPoint(KernelID kernelId) const;
-    
+
     /**
      * @param kernel identifier
      * @returns the size (in bytes) of the given kernel JIT code
@@ -168,13 +237,16 @@ public:
     virtual void Serialize(IOutputStream& ost, SerializationStatus* stats);
     virtual void Deserialize(IInputStream& ist, SerializationStatus* stats);
 private:
-    char*  m_pJITBuffer;
-    const char*  m_pJITCode;
+    // container for JIT in chunks as created by the compiler
+    MemoryHolder m_memBuffer;
+    // pointer to JIT on the device
+    char*  m_pJITCode;
+
     size_t m_JITCodeSize;
     size_t m_alignment;
     std::map<KernelID, KernelInfo> m_KernelsMap;
-    
-    ICLDevBackendJITAllocator* m_pJITAllocator; 
+
+    ICLDevBackendJITAllocator* m_pJITAllocator;
 
     // Klockwork Issue
     ModuleJITHolder ( const ModuleJITHolder& x );

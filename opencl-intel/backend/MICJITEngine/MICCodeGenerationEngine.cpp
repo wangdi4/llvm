@@ -65,7 +65,7 @@ MICCodeGenerationEngine::MICCodeGenerationEngine(TargetMachine &tm,
 
 MICCodeGenerationEngine::~MICCodeGenerationEngine() {}
 
-const LLVMModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
+LLVMModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
   llvm::Module& mod, const std::string& outAsmFileName) const {
 
   PassManager PM;

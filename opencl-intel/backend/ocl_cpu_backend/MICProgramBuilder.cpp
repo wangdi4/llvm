@@ -270,7 +270,7 @@ void MICProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Modu
     {
       dumpAsm = pOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DUMPFILE, "");
     }
-    std::auto_ptr<const llvm::LLVMModuleJITHolder> spMICModuleJIT(m_compiler.GetModuleHolder(*spModule, dumpAsm));
+    std::auto_ptr<llvm::LLVMModuleJITHolder> spMICModuleJIT(m_compiler.GetModuleHolder(*spModule, dumpAsm));
     ModuleJITHolder* pModuleJIT = new ModuleJITHolder();
 
     CopyJitHolder(spMICModuleJIT.get(), pModuleJIT);
@@ -278,13 +278,17 @@ void MICProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Modu
     static_cast<MICProgram*>(pProgram)->SetModuleJITHolder(pModuleJIT);
 }
 
-void MICProgramBuilder::CopyJitHolder(const LLVMModuleJITHolder* from, ModuleJITHolder* to) const
+void MICProgramBuilder::CopyJitHolder(LLVMModuleJITHolder* from, ModuleJITHolder* to) const
 {
     // Copy scalar values
     to->SetJITCodeSize(from->getJITCodeSize());
-    to->SetJITCodeStartPoint(from->getJITCodeStartPoint());
-    to->SetJITBufferPointer(from->getJITBufferPointer());
     to->SetJITAlignment(from->getJITCodeAlignment());
+
+    // Copy memory chunks info
+    auto_ptr<LLVMMemoryHolder> LML = from->getJITBufferHolder();
+    MemoryHolder &ML = to->GetJITMemoryHolder();
+    for (unsigned i = 0; i < LML->getNumChunks(); i++)
+      ML.addChunk(LML->getOwnershipChunkPtr(i), LML->getChunkSize(i));
 
     // Copy kernels
     for(llvm::KernelMap::const_iterator it = from->getKernelMap().begin(),
