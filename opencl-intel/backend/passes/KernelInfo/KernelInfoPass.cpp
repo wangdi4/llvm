@@ -41,7 +41,24 @@ namespace intel {
       }
       std::string calledFuncName = pFunc->getName().str();
       if (CompilationUtils::isAtomicBuiltin(calledFuncName)) {
-        PointerType* ptr = cast<PointerType>(pCall->getOperand(0)->getType());
+        Value * Arg0 = pCall->getOperand(0);
+        // handle atomic_work_item_fence(cl_mem_fence_flags flags, 
+        // memory_order order, memory_scope scope) built-in
+        if(CompilationUtils::isAtomicWorkItemFenceBuiltin(calledFuncName)){
+          // !!! MUST be aligned with define in opencl_.h 
+          // #define CLK_GLOBAL_MEM_FENCE   0x2
+          static const uint64_t CLK_GLOBAL_MEM_FENCE = 2;
+
+          // handle contant int
+          if(const llvm::ConstantInt* CI = dyn_cast<ConstantInt>(Arg0))
+            // check in 0th argument CLK_GLOBAL_MEM_FENCE is set
+            return CI->getZExtValue() & CLK_GLOBAL_MEM_FENCE;
+          else
+            // 0th argument is not constant
+            // assuming worst case - has CLK_GLOBAL_MEM_FENCE flag set
+            return true;
+        }
+        PointerType* ptr = cast<PointerType>(Arg0->getType());
         assert(!IS_ADDR_SPACE_GENERIC(ptr->getAddressSpace()) &&
               "Generic address space must be resolved before KernelInfoPass.");
         if (IS_ADDR_SPACE_GLOBAL(ptr->getAddressSpace()))

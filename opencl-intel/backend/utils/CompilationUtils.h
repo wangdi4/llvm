@@ -201,6 +201,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isWorkGroupUniform(const std::string&);
 
     static bool isAtomicBuiltin(const std::string&);
+    static bool isAtomicWorkItemFenceBuiltin(const std::string&);
 
     static const std::string NAME_GET_GID;
     static const std::string NAME_GET_LID;

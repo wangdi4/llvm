@@ -1036,4 +1036,14 @@ bool CompilationUtils::isAtomicBuiltin(const std::string& funcName){
   return std::string(stripName(funcName.c_str())).compare(0, 4, "atom") == 0;
 }
 
+bool CompilationUtils::isAtomicWorkItemFenceBuiltin(const std::string& funcName){
+  // S is atomic built-in name if
+  // - it's mangled (only built-in function names are mangled)
+  // - it's equal to "atomic_work_item_fence" string
+  if (!isMangledName(funcName.c_str()))
+    return false;
+  return stripName(funcName.c_str()) == "atomic_work_item_fence";
+
+}
+
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
