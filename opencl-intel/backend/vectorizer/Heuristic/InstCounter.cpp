@@ -49,6 +49,8 @@ OCL_INITIALIZE_PASS_END(VectorizationPossibilityPass, "vectorpossible", "Check w
 const float WeightedInstCounter::RATIO_MULTIPLIER = 0.98f;
 const float WeightedInstCounter::ALL_ZERO_LOOP_PENALTY = 0;
 const float WeightedInstCounter::TID_EQUALITY_PENALTY = 0.1f;
+const int PENALTY_FACTOR_FOR_GEP_WITH_SIX_PARAMETERS = 7;
+const int NUMBER_OF_PARAMETERS_IN_GEP_PENALTY_HACK = 6;
 
 
 // Costs for transpose functions for 64bit systems
@@ -422,6 +424,32 @@ int WeightedInstCounter::estimateCall(CallInst *Call)
       // since the CPU doesn't have gathers.
       Value *Mask = Call->getArgOperand(0);
       Type* MaskType = Mask->getType();
+
+      // apperently, masked stores to a memory location that was retrieved via
+      // a get element pointer instruction with 6 parameters,
+      // inside a block which is a loop of a single block, are
+      // surprisingly expensive (about 7 times that of a usual MEM_OP).
+      // alternatively...
+      // this could be the result of an outragous over-fitting, designed
+      // to prevent LuxMark::Sampler from vectorizing.
+      // So yes, this is a hack for this purpose.
+      // The check is very specific trying to catch LuxMark::Sampler.
+      // alone without causing collateral damage.
+      if (Mangler::isMangledStore(Name) && !MaskType->isVectorTy()) {
+        V_ASSERT(Call->getNumArgOperands() == 3 && "expected 3 params in masked store");
+        if (GetElementPtrInst* gep = dyn_cast<GetElementPtrInst>(Call->getOperand(2))) {
+          if (gep->getNumOperands() == NUMBER_OF_PARAMETERS_IN_GEP_PENALTY_HACK) {
+            BasicBlock* BB = Call->getParent();
+            for (succ_iterator it = succ_begin(BB), e = succ_end(BB);
+              it != e; ++it) {
+              if (*it == BB) {
+                return MEM_OP_WEIGHT * PENALTY_FACTOR_FOR_GEP_WITH_SIX_PARAMETERS;
+              }
+            }
+          }
+        }
+      }
+
       // For scalar masks, it'll be a pretty little vector store/load
       if (!MaskType->isVectorTy())
         return MEM_OP_WEIGHT;
