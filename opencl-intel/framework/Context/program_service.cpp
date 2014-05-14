@@ -205,7 +205,7 @@ bool LinkTask::Execute()
 {
     char* pBinary = NULL;
     size_t uiBinarySize = 0;
-    char* szLinkLog = NULL;
+    std::vector<char> linkLog;
     bool bIsLibrary = false;
 
     // if previous task failed don't continue execution
@@ -250,7 +250,7 @@ bool LinkTask::Execute()
                                m_sOptions.c_str(),
                                &pBinary,
                                &uiBinarySize,
-                               &szLinkLog,
+                               linkLog,
                                &bIsLibrary);
 
     if (0 == uiBinarySize)
@@ -259,10 +259,9 @@ bool LinkTask::Execute()
         //Build failed
         m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_LINK_FAILED);
 
-        if (NULL != szLinkLog)
+        if (!linkLog.empty())
         {
-            m_pDeviceProgram->SetBuildLogInternal(szLinkLog);
-            delete[] szLinkLog;
+            m_pDeviceProgram->SetBuildLogInternal(&linkLog[0]);
         }
 
         m_pDeviceProgram->SetBuildLogInternal("Linking failed\n");
@@ -1134,14 +1133,7 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
 
     clLocalArray<SharedPtr<BuildTask> > arrCompileTasks(uiNumDevices);
     clLocalArray<SharedPtr<BuildTask> > arrLinkTasks(uiNumDevices);
-    clLocalArray<SharedPtr<BuildTask> > arrDeviceBuildTasks(uiNumDevices);
-
-    for (unsigned int i = 0; i < uiNumDevices; ++i)
-    {
-        arrCompileTasks[i] = NULL;
-        arrLinkTasks[i] = NULL;
-        arrDeviceBuildTasks[i] = NULL;
-    }
+    clLocalArray<SharedPtr<BuildTask> > arrDeviceBuildTasks(uiNumDevices);    
 
     // this will be released in PostBuildTask
     DeviceProgram** ppDevicePrograms = new DeviceProgram*[uiNumDevices];
