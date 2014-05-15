@@ -30,6 +30,8 @@
 #include "llvm/Target/PiggyBackAnalysis.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Support/Mutex.h"
+#include "llvm/Support/MutexGuard.h"
 
 #include <cassert>
 #include <cstdio>
@@ -40,6 +42,9 @@
 #include <string>
 
 using namespace llvm;
+
+// global lock for PCG
+llvm::sys::Mutex MICCodeGenerationEngine::g_PCGbuildlock;
 
 /// selectTarget - Pick a target either via -march or by guessing the native
 /// arch.  Add any CPU features specified via -mcpu or -mattr.
@@ -186,7 +191,10 @@ LLVMModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
       return 0;
     }
 
-    PM.run(local_mod);
+    {
+      llvm::MutexGuard lock(MICCodeGenerationEngine::g_PCGbuildlock);
+      PM.run(local_mod);
+    }
 
     if (OutF)
     {

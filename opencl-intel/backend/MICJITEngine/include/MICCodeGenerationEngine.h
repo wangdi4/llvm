@@ -13,6 +13,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/CodeGen.h"
+#include "llvm/Support/Mutex.h"
 
 #include "stddef.h"
 
@@ -61,6 +62,9 @@ private:
   TargetMachine &TM;
   CodeGenOpt::Level optLevel;
   const IFunctionAddressResolver* Resolver;
+
+  // global lock for PCG
+  static llvm::sys::Mutex g_PCGbuildlock;
 
 };
 
