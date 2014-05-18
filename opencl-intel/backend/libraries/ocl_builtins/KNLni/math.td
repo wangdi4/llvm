@@ -42,3 +42,23 @@ OclBuiltinImpl native_sqrt_v16f32_impl = OclBuiltinImpl<native_sqrt, [v16f32], 0
     return __ocl_svml_b3_sqrtf16_native($Arg0VarName);
   }]>;
 
+// integer remainder
+OclBuiltinImpl irem_svml = OclBuiltinImpl<irem, [v16i32], 0, [{
+    return __ocl_svml_$Target_irem$VecLength($Arg0VarName, $Arg1VarName);
+  }]>;
+
+// unsigned integer remainder
+OclBuiltinImpl urem_svml = OclBuiltinImpl<urem, [v16u32], 0, [{
+    return __ocl_svml_$Target_urem$VecLength($Arg0VarName, $Arg1VarName);
+  }]>;
+
+// integer division
+OclBuiltinImpl idiv_svml = OclBuiltinImpl<idiv, [v16i32], 0, [{
+    return __ocl_svml_$Target_idiv$VecLength($Arg0VarName, $Arg1VarName);
+  }]>;
+
+// unsigned integer division
+OclBuiltinImpl udiv_svml = OclBuiltinImpl<udiv, [v16u32], 0, [{
+    return __ocl_svml_$Target_udiv$VecLength($Arg0VarName, $Arg1VarName);
+  }]>;
+
