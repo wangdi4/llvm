@@ -1,4 +1,3 @@
-#
 # Project variables:
 #  OCL_SOURCE_DIR    - points to the top src directory
 #  OCL_BINARY_DIR    - points to the directory outside of OCL_SOURCE_DIR - root of generated files
@@ -10,7 +9,7 @@ use_rtti(FALSE)
 set( TARGET_NAME clang_compiler${BUILD_PLATFORM} )
 
 #
-# Source code 
+# Source code
 #
 set(TARGET_INCLUDE_FILES
     clang_compiler.h
@@ -64,7 +63,7 @@ set( CMAKE_CXX_FLAGS_DEBUG
 add_definitions( -D__STDC_LIMIT_MACROS )
 add_definitions( -D__STDC_CONSTANT_MACROS )
 if(USE_COMMON_CLANG)
-    add_definitions( -DUSE_COMMON_CLANG )
+  add_definitions( -DUSE_COMMON_CLANG )
 endif()
 
 #
@@ -84,34 +83,31 @@ include_directories( AFTER
             )
 
 if (WIN32)
-    include_directories( AFTER 
+    include_directories( AFTER
         ../common/windows/headers
     )
 else()
     include_directories( AFTER
         ../common/linux/headers
     )
-endif() 
+endif()
 
 if (WIN32)
     if (CMAKE_SIZEOF_VOID_P EQUAL 8)
         add_definitions( -DRESOURCE_X64 )
-    endif (CMAKE_SIZEOF_VOID_P EQUAL 8) 
+    endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 endif ()
 
-set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
-
-link_directories( 
-    ${TBB_LIB_DIR}
+link_directories(
     ${LLVM_LIBRARY_DIR}
 )
 
-add_library(${TARGET_NAME} SHARED 
+add_library(${TARGET_NAME} SHARED
     ${TARGET_INCLUDE_FILES}
     ${TARGET_SOURCE_FILES}
 )
 
-install(TARGETS ${TARGET_NAME} 
+install(TARGETS ${TARGET_NAME}
     RUNTIME DESTINATION bin
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION bin)
@@ -167,13 +163,13 @@ else()
 endif()
 endif (NOT INCLUDE_MIC_DEVICE)
 
-target_link_libraries( ${TARGET_NAME} 
+target_link_libraries( ${TARGET_NAME}
                            CacheBinaryHandler
                            CLElfLib
 )
 
 if (USE_COMMON_CLANG)
-    target_link_libraries( ${TARGET_NAME} 
+    target_link_libraries( ${TARGET_NAME}
                            OclPluginManager
                            metadataapi
                            dynamic_load
@@ -182,17 +178,14 @@ if (USE_COMMON_CLANG)
                            SPIRMetadataAdder
                            ${LLVM_MODULE_LIBS}
     )
-else() 
+else()
     # The list of clang libraries is taken from clang makefile
     # (build/tools/clang/tools/driver/CMakeFiles/clang.dir/build.make)
-    # All duplicate libraries are there on purpose 
+    # All duplicate libraries are there on purpose
     target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                           SPIRMetadataAdder
                                           cl_sys_utils
                                           cl_logger
-#                                          LLVMCppBackendCodeGen
-#                                          LLVMCppBackendInfo
-                                          task_executor${BUILD_PLATFORM}
                                           clangFrontendTool
                                           clangAST
                                           clangAnalysis
@@ -248,7 +241,7 @@ endif()
 set( CLANG_OPTIONS -cc1
                    -x cl
                    -O0
-                   -emit-pch 
+                   -emit-pch
                    -I ${OCL_CLANG_HEADERS}
                    -D __IMAGE2D_DEPTH__
                    -D __WRITE_IMAGE3D__
@@ -258,7 +251,7 @@ set( CLANG_OPTIONS_OPENCL_12
                     ${CLANG_OPTIONS}
                       )
 
-set( CLANG_OPTIONS_OPENCL_20 
+set( CLANG_OPTIONS_OPENCL_20
                     ${CLANG_OPTIONS}
                     -cl-std=CL2.0
                     -D__OPENCL_C_VERSION__=200
@@ -272,7 +265,7 @@ if( CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE OR ANDROID )
 else()
    set(TOOL_BINARY_DIR "${LLVM_BINARY_DIR}" )
 endif()
-    
+
 set( CLANG ${TOOL_BINARY_DIR}/clang )
 
 add_custom_command( TARGET ${TARGET_NAME}
@@ -314,41 +307,40 @@ install(DIRECTORY ${OCL_CLANG_HEADERS}/ DESTINATION include/fe_include PATTERN *
 if( USE_COMMON_CLANG )
     string(REPLACE "\${CMAKE_CFG_INTDIR}" "\${BUILD_TYPE}" COMMON_CLANG_INSTALL_PATH ${COMMON_CLANG_PATH})
 
-    install(FILES ${COMMON_CLANG_INSTALL_PATH}/igdfcl${ADDR}.dll 
-            DESTINATION bin 
+    install(FILES ${COMMON_CLANG_INSTALL_PATH}/igdfcl${ADDR}.dll
+            DESTINATION bin
             RENAME common_clang${ADDR}.dll)
-    install(FILES ${COMMON_CLANG_INSTALL_PATH}/igdfcl${ADDR}.pdb 
-            DESTINATION bin 
+    install(FILES ${COMMON_CLANG_INSTALL_PATH}/igdfcl${ADDR}.pdb
+            DESTINATION bin
             RENAME common_clang${ADDR}.pdb)
     install(FILES ${COMMON_CLANG_INSTALL_PATH}/igdfcl${ADDR}.lib
-            DESTINATION bin 
+            DESTINATION bin
             RENAME common_clang${ADDR}.lib)
 endif()
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER clang_compiler )
 
 #
-# Stripped PDB files 
+# Stripped PDB files
 #
 if (WIN32)
     get_target_property(RT_OUTPUT_DIRECTORY ${TARGET_NAME} RUNTIME_OUTPUT_DIRECTORY)
     file(TO_NATIVE_PATH ${RT_OUTPUT_DIRECTORY}/${CMAKE_CFG_INTDIR}/${TARGET_NAME}_stripped.pdb PDB_NAME)
     if (${MSVC_VERSION} EQUAL 1500)
-        # Visual Studio 2008 
-        set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS    "${LINK_FLAGS} /PDBSTRIPPED:${PDB_NAME}")        
+        # Visual Studio 2008
+        set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS    "${LINK_FLAGS} /PDBSTRIPPED:${PDB_NAME}")
     else (${MSVC_VERSION} EQUAL 1500)
         # Visual Studio 2010 (assumed if not Visual Studio 2008)
         # This is a fix due to a bug in CMake, Does not add the flag /DEBUG to the linker flags in Release mode.
-        # The /DEBUG flag is required in order to create stripped pdbs.        
+        # The /DEBUG flag is required in order to create stripped pdbs.
         set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG} /PDBSTRIPPED:${PDB_NAME}")
         set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_RELEASE    "${LINK_FLAGS_RELEASE} /DEBUG /PDBSTRIPPED:${PDB_NAME}")
     endif (${MSVC_VERSION} EQUAL 1500)
-    if (INSTALL_PDBS)    
+    if (INSTALL_PDBS)
         install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}.pdb DESTINATION bin)
-    endif(INSTALL_PDBS)    
+    endif(INSTALL_PDBS)
     install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
 else (WIN32)
     set_target_properties( ${TARGET_NAME} PROPERTIES LINK_FLAGS "-Wl,-Bsymbolic")
 endif(WIN32)
-
 
