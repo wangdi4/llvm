@@ -26,19 +26,13 @@
 
 #include <source/COIBuffer_source.h>
 
-#ifdef MIC_USE_COI_BUFFS_REF_NEW_API
 #include <algorithm>
-#endif
 
 using namespace Intel::OpenCL::MICDevice;
 using namespace Intel::OpenCL::DeviceBackend;
 
 COI_ACCESS_FLAGS ExecutionCommand::m_sCoiAccessFlas[2][ExecutionCommand::LAST] = {{COI_SINK_READ, COI_SINK_WRITE, COI_SINK_WRITE_ENTIRE}, 
-#ifdef MIC_USE_COI_BUFFS_REF_NEW_API
                                                                                   {COI_SINK_READ_ADDREF, COI_SINK_WRITE_ADDREF, COI_SINK_WRITE_ENTIRE_ADDREF}
-#else
-	                                                                              {COI_SINK_READ, COI_SINK_WRITE, COI_SINK_WRITE_ENTIRE}
-#endif
                                                                                  };
 
 //
@@ -274,7 +268,6 @@ void ExecutionCommand::fireCallBack(void* arg)
 
     m_pCommandList->releaseDeviceQueue();
 
-#ifdef MIC_USE_COI_BUFFS_REF_NEW_API
 	if ((!m_pCommandList->isSyncQueue(getDispatcherData()->deviceQueuePtr)) && (m_coiBuffsArr.size() > 0))
 	{
 		COIPROCESS proc = m_pCommandList->getDeviceProcess();
@@ -289,7 +282,6 @@ void ExecutionCommand::fireCallBack(void* arg)
 			}
 		}
 	}
-#endif
 
     if (CL_DEV_SUCCESS == m_lastError)
     {
@@ -299,6 +291,9 @@ void ExecutionCommand::fireCallBack(void* arg)
     if (m_pCmd->profiling)
     {
         assert(m_cmdRunningTime > 0 && m_cmdCompletionTime > 0 && "When profiling On, both RUNNING and COMPLETED must be set");
+
+        unsigned long long lastCompleted = m_pCommandList->updateLastCommandCompletionTime(m_cmdCompletionTime);
+        m_cmdRunningTime = MAX(m_cmdRunningTime, lastCompleted);
 
         cl_ulong overhead = m_pCommandList->getOverheadData()->execution_overhead;
         
@@ -496,6 +491,8 @@ cl_dev_err_code NDRange::init()
 
         bool isSyncQueue = m_pCommandList->isSyncQueue(dispatcherData->deviceQueuePtr);
 
+        dispatcherData->profiling = m_pCmd->profiling;
+
         // Get device side kernel address and set kernel directive
         dispatcherData->kernelAddress = ProgramService::GetDeviceSideKernel(cmdParams->kernel);
         if (0 == dispatcherData->kernelAddress)
@@ -613,6 +610,8 @@ cl_dev_err_code FillMemObject::init()
         m_fillDispatchData.commandIdentifier = (uint64_t)m_pCmd->id;
         m_fillDispatchData.deviceQueuePtr = m_pCommandList->acquireDeviceQueue();
 		bool isSyncQueue = m_pCommandList->isSyncQueue(m_fillDispatchData.deviceQueuePtr);
+
+        m_fillDispatchData.profiling = m_pCmd->profiling;
 
         // copy the dimension value
         assert(pMemObj.dim_count == cmdParams->dim_count);

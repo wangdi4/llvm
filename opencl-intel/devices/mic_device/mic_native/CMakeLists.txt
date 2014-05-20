@@ -366,7 +366,7 @@ set( MIC_FLAGS  -Werror
                 -ffunction-sections
             )
 
-set( MIC_DEBUG_FLAGS   -g -O0 -D_DEBUG -DDEBUG )
+set( MIC_DEBUG_FLAGS   -g -O0 -D_DEBUG -DDEBUG -DTBB_USE_DEBUG)
 set( MIC_RELEASE_FLAGS -O3 -DNDEBUG )
 
 # include path

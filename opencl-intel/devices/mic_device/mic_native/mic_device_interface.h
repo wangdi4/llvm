@@ -119,6 +119,7 @@ struct dispatcher_data
     uint64_t               commandIdentifier;    // Command identifier provided by the Framework (Unique for each NDRange execution)
     command_event_struct   startEvent;           // Event to be signaled when command starts
     command_event_struct   endEvent;             // Event to be signaled when command completes
+    bool                   profiling;            // Is it profiled command?
 };
 
 // Defines a list of parameters required for NDRange kernel launch

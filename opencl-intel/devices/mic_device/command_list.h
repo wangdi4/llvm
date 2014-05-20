@@ -133,6 +133,22 @@ public:
 
     bool isProfilingEnabled() const { return m_isProfilingEnabled;}
 
+    /* It is NOT thread safe method, only single thread suppose to use it!!!
+       This method update the completion time of the last command that completed (current completed command) and return the completion time of the previous command.
+       In order to fix race of signaling completion of command N and Start of command N+1 on the device.
+       It return 0 in case of Out Of Order queue. */
+    unsigned long long updateLastCommandCompletionTime(unsigned long long completionTime) 
+    {
+        if (!m_isInOrderQueue)
+        {
+            return 0;
+        }
+        assert(completionTime > m_lastCommandCompletionTime && "Order of completion signal on the same queue suppose to preserve");
+        unsigned long long prevTime = m_lastCommandCompletionTime;
+        m_lastCommandCompletionTime = completionTime;
+        return prevTime;
+    }
+
     bool isCanceled() const { return m_bIsCanceled; }
 
     const ocl_gpa_data* GetGPAInfo() const { return m_pGPAData;}
@@ -143,11 +159,24 @@ public:
        Call it only once per device command!!! */
     uint64_t acquireDeviceQueue();
     /* Call it when commands that execute on device completed. */
-    void releaseDeviceQueue() { m_numCommandsEnq --; };
+    void releaseDeviceQueue() 
+    {
+        if ((m_isInOrderQueue) && (m_sBatchAfter != m_sNoBatch))
+        {
+            m_batchSpinMutex.Lock();
+            m_numCommandsEnq --;
+            assert(m_numCommandsEnq != m_sNoBatch && "m_numCommandsEnq must be greater or equal to 0");
+            m_canUseSyncQueue |= (m_numCommandsEnq == 0);
+            m_batchSpinMutex.Unlock();
+        }
+    };
 
     bool isSyncQueue(uint64_t pQueue) const { return (pQueue == m_pDeviceQueueAddress.device_sync_queue_address); };
 
     const DeviceServiceCommunication* getDeviceServiceComm() const { return m_pDeviceServiceComm;}
+
+    /* Static method that initialized the batch mode. Must call it at the initialization of the device. */
+    static void initializeBatchMode();
 
 protected:
 
@@ -234,12 +263,19 @@ private:
     // True if OCL profiling is enabled on this queue
     bool                                  m_isProfilingEnabled;
 
+    unsigned long long                    m_lastCommandCompletionTime;
+
     volatile bool                         m_bIsCanceled;
 
-    // Can be '-1' - No batch, '0' batch all commands (execution commands), '1' - Batch only if at least one command is executing on the device.
-	int                                   m_batchAfter;
-	// Num commands that enqueued to device
-	AtomicCounter                         m_numCommandsEnq;
+    // Batching 
+    static const size_t                   m_sNoBatch;
+    static bool                           m_sBatchModeInitialized;
+    // Can be 'm_sNoBatch = (size_t)-1' - No batch, '0' batch all commands (execution commands), '>1' - Batch only if at least N commands on the device.
+    static size_t                         m_sBatchAfter;
+    // Num commands that enqueued to device
+    size_t                                m_numCommandsEnq;
+    bool                                  m_canUseSyncQueue;
+    OclNonReentrantSpinMutex              m_batchSpinMutex;
 
     // ITT/GPA data
 #ifdef USE_ITT

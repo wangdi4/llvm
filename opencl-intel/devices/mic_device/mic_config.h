@@ -65,7 +65,9 @@ using namespace Intel::OpenCL::Utils;
 #define    CL_CONFIG_MIC_DEVICE_2MB_POOL_INIT_SIZE_MB                   "CL_CONFIG_MIC_DEVICE_2MB_POOL_INIT_SIZE_MB"                // size_t in MB
 #define    CL_CONFIG_MIC_DEVICE_2MB_POOL_FINI_SIZE_MB                   "CL_CONFIG_MIC_DEVICE_2MB_POOL_FINI_SIZE_MB"                // size_t in MB
 
-#define    CL_CONFIG_MIC_DEVICE_BATCH_MODE                              "CL_CONFIG_MIC_DEVICE_BATCH_MODE"                           // int
+#define    CL_CONFIG_MIC_DEVICE_BATCH_MODE                              "CL_CONFIG_MIC_DEVICE_BATCH_MODE"                           // string
+// CL_CONFIG_MIC_DEVICE_BATCH_AFTER is internal environment variable --> DO NOT PRINT IT.
+#define    CL_CONFIG_MIC_DEVICE_BATCH_AFTER                             "CL_CONFIG_MIC_DEVICE_BATCH_AFTER"                          // int
 
 #define    CL_CONFIG_MIC_DEVICE_PRINT_CONFIG                            "CL_CONFIG_MIC_DEVICE_PRINT_CONFIG"                         // bool
 
@@ -120,7 +122,8 @@ public:
     size_t         Device_Initial2MBPoolSizeInMB()  const { return m_pConfigFile->Read<size_t>(CL_CONFIG_MIC_DEVICE_2MB_POOL_INIT_SIZE_MB, 100); }
     size_t         Device_Final2MBPoolSizeInMB()    const { return m_pConfigFile->Read<size_t>(CL_CONFIG_MIC_DEVICE_2MB_POOL_FINI_SIZE_MB, 0); }
 
-    int            Device_BatchMode() const { return m_pConfigFile->Read<int>(CL_CONFIG_MIC_DEVICE_BATCH_MODE, -1); };
+    string         Device_BatchMode() const { return m_pConfigFile->Read<string>(CL_CONFIG_MIC_DEVICE_BATCH_MODE, "default"); };
+    int            Device_BatchAfter() const { return m_pConfigFile->Read<int>(CL_CONFIG_MIC_DEVICE_BATCH_AFTER, 8); };
 
     string         Device_offloadDevices()  const { return m_pConfigFile->Read<string>(OFFLOAD_DEVICES, ""); }
 
@@ -186,7 +189,8 @@ private:
 
         MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_FORCE_BUFFERS_PINNING_ON_HOST, Device_ForceBuffersPinning, "For device-only buffers: 0 - pin host pages on demand, 1 - pin host pages at creation time" );
 
-        MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_BATCH_MODE, Device_BatchMode, "Select the execution batch mode '-1' - No batch (default), '0' - Full Batch, '1' - Mix mode, batch if at least on command is executing on the device" );
+        MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_BATCH_MODE, Device_BatchMode, "Select the execution mode 'on' - betching ON, 'off' - Batching OFF, 'default' - default setting of batching (The default)" );
+        // CL_CONFIG_MIC_DEVICE_BATCH_AFTER is not printed because it is internal environment variable.
 
         std::cout << "--------------------------------------------------------" << std::endl << std::endl;
     }

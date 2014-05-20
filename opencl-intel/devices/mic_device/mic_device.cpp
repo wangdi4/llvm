@@ -145,6 +145,7 @@ MICDevice::MICDevice(cl_uint uiMicId, IOCLFrameworkCallbacks *devCallbacks, IOCL
 
 cl_dev_err_code MICDevice::Init()
 {
+    CommandList::initializeBatchMode();
     m_tracer = HostTracer::getHostTracerInstace();
     if ( NULL != m_pLogDescriptor )
     {

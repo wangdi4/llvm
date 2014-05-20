@@ -158,9 +158,7 @@ bool NativeKernelTask::PrepareTask()
         currentLockedBuffer++;
     }
 
-#ifdef MIC_USE_COI_BUFFS_REF_NEW_API
 	m_bufferPointers = NULL;
-#endif
 
     return true;
 }

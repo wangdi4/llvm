@@ -55,29 +55,6 @@ TaskHandlerBase::TaskHandlerBase(
 #endif
   if ((pQueue) && (pQueue->IsAsyncExecution()))
   {
-#ifndef MIC_USE_COI_BUFFS_REF_NEW_API
-    // Allocate memory for buffer pointers
-    assert(m_bufferCount > 0 && "Command expected to use buffers");
-    m_bufferPointers = (void**)Intel::OpenCL::TaskExecutor::ScalableMemAllocator::scalableMalloc(sizeof(void*) * m_bufferCount);
-    assert( NULL != m_bufferPointers && "Buffer pointer allocation failed" );
-    memcpy(m_bufferPointers, pLockBuffers, sizeof(void*)*m_bufferCount);
-#ifdef ENABLE_MIC_TRACER
-    m_bufferSizes = (size_t*)Intel::OpenCL::TaskExecutor::ScalableMemAllocator::scalableMalloc(sizeof(size_t) * m_bufferCount);
-    assert(0 && "Buffer sizes allocation failed" );
-    memcpy(m_bufferSizes, pLockBufferSizes, sizeof(size_t)*m_bufferCount);
-#endif
-    COIRESULT result = COI_SUCCESS;
-    // In case of non blocking task, shall lock all input buffers.
-    for (uint32_t i = 0; i < m_bufferCount; ++i)
-    {
-      // add ref in order to save the buffer on the device
-      result = COIBufferAddRef(m_bufferPointers[i]);
-      if (result != COI_SUCCESS)
-      {
-        setTaskError( CL_DEV_ERROR_FAIL );
-      }
-    }
-#endif
 	m_releasehandler = TaskReleaseHandler::getInstance();
   }
 }
@@ -85,30 +62,6 @@ TaskHandlerBase::TaskHandlerBase(
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-#ifndef MIC_USE_COI_BUFFS_REF_NEW_API
-bool TaskHandlerBase::FiniTask()
-{
-    COIRESULT coiErr = COI_SUCCESS;
-    for (unsigned int i = 0; i < m_bufferCount; i++)
-    {
-        // decrement ref in order to release the buffer
-        coiErr = COIBufferReleaseRef(m_bufferPointers[i]);
-        assert(COI_SUCCESS == coiErr);
-    }
-   
-    assert(m_bufferCount > 0 && "Command expected to use buffers");
-    Intel::OpenCL::TaskExecutor::ScalableMemAllocator::scalableFree(m_bufferPointers);
-
-    m_bufferPointers = NULL;
-#ifdef ENABLE_MIC_TRACER
-    Intel::OpenCL::TaskExecutor::ScalableMemAllocator::scalableFree(m_bufferSizes);
-    m_bufferSizes = NULL;
-#endif
-
-    return true;
-}
-#endif
-
 void* TaskReleaseHandler::DummyTask::m_dummyBuffer = NULL;
 size_t TaskReleaseHandler::DummyTask::m_dummyBufferSize = 0;
 TaskReleaseHandler* TaskReleaseHandler::m_singleton = NULL;

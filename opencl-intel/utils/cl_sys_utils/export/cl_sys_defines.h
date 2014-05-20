@@ -33,6 +33,7 @@
 #include <io.h>
 
 #include <Windows.h>
+#include <string.h>
 
 // Those macros are interfer with other definitions
 #undef min
@@ -95,6 +96,7 @@
 #define STRTOK_S                          strtok_s
 #define SPRINTF_S                         sprintf_s
 #define VSPRINTF_S                        vsprintf_s
+#define STRCMPI_S                         _strnicmp
 
 typedef unsigned long long               affinityMask_t;
 
@@ -303,6 +305,7 @@ typedef cpu_set_t                      affinityMask_t;
 #define STRTOK_S                        Intel::OpenCL::Utils::safe_strtok
 #define SPRINTF_S                       snprintf
 #define VSPRINTF_S                      Intel::OpenCL::Utils::safeVStrPrintf
+#define STRCMPI_S                       strncasecmp
 
 #define STACK_ALLOC( size )             alloca(size)
 #define STACK_FREE( ptr )
