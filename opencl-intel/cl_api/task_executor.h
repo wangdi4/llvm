@@ -62,6 +62,7 @@ struct ocl_gpa_data;
 
 namespace Intel { namespace OpenCL { namespace Utils {
     class IAtExitCentralPoint;
+    class UserLogger;
 }}}
 
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
@@ -515,7 +516,7 @@ public:
      * @param  AUTO_THREADS cannot be used if uiNumOfLevels > 1.
      * @return the number of threads initialized, if succeeded, else -1
      */
-    virtual int    Init(unsigned int uiNumOfThreads = TE_AUTO_THREADS, ocl_gpa_data * pGPAData = NULL) = 0;
+    virtual int    Init(Intel::OpenCL::Utils::UserLogger* pUserLogger, unsigned int uiNumOfThreads = TE_AUTO_THREADS, ocl_gpa_data * pGPAData = NULL) = 0;
 
     virtual void Finalize() = 0;
 

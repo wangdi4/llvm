@@ -425,7 +425,7 @@ bool ThreadPool::init(
         }
     }
 
-    if (! m_task_executor->Init( m_numOfActivatedThreads + 1, NULL ))
+    if (! m_task_executor->Init( NULL, m_numOfActivatedThreads + 1, NULL ))
     {
         //Report Error
         printf("TaskExecutor initialization failed\n");

@@ -50,6 +50,7 @@
 #include <cl_local_array.h>
 #include <framework_proxy.h>
 #include "pipe.h"
+#include "cl_user_logger.h"
 
 using namespace std;
 using namespace Intel::OpenCL::Utils;
@@ -1197,6 +1198,12 @@ void Context::NotifyError(const char * pcErrInfo, const void * pPrivateInfo, siz
 {
     if (NULL != m_pfnNotify)
     {
+        if (GetUserLoggerInstance().IsApiLoggingEnabled())
+        {
+            std::stringstream stream;
+            stream << "clCreateContext callback(" << pcErrInfo << ", " << pPrivateInfo << ", " << szCb << ")" << std::endl;
+            GetUserLoggerInstance().PrintString(stream.str());
+        }
         m_pfnNotify(pcErrInfo, pPrivateInfo, szCb, m_pUserData);
     }
 }

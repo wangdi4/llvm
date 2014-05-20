@@ -28,6 +28,7 @@
 #include "Context.h"
 #include "cl_shared_ptr.hpp"
 #include "context_module.h"
+#include "cl_user_logger.h"
 
 #include <cl_synch_objects.h>
 #if defined (DX_MEDIA_SHARING)
@@ -271,6 +272,12 @@ void MemoryObject::NotifyDestruction()
     while (!m_pfnNotifiers.empty())
     {
         MemDtorNotifyData* notifyData = m_pfnNotifiers.top();
+        if (GetUserLoggerInstance().IsApiLoggingEnabled())
+        {
+            std::stringstream stream;
+            stream << "MemObjectDestructorCallback(" << myHandle << ", " << notifyData->second << ")" << std::endl;
+            GetUserLoggerInstance().PrintString(stream.str());
+        }
         notifyData->first(myHandle, notifyData->second);
         m_pfnNotifiers.pop();
         delete notifyData;

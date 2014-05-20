@@ -411,7 +411,7 @@ void FrameworkProxy::Initialize()
 	// Initialize TaskExecutor
 	LOG_INFO(TEXT("%s"), "Initialize Executor");
 	m_pTaskExecutor = GetTaskExecutor();
-    m_pTaskExecutor->Init(TE_AUTO_THREADS, &m_GPAData);
+  m_pTaskExecutor->Init(&GetUserLoggerInstance(), TE_AUTO_THREADS, &m_GPAData);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

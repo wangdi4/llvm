@@ -61,3 +61,11 @@ vector<string> OCLConfig::GetDevices() const
 	ConfigFile::tokenize(s, vectDevices);
 	return vectDevices;
 }
+
+// I declare this function here and not in utils to make sure that the instance returned is truely a singleton in the whole the program
+
+Intel::OpenCL::Utils::UserLogger& GetUserLoggerInstance()
+{
+    static Intel::OpenCL::Utils::UserLogger instance;
+    return instance;
+}

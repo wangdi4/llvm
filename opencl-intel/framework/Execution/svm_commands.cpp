@@ -21,24 +21,32 @@
 #include "svm_commands.h"
 #include "command_queue.h"
 #include "context_module.h"
+#include "cl_user_logger.h"
 
 using namespace Intel::OpenCL::Framework;
 
 cl_err_code SVMFreeCommand::Execute()
 {
-	if (m_freeFunc != NULL)
-	{
-		m_freeFunc(GetCommandQueue()->GetHandle(), m_svmPtrs.size(), &m_svmPtrs[0], m_pUserData);
-	}
-	else
-	{
-		SharedPtr<Context> pContext = GetCommandQueue()->GetContext();
-		for (std::vector<void* >::const_iterator iter = m_svmPtrs.begin(); iter != m_svmPtrs.end(); iter++)
-		{
-			pContext->SVMFree(*iter);
-		}
-	}
-	return RuntimeCommand::Execute();
+    if (m_freeFunc != NULL)
+    {
+        if (GetUserLoggerInstance().IsApiLoggingEnabled())
+        {
+            std::stringstream stream;
+            stream << "SVMFreeCommand callback(" << GetCommandQueue()->GetHandle() << ", " << m_svmPtrs.size() << ", " << &m_svmPtrs[0] << ", " << m_pUserData << ")"
+                << std::endl;
+            GetUserLoggerInstance().PrintString(stream.str());
+        }
+        m_freeFunc(GetCommandQueue()->GetHandle(), m_svmPtrs.size(), &m_svmPtrs[0], m_pUserData);
+    }
+    else
+    {
+        SharedPtr<Context> pContext = GetCommandQueue()->GetContext();
+        for (std::vector<void* >::const_iterator iter = m_svmPtrs.begin(); iter != m_svmPtrs.end(); iter++)
+        {
+            pContext->SVMFree(*iter);
+        }
+    }
+    return RuntimeCommand::Execute();
 }
 
 cl_err_code RuntimeSVMMemcpyCommand::Execute()

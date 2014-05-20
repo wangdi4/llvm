@@ -21,6 +21,7 @@
 #pragma once
 
 #include "cl_config.h"
+#include "cl_user_logger.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -78,7 +79,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		bool      EnableITT() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_ITT_API, false); }
 
-    };
+    };  
 
 }}}
 
+/**
+* @return the UserLogger singleton in the RT
+*/
+Intel::OpenCL::Utils::UserLogger& GetUserLoggerInstance();

@@ -36,7 +36,7 @@
 #include "cl_device_api.h"
 #include "cl_shared_ptr.hpp"
 #include "Device.h"
-
+#include "cl_user_logger.h"
 #include <cl_local_array.h>
 
 #include <string>
@@ -486,6 +486,12 @@ bool PostBuildTask::Execute()
 
     if (m_pfn_notify)
     {
+        if (GetUserLoggerInstance().IsApiLoggingEnabled())
+        {
+            std::stringstream stream;
+            stream << "BuildProgram callback(" << m_pProg->GetHandle() << ", " << m_user_data << ")" << std::endl;
+            GetUserLoggerInstance().PrintString(stream.str());
+        }
         m_pfn_notify(m_pProg->GetHandle(), m_user_data);
     }
 

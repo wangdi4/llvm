@@ -41,6 +41,7 @@
 #include "cl_shared_ptr.hpp"
 #include "base_command_list.hpp"
 #include "tbb_execution_schedulers.h"
+#include "cl_user_logger.h"
 
 // no local atexit handler - only global
 USE_SHUTDOWN_HANDLER(NULL);
@@ -214,7 +215,7 @@ TBBTaskExecutor::~TBBTaskExecutor()
     // TBB seem to have a bug in ~task_scheduler_init(), so we work around it by not deleting m_pScheduler (TBB bug #1955)
 }
 
-int TBBTaskExecutor::Init(unsigned int uiNumOfThreads, ocl_gpa_data * pGPAData)
+int TBBTaskExecutor::Init(UserLogger* pUserLogger, unsigned int uiNumOfThreads, ocl_gpa_data * pGPAData)
 {
     INIT_LOGGER_CLIENT("TBBTaskExecutor", LL_INFO);
     LOG_INFO(TEXT("Initialization request with %d threads"), uiNumOfThreads);
@@ -235,10 +236,16 @@ int TBBTaskExecutor::Init(unsigned int uiNumOfThreads, ocl_gpa_data * pGPAData)
     }
 
     // Check TBB library version
+
     if(TBB_INTERFACE_VERSION > tbb::TBB_runtime_interface_version())
     {
-        LOG_ERROR(TEXT("TBB version doens't match. Required %s, loaded %d."),
-            __TBB_STRING(TBB_INTERFACE_VERSION), tbb::TBB_runtime_interface_version() );
+        std::stringstream stream;
+        stream << "TBB version doens't match. Required " << __TBB_STRING(TBB_INTERFACE_VERSION) << ", loaded " << tbb::TBB_runtime_interface_version() << "." << std::ends;
+        LOG_ERROR(TEXT(stream.str().c_str()), "");
+        if (NULL != pUserLogger && pUserLogger->IsErrorLoggingEnabled())
+        {
+            pUserLogger->PrintError(stream.str().c_str());
+        }
         return 0;
     }
 

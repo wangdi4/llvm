@@ -710,7 +710,7 @@ int CPUDeviceTest_Main()
 	EXPECT_TRUE(pTaskExecutor!=NULL);
 
 	// Initialize Task Executor
-	int iThreads = pTaskExecutor->Init(TE_AUTO_THREADS);
+	int iThreads = pTaskExecutor->Init(NULL, TE_AUTO_THREADS);
 	EXPECT_TRUE(iThreads>0);
 
 	//Create and Init the device

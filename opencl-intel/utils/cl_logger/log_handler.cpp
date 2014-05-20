@@ -36,6 +36,7 @@
 
 #include "log_handler.h"
 #include "cl_synch_objects.h"
+#include "cl_user_logger.h"
 
 using namespace Intel::OpenCL::Utils;
 
@@ -134,6 +135,8 @@ cl_err_code FileDescriptorLogHandler::Init(ELogLevel level, const char* fileName
 	return CL_SUCCESS;
 }
 
+Intel::OpenCL::Utils::UserLogger& GetUserLoggerInstance();
+
 /////////////////////////////////////////////////////////////////////////////////////////
 // FileDescriptorLogHandler::Log
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -146,6 +149,8 @@ void FileDescriptorLogHandler::Log(LogMessage& logMessage)
     }
 
     char* formattedMsg = logMessage.GetFormattedMessage();
+    // error logging still causes some link errors in Linux
+    GetUserLoggerInstance().PrintError(formattedMsg);
 	// fputs is thread safe.
     if (EOF == fputs(formattedMsg, m_fileHandler))
     {

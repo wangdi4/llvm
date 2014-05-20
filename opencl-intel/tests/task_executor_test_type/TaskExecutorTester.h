@@ -53,7 +53,7 @@ public:
         if (NULL == m_pTaskExecutor)
         {
             m_pTaskExecutor = Intel::OpenCL::TaskExecutor::GetTaskExecutor();
-            m_pTaskExecutor->Init(TE_AUTO_THREADS, NULL);            
+            m_pTaskExecutor->Init(NULL, TE_AUTO_THREADS, NULL);            
         }
     }
 
