@@ -19,7 +19,6 @@ install(DIRECTORY .
     PATTERN "*.expected" 
     PATTERN "*.supp"
     PATTERN "valRun*.py" EXCLUDE
-    PATTERN "*.svn/*" EXCLUDE
 )
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/valRun.py
