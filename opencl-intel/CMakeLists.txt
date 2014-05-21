@@ -132,9 +132,9 @@ if(INCLUDE_TOOLS)
     endif(NOT ANDROID)
     add_definitions(-DBOOST_ALL_NO_LIB)  # Tell the compiler to undefine this boost macro
     add_definitions( -DBOOST_SYSTEM_NO_DEPRECATED )
-    set(BOOST_INSTALL_LIBS ${Boost_SYSTEM_LIBRARY} 
-                           ${Boost_FILESYSTEM_LIBRARY} 
-                           ${Boost_DATE_TIME_LIBRARY} 
+    set(BOOST_INSTALL_LIBS ${Boost_SYSTEM_LIBRARY}
+                           ${Boost_FILESYSTEM_LIBRARY}
+                           ${Boost_DATE_TIME_LIBRARY}
                            ${Boost_REGEX_LIBRARY}
                            ${Boost_SIGNALS_LIBRARY}
                            )
