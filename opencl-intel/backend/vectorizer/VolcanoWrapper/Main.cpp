@@ -8,6 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Main.h"
 #include "VectorizerCore.h"
 #include "MetaDataApi.h"
+#include "OclTune.h"
 
 #include "llvm/Pass.h"
 #include "llvm/PassManager.h"
@@ -122,6 +123,8 @@ bool Vectorizer::runOnModule(Module &M)
       Function *clone = CloneFunction(*fi,vmap, false, NULL);
       clone->setName("__Vectorized_." + (*fi)->getName());
       M.getFunctionList().push_back(clone);
+      // copy stats from original function to the new one
+      intel::Statistic::copyFunctionStats(**fi, *clone);
       vectPM.run(*clone);
       if (vectCore->isFunctionVectorized()) {
         // if the function is successfully vectorized update vectFunc and width.

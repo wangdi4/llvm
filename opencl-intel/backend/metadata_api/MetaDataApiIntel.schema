@@ -45,6 +45,11 @@
                             "name":     "FunctionsInfo",
                             "key":      "llvm.functions_info",
                             "metatype": "FunctionsInfo"
+                        },
+                        {
+                            "name":     "FunctionsStats",
+                            "key":      "opencl.functions_stats",
+                            "metatype": "FunctionsStats"
                         }
                     ]
                 },
@@ -375,6 +380,52 @@
     "argitem": {
                     "is_container":     false,
                     "type":             "std::string"
+                },
+    "FunctionsStats" : {
+                    "is_container":     true,
+                    "container_type":   "map",
+                    "key_type":         "function",
+                    "item_type":        "StatValueListContainer"
+              },
+    "StatValueListContainer": {
+                    "is_container":     true,
+                    "type":             "std::string",
+                    "container_type":   "struct",
+                    "elements": [
+                        {
+                            "location": "positional",
+                            "index"   : "0",
+                            "name":     "StatValueList",
+                            "metatype": "StatValueList",
+                            "optional": false
+                        }
+                    ]
+                },
+    "StatValueList" : {
+                    "is_container":     true,
+                    "container_type":   "list",
+                    "item_type":        "StatValueItem"
+              },
+    "StatValueItem": {
+                    "is_container":     true,
+                    "type":             "std::string",
+                    "container_type":   "struct",
+                    "elements": [
+                        {
+                            "location": "positional",
+                            "index"   : "0",
+                            "name":     "Name",
+                            "metatype": "str_item",
+                            "optional": false
+                        },
+                        {
+                            "location": "positional",
+                            "index"   : "1",
+                            "name":     "Value",
+                            "metatype": "int32_item",
+                            "optional": false
+                        }
+                    ]
                 },
     "FunctionsInfo" : {
                     "is_container":     true,

@@ -51,6 +51,7 @@ set (TARGET_SOURCE_FILES
   VectorizerUtils.cpp
   BlockUtils.cpp
   Atomics.cpp
+  OclTune.cpp
   ${TARGET_EXTRA_SOURCE_FILES}
 )
 

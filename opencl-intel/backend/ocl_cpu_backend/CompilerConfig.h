@@ -103,6 +103,8 @@ public:
 
     bool GetDumpHeuristicIRFlag() const { return m_dumpHeuristicIR; }
 
+    const std::string &GetStatFileBaseName() const { return m_statFileBaseName;}
+
 protected:
     std::string m_cpuArch;
     std::string m_cpuFeatures;
@@ -113,7 +115,7 @@ protected:
     const std::vector<IRDumpOptions>* m_DumpIROptionBefore;
     std::string m_dumpIRDir;
     bool m_dumpHeuristicIR;
-
+    std::string m_statFileBaseName;
 };
 
 }}}

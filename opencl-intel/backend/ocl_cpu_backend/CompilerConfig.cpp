@@ -19,6 +19,7 @@ File Name:  CompilerConfig.cpp
 #include "CompilerConfig.h"
 
 #include "llvm/Support/Debug.h"
+#include "OclTune.h"
 
 #include <stdlib.h> // getenv
 #include <string.h>
@@ -69,6 +70,19 @@ void GlobalCompilerConfig::LoadConfig()
         m_infoOutputFile = pEnv;
     }
 
+#ifdef OCLT
+    // Stat options are set as llvm options for 2 reasons
+    // they are available also for opt
+    // no need to fuse them all the way down to all passes
+    if (const char *pEnv = getenv("VOLCANO_STATS"))
+    {
+        intel::Statistic::enableStats();
+        if (pEnv[0] != 0 && strcmp("ALL", pEnv) && strcmp("all", pEnv))
+        {
+            intel::Statistic::setCurrentStatType(pEnv);
+        }
+    }
+#endif // OCLT
 }
 
 void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
@@ -113,6 +127,7 @@ void CompilerConfig::LoadConfig()
         // The validity of the cpud features are checked upon parsing of optimizer options
         m_cpuFeatures = pEnv;
     }
+
 #ifndef NDEBUG
     if (getenv("VOLCANO_DEBUG"))
     {
@@ -123,6 +138,14 @@ void CompilerConfig::LoadConfig()
       llvm::setCurrentDebugType(pEnv);
     }
 #endif
+
+#ifdef OCLT
+    if (const char *pEnv = getenv("VOLCANO_IR_FILE_BASE_NAME"))
+    {
+        // base name for stat files
+        m_statFileBaseName = pEnv;
+    }
+#endif // OCLT
 }
 
 void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)

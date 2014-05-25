@@ -11,6 +11,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "ImplicitArgsUtils.h"
 #include "MetaDataApi.h"
 #include "OCLPassSupport.h"
+#include "OclTune.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/Support/ValueHandle.h"
 #include "llvm/Version.h"
@@ -373,6 +374,9 @@ namespace intel{
     m_pModule->getFunctionList().push_back(pWrapper);
 
     m_mdUtils->getOrInsertKernelsInfoItem(pFunc)->setKernelWrapper(pWrapper);
+
+    // move stats from original kernel to the wrapper
+    intel::Statistic::moveFunctionStats(*pFunc, *pWrapper);
 
     return true;
   }

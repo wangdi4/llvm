@@ -13,7 +13,7 @@
 extern cl_device_type gDeviceType;
 
 // build program options that set APF level and dumped asm file name
-const char *options[] = {
+static const char *options[] = {
     "-dump-opt-asm=\"./test0.s\" -auto-prefetch-level=0",
     "-dump-opt-asm=\"./test1.s\" -auto-prefetch-level=1",
     "-dump-opt-asm=\"./test2.s\" -auto-prefetch-level=2",
@@ -21,7 +21,7 @@ const char *options[] = {
 };
 
 // asm file names
-const char *fnames[] = {
+static const char *fnames[] = {
     "test0.s",
     "test1.s",
     "test2.s",
@@ -29,14 +29,14 @@ const char *fnames[] = {
 };
 
 // expected number of prefetch and gather prefetch instructions for each prefetch level
-struct expected_s{
+static struct expected_s{
   int numPF;
   int numGPF;
 } expected[] = {
     {0, 0}, {10, 0}, {14, 0}, {14, 4}
 };
 
-const char *ocl_test_program[] = {\
+static const char *ocl_test_program[] = {\
 "__kernel void test_kernel_APFlevel(__global int* pBuff0, __global int* pBuff1, __global int* pBuff2,"\
 "                                   __global int* pBuff3, __global int* pBuff4, __global int* pBuff5,"\
 "                                   __global int* pBuff6)"\
@@ -50,7 +50,7 @@ const char *ocl_test_program[] = {\
 "}"
 };
 
-bool InitProgram(cl_context &context, cl_device_id &pDevice)
+static bool InitProgram(cl_context &context, cl_device_id &pDevice)
 {
   printf("cl_APFLevlForce\n");
   cl_uint uiNumDevices = 0;
@@ -94,7 +94,7 @@ bool InitProgram(cl_context &context, cl_device_id &pDevice)
   return true;
 }
 
-bool BuildProgramTest(cl_context context, cl_device_id device, int level)
+static bool BuildProgramTest(cl_context context, cl_device_id device, int level)
 {
   cl_program program;
   bool res = true;
@@ -120,7 +120,7 @@ bool BuildProgramTest(cl_context context, cl_device_id device, int level)
   return res;
 }
 
-bool GrepCount(const char *fname, int &numPref, int &numGPf) {
+static bool GrepCount(const char *fname, int &numPref, int &numGPf) {
   ifstream testRes;
   bool res = true;
   numPref = 0;
@@ -144,7 +144,7 @@ bool GrepCount(const char *fname, int &numPref, int &numGPf) {
   return res;
 }
 
-bool CheckCounts (const char *fname, int expectedPF, int expectedGPF) {
+static bool CheckCounts (const char *fname, int expectedPF, int expectedGPF) {
   int numPF, numGPF;
   bool res = true;
   if (!GrepCount(fname, numPF, numGPF))
@@ -160,7 +160,7 @@ bool CheckCounts (const char *fname, int expectedPF, int expectedGPF) {
   return res;
 }
 
-void EndProgram(cl_context context) {
+static void EndProgram(cl_context context) {
   // Release objects
   clReleaseContext(context);
 }

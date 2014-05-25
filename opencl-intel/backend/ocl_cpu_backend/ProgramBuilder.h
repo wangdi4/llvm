@@ -120,6 +120,15 @@ protected:
 private:
     /// @brief Update the size of the variables in global adress space used by the program.
     void updateGlobalVariableTotalSize(Program* pProgram, llvm::Module* pModule);
+
+    /// @brief Dump stats collected for module if requested
+    void DumpModuleStats(llvm::Module* pModule);
+
+private:
+    // base file name for stats
+    std::string m_statFileBaseName;
+    // counter for stat file names
+    int m_statFileCount;
 };
 
 }}}

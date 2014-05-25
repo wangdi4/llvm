@@ -135,6 +135,7 @@ bool cl_ALL_Devices_SubBuffer_Simple_Test();
 bool cl_ALL_Devices_Common_RT_SubBuffers_Async();
 bool cl_ALL_Devices_Common_RT_SubBuffers_Async_With_Buffer_Release();
 bool cl_APFLevelForce();
+bool cl_GenStats();
 bool clSvmTest();
 bool clFlexibleNdrange();
 bool clPipes();

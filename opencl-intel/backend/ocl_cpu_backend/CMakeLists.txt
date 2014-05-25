@@ -191,6 +191,7 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     opencl_printf_ext.h
     Logger.h
     ocl_mutex.h
+    ${BACKEND_ROOT_DIR}/utils/OclTune.h
     ${OCL_CPU_BACKEND_DIR}/export/plugin_interface.h
     ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export/icldebuggingservice.h
     ${BACKEND_ROOT_DIR}/../externals/itt/include/jitprofiling.h

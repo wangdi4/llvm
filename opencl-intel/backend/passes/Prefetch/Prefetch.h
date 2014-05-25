@@ -29,6 +29,7 @@ File Name:  Prefetch.h
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
+#include "OclTune.h"
 
 
 using namespace llvm;
@@ -168,6 +169,11 @@ namespace intel{
 
       // holds all memory accesses that deserve prefetching
       BBAccesses m_addresses;
+
+      // Statistics
+      Statistic::ActiveStatsT m_kernelStats;
+      Statistic PFStat_SerialBB;
+      Statistic PFStat_BBNotInLoop;
 
     private:
       void init();

@@ -11,6 +11,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "InitializePasses.h"
 #include "MetaDataApi.h"
 #include "CompilationUtils.h"
+#include "OclTune.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/InstIterator.h"
@@ -476,9 +477,12 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
   m_vectorRet = dyn_cast<ReturnInst>(valueMap[m_vectorRet]);
   BasicBlock *vectorEntryBlock =
       dyn_cast<BasicBlock>(valueMap[m_vectorFunc->begin()]);
+  // copy stats from vector function to scalar function
+  intel::Statistic::copyFunctionStats(*m_vectorFunc, *m_F);
   // Get hold of the entry to the scalar section in the vectorized function...
   assert (!m_vectorFunc->getNumUses() && "vector kernel should have no use");
   if (!m_vectorFunc->getNumUses()) {
+    intel::Statistic::removeFunctionStats(*m_vectorFunc);
     m_vectorFunc->eraseFromParent();
   }
   return vectorEntryBlock;

@@ -422,6 +422,11 @@ TEST(FrameWorkTestType, Test_cl20ExecutionModel)
     EXPECT_TRUE(cl20ExecutionModel());
 }
 
+TEST(FrameworkTestType, Test_GenStats)
+{
+    EXPECT_TRUE(cl_GenStats());
+}
+
 CommandLineOption<std::string> deviceOption("--device_type");
 
 #ifdef INCLUDE_MIC_DEVICE

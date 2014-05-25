@@ -18,7 +18,6 @@ File Name:  Prefetch.cpp
 
 #define DEBUG_TYPE "prefetch"
 
-#include "llvm/ADT/Statistic.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
@@ -208,14 +207,15 @@ OCL_INITIALIZE_PASS_DEPENDENCY(BranchProbabilityInfo)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
 OCL_INITIALIZE_PASS_END(Prefetch, "prefetch", "Auto Prefetch in Function", false, false)
 
-
-Prefetch::Prefetch(int level) : FunctionPass(ID), m_level(level) {
+Prefetch::Prefetch(int level) : FunctionPass(ID), m_level(level),
+  OCLSTAT_INIT(PFStat_SerialBB, "Accesses not considered for prefetch since their BB has no vector instructions", m_kernelStats),
+  OCLSTAT_INIT(PFStat_BBNotInLoop, "Basic blocks that are not in a loop", m_kernelStats)
+{
   initializePrefetchPass(*PassRegistry::getPassRegistry());
   init();
 }
 
 Prefetch::~Prefetch() {
-  TUNEPF (PrintStatistics());
 }
 
 void Prefetch::init() {
@@ -255,8 +255,6 @@ void Prefetch::init() {
 
   m_calcFactor = getenv("APFDISSMALL") == NULL;
   m_prefetchScalarCode = getenv("APFSCALAR") != NULL;
-
-  TUNEPF (EnableStatistics());
 }
 
 // getConstStep - calculate loop step.
@@ -612,7 +610,7 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
     // prefetch only inside loops
     Loop *L = m_LI->getLoopFor(BB);
     if (!L) {
-      TUNEPF (PFStat_BBNotInLoop++);
+      PFStat_BBNotInLoop++;
       continue;
     }
 
@@ -810,7 +808,7 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
     assert (L && "BB with PF candidates is expected to be inside a loop");
     if ((m_prefetchScalarCode == false) &&
         (m_isVectorized.find(L) == m_isVectorized.end())) {
-      TUNEPF (PFStat_SerialBB += MAV.size());
+      PFStat_SerialBB += MAV.size();
       m_addresses.erase(BB);
       continue;
     }
@@ -1394,6 +1392,7 @@ bool Prefetch::runOnFunction(Function &F) {
   m_LoopInfo.clear();
   m_isVectorized.clear();
 
+  intel::Statistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE);
   return modified;
 }
 

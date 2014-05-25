@@ -50,6 +50,14 @@ void MICCompilerConfig::LoadConfig()
       llvm::setCurrentDebugType(pEnv);
     }
 #endif
+
+#ifdef OCLT
+    if (const char *pEnv = getenv("VOLCANO_IR_FILE_BASE_NAME"))
+    {
+        // base name for stat files
+        m_statFileBaseName = pEnv;
+    }
+#endif // OCLT
 }
 
 void MICCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)

@@ -4,6 +4,7 @@ Subject to the terms and conditions of the Master Development License
 Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
+#define DEBUG_TYPE "Vectorizer"
 #include "InstCounter.h"
 #include "WIAnalysis.h"
 #include "Predicator.h"
@@ -13,6 +14,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 #include "CompilationUtils.h"
+#include "OclTune.h"
 
 #include "llvm/PassManager.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -1114,31 +1116,51 @@ bool VectorizationPossibilityPass::runOnFunction(Function & F)
 
 bool CanVectorizeImpl::canVectorize(Function &F, DominatorTree &DT, RuntimeServices* services)
 {
+  Statistic::ActiveStatsT kernelStats;
+
   if (hasVariableGetTIDAccess(F, services)) {
     dbgPrint() << "Variable TID access, can not vectorize\n";
+    OCLSTAT_DEFINE(CantVectGIDMess,"Unable to vectorize because get_global_id is messed up",kernelStats);
+    CantVectGIDMess++;
+    intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
     return false;
   }
 
   if (!isReducibleControlFlow(F, DT)) {
     dbgPrint()<< "Irreducible control flow, can not vectorize\n";
+    OCLSTAT_DEFINE(CantVectNonReducable,"Unable to vectorize because the control flow is irreducible",kernelStats);
+    CantVectNonReducable++;
+    intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
     return false;
   }
 
   if (hasIllegalTypes(F)) {
     dbgPrint() << "Types unsupported by codegen, can not vectorize\n";
+    OCLSTAT_DEFINE(CantVectIllegalTypes,"Unable to vectorize because of unsupported opcodes",kernelStats);
+    CantVectIllegalTypes++;
+    intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
     return false;
   }
 
   if (hasNonInlineUnsupportedFunctions(F)) {
     dbgPrint() << "Call to unsupported functions, can not vectorize\n";
+    OCLSTAT_DEFINE(CantVectNonInlineUnsupportedFunctions,"Unable to vectorize because of calls to functions that can't be inlined",kernelStats);
+    CantVectNonInlineUnsupportedFunctions++;
+    intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
     return false;
   }
 
   if (hasDirectStreamCalls(F, services)) {
     dbgPrint() << "Has direct calls to stream functions, can not vectorize\n";
+    OCLSTAT_DEFINE(CantVectStreamCalls,"Unable to vectorize because the code contains direct stream calls",kernelStats);
+    CantVectStreamCalls++;
+    intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
     return false;
   }
 
+  OCLSTAT_DEFINE(CanVect,"Code is vectorizable",kernelStats);
+  CanVect++;
+  intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
   return true;
 }
 

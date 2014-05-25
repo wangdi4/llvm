@@ -21,6 +21,12 @@ set( BACKEND_TESTS_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/Tests )
 set( BACKEND_PASSES_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/passes )
 set( BACKEND_VALIDATION_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/validation )
 
+# Set OCL Tuning to ON. ON by default. can be turned off for release.
+set( OCLT ON)
+if ( OCLT )
+  add_definitions( -DOCLT )
+endif (OCLT)
+
 set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "")
 
 remove_definitions( -D_UNICODE -DUNICODE )

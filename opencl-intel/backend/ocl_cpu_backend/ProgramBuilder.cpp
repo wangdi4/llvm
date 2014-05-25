@@ -39,6 +39,7 @@ File Name:  ProgramBuilder.cpp
 #include "CompilationUtils.h"
 #include "cache_binary_handler.h"
 #include "ObjectCodeContainer.h"
+#include "OclTune.h"
 
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
@@ -46,6 +47,7 @@ File Name:  ProgramBuilder.cpp
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -94,8 +96,29 @@ void UpdateKernelsWithRuntimeService( const RuntimeServiceSharedPtr& rs, KernelS
 
 ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& config):
     m_pBackendFactory(pBackendFactory),
-    m_useVTune(config.GetUseVTune())
+    m_useVTune(config.GetUseVTune()),
+    m_statFileBaseName(config.GetStatFileBaseName()),
+    m_statFileCount(0)
 {
+    // prepare default base file name for stat file in the following cases:
+    // stats are enabled but the user didn't set up the base file name
+    // the user set up as base file name only a directory name, i.e. it ends
+    // with \ or /
+    // the default file name is the running executable name
+    if ((m_statFileBaseName.empty() && intel::Statistic::isEnabled()) ||
+        (!m_statFileBaseName.empty() &&
+         llvm::sys::path::is_separator(*m_statFileBaseName.rbegin())))
+    {
+        const char *name = getenv("_");
+        // find the base name by searching for the last '/' in the name
+        if (name != NULL)
+            name = llvm::sys::path::filename(StringRef(name)).data();
+        // if still no meaningful name just use "Program" as module name
+        if (name == NULL || *name == 0)
+            name = "Program";
+
+        m_statFileBaseName += name;
+    }
 }
 
 ProgramBuilder::~ProgramBuilder()
@@ -113,6 +136,32 @@ bool ProgramBuilder::CheckIfProgramHasCachedExecutable(Program* pProgram) const
         return reader.IsCachedObject();
     }
     return false;
+}
+
+void ProgramBuilder::DumpModuleStats(llvm::Module* pModule)
+{
+    if (intel::Statistic::isEnabled() || !m_statFileBaseName.empty())
+    {
+        // use sequential number to distinguish dumped files
+        std::string fileName(m_statFileBaseName);
+        if (m_statFileCount == 0)
+            m_statFileCount = 1;
+        else {
+            std::stringstream fileNameBuilder;
+            fileNameBuilder << (m_statFileCount++);
+            fileName += fileNameBuilder.str();
+        }
+        fileName += ".ll";
+
+        // dump IR with stats
+        std::string ErrorInfo;
+        raw_fd_ostream IRFD(fileName.c_str(), ErrorInfo,
+            raw_fd_ostream::F_Binary);
+        if (ErrorInfo.empty())
+          pModule->print(IRFD, 0);
+        else
+          throw Exceptions::CompilerException(ErrorInfo.c_str());
+    }
 }
 
 cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBackendOptions* pOptions)
@@ -155,6 +204,9 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
         pProgram->SetRuntimeService(lRuntimeService);
 
         PostOptimizationProcessing(pProgram, spModule.get(), pOptions);
+
+        // Dump module stats just before lowering if requested
+        DumpModuleStats(spModule.get());
 
         if (!(pOptions && pOptions->GetBooleanValue(CL_DEV_BACKEND_OPTION_STOP_BEFORE_JIT, false)))
         {
