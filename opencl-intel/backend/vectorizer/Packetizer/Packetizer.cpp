@@ -1012,7 +1012,12 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   // Remove address space from pointer type
   PointerType *BaseTy = dyn_cast<PointerType>(MO.Base->getType());
   PointerType *StrippedBaseTy = PointerType::get(BaseTy->getElementType(),0);
-  MO.Base = new BitCastInst(MO.Base, StrippedBaseTy, "stripAS", MO.Orig);
+
+  Type *IntptrTy = Type::getInt64Ty(MO.Orig->getContext());
+  Instruction *Cast1 = CastInst::Create(Instruction::PtrToInt, MO.Base, IntptrTy, "ptrToInt", MO.Orig);
+  MO.Base = CastInst::Create(Instruction::IntToPtr, Cast1, StrippedBaseTy, "stripAS", MO.Orig);
+
+  //MO.Base = new BitCastInst(MO.Base, StrippedBaseTy, "stripAS", MO.Orig);
 
   SmallVector<Value*, 8> args;
   // Fill the arguments of the internal gather/scatter, these are the variants:
@@ -1389,7 +1394,9 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
   }
 
   // Was not able to vectorize memory operation, fall back to scalarizing.
-  V_PRINT(vectorizer_stat, "<<<<NonConsecCtr("<<__FILE__<<":"<<__LINE__<<"): " <<Instruction::getOpcodeName(MO.Orig->getOpcode()) <<": Handles random pointer, or load/store of non primitive types\n");
+  V_PRINT(vectorizer_stat, "<<<<NonConsecCtr("<<__FILE__<<":"<<__LINE__<<"): " <<
+         Instruction::getOpcodeName(MO.Orig->getOpcode()) <<
+         ": Handles random pointer, or load/store of non primitive types\n");
   V_STAT(m_nonConsecCtr++;)
   return duplicateNonPacketizableInst(MO.Orig);
 }
@@ -2116,8 +2123,8 @@ void PacketizeFunction::packetizeInstruction(InsertElementInst *IEI)
   V_PRINT(packetizer, "\t\tInsertElement Instruction\n");
   V_ASSERT(IEI && "instruction type dynamic cast failed");
 
-  if (m_packetWidth!=8 && m_packetWidth!=4) {
-    V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(IEI->getOpcode()) <<" m_packetWidth!=8 && m_packetWidth!=4\n");
+  if (m_packetWidth!=8 && m_packetWidth!=4 && m_packetWidth!=16) {
+    V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(IEI->getOpcode()) <<" m_packetWidth!=[4|8|16]\n");
     V_STAT(m_cannotHandleCtr++;)
     return duplicateNonPacketizableInst(IEI);
   }
@@ -2312,11 +2319,14 @@ void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
 
   // Make the transpose optimization only while arch vector is 4,
   // and the input vector is equal or smaller than that.
-  if ((m_packetWidth != 4 && m_packetWidth != 8) ||
+  if ((m_packetWidth != 4 && m_packetWidth != 8 && m_packetWidth != 16) ||
     inputVectorWidth > m_packetWidth)
   {
     // No optimized solution implemented for this setup
-    V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(EI->getOpcode()) <<" m_packetWidth != 4 && m_packetWidth != 8 || inputVectorWidth > m_packetWidth\n");
+    V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "
+            << Instruction::getOpcodeName(EI->getOpcode())
+            << " (m_packetWidth != 4 && m_packetWidth != 8 && m_packetWidth != 16) "
+            << "|| inputVectorWidth > m_packetWidth\n");
     V_STAT(m_cannotHandleCtr++;)
     return duplicateNonPacketizableInst(EI);
   }
@@ -2349,16 +2359,18 @@ void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
 
   // Create the transpose sequence.
   SmallVector<Instruction *, 16> SOA;
-  if (m_packetWidth == 8) {
+  if (m_packetWidth == 8 || m_packetWidth == 16) {
     if (EI->getType()->getScalarType()->getScalarSizeInBits() != 32 ||
       inputVectorWidth < 4) {
-        V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(EI->getOpcode()) <<" m_packetWidth == 8 && (getScalarSizeInBits() != 32 || inputVectorWidth < 4)\n");
+        V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "
+                << Instruction::getOpcodeName(EI->getOpcode())
+                <<" m_packetWidth == [8|16] && (getScalarSizeInBits() != 32 || inputVectorWidth < 4)\n");
         V_STAT(m_cannotHandleCtr++;)
         return duplicateNonPacketizableInst(EI);
     }
     obtainTranspVals32bitV8(inputOperands, SOA, generatedShuffles, location);
   } else {
-    V_ASSERT(4 == m_packetWidth && "only supports packetWidth=4,8");
+    V_ASSERT(4 == m_packetWidth && "only supports packetWidth=4,8,16");
     obtainTranspVals32bitV4(inputOperands, SOA, generatedShuffles, location);
   }
   VectorizerUtils::SetDebugLocBy(generatedShuffles, EI);

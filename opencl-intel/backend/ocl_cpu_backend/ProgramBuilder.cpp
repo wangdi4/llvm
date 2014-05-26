@@ -179,6 +179,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
           llcOptions += " -fp-contract=fast ";
         llcOptions += filename + ".ll ";
         llcOptions += "-filetype=obj -o " + filename + ".o";
+        printf("llc %s\n", llcOptions.c_str());
         if (system((llvmKNLBinPath + "/llc " + llcOptions).c_str()) != 0) {
           system(("mv " + filename + ".ll " + filename + "_fail.ll").c_str());
           throw Exceptions::DeviceBackendExceptionBase("llc does not work", CL_DEV_ERROR_FAIL);

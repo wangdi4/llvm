@@ -1,6 +1,6 @@
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "micresolver"
-#include "MICResolver.h"
+#include "KNLResolver.h"
 #include "VectorizerUtils.h"
 #include "Logger.h"
 
@@ -19,9 +19,9 @@ static bool isGatherScatterType(VectorType *VecTy) {
 
 namespace intel {
 
-char MICResolver::ID = 0;
+char KNLResolver::ID = 0;
 
-OCL_INITIALIZE_PASS(MICResolver, "micresolve", "Resolves masked and vectorized function calls on MIC", false, false)
+OCL_INITIALIZE_PASS(KNLResolver, "micresolve", "Resolves masked and vectorized function calls on MIC", false, false)
 
 
 static Value* getConsecutiveConstantVector(Type* type, unsigned count) {
@@ -35,109 +35,12 @@ static Value* getConsecutiveConstantVector(Type* type, unsigned count) {
 }
 
 
-bool MICResolver::TargetSpecificResolve(CallInst* caller) {
+bool KNLResolver::TargetSpecificResolve(CallInst* caller) {
   Function* called = caller->getCalledFunction();
   std::string calledName = called->getName().str();
   V_PRINT(DEBUG_TYPE, "MICSpecificResolve Inspecting "<<calledName<<"\n");
 
   // Use name to decide what to do
-  if (Mangler::isMangledLoad(calledName)) {
-    Value *Mask = caller->getArgOperand(0);
-    Value *Ptr  = caller->getArgOperand(1);
-    assert(Mask->getType()->getScalarSizeInBits() == 1 && "Invalid mask size");
-    assert(Ptr->getType()->isPointerTy() && "Ptr is not a pointer!");
-    VectorType *MaskTy = dyn_cast<VectorType>(Mask->getType());
-    VectorType *RetTy = dyn_cast<VectorType>(caller->getType());
-    if (!MaskTy || !RetTy) {
-      V_PRINT(DEBUG_TYPE, "Non vector type unsupported for gather "<<calledName<<"\n");
-      if (!MaskTy && !RetTy) {
-        V_PRINT(gather_scatter_stat, "RESOLVER: SCALAR FOR GATHER " << *caller << "\n");
-      } else {
-        V_PRINT(gather_scatter_stat, "RESOLVER: NON VECTOR TYPE FOR GATHER " << *caller << "\n");
-      }
-      return false;
-    }
-
-    assert(MaskTy->getNumElements() == RetTy->getNumElements() &&
-      "mismatch between mask and data num elements");
-    PointerType *PtrTy = cast<PointerType>(Ptr->getType());
-    assert(PtrTy->getElementType() == RetTy && "mismatch between ptr and retval");
-
-    if (!isGatherScatterType(RetTy)) {
-      V_PRINT(DEBUG_TYPE, "Type unsupported for gather "<<calledName<<"\n");
-      V_PRINT(gather_scatter_stat, "RESOLVER: UNSUPPORTED TYPE FOR GATHER " << *caller << "\n");
-      return false;
-    }
-
-    V_PRINT(DEBUG_TYPE, "Generating gather for "<<calledName<<"\n");
-    assert(8 * Mangler::getMangledLoadAlignment(calledName) >=
-           RetTy->getScalarSizeInBits() && "Not naturally aligned!");
-
-    // Remove address space from pointer type
-    PtrTy = PointerType::get(RetTy->getScalarType(), 0);
-    Type *IntptrTy = Type::getInt64Ty(caller->getContext());
-    Instruction *Cast1 = CastInst::Create(Instruction::PtrToInt, Ptr, IntptrTy, "ptrToInt", caller);
-    Ptr = CastInst::Create(Instruction::IntToPtr, Cast1, PtrTy, "intToPtr", caller);
-
-    
-    // Ptr = new BitCastInst(Ptr, PtrTy, "ptrTypeCast", caller);
-    Type *IndTy = IntegerType::get(caller->getContext(), 32);
-
-    Value *Index = getConsecutiveConstantVector(IndTy, RetTy->getNumElements());
-
-    CreateGatherScatterAndReplaceCall(caller, Mask, Ptr, Index, NULL, Mangler::Gather);
-    return true;
-  }
-
-  if (Mangler::isMangledStore(calledName)) {
-    Value *Mask = caller->getArgOperand(0);
-    Value *Ptr  = caller->getArgOperand(2);
-    Value *Data = caller->getArgOperand(1);
-    assert(Mask->getType()->getScalarSizeInBits() == 1 && "Invalid mask size");
-    assert(Ptr->getType()->isPointerTy() && "Ptr is not a pointer!");
-    VectorType *MaskTy = dyn_cast<VectorType>(Mask->getType());
-    VectorType *DataTy = dyn_cast<VectorType>(Data->getType());
-    if (!MaskTy || !DataTy) {
-      V_PRINT(DEBUG_TYPE, "Non vector type unsupported for scatter "<<calledName<<"\n");
-      if (!MaskTy && !DataTy) {
-        V_PRINT(gather_scatter_stat, "RESOLVER: SCALAR FOR SCATTER " << *caller << "\n");
-      } else {
-        V_PRINT(gather_scatter_stat, "RESOLVER: NON VECTOR TYPE FOR SCATTER " << *caller << "\n");
-      }
-      return false;
-    }
-
-    assert(DataTy && "mangled store of non vector type data");
-    assert(MaskTy->getNumElements() == DataTy->getNumElements() &&
-      "mismatch between mask and data num elements");
-    PointerType *PtrTy  = cast<PointerType>(Ptr->getType());
-    assert(PtrTy->getElementType() == DataTy &&
-      "mismatch between ptr and retval");
-
-    if (!isGatherScatterType(DataTy)) {
-      V_PRINT(DEBUG_TYPE, "Type unsupported for scatter "<<calledName<<"\n");
-      V_PRINT(gather_scatter_stat, "RESOLVER: UNSUPPORTED TYPE FOR SCATTER " << *caller << "\n");
-      return false;
-    }
-
-    V_PRINT(DEBUG_TYPE, "Generating scatter for "<<calledName<<"\n");
-    assert(8 * Mangler::getMangledStoreAlignment(calledName) >=
-           DataTy->getScalarSizeInBits() && "Not naturally aligned!");
-
-    // Remove address space from pointer type
-    PtrTy = PointerType::get(DataTy->getScalarType(), 0);
-    Type *IntptrTy = Type::getInt64Ty(caller->getContext());
-    Instruction *Cast1 = CastInst::Create(Instruction::PtrToInt, Ptr, IntptrTy, "ptrToInt", caller);
-    Ptr = CastInst::Create(Instruction::IntToPtr, Cast1, PtrTy, "intToPtr", caller);
-//    Ptr = new BitCastInst(Ptr, PtrTy, "ptrTypeCast", caller);
-
-    Type *IndTy = IntegerType::get(caller->getContext(), 32);
-
-    Value *Index = getConsecutiveConstantVector(IndTy, DataTy->getNumElements());
-
-    CreateGatherScatterAndReplaceCall(caller, Mask, Ptr, Index, Data, Mangler::Scatter);
-    return true;
-  }
 
   if (Mangler::isMangledGather(calledName)) {
     Value *Mask      = caller->getArgOperand(0);
@@ -176,11 +79,10 @@ bool MICResolver::TargetSpecificResolve(CallInst* caller) {
     return true;
   }
 
-  V_PRINT(DEBUG_TYPE, "Unhandled call: not mangled load nor store "<<calledName<<"\n");
   return false;
 }
 
-Instruction* MICResolver::CreateGatherScatterAndReplaceCall(CallInst* caller, Value *Mask, Value *Ptr, Value *Index, Value *Data, Mangler::GatherScatterType type) {
+Instruction* KNLResolver::CreateGatherScatterAndReplaceCall(CallInst* caller, Value *Mask, Value *Ptr, Value *Index, Value *Data, Mangler::GatherScatterType type) {
   Module *pModule = caller->getParent()->getParent()->getParent();
   V_ASSERT((type == Mangler::GatherPrefetch || (Data ? Data->getType() : caller->getType())->isVectorTy()) && "Data value type is not a vector");
 
@@ -237,7 +139,7 @@ Instruction* MICResolver::CreateGatherScatterAndReplaceCall(CallInst* caller, Va
   return newCaller;
 }
 
-void MICResolver::FixBaseAndIndexIfNeeded(
+void KNLResolver::FixBaseAndIndexIfNeeded(
                   CallInst* caller, Value *Mask, Value *ValidBits,
                   Value *IsSigned, Value *&Ptr, Value *&Index) {
   V_ASSERT(ValidBits && isa<ConstantInt>(ValidBits) && "ValidBits argument is not constant");
@@ -351,7 +253,7 @@ void MICResolver::FixBaseAndIndexIfNeeded(
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  FunctionPass* createKNCResolverPass() {
-    return new intel::MICResolver();
+  FunctionPass* createKNLResolverPass() {
+    return new intel::KNLResolver();
   }
 }

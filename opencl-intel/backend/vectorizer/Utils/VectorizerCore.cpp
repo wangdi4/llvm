@@ -36,7 +36,8 @@ extern "C" Pass* createBuiltinLibInfoPass(llvm::Module* pRTModule, std::string t
 
 extern "C" FunctionPass* createAppleWIDepPrePacketizationPass();
 #ifndef __APPLE__
-extern "C" FunctionPass* createGatherScatterResolverPass();
+extern "C" FunctionPass* createKNLResolverPass();
+extern "C" FunctionPass* createKNCResolverPass();
 #endif
 extern "C" FunctionPass* createX86ResolverPass(Intel::ECPU cpuArch);
 extern "C" FunctionPass* createOCLBuiltinPreVectorizationPass();
@@ -46,7 +47,10 @@ extern "C" FunctionPass *createIRPrinterPass(std::string dumpDir, std::string du
 
 static FunctionPass* createResolverPass(const Intel::CPUId& CpuId) {
 #ifndef __APPLE__
-  if (CpuId.HasGatherScatter() || CpuId.HasAVX512()) return createGatherScatterResolverPass();
+  if (CpuId.HasAVX512())
+    return createKNLResolverPass();
+  if (CpuId.HasKNC())
+    return createKNCResolverPass();
 #endif
   return createX86ResolverPass(CpuId.GetCPU());
 }
