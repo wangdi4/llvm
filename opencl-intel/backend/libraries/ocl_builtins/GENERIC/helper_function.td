@@ -140,21 +140,21 @@ def __ocl_masked_store4   : OclBuiltin<"__ocl_masked_store_$Arg1Type",   (outs),
 }
 }
 
-let Types = [v8i32, v8i64, v8f32, v8f64], Attrs = [OVERLOADABLE], NeedForwardDecl = 1 in {
+let Types = [v8i32, v8i64, v8f32, v8f64], NeedForwardDecl = 1 in {
 def __ocl_masked_load8   : OclBuiltin<"__ocl_masked_load_$ReturnType",   (outs gentype:$ret), (ins pgentype:$pLoadAdd, v8i32:$mask), [], [], 0, 0>, PRIVATE;
 def __ocl_masked_store8   : OclBuiltin<"__ocl_masked_store_$Arg1Type",   (outs), (ins pgentype:$pStoreAdd, gentype:$data, v8i32:$mask),[], [], 0, 0>, PRIVATE;
 }
 
 
-let Types = [v8i64, v8f64], Attrs = [OVERLOADABLE], NeedForwardDecl = 1 in {
-def __ocl_masked_load8_knl   : OclBuiltin<"__ocl_masked_load_$ReturnType",   (outs gentype:$ret), (ins pgentype:$pLoadAdd, v1u8:$mask), [], [], 0, 0>, PRIVATE;
-def __ocl_masked_store8_knl   : OclBuiltin<"__ocl_masked_store_$Arg1Type",   (outs), (ins pgentype:$pStoreAdd, gentype:$data, v1u8:$mask),[], [], 0, 0>, PRIVATE;
+let Types = [v8i64, v8f64], NeedForwardDecl = 1 in {
+def __ocl_masked_load8_knl   : OclBuiltin<"__ocl_imasked_load_$ReturnType",   (outs gentype:$ret), (ins pgentype:$pLoadAdd, v1u8:$mask), [], [], 0, 0>, PRIVATE;
+def __ocl_masked_store8_knl   : OclBuiltin<"__ocl_imasked_store_$Arg1Type",   (outs), (ins pgentype:$pStoreAdd, gentype:$data, v1u8:$mask),[], [], 0, 0>, PRIVATE;
 }
 
 
-let Types = [v16i32, v16i64, v16f32, v16f64], Attrs = [OVERLOADABLE], NeedForwardDecl = 1 in {
-def __ocl_masked_load16_knl   : OclBuiltin<"__ocl_masked_load_$ReturnType",   (outs gentype:$ret), (ins pgentype:$pLoadAdd, v1u16:$mask), [], [], 0, 0>, PRIVATE;
-def __ocl_masked_store16_knl   : OclBuiltin<"__ocl_masked_store_$Arg1Type",   (outs), (ins pgentype:$pStoreAdd, gentype:$data, v1u16:$mask),[], [], 0, 0>, PRIVATE;
+let Types = [v16i32, v16i64, v16f32, v16f64], NeedForwardDecl = 1 in {
+def __ocl_masked_load16_knl   : OclBuiltin<"__ocl_imasked_load_$ReturnType",   (outs gentype:$ret), (ins pgentype:$pLoadAdd, v1u16:$mask), [], [], 0, 0>, PRIVATE;
+def __ocl_masked_store16_knl   : OclBuiltin<"__ocl_imasked_store_$Arg1Type",   (outs), (ins pgentype:$pStoreAdd, gentype:$data, v1u16:$mask),[], [], 0, 0>, PRIVATE;
 }
 
 // ****************************************************************************

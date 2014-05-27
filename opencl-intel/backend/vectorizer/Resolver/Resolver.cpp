@@ -21,6 +21,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Version.h"
 
 #include <vector>
+#include <stdio.h>
 
 namespace intel {
 
@@ -376,7 +377,8 @@ bool FuncResolver::isResolvedMaskedLoad(CallInst* caller) {
   V_ASSERT(vecType && "Pointer must be of vector type");
   // check availability of masked store BI
   std::string funcName =
-    Mangler::getMaskedLoadStoreBuiltinName(true, vecType);
+    Mangler::getMaskedLoadStoreBuiltinName(true, vecType, isBitMask(*vecType));
+    
   Function* loadFuncRT = m_rtServices->findInRuntimeModule(funcName);
 
   if (loadFuncRT) {
@@ -402,6 +404,9 @@ bool FuncResolver::isResolvedMaskedLoad(CallInst* caller) {
     caller->replaceAllUsesWith(newCall);
     caller->eraseFromParent();
     return true;
+  }
+  else {
+    printf("%s is missing\n", funcName.c_str());
   }
   return false;
 }
@@ -499,7 +504,7 @@ bool FuncResolver::isResolvedMaskedStore(CallInst* caller) {
   V_ASSERT(vecType && "Pointer must be of vector type");
   // check availability of masked store BI
   std::string funcName =
-    Mangler::getMaskedLoadStoreBuiltinName(false, vecType);
+    Mangler::getMaskedLoadStoreBuiltinName(false, vecType, isBitMask(*vecType));
   Function* storeFuncRT = m_rtServices->findInRuntimeModule(funcName);
 
   if (storeFuncRT) {
@@ -526,6 +531,9 @@ bool FuncResolver::isResolvedMaskedStore(CallInst* caller) {
     // no need in 'funcName' call instruction value - as it has void result
     caller->eraseFromParent();
     return true;
+  }
+  else {
+    printf("%s is missing\n", funcName.c_str());
   }
   return false;
 }

@@ -248,6 +248,11 @@ void KNLResolver::FixBaseAndIndexIfNeeded(
 #endif
 }
 
+bool KNLResolver::isBitMask(const VectorType& vecType) const {
+  return (vecType.getBitWidth() == 512) && (vecType.getNumElements() <= 16);
+}
+
+
 } // namespace
 
 /// Support for static linking of modules for Windows
@@ -257,3 +262,4 @@ extern "C" {
     return new intel::KNLResolver();
   }
 }
+

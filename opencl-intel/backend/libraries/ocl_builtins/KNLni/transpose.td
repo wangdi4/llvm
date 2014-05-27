@@ -57,10 +57,10 @@ OclBuiltinImpl transpose_masked_load_float4x16_knl = OclBuiltinImpl<__ocl_masked
    ushort LoadMask = (ushort)$Arg5VarName;
    ushort LoadMask0, LoadMask1, LoadMask2, LoadMask3;
    __ocl_expand_mask_4x16(LoadMask, &LoadMask0, &LoadMask1, &LoadMask2, &LoadMask3);
-   float16 t0 = __ocl_masked_load_float16((float16*)&($Arg0VarName[0]), LoadMask0);
-   float16 t1 = __ocl_masked_load_float16((float16*)&($Arg0VarName[4]), LoadMask1);
-   float16 t2 = __ocl_masked_load_float16((float16*)&($Arg0VarName[8]), LoadMask2);
-   float16 t3 = __ocl_masked_load_float16((float16*)&($Arg0VarName[12]), LoadMask3);
+   float16 t0 = __ocl_imasked_load_float16((float16*)&($Arg0VarName[0]), LoadMask0);
+   float16 t1 = __ocl_imasked_load_float16((float16*)&($Arg0VarName[4]), LoadMask1);
+   float16 t2 = __ocl_imasked_load_float16((float16*)&($Arg0VarName[8]), LoadMask2);
+   float16 t3 = __ocl_imasked_load_float16((float16*)&($Arg0VarName[12]), LoadMask3);
    int16 mask0 = {0,4,8,12,16,20,24,28, -1,-1, -1, -1, -1, -1, -1, -1};
    *$Arg1VarName = __ocl_helper_shuffle_pairs_float16(t0,t1,t2,t3,mask0);
    int16 mask1 = {1,5,9,13,17,21,25,29,-1,-1,-1, -1, -1, -1, -1, -1};

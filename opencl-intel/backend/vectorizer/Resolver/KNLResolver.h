@@ -24,6 +24,7 @@ public:
   /// @return true if this call was handled by the resolver
   virtual bool TargetSpecificResolve(CallInst* caller);
 
+  virtual bool isBitMask(const VectorType& vecType) const;
 private:
   /// @brief Create gather/scatter call instruction and replace given caller instruction with the new one.
   /// @param caller Instruction to resolve
