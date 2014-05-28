@@ -12,8 +12,6 @@ else( CMAKE_SIZEOF_VOID_P EQUAL 8)
 endif( CMAKE_SIZEOF_VOID_P EQUAL 4)
 
 set(OCL_CPU_BACKEND_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-# the following flag serves as a differentiator between OCL Back-End standalone build and its build within OCL SDK framework
-option(OCL_BACKEND_STAND_ALONE "CBackend Enabled" ON)
 
 #
 # Settings for Linux compilation
@@ -74,7 +72,6 @@ if (NOT WIN32)
 
     # if we are cross-compiling for Android, let cmake know that execution of pthread test will fail on the host.
     if (ANDROID)
-      #set ( THREADS_PTHREAD_ARG "ANDROID-FAILED_TO_RUN" CACHE STRING "Result from TRY_RUN" FORCE)
       set ( THREADS_PTHREAD_ARG "ANDROID-FAILED_TO_RUN" )
     endif (ANDROID)
 
@@ -427,6 +424,10 @@ target_link_libraries (${TARGET_NAME}
     ${LLVM_MODULE_LIBS}
     )
 
+if(ANDROID)
+    # dynamic link with STL library
+     target_link_libraries(${TARGET_NAME} gnustl_shared)
+endif(ANDROID)
 if(NOT WIN32)
     if(NOT ANDROID)
         target_link_libraries(${TARGET_NAME} pthread rt)
