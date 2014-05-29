@@ -15,7 +15,14 @@ set( TOOL_OS_SUFFIX "" )
 set( GCC_VERSION "" )
 set( GCC_VERSION_OUTPUT "" )
 
-execute_process(COMMAND find "/usr/local/android-toolchain" -name x86_64  -type d OUTPUT_VARIABLE ANDROID_NDK_TOOLCHAIN_ROOT OUTPUT_STRIP_TRAILING_WHITESPACE)
+# set Android toolchain directory name
+if (BUILD_X64)
+  set ( ANDROID_TOOLCHAIN_DIRECTORY_NAME android-toolchain-x86_64 )
+else(BUILD_X64)
+  set ( ANDROID_TOOLCHAIN_DIRECTORY_NAME android-toolchain )
+endif(BUILD_X64)
+
+execute_process(COMMAND find "/usr/local" -name ${ANDROID_TOOLCHAIN_DIRECTORY_NAME} -type d OUTPUT_VARIABLE ANDROID_NDK_TOOLCHAIN_ROOT OUTPUT_STRIP_TRAILING_WHITESPACE)
 if (NOT IS_DIRECTORY ${ANDROID_NDK_TOOLCHAIN_ROOT})
     message(FATAL_ERROR "Can't find Android ToolChain Root ${ANDROID_NDK_TOOLCHAIN_ROOT}")
 endif (NOT IS_DIRECTORY ${ANDROID_NDK_TOOLCHAIN_ROOT})
