@@ -4,6 +4,8 @@ Subject to the terms and conditions of the Master Development License
 Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
+#define DEBUG_TYPE "Vectorizer"
+
 #include "CLWGLoopBoundaries.h"
 #include "CLWGBoundDecoder.h"
 #include "LoopUtils/LoopUtils.h"
@@ -34,7 +36,10 @@ OCL_INITIALIZE_PASS_BEGIN(CLWGLoopBoundaries, "cl-loop-bound", "create loop boun
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(CLWGLoopBoundaries, "cl-loop-bound", "create loop boundaries array function", false, false)
 
-CLWGLoopBoundaries::CLWGLoopBoundaries() : ModulePass(ID), m_rtServices(NULL) {
+CLWGLoopBoundaries::CLWGLoopBoundaries() : ModulePass(ID), m_rtServices(NULL),
+OCLSTAT_INIT(Early_Exit_Givenup_Due_To_Loads,
+"early exit wasn't tried because block consists of a load instruction (but no store instructions). However, it is still likely early exit was impossible regardless of it",
+    m_kernelStats) {
   initializeCLWGLoopBoundariesPass(*PassRegistry::getPassRegistry());
 }
 
@@ -184,6 +189,7 @@ bool CLWGLoopBoundaries::runOnFunction(Function& F) {
     assert((*it)->getNumUses() == 0 && "no users expected");
     if ((*it)->getNumUses() == 0) (*it)->eraseFromParent();
   }
+  intel::Statistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE);
   return true;
 }
 
@@ -869,10 +875,13 @@ bool CLWGLoopBoundaries::isEarlyExitSucc(BasicBlock *BB){
 }
 
 bool CLWGLoopBoundaries::hasSideEffectInst(BasicBlock *BB) {
+  bool loadInstruction = false;
   for (BasicBlock::iterator it = BB->begin(), e = BB->end(); it != e ; ++it) {
     switch (it->getOpcode()){
       // Loads and store have side effect.
       case Instruction::Load :
+        loadInstruction = true;
+        break;
       case Instruction::Store:
         return true;
       // For calls ask the runtime object.
@@ -885,6 +894,10 @@ bool CLWGLoopBoundaries::hasSideEffectInst(BasicBlock *BB) {
       default:
         break;
     }
+  }
+  if (loadInstruction) {
+    Early_Exit_Givenup_Due_To_Loads++; // statistics
+    return true;
   }
   return false;
 }

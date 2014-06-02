@@ -13,6 +13,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "SoaAllocaAnalysis.h"
 #include "Logger.h"
 #include "VectorizerCommon.h"
+#include "OclTune.h"
 
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/Debug.h"
@@ -134,9 +135,12 @@ private:
   /// @param vectorValue the vector to obtain extract users
   /// @param extracts - container to fill.
   /// @param allUsersExtract - true if all users are extract instructions.
+  /// @param attemptingLoadTranspose - true if called from
+  /// ObtainLoadAndTranspose, used for statistical purposes.
   bool obtainExtracts(Value  *vectorValue,
                       SmallVectorImpl<ExtractElementInst *> &extracts,
-                      bool &allUsersExtract);
+                      bool &allUsersExtract,
+                      bool attemptingLoadTranspose);
 
   ///@brief creates the transpose shuffle sequence for 4x4 matirx
   ///@param IN input vectors
@@ -511,6 +515,29 @@ private:
   /// @brief counter of unsupported corner cases when packetizing is cancelled
   int m_cannotHandleCtr;
 
+  // Statistics:
+  Statistic::ActiveStatsT m_kernelStats;
+  Statistic Array_Of_Structs_Store_Or_Loads;
+  Statistic Cant_Load_Transpose_Because_Of_Non_Extract_Users;
+  Statistic Cant_Load_Transpose_Because_Multiple_Extract_Users_With_The_Same_Index;
+  Statistic Load_Transpose_Created_For_A_Single_Scalar_Value;
+  Statistic Store_Transpose_Given_Up_Because_Of_Multiple_Users_Of_The_Stored_Vector;
+  Statistic Store_Transpose_Given_Up_Due_To_Not_Supported_Vector_Size;
+  Statistic Store_Transpose_Created_For_A_Single_Scalar;
+  Statistic Insert_Element_Transpose_Given_Up_Due_To_Not_supported_Vector_Size;
+  Statistic Transposing_ExtractElement_For_A_Single_Extract;
+  Statistic Scalarize_An_Instruction_That_Does_Not_Have_Vector_Support;
+  Statistic Scalarize_Memory_Operand_That_Does_Not_Have_Vector_Support;
+  Statistic Wide_Unmasked_Memory_Operation_Created;
+  Statistic Wide_Masked_Memory_Operation_Created;
+  Statistic Gather_Scatter_Created;
+  Statistic Scalarize_Memory_Operand_Because_Cant_Create_Gather_Scatter;
+  Statistic Scalarize_Function_Call;
+  Statistic Scalarize_ExtractElement_Because_Cant_Transpose;
+  Statistic Created_Transpose_For_Insert_Element;
+  Statistic Created_Transpose_For_Extract_Element;
+  Statistic Created_Load_And_Transpose;
+  Statistic Created_Transpose_And_Store;
 };
 
 } //namespace

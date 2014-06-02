@@ -9,6 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "BuiltinLibInfo.h"
 #include "OpenclRuntime.h"
+#include "OclTune.h"
 
 #include "llvm/Pass.h"
 #include "llvm/IR/Instructions.h"
@@ -176,6 +177,14 @@ private:
   SmallPtrSet<Instruction *, 8> m_toRemove;
   ///@brief true iff the function call is an atomic builtin
   bool m_hasAtomicCalls;
+
+  // Statistics:
+  intel::Statistic::ActiveStatsT m_kernelStats;
+  // a "low quality" statistics. The fact that early exit was given up due to loads
+  // does not imply that otherwise it could have been done.
+  // testing for side effects is done Before checking the condition
+  // is actually in a supported format, and might not include tid at all.
+  Statistic Early_Exit_Givenup_Due_To_Loads;
 
   ///@brief checks if the current function has an atomic call.
   ///@returns returns true iff the current function has an atomic call.

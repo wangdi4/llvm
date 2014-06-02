@@ -59,7 +59,35 @@ Predicator::Predicator() :
   FunctionPass(ID),
   m_maskedLoadCtr(0),
   m_maskedStoreCtr(0),
-  m_maskedCallCtr(0){
+  m_maskedCallCtr(0),
+  OCLSTAT_INIT(Predicated_Uniform_Store_Or_Loads,
+    "store or loads with uniform address and value but with masks, that are not zerobypassed and thus predicated"
+    , m_kernelStats),
+  OCLSTAT_INIT(AllOnes_Bypasses,
+    "total number of allones bypasses inserted",
+    m_kernelStats),
+  OCLSTAT_INIT(AllOnes_Bypasses_Due_To_Non_Consecutive_Store_Load,
+    "number of allones bypasses for blocks that do not contain consecutive store or load instructions",
+    m_kernelStats),
+  OCLSTAT_INIT(Predicated,
+    "one if the function is predicated, zero otherwise",
+    m_kernelStats),
+  OCLSTAT_INIT(Edge_Not_Being_Specialized_Because_EdgeHot,
+    "edges that were chosen not to be specialized because of the EdgeHot heuristic",
+    m_kernelStats),
+  OCLSTAT_INIT(Edge_Not_Being_Specialized_Because_EdgeHot_At_Least_50Insts,
+    "edges that were chosen not to be specialized because of the EdgeHot heuristic, AND the bypassed region consists of at least 50 insts",
+    m_kernelStats),
+  OCLSTAT_INIT(Edge_Not_Being_Specialized_Because_Should_Not_Specialize,
+    "edges that were chosen not to be specialzied only because of the ShouldSpecialize heuristic",
+    m_kernelStats),
+  OCLSTAT_INIT(Edge_Not_Being_Specialized_Break_Inside_A_Loop,
+    "edges that were not specialized because they are (probably) break instructions inside a loop that has a conditional latch",
+    m_kernelStats),
+  OCLSTAT_INIT(Zero_Bypasses,
+    "total number of zero bypasses inserted",
+    m_kernelStats)
+{
   initializePredicatorPass(*llvm::PassRegistry::getPassRegistry());
   m_rtServices = NULL;
 }
@@ -122,13 +150,16 @@ bool Predicator::runOnFunction(Function &F) {
     F.getParent()->getContext(), APInt(1, 0));
 
   ++PredicatorCounter;
-
+  Predicated = 0; // statistics
   // Predication is needed only in the presence of divergent branch
   if (needPredication(F)) {
+    Predicated++; // statistics
     predicateFunction(&F);
+    intel::Statistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE);
     return true;
   }
   // Did not change this function.
+  intel::Statistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE);
   return false;
 }
 
@@ -533,13 +564,14 @@ Function* Predicator::createPredicatedFunction(Instruction *inst,
 }
 
 bool Predicator::keepOriginalInstructionAsWell(Instruction* original) {
-  if (m_valuableAllOnesBlocks.count(original->getParent())) {
-    return true; // for all-ones optimization
-  }
   if ((isa<StoreInst>(original) || isa<LoadInst>(original)) &&
     m_WIA->whichDepend(original) == WIAnalysis::UNIFORM) {
+      Predicated_Uniform_Store_Or_Loads++; // statistics
       return true; // to later unpredicate a uniform store or load
                    // if it is being allzero-bypassed.
+  }
+  if (m_valuableAllOnesBlocks.count(original->getParent())) {
+    return true; // for all-ones optimization
   }
   return false;
 }
@@ -1486,6 +1518,8 @@ void Predicator::unpredicateInstruction(Instruction* call) {
   V_ASSERT(m_predicatedToOriginalInst.count(call) &&
     "missing predicated to original entry");
 
+  Predicated_Uniform_Store_Or_Loads--; // statistics
+
   // simply use original instruction.
   Instruction* original = m_predicatedToOriginalInst[call];
 
@@ -1861,6 +1895,17 @@ void Predicator::insertAllOnesBypasses() {
         // no point duplicating this block if it has no predicated instructions.
         continue;
       }
+
+      // statistics:://////////////////////////////////////
+      AllOnes_Bypasses++;
+      // if the bypass is due to a consecutive store/load,
+      // the counter is decremented earlier.
+      // this is better than counting them directly,
+      // because non-consecutive store/loads may
+      // not lead to actual bypasses at the end due to
+      // unpredication of uniform store/loads.
+      AllOnes_Bypasses_Due_To_Non_Consecutive_Store_Load++;
+      /////////////////////////////////////////////////////
 
       if (isSingleBlockLoop(original)) {
         // we treat loops made of a single block as a special case
@@ -2269,14 +2314,46 @@ BasicBlock* Predicator::getEntryBlockFromLoopOriginal(BasicBlock* loopOriginal) 
 
 
 bool Predicator::blockHasLoadStore(BasicBlock* BB) {
+  bool hasNonConsecutiveStoreLoad = false;
   for (BasicBlock::iterator it = BB->begin(), e = BB->end();
-        it != e; ++it) { // for each instruction
-          if (isa<LoadInst>(it) || isa<StoreInst>(it)) {
-            return true;
-          }
-      }
+    it != e; ++it) { // for each instruction
+    // (this test can be much simpler, but we also
+    // want to gather statistics about
+    // number of allones bypasses due to non-consecutive
+    // store/loads.
+    if (LoadInst* load = dyn_cast<LoadInst>(it)) {
+      TUNEOCL_CHECK(
+        Value* operand = load->getPointerOperand();
+        WIAnalysis::WIDependancy dep = m_WIA->whichDepend(operand);
+        if (dep == WIAnalysis::PTR_CONSECUTIVE) {
+          AllOnes_Bypasses_Due_To_Non_Consecutive_Store_Load--; // statistics
+          return true;
+        }
+        else {
+          hasNonConsecutiveStoreLoad = true;
+        }
+        continue;
+      );
+      return true;
+    }
+    if (StoreInst* store = dyn_cast<StoreInst>(it)) {
+      TUNEOCL_CHECK(
+        Value* operand = store->getPointerOperand();
+        WIAnalysis::WIDependancy dep = m_WIA->whichDepend(operand);
+        if (dep == WIAnalysis::PTR_CONSECUTIVE) {
+          AllOnes_Bypasses_Due_To_Non_Consecutive_Store_Load--; // statistics
+          return true;
+        }
+        else {
+          hasNonConsecutiveStoreLoad = true;
+        }
+        continue;
+      );
+      return true;
+    }
+  }
 
-  return false;
+  return hasNonConsecutiveStoreLoad;
 }
 
 void Predicator::calculateHeuristic(Function* F) {

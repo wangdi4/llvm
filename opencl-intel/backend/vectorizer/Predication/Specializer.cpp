@@ -453,6 +453,7 @@ bool FunctionSpecializer::calculateBypassInfoPerBranch(BasicBlock *root) {
       addAuxBBForSingleExitEdge(info);
     }
     else {
+      m_pred->Edge_Not_Being_Specialized_Break_Inside_A_Loop++; // statistics
       m_bypassInfoContainer.pop_back();
       return false;
     }
@@ -483,9 +484,33 @@ void FunctionSpecializer::CollectDominanceInfo() {
 
     for (unsigned i=0; i < br->getNumSuccessors(); ++i) {
       if (! m_DT->dominates(bb, br->getSuccessor(i)) ||
-          m_OBP->isEdgeHot(bb, br->getSuccessor(i))  ||
+          // removing isEdgeHot check later for statistics purposes.
+          // m_OBP->isEdgeHot(bb, br->getSuccessor(i))  ||
           ! calculateBypassInfoPerBranch(br->getSuccessor(i)))
         continue;
+
+      if (m_OBP->isEdgeHot(bb, br->getSuccessor(i))) {
+        TUNEOCL_CHECK(
+          // statistics:: ///////////////////////////////////////////////////////
+          // count statistics Edge_Not_Being_Specialized_Because_EdgeHot,
+          // and Edge_Not_Being_Specialized_Because_EdgeHot_At_Least_50Insts
+          BypassInfo & info = m_bypassInfoContainer.back();
+           m_pred->Edge_Not_Being_Specialized_Because_EdgeHot++;
+
+           int totalNumberOfInstructions = 0;
+           for (std::set<BasicBlock*>::iterator it = info.m_skippedBlocks.begin(),
+             e = info.m_skippedBlocks.end(); it != e; ++it) {
+             totalNumberOfInstructions += (*it)->getInstList().size();
+           }
+           if (totalNumberOfInstructions > 50) {
+             m_pred->Edge_Not_Being_Specialized_Because_EdgeHot_At_Least_50Insts++;
+           }
+
+           // end of statistics ////////////////////////////////////////////////
+         );
+         m_bypassInfoContainer.pop_back();
+         continue;
+      }
 
       BypassInfo & info = m_bypassInfoContainer.back();
 
@@ -502,6 +527,11 @@ void FunctionSpecializer::specializeFunction() {
       specializeEdge(*itr);
       V_ASSERT(!verifyFunction(*m_func) && "I broke this module");
     }
+    // statistics:://////////////////////////////////////////////////////
+    else {
+      m_pred->Edge_Not_Being_Specialized_Because_Should_Not_Specialize++;
+    }
+    /////////////////////////////////////////////////////////////////////
   }
 }
 
@@ -599,6 +629,7 @@ void FunctionSpecializer::ZeroBypassedMasks(BypassInfo & bi, BasicBlock *src,
 }
 
 void FunctionSpecializer::specializeEdge(BypassInfo & bi) {
+  m_pred->Zero_Bypasses++; // statistics
 
   V_ASSERT(!verifyFunction(*m_func) && "I broke this module");
 
