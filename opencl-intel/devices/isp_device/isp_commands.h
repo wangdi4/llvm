@@ -110,7 +110,7 @@ protected:
 
     // TODO: maybe move to new class ?
     bool ExecuteStandaloneCustomKernel();
-    bool MapArgumentsToISP();
+    bool MapArgumentsToISP(void* pMappedArgsBuffer);
     bool UnmapArgumentsFromISP();
 
     CameraShim*         m_pCameraShim;

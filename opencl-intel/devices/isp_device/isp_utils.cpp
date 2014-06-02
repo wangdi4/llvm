@@ -91,7 +91,7 @@ int SearchFilesInDirectory(std::string dir, std::string extension, std::vector< 
 
 #else
 
-    // append trailing back slash if needed
+    // append trailing slash if needed
     if ('\\' != dir[ dir.size()-1 ] && '/' != dir[ dir.size()-1 ])
     {
         dir.append("/");

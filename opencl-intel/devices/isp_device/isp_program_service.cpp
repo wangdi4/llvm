@@ -50,7 +50,7 @@ using namespace Intel::OpenCL::ISPDevice;
 #define ISP_FIRMWARE_FILE_EXTENSION "bin"
 
 ISPProgramService::ISPProgramService(cl_int devId, IOCLDevLogDescriptor *logDesc, CameraShim* pCameraShim) :
-    m_iDevId(devId), m_pLogDescriptor(logDesc), m_pCameraShim(pCameraShim)
+    m_iDevId(devId), m_pLogDescriptor(logDesc), m_pCameraShim(pCameraShim), m_pBuiltInKernelRegistry(NULL)
 {
     if (NULL != logDesc)
     {
@@ -82,7 +82,7 @@ ISPProgramService::~ISPProgramService()
 cl_dev_err_code ISPProgramService::Init()
 {
     m_pBuiltInKernelRegistry = new BuiltInKernelRegistry(m_pCameraShim);
-    if(NULL == m_pBuiltInKernelRegistry)
+    if (NULL == m_pBuiltInKernelRegistry)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -735,19 +735,22 @@ cl_dev_err_code ISPProgramService::GetProgramKernels(cl_dev_program IN prog, cl_
         *num_kernels_ret = numAvailableKernels;
     }
 
-    if((NULL == kernels) || (num_kernels < numAvailableKernels))
+    if (NULL != kernels)
     {
-        IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid input buffer or buffer size is not enough"));
-        return CL_DEV_INVALID_VALUE;
-    }
+        if (num_kernels < numAvailableKernels)
+        {
+            IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Input buffer size is not enough"));
+            return CL_DEV_INVALID_VALUE;
+        }
 
-    // Retrieve kernels from program and store internally
-    for(unsigned int i = 0; i < numAvailableKernels; ++i)
-    {
-        kernels[i] = (cl_dev_kernel) pIspProgram->GetKernel(i);
-    }
+        // Retrieve kernels from program and store internally
+        for(unsigned int i = 0; i < numAvailableKernels; ++i)
+        {
+            kernels[i] = (cl_dev_kernel) pIspProgram->GetKernel(i);
+        }
 
-    IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Kernels were copied successfully"));
+        IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Kernels were copied successfully"));
+    }
 
     return CL_DEV_SUCCESS;
 }
@@ -780,9 +783,10 @@ cl_dev_err_code ISPProgramService::GetKernelInfo(cl_dev_kernel IN kernel, cl_dev
 
     ISPKernel* pIspKernel = (ISPKernel*) kernel;
 
-    //cl_bool boolValue;
+    cl_bool boolValue;
     size_t stValue;
-    //cl_ulong ulValue;
+    cl_ulong ulValue;
+    cl_dev_dispatch_buffer_prop dispatchProperties;
 
     const void* pValue = NULL;
     size_t stValueSize = 0;
@@ -808,13 +812,36 @@ cl_dev_err_code ISPProgramService::GetKernelInfo(cl_dev_kernel IN kernel, cl_dev
             stValueSize = sizeof(size_t);
             break;
 
-        case CL_DEV_KERNEL_NON_UNIFORM_WG_SIZE_SUPPORT:
-        //    boolValue = pIspKernel->IsNonUniformWGSizeSupported();
-        //    pValue = &boolValue;
-        //    stValueSize = sizeof(cl_bool);
-        //    break;
+        case CL_DEV_KERNEL_ATTRIBUTES:
+            pValue = pIspKernel->GetKernelAttributes().c_str();
+            stValueSize = pIspKernel->GetKernelAttributes().size() + 1;
+            break;
+
+        case CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES:
+            dispatchProperties.size = pIspKernel->GetKernelArgsBufferSize();
+            dispatchProperties.argumentOffset = 0;
+            dispatchProperties.alignment = 1;
+            pValue = &dispatchProperties;
+            stValueSize = sizeof(cl_dev_dispatch_buffer_prop);
+            break;
+
+        case CL_DEV_KERNEL_MEMORY_OBJECT_INDEXES:
+            pValue = pIspKernel->GetKernelMemoryObjArgsIndices();
+            stValueSize = pIspKernel->GetKernelMemoryObjArgsCount() * sizeof(cl_uint);
+            break;
 
         case CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE:
+            ulValue = pIspKernel->GetKernelImplicitLocalSize();
+            pValue = &ulValue;
+            stValueSize = sizeof(cl_ulong);
+            break;
+
+        case CL_DEV_KERNEL_NON_UNIFORM_WG_SIZE_SUPPORT:
+            boolValue = pIspKernel->IsNonUniformWGSizeSupported();
+            pValue = &boolValue;
+            stValueSize = sizeof(cl_bool);
+            break;
+
         case CL_DEV_KERNEL_PRIVATE_SIZE:
         //    ulValue = 0;
         //    pValue = &ulValue;
@@ -822,9 +849,7 @@ cl_dev_err_code ISPProgramService::GetKernelInfo(cl_dev_kernel IN kernel, cl_dev
         //    break;
 
         case CL_DEV_KERNEL_ARG_INFO:
-        case CL_DEV_KERNEL_MEMORY_OBJECT_INDEXES:
-        case CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES:
-        case CL_DEV_KERNEL_ATTRIBUTES:
+
             return CL_DEV_NOT_SUPPORTED;
 
         default:
@@ -885,13 +910,13 @@ cl_dev_err_code ISPProgramService::GetSupportedImageFormats(cl_mem_flags IN flag
 // Construct kernel from binary
 ISPKernel::ISPKernel(const char* kernelName, fw_info blob) :
                 m_kernelName(kernelName), m_blob(blob),
-                m_command(CAMERA_NO_COMMAND)
+                m_command(CAMERA_NO_COMMAND), m_argsBufferSize(0)
 {
 }
 
 // Construct a camera command built-in kernel
 ISPKernel::ISPKernel(enum cameraCommand cmd) :
-    m_command(cmd)
+    m_command(cmd), m_argsBufferSize(0)
 {
     m_blob.data = NULL;
     m_blob.size = 0;
@@ -899,8 +924,8 @@ ISPKernel::ISPKernel(enum cameraCommand cmd) :
 
 cl_dev_err_code ISPKernel::Build(std::string& log)
 {
-    if (((NULL == m_blob.data || 0 == m_blob.size) && CAMERA_NO_COMMAND != m_command) ||
-        ((NULL != m_blob.data || 0 != m_blob.size) && CAMERA_NO_COMMAND == m_command))
+    if (((NULL == m_blob.data || 0 == m_blob.size) && CAMERA_NO_COMMAND == m_command) ||
+        ((NULL != m_blob.data || 0 != m_blob.size) && CAMERA_NO_COMMAND != m_command))
     {
         return CL_DEV_INVALID_VALUE;
     }
@@ -937,24 +962,26 @@ cl_dev_err_code ISPKernel::BuildFromBinary(std::string& log)
        m_kernelName.compare("nv12convert") == 0 ||
        m_kernelName.compare("HDRish") == 0)
     {
-        AddKernelArg(CL_KRNL_ARG_PTR_GLOBAL, sizeof(cl_mem), 0, currentOffset);
+        AddKernelArgPrototype(CL_KRNL_ARG_PTR_GLOBAL, sizeof(cl_mem), 0, currentOffset);
         currentOffset += sizeof(cl_mem);
-        AddKernelArg(CL_KRNL_ARG_PTR_GLOBAL, sizeof(cl_mem), 0, currentOffset);
+        AddKernelArgPrototype(CL_KRNL_ARG_PTR_GLOBAL, sizeof(cl_mem), 0, currentOffset);
         currentOffset += sizeof(cl_mem);
-        AddKernelArg(CL_KRNL_ARG_UINT, sizeof(cl_uint), 0, currentOffset);
+        AddKernelArgPrototype(CL_KRNL_ARG_UINT, sizeof(cl_uint), 0, currentOffset);
         currentOffset += sizeof(cl_uint);
-        AddKernelArg(CL_KRNL_ARG_UINT, sizeof(cl_uint), 0, currentOffset);
+        AddKernelArgPrototype(CL_KRNL_ARG_UINT, sizeof(cl_uint), 0, currentOffset);
 
-        LogArguments(log);
+        LogArgumentsPrototypes(log);
 
         return CL_DEV_SUCCESS;
     }
 
     assert(false && "TODO: currently ISP device agent support hard-coded arg types only");
 
-    // TODO: need to learn about CSS to understand this
-    // get number of arguments
+    // TODO: CSS doesn't store number of argument or their types
+    // so for now we assume kernel arguments are global pointers
+    // TODO: remove using sizeof ! this will be problem if host is 64bit and ISP is 32bit
     m_cssHeader = (struct sh_css_fw_info*) m_blob.data;
+
     int dmemParams = m_cssHeader->info.isp.memory_interface[SH_CSS_ISP_DMEM0].parameters.size / sizeof(void*);
 
     for (int i = 0; i < dmemParams; i++)
@@ -963,14 +990,14 @@ cl_dev_err_code ISPKernel::BuildFromBinary(std::string& log)
         // We cannot know the type of arguments,
         // because the CSS header does not store that information
         // We will assume memory objects in global memory
-        AddKernelArg(CL_KRNL_ARG_PTR_GLOBAL, sizeof(cl_mem), 0, currentOffset);
+        AddKernelArgPrototype(CL_KRNL_ARG_PTR_GLOBAL, sizeof(cl_mem), 0, currentOffset);
         currentOffset += sizeof(cl_mem);
     }
 
     m_requiredState = CAMERA_STATE_INDIFFERENT;
     m_stateAfterExecution = CAMERA_STATE_INDIFFERENT;
 
-    LogArguments(log);
+    LogArgumentsPrototypes(log);
 
     return CL_DEV_SUCCESS;
 }
@@ -997,7 +1024,7 @@ cl_dev_err_code ISPKernel::BuildFromCommand(std::string& log)
             m_stateAfterExecution = CAMERA_STATE_PREVIEW_STOPPED;       // Take picture command stops preview
             // Intentional fall through
         case (CAMERA_COPY_PREVIEW_BUFFER):
-            AddKernelArg(CL_KRNL_ARG_PTR_GLOBAL, sizeof(cl_mem), 0, 0); // Image buffer
+            AddKernelArgPrototype(CL_KRNL_ARG_PTR_GLOBAL, sizeof(cl_mem), 0, 0); // Image buffer
             // Intentional fall through
         case (CAMERA_AUTO_FOCUS):
             m_requiredState = CAMERA_STATE_PREVIEW_RUNNING;             // Take picture needs preview
@@ -1006,8 +1033,8 @@ cl_dev_err_code ISPKernel::BuildFromCommand(std::string& log)
         case (CAMERA_SET_PREVIEW_SIZE):
             // Intentional fall through
         case (CAMERA_SET_PICTURE_SIZE):
-            AddKernelArg(CL_KRNL_ARG_UINT, sizeof(cl_uint), 0, 0);                  // width
-            AddKernelArg(CL_KRNL_ARG_UINT, sizeof(cl_uint), 0, sizeof(cl_uint));    // height
+            AddKernelArgPrototype(CL_KRNL_ARG_UINT, sizeof(cl_uint), 0, 0);                  // width
+            AddKernelArgPrototype(CL_KRNL_ARG_UINT, sizeof(cl_uint), 0, sizeof(cl_uint));    // height
             m_requiredState = CAMERA_STATE_PREVIEW_STOPPED;             // preview needs to be stopped
             break;
 
@@ -1025,30 +1052,51 @@ cl_dev_err_code ISPKernel::BuildFromCommand(std::string& log)
             return CL_DEV_INVALID_VALUE;
     }
 
-    LogArguments(log);
+    LogArgumentsPrototypes(log);
 
     return CL_DEV_SUCCESS;
 }
 
-void ISPKernel::AddKernelArg(cl_kernel_arg_type type, unsigned int size, unsigned int access, unsigned int offset_in_bytes)
+void ISPKernel::AddKernelArgPrototype(cl_kernel_arg_type type, unsigned int size, unsigned int access, unsigned int offset_in_bytes)
 {
+    assert(((type <= CL_KRNL_ARG_VECTOR) || (CL_KRNL_ARG_PTR_GLOBAL == type)) && "TODO: unsupported arg type");
+
     cl_kernel_argument arg;
     arg.type = type;
     arg.size_in_bytes = size;
     arg.access = access;
     arg.offset_in_bytes = offset_in_bytes;
 
-    m_args.push_back(arg);
+    m_argsPrototype.push_back(arg);
+
+    // the last call to AddKernelArgPrototype always decide the args buffer size
+    m_argsBufferSize = offset_in_bytes + size;
+
+    // if memory object - store it's index
+    if (CL_KRNL_ARG_PTR_GLOBAL == type)
+    {
+        m_memObjArgsIndices.push_back(m_argsPrototype.size() - 1);
+    }
 }
 
 const cl_kernel_argument* ISPKernel::GetKernelArgsPrototype() const
 {
-    if (m_args.empty())
+    if (m_argsPrototype.empty())
     {
         return NULL;
     }
 
-    return &(m_args[0]);
+    return &(m_argsPrototype[0]);
+}
+
+const cl_uint* ISPKernel::GetKernelMemoryObjArgsIndices() const
+{
+    if (m_memObjArgsIndices.empty())
+    {
+        return NULL;
+    }
+
+    return &(m_memObjArgsIndices[0]);
 }
 
 const char* ISPKernel::CommandToString(enum cameraCommand cmd)
@@ -1102,14 +1150,14 @@ const char* ISPKernel::KernelTypeToString(cl_kernel_arg_type type)
     }
 }
 
-void ISPKernel::LogArguments(std::string& log)
+void ISPKernel::LogArgumentsPrototypes(std::string& log)
 {
-    for (int i = 0; i < m_args.size(); ++i)
+    for (int i = 0; i < m_argsPrototype.size(); ++i)
     {
         std::stringstream ss;
         ss << "Kernel arguemnt " << i << ":";
-        ss << " type = " << KernelTypeToString(m_args[i].type);
-        ss << " size = " << m_args[i].size_in_bytes;
+        ss << " type = " << KernelTypeToString(m_argsPrototype[i].type);
+        ss << " size = " << m_argsPrototype[i].size_in_bytes;
         ss << "\n";
         log.append(ss.str());
     }
@@ -1171,8 +1219,8 @@ cl_dev_err_code BuiltInKernelRegistry::AddFirmware(const void* pBinary, size_t s
     cl_dev_err_code ret = CL_DEV_SUCCESS;
 
     // To get the kernels in the binary we will create temporary ISPProgram
-    // ISPProgram will allocate itself on ISP and initilalize the kernels
-    // ISPProgram is not owner of the binary
+    // ISPProgram will allocate itself on ISP and initialize the kernels
+    // ISPProgram will not take ownership on the input binary
     // ISPProgram is owner of the FW blob and the kernels
     // but we will take ownership on them using ISPProgram::TakeBlobAndKernels()
 
@@ -1279,7 +1327,7 @@ ISPProgram::~ISPProgram()
     }
 }
 
-// Allocate and copy the program binary to ISP adress space
+// Allocate and copy the program binary to ISP address space
 cl_dev_err_code ISPProgram::AllocateOnISP(CameraShim* shim)
 {
     if (0 == m_binary || 0 == m_binarySize || m_isBuiltIn || NULL == shim)
@@ -1382,7 +1430,7 @@ cl_dev_err_code ISPProgram::BuildFromBuiltIns()
             m_buildLog.append("Build failed\n");
             return ret;
         }
-        assert(NULL == pBuiltinKernel && "GetBuiltInKernel returned NULL kernel even in success!");
+        assert(NULL != pBuiltinKernel && "GetBuiltInKernel returned NULL kernel even in success!");
 
         // ISPKernel is not the owner of any internal pointer so copy c'tor is enough
         ISPKernel* pKernel = new ISPKernel(*pBuiltinKernel);
@@ -1428,6 +1476,8 @@ cl_dev_err_code ISPProgram::TakeBlobAndKernels(fw_info* blob_ret, cl_uint numKer
     // this will not deallocate the kernels
     m_vecKernels.clear();
     m_mapKernels.clear();
+
+    return CL_DEV_SUCCESS;
 }
 
 ISPKernel* ISPProgram::GetKernel(const char * name) const

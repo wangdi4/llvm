@@ -355,8 +355,11 @@ cl_dev_err_code ISPTaskDispatcher::ReleaseCommand(cl_dev_cmd_desc* IN cmdToRelea
     {
         return CL_DEV_INVALID_VALUE;
     }
-
-    assert(NULL != cmdToRelease->device_agent_data && "TODO: is this valid command ?");
+    if (NULL == cmdToRelease->device_agent_data)
+    {
+        // already released
+        return CL_DEV_SUCCESS;
+    }
 
     // SharedPtr will take care of the de-allocation
     SharedPtr<ITaskBase> pCommand = static_cast<ITaskBase*>(cmdToRelease->device_agent_data);

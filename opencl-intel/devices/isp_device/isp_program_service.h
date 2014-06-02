@@ -72,9 +72,15 @@ public:
     // Initialize kernel & check arguments types
     cl_dev_err_code Build(std::string& log);
 
+    // kernel info
+    const cl_kernel_argument*   GetKernelArgsPrototype() const;
+    const cl_uint*              GetKernelMemoryObjArgsIndices() const;
+    cl_uint     GetKernelArgsCount() const { return m_argsPrototype.size(); }
+    size_t      GetKernelArgsBufferSize() const { return m_argsBufferSize; }
     std::string GetKernelName() const { return m_kernelName; }
-    const cl_kernel_argument* GetKernelArgsPrototype() const;
-    cl_uint GetKernelArgsCount() const { return m_args.size(); }
+    std::string GetKernelAttributes() const { return ""; }
+    cl_uint     GetKernelMemoryObjArgsCount() const { return m_memObjArgsIndices.size(); }
+    cl_ulong    GetKernelImplicitLocalSize() const { return 0; }
     //const size_t* ISPKernel::GetRequiredWorkGroupSize() const { return m_reqdWGSize[0] ? m_reqdWGSize : NULL; }
     cl_bool IsNonUniformWGSizeSupported() const { return CL_FALSE; }
     size_t GetOptimalWGSize() const { return m_optWGSize; }
@@ -89,11 +95,11 @@ private:
     cl_dev_err_code BuildFromBinary(std::string& log);
     cl_dev_err_code BuildFromCommand(std::string& log);
 
-    void AddKernelArg(cl_kernel_arg_type type, unsigned int size, unsigned int access, unsigned int offset_in_bytes);
-    // TODO: move outside the class
+    void AddKernelArgPrototype(cl_kernel_arg_type type, unsigned int size, unsigned int access, unsigned int offset_in_bytes);
+
     const char* CommandToString(enum cameraCommand cmd);
     const char* KernelTypeToString(cl_kernel_arg_type type);
-    void LogArguments(std::string& log);
+    void LogArgumentsPrototypes(std::string& log);
 
     // Name of the kernel function
     std::string             m_kernelName;
@@ -108,8 +114,10 @@ private:
     enum cameraState        m_requiredState;        // the required camera state for this command
     enum cameraState        m_stateAfterExecution;  // the state of the camera after command has finished
 
-    // TODO: change to prototype
-    std::vector<cl_kernel_argument> m_args;         // kernel args vector
+    // kernel args prototype
+    std::vector<cl_kernel_argument> m_argsPrototype;
+    std::vector<cl_uint>            m_memObjArgsIndices;
+    size_t                          m_argsBufferSize;
 
     // TODO: do we need this
     size_t m_optWGSize;

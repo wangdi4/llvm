@@ -443,6 +443,12 @@ void Device::clDevCmdStatusChanged(cl_dev_cmd_id cmd_id, void * pData, cl_int cm
 void Device::InitFECompiler() const
 {
     const IOCLDeviceFECompilerDescription* pFEConfig = m_pDevice->clDevGetFECompilerDecription();
+    if (NULL == pFEConfig)
+    {
+        // device doesn't have front-end compiler
+        m_pFrontEndCompiler = NULL;
+        return;
+    }
     string strModule = pFEConfig->clDevFEModuleName();
     m_pFrontEndCompiler = FrontEndCompiler::Allocate();
 

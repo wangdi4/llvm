@@ -96,9 +96,11 @@ bool NDRange::Execute()
 {
     NotifyCommandStatusChanged(CL_RUNNING, CL_DEV_SUCCESS);
 
-    IspDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Executing NDRange command id %d with kernel name %s"), m_pCmdDesc->id, m_pIspKernel->GetKernelName());
+    IspDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Executing NDRange command id %d with kernel name %s"), m_pCmdDesc->id, m_pIspKernel->GetKernelName().c_str());
 
-    bool succeed = false;
+    bool succeed = true;
+
+    ExtractNDRangeKernelArguments();
 
     // execute pre-work
     if (CAMERA_STATE_PREVIEW_RUNNING == m_pIspKernel->GetRequiredState())
@@ -363,15 +365,13 @@ bool NDRange::ExecuteStandaloneCustomKernel()
 
     // get arguments buffer size
     cl_dev_cmd_param_kernel* cmdParams = reinterpret_cast<cl_dev_cmd_param_kernel*>(m_pCmdDesc->params);
-    size_t stArgsBufferSize = cmdParams->arg_size;
+    const size_t stArgsBufferSizeActual = cmdParams->arg_size;
 
-    const cl_kernel_argument* argsPrototype = m_pIspKernel->GetKernelArgsPrototype();
-    const cl_kernel_argument lastArgPrototype = argsPrototype[m_pIspKernel->GetKernelArgsCount()];
-    size_t stPrototypeArgsSize = lastArgPrototype.offset_in_bytes + lastArgPrototype.size_in_bytes;
-    assert(stArgsBufferSize == stPrototypeArgsSize && "Prototype is different from actuall arguments");
+    const size_t stArgsBufferSizePrototype = m_pIspKernel->GetKernelArgsBufferSize();
+    assert(stArgsBufferSizeActual == stArgsBufferSizePrototype && "Prototype is different from actual arguments size");
 
     // allocate required buffer on ISP
-    void* pAllocatedArgsBuffer = m_pCameraShim->host_alloc(stArgsBufferSize);
+    void* pAllocatedArgsBuffer = m_pCameraShim->host_alloc(stArgsBufferSizeActual);
     if (NULL == pAllocatedArgsBuffer)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Could not allocate arguments buffer on ISP"));
@@ -379,8 +379,12 @@ bool NDRange::ExecuteStandaloneCustomKernel()
         return false;
     }
 
+    // copy actual arguments values to allocated buffer on ISP
+    unsigned char* argsValuesBase = reinterpret_cast<unsigned char*>(cmdParams->arg_values);
+    MEMCPY_S(pAllocatedArgsBuffer, stArgsBufferSizePrototype, argsValuesBase, stArgsBufferSizeActual);
+
     // map pointer arguments to ISP space
-    if (!MapArgumentsToISP())
+    if (!MapArgumentsToISP(pAllocatedArgsBuffer))
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Could not map pointer arguments"));
         m_pCameraShim->host_free(pAllocatedArgsBuffer);
@@ -464,7 +468,7 @@ bool NDRange::ExecuteStandaloneCustomKernel()
     return true;
 }
 
-bool NDRange::MapArgumentsToISP()
+bool NDRange::MapArgumentsToISP(void* pMappedArgsBuffer)
 {
     // iterate over all arguments values and replace all pointers with mapped pointers from ISP space
 
@@ -472,7 +476,7 @@ bool NDRange::MapArgumentsToISP()
 
     cl_uint uiArgsNum = m_pIspKernel->GetKernelArgsCount();
     const cl_kernel_argument* argsPrototype = m_pIspKernel->GetKernelArgsPrototype();
-    unsigned char* pArgsBufferBase = (unsigned char*)m_vArgs[0];
+    unsigned char* pMappedArgsBase = reinterpret_cast<unsigned char*>(pMappedArgsBuffer);
 
     for (cl_uint i = 0; i < uiArgsNum; ++i)
     {
@@ -502,7 +506,7 @@ bool NDRange::MapArgumentsToISP()
                     return false;
                 }
 
-                *(isp_ptr*)(pArgsBufferBase + argsPrototype[i].offset_in_bytes) = pMappedData;
+                *(isp_ptr*)(pMappedArgsBase + argsPrototype[i].offset_in_bytes) = pMappedData;
 
                 break;
             }

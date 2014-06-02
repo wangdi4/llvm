@@ -91,7 +91,7 @@ cl_dev_err_code ISPDevice::Init()
     }
 
     m_pProgramService = new ISPProgramService(m_uiIspId, m_pLogDescriptor, m_pCameraShim);
-    if (NULL != m_pProgramService)
+    if (NULL == m_pProgramService)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Cannot allocate memory for ISP program service"));
         return CL_DEV_OUT_OF_MEMORY;
@@ -104,7 +104,7 @@ cl_dev_err_code ISPDevice::Init()
     }
 
     m_pMemoryAllocator = new ISPMemoryAllocator(m_uiIspId, m_pLogDescriptor, ISP_GLOBAL_MEM_SIZE);
-    if (NULL != m_pMemoryAllocator)
+    if (NULL == m_pMemoryAllocator)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Cannot allocate memory for ISP memory allocator"));
         return CL_DEV_OUT_OF_MEMORY;
@@ -117,7 +117,7 @@ cl_dev_err_code ISPDevice::Init()
     }
 
     m_pTaskDispatcher = new ISPTaskDispatcher(m_uiIspId, m_pLogDescriptor, m_pFrameworkCallbacks, m_pCameraShim);
-    if (NULL != m_pTaskDispatcher)
+    if (NULL == m_pTaskDispatcher)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Cannot allocate memory for ISP task dispatcher"));
         return CL_DEV_OUT_OF_MEMORY;
