@@ -178,7 +178,7 @@ int FillMemObjTask::Init(size_t region[], unsigned int& regCount)
     }
 #endif
 	// Notify start if exists
-    if ( NULL!= m_pDispatcherData->startEvent.isRegistered )
+    if ( m_pDispatcherData->startEvent.isRegistered )
     {
         COIEventSignalUserEvent(m_pDispatcherData->startEvent.cmdEvent);
     }

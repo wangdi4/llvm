@@ -46,6 +46,9 @@ class QueueOnDevice;
 
 namespace Intel { namespace OpenCL { namespace MICDevice {
 
+// Use common_bool64_t for booleans assign "true" / "false" (or 1 / 0) only!
+typedef uint64_t common_bool64_t;
+
 //
 // NOTE: please be careful for alignments!
 //
@@ -109,8 +112,8 @@ struct command_event_struct
 {
   command_event_struct() : isRegistered(false) {};
 
-  COIEVENT cmdEvent;
-  bool isRegistered;
+  COIEVENT        cmdEvent;
+  common_bool64_t isRegistered;
 };
 
 struct dispatcher_data
@@ -119,7 +122,7 @@ struct dispatcher_data
     uint64_t               commandIdentifier;    // Command identifier provided by the Framework (Unique for each NDRange execution)
     command_event_struct   startEvent;           // Event to be signaled when command starts
     command_event_struct   endEvent;             // Event to be signaled when command completes
-    bool                   profiling;            // Is it profiled command?
+    common_bool64_t        profiling;            // Is it profiled command?
 };
 
 // Defines a list of parameters required for NDRange kernel launch
@@ -159,7 +162,7 @@ struct ndrange_dispatcher_data : public dispatcher_data
 struct fill_mem_obj_dispatcher_data : public dispatcher_data
 {
     // Num dimensions
-    uint32_t    dim_count;
+    uint64_t    dim_count;
     // The initial offset
     uint64_t    from_offset;
     // Pitch vector of the memory object
