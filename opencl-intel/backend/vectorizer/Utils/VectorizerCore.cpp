@@ -5,9 +5,11 @@ Agreement between Intel and Apple dated August 26, 2005; under the Category 2 In
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
 
+#define DEBUG_TYPE "Vectorizer"
 #include "VectorizerCore.h"
 #include "InstCounter.h"
 #include "VectorizerCommon.h"
+#include "OclTune.h"
 
 #include "llvm/Pass.h"
 #include "llvm/PassManager.h"
@@ -273,6 +275,12 @@ bool VectorizerCore::runOnFunction(Function &F) {
       if (Ratio >= WeightedInstCounter::RATIO_MULTIPLIER * m_packetWidth) {
         m_packetWidth = 1;
         m_isFunctionVectorized = false;
+        Statistic::ActiveStatsT kernelStats;
+        OCLSTAT_DEFINE(Vectorized_version_discarded,
+            "Vectorized version was discarded since the scalar version seems to"
+            " be better",kernelStats);
+        Vectorized_version_discarded++;
+        intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
       }
       if (enableDebugPrints) {
         dbgPrint() << "Function: " << F.getName() << "\n";

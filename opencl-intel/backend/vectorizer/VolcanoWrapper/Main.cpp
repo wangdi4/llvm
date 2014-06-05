@@ -123,15 +123,18 @@ bool Vectorizer::runOnModule(Module &M)
       Function *clone = CloneFunction(*fi,vmap, false, NULL);
       clone->setName("__Vectorized_." + (*fi)->getName());
       M.getFunctionList().push_back(clone);
-      // copy stats from original function to the new one
-      intel::Statistic::copyFunctionStats(**fi, *clone);
       vectPM.run(*clone);
       if (vectCore->isFunctionVectorized()) {
         // if the function is successfully vectorized update vectFunc and width.
         vectFunc = clone;
         vectFuncWidth = vectCore->getPacketWidth();
+        // copy stats from the original function to the new one
+        intel::Statistic::copyFunctionStats(**fi, *clone);
       } else {
         // We can't or choose not to vectorize the kernel, erase the clone from the module.
+        // but first copy the vectorizer stats back to the original function
+        intel::Statistic::copyFunctionStats(*clone, **fi);
+        intel::Statistic::removeFunctionStats(*clone);
         clone->eraseFromParent();
       }
       V_ASSERT(vectFuncWidth > 0 && "vect width for non vectoized kernels should be 1");

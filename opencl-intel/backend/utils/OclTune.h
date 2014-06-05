@@ -84,6 +84,9 @@ public:
     return init();
   }
 
+  static void setModuleStatInfo (llvm::Module *M, const char * workloadName,
+      const char * moduleName);
+
   static void pushFunctionStats (ActiveStatsT &activeStats, llvm::Function &F,
       const char *type);
 
@@ -134,11 +137,11 @@ private:
 
 // initialize statistic objects that are class memebers
 #define OCLSTAT_INIT(NAME,DESC,LIST) \
-  NAME(DEBUG_TYPE, #NAME "@" DEBUG_TYPE, DESC, LIST)
+  NAME(DEBUG_TYPE, DEBUG_TYPE "@" #NAME, DESC, LIST)
 
 // define and initialize a statistic object
 #define OCLSTAT_DEFINE(NAME,DESC,LIST) \
-		intel::Statistic NAME(DEBUG_TYPE, #NAME "@" DEBUG_TYPE, DESC, LIST)
+		intel::Statistic NAME(DEBUG_TYPE, DEBUG_TYPE "@" #NAME, DESC, LIST)
 
 } // End intel namespace
 
@@ -222,6 +225,9 @@ protected:
   }
 
 public:
+  static void setModuleStatInfo (llvm::Module *M, const char * workloadName,
+      const char * moduleName) {}
+
   static void pushKernelStats (ActiveStatsT &activeStats, llvm::Function &F,
       const char *type) {}
 

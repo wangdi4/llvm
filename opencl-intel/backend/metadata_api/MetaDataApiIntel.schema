@@ -50,6 +50,16 @@
                             "name":     "FunctionsStats",
                             "key":      "opencl.functions_stats",
                             "metatype": "FunctionsStats"
+                        },
+                        {
+                            "name":     "StatDescriptions",
+                            "key":      "opencl.stat_descriptions",
+                            "metatype": "StatDescriptions"
+                        },
+                        {
+                            "name":     "ModuleStatInfoC",
+                            "key":      "opencl.module_stat_info",
+                            "metatype": "ModuleStatInfoC"
                         }
                     ]
                 },
@@ -427,6 +437,65 @@
                         }
                     ]
                 },
+    "ModuleStatInfoC": {
+                    "is_container":    true,
+                    "container_type":  "list",
+                    "item_type":       "ModuleStatInfo"
+    },
+    "ModuleStatInfo":  {
+                    "is_container":     true,
+                    "container_type":   "struct",
+                    "elements": [
+                        {
+                            "location": "positional",
+                            "index":    "0",
+                            "name":     "RunTimeVersion",
+                            "metatype": "str_item",
+                            "optional": false
+                        },
+                        {
+                            "location": "positional",
+                            "index":    "1",
+                            "name":     "WorkloadName",
+                            "metatype": "str_item",
+                            "optional": false
+                        },
+                        {
+                            "location": "positional",
+                            "index":    "2",
+                            "name":     "ModuleName",
+                            "metatype": "str_item",
+                            "optional": false
+                        },
+                        {
+                            "location": "positional",
+                            "index":    "3",
+                            "name":     "ExecTime",
+                            "metatype": "str_item",
+                            "optional": false
+                        }
+                    ]
+    },
+    "StatDescriptions" : {
+                    "is_container":     true,
+                    "container_type":   "map",
+                    "key_type":         "str_item",
+                    "item_type":        "StrC"
+              },
+    "StrC": {
+                    "is_container":     true,
+                    "type":             "std::string",
+                    "container_type":   "struct",
+                    "elements": [
+                        {
+                            "location": "positional",
+                            "index":    "0",
+                            "name":     "str",
+                            "metatype": "str_item",
+                            "optional": false
+                        }
+                    ]
+    },
     "FunctionsInfo" : {
                     "is_container":     true,
                     "container_type":   "map",

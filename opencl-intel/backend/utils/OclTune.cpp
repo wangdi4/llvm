@@ -18,7 +18,10 @@ File Name:  OclTune.cpp
 
 #ifdef OCLT
 #include "OclTune.h"
+#include "buildversion.h"
 #include "llvm/Support/CommandLine.h"
+
+#include <time.h>
 
 using namespace llvm;
 using namespace Intel;
@@ -54,6 +57,36 @@ OclStatOnly("oclstat-only", cl::desc("Collect stats for a specifc pass only"),
           cl::Hidden, cl::value_desc("debug type string"),
           cl::location(StatOnlyOptLoc), cl::ValueRequired);
 
+
+void Statistic::setModuleStatInfo (llvm::Module *M, const char * workloadName,
+    const char * moduleName)
+{
+  assert (M && "trying to record stat Info for non existing module");
+  if (!M)
+    return;
+
+  time_t rawtime;
+  struct tm * timeinfo;
+  char buffer [80];
+
+  time (&rawtime);
+  timeinfo = localtime (&rawtime);
+
+  strftime (buffer,80,"%Y-%m-%d %H:%M:%S",timeinfo);
+
+  Intel::MetaDataUtils mdUtils(M);
+
+  ModuleStatInfoMetaData *statInfo = ModuleStatInfoMetaData::get();
+  statInfo->setExecTime(buffer);
+  statInfo->setRunTimeVersion(VERSIONSTRING); // runtime version
+  statInfo->setWorkloadName(workloadName);
+  statInfo->setModuleName(moduleName);
+
+  mdUtils.addModuleStatInfoCItem(ModuleStatInfoMetaDataHandle(statInfo));
+
+  //Save Metadata to the module
+  mdUtils.save(M->getContext());
+}
 
 void Statistic::pushFunctionStats (ActiveStatsT &activeStats, llvm::Function &F,
                                  const char *type) {
@@ -91,6 +124,15 @@ void Statistic::pushFunctionStats (ActiveStatsT &activeStats, llvm::Function &F,
 
     // clear stat and make it ready for use with another function
     lightStat->reset();
+
+    // keep stat description once for this module
+    if (mdUtils.findStatDescriptionsItem(lightStat->Name)
+        == mdUtils.end_StatDescriptions()) {
+      StrCMetaData *MDDesc = StrCMetaData::get();
+      MDDesc->setstr(lightStat->Desc);
+      mdUtils.setStatDescriptionsItem(lightStat->Name,
+          StrCMetaDataHandle(MDDesc));
+    }
   }
 
   //Save Metadata to the module

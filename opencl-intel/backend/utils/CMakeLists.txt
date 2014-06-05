@@ -37,6 +37,7 @@ set (TARGET_INCLUDE_FILES
   RefcountThreadSafe.h
   Atomics.h
   Logger.h
+  OclTune.h
   ${TARGET_EXTRA_INCLUDE_FILES}
 )
 
@@ -61,6 +62,7 @@ include_directories(
   ${BACKEND_ROOT_DIR}/metadata_api
   ${BACKEND_ROOT_DIR}/utils
   ${CMAKE_BINARY_DIR}/include
+  ${CMAKE_BINARY_DIR}
 )
 
 if (APPLE)

@@ -139,14 +139,15 @@ if (LLVM_BUILD_APPLE_BACKEND)
     add_subdirectory(barrier)
     add_subdirectory(vectorizer)
     add_subdirectory(apple_plugin)
+    add_subdirectory(stat_summary)
 
     set(BACKEND_INCLUDE_FILES
       ${BACKEND_ROOT_DIR}/arch_headers/Apple/TargetArch.h
     )
 
     set(CL_API_INCLUDE_FILES
-      ${OCL_GLOBAL_INCLUDE}/cl_kernel_arg_type.h
-      ${OCL_GLOBAL_INCLUDE}/common_dev_limits.h
+      ${BACKEND_ROOT_DIR}/../cl_api/cl_kernel_arg_type.h
+      ${BACKEND_ROOT_DIR}/../cl_api/common_dev_limits.h
     )
 
     file(RELATIVE_PATH SOURCE_RELATIVE_DIR ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
@@ -191,6 +192,7 @@ else(LLVM_BUILD_APPLE_BACKEND)
         add_subdirectory(dynamic_lib       "${CMAKE_CURRENT_BINARY_DIR}/dynamic_lib")
         add_subdirectory(name_mangling     "${CMAKE_CURRENT_BINARY_DIR}/name_mangling")
         add_subdirectory(reflection_module "${CMAKE_CURRENT_BINARY_DIR}/reflection_module")
+        add_subdirectory(stat_summary      "${CMAKE_CURRENT_BINARY_DIR}/stat_summary")
     endif (LLVM_BUILD_OCL_CPU_BACKEND)
 
     # Validation utilities

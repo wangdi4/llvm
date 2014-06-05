@@ -18,6 +18,12 @@ File Name:  ProgramBuilder.cpp
 #define NOMINMAX
 #define DEBUG_TYPE "ProgramBuilder"
 
+#if defined (WIN32)
+#include <windows.h>
+#include <shellapi.h>
+#include <codecvt>
+#endif // WIN32
+
 #include <vector>
 #include <string>
 #include "cl_types.h"
@@ -98,7 +104,7 @@ ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const I
     m_pBackendFactory(pBackendFactory),
     m_useVTune(config.GetUseVTune()),
     m_statFileBaseName(config.GetStatFileBaseName()),
-    m_statFileCount(0)
+    m_statFileCount(1)
 {
     // prepare default base file name for stat file in the following cases:
     // stats are enabled but the user didn't set up the base file name
@@ -109,15 +115,44 @@ ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const I
         (!m_statFileBaseName.empty() &&
          llvm::sys::path::is_separator(*m_statFileBaseName.rbegin())))
     {
-        const char *name = getenv("_");
+#if defined (WIN32)
+        LPWSTR *cl;
+        int numArgs;
+        string nameStr, nameStr2;
+        const char *name = NULL;
+
+        cl = CommandLineToArgvW(L"", &numArgs);
+        if (NULL != cl) {
+            std::wstring wstr(*cl);
+            nameStr = std::wstring_convert<std::codecvt_utf8<wchar_t>>().to_bytes(wstr);
+            name = nameStr.c_str();
+        }
+
+        // Free memory allocated for CommandLineToArgvW arguments.
+        LocalFree(cl);
+
+        // find the base name by searching for the last '/' in the name
+        // Remove .exe from the name. To actually create a file name without
+        // the extension, need to create it in a string and take it's c_str()
+        if (name != NULL) {
+            nameStr2 = llvm::sys::path::stem(StringRef(name)).str();
+            name = nameStr2.c_str();
+        }
+
+#else // WIN32
+         const char *name = getenv("_");
         // find the base name by searching for the last '/' in the name
         if (name != NULL)
             name = llvm::sys::path::filename(StringRef(name)).data();
+#endif // WIN32
         // if still no meaningful name just use "Program" as module name
         if (name == NULL || *name == 0)
             name = "Program";
 
         m_statFileBaseName += name;
+
+        if (intel::Statistic::isEnabled())
+          m_statWkldName = name;
     }
 }
 
@@ -143,16 +178,21 @@ void ProgramBuilder::DumpModuleStats(llvm::Module* pModule)
     if (intel::Statistic::isEnabled() || !m_statFileBaseName.empty())
     {
         // use sequential number to distinguish dumped files
+        std::stringstream fileNameBuilder;
+        fileNameBuilder << (m_statFileCount++);
+
         std::string fileName(m_statFileBaseName);
-        if (m_statFileCount == 0)
-            m_statFileCount = 1;
-        else {
-            std::stringstream fileNameBuilder;
-            fileNameBuilder << (m_statFileCount++);
-            fileName += fileNameBuilder.str();
-        }
+        fileName += fileNameBuilder.str();
         fileName += ".ll";
 
+        // if stats are enabled dump module info
+        if (intel::Statistic::isEnabled())
+        {
+          intel::Statistic::setModuleStatInfo(pModule,
+              m_statWkldName.c_str(), // workload name
+              (m_statWkldName + fileNameBuilder.str()).c_str() // module name
+              );
+        }
         // dump IR with stats
         std::string ErrorInfo;
         raw_fd_ostream IRFD(fileName.c_str(), ErrorInfo,
@@ -203,10 +243,10 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
         // set runtime service for the program
         pProgram->SetRuntimeService(lRuntimeService);
 
-        PostOptimizationProcessing(pProgram, spModule.get(), pOptions);
-
         // Dump module stats just before lowering if requested
         DumpModuleStats(spModule.get());
+
+        PostOptimizationProcessing(pProgram, spModule.get(), pOptions);
 
         if (!(pOptions && pOptions->GetBooleanValue(CL_DEV_BACKEND_OPTION_STOP_BEFORE_JIT, false)))
         {
