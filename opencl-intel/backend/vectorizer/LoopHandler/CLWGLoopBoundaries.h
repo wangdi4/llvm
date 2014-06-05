@@ -185,6 +185,10 @@ private:
   // testing for side effects is done Before checking the condition
   // is actually in a supported format, and might not include tid at all.
   Statistic Early_Exit_Givenup_Due_To_Loads;
+  // set to 1 if early exit (or late start) was done for this
+  // kernel. This counter is only 0 or 1,
+  // even if early-exit was done for several conditions and/or dimensions.
+  Statistic Created_Early_Exit;
 
   ///@brief checks if the current function has an atomic call.
   ///@returns returns true iff the current function has an atomic call.

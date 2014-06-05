@@ -39,7 +39,11 @@ OCL_INITIALIZE_PASS_END(CLWGLoopBoundaries, "cl-loop-bound", "create loop bounda
 CLWGLoopBoundaries::CLWGLoopBoundaries() : ModulePass(ID), m_rtServices(NULL),
 OCLSTAT_INIT(Early_Exit_Givenup_Due_To_Loads,
 "early exit wasn't tried because block consists of a load instruction (but no store instructions). However, it is still likely early exit was impossible regardless of it",
-    m_kernelStats) {
+    m_kernelStats),
+OCLSTAT_INIT(Created_Early_Exit,
+"one if early exit (or late start) was done for the kernel. Value is never greater for one, even if early-exit done for several dimensions.",
+    m_kernelStats)
+{
   initializeCLWGLoopBoundariesPass(*PassRegistry::getPassRegistry());
 }
 
@@ -467,6 +471,7 @@ bool CLWGLoopBoundaries::findAndCollapseEarlyExit() {
   // An early exit was found, remove the branch at the entry block, and merge
   // it with the non exit successor if possible.
   if (EEremove) {
+    Created_Early_Exit=1;
     EEremove->removePredecessor(entry);
     m_toRemove.insert(Br);
     BranchInst::Create(EEsucc, entry);
