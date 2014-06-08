@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -147,7 +147,7 @@ public:
     //! Acquire lock
     void lock() {
 #if TBB_USE_ASSERT
-        aligned_space<scoped_lock,1> tmp;
+        aligned_space<scoped_lock> tmp;
         new(tmp.begin()) scoped_lock(*this);
 #else
   #if _WIN32||_WIN64
@@ -162,7 +162,7 @@ public:
     /** Return true if lock acquired; false otherwise. */
     bool try_lock() {
 #if TBB_USE_ASSERT
-        aligned_space<scoped_lock,1> tmp;
+        aligned_space<scoped_lock> tmp;
         scoped_lock& s = *tmp.begin();
         s.my_mutex = NULL;
         return s.internal_try_acquire(*this);
@@ -178,7 +178,7 @@ public:
     //! Release lock
     void unlock() {
 #if TBB_USE_ASSERT
-        aligned_space<scoped_lock,1> tmp;
+        aligned_space<scoped_lock> tmp;
         scoped_lock& s = *tmp.begin();
         s.my_mutex = this;
         s.internal_release();

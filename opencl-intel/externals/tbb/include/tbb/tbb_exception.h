@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -101,6 +101,7 @@ enum exception_id {
     // So, if we drop the functionality, eid_reserved1 can be safely renamed and reused.
     eid_blocking_sch_init = eid_reserved1,
 #endif
+    eid_bad_tagged_msg_cast,
     //! The last enumerator tracks the number of defined IDs. It must remain the last one.
     /** When adding new IDs, place them immediately _before_ this comment (that is
         _after_ all the existing IDs. NEVER insert new IDs between the existing ones. **/

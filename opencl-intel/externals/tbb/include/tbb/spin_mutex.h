@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -147,7 +147,7 @@ public:
     //! Acquire lock
     void lock() {
 #if TBB_USE_THREADING_TOOLS
-        aligned_space<scoped_lock,1> tmp;
+        aligned_space<scoped_lock> tmp;
         new(tmp.begin()) scoped_lock(*this);
 #else
         __TBB_LockByte(flag);
@@ -158,7 +158,7 @@ public:
     /** Return true if lock acquired; false otherwise. */
     bool try_lock() {
 #if TBB_USE_THREADING_TOOLS
-        aligned_space<scoped_lock,1> tmp;
+        aligned_space<scoped_lock> tmp;
         return (new(tmp.begin()) scoped_lock)->internal_try_acquire(*this);
 #else
         return __TBB_TryLockByte(flag);
@@ -168,7 +168,7 @@ public:
     //! Release lock
     void unlock() {
 #if TBB_USE_THREADING_TOOLS
-        aligned_space<scoped_lock,1> tmp;
+        aligned_space<scoped_lock> tmp;
         scoped_lock& s = *tmp.begin();
         s.my_mutex = this;
         s.internal_release();
@@ -201,9 +201,9 @@ namespace tbb {
     @ingroup synchronization */
 
 #if ( __TBB_x86_32 || __TBB_x86_64 )
-typedef interface7::internal::padded_mutex<interface7::internal::x86_eliding_mutex> speculative_spin_mutex;
+typedef interface7::internal::padded_mutex<interface7::internal::x86_eliding_mutex,false> speculative_spin_mutex;
 #else
-typedef interface7::internal::padded_mutex<spin_mutex> speculative_spin_mutex;
+typedef interface7::internal::padded_mutex<spin_mutex,false> speculative_spin_mutex;
 #endif
 __TBB_DEFINE_PROFILING_SET_NAME(speculative_spin_mutex)
 

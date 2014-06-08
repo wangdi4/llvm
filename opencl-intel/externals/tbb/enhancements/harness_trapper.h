@@ -93,7 +93,7 @@ public:
             return;
 
         my_root->decrement_ref_count();
-        if ( tbb::task_arena::current_slot() > 0 )
+        if ( tbb::task_arena::current_thread_index() > 0 )
         {
             // executing by a worker, so we must enqueue a task that will destroy the root task
             tbb::task::enqueue( *new ( tbb::task::allocate_root() ) TrapperReleaseTask(*this) );
@@ -115,7 +115,7 @@ public:
 
     void operator()(void)
     {
-        assert( (task_arena::current_slot() == 0 || is_async) && "Trapper must be executed from the master slot or be async" );
+        assert( (task_arena::current_thread_index() == 0 || is_async) && "Trapper must be executed from the master slot or be async" );
         my_root = new ( tbb::task::allocate_root(*my_context) ) tbb::empty_task;
         my_root->set_ref_count(2);
         for ( int i = 1; i < num_threads; ++i )

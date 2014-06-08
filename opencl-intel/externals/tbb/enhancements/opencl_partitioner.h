@@ -167,7 +167,7 @@ public:
             }
 #endif
 #if 0
-            printf("master slot %d slot %d setting affinity to %d concurrency=%d, my_begin=%d, my_end=%d\n", my_part.my_master_slot, tbb::task_arena::current_slot(), affinity, my_part.my_concurrency, my_begin, my_end);fflush(0);
+            printf("master slot %d slot %d setting affinity to %d concurrency=%d, my_begin=%d, my_end=%d\n", my_part.my_master_slot, tbb::task_arena::current_thread_index(), affinity, my_part.my_concurrency, my_begin, my_end);fflush(0);
 #endif
             t.set_affinity( affinity + 1);
         }

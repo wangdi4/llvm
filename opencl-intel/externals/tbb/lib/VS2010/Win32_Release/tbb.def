@@ -1,5 +1,5 @@
 
-; Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+; Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 ;
 ; The source code contained or described herein and all documents related
 ; to the source code ("Material") are owned by Intel Corporation or its
@@ -24,7 +24,7 @@ EXPORTS
 
 
 
-; Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+; Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 ;
 ; The source code contained or described herein and all documents related
 ; to the source code ("Material") are owned by Intel Corporation or its
@@ -188,6 +188,13 @@ EXPORTS
 
 
 
+
+
+
+
+
+
+    
     
     
     
@@ -224,7 +231,10 @@ EXPORTS
 
 
 
+
     
+
+
 
 
 
@@ -317,6 +327,10 @@ EXPORTS
 
 
 
+
+
+
+
     
     
         
@@ -370,8 +384,6 @@ EXPORTS
     
 
 
-    
-    
 
 
 
@@ -380,14 +392,8 @@ EXPORTS
     
 
 
-
-
-
-
-
     
-
-
+    
 
 
 
@@ -413,6 +419,7 @@ EXPORTS
 
 
 
+    
 
 
 
@@ -420,8 +427,7 @@ EXPORTS
 
 
 
-
-
+    
 
 
 
@@ -449,52 +455,7 @@ EXPORTS
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     
-
-
-
-
-
-
 
 
 
@@ -531,6 +492,94 @@ EXPORTS
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     
 
     
@@ -559,15 +608,6 @@ EXPORTS
 
 
 
-    
-
-
-
-
-
-
-
-
 
     
 
@@ -578,8 +618,40 @@ EXPORTS
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
+
+
     
     
+    
+
+
+
+
+    
+    
+
+
 
 
 
@@ -605,6 +677,7 @@ __TBB_machine_load8
 __TBB_machine_trylockbyte
 __TBB_machine_try_lock_elided
 __TBB_machine_unlock_elided
+__TBB_machine_is_in_transaction
 
 
 ?NFS_Allocate@internal@tbb@@YAPAXIIPAX@Z
@@ -662,6 +735,7 @@ __TBB_machine_unlock_elided
 ?is_group_execution_cancelled@task_group_context@tbb@@QBE_NXZ
 ?cancel_group_execution@task_group_context@tbb@@QAE_NXZ
 ?reset@task_group_context@tbb@@QAEXXZ
+?capture_fp_settings@task_group_context@tbb@@QAEXXZ
 ?init@task_group_context@tbb@@IAEXXZ
 ?register_pending_exception@task_group_context@tbb@@QAEXXZ
 ??1task_group_context@tbb@@QAE@XZ
@@ -701,6 +775,13 @@ TBB_runtime_interface_version
 ?call_itt_notify_v5@internal@tbb@@YAXHPAX@Z
 ?itt_set_sync_name_v3@internal@tbb@@YAXPAXPB_W@Z
 ?itt_load_pointer_v3@internal@tbb@@YAPAXPBX@Z
+
+
+
+
+
+
+
 
 
 ??0pipeline@tbb@@QAE@XZ
@@ -762,6 +843,17 @@ TBB_runtime_interface_version
 ?internal_release_writer@spin_rw_mutex_v3@tbb@@AAEXXZ
 ?internal_try_acquire_reader@spin_rw_mutex_v3@tbb@@AAE_NXZ
 ?internal_try_acquire_writer@spin_rw_mutex_v3@tbb@@AAE_NXZ
+
+
+
+
+
+
+
+
+
+
+
 
 
 ?internal_construct@spin_mutex@tbb@@QAEXXZ

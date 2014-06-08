@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -43,7 +43,7 @@
 
 namespace tbb {
 namespace serial {
-namespace interface6 {
+namespace interface7 {
 
 // parallel_for serial annotated implementation
 
@@ -64,10 +64,10 @@ class start_for : tbb::internal::no_copy {
 
     //! Splitting constructor used to generate children.
     /** this becomes left child.  Newly constructed object is right child. */
-    start_for( start_for& parent_, split ) :
-        my_range( parent_.my_range, split() ),
+    start_for( start_for& parent_, typename Partitioner::split_type& split_obj ) :
+        my_range( parent_.my_range, split_obj ),
         my_body( parent_.my_body ),
-        my_partition( parent_.my_partition, split() )
+        my_partition( parent_.my_partition, split_obj )
     {
     }
 
@@ -86,14 +86,15 @@ public:
 
 template< typename Range, typename Body, typename Partitioner >
 void start_for< Range, Body, Partitioner >::execute() {
-    if( !my_range.is_divisible() || !my_partition.divisions_left() ) {
+    if( !my_range.is_divisible() || !my_partition.is_divisible() ) {
         ANNOTATE_TASK_BEGIN( tbb_parallel_for_range );
         {
             my_body( my_range );
         }
         ANNOTATE_TASK_END( tbb_parallel_for_range );
     } else {
-        start_for b( *this, split() );
+        typename Partitioner::split_type split_obj;
+        start_for b( *this, split_obj );
         this->execute(); // Execute the left interval first to keep the serial order.
         b.execute();     // Execute the right interval then.
     }
@@ -103,28 +104,28 @@ void start_for< Range, Body, Partitioner >::execute() {
 /** @ingroup algorithms **/
 template<typename Range, typename Body>
 void parallel_for( const Range& range, const Body& body ) {
-    serial::interface6::start_for<Range,Body,const __TBB_DEFAULT_PARTITIONER>::run(range,body,__TBB_DEFAULT_PARTITIONER());
+    serial::interface7::start_for<Range,Body,const __TBB_DEFAULT_PARTITIONER>::run(range,body,__TBB_DEFAULT_PARTITIONER());
 }
 
 //! Parallel iteration over range with simple partitioner.
 /** @ingroup algorithms **/
 template<typename Range, typename Body>
 void parallel_for( const Range& range, const Body& body, const simple_partitioner& partitioner ) {
-    serial::interface6::start_for<Range,Body,const simple_partitioner>::run(range,body,partitioner);
+    serial::interface7::start_for<Range,Body,const simple_partitioner>::run(range,body,partitioner);
 }
 
 //! Parallel iteration over range with auto_partitioner.
 /** @ingroup algorithms **/
 template<typename Range, typename Body>
 void parallel_for( const Range& range, const Body& body, const auto_partitioner& partitioner ) {
-    serial::interface6::start_for<Range,Body,const auto_partitioner>::run(range,body,partitioner);
+    serial::interface7::start_for<Range,Body,const auto_partitioner>::run(range,body,partitioner);
 }
 
 //! Parallel iteration over range with affinity_partitioner.
 /** @ingroup algorithms **/
 template<typename Range, typename Body>
 void parallel_for( const Range& range, const Body& body, affinity_partitioner& partitioner ) {
-    serial::interface6::start_for<Range,Body,affinity_partitioner>::run(range,body,partitioner);
+    serial::interface7::start_for<Range,Body,affinity_partitioner>::run(range,body,partitioner);
 }
 
 //! Implementation of parallel iteration over stepped range of integers with explicit step and partitioner (ignored)
@@ -186,14 +187,14 @@ void parallel_for(Index first, Index last, const Function& f, affinity_partition
     parallel_for_impl(first, last, static_cast<Index>(1), f, p);
 }
 
-} // namespace interface6
+} // namespace interface7
 
-using interface6::parallel_for;
+using interface7::parallel_for;
 
 } // namespace serial
 
 #ifndef __TBB_NORMAL_EXECUTION
-using serial::interface6::parallel_for;
+using serial::interface7::parallel_for;
 #endif
 
 } // namespace tbb

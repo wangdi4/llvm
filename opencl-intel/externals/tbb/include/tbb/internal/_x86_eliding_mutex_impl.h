@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -31,7 +31,7 @@ namespace tbb {
 namespace interface7 {
 namespace internal {
 
-template<typename Mutex>
+template<typename Mutex, bool is_rw>
 class padded_mutex;
 
 //! An eliding lock that occupies a single byte.
@@ -46,7 +46,7 @@ class x86_eliding_mutex {
     //! 0 if lock is released, 1 if lock is acquired.
     __TBB_atomic_flag flag;
 
-    friend class padded_mutex<x86_eliding_mutex>;
+    friend class padded_mutex<x86_eliding_mutex, false>;
 
 public:
     //! Construct unacquired lock.
