@@ -135,8 +135,6 @@ cl_err_code FileDescriptorLogHandler::Init(ELogLevel level, const char* fileName
 	return CL_SUCCESS;
 }
 
-Intel::OpenCL::Utils::UserLogger& GetUserLoggerInstance();
-
 /////////////////////////////////////////////////////////////////////////////////////////
 // FileDescriptorLogHandler::Log
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -150,7 +148,7 @@ void FileDescriptorLogHandler::Log(LogMessage& logMessage)
 
     char* formattedMsg = logMessage.GetFormattedMessage();
     // error logging still causes some link errors in Linux
-    GetUserLoggerInstance().PrintError(formattedMsg);
+    // TODO: here we should print error in user logger
 	// fputs is thread safe.
     if (EOF == fputs(formattedMsg, m_fileHandler))
     {
