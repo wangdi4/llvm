@@ -12,8 +12,8 @@ set(CMAKE_MODULE_PATH
     "${CMAKE_SOURCE_DIR}/cmake/Modules/"
     "${CMAKE_SOURCE_DIR}/cmake_utils/"
 )
-message(STATUS "CMAKE_MODULE_PATH: ${CMAKE_MODULE_PATH}")
-message(STATUS "CMAKE_ROOT: ${CMAKE_ROOT}")
+message( STATUS "CMAKE_MODULE_PATH: ${CMAKE_MODULE_PATH}" )
+message( STATUS "CMAKE_ROOT: ${CMAKE_ROOT}" )
 include( cmake_utils/CMakeFuncs.txt )
 
 if (WIN32)
@@ -114,7 +114,7 @@ if(INCLUDE_TOOLS)
     set (BOOST_LIBRARYDIR ${BOOST_ROOT}/lib/${BOOST_LIB_DIR_SUFFIX})
     set (Boost_NO_SYSTEM_PATHS ON) # Don't search PATH
 
-# To add new components for Boost simply add to BOOST_COMPONENTS below
+    # To add new components for Boost simply add to BOOST_COMPONENTS below
     set (BOOST_COMPONENTS regex system filesystem date_time signals)
 
     if(NOT ANDROID)
@@ -419,12 +419,6 @@ SET_UNICODE_OFF()
 # define MIC directories
 if (INCLUDE_MIC_DEVICE)
     if (WIN32)
-# currenlty use absolute path
-#    set     ( COI_SDK_PATH           $ENV{INTEL_MPSS_HOST_SDK} )
-#    # Remove last backslash from the path and replace long name with the short one
-#    string  ( REGEX REPLACE "[\\]$"  "" COI_SDK_PATH ${COI_SDK_PATH} )
-#    string  ( REGEX REPLACE "Program Files"  "PROGRA~1" COI_SDK_PATH ${COI_SDK_PATH} )
-
         set ( MPSS_PATH               "C:\\PROGRA~1\\Intel\\MPSS" )
         set ( COI_SDK_PATH            "${MPSS_PATH}\\sdk" )
         set ( COI_HOST_INCLUDE_PATH   "${COI_SDK_PATH}\\include" )
@@ -448,10 +442,10 @@ if (INCLUDE_MIC_DEVICE)
         set ( COI_YOCTO_DEVICE_LIB_PATH     /opt/mpss/3.1/sysroots/k1om-mpss-linux/usr/lib64 )
     endif (WIN32)
 
-    message ( "COI host include directory  : ${COI_HOST_INCLUDE_PATH}")
-    message ( "COI host lib directory      : ${COI_HOST_LIB_PATH}")
-    message ( "COI device include directory: ${COI_DEVICE_INCLUDE_PATH}")
-    message ( "COI device lib directory    : ${COI_DEVICE_LIB_PATH}")
+    message ( STATUS "COI host include directory  : ${COI_HOST_INCLUDE_PATH}")
+    message ( STATUS "COI host lib directory      : ${COI_HOST_LIB_PATH}")
+    message ( STATUS "COI device include directory: ${COI_DEVICE_INCLUDE_PATH}")
+    message ( STATUS "COI device lib directory    : ${COI_DEVICE_LIB_PATH}")
 endif (INCLUDE_MIC_DEVICE)
 
 # paths
@@ -616,7 +610,6 @@ if (WIN32)
     install(FILES backend/libraries/ocl_builtins/bin/svml/Win32/__ocl_svml_g9.pdb DESTINATION ${MISC_INSTALLER_FOLDER})
     install(FILES backend/libraries/ocl_builtins/bin/svml/Win32/__ocl_svml_s9.pdb DESTINATION ${MISC_INSTALLER_FOLDER})
 
-
 else (WIN32)
 
     install(FILES setup/llvm_release_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
@@ -633,7 +626,6 @@ else (WIN32)
     install(FILES setup/LicenseAgreement_Linux.txt DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
 
     install(FILES "../utils/RPM_BUILDER/intelocl64.icd" DESTINATION ${MISC_INSTALLER_FOLDER})
-
 
 endif (WIN32)
 
