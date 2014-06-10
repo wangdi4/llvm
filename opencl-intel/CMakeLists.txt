@@ -92,7 +92,25 @@ if(CMAKE_CROSSCOMPILING)
                             COMMENT "Configuring native targets..."
     )
 
-    add_custom_target(ConfigureNativeTargets DEPENDS ${CX_NATIVE_TG_DIR}/CMakeCache.txt)
+    # Build 'native' tools required to build target binaries:
+    # ocloptimg - required to build OpenCL built-in library
+    # CMake can build one target at a time and we need only ocloptimg, so we
+    # just use it. If you need to build several targets, you should create
+    # custom target with dependencies from all the target you need to build.
+    # This will allow you to build them in parallel!
+    # NOTE: actually we cheat here, we also need table-gen, but ocloptimg has
+    # it in its depedencies, so we just check that it's built with ocloptimg.
+    add_custom_command(OUTPUT ${CX_NATIVE_TG_DIR}/bin/ocloptimg ${CX_NATIVE_TG_DIR}/bin/ocl-tblgen
+                            COMMAND ${CMAKE_COMMAND}
+                            --build ${CX_NATIVE_TG_DIR}
+                            --target ocloptimg
+                            --config ${CMAKE_BUILD_TYPE} -- -j
+                            WORKING_DIRECTORY ${CX_NATIVE_TG_DIR}
+                            DEPENDS ${CX_NATIVE_TG_DIR}/CMakeCache.txt
+                            COMMENT "Building native targets..."
+    )
+
+    add_custom_target(ConfigureNativeTargets DEPENDS ${CX_NATIVE_TG_DIR}/bin/ocloptimg ${CX_NATIVE_TG_DIR}/bin/ocl-tblgen)
     set_directory_properties(PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES ${CX_NATIVE_TG_DIR})
 endif()
 

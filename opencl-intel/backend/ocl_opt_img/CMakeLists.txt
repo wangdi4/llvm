@@ -1,6 +1,6 @@
 set(TARGET_NAME ocloptimg)
 
-include_directories(${CMAKE_SOURCE_DIR}/backend/passes)
+include_directories(${BACKEND_ROOT_DIR}/passes)
 
 link_directories(${LLVM_LIBRARY_DIR})
 
@@ -11,16 +11,16 @@ add_executable(${TARGET_NAME}
 # Backend passes
 set(OCL_BE_PASSES
     BuiltInFuncImport
-    BuiltinLibInfo
     BuiltinCallToInst
+    BuiltinLibInfo
 )
 
 # Dependencies of the passes
 set(OCL_BE_PASSES_DEPS
-    reflection_module
-    name_mangle
     OclBackendUtils
     metadataapi
+    name_mangle
+    reflection_module
 )
 
 if (NOT INCLUDE_MIC_DEVICE)
@@ -90,15 +90,5 @@ endif(NOT WIN32)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME})
 
-if( CMAKE_CROSSCOMPILING )
-    add_custom_target( ocloptimg_native ALL
-      COMMAND make ocloptimg
-      DEPENDS ConfigureNativeTargets
-      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/native
-      COMMENT "Cross-Compile: Building Native ocl_opt_img tool"
-    )
-endif( CMAKE_CROSSCOMPILING )
-
 install( TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
 
-set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER "Backend" )

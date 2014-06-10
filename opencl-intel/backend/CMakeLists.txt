@@ -46,7 +46,7 @@ if (NOT WIN32)
         set ( WARNING_LEVEL  "-Wall -Wextra -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter")
     else (APPLE)
         set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-unused-function")
-    if( ANDROID OR CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE )
+    if( CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE )
   set( WARNING_LEVEL "${WARNING_LEVEL} -w" )
     else( )
   set( WARNING_LEVEL "${WARNING_LEVEL} -Werror" )
@@ -67,7 +67,6 @@ if (NOT WIN32)
     endif( NOT ANDROID )
 
     endif (APPLE)
-
 endif (NOT WIN32)
 
 #

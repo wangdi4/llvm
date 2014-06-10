@@ -47,15 +47,6 @@ if (NOT WIN32)
   endif(NOT ANDROID)
 endif (NOT WIN32)
 
-if( CMAKE_CROSSCOMPILING )
-  add_custom_target( ${TARGET_NAME}-native ALL
-    COMMAND make ${TARGET_NAME}
-    DEPENDS ConfigureNativeTargets
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/native
-    COMMENT "LLVM Cross-Compile: Building Native ocl-tblgen tool"
-  )
-endif( CMAKE_CROSSCOMPILING )
-
 install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )
