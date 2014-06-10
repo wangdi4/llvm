@@ -29,10 +29,10 @@ option (AUTOGEN_OCL_BUILTIN "Generate OCL builtins" ON)
 set (TARGET_NAME_PREFIX clbltfn)
 
 if (BUILD_X64)
-  # 32 bit
+  # 64 bit
   set (PLATFORM 64)
 else ()
-  # 64 bit
+  # 32 bit
   set (PLATFORM 32)
 endif ()
 
