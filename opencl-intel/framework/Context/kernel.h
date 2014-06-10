@@ -237,15 +237,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
             return SharedPtr<Kernel>(new Kernel(pProgram, psKernelName, szNumDevices));
         }
 
-        /******************************************************************************************
-        * Function:     Kernel
-        * Description:    The Kernel class constructor
-        * Arguments:    pProgram [in]        - associated program object
-        *                psKernelName [in]    - kernel's name
-        * Author:        Uri Levy
-        * Date:            January 2008
-        ******************************************************************************************/        
-        Kernel(const SharedPtr<Program>& pProgram, const char * psKernelName, size_t szNumDevices);
+
 
         /******************************************************************************************
         * Function:     GetInfo    
@@ -427,6 +419,23 @@ namespace Intel { namespace OpenCL { namespace Framework {
         bool                                                m_bSvmFineGrainSystem;
         mutable Intel::OpenCL::Utils::OclReaderWriterLock   m_rwlock;
         std::vector<SharedPtr<SVMBuffer> >                  m_nonArgSvmBufs;
+
+    private:
+        
+        /******************************************************************************************
+        * Function:     Kernel
+        * Description:    The Kernel class constructor
+        * Arguments:    pProgram [in]        - associated program object
+        *                psKernelName [in]    - kernel's name
+        * Author:        Uri Levy
+        * Date:            January 2008
+        ******************************************************************************************/        
+        Kernel(const SharedPtr<Program>& pProgram, const char * psKernelName, size_t szNumDevices);
+
+
+        // disable possibility to create two instances of Kernel with the same m_pArgsBlob pointer.
+        Kernel(const Kernel& s);
+        Kernel& operator=(const Kernel& s);
     };
 
 

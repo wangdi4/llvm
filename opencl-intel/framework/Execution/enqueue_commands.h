@@ -235,8 +235,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
         DECLARE_LOGGER_CLIENT;
     private:
-
-        Command& operator=(const Command&);
+        
+        // disable possibility to create two instances of Command with the same logger pointer.
+        Command(const Command& s);
+        Command& operator=(const Command& s);
         // return CL_SUCCESS if ready and succeeded, CL_NOT_READY if not ready yet and succeeded, other error code in case of error
         cl_err_code AcquireSingleMemoryObject( MemoryObjectArg& arg, const SharedPtr<FissionableDevice>& pDev );
                 

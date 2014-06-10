@@ -556,6 +556,9 @@ private:
       D3DResource<ID3D11Resource, ID3D11Device>(pContext), m_pBufferMapper(NULL) { }
 
     D3d11BufferMapper* m_pBufferMapper;
+    // disable possibility to create two instances of D3D11Buffer with the same m_pBufferMapper pointer.
+    D3D11Buffer(const D3D11Buffer& s);
+    D3D11Buffer& operator=(const D3D11Buffer& s);
 
 };    
 
@@ -618,6 +621,9 @@ private:
       D3DImage2D<ID3D11Resource, ID3D11Device, D3D11_TEXTURE2D_DESC>(pContext), m_pTexture2DMapper(NULL) { }
 
     D3d11Texture2DMapper* m_pTexture2DMapper;
+    // disable possibility to create two instances of D3D11Texture2D with the same m_pTexture2DMapper pointer.
+    D3D11Texture2D(const D3D11Texture2D& s);
+    D3D11Texture2D& operator=(const D3D11Texture2D& s);
 
 };
 
