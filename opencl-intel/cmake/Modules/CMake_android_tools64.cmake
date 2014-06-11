@@ -15,7 +15,10 @@ set( TOOL_OS_SUFFIX "" )
 set( GCC_VERSION "" )
 set( GCC_VERSION_OUTPUT "" )
 
-execute_process(COMMAND find "/usr/local/" -name android-toolchain  -type d OUTPUT_VARIABLE ANDROID_NDK_TOOLCHAIN_ROOT OUTPUT_STRIP_TRAILING_WHITESPACE)
+# set Android toolchain directory name
+set ( ANDROID_TOOLCHAIN_DIRECTORY_NAME android-toolchain-x86_64 )
+
+execute_process(COMMAND find "/usr/local" -name ${ANDROID_TOOLCHAIN_DIRECTORY_NAME} -type d OUTPUT_VARIABLE ANDROID_NDK_TOOLCHAIN_ROOT OUTPUT_STRIP_TRAILING_WHITESPACE)
 if (NOT IS_DIRECTORY ${ANDROID_NDK_TOOLCHAIN_ROOT})
     message(FATAL_ERROR "Can't find Android ToolChain Root ${ANDROID_NDK_TOOLCHAIN_ROOT}")
 endif (NOT IS_DIRECTORY ${ANDROID_NDK_TOOLCHAIN_ROOT})
@@ -23,7 +26,7 @@ endif (NOT IS_DIRECTORY ${ANDROID_NDK_TOOLCHAIN_ROOT})
 set(CMAKE_FIND_ROOT_PATH  ${ANDROID_NDK_TOOLCHAIN_ROOT})
 
 # specify gcc version
-execute_process(COMMAND "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/i686-linux-android-gcc${TOOL_OS_SUFFIX}" --version
+execute_process(COMMAND "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/x86_64-linux-android-gcc${TOOL_OS_SUFFIX}" --version
                 OUTPUT_VARIABLE GCC_VERSION_OUTPUT OUTPUT_STRIP_TRAILING_WHITESPACE )
 STRING( REGEX MATCH "[0-9](\\.[0-9])+" GCC_VERSION "${GCC_VERSION_OUTPUT}" )
 #message("\n******************\n GCC VERSION IS: ${GCC_VERSION} \n***************\n" )
@@ -140,17 +143,17 @@ else()
 endif()
 
 # specify the cross compiler
-set( CMAKE_C_COMPILER   "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/i686-linux-android-gcc${TOOL_OS_SUFFIX}"     CACHE PATH "gcc" FORCE )
-set( CMAKE_CXX_COMPILER "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/i686-linux-android-g++${TOOL_OS_SUFFIX}"     CACHE PATH "g++" FORCE )
-set( CMAKE_AR           "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/i686-linux-android-ar${TOOL_OS_SUFFIX}"      CACHE PATH "archive" FORCE )
-set( CMAKE_LINKER       "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/i686-linux-android-ld${TOOL_OS_SUFFIX}"      CACHE PATH "linker" FORCE )
-set( CMAKE_NM           "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/i686-linux-android-nm${TOOL_OS_SUFFIX}"      CACHE PATH "nm" FORCE )
-set( CMAKE_OBJCOPY      "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/i686-linux-android-objcopy${TOOL_OS_SUFFIX}" CACHE PATH "objcopy" FORCE )
-set( CMAKE_OBJDUMP      "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/i686-linux-android-objdump${TOOL_OS_SUFFIX}" CACHE PATH "objdump" FORCE )
-set( CMAKE_STRIP        "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/i686-linux-android-strip${TOOL_OS_SUFFIX}"   CACHE PATH "strip" FORCE )
-set( CMAKE_RANLIB       "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/i686-linux-android-ranlib${TOOL_OS_SUFFIX}"  CACHE PATH "ranlib" FORCE )
+set( CMAKE_C_COMPILER   "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/x86_64-linux-android-gcc${TOOL_OS_SUFFIX}"     CACHE PATH "gcc" FORCE )
+set( CMAKE_CXX_COMPILER "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/x86_64-linux-android-g++${TOOL_OS_SUFFIX}"     CACHE PATH "g++" FORCE )
+set( CMAKE_AR           "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/x86_64-linux-android-ar${TOOL_OS_SUFFIX}"      CACHE PATH "archive" FORCE )
+set( CMAKE_LINKER       "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/x86_64-linux-android-ld${TOOL_OS_SUFFIX}"      CACHE PATH "linker" FORCE )
+set( CMAKE_NM           "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/x86_64-linux-android-nm${TOOL_OS_SUFFIX}"      CACHE PATH "nm" FORCE )
+set( CMAKE_OBJCOPY      "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/x86_64-linux-android-objcopy${TOOL_OS_SUFFIX}" CACHE PATH "objcopy" FORCE )
+set( CMAKE_OBJDUMP      "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/x86_64-linux-android-objdump${TOOL_OS_SUFFIX}" CACHE PATH "objdump" FORCE )
+set( CMAKE_STRIP        "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/x86_64-linux-android-strip${TOOL_OS_SUFFIX}"   CACHE PATH "strip" FORCE )
+set( CMAKE_RANLIB       "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/x86_64-linux-android-ranlib${TOOL_OS_SUFFIX}"  CACHE PATH "ranlib" FORCE )
 # ARK Added to support assembly
-set( CMAKE_ASM_COMPILER "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/i686-linux-android-as${TOOL_OS_SUFFIX}"  CACHE PATH "as" FORCE )
+set( CMAKE_ASM_COMPILER "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/x86_64-linux-android-as${TOOL_OS_SUFFIX}"  CACHE PATH "as" FORCE )
 set( CMAKE_ASM_INCLUDE_DIR_FLAG "-I" )
 set( CMAKE_ASM_OUTPUT_NAME_FLAG "-o" )
 
@@ -181,23 +184,23 @@ SET( DO_NOT_CHANGE_OUTPUT_PATHS_ON_FIRST_PASS ON CACHE INTERNAL "" FORCE)
 endif( ) # DISABLED PART
 
 # where is the target environment 
-set( CMAKE_FIND_ROOT_PATH "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin" "${ANDROID_NDK_TOOLCHAIN_ROOT}/i686-linux-android" "${ANDROID_NDK_SYSROOT}" "${CMAKE_INSTALL_PREFIX}" "${CMAKE_INSTALL_PREFIX}/share" )
+set( CMAKE_FIND_ROOT_PATH "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin" "${ANDROID_NDK_TOOLCHAIN_ROOT}/x86_64-linux-android" "${ANDROID_NDK_SYSROOT}" "${CMAKE_INSTALL_PREFIX}" "${CMAKE_INSTALL_PREFIX}/share" )
 
 if( BUILD_WITH_ANDROID_NDK )
  set( STL_PATH "${ANDROID_NDK}/sources/cxx-stl/gnu-libstdc++" )
  set( STL_LIBRARIES_PATH "${STL_PATH}/libs/${ARMEABI_NDK_NAME}" )
  include_directories(SYSTEM "${STL_PATH}/include" "${STL_LIBRARIES_PATH}/include" )
  if ( NOT ARMEABI AND NOT FORCE_ARM )
-  set( STL_LIBRARIES_PATH "${ANDROID_NDK_TOOLCHAIN_ROOT}/i686-linux-android/lib/${CMAKE_SYSTEM_PROCESSOR}" )
+  set( STL_LIBRARIES_PATH "${ANDROID_NDK_TOOLCHAIN_ROOT}/x86_64-linux-android/lib/${CMAKE_SYSTEM_PROCESSOR}" )
  endif()
  #ARK: Had to add this to find STL headers
- include_directories(SYSTEM "${ANDROID_NDK_TOOLCHAIN_ROOT}/lib/gcc/i686-linux-android/${GCC_VERSION}/include/" )
- include_directories(SYSTEM "${ANDROID_NDK_TOOLCHAIN_ROOT}/i686-linux-android/include/c++/${GCC_VERSION}/" )
- include_directories(SYSTEM "${ANDROID_NDK_TOOLCHAIN_ROOT}/i686-linux-android/include/c++/${GCC_VERSION}/i686-linux-android" )
+ include_directories(SYSTEM "${ANDROID_NDK_TOOLCHAIN_ROOT}/lib/gcc/x86_64-linux-android/${GCC_VERSION}/include/" )
+ include_directories(SYSTEM "${ANDROID_NDK_TOOLCHAIN_ROOT}/x86_64-linux-android/include/c++/${GCC_VERSION}/" )
+ include_directories(SYSTEM "${ANDROID_NDK_TOOLCHAIN_ROOT}/x86_64-linux-android/include/c++/${GCC_VERSION}/x86_64-linux-android" )
 endif()
 
 if( BUILD_WITH_ANDROID_NDK_TOOLCHAIN )
- set( STL_LIBRARIES_PATH "${ANDROID_NDK_TOOLCHAIN_ROOT}/i686-linux-android/lib" )
+ set( STL_LIBRARIES_PATH "${ANDROID_NDK_TOOLCHAIN_ROOT}/x86_64-linux-android/lib" )
  if( NOT ARMEABI )
   set( STL_LIBRARIES_PATH "${STL_LIBRARIES_PATH}/${CMAKE_SYSTEM_PROCESSOR}" )
  endif()
@@ -205,7 +208,7 @@ if( BUILD_WITH_ANDROID_NDK_TOOLCHAIN )
   set( STL_LIBRARIES_PATH "${STL_LIBRARIES_PATH}" )
  endif()
  #for some reason this is needed? TODO figure out why...
- include_directories(SYSTEM "${ANDROID_NDK_TOOLCHAIN_ROOT}/i686-linux-android/include/c++/${GCC_VERSION}/i686-linux-android" )
+ include_directories(SYSTEM "${ANDROID_NDK_TOOLCHAIN_ROOT}/x86_64-linux-android/include/c++/${GCC_VERSION}/x86_64-linux-android" )
 endif()
 message( STATUS "STL_LIBRARIES_PATH is ${STL_LIBRARIES_PATH}" )
 
@@ -264,8 +267,8 @@ if( BUILD_X64 )
   set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m64" )
   set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m64" )
 else()
-  set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32" )
-  set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m32" )
+  set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m64" )
+  set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m64" )
 endif()
 
 # -O3 generates unaligned movdqa instructions.

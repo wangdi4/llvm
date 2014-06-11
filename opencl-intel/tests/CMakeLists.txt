@@ -75,7 +75,9 @@ add_subdirectory(type_conversion)
 
 if (INCLUDE_CMRT)
     message (STATUS "Adding Common runtime tests ...")
-    add_subdirectory ( common_runtime_test_type )
+    if (NOT ANDROID OR NOT BUILD_X64)
+        add_subdirectory ( common_runtime_test_type ) # until compilation errors are resolved
+    endif (NOT ANDROID OR NOT BUILD_X64)
 endif(INCLUDE_CMRT)
 
 #Samples
