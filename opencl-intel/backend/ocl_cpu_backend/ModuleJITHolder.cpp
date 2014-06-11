@@ -17,7 +17,6 @@ File Name:  ModuleJITHolder.cpp
 \*****************************************************************************/
 
 #include "ModuleJITHolder.h"
-#include "IDynamicFunctionsResolver.h"
 
 #include "MICSerializationService.h"
 #include "Serializer.h"
@@ -84,18 +83,10 @@ void ModuleJITHolder::Serialize(IOutputStream& ost, SerializationStatus* stats)
 {
     // using unsigned long long int instead of size_t is because that size_t
     // varies in it's size relating to the platform (32/64 bit)
-    if( 0 < m_memBuffer.getNumChunks() )
-    {
-        unsigned long long int tmp = (unsigned long long int)m_memBuffer.getSize();
-        Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
-    }
-    else
-    {
-        unsigned long long int tmp = m_JITCodeSize;
-        Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
-    }
+    unsigned long long int tmp = (unsigned long long int)m_memBuffer.getSize();
+    Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
 
-    unsigned long long int tmp = (unsigned long long int)m_alignment;
+    tmp = (unsigned long long int)m_alignment;
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
 
     int mapSize = m_KernelsMap.size();
@@ -108,36 +99,15 @@ void ModuleJITHolder::Serialize(IOutputStream& ost, SerializationStatus* stats)
         SerializeKernelInfo(it->first, it->second, ost);
     }
 
-    int tblSize = m_RelocationTable.size();
-    Serializer::SerialPrimitive<int>(&tblSize, ost);
-    for(std::vector<RelocationInfo>::const_iterator 
-        it = m_RelocationTable.begin();
-        it != m_RelocationTable.end();
-        it++)
+    for (unsigned chunkIdx = 0; chunkIdx < m_memBuffer.getNumChunks();
+        chunkIdx++)
     {
-        SerializeRelocationInfo(*it, ost);
-    }
-
-
-    if( 0 < m_memBuffer.getNumChunks() )
-    {
-        for (unsigned chunkIdx = 0; chunkIdx < m_memBuffer.getNumChunks();
-            chunkIdx++)
-        {
-            char *ptr = m_memBuffer.getChunkPtr(chunkIdx);
-            unsigned long long size = m_memBuffer.getChunkSize(chunkIdx);
-            for(size_t i = 0; i < size; i++)
-            {
-                Serializer::SerialPrimitive<char>(&(ptr[i]), ost);
-            }
-        }
-    }
-    else
-    {
-        for(size_t i = 0; i < m_JITCodeSize; i++)
-        {
-            Serializer::SerialPrimitive<char>(&(m_pJITCode[i]), ost);
-        }
+      char *ptr = m_memBuffer.getChunkPtr(chunkIdx);
+      unsigned long long size = m_memBuffer.getChunkSize(chunkIdx);
+      for(size_t i = 0; i < size; i++)
+      {
+          Serializer::SerialPrimitive<char>(&(ptr[i]), ost);
+      }
     }
 }
 
@@ -162,17 +132,6 @@ void ModuleJITHolder::Deserialize(IInputStream& ist, SerializationStatus* stats)
         m_KernelsMap[kernelID] = kernelInfo;
     }
 
-    int tblSize = 0;
-    Serializer::DeserialPrimitive<int>(&tblSize, ist);
-    
-    m_RelocationTable.clear();
-    for(int i = 0; i < tblSize; ++i)
-    {
-        RelocationInfo info;
-        DeserializeRelocationInfo(info, ist);
-        m_RelocationTable.push_back(info);
-    }
-
     // Deserialize the JIT code itself
     ICLDevBackendJITAllocator* pAllocator = stats->GetJITAllocator();
     if(NULL == pAllocator) throw Exceptions::SerializationException("Cannot Get JIT Allocator");
@@ -191,20 +150,6 @@ void ModuleJITHolder::Deserialize(IInputStream& ist, SerializationStatus* stats)
     {
         Serializer::DeserialPrimitive<char>(&(m_pJITCode[i]), ist);
     }
-}
-
-void ModuleJITHolder::SerializeRelocationInfo(RelocationInfo info,
-                                          IOutputStream& ost) const
-{
-    Serializer::SerialPrimitive<unsigned int>(&(info.offset), ost);
-    Serializer::SerialString(info.symName, ost);
-}
-
-void ModuleJITHolder::DeserializeRelocationInfo(RelocationInfo& info,
-                                            IInputStream& ist) const 
-{
-    Serializer::DeserialPrimitive<unsigned int>(&(info.offset), ist);
-    Serializer::DeserialString(info.symName, ist);
 }
 
 void ModuleJITHolder::SerializeKernelInfo(KernelID id, KernelInfo info,
@@ -290,11 +235,6 @@ void ModuleJITHolder::RegisterKernel(KernelID kernelId, KernelInfo kernelinfo)
     m_KernelsMap[kernelId] = kernelinfo;
 }
 
-void ModuleJITHolder::RegisterRelocation(const RelocationInfo& info)
-{
-    m_RelocationTable.push_back(info);
-}
-
 int ModuleJITHolder::GetKernelEntryPoint(KernelID kernelId) const
 {
     std::map<KernelID, KernelInfo>::const_iterator it = m_KernelsMap.find(kernelId);
@@ -361,31 +301,6 @@ int ModuleJITHolder::GetKernelVtuneFunctionId(KernelID kernelId) const {
 int ModuleJITHolder::GetKernelCount() const
 {
     return m_KernelsMap.size();
-}
-
-void ModuleJITHolder::RelocateSymbolAddresses(IDynamicFunctionsResolver* resolver)
-{
-    for(std::vector<RelocationInfo>::const_iterator 
-        it = m_RelocationTable.begin();
-        it != m_RelocationTable.end();
-        it++)
-    {
-        unsigned long long int address = resolver->GetFunctionAddress(it->symName);
-
-        assert(address && "Relocation failed!");
-        // TODO: do we need to take care of relocation type?
-        EncodeSymbolAddress(it->offset, address);
-    }
-}
-
-void ModuleJITHolder::EncodeSymbolAddress(unsigned int offset, unsigned long long int address)
-{
-    unsigned int bytesToEncode = 8;
-    for(unsigned int i = 0; i < bytesToEncode; ++i) 
-    {
-        char encoded = (address >> i*8) & 0xFF;
-        const_cast<char*>(m_pJITCode)[offset + i] = encoded;
-    }
 }
 
 }}} // namespace 

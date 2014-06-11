@@ -58,8 +58,10 @@ public:
     MICProgramBuilder(IAbstractBackendFactory* pBackendFactory, const IMICCompilerConfig& pConfig);
     ~MICProgramBuilder();
 
+    // checks if the given program has an object binary to be loaded from
+    virtual bool CheckIfProgramHasCachedExecutable(Program* pProgram) const {return false;}
     // reloads the program from his object binary
-    virtual bool ReloadProgramFromCachedExecutable(Program* pProgram);
+    virtual void ReloadProgramFromCachedExecutable(Program* pProgram);
     // builds object binary for the built program
     virtual void BuildProgramCachedExecutable(ObjectCodeCache* pCache, Program* pProgram) const; 
 

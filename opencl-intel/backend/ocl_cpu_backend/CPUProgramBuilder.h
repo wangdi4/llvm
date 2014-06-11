@@ -86,7 +86,7 @@ protected:
       const ICLDevBackendOptions* pOptions) const ;
 
     // reloads the program container from the cached binary object
-    virtual bool ReloadProgramFromCachedExecutable(Program* pProgram);
+    virtual void ReloadProgramFromCachedExecutable(Program* pProgram);
     // builds binary object for the built program
     virtual void BuildProgramCachedExecutable(ObjectCodeCache* pCache, Program* pProgram) const;
 

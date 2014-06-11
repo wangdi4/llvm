@@ -103,7 +103,6 @@ cl_dev_err_code CPUSerializationService::GetSerializationBlobSize(
     CountingOutputStream cs;
 
     SerializationStatus stats;
-    stats.SerializeVersion(cs);
     static_cast<const CPUProgram*>(pProgram)->Serialize(cs, &stats);
     *pSize = cs.GetCount();
 
@@ -119,7 +118,6 @@ cl_dev_err_code CPUSerializationService::SerializeProgram(
     OutputBufferStream obs((char*)pBlob, blobSize);
 
     SerializationStatus stats;
-    stats.SerializeVersion(obs);
     static_cast<const CPUProgram*>(pProgram)->Serialize(obs, &stats);
 
     return CL_DEV_SUCCESS;
@@ -141,7 +139,6 @@ cl_dev_err_code CPUSerializationService::ReloadProgram(
         stats.SetBackendFactory(m_pBackendFactory);
 
         InputBufferStream ibs((char*)pBlob, blobSize);
-        stats.DeserialVersion(ibs);
         
         static_cast<CPUProgram*>(pProgram)->Deserialize(ibs, &stats);
 

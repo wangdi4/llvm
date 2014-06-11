@@ -36,7 +36,6 @@ class ICLDevBackendJITAllocator;
 class IInputStream;
 class IOutputStream;
 class SerializationStatus;
-class IDynamicFunctionsResolver;
 
 typedef unsigned long long int KernelID;
 
@@ -52,11 +51,6 @@ struct InlinedFunction {
     unsigned size;
     std::string funcname;
     std::string filename;
-};
-
-struct RelocationInfo {
-    std::string symName;
-    unsigned int offset;
 };
 
 typedef std::vector<LineNumberEntry> LineNumberTable;
@@ -196,12 +190,6 @@ public:
     virtual void RegisterKernel(KernelID kernelId, KernelInfo kernelinfo);
 
     /**
-     * @effects registers a new symbol usage, for each usage need to specifiy 
-     *      it's offset and info, the info should be related to the given JIT
-     */
-    virtual void RegisterRelocation(const RelocationInfo& info);
-
-    /**
      * @param kernel identifier
      * @return the entry point of the specified function (relative to the startpoint
      *    of the JIT buffer); Exception will be raised if errors occurs
@@ -244,11 +232,6 @@ public:
     virtual int GetKernelCount() const;
 
     /**
-     * @effects modify the jit to call the new external function addresses
-     */
-    virtual void RelocateSymbolAddresses(IDynamicFunctionsResolver* resolver);
-
-    /**
      * Serialization methods for the class (used by the serialization service)
      */
     virtual void Serialize(IOutputStream& ost, SerializationStatus* stats);
@@ -262,7 +245,6 @@ private:
     size_t m_JITCodeSize;
     size_t m_alignment;
     std::map<KernelID, KernelInfo> m_KernelsMap;
-    std::vector<RelocationInfo> m_RelocationTable;
 
     ICLDevBackendJITAllocator* m_pJITAllocator;
 
@@ -274,13 +256,6 @@ private:
 
     void SerializeKernelInfo(KernelID id, KernelInfo info, IOutputStream& ost) const;
     void DeserializeKernelInfo(KernelID& id, KernelInfo& info, IInputStream& ist) const;
-
-    void SerializeRelocationInfo(RelocationInfo info,
-                             IOutputStream& ost) const;
-    void DeserializeRelocationInfo(RelocationInfo& info,
-                               IInputStream& ist) const;
-
-    void EncodeSymbolAddress(unsigned int offset, unsigned long long int address);
 };
 
 }}} // namespace
