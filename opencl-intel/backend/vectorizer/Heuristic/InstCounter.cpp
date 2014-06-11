@@ -176,6 +176,11 @@ WeightedInstCounter::WeightedInstCounter(bool preVec, Intel::CPUId cpuId):
 
 bool WeightedInstCounter::runOnFunction(Function &F) {
 
+  // for statistics:
+  V_STAT(
+    m_blockCosts.clear();
+  );
+
   //This is for safety - don't return 0.
   m_totalWeight = 1;
 
@@ -227,6 +232,7 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
 
     bool discardPhis = false;
     bool discardTerminator = false;
+    int blockWeights = 0; // for statistical purposes.
 
     // Check if BB is an idom of an allOnes branch
     // and if it does discard its phis cost
@@ -257,9 +263,15 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
         continue;
       if (discardTerminator &&  dyn_cast<TerminatorInst>(I))
         continue;
-      m_totalWeight += Probability * TripCount *
-                       getInstructionWeight(I, MemOpCostMap);
+
+      int instWeight = getInstructionWeight(I, MemOpCostMap);
+      m_totalWeight += Probability * TripCount * instWeight;
+      blockWeights += instWeight; // for statisical purposes.
     }
+    // for statistics:
+    V_STAT(
+      m_blockCosts[BB] = blockWeights;
+    );
   }
 
   // If we are pre-vectorization, decide what the vectorization width should be.
@@ -1104,6 +1116,42 @@ void WeightedInstCounter::estimateDataDependence(Function &F,
     addUsersToWorklist(I, DepSet, DataUsers);
   }
 }
+
+void WeightedInstCounter::copyBlockCosts(std::map<BasicBlock*,int>* dest) {
+  V_STAT(
+  dest->insert(m_blockCosts.begin(), m_blockCosts.end());
+  );
+}
+
+void WeightedInstCounter::countPerBlockHeuristics(std::map<BasicBlock*, int>* preCosts, int packetWidth) {
+  // this method is just for statistical purposes.
+  V_STAT(
+  Statistic::ActiveStatsT kernelStats;
+  Function* F = NULL;
+  int vectorizedVersionIsBetter = 0;
+  int scalarVersionIsBetter = 0;
+  for (std::map<BasicBlock*, int>::iterator it = preCosts->begin(),
+    e = preCosts->end(); it!= e; ++it) {
+      BasicBlock* BB = it->first;
+      F = BB->getParent();
+      int scalarVersionWeight = it->second;
+      if (!m_blockCosts.count(BB)) // no weight for vectorized version.
+        continue;
+      int vectorizedVersionWeight = m_blockCosts[BB];
+      if (vectorizedVersionWeight > scalarVersionWeight * packetWidth)
+        scalarVersionIsBetter++;
+      else
+        vectorizedVersionIsBetter++;
+  }
+  OCLSTAT_DEFINE(Blocks_That_Are_Better_Vectorized,"blocks for which the heuristics says it is better to vectorize",kernelStats);
+  Blocks_That_Are_Better_Vectorized = vectorizedVersionIsBetter;
+  OCLSTAT_DEFINE(Blocks_That_Are_Better_Scalarized,"blocks for which the heuristics says it is better to leave scalar version",kernelStats);
+  Blocks_That_Are_Better_Scalarized = scalarVersionIsBetter;
+  if (F)
+    intel::Statistic::pushFunctionStats (kernelStats, *F, DEBUG_TYPE);
+  );
+}
+
 
 bool VectorizationPossibilityPass::runOnFunction(Function & F)
 {

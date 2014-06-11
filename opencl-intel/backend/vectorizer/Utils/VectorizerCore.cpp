@@ -107,6 +107,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
   bool autoVec =  (m_pConfig->GetTransposeSize() == 0);
   V_ASSERT(m_pConfig->GetTransposeSize() <= MAX_PACKET_WIDTH && "unssupported vector width");
 
+  std::map<BasicBlock*, int> preVectorizationCosts; // used for statiscal purposes.
   // Emulate the entire pass-chain right here //
   //////////////////////////////////////////////
   V_PRINT(VectorizerCore, "\nBefore preparations!\n");
@@ -177,6 +178,9 @@ bool VectorizerCore::runOnFunction(Function &F) {
          V_ASSERT(preCounter && "pre counter should be initialzied");
          m_packetWidth = preCounter->getDesiredWidth();
          m_preWeight = preCounter->getWeight();
+         // for statistical purposes, we need to keep the
+         // prevectorization costs until after vectorization.
+         preCounter->copyBlockCosts(&preVectorizationCosts);
       } else {
          m_packetWidth = m_pConfig->GetTransposeSize();
       }
@@ -269,6 +273,10 @@ bool VectorizerCore::runOnFunction(Function &F) {
     m_isFunctionVectorized = true;
     if (autoVec)  {
       V_ASSERT(postCounter && "uninitialized postCounter");
+      // for statistical purposes:: //////////////////////////////////////////////
+      postCounter->countPerBlockHeuristics(&preVectorizationCosts, m_packetWidth);
+      preVectorizationCosts.clear();
+      ////////////////////////////////////////////////////////////////////////////
       m_postWeight = postCounter->getWeight();
       float Ratio = (float)m_postWeight / m_preWeight;
       int attemptedWidth = m_packetWidth;

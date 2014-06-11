@@ -61,6 +61,17 @@ namespace intel {
       return m_totalWeight;
     }
 
+    
+    // for statistical purposes only, calculate the heuristic results per
+    // block and output as counters. Called after both runs (before and after
+    // vectorization), called in the post vectorization, and gets
+    // as input the pre-vectorization costs.
+    void countPerBlockHeuristics(std::map<BasicBlock*, int>* preCosts, int packetWidth);
+    // for statistical purposes only.
+    // we need to allow the vectorizerCore to maintain the costs of blocks
+    // in the pre vectorization version until after vectorization.
+    void copyBlockCosts(std::map<BasicBlock*,int>* dest);
+
   private:
 
     // Indicates if its 64bit arch otherwise it's 32bit
@@ -145,6 +156,10 @@ namespace intel {
 
     // Total weight of all instructions
     float m_totalWeight;
+
+    // for statistical purposes, cost of
+    // basic block (without probability and trip count)
+    std::map<BasicBlock*, int> m_blockCosts;
 
     typedef struct FuncCostEntry {
       const char *name;
