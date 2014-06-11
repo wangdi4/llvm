@@ -49,6 +49,7 @@ File Name:  Compiler.cpp
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/CodeGen/CommandFlags.h"
+#include "llvm/Linker.h"
 using std::string;
 
 #include <fstream>
@@ -361,6 +362,9 @@ llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
     return pModule;
 }
 
+// for CPU implementation rtl module consisits of two libraries: shared (common for all cpu architectures)
+// and particular (optimized for one architecture), they should be linked,
+// for KNC we have the particular RTL only
 llvm::Module* Compiler::CreateRTLModule(BuiltinLibrary* pLibrary) const
 {
     llvm::MemoryBuffer* pRtlBuffer = pLibrary->GetRtlBuffer();
@@ -380,9 +384,30 @@ llvm::Module* Compiler::CreateRTLModule(BuiltinLibrary* pLibrary) const
         spModule->setModuleIdentifier("RTLibrary");
     }
 
-  UpdateTargetTriple(spModule.get());
-  return spModule.release();
+    // on KNC we don't have shared (common) library, so skip loading
+    if (pLibrary->GetCPU() != MIC_KNC) {
+        // the shared rtl is loaded here
+        llvm::MemoryBuffer* pRtlBufferSvmlShared = pLibrary->GetRtlBufferSvmlShared();
 
+        std::auto_ptr<llvm::Module> spModuleSvmlShared(llvm::ParseBitcodeFile(pRtlBufferSvmlShared, *m_pLLVMContext));
+
+        if ( NULL == spModuleSvmlShared.get()) {
+            throw Exceptions::CompilerException("Failed to allocate/parse buitin module");
+        }
+
+        std::string ErrorMessage;
+        // we need to link particular and shared RTLs together
+        if (llvm::Linker::LinkModules(spModule.get(), spModuleSvmlShared.get(), Linker::DestroySource, &ErrorMessage) ) {
+            std::string ErrStr("Failed to link shared builtins module.");
+            if ( !ErrorMessage.empty() ) {
+                ErrStr.append(ErrorMessage);
+            }
+            throw Exceptions::CompilerException(ErrStr);
+        }
+    }
+
+    UpdateTargetTriple(spModule.get());
+    return spModule.release();
 }
 
 bool Compiler::isProgramValid(llvm::Module* pModule, ProgramBuildResult* pResult) const

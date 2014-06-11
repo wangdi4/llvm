@@ -147,6 +147,7 @@ namespace intel {
     for (TFunctionsVec::iterator it = m_functionsToImport.begin(),
         e = m_functionsToImport.end(); it != e; ++it) {
       Function *pSrcFunction = *it;
+
       assert(pSrcFunction && !pSrcFunction->isDeclaration() && "source function has no definition");
 
       Function *pDstFunction = dyn_cast<Function>(m_valueMap[pSrcFunction]);
@@ -271,6 +272,19 @@ namespace intel {
     m_valueMap[pSrcGlobal] = pDstGlobal;
   }
 
+
+  // this function replaces keyword "shared" in the builtin name by current CPU prefix, for example:
+  // if CPU is l9, __ocl_svml_shared_acos1f to be changed to __ocl_svml_l9_acos1f
+  static void UpdateSvmlBuiltinName(Function* fn, const char* pCPUPrefix){
+
+    llvm::StringRef fName = fn->getName();
+    if (fName.startswith("__ocl_svml_shared")) {
+        std::string s = fName.str();
+        s.replace(11,6,pCPUPrefix);
+        fn->setName(s);
+    }
+  }
+
   void BIImport::GetCalledFunctions(const Function* pFunc, TFunctionsVec& calledFuncs) {
     TFunctionsSet visitedSet;
     // Iterate over function instructions and look for call instructions
@@ -285,7 +299,10 @@ namespace intel {
       }
       if(visitedSet.count(pCalledFunc)) continue;
 
+      UpdateSvmlBuiltinName(pCalledFunc,m_cpuPrefix.c_str());
+
       visitedSet.insert(pCalledFunc);
+
       calledFuncs.push_back(pCalledFunc);
     }
   }
@@ -431,6 +448,6 @@ namespace intel {
   }
 } //namespace intel {
 
-extern "C" llvm::ModulePass* createBuiltInImportPass() {
-  return new intel::BIImport();
+extern "C" llvm::ModulePass* createBuiltInImportPass(const char* CPUPrefix) {
+  return new intel::BIImport(CPUPrefix);
 }

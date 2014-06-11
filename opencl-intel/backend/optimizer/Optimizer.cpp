@@ -55,7 +55,7 @@ llvm::Pass *createBuiltinCallToInstPass();
 llvm::Pass *createRelaxedPass();
 llvm::Pass *createLinearIdResolverPass();
 llvm::ModulePass *createKernelAnalysisPass();
-llvm::ModulePass *createBuiltInImportPass();
+llvm::ModulePass *createBuiltInImportPass(const char* CPUName);
 llvm::ImmutablePass * createImplicitArgsAnalysisPass(llvm::LLVMContext *C);
 llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
 llvm::ModulePass *createAddImplicitArgsPass();
@@ -474,7 +474,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   PM.add(createUndifinedExternalFunctionsPass(UndefinedExternals));
 
   if(pRtlModule != NULL) {
-    PM.add(createBuiltInImportPass()); // Inline BI function
+      PM.add(createBuiltInImportPass(pConfig->GetCpuId().GetCPUPrefix())); // Inline BI function
     //Need to convert shuffle calls to shuffle IR before running inline pass on built-ins
     PM.add(createBuiltinCallToInstPass());
   }
