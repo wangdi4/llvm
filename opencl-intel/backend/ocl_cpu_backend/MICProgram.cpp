@@ -44,6 +44,11 @@ const ModuleJITHolder* MICProgram::GetModuleJITHolder() const
     return m_pModuleJITHolder.get();
 }
 
+ModuleJITHolder* MICProgram::GetModuleJITHolder()
+{
+    return m_pModuleJITHolder.get();
+}
+
 const ICLDevBackendProgramJITCodeProperties* MICProgram::GetProgramJITCodeProperties() const
 {
     return this;

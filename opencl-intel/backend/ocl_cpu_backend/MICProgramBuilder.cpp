@@ -30,6 +30,7 @@ File Name:  MICProgramBuilder.cpp
 #include "MICSerializationService.h"
 #include "BitCodeContainer.h"
 #include "ObjectCodeContainer.h"
+#include "cache_binary_handler.h"
 
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
@@ -68,80 +69,93 @@ MICKernel* MICProgramBuilder::CreateKernel(llvm::Function* pFunc, const std::str
     return static_cast<MICKernel*>(m_pBackendFactory->CreateKernel( funcName, arguments, memoryArguments, pProps ));
 }
 
-void MICProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
+bool MICProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
 {
-#if 0
-    cl_object_container_header* pObjectHeader = 
-        (cl_object_container_header*)(pProgram->GetProgramCodeContainer()->GetCode());    
-
-    size_t      bitCodeSize   = pObjectHeader->section_size[IR_SECTION_INDEX];
-    size_t      offloadSize   = pObjectHeader->section_size[OFFLOAD_SECTION_INDEX];
-
-    const char* objectBuffer = ((const char*)pProgram->GetProgramCodeContainer()->GetCode());
-    const char* bitCodeBuffer = objectBuffer + sizeof(cl_object_container_header);
-    const char* offloadBuffer = objectBuffer + sizeof(cl_object_container_header) + bitCodeSize;    
-
-    MICSerializationService* pMICSerializationService = new MICSerializationService(NULL);
-    pMICSerializationService->ReloadProgram(
-        SERIALIZE_OFFLOAD_IMAGE,
-        pProgram, 
-        offloadBuffer,
-        offloadSize);
-
-    BitCodeContainer* bcc = 
-        new BitCodeContainer((const cl_prog_container_header*)bitCodeBuffer);
+    const char* pCachedObject = 
+        (char*)(pProgram->GetObjectCodeContainer()->GetCode());
+    size_t cacheSize = pProgram->GetObjectCodeContainer()->GetCodeSize();
+    assert(pCachedObject && "Object Code Container is null");
+ 
+    // get sizes
+    CacheBinaryHandler::CacheBinaryReader reader(pCachedObject, cacheSize);
+    size_t serializationSize = reader.GetSectionSize(CacheBinaryHandler::g_metaSectionName);
+ 
+    // get the buffers entries
+    const char* bitCodeBuffer = (const char*)reader.GetSectionData(CacheBinaryHandler::g_irSectionName);
+    const char* serializationBuffer = (const char*)reader.GetSectionData(CacheBinaryHandler::g_metaSectionName);
+ 
+    // Set IR
+    BitCodeContainer* bcc = new BitCodeContainer((const cl_prog_container_header*)bitCodeBuffer);
     pProgram->SetBitCodeContainer(bcc);
-#endif
+
+    llvm::Module* pModule = GetCompiler()->ParseModuleIR((llvm::MemoryBuffer*)bcc->GetMemoryBuffer());
+
+    // create cache manager
+    pProgram->SetModule(pModule);
+
+    // deserialize the management objects
+    std::auto_ptr<MICSerializationService> pMICSerializationService(new MICSerializationService(NULL));
+     pMICSerializationService->ReloadProgram(
+       SERIALIZE_OFFLOAD_IMAGE,
+       pProgram,
+       serializationBuffer,
+       serializationSize);
+ 
+    // Reload Addresses
+    IDynamicFunctionsResolver* pResolver = static_cast<IDynamicFunctionsResolver*>(GetCompiler()->GetFunctionAddressResolver());
+    static_cast<MICProgram*>(pProgram)->GetModuleJITHolder()->RelocateSymbolAddresses(pResolver);
+
+    // init refcounted runtime service shared storage between program and kernels
+    RuntimeServiceSharedPtr lRuntimeService(new RuntimeServiceImpl);
+    // set runtime service for the program
+    pProgram->SetRuntimeService(lRuntimeService);
+
+    // update kernels with RuntimeService
+    Utils::UpdateKernelsWithRuntimeService( lRuntimeService, pProgram->GetKernelSet() );
+
+    // update kernel mapper (OCL2.0)
+    PostBuildProgramStep( pProgram, pModule, NULL ); 
+    return true;
 }
 
 void MICProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Program* pProgram) const
 {
-#if 0
-    // get required sizes
-    size_t offload_size = 0;
-    std::auto_ptr<MICSerializationService> pMICSerializationService(new MICSerializationService(NULL));
-    pMICSerializationService->GetSerializationBlobSize(
-        SERIALIZE_OFFLOAD_IMAGE, pProgram, &offload_size);
+    assert(pProgram && "Program Object is null");
 
-    size_t ir_size = pProgram->GetProgramIRCodeContainer()->GetCodeSize();
-    size_t head_size = sizeof(cl_prog_container_header) + sizeof(cl_object_container_header);
+    // calculate the required buffer size
+    size_t serializationSize = 0;
+     std::auto_ptr<MICSerializationService> pMICSerializationService(new MICSerializationService(NULL));
+     pMICSerializationService->GetSerializationBlobSize(
+        SERIALIZE_OFFLOAD_IMAGE, pProgram, &serializationSize);
 
-    // create buffer to be filled
-    std::vector<char> Blob(head_size + ir_size + offload_size);
-    
+    std::auto_ptr<CacheBinaryHandler::CacheBinaryWriter> pWriter(new CacheBinaryHandler::CacheBinaryWriter());
+
+    // fill the IR bit code
+    size_t irSize = pProgram->GetProgramIRCodeContainer()->GetCodeSize();
+    const char* irStart = ((const char*)(pProgram->GetProgramIRCodeContainer()->GetCode()));
+    pWriter->AddSection(CacheBinaryHandler::g_irSectionName, irStart, irSize);
+  
     // fill offload image in the object buffer
+    std::vector<char> metaStart(serializationSize);
     pMICSerializationService->SerializeProgram(
         SERIALIZE_OFFLOAD_IMAGE, 
         pProgram,
-        Blob.data()+head_size+ir_size, offload_size);
+        &(metaStart[0]), serializationSize);
+    pWriter->AddSection(CacheBinaryHandler::g_metaSectionName, &(metaStart[0]), serializationSize);
 
-    // fill the head bits
-    cl_object_container_header* pObjectHeader = 
-        (cl_object_container_header*)(Blob.data() + sizeof(cl_prog_container_header));
-    // first 4 bytes = 0x7f E L F (CODE)
-    (*pObjectHeader).mask[0] = 127;
-    (*pObjectHeader).mask[1] = 'E';
-    (*pObjectHeader).mask[2] = 'L';
-    (*pObjectHeader).mask[3] = 'F';
-
-    // total size of the object binary buffer
-    (*pObjectHeader).total_size = head_size+ir_size+offload_size; 
-    // size of the IR bit code
-    (*pObjectHeader).section_size[IR_SECTION_INDEX] = ir_size;
-    // size of the offload bits
-    (*pObjectHeader).section_size[OFFLOAD_SECTION_INDEX] = offload_size;
-    // should be zero
-    (*pObjectHeader).section_size[CHECK_INDEX] = 0;
-
-    // fill the IR bit code
-    const char* pIRStart =  ((const char*)(pProgram->GetProgramIRCodeContainer()->GetCode()));
-    std::copy(pIRStart, pIRStart+ir_size, Blob.data()+head_size);
-
-    // fill the Object and attach it to the program
-    ObjectCodeContainer* pObjectCodeContainer = 
-        new ObjectCodeContainer((cl_prog_container_header*)Blob.data());
-    pProgram->SetObjectCodeContainer(pObjectCodeContainer);
-#endif
+    // get the binary
+    size_t binarySize = pWriter->GetBinarySize();
+    std::vector<char> pBinaryBlob(binarySize+sizeof(cl_prog_container_header));
+    if(pWriter->GetBinary(&(pBinaryBlob[0])+sizeof(cl_prog_container_header)))
+    {
+        ((cl_prog_container_header*)&(pBinaryBlob[0]))->container_size = binarySize;
+        ObjectCodeContainer* pObjectCodeContainer = new ObjectCodeContainer((cl_prog_container_header*)&(pBinaryBlob[0]));
+        pProgram->SetObjectCodeContainer(pObjectCodeContainer);
+    }
+    else
+    {
+        pProgram->SetObjectCodeContainer(NULL);
+    }
 }
 
 KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
@@ -330,6 +344,16 @@ void MICProgramBuilder::CopyJitHolder(LLVMModuleJITHolder* from, ModuleJITHolder
 
         KernelID kernelID = (const KernelID)it->first;
         to->RegisterKernel(kernelID, kernelInfo);
+    }
+    // Copy Relocation Table
+    for(llvm::RelocationTable_t::const_iterator it = from->getRelocationTable().begin(),
+        end = from->getRelocationTable().end(); it != end; it++)
+    {
+        RelocationInfo info;
+        info.symName = (*it).symName;
+        info.offset  = (*it).atOffset;
+
+        to->RegisterRelocation(info);
     }
 }
 

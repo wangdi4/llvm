@@ -186,6 +186,9 @@ public:
     // Get the latest execution engine
     virtual void *GetExecutionEngine() = 0;
 
+    // Get Function Address Resolver
+    virtual void *GetFunctionAddressResolver() { return NULL; }
+
     /**
      * Returns pointer to the RTL library module
      */

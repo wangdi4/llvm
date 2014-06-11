@@ -8,6 +8,7 @@
 #include <windows.h>
 #endif
 
+static const char* g_BINFILENAME = "jit.bin";
 
 extern cl_device_type gDeviceType;
 
@@ -22,7 +23,7 @@ bool TestBinaryRun(cl_program& program, cl_context cxContext, cl_device_id devic
     std::vector<int> pDst(szGlobalWorkSize);
     for(size_t i = 0; i < szGlobalWorkSize; ++i) pDst[i] = 0;
     std::vector<int> pSrcA(szGlobalWorkSize);
-    for(size_t i = 0; i < szGlobalWorkSize; ++i) pSrcA[i] = i % 2;
+    for(size_t i = 0; i < szGlobalWorkSize; ++i) pSrcA[i] = 90*(i % 2);
     std::vector<int> pSrcB(szGlobalWorkSize);
     for(size_t i = 0; i < szGlobalWorkSize; ++i) pSrcB[i] = 10;
 
@@ -97,7 +98,7 @@ bool TestBinaryRun(cl_program& program, cl_context cxContext, cl_device_id devic
     bool bCheck = true;
     for(size_t i = 0; i < szGlobalWorkSize; ++i)
     {
-        bCheck &= (pRead[i] == ((i % 2) * -5 + 10));
+        bCheck &= (pRead[i] == 8*(i % 2));
         printf(" {%d} ", pRead[i]);
     }
     printf("validation check: %s\n", bCheck ? "PASS" : "FAIL");
@@ -113,8 +114,6 @@ bool TestBinaryRun(cl_program& program, cl_context cxContext, cl_device_id devic
 bool clCheckJITLoadTest()
 {
     bool bResult = true;
-    return bResult; // TEMPORARY
-
     printf("clCheckJITSaveTest\n");
 
     cl_platform_id platform = 0;
@@ -154,7 +153,7 @@ bool clCheckJITLoadTest()
     printf("context = %p\n", context);
 
     // read the cached binary from a file
-    FILE * pFile = fopen("/home/work/magabari/git-src/sdk-cp/install/RH64/Debug/bin/jit.bin", "rb");
+    FILE * pFile = fopen(g_BINFILENAME, "rb");
     
     // obtain file size:
     fseek (pFile , 0 , SEEK_END);
