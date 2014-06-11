@@ -1,3 +1,21 @@
+/*****************************************************************************\
+
+Copyright (c) Intel Corporation (2010-2014).
+
+    INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
+    LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
+    ASSISTANCE, INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL DOES NOT
+    PROVIDE ANY UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY
+    DISCLAIMS ANY WARRANTY OF MERCHANTABILITY, NONINFRINGEMENT, FITNESS FOR ANY
+    PARTICULAR PURPOSE, OR ANY OTHER WARRANTY.  Intel disclaims all liability,
+    including liability for infringement of any proprietary rights, relating to
+    use of the code. No license, express or implied, by estoppels or otherwise,
+    to any intellectual property rights is granted herein.
+
+File Name:  OclTune.h
+
+\*****************************************************************************/
+
 #ifndef __OCL_TUNE_H__
 #define __OCL_TUNE_H__
 
@@ -147,15 +165,15 @@ private:
 
 
 // execute code only if stats are enabled
-#define TUNEOCL(X)  do { if (Statistic::StatFlag) { X; } } while (0)
+#define OCLSTAT_GATHER(X)  do { if (Statistic::StatFlag) { X; } } while (0)
 
 // execute code only if stats are enabled for this module
-#define TUNEOCL_CHECK(X)  \
+#define OCLSTAT_GATHER_CHECK(X)  \
   do { if (Statistic::StatFlag && Statistic::isCurrentStatType(DEBUG_TYPE)) \
     { X; } }   while (0)
 
 // execute code only if stats are enabled for the requested module
-#define TUNEOCL_CHECK_TYPE(X,TYPE)  \
+#define OCLSTAT_GATHER_CHECK_TYPE(X,TYPE)  \
   do { if (Statistic::StatFlag && Statistic::isCurrentStatType(TYPE)) { X; } } \
   while (0)
 
@@ -250,19 +268,19 @@ public:
 
 // initialize statistic objects that are class memebers
 #define OCLSTAT_INIT(NAME,DESC,LIST) \
-  NAME(DEBUG_TYPE, #NAME "@" DEBUG_TYPE, DESC, LIST)
+  NAME(DEBUG_TYPE, DEBUG_TYPE "@" #NAME, DESC, LIST)
 
 // define and initialize a statistic object
 #define OCLSTAT_DEFINE(NAME,DESC,LIST) \
-    intel::Statistic NAME(DEBUG_TYPE, #NAME "@" DEBUG_TYPE, DESC, LIST)
+    intel::Statistic NAME(DEBUG_TYPE, DEBUG_TYPE "@" #NAME, DESC, LIST)
 
 } // End intel namespace
 
-#define TUNEOCL(X)
+#define OCLSTAT_GATHER(X)
 
-#define TUNEOCL_CHECK(X)
+#define OCLSTAT_GATHER_CHECK(X)
 
-#define TUNEOCL_CHECK_TYPE(X,TYPE)
+#define OCLSTAT_GATHER_CHECK_TYPE(X,TYPE)
 
 #endif // OCLT
 

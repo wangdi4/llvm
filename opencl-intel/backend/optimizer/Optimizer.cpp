@@ -11,6 +11,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "debuggingservicetype.h"
 #include "CompilationUtils.h"
 #include "MetaDataApi.h"
+#include "OclTune.h"
 
 #ifndef __APPLE__
 #include "PrintIRPass.h"
@@ -275,7 +276,8 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
     PM.add(createPrintIRPass(DUMP_IR_TARGERT_DATA, OPTION_IR_DUMPTYPE_AFTER,
                              pConfig->GetDumpIRDir()));
   }
-  if (!pConfig->GetLibraryModule() && getenv("DISMPF") != NULL)
+  if (!pConfig->GetLibraryModule() &&
+      (getenv("DISMPF") != NULL || intel::Statistic::isEnabled()))
     PM.add(createRemovePrefetchPass());
 #endif //#ifndef __APPLE__
   PM.add(createBuiltinCallToInstPass());

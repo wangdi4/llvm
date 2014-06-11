@@ -1399,7 +1399,7 @@ void PacketizeFunction::obtainBaseIndex(MemoryOperation &MO) {
   } else {
     V_PRINT(gather_scatter_stat, "PACKETIZER: GEP NOT SINGLE INDEX " << *Gep << "\n");
   }
-  TUNEOCL_CHECK(
+  OCLSTAT_GATHER_CHECK(
     if (Gep && Gep->getNumIndices() == 2) {
       // counting an array of structs
       // for example, suppose A is an array of structs, one of the elements

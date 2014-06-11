@@ -48,6 +48,42 @@ namespace intel{
     static const int defaultL2PFType;
   };
 
+  // PrefetchStats class contains all the stats that are used by the
+  // class PrefetchCandidateUtils static methods, since stats can't be static
+  class PrefetchStats {
+  public:
+    PrefetchStats(Statistic::ActiveStatsT &statList);
+
+    // Statistics
+    Statistic Candidate_global_gather;
+    Statistic Candidate_local_gather;
+    Statistic Candidate_constant_gather;
+    Statistic Candidate_private_gather;
+
+    Statistic Candidate_global_masked_gather;
+    Statistic Candidate_local_masked_gather;
+    Statistic Candidate_constant_masked_gather;
+    Statistic Candidate_private_masked_gather;
+
+    Statistic Candidate_global_scatter;
+    Statistic Candidate_local_scatter;
+    Statistic Candidate_constant_scatter;
+    Statistic Candidate_private_scatter;
+
+    Statistic Candidate_global_masked_scatter;
+    Statistic Candidate_local_masked_scatter;
+    Statistic Candidate_constant_masked_scatter;
+    Statistic Candidate_private_masked_scatter;
+    Statistic PF_triggered_by_masked_unaligned_loads;
+    Statistic PF_triggered_by_masked_unaligned_stores;
+    Statistic PF_triggered_by_masked_random_gather;
+    Statistic PF_triggered_by_masked_random_scatter;
+    Statistic PF_triggered_by_random_gather;
+    Statistic PF_triggered_by_random_scatter;
+
+    Statistic Abort_APF_since_detected_manual_PF;
+  };
+
   class Prefetch : public FunctionPass {
 
     public:
@@ -172,8 +208,30 @@ namespace intel{
 
       // Statistics
       Statistic::ActiveStatsT m_kernelStats;
-      Statistic PFStat_SerialBB;
-      Statistic PFStat_BBNotInLoop;
+      Statistic Ignore_BB_lacking_vector_instructions;
+      Statistic Ignore_BB_not_in_loop;
+      Statistic Accesses_merged_to_1_PF_have_large_diff_256;
+      Statistic Accesses_not_merged_to_1_PF_have_large_diff_1024;
+      Statistic Ignore_non_simple_load;
+      Statistic Ignore_local_load;
+      Statistic Ignore_private_load;
+      Statistic Ignore_non_simple_store;
+      Statistic Ignore_local_store;
+      Statistic Ignore_private_store;
+
+      Statistic Access_has_no_scalar_evolution_in_loop;
+      Statistic Access_step_is_loop_variant;
+      Statistic Access_step_is_loop_invariant;
+      Statistic Access_match_in_same_BB;
+      Statistic Access_match_in_dominating_BB;
+      Statistic Access_exact_match;
+      Statistic Access_match_same_cache_line;
+      Statistic PF_triggered_by_partial_cache_line_access;
+      Statistic PF_triggered_by_full_cache_line_access;
+      Statistic PF_triggered_by_multiple_cache_line_access;
+      Statistic Access_step_is_variable;
+
+      PrefetchStats m_stats;
 
     private:
       void init();
