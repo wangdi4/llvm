@@ -2842,7 +2842,6 @@ void PacketizeFunction::packetizeInstruction(GetElementPtrInst *GI)
   V_PRINT(packetizer, "\t\tGetElementPtr Instruction\n");
   V_ASSERT(GI && "instruction type dynamic cast failed");
   V_STAT(m_getElemPtrCtr++;)
-  Scalarize_An_Instruction_That_Does_Not_Have_Vector_Support++; // statistics
   return duplicateNonPacketizableInst(GI);
 }
 
