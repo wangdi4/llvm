@@ -44,6 +44,7 @@ public:
      * Gets the Program JIT Conatiner (debuging use only)
      */
     const ModuleJITHolder* GetModuleJITHolder() const;
+    ModuleJITHolder* GetModuleJITHolder();
 
     /**
      * Gets the program JIT Code Properties; 

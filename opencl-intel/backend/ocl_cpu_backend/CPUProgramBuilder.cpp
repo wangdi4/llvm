@@ -152,7 +152,7 @@ void CPUProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Pr
     }
 }
 
-void CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
+bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
 {
     const char* pCachedObject = 
         (char*)(pProgram->GetObjectCodeContainer()->GetCode());
@@ -213,6 +213,7 @@ void CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
 
     // update kernel mapper (OCL2.0)
     PostBuildProgramStep( pProgram, pModule, NULL );
+    return true;
 }
 
 Kernel* CPUProgramBuilder::CreateKernel(llvm::Function* pFunc, const std::string& funcName, KernelProperties* pProps) const

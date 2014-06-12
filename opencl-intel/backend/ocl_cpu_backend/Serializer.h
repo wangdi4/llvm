@@ -28,6 +28,9 @@ File Name:  Serializer.h
  */
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
+    class IInputStream;
+    class IOutputStream;
+
     /**
      * This class saves some flow stages in the serialization process
      */
@@ -44,10 +47,17 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
         void SetBackendFactory(IAbstractBackendFactory* pBackendFactory);
         IAbstractBackendFactory* GetBackendFactory();
+
+        void SerializeVersion(IOutputStream& stream);
+        void DeserialVersion(IInputStream& stream);
+        int GetRuntimeVersion() const;
+        int GetLLVMVersion() const;
     
     private:
         ICLDevBackendJITAllocator* m_pJITAllocator;
         IAbstractBackendFactory* m_pBackendFactory;
+        int m_RuntimeVersion;
+        int m_LLVMVersion;
     
         std::map<std::string, void*> m_marksMap;
     };

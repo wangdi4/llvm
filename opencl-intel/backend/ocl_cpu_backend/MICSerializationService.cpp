@@ -201,6 +201,7 @@ cl_dev_err_code MICSerializationService::GetSerializationBlobSize(
     CountingOutputStream cs;
 
     SerializationStatus stats;
+    stats.SerializeVersion(cs);
     static_cast<const MICProgram*>(pProgram)->Serialize(cs, &stats);
     *pSize = cs.GetCount();
 
@@ -216,6 +217,7 @@ cl_dev_err_code MICSerializationService::SerializeProgram(
     OutputBufferStream obs((char*)pBlob, blobSize);
 
     SerializationStatus stats;
+    stats.SerializeVersion(obs);
     static_cast<const MICProgram*>(pProgram)->Serialize(obs, &stats);
 
     return CL_DEV_SUCCESS;
@@ -288,6 +290,7 @@ cl_dev_err_code MICSerializationService::ReloadProgram(
         stats.SetBackendFactory(m_pBackendFactory);
 
         InputBufferStream ibs((char*)pBlob, blobSize);
+        stats.DeserialVersion(ibs);
         
         static_cast<MICProgram*>(pProgram)->Deserialize(ibs, &stats);
 

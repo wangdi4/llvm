@@ -44,7 +44,7 @@ class BuiltinModule;
 // Wrapper of the Backend interface IDynamicFunctionsResolver to behave as
 // llvm::IFunctionAddressResolver
 
-class FunctionResolverWrapper : public llvm::IFunctionAddressResolver
+class FunctionResolverWrapper : public llvm::IFunctionAddressResolver, public IDynamicFunctionsResolver
 {
 public:
     FunctionResolverWrapper() : m_pFuncResolver(NULL) { }
@@ -54,6 +54,13 @@ public:
         m_pFuncResolver = pResolver;
     }
 
+    // This function implements the IDynamicFunctionsResolver interface
+    unsigned long long int GetFunctionAddress(const std::string& functionName) const
+    {
+        return getFunctionAddress(functionName);
+    }
+
+    // This function implements the llvm::IFunctionAddressResolver interface
     unsigned long long int getFunctionAddress(const std::string& func) const
     {
         assert(m_pFuncResolver && "Resolver is null");
@@ -80,6 +87,8 @@ public:
         const std::string& dumpAsm) const;
 
     virtual void *GetExecutionEngine() { return m_pCGEngine; }
+    virtual void *GetFunctionAddressResolver() { return &m_ResolverWrapper; }
+
 
     /**
      * Returns pointer to the RTL library module

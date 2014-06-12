@@ -8,6 +8,7 @@
 #include <windows.h>
 #endif
 
+static const char* g_BINFILENAME = "jit.bin";
 
 extern cl_device_type gDeviceType;
 /*
@@ -114,15 +115,19 @@ bool clCheckJITSaveTest()
 {
     bool bResult = true;
     const char *ocl_test_program[] = {\
+    "__kernel void test_kernel_0(__global int* pBuff0, __global int* pBuff1, __global int* pBuff2)"\
+    "{"\
+    "    size_t id = get_global_id(0);"\
+    "    pBuff0[id] = (int)(10.0*(cos((float)pBuff1[id])));"\
+    "}" \
     "__kernel void test_kernel(__global int* pBuff0, __global int* pBuff1, __global int* pBuff2)"\
     "{"\
     "    size_t id = get_global_id(0);"\
-    "    pBuff0[id] = pBuff1[id] ? 5 : pBuff2[id];"\
+    "    pBuff0[id] = (int)(10.0*(sin((float)pBuff1[id])));"\
     "}"
     };
 
     printf("clCheckJITSaveTest\n");
-    if(gDeviceType != CL_DEVICE_TYPE_CPU) return true;
 
     cl_platform_id platform = 0;
     cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
@@ -189,8 +194,8 @@ bool clCheckJITSaveTest()
             if (bResult)
             {
                 FILE * fout;
-                fout = fopen("jit.bin", "wb");
-                fwrite(pBinaries[0], 1, sumBinariesSize, fout);
+                fout = fopen(g_BINFILENAME, "wb");
+                fwrite(pBinaries[0], 1, binarySizes[0], fout);
                 fclose(fout);
                 printf("Saved successfully!! [size = %d] \n", sumBinariesSize);
             }
