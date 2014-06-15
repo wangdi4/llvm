@@ -1527,10 +1527,10 @@ void ScalarizeFunction::resolveDeferredInstructions()
 
 bool ScalarizeFunction::isScalarizableLoadStoreType(VectorType *type) {
   // Scalarize Load/Store worth doing only if:
-  //  1. KNC
+  //  1. KNC/KNL
   //  2. Load/Store type is a vector with less than 16 elements
 
-  return ((type != NULL) && (m_Cpu == Intel::MIC_KNC) && (type->getNumElements() < 16));
+  return ((type != NULL) && Intel::CPUId::HasGatherScatter(m_Cpu) && (type->getNumElements() < 16));
 }
 
 } // Namespace
