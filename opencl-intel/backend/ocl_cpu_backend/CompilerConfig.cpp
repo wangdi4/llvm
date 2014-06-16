@@ -158,8 +158,13 @@ void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOpt
     m_cpuFeatures   = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES, m_cpuFeatures.c_str());
     m_transposeSize = (ETransposeSize)pBackendOptions->GetIntValue((int)CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE, m_transposeSize);
     m_useVTune      = pBackendOptions->GetBooleanValue((int)CL_DEV_BACKEND_OPTION_USE_VTUNE, m_useVTune);
-    pBackendOptions->GetValue((int)OPTION_IR_DUMPTYPE_AFTER, &m_DumpIROptionAfter, 0);
-    pBackendOptions->GetValue((int)OPTION_IR_DUMPTYPE_BEFORE, &m_DumpIROptionBefore, 0);
+
+    const void* pDumpIROptionAfter = NULL, *DumpIROptionBefore = NULL;
+    pBackendOptions->GetValue((int)OPTION_IR_DUMPTYPE_AFTER, &pDumpIROptionAfter, 0);
+    pBackendOptions->GetValue((int)OPTION_IR_DUMPTYPE_BEFORE, &DumpIROptionBefore, 0);
+    m_DumpIROptionAfter = reinterpret_cast<const std::vector<IRDumpOptions>*>(pDumpIROptionAfter);
+    m_DumpIROptionBefore = reinterpret_cast<const std::vector<IRDumpOptions>*>(DumpIROptionBefore);
+
     m_dumpIRDir     = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DUMP_IR_DIR, m_dumpIRDir.c_str());
     m_dumpHeuristicIR = pBackendOptions->GetBooleanValue((int)CL_DEV_BACKEND_OPTION_DUMP_HEURISTIC_IR, m_dumpHeuristicIR);
 
