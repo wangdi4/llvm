@@ -353,8 +353,13 @@ bool clSvmTest()
         const cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };    
         context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
 		CheckException(L"clCreateContextFromType", CL_SUCCESS, iRet);
-		
-		queue = clCreateCommandQueue(context, device, 0, &iRet);
+
+#if _WIN32
+#pragma warning( suppress : 4996 )
+    queue = clCreateCommandQueue(context, device, 0, &iRet);
+#else
+    queue = clCreateCommandQueue(context, device, 0, &iRet);
+#endif		
 		CheckException(L"clCreateCommandQueue", CL_SUCCESS, iRet);
 
 		TestEnqueueSVMCommands(context, queue, MEMCPY);

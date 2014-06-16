@@ -1806,6 +1806,12 @@ cl_err_code NDRangeKernelCommand::Init()
     pKernelParam->arg_size = uiDispatchSize;
     pKernelParam->arg_values = (void*)pDispatchBuffer;
 
+    if (NULL == m_cpszLocalWorkSize && GetUserLoggerInstance().IsApiLoggingEnabled())
+    {
+        // let BE report the calculated local work size later
+        GetUserLoggerInstance().RegisterArgValues(m_kernelParams.arg_values);
+    }
+
     if (m_nonArgSvmBuffersVec.empty())
     {
         pKernelParam->ppNonArgSvmBuffers = NULL;

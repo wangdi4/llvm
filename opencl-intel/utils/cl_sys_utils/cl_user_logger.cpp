@@ -36,6 +36,14 @@
 #include "cl_sys_defines.h"
 #include "cl_config.h"
 
+using std::ostringstream;
+using std::ends;
+using std::cerr;
+using std::ios_base;
+using std::endl;
+using std::string;
+using std::vector;
+
 namespace Intel { namespace OpenCL { namespace Utils {
 
 #ifdef _WIN32
@@ -77,7 +85,7 @@ static std::tm GetLocalTime()
 
 static string GetFormattedHour(bool bUseColonSeperator, const std::tm& lt)
 {
-    std::ostringstream formattedHour;
+    ostringstream formattedHour;
     const string timeSeperator = bUseColonSeperator ? ":" : "";
     formattedHour << std::setfill('0') << lt.tm_hour << timeSeperator << std::setw(2) << lt.tm_min << timeSeperator << std::setw(2) << lt.tm_sec;
     return formattedHour.str();
@@ -86,14 +94,14 @@ static string GetFormattedHour(bool bUseColonSeperator, const std::tm& lt)
 static string GetFormattedTime()
 {
     const std::tm lt = GetLocalTime();
-    std::ostringstream formattedTime;
+    ostringstream formattedTime;
     formattedTime << (lt.tm_mon + 1) << "." << lt.tm_mday << "." << (1900 + lt.tm_year) << "_" <<
 #ifdef _WIN32
         GetFormattedHour(false, lt) // : isn't allowed in Windows filenames
 #else
         GetFormattedHour(true, lt)
 #endif
-        << ".txt" << std::ends;
+        << ".txt" << ends;
     return formattedTime.str();
 }
 
@@ -108,22 +116,22 @@ void UserLogger::Setup(const string& filename, bool bLogErrors, bool bLogApis)
     }
     else if ("stderr" == filename)
     {
-        m_pOutput = &std::cerr;
+        m_pOutput = &cerr;
     }
     else
     {
-        std::ostringstream finalFilename;
+        ostringstream finalFilename;
         finalFilename << filename << "_PID" <<
 #ifdef _WIN32
         GetCurrentProcessId()
 #else
         getpid()
 #endif
-        << "_" << GetFormattedTime() << std::ends;    
-        m_logFile.open(finalFilename.str().c_str(), std::ios_base::out);
+        << "_" << GetFormattedTime() << ends;    
+        m_logFile.open(finalFilename.str().c_str(), ios_base::out);
         if (!m_logFile.is_open())
         {
-            std::cerr << "cannot open log file " << finalFilename.str() << " for writing" << std::endl;
+            cerr << "cannot open log file " << finalFilename.str() << " for writing" << endl;
             return;
         }
         else
@@ -135,17 +143,18 @@ void UserLogger::Setup(const string& filename, bool bLogErrors, bool bLogApis)
     m_bLogApis = bLogApis;
 }
 
-UserLogger::UserLogger() : m_pOutput(NULL), m_bFirstApiFuncArg(false), m_bExpectOutputParams(false), m_iLastRetValue(CL_SUCCESS), m_bLogErrors(false), m_bLogApis(false)
+UserLogger::UserLogger() :
+    m_pOutput(NULL), m_bFirstApiFuncArg(false), m_bExpectOutputParams(false), m_iLastRetValue(CL_SUCCESS), m_bLogErrors(false), m_bLogApis(false), m_pCurrArgValues(NULL)
 {
     ConfigFile config(GetConfigFilePath());
     const string varName = "CL_CONFIG_USER_LOGGER";
-    const std::string configStr = config.Read(varName, string(""));
+    const string configStr = config.Read(varName, string(""));
     // parse configStr
     bool bLogErrs = true, bLogApsi = false; // the defaults
-    const std::string::size_type indexOfComman = configStr.find(',');
-    if (indexOfComman != std::string::npos)
+    const string::size_type indexOfComman = configStr.find(',');
+    if (indexOfComman != string::npos)
     {
-        const std::string enableStr = configStr.substr(0, indexOfComman);
+        const string enableStr = configStr.substr(0, indexOfComman);
         if ("I" == enableStr)
         {
             bLogErrs = false;
@@ -157,12 +166,12 @@ UserLogger::UserLogger() : m_pOutput(NULL), m_bFirstApiFuncArg(false), m_bExpect
         }
         else if ("E" != enableStr)
         {
-            std::cerr << "\"" << configStr << "\" is an invalid value for " << varName << std::endl;
+            cerr << "\"" << configStr << "\" is an invalid value for " << varName << endl;
             return;
         }
     }
 
-    const std::string filename = indexOfComman != std::string::npos ? configStr.substr(indexOfComman + 1) : configStr;
+    const string filename = indexOfComman != string::npos ? configStr.substr(indexOfComman + 1) : configStr;
     if (!configStr.empty())
     {
         Setup(filename, bLogErrs, bLogApsi);
@@ -213,7 +222,7 @@ void UserLogger::EndApiFuncInternal(cl_int retVal)
 void UserLogger::EndApiFuncInternal(const void* retPtr)
 {
     m_strStream << ")";
-    m_retValStream << " = 0x" << std::ios_base::hex << retPtr;
+    m_retValStream << " = 0x" << ios_base::hex << retPtr;
     if (NULL != retPtr)
     {
         m_iLastRetValue = CL_SUCCESS;
@@ -235,10 +244,6 @@ void UserLogger::EndApiFuncInternal()
 void UserLogger::EndApiFuncEpilog()
 {
     m_timer.Stop();    
-    if (!m_bExpectOutputParams)
-    {
-        m_retValStream << std::endl;
-    }
     // thread ID
     std::right(*m_pOutput);
     *m_pOutput << std::setfill(' ') << std::setw(5) << std::dec << 
@@ -252,12 +257,24 @@ void UserLogger::EndApiFuncEpilog()
 #endif
 #endif
         << " ";
+    const unsigned long long ulStartTime = RDTSC();
+    if (NULL != m_pCurrArgValues)
+    {
+        m_beLogger.RegisterArgValues(m_pCurrArgValues, ulStartTime);
+        m_pCurrArgValues = NULL;
+    }
     // start time in clock ticks
-    *m_pOutput << RDTSC() << " ";
+    *m_pOutput << ulStartTime << " ";
     // duration
     *m_pOutput << m_timer.GetTotalUsecs() << " ";
     // API call - I've taken this format from ltrace Linux program
     *m_pOutput << m_strStream.str() << m_retValStream.str();
+    if (!m_beLogStream.str().empty())
+    {
+        *m_pOutput << "," << m_beLogStream.str();
+        m_beLogStream.str("");
+    }
+    *m_pOutput << endl;
     
     // clear all necessary attributes
     m_timer.Reset();
@@ -266,7 +283,7 @@ void UserLogger::EndApiFuncEpilog()
     m_mutex.Unlock();
 }
 
-void UserLogger::PrintOutputParam(const std::string& name, const void* addr, size_t size, bool bIsPtr2Ptr, bool bIsUnsigned)
+void UserLogger::PrintOutputParam(const string& name, const void* addr, size_t size, bool bIsPtr2Ptr, bool bIsUnsigned)
 {
     if (!m_bLogApis)
     {
@@ -336,15 +353,15 @@ void UserLogger::PrintOutputParam(const std::string& name, const void* addr, siz
     }
 }
 
-void UserLogger::PrintError(const std::string& msg)
+void UserLogger::PrintError(const string& msg)
 {
     if (m_bLogErrors)
     {
-        *m_pOutput << "ERROR: " << msg << std::endl;
+        *m_pOutput << "ERROR: " << msg << endl;
     }
 }
 
-void UserLogger::PrintStringInternal(const std::string& str, bool bLock)
+void UserLogger::PrintStringInternal(const string& str, bool bLock)
 {
     if (bLock)
     {
@@ -355,6 +372,49 @@ void UserLogger::PrintStringInternal(const std::string& str, bool bLock)
     {
         m_mutex.Unlock();
     }
+}
+
+void UserLogger::RegisterArgValues(const void* pArgValues)
+{
+    m_pCurrArgValues = pArgValues;
+}
+
+void UserLogger::SetLocalWorkSize4ArgValues(const void* pArgValues, const vector<size_t>& localWorkSize)
+{
+    OclAutoMutex mutex(&m_mutex);
+    ostream& stream = m_beLogger.IsArgValuesExist(pArgValues) ? *m_pOutput : m_beLogStream;
+    stream << " Local_work_size calculated by BE";
+    if (m_beLogger.IsArgValuesExist(pArgValues))
+    {
+        *m_pOutput << " with start time " << m_beLogger.UnrigesterArgValues(pArgValues);
+    }
+    stream  << ": (";    
+    for (vector<size_t>::size_type i = 0; i < localWorkSize.size(); ++i)
+    {
+        stream << localWorkSize[i];
+        if (i < localWorkSize.size() - 1)
+        {
+            stream << ",";
+        }
+    }
+    stream << ")" << endl;
+}
+
+void UserLogger::BELogger::RegisterArgValues(const void* pArgValues, unsigned long long ulStartTime)
+{
+    m_mapArgVals2StartTime[pArgValues] = ulStartTime;
+}
+
+bool UserLogger::BELogger::IsArgValuesExist(const void* pArgValues) const
+{
+    return m_mapArgVals2StartTime.find(pArgValues) != m_mapArgVals2StartTime.end();
+}
+
+unsigned long long UserLogger::BELogger::UnrigesterArgValues(const void* pArgValues)
+{
+    const unsigned long long ulStartTime = m_mapArgVals2StartTime[pArgValues];
+    m_mapArgVals2StartTime.erase(pArgValues);
+    return ulStartTime;
 }
 
 }}}

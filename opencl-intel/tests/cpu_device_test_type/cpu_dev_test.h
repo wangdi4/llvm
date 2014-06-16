@@ -58,7 +58,8 @@ extern "C" int clDevCreateDeviceInstance(
 								   unsigned int		dev_id,
 								   IOCLFrameworkCallbacks	*pDevCallBacks,
 								   IOCLDevLogDescriptor		*pLogDesc,
-								   IOCLDeviceAgent*				*pDevice
+								   IOCLDeviceAgent*				*pDevice,
+                   				   void* pUserLogger
 								   );
 
 extern "C" int clDevGetDeviceInfo(

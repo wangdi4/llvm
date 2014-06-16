@@ -258,7 +258,8 @@ extern "C"
 cl_dev_err_code clDevCreateDeviceInstance(  cl_uint        dev_id,
                                    IOCLFrameworkCallbacks  *pDevCallBacks,
                                    IOCLDevLogDescriptor    *pLogDesc,
-                                   IOCLDeviceAgent*        *pDevice
+                                   IOCLDeviceAgent*        *pDevice,
+                                   void* pUserLogger
                                    )
 {
     if(NULL == pDevCallBacks || NULL == pDevice)

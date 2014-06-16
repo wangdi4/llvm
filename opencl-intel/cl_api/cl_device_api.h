@@ -631,11 +631,13 @@ class IOCLDevice;
         CL_DEV_SUCCESS      The device was successfully created. pDevEntry holds updated pointers
         CL_DEV_ERROR_FAIL   Internal error
 */
+
 typedef cl_dev_err_code (fn_clDevCreateDeviceInstance)(
                                    unsigned int     dev_id,
                                    IOCLFrameworkCallbacks   *pDevCallBacks,
                                    IOCLDevLogDescriptor     *pLogDesc,
-                                   IOCLDeviceAgent*             *pDevice
+                                   IOCLDeviceAgent*             *pDevice,
+                                   void* pUserLogger    // this should be cast to UserLogger*
                                    );
 
 //! This function return device specific information defined by cl_device_info enumeration as specified in OCL spec. table 4.3.

@@ -28,8 +28,10 @@
 
 #include "cl_device_api.h"
 #include "cl_dev_backend_api.h"
+#include "cl_user_logger.h"
 #include <string>
 
+using Intel::OpenCL::Utils::g_pUserLogger;
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
@@ -57,7 +59,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
             if( CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE != optionId )
             {
                 return defaultValue;
-            }
+            }            
             return !m_useVectorizer ? 1 : defaultValue;
         }
 
@@ -68,6 +70,18 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 
         virtual bool GetValue(int optionId, void* Value, size_t* pSize) const
         {
+            if (CL_DEV_BACKEND_OPTION_USER_LOGGER == optionId)
+            {
+                *pSize = sizeof(g_pUserLogger);
+                if (g_pUserLogger->IsApiLoggingEnabled())
+                {
+                    Value = g_pUserLogger;   
+                }
+                else
+                {
+                    Value = NULL;
+                }
+            }
             return false;
         }
 

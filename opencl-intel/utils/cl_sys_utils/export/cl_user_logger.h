@@ -156,6 +156,19 @@ public:
      */
     void PrintError(const std::string& msg);
 
+    /**
+     * Register the cl_dev_cmd_param_kernel::arg_values that identifies the NDRange command for the BE to log its calculated local wort size 
+     * @param pArgValues the cl_dev_cmd_param_kernel::arg_values to be registered
+     */
+    void RegisterArgValues(const void* pArgValues);
+
+    /**
+     * Set the local work size calculated by BE for a specific NDRange command identified by cl_dev_cmd_param_kernel::arg_values
+     * @param pArgValues the cl_dev_cmd_param_kernel::arg_values identifying the NDRange command
+     * @param the local work size calculated by BE
+     */
+    void SetLocalWorkSize4ArgValues(const void* pArgValues, const std::vector<size_t>& localWorkSize);
+
 private:    
 
     void Setup(const std::string& filename, bool bLogErrors, bool bLogApis);
@@ -192,6 +205,29 @@ private:
     // do not implement
     UserLogger(const UserLogger&);
     UserLogger& operator=(const UserLogger&);
+
+        /**
+     * This class is responsible for handling the case that the user call clEnqueueNDRangeKernel without specifying local_work_size. In this case the logger will not log this
+     * API call when it returns, but will wait with the log until the BE reports it the local work size it has calculated.
+     */
+    class BELogger
+    {
+    public:
+
+        void RegisterArgValues(const void* pArgValues, unsigned long long ulStartTime);
+
+        bool IsArgValuesExist(const void* pArgValues) const;
+
+        unsigned long long UnrigesterArgValues(const void* pArgValues);
+
+    private:
+
+        /* a map from cl_dev_cmd_param_kernel::arg_values, which identifies the NDRange command to the BE (this value is already passed to BE in Kernel::PrepareKernelArguments
+           and we don't want to add another parameter to this method because of performance considerations) to the start times in clock ticks of the call to
+           clEnqueueNDRangeKernel.
+           This attribute is synchronized by the mutex of UserLogger, so it doesn't need a mutex of itself. */
+        std::map<const void*, unsigned long long> m_mapArgVals2StartTime;        
+    };
     
     std::ofstream m_logFile;
     std::ostream* m_pOutput;
@@ -207,6 +243,10 @@ private:
     cl_int m_iLastRetValue;
     bool m_bLogErrors;
     bool m_bLogApis;
+    const void* m_pCurrArgValues;
+    BELogger m_beLogger;
+    std::ostringstream m_beLogStream;
+    
 };
 
 // inline methods (I want to save the function call in case no logging is done)
@@ -264,5 +304,7 @@ inline void UserLogger::EndApiFunc()
     }
     EndApiFuncInternal();
 }
+
+extern UserLogger* g_pUserLogger;   // a global pointer to the logger, which be defined in each shared library
 
 }}}

@@ -737,7 +737,7 @@ int CPUDeviceTest_Main()
 
 	gDeviceIdInType = deviceIdsList[0];
 
-	iRes = clDevCreateDeviceInstance(gDeviceIdInType, &g_dev_callbacks, &log_desc, &dev_entry);
+	iRes = clDevCreateDeviceInstance(gDeviceIdInType, &g_dev_callbacks, &log_desc, &dev_entry, NULL);
 	EXPECT_TRUE(CL_DEV_SUCCEEDED(iRes));
 
 	int rc = RUN_ALL_TESTS();
