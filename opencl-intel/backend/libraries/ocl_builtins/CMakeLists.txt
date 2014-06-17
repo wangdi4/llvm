@@ -28,6 +28,10 @@ option (AUTOGEN_OCL_BUILTIN "Generate OCL builtins" ON)
 # target name prefix to be used for generated binaries
 set (TARGET_NAME_PREFIX clbltfn)
 
+# target name for shared RTL
+set (SHARED_RTL_NAME shared)
+set (TARGET_NAME_SHARED ${TARGET_NAME_PREFIX}${SHARED_RTL_NAME})
+
 if (BUILD_X64)
   # 64 bit
   set (PLATFORM 64)
@@ -267,27 +271,49 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
     message (FATAL_ERROR "add_ocl_library(${TARGET_NAME}) - no sources given")
   endif ()
 
+  set (TMP_LINKED_RTL ${TARGET_NAME}_linked_tmp)
+  set (TMP_LINKED_RTL_OUTPUT ${TMP_LINKED_RTL}${OCL_OUTPUT_EXTENSION})
+
   set (OUTPUT_FILE ${TARGET_NAME}${OCL_OUTPUT_EXTENSION})
   set (PRECOMPILED_OUTPUT_FILE ${TARGET_NAME}${OCL_PRECOMPILED_OUTPUT_EXTENSION})
 
   # Compile all files and prepare a 'TMP_FILES' list of .rtl files
   foreach (FILE ${ARGN})
+    message (STATUS "add_ocl_library compiling ${FILE}")
     compile_ocl( TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR})
     list (APPEND TMP_FILES ${TMP_RTL})
   endforeach (FILE)
 
   if(${USE_OPT})
-    # link OpenCL inage callback library (adding also intrinsic BI IR )
+    # link OpenCL image callback library (adding also intrinsic BI IR )
     add_custom_command (OUTPUT ${OUTPUT_FILE}_noopt
       COMMENT "OCL Linking -o ${OUTPUT_FILE}_noopt"
       COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${OUTPUT_FILE}_noopt ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll
       DEPENDS ${LLVM_LINK} ${TMP_FILES} ${CL_BUILTIN_SOURCE_DIR}/GENERIC/ll_intrinsics.ll
       VERBATIM
       )
+    if(ARCH STREQUAL b2)
+      set (RTL_TO_LINK ${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION})
+    else()
+      # link shared rtl and particular BI rtl
+      # image callback rtl must be linked with built-ins RTL statically, we have two built-ins rtls: shared (clbltfnshared.rtl)
+      # and particular lib (for  example, clbltfnl9.rtl), but image optimizer takes only one runtime lib as argument, so we have to
+      # link clbltfnshared.rtl and particular (clbltfnl9.rtl, for instance) together to temporary TMP_LINKED_RTL_OUTPUT and then
+      # link image callback rtl (${OUTPUT_FILE}_noopt) with this TMP_LINKED_RTL_OUTPUT
+      # 
+      add_custom_command (OUTPUT ${TMP_LINKED_RTL_OUTPUT}
+        COMMENT "OCL Linking tmp rtl -o ${TMP_LINKED_RTL}"
+        COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${TMP_LINKED_RTL_OUTPUT} ${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION} ${BUILTINS_INSTALL_DIR}/${TARGET_NAME_SHARED}${OCL_OUTPUT_EXTENSION}
+        DEPENDS ${LLVM_LINK} ${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION} ${TARGET_NAME_SHARED}
+        VERBATIM
+        )
+      set (RTL_TO_LINK ${TMP_LINKED_RTL_OUTPUT})
+    endif()
+
     add_custom_command(OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
       COMMENT "Opt optimizing ${OUTPUT_FILE}_noopt"
-      COMMAND ${OPT} ${OUTPUT_FILE}_noopt ${LLVM_IMAGES_OPT_PARAMS} -runtimelib=${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
-      DEPENDS ${OPT_DEP} ${OUTPUT_FILE}_noopt ${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION}
+      COMMAND ${OPT} ${OUTPUT_FILE}_noopt ${LLVM_IMAGES_OPT_PARAMS} -runtimelib=${RTL_TO_LINK} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
+      DEPENDS ${OPT_DEP} ${OUTPUT_FILE}_noopt ${RTL_TO_LINK}
       VERBATIM
       )
   else()
@@ -475,10 +501,74 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
 
 endfunction( create_target)
 
+
+
+function( create_shared_rtl )
+
+  set (TARGET_DIR ${SHARED_RTL_NAME})
+  
+  message (STATUS "Building target:   ${TARGET_NAME_SHARED}")
+
+  # intermediate directory for OpenCL compilation/link
+  set (INTERMEDIATE_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
+
+  list(APPEND CMD_ARGS -gen-ocl-bi )
+  # generate OCL builtin implementation
+  tblgenoclblt(OCL_TABLEGEN_SOURCE
+    ${INTERMEDIATE_OUTPUT_DIR}
+    ${TARGET_DIR}
+    target-${SHARED_RTL_NAME}.td
+    target-${SHARED_RTL_NAME}.cl
+    ${CMD_ARGS}
+  )
+
+  # build .rtl file out of OCL code (by clang) and copy it to install directory
+  set (OUTPUT_FILE ${TARGET_NAME_SHARED}${OCL_OUTPUT_EXTENSION})
+  set (PROC core2)
+  # Compile all files and prepare a 'TMP_FILES' list of .rtl files
+  foreach (FILE ${OCL_TABLEGEN_SOURCE})
+    compile_ocl( TMP_RTL ${PROC} ${FILE} ${INTERMEDIATE_OUTPUT_DIR})
+    list (APPEND TMP_FILES ${TMP_RTL})
+  endforeach (FILE)
+
+  add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
+    COMMENT "OCL Linking shared ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}"
+    COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE} ${TMP_FILES}
+    DEPENDS ${LLVM_LINK} ${TMP_FILES}
+    VERBATIM
+    )
+
+  message (STATUS "Outputting direct ${OUTPUT_FILE}")
+
+  set (TARGET_DEPENDENCIES ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE})
+
+  # top-level target for OCL target
+  add_custom_target (${TARGET_NAME_SHARED} ALL
+    DEPENDS ${TARGET_DEPENDENCIES}
+    COMMENT "Target ${TARGET_NAME_SHARED} build completed"
+    VERBATIM
+    SOURCES ${OCL_TABLEGEN_SOURCE}
+  )
+
+  set_target_properties (${TARGET_NAME_SHARED} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/cl_builtins)
+
+  if (WIN32)
+    set (INSTALL_LIST ${OCL_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_FILE})
+    install( FILES ${INSTALL_LIST} DESTINATION bin)
+  else(WIN32)
+    set (INSTALL_LIST ${OCL_TOOLS_BINARY_DIR}/${OUTPUT_FILE})
+    install( FILES ${INSTALL_LIST} DESTINATION bin)
+  endif(WIN32)
+
+
+endfunction( create_shared_rtl)
+
+
 #------------------ Main -----------------------
 
 # OpenCL source code
 list (APPEND OCL_SOURCE_FILES
+  generic-builtin-defines.c
   image_functions.cpp
   cbk_helper.c
   extended_execution_functions.cpp
@@ -518,6 +608,7 @@ endif( (INCLUDE_ATOM) OR (WIN32 AND NOT BUILD_X64) )
 add_subdirectory (sse42)
 add_subdirectory (avx)
 add_subdirectory (avx2)
+add_subdirectory (shared)
 if (BUILD_X64)
   add_subdirectory (KNLni)
 endif (BUILD_X64)

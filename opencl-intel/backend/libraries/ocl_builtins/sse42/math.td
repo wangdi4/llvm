@@ -18,16 +18,11 @@ OclBuiltinImpl floor_f32_impl = OclBuiltinImpl<floor, [v4f32], 0, [{
     return _mm_floor_ps($Arg0VarName);
   }]>;
 // leave only implementaion for float4. others sizes are promoted and expanded to float4 version
-OclBuiltinImpl floor_f32_promote = OclBuiltinImpl<floor, [v1f32, v2f32, v3f32], 0, Promote1>;
-OclBuiltinImpl floor_f32_expand = OclBuiltinImpl<floor, [v8f32, v16f32], 0, Expand1>;
 
 // trunc
 OclBuiltinImpl trunc_f32_impl = OclBuiltinImpl<trunc, [v4f32], 0, [{
     return _mm_round_ps($Arg0VarName, _MM_FROUND_TO_ZERO);
   }]>;
-// leave only implementaion for float4. others sizes are promoted and expanded to float4 version
-OclBuiltinImpl trunc_f32_promote = OclBuiltinImpl<trunc, [v1f32, v2f32, v3f32], 0, Promote1>;
-OclBuiltinImpl trunc_f32_expand = OclBuiltinImpl<trunc, [v8f32, v16f32], 0, Expand1>;
 
 // round
 OclBuiltinImpl round_f32_impl = OclBuiltinImpl<round, [v4f32], 0, [{
@@ -42,34 +37,18 @@ OclBuiltinImpl round_f32_impl = OclBuiltinImpl<round, [v4f32], 0, [{
     $Arg0VarName = as_float4(as_int4($Arg0VarName) | xSign);
     return $Arg0VarName;
   }]>;
-// leave only implementaion for float4. others sizes are promoted and expanded to float4 version
-OclBuiltinImpl round_f32_promote = OclBuiltinImpl<round, [v1f32, v2f32, v3f32], 0, Promote1>;
-OclBuiltinImpl round_f32_expand = OclBuiltinImpl<round, [v8f32, v16f32], 0, Expand1>;
+
 
 // rint
 OclBuiltinImpl rint_f32_impl = OclBuiltinImpl<rint, [v4f32], 0, [{
     return _mm_round_ps($Arg0VarName, _MM_FROUND_TO_NEAREST_INT);
   }]>;
 // leave only implementaion for float4. others sizes are promoted and expanded to float4 version
-OclBuiltinImpl rint_f32_promote = OclBuiltinImpl<rint, [v1f32, v2f32, v3f32], 0, Promote1>;
-OclBuiltinImpl rint_f32_expand = OclBuiltinImpl<rint, [v8f32, v16f32], 0, Expand1>;
-
-
-// copysign
-// leave only implementaion for float4. float, float2, float3 are promoted to float4
-OclBuiltinImpl copysign_f32_promote = OclBuiltinImpl<copysign, [v1f32, v2f32, v3f32], 0, Promote2>;
-
-// fdim
-// leave only implementaion for float4. float, float2, float3 are promoted to float4
-OclBuiltinImpl fdim_f32_promote = OclBuiltinImpl<fdim, [v1f32, v2f32, v3f32], 0, Promote2>;
 
 // ilogb
-// leave only implementaion for float4. float, float2, float3 are promoted to float4
-OclBuiltinImpl ilogb_f32_promote = OclBuiltinImpl<ilogb, [v1f32, v2f32, v3f32], 0, Promote1>;
-
-// nan
-// leave only implementaion for float4. float, float2, float3 are promoted to float4
-OclBuiltinImpl nan_f32_promote = OclBuiltinImpl<nan, [v1f32, v2f32, v3f32], 0, Promote1>;
+// leave only implementaion for float4. float, float2 are promoted to float4
+// float3 is promoted in the shared rtl
+OclBuiltinImpl ilogb_f32_promote = OclBuiltinImpl<ilogb, [v1f32, v2f32], 0, Promote1>;
 
 //fract
 // leave only implementaion for float4. float, float2, float3 are promoted to float4
@@ -81,7 +60,7 @@ OclBuiltinImpl fract_gas_f32_promote = OclBuiltinImpl<fract_gas, [v1f32, v2f32, 
 //////////////////////////////////////////////////////////////////////////////////////////////
 //                Double f64 section
 //////////////////////////////////////////////////////////////////////////////////////////////
-// ceil 
+// ceil
 // leave only implementaion to double2. others sizes are calling double2 version
 OclBuiltinImpl ceil_f64_impl = OclBuiltinImpl<ceil, [v2f64], 0, [{
     return _mm_ceil_pd($Arg0VarName);
@@ -89,23 +68,19 @@ OclBuiltinImpl ceil_f64_impl = OclBuiltinImpl<ceil, [v2f64], 0, [{
 OclBuiltinImpl ceil_f64_promote = OclBuiltinImpl<ceil, [v1f64], 0, Promote1>;
 OclBuiltinImpl ceil_f64_expand = OclBuiltinImpl<ceil, [v3f64, v4f64, v8f64, v16f64], 0, Expand1>;
 
-// floor 
+// floor
 // leave only implementaion to double2. others sizes are calling double2 version
 OclBuiltinImpl floor_f64_impl = OclBuiltinImpl<floor, [v2f64], 0, [{
     return _mm_floor_pd($Arg0VarName);
   }]>;
-OclBuiltinImpl floor_f64_promote = OclBuiltinImpl<floor, [v1f64], 0, Promote1>;
-OclBuiltinImpl floor_f64_expand = OclBuiltinImpl<floor, [v3f64, v4f64, v8f64, v16f64], 0, Expand1>;
 
-// trunc 
+// trunc
 // leave only implementaion to double2. others sizes are calling double2 version
 OclBuiltinImpl trunc_f64_impl = OclBuiltinImpl<trunc, [v2f64], 0, [{
     return _mm_round_pd($Arg0VarName, _MM_FROUND_TO_ZERO);
   }]>;
-OclBuiltinImpl trunc_f64_promote = OclBuiltinImpl<trunc, [v1f64], 0, Promote1>;
-OclBuiltinImpl trunc_f64_expand = OclBuiltinImpl<trunc, [v3f64, v4f64, v8f64, v16f64], 0, Expand1>;
 
-// round 
+// round
 // leave only implementaion to double2. others sizes are calling double2 version
 OclBuiltinImpl round_f64_impl = OclBuiltinImpl<round, [v2f64], 0, [{
     const long mth_signMask = 0x7FFFFFFFFFFFFFFF;
@@ -119,14 +94,10 @@ OclBuiltinImpl round_f64_impl = OclBuiltinImpl<round, [v2f64], 0, [{
     $Arg0VarName = as_double2(as_long2($Arg0VarName) | xSign);
     return $Arg0VarName;
   }]>;
-OclBuiltinImpl round_f64_promote = OclBuiltinImpl<round, [v1f64], 0, Promote1>;
-OclBuiltinImpl round_f64_expand = OclBuiltinImpl<round, [v3f64, v4f64, v8f64, v16f64], 0, Expand1>;
 
-// rint 
+// rint
 // leave only implementaion to double2. others sizes are calling double2 version
 OclBuiltinImpl rint_f64_impl = OclBuiltinImpl<rint, [v2f64], 0, [{
     return _mm_round_pd($Arg0VarName, _MM_FROUND_TO_NEAREST_INT);
   }]>;
-OclBuiltinImpl rint_f64_promote = OclBuiltinImpl<rint, [v1f64], 0, Promote1>;
-OclBuiltinImpl rint_f64_expand = OclBuiltinImpl<rint, [v3f64, v4f64, v8f64, v16f64], 0, Expand1>;
 

@@ -39,6 +39,8 @@ void CPUBuiltinLibrary::Load()
 {
     char szModuleName[MAX_PATH];
     char szRTLibName[MAX_PATH];
+    char szRTLibSvmlSharedName[MAX_PATH];
+
     std::string strErr;
 
     Utils::SystemInfo::GetModuleDirectory(szModuleName, MAX_PATH);
@@ -52,23 +54,36 @@ void CPUBuiltinLibrary::Load()
 #else
     snprintf(szRTLibName, MAX_PATH, "%s__ocl_svml_%s.so", szModuleName, pCPUPrefix);
 #endif
-    if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(szRTLibName,&strErr)) 
+
+    if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(szRTLibName,&strErr))
     {
         throw Exceptions::DeviceBackendExceptionBase(std::string("Loading SVML library failed - ") + strErr);
     }
-    
+
     // Load LLVM built-ins module
 #if defined (_WIN32)
     sprintf_s(szRTLibName, MAX_PATH, "%sclbltfn%s.rtl", szModuleName, pCPUPrefix);
+    sprintf_s(szRTLibSvmlSharedName, MAX_PATH, "%sclbltfnshared.rtl", szModuleName);
 #else
     snprintf(szRTLibName, MAX_PATH, "%sclbltfn%s.rtl", szModuleName, pCPUPrefix);
+    snprintf(szRTLibSvmlSharedName, MAX_PATH, "%sclbltfnshared.rtl", szModuleName);
 #endif
-     
+    // load particular (not shared) RTL optimized for one architecture
     llvm::error_code ret = llvm::MemoryBuffer::getFile(szRTLibName, m_pRtlBuffer);
     if( !m_pRtlBuffer  || ret.value() != 0)
     {
         throw Exceptions::DeviceBackendExceptionBase(std::string("Failed to load the builtins rtl library"));
     }
+
+    // on KNC we don't have shared (common) library
+    if (m_cpuId.GetCPU() != MIC_KNC) {
+        // on CPU load shared RTL to memory, it will be linked with the particular (not shared) RTL
+        ret = llvm::MemoryBuffer::getFile(szRTLibSvmlSharedName, m_pRtlBufferSvmlShared);
+        if( !m_pRtlBufferSvmlShared || ret.value() != 0)   {
+            throw Exceptions::DeviceBackendExceptionBase(std::string("Failed to load the shared builtins rtl library"));
+        }
+    }
+
 }
 
 }}} // namespace
