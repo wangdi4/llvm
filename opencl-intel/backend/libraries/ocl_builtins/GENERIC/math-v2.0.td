@@ -39,14 +39,6 @@ OclBuiltinImpl sin_svml_rm = OclBuiltinImpl<sin_rm, sin_rm.Types, 0, [{
     return __ocl_svml_$Target_sin$SVMLSuffix_rm($Arg0VarName);
   }]>;
 
-// sincos_rm
-code sincos_svml_rm = [{
-    return __ocl_svml_$Target_sincos$SVMLSuffix_rm($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
-  }];
-OclBuiltinImpl sincos_pas_svml_rm = OclBuiltinImpl<sincos_pas_rm, sincos_pas_rm.Types, 0, sincos_svml_rm>;
-OclBuiltinImpl sincos_las_svml_rm = OclBuiltinImpl<sincos_las_rm, sincos_las_rm.Types, 0, sincos_svml_rm>;
-OclBuiltinImpl sincos_gas_svml_rm = OclBuiltinImpl<sincos_gas_rm, sincos_gas_rm.Types, 0, sincos_svml_rm>;
-
 // tan_rm
 OclBuiltinImpl tan_svml_rm = OclBuiltinImpl<tan_rm, tan_rm.Types, 0, [{
     return __ocl_svml_$Target_tan$SVMLSuffix_rm($Arg0VarName);

@@ -1,9 +1,20 @@
 include "GENERIC/opencl-builtin.td"
 include "GENERIC/opencl-v1.2.td"
+include "GENERIC/opencl-v2.0.td"
+include "GENERIC/ll_intrinsics.td"
 
 class Generic : TargetImpl {
 include "GENERIC/code_expand_promote_common.td"
+include "GENERIC/code_conversion_sat_common.td"
+include "GENERIC/code_integer_common.td"
 include "GENERIC/math_shared.td"
+include "GENERIC/conversion_shared.td" 
+include "GENERIC/conversion_sat_shared.td"
+include "GENERIC/integer_shared.td"
+include "GENERIC/math-v2.0.td"
+include "GENERIC/common_shared.td"
+include "GENERIC/geometric.td"
+include "GENERIC/relational_shared.td"
 }
 
 class Shared : Generic {
@@ -19,9 +30,16 @@ code Prolog = [{
   #include <intrin.h>
 #endif
 #include "generic-builtin-defines.h"
+#include "cpu-builtin-defines.h"
 }];
 
 include "shared/math.td"
+include "shared/conversion.td"
+include "shared/conversion_sat.td"
+include "shared/integers.td"
+include "shared/common.td"
+include "shared/geometric.td"
+include "shared/relational.td"
 }
 
 def target : Shared {

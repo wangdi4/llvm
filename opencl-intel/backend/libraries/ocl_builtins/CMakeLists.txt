@@ -569,6 +569,7 @@ endfunction( create_shared_rtl)
 # OpenCL source code
 list (APPEND OCL_SOURCE_FILES
   generic-builtin-defines.c
+  cpu-builtin-defines.c
   image_functions.cpp
   cbk_helper.c
   extended_execution_functions.cpp
