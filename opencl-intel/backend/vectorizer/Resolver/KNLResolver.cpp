@@ -249,7 +249,8 @@ void KNLResolver::FixBaseAndIndexIfNeeded(
 }
 
 bool KNLResolver::isBitMask(const VectorType& vecType) const {
-  return (vecType.getBitWidth() == 512) && (vecType.getNumElements() <= 16);
+  // float16, int16, double8, long8, double16, long16
+  return (vecType.getBitWidth() >= 512) && (vecType.getNumElements() <= 16);
 }
 
 

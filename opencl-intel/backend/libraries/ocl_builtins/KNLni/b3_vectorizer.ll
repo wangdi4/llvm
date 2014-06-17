@@ -49,6 +49,12 @@ define <16 x double> @gather.v16f64 (double* %addr, <16 x i32> %index) {
   ret <16 x double> %t2
 }
 
+define <8 x double> @gather.v8f64 (double* %addr, <8 x i32> %index) {
+  %ptr = bitcast double *%addr to i8*
+  %res = call <8 x double> @llvm.x86.avx512.gather.dpd.512(<8 x double> undef, i8* %ptr, <8 x i32> %index, i8 -1, i32 8)
+  ret <8 x double> %res
+}
+
 define <16 x double> @masked_gather.v16f64 (<16 x i1> %mask, double* %addr, 
                                             <16 x i32> %index) {
   %ptr = bitcast double *%addr to i8*
@@ -69,6 +75,14 @@ define <16 x double> @masked_gather.v16f64 (<16 x i1> %mask, double* %addr,
             <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7,
              i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
   ret <16 x double> %t2
+}
+
+define <8 x double> @masked_gather.v8f64 (<8 x i1> %mask, double* %addr,
+                                           <8 x i32> %index) {
+  %ptr = bitcast double *%addr to i8*
+  %imask = bitcast <8 x i1> %mask to i8
+  %res = call <8 x double> @llvm.x86.avx512.gather.dpd.512(<8 x double> undef, i8* %ptr, <8 x i32> %index, i8 %imask, i32 8)
+  ret <8 x double> %res
 }
 
 ;; ------------------------------------
@@ -192,6 +206,15 @@ define void @scatter.v16f64 (double* %addr, <16 x i32>%index, <16 x double> %dat
   ret void
 }
 
+define void @scatter.v8f64 (double* %addr, <8 x i32>%index, <8 x double> %data) {
+  %ptr = bitcast double *%addr to i8*
+  call void @llvm.x86.avx512.scatter.dpd.512(i8* %ptr, i8 -1, <8 x i32> %index,
+                                    <8 x double> %data,
+                                    i32 8) ; scale 8
+  ret void
+}
+
+
 define void @masked_scatter.v16f64 (<16 x i1> %mask, double* %addr, 
                                     <16 x i32>%index, <16 x double> %data) {
   %ptr = bitcast double *%addr to i8*
@@ -219,6 +242,18 @@ define void @masked_scatter.v16f64 (<16 x i1> %mask, double* %addr,
                                           i32 8) ; scale 8
   ret void
 }
+
+define void @masked_scatter.v8f64 (<8 x i1> %mask, double* %addr,
+                                   <8 x i32>%index, <8 x double> %data) {
+  %ptr = bitcast double *%addr to i8*
+  %imask = bitcast <8 x i1> %mask to i8
+  call void @llvm.x86.avx512.scatter.dpd.512(i8* %ptr, i8 %imask,
+                                          <8 x i32> %index,
+                                          <8 x double> %data,
+                                          i32 8) ; scale 8
+  ret void
+}
+
 
 ;; ------------------------------------
 ;;       Scatter for int

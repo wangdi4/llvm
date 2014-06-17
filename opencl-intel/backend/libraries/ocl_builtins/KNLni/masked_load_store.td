@@ -42,3 +42,21 @@ OclBuiltinImpl __ocl_masked_store_double8_AVX512 = OclBuiltinImpl<__ocl_masked_s
     _mm512_mask_storeu_pd((void *)$Arg0VarName, (__mmask8) $Arg2VarName, __builtin_astype($Arg1VarName, __m512d));
   }]>;
 
+// ****************************************************************************
+//                                 double16
+// ****************************************************************************
+OclBuiltinImpl __ocl_masked_load_double16_AVX512 = OclBuiltinImpl<__ocl_masked_load16_knl, [v16f64],  0, [{
+    double16 result;
+    result.lo = as_double8(_mm512_maskz_loadu_pd((__mmask8) $Arg1VarName, (void const *)$Arg0VarName));
+    double const *AddrHi = (double const *)$Arg0VarName + 8;
+    __mmask8 mask_hi = (__mmask8) ((__mmask16)$Arg1VarName >> 8);
+    result.hi = as_double8(_mm512_maskz_loadu_pd((__mmask8) mask_hi, (void const *)AddrHi));
+    return result;
+  }]>;
+
+OclBuiltinImpl __ocl_masked_store_double16_AVX512 = OclBuiltinImpl<__ocl_masked_store16_knl, [v16f64],  0, [{
+    _mm512_mask_storeu_pd((void *)$Arg0VarName, (__mmask8) $Arg2VarName, __builtin_astype($Arg1VarName.lo, __m512d));
+    double const *AddrHi = (double const *)$Arg0VarName + 8;
+    __mmask8 mask_hi = (__mmask8) ((__mmask16)$Arg2VarName >> 8);
+    _mm512_mask_storeu_pd((void *)AddrHi, mask_hi, __builtin_astype($Arg1VarName.hi, __m512d));
+  }]>;
