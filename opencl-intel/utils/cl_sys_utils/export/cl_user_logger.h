@@ -40,7 +40,7 @@ public:
     /**
      * Constructor
      */
-    UserLogger();
+    static UserLogger& Instance();
 
     /**
      * Destructor
@@ -170,6 +170,8 @@ public:
     void SetLocalWorkSize4ArgValues(const void* pArgValues, const std::vector<size_t>& localWorkSize);
 
 private:    
+
+    UserLogger();
 
     void Setup(const std::string& filename, bool bLogErrors, bool bLogApis);
 
@@ -305,6 +307,6 @@ inline void UserLogger::EndApiFunc()
     EndApiFuncInternal();
 }
 
-extern UserLogger* g_pUserLogger;   // a global pointer to the logger, which be defined in each shared library
+extern UserLogger* g_pUserLogger;   // a global pointer to the logger, which be defined in each shared library (so LOG_ERROR can use the user logger)
 
 }}}

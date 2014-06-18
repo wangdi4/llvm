@@ -26,7 +26,6 @@
  *  Original author: ulevy
  ****************************************************/
 
-
 #include <cl_types.h>
 #include <stdio.h>
 
@@ -88,8 +87,8 @@ namespace Intel { namespace OpenCL { namespace Utils {
 #define GET_LOGGER_CLIENT	m_pLoggerClient
 
 #define INIT_LOGGER_CLIENT(NAME, LEVEL)											\
-	m_pLoggerClient = NULL;														\
-	if (Logger::GetInstance().IsActive()){										\
+  m_pLoggerClient = NULL;														\
+  if (Logger::GetInstance().IsActive() || (Intel::OpenCL::Utils::g_pUserLogger != NULL && Intel::OpenCL::Utils::g_pUserLogger->IsErrorLoggingEnabled())){										\
 		m_pLoggerClient = new Intel::OpenCL::Utils::LoggerClient(NAME, LEVEL);	\
 	}
 
