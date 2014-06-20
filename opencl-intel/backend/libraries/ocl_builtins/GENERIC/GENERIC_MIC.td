@@ -8,4 +8,5 @@ include "GENERIC/ll_intrinsics.td"
 
 class Generic : TargetImpl {
 include "GENERIC/GENERIC_common.td"
+include "GENERIC/math_shared.td"
 }
