@@ -32,7 +32,7 @@ const string &WorkloadInfo::getWorkloadID (const string &location,
 
   id->assign(llvm::sys::path::parent_path(llvm::StringRef(location.c_str())));
 
-  if (id->size() == 0)
+  if (id->size() == 0 || *id->rbegin() != '/')
     id->append("/");
 
   id->append(name);

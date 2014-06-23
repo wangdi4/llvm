@@ -43,27 +43,27 @@ static bool isIRFileName(const string &name)
 
 namespace Intel {
 
-bool getIRFileNames(const char *dirname, vector<string> &fname)
+bool getIRFileNames(const char *dirName, vector<string> &fileList)
 {
    WIN32_FIND_DATA FindFileData;
    HANDLE hFind;
 
-   hFind = FindFirstFile(dirname, &FindFileData);
+   hFind = FindFirstFile(dirName, &FindFileData);
    if (hFind == INVALID_HANDLE_VALUE) {
-     cout << "Error: Can't find directory " << dirname << "\n";
+     cout << "Error: Can't find directory " << dirName << "\n";
      return false;
    }
 
    do {
      if (isIRFileName(FindFileData.cFileName) &&
          GetFileAttributes(FindFileData.cFileName) == FILE_ATTRIBUTE_ARCHIVE)
-       fname.push_back(FindFileData.cFileName);
+       fileList.push_back(FindFileData.cFileName);
    } while (FindNextFile(hFind, &FindFileData));
 
    FindClose(hFind);
    // report if this directory doesn't contain any IR file
-   if (fname.size() == 0) {
-     cout << "No IR files found in directory " << dirname << "\n";
+   if (fileList.size() == 0) {
+     cout << "No IR files found in directory " << dirName << "\n";
      return false;
    }
 
@@ -78,31 +78,37 @@ bool getIRFileNames(const char *dirname, vector<string> &fname)
 
 namespace Intel {
 
-bool getIRFileNames(const char *dirname, vector<string> &fname)
+bool getIRFileNames(const char *dirName, vector<string> &fileList)
 {
-  DIR *dirp = opendir(dirname);
+  DIR *dirp = opendir(dirName);
   // report if the given directory is not found
   if (dirp == NULL) {
-    cout << "Error: Can't find directory " << dirname <<"\n";
+    cout << "Error: Can't find directory " << dirName <<"\n";
     return false;
   }
 
   struct dirent *dp;
   struct stat ir_fstat;
+  string fileName(dirName);
+  if (*fileName.rbegin() != '/')
+    fileName.append("/");
+  int size = fileName.size();
   // traverse all files in a directory.
   // if a file ends with .ll and this is a regular file
   // keep it in the file list
   while ((dp = readdir(dirp)) != NULL) {
-    if (isIRFileName(dp->d_name) &&
-      stat(dp->d_name, &ir_fstat) == 0 &&
+    fileName.resize(size);
+    fileName.append(dp->d_name);
+    if (isIRFileName(fileName.c_str()) &&
+      stat(fileName.c_str(), &ir_fstat) == 0 &&
       ir_fstat.st_mode & S_IFREG)
-        fname.push_back(dp->d_name);
+      fileList.push_back(fileName);
   }
   closedir(dirp);
 
   // report if this directory doesn't contain any IR file
-  if (fname.size() == 0) {
-    cout << "No IR files found in directory " << dirname << "\n";
+  if (fileList.size() == 0) {
+    cout << "No IR files found in directory " << dirName << "\n";
     return false;
   }
 
@@ -110,40 +116,3 @@ bool getIRFileNames(const char *dirname, vector<string> &fname)
 }
 }
 #endif // WIN32
-
-
-
-
-
-
-/*
- * the following is portable but veeery slow code
-  StringRef p(dirname);
-
-  file_status fs;
-  //Twin path(dirname);
-  if (status(dirname, fs)) {
-    cout << "Error: Can't find directory " << dirname <<"\n";
-    return false;
-  }
-  int count = 0;
-  if (fs.type() == file_type::directory_file) {
-    error_code ec;
-    directory_iterator i(dirname, ec);
-    if (ec) return false;
-    for (directory_iterator e; i != e; i.increment(ec)) {
-      if (ec) return false;
-      file_status st;
-      if (i->status(st)) return false;
-      const char *fileName = i->path().c_str();
-      int len = strlen(fileName);
-      if (len >= 4 && strcmp(".ll", fileName+len-3) == 0) {
-        if (st.type() == file_type::regular_file) {
-          fname.push_back(fileName);
-          count ++;
-        }
-      }
-    }
-  }
- *
- */
