@@ -1,6 +1,8 @@
 set(TARGET_NAME oclopt)
 
-include_directories(${BACKEND_ROOT_DIR}/passes)
+include_directories(${BACKEND_ROOT_DIR}/passes
+                    ${BACKEND_ROOT_DIR}/utils
+					${BACKEND_ROOT_DIR}/arch_headers)
 
 link_directories(${LLVM_LIBRARY_DIR})
 
@@ -110,6 +112,7 @@ target_link_libraries(${TARGET_NAME}
     ${OCL_BE_PASSES}
     ${OCL_BE_PASSES_DEPS}
     LLVMOptEngine
+    cl_sys_utils
     ${LLVM_MODULE_LIBS}
 )
 

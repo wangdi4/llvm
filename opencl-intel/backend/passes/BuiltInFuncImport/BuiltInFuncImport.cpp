@@ -298,7 +298,8 @@ namespace intel {
         continue;
       }
       if(visitedSet.count(pCalledFunc)) continue;
-
+      
+      assert(!m_cpuPrefix.empty() && "m_cpuPrefix is empty");
       UpdateSvmlBuiltinName(pCalledFunc,m_cpuPrefix.c_str());
 
       visitedSet.insert(pCalledFunc);
