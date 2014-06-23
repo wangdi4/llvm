@@ -37,7 +37,7 @@ namespace Validation
     COIRESULT result = _COIFUNC;                                                    \
     if (COI_SUCCESS != result)                                                      \
     {                                                                               \
-        throw Exception::COIUsageException(std::string(#_COIFUNC" retruned ") +     \
+        throw Exception::COIUsageException(std::string(#_COIFUNC" returned ") +     \
             std::string(COIResultGetName(result)));                                 \
     }                                                                               \
 }
@@ -47,11 +47,11 @@ namespace Validation
     COIRESULT result = _COIFUNC;                                                    \
     if (COI_SUCCESS != result)                                                      \
     {                                                                               \
-        std::cerr << #_COIFUNC" retruned " << COIResultGetName(result) << "\n";     \
+        std::cerr << #_COIFUNC" returned " << COIResultGetName(result) << "\n";     \
     }                                                                               \
 }
 
-    // Warning! This wrapper is tunned to be used in OpenCLMICBackendRunner only 
+    // Warning! This wrapper is tunned to be used in OpenCLMICBackendRunner only
     // and it supports only limited usage scenarios.
     class COIProcessAndPipelineWrapper
     {
@@ -69,7 +69,7 @@ namespace Validation
         COILIBRARY  m_library; // SVML built-ins library
     };
 
-    // Warning! This wrapper is tunned to be used in OpenCLMICBackendRunner only 
+    // Warning! This wrapper is tunned to be used in OpenCLMICBackendRunner only
     // and it supports only limited usage scenarios. For instance there is no way to map more then one buffer.
     class COIBuffersWrapper
     {
