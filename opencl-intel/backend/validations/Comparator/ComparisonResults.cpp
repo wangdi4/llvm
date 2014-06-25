@@ -28,7 +28,7 @@ void ComparisonResults::AddMismatch(const MismatchedVal& in_Val)
     // if not exist add with zero initialized
     if(mit == m_statMap.end())
     {
-        CompStatistics cs(in_Val.GetDesc()); 
+        CompStatistics cs(in_Val.GetDesc());
         cs.numMismatches = 0;
         mit = m_statMap.insert(std::pair<uint32_t, CompStatistics>(bufN, cs)).first;
     }
@@ -87,7 +87,7 @@ void ComparisonResults::Report()
             it!=e;++it)
         {
             const IMemoryObjectDesc *pDesc = (it->second.pDesc).get();
-            
+
             if(BufferDesc::GetBufferDescName() == pDesc->GetName())
             {
                 const BufferDesc* pBufDesc = static_cast<const BufferDesc*>(pDesc);
@@ -110,15 +110,15 @@ void ComparisonResults::Report()
                 const std::string typeStr = pImgDesc->DataTypeToString();
                 const std::string orderStr = pImgDesc->OrderToString();
                 std::cout << "Mismatches in Image[" << it->first << "] : " << (it->second).numMismatches << std::endl;
-                std::cout << 
+                std::cout <<
                     "     Datatype  " << pImgDesc->DataTypeToString() <<
-                    " " << "Channel order " << pImgDesc->OrderToString() << std::endl << 
-                    "     Sizes[WxHxD]: " << pImgDesc->GetSizesDesc().width << 
-                    " " << pImgDesc->GetSizesDesc().height << 
+                    " " << "Channel order " << pImgDesc->OrderToString() << std::endl <<
+                    "     Sizes[WxHxD]: " << pImgDesc->GetSizesDesc().width <<
+                    " " << pImgDesc->GetSizesDesc().height <<
                     " " << pImgDesc->GetSizesDesc().depth << std::endl;
                 std::cout << "     Maximal mismatch deviation: " << (it->second).maxDiff << std::endl;
             }
-            else 
+            else
             {
                 throw Exception::InvalidArgument("Not supported IMemObjectDesc");
             }

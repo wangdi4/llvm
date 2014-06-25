@@ -36,7 +36,7 @@ namespace Validation
     {
     public:
         typedef typename Utils::superT<T>::type sT;
-        typedef enum 
+        typedef enum
         {
             ERROR_ABSOLUTE,
             ERROR_ULPS,
@@ -239,14 +239,14 @@ namespace Validation
         }
 
         /// @brief expand interval provided by input arguments and return expanded interval through
-        /// the same valiables on given error value
-        /// @param [input/output] minInOut left input inteval boundary
+        /// the same variables on given error value
+        /// @param [input/output] minInOut left input interval boundary
         /// @param [input/output] maxInOut right input interval boundary
         /// @param error error value
         static void ExpandFPInterval(sT * minInOut, sT * maxInOut, IntervalError<T> error);
 
         /// @brief expand interval provided by input arguments and return expanded interval through
-        /// the same valiables on given error value
+        /// the same variables on given error value
         /// @param [input/output] minInOut left boundary
         /// @param [input/output] maxInOut right boundary
         /// @param ref4Ulps value to compute OneUlp from
@@ -362,7 +362,7 @@ namespace Validation
 
         // check if refMin on the boundary of higher exponent
         // and if result is normal number
-        if((!(Utils::IsDenorm<sT>(refMin) || Utils::IsDenorm<T>(refMin) || 
+        if((!(Utils::IsDenorm<sT>(refMin) || Utils::IsDenorm<T>(refMin) ||
             ( T(refMin) == T(0.0) && sT(refMin) != sT(0.0) ) )) &&
             CimathLibd::imf_fabs(result) == (sT)0.5 )
         {
@@ -405,7 +405,7 @@ namespace Validation
             uint64_t minS_mant = *(uint64_t*)&minS;
             minS_mant &= LONG_DOUBLE_MANTISSA_MASK;
             sT lowUlp = (minS_mant == 0) ? ComputeUlp(refMin) : ComputeUlp(minS);
-            minS += lowUlp;        
+            minS += lowUlp;
         }
 
         *maxInOut = maxS;
@@ -416,7 +416,7 @@ namespace Validation
     void IntervalError<T>::ExpandFPInterval(sT * minInOut, sT * maxInOut, sT ref4Ulps, IntervalError<T> error)
     {
         typedef typename IntervalError<T>::sT sT;
-        
+
         assert(error >= 0 && "[IntervalError] Error value lower than zero");
         if (error == 0.0)
             return;
@@ -466,9 +466,9 @@ namespace Validation
         if(minS < resMin && fabs(ComputeUlp(minS)) <= fabs(maxS-minS))
         {
             // if we are, reduce result by one ulp, calculated for
-            // downcasted value     
+            // downcasted value
             sT lowUlp = ComputeUlp(minS);
-            minS += lowUlp;   
+            minS += lowUlp;
         }
 
         *minInOut = minS;

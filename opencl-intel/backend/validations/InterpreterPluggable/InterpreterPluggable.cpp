@@ -46,7 +46,7 @@ using namespace llvm;
 
 STATISTIC(NumDynamicInsts, "Number of dynamic instructions executed");
 
-// todo: add macro for switching on InterpreterPluggable
+// TODO: add macro for switching on InterpreterPluggable
 #if 0
 #if 1
 static struct RegisterInterp {
@@ -79,17 +79,17 @@ ExecutionEngine *InterpreterPluggable::create(Module *M, std::string* ErrStr) {
 
 
 /// run - Start execution with the specified function and arguments.
-/// It is copy paste from from base class Interpreter::runFunction() method 
+/// It is copy paste from from base class Interpreter::runFunction() method
 /// except calling our own run() function
 GenericValue
 InterpreterPluggable::runFunction(Function *F,
-                                  const std::vector<GenericValue> &ArgValues) 
+                                  const std::vector<GenericValue> &ArgValues)
 {
     assert (F && "Function *F was null at entry to run()");
 
     // Try extra hard not to pass extra args to a function that isn't
     // expecting them.  C programmers frequently bend the rules and
-    // declare main() with fewer parameters than it actucally gets
+    // declare main() with fewer parameters than it actually gets
     // passed, and the interpreter barfs if you pass a function more
     // parameters than it is declared to take. This does not attempt to
     // take into account gratuitous differences in declared types,
@@ -120,13 +120,13 @@ InterpreterPluggable::runFunction(Function *F,
         retcode.IntVal = APInt(8, ret);
         return retcode;
     }
-    
+
     // if not barrier it is function exit
     // call post function methods
     if(ret != InterpreterPluggable::BARRIER && ret != InterpreterPluggable::BLOCKING_WG_FUNCTION)
     {
        // if execution is not interrupted and it is normal exit
-       // set running flag to false 
+       // set running flag to false
         m_stillRunning = false;
         // call post function event
         for(PlugInIterator it = m_pPlugins.begin(); it != m_pPlugins.end(); ++it)
@@ -148,7 +148,7 @@ static bool IsLoweringPossible(Instruction& I)
         Function *F = CS.getCalledFunction();
         if (F && F->isDeclaration())
         {
-            switch (F->getIntrinsicID()) 
+            switch (F->getIntrinsicID())
             {
             case Intrinsic::not_intrinsic:
                 break;
@@ -255,7 +255,7 @@ InterpreterPluggable::RETCODE InterpreterPluggable::runWithPlugins()
     visit(I);
 
     // if lowering of instruction I is possible
-    // do not call post instruction method 
+    // do not call post instruction method
     // since I can be already removed by visit(I) method
     // during lowering. In this case reference to I is not valid
     if(isLoweringPossible == false)

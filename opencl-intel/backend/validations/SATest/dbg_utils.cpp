@@ -23,17 +23,17 @@ File Name:  dbg_utils.cpp
     #include <intrin.h>
 #endif
 
-namespace Validation 
-{ 
+namespace Validation
+{
 
 #if defined(i386) || defined(__i386__) || defined(__x86__) || defined(_M_IX86)\
  || defined(__x86_64__) || defined(_M_AMD64) || defined (_M_X64)
 
-/// GenINT3 - generate interrupt 3 (debug break) 
+/// GenINT3 - generate interrupt 3 (debug break)
 void GenINT3() {
 #if defined(__x86_64__) || defined(_M_AMD64) || defined (_M_X64)
   #if defined(__GNUC__)
-    // gcc doesn't know cpuid would clobber ebx/rbx. Preseve it manually.
+    // GCC doesn't know cpuid would clobber ebx/rbx. Preserve it manually.
     asm ("int $0x03");
   #elif defined(_MSC_VER)
     __debugbreak();

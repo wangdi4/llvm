@@ -139,7 +139,7 @@ std::size_t TypeDesc::GetSizeInBytes() const
             return 1;
         case TVECTOR:
             {
-                /// According to openCL spec 3-element vectors are allocated as 4-element vectors
+                /// According to OpenCL spec 3-element vectors are allocated as 4-element vectors
                 int numElems = (m_numElements == 3) ? 4 : m_numElements;
                 return numElems * m_subTypes[0].GetSizeInBytes();
             }

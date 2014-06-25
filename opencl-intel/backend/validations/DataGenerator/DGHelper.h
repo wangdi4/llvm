@@ -319,8 +319,8 @@ uint64_t GetUpdateConst(void);
 
 bool GetSeedFlag(void);
 
-// this function performs as like as GenerateRangedVectors, but 
-// after every call this funcion updates currentSeed value by a predefined constant
+// this function performs as like as GenerateRangedVectors, but
+// after every call this function updates currentSeed value by a predefined constant
 template <typename T>
 static void GenerateRangedVectorsAutoSeed(DataTypeVal dataTypeVal, const T *arr,
                                           VectorWidth vecW,
@@ -344,8 +344,8 @@ static void GenerateRangedVectorsAutoSeed(DataTypeVal dataTypeVal, const T *arr,
 
 // this function performs as like as GenerateRandomVectors, but produces float or double values with
 // separately generated exponent and mantissa. Comparing with GenerateRandomVectors, it makes
-// the more representable sampling of values whith small mantissa,  also
-// after every call this funcion updates currentSeed value by a predefined constant
+// the more representable sampling of values with small mantissa, also
+// after every call this function updates currentSeed value by a predefined constant
 void GenerateRandomVectorsAutoSeed(DataTypeVal dataTypeVal, const double *arr,
                                    VectorWidth vecW, const uint32_t n);
 void GenerateRandomVectorsAutoSeed(DataTypeVal dataTypeVal, const float *arr,
@@ -369,7 +369,6 @@ void GenerateRandomVectorsAutoSeed(DataTypeVal dataTypeVal, const T *arr,
 
     UpdateCurrentSeed();
 }
-
 
 
 #undef SET_BUFFER_CONTAINER

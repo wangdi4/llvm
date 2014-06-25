@@ -67,9 +67,9 @@ long double CimathLibd::imf_pow(long double x, long double y) {
     errno = -1;
     long double res = powl(x,y);
     // arguments were out of domain
-    // Indefinite result will be returned in extended precision ( all zeros exp + 62,63 bits are set) 
-    // (simply NaN in single or double pricision)
-    // function calulated in double precision will return +-inf or nan
+    // Indefinite result will be returned in extended precision ( all zeros exp + 62,63 bits are set)
+    // (simply NaN in single or double precision)
+    // function calculated in double precision will return +-inf or nan
     // lets compute in double precision
     if(errno == EDOM)
     {

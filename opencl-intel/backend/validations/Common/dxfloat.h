@@ -44,7 +44,7 @@
 //
 //-----------------------------------------------------------------------------
 #include <limits>
-#include "llvm/Support/DataTypes.h"      // llvm data types
+#include "llvm/Support/DataTypes.h"      // LLVM data types
 #include <iostream>
 
 #ifndef DX_FLOAT_H
@@ -59,7 +59,7 @@ public:
     }
     // Conversion from 32-bit float
     //
-    // auxilary union for safe type cast
+    // Auxiliary union for safe type cast.
     union CFloat16Convert
     {
         uint32_t dU32;
@@ -79,7 +79,7 @@ protected:
         CFloat16Convert tmp16to32;
         tmp16to32.dF32 = fvalue;
         uint32_t u = tmp16to32.dU32;
-        
+
         uint32_t Sign = (u & 0x80000000) >> 16;
         uint32_t MagU = u & 0x7FFFFFFF;     // Absolute value
         if (MagU > m_wMaxNormal)
@@ -294,7 +294,7 @@ public:
     static const uint32_t m_cRoundBit = 1 << (23 - m_cFracBits - 1);    // Bit to add for rounding
     static const uint32_t m_eMax =  (uint32_t) m_cExpBias+1;         // Max exponent
     static const int32_t  m_eMin = -m_cExpBias+1;       // Min exponent
-    static const uint32_t m_wMaxNormal = ((m_eMax+127) << 23) | 0x7FEFFF;//  <-max nbr that doesnt round to infinity
+    static const uint32_t m_wMaxNormal = ((m_eMax+127) << 23) | 0x7FEFFF;//  <-max nbr that doesn't round to infinity
     static const uint32_t m_wMinNormal = (m_eMin+127) << 23;
     static const uint16_t m_wMaxNormal16 = 0x7BFF;
     static const uint16_t m_wMinNormal16 = 0xFBFF;
@@ -314,7 +314,7 @@ protected:
 // support for serialization
 inline std::istream& operator >> (std::istream& is,  CFloat16& val)
 {
-    float f; 
+    float f;
     is >> f;
     if(is)
         val = CFloat16(f);
@@ -322,7 +322,7 @@ inline std::istream& operator >> (std::istream& is,  CFloat16& val)
 }
 inline std::ostream& operator << (std::ostream& os, const CFloat16& val)
 {
-    return os << float(val);  
+    return os << float(val);
 }
 
 namespace std{

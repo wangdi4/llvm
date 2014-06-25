@@ -29,7 +29,7 @@ else ()
   set (ICC_PLATFORM intel64)
 endif ()
 
-# to be shure that ICC compiler uses the correct presentation of 80-bit long doubles
+# To be sure that ICC compiler uses the correct presentation of 80-bit long doubles
 # we have to set proper compiler options:
 if (WIN32)
 set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:source /fp:strict /Qlong-double /Qpc80 /Qprec-div" )
