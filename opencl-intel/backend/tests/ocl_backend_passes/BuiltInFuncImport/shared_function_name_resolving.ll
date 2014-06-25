@@ -29,11 +29,11 @@ entry:
 declare <4 x double> @function_foo4(<4 x double>) nounwind
 
 
-; CHECK:  %val1 = call <4 x double> @__ocl_svml__acos4(<4 x double> %in)
+; CHECK:  %val1 = call <4 x double> @__ocl_svml_{{[a-z][0-9]}}_acos4(<4 x double> %in)
 ; CHECK:  %val2 = call <4 x double> @__ocl_svml_l9_asin4(<4 x double> %in)
 ; CHECK:  %val3 = call <4 x double> @blabla__ocl_svml_shared_acos4(<4 x double> %in)
 
-; CHECK:  declare <4 x double> @__ocl_svml__acos4(<4 x double>)
+; CHECK:  declare <4 x double> @__ocl_svml_{{[a-z][0-9]}}_acos4(<4 x double>)
 ; CHECK:  declare <4 x double> @__ocl_svml_l9_asin4(<4 x double>)
 ; CHECK:  declare <4 x double> @blabla__ocl_svml_shared_acos4(<4 x double>)
 

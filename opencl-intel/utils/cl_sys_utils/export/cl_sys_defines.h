@@ -123,7 +123,7 @@ typedef void*                            CONDITION_VAR;
 #define OS_DLL_POST(fileName) ((fileName) + ".dll")
 
 // -----------------------------------------------------------
-//         Not Windows (Linux / Android )    
+//         Not Windows (Linux / Android )
 // -----------------------------------------------------------
 #else //LINUX
 
@@ -238,10 +238,25 @@ inline void* ALIGNED_MALLOC( size_t size, size_t alignment )
 typedef unsigned long long        affinityMask_t;
 #define GET_CURRENT_PROCESS_ID()        getpid()
 #define GET_CURRENT_THREAD_ID()  ((int)gettid())
+#ifdef CPU_ZERO
+#undef CPU_ZERO
+#endif
 #define CPU_ZERO(mask)          (*(mask)  =  0)
+#ifdef CPU_SET
+#undef CPU_SET
+#endif
 #define CPU_SET(cpu, mask)      (*(mask) |=  (1 << (cpu)))
+#ifdef CPU_CLR
+#undef CPU_CLR
+#endif
 #define CPU_CLR(cpu, mask)      (*(mask) &= ~(1 << (cpu)))
+#ifdef CPU_ISSET
+#undef CPU_ISSET
+#endif
 #define CPU_ISSET(cpu, mask)    (*(mask) |   (1 << (cpu)))
+#ifdef CPU_EQUAL
+#undef CPU_EQUAL
+#endif
 #define CPU_EQUAL(maskA, maskB) (*(maskA) == *(maskB))
 
 static int sched_setaffinity(pid_t pid, size_t len, affinityMask_t const *cpusetp)
@@ -254,6 +269,9 @@ static int sched_getaffinity(pid_t pid, size_t len, affinityMask_t const *cpuset
     return syscall(__NR_sched_getaffinity, pid, len, cpusetp);
 }
 
+#ifdef CPU_COUNT
+#undef CPU_COUNT
+#endif
 static int CPU_COUNT(affinityMask_t* set)
 {
     // Pretend the data structure is opaque by using other CPU_ macros to implement

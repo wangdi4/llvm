@@ -134,6 +134,9 @@ bool clCheckJITLoadTest()
         printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
         return false;
     }
+    
+    // CSSD100019622
+    if(uiNumDevices > 1) uiNumDevices = 1;
 
     std::vector<cl_device_id> devices(uiNumDevices);
     iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, &devices[0], NULL);

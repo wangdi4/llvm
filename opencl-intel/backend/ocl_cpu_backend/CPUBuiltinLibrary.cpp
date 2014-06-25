@@ -62,8 +62,17 @@ void CPUBuiltinLibrary::Load()
 
     // Load LLVM built-ins module
 #if defined (_WIN32)
+    // installed SDK on Windows contains .dll and .rtl except clbltfnshared.rtl in the folders ...\bin\x86 or ...\bin\x64
+    // but clbltfnshared.rtl is placed in the ...\bin\common folder
+    // or, if it not SDK, but development install, clbltfnshared.rtl is with the other .rtl and .dll together
+    llvm::StringRef fName(szModuleName);
+    std::string s = fName.str();
+    if ( fName.endswith("\\bin\\x64\\") || fName.endswith("\\bin\\x86\\") ) {        
+        s.replace(s.end()-5,s.end(),"\\common\\");
+    }
+
     sprintf_s(szRTLibName, MAX_PATH, "%sclbltfn%s.rtl", szModuleName, pCPUPrefix);
-    sprintf_s(szRTLibSvmlSharedName, MAX_PATH, "%sclbltfnshared.rtl", szModuleName);
+    sprintf_s(szRTLibSvmlSharedName, MAX_PATH, "%sclbltfnshared.rtl", s.c_str());
 #else
     snprintf(szRTLibName, MAX_PATH, "%sclbltfn%s.rtl", szModuleName, pCPUPrefix);
     snprintf(szRTLibSvmlSharedName, MAX_PATH, "%sclbltfnshared.rtl", szModuleName);
