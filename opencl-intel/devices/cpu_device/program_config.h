@@ -29,6 +29,7 @@
 #include "cl_device_api.h"
 #include "cl_dev_backend_api.h"
 #include "cl_user_logger.h"
+#include "cpu_logger.h"
 #include <string>
 
 using Intel::OpenCL::Utils::g_pUserLogger;
@@ -45,7 +46,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
     {
     public:
 
-		ProgramConfig() { }
+        ProgramConfig(CpuUserLogger& cpuUserLogger) : m_cpuUserLogger(cpuUserLogger) { }
 
         void InitFromCpuConfig(const CPUDeviceConfig& cpuConfig);
 
@@ -72,15 +73,19 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         {
             if (CL_DEV_BACKEND_OPTION_USER_LOGGER == optionId)
             {
-                *pSize = sizeof(g_pUserLogger);
-                if (g_pUserLogger->IsApiLoggingEnabled())
+                *pSize = sizeof(&m_cpuUserLogger);
+                if (NULL != Value)
                 {
-                    *Value = g_pUserLogger;   
+                    if (g_pUserLogger->IsApiLoggingEnabled())
+                    {
+                        *Value = &m_cpuUserLogger;   
+                    }
+                    else
+                    {
+                        *Value = NULL;
+                    }
                 }
-                else
-                {
-                    Value = NULL;
-                }
+                return true;
             }
             return false;
         }
@@ -88,6 +93,8 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
     private:
         bool m_useVectorizer;
         bool m_useVTune;
+        CpuUserLogger& m_cpuUserLogger;
+
     };
 
     /**

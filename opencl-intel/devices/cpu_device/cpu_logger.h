@@ -24,6 +24,10 @@
 //  Implementation of Helper functions for logger
 ///////////////////////////////////////////////////////////
 
+#pragma once
+
+#include "cl_user_logger.h"
+
 enum CpuELogLevel
 	{
 		CPU_LL_DEBUG     = 100,
@@ -48,3 +52,23 @@ enum CpuELogLevel
 	if (CLIENT && CLIENT_ID) CLIENT->clLogAddLine(CLIENT_ID, cl_int(CPU_LL_ERROR),__FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
 #define CpuCriticLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)			\
 	if (CLIENT && CLIENT_ID) CLIENT->clLogAddLine(CLIENT_ID, cl_int(CPU_LL_CRITICAL),__FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
+
+namespace Intel { namespace OpenCL { namespace CPUDevice {
+
+/**
+ * This class implements IUserLoggerProxy locally, since BE can interact with it directly
+ */
+class CpuUserLogger : public Intel::OpenCL::Utils::IUserLoggerProxy
+{
+public:
+
+    // overridden methods:
+
+    virtual void SetLocalWorkSizeValues(cl_dev_cmd_id id, const std::vector<size_t>& localWorkSize)
+    {
+        Intel::OpenCL::Utils::g_pUserLogger->SetLocalWorkSize4ArgValues(id, Intel::OpenCL::Utils::UserLogger::FormatLocalWorkSize(localWorkSize));
+    }
+
+};
+
+}}}

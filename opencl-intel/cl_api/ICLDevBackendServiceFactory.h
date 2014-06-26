@@ -8,6 +8,12 @@
 #include "ICLDevBackendExecutionService.h"
 #include "ICLDevBackendImageService.h"
 
+namespace Intel { namespace OpenCL { namespace Utils {
+
+    class IUserLoggerProxy;
+
+}}}
+
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 #ifndef LLVM_BACKEND_API
@@ -44,7 +50,8 @@ public:
      */
     virtual cl_dev_err_code GetCompilationService(
         const ICLDevBackendOptions* pBackendOptions, 
-        ICLDevBackendCompilationService** pBackendCompilationService) = 0;
+        ICLDevBackendCompilationService** pBackendCompilationService,
+        Intel::OpenCL::Utils::IUserLoggerProxy* pUserLoggerProxy) = 0;
 
     /**
      * Creates Execution Service object
@@ -60,7 +67,8 @@ public:
      */
     virtual cl_dev_err_code GetExecutionService(
         const ICLDevBackendOptions* pBackendOptions, 
-        ICLDevBackendExecutionService** pBackendExecutionService) = 0;
+        ICLDevBackendExecutionService** pBackendExecutionService,
+        Intel::OpenCL::Utils::IUserLoggerProxy* pUserLoggerProxy) = 0;
 
     /**
      * Creates Serialization Service object

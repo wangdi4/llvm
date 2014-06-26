@@ -107,6 +107,22 @@ static string GetFormattedTime()
 
 // UserLogger's methods
 
+string UserLogger::FormatLocalWorkSize(const vector<size_t>& localWorkSize)
+{
+    stringstream stream;
+    stream  << ": (";    
+    for (vector<size_t>::size_type i = 0; i < localWorkSize.size(); ++i)
+    {
+        stream << localWorkSize[i];
+        if (i < localWorkSize.size() - 1)
+        {
+            stream << ",";
+        }
+    }
+    stream << ")" << endl;
+    return stream.str();
+}
+
 void UserLogger::Setup(const string& filename, bool bLogErrors, bool bLogApis)
 {
     assert(!filename.empty());    
@@ -260,7 +276,7 @@ void UserLogger::EndApiFuncEpilog()
     const unsigned long long ulStartTime = RDTSC();
     if (NULL != m_pCurrArgValues)
     {
-        m_beLogger.RegisterArgValues(m_pCurrArgValues, ulStartTime);
+        m_mapArgVals2StartTime[m_pCurrArgValues] = ulStartTime;
         m_pCurrArgValues = NULL;
     }
     // start time in clock ticks
@@ -374,46 +390,64 @@ void UserLogger::PrintStringInternal(const string& str, bool bLock)
     }
 }
 
-void UserLogger::RegisterArgValues(const void* pArgValues)
-{
-    m_pCurrArgValues = pArgValues;
-}
-
-void UserLogger::SetLocalWorkSize4ArgValues(const void* pArgValues, const vector<size_t>& localWorkSize)
+void UserLogger::MapNDRangeArgValuesId(const void* pArgValues, cl_dev_cmd_id id)
 {
     OclAutoMutex mutex(&m_mutex);
-    ostream& stream = m_beLogger.IsArgValuesExist(pArgValues) ? *m_pOutput : m_beLogStream;
-    stream << " Local_work_size calculated by BE";
-    if (m_beLogger.IsArgValuesExist(pArgValues))
+    m_mapNDRangeArgValues2CmdId[pArgValues] = id;
+}
+
+void UserLogger::SetLocalWorkSize4ArgValues(cl_dev_cmd_id id, const std::string& localWorkSizeStr)
+{
+    OclAutoMutex mutex(&m_mutex);
+    const bool bIsNDRangeIdExist = GetNDRangeArgValues(id) != NULL;
+    ostream& stream = bIsNDRangeIdExist ? *m_pOutput : m_beLogStream;
+    if (bIsNDRangeIdExist)
     {
-        *m_pOutput << " with start time " << m_beLogger.UnrigesterArgValues(pArgValues);
+        stream << endl;
     }
-    stream  << ": (";    
-    for (vector<size_t>::size_type i = 0; i < localWorkSize.size(); ++i)
+    else
     {
-        stream << localWorkSize[i];
-        if (i < localWorkSize.size() - 1)
+        stream << ", ";
+    }
+    stream << "Local_work_size calculated by BE";
+    if (bIsNDRangeIdExist)
+    {
+        *m_pOutput << " with start time " << UnrigesterNDRangeId(id);
+    }
+    stream  << ": " << localWorkSizeStr << endl;
+}
+
+const void* UserLogger::GetNDRangeArgValues(cl_dev_cmd_id id) const
+{
+    OclAutoMutex mutex(&m_mutex);
+    for (std::map<const void*, cl_dev_cmd_id>::const_iterator iter = m_mapNDRangeArgValues2CmdId.begin(); iter != m_mapNDRangeArgValues2CmdId.end(); ++iter)
+    {
+        if (iter->second == id)
         {
-            stream << ",";
+            return iter->first;
         }
     }
-    stream << ")" << endl;
+    return NULL;
 }
 
-void UserLogger::BELogger::RegisterArgValues(const void* pArgValues, unsigned long long ulStartTime)
+unsigned long long UserLogger::UnrigesterNDRangeId(cl_dev_cmd_id id)
 {
-    m_mapArgVals2StartTime[pArgValues] = ulStartTime;
-}
+    OclAutoMutex mutex(&m_mutex);
+    const void* pArgValues = GetNDRangeArgValues(id);
+    assert(NULL != pArgValues);
+    if (NULL == pArgValues)
+    {
+        return 0;
+    }   
 
-bool UserLogger::BELogger::IsArgValuesExist(const void* pArgValues) const
-{
-    return m_mapArgVals2StartTime.find(pArgValues) != m_mapArgVals2StartTime.end();
-}
-
-unsigned long long UserLogger::BELogger::UnrigesterArgValues(const void* pArgValues)
-{
     const unsigned long long ulStartTime = m_mapArgVals2StartTime[pArgValues];
-    m_mapArgVals2StartTime.erase(pArgValues);
+    
+    // I'm doing this in this awkward way, since in VS there seems to be a bug in map::erase(const Key&)
+    std::map<const void*, unsigned long long>::iterator iter = m_mapArgVals2StartTime.find(pArgValues);
+    m_mapArgVals2StartTime.erase(iter, ++iter);
+    std::map<const void*, cl_dev_cmd_id>::iterator iter1 = m_mapNDRangeArgValues2CmdId.find(pArgValues);
+    m_mapNDRangeArgValues2CmdId.erase(iter1, ++iter1);
+    
     return ulStartTime;
 }
 

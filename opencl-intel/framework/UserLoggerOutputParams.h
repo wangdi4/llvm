@@ -101,9 +101,12 @@ private:
 
 inline OutputParamsValueProvider::~OutputParamsValueProvider()
 {
-    if (GetUserLoggerInstance().IsApiLoggingEnabled())
+    Intel::OpenCL::Utils::UserLogger& userLogger = GetUserLoggerInstance();
+    if (userLogger.IsApiLoggingEnabled())
     {
+        userLogger.BeginPrintingOutputParams();
         Print2Logger();
+        userLogger.EndPrintingOutputParams();
     }
 }
 

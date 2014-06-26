@@ -57,10 +57,10 @@ ProgramService::ProgramService(cl_int devId,
                                IOCLFrameworkCallbacks *devCallbacks,
                                IOCLDevLogDescriptor *logDesc,
                                CPUDeviceConfig *config,
-                               ICLDevBackendServiceFactory* pBackendFactory) :
+                               ICLDevBackendServiceFactory* pBackendFactory, CpuUserLogger& cpuUserLogger) :
     m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0),
     m_pCallBacks(devCallbacks), m_pBackendFactory(pBackendFactory), m_pBackendCompiler(NULL),
-    m_pBackendExecutor(NULL), m_pBackendImageService(NULL), m_pCPUConfig(config)
+    m_pBackendExecutor(NULL), m_pBackendImageService(NULL), m_pCPUConfig(config), m_cpuUserLogger(cpuUserLogger)
 {
     assert(m_pBackendFactory && "getting backend factory assumed to allways succeed if initialization has succeeded");
 
@@ -116,11 +116,11 @@ ProgramService::~ProgramService()
 ********************************************************************************************************************/
 cl_dev_err_code ProgramService::Init()
 {
-	ProgramConfig programConfig;
+    ProgramConfig programConfig(m_cpuUserLogger);
     programConfig.InitFromCpuConfig(*m_pCPUConfig);
 
     ICLDevBackendCompilationService* pCompiler = NULL;
-    cl_dev_err_code ret = m_pBackendFactory->GetCompilationService(&programConfig, &pCompiler);
+    cl_dev_err_code ret = m_pBackendFactory->GetCompilationService(&programConfig, &pCompiler, &m_cpuUserLogger);
     if( CL_DEV_FAILED(ret) )
     {
         return ret;
@@ -135,7 +135,7 @@ cl_dev_err_code ProgramService::Init()
     }
 
     ICLDevBackendExecutionService* pExecutor = NULL;
-    ret = m_pBackendFactory->GetExecutionService(&programConfig, &pExecutor);
+    ret = m_pBackendFactory->GetExecutionService(&programConfig, &pExecutor, NULL);
     if( CL_DEV_FAILED(ret) )
     {
         //Oh, where is my auto_ptr_ex :-( ?
