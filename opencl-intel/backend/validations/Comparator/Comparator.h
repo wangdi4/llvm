@@ -44,7 +44,7 @@ namespace Validation
         NOT_PASSED  /// Comparison failed. Some values mismatched
     };
 
-    // !!! default value for tolerance in accurate mode for comparison of floating point values
+    // !!! Default value for tolerance in accurate mode for comparison of floating point values.
     static const double DEFAULT_ULP_TOLERANCE = 0.0;
 
     /// @ brief Used for comparison of actual output with reference output.
@@ -53,7 +53,7 @@ namespace Validation
     class Comparator
     {
     public:
-        
+
         /// @brief Ctor
         /// Comparator
         Comparator() : m_ULP_TOLERANCE(DEFAULT_ULP_TOLERANCE)
@@ -61,14 +61,14 @@ namespace Validation
 
         ///
         /// @brief Compares actual output with reference using optionally NEAT information.
-        /// Comparison type will be chosen depending on the input. Reference or NEAT pointers 
+        /// Comparison type will be chosen depending on the input. Reference or NEAT pointers
         /// passed to Compare can be NULL, but not both. If Reference is NULL then NEAT
         /// structures will be used to validate actual output. Another option is to pass only
         /// reference and leave NEAT to be NULL. In this case precise comparison will be performed.
         /// You can also specify both NEAT and Reference values. Then firstly NEAT structures will
         /// be used to validate output. Afterwards reference values will be validated to fit within
         /// NEAT intervals and corresponding warnings will be reported. Validation of reference values
-        /// will not influence output and test is supposed to be passed even if reference doesn't fit 
+        /// will not influence output and test is supposed to be passed even if reference doesn't fit
         /// within NEAT intervals.
         ///
         /// @param  [in]  res       This object can be used in case of failing test
@@ -91,7 +91,7 @@ namespace Validation
             assert(in_Tolerance >= 0.0);
             m_ULP_TOLERANCE = in_Tolerance;
         }
-        
+
         /// @brief tolerance in ULPs used in accurate comparison of floating point types
         inline double GetULPTolerance() const
         {
@@ -108,24 +108,24 @@ namespace Validation
 
          /// @brief Performs comparison of images
          COMP_RESULT CompareImages(const Image* pImg, const Image* pImgRef, const Image* pImgNEAT);
-         
+
          /// @brief Performs comparison of N sequential elements in memory
          /// TypeDesc can be aggregate
          /// this function will recurse itself in case of aggregate typeDesc
-         COMP_RESULT CompareNElements(const int8_t* pAct, const int8_t* pRef, 
-             const NEATValue* pNEAT, 
+         COMP_RESULT CompareNElements(const int8_t* pAct, const int8_t* pRef,
+             const NEATValue* pNEAT,
              const TypeDesc& typeDesc, const std::size_t& N);
 
          /// @brief Performs comparison of N scalar sequential elements in memory
          template<typename T>
-         COMP_RESULT CompareNScalarElements(const T* pAct, const T* pRef, 
-             const NEATValue* pNEAT, 
+         COMP_RESULT CompareNScalarElements(const T* pAct, const T* pRef,
+             const NEATValue* pNEAT,
              const  std::size_t& N);
 
          /// @brief calls either NEAT interval comparison if pNEAT is not NULL
          //  calls accurate comparison if NEAT data not present
          template<typename T>
-         COMP_RESULT CompareScalarValueNEATConditional(const T* pAct, const T* pRef, 
+         COMP_RESULT CompareScalarValueNEATConditional(const T* pAct, const T* pRef,
              const NEATValue* pNEAT);
 
          /// @brief  Adds mismatch information to comparison results
@@ -135,7 +135,7 @@ namespace Validation
          /// @param  refRes true if reference result misses the NEAT interval
          /// @param  actRes true if actual result misses the NEAT interval
          template<typename T>
-         inline void ReportMismatch(const T* pAct, const T* pRef, 
+         inline void ReportMismatch(const T* pAct, const T* pRef,
              const NEATValue* pNeat, bool refRes, bool actRes)
          {
              IComparisonResults::Index ind = m_indexStack.cpyIndexStack();
@@ -147,7 +147,7 @@ namespace Validation
          template<typename T>
          COMP_RESULT CompareScalarNEAT(const T& Act, const NEATValue& NEAT);
 
-         /// @brief compares scalar accurate or with specified ULP accuracy for 
+         /// @brief compares scalar accurate or with specified ULP accuracy for
          /// floats
          template<typename T>
          COMP_RESULT CompareScalarAccurate(const T& Act, const T& Ref);
@@ -163,7 +163,7 @@ namespace Validation
          }
 
          /// @brief detect and check special values
-         /// @return true if special values were detected: Inf, Nans
+         /// @return true if special values were detected: Inf, NaNs
          /// @return false otherwise
          template<typename T>
          inline bool DetectAndCheckInfsNaNs(const T& Act, const T& Ref, COMP_RESULT& res)
@@ -189,10 +189,10 @@ namespace Validation
                  // if both are NaNs then passed else fails
                  if(Utils::IsNaN<T>(Act) && Utils::IsNaN<T>(Ref))
                      res = PASSED;
-                 else 
+                 else
                      res =  NOT_PASSED;
              }
-             else 
+             else
              {   // no special values were detected
                  ret = false;
              }
@@ -236,7 +236,7 @@ namespace Validation
          }
 
          /// @brief  Compares data using NEAT intervals
-         /// @param [in] actData Actual data 
+         /// @param [in] actData Actual data
          /// @param [in] in_vd   NEAT
          /// @return     Comparison status
          template<typename T>
@@ -267,7 +267,7 @@ namespace Validation
              const T actualOut = actData;
              const T maxVal = *(in_vd.GetMax<T>());
              const T minVal = *(in_vd.GetMin<T>());
-             
+
              if(Utils::IsNaN(maxVal) || Utils::IsNaN(minVal))
              {
                  DEBUG(llvm::dbgs()<<"[COMPARATOR WARNING] NEAT intervals contain NaN.\n");
@@ -300,7 +300,7 @@ namespace Validation
         IComparisonResults::Index        m_indexStack;
         /// general Memory object descriptor used during execution of comparison
         IMemoryObjectDescPtr m_pMemObjDescCurrent;
-        /// flag if Comparator has reference 
+        /// flag if Comparator has reference
         bool m_haveReference;
         /// flag if Comparator has NEAT
         bool m_haveNEAT;

@@ -84,6 +84,7 @@ public:
     //const size_t* ISPKernel::GetRequiredWorkGroupSize() const { return m_reqdWGSize[0] ? m_reqdWGSize : NULL; }
     cl_bool IsNonUniformWGSizeSupported() const { return CL_FALSE; }
     size_t GetOptimalWGSize() const { return m_optWGSize; }
+    const size_t* GetRequiredWGSize() const { return m_reqdWGSize; }
 
     fw_info GetBlob() const { return m_blob; }
 

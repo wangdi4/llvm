@@ -209,7 +209,7 @@ namespace Validation
 
     private:
         /// FPU control word
-        static const uint16_t fcw16; 
+        static const uint16_t fcw16;
         /// @brief Goes through input vector vec and for each
         /// element of vector it calls NEATValueFunction f, that works with pair of NEAT values.
         /// @param [in]     val    NEATValue to take as first parameter of NEATValueFunction
@@ -811,9 +811,9 @@ public:
         return CreateNEATValue(vals, 4, IntervalError<T>(NEATALU::MUL_ERROR));
     }
 
-    // backend may generates fma instraction at stage of code generation, so in this case NEATALU
+    // Back-end may generates fma instruction at stage of code generation, so in this case NEATALU
     // has no information about was fma instruction generated or just common multiplication was used.
-    // in order to provide NEAT support for it, mul_fma function perform performs multiplication in high 
+    // in order to provide NEAT support for it, mul_fma function perform performs multiplication in high
     // precision and adds 1 ULP to result. the using of mul_fma is turned on by --fma-neat command line
     // parameter of SATest
     template <typename T>
@@ -932,7 +932,7 @@ public:
     template <typename T>
     static NEATValue native_recip ( const NEATValue& a )
     {
-        return InternalRecip<T>(a, double(NEATALU::NATIVE_RECIP_ERROR)); 
+        return InternalRecip<T>(a, double(NEATALU::NATIVE_RECIP_ERROR));
     }
 
     template<typename T>
@@ -944,7 +944,7 @@ public:
     template <typename T>
     static NEATValue half_recip ( const NEATValue& a )
     {
-        return InternalRecip<T>(a, double(NEATALU::HALF_RECIP_ERROR)); 
+        return InternalRecip<T>(a, double(NEATALU::HALF_RECIP_ERROR));
     }
 
     template<typename T>
@@ -1149,7 +1149,7 @@ public:
             return NEATValue(NEATValue::UNKNOWN);
         }
 
-        if ( x.IsNaN<T>() || y.IsNaN<T>() || 
+        if ( x.IsNaN<T>() || y.IsNaN<T>() ||
             (y.IsAcc() && (Utils::eq<T>(*y.GetAcc<T>(),T(0.0)) || Utils::eq<T>(*y.GetAcc<T>(),T(-0.0))) )
            )
             return NEATValue::NaN<T>();
@@ -1237,8 +1237,8 @@ public:
         {
             // Three cases are possible:
             // 1. "reminder loop" - answer is one interval from 0.0 to max value (not equal to maxDivisor)
-            // 2. single interval - reminder value should fit an interval from minDiv1 to maxDiv2
-            // 3. two intervals - for smaller minDivisor we have smaller reminder, but not greater than minDiv1.
+            // 2. Single interval - reminder value should fit an interval from minDiv1 to maxDiv2
+            // 3. Two intervals - for smaller minDivisor we have smaller reminder, but not greater than minDiv1.
             // Answer is unknown in this case.
 
             if( Utils::IsInf<T>(maxDiv1) && Utils::IsInf<T>(maxDiv2))
@@ -1248,7 +1248,7 @@ public:
             {
                 if(maxDivisor>maxDividend)
                     toReturn = NEATValue(-RefALU::fabs(maxDividend), RefALU::fabs(maxDividend));
-                else 
+                else
                     // case 1
                     toReturn = NEATValue(-RefALU::fabs( (maxDividend / maxDiv1)/T(2.0)), RefALU::fabs( (maxDividend / maxDiv1)/T(2.0)));
             } else if((maxRem2 >= minRem1) || (maxRem2 == 0))
@@ -1286,7 +1286,7 @@ public:
         // 7.5.1 Additional Requirements Beyond C99 TC2
         if ( (x.IsAcc() && Utils::IsInf<T>(*x.GetAcc<T>()) ) ||
              (y.IsAcc() && (Utils::eq<T>(*y.GetAcc<T>(),T(0.0)) || Utils::eq<T>(*y.GetAcc<T>(),T(-0.0))) ) ||
-             (x.IsNaN<T>() && y.IsNaN<T>())  ) 
+             (x.IsNaN<T>() && y.IsNaN<T>())  )
         {
             *quo = 0;
             return NEATValue::NaN<T>();
@@ -1369,7 +1369,7 @@ public:
         return res;
     }
 
-    // names like IS#name# were choosen to avoid conflict with defines "isnan" and "isinf" included from conformance
+    // names like IS#name# were chosen to avoid conflict with defines "isnan" and "isinf" included from conformance
     // and to keep names of relational functions looks similar
     template<typename T>
     static NEATValue ISequal ( const NEATValue& a, const NEATValue& b) {
@@ -1399,7 +1399,7 @@ public:
     static NEATValue ISlessgreater ( const NEATValue& a, const NEATValue& b) {
         NEATValue res1 = fcmp<T>(a, b, CMP_OLT);
         NEATValue res2 = fcmp<T>(a, b, CMP_OGT);
-        if(CheckAUU(res1) || CheckAUU(res1)) 
+        if(CheckAUU(res1) || CheckAUU(res1))
             return NEATValue(NEATValue::UNKNOWN);
         else {
             // it should not be interval here
@@ -1412,16 +1412,16 @@ public:
     }
     template<typename T>
     static NEATValue ISfinite ( const NEATValue& a) {
-        if(CheckAUU(a)) 
+        if(CheckAUU(a))
             return NEATValue(NEATValue::UNKNOWN);
-        if (a.IsFinite<T>()) 
+        if (a.IsFinite<T>())
             return NEATValue(true);
         else
             return NEATValue(false);
     }
     template<typename T>
     static NEATValue ISinf ( const NEATValue& a) {
-        if(CheckAUU(a)) 
+        if(CheckAUU(a))
             return NEATValue(NEATValue::UNKNOWN);
         if(a.IsAcc()) {
             T tmp;
@@ -1439,27 +1439,27 @@ public:
     }
     template<typename T>
     static NEATValue ISnan ( const NEATValue& a) {
-        if(CheckAUU(a)) 
+        if(CheckAUU(a))
             return NEATValue(NEATValue::UNKNOWN);
-        if (a.IsNaN<T>()) 
+        if (a.IsNaN<T>())
             return NEATValue(true);
         else
             return NEATValue(false);
     }
     template<typename T>
     static NEATValue ISnormal ( const NEATValue& a) {
-        if(CheckAUU(a)) 
+        if(CheckAUU(a))
             return NEATValue(NEATValue::UNKNOWN);
         T min = *a.GetMin<T>();
         T max = *a.GetMax<T>();
         if(RefALU::isNormal<T>(min) && RefALU::isNormal<T>(max) && RefALU::isNormal<T>(min) && RefALU::isNormal<T>(max))
             return NEATValue(true);
-        else 
+        else
             return NEATValue(false);
     }
     template<typename T>
     static NEATValue ISordered ( const NEATValue& a, const NEATValue& b) {
-        if(CheckAUU(a) || CheckAUU(b)) 
+        if(CheckAUU(a) || CheckAUU(b))
             return NEATValue(NEATValue::UNKNOWN);
         NEATValue res1 =  fcmp<T>(a, a, CMP_OEQ);
         NEATValue res2 =  fcmp<T>(b, b, CMP_OEQ);
@@ -1472,16 +1472,16 @@ public:
     }
     template<typename T>
     static NEATValue ISunordered ( const NEATValue& a, const NEATValue& b) {
-        if(CheckAUU(a) || CheckAUU(b)) 
+        if(CheckAUU(a) || CheckAUU(b))
             return NEATValue(NEATValue::UNKNOWN);
-        if (a.IsNaN<T>() || b.IsNaN<T>()) 
+        if (a.IsNaN<T>() || b.IsNaN<T>())
             return NEATValue(true);
         else
             return NEATValue(false);
     }
     template<typename T>
     static NEATValue signbit ( const NEATValue& a) {
-        if(CheckAUU(a)) 
+        if(CheckAUU(a))
             return NEATValue(NEATValue::UNKNOWN);
         if( Utils::ge(*a.GetMin<T>(), T(0.0)))
             return NEATValue(false);
@@ -1512,7 +1512,7 @@ public:
     }
     template<typename T>
     static NEATValue bitselect ( const NEATValue& a, const NEATValue& b, const NEATValue& c) {
-        if(CheckAUU(a) || CheckAUU(b) || CheckAUU(c)) 
+        if(CheckAUU(a) || CheckAUU(b) || CheckAUU(c))
             return NEATValue(NEATValue::UNKNOWN);
         if( a.IsAcc() && b.IsAcc() && c.IsAcc() )
             return NEATValue(localBitselect(*a.GetAcc<T>(),*b.GetAcc<T>(),*c.GetAcc<T>()));
@@ -1546,7 +1546,7 @@ public:
             }
             else if (res.IsUnknown())
                 toReturn[i] = res;
-            else 
+            else
                 throw Exception::InvalidArgument("Only ACCURATE and UNKNOWN NEAT values are supported");
         }
         return toReturn;
@@ -1571,7 +1571,7 @@ public:
             }
             else if (res.IsUnknown())
                 toReturn[i] = res;
-            else 
+            else
                 throw Exception::InvalidArgument("Only ACCURATE and UNKNOWN NEAT values are supported");
         }
         return toReturn;
@@ -1821,7 +1821,7 @@ public:
     template<typename T>
     static NEATValue tan_frm(const NEATValue& a)
     {
-        return mul<T>(sin_frm<T>(a), 
+        return mul<T>(sin_frm<T>(a),
             div_frm<T>( NEATValue(T(1.0f)), cos_frm<T>(a) )
             );
     }
@@ -3058,8 +3058,8 @@ public:
 
         NEATValue flushed = flush<T>(a);
 
-        // we don't support +-0 and negative arguments so far, because 
-        // logG(0)=logG(-1)=logG(-3)= +inf, and function is not defined for -1<x<0, -3<x<-2, -5<x<-4 and so on, 
+        // we don't support +-0 and negative arguments so far, because
+        // logG(0)=logG(-1)=logG(-3)= +inf, and function is not defined for -1<x<0, -3<x<-2, -5<x<-4 and so on,
         // but it is defined for -2<x<-1, -4<x<-3, -6<x<-5 and so on
         if(flushed.Includes<T>(T(0)) || *flushed.GetMax<T>() < T(0.0) || *flushed.GetMin<T>() < T(0.0) )
         {
@@ -3080,7 +3080,7 @@ public:
         if(flushed.Includes<T>(T(xMinPosVal))
             val[2] = RefALU::lgamma(xMinPosVal);
         else
-            val[2] = val[0];        
+            val[2] = val[0];
         return CreateNEATValue(val, 3, LGAMMA_ERROR);
 */
 
@@ -3102,12 +3102,12 @@ public:
             return NEATValue(NEATValue::UNKNOWN);
 
         NEATValue flushed = flush<T>(a);
-        
+
         // currently not used, so produce result as like as conformance
         *signp = 0;
 
-        // we don't support +-0 and negative arguments so far, because 
-        // logG(0)=logG(-1)=logG(-3)= +inf, and function is not defined for -1<x<0, -3<x<-2, -5<x<-4 and so on, 
+        // we don't support +-0 and negative arguments so far, because
+        // logG(0)=logG(-1)=logG(-3)= +inf, and function is not defined for -1<x<0, -3<x<-2, -5<x<-4 and so on,
         // but it is defined for -2<x<-1, -4<x<-3, -6<x<-5 and so on
         if(flushed.Includes<T>(T(0)) || *flushed.GetMax<T>() < T(0.0) || *flushed.GetMin<T>() < T(0.0) )
         {
@@ -3115,7 +3115,7 @@ public:
         }
 
         // The ULP values for built-in math functions lgamma and lgamma_r is currently undefined,
-        // so we return diapasone form -inf to +inf,as it is done in conformance, instead of:
+        // so we return range form -inf to +inf,as it is done in conformance, instead of:
 /*
         // lgamma plot can be found here http://mathworld.wolfram.com/LogGammaFunction.html
 
@@ -3128,7 +3128,7 @@ public:
         if(flushed.Includes<T>(T(xMinPosVal))
             val[2] = RefALU::lgamma(xMinPosVal);
         else
-            val[2] = val[0];        
+            val[2] = val[0];
         return CreateNEATValue(val, 3, LGAMMA_ERROR);
 */
 
@@ -3429,7 +3429,7 @@ public:
         return processVector(a, ceil<T>);
     }
 
-    /// Clamp function according to openCL specification is implemented as
+    /// Clamp function according to OpenCL specification is implemented as
     /// clamp(x, in_min, in_max) = min(max(x, in_min) in_max)
     template<typename T>
     static NEATValue clamp(const NEATValue& a, const NEATValue& in_min, const NEATValue& in_max)
@@ -3452,7 +3452,7 @@ public:
         NEATValue maxFlushed = flush<T>(in_max);
 
         /// Results are undefined if min > max
-        /// according to ocl specification
+        /// according to OpenCL specification
         if(*minFlushed.GetMax<T>()>*maxFlushed.GetMin<T>())
             return NEATValue(NEATValue::ANY);
 
@@ -3507,7 +3507,7 @@ public:
             return NEATValue(NEATValue::UNKNOWN);
 
         if(a.IsNaN<T>()) {
-            // openCL spec Version: 1.1
+            // OpenCL spec Version: 1.1
             // 7.5.1 Additional Requirements Beyond C99 TC2
             *exp = 0;
             return NEATValue::NaN<T>();
@@ -3517,7 +3517,7 @@ public:
 
         if(flushed.IsAcc())
         {
-            // openCL spec Version: 1.1
+            // OpenCL spec Version: 1.1
             // 7.5.1 Additional Requirements Beyond C99 TC2
             T val;
             memcpy(&val, flushed.GetAcc<T>(), sizeof(T));
@@ -3632,7 +3632,7 @@ public:
 
         if(flushed.IsAcc())
         {
-            // openCL spec Version: 1.1
+            // OpenCL spec Version: 1.1
             // 7.5.2 Changes to C99 TC2 Behavior
             // gentype modf ( gentype value, gentype *iptr )
             // {
@@ -3674,17 +3674,17 @@ public:
         } else {
             SuperT diff = RefALU::abs(max - min);
             if( diff < SuperT(1.0) ) {
-                // for example, min=1.8, max=2.2, fractial part should be greater
+                // for example, min=1.8, max=2.2, fractional part should be greater
                 // than 0.8 and less than 0.2, we are not able to make correct interval,
                 // so we set UNKNOWN here
                 return NEATValue(NEATValue::UNKNOWN);
             } else {
                 if(Utils::ge(min, SuperT(0.0))) {
-                    // all possible fractial values are
+                    // all possible fractional values are
                     // less than 1.0 and greater or equal to 0.0
                     return NEATValue( T(0.0), T(1.0)-std::numeric_limits<T>::min());
                 } else if(Utils::le(max, SuperT(0.0))) {
-                    // all possible fractial values are
+                    // all possible fractional values are
                     // less or equal to 0.0 and greater than -1.0
                     return NEATValue( T(-1.0)+std::numeric_limits<T>::min(), T(0.0));
                 } else {
@@ -3732,7 +3732,7 @@ public:
             return NEATValue::NaN<T>();
         }
 
-        // openCL spec Version: 1.1
+        // OpenCL spec Version: 1.1
         // 7.5.1 Additional Requirements Beyond C99 TC2
         // rootn (x, 0) returns NaN
         if(n == 0) {
@@ -3742,7 +3742,7 @@ public:
         NEATValue flushed = flush<T>(a);
         if(flushed.IsAcc())
         {
-            // openCL spec Version: 1.1
+            // OpenCL spec Version: 1.1
             // 7.5.1 Additional Requirements Beyond C99 TC2
             //rootn (x, n) returns flushed NaN for x < 0 and n is even.
             T accVal;
@@ -3940,7 +3940,7 @@ public:
     template<typename T>
     static NEATValue exp10_frm(const NEATValue& a)
     {
-        ///return exp2(x*log2(10))
+        //return exp2(x*log2(10))
         return exp2_frm<T>(
                 mul<T>(a, log2_frm<T>(
                                     NEATValue(T(10.0f))
@@ -3985,7 +3985,7 @@ public:
     static NEATValue expm1(const NEATValue& a)
     {
         typedef typename superT<T>::type SuperT;
-        /// Check for ANY, UNWRITTEN, UNKNOWN
+        // Check for ANY, UNWRITTEN, UNKNOWN
         if(CheckAUU(a))
             return NEATValue(NEATValue::UNKNOWN);
 
@@ -3996,15 +3996,15 @@ public:
 
         if(flushed.IsAcc())
         {
-            // openCL spec Version: 1.1
+            // OpenCL spec Version: 1.1
             // 7.5.1 Additional Requirements Beyond C99 TC2
-            /// expm1(+inf) = +inf
+            // expm1(+inf) = +inf
             if(Utils::IsPInf<T>(*flushed.GetAcc<T>()))
                 return NEATValue(Utils::GetPInf<T>());
-            /// expm1(-inf) = -1
+            // expm1(-inf) = -1
             if(Utils::IsNInf<T>(*flushed.GetAcc<T>()))
                 return NEATValue((T)-1.0);
-            /// expm1(+-0) = +-0
+            // expm1(+-0) = +-0
             if(Utils::eq<T>(*flushed.GetAcc<T>(), (T)-0.0))
                 return NEATValue((T)-0.0);
             if(Utils::eq<T>(*flushed.GetAcc<T>(), (T)+0.0))
@@ -4294,20 +4294,20 @@ public:
         T maxY = *flushedY.GetMax<T>();
 
         // if x is accurate and y is interval with yMin <0 and yMax >0
-        // result values are -x and x exactly with no allowed interval 
+        // result values are -x and x exactly with no allowed interval
         // between these values, so result is UNKNOWN
-        if ( flushedX.IsAcc() ) { 
-            if ( Utils::lt<T>(minY,T(0.0)) && 
+        if ( flushedX.IsAcc() ) {
+            if ( Utils::lt<T>(minY,T(0.0)) &&
                  Utils::gt<T>(maxY,T(0.0)) )
                 return NEATValue(NEATValue::UNKNOWN);
             else {
                 // if flushedY.GetMin and flushedY.GetMax have the same sign,
-                // it doesn't matter min Y value or max Y value to be used 
+                // it doesn't matter min Y value or max Y value to be used
                 T resAccVal = RefALU::copysign(*flushedX.GetAcc<T>(),minY);
                 return NEATValue(resAccVal,resAccVal);
             }
         }
-        
+
         T minX = *flushedX.GetMin<T>();
         T maxX = *flushedX.GetMax<T>();
 
@@ -4423,7 +4423,7 @@ public:
         if (min != max)
             return NEATValue(NEATValue::UNKNOWN);
         else
-           return NEATValue(T(min));        
+           return NEATValue(T(min));
     }
 
     template<typename T>
@@ -4716,7 +4716,7 @@ public:
         sT errorTolerance = std::max(*in0a.GetMax<T>(), std::max(*in1a.GetMax<T>(), std::max(*in2a.GetMax<T>(), *in3a.GetMax<T>())));
 
         // expand interval
-        // approach from conformanse tests is used
+        // approach from conformance tests is used
         IntervalError<T>::ExpandFPInterval(&min0, &max0, IntervalError<T>::fromAbsoluteError(errorTolerance * errorTolerance * ( ulps * ComputeUlp(sT(1.0)))));
 
         T minD = castDown(min0);
@@ -4746,7 +4746,7 @@ public:
         // "bad" value of vec1[0] makes res[1] and res[2] "bad",
         // "bad" value of vec1[1] makes res[0] and res[2] "bad" and so on
 
-        if(CheckAUU(vec1[0]) || vec1[0].IsNaN<T>() || 
+        if(CheckAUU(vec1[0]) || vec1[0].IsNaN<T>() ||
            CheckAUU(vec2[0]) || vec2[0].IsNaN<T>() ) {
             res[1] = NEATValue(NEATValue::UNKNOWN);
             res[2] = NEATValue(NEATValue::UNKNOWN);
@@ -4761,7 +4761,7 @@ public:
             res[0] = NEATValue(NEATValue::UNKNOWN);
             res[1] = NEATValue(NEATValue::UNKNOWN);
         }
-        // initially each item of result vector is set to UNWRITTEN. Then it 
+        // initially each item of result vector is set to UNWRITTEN. Then it
         // can be set to UNKNOWN, but the others items should be calculated.
         //  so we check if the item set to UNWRITTEN state.
 
@@ -4787,7 +4787,7 @@ public:
     ///////////////////////////////////////////////////////////////////////////////
     // length, fast_length
     ///////////////////////////////////////////////////////////////////////////////
-    template<typename T> 
+    template<typename T>
     static NEATValue localLength(T inMin, T inMax, double ulps)
     {
         T min = RefALU::mul(inMin, inMin);
@@ -4804,9 +4804,9 @@ public:
     static NEATValue length(const NEATValue& p)
     {
         typedef typename superT<T>::type SuperT;
-        
+
         double sqrtErr = NEATALU::sqrtSetUlps<T>();
-        
+
         if (p.IsNaN<T>())
             return NEATValue(NEATValue::NaN<T>());
 
@@ -4845,13 +4845,13 @@ public:
         return localLength<SuperT>(min, max, maxUlps);
     }
 
-    template<typename T> static 
+    template<typename T> static
     NEATValue localLengthVec(const NEATVector& vec1, double ulps)
     {
         typedef typename superT<T>::type SuperT;
 
         for(size_t i=0; i<vec1.GetSize(); i++) {
-            if (vec1[i].IsNaN<T>()) 
+            if (vec1[i].IsNaN<T>())
                 return NEATValue(NEATValue::NaN<T>());
 
             if(CheckAUU(vec1[i]))
@@ -4997,7 +4997,7 @@ public:
         double sqrtErr = NEATALU::sqrtSetUlps<T>();
 
         double maxUlps = sqrtErr +  // error in sqrt
-        ( 1.5 * (double) vec1.GetSize() +       // cumulative error for multiplications  
+        ( 1.5 * (double) vec1.GetSize() +       // cumulative error for multiplications
                                                 // (a-b+0.5ulp)**2 = (a-b)**2 + a*0.5ulp + b*0.5 ulp + 0.5 ulp for multiplication
          0.5 * (double) (vec1.GetSize()-1));    // cumulative error for additions
 
@@ -5008,7 +5008,7 @@ public:
     static NEATValue fast_distance(const NEATVector& vec0, const NEATVector& vec1)
     {
         double maxUlps = NEATALU::HALF_SQRT_ERROR +  // error in sqrt
-        ( 1.5 * (double) vec1.GetSize() +       // cumulative error for multiplications  
+        ( 1.5 * (double) vec1.GetSize() +       // cumulative error for multiplications
                                                 // (a-b+0.5ulp)**2 = (a-b)**2 + a*0.5ulp + b*0.5 ulp + 0.5 ulp for multiplication
          0.5 * (double) (vec1.GetSize()-1));    // cumulative error for additions
 
@@ -5024,7 +5024,7 @@ public:
 
         if (p.IsNaN<T>())
         {
-            // openCL spec Version: 1.1
+            // OpenCL spec Version: 1.1
             // 7.5.1 Additional Requirements Beyond C99 TC2
             // normalize (v) returns a vector full of NaNs if any element is a NaN
             return NEATValue(NEATValue::NaN<T>());
@@ -5035,13 +5035,13 @@ public:
             return NEATValue(NEATValue::UNKNOWN);
         }
 
-        // openCL spec Version: 1.1
+        // OpenCL spec Version: 1.1
         // 7.5.1 Additional Requirements Beyond C99 TC2
         // normalize (v) returns v if all elements of v are zero
         if (*p.GetMax<T>() == 0 && *p.GetMin<T>() == 0)
             return p;
 
-        // openCL spec Version: 1.1
+        // OpenCL spec Version: 1.1
         // 7.5.1 Additional Requirements Beyond C99 TC2
         // special case for infinity
         if(p.IsAcc() && Utils::IsPInf<T>(*p.GetAcc<T>()))
@@ -5081,7 +5081,7 @@ public:
         for(uint32_t i=0; i<vec1.GetSize(); i++) {
             if (vec1[i].IsNaN<T>())
             {
-                // openCL spec Version: 1.1
+                // OpenCL spec Version: 1.1
                 // 7.5.1 Additional Requirements Beyond C99 TC2
                 // normalize (v) returns a vector full of NaNs if any element is a NaN
                 for(uint32_t j=0; j<vec1.GetSize(); j++)
@@ -5096,13 +5096,13 @@ public:
                 return vec1;
             }
 
-            // openCL spec Version: 1.1
+            // OpenCL spec Version: 1.1
             // 7.5.1 Additional Requirements Beyond C99 TC2
             // normalize (v) returns v if all elements of v are zero
             if (*vec1[i].GetMax<T>() == 0 && *vec1[i].GetMin<T>() == 0)
                 cntZero++;
 
-            // openCL spec Version: 1.1
+            // OpenCL spec Version: 1.1
             // 7.5.1 Additional Requirements Beyond C99 TC2
             // special case for infinity
             if(vec1[i].IsAcc() && Utils::IsInf<T>(*vec1[i].GetAcc<T>()))
@@ -5202,7 +5202,7 @@ public:
 
         if (flushed.IsNaN<T>())
         {
-            // the behaviour for NaN is not defined in spec, so process as like as nomalize does
+            // the behaviour for NaN is not defined in spec, so process as like as normalize does
             return NEATValue(NEATValue::NaN<T>());
         }
 
@@ -5211,7 +5211,7 @@ public:
             return NEATValue(NEATValue::UNKNOWN);
         }
 
-        // openCL spec Version: 1.1
+        // OpenCL spec Version: 1.1
         // 7.5.1 Additional Requirements Beyond C99 TC2
         // normalize (v) returns v if all elements of v are zero
         if (*flushed.GetMax<T>() == 0 && *flushed.GetMin<T>() == 0)
@@ -5230,7 +5230,7 @@ public:
             Combine(val, 2, totalMin, totalMax);
         }
 
-        // openCL spec Version: 1.1, 6.11.5 : If the sum of squares is greater than FLT_MAX
+        // OpenCL spec Version: 1.1, 6.11.5 : If the sum of squares is greater than FLT_MAX
         // then the value of the floating-point values in the result vector are undefined.
         if(totalMin > std::numeric_limits<T>::max() || totalMax > std::numeric_limits<T>::max())
             return NEATValue(NEATValue::ANY);
@@ -5265,7 +5265,7 @@ public:
         for(uint32_t i=0; i<vec1.GetSize(); i++) {
             if (p[i].IsNaN<T>())
             {
-                // the behaviour for NaN is not defined in spec, so process as like as nomalize does
+                // the behaviour for NaN is not defined in spec, so process as like as normalize does
                 for(uint32_t j=0; j<vec1.GetSize(); j++)
                     vec1[j] = NEATValue(NEATValue::NaN<T>());
                 return vec1;
@@ -5279,7 +5279,7 @@ public:
             }
 
             vec1[i] = flush<T>(p[i]);
-            
+
             if (*vec1[i].GetMax<T>() == 0 && *vec1[i].GetMin<T>() == 0)
                 cntZero++;
         }
@@ -5311,7 +5311,7 @@ public:
             totalMax = RefALU::add(totalMax, localMax);
         }
 
-        // openCL spec Version: 1.1, 6.11.5 : If the sum of squares is greater than FLT_MAX
+        // OpenCL spec Version: 1.1, 6.11.5 : If the sum of squares is greater than FLT_MAX
         // then the value of the floating-point values in the result vector are undefined.
         if(totalMin > std::numeric_limits<T>::max() || totalMax > std::numeric_limits<T>::max()) {
                 for(uint32_t j=0; j<vec1.GetSize(); j++)
@@ -5586,12 +5586,12 @@ public:
     ///////////////////////////////////////////////////////////////////////////////
     // smoothstep built-in function
     template<typename T>
-    static NEATValue smoothstep (const NEATValue& edge0, 
+    static NEATValue smoothstep (const NEATValue& edge0,
                                  const NEATValue& edge1,
                                  const NEATValue& x) {
         typedef typename superT<T>::type sT;
         // check for ANY,UNWRITTEN,UNKNOWN
-        if(CheckAUU(edge0) || CheckAUU(edge1) || CheckAUU(x)) 
+        if(CheckAUU(edge0) || CheckAUU(edge1) || CheckAUU(x))
             return NEATValue(NEATValue::UNKNOWN);
 
         // Flush denormalized values to zero
@@ -5602,7 +5602,7 @@ public:
         // Results are undefined if x, edge0 or edge1 is a NaN.
         if (flushedEdge0.IsNaN<T>() || flushedEdge1.IsNaN<T>() || flushedX.IsNaN<T>())
             return NEATValue(NEATValue::ANY);
-       
+
         T edgeMin0 = *flushedEdge0.GetMin<T>();
         T edgeMax0 = *flushedEdge0.GetMax<T>();
         T edgeMin1 = *flushedEdge1.GetMin<T>();
@@ -5623,8 +5623,8 @@ public:
         if (Utils::ge<T>(xMin,edgeMax1))
             return NEATValue(T(1));
 
-        // according to openCL spec Version: 1.1 (6.11.4 Common Functions)
-        // smoothstep function is equivalent to: 
+        // according to OpenCL spec Version: 1.1 (6.11.4 Common Functions)
+        // smoothstep function is equivalent to:
         // gentype t;
         // t = clamp ((x - edge0) / (edge1 - edge0), 0, 1);
         // return t * t * (3 - 2 * t);
@@ -5747,7 +5747,7 @@ public:
     // min function
     template<typename T>
     static NEATValue min (const NEATValue& x, const NEATValue& y) {
-        // OCL 1.1 rev 36 Sec 6.11.4
+        // OpenCL 1.1 rev 36 Sec 6.11.4
         // Returns y if y < x, otherwise it returns x. If x or y
         // are infinite or NaN, the return values are undefined.
 
@@ -5787,7 +5787,7 @@ public:
 
     template<typename T>
     static NEATValue max (const NEATValue& x, const NEATValue& y) {
-        // OCL 1.1 rev 36 Sec 6.11.4
+        // OpenCL 1.1 rev 36 Sec 6.11.4
         //  Returns y if x < y, otherwise it returns x. If x or y
         //  are infinite or NaN, the return values are undefined
 
@@ -5827,8 +5827,8 @@ public:
 
     template<typename T>
     static NEATValue fmax (const NEATValue& x, const NEATValue& y) {
-        // OCL 1.1 rev 36 Sec 6.11.2
-        // Returns y if x < y, otherwise it returns x. 
+        // OpenCL 1.1 rev 36 Sec 6.11.2
+        // Returns y if x < y, otherwise it returns x.
         // If one argument is a NaN, fmax() returns the other argument.
         // If both arguments are NaNs, fmax() returns a NaN.
 
@@ -5872,8 +5872,8 @@ public:
 
     template<typename T>
     static NEATValue fmin (const NEATValue& x, const NEATValue& y) {
-        // OCL 1.1 rev 36 Sec 6.11.2
-        // Returns y if x < y, otherwise it returns x. 
+        // OpenCL 1.1 rev 36 Sec 6.11.2
+        // Returns y if x < y, otherwise it returns x.
         // If one argument is a NaN, fmin() returns the other argument.
         // If both arguments are NaNs, fmin() returns a NaN.
 
@@ -5914,8 +5914,7 @@ public:
         return processVector(x, y, fmin<T>);
     }
 
-    /// fabs implementation
-    /// has 0 ulps. relies completely on RefALU
+    /// fabs implementation has 0 ulps. Relies completely on RefALU
     template<typename T>
     static NEATValue fabs(const NEATValue& a)
     {
@@ -6037,10 +6036,10 @@ public:
 
         if( flushed.IsInterval())
         {
-            // The fract funtion is discontinious. Multiple non-intersecting intervals cannot be represented by current implementation 
-            // To get defined resut we need to ensure that output values Y = {y = fract(x), x from Min to Max }
+            // The fract function is discontinuous. Multiple non-intersecting intervals cannot be represented by current implementation
+            // To get defined result we need to ensure that output values Y = {y = fract(x), x from Min to Max }
             // belong to continuous interval
-            // 
+            //
             // diff is difference between floor(min) and floor(max)
             // min = floor(min)+fract(min)
             SuperT diff = RefALU::fabs(RefALU::floor(SuperT(*flushed.GetMax<T>())) - RefALU::floor(SuperT(*flushed.GetMin<T>())));
@@ -6054,7 +6053,7 @@ public:
                 *iptr = NEATALU::floor<T>(flushed);
                 return NEATValue(T(0), T(one.val()));
             }
-            // Multiple intervals cannot be represented. So, if diff equals 1 and (Max - Min) is less than 1 - output interval is discontinious
+            // Multiple intervals cannot be represented. So, if diff equals 1 and (Max - Min) is less than 1 - output interval is discontinuous
             else if(Utils::eq<SuperT>(diff, SuperT(1)) &&
                 Utils::lt<SuperT>(RefALU::fabs(SuperT(*flushed.GetMax<T>()) - SuperT(*flushed.GetMin<T>())), SuperT(1.0)) )
             {
@@ -6095,7 +6094,7 @@ public:
     template<typename T>
     static NEATValue hypot(const NEATValue& x,const NEATValue& y)
     {
-        // OCL 1.1 rev 36 Sec 6.11.4
+        // OpenCL 1.1 rev 36 Sec 6.11.4
         // Compute the value of the square root of x2+ y2
         // without undue overflow or underflow.
         typedef typename  superT<T>::type SuperT;
@@ -6325,13 +6324,13 @@ public:
         T localMin = RefALU::copysign(minAbs,xMin);
         T localMax = RefALU::copysign(maxAbs,xMin);
         if (localMax<localMin) std::swap(localMax, localMin);
-        if(xMin < localMin)    
+        if(xMin < localMin)
             minX = localMin;
 
         localMin = RefALU::copysign(minAbs,xMax);
         localMax = RefALU::copysign(maxAbs,xMax);
         if (localMax<localMin) std::swap(localMax, localMin);
-        if(xMax > localMax)    
+        if(xMax > localMax)
             maxX = localMax;
 
         // implement limitation for y range
@@ -6344,13 +6343,13 @@ public:
         localMin = RefALU::copysign(minAbs,yMax);
         localMax = RefALU::copysign(maxAbs,yMax);
         if (localMax<localMin) std::swap(localMax, localMin);
-        if(yMax > localMax)    
+        if(yMax > localMax)
             maxY = localMax;
 
         // there are two resulting ranges, return UNKNOWN
         if( maxX < minY || maxY < minX )
             return NEATValue(NEATValue::UNKNOWN);
-       
+
         // calculate result from limited x and y ranges
         T min = minX, max = maxX;
         if( minY < minX)
@@ -6358,7 +6357,7 @@ public:
         if( maxY > maxX)
             max = maxY;
         return  NEATValue(min,max);
-      
+
     }
 
     template<typename T>
@@ -6447,7 +6446,7 @@ public:
         val[0] = RefALU::rint(SuperT(*flushed.GetMin<T>()));
         val[1] = RefALU::rint(SuperT(*flushed.GetMax<T>()));
 
-        /// If minimum is not equal to maximum, the resulting set of discrete 
+        /// If minimum is not equal to maximum, the resulting set of discrete
         /// integers cannot be represented by the single interval
         if(val[0] != val[1])
         {
@@ -6482,7 +6481,7 @@ public:
         // Flush denormals to zero
         NEATValue flushed = flush<T>(a);
 
-        // openCL spec Version: 1.1
+        // OpenCL spec Version: 1.1
         // 7.5.1 Additional Requirements Beyond C99 TC2
         // round ( -0.5 < x < 0 ) returns -0
         // this requirement is supported by reference function,
@@ -6493,7 +6492,7 @@ public:
         val[0] = RefALU::round(SuperT(*flushed.GetMin<T>()));
         val[1] = RefALU::round(SuperT(*flushed.GetMax<T>()));
 
-        /// If minimum is not equal to maximum, the resulting set of discrete 
+        /// If minimum is not equal to maximum, the resulting set of discrete
         /// integers cannot be represented by the single interval
         if(val[0] != val[1])
         {
@@ -6533,7 +6532,7 @@ public:
         val[0] = RefALU::trunc(SuperT(*flushed.GetMin<T>()));
         val[1] = RefALU::trunc(SuperT(*flushed.GetMax<T>()));
 
-        /// If minimum is not equal to maximum, the resulting set of discrete 
+        /// If minimum is not equal to maximum, the resulting set of discrete
         /// integers cannot be represented by the single interval
         if(val[0] != val[1])
         {
@@ -6719,7 +6718,7 @@ public:
     }
 
     /// @brief Calculate NEATVector for pixel read from raw image data. Source image is in format from OpenCL reference
-    /// image data has no NEAT. It is accurate as it is stored in OCL Reference and RefALU::ImagesALU
+    /// image data has no NEAT. It is accurate as it is stored in OpenCL Reference and RefALU::ImagesALU
     static NEATVector read_imagef_src_noneat(void *imageData, Conformance::image_descriptor *imageInfo,
         float x, float y, float z, Conformance::image_sampler_data *imageSampler);
 
@@ -7082,7 +7081,7 @@ public:
 
             if(flushed.IsAcc())
             {
-                // openCL spec Version: 1.1
+                // OpenCL spec Version: 1.1
                 // 7.5.1 Additional Requirements Beyond C99 TC2
                 if(Utils::IsPInf<T>(*flushed.GetAcc<T>()))
                     return NEATValue(Utils::GetPInf<T>());
@@ -7358,11 +7357,11 @@ public:
         static NEATValue InternalPown(const NEATValue& x, const int32_t& y, const double& ulps)
         {
             typedef typename superT<T>::type SuperT;
-    
+
             /// Check for ANY, UNWRITTEN, UNKNOWN
             if(CheckAUU(x))
                 return NEATValue(NEATValue::UNKNOWN);
-    
+
             /// 7.5.1 Additional Requirements Beyond C99 TC2
             /// pown(x, 0) returns 1 for any x, even NaN or inf
             if(y == 0)
@@ -7389,7 +7388,7 @@ public:
                         }
                     } else {
                         if( y&1 ) {
-                            //pown ( +-0,  n ) is +-0 for odd n > 0                        
+                            //pown ( +-0,  n ) is +-0 for odd n > 0
                             return flushed;
                         } else {
                             //pown ( +-0,  n ) is +0 for even n > 0
@@ -7401,19 +7400,19 @@ public:
 
             if(flushed.IsNaN<T>())
                 return NEATValue::NaN<T>();
-    
+
             T xMin = *flushed.GetMin<T>();
             T xMax = *flushed.GetMax<T>();
-     
+
             NEATValue res;
-    
+
             SuperT val[4];
-    
+
             val[0] = RefALU::pown(SuperT(xMin), y);
             val[1] = RefALU::pown(SuperT(xMax), y);
             val[2] = val[0]; // additional values to enlarge the result interval
             val[3] = val[0]; // if edge values are included in source interval
-    
+
             if( y == 0)
             /// 7.5.1 Additional Requirements Beyond C99 TC2
             /// pown(x, 0) returns 1 for any x, even NaN or inf

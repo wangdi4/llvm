@@ -19,7 +19,7 @@ File Name:  Image.h
 #define __IMAGE_H__
 
 #include "IMemoryObject.h"                    // IMemoryObject declaration
-#include "llvm/Support/DataTypes.h"      // llvm data types
+#include "llvm/Support/DataTypes.h"      // LLVM data types
 #include "Exception.h"
 #include "ImageDesc.h"
 

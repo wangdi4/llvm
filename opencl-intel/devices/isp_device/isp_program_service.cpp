@@ -805,6 +805,10 @@ cl_dev_err_code ISPProgramService::GetKernelInfo(cl_dev_kernel IN kernel, cl_dev
             break;
 
         case CL_DEV_KERNEL_WG_SIZE_REQUIRED:
+            pValue = pIspKernel->GetRequiredWGSize();
+            stValueSize = sizeof(size_t) * MAX_WORK_DIM;
+            break;
+
         case CL_DEV_KERNEL_MAX_WG_SIZE:
         case CL_DEV_KERNEL_WG_SIZE:
             stValue = pIspKernel->GetOptimalWGSize();
@@ -930,11 +934,12 @@ cl_dev_err_code ISPKernel::Build(std::string& log)
         return CL_DEV_INVALID_VALUE;
     }
 
+    // Currently ISP kernels run as a single work-item
     // TODO: Set correct values
     m_optWGSize = 1;
     for(int i = 0; i < MAX_WORK_DIM; i++)
     {
-        m_reqdWGSize[i] = 1;
+        m_reqdWGSize[i] = 0;
         m_hintWGSize[i] = 1;
     }
 

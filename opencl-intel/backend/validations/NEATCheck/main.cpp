@@ -42,12 +42,12 @@ using namespace std;
 using namespace llvm;
 using namespace Validation;
 
-cl::opt<string> 
-ReferenceFilename(cl::Required, "r", cl::desc("Specify reference pattern filename"), 
+cl::opt<string>
+ReferenceFilename(cl::Required, "r", cl::desc("Specify reference pattern filename"),
                   cl::value_desc("filename"));
 
 cl::opt<string>
-ActualOutFilename(cl::Optional, "a", cl::desc("Specify actual ouptut filename. It should contain buffers in DataManager format"), 
+ActualOutFilename(cl::Optional, "a", cl::desc("Specify actual ouptut filename. It should contain buffers in DataManager format"),
                   cl::value_desc("filename"), cl::init("-"));
 
 cl::opt<unsigned>
@@ -74,7 +74,7 @@ int64_t ulpsDiff(double a, double b)
     if (bInt < 0)
         bInt = 0x8000000000000000 - bInt;
     int64_t ulpsDiff = aInt - bInt;
-    if(ulpsDiff < 0) 
+    if(ulpsDiff < 0)
         ulpsDiff = -ulpsDiff;
     return ulpsDiff;
 }
@@ -84,7 +84,7 @@ bool Equal(double a, double b)
     return (ulpsDiff(a,b) <= Tolerance);
 }
 
-void ReportError(const string& outputStr, const string& refStr, 
+void ReportError(const string& outputStr, const string& refStr,
                  MismatchType type, int refLine)
 {
     switch(type)
@@ -129,24 +129,24 @@ void SkipDelimiters(stringstream& inout_Stream)
     }
 }
 
-/// @brief Compares reference and output strings. Reference is given as 
+/// @brief Compares reference and output strings. Reference is given as
 ///        string from reference file and offset of NEAT data. Output is
 ///        provided as a stringstream.
 ///
-/// @param outputStr    Output string for validation. 
+/// @param outputStr    Output string for validation.
 ///                     It contains only NEATValue descriptions
-/// @param refStr       Reference string from pattern file. 
-///                     It contains NEATValue description starting with 
+/// @param refStr       Reference string from pattern file.
+///                     It contains NEATValue description starting with
 ///                     refLineOffset index in the refStr.
-/// @param lineNum      Line number of refStr in pattern file. 
+/// @param lineNum      Line number of refStr in pattern file.
 ///                     Used for error reporting.
-/// @return             substring of output Str that is left unprocessed 
-void ProcessString(stringstream& outStream, const string& refStr, 
-                   int refLineOffset, int lineNum) 
+/// @return             substring of output Str that is left unprocessed
+void ProcessString(stringstream& outStream, const string& refStr,
+                   int refLineOffset, int lineNum)
 {
     stringstream refStream;
     refStream << refStr.substr(refLineOffset, refStr.size() - refLineOffset);
-    string outStatus, refStatus; 
+    string outStatus, refStatus;
     // const string& delimiters = " \t";
     string referenceString = refStream.str();
     refStream>>skipws;
@@ -193,7 +193,7 @@ void ProcessString(stringstream& outStream, const string& refStr,
                 {
                     ReportError(outMaxStr, refMaxStr, MT_VALUE, lineNum);
                 }
-            } else if (( outStatus != "UNKNOWN") && (outStatus != "UNWRITTEN") 
+            } else if (( outStatus != "UNKNOWN") && (outStatus != "UNWRITTEN")
                         && (outStatus != "ANY"))
             {
                 ReportError(outStatus, outStatus, MT_UNKNOWN_TYPE, lineNum);
@@ -251,7 +251,7 @@ void StringifyBuffer(stringstream& inout_Stream, IMemoryObject* in_pBuf, const B
         in_bufDesc.GetElementDescription().GetType();
     switch(elemType)
     {
-        /// Check integer types first
+    /// Check integer types first
     case TCHAR:
         StringifyTypedBuffer<int8_t>(inout_Stream, in_pBuf);
         break;
@@ -331,7 +331,7 @@ int main(int argc, char **argv)
         //pActStream = &cin;
         cin.getline(buf, BUF_LENGTH);
         outStr = string(buf);
-    }   
+    }
     else
     {
         stringstream ss;
@@ -354,7 +354,7 @@ int main(int argc, char **argv)
             found = referenceString.find(checkKeyword);
             if(found != string::npos)
             {
-                 ProcessString(outStream, referenceString, found + 
+                 ProcessString(outStream, referenceString, found +
                    checkKeyword.size(), lineNum);
             }
             lineNum++;
@@ -370,7 +370,7 @@ int main(int argc, char **argv)
         cerr << "Unable to open reference pattern file" << endl;
         return 1;
     }
-    cout<<"Test passed"<<endl;
+    cout << "Test passed" << endl;
     return 0;
 }
 

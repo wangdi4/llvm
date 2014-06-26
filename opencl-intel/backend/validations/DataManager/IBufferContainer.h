@@ -41,7 +41,7 @@ namespace Validation
         virtual IMemoryObject* CreateImage(const ImageDesc& imDesc) = 0;
 
         // Methods to iterate over buffers
-        // TODO: implement C++-style interator for BufferContainer
+        // TODO: implement C++-style iterator for BufferContainer
 
         /// @brief Method to get the number of buffers in buffer container.
         /// @return number of buffers
