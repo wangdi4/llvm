@@ -1530,7 +1530,16 @@ bool ScalarizeFunction::isScalarizableLoadStoreType(VectorType *type) {
   //  1. KNC/KNL
   //  2. Load/Store type is a vector with less than 16 elements
 
-  return ((type != NULL) && Intel::CPUId::HasGatherScatter(m_Cpu) && (type->getNumElements() < 16));
+  if (!type || !Intel::CPUId::HasGatherScatter(m_Cpu))
+    return false;
+
+  if ((m_Cpu == Intel::MIC_KNC) && (type->getNumElements() < 16))
+    return true;
+
+  if ((m_Cpu == Intel::CPU_KNL) && (type->getElementType()->getPrimitiveSizeInBits() >= 32))
+    return true;
+
+  return false;
 }
 
 } // Namespace

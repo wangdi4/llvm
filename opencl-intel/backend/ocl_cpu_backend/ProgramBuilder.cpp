@@ -174,12 +174,15 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
             outf << buffer;
         }
         std::string llvmKNLBinPath(getenv("LLVM_KNL_DIR"));
+        std::string llvmOCLBinPath(getenv("LLVM_OCL_DIR"));
         std::string llcOptions("-mcpu=knl -force-align-stack -code-model=large ");
         if (spModule.get()->getNamedMetadata("opencl.enable.FP_CONTRACT"))
           llcOptions += " -fp-contract=fast ";
         llcOptions += filename + ".ll ";
         llcOptions += "-filetype=obj -o " + filename + ".o";
         printf("llc %s\n", llcOptions.c_str());
+        system((llvmOCLBinPath + "/llvm-as " + filename + ".ll -o " + filename + ".bc").c_str());
+        system((llvmKNLBinPath + "/llvm-dis " + filename + ".bc -o " + filename + ".ll").c_str());
         if (system((llvmKNLBinPath + "/llc " + llcOptions).c_str()) != 0) {
           system(("mv " + filename + ".ll " + filename + "_fail.ll").c_str());
           throw Exceptions::DeviceBackendExceptionBase("llc does not work", CL_DEV_ERROR_FAIL);

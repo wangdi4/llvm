@@ -2357,20 +2357,24 @@ void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
     }
   }
 
+  // to optimize - delena
+  if (m_packetWidth == 16) {
+    return duplicateNonPacketizableInst(EI);
+  }
   // Create the transpose sequence.
   SmallVector<Instruction *, 16> SOA;
-  if (m_packetWidth == 8 || m_packetWidth == 16) {
+  if (m_packetWidth == 8) {
     if (EI->getType()->getScalarType()->getScalarSizeInBits() != 32 ||
       inputVectorWidth < 4) {
         V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "
                 << Instruction::getOpcodeName(EI->getOpcode())
-                <<" m_packetWidth == [8|16] && (getScalarSizeInBits() != 32 || inputVectorWidth < 4)\n");
+                <<" m_packetWidth == [8] && (getScalarSizeInBits() != 32 || inputVectorWidth < 4)\n");
         V_STAT(m_cannotHandleCtr++;)
         return duplicateNonPacketizableInst(EI);
     }
     obtainTranspVals32bitV8(inputOperands, SOA, generatedShuffles, location);
   } else {
-    V_ASSERT(4 == m_packetWidth && "only supports packetWidth=4,8,16");
+    V_ASSERT(4 == m_packetWidth && "only supports packetWidth=4,8");
     obtainTranspVals32bitV4(inputOperands, SOA, generatedShuffles, location);
   }
   VectorizerUtils::SetDebugLocBy(generatedShuffles, EI);
