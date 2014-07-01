@@ -246,18 +246,20 @@ public:
   static void setModuleStatInfo (llvm::Module *M, const char * workloadName,
       const char * moduleName) {}
 
-  static void pushKernelStats (ActiveStatsT &activeStats, llvm::Function &F,
+  static void pushFunctionStats (ActiveStatsT &activeStats, llvm::Function &F,
       const char *type) {}
 
-  static void moveKernelStats (llvm::Function &FromFunction,
+  static void moveFunctionStats (llvm::Function &FromFunction,
       llvm::Function &ToFunction) {}
 
-  static void copyKernelStats (llvm::Function &FromFunction,
+  static void copyFunctionStats (llvm::Function &FromFunction,
       llvm::Function &ToFunction) {}
 
-  static void removeKernelStats (llvm::Function &FromFunction) {}
+  static void removeFunctionStats (llvm::Function &FromFunction) {}
 
-  static void enableStats (bool status = true) {}
+  static void enableStats (bool status = false) {
+    StatFlag = false;
+  }
 
   static bool isEnabled () { return false; }
 

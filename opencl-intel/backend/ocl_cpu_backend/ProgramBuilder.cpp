@@ -47,6 +47,7 @@ File Name:  ProgramBuilder.cpp
 #include "ObjectCodeContainer.h"
 #include "OclTune.h"
 
+#include "llvm/Support/Atomic.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -80,6 +81,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 namespace Utils
 {
 
+static int getFileCount() {
+  static volatile llvm::sys::cas_flag fileCount = 0;
+
+  sys::AtomicIncrement(&fileCount);
+
+  return ((int)fileCount);
+}
+
 /**
  * Returns the memory buffer of the Program object bytecode
  */
@@ -103,8 +112,7 @@ void UpdateKernelsWithRuntimeService( const RuntimeServiceSharedPtr& rs, KernelS
 ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& config):
     m_pBackendFactory(pBackendFactory),
     m_useVTune(config.GetUseVTune()),
-    m_statFileBaseName(config.GetStatFileBaseName()),
-    m_statFileCount(1)
+    m_statFileBaseName(config.GetStatFileBaseName())
 {
     // prepare default base file name for stat file in the following cases:
     // stats are enabled but the user didn't set up the base file name
@@ -179,7 +187,7 @@ void ProgramBuilder::DumpModuleStats(llvm::Module* pModule)
     {
         // use sequential number to distinguish dumped files
         std::stringstream fileNameBuilder;
-        fileNameBuilder << (m_statFileCount++);
+        fileNameBuilder << (Utils::getFileCount());
 
         std::string fileName(m_statFileBaseName);
         fileName += fileNameBuilder.str();
