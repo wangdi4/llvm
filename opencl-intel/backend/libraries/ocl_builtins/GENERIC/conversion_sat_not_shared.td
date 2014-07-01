@@ -10,9 +10,9 @@
 // convert_i8_sat
 //list<OclType> i8_unsigned_up = [];
 
-list<OclType> i8_s2u_s2s_down = [v2i16, v3i16, v4i16, v8i16, v16i16,
+list<OclType> i8_s2u_s2s_down_not_shared = [v2i16, v3i16, v4i16, v8i16, v16i16,
                                  v2i32, v3i32, v4i32, v8i32, v16i32];
-OclBuiltinImpl s2u_s2s_down_i8_sat_not_shared = OclBuiltinImpl<convert_i8_sat, i8_s2u_s2s_down, 0, s2u_s2s_down_sat>;
+OclBuiltinImpl s2u_s2s_down_i8_sat_not_shared = OclBuiltinImpl<convert_i8_sat, i8_s2u_s2s_down_not_shared, 0, s2u_s2s_down_sat>;
 OclBuiltinImpl dp2signed_down_i8_sat_not_shared = OclBuiltinImpl<convert_i8_sat, [v8f64], 0, dp2signed_down_sat>;
 OclBuiltinImpl dp2signed_down_i8_sat_rte_not_shared = OclBuiltinImpl<convert_i8_sat_rte, [v8f64], 0, dp2signed_down_sat_rte>;
 OclBuiltinImpl dp2signed_down_i8_sat_rtz_not_shared = OclBuiltinImpl<convert_i8_sat_rtz, [v8f64], 0, dp2signed_down_sat_rtz>;
@@ -22,9 +22,9 @@ OclBuiltinImpl dp2signed_down_i8_sat_rtn_not_shared = OclBuiltinImpl<convert_i8_
 // convert_u8
 //list<OclType> u8_unsigned_up = [];
 
-list<OclType> u8_s2u_s2s_down = [v2i16, v3i16, v4i16, v8i16, v16i16,
+list<OclType> u8_s2u_s2s_down_not_shared = [v2i16, v3i16, v4i16, v8i16, v16i16,
                                  v2i32, v3i32, v4i32, v8i32, v16i32];
-OclBuiltinImpl s2u_s2s_down_u8_sat_not_shared = OclBuiltinImpl<convert_u8_sat, u8_s2u_s2s_down, 0, s2u_s2s_down_sat>;
+OclBuiltinImpl s2u_s2s_down_u8_sat_not_shared = OclBuiltinImpl<convert_u8_sat, u8_s2u_s2s_down_not_shared, 0, s2u_s2s_down_sat>;
 OclBuiltinImpl dp2signed_down_u8_sat_not_shared = OclBuiltinImpl<convert_u8_sat, [v8f64], 0, dp2unsigned_down_sat>;
 OclBuiltinImpl dp2signed_down_u8_sat_rte_not_shared = OclBuiltinImpl<convert_u8_sat_rte, [v8f64], 0, dp2unsigned_down_sat_rte>;
 OclBuiltinImpl dp2signed_down_u8_sat_rtz_not_shared = OclBuiltinImpl<convert_u8_sat_rtz, [v8f64], 0, dp2unsigned_down_sat_rtz>;
