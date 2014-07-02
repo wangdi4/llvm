@@ -126,3 +126,4 @@ Emit_VZeroUpper:
       EMIT_VZEROUPPER
       ret
 
+.section .note.GNU-stack,"",@progbits

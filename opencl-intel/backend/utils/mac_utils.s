@@ -167,3 +167,5 @@ _hw_xgetbv:
         pop   %edi
         ret
 #endif
+
+.section .note.GNU-stack,"",@progbits
