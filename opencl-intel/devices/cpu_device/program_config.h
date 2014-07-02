@@ -46,6 +46,9 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
     {
     public:
 
+        ProgramConfig() : m_vectorizerMode(TRANSPOSE_SIZE_AUTO)
+        {}
+
         void InitFromCpuConfig(const CPUDeviceConfig& cpuConfig);
 
         bool GetBooleanValue(int optionId, bool defaultValue) const
@@ -55,11 +58,23 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 
         virtual int GetIntValue( int optionId, int defaultValue) const
         {
-            if( CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE != optionId )
+            switch(optionId )
             {
+              case CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE:
+              {
+                // BE may override the CL_CONFIG_CPU_VECTORIZER_MODE option by passing
+                // a non-default transpose size (!= TRANSPOSE_SIZE_AUTO) in the
+                // defaultValue argument.
+                int value = defaultValue != TRANSPOSE_SIZE_AUTO ? defaultValue :
+                                                                  m_vectorizerMode;
+                // The transpoze size is applicable only then
+                // CL_CONFIG_USE_VECTORIZER is false.
+                return !m_useVectorizer ? TRANSPOSE_SIZE_1 : value;
+              }
+
+              default:
                 return defaultValue;
-            }            
-            return !m_useVectorizer ? 1 : defaultValue;
+            }
         }
 
         virtual const char* GetStringValue(int optionId, const char* defaultValue)const
@@ -68,12 +83,13 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         }
 
         virtual bool GetValue(int optionId, void* Value, size_t* pSize) const
-        {            
+        {
             return false;
         }
 
     private:
         bool m_useVectorizer;
+        int  m_vectorizerMode;
         bool m_useVTune;
 
     };

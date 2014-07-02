@@ -251,7 +251,8 @@ KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
         }
         else
         {
-            buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was successfully vectorized\n";
+            buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was successfully vectorized (" <<
+                spMICKernelProps->GetMinGroupSizeFactorial() << ")\n";
         }
 #ifdef OCL_DEV_BACKEND_PLUGINS
         // Notify the plugin managerModuleJITHolder
