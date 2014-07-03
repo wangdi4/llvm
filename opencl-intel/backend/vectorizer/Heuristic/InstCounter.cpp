@@ -177,7 +177,7 @@ WeightedInstCounter::WeightedInstCounter(bool preVec, Intel::CPUId cpuId):
 bool WeightedInstCounter::runOnFunction(Function &F) {
 
   // for statistics:
-  V_STAT(
+  OCLSTAT_GATHER_CHECK(
     m_blockCosts.clear();
   );
 
@@ -269,7 +269,7 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
       blockWeights += instWeight; // for statisical purposes.
     }
     // for statistics:
-    V_STAT(
+    OCLSTAT_GATHER_CHECK(
       m_blockCosts[BB] = blockWeights;
     );
   }
@@ -1118,14 +1118,14 @@ void WeightedInstCounter::estimateDataDependence(Function &F,
 }
 
 void WeightedInstCounter::copyBlockCosts(std::map<BasicBlock*,int>* dest) {
-  V_STAT(
+  OCLSTAT_GATHER_CHECK(
   dest->insert(m_blockCosts.begin(), m_blockCosts.end());
   );
 }
 
 void WeightedInstCounter::countPerBlockHeuristics(std::map<BasicBlock*, int>* preCosts, int packetWidth) {
   // this method is just for statistical purposes.
-  V_STAT(
+  OCLSTAT_GATHER_CHECK(
   Statistic::ActiveStatsT kernelStats;
   Function* F = NULL;
   int vectorizedVersionIsBetter = 0;
