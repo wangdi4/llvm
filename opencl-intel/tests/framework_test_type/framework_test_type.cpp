@@ -342,7 +342,6 @@ TEST(FrameworkTestType, Test_VecTypeHintTest)
     EXPECT_TRUE(VecTypeHintTest());
 }
 
-
 TEST(FrameworkTestType, Test_EventCallbackTest)
 {
     EXPECT_TRUE(EventCallbackTest());

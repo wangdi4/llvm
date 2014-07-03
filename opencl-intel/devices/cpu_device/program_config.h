@@ -65,11 +65,11 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
                 // BE may override the CL_CONFIG_CPU_VECTORIZER_MODE option by passing
                 // a non-default transpose size (!= TRANSPOSE_SIZE_AUTO) in the
                 // defaultValue argument.
-                int value = defaultValue != TRANSPOSE_SIZE_AUTO ? defaultValue :
-                                                                  m_vectorizerMode;
+                int value = (defaultValue != TRANSPOSE_SIZE_AUTO) ? defaultValue :
+                                                                    m_vectorizerMode;
                 // The transpoze size is applicable only then
                 // CL_CONFIG_USE_VECTORIZER is false.
-                return !m_useVectorizer ? TRANSPOSE_SIZE_1 : value;
+                return m_useVectorizer ? value : TRANSPOSE_SIZE_1;
               }
 
               default:
