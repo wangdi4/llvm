@@ -54,7 +54,6 @@ static bool setVectorizerMode(std::string const& mode)
 
 static bool vectorizerModeTest(std::string const& mode)
 {
-    
 
     if (gDeviceType != CL_DEVICE_TYPE_CPU)
     {
@@ -113,22 +112,32 @@ static bool vectorizerModeTest(std::string const& mode)
         return deathTestFailure();
     }
 
-    cl_int nativeWidth;
-    iRet = clGetDeviceInfo(pDevices[0], CL_DEVICE_NATIVE_VECTOR_WIDTH_INT,
-                           sizeof(cl_int), &nativeWidth, NULL);
-    if (CL_SUCCESS != iRet)
+    // check if target architecture supports width 8
+    const char* cpuArch = getenv("VOLCANO_CPU_ARCH");
+    if(cpuArch)
     {
-        printf("clGetDeviceInfo = %s\n",ClErrTxt(iRet));
-        delete []pDevices;
-        return deathTestFailure();
-    }
-
-    // check if device supports this width.
-    if(mode == "8" && nativeWidth < 8)
-    {
+      if(std::string("corei7") == cpuArch && mode == "8")
         return deathTestSuccess();
     }
+    else
+    {
+      cl_int nativeWidth;
+      iRet = clGetDeviceInfo(pDevices[0], CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT,
+                             sizeof(cl_int), &nativeWidth, NULL);
+      if (CL_SUCCESS != iRet)
+      {
+          printf("clGetDeviceInfo = %s\n",ClErrTxt(iRet));
+          delete []pDevices;
+          return deathTestFailure();
+      }
 
+      // check if device supports this width.
+      if(mode == "8" && nativeWidth < 8)
+      {
+          // TODO: add exceptions tests
+          return deathTestSuccess();
+      }
+    }
 
     context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
     if (CL_SUCCESS != iRet)
@@ -256,6 +265,5 @@ TEST(FrameworkTestTypeDeathTest, Test_VectorizerMode_8)
 //{
 //    negativeVectorizerModeDeathTest( "16" );
 //}
-
 
 #endif // __ANDROID__

@@ -222,6 +222,9 @@ private:
     bool operator = (const Compiler& );
     // Check if given program is valid for the target.
     bool isProgramValid(llvm::Module*, ProgramBuildResult*) const;
+    // Validate if the vectorized mode is supported by a target arch.
+    // If not then issue an error and interrupt the compilation.
+    void validateVectorizerMode(llvm::raw_ostream& log) const;
 };
 
 void UpdateTargetTriple(llvm::Module *pModule);

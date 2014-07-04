@@ -167,26 +167,6 @@ void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOpt
 
     m_dumpIRDir     = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DUMP_IR_DIR, m_dumpIRDir.c_str());
     m_dumpHeuristicIR = pBackendOptions->GetBooleanValue((int)CL_DEV_BACKEND_OPTION_DUMP_HEURISTIC_IR, m_dumpHeuristicIR);
-
-    // dont allow invalid transpose size
-    if(!IsValidTransposeSize())
-    {
-        throw Exceptions::BadConfigException("Invalid transpose size in the options", CL_DEV_INVALID_VALUE);
-    }
 }
-
-bool CompilerConfig::IsValidTransposeSize()
-{
-    if(m_transposeSize != TRANSPOSE_SIZE_AUTO &&
-       m_transposeSize != TRANSPOSE_SIZE_1 &&
-       m_transposeSize != TRANSPOSE_SIZE_4 &&
-       m_transposeSize != TRANSPOSE_SIZE_8 &&
-       m_transposeSize != TRANSPOSE_SIZE_16)
-    {
-        return false;
-    }
-    return true;
-}
-
 
 }}}
