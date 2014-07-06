@@ -24,7 +24,7 @@ using namespace Intel::OpenCL::Framework;
 
 void OutputParamsValueProvider::Print2Logger()
 {
-    Intel::OpenCL::Utils::UserLogger& instance = GetUserLoggerInstance();
+    Intel::OpenCL::Utils::FrameworkUserLogger& instance = GetUserLoggerInstance();
     instance.SetExpectOutputParams(false);
     if (CL_SUCCEEDED(instance.GetLastRetVal()))
     {

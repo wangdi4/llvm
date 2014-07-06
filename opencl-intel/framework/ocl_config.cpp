@@ -64,19 +64,19 @@ vector<string> OCLConfig::GetDevices() const
 
 // I declare this function here and not in utils to make sure that the instance returned is truely a singleton in the whole the program
 
-UserLogger& UserLogger::Instance()
+FrameworkUserLogger& FrameworkUserLogger::Instance()
 {
-    static UserLogger instance;
+    static FrameworkUserLogger instance;
     return instance;
 }
 
-UserLogger& GetUserLoggerInstance()
+FrameworkUserLogger& GetUserLoggerInstance()
 {
-    return UserLogger::Instance();
+    return FrameworkUserLogger::Instance();
 }
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
-    UserLogger* g_pUserLogger = &UserLogger::Instance();
+    FrameworkUserLogger* g_pUserLogger = &FrameworkUserLogger::Instance();
 
 }}}

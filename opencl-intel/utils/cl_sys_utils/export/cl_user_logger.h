@@ -33,14 +33,14 @@ namespace Intel { namespace OpenCL { namespace Utils {
 /**
  * This class represents a user-oriented logger - it is a singleton
  */
-class UserLogger
+class FrameworkUserLogger
 {
 public:    
 
     /**
      * Constructor
      */
-    static UserLogger& Instance();
+    static FrameworkUserLogger& Instance();
 
     /**
      * @param localWorkSize a vector of size_t containing the local work size
@@ -51,7 +51,7 @@ public:
     /**
      * Destructor
      */
-    ~UserLogger()
+    ~FrameworkUserLogger()
     {
         if (m_logFile.is_open())
         {
@@ -62,10 +62,10 @@ public:
     /**
      * Print a value in an API call into the log
      * @param val the value to be printed
-     * @return this UserLogger
+     * @return this FrameworkUserLogger
      */
     template<typename T>
-    UserLogger& operator<<(const T& val)
+    FrameworkUserLogger& operator<<(const T& val)
     {
         if (m_bLogApis)
         {
@@ -77,16 +77,16 @@ public:
     /**
      * Print the type and name of a parameter of an API call
      * @param sParamTypeAndName type followed by the parameter's name
-     * @return this UserLogger
+     * @return this FrameworkUserLogger
      */
-    UserLogger& operator<<(const char* sParamTypeAndName);
+    FrameworkUserLogger& operator<<(const char* sParamTypeAndName);
 
     /**
      * Print a C-string value in an API call(operator<< cannot be used in this case, because it assumes that the string is a parameter type and name)
      * @param sVal the C-string value
-     * @return this UserLogger
+     * @return this FrameworkUserLogger
      */
-    UserLogger& PrintCStringVal(const char* sVal);
+    FrameworkUserLogger& PrintCStringVal(const char* sVal);
     
     /**
      * @return whether API logging is enabled
@@ -195,7 +195,7 @@ public:
 
 private:    
 
-    UserLogger();
+    FrameworkUserLogger();
 
     void Setup(const std::string& filename, bool bLogErrors, bool bLogApis);
 
@@ -233,8 +233,8 @@ private:
     unsigned long long UnrigesterNDRangeId(cl_dev_cmd_id id);
 
     // do not implement
-    UserLogger(const UserLogger&);
-    UserLogger& operator=(const UserLogger&);
+    FrameworkUserLogger(const FrameworkUserLogger&);
+    FrameworkUserLogger& operator=(const FrameworkUserLogger&);
 
     std::ofstream m_logFile;
     std::ostream* m_pOutput;
@@ -261,7 +261,7 @@ private:
 
 // inline methods (I want to save the function call in case no logging is done)
 
-inline UserLogger& UserLogger::operator<<(const char* sParamTypeAndName)
+inline FrameworkUserLogger& FrameworkUserLogger::operator<<(const char* sParamTypeAndName)
 {
     if (m_bLogApis)
     {
@@ -270,7 +270,7 @@ inline UserLogger& UserLogger::operator<<(const char* sParamTypeAndName)
     return *this;
 }
 
-inline UserLogger& UserLogger::PrintCStringVal(const char* sVal)
+inline FrameworkUserLogger& FrameworkUserLogger::PrintCStringVal(const char* sVal)
 {
     if (m_bLogApis)
     {
@@ -279,7 +279,7 @@ inline UserLogger& UserLogger::PrintCStringVal(const char* sVal)
     return *this;
 }
 
-inline void UserLogger::StartApiFunc(const string& funcName)
+inline void FrameworkUserLogger::StartApiFunc(const string& funcName)
 {
     if (!m_bLogApis)
     {
@@ -288,7 +288,7 @@ inline void UserLogger::StartApiFunc(const string& funcName)
     StartApiFuncInternal(funcName);
 }
 
-inline void UserLogger::EndApiFunc(cl_int retVal)
+inline void FrameworkUserLogger::EndApiFunc(cl_int retVal)
 {
     if (!m_bLogApis)
     {
@@ -297,7 +297,7 @@ inline void UserLogger::EndApiFunc(cl_int retVal)
     EndApiFuncInternal(retVal);
 }
 
-inline void UserLogger::EndApiFunc(const void* retPtr)
+inline void FrameworkUserLogger::EndApiFunc(const void* retPtr)
 {
     if (!m_bLogApis)
     {
@@ -306,7 +306,7 @@ inline void UserLogger::EndApiFunc(const void* retPtr)
     EndApiFuncInternal(retPtr);
 }
 
-inline void UserLogger::EndApiFunc()
+inline void FrameworkUserLogger::EndApiFunc()
 {
     if (!m_bLogApis)
     {
@@ -315,7 +315,7 @@ inline void UserLogger::EndApiFunc()
     EndApiFuncInternal();
 }
 
-extern UserLogger* g_pUserLogger;   // a global pointer to the logger, which be defined in each shared library (so LOG_ERROR can use the user logger)
+extern FrameworkUserLogger* g_pUserLogger;   // a global pointer to the logger, which be defined in each shared library (so LOG_ERROR can use the user logger)
 
 /**
  * Interface class that has one method the BE should call to report its calculated local work size

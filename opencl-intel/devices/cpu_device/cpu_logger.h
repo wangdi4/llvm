@@ -66,7 +66,7 @@ public:
 
     virtual void SetLocalWorkSizeValues(cl_dev_cmd_id id, const std::vector<size_t>& localWorkSize)
     {
-        Intel::OpenCL::Utils::g_pUserLogger->SetLocalWorkSize4ArgValues(id, Intel::OpenCL::Utils::UserLogger::FormatLocalWorkSize(localWorkSize));
+        Intel::OpenCL::Utils::g_pUserLogger->SetLocalWorkSize4ArgValues(id, Intel::OpenCL::Utils::FrameworkUserLogger::FormatLocalWorkSize(localWorkSize));
     }
 
 };

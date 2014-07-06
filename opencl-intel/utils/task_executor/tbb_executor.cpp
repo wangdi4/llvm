@@ -58,7 +58,7 @@ using namespace Intel::OpenCL::Utils;
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
-UserLogger* g_pUserLogger = NULL;
+FrameworkUserLogger* g_pUserLogger = NULL;
 
 }}}
 
@@ -221,7 +221,7 @@ TBBTaskExecutor::~TBBTaskExecutor()
     // TBB seem to have a bug in ~task_scheduler_init(), so we work around it by not deleting m_pScheduler (TBB bug #1955)
 }
 
-int TBBTaskExecutor::Init(UserLogger* pUserLogger, unsigned int uiNumOfThreads, ocl_gpa_data * pGPAData)
+int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger, unsigned int uiNumOfThreads, ocl_gpa_data * pGPAData)
 {    
     g_pUserLogger = pUserLogger;    
     INIT_LOGGER_CLIENT("TBBTaskExecutor", LL_INFO);
