@@ -69,7 +69,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
             return defaultValue;
         }
 
-        virtual bool GetValue(int optionId, const void** Value, size_t* pSize) const
+        virtual bool GetValue(int optionId, void* Value, size_t* pSize) const
         {
             if (CL_DEV_BACKEND_OPTION_USER_LOGGER == optionId)
             {
@@ -78,11 +78,11 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
                 {
                     if (g_pUserLogger->IsApiLoggingEnabled())
                     {
-                        *Value = &m_cpuUserLogger;   
+                        *(void**)Value = &m_cpuUserLogger;
                     }
                     else
                     {
-                        *Value = NULL;
+                        *(void**)Value = NULL;
                     }
                 }
                 return true;
@@ -130,7 +130,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
             return m_fileName.c_str();
         }
 
-        virtual bool GetValue(int optionId, const void** Value, size_t* pSize) const
+        virtual bool GetValue(int optionId, void* Value, size_t* pSize) const
         {
             return false;
         }
