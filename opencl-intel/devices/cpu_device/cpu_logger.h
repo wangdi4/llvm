@@ -55,20 +55,4 @@ enum CpuELogLevel
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
-/**
- * This class implements IUserLoggerProxy locally, since BE can interact with it directly
- */
-class CpuUserLogger : public Intel::OpenCL::Utils::IUserLoggerProxy
-{
-public:
-
-    // overridden methods:
-
-    virtual void SetLocalWorkSizeValues(cl_dev_cmd_id id, const std::vector<size_t>& localWorkSize)
-    {
-        Intel::OpenCL::Utils::g_pUserLogger->SetLocalWorkSize4ArgValues(id, Intel::OpenCL::Utils::FrameworkUserLogger::FormatLocalWorkSize(localWorkSize));
-    }
-
-};
-
 }}}

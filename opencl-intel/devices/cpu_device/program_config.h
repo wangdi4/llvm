@@ -46,8 +46,6 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
     {
     public:
 
-        ProgramConfig(CpuUserLogger& cpuUserLogger) : m_cpuUserLogger(cpuUserLogger) { }
-
         void InitFromCpuConfig(const CPUDeviceConfig& cpuConfig);
 
         bool GetBooleanValue(int optionId, bool defaultValue) const
@@ -70,30 +68,13 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         }
 
         virtual bool GetValue(int optionId, void* Value, size_t* pSize) const
-        {
-            if (CL_DEV_BACKEND_OPTION_USER_LOGGER == optionId)
-            {
-                *pSize = sizeof(&m_cpuUserLogger);
-                if (NULL != Value)
-                {
-                    if (g_pUserLogger->IsApiLoggingEnabled())
-                    {
-                        *(void**)Value = &m_cpuUserLogger;
-                    }
-                    else
-                    {
-                        *(void**)Value = NULL;
-                    }
-                }
-                return true;
-            }
+        {            
             return false;
         }
 
     private:
         bool m_useVectorizer;
         bool m_useVTune;
-        CpuUserLogger& m_cpuUserLogger;
 
     };
 

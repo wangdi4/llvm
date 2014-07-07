@@ -46,7 +46,7 @@ public:
      * @param localWorkSize a vector of size_t containing the local work size
      * @return a string of the common format of the local work size
      */
-    static std::string FormatLocalWorkSize(const std::vector<size_t>& localWorkSize);
+    static std::string FormatLocalWorkSize(const std::vector<unsigned int>& localWorkSize);
 
     /**
      * Destructor
@@ -316,21 +316,5 @@ inline void FrameworkUserLogger::EndApiFunc()
 }
 
 extern FrameworkUserLogger* g_pUserLogger;   // a global pointer to the logger, which be defined in each shared library (so LOG_ERROR can use the user logger)
-
-/**
- * Interface class that has one method the BE should call to report its calculated local work size
- */
-class IUserLoggerProxy
-{
-public:
-
-    /**
-     * Set the local work size values as calculated by BE
-     * @param id            the ID of the NDRange command
-     * @param localWorkSize a vector of size_t containing the local work sizes
-     */
-    virtual void SetLocalWorkSizeValues(cl_dev_cmd_id id, const std::vector<size_t>& localWorkSize) = 0;
-
-};
 
 }}}

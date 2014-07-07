@@ -30,6 +30,9 @@
 #ifndef _WIN32
 #include <unistd.h>
 #else
+#include <io.h>
+#include <fcntl.h>
+#include <limits>
 #endif
 #include "mic_user_logger.h"
 #include "cl_user_logger.h"
@@ -41,6 +44,7 @@ using std::ios_base;
 using std::istream;
 using std::vector;
 using Intel::OpenCL::Utils::FrameworkUserLogger;
+using Intel::OpenCL::Utils::g_pUserLogger;
 
 static const string STDERR_LOG_PREFIX = "OPENCL_USER_LOGGER:";
 
@@ -55,7 +59,11 @@ MicUserLogger& MicUserLogger::Instance()
 MicUserLogger::MicUserLogger()
 {
     int pipefd[2];
+#ifdef _WIN32
+    if (-1 == _pipe(pipefd, 512, _O_TEXT))  // I've taken this size from an example on the Internet
+#else
     if (-1 == pipe(pipefd))
+#endif    
     {
         throw IOError();
     }
@@ -91,7 +99,7 @@ void MicUserLogger::RestoreStderr()
 void MicUserLogger::ListenerThreadError()
 {
     RestoreStderr();
-    FrameworkUserLogger::Instance().PrintError("MIC user logger has terminated unexpectedly");
+    g_pUserLogger->PrintError("MIC user logger has terminated unexpectedly");
 }
 
 MicUserLogger::FileWrapper& MicUserLogger::FileWrapper::operator=(int fileDesc)
@@ -131,7 +139,7 @@ void MicUserLogger::StderrListerenerThread::HandleLogMessage(FILE* pipeFile)
     buf[szMsgLen] = '\0';
 
     LogMessageWrapper wrapper(&buf[0]);
-    FrameworkUserLogger::Instance().SetLocalWorkSize4ArgValues(wrapper.GetId(), wrapper.GetBeMsg());
+    g_pUserLogger->SetLocalWorkSize4ArgValues(wrapper.GetId(), wrapper.GetBeMsg());
 }
 
 RETURN_TYPE_ENTRY_POINT MicUserLogger::StderrListerenerThread::Run()

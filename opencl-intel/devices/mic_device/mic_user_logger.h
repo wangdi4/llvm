@@ -95,11 +95,8 @@ private:
 
     StderrListerenerThread m_stderrListenerThread;
 
-#ifndef _WIN32
     FileWrapper m_pipeReadEnd;
     FileWrapper m_dupStderr; // duplicate of stderr that saves the original destination of stderr
-#else
-#endif
 
 };
 

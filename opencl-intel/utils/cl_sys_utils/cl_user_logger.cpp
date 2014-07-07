@@ -107,10 +107,10 @@ static string GetFormattedTime()
 
 // FrameworkUserLogger's methods
 
-string FrameworkUserLogger::FormatLocalWorkSize(const vector<size_t>& localWorkSize)
+string FrameworkUserLogger::FormatLocalWorkSize(const vector<unsigned int>& localWorkSize)
 {
     stringstream stream;
-    stream  << ": (";    
+    stream  << "(";    
     for (vector<size_t>::size_type i = 0; i < localWorkSize.size(); ++i)
     {
         stream << localWorkSize[i];

@@ -50,8 +50,7 @@ class ProgramService
 {
 
 public:
-    ProgramService(cl_int devId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *config, ICLDevBackendServiceFactory* pBackendFactory,
-        CpuUserLogger& cpuUserLogger);
+    ProgramService(cl_int devId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *config, ICLDevBackendServiceFactory* pBackendFactory);
     virtual ~ProgramService();
 
     cl_dev_err_code Init();
@@ -166,7 +165,6 @@ protected:
     ICLDevBackendExecutionService*   m_pBackendExecutor;
     ICLDevBackendImageService*       m_pBackendImageService;
     CPUDeviceConfig*                 m_pCPUConfig;
-    CpuUserLogger&                   m_cpuUserLogger;
 
 };
 
