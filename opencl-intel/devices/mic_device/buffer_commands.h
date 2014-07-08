@@ -135,7 +135,7 @@ public:
 protected:
 
     /* Perform optimized Copy / Read / Write */
-    bool processActionOptimized(cl_dev_cmd_type type, void* readBuff, size_t readOffset, void* writeBuff, size_t writeOffset, size_t size, const COIEVENT* dependecies, uint32_t num_dependencies, COIEVENT* fired_event);
+    bool processActionOptimized(cl_dev_cmd_type type, void* readBuff, size_t readOffset, void* writeBuff, size_t writeOffset, size_t size, const COIEVENT* dependecies, uint32_t num_dependencies, COIEVENT* fired_event, bool forceValidOnSingleDevice = true);
 
 private:
 
