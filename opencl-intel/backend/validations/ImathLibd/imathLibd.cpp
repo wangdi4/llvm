@@ -18,7 +18,6 @@ File Name:  imathLibd.cpp
 // imathLibd.cpp : Defines the exported functions for the DLL application.
 //
 
-#include "stdafx.h"
 #include "imathLibd.h"
 #if defined (_WIN32)
 #include "mathimf.h"
