@@ -169,13 +169,12 @@ public:
       unsigned int devMemObjArrayLength) const = 0;
 
     /**
-     * returns the final local work group sizes for teh specified arguments
      * NOTICE: should be called after PrepareKernelArguments otherwise undefined
      * @param pKernelUniformArgs pointer to the Uniform arguments object
-     * @returns vector of the dimensions
+     * @param sizes              an array of size MAX_WORK_DIM to be filled with the final local work group sizes for the specified arguments
      */
-    virtual std::vector<unsigned int> GetLocalSizes(
-      void *pKernelUniformArgs) const = 0;
+    virtual void GetLocalSizes(
+      void *pKernelUniformArgs, unsigned int* sizes) const = 0;
 
     /**
      * @effects prepares the thread for kernel execution
