@@ -138,14 +138,9 @@ public:
     void PrintOutputParam(const std::string& name, const void* addr, size_t size, bool bIsPtr2Ptr, bool bIsUnsigned = false);
 
     /**
-     * OutputParamsValueProvider should call this method before it begins printing the values of the output parameters, so asynchronous prints to the log will not be interleaved
-     */
-    void BeginPrintingOutputParams() { m_mutex.Lock(); }
-
-    /**
      * OutputParamsValueProvider should call this method after it has ended printing the values of the output parameters
      */
-    void EndPrintingOutputParams() { m_mutex.Unlock(); }
+    void EndPrintingOutputParams() { m_apiMutex.Unlock(); }
 
     /**
      * Print a string directly to the log (not as a part of an API call)
@@ -238,14 +233,15 @@ private:
 
     std::ofstream m_logFile;
     std::ostream* m_pOutput;
-    Timer m_timer;
-    /* synchronize calls to API functions, so that logging from different threads won't be interleaved (it is reentrant to allow printing from the same thread that locked the
-        mutex) */
-    mutable OclSpinMutex m_mutex;
-    bool m_bFirstApiFuncArg;    
+    mutable OclSpinMutex m_outputMutex; // Synchronize writing to m_pOutput
     // we use this to collect all data about the API function call, so that when it ends, we'll be able to put its duration before the log of the call itself
     std::ostringstream m_strStream;
     std::ostringstream m_retValStream;
+    // Synchronize calls to API functions, so that logging from different threads won't be interleaved (it protects the 2 ostringstream above)
+    mutable OclSpinMutex m_apiMutex;
+    Timer m_timer;
+    bool m_bFirstApiFuncArg;
+
     bool m_bExpectOutputParams;
     cl_int m_iLastRetValue;
     bool m_bLogErrors;
@@ -255,9 +251,59 @@ private:
     std::map<const void*, cl_dev_cmd_id> m_mapNDRangeArgValues2CmdId;
     // a map from cl_dev_cmd_param_kernel::arg_values, which identifies the NDRange to the start times in clock ticks of the call to clEnqueueNDRangeKernel.
     std::map<const void*, unsigned long long> m_mapArgVals2StartTime;
+    // R/W lock to protect the maps above
+    mutable OclReaderWriterLock m_mapsLock;
     std::ostringstream m_beLogStream;
     
 };
+
+/**
+ * This class represents the wrapper around the BE log message as passed through stderr
+ */
+class LogMessageWrapper
+{
+public:
+
+    /**
+     * Constructor for use by device side
+     * @param id    the ID of the NDRange command
+     * @param beMsg the string holding the message from BE containing the calculated local work size
+     */
+    LogMessageWrapper(cl_dev_cmd_id id, const std::string& beMsg) : m_id(id), m_beMsg(beMsg) { Serialize(); }
+
+    /**
+     * Constructor for use by host side
+     * @param rawStr the raw string from which the log message should be parsed
+     */
+    LogMessageWrapper(const char* rawStr) : m_rawStr(rawStr) { Unserialize(); }
+
+    /**
+     * @return the ID of the NDRange command
+     */
+    cl_dev_cmd_id GetId() const { return m_id; }
+
+    /**
+     * @return the string holding the message from BE containing the calculated local work size
+     */
+    std::string GetBeMsg() const { return m_beMsg; }
+
+    /**
+     * the raw string from which the log message should be parsed
+     */
+    std::string GetRawString() const { return m_rawStr; }
+
+private:
+
+    void Serialize();
+
+    void Unserialize();
+
+    cl_dev_cmd_id m_id;
+    std::string m_beMsg;
+    std::string m_rawStr;
+
+};
+
 
 // inline methods (I want to save the function call in case no logging is done)
 
