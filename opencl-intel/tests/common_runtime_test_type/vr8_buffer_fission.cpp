@@ -51,8 +51,8 @@
 //|
 TYPED_TEST(VR8Buffer_Fission, BufferTypedUseHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(testBufferTypedUseHostPtr(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->testBufferTypedUseHostPtr(this->ocl_descriptor));
 }
 
 //|	TEST: VR8Buffer_Fission.BufferTypedAllocHostPtr (TC-115, TC-116, TC-117)
@@ -78,8 +78,8 @@ TYPED_TEST(VR8Buffer_Fission, BufferTypedUseHostPtr)
 //|
 TYPED_TEST(VR8Buffer_Fission, BufferTypedAllocHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(testBufferTypedAllocHostPtr(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->testBufferTypedAllocHostPtr(this->ocl_descriptor));
 }
 
 //|	TEST: VR8Buffer_Fission.BufferTypedCopyHostPtr (TC-115, TC-116, TC-117)
@@ -105,8 +105,8 @@ TYPED_TEST(VR8Buffer_Fission, BufferTypedAllocHostPtr)
 //|
 TYPED_TEST(VR8Buffer_Fission, BufferTypedCopyHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(testBufferTypedCopyHostPtr(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->testBufferTypedCopyHostPtr(this->ocl_descriptor));
 }
 
 //|	TEST: VR8Buffer_Fission.SubBufferUseHostPtr (TC-115, TC-116, TC-117)
@@ -133,8 +133,8 @@ TYPED_TEST(VR8Buffer_Fission, BufferTypedCopyHostPtr)
 //|
 TYPED_TEST(VR8Buffer_Fission, SubBufferUseHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(testSubBufferUseHostPtr(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->testSubBufferUseHostPtr(this->ocl_descriptor));
 }
 
 //|	TEST: VR8Buffer_Fission.SubBufferAllocHostPtr (TC-115, TC-116, TC-117)
@@ -161,8 +161,8 @@ TYPED_TEST(VR8Buffer_Fission, SubBufferUseHostPtr)
 //|
 TYPED_TEST(VR8Buffer_Fission, SubBufferAllocHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(testSubBufferAllocHostPtr(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->testSubBufferAllocHostPtr(this->ocl_descriptor));
 }
 
 //|	TEST: VR8Buffer_Fission.SubBufferCopyHostPtr (TC-115, TC-116, TC-117)
@@ -189,8 +189,8 @@ TYPED_TEST(VR8Buffer_Fission, SubBufferAllocHostPtr)
 //|
 TYPED_TEST(VR8Buffer_Fission, SubBufferCopyHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(testSubBufferCopyHostPtr(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->testSubBufferCopyHostPtr(this->ocl_descriptor));
 }
 
 

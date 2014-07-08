@@ -64,6 +64,6 @@ class VR9_Fission: public FissionWrapper{};
 
 TEST_F(VR9_Fission, CPUSubDeviceCmds)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(ocl_descriptor));
 	ASSERT_NO_FATAL_FAILURE(waitOnBothDevices(ocl_descriptor));
 }

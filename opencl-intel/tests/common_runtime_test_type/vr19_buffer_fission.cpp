@@ -54,7 +54,7 @@ class VR19Buffer_Fission: public FissionWrapper{};
 //|
 TEST_F(VR19Buffer_Fission, ReadBufferShared) 
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(ocl_descriptor));
 	ASSERT_NO_FATAL_FAILURE(testVR19ReadBufferSharedBody(ocl_descriptor));
 }
 
@@ -92,7 +92,7 @@ TEST_F(VR19Buffer_Fission, ReadBufferShared)
 //|
 TEST_F(VR19Buffer_Fission, ReadBufferRectShared)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(ocl_descriptor));
 	ASSERT_NO_FATAL_FAILURE(testVR19ReadBufferRectSharedBody(ocl_descriptor));
 }
 
@@ -131,6 +131,6 @@ TEST_F(VR19Buffer_Fission, ReadBufferRectShared)
 //|
 TEST_F(VR19Buffer_Fission, CopyBufferShared)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(ocl_descriptor));
 	ASSERT_NO_FATAL_FAILURE(testVR19CopyBufferSharedBody(ocl_descriptor));
 }
