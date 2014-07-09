@@ -538,7 +538,7 @@ cl_dev_err_code NDRange::init()
                 assert(0 && "PrepareKernelArguments failed" );
                 break;
             }
-            if (0 == cmdParams->lcl_wrk_size[0][0])
+            if (NULL != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled() && 0 == cmdParams->lcl_wrk_size[0][0])
             {
                 vector<unsigned int> dims(MAX_WORK_DIM);
                 pRunner->GetLocalSizes(cmdParams->arg_values, &dims[0]);

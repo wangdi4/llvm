@@ -856,7 +856,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 #endif
     m_pRunner->PrepareKernelArguments(pLockedParams, memArgs, memObjCount);
 
-    if (0 == cmdParams->lcl_wrk_size[0][0])
+    if (NULL != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled() && 0 == cmdParams->lcl_wrk_size[0][0])
     {
         // GetLocalSizes can't return a vector because of some bug in VS's compiler
         vector<unsigned int> dims(MAX_WORK_DIM);

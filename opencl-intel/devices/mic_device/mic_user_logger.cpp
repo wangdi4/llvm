@@ -113,8 +113,7 @@ MicUserLogger::FileWrapper::~FileWrapper()
 {
     if (-1 != m_fileDesc)
     {
-        const int ret = close(m_fileDesc);
-        assert(ret == 0 || errno != EBADF);
+        close(m_fileDesc);        
     }
 }
 

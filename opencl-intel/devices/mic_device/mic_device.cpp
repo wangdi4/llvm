@@ -149,14 +149,16 @@ MICDevice::MICDevice(cl_uint uiMicId, IOCLFrameworkCallbacks *devCallbacks, IOCL
     : m_pFrameworkCallBacks(devCallbacks), m_uiMicId(uiMicId),
     m_pLogDescriptor(logDesc), m_iLogHandle (0), m_defaultCommandList(NULL), m_pDeviceServiceComm(NULL)
 {
-    /*try
+#if 0 // this is infrastructure for the future
+    try
     {
         MicUserLogger::Instance();  // no need to save the returned instance - this call just makes sure the singleton is created
     }
     catch (const IOError& e)
     {
         Intel::OpenCL::Utils::g_pUserLogger->PrintError(string("Error in starting user logger in MIC device: ") + e.what());
-    }*/
+    }
+#endif	
 }
 
 cl_dev_err_code MICDevice::Init()
