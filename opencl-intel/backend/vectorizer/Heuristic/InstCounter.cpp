@@ -580,8 +580,8 @@ int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instructi
     return estimateCall(called);
 
   // GEP and PHI nodes are free
-  // NOTE: In the GEP case this is it not entirelly true because it may result in LEA
-  if (isa<GetElementPtrInst>(I) || isa<PHINode>(I) || isa<AllocaInst>(I) || isa<BitCastInst>(I))
+  // NOTE: In the GEP case this is it not entirely true because it may result in LEA
+  if (isa<GetElementPtrInst>(I) || isa<PHINode>(I) || isa<AllocaInst>(I) || isa<BitCastInst>(I) || isa<AddrSpaceCastInst>(I))
     return NOOP_WEIGHT;
 
   // Shuffles/extracts/inserts are mostly representative

@@ -204,7 +204,7 @@ namespace intel {
 
         // OCL2.0. handle constant expression with bitcast of function pointer
         if(ConstantExpr *CE = dyn_cast<ConstantExpr>(*UI)) {
-          if(CE->getOpcode() == Instruction::BitCast &&
+          if((CE->getOpcode() == Instruction::BitCast || CE->getOpcode() == Instruction::AddrSpaceCast) &&
             CE->getType()->isPointerTy()){
             ConstBitcastsToPatch[CE] = CalledF;
             continue;
@@ -270,7 +270,7 @@ namespace intel {
           "expected to find patched function in map");
         Function *PatchedF = OldF2PatchedF[CalledF];
         // this case happens when global block variable is used
-        Constant *newCE = ConstantExpr::getBitCast(PatchedF, CE->getType());
+        Constant *newCE = ConstantExpr::getPointerCast(PatchedF, CE->getType());
         CE->replaceAllUsesWith(newCE);
     }
 }

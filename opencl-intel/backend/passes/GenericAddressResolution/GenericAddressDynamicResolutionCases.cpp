@@ -87,7 +87,7 @@ namespace intel {
         pPtrType = PointerType::get(pPtrType->getElementType(), targetSpace);
         argTypes.push_back(pPtrType);
         // Induce conversion from original parameter to that of target type
-        BitCastInst *pInducedBitcast = new BitCastInst(pArg, pPtrType,
+        CastInst *pInducedBitcast = CastInst::CreatePointerCast(pArg, pPtrType,
                                                        "AddrSpace", pCallInstr);
         assocDebugLocWith(pInducedBitcast, pCallInstr);
         params.push_back(pInducedBitcast);

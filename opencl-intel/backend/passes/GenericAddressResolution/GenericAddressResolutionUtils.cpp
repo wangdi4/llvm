@@ -338,7 +338,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
       pFolded = ConstantInt::get(pCallee->getReturnType(), CLK_GLOBAL_MEM_FENCE);
     } else {
       // to_XX - always returns XX cast of the input parameter for CPU
-      pFolded = new BitCastInst(pSrcPtr, pCallee->getReturnType(),
+      pFolded = CastInst::CreatePointerCast(pSrcPtr, pCallee->getReturnType(),
                                 "ToNamedPtr", pCallInstr);
     }
 

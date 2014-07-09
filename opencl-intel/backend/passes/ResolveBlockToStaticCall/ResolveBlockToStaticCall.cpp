@@ -155,6 +155,10 @@ namespace intel {
         I = BCI->getOperand(0);
         continue;
       }
+      if(AddrSpaceCastInst *ASCI = dyn_cast<AddrSpaceCastInst>(I)) {
+        I = ASCI->getOperand(0);
+        continue;
+      }
       // %7 = load i8** %5
       // %4 = load i32 (i32)** %kernelBlock, align 8
       else if(LoadInst *LI = dyn_cast<LoadInst>(I)) {
@@ -225,7 +229,7 @@ namespace intel {
       // store i8*
       //    bitcast (i32 (i8*, i32)* @__kernel_scope_block_invoke to i8*), i8** %block.invoke
       else if(ConstantExpr *CE = dyn_cast<ConstantExpr>(I)) {
-        if (!(CE->getOpcode() == Instruction::BitCast))
+        if (!CE->getOpcode() == Instruction::BitCast && !CE->getOpcode() == Instruction::AddrSpaceCast)
           // expected bitcast in constant expression
           // observations from clang's generated code
           break;

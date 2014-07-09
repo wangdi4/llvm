@@ -264,7 +264,7 @@ private:
           auto argUsers = std::vector<User*>(J->user_begin(), J->user_end());
 	  // ToDo:: construct something with size here.
           if (argUsers.size()) {
-            Value *cast = new BitCastInst(J, I->getType(), "arg_cast", F->getEntryBlock().begin());
+            Value *cast = CastInst::CreatePointerCast(J, I->getType(), "arg_cast", F->getEntryBlock().begin());
             for (User *u : argUsers) {
               u->replaceUsesOfWith(J, cast);
             }
@@ -273,7 +273,7 @@ private:
           for (User* funcUser : F->users()) {
             if (CallInst *CI = dyn_cast<CallInst>(funcUser)) {
               if (CI->getCalledFunction() == F) {
-                Value *cast = new BitCastInst(CI->getArgOperand(argInd), J->getType(), "arg_cast", CI);
+                Value *cast = CastInst::CreatePointerCast(CI->getArgOperand(argInd), J->getType(), "arg_cast", CI);
                 CI->setArgOperand(argInd, cast);
               }
             }

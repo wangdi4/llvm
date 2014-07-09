@@ -73,9 +73,9 @@ namespace intel {
         if (IS_ADDR_SPACE_GENERIC(ptr_it->second)) {
           const PointerType *pSrcType = cast<PointerType>(pNewInstr->getType());
           // Induce conversion from named type to generic one
-          BitCastInst *pInducedBitcast = new BitCastInst(pNewInstr, 
+          CastInst *pInducedBitcast = CastInst::CreatePointerCast(pNewInstr,
                                                 PointerType::get(
-                                                    pSrcType->getElementType(), 
+                                                    pSrcType->getElementType(),
                                                     OCLAddressSpace::Generic),
                                                     pOldInstr->getName(), pOldInstr);
           // Replace uses of original instruction with bitcast
@@ -149,8 +149,9 @@ namespace intel {
                                        pInstr->getName(), pInstr);
           break;
         }
-        case Instruction::BitCast : {
-          pNewInstr = new BitCastInst(pPrevValue,
+        case Instruction::AddrSpaceCast :
+        case Instruction::BitCast       : {
+          pNewInstr = CastInst::CreatePointerCast(pPrevValue,
                                       PointerType::get(pDestType->getElementType(), space),
                                       pInstr->getName(), pInstr);
 
@@ -183,8 +184,8 @@ namespace intel {
       // Original bitcast to from generic to integer: produce named-to-integer
 
       // At first - find a resolution for source value
-      assert(pInstr->getOpcode() == Instruction::BitCast &&
-             "Only Bitcast can convert pointer with named space to another named space or integer");
+      assert((pInstr->getOpcode() == Instruction::BitCast || pInstr->getOpcode() == Instruction::AddrSpaceCast) &&
+             "Only Bitcast/AddrSpaceCast can convert pointer with named space to another named space or integer");
       pPrevValue = getResolvedOperand(pPrevValue, space);
       assert(pPrevValue && "Cannot reach this point without resolved value for GAS pointer!");
       // Then - generate the instruction
@@ -195,7 +196,7 @@ namespace intel {
         emitWarning("Illegal conversion from generic address space pointer",
                      pInstr, m_pModule, m_pLLVMContext);
       }
-      pNewInstr = new BitCastInst(pPrevValue, pInstr->getType(), pInstr->getName(), pInstr);
+      pNewInstr = CastInst::CreatePointerCast(pPrevValue, pInstr->getType(), pInstr->getName(), pInstr);
     } else if (!pDestType || !IS_ADDR_SPACE_GENERIC(pDestType->getAddressSpace())) {
       // The only reasons for that case are:
       // - BitCast from named addr-space pointer to non-pointer
@@ -207,8 +208,9 @@ namespace intel {
       assert(pPrevValue && "Cannot reach this point without resolved value for GAS pointer!");
       // Then - generate the instruction
       switch (pInstr->getOpcode()) {
-        case Instruction::BitCast:
-          pNewInstr = new BitCastInst(pPrevValue, pInstr->getType(), pInstr->getName(), pInstr);
+        case Instruction::AddrSpaceCast :
+        case Instruction::BitCast       :
+          pNewInstr = CastInst::CreatePointerCast(pPrevValue, pInstr->getType(), pInstr->getName(), pInstr);
           break;
         case Instruction::IntToPtr:
           pNewInstr = new IntToPtrInst(pPrevValue, pInstr->getType(), pInstr->getName(), pInstr);
@@ -594,7 +596,7 @@ namespace intel {
         assert(pOrigPtrType && IS_ADDR_SPACE_GENERIC(pOrigPtrType->getAddressSpace()) &&
                "Argument of original function should be a GAS pointer!");
         // Produce and insert bitcast
-        BitCastInst *pNewBitCast = new BitCastInst(new_arg_it, pOrigPtrType, 
+        CastInst *pNewBitCast = CastInst::CreatePointerCast(new_arg_it, pOrigPtrType,
                                                    new_arg_it->getName(),
                                                    pNewFunc->getEntryBlock().begin());
         // Replace usages of the argument with those of bitcast
@@ -640,12 +642,13 @@ namespace intel {
         switch (pCE->getOpcode()) {
           case Instruction::IntToPtr :
             // IntToPtr case: enforce target addr space type on the result
-            return ConstantExpr::getIntToPtr(pCE->getOperand(0), 
+            return ConstantExpr::getIntToPtr(pCE->getOperand(0),
                                         PointerType::get(pPtrType->getElementType(), space));
             break;
-          case Instruction::BitCast :
+          case Instruction::AddrSpaceCast :
+          case Instruction::BitCast       :
             // Bitcast case: modify BitCast expression towards target addr space type
-            return ConstantExpr::getPointerCast(pCE->getOperand(0), 
+            return ConstantExpr::getPointerCast(pCE->getOperand(0),
                                             PointerType::get(pPtrType->getElementType(), space));
             break;
           case Instruction::GetElementPtr : {

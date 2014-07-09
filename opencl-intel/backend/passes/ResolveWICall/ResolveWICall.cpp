@@ -368,7 +368,7 @@ namespace intel {
 
       // bitcast from generic i8* address to a pointer to the argument's type
       //
-      BitCastInst *cast_instr = new BitCastInst(gep_instr, PointerType::getUnqual(argtype), "", pCall);
+      CastInst *cast_instr = CastInst::CreatePointerCast(gep_instr, PointerType::getUnqual(argtype), "", pCall);
 
       // store argument into address. Alignment forced to 1 to make vector
       // stores safe.
@@ -418,7 +418,7 @@ namespace intel {
     SmallVector<Value*, 4> params;
     // push original parameters
     // Need bitcast to a general pointer
-    CastInst *pBCPtr = CastInst::Create(Instruction::BitCast, pCall->getArgOperand(0),
+    CastInst *pBCPtr = CastInst::CreatePointerCast(pCall->getArgOperand(0),
       PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0), "", pCall);
     params.push_back(pBCPtr);
     // Put number of elements
@@ -660,7 +660,7 @@ namespace intel {
     Type *PtrTy = cast<PointerType>(NewParamTy)->getElementType();
     // pointer type is struct
     if (PtrTy->isStructTy()) {
-      *it = CastInst::Create(Instruction::BitCast, NewParam, ExpectedArgTy, "",
+      *it = CastInst::CreatePointerCast(NewParam, ExpectedArgTy, "",
                              pCall);
       continue;
     }
@@ -672,7 +672,7 @@ namespace intel {
     // double pointer points to structure
     Type *PPtrTy = cast<PointerType>(PtrTy)->getElementType();
     if (PPtrTy->isStructTy()) {
-      NewParam = CastInst::Create(Instruction::BitCast, NewParam, ExpectedArgTy,
+      NewParam = CastInst::CreatePointerCast(NewParam, ExpectedArgTy,
                                   "", pCall);
       continue;
     }
@@ -686,7 +686,7 @@ namespace intel {
   Value *ret = CI;
   if (pCall->getType() != CI->getType()) {
     if (isPointerToStructType(pCall->getType()))
-      ret = CastInst::Create(Instruction::BitCast, CI, pCall->getType(), "",
+      ret = CastInst::CreatePointerCast(CI, pCall->getType(), "",
                              pCall);
     else
       assert(0 && "Should not get here. Unsupported type of return value");

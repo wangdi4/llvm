@@ -98,7 +98,7 @@ bool PatchCallbackArgs::runOnModule(Module &M) {
       } break;
       }
       if (Val->getType() != CI->getType())
-        Val = new BitCastInst(Val, CI->getType(), "", CI);
+        Val = CastInst::CreatePointerCast(Val, CI->getType(), "", CI);
       CI->replaceAllUsesWith(Val);
       ToErase.push_back(CI);
     }

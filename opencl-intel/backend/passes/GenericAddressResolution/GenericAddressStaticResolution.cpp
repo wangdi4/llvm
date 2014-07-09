@@ -100,7 +100,7 @@ namespace intel {
       const PointerType *pPtrType = dyn_cast<const PointerType>(pInstr->getType()); 
       if (pPtrType && IS_ADDR_SPACE_GENERIC(pPtrType->getAddressSpace())) {
         unsigned opCode = pInstr->getOpcode();
-        if (opCode == Instruction::BitCast || opCode == Instruction::GetElementPtr) {
+        if (opCode == Instruction::BitCast || opCode == Instruction::AddrSpaceCast || opCode == Instruction::GetElementPtr) {
           const PointerType *pSrcPtrType = dyn_cast<PointerType>(pInstr->getOperand(0)->getType());
           if (pSrcPtrType && isSinglePtr(pSrcPtrType) && 
               !IS_ADDR_SPACE_GENERIC(pSrcPtrType->getAddressSpace())) {
@@ -230,7 +230,8 @@ namespace intel {
         break;
       }
       // Bitcast may or may not generate new GAS pointer - analyze further
-      case Instruction::BitCast : {
+      case Instruction::AddrSpaceCast :
+      case Instruction::BitCast       : {
         // Filter-out Bitcasts which don't propagate GAS pointer
         const PointerType *pPtrType = dyn_cast<const PointerType>(pInstr->getType());
         if (pPtrType && IS_ADDR_SPACE_GENERIC(pPtrType->getAddressSpace())) {
@@ -368,6 +369,7 @@ namespace intel {
       // 1. Prepare replacements with named addr space pointers
       switch (pInstr->getOpcode()) {
         case Instruction::IntToPtr      :
+        case Instruction::AddrSpaceCast :
         case Instruction::BitCast       :
         case Instruction::GetElementPtr :
           changed |= resolveInstructionConvert(pInstr, space);
@@ -420,6 +422,7 @@ namespace intel {
           // For instruction which doesn't produce a pointer: replace uses with new value
           pOldInstr->replaceAllUsesWith(pNewVal);
           break;
+        case Instruction::AddrSpaceCast :
         case Instruction::BitCast       :
         case Instruction::IntToPtr      : 
         case Instruction::GetElementPtr : {

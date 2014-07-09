@@ -156,13 +156,14 @@ OCL_INITIALIZE_PASS(SoaAllocaAnalysis, "SoaAllocaAnalysis", "SoaAllocaAnalysis p
         // so only need to continue checking other usages.
         continue;
       }
-      else if (const BitCastInst *BC = dyn_cast<BitCastInst>(usage)) {
+      else if (isa<BitCastInst>(usage) || isa<AddrSpaceCastInst>(usage)) {
+        const CastInst *BC = dyn_cast<CastInst>(usage);
         // Bitcast on alloca with vector based type is not supported.
         // Only Bitcast of alloca instruction is supported.
         if (!isVectorBasedType && BC->getOperand(0) == pAI) {
-          for(Value::const_user_iterator ui = BC->user_begin(), ue = BC->user_end(); ui!= ue; ++ui) {
-            // Only BitCastInst with users that are only memset are supported.
-            if(!isSupportedMemset(dyn_cast<CallInst>(*ui))) {
+          for(const User *U : BC->users()) {
+            // Only CastInst with users that are only memset are supported.
+            if(!isSupportedMemset(dyn_cast<CallInst>(U))) {
               V_PRINT(soa_alloca_stat, "SoaAllocaAnalysis: alloca with unsupported bitcast usage (" << *usage << ")\n");
               return false;
             }

@@ -98,7 +98,7 @@ Value *VectorizerUtils::RootInputArgument(Value *arg, Type *rootType, CallInst *
 
   if (isOpaquePtrPair(argType, rootType)) {
     //incase of pointer to opaque type bitcast
-    return new BitCastInst(arg, rootType, "bitcast.opaque.ptr", CI);
+    return CastInst::CreatePointerCast(arg, rootType, "bitcast.opaque.ptr", CI);
   }
 
   if (isa<PointerType>(argType)) {
@@ -129,6 +129,7 @@ Value *VectorizerUtils::RootInputArgument(Value *arg, Type *rootType, CallInst *
         if (retVal->getType() != rootType) return NULL;
       }
       // Support the bitcast-shuffle-store pattern (for width-3 vectors)
+      // [LLVM 3.6 UPGRADE] TODO: add support for addrspacecast instruction.
       else if (is3Vector && isa<BitCastInst>(*i)) {
         // Only a single store is expected...
         if (retVal) return NULL;
@@ -171,6 +172,7 @@ Value *VectorizerUtils::RootInputArgument(Value *arg, Type *rootType, CallInst *
     valInChain.push_back(currVal);
     // Check for the "simple" BitCast and ZExt/SExt cases
     if ((inst = dyn_cast<BitCastInst>(currVal)) ||
+      (inst = dyn_cast<AddrSpaceCastInst>(currVal)) ||
       (inst = dyn_cast<ZExtInst>(currVal)) ||
       (inst = dyn_cast<SExtInst>(currVal)))
     {
@@ -488,7 +490,7 @@ Value *VectorizerUtils::getCastedArgIfNeeded(Value *inputVal, Type *targetType, 
 
   if (isOpaquePtrPair(sourceType,targetType))
   {
-    return new BitCastInst(inputVal, targetType, "bitcast.opaque.ptr", insertPoint);
+    return CastInst::CreatePointerCast(inputVal, targetType, "bitcast.opaque.ptr", insertPoint);
   }
 
   // no support for case when not the same type ans source is a pointer

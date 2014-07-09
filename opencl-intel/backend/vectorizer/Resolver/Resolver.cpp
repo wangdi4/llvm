@@ -342,7 +342,7 @@ void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
   // Cast the ptr back to its original form
   PointerType *InPT = cast<PointerType>(Ptr->getType());
   PointerType *SclPtrTy = PointerType::get(Elem, InPT->getAddressSpace());
-  Ptr = new BitCastInst(Ptr, SclPtrTy, "ptrTypeCast", caller);
+  Ptr = CastInst::CreatePointerCast(Ptr, SclPtrTy, "ptrTypeCast", caller);
 
   Value *Ret = UndefValue::get(VT);
 
@@ -464,7 +464,7 @@ void FuncResolver::resolveStoreVector(CallInst* caller, unsigned align) {
   // Cast the ptr back to its original form
   PointerType *InPT = cast<PointerType>(Ptr->getType());
   PointerType *SclPtrTy = PointerType::get(Elem, InPT->getAddressSpace());
-  Ptr = new BitCastInst(Ptr, SclPtrTy, "ptrTypeCast", caller);
+  Ptr = CastInst::CreatePointerCast(Ptr, SclPtrTy, "ptrTypeCast", caller);
 
   for (unsigned i=0; i< NumElem; ++i) {
     V_STAT(m_unresolvedStoreCtr++;)

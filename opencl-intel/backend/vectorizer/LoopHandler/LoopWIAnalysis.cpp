@@ -311,6 +311,7 @@ LoopWIAnalysis::ValDependancy LoopWIAnalysis::calculate_dep(CastInst *CI) {
     case Instruction::IntToPtr:
     case Instruction::UIToFP:
     case Instruction::SIToFP:
+    case Instruction::AddrSpaceCast: // [LLVM 3.6 UPGRADE] TODO: make sure this line is functionally correct
       return dep0;
     case Instruction::ZExt:
     case Instruction::BitCast:

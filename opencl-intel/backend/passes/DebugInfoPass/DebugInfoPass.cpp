@@ -474,7 +474,7 @@ void DebugInfoPass::insertDbgDeclareGlobalCalls(Function* pFunc, const FunctionC
         if (!var_ref->getType()->isPointerTy())
             continue;
 
-        BitCastInst* var_addr = new BitCastInst(var_ref, pointer_i8, "var_addr",
+        CastInst* var_addr = CastInst::CreatePointerCast(var_ref, pointer_i8, "var_addr",
             fContext.original_first_instr);
 
         MDNode *mdn = MDNode::get(*m_llvm_context, 
@@ -527,8 +527,8 @@ void DebugInfoPass::insertDbgDeclaraLocalCall(DbgDeclareInst* dbgDeclInstr, cons
     // The first argument is an alloca for the variable.
     // Take the alloca from the metadata and cast it to i8*
     Type* pointer_i8 = IntegerType::getInt8PtrTy(*m_llvm_context);
-    BitCastInst* var_ref_cast = new BitCastInst(dbgDeclInstr->getAddress(), pointer_i8,
-                                                "", dbgDeclInstr);
+    CastInst* var_ref_cast = CastInst::CreatePointerCast(dbgDeclInstr->getAddress(), pointer_i8,
+                                                         "", dbgDeclInstr);
     // Pass address of metadata description of the variable as an integral argument.
     Value* var_metadata_addr = makeAddressValueFromPointer(dbgDeclInstr->getVariable());
     // Pass the metadata description of the complex expression address as an integral

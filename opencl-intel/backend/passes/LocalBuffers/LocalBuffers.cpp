@@ -270,11 +270,15 @@ namespace intel{
           GetElementPtrInst::Create(pLocalMem, ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32), currLocalOffset), "", pFirstInst);
 
         // Now add bitcast to required/original pointer type
-        CastInst *pBitCast = CastInst::Create(Instruction::BitCast, pLocalAddr, pLclBuff->getType(), "", pFirstInst);
+        CastInst *pPointerCast = CastInst::CreatePointerCast(pLocalAddr, pLclBuff->getType(), "", pFirstInst);
 
         // Advance total implicit size
         currLocalOffset += ADJUST_SIZE_TO_MAXIMUM_ALIGN(uiArraySize);
 
+        // [ LLVM 3.6 UPGADE] FIXME: replace iteration over a container which is subject to modify
+        // with it's copy (just like before the upgrade)
+        //
+        // std::vector<User*> users(pLclBuff->user_begin(), pLclBuff->user_end());
         for (User * user : pLclBuff->users())  {
           if (ConstantExpr *pCE = dyn_cast<ConstantExpr>(user))  {
             ChangeConstant(pLclBuff, pCE, pBitCast, pBitCast);

@@ -662,6 +662,7 @@ void PacketizeFunction::dispatchInstructionToPacketize(Instruction *I)
     case Instruction::FPToUI :
     case Instruction::FPToSI :
     case Instruction::SIToFP :
+    case Instruction::AddrSpaceCast :
     case Instruction::BitCast :
       packetizeInstruction(dyn_cast<CastInst>(I));
       break;
@@ -780,6 +781,13 @@ void PacketizeFunction::cloneNonPacketizableInst(Instruction *I, Instruction **d
         duplicateInsts[i] = GetElementPtrInst::Create(multiPtrOperand[i], makeArrayRef(Idx), pGEP->getName());
       }
     }
+    else if (AddrSpaceCastInst *pBC = dyn_cast<AddrSpaceCastInst>(I)) {
+      Value * multiPtrOperand[MAX_PACKET_WIDTH];
+      obtainMultiScalarValues(multiPtrOperand, pBC->getOperand(0), pBC);
+      for (unsigned i = 0; i < m_packetWidth; i++) {
+        duplicateInsts[i] = CastInst::CreatePointerCast(multiPtrOperand[i], pBC->getType(), pBC->getName());
+      }
+    }
     else if (BitCastInst *pBC = dyn_cast<BitCastInst>(I)) {
       Value * multiPtrOperand[MAX_PACKET_WIDTH];
       obtainMultiScalarValues(multiPtrOperand, pBC->getOperand(0), pBC);
@@ -828,7 +836,7 @@ void PacketizeFunction::fixSoaAllocaLoadStoreOperands(Instruction *I, unsigned i
       V_ASSERT(vecType->isVectorTy() && "Pointer derived from SOA-alloca is not a pointer to a vector!");
       // Convert address from pointer of vector type to pointer of scalar type
       // Then increase the address with lane-id (using GEP instruction)
-      multiOperands[i] = BitCastInst::CreatePointerCast(multiOperands[i], vecType->getScalarType()->getPointerTo(), "bitcast2Scalar", I);
+      multiOperands[i] = CastInst::CreatePointerCast(multiOperands[i], vecType->getScalarType()->getPointerTo(), "bitcast2Scalar", I);
       Constant *laneVal = ConstantInt::get(Type::getInt32Ty(I->getContext()), i);
       multiOperands[i] = GetElementPtrInst::Create(multiOperands[i], laneVal, "GEP[Lane]", I);
     }
@@ -892,7 +900,7 @@ void PacketizeFunction::packetizeInstruction(CastInst * CI)
   }
 
   // Filter-out any cast instructions which do not support Vector types
-  if (!isa<BitCastInst>(CI) && !isa<SExtInst>(CI) && !isa<ZExtInst>(CI) &&
+  if (!isa<BitCastInst>(CI) && !isa<AddrSpaceCastInst>(CI) && !isa<SExtInst>(CI) && !isa<ZExtInst>(CI) &&
     !isa<TruncInst>(CI) && !isa<FPToSIInst>(CI) &&
     !isa<SIToFPInst>(CI) && !isa<FPToUIInst>(CI) && !isa<UIToFPInst>(CI) &&
     !isa<FPTruncInst>(CI) && !isa<FPExtInst>(CI)) {
@@ -1068,7 +1076,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     baseType = cast<PointerType>(baseType)->getElementType();
     V_ASSERT(baseType->isVectorTy() && "base of scatter/gather is not a pointer to a vector!");
     baseType = cast<VectorType>(baseType)->getElementType();
-    MO.Base = BitCastInst::CreatePointerCast(MO.Base, baseType->getPointerTo(), "bitcast2Scalar", MO.Orig);
+    MO.Base = CastInst::CreatePointerCast(MO.Base, baseType->getPointerTo(), "bitcast2Scalar", MO.Orig);
   }
 
   if (MO.type == STORE)
@@ -1092,13 +1100,13 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     MO.Index = BinaryOperator::CreateNUWMul(MO.Index, vecWidthVal, "mulVecWidthPacked", MO.Orig);
 
     PointerType *elemType = PointerType::get(ElemTy, 0);
-    MO.Base = BitCastInst::CreatePointerCast(MO.Base, elemType, "2elemType", MO.Orig);
+    MO.Base = CastInst::CreatePointerCast(MO.Base, elemType, "2elemType", MO.Orig);
   }
 
   // Remove address space from pointer type
   PointerType *BaseTy = dyn_cast<PointerType>(MO.Base->getType());
   PointerType *StrippedBaseTy = PointerType::get(BaseTy->getElementType(),0);
-  MO.Base = new BitCastInst(MO.Base, StrippedBaseTy, "stripAS", MO.Orig);
+  MO.Base = CastInst::CreatePointerCast(MO.Base, StrippedBaseTy, "stripAS", MO.Orig);
 
   SmallVector<Value*, 8> args;
   // Fill the arguments of the internal gather/scatter, these are the variants:
@@ -1175,7 +1183,7 @@ Instruction* PacketizeFunction::widenConsecutiveUnmaskedMemOp(MemoryOperation &M
   Type *elementType = inPtr->getElementType();
   Type *vectorElementType = VectorType::get(elementType, m_packetWidth);
   PointerType *vectorInPtr = PointerType::get(vectorElementType, inPtr->getAddressSpace());
-  Value *bitCastPtr = new BitCastInst(inAddr[0], vectorInPtr, "ptrTypeCast", MO.Orig);
+  Value *bitCastPtr = CastInst::CreatePointerCast(inAddr[0], vectorInPtr, "ptrTypeCast", MO.Orig);
 
   switch (MO.type) {
   case LOAD: {
@@ -1239,7 +1247,7 @@ Instruction* PacketizeFunction::widenConsecutiveMaskedMemOp(MemoryOperation &MO)
   Type *ElemType = PtrTy->getElementType();
   Type *VecElemTy = VectorType::get(ElemType, m_packetWidth);
   PointerType *VecTy = PointerType::get(VecElemTy, PtrTy->getAddressSpace());
-  Value *bitCastPtr = new BitCastInst(SclrPtr[0], VecTy, "ptrTypeCast",MO.Orig);
+  Value *bitCastPtr = CastInst::CreatePointerCast(SclrPtr[0], VecTy, "ptrTypeCast",MO.Orig);
   Type *DT = VecElemTy;
 
   // Implement the function call
@@ -2691,7 +2699,7 @@ void PacketizeFunction::createLoadAndTranspose(Instruction* I, Value* loadPtrVal
 
   // Need to bitcast the address, transpose functions don't handle "addrespace(i)"
   for (int i = 0; i < numInputPointers; ++i) {
-    Value* pLoadAddr = Builder.CreateBitCast(inAddr[i], origVecType->getPointerTo());
+    Value* pLoadAddr = Builder.CreatePointerCast(inAddr[i], origVecType->getPointerTo());
     funcArgs.push_back(pLoadAddr);
   }
 
@@ -2783,7 +2791,7 @@ void PacketizeFunction::createTransposeAndStore(Instruction* I, Value* storePtrV
 
   // Need to bitcast the address, transpose functions don't handle "addrespace(i)"
   for (int i = 0; i < numOutputPointers; ++i) {
-    Value* pStoreAddr = Builder.CreateBitCast(inAddr[i], origVecType->getPointerTo());
+    Value* pStoreAddr = Builder.CreatePointerCast(inAddr[i], origVecType->getPointerTo());
     funcArgs.push_back(pStoreAddr);
   }
 

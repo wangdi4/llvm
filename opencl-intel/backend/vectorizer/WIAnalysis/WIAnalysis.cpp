@@ -946,6 +946,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CastInst* inst) {
   case Instruction::FPExt:
   case Instruction::PtrToInt:
   case Instruction::IntToPtr:
+  case Instruction::AddrSpaceCast: // [LLVM 3.6 UPGRADE] TODO: make sure this line is functionally correct
   case Instruction::UIToFP:
   case Instruction::FPToUI:
   case Instruction::FPToSI:

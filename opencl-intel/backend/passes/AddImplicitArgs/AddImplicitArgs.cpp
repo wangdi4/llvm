@@ -187,7 +187,6 @@ namespace intel{
       }
     }
 
-    // [C++ 11] TODO: use range based 'for' in other 'use_iterator' places as well in scope of THIS commit
     for (User *user : pFunc->users()) {
       // handle constant expression with bitcast of function pointer
       // it handles cases like block_literal global variable definitions
@@ -195,10 +194,10 @@ namespace intel{
       // @__block_literal_global = internal constant { ..., i8*, ... }
       //    { ..., i8* bitcast (i32 (i8*, i32)* @globalBlock_block_invoke to i8*), ... }
       if(ConstantExpr *CE = dyn_cast<ConstantExpr>(user)){
-        if(CE->getOpcode() == Instruction::BitCast &&
+        if((CE->getOpcode() == Instruction::BitCast || CE->getOpcode() == Instruction::AddrSpaceCast) &&
           CE->getType()->isPointerTy()){
             // this case happens when global block variable is used
-            Constant *newCE = ConstantExpr::getBitCast(pNewF, CE->getType());
+            Constant *newCE = ConstantExpr::getPointerCast(pNewF, CE->getType());
             CE->replaceAllUsesWith(newCE);
             continue;
         }

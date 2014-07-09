@@ -404,7 +404,7 @@ namespace Validation {
             GetElementPtrInst* pLocalAddr =
                 GetElementPtrInst::Create(pLocalMem, ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32), m_sInfo.stTotalImplSize), "", pFirstInst);
             // Now add bitcast to required/original pointer type
-            CastInst* pBitCast = CastInst::Create(Instruction::BitCast, pLocalAddr, pLclBuff->getType(), "", pFirstInst);
+            CastInst* pBitCast = CastInst::CreatePointerCast(pLocalAddr, pLclBuff->getType(), "", pFirstInst);
             // Advance total implicit size
             m_sInfo.stTotalImplSize += ADJUST_SIZE_TO_MAXIMUM_ALIGN(uiArraySize);
 
@@ -651,7 +651,7 @@ namespace Validation {
 
             // bitcast from generic i8* address to a pointer to the argument's type
             //
-            BitCastInst* cast_instr = new BitCastInst(gep_instr, PointerType::getUnqual(argtype), "", pCall);
+            BitCastInst* cast_instr = CastInst::CreatePointerCast(gep_instr, PointerType::getUnqual(argtype), "", pCall);
 
             // store argument into address. Alignment forced to 1 to make vector
             // stores safe.
@@ -700,10 +700,10 @@ namespace Validation {
         SmallVector<Value*, 4> params;
         // push original parameters
         // Need bitcast to a general pointer
-        CastInst* pBCDst = CastInst::Create(Instruction::BitCast, pCall->getArgOperand(0),
+        CastInst* pBCDst = CastInst::CreatePointerCast(pCall->getArgOperand(0),
             PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0), "", pCall);
         params.push_back(pBCDst);
-        CastInst* pBCSrc = CastInst::Create(Instruction::BitCast, pCall->getArgOperand(1),
+        CastInst* pBCSrc = CastInst::CreatePointerCast(pCall->getArgOperand(1),
             PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0), "", pCall);
         params.push_back(pBCSrc);
         params.push_back(pCall->getArgOperand(2));
@@ -764,7 +764,7 @@ namespace Validation {
         SmallVector<Value*, 4> params;
         // push original parameters
         // Need bitcast to a general pointer
-        CastInst* pBCPtr = CastInst::Create(Instruction::BitCast, pCall->getArgOperand(0),
+        CastInst* pBCPtr = CastInst::CreatePointerCast(pCall->getArgOperand(0),
             PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0), "", pCall);
         params.push_back(pBCPtr);
         // Put number of elements

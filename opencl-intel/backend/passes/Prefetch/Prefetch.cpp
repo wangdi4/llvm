@@ -1238,7 +1238,7 @@ void Prefetch::insertPF (Instruction *I, Loop *L, int PFType,
   Value *V = m_ADRExpander->expandCodeFor(SAddr, SAddr->getType(), I);
 
   // Remove address space from pointer type
-  Instruction *addr = new BitCastInst(V, m_pi8, "pfPtrTypeCast", I);
+  Instruction *addr = CastInst::CreatePointerCast(V, m_pi8, "pfPtrTypeCast", I);
 
   // if the first instruction that accesses this location is a store bring this
   // line as exclusive
@@ -1375,7 +1375,7 @@ bool Prefetch::runOnFunction(Function &F) {
 /// PrefetchCandidateUtils Class implementation
 //////////////////////////////////////////////////////////////////
 unsigned PrefetchCandidateUtils::detectAddressSpace(Value *addr) {
-  BitCastInst *BCI = NULL;
+  AddrSpaceCastInst *ASCI = NULL;
   GetElementPtrInst *GEPI = NULL;
 
   // get address pointer type
@@ -1398,8 +1398,8 @@ unsigned PrefetchCandidateUtils::detectAddressSpace(Value *addr) {
 
     // if it's a bit cast - get the source pointer type and the source
     // instruction
-    if ((BCI = dyn_cast<BitCastInst>(I)) != NULL) {
-       PType = cast<PointerType>(BCI->getSrcTy());
+    if ((ASCI = dyn_cast<AddrSpaceCastInst>(I)) != NULL) {
+       PType = cast<PointerType>(ASCI->getSrcTy());
        addr = I->getOperand(0);
     }
     // if its a GEP - get its pointer operand
