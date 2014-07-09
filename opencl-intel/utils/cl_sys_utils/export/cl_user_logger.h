@@ -257,9 +257,7 @@ private:
     
 };
 
-/**
- * This class represents the wrapper around the BE log message as passed through stderr
- */
+// this class isn't needed - it will be deleted soon
 class LogMessageWrapper
 {
 public:
