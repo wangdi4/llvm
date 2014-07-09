@@ -108,7 +108,8 @@ Instruction* KNLResolver::CreateGatherScatterAndReplaceCall(CallInst* caller, Va
   const bool isMasked = !(isUniformMask && isa<Constant>(Mask) && cast<Constant>(Mask)->isAllOnesValue());
 
   // Get Gather/Scatter function name
-  std::string name = Mangler::getGatherScatterName(isMasked, type, dataTy);
+  VectorType *IndexType = cast<VectorType>(Index->getType());
+  std::string name = Mangler::getGatherScatterName(isMasked, type, dataTy, IndexType);
 
   if(isMasked && isUniformMask) {
     // We have uniform mask (not known to be 1), need to broadcast it
@@ -148,7 +149,6 @@ void KNLResolver::FixBaseAndIndexIfNeeded(
 
   unsigned int uValidBits = (unsigned int)cast<ConstantInt>(ValidBits)->getZExtValue();
   bool bIsSigned = !cast<Constant>(IsSigned)->isNullValue();
-  const bool bIsUniformMask = !(Mask->getType()->isVectorTy());
 
   VectorType *IndexType = cast<VectorType>(Index->getType());
 
@@ -175,8 +175,10 @@ void KNLResolver::FixBaseAndIndexIfNeeded(
       V_PRINT(gather_scatter_stat, "RESOLVER: Base+safeNumFix " << *Ptr <<
         "\t|\t RESOLVER: Index-safeNumFix " << *Index << "\n");
     }
-    return;
+    //return;
   }
+}
+/*
 
   //Reaching here means we have Index with more than 32bit. (Thus, we assume Index type is 64bit)
   //V_ASSERT(IndexType->getElementType()->isIntegerTy(64) && "index element type is something other than 32bit or 64bit");
@@ -247,7 +249,7 @@ void KNLResolver::FixBaseAndIndexIfNeeded(
   Index = BinaryOperator::CreateSub(Index, Index0, "Index-Index[0]", caller);
 #endif
 }
-
+*/
 bool KNLResolver::isBitMask(const VectorType& vecType) const {
   // float16, int16, double8, long8, double16, long16
   return (vecType.getBitWidth() >= 512) && (vecType.getNumElements() <= 16);

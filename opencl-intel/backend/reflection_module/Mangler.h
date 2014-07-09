@@ -43,7 +43,8 @@ public:
   /// @param isGather true for gather instruction, false for scatter instruction
   /// @param retDataVecTy type of return/data value (should be a vector)
   /// @return name
-  static std::string getGatherScatterName(bool isMasked, GatherScatterType gatherType, VectorType *retDataVecTy);
+  static std::string getGatherScatterName(bool isMasked, GatherScatterType gatherType,
+                                          VectorType *retDataVecTy, VectorType *indexTy = 0);
   /// @brief Get internal mangled name for gather or scatter instruction
   /// (this name will be resolved at Resolver pass, thus it is for vectorizer internal use only)
   /// @param isGather true for gather instruction, false for scatter instruction

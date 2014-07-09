@@ -175,7 +175,15 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
         }
         std::string llvmKNLBinPath(getenv("LLVM_KNL_DIR"));
         std::string llvmOCLBinPath(getenv("LLVM_OCL_DIR"));
-        std::string llcOptions("-mcpu=knl -force-align-stack -code-model=large ");
+        std::string llcOptions("-force-align-stack -code-model=large ");
+        if (pCompiler->GetCpuId().GetCPU() == CPU_KNL)
+          llcOptions += " -mcpu=knl ";
+        else if (pCompiler->GetCpuId().GetCPU() == CPU_HASWELL)
+          llcOptions += " -mcpu=core-avx2 ";
+        else if (pCompiler->GetCpuId().GetCPU() == CPU_SANDYBRIDGE)
+          llcOptions += " -mcpu=corei7-avx ";
+        else
+          llcOptions += " -mcpu=corei7 ";
         if (spModule.get()->getNamedMetadata("opencl.enable.FP_CONTRACT"))
           llcOptions += " -fp-contract=fast ";
         llcOptions += filename + ".ll ";

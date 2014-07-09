@@ -1750,13 +1750,16 @@ void Predicator::insertAllOnesBypassesSingleBlockLoopCase(BasicBlock* original) 
         if (phi->getIncomingBlock(i) == original) {
           Value* val = phi->getIncomingValue(i);
           Instruction* valInst = dyn_cast<Instruction>(val);
-          if (!valInst) {
-            continue;
+          Value* newVal;
+          if (valInst && originalToAllOnesInst.count(valInst)) {
+            newVal = originalToAllOnesInst[valInst];
+          }
+          else {
+            newVal = val;
           }
           PHINode* newPhi = PHINode::Create(phi->getType(), 2, "pred_phi_"+phi->getName(), entry2);
-          V_ASSERT(originalToAllOnesInst.count(valInst) && "missing allones inst");
           unsigned int otherIndex = 1-i;
-          newPhi->addIncoming(originalToAllOnesInst[valInst], testAllZeroes);
+          newPhi->addIncoming(newVal, testAllZeroes);
           newPhi->addIncoming(phi->getIncomingValue(otherIndex), entry);
 
           phi->setIncomingValue(otherIndex, newPhi);
