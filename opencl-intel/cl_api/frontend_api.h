@@ -23,12 +23,6 @@
 #include <stddef.h>
 #include <CL/cl.h>
 
-namespace Intel { namespace OpenCL { namespace Utils {
-
-class UserLogger;
-
-}}}
-
 namespace Intel { namespace OpenCL { namespace FECompilerAPI {
 
 #define CL_FE_INTERNAL_ERROR_OHNO -1    //thanks to doron for the awesome name
@@ -137,6 +131,6 @@ public:
 
 // Create an instance of the FE compiler tagged to specific device
 // Input: pDeviceInfo - device Specific information
-typedef int fnCreateFECompilerInstance(const void* pDeviceInfo, size_t devInfoSize, IOCLFECompiler* *pFECompiler, Intel::OpenCL::Utils::UserLogger* pUserLogger);
+typedef int fnCreateFECompilerInstance(const void* pDeviceInfo, size_t devInfoSize, IOCLFECompiler* *pFECompiler);
 
 }}}

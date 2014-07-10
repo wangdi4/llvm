@@ -317,18 +317,10 @@ bool ClangFECompiler::CheckLinkOptions(const char* szOptions, char** szUnrecogni
     return ClangFECompilerCheckLinkOptions(szOptions, szUnrecognizedOptions);
 }
 
-namespace Intel { namespace OpenCL { namespace Utils {
-
-UserLogger* g_pUserLogger = NULL;
-
-}}}
-
-extern "C" DLL_EXPORT int CreateFrontEndInstance(const void* pDeviceInfo, size_t devInfoSize, IOCLFECompiler* *pFECompiler, Intel::OpenCL::Utils::UserLogger* pUserLogger)
+extern "C" DLL_EXPORT int CreateFrontEndInstance(const void* pDeviceInfo, size_t devInfoSize, IOCLFECompiler* *pFECompiler)
 {
     assert(NULL != pFECompiler);
-    assert(devInfoSize == sizeof(CLANG_DEV_INFO));
-
-    g_pUserLogger = pUserLogger;
+  assert(devInfoSize == sizeof(CLANG_DEV_INFO));
 
     IOCLFECompiler* pNewCompiler = new ClangFECompiler(pDeviceInfo);
     if ( NULL == pNewCompiler )
