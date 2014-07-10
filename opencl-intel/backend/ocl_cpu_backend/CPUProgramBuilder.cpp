@@ -348,15 +348,14 @@ void CPUProgramBuilder::AddKernelJIT(CPUProgram* pProgram, Kernel* pKernel, llvm
 
 void CPUProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule, const ICLDevBackendOptions* pOptions) const
 {
-    const void* pInjectedObjStartvoidPtr = NULL;    
+    char*  pInjectedObjStart = NULL;
     size_t injectedObjSize;
 
     // Check if we are going to do injection
     if (pOptions
-        && pOptions->GetValue(CL_DEV_BACKEND_OPTION_INJECTED_OBJECT, &pInjectedObjStartvoidPtr, &injectedObjSize)
-        && pInjectedObjStartvoidPtr != NULL)
+        && pOptions->GetValue(CL_DEV_BACKEND_OPTION_INJECTED_OBJECT, &pInjectedObjStart, &injectedObjSize)
+        && pInjectedObjStart != NULL)
     {
-        const char* pInjectedObjStart = reinterpret_cast<const char*>(pInjectedObjStartvoidPtr);
         std::auto_ptr<StaticObjectLoader> pObjectLoader(new StaticObjectLoader());
         // Build the MemoryBuffer object from the supplied options
         std::auto_ptr<llvm::MemoryBuffer> pInjectedObj(
