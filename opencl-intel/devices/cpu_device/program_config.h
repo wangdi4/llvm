@@ -86,6 +86,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         bool m_useVectorizer;
         int  m_vectorizerMode;
         bool m_useVTune;
+        CpuUserLogger& m_cpuUserLogger;
 
     };
 

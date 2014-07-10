@@ -856,13 +856,6 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 #endif
     m_pRunner->PrepareKernelArguments(pLockedParams, memArgs, memObjCount);
 
-    if (0 == cmdParams->lcl_wrk_size[0][0])
-    {
-        /* const */vector<unsigned int> dims(1); // = m_pRunner->GetLocalSizes(cmdParams->arg_values);
-        dims[0] = 5;
-        g_pUserLogger->SetLocalWorkSize4ArgValues(m_pCmd->id, FrameworkUserLogger::FormatLocalWorkSize(dims));
-    }
-
     const size_t*    pWGSize = m_pImplicitArgs->WGCount;
     unsigned int i;
     for (i = 0; i < cmdParams->work_dim; ++i) 

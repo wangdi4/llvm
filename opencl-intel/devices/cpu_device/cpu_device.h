@@ -80,6 +80,8 @@ protected:
 	tbb::scalable_allocator<char>          m_deviceNDRangeContextAllocator;
 #endif
 
+    CpuUserLogger m_cpuUserLogger;
+
     static volatile bool    m_bDeviceIsRunning;
 
     virtual ~CPUDevice();
