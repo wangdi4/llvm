@@ -20,8 +20,13 @@ OclBuiltinImpl avx_convert_i32_rtz_v8f32 = OclBuiltinImpl<convert_i32_rtz, [v8f3
 OclBuiltinImpl avx_convert_i32_rtz_v4f64 = OclBuiltinImpl<convert_i32_rtz, [v4f64], 0, [{
     return as_$ReturnType(_mm256_cvttpd_epi32($Arg0VarName));
   }]>;
-
-OclBuiltinImpl avx_convert_i32_rtz_v3f64 = OclBuiltinImpl<convert_i32_rtz, [v3f64], 0, Promote_rtz>;
+ 
+OclBuiltinImpl avx_convert_i32_rtz_v3f64 = OclBuiltinImpl<convert_i32_rtz, [v3f64], 0, [{
+    $Arg0BaseType#4 n$Arg0VarName;
+    n$Arg0VarName$Pattern = $Arg0VarName;
+    $ReturnBaseType#4 res = convert_$ReturnBaseType#4_rtz(n$Arg0VarName);
+    return res$Pattern;
+  }]>;
 
 OclBuiltinImpl avx_convert_i32_rtz_v4f64 = OclBuiltinImpl<convert_i32_rtz, [v4f64], 0, [{
     int4 t1, t2, res;
@@ -91,7 +96,7 @@ OclBuiltinImpl avx_convert_u32_rtn_v8f64_v16f32 = OclBuiltinImpl<convert_u32_rtn
   }]>;
 /*****************************************************************\
  * convert_uint_rtp:                                              *
- *   intn convert_uintn_rtn (gentypen x)                          *
+ *   intn convert_uintn_rtp (gentypen x)                          *
 \*****************************************************************/
 // convert_uintn_rtp ( double8 )
 // convert_uintn_rtp ( float16 )
@@ -297,7 +302,12 @@ OclBuiltinImpl avx_cvt_f64_v4f32 = OclBuiltinImpl<convert_f64, [v4f32], 0, [{
     return as_$ReturnType(_mm256_cvtps_pd(__builtin_astype($Arg0VarName,__m128)));
   }]>;
 
-OclBuiltinImpl avx_cvt_f64_v3i32 = OclBuiltinImpl<convert_f64,[v3i32], 0, Promote_default>;
+OclBuiltinImpl avx_cvt_f64_v3i32 = OclBuiltinImpl<convert_f64,[v3i32], 0, [{
+    $Arg0BaseType#4 n$Arg0VarName;
+    n$Arg0VarName$Pattern = $Arg0VarName;
+    $ReturnBaseType#4 res = convert_$ReturnBaseType#4(n$Arg0VarName);
+    return res$Pattern;
+  }]>;
 
 OclBuiltinImpl avx_cvt_f64_v4i32 = OclBuiltinImpl<convert_f64,[v4i32], 0, [{
     return as_double4(_mm256_cvtepi32_pd(__builtin_astype(x,__m128i)));

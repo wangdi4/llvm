@@ -134,11 +134,7 @@ bool clCheckJITLoadTest()
         printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
         return false;
     }
-    
-    // CSSD100019622
-    if(uiNumDevices > 1) uiNumDevices = 1;
-
-    std::vector<cl_device_id> devices(uiNumDevices);
+    cl_device_id* devices = new cl_device_id[uiNumDevices];
     iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, &devices[0], NULL);
     if (CL_SUCCESS != iRet)
     {
@@ -155,6 +151,7 @@ bool clCheckJITLoadTest()
     }
     printf("context = %p\n", context);
 
+	
     // read the cached binary from a file
     FILE * pFile = fopen(g_BINFILENAME, "rb");
     
@@ -165,12 +162,14 @@ bool clCheckJITLoadTest()
 
     // allocate buffer
     char* pBuffer = new char[size];
-
+	
     // copy the file content to the buffer
     fread(pBuffer, 1, size, pFile);
     fclose(pFile);
 
+
     char** ppBuffers = new char*[uiNumDevices];
+
     size_t* sizes = new size_t[uiNumDevices];
     for(int i = 0; i < uiNumDevices; ++i)
     {
@@ -178,9 +177,10 @@ bool clCheckJITLoadTest()
         sizes[i] = size;
     }
 
+
     // create program with binary
-    cl_int status;
-    cl_program clBinaryProg = clCreateProgramWithBinary(context, uiNumDevices, &devices[0], sizes, (const unsigned char**)&pBuffer, &status, &iRet);
+    cl_int* status = new cl_int[uiNumDevices];
+    cl_program clBinaryProg = clCreateProgramWithBinary(context,uiNumDevices , &devices[0], sizes, (const unsigned char**)ppBuffers, &status[0], &iRet);
     bResult &= Check(L"clCreateProgramWithBinary", CL_SUCCESS, iRet);
 
     iRet = clBuildProgram(clBinaryProg, uiNumDevices, &devices[0], NULL, NULL, NULL);
@@ -188,6 +188,12 @@ bool clCheckJITLoadTest()
 
     printf("Testing the loaded binary .. \n");
     bResult &= TestBinaryRun(clBinaryProg, context, devices[0]);
+	delete[] devices;
+	delete[] pBuffer;
+	delete[] ppBuffers;
+	delete[] sizes;
+	delete[] status;
+	
     return bResult;
 }
 

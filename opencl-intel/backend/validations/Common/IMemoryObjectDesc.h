@@ -23,7 +23,7 @@ namespace Validation
     class IMemoryObjectDesc
     {
     public:
-    	virtual ~IMemoryObjectDesc() {} // This interface is passed to a template which call it's destructor. Need virtial destr in place
+        virtual ~IMemoryObjectDesc() {} // This interface is passed to a template which call it's destructor. Need virtual destructor in place.
         /// @brief is NEAT object
         virtual bool IsNEAT() const = 0;
         /// @brief Set NEAT property
@@ -68,8 +68,8 @@ namespace Validation
         T* operator ->(){
             return m_p;
         }
-        
-        T *get() const 
+
+        T *get() const
         {   // return wrapped pointer
             return (m_p);
         }
@@ -86,9 +86,7 @@ namespace Validation
 
     };
 
-    
     typedef IMemoryObjectDescWrapper<IMemoryObjectDesc> IMemoryObjectDescPtr;
-
 
 } // End of Validation namespace
 #endif // __I_MEMORY_OBJECT_DESC_H__

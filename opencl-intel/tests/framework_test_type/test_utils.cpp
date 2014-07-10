@@ -9,7 +9,7 @@
 
 using namespace std;
 
-bool CheckCondition(wchar_t * name, bool condition)
+bool CheckCondition(const wchar_t * name, bool condition)
 {
 	if (condition)
 	{
@@ -22,7 +22,7 @@ bool CheckCondition(wchar_t * name, bool condition)
 	return condition;
 }
 
-bool SilentCheckCondition(wchar_t * name, bool condition)
+bool SilentCheckCondition(const wchar_t * name, bool condition)
 {
 	if (!condition)
 	{
@@ -31,7 +31,7 @@ bool SilentCheckCondition(wchar_t * name, bool condition)
 	return condition;
 }
 
-bool Check(wchar_t * name, cl_int expected, cl_int result)
+bool Check(const wchar_t * name, cl_int expected, cl_int result)
 {
 	if (expected == result)
 	{
@@ -45,7 +45,7 @@ bool Check(wchar_t * name, cl_int expected, cl_int result)
 	return (expected == result);
 }
 
-bool SilentCheck(wchar_t * name, cl_int expected, cl_int result)
+bool SilentCheck(const wchar_t * name, cl_int expected, cl_int result)
 {
 	if (expected == result)
 	{
@@ -56,7 +56,7 @@ bool SilentCheck(wchar_t * name, cl_int expected, cl_int result)
 	return false;
 }
 
-bool CheckStr(wchar_t * name, char * expected, char * result)
+bool CheckStr(const wchar_t * name, char * expected, char * result)
 {
 	int iRes = strcmp(expected, result);
 	bool bRes = (iRes == 0);
@@ -73,7 +73,7 @@ bool CheckStr(wchar_t * name, char * expected, char * result)
 	return bRes;
 }
 
-bool SilentCheckStr(wchar_t * name, char * expected, char * result)
+bool SilentCheckStr(const wchar_t * name, char * expected, char * result)
 {
 	int iRes = strcmp(expected, result);
 	bool bRes = (iRes == 0);
@@ -86,7 +86,7 @@ bool SilentCheckStr(wchar_t * name, char * expected, char * result)
 	return bRes;
 }
 
-bool CheckInt(wchar_t * name, cl_long expected, cl_long result)
+bool CheckInt(const wchar_t * name, cl_long expected, cl_long result)
 {
 	bool bRes = (expected == result);
 
@@ -102,7 +102,7 @@ bool CheckInt(wchar_t * name, cl_long expected, cl_long result)
 	return bRes;
 }
 
-bool SilentCheckInt(wchar_t * name, cl_long expected, cl_long result)
+bool SilentCheckInt(const wchar_t * name, cl_long expected, cl_long result)
 {
 	bool bRes = (expected == result);
 
@@ -114,7 +114,7 @@ bool SilentCheckInt(wchar_t * name, cl_long expected, cl_long result)
 	return bRes;
 }
 
-bool CheckSize(wchar_t * name, size_t expected, size_t result)
+bool CheckSize(const wchar_t * name, size_t expected, size_t result)
 {
 	bool bRes = (expected == result);
 
@@ -130,61 +130,61 @@ bool CheckSize(wchar_t * name, size_t expected, size_t result)
 	return bRes;
 }
 
-bool CheckHandle(wchar_t * name, cl_platform_id expected, cl_platform_id result)
+bool CheckHandle(const wchar_t * name, cl_platform_id expected, cl_platform_id result)
 {
 	bool bRes = (expected == result);
 	return CheckHandleImpl(name, (void*)expected, (void*)result, bRes);
 }
 
-bool CheckHandle(wchar_t * name, cl_device_id expected, cl_device_id result)
+bool CheckHandle(const wchar_t * name, cl_device_id expected, cl_device_id result)
 {
 	bool bRes = (expected == result);
 	return CheckHandleImpl(name, (void*)expected, (void*)result, bRes);
 }
 
-bool CheckHandle(wchar_t * name, cl_context expected, cl_context result)
+bool CheckHandle(const wchar_t * name, cl_context expected, cl_context result)
 {
 	bool bRes = (expected == result);
 	return CheckHandleImpl(name, (void*)expected, (void*)result, bRes);
 }
 
-bool CheckHandle(wchar_t * name, cl_command_queue expected, cl_command_queue result)
+bool CheckHandle(const wchar_t * name, cl_command_queue expected, cl_command_queue result)
 {
 	bool bRes = (expected == result);
 	return CheckHandleImpl(name, (void*)expected, (void*)result, bRes);
 }
 
-bool CheckHandle(wchar_t * name, cl_mem expected, cl_mem result)
+bool CheckHandle(const wchar_t * name, cl_mem expected, cl_mem result)
 {
 	bool bRes = (expected == result);
 	return CheckHandleImpl(name, (void*)expected, (void*)result, bRes);
 }
 
-bool CheckHandle(wchar_t * name, cl_program expected, cl_program result)
+bool CheckHandle(const wchar_t * name, cl_program expected, cl_program result)
 {
 	bool bRes = (expected == result);
 	return CheckHandleImpl(name, (void*)expected, (void*)result, bRes);
 }
 
-bool CheckHandle(wchar_t * name, cl_kernel expected, cl_kernel result)
+bool CheckHandle(const wchar_t * name, cl_kernel expected, cl_kernel result)
 {
 	bool bRes = (expected == result);
 	return CheckHandleImpl(name, (void*)expected, (void*)result, bRes);
 }
 
-bool CheckHandle(wchar_t * name, cl_event expected, cl_event result)
+bool CheckHandle(const wchar_t * name, cl_event expected, cl_event result)
 {
 	bool bRes = (expected == result);
 	return CheckHandleImpl(name, (void*)expected, (void*)result, bRes);
 }
 
-bool CheckHandle(wchar_t * name, cl_sampler expected, cl_sampler result)
+bool CheckHandle(const wchar_t * name, cl_sampler expected, cl_sampler result)
 {
 	bool bRes = (expected == result);
 	return CheckHandleImpl(name, (void*)expected, (void*)result, bRes);
 }
 
-bool CheckHandleImpl(wchar_t * name, void* expected, void* result, bool bRes)
+bool CheckHandleImpl(const wchar_t * name, void* expected, void* result, bool bRes)
 {
 	if (bRes)
 	{
@@ -198,7 +198,7 @@ bool CheckHandleImpl(wchar_t * name, void* expected, void* result, bool bRes)
 	return bRes;
 }
 
-bool SilentCheckSize(wchar_t * name, size_t expected, size_t result)
+bool SilentCheckSize(const wchar_t * name, size_t expected, size_t result)
 {
 	bool bRes = (expected == result);
 
@@ -210,7 +210,7 @@ bool SilentCheckSize(wchar_t * name, size_t expected, size_t result)
 	return bRes;
 }
 
-bool CheckBuildStatus(wchar_t * name, cl_build_status expected, cl_build_status result)
+bool CheckBuildStatus(const wchar_t * name, cl_build_status expected, cl_build_status result)
 {
 	bool bRes = (expected == result);
 
@@ -260,7 +260,7 @@ bool CheckBuildStatus(wchar_t * name, cl_build_status expected, cl_build_status 
 	return bRes;
 }
 
-bool SilentCheckBuildStatus(wchar_t * name, cl_build_status expected, cl_build_status result)
+bool SilentCheckBuildStatus(const wchar_t * name, cl_build_status expected, cl_build_status result)
 {
 	bool bRes = (expected == result);
 

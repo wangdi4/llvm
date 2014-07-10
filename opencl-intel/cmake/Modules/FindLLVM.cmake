@@ -72,10 +72,6 @@ if(WIN32)
     endif()
 
 else()
-    list(APPEND STATIC_LLVM_MODULE_LIBS
-         LLVMCppBackendCodeGen
-         LLVMCppBackendInfo
-    )
     if( INCLUDE_MIC_DEVICE)
         list(APPEND STATIC_LLVM_MODULE_LIBS
             LLVMY86AsmParser

@@ -9,6 +9,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/opt.h"
 #include "InitializePasses.h"
+#include "CPUDetect.h"
+
 
 int mainImp(int argc, char **argv);
 
@@ -30,6 +32,7 @@ MicPasses("mic-passes",
 
 
 extern "C" Pass* createBuiltinLibInfoPass(Module* pRTModule, std::string type);
+extern "C" Pass* createBuiltInImportPass(const char* CPUName);
 
 void initializeOCLPasses(PassRegistry &Registry)
 {
@@ -126,6 +129,9 @@ void InitOCLPasses( llvm::LLVMContext& context, llvm::PassManager& passMgr )
   //Always add the BuiltinLibInfo Pass to the Pass Manager
   passMgr.add(createBuiltinLibInfoPass(runtimeModule.release(), RuntimeServices));
   passMgr.add(createImplicitArgsAnalysisPass(&context));
+
+  Intel::CPUId cpuId = Intel::OpenCL::DeviceBackend::Utils::CPUDetect::GetInstance()->GetCPUId();
+  passMgr.add(createBuiltInImportPass(cpuId.GetCPUPrefix()));
 }
 
 int main(int argc, char **argv) {

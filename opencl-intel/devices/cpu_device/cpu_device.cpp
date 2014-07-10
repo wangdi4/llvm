@@ -393,8 +393,13 @@ void CPUDevice::NotifyAffinity(threadid_t tid, unsigned int core_index)
     threadid_t   other_tid        = m_pCoreToThread[core_index];
     int          my_prev_core_idx = m_threadToCore[tid];
 
+	// no change needed
+	if (other_tid == tid)
+	{
+	    return;
+	}
     // The other tid is valid if there was another thread pinned to the core I want to move to
-    bool         other_valid      = (other_tid != INVALID_THREAD_HANDLE) && (other_tid != tid);
+    bool         other_valid      = (other_tid != INVALID_THREAD_HANDLE);
     // Either I'm not relocating another thread, or I am. If I am, make sure that I'm relocating the thread which resides on the core I want to move to
     // This assertion might fail if there's a bug that makes m_threadToCore desynch from m_pCoreToThread
     bool bMapsAreConsistent = !other_valid || (int)core_index == m_threadToCore[other_tid];

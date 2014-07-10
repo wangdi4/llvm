@@ -36,10 +36,10 @@ void StatisticsCollector::UpdateStatistics(STAT_TYPE in_statType, std::string st
         val.type = in_statType;
         val.value = 0;
         val.count = 0;
-		val.res = 0;
+        val.res = 0;
         mit = m_values.insert(std::pair<std::string, StatValue>(stat_name, val)).first;
     }
-    
+
     if((mit->second).type != in_statType)
         throw Exception::InvalidArgument("Statistics type is different from previously set type");
 

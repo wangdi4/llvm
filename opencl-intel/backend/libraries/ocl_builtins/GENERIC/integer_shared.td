@@ -29,9 +29,15 @@ OclBuiltinImpl abs_ugeneric = OclBuiltinImpl<abs, [ v1u8,  v2u8,  v3u8,  v4u8,  
  *   ugentype abs_diff (gentype x, gentype y)                    *
  *   Returns | x - y |                                           *
 \*****************************************************************/
-OclBuiltinImpl abs_diff_igeneric = OclBuiltinImpl<abs_diff, abs_diff.Types, 0, [{
-    return as_$ReturnType(($Arg0Type)(max($Arg0VarName, $Arg1VarName) - min($Arg0VarName, $Arg1VarName)));
-  }]>;
+list<OclType> abs_diff_shared_types = [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
+                                        v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
+                                        v1i16, v2i16, v3i16, v4i16, v8i16,
+                                        v1u16, v2u16, v3u16, v4u16, v8u16,
+                                        v1i32, v2i32, v3i32, v4i32,        v16i32,
+                                        v1u32, v2u32, v3u32, v4u32,        v16u32,
+                                        v1i64, v2i64, v3i64,        v8i64, v16i64,
+                                        v1u64, v2u64, v3u64,        v8u64, v16u64];
+OclBuiltinImpl abs_diff_igeneric = OclBuiltinImpl<abs_diff, abs_diff_shared_types, 0, abs_diff_igeneric_code>;
 
 
 /*****************************************************************\
@@ -56,25 +62,14 @@ OclBuiltinImpl add_sat_v1i = OclBuiltinImpl<add_sat, [v1i8, v1i16, v1i32, v1i64]
   }]>;
 // add_sat vector int
 OclBuiltinImpl add_sat_svector = OclBuiltinImpl<add_sat, [ v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
-                                                          v2i16, v3i16, v4i16, v8i16, v16i16,
+                                                          v2i16, v3i16, v4i16, v8i16,
                                                           v2i32, v3i32, v4i32, v8i32, v16i32,
-                                                          v2i64, v3i64, v4i64, v8i64, v16i64] , 0, [{
-    $Arg0BaseType zero = 0;
-    $ReturnType r = $Arg0VarName + $Arg1VarName;
-    $ReturnType p = (($Arg0VarName | $Arg1VarName) > zero) & (r < zero);
-    $ReturnType n = (($Arg0VarName & $Arg1VarName) < zero) & (r >= zero);
-    return  (n == zero) ?
-            (p == zero) ? r : ($ReturnType)generic_max_$Arg0BaseType :
-            ($ReturnType)generic_min_$Arg0BaseType;
-  }]>;
+                                                          v2i64, v3i64, v4i64, v8i64, v16i64] , 0, add_sat_svector_code>;
 // add_sat on unsigned
 OclBuiltinImpl add_sat_unsigned = OclBuiltinImpl<add_sat, [ v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
-                                                           v1u16, v2u16, v3u16, v4u16, v8u16, v16u16,
+                                                           v1u16, v2u16, v3u16, v4u16, v8u16,
                                                            v1u32, v2u32, v3u32, v4u32, v8u32, v16u32,
-                                                           v1u64, v2u64, v3u64, v4u64, v8u64, v16u64] , 0, [{
-    $ReturnType r = $Arg0VarName + $Arg1VarName;
-    return (r < $Arg0VarName) ? ($ReturnType)generic_max_$Arg0BaseType : r;
-  }]>;
+                                                           v1u64, v2u64, v3u64, v4u64, v8u64, v16u64] , 0, add_sat_unsigned_code>;
 
 
 /*****************************************************************\
@@ -97,12 +92,15 @@ OclBuiltinImpl hadd_igeneric = OclBuiltinImpl<hadd, hadd.Types, 0, [{
  *   Returns (x + y + 1) >> 1. The intermediate sum does         *
  *     not modulo overflow.                                      *
 \*****************************************************************/
-OclBuiltinImpl rhadd_igeneric = OclBuiltinImpl<rhadd, rhadd.Types, 0, [{
-    $ReturnType s, c;
-    s = $Arg0VarName ^ $Arg1VarName;
-    c = $Arg0VarName & $Arg1VarName;
-    return (s >> (($ReturnType)1)) + (c | (s & (($ReturnType)1)));
-  }]>;
+list<OclType> abs_rhadd_shared_types = [v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
+                                        v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
+                                        v1i16, v2i16, v3i16, v4i16, v8i16, v16i16,
+                                        v1u16, v2u16, v3u16, v4u16, v8u16, v16u16,
+                                        v1i32, v2i32, v3i32, v4i32, v8i32,
+                                        v1u32, v2u32, v3u32, v4u32, v8u32, v16u32,
+                                        v1i64, v2i64, v3i64, v4i64, v8i64, v16i64,
+                                        v1u64, v2u64, v3u64, v4u64, v8u64, v16u64];
+OclBuiltinImpl rhadd_igeneric = OclBuiltinImpl<rhadd, abs_rhadd_shared_types, 0, rhadd_igeneric_code>;
 
 
 /*****************************************************************\
@@ -285,19 +283,14 @@ OclBuiltinImpl max_iscalar = OclBuiltinImpl<max, [v1i8, v1i16, v1i32, v1i64,
     return ($Arg0VarName > $Arg1VarName) ? $Arg0VarName : $Arg1VarName;
   }]>;
 // max vector
-OclBuiltinImpl max_ivector = OclBuiltinImpl<max, [ v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
-                                                  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
-                                                 v2i16, v3i16, v4i16, v8i16, v16i16,
-                                                 v2u16, v3u16, v4u16, v8u16, v16u16,
-                                                 v2i32, v3i32, v4i32, v8i32, v16i32,
-                                                 v2u32, v3u32, v4u32, v8u32, v16u32,
+OclBuiltinImpl max_ivector = OclBuiltinImpl<max, [ v2i8,  v3i8,  v4i8,  v8i8,
+                                                  v2u8,  v3u8,  v4u8,  v8u8,
+                                                 v2i16, v3i16, v4i16,
+                                                 v2u16, v3u16, v4u16,
+                                                 v2i32, v3i32,               v16i32,
+                                                 v2u32, v3u32,               v16u32,
                                                  v2i64, v3i64, v4i64, v8i64, v16i64,
-                                                 v2u64, v3u64, v4u64, v8u64, v16u64], 0, [{
-    $Arg0Type tmp  = as_$Arg0Type($Arg0VarName > $Arg1VarName);
-    $Arg0Type tmpX = tmp & $Arg0VarName;
-    $Arg0Type tmpY = (~tmp) & $Arg1VarName;
-    return tmpX + tmpY;
-  }]>;
+                                                 v2u64, v3u64, v4u64, v8u64, v16u64], 0, max_ivector_code>;
 
 
 /*****************************************************************\
@@ -312,19 +305,14 @@ OclBuiltinImpl min_iscalar = OclBuiltinImpl<min, [v1i8, v1i16, v1i32, v1i64,
         return ($Arg0VarName < $Arg1VarName) ? $Arg0VarName : $Arg1VarName;
   }]>;
 // min vectors
-OclBuiltinImpl min_ivector = OclBuiltinImpl<min, [ v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
-                                                  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
-                                                 v2i16, v3i16, v4i16, v8i16, v16i16,
-                                                 v2u16, v3u16, v4u16, v8u16, v16u16,
-                                                 v2i32, v3i32, v4i32, v8i32, v16i32,
-                                                 v2u32, v3u32, v4u32, v8u32, v16u32,
+OclBuiltinImpl min_ivector = OclBuiltinImpl<min, [ v2i8,  v3i8,  v4i8,  v8i8,
+                                                  v2u8,  v3u8,  v4u8,  v8u8,
+                                                 v2i16, v3i16, v4i16,
+                                                 v2u16, v3u16, v4u16,
+                                                 v2i32, v3i32,               v16i32,
+                                                 v2u32, v3u32,               v16u32,
                                                  v2i64, v3i64, v4i64, v8i64, v16i64,
-                                                 v2u64, v3u64, v4u64, v8u64, v16u64] , 0, [{
-    $Arg0Type tmp  = as_$Arg0Type($Arg1VarName > $Arg0VarName);
-    $Arg0Type tmpX = tmp & $Arg0VarName;
-    $Arg0Type tmpY = (~tmp) & $Arg1VarName;
-    return tmpX + tmpY;
-  }]>;
+                                                 v2u64, v3u64, v4u64, v8u64, v16u64] , 0, min_ivector_code>;
 
 
 /*****************************************************************\
@@ -500,25 +488,14 @@ OclBuiltinImpl sub_sat_v1i = OclBuiltinImpl<sub_sat, [v1i8, v1i16, v1i32, v1i64]
   }]>;
 // sub_sat on signed vector
 OclBuiltinImpl sub_sat_svector = OclBuiltinImpl<sub_sat, [ v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
-                                                          v2i16, v3i16, v4i16, v8i16, v16i16,
+                                                          v2i16, v3i16, v4i16, v8i16,
                                                           v2i32, v3i32, v4i32, v8i32, v16i32,
-                                                          v2i64, v3i64, v4i64, v8i64, v16i64] , 0, [{                
-    $Arg0BaseType zero = 0;
-    $ReturnType r = $Arg0VarName - $Arg1VarName;
-    $ReturnType p8 = ($Arg1VarName < zero) & (r < $Arg0VarName);
-    $ReturnType n8 = ($Arg1VarName > zero) & (r > $Arg0VarName);
-    return  (n8 == zero) ?
-            (p8 == zero) ? r : ($ReturnType)generic_max_$Arg0BaseType :
-            ($ReturnType)generic_min_$Arg0BaseType;
-  }]>;
+                                                          v2i64, v3i64, v4i64, v8i64, v16i64] , 0, sub_sat_svector_code>;
 // sub_sat on unsigned
 OclBuiltinImpl sub_sat_unsigned = OclBuiltinImpl<sub_sat, [ v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
-                                                           v1u16, v2u16, v3u16, v4u16, v8u16, v16u16,
+                                                           v1u16, v2u16, v3u16, v4u16, v8u16,
                                                            v1u32, v2u32, v3u32, v4u32, v8u32, v16u32,
-                                                           v1u64, v2u64, v3u64, v4u64, v8u64, v16u64] , 0, [{
-    $ReturnType r = $Arg0VarName - $Arg1VarName;
-    return ($Arg0VarName < r) ? ($Arg0BaseType)0 : r;
-  }]>;
+                                                           v1u64, v2u64, v3u64, v4u64, v8u64, v16u64] , 0, sub_sat_unsigned_code>;
 
 /*****************************************************************\
  * mul24:                                                        *

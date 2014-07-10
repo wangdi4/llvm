@@ -41,7 +41,7 @@ namespace Validation
     ///     1.  BufferContainerList list;
     ///         BinaryContainerListWriter writer("filename");
     ///         writer.Write(&list);
-    /// 
+    ///
     ///     2.  BinaryContainerListWriter writer("filename");
     ///         BufferContainerList list;
     ///         list.Accept(&writer);
@@ -73,7 +73,7 @@ namespace Validation
     private:
 
         static const uint32_t imageSignature = 0xffffffff; // signature to be written as a starting point of image
-        static const uint32_t imageVersionHigh = 1; // OpencL 1.2
+        static const uint32_t imageVersionHigh = 1; // OpenCL 1.2
         static const uint32_t imageVersionLow = 2;
 
         template<class T> void writeValue( T value)
@@ -102,7 +102,7 @@ namespace Validation
         {
             writeValue((uint32_t)td.GetType());
             writeValue((uint32_t)td.GetSizeInBytes());
-            // if we are saving vector, array or pointer data type, no need 
+            // if we are saving vector, array or pointer data type, no need
             // to store description of all elements of array or vector. They are all the same.
             if (td.IsAggregate() || td.IsPointer())
             {

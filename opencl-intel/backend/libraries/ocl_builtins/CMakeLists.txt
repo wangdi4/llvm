@@ -312,7 +312,7 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
 
     add_custom_command(OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
       COMMENT "Opt optimizing ${OUTPUT_FILE}_noopt"
-      COMMAND ${OPT} ${OUTPUT_FILE}_noopt ${LLVM_IMAGES_OPT_PARAMS} -runtimelib=${RTL_TO_LINK} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
+      COMMAND ${OPT} ${OUTPUT_FILE}_noopt ${LLVM_IMAGES_OPT_PARAMS} -runtimelib=${RTL_TO_LINK} -arch=${ARCH} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
       DEPENDS ${OPT_DEP} ${OUTPUT_FILE}_noopt ${RTL_TO_LINK}
       VERBATIM
       )
@@ -569,6 +569,7 @@ endfunction( create_shared_rtl)
 # OpenCL source code
 list (APPEND OCL_SOURCE_FILES
   generic-builtin-defines.c
+  cpu-builtin-defines.c
   image_functions.cpp
   cbk_helper.c
   extended_execution_functions.cpp

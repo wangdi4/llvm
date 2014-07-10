@@ -27,7 +27,7 @@ namespace Validation
     struct NEATVector
     {
     public:
-        // default ctor. to enable inserting into structures with default ctor
+        // Default ctor. To enable inserting into structures with default ctor.
         NEATVector() {}
 
         NEATVector(VectorWidth width);

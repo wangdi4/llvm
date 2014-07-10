@@ -25,6 +25,7 @@
 
 #include "stdafx.h"
 #include "cpu_config.h"
+#include "ICLDevBackendOptions.h"
 
 #include <string>
 #include <sstream>
@@ -111,3 +112,9 @@ cl_ulong CPUDeviceConfig::GetForcedMaxMemAllocSize() const
     return ParseStringToSize(strForcedSize);
 }
 
+cl_int CPUDeviceConfig::GetVectorizerMode() const
+{
+    using namespace Intel::OpenCL::DeviceBackend;
+    return m_pConfigFile->Read(CL_CONFIG_CPU_VECTORIZER_MODE,
+                               static_cast<cl_int>(TRANSPOSE_SIZE_AUTO));
+}

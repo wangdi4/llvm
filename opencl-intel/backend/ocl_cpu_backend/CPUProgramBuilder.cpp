@@ -318,7 +318,8 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
         }
         else
         {
-            buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was successfully vectorized\n";
+            buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was successfully vectorized (" <<
+                spKernelProps->GetMinGroupSizeFactorial() << ")\n";
         }
 #ifdef OCL_DEV_BACKEND_PLUGINS
         // Notify the plugin manager

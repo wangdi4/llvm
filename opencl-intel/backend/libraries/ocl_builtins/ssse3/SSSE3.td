@@ -38,6 +38,13 @@ code Prolog = [{
     #else
       #include "svml_ia32.h"
     #endif
+    // new type for the implementation of the transpose functions
+    #if defined(__AVX__)
+        typedef __v32qi ocl_char32;
+        ocl_char32 INLINE_ATTRIBUTE as_ocl_char32(int8 x) {
+            return __builtin_astype(x, ocl_char32);
+        }
+    #endif
 }];
 
 include "ssse3/common.td"

@@ -4,6 +4,8 @@
 // during CPU built ins transition to tblgen
 
   include "GENERIC/code_expand_promote_common.td"
+  include "GENERIC/code_conversion_sat_common.td"
+  include "GENERIC/code_integer_common.td"
 
   // clamp_s. for float and double
   // NOTE: integer and common BIs has clamp, min, max BIs.
@@ -45,13 +47,12 @@
   }]>;
 
 
-include "GENERIC/common.td"
-include "GENERIC/conversion.td"
-include "GENERIC/conversion_sat.td"
-include "GENERIC/geometric.td"
-include "GENERIC/integer.td"
+include "GENERIC/conversion_not_shared.td"
+include "GENERIC/conversion_sat_not_shared.td"
+include "GENERIC/integer_not_shared.td"
 include "GENERIC/math_not_shared.td"
 include "GENERIC/misc.td"
-include "GENERIC/relational.td"
+include "GENERIC/common_not_shared.td"
+include "GENERIC/relational_not_shared.td"
 include "GENERIC/soa_relational.td"
 include "GENERIC/group_builtin.td"

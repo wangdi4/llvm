@@ -32,6 +32,7 @@
 using namespace Intel::OpenCL::MICDevice;
 
 #define CALL_BACKS_ARRAY_RESIZE_AMOUNT 1024
+#define MAX_WAITING_EVENTS 16384
 
 NotificationPort::THREAD_SET* NotificationPort::m_NotificationThreadsSet   = NULL;
 OclMutex*                     NotificationPort::m_notificationThreadsMutex = NULL;
@@ -126,90 +127,90 @@ NotificationPort::~NotificationPort(void)
 
 SharedPtr<NotificationPort> NotificationPort::notificationPortFactory(uint16_t maxBarriers, const ocl_gpa_data* pGPAData)
 {
-	NotificationPort* retNotificationPort = new NotificationPort(pGPAData);
-	if (NULL == retNotificationPort)
-	{
-		return NULL;
-	}
+    NotificationPort* retNotificationPort = new NotificationPort(pGPAData);
+    if (NULL == retNotificationPort)
+    {
+        return NULL;
+    }
 
-	int err = retNotificationPort->initialize(maxBarriers);
-	if (SUCCESS == err)
-	{
-		// Increase the reference counter by 1 in order to delete NotificationPort objetct only after the thread function completes.
-		// Otherwise can be double delete in case that the notification port thread call to release() and after that delete its object.
-		retNotificationPort->IncRefCnt();
-	}
-	else
-	{
-		delete retNotificationPort;
-		retNotificationPort = NULL;
-	}
+    int err = retNotificationPort->initialize(maxBarriers);
+    if (SUCCESS == err)
+    {
+        // Increase the reference counter by 1 in order to delete NotificationPort objetct only after the thread function completes.
+        // Otherwise can be double delete in case that the notification port thread call to release() and after that delete its object.
+        retNotificationPort->IncRefCnt();
+    }
+    else
+    {
+        delete retNotificationPort;
+        retNotificationPort = NULL;
+    }
 
-	return retNotificationPort;
+    return retNotificationPort;
 }
 
 int NotificationPort::initialize(uint16_t maxBarriers)
 {
-	assert(maxBarriers < INT16_MAX && "maxBarriers must be smaller than INT16_MAX");
-	OclAutoMutex lock(&m_mutex);
-	// if initialize already called after constructor or release operation
-	if (m_maxBarriers > 0)
-	{
-		return ALREADY_INITIALIZE_FAILURE;
-	}
-	// Reserve "maxBarriers" to "m_pendingNotificationArr". (The size of the vector is at least "maxBarriers")
-	m_pendingNotificationArr.reserve(maxBarriers);
-	// Add 1 barrier for the main barrier (The first barrier)
-	m_maxBarriers = maxBarriers + 1;
+    assert(maxBarriers < INT16_MAX && "maxBarriers must be smaller than INT16_MAX");
+    OclAutoMutex lock(&m_mutex);
+    // if initialize already called after constructor or release operation
+    if (m_maxBarriers > 0)
+    {
+        return ALREADY_INITIALIZE_FAILURE;
+    }
+    // Reserve "maxBarriers" to "m_pendingNotificationArr". (The size of the vector is at least "maxBarriers")
+    m_pendingNotificationArr.reserve(maxBarriers);
+    // Add 1 barrier for the main barrier (The first barrier)
+    m_maxBarriers = maxBarriers + 1;
 
-	m_barriers = NULL;
-	m_notificationsPackages = NULL;
+    m_barriers = NULL;
+    m_notificationsPackages = NULL;
 
-	m_barriers = (COIEVENT*)malloc(m_maxBarriers * sizeof(COIEVENT));
-	if (!m_barriers)
-	{
-		releaseResources();
-		return MEM_OBJECT_ALLOCATION_FAILURE;
-	}
+    m_barriers = (COIEVENT*)malloc(m_maxBarriers * sizeof(COIEVENT));
+    if (!m_barriers)
+    {
+        releaseResources();
+        return MEM_OBJECT_ALLOCATION_FAILURE;
+    }
 
-	m_notificationsPackages = (notificationPackage*)malloc(m_maxBarriers * sizeof(notificationPackage));
-	if (!m_notificationsPackages)
-	{
-		releaseResources();
-		return MEM_OBJECT_ALLOCATION_FAILURE;
-	}
+    m_notificationsPackages = (notificationPackage*)malloc(m_maxBarriers * sizeof(notificationPackage));
+    if (!m_notificationsPackages)
+    {
+        releaseResources();
+        return MEM_OBJECT_ALLOCATION_FAILURE;
+    }
 
-	// reset the operation mask
-	memset(m_operationMask, 0, sizeof(bool) * AVAILABLE_OPERATIONS_LEN);
+    // reset the operation mask
+    memset(m_operationMask, 0, sizeof(bool) * AVAILABLE_OPERATIONS_LEN);
 
-	// create the main thread barrier
-	COIRESULT result = COIEventRegisterUserEvent(m_barriers);
+    // create the main thread barrier
+    COIRESULT result = COIEventRegisterUserEvent(m_barriers);
 
-	if (result != COI_SUCCESS)
-	{
-		releaseResources();
-		return CREATE_BARRIER_FAILURE;
-	}
+    if (result != COI_SUCCESS)
+    {
+        releaseResources();
+        return CREATE_BARRIER_FAILURE;
+    }
 
-	// waiting size = 1 becuase currently it waits only on the main barrier.
-	m_waitingSize = 1;
+    // waiting size = 1 becuase currently it waits only on the main barrier.
+    m_waitingSize = 1;
 
-	m_workerState = BEGINNING;
+    m_workerState = BEGINNING;
 
-	if (THREAD_RESULT_SUCCESS != Start())
-	{
-		releaseResources();
-		return CREATE_WORKER_THREAD_FAILURE;
-	}
+    if (THREAD_RESULT_SUCCESS != Start())
+    {
+        releaseResources();
+        return CREATE_WORKER_THREAD_FAILURE;
+    }
 
-	// wait until the worker thread will start execution
-	while (BEGINNING == m_workerState)
-	{
-		// lock and mutex refer to the same mutex.
-		m_clientCond.Wait(&m_mutex);
-	}
+    // wait until the worker thread will start execution
+    while (BEGINNING == m_workerState)
+    {
+        // lock and mutex refer to the same mutex.
+        m_clientCond.Wait(&m_mutex);
+    }
 
-	return SUCCESS;
+    return SUCCESS;
 }
 
 NotificationPort::ERROR_CODE NotificationPort::addBarrier(const COIEVENT &barrier, NotificationPort::CallBack *callBack, void *arg)
@@ -217,162 +218,154 @@ NotificationPort::ERROR_CODE NotificationPort::addBarrier(const COIEVENT &barrie
     COIRESULT result = COI_SUCCESS;
     ERROR_CODE return_value = SUCCESS;
 
-	assert(callBack && "Error - callBack must be non-NULL pointer");
-	OclAutoMutex lock(&m_mutex);
+    assert(callBack && "Error - callBack must be non-NULL pointer");
+    OclAutoMutex lock(&m_mutex);
 
-	// The object does not initialize
-	if (m_maxBarriers == 0)
-	{
-		return NOT_INITIASLIZE_FAILURE;
-	}
+    // The object does not initialize
+    if (m_maxBarriers == 0)
+    {
+        return NOT_INITIASLIZE_FAILURE;
+    }
 
-	// Set the new pending notification
-	EventNotificationPackagePair tNotification;
-	tNotification.first = barrier;
-	tNotification.second.callBack = callBack;
-	tNotification.second.arg = arg;
-	tNotification.second.age = m_lastCallBackAge;
+    // Set the new pending notification
+    EventNotificationPackagePair tNotification;
+    tNotification.first = barrier;
+    tNotification.second.callBack = callBack;
+    tNotification.second.arg = arg;
+    tNotification.second.age = m_lastCallBackAge;
 
-	// Push the new notification to the pending list
-	m_pendingNotificationArr.push_back(tNotification);
+    // Push the new notification to the pending list
+    m_pendingNotificationArr.push_back(tNotification);
 
-	m_lastCallBackAge ++;
+    m_lastCallBackAge ++;
 
     if (1 == m_pendingNotificationArr.size())
     {
-    	m_operationMask[ADD] = true;
-    	result = COIEventSignalUserEvent(m_barriers[0]);
-    	assert(result == COI_SUCCESS && "Signal main barrier failed");
+        m_operationMask[ADD] = true;
+        result = COIEventSignalUserEvent(m_barriers[0]);
+        assert(result == COI_SUCCESS && "Signal main barrier failed");
         if (COI_SUCCESS != result)
         {
             return_value = CREATE_BARRIER_FAILURE;
-        }
-	}
+       }
+    }
 
-	return return_value;
+    return return_value;
 }
 
 NotificationPort::ERROR_CODE NotificationPort::release()
 {
-	{
-		OclAutoMutex lock(&m_mutex);
-		COIRESULT result = COI_SUCCESS;
+    {
+        OclAutoMutex lock(&m_mutex);
+        COIRESULT result = COI_SUCCESS;
 
-		// The object does not initialize
-		if (m_maxBarriers == 0)
-		{
-			return NOT_INITIASLIZE_FAILURE;
-		}
+        // The object does not initialize
+        if (m_maxBarriers == 0)
+        {
+            return NOT_INITIASLIZE_FAILURE;
+        }
 
-		m_operationMask[RELEASE] = true;
+        m_operationMask[RELEASE] = true;
 
-		result = COIEventSignalUserEvent(m_barriers[0]);
-		assert(result == COI_SUCCESS && "Signal main barrier failed");
-	}
+        result = COIEventSignalUserEvent(m_barriers[0]);
+        assert(result == COI_SUCCESS && "Signal main barrier failed");
+    }
 
-	// wait for the termination of worker thread (If the calling thread is NOT the worker thread)
-	if (!isSelf())
-	{
-		WaitForCompletion();
-	}
+    // wait for the termination of worker thread (If the calling thread is NOT the worker thread)
+    if (!isSelf())
+    {
+        WaitForCompletion();
+    }
 
-	return SUCCESS;
+    return SUCCESS;
 }
 
 RETURN_TYPE_ENTRY_POINT NotificationPort::Run()
 {
-	bool keepWork = true;
+    bool keepWork = true;
 
-	notificationPackage* fireCallBacksArr;
-	fireCallBacksArr = (notificationPackage*)malloc(sizeof(notificationPackage) * m_maxBarriers);
-	unsigned int* firedIndicesArr = (unsigned int*)malloc(sizeof(unsigned int) * m_maxBarriers);
-	assert(firedIndicesArr && "memory allocation for firedIndicesArr failed");
-	unsigned int firedAmount;
-	bool workerThreadSigaled;
+    notificationPackage* fireCallBacksArr;
+    fireCallBacksArr = (notificationPackage*)malloc(sizeof(notificationPackage) * m_maxBarriers);
+    unsigned int* firedIndicesArr = (unsigned int*)malloc(sizeof(unsigned int) * m_maxBarriers);
+    assert(firedIndicesArr && "memory allocation for firedIndicesArr failed");
+    unsigned int firedAmount;
+    bool workerThreadSigaled;
 
     THREAD_HANDLE myHandle = GetThreadHandle();
 
-	COIRESULT result;
+    COIRESULT result;
     
     // Register the new thread
     registerNotificationPortThread(myHandle);
 
-	// Block the main thread until this point in order to ensure that the thread begin it's life before initialize() method completed
-	{
-		OclAutoMutex lock(&m_mutex);
-		m_workerState = RUNNING;
-		m_clientCond.Signal();
-	}
-
-	while (keepWork)
-	{
-		firedAmount = 0;
-		workerThreadSigaled = false;
-
-#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-      if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
-      {
-        static __thread __itt_string_handle* pTaskName = NULL;
-        if ( NULL == pTaskName )
-        {
-          pTaskName = __itt_string_handle_create("NotificationPort::Run()->COIEventWait()");
-        }
-        __itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, pTaskName);
-      }
-#endif
-		// wait for barrier(s) signal(s)
-		result = COIEventWait(m_waitingSize, m_barriers, -1, false, &firedAmount, firedIndicesArr);
-		assert(result == COI_SUCCESS && "COIBarrierWait failed for some reason");
-#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+    // Block the main thread until this point in order to ensure that the thread begin it's life before initialize() method completed
     {
-      __itt_task_end(m_pGPAData->pDeviceDomain);
+        OclAutoMutex lock(&m_mutex);
+        m_workerState = RUNNING;
+        m_clientCond.Signal();
     }
+
+    while (keepWork)
+    {
+        firedAmount = 0;
+        workerThreadSigaled = false;
+
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+        if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+        {
+            static __thread __itt_string_handle* pTaskName = NULL;
+            if ( NULL == pTaskName )
+            {
+                pTaskName = __itt_string_handle_create("NotificationPort::Run()->COIEventWait()");
+            }
+        __itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, pTaskName);
+        }
+#endif
+        // wait for barrier(s) signal(s)
+        result = COIEventWait(m_waitingSize, m_barriers, -1, false, &firedAmount, firedIndicesArr);
+        assert(result == COI_SUCCESS && "COIBarrierWait failed for some reason");
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+        if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+        {
+            __itt_task_end(m_pGPAData->pDeviceDomain);
+        }
 #endif
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-      if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
-      {
-        static __thread __itt_string_handle* pTaskName = NULL;
-        if ( NULL == pTaskName )
+        if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
         {
-          pTaskName = __itt_string_handle_create("NotificationPort::Run()->ProcessNotification...");
+            static __thread __itt_string_handle* pTaskName = NULL;
+            if ( NULL == pTaskName )
+            {
+                pTaskName = __itt_string_handle_create("NotificationPort::Run()->ProcessNotification...");
+            } 
+            __itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, pTaskName);
         }
-        __itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, pTaskName);
-      }
 #endif
-		{
-			OclAutoMutex lock(&m_mutex);
+        {
+            OclAutoMutex lock(&m_mutex);
 
-			// get all the signaled barriers.
-			getFiredCallBacks(firedAmount, firedIndicesArr, fireCallBacksArr, &workerThreadSigaled);
+            // get all the signaled barriers.
+            getFiredCallBacks(firedAmount, firedIndicesArr, fireCallBacksArr, &workerThreadSigaled);
 
-			// If the main thread signaled
-			if (workerThreadSigaled)
-			{
-				result = COIEventUnregisterUserEvent(m_barriers[0]);
-				assert(result == COI_SUCCESS && "UnRegister main barrier failed");
-				result = COIEventRegisterUserEvent(&(m_barriers[0]));
-				assert(result == COI_SUCCESS && "Register main barrier failed");
-				firedAmount --;
-				// If Add barrier operation
-				if (m_operationMask[ADD] == true)
-				{
-					size_t pendingNotificationsAmount = m_pendingNotificationArr.size();
-					// If there is no enough space, should resize the buffers "m_barriers" and "m_notificationsPackages".
-					if ((m_waitingSize + pendingNotificationsAmount) >= m_maxBarriers)
-					{
-						resizeBuffers(&fireCallBacksArr, &firedIndicesArr, pendingNotificationsAmount);
-		            }
-                    assert((m_waitingSize + m_pendingNotificationArr.size()) < m_maxBarriers);
-                    for (unsigned int i = 0; i < pendingNotificationsAmount; i++)
+            // If the main thread signaled
+            if (workerThreadSigaled)
+            {
+                result = COIEventUnregisterUserEvent(m_barriers[0]);
+                assert(result == COI_SUCCESS && "UnRegister main barrier failed");
+                result = COIEventRegisterUserEvent(&(m_barriers[0]));
+                assert(result == COI_SUCCESS && "Register main barrier failed");
+                firedAmount --;
+                // If Add barrier operation
+                if (m_operationMask[ADD] == true)
+                {
+                    size_t pendingNotificationsAmount = m_pendingNotificationArr.size();
+                    // If there is no enough space, should resize the buffers "m_barriers" and "m_notificationsPackages".
+                    if ((m_waitingSize + pendingNotificationsAmount) >= m_maxBarriers)
                     {
-                        // Add the pending notification to the real waiting list.
-                        m_barriers[m_waitingSize] = ((m_pendingNotificationArr)[i]).first;
-                        m_notificationsPackages[m_waitingSize] = ((m_pendingNotificationArr)[i]).second;
-                        m_waitingSize ++;
+                        resizeBuffers(&fireCallBacksArr, &firedIndicesArr, pendingNotificationsAmount);
                     }
-                    m_pendingNotificationArr.clear();
+                    addPendingEvents();
                     m_operationMask[ADD] = false;
                 }
                 // If Release operation
@@ -380,6 +373,11 @@ RETURN_TYPE_ENTRY_POINT NotificationPort::Run()
                 {
                     keepWork = false;
                 }
+            }
+            else if (m_pendingNotificationArr.size() > 0)
+            {
+                // We have pending events because we couldn't resize the events array.
+                addPendingEvents();
             }
 
         } //end of m_mutex.lock()
@@ -395,10 +393,10 @@ RETURN_TYPE_ENTRY_POINT NotificationPort::Run()
             fireCallBacksArr[i].callBack->fireCallBack(fireCallBacksArr[i].arg);
         }
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
-    {
-      __itt_task_end(m_pGPAData->pDeviceDomain);
-    }
+        if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+        {
+            __itt_task_end(m_pGPAData->pDeviceDomain);
+        }
 #endif
 
     }
@@ -471,8 +469,21 @@ void NotificationPort::getFiredCallBacks(unsigned int numSignaled, unsigned int*
 
 void NotificationPort::resizeBuffers(notificationPackage** fireCallBacksArr, unsigned int** firedIndicesArr, size_t minimumResize)
 {
-    m_maxBarriers +=   (((uint16_t)(minimumResize / CALL_BACKS_ARRAY_RESIZE_AMOUNT) + 1) * CALL_BACKS_ARRAY_RESIZE_AMOUNT);
-    assert(m_maxBarriers <= INT16_MAX && "Resize failed overflow max barriers size");
+    assert(m_maxBarriers <= MAX_WAITING_EVENTS && "m_maxBarriers must be <= MAX_WAITING_EVENTS");
+    if (m_maxBarriers == MAX_WAITING_EVENTS)
+    {
+        return;
+    }
+    size_t resizeAmount = (((minimumResize / CALL_BACKS_ARRAY_RESIZE_AMOUNT) + 1) * CALL_BACKS_ARRAY_RESIZE_AMOUNT);
+    if (MAX_WAITING_EVENTS > ((size_t)m_maxBarriers + resizeAmount))
+    {
+        m_maxBarriers += (uint16_t)resizeAmount;
+    }
+    else
+    {
+        m_maxBarriers = MAX_WAITING_EVENTS;
+    }
+    assert(m_maxBarriers <= MAX_WAITING_EVENTS && "m_maxBarriers must be <= MAX_WAITING_EVENTS");
     m_barriers = (COIEVENT*)realloc(m_barriers, m_maxBarriers * sizeof(COIEVENT));
     assert(m_barriers && "memory allocation failed for m_barriers");
     m_notificationsPackages = (notificationPackage*)realloc(m_notificationsPackages, m_maxBarriers * sizeof(notificationPackage));
@@ -481,6 +492,32 @@ void NotificationPort::resizeBuffers(notificationPackage** fireCallBacksArr, uns
     assert(*fireCallBacksArr && "memory allocation failed for *fireCallBacksArr");
     *firedIndicesArr = (unsigned int*)realloc(*firedIndicesArr, sizeof(unsigned int) * m_maxBarriers);
     assert(*firedIndicesArr && "memory allocation failed for *firedIndicesArr");
+}
+
+void NotificationPort::addPendingEvents()
+{
+    size_t pendingNotificationsAmount = m_pendingNotificationArr.size();
+    size_t numBarriersToAdd = MIN(pendingNotificationsAmount, (size_t)(m_maxBarriers - m_waitingSize));
+    if (0 == numBarriersToAdd)
+    {
+        return;
+    }
+    for (unsigned int i = 0; i < numBarriersToAdd; i++)
+    {
+        // Add the pending notification to the real waiting list.
+        m_barriers[m_waitingSize] = ((m_pendingNotificationArr)[i]).first;
+        m_notificationsPackages[m_waitingSize] = ((m_pendingNotificationArr)[i]).second;
+        m_waitingSize ++;
+    }
+    if (numBarriersToAdd == pendingNotificationsAmount)
+    {
+        m_pendingNotificationArr.clear();
+    }
+    else
+    {
+        m_pendingNotificationArr.erase(m_pendingNotificationArr.begin(), m_pendingNotificationArr.begin() + numBarriersToAdd);
+    }
+    assert((m_pendingNotificationArr.size() == (pendingNotificationsAmount - numBarriersToAdd)) && "ERROR m_pendingNotificationArr state is not valid");
 }
 
 

@@ -28,14 +28,14 @@ void DataGenerator::InitGenerator(void)
     const uint32_t INIT_VALUE_2 = 18467;
     const uint32_t INIT_VALUE_3 = 41;
 
-    //set init data for generator
+    // Set initial data for generator.
     m_v11 = INIT_VALUE_1;
     m_v12 = INIT_VALUE_2;
     m_v13 = INIT_VALUE_3;
     m_v2 = (uint32_t)m_Seed;
     m_flag = 1;
 
-    //warm up the generator
+    // Warm up the generator.
     for(int32_t i = 0; i < 10; i++)
     {
         Generator();
@@ -63,7 +63,7 @@ double DataGenerator::Generator(void)
     m_v13 = m_v12;
     m_v12 = m_v11;
     m_v11 = local_1;
-/// casting to int32_t is important
+    // casting to int32_t is important
     int32_t local_2 = MPY_INT32 * m_v2 + ADD_INT32;
 
     m_v2 = local_2;
@@ -130,7 +130,7 @@ void DataGenerator::FillRandomSpecial( CFloat16* arr, int32_t len, float special
     }
 }
 
-/// internal function to make 16bit denormal value with ranodmly generated mantissa
+/// internal function to make 16bit denormal value with randomly generated mantissa
 void DataGenerator::MakeDenormValue(CFloat16* a)
 {
     static const uint16_t FLOAT16_MANT_MASK = 0x03FF;
@@ -142,7 +142,7 @@ void DataGenerator::MakeDenormValue(CFloat16* a)
 
     *a = *(CFloat16*)&u;
 }
-/// internal function to make 32bit denormal value with ranodmly generated mantissa
+/// internal function to make 32bit denormal value with randomly generated mantissa
 void DataGenerator::MakeDenormValue(float* a)
 {
     static const uint32_t FLOAT_MANT_MASK = 0x007FFFFF;
@@ -154,7 +154,7 @@ void DataGenerator::MakeDenormValue(float* a)
 
     *a = u.dF32;
 }
-/// internal function to make 64bit denormal value with ranodmly generated mantissa
+/// internal function to make 64bit denormal value with randomly generated mantissa
 void DataGenerator::MakeDenormValue(double* a)
 {
     static const uint64_t DOUBLE_MANT_MASK = 0x000FFFFFFFFFFFFF;
@@ -208,7 +208,7 @@ void DataGenerator::FillBuffer(const BufferFillMethodDesc& bfmd, IMemoryObject* 
     }
 
     BufferDesc buffDesc = GetBufferDescription(buff->GetMemoryObjectDesc());
-    if (!(buffDesc.GetElementDescription().GetType() == TVECTOR || 
+    if (!(buffDesc.GetElementDescription().GetType() == TVECTOR ||
         buffDesc.GetElementDescription().IsInteger() ||
         buffDesc.GetElementDescription().GetType() == TFLOAT ||
         buffDesc.GetElementDescription().GetType() == TDOUBLE ||

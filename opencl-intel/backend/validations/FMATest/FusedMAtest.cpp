@@ -1,7 +1,7 @@
 //|
 //| TEST: FMA test (fused mul add test)
 //|
-//| Purpose 
+//| Purpose
 //| -------
 //|
 //| Test the fused multiply ADD instruction
@@ -9,14 +9,14 @@
 //| Method
 //| ------
 //|
-//| 1. Create an openCL program that uses fma instruction
-//| 2. calculate the result and the supposed output
-//| 2. compare the result from the direct calc and from the opencl calc
+//| 1. Create an OpenCL program that uses fma instruction
+//| 2. Calculate the result and the supposed output
+//| 2. Compare the result from the direct calc and from the OpenCL calc
 //|
 //| -------------
 //|
 //| Return true in case of SUCCESS.
-  
+
 // Includes:
 #include "CL/cl.h"
 #include <sys/stat.h>
@@ -46,7 +46,7 @@
 
 
 
-//Calc the result on opencl with the src we got:
+//Calc the result on OpenCL with the src we got:
 template< class T >
 bool opencl_mul_add_calc( T * a, T * b, T * c, T * results, std::string *program_source, int vec_size )
 {
@@ -60,50 +60,50 @@ bool opencl_mul_add_calc( T * a, T * b, T * c, T * results, std::string *program
   size_t buffer_size;
   int type_size = sizeof(T);
 
-// Device
+  // Device
   if( clGetPlatformIDs( 1, &platform, NULL ) != CL_SUCCESS ){
-		return false;
+    return false;
   }
   err = clGetDeviceIDs( platform, CL_DEVICE_TYPE_CPU, 1, &device, NULL );
   if ( err ) return false;
   cl_mem a_mem, b_mem, c_mem, r_mem;
 
-//Context
+  //Context
   cl_context_properties properties[3] = { CL_CONTEXT_PLATFORM, ( cl_context_properties )platform, NULL };
   context = clCreateContextFromType( properties, CL_DEVICE_TYPE_CPU, NULL, NULL, &err );
   if ( err ) return false;
 
-//Command queu
+  //Command queue
   cmd_queue = clCreateCommandQueue( context, device, 0, &err );
   if ( err ) return false;
-//Program
+  //Program
   const char * prog = program_source->c_str();
   size_t siz = program_source->size() + 1 ;
   program[0] = clCreateProgramWithSource( context, 1, &prog, &siz, &err );
   if ( err ) return false;
   if( clBuildProgram ( program[0], 0, NULL, NULL, NULL, NULL) != CL_SUCCESS )  return false;
-  
-// Kernel 
+
+  // Kernel
   kernel[0] = clCreateKernel ( program[0], "mul_add", &err );
   if ( err ) return false;
-//Mem buffers
-  buffer_size = type_size * NUM_OF_VALUES; 
-//Array a
+  //Mem buffers
+  buffer_size = type_size * NUM_OF_VALUES;
+  //Array a
   a_mem = clCreateBuffer ( context, CL_MEM_READ_ONLY, buffer_size, NULL, NULL );
   err = clEnqueueWriteBuffer ( cmd_queue, a_mem, CL_TRUE, 0, buffer_size,(void*)a, 0, NULL, NULL );
-// Array b
+  // Array b
   b_mem = clCreateBuffer ( context, CL_MEM_READ_ONLY, buffer_size, NULL, NULL );
   err |= clEnqueueWriteBuffer ( cmd_queue, b_mem, CL_TRUE, 0, buffer_size,(void*)b, 0, NULL, NULL );
-// Array c
+  // Array c
   c_mem = clCreateBuffer ( context, CL_MEM_READ_ONLY, buffer_size, NULL, NULL );
   err |= clEnqueueWriteBuffer ( cmd_queue, c_mem, CL_TRUE, 0, buffer_size,(void*)c, 0, NULL, NULL );
-// Results array
+  // Results array
   r_mem = clCreateBuffer ( context, CL_MEM_READ_WRITE, buffer_size, NULL, NULL );
   err |= clEnqueueWriteBuffer ( cmd_queue, r_mem, CL_TRUE, 0, buffer_size,(void*)results, 0, NULL, NULL );
   if ( err ) return false;
   clFinish ( cmd_queue );
 
-// Arguments
+  // Arguments
   err  = clSetKernelArg ( kernel[0],  0, sizeof( cl_mem ), &a_mem );
   err |= clSetKernelArg ( kernel[0],  1, sizeof( cl_mem ), &b_mem );
   err |= clSetKernelArg ( kernel[0],  2, sizeof( cl_mem ), &c_mem );
@@ -117,16 +117,16 @@ bool opencl_mul_add_calc( T * a, T * b, T * c, T * results, std::string *program
   if( err ) return false;
   clFinish( cmd_queue );
 
-//exe
+  //exe
   err = clEnqueueNDRangeKernel( cmd_queue,  kernel[0], 1, NULL, &global_work_size, NULL,  0, NULL, NULL );
   if ( err )  return false;
   clFinish( cmd_queue );
 
-//Release
+  //Release
   clReleaseMemObject( a_mem );
   clReleaseMemObject( b_mem );
   clReleaseMemObject( c_mem );
-  clReleaseMemObject( r_mem ); 
+  clReleaseMemObject( r_mem );
   clReleaseCommandQueue( cmd_queue );
   clReleaseContext( context );
   return true;
@@ -141,18 +141,18 @@ bool testDouble( std::string src, int vec_size, int i, int k ){
   double res[NUM_OF_VALUES];
   // calc the result
   for( int j = 0; j < NUM_OF_VALUES; ++j)
-	   res[j] =  i * a[j] * b[j] + k * c[j];
+    res[j] =  i * a[j] * b[j] + k * c[j];
   // calc the OpenCL result
   if( opencl_mul_add_calc( a, b, c, ropencl, &src, vec_size) != true ){
      std::cout << "OpenCL FAILED " << std::endl;
       return false;
-    }  
-  //Compare calculation 
+    }
+  //Compare calculation
   for( int j = 0; j < NUM_OF_VALUES; j++) {
     if (( ropencl[j] < ( res[j] - DOUBLE_ULP )) ||
       ( ropencl[j] > ( res[j] + DOUBLE_ULP ))){
-      std::cout << "FAILED: OpenCL calculation was not as expected ( " << j << " )" << std::endl; 
-	  flag = false;
+      std::cout << "FAILED: OpenCL calculation was not as expected ( " << j << " )" << std::endl;
+      flag = false;
     }
   }
   return flag;
@@ -166,17 +166,17 @@ bool testFloat( std::string src, int vec_size, int i, int k ){
   float res[NUM_OF_VALUES];
   // calc the result
   for( int j = 0; j < NUM_OF_VALUES; ++j)
-	   res[j] =  i * a[j] * b[j] + k * c[j];
+    res[j] =  i * a[j] * b[j] + k * c[j];
   // calc the OpenCL result
   if( opencl_mul_add_calc( a, b, c, ropencl, &src, vec_size) != true ){
      std::cout << "OpenCL FAILED " << std::endl;
      return false;
-    }  
-  //Compare calculation 
+    }
+  //Compare calculation
   for( int j = 0; j < NUM_OF_VALUES; j++) {
     if (( ropencl[j] < ( res[j] - DOUBLE_ULP )) ||
       ( ropencl[j] > ( res[j] + DOUBLE_ULP ))){
-      std::cout << "FAILED: OpenCL calculation was not as expected ( " << j << " )" << std::endl; 
+      std::cout << "FAILED: OpenCL calculation was not as expected ( " << j << " )" << std::endl;
 	  flag = false;
     }
   }
@@ -220,19 +220,19 @@ bool FMAtest_scalar_doubleD(){
 
 bool FMAtest_v4_floatA(){
   std::string test_program_v4_float= "__kernel void mul_add (__global float4 *a,  __global float4 *b, __global float4 *c, __global float4 *result) { int gid = get_global_id(0); result[gid] = (a[gid] * b[gid])+c[gid];}";
-  return ( testFloat (test_program_v4_float, VEC4, 1, 1 )); 
+  return ( testFloat (test_program_v4_float, VEC4, 1, 1 ));
 }
 bool FMAtest_v4_floatB(){
   std::string test_program_v4_float= "__kernel void mul_add (__global float4 *a,  __global float4 *b, __global float4 *c, __global float4 *result) { int gid = get_global_id(0); result[gid] = (a[gid] * b[gid])-c[gid];}";
-  return ( testFloat (test_program_v4_float, VEC4, 1, -1 )); 
+  return ( testFloat (test_program_v4_float, VEC4, 1, -1 ));
 }
 bool FMAtest_v4_floatC(){
   std::string test_program_v4_float= "__kernel void mul_add (__global float4 *a,  __global float4 *b, __global float4 *c, __global float4 *result) { int gid = get_global_id(0); result[gid] = -(a[gid] * b[gid])+c[gid];}";
-  return ( testFloat (test_program_v4_float, VEC4, -1, 1 )); 
+  return ( testFloat (test_program_v4_float, VEC4, -1, 1 ));
 }
 bool FMAtest_v4_floatD(){
   std::string test_program_v4_float= "__kernel void mul_add (__global float4 *a,  __global float4 *b, __global float4 *c, __global float4 *result) { int gid = get_global_id(0); result[gid] = -(a[gid] * b[gid])-c[gid];}" ;
-  return ( testFloat (test_program_v4_float, VEC4, -1, -1 )); 
+  return ( testFloat (test_program_v4_float, VEC4, -1, -1 ));
 }
 bool FMAtest_v2_doubleA(){
   std::string test_program_v2_double= "__kernel void mul_add (__global double2 *a,  __global double2 *b, __global double2 *c, __global double2 *result) { int gid = get_global_id(0); result[gid] = (a[gid] * b[gid])+c[gid];}";
@@ -284,104 +284,104 @@ bool FMAtest_v4_doubleD(){
 }
 
  //a*b+c
-TEST(FMAtest_adds_add, FMAtest_double)            
+TEST(FMAtest_adds_add, FMAtest_double)
 {
-	EXPECT_TRUE(FMAtest_scalar_doubleA());
+  EXPECT_TRUE(FMAtest_scalar_doubleA());
 }
 TEST(FMAtest_adds_add, FMAtest_double2)
 {
-	EXPECT_TRUE(FMAtest_v2_doubleA());
+  EXPECT_TRUE(FMAtest_v2_doubleA());
 }
 TEST(FMAtest_adds_add, FMAtest_double4)
 {
-	EXPECT_TRUE(FMAtest_v4_doubleA());
+  EXPECT_TRUE(FMAtest_v4_doubleA());
 }
 TEST(FMAtest_adds_add, FMAtest_float)
 {
-	EXPECT_TRUE(FMAtest_scalar_floatA());
+  EXPECT_TRUE(FMAtest_scalar_floatA());
 }
 TEST(FMAtest_adds_add, FMAtest_float4)
 {
-	EXPECT_TRUE(FMAtest_v4_floatA());
+  EXPECT_TRUE(FMAtest_v4_floatA());
 }
 TEST(FMAtest_adds_add, FMAtest_float8)
 {
-	EXPECT_TRUE(FMAtest_v8_floatA());
+  EXPECT_TRUE(FMAtest_v8_floatA());
 }
  //a*b-c
 TEST(FMAtest_add_sub, FMAtest_double)
 {
-	EXPECT_TRUE(FMAtest_scalar_doubleB());
+  EXPECT_TRUE(FMAtest_scalar_doubleB());
 }
 TEST(FMAtest_add_sub, FMAtest_double2)
 {
-	EXPECT_TRUE(FMAtest_v2_doubleB());
+  EXPECT_TRUE(FMAtest_v2_doubleB());
 }
 TEST(FMAtest_add_sub, FMAtest_double4)
 {
-	EXPECT_TRUE(FMAtest_v4_doubleB());
+  EXPECT_TRUE(FMAtest_v4_doubleB());
 }
 TEST(FMAtest_add_sub, FMAtest_float)
 {
-	EXPECT_TRUE(FMAtest_scalar_floatB());
+  EXPECT_TRUE(FMAtest_scalar_floatB());
 }
 TEST(FMAtest_add_sub, FMAtest_float4)
 {
-	EXPECT_TRUE(FMAtest_v4_floatB());
+  EXPECT_TRUE(FMAtest_v4_floatB());
 }
 TEST(FMAtest_add_sub, FMAtest_float8)
 {
-	EXPECT_TRUE(FMAtest_v8_floatB());
+  EXPECT_TRUE(FMAtest_v8_floatB());
 }
  //-a*b+c
 TEST(FMAtest_sub_add, FMAtest_double)
 {
-	EXPECT_TRUE(FMAtest_scalar_doubleC());
+  EXPECT_TRUE(FMAtest_scalar_doubleC());
 }
 TEST(FMAtest_sub_add, FMAtest_double2)
 {
-	EXPECT_TRUE(FMAtest_v2_doubleC());
+  EXPECT_TRUE(FMAtest_v2_doubleC());
 }
 TEST(FMAtest_sub_add, FMAtest_double4)
 {
-	EXPECT_TRUE(FMAtest_v4_doubleC());
+  EXPECT_TRUE(FMAtest_v4_doubleC());
 }
 TEST(FMAtest_sub_add, FMAtest_float)
 {
-	EXPECT_TRUE(FMAtest_scalar_floatC());
+  EXPECT_TRUE(FMAtest_scalar_floatC());
 }
 TEST(FMAtest_sub_add, FMAtest_float4)
 {
-	EXPECT_TRUE(FMAtest_v4_floatC());
+  EXPECT_TRUE(FMAtest_v4_floatC());
 }
 TEST(FMAtest_sub_add, FMAtest_float8)
 {
-	EXPECT_TRUE(FMAtest_v8_floatC());
+  EXPECT_TRUE(FMAtest_v8_floatC());
 }
  //-a*b-c
 TEST(FMAtest_sub_sub, FMAtest_double)
 {
-	EXPECT_TRUE(FMAtest_scalar_doubleD());
+  EXPECT_TRUE(FMAtest_scalar_doubleD());
 }
 TEST(FMAtest_sub_sub, FMAtest_double2)
 {
-	EXPECT_TRUE(FMAtest_v2_doubleD());
+  EXPECT_TRUE(FMAtest_v2_doubleD());
 }
 TEST(FMAtest_sub_sub, FMAtest_double4)
 {
-	EXPECT_TRUE(FMAtest_v4_doubleD());
+  EXPECT_TRUE(FMAtest_v4_doubleD());
 }
 TEST(FMAtest_sub_sub, FMAtest_float)
 {
-	EXPECT_TRUE(FMAtest_scalar_floatD());
+  EXPECT_TRUE(FMAtest_scalar_floatD());
 }
 TEST(FMAtest_sub_sub, FMAtest_float4)
 {
-	EXPECT_TRUE(FMAtest_v4_floatD());
+  EXPECT_TRUE(FMAtest_v4_floatD());
 }
 TEST(FMAtest_sub_sub, FMAtest_float8)
 {
-	EXPECT_TRUE(FMAtest_v8_floatD());
+  EXPECT_TRUE(FMAtest_v8_floatD());
 }
 int main(int argc, char** argv)
 {

@@ -282,6 +282,8 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
     assert(pResult && "Build results pointer must not be NULL");
     assert(pOptions && "Build options pointer must not be NULL");
 
+    validateVectorizerMode(pResult->LogS());
+
     //TODO: Add log
     std::auto_ptr<llvm::Module> spModule(ParseModuleIR(pIRBuffer));
     assert(spModule.get() && "Cannot Created llvm Module from the Program Bit Code");
@@ -435,6 +437,62 @@ bool Compiler::isProgramValid(llvm::Module* pModule, ProgramBuildResult* pResult
         }
     }
     return true;
+}
+
+void Compiler::validateVectorizerMode(llvm::raw_ostream& log) const
+{
+    // Validate if the vectorized mode valid and supported by the target arch.
+    // If not then issue an error and interrupt the build.
+    enum {
+      VALID,
+      INVALID,
+      UNSUPPORTED
+    } validity = VALID;
+
+    switch(m_transposeSize) {
+      default:
+        validity = INVALID;
+        break;
+
+      case TRANSPOSE_SIZE_AUTO:
+      case TRANSPOSE_SIZE_1:
+        validity = VALID;
+        break;
+
+      case TRANSPOSE_SIZE_4:
+        if(!m_CpuId.HasSSE41())
+          validity = UNSUPPORTED;
+        break;
+
+      case TRANSPOSE_SIZE_8:
+        if(!m_CpuId.HasAVX1())
+          validity = UNSUPPORTED;
+        break;
+
+      case TRANSPOSE_SIZE_16:
+        if(!m_CpuId.HasGatherScatter())
+          validity = INVALID;
+          // TODO: uncomment when MIC/AVX512 support became relevant
+          //validity = UNSUPPORTED;
+        break;
+    }
+
+    switch(validity) {
+      case VALID:
+        return;
+
+      case INVALID:
+        log << "The specified vectorizer mode (" << m_transposeSize
+             << ") is invalid.\n";
+        break;
+
+      case UNSUPPORTED:
+        log << "The specified vectorizer mode (" << m_transposeSize
+             << ") is not supported by the target architecture.\n";
+        break;
+    }
+    throw Exceptions::CompilerException("Failed to apply the vectorizer mode.",
+                                        CL_DEV_INVALID_BUILD_OPTIONS);
 }
 
 void UpdateTargetTriple(llvm::Module *pModule)

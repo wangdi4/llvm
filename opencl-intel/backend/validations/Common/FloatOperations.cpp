@@ -219,7 +219,7 @@ namespace Validation
 
 
         // The 80-bit extended format is divided into four fields
-        // mantissa is 64 bit, i.e. fileds i and f togother
+        // mantissa is 64 bit, i.e. fields i and f together
         //  1      15      1             63
         // [s][    e     ][i][           f            ]
         //
@@ -338,7 +338,7 @@ namespace Validation
                 // is not exactly 128.0. You might represent this for example as 4*(32 - ~2**-24), which
                 // after rounding to single is 4*32 = 128, which will ultimately result in premature
                 // overflow, even though a good faith representation would be correct to within 2**-29
-                // interally.
+                // internally.
 
                 // In the interest of not requiring the implementation go to extraordinary lengths to
                 // deliver a half precision function, we allow premature overflow within the limit

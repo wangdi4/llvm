@@ -1023,7 +1023,7 @@ clDevAllocateMemory
 **********************************************************************************************************************/
 void* ISPDevice::clDevAllocateRawMemory( size_t IN allocSize, size_t IN alignment )
 {
-    // TODO: handle alignment
+    // CameraShim provides buffer that are page-aligned, so ignore alignment parameter
     return m_pCameraShim->host_alloc(allocSize);
 }
 

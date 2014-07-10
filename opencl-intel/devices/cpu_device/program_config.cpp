@@ -31,8 +31,9 @@ using namespace Intel::OpenCL::CPUDevice;
 
 void ProgramConfig::InitFromCpuConfig(const CPUDeviceConfig& cpuConfig)
 {
-    m_useVectorizer = cpuConfig.UseVectorizer();
-    m_useVTune      = cpuConfig.UseVTune();
+    m_useVectorizer  = cpuConfig.UseVectorizer();
+    m_vectorizerMode = cpuConfig.GetVectorizerMode();
+    m_useVTune       = cpuConfig.UseVTune();
 }
 
 void ProgramDumpConfig::InitFromString(const char* options)

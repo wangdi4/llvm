@@ -89,7 +89,7 @@ namespace Validation
 
       const int RES_COUNT = 8;
       double val[RES_COUNT];
- 
+
       val[0] = RefALU::div((double)*a.GetMin<float>(),(double)*b.GetMin<float>());
       val[1] = RefALU::div((double)*a.GetMin<float>(),(double)*b.GetMax<float>());
       val[2] = RefALU::div((double)*a.GetMax<float>(),(double)*b.GetMin<float>());
@@ -98,7 +98,7 @@ namespace Validation
       val[5] = RefALU::mul((double)*a.GetMin<float>(), RefALU::div((double)1.0L,(double)*b.GetMax<float>()) );
       val[6] = RefALU::mul((double)*a.GetMax<float>(), RefALU::div((double)1.0L,(double)*b.GetMin<float>()) );
       val[7] = RefALU::mul((double)*a.GetMax<float>(), RefALU::div((double)1.0L,(double)*b.GetMax<float>()) );
- 
+
       return NEATALU::CreateNEATValue<double>(val, RES_COUNT, IntervalError<float>(ulps));
   }
 
@@ -320,7 +320,7 @@ namespace Validation
         unsigned vec1Length = (unsigned)vec1.GetSize();
         if((unsigned)maskArrIn.size() == 1) {
             throw Exception::InvalidArgument("[NEATALU::shuffle] Wrong mask size");
-        }        
+        }
 
         unsigned mask = (1 <<shuffleGetNumMaskBits(vec1Length)) - 1;
 
@@ -363,22 +363,22 @@ namespace Validation
         return old;
     }
 
-    Validation::NEATVector NEATALU::read_imagef_src_noneat( void *imageData, Conformance::image_descriptor *imageInfo, 
+    Validation::NEATVector NEATALU::read_imagef_src_noneat( void *imageData, Conformance::image_descriptor *imageInfo,
         float x, float y, float z, Conformance::image_sampler_data *imageSampler )
     {
 /*
          This function uses the same approach that is done in Conformance test images_kernel_read_write
-         However this Conformance approach has some faults. 
-         In most cases (linear filtering, address_repeat etc) conformance uses as error "magic number" MAKE_HEX_FLOAT(0x1.0p-7f, 0x1L, -7)
+         However this Conformance approach has some faults.
+         In most cases (linear filtering, address_repeat etc.) conformance uses as error "magic number" MAKE_HEX_FLOAT(0x1.0p-7f, 0x1L, -7)
          In linear filtering Conformance does not take into account error introduced by number of multiplication/additions.
          For integer image data types it considers error produced by conversions from integer to float data type.
          In NEAT implementation we may revisit this "magic number" approach in future to be more strict.
 
-         Current implementation of NEAT computes maximum relative error based on image_format. 
+         Current implementation of NEAT computes maximum relative error based on image_format.
          Then it multiplies it by maximum pixel value used in sampling.
          Computes maximum absolute error for the image format.
          Selects maximum between error obtained with relative and maximum absolute error
-         Obtained value is maximum allowed error. 
+         Obtained value is maximum allowed error.
          This value is used to construct NEAT interval by adding/subtracting from accurate Pixel value obtained in sampling
 */
         Conformance::FloatPixel accPix;
@@ -386,26 +386,26 @@ namespace Validation
 
         int haveDenorms;
         const int is3D = !(imageInfo->depth == 0);
-        
-        Conformance::FloatPixel maxPixel= Conformance::sample_image_pixel_float( imageData, 
+
+        Conformance::FloatPixel maxPixel= Conformance::sample_image_pixel_float( imageData,
             imageInfo,
             x, y, z,
-            imageSampler, 
-            accPix.p, 
+            imageSampler,
+            accPix.p,
             false, // verbose
             &haveDenorms );
 
         // Get the maximum relative error for this format
-        const float maxErr = get_max_relative_error( imageInfo->format, imageSampler, 
+        const float maxErr = get_max_relative_error( imageInfo->format, imageSampler,
             is3D, CL_FILTER_LINEAR == imageSampler->filter_mode );
 
         // Get the maximum absolute error for this format
-        const double formatAbsoluteError = get_max_absolute_error(imageInfo->format, imageSampler); 
+        const double formatAbsoluteError = get_max_absolute_error(imageInfo->format, imageSampler);
 
         const double maxErrAbs[4] = {
             MAX( maxErr * maxPixel.p[0], formatAbsoluteError ),
             MAX( maxErr * maxPixel.p[1], formatAbsoluteError ),
-            MAX( maxErr * maxPixel.p[2], formatAbsoluteError ), 
+            MAX( maxErr * maxPixel.p[2], formatAbsoluteError ),
             MAX( maxErr * maxPixel.p[3], formatAbsoluteError )
         };
 

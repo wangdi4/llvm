@@ -17,5 +17,5 @@ include "GENERIC/helper_function.td"
 
 class Generic : TargetImpl {
 include "GENERIC/GENERIC_common.td"
-include "GENERIC/math-v2.0.td"
+include "GENERIC/math-v2.0_sincos.td"
 }

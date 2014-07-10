@@ -5,9 +5,9 @@ use_eh(TRUE)
 
 set (TARGET_NAME "NEAT")
 
-# to be shure that ICC compiler uses the correct presentation of 80-bit long doubles
+# To be sure that ICC compiler uses the correct presentation of 80-bit long doubles
 # we have to set proper compiler options, for win32 only, for linux gcc(g++) is used and 
-# we dont need to set such options
+# we don't need to set such options
 if (WIN32)
 set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:source /fp:strict /Qlong-double /Qpc80 /Qprec-div" )
 set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /fp:source /fp:strict /Qlong-double /Qpc80 /Qprec-div" ) 

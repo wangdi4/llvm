@@ -72,10 +72,8 @@ namespace intel {
     // Pass identification, replacement for typeid.
     static char ID;
 
-    /// @brief default constructor
-    BIImport() : ModulePass(ID) {}
     /// @brief Constructor
-    BIImport(const char* CPUPrefix) : ModulePass(ID), m_cpuPrefix(CPUPrefix) {}
+    BIImport(const char* CPUPrefix = "") : ModulePass(ID), m_cpuPrefix(CPUPrefix) {}
 
     /// @brief Provides name of pass
     virtual const char *getPassName() const {

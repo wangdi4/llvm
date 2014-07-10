@@ -8,18 +8,18 @@
 #include "cl_types.h"
 #include "cl_utils.h"
 
-bool CheckCondition(wchar_t * name, bool condition);
-bool SilentCheckCondition(wchar_t * name, bool condition);
-bool Check(wchar_t * name, cl_int expected, cl_int result);
-bool SilentCheck(wchar_t * name, cl_int expected, cl_int result);
-bool CheckStr(wchar_t * name, char * expected, char * result);
-bool SilentCheckStr(wchar_t * name, char * expected, char * result);
-bool CheckInt(wchar_t * name, cl_long expected, cl_long result);
-bool SilentCheckInt(wchar_t * name, cl_long expected, cl_long result);
-bool CheckSize(wchar_t * name, size_t expected, size_t result);
-bool SilentCheckSize(wchar_t * name, size_t expected, size_t result);
-bool CheckBuildStatus(wchar_t * name, cl_build_status expected, cl_build_status result);
-bool SilentCheckBuildStatus(wchar_t * name, cl_build_status expected, cl_build_status result);
+bool CheckCondition(const wchar_t * name, bool condition);
+bool SilentCheckCondition(const wchar_t * name, bool condition);
+bool Check(const wchar_t * name, cl_int expected, cl_int result);
+bool SilentCheck(const wchar_t * name, cl_int expected, cl_int result);
+bool CheckStr(const wchar_t * name, char * expected, char * result);
+bool SilentCheckStr(const wchar_t * name, char * expected, char * result);
+bool CheckInt(const wchar_t * name, cl_long expected, cl_long result);
+bool SilentCheckInt(const wchar_t * name, cl_long expected, cl_long result);
+bool CheckSize(const wchar_t * name, size_t expected, size_t result);
+bool SilentCheckSize(const wchar_t * name, size_t expected, size_t result);
+bool CheckBuildStatus(const wchar_t * name, cl_build_status expected, cl_build_status result);
+bool SilentCheckBuildStatus(const wchar_t * name, cl_build_status expected, cl_build_status result);
 bool BuildProgramSynch(cl_context context, cl_uint count, const char ** strings, const size_t * lengths, const char * options, cl_program * program_ret);
 
 // auxiliary functions for SilentCheckException

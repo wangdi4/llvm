@@ -1784,13 +1784,17 @@ void Predicator::insertAllOnesBypassesSingleBlockLoopCase(BasicBlock* original) 
         if (phi->getIncomingBlock(i) == original) {
           Value* val = phi->getIncomingValue(i);
           Instruction* valInst = dyn_cast<Instruction>(val);
-          if (!valInst) {
-            continue;
+          Value* newVal;
+          if (valInst && originalToAllOnesInst.count(valInst)) {
+            newVal = originalToAllOnesInst[valInst];
           }
+          else {
+            newVal = val;
+          }
+
           PHINode* newPhi = PHINode::Create(phi->getType(), 2, "pred_phi_"+phi->getName(), entry2);
-          V_ASSERT(originalToAllOnesInst.count(valInst) && "missing allones inst");
           unsigned int otherIndex = 1-i;
-          newPhi->addIncoming(originalToAllOnesInst[valInst], testAllZeroes);
+          newPhi->addIncoming(newVal, testAllZeroes);
           newPhi->addIncoming(phi->getIncomingValue(otherIndex), entry);
 
           phi->setIncomingValue(otherIndex, newPhi);
@@ -2358,7 +2362,7 @@ bool Predicator::blockHasLoadStore(BasicBlock* BB) {
 
 void Predicator::calculateHeuristic(Function* F) {
   // if desired, turn off allones by not marking any blocks to be bypassed.
-  if (getenv("all-ones-off")) {
+  if (getenv("all-ones-off") || getenv("all_ones_off")) {
     return;
   }
   // the heuristics is a simple check if a divergent block has loads / stores.

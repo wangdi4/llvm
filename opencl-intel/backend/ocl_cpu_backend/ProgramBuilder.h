@@ -129,8 +129,6 @@ private:
     std::string m_statFileBaseName;
     // Workload name for the stats
     std::string m_statWkldName;
-    // counter for stat file names
-    int m_statFileCount;
 };
 
 }}}

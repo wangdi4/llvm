@@ -47,12 +47,12 @@ OclBuiltinImpl transpose_store_short4x8_avx = OclBuiltinImpl<__ocl_transpose_sto
   }]>;
 
 OclBuiltinImpl transpose_gather_short4x8_avx = OclBuiltinImpl<__ocl_gather_transpose4x8, [v4i16], 0, [{
-    double4 xyzw1 = *((__private double4*)$Arg1VarName);                              // x1 y1 z1 w1 x1 y1 z1 w1 x1 y1 z1 w1 x1 y1 z1 w1
-    double4 xyzw2 = *((__private double4*)$Arg2VarName);                              // x2 y2 z2 w2 x2 y2 z2 w2 x2 y2 z2 w2 x2 y2 z2 w2
-    double4 xyzw3 = *((__private double4*)$Arg3VarName);                              // x3 y3 z3 w3 x3 y3 z3 w3 x3 y3 z3 w3 x3 y3 z3 w3
-    double4 xyzw5 = *((__private double4*)$Arg5VarName);                              // x5 y5 z5 w5 x5 y5 z5 w5 x5 y5 z5 w5 x5 y5 z5 w5
-    double4 xyzw6 = *((__private double4*)$Arg6VarName);                              // x6 y6 z6 w6 x6 y6 z6 w6 x6 y6 z6 w6 x6 y6 z6 w6
-    double4 xyzw7 = *((__private double4*)$Arg7VarName);                              // x7 y7 z7 w7 x7 y7 z7 w7 x7 y7 z7 w7 x7 y7 z7 w7
+    double4 xyzw1 = *((__private double*)$Arg1VarName);                              // x1 y1 z1 w1 x1 y1 z1 w1 x1 y1 z1 w1 x1 y1 z1 w1
+    double4 xyzw2 = *((__private double*)$Arg2VarName);                              // x2 y2 z2 w2 x2 y2 z2 w2 x2 y2 z2 w2 x2 y2 z2 w2
+    double4 xyzw3 = *((__private double*)$Arg3VarName);                              // x3 y3 z3 w3 x3 y3 z3 w3 x3 y3 z3 w3 x3 y3 z3 w3
+    double4 xyzw5 = *((__private double*)$Arg5VarName);                              // x5 y5 z5 w5 x5 y5 z5 w5 x5 y5 z5 w5 x5 y5 z5 w5
+    double4 xyzw6 = *((__private double*)$Arg6VarName);                              // x6 y6 z6 w6 x6 y6 z6 w6 x6 y6 z6 w6 x6 y6 z6 w6
+    double4 xyzw7 = *((__private double*)$Arg7VarName);                              // x7 y7 z7 w7 x7 y7 z7 w7 x7 y7 z7 w7 x7 y7 z7 w7
 
     double4 xyzw0123;
     xyzw0123.s0 = *((__private double*)$Arg0VarName);                                 // x0 y0 z0 w0  D  D  D  D  D  D  D  D  D  D  D  D

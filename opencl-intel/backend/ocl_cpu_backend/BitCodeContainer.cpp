@@ -19,6 +19,7 @@ File Name:  BitCodeContainer.cpp
 #include "ProgramContainerMemoryBuffer.h"
 #include "BitCodeContainer.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/LLVMContext.h"
 
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -33,8 +34,25 @@ BitCodeContainer::BitCodeContainer(const cl_prog_container_header* pContainer):
 
 BitCodeContainer::~BitCodeContainer()
 {
-    delete static_cast<llvm::Module*>(m_pModule);
-    delete m_pBuffer;
+  if(m_pModule) {
+    llvm::Module* pModule = static_cast<llvm::Module*>(m_pModule);
+    llvm::LLVMContext& Context = pModule->getContext();
+    delete pModule;
+
+    // Unused metadata nodes are left alive during deletion of Module
+    // Module owns Functions which are often used in metadata
+    // during function destruction MDNodes referring to the function are
+    // marked as non-unique and are placed to Nonuniqued nodes container in LLVMContext
+    // LLVMContext will delete Nonuniqued only during its own deletion at clReleaseContext
+    // As a result if we have multiple calls to clBuildProgram on the same context e.g. in loop
+    // then number of unused MDNodes grows and we have memory leak reported
+    // cleanup() was added to LLVMContext and is called to find and free memory by unused Metadata nodes
+    // see ticket CSSD100018078 for details or contact Oleg
+    // oleg: clean up unused MDNodes in LLVMContext
+    Context.cleanup();
+  }
+
+  delete m_pBuffer;
 }
 
 const void* BitCodeContainer::GetCode() const

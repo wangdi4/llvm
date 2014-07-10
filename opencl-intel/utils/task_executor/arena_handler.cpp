@@ -90,11 +90,11 @@ unsigned int ArenaHandler::AllocateThreadPosition()
         // ALERT!!! DK!!!
         // TBB now always allocate slot for master. TaskExecutor now never allows master to join, but number of slots 
         // may be more that size of device
-        unsigned int position = tbb::task_arena::current_slot();
+        unsigned int position = tbb::task_arena::current_thread_index();
         if (position >= m_uiMaxNumThreads)
         {
             // wrap around
-            assert( (position == m_uiMaxNumThreads) && "Assumption that current_slot() may return numberer between 0..slots_count is violated" );
+            assert( (position == m_uiMaxNumThreads) && "Assumption that current_thread_index() may return numberer between 0..slots_count is violated" );
             position = 0;
         }
         return position;
