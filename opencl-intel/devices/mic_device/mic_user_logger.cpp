@@ -80,7 +80,7 @@ MicUserLogger::MicUserLogger()
     }
     close(pipefd[1]);   // after duplicating stderr to the pipe its write side doesn't need to be open
     m_stderrListenerThread.Init(this);
-    m_stderrListenerThread.Start();
+    m_stderrListenerThread.Run();
 }
 
 MicUserLogger::~MicUserLogger()

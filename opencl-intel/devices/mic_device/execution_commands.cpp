@@ -23,7 +23,6 @@
 #include "execution_commands.h"
 #include "command_list.h"
 #include "memory_allocator.h"
-#include "cl_user_logger.h"
 
 #include <source/COIBuffer_source.h>
 
@@ -537,13 +536,6 @@ cl_dev_err_code NDRange::init()
             {
                 assert(0 && "PrepareKernelArguments failed" );
                 break;
-            }
-            if (0 == cmdParams->lcl_wrk_size[0][0])
-            {
-                vector<unsigned int> dims(MAX_WORK_DIM);
-                pRunner->GetLocalSizes(cmdParams->arg_values, &dims[0]);
-                dims.resize(cmdParams->work_dim);
-                g_pUserLogger->SetLocalWorkSize4ArgValues(m_pCmd->id, FrameworkUserLogger::FormatLocalWorkSize(dims));
             }
         }
         else

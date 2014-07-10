@@ -125,11 +125,12 @@ string FrameworkUserLogger::FormatLocalWorkSize(const vector<unsigned int>& loca
 
 void FrameworkUserLogger::Setup(const string& filename, bool bLogErrors, bool bLogApis)
 {
+    assert(!filename.empty());    
     if ("stdout" == filename)
     {
         m_pOutput = &std::cout;
     }
-    else if ("stderr" == filename || filename.empty())
+    else if ("stderr" == filename)
     {
         m_pOutput = &cerr;
     }
