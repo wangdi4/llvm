@@ -226,8 +226,8 @@ public:
      * @param pKernelUniformArgs pointer to the Uniform arguments object
      * @returns vector of the dimensions
      */
-    virtual void GetLocalSizes(
-      void *pKernelUniformArgs, unsigned int* sizes) const;
+    virtual std::vector<unsigned int> GetLocalSizes(
+      void *pKernelUniformArgs) const;
 
   /**
    * Execute the specified kernel with the given arguments

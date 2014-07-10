@@ -858,9 +858,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 
     if (0 == cmdParams->lcl_wrk_size[0][0])
     {
-        // GetLocalSizes can't return a vector because of some bug in VS's compiler
-        vector<unsigned int> dims(MAX_WORK_DIM);
-        m_pRunner->GetLocalSizes(cmdParams->arg_values, &dims[0]);
+        vector<unsigned int> dims = m_pRunner->GetLocalSizes(cmdParams->arg_values);
         dims.resize(cmdParams->work_dim);
         g_pUserLogger->SetLocalWorkSize4ArgValues(m_pCmd->id, FrameworkUserLogger::FormatLocalWorkSize(dims));
     }
