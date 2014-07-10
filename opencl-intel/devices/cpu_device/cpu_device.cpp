@@ -52,11 +52,11 @@
 #endif
 
 using namespace Intel::OpenCL::CPUDevice;
-using Intel::OpenCL::Utils::FrameworkUserLogger;
+using Intel::OpenCL::Utils::UserLogger;
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
-FrameworkUserLogger* g_pUserLogger = NULL;
+UserLogger* g_pUserLogger = NULL;
 
 }}}
 
@@ -506,7 +506,7 @@ extern "C" cl_dev_err_code clDevCreateDeviceInstance(  cl_uint      dev_id,
         return CL_DEV_INVALID_OPERATION;
     }
 
-    g_pUserLogger = reinterpret_cast<FrameworkUserLogger*>(pUserLogger);
+    g_pUserLogger = reinterpret_cast<UserLogger*>(pUserLogger);
     CPUDevice *pNewDevice = new CPUDevice(dev_id, pDevCallBacks, pLogDesc);
     if ( NULL == pNewDevice )
     {

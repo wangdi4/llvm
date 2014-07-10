@@ -105,9 +105,9 @@ static string GetFormattedTime()
     return formattedTime.str();
 }
 
-// FrameworkUserLogger's methods
+// UserLogger's methods
 
-string FrameworkUserLogger::FormatLocalWorkSize(const vector<size_t>& localWorkSize)
+string UserLogger::FormatLocalWorkSize(const vector<size_t>& localWorkSize)
 {
     stringstream stream;
     stream  << ": (";    
@@ -123,7 +123,7 @@ string FrameworkUserLogger::FormatLocalWorkSize(const vector<size_t>& localWorkS
     return stream.str();
 }
 
-void FrameworkUserLogger::Setup(const string& filename, bool bLogErrors, bool bLogApis)
+void UserLogger::Setup(const string& filename, bool bLogErrors, bool bLogApis)
 {
     assert(!filename.empty());    
     if ("stdout" == filename)
@@ -159,7 +159,7 @@ void FrameworkUserLogger::Setup(const string& filename, bool bLogErrors, bool bL
     m_bLogApis = bLogApis;
 }
 
-FrameworkUserLogger::FrameworkUserLogger() :
+UserLogger::UserLogger() :
     m_pOutput(NULL), m_bFirstApiFuncArg(false), m_bExpectOutputParams(false), m_iLastRetValue(CL_SUCCESS), m_bLogErrors(false), m_bLogApis(false), m_pCurrArgValues(NULL)
 {
     ConfigFile config(GetConfigFilePath());
@@ -194,7 +194,7 @@ FrameworkUserLogger::FrameworkUserLogger() :
     }
 }
 
-void FrameworkUserLogger::PrintParamTypeAndName(const char* sParamTypeAndName)
+void UserLogger::PrintParamTypeAndName(const char* sParamTypeAndName)
 {
     if (!m_bFirstApiFuncArg)
     {
@@ -207,7 +207,7 @@ void FrameworkUserLogger::PrintParamTypeAndName(const char* sParamTypeAndName)
     m_strStream << sParamTypeAndName << " = ";
 }
 
-void FrameworkUserLogger::PrintCStringValInternal(const char* sVal)
+void UserLogger::PrintCStringValInternal(const char* sVal)
 {
     if (NULL != sVal)
     {
@@ -219,7 +219,7 @@ void FrameworkUserLogger::PrintCStringValInternal(const char* sVal)
     }
 }
 
-void FrameworkUserLogger::StartApiFuncInternal(const string& funcName)
+void UserLogger::StartApiFuncInternal(const string& funcName)
 {
     m_mutex.Lock();
     m_strStream << funcName << "(";
@@ -227,7 +227,7 @@ void FrameworkUserLogger::StartApiFuncInternal(const string& funcName)
     m_timer.Start();
 }
 
-void FrameworkUserLogger::EndApiFuncInternal(cl_int retVal)
+void UserLogger::EndApiFuncInternal(cl_int retVal)
 {
     m_strStream << ")";
     m_retValStream << " = " << ClErrTxt(retVal);
@@ -235,7 +235,7 @@ void FrameworkUserLogger::EndApiFuncInternal(cl_int retVal)
     EndApiFuncEpilog();
 }
 
-void FrameworkUserLogger::EndApiFuncInternal(const void* retPtr)
+void UserLogger::EndApiFuncInternal(const void* retPtr)
 {
     m_strStream << ")";
     m_retValStream << " = 0x" << ios_base::hex << retPtr;
@@ -250,14 +250,14 @@ void FrameworkUserLogger::EndApiFuncInternal(const void* retPtr)
     EndApiFuncEpilog();
 }
 
-void FrameworkUserLogger::EndApiFuncInternal()
+void UserLogger::EndApiFuncInternal()
 {
     m_strStream << ")";
     m_iLastRetValue = CL_SUCCESS;
     EndApiFuncEpilog();
 }
 
-void FrameworkUserLogger::EndApiFuncEpilog()
+void UserLogger::EndApiFuncEpilog()
 {
     m_timer.Stop();    
     // thread ID
@@ -299,7 +299,7 @@ void FrameworkUserLogger::EndApiFuncEpilog()
     m_mutex.Unlock();
 }
 
-void FrameworkUserLogger::PrintOutputParam(const string& name, const void* addr, size_t size, bool bIsPtr2Ptr, bool bIsUnsigned)
+void UserLogger::PrintOutputParam(const string& name, const void* addr, size_t size, bool bIsPtr2Ptr, bool bIsUnsigned)
 {
     if (!m_bLogApis)
     {
@@ -369,7 +369,7 @@ void FrameworkUserLogger::PrintOutputParam(const string& name, const void* addr,
     }
 }
 
-void FrameworkUserLogger::PrintError(const string& msg)
+void UserLogger::PrintError(const string& msg)
 {
     if (m_bLogErrors)
     {
@@ -377,7 +377,7 @@ void FrameworkUserLogger::PrintError(const string& msg)
     }
 }
 
-void FrameworkUserLogger::PrintStringInternal(const string& str, bool bLock)
+void UserLogger::PrintStringInternal(const string& str, bool bLock)
 {
     if (bLock)
     {
@@ -390,13 +390,13 @@ void FrameworkUserLogger::PrintStringInternal(const string& str, bool bLock)
     }
 }
 
-void FrameworkUserLogger::MapNDRangeArgValuesId(const void* pArgValues, cl_dev_cmd_id id)
+void UserLogger::MapNDRangeArgValuesId(const void* pArgValues, cl_dev_cmd_id id)
 {
     OclAutoMutex mutex(&m_mutex);
     m_mapNDRangeArgValues2CmdId[pArgValues] = id;
 }
 
-void FrameworkUserLogger::SetLocalWorkSize4ArgValues(cl_dev_cmd_id id, const std::string& localWorkSizeStr)
+void UserLogger::SetLocalWorkSize4ArgValues(cl_dev_cmd_id id, const std::string& localWorkSizeStr)
 {
     OclAutoMutex mutex(&m_mutex);
     const bool bIsNDRangeIdExist = GetNDRangeArgValues(id) != NULL;
@@ -417,7 +417,7 @@ void FrameworkUserLogger::SetLocalWorkSize4ArgValues(cl_dev_cmd_id id, const std
     stream  << ": " << localWorkSizeStr << endl;
 }
 
-const void* FrameworkUserLogger::GetNDRangeArgValues(cl_dev_cmd_id id) const
+const void* UserLogger::GetNDRangeArgValues(cl_dev_cmd_id id) const
 {
     OclAutoMutex mutex(&m_mutex);
     for (std::map<const void*, cl_dev_cmd_id>::const_iterator iter = m_mapNDRangeArgValues2CmdId.begin(); iter != m_mapNDRangeArgValues2CmdId.end(); ++iter)
@@ -430,7 +430,7 @@ const void* FrameworkUserLogger::GetNDRangeArgValues(cl_dev_cmd_id id) const
     return NULL;
 }
 
-unsigned long long FrameworkUserLogger::UnrigesterNDRangeId(cl_dev_cmd_id id)
+unsigned long long UserLogger::UnrigesterNDRangeId(cl_dev_cmd_id id)
 {
     OclAutoMutex mutex(&m_mutex);
     const void* pArgValues = GetNDRangeArgValues(id);

@@ -25,7 +25,7 @@
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
-class FrameworkUserLogger;
+class UserLogger;
 
 }}}
 
@@ -137,6 +137,6 @@ public:
 
 // Create an instance of the FE compiler tagged to specific device
 // Input: pDeviceInfo - device Specific information
-typedef int fnCreateFECompilerInstance(const void* pDeviceInfo, size_t devInfoSize, IOCLFECompiler* *pFECompiler, Intel::OpenCL::Utils::FrameworkUserLogger* pUserLogger);
+typedef int fnCreateFECompilerInstance(const void* pDeviceInfo, size_t devInfoSize, IOCLFECompiler* *pFECompiler, Intel::OpenCL::Utils::UserLogger* pUserLogger);
 
 }}}

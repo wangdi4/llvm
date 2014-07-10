@@ -26,7 +26,7 @@
 namespace Intel { namespace OpenCL { namespace Framework {
 
 /**
- * This class is responsible for providing the values of output paramters to the FrameworkUserLogger after the function returns
+ * This class is responsible for providing the values of output paramters to the UserLogger after the function returns
  */
 class OutputParamsValueProvider
 {
@@ -52,7 +52,7 @@ public:
      */
     OutputParamsValueProvider(const SpecialOutputParamPrinter* specialPrinter = NULL) : m_specialPrinter(specialPrinter)
     {
-        Intel::OpenCL::Utils::FrameworkUserLogger& logger = GetUserLoggerInstance();
+        Intel::OpenCL::Utils::UserLogger& logger = GetUserLoggerInstance();
         if (logger.IsApiLoggingEnabled())
         {
             logger.SetExpectOutputParams(true);
@@ -101,7 +101,7 @@ private:
 
 inline OutputParamsValueProvider::~OutputParamsValueProvider()
 {
-    Intel::OpenCL::Utils::FrameworkUserLogger& userLogger = GetUserLoggerInstance();
+    Intel::OpenCL::Utils::UserLogger& userLogger = GetUserLoggerInstance();
     if (userLogger.IsApiLoggingEnabled())
     {
         userLogger.BeginPrintingOutputParams();
