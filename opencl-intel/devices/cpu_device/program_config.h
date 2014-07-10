@@ -28,10 +28,8 @@
 
 #include "cl_device_api.h"
 #include "cl_dev_backend_api.h"
-#include "cl_user_logger.h"
 #include <string>
 
-using Intel::OpenCL::Utils::g_pUserLogger;
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 

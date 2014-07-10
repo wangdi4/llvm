@@ -27,8 +27,7 @@ enum cl_dev_backend_options                     // Description                  
     CL_DEV_BACKEND_OPTION_DUMPFILE,             //!< file name to store the dump into    |string       |
     CL_DEV_BACKEND_OPTION_APF_LEVEL,            //!< select auto-prefetch level          |int          | 0 - 3
     CL_DEV_BACKEND_OPTION_STOP_BEFORE_JIT,       //!< Stops compilation before JITing    |boolean      | (Used for early AVX3 development)
-    CL_DEV_BACKEND_OPTION_IDEVICE_COMMAND_MANAGER, //!<a pointer to IDeviceCommandManager | IDeviceCommandManager* | pointer
-    CL_DEV_BACKEND_OPTION_USER_LOGGER
+    CL_DEV_BACKEND_OPTION_IDEVICE_COMMAND_MANAGER //!<a pointer to IDeviceCommandManager | IDeviceCommandManager* | pointer
 };
 
 /*! \enum cl_dev_backend_dump_options
