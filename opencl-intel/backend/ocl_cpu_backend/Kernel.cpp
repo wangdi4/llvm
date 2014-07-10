@@ -351,24 +351,6 @@ cl_dev_err_code Kernel::PrepareThreadState(ICLDevExecutionState &state) const {
   return CL_DEV_SUCCESS;
 }
 
-std::vector<unsigned int> Kernel::GetLocalSizes(
-      void *pKernelUniformArgs) const
-{
-  void *pKernelUniformImplicitArgsPosition =
-      (char *)pKernelUniformArgs + m_explicitArgsSizeInBytes;
-  cl_uniform_kernel_args *pKernelUniformImplicitArgs =
-      static_cast<cl_uniform_kernel_args *>(pKernelUniformImplicitArgsPosition);
-
-  std::vector<unsigned int> tmp;
-  assert(false && "Implement Get Local Size");
-
-  for (unsigned int i = 0; i < MAX_WORK_DIM; ++i) {
-    tmp.push_back( pKernelUniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i] );
-  }
-
-  return tmp;
-}
-
 cl_dev_err_code
 Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
                                const cl_mem_obj_descriptor **pDevMemObjArray,

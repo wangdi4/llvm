@@ -220,15 +220,6 @@ public:
                          const cl_mem_obj_descriptor **pDevMemObjArray,
                          unsigned int devMemObjArrayLength) const;
 
-   /**
-     * returns the final local work group sizes for teh specified arguments
-     * NOTICE: should be called after PrepareKernelArguments otherwise undefined
-     * @param pKernelUniformArgs pointer to the Uniform arguments object
-     * @returns vector of the dimensions
-     */
-    virtual std::vector<unsigned int> GetLocalSizes(
-      void *pKernelUniformArgs) const;
-
   /**
    * Execute the specified kernel with the given arguments
    * @param pKernelUniformArgs uniformed arguments for execution

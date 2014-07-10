@@ -114,7 +114,7 @@ public:
 	*/
 	bool CheckStamp() const
 	{
-		if (m_CMD_STAMP != (cl_long)CMD_STAMP)
+		if (m_CMD_STAMP != CMD_STAMP)
 		{
 			return false;
 		}
