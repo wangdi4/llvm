@@ -221,7 +221,7 @@ void FrameworkUserLogger::PrintCStringValInternal(const char* sVal)
 
 void FrameworkUserLogger::StartApiFuncInternal(const string& funcName)
 {
-    m_apiMutex.Lock();
+    m_mutex.Lock();
     m_strStream << funcName << "(";
     m_bFirstApiFuncArg = true;
     m_timer.Start();
@@ -290,19 +290,13 @@ void FrameworkUserLogger::EndApiFuncEpilog()
         *m_pOutput << "," << m_beLogStream.str();
         m_beLogStream.str("");
     }
-    if (!m_bExpectOutputParams)
-    {
-      *m_pOutput << endl;
-    }
+    *m_pOutput << endl;
     
     // clear all necessary attributes
     m_timer.Reset();
     m_strStream.str("");
     m_retValStream.str("");
-    if (!m_bExpectOutputParams) // otherwise it will be unlocked after output parameters have been printed
-    {
-      m_apiMutex.Unlock();
-    }
+    m_mutex.Unlock();
 }
 
 void FrameworkUserLogger::PrintOutputParam(const string& name, const void* addr, size_t size, bool bIsPtr2Ptr, bool bIsUnsigned)
@@ -387,29 +381,25 @@ void FrameworkUserLogger::PrintStringInternal(const string& str, bool bLock)
 {
     if (bLock)
     {
-      m_outputMutex.Lock();
+        m_mutex.Lock();    
     }
     *m_pOutput << str;
     if (bLock)
     {
-      m_outputMutex.Unlock();
+        m_mutex.Unlock();
     }
 }
 
 void FrameworkUserLogger::MapNDRangeArgValuesId(const void* pArgValues, cl_dev_cmd_id id)
 {
-    OclAutoWriter lock(&m_mapsLock);
+    OclAutoMutex mutex(&m_mutex);
     m_mapNDRangeArgValues2CmdId[pArgValues] = id;
 }
 
 void FrameworkUserLogger::SetLocalWorkSize4ArgValues(cl_dev_cmd_id id, const std::string& localWorkSizeStr)
 {
-    OclAutoReader lock(&m_mapsLock);
+    OclAutoMutex mutex(&m_mutex);
     const bool bIsNDRangeIdExist = GetNDRangeArgValues(id) != NULL;
-    if (bIsNDRangeIdExist)
-    {
-      m_outputMutex.Lock();
-    }
     ostream& stream = bIsNDRangeIdExist ? *m_pOutput : m_beLogStream;
     if (bIsNDRangeIdExist)
     {
@@ -419,20 +409,17 @@ void FrameworkUserLogger::SetLocalWorkSize4ArgValues(cl_dev_cmd_id id, const std
     {
         stream << ", ";
     }
-    stream << "local_work_size calculated by BE";
+    stream << "Local_work_size calculated by BE";
     if (bIsNDRangeIdExist)
     {
         *m_pOutput << " with start time " << UnrigesterNDRangeId(id);
     }
     stream  << ": " << localWorkSizeStr << endl;
-    if (bIsNDRangeIdExist)
-    {
-      m_outputMutex.Unlock();
-    }
 }
 
 const void* FrameworkUserLogger::GetNDRangeArgValues(cl_dev_cmd_id id) const
 {
+    OclAutoMutex mutex(&m_mutex);
     for (std::map<const void*, cl_dev_cmd_id>::const_iterator iter = m_mapNDRangeArgValues2CmdId.begin(); iter != m_mapNDRangeArgValues2CmdId.end(); ++iter)
     {
         if (iter->second == id)
@@ -445,6 +432,7 @@ const void* FrameworkUserLogger::GetNDRangeArgValues(cl_dev_cmd_id id) const
 
 unsigned long long FrameworkUserLogger::UnrigesterNDRangeId(cl_dev_cmd_id id)
 {
+    OclAutoMutex mutex(&m_mutex);
     const void* pArgValues = GetNDRangeArgValues(id);
     assert(NULL != pArgValues);
     if (NULL == pArgValues)
@@ -461,29 +449,6 @@ unsigned long long FrameworkUserLogger::UnrigesterNDRangeId(cl_dev_cmd_id id)
     m_mapNDRangeArgValues2CmdId.erase(iter1, ++iter1);
     
     return ulStartTime;
-}
-
-// LogMessageWrapper methods:
-
-void LogMessageWrapper::Serialize()
-{
-    stringstream stream;
-    stream << m_id << " " << m_beMsg << std::ends;
-    m_rawStr = stream.str();
-}
-
-void LogMessageWrapper::Unserialize()
-{
-    stringstream stream(m_rawStr);
-    stream >> m_id;
-
-    stream.seekg(1, ios_base::cur); // skip the space
-
-    std::vector<char> buf(100);
-    stream.getline(&buf[0], buf.size(), '\0');
-    m_beMsg = &buf[0];
-
-    assert(stream.eof());
 }
 
 }}}

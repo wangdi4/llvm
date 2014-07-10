@@ -858,8 +858,8 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 
     if (0 == cmdParams->lcl_wrk_size[0][0])
     {
-        vector<unsigned int> dims = m_pRunner->GetLocalSizes(cmdParams->arg_values);
-        dims.resize(cmdParams->work_dim);
+        /* const */vector<unsigned int> dims(1); // = m_pRunner->GetLocalSizes(cmdParams->arg_values);
+        dims[0] = 5;
         g_pUserLogger->SetLocalWorkSize4ArgValues(m_pCmd->id, FrameworkUserLogger::FormatLocalWorkSize(dims));
     }
 

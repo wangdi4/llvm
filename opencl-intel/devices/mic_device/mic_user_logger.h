@@ -100,6 +100,53 @@ private:
 
 };
 
+/**
+ * This class represents the wrapper around the BE log message as passed through stderr
+ */
+class LogMessageWrapper
+{
+public:
+
+    /**
+     * Constructor for use by device side
+     * @param id    the ID of the NDRange command
+     * @param beMsg the string holding the message from BE containing the calculated local work size
+     */
+    LogMessageWrapper(cl_dev_cmd_id id, const std::string& beMsg) : m_id(id), m_beMsg(beMsg) { Serialize(); }
+
+    /**
+     * Constructor for use by host side
+     * @param rawStr the raw string from which the log message should be parsed
+     */
+    LogMessageWrapper(const char* rawStr) : m_rawStr(rawStr) { Unserialize(); }
+
+    /**
+     * @return the ID of the NDRange command
+     */
+    cl_dev_cmd_id GetId() const { return m_id; }
+
+    /**
+     * @return the string holding the message from BE containing the calculated local work size
+     */
+    std::string GetBeMsg() const { return m_beMsg; }
+
+    /**
+     * the raw string from which the log message should be parsed
+     */
+    std::string GetRawString() const { return m_rawStr; }
+
+private:
+
+    void Serialize();
+
+    void Unserialize();
+
+    cl_dev_cmd_id m_id;
+    std::string m_beMsg;
+    std::string m_rawStr;
+
+};
+
 class IOError : public std::runtime_error
 {
 public:

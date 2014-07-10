@@ -138,7 +138,7 @@ void MicUserLogger::StderrListerenerThread::HandleLogMessage(FILE* pipeFile)
     }
     buf[szMsgLen] = '\0';
 
-    Intel::OpenCL::Utils::LogMessageWrapper wrapper(&buf[0]);
+    LogMessageWrapper wrapper(&buf[0]);
     g_pUserLogger->SetLocalWorkSize4ArgValues(wrapper.GetId(), wrapper.GetBeMsg());
 }
 
@@ -173,6 +173,30 @@ RETURN_TYPE_ENTRY_POINT MicUserLogger::StderrListerenerThread::Run()
         write(m_pLogger->m_dupStderr, &ch, 1);
     }
     return NULL;
+}
+
+
+// LogMessageWrapper methods:
+
+void LogMessageWrapper::Serialize()
+{
+    stringstream stream;
+    stream << m_id << " " << m_beMsg << std::ends;
+    m_rawStr = stream.str();
+}
+
+void LogMessageWrapper::Unserialize()
+{
+    stringstream stream(m_rawStr);
+    stream >> m_id;
+
+    stream.seekg(1, ios_base::cur); // skip the space
+
+    std::vector<char> buf(100);
+    stream.getline(&buf[0], buf.size(), '\0');
+    m_beMsg = &buf[0];
+
+    assert(stream.eof());
 }
 
 // IOError methods:
