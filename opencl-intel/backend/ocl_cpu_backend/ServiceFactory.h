@@ -76,8 +76,7 @@ public:
      */
     virtual cl_dev_err_code GetCompilationService( 
         const ICLDevBackendOptions* pBackendOptions,
-        ICLDevBackendCompilationService** pBackendCompilationService,
-        Intel::OpenCL::Utils::IUserLoggerProxy* pUserLoggerProxy);
+        ICLDevBackendCompilationService** pBackendCompilationService);
 
     /**
      * Creates Execution Service object
@@ -94,8 +93,7 @@ public:
      */
     virtual cl_dev_err_code GetExecutionService(
         const ICLDevBackendOptions* pBackendOptions, 
-        ICLDevBackendExecutionService** pBackendExecutionService,
-        Intel::OpenCL::Utils::IUserLoggerProxy* pUserLoggerProxy);
+        ICLDevBackendExecutionService** pBackendExecutionService);
 
     /**
      * Creates Serialization Service object

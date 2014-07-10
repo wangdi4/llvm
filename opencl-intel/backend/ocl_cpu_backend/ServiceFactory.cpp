@@ -113,8 +113,7 @@ ICLDevBackendServiceFactoryInternal* ServiceFactory::GetInstanceInternal()
 
 cl_dev_err_code ServiceFactory::GetCompilationService(
     const ICLDevBackendOptions* pBackendOptions,
-    ICLDevBackendCompilationService** ppBackendCompilationService,
-    Intel::OpenCL::Utils::IUserLoggerProxy* pUserLoggerProxy)
+    ICLDevBackendCompilationService** ppBackendCompilationService)
 {
     try
     {
@@ -159,8 +158,7 @@ cl_dev_err_code ServiceFactory::GetCompilationService(
 
 cl_dev_err_code ServiceFactory::GetExecutionService(
     const ICLDevBackendOptions* pBackendOptions,
-    ICLDevBackendExecutionService** ppBackendExecutionService,
-    Intel::OpenCL::Utils::IUserLoggerProxy* pUserLoggerProxy)
+    ICLDevBackendExecutionService** ppBackendExecutionService)
 {
     try
     {
