@@ -32,7 +32,6 @@
 #include "logger_test.h"
 #include <cl_device_api.h>
 #include <gtest/gtest.h>
-#include "cl_user_logger.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -54,19 +53,7 @@ RTMemObjService localRTMemService;
 
 // Static variables for testing
 static TestKernel_param_t	gNativeKernelParam;
-volatile bool	gExecDone = true;
-
-namespace Intel { namespace OpenCL { namespace Utils {
-
-FrameworkUserLogger* g_pUserLogger = NULL;
-
-FrameworkUserLogger& FrameworkUserLogger::Instance()
-{
-  static FrameworkUserLogger instance;
-  return instance;
-}
-
-}}}
+volatile bool	gExecDone = true; 
 
 unsigned int gDeviceIdInType = 0;
 class MICTestCallbacks : public IOCLFrameworkCallbacks
@@ -724,7 +711,7 @@ int main(int argc, char* argv[])
 
 	gDeviceIdInType = deviceIdsList[0];
 
-	iRes = clDevCreateDeviceInstance(gDeviceIdInType, &dev_callbacks, &log_desc, &dev_entry, NULL);
+	iRes = clDevCreateDeviceInstance(gDeviceIdInType, &dev_callbacks, &log_desc, &dev_entry);
 	EXPECT_TRUE(CL_DEV_SUCCEEDED(iRes));
 
 	int rc = RUN_ALL_TESTS();

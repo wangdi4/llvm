@@ -101,7 +101,7 @@ public:
 
     virtual bool GetValue(
         int optionId,
-        void* Value,
+        const void** Value,
         size_t* pSize) const = 0;
 };
 

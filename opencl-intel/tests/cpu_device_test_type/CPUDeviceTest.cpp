@@ -66,12 +66,6 @@ volatile bool	gExecDone = true;
 
 unsigned int gDeviceIdInType = 0;
 
-namespace Intel { namespace OpenCL { namespace Utils {
-
-FrameworkUserLogger* g_pUserLogger = NULL;
-
-}}}
-
 void CPUTestCallbacks::clDevCmdStatusChanged(cl_dev_cmd_id  cmd_id, void* data, cl_int cmd_status, cl_int completion_result, cl_ulong timer )
 {
 	unsigned int cmdId = (unsigned int)(size_t)cmd_id;

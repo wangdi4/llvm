@@ -120,7 +120,7 @@ cl_dev_err_code ProgramService::Init()
     programConfig.InitFromCpuConfig(*m_pCPUConfig);
 
     ICLDevBackendCompilationService* pCompiler = NULL;
-    cl_dev_err_code ret = m_pBackendFactory->GetCompilationService(&programConfig, &pCompiler);
+    cl_dev_err_code ret = m_pBackendFactory->GetCompilationService(&programConfig, &pCompiler, &m_cpuUserLogger);
     if( CL_DEV_FAILED(ret) )
     {
         return ret;
@@ -135,7 +135,7 @@ cl_dev_err_code ProgramService::Init()
     }
 
     ICLDevBackendExecutionService* pExecutor = NULL;
-    ret = m_pBackendFactory->GetExecutionService(&programConfig, &pExecutor);
+    ret = m_pBackendFactory->GetExecutionService(&programConfig, &pExecutor, NULL);
     if( CL_DEV_FAILED(ret) )
     {
         //Oh, where is my auto_ptr_ex :-( ?

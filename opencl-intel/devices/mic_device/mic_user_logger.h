@@ -83,7 +83,7 @@ private:
 
         MicUserLogger* m_pLogger;
 
-        void HandleLogMessage(FILE* pipeFile);
+        void HandleLogMessage(std::istream& pipeStream);
 
     };
 

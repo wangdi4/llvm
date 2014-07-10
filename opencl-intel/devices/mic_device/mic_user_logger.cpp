@@ -110,28 +110,28 @@ MicUserLogger::FileWrapper::~FileWrapper()
     }
 }
 
-void MicUserLogger::StderrListerenerThread::HandleLogMessage(FILE* pipeFile)
+void HandleLogMessage(FILE* pipeFile)
 {
     size_t szMsgLen;
-    const int iFscanfRet = fscanf(pipeFile, " %lu ", &szMsgLen);
+    const int iFscanfRet = fscanf(pipeFile, " %zd ", &szMsgLen);
     if (EOF == iFscanfRet)
     {
-        m_pLogger->ListenerThreadError();
+	cout << "ListenerThreadError" << endl;
         return;
     }
-    ASSERT_RET(1 == iFscanfRet, "fscanf didn't read just one item");
+    assert(1 == iFscanfRet);
 
     vector<char> buf(szMsgLen + 1);
     const size_t szFreadRet = fread(&buf[0], 1, szMsgLen, pipeFile);
     if (szFreadRet < szMsgLen)
     {
-        m_pLogger->ListenerThreadError();
+	cout << "ListenerThreadError" << endl;
         return;
     }
     buf[szMsgLen] = '\0';
 
     LogMessageWrapper wrapper(&buf[0]);
-    FrameworkUserLogger::Instance().SetLocalWorkSize4ArgValues(wrapper.GetId(), wrapper.GetBeMsg());
+    replace: cout << "raw message: " << wrapper.GetId() << " " << wrapper.GetBeMsg() << endl;
 }
 
 RETURN_TYPE_ENTRY_POINT MicUserLogger::StderrListerenerThread::Run()

@@ -77,7 +77,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
             return defaultValue;
         }
 
-        virtual bool GetValue(int optionId, void* Value, size_t* pSize) const
+        virtual bool GetValue(int optionId, const void** Value, size_t* pSize) const
         {
             return false;
         }
@@ -123,7 +123,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
             return m_fileName.c_str();
         }
 
-        virtual bool GetValue(int optionId, void* Value, size_t* pSize) const
+        virtual bool GetValue(int optionId, const void** Value, size_t* pSize) const
         {
             return false;
         }
