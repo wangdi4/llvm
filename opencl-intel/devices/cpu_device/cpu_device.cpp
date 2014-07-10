@@ -299,7 +299,7 @@ cl_dev_err_code CPUDevice::Init()
                                            m_pFrameworkCallBacks,
                                            m_pLogDescriptor,
                                            m_pCPUDeviceConfig,
-                                           m_backendWrapper.GetBackendFactory(), m_cpuUserLogger);
+                                           m_backendWrapper.GetBackendFactory());
     ret = m_pProgramService->Init();
     if (CL_DEV_SUCCESS != ret)
     {

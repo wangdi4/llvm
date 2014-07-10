@@ -43,12 +43,6 @@ public:
     static UserLogger& Instance();
 
     /**
-     * @param localWorkSize a vector of size_t containing the local work size
-     * @return a string of the common format of the local work size
-     */
-    static std::string FormatLocalWorkSize(const std::vector<size_t>& localWorkSize);
-
-    /**
      * Destructor
      */
     ~UserLogger()
@@ -138,16 +132,6 @@ public:
     void PrintOutputParam(const std::string& name, const void* addr, size_t size, bool bIsPtr2Ptr, bool bIsUnsigned = false);
 
     /**
-     * OutputParamsValueProvider should call this method before it begins printing the values of the output parameters, so asynchronous prints to the log will not be interleaved
-     */
-    void BeginPrintingOutputParams() { m_mutex.Lock(); }
-
-    /**
-     * OutputParamsValueProvider should call this method after it has ended printing the values of the output parameters
-     */
-    void EndPrintingOutputParams() { m_mutex.Unlock(); }
-
-    /**
      * Print a string directly to the log (not as a part of an API call)
      * @param str   the string to print
      * @param bLock whether to lock the logger's stream (regular printing by client class should use the default to prevent interleaving of prints from different threads)
@@ -173,25 +157,17 @@ public:
     void PrintError(const std::string& msg);
 
     /**
-     * Register the cl_dev_cmd_param_kernel::arg_values that identifies the NDRange command
+     * Register the cl_dev_cmd_param_kernel::arg_values that identifies the NDRange command for the BE to log its calculated local wort size 
      * @param pArgValues the cl_dev_cmd_param_kernel::arg_values to be registered
      */
-    void RegisterNDRangeArgValues(const void* pArgValues) { m_pCurrArgValues = pArgValues; }
+    void RegisterArgValues(const void* pArgValues);
 
     /**
-     * Map the cl_dev_cmd_param_kernel::arg_values that identifies the NDRange command to the cl_dev_cmd_id that identifies the NDRange command for the BE to log its calculated
-     * local wort size 
-     * @param pArgValues    the cl_dev_cmd_param_kernel::arg_values
-     * @param id            the cl_dev_cmd_id to be registered
+     * Set the local work size calculated by BE for a specific NDRange command identified by cl_dev_cmd_param_kernel::arg_values
+     * @param pArgValues the cl_dev_cmd_param_kernel::arg_values identifying the NDRange command
+     * @param the local work size calculated by BE
      */
-    void MapNDRangeArgValuesId(const void* pArgValues, cl_dev_cmd_id id);
-
-    /**
-     * Set the local work size calculated by BE for a specific NDRange command identified by cl_dev_cmd_id
-     * @param id the cl_dev_cmd_id identifying the NDRange command
-     * @param localWorkSizeStr the string describing the local work size calculated by BE
-     */
-    void SetLocalWorkSize4ArgValues(cl_dev_cmd_id id, const std::string& localWorkSizeStr);
+    void SetLocalWorkSize4ArgValues(const void* pArgValues, const std::vector<size_t>& localWorkSize);
 
 private:    
 
@@ -228,20 +204,39 @@ private:
 
     void PrintStringInternal(const std::string& str, bool bLock);
 
-    const void* GetNDRangeArgValues(cl_dev_cmd_id id) const;
-    
-    unsigned long long UnrigesterNDRangeId(cl_dev_cmd_id id);
-
     // do not implement
     UserLogger(const UserLogger&);
     UserLogger& operator=(const UserLogger&);
 
+        /**
+     * This class is responsible for handling the case that the user call clEnqueueNDRangeKernel without specifying local_work_size. In this case the logger will not log this
+     * API call when it returns, but will wait with the log until the BE reports it the local work size it has calculated.
+     */
+    class BELogger
+    {
+    public:
+
+        void RegisterArgValues(const void* pArgValues, unsigned long long ulStartTime);
+
+        bool IsArgValuesExist(const void* pArgValues) const;
+
+        unsigned long long UnrigesterArgValues(const void* pArgValues);
+
+    private:
+
+        /* a map from cl_dev_cmd_param_kernel::arg_values, which identifies the NDRange command to the BE (this value is already passed to BE in Kernel::PrepareKernelArguments
+           and we don't want to add another parameter to this method because of performance considerations) to the start times in clock ticks of the call to
+           clEnqueueNDRangeKernel.
+           This attribute is synchronized by the mutex of UserLogger, so it doesn't need a mutex of itself. */
+        std::map<const void*, unsigned long long> m_mapArgVals2StartTime;        
+    };
+    
     std::ofstream m_logFile;
     std::ostream* m_pOutput;
     Timer m_timer;
     /* synchronize calls to API functions, so that logging from different threads won't be interleaved (it is reentrant to allow printing from the same thread that locked the
         mutex) */
-    mutable OclSpinMutex m_mutex;
+    OclSpinMutex m_mutex;
     bool m_bFirstApiFuncArg;    
     // we use this to collect all data about the API function call, so that when it ends, we'll be able to put its duration before the log of the call itself
     std::ostringstream m_strStream;
@@ -251,10 +246,7 @@ private:
     bool m_bLogErrors;
     bool m_bLogApis;
     const void* m_pCurrArgValues;
-    // Since cl_dev_cmd_param_kernel::arg_values is available in command's Init, but cl_dev_cmd_id is set just in Execute, we need a map between them    
-    std::map<const void*, cl_dev_cmd_id> m_mapNDRangeArgValues2CmdId;
-    // a map from cl_dev_cmd_param_kernel::arg_values, which identifies the NDRange to the start times in clock ticks of the call to clEnqueueNDRangeKernel.
-    std::map<const void*, unsigned long long> m_mapArgVals2StartTime;
+    BELogger m_beLogger;
     std::ostringstream m_beLogStream;
     
 };
@@ -316,21 +308,5 @@ inline void UserLogger::EndApiFunc()
 }
 
 extern UserLogger* g_pUserLogger;   // a global pointer to the logger, which be defined in each shared library (so LOG_ERROR can use the user logger)
-
-/**
- * Interface class that has one method the BE should call to report its calculated local work size
- */
-class IUserLoggerProxy
-{
-public:
-
-    /**
-     * Set the local work size values as calculated by BE
-     * @param id            the ID of the NDRange command
-     * @param localWorkSize a vector of size_t containing the local work sizes
-     */
-    virtual void SetLocalWorkSizeValues(cl_dev_cmd_id id, const std::vector<size_t>& localWorkSize) = 0;
-
-};
 
 }}}

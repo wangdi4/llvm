@@ -33,7 +33,6 @@
 #include "backend_wrapper.h"
 #include "task_executor.h"
 #include "task_dispatcher.h"
-#include "cpu_logger.h"
 #ifdef __USE_TBB_SCALABLE_ALLOCATOR__
 #include "tbb/scalable_allocator.h"
 #endif
@@ -79,8 +78,6 @@ protected:
 	tbb::scalable_allocator<DeviceNDRange> m_deviceNDRangeAllocator;
 	tbb::scalable_allocator<char>          m_deviceNDRangeContextAllocator;
 #endif
-
-    CpuUserLogger m_cpuUserLogger;
 
     static volatile bool    m_bDeviceIsRunning;
 
