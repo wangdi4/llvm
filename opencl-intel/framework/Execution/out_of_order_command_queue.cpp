@@ -115,7 +115,7 @@ void OutOfOrderCommandQueue::Submit(Command* cmd)
         }
         else if(res != CL_NOT_READY)
         {
-            NotifyCommandFailed(res,cmd->GetEvent());
+            NotifyCommandFailed(res,cmd);
         }
     }
 }

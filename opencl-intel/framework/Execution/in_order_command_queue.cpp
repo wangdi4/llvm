@@ -240,7 +240,7 @@ cl_err_code InOrderCommandQueue::SendCommandsToDevice()
                     else
                     {
                         // there has been an error, remove from queue
-                        NotifyCommandFailed(res,cmd->GetEvent());
+                        NotifyCommandFailed(res,cmd);
                         m_commandsInExecution++;
                         m_submittedQueue.PopFront();                        
                     }

@@ -30,6 +30,7 @@
 #include "cl_shared_ptr.hpp"
 #include "Context.h"
 #include "context_module.h"
+#include "cl_user_logger.h"
 
 
 using namespace Intel::OpenCL::Framework;
@@ -253,18 +254,32 @@ void IOclCommandQueueBase::EnterZombieState( EnterZombieStateLevel call_level )
 }
 
 
-void IOclCommandQueueBase::NotifyCommandFailed( cl_err_code err , const SharedPtr<QueueEvent>& event )
+void IOclCommandQueueBase::NotifyCommandFailed( cl_err_code err , const CommandSharedPtr<>& command ) const
 {
-    _cl_event_int* handle = NULL;
-    if(event->GetVisibleToUser())
+    if ( NULL != command)
     {
-        handle = event->GetHandle();
+        std::stringstream stream;
+        _cl_event_int* handle = NULL;
+        if(command->GetEvent()->GetVisibleToUser())
+        {
+            handle = command->GetEvent()->GetHandle();
+        }
+
+        if ( GetUserLoggerInstance().IsErrorLoggingEnabled() )
+        {
+            stream << "Command failed. " << "command type: " << command->GetCommandName();
+            stream << ", command id: " << command->GetEvent()->GetId();
+            stream << ", result value: " << err;
+            stream << ", The cl_event value associated with the command (NULL if no event was attached): 0x" << handle;
+            GetUserLoggerInstance().PrintError(stream.str());
+            stream.str(std::string());
+        }
+      
+        stream << "A command failed with return value: " << err;
+        stream << ", the cl_event value associated with the command is in private_info (NULL if no event was attached).";
+        const std::string& tmp = stream.str();
+        GetContext()->NotifyError( tmp.c_str() , handle , sizeof(handle) );
     }
-    std::stringstream stream;
-    stream << "A task failed with return value: " << err << endl;
-    stream << "The openCL handle to the event associated with the task is in private_info (NULL if no event was attached).";
-    const std::string& tmp = stream.str();
-    GetContext()->NotifyError( tmp.c_str() , handle , sizeof(handle) );
 }
 
 void IOclCommandQueueBase::BecomeVisible()

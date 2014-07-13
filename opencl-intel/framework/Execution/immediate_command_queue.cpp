@@ -97,7 +97,7 @@ cl_err_code ImmediateCommandQueue::EnqueueCommand(Command* pCommand, cl_bool bBl
 
     if (CL_SUCCESS != ret)
     {
-        NotifyCommandFailed(ret,pCommand->GetEvent());
+        NotifyCommandFailed(ret,pCommand);
     }
     return ret;
 }

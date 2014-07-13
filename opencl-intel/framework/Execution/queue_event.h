@@ -91,7 +91,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // Add notification to ITT library when event state change occurs
         void        AddProfilerMarker(const char* szMarkerName, int iMarkerMask);
-        bool        GetVisibleToUser() {return m_bVisibleToUser;};
+        bool        GetVisibleToUser() const {return m_bVisibleToUser;};
         void        SetVisibleToUser() {m_bVisibleToUser = true;};
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
