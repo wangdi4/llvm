@@ -2,6 +2,7 @@
 #include "test_utils.h"
 #include "cl_utils.h"
 #include "test_pipe_thread.h"
+#include "cl_user_logger.h"
 #include <iostream>
 #include <cstdio>
 #include <fstream>
@@ -24,6 +25,12 @@ extern HostProgramFunc host_struct_kernel_arg;
 extern HostProgramFunc host_images_and_struct;
 extern HostProgramFunc host_local_global;
 extern HostProgramFunc host_task;
+
+namespace Intel { namespace OpenCL { namespace Utils {
+
+FrameworkUserLogger* g_pUserLogger = NULL;
+
+}}}
 
 // Encapsulates options parsed from a flag string. 
 // Initialize with a flag string, then use the 'get' method to obtain values

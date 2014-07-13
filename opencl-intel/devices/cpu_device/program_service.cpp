@@ -116,7 +116,7 @@ ProgramService::~ProgramService()
 ********************************************************************************************************************/
 cl_dev_err_code ProgramService::Init()
 {
-	ProgramConfig programConfig;
+    ProgramConfig programConfig;
     programConfig.InitFromCpuConfig(*m_pCPUConfig);
 
     ICLDevBackendCompilationService* pCompiler = NULL;
