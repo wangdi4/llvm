@@ -44,6 +44,8 @@ class IKernelJITContainer : public ICLDevBackendJITContainer {
 public:
   typedef void JIT_PTR(const void *, const size_t *, void *);
 
+  virtual ~IKernelJITContainer() {}
+
   /*
    * Free machine code
    */

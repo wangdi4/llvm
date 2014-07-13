@@ -179,16 +179,20 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             char* temp = NULL;
             DeserialNullTerminatedPrimitivesBuffer<char>(temp, stream);
 
-            try
+            // KW warning
+            if(temp)
             {
-                item = std::string(temp);
-            }
-            catch( std::bad_alloc& )
-            {
+                try
+                {
+                    item = std::string(temp);
+                }
+                catch( std::bad_alloc& )
+                {
+                    free(temp);
+                    throw Exceptions::SerializationException("Cannot Allocate Memory");
+                }
                 free(temp);
-                throw Exceptions::SerializationException("Cannot Allocate Memory");
             }
-            free(temp);
         }
 
         static void SerialPointerHint(const void** item, IOutputStream& stream)
