@@ -79,6 +79,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // manage lifetime slightly differently from another ReferenceCounted objects
         virtual void EnterZombieState( EnterZombieStateLevel call_level );
+        void NotifyCommandFailed( cl_err_code err , const SharedPtr<QueueEvent>& event );
 
     protected:
 

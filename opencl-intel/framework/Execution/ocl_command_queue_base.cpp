@@ -31,6 +31,7 @@
 #include "Context.h"
 #include "context_module.h"
 
+
 using namespace Intel::OpenCL::Framework;
 
 cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pUserEvent)
@@ -58,9 +59,13 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
     pQueueEvent->AddProfilerMarker("QUEUED", ITT_SHOW_QUEUED_MARKER);
 
     cl_err_code errVal = CL_SUCCESS;
-    // If blocking and no event, than it is needed to create dummy cl_event for wait
     cl_event waitEvent = NULL;
     cl_event* pEvent;
+    if(NULL != pUserEvent)
+    {
+        pQueueEvent->SetVisibleToUser();
+    }
+    // If blocking and no event, than it is needed to create dummy cl_event for wait
     if( bBlocking && NULL == pUserEvent)
     {
         pEvent = &waitEvent;
@@ -245,6 +250,21 @@ void IOclCommandQueueBase::EnterZombieState( EnterZombieStateLevel call_level )
 {
     m_pContext->GetContextModule().CommandQueueRemoved( this );
     OclCommandQueue::EnterZombieState(RECURSIVE_CALL);
+}
+
+
+void IOclCommandQueueBase::NotifyCommandFailed( cl_err_code err , const SharedPtr<QueueEvent>& event )
+{
+    _cl_event_int* handle = NULL;
+    if(event->GetVisibleToUser())
+    {
+        handle = event->GetHandle();
+    }
+    std::stringstream stream;
+    stream << "A task failed with return value: " << err << endl;
+    stream << "The openCL handle to the event associated with the task is in private_info (NULL if no event was attached).";
+    const std::string& tmp = stream.str();
+    GetContext()->NotifyError( tmp.c_str() , handle , sizeof(handle) );
 }
 
 void IOclCommandQueueBase::BecomeVisible()

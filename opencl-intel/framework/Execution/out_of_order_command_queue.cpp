@@ -113,9 +113,9 @@ void OutOfOrderCommandQueue::Submit(Command* cmd)
             cmd->GetEvent()->SetEventState(EVENT_STATE_DONE);
             cmd->CommandDone();
         }
-        else
+        else if(res != CL_NOT_READY)
         {
-            assert(res == CL_NOT_READY);
+            NotifyCommandFailed(res,cmd->GetEvent());
         }
     }
 }

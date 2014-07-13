@@ -91,6 +91,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // Add notification to ITT library when event state change occurs
         void        AddProfilerMarker(const char* szMarkerName, int iMarkerMask);
+        bool        GetVisibleToUser() {return m_bVisibleToUser;};
+        void        SetVisibleToUser() {m_bVisibleToUser = true;};
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
         // Override wait to track it in VTune. Need to track it here and not in parent class as
@@ -112,6 +114,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         bool                    m_bCommandSubmitValid;
         bool                    m_bCommandStartValid;
         bool                    m_bCommandEndValid;
+        bool                    m_bVisibleToUser;
         Command*                m_pCommand;                 // Pointer to the command represented by this event
 
         mutable OclSpinMutex    m_queueLock;
