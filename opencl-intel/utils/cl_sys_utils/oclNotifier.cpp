@@ -167,13 +167,13 @@ void NotifierCollection::EventStatusChanged(cl_event event)
 
 void NotifierCollection::BufferCreate(cl_mem memobj, cl_context context,
                                       size_t size, void* hostPtr,
-                                      bool fromGL,
+                                      ClExternalObjectType clExtObjType,
                                       unsigned int cookie)
 {
 	CHECK_FOR_NULL(memobj);
 	CHECK_FOR_NULL(context);
 	NOTIFY(BufferCreate, memobj, context, size,
-           hostPtr, fromGL, cookie);
+           hostPtr, clExtObjType, cookie);
 }
 void NotifierCollection::BufferMap(cl_mem memobj, cl_map_flags mapFlags,
                                    unsigned int cookie)
@@ -207,13 +207,14 @@ void NotifierCollection::SubBufferCreate(cl_mem parentBuffer,
 }
 void NotifierCollection::ImageCreate(cl_mem memobj, cl_context context, 
 									 const cl_image_desc* imageDesc,
-									 void* hostPtr, bool fromGL,
+									 void* hostPtr, 
+									 ClExternalObjectType clExtObjType,
                                      unsigned int cookie)
 {
 	CHECK_FOR_NULL(memobj);
 	CHECK_FOR_NULL(context);
 	NOTIFY(ImageCreate, memobj, context, imageDesc,
-           hostPtr, fromGL, cookie);
+           hostPtr, clExtObjType, cookie);
 }
 void NotifierCollection::ImageMap(cl_mem memobj, cl_map_flags mapFlags,
                                   unsigned int cookie)
