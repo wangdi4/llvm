@@ -53,22 +53,10 @@ if (NOT WIN32)
     endif( )
         add_definitions( ${WARNING_LEVEL} )
 
-    # Assembler setup - use private rules
-    set( CMAKE_ASM_FLAGS               ) # do not quote this!!!!
-    set( CMAKE_ASM_INCLUDE_DIR_FLAG    -I )
-    set( CMAKE_ASM_OUTPUT_NAME_FLAG    -o )
-    if( NOT ANDROID )
-        if (CVCC_ASM_PATH)
-            set(CMAKE_ASM_COMPILER         ${CVCC_ASM_PATH})
-        else(CVCC_ASM_PATH)
-            message(STATUS "Using system assembler, check that its version is 4.3.x")
-            set( CMAKE_ASM_COMPILER        as )
-        endif(CVCC_ASM_PATH)
-    endif( NOT ANDROID )
-
     endif (APPLE)
 endif (NOT WIN32)
 
+if(WIN32)
 #
 # Usage
 #     CREATE_ASM_RULES( <ADD_TO_SOURCES_LIST_VAR> ...<asm-files-list>...)
@@ -110,7 +98,7 @@ macro( CREATE_ASM_RULES ADD_TO_SOURCES_LIST_VAR )
     endif(DEFINED OBJ_FILES)
 
 endmacro( CREATE_ASM_RULES )
-
+endif(WIN32)
 
 ###############################################################################################
 
