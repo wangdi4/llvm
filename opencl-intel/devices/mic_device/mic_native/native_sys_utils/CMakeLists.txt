@@ -2,7 +2,7 @@
 
 set ( TARGET_LIB_NAME        native_sys_utils)
 
-message ("Building project for ${TARGET_LIB_NAME}")
+message (STATUS "Building project for ${TARGET_LIB_NAME}")
 
 set( TARGET_SOURCES )
 set( SYS_UTILS_EXCEPTIONS NumericListParser|oclNotifier|cl_socket|oclRetainers )
