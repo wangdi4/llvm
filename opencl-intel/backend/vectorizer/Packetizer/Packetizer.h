@@ -19,6 +19,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "llvm/IR/DataLayout.h"
+
 #include <string>
 #include <sstream>
 
@@ -88,6 +90,8 @@ public:
     AU.addRequired<WIAnalysis>();
     AU.addRequired<SoaAllocaAnalysis>();
     AU.addRequired<BuiltinLibInfo>();
+    AU.addRequired<DataLayout>();
+    AU.addPreserved<DataLayout>();
   }
 
 private:
@@ -494,6 +498,9 @@ private:
   /// @brief flag to enable scatter/gather to/from memory.
   bool UseScatterGather;
 
+  /// @brief DataLayout of processed module
+  DataLayout *m_pDL;
+
   /// @brief counter of cases when packetizing is cancelled because of shufflevector instruction
   int m_shuffleCtr;
   /// @brief counter of cases when packetizing is cancelled because of extractvalue instruction
@@ -517,6 +524,8 @@ private:
 
   // Statistics:
   Statistic::ActiveStatsT m_kernelStats;
+  Statistic GEP_With_2_Indices;
+  Statistic GEP_With_More_Than_2_Indices;
   Statistic Array_Of_Structs_Store_Or_Loads;
   Statistic Cant_Load_Transpose_Because_Of_Non_Extract_Users;
   Statistic Cant_Load_Transpose_Because_Multiple_Extract_Users_With_The_Same_Index;

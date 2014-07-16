@@ -140,4 +140,5 @@ bool clSvmTest();
 bool clFlexibleNdrange();
 bool clPipes();
 bool clSampler();
+bool clAoSFieldScatterGather();
 //#define CUDA_DEVICE

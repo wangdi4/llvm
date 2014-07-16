@@ -491,6 +491,11 @@ TEST(FrameworkTestType, TEST_APFLevel)
     EXPECT_TRUE(cl_APFLevelForce());
 }
 
+TEST(FrameworkTestType, clAoSFieldScatterGather)
+{
+    EXPECT_TRUE(clAoSFieldScatterGather());
+}
+
 #endif
 
 // To run individual tests, use the --gtest_filter=<pattern> command-line
