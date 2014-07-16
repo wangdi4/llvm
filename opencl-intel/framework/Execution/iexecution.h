@@ -314,8 +314,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                                 void*               OUT pOutData, 
                                                 cl_uint             IN  uNumEventsInWaitList, 
                                                 const cl_event*     IN  cpEeventWaitList, 
-                                                cl_event*           OUT pEvent,
-                                                ApiLogger&          IN apiLogger)  = 0;
+                                                cl_event*           OUT pEvent      )  = 0;
 
         /******************************************************************************************
          * Function:     EnqueueWriteBuffer    
@@ -364,8 +363,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                                 const void*         OUT cpSrcData, 
                                                 cl_uint             IN  uNumEventsInWaitList, 
                                                 const cl_event*     IN  cpEeventWaitList, 
-                                                cl_event*           OUT pEvent,
-                                                ApiLogger&          IN apiLogger)  = 0;
+                                                cl_event*           OUT pEvent      )  = 0;
         /******************************************************************************************
          * Function:     EnqueueCopyBuffer    
          * Description:    Enqueues a command to copy a buffer object identified by clSrcBuffer to another 
@@ -411,8 +409,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                                 size_t              IN  szCb,
                                                 cl_uint             IN  uNumEventsInWaitList,
                                                 const cl_event*     IN  cpEeventWaitList,
-                                                cl_event*           OUT pEvent,
-                                                ApiLogger&          IN apiLogger)  = 0;
+                                                cl_event*           OUT pEvent      )  = 0;
 
         
         /**
@@ -452,8 +449,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                                 size_t size,
                                                 cl_uint num_events_in_wait_list,
                                                 const cl_event *event_wait_list,
-                                                cl_event *event,
-                                                ApiLogger& apiLogger) = 0;
+                                                cl_event *event) = 0;
 
                                                                                        
         /******************************************************************************************
@@ -521,8 +517,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                                 void*               OUT pOutData, 
                                                 cl_uint             IN  uNumEventsInWaitList, 
                                                 const cl_event*     IN  cpEeventWaitList, 
-                                                cl_event*           OUT pEvent,
-                                                ApiLogger&          IN apiLogger)  = 0;
+                                                cl_event*           OUT pEvent      )  = 0;
 
 
         /******************************************************************************************
@@ -588,8 +583,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                                 const void *        IN  cpSrcData,
                                                 cl_uint             IN  uNumEventsInWaitList, 
                                                 const cl_event*     IN  cpEeventWaitList, 
-                                                cl_event*           OUT pEvent,
-                                                ApiLogger&          IN apiLogger)  = 0;
+                                                cl_event*           OUT pEvent      )  = 0;
 
 
         /******************************************************************************************
@@ -658,8 +652,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                                 const size_t        IN  szRegion[3],
                                                 cl_uint             IN  uNumEventsInWaitList, 
                                                 const cl_event*     IN  cpEeventWaitList, 
-                                                cl_event*           OUT pEvent,
-                                                ApiLogger&          IN apiLogger)  = 0;
+                                                cl_event*           OUT pEvent      )  = 0;
 
         /******************************************************************************************
          * Function:    EnqueueCopyImageToBuffer    
@@ -714,8 +707,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                                 size_t              IN  szDstOffset,
                                                 cl_uint             IN  uNumEventsInWaitList, 
                                                 const cl_event*     IN  cpEeventWaitList, 
-                                                cl_event*           OUT pEvent,
-                                                ApiLogger&          IN apiLogger)  = 0;
+                                                cl_event*           OUT pEvent      )  = 0;
 
         /******************************************************************************************
          * Function:    EnqueueCopyBufferToImage    
@@ -770,8 +762,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                                 const size_t        IN  szRegion[3],
                                                 cl_uint             IN  uNumEventsInWaitList, 
                                                 const cl_event*     IN  cpEeventWaitList, 
-                                                cl_event*           OUT pEvent,
-                                                ApiLogger&          IN apiLogger)  = 0;
+                                                cl_event*           OUT pEvent      )  = 0;
 
         /******************************************************************************************
          * Function:    EnqueueMapBuffer    
@@ -833,8 +824,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                             cl_uint             IN  uNumEventsInWaitList, 
                                             const cl_event*     IN  cpEeventWaitList, 
                                             cl_event*           OUT pEvent,      
-                                            cl_int*             OUT pErrcodeRet,
-                                            ApiLogger&          IN apiLogger)  = 0;
+                                            cl_int*             OUT pErrcodeRet     )  = 0;
 
         /******************************************************************************************
          * Function:    EnqueueMapImage    
@@ -906,8 +896,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                         cl_uint             IN  uNumEventsInWaitList, 
                                         const cl_event*     IN  cpEeventWaitList, 
                                         cl_event*           OUT pEvent,      
-                                        cl_int*             OUT pErrcodeRet,
-                                        ApiLogger&          IN apiLogger)  = 0;
+                                        cl_int*             OUT pErrcodeRet     )  = 0;
 
         /******************************************************************************************
          * Function:     EnqueueUnmapMemObject    
@@ -945,8 +934,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                                     void*               IN  mappedPtr,
                                                     cl_uint             IN  uNumEventsInWaitList, 
                                                     const cl_event*     IN  cpEeventWaitList, 
-                                                    cl_event*           OUT pEvent,
-                                                    ApiLogger&          IN apiLogger)  = 0;     
+                                                    cl_event*           OUT pEvent  )  = 0;     
 
         /******************************************************************************************
          * Function:     EnqueueNDRangeKernel    
@@ -1010,8 +998,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                                     const size_t*       IN  cpszLocalWorkSize, 
                                                     cl_uint             IN  uNumEventsInWaitList, 
                                                     const cl_event*     IN  cpEeventWaitList,
-                                                    cl_event*           OUT pEvent,
-                                                    ApiLogger&          IN  apiLogger) = 0;
+                                                    cl_event*           OUT pEvent      ) = 0;
 
 
         /******************************************************************************************
@@ -1057,8 +1044,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                             cl_kernel           IN  clKernel,
                                             cl_uint             IN  uNumEventsInWaitList, 
                                             const cl_event*     IN  cpEeventWaitList,
-                                            cl_event*           OUT pEvent,
-                                            ApiLogger&          IN apiLogger) = 0;
+                                            cl_event*           OUT pEvent      ) = 0;
 
         /******************************************************************************************
          * Function:     EnqueueNativeKernel
@@ -1118,8 +1104,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                                     const void **       IN  ppArgsMemLoc,
                                                     cl_uint             IN  uNumEventsInWaitList, 
                                                     const cl_event*     IN  cpEeventWaitList,
-                                                    cl_event*           OUT pEvent,
-                                                    ApiLogger&          IN apiLogger) = 0;
+                                                    cl_event*           OUT pEvent      ) = 0;
 
 
         /******************************************************************************************
@@ -1142,8 +1127,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
          * Date:        February 2009
          ******************************************************************************************/        
         virtual cl_err_code EnqueueMarker ( cl_command_queue    IN  clCommandQueue, 
-                                            cl_event*           OUT pEvent,
-                                            ApiLogger*          IN apiLogger) = 0;
+                                            cl_event*           OUT pEvent      ) = 0;
 
         /******************************************************************************************
          * Function:     EnqueueWaitForEvents    
@@ -1166,8 +1150,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
          ******************************************************************************************/        
         virtual cl_err_code EnqueueWaitForEvents (  cl_command_queue    IN  clCommandQueue, 
                                                     cl_uint             IN  uiNumEvents, 
-                                                    const cl_event*     OUT cpEventList,
-                                                    ApiLogger&          IN apiLogger) =0;
+                                                    const cl_event*     OUT cpEventList     ) =0;
 
         /******************************************************************************************
          * Function:     EnqueueBarrier    
@@ -1185,7 +1168,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
          * Author:        Arnon Peleg
          * Date:        February 2009
          ******************************************************************************************/        
-        virtual cl_err_code EnqueueBarrier (cl_command_queue IN clCommandQueue, ApiLogger* pApiLogger) =0;
+        virtual cl_err_code EnqueueBarrier (cl_command_queue IN clCommandQueue) =0;
 
         /******************************************************************************************
          * Function:     Flush    

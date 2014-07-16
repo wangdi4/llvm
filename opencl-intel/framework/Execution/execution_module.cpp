@@ -481,7 +481,7 @@ cl_err_code ExecutionModule::Finish ( const SharedPtr<IOclCommandQueueBase>& pCo
     cl_err_code res = CL_SUCCESS;
     cl_event dummy = NULL;
 
-    res = EnqueueMarker(pCommandQueue, &dummy, NULL);
+    res = EnqueueMarker(pCommandQueue, &dummy);
     if (CL_FAILED(res))
     {
         return res;
@@ -505,17 +505,17 @@ cl_err_code ExecutionModule::Finish ( const SharedPtr<IOclCommandQueueBase>& pCo
 /**
  * @fn cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent)
  */
-cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent, ApiLogger* pApiLogger)
+cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent)
 {
     SharedPtr<IOclCommandQueueBase> const pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();    
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-    return EnqueueMarkerWithWaitList(  pCommandQueue, uiNumEvents, pEventList, pEvent, pApiLogger);
+    return EnqueueMarkerWithWaitList(  pCommandQueue, uiNumEvents, pEventList, pEvent);
 }
 
-cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(const SharedPtr<IOclCommandQueueBase>& pCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent, ApiLogger* pApiLogger)
+cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(const SharedPtr<IOclCommandQueueBase>& pCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent)
 {
     if ((NULL == pEventList && uiNumEvents > 0) || (NULL != pEventList && 0 == uiNumEvents))
     {
@@ -535,7 +535,7 @@ cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(const SharedPtr<IOclComma
         return err;
     }
 
-    err = pCommandQueue->EnqueueRuntimeCommandWaitEvents(IOclCommandQueueBase::MARKER, pMarkerCommand, uiNumEvents, pEventList, pEvent, pApiLogger);
+    err = pCommandQueue->EnqueueRuntimeCommandWaitEvents(IOclCommandQueueBase::MARKER, pMarkerCommand, uiNumEvents, pEventList, pEvent);
     if (CL_FAILED(err))
     {
         pMarkerCommand->CommandDone();
@@ -547,7 +547,7 @@ cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(const SharedPtr<IOclComma
 /**
  * @fn cl_err_code ExecutionModule::EnqueueBarrierWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent)
  */
-cl_err_code ExecutionModule::EnqueueBarrierWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent, ApiLogger* pApiLogger)
+cl_err_code ExecutionModule::EnqueueBarrierWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent)
 {
     SharedPtr<IOclCommandQueueBase> const pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
     if (NULL == pCommandQueue)
@@ -572,7 +572,7 @@ cl_err_code ExecutionModule::EnqueueBarrierWithWaitList(cl_command_queue clComma
         return err;
     }
     
-    err = pCommandQueue->EnqueueRuntimeCommandWaitEvents(IOclCommandQueueBase::BARRIER, pBarrierCommand, uiNumEvents, pEventList, pEvent, pApiLogger);
+    err = pCommandQueue->EnqueueRuntimeCommandWaitEvents(IOclCommandQueueBase::BARRIER, pBarrierCommand, uiNumEvents, pEventList, pEvent);
     if (CL_FAILED(err))
     {
         pBarrierCommand->CommandDone();
@@ -584,20 +584,20 @@ cl_err_code ExecutionModule::EnqueueBarrierWithWaitList(cl_command_queue clComma
 /******************************************************************
  * 
  ******************************************************************/
-cl_err_code ExecutionModule::EnqueueMarker(cl_command_queue clCommandQueue, cl_event *pEvent, ApiLogger* pApiLogger)
+cl_err_code ExecutionModule::EnqueueMarker(cl_command_queue clCommandQueue, cl_event *pEvent)
 {
-    return EnqueueMarkerWithWaitList(clCommandQueue, 0, NULL, pEvent, pApiLogger);
+    return EnqueueMarkerWithWaitList(clCommandQueue, 0, NULL, pEvent);
 }
 
-cl_err_code ExecutionModule::EnqueueMarker(const SharedPtr<IOclCommandQueueBase>& clCommandQueue, cl_event *pEvent, ApiLogger* pApiLogger)
+cl_err_code ExecutionModule::EnqueueMarker(const SharedPtr<IOclCommandQueueBase>& clCommandQueue, cl_event *pEvent)
 {
-    return EnqueueMarkerWithWaitList(clCommandQueue, 0, NULL, pEvent, pApiLogger);
+    return EnqueueMarkerWithWaitList(clCommandQueue, 0, NULL, pEvent);
 }
 
 /******************************************************************
  * 
  ******************************************************************/
-cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* cpEventList, ApiLogger& apiLogger)
+cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* cpEventList)
 {
     cl_err_code errVal;
     if ( (NULL == cpEventList) || (0 == uiNumEvents) )
@@ -625,7 +625,7 @@ cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue clCommandQueu
         return errVal;
     }
 
-    errVal = pCommandQueue->EnqueueRuntimeCommandWaitEvents(IOclCommandQueueBase::JUST_WAIT, pWaitForEventsCommand, uiNumEvents, cpEventList, NULL, &apiLogger);
+    errVal = pCommandQueue->EnqueueRuntimeCommandWaitEvents(IOclCommandQueueBase::JUST_WAIT, pWaitForEventsCommand, uiNumEvents, cpEventList, NULL);
     if ( CL_FAILED(errVal) )
     {
         pWaitForEventsCommand->CommandDone();
@@ -638,9 +638,9 @@ cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue clCommandQueu
 /******************************************************************
  * 
  ******************************************************************/
-cl_err_code ExecutionModule::EnqueueBarrier(cl_command_queue clCommandQueue, ApiLogger* pApiLogger)
+cl_err_code ExecutionModule::EnqueueBarrier(cl_command_queue clCommandQueue)
 {
-    return EnqueueBarrierWithWaitList(clCommandQueue, 0, NULL, NULL, pApiLogger);
+    return EnqueueBarrierWithWaitList(clCommandQueue, 0, NULL, NULL);
 }
 
 
@@ -816,7 +816,7 @@ cl_err_code ExecutionModule::EnqueueMigrateMemObjects(cl_command_queue clCommand
                                                       cl_mem_migration_flags clFlags,
                                                       cl_uint uiNumEventsInWaitList,
                                                       const cl_event* pEventWaitList,
-                                                      cl_event* pEvent, ApiLogger& apiLogger)
+                                                      cl_event* pEvent)
 {
     if ((NULL == pEventWaitList && uiNumEventsInWaitList > 0) || (NULL != pEventWaitList && 0 == uiNumEventsInWaitList))
     {
@@ -850,7 +850,7 @@ cl_err_code ExecutionModule::EnqueueMigrateMemObjects(cl_command_queue clCommand
         return err;
     }
 
-    err = pMigrateCommand->EnqueueSelf(CL_FALSE, uiNumEventsInWaitList, pEventWaitList, pEvent, apiLogger);
+    err = pMigrateCommand->EnqueueSelf(CL_FALSE, uiNumEventsInWaitList, pEventWaitList, pEvent);
     if(CL_FAILED(err))
     {
         // Enqueue failed, free resources
@@ -864,7 +864,7 @@ cl_err_code ExecutionModule::EnqueueMigrateMemObjects(cl_command_queue clCommand
 /******************************************************************
  * 
  ******************************************************************/
-cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlocking, size_t szOffset, size_t szCb, void* pOutData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger& apiLogger)
+cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlocking, size_t szOffset, size_t szCb, void* pOutData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
 {
     cl_err_code errVal = CL_SUCCESS;
     if (NULL == pOutData)
@@ -921,7 +921,7 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, 
         return  errVal;
     }
 
-    errVal = pEnqueueReadBufferCmd->EnqueueSelf(bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
+    errVal = pEnqueueReadBufferCmd->EnqueueSelf(bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
@@ -948,8 +948,7 @@ cl_err_code ExecutionModule::EnqueueReadBufferRect(
                         void*                pOutData, 
                         cl_uint                uNumEventsInWaitList, 
                         const cl_event*        cpEeventWaitList, 
-                        cl_event*            pEvent,
-                        ApiLogger& apiLogger)
+                        cl_event*            pEvent)
 {
     cl_err_code errVal = CL_SUCCESS;
     
@@ -1025,7 +1024,7 @@ cl_err_code ExecutionModule::EnqueueReadBufferRect(
         return  errVal;
     }
 
-    errVal = pEnqueueReadBufferRectCmd->EnqueueSelf(bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
+    errVal = pEnqueueReadBufferRectCmd->EnqueueSelf(bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
@@ -1037,7 +1036,7 @@ cl_err_code ExecutionModule::EnqueueReadBufferRect(
 /******************************************************************
  * 
  ******************************************************************/
-cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlocking, size_t szOffset, size_t szCb, const void* cpSrcData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger& apiLogger)
+cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlocking, size_t szOffset, size_t szCb, const void* cpSrcData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
 {
     cl_start;
     cl_err_code errVal = CL_SUCCESS;
@@ -1095,7 +1094,7 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue,
         return  errVal;
     }
 
-    errVal = pWriteBufferCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
+    errVal = pWriteBufferCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
     if(CL_FAILED(errVal))
     {
         pWriteBufferCmd->CommandDone();
@@ -1122,8 +1121,7 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
                         const void*            pOutData, 
                         cl_uint                uNumEventsInWaitList, 
                         const cl_event*        cpEeventWaitList, 
-                        cl_event*            pEvent,
-                        ApiLogger& apiLogger)
+                        cl_event*            pEvent)
 {
     cl_start;
     cl_err_code errVal = CL_SUCCESS;
@@ -1201,7 +1199,7 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
         return  errVal;
     }
 
-    errVal = pWriteBufferRectCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
+    errVal = pWriteBufferRectCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
     if(CL_FAILED(errVal))
     {
         pWriteBufferRectCmd->CommandDone();
@@ -1241,8 +1239,7 @@ cl_err_code ExecutionModule::EnqueueFillBuffer (cl_command_queue clCommandQueue,
         size_t size,
         cl_uint num_events_in_wait_list,
         const cl_event *event_wait_list,
-        cl_event *pEvent,
-        ApiLogger& apiLogger)
+        cl_event *pEvent)
 {
     cl_start;
     cl_err_code errVal = CL_SUCCESS;
@@ -1322,7 +1319,7 @@ cl_err_code ExecutionModule::EnqueueFillBuffer (cl_command_queue clCommandQueue,
         return  errVal;
     }
 
-    errVal = pCommandQueue->EnqueueCommand(pFillBufferCmd, CL_FALSE, num_events_in_wait_list, event_wait_list, pEvent, apiLogger);
+    errVal = pCommandQueue->EnqueueCommand(pFillBufferCmd, CL_FALSE, num_events_in_wait_list, event_wait_list, pEvent);
     if(CL_FAILED(errVal))
     {
         pFillBufferCmd->CommandDone();
@@ -1344,8 +1341,7 @@ cl_err_code ExecutionModule::EnqueueCopyBuffer(
     size_t              szCb, 
     cl_uint             uNumEventsInWaitList, 
     const cl_event*     cpEeventWaitList, 
-    cl_event*           pEvent,
-    ApiLogger& apiLogger
+    cl_event*           pEvent
     )
 {
     cl_err_code errVal = CL_SUCCESS;
@@ -1405,7 +1401,7 @@ cl_err_code ExecutionModule::EnqueueCopyBuffer(
     }
 
     // Enqueue copy command, never blocking
-    errVal = pCopyBufferCommand->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
+    errVal = pCopyBufferCommand->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
@@ -1433,8 +1429,7 @@ cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
                         size_t                dst_buffer_slice_pitch, 
                         cl_uint                uNumEventsInWaitList, 
                         const cl_event*        cpEeventWaitList, 
-                        cl_event* pEvent,
-                        ApiLogger& apiLogger)
+                        cl_event* pEvent)
 {
     cl_err_code errVal = CL_SUCCESS;
     if (NULL == szSrcOrigin || NULL == szDstOrigin || NULL == region)
@@ -1529,7 +1524,7 @@ cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
     }
 
     // Enqueue copy command, never blocking
-    errVal = pCopyBufferRectCommand->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
+    errVal = pCopyBufferRectCommand->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
@@ -1623,8 +1618,7 @@ cl_err_code ExecutionModule::EnqueueFillImage(cl_command_queue clCommandQueue,
         const size_t *region,
         cl_uint num_events_in_wait_list,
         const cl_event *event_wait_list,
-        cl_event *event,
-        ApiLogger& apiLogger)
+        cl_event *event)
 {
     cl_start;
     cl_err_code errVal = CL_SUCCESS;
@@ -1718,7 +1712,7 @@ cl_err_code ExecutionModule::EnqueueFillImage(cl_command_queue clCommandQueue,
         return  errVal;
     }
 
-    errVal = pCommandQueue->EnqueueCommand(pFillBufferCmd, CL_FALSE, num_events_in_wait_list, event_wait_list, event, apiLogger);
+    errVal = pCommandQueue->EnqueueCommand(pFillBufferCmd, CL_FALSE, num_events_in_wait_list, event_wait_list, event);
     if(CL_FAILED(errVal))
     {
         pFillBufferCmd->CommandDone();
@@ -1731,7 +1725,7 @@ cl_err_code ExecutionModule::EnqueueFillImage(cl_command_queue clCommandQueue,
 /******************************************************************
  * 
  ******************************************************************/
-void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlockingMap, cl_map_flags clMapFlags, size_t szOffset, size_t szCb, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, cl_int* pErrcodeRet, ApiLogger& apiLogger)
+void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlockingMap, cl_map_flags clMapFlags, size_t szOffset, size_t szCb, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, cl_int* pErrcodeRet)
 {   
     cl_int err = CL_SUCCESS;
     if (NULL == pErrcodeRet)
@@ -1812,7 +1806,7 @@ void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem
     // Note that if EnqueueCommand succeeded, by the time it returns, the command may be deleted already.
     void* mappedPtr = pMapBufferCommand->GetMappedPtr();
 
-    *pErrcodeRet = pMapBufferCommand->EnqueueSelf(bBlockingMap, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
+    *pErrcodeRet = pMapBufferCommand->EnqueueSelf(bBlockingMap, uNumEventsInWaitList, cpEeventWaitList, pEvent);
     if(CL_FAILED(*pErrcodeRet))
     {
         // Enqueue failed, free resources
@@ -1826,7 +1820,7 @@ void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem
 /******************************************************************
  * 
  ******************************************************************/
-cl_err_code ExecutionModule::EnqueueUnmapMemObject(cl_command_queue clCommandQueue,cl_mem clMemObj, void* mappedPtr, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger& apiLogger)
+cl_err_code ExecutionModule::EnqueueUnmapMemObject(cl_command_queue clCommandQueue,cl_mem clMemObj, void* mappedPtr, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
 {
     cl_err_code errVal;
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
@@ -1860,7 +1854,7 @@ cl_err_code ExecutionModule::EnqueueUnmapMemObject(cl_command_queue clCommandQue
         return  errVal;
     }
 
-    errVal = pUnmapMemObjectCommand->EnqueueSelf(CL_FALSE /*never blocks*/, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
+    errVal = pUnmapMemObjectCommand->EnqueueSelf(CL_FALSE /*never blocks*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
@@ -1883,8 +1877,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     const size_t*   cpszLocalWorkSize, 
     cl_uint         uNumEventsInWaitList, 
     const cl_event* cpEeventWaitList, 
-    cl_event*       pEvent,
-    ApiLogger&      apiLogger
+    cl_event*       pEvent
     )
 {
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
@@ -2006,7 +1999,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
         __itt_task_begin(m_pGPAData->pAPIDomain, __itt_null, __itt_null, pTaskName);
       }
 #endif
-    errVal = pNDRangeKernelCmd->EnqueueSelf(false/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
+    errVal = pNDRangeKernelCmd->EnqueueSelf(false/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
     {
@@ -2028,7 +2021,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
 /******************************************************************
  * 
  ******************************************************************/
-cl_err_code ExecutionModule::EnqueueTask( cl_command_queue clCommandQueue, cl_kernel clKernel, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger& apiLogger)
+cl_err_code ExecutionModule::EnqueueTask( cl_command_queue clCommandQueue, cl_kernel clKernel, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
 {
     cl_err_code errVal = CL_SUCCESS;
 
@@ -2078,7 +2071,7 @@ cl_err_code ExecutionModule::EnqueueTask( cl_command_queue clCommandQueue, cl_ke
         return  errVal;
     }
 
-    errVal = pTaskCommand->EnqueueSelf(false/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
+    errVal = pTaskCommand->EnqueueSelf(false/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
@@ -2092,7 +2085,7 @@ cl_err_code ExecutionModule::EnqueueTask( cl_command_queue clCommandQueue, cl_ke
 /******************************************************************
  * 
  ******************************************************************/
-cl_err_code ExecutionModule::EnqueueNativeKernel(cl_command_queue clCommandQueue, void (CL_CALLBACK*pUserFnc)(void *), void* pArgs, size_t szCbArgs, cl_uint uNumMemObjects, const cl_mem* clMemList, const void** ppArgsMemLoc, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger& apiLogger)
+cl_err_code ExecutionModule::EnqueueNativeKernel(cl_command_queue clCommandQueue, void (CL_CALLBACK*pUserFnc)(void *), void* pArgs, size_t szCbArgs, cl_uint uNumMemObjects, const cl_mem* clMemList, const void** ppArgsMemLoc, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
 {
     cl_err_code errVal = CL_SUCCESS;
 
@@ -2158,7 +2151,7 @@ cl_err_code ExecutionModule::EnqueueNativeKernel(cl_command_queue clCommandQueue
         return  errVal;
     }
 
-    errVal = pNativeKernelCommand->EnqueueSelf(CL_FALSE/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
+    errVal = pNativeKernelCommand->EnqueueSelf(CL_FALSE/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
@@ -2309,8 +2302,7 @@ cl_err_code ExecutionModule::EnqueueReadImage(
                                 void*            pOutData, 
                                 cl_uint          uNumEventsInWaitList, 
                                 const cl_event*  cpEeventWaitList, 
-                                cl_event*        pEvent,
-                                ApiLogger& apiLogger      
+                                cl_event*        pEvent      
                                 )
 {
     cl_err_code errVal = CL_SUCCESS;
@@ -2368,7 +2360,7 @@ cl_err_code ExecutionModule::EnqueueReadImage(
         return  errVal;
     }
 
-    errVal = pReadImageCmd->EnqueueSelf(bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
+    errVal = pReadImageCmd->EnqueueSelf(bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
@@ -2393,8 +2385,7 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
                                 const void *     cpSrcData,
                                 cl_uint          uNumEventsInWaitList, 
                                 const cl_event*  cpEeventWaitList, 
-                                cl_event*        pEvent,
-                                ApiLogger& apiLogger
+                                cl_event*        pEvent
                                 )
 {
     cl_err_code errVal = CL_SUCCESS;
@@ -2452,7 +2443,7 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
         return  errVal;
     }
 
-    errVal = pWriteImageCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
+    errVal = pWriteImageCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
@@ -2540,8 +2531,7 @@ cl_err_code ExecutionModule::EnqueueCopyImage(
                                 const size_t     szRegion[MAX_WORK_DIM],
                                 cl_uint          uNumEventsInWaitList, 
                                 const cl_event*  cpEeventWaitList, 
-                                cl_event*        pEvent,
-                                ApiLogger& apiLogger
+                                cl_event*        pEvent      
                                 )
 {
     cl_err_code errVal = CL_SUCCESS;
@@ -2621,7 +2611,7 @@ cl_err_code ExecutionModule::EnqueueCopyImage(
     }
 
     // Enqueue copy command, never blocking
-    errVal = pCopyImageCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
+    errVal = pCopyImageCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
@@ -2645,8 +2635,7 @@ cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(
                                 size_t           szDstOffset,
                                 cl_uint          uNumEventsInWaitList, 
                                 const cl_event*  cpEeventWaitList, 
-                                cl_event*        pEvent,
-                                ApiLogger& apiLogger
+                                cl_event*        pEvent
                                 )
 {
     cl_err_code errVal = CL_SUCCESS;
@@ -2707,7 +2696,7 @@ cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(
     }
 
     // Enqueue copy command, never blocking
-    errVal = pCopyImageToBufferCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
+    errVal = pCopyImageToBufferCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
@@ -2731,8 +2720,7 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
                                 const size_t     szRegion[MAX_WORK_DIM],
                                 cl_uint          uNumEventsInWaitList,
                                 const cl_event*  cpEeventWaitList, 
-                                cl_event*        pEvent,
-                                ApiLogger& apiLogger
+                                cl_event*        pEvent
                                 )
 {
     cl_err_code errVal = CL_SUCCESS;
@@ -2794,7 +2782,7 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
     }
 
     // Enqueue copy command, never blocking
-    errVal = pCopyBufferToImageCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
+    errVal = pCopyBufferToImageCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
@@ -2820,8 +2808,7 @@ void * ExecutionModule::EnqueueMapImage(
     cl_uint             uNumEventsInWaitList, 
     const cl_event*     cpEeventWaitList, 
     cl_event*           pEvent, 
-    cl_int*             pErrcodeRet,
-    ApiLogger& apiLogger)
+    cl_int*             pErrcodeRet)
 {
     cl_int err = CL_SUCCESS;    
     if (NULL == pErrcodeRet)
@@ -2912,7 +2899,7 @@ void * ExecutionModule::EnqueueMapImage(
     // Get pointer for mapped region since it is allocated on init. Execute will lock the region
     // Note that if EnqueueCommand succeeded, by the time it returns, the command may be deleted already.
     void* mappedPtr = pMapImageCmd->GetMappedPtr();
-    *pErrcodeRet = pMapImageCmd->EnqueueSelf(bBlockingMap, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
+    *pErrcodeRet = pMapImageCmd->EnqueueSelf(bBlockingMap, uNumEventsInWaitList, cpEeventWaitList, pEvent);
     if(CL_FAILED(*pErrcodeRet))
     {
         pMapImageCmd->CommandDone();
@@ -2949,7 +2936,7 @@ static cl_int CheckEventList(const SharedPtr<OclCommandQueue>& pQueue, cl_uint u
 
 cl_int ExecutionModule::EnqueueSVMFree(cl_command_queue clCommandQueue, cl_uint uiNumSvmPointers, void* pSvmPointers[],
                                     void (CL_CALLBACK* pfnFreeFunc)(cl_command_queue queue, cl_uint uiNumSvmPointers, void* pSvmPointers[],    void* pUserData),
-                                    void* pUserData, cl_uint uiNumEventsInWaitList,    const cl_event* pEventWaitList,    cl_event* pEvent, ApiLogger& apiLogger)
+                                    void* pUserData, cl_uint uiNumEventsInWaitList,    const cl_event* pEventWaitList,    cl_event* pEvent)
 {
     SharedPtr<IOclCommandQueueBase> pQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
     if (NULL == pQueue)
@@ -2986,7 +2973,7 @@ cl_int ExecutionModule::EnqueueSVMFree(cl_command_queue clCommandQueue, cl_uint 
         delete pSvmFreeCmd;
         return err;
     }
-    err = pSvmFreeCmd->EnqueueSelf(false, uiNumEventsInWaitList, pEventWaitList, pEvent, apiLogger);
+    err = pSvmFreeCmd->EnqueueSelf(false, uiNumEventsInWaitList, pEventWaitList, pEvent);
     if (CL_FAILED(err))
     {
         pSvmFreeCmd->CommandDone();
@@ -2997,7 +2984,7 @@ cl_int ExecutionModule::EnqueueSVMFree(cl_command_queue clCommandQueue, cl_uint 
 }
 
 cl_int ExecutionModule::EnqueueSVMMemcpy(cl_command_queue clCommandQueue, cl_bool bBlockingCopy, void* pDstPtr, const void* pSrcPtr, size_t size, cl_uint uiNumEventsInWaitList,
-    const cl_event* pEventWaitList, cl_event* pEvent, ApiLogger& apiLogger)
+    const cl_event* pEventWaitList, cl_event* pEvent)
 {
     // validate parameters:
     SharedPtr<IOclCommandQueueBase> pQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
@@ -3071,7 +3058,7 @@ cl_int ExecutionModule::EnqueueSVMMemcpy(cl_command_queue clCommandQueue, cl_boo
         delete pCmd;
         return err;
     }
-    err = pCmd->EnqueueSelf(bBlockingCopy, uiNumEventsInWaitList, pEventWaitList, pEvent, apiLogger);
+    err = pCmd->EnqueueSelf(bBlockingCopy, uiNumEventsInWaitList, pEventWaitList, pEvent);
     if (CL_FAILED(err))
     {
         pCmd->CommandDone();
@@ -3082,7 +3069,7 @@ cl_int ExecutionModule::EnqueueSVMMemcpy(cl_command_queue clCommandQueue, cl_boo
 }
 
 cl_int ExecutionModule::EnqueueSVMMemFill(cl_command_queue clCommandQueue, void* pSvmPtr, const void* pPattern, size_t szPatternSize, size_t size, cl_uint uiNumEventsInWaitList,
-                                          const cl_event* pEventWaitList, cl_event* pEvent, ApiLogger& apiLogger)
+                                          const cl_event* pEventWaitList, cl_event* pEvent)
 {
     // validate parameters:
     SharedPtr<IOclCommandQueueBase> pQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
@@ -3128,7 +3115,7 @@ cl_int ExecutionModule::EnqueueSVMMemFill(cl_command_queue clCommandQueue, void*
         delete pCmd;
         return err;
     }
-    err = pCmd->EnqueueSelf(false, uiNumEventsInWaitList, pEventWaitList, pEvent, apiLogger);
+    err = pCmd->EnqueueSelf(false, uiNumEventsInWaitList, pEventWaitList, pEvent);
     if (CL_FAILED(err))
     {
         pCmd->CommandDone();
@@ -3139,7 +3126,7 @@ cl_int ExecutionModule::EnqueueSVMMemFill(cl_command_queue clCommandQueue, void*
 }
 
 cl_int ExecutionModule::EnqueueSVMMap(cl_command_queue clCommandQueue, cl_bool bBlockingMap, cl_map_flags mapflags, void* pSvmPtr, size_t size, cl_uint uiNumEventsInWaitList,
-                                      const cl_event* pEventWaitList, cl_event* pEvent, ApiLogger& apiLogger)
+                                      const cl_event* pEventWaitList, cl_event* pEvent)
 {
     SharedPtr<IOclCommandQueueBase> pQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
     if (NULL == pQueue)
@@ -3185,7 +3172,7 @@ cl_int ExecutionModule::EnqueueSVMMap(cl_command_queue clCommandQueue, cl_bool b
         return err;
     }
     assert(pCmd->GetMappedPtr() == pSvmPtr && "pCmd->GetMappedPtr() != pSvmPtr");
-    err = pCmd->EnqueueSelf(bBlockingMap, uiNumEventsInWaitList, pEventWaitList, pEvent, apiLogger);
+    err = pCmd->EnqueueSelf(bBlockingMap, uiNumEventsInWaitList, pEventWaitList, pEvent);
     if (CL_FAILED(err))
     {
         pCmd->CommandDone();
@@ -3195,7 +3182,7 @@ cl_int ExecutionModule::EnqueueSVMMap(cl_command_queue clCommandQueue, cl_bool b
     return CL_SUCCESS;
 }
 
-cl_int ExecutionModule::EnqueueSVMUnmap(cl_command_queue clCommandQueue, void* pSvmPtr, cl_uint uiNumEventsInWaitList, const cl_event* pEventWaitList, cl_event* pEvent, ApiLogger& apiLogger)
+cl_int ExecutionModule::EnqueueSVMUnmap(cl_command_queue clCommandQueue, void* pSvmPtr, cl_uint uiNumEventsInWaitList, const cl_event* pEventWaitList, cl_event* pEvent)
 {
     SharedPtr<IOclCommandQueueBase> pQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
     if (NULL == pQueue)
@@ -3235,7 +3222,7 @@ cl_int ExecutionModule::EnqueueSVMUnmap(cl_command_queue clCommandQueue, void* p
         delete pCmd;
         return err;
     }
-    err = pCmd->EnqueueSelf(false, uiNumEventsInWaitList, pEventWaitList, pEvent, apiLogger);
+    err = pCmd->EnqueueSelf(false, uiNumEventsInWaitList, pEventWaitList, pEvent);
     if (CL_FAILED(err))
     {
         pCmd->CommandDone();
@@ -3254,8 +3241,7 @@ cl_err_code ExecutionModule::EnqueueSyncGLObjects(cl_command_queue clCommandQueu
                                                      const cl_mem * pclMemObjects, 
                                                      cl_uint uiNumEventsInWaitList, 
                                                      const cl_event * pclEventWaitList, 
-                                                     cl_event * pclEvent,
-                                                     ApiLogger& apiLogger)
+                                                     cl_event * pclEvent)
 {
 #if defined (_WIN32) //TODO GL support for Linux
     cl_err_code errVal = CL_SUCCESS;
@@ -3324,7 +3310,7 @@ cl_err_code ExecutionModule::EnqueueSyncGLObjects(cl_command_queue clCommandQueu
         return  errVal;
     }
 
-    errVal = pAcquireCmd->EnqueueSelf(FALSE, uiNumEventsInWaitList, pclEventWaitList, pclEvent, apiLogger);
+    errVal = pAcquireCmd->EnqueueSelf(FALSE, uiNumEventsInWaitList, pclEventWaitList, pclEvent);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources

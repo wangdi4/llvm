@@ -52,13 +52,6 @@
 #endif
 
 using namespace Intel::OpenCL::CPUDevice;
-using Intel::OpenCL::Utils::FrameworkUserLogger;
-
-namespace Intel { namespace OpenCL { namespace Utils {
-
-FrameworkUserLogger* g_pUserLogger = NULL;
-
-}}}
 
 USE_SHUTDOWN_HANDLER(CPUDevice::WaitUntilShutdown);
 
@@ -497,8 +490,7 @@ void CPUDevice::WaitUntilShutdown()
 extern "C" cl_dev_err_code clDevCreateDeviceInstance(  cl_uint      dev_id,
                                    IOCLFrameworkCallbacks   *pDevCallBacks,
                                    IOCLDevLogDescriptor     *pLogDesc,
-                                   IOCLDeviceAgent*         *pDevice,
-                                   FrameworkUserLogger* pUserLogger
+                                   IOCLDeviceAgent*         *pDevice
                                    )
 {
     if(NULL == pDevCallBacks || NULL == pDevice)
@@ -506,7 +498,6 @@ extern "C" cl_dev_err_code clDevCreateDeviceInstance(  cl_uint      dev_id,
         return CL_DEV_INVALID_OPERATION;
     }
 
-    g_pUserLogger = pUserLogger;
     CPUDevice *pNewDevice = new CPUDevice(dev_id, pDevCallBacks, pLogDesc);
     if ( NULL == pNewDevice )
     {

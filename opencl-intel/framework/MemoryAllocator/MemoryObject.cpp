@@ -272,11 +272,11 @@ void MemoryObject::NotifyDestruction()
     while (!m_pfnNotifiers.empty())
     {
         MemDtorNotifyData* notifyData = m_pfnNotifiers.top();
-        if (NULL != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled())
+        if (GetUserLoggerInstance().IsApiLoggingEnabled())
         {
             std::stringstream stream;
             stream << "MemObjectDestructorCallback(" << myHandle << ", " << notifyData->second << ")" << std::endl;
-            g_pUserLogger->PrintString(stream.str());
+            GetUserLoggerInstance().PrintString(stream.str());
         }
         notifyData->first(myHandle, notifyData->second);
         m_pfnNotifiers.pop();

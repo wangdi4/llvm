@@ -35,7 +35,7 @@
 
 using namespace Intel::OpenCL::Framework;
 
-cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pUserEvent, ApiLogger& apiLogger)
+cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pUserEvent)
 {
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
       if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
@@ -76,7 +76,6 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
         pEvent = pUserEvent;
     }
     m_pEventsManager->RegisterQueueEvent(pQueueEvent, pEvent);
-    apiLogger.SetCmdId(pQueueEvent->GetId());
 
     AddFloatingDependence(pQueueEvent);
     errVal = m_pEventsManager->RegisterEvents(pQueueEvent, uNumEventsInWaitList, cpEeventWaitList);
@@ -150,7 +149,7 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 
 
 cl_err_code IOclCommandQueueBase::EnqueueRuntimeCommandWaitEvents(RUNTIME_COMMAND_TYPE type, 
-                                                    Command* pCommand, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList, cl_event* pEvent, ApiLogger* pApiLogger)
+                                                    Command* pCommand, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList, cl_event* pEvent)
 {
     const SharedPtr<QueueEvent>& pQueueEvent  = pCommand->GetEvent();
     cl_event                     pEventHandle = pQueueEvent->GetHandle();
@@ -162,10 +161,6 @@ cl_err_code IOclCommandQueueBase::EnqueueRuntimeCommandWaitEvents(RUNTIME_COMMAN
 
     AddFloatingDependence(pQueueEvent);
     errVal = m_pEventsManager->RegisterEvents(pQueueEvent, uNumEventsInWaitList, pEventWaitList);
-    if (NULL != pApiLogger)
-    {
-        pApiLogger->SetCmdId(pQueueEvent->GetId());
-    }
 
     if( CL_FAILED(errVal))
     {

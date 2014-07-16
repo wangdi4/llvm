@@ -26,7 +26,7 @@
 namespace Intel { namespace OpenCL { namespace Framework {
 
 /**
- * This class is responsible for providing the values of output paramters to the FrameworkUserLogger after the function returns
+ * This class is responsible for providing the values of output paramters to the UserLogger after the function returns
  */
 class OutputParamsValueProvider
 {
@@ -48,11 +48,16 @@ public:
 
     /**
      * Constructor
-     * @param apiLogger the ApiLogger that collects log data in the current API call function
      * @param specialPrinter an optinal SpecialOutputParamPrinter to use
      */
-    OutputParamsValueProvider(Intel::OpenCL::Utils::ApiLogger& apiLogger, const SpecialOutputParamPrinter* specialPrinter = NULL) :
-        m_apiLogger(apiLogger), m_specialPrinter(specialPrinter) { }
+    OutputParamsValueProvider(const SpecialOutputParamPrinter* specialPrinter = NULL) : m_specialPrinter(specialPrinter)
+    {
+        Intel::OpenCL::Utils::UserLogger& logger = GetUserLoggerInstance();
+        if (logger.IsApiLoggingEnabled())
+        {
+            logger.SetExpectOutputParams(true);
+        }
+    }
 
     /**
      * Destructor
@@ -89,7 +94,6 @@ private:
 
     void Print2Logger();
 
-    Intel::OpenCL::Utils::ApiLogger& m_apiLogger;
     std::vector<ParamInfo> m_outputParamsVec;
     const SpecialOutputParamPrinter* const m_specialPrinter;
 
@@ -97,9 +101,9 @@ private:
 
 inline OutputParamsValueProvider::~OutputParamsValueProvider()
 {
-    if (Intel::OpenCL::Utils::g_pUserLogger->IsApiLoggingEnabled())
+    if (GetUserLoggerInstance().IsApiLoggingEnabled())
     {
-        Print2Logger();        
+        Print2Logger();
     }
 }
 

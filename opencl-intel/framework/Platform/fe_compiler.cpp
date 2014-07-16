@@ -76,7 +76,7 @@ cl_err_code FrontEndCompiler::Initialize(const char * psModuleName, const void *
 
     m_pszModuleName = STRDUP(psModuleName);
 
-    cl_err_code err = m_pfnCreateInstance(pDeviceInfo, stDevInfoSize, &m_pFECompiler, g_pUserLogger);
+    cl_err_code err = m_pfnCreateInstance(pDeviceInfo, stDevInfoSize, &m_pFECompiler);
     if ( CL_FAILED(err) )
     {
         LOG_ERROR(TEXT("FECompiler::CreateInstance() failed with %x"), err);

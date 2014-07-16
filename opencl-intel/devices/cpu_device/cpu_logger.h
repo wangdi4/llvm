@@ -24,8 +24,6 @@
 //  Implementation of Helper functions for logger
 ///////////////////////////////////////////////////////////
 
-#pragma once
-
 enum CpuELogLevel
 	{
 		CPU_LL_DEBUG     = 100,
