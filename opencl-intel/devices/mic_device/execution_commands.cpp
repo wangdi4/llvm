@@ -23,7 +23,6 @@
 #include "execution_commands.h"
 #include "command_list.h"
 #include "memory_allocator.h"
-#include "cl_user_logger.h"
 
 #include <source/COIBuffer_source.h>
 
@@ -191,9 +190,9 @@ cl_dev_err_code ExecutionCommand::execute()
               __itt_task_begin(m_pCommandList->GetGPAInfo()->pDeviceDomain, __itt_null, __itt_null, pTaskName);
         }
 #endif
-
+        COIEVENT tmpEvent;
         // Use completion event for sync queue's only
-        COIEVENT* pEvent = cmdUseSyncQueue ? &m_endEvent.cmdEvent: NULL;
+        COIEVENT* pEvent = cmdUseSyncQueue ? &m_endEvent.cmdEvent: &tmpEvent;
 
         COIRESULT result = COIPipelineRunFunction(pipe,
                                 func,
@@ -538,13 +537,6 @@ cl_dev_err_code NDRange::init()
                 assert(0 && "PrepareKernelArguments failed" );
                 break;
             }
-            if (0 == cmdParams->lcl_wrk_size[0][0])
-            {
-                vector<unsigned int> dims(MAX_WORK_DIM);
-                pRunner->GetLocalSizes(cmdParams->arg_values, &dims[0]);
-                dims.resize(cmdParams->work_dim);
-                g_pUserLogger->SetLocalWorkSize4ArgValues(m_pCmd->id, FrameworkUserLogger::FormatLocalWorkSize(dims));
-            }
         }
         else
         {
@@ -556,7 +548,7 @@ cl_dev_err_code NDRange::init()
         {
             if ( m_pCmd->profiling )
             {
-                assert(m_pCommandList->isProfilingEnabled() && "Profiling is set for command, but list is not supporting it");
+//CSSD100019682                assert(m_pCommandList->isProfilingEnabled() && "Profiling is set for command, but list is not supporting it");
                 registerBarrier(m_startEvent);
             }
             // Register completion barrier
@@ -666,7 +658,7 @@ cl_dev_err_code FillMemObject::init()
             // Register start barrier
             if ( m_pCmd->profiling )
             {
-                assert(m_pCommandList->isProfilingEnabled() && "Profiling is set for command, but list is not supporting it");
+//CSSD100019682                assert(m_pCommandList->isProfilingEnabled() && "Profiling is set for command, but list is not supporting it");
                 registerBarrier(m_startEvent);
             }
             // Register completion barrier

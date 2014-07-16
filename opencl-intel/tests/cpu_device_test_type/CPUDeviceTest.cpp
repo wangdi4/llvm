@@ -66,12 +66,6 @@ volatile bool	gExecDone = true;
 
 unsigned int gDeviceIdInType = 0;
 
-namespace Intel { namespace OpenCL { namespace Utils {
-
-FrameworkUserLogger* g_pUserLogger = NULL;
-
-}}}
-
 void CPUTestCallbacks::clDevCmdStatusChanged(cl_dev_cmd_id  cmd_id, void* data, cl_int cmd_status, cl_int completion_result, cl_ulong timer )
 {
 	unsigned int cmdId = (unsigned int)(size_t)cmd_id;
@@ -743,7 +737,7 @@ int CPUDeviceTest_Main()
 
 	gDeviceIdInType = deviceIdsList[0];
 
-	iRes = clDevCreateDeviceInstance(gDeviceIdInType, &g_dev_callbacks, &log_desc, &dev_entry, NULL);
+	iRes = clDevCreateDeviceInstance(gDeviceIdInType, &g_dev_callbacks, &log_desc, &dev_entry);
 	EXPECT_TRUE(CL_DEV_SUCCEEDED(iRes));
 
 	int rc = RUN_ALL_TESTS();

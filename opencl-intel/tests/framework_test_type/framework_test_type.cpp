@@ -5,13 +5,7 @@
 #include <string>
 #include <map>
 #include <test_common.h>
-#include "cl_user_logger.h"
 
-namespace Intel { namespace OpenCL { namespace Utils {
-
-FrameworkUserLogger* g_pUserLogger = NULL;
-
-}}}
 
 // The following tests replace the old "main" function of framework_test_type.
 //
@@ -341,7 +335,6 @@ TEST(FrameworkTestType, Test_VecTypeHintTest)
 {
     EXPECT_TRUE(VecTypeHintTest());
 }
-
 
 TEST(FrameworkTestType, Test_EventCallbackTest)
 {

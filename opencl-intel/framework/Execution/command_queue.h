@@ -31,6 +31,7 @@
 #include "queue_event.h"
 #include "ocl_command_queue.h"
 #include "Context.h"
+#include "enqueue_commands.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -79,6 +80,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // manage lifetime slightly differently from another ReferenceCounted objects
         virtual void EnterZombieState( EnterZombieStateLevel call_level );
+        void NotifyCommandFailed( cl_err_code err , const CommandSharedPtr<>&  command ) const;
 
     protected:
 

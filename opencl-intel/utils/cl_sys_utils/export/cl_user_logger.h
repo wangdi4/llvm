@@ -33,25 +33,19 @@ namespace Intel { namespace OpenCL { namespace Utils {
 /**
  * This class represents a user-oriented logger - it is a singleton
  */
-class FrameworkUserLogger
+class UserLogger
 {
 public:    
 
     /**
      * Constructor
      */
-    static FrameworkUserLogger& Instance();
-
-    /**
-     * @param localWorkSize a vector of size_t containing the local work size
-     * @return a string of the common format of the local work size
-     */
-    static std::string FormatLocalWorkSize(const std::vector<unsigned int>& localWorkSize);
+    UserLogger();
 
     /**
      * Destructor
      */
-    ~FrameworkUserLogger()
+    ~UserLogger()
     {
         if (m_logFile.is_open())
         {
@@ -62,10 +56,10 @@ public:
     /**
      * Print a value in an API call into the log
      * @param val the value to be printed
-     * @return this FrameworkUserLogger
+     * @return this UserLogger
      */
     template<typename T>
-    FrameworkUserLogger& operator<<(const T& val)
+    UserLogger& operator<<(const T& val)
     {
         if (m_bLogApis)
         {
@@ -77,16 +71,16 @@ public:
     /**
      * Print the type and name of a parameter of an API call
      * @param sParamTypeAndName type followed by the parameter's name
-     * @return this FrameworkUserLogger
+     * @return this UserLogger
      */
-    FrameworkUserLogger& operator<<(const char* sParamTypeAndName);
+    UserLogger& operator<<(const char* sParamTypeAndName);
 
     /**
      * Print a C-string value in an API call(operator<< cannot be used in this case, because it assumes that the string is a parameter type and name)
      * @param sVal the C-string value
-     * @return this FrameworkUserLogger
+     * @return this UserLogger
      */
-    FrameworkUserLogger& PrintCStringVal(const char* sVal);
+    UserLogger& PrintCStringVal(const char* sVal);
     
     /**
      * @return whether API logging is enabled
@@ -138,11 +132,6 @@ public:
     void PrintOutputParam(const std::string& name, const void* addr, size_t size, bool bIsPtr2Ptr, bool bIsUnsigned = false);
 
     /**
-     * OutputParamsValueProvider should call this method after it has ended printing the values of the output parameters
-     */
-    void EndPrintingOutputParams() { m_apiMutex.Unlock(); }
-
-    /**
      * Print a string directly to the log (not as a part of an API call)
      * @param str   the string to print
      * @param bLock whether to lock the logger's stream (regular printing by client class should use the default to prevent interleaving of prints from different threads)
@@ -167,30 +156,7 @@ public:
      */
     void PrintError(const std::string& msg);
 
-    /**
-     * Register the cl_dev_cmd_param_kernel::arg_values that identifies the NDRange command
-     * @param pArgValues the cl_dev_cmd_param_kernel::arg_values to be registered
-     */
-    void RegisterNDRangeArgValues(const void* pArgValues) { m_pCurrArgValues = pArgValues; }
-
-    /**
-     * Map the cl_dev_cmd_param_kernel::arg_values that identifies the NDRange command to the cl_dev_cmd_id that identifies the NDRange command for the BE to log its calculated
-     * local wort size 
-     * @param pArgValues    the cl_dev_cmd_param_kernel::arg_values
-     * @param id            the cl_dev_cmd_id to be registered
-     */
-    void MapNDRangeArgValuesId(const void* pArgValues, cl_dev_cmd_id id);
-
-    /**
-     * Set the local work size calculated by BE for a specific NDRange command identified by cl_dev_cmd_id
-     * @param id the cl_dev_cmd_id identifying the NDRange command
-     * @param localWorkSizeStr the string describing the local work size calculated by BE
-     */
-    void SetLocalWorkSize4ArgValues(cl_dev_cmd_id id, const std::string& localWorkSizeStr);
-
 private:    
-
-    FrameworkUserLogger();
 
     void Setup(const std::string& filename, bool bLogErrors, bool bLogApis);
 
@@ -223,89 +189,29 @@ private:
 
     void PrintStringInternal(const std::string& str, bool bLock);
 
-    const void* GetNDRangeArgValues(cl_dev_cmd_id id) const;
-    
-    unsigned long long UnrigesterNDRangeId(cl_dev_cmd_id id);
-
     // do not implement
-    FrameworkUserLogger(const FrameworkUserLogger&);
-    FrameworkUserLogger& operator=(const FrameworkUserLogger&);
-
+    UserLogger(const UserLogger&);
+    UserLogger& operator=(const UserLogger&);
+    
     std::ofstream m_logFile;
     std::ostream* m_pOutput;
-    mutable OclSpinMutex m_outputMutex; // Synchronize writing to m_pOutput
+    Timer m_timer;
+    /* synchronize calls to API functions, so that logging from different threads won't be interleaved (it is reentrant to allow printing from the same thread that locked the
+        mutex) */
+    OclSpinMutex m_mutex;
+    bool m_bFirstApiFuncArg;    
     // we use this to collect all data about the API function call, so that when it ends, we'll be able to put its duration before the log of the call itself
     std::ostringstream m_strStream;
     std::ostringstream m_retValStream;
-    // Synchronize calls to API functions, so that logging from different threads won't be interleaved (it protects the 2 ostringstream above)
-    mutable OclSpinMutex m_apiMutex;
-    Timer m_timer;
-    bool m_bFirstApiFuncArg;
-
     bool m_bExpectOutputParams;
     cl_int m_iLastRetValue;
     bool m_bLogErrors;
     bool m_bLogApis;
-    const void* m_pCurrArgValues;
-    // Since cl_dev_cmd_param_kernel::arg_values is available in command's Init, but cl_dev_cmd_id is set just in Execute, we need a map between them    
-    std::map<const void*, cl_dev_cmd_id> m_mapNDRangeArgValues2CmdId;
-    // a map from cl_dev_cmd_param_kernel::arg_values, which identifies the NDRange to the start times in clock ticks of the call to clEnqueueNDRangeKernel.
-    std::map<const void*, unsigned long long> m_mapArgVals2StartTime;
-    // R/W lock to protect the maps above
-    mutable OclReaderWriterLock m_mapsLock;
-    std::ostringstream m_beLogStream;
-    
 };
-
-// this class isn't needed - it will be deleted soon
-class LogMessageWrapper
-{
-public:
-
-    /**
-     * Constructor for use by device side
-     * @param id    the ID of the NDRange command
-     * @param beMsg the string holding the message from BE containing the calculated local work size
-     */
-    LogMessageWrapper(cl_dev_cmd_id id, const std::string& beMsg) : m_id(id), m_beMsg(beMsg) { Serialize(); }
-
-    /**
-     * Constructor for use by host side
-     * @param rawStr the raw string from which the log message should be parsed
-     */
-    LogMessageWrapper(const char* rawStr) : m_rawStr(rawStr) { Unserialize(); }
-
-    /**
-     * @return the ID of the NDRange command
-     */
-    cl_dev_cmd_id GetId() const { return m_id; }
-
-    /**
-     * @return the string holding the message from BE containing the calculated local work size
-     */
-    std::string GetBeMsg() const { return m_beMsg; }
-
-    /**
-     * the raw string from which the log message should be parsed
-     */
-    std::string GetRawString() const { return m_rawStr; }
-
-private:
-
-    void Serialize();
-
-    void Unserialize();
-
-    cl_dev_cmd_id m_id;
-    std::string m_beMsg;
-    std::string m_rawStr;
-
-};
-
 
 // inline methods (I want to save the function call in case no logging is done)
 
-inline FrameworkUserLogger& FrameworkUserLogger::operator<<(const char* sParamTypeAndName)
+inline UserLogger& UserLogger::operator<<(const char* sParamTypeAndName)
 {
     if (m_bLogApis)
     {
@@ -314,7 +220,7 @@ inline FrameworkUserLogger& FrameworkUserLogger::operator<<(const char* sParamTy
     return *this;
 }
 
-inline FrameworkUserLogger& FrameworkUserLogger::PrintCStringVal(const char* sVal)
+inline UserLogger& UserLogger::PrintCStringVal(const char* sVal)
 {
     if (m_bLogApis)
     {
@@ -323,7 +229,7 @@ inline FrameworkUserLogger& FrameworkUserLogger::PrintCStringVal(const char* sVa
     return *this;
 }
 
-inline void FrameworkUserLogger::StartApiFunc(const string& funcName)
+inline void UserLogger::StartApiFunc(const string& funcName)
 {
     if (!m_bLogApis)
     {
@@ -332,7 +238,7 @@ inline void FrameworkUserLogger::StartApiFunc(const string& funcName)
     StartApiFuncInternal(funcName);
 }
 
-inline void FrameworkUserLogger::EndApiFunc(cl_int retVal)
+inline void UserLogger::EndApiFunc(cl_int retVal)
 {
     if (!m_bLogApis)
     {
@@ -341,7 +247,7 @@ inline void FrameworkUserLogger::EndApiFunc(cl_int retVal)
     EndApiFuncInternal(retVal);
 }
 
-inline void FrameworkUserLogger::EndApiFunc(const void* retPtr)
+inline void UserLogger::EndApiFunc(const void* retPtr)
 {
     if (!m_bLogApis)
     {
@@ -350,7 +256,7 @@ inline void FrameworkUserLogger::EndApiFunc(const void* retPtr)
     EndApiFuncInternal(retPtr);
 }
 
-inline void FrameworkUserLogger::EndApiFunc()
+inline void UserLogger::EndApiFunc()
 {
     if (!m_bLogApis)
     {
@@ -358,7 +264,5 @@ inline void FrameworkUserLogger::EndApiFunc()
     }
     EndApiFuncInternal();
 }
-
-extern FrameworkUserLogger* g_pUserLogger;   // a global pointer to the logger, which be defined in each shared library (so LOG_ERROR can use the user logger)
 
 }}}

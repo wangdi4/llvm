@@ -1806,12 +1806,6 @@ cl_err_code NDRangeKernelCommand::Init()
     pKernelParam->arg_size = uiDispatchSize;
     pKernelParam->arg_values = (void*)pDispatchBuffer;
 
-    if (NULL == m_cpszLocalWorkSize && GetUserLoggerInstance().IsApiLoggingEnabled())
-    {
-        // let BE report the calculated local work size later
-        GetUserLoggerInstance().RegisterNDRangeArgValues(m_kernelParams.arg_values);
-    }
-
     if (m_nonArgSvmBuffersVec.empty())
     {
         pKernelParam->ppNonArgSvmBuffers = NULL;
@@ -1868,11 +1862,6 @@ cl_err_code NDRangeKernelCommand::Execute()
     prepare_command_descriptor(CL_DEV_CMD_EXEC_KERNEL, &m_kernelParams, sizeof(cl_dev_cmd_param_kernel));
 
     m_kernelParams.kernel = m_pDeviceKernel->GetId();
-
-    if (NULL == m_cpszLocalWorkSize && GetUserLoggerInstance().IsApiLoggingEnabled())
-    {
-        GetUserLoggerInstance().MapNDRangeArgValuesId(m_kernelParams.arg_values, m_DevCmd.id);
-    }
 
     // Color will be changed only when command is submitted in the device
 

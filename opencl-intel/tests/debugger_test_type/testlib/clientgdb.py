@@ -12,8 +12,9 @@ from common import os_is_windows, find_on_path, GDBContinueError, StopReason, lo
 
 from clientsimulator import ClientSimulator, SimulatorError
 
-RPC_TIMEOUT = 3
-RPC_RETRY_DELAY = 1
+RPC_TIMEOUT = 30
+RPC_RETRY_DELAY = 10
+GDB_PROMPT_TIMEOUT = 100
 
 class ClientError(SimulatorError): pass
 class ClientTimeout(SimulatorError): pass
@@ -147,11 +148,11 @@ class ClientGDB(TestClient):
         logd("Process started, pid=" + str(self.child.pid))
 
         try:
-            # Give GDB up to 10 seconds to display a prompt. More tests
+            # Give GDB up to 100 seconds to display a prompt. More tests
             # running in parallel cause GDB to take longer to display this
             # first prompt. In manual testing, 10s is sufficient for up to
             # 16 tests running concurrently.
-            self._expect_prompt(10)
+            self._expect_prompt(GDB_PROMPT_TIMEOUT)
         except pexpect.TIMEOUT:
             # We should not be timing out, but warn if we do. Things may be OK
             # and GDB is just a bit slow to start...
@@ -181,7 +182,7 @@ class ClientGDB(TestClient):
             logw("Unable to find OpenCL GDB plugin on  path " + str(search_path) + "." \
               + " Test may still succeed if GDB auto-loads plugin correctly.")
 
-    def _command(self, command, timeout=10):
+    def _command(self, command, timeout=100):
         """ Issue a command to GDB and returns the output.
         """
 
@@ -224,10 +225,10 @@ class ClientGDB(TestClient):
 
         return output
 
-    def connect_to_server(self, retry=True, timeout=15.0):
+    def connect_to_server(self, retry=True, timeout=150):
         """ No-op for GDB """
 
-    def start_session(self, gid_x, gid_y, gid_z, timeout = 1):
+    def start_session(self, gid_x, gid_y, gid_z, timeout=10):
         """ Send 'start' command to GDB """
 
         self.started = True
@@ -236,9 +237,9 @@ class ClientGDB(TestClient):
         self.gid_z = gid_z
         # When multiple tests are running at the same time, GDB may take
         # longer to return from the "start" command.
-        self._command("start", timeout=20);
+        self._command("start", timeout=200);
 
-    def debug_run(self, breakpoints, timeout=90):
+    def debug_run(self, breakpoints, timeout=900):
         """ Set the given breakpoints and issue a 'continue' command in GDB.
                 Returns the breakpoint that was hit - (file, line) pair.
 
@@ -265,7 +266,7 @@ class ClientGDB(TestClient):
             loge("Expecting breakpoint but 'continue' timed out")
             raise
     
-    def debug_run_finish(self, breakpoints=[], timeout=90):
+    def debug_run_finish(self, breakpoints=[], timeout=900):
         """ Set the given breakpoints and issue a 'run' command in GDB.
                 Returns nothing when the subprocess finishes with code 0.
                 Otherwise, raises ClientError.
@@ -294,7 +295,7 @@ class ClientGDB(TestClient):
             loge("Expecting exit but 'continue' timed out")
             raise
 
-    def wait_for_debuggee_exit(self, timeout=1):
+    def wait_for_debuggee_exit(self, timeout=10):
         """ Wait for the debuggee to finish running. Return the pair (rc, log)
             where rc is the subprocess return code and log is its stderr output.
         """
@@ -310,17 +311,17 @@ class ClientGDB(TestClient):
 
         return (self.exitcode, self.stderr)
 
-    def debug_step_in(self, timeout=10):
+    def debug_step_in(self, timeout=100):
         # this should test an OCL-specific step command
         self._command("step")
         return self._frame_location()
 
-    def debug_step_over(self, timeout=10):
+    def debug_step_over(self, timeout=100):
         # this should test an OCL-specific step command
         self._command("next")
         return self._frame_location()
 
-    def debug_step_out(self, timeout=10):
+    def debug_step_out(self, timeout=100):
         # this should test an OCL-specific step command
         self._command("finish")
         return self._frame_location()
@@ -394,7 +395,7 @@ class ClientGDB(TestClient):
         """ No-op as GDB client does not require a server port. """
         return None
 
-    def _shutdown_gdb(self, timeout = 3):
+    def _shutdown_gdb(self, timeout=30):
         """ Graceful shutdown of the GDB subprocess (issue 'quit' command).
             May block for maximum 2 * timeout seconds waiting for exit.
         """
@@ -411,7 +412,7 @@ class ClientGDB(TestClient):
         else:
             logd('Child exited gracefully.')
 
-    def _set_breakpoints(self, breakpoints, timeout=10):
+    def _set_breakpoints(self, breakpoints, timeout=100):
         """ Updates OpenCL breakpoints set in GDB """
 
         if self.gid_x == -1 or self.gid_y == -1 or self.gid_z == -1:

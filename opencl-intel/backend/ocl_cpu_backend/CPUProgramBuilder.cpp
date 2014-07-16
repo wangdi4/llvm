@@ -167,9 +167,16 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
 
     // get the buffers entries
     const char* bitCodeBuffer = (const char*)reader.GetSectionData(CacheBinaryHandler::g_irSectionName);
+    assert(bitCodeBuffer && "BitCode Buffer is null");
+
     const char* serializationBuffer = (const char*)reader.GetSectionData(CacheBinaryHandler::g_metaSectionName);
+    assert(serializationBuffer && "Serialization Buffer is null");
+
     const char* optModuleBuffer = (const char*)reader.GetSectionData(CacheBinaryHandler::g_optSectionName);
+    assert(optModuleBuffer && "OptModule Buffer is null");
+
     const char* objectBuffer = (const char*)reader.GetSectionData(CacheBinaryHandler::g_objSectionName);
+    assert(objectBuffer && "Object Buffer is null");
 
     // Set IR
     BitCodeContainer* bcc = new BitCodeContainer((const cl_prog_container_header*)bitCodeBuffer);
@@ -318,7 +325,8 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
         }
         else
         {
-            buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was successfully vectorized\n";
+            buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was successfully vectorized (" <<
+                spKernelProps->GetMinGroupSizeFactorial() << ")\n";
         }
 #ifdef OCL_DEV_BACKEND_PLUGINS
         // Notify the plugin manager
@@ -347,15 +355,14 @@ void CPUProgramBuilder::AddKernelJIT(CPUProgram* pProgram, Kernel* pKernel, llvm
 
 void CPUProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule, const ICLDevBackendOptions* pOptions) const
 {
-    const void* pInjectedObjStartvoidPtr = NULL;    
+    char*  pInjectedObjStart = NULL;
     size_t injectedObjSize;
 
     // Check if we are going to do injection
     if (pOptions
-        && pOptions->GetValue(CL_DEV_BACKEND_OPTION_INJECTED_OBJECT, &pInjectedObjStartvoidPtr, &injectedObjSize)
-        && pInjectedObjStartvoidPtr != NULL)
+        && pOptions->GetValue(CL_DEV_BACKEND_OPTION_INJECTED_OBJECT, &pInjectedObjStart, &injectedObjSize)
+        && pInjectedObjStart != NULL)
     {
-        const char* pInjectedObjStart = reinterpret_cast<const char*>(pInjectedObjStartvoidPtr);
         std::auto_ptr<StaticObjectLoader> pObjectLoader(new StaticObjectLoader());
         // Build the MemoryBuffer object from the supplied options
         std::auto_ptr<llvm::MemoryBuffer> pInjectedObj(

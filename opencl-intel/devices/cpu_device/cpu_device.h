@@ -33,7 +33,6 @@
 #include "backend_wrapper.h"
 #include "task_executor.h"
 #include "task_dispatcher.h"
-#include "cpu_logger.h"
 #ifdef __USE_TBB_SCALABLE_ALLOCATOR__
 #include "tbb/scalable_allocator.h"
 #endif

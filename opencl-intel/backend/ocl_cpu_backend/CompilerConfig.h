@@ -70,7 +70,6 @@ public:
     virtual void LoadConfig();
     void SkipBuiltins() { m_loadBuiltins = false; }
     void ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions);
-    bool IsValidTransposeSize();
 
     std::string GetCpuArch() const     { return m_cpuArch; }
     std::string GetCpuFeatures() const { return m_cpuFeatures; }

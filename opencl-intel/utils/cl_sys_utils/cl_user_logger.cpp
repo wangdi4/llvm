@@ -36,14 +36,6 @@
 #include "cl_sys_defines.h"
 #include "cl_config.h"
 
-using std::ostringstream;
-using std::ends;
-using std::cerr;
-using std::ios_base;
-using std::endl;
-using std::string;
-using std::vector;
-
 namespace Intel { namespace OpenCL { namespace Utils {
 
 #ifdef _WIN32
@@ -85,7 +77,7 @@ static std::tm GetLocalTime()
 
 static string GetFormattedHour(bool bUseColonSeperator, const std::tm& lt)
 {
-    ostringstream formattedHour;
+    std::ostringstream formattedHour;
     const string timeSeperator = bUseColonSeperator ? ":" : "";
     formattedHour << std::setfill('0') << lt.tm_hour << timeSeperator << std::setw(2) << lt.tm_min << timeSeperator << std::setw(2) << lt.tm_sec;
     return formattedHour.str();
@@ -94,59 +86,44 @@ static string GetFormattedHour(bool bUseColonSeperator, const std::tm& lt)
 static string GetFormattedTime()
 {
     const std::tm lt = GetLocalTime();
-    ostringstream formattedTime;
+    std::ostringstream formattedTime;
     formattedTime << (lt.tm_mon + 1) << "." << lt.tm_mday << "." << (1900 + lt.tm_year) << "_" <<
 #ifdef _WIN32
         GetFormattedHour(false, lt) // : isn't allowed in Windows filenames
 #else
         GetFormattedHour(true, lt)
 #endif
-        << ".txt" << ends;
+        << ".txt" << std::ends;
     return formattedTime.str();
 }
 
-// FrameworkUserLogger's methods
+// UserLogger's methods
 
-string FrameworkUserLogger::FormatLocalWorkSize(const vector<unsigned int>& localWorkSize)
+void UserLogger::Setup(const string& filename, bool bLogErrors, bool bLogApis)
 {
-    stringstream stream;
-    stream  << "(";    
-    for (vector<size_t>::size_type i = 0; i < localWorkSize.size(); ++i)
-    {
-        stream << localWorkSize[i];
-        if (i < localWorkSize.size() - 1)
-        {
-            stream << ",";
-        }
-    }
-    stream << ")" << endl;
-    return stream.str();
-}
-
-void FrameworkUserLogger::Setup(const string& filename, bool bLogErrors, bool bLogApis)
-{
+    assert(!filename.empty());    
     if ("stdout" == filename)
     {
         m_pOutput = &std::cout;
     }
-    else if ("stderr" == filename || filename.empty())
+    else if ("stderr" == filename)
     {
-        m_pOutput = &cerr;
+        m_pOutput = &std::cerr;
     }
     else
     {
-        ostringstream finalFilename;
+        std::ostringstream finalFilename;
         finalFilename << filename << "_PID" <<
 #ifdef _WIN32
         GetCurrentProcessId()
 #else
         getpid()
 #endif
-        << "_" << GetFormattedTime() << ends;    
-        m_logFile.open(finalFilename.str().c_str(), ios_base::out);
+        << "_" << GetFormattedTime() << std::ends;    
+        m_logFile.open(finalFilename.str().c_str(), std::ios_base::out);
         if (!m_logFile.is_open())
         {
-            cerr << "cannot open log file " << finalFilename.str() << " for writing" << endl;
+            std::cerr << "cannot open log file " << finalFilename.str() << " for writing" << std::endl;
             return;
         }
         else
@@ -158,18 +135,17 @@ void FrameworkUserLogger::Setup(const string& filename, bool bLogErrors, bool bL
     m_bLogApis = bLogApis;
 }
 
-FrameworkUserLogger::FrameworkUserLogger() :
-    m_pOutput(NULL), m_bFirstApiFuncArg(false), m_bExpectOutputParams(false), m_iLastRetValue(CL_SUCCESS), m_bLogErrors(false), m_bLogApis(false), m_pCurrArgValues(NULL)
+UserLogger::UserLogger() : m_pOutput(NULL), m_bFirstApiFuncArg(false), m_bExpectOutputParams(false), m_iLastRetValue(CL_SUCCESS), m_bLogErrors(false), m_bLogApis(false)
 {
     ConfigFile config(GetConfigFilePath());
     const string varName = "CL_CONFIG_USER_LOGGER";
-    const string configStr = config.Read(varName, string(""));
+    const std::string configStr = config.Read(varName, string(""));
     // parse configStr
     bool bLogErrs = true, bLogApsi = false; // the defaults
-    const string::size_type indexOfComman = configStr.find(',');
-    if (indexOfComman != string::npos)
+    const std::string::size_type indexOfComman = configStr.find(',');
+    if (indexOfComman != std::string::npos)
     {
-        const string enableStr = configStr.substr(0, indexOfComman);
+        const std::string enableStr = configStr.substr(0, indexOfComman);
         if ("I" == enableStr)
         {
             bLogErrs = false;
@@ -181,19 +157,19 @@ FrameworkUserLogger::FrameworkUserLogger() :
         }
         else if ("E" != enableStr)
         {
-            cerr << "\"" << configStr << "\" is an invalid value for " << varName << endl;
+            std::cerr << "\"" << configStr << "\" is an invalid value for " << varName << std::endl;
             return;
         }
     }
 
-    const string filename = indexOfComman != string::npos ? configStr.substr(indexOfComman + 1) : configStr;
+    const std::string filename = indexOfComman != std::string::npos ? configStr.substr(indexOfComman + 1) : configStr;
     if (!configStr.empty())
     {
         Setup(filename, bLogErrs, bLogApsi);
     }
 }
 
-void FrameworkUserLogger::PrintParamTypeAndName(const char* sParamTypeAndName)
+void UserLogger::PrintParamTypeAndName(const char* sParamTypeAndName)
 {
     if (!m_bFirstApiFuncArg)
     {
@@ -206,7 +182,7 @@ void FrameworkUserLogger::PrintParamTypeAndName(const char* sParamTypeAndName)
     m_strStream << sParamTypeAndName << " = ";
 }
 
-void FrameworkUserLogger::PrintCStringValInternal(const char* sVal)
+void UserLogger::PrintCStringValInternal(const char* sVal)
 {
     if (NULL != sVal)
     {
@@ -218,15 +194,15 @@ void FrameworkUserLogger::PrintCStringValInternal(const char* sVal)
     }
 }
 
-void FrameworkUserLogger::StartApiFuncInternal(const string& funcName)
+void UserLogger::StartApiFuncInternal(const string& funcName)
 {
-    m_apiMutex.Lock();
+    m_mutex.Lock();
     m_strStream << funcName << "(";
     m_bFirstApiFuncArg = true;
     m_timer.Start();
 }
 
-void FrameworkUserLogger::EndApiFuncInternal(cl_int retVal)
+void UserLogger::EndApiFuncInternal(cl_int retVal)
 {
     m_strStream << ")";
     m_retValStream << " = " << ClErrTxt(retVal);
@@ -234,10 +210,10 @@ void FrameworkUserLogger::EndApiFuncInternal(cl_int retVal)
     EndApiFuncEpilog();
 }
 
-void FrameworkUserLogger::EndApiFuncInternal(const void* retPtr)
+void UserLogger::EndApiFuncInternal(const void* retPtr)
 {
     m_strStream << ")";
-    m_retValStream << " = 0x" << ios_base::hex << retPtr;
+    m_retValStream << " = 0x" << std::ios_base::hex << retPtr;
     if (NULL != retPtr)
     {
         m_iLastRetValue = CL_SUCCESS;
@@ -249,16 +225,20 @@ void FrameworkUserLogger::EndApiFuncInternal(const void* retPtr)
     EndApiFuncEpilog();
 }
 
-void FrameworkUserLogger::EndApiFuncInternal()
+void UserLogger::EndApiFuncInternal()
 {
     m_strStream << ")";
     m_iLastRetValue = CL_SUCCESS;
     EndApiFuncEpilog();
 }
 
-void FrameworkUserLogger::EndApiFuncEpilog()
+void UserLogger::EndApiFuncEpilog()
 {
     m_timer.Stop();    
+    if (!m_bExpectOutputParams)
+    {
+        m_retValStream << std::endl;
+    }
     // thread ID
     std::right(*m_pOutput);
     *m_pOutput << std::setfill(' ') << std::setw(5) << std::dec << 
@@ -272,39 +252,21 @@ void FrameworkUserLogger::EndApiFuncEpilog()
 #endif
 #endif
         << " ";
-    const unsigned long long ulStartTime = RDTSC();
-    if (NULL != m_pCurrArgValues)
-    {
-        m_mapArgVals2StartTime[m_pCurrArgValues] = ulStartTime;
-        m_pCurrArgValues = NULL;
-    }
     // start time in clock ticks
-    *m_pOutput << ulStartTime << " ";
+    *m_pOutput << RDTSC() << " ";
     // duration
     *m_pOutput << m_timer.GetTotalUsecs() << " ";
     // API call - I've taken this format from ltrace Linux program
     *m_pOutput << m_strStream.str() << m_retValStream.str();
-    if (!m_beLogStream.str().empty())
-    {
-        *m_pOutput << "," << m_beLogStream.str();
-        m_beLogStream.str("");
-    }
-    if (!m_bExpectOutputParams)
-    {
-      *m_pOutput << endl;
-    }
     
     // clear all necessary attributes
     m_timer.Reset();
     m_strStream.str("");
     m_retValStream.str("");
-    if (!m_bExpectOutputParams) // otherwise it will be unlocked after output parameters have been printed
-    {
-      m_apiMutex.Unlock();
-    }
+    m_mutex.Unlock();
 }
 
-void FrameworkUserLogger::PrintOutputParam(const string& name, const void* addr, size_t size, bool bIsPtr2Ptr, bool bIsUnsigned)
+void UserLogger::PrintOutputParam(const std::string& name, const void* addr, size_t size, bool bIsPtr2Ptr, bool bIsUnsigned)
 {
     if (!m_bLogApis)
     {
@@ -374,115 +336,25 @@ void FrameworkUserLogger::PrintOutputParam(const string& name, const void* addr,
     }
 }
 
-void FrameworkUserLogger::PrintError(const string& msg)
+void UserLogger::PrintError(const std::string& msg)
 {
     if (m_bLogErrors)
     {
-        *m_pOutput << "ERROR: " << msg << endl;
+        *m_pOutput << "ERROR: " << msg << std::endl;
     }
 }
 
-void FrameworkUserLogger::PrintStringInternal(const string& str, bool bLock)
+void UserLogger::PrintStringInternal(const std::string& str, bool bLock)
 {
     if (bLock)
     {
-      m_outputMutex.Lock();
+        m_mutex.Lock();    
     }
     *m_pOutput << str;
     if (bLock)
     {
-      m_outputMutex.Unlock();
+        m_mutex.Unlock();
     }
-}
-
-void FrameworkUserLogger::MapNDRangeArgValuesId(const void* pArgValues, cl_dev_cmd_id id)
-{
-    OclAutoWriter lock(&m_mapsLock);
-    m_mapNDRangeArgValues2CmdId[pArgValues] = id;
-}
-
-void FrameworkUserLogger::SetLocalWorkSize4ArgValues(cl_dev_cmd_id id, const std::string& localWorkSizeStr)
-{
-    OclAutoReader lock(&m_mapsLock);
-    const bool bIsNDRangeIdExist = GetNDRangeArgValues(id) != NULL;
-    if (bIsNDRangeIdExist)
-    {
-      m_outputMutex.Lock();
-    }
-    ostream& stream = bIsNDRangeIdExist ? *m_pOutput : m_beLogStream;
-    if (bIsNDRangeIdExist)
-    {
-        stream << endl;
-    }
-    else
-    {
-        stream << ", ";
-    }
-    stream << "local_work_size calculated by BE";
-    if (bIsNDRangeIdExist)
-    {
-        *m_pOutput << " with start time " << UnrigesterNDRangeId(id);
-    }
-    stream  << ": " << localWorkSizeStr << endl;
-    if (bIsNDRangeIdExist)
-    {
-      m_outputMutex.Unlock();
-    }
-}
-
-const void* FrameworkUserLogger::GetNDRangeArgValues(cl_dev_cmd_id id) const
-{
-    for (std::map<const void*, cl_dev_cmd_id>::const_iterator iter = m_mapNDRangeArgValues2CmdId.begin(); iter != m_mapNDRangeArgValues2CmdId.end(); ++iter)
-    {
-        if (iter->second == id)
-        {
-            return iter->first;
-        }
-    }
-    return NULL;
-}
-
-unsigned long long FrameworkUserLogger::UnrigesterNDRangeId(cl_dev_cmd_id id)
-{
-    const void* pArgValues = GetNDRangeArgValues(id);
-    assert(NULL != pArgValues);
-    if (NULL == pArgValues)
-    {
-        return 0;
-    }   
-
-    const unsigned long long ulStartTime = m_mapArgVals2StartTime[pArgValues];
-    
-    // I'm doing this in this awkward way, since in VS there seems to be a bug in map::erase(const Key&)
-    std::map<const void*, unsigned long long>::iterator iter = m_mapArgVals2StartTime.find(pArgValues);
-    m_mapArgVals2StartTime.erase(iter, ++iter);
-    std::map<const void*, cl_dev_cmd_id>::iterator iter1 = m_mapNDRangeArgValues2CmdId.find(pArgValues);
-    m_mapNDRangeArgValues2CmdId.erase(iter1, ++iter1);
-    
-    return ulStartTime;
-}
-
-// LogMessageWrapper methods:
-
-void LogMessageWrapper::Serialize()
-{
-    stringstream stream;
-    stream << m_id << " " << m_beMsg << std::ends;
-    m_rawStr = stream.str();
-}
-
-void LogMessageWrapper::Unserialize()
-{
-    stringstream stream(m_rawStr);
-    stream >> m_id;
-
-    stream.seekg(1, ios_base::cur); // skip the space
-
-    std::vector<char> buf(100);
-    stream.getline(&buf[0], buf.size(), '\0');
-    m_beMsg = &buf[0];
-
-    assert(stream.eof());
 }
 
 }}}

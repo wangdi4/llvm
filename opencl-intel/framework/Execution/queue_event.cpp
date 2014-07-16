@@ -56,6 +56,7 @@ QueueEvent::QueueEvent(const SharedPtr<IOclCommandQueueBase>& cmdQueue) :
     m_bCommandSubmitValid = false;
     m_bCommandStartValid  = false;
     m_bCommandEndValid    = false;
+    m_bVisibleToUser      = false;
 
     if (cmdQueue != NULL)
     {

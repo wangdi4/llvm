@@ -351,19 +351,6 @@ cl_dev_err_code Kernel::PrepareThreadState(ICLDevExecutionState &state) const {
   return CL_DEV_SUCCESS;
 }
 
-void Kernel::GetLocalSizes(
-      void *pKernelUniformArgs, unsigned int* sizes) const
-{
-  void *pKernelUniformImplicitArgsPosition =
-      (char *)pKernelUniformArgs + m_explicitArgsSizeInBytes;
-  cl_uniform_kernel_args *pKernelUniformImplicitArgs =
-      static_cast<cl_uniform_kernel_args *>(pKernelUniformImplicitArgsPosition);  
-
-  for (unsigned int i = 0; i < MAX_WORK_DIM; ++i) {
-    sizes[i] = pKernelUniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i];
-  }
-}
-
 cl_dev_err_code
 Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
                                const cl_mem_obj_descriptor **pDevMemObjArray,

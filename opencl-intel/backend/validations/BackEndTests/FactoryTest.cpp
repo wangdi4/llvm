@@ -107,33 +107,6 @@ TEST_F(BackEndTests_FactoryMethods, CompilerServiceFailure)
     ret = funcGetFactory->GetCompilationService(&options, spCompileService.getOutPtr());
     EXPECT_NE(CL_DEV_SUCCESS, ret);
 
-
-    //-----------------------------------------------------------------
-    // create another invalid set of options - unsupported transpose size
-    options.InitFromTestConfiguration("", "auto", "", (ETransposeSize)TRANSPOSE_SIZE_UNSUPPORTED, false);
-    EXPECT_FALSE(options.GetBooleanValue(CL_DEV_BACKEND_OPTION_USE_VTUNE, false));
-    EXPECT_TRUE(STRING_EQ("",options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES, "")));
-    EXPECT_TRUE(STRING_EQ("auto",options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE, "")));
-    EXPECT_EQ(TRANSPOSE_SIZE_UNSUPPORTED,options.GetIntValue(CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE, TRANSPOSE_SIZE_AUTO));
-    // call GetCompilationService with Options invalid - should fail
-    ret = funcGetFactory->GetCompilationService(&options, spCompileService.getOutPtr());
-    EXPECT_NE(CL_DEV_SUCCESS, ret);
-
-
-    //-----------------------------------------------------------------
-    // create another invalid parameters - unsupported cpu features
-    /*
-    options.InitFromTestConfiguration("auto", CPU_FEATURES_UNSUPPORTED, TRANSPOSE_SIZE_AUTO, false);
-    EXPECT_FALSE(options.GetBooleanValue(CL_DEV_BACKEND_OPTION_USE_VTUNE, false));
-    EXPECT_TRUE(STRING_EQ(CPU_FEATURES_UNSUPPORTED, options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES, "")));
-    EXPECT_TRUE(STRING_EQ("auto",options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE, "")));
-    EXPECT_EQ(TRANSPOSE_SIZE_AUTO,options.GetIntValue(CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE, (ETransposeSize)TRANSPOSE_SIZE_UNSUPPORTED));
-    // call GetCompilationService with Options invalid - should fail
-    ret = funcGetFactory->GetCompilationService(&options, spCompileService.getOutPtr());
-    EXPECT_NE(CL_DEV_SUCCESS, ret);
-    */ // BUG CSSD100012466: GetCompilationService doesn't fail when it gets invalid cpu feature
-
-
     //-----------------------------------------------------------------
     // test invalid parameters to the actuall GetCompilationService call
     // call GetCompilationService with Output variable NULL - should fail with no crash
