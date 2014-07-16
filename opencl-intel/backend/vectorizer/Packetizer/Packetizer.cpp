@@ -56,7 +56,8 @@ OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(PacketizeFunction, "packetize", "packetize functions", false, false)
 
-PacketizeFunction::PacketizeFunction(bool SupportScatterGather) : FunctionPass(ID),
+PacketizeFunction::PacketizeFunction(bool SupportScatterGather,
+                                     unsigned int vectorizationDimension) : FunctionPass(ID),
   OCLSTAT_INIT(Array_Of_Structs_Store_Or_Loads,
   "store and loads that are scalarized instead of gather / scatter in an A[id].x format",
   m_kernelStats),
@@ -130,6 +131,7 @@ PacketizeFunction::PacketizeFunction(bool SupportScatterGather) : FunctionPass(I
   m_cannotHandleCtr = 0;
   m_allocaCtr = 0;
   UseScatterGather = SupportScatterGather || EnableScatterGatherSubscript;
+  m_vectorizedDim = vectorizationDimension;
   m_rtServices = NULL;
 
   // VCM buffer allocation
@@ -584,7 +586,7 @@ void PacketizeFunction::dispatchInstructionToPacketize(Instruction *I)
   unsigned dim;
   isTidGen = m_rtServices->isTIDGenerator(I, &err, &dim);
   V_ASSERT((!err) && "TIDGen inst receives non-constant input. Cannot vectorize!");
-  if (isTidGen && dim == 0)
+  if (isTidGen && dim == m_vectorizedDim)
   {
     V_PRINT(packetizer,
         "\t\tVectorizing TID creation Instruction: " << I->getName() << "\n");
@@ -3054,8 +3056,9 @@ void PacketizeFunction::generateSequentialIndices(Instruction *I)
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  FunctionPass* createPacketizerPass(bool scatterGather = false) {
-    return new intel::PacketizeFunction(scatterGather);
+  FunctionPass* createPacketizerPass(bool scatterGather = false,
+                                     unsigned int vectorizationDimension = 0) {
+    return new intel::PacketizeFunction(scatterGather, vectorizationDimension);
   }
 }
 

@@ -73,7 +73,8 @@ class PacketizeFunction : public FunctionPass {
 public:
 
   static char ID; // Pass identification, replacement for typeid
-  PacketizeFunction(bool supportScatterGather = false);
+  PacketizeFunction(bool supportScatterGather = false,
+                    unsigned int vectorizationDimension=0);
   ~PacketizeFunction();
 
   /// @brief Provides name of pass
@@ -514,6 +515,8 @@ private:
   int m_noVectorFuncCtr;
   /// @brief counter of unsupported corner cases when packetizing is cancelled
   int m_cannotHandleCtr;
+  /// @brief the dimension by which we vectorize (usually 0).
+  unsigned int m_vectorizedDim;
 
   // Statistics:
   Statistic::ActiveStatsT m_kernelStats;
