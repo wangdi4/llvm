@@ -356,6 +356,17 @@ void MICProgramBuilder::CopyJitHolder(LLVMModuleJITHolder* from, ModuleJITHolder
 
         to->RegisterRelocation(info);
     }
+    // Copy Relocation Table
+    for(llvm::DynRelocationTable_t::const_iterator it =
+        from->getDynamicRelocationTable().begin(),
+        end = from->getDynamicRelocationTable().end(); it != end; it++)
+    {
+        DynRelocationInfo info;
+        info.offset = (*it).atOffset;
+        info.addend = (*it).addend;
+
+        to->RegisterDynRelocation(info);
+    }
 }
 
 IBlockToKernelMapper * MICProgramBuilder::CreateBlockToKernelMapper(Program* pProgram, const llvm::Module* pModule) const

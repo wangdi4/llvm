@@ -41,6 +41,12 @@ public:
 
 private:
     cl_prog_container_header* m_pObjectCodeContainer; 
+
+    // Klockwork Issue
+    ObjectCodeContainer ( const ObjectCodeContainer& x );
+
+    // Klockwork Issue
+    ObjectCodeContainer& operator= ( const ObjectCodeContainer& x );
 };
 
 }}} // namespace

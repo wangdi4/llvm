@@ -39,7 +39,7 @@ public:
                  llvm::Function* pFunction,
                  llvm::Module* pModule,
                  KernelJITProperties* pProps);
-    ~CPUJITContainer();
+    virtual ~CPUJITContainer();
 
     /*
      * ICLDevBackendJITContainer methods

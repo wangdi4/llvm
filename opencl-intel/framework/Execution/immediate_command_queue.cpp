@@ -94,6 +94,11 @@ cl_err_code ImmediateCommandQueue::EnqueueCommand(Command* pCommand, cl_bool bBl
     {
         pQueueEvent->Release();
     }
+
+    if (CL_SUCCESS != ret)
+    {
+        NotifyCommandFailed(ret,pCommand);
+    }
     return ret;
 }
 

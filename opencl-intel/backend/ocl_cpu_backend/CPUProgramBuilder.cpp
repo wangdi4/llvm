@@ -167,9 +167,16 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
 
     // get the buffers entries
     const char* bitCodeBuffer = (const char*)reader.GetSectionData(CacheBinaryHandler::g_irSectionName);
+    assert(bitCodeBuffer && "BitCode Buffer is null");
+
     const char* serializationBuffer = (const char*)reader.GetSectionData(CacheBinaryHandler::g_metaSectionName);
+    assert(serializationBuffer && "Serialization Buffer is null");
+
     const char* optModuleBuffer = (const char*)reader.GetSectionData(CacheBinaryHandler::g_optSectionName);
+    assert(optModuleBuffer && "OptModule Buffer is null");
+
     const char* objectBuffer = (const char*)reader.GetSectionData(CacheBinaryHandler::g_objSectionName);
+    assert(objectBuffer && "Object Buffer is null");
 
     // Set IR
     BitCodeContainer* bcc = new BitCodeContainer((const cl_prog_container_header*)bitCodeBuffer);
