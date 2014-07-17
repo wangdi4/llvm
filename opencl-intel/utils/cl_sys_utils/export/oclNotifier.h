@@ -85,6 +85,19 @@ inline void addParameter(OclParameters& params, string paramName, const char* c)
     params.parameters.push_back(make_pair(paramName, stringify(c)));
 }
 
+// Describes the external memory object type, used to create
+// the CL object.
+enum ClExternalObjectType
+{
+    FromNone,   // no external object was used for creation
+    FromClBuffer,
+    FromGL,
+    FromDX9MediaSurface,
+    FromDX9ObjectsINTEL,
+    FromD3D10,
+    FromD3D11
+};
+
 // an abstract class that one can implement and register in order to get callbacks 
 class oclNotifier
 {
@@ -117,7 +130,8 @@ public:
 
 	/* Memory Object Callbacks */
 	virtual void BufferCreate (cl_mem /* memobj */, cl_context /* context */,
-                               size_t, void*, bool, unsigned int traceCookie)=0;
+                               size_t, void*, ClExternalObjectType/* from external object */,
+                               unsigned int traceCookie)=0;
 	virtual void BufferMap (cl_mem /* memobj */, cl_map_flags,
                             unsigned int traceCookie)=0;
 	virtual void BufferUnmap (cl_mem, cl_command_queue, cl_event*)=0;
@@ -129,8 +143,8 @@ public:
 								  cl_context,
                                   unsigned int traceCookie)=0;
 	virtual void ImageCreate (cl_mem /* memobj */, cl_context /* context */,
-							  const cl_image_desc*, void*,
-                              bool /* from external object */,
+                              const cl_image_desc*, void*,
+                              ClExternalObjectType /* from external object */,
                               unsigned int traceCookie)=0;
 	virtual void ImageMap(cl_mem, cl_map_flags, unsigned int traceCookie)=0;
 	virtual void ImageUnmap(cl_mem, cl_command_queue, cl_event*)=0;
@@ -237,7 +251,8 @@ public:
 
 	/* Memory Object Callbacks */
 	virtual void BufferCreate (cl_mem /* memobj */, cl_context /* context */,
-                               size_t, void*, bool, unsigned int traceCookie);
+                               size_t, void*, ClExternalObjectType /* from external object */,
+                               unsigned int traceCookie);
 	virtual void BufferMap (cl_mem /* memobj */, cl_map_flags, unsigned int traceCookie);
 	virtual void BufferUnmap (cl_mem, cl_command_queue, cl_event*);
 	virtual void BufferEnqueue (cl_command_queue, cl_event*, cl_mem, unsigned int traceCookie);
@@ -246,8 +261,9 @@ public:
 								  const void* /* buffer create info */,
 								  cl_context, unsigned int traceCookie);
 	virtual void ImageCreate (cl_mem /* memobj */, cl_context /* context */,
-							  const cl_image_desc*,
-                              void*, bool /* from external object */,
+                              const cl_image_desc*,
+                              void*,
+                              ClExternalObjectType /* from external object */,
                               unsigned int traceCookie);
 	virtual void ImageMap(cl_mem, cl_map_flags, unsigned int traceCookie);
 	virtual void ImageUnmap(cl_mem, cl_command_queue, cl_event*);
