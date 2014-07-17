@@ -750,7 +750,7 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 
     size_t argCount = m_sKernelPrototype.m_vArguments.size();
     // check argument's index
-    if (uiIndex > argCount - 1)
+    if (uiIndex + 1 > argCount)
     {
         return CL_INVALID_ARG_INDEX;
     }
