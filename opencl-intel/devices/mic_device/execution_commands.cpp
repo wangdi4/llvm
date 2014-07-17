@@ -23,6 +23,7 @@
 #include "execution_commands.h"
 #include "command_list.h"
 #include "memory_allocator.h"
+#include "cl_user_logger.h"
 
 #include <source/COIBuffer_source.h>
 
@@ -536,6 +537,12 @@ cl_dev_err_code NDRange::init()
             {
                 assert(0 && "PrepareKernelArguments failed" );
                 break;
+            }
+		    // if logger is enabled, always print local work size from BE
+            if (NULL != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled())
+            {
+                vector<size_t> dims(pUniformArgs->LocalSize[0], &pUniformArgs->LocalSize[0][cmdParams->work_dim]);
+                g_pUserLogger->SetLocalWorkSize4ArgValues(m_pCmd->id, dims);
             }
         }
         else

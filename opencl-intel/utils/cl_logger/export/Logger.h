@@ -32,6 +32,7 @@
 #include "log_message.h"
 #include "log_handler.h"
 #include "cl_synch_objects.h"
+#include "cl_user_logger.h"
 
 namespace Intel { namespace OpenCL { namespace Utils {
     class IAtExitCentralPoint;
@@ -160,7 +161,22 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		void Log(ELogLevel level, ELogConfigField config, const char* psClientName, const char* sourceFile, const char* functionName, __int32 sourceLine, const char* message,  va_list va);
+    void Log(ELogLevel level, ELogConfigField config, const char* psClientName, const char* sourceFile, const char* functionName, __int32 sourceLine, const char* message,  va_list va)
+    {
+        LogMessage	logMessage(level, config, psClientName, sourceFile, functionName, sourceLine, message, va);
+        if (NULL != g_pUserLogger && g_pUserLogger->IsErrorLoggingEnabled() && (LL_ERROR == level || LL_CRITICAL == level))
+        {
+            g_pUserLogger->PrintError(logMessage.GetFormattedMessage());
+        }
+        
+        for (int i = 0; i < MAX_LOG_HANDLERS && m_logHandlers[i]; i++)
+        {
+            if (m_logHandlers[i] != NULL)
+            {
+                m_logHandlers[i]->Log(logMessage);
+            }
+        }
+    }
 
 		/******************************************************************************************
 		* Function: 	GetLogHandlerParams

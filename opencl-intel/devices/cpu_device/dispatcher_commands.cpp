@@ -30,6 +30,7 @@
 #include "cpu_logger.h"
 #include "cpu_dev_limits.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_user_logger.h"
 #include <builtin_kernels.h>
 #include <cl_dev_backend_api.h>
 #include <cl_sys_defines.h>
@@ -66,6 +67,7 @@ unsigned int NDRange::RGBTable[COLOR_TABLE_SIZE] = {
 AtomicCounter NDRange::RGBTableCounter;
 
 using namespace Intel::OpenCL::BuiltInKernels;
+using Intel::OpenCL::Utils::g_pUserLogger;
 
 /**
  * Debug prints flag. Required for (weird) platforms like Linux, where our logger does not work.
@@ -855,6 +857,13 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
     const cl_mem_obj_descriptor** memArgs = NULL;
 #endif
     m_pRunner->PrepareKernelArguments(pLockedParams, memArgs, memObjCount);
+
+    // if logger is enabled, always print local work size from BE
+    if (NULL != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled())
+    {
+        vector<size_t> dims(m_pImplicitArgs->LocalSize[0], &m_pImplicitArgs->LocalSize[0][cmdParams->work_dim]);                       
+        g_pUserLogger->SetLocalWorkSize4ArgValues(m_pCmd->id, dims);
+    }
 
     const size_t*    pWGSize = m_pImplicitArgs->WGCount;
     unsigned int i;

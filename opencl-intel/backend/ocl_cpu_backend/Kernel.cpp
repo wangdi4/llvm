@@ -613,7 +613,7 @@ void Kernel::Deserialize(IInputStream& ist, SerializationStatus* stats)
 
   Serializer::DeserialPointerHint((void **)&m_pProps, ist);
   if (NULL != m_pProps) {
-    m_pProps = 
+    m_pProps =
         stats->GetBackendFactory()->CreateKernelProperties();
     m_pProps->Deserialize(ist, stats);
   }
@@ -623,7 +623,7 @@ void Kernel::Deserialize(IInputStream& ist, SerializationStatus* stats)
     IKernelJITContainer *currentArgument = NULL;
     Serializer::DeserialPointerHint((void **)&currentArgument, ist);
     if (NULL != currentArgument) {
-      currentArgument = 
+      currentArgument =
           stats->GetBackendFactory()->CreateKernelJITContainer();
       currentArgument->Deserialize(ist, stats);
     }

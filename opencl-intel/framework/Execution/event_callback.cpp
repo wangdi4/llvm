@@ -4,6 +4,7 @@
 #include "ocl_config.h"
 
 using namespace Intel::OpenCL::Framework;
+using Intel::OpenCL::Utils::g_pUserLogger;
 
 EventCallback::EventCallback(eventCallbackFn callback, void* pUserData, const cl_int expectedExecState)
 	: m_callback(callback), m_pUserData(pUserData), m_eventCallbackExecState(expectedExecState)
@@ -18,11 +19,11 @@ cl_err_code EventCallback::ObservedEventStateChanged(const SharedPtr<OclEvent>& 
     {
         retCode = GetExpectedExecState();
     }
-    if (GetUserLoggerInstance().IsApiLoggingEnabled())
+    if (NULL != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled())
     {
         std::stringstream stream;
         stream << "EventCallback(" << pEvent->GetHandle() << ", " << m_pUserData << ")" << std::endl;
-        GetUserLoggerInstance().PrintString(stream.str());
+        g_pUserLogger->PrintString(stream.str());
     }
     m_callback(pEvent->GetHandle(), retCode, m_pUserData);
     return CL_SUCCESS;

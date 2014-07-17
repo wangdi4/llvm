@@ -204,11 +204,11 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
     std::vector<std::string> args;
 
     args.push_back("OclBackend");
-    // OpecnCL assumes stack is aligned
-    // We are forccing LLVM to align the stack
+    // OpenCL assumes stack is aligned
+    // We are forcing LLVM to align the stack
     args.push_back("-force-align-stack");
-    // SSE requirest maximum alignment of parameters of 16 bytes
-    // AVX265 requirest maximum alignment of parameters of 32 bytes
+    // SSE requires maximum alignment of parameters of 16 bytes
+    // AVX requires maximum alignment of parameters of 32 bytes
     args.push_back("-stack-alignment=32");
 
     if( config.EnableTiming() && false == config.InfoOutputFile().empty())
@@ -228,7 +228,7 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
 
     for(; i != e; ++i )
     {
-        //be carefull here. The pointer returned by c_str() is only guaranteed to remain unchanged
+        //be careful here. The pointer returned by c_str() is only guaranteed to remain unchanged
         //until the next call to a non-constant member function of the string object.
         argv.push_back( const_cast<char*>(i->c_str()) );
     }
@@ -364,7 +364,7 @@ llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
     return pModule;
 }
 
-// for CPU implementation rtl module consisits of two libraries: shared (common for all cpu architectures)
+// for CPU implementation RTL module consists of two libraries: shared (common for all CPU architectures)
 // and particular (optimized for one architecture), they should be linked,
 // for KNC we have the particular RTL only
 llvm::Module* Compiler::CreateRTLModule(BuiltinLibrary* pLibrary) const
@@ -388,7 +388,7 @@ llvm::Module* Compiler::CreateRTLModule(BuiltinLibrary* pLibrary) const
 
     // on KNC we don't have shared (common) library, so skip loading
     if (pLibrary->GetCPU() != MIC_KNC) {
-        // the shared rtl is loaded here
+        // the shared RTL is loaded here
         llvm::MemoryBuffer* pRtlBufferSvmlShared = pLibrary->GetRtlBufferSvmlShared();
 
         std::auto_ptr<llvm::Module> spModuleSvmlShared(llvm::ParseBitcodeFile(pRtlBufferSvmlShared, *m_pLLVMContext));

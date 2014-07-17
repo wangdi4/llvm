@@ -124,7 +124,7 @@ void CPUProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Pr
     // fill offload image in the object buffer
     std::vector<char> metaStart(serializationSize);
     pCPUSerializationService->SerializeProgram(
-        SERIALIZE_PERSISTENT_IMAGE, 
+        SERIALIZE_PERSISTENT_IMAGE,
         pProgram,
         &(metaStart[0]), serializationSize);
     pWriter->AddSection(CacheBinaryHandler::g_metaSectionName, &(metaStart[0]), serializationSize);
@@ -154,7 +154,7 @@ void CPUProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Pr
 
 bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
 {
-    const char* pCachedObject = 
+    const char* pCachedObject =
         (char*)(pProgram->GetObjectCodeContainer()->GetCode());
     size_t cacheSize = pProgram->GetObjectCodeContainer()->GetCodeSize();
     assert(pCachedObject && "Object Code Container is null");
@@ -205,9 +205,9 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
     std::auto_ptr<CPUSerializationService> pCPUSerializationService(new CPUSerializationService(NULL));
     pCPUSerializationService->ReloadProgram(
         SERIALIZE_PERSISTENT_IMAGE,
-        pProgram, 
+        pProgram,
         serializationBuffer,
-        serializationSize); 
+        serializationSize);
 
     // init refcounted runtime service shared storage between program and kernels
     RuntimeServiceSharedPtr lRuntimeService =
@@ -349,7 +349,7 @@ void CPUProgramBuilder::AddKernelJIT(CPUProgram* pProgram, Kernel* pKernel, llvm
     IKernelJITContainer* pJIT = new CPUJITContainer( pProgram->GetPointerToFunction(pFunc),
                                                      pFunc,
                                                      pModule,
-                                                     pProps);
+                                                     pProps );
     pKernel->AddKernelJIT( pJIT );
 }
 

@@ -486,11 +486,11 @@ bool PostBuildTask::Execute()
 
     if (m_pfn_notify)
     {
-        if (GetUserLoggerInstance().IsApiLoggingEnabled())
+        if (NULL != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled())
         {
             std::stringstream stream;
             stream << "BuildProgram callback(" << m_pProg->GetHandle() << ", " << m_user_data << ")" << std::endl;
-            GetUserLoggerInstance().PrintString(stream.str());
+            g_pUserLogger->PrintString(stream.str());
         }
         m_pfn_notify(m_pProg->GetHandle(), m_user_data);
     }
