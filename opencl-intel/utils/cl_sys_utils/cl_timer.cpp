@@ -36,7 +36,7 @@ Timer::~Timer()
 #endif
 }
 
-unsigned long long GetTimeInUsecs()
+unsigned long long Timer::GetTimeInUsecs()
 {
 #ifdef _WIN32
     static LARGE_INTEGER s_freq = { 0 };
