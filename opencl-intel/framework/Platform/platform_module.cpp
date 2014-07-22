@@ -492,21 +492,13 @@ cl_int    PlatformModule::GetDeviceInfo(cl_device_id clDevice,
     size_t szParamSize = 0;
     cl_bool bBoolValue = CL_TRUE;
     const void * pValue = NULL;
+	  const cl_platform_id id = &m_clPlatformId;
 
     switch(clParamName)
     {
     case CL_DEVICE_PLATFORM:
         {
             szParamSize = sizeof(cl_platform_id);
-            cl_platform_id id = &m_clPlatformId;
-#if defined(__x86_64__) && defined (__ANDROID__)
-            /* It seems that gcc has some bug in optimization: when the following two statements are absent, the value of id is incorrectly copied to pParamValue. This doesn't happen
-               in debug mode, which points to the suspicion that it's because of some optimization. Also, when the the two NOP statements are there, this doesn't happen - other clue to
-               the optimization bug.
-               GCC version: x86_64-linux-android-gcc (GCC) 4.9 20140514 (prerelease) */
-            char buf;
-            write(1, &buf, 0);
-#endif
             pValue = &id;
             break;
         }
