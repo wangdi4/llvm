@@ -51,7 +51,9 @@ KernelProperties::KernelProperties():
     m_minGroupSizeFactorial(1),
     m_isVectorizedWithTail(false),
     m_uiSizeT(sizeof(void*)),
-    m_bIsBlock(false)
+    m_bIsBlock(false),
+    m_canUniteWG(false),
+    m_verctorizeOnDimention(0)
 {
     memset(m_reqdWGSize, 0, MAX_WORK_DIM * sizeof(size_t));
     memset(m_hintWGSize, 0, MAX_WORK_DIM * sizeof(size_t));
@@ -94,6 +96,8 @@ void KernelProperties::Serialize(IOutputStream& ost, SerializationStatus* stats)
     Serializer::SerialPrimitive<unsigned int>(&m_minGroupSizeFactorial, ost);
     Serializer::SerialPrimitive<unsigned int>(&m_uiSizeT, ost);
     Serializer::SerialPrimitive<bool>(&m_bIsNonUniformWGSizeSupported, ost);
+    Serializer::SerialPrimitive<bool>(&m_canUniteWG, ost);
+    Serializer::SerialPrimitive<unsigned int>(&m_verctorizeOnDimention, ost);
 }
 
 void KernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats)
@@ -137,6 +141,8 @@ void KernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats
     Serializer::DeserialPrimitive<unsigned int>(&ui_tmp, ist);
     m_uiSizeT = ui_tmp;
     Serializer::DeserialPrimitive<bool>(&m_bIsNonUniformWGSizeSupported, ist);
+    Serializer::DeserialPrimitive<bool>(&m_canUniteWG, ist);
+    Serializer::DeserialPrimitive<unsigned int>(&m_verctorizeOnDimention, ist);
 }
 
 

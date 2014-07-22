@@ -141,4 +141,6 @@ bool clSvmTest();
 bool clFlexibleNdrange();
 bool clPipes();
 bool clSampler();
+bool clCheckVectorizingDim1And2AndUniteWG(int progIndex, bool hasLocalWGSize);
+bool clCheckVectorizingOnAllDimAndCantUniteWG(int progIndex, bool oddDimention);
 //#define CUDA_DEVICE
