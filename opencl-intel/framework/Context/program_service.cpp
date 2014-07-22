@@ -366,6 +366,13 @@ bool DeviceBuildTask::Execute()
     m_pDeviceProgram->SetDeviceHandleInternal(programHandle);
 
     err = pDeviceAgent->clDevBuildProgram(programHandle, m_sOptions.c_str(), &build_status);
+    if (CL_DEV_SUCCESS != err)
+    {
+        m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_BUILD_FAILED);
+        m_pDeviceProgram->SetBuildLogInternal("Failed to build device program\n");
+        SetComplete(CL_BUILD_SUCCESS);
+        return true;
+    }
 
     assert( (CL_BUILD_ERROR == build_status || CL_BUILD_SUCCESS == build_status) && "Unknown build status returned by the device agent" );
 
