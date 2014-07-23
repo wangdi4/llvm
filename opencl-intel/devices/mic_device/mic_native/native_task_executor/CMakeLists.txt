@@ -3,7 +3,7 @@
 set ( TASK_EXECUTOR_DIR      ${UTILS_DIR}/task_executor )
 set ( TARGET_LIB_NAME        native_task_executor)
 
-message ("Building project for ${TARGET_LIB_NAME}")
+message (STATUS "Building project for ${TARGET_LIB_NAME}")
 
 # add task_executor
 set( TARGET_SOURCES )

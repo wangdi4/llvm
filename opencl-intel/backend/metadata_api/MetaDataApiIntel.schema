@@ -275,6 +275,20 @@
                             "name":     "PrivateMemorySize",
                             "metatype": "int32_item",
                             "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "vectorization_dimension",
+                            "name":     "VectorizationDimension",
+                            "metatype": "int32_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "can_unite_workgroups",
+                            "name":     "CanUniteWorkgroups",
+                            "metatype": "bool_item",
+                            "optional": true
                         }
                     ]
                 },

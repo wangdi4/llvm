@@ -26,8 +26,6 @@
 
 #pragma once
 
-#include "cl_user_logger.h"
-
 enum CpuELogLevel
 	{
 		CPU_LL_DEBUG     = 100,
@@ -52,7 +50,3 @@ enum CpuELogLevel
 	if (CLIENT && CLIENT_ID) CLIENT->clLogAddLine(CLIENT_ID, cl_int(CPU_LL_ERROR),__FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
 #define CpuCriticLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)			\
 	if (CLIENT && CLIENT_ID) CLIENT->clLogAddLine(CLIENT_ID, cl_int(CPU_LL_CRITICAL),__FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
-
-namespace Intel { namespace OpenCL { namespace CPUDevice {
-
-}}}

@@ -16,6 +16,7 @@ endif (NOT WIN32)
 
 include_directories( BEFORE ${OCL_SOURCE_DIR}/backend/ocl_cpu_backend/export
                             ${OCL_SOURCE_DIR}/fe_compilers/clang_compiler
+                            ${OCL_SOURCE_DIR}/cl_api
                             ${HW_UTILS_HEADERS} 
                             ${OCL_BINARY_DIR}
                             ../common/builtin_kernels

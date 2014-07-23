@@ -4,7 +4,6 @@
 #include "cl_device_api.h"
 #include "cl_types.h"
 #include "ICLDevBackendProgram.h"
-#include <vector>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -167,14 +166,6 @@ public:
       void* pKernelUniformArgs,
       const cl_mem_obj_descriptor* *pDevMemObjArray,  // TODO-NDRANGE: change type
       unsigned int devMemObjArrayLength) const = 0;
-
-    /**
-     * NOTICE: should be called after PrepareKernelArguments otherwise undefined
-     * @param pKernelUniformArgs pointer to the Uniform arguments object
-     * @param sizes              an array of size MAX_WORK_DIM to be filled with the final local work group sizes for the specified arguments
-     */
-    virtual void GetLocalSizes(
-      void *pKernelUniformArgs, unsigned int* sizes) const = 0;
 
     /**
      * @effects prepares the thread for kernel execution

@@ -138,7 +138,6 @@ void MicUserLogger::StderrListerenerThread::HandleLogMessage(FILE* pipeFile)
     buf[szMsgLen] = '\0';
 
     Intel::OpenCL::Utils::LogMessageWrapper wrapper(&buf[0]);
-    g_pUserLogger->SetLocalWorkSize4ArgValues(wrapper.GetId(), wrapper.GetBeMsg());
 }
 
 RETURN_TYPE_ENTRY_POINT MicUserLogger::StderrListerenerThread::Run()

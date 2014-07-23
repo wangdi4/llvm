@@ -82,8 +82,3 @@ namespace Intel { namespace OpenCL { namespace Framework {
     };  
 
 }}}
-
-/**
-* @return the FrameworkUserLogger singleton in the RT
-*/
-Intel::OpenCL::Utils::FrameworkUserLogger& GetUserLoggerInstance();

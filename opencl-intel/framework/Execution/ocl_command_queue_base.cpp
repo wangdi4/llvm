@@ -30,10 +30,12 @@
 #include "cl_shared_ptr.hpp"
 #include "Context.h"
 #include "context_module.h"
+#include "cl_user_logger.h"
+
 
 using namespace Intel::OpenCL::Framework;
 
-cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pUserEvent)
+cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pUserEvent, ApiLogger& apiLogger)
 {
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
       if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
@@ -58,9 +60,13 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
     pQueueEvent->AddProfilerMarker("QUEUED", ITT_SHOW_QUEUED_MARKER);
 
     cl_err_code errVal = CL_SUCCESS;
-    // If blocking and no event, than it is needed to create dummy cl_event for wait
     cl_event waitEvent = NULL;
     cl_event* pEvent;
+    if(NULL != pUserEvent)
+    {
+        pQueueEvent->SetVisibleToUser();
+    }
+    // If blocking and no event, than it is needed to create dummy cl_event for wait
     if( bBlocking && NULL == pUserEvent)
     {
         pEvent = &waitEvent;
@@ -70,6 +76,7 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
         pEvent = pUserEvent;
     }
     m_pEventsManager->RegisterQueueEvent(pQueueEvent, pEvent);
+    apiLogger.SetCmdId(pQueueEvent->GetId());
 
     AddFloatingDependence(pQueueEvent);
     errVal = m_pEventsManager->RegisterEvents(pQueueEvent, uNumEventsInWaitList, cpEeventWaitList);
@@ -143,7 +150,7 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 
 
 cl_err_code IOclCommandQueueBase::EnqueueRuntimeCommandWaitEvents(RUNTIME_COMMAND_TYPE type, 
-                                                    Command* pCommand, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList, cl_event* pEvent)
+                                                    Command* pCommand, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList, cl_event* pEvent, ApiLogger* pApiLogger)
 {
     const SharedPtr<QueueEvent>& pQueueEvent  = pCommand->GetEvent();
     cl_event                     pEventHandle = pQueueEvent->GetHandle();
@@ -155,6 +162,10 @@ cl_err_code IOclCommandQueueBase::EnqueueRuntimeCommandWaitEvents(RUNTIME_COMMAN
 
     AddFloatingDependence(pQueueEvent);
     errVal = m_pEventsManager->RegisterEvents(pQueueEvent, uNumEventsInWaitList, pEventWaitList);
+    if (NULL != pApiLogger)
+    {
+        pApiLogger->SetCmdId(pQueueEvent->GetId());
+    }
 
     if( CL_FAILED(errVal))
     {
@@ -245,6 +256,35 @@ void IOclCommandQueueBase::EnterZombieState( EnterZombieStateLevel call_level )
 {
     m_pContext->GetContextModule().CommandQueueRemoved( this );
     OclCommandQueue::EnterZombieState(RECURSIVE_CALL);
+}
+
+
+void IOclCommandQueueBase::NotifyCommandFailed( cl_err_code err , const CommandSharedPtr<>& command ) const
+{
+    if ( NULL != command)
+    {
+        std::stringstream stream;
+        _cl_event_int* handle = NULL;
+        if(command->GetEvent()->GetVisibleToUser())
+        {
+            handle = command->GetEvent()->GetHandle();
+        }
+
+        if (g_pUserLogger->IsErrorLoggingEnabled())
+        {
+            stream << "Command failed. " << "command type: " << command->GetCommandName();
+            stream << ", command id: " << command->GetEvent()->GetId();
+            stream << ", result value: " << err;
+            stream << ", The cl_event value associated with the command (NULL if no event was attached): 0x" << handle;
+            g_pUserLogger->PrintError(stream.str());
+            stream.str(std::string());
+        }
+      
+        stream << "A command failed with return value: " << err;
+        stream << ", the cl_event value associated with the command is in private_info (NULL if no event was attached).";
+        const std::string& tmp = stream.str();
+        GetContext()->NotifyError( tmp.c_str() , handle , sizeof(handle) );
+    }
 }
 
 void IOclCommandQueueBase::BecomeVisible()

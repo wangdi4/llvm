@@ -704,6 +704,10 @@ private:
     D3D11Texture3D(SharedPtr<Context> pContext, cl_mem_object_type clObjType) :
       D3DResource<ID3D11Resource, ID3D11Device>(pContext), m_pTexture3DMapper(NULL) { }
 
+    D3D11Texture3D(const D3D11Texture3D& s);
+
+    D3D11Texture3D& operator=(const D3D11Texture3D& s);
+
     UINT GetWidth(const D3DResourceInfo<ID3D11Resource>& resourceInfo) const;
 
     UINT GetHeight(const D3DResourceInfo<ID3D11Resource>& resourceInfo) const;

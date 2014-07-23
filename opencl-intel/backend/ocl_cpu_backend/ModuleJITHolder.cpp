@@ -118,6 +118,15 @@ void ModuleJITHolder::Serialize(IOutputStream& ost, SerializationStatus* stats)
         SerializeRelocationInfo(*it, ost);
     }
 
+    int dynTblSize = m_DynRelocationTable.size();
+    Serializer::SerialPrimitive<int>(&dynTblSize, ost);
+    for(std::vector<DynRelocationInfo>::const_iterator
+        it = m_DynRelocationTable.begin();
+        it != m_DynRelocationTable.end();
+        it++)
+    {
+        SerializeDynRelocationInfo(*it, ost);
+    }
 
     if( 0 < m_memBuffer.getNumChunks() )
     {
@@ -173,6 +182,17 @@ void ModuleJITHolder::Deserialize(IInputStream& ist, SerializationStatus* stats)
         m_RelocationTable.push_back(info);
     }
 
+    int dynTblSize = 0;
+    Serializer::DeserialPrimitive<int>(&dynTblSize, ist);
+
+    m_DynRelocationTable.clear();
+    for(int i = 0; i < dynTblSize; ++i)
+    {
+        DynRelocationInfo info;
+        DeserializeDynRelocationInfo(info, ist);
+        m_DynRelocationTable.push_back(info);
+    }
+
     // Deserialize the JIT code itself
     ICLDevBackendJITAllocator* pAllocator = stats->GetJITAllocator();
     if(NULL == pAllocator) throw Exceptions::SerializationException("Cannot Get JIT Allocator");
@@ -191,6 +211,9 @@ void ModuleJITHolder::Deserialize(IInputStream& ist, SerializationStatus* stats)
     {
         Serializer::DeserialPrimitive<char>(&(m_pJITCode[i]), ist);
     }
+
+    // Apply dynamic relocations
+    RelocateJITCode();
 }
 
 void ModuleJITHolder::SerializeRelocationInfo(RelocationInfo info,
@@ -200,11 +223,25 @@ void ModuleJITHolder::SerializeRelocationInfo(RelocationInfo info,
     Serializer::SerialString(info.symName, ost);
 }
 
+void ModuleJITHolder::SerializeDynRelocationInfo(DynRelocationInfo info,
+                                                IOutputStream& ost) const
+{
+    Serializer::SerialPrimitive<unsigned int>(&(info.offset), ost);
+    Serializer::SerialPrimitive<uint64_t>(&(info.addend), ost);
+}
+
 void ModuleJITHolder::DeserializeRelocationInfo(RelocationInfo& info,
                                             IInputStream& ist) const 
 {
     Serializer::DeserialPrimitive<unsigned int>(&(info.offset), ist);
     Serializer::DeserialString(info.symName, ist);
+}
+
+void ModuleJITHolder::DeserializeDynRelocationInfo(DynRelocationInfo& info,
+                                                  IInputStream& ist) const
+{
+    Serializer::DeserialPrimitive<unsigned int>(&(info.offset), ist);
+    Serializer::DeserialPrimitive<uint64_t>(&(info.addend), ist);
 }
 
 void ModuleJITHolder::SerializeKernelInfo(KernelID id, KernelInfo info,
@@ -295,6 +332,11 @@ void ModuleJITHolder::RegisterRelocation(const RelocationInfo& info)
     m_RelocationTable.push_back(info);
 }
 
+void ModuleJITHolder::RegisterDynRelocation(const DynRelocationInfo& info)
+{
+    m_DynRelocationTable.push_back(info);
+}
+
 int ModuleJITHolder::GetKernelEntryPoint(KernelID kernelId) const
 {
     std::map<KernelID, KernelInfo>::const_iterator it = m_KernelsMap.find(kernelId);
@@ -375,6 +417,18 @@ void ModuleJITHolder::RelocateSymbolAddresses(IDynamicFunctionsResolver* resolve
         assert(address && "Relocation failed!");
         // TODO: do we need to take care of relocation type?
         EncodeSymbolAddress(it->offset, address);
+    }
+}
+
+void ModuleJITHolder::RelocateJITCode()
+{
+  uint64_t address = (uint64_t)m_pJITCode;
+    for(std::vector<DynRelocationInfo>::const_iterator
+        it = m_DynRelocationTable.begin();
+        it != m_DynRelocationTable.end();
+        it++)
+    {
+        EncodeSymbolAddress(it->offset, address+it->addend);
     }
 }
 

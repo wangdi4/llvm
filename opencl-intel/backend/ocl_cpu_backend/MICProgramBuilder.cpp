@@ -251,7 +251,8 @@ KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
         }
         else
         {
-            buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was successfully vectorized\n";
+            buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was successfully vectorized (" <<
+                spMICKernelProps->GetMinGroupSizeFactorial() << ")\n";
         }
 #ifdef OCL_DEV_BACKEND_PLUGINS
         // Notify the plugin managerModuleJITHolder
@@ -354,6 +355,17 @@ void MICProgramBuilder::CopyJitHolder(LLVMModuleJITHolder* from, ModuleJITHolder
         info.offset  = (*it).atOffset;
 
         to->RegisterRelocation(info);
+    }
+    // Copy Relocation Table
+    for(llvm::DynRelocationTable_t::const_iterator it =
+        from->getDynamicRelocationTable().begin(),
+        end = from->getDynamicRelocationTable().end(); it != end; it++)
+    {
+        DynRelocationInfo info;
+        info.offset = (*it).atOffset;
+        info.addend = (*it).addend;
+
+        to->RegisterDynRelocation(info);
     }
 }
 

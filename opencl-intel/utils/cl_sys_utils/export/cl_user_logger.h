@@ -40,13 +40,7 @@ public:
     /**
      * Constructor
      */
-    static FrameworkUserLogger& Instance();
-
-    /**
-     * @param localWorkSize a vector of size_t containing the local work size
-     * @return a string of the common format of the local work size
-     */
-    static std::string FormatLocalWorkSize(const std::vector<unsigned int>& localWorkSize);
+    static FrameworkUserLogger& Instance();    
 
     /**
      * Destructor
@@ -57,7 +51,109 @@ public:
         {
             m_logFile.close();
         }
+    }           
+    
+    /**
+     * @return whether API logging is enabled
+     */
+    bool IsApiLoggingEnabled() const { return m_bLogApis; }
+
+    /**
+     * @return whether error logging is enabled
+     */
+    bool IsErrorLoggingEnabled() const { return m_bLogErrors; }    
+
+    /**
+     * Print a string to the log
+     * @param str the string to print
+     */
+    void PrintString(const std::string& str)
+    {
+        if (m_bLogApis)
+        {
+            PrintStringInternal(str);
+        }
+    }
+
+    /**
+     * Print an error to the log
+     * @param               the error message
+     */
+    void PrintError(const std::string& msg);
+
+    /**
+     * Set the local work size calculated by BE for a specific NDRange command identified by cl_dev_cmd_id
+     * @param id the cl_dev_cmd_id identifying the NDRange command
+     * @param localWorkSize the local work size calculated by BE
+     */
+    void SetLocalWorkSize4ArgValues(cl_dev_cmd_id id, const std::vector<size_t>& localWorkSize);
+
+private:    
+
+    FrameworkUserLogger();
+
+    void Setup(const std::string& filename, bool bLogErrors, bool bLogApis);        
+
+    void PrintStringInternal(const std::string& str);    
+
+    std::string FormatLocalWorkSize(const std::vector<size_t>& localWorkSize);
+
+    // do not implement
+    FrameworkUserLogger(const FrameworkUserLogger&);
+    FrameworkUserLogger& operator=(const FrameworkUserLogger&);
+
+    bool m_bLogErrors;
+    bool m_bLogApis;
+    std::ofstream m_logFile;
+    std::ostream* m_pOutput;
+    mutable OclSpinMutex m_outputMutex; // Synchronize writing to m_pOutput    
+};
+
+extern FrameworkUserLogger* g_pUserLogger;   // a global pointer to the logger, which be defined in each shared library (so LOG_ERROR can use the user logger)
+
+/**
+ * This class is responsible for collecting logging data from a signle API call and printing it to the user log at its destruction
+ */
+class ApiLogger
+{
+public:
+
+    /**
+     * Constructor
+     * @param apiCallName name of the API call
+     */
+    ApiLogger(const std::string& apiCallName) : m_iLastRetValue(CL_SUCCESS), m_bLogApis(g_pUserLogger->IsApiLoggingEnabled()), m_bFirstApiFuncArg(false), m_iCmdId(-1)
+    {
+        if (!m_bLogApis)
+        {
+            return;
+        }
+        StartApiFuncInternal(apiCallName);
+    }
+
+    /**
+     * Destructor
+     */
+    ~ApiLogger()
+    {
+        m_stream << endl;
+        g_pUserLogger->PrintString(m_stream.str());        
     }    
+
+    /**
+     * @return the return value from the last API function (if the return value of the function is a pointer, then this method returns CL_SUCCESS if it is not NULL; if there is
+     *         no return value, then this method always returns CL_SUCCESS)
+     */
+    cl_int GetLastRetVal() const
+    { 
+        return m_iLastRetValue;
+    }
+
+    /**
+     * Start logging of API function
+     * @param funcName the name of the function
+     */
+    void StartApiFunc(const std::string& funcName);
 
     /**
      * Print a value in an API call into the log
@@ -65,7 +161,7 @@ public:
      * @return this FrameworkUserLogger
      */
     template<typename T>
-    FrameworkUserLogger& operator<<(const T& val)
+    ApiLogger& operator<<(const T& val)
     {
         if (m_bLogApis)
         {
@@ -79,30 +175,14 @@ public:
      * @param sParamTypeAndName type followed by the parameter's name
      * @return this FrameworkUserLogger
      */
-    FrameworkUserLogger& operator<<(const char* sParamTypeAndName);
+    ApiLogger& operator<<(const char* sParamTypeAndName);
 
     /**
-     * Print a C-string value in an API call(operator<< cannot be used in this case, because it assumes that the string is a parameter type and name)
+     * Print a C-string value in an API call (operator<< cannot be used in this case, because it assumes that the string is a parameter type and name)
      * @param sVal the C-string value
      * @return this FrameworkUserLogger
      */
-    FrameworkUserLogger& PrintCStringVal(const char* sVal);
-    
-    /**
-     * @return whether API logging is enabled
-     */
-    bool IsApiLoggingEnabled() const { return m_bLogApis; }
-
-    /**
-     * @return whether error logging is enabled
-     */
-    bool IsErrorLoggingEnabled() const { return m_bLogErrors; }
-
-    /**
-     * Start logging of API function
-     * @param funcName the name of the function
-     */
-    void StartApiFunc(const std::string& funcName);
+    ApiLogger& PrintCStringVal(const char* sVal);
 
     /**
      * End logging of an API function with a pointer return value
@@ -122,12 +202,6 @@ public:
     void EndApiFunc();
 
     /**
-     * Set whether to expect output parameter in the current API function (this means that a new-line will not be printed after the return value)
-     * @param bExpect whether to expect output parameter in the current API function
-     */
-    void SetExpectOutputParams(bool bExpect) { m_bExpectOutputParams = bExpect; }
-
-    /**
      * Print the value of an output parameter after the function returns
      * @param name          the name of the parameter
      * @param addr          the address of the parameter
@@ -138,61 +212,28 @@ public:
     void PrintOutputParam(const std::string& name, const void* addr, size_t size, bool bIsPtr2Ptr, bool bIsUnsigned = false);
 
     /**
-     * OutputParamsValueProvider should call this method after it has ended printing the values of the output parameters
+     * Print a string by OutputParamsValueProvider
      */
-    void EndPrintingOutputParams() { m_apiMutex.Unlock(); }
+    void PrintOutputParamStr(const std::string& str) { m_stream << str; }
 
     /**
-     * Print a string directly to the log (not as a part of an API call)
-     * @param str   the string to print
-     * @param bLock whether to lock the logger's stream (regular printing by client class should use the default to prevent interleaving of prints from different threads)
+     * Set the command ID of a command
      */
-    void PrintString(const std::string& str, bool bLock = true)
-    {
-        if (m_bLogApis)
-        {
-            PrintStringInternal(str, bLock);
-        }
-    }
+    void SetCmdId(cl_int id) { m_iCmdId = id; }
 
-    /**
-     * @return the return value from the last API function (if the return value of the function is a pointer, then this method returns CL_SUCCESS if it is not NULL; if there is
-     *         no return value, then this method always returns CL_SUCCESS)
-     */
-    cl_int GetLastRetVal() const { return m_iLastRetValue; }
+private:
 
-    /**
-     * Print an error to the log
-     * @param               the error message
-     */
-    void PrintError(const std::string& msg);
+    void StartApiFuncInternal(const string& funcName);
 
-    /**
-     * Register the cl_dev_cmd_param_kernel::arg_values that identifies the NDRange command
-     * @param pArgValues the cl_dev_cmd_param_kernel::arg_values to be registered
-     */
-    void RegisterNDRangeArgValues(const void* pArgValues) { m_pCurrArgValues = pArgValues; }
+    void PrintParamTypeAndName(const char* sParamTypeAndName);
 
-    /**
-     * Map the cl_dev_cmd_param_kernel::arg_values that identifies the NDRange command to the cl_dev_cmd_id that identifies the NDRange command for the BE to log its calculated
-     * local wort size 
-     * @param pArgValues    the cl_dev_cmd_param_kernel::arg_values
-     * @param id            the cl_dev_cmd_id to be registered
-     */
-    void MapNDRangeArgValuesId(const void* pArgValues, cl_dev_cmd_id id);
+    void PrintCStringValInternal(const char* sVal);    
 
-    /**
-     * Set the local work size calculated by BE for a specific NDRange command identified by cl_dev_cmd_id
-     * @param id the cl_dev_cmd_id identifying the NDRange command
-     * @param localWorkSizeStr the string describing the local work size calculated by BE
-     */
-    void SetLocalWorkSize4ArgValues(cl_dev_cmd_id id, const std::string& localWorkSizeStr);
+    void EndApiFuncInternal(cl_int retVal);
 
-private:    
+    void EndApiFuncInternal(const void* retPtr);
 
-    FrameworkUserLogger();
-
-    void Setup(const std::string& filename, bool bLogErrors, bool bLogApis);
+    void EndApiFuncInternal();
 
     void EndApiFuncEpilog();
 
@@ -201,63 +242,26 @@ private:
     {
         if (NULL != ptr)
         {
-            *m_pOutput << *reinterpret_cast<const T*>(ptr);
+            m_stream << *reinterpret_cast<const T*>(ptr);
         }
         else
         {
-            *m_pOutput << "NULL";
+            m_stream << "NULL";
         }
     }
-
-    void PrintParamTypeAndName(const char* sParamTypeAndName);
-
-    void PrintCStringValInternal(const char* sVal);
-
-    void StartApiFuncInternal(const string& funcName);
-
-    void EndApiFuncInternal(cl_int retVal);
-
-    void EndApiFuncInternal(const void* retPtr);
-
-    void EndApiFuncInternal();
-
-    void PrintStringInternal(const std::string& str, bool bLock);
-
-    const void* GetNDRangeArgValues(cl_dev_cmd_id id) const;
-    
-    unsigned long long UnrigesterNDRangeId(cl_dev_cmd_id id);
-
-    // do not implement
-    FrameworkUserLogger(const FrameworkUserLogger&);
-    FrameworkUserLogger& operator=(const FrameworkUserLogger&);
-
-    std::ofstream m_logFile;
-    std::ostream* m_pOutput;
-    mutable OclSpinMutex m_outputMutex; // Synchronize writing to m_pOutput
+        
+    cl_int m_iLastRetValue;
+    const bool m_bLogApis;
     // we use this to collect all data about the API function call, so that when it ends, we'll be able to put its duration before the log of the call itself
     std::ostringstream m_strStream;
-    std::ostringstream m_retValStream;
-    // Synchronize calls to API functions, so that logging from different threads won't be interleaved (it protects the 2 ostringstream above)
-    mutable OclSpinMutex m_apiMutex;
+    std::ostringstream m_stream;
     Timer m_timer;
     bool m_bFirstApiFuncArg;
+    cl_int m_iCmdId;
 
-    bool m_bExpectOutputParams;
-    cl_int m_iLastRetValue;
-    bool m_bLogErrors;
-    bool m_bLogApis;
-    const void* m_pCurrArgValues;
-    // Since cl_dev_cmd_param_kernel::arg_values is available in command's Init, but cl_dev_cmd_id is set just in Execute, we need a map between them    
-    std::map<const void*, cl_dev_cmd_id> m_mapNDRangeArgValues2CmdId;
-    // a map from cl_dev_cmd_param_kernel::arg_values, which identifies the NDRange to the start times in clock ticks of the call to clEnqueueNDRangeKernel.
-    std::map<const void*, unsigned long long> m_mapArgVals2StartTime;
-    // R/W lock to protect the maps above
-    mutable OclReaderWriterLock m_mapsLock;
-    std::ostringstream m_beLogStream;
-    
 };
 
-// this class isn't needed - it will be deleted soon
+// Wrapper for log error from device
 class LogMessageWrapper
 {
 public:
@@ -265,9 +269,9 @@ public:
     /**
      * Constructor for use by device side
      * @param id    the ID of the NDRange command
-     * @param beMsg the string holding the message from BE containing the calculated local work size
+     * @param msg the string holding the log message
      */
-    LogMessageWrapper(cl_dev_cmd_id id, const std::string& beMsg) : m_id(id), m_beMsg(beMsg) { Serialize(); }
+    LogMessageWrapper(cl_dev_cmd_id id, const std::string& msg) : m_id(id), m_msg(msg) { Serialize(); }
 
     /**
      * Constructor for use by host side
@@ -281,9 +285,9 @@ public:
     cl_dev_cmd_id GetId() const { return m_id; }
 
     /**
-     * @return the string holding the message from BE containing the calculated local work size
+     * @return the string holding the log message
      */
-    std::string GetBeMsg() const { return m_beMsg; }
+    std::string GetMsg() const { return m_msg; }
 
     /**
      * the raw string from which the log message should be parsed
@@ -297,7 +301,7 @@ private:
     void Unserialize();
 
     cl_dev_cmd_id m_id;
-    std::string m_beMsg;
+    std::string m_msg;
     std::string m_rawStr;
 
 };
@@ -305,16 +309,7 @@ private:
 
 // inline methods (I want to save the function call in case no logging is done)
 
-inline FrameworkUserLogger& FrameworkUserLogger::operator<<(const char* sParamTypeAndName)
-{
-    if (m_bLogApis)
-    {
-        PrintParamTypeAndName(sParamTypeAndName);
-    }
-    return *this;
-}
-
-inline FrameworkUserLogger& FrameworkUserLogger::PrintCStringVal(const char* sVal)
+inline ApiLogger& ApiLogger::PrintCStringVal(const char* sVal)
 {
     if (m_bLogApis)
     {
@@ -323,16 +318,7 @@ inline FrameworkUserLogger& FrameworkUserLogger::PrintCStringVal(const char* sVa
     return *this;
 }
 
-inline void FrameworkUserLogger::StartApiFunc(const string& funcName)
-{
-    if (!m_bLogApis)
-    {
-        return;
-    }
-    StartApiFuncInternal(funcName);
-}
-
-inline void FrameworkUserLogger::EndApiFunc(cl_int retVal)
+inline void ApiLogger::EndApiFunc(cl_int retVal)
 {
     if (!m_bLogApis)
     {
@@ -341,7 +327,7 @@ inline void FrameworkUserLogger::EndApiFunc(cl_int retVal)
     EndApiFuncInternal(retVal);
 }
 
-inline void FrameworkUserLogger::EndApiFunc(const void* retPtr)
+inline void ApiLogger::EndApiFunc(const void* retPtr)
 {
     if (!m_bLogApis)
     {
@@ -350,7 +336,7 @@ inline void FrameworkUserLogger::EndApiFunc(const void* retPtr)
     EndApiFuncInternal(retPtr);
 }
 
-inline void FrameworkUserLogger::EndApiFunc()
+inline void ApiLogger::EndApiFunc()
 {
     if (!m_bLogApis)
     {
@@ -359,6 +345,22 @@ inline void FrameworkUserLogger::EndApiFunc()
     EndApiFuncInternal();
 }
 
-extern FrameworkUserLogger* g_pUserLogger;   // a global pointer to the logger, which be defined in each shared library (so LOG_ERROR can use the user logger)
+inline void ApiLogger::StartApiFunc(const string& funcName)
+{
+    if (!m_bLogApis)
+    {
+        return;
+    }
+    StartApiFuncInternal(funcName);
+}
+
+inline ApiLogger& ApiLogger::operator<<(const char* sParamTypeAndName)
+{
+    if (m_bLogApis)
+    {
+        PrintParamTypeAndName(sParamTypeAndName);
+    }
+    return *this;
+}
 
 }}}

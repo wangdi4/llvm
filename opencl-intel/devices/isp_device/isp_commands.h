@@ -30,6 +30,7 @@
 #include <task_executor.h>
 
 #include "isp_program_service.h"
+#include "isp_task_dispatcher.h"
 #include "res/Ilibshim.h"
 
 #include <vector>
@@ -95,7 +96,8 @@ public:
 
 protected:
     NDRange(IOCLDevLogDescriptor* logDesc, cl_int logHandle, cl_dev_cmd_desc* pCmd,
-            IOCLFrameworkCallbacks* frameworkCallbacks, CameraShim* pCameraShim);
+            IOCLFrameworkCallbacks* frameworkCallbacks, CameraShim* pCameraShim,
+            ISPExtensionManager* pIspExtensionManager);
 
     void ExtractNDRangeKernelArguments();
 
@@ -110,14 +112,14 @@ protected:
 
     // TODO: maybe move to new class ?
     bool ExecuteStandaloneCustomKernel();
-    bool MapArgumentsToISP(void* pMappedArgsBuffer);
-    bool UnmapArgumentsFromISP();
+    bool MapArgumentsToISP(void* pArgsBuffer);
+    bool UnmapArgumentsFromISP(void* pMappedArgsBuffer);
 
-    CameraShim*         m_pCameraShim;
-    const ISPKernel*    m_pIspKernel;
-    std::vector<void*>  m_vArgs;
+    CameraShim*             m_pCameraShim;
+    const ISPKernel*        m_pIspKernel;
+    std::vector<void*>      m_vArgs;
+    ISPExtensionManager*    m_pIspExtensionManager;
 };
-
 
 class ReadWriteMemoryObject : public ISPCommandBase
 {
@@ -222,5 +224,32 @@ protected:
                             IOCLFrameworkCallbacks* frameworkCallbacks) :
             ISPCommandBase(logDesc, logHandle, pCmd, frameworkCallbacks) {};
 };
+
+// extension mode
+class PipelineNDRange : public ISPCommandBase
+{
+public:
+    static cl_dev_err_code Create(ISPDeviceQueue* pDeviceQueue, std::vector<cl_dev_cmd_desc*>& commands, Utils::SharedPtr<TaskExecutor::ITaskBase>* ppTask);
+
+    // override from ISPCommandBase
+    void NotifyCommandStatusChanged(cl_int status, cl_dev_err_code errorCode);
+
+    // ITask interface
+    bool Execute();
+
+protected:
+    PipelineNDRange(IOCLDevLogDescriptor* logDesc, cl_int logHandle, std::vector<cl_dev_cmd_desc*>& commands,
+                    IOCLFrameworkCallbacks* frameworkCallbacks, CameraShim* pCameraShim, ISPExtensionManager* pIspExtensionManager);
+
+    CameraShim*             m_pCameraShim;
+    ISPExtensionManager*    m_pIspExtensionManager;
+
+    std::vector<cl_dev_cmd_desc*> m_vCommandsDesc;
+
+    std::vector<cl_dev_cmd_desc*> m_vPipelineStages;
+    std::vector<cl_dev_cmd_desc*>::iterator m_itrBeginPipelineCmdDesc;
+    std::vector<cl_dev_cmd_desc*>::iterator m_itrEndPipelineCmdDesc;
+};
+
 
 }}} // namespace Intel { namespace OpenCL { namespace ISPDevice {

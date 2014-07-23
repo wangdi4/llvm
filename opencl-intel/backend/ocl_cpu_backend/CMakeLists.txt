@@ -39,19 +39,6 @@ if (NOT WIN32)
 
     set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Werror -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-unused-function")
 
-    # Assembler setup - use private rules
-    # set( CMAKE_ASM_FLAGS               --64 ) # do not quote this!!!!
-    set( CMAKE_ASM_INCLUDE_DIR_FLAG    -I )
-    set( CMAKE_ASM_OUTPUT_NAME_FLAG    -o )
-    if( NOT ANDROID )
-      if (CVCC_ASM_PATH)
-        set(CMAKE_ASM_COMPILER         ${CVCC_ASM_PATH})
-      else(CVCC_ASM_PATH)
-        message(STATUS "Using system assembler, check that its version is 4.3.x")
-        set( CMAKE_ASM_COMPILER             as )
-      endif(CVCC_ASM_PATH)
-    endif( NOT ANDROID )
-
     # Compiler switches that CANNOT be modified during makefile generation
     set (ADD_COMMON_C_FLAGS  "-msse3 -mssse3 -fPIC -fdiagnostics-show-option -funsigned-bitfields")
 
@@ -304,10 +291,10 @@ endif (WIN32)
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     if (WIN32)
         set (ASM_SOURCES kernel_execute_64.asm)
+        CREATE_ASM_RULES( ASM_ADD_TO_SOURCES_LIST ${ASM_SOURCES} )
     else (WIN32)
-        set (ASM_SOURCES linux64_utils.s)
+        set (ASM_ADD_TO_SOURCES_LIST linux64_utils.s)
     endif (WIN32)
-    CREATE_ASM_RULES( ASM_ADD_TO_SOURCES_LIST ${ASM_SOURCES} )
 endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 
 # Add include directories

@@ -44,7 +44,7 @@ using namespace Intel::OpenCL::DeviceBackend;
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
-class CpuUserLogger;
+
 
 class ProgramService
 {
@@ -165,7 +165,6 @@ protected:
     ICLDevBackendExecutionService*   m_pBackendExecutor;
     ICLDevBackendImageService*       m_pBackendImageService;
     CPUDeviceConfig*                 m_pCPUConfig;
-
 };
 
 }}}

@@ -110,7 +110,7 @@ void ConfigFile::trim( string& s )
 
 cl_err_code ConfigFile::ReadFile(const string& fileName, ConfigFile& cfg)
 {
-    std::fstream fsInputStream;
+    std::ifstream fsInputStream;
     
     fsInputStream.open(fileName.c_str());
     

@@ -59,6 +59,11 @@ struct RelocationInfo {
     unsigned int offset;
 };
 
+struct DynRelocationInfo {
+  unsigned int offset;
+  uint64_t addend;
+};
+
 typedef std::vector<LineNumberEntry> LineNumberTable;
 typedef std::vector<InlinedFunction> InlinedFunctions;
 
@@ -190,21 +195,27 @@ public:
     virtual const void* GetJITCodeStartPoint() const;
 
     /**
-     * @effects registers a new kernel, for each kernel need to specifiy 
+     * @effects registers a new kernel, for each kernel need to specify
      *      it's id and info, the info should be related to the given JIT
      */
     virtual void RegisterKernel(KernelID kernelId, KernelInfo kernelinfo);
 
     /**
-     * @effects registers a new symbol usage, for each usage need to specifiy 
+     * @effects registers a new symbol usage, for each usage need to specify
      *      it's offset and info, the info should be related to the given JIT
      */
     virtual void RegisterRelocation(const RelocationInfo& info);
 
     /**
+     * @effects registers a relocation that has to be executed in the JIT
+     *    buffer
+     */
+    virtual void RegisterDynRelocation(const DynRelocationInfo& info);
+
+    /**
      * @param kernel identifier
-     * @return the entry point of the specified function (relative to the startpoint
-     *    of the JIT buffer); Exception will be raised if errors occurs
+     * @return the entry point of the specified function (relative to the start
+     *    point of the JIT buffer); Exception will be raised if errors occurs
      */
     virtual int GetKernelEntryPoint(KernelID kernelId) const;
 
@@ -249,6 +260,11 @@ public:
     virtual void RelocateSymbolAddresses(IDynamicFunctionsResolver* resolver);
 
     /**
+     * @effects modify the jit according to the specified dynamic relocations
+     */
+    virtual void RelocateJITCode();
+
+    /**
      * Serialization methods for the class (used by the serialization service)
      */
     virtual void Serialize(IOutputStream& ost, SerializationStatus* stats);
@@ -263,6 +279,7 @@ private:
     size_t m_alignment;
     std::map<KernelID, KernelInfo> m_KernelsMap;
     std::vector<RelocationInfo> m_RelocationTable;
+    std::vector<DynRelocationInfo> m_DynRelocationTable;
 
     ICLDevBackendJITAllocator* m_pJITAllocator;
 
@@ -279,6 +296,11 @@ private:
                              IOutputStream& ost) const;
     void DeserializeRelocationInfo(RelocationInfo& info,
                                IInputStream& ist) const;
+
+    void SerializeDynRelocationInfo(DynRelocationInfo info,
+                                 IOutputStream& ost) const;
+    void DeserializeDynRelocationInfo(DynRelocationInfo& info,
+                                     IInputStream& ist) const;
 
     void EncodeSymbolAddress(unsigned int offset, unsigned long long int address);
 };

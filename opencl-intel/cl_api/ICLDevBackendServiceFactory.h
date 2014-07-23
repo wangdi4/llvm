@@ -8,12 +8,6 @@
 #include "ICLDevBackendExecutionService.h"
 #include "ICLDevBackendImageService.h"
 
-namespace Intel { namespace OpenCL { namespace Utils {
-
-    class IUserLoggerProxy;
-
-}}}
-
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 #ifndef LLVM_BACKEND_API

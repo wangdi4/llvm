@@ -27,8 +27,22 @@ elseif( ANDROID)
        include( CMake_android_tools )
     endif ()
 else()
-    include( CMake_linux_tools )
+  include( CMake_linux_tools )
 endif ()
+
+# ITT/VTune integration
+if( NOT ANDROID )
+  add_definitions( -DUSE_ITT )
+  include_directories( ${CMAKE_SOURCE_DIR}/externals/itt/include
+       ${CMAKE_SOURCE_DIR}/externals/itt/ittnotify/ )
+endif( NOT ANDROID )
+
+if (NOT WIN32 AND NOT APPLE)
+  add_custom_target(strip
+    ${CMAKE_SOURCE_DIR}/cmake_utils/separate_linux_symbols.sh
+    WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/bin
+    COMMENT "Separating debug symbols from binaries...")
+endif (NOT WIN32 AND NOT APPLE)
 
 if (WIN32)
     # Add definitions that make MSVC much less annoying.

@@ -11,7 +11,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Pass.h"
 #include "llvm/IR/InstrTypes.h"
 
-#include <set>
+#include <vector>
 
 namespace intel {
 
@@ -21,7 +21,7 @@ namespace intel {
   ///         div and rem instructions is not 0 and that there is no integer overflow (MIN_INT/-1).
   ///         In case the divisor is 0, PreventDivCrashes or there is integer overflow the pass
   ///         replaces the divisor with 1.
-  ///         PreventDivCrashes is intendent to prevent crashes during division.
+  ///         PreventDivCrashes is intended to prevent crashes during division.
   class PreventDivCrashes : public FunctionPass {
 
   public:

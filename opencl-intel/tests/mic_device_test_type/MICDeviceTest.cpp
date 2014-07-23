@@ -659,7 +659,7 @@ TEST(MicDeviceTestType, Test_CommandList)
 
 TEST(MicDeviceTestType, Test_BuildFromBinary)
 {
-	EXPECT_TRUE(BuildFromBinary_test("test.bc", 2, "dot_product", 3));
+	EXPECT_TRUE(BuildFromBinary_test("validation/mic_device_test_type/test.bc", 2, "dot_product", 3));
 }
 
 TEST(MicDeviceTestType, Test_memoryTest)
@@ -669,7 +669,7 @@ TEST(MicDeviceTestType, Test_memoryTest)
 
 TEST(MicDeviceTestType, Test_KernelExecute_Math)
 {
-	EXPECT_TRUE(KernelExecute_Math_Test("test.bc"));
+	EXPECT_TRUE(KernelExecute_Math_Test("validation/mic_device_test_type/test.bc"));
 }
 
 // Manual test, don't enable

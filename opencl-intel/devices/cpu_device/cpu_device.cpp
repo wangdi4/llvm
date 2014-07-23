@@ -498,7 +498,7 @@ extern "C" cl_dev_err_code clDevCreateDeviceInstance(  cl_uint      dev_id,
                                    IOCLFrameworkCallbacks   *pDevCallBacks,
                                    IOCLDevLogDescriptor     *pLogDesc,
                                    IOCLDeviceAgent*         *pDevice,
-                                   void* pUserLogger
+                                   FrameworkUserLogger* pUserLogger
                                    )
 {
     if(NULL == pDevCallBacks || NULL == pDevice)
@@ -506,7 +506,7 @@ extern "C" cl_dev_err_code clDevCreateDeviceInstance(  cl_uint      dev_id,
         return CL_DEV_INVALID_OPERATION;
     }
 
-    g_pUserLogger = reinterpret_cast<FrameworkUserLogger*>(pUserLogger);
+    g_pUserLogger = pUserLogger;
     CPUDevice *pNewDevice = new CPUDevice(dev_id, pDevCallBacks, pLogDesc);
     if ( NULL == pNewDevice )
     {

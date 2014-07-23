@@ -124,7 +124,7 @@ void CPUProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Pr
     // fill offload image in the object buffer
     std::vector<char> metaStart(serializationSize);
     pCPUSerializationService->SerializeProgram(
-        SERIALIZE_PERSISTENT_IMAGE, 
+        SERIALIZE_PERSISTENT_IMAGE,
         pProgram,
         &(metaStart[0]), serializationSize);
     pWriter->AddSection(CacheBinaryHandler::g_metaSectionName, &(metaStart[0]), serializationSize);
@@ -154,7 +154,7 @@ void CPUProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Pr
 
 bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
 {
-    const char* pCachedObject = 
+    const char* pCachedObject =
         (char*)(pProgram->GetObjectCodeContainer()->GetCode());
     size_t cacheSize = pProgram->GetObjectCodeContainer()->GetCodeSize();
     assert(pCachedObject && "Object Code Container is null");
@@ -167,9 +167,16 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
 
     // get the buffers entries
     const char* bitCodeBuffer = (const char*)reader.GetSectionData(CacheBinaryHandler::g_irSectionName);
+    assert(bitCodeBuffer && "BitCode Buffer is null");
+
     const char* serializationBuffer = (const char*)reader.GetSectionData(CacheBinaryHandler::g_metaSectionName);
+    assert(serializationBuffer && "Serialization Buffer is null");
+
     const char* optModuleBuffer = (const char*)reader.GetSectionData(CacheBinaryHandler::g_optSectionName);
+    assert(optModuleBuffer && "OptModule Buffer is null");
+
     const char* objectBuffer = (const char*)reader.GetSectionData(CacheBinaryHandler::g_objSectionName);
+    assert(objectBuffer && "Object Buffer is null");
 
     // Set IR
     BitCodeContainer* bcc = new BitCodeContainer((const cl_prog_container_header*)bitCodeBuffer);
@@ -198,9 +205,9 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
     std::auto_ptr<CPUSerializationService> pCPUSerializationService(new CPUSerializationService(NULL));
     pCPUSerializationService->ReloadProgram(
         SERIALIZE_PERSISTENT_IMAGE,
-        pProgram, 
+        pProgram,
         serializationBuffer,
-        serializationSize); 
+        serializationSize);
 
     // init refcounted runtime service shared storage between program and kernels
     RuntimeServiceSharedPtr lRuntimeService =
@@ -318,7 +325,8 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
         }
         else
         {
-            buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was successfully vectorized\n";
+            buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was successfully vectorized (" <<
+                spKernelProps->GetMinGroupSizeFactorial() << ")\n";
         }
 #ifdef OCL_DEV_BACKEND_PLUGINS
         // Notify the plugin manager
@@ -341,21 +349,20 @@ void CPUProgramBuilder::AddKernelJIT(CPUProgram* pProgram, Kernel* pKernel, llvm
     IKernelJITContainer* pJIT = new CPUJITContainer( pProgram->GetPointerToFunction(pFunc),
                                                      pFunc,
                                                      pModule,
-                                                     pProps);
+                                                     pProps );
     pKernel->AddKernelJIT( pJIT );
 }
 
 void CPUProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule, const ICLDevBackendOptions* pOptions) const
 {
-    const void* pInjectedObjStartvoidPtr = NULL;    
+    char*  pInjectedObjStart = NULL;
     size_t injectedObjSize;
 
     // Check if we are going to do injection
     if (pOptions
-        && pOptions->GetValue(CL_DEV_BACKEND_OPTION_INJECTED_OBJECT, &pInjectedObjStartvoidPtr, &injectedObjSize)
-        && pInjectedObjStartvoidPtr != NULL)
+        && pOptions->GetValue(CL_DEV_BACKEND_OPTION_INJECTED_OBJECT, &pInjectedObjStart, &injectedObjSize)
+        && pInjectedObjStart != NULL)
     {
-        const char* pInjectedObjStart = reinterpret_cast<const char*>(pInjectedObjStartvoidPtr);
         std::auto_ptr<StaticObjectLoader> pObjectLoader(new StaticObjectLoader());
         // Build the MemoryBuffer object from the supplied options
         std::auto_ptr<llvm::MemoryBuffer> pInjectedObj(

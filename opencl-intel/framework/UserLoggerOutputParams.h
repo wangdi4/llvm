@@ -48,16 +48,11 @@ public:
 
     /**
      * Constructor
+     * @param apiLogger the ApiLogger that collects log data in the current API call function
      * @param specialPrinter an optinal SpecialOutputParamPrinter to use
      */
-    OutputParamsValueProvider(const SpecialOutputParamPrinter* specialPrinter = NULL) : m_specialPrinter(specialPrinter)
-    {
-        Intel::OpenCL::Utils::FrameworkUserLogger& logger = GetUserLoggerInstance();
-        if (logger.IsApiLoggingEnabled())
-        {
-            logger.SetExpectOutputParams(true);
-        }
-    }
+    OutputParamsValueProvider(Intel::OpenCL::Utils::ApiLogger& apiLogger, const SpecialOutputParamPrinter* specialPrinter = NULL) :
+        m_apiLogger(apiLogger), m_specialPrinter(specialPrinter) { }
 
     /**
      * Destructor
@@ -94,6 +89,7 @@ private:
 
     void Print2Logger();
 
+    Intel::OpenCL::Utils::ApiLogger& m_apiLogger;
     std::vector<ParamInfo> m_outputParamsVec;
     const SpecialOutputParamPrinter* const m_specialPrinter;
 
@@ -101,11 +97,9 @@ private:
 
 inline OutputParamsValueProvider::~OutputParamsValueProvider()
 {
-    Intel::OpenCL::Utils::FrameworkUserLogger& userLogger = GetUserLoggerInstance();
-    if (userLogger.IsApiLoggingEnabled())
+    if (Intel::OpenCL::Utils::g_pUserLogger->IsApiLoggingEnabled())
     {
-        Print2Logger();
-        userLogger.EndPrintingOutputParams();
+        Print2Logger();        
     }
 }
 

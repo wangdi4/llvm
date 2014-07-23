@@ -148,7 +148,7 @@ class ClientSimulator(TestClient):
             # process has already exited
             return rc, ''
         
-    def connect_to_server(self, retry=True, timeout=15.0):
+    def connect_to_server(self, retry=True, timeout=150):
         """ Connect to the server with a socket. If retry is True, will try to
             reconnect if the connection fails.            
             
@@ -183,7 +183,7 @@ class ClientSimulator(TestClient):
         """
         protocol.send_message(self.socket, message)
     
-    def get_message_from_server(self, timeout=8):
+    def get_message_from_server(self, timeout=80):
         """ Get a ServerToClientMessage from the server.
         
             Message receiving will always be done with a timeout, which is 
@@ -215,7 +215,7 @@ class ClientSimulator(TestClient):
         self.sizeof_size_t = reply.start_session_ack_msg.sizeof_size_t
         debuginfo.set_sizeof_size_t(self.sizeof_size_t)
     
-    def debug_run(self, breakpoints, timeout=10):
+    def debug_run(self, breakpoints, timeout=100):
         """ Issue a RUN command to the server, with the given breakpoints - list
             of (cl_file_name, line_num) pairs. A timeout for receiving a reply
             can be specified optionally. For the first RUN sent, the timeout
@@ -232,7 +232,7 @@ class ClientSimulator(TestClient):
         """
         self._send_run_message(breakpoints)
         if self.num_run_commands == 1:
-            timeout += 40
+            timeout += 400
         
         try:
             reply = self.get_message_from_server(timeout)
@@ -246,14 +246,14 @@ class ClientSimulator(TestClient):
         self.last_stack_trace_info = None # irrelevant now
         return str(os.path.split(bp_info.file)[1]), bp_info.lineno
     
-    def debug_run_finish(self, breakpoints=[], timeout=10):
+    def debug_run_finish(self, breakpoints=[], timeout=100):
         """ Issue a RUN command to the server, with the given breakpoints. 
             Expects the subprocess to finish running with return code 0 (exit
             cleanly). Otherwise, raises SimulatorError.
         """
         self._send_run_message(breakpoints)
         if self.num_run_commands == 1:
-            timeout += 40
+            timeout += 400
         
         try:
             rc, stderr = timelimited(timeout, self.wait_for_debuggee_exit)
@@ -264,19 +264,19 @@ class ClientSimulator(TestClient):
             raise SimulatorError('Server exited with rc = %s. Stderr: \n%s' % 
                     (rc, str(stderr)))
     
-    def debug_step_in(self, timeout=10):
+    def debug_step_in(self, timeout=100):
         """ Issue a SINGLE_STEP_IN command to the server. Return the file, line
             where execution stopped after the step.
         """
         return self._debug_step(ClientToServerMessage.SINGLE_STEP_IN, timeout)
     
-    def debug_step_over(self, timeout=10):
+    def debug_step_over(self, timeout=100):
         """ Issue a SINGLE_STEP_OVER command to the server. Return the file, line
             where execution stopped after the step.
         """
         return self._debug_step(ClientToServerMessage.SINGLE_STEP_OVER, timeout)
     
-    def debug_step_out(self, timeout=10):
+    def debug_step_out(self, timeout=100):
         """ Issue a SINGLE_STEP_OUT command to the server. Return the file, line
             where execution stopped after the step.
         """
@@ -378,7 +378,7 @@ class ClientSimulator(TestClient):
         self.send_message_to_server(msg)
         self.num_run_commands += 1
     
-    def _debug_step(self, kind, timeout=10):
+    def _debug_step(self, kind, timeout=100):
         """ Issue a SINGLE_STEP_* command to the server. Return the file, line
             where execution stopped after the step.
             

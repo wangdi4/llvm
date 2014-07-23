@@ -70,13 +70,13 @@ FrameworkUserLogger& FrameworkUserLogger::Instance()
     return instance;
 }
 
-FrameworkUserLogger& GetUserLoggerInstance()
-{
-    return FrameworkUserLogger::Instance();
-}
-
 namespace Intel { namespace OpenCL { namespace Utils {
 
+#ifdef __ANROID__
+    
+    FrameworkUserLogger* g_pUserLogger = NULL;
+#else        
     FrameworkUserLogger* g_pUserLogger = &FrameworkUserLogger::Instance();
+#endif
 
 }}}

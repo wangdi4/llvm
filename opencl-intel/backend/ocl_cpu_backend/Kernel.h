@@ -44,6 +44,8 @@ class IKernelJITContainer : public ICLDevBackendJITContainer {
 public:
   typedef void JIT_PTR(const void *, const size_t *, void *);
 
+  virtual ~IKernelJITContainer() {}
+
   /*
    * Free machine code
    */
@@ -219,15 +221,6 @@ public:
   PrepareKernelArguments(void *pKernelUniformArgs,
                          const cl_mem_obj_descriptor **pDevMemObjArray,
                          unsigned int devMemObjArrayLength) const;
-
-   /**
-     * returns the final local work group sizes for teh specified arguments
-     * NOTICE: should be called after PrepareKernelArguments otherwise undefined
-     * @param pKernelUniformArgs pointer to the Uniform arguments object
-     * @returns vector of the dimensions
-     */
-    virtual void GetLocalSizes(
-      void *pKernelUniformArgs, unsigned int* sizes) const;
 
   /**
    * Execute the specified kernel with the given arguments

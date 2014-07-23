@@ -120,10 +120,10 @@ class RunnerProcess(Process):
         """ Runs test suite and saves result in self.result """
         self.result = self.runner.run(self.suite)
  
-    def run(self, timeout = 900):
+    def run(self, timeout=1800):
         """ Test suite runner: retrieves suites from the work queue and runs the tests.
             Allows up to timeout seconds for each suite to run before reporting a timeout.
-            Default timeout = 15min
+            Default timeout = 30min
         """
 
         # create a testcase runner client (gdb driver/simulator) for the worker thread

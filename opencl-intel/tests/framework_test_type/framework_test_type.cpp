@@ -18,11 +18,11 @@ FrameworkUserLogger* g_pUserLogger = NULL;
 
 //BC open functions:
 void cpuBCOpen(FILE*& pIRFile){
-  FOPEN(pIRFile, "test.bc", "rb");
+  FOPEN(pIRFile, "validation/framework_test_type/test.bc", "rb");
 }
 
 void micBCOpen(FILE*& pIRFile){
-  FOPEN(pIRFile, "mic_test.bc", "rb");
+  FOPEN(pIRFile, "validation/framework_test_type/mic_test.bc", "rb");
 }
 
 // CL_DEVICE_TYPE_CPU is the default device.
@@ -341,7 +341,6 @@ TEST(FrameworkTestType, Test_VecTypeHintTest)
 {
     EXPECT_TRUE(VecTypeHintTest());
 }
-
 
 TEST(FrameworkTestType, Test_EventCallbackTest)
 {

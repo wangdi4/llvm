@@ -71,6 +71,7 @@ private:
 
     };
 
+    // TODO: deal with this thread in shut-down
     class StderrListerenerThread : public Intel::OpenCL::Utils::OclThread
     {
     public:

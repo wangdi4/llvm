@@ -174,8 +174,8 @@ private:
 	mutable OclSpinMutex m_mutex;
 	ITaskBase* const m_pMyTaskBase;
 	const bool m_bIsProfilingEnabled;
-    static const cl_ulong CMD_STAMP = 0xEFEBDAEFEBDA7190; // memory stamp for detecting if the object belongs to the DeviceCommand class
-	const cl_ulong m_CMD_STAMP;
+    static const long long CMD_STAMP = 0xEFEBDAEFEBDA7190; // memory stamp for detecting if the object belongs to the DeviceCommand class
+	const long long m_CMD_STAMP;
 };
 
 /**

@@ -53,22 +53,10 @@ if (NOT WIN32)
     endif( )
         add_definitions( ${WARNING_LEVEL} )
 
-    # Assembler setup - use private rules
-    set( CMAKE_ASM_FLAGS               ) # do not quote this!!!!
-    set( CMAKE_ASM_INCLUDE_DIR_FLAG    -I )
-    set( CMAKE_ASM_OUTPUT_NAME_FLAG    -o )
-    if( NOT ANDROID )
-        if (CVCC_ASM_PATH)
-            set(CMAKE_ASM_COMPILER         ${CVCC_ASM_PATH})
-        else(CVCC_ASM_PATH)
-            message(STATUS "Using system assembler, check that its version is 4.3.x")
-            set( CMAKE_ASM_COMPILER        as )
-        endif(CVCC_ASM_PATH)
-    endif( NOT ANDROID )
-
     endif (APPLE)
 endif (NOT WIN32)
 
+if(WIN32)
 #
 # Usage
 #     CREATE_ASM_RULES( <ADD_TO_SOURCES_LIST_VAR> ...<asm-files-list>...)
@@ -110,7 +98,7 @@ macro( CREATE_ASM_RULES ADD_TO_SOURCES_LIST_VAR )
     endif(DEFINED OBJ_FILES)
 
 endmacro( CREATE_ASM_RULES )
-
+endif(WIN32)
 
 ###############################################################################################
 
@@ -166,10 +154,6 @@ if (LLVM_BUILD_APPLE_BACKEND)
 
 else(LLVM_BUILD_APPLE_BACKEND)
 
-    if (INCLUDE_MIC_DEVICE)
-        add_subdirectory(ocl_mic_executor "${CMAKE_CURRENT_BINARY_DIR}/ocl_mic_executor")
-    endif ()
-
     # LLVM device backend library
     option(LLVM_BUILD_OCL_CPU_BACKEND "Build OpenCL CPU backend DLL." ON)
     message(STATUS "Build OpenCL CPU backend DLL: ${LLVM_BUILD_OCL_CPU_BACKEND}")
@@ -177,7 +161,6 @@ else(LLVM_BUILD_APPLE_BACKEND)
     if (LLVM_BUILD_OCL_CPU_BACKEND)
         add_subdirectory(vectorizer        "${CMAKE_CURRENT_BINARY_DIR}/vectorizer")
         add_subdirectory(barrier           "${CMAKE_CURRENT_BINARY_DIR}/barrier")
-        add_subdirectory(MICJITEngine      "${CMAKE_CURRENT_BINARY_DIR}/MICJITEngine")
         add_subdirectory(utils             "${CMAKE_CURRENT_BINARY_DIR}/utils")
         add_subdirectory(metadata_api      "${CMAKE_CURRENT_BINARY_DIR}/metadata_api")
         add_subdirectory(passes            "${CMAKE_CURRENT_BINARY_DIR}/passes")
@@ -192,6 +175,10 @@ else(LLVM_BUILD_APPLE_BACKEND)
         add_subdirectory(name_mangling     "${CMAKE_CURRENT_BINARY_DIR}/name_mangling")
         add_subdirectory(reflection_module "${CMAKE_CURRENT_BINARY_DIR}/reflection_module")
         add_subdirectory(stat_summary      "${CMAKE_CURRENT_BINARY_DIR}/stat_summary")
+        if (INCLUDE_MIC_DEVICE)
+            add_subdirectory(ocl_mic_executor "${CMAKE_CURRENT_BINARY_DIR}/ocl_mic_executor")
+            add_subdirectory(MICJITEngine     "${CMAKE_CURRENT_BINARY_DIR}/MICJITEngine")
+        endif ()
     endif (LLVM_BUILD_OCL_CPU_BACKEND)
 
     # Validation utilities

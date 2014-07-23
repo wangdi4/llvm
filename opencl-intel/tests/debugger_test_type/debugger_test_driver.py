@@ -204,7 +204,7 @@ def run_standalone():
 
         time.sleep(0.34)
         
-        sim.connect_to_server(timeout=1.6)
+        sim.connect_to_server(timeout=16)
         sim.start_session(1, 0, 0)
 
         print sim.debug_run([(
