@@ -81,6 +81,8 @@ bool ChooseVectorizationDimension::canSwitchDimensions(Function* F) {
     (CompilationUtils::mangledGetGroupID());
   Function* localSize = F->getParent()->getFunction
     (CompilationUtils::mangledGetLocalSize());
+  Function* numGroups = F->getParent()->getFunction
+    (CompilationUtils::mangledGetNumGroups());
 
   std::set<Function *> forbiddenFunctions;
   if (lid)
@@ -89,6 +91,8 @@ bool ChooseVectorizationDimension::canSwitchDimensions(Function* F) {
     forbiddenFunctions.insert(groupId);
   if (localSize)
     forbiddenFunctions.insert(localSize);
+  if (numGroups)
+    forbiddenFunctions.insert(numGroups);
 
   std::set<Function *> userFuncs;
   LoopUtils::fillFuncUsersSet(forbiddenFunctions, userFuncs);
