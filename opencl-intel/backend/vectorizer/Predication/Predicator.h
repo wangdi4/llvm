@@ -24,7 +24,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Transforms/Scalar.h"
-#include "llvm/ADT/SetVector.h"
 
 using namespace llvm;
 
@@ -46,15 +45,6 @@ public:
   virtual const char *getPassName() const {
     return "Predicator";
   }
-
-  struct BranchInfo {
-    BranchInfo(BasicBlock * succ0, BasicBlock * succ1, Value* cond) : m_succ0(succ0), m_succ1(succ1), m_cond(cond) {}
-    BranchInfo() : m_succ0(0), m_succ1(0), m_cond(0) {}
-
-    BasicBlock * m_succ0;
-    BasicBlock * m_succ1;
-    Value * m_cond;
-  };
 
   /// type of the block inside the allones structure:
   // If not a single loop block, then one of:
@@ -164,11 +154,11 @@ private:
 
   /*! \name Information helpers
    * \{ */
-  /// @brief Checks if instruction has random users outide of its loop.
+  /// @brief Checks if instruction has users outide of this basic block.
   /// @param inst Instruction to check
   /// @param loop Loop containing the instructions. May be null.
   /// @return true if has outside users.
-  bool hasOutsideRandomUsers(Instruction* inst, Loop* loop);
+  bool hasOutsideUsers(Instruction* inst, Loop* loop);
   /*! \} */
 
   /*! \name Transformations on Basic Block
@@ -192,13 +182,6 @@ private:
   /// @brief Turn all instructions with side-effects to predicated
   ///  function calls
   void predicateSideEffectInstructions();
-  /// @brief returns the condition of the branch that determines
-  /// which value is selected in the phi-node.
-  /// May fail to find the condition and return NULL.
-  /// @param phi the phi-node to find the condition for.
-  /// @param switchValuesOrder being set to true if the first incoming value of the
-  /// phi should be taken when the condition is true. False if otherwise.
-  Value* getPhiCond(PHINode* phi, bool& switchValuesOrder);
   /// @brief Replace PHInodes of in-loop merges with selec nodes.
   // this does not replace PHI nodes which are due to loop PHIs.
   /// @param BB BasicBlock to manipulate
@@ -231,10 +214,6 @@ private:
   void collectOptimizedMasks(Function* F,
                              PostDominatorTree* PDT,
                              DominatorTree*  DT);
-  /// @brief for each block that ends with a divergent branch,
-  /// saves the branchInfo into m_branchesInfo
-  /// @param F Function to process
-  void collectBranchesInfo(Function* F);
   /// @brief Place outgoing masks on all out-going edged.
   /// @param BB BB to predicate
   void maskOutgoing(BasicBlock *BB);
@@ -440,7 +419,7 @@ private:
   /// Instructions to predicate (load/store/calls, etc)
   SmallInstVector m_toPredicate;
   /// Instructions which has outside users (for selection)
-  SetVector<Instruction*> m_outsideUsers;
+  SmallInstVector m_outsideUsers;
   /// The function which checks if a vector of predicates is zero
   Function* m_allzero;
   /// The function which checks if a vector of predicates is one
@@ -458,10 +437,6 @@ private:
 
   // Work-item analysis pointer
   WIAnalysis* m_WIA;
-  // Dominator tree pointer.
-  DominatorTree* m_DT;
-  // Loop info pointer
-  LoopInfo* m_LI;
 
   /// blocks that the heuristic decides it is a good idea
   /// to test their mask for allones.
@@ -474,9 +449,6 @@ private:
   /// into the first value that is used for the select (which is
   /// the needed value if the mask is allones.)
   std::map<Instruction*,Instruction*> m_predicatedSelects;
-  /// For each basic block that ends with a divergent branch,
-  /// hold the original branch info (before changes by the predicator).
-  std::map<BasicBlock*, BranchInfo> m_branchesInfo;
 
   // Statistics:
   Statistic::ActiveStatsT m_kernelStats;
