@@ -158,7 +158,7 @@ createStandardLLVMPasses(llvm::PassManagerBase *PM,
     PM->add(llvm::createLoopUnrollPass(512, 0, 0)); // Unroll small loops
   }
   if (!isDBG) {
-    PM->add(llvm::createFunctionInliningPass(20000)); // Inline (not only small)
+    PM->add(llvm::createFunctionInliningPass(4096)); // Inline (not only small)
                                                      // functions
   }
   // A workaround to fix regression in sgemm on CPU and not causing new
@@ -494,7 +494,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
 
   if (debugType == intel::None) {
     if (HasGatherScatter)
-      PM.add(llvm::createFunctionInliningPass(20000)); // Inline (not only small) functions.
+      PM.add(llvm::createFunctionInliningPass(4096)); // Inline (not only small) functions.
     else
       PM.add(llvm::createFunctionInliningPass());     // Inline small functions
   } else {
