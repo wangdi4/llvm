@@ -28,6 +28,7 @@
 #include <stdexcept>
 #include "oclNotifier.h"
 #include "oclInternalFunctions.h"
+#include "ApiExecutionTime.h"
 
 using std::runtime_error;
 using Intel::OpenCL::Utils::OclAutoMutex;
@@ -332,9 +333,10 @@ void NotifierCollection::ObjectRetain(const void* obj, bool internalRetain)
 }
 void NotifierCollection::TraceCall(const char* call, cl_int errcode_ret,
                                    OclParameters* parameters,
+                                   ApiExecutionTime* execution_time,
                                    unsigned int *cookie){
 	CHECK_FOR_NULL(call);
-	NOTIFY(TraceCall, call, errcode_ret, parameters, cookie);
+	NOTIFY(TraceCall, call, errcode_ret, parameters, execution_time, cookie);
 }
 
 

@@ -7,6 +7,7 @@
 #include "cl_synch_objects.h"
 #include "oclEventsMapper.h"
 #include "oclRetainers.h"
+#include "ApiExecutionTime.h"
 
 using Intel::OpenCL::Utils::EventsMapper;
 using Intel::OpenCL::Utils::OclMutex;
@@ -185,7 +186,9 @@ public:
 	virtual void ObjectInfo(const void* /* obj */, const pair<string,string> data[],const int dataLength)=0;
 	virtual void ObjectRetain(const void* obj, bool internalRetain)=0;
 	virtual void TraceCall( const char* call, cl_int errcode_ret,
-                            OclParameters* parameters, unsigned int* traceCookie = NULL)=0;
+                            OclParameters* parameters,
+                            ApiExecutionTime* execution_time = NULL,
+							unsigned int* traceCookie = NULL)=0;
 
 	virtual ~oclNotifier() {}
 };
@@ -303,7 +306,9 @@ public:
 	virtual void ObjectInfo(const void* /* obj */, const pair<string,string> data[],const int dataLength);
 	virtual void ObjectRetain(const void* obj, bool internalRetain);
 	virtual void TraceCall( const char* call, cl_int errcode_ret,
-                            OclParameters* parameters, unsigned int* traceCookie = NULL);
+                            OclParameters* parameters,
+                            ApiExecutionTime* execution_time = NULL,
+							unsigned int* traceCookie = NULL);
 
 
 
