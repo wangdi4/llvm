@@ -263,11 +263,6 @@ void *CPUCompiler::GetPointerToFunction(llvm::Function *pf)
     return m_pExecEngine->getPointerToFunction(pf);
 }
 
-void CPUCompiler::freeMachineCodeForFunction(llvm::Function* pf) const
-{
-    // With MCJIT, memory is freed on a per-module basis, not per-function.
-}
-
 void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuFeatures )
 {
     Intel::ECPU selectedCpuId = Utils::GetOrDetectCpuId( cpuName );
