@@ -534,9 +534,11 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
       pProps->SetIsNonUniformWGSizeSupported(false);
     }
 
+    //set can unite WG and vectorization dimention
+    pProps->SetCanUniteWG(skimd->getCanUniteWorkgroups());
+    pProps->SetVerctorizeOnDimention(skimd->getVectorizationDimension());
+
     return pProps;
 }
-
-
 
 }}}

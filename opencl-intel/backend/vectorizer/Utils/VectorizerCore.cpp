@@ -225,6 +225,8 @@ bool VectorizerCore::runOnFunction(Function &F) {
   V_PRINT(VectorizerCore, "\nBefore vectorization passes!\n");
   {
     FunctionPassManager fpm2(M);
+    DataLayout *DL2 = new DataLayout(M);
+    fpm2.add(DL2);
     BuiltinLibInfo* pBuiltinInfoPass = (BuiltinLibInfo*)
       createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModule(), "");
     pBuiltinInfoPass->getRuntimeServices()->setPacketizationWidth(m_packetWidth);

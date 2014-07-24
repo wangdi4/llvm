@@ -51,6 +51,7 @@ llvm::Pass* createCLBuiltinLICMPass();
 llvm::Pass* createLoopStridedCodeMotionPass();
 llvm::Pass* createCLStreamSamplerPass();
 llvm::Pass *createPreventDivisionCrashesPass();
+llvm::Pass *createOptimizeIDivPass();
 llvm::Pass *createShiftZeroUpperBitsPass();
 llvm::Pass *createBuiltinCallToInstPass();
 llvm::Pass *createRelaxedPass();
@@ -392,6 +393,8 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   // may transform scalar shifts into vector shifts, and we want this pass to fix all vector
   // shift in this module.
   PM.add(createShiftZeroUpperBitsPass());
+  if (!HasGatherScatter)
+    PM.add(createOptimizeIDivPass());
   PM.add(createPreventDivisionCrashesPass());
   // We need InstructionCombining and GVN passes after ShiftZeroUpperBits, PreventDivisionCrashes passes
   // to optimize redundancy introduced by those passes

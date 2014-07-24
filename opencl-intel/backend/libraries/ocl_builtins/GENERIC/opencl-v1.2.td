@@ -987,6 +987,18 @@ let Types = [v1i64],
   def write_mem_fence : OclBuiltin<"write_mem_fence", (outs), (ins cl_mem_fence_flags:$flags), [], [], 0, 0>;
 }
 
+let Types = [v1i32, v2i32, v3i32, v4i32, v8i32, v16i32],
+    Attrs = [CONSTFUNC, OVERLOADABLE], NeedForwardDecl = 1 in {
+  def idiv          : OclBuiltin<"idiv",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
+  def irem          : OclBuiltin<"irem",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
+
+}
+let Types = [v1u32, v2u32, v3u32, v4u32, v8u32, v16u32],
+    Attrs = [CONSTFUNC, OVERLOADABLE], NeedForwardDecl = 1 in {
+  def udiv          : OclBuiltin<"udiv",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
+  def urem          : OclBuiltin<"urem",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
+}
+    
 ///////////////////////////////////////////////////////////////////////////////
 // OpenCL 1.2 rev 15, Table 6.18
 // Async copy built-ins

@@ -219,7 +219,6 @@ void ChooseVectorizationDimension::setFinalDecision(int dim, bool canUnitWorkGro
     canUnitWorkGroups = false;
   }
   Chosen_Vectorization_Dim = dim; // Statistics
-  dim = 0; // set dimension to zero temporarily to avoid regressions until commit by Ella&Mohammed.
   m_vectorizationDim = dim;
   m_canUniteWorkgroups = canUnitWorkGroups;
 }

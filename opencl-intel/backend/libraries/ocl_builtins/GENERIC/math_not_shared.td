@@ -18,6 +18,7 @@
 // the same functions
 
 list<OclType> math_not_shared_types = [v16f32, v8f64];
+
 // acos
 OclBuiltinImpl acos_svml_not_shared = OclBuiltinImpl<acos,  math_not_shared_types, 0, [{
     return __ocl_svml_$Target_acos$SVMLSuffix($Arg0VarName);
@@ -35,6 +36,7 @@ OclBuiltinImpl acospi_svml_not_shared = OclBuiltinImpl<acospi, math_not_shared_t
 // asin
 OclBuiltinImpl asin_svml_not_shared = OclBuiltinImpl<asin, math_not_shared_types, 0, [{
     return __ocl_svml_$Target_asin$SVMLSuffix($Arg0VarName);
+
   }]>;
 
 // asinh
@@ -453,3 +455,4 @@ code fract_ret2ptr = [{
     *$Arg1VarName = res;
   }];
 OclBuiltinImpl fract_ret2ptr_pas = OclBuiltinImpl<fract_pas2, [v4f32, v8f32, v16f32, v4f64, v8f64, v16f64], 0, fract_ret2ptr>;
+

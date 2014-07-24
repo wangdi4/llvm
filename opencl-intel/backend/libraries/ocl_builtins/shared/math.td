@@ -602,3 +602,4 @@ OclBuiltinImpl sin_svml_rm_expand = OclBuiltinImpl<sin_rm, math_svml_vFRM_expand
 
 // tan_rm
 OclBuiltinImpl tan_svml_rm_expand = OclBuiltinImpl<tan_rm, math_svml_vFRM_expand, 0, Expand1>;
+
