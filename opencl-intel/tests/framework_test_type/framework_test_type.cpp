@@ -490,6 +490,25 @@ TEST(FrameworkTestType, TEST_APFLevel)
     EXPECT_TRUE(cl_APFLevelForce());
 }
 
+TEST(FrameworkTestType, clAoSFieldScatterGather)
+{
+    EXPECT_TRUE(clAoSFieldScatterGather());
+}
+TEST(FrameworkTestType, Test_cl_uniteWG_VectorizeOnDiffentDim)
+{
+    EXPECT_TRUE(clCheckVectorizingDim1And2AndUniteWG(0,false));
+    EXPECT_TRUE(clCheckVectorizingDim1And2AndUniteWG(1,false));
+    EXPECT_TRUE(clCheckVectorizingDim1And2AndUniteWG(0,true));
+    EXPECT_TRUE(clCheckVectorizingDim1And2AndUniteWG(1,true));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(0,true));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(1,true));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(2,true));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(3,true));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(0,false));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(1,false));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(2,false));
+}
+
 #endif
 
 // To run individual tests, use the --gtest_filter=<pattern> command-line

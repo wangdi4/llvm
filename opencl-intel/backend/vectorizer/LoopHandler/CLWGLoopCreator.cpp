@@ -79,11 +79,20 @@ bool CLWGLoopCreator::runOnModule(Module &M) {
         itrVecKernelInfo->second.get() && "Failed finding vectorized kernel info");
       //Set the vectorized width
       vectWidth = itrVecKernelInfo->second->getVectorizedWidth();
+
+      //save the relevant information from the vectorized kernel in skimd
+      //prior to erasing this information
+      unsigned int vectorizeOnDim = itrVecKernelInfo->second->getVectorizationDimension();
+      unsigned int canUniteWG = itrVecKernelInfo->second->getCanUniteWorkgroups();
+      skimd->setVectorizationDimension(vectorizeOnDim);
+      skimd->setCanUniteWorkgroups(canUniteWG);
+
       //Erase vectorized kernel info and update scalaized kernel info
       mdUtils.eraseKernelsInfoItem(itrVecKernelInfo);
       skimd->setVectorizedKernel(NULL);
       skimd->setVectorizedWidth(vectWidth);
     }
+
     // We can create loops for this kernel - runOnFunction on it!!
     changed |= runOnFunction(*F, vectKernel, vectWidth);
   }
