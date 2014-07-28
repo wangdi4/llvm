@@ -150,7 +150,7 @@ S OclNaiveConcurrentMap<T,S>::Find(const T& key)
     OclAutoMutex mu(&m_mapLock);
 
     assert(!IsEmptyInternal());
-    std::map<T,S>::const_iterator it = m_map.find(key);
+    typename std::map<T,S>::const_iterator it = m_map.find(key);
     assert(it != m_map.end());
     S val = it->second;
     return val;
@@ -175,7 +175,7 @@ bool OclNaiveConcurrentMap<T,S>::IsFound(const T& key, S& val)
         return false;
     }
 	
-    std::map<T,S>::const_iterator it = m_map.find(key);
+    typename std::map<T,S>::iterator it = m_map.find(key);
     if (it == m_map.end())
     {
         return false;

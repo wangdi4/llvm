@@ -57,7 +57,6 @@
 #include <tbb/concurrent_queue.h>
 #endif
 #include <queue>
-#include <map>
 #include <assert.h>
 
 #include "cl_utils.h"
