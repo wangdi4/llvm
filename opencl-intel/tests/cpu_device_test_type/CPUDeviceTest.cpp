@@ -103,6 +103,11 @@ void CPUTestCallbacks::clDevCmdStatusChanged(cl_dev_cmd_id  cmd_id, void* data, 
 	}
 }
 
+Intel::OpenCL::TaskExecutor::ITaskExecutor* CPUTestCallbacks::clDevGetTaskExecutor() 
+{ 
+    return GetTaskExecutor(); 
+}
+
 //GetDeviceInfo with CL_DEVICE_TYPE test
 bool clGetDeviceInfo_TypeTest()
 {

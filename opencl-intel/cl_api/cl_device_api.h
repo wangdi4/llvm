@@ -638,6 +638,12 @@ class FrameworkUserLogger;
 
 }}}
 
+namespace Intel { namespace OpenCL { namespace TaskExecutor {
+
+class ITaskExecutor;
+
+}}}
+
 typedef cl_dev_err_code (fn_clDevCreateDeviceInstance)(
                                    unsigned int     dev_id,
                                    IOCLFrameworkCallbacks   *pDevCallBacks,
@@ -721,6 +727,9 @@ public:
                                             cl_int          IN completion_result,
                                             cl_ulong        IN timer
                                             ) = 0;
+
+    //! Get ITaskExecutor to run tasks on the host
+    virtual Intel::OpenCL::TaskExecutor::ITaskExecutor* clDevGetTaskExecutor() = 0;
 };
 
 /*!

@@ -342,6 +342,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // IOCLFrameworkCallbacks
         void clDevBuildStatusUpdate(cl_dev_program clDevProg, void * pData, cl_build_status clBuildStatus);
         void clDevCmdStatusChanged(cl_dev_cmd_id cmd_id, void * pData, cl_int cmd_status, cl_int status_result, cl_ulong timer);
+        Intel::OpenCL::TaskExecutor::ITaskExecutor* clDevGetTaskExecutor();
+
 
         // IOCLLoggerDescriptor
         cl_int clLogCreateClient(cl_int device_id, const char* client_name, cl_int * client_id);

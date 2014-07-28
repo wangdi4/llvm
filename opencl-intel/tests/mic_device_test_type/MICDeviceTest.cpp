@@ -97,6 +97,8 @@ public:
 			profile_run = timer;
 		}
 	}
+
+    Intel::OpenCL::TaskExecutor::ITaskExecutor* clDevGetTaskExecutor() { return NULL; }
 };
 
 //GetDeviceInfo with CL_DEVICE_TYPE test

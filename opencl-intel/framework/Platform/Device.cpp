@@ -437,6 +437,11 @@ void Device::clDevCmdStatusChanged(cl_dev_cmd_id cmd_id, void * pData, cl_int cm
     return;
 }
 
+Intel::OpenCL::TaskExecutor::ITaskExecutor* Device::clDevGetTaskExecutor()
+{
+    return FrameworkProxy::Instance()->GetTaskExecutor();
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::InitFECompilers
 ///////////////////////////////////////////////////////////////////////////////////////////////////
