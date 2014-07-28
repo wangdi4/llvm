@@ -122,8 +122,7 @@ bool Vectorizer::runOnModule(Module &M)
     if (*fi) {
       // Clone the kernel
       ValueToValueMapTy vmap;
-      Function *clone = CloneFunction(*fi,vmap, false, NULL);
-      clone->setName("__Vectorized_." + (*fi)->getName());
+      Function *clone = CloneFunction(*fi, vmap, true, NULL, "__Vectorized_." + (*fi)->getName());
       M.getFunctionList().push_back(clone);
 
       // Todo: due to a bug in the metadata we can't save changes more than once
