@@ -200,8 +200,12 @@ namespace intel {
           return false;
       }
     }
-
+    VectorType* vecType = static_cast<VectorType *>(divisorType);
     reflection::FunctionDescriptor funcDesc;
+    funcDesc.width = (reflection::width::V)vecType->getNumElements();
+    if ((funcDesc.width != 8) && (funcDesc.width != 16))
+      return false;
+
     reflection::TypePrimitiveEnum primitiveType;
     switch(divInst->getOpcode()) {
       default:
@@ -226,8 +230,6 @@ namespace intel {
 
     reflection::RefParamType scalarTy(new reflection::PrimitiveType(primitiveType));
 
-    VectorType* vecType = static_cast<VectorType *>(divisorType);
-    funcDesc.width = (reflection::width::V)vecType->getNumElements();
     reflection::RefParamType vectorTy(new reflection::VectorType(scalarTy, vecType->getNumElements()));
     funcDesc.parameters.push_back(vectorTy);
     funcDesc.parameters.push_back(vectorTy);
