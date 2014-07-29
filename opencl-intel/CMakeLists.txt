@@ -1,7 +1,6 @@
 #
 # Global setup file for OpenCL CMake
 #
-#
 cmake_minimum_required(VERSION 2.8.7)
 cmake_policy(SET CMP0001 NEW)
 cmake_policy(SET CMP0011 OLD)
@@ -12,8 +11,6 @@ set(CMAKE_MODULE_PATH
     "${CMAKE_SOURCE_DIR}/cmake/Modules/"
     "${CMAKE_SOURCE_DIR}/cmake_utils/"
 )
-message( STATUS "CMAKE_MODULE_PATH: ${CMAKE_MODULE_PATH}" )
-message( STATUS "CMAKE_ROOT: ${CMAKE_ROOT}" )
 include( cmake_utils/CMakeFuncs.txt )
 
 if (WIN32)
@@ -29,6 +26,14 @@ elseif( ANDROID)
 else()
   include( CMake_linux_tools )
 endif ()
+
+# Supported configurations
+set(CMAKE_CONFIGURATION_TYPES
+    "Debug"
+    "Release"
+  )
+set(CMAKE_CONFIGURATION_TYPES ${CMAKE_CONFIGURATION_TYPES} CACHE STRING "Available build configurations." FORCE)
+
 
 # ITT/VTune integration
 if( NOT ANDROID )
@@ -219,11 +224,10 @@ option(INCLUDE_MIC_DEVICE "Include MIC device Into Build"  OFF)
 option(USE_ITT_INTERNAL "Report internal tasks start/stop to VTune" OFF)
 option(USE_HARD_TRAPPING "Use hard trapping for workers on CPU device"  ON)
 option(USE_COMMON_CLANG "Use VPG supplied common clang dll instead of internale implementation" OFF)
+option(INCLUDE_CMRT "Include Common Runtime into Build"  OFF)
+option(BUILD_LLVM_FROM_SOURCE "Build the llvm package from source instead of using pre-installed binaries" OFF)
 
 # find the used external packages
-
-# LLVM
-find_package(LLVM REQUIRED)
 
 # QTGUI
 if (BUILD_QTGUI AND NOT ANDROID)
@@ -303,7 +307,6 @@ endif ()
 #
 # Project defs
 #
-
 project(OCL)
 
 # GIT
@@ -485,7 +488,6 @@ if (INCLUDE_MIC_DEVICE)
 endif (INCLUDE_MIC_DEVICE)
 
 # paths
-#set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES )
 include_directories( BEFORE
         utils/cl_logger/export
         utils/cl_hw_utils/export
@@ -493,7 +495,6 @@ include_directories( BEFORE
         devices/device_commands/export
         externals/tbb/include
         externals/tbb/enhancements
-        ${LLVM_INCLUDE_DIR}
     )
 
 # Framework IDE Folders Names
@@ -506,6 +507,7 @@ set( UTILS_FOLDER_NAME          ${FRAMEWORK_FOLDER_NAME}/utils )
 set( TOOLS_FOLDER_NAME          ${FRAMEWORK_FOLDER_NAME}/Tools )
 set( FE_COMPILER_FOLDER_NAME    "${FRAMEWORK_FOLDER_NAME}/Front-end Compiler" )
 set( EXTERNAL_FOLDER_NAME       External )
+
 
 if (APPLE)
     include_directories( BEFORE ${OCL_GLOBAL_INCLUDE} )
@@ -520,6 +522,9 @@ else(APPLE)
         add_subdirectory(${LLVM_SRC_ROOT} "${CMAKE_CURRENT_BINARY_DIR}/llvm")
     endif()
 
+    # LLVM
+    find_package(LLVM REQUIRED)
+    
     #validation
     add_subdirectory( tests )
 
@@ -550,7 +555,6 @@ else(APPLE)
     add_subdirectory( framework )
 
     # Common Runtime
-    option(INCLUDE_CMRT "Include Common Runtime into Build"  OFF)
     if ( INCLUDE_CMRT )
       add_subdirectory ( common_runtime )
     endif( INCLUDE_CMRT )
