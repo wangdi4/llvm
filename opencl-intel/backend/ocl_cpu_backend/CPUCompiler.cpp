@@ -310,12 +310,9 @@ void CPUCompiler::CreateExecutionEngine(llvm::Module* pModule)
     // Compiler keeps a pointer to the execution engine object
     // and is not responsible for EE release
     m_pExecEngine = CreateCPUExecutionEngine(pModule);
-
-    if (m_needLoadBuiltins)
-      m_pExecEngine->addModule(m_pBuiltinModule->GetRtlModule());
 }
 
-llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModule ) const
+llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModule) const
 {
     // Leaving MArch blank implies using auto-detect
     llvm::StringRef MCPU  = m_CpuId.GetCPUName();

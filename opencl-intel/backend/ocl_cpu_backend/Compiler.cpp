@@ -304,7 +304,6 @@ Compiler::Compiler(const ICompilerConfig& config):
     m_IRDumpAfter(config.GetIRDumpOptionsAfter()),
     m_IRDumpBefore(config.GetIRDumpOptionsBefore()),
     m_IRDumpDir(config.GetDumpIRDir()),
-    m_needLoadBuiltins(config.GetLoadBuiltins()),
     m_dumpHeuristicIR(config.GetDumpHeuristicIRFlag()),
     m_debug(false)
 {
