@@ -158,8 +158,6 @@ def native_fmax_s        : OclBuiltin<"native_fmax",      (outs gentype:$ret), (
 def native_fmin          : OclBuiltin<"native_fmin",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
 def native_fmin_s        : OclBuiltin<"native_fmin",      (outs gentype:$ret), (ins gentype:$x, sgentype:$y), [], [], 0, 0>, Except<[v1f32, v1f64]>;
 def native_fmod          : OclBuiltin<"native_fmod",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-def native_modf_pas    : OclBuiltin<"native_modf",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
-def native_modf_pas2    : OclBuiltin<"native_modf_ret2ptr",    (outs), (ins gentype:$x, pgentype:$sinval ,pgentype:$cosval), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def native_fract_pas     : OclBuiltin<"native_fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE; // MIC
 def native_fract_las     : OclBuiltin<"native_fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, LOCAL; // MIC
 def native_fract_gas     : OclBuiltin<"native_fract",     (outs gentype:$ret), (ins gentype:$x, pgentype:$iptr), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, GLOBAL; // MIC
@@ -175,7 +173,7 @@ def native_rootn         : OclBuiltin<"native_rootn",     (outs gentype:$ret), (
 def native_sincos_pas    : OclBuiltin<"native_sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def native_sincos_las    : OclBuiltin<"native_sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, LOCAL;
 def native_sincos_gas    : OclBuiltin<"native_sincos",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
-def native_sincos_pas2    : OclBuiltin<"native_sincos_ret2ptr",    (outs), (ins gentype:$x, pgentype:$sinval ,pgentype:$cosval), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
+def native_sincos_pas2   : OclBuiltin<"native_sincos_ret2ptr",    (outs), (ins gentype:$x, pgentype:$sinval ,pgentype:$cosval), [], [], 0, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
 def native_sinh          : OclBuiltin<"native_sinh",      (outs gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 def native_sinpi         : OclBuiltin<"native_sinpi",     (outs gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 def native_tanh          : OclBuiltin<"native_tanh",      (outs gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
@@ -184,7 +182,7 @@ def native_tanpi         : OclBuiltin<"native_tanpi",     (outs gentype:$ret), (
 }
 //Vectorizer generated table
 //{{"_Z20__retbyvector_sincosd" , "_Z19__retbyarray_sincosDv2_d" , "_Z19__retbyarray_sincosDv4_d" , "_Z19__retbyarray_sincosDv8_d" , "_Z19__retbyarray_sincosDv16_d" , "_Z19__retbyarray_sincosDv3_d" },1, 0}
-foreach bi = ["sincos", "native_sincos", "modf", "native_modf", "fract", "native_fract"] in {
+foreach bi = ["sincos", "native_sincos", "modf", "fract", "native_fract"] in {
   let Types = [v1f32, v1f64], Attrs = [CONSTFUNC, OVERLOADABLE] in {
         def bi#_scalarized :  OclBuiltin<"__retbyvector_"#bi, (outs v2gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
   }

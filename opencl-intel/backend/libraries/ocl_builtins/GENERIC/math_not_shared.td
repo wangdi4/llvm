@@ -448,13 +448,6 @@ code sincos_ret2ptr = [{
 OclBuiltinImpl sincos_ret2ptr_pas = OclBuiltinImpl<sincos_pas2, [v4f32, v8f32, v16f32, v4f64, v8f64, v16f64], 0, sincos_ret2ptr>;
 
 // This built-in is the one which the Packetizer replaces with the above
-code native_modf_ret2ptr = [{
-    $Arg0Type res = native_modf($Arg0VarName, $Arg2VarName);
-    *$Arg1VarName = res;
-  }];
-OclBuiltinImpl native_modf_ret2ptr_pas = OclBuiltinImpl<native_modf_pas2, [v4f32, v8f32, v16f32, v4f64, v8f64, v16f64], 0, native_modf_ret2ptr>;
-
-// This built-in is the one which the Packetizer replaces with the above
 code modf_ret2ptr = [{
     $Arg0Type res = modf($Arg0VarName, $Arg2VarName);
     *$Arg1VarName = res;
