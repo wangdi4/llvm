@@ -33,8 +33,9 @@ public:
      *  CL_DEV_ERROR_FAIL in any other error
      */
     virtual cl_dev_err_code CreateProgram(
-        const cl_prog_container_header* pByteCodeContainer, 
-        ICLDevBackendProgram_** ppProgram) const = 0;
+        const void* pBinary,
+        size_t uiBinarySize, 
+        ICLDevBackendProgram_** ppProgram) = 0;
 
     /**
      * Releases Program instance

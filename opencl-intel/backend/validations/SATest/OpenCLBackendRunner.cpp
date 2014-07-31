@@ -77,11 +77,12 @@ ICLDevBackendProgram_* OpenCLBackendRunner::CreateProgram(const OpenCLProgram * 
     assert( oclProgram);
     assert( oclProgram->GetProgramContainerSize() > 0 && "Invalid binary buffer.\n");
 
-    const cl_prog_container_header* pHeader = oclProgram->GetProgramContainer();
-    assert( pHeader );
+    const char* pBinary = oclProgram->GetProgramContainer();
+    size_t uiBinarySize = oclProgram->GetProgramContainerSize();
+    assert( pBinary);
 
     ICLDevBackendProgram_* pProgram = NULL;
-    cl_dev_err_code ret = pCompileService->CreateProgram(pHeader, &pProgram);
+    cl_dev_err_code ret = pCompileService->CreateProgram(pBinary, uiBinarySize, &pProgram);
     if ( CL_DEV_FAILED(ret) )
     {
         throw Exception::TestRunnerException("Create program failed.\n");

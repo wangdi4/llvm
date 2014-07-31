@@ -28,7 +28,7 @@
 #define RESTORE_EBX  "xchg %%edi, %%ebx\n\r"
 #endif
 
-extern "C" void ASM_FUNCTION  Intel::OpenCL::Utils::hw_cpuid(CPUID_PARAMS *params)
+extern "C" void ASM_FUNCTION  Intel::OpenCL::Utils::cl_hw_cpuid(CPUID_PARAMS *params)
 {
     UINT32 type = (UINT32)params->m_rax;
     UINT32 eax, ebx, ecx, edx;

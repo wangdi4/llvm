@@ -10,6 +10,8 @@ include_directories(
   ${BACKEND_ROOT_DIR}/dynamic_lib
   ${BACKEND_ROOT_DIR}/../cl_api
   ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
+  ${CMAKE_SOURCE_DIR}/utils/cl_hw_utils/export
+
 )
 
 add_library( ${TARGET_NAME} STATIC

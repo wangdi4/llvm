@@ -111,6 +111,7 @@ include_directories(
     ${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser
     ${VALIDATIONS_ROOT}/OCLKernelDataGenerator
     ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
+    ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang
     ${VALIDATIONS_ROOT}/ProgramConfiguration
 )
 

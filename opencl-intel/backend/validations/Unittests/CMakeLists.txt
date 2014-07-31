@@ -58,6 +58,8 @@ include_directories(${VALIDATIONS_ROOT}/OCLKernelDataGenerator)
 include_directories(${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/Common )
 include_directories(${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export)
+include_directories(${CMAKE_SOURCE_DIR}/fe_compilers/common_clang)
+
  
  
 link_directories(

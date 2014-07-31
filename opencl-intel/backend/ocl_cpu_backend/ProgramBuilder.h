@@ -20,30 +20,22 @@ File Name:  ProgramBuilder.h
 #include "ICLDevBackendOptions.h"
 #include "IAbstractBackendFactory.h"
 #include "ICompilerConfig.h"
-#include "ObjectCodeCache.h"
 
 #include "Program.h"
 
 namespace llvm {
-    class ExecutionEngine;
-    class LLVMContext;
     class Module;
-    class Program;
     class Function;
     class MemoryBuffer;
-    class MDNode;
 }
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
-class BuiltinModule;
 class Program;
-class Kernel;
 class KernelProperties;
 class KernelSet;
 class ProgramBuildResult;
-class BuiltinLibrary;
 class Compiler;
+class ObjectCodeCache;
 
 namespace Utils {
 /// @returns the memory buffer of the Program object bytecode
@@ -70,6 +62,11 @@ public:
      */
     cl_dev_err_code BuildProgram(Program* pProgram, const ICLDevBackendOptions* pOptions);
 
+    /**
+     * Parses the given program
+     */
+    void ParseProgram(Program* pProgram);
+
 protected:
 
     virtual Compiler* GetCompiler() = 0;
@@ -87,14 +84,12 @@ protected:
                                              llvm::Function *func,
                                              const ProgramBuildResult& buildResult) const;
 
-
     // checks if the given program has an object binary to be loaded from
     virtual bool CheckIfProgramHasCachedExecutable(Program* pProgram) const;
     // reloads the program from his object binary
     virtual bool ReloadProgramFromCachedExecutable(Program* pProgram) = 0;
     // builds object binary for the built program
     virtual void BuildProgramCachedExecutable(ObjectCodeCache* pCache, Program* pProgram) const = 0;
-
 
     /// @brief abstract factory method to create mapper from block to Kernel.
     /// Can be implemented differently for CPU and MIC.
@@ -130,5 +125,4 @@ private:
     // Workload name for the stats
     std::string m_statWkldName;
 };
-
 }}}

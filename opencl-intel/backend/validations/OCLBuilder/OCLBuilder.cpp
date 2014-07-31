@@ -109,7 +109,7 @@ void OCLBuilder::close() {
 //(the previously given) library.
 //Returns value: IOCLFEBinaryResult, which contains the binary result in its
 //bytecode form, with some metadeta on it (size in bytes etc.)
-Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult* OCLBuilder::build() {
+Intel::OpenCL::ClangFE::IOCLFEBinaryResult* OCLBuilder::build() {
 	try {
 		return m_CommonBuilder.build();
 	}

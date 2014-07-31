@@ -21,43 +21,28 @@ File Name:  ObjectCodeContainer.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-ObjectCodeContainer::ObjectCodeContainer(const cl_prog_container_header* pContainer)
+ObjectCodeContainer::ObjectCodeContainer(const void *pBinary, size_t uiBinarySize)
 {
-    assert(pContainer && "Code container pointer must be valid");
-    size_t blobSize = pContainer->container_size;
-    size_t totalSize = blobSize + sizeof(cl_prog_container_header);
-    m_pObjectCodeContainer = (cl_prog_container_header*)new char[totalSize];
-    std::copy((const char*)pContainer, (const char*)pContainer+totalSize, (char*)m_pObjectCodeContainer);
+    assert(pBinary && "Code container pointer must be valid");
+    m_pBinary = new char[uiBinarySize];
+    m_uiBinarySize = uiBinarySize;
+    std::copy((const char*)pBinary, (const char*)pBinary+uiBinarySize, m_pBinary);
 }
 
 ObjectCodeContainer::~ObjectCodeContainer()
 {
-    delete m_pObjectCodeContainer;
+    delete[] m_pBinary;
 }
 
 const void* ObjectCodeContainer::GetCode() const
 {
-    return (const char*)m_pObjectCodeContainer + sizeof(cl_prog_container_header);
+    return (const void*)m_pBinary;
 }
 
 size_t ObjectCodeContainer::GetCodeSize() const
 {
-    return (static_cast<const cl_prog_container_header*>(m_pObjectCodeContainer))->container_size;
+    return m_uiBinarySize;
 }
-
-const void* ObjectCodeContainer::GetObject() const
-{
-    size_t bitCodeSize = (static_cast<const cl_object_container_header*>(GetCode()))->section_size[IR_SECTION_INDEX];
-    size_t serializationSize = (static_cast<const cl_object_container_header*>(GetCode()))->section_size[OFFLOAD_SECTION_INDEX];
-    size_t rawModuleSize = (static_cast<const cl_object_container_header*>(GetCode()))->section_size[OPT_IR_SECTION_INDEX];
-    return ((const char*)GetCode())+sizeof(const cl_prog_container_header)+bitCodeSize+serializationSize+rawModuleSize;
-}
-
-size_t ObjectCodeContainer::GetObjectSize() const
-{
-    return (static_cast<const cl_object_container_header*>(GetCode()))->section_size[OBJECT_SECTION_INDEX];
-}
-
 
 }}} // namespace
 

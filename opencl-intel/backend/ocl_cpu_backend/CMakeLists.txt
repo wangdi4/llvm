@@ -170,7 +170,6 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     KernelProperties.h
     Program.h
     ProgramBuilder.h
-    ProgramContainerMemoryBuffer.h
     RuntimeService.h
     Serializer.h
     ServiceFactory.h
@@ -218,7 +217,6 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     CPUSerializationService.cpp
     ObjectCodeContainer.cpp
     ProgramBuilder.cpp
-    ProgramContainerMemoryBuffer.cpp
     ServiceFactory.cpp
     TargetDescription.cpp
     cpu_builtin_functions.cpp
@@ -314,6 +312,8 @@ include_directories(
     ${BACKEND_ROOT_DIR}/utils
     ${BACKEND_ROOT_DIR}/metadata_api
     ${BACKEND_ROOT_DIR}/../utils/cache_binary_handler
+    ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang
+    ${CMAKE_SOURCE_DIR}/utils/CLElfLib 
     ${CMAKE_BINARY_DIR}/include/
     ${OCL_BINARY_DIR}
 )

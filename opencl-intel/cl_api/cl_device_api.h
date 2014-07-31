@@ -166,26 +166,6 @@ struct cl_prog_program
 #define OBJECT_SECTION_INDEX     3
 #define CHECK_INDEX              4
 
-/*! \struct cl_binary_container_header
- *  \brief This strcuture defines a specific container for binary objects (cached programs)
- */
-typedef struct _cl_object_container_header
-{
-    cl_char                 mask[4];       //!< A container identifier mask must be 0x7f ELF
-    unsigned int            total_size;    //!< total size of the container
-    unsigned int            section_size[8];//!< container sections sizes
-} cl_object_container_header;
-/*! \struct cl_prog_container_header
- *  \brief This structure defines a specific container for binaries or IR of OCL programs
- */
-typedef struct _cl_prog_container_header
-{
-    cl_char                 mask[4];        //!< A container identifier mask must be "CLPC"
-    cl_prog_binary_desc     description;    //!< Binary/IR description that is held by a container
-    cl_prog_container_type  container_type; //!< Type of container that stores program binary, as defined by cl_prog_container_type
-    unsigned int            container_size; //!< Size in bytes of the container data
-} cl_prog_container_header;
-
 // Interface declaration
 class IOCLFrameworkCallbacks;
 class IOCLDevLogDescriptor;

@@ -17,11 +17,13 @@ File Name: CommonOCLBuilder.cpp
 \*****************************************************************************/
 
 #include "CommonOCLBuilder.h"
+#include "common_clang.h"
 #include <string>
 #include <clang_device_info.h>
 #include "ocl_string_exception.h"
 
 using namespace Intel::OpenCL::FECompilerAPI;
+using namespace Intel::OpenCL::ClangFE;
 using namespace Intel::OpenCL::Utils;
 using namespace std;
 
