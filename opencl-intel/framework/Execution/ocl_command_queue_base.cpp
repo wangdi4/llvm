@@ -35,7 +35,7 @@
 
 using namespace Intel::OpenCL::Framework;
 
-cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pUserEvent, ApiLogger& apiLogger)
+cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pUserEvent, ApiLogger* apiLogger)
 {
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
       if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
@@ -76,7 +76,10 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
         pEvent = pUserEvent;
     }
     m_pEventsManager->RegisterQueueEvent(pQueueEvent, pEvent);
-    apiLogger.SetCmdId(pQueueEvent->GetId());
+    if (apiLogger != NULL)
+    {
+        apiLogger->SetCmdId(pQueueEvent->GetId());
+    }
 
     AddFloatingDependence(pQueueEvent);
     errVal = m_pEventsManager->RegisterEvents(pQueueEvent, uNumEventsInWaitList, cpEeventWaitList);
