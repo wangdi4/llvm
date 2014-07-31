@@ -2,6 +2,10 @@
 
 
 // abs
+OclBuiltinImpl abs_i64 = OclBuiltinImpl<abs, [v8i64], 0, [{
+    return as_$ReturnType(($Arg0VarName < 0) ? -$Arg0VarName : $Arg0VarName);
+  }]>;
+
 OclBuiltinImpl abs_v16_i8i16 = OclBuiltinImpl<abs, [v16i8, v16i16], 0, [{
     return convert_$ReturnType(abs(convert_int16($Arg0VarName)));
   }]>;

@@ -207,7 +207,7 @@ OclBuiltinImpl fp2int_i32_f32_rte = OclBuiltinImpl<convert_i32_rte,
 
 OclBuiltinImpl fp2int_i32_f32_rtz = OclBuiltinImpl<convert_i32_rtz,
                                                    [v1f32, v2f32, v3f32, v4f32,
-                                                    v1f64, v2f64, v8f64, v16f64], 0, [{
+                                                    v1f64, v2f64, v16f64], 0, [{
     return __ocl_svml_$Target_cvtfptoi32$rtznosat$SVMLSuffix($Arg0VarName);
   }]>;
 
@@ -252,7 +252,7 @@ OclBuiltinImpl fp2int_u32_f32_rte = OclBuiltinImpl<convert_u32_rte,
   }]>;
 
 OclBuiltinImpl fp2int_u32_f32_rtz = OclBuiltinImpl<convert_u32_rtz,
-                                                   [v1f32, v2f32, v3f32, v4f32, v16f32,
+                                                   [v1f32, v2f32, v3f32, v4f32,
                                                     v1f64, v2f64, v3f64, v4f64, v16f64], 0, [{
     return __ocl_svml_$Target_cvtfptou32$rtznosat$SVMLSuffix($Arg0VarName);
   }]>;
@@ -367,7 +367,7 @@ OclBuiltinImpl nocvt_f32 = OclBuiltinImpl<convert_f32,
   }]>;
 
 OclBuiltinImpl cvt_f32_f64 = OclBuiltinImpl<convert_f32,
-                                          [v1f64, v2f64, v3f64, v8f64, v16f64], 0, [{
+                                          [v1f64, v2f64, v3f64], 0, [{
     return __ocl_svml_$Target_cvtfp64tofp32$rtn$SVMLSuffix($Arg0VarName);
   }]>;
 

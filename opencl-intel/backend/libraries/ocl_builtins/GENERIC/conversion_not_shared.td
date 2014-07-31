@@ -24,7 +24,7 @@ OclBuiltinImpl fp2int_i32_f32_rte_not_shared = OclBuiltinImpl<convert_i32_rte,
   }]>;
 
 OclBuiltinImpl fp2int_i32_f32_rtz_not_shared = OclBuiltinImpl<convert_i32_rtz,
-                                                   [v8f32, v16f32,
+                                                   [v8f32, v8f64, v16f32,
                                                     v3f64, v4f64], 0, [{
     return __ocl_svml_$Target_cvtfptoi32$rtznosat$SVMLSuffix($Arg0VarName);
   }]>;
@@ -47,7 +47,7 @@ OclBuiltinImpl fp2int_u32_f32_rte_not_shared = OclBuiltinImpl<convert_u32_rte,
   }]>;
 
 OclBuiltinImpl fp2int_u32_f32_rtz_not_shared = OclBuiltinImpl<convert_u32_rtz,
-                                                   [v8f32, v8f64], 0, [{
+                                                   [v8f32, v8f64, v16f32], 0, [{
     return __ocl_svml_$Target_cvtfptou32$rtznosat$SVMLSuffix($Arg0VarName);
   }]>;
 
@@ -123,7 +123,6 @@ OclBuiltinImpl cvt_f32_f64_not_shared = OclBuiltinImpl<convert_f32,
                                           [v4f64], 0, [{
     return __ocl_svml_$Target_cvtfp64tofp32$rtn$SVMLSuffix($Arg0VarName);
   }]>;
-
 
 
 OclBuiltinImpl cvt_f32_i32_not_shared = OclBuiltinImpl<convert_f32,

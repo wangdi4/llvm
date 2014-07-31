@@ -8,8 +8,12 @@
  *   Returns | x |                                               *
 \*****************************************************************/
 // abs expand
-OclBuiltinImpl abs_iexpand  = OclBuiltinImpl<abs, [                             v16i16,
-                                                                         v8i32], 0, Expand1>;
+OclBuiltinImpl abs_iexpand  = OclBuiltinImpl<abs, [v16i16, v8i32, v16i32], 0, Expand1>;
+
+// abs on signed long vector
+OclBuiltinImpl abs_i64 = OclBuiltinImpl<abs, [v8i64], 0, [{
+    return as_$ReturnType(($Arg0VarName < 0) ? -$Arg0VarName : $Arg0VarName);
+  }]>;
 
 /*****************************************************************\
  * abs_diff:                                                     *
@@ -18,7 +22,7 @@ OclBuiltinImpl abs_iexpand  = OclBuiltinImpl<abs, [                             
 \*****************************************************************/
 
 // abs_diff on signed vector
-OclBuiltinImpl abs_diff_svector = OclBuiltinImpl<abs_diff, [v16i16, v8i32, v4i64 ] , 0, [{
+OclBuiltinImpl abs_diff_svector = OclBuiltinImpl<abs_diff, [v16i16, v8i32, v4i64, v8i64, v16i32 ] , 0, [{
     $Arg0Type tmp1 = $Arg0VarName - $Arg1VarName;
     $Arg0Type tmp2 = $Arg1VarName - $Arg0VarName;
     $Arg0Type tmpc = $Arg1VarName > $Arg0VarName;
@@ -27,7 +31,7 @@ OclBuiltinImpl abs_diff_svector = OclBuiltinImpl<abs_diff, [v16i16, v8i32, v4i64
     return as_u$Arg0Type(res | reb);
   }]>;
 // abs_diff on unsigned vector
-OclBuiltinImpl abs_diff_uvector = OclBuiltinImpl<abs_diff, [v16u16, v8u32, v4u64] , 0, [{
+OclBuiltinImpl abs_diff_uvector = OclBuiltinImpl<abs_diff, [v16u16, v8u32, v4u64, v8u64, v16u32] , 0, [{
     $Arg0Type tmp1 = $Arg0VarName - $Arg1VarName;
     $Arg0Type tmp2 = $Arg1VarName - $Arg0VarName;
     $Arg0Type tmpc = as_$Arg0Type($Arg1VarName > $Arg0VarName);
@@ -65,7 +69,7 @@ OclBuiltinImpl sub_sat_sseexpand  = OclBuiltinImpl<sub_sat, [v16i16, v16u16], 0,
 \*****************************************************************/
 
 // mad_sat expand
-OclBuiltinImpl mad_sat_iexpand  = OclBuiltinImpl<mad_sat, [ v8i32, v16u16, v8u32], 0, Expand3>;
+OclBuiltinImpl mad_sat_iexpand  = OclBuiltinImpl<mad_sat, [ v8i32, v16u16, v8u32, v16i32, v16u32], 0, Expand3>;
 
 // mad_sat native ushort8 (expanded from scalar, because any smaller vector size (2 & 4) is promoted to 8)
 OclBuiltinImpl mad_sat_v8u16 = OclBuiltinImpl<mad_sat, [v8u16] , 0, [{
@@ -135,7 +139,8 @@ OclBuiltinImpl max_native_u = OclBuiltinImpl<max, [v4u32], 0, [{
 
 
 // max expand
-OclBuiltinImpl max_iexpand  = OclBuiltinImpl<max, [ v16i16, v16u16, v8i32, v8u32], 0, Expand2>;
+OclBuiltinImpl max_iexpand  = OclBuiltinImpl<max, [ v16i16, v16u16, v8i32, v8u32,
+                                                    v16i32, v16u32], 0, Expand2>;
 
 /*****************************************************************\
  * min:                                                          *
@@ -172,7 +177,8 @@ OclBuiltinImpl min_native_u = OclBuiltinImpl<min, [v4u32], 0, [{
   }]>;
 
 // min expand
-OclBuiltinImpl min_iexpand  = OclBuiltinImpl<min, [ v16i16, v16u16, v8i32, v8u32], 0, Expand2>;
+OclBuiltinImpl min_iexpand  = OclBuiltinImpl<min, [ v16i16, v16u16, v8i32, v8u32,
+                                                    v16i32, v16u32], 0, Expand2>;
 
 
 /*****************************************************************\
@@ -182,8 +188,7 @@ OclBuiltinImpl min_iexpand  = OclBuiltinImpl<min, [ v16i16, v16u16, v8i32, v8u32
 \*****************************************************************/
 
 // mul_hi expand
-OclBuiltinImpl mul_hi_iexpand  = OclBuiltinImpl<mul_hi, [ v16i16, v8i32, v16u16, v8u32, v4u64], 0, Expand2>;
-
+OclBuiltinImpl mul_hi_iexpand  = OclBuiltinImpl<mul_hi, [ v16i16, v8i32, v16u16, v8u32, v4u64, v8i64, v8u64, v16u32, v16i32], 0, Expand2>;
 
 // mul_hi native int4 (expanded from scalar, because any smaller vector size (2) is promoted to 4)
 OclBuiltinImpl mul_hi_v4i32 = OclBuiltinImpl<mul_hi, [v4i32] , 0, [{

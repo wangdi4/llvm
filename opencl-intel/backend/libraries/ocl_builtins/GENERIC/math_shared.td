@@ -6,7 +6,7 @@
 // particular architecture with data types used in this file, for example:
 
 // built-in acos has no specific code for data types
-// v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64, v16f64
+// v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64
 // and code for built-ins acosf, acosf2, acosf3, acosf4, acosf8,
 // acos, acos2, acos3, acos4, acos16 is placed in shared library
 
@@ -17,8 +17,12 @@
 // math_shared and math_not_shared MUST not overlap. i.e. contain
 // the same functions
 
+// Why v8f64 and v16f32 is not here?
+// Because there is no svml shared function for this types
 list<OclType> math_shared_types = [v1f32, v2f32, v3f32, v4f32, v8f32,
-                              v1f64, v2f64, v3f64, v4f64, v16f64];
+                              v1f64, v2f64, v3f64, v4f64];
+
+list<OclType> math_shared_f32_types = [v1f32, v2f32, v3f32, v4f32, v8f32];
 
 // acos
 OclBuiltinImpl acos_svml = OclBuiltinImpl<acos, math_shared_types, 0, [{
@@ -159,7 +163,7 @@ OclBuiltinImpl fdim_impl_vec = OclBuiltinImpl<fdim, [v2f32, v3f32, v4f32, v8f32,
   }]>;
 
 // floor
-OclBuiltinImpl floor_svml = OclBuiltinImpl<floor, [v1f32, v2f32, v3f32, v16f32, v1f64, v3f64, v8f64, v16f64], 0, [{
+OclBuiltinImpl floor_svml = OclBuiltinImpl<floor, [v1f32, v2f32, v3f32, v1f64, v3f64], 0, [{
     return __ocl_svml_$Target_floor$SVMLSuffix($Arg0VarName);
   }]>;
 
@@ -213,7 +217,7 @@ OclBuiltinImpl fmod_svml = OclBuiltinImpl<fmod, math_shared_types, 0, [{
 // hypot
 // NOTE: there is fast inlined implementation of hypot using newton-raphson and quick native_rsqrt function
 // See: hypot_impl_nr in SSE42
-OclBuiltinImpl hypot_svml = OclBuiltinImpl<hypot, hypot.Types, 0, [{
+OclBuiltinImpl hypot_svml = OclBuiltinImpl<hypot, math_shared_types, 0, [{
     return __ocl_svml_$Target_hypot$SVMLSuffix($Arg0VarName, $Arg1VarName);
   }]>;
 
@@ -251,13 +255,13 @@ OclBuiltinImpl ilogb_impl_f32 = OclBuiltinImpl<ilogb, [v3f32, v4f32, v8f32, v16f
   }]>;
 
 // ilogb double
-OclBuiltinImpl ilogb_svml_f64 = OclBuiltinImpl<ilogb, [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],  0, [{
+OclBuiltinImpl ilogb_svml_f64 = OclBuiltinImpl<ilogb, [v1f64, v2f64, v3f64, v4f64],  0, [{
     return __ocl_svml_$Target_ilogb$SVMLSuffix($Arg0VarName);
   }]>;
 
 // ldexp types is a special case, math_shared_types are not used
 // ldexp
-OclBuiltinImpl ldexp_svml = OclBuiltinImpl<ldexp, ldexp.Types, 0, [{
+OclBuiltinImpl ldexp_svml = OclBuiltinImpl<ldexp, math_shared_types, 0, [{
     return __ocl_svml_$Target_ldexp$SVMLSuffix($Arg0VarName, $Arg1VarName);
   }]>;
 
@@ -336,53 +340,49 @@ OclBuiltinImpl nan_impl = OclBuiltinImpl<nan, nan.Types, 0, [{
   }]>;
 
 // nextafter
-OclBuiltinImpl nextafter_svml = OclBuiltinImpl<nextafter, nextafter.Types, 0, [{
+OclBuiltinImpl nextafter_svml = OclBuiltinImpl<nextafter, math_shared_types, 0, [{
     return __ocl_svml_$Target_nextafter$SVMLSuffix($Arg0VarName, $Arg1VarName);
   }]>;
 
 // pow
-OclBuiltinImpl pow_svml = OclBuiltinImpl<pow, pow.Types, 0, [{
+OclBuiltinImpl pow_svml = OclBuiltinImpl<pow, math_shared_types, 0, [{
     return __ocl_svml_$Target_pow$SVMLSuffix($Arg0VarName, $Arg1VarName);
   }]>;
 
 // pown types is a special case, math_shared_types are not used
 // pown
-OclBuiltinImpl pown_svml = OclBuiltinImpl<pown, pown.Types, 0, [{
+OclBuiltinImpl pown_svml = OclBuiltinImpl<pown, math_shared_types, 0, [{
     return __ocl_svml_$Target_pown$SVMLSuffix($Arg0VarName, $Arg1VarName);
   }]>;
 
 // powr
-OclBuiltinImpl powr_svml = OclBuiltinImpl<powr, powr.Types, 0, [{
+OclBuiltinImpl powr_svml = OclBuiltinImpl<powr, math_shared_types, 0, [{
     return __ocl_svml_$Target_powr$SVMLSuffix($Arg0VarName, $Arg1VarName);
   }]>;
 
 // remainder
-OclBuiltinImpl remainder_svml = OclBuiltinImpl<remainder, remainder.Types, 0, [{
+OclBuiltinImpl remainder_svml = OclBuiltinImpl<remainder, math_shared_types, 0, [{
     return __ocl_svml_$Target_remainder$SVMLSuffix($Arg0VarName, $Arg1VarName);
   }]>;
 
 // rint
-OclBuiltinImpl rint_svml = OclBuiltinImpl<rint, [v1f32, v2f32, v3f32, v16f32, v1f64, v3f64, v8f64, v16f64], 0, [{
+OclBuiltinImpl rint_svml = OclBuiltinImpl<rint, [v1f32, v2f32, v3f32, v1f64, v3f64], 0, [{
     return __ocl_svml_$Target_rint$SVMLSuffix($Arg0VarName);
   }]>;
 
-// rootn
-OclBuiltinImpl rootn_svml = OclBuiltinImpl<rootn, rootn.Types, 0, [{
-    return __ocl_svml_$Target_rootn$SVMLSuffix($Arg0VarName, $Arg1VarName);
-  }]>;
 // round
-OclBuiltinImpl round_svml = OclBuiltinImpl<round, [v1f32, v2f32, v3f32, v16f32, v1f64, v3f64, v8f64, v16f64], 0, [{
+OclBuiltinImpl round_svml = OclBuiltinImpl<round, [v1f32, v2f32, v3f32, v1f64, v3f64], 0, [{
     return __ocl_svml_$Target_round$SVMLSuffix($Arg0VarName);
   }]>;
 
 // rsqrt
-OclBuiltinImpl rsqrt_svml = OclBuiltinImpl<rsqrt, [v1f32, v2f32, v3f32, v4f32, v1f64, v3f64, v16f64], 0, [{
+OclBuiltinImpl rsqrt_svml = OclBuiltinImpl<rsqrt, [v1f32, v2f32, v3f32, v4f32, v1f64, v3f64], 0, [{
     return __ocl_svml_$Target_rsqrt$SVMLSuffix($Arg0VarName);
   }]>;
 
 // rootn types is a special case, math_shared_types are not used
 // rootn
-OclBuiltinImpl rootn_svml = OclBuiltinImpl<rootn, rootn.Types, 0, [{
+OclBuiltinImpl rootn_svml = OclBuiltinImpl<rootn, math_shared_types, 0, [{
     return __ocl_svml_$Target_rootn$SVMLSuffix($Arg0VarName, $Arg1VarName);
   }]>;
 
@@ -402,7 +402,7 @@ OclBuiltinImpl sinpi_svml = OclBuiltinImpl<sinpi, math_shared_types, 0, [{
   }]>;
 
 // sqrt
-OclBuiltinImpl sqrt_svml = OclBuiltinImpl<sqrt, [v1f32, v2f32, v3f32, v4f32, v1f64, v2f64, v3f64, v16f64], 0, [{
+OclBuiltinImpl sqrt_svml = OclBuiltinImpl<sqrt, [v1f32, v2f32, v3f32, v4f32, v1f64, v2f64, v3f64], 0, [{
     return __ocl_svml_$Target_sqrt$SVMLSuffix($Arg0VarName);
   }]>;
 
@@ -422,82 +422,82 @@ OclBuiltinImpl tanpi_svml = OclBuiltinImpl<tanpi, math_shared_types, 0, [{
   }]>;
 
 // tgamma
-OclBuiltinImpl tgamma_svml = OclBuiltinImpl<tgamma, tgamma.Types, 0, [{
+OclBuiltinImpl tgamma_svml = OclBuiltinImpl<tgamma, math_shared_types, 0, [{
     return __ocl_svml_$Target_tgamma$SVMLSuffix($Arg0VarName);
   }]>;
 
 // trunc
-OclBuiltinImpl trunc_svml = OclBuiltinImpl<trunc, [v1f32, v2f32, v3f32, v16f32, v1f64, v3f64, v8f64, v16f64], 0, [{
+OclBuiltinImpl trunc_svml = OclBuiltinImpl<trunc, [v1f32, v2f32, v3f32, v1f64, v3f64, v8f64], 0, [{
     return __ocl_svml_$Target_trunc$SVMLSuffix($Arg0VarName);
   }]>;
 
 // half_cos
-OclBuiltinImpl half_cos_svml = OclBuiltinImpl<half_cos, half_cos.Types, 0, [{
+OclBuiltinImpl half_cos_svml = OclBuiltinImpl<half_cos, math_shared_f32_types, 0, [{
     return __ocl_svml_$Target_cos$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_divide
-OclBuiltinImpl half_divide_svml = OclBuiltinImpl<half_divide, half_divide.Types, 0, [{
+OclBuiltinImpl half_divide_svml = OclBuiltinImpl<half_divide, math_shared_f32_types, 0, [{
     return __ocl_svml_$Target_div$SVMLSuffix_half($Arg0VarName, $Arg1VarName);
   }]>;
 
 // half_exp
-OclBuiltinImpl half_exp_svml = OclBuiltinImpl<half_exp, half_exp.Types, 0, [{
+OclBuiltinImpl half_exp_svml = OclBuiltinImpl<half_exp, math_shared_f32_types, 0, [{
     return __ocl_svml_$Target_exp$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_exp2
-OclBuiltinImpl half_exp2_svml = OclBuiltinImpl<half_exp2, half_exp2.Types, 0, [{
+OclBuiltinImpl half_exp2_svml = OclBuiltinImpl<half_exp2, math_shared_f32_types, 0, [{
     return __ocl_svml_$Target_exp2$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_exp10
-OclBuiltinImpl half_exp10_svml = OclBuiltinImpl<half_exp10, half_exp10.Types, 0, [{
+OclBuiltinImpl half_exp10_svml = OclBuiltinImpl<half_exp10, math_shared_f32_types, 0, [{
     return __ocl_svml_$Target_exp10$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_log
-OclBuiltinImpl half_log_svml = OclBuiltinImpl<half_log, half_log.Types, 0, [{
+OclBuiltinImpl half_log_svml = OclBuiltinImpl<half_log, math_shared_f32_types, 0, [{
     return __ocl_svml_$Target_log$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_log2
-OclBuiltinImpl half_log2_svml = OclBuiltinImpl<half_log2, half_log2.Types, 0, [{
+OclBuiltinImpl half_log2_svml = OclBuiltinImpl<half_log2, math_shared_f32_types, 0, [{
     return __ocl_svml_$Target_log2$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_log10
-OclBuiltinImpl half_log10_svml = OclBuiltinImpl<half_log10, half_log10.Types, 0, [{
+OclBuiltinImpl half_log10_svml = OclBuiltinImpl<half_log10, math_shared_f32_types, 0, [{
     return __ocl_svml_$Target_log10$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_powr
-OclBuiltinImpl half_powr_svml = OclBuiltinImpl<half_powr, half_powr.Types, 0, [{
+OclBuiltinImpl half_powr_svml = OclBuiltinImpl<half_powr, math_shared_f32_types, 0, [{
     return __ocl_svml_$Target_powr$SVMLSuffix_half($Arg0VarName, $Arg1VarName);
   }]>;
 
 // half_recip
-OclBuiltinImpl half_recip_svml = OclBuiltinImpl<half_recip, half_recip.Types, 0, [{
+OclBuiltinImpl half_recip_svml = OclBuiltinImpl<half_recip, math_shared_f32_types, 0, [{
     return __ocl_svml_$Target_inv$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_rsqrt
-OclBuiltinImpl half_rsqrt_svml = OclBuiltinImpl<half_rsqrt, half_rsqrt.Types, 0, [{
+OclBuiltinImpl half_rsqrt_svml = OclBuiltinImpl<half_rsqrt, math_shared_f32_types, 0, [{
     return __ocl_svml_$Target_rsqrt$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_sin
-OclBuiltinImpl half_sin_svml = OclBuiltinImpl<half_sin, half_sin.Types, 0, [{
+OclBuiltinImpl half_sin_svml = OclBuiltinImpl<half_sin, math_shared_f32_types, 0, [{
     return __ocl_svml_$Target_sin$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_sqrt
-OclBuiltinImpl half_sqrt_svml = OclBuiltinImpl<half_sqrt, half_sqrt.Types, 0, [{
+OclBuiltinImpl half_sqrt_svml = OclBuiltinImpl<half_sqrt, math_shared_f32_types, 0, [{
     return __ocl_svml_$Target_sqrt$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_tan
-OclBuiltinImpl half_tan_svml = OclBuiltinImpl<half_tan, half_tan.Types, 0, [{
+OclBuiltinImpl half_tan_svml = OclBuiltinImpl<half_tan, math_shared_f32_types, 0, [{
     return __ocl_svml_$Target_tan$SVMLSuffix_half($Arg0VarName);
   }]>;
 
@@ -509,22 +509,22 @@ OclBuiltinImpl native_cos_svml = OclBuiltinImpl<native_cos, math_shared_types, 0
 
 
 // native_divide
-OclBuiltinImpl native_divide_impl = OclBuiltinImpl<native_divide, [v1f32, v2f32, v3f32, v4f32, v16f32, v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, [{
+OclBuiltinImpl native_divide_impl = OclBuiltinImpl<native_divide, [v1f32, v2f32, v3f32, v4f32, v1f64, v2f64, v3f64, v4f64], 0, [{
     return __ocl_svml_$Target_div$SVMLSuffix_native($Arg0VarName, $Arg1VarName);
   }]>;
 
 // native_exp
-OclBuiltinImpl native_exp_svml = OclBuiltinImpl<native_exp, native_exp.Types, 0, [{
+OclBuiltinImpl native_exp_svml = OclBuiltinImpl<native_exp, math_shared_types, 0, [{
     return __ocl_svml_$Target_exp$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_exp2
-OclBuiltinImpl native_exp2_svml = OclBuiltinImpl<native_exp2, native_exp2.Types, 0, [{
+OclBuiltinImpl native_exp2_svml = OclBuiltinImpl<native_exp2, math_shared_types, 0, [{
     return __ocl_svml_$Target_exp2$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_exp10
-OclBuiltinImpl native_exp10_svml = OclBuiltinImpl<native_exp10, native_exp10.Types, 0, [{
+OclBuiltinImpl native_exp10_svml = OclBuiltinImpl<native_exp10, math_shared_types, 0, [{
     return __ocl_svml_$Target_exp10$SVMLSuffix_native($Arg0VarName);
   }]>;
 
@@ -553,37 +553,37 @@ OclBuiltinImpl native_fmin_s_impl = OclBuiltinImpl<native_fmin_s, native_fmin_s.
 }]>;
 
 // native_log
-OclBuiltinImpl native_log_svml = OclBuiltinImpl<native_log, native_log.Types, 0, [{
+OclBuiltinImpl native_log_svml = OclBuiltinImpl<native_log, math_shared_types, 0, [{
     return __ocl_svml_$Target_log$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_log2
-OclBuiltinImpl native_log2_svml = OclBuiltinImpl<native_log2, native_log2.Types, 0, [{
+OclBuiltinImpl native_log2_svml = OclBuiltinImpl<native_log2, math_shared_types, 0, [{
     return __ocl_svml_$Target_log2$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_log10
-OclBuiltinImpl native_log10_svml = OclBuiltinImpl<native_log10, native_log10.Types, 0, [{
+OclBuiltinImpl native_log10_svml = OclBuiltinImpl<native_log10, math_shared_types, 0, [{
     return __ocl_svml_$Target_log10$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_powr
-OclBuiltinImpl native_powr_svml = OclBuiltinImpl<native_powr, native_powr.Types, 0, [{
+OclBuiltinImpl native_powr_svml = OclBuiltinImpl<native_powr, math_shared_types, 0, [{
     return __ocl_svml_$Target_powr$SVMLSuffix_native($Arg0VarName, $Arg1VarName);
   }]>;
 
 // native_recip
-OclBuiltinImpl native_recip_svml = OclBuiltinImpl<native_recip, [v1f32, v2f32, v3f32, v4f32, v16f32, v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, [{
+OclBuiltinImpl native_recip_svml = OclBuiltinImpl<native_recip, [v2f32, v3f32, v4f32, v2f64, v3f64, v4f64], 0, [{
     return __ocl_svml_$Target_inv$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_rsqrt
-OclBuiltinImpl native_rsqrt_impl = OclBuiltinImpl<native_rsqrt, [v1f32, v2f32, v3f32, v4f32, v16f32, v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, [{
+OclBuiltinImpl native_rsqrt_impl = OclBuiltinImpl<native_rsqrt, [v2f32, v3f32, v4f32, v2f64, v3f64, v4f64], 0, [{
     return __ocl_svml_$Target_rsqrt$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_sin
-OclBuiltinImpl native_sin_svml = OclBuiltinImpl<native_sin, native_sin.Types, 0, [{
+OclBuiltinImpl native_sin_svml = OclBuiltinImpl<native_sin, math_shared_types, 0, [{
     return __ocl_svml_$Target_sin$SVMLSuffix_native($Arg0VarName);
   }]>;
 
@@ -594,92 +594,92 @@ OclBuiltinImpl native_sqrt_svml = OclBuiltinImpl<native_sqrt, [v1f32, v2f32, v3f
   }]>;
 
 // native_tan
-OclBuiltinImpl native_tan_svml = OclBuiltinImpl<native_tan, native_tan.Types, 0, [{
+OclBuiltinImpl native_tan_svml = OclBuiltinImpl<native_tan, math_shared_types, 0, [{
     return __ocl_svml_$Target_tan$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_acos
-OclBuiltinImpl native_acos_svml = OclBuiltinImpl<native_acos, native_acos.Types, 0, [{
+OclBuiltinImpl native_acos_svml = OclBuiltinImpl<native_acos, math_shared_types, 0, [{
     return __ocl_svml_$Target_acos$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_acosh
-OclBuiltinImpl native_acosh_svml = OclBuiltinImpl<native_acosh, native_acosh.Types, 0, [{
+OclBuiltinImpl native_acosh_svml = OclBuiltinImpl<native_acosh, math_shared_types, 0, [{
     return __ocl_svml_$Target_acosh$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_acospi
-OclBuiltinImpl native_acospi_svml = OclBuiltinImpl<native_acospi, native_acospi.Types, 0, [{
+OclBuiltinImpl native_acospi_svml = OclBuiltinImpl<native_acospi, math_shared_types, 0, [{
     return __ocl_svml_$Target_acospi$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_asin
-OclBuiltinImpl native_asin_svml = OclBuiltinImpl<native_asin, native_asin.Types, 0, [{
+OclBuiltinImpl native_asin_svml = OclBuiltinImpl<native_asin, math_shared_types, 0, [{
     return __ocl_svml_$Target_asin$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_asinh
-OclBuiltinImpl native_asinh_svml = OclBuiltinImpl<native_asinh, native_asinh.Types, 0, [{
+OclBuiltinImpl native_asinh_svml = OclBuiltinImpl<native_asinh, math_shared_types, 0, [{
     return __ocl_svml_$Target_asinh$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_asinpi
-OclBuiltinImpl native_asinpi_svml = OclBuiltinImpl<native_asinpi, native_asinpi.Types, 0, [{
+OclBuiltinImpl native_asinpi_svml = OclBuiltinImpl<native_asinpi, math_shared_types, 0, [{
     return __ocl_svml_$Target_asinpi$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_atan
-OclBuiltinImpl native_atan_svml = OclBuiltinImpl<native_atan, native_atan.Types, 0, [{
+OclBuiltinImpl native_atan_svml = OclBuiltinImpl<native_atan, math_shared_types, 0, [{
     return __ocl_svml_$Target_atan$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_atan2
-OclBuiltinImpl native_atan2_svml = OclBuiltinImpl<native_atan2, native_atan2.Types, 0, [{
+OclBuiltinImpl native_atan2_svml = OclBuiltinImpl<native_atan2, math_shared_types, 0, [{
     return __ocl_svml_$Target_atan2$SVMLSuffix_native($Arg0VarName, $Arg1VarName);
   }]>;
 
 // native_atanh
-OclBuiltinImpl native_atanh_svml = OclBuiltinImpl<native_atanh, native_atanh.Types, 0, [{
+OclBuiltinImpl native_atanh_svml = OclBuiltinImpl<native_atanh, math_shared_types, 0, [{
     return __ocl_svml_$Target_atanh$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_atanpi
-OclBuiltinImpl native_atanpi_svml = OclBuiltinImpl<native_atanpi, native_atanpi.Types, 0, [{
+OclBuiltinImpl native_atanpi_svml = OclBuiltinImpl<native_atanpi, math_shared_types, 0, [{
     return __ocl_svml_$Target_atanpi$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_atan2pi
-OclBuiltinImpl native_atan2pi_svml = OclBuiltinImpl<native_atan2pi, native_atan2pi.Types, 0, [{
+OclBuiltinImpl native_atan2pi_svml = OclBuiltinImpl<native_atan2pi, math_shared_types, 0, [{
     return __ocl_svml_$Target_atan2pi$SVMLSuffix_native($Arg0VarName, $Arg0VarName);
   }]>;
 
 // native_cbrt
-OclBuiltinImpl native_cbrt_svml = OclBuiltinImpl<native_cbrt, native_cbrt.Types, 0, [{
+OclBuiltinImpl native_cbrt_svml = OclBuiltinImpl<native_cbrt, math_shared_types, 0, [{
     return __ocl_svml_$Target_cbrt$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_cosh
-OclBuiltinImpl native_cosh_svml = OclBuiltinImpl<native_cosh, native_cosh.Types, 0, [{
+OclBuiltinImpl native_cosh_svml = OclBuiltinImpl<native_cosh, math_shared_types, 0, [{
     return __ocl_svml_$Target_cosh$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_cospi
-OclBuiltinImpl native_cospi_svml = OclBuiltinImpl<native_cospi, native_cospi.Types, 0, [{
+OclBuiltinImpl native_cospi_svml = OclBuiltinImpl<native_cospi, math_shared_types, 0, [{
     return __ocl_svml_$Target_cospi$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_erfc
-OclBuiltinImpl native_erfc_svml = OclBuiltinImpl<native_erfc, native_erfc.Types, 0, [{
+OclBuiltinImpl native_erfc_svml = OclBuiltinImpl<native_erfc, math_shared_types, 0, [{
     return __ocl_svml_$Target_erfc$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_erf
-OclBuiltinImpl native_erf_svml = OclBuiltinImpl<native_erf, native_erf.Types, 0, [{
+OclBuiltinImpl native_erf_svml = OclBuiltinImpl<native_erf, math_shared_types, 0, [{
     return __ocl_svml_$Target_erf$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_expm1
-OclBuiltinImpl native_expm1_svml = OclBuiltinImpl<native_expm1, native_expm1.Types, 0, [{
+OclBuiltinImpl native_expm1_svml = OclBuiltinImpl<native_expm1, math_shared_types, 0, [{
     return __ocl_svml_$Target_expm1$SVMLSuffix_native($Arg0VarName);
   }]>;
 
@@ -712,46 +712,46 @@ OclBuiltinImpl native_ilogb_f32_impl = OclBuiltinImpl<native_ilogb, native_ilogb
   }]>;
 
 // native_log1p
-OclBuiltinImpl native_log1p_svml = OclBuiltinImpl<native_log1p, native_log1p.Types, 0, [{
+OclBuiltinImpl native_log1p_svml = OclBuiltinImpl<native_log1p, math_shared_types, 0, [{
     return __ocl_svml_$Target_log1p$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_pow
-OclBuiltinImpl native_pow_svml = OclBuiltinImpl<native_pow, native_pow.Types, 0, [{
+OclBuiltinImpl native_pow_svml = OclBuiltinImpl<native_pow, math_shared_types, 0, [{
     return __ocl_svml_$Target_pow$SVMLSuffix_native($Arg0VarName, $Arg1VarName);
   }]>;
 
 // native_pown
-OclBuiltinImpl native_pown_svml = OclBuiltinImpl<native_pown, native_pown.Types, 0, [{
+OclBuiltinImpl native_pown_svml = OclBuiltinImpl<native_pown, math_shared_types, 0, [{
     return __ocl_svml_$Target_pown$SVMLSuffix_native($Arg0VarName, $Arg1VarName);
   }]>;
 
 // native_rcbrt
-OclBuiltinImpl native_rcbrt_svml = OclBuiltinImpl<native_rcbrt, native_rcbrt.Types, 0, [{
+OclBuiltinImpl native_rcbrt_svml = OclBuiltinImpl<native_rcbrt, math_shared_types, 0, [{
     return __ocl_svml_$Target_rcbrt$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_rootn
-OclBuiltinImpl native_rootn_svml = OclBuiltinImpl<native_rootn, native_rootn.Types, 0, [{
+OclBuiltinImpl native_rootn_svml = OclBuiltinImpl<native_rootn, math_shared_types, 0, [{
     return __ocl_svml_$Target_rootn$SVMLSuffix_native($Arg0VarName, $Arg1VarName);
   }]>;
 
 // native_sinh
-OclBuiltinImpl native_sinh_svml = OclBuiltinImpl<native_sinh, native_sinh.Types, 0, [{
+OclBuiltinImpl native_sinh_svml = OclBuiltinImpl<native_sinh, math_shared_types, 0, [{
     return __ocl_svml_$Target_sinh$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_sinpi
-OclBuiltinImpl native_sinpi_svml = OclBuiltinImpl<native_sinpi, native_sinpi.Types, 0, [{
+OclBuiltinImpl native_sinpi_svml = OclBuiltinImpl<native_sinpi, math_shared_types, 0, [{
     return __ocl_svml_$Target_sinpi$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_tanh
-OclBuiltinImpl native_tanh_svml = OclBuiltinImpl<native_tanh, native_tanh.Types, 0, [{
+OclBuiltinImpl native_tanh_svml = OclBuiltinImpl<native_tanh, math_shared_types, 0, [{
     return __ocl_svml_$Target_tanh$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_tanpi
-OclBuiltinImpl native_tanpi_svml = OclBuiltinImpl<native_tanpi, native_tanpi.Types, 0, [{
+OclBuiltinImpl native_tanpi_svml = OclBuiltinImpl<native_tanpi, math_shared_types, 0, [{
     return __ocl_svml_$Target_tanpi$SVMLSuffix_native($Arg0VarName);
   }]>;
