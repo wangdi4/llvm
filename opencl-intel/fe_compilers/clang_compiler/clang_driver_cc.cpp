@@ -60,6 +60,7 @@
 #include <cctype>
 #include <algorithm>
 
+using namespace Intel::OpenCL::ELFUtils;
 using namespace Intel::OpenCL::ClangFE;
 using namespace Intel::OpenCL::Utils;
 using namespace TC;
@@ -337,12 +338,12 @@ int ClangFECompilerLinkTask::Link(IOCLFEBinaryResult* *pBinaryResult)
 
     for(unsigned int i = 0; i < m_pProgDesc->uiNumBinaries; ++i)
     {
-        CacheBinaryHandler::CacheBinaryReader cacheReader(m_pProgDesc->pBinaryContainers[i], m_pProgDesc->puiBinariesSizes[i]);
+        CacheBinaryReader cacheReader(m_pProgDesc->pBinaryContainers[i], m_pProgDesc->puiBinariesSizes[i]);
 
         if(cacheReader.IsCachedObject())
         {
-            m_Binaries.push_back((void*)cacheReader.GetSectionData(CacheBinaryHandler::g_irSectionName));
-            m_BinariesSizes.push_back(cacheReader.GetSectionSize(CacheBinaryHandler::g_irSectionName));
+            m_Binaries.push_back((void*)cacheReader.GetSectionData(g_irSectionName));
+            m_BinariesSizes.push_back(cacheReader.GetSectionSize(g_irSectionName));
         }
         else
         {
@@ -386,12 +387,12 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin,
                                                           const char *szKernelName,
                                                           IOCLFEKernelArgInfo** ppResult)
 {
-    CacheBinaryHandler::CacheBinaryReader cacheReader(pBin, uiBinarySize);
+    CacheBinaryReader cacheReader(pBin, uiBinarySize);
 
     if(cacheReader.IsCachedObject())
     {
-        pBin = (void*)cacheReader.GetSectionData(CacheBinaryHandler::g_irSectionName);
-        uiBinarySize = cacheReader.GetSectionSize(CacheBinaryHandler::g_irSectionName);
+        pBin = (void*)cacheReader.GetSectionData(g_irSectionName);
+        uiBinarySize = cacheReader.GetSectionSize(g_irSectionName);
     }
     return ::GetKernelArgInfo(pBin, uiBinarySize,  szKernelName, ppResult);
 }
