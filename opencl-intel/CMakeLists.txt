@@ -389,7 +389,6 @@ else ()
 endif ()
 
 set( OCL_GLOBAL_INCLUDE  ${OCL_SOURCE_DIR}/cl_api )
-set( OCL_1_2_INCLUDE ${OCL_SOURCE_DIR}/cl_api/CL-1.2 )
 set( OCL_CLANG_HEADERS   ${OCL_SOURCE_DIR}/backend/clang_headers )
 
 # set OS-dependent source tree elements
