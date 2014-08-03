@@ -1283,7 +1283,7 @@ string GetTempDir()
 #else // Linux
     char *EnvUser = getenv("USER");
     #if defined(__ANDROID__)
-        TmpDir = "/data/tmp/";
+        TmpDir = "/data/local/tmp/";
     #else
         TmpDir = "/tmp/";
     #endif
