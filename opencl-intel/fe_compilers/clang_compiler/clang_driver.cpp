@@ -28,7 +28,6 @@
 #include "cache_binary_handler.h"
 #include "mic_dev_limits.h"
 #include "common_clang.h"
-#include "ElfWriter.h"
 #include "os_inc.h"
 #include "pch_mgr.h"
 #include "resource.h"
@@ -114,6 +113,18 @@ const char* GetOpenCLVersionStr(OPENCL_VERSION ver)
     }
 }
 
+std::string GetCurrentDir()
+{
+    char szCurrDirrPath[MAX_STR_BUFF];
+    GET_CURR_WORKING_DIR(MAX_STR_BUFF, szCurrDirrPath);
+
+    std::stringstream ss;
+
+    ss << "\"" << szCurrDirrPath << "\"";
+
+    return ss.str();
+}
+
 int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult* *pBinaryResult)
 {
     LOG_INFO(TEXT("%s"), TEXT("enter"));
@@ -142,10 +153,7 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult* *pBinaryResult)
     optionsEx << " -fno-validate-pch";
 
     // Add current directory
-    char szCurrDirrPath[MAX_STR_BUFF];
-    GET_CURR_WORKING_DIR(MAX_STR_BUFF, szCurrDirrPath);
-
-    optionsEx << " -I" << szCurrDirrPath;
+    optionsEx << " -I" << GetCurrentDir();
 
     if(m_sDeviceInfo.bImageSupport)
     {
