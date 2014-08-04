@@ -17,7 +17,7 @@ set_property( GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "__BUILD__")
 
 set( BACKEND_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set( BACKEND_FOLDER_NAME       Backend )
-set( BACKEND_TESTS_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/Tests )
+set( BACKEND_TESTS_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/tests )
 set( BACKEND_PASSES_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/passes )
 set( BACKEND_VALIDATION_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/validation )
 
@@ -188,13 +188,12 @@ else(LLVM_BUILD_APPLE_BACKEND)
     if (BACKEND_BUILD_VERIFICATION_LIB)
         add_subdirectory(external/tinyxml  "${CMAKE_CURRENT_BINARY_DIR}/tinyxml")
         add_subdirectory(validations       "${CMAKE_CURRENT_BINARY_DIR}/validations")
+        add_subdirectory(tests/type_conversion)
 
         # copying MICRegression suite tests to install directory
         install(DIRECTORY ${BACKEND_ROOT_DIR}/tests/MIC/satest/mic/
                 DESTINATION bin/validation/MICRegression/)
-    endif ()
 
-    if (BACKEND_BUILD_VERIFICATION_LIB)
         set_target_properties( DataVersion PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
         set_target_properties( Comparator PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
         set_target_properties( DataGenerator PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )

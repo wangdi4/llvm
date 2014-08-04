@@ -71,8 +71,6 @@ if( USE_VALGRIND )
     add_subdirectory( valgrind )
 endif( USE_VALGRIND )
 
-add_subdirectory(type_conversion)
-
 if (INCLUDE_CMRT)
     message (STATUS "Adding Common runtime tests ...")
     if (NOT ANDROID OR NOT BUILD_X64)
