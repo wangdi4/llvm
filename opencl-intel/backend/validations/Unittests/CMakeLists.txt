@@ -34,7 +34,7 @@ set(TARGET_SOURCE_FILES
     SourceRecorder.cpp
     ClangSA.cpp
     OCLKernelDataGeneratorTest.cpp
-)  
+)
 
 include_directories(${BACKEND_ROOT_DIR}/../externals/gtest/include)
 include_directories(${BACKEND_ROOT_DIR}/../cl_api)
@@ -60,10 +60,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/Common )
 include_directories(${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export)
 include_directories(${CMAKE_SOURCE_DIR}/fe_compilers/common_clang)
 
- 
- 
 link_directories(
-    ${LLVM_LIBRARY_DIR}
     ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR}
 )
 
@@ -94,7 +91,6 @@ target_link_libraries(${TARGET_NAME}
 )
 
 if(NOT WIN32)
-    target_link_libraries(${TARGET_NAME} pthread)
     add_dependencies(${TARGET_NAME} ImathLibd_wrapper)
 endif(NOT WIN32)
 

@@ -164,9 +164,8 @@ endif (WIN32)
 
 # Add additional lib direcories
 link_directories (
-    ${LLVM_LIBRARY_DIR}
     ${TBB_LIB_DIR}
-) 
+)
 
 # Create DLL
 add_library (${TARGET_NAME} SHARED 
@@ -182,17 +181,14 @@ else (WIN32)
     set( SOCKETLIB "" )
 endif (WIN32)
 
-target_link_libraries (${TARGET_NAME} 
+target_link_libraries (${TARGET_NAME}
     ${SOCKETLIB}
     cl_sys_utils
     protobuf
     ${LLVM_MODULE_LIBS}
-) 
+)
 
 if (NOT WIN32)
-    if(NOT ANDROID)
-      target_link_libraries( ${TARGET_NAME} pthread )
-    endif()
     SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} ${TARGET_NAME}_linux_exports.txt)
 endif (NOT WIN32)
 

@@ -8,10 +8,6 @@ include_directories(
   ${BACKEND_ROOT_DIR}/name_mangling
 )
 
-link_directories(
-    ${LLVM_LIBRARY_DIR}
-)
-
 if(CMAKE_CROSSCOMPILING)
   set(OCL_TBLGEN_DEP ConfigureNativeTargets)
   set(OCL_TBLGEN ${CX_NATIVE_TG_DIR}/bin/ocl-tblgen)

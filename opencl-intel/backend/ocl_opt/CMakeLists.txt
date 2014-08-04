@@ -4,8 +4,6 @@ include_directories(${BACKEND_ROOT_DIR}/passes
                     ${BACKEND_ROOT_DIR}/utils
                     ${BACKEND_ROOT_DIR}/arch_headers)
 
-link_directories(${LLVM_LIBRARY_DIR})
-
 add_executable(${TARGET_NAME}
     ocl_opt.cpp
     ${BACKEND_ROOT_DIR}/passes/InitializePasses.h
@@ -57,7 +55,6 @@ set(OCL_BE_PASSES_DEPS
     reflection_module
 )
 
-
 target_link_libraries(${TARGET_NAME}
     ${OCL_BE_PASSES}
     ${OCL_BE_PASSES_DEPS}
@@ -66,14 +63,6 @@ target_link_libraries(${TARGET_NAME}
     ${LLVM_MODULE_LIBS}
 )
 
-if(NOT WIN32)
-    if(NOT ANDROID)
-        target_link_libraries(${TARGET_NAME} pthread)
-    endif(NOT ANDROID)
-    target_link_libraries(${TARGET_NAME} dl)
-endif(NOT WIN32)
-
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME})
 
 install( TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
-

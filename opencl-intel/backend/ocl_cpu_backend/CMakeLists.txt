@@ -126,7 +126,6 @@ if (WIN32)
     set( CMAKE_ASM_COMPILER "$(VCInstallDir)bin/x86_amd64/ml64.exe")
     set( CMAKE_ASM_LINK_FLAG "/nologo")
 
-
 endif (WIN32)
 
 
@@ -323,8 +322,6 @@ if (INCLUDE_MIC_DEVICE)
   )
 endif (INCLUDE_MIC_DEVICE)
 
-link_directories (${LLVM_LIBRARY_DIR})
-
 # Add additional link directories
 if( LLVM_USE_INTEL_JITEVENTS )
     link_directories ( ${LLVM_INTEL_JITEVENTS_LIBDIR} )
@@ -415,11 +412,6 @@ if(ANDROID)
     # dynamic link with STL library
      target_link_libraries(${TARGET_NAME} gnustl_shared)
 endif(ANDROID)
-if(NOT WIN32)
-    if(NOT ANDROID)
-        target_link_libraries(${TARGET_NAME} pthread rt)
-    endif(NOT ANDROID)
-endif(NOT WIN32)
 
 set( CMAKE_CXX_FLAGS_DEBUG "-DOCL_DEV_BACKEND_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
 
