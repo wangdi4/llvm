@@ -42,7 +42,7 @@ entry:
   %_Z13get_global_idj2 = call i32 @_Z13get_global_idj(i32 2)
   %gid2_i64 = zext i32 %_Z13get_global_idj2 to i64
   call void @__opencl_dbg_enter_function(i64 6683384, i64 %gid0_i64, i64 %gid1_i64, i64 %gid2_i64)
-  %var_addr = bitcast [100 x i8] addrspace(3)* @mykernel.x to i8*, !dbg_declare_inst !30
+  %var_addr = addrspacecast [100 x i8] addrspace(3)* @mykernel.x to i8*, !dbg_declare_inst !30
   call void @__opencl_dbg_declare_global(i8* %var_addr, i64 6721800, i64 %gid0_i64, i64 %gid1_i64, i64 %gid2_i64)
   %a.addr = alloca i8 addrspace(3)*, align 4
   store i8 addrspace(3)* %a, i8 addrspace(3)** %a.addr, align 4
@@ -62,7 +62,7 @@ entry:
   %_Z13get_global_idj2 = call i32 @_Z13get_global_idj(i32 2)
   %gid2_i64 = zext i32 %_Z13get_global_idj2 to i64
   call void @__opencl_dbg_enter_function(i64 6704936, i64 %gid0_i64, i64 %gid1_i64, i64 %gid2_i64)
-  %var_addr = bitcast [100 x i8] addrspace(3)* @mykernel.x to i8*, !dbg_declare_inst !30
+  %var_addr = addrspacecast [100 x i8] addrspace(3)* @mykernel.x to i8*, !dbg_declare_inst !30
   call void @__opencl_dbg_declare_global(i8* %var_addr, i64 6721800, i64 %gid0_i64, i64 %gid1_i64, i64 %gid2_i64)
   call void @__opencl_dbg_stoppoint(i64 6705624, i64 %gid0_i64, i64 %gid1_i64, i64 %gid2_i64)
   call void @f1(i8 addrspace(3)* getelementptr inbounds ([100 x i8] addrspace(3)* @mykernel.x, i32 0, i32 0)), !dbg !33

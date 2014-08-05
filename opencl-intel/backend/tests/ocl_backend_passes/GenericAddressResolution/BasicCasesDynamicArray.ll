@@ -4,31 +4,31 @@
 
 ; CHECK: @test1
 ; CHECK-NOT: %call = call i8 addrspace(3)* @_Z8to_localPKU3AS4v(i8 addrspace(4)* %0)
-; CHECK: %ToNamedPtr = bitcast i8 addrspace(4)* %0 to i8 addrspace(3)*
+; CHECK: %ToNamedPtr = addrspacecast i8 addrspace(4)* %0 to i8 addrspace(3)*
 ; CHECK-NOT: %call1 = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %2)
-; CHECK: %ToNamedPtr1 = bitcast i8 addrspace(4)* %2 to i8 addrspace(1)*
+; CHECK: %ToNamedPtr1 = addrspacecast i8 addrspace(4)* %2 to i8 addrspace(1)*
 ; CHECK: ret
 
 ; CHECK: @test2
 ; CHECK-NOT: %call = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %0)
-; CHECK: %ToNamedPtr = bitcast i8 addrspace(4)* %0 to i8 addrspace(1)*
+; CHECK: %ToNamedPtr = addrspacecast i8 addrspace(4)* %0 to i8 addrspace(1)*
 ; CHECK: ret
 
 ; CHECK: @func
 ; CHECK-NOT: %call = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %4)
-; CHECK: %ToNamedPtr = bitcast i8 addrspace(4)* %4 to i8 addrspace(1)*
+; CHECK: %ToNamedPtr = addrspacecast i8 addrspace(4)* %4 to i8 addrspace(1)*
 ; CHECK-NOT: %call9 = call i8* @_Z10to_privatePKU3AS4v(i8 addrspace(4)* %9)
-; CHECK: %ToNamedPtr1 = bitcast i8 addrspace(4)* %9 to i8*
+; CHECK: %ToNamedPtr1 = addrspacecast i8 addrspace(4)* %9 to i8*
 ; CHECK-NOT: %call11 = call i8* @_Z10to_privatePKU3AS4v(i8 addrspace(4)* %13)
-; CHECK: %ToNamedPtr2 = bitcast i8 addrspace(4)* %13 to i8*
+; CHECK: %ToNamedPtr2 = addrspacecast i8 addrspace(4)* %13 to i8*
 ; CHECK-NOT: %call13 = call i32 @_Z9get_fencePKU3AS4v(i8 addrspace(4)* %18)
 ; CHECK-NOT: %call31 = call float @_Z5fractfPU3AS4f(float %param, float addrspace(4)* %add.ptr30)
-; CHECK: %AddrSpace = bitcast float addrspace(4)* %add.ptr30 to float addrspace(1)*
+; CHECK: %AddrSpace = addrspacecast float addrspace(4)* %add.ptr30 to float addrspace(1)*
 ; CHECK: %32 = call float @_Z5fractfPU3AS1f(float %param, float addrspace(1)* %AddrSpace)
 ; CHECK: ret
 
 ; CHECK: declare float @_Z5fractfPU3AS1f(float, float addrspace(1)*)
-	
+
 ; ModuleID = 'BasicCasesDynamicArrayTmp.ll'
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32-S32"
 target triple = "i686-pc-win32"
@@ -83,14 +83,14 @@ for.body:                                         ; preds = %for.cond
 
 if.then:                                          ; preds = %for.body
   %add.ptr = getelementptr inbounds i32 addrspace(1)* %pGlobal, i32 %i.0
-  %0 = bitcast i32 addrspace(1)* %add.ptr to i32 addrspace(4)*
+  %0 = addrspacecast i32 addrspace(1)* %add.ptr to i32 addrspace(4)*
   %arrayidx = getelementptr inbounds [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %i.0
   store i32 addrspace(4)* %0, i32 addrspace(4)** %arrayidx, align 4
   br label %if.end
 
 if.else:                                          ; preds = %for.body
   %add.ptr1 = getelementptr inbounds i32 addrspace(3)* %pLocal, i32 %i.0
-  %1 = bitcast i32 addrspace(3)* %add.ptr1 to i32 addrspace(4)*
+  %1 = addrspacecast i32 addrspace(3)* %add.ptr1 to i32 addrspace(4)*
   %arrayidx2 = getelementptr inbounds [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %i.0
   store i32 addrspace(4)* %1, i32 addrspace(4)** %arrayidx2, align 4
   br label %if.end
@@ -118,8 +118,8 @@ if.end:                                           ; preds = %if.else, %if.then
   %10 = bitcast i8* %call9 to i32*
   %arrayidx10 = getelementptr inbounds [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %i.0
   %11 = load i32 addrspace(4)** %arrayidx10, align 4
-  %12 = bitcast i32 addrspace(4)* %11 to i32 addrspace(1)*
-  %13 = bitcast i32 addrspace(1)* %12 to i8 addrspace(4)*
+  %12 = addrspacecast i32 addrspace(4)* %11 to i32 addrspace(1)*
+  %13 = addrspacecast i32 addrspace(1)* %12 to i8 addrspace(4)*
   %call11 = call i8* @_Z10to_privatePKU3AS4v(i8 addrspace(4)* %13)
   %14 = bitcast i8* %call11 to i32*
   %arrayidx12 = getelementptr inbounds [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %i.0

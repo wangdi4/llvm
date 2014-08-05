@@ -3,18 +3,18 @@
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; CHECK: @const_bitcast
-; CHECK-NOT:  %call = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* bitcast ([1 x i32] addrspace(3)* @const_bitcast.loc to i8 addrspace(4)*))
-; CHECK: %ToNamedPtr = bitcast i8 addrspace(4)* bitcast ([1 x i32] addrspace(3)* @const_bitcast.loc to i8 addrspace(4)*) to i8 addrspace(1)*
+; CHECK-NOT:  %call = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* addrspacecast ([1 x i32] addrspace(3)* @const_bitcast.loc to i8 addrspace(4)*))
+; CHECK: %ToNamedPtr = addrspacecast i8 addrspace(4)* addrspacecast ([1 x i32] addrspace(3)* @const_bitcast.loc to i8 addrspace(4)*) to i8 addrspace(1)*
 ; CHECK: ret
 
 ; CHECK: @const_gep
 ; CHECK-NOT: %call = call i8 addrspace(3)* @_Z8to_localPKU3AS4v(i8 addrspace(4)* bitcast (i32 addrspace(4)* getelementptr inbounds (i32 addrspace(4)* bitcast ([5 x i32] addrspace(3)* @const_gep.loc to i32 addrspace(4)*), i32 2) to i8 addrspace(4)*))
-; CHECK:  %ToNamedPtr = bitcast i8 addrspace(4)* bitcast (i32 addrspace(4)* getelementptr inbounds (i32 addrspace(4)* bitcast ([5 x i32] addrspace(3)* @const_gep.loc to i32 addrspace(4)*), i32 2) to i8 addrspace(4)*) to i8 addrspace(3)*
+; CHECK:  %ToNamedPtr = addrspacecast i8 addrspace(4)* bitcast (i32 addrspace(4)* getelementptr inbounds (i32 addrspace(4)* addrspacecast ([5 x i32] addrspace(3)* @const_gep.loc to i32 addrspace(4)*), i32 2) to i8 addrspace(4)*) to i8 addrspace(3)*
 ; CHECK: ret
 
 ; CHECK: @const_select
 ; CHECK-NOT:  %call = call i8* @_Z10to_privatePKU3AS4v(i8 addrspace(4)* bitcast (i32 addrspace(4)* select (i1 icmp ne (i32 ptrtoint ([5 x i32] addrspace(3)* @const_select.loc1 to i32), i32 0), i32 addrspace(4)* bitcast ([5 x i32] addrspace(3)* @const_select.loc1 to i32 addrspace(4)*), i32 addrspace(4)* bitcast ([5 x i32] addrspace(3)* @const_select.loc2 to i32 addrspace(4)*)) to i8 addrspace(4)*))
-; CHECK: %ToNamedPtr = bitcast i8 addrspace(4)* bitcast (i32 addrspace(4)* select (i1 icmp ne (i32 ptrtoint ([5 x i32] addrspace(3)* @const_select.loc1 to i32), i32 0), i32 addrspace(4)* bitcast ([5 x i32] addrspace(3)* @const_select.loc1 to i32 addrspace(4)*), i32 addrspace(4)* bitcast ([5 x i32] addrspace(3)* @const_select.loc2 to i32 addrspace(4)*)) to i8 addrspace(4)*) to i8*
+; CHECK: %ToNamedPtr = addrspacecast i8 addrspace(4)* bitcast (i32 addrspace(4)* select (i1 icmp ne (i32 ptrtoint ([5 x i32] addrspace(3)* @const_select.loc1 to i32), i32 0), i32 addrspace(4)* addrspacecast ([5 x i32] addrspace(3)* @const_select.loc1 to i32 addrspace(4)*), i32 addrspace(4)* addrspacecast ([5 x i32] addrspace(3)* @const_select.loc2 to i32 addrspace(4)*)) to i8 addrspace(4)*) to i8*
 ; CHECK: ret
 
 
@@ -25,7 +25,7 @@
 
 define void @const_bitcast(i32 addrspace(1)* %dst) nounwind {
 entry:
-  %call = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* bitcast ([1 x i32] addrspace(3)* @const_bitcast.loc to i8 addrspace(4)*))
+  %call = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* addrspacecast ([1 x i32] addrspace(3)* @const_bitcast.loc to i8 addrspace(4)*))
   %0 = bitcast i8 addrspace(1)* %call to i32 addrspace(1)*
   ret void
 }
@@ -34,7 +34,7 @@ declare i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)*)
 
 define void @const_gep(i32 addrspace(1)* %dst) nounwind {
 entry:
-  %call = call i8 addrspace(3)* @_Z8to_localPKU3AS4v(i8 addrspace(4)* bitcast (i32 addrspace(4)* getelementptr inbounds (i32 addrspace(4)* bitcast ([5 x i32] addrspace(3)* @const_gep.loc to i32 addrspace(4)*), i32 2) to i8 addrspace(4)*))
+  %call = call i8 addrspace(3)* @_Z8to_localPKU3AS4v(i8 addrspace(4)* bitcast (i32 addrspace(4)* getelementptr inbounds (i32 addrspace(4)* addrspacecast ([5 x i32] addrspace(3)* @const_gep.loc to i32 addrspace(4)*), i32 2) to i8 addrspace(4)*))
   %0 = bitcast i8 addrspace(3)* %call to i32 addrspace(3)*
   ret void
 }
@@ -43,7 +43,7 @@ declare i8 addrspace(3)* @_Z8to_localPKU3AS4v(i8 addrspace(4)*)
 
 define void @const_select(i32 addrspace(1)* %dst) nounwind {
 entry:
-  %call = call i8* @_Z10to_privatePKU3AS4v(i8 addrspace(4)* bitcast (i32 addrspace(4)* select (i1 icmp ne (i32 ptrtoint ([5 x i32] addrspace(3)* @const_select.loc1 to i32), i32 0), i32 addrspace(4)* bitcast ([5 x i32] addrspace(3)* @const_select.loc1 to i32 addrspace(4)*), i32 addrspace(4)* bitcast ([5 x i32] addrspace(3)* @const_select.loc2 to i32 addrspace(4)*)) to i8 addrspace(4)*))
+  %call = call i8* @_Z10to_privatePKU3AS4v(i8 addrspace(4)* bitcast (i32 addrspace(4)* select (i1 icmp ne (i32 ptrtoint ([5 x i32] addrspace(3)* @const_select.loc1 to i32), i32 0), i32 addrspace(4)* addrspacecast ([5 x i32] addrspace(3)* @const_select.loc1 to i32 addrspace(4)*), i32 addrspace(4)* addrspacecast ([5 x i32] addrspace(3)* @const_select.loc2 to i32 addrspace(4)*)) to i8 addrspace(4)*))
   %0 = bitcast i8* %call to i32*
   ret void
 }

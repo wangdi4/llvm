@@ -95,13 +95,13 @@ header3:                                          ; preds = %if.else, %entry
 
 if.then:                                          ; preds = %header3
   %extmask = sext <4 x i1> %Mneg11 to <4 x i32>
-  %PtrCast = bitcast <4 x i32> addrspace(1)* %ptrTypeCast to <4 x i32>*
+  %PtrCast = addrspacecast <4 x i32> addrspace(1)* %ptrTypeCast to <4 x i32>*
   call void @__ocl_masked_store_int4(<4 x i32>* %PtrCast, <4 x i32> %3, <4 x i32> %extmask) nounwind
   br label %if.end
 
 if.else:                                          ; preds = %entry
   %extmask14 = sext <4 x i1> %tobool to <4 x i32>
-  %PtrCast15 = bitcast <4 x i32> addrspace(1)* %ptrTypeCast9 to <4 x i32>*
+  %PtrCast15 = addrspacecast <4 x i32> addrspace(1)* %ptrTypeCast9 to <4 x i32>*
   call void @__ocl_masked_store_int4(<4 x i32>* %PtrCast15, <4 x i32> %1, <4 x i32> %extmask14) nounwind
   br label %header3
 

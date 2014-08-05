@@ -8,10 +8,10 @@ define void @A(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %a,
 
 ; CHECK: define void @A(i8* noalias %pUniformArgs, i64* noalias %pWGId, {}* noalias %RuntimeHandle) {
 ; CHECK:     %0 = getelementptr i8* %pUniformArgs, i32 0
-; CHECK:     %1 = bitcast i8* %0 to i32 addrspace(1)**
+; CHECK:     %1 = addrspacecast i8* %0 to i32 addrspace(1)**
 ; CHECK:     %explicit_0 = load i32 addrspace(1)** %1, align 8
 ; CHECK:     %2 = getelementptr i8* %pUniformArgs, i32 8
-; CHECK:     %3 = bitcast i8* %2 to i32 addrspace(1)**
+; CHECK:     %3 = addrspacecast i8* %2 to i32 addrspace(1)**
 ; CHECK:     %explicit_1 = load i32 addrspace(1)** %3, align 8
 ; CHECK:     %4 = getelementptr i8* %pUniformArgs, i32 16
 ; CHECK:     %5 = bitcast i8* %4 to i32*

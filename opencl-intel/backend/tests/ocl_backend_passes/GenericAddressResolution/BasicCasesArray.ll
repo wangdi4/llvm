@@ -4,7 +4,7 @@
 
 ; CHECK: @func
 ; CHECK: %0 = bitcast i32 addrspace(1)* %add.ptr to i32 addrspace(1)*
-; CHECK: %1 = bitcast i32 addrspace(1)* %0 to i32 addrspace(4)*
+; CHECK: %1 = addrspacecast i32 addrspace(1)* %0 to i32 addrspace(4)*
 ; CHECK: %arrayidx = getelementptr inbounds [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %i.0
 ; CHECK: store i32 addrspace(4)* %1, i32 addrspace(4)** %arrayidx, align 4
 ; CHECK: %10 = load i32 addrspace(4)** %arrayidx10, align 4
@@ -65,14 +65,14 @@ for.body:                                         ; preds = %for.cond
 
 if.then:                                          ; preds = %for.body
   %add.ptr = getelementptr inbounds i32 addrspace(1)* %pGlobal, i32 %i.0
-  %0 = bitcast i32 addrspace(1)* %add.ptr to i32 addrspace(4)*
+  %0 = addrspacecast i32 addrspace(1)* %add.ptr to i32 addrspace(4)*
   %arrayidx = getelementptr inbounds [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %i.0
   store i32 addrspace(4)* %0, i32 addrspace(4)** %arrayidx, align 4
   br label %if.end
 
 if.else:                                          ; preds = %for.body
   %add.ptr1 = getelementptr inbounds i32 addrspace(3)* %pLocal, i32 %i.0
-  %1 = bitcast i32 addrspace(3)* %add.ptr1 to i32 addrspace(4)*
+  %1 = addrspacecast i32 addrspace(3)* %add.ptr1 to i32 addrspace(4)*
   %arrayidx2 = getelementptr inbounds [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %i.0
   store i32 addrspace(4)* %1, i32 addrspace(4)** %arrayidx2, align 4
   br label %if.end
@@ -94,7 +94,7 @@ if.end:                                           ; preds = %if.else, %if.then
   store i32 8, i32 addrspace(4)* %arrayidx7, align 4
   %arrayidx8 = getelementptr inbounds [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %i.0
   %6 = load i32 addrspace(4)** %arrayidx8, align 4
-  %7 = bitcast i32 addrspace(4)* %6 to i32 addrspace(1)*
+  %7 = addrspacecast i32 addrspace(4)* %6 to i32 addrspace(1)*
   %arrayidx9 = getelementptr inbounds i32 addrspace(1)* %7, i32 3
   store i32 3, i32 addrspace(1)* %arrayidx9, align 4
   %arrayidx10 = getelementptr inbounds [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %i.0
