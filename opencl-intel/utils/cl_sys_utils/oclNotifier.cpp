@@ -269,7 +269,17 @@ void NotifierCollection::SamplerFree( cl_sampler sampler )
 	CHECK_FOR_NULL(sampler);
 	NOTIFY(SamplerFree, sampler);	
 }
-
+void NotifierCollection::SVMCreate(void *svm_ptr, cl_context context)
+{
+	CHECK_FOR_NULL(svm_ptr);
+	CHECK_FOR_NULL(context);
+	NOTIFY(SVMCreate, svm_ptr, context);	
+}
+void NotifierCollection::SVMFree(void *svm_ptr)
+{
+	CHECK_FOR_NULL(svm_ptr);
+	NOTIFY(SVMFree, svm_ptr);	
+}
 void NotifierCollection::ProgramCreate( cl_program program, cl_context context, bool withBinary, bool withSource=true )
 {
 	CHECK_FOR_NULL(program);
