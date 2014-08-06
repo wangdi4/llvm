@@ -31,10 +31,6 @@ ADD_EXECUTABLE(${TARGET_NAME} ${SATESTGUI_SRCS}
     ${SATESTGUI_FORMS_HEADERS}
         ${SATESTGUI_RC_SRCS})
 
-link_directories(
-    ${LLVM_LIBRARY_DIR}
-)
-
 include_directories(
     ${CMAKE_CURRENT_BINARY_DIR}
     ${VALIDATIONS_ROOT}/DataVersion

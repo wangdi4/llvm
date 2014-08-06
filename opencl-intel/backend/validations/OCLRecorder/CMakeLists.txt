@@ -33,7 +33,7 @@ set (OCL_RECORDER_INCLUDE_FILES
   targetver.h
   ${VALIDATIONS_ROOT}/Common/md5.h
   )
-  
+
 set (OCL_RECORDER_SOURCE_FILES
   dllmain.cpp
   ocl_recorder.cpp
@@ -43,7 +43,7 @@ set (OCL_RECORDER_SOURCE_FILES
   )
 
 # Resources
-if (WIN32)	
+if (WIN32)
 	set (OCL_RECORDER_RESOURCE_FILES
 		ocl_recorder.rc
 	)
@@ -60,22 +60,18 @@ include_directories(${OCL_EXTERNAL_DIR}/tinyxml ${OCL_DATAMANAGER_DIR} ${OCL_NEA
 include_directories(${CMAKE_SOURCE_DIR}/backend/plugin_manager)
 include_directories(${CMAKE_SOURCE_DIR}/fe_compilers/common_clang)
 
-link_directories (
-    ${LLVM_LIBRARY_DIR}
-) 
-
 if(WIN32)
     get_target_property( lib_dir NEAT_wrapper lib_dir )
 
     # Add additional lib direcories
     link_directories (
-            ${OCL_RECORDER_LIB_DIR} 
-            ${lib_dir} 
-    ) 
+            ${OCL_RECORDER_LIB_DIR}
+            ${lib_dir}
+    )
 endif()
 
 # Create DLL
-add_library (${TARGET_NAME} SHARED 
+add_library (${TARGET_NAME} SHARED
     ${OCL_RECORDER_INCLUDE_FILES}
     ${OCL_RECORDER_SOURCE_FILES}
     ${OCL_RECORDER_RESOURCE_FILES}
@@ -87,23 +83,14 @@ add_library (OCLRecorderStat STATIC
     ${OCL_RECORDER_SOURCE_FILES}
 )
 
-# fix for CSSD100015940 (OCLRecorder doesn't work with ViennaCL workload.)
-# not clear why this it helps, OCLRecorder should not use pthread
-# the CSSD100017106 has been opened 
-if (NOT WIN32)
-  if(NOT ANDROID)
-    target_link_libraries(${TARGET_NAME} pthread dl)
-  endif(NOT ANDROID)
-endif (NOT WIN32)
-
 # Link with appropriate libs
-target_link_libraries (${TARGET_NAME} 
+target_link_libraries (${TARGET_NAME}
     tinyxml_STL
     DataManager
-    OclPluginManager 
+    OclPluginManager
     ${LLVM_MODULE_LIBS}
     NEAT
-) 
+)
 
 if(WIN32)
     # Define the dependancy projects
@@ -115,7 +102,7 @@ endif(WIN32)
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/plugins )
 set_target_properties( OCLRecorderStat PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/plugins )
 
-install(TARGETS ${TARGET_NAME} 
+install(TARGETS ${TARGET_NAME}
     RUNTIME DESTINATION bin
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION bin)
@@ -124,4 +111,3 @@ install(TARGETS OCLRecorderStat
     RUNTIME DESTINATION bin
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION bin)
-

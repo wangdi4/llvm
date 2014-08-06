@@ -225,7 +225,7 @@ if (WIN32)
     string( REPLACE  / \\ FINAL_MIC_FLAGS "${FINAL_MIC_FLAGS}" )
 endif(WIN32)
 
-# FINAL_MIC_FLAGS and FINAL_MIC_LINK_FLAGS are used now
+# FINAL_MIC_FLAGS are used now
 configure_file(${DEVICE_COMPILER_SCRIPT} ${DEVICE_COMPILER} @ONLY)
 configure_file(${DEVICE_ARCHIVER_SCRIPT} ${DEVICE_ARCHIVER} @ONLY) 
 

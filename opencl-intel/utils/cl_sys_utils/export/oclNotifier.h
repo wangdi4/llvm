@@ -167,6 +167,10 @@ public:
 	virtual void SamplerCreate (cl_sampler /* sampler */, cl_context /* context */)=0;
 	virtual void SamplerFree (cl_sampler /* sampler */)=0;
 
+	/* SVM Callbacks */
+	virtual void SVMCreate(void *svm_ptr, cl_context context)=0;
+	virtual void SVMFree(void *svm_ptr)=0;
+
 	/* Program Callbacks */
 	virtual void ProgramCreate (cl_program /* program */, cl_context, bool, bool)=0;
 	virtual void ProgramFree (cl_program /* program */)=0;
@@ -286,6 +290,11 @@ public:
 	/* Sampler Callbacks */
 	virtual void SamplerCreate (cl_sampler /* sampler */, cl_context /* context */);
 	virtual void SamplerFree (cl_sampler /* sampler */);
+
+	/* SVM Callbacks */
+	virtual void SVMCreate(void *svm_ptr, cl_context context);
+	virtual void SVMFree(void *svm_ptr);
+
 
 	/* Program Callbacks */
 	virtual void ProgramCreate (cl_program /* program */, cl_context, bool, bool );

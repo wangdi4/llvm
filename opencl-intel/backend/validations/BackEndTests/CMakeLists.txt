@@ -27,10 +27,6 @@ set (BACKEND_TESTS_SOURCE_FILES
   BlockLiteralTest.cpp
 )
 
-link_directories (
-  ${LLVM_LIBRARY_DIR}
-)
-
 add_executable(${TARGET_NAME}
   ${BACKEND_TESTS_INCLUDE_FILES}
   ${BACKEND_TESTS_SOURCE_FILES}
@@ -44,13 +40,6 @@ target_link_libraries(${TARGET_NAME}
   cl_sys_utils
   ${LLVM_MODULE_LIBS}
 )
-
-if(NOT WIN32)
-  target_link_libraries(${TARGET_NAME}
-    pthread
-    dl
-  )
-endif(NOT WIN32)
 
 set( CMAKE_CXX_FLAGS_DEBUG "-DOCL_DEV_BACKEND_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
 add_dependencies( ${TARGET_NAME} cl_sys_utils)

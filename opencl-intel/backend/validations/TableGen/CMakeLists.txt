@@ -17,10 +17,6 @@ include_directories(
   ${CMAKE_SOURCE_DIR}/backend/dynamic_lib
 )
 
-link_directories(
-    ${LLVM_LIBRARY_DIR}
-)
-
 add_executable(
   ${TARGET_NAME}
   OclBuiltinEmitter.cpp
@@ -31,19 +27,13 @@ add_executable(
   ClangUtils.cpp
 )
 
-add_dependencies(${TARGET_NAME} 
-	clang
+add_dependencies(${TARGET_NAME}
+  clang
 )
 
 target_link_libraries(${TARGET_NAME}
   name_mangle
   ${LLVM_MODULE_LIBS}
 )
-
-if (NOT WIN32)
-  if(NOT ANDROID)
-    target_link_libraries(${TARGET_NAME} pthread dl)
-  endif(NOT ANDROID)
-endif (NOT WIN32)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER "Backend" )
