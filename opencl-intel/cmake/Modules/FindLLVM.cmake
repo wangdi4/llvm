@@ -17,12 +17,8 @@ else(BUILD_LLVM_FROM_SOURCE )
         # detect where to look for the LLVM installation
         if( DEFINED LLVM_PATH )
             set(LLVM_INSTALL_PATH ${LLVM_PATH})
-            message (STATUS "Using LLVM root location specified in LLVM_PATH variable: " ${LLVM_PATH})
-        elseif( EXISTS $ENV{LLVM_PATH} )
-            set(LLVM_INSTALL_PATH $ENV{LLVM_PATH})
-            message (STATUS "Using LLVM location specified in LLVM_PATH environment variable: " $ENV{LLVM_PATH} )
         else()
-            message( FATAL_ERROR "Can't find LLVM library. Please specify LLVM library location using either LLVM_PATH environment variable or defining LLVM_PATH parameter to CMAKE" )
+            message( FATAL_ERROR "Can't find LLVM library. Please specify LLVM library location using LLVM_PATH parameter to CMAKE" )
         endif()
         
         # detect where the LLVMConfig should be found
@@ -36,7 +32,6 @@ else(BUILD_LLVM_FROM_SOURCE )
             string( REPLACE  \${CMAKE_CFG_INTDIR} Release LLVM_PATH_RELEASE "${LLVM_PATH}" )
             set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${LLVM_PATH_DEBUG}/share/llvm/cmake ${LLVM_PATH_RELEASE}/share/llvm/cmake)
         endif()
-        message( STATUS "CMAKE_MODULE_PATH: ${CMAKE_MODULE_PATH}")
         set( CMAKE_MODULE_PATH_SAVE ${CMAKE_MODULE_PATH})
         include( LLVMConfig )
         
@@ -61,8 +56,20 @@ else(BUILD_LLVM_FROM_SOURCE )
         set_property( GLOBAL PROPERTY LLVM_LIBS ${temp_list})
 
         #build the list of the llvm libraries in the right dependency order
-        llvm_map_components_to_libraries(LLVM_MODULE_LIBS all)
+        llvm_map_components_to_libraries(LLVM_MODULE_LIBS_SHORT all)
+        
+        #patch all the libraries to contain the full path
+        get_system_libs(SYSTEM_LIBS)
+        FOREACH(LLVM_LIB ${LLVM_MODULE_LIBS_SHORT})
+            list(FIND SYSTEM_LIBS ${LLVM_LIB} IDX)
+            if (IDX EQUAL -1)
+                list(APPEND LLVM_MODULE_LIBS ${LLVM_LIBRARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${LLVM_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX})
+            else()
+                list(APPEND LLVM_MODULE_LIBS ${LLVM_LIB})
+            endif()
+        ENDFOREACH(LLVM_LIB)
     endif (APPLE)
 endif(BUILD_LLVM_FROM_SOURCE )
 
-message( STATUS "LLVM libs: ${LLVM_MODULE_LIBS}")
+#kept as comment for the debug purposes.
+#message( STATUS "LLVM libs: ${LLVM_MODULE_LIBS}")

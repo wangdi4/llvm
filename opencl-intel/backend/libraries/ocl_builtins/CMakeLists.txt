@@ -19,6 +19,13 @@ cmake_minimum_required(VERSION 2.8.7)
 cmake_policy(SET CMP0001 NEW)
 cmake_policy(SET CMP0011 OLD)
 
+if( NOT DEFINED LLVM_PATH_FE )
+    message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for fronted using LLVM_PATH_FE parameter to CMAKE" )
+endif()
+
+set(LLVM_PATH ${LLVM_PATH_FE})
+find_package(LLVM REQUIRED)
+
 project(cl_builtins)
 
 # target name prefix to be used for generated binaries

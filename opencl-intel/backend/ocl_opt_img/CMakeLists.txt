@@ -1,6 +1,7 @@
 set(TARGET_NAME ocloptimg)
 
 include_directories(${BACKEND_ROOT_DIR}/passes)
+link_directories(${LLVM_LIBRARY_DIR})
 
 add_executable(${TARGET_NAME}
     ocl_opt_img.cpp

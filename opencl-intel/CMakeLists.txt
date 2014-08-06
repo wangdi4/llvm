@@ -107,7 +107,9 @@ if(CMAKE_CROSSCOMPILING)
                             # We are cross compiling when building for android, hence we are
                             # dropping off all non required build components, such tests/verification
                             -DBACKEND_BUILD_VERIFICATION_LIB=OFF
-                            -DLLVM_PATH=${LLVM_PATH}/native
+                            -DLLVM_PATH_BE=${LLVM_PATH_BE}/native
+                            -DLLVM_PATH_FE=${LLVM_PATH_FE}/native
+                            -DLLVM_PATH_SPIR12=${LLVM_PATH_SPIR12}/native
                             -DBUILD_X64=True
                             ${CMAKE_SOURCE_DIR}
                             WORKING_DIRECTORY ${CX_NATIVE_TG_DIR}
@@ -324,19 +326,25 @@ if (GIT_REVISIONS)
                     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
                     OUTPUT_VARIABLE GIT_REVISION)
 
-    if ("${LLVM_PATH}" STREQUAL "")
-        set(LLVM_PATH_STRING 0)
+    if ("${LLVM_PATH_BE}" STREQUAL "")
+        set(LLVM_PATH_BE_STRING 0)
     else()
-        set(LLVM_PATH_STRING ${LLVM_PATH})
+        set(LLVM_PATH_BE_STRING ${LLVM_PATH_BE})
     endif()
 
+    if ("${LLVM_PATH_FE}" STREQUAL "")
+        set(LLVM_PATH_FE_STRING 0)
+    else()
+        set(LLVM_PATH_FE_STRING ${LLVM_PATH_FE})
+    endif()
+    
     if ("${LLVM_PATH_SPIR12}" STREQUAL "")
         set(LLVM_PATH_SPIR12_STRING 0)
     else()
         set(LLVM_PATH_SPIR12_STRING ${LLVM_PATH_SPIR12})
     endif()
 
-    file(WRITE ${OCL_BINARY_DIR}/revision.txt "REVISION=${GIT_REVISION}DESCRIBE=${GIT_DESCRIPTION}LLVM_PATH=${LLVM_PATH_STRING}\nLLVM_PATH_SPIR12=${LLVM_PATH_SPIR12_STRING}")
+    file(WRITE ${OCL_BINARY_DIR}/revision.txt "REVISION=${GIT_REVISION}\nDESCRIBE=${GIT_DESCRIPTION}\nLLVM_PATH_BE=${LLVM_PATH_BE_STRING}\nLLVM_PATH_FE=${LLVM_PATH_FE_STRING}\nLLVM_PATH_SPIR12=${LLVM_PATH_SPIR12_STRING}")
     install(FILES ${OCL_BINARY_DIR}/revision.txt DESTINATION ./)
 endif (GIT_REVISIONS)
 message(STATUS "Current build version is ${BUILDVER_WC_REVISION}")
@@ -520,9 +528,6 @@ else(APPLE)
     if(BUILD_LLVM_FROM_SOURCE)
         add_subdirectory(${LLVM_SRC_ROOT} "${CMAKE_CURRENT_BINARY_DIR}/llvm")
     endif()
-
-    # LLVM
-    find_package(LLVM REQUIRED)
     
     #validation
     add_subdirectory( tests )
@@ -536,7 +541,7 @@ else(APPLE)
     add_definitions(-D__TBB_NO_IMPLICIT_LINKAGE=1)
 
     # externals
-    add_subdirectory(externals)
+    add_subdirectory( externals )
 
     add_subdirectory( cl_api )
     add_subdirectory( utils )
@@ -555,15 +560,17 @@ else(APPLE)
 
     # Common Runtime
     if ( INCLUDE_CMRT )
-      add_subdirectory ( common_runtime )
+        add_subdirectory ( common_runtime )
     endif( INCLUDE_CMRT )
-    #tools
+    
+    # Tools
     if( INCLUDE_TOOLS )
         add_subdirectory ( tools )
     endif( INCLUDE_TOOLS )
 
     #workloads
     add_subdirectory( workloads )
+    
 endif(APPLE)
 
 # install additional files required by the installer

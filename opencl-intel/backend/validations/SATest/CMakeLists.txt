@@ -36,6 +36,8 @@ if( NOT WIN32 )
     link_directories(${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR})
 endif( NOT WIN32)
 
+link_directories(${LLVM_LIBRARY_DIR})
+
 include_directories(
     ${VALIDATIONS_ROOT}/SATest
     ${VALIDATIONS_ROOT}/DataVersion

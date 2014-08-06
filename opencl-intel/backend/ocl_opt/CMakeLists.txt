@@ -3,7 +3,8 @@ set(TARGET_NAME oclopt)
 include_directories(${BACKEND_ROOT_DIR}/passes
                     ${BACKEND_ROOT_DIR}/utils
                     ${BACKEND_ROOT_DIR}/arch_headers)
-
+link_directories(${LLVM_LIBRARY_DIR})
+                    
 add_executable(${TARGET_NAME}
     ocl_opt.cpp
     ${BACKEND_ROOT_DIR}/passes/InitializePasses.h
