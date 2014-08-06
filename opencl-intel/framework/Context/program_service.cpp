@@ -36,7 +36,7 @@
 #include "cl_device_api.h"
 #include "cl_shared_ptr.hpp"
 #include "Device.h"
-
+#include "cl_user_logger.h"
 #include <cl_local_array.h>
 
 #include <string>
@@ -205,7 +205,7 @@ bool LinkTask::Execute()
 {
     char* pBinary = NULL;
     size_t uiBinarySize = 0;
-    char* szLinkLog = NULL;
+    std::vector<char> linkLog;
     bool bIsLibrary = false;
 
     // if previous task failed don't continue execution
@@ -250,7 +250,7 @@ bool LinkTask::Execute()
                                m_sOptions.c_str(),
                                &pBinary,
                                &uiBinarySize,
-                               &szLinkLog,
+                               linkLog,
                                &bIsLibrary);
 
     if (0 == uiBinarySize)
@@ -259,10 +259,9 @@ bool LinkTask::Execute()
         //Build failed
         m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_LINK_FAILED);
 
-        if (NULL != szLinkLog)
+        if (!linkLog.empty())
         {
-            m_pDeviceProgram->SetBuildLogInternal(szLinkLog);
-            delete[] szLinkLog;
+            m_pDeviceProgram->SetBuildLogInternal(&linkLog[0]);
         }
 
         m_pDeviceProgram->SetBuildLogInternal("Linking failed\n");
@@ -367,6 +366,13 @@ bool DeviceBuildTask::Execute()
     m_pDeviceProgram->SetDeviceHandleInternal(programHandle);
 
     err = pDeviceAgent->clDevBuildProgram(programHandle, m_sOptions.c_str(), &build_status);
+    if (CL_DEV_SUCCESS != err)
+    {
+        m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_BUILD_FAILED);
+        m_pDeviceProgram->SetBuildLogInternal("Failed to build device program\n");
+        SetComplete(CL_BUILD_SUCCESS);
+        return true;
+    }
 
     assert( (CL_BUILD_ERROR == build_status || CL_BUILD_SUCCESS == build_status) && "Unknown build status returned by the device agent" );
 
@@ -487,6 +493,12 @@ bool PostBuildTask::Execute()
 
     if (m_pfn_notify)
     {
+        if (NULL != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled())
+        {
+            std::stringstream stream;
+            stream << "BuildProgram callback(" << m_pProg->GetHandle() << ", " << m_user_data << ")" << std::endl;
+            g_pUserLogger->PrintString(stream.str());
+        }
         m_pfn_notify(m_pProg->GetHandle(), m_user_data);
     }
 
@@ -1134,14 +1146,7 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
 
     clLocalArray<SharedPtr<BuildTask> > arrCompileTasks(uiNumDevices);
     clLocalArray<SharedPtr<BuildTask> > arrLinkTasks(uiNumDevices);
-    clLocalArray<SharedPtr<BuildTask> > arrDeviceBuildTasks(uiNumDevices);
-
-    for (unsigned int i = 0; i < uiNumDevices; ++i)
-    {
-        arrCompileTasks[i] = NULL;
-        arrLinkTasks[i] = NULL;
-        arrDeviceBuildTasks[i] = NULL;
-    }
+    clLocalArray<SharedPtr<BuildTask> > arrDeviceBuildTasks(uiNumDevices);    
 
     // this will be released in PostBuildTask
     DeviceProgram** ppDevicePrograms = new DeviceProgram*[uiNumDevices];

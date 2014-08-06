@@ -314,7 +314,7 @@ cl_err_code Device::CreateInstance()
             }
 
             LOG_DEBUG(TEXT("%s"), TEXT("Call Device::fn_clDevCreateDeviceInstance"));
-            int clDevErr = devCreateInstance(m_devId, this, this, &m_pDevice);
+            int clDevErr = devCreateInstance(m_devId, this, this, &m_pDevice, g_pUserLogger);
             if (clDevErr != (int)CL_DEV_SUCCESS)
             {
                 LOG_ERROR(TEXT("Device::devCreateInstance returned %d"), clDevErr);
@@ -437,13 +437,24 @@ void Device::clDevCmdStatusChanged(cl_dev_cmd_id cmd_id, void * pData, cl_int cm
     return;
 }
 
+Intel::OpenCL::TaskExecutor::ITaskExecutor* Device::clDevGetTaskExecutor()
+{
+    return FrameworkProxy::Instance()->GetTaskExecutor();
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::InitFECompilers
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void Device::InitFECompiler() const
 {
-    const IOCLDeviceFECompilerDescription& pFEConfig = m_pDevice->clDevGetFECompilerDecription();
-    string strModule = pFEConfig.clDevFEModuleName();
+    const IOCLDeviceFECompilerDescription* pFEConfig = m_pDevice->clDevGetFECompilerDecription();
+    if (NULL == pFEConfig)
+    {
+        // device doesn't have front-end compiler
+        m_pFrontEndCompiler = NULL;
+        return;
+    }
+    string strModule = pFEConfig->clDevFEModuleName();
     m_pFrontEndCompiler = FrontEndCompiler::Allocate();
 
     if (NULL == m_pFrontEndCompiler)
@@ -453,8 +464,8 @@ void Device::InitFECompiler() const
     }
 
     cl_err_code clErrRet = m_pFrontEndCompiler->Initialize(OS_DLL_POST(strModule).c_str(),
-                                                           pFEConfig.clDevFEDeviceInfo(), 
-                                                           pFEConfig.clDevFEDeviceInfoSize() );
+                                                           pFEConfig->clDevFEDeviceInfo(), 
+                                                           pFEConfig->clDevFEDeviceInfoSize() );
     if (CL_FAILED(clErrRet))
     {
         assert( false && "FrontEndCompiler initialization failed" );

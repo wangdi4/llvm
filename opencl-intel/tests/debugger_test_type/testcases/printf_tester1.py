@@ -18,7 +18,4 @@ class PrintfTester1(DebuggerTestCase):
         bps = [(self.CLNAME, 8)]
         self.assertEqual(self.client.debug_run(bps), bps[0])
         
-        # timeout is increased here because I've been seeing intermittent
-        # failures on x64 Debug with the default timer. Maybe the stdout 
-        # redirection makes the run a bit longer
-        self.client.debug_run_finish(bps, timeout=6)
+        self.client.debug_run_finish(bps)

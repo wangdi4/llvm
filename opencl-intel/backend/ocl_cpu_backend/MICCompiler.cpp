@@ -122,7 +122,7 @@ MICCompiler::~MICCompiler()
     delete m_pCGEngine;
 }
 
-const llvm::LLVMModuleJITHolder* MICCompiler::GetModuleHolder(llvm::Module& module, const std::string& dumpAsm) const
+llvm::LLVMModuleJITHolder* MICCompiler::GetModuleHolder(llvm::Module& module, const std::string& dumpAsm) const
 {
     assert(m_pCGEngine);
     return m_pCGEngine->getModuleHolder(module, dumpAsm);

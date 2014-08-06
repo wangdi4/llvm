@@ -5,18 +5,24 @@
 #include <string>
 #include <map>
 #include <test_common.h>
+#include "cl_user_logger.h"
 
+namespace Intel { namespace OpenCL { namespace Utils {
+
+FrameworkUserLogger* g_pUserLogger = NULL;
+
+}}}
 
 // The following tests replace the old "main" function of framework_test_type.
 //
 
 //BC open functions:
 void cpuBCOpen(FILE*& pIRFile){
-  FOPEN(pIRFile, "test.bc", "rb");
+  FOPEN(pIRFile, "validation/framework_test_type/test.bc", "rb");
 }
 
 void micBCOpen(FILE*& pIRFile){
-  FOPEN(pIRFile, "mic_test.bc", "rb");
+  FOPEN(pIRFile, "validation/framework_test_type/mic_test.bc", "rb");
 }
 
 // CL_DEVICE_TYPE_CPU is the default device.
@@ -336,7 +342,6 @@ TEST(FrameworkTestType, Test_VecTypeHintTest)
     EXPECT_TRUE(VecTypeHintTest());
 }
 
-
 TEST(FrameworkTestType, Test_EventCallbackTest)
 {
     EXPECT_TRUE(EventCallbackTest());
@@ -422,6 +427,11 @@ TEST(FrameWorkTestType, Test_cl20ExecutionModel)
     EXPECT_TRUE(cl20ExecutionModel());
 }
 
+TEST(FrameworkTestType, Test_GenStats)
+{
+    EXPECT_TRUE(cl_GenStats());
+}
+
 CommandLineOption<std::string> deviceOption("--device_type");
 
 #ifdef INCLUDE_MIC_DEVICE
@@ -478,6 +488,25 @@ TEST(FrameworkTestType, cl_ALL_Devices_Common_RT_SubBuffers_Async_With_Buffer_Re
 TEST(FrameworkTestType, TEST_APFLevel)
 {
     EXPECT_TRUE(cl_APFLevelForce());
+}
+
+TEST(FrameworkTestType, clAoSFieldScatterGather)
+{
+    EXPECT_TRUE(clAoSFieldScatterGather());
+}
+TEST(FrameworkTestType, Test_cl_uniteWG_VectorizeOnDiffentDim)
+{
+    EXPECT_TRUE(clCheckVectorizingDim1And2AndUniteWG(0,false));
+    EXPECT_TRUE(clCheckVectorizingDim1And2AndUniteWG(1,false));
+    EXPECT_TRUE(clCheckVectorizingDim1And2AndUniteWG(0,true));
+    EXPECT_TRUE(clCheckVectorizingDim1And2AndUniteWG(1,true));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(0,true));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(1,true));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(2,true));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(3,true));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(0,false));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(1,false));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(2,false));
 }
 
 #endif

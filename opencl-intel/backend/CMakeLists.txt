@@ -21,6 +21,12 @@ set( BACKEND_TESTS_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/Tests )
 set( BACKEND_PASSES_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/passes )
 set( BACKEND_VALIDATION_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/validation )
 
+# Set OCL Tuning to ON. ON by default. can be turned off for release.
+set( OCLT ON)
+if ( OCLT )
+  add_definitions( -DOCLT )
+endif (OCLT)
+
 set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "")
 
 remove_definitions( -D_UNICODE -DUNICODE )
@@ -40,30 +46,17 @@ if (NOT WIN32)
         set ( WARNING_LEVEL  "-Wall -Wextra -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter")
     else (APPLE)
         set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-unused-function")
-    if( ANDROID OR CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE )   
+    if( CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE )
   set( WARNING_LEVEL "${WARNING_LEVEL} -w" )
     else( )
   set( WARNING_LEVEL "${WARNING_LEVEL} -Werror" )
     endif( )
         add_definitions( ${WARNING_LEVEL} )
-    
-    # Assembler setup - use private rules
-    set( CMAKE_ASM_FLAGS               ) # do not quote this!!!!
-    set( CMAKE_ASM_INCLUDE_DIR_FLAG    -I )
-    set( CMAKE_ASM_OUTPUT_NAME_FLAG    -o )
-    if( NOT ANDROID )
-        if (CVCC_ASM_PATH)
-            set(CMAKE_ASM_COMPILER         ${CVCC_ASM_PATH})
-        else(CVCC_ASM_PATH)
-            message(STATUS "Using system assembler, check that its version is 4.3.x")
-            set( CMAKE_ASM_COMPILER        as )
-        endif(CVCC_ASM_PATH)    
-    endif( NOT ANDROID )
 
     endif (APPLE)
-    
 endif (NOT WIN32)
 
+if(WIN32)
 #
 # Usage
 #     CREATE_ASM_RULES( <ADD_TO_SOURCES_LIST_VAR> ...<asm-files-list>...)
@@ -105,7 +98,7 @@ macro( CREATE_ASM_RULES ADD_TO_SOURCES_LIST_VAR )
     endif(DEFINED OBJ_FILES)
 
 endmacro( CREATE_ASM_RULES )
-
+endif(WIN32)
 
 ###############################################################################################
 
@@ -120,9 +113,9 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ADD_CXX_FLAGS}")
 use_rtti(FALSE)
 
 if (LLVM_BUILD_APPLE_BACKEND)
-    
+
     find_package(OpenCL REQUIRED)
-    
+
     add_subdirectory(utils)
     #add_subdirectory(libraries/ocl_builtins)
     add_subdirectory(metadata_api)
@@ -133,37 +126,34 @@ if (LLVM_BUILD_APPLE_BACKEND)
     add_subdirectory(barrier)
     add_subdirectory(vectorizer)
     add_subdirectory(apple_plugin)
-    
-    set(BACKEND_INCLUDE_FILES 
+    add_subdirectory(stat_summary)
+
+    set(BACKEND_INCLUDE_FILES
       ${BACKEND_ROOT_DIR}/arch_headers/Apple/TargetArch.h
     )
-  
-    set(CL_API_INCLUDE_FILES 
+
+    set(CL_API_INCLUDE_FILES
       ${BACKEND_ROOT_DIR}/../cl_api/cl_kernel_arg_type.h
       ${BACKEND_ROOT_DIR}/../cl_api/common_dev_limits.h
     )
 
     file(RELATIVE_PATH SOURCE_RELATIVE_DIR ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 
-    install( FILES ${BACKEND_INCLUDE_FILES} 
+    install( FILES ${BACKEND_INCLUDE_FILES}
              DESTINATION src/${SOURCE_RELATIVE_DIR}/arch_headers
            )
 
-    install( FILES ${CL_API_INCLUDE_FILES} 
+    install( FILES ${CL_API_INCLUDE_FILES}
              DESTINATION src/${SOURCE_RELATIVE_DIR}/cl_api
            )
 
-    install( DIRECTORY ../CLVMCPUPlugin.xcodeproj
+    install( DIRECTORY ${OCL_SOURCE_DIR}/CLVMCPUPlugin.xcodeproj
              DESTINATION src
            )
 
-    
+
 else(LLVM_BUILD_APPLE_BACKEND)
 
-    if (INCLUDE_MIC_DEVICE)
-        add_subdirectory(ocl_mic_executor "${CMAKE_CURRENT_BINARY_DIR}/ocl_mic_executor")
-    endif ()
-    
     # LLVM device backend library
     option(LLVM_BUILD_OCL_CPU_BACKEND "Build OpenCL CPU backend DLL." ON)
     message(STATUS "Build OpenCL CPU backend DLL: ${LLVM_BUILD_OCL_CPU_BACKEND}")
@@ -171,7 +161,6 @@ else(LLVM_BUILD_APPLE_BACKEND)
     if (LLVM_BUILD_OCL_CPU_BACKEND)
         add_subdirectory(vectorizer        "${CMAKE_CURRENT_BINARY_DIR}/vectorizer")
         add_subdirectory(barrier           "${CMAKE_CURRENT_BINARY_DIR}/barrier")
-        add_subdirectory(MICJITEngine      "${CMAKE_CURRENT_BINARY_DIR}/MICJITEngine")
         add_subdirectory(utils             "${CMAKE_CURRENT_BINARY_DIR}/utils")
         add_subdirectory(metadata_api      "${CMAKE_CURRENT_BINARY_DIR}/metadata_api")
         add_subdirectory(passes            "${CMAKE_CURRENT_BINARY_DIR}/passes")
@@ -185,41 +174,32 @@ else(LLVM_BUILD_APPLE_BACKEND)
         add_subdirectory(dynamic_lib       "${CMAKE_CURRENT_BINARY_DIR}/dynamic_lib")
         add_subdirectory(name_mangling     "${CMAKE_CURRENT_BINARY_DIR}/name_mangling")
         add_subdirectory(reflection_module "${CMAKE_CURRENT_BINARY_DIR}/reflection_module")
+        add_subdirectory(stat_summary      "${CMAKE_CURRENT_BINARY_DIR}/stat_summary")
+        if (INCLUDE_MIC_DEVICE)
+            add_subdirectory(ocl_mic_executor "${CMAKE_CURRENT_BINARY_DIR}/ocl_mic_executor")
+            add_subdirectory(MICJITEngine     "${CMAKE_CURRENT_BINARY_DIR}/MICJITEngine")
+        endif ()
     endif (LLVM_BUILD_OCL_CPU_BACKEND)
 
     # Validation utilities
     option(BACKEND_BUILD_VERIFICATION_LIB "Build back-end validation tools." ON)
-    message(STATUS "Build OpenCL CPU backend valication tools: ${LLVM_BUILD_OCL_CPU_BACKEND}")
+    message(STATUS "Build OpenCL CPU backend validation tools: ${LLVM_BUILD_OCL_CPU_BACKEND}")
 
     if (BACKEND_BUILD_VERIFICATION_LIB)
         add_subdirectory(external/tinyxml  "${CMAKE_CURRENT_BINARY_DIR}/tinyxml")
         add_subdirectory(validations       "${CMAKE_CURRENT_BINARY_DIR}/validations")
-    endif ()
 
-    #removing the test/... directories since it will be incorporated as part of the LIT script support
-    if (LLVM_BUILD_OCL_CPU_BACKEND)
-        #add_subdirectory(tests/vectorizer/       "${CMAKE_CURRENT_BINARY_DIR}/test_vectorizer/")
-        #add_subdirectory(tests/barrier/          "${CMAKE_CURRENT_BINARY_DIR}/test_barrier/")
-        #add_subdirectory(tests/images/           "${CMAKE_CURRENT_BINARY_DIR}/test_images/")
-        #add_subdirectory(tests/codegen/          "${CMAKE_CURRENT_BINARY_DIR}/test_codegen/")
-        #add_subdirectory(tests/regression/       "${CMAKE_CURRENT_BINARY_DIR}/regression/")
-        #add_subdirectory(tests/ocl_backend_passes/ "${CMAKE_CURRENT_BINARY_DIR}/test_ocl_backend_passes/")
-    endif (LLVM_BUILD_OCL_CPU_BACKEND)
+        # copying MICRegression suite tests to install directory
+        install(DIRECTORY ${BACKEND_ROOT_DIR}/tests/MIC/satest/mic/
+                DESTINATION bin/validation/MICRegression/)
+    endif ()
 
     if (BACKEND_BUILD_VERIFICATION_LIB)
-        #add_subdirectory(tests/opencl/           "${CMAKE_CURRENT_BINARY_DIR}/test_opencl/")
-        #add_subdirectory(tests/ocl_ref_conf/     "${CMAKE_CURRENT_BINARY_DIR}/test_ocl_ref_conformance/")
-    endif ()
-
-    if (BACKEND_BUILD_VERIFICATION_LIB) 
         set_target_properties( DataVersion PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
         set_target_properties( Comparator PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
         set_target_properties( DataGenerator PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
         set_target_properties( DataManager PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
-        if (WIN32)
-    #        set_target_properties( NEAT_wrapper PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
-    #        set_target_properties( REFALU_wrapper PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
-        else ()
+        if (NOT WIN32)
             set_target_properties( NEAT PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
             set_target_properties( REFALU PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
         endif ()
@@ -233,17 +213,11 @@ else(LLVM_BUILD_APPLE_BACKEND)
         set_target_properties( OCLSamplePlugin PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation/tests )
         set_target_properties( FMAtest PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation/tests )
         set_target_properties( tinyxml_STL PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/externals )
-    endif (BACKEND_BUILD_VERIFICATION_LIB) 
-     
-    # copying MICRegression suite tests to install directory, excluding .svn
-    # files 
-    install(DIRECTORY ${BACKEND_ROOT_DIR}/tests/MIC/satest/mic/
-            DESTINATION bin/validation/MICRegression/
-            PATTERN ".svn" EXCLUDE)
+    endif (BACKEND_BUILD_VERIFICATION_LIB)
+
     # copy the Clang conformance tests to the validation directory
-    install(FILES ${BACKEND_ROOT_DIR}/tests/Conformance.7z 
+    install(FILES ${BACKEND_ROOT_DIR}/tests/Conformance.7z
             DESTINATION bin/validation)
 
 endif(LLVM_BUILD_APPLE_BACKEND)
-
 

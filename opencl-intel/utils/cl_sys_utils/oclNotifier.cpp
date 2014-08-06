@@ -28,6 +28,7 @@
 #include <stdexcept>
 #include "oclNotifier.h"
 #include "oclInternalFunctions.h"
+#include "ApiExecutionTime.h"
 
 using std::runtime_error;
 using Intel::OpenCL::Utils::OclAutoMutex;
@@ -167,13 +168,13 @@ void NotifierCollection::EventStatusChanged(cl_event event)
 
 void NotifierCollection::BufferCreate(cl_mem memobj, cl_context context,
                                       size_t size, void* hostPtr,
-                                      bool fromGL,
+                                      ClExternalObjectType clExtObjType,
                                       unsigned int cookie)
 {
 	CHECK_FOR_NULL(memobj);
 	CHECK_FOR_NULL(context);
 	NOTIFY(BufferCreate, memobj, context, size,
-           hostPtr, fromGL, cookie);
+           hostPtr, clExtObjType, cookie);
 }
 void NotifierCollection::BufferMap(cl_mem memobj, cl_map_flags mapFlags,
                                    unsigned int cookie)
@@ -207,13 +208,14 @@ void NotifierCollection::SubBufferCreate(cl_mem parentBuffer,
 }
 void NotifierCollection::ImageCreate(cl_mem memobj, cl_context context, 
 									 const cl_image_desc* imageDesc,
-									 void* hostPtr, bool fromGL,
+									 void* hostPtr, 
+									 ClExternalObjectType clExtObjType,
                                      unsigned int cookie)
 {
 	CHECK_FOR_NULL(memobj);
 	CHECK_FOR_NULL(context);
 	NOTIFY(ImageCreate, memobj, context, imageDesc,
-           hostPtr, fromGL, cookie);
+           hostPtr, clExtObjType, cookie);
 }
 void NotifierCollection::ImageMap(cl_mem memobj, cl_map_flags mapFlags,
                                   unsigned int cookie)
@@ -331,9 +333,10 @@ void NotifierCollection::ObjectRetain(const void* obj, bool internalRetain)
 }
 void NotifierCollection::TraceCall(const char* call, cl_int errcode_ret,
                                    OclParameters* parameters,
+                                   ApiExecutionTime* execution_time,
                                    unsigned int *cookie){
 	CHECK_FOR_NULL(call);
-	NOTIFY(TraceCall, call, errcode_ret, parameters, cookie);
+	NOTIFY(TraceCall, call, errcode_ret, parameters, execution_time, cookie);
 }
 
 

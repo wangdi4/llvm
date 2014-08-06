@@ -88,6 +88,8 @@ public:
 
     virtual int GetResourceNotAcquired() const = 0;
 
+    virtual ~ID3DSharingDefinitions() {}
+
 };
 
 /**
@@ -111,6 +113,8 @@ public:
     virtual int GetImageDx9MediaPlane() const = 0;
 
     virtual int GetGfxSysSharing() const { return CL_MEMOBJ_GFX_SHARE_DX9; }
+
+    ~ID3D9Definitions() {};
 
 };
 
@@ -163,6 +167,9 @@ public:
     int GetResourceAlreadyAcquired() const { return CL_DX9_MEDIA_SURFACE_ALREADY_ACQUIRED_KHR; }
 
     int GetResourceNotAcquired() const { return CL_DX9_MEDIA_SURFACE_NOT_ACQUIRED_KHR; }
+
+    ~KhrD3D9Definitions() {};
+
 };
 
 /**
@@ -214,6 +221,9 @@ public:
     int GetResourceAlreadyAcquired() const { return CL_DX9_RESOURCE_ALREADY_ACQUIRED_INTEL; }
 
     int GetResourceNotAcquired() const { return CL_DX9_RESOURCE_NOT_ACQUIRED_INTEL; }
+
+    ~IntelD3D9Definitions() {};
+
 };
 
 /**
@@ -255,6 +265,9 @@ public:
     int GetResourceAlreadyAcquired() const { return CL_D3D11_RESOURCE_ALREADY_ACQUIRED_KHR; }
 
     int GetResourceNotAcquired() const { return CL_D3D11_RESOURCE_NOT_ACQUIRED_KHR; }
+
+    ~D3D11Definitions() {};
+
 };
 
 }}}

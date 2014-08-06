@@ -49,6 +49,7 @@ File Name:  Compiler.cpp
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/CodeGen/CommandFlags.h"
+#include "llvm/Linker.h"
 using std::string;
 
 #include <fstream>
@@ -203,11 +204,11 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
     std::vector<std::string> args;
 
     args.push_back("OclBackend");
-    // OpecnCL assumes stack is aligned
-    // We are forccing LLVM to align the stack
+    // OpenCL assumes stack is aligned
+    // We are forcing LLVM to align the stack
     args.push_back("-force-align-stack");
-    // SSE requirest maximum alignment of parameters of 16 bytes
-    // AVX265 requirest maximum alignment of parameters of 32 bytes
+    // SSE requires maximum alignment of parameters of 16 bytes
+    // AVX requires maximum alignment of parameters of 32 bytes
     args.push_back("-stack-alignment=32");
 
     if( config.EnableTiming() && false == config.InfoOutputFile().empty())
@@ -227,7 +228,7 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
 
     for(; i != e; ++i )
     {
-        //be carefull here. The pointer returned by c_str() is only guaranteed to remain unchanged
+        //be careful here. The pointer returned by c_str() is only guaranteed to remain unchanged
         //until the next call to a non-constant member function of the string object.
         argv.push_back( const_cast<char*>(i->c_str()) );
     }
@@ -280,6 +281,8 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
     assert(pIRBuffer && "pIRBuffer parameter must not be NULL");
     assert(pResult && "Build results pointer must not be NULL");
     assert(pOptions && "Build options pointer must not be NULL");
+
+    validateVectorizerMode(pResult->LogS());
 
     //TODO: Add log
     std::auto_ptr<llvm::Module> spModule(ParseModuleIR(pIRBuffer));
@@ -361,6 +364,9 @@ llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
     return pModule;
 }
 
+// for CPU implementation RTL module consists of two libraries: shared (common for all CPU architectures)
+// and particular (optimized for one architecture), they should be linked,
+// for KNC we have the particular RTL only
 llvm::Module* Compiler::CreateRTLModule(BuiltinLibrary* pLibrary) const
 {
     llvm::MemoryBuffer* pRtlBuffer = pLibrary->GetRtlBuffer();
@@ -380,9 +386,30 @@ llvm::Module* Compiler::CreateRTLModule(BuiltinLibrary* pLibrary) const
         spModule->setModuleIdentifier("RTLibrary");
     }
 
-  UpdateTargetTriple(spModule.get());
-  return spModule.release();
+    // on KNC we don't have shared (common) library, so skip loading
+    if (pLibrary->GetCPU() != MIC_KNC) {
+        // the shared RTL is loaded here
+        llvm::MemoryBuffer* pRtlBufferSvmlShared = pLibrary->GetRtlBufferSvmlShared();
 
+        std::auto_ptr<llvm::Module> spModuleSvmlShared(llvm::ParseBitcodeFile(pRtlBufferSvmlShared, *m_pLLVMContext));
+
+        if ( NULL == spModuleSvmlShared.get()) {
+            throw Exceptions::CompilerException("Failed to allocate/parse buitin module");
+        }
+
+        std::string ErrorMessage;
+        // we need to link particular and shared RTLs together
+        if (llvm::Linker::LinkModules(spModule.get(), spModuleSvmlShared.get(), Linker::DestroySource, &ErrorMessage) ) {
+            std::string ErrStr("Failed to link shared builtins module.");
+            if ( !ErrorMessage.empty() ) {
+                ErrStr.append(ErrorMessage);
+            }
+            throw Exceptions::CompilerException(ErrStr);
+        }
+    }
+
+    UpdateTargetTriple(spModule.get());
+    return spModule.release();
 }
 
 bool Compiler::isProgramValid(llvm::Module* pModule, ProgramBuildResult* pResult) const
@@ -410,6 +437,62 @@ bool Compiler::isProgramValid(llvm::Module* pModule, ProgramBuildResult* pResult
         }
     }
     return true;
+}
+
+void Compiler::validateVectorizerMode(llvm::raw_ostream& log) const
+{
+    // Validate if the vectorized mode valid and supported by the target arch.
+    // If not then issue an error and interrupt the build.
+    enum {
+      VALID,
+      INVALID,
+      UNSUPPORTED
+    } validity = VALID;
+
+    switch(m_transposeSize) {
+      default:
+        validity = INVALID;
+        break;
+
+      case TRANSPOSE_SIZE_AUTO:
+      case TRANSPOSE_SIZE_1:
+        validity = VALID;
+        break;
+
+      case TRANSPOSE_SIZE_4:
+        if(!m_CpuId.HasSSE41())
+          validity = UNSUPPORTED;
+        break;
+
+      case TRANSPOSE_SIZE_8:
+        if(!m_CpuId.HasAVX1())
+          validity = UNSUPPORTED;
+        break;
+
+      case TRANSPOSE_SIZE_16:
+        if(!m_CpuId.HasGatherScatter())
+          validity = INVALID;
+          // TODO: uncomment when MIC/AVX512 support became relevant
+          //validity = UNSUPPORTED;
+        break;
+    }
+
+    switch(validity) {
+      case VALID:
+        return;
+
+      case INVALID:
+        log << "The specified vectorizer mode (" << m_transposeSize
+             << ") is invalid.\n";
+        break;
+
+      case UNSUPPORTED:
+        log << "The specified vectorizer mode (" << m_transposeSize
+             << ") is not supported by the target architecture.\n";
+        break;
+    }
+    throw Exceptions::CompilerException("Failed to apply the vectorizer mode.",
+                                        CL_DEV_INVALID_BUILD_OPTIONS);
 }
 
 void UpdateTargetTriple(llvm::Module *pModule)

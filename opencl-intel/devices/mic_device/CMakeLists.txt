@@ -17,11 +17,6 @@ if ( ENABLE_MIC_TRACER )
     add_definitions( -DENABLE_MIC_TRACER )
 endif( ENABLE_MIC_TRACER )
 
-option( USE_COI_BUFFS_REF_NEW_API OFF )
-if ( USE_COI_BUFFS_REF_NEW_API )
-    add_definitions( -DMIC_USE_COI_BUFFS_REF_NEW_API )
-endif ( USE_COI_BUFFS_REF_NEW_API )
-
 option( MIC_USE_OMP OFF )
 if (MIC_USE_OMP)
     add_definitions( -D__MIC_DA_OMP__ )

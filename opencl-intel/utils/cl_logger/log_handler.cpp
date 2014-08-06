@@ -36,6 +36,7 @@
 
 #include "log_handler.h"
 #include "cl_synch_objects.h"
+#include "cl_user_logger.h"
 
 using namespace Intel::OpenCL::Utils;
 
@@ -46,6 +47,14 @@ using namespace Intel::OpenCL::Utils;
 #endif
 
 #define MAX_STRDUP_SIZE 1024
+
+#if !_WIN32 && !DEVICE_NATIVE
+namespace Intel { namespace OpenCL { namespace Utils {
+
+FrameworkUserLogger* g_pUserLogger = NULL;
+
+}}}
+#endif
 
 /**
  * Safe version of strdup.
@@ -146,6 +155,8 @@ void FileDescriptorLogHandler::Log(LogMessage& logMessage)
     }
 
     char* formattedMsg = logMessage.GetFormattedMessage();
+    // error logging still causes some link errors in Linux
+    // TODO: here we should print error in user logger
 	// fputs is thread safe.
     if (EOF == fputs(formattedMsg, m_fileHandler))
     {

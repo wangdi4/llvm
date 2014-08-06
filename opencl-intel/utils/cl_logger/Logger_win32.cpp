@@ -182,21 +182,6 @@ cl_err_code Logger::AddLogHandler(LogHandler* logHandler)
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
-// Logger::Log
-/////////////////////////////////////////////////////////////////////////////////////////
-void Logger::Log(ELogLevel level, ELogConfigField config, const char* psClientName, const char* sourceFile, const char* functionName, __int32 sourceLine, const char* message, va_list va)
-{
-    LogMessage	logMessage(level, config, psClientName, sourceFile, functionName, sourceLine, message, va);
-    for (int i = 0; i < MAX_LOG_HANDLERS && m_logHandlers[i]; i++)
-    {
-        if (m_logHandlers[i] != NULL)
-        {
-            m_logHandlers[i]->Log(logMessage);
-        }
-    }
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////
 // Logger::GetLogHandlerParams
 /////////////////////////////////////////////////////////////////////////////////////////
 const char*  Logger::GetLogHandlerParams(const char* logHandler)

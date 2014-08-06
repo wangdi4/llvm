@@ -11,6 +11,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "PhiCanon.h"
 #include "Linearizer.h"
 #include "Specializer.h"
+#include "OclTune.h"
 
 #include "llvm/Pass.h"
 #include "llvm/IR/Function.h"
@@ -448,6 +449,18 @@ private:
   /// into the first value that is used for the select (which is
   /// the needed value if the mask is allones.)
   std::map<Instruction*,Instruction*> m_predicatedSelects;
+
+  // Statistics:
+  Statistic::ActiveStatsT m_kernelStats;
+  Statistic Predicated_Uniform_Store_Or_Loads;
+  Statistic AllOnes_Bypasses;
+  Statistic AllOnes_Bypasses_Due_To_Non_Consecutive_Store_Load;
+  Statistic Predicated;
+  public: Statistic Edge_Not_Being_Specialized_Because_EdgeHot;
+  public: Statistic Edge_Not_Being_Specialized_Because_EdgeHot_At_Least_50Insts;
+  public: Statistic Edge_Not_Being_Specialized_Because_Should_Not_Specialize;
+  public: Statistic Edge_Not_Being_Specialized_Break_Inside_A_Loop;
+  public: Statistic Zero_Bypasses;
 };
 
 }

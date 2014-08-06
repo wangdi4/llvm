@@ -119,7 +119,7 @@ Validation::COMP_RESULT Comparator::Compare(IComparisonResults& res,
                 continue;
             }
 
-            // push buffer idx
+            // push buffer index
             IndexStackHelper ih(m_indexStack, bufInd);
 
             // obtain MemoryObjects
@@ -291,7 +291,7 @@ Validation::COMP_RESULT Comparator::CompareNElements( const int8_t* pAct, const 
                 const NEATValue* pNEATData = (m_IsNEATSupportedMemObj) ?
                     (NEATValue*)((uint8_t*)pNEAT + cntBufferElem * BufElemNEATSize) : NULL; // NEATValue *
 
-                // compare elements in vector thru recursion
+                // compare elements in vector through recursion
                 if( NOT_PASSED == CompareNElements(pActData, pRefData, pNEATData,
                     VecElemType, VecElemsNum))
                     res = NOT_PASSED;
@@ -389,7 +389,7 @@ COMP_RESULT Comparator::CompareNScalarElements( const T* pAct,
             actMissed = bool(localres);
 
             // checks if Reference fits into NEAT interval
-            // todo: place under some NEAT debug condition
+            // TODO: place under some NEAT debug condition
             if(pRef &&
                 (NOT_PASSED == CompareScalarNEAT<T>(*pRefElem, *pNEATElem)))
             {
@@ -474,7 +474,7 @@ Validation::COMP_RESULT Comparator::CompareImages( const Image* pImgAct, const I
     const size_t pixelSizeNEAT = (m_IsNEATSupportedMemObj) ? pNEATDesc->GetElementSize() : 0;
     const uint64_t rowPitchNEAT = (m_IsNEATSupportedMemObj) ? pNEATDesc->GetSizesDesc().row : 0;
     const uint64_t slicePitchNEAT = (m_IsNEATSupportedMemObj) ? pNEATDesc->GetSizesDesc().slice : 0;
-    
+
     // loop over pixels in image
     for(uint64_t z = 0; z < Depth; ++z)
     {
@@ -508,8 +508,8 @@ Validation::COMP_RESULT Comparator::CompareImages( const Image* pImgAct, const I
                     CASE_TYPE_IMAGES(OpenCL_FLOAT)
                     CASE_TYPE_IMAGES(OpenCL_HALF_FLOAT)
                     case OpenCL_UNORM_SHORT_555 :
-                    {   // special case. treat OpenCL_UNORM_SHORT_555 as
-                        // one element. all channels are packed into one element
+                    {   // special case. Treat OpenCL_UNORM_SHORT_555 as
+                        // one element. All channels are packed into one element.
                         typedef ImageChannelDataTypeValToCType<OpenCL_UNORM_SHORT_555>::type CType;
                         res = CompareNScalarElements<CType>(
                            (const CType *) ptrAct, (const CType *) ptrRef, ptrNEAT,
@@ -518,8 +518,8 @@ Validation::COMP_RESULT Comparator::CompareImages( const Image* pImgAct, const I
                             break;
                     }
                     case OpenCL_UNORM_SHORT_565 :
-                    {   // special case. treat OpenCL_UNORM_SHORT_565 as
-                        // one element. all channels are packed into one element
+                    {   // special case. Treat OpenCL_UNORM_SHORT_565 as
+                        // one element. All channels are packed into one element.
                         typedef ImageChannelDataTypeValToCType<OpenCL_UNORM_SHORT_565>::type CType;
                         res = CompareNScalarElements<CType>(
                             (const CType *) ptrAct, (const CType *) ptrRef, ptrNEAT,
@@ -528,8 +528,8 @@ Validation::COMP_RESULT Comparator::CompareImages( const Image* pImgAct, const I
                         break;
                     }
                     case OpenCL_UNORM_INT_101010 :
-                    {   // special case. treat OpenCL_UNORM_INT_101010 as
-                        // one element. all channels are packed into one element
+                    {   // special case. Treat OpenCL_UNORM_INT_101010 as
+                        // one element. All channels are packed into one element.
                         typedef ImageChannelDataTypeValToCType<OpenCL_UNORM_INT_101010>::type CType;
                         res = CompareNScalarElements<CType>(
                             (const CType *) ptrAct, (const CType *) ptrRef, ptrNEAT,
@@ -551,5 +551,4 @@ Validation::COMP_RESULT Comparator::CompareImages( const Image* pImgAct, const I
     return toReturn;
 }
 #undef CASE_TYPE_IMAGES
-
 

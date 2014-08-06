@@ -96,7 +96,7 @@ protected:
     // checks if the given program has an object binary to be loaded from
     virtual bool CheckIfProgramHasCachedExecutable(Program* pProgram) const;
     // reloads the program from his object binary
-    virtual void ReloadProgramFromCachedExecutable(Program* pProgram) = 0;
+    virtual bool ReloadProgramFromCachedExecutable(Program* pProgram) = 0;
     // builds object binary for the built program
     virtual void BuildProgramCachedExecutable(ObjectCodeCache* pCache, Program* pProgram) const = 0;
 
@@ -125,6 +125,15 @@ protected:
 private:
     /// @brief Update the size of the variables in global adress space used by the program.
     void updateGlobalVariableTotalSize(Program* pProgram, llvm::Module* pModule);
+
+    /// @brief Dump stats collected for module if requested
+    void DumpModuleStats(llvm::Module* pModule);
+
+private:
+    // base file name for stats
+    std::string m_statFileBaseName;
+    // Workload name for the stats
+    std::string m_statWkldName;
 };
 
 }}}

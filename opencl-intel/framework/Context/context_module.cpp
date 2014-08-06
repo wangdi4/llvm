@@ -1957,7 +1957,23 @@ cl_mem ContextModule::Create2DImageFromImage(cl_context context, cl_mem_flags fl
     cl_int* piErrcodeRet)
 {
     SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)context).DynamicCast<Context>();
+    assert((pContext.GetPtr() != NULL) && "Wrong context passed to Create2DImageFromImage.");
+    if(pContext.GetPtr() == NULL){
+        if (piErrcodeRet != NULL)
+        {
+            *piErrcodeRet = CL_INVALID_CONTEXT;
+        }
+        return CL_INVALID_HANDLE;
+    }
     SharedPtr<MemoryObject> pOtherImg = pContext->GetMemObject(otherImgHandle);
+    assert(pOtherImg.GetPtr() != NULL && "Wrong image descriptor passed to Create2DImageFromImage");
+    if(pOtherImg.GetPtr() == NULL){
+        if (piErrcodeRet != NULL)
+        {
+            *piErrcodeRet = CL_INVALID_IMAGE_DESCRIPTOR;
+        }
+        return CL_INVALID_HANDLE;
+    }
     size_t szOtherWidth, szOtherHeight, szOtherRowPitch;
     cl_image_format otherImgFormat;
 
@@ -1980,7 +1996,7 @@ cl_mem ContextModule::Create2DImageFromImage(cl_context context, cl_mem_flags fl
         {
             *piErrcodeRet = CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
         }
-        return NULL;
+        return CL_INVALID_HANDLE;
     }
     void* const pData = pOtherImg->GetBackingStoreData();
     return CreateScalarImage<2, CL_MEM_OBJECT_IMAGE2D>(context, flags, pImageFormat, pImageDesc->image_width, pImageDesc->image_height, 1, pImageDesc->image_row_pitch, 0, pData,

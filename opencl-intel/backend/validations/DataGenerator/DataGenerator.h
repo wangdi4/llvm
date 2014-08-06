@@ -154,11 +154,11 @@ namespace Validation
 
         /// @brief Static function to set buffer parameters according to
         /// BufferDesc and BufferFillMethodDesc
-        /// @param  [inout] bcfm refernece to BufferContainerFillMethod vector.
-        /// Each element of  bcfm vector subscribes one data beffer to be
+        /// @param  [inout] bcfm reference to BufferContainerFillMethod vector.
+        /// Each element of  bcfm vector subscribes one data buffer to be
         /// filled by generated data.
         /// Data buffer consists of  "buffLen" vectors, each vector of
-        /// "vecWidth" width. Each alement of vector is "dataType" type.
+        /// "vecWidth" width. Each element of vector is "dataType" type.
         /// @param [in] dataType data type of buffer, should be
         /// in range (F16;U64). See Validation::DataTypeVal
         /// @param [in] vecWidth the width of vector, should be
@@ -173,7 +173,7 @@ namespace Validation
         /// Makes sense only if fillMethod==FILL_RANDOM_FROM_RANGE
         /// @param [in] highValue. The top limit to fill buffer.
         /// Makes sense only if fillMethod==FILL_RANDOM_FROM_RANGE
-        /// @param [in] specialValuesProb. The probability of generaion special
+        /// @param [in] specialValuesProb. The probability of generation special
         /// values in the float or double buffer, should be in range (0.f;1.f),
         /// sakes sense only if
         /// fillMethod==FILL_RANDOM_FLOAT_WITH_SPECIAL_VALUES
@@ -206,11 +206,11 @@ namespace Validation
 
         /// @brief Static function to set buffer parameters with
         /// fillMethod==FILL_RANDOM
-        /// @param  [inout] bcfm refernece to BufferContainerFillMethod vector.
-        /// Each element of  bcfm vector subscribes one data beffer to be
+        /// @param  [inout] bcfm reference to BufferContainerFillMethod vector.
+        /// Each element of  bcfm vector subscribes one data buffer to be
         /// filled by generated data.
         /// Data buffer consists of  "buffLen" vectors, each vector of
-        /// "vecWidth" width. Each alement of vector is "dataType" type.
+        /// "vecWidth" width. Each element of vector is "dataType" type.
         /// @param [in] dataType data type of buffer, should be
         /// in range (F16;U64). See Validation::DataTypeVal
         /// @param [in] vecWidth the width of vector, should be
@@ -224,18 +224,18 @@ namespace Validation
 
         /// @brief Static function to set buffer parameters with
         /// fillMethod==FILL_RANDOM_FLOAT_WITH_SPECIAL_VALUES
-        /// @param  [inout] bcfm refernece to BufferContainerFillMethod vector.
-        /// Each element of  bcfm vector subscribes one data beffer to be
+        /// @param  [inout] bcfm reference to BufferContainerFillMethod vector.
+        /// Each element of  bcfm vector subscribes one data buffer to be
         /// filled by generated data.
         /// Data buffer consists of  "buffLen" vectors, each vector of
-        /// "vecWidth" width. Each alement of vector is "dataType" type.
+        /// "vecWidth" width. Each element of vector is "dataType" type.
         /// @param [in] dataType data type of buffer, should be
         /// in range (F16;U64). See Validation::DataTypeVal
         /// @param [in] vecWidth the width of vector, should be
         /// in range (V1;V16). See Validation::VectorWidth
         /// @param [in] buffLen the length of buffer counted in vectors of
         /// vecWidth width.
-        /// @param [in] specialValuesProb. The probability of generaion special
+        /// @param [in] specialValuesProb. The probability of generation special
         /// values in the float or double buffer, should be in range (0.f;1.f)
          static void SetSpecialValuesMethod(BufferContainerFillMethod& bcfm,
                                            DataTypeValWrapper dataType,
@@ -245,11 +245,11 @@ namespace Validation
 
         /// @brief Static function to set buffer parameters with
         /// fillMethod==FILL_VALUE
-        /// @param  [inout] bcfm refernece to BufferContainerFillMethod vector.
-        /// Each element of  bcfm vector subscribes one data beffer to be
+        /// @param  [inout] bcfm reference to BufferContainerFillMethod vector.
+        /// Each element of  bcfm vector subscribes one data buffer to be
         /// filled by generated data.
         /// Data buffer consists of  "buffLen" vectors, each vector of
-        /// "vecWidth" width. Each alement of vector is "dataType" type.
+        /// "vecWidth" width. Each element of vector is "dataType" type.
         /// @param [in] dataType data type of buffer, should be
         /// in range (F16;U64). See Validation::DataTypeVal
         /// @param [in] vecWidth the width of vector, should be
@@ -275,11 +275,11 @@ namespace Validation
 
         /// @brief Static function to set buffer parameters with
         /// fillMethod==FILL_RANDOM_FROM_RANGE
-        /// @param  [inout] bcfm refernece to BufferContainerFillMethod vector.
-        /// Each element of  bcfm vector subscribes one data beffer to be
+        /// @param  [inout] bcfm reference to BufferContainerFillMethod vector.
+        /// Each element of  bcfm vector subscribes one data buffer to be
         /// filled by generated data.
         /// Data buffer consists of  "buffLen" vectors, each vector of
-        /// "vecWidth" width. Each alement of vector is "dataType" type.
+        /// "vecWidth" width. Each element of vector is "dataType" type.
         /// @param [in] dataType data type of buffer, should be
         /// in range (F16;U64). See Validation::DataTypeVal
         /// @param [in] vecWidth the width of vector, should be
@@ -329,17 +329,17 @@ namespace Validation
     private:
         /// methods to fill buffer container list
         const BufferContainerListFillMethod& m_BufferContainerListFillMethod;
-        /// seed to use in pseudorandom generator
+        /// seed to use in pseudo-random generator
         uint64_t m_Seed;
         /// internal generator's variables
         uint32_t m_v11, m_v12, m_v13, m_v2, m_flag;
-        /// (-1,1] pseudorandom generator implementing RANDU algorithm
+        /// (-1,1] pseudo-random generator implementing RANDU algorithm
         /// G.Marsaglia, A.Zaman. Computer in Physics, v8, #1, 1994
         double Generator(void);
         void InitGenerator(void);
 
         /// internal functions to make 16bit, 32bit and 64bit denormal value with
-        /// ranodmly generated mantissa
+        /// randomly generated mantissa
         void MakeDenormValue(CFloat16* );
         void MakeDenormValue(float* );
         void MakeDenormValue(double* );
@@ -358,7 +358,7 @@ namespace Validation
             return x != y;
         }
 
-        /// internal function to fill array arr of length len by pseudorandom
+        /// internal function to fill array arr of length len by pseudo-random
         /// values from range (min,max) special case 16bit float
         void FillRandom( CFloat16* , int32_t , CFloat16 , CFloat16 );
         /// other data types
@@ -440,12 +440,12 @@ namespace Validation
             }
         }
 
-        /// internal function to fill array arr of length len by pseudorandom
+        /// internal function to fill array arr of length len by pseudo-random
         /// float or double values arr should include special values like NaN,
-        /// +INF,-INF with probabity specialValuesProb
+        /// +INF,-INF with probability specialValuesProb
         /// so, if len==100 and specialValuesProb==0.6, about 60 elements of
         /// arr should be special values, and the rest elements (about 40)
-        /// are pseudorandomly generated floating point values
+        /// are pseudo-randomly generated floating point values
         void FillRandomSpecial( CFloat16* arr, int32_t len,
                                 float specialValuesProb );
 

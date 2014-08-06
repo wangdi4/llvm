@@ -8,6 +8,7 @@
 #include <windows.h>
 #endif
 
+static const char* g_BINFILENAME = "jit.bin";
 
 extern cl_device_type gDeviceType;
 
@@ -22,7 +23,7 @@ bool TestBinaryRun(cl_program& program, cl_context cxContext, cl_device_id devic
     std::vector<int> pDst(szGlobalWorkSize);
     for(size_t i = 0; i < szGlobalWorkSize; ++i) pDst[i] = 0;
     std::vector<int> pSrcA(szGlobalWorkSize);
-    for(size_t i = 0; i < szGlobalWorkSize; ++i) pSrcA[i] = i % 2;
+    for(size_t i = 0; i < szGlobalWorkSize; ++i) pSrcA[i] = 90*(i % 2);
     std::vector<int> pSrcB(szGlobalWorkSize);
     for(size_t i = 0; i < szGlobalWorkSize; ++i) pSrcB[i] = 10;
 
@@ -97,7 +98,7 @@ bool TestBinaryRun(cl_program& program, cl_context cxContext, cl_device_id devic
     bool bCheck = true;
     for(size_t i = 0; i < szGlobalWorkSize; ++i)
     {
-        bCheck &= (pRead[i] == ((i % 2) * -5 + 10));
+        bCheck &= (pRead[i] == 8*(i % 2));
         printf(" {%d} ", pRead[i]);
     }
     printf("validation check: %s\n", bCheck ? "PASS" : "FAIL");
@@ -113,8 +114,6 @@ bool TestBinaryRun(cl_program& program, cl_context cxContext, cl_device_id devic
 bool clCheckJITLoadTest()
 {
     bool bResult = true;
-    return bResult; // TEMPORARY
-
     printf("clCheckJITSaveTest\n");
 
     cl_platform_id platform = 0;
@@ -135,8 +134,7 @@ bool clCheckJITLoadTest()
         printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
         return false;
     }
-
-    std::vector<cl_device_id> devices(uiNumDevices);
+    cl_device_id* devices = new cl_device_id[uiNumDevices];
     iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, &devices[0], NULL);
     if (CL_SUCCESS != iRet)
     {
@@ -153,8 +151,9 @@ bool clCheckJITLoadTest()
     }
     printf("context = %p\n", context);
 
+	
     // read the cached binary from a file
-    FILE * pFile = fopen("/home/work/magabari/git-src/sdk-cp/install/RH64/Debug/bin/jit.bin", "rb");
+    FILE * pFile = fopen(g_BINFILENAME, "rb");
     
     // obtain file size:
     fseek (pFile , 0 , SEEK_END);
@@ -163,14 +162,25 @@ bool clCheckJITLoadTest()
 
     // allocate buffer
     char* pBuffer = new char[size];
-
+	
     // copy the file content to the buffer
     fread(pBuffer, 1, size, pFile);
     fclose(pFile);
 
+
+    char** ppBuffers = new char*[uiNumDevices];
+
+    size_t* sizes = new size_t[uiNumDevices];
+    for(int i = 0; i < uiNumDevices; ++i)
+    {
+        ppBuffers[i] = pBuffer;
+        sizes[i] = size;
+    }
+
+
     // create program with binary
-    cl_int status;
-    cl_program clBinaryProg = clCreateProgramWithBinary(context, uiNumDevices, &devices[0], &size, (const unsigned char**)&pBuffer, &status, &iRet);
+    cl_int* status = new cl_int[uiNumDevices];
+    cl_program clBinaryProg = clCreateProgramWithBinary(context,uiNumDevices , &devices[0], sizes, (const unsigned char**)ppBuffers, &status[0], &iRet);
     bResult &= Check(L"clCreateProgramWithBinary", CL_SUCCESS, iRet);
 
     iRet = clBuildProgram(clBinaryProg, uiNumDevices, &devices[0], NULL, NULL, NULL);
@@ -178,6 +188,12 @@ bool clCheckJITLoadTest()
 
     printf("Testing the loaded binary .. \n");
     bResult &= TestBinaryRun(clBinaryProg, context, devices[0]);
+	delete[] devices;
+	delete[] pBuffer;
+	delete[] ppBuffers;
+	delete[] sizes;
+	delete[] status;
+	
     return bResult;
 }
 

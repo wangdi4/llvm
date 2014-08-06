@@ -1,4 +1,4 @@
-// Copyright (c) 2013 Intel Corporation
+// Copyright (c) 2014 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -25,23 +25,14 @@
 #include "stdafx.h"
 
 #include "isp_device.h"
-#include "cl_sys_info.h"
-
-#include <libgen.h>
 
 using namespace Intel::OpenCL::ISPDevice;
-
-extern char clISPDEVICE_CFG_PATH[];
 
 void __attribute__ ((constructor)) dll_init(void);
 void __attribute__ ((destructor)) dll_fini(void);
 
 void dll_init(void)
 {
-	char tBuff[PATH_MAX];
-	Intel::OpenCL::Utils::GetModulePathName((void*)(ptrdiff_t)dll_init, tBuff, PATH_MAX-1);
-	Intel::OpenCL::Utils::safeStrCpy(clISPDEVICE_CFG_PATH, MAX_PATH-1, dirname(tBuff));
-	Intel::OpenCL::Utils::safeStrCat(clISPDEVICE_CFG_PATH, MAX_PATH-1, "/cl.cfg");
 }
 
 void dll_fini(void)

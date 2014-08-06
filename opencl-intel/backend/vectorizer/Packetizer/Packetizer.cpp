@@ -4,6 +4,8 @@ Subject to the terms and conditions of the Master Development License
 Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
+#define DEBUG_TYPE "Vectorizer"
+
 #include "Packetizer.h"
 #include "Predicator.h"
 #include "VectorizerUtils.h"
@@ -55,7 +57,77 @@ OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(PacketizeFunction, "packetize", "packetize functions", false, false)
 
-PacketizeFunction::PacketizeFunction(bool SupportScatterGather) : FunctionPass(ID)
+PacketizeFunction::PacketizeFunction(bool SupportScatterGather,
+                                     unsigned int vectorizationDimension) : FunctionPass(ID),
+  OCLSTAT_INIT(GEP_With_2_Indices,
+  "Loads and stores of an address with exactly two indices",
+  m_kernelStats),
+  OCLSTAT_INIT(GEP_With_More_Than_2_Indices,
+  "Loads and stores of addresses with more than two indices that are scalarized instead of gathered / scattered",
+  m_kernelStats),
+  OCLSTAT_INIT(Array_Of_Structs_Store_Or_Loads,
+  "Gathered / scattered stores and loads in an A[id].x format",
+  m_kernelStats),
+  OCLSTAT_INIT(Cant_Load_Transpose_Because_Of_Non_Extract_Users,
+  "Load of vector types, where the load value is used both by extracts and by non-extrats instructions, and thus not transposed",
+  m_kernelStats),
+  OCLSTAT_INIT(Cant_Load_Transpose_Because_Multiple_Extract_Users_With_The_Same_Index,
+  "Load of vector types, where the loaded value has two extract instructions that extracts the same index",
+  m_kernelStats),
+  OCLSTAT_INIT(Load_Transpose_Created_For_A_Single_Scalar_Value,
+  "Load transpose created, where only a single scalar of the vector is actually used",
+  m_kernelStats),
+  OCLSTAT_INIT(Store_Transpose_Given_Up_Because_Of_Multiple_Users_Of_The_Stored_Vector,
+  "Store transpose not created because the stored vector is used by more than one instruction",
+  m_kernelStats),
+  OCLSTAT_INIT(Store_Transpose_Given_Up_Due_To_Not_Supported_Vector_Size,
+  "Store transpose not created because vector size is not supported",
+  m_kernelStats),
+  OCLSTAT_INIT(Store_Transpose_Created_For_A_Single_Scalar,
+  "Store transpose created, even though only a single scalar value is likely to benefit of it",
+  m_kernelStats),
+  OCLSTAT_INIT(Insert_Element_Transpose_Given_Up_Due_To_Not_supported_Vector_Size,
+  "Insert element transpose not created because vector size is not supported",
+  m_kernelStats),
+  OCLSTAT_INIT(Transposing_ExtractElement_For_A_Single_Extract,
+  "created a transpose sequence because of a single extractElement instruction",
+  m_kernelStats),
+  OCLSTAT_INIT(Scalarize_An_Instruction_That_Does_Not_Have_Vector_Support,
+  "Shuffle, Extract, Insert, return type non-integer/float, etc.",
+  m_kernelStats),
+  OCLSTAT_INIT(Scalarize_Memory_Operand_That_Does_Not_Have_Vector_Support,
+  "Scalarizing a Store / Load, for a type that does not have a vector support",
+  m_kernelStats),
+  OCLSTAT_INIT(Wide_Unmasked_Memory_Operation_Created,
+  "Created a wide (vector) load / store.",
+  m_kernelStats),
+  OCLSTAT_INIT(Wide_Masked_Memory_Operation_Created,
+  "Created a wide masked consecutive load / store.",
+  m_kernelStats),
+  OCLSTAT_INIT(Gather_Scatter_Created,
+  "Created a gather / scatter.",
+  m_kernelStats),
+  OCLSTAT_INIT(Scalarize_Memory_Operand_Because_Cant_Create_Gather_Scatter,
+  "Memory operand does have vector type support, but we couldnt use it",
+  m_kernelStats),
+  OCLSTAT_INIT(Scalarize_Function_Call,
+  "Scalarizing a Call Instruction",
+  m_kernelStats),
+  OCLSTAT_INIT(Scalarize_ExtractElement_Because_Cant_Transpose,
+  "Scalarizing an extract element instruction",
+  m_kernelStats),
+  OCLSTAT_INIT(Created_Transpose_For_Insert_Element,
+  "Created a transpose sequence when vectorizing an insert element instruction",
+  m_kernelStats),
+  OCLSTAT_INIT(Created_Transpose_For_Extract_Element,
+  "Created a transpose sequence when vectorizing an extract element instruction",
+  m_kernelStats),
+  OCLSTAT_INIT(Created_Load_And_Transpose,
+  "Created a load + transpose when vectorizing a load instruction",
+  m_kernelStats),
+  OCLSTAT_INIT(Created_Transpose_And_Store,
+  "Created a transpose + store when vectorizing a store instruction",
+  m_kernelStats)
 {
   m_shuffleCtr = 0;
   m_extractCtr = 0;
@@ -66,6 +138,7 @@ PacketizeFunction::PacketizeFunction(bool SupportScatterGather) : FunctionPass(I
   m_cannotHandleCtr = 0;
   m_allocaCtr = 0;
   UseScatterGather = SupportScatterGather || EnableScatterGatherSubscript;
+  m_vectorizedDim = vectorizationDimension;
   m_rtServices = NULL;
 
   // VCM buffer allocation
@@ -88,6 +161,7 @@ bool PacketizeFunction::runOnFunction(Function &F)
 {
   m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
   V_ASSERT(m_rtServices && "Runtime services were not initialized!");
+  m_pDL = &getAnalysis<DataLayout>();
 
   m_currFunc = &F;
   m_moduleContext = &(m_currFunc->getContext());
@@ -215,6 +289,7 @@ bool PacketizeFunction::runOnFunction(Function &F)
   )
 
   V_PRINT(packetizer, "\nCompleted vectorizing function: " << m_currFunc->getName() << "\n");
+  intel::Statistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE);
   return true;
 }
 
@@ -228,18 +303,6 @@ void PacketizeFunction::postponePHINodesAfterExtracts() {
       it != e; ++it) { // each BB
 
         BasicBlock* BB = it;
-
-        // currently we use the following to ensure we only postpone phi-nodes
-        // which are the results of allones.
-        // this is in order to ensure no heuristics changes for allones,
-        // but perhaps we can do better by avoiding it.
-        Predicator::AllOnesBlockType
-          blockType = Predicator::getAllOnesBlockType(BB);
-        if (!(blockType == Predicator::EXIT ||
-          blockType == Predicator::SINGLE_BLOCK_LOOP_EXIT)) {
-            continue;
-        }
-
         // duplicate a vector of pointers to the instructions of BB,
         // to safely iterate over the instructions.
         // infact, we only need the phi-nodes.
@@ -262,7 +325,7 @@ void PacketizeFunction::postponePHINodesAfterExtracts() {
             SmallVector<ExtractElementInst *, 16> extracts;
             Value *vectorValue = phi;
             bool allUserExtract = false;
-            if (obtainExtracts(vectorValue, extracts, allUserExtract)) {
+            if (obtainExtracts(vectorValue, extracts, allUserExtract, false)) {
               if (!allUserExtract) continue;
               // need to postpone the phi after the extracts.
               // (otherwise we might lose a transpose opportunity)
@@ -384,17 +447,31 @@ void PacketizeFunction::obtainLoadAndTranspose(Instruction* LI, Value* loadAdd, 
   // Check if the only users of the load instructions are extracts that can be replaced by load + transpose
   SmallVector<ExtractElementInst *, 16> extracts;
   bool allUserExtracts = false;
-  bool canObtainExtracts = obtainExtracts(LI, extracts, allUserExtracts);
+  bool canObtainExtracts = obtainExtracts(LI, extracts, allUserExtracts, true);
+
+  // statistics:://////////////////////////////////////
+  if (canObtainExtracts && !allUserExtracts) {
+    Cant_Load_Transpose_Because_Of_Non_Extract_Users++;
+  }
+  /////////////////////////////////////////////////////
 
   // We cannot load + transpose in case there are other users
   if (!canObtainExtracts || !allUserExtracts) return;
 
+  int numOfExtracts = 0; // for statistics
+
   for (unsigned i = 0; i < extracts.size(); ++i) {
     if (extracts[i]) { // There is extract of elemnet i from the vector
+      numOfExtracts++; // for statistics
       // No need to packetize orginal extract, it will be handled in the load + transpose
       m_removedInsts.insert(extracts[i]);
     }
   }
+  // statistics:://////////////////////////////////////
+  if (numOfExtracts==1) {
+    Load_Transpose_Created_For_A_Single_Scalar_Value++;
+  }
+  /////////////////////////////////////////////////////
   // When we'll try to packetize the LoadInst we will check if we can do load + transpose
   m_loadTranspMap[LI] = extracts;
 }
@@ -435,6 +512,7 @@ void PacketizeFunction::obtainTransposeAndStore(Instruction* SI, Value* storeAdd
   // store created inside an all-ones bypass.
   if (insertToBeStored->getNumUses() != 1) {
     if (insertToBeStored->getNumUses() != 2) {
+      Store_Transpose_Given_Up_Because_Of_Multiple_Users_Of_The_Stored_Vector++; // statistics
       return;
     }
     // check if there are two users as result of allones duplication.
@@ -448,6 +526,7 @@ void PacketizeFunction::obtainTransposeAndStore(Instruction* SI, Value* storeAdd
       blockType == Predicator::ALLONES ||
       blockType == Predicator::SINGLE_BLOCK_LOOP_ALLONES ||
       blockType == Predicator::SINGLE_BLOCK_LOOP_ORIGINAL)) {
+        Store_Transpose_Given_Up_Because_Of_Multiple_Users_Of_The_Stored_Vector++; // statistics
         return;
     }
   }
@@ -517,7 +596,7 @@ void PacketizeFunction::dispatchInstructionToPacketize(Instruction *I)
   unsigned dim;
   isTidGen = m_rtServices->isTIDGenerator(I, &err, &dim);
   V_ASSERT((!err) && "TIDGen inst receives non-constant input. Cannot vectorize!");
-  if (isTidGen && dim == 0)
+  if (isTidGen && dim == m_vectorizedDim)
   {
     V_PRINT(packetizer,
         "\t\tVectorizing TID creation Instruction: " << I->getName() << "\n");
@@ -530,17 +609,20 @@ void PacketizeFunction::dispatchInstructionToPacketize(Instruction *I)
     // (even though sub consecutive consecutive = uniform)
     // we can just not packetize all uniform values
 
-    // that is, unless it is an all-ones call-function, which returns
-    // a uniform value, but still needs to be packetized.
-    bool isAllOneCallFunction = false;
+    // that is, unless it is an all-ones or all-zeroes call-function,
+    // which returns a uniform value, but still needs to be packetized.
+    bool isAllOneAllZeroFunctionCall = false;
     CallInst* inst = dyn_cast<CallInst>(I);
     if (inst && inst->getCalledFunction()) {
       StringRef funcName = inst->getCalledFunction()->getName();
       if (Mangler::isAllOne(funcName)) {
-        isAllOneCallFunction = true;
+        isAllOneAllZeroFunctionCall = true;
+      }
+      else if (Mangler::isAllZero(funcName)) {
+        isAllOneAllZeroFunctionCall = true;
       }
     }
-    if (!isAllOneCallFunction) {
+    if (!isAllOneAllZeroFunctionCall) {
       return useOriginalConstantInstruction(I);
     }
   }
@@ -593,6 +675,7 @@ void PacketizeFunction::dispatchInstructionToPacketize(Instruction *I)
       V_STAT(if (I->getOpcode() == Instruction::ShuffleVector) m_shuffleCtr++;)
       V_STAT(if (I->getOpcode() == Instruction::ExtractValue)  m_extractCtr++;)
       V_STAT(if (I->getOpcode() == Instruction::InsertValue)   m_insertCtr++;)
+      Scalarize_An_Instruction_That_Does_Not_Have_Vector_Support++; // statistics
       duplicateNonPacketizableInst(I);
       break;
     case Instruction::InsertElement :
@@ -768,6 +851,7 @@ void PacketizeFunction::packetizeInstruction(BinaryOperator *BI, bool supportsWr
   if (!origInstType->isIntegerTy() && !origInstType->isFloatingPointTy()) {
     V_PRINT(vectorizer_stat, "<<<<NonPrimitiveCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(BI->getOpcode()) <<" instruction's return type is not primitive\n");
     V_STAT(m_nonPrimitiveCtr[BI->getOpcode()]++;)
+    Scalarize_An_Instruction_That_Does_Not_Have_Vector_Support++; // statistics
     return duplicateNonPacketizableInst(BI);
   }
 
@@ -807,6 +891,7 @@ void PacketizeFunction::packetizeInstruction(CastInst * CI)
     (!inputType->isIntegerTy() && !inputType->isFloatingPointTy())) {
     V_PRINT(vectorizer_stat, "<<<<NonPrimitiveCtr("<<__FILE__<<":"<<__LINE__<<"):" <<Instruction::getOpcodeName(CI->getOpcode()) <<" both input and output types should be scalar primitives\n");
     V_STAT(m_nonPrimitiveCtr[CI->getOpcode()]++;)
+    Scalarize_An_Instruction_That_Does_Not_Have_Vector_Support++; // statistics
     return duplicateNonPacketizableInst(CI);
   }
 
@@ -816,6 +901,7 @@ void PacketizeFunction::packetizeInstruction(CastInst * CI)
     !isa<SIToFPInst>(CI) && !isa<FPToUIInst>(CI) && !isa<UIToFPInst>(CI) &&
     !isa<FPTruncInst>(CI) && !isa<FPExtInst>(CI)) {
       V_STAT(m_castCtr[CI->getOpcode()]++;)
+      Scalarize_An_Instruction_That_Does_Not_Have_Vector_Support++; // statistics
       return duplicateNonPacketizableInst(CI);
   }
 
@@ -846,6 +932,7 @@ void PacketizeFunction::packetizeInstruction(CmpInst *CI)
   if (!origInstType->isIntegerTy() && !origInstType->isFloatingPointTy()) {
     V_PRINT(vectorizer_stat, "<<<<NonPrimitiveCtr("<<__FILE__<<":"<<__LINE__<<"):" <<Instruction::getOpcodeName(CI->getOpcode()) << " instruction's return type is not primitive\n");
     V_STAT(m_nonPrimitiveCtr[CI->getOpcode()]++;)
+    Scalarize_An_Instruction_That_Does_Not_Have_Vector_Support++; // statistics
     return duplicateNonPacketizableInst(CI);
   }
 
@@ -955,7 +1042,12 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   }
 
   Type *IndexTy = MO.Index->getType();
-  obtainVectorizedValue(&MO.Index, MO.Index, MO.Orig);
+  if (IndexTy->isVectorTy() && IndexTy->getVectorElementType()->isIntegerTy()) {
+    // Index is already a ready-to-use vector of indices
+    IndexTy = IndexTy->getVectorElementType();
+  } else {
+    obtainVectorizedValue(&MO.Index, MO.Index, MO.Orig);
+  }
 
   if (m_soaAllocaAnalysis->isSoaAllocaScalarRelated(MO.Orig)) {
     // This is load/store from SOA-alloca instruction,
@@ -1219,10 +1311,12 @@ Instruction *PacketizeFunction::widenConsecutiveMemOp(MemoryOperation &MO) {
     if (MO.Mask) {
       Instruction *Wide = widenConsecutiveMaskedMemOp(MO);
       V_ASSERT(Wide && "failed to generate masked wide memory operation");
+      Wide_Masked_Memory_Operation_Created++; // statistics
       return Wide;
     } else {
       Instruction *Wide = widenConsecutiveUnmaskedMemOp(MO);
       V_ASSERT(Wide && "failed to generate non-masked wide memory operation");
+      Wide_Unmasked_Memory_Operation_Created++; // statistics
       return Wide;
     }
   }
@@ -1243,11 +1337,13 @@ Instruction *PacketizeFunction::widenConsecutiveMemOp(MemoryOperation &MO) {
     if(m_depAnalysis->whichDepend(MO.Mask) == WIAnalysis::UNIFORM) {
       Instruction *Wide = widenConsecutiveMaskedMemOp(MO);
       V_ASSERT(Wide && "failed to generate masked wide memory operation");
+      Wide_Masked_Memory_Operation_Created++; // statistics
       return Wide;
     }
   } else {
     Instruction *Wide = widenConsecutiveUnmaskedMemOp(MO);
     V_ASSERT(Wide && "failed to generate non-masked wide memory operation");
+    Wide_Unmasked_Memory_Operation_Created++; // statistics
     return Wide;
   }
   return NULL;
@@ -1322,13 +1418,63 @@ void PacketizeFunction::obtainBaseIndex(MemoryOperation &MO) {
       V_PRINT(gather_scatter_stat, "PACKETIZER: BASE NON UNIFORM " << *MO.Orig << " Base: " << *Base << "\n");
     }
   }
+  else if (Gep && Gep->getNumIndices() == 2) {
+    // handling an array of structs
+    // for example, suppose A is an array of structs, one of the elements
+    // in it is x. Then we handle the following load.
+    // int loaded = A[i].x;
+    GEP_With_2_Indices++; // statistics
+    Base = Gep->getOperand(0);
+    Value* arrayIndex = Gep->getOperand(1);
+    Value* field = Gep->getOperand(2);
+    WIAnalysis::WIDependancy depBase = m_depAnalysis->whichDepend(Base);
+    WIAnalysis::WIDependancy gepArg1Dep = m_depAnalysis->whichDepend(arrayIndex);
+    ConstantInt* fieldConstantInt = dyn_cast<ConstantInt>(field);
+    PointerType* basePointerType = dyn_cast<PointerType>(Base->getType());
+    StructType* structType =
+      basePointerType ? dyn_cast<StructType>(basePointerType->getElementType()): NULL;
+    if (structType &&
+        depBase == WIAnalysis::UNIFORM &&
+        gepArg1Dep == WIAnalysis::CONSECUTIVE &&
+        fieldConstantInt && !fieldConstantInt->isNegative()) {
+      // Make sure this actually is a struct field access
+      uint64_t structAllocSize = m_pDL->getTypeAllocSize(structType);
+      uint64_t fieldIndex = fieldConstantInt->getZExtValue();
+      Type* fieldType = structType->getElementType(fieldIndex);
+      uint64_t fieldSize = m_pDL->getTypeStoreSize(fieldType);
+      uint64_t fieldOffset = m_pDL->getStructLayout(structType)->getElementOffset(fieldIndex);
+      // make sure struct is not too large for current packet width and
+      // that the resulting field addresses are aligned to fieldSize (or
+      // we can't express them as array indices).
+      if (structAllocSize * (m_packetWidth - 1) + fieldSize < 0x7fffffff &&
+          structAllocSize % fieldSize == 0 &&
+          fieldOffset % fieldSize == 0) {
+        // Use the original GEP as the base for scatter/gather and
+        // generate a int32[m_packetWidth] constant vector for the
+        // index where index[j] = j * structAllocSize / fieldSize.
+        Array_Of_Structs_Store_Or_Loads++; // statistics
+        IntegerType* int32Type = Type::getInt32Ty(Gep->getContext());
+        uint64_t newIndex = structAllocSize / fieldSize;
+        std::vector<Constant*> constList;
+        for (unsigned j=0; j < m_packetWidth; ++j) {
+          constList.push_back(ConstantInt::getSigned(int32Type, j * newIndex));
+        }
+        Constant* newIndexConst = ConstantVector::get(ArrayRef<Constant*>(constList));
+        MO.IndexIsSigned = true;
+        uint64_t maxIndex = newIndex * (m_packetWidth - 1);
+        MO.IndexValidBits = VectorizerUtils::getBSR(maxIndex) + 1;
+        MO.Index = newIndexConst;
+        MO.Base = Gep;
+      }
+    }
+  }
   else if (!Gep) {
     V_PRINT(gather_scatter_stat, "PACKETIZER: NOT GEP " << *MO.Ptr << "\n");
   } else {
-    V_PRINT(gather_scatter_stat, "PACKETIZER: GEP NOT SINGLE INDEX " << *Gep << "\n");
+    V_PRINT(gather_scatter_stat, "PACKETIZER: GEP MORE THAN TWO INDICES " << *Gep << "\n");
+    GEP_With_More_Than_2_Indices++; // statistics
   }
 }
-
 
 void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
   V_ASSERT(MO.Orig && "Invalid instruction");
@@ -1367,6 +1513,7 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
     if (MO.Index) {
       V_PRINT(gather_scatter_stat, "PACKETIZER: LOAD OF NON-SCALARS " << *MO.Orig << "\n");
     }
+    Scalarize_Memory_Operand_That_Does_Not_Have_Vector_Support++; // statistics
     return duplicateNonPacketizableInst(MO.Orig);
   }
 
@@ -1376,6 +1523,7 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
       // If we were able to generate wide memory operation update VCM and return.
       createVCMEntryWithVectorValue(MO.Orig, Wide);
       m_removedInsts.insert(MO.Orig);
+      // statistics gathered inside widenConsecutiveMemOp and not here.
       return;
     }
   }
@@ -1389,6 +1537,7 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
       createVCMEntryWithVectorValue(MO.Orig, Scat);
       m_removedInsts.insert(MO.Orig);
       V_PRINT(gather_scatter_stat, "PACKETIZER: SUCCESS\n");
+      Gather_Scatter_Created++; // statistics
       return;
     }
   }
@@ -1398,6 +1547,7 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
          Instruction::getOpcodeName(MO.Orig->getOpcode()) <<
          ": Handles random pointer, or load/store of non primitive types\n");
   V_STAT(m_nonConsecCtr++;)
+  Scalarize_Memory_Operand_Because_Cant_Create_Gather_Scatter++; // statistics
   return duplicateNonPacketizableInst(MO.Orig);
 }
 
@@ -1538,6 +1688,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
       " Could not find vectorized version for the function:" <<origFuncName<<
       "\n");
       V_STAT(m_noVectorFuncCtr++;)
+      Scalarize_Function_Call++; // statistics
       return duplicateNonPacketizableInst(CI);
     }
 
@@ -1556,6 +1707,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
       " Could not find vectorized version for the function in runtime module:"
       << origFuncName << "\n");
       V_STAT(m_noVectorFuncCtr++;)
+      Scalarize_Function_Call++; // statistics
       return duplicateNonPacketizableInst(CI);
     }
   }
@@ -1570,6 +1722,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   if (!hasNoSideEffects && isMangled && !isMaskedFunctionCall) {
     V_PRINT(vectorizer_stat, "<<<<NoVectorFuncCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(CI->getOpcode()) <<" Vectorized version for the function has side effects:" <<origFuncName<<"\n");
     V_STAT(m_noVectorFuncCtr++;)
+    Scalarize_Function_Call++; // statistics
     return duplicateNonPacketizableInst(CI);
   }
 
@@ -1577,6 +1730,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   if (!obtainNewCallArgs(CI, LibFunc, isMangled, isMaskedFunctionCall, newArgs)) {
     V_PRINT(vectorizer_stat, "<<<<NoVectorFuncCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(CI->getOpcode()) <<" Failed to convert args to vectorized function:" <<origFuncName<<"\n");
     V_STAT(m_noVectorFuncCtr++;)
+    Scalarize_Function_Call++; // statistics
     return duplicateNonPacketizableInst(CI);
   }
 
@@ -1596,6 +1750,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
     m_removedInsts.insert(newCall);
     V_PRINT(vectorizer_stat, "<<<<NoVectorFuncCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(CI->getOpcode()) <<" Failed to convert return value to vectorized function:" <<origFuncName<<"\n");
     V_STAT(m_noVectorFuncCtr++;)
+    Scalarize_Function_Call++; // statistics
     return duplicateNonPacketizableInst(CI);
   }
 
@@ -1605,12 +1760,16 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   // so we need to replace the usage with the usage of the
   // new instruction.
   // currently, this is only supposed to happen for
-  // an allones call and the branch that uses it.
+  // an allones/allzeroes call and the branch that uses it.
+  // (sometimes it is not even used at all, if branch
+  // after allzero is uniform)
   if (WIAnalysis::UNIFORM == m_depAnalysis->whichDepend(CI)) {
-    V_ASSERT(CI->getNumUses() == 1 && "expected one branch uses the allones");
-    V_ASSERT(m_VCM.count(CI) && "missing packetized allone call");
+    V_ASSERT(CI->getNumUses() <= 1
+            && "expected at most one branch uses the allones/allzeroes");
+    V_ASSERT(m_VCM.count(CI) && "missing packetized allone/allzeroes call");
     V_ASSERT(m_VCM[CI]->multiScalarValues[0] ==
-      m_VCM[CI]->multiScalarValues[1] && "expected same scalar value for allones call");
+      m_VCM[CI]->multiScalarValues[1]
+      && "expected same scalar value for allones/allzeroes call");
 
     CI->replaceAllUsesWith(m_VCM[CI]->multiScalarValues[0]);
   }
@@ -1927,7 +2086,15 @@ bool PacketizeFunction::obtainInsertElts(InsertElementInst *IEI, InsertElementIn
   V_ASSERT(vType && "InsertElement should be a vector");
   // currently supports 32 bit vectors or char4
   if (vType->getScalarSizeInBits() != 32 &&
-      (vType->getNumElements() != 4 || vType->getScalarSizeInBits() != 8) ) return false;
+      (vType->getNumElements() != 4 || vType->getScalarSizeInBits() != 8) ) {
+        // Statistics::////////////////////////////////////////////////////////
+        if (prePacketization)
+          Store_Transpose_Given_Up_Due_To_Not_Supported_Vector_Size++;
+        else
+          Insert_Element_Transpose_Given_Up_Due_To_Not_supported_Vector_Size++;
+        ///////////////////////////////////////////////////////////////////////
+        return false;
+  }
   AOSVectorWidth = vType->getNumElements();
   // currently we support only cases where AOSVectorWidth <= m_packetWidth
   if (AOSVectorWidth > m_packetWidth) return false;
@@ -1938,6 +2105,7 @@ bool PacketizeFunction::obtainInsertElts(InsertElementInst *IEI, InsertElementIn
   bool isTransposeSeq = !prePacketization;
 
   std::vector<bool> indicesPresent(AOSVectorWidth, false);
+  int numOfScalarsGoodForTranspose = 0; // for statistics
   // For each of the items we are trying to fetch
   for (unsigned i=0; i < AOSVectorWidth; ++i) {
     // Make sure our chain is made of InsertElements
@@ -1998,6 +2166,10 @@ bool PacketizeFunction::obtainInsertElts(InsertElementInst *IEI, InsertElementIn
       if (m_depAnalysis->whichDepend(insertedValue) == WIAnalysis::UNIFORM) {
         badForTranspose = true;
       }
+      // for statistics:://////////////
+      if (!badForTranspose)
+        numOfScalarsGoodForTranspose++;
+      /////////////////////////////////
 
       // avoidTranspose should end up true only if for ALL inserts,
       // badForTranspose is true.
@@ -2022,6 +2194,11 @@ bool PacketizeFunction::obtainInsertElts(InsertElementInst *IEI, InsertElementIn
   for (unsigned i=0; i < AOSVectorWidth; ++i) {
     if (!indicesPresent[i]) return false;
   }
+  // gather statistics::///////////////////////////////////////////////////////
+  if (prePacketization && isTransposeSeq && numOfScalarsGoodForTranspose < 2) {
+    Store_Transpose_Created_For_A_Single_Scalar++;
+  }
+  /////////////////////////////////////////////////////////////////////////////
 
   return isTransposeSeq;
 }
@@ -2126,6 +2303,7 @@ void PacketizeFunction::packetizeInstruction(InsertElementInst *IEI)
   if (m_packetWidth!=8 && m_packetWidth!=4 && m_packetWidth!=16) {
     V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(IEI->getOpcode()) <<" m_packetWidth!=[4|8|16]\n");
     V_STAT(m_cannotHandleCtr++;)
+    Scalarize_An_Instruction_That_Does_Not_Have_Vector_Support++; // statistics
     return duplicateNonPacketizableInst(IEI);
   }
 
@@ -2137,6 +2315,7 @@ void PacketizeFunction::packetizeInstruction(InsertElementInst *IEI)
   if (!canTranspose) {
     V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(IEI->getOpcode()) <<" can't be transposed\n");
     V_STAT(m_cannotHandleCtr++;)
+    // note we do not want statistics here because already counted inside obtainInsertElts.
     return duplicateNonPacketizableInst(IEI);
   }
 
@@ -2144,10 +2323,12 @@ void PacketizeFunction::packetizeInstruction(InsertElementInst *IEI)
   if (IEI->getType()->getScalarType()->getScalarSizeInBits() != 32 ) {
     V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(IEI->getOpcode()) <<" getScalarSizeInBits() != 32\n");
     V_STAT(m_cannotHandleCtr++;)
+    Insert_Element_Transpose_Given_Up_Due_To_Not_supported_Vector_Size++; // statistics
     return duplicateNonPacketizableInst(IEI);
   }
 
   // obtaining vector inputs to perform transpose over
+  Created_Transpose_For_Insert_Element++; // statistics
   Value *vectorizedInputs [MAX_PACKET_WIDTH];
   for (unsigned i=0; i<AOSVectorWidth; ++i)
     obtainVectorizedValue(&vectorizedInputs[i], InsertEltSequence[i]->getOperand(1), IEI);
@@ -2170,7 +2351,8 @@ void PacketizeFunction::packetizeInstruction(InsertElementInst *IEI)
 
 bool PacketizeFunction::obtainExtracts(Value  *vectorValue,
                              SmallVectorImpl<ExtractElementInst *> &extracts,
-                             bool &allUsersExtract) {
+                             bool &allUsersExtract,
+                             bool attemptingLoadTranspose) {
   VectorType *VT = dyn_cast<VectorType>(vectorValue->getType());
   if (!VT) return false;
   unsigned inputVectorWidth = VT->getNumElements();
@@ -2185,6 +2367,11 @@ bool PacketizeFunction::obtainExtracts(Value  *vectorValue,
       ConstantInt *constInd = dyn_cast<ConstantInt>(scalarIndexVal);
       if (!constInd) return false;
       unsigned ind = constInd->getZExtValue();
+      // statistics::////////////////////////////////////////////////////////////
+      if (extracts[ind] && attemptingLoadTranspose) {
+        Cant_Load_Transpose_Because_Multiple_Extract_Users_With_The_Same_Index++;
+      }
+      ///////////////////////////////////////////////////////////////////////////
       if (ind >= inputVectorWidth || extracts[ind]) return false;
       extracts[ind] = EEUser;
     } else {
@@ -2291,9 +2478,10 @@ void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
   SmallVector<ExtractElementInst *, 16> extracts;
   Value *vectorValue = EI->getVectorOperand();
   bool allUserExtract;
-  if (!obtainExtracts(vectorValue, extracts, allUserExtract)) {
+  if (!obtainExtracts(vectorValue, extracts, allUserExtract, false)) {
     V_PRINT(vectorizer_stat, "<<<<CannotHandleCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(EI->getOpcode()) <<" index should be a constant, and the vector width is 2 or more\n");
     V_STAT(m_cannotHandleCtr++;)
+    Scalarize_ExtractElement_Because_Cant_Transpose++; // statistics
     return duplicateNonPacketizableInst(EI);
   }
 
@@ -2328,6 +2516,7 @@ void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
             << " (m_packetWidth != 4 && m_packetWidth != 8 && m_packetWidth != 16) "
             << "|| inputVectorWidth > m_packetWidth\n");
     V_STAT(m_cannotHandleCtr++;)
+    Scalarize_ExtractElement_Because_Cant_Transpose++; // statistics
     return duplicateNonPacketizableInst(EI);
   }
 
@@ -2370,6 +2559,7 @@ void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
                 << Instruction::getOpcodeName(EI->getOpcode())
                 <<" m_packetWidth == [8] && (getScalarSizeInBits() != 32 || inputVectorWidth < 4)\n");
         V_STAT(m_cannotHandleCtr++;)
+        Scalarize_ExtractElement_Because_Cant_Transpose++; // statistics
         return duplicateNonPacketizableInst(EI);
     }
     obtainTranspVals32bitV8(inputOperands, SOA, generatedShuffles, location);
@@ -2379,15 +2569,24 @@ void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
   }
   VectorizerUtils::SetDebugLocBy(generatedShuffles, EI);
 
+  int numOfExtracts = 0; // for statistics
+  Created_Transpose_For_Extract_Element++; // statistics
+
   // add new value/s to VCM and Remove original instruction
   for (unsigned i=0, e = extracts.size(); i<e; ++i) {
     ExtractElementInst *curEI = extracts[i];
     if (curEI) {
       createVCMEntryWithVectorValue(curEI, SOA[i]);
       m_removedInsts.insert(curEI);
+      numOfExtracts++; // for statistics
     }
   }
 
+  // statistics:: /////////////////////////////////////
+  if (numOfExtracts == 1) {
+    Transposing_ExtractElement_For_A_Single_Extract++;
+  }
+  /////////////////////////////////////////////////////
 }
 
 
@@ -2400,6 +2599,7 @@ void PacketizeFunction::packetizeInstruction(SelectInst *SI)
   if (!SI->getType()->isIntegerTy() && !SI->getType()->isFloatingPointTy()) {
     V_PRINT(vectorizer_stat, "<<<<NonPrimitiveCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(SI->getOpcode()) <<" instruction's return type is not primitive\n");
     V_STAT(m_nonPrimitiveCtr[SI->getOpcode()]++;)
+    Scalarize_An_Instruction_That_Does_Not_Have_Vector_Support++; // Statistics
     return duplicateNonPacketizableInst(SI);
   }
 
@@ -2464,6 +2664,7 @@ void PacketizeFunction::packetizeInstruction(AllocaInst *AI) {
 
   // AllocaInst is supported vectorizing, duplicate original alloca.
   V_STAT(m_allocaCtr++;)
+  Scalarize_An_Instruction_That_Does_Not_Have_Vector_Support++; // statistics
   return duplicateNonPacketizableInst(AI);
 }
 
@@ -2588,6 +2789,7 @@ void PacketizeFunction::createLoadAndTranspose(Instruction* I, Value* loadPtrVal
   }
 
   // Mark original AoS load as instruction to remove
+  Created_Load_And_Transpose++; // statistics
   m_removedInsts.insert(I);
 }
 
@@ -2661,6 +2863,7 @@ void PacketizeFunction::createTransposeAndStore(Instruction* I, Value* storePtrV
   VectorizerUtils::SetDebugLocBy(Call, I);
 
   // Mark original AoS store as instruction to remove
+  Created_Transpose_And_Store++; // statistics
   m_removedInsts.insert(I);
 }
 
@@ -2746,6 +2949,7 @@ void PacketizeFunction::packetizeInstruction(PHINode *PI)
   if (!retType->isIntegerTy() && !retType->isFloatingPointTy()) {
     V_PRINT(vectorizer_stat, "<<<<NonPrimitiveCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(PI->getOpcode()) <<" instruction's return type is not primitive\n");
     V_STAT(m_nonPrimitiveCtr[PI->getOpcode()]++;)
+    // not collecting statistics when duplicating phi-nodes, not a real instruction.
     return duplicateNonPacketizableInst(PI);
   }
 
@@ -2756,20 +2960,39 @@ void PacketizeFunction::packetizeInstruction(PHINode *PI)
   // anyway, in which case we gain nothing, but the users
   // might also be scalars themselves.)
   bool allIncomingValuesDemandMultipleScalars = true;
+  bool otherUsersMightStillNeedScalars = false;
   for (unsigned inputNum = 0; inputNum < numValues; inputNum++)
   {
     Value * origVal = PI->getIncomingValue(inputNum);
     allIncomingValuesDemandMultipleScalars &=
       isInsertNeededToObtainVectorizedValue(origVal);
+
+    for (Value::use_iterator it = origVal->use_begin(), e = origVal->use_end();
+      it != e; ++ it) {
+        if (isa<Instruction>(*it) && !isa<PHINode>(*it)) {
+          otherUsersMightStillNeedScalars = true;
+        }
+    }
   }
   if (allIncomingValuesDemandMultipleScalars) {
-    // currently only duplicating the phi in such a case
-    // if it is a phi created out of the all-ones bypasses.
+    // if it is a phi created out of the all-ones bypasses,
+    // duplicate anyway (even if there are other users)
     Predicator::AllOnesBlockType blockType =
       Predicator::getAllOnesBlockType(PI->getParent());
     if (blockType == Predicator::EXIT ||
       blockType == Predicator::SINGLE_BLOCK_LOOP_EXIT) {
+        // not collecting statistics when duplicating phi-nodes, not a real instruction.
         return duplicateNonPacketizableInst(PI);
+    }
+    // for allones phi-nodes, we know the phi-nodes comes after
+    // all the users in the function instruction iterator, so we safely
+    // duplicate phis.
+    // however, for other phi-nodes, we want to know
+    // no other user will construct the vector anyway. if some user might,
+    // then we are going to construct the vector now, to avoid constructing
+    // it twice.
+    if (!otherUsersMightStillNeedScalars) {
+      return duplicateNonPacketizableInst(PI);
     }
   }
 
@@ -2902,8 +3125,9 @@ void PacketizeFunction::generateSequentialIndices(Instruction *I)
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  FunctionPass* createPacketizerPass(bool scatterGather = false) {
-    return new intel::PacketizeFunction(scatterGather);
+  FunctionPass* createPacketizerPass(bool scatterGather = false,
+                                     unsigned int vectorizationDimension = 0) {
+    return new intel::PacketizeFunction(scatterGather, vectorizationDimension);
   }
 }
 

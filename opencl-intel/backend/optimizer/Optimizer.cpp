@@ -11,6 +11,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "debuggingservicetype.h"
 #include "CompilationUtils.h"
 #include "MetaDataApi.h"
+#include "OclTune.h"
 
 #ifndef __APPLE__
 #include "PrintIRPass.h"
@@ -50,12 +51,13 @@ llvm::Pass* createCLBuiltinLICMPass();
 llvm::Pass* createLoopStridedCodeMotionPass();
 llvm::Pass* createCLStreamSamplerPass();
 llvm::Pass *createPreventDivisionCrashesPass();
+llvm::Pass *createOptimizeIDivPass();
 llvm::Pass *createShiftZeroUpperBitsPass();
 llvm::Pass *createBuiltinCallToInstPass();
 llvm::Pass *createRelaxedPass();
 llvm::Pass *createLinearIdResolverPass();
 llvm::ModulePass *createKernelAnalysisPass();
-llvm::ModulePass *createBuiltInImportPass();
+llvm::ModulePass *createBuiltInImportPass(const char* CPUName);
 llvm::ImmutablePass * createImplicitArgsAnalysisPass(llvm::LLVMContext *C);
 llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
 llvm::ModulePass *createAddImplicitArgsPass();
@@ -156,7 +158,7 @@ createStandardLLVMPasses(llvm::PassManagerBase *PM,
     PM->add(llvm::createLoopUnrollPass(512, 0, 0)); // Unroll small loops
   }
   if (!isDBG) {
-    PM->add(llvm::createFunctionInliningPass(20000)); // Inline (not only small)
+    PM->add(llvm::createFunctionInliningPass(4096)); // Inline (not only small)
                                                      // functions
   }
   // A workaround to fix regression in sgemm on CPU and not causing new
@@ -275,7 +277,8 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
     PM.add(createPrintIRPass(DUMP_IR_TARGERT_DATA, OPTION_IR_DUMPTYPE_AFTER,
                              pConfig->GetDumpIRDir()));
   }
-  if (!pConfig->GetLibraryModule() && getenv("DISMPF") != NULL)
+  if (!pConfig->GetLibraryModule() &&
+      (getenv("DISMPF") != NULL || intel::Statistic::isEnabled()))
     PM.add(createRemovePrefetchPass());
 #endif //#ifndef __APPLE__
   PM.add(createBuiltinCallToInstPass());
@@ -384,10 +387,14 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   PM.add(llvm::createVerifierPass());
 #endif
 
+  // Unroll small loops with unknown trip count.
+  PM.add(llvm::createLoopUnrollPass(16, 0, 0, 1));
   // The ShiftZeroUpperBits pass should be added after the vectorizer because the vectorizer
   // may transform scalar shifts into vector shifts, and we want this pass to fix all vector
   // shift in this module.
   PM.add(createShiftZeroUpperBitsPass());
+  if (!HasGatherScatter)
+    PM.add(createOptimizeIDivPass());
   PM.add(createPreventDivisionCrashesPass());
   // We need InstructionCombining and GVN passes after ShiftZeroUpperBits, PreventDivisionCrashes passes
   // to optimize redundancy introduced by those passes
@@ -474,7 +481,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   PM.add(createUndifinedExternalFunctionsPass(UndefinedExternals));
 
   if(pRtlModule != NULL) {
-    PM.add(createBuiltInImportPass()); // Inline BI function
+      PM.add(createBuiltInImportPass(pConfig->GetCpuId().GetCPUPrefix())); // Inline BI function
     //Need to convert shuffle calls to shuffle IR before running inline pass on built-ins
     PM.add(createBuiltinCallToInstPass());
   }
@@ -487,7 +494,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
 
   if (debugType == intel::None) {
     if (HasGatherScatter)
-      PM.add(llvm::createFunctionInliningPass(20000)); // Inline (not only small) functions.
+      PM.add(llvm::createFunctionInliningPass(4096)); // Inline (not only small) functions.
     else
       PM.add(llvm::createFunctionInliningPass());     // Inline small functions
   } else {

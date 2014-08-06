@@ -30,3 +30,7 @@ add_library(${TARGET_NAME}
 )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER clang_compiler)
+
+install( TARGETS ${TARGET_NAME}
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib)

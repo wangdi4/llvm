@@ -153,9 +153,8 @@ size_t __attribute__((overloadable)) __attribute__((const)) get_image_array_size
 
 //// Auxiliary built-in functions
 
-int4 __attribute__((overloadable)) ProjectToEdgeInt(image2d_t image, int4 coord)
+int4 __attribute__((overloadable)) ProjectToEdgeInt(__private image_aux_data *pImage, int4 coord)
 {
-    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     int4 upper = *((int4*)(&pImage->dimSub1));
     int4 lower = (int4)(0, 0, 0, 0);
 
@@ -164,20 +163,13 @@ int4 __attribute__((overloadable)) ProjectToEdgeInt(image2d_t image, int4 coord)
     return correctCoord;
 }
 
-
-int4 __attribute__((overloadable)) ProjectToEdgeInt(image2d_depth_t image, int4 coord)
-{
-    image2d_t proxy = __builtin_astype(image, image2d_t);
-    return ProjectToEdgeInt(proxy, coord);
-}
 // Clamps SOA4 coordinates to be inside image
 //
 // @param [in] image: the image object
 // @param [in] coord_(x,y) coordinates of the pixel
 // @param [out] res_(x,y) output coordinates
-void __attribute__((overloadable)) SOA4_ProjectToEdgeInt(image2d_t image, int4 coord_x, int4 coord_y, __private int4* res_x, __private int4* res_y)
+void __attribute__((overloadable)) SOA4_ProjectToEdgeInt(__private image_aux_data *pImage, int4 coord_x, int4 coord_y, __private int4* res_x, __private int4* res_y)
 {
-    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     int4 upper_x = (int4)(pImage->dimSub1[0]);
     int4 upper_y = (int4)(pImage->dimSub1[1]);
     int4 lower = (int4)(0, 0, 0, 0);
@@ -192,9 +184,8 @@ void __attribute__((overloadable)) SOA4_ProjectToEdgeInt(image2d_t image, int4 c
 // @param [in] image: the image object
 // @param [in] coord_(x,y) coordinates of the pixel
 // @param [out] res_(x,y) output coordinates
-void __attribute__((overloadable)) SOA8_ProjectToEdgeInt(image2d_t image, int8 coord_x, int8 coord_y, __private int8* res_x, __private int8* res_y)
+void __attribute__((overloadable)) SOA8_ProjectToEdgeInt(__private image_aux_data *pImage, int8 coord_x, int8 coord_y, __private int8* res_x, __private int8* res_y)
 {
-    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     int8 upper_x = (int8)(pImage->dimSub1[0]);
     int8 upper_y = (int8)(pImage->dimSub1[1]);
     int8 lower = (int8)(0, 0, 0, 0, 0, 0, 0, 0);
@@ -215,8 +206,11 @@ __private void* __attribute__((overloadable)) __attribute__((const)) extract_pix
 
 __private void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(image2d_depth_t image, int2 coord)
 {
-    image2d_t proxy = __builtin_astype(image, image2d_t);
-    return extract_pixel(proxy, coord);
+    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
+    uint4 offset = *(uint4*)(pImage->offset);
+    // Use uint for poitner computations to avoid type overrun
+    __private void* pixel = (__private void*)pImage->pData+(uint)coord.x * offset.x + (uint)coord.y * offset.y;
+    return pixel;
 }
 
 void __attribute__((overloadable)) soa4_extract_pixel(image2d_t image, int4 coord_x, int4 coord_y, __private void** p1, __private void** p2, __private void** p3, __private void** p4)
@@ -281,11 +275,22 @@ __private void* __attribute__((overloadable)) __attribute__((const)) extract_pix
 
 __private void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(image2d_array_depth_t image, int4 coord)
 {
-    image2d_array_t proxy = __builtin_astype(image, image2d_array_t);
-    return extract_pixel(proxy, coord);
+    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
+    uint4 offset = *(uint4*)(pImage->offset);
+    __private void* pixel = (__private void*)pImage->pData+(uint)coord.x * offset.x + (uint)coord.y * offset.y
+               + (uint)coord.z*pImage->pitch[1];
+    return pixel;
 }
 
 __private void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(image1d_t image, int coord)
+{
+    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
+    uint4 offset = *(uint4*)(pImage->offset);
+    __private void* pixel = (__private void*)pImage->pData+(uint)coord * offset.x;
+    return pixel;
+}
+
+__private void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(image1d_buffer_t image, int coord)
 {
     __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     uint4 offset = *(uint4*)(pImage->offset);
@@ -303,11 +308,9 @@ __private void* __attribute__((overloadable)) __attribute__((const)) extract_pix
     return pixel;
 }
 
-__private void* __attribute__((overloadable)) __attribute__((const))  GetImagePtr(image2d_array_t image, float idxFloat)
-{
+__private void* __attribute__((overloadable)) __attribute__((const)) GetImagePtr2d(__private image_aux_data *pImage, float idxFloat) {
     // First convert integer image index
     int idx = rint(idxFloat);
-    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     // clamp idx to edge
     if(idx < 0)
     {
@@ -320,10 +323,14 @@ __private void* __attribute__((overloadable)) __attribute__((const))  GetImagePt
     return ptr;
 }
 
+__private void* __attribute__((overloadable)) __attribute__((const))  GetImagePtr(image2d_array_t image, float idxFloat)
+{
+    return GetImagePtr2d(__builtin_astype(image, __private image_aux_data*), idxFloat);
+}
+
 __private void* __attribute__((overloadable)) __attribute__((const))  GetImagePtr(image2d_array_depth_t image, float idxFloat)
 {
-    image2d_array_t proxy = __builtin_astype(image, image2d_array_t);
-    return GetImagePtr(proxy, idxFloat);
+    return GetImagePtr2d(__builtin_astype(image, __private image_aux_data*), idxFloat);
 }
 
 __private void* __attribute__((overloadable)) __attribute__((const))  GetImagePtr(image1d_array_t image, float idxFloat)
@@ -343,10 +350,8 @@ __private void* __attribute__((overloadable)) __attribute__((const))  GetImagePt
     return ptr;
 }
 
-__private void* __attribute__((overloadable)) __attribute__((const)) GetImagePtr(image2d_array_t image, int idx)
-{
+__private void* __attribute__((overloadable)) __attribute__((const)) GetImagePtr2d(__private image_aux_data *pImage, int idx) {
     // clamp idx to edge
-    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     if(idx < 0)
     {
         idx = 0;
@@ -358,10 +363,14 @@ __private void* __attribute__((overloadable)) __attribute__((const)) GetImagePtr
     return ptr;
 }
 
+__private void* __attribute__((overloadable)) __attribute__((const)) GetImagePtr(image2d_array_t image, int idx)
+{
+    return GetImagePtr2d(__builtin_astype(image, __private image_aux_data*), idx);
+}
+
 __private void* __attribute__((overloadable)) __attribute__((const)) GetImagePtr(image2d_array_depth_t image, int idx)
 {
-    image2d_array_t proxy = __builtin_astype(image, image2d_array_t);
-    return GetImagePtr(proxy, idx);
+    return GetImagePtr2d(__builtin_astype(image, __private image_aux_data*), idx);
 }
 
 __private void* __attribute__((overloadable)) __attribute__((const)) GetImagePtr(image1d_array_t image, int idx)
@@ -403,20 +412,20 @@ void __attribute__((overloadable)) soa8_trans_coord_int_NONE_FALSE_NEAREST(__pri
 
 int4 __attribute__((overloadable)) trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(__private void* image, int4 coord)
 {
-    image2d_t image2d = __builtin_astype(image, image2d_t);
-    return ProjectToEdgeInt(image2d, coord);
+    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
+    return ProjectToEdgeInt(pImage, coord);
 }
 
 void __attribute__((overloadable)) soa4_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(__private void* image, int4 coord_x, int4 coord_y, __private int4* res_coord_x, __private int4* res_coord_y)
 {
-    image2d_t image2d = __builtin_astype(image, image2d_t);
-    return SOA4_ProjectToEdgeInt(image2d, coord_x, coord_y, res_coord_x, res_coord_y);
+    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
+    return SOA4_ProjectToEdgeInt(pImage, coord_x, coord_y, res_coord_x, res_coord_y);
 }
 
 void __attribute__((overloadable)) soa8_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(__private void* image, int8 coord_x, int8 coord_y, __private int8* res_coord_x, __private int8* res_coord_y)
 {
-    image2d_t image2d = __builtin_astype(image, image2d_t);
-    return SOA8_ProjectToEdgeInt(image2d, coord_x, coord_y, res_coord_x, res_coord_y);
+    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
+    return SOA8_ProjectToEdgeInt(pImage, coord_x, coord_y, res_coord_x, res_coord_y);
 }
 
 int4 __attribute__((overloadable)) trans_coord_int_UNDEFINED(__private void* image, int4 coord)
@@ -648,11 +657,10 @@ void  __attribute__((overloadable)) mask_write_imagei(int mask, image2d_t image,
 /***********************************FLOAT IMAGE I/O FUNCTIONS (read_imagef)********************************************************/
 
 
-float4  __attribute__((overloadable)) read_imagef(image2d_t image, sampler_t sampler, int2 coord)
+float4  __attribute__((overloadable)) read_imagef_2d(__private image_aux_data *pImage, sampler_t sampler, int2 coord)
 {
     int4 coord4 = (int4)(0.f, 0.f, 0.f, 0.f);
     coord4.lo = coord;
-    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     __private void* pData =pImage->pData;
     int samplerIndex = __builtin_astype(sampler, int);
     Image_I_COORD_CBK coord_cbk = call_coord_translate_i_callback(samplerIndex);
@@ -663,10 +671,14 @@ float4  __attribute__((overloadable)) read_imagef(image2d_t image, sampler_t sam
     return call_Image_FI_READ_CBK(read_cbk, (__private void*)pImage, trans_position, dummy0, dummy1, pData);
 }
 
+float4  __attribute__((overloadable)) read_imagef(image2d_t image, sampler_t sampler, int2 coord)
+{
+    return read_imagef_2d(__builtin_astype(image, __private image_aux_data*), sampler, coord);
+}
+
 float  __attribute__((overloadable)) read_imagef(image2d_depth_t image, sampler_t sampler, int2 coord)
 {
-    image2d_t proxy = __builtin_astype(image, image2d_t);
-    return read_imagef(proxy, sampler, coord).x;
+    return read_imagef_2d(__builtin_astype(image, __private image_aux_data*), sampler, coord).x;
 }
 
 float4  __attribute__((overloadable)) mask_read_imagef(int mask, image2d_t image, sampler_t sampler, int2 coord)
@@ -688,11 +700,10 @@ float4  __attribute__((overloadable)) read_imagef(image3d_t image, sampler_t sam
     return call_Image_FI_READ_CBK(read_cbk, (__private void*)pImage, trans_position, dummy0, dummy1, pData);
 }
 
-float4  __attribute__((overloadable)) read_imagef(image2d_t image, sampler_t sampler, float2 coord)
+float4  __attribute__((overloadable)) read_imagef_2d(__private image_aux_data *pImage, sampler_t sampler, float2 coord)
 {
     float4 coord4 = (float4)(0.f, 0.f, 0.f, 0.f);
     coord4.lo = coord;
-    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     __private void* pData =pImage->pData;
     int samplerIndex = __builtin_astype(sampler, int);
     Image_FF_COORD_CBK coord_cbk = (Image_FF_COORD_CBK)pImage->coord_translate_f_callback[samplerIndex];
@@ -703,10 +714,14 @@ float4  __attribute__((overloadable)) read_imagef(image2d_t image, sampler_t sam
     return call_Image_F_READ_CBK(read_cbk, (__private void*)pImage, square0, square1, fraction, pData);
 }
 
+float4  __attribute__((overloadable)) read_imagef(image2d_t image, sampler_t sampler, float2 coord)
+{
+     return read_imagef_2d(__builtin_astype(image, __private image_aux_data*), sampler, coord);
+}
+
 float  __attribute__((overloadable)) read_imagef(image2d_depth_t image, sampler_t sampler, float2 coord)
 {
-    image2d_t proxy = __builtin_astype(image, image2d_t);
-    return read_imagef(proxy, sampler, coord).x;
+     return read_imagef_2d(__builtin_astype(image, __private image_aux_data*), sampler, coord).x;
 }
 
 float4  __attribute__((overloadable)) mask_read_imagef(int mask, image2d_t image, sampler_t sampler, float2 coord)
@@ -738,8 +753,10 @@ void  __attribute__((overloadable)) write_imagef(image2d_t image, int2 coord, fl
 
 void  __attribute__((overloadable)) write_imagef(image2d_depth_t image, int2 coord, float depth)
 {
-    image2d_t proxy = __builtin_astype(image, image2d_t);
-    write_imagef(proxy, coord, (float4)(depth));
+    __private void* pixel = extract_pixel(image, coord);
+    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
+    Image_F_WRITE_CBK cbk = (Image_F_WRITE_CBK)pImage->write_img_callback;
+    call_Image_F_WRITE_CBK(cbk, pixel, (float4)(depth));
 }
 
 void  __attribute__((overloadable)) mask_write_imagef(int mask, image2d_t image, int2 coord, float4 color)
@@ -747,15 +764,14 @@ void  __attribute__((overloadable)) mask_write_imagef(int mask, image2d_t image,
   if (mask) write_imagef(image, coord, color);
 }
 
-float4  __attribute__((overloadable)) read_imagef(image2d_array_t image, sampler_t sampler, int4 coord)
+float4  __attribute__((overloadable)) read_imagef_2d_array(__private image_aux_data *pImage, sampler_t sampler, int4 coord)
 {
     int4 internal_coord = coord;
     internal_coord.z = 0;
     int arrayIndex = coord.z;
-    __private void* pData = GetImagePtr(image, arrayIndex);
+    __private void* pData = GetImagePtr2d(pImage, arrayIndex);
     int samplerIndex = __builtin_astype(sampler, int);
     Image_I_COORD_CBK coord_cbk = call_coord_translate_i_callback(samplerIndex);
-    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)pImage->read_img_callback_float[samplerIndex];
     int4 dummy0;
     float4 dummy1;
@@ -764,12 +780,23 @@ float4  __attribute__((overloadable)) read_imagef(image2d_array_t image, sampler
     return val;
 }
 
-float4  __attribute__((overloadable)) read_imagef(image2d_array_t image, sampler_t sampler, float4 coord)
+float4  __attribute__((overloadable)) read_imagef(image2d_array_t image, sampler_t sampler, int4 coord)
+{
+    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
+    return read_imagef_2d_array(pImage, sampler, coord);
+}
+
+float  __attribute__((overloadable)) read_imagef(image2d_array_depth_t image, sampler_t sampler, int4 coord)
+{
+    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
+    return read_imagef_2d_array(pImage, sampler, coord).x;
+}
+
+float4  __attribute__((overloadable)) read_imagef_2d_array(__private image_aux_data *pImage, sampler_t sampler, float4 coord)
 {
     float4 internal_coord = _mm_and_ps(coord, *(__m128*)fVec4FloatZeroCoordMask3D);
     internal_coord.z = 0;
-    __private void* pData = GetImagePtr(image, coord.z);
-    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
+    __private void* pData = GetImagePtr2d(pImage, coord.z);
     int samplerIndex = __builtin_astype(sampler, int);
     Image_FF_COORD_CBK coord_cbk=(Image_FF_COORD_CBK)pImage->coord_translate_f_callback[samplerIndex];
     Image_F_READ_CBK read_cbk = (Image_F_READ_CBK)pImage->read_img_callback_float[samplerIndex];
@@ -779,16 +806,16 @@ float4  __attribute__((overloadable)) read_imagef(image2d_array_t image, sampler
     return val;
 }
 
-float  __attribute__((overloadable)) read_imagef(image2d_array_depth_t image, sampler_t sampler, int4 coord)
+float4  __attribute__((overloadable)) read_imagef(image2d_array_t image, sampler_t sampler, float4 coord)
 {
-    image2d_array_t proxy = __builtin_astype(image, image2d_array_t);
-    return read_imagef(proxy, sampler, coord).x;
+    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
+    return read_imagef_2d_array(pImage, sampler, coord);
 }
 
 float  __attribute__((overloadable)) read_imagef(image2d_array_depth_t image, sampler_t sampler, float4 coord)
 {
-    image2d_array_t proxy = __builtin_astype(image, image2d_array_t);
-    return read_imagef(proxy, sampler, coord).x;
+    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
+    return read_imagef_2d_array(pImage, sampler, coord).x;
 }
 
 int4  __attribute__((overloadable)) read_imagei(image2d_array_t image, sampler_t sampler, int4 coord)
@@ -1006,11 +1033,10 @@ uint4 __attribute__((overloadable)) read_imageui(image1d_array_t image, sampler_
 }
 
 // sampler-less calls
-float4 __attribute__((overloadable)) read_imagef (image2d_t image, int2 coord)
+float4 __attribute__((overloadable)) read_imagef_2d (__private image_aux_data *pImage, int2 coord)
 {
     int4 coord4 = (int4)(0, 0, 0, 0);
     coord4.lo = coord;
-    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     __private void* pData =pImage->pData;
     Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)pImage->read_img_callback_float[SIMPLE_SAMPLER];
     int4 dummy0;
@@ -1018,10 +1044,16 @@ float4 __attribute__((overloadable)) read_imagef (image2d_t image, int2 coord)
     return call_Image_FI_READ_CBK(read_cbk, (__private void*)pImage, coord4, dummy0, dummy1, pData);
 }
 
+float4 __attribute__((overloadable)) read_imagef (image2d_t image, int2 coord)
+{
+    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
+    return read_imagef_2d(pImage, coord);
+}
+
 float __attribute__((overloadable)) read_imagef (image2d_depth_t image, int2 coord)
 {
-    image2d_t proxy = __builtin_astype(image, image2d_t);
-    return read_imagef(proxy, coord).x;
+    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
+    return read_imagef_2d(pImage, coord).x;
 }
 
 float4 __attribute__((overloadable)) mask_read_imagef (int mask, image2d_t image, int2 coord)
@@ -1088,23 +1120,28 @@ uint4 __attribute__((overloadable)) read_imageui (image3d_t image, int4 coord)
     return call_Image_UI_READ_CBK(read_cbk, (__private void*)pImage, coord, pData);
 }
 
-float4 __attribute__((overloadable)) read_imagef (image2d_array_t image, int4 coord)
+float4 __attribute__((overloadable)) read_imagef_2d_array (__private image_aux_data *pImage, int4 coord)
 {
     // naive read_imagef implementation
     int4 internal_coord = coord;
     internal_coord.z = 0;
-    __private void* pData = GetImagePtr(image, coord.z);
-    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
+    __private void* pData = GetImagePtr2d(pImage, coord.z);
     Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)pImage->read_img_callback_float[SIMPLE_SAMPLER];
     int4 dummy0;
     float dummy1;
     return call_Image_FI_READ_CBK(read_cbk, (__private void*)pImage, internal_coord, dummy0, dummy1, pData);
 }
 
+float4 __attribute__((overloadable)) read_imagef (image2d_array_t image, int4 coord)
+{
+    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
+    return read_imagef_2d_array(pImage, coord);
+}
+
 float __attribute__((overloadable)) read_imagef (image2d_array_depth_t image, int4 coord)
 {
-    image2d_array_t proxy = __builtin_astype(image, image2d_array_t);
-    return read_imagef(proxy, coord).x;
+    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
+    return read_imagef_2d_array(pImage, coord).x;
 }
 
 int4 __attribute__((overloadable)) read_imagei (image2d_array_t image, int4 coord)
@@ -1225,8 +1262,10 @@ void __attribute__((overloadable)) write_imagef (image2d_array_t image, int4 coo
 
 void __attribute__((overloadable)) write_imagef (image2d_array_depth_t image, int4 coord, float depth)
 {
-    image2d_array_t proxy = __builtin_astype(image, image2d_array_t);
-    write_imagef(proxy, coord, (float4)(depth));
+    __private void* pixel = extract_pixel(image, coord);
+    __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
+    Image_F_WRITE_CBK cbk = (Image_F_WRITE_CBK)pImage->write_img_callback;
+    call_Image_F_WRITE_CBK(cbk, pixel, (float4)(depth));
 }
 
 void __attribute__((overloadable)) write_imagei (image2d_array_t image, int4 coord, int4 color)
@@ -1271,8 +1310,7 @@ void __attribute__((overloadable)) write_imageui (image1d_t image, int coord, ui
 
 void __attribute__((overloadable)) write_imagef (image1d_buffer_t image, int coord, float4 color)
 {
-    image1d_t image1d = __builtin_astype(image, image1d_t);
-    __private void* pixel = extract_pixel(image1d, coord);
+    __private void* pixel = extract_pixel(image, coord);
     __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     Image_F_WRITE_CBK cbk = (Image_F_WRITE_CBK)pImage->write_img_callback;
     call_Image_F_WRITE_CBK(cbk, pixel, color);
@@ -1280,8 +1318,7 @@ void __attribute__((overloadable)) write_imagef (image1d_buffer_t image, int coo
 
 void __attribute__((overloadable)) write_imagei (image1d_buffer_t image, int coord, int4 color)
 {
-    image1d_t image1d = __builtin_astype(image, image1d_t);
-    __private void* pixel = extract_pixel(image1d, coord);
+    __private void* pixel = extract_pixel(image, coord);
     __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     Image_I_WRITE_CBK cbk = (Image_I_WRITE_CBK)pImage->write_img_callback;
     call_Image_I_WRITE_CBK(cbk, pixel, color);
@@ -1289,8 +1326,7 @@ void __attribute__((overloadable)) write_imagei (image1d_buffer_t image, int coo
 
 void __attribute__((overloadable)) write_imageui (image1d_buffer_t image, int coord, uint4 color)
 {
-    image1d_t image1d = __builtin_astype(image, image1d_t);
-    __private void* pixel = extract_pixel(image1d, coord);
+    __private void* pixel = extract_pixel(image, coord);
     __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     Image_UI_WRITE_CBK cbk = (Image_UI_WRITE_CBK)pImage->write_img_callback;
     call_Image_UI_WRITE_CBK(cbk, pixel, color);

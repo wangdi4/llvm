@@ -8,6 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Main.h"
 #include "VectorizerCore.h"
 #include "MetaDataApi.h"
+#include "OclTune.h"
 
 #include "llvm/Pass.h"
 #include "llvm/PassManager.h"
@@ -115,6 +116,8 @@ bool Vectorizer::runOnModule(Module &M)
     // default values for non vectorized kernels.
     Function *vectFunc = 0;
     int vectFuncWidth = 1;
+    unsigned int vectDim = 0;
+    bool canUniteWorkgroups = false;
 
     if (*fi) {
       // Clone the kernel
@@ -122,13 +125,32 @@ bool Vectorizer::runOnModule(Module &M)
       Function *clone = CloneFunction(*fi,vmap, false, NULL);
       clone->setName("__Vectorized_." + (*fi)->getName());
       M.getFunctionList().push_back(clone);
+
+      // Todo: due to a bug in the metadata we can't save changes more than once
+      // (even if we reinstantiate the metadata object after saving).
+      // Until this is fixed, we send the scalar function directly to the vectorizer core.
+      //Intel::KernelInfoMetaDataHandle vkimd = mdUtils.getOrInsertKernelsInfoItem(clone);
+      //vkimd->setVectorizedKernel(NULL);
+      //vkimd->setScalarizedKernel(*fi);
+      //Save Metadata to the module
+      //mdUtils.save(M.getContext());
+
+      vectCore->setScalarFunc(*fi);
+
       vectPM.run(*clone);
       if (vectCore->isFunctionVectorized()) {
         // if the function is successfully vectorized update vectFunc and width.
         vectFunc = clone;
         vectFuncWidth = vectCore->getPacketWidth();
+        vectDim = vectCore->getVectorizationDim();
+        canUniteWorkgroups = vectCore->getCanUniteWorkgroups();
+        // copy stats from the original function to the new one
+        intel::Statistic::copyFunctionStats(**fi, *clone);
       } else {
         // We can't or choose not to vectorize the kernel, erase the clone from the module.
+        // but first copy the vectorizer stats back to the original function
+        intel::Statistic::copyFunctionStats(*clone, **fi);
+        intel::Statistic::removeFunctionStats(*clone);
         clone->eraseFromParent();
       }
       V_ASSERT(vectFuncWidth > 0 && "vect width for non vectoized kernels should be 1");
@@ -149,6 +171,8 @@ bool Vectorizer::runOnModule(Module &M)
         vkimd->setVectorizedKernel(NULL);
         vkimd->setVectorizedWidth(vectFuncWidth);
         vkimd->setScalarizedKernel(*fi);
+        vkimd->setVectorizationDimension(vectDim);
+        vkimd->setCanUniteWorkgroups(canUniteWorkgroups);
       }
     }
   }

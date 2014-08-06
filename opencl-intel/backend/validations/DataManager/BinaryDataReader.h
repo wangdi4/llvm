@@ -210,7 +210,7 @@ namespace Validation
                     bool isNEAT;
                     readValue(signature);
                     if(signature == 0xffffffff) {
-                        // OpenCl 1.2 and higher
+                        // OpenCL 1.2 and higher
                         uint32_t versionHigh;
                         uint32_t versionLow;
                         readValue(versionHigh);
@@ -219,11 +219,11 @@ namespace Validation
                         imageType = (ImageTypeVal)imageType2Read;
                         readValue(sizes);
                     } else {
-                        // OpenCl 1.1 read
+                        // OpenCL 1.1 read
                         ImageSizeDesc_1_1 oldSizes;
                         // here signature actually is num of dimensions
 
-                        bool isArray = false; // no image arrays supported by OpenCl 1.1
+                        bool isArray = false; // no image arrays supported by OpenCL 1.1
                         imageType = GetImageTypeFromDimCount(signature,isArray);
                         readValue(oldSizes);
 

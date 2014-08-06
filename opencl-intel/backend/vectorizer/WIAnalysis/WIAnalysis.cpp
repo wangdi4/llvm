@@ -108,6 +108,13 @@ gep_conversion_for_indirection[WIAnalysis::NumDeps][WIAnalysis::NumDeps] = {
 
 WIAnalysis::WIAnalysis() : FunctionPass(ID), m_rtServices(NULL) {
     initializeWIAnalysisPass(*llvm::PassRegistry::getPassRegistry());
+    m_vectorizedDim = 0;
+}
+
+WIAnalysis::WIAnalysis(unsigned int vectorizationDimension) :
+  FunctionPass(ID), m_rtServices(NULL) {
+  initializeWIAnalysisPass(*llvm::PassRegistry::getPassRegistry());
+  m_vectorizedDim = vectorizationDimension;
 }
 
 
@@ -502,10 +509,15 @@ void WIAnalysis::updateCfDependency(const TerminatorInst *inst) {
         BranchInst* br = dyn_cast<BranchInst>(term);
         assert(br && "br cannot be null");
 
-        // an allones branch is a uniform branch.
+        // allones and allzeroes branches are uniform.
         bool branchIsAllOnes = (Predicator::getAllOnesBranch(br->getParent()) != NULL);
+        CallInst* callInst =
+          br->isConditional() ? dyn_cast<CallInst>(br->getCondition()) : NULL;
+        bool branchIsAllZeroes = callInst &&
+          callInst->getCalledFunction() &&
+          Mangler::isAllZero(callInst->getCalledFunction()->getName());
 
-        if (br->isConditional() && !branchIsAllOnes) {
+        if (br->isConditional() && !branchIsAllOnes && !branchIsAllZeroes) {
           updateDepMap(term, WIAnalysis::RANDOM);
           // This region is going to be part of a larger region that is going
           // to be predicated
@@ -732,7 +744,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
   // We do not vectorize TID with variable dimension
   V_ASSERT((!err) && "TIDGen inst receives non-constant input. Cannot vectorize!");
   // All WI's are consecutive along the zero dimension
-  if (isTidGen && dim == 0) return WIAnalysis::CONSECUTIVE;
+  if (isTidGen && dim == m_vectorizedDim) return WIAnalysis::CONSECUTIVE;
 
   // Check if function is declared inside "this" module
   if (!inst->getCalledFunction()->isDeclaration()) {
@@ -795,8 +807,8 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
     }
   }
 
-  // support all-ones. An allones branch is a uniform branch.
-  if (Mangler::isAllOne(origFuncName)) {
+  // An allones and allzeroes branches are uniform branch.
+  if (Mangler::isAllOne(origFuncName) || Mangler::isAllZero(origFuncName)) {
     return WIAnalysis::UNIFORM;
   }
 

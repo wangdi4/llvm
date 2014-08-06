@@ -31,7 +31,7 @@ namespace Validation
     ///////////////////////
     /// NEATValue structure
     ///
-    /// @brief defines status of vector element. describes if it is accurate or from interval or unknown
+    /// @brief defines status of vector element. Describes if it is accurate or from interval or unknown.
 
     /// TODO: write specialization for constructor getting status as argument
     struct NEATValue

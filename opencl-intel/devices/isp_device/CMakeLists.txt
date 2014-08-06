@@ -1,21 +1,47 @@
+#
+# Project variables:
+#  OCL_SOURCE_DIR    - points to the top src directory
+#  OCL_BINARY_DIR    - points to the directory outside of OCL_SOURCE_DIR - root of generated files
+#
 
 # set that name of the main output file as a target name
 set( TARGET_NAME isp_device${BUILD_PLATFORM} )
 
-include_directories( BEFORE ${OCL_BINARY_DIR})
-set( FILES_TO_COPY ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX} )
+include_directories( BEFORE
+    ${OCL_BINARY_DIR}
+    css
+    css/hrt )
 
 if (WIN32)
-    add_definitions( -D_WINDOWS )
+    set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2010/${OCL_SYS_DEPENDENT_SUBDIR} )
+else (WIN32)
+    set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
+endif (WIN32)
+
+link_directories( ${TBB_LIB_DIR}
+                  ${CMAKE_CURRENT_SOURCE_DIR}/res )
+
+
+# TODO: remove this
+if (WIN32)
     if (CMAKE_SIZEOF_VOID_P EQUAL 8)
         add_definitions( -DRESOURCE_X64 )
     endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
-else ()
-    add_definitions( -D_LINUX )
 endif (WIN32)
 
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
+
+FILE(GLOB CSS_HEADERS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} css/*.h)
+FILE(GLOB CAMERASHIM_HEADERS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} res/*.h)
+
+if (WIN32)
+    source_group( "CSS Headers" FILES ${CSS_HEADERS} )
+    list( APPEND TARGET_SOURCES ${CSS_HEADERS} )
+    
+    source_group( "CameraShim" FILES ${CAMERASHIM_HEADERS} )
+    list( APPEND TARGET_SOURCES ${CAMERASHIM_HEADERS} )
+endif (WIN32)
 
 #add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
@@ -24,12 +50,17 @@ if (NOT WIN32)
     SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} isp_device_linux_exports.txt )
 endif (NOT WIN32)
 
-install( TARGETS ${TARGET_NAME}
-            RUNTIME DESTINATION bin
-            ARCHIVE DESTINATION lib
-            LIBRARY DESTINATION bin)
+target_link_libraries( ${TARGET_NAME}
+    cl_sys_utils
+    cl_logger
+    task_executor${BUILD_PLATFORM}
+    shimOCL )
 
-target_link_libraries( ${TARGET_NAME} cl_sys_utils )
+install( TARGETS ${TARGET_NAME}
+    RUNTIME DESTINATION bin
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION bin )
+
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${DEVICES_FOLDER_NAME} )
 
 if (WIN32)

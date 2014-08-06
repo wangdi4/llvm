@@ -37,6 +37,7 @@ set (TARGET_INCLUDE_FILES
   RefcountThreadSafe.h
   Atomics.h
   Logger.h
+  OclTune.h
   ${TARGET_EXTRA_INCLUDE_FILES}
 )
 
@@ -51,6 +52,7 @@ set (TARGET_SOURCE_FILES
   VectorizerUtils.cpp
   BlockUtils.cpp
   Atomics.cpp
+  OclTune.cpp
   ${TARGET_EXTRA_SOURCE_FILES}
 )
 
@@ -60,6 +62,7 @@ include_directories(
   ${BACKEND_ROOT_DIR}/metadata_api
   ${BACKEND_ROOT_DIR}/utils
   ${CMAKE_BINARY_DIR}/include
+  ${CMAKE_BINARY_DIR}
 )
 
 if (APPLE)
@@ -75,22 +78,13 @@ endif (APPLE)
 # Include the ASM sources
 if(BUILD_X64)
     if (WIN32)
-        set (UTILS_ASM_SOURCES ../ocl_cpu_backend/kernel_execute_64.asm)
-    elseif (APPLE)
-        set (UTILS_ASM_SOURCES mac_utils.s)
+        CREATE_ASM_RULES( UTILS_ASM_ADD_TO_SOURCES_LIST ../ocl_cpu_backend/kernel_execute_64.asm )
     else ()
-        set (UTILS_ASM_SOURCES ../ocl_cpu_backend/linux64_utils.s)
+        set (UTILS_ASM_ADD_TO_SOURCES_LIST ../ocl_cpu_backend/linux64_utils.s)
     endif ()
-else(BUILD_X64)
-    if (APPLE)
-        set (UTILS_ASM_SOURCES mac_utils.s)
-    endif (APPLE)
 endif(BUILD_X64)
-
 if(APPLE)
-    set( UTILS_ASM_ADD_TO_SOURCES_LIST ${UTILS_ASM_SOURCES} )
-else(APPLE)
-    CREATE_ASM_RULES( UTILS_ASM_ADD_TO_SOURCES_LIST ${UTILS_ASM_SOURCES} )
+    set(UTILS_ASM_ADD_TO_SOURCES_LIST mac_utils.s)
 endif(APPLE)
 
 add_library(${TARGET_NAME} STATIC

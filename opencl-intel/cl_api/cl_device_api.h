@@ -388,6 +388,7 @@ enum cl_dev_buffer_sharing_group_id
 {
     CL_DEV_CPU_BUFFER_SHARING_GROUP_ID = 0, //! All devices that may use the same Buffer IOCLDevMemoryObject implementation as CPU does
     CL_DEV_MIC_BUFFER_SHARING_GROUP_ID,     //! All devices that may use the same Buffer IOCLDevMemoryObject implementation as MIC does
+    CL_DEV_ISP_BUFFER_SHARING_GROUP_ID,     //! All devices that may use the same Buffer IOCLDevMemoryObject implementation as ISP does
 
     CL_DEV_MAX_BUFFER_SHARING_GROUP_ID      //! Last id
 };
@@ -396,6 +397,7 @@ enum cl_dev_image_sharing_group_id
 {
     CL_DEV_CPU_IMAGE_SHARING_GROUP_ID = 0,  //! All devices that may use the same Image IOCLDevMemoryObject implementation as CPU does
     CL_DEV_MIC_IMAGE_SHARING_GROUP_ID,      //! All devices that may use the same Image IOCLDevMemoryObject implementation as MIC does
+    CL_DEV_ISP_IMAGE_SHARING_GROUP_ID,      //! All devices that may use the same Image IOCLDevMemoryObject implementation as ISP does
 
     CL_DEV_MAX_IMAGE_SHARING_GROUP_ID       //! Last id
 };
@@ -425,7 +427,7 @@ struct cl_dev_alloc_prop
     size_t      preferred_alignment;//!< Specifies the preferred alignment in bytes for the memory object
     cl_ulong    maxBufferSize;      //!< Specifies the minimum size in bytes for the buffer memory object
     bool        imagesSupported;    //!< Device supports images
-    bool        hostUnified;        //!< Memory allocator may allocate memory in unified(accessible) with the host memory
+    bool        mustAllocRawMemory; //!< Device must allocate raw memory for memory object in Runtime
     bool        usedByDMA;          //!< Device may use DMA engine to access memory object
     bool        GLSharing;          //!< Device memory manager can accept GL sub-system memory object handles
     bool        DXSharing;          //!< Device memory manager can accept DX sub-system memory object handles
@@ -535,12 +537,12 @@ struct  cl_dev_cmd_param_kernel
                                                                  //!< values that describe the offset used to calculate the global ID of a work-item.
     size_t              glb_wrk_size[MAX_WORK_DIM];              //!< An array of work_dim unsigned values that describe the number of global work-items
                                                                  //!< in work_dim dimensions that will execute the kernel function. The total number of
-                                                                 //!< global work-items is computed as glb_wrk_size[0] * … *glb_wrk_size[work_dim – 1].
+                                                                 //!< global work-items is computed as glb_wrk_size[0] * â€¦ *glb_wrk_size[work_dim â€“ 1].
                                                                  //!< When executing a task, this value must be equal to 1.
     size_t              lcl_wrk_size[WG_SIZE_NUM][MAX_WORK_DIM]; //!< An array of work_dim unsigned values that describe the number of work-items+
                                                                  //!< that make up a work-group (also referred to as the size of the work-group)
                                                                  //!< that will execute the kernel specified by kernel. The total number of work-items in a work-group
-                                                                 //!< is computed as lcl_wrk_size[0] * … * lcl_wrk_size[work_dim – 1].
+                                                                 //!< is computed as lcl_wrk_size[0] * â€¦ * lcl_wrk_size[work_dim â€“ 1].
                                                                  //!< When executing a task, this value must be equal to 1. When the values are 0, and hint or required
                                                                  //!< work-group size is defined for the kernel, the agent will use these values for execution.
                                                                  //!< When the values are 0, and neither hint nor required work-group sizes is not defined,
@@ -629,11 +631,25 @@ class IOCLDevice;
         CL_DEV_SUCCESS      The device was successfully created. pDevEntry holds updated pointers
         CL_DEV_ERROR_FAIL   Internal error
 */
+
+namespace Intel { namespace OpenCL { namespace Utils {
+
+class FrameworkUserLogger;
+
+}}}
+
+namespace Intel { namespace OpenCL { namespace TaskExecutor {
+
+class ITaskExecutor;
+
+}}}
+
 typedef cl_dev_err_code (fn_clDevCreateDeviceInstance)(
                                    unsigned int     dev_id,
                                    IOCLFrameworkCallbacks   *pDevCallBacks,
                                    IOCLDevLogDescriptor     *pLogDesc,
-                                   IOCLDeviceAgent*             *pDevice
+                                   IOCLDeviceAgent*             *pDevice,
+                                   Intel::OpenCL::Utils::FrameworkUserLogger* pUserLogger
                                    );
 
 //! This function return device specific information defined by cl_device_info enumeration as specified in OCL spec. table 4.3.
@@ -711,6 +727,9 @@ public:
                                             cl_int          IN completion_result,
                                             cl_ulong        IN timer
                                             ) = 0;
+
+    //! Get ITaskExecutor to run tasks on the host
+    virtual Intel::OpenCL::TaskExecutor::ITaskExecutor* clDevGetTaskExecutor() = 0;
 };
 
 /*!
@@ -989,6 +1008,34 @@ public:
 };
 
 /*!
+ \interface IOCLDevRawMemoryAllocator
+ \brief Memory allocator on device that can be used in Runtime.
+
+  This interface represents a device raw memory allocator, it would replace the normal heap allocator in Runtime.
+  Allocated memory is accessible from both host and device, Runtime can use this allocator for optimization purposes.
+  Device agents that report mustAllocRawMemory=true in cl_dev_alloc_prop should implement this interface.
+*/
+class IOCLDevRawMemoryAllocator
+{
+public:
+    //! This function allocates a memory region that is shared with host.
+    /*!
+        \param[in]  allocSize           Size of the requested allocation.
+        \param[in]  alignment           Memory alignment of the requested allocation.
+        \retval                         Pointer to allocated memory. NULL if allocation failed.
+    */
+    virtual void* clDevAllocateRawMemory( size_t IN allocSize,
+                                       size_t IN alignment ) = 0;
+
+    //! This function releases a memory that was previously allocated by clDevAllocateMemory().
+    /*!
+        \param[in]  allocatedMemory     Pointer to the memory that was previously allocated.
+    */
+    virtual void clDevFreeRawMemory( void* IN allocatedMemory ) = 0;
+
+};
+
+/*!
  \interface IOCLDeviceAgent
  \brief Device Agent interface.
 
@@ -1137,9 +1184,11 @@ public:
 
     //! Release a command
     /*!
-     * \param[in]   cmdToRelease the command to release
+     * \param[in]   cmdToRelease            the command to release
+       \retval      CL_DEV_SUCCESS          The function is executed successfully.
+       \retval      CL_DEV_INVALID_VALUE    If cmdToRelease is not a valid command.
      */
-    virtual void clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease) = 0;
+    virtual cl_dev_err_code clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease) = 0;
 
     //!This function returns the list of image formats supported by an OCL implementation when the information about
     //! an image memory object is specified and device supports image objects.
@@ -1420,12 +1469,23 @@ public:
     */
     virtual cl_dev_err_code clDevSetLogger(IOCLDevLogDescriptor* IN pLogger) = 0;
 
-    virtual const IOCLDeviceFECompilerDescription& clDevGetFECompilerDecription() const = 0;
-
     //!    De-initialize internal state of the device agent and releases all allocated data.
     virtual void clDevCloseDevice() = 0;
 
+    //! Retrieves Front-End compiler description for the device if available
+    /*!
+        \return     Front-End compiler description interface if available, NULL otherwise
+    */
+    virtual const IOCLDeviceFECompilerDescription* clDevGetFECompilerDecription() const = 0;
+
+    //! Retrieves Raw Memory Allocator for the device if available
+    /*!
+        \return     Raw Memory Allocator interface if available, NULL otherwise
+    */
+    virtual IOCLDevRawMemoryAllocator* clDevGetRawMemoryAllocator() = 0;
+
 };
+
 
 /*!
  \interface IOCLDevLogDescriptor

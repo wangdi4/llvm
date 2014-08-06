@@ -25,10 +25,17 @@
 #include "../framework_test_type/test_utils.h"
 #include "cl_synch_objects.h"
 #include "cl_sys_info.h"
+#include "task_executor.h"
 
 using Intel::OpenCL::Utils::OclBinarySemaphore;
 using std::vector;
 using std::count;
+
+enum EProcessorOccupied
+{
+    NOT_OCCUPIED,
+    OCCUPIED
+};
 
 struct NativeKernelParams
 {
@@ -36,12 +43,12 @@ struct NativeKernelParams
     NativeKernelParams(unsigned long ulNumProcessors, unsigned long ulNumProcessorsInDev, unsigned int uiMasterCpuId, affinityMask_t* pMask) : m_ulNumProcessors(ulNumProcessors),m_ulNumKernels(ulNumProcessorsInDev), m_processorsOccupied(ulNumProcessors),
         m_bDoubleAffinity(false), m_uiMasterCpuId(uiMasterCpuId), m_pMask(pMask)
     {
-        std::fill(m_processorsOccupied.begin(), m_processorsOccupied.end(), false);
+        std::fill(m_processorsOccupied.begin(), m_processorsOccupied.end(), NOT_OCCUPIED);
     }
 
     unsigned long                       m_ulNumProcessors;
     unsigned long                       m_ulNumKernels;
-    vector<bool>                        m_processorsOccupied;
+    vector<EProcessorOccupied>          m_processorsOccupied;
     volatile bool                       m_bDoubleAffinity;
     volatile unsigned int               m_uiMasterCpuId;
     affinityMask_t*                     m_pMask;
@@ -60,7 +67,7 @@ static void CL_CALLBACK NativeKernel(void* ptr)
 	}
 	else
 	{
-		params->m_processorsOccupied[uiCpuId] = true;
+		params->m_processorsOccupied[uiCpuId] = OCCUPIED;
 	}		
 	params->m_cnt++;
 	int count = 1;
@@ -91,6 +98,8 @@ public:
 			}
 		}
 	}	
+
+    Intel::OpenCL::TaskExecutor::ITaskExecutor* clDevGetTaskExecutor() { return Intel::OpenCL::TaskExecutor::GetTaskExecutor(); }
 
 private:
 
@@ -161,7 +170,7 @@ static bool AffinityTestForDevice(cl_dev_subdevice_id dev, NativeKernelParams* p
 #ifndef _WIN32
         if (NULL != params->m_pMask)
         {
-            const vector<bool>::difference_type numOccupiedProcessors = count(params->m_processorsOccupied.begin(), params->m_processorsOccupied.end(), true);
+            const vector<EProcessorOccupied>::difference_type numOccupiedProcessors = count(params->m_processorsOccupied.begin(), params->m_processorsOccupied.end(), OCCUPIED);
             for (unsigned long i = 0; i < params->m_ulNumProcessors; ++i)
             {                
                 bRes &= !params->m_processorsOccupied[i] || CPU_ISSET(i, params->m_pMask);                    

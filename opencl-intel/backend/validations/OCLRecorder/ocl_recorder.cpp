@@ -769,7 +769,6 @@ namespace Validation
         IBufferContainer *pBufferContainer = bufferList.CreateBufferContainer();
 
         // iterate over all the kernel parameters and populate the buffer container
-        size_t stArgsOffset = 0;
         llvm::Function::const_arg_iterator arg_it = kernelContext.getFuncPtr()->arg_begin();
         for(unsigned int i=0; i<argsCount; ++i)
         {
@@ -780,7 +779,7 @@ namespace Validation
                 ( CL_KRNL_ARG_PTR_IMG_2D_ARR == pKernelArgs[i].type ) ||
                 ( CL_KRNL_ARG_PTR_IMG_3D == pKernelArgs[i].type ))
             {
-                cl_mem_obj_descriptor* mem_descriptor = *(cl_mem_obj_descriptor**)((char*)pArgsBuffer+stArgsOffset);
+                cl_mem_obj_descriptor* mem_descriptor = *(cl_mem_obj_descriptor**)((char*)pArgsBuffer + pKernelArgs[i].offset_in_bytes);
                 // create image
                 ImageDesc desc = Utils::GetImageDesc(mem_descriptor, *arg_it);
                 IMemoryObject* pImage = pBufferContainer->CreateImage(desc);
@@ -789,12 +788,10 @@ namespace Validation
                 char* pData = (char*)pImage->GetDataPtr();
                 size_t size  = desc.GetImageSizeInBytes();
                 memcpy( pData, mem_descriptor->pData, size);
-
-                stArgsOffset += sizeof(void*);
             }
             else if ( CL_KRNL_ARG_PTR_GLOBAL <= pKernelArgs[i].type )
             {
-                cl_mem_obj_descriptor* mem_descriptor = *(cl_mem_obj_descriptor**)((char*)pArgsBuffer+stArgsOffset);
+                cl_mem_obj_descriptor* mem_descriptor = *(cl_mem_obj_descriptor**)((char*)pArgsBuffer + pKernelArgs[i].offset_in_bytes);
                 // create buffer
                 BufferDesc desc = Utils::GetBufferDesc(mem_descriptor, *arg_it, programContext.m_DL);
                 IMemoryObject* pBuffer = pBufferContainer->CreateBuffer(desc);
@@ -804,12 +801,10 @@ namespace Validation
                 size_t size  = Utils::GetBufferSizeInBytes(mem_descriptor);
                 memset( pData, 0, desc.GetBufferSizeInBytes());
                 memcpy( pData, mem_descriptor->pData, size);
-
-                stArgsOffset += sizeof(void*);
             }
             else if (CL_KRNL_ARG_PTR_LOCAL == pKernelArgs[i].type)
             {
-                size_t localMemSize = *(size_t*)((char*)pArgsBuffer+stArgsOffset);
+                size_t localMemSize = *(size_t*)((char*)pArgsBuffer + pKernelArgs[i].offset_in_bytes);
                 BufferDesc desc = Utils::GetBufferDesc(localMemSize, *arg_it, programContext.m_DL);
                 IMemoryObject* pBuffer = pBufferContainer->CreateBuffer(desc);
 
@@ -817,8 +812,6 @@ namespace Validation
                 char* pData = (char*)pBuffer->GetDataPtr();
                 size_t size  = desc.GetBufferSizeInBytes();
                 memset( pData, 0, size);
-
-                stArgsOffset += sizeof(void*);
             }
             else if (CL_KRNL_ARG_VECTOR == pKernelArgs[i].type || CL_KRNL_ARG_VECTOR_BY_REF == pKernelArgs[i].type)
             {
@@ -828,22 +821,19 @@ namespace Validation
 
                 BufferDesc desc = Utils::GetBufferDesc(elemSize, numElements, *arg_it, programContext.m_DL);
                 IMemoryObject* pBuffer = pBufferContainer->CreateBuffer(desc);
-                memcpy( pBuffer->GetDataPtr(), (void *)((char*)pArgsBuffer + stArgsOffset), uiSize);
-                stArgsOffset += uiSize;
+                memcpy( pBuffer->GetDataPtr(), (void *)((char*)pArgsBuffer + pKernelArgs[i].offset_in_bytes), uiSize);
             }
             else if (CL_KRNL_ARG_SAMPLER == pKernelArgs[i].type)
             {
                 BufferDesc desc = Utils::GetBufferDesc(sizeof(unsigned int), *arg_it, programContext.m_DL);
                 IMemoryObject* pBuffer = pBufferContainer->CreateBuffer(desc);
-                memcpy( pBuffer->GetDataPtr(), (void *)((char*)pArgsBuffer + stArgsOffset), sizeof(unsigned int));
-                stArgsOffset += sizeof(unsigned int);
+                memcpy( pBuffer->GetDataPtr(), (void *)((char*)pArgsBuffer + pKernelArgs[i].offset_in_bytes), sizeof(unsigned int));
             }
             else
             {
                 BufferDesc desc = Utils::GetBufferDesc((size_t)pKernelArgs[i].size_in_bytes, *arg_it, programContext.m_DL);
                 IMemoryObject* pBuffer = pBufferContainer->CreateBuffer(desc);
-                memcpy( pBuffer->GetDataPtr(), (void *)((char*)pArgsBuffer + stArgsOffset), pKernelArgs[i].size_in_bytes);
-                stArgsOffset += pKernelArgs[i].size_in_bytes;
+                memcpy( pBuffer->GetDataPtr(), (void *)((char*)pArgsBuffer + pKernelArgs[i].offset_in_bytes), pKernelArgs[i].size_in_bytes);
             }
             ++arg_it;
         }

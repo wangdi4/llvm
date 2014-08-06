@@ -21,18 +21,12 @@ add_custom_command(
   VERBATIM
 )
 
- if(CMAKE_CROSSCOMPILING)
-    set(OCL_TBLGEN_DEP ocl-tblgen-native)
-    set(OCL_TBLGEN ${CMAKE_BINARY_DIR}/native/bin/ocl-tblgen)
- else()
-    set(OCL_TBLGEN_DEP ocl-tblgen)
-    set(OCL_TBLGEN ocl-tblgen)
- endif()
-
 if(CMAKE_CROSSCOMPILING)
-    set(OCL_TBLGEN ${CX_NATIVE_TG_DIR}/bin/ocl-tblgen)
+  set(OCL_TBLGEN_DEP ConfigureNativeTargets)
+  set(OCL_TBLGEN ${CMAKE_BINARY_DIR}/native/bin/ocl-tblgen)
 else()
-    set(OCL_TBLGEN ocl-tblgen)
+  set(OCL_TBLGEN_DEP ocl-tblgen)
+  set(OCL_TBLGEN ocl-tblgen)
 endif()
 
 add_custom_command(

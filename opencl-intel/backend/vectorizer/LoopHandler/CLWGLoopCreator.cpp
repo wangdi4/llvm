@@ -11,6 +11,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "InitializePasses.h"
 #include "MetaDataApi.h"
 #include "CompilationUtils.h"
+#include "OclTune.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/InstIterator.h"
@@ -78,11 +79,20 @@ bool CLWGLoopCreator::runOnModule(Module &M) {
         itrVecKernelInfo->second.get() && "Failed finding vectorized kernel info");
       //Set the vectorized width
       vectWidth = itrVecKernelInfo->second->getVectorizedWidth();
+
+      //save the relevant information from the vectorized kernel in skimd
+      //prior to erasing this information
+      unsigned int vectorizeOnDim = itrVecKernelInfo->second->getVectorizationDimension();
+      unsigned int canUniteWG = itrVecKernelInfo->second->getCanUniteWorkgroups();
+      skimd->setVectorizationDimension(vectorizeOnDim);
+      skimd->setCanUniteWorkgroups(canUniteWG);
+
       //Erase vectorized kernel info and update scalaized kernel info
       mdUtils.eraseKernelsInfoItem(itrVecKernelInfo);
       skimd->setVectorizedKernel(NULL);
       skimd->setVectorizedWidth(vectWidth);
     }
+
     // We can create loops for this kernel - runOnFunction on it!!
     changed |= runOnFunction(*F, vectKernel, vectWidth);
   }
@@ -104,6 +114,19 @@ unsigned CLWGLoopCreator::computeNumDim() {
 
 bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
                                     unsigned packetWidth) {
+  m_vectorizedDim = 0;
+  if (vectorFunc != NULL) {
+    Intel::MetaDataUtils mdUtils((vectorFunc->getParent()));
+    if(mdUtils.isKernelsInfoHasValue()) {
+      if (mdUtils.findKernelsInfoItem(vectorFunc) != mdUtils.end_KernelsInfo()) {
+        Intel::KernelInfoMetaDataHandle vkimd = mdUtils.getKernelsInfoItem(vectorFunc);
+        if (vkimd->isVectorizationDimensionHasValue()) {
+           m_vectorizedDim = vkimd->getVectorizationDimension();
+        }
+      }
+    }
+  }
+
   // Update member fields with the current kernel.
   m_F = &F;
   m_M = F.getParent();
@@ -177,18 +200,18 @@ loopRegion CLWGLoopCreator::createVectorAndRemainderLoops() {
 
   // Obtain boundaries for the vector loops and scalar remainder loops.
   loopBoundaries dim0Boundaries =
-      getVectorLoopBoundaries(m_initGIDs[0], m_loopSizes[0]);
+    getVectorLoopBoundaries(m_initGIDs[m_vectorizedDim], m_loopSizes[m_vectorizedDim]);
   VVec initGIDs = m_initGIDs; // hard copy.
   VVec loopSizes = m_loopSizes; // hard copy.
 
   // Create vector loops.
-  loopSizes[0] = dim0Boundaries.m_vectorLoopSize;
+  loopSizes[m_vectorizedDim] = dim0Boundaries.m_vectorLoopSize;
   loopRegion vectorBlocks = AddWGLoops(vecEntry, true, m_vectorRet,
                             m_gidCallsVec, m_lidCallsVec, initGIDs, loopSizes);
 
   // Create scalar loops.
-  initGIDs[0] = dim0Boundaries.m_maxVector;
-  loopSizes[0] = dim0Boundaries.m_scalarLoopSize;
+  initGIDs[m_vectorizedDim] = dim0Boundaries.m_maxVector;
+  loopSizes[m_vectorizedDim] = dim0Boundaries.m_scalarLoopSize;
   loopRegion scalarBlocks = AddWGLoops(m_scalarEntry, false, m_scalarRet,
                             m_gidCallsSc, m_lidCallsSc, initGIDs, loopSizes);
 
@@ -342,6 +365,14 @@ void CLWGLoopCreator::getLoopsBoundaries() {
   }
 }
 
+unsigned int CLWGLoopCreator::resolveDimension(unsigned int dim) {
+  if (dim == 0)
+    return m_vectorizedDim;
+  else if (dim > m_vectorizedDim)
+    return dim;
+  else return dim-1;
+}
+
 loopRegion
 CLWGLoopCreator::AddWGLoops(BasicBlock *kernelEntry, bool isVector,
       ReturnInst *ret, IVecVec &GIDs, IVecVec &LIDs, VVec &initGIDs,
@@ -361,24 +392,25 @@ CLWGLoopCreator::AddWGLoops(BasicBlock *kernelEntry, bool isVector,
   // width. Incase of scalar loop increment by 1.
   Value *dim0IncBy = isVector ? m_constPacket : m_constOne;
   for (unsigned dim =0; dim < m_numDim; ++dim) {
-    compute_dimStr(dim, isVector);
-    Value *incBy = dim == 0 ? dim0IncBy : m_constOne;
+    unsigned resolvedDim = resolveDimension(dim);
+    compute_dimStr(resolvedDim, isVector);
+    Value *incBy = resolvedDim == m_vectorizedDim ? dim0IncBy : m_constOne;
     //Create the loop.
     loopRegion blocks = LoopUtils::createLoop(head, latch, m_constZero, m_constOne,
-                                   loopSizes[dim], m_dimStr, *m_context);
+                                   loopSizes[resolvedDim], m_dimStr, *m_context);
 
     // Modify get***id accordingly.
-    Value *initGID = initGIDs[dim];
-    if (GIDs[dim].size()) {
-      replaceTIDsWithPHI(GIDs[dim], initGID, incBy, head, blocks.m_preHeader,
+    Value *initGID = initGIDs[resolvedDim];
+    if (GIDs[resolvedDim].size()) {
+      replaceTIDsWithPHI(GIDs[resolvedDim], initGID, incBy, head, blocks.m_preHeader,
                          latch);
     }
-    if (LIDs[dim].size()) {
+    if (LIDs[resolvedDim].size()) {
       BinaryOperator *initLID = BinaryOperator::Create(Instruction::Sub, initGID,
-          obtainBaseGID(dim), m_dimStr+"sub_lid", m_newEntry);
+          obtainBaseGID(resolvedDim), m_dimStr+"sub_lid", m_newEntry);
       initLID->setHasNoSignedWrap();
       initLID->setHasNoUnsignedWrap();
-      replaceTIDsWithPHI(LIDs[dim], initLID, incBy, head, blocks.m_preHeader,
+      replaceTIDsWithPHI(LIDs[resolvedDim], initLID, incBy, head, blocks.m_preHeader,
                          latch);
     }
 
@@ -476,9 +508,12 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
   m_vectorRet = dyn_cast<ReturnInst>(valueMap[m_vectorRet]);
   BasicBlock *vectorEntryBlock =
       dyn_cast<BasicBlock>(valueMap[m_vectorFunc->begin()]);
+  // copy stats from vector function to scalar function
+  intel::Statistic::copyFunctionStats(*m_vectorFunc, *m_F);
   // Get hold of the entry to the scalar section in the vectorized function...
   assert (!m_vectorFunc->getNumUses() && "vector kernel should have no use");
   if (!m_vectorFunc->getNumUses()) {
+    intel::Statistic::removeFunctionStats(*m_vectorFunc);
     m_vectorFunc->eraseFromParent();
   }
   return vectorEntryBlock;

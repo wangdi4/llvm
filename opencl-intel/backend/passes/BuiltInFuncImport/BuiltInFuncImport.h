@@ -73,7 +73,7 @@ namespace intel {
     static char ID;
 
     /// @brief Constructor
-    BIImport() : ModulePass(ID) {}
+    BIImport(const char* CPUPrefix = "") : ModulePass(ID), m_cpuPrefix(CPUPrefix) {}
 
     /// @brief Provides name of pass
     virtual const char *getPassName() const {
@@ -159,8 +159,8 @@ namespace intel {
     bool IsSrcValUsedInModule(Value *pVal);
 
   protected:
-
-    /// Source module - conatians the source function definition to import
+    const std::string m_cpuPrefix;
+    /// Source module - contains the source function definition to import
     Module* m_pSourceModule;
     /// Destination module - contains function declarations to resolve from RT module
     Module* m_pModule;

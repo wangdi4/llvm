@@ -27,7 +27,7 @@ File Name:  BuiltinModule.h
 #include "IDynamicFunctionsResolver.h"
 
 namespace llvm
-{ 
+{
 class Module;
 class MemoryBuffer;
 class LLVMContext;
@@ -55,6 +55,10 @@ public:
     virtual ~BuiltinLibrary();
 
     llvm::MemoryBuffer* GetRtlBuffer() const { return m_pRtlBuffer.get(); }
+    llvm::MemoryBuffer* GetRtlBufferSvmlShared() const { return m_pRtlBufferSvmlShared.get(); }
+
+    ECPU GetCPU() const { return m_cpuId.GetCPU();}
+
     virtual void SetContext(const void* pContext)
     {
         assert(false && "Set Builtin Library Context Not Implemented");
@@ -70,6 +74,7 @@ public:
 protected:
     const Intel::CPUId   m_cpuId;
     llvm::OwningPtr<llvm::MemoryBuffer> m_pRtlBuffer;
+    llvm::OwningPtr<llvm::MemoryBuffer> m_pRtlBufferSvmlShared;
 };
 
 

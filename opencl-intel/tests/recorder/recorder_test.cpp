@@ -502,6 +502,92 @@ TEST(OclRecorder, recording_local_memory){
   remove(REC_DAT);
 }
 
+TEST(OclRecorder, recording_local_memory2)
+{
+    setRecorderEnvVars();
+
+    cl_int returnResult = CL_SUCCESS;
+    cl_platform_id computePlatform;
+
+    returnResult = clGetPlatformIDs(1, &computePlatform, NULL);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clGetPlatformIDs";
+
+    cl_device_id computeDevices;
+    returnResult = clGetDeviceIDs(computePlatform, CL_DEVICE_TYPE_CPU, 1, &computeDevices, NULL);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clGetDeviceIDs";
+
+    cl_context_properties prop[] = { CL_CONTEXT_PLATFORM, reinterpret_cast<cl_context_properties>(computePlatform), 0 };
+    cl_context context = clCreateContext(prop, 1, &computeDevices, NULL, NULL, &returnResult);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateContext";
+
+    cl_command_queue queue = clCreateCommandQueue(context, computeDevices, 0, &returnResult);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateCommandQueue";
+
+    const char *kernelSrc = "__kernel void sample_test(const int a, __local long *b, __global long *c) { }";
+
+    cl_program program = clCreateProgramWithSource(context, 1, &kernelSrc, NULL, &returnResult);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateProgramWithSource";
+
+    returnResult = clBuildProgram(program, 1, &computeDevices, NULL, NULL, NULL);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clBuildProgram";
+
+    cl_kernel kernel = clCreateKernel(program, "sample_test", &returnResult);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateKernel";
+
+    cl_mem globalMemBuf = clCreateBuffer(context, static_cast<cl_mem_flags>(CL_MEM_READ_WRITE), sizeof(cl_long), NULL, &returnResult);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateBuffer";
+
+    cl_int arg_a = 1;
+    returnResult = clSetKernelArg(kernel, 0, sizeof(cl_int), &arg_a);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clSetKernelArg";
+
+    returnResult = clSetKernelArg(kernel, 1, sizeof(cl_long), NULL);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clSetKernelArg";
+
+    returnResult = clSetKernelArg(kernel, 2, sizeof(cl_mem), &globalMemBuf);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clSetKernelArg";
+
+    size_t globalDim[]={ 1, 0, 0 }, localDim[]={ 1, 0, 0 };
+
+    returnResult = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, globalDim, localDim, 0, NULL, NULL);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clEnqueueNDRangeKernel";
+
+    returnResult = clFinish(queue);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clFinish";
+
+    clReleaseMemObject(globalMemBuf);
+    clReleaseKernel(kernel);
+    clReleaseProgram(program);
+    clReleaseCommandQueue(queue);
+    clReleaseContext(context);
+
+    const char* const REC_CL_FILE_NAME = "OclRecorderTest.recorder_test.4.sample_test0.3.cl";
+    const char* const REC_CFG_FILE_NAME = "OclRecorderTest.recorder_test.4.cfg";
+    const char* const REC_DAT_FILE_NAME = "OclRecorderTest.recorder_test.4.sample_test.dat";
+
+    std::fstream recordClFile(REC_CL_FILE_NAME);
+    std::fstream recordCfgFile(REC_CFG_FILE_NAME);
+    std::fstream recordDatFile(REC_DAT_FILE_NAME);
+
+#if defined(OCLFRONTEND_PLUGINS)
+    ASSERT_TRUE(recordClFile.good());
+    ASSERT_TRUE(recordCfgFile.good());
+    ASSERT_TRUE(recordDatFile.good());
+#else
+    ASSERT_FALSE(recordClFile.good());
+    ASSERT_FALSE(recordCfgFile.good());
+    ASSERT_FALSE(recordDatFile.good());
+#endif// defined(OCLFRONTEND_PLUGINS)
+
+    recordClFile.close();
+    recordCfgFile.close();
+    recordDatFile.close();
+
+    remove(REC_CL_FILE_NAME);
+    remove(REC_CFG_FILE_NAME);
+    remove(REC_DAT_FILE_NAME);
+}
+
 int main(int argc, char** argv){
    ::testing::InitGoogleTest(&argc, argv);
    return RUN_ALL_TESTS();

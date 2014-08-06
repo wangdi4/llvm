@@ -72,3 +72,23 @@ OclBuiltinImpl ceil_v8f64_impl = OclBuiltinImpl<ceil, [v8f64], 0, [{
 OclBuiltinImpl floor_v8f64_impl = OclBuiltinImpl<floor, [v8f64], 0, [{
   return _mm512_floor_pd($Arg0VarName);
   }]>;
+// integer remainder
+OclBuiltinImpl irem_svml = OclBuiltinImpl<irem, [v16i32], 0, [{
+    return __ocl_svml_$Target_irem$VecLength($Arg0VarName, $Arg1VarName);
+  }]>;
+
+// unsigned integer remainder
+OclBuiltinImpl urem_svml = OclBuiltinImpl<urem, [v16u32], 0, [{
+    return __ocl_svml_$Target_urem$VecLength($Arg0VarName, $Arg1VarName);
+  }]>;
+
+// integer division
+OclBuiltinImpl idiv_svml = OclBuiltinImpl<idiv, [v16i32], 0, [{
+    return __ocl_svml_$Target_idiv$VecLength($Arg0VarName, $Arg1VarName);
+  }]>;
+
+// unsigned integer division
+OclBuiltinImpl udiv_svml = OclBuiltinImpl<udiv, [v16u32], 0, [{
+    return __ocl_svml_$Target_udiv$VecLength($Arg0VarName, $Arg1VarName);
+  }]>;
+

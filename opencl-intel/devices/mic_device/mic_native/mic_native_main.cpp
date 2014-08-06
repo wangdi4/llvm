@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/prctl.h>
 #include <assert.h>
 #include <stdlib.h>
 
@@ -27,6 +28,10 @@
 using namespace Intel::OpenCL::UtilsNative;
 using namespace Intel::OpenCL::MICDeviceNative;
 
+// Needs the following definitions for the THP fix.
+#define PR_SET_THP_DISABLE      41
+#define PR_GET_THP_DISABLE      42
+
 // main is automatically called whenever the source creates a process.
 // In order for the source to create and use pipelines, the process must
 // still exist.
@@ -35,6 +40,13 @@ using namespace Intel::OpenCL::MICDeviceNative;
 int main(int , char**)
 {
     NATIVE_PRINTF("main called on the  sink\n");
+
+    int thpRes = prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0);
+    if (thpRes) 
+    {
+        NATIVE_PRINTF("disable THP failed\n");
+    }
+
 
     COIRESULT result;
 

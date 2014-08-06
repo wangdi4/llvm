@@ -20,7 +20,7 @@ File Name:  Buffer.h
 
 #include <assert.h>
 #include "IMemoryObject.h"              // IMemoryObject declaration
-#include "llvm/Support/DataTypes.h"      // llvm data types
+#include "llvm/Support/DataTypes.h"      // LLVM data types
 #include "Exception.h"
 
 
@@ -86,7 +86,7 @@ namespace Validation
               BufferDesc m_desc = GetBufferDescription(in_buf.GetMemoryObjectDesc());
               if (m_desc.GetElementDescription().IsStruct())
                   throw Exception::InvalidArgument("Stuctures are not supported by buffer accessor");
-              if(m_desc.GetElementDescription().IsAggregate() && !m_desc.GetElementDescription().IsStruct() && 
+              if(m_desc.GetElementDescription().IsAggregate() && !m_desc.GetElementDescription().IsStruct() &&
                  m_desc.GetElementDescription().GetSubTypeDesc(0).GetSizeInBytes() != sizeof(T))
                   throw Exception::InvalidArgument("Buffer accessor type parameter size is different from element size in buffer desc");
               if (!m_desc.GetElementDescription().IsComposite() && m_desc.GetElementDescription().GetSizeInBytes() != sizeof(T))
@@ -108,7 +108,7 @@ namespace Validation
           {
               // Calculate address
               T* dataPointer = reinterpret_cast<T*>(
-                  reinterpret_cast<char*>(m_data) + 
+                  reinterpret_cast<char*>(m_data) +
                   m_SizeOfVector * in_vecIndex + in_offset
                   * m_SizeOfVectorElementDataType);
               T& res = *dataPointer;
@@ -119,7 +119,7 @@ namespace Validation
           {
               // Calculate address
               T* dataPointer = reinterpret_cast<T*>(
-                  reinterpret_cast<char*>(m_data) + 
+                  reinterpret_cast<char*>(m_data) +
                   m_SizeOfVector * in_vecIndex + in_offset * m_SizeOfVectorElementDataType);
               *dataPointer = newVal;
           }
@@ -128,13 +128,13 @@ namespace Validation
         const IMemoryObject& m_buf;
         /// Hide assignment operator for BufferAccessor
         BufferAccessor & operator=(const BufferAccessor &ba) {}
-        /// Hide copy constuctor
+        /// Hide copy constructor
         BufferAccessor(const BufferAccessor &b) {}
         // pointer to data
         void *m_data;
         /// number of vector elements
         size_t m_SizeOfVector;
-        //. size of vector element in bytes
+        /// size of vector element in bytes
         size_t m_SizeOfVectorElementDataType;
     };
 

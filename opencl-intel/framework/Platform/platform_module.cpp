@@ -18,7 +18,6 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-///////////////////////////////////////////////////////////
 //  PlatformModule.cpp
 //  Implementation of the Class PlatformModule
 //  Created on:      10-Dec-2008 2:08:23 PM
@@ -115,7 +114,8 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
                 devicesList.clear();
                 break;
             }
-            LOG_ERROR(TEXT("InitDevice() failed with %d for %s"), clErrRet, devices[ui].c_str());
+            // it's possible - if the device isn't presented on the system
+            LOG_INFO(TEXT("InitDevice() failed with %d for %s"), clErrRet, devices[ui].c_str());
             continue;
         }
     }
@@ -492,13 +492,13 @@ cl_int    PlatformModule::GetDeviceInfo(cl_device_id clDevice,
     size_t szParamSize = 0;
     cl_bool bBoolValue = CL_TRUE;
     const void * pValue = NULL;
+	  const cl_platform_id id = &m_clPlatformId;
 
     switch(clParamName)
     {
     case CL_DEVICE_PLATFORM:
         {
             szParamSize = sizeof(cl_platform_id);
-            cl_platform_id id = &m_clPlatformId;
             pValue = &id;
             break;
         }

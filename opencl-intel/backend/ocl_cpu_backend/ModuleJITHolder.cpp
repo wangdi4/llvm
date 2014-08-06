@@ -17,6 +17,7 @@ File Name:  ModuleJITHolder.cpp
 \*****************************************************************************/
 
 #include "ModuleJITHolder.h"
+#include "IDynamicFunctionsResolver.h"
 
 #include "MICSerializationService.h"
 #include "Serializer.h"
@@ -34,7 +35,6 @@ class IInputStream;
 class IOutputStream;
 
 ModuleJITHolder::ModuleJITHolder():
-    m_pJITBuffer(NULL),
     m_pJITCode(NULL),
     m_JITCodeSize(0),
     m_alignment(0),
@@ -43,13 +43,17 @@ ModuleJITHolder::ModuleJITHolder():
 
 ModuleJITHolder::~ModuleJITHolder()
 {
-    if(NULL != m_pJITBuffer)
+    if(NULL != m_pJITAllocator && NULL != m_pJITCode)
     {
-        // in case m_pJITAllocator is NULL this means that PCG generated the JIT
-        if(NULL == m_pJITAllocator) free(m_pJITBuffer);
-        else m_pJITAllocator->FreeExecutable(m_pJITBuffer);
+        m_pJITAllocator->FreeExecutable(m_pJITCode);
     }
 }
+
+MemoryHolder &ModuleJITHolder::GetJITMemoryHolder()
+{
+    return m_memBuffer;
+}
+
 
 void ModuleJITHolder::SetJITCodeSize(int jitSize)
 {
@@ -71,34 +75,27 @@ size_t ModuleJITHolder::GetJITAlignment() const
     return m_alignment;
 }
 
-void ModuleJITHolder::SetJITCodeStartPoint(const void* pJITCodeStartpoint)
-{
-    m_pJITCode = (const char*)pJITCodeStartpoint;
-}
-
 const void* ModuleJITHolder::GetJITCodeStartPoint() const
 {
     return m_pJITCode;
-}
-
-void ModuleJITHolder::SetJITBufferPointer(void* pJITBuffer)
-{
-    m_pJITBuffer = (char*)pJITBuffer;
-}
-
-const void* ModuleJITHolder::GetJITBufferPointer() const
-{
-    return m_pJITBuffer;
 }
 
 void ModuleJITHolder::Serialize(IOutputStream& ost, SerializationStatus* stats)
 {
     // using unsigned long long int instead of size_t is because that size_t
     // varies in it's size relating to the platform (32/64 bit)
-    unsigned long long int tmp = (unsigned long long int)m_JITCodeSize;
-    Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
-    
-    tmp = (unsigned long long int)m_alignment;
+    if( 0 < m_memBuffer.getNumChunks() )
+    {
+        unsigned long long int tmp = (unsigned long long int)m_memBuffer.getSize();
+        Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+    }
+    else
+    {
+        unsigned long long int tmp = m_JITCodeSize;
+        Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+    }
+
+    unsigned long long int tmp = (unsigned long long int)m_alignment;
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
 
     int mapSize = m_KernelsMap.size();
@@ -110,10 +107,46 @@ void ModuleJITHolder::Serialize(IOutputStream& ost, SerializationStatus* stats)
     {
         SerializeKernelInfo(it->first, it->second, ost);
     }
-    
-    for(size_t i = 0; i < m_JITCodeSize; i++)
+
+    int tblSize = m_RelocationTable.size();
+    Serializer::SerialPrimitive<int>(&tblSize, ost);
+    for(std::vector<RelocationInfo>::const_iterator 
+        it = m_RelocationTable.begin();
+        it != m_RelocationTable.end();
+        it++)
     {
-        Serializer::SerialPrimitive<char>(&(m_pJITCode[i]), ost);
+        SerializeRelocationInfo(*it, ost);
+    }
+
+    int dynTblSize = m_DynRelocationTable.size();
+    Serializer::SerialPrimitive<int>(&dynTblSize, ost);
+    for(std::vector<DynRelocationInfo>::const_iterator
+        it = m_DynRelocationTable.begin();
+        it != m_DynRelocationTable.end();
+        it++)
+    {
+        SerializeDynRelocationInfo(*it, ost);
+    }
+
+    if( 0 < m_memBuffer.getNumChunks() )
+    {
+        for (unsigned chunkIdx = 0; chunkIdx < m_memBuffer.getNumChunks();
+            chunkIdx++)
+        {
+            char *ptr = m_memBuffer.getChunkPtr(chunkIdx);
+            unsigned long long size = m_memBuffer.getChunkSize(chunkIdx);
+            for(size_t i = 0; i < size; i++)
+            {
+                Serializer::SerialPrimitive<char>(&(ptr[i]), ost);
+            }
+        }
+    }
+    else
+    {
+        for(size_t i = 0; i < m_JITCodeSize; i++)
+        {
+            Serializer::SerialPrimitive<char>(&(m_pJITCode[i]), ost);
+        }
     }
 }
 
@@ -122,13 +155,13 @@ void ModuleJITHolder::Deserialize(IInputStream& ist, SerializationStatus* stats)
     unsigned long long int tmp = 0;
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
     m_JITCodeSize = tmp;
-    
+
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
     m_alignment = tmp;
-    
+
     int mapSize = 0;
     Serializer::DeserialPrimitive<int>(&mapSize, ist);
-    
+
     m_KernelsMap.clear();
     for(int i = 0; i < mapSize; ++i)
     {
@@ -137,29 +170,78 @@ void ModuleJITHolder::Deserialize(IInputStream& ist, SerializationStatus* stats)
         DeserializeKernelInfo(kernelID, kernelInfo, ist);
         m_KernelsMap[kernelID] = kernelInfo;
     }
+
+    int tblSize = 0;
+    Serializer::DeserialPrimitive<int>(&tblSize, ist);
     
+    m_RelocationTable.clear();
+    for(int i = 0; i < tblSize; ++i)
+    {
+        RelocationInfo info;
+        DeserializeRelocationInfo(info, ist);
+        m_RelocationTable.push_back(info);
+    }
+
+    int dynTblSize = 0;
+    Serializer::DeserialPrimitive<int>(&dynTblSize, ist);
+
+    m_DynRelocationTable.clear();
+    for(int i = 0; i < dynTblSize; ++i)
+    {
+        DynRelocationInfo info;
+        DeserializeDynRelocationInfo(info, ist);
+        m_DynRelocationTable.push_back(info);
+    }
 
     // Deserialize the JIT code itself
     ICLDevBackendJITAllocator* pAllocator = stats->GetJITAllocator();
     if(NULL == pAllocator) throw Exceptions::SerializationException("Cannot Get JIT Allocator");
-    
-    if(NULL != m_pJITBuffer)
+
+    if(NULL != m_pJITCode)
     {
-        m_pJITAllocator->FreeExecutable(m_pJITBuffer); // free by the old allocator
-        m_pJITBuffer = NULL;
+        m_pJITAllocator->FreeExecutable(m_pJITCode); // free by the old allocator
+        m_pJITCode = NULL;
     }
-    
+
     m_pJITAllocator = pAllocator;
-    m_pJITBuffer = (char*)(m_pJITAllocator->AllocateExecutable(sizeof(char) * m_JITCodeSize, m_alignment));
-    if(NULL == m_pJITBuffer) throw Exceptions::SerializationException("JIT Allocator Failed Allocating Memory");
-    
+    m_pJITCode = (char*)(m_pJITAllocator->AllocateExecutable(sizeof(char) * m_JITCodeSize, m_alignment));
+    if(NULL == m_pJITCode) throw Exceptions::SerializationException("JIT Allocator Failed Allocating Memory");
+
     for(size_t i = 0; i < m_JITCodeSize; i++)
     {
-        Serializer::DeserialPrimitive<char>(&(m_pJITBuffer[i]), ist);
+        Serializer::DeserialPrimitive<char>(&(m_pJITCode[i]), ist);
     }
-	  // we get the buffer already aligned so the pJITCode == pJITBuffer
-    m_pJITCode = m_pJITBuffer;
 
+    // Apply dynamic relocations
+    RelocateJITCode();
+}
+
+void ModuleJITHolder::SerializeRelocationInfo(RelocationInfo info,
+                                          IOutputStream& ost) const
+{
+    Serializer::SerialPrimitive<unsigned int>(&(info.offset), ost);
+    Serializer::SerialString(info.symName, ost);
+}
+
+void ModuleJITHolder::SerializeDynRelocationInfo(DynRelocationInfo info,
+                                                IOutputStream& ost) const
+{
+    Serializer::SerialPrimitive<unsigned int>(&(info.offset), ost);
+    Serializer::SerialPrimitive<uint64_t>(&(info.addend), ost);
+}
+
+void ModuleJITHolder::DeserializeRelocationInfo(RelocationInfo& info,
+                                            IInputStream& ist) const 
+{
+    Serializer::DeserialPrimitive<unsigned int>(&(info.offset), ist);
+    Serializer::DeserialString(info.symName, ist);
+}
+
+void ModuleJITHolder::DeserializeDynRelocationInfo(DynRelocationInfo& info,
+                                                  IInputStream& ist) const
+{
+    Serializer::DeserialPrimitive<unsigned int>(&(info.offset), ist);
+    Serializer::DeserialPrimitive<uint64_t>(&(info.addend), ist);
 }
 
 void ModuleJITHolder::SerializeKernelInfo(KernelID id, KernelInfo info,
@@ -245,6 +327,16 @@ void ModuleJITHolder::RegisterKernel(KernelID kernelId, KernelInfo kernelinfo)
     m_KernelsMap[kernelId] = kernelinfo;
 }
 
+void ModuleJITHolder::RegisterRelocation(const RelocationInfo& info)
+{
+    m_RelocationTable.push_back(info);
+}
+
+void ModuleJITHolder::RegisterDynRelocation(const DynRelocationInfo& info)
+{
+    m_DynRelocationTable.push_back(info);
+}
+
 int ModuleJITHolder::GetKernelEntryPoint(KernelID kernelId) const
 {
     std::map<KernelID, KernelInfo>::const_iterator it = m_KernelsMap.find(kernelId);
@@ -311,6 +403,43 @@ int ModuleJITHolder::GetKernelVtuneFunctionId(KernelID kernelId) const {
 int ModuleJITHolder::GetKernelCount() const
 {
     return m_KernelsMap.size();
+}
+
+void ModuleJITHolder::RelocateSymbolAddresses(IDynamicFunctionsResolver* resolver)
+{
+    for(std::vector<RelocationInfo>::const_iterator 
+        it = m_RelocationTable.begin();
+        it != m_RelocationTable.end();
+        it++)
+    {
+        unsigned long long int address = resolver->GetFunctionAddress(it->symName);
+
+        assert(address && "Relocation failed!");
+        // TODO: do we need to take care of relocation type?
+        EncodeSymbolAddress(it->offset, address);
+    }
+}
+
+void ModuleJITHolder::RelocateJITCode()
+{
+  uint64_t address = (uint64_t)m_pJITCode;
+    for(std::vector<DynRelocationInfo>::const_iterator
+        it = m_DynRelocationTable.begin();
+        it != m_DynRelocationTable.end();
+        it++)
+    {
+        EncodeSymbolAddress(it->offset, address+it->addend);
+    }
+}
+
+void ModuleJITHolder::EncodeSymbolAddress(unsigned int offset, unsigned long long int address)
+{
+    unsigned int bytesToEncode = 8;
+    for(unsigned int i = 0; i < bytesToEncode; ++i) 
+    {
+        char encoded = (address >> i*8) & 0xFF;
+        const_cast<char*>(m_pJITCode)[offset + i] = encoded;
+    }
 }
 
 }}} // namespace 

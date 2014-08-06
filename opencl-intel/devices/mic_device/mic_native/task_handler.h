@@ -76,10 +76,6 @@ public:
     virtual long ReleaseSyncTask() { return 0; };
     virtual long ReleaseAsyncTask() { delete this; return 0; };
 
-#ifndef MIC_USE_COI_BUFFS_REF_NEW_API
-    bool FiniTask();
-#endif
-
     void setTaskError( cl_dev_err_code errorCode )
     {
         if ( CL_DEV_SUCCEEDED(m_errorCode) )
@@ -99,9 +95,7 @@ protected:
     virtual bool releaseResourcesAndSignal() = 0;
 
     uint32_t              m_bufferCount;
-#ifdef MIC_USE_COI_BUFFS_REF_NEW_API
 	// m_bufferPointers valid only before completion of PrepareTask() func (before enqueueing to the queue)
-#endif
     void**                m_bufferPointers;
 #ifdef ENABLE_MIC_TRACER
     size_t*               m_bufferSizes;
@@ -189,7 +183,15 @@ public:
           __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
         }
 #endif
-        m_releasehandler->addTask(this);
+        // In profiling mode let the TBB thread signal the completion (it also signaled the start) in order ignore races in profiling.
+        if (m_pDispatcherData->profiling)
+        {
+            releaseResourcesAndSignal();
+        }
+        else
+        {
+            m_releasehandler->addTask(this);
+        }
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
         // Monitor only IN-ORDER queue
         if ( gMicGPAData.bUseGPA )
@@ -246,11 +248,6 @@ protected:
 
     virtual bool releaseResourcesAndSignal()
 	{
-#ifndef MIC_USE_COI_BUFFS_REF_NEW_API
-		// Release COI resources, before signaling to runtime
-        FiniTask();
-#endif
-
 #ifdef ENABLE_MIC_TRACER
         commandTracer().set_current_time_tbb_exe_in_device_time_end();
 #endif

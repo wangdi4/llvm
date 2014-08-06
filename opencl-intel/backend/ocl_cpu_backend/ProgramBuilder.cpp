@@ -18,6 +18,12 @@ File Name:  ProgramBuilder.cpp
 #define NOMINMAX
 #define DEBUG_TYPE "ProgramBuilder"
 
+#if defined (WIN32)
+#include <windows.h>
+#include <shellapi.h>
+#include <codecvt>
+#endif // WIN32
+
 #include <vector>
 #include <string>
 #include "cl_types.h"
@@ -39,13 +45,16 @@ File Name:  ProgramBuilder.cpp
 #include "CompilationUtils.h"
 #include "cache_binary_handler.h"
 #include "ObjectCodeContainer.h"
+#include "OclTune.h"
 
+#include "llvm/Support/Atomic.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -79,6 +88,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 namespace Utils
 {
 
+static int getFileCount() {
+  static volatile llvm::sys::cas_flag fileCount = 0;
+
+  sys::AtomicIncrement(&fileCount);
+
+  return ((int)fileCount);
+}
+
 /**
  * Returns the memory buffer of the Program object bytecode
  */
@@ -101,8 +118,57 @@ void UpdateKernelsWithRuntimeService( const RuntimeServiceSharedPtr& rs, KernelS
 
 ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& config):
     m_pBackendFactory(pBackendFactory),
-    m_useVTune(config.GetUseVTune())
+    m_useVTune(config.GetUseVTune()),
+    m_statFileBaseName(config.GetStatFileBaseName())
 {
+    // prepare default base file name for stat file in the following cases:
+    // stats are enabled but the user didn't set up the base file name
+    // the user set up as base file name only a directory name, i.e. it ends
+    // with \ or /
+    // the default file name is the running executable name
+    if ((m_statFileBaseName.empty() && intel::Statistic::isEnabled()) ||
+        (!m_statFileBaseName.empty() &&
+         llvm::sys::path::is_separator(*m_statFileBaseName.rbegin())))
+    {
+#if defined (WIN32)
+        LPWSTR *cl;
+        int numArgs;
+        string nameStr, nameStr2;
+        const char *name = NULL;
+
+        cl = CommandLineToArgvW(L"", &numArgs);
+        if (NULL != cl) {
+            std::wstring wstr(*cl);
+            nameStr = std::wstring_convert<std::codecvt_utf8<wchar_t>>().to_bytes(wstr);
+            name = nameStr.c_str();
+        }
+
+        // Free memory allocated for CommandLineToArgvW arguments.
+        LocalFree(cl);
+
+        // find the base name by searching for the last '/' in the name
+        // Remove .exe from the name. To actually create a file name without
+        // the extension, need to create it in a string and take it's c_str()
+        if (name != NULL) {
+            nameStr2 = llvm::sys::path::stem(StringRef(name)).str();
+            name = nameStr2.c_str();
+        }
+
+#else // WIN32
+         const char *name = getenv("_");
+        // find the base name by searching for the last '/' in the name
+        if (name != NULL)
+            name = llvm::sys::path::filename(StringRef(name)).data();
+#endif // WIN32
+        // if still no meaningful name just use "Program" as module name
+        if (name == NULL || *name == 0)
+            name = "Program";
+
+        m_statFileBaseName += name;
+
+        if (intel::Statistic::isEnabled())
+          m_statWkldName = name;
+    }
 }
 
 ProgramBuilder::~ProgramBuilder()
@@ -120,6 +186,37 @@ bool ProgramBuilder::CheckIfProgramHasCachedExecutable(Program* pProgram) const
         return reader.IsCachedObject();
     }
     return false;
+}
+
+void ProgramBuilder::DumpModuleStats(llvm::Module* pModule)
+{
+    if (intel::Statistic::isEnabled() || !m_statFileBaseName.empty())
+    {
+        // use sequential number to distinguish dumped files
+        std::stringstream fileNameBuilder;
+        fileNameBuilder << (Utils::getFileCount());
+
+        std::string fileName(m_statFileBaseName);
+        fileName += fileNameBuilder.str();
+        fileName += ".ll";
+
+        // if stats are enabled dump module info
+        if (intel::Statistic::isEnabled())
+        {
+          intel::Statistic::setModuleStatInfo(pModule,
+              m_statWkldName.c_str(), // workload name
+              (m_statWkldName + fileNameBuilder.str()).c_str() // module name
+              );
+        }
+        // dump IR with stats
+        std::string ErrorInfo;
+        raw_fd_ostream IRFD(fileName.c_str(), ErrorInfo,
+            raw_fd_ostream::F_Binary);
+        if (ErrorInfo.empty())
+          pModule->print(IRFD, 0);
+        else
+          throw Exceptions::CompilerException(ErrorInfo.c_str());
+    }
 }
 
 cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBackendOptions* pOptions)
@@ -206,6 +303,10 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
 //        system(std::string("rm " + filename + ".bc " + filename + ".ll " + filename + ".o").c_str());
         system(std::string("rm " + filename + ".o").c_str());
 #else // ENABLE_KNL
+
+        // Dump module stats just before lowering if requested
+        DumpModuleStats(spModule.get());
+
         PostOptimizationProcessing(pProgram, spModule.get(), pOptions);
 #endif // ENABLE_KNL
         if (!(pOptions && pOptions->GetBooleanValue(CL_DEV_BACKEND_OPTION_STOP_BEFORE_JIT, false)))
@@ -486,9 +587,11 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
       pProps->SetIsNonUniformWGSizeSupported(false);
     }
 
+    //set can unite WG and vectorization dimention
+    pProps->SetCanUniteWG(skimd->getCanUniteWorkgroups());
+    pProps->SetVerctorizeOnDimention(skimd->getVectorizationDimension());
+
     return pProps;
 }
-
-
 
 }}}

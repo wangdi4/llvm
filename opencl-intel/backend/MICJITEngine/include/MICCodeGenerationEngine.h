@@ -13,6 +13,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/CodeGen.h"
+#include "llvm/Support/Mutex.h"
 
 #include "stddef.h"
 
@@ -55,12 +56,15 @@ public:
   //Note: the returned value is a heap-allocated object.
   //The ownership on this object is transfered to the caller of that method.
   /////////////////////////////////////////////////////////////////////
-  const LLVMModuleJITHolder* getModuleHolder(llvm::Module& m, const std::string& outAsmFile) const;
+  LLVMModuleJITHolder* getModuleHolder(llvm::Module& m, const std::string& outAsmFile) const;
 
 private:
   TargetMachine &TM;
   CodeGenOpt::Level optLevel;
   const IFunctionAddressResolver* Resolver;
+
+  // global lock for PCG
+  static llvm::sys::Mutex g_PCGbuildlock;
 
 };
 

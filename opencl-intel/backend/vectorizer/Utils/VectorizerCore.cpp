@@ -5,9 +5,12 @@ Agreement between Intel and Apple dated August 26, 2005; under the Category 2 In
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
 
+#define DEBUG_TYPE "Vectorizer"
 #include "VectorizerCore.h"
 #include "InstCounter.h"
 #include "VectorizerCommon.h"
+#include "OclTune.h"
+#include "ChooseVectorizationDimension.h"
 
 #include "llvm/Pass.h"
 #include "llvm/PassManager.h"
@@ -31,7 +34,8 @@ extern "C" FunctionPass* createScalarizerPass(const Intel::CPUId& CpuId);
 extern "C" FunctionPass* createPhiCanon();
 extern "C" FunctionPass* createPredicator();
 extern "C" FunctionPass* createSimplifyGEPPass();
-extern "C" FunctionPass* createPacketizerPass(bool);
+extern "C" FunctionPass* createPacketizerPass(bool, unsigned int);
+extern "C" intel::ChooseVectorizationDimension* createChooseVectorizationDimension();
 extern "C" Pass* createBuiltinLibInfoPass(llvm::Module* pRTModule, std::string type);
 
 extern "C" FunctionPass* createAppleWIDepPrePacketizationPass();
@@ -59,8 +63,9 @@ static FunctionPass* createScalarizer(const Intel::CPUId& CpuId) {
   return createScalarizerPass(CpuId);
 }
 
-static FunctionPass* createPacketizer(const Intel::CPUId& CpuId) {
-  return createPacketizerPass(CpuId.HasGatherScatter());
+static FunctionPass* createPacketizer(const Intel::CPUId& CpuId,
+                                      unsigned int vectorizationDimension) {
+  return createPacketizerPass(CpuId.HasGatherScatter(), vectorizationDimension);
 }
 
 namespace intel {
@@ -89,6 +94,17 @@ bool VectorizerCore::isFunctionVectorized() {
   return m_isFunctionVectorized;
 }
 
+unsigned int VectorizerCore::getVectorizationDim() {
+  return m_vectorizationDim;
+}
+
+bool VectorizerCore::getCanUniteWorkgroups() {
+  return m_canUniteWorkgroups;
+}
+
+void VectorizerCore::setScalarFunc(Function* F) {
+  m_scalarFunc = F;
+}
 
 bool VectorizerCore::runOnFunction(Function &F) {
   // Before doing anything set default return values, function was not vectorized
@@ -109,6 +125,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
   bool autoVec =  (m_pConfig->GetTransposeSize() == 0);
   V_ASSERT(m_pConfig->GetTransposeSize() <= MAX_PACKET_WIDTH && "unssupported vector width");
 
+  std::map<BasicBlock*, int> preVectorizationCosts; // used for statiscal purposes.
   // Emulate the entire pass-chain right here //
   //////////////////////////////////////////////
   V_PRINT(VectorizerCore, "\nBefore preparations!\n");
@@ -168,6 +185,15 @@ bool VectorizerCore::runOnFunction(Function &F) {
     VectorizationPossibilityPass* vecPossiblity = new VectorizationPossibilityPass();
     fpm1.add(vecPossiblity);
 
+    // choose the vectorization dimension (if vectorized). Usually zero,
+    // but in some unusual cases we choose differently (to gain performance.)
+    ChooseVectorizationDimension* chooser = createChooseVectorizationDimension();
+    // Todo: remove next line once the metadata bug is solved and the scalar func
+    // will be accessible through through the metadata.
+    chooser->setScalarFunc(m_scalarFunc);
+    fpm1.add(chooser);
+
+
     fpm1.run(F);
 
     // Decide on preliminary width.
@@ -175,10 +201,15 @@ bool VectorizerCore::runOnFunction(Function &F) {
     // Otherwise, look at the configuration. If the configuration says 0,
     // the width is set automatically, otherwise manually.
     if (vecPossiblity->isVectorizable()) {
+      m_vectorizationDim = chooser->getVectorizationDim();
+      m_canUniteWorkgroups = chooser->getCanUniteWorkgroups();
       if(autoVec) {
          V_ASSERT(preCounter && "pre counter should be initialzied");
          m_packetWidth = preCounter->getDesiredWidth();
          m_preWeight = preCounter->getWeight();
+         // for statistical purposes, we need to keep the
+         // prevectorization costs until after vectorization.
+         preCounter->copyBlockCosts(&preVectorizationCosts);
       } else {
          m_packetWidth = m_pConfig->GetTransposeSize();
       }
@@ -198,10 +229,15 @@ bool VectorizerCore::runOnFunction(Function &F) {
   V_PRINT(VectorizerCore, "\nBefore vectorization passes!\n");
   {
     FunctionPassManager fpm2(M);
+    DataLayout *DL2 = new DataLayout(M);
+    fpm2.add(DL2);
     BuiltinLibInfo* pBuiltinInfoPass = (BuiltinLibInfo*)
       createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModule(), "");
     pBuiltinInfoPass->getRuntimeServices()->setPacketizationWidth(m_packetWidth);
     fpm2.add(pBuiltinInfoPass);
+
+    // add WIAnalysis for the predicator.
+    fpm2.add(new WIAnalysis(m_vectorizationDim));
 
     // Register predicate
     FunctionPass *predicate = createPredicator();
@@ -227,8 +263,11 @@ bool VectorizerCore::runOnFunction(Function &F) {
       fpm2.add(simplifyGEP);
     }
 
+    // add WIAnalysis for the packetizer.
+    fpm2.add(new WIAnalysis(m_vectorizationDim));
+
     // Register packetize
-    FunctionPass *packetize = createPacketizer(m_pConfig->GetCpuId());
+    FunctionPass *packetize = createPacketizer(m_pConfig->GetCpuId(), m_vectorizationDim);
     fpm2.add(packetize);
 
     // Register DCE
@@ -271,12 +310,22 @@ bool VectorizerCore::runOnFunction(Function &F) {
     m_isFunctionVectorized = true;
     if (autoVec)  {
       V_ASSERT(postCounter && "uninitialized postCounter");
+      // for statistical purposes:: //////////////////////////////////////////////
+      postCounter->countPerBlockHeuristics(&preVectorizationCosts, m_packetWidth);
+      preVectorizationCosts.clear();
+      ////////////////////////////////////////////////////////////////////////////
       m_postWeight = postCounter->getWeight();
       float Ratio = (float)m_postWeight / m_preWeight;
       int attemptedWidth = m_packetWidth;
       if (Ratio >= WeightedInstCounter::RATIO_MULTIPLIER * m_packetWidth) {
         m_packetWidth = 1;
         m_isFunctionVectorized = false;
+        Statistic::ActiveStatsT kernelStats;
+        OCLSTAT_DEFINE(Vectorized_version_discarded,
+            "Vectorized version was discarded since the scalar version seems to"
+            " be better",kernelStats);
+        Vectorized_version_discarded++;
+        intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
       }
       if (enableDebugPrints) {
         dbgPrint() << "Function: " << F.getName() << "\n";

@@ -110,7 +110,7 @@ void ConfigFile::trim( string& s )
 
 cl_err_code ConfigFile::ReadFile(const string& fileName, ConfigFile& cfg)
 {
-    std::fstream fsInputStream;
+    std::ifstream fsInputStream;
     
     fsInputStream.open(fileName.c_str());
     
@@ -231,19 +231,47 @@ cl_err_code ConfigFile::WriteFile(string fileName, ConfigFile& cf)
 
 }
 
+#ifdef _WIN32
+template<>
+string Intel::OpenCL::Utils::GetRegistryValue<string>(HKEY key, const string& valName, const string& defaultVal)
+{
+    DWORD regValSize;
+    LONG res = RegQueryValueExA(key, valName.c_str(), NULL, NULL, NULL, &regValSize);
+    if (ERROR_SUCCESS != res)
+    {
+        return defaultVal;
+    }
+    std::vector<BYTE> str(regValSize);
+    res = RegQueryValueExA(key, valName.c_str(), NULL, NULL, &str[0], &regValSize);
+    assert(ERROR_SUCCESS == res);
+    if (ERROR_SUCCESS != res)
+    {
+        return defaultVal;
+    }
+    return reinterpret_cast<const char*>(&str[0]);
+}
+#endif
+
 OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
 {
+    static OPENCL_VERSION s_ver = OPENCL_VERSION_UNKNOWN;
+    if (OPENCL_VERSION_UNKNOWN != s_ver)
+    {
+        return s_ver;
+    }    
 #ifdef BUILD_2_0_RT
     return OPENCL_VERSION_2_0;
 #else
     // first look in environment variable or configuration file
-    std::string ver = m_pConfigFile->Read("ForceOCLCPUVersion", std::string(""));   // we are using this name to be aligned with GEN
+    string ver = m_pConfigFile->Read("ForceOCLCPUVersion", string(""));   // we are using this name to be aligned with GEN
     if ("1.2" == ver)
-    {
+    {        
+        s_ver = OPENCL_VERSION_1_2;
         return OPENCL_VERSION_1_2;
     }
     if ("2.0" == ver)
     {
+        s_ver = OPENCL_VERSION_2_0;
         return OPENCL_VERSION_2_0;
     }
     // else look in registry/etc
@@ -255,13 +283,21 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
     switch (iVer)
     {
     case 1:
-        return OPENCL_VERSION_1_2;
+        {
+            s_ver = OPENCL_VERSION_1_2;                 
+            return OPENCL_VERSION_1_2;
+        }
     case 2:
-        return OPENCL_VERSION_2_0;
+        {
+            s_ver = OPENCL_VERSION_2_0;
+            return OPENCL_VERSION_2_0;
+        }
     default:
 #ifdef _WIN32
-        return GetOpenclVerByCpuModel();
+        s_ver = GetOpenclVerByCpuModel();
+        return s_ver;
 #else
+        s_ver = OPENCL_VERSION_1_2;
         return OPENCL_VERSION_1_2;
 #endif
     }
@@ -271,6 +307,12 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
 #ifdef _WIN32
 OPENCL_VERSION Intel::OpenCL::Utils::GetOpenclVerByCpuModel()
 {
+    const string sKmdDevId = GetRegistryKeyValue<string>("SOFTWARE\\Intel\\KMD", "DevId", std::string());
+    if ("BDW GT1 MOBILE ULT" == sKmdDevId)
+    {
+        return OPENCL_VERSION_1_2;  // Broadwell GPU SKU GT1 supports OpenCL 1.2, so we have to be aligned with it
+    }
+
     int cpuInfo[4] = {-1};
     __cpuid(cpuInfo, 1);
 

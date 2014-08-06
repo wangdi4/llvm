@@ -162,6 +162,8 @@ cl_err_code GenericMemObject::Initialize(
 
     assert( (0 != dev_count) && (NULL != pDevices) );
 
+    IOCLDevRawMemoryAllocator* pDeviceRawMemAllocator = NULL;
+
     bool   used_by_DMA = false;
     size_t alignment = 1; // no alignment
     size_t preferred_alignment = alignment;
@@ -224,6 +226,25 @@ cl_err_code GenericMemObject::Initialize(
         preferred_alignment = MAX( preferred_alignment, device_properties.preferred_alignment );
         used_by_DMA            = used_by_DMA || device_properties.usedByDMA;
 
+        if (device_properties.mustAllocRawMemory)
+        {
+            // device must allocate raw memory for BS for zero-copy sharing between RT and device
+
+            if (NULL != pDeviceRawMemAllocator)
+            {
+                // more than one device must allocate the raw memory
+                // we dont support this case - skip this device
+                continue;
+            }
+
+            pDeviceRawMemAllocator = dev->GetDeviceAgent()->clDevGetRawMemoryAllocator();
+            assert(NULL != pDeviceRawMemAllocator && "Device should return valid allocator when its mustAllocRawMemory is true");
+            if (NULL == pDeviceRawMemAllocator)
+            {
+                continue;
+            }
+        }
+
         // add device to the list
         m_device_descriptors.push_back( DeviceDescriptor(dev, sharingGroupId,
                                               device_properties.alignment) );
@@ -253,7 +274,8 @@ cl_err_code GenericMemObject::Initialize(
                                                preferred_alignment,
                                                used_by_DMA,
                                                GetContext()->GetMemoryObjectsHeap(),
-                                               creation_flags );
+                                               creation_flags,
+                                               pDeviceRawMemAllocator);
 
     if (NULL == m_BS)
     {
@@ -1066,20 +1088,21 @@ void GenericMemObject::updateHierarchicalMemoryMode()
 /// GenericMemObjectBackingStore
 //////////////////////////////////////////////////////////////////////////
 GenericMemObjectBackingStore::GenericMemObjectBackingStore(
-                               cl_mem_flags                clMemFlags,
-                               const cl_image_format*    pclImageFormat,
-                               unsigned int                dim_count,
-                               const size_t*            dimensions,
-                               const size_t*            pitches,
-                               void*                    pHostPtr,
-                               size_t                   alignment,
-                               size_t                    preferred_alignment,
-                               bool                        used_by_DMA,
-                               ClHeap                    heap,
-                               cl_rt_memobj_creation_flags   creation_flags ) :
+                               cl_mem_flags                 clMemFlags,
+                               const cl_image_format*       pclImageFormat,
+                               unsigned int                 dim_count,
+                               const size_t*                dimensions,
+                               const size_t*                pitches,
+                               void*                        pHostPtr,
+                               size_t                       alignment,
+                               size_t                       preferred_alignment,
+                               bool                         used_by_DMA,
+                               ClHeap                       heap,
+                               cl_rt_memobj_creation_flags  creation_flags,
+                               IOCLDevRawMemoryAllocator*   pRawMemoryAllocator) :
     m_ptr(NULL), m_dim_count(dim_count), m_pHostPtr(pHostPtr), m_user_flags(clMemFlags),
     m_data_valid(NULL != pHostPtr), m_used_by_DMA( used_by_DMA), m_alignment(alignment), m_preferred_alignment(preferred_alignment),
-    m_raw_data_size(0), m_heap(heap), m_parent(NULL), m_refCount(1)
+    m_raw_data_size(0), m_heap(heap), m_pRawMemoryAllocator(pRawMemoryAllocator), m_parent(NULL), m_refCount(1)
 {
     if (NULL != pclImageFormat)
     {
@@ -1167,7 +1190,15 @@ GenericMemObjectBackingStore::~GenericMemObjectBackingStore()
         }
         if (m_ptr != m_pHostPtr)
         {
-            clFreeHeapPointer( m_heap, m_ptr );
+            if (NULL != m_pRawMemoryAllocator)
+            {
+                // de-allocate from device
+                m_pRawMemoryAllocator->clDevFreeRawMemory( m_ptr );
+            }
+            else
+            {
+                clFreeHeapPointer( m_heap, m_ptr );
+            }
         }
     }
 }
@@ -1316,6 +1347,7 @@ size_t GenericMemObjectBackingStore::GetRawDataOffset( const size_t* origin ) co
 
 bool GenericMemObjectBackingStore::AllocateData( void )
 {
+    // check if data already allocated
     if (NULL != m_ptr)
     {
         if (m_used_by_DMA)
@@ -1328,7 +1360,14 @@ bool GenericMemObjectBackingStore::AllocateData( void )
         return true;
     }
 
-    m_ptr = clAllocateFromHeap( m_heap, m_raw_data_size, m_preferred_alignment, m_used_by_DMA );
+    if (NULL != m_pRawMemoryAllocator)
+    {
+        m_ptr = m_pRawMemoryAllocator->clDevAllocateRawMemory( m_raw_data_size, m_preferred_alignment );
+    }
+    else
+    {
+        m_ptr = clAllocateFromHeap( m_heap, m_raw_data_size, m_preferred_alignment, m_used_by_DMA );
+    }
 
     if (NULL != m_ptr && m_used_by_DMA)
     {

@@ -62,8 +62,8 @@ namespace Validation
 #define DEF_INST_TYPEVAL(_TYPE,_TYPEVAL) template<> inline TypeVal InstTypeVal<_TYPE>() { return _TYPEVAL; }
 
     /// specialize functions
-    DEF_INST_TYPEVAL(CFloat16, THALF) 
-    DEF_INST_TYPEVAL(float, TFLOAT) 
+    DEF_INST_TYPEVAL(CFloat16, THALF)
+    DEF_INST_TYPEVAL(float, TFLOAT)
     DEF_INST_TYPEVAL(double, TDOUBLE)
     DEF_INST_TYPEVAL(int8_t, TCHAR)
     DEF_INST_TYPEVAL(int16_t, TSHORT)
@@ -141,8 +141,8 @@ namespace Validation
 
         static TypeVal ValueOf(const std::string& str)
         {
-            // init static members
-            if (!m_isStaticInit) initStatic(); 
+            // Initialize static members.
+            if (!m_isStaticInit) initStatic();
             // TypeVal first element must be 0 and last element must be INVALID_TYPE
             for (int  i = 0; i < INVALID_TYPE; i++)
             {
@@ -176,7 +176,7 @@ namespace Validation
             TypeMetadata()
                 : m_size(0), m_isFloatingPoint(false), m_toString(""){}
 
-            TypeMetadata(std::size_t size, bool isFloatingPoint, const std::string& toString) 
+            TypeMetadata(std::size_t size, bool isFloatingPoint, const std::string& toString)
                 : m_size(size), m_isFloatingPoint(isFloatingPoint), m_toString(toString) {}
 
             std::size_t m_size;
@@ -213,13 +213,12 @@ namespace Validation
 
         virtual void SetNeat(const bool inNEAT);
         virtual bool IsNEAT() const;
-        
+
         virtual IMemoryObjectDesc * Clone() const
         { return new TypeDesc(*this); }
-        
-        /// @brief get Name of class
-        virtual std::string GetName() const{return "TypeDesc"; } 
 
+        /// @brief get Name of class
+        virtual std::string GetName() const{return "TypeDesc"; }
 
         /// Gets number of elements in array/vector or number of elements accessed by pointer.
         uint64_t GetNumberOfElements() const

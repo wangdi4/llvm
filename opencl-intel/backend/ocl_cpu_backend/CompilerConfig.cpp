@@ -19,13 +19,71 @@ File Name:  CompilerConfig.cpp
 #include "CompilerConfig.h"
 
 #include "llvm/Support/Debug.h"
+#include "OclTune.h"
 
 #include <stdlib.h> // getenv
+#include <string.h>
 #include <sstream>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 const char* CPU_ARCH_AUTO = "auto";
+
+void GlobalCompilerConfig::LoadDefaults()
+{
+    m_enableTiming = false;
+    m_disableStackDump = false;
+    m_infoOutputFile = "";
+}
+
+static bool parseBool(const char *val) {
+    if (!strcmp(val, "0")     ||
+        !strcmp(val, "FALSE") ||
+        !strcmp(val, "False") ||
+        !strcmp(val, "false") ||
+        !strcmp(val, "NO")    ||
+        !strcmp(val, "No")    ||
+        !strcmp(val, "no")    ||
+        !strcmp(val, "F")     ||
+        !strcmp(val, "f")     ||
+        !strcmp(val, "N")     ||
+        !strcmp(val, "n")     ||
+        !strcmp(val, "NONE")  ||
+        !strcmp(val, "None")  ||
+        !strcmp(val, "none"))
+        return false;
+    return true;
+}
+
+void GlobalCompilerConfig::LoadConfig()
+{
+    if (const char *pEnv = getenv("VOLCANO_ENABLE_TIMING"))
+    {
+        m_enableTiming = !strcmp(pEnv, "TRUE");
+    }
+    if (const char *pEnv = getenv("CL_DISABLE_STACK_TRACE"))
+    {
+        m_disableStackDump = parseBool(pEnv);
+    }
+    if (const char *pEnv = getenv("VOLCANO_INFO_OUTPUT_FILE"))
+    {
+        m_infoOutputFile = pEnv;
+    }
+
+#ifdef OCLT
+    // Stat options are set as llvm options for 2 reasons
+    // they are available also for opt
+    // no need to fuse them all the way down to all passes
+    if (const char *pEnv = getenv("VOLCANO_STATS"))
+    {
+        intel::Statistic::enableStats();
+        if (pEnv[0] != 0 && strcmp("ALL", pEnv) && strcmp("all", pEnv))
+        {
+            intel::Statistic::setCurrentStatType(pEnv);
+        }
+    }
+#endif // OCLT
+}
 
 void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
 {
@@ -69,6 +127,7 @@ void CompilerConfig::LoadConfig()
         // The validity of the cpud features are checked upon parsing of optimizer options
         m_cpuFeatures = pEnv;
     }
+
 #ifndef NDEBUG
     if (getenv("VOLCANO_DEBUG"))
     {
@@ -79,6 +138,14 @@ void CompilerConfig::LoadConfig()
       llvm::setCurrentDebugType(pEnv);
     }
 #endif
+
+#ifdef OCLT
+    if (const char *pEnv = getenv("VOLCANO_IR_FILE_BASE_NAME"))
+    {
+        // base name for stat files
+        m_statFileBaseName = pEnv;
+    }
+#endif // OCLT
 }
 
 void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
@@ -95,26 +162,6 @@ void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOpt
     pBackendOptions->GetValue((int)OPTION_IR_DUMPTYPE_BEFORE, &m_DumpIROptionBefore, 0);
     m_dumpIRDir     = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DUMP_IR_DIR, m_dumpIRDir.c_str());
     m_dumpHeuristicIR = pBackendOptions->GetBooleanValue((int)CL_DEV_BACKEND_OPTION_DUMP_HEURISTIC_IR, m_dumpHeuristicIR);
-
-    // dont allow invalid transpose size
-    if(!IsValidTransposeSize())
-    {
-        throw Exceptions::BadConfigException("Invalid transpose size in the options", CL_DEV_INVALID_VALUE);
-    }
 }
-
-bool CompilerConfig::IsValidTransposeSize()
-{
-    if(m_transposeSize != TRANSPOSE_SIZE_AUTO &&
-       m_transposeSize != TRANSPOSE_SIZE_1 &&
-       m_transposeSize != TRANSPOSE_SIZE_4 &&
-       m_transposeSize != TRANSPOSE_SIZE_8 &&
-       m_transposeSize != TRANSPOSE_SIZE_16)
-    {
-        return false;
-    }
-    return true;
-}
-
 
 }}}

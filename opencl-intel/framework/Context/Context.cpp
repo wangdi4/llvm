@@ -50,6 +50,7 @@
 #include <cl_local_array.h>
 #include <framework_proxy.h>
 #include "pipe.h"
+#include "cl_user_logger.h"
 
 using namespace std;
 using namespace Intel::OpenCL::Utils;
@@ -1196,7 +1197,13 @@ cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth,
 void Context::NotifyError(const char * pcErrInfo, const void * pPrivateInfo, size_t szCb)
 {
     if (NULL != m_pfnNotify)
-    {
+    {        
+        if (NULL != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled())
+        {
+            std::stringstream stream;
+            stream << "clCreateContext callback(" << pcErrInfo << ", " << pPrivateInfo << ", " << szCb << ")" << std::endl;
+            g_pUserLogger->PrintString(stream.str());
+        }
         m_pfnNotify(pcErrInfo, pPrivateInfo, szCb, m_pUserData);
     }
 }

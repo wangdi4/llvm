@@ -76,7 +76,7 @@ cl_err_code FrontEndCompiler::Initialize(const char * psModuleName, const void *
 
     m_pszModuleName = STRDUP(psModuleName);
 
-    cl_err_code err = m_pfnCreateInstance(pDeviceInfo, stDevInfoSize, &m_pFECompiler);
+    cl_err_code err = m_pfnCreateInstance(pDeviceInfo, stDevInfoSize, &m_pFECompiler, g_pUserLogger);
     if ( CL_FAILED(err) )
     {
         LOG_ERROR(TEXT("FECompiler::CreateInstance() failed with %x"), err);
@@ -189,11 +189,11 @@ cl_err_code FrontEndCompiler::LinkProgram(const void**  ppBinaries,
                                           const char*   szOptions, 
                                           OUT char**    ppBinary, 
                                           OUT size_t*   puiBinarySize, 
-                                          OUT char**    pszLinkLog,
+                                          OUT std::vector<char>& linkLog,
                                           OUT bool*     pbIsLibrary) const
 {
-    LOG_DEBUG(TEXT("Enter CompileProgram(ppBinaries=%d, uiNumInputBinaries=%d, puiBinariesSizes=%d, szOptions=%d, ppBinary=%d, puiBinarySize=%d, pszLinkLog=%d)"),
-        ppBinaries, uiNumInputBinaries, puiBinariesSizes, szOptions, ppBinary, puiBinarySize, pszLinkLog);
+    LOG_DEBUG(TEXT("Enter CompileProgram(ppBinaries=%d, uiNumInputBinaries=%d, puiBinariesSizes=%d, szOptions=%d, ppBinary=%d, puiBinarySize=%d)"),
+        ppBinaries, uiNumInputBinaries, puiBinariesSizes, szOptions, ppBinary, puiBinarySize);
 
     IOCLFEBinaryResult*            pResult;
     FELinkProgramsDescriptor    linkDesc;
@@ -223,16 +223,8 @@ cl_err_code FrontEndCompiler::LinkProgram(const void**  ppBinaries,
 
     if (NULL != errLog)
     {
-        *pszLinkLog = new char[strlen(errLog) + 1];
-        if (NULL != *pszLinkLog)
-        {
-            MEMCPY_S(*pszLinkLog, strlen(errLog) + 1, errLog, strlen(errLog) + 1);
-        }
-        else
-        {
-            pResult->Release();
-            return CL_OUT_OF_HOST_MEMORY;
-        }
+        linkLog.resize(strlen(errLog) + 1);       
+        MEMCPY_S(&linkLog[0], strlen(errLog) + 1, errLog, strlen(errLog) + 1);
     }
 
     *puiBinarySize = pResult->GetIRSize();

@@ -61,3 +61,22 @@ vector<string> OCLConfig::GetDevices() const
 	ConfigFile::tokenize(s, vectDevices);
 	return vectDevices;
 }
+
+// I declare this function here and not in utils to make sure that the instance returned is truely a singleton in the whole the program
+
+FrameworkUserLogger& FrameworkUserLogger::Instance()
+{
+    static FrameworkUserLogger instance;
+    return instance;
+}
+
+namespace Intel { namespace OpenCL { namespace Utils {
+
+#ifdef __ANROID__
+    
+    FrameworkUserLogger* g_pUserLogger = NULL;
+#else        
+    FrameworkUserLogger* g_pUserLogger = &FrameworkUserLogger::Instance();
+#endif
+
+}}}

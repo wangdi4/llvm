@@ -31,6 +31,7 @@
 #include "queue_event.h"
 #include "ocl_command_queue.h"
 #include "Context.h"
+#include "enqueue_commands.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -68,9 +69,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
             BARRIER
         };
         
-        virtual cl_err_code EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
+        virtual cl_err_code EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger& apiLogger);
         virtual cl_err_code EnqueueRuntimeCommandWaitEvents(RUNTIME_COMMAND_TYPE type, 
-                                           Command* pCommand, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList, cl_event* pEvent);
+            Command* pCommand, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList, cl_event* pEvent, ApiLogger* pApiLogger);
         virtual cl_err_code WaitForCompletion(const SharedPtr<QueueEvent>& pEvent );            
         virtual ocl_gpa_data* GetGPAData() const { return m_pContext->GetGPAData(); }
 
@@ -79,6 +80,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // manage lifetime slightly differently from another ReferenceCounted objects
         virtual void EnterZombieState( EnterZombieStateLevel call_level );
+        void NotifyCommandFailed( cl_err_code err , const CommandSharedPtr<>&  command ) const;
 
     protected:
 

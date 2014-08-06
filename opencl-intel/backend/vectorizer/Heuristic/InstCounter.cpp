@@ -4,6 +4,7 @@ Subject to the terms and conditions of the Master Development License
 Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
+#define DEBUG_TYPE "Vectorizer"
 #include "InstCounter.h"
 #include "WIAnalysis.h"
 #include "Predicator.h"
@@ -13,6 +14,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 #include "CompilationUtils.h"
+#include "OclTune.h"
 
 #include "llvm/PassManager.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -49,6 +51,8 @@ OCL_INITIALIZE_PASS_END(VectorizationPossibilityPass, "vectorpossible", "Check w
 const float WeightedInstCounter::RATIO_MULTIPLIER = 0.98f;
 const float WeightedInstCounter::ALL_ZERO_LOOP_PENALTY = 0;
 const float WeightedInstCounter::TID_EQUALITY_PENALTY = 0.1f;
+const int PENALTY_FACTOR_FOR_GEP_WITH_SIX_PARAMETERS = 7;
+const unsigned int NUMBER_OF_PARAMETERS_IN_GEP_PENALTY_HACK = 6;
 
 
 // Costs for transpose functions for 64bit systems
@@ -172,6 +176,11 @@ WeightedInstCounter::WeightedInstCounter(bool preVec, Intel::CPUId cpuId):
 
 bool WeightedInstCounter::runOnFunction(Function &F) {
 
+  // for statistics:
+  OCLSTAT_GATHER_CHECK(
+    m_blockCosts.clear();
+  );
+
   //This is for safety - don't return 0.
   m_totalWeight = 1;
 
@@ -223,6 +232,7 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
 
     bool discardPhis = false;
     bool discardTerminator = false;
+    int blockWeights = 0; // for statistical purposes.
 
     // Check if BB is an idom of an allOnes branch
     // and if it does discard its phis cost
@@ -253,9 +263,15 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
         continue;
       if (discardTerminator &&  dyn_cast<TerminatorInst>(I))
         continue;
-      m_totalWeight += Probability * TripCount *
-                       getInstructionWeight(I, MemOpCostMap);
+
+      int instWeight = getInstructionWeight(I, MemOpCostMap);
+      m_totalWeight += Probability * TripCount * instWeight;
+      blockWeights += instWeight; // for statisical purposes.
     }
+    // for statistics:
+    OCLSTAT_GATHER_CHECK(
+      m_blockCosts[BB] = blockWeights;
+    );
   }
 
   // If we are pre-vectorization, decide what the vectorization width should be.
@@ -422,6 +438,32 @@ int WeightedInstCounter::estimateCall(CallInst *Call)
       // since the CPU doesn't have gathers.
       Value *Mask = Call->getArgOperand(0);
       Type* MaskType = Mask->getType();
+
+      // apperently, masked stores to a memory location that was retrieved via
+      // a get element pointer instruction with 6 parameters,
+      // inside a block which is a loop of a single block, are
+      // surprisingly expensive (about 7 times that of a usual MEM_OP).
+      // alternatively...
+      // this could be the result of an outragous over-fitting, designed
+      // to prevent LuxMark::Sampler from vectorizing.
+      // So yes, this is a hack for this purpose.
+      // The check is very specific trying to catch LuxMark::Sampler.
+      // alone without causing collateral damage.
+      if (Mangler::isMangledStore(Name) && !MaskType->isVectorTy()) {
+        V_ASSERT(Call->getNumArgOperands() == 3 && "expected 3 params in masked store");
+        if (GetElementPtrInst* gep = dyn_cast<GetElementPtrInst>(Call->getOperand(2))) {
+          if (gep->getNumOperands() == NUMBER_OF_PARAMETERS_IN_GEP_PENALTY_HACK) {
+            BasicBlock* BB = Call->getParent();
+            for (succ_iterator it = succ_begin(BB), e = succ_end(BB);
+              it != e; ++it) {
+              if (*it == BB) {
+                return MEM_OP_WEIGHT * PENALTY_FACTOR_FOR_GEP_WITH_SIX_PARAMETERS;
+              }
+            }
+          }
+        }
+      }
+
       // For scalar masks, it'll be a pretty little vector store/load
       if (!MaskType->isVectorTy())
         return MEM_OP_WEIGHT;
@@ -1075,6 +1117,42 @@ void WeightedInstCounter::estimateDataDependence(Function &F,
   }
 }
 
+void WeightedInstCounter::copyBlockCosts(std::map<BasicBlock*,int>* dest) {
+  OCLSTAT_GATHER_CHECK(
+  dest->insert(m_blockCosts.begin(), m_blockCosts.end());
+  );
+}
+
+void WeightedInstCounter::countPerBlockHeuristics(std::map<BasicBlock*, int>* preCosts, int packetWidth) {
+  // this method is just for statistical purposes.
+  OCLSTAT_GATHER_CHECK(
+  Statistic::ActiveStatsT kernelStats;
+  Function* F = NULL;
+  int vectorizedVersionIsBetter = 0;
+  int scalarVersionIsBetter = 0;
+  for (std::map<BasicBlock*, int>::iterator it = preCosts->begin(),
+    e = preCosts->end(); it!= e; ++it) {
+      BasicBlock* BB = it->first;
+      F = BB->getParent();
+      int scalarVersionWeight = it->second;
+      if (!m_blockCosts.count(BB)) // no weight for vectorized version.
+        continue;
+      int vectorizedVersionWeight = m_blockCosts[BB];
+      if (vectorizedVersionWeight > scalarVersionWeight * packetWidth)
+        scalarVersionIsBetter++;
+      else
+        vectorizedVersionIsBetter++;
+  }
+  OCLSTAT_DEFINE(Blocks_That_Are_Better_Vectorized,"blocks for which the heuristics says it is better to vectorize",kernelStats);
+  Blocks_That_Are_Better_Vectorized = vectorizedVersionIsBetter;
+  OCLSTAT_DEFINE(Blocks_That_Are_Better_Scalarized,"blocks for which the heuristics says it is better to leave scalar version",kernelStats);
+  Blocks_That_Are_Better_Scalarized = scalarVersionIsBetter;
+  if (F)
+    intel::Statistic::pushFunctionStats (kernelStats, *F, DEBUG_TYPE);
+  );
+}
+
+
 bool VectorizationPossibilityPass::runOnFunction(Function & F)
 {
   DominatorTree &DT = getAnalysis<DominatorTree>();
@@ -1086,31 +1164,51 @@ bool VectorizationPossibilityPass::runOnFunction(Function & F)
 
 bool CanVectorizeImpl::canVectorize(Function &F, DominatorTree &DT, RuntimeServices* services)
 {
+  Statistic::ActiveStatsT kernelStats;
+
   if (hasVariableGetTIDAccess(F, services)) {
     dbgPrint() << "Variable TID access, can not vectorize\n";
+    OCLSTAT_DEFINE(CantVectGIDMess,"Unable to vectorize because get_global_id is messed up",kernelStats);
+    CantVectGIDMess++;
+    intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
     return false;
   }
 
   if (!isReducibleControlFlow(F, DT)) {
     dbgPrint()<< "Irreducible control flow, can not vectorize\n";
+    OCLSTAT_DEFINE(CantVectNonReducable,"Unable to vectorize because the control flow is irreducible",kernelStats);
+    CantVectNonReducable++;
+    intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
     return false;
   }
 
   if (hasIllegalTypes(F)) {
     dbgPrint() << "Types unsupported by codegen, can not vectorize\n";
+    OCLSTAT_DEFINE(CantVectIllegalTypes,"Unable to vectorize because of unsupported opcodes",kernelStats);
+    CantVectIllegalTypes++;
+    intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
     return false;
   }
 
   if (hasNonInlineUnsupportedFunctions(F)) {
     dbgPrint() << "Call to unsupported functions, can not vectorize\n";
+    OCLSTAT_DEFINE(CantVectNonInlineUnsupportedFunctions,"Unable to vectorize because of calls to functions that can't be inlined",kernelStats);
+    CantVectNonInlineUnsupportedFunctions++;
+    intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
     return false;
   }
 
   if (hasDirectStreamCalls(F, services)) {
     dbgPrint() << "Has direct calls to stream functions, can not vectorize\n";
+    OCLSTAT_DEFINE(CantVectStreamCalls,"Unable to vectorize because the code contains direct stream calls",kernelStats);
+    CantVectStreamCalls++;
+    intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
     return false;
   }
 
+  OCLSTAT_DEFINE(CanVect,"Code is vectorizable",kernelStats);
+  CanVect++;
+  intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
   return true;
 }
 

@@ -23,6 +23,7 @@
 #define OCL_INTEL_DX9_MEDIA_SHARING_EXT "cl_intel_dx9_media_sharing"
 #define OCL_KHR_DX9_MEDIA_SHARING_EXT   "cl_khr_dx9_media_sharing"
 #define OCL_KHR_D3D11_SHARING_EXT       "cl_khr_d3d11_sharing"
+#define OCL_KHR_GL_SHARING_EXT          "cl_khr_gl_sharing"
 
 #define OCL_COMMON_SUPPORTED_EXTENSIONS "cl_khr_icd cl_khr_global_int32_base_atomics "\
     "cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics "\
@@ -42,7 +43,8 @@
 #define OCL_SUPPORTED_EXTENSIONS_WIN "cl_khr_gl_sharing "\
     OCL_INTEL_DX9_MEDIA_SHARING_EXT " "\
     OCL_KHR_DX9_MEDIA_SHARING_EXT " "\
-    OCL_KHR_D3D11_SHARING_EXT
+    OCL_KHR_D3D11_SHARING_EXT " "\
+    OCL_KHR_GL_SHARING_EXT
 #define OCL_DOUBLE "cl_khr_fp64"
 
 static const char OCL_SUPPORTED_EXTENSIONS_1_2[] =

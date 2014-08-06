@@ -201,6 +201,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isWorkGroupUniform(const std::string&);
 
     static bool isAtomicBuiltin(const std::string&);
+    static bool isAtomicWorkItemFenceBuiltin(const std::string&);
 
     static const std::string NAME_GET_GID;
     static const std::string NAME_GET_LID;
@@ -285,9 +286,17 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     //////////////////////////////////////////////////////////////////
     static std::string mangledGetLID();
     //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the function get_group_id
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledGetGroupID();
+    //////////////////////////////////////////////////////////////////
     // @brief: returns the mangled name of the function get_local_size
     //////////////////////////////////////////////////////////////////
     static std::string mangledGetLocalSize();
+    //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the function get_num_groups
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledGetNumGroups();
     //////////////////////////////////////////////////////////////////
     // @brief: returns the mangled name of the function get_enqueued_local_size
     //////////////////////////////////////////////////////////////////

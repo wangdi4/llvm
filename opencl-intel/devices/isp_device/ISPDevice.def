@@ -3,5 +3,4 @@ EXPORTS
 	clDevCreateDeviceInstance
 	clDevGetDeviceInfo
 	clDevGetAvailableDeviceList
-	clDevErr2Txt
 	clDevInitDeviceAgent

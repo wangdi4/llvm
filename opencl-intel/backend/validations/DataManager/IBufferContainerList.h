@@ -32,11 +32,11 @@ namespace Validation
     class IBufferContainerList : public IContainer
     {
     public:
-        /// @brief Factory method, which creates empty BufferContainer objectand puts it into BufferContainerList container.
+        /// @brief Factory method, which creates empty BufferContainer object and puts it into BufferContainerList container.
         /// @return Pointer to created BufferContainer object interface.
         virtual IBufferContainer* CreateBufferContainer() = 0;
         // Methods to iterate over buffers
-        // TODO: implement C++-style interator for BufferContainer
+        // TODO: implement C++-style iterator for BufferContainer
         /// @brief Method to get the number of BufferContainers
         /// @return number of BufferContainer objects
         virtual std::size_t GetBufferContainerCount() const = 0;

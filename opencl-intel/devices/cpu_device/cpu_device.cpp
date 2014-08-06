@@ -52,6 +52,13 @@
 #endif
 
 using namespace Intel::OpenCL::CPUDevice;
+using Intel::OpenCL::Utils::FrameworkUserLogger;
+
+namespace Intel { namespace OpenCL { namespace Utils {
+
+FrameworkUserLogger* g_pUserLogger = NULL;
+
+}}}
 
 USE_SHUTDOWN_HANDLER(CPUDevice::WaitUntilShutdown);
 
@@ -397,8 +404,13 @@ void CPUDevice::NotifyAffinity(threadid_t tid, unsigned int core_index)
     threadid_t   other_tid        = m_pCoreToThread[core_index];
     int          my_prev_core_idx = m_threadToCore[tid];
 
+	// no change needed
+	if (other_tid == tid)
+	{
+	    return;
+	}
     // The other tid is valid if there was another thread pinned to the core I want to move to
-    bool         other_valid      = (other_tid != INVALID_THREAD_HANDLE) && (other_tid != tid);
+    bool         other_valid      = (other_tid != INVALID_THREAD_HANDLE);
     // Either I'm not relocating another thread, or I am. If I am, make sure that I'm relocating the thread which resides on the core I want to move to
     // This assertion might fail if there's a bug that makes m_threadToCore desynch from m_pCoreToThread
     bool bMapsAreConsistent = !other_valid || (int)core_index == m_threadToCore[other_tid];
@@ -489,7 +501,8 @@ void CPUDevice::WaitUntilShutdown()
 extern "C" cl_dev_err_code clDevCreateDeviceInstance(  cl_uint      dev_id,
                                    IOCLFrameworkCallbacks   *pDevCallBacks,
                                    IOCLDevLogDescriptor     *pLogDesc,
-                                   IOCLDeviceAgent*         *pDevice
+                                   IOCLDeviceAgent*         *pDevice,
+                                   FrameworkUserLogger* pUserLogger
                                    )
 {
     if(NULL == pDevCallBacks || NULL == pDevice)
@@ -497,6 +510,7 @@ extern "C" cl_dev_err_code clDevCreateDeviceInstance(  cl_uint      dev_id,
         return CL_DEV_INVALID_OPERATION;
     }
 
+    g_pUserLogger = pUserLogger;
     CPUDevice *pNewDevice = new CPUDevice(dev_id, pDevCallBacks, pLogDesc);
     if ( NULL == pNewDevice )
     {
@@ -2064,18 +2078,21 @@ cl_dev_err_code CPUDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
 /****************************************************************************************************************
  clDevReleaseCommand
 ********************************************************************************************************************/
-void CPUDevice::clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease)
+cl_dev_err_code CPUDevice::clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease)
 {
     ITaskBase* ptr = (ITaskBase*)cmdToRelease->device_agent_data;
     if (NULL == ptr)
     {
-        return;
+        // already released
+        return CL_DEV_SUCCESS;
     }
     long ref = ptr->DecRefCnt();
     if (0 == ref)
     {
         ptr->Cleanup();
     }
+
+    return CL_DEV_SUCCESS;
 }
 
 /****************************************************************************************************************

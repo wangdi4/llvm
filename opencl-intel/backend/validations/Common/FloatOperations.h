@@ -458,7 +458,7 @@ namespace Validation
         /// @brief reinterpret double as uint64_t
         inline uint64_t AsUInt(double d)
         {
-            // to suppress gcc warning: dereferencing type-punned pointer will break strict-aliasing rules
+            // to suppress GCC warning: dereferencing type-punned pointer will break strict-aliasing rules
             uint64_t x;
             assert(sizeof(d)==sizeof(x));
             memcpy(&x, &d, sizeof(d));
@@ -468,7 +468,7 @@ namespace Validation
         /// @brief reinterpret float as uint32_t
         inline uint32_t AsUInt(float f)
         {
-            // to suppress gcc warning: dereferencing type-punned pointer will break strict-aliasing rules
+            // to suppress GCC warning: dereferencing type-punned pointer will break strict-aliasing rules
             uint32_t x;
             assert(sizeof(f)==sizeof(x));
             memcpy(&x, &f, sizeof(f));
@@ -551,7 +551,7 @@ namespace Validation
         static double AsFloat(uint64_t u)
         {
             // TODO: TEST THIS CONVERSION
-            // to suppress gcc warning: dereferencing type-punned pointer will break strict-aliasing rules
+            // to suppress GCC warning: dereferencing type-punned pointer will break strict-aliasing rules
             double x;
             assert(sizeof(u)==sizeof(x));
             memcpy(&x, &u, sizeof(u));
@@ -560,7 +560,7 @@ namespace Validation
 
         static float AsFloat(uint32_t u)
         {
-            // to suppress gcc warning: dereferencing type-punned pointer will break strict-aliasing rules
+            // to suppress GCC warning: dereferencing type-punned pointer will break strict-aliasing rules
             float x;
             memcpy(&x, &u, sizeof(u));
             return x;

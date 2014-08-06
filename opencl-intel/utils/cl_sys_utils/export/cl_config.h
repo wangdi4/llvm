@@ -451,33 +451,49 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		return;
 	}
 
+#ifdef _WIN32
+
+template<typename T>
+T GetRegistryValue(HKEY key, const string& valName, const T& defaultVal)
+{
+    T regVal;
+    DWORD regValSize = sizeof(regVal);
+    LONG res = RegQueryValueExA(key, valName.c_str(), NULL, NULL, (BYTE*)&regVal, &regValSize);
+    if (ERROR_SUCCESS != res)
+    {
+        return defaultVal;
+    }
+    return regVal;
+}
+
+template<typename T>
+T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal)
+{
+    HKEY key = NULL;
+    LONG res = RegOpenKey(HKEY_LOCAL_MACHINE, keyName.c_str(), &key);    
+
+    if (ERROR_SUCCESS != res)
+    {
+        return defaultVal;
+    }
+    else
+    {
+        T regVal = GetRegistryValue(key, valName, defaultVal);
+        RegCloseKey(key);
+        return regVal;
+    }    
+}
+#endif
+
+#ifndef DEVICE_NATIVE
     template<class T>
     T ConfigFile::GetRegistryOrEtcValue(const string& name, const T& defaultVal)
-    {
-        T regVal;
+    {        
 #ifdef _WIN32
-        const char* sOpenCLverName = "SOFTWARE\\Intel\\OpenCL";
-        HKEY openCLverKey = NULL;
-        LONG res = RegOpenKey(HKEY_LOCAL_MACHINE, sOpenCLverName, &openCLverKey);    
-
-        if (ERROR_SUCCESS != res)
-        {
-            return defaultVal;
-        }
-        else
-        {
-            DWORD regValSize = sizeof(regVal);
-            const char* sValue = name.c_str();
-            res = RegQueryValueExA(openCLverKey, sValue, NULL, NULL, (BYTE*)&regVal, &regValSize);
-            if (ERROR_SUCCESS != res)
-            {
-                return defaultVal;
-            }
-            RegCloseKey(openCLverKey);
-        }
+        return GetRegistryKeyValue("SOFTWARE\\Intel\\OpenCL", name, defaultVal);
 #else
-        const char* sOpenCLverFilename = "/etc/OpenCL/vendors/Intel/ForceOCLCPUVersion";
-        std::ifstream ifs(sOpenCLverFilename);
+        T regVal;        
+        std::ifstream ifs(("/etc/OpenCL/vendors/Intel/" + name).c_str());
         if (!ifs.good())
         {
             return defaultVal;
@@ -488,9 +504,10 @@ namespace Intel { namespace OpenCL { namespace Utils {
             return defaultVal;
         }
         ifs.close();
-#endif
         return regVal;
+#endif        
     }
+#endif
 
     enum OPENCL_VERSION
     {
@@ -537,6 +554,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
          * @return the dynamically detected OpenCL version (according to registry in Windows and /etc/ in Linux)
          */        
         OPENCL_VERSION GetOpenCLVersion() const;
+        bool DisableStackDump() const { return m_pConfigFile->Read<bool>("CL_DISABLE_STACK_TRACE", false ); }
 	
 	private:
 		BasicCLConfigWrapper(const BasicCLConfigWrapper&);

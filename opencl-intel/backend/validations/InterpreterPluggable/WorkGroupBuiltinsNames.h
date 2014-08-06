@@ -38,7 +38,7 @@ namespace Validation{
         ///@brief constructs mangled name of pre-exec method for given function
         ///@param [in] MangeldName - mangled name of function for which you want to
         ///construct mangled pre-exec method name
-        //@return namgled name of pre-exec method
+        //@return mangled name of pre-exec method
         std::string getMangledPreExecMethodName(std::string MangeldName);
     private:
         typedef std::map<std::string, reflection::FunctionDescriptor> WGBuiltinsNamesMap;

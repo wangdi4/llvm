@@ -137,9 +137,7 @@ bool FillMemObjTask::PrepareTask()
     }
 #endif
 
-#ifdef MIC_USE_COI_BUFFS_REF_NEW_API
 	m_bufferPointers = NULL;
-#endif
 
     return true;
 }
@@ -180,7 +178,7 @@ int FillMemObjTask::Init(size_t region[], unsigned int& regCount)
     }
 #endif
 	// Notify start if exists
-    if ( NULL!= m_pDispatcherData->startEvent.isRegistered )
+    if ( m_pDispatcherData->startEvent.isRegistered )
     {
         COIEventSignalUserEvent(m_pDispatcherData->startEvent.cmdEvent);
     }

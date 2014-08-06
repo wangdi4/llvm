@@ -15,15 +15,14 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-#pragma OPENCL EXTENSION cl_khr_3d_image_writes : enable
-
 /**
  * mic_error_kernel - kernels intended to fail upon build on MIC and succeed for CPU or GPU
+                      using images in kernel won't compile for MIC device as it doesn't support images
  */
  
- __kernel void mic_error_kernel(write_only image3d_t output)
+ __kernel void mic_error_kernel(read_only image2d_t input, global float4* output)
 {
-	int tidX = get_global_id(0), tidY = get_global_id(1), tidZ = get_global_id(2);
-	int offset = tidZ * get_image_width(output) * get_image_height(output) + tidY * get_image_width(output) + tidX;
-	write_imagef( output, (int4)( tidX, tidY, tidZ, 0 ), (float4)(1.0f, 1.0f, 1.0f, 1.0f) );		
+    int tidX = get_global_id(0), tidY = get_global_id(1);
+    float4 data = read_imagef( input, (int2)( tidX, tidY ));
+    output[ tidX ] = data;
 }

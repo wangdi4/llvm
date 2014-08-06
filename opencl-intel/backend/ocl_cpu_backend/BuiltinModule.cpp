@@ -21,7 +21,7 @@ File Name:  BuiltinModule.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-BuiltinModule::BuiltinModule(llvm::Module* pRtlModule): 
+BuiltinModule::BuiltinModule(llvm::Module* pRtlModule):
     m_pModule(pRtlModule)
 {
 }
@@ -30,7 +30,8 @@ BuiltinModule::~BuiltinModule() { }
 
 BuiltinLibrary::BuiltinLibrary(const Intel::CPUId &cpuId):
     m_cpuId(cpuId),
-    m_pRtlBuffer(NULL)
+    m_pRtlBuffer(NULL),
+    m_pRtlBufferSvmlShared(NULL)
 {
 }
 

@@ -137,7 +137,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                   const char *    szOptions,
                                   OUT char**      ppBinary,
                                   OUT size_t*     puiBinarySize,
-                                  OUT char**      pszLinkLog,
+                                  OUT std::vector<char>& linkLog,
                                   OUT bool*       pbIsLibrary) const;
 
         /******************************************************************************************

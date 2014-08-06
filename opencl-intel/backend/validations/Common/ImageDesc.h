@@ -37,7 +37,7 @@ namespace Validation
     class ImageDesc : public IMemoryObjectDesc
     {
     public:
-        /// @brief default ctor. 
+        /// @brief default ctor.
         /// Fills object with INVALID data which should be later filled with correct values
         /// Default ctor is enabled for reading/writing object to file
         ImageDesc()
@@ -102,8 +102,8 @@ namespace Validation
 
         /// get channel order
         ImageChannelOrderVal GetImageChannelOrder() const {return m_order.GetValue();}
-        
-        /// get channel data type. in case of NEAT returns underlying data type
+
+        /// Get channel data type. In case of NEAT returns underlying data type.
         ImageChannelDataTypeVal GetImageChannelDataType() const {return m_dataType.GetValue();}
 
         ImageTypeVal GetImageType() const {return m_imageType;}
@@ -144,7 +144,7 @@ namespace Validation
                         break;
                     default :
                         throw Exception::OutOfRange("Incorrect image type.");
-                }               
+                }
             }
             else
             {
@@ -193,17 +193,17 @@ namespace Validation
         }
 
         /// Set Neat flag
-        virtual void SetNeat(const bool in_IsNeat) { 
-            // OpenCL images which can be written are 2D images (OpenCL 1.1). 
+        virtual void SetNeat(const bool in_IsNeat) {
+            // OpenCL images which can be written are 2D images (OpenCL 1.1).
             // So NEAT tracks write only 2D images with Float pixel data type
-            // other images are considered as accurate. NEAT assumes their pixel values are accurate 
+            // other images are considered as accurate. NEAT assumes their pixel values are accurate
             // and obtains them from Interpreter Context
             if(in_IsNeat)
             {
                 assert((m_dataType.GetValue() == OpenCL_FLOAT) && "ImageDesc with NEAT supports only FLOAT images");
                 m_size = GetNEATImageSizeDesc(m_size, GetChannelCount(m_order.GetValue()));
             }
-            m_isNEAT = in_IsNeat; 
+            m_isNEAT = in_IsNeat;
         }
 
         /// assignment
@@ -269,7 +269,7 @@ namespace Validation
             return (!(*this == a));
         }
 
-        /// helper template function to get pixel size 
+        /// helper template function to get pixel size
         /// @param T - enum ImageChannelDataTypeVal
         /// @param nchannels - number of channels
         template<ImageChannelDataTypeVal T>
@@ -277,13 +277,13 @@ namespace Validation
         {
             // use templated <> type to convert ImageChannelDataTypeVal to C type
             typedef typename Validation::ImageChannelDataTypeValToCType<T>::type pixtype;
-            return nchannels * sizeof(pixtype); 
+            return nchannels * sizeof(pixtype);
         }
 
         /// @brief get pixel size in bytes
         /// @param dt - channel datatype
         /// @param order - channel order
-        static inline std::size_t CalcPixelSizeInBytes(const ImageChannelDataTypeVal& dt, 
+        static inline std::size_t CalcPixelSizeInBytes(const ImageChannelDataTypeVal& dt,
             const ImageChannelOrderVal& order)
         {
             const std::size_t nchannels = GetChannelCount(order);
@@ -294,24 +294,24 @@ namespace Validation
                case OpenCL_UNORM_INT8 : ret = GetPixelSizeInBytesT<OpenCL_UNORM_INT8>(nchannels); break;
                case OpenCL_UNORM_INT16 : ret = GetPixelSizeInBytesT<OpenCL_UNORM_INT16>(nchannels); break;
                case OpenCL_UNORM_SHORT_565 :
-                   { 
+                   {
                        // packed into uint16_t
                        typedef ImageChannelDataTypeValToCType<OpenCL_UNORM_SHORT_565>::type pixtype;
-                       ret = sizeof(pixtype); 
+                       ret = sizeof(pixtype);
                        break;
                    }
                case OpenCL_UNORM_SHORT_555 :
-                   { 
+                   {
                        // packed into uint16_t
                        typedef ImageChannelDataTypeValToCType<OpenCL_UNORM_SHORT_555>::type pixtype;
-                       ret = sizeof(pixtype); 
+                       ret = sizeof(pixtype);
                        break;
                    }
                case OpenCL_UNORM_INT_101010 :
-                   { 
+                   {
                        // packed into uint32_t
                        typedef ImageChannelDataTypeValToCType<OpenCL_UNORM_INT_101010>::type pixtype;
-                       ret = sizeof(pixtype); 
+                       ret = sizeof(pixtype);
                        break;
                    }
                case OpenCL_SIGNED_INT8 : ret = GetPixelSizeInBytesT<OpenCL_SIGNED_INT8>(nchannels); break;

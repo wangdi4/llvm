@@ -35,6 +35,10 @@
 
 using namespace Intel::OpenCL::MICDevice;
 
+const size_t CommandList::m_sNoBatch = (size_t)-1;
+bool CommandList::m_sBatchModeInitialized = false;
+size_t CommandList::m_sBatchAfter = CommandList::m_sNoBatch;
+
 CommandList::fnCommandCreate_t* CommandList::m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE] = {
     /* CL_DEV_CMD_INVALID      */ NULL,
     /* CL_DEV_CMD_READ         */ &ReadWriteMemObject::Create,
@@ -49,6 +53,27 @@ CommandList::fnCommandCreate_t* CommandList::m_vCommands[CL_DEV_CMD_MAX_COMMAND_
     /* CL_DEV_CMD_FILL_IMAGE   */ &FillMemObject::Create,
     /* CL_DEV_CMD_MIGRATE      */ &MigrateMemObject::Create
 };
+
+/* Static method that initialized the batch mode. Must call it at the initialization of the device. */
+void CommandList::initializeBatchMode()
+{
+    if (!m_sBatchModeInitialized)
+    {
+        m_sBatchAfter = MICSysInfo::getInstance().getMicDeviceConfig().Device_BatchAfter();
+        const char* batchModeStr = MICSysInfo::getInstance().getMicDeviceConfig().Device_BatchMode().c_str();
+        if (0 == STRCMPI_S(batchModeStr, "on", 2))
+        {
+            // Batch if at least on command exist on device
+            m_sBatchAfter = 1;
+        }
+        else if (0 == STRCMPI_S(batchModeStr, "off", 3))
+        {
+            // Never batch
+            m_sBatchAfter = m_sNoBatch;
+        }
+        m_sBatchModeInitialized = true;
+    }
+}
 
 
 CommandList::CommandList(const SharedPtr<NotificationPort>& pNotificationPort, 
@@ -66,8 +91,8 @@ CommandList::CommandList(const SharedPtr<NotificationPort>& pNotificationPort,
         m_validBarrier(false), m_pNotificationPort(pNotificationPort),
         m_pDeviceServiceComm(pDeviceServiceComm), m_pFrameworkCallBacks(pFrameworkCallBacks),
         m_pProgramService(pProgramService), m_pipe(NULL), m_pDeviceQueueAddress(), m_subDeviceId(subDeviceId),
-        m_pOverhead_data(pOverheadData), m_lastCommand(NULL), m_isInOrderQueue(isInOrder), m_isProfilingEnabled(isProfiling), m_bIsCanceled(false),
-        m_batchAfter(MIN(MICSysInfo::getInstance().getMicDeviceConfig().Device_BatchMode(), 1)), m_numCommandsEnq(0)
+        m_pOverhead_data(pOverheadData), m_lastCommand(NULL), m_isInOrderQueue(isInOrder), m_isProfilingEnabled(isProfiling), m_lastCommandCompletionTime(0), m_bIsCanceled(false),
+        m_numCommandsEnq(0), m_canUseSyncQueue(true)
 #ifdef USE_ITT
         ,m_pGPAData(pGPAData)
 #endif
@@ -487,17 +512,24 @@ void CommandList::resetLastCommand(const SharedPtr<Command>& oldCommand)
 
 uint64_t CommandList::acquireDeviceQueue() 
 {
-	uint64_t address = 0;
-	long tNumEnq = ++ m_numCommandsEnq;
-	if (((m_batchAfter < 0) || (tNumEnq <= m_batchAfter)) && (m_isInOrderQueue))
-	{
-		address = m_pDeviceQueueAddress.device_sync_queue_address;
-	}
-	else
-	{
-		address = m_pDeviceQueueAddress.device_async_queue_address;
-	}
-	return address; 
+    uint64_t address = m_pDeviceQueueAddress.device_sync_queue_address;
+    // In case of out of order use async queue always
+    if (false == m_isInOrderQueue)
+    {
+        address = m_pDeviceQueueAddress.device_async_queue_address;
+    }
+    else if (m_sBatchAfter != m_sNoBatch)
+    {
+        m_batchSpinMutex.Lock();
+        m_numCommandsEnq ++;
+        if ((false == m_canUseSyncQueue) || (m_numCommandsEnq > m_sBatchAfter))
+        {
+            address = m_pDeviceQueueAddress.device_async_queue_address;
+            m_canUseSyncQueue = false;
+        }
+        m_batchSpinMutex.Unlock();
+    }
+    return address; 
 }
 
 void CommandList::getLastDependentBarrier(COIEVENT* barrier, unsigned int* numDependencies, bool isExecutionTask)

@@ -36,16 +36,16 @@
 
 typedef void (*openBcFunc)(FILE*&);
 
-bool CheckHandle(wchar_t * name, cl_platform_id expected, cl_platform_id result);
-bool CheckHandle(wchar_t * name, cl_device_id expected, cl_device_id result);
-bool CheckHandle(wchar_t * name, cl_context expected, cl_context result);
-bool CheckHandle(wchar_t * name, cl_command_queue expected, cl_command_queue result);
-bool CheckHandle(wchar_t * name, cl_mem expected, cl_mem result);
-bool CheckHandle(wchar_t * name, cl_program expected, cl_program result);
-bool CheckHandle(wchar_t * name, cl_kernel expected, cl_kernel result);
-bool CheckHandle(wchar_t * name, cl_event expected, cl_event result);
-bool CheckHandle(wchar_t * name, cl_sampler expected, cl_sampler result);
-bool CheckHandleImpl(wchar_t * name, void* expected, void* result, bool bRes);
+bool CheckHandle(const wchar_t * name, cl_platform_id expected, cl_platform_id result);
+bool CheckHandle(const wchar_t * name, cl_device_id expected, cl_device_id result);
+bool CheckHandle(const wchar_t * name, cl_context expected, cl_context result);
+bool CheckHandle(const wchar_t * name, cl_command_queue expected, cl_command_queue result);
+bool CheckHandle(const wchar_t * name, cl_mem expected, cl_mem result);
+bool CheckHandle(const wchar_t * name, cl_program expected, cl_program result);
+bool CheckHandle(const wchar_t * name, cl_kernel expected, cl_kernel result);
+bool CheckHandle(const wchar_t * name, cl_event expected, cl_event result);
+bool CheckHandle(const wchar_t * name, cl_sampler expected, cl_sampler result);
+bool CheckHandleImpl(const wchar_t * name, void* expected, void* result, bool bRes);
 
 
 bool clCreateContextTest();
@@ -94,6 +94,7 @@ bool printf_test();
 bool MultithreadedPrintf();
 bool clLocalStructTest();
 bool VecTypeHintTest();
+bool VectorizerModeTest();
 bool EventCallbackTest();
 bool opencl_printf_test();
 bool MisalignedUseHostPtrTest();
@@ -135,8 +136,12 @@ bool cl_ALL_Devices_SubBuffer_Simple_Test();
 bool cl_ALL_Devices_Common_RT_SubBuffers_Async();
 bool cl_ALL_Devices_Common_RT_SubBuffers_Async_With_Buffer_Release();
 bool cl_APFLevelForce();
+bool cl_GenStats();
 bool clSvmTest();
 bool clFlexibleNdrange();
 bool clPipes();
 bool clSampler();
+bool clAoSFieldScatterGather();
+bool clCheckVectorizingDim1And2AndUniteWG(int progIndex, bool hasLocalWGSize);
+bool clCheckVectorizingOnAllDimAndCantUniteWG(int progIndex, bool oddDimention);
 //#define CUDA_DEVICE

@@ -2162,6 +2162,9 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
             //ignore SPIR version flag for now
             pBEArgList->push_back(*opt_i);
         }
+        else if (*opt_i == "-cl-intel-debug-info") {
+            pBEArgList->push_back(*opt_i);
+        }
         else if ((*opt_i == "-x")) {
             if (++opt_i != opts.end()) {
                 if (*opt_i != "spir") {

@@ -58,10 +58,8 @@ public:
     MICProgramBuilder(IAbstractBackendFactory* pBackendFactory, const IMICCompilerConfig& pConfig);
     ~MICProgramBuilder();
 
-    // checks if the given program has an object binary to be loaded from
-    virtual bool CheckIfProgramHasCachedExecutable(Program* pProgram) const {return false;}
     // reloads the program from his object binary
-    virtual void ReloadProgramFromCachedExecutable(Program* pProgram);
+    virtual bool ReloadProgramFromCachedExecutable(Program* pProgram);
     // builds object binary for the built program
     virtual void BuildProgramCachedExecutable(ObjectCodeCache* pCache, Program* pProgram) const; 
 
@@ -91,7 +89,7 @@ private:
 
     void AddKernelJIT( const MICProgram* pProgram, Kernel* pKernel, llvm::Module* pModule, llvm::Function* pFunc, KernelJITProperties* pProps) const;
 
-    void CopyJitHolder(const llvm::LLVMModuleJITHolder* from, ModuleJITHolder* to) const;
+    void CopyJitHolder(llvm::LLVMModuleJITHolder* from, ModuleJITHolder* to) const;
 
     // Klockwork Issue
     MICProgramBuilder ( const MICProgramBuilder& x );

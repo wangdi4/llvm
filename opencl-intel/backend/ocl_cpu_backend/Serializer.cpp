@@ -23,7 +23,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 SerializationStatus::SerializationStatus():
     m_pJITAllocator(NULL),
-    m_pBackendFactory(NULL)
+    m_pBackendFactory(NULL),
+    m_RuntimeVersion(1),
+    m_LLVMVersion(32)
     {}
 
 void SerializationStatus::SetPointerMark(const std::string& mark, void* pointer)
@@ -68,6 +70,28 @@ void SerializationStatus::SetBackendFactory(IAbstractBackendFactory* pBackendFac
 IAbstractBackendFactory* SerializationStatus::GetBackendFactory()
 {
     return m_pBackendFactory;
+}
+
+void SerializationStatus::SerializeVersion(IOutputStream& stream)
+{
+    Serializer::SerialPrimitive<int>(&m_RuntimeVersion, stream);
+    Serializer::SerialPrimitive<int>(&m_LLVMVersion, stream);
+}
+
+void SerializationStatus::DeserialVersion(IInputStream& stream)
+{
+    Serializer::DeserialPrimitive<int>(&m_RuntimeVersion, stream);
+    Serializer::DeserialPrimitive<int>(&m_LLVMVersion, stream);
+}
+
+int SerializationStatus::GetRuntimeVersion() const
+{
+    return m_RuntimeVersion;
+}
+
+int SerializationStatus::GetLLVMVersion() const
+{
+    return m_LLVMVersion;
 }
 
 } } } // namespace

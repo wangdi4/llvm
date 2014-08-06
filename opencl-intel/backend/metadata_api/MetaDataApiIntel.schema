@@ -45,6 +45,21 @@
                             "name":     "FunctionsInfo",
                             "key":      "llvm.functions_info",
                             "metatype": "FunctionsInfo"
+                        },
+                        {
+                            "name":     "FunctionsStats",
+                            "key":      "opencl.functions_stats",
+                            "metatype": "FunctionsStats"
+                        },
+                        {
+                            "name":     "StatDescriptions",
+                            "key":      "opencl.stat_descriptions",
+                            "metatype": "StatDescriptions"
+                        },
+                        {
+                            "name":     "ModuleStatInfoC",
+                            "key":      "opencl.module_stat_info",
+                            "metatype": "ModuleStatInfoC"
                         }
                     ]
                 },
@@ -260,6 +275,20 @@
                             "name":     "PrivateMemorySize",
                             "metatype": "int32_item",
                             "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "vectorization_dimension",
+                            "name":     "VectorizationDimension",
+                            "metatype": "int32_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "can_unite_workgroups",
+                            "name":     "CanUniteWorkgroups",
+                            "metatype": "bool_item",
+                            "optional": true
                         }
                     ]
                 },
@@ -376,6 +405,111 @@
                     "is_container":     false,
                     "type":             "std::string"
                 },
+    "FunctionsStats" : {
+                    "is_container":     true,
+                    "container_type":   "map",
+                    "key_type":         "function",
+                    "item_type":        "StatValueListContainer"
+              },
+    "StatValueListContainer": {
+                    "is_container":     true,
+                    "type":             "std::string",
+                    "container_type":   "struct",
+                    "elements": [
+                        {
+                            "location": "positional",
+                            "index"   : "0",
+                            "name":     "StatValueList",
+                            "metatype": "StatValueList",
+                            "optional": false
+                        }
+                    ]
+                },
+    "StatValueList" : {
+                    "is_container":     true,
+                    "container_type":   "list",
+                    "item_type":        "StatValueItem"
+              },
+    "StatValueItem": {
+                    "is_container":     true,
+                    "type":             "std::string",
+                    "container_type":   "struct",
+                    "elements": [
+                        {
+                            "location": "positional",
+                            "index"   : "0",
+                            "name":     "Name",
+                            "metatype": "str_item",
+                            "optional": false
+                        },
+                        {
+                            "location": "positional",
+                            "index"   : "1",
+                            "name":     "Value",
+                            "metatype": "int32_item",
+                            "optional": false
+                        }
+                    ]
+                },
+    "ModuleStatInfoC": {
+                    "is_container":    true,
+                    "container_type":  "list",
+                    "item_type":       "ModuleStatInfo"
+    },
+    "ModuleStatInfo":  {
+                    "is_container":     true,
+                    "container_type":   "struct",
+                    "elements": [
+                        {
+                            "location": "positional",
+                            "index":    "0",
+                            "name":     "RunTimeVersion",
+                            "metatype": "str_item",
+                            "optional": false
+                        },
+                        {
+                            "location": "positional",
+                            "index":    "1",
+                            "name":     "WorkloadName",
+                            "metatype": "str_item",
+                            "optional": false
+                        },
+                        {
+                            "location": "positional",
+                            "index":    "2",
+                            "name":     "ModuleName",
+                            "metatype": "str_item",
+                            "optional": false
+                        },
+                        {
+                            "location": "positional",
+                            "index":    "3",
+                            "name":     "ExecTime",
+                            "metatype": "str_item",
+                            "optional": false
+                        }
+                    ]
+    },
+    "StatDescriptions" : {
+                    "is_container":     true,
+                    "container_type":   "map",
+                    "key_type":         "str_item",
+                    "item_type":        "StrC"
+              },
+    "StrC": {
+                    "is_container":     true,
+                    "type":             "std::string",
+                    "container_type":   "struct",
+                    "elements": [
+                        {
+                            "location": "positional",
+                            "index":    "0",
+                            "name":     "str",
+                            "metatype": "str_item",
+                            "optional": false
+                        }
+                    ]
+    },
     "FunctionsInfo" : {
                     "is_container":     true,
                     "container_type":   "map",

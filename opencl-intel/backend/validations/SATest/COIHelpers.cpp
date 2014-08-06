@@ -43,7 +43,7 @@ using namespace Validation;
     COIRESULT result = _COIFUNC;                                                    \
     if (COI_SUCCESS != result)                                                      \
     {                                                                               \
-        throw Exception::COIUsageException(std::string(#_COIFUNC" retruned ") +     \
+        throw Exception::COIUsageException(std::string(#_COIFUNC" returned ") +     \
             std::string(COIResultGetName(result)));                                 \
     }                                                                               \
 }
@@ -53,7 +53,7 @@ using namespace Validation;
     COIRESULT result = _COIFUNC;                                                    \
     if (COI_SUCCESS != result)                                                      \
     {                                                                               \
-        std::cerr << #_COIFUNC" retruned " << COIResultGetName(result) << "\n";     \
+        std::cerr << #_COIFUNC" returned " << COIResultGetName(result) << "\n";     \
     }                                                                               \
 }
 

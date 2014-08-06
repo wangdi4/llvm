@@ -8,6 +8,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CompilationUtils.h"
 #include "BlockUtils.h"
 #include "OCLPassSupport.h"
+#include "OclTune.h"
+
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -50,6 +52,8 @@ namespace intel{
          BlockUtils::isBlockInvokeFunction(*func)) continue; // skip block_invoke functions
       if (isNeededByKernel(func)) continue; // skip needed functions
       func->deleteBody();
+      // erase function stats from the metadata
+      intel::Statistic::removeFunctionStats(*func);
       didDeleteAny = true;
     }
     return didDeleteAny;

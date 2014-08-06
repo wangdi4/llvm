@@ -131,7 +131,7 @@ public:
     cl_dev_err_code clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
     cl_dev_err_code clDevCommandListWaitCompletion(cl_dev_cmd_list IN list, cl_dev_cmd_desc* cmdDesc);
     cl_dev_err_code clDevCommandListCancel( cl_dev_cmd_list IN list );
-	void clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease);
+    cl_dev_err_code clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease);
     cl_dev_err_code clDevGetSupportedImageFormats( cl_mem_flags IN flags, cl_mem_object_type IN imageType,
                     cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet) const;
     cl_dev_err_code clDevGetMemoryAllocProperties( cl_mem_object_type IN memObjType,    cl_dev_alloc_prop* OUT pAllocProp );
@@ -155,7 +155,8 @@ public:
     cl_dev_err_code clDevGetGlobalVariableTotalSize( cl_dev_program IN prog, size_t* OUT size);
     cl_ulong    clDevGetPerformanceCounter();
     cl_dev_err_code    clDevSetLogger(IOCLDevLogDescriptor *);
-    const IOCLDeviceFECompilerDescription& clDevGetFECompilerDecription() const { return *this; };
+    const IOCLDeviceFECompilerDescription* clDevGetFECompilerDecription() const { return this; };
+    IOCLDevRawMemoryAllocator* clDevGetRawMemoryAllocator() { return NULL; };
     void        clDevCloseDevice(void);
 
     static bool loadingInit();

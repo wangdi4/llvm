@@ -29,11 +29,10 @@ SET_UNICODE_OFF()
 # Include the ASM sources
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     if (WIN32)
-        set (UTILS_ASM_SOURCES kernel_execute_64.asm)
+        CREATE_ASM_RULES( UTILS_ASM_ADD_TO_SOURCES_LIST kernel_execute_64.asm )
     else (WIN32)
-        set (UTILS_ASM_SOURCES linux64_utils.s)
+        set (UTILS_ASM_ADD_TO_SOURCES_LIST linux64_utils.s)
     endif (WIN32)
-    CREATE_ASM_RULES( UTILS_ASM_ADD_TO_SOURCES_LIST ${UTILS_ASM_SOURCES} )
 endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 
 # add a target named ${TARGET_NAME}

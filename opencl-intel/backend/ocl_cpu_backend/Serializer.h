@@ -28,6 +28,9 @@ File Name:  Serializer.h
  */
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
+    class IInputStream;
+    class IOutputStream;
+
     /**
      * This class saves some flow stages in the serialization process
      */
@@ -44,10 +47,17 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
         void SetBackendFactory(IAbstractBackendFactory* pBackendFactory);
         IAbstractBackendFactory* GetBackendFactory();
+
+        void SerializeVersion(IOutputStream& stream);
+        void DeserialVersion(IInputStream& stream);
+        int GetRuntimeVersion() const;
+        int GetLLVMVersion() const;
     
     private:
         ICLDevBackendJITAllocator* m_pJITAllocator;
         IAbstractBackendFactory* m_pBackendFactory;
+        int m_RuntimeVersion;
+        int m_LLVMVersion;
     
         std::map<std::string, void*> m_marksMap;
     };
@@ -169,16 +179,20 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             char* temp = NULL;
             DeserialNullTerminatedPrimitivesBuffer<char>(temp, stream);
 
-            try
+            // KW warning
+            if(temp)
             {
-                item = std::string(temp);
-            }
-            catch( std::bad_alloc& )
-            {
+                try
+                {
+                    item = std::string(temp);
+                }
+                catch( std::bad_alloc& )
+                {
+                    free(temp);
+                    throw Exceptions::SerializationException("Cannot Allocate Memory");
+                }
                 free(temp);
-                throw Exceptions::SerializationException("Cannot Allocate Memory");
             }
-            free(temp);
         }
 
         static void SerialPointerHint(const void** item, IOutputStream& stream)
