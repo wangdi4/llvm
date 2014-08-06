@@ -255,7 +255,7 @@ OclBuiltinImpl avx512_rtp_cvt_f64_i32 = OclBuiltinImpl<convert_f64_rtp,[v8i32], 
   }]>;
 
 // convert double to float
-OclBuiltinImpl avx512_cvt_v8f32_v8f64 = OclBuiltinImpl<convert_f32,
+OclBuiltinImpl sse42_cvt_f32_f64 = OclBuiltinImpl<convert_f32,
                                                 [v8f64], 0, [{
     return _mm512_cvt_roundpd_ps($Arg0VarName, _MM_FROUND_CUR_DIRECTION);
   }]>;

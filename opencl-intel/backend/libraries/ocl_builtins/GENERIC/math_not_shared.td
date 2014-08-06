@@ -125,7 +125,7 @@ OclBuiltinImpl expm1_svml_not_shared = OclBuiltinImpl<expm1, math_not_shared_typ
     return __ocl_svml_$Target_expm1$SVMLSuffix($Arg0VarName);
   }]>;
 // floor
-OclBuiltinImpl floor_svml_not_shared = OclBuiltinImpl<floor, [v4f32, v8f32, v2f64, v4f64], 0, [{
+OclBuiltinImpl floor_svml_not_shared = OclBuiltinImpl<floor, [v4f32, v8f32, v2f64, v4f64, v8f64, v16f32], 0, [{
     return __ocl_svml_$Target_floor$SVMLSuffix($Arg0VarName);
   }]>;
 
@@ -375,12 +375,12 @@ OclBuiltinImpl native_divide_impl_not_shared = OclBuiltinImpl<native_divide, [v8
   }]>;
 
 // native_recip
-OclBuiltinImpl native_recip_svml_not_shared = OclBuiltinImpl<native_recip, [v8f32], 0, [{
+OclBuiltinImpl native_recip_svml_not_shared = OclBuiltinImpl<native_recip, [v8f32, v1f64], 0, [{
     return __ocl_svml_$Target_inv$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_rsqrt
-OclBuiltinImpl native_rsqrt_impl_not_shared = OclBuiltinImpl<native_rsqrt, [v8f32], 0, [{
+OclBuiltinImpl native_rsqrt_impl_not_shared = OclBuiltinImpl<native_rsqrt, [v1f32, v1f64, v8f32], 0, [{
     return __ocl_svml_$Target_rsqrt$SVMLSuffix_native($Arg0VarName);
   }]>;
 

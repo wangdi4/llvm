@@ -4,7 +4,7 @@
 // OpenCL 1.2 rev 15, Table 6.14
 
 // isnan
-OclBuiltinImpl isnan_f64_v1_v8 = OclBuiltinImpl<isnan, [v1f64, v8f64], 0, [{
+OclBuiltinImpl isnan_f64_v1 = OclBuiltinImpl<isnan, [v1f64], 0, [{
     return $Arg0VarName != $Arg0VarName;
   }]>;
 OclBuiltinImpl isnan_f64_promote = OclBuiltinImpl<isnan, [v2f64], 0, Promote1>;
