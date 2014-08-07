@@ -438,6 +438,11 @@ llvm::Module* Compiler::CreateRTLModule(BuiltinLibrary* pLibrary) const
             throw Exceptions::CompilerException("Failed to allocate/parse buitin module");
         }
 
+        // on both 64-bit and 32-bit platform the same shared RTL contatinig platform independent byte code is used,
+        // so set triple and data layout for shared RTL from particular RTL in order to avoid warnings from linker.
+        spModuleSvmlShared.get()->setTargetTriple(spModule.get()->getTargetTriple());
+        spModuleSvmlShared.get()->setDataLayout(spModule.get()->getDataLayout());
+
         std::string ErrorMessage;
         // we need to link particular and shared RTLs together
         if (llvm::Linker::LinkModules(spModule.get(), spModuleSvmlShared.get(), Linker::DestroySource, &ErrorMessage) ) {
