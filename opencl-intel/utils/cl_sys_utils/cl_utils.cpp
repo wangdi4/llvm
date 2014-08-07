@@ -1647,3 +1647,23 @@ void WriteContentToFile(const string& content, const string& filePath)
     stream.close();
 }
 
+OclMemObjectType getSimplifiedMemoryObjectType(const cl_mem_object_type MemObjectType)
+{
+    switch(MemObjectType)
+    {
+    case CL_MEM_OBJECT_BUFFER:
+        return OCL_BUFFER;
+    case CL_MEM_OBJECT_IMAGE2D:
+    case CL_MEM_OBJECT_IMAGE3D:
+    case CL_MEM_OBJECT_IMAGE2D_ARRAY:
+    case CL_MEM_OBJECT_IMAGE1D:
+    case CL_MEM_OBJECT_IMAGE1D_ARRAY:
+    case CL_MEM_OBJECT_IMAGE1D_BUFFER:
+        return OCL_IMAGE;
+    case CL_MEM_OBJECT_PIPE:
+        return OCL_PIPE;
+    default:
+        return OCL_UNKNOWN;
+    }
+}
+
