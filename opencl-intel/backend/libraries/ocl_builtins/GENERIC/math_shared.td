@@ -217,7 +217,7 @@ OclBuiltinImpl fmod_svml = OclBuiltinImpl<fmod, math_shared_types, 0, [{
 // hypot
 // NOTE: there is fast inlined implementation of hypot using newton-raphson and quick native_rsqrt function
 // See: hypot_impl_nr in SSE42
-OclBuiltinImpl hypot_svml = OclBuiltinImpl<hypot, hypot.Types, 0, [{
+OclBuiltinImpl hypot_svml = OclBuiltinImpl<hypot, math_shared_types, 0, [{
     return __ocl_svml_$Target_hypot$SVMLSuffix($Arg0VarName, $Arg1VarName);
   }]>;
 

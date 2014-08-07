@@ -114,7 +114,7 @@ OclBuiltinImpl udiv_svml = OclBuiltinImpl<udiv, [v16u32], 0, [{
 
 // SVML calls
 
-list<OclType> math_FP512_types = [v8i64, v16i32];
+list<OclType> math_FP512_types = [v8f64, v16f32];
 
 // acos
 OclBuiltinImpl acos_svml = OclBuiltinImpl<acos, math_FP512_types, 0, [{
@@ -270,11 +270,6 @@ OclBuiltinImpl log1p_svml = OclBuiltinImpl<log1p, math_FP512_types, 0, [{
 // logb
 OclBuiltinImpl logb_svml = OclBuiltinImpl<logb, math_FP512_types, 0, [{
     return __ocl_svml_$Target_logb$SVMLSuffix($Arg0VarName);
-  }]>;
-
-// nan
-OclBuiltinImpl nan_impl = OclBuiltinImpl<nan, math_FP512_types, 0, [{
-    return as_$ReturnType($Arg0VarName | $ReturnBaseType_const_nanStorage);
   }]>;
 
 // nextafter
@@ -574,7 +569,7 @@ OclBuiltinImpl native_rcbrt_svml = OclBuiltinImpl<native_rcbrt, math_FP512_types
   }]>;
 
 // native_rootn
-OclBuiltinImpl native_rootn_svml = OclBuiltinImpl<native_rootn, math_FP512_types, 0, [{
+OclBuiltinImpl knl_native_rootn_svml = OclBuiltinImpl<native_rootn, math_FP512_types, 0, [{
     return __ocl_svml_$Target_rootn$SVMLSuffix_native($Arg0VarName, $Arg1VarName);
   }]>;
 

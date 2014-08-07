@@ -275,7 +275,13 @@ OclBuiltinImpl tanh_svml_expand = OclBuiltinImpl<tanh, math_svml_vF512_expand, 0
 // tanpi f(vXfX)
 OclBuiltinImpl tanpi_svml_expand = OclBuiltinImpl<tanpi, math_svml_vF512_expand, 0, Expand1>;
 
+// tgamma f(vXfX)
+OclBuiltinImpl tgamma_svml_expand = OclBuiltinImpl<tgamma, math_svml_vF512_expand, 0, Expand1>;
+
 OclBuiltinImpl nextafter_svml_expand = OclBuiltinImpl<nextafter, math_svml_vF512_expand, 0, Expand2>;
+
+OclBuiltinImpl hypot_svmp_expand = OclBuiltinImpl<hypot, math_svml_vF512_expand, 0, Expand2>;
+
 
 OclBuiltinImpl pow_svml_expand       = OclBuiltinImpl<pow, math_svml_vF512_expand, 0, Expand2>;
 

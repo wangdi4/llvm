@@ -2,6 +2,11 @@
 // Integers Built-In Functions
 // Generic
 
+// abs on signed long vector
+OclBuiltinImpl abs_i64 = OclBuiltinImpl<abs, [v8i64], 0, [{
+    return as_$ReturnType(($Arg0VarName < 0) ? -$Arg0VarName : $Arg0VarName);
+  }]>;
+
 /*****************************************************************\
  * abs_diff:                                                     *
  *   ugentype abs_diff (gentype x, gentype y)                    *

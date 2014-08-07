@@ -160,10 +160,10 @@ code hypot_impl_nr = [{
 // hypot
 // float, float2, float4, float8 version uses inline NewtonRaphson
 OclBuiltinImpl hypot_v148f32 = OclBuiltinImpl<hypot, [v1f32, v2f32, v4f32, v8f32], 0, hypot_impl_nr>;
+
 // hypot f(vXfX, vXfX)
-// we have inlined version of hypot float. hypot double calls SVML
-OclBuiltinImpl hypot_f64_svml_hack_expand = OclBuiltinImpl<hypot, [v16f32, v8f64, v16f64], 0, Expand2>;
-OclBuiltinImpl hypot_f64_svml_hack_promote = OclBuiltinImpl<hypot, math_svml_vFvF_promote, 0, Promote2_v3_to_v4>;
+OclBuiltinImpl hypot_svml_expand = OclBuiltinImpl<hypot, math_svml_vFvF_expand, 0, Expand2>;
+OclBuiltinImpl hypot_svml_promote = OclBuiltinImpl<hypot, math_svml_vFvF_promote, 0, Promote2_v3_to_v4>;
 
 // ilogb
 // float3 are promoted to float4
