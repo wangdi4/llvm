@@ -316,11 +316,50 @@ static VarTypeDescriptor GenerateVarTypeBasic(const DIBasicType& di_type)
     return descriptor;
 }
 
-
-static VarTypeDescriptor GenerateVarTypePointer(const DIType& di_pointee)
+static VarTypeDescriptor GenerateStubType()
 {
+    VarTypeDescriptor descriptor;
+    descriptor.set_tag(VarTypeDescriptor::BASIC);
+    VarTypeBasic* descriptor_basic = descriptor.mutable_type_basic();
+    VarTypeBasic::Tag basic_tag = VarTypeBasic::FLOAT;
+    descriptor_basic->set_tag(basic_tag);
+    descriptor_basic->set_size_nbits(32);
+    descriptor_basic->set_name("No further expansion available");
+    return descriptor;
+}
+
+class Generator {
+    // pointer chasing depth
+    unsigned m_pointerDepth;
+    const DIType& m_type;
+    VarTypeDescriptor GenerateVarTypeTypedef(const DIDerivedType& di_type, const DIType& di_derived_from);
+    VarTypeDescriptor GenerateVarTypePointer(const DIType& di_pointee);
+    VarTypeDescriptor GenerateVarTypeArray(const DICompositeType& di_array);
+    VarTypeDescriptor GenerateVarTypeStruct(const DICompositeType& di_struct);
+    VarTypeDescriptor GenerateVarTypeDescriptor(const DIType& di_type);
+
+public:
+    Generator(const DIType& type)
+        :m_type(type)
+    {}
+    VarTypeDescriptor run() {
+        m_pointerDepth = 0;
+        return Generator::GenerateVarTypeDescriptor(m_type);
+    }
+};
+
+VarTypeDescriptor Generator::GenerateVarTypePointer(const DIType& di_pointee)
+{
+    static const unsigned MAX_PTR_CHASING_DEPTH = 5;
+
+    if ( m_pointerDepth == MAX_PTR_CHASING_DEPTH  )
+        return GenerateStubType();
+
+    m_pointerDepth++;
     VarTypeDescriptor pointee_descriptor = 
         GenerateVarTypeDescriptor(di_pointee);
+    m_pointerDepth--;
+
     VarTypePointer pointer_descriptor;
     pointer_descriptor.mutable_pointee()->CopyFrom(pointee_descriptor);
 
@@ -331,7 +370,7 @@ static VarTypeDescriptor GenerateVarTypePointer(const DIType& di_pointee)
 }
 
 
-static VarTypeDescriptor GenerateVarTypeTypedef(
+VarTypeDescriptor Generator::GenerateVarTypeTypedef(
     const DIDerivedType& di_type, const DIType& di_derived_from)
 {
     VarTypeDescriptor descriptor;
@@ -391,7 +430,7 @@ static VarTypeDescriptor GenerateVarTypeEnum(const DICompositeType& di_enum)
 }
 
 
-static VarTypeDescriptor GenerateVarTypeArray(const DICompositeType& di_array)
+VarTypeDescriptor Generator::GenerateVarTypeArray(const DICompositeType& di_array)
 {
     DIType di_element = di_array.getTypeDerivedFrom();
 
@@ -418,7 +457,7 @@ static VarTypeDescriptor GenerateVarTypeArray(const DICompositeType& di_array)
 }
 
 
-VarTypeDescriptor GenerateVarTypeStruct(const DICompositeType& di_struct)
+VarTypeDescriptor Generator::GenerateVarTypeStruct(const DICompositeType& di_struct)
 {
     VarTypeStruct struct_descriptor;
     struct_descriptor.set_name(di_struct.getName());
@@ -449,7 +488,7 @@ VarTypeDescriptor GenerateVarTypeStruct(const DICompositeType& di_struct)
 }
 
 
-VarTypeDescriptor GenerateVarTypeDescriptor(const DIType& di_type)
+VarTypeDescriptor Generator::GenerateVarTypeDescriptor(const DIType& di_type)
 {
     if (di_type.isBasicType()) {
         DIBasicType di_basic_type(static_cast<MDNode*>(di_type));
@@ -496,3 +535,7 @@ VarTypeDescriptor GenerateVarTypeDescriptor(const DIType& di_type)
     return GenerateUnknownVarType();
 }
 
+VarTypeDescriptor GenerateVarTypeDescriptor(const DIType& di_type)
+{
+    return Generator(di_type).run();
+}
