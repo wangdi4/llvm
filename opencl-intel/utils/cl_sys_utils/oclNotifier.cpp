@@ -321,6 +321,15 @@ void NotifierCollection::KernelEnqueue (cl_kernel kernel,
 {
 	NOTIFY(KernelEnqueue, kernel, queue, event, cookie);
 }
+void NotifierCollection::NativeKernelEnqueue (cl_uint num_mem_objects,
+                                              const cl_mem* mem_list,
+                                              cl_command_queue queue,
+                                              cl_event* event,
+                                              unsigned int cookie)
+{
+	NOTIFY(NativeKernelEnqueue, num_mem_objects, mem_list, queue, event, cookie);
+}
+
 void NotifierCollection::KernelReleased (cl_kernel kernel)
 {
 	NOTIFY(KernelReleased, kernel);

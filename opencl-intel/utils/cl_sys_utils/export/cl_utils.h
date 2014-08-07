@@ -65,6 +65,13 @@ typedef pid_t  threadid_t;
 #define INVALID_THREAD_HANDLE ((threadid_t)-1)
 #endif
 
+typedef enum {
+    OCL_BUFFER,
+    OCL_IMAGE,
+    OCL_PIPE,
+    OCL_UNKNOWN
+} OclMemObjectType;
+
 /**************************************************************************************************
 * Function: 	ClErrTxt
 * Description:	returns a wide-character string of the error code
@@ -437,3 +444,5 @@ string ReadFileContents(const string& filePath);
  * @Write the given text to the file
  */
 void WriteContentToFile(const string& content, const string& filePath);
+
+OclMemObjectType getSimplifiedMemoryObjectType(const cl_mem_object_type MemObjectType);

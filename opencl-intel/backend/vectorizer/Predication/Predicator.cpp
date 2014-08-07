@@ -597,8 +597,15 @@ void Predicator::convertPhiToSelect(BasicBlock* BB) {
                          phi->getIncomingValue(secondValIndex), "merge", edge_mask);
     m_WIA->setDepend(phi, select);
     VectorizerUtils::SetDebugLocBy(select, phi);
-    // Put in a place which satisfies data dependencies
+
+    // Put in a place which satisfies data dependencies.
+    // Note, selectOutsideUsedInstructions assumes all non-phi instructions
+    // (such as select instructions) are placed after storing the in_mask
+    // of the BB. Thus, we move the instrcution after the edge_mask,
+    // even if doesn't use it.
+    select->setOperand(0, edge_mask);
     moveAfterLastDependant(select);
+    select->setOperand(0, selectCond);
 
     phi->replaceAllUsesWith(select);
     phi->eraseFromParent();
@@ -797,6 +804,17 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
   return NULL;
 }
 
+static bool isInstructionABeforeB(BasicBlock* BB, Instruction* A, Instruction* B) {
+  for (BasicBlock::iterator it = BB->begin(), e = BB->end();
+    it != e; ++it) {
+    if (&*it == A)
+      return true;
+    if (&*it == B)
+      return false;
+  }
+  return false;
+}
+
 void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
 
   // Should be done only for divergent blocks
@@ -846,6 +864,8 @@ void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
       select->insertAfter(loc);
     }
   } else {
+    V_ASSERT(m_inInst.count(BB) && isInstructionABeforeB(BB, m_inInst[BB], inst) &&
+      "bug! creating a select before the mask is ready!");
     // make sure the instructions we created are after the original instruction
     select->insertAfter(inst);
   }

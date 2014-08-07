@@ -181,6 +181,7 @@ public:
 	virtual void KernelFree (cl_kernel /* kernel */, bool internalRelease)=0;	// clReleaseKernel
 	virtual void KernelSetArg (cl_kernel /* kernel */, cl_uint /* arg_index */, size_t /* argSize */,const void* /* arg_value */ )=0;
 	virtual void KernelEnqueue (cl_kernel, cl_command_queue, cl_event*, unsigned int traceCookie)=0;
+	virtual void NativeKernelEnqueue (cl_uint, const cl_mem*, cl_command_queue, cl_event*, unsigned int traceCookie)=0;
 	virtual void KernelReleased (cl_kernel)=0;	// called when kernel no longer exists in Profiler & RT
 
 	/* Command Callbacks */
@@ -306,6 +307,7 @@ public:
 	virtual void KernelFree (cl_kernel /* kernel */, bool internalRelease);
 	virtual void KernelSetArg (cl_kernel /* kernel */, cl_uint /* arg_index */, size_t /* argSize */,const void* /* arg_value */ );
 	virtual void KernelEnqueue (cl_kernel, cl_command_queue, cl_event*, unsigned int traceCookie);
+	virtual void NativeKernelEnqueue (cl_uint, const cl_mem*, cl_command_queue, cl_event*, unsigned int traceCookie);
 	virtual void KernelReleased (cl_kernel);	// called when kernel no longer exists in Profiler & RT
 
 	/* Command Callbacks */
