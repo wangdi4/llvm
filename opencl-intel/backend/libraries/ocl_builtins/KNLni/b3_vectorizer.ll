@@ -425,6 +425,11 @@ define void @scatter.v16f64_ind_v16i32 (double* %addr, <16 x i32>%index, <16 x d
   ret void
 }
 
+define void @scatter.v16i64_ind_v16i32 (i64* %addr, <16 x i32>%index, <16 x i64> %data) {
+  call void @scatter.v16i64 (i64* %addr, <16 x i32>%index, <16 x  i64> %data)
+  ret void
+}
+
 define void @scatter.v8f64 (double* %addr, <8 x i32>%index, <8 x double> %data) {
   %ptr = bitcast double *%addr to i8*
   call void @llvm.x86.avx512.scatter.dpd.512(i8* %ptr, i8 -1, <8 x i32> %index,
