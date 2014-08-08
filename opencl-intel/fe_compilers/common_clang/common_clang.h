@@ -61,6 +61,8 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
         virtual const char* GetErrorLog() const = 0;
         // Releases the result object
         virtual void        Release() = 0;
+        protected:
+        virtual             ~IOCLFEBinaryResult(){}
     };
 
     //
@@ -78,6 +80,8 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 
         // release result
         virtual void Release() = 0;
+        protected:
+        virtual             ~IOCLFEKernelArgInfo(){}
     };
 }}}
 
