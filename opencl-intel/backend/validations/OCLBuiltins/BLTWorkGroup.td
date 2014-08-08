@@ -218,7 +218,7 @@ GenericValue lle_X_work_group_reduce_add_pre_exec(FunctionType *FT,
   pG->AddRef("lle_X_work_group_reduce_add_pre_exec_impl", initializer);
 
   getRef<T>(pG->GetValueForReduceBuiltin())=getRef<T>(pG->GetValueForReduceBuiltin())+getVal<T>(Value);
-  
+
   return GenericValue();
 }
 
@@ -244,7 +244,7 @@ GenericValue lle_X_work_group_reduce_min_pre_exec(FunctionType *FT,
   typename retType<T>::type Min = getRef<T>(pG->GetValueForReduceBuiltin());
 
   getRef<T>(pG->GetValueForReduceBuiltin())=predLess<T>(Value,Min)?Value:Min;
-  
+
   return GenericValue();
 }
 
@@ -270,7 +270,7 @@ GenericValue lle_X_work_group_reduce_max_pre_exec(FunctionType *FT,
   typename retType<T>::type Max = getRef<T>(pG->GetValueForReduceBuiltin());
 
   getRef<T>(pG->GetValueForReduceBuiltin())=predLess<T>(Value,Max)?Max:Value;
-  
+
   return GenericValue();
 }
 
@@ -298,7 +298,7 @@ GenericValue lle_X_work_group_prefixsum_pre_exec_impl(FunctionType *FT,
   pG->AddRef("lle_X_work_group_prefixsum_inclusive_pre_exec_impl", llvm::GenericValue());
   llvm::GenericValue arg0 = Args[0];
   typename retType<T>::type Value = getRef<T>(arg0);
-  
+
   //NOTE: Take local sizes instead of global
   //it's because in our model globalid = tid_x + lid_x
   //tid_x - start of wg
@@ -515,9 +515,9 @@ GenericValue lle_X_work_group_broadcast_3D(FunctionType *FT,
 
 extern "C" {
 BUILTINS_API void initOCLBuiltinsWorkGroup() {return;}
- 
+
   }];
-  
+
   code Epilog = [{
 
 }

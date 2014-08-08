@@ -18,7 +18,7 @@ let Types = [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
              v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
              v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
-    
+
 let RModes = [ defRM ] in {
 // conversion to integer has satured mode.
 def convert_u8          : REF_Conversions<"convert_$ReturnType",         (outs  u8gentype:$ret), (ins gentype:$x), [], [], ConvTemplate, 0>;
@@ -90,15 +90,15 @@ using namespace Validation::OCLBuiltins;
       #define BUILTINS_API
    #endif
 #endif
-    
+
 extern "C" {
 BUILTINS_API void initOCLBuiltinsConvChar() {return;}
   }];
-  
+
   code Epilog = [{
 }
 
   }];
-  
+
 }
   def inc : Generic;

@@ -5,9 +5,9 @@ include "BLTRef.td"
 
 // OpenCL 1.2 rev 15, Section 6.12.11 Explicit Conversions
 //
-// Atomic Functions 
+// Atomic Functions
 let Types = [v1i32, v1u32],
-    Attrs = [OVERLOADABLE], 
+    Attrs = [OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def atomic_add_global : REF_OclBuiltin<"atomic_add", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], TemplateAttr< [type0]> >, VOLATILE_GLOBAL;
 def atomic_add_local  : REF_OclBuiltin<"atomic_add", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], TemplateAttr< [type0]> >, VOLATILE_LOCAL;
@@ -32,14 +32,14 @@ def atomic_xor_local  : REF_OclBuiltin<"atomic_xor", (outs gentype:$ret), (ins p
 }
 
 let Types = [v1i32, v1u32, v1f32],
-    Attrs = [OVERLOADABLE], 
+    Attrs = [OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def atomic_xchg_global : REF_OclBuiltin<"atomic_xchg", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], TemplateAttr< [type0]> >, VOLATILE_GLOBAL;
 def atomic_xchg_local  : REF_OclBuiltin<"atomic_xchg", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], TemplateAttr< [type0]> >, VOLATILE_LOCAL;
 }
 
 let Types = [v1i32, v1u32],
-    Attrs = [OVERLOADABLE], 
+    Attrs = [OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def atom_add_vol_global     : REF_OclBuiltin<"atom_add", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], TemplateAttr< [type0]> >, VOLATILE_GLOBAL;
 def atom_add_global         : REF_OclBuiltin<"atom_add", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], TemplateAttr< [type0]> >, GLOBAL;
@@ -85,7 +85,7 @@ def atom_xor_local         : REF_OclBuiltin<"atom_xor", (outs gentype:$ret), (in
 }
 
 let Types = [v1i32, v1u32, v1f32],
-    Attrs = [OVERLOADABLE], 
+    Attrs = [OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def atom_xchg_vol_global    : REF_OclBuiltin<"atom_xchg", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], TemplateAttr< [type0]> >, VOLATILE_GLOBAL;
 def atom_xchg_global        : REF_OclBuiltin<"atom_xchg", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], TemplateAttr< [type0]> >, GLOBAL;
@@ -138,7 +138,7 @@ namespace OCLBuiltins {
         llvm::GenericValue arg0 = Args[0];
         llvm::GenericValue arg1 = Args[1];
         float* p = static_cast<float*>(arg0.PointerVal);
-        
+
         float old = *p;
         *p = getVal<float>(arg1);
 
@@ -151,11 +151,11 @@ namespace OCLBuiltins {
 extern "C" {
 BUILTINS_API void initOCLBuiltinsAtomic() {return;}
   }];
-  
+
   code Epilog = [{
 }
 
   }];
-  
+
 }
   def inc : Generic;

@@ -92,11 +92,11 @@ llvm::GenericValue lle_X_wait_group_events(llvm::FunctionType *FT,
 extern "C" {
 BUILTINS_API void initOCLBuiltinsAsync() {return;}
   }];
-  
+
   code Epilog = [{
 }
 
   }];
-  
+
 }
   def inc : Generic;

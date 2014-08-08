@@ -118,7 +118,7 @@ using namespace Validation::OCLBuiltins;
 extern "C" {
 BUILTINS_API void initOCLBuiltinsRelational() {return;}
   }];
-  
+
   code Epilog = [{
 }
 
@@ -165,8 +165,8 @@ template<>
     }
 
 }
-}  
+}
   }];
-  
+
 }
   def inc : Generic;

@@ -62,11 +62,11 @@ using namespace Validation::OCLBuiltins;
 extern "C" {
 BUILTINS_API void initOCLBuiltinsCommon() {return;}
   }];
-  
+
   code Epilog = [{
 }
 
   }];
-  
+
 }
   def inc : Generic;

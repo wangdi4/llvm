@@ -18,13 +18,13 @@ let Types = [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
              v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
              v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
-    
+
 let RModes = [ defRM ] in {
 // conversion to integer has satured mode.
-def convert_u16         : REF_Conversions<"convert_$ReturnType",         (outs u16gentype:$ret), (ins gentype:$x), [], [], ConvTemplate, 0>;
-def convert_i16         : REF_Conversions<"convert_$ReturnType",         (outs i16gentype:$ret), (ins gentype:$x), [], [], ConvTemplate, 0>;
-def convert_u16_sat     : REF_Conversions<"convert_$ReturnType_sat",     (outs u16gentype:$ret), (ins gentype:$x), [], [], ConvTemplate, 1>;
-def convert_i16_sat     : REF_Conversions<"convert_$ReturnType_sat",     (outs i16gentype:$ret), (ins gentype:$x), [], [], ConvTemplate, 1>;
+def convert_u64         : REF_Conversions<"convert_$ReturnType",         (outs u64gentype:$ret), (ins gentype:$x), [], [], ConvTemplate, 0>;
+def convert_i64         : REF_Conversions<"convert_$ReturnType",         (outs i64gentype:$ret), (ins gentype:$x), [], [], ConvTemplate, 0>;
+def convert_u64_sat     : REF_Conversions<"convert_$ReturnType_sat",     (outs u64gentype:$ret), (ins gentype:$x), [], [], ConvTemplate, 1>;
+def convert_i64_sat     : REF_Conversions<"convert_$ReturnType_sat",     (outs i64gentype:$ret), (ins gentype:$x), [], [], ConvTemplate, 1>;
 }
 // conversions from floating to integer also honor rounding mode as well as saturated mode.
 let ExceptionTypes = [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
@@ -36,23 +36,22 @@ let ExceptionTypes = [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
                       v1i64, v2i64, v3i64, v4i64, v8i64, v16i64,
                       v1u64, v2u64, v3u64, v4u64, v8u64, v16u64] in {
 let RModes = [ rte, rtz, rtp, rtn] in {
-def convert_u16_r     : REF_Conversions<"convert_$ReturnType$Saturate$RMode",     (outs u16gentype:$ret), (ins gentype:$x), [], [], ConvTemplate, 0>;
-def convert_u16_sat_r : REF_Conversions<"convert_$ReturnType$Saturate$RMode", (outs u16gentype:$ret), (ins gentype:$x), [], [], ConvTemplate, 1>;
-def convert_i16_r     : REF_Conversions<"convert_$ReturnType$Saturate$RMode",     (outs i16gentype:$ret), (ins gentype:$x), [], [], ConvTemplate, 0>;
-def convert_i16_sat_r : REF_Conversions<"convert_$ReturnType$Saturate$RMode", (outs i16gentype:$ret), (ins gentype:$x), [], [], ConvTemplate, 1>;
+def convert_u64_r     : REF_Conversions<"convert_$ReturnType$Saturate$RMode",     (outs u64gentype:$ret), (ins gentype:$x), [], [], ConvTemplate, 0>;
+def convert_u64_sat_r : REF_Conversions<"convert_$ReturnType$Saturate$RMode", (outs u64gentype:$ret), (ins gentype:$x), [], [], ConvTemplate, 1>;
+def convert_i64_r     : REF_Conversions<"convert_$ReturnType$Saturate$RMode",     (outs i64gentype:$ret), (ins gentype:$x), [], [], ConvTemplate, 0>;
+def convert_i64_sat_r : REF_Conversions<"convert_$ReturnType$Saturate$RMode", (outs i64gentype:$ret), (ins gentype:$x), [], [], ConvTemplate, 1>;
 }
 }
-
 // the following conversions make no sense but are added for completeness.
 //
 // conversions from int to integer with rounding mode and/or saturated mode.
 let ExceptionTypes = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
                       v1f64, v2f64, v3f64, v4f64, v8f64, v16f64] in {
 let RModes = [ rte, rtz, rtp, rtn] in {
-def _convert_u16_r     : REF_Conversions<"convert_$ReturnType$Saturate$RMode",     (outs u16gentype:$ret), (ins gentype:$x), [], [], ConvTemplate, 0>;
-def _convert_u16_sat_r : REF_Conversions<"convert_$ReturnType$Saturate$RMode", (outs u16gentype:$ret), (ins gentype:$x), [], [], ConvTemplate, 1>;
-def _convert_i16_r     : REF_Conversions<"convert_$ReturnType$Saturate$RMode",     (outs i16gentype:$ret), (ins gentype:$x), [], [], ConvTemplate, 0>;
-def _convert_i16_sat_r : REF_Conversions<"convert_$ReturnType$Saturate$RMode", (outs i16gentype:$ret), (ins gentype:$x), [], [], ConvTemplate, 1>;
+def _convert_u64_r     : REF_Conversions<"convert_$ReturnType$Saturate$RMode",     (outs u64gentype:$ret), (ins gentype:$x), [], [], ConvTemplate, 0>;
+def _convert_u64_sat_r : REF_Conversions<"convert_$ReturnType$Saturate$RMode", (outs u64gentype:$ret), (ins gentype:$x), [], [], ConvTemplate, 1>;
+def _convert_i64_r     : REF_Conversions<"convert_$ReturnType$Saturate$RMode",     (outs i64gentype:$ret), (ins gentype:$x), [], [], ConvTemplate, 0>;
+def _convert_i64_sat_r : REF_Conversions<"convert_$ReturnType$Saturate$RMode", (outs i64gentype:$ret), (ins gentype:$x), [], [], ConvTemplate, 1>;
 }
 }
 }
@@ -73,7 +72,7 @@ including liability for infringement of any proprietary rights, relating to
 use of the code. No license, express or implied, by estoppels or otherwise,
 to any intellectual property rights is granted herein.
 
-File Name:  BLTConversionShort.cpp
+File Name:  BLTConversionLong.cpp
 
 \*****************************************************************************/
 
@@ -93,13 +92,13 @@ using namespace Validation::OCLBuiltins;
 #endif
 
 extern "C" {
-BUILTINS_API void initOCLBuiltinsConvShort() {return;}
-}];
-  
+BUILTINS_API void initOCLBuiltinsConvLong() {return;}
+  }];
+
   code Epilog = [{
 }
 
   }];
-  
+
 }
   def inc : Generic;

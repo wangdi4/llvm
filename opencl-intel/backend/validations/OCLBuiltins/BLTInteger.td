@@ -107,11 +107,11 @@ namespace OCLBuiltins {
 extern "C" {
 BUILTINS_API void initOCLBuiltinsInteger() {return;}
   }];
-  
+
   code Epilog = [{
 }
 
   }];
-  
+
 }
   def inc : Generic;

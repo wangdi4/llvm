@@ -149,7 +149,7 @@ File Name:  BLTImages.cpp
 #include "Helpers.h"
 #include "BLTImages.h"
 
-// !!!! HACK 
+// !!!! HACK
 // Do not move #include "CL/cl.h" before including <math.h> since on VS2008 it generates
 // Removing annoying ‘ceil’ : attributes not present on previous declaration warning C4985
 #include "cl_types.h"
@@ -172,19 +172,19 @@ using namespace Validation::OCLBuiltins;
 extern "C" {
 BUILTINS_API void initOCLBuiltinsImages() {return;}
   }];
-  
+
   code Epilog = [{
 }
 namespace Validation {
 namespace OCLBuiltins {
 
-Conformance::image_descriptor CreateConfImageDesc(const cl_mem_obj_descriptor& in_Desc, 
+Conformance::image_descriptor CreateConfImageDesc(const cl_mem_obj_descriptor& in_Desc,
                                                          cl_image_format& out_ImageFmt)
 {
     Conformance::image_descriptor retDesc;
     const bool Is2D = (in_Desc.dim_count == 2);
     const bool Is3D = (in_Desc.dim_count == 3);
-    
+
     retDesc.width = (size_t) in_Desc.dimensions.dim[0];
     retDesc.height = (size_t) ((Is2D || Is3D)? in_Desc.dimensions.dim[1] : 0);
     retDesc.depth = (size_t) (Is3D ? in_Desc.dimensions.dim[2] : 0);
@@ -205,10 +205,10 @@ Conformance::image_descriptor CreateConfImageDesc(const cl_mem_obj_descriptor& i
         retDesc.depth = 0;
         retDesc.arraySize = in_Desc.dimensions.dim[2];
     }
-    
-    out_ImageFmt.image_channel_data_type = 
+
+    out_ImageFmt.image_channel_data_type =
         in_Desc.format.image_channel_data_type;
-    out_ImageFmt.image_channel_order = 
+    out_ImageFmt.image_channel_order =
         in_Desc.format.image_channel_order;
     retDesc.format = &out_ImageFmt;
     return retDesc;
@@ -234,7 +234,7 @@ Conformance::image_sampler_data CreateSamplerData(const uint32_t& in_sampler)
         throw Exception::InvalidArgument("Not supported sampler addressing mode");
         break;
     }
-    
+
     cl_filter_mode dst_filt;
     switch(in_sampler & __FILTER_MASK)
     {
@@ -253,14 +253,14 @@ Conformance::image_sampler_data CreateSamplerData(const uint32_t& in_sampler)
 }
 
 GenericValue lle_X_get_image_dim2(FunctionType *FT,
-                                  const std::vector<GenericValue> &Args) 
+                                  const std::vector<GenericValue> &Args)
 {
 
     GenericValue gv;
     cl_mem_obj_descriptor * memobj = (cl_mem_obj_descriptor *)Args[0].PointerVal;
     const uint32_t width = (uint32_t)memobj->dimensions.dim[0];
     const uint32_t height = (uint32_t)memobj->dimensions.dim[1];
-    
+
     gv.AggregateVal.resize(2);
     gv.AggregateVal[0].IntVal = APInt(32, width);
     gv.AggregateVal[1].IntVal = APInt(32, height);
@@ -269,7 +269,7 @@ GenericValue lle_X_get_image_dim2(FunctionType *FT,
 }
 
 GenericValue lle_X_get_image_width(FunctionType *FT,
-                                   const std::vector<GenericValue> &Args) 
+                                   const std::vector<GenericValue> &Args)
 {
 
     GenericValue gv;
@@ -280,7 +280,7 @@ GenericValue lle_X_get_image_width(FunctionType *FT,
 }
 
 GenericValue lle_X_get_image_height(FunctionType *FT,
-                                    const std::vector<GenericValue> &Args) 
+                                    const std::vector<GenericValue> &Args)
 {
 
     GenericValue gv;
@@ -291,7 +291,7 @@ GenericValue lle_X_get_image_height(FunctionType *FT,
 }
 
 GenericValue lle_X_get_image_depth(FunctionType *FT,
-                                    const std::vector<GenericValue> &Args) 
+                                    const std::vector<GenericValue> &Args)
 {
 
     GenericValue gv;
@@ -302,7 +302,7 @@ GenericValue lle_X_get_image_depth(FunctionType *FT,
 }
 
 GenericValue lle_X_get_image_dim3(FunctionType *FT,
-                                  const std::vector<GenericValue> &Args) 
+                                  const std::vector<GenericValue> &Args)
 {
 
     GenericValue gv;
@@ -310,7 +310,7 @@ GenericValue lle_X_get_image_dim3(FunctionType *FT,
     const uint32_t width = (uint32_t)memobj->dimensions.dim[0];
     const uint32_t height = (uint32_t)memobj->dimensions.dim[1];
     const uint32_t depth = (uint32_t)memobj->dimensions.dim[2];
-    
+
     gv.AggregateVal.resize(4);
     gv.AggregateVal[0].IntVal = APInt(32, width);
     gv.AggregateVal[1].IntVal = APInt(32, height);
@@ -321,7 +321,7 @@ GenericValue lle_X_get_image_dim3(FunctionType *FT,
 }
 
 GenericValue lle_X_get_image_channel_data_type(FunctionType *FT,
-                                  const std::vector<GenericValue> &Args) 
+                                  const std::vector<GenericValue> &Args)
 {
     GenericValue gv;
     cl_mem_obj_descriptor * memobj = (cl_mem_obj_descriptor *)Args[0].PointerVal;
@@ -331,7 +331,7 @@ GenericValue lle_X_get_image_channel_data_type(FunctionType *FT,
 }
 
 GenericValue lle_X_get_image_channel_order(FunctionType *FT,
-                                               const std::vector<GenericValue> &Args) 
+                                               const std::vector<GenericValue> &Args)
 {
     GenericValue gv;
     cl_mem_obj_descriptor * memobj = (cl_mem_obj_descriptor *)Args[0].PointerVal;
@@ -341,12 +341,12 @@ GenericValue lle_X_get_image_channel_order(FunctionType *FT,
 }
 
 GenericValue lle_X_get_image_array_size(FunctionType *FT,
-                                               const std::vector<GenericValue> &Args) 
+                                               const std::vector<GenericValue> &Args)
 {
     GenericValue gv;
     cl_mem_obj_descriptor * memobj = (cl_mem_obj_descriptor *)Args[0].PointerVal;
     cl_mem_object_type imageType = memobj->memObjType;
-    
+
     uint32_t image_array_size = 0;
 
     if ( imageType == CL_MEM_OBJECT_IMAGE1D_ARRAY) {
@@ -354,7 +354,7 @@ GenericValue lle_X_get_image_array_size(FunctionType *FT,
     } else if ( imageType == CL_MEM_OBJECT_IMAGE2D_ARRAY) {
         image_array_size = (uint32_t)memobj->dimensions.dim[2];
     }
-    
+
     gv.IntVal = APInt( 32, image_array_size );
     return gv;
 }
@@ -370,9 +370,9 @@ void getColorForWriteImage(const GenericValue& PixelGV, float val[4]) {
 
 template<>
 void getColorForWriteImage(const GenericValue& PixelGV, int32_t val[4]) {
-    val[0] = (int32_t)PixelGV.AggregateVal[0].IntVal.getSExtValue(); 
+    val[0] = (int32_t)PixelGV.AggregateVal[0].IntVal.getSExtValue();
     val[1] = (int32_t)PixelGV.AggregateVal[1].IntVal.getSExtValue();
-    val[2] = (int32_t)PixelGV.AggregateVal[2].IntVal.getSExtValue(); 
+    val[2] = (int32_t)PixelGV.AggregateVal[2].IntVal.getSExtValue();
     val[3] = (int32_t)PixelGV.AggregateVal[3].IntVal.getSExtValue();
     return;
 }
@@ -381,7 +381,7 @@ template<>
 void getColorForWriteImage(const GenericValue& PixelGV, uint32_t val[4]) {
     val[0] = (uint32_t)PixelGV.AggregateVal[0].IntVal.getZExtValue();
     val[1] = (uint32_t)PixelGV.AggregateVal[1].IntVal.getZExtValue();
-    val[2] = (uint32_t)PixelGV.AggregateVal[2].IntVal.getZExtValue(); 
+    val[2] = (uint32_t)PixelGV.AggregateVal[2].IntVal.getZExtValue();
     val[3] = (uint32_t)PixelGV.AggregateVal[3].IntVal.getZExtValue();
     return;
 }
@@ -389,6 +389,6 @@ void getColorForWriteImage(const GenericValue& PixelGV, uint32_t val[4]) {
 }
 }
   }];
-  
+
 }
   def inc : Generic;

@@ -76,11 +76,11 @@ GenericValue lle_X_write_mem_fence(FunctionType *FT,
 extern "C" {
 BUILTINS_API void initOCLBuiltinsExplMemFenceOps() {return;}
   }];
-  
+
   code Epilog = [{
 }
 
   }];
-  
+
 }
   def inc : Generic;
