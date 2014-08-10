@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2014 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -18,11 +18,38 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-#include "base_command_list.h"
+#ifdef _WIN32
+#include <Windows.h>
+#else
+#include <sched.h>
+#endif
+#include "task_group.hpp"
+#include "arena_handler.h"
+#include "tbb_executor.h"
 #include "cl_user_logger.h"
 
-using Intel::OpenCL::Utils::ApiLogger;
 using namespace Intel::OpenCL::TaskExecutor;
+using Intel::OpenCL::Utils::ApiLogger;
 
-template<typename Func>
-void TbbTaskGroup::Run(Func& f) { m_tskGrp.run(f); }
+// TaskGroup methods:
+
+void TaskGroup::WaitForAll()
+{
+    if (m_pRootTask->ref_count() > 1)
+    {
+        ArenaFunctorWaiter waiter(m_pRootTask);
+        m_device->Execute(waiter);
+        // at this point ref_count() might return again a value greater than 1, since another task might have already been enqueued after waiter was executed
+    }
+}
+
+// SpawningTaskGroup methods
+
+void SpawningTaskGroup::WaitForAll()
+{
+    if (!m_device->IsCurrentThreadInArena() || m_device->GetTaskExecutor().IsMaster())
+    {
+        ArenaFunctorWaiter func(m_pRootTask);
+        m_device->Execute(func);    
+    }
+}
