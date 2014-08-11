@@ -62,8 +62,11 @@
 #endif
 
 #ifdef __AVX512F__
-#include <knlintrin.h>
+#include <avx512fintrin.h>
 #endif
 
+#ifdef __AVX512ER__
+#include <avx512erintrin.h>
+#endif
 #endif
 #endif
