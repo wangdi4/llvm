@@ -318,14 +318,22 @@ static VarTypeDescriptor GenerateVarTypeBasic(const DIBasicType& di_type)
 
 static VarTypeDescriptor GenerateStubType()
 {
-    VarTypeDescriptor descriptor;
-    descriptor.set_tag(VarTypeDescriptor::BASIC);
-    VarTypeBasic* descriptor_basic = descriptor.mutable_type_basic();
-    VarTypeBasic::Tag basic_tag = VarTypeBasic::FLOAT;
+    VarTypeDescriptor pointee_descriptor;
+    pointee_descriptor.set_tag(VarTypeDescriptor::BASIC);
+    VarTypeBasic* descriptor_basic = pointee_descriptor.mutable_type_basic();
+    VarTypeBasic::Tag basic_tag = VarTypeBasic::UNKNOWN;
     descriptor_basic->set_tag(basic_tag);
-    descriptor_basic->set_size_nbits(32);
+    descriptor_basic->set_size_nbits(8);
     descriptor_basic->set_name("No further expansion available");
+
+    VarTypePointer pointer_descriptor;
+    pointer_descriptor.mutable_pointee()->CopyFrom(pointee_descriptor);
+
+    VarTypeDescriptor descriptor;
+    descriptor.set_tag(VarTypeDescriptor::POINTER);
+    descriptor.mutable_type_pointer()->CopyFrom(pointer_descriptor);
     return descriptor;
+
 }
 
 class Generator {
@@ -352,7 +360,13 @@ VarTypeDescriptor Generator::GenerateVarTypePointer(const DIType& di_pointee)
 {
     static const unsigned MAX_PTR_CHASING_DEPTH = 5;
 
-    if ( m_pointerDepth == MAX_PTR_CHASING_DEPTH  )
+    // !!! Workaround for CSSD100019603 [Debugger]: 
+    //  OpenCL debugger crashes on struct types with self pointer fields
+    //  OclCPUDebugging2.dll enters inifite recursion on types with circular references
+
+    //  Solution is to Limit pointer chasing depth to 5. 
+    //  It prevents user to dereference pointer more than 5 times in Visual Studio Watch window
+    if ( m_pointerDepth == MAX_PTR_CHASING_DEPTH )
         return GenerateStubType();
 
     m_pointerDepth++;
