@@ -57,8 +57,8 @@ OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(PacketizeFunction, "packetize", "packetize functions", false, false)
 
-PacketizeFunction::PacketizeFunction(bool SupportScatterGather,
-                                     unsigned int vectorizationDimension) : FunctionPass(ID),
+PacketizeFunction::PacketizeFunction(Intel::ECPU Cpu,
+                                     unsigned int vectorizationDimension) : FunctionPass(ID), m_Cpu(Cpu),
   OCLSTAT_INIT(GEP_With_2_Indices,
   "Loads and stores of an address with exactly two indices",
   m_kernelStats),
@@ -137,7 +137,7 @@ PacketizeFunction::PacketizeFunction(bool SupportScatterGather,
   m_noVectorFuncCtr = 0;
   m_cannotHandleCtr = 0;
   m_allocaCtr = 0;
-  UseScatterGather = SupportScatterGather || EnableScatterGatherSubscript;
+  UseScatterGather = Intel::CPUId::HasGatherScatter(m_Cpu) || EnableScatterGatherSubscript;
   m_vectorizedDim = vectorizationDimension;
   m_rtServices = NULL;
 
@@ -959,6 +959,8 @@ bool PacketizeFunction::isGatherScatterType(bool masked,
                                 VectorType *VecTy) {
   unsigned NumElements = VecTy->getNumElements();
   Type *ElemTy = VecTy->getElementType();
+  if (m_Cpu == Intel::CPU_KNL && ElemTy->getPrimitiveSizeInBits() < 32)
+    return false;
   if (EnableScatterGatherSubscript_v4i8 &&
       (NumElements == 4) &&
       (ElemTy->isIntegerTy(8)))
@@ -3125,9 +3127,9 @@ void PacketizeFunction::generateSequentialIndices(Instruction *I)
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  FunctionPass* createPacketizerPass(bool scatterGather = false,
+  FunctionPass* createPacketizerPass(const Intel::CPUId& CpuId,
                                      unsigned int vectorizationDimension = 0) {
-    return new intel::PacketizeFunction(scatterGather, vectorizationDimension);
+    return new intel::PacketizeFunction(CpuId.GetCPU(), vectorizationDimension);
   }
 }
 

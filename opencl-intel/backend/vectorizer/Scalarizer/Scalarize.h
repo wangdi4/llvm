@@ -43,8 +43,7 @@ namespace intel {
 class ScalarizeFunction : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid
-  ScalarizeFunction(const Intel::CPUId& CpuId);
-  ScalarizeFunction() : FunctionPass(ID) {}
+  ScalarizeFunction(Intel::ECPU Cpu = Intel::DEVICE_INVALID);
   ~ScalarizeFunction();
 
   /// @brief Provides name of pass

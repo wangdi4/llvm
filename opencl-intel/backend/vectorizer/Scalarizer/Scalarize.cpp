@@ -30,13 +30,13 @@ OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(ScalarizeFunction, "scalarize", "Scalarize functions", false, false)
 
-ScalarizeFunction::ScalarizeFunction(const Intel::CPUId& CpuId)
-  : FunctionPass(ID), m_rtServices(NULL), m_Cpu(CpuId.GetCPU())
+ScalarizeFunction::ScalarizeFunction(Intel::ECPU Cpu)
+  : FunctionPass(ID), m_rtServices(NULL), m_Cpu(Cpu)
 {
   initializeScalarizeFunctionPass(*llvm::PassRegistry::getPassRegistry());
 
   for (int i = 0; i < Instruction::OtherOpsEnd; i++) m_transposeCtr[i] = 0;
-  UseScatterGather = CpuId.HasGatherScatter() || EnableScatterGatherSubscript;
+  UseScatterGather = Intel::CPUId::HasGatherScatter(Cpu) || EnableScatterGatherSubscript;
 
   // Initialize SCM buffers and allocation
   m_SCMAllocationArray = new SCMEntry[ESTIMATED_INST_NUM];
@@ -1549,7 +1549,7 @@ bool ScalarizeFunction::isScalarizableLoadStoreType(VectorType *type) {
 /// This pass is called by a modified Opt.exe
 extern "C" {
   FunctionPass* createScalarizerPass(const Intel::CPUId& CpuId) {
-    return new intel::ScalarizeFunction(CpuId);
+    return new intel::ScalarizeFunction(CpuId.GetCPU());
   }
 }
 

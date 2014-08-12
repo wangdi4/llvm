@@ -34,7 +34,7 @@ extern "C" FunctionPass* createScalarizerPass(const Intel::CPUId& CpuId);
 extern "C" FunctionPass* createPhiCanon();
 extern "C" FunctionPass* createPredicator();
 extern "C" FunctionPass* createSimplifyGEPPass();
-extern "C" FunctionPass* createPacketizerPass(bool, unsigned int);
+extern "C" FunctionPass* createPacketizerPass(const Intel::CPUId&, unsigned int);
 extern "C" intel::ChooseVectorizationDimension* createChooseVectorizationDimension();
 extern "C" Pass* createBuiltinLibInfoPass(llvm::Module* pRTModule, std::string type);
 
@@ -65,7 +65,7 @@ static FunctionPass* createScalarizer(const Intel::CPUId& CpuId) {
 
 static FunctionPass* createPacketizer(const Intel::CPUId& CpuId,
                                       unsigned int vectorizationDimension) {
-  return createPacketizerPass(CpuId.HasGatherScatter(), vectorizationDimension);
+  return createPacketizerPass(CpuId, vectorizationDimension);
 }
 
 namespace intel {
