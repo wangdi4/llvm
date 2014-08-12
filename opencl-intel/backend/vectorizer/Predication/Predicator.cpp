@@ -30,7 +30,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/Version.h"
 
 static cl::opt<bool>
 EnableOptMasks("optmasks", cl::init(true), cl::Hidden,
@@ -717,7 +716,7 @@ void Predicator::replaceInstructionByPredicatedOne(Instruction* original,
     for (Value::use_iterator it = original->use_begin(),
        e = original->use_end(); it != e ; ++it) {
          Instruction* inst = dyn_cast<Instruction>(*it);
-         if (inst && m_predicatedSelects.count(inst) && 
+         if (inst && m_predicatedSelects.count(inst) &&
                        m_predicatedSelects[inst] == original)   {
            m_predicatedSelects[inst] = predicated;
          }
@@ -811,32 +810,19 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
       CallInst::Create(func, ArrayRef<Value*>(params), "", call);
     //Update new call instruction with calling convention and attributes
     pcall->setCallingConv(call->getCallingConv());
-#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
-    for (unsigned int i=0; i < call->getNumArgOperands(); ++i) {
-      //Parameter attributes starts with index 1-NumOfParams
-      unsigned int idx = i+1;
-      //pcall starts with mask argument, skip it when setting original argument attributes.
-      pcall->addAttribute(1 + idx, call->getAttributes().getParamAttributes(idx));
-    }
-    //set function attributes of pcall
-    pcall->addAttribute(~0, call->getAttributes().getFnAttributes());
-    //set return value attributes of pcall
-    pcall->addAttribute(0, call->getAttributes().getRetAttributes());
-#else
     AttributeSet as;
     AttributeSet callAttr = call->getAttributes();
     for (unsigned int i=0; i < call->getNumArgOperands(); ++i) {
       //Parameter attributes starts with index 1-NumOfParams
       unsigned int idx = i+1;
       //pcall starts with mask argument, skip it when setting original argument attributes.
-	    as.addAttributes(func->getContext(), 1 + idx, callAttr.getParamAttributes(idx));
+      as.addAttributes(func->getContext(), 1 + idx, callAttr.getParamAttributes(idx));
     }
     //set function attributes of pcall
     as.addAttributes(func->getContext(), AttributeSet::FunctionIndex, callAttr.getFnAttributes());
     //set return value attributes of pcall
     as.addAttributes(func->getContext(), AttributeSet::ReturnIndex, callAttr.getRetAttributes());
     pcall->setAttributes(as);
-#endif
     replaceInstructionByPredicatedOne(call, pcall);
     return pcall;
   }
@@ -882,7 +868,7 @@ void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
 
   V_ASSERT (m_inInst.find(BB) != m_inInst.end() &&
             "Where did we save the mask in this BB ?");
- 
+
   // Load the predicate value and place the select
   // We will place them in the correct place in the next section
   Instruction* predicate  = new LoadInst(pred,"predicate");
@@ -1042,7 +1028,7 @@ bool Predicator::isAlwaysFollowedBy(Loop *L, BasicBlock* exitBlock) {
   {
     BasicBlock* curr = unTracedBlocks.back();
     unTracedBlocks.pop_back();
-    
+
     TerminatorInst* term = curr->getTerminator();
     BranchInst* br = dyn_cast<BranchInst>(term);
     // if we reached a return instruction not via the exitBlock:
@@ -1069,7 +1055,7 @@ bool Predicator::isAlwaysFollowedBy(Loop *L, BasicBlock* exitBlock) {
     }
 
   }
-  // no path from the loop header back to itself without passing through the 
+  // no path from the loop header back to itself without passing through the
   // exit block
   return true;
 }
@@ -1171,7 +1157,7 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
     // Incase there is only one exiting block can use the incoming mask
     // of the preheader since all work items entering the loop will exit
     // through this edge.
-    V_ASSERT(L == outestLoop && 
+    V_ASSERT(L == outestLoop &&
       "same block can't be the single exit of a loop, and also exit a higher level loop");
     V_ASSERT(preHeader && m_inMask.count(preHeader) && "no in mask for preheader");
     m_outMask[std::make_pair(BB, BBexit)] = m_inMask[L->getLoopPreheader()];
@@ -1198,7 +1184,7 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
   do {
     V_ASSERT(m_inMask.count(L->getHeader()) && "header has no in-mask");
     // If this block (BB) is not nested, then its in mask is
-    // the same as the loop mask, and the new loop mask 
+    // the same as the loop mask, and the new loop mask
     // is simply the local edge value. (and inMask, localCond).
     Value *newLoopMask = localOutMask;
     Value* loopMask_p = m_inMask[L->getHeader()];
@@ -1251,7 +1237,7 @@ void Predicator::maskOutgoing_fork(BasicBlock *BB) {
   ///
   /// In here we handle simple forking of two basic blocks to non exit blocks.
   //
- 
+
   /// One side takes the condition as is,
   /// the other uses the negation of the condition
   BinaryOperator* notCond = BinaryOperator::Create(
@@ -1375,9 +1361,9 @@ void Predicator::maskOutgoing(BasicBlock *BB) {
   BranchInst* br = dyn_cast<BranchInst>(term);
   V_ASSERT(br && "Unable to handle non return/branch terminators");
 
-  // Implementation of unconditional branches or uniform branches in 
+  // Implementation of unconditional branches or uniform branches in
   // a non divergent blocks can be easily done
-  if (br->isUnconditional() || 
+  if (br->isUnconditional() ||
     (m_WIA->whichDepend(br) == WIAnalysis::UNIFORM && !m_WIA->isDivergentBlock(BB))) {
     // If this outgoing mask is an optimized case
     return maskOutgoing_useIncoming(BB, BB);
@@ -1659,7 +1645,7 @@ void Predicator::predicateFunction(Function *F) {
   for (Function::iterator it = F->begin(), e  = F->end(); it != e ; ++it) {
     maskIncoming(it);
   }
-  /// Replace all the divergent PHINodes and the PHINodes in 
+  /// Replace all the divergent PHINodes and the PHINodes in
   /// divergent blocks with select instructions
   for (Function::iterator it = F->begin(), e  = F->end(); it != e ; ++it) {
     if (m_WIA->isDivergentBlock(it) || m_WIA->isDivergentPhiBlocks(it))

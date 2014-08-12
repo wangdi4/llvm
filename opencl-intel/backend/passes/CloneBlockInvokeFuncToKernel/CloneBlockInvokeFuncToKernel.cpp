@@ -11,13 +11,13 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CloneBlockInvokeFuncToKernel.h"
 #include "OCLPassSupport.h"
 #include "MetaDataApi.h"
+
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Attributes.h"
-#include "llvm/Version.h"
 
 #include <assert.h>
 
@@ -144,17 +144,13 @@ bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
     Function *NewFn = llvm::CloneFunction(*I, VMap,
                                               /*ModuleLevelChanges=*/false);
     assert(NewFn && "CloneFunction returned NULL");
-    
+
     // obtain name for kernel
     std::string newName = BlockUtils::CreateBlockInvokeKernelName((*I)->getName());
     // set name of kernel
     NewFn->setName(newName);
     // Make sure function is always inlined
-#if LLVM_VERSION == 3200
-    NewFn->addFnAttr(llvm::Attributes::AlwaysInline);
-#else
     NewFn->addFnAttr(llvm::Attribute::AlwaysInline);
-#endif
 
     // add kernel func to module
     M.getFunctionList().push_back(NewFn);
@@ -163,7 +159,7 @@ bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
     size_t blockLiteralSize = computeBlockLiteralSize(NewFn);
     // Set in metadata so it can be used later when preparing calls to enqueue_kernel_*
     MDU.getOrInsertKernelsInfoItem(NewFn)->setBlockLiteralSize(blockLiteralSize);
-    
+
     //
     // Updating of metadata with new kernel
     //
@@ -231,14 +227,14 @@ size_t CloneBlockInvokeFuncToKernel::computeBlockLiteralSize(Function *F)
       ++ai;
       blockLiteralPtr = ai;
   }
-  
+
   // if no uses return default size
   if(!blockLiteralPtr->getNumUses())
     return getBlockLiteralDefaultSize();
 
   assert(blockLiteralPtr->getType()->isPointerTy());
 
-  // search for specific bitcast 
+  // search for specific bitcast
   // example bitcast i8* %.block_descriptor to <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i64, i32 addrspace(1)*, i32 }>*
   for(Argument::use_iterator AI = blockLiteralPtr->use_begin(),
     E = blockLiteralPtr->use_end(); AI != E; ++AI){
@@ -267,7 +263,7 @@ size_t CloneBlockInvokeFuncToKernel::computeBlockLiteralSize(Function *F)
       //block_literal itself
       return static_cast<size_t>(m_pTD->getStructLayout(pStructBlockLiteralTy)->getSizeInBytes());
   }
-  
+
   assert(0 && "did not find bitcast to struct");
   return -1;
 }
