@@ -173,7 +173,7 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
 
     // Iterate over all instructions and search GEP instructions
     for (inst_iterator ii = inst_begin(F), ie = inst_end(F); ii != ie; ++ii) {
-      // searching only GEP instruction with more than 1 index that support simplification
+      // searching only GEP instruction that support simplification
       GetElementPtrInst *pGEP = dyn_cast<GetElementPtrInst>(&*ii);
       if ( SimplifiableGep(pGEP) ) {
         // Found Simplifiable GEP instruction.
@@ -185,94 +185,18 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
       // No simplifiable GEP instruction function was not changed
       return false;
     }
+
+    uint32_t simplifiedGEPs = 0;
     for (unsigned int iter=0; iter<worklist.size(); ++iter) {
       GetElementPtrInst *pGEP = worklist[iter];
 
       V_ASSERT(pGEP->getPointerOperandIndex() == 0 && "assume Ptr operand is first operand!");
 
-      if (IsUniformSimplifiableGep(pGEP)) {
-        Value *pLastIndex = pGEP->getOperand(pGEP->getNumIndices());
-        // Replace last index of original GEP instruction with Zero.
-        pGEP->setOperand(pGEP->getNumIndices(), Constant::getNullValue(pLastIndex->getType()));
-        // Create new GEP instruction with original GEP instruction as pointer
-        // and with its old last index as the new GEP instruction only index.
-        GetElementPtrInst *pNewGEP = GetElementPtrInst::Create(pGEP, pLastIndex, "simplifiedGEP");
-        VectorizerUtils::SetDebugLocBy(pNewGEP, pGEP);
-        pNewGEP->insertAfter(pGEP);
-        pGEP->replaceAllUsesWith(pNewGEP);
-        // workaround as previous function replaced also the pointer of the new GEP instruction!
-        pNewGEP->setOperand(pNewGEP->getPointerOperandIndex(), pGEP);
-      }
-      else if(IsIndexTypeSimplifiableGep(pGEP)) {
-        // bitcast base address value to pointer of base type
-        // calculate all indices into one index by multiplying array sizes with indices
-        //[A x [B X [C X type]]]* GEP base, x, a, b, c ==> ((x*A + a)*B + b)*C + c
-        Type *baseType = pGEP->getPointerOperand()->getType();
-
-        V_ASSERT(baseType->isPointerTy() && "type of base address of GEP assumed to be a pointer");
-        baseType = baseType->getContainedType(0);
-
-        std::vector<unsigned int> arraySizes;
-        while (baseType->isArrayTy()) {
-          arraySizes.push_back(cast<ArrayType>(baseType)->getNumElements());
-          baseType = baseType->getContainedType(0);
-        }
-        V_ASSERT((baseType->isIntOrIntVectorTy() || baseType->isFPOrFPVectorTy()) && "assumed primitive base type!");
-
-        if(baseType->isVectorTy()) {
-          if(!m_pDL) {
-            // No DataLayout cannot apply this SimplifyGEP approach!
-            continue;
-          }
-          unsigned int vectorSize = m_pDL->getTypeAllocSize(baseType);
-          unsigned int elementSize = m_pDL->getTypeAllocSize(cast<VectorType>(baseType)->getElementType());
-          V_ASSERT((vectorSize/elementSize > 0) && (vectorSize % elementSize == 0) &&
-            "vector size should be a multiply of element size");
-          arraySizes.push_back(vectorSize/elementSize);
-        }
-
-        Value *newIndex = NULL;
-        for (unsigned int i=1; i<pGEP->getNumOperands()-1; ++i) {
-          Value *index = pGEP->getOperand(i);
-          if (newIndex) {
-            Instruction *addIndex =
-              BinaryOperator::CreateNUWAdd(newIndex, index, "addIndex", pGEP);
-            VectorizerUtils::SetDebugLocBy(addIndex, pGEP);
-            newIndex = addIndex;
-          }
-          else {
-            newIndex = index;
-          }
-          Constant *arraySize = ConstantInt::get(index->getType(), arraySizes[i-1]);
-          Instruction *mulIndex =
-            BinaryOperator::CreateNUWMul(newIndex, arraySize, "mulIndex", pGEP);
-          VectorizerUtils::SetDebugLocBy(mulIndex, pGEP);
-          newIndex = mulIndex;
-        }
-        // Add last Index
-        Value *index = pGEP->getOperand(pGEP->getNumOperands()-1);
-        if (newIndex) {
-          Instruction *addIndex =
-              BinaryOperator::CreateNUWAdd(newIndex, index, "addIndex", pGEP);
-          VectorizerUtils::SetDebugLocBy(addIndex, pGEP);
-          newIndex = addIndex;
-        }
-        else {
-          newIndex = index;
-        }
-        V_ASSERT(newIndex && "new calculated index should not be NULL");
-        Value* newBase = pGEP->getPointerOperand();
-        newBase = new BitCastInst(newBase, pGEP->getType(), "ptrTypeCast", pGEP);
-        GetElementPtrInst *pNewGEP = GetElementPtrInst::Create(newBase, newIndex, "simplifiedGEP", pGEP);
-        VectorizerUtils::SetDebugLocBy(pNewGEP, pGEP);
-        pGEP->replaceAllUsesWith(pNewGEP);
-        pGEP->eraseFromParent();
-      }
-      else {
-        // Is not simplifiable GEP instruction
+      if (SimplifyUniformGep(pGEP) || SimplifyIndexTypeGep(pGEP)) {
+        ++simplifiedGEPs;
       }
     }
-    return true;
+    return simplifiedGEPs > 0;
   }
 
   bool SimplifyGEP::SimplifiableGep(GetElementPtrInst *pGEP) {
@@ -295,23 +219,101 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
     return false;
   }
 
-  bool SimplifyGEP::IsUniformSimplifiableGep(GetElementPtrInst *pGEP) {
+  bool SimplifyGEP::SimplifyUniformGep(GetElementPtrInst *pGEP) {
     // Check if all indices except the last one are uniform
     for (unsigned int i=1; i<pGEP->getNumIndices(); ++i) {
       if (WIAnalysis::UNIFORM != m_depAnalysis->whichDepend(pGEP->getOperand(i))) {
         return false;
       }
     }
+
+    Value *pLastIndex = pGEP->getOperand(pGEP->getNumIndices());
+    // Replace last index of original GEP instruction with Zero.
+    pGEP->setOperand(pGEP->getNumIndices(), Constant::getNullValue(pLastIndex->getType()));
+    // Create new GEP instruction with original GEP instruction as pointer
+    // and with its old last index as the new GEP instruction only index.
+    GetElementPtrInst *pNewGEP = GetElementPtrInst::Create(pGEP, pLastIndex, "simplifiedGEP");
+    VectorizerUtils::SetDebugLocBy(pNewGEP, pGEP);
+    pNewGEP->insertAfter(pGEP);
+    pGEP->replaceAllUsesWith(pNewGEP);
+    // workaround as previous function replaced also the pointer of the new GEP instruction!
+    pNewGEP->setOperand(pNewGEP->getPointerOperandIndex(), pGEP);
     return true;
   }
 
-  bool SimplifyGEP::IsIndexTypeSimplifiableGep(GetElementPtrInst *pGEP) {
+  bool SimplifyGEP::SimplifyIndexTypeGep(GetElementPtrInst *pGEP) {
     Type *firstIndexType = pGEP->getOperand(1)->getType();
     for (unsigned int i=1; i<pGEP->getNumOperands(); ++i) {
       if (firstIndexType != pGEP->getOperand(i)->getType()) {
         return false;
       }
     }
+    // bitcast base address value to pointer of base type
+    // calculate all indices into one index by multiplying array sizes with indices
+    //[A x [B X [C X type]]]* GEP base, x, a, b, c ==> ((x*A + a)*B + b)*C + c
+    Type *baseType = pGEP->getPointerOperand()->getType();
+
+    V_ASSERT(baseType->isPointerTy() && "type of base address of GEP assumed to be a pointer");
+    baseType = baseType->getContainedType(0);
+
+    std::vector<unsigned int> arraySizes;
+    while (baseType->isArrayTy()) {
+      arraySizes.push_back(cast<ArrayType>(baseType)->getNumElements());
+      baseType = baseType->getContainedType(0);
+    }
+    V_ASSERT((baseType->isIntOrIntVectorTy() || baseType->isFPOrFPVectorTy()) && "assumed primitive base type!");
+
+    if(baseType->isVectorTy()) {
+      if(!m_pDL) {
+        // No DataLayout cannot apply this SimplifyGEP approach!
+        // TBD: add OCL_STATS counters
+        return false;
+      }
+      unsigned int vectorSize = m_pDL->getTypeAllocSize(baseType);
+      unsigned int elementSize = m_pDL->getTypeAllocSize(cast<VectorType>(baseType)->getElementType());
+      V_ASSERT((vectorSize/elementSize > 0) && (vectorSize % elementSize == 0) &&
+        "vector size should be a multiply of element size");
+      arraySizes.push_back(vectorSize/elementSize);
+    }
+
+    Value *newIndex = NULL;
+    for (unsigned int i=1; i<pGEP->getNumOperands()-1; ++i) {
+      Value *index = pGEP->getOperand(i);
+      if (newIndex) {
+        Instruction *addIndex =
+          BinaryOperator::CreateNUWAdd(newIndex, index, "addIndex", pGEP);
+        VectorizerUtils::SetDebugLocBy(addIndex, pGEP);
+        newIndex = addIndex;
+      }
+      else {
+        newIndex = index;
+      }
+      Constant *arraySize = ConstantInt::get(index->getType(), arraySizes[i-1]);
+      Instruction *mulIndex =
+        BinaryOperator::CreateNUWMul(newIndex, arraySize, "mulIndex", pGEP);
+      VectorizerUtils::SetDebugLocBy(mulIndex, pGEP);
+      newIndex = mulIndex;
+    }
+    // Add last Index
+    Value *index = pGEP->getOperand(pGEP->getNumOperands()-1);
+    if (newIndex) {
+      Instruction *addIndex =
+          BinaryOperator::CreateNUWAdd(newIndex, index, "addIndex", pGEP);
+      VectorizerUtils::SetDebugLocBy(addIndex, pGEP);
+      newIndex = addIndex;
+    }
+    else {
+      newIndex = index;
+    }
+    V_ASSERT(newIndex && "new calculated index should not be NULL");
+    Value* newBase = pGEP->getPointerOperand();
+    newBase = new BitCastInst(newBase, pGEP->getType(), "ptrTypeCast", pGEP);
+    GetElementPtrInst *pNewGEP = GetElementPtrInst::Create(newBase, newIndex, "simplifiedGEP", pGEP);
+    VectorizerUtils::SetDebugLocBy(pNewGEP, pGEP);
+    pGEP->replaceAllUsesWith(pNewGEP);
+    pGEP->eraseFromParent();
+
+    // TBD: add OCL_STATS counters
     return true;
   }
 

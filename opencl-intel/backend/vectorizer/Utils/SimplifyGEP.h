@@ -66,15 +66,15 @@ namespace intel {
     /// @return True if GEP instruction can be simplified, False otherwise
     bool SimplifiableGep(GetElementPtrInst *pGEP);
 
-    /// @brief Check if given GEP instruction is uniform after being simplified
+    /// @brief Simplify GEP instruction with all indices except the last one are uniform
     /// @param pGEP GEP instruction
-    /// @return True if GEP instruction can be simplified to uniform GEP, False otherwise
-    bool IsUniformSimplifiableGep(GetElementPtrInst *pGEP);
+    /// @return True if GEP instruction has been simplified, False otherwise
+    bool SimplifyUniformGep(GetElementPtrInst *pGEP);
 
-    /// @brief Check if given GEP instruction has i32 indices
+    /// @brief Simplify GEP instruction with i32 indices
     /// @param pGEP GEP instruction
-    /// @return True if GEP instruction can be simplified to GEP with i32 index, False otherwise
-    bool IsIndexTypeSimplifiableGep(GetElementPtrInst *pGEP);
+    /// @return True if GEP instruction has been simplified, False otherwise
+    bool SimplifyIndexTypeGep(GetElementPtrInst *pGEP);
 
     /// @brief Check if given PhiNode instruction is simplifiable
     /// @param pPhiNode PhiNode instruction
