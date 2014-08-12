@@ -9,6 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __SIMPLIFY_GEP_H_
 #include "WIAnalysis.h"
 #include "Logger.h"
+#include "OclTune.h"
 
 #include "llvm/Pass.h"
 #include "llvm/IR/Function.h"
@@ -82,6 +83,13 @@ namespace intel {
     //    0 or 1 according to the PhiNode incoming entry that contains the iterator instruction.
     int SimplifiablePhiNode(PHINode *pPhiNode);
 
+
+    /// @brief Simplify GEP instructions with a single index if it is an
+    ///        addition of uniform and divergent values.
+    /// @param pGEP GEP instruction
+    /// @return True if GEP instruction has been simplified, False otherwise
+    bool SimplifyIndexSumGep(GetElementPtrInst *pGEP);
+
   private:
     /// @brief pointer to work-item analysis performed for this function
     WIAnalysis *m_depAnalysis;
@@ -91,6 +99,10 @@ namespace intel {
 #else
     DataLayout *m_pDL;
 #endif
+
+    Statistic::ActiveStatsT m_kernelStats;
+    Statistic Simplified_Multi_Indices_GEPs;
+    Statistic Simplified_Phi_Node_GEPs;
   };
 } // namespace
 

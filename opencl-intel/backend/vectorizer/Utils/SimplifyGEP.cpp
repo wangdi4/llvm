@@ -5,12 +5,15 @@ Agreement between Intel and Apple dated August 26, 2005; under the Category 2 In
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
 
+#define DEBUG_TYPE "Vectorizer"
+
 #include "SimplifyGEP.h"
 #include "VectorizerUtils.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Version.h"
+#include "llvm/ADT/SmallVector.h"
 #include <vector>
 
 namespace intel {
@@ -21,7 +24,14 @@ OCL_INITIALIZE_PASS_BEGIN(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP 
 OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
 OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP instructions", false, false)
 
-  SimplifyGEP::SimplifyGEP() : FunctionPass(ID) {
+  SimplifyGEP::SimplifyGEP() : FunctionPass(ID),
+    OCLSTAT_INIT(Simplified_Multi_Indices_GEPs,
+                "Simplified multi indices GEP instructions",
+                m_kernelStats),
+    OCLSTAT_INIT(Simplified_Phi_Node_GEPs,
+                "Simplified Phi GEP instructions",
+                m_kernelStats)
+  {
     initializeSimplifyGEPPass(*llvm::PassRegistry::getPassRegistry());
   }
 
@@ -46,6 +56,7 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
     }
     changed = FixMultiIndicesGEP(F) || changed;
 
+    intel::Statistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE);
     return changed;
   }
 
@@ -163,6 +174,7 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
 
       // Now remove old PhiNode, as we replaced all its uses
       pPhiNode->eraseFromParent();
+      Simplified_Phi_Node_GEPs++;
     }
 
     return true;
@@ -190,19 +202,84 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
     for (unsigned int iter=0; iter<worklist.size(); ++iter) {
       GetElementPtrInst *pGEP = worklist[iter];
 
-      V_ASSERT(pGEP->getPointerOperandIndex() == 0 && "assume Ptr operand is first operand!");
+      V_ASSERT(pGEP->getPointerOperandIndex() == 0 && "assume Ptr operand is the first operand!");
 
-      if (SimplifyUniformGep(pGEP) || SimplifyIndexTypeGep(pGEP)) {
+      if(pGEP->getNumIndices() == 1) {
+        if(SimplifyIndexSumGep(pGEP)) ++simplifiedGEPs;
+      }
+      else if(SimplifyUniformGep(pGEP) || SimplifyIndexTypeGep(pGEP)) {
         ++simplifiedGEPs;
       }
     }
+
+    Simplified_Multi_Indices_GEPs = simplifiedGEPs;
     return simplifiedGEPs > 0;
   }
 
-  bool SimplifyGEP::SimplifiableGep(GetElementPtrInst *pGEP) {
-    if(!pGEP || pGEP->getNumIndices() == 1) return false;
 
-    // Support only GEP instructions with
+  namespace {
+    // Helper function of SimplifyGEP::SimplifyIndexSumGep
+    inline Value * makeIndexSum(SmallVector<Value *, 8> & pIndices, GetElementPtrInst * pGEP,
+                                char const* prefix) {
+      typedef SmallVector<Value *, 8>::size_type size_type;
+
+      Value * ret = pIndices[0];
+      for(size_type i = 1; i < pIndices.size(); ++i) {
+        Value * pLHS = ret;
+        Value * pRHS = pIndices[i];
+        V_ASSERT(pLHS->getType()->getScalarType()->isIntegerTy() &&
+                 pRHS->getType()->getScalarType()->isIntegerTy() && "index of non-integer type");
+
+        // SExt one of the operands if they are of different width.
+        // Note that unsigned integer overflow is defined so never ZExt the operands.
+        if(pLHS->getType()->getScalarSizeInBits() < pRHS->getType()->getScalarSizeInBits()) {
+          pLHS = CastInst::Create(Instruction::SExt, pLHS, pRHS->getType(), "sext." + pLHS->getName(), pGEP);
+        }
+        else if(pRHS->getType()->getScalarSizeInBits() < pLHS->getType()->getScalarSizeInBits()) {
+          pRHS = CastInst::Create(Instruction::SExt, pRHS, pLHS->getType(), "sext." + pRHS->getName(), pGEP);
+        }
+
+        BinaryOperator * newAdd = BinaryOperator::CreateAdd(pLHS, pRHS, prefix, pGEP);
+        if(Instruction * pRHSInst = dyn_cast<Instruction>(pRHS)) {
+          VectorizerUtils::SetDebugLocBy(newAdd, pRHSInst);
+        }
+        ret = newAdd;
+      }
+      return ret;
+    }
+
+    inline BinaryOperator * getNextAdd(Value * pVal) {
+       Instruction * pInst = dyn_cast<Instruction>(pVal);
+       if(!pInst) return NULL;
+
+       if(pInst->getOpcode() == Instruction::Add) {
+         return cast<BinaryOperator>(pInst);
+       }
+       else if(pInst->getOpcode() == Instruction::SExt) {
+         // The behaviour of signed overflow of integers that are smaller than sizeof(int)
+         // is defined by C99. They are to be promoted to int and the result is to be truncated.
+         // It means what it is not safe to split such sum.
+         Type * pValType = pInst->getOperand(0)->getType();
+         if(pValType->getScalarSizeInBits() < 32) return NULL;
+         // Otherwise the signed overflow behaviour is undefined and this sum can be split further.
+         BinaryOperator * pBOp = dyn_cast<BinaryOperator>(pInst->getOperand(0));
+         return pBOp && pBOp->getOpcode() == Instruction::Add ? pBOp : NULL;
+       }
+       return NULL;
+    }
+  } // end of the anonymous namespace
+
+  bool SimplifyGEP::SimplifiableGep(GetElementPtrInst *pGEP) {
+    if(!pGEP) return false;
+
+    if(pGEP->getNumIndices() == 1) {
+       // Support GEP instructions with a single index which is a sum of uniform and divergent
+       // values or a SExt from such sum.
+       BinaryOperator * pAddInst = getNextAdd(pGEP->getOperand(1));
+       if(pAddInst && WIAnalysis::UNIFORM != m_depAnalysis->whichDepend(pAddInst)) return true;
+       return false;
+    }
+    // Support GEP instructions with
     // pointer operand of type that contains no structures!
     Value *pPtr = pGEP->getPointerOperand();
 
@@ -219,9 +296,75 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
     return false;
   }
 
+  bool SimplifyGEP::SimplifyIndexSumGep(GetElementPtrInst *pGEP) {
+    // Check this is a GEP with a sum of indices and some of them are
+    // uniform. If yes make two GEPs where one is a GEP with uniform indices and
+    // another one is a GEP with divergent indices.
+
+    // Check preconditions of this transformation
+    // 1. The index is the ADD instruction
+    // 2. The base pointer is uniform
+    // 3. The sum of indices is divergent
+    Value * pBasePtrVal = pGEP->getOperand(0);
+    BinaryOperator * pAddInst = getNextAdd(pGEP->getOperand(1));
+    if(pAddInst &&
+       WIAnalysis::UNIFORM == m_depAnalysis->whichDepend(pBasePtrVal) &&
+       WIAnalysis::UNIFORM != m_depAnalysis->whichDepend(pAddInst)) {
+
+      // Collect uniform and divergent indices
+      SmallVector<Value *, 8>        uniformVals, divergentVals;
+      SmallVector<Instruction *, 16> worklist;
+      worklist.push_back(pAddInst);
+
+      while(worklist.size() != 0) {
+        Value * operands[2] = { worklist.back()->getOperand(0),
+                                worklist.back()->getOperand(1) };
+        worklist.pop_back();
+
+        for(unsigned i = 0; i < 2; ++i) {
+          Value * pVal = operands[i];
+          if(WIAnalysis::UNIFORM == m_depAnalysis->whichDepend(pVal)) {
+            uniformVals.push_back(pVal);
+          }
+          else {
+            // If an index is divergent that doesn't mean all its components are divergent
+            BinaryOperator * pNextAdd = getNextAdd(pVal);
+            if(pNextAdd) {
+              worklist.push_back(pNextAdd);
+            } else {
+              divergentVals.push_back(pVal);
+            }
+          }
+        }
+      }
+
+      // Leave this GEP as is if there are no uniform indices detected
+      if(uniformVals.empty()) return false;
+      // Make uniform and divergent indices
+      Value * uniformIdx   = makeIndexSum(uniformVals, pGEP, "uniformIdx");
+      Value * divergentIdx = makeIndexSum(divergentVals, pGEP, "divergentIdx");
+
+      // Create new GEP instructions. The first one with the uniform index
+      // which is used as a base pointer of the second GEP with divergent index
+      GetElementPtrInst * pUniformGEP   = GetElementPtrInst::Create(pGEP->getOperand(0), uniformIdx,
+                                                                    "uniformGEP", pGEP);
+      GetElementPtrInst * pDivergentGEP = GetElementPtrInst::Create(pUniformGEP, divergentIdx,
+                                                                    "divergentGEP", pGEP);
+      // Update the debug information
+      VectorizerUtils::SetDebugLocBy(pUniformGEP, pGEP);
+      VectorizerUtils::SetDebugLocBy(pDivergentGEP, pGEP);
+
+      pGEP->replaceAllUsesWith(pDivergentGEP);
+      pGEP->eraseFromParent();
+      return true;
+    }
+    return false;
+  }
+
   bool SimplifyGEP::SimplifyUniformGep(GetElementPtrInst *pGEP) {
+
     // Check if all indices except the last one are uniform
-    for (unsigned int i=1; i<pGEP->getNumIndices(); ++i) {
+    for (unsigned int i = 1; i < pGEP->getNumIndices(); ++i) {
       if (WIAnalysis::UNIFORM != m_depAnalysis->whichDepend(pGEP->getOperand(i))) {
         return false;
       }
@@ -242,8 +385,9 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
   }
 
   bool SimplifyGEP::SimplifyIndexTypeGep(GetElementPtrInst *pGEP) {
+
     Type *firstIndexType = pGEP->getOperand(1)->getType();
-    for (unsigned int i=1; i<pGEP->getNumOperands(); ++i) {
+    for (unsigned int i = 1; i < pGEP->getNumOperands(); ++i) {
       if (firstIndexType != pGEP->getOperand(i)->getType()) {
         return false;
       }
@@ -266,7 +410,6 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
     if(baseType->isVectorTy()) {
       if(!m_pDL) {
         // No DataLayout cannot apply this SimplifyGEP approach!
-        // TBD: add OCL_STATS counters
         return false;
       }
       unsigned int vectorSize = m_pDL->getTypeAllocSize(baseType);
@@ -313,7 +456,7 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
     pGEP->replaceAllUsesWith(pNewGEP);
     pGEP->eraseFromParent();
 
-    // TBD: add OCL_STATS counters
+    SimplifyIndexSumGep(pNewGEP);
     return true;
   }
 
