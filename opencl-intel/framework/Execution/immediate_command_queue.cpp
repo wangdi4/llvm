@@ -54,7 +54,7 @@ cl_err_code ImmediateCommandQueue::Initialize()
     return ret;
 }
 
-cl_err_code ImmediateCommandQueue::EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
+cl_err_code ImmediateCommandQueue::EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger)
 {
     cl_err_code ret         = CL_SUCCESS;
     SharedPtr<QueueEvent> pQueueEvent = pCommand->GetEvent();
@@ -80,7 +80,13 @@ cl_err_code ImmediateCommandQueue::EnqueueCommand(Command* pCommand, cl_bool bBl
     }
     if (NULL != pEvent)
     {
+        pQueueEvent->SetVisibleToUser();
         m_pEventsManager->RegisterQueueEvent(pQueueEvent, pEvent);
+    }
+
+    if (apiLogger != NULL)
+    {
+        apiLogger->SetCmdId(pQueueEvent->GetId());
     }
 
     ret = Enqueue(pCommand);
