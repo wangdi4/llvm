@@ -149,6 +149,7 @@ target_link_libraries( ${TARGET_NAME} Context
                                       cl_logger
                                       cl_sys_utils
                                       task_executor${BUILD_PLATFORM}
+                                      CLElfLib
                                       ${LINK_LIBS} )
 
 set_target_properties( ${TARGET_NAME}  PROPERTIES FOLDER ${RUNTIME_FOLDER_NAME} )

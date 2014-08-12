@@ -21,6 +21,15 @@
 #ifndef _OPENCL_H_
 #define _OPENCL_H_
 
+
+#define __ENDIAN_LITTLE__                         0x001
+#define __ROUNDING_MODE__                           rte
+#define CL_VERSION_1_0                              100
+#define CL_VERSION_1_1                              110
+#define CL_VERSION_1_2                              120
+#define CL_VERSION_2_0                              200
+#define CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE          0x10000
+
 // Optimizations
 
 #define const_func __attribute__((const))

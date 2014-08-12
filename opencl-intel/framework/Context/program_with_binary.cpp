@@ -7,25 +7,24 @@ using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
 ProgramWithBinary::ProgramWithBinary(SharedPtr<Context> pContext, cl_uint uiNumDevices, SharedPtr<FissionableDevice>* pDevices, const size_t* pszLengths,
-									 const unsigned char** pBinaries, cl_int* piBinaryStatus, cl_int *piRet)
-	: Program(pContext)
+                                     const unsigned char** pBinaries, cl_int* piBinaryStatus, cl_int *piRet)
+    : Program(pContext)
 {
-	cl_int err = CL_SUCCESS;
-	cl_int ret = CL_SUCCESS;
-	m_szNumAssociatedDevices = uiNumDevices;
+    cl_int err = CL_SUCCESS;
+    cl_int ret = CL_SUCCESS;
+    m_szNumAssociatedDevices = uiNumDevices;
     m_ppDevicePrograms  = new DeviceProgram* [m_szNumAssociatedDevices];
     if (!m_ppDevicePrograms)
-	{
+    {
         if (piRet)
-	    {
-		    *piRet = CL_OUT_OF_HOST_MEMORY;
-	    }
+        {
+            *piRet = CL_OUT_OF_HOST_MEMORY;
+        }
         return;
-	}
+    }
 
-
-	for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
-	{
+    for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
+    {
         m_ppDevicePrograms[i] = new DeviceProgram();
         if (NULL == m_ppDevicePrograms[i])
         {
@@ -37,16 +36,16 @@ ProgramWithBinary::ProgramWithBinary(SharedPtr<Context> pContext, cl_uint uiNumD
             m_ppDevicePrograms = NULL;
 
             if (piRet)
-	        {
-		        *piRet = CL_OUT_OF_HOST_MEMORY;
-	        }
+            {
+                *piRet = CL_OUT_OF_HOST_MEMORY;
+            }
             return;
         }
-
 
         m_ppDevicePrograms[i]->SetDevice(pDevices[i]);
         m_ppDevicePrograms[i]->SetHandle(GetHandle());
         m_ppDevicePrograms[i]->SetContext(pContext->GetHandle());
+
         cl_int* piBinStatus = (NULL == piBinaryStatus) ? NULL : piBinaryStatus + i;
         err = m_ppDevicePrograms[i]->SetBinary(pszLengths[i], pBinaries[i], piBinStatus);
         if (CL_SUCCESS != err)
@@ -70,14 +69,27 @@ ProgramWithBinary::ProgramWithBinary(SharedPtr<Context> pContext, cl_uint uiNumD
         }
         else
         {
-            m_ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_LOADED_IR);
+            switch (m_ppDevicePrograms[i]->GetBinaryTypeInternal())
+            {
+            case CL_PROGRAM_BINARY_TYPE_INTERMEDIATE:
+            case CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT:
+            case CL_PROGRAM_BINARY_TYPE_LIBRARY:
+                m_ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_LOADED_IR);
+                break;
+            case CL_PROGRAM_BINARY_TYPE_EXECUTABLE:
+                m_ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_LINKED);
+                break;
+            default:
+                ret = CL_INVALID_BINARY;
+                break;
+            }
         }
-	}
+    }
 
-	if (piRet)
-	{
-		*piRet = ret;
-	}
+    if (piRet)
+    {
+        *piRet = ret;
+    }
 }
 
 ProgramWithBinary::~ProgramWithBinary()
@@ -90,5 +102,5 @@ ProgramWithBinary::~ProgramWithBinary()
         }
         delete[] m_ppDevicePrograms;
         m_ppDevicePrograms = NULL;
-	}
+    }
 }

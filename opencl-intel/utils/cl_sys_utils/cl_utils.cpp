@@ -1202,6 +1202,24 @@ size_t clGetPixelBytesCount(const cl_image_format* pclImageFormat)
     return szBytesCount * szElementsCount;
 }
 
+std::vector<std::string> &SplitString(const std::string &s, char delim, std::vector<std::string> &elems) {
+    std::stringstream ss(s);
+    std::string item;
+    while (std::getline(ss, item, delim)) 
+    {
+        if (!item.empty() )
+            elems.push_back(item);
+    }
+    return elems;
+}
+
+std::vector<std::string> SplitString(const std::string &s, char delim) {
+    std::vector<std::string> elems;
+    SplitString(s, delim, elems);
+    return elems;
+}
+
+
 /////////////////////////////////////////////////////////////////////////
 // TrimString
 /////////////////////////////////////////////////////////////////////////
@@ -1265,7 +1283,7 @@ string GetTempDir()
 #else // Linux
     char *EnvUser = getenv("USER");
     #if defined(__ANDROID__)
-        TmpDir = "/data/tmp/";
+        TmpDir = "/data/local/tmp/";
     #else
         TmpDir = "/tmp/";
     #endif
@@ -1627,5 +1645,25 @@ void WriteContentToFile(const string& content, const string& filePath)
 
     stream << content;
     stream.close();
+}
+
+OclMemObjectType getSimplifiedMemoryObjectType(const cl_mem_object_type MemObjectType)
+{
+    switch(MemObjectType)
+    {
+    case CL_MEM_OBJECT_BUFFER:
+        return OCL_BUFFER;
+    case CL_MEM_OBJECT_IMAGE2D:
+    case CL_MEM_OBJECT_IMAGE3D:
+    case CL_MEM_OBJECT_IMAGE2D_ARRAY:
+    case CL_MEM_OBJECT_IMAGE1D:
+    case CL_MEM_OBJECT_IMAGE1D_ARRAY:
+    case CL_MEM_OBJECT_IMAGE1D_BUFFER:
+        return OCL_IMAGE;
+    case CL_MEM_OBJECT_PIPE:
+        return OCL_PIPE;
+    default:
+        return OCL_UNKNOWN;
+    }
 }
 

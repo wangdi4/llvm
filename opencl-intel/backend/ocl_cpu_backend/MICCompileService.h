@@ -30,6 +30,7 @@ public:
     MICCompileService(const IMICCompilerConfig& config);
     virtual ~MICCompileService() {}
 
+    const ProgramBuilder* GetProgramBuilder() const { return &m_programBuilder; }
     ProgramBuilder* GetProgramBuilder() { return &m_programBuilder; }
 
 private:

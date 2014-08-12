@@ -45,7 +45,7 @@ class VR16_Fission: public FissionWrapper{};
 
 TEST_F(VR16_Fission, SharedKernels)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(ocl_descriptor));
 	// set up OpenCL context, program and queues
 	ASSERT_NO_FATAL_FAILURE(testSharedKernelsBody(ocl_descriptor));
 }

@@ -47,6 +47,7 @@ File Name:  MICProgramBuilder.cpp
 #include <vector>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
+using namespace Intel::OpenCL::ELFUtils;
 
 MICProgramBuilder::MICProgramBuilder(IAbstractBackendFactory* pBackendFactory, const IMICCompilerConfig& config):
     ProgramBuilder(pBackendFactory, config),
@@ -71,21 +72,22 @@ MICKernel* MICProgramBuilder::CreateKernel(llvm::Function* pFunc, const std::str
 
 bool MICProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
 {
-    const char* pCachedObject = 
+    const char* pCachedObject =
         (char*)(pProgram->GetObjectCodeContainer()->GetCode());
     size_t cacheSize = pProgram->GetObjectCodeContainer()->GetCodeSize();
     assert(pCachedObject && "Object Code Container is null");
- 
+
     // get sizes
-    CacheBinaryHandler::CacheBinaryReader reader(pCachedObject, cacheSize);
-    size_t serializationSize = reader.GetSectionSize(CacheBinaryHandler::g_metaSectionName);
- 
+    CacheBinaryReader reader(pCachedObject, cacheSize);
+    size_t serializationSize = reader.GetSectionSize(g_metaSectionName);
+
     // get the buffers entries
-    const char* bitCodeBuffer = (const char*)reader.GetSectionData(CacheBinaryHandler::g_irSectionName);
-    const char* serializationBuffer = (const char*)reader.GetSectionData(CacheBinaryHandler::g_metaSectionName);
- 
+    const char* bitCodeBuffer = (const char*)reader.GetSectionData(g_irSectionName);
+    size_t bitCodeBufferSize = reader.GetSectionSize(g_irSectionName);
+    const char* serializationBuffer = (const char*)reader.GetSectionData(g_metaSectionName);
+
     // Set IR
-    BitCodeContainer* bcc = new BitCodeContainer((const cl_prog_container_header*)bitCodeBuffer);
+    BitCodeContainer* bcc = new BitCodeContainer(bitCodeBuffer, bitCodeBufferSize);
     pProgram->SetBitCodeContainer(bcc);
 
     llvm::Module* pModule = GetCompiler()->ParseModuleIR((llvm::MemoryBuffer*)bcc->GetMemoryBuffer());
@@ -100,7 +102,7 @@ bool MICProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
        pProgram,
        serializationBuffer,
        serializationSize);
- 
+
     // Reload Addresses
     IDynamicFunctionsResolver* pResolver = static_cast<IDynamicFunctionsResolver*>(GetCompiler()->GetFunctionAddressResolver());
     static_cast<MICProgram*>(pProgram)->GetModuleJITHolder()->RelocateSymbolAddresses(pResolver);
@@ -114,7 +116,7 @@ bool MICProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
     Utils::UpdateKernelsWithRuntimeService( lRuntimeService, pProgram->GetKernelSet() );
 
     // update kernel mapper (OCL2.0)
-    PostBuildProgramStep( pProgram, pModule, NULL ); 
+    PostBuildProgramStep( pProgram, pModule, NULL );
     return true;
 }
 
@@ -128,28 +130,27 @@ void MICProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Pr
      pMICSerializationService->GetSerializationBlobSize(
         SERIALIZE_OFFLOAD_IMAGE, pProgram, &serializationSize);
 
-    std::auto_ptr<CacheBinaryHandler::CacheBinaryWriter> pWriter(new CacheBinaryHandler::CacheBinaryWriter());
+    std::auto_ptr<CacheBinaryWriter> pWriter(new CacheBinaryWriter());
 
     // fill the IR bit code
     size_t irSize = pProgram->GetProgramIRCodeContainer()->GetCodeSize();
     const char* irStart = ((const char*)(pProgram->GetProgramIRCodeContainer()->GetCode()));
-    pWriter->AddSection(CacheBinaryHandler::g_irSectionName, irStart, irSize);
-  
+    pWriter->AddSection(g_irSectionName, irStart, irSize);
+
     // fill offload image in the object buffer
     std::vector<char> metaStart(serializationSize);
     pMICSerializationService->SerializeProgram(
-        SERIALIZE_OFFLOAD_IMAGE, 
+        SERIALIZE_OFFLOAD_IMAGE,
         pProgram,
         &(metaStart[0]), serializationSize);
-    pWriter->AddSection(CacheBinaryHandler::g_metaSectionName, &(metaStart[0]), serializationSize);
+    pWriter->AddSection(g_metaSectionName, &(metaStart[0]), serializationSize);
 
     // get the binary
     size_t binarySize = pWriter->GetBinarySize();
-    std::vector<char> pBinaryBlob(binarySize+sizeof(cl_prog_container_header));
-    if(pWriter->GetBinary(&(pBinaryBlob[0])+sizeof(cl_prog_container_header)))
+    std::vector<char> pBinaryBlob(binarySize);
+    if(pWriter->GetBinary(&(pBinaryBlob[0])))
     {
-        ((cl_prog_container_header*)&(pBinaryBlob[0]))->container_size = binarySize;
-        ObjectCodeContainer* pObjectCodeContainer = new ObjectCodeContainer((cl_prog_container_header*)&(pBinaryBlob[0]));
+        ObjectCodeContainer* pObjectCodeContainer = new ObjectCodeContainer(&pBinaryBlob[0],binarySize);
         pProgram->SetObjectCodeContainer(pObjectCodeContainer);
     }
     else
@@ -300,7 +301,7 @@ void MICProgramBuilder::CopyJitHolder(LLVMModuleJITHolder* from, ModuleJITHolder
     to->SetJITAlignment(from->getJITCodeAlignment());
 
     // Copy memory chunks info
-    auto_ptr<LLVMMemoryHolder> LML = from->getJITBufferHolder();
+    std::auto_ptr<LLVMMemoryHolder> LML = from->getJITBufferHolder();
     MemoryHolder &ML = to->GetJITMemoryHolder();
     for (unsigned i = 0; i < LML->getNumChunks(); i++)
       ML.addChunk(LML->getOwnershipChunkPtr(i), LML->getChunkSize(i));
@@ -375,6 +376,4 @@ IBlockToKernelMapper * MICProgramBuilder::CreateBlockToKernelMapper(Program* pPr
   abort();
   return NULL;
 }
-
 }}} // namespace
-

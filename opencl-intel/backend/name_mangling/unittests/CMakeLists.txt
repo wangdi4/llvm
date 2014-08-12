@@ -8,10 +8,6 @@ include_directories(
   ${BACKEND_ROOT_DIR}/name_mangling
 )
 
-link_directories(
-    ${LLVM_LIBRARY_DIR}
-)
-
 if(CMAKE_CROSSCOMPILING)
   set(OCL_TBLGEN_DEP ConfigureNativeTargets)
   set(OCL_TBLGEN ${CX_NATIVE_TG_DIR}/bin/ocl-tblgen)
@@ -42,14 +38,10 @@ target_link_libraries(
   ${TARGET_NAME}
   name_mangle
   googletest
-  LLVMSupport
+  ${LLVM_MODULE_LIBS}
 )
 
-if (NOT WIN32)
-  if(NOT ANDROID)
-    target_link_libraries(${TARGET_NAME} pthread)
-  endif()
-endif (NOT WIN32)
+
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_TESTS_FOLDER_NAME} )
 

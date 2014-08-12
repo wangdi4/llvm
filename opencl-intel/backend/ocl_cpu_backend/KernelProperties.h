@@ -32,6 +32,7 @@ class KernelJITProperties
 {
 public:
     KernelJITProperties();
+    virtual ~KernelJITProperties();
 
     void SetVectorSize(unsigned int size){ m_vectorSize = size; }
     void SetUseVTune(bool value) { m_useVTune = value; }
@@ -191,7 +192,7 @@ public:
      * Serialization methods for the class (used by the serialization service)
      */
     virtual void Serialize(IOutputStream& ost, SerializationStatus* stats) const;
-    virtual void Deserialize(IInputStream& ist, SerializationStatus* stats); 
+    virtual void Deserialize(IInputStream& ist, SerializationStatus* stats);
 
 
 protected:

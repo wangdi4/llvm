@@ -28,6 +28,9 @@ KernelJITProperties::KernelJITProperties():
     m_vectorSize(1)
 {}
 
+KernelJITProperties::~KernelJITProperties()
+{}
+
 void KernelJITProperties::Serialize(IOutputStream& ost, SerializationStatus* stats) const
 {
     Serializer::SerialPrimitive<bool>(&m_useVTune, ost);

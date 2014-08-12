@@ -54,7 +54,7 @@ class VR19Image_Fission: public FissionWrapper{};
 //|
 TEST_F(VR19Image_Fission, ReadImage2DShared)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(ocl_descriptor));
 	ASSERT_NO_FATAL_FAILURE(testReadImage2DSharedBody(ocl_descriptor));
 }
 
@@ -92,6 +92,6 @@ TEST_F(VR19Image_Fission, ReadImage2DShared)
 //|
 TEST_F(VR19Image_Fission, ReadImage3DShared)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(ocl_descriptor));
 	ASSERT_NO_FATAL_FAILURE(testReadImage3DSharedBody(ocl_descriptor));
 }

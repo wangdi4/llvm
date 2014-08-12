@@ -14,10 +14,6 @@ include_directories(
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/Driver/Volcano
 )
 
-link_directories(
-    ${LLVM_LIBRARY_DIR}
-)
-
 add_executable(
   ${TARGET_NAME}
   TestBuiltinKeeper.cpp
@@ -33,13 +29,6 @@ target_link_libraries(
   googletest
   ${LLVM_MODULE_LIBS}
 )
-
-if(NOT WIN32)
-  if(NOT ANDROID)
-    target_link_libraries(${TARGET_NAME} pthread)
-  endif(NOT ANDROID)
-  target_link_libraries(${TARGET_NAME} dl)
-endif(NOT WIN32)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_TESTS_FOLDER_NAME} )
 
