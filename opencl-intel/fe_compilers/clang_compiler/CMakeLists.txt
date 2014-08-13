@@ -119,12 +119,13 @@ set( CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -D OCL_DEV_BACKEND_PLUGINS
 if(USE_COMMON_CLANG)
     add_definitions( -DUSE_COMMON_CLANG )
     add_definitions( -DCOMMON_CLANG_EXPORTS )
+    include_directories( AFTER ${LLVM_INCLUDE_DIR})
+    link_directories( ${LLVM_LIBRARY_DIR})
 endif()
 #
 # Include directories
 #
 include_directories( AFTER
-            ${LLVM_INCLUDE_DIR}
             ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang 
             ${CMAKE_SOURCE_DIR}/backend/metadata_api
             ${CMAKE_SOURCE_DIR}/backend/plugin_manager
@@ -154,9 +155,6 @@ if (WIN32)
     endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 endif ()
 
-link_directories( 
-    ${LLVM_LIBRARY_DIR}
-)
 add_library(${TARGET_NAME} SHARED
     ${TARGET_INCLUDE_FILES}
     ${TARGET_SOURCE_FILES}
@@ -189,60 +187,6 @@ target_link_libraries( ${TARGET_NAME}
                         common_clang${BUILD_PLATFORM}
 )
 endif()    
-    
-    
-if(USE_COMMON_CLANG)
-    if (NOT INCLUDE_MIC_DEVICE)
-        if(NOT WIN32)
-            # fix the case when LLVM is built with MIC support, but we want OCL without MIC support.
-            if (${LLVM_COMPONENTS} MATCHES "(y86.*)")
-                set(LLVM_MODULE_LIBS "-lLLVMY86Disassembler -lLLVMY86CodeGen -lLLVMMICModuleJIT -lLLVMY86AsmParser -lLLVMY86Desc -lLLVMY86Info -lLLVMY86AsmPrinter -lLLVMY86Utils ${LLVM_MODULE_LIBS} -lpcg -lsvml -lirc")
-            endif()
-        else(NOT WIN32)
-            # Try to find Y86 libraries on windows.
-            # Release mode
-            string(REPLACE "${CMAKE_CFG_INTDIR}" "Release" RELEASE_DIR ${LLVM_LIBRARY_DIR})
-            find_library(IS_Y86_TARGET LLVMY86CodeGen ${RELEASE_DIR})
-            if (IS_Y86_TARGET)
-                target_link_libraries(${TARGET_NAME} optimized
-                    LLVMY86AsmParser
-                    LLVMY86CodeGen
-                    LLVMMICModuleJIT
-                    LLVMY86Desc
-                    LLVMY86AsmPrinter
-                    LLVMY86Disassembler
-                    LLVMY86Info
-                    LLVMY86Utils
-                    libpcg
-                    svml_dispmt
-                    libirc
-                    libmmt
-                    libdecimal
-                    )
-            endif()
-            # Debug mode
-            string(REPLACE "${CMAKE_CFG_INTDIR}" "Debug" DEBUG_DIR ${LLVM_LIBRARY_DIR})
-            find_library(IS_Y86_TARGET LLVMY86CodeGen ${DEBUG_DIR})
-            if (IS_Y86_TARGET)
-                target_link_libraries(${TARGET_NAME} debug
-                    LLVMY86AsmParser
-                    LLVMY86CodeGen
-                    LLVMMICModuleJIT
-                    LLVMY86Desc
-                    LLVMY86AsmPrinter
-                    LLVMY86Disassembler
-                    LLVMY86Info
-                    LLVMY86Utils
-                    libpcg
-                    svml_dispmt
-                    libirc
-                    libmmt
-                    libdecimal
-                    )
-            endif()
-        endif (NOT WIN32)
-    endif (NOT INCLUDE_MIC_DEVICE)
-endif (USE_COMMON_CLANG)
 
 if (NOT ANDROID AND NOT WIN32)
     list(APPEND LINK_LIBS pthread)

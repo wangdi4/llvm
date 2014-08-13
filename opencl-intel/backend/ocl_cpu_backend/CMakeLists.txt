@@ -296,6 +296,7 @@ endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 
 # Add include directories
 include_directories(
+    ${LLVM_INCLUDE_DIR}
     ${BACKEND_ROOT_DIR}
     ${OCL_CPU_BACKEND_DIR}
     ${OCL_CPU_BACKEND_DIR}/export

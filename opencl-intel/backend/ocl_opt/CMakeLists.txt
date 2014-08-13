@@ -1,6 +1,7 @@
 set(TARGET_NAME oclopt)
 
-include_directories(${BACKEND_ROOT_DIR}/passes
+include_directories(${LLVM_INCLUDE_DIR}
+                    ${BACKEND_ROOT_DIR}/passes
                     ${BACKEND_ROOT_DIR}/utils
                     ${BACKEND_ROOT_DIR}/arch_headers)
 link_directories(${LLVM_LIBRARY_DIR})
