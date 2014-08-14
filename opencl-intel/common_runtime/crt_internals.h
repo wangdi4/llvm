@@ -687,8 +687,8 @@ public:
     // Release all underlying contexts
     cl_int Release();
 
-    // We need to keep track of all command queue for flush/finish/WaitForEvents
-    std::list<cl_command_queue> m_commandQueues;
+    // We need to keep track of all host command queue for flush/finish/WaitForEvents
+    std::list<cl_command_queue> m_HostcommandQueues;
 
     cl_context              m_context_handle;
 
@@ -853,7 +853,8 @@ public:
     TVAL GetValue(TKEY key)
     {
         m_mutex.Lock();
-        TVAL val =  m_map[key];
+        typename std::map<TKEY,TVAL>::iterator itr = m_map.find(key);
+        TVAL val = (itr != m_map.end()) ? itr->second : NULL;
         m_mutex.Unlock();
         return val;
     }
