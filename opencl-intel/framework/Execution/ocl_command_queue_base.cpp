@@ -278,13 +278,14 @@ void IOclCommandQueueBase::NotifyCommandFailed( cl_err_code err , const CommandS
             stream << "Command failed. " << "command type: " << command->GetCommandName();
             stream << ", command id: " << command->GetEvent()->GetId();
             stream << ", result value: " << err;
-            stream << ", The cl_event value associated with the command (NULL if no event was attached): 0x" << handle;
+            stream << ", The cl_event value associated with the command: 0x" << handle;
             g_pUserLogger->PrintError(stream.str());
             stream.str(std::string());
         }
       
         stream << "A command failed with return value: " << err;
-        stream << ", the cl_event value associated with the command is in private_info (NULL if no event was attached).";
+        stream << ", the cl_event value associated with the command is in the private_info "<<
+            "parameter, and its value is: 0x"<< handle <<". for more information use logging.";
         const std::string& tmp = stream.str();
         GetContext()->NotifyError( tmp.c_str() , handle , sizeof(handle) );
     }
