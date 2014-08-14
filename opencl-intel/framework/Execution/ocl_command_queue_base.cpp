@@ -82,7 +82,7 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
     }
 
     AddFloatingDependence(pQueueEvent);
-    errVal = m_pEventsManager->RegisterEvents(pQueueEvent, uNumEventsInWaitList, cpEeventWaitList);
+    errVal = m_pEventsManager->RegisterEvents(pQueueEvent, uNumEventsInWaitList, cpEeventWaitList, !IsOutOfOrderExecModeEnabled(), GetId());
 
     if( CL_FAILED(errVal))
     {
