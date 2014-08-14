@@ -171,7 +171,7 @@ if (NOT ANDROID AND NOT WIN32)
     list(APPEND LINK_LIBS pthread)
 endif ()
 
-set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER clang_compiler )
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${FRONTEND_FOLDER_NAME} )
 
 #
 # Stripped PDB files 

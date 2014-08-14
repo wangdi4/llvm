@@ -512,7 +512,7 @@ set( DEVICES_FOLDER_NAME        ${FRAMEWORK_FOLDER_NAME}/Devices )
 set( RUNTIME_FOLDER_NAME        ${FRAMEWORK_FOLDER_NAME}/Runtime )
 set( UTILS_FOLDER_NAME          ${FRAMEWORK_FOLDER_NAME}/utils )
 set( TOOLS_FOLDER_NAME          ${FRAMEWORK_FOLDER_NAME}/Tools )
-set( FE_COMPILER_FOLDER_NAME    "${FRAMEWORK_FOLDER_NAME}/Front-end Compiler" )
+set( FRONTEND_FOLDER_NAME       Frontend )
 set( EXTERNAL_FOLDER_NAME       External )
 
 
