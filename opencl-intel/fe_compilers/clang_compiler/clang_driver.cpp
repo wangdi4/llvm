@@ -129,7 +129,8 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult* *pBinaryResult)
 {
     LOG_INFO(TEXT("%s"), TEXT("enter"));
 
-    bool clStd20 = std::string(m_pProgDesc->pszOptions).find("-cl-std=CL2.0") != std::string::npos;
+    bool clStd20    = std::string(m_pProgDesc->pszOptions).find("-cl-std=CL2.0") != std::string::npos;
+    bool bProfiling = std::string(m_pProgDesc->pszOptions).find("-profiling") != std::string::npos;
     size_t uiPCHSize = 0;
 
 #ifdef WIN32
@@ -148,6 +149,17 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult* *pBinaryResult)
     SPRINTF_S(szOclPchPath, MAX_STR_BUFF, "%s%s", szBinaryPath, pchFileName);
     const char* pPCHBuff = ResourceManager::instance().get_file(szOclPchPath, true, false, uiPCHSize );
 #endif
+    // Force the -profiling option if such was not supplied by user
+    std::string options;
+    const char* pszOptions = m_pProgDesc->pszOptions;
+
+    if (m_sDeviceInfo.bEnableSourceLevelProfiling && !bProfiling)
+    {
+        options.assign(pszOptions);
+        options += " -profiling";
+        pszOptions = options.c_str();
+    }
+
     std::stringstream optionsEx;
     // Add standard OpenCL options
     optionsEx << " -fno-validate-pch";
@@ -160,11 +172,6 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult* *pBinaryResult)
         optionsEx << " -D__IMAGE_SUPPORT__=1";
     }
 
-    if (m_sDeviceInfo.bEnableSourceLevelProfiling)
-    {
-        optionsEx << " -profiling";
-    }
-
     IOCLFEBinaryResultPtr spBinaryResult;
 
     int res = ::Compile(m_pProgDesc->pProgramSource,
@@ -173,7 +180,7 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult* *pBinaryResult)
                     m_pProgDesc->pszInputHeadersNames,
                     pPCHBuff,
                     uiPCHSize,
-                    m_pProgDesc->pszOptions,
+                    pszOptions,
                     optionsEx.str().c_str(), // pszOptionsEx
                     m_sDeviceInfo.sExtensionStrings,
                     GetOpenCLVersionStr(m_config.GetOpenCLVersion()),
