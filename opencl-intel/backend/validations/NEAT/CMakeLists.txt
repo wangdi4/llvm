@@ -14,6 +14,7 @@ set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /fp:source /fp:strict /Qlong-double /Qpc80
 endif(WIN32)
 
 include_directories(
+    ${LLVM_INCLUDE_DIR}
     ${BACKEND_ROOT_DIR}/../cl_api
     ${CMAKE_CURRENT_SOURCE_DIR}/../REFALU
     ${CMAKE_CURRENT_SOURCE_DIR}/../ImathLibd

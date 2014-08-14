@@ -39,6 +39,7 @@ endif( NOT WIN32)
 link_directories(${LLVM_LIBRARY_DIR})
 
 include_directories(
+    ${LLVM_INCLUDE_DIR}
     ${VALIDATIONS_ROOT}/SATest
     ${VALIDATIONS_ROOT}/DataVersion
     ${VALIDATIONS_ROOT}/DataManager

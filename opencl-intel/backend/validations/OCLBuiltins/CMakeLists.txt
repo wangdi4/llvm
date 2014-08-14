@@ -84,6 +84,7 @@ add_dependencies(OCLBuiltins
 )
 
 include_directories (
+  ${LLVM_INCLUDE_DIR}
   ${BACKEND_ROOT_DIR}/../cl_api
   ${BACKEND_ROOT_DIR}/name_mangling
   ${VALIDATIONS_ROOT}/Common

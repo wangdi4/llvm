@@ -6,6 +6,7 @@ set(TARGET_NAME ReflectionModuleTest)
 project (${TARGET_NAME})
 
 include_directories(
+  ${LLVM_INCLUDE_DIR}
   ${CMAKE_SOURCE_DIR}/externals/gtest/include
   ${BACKEND_ROOT_DIR}/name_mangling
   ${BACKEND_ROOT_DIR}/reflection_module
