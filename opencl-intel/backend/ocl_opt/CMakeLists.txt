@@ -46,6 +46,7 @@ set(OCL_BE_PASSES
     ResolveWICall
     ShiftZeroUpperBits
     SmartGVN
+    SinCosFold
 )
 
 # Dependencies of the passes

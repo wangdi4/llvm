@@ -379,6 +379,7 @@ set( BACKEND_PASSES
     ResolveBlockToStaticCall
     PatchCallbackArgs
     SmartGVN
+    SinCosFold
 )
 
 set(UTILS_LIBS
