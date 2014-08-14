@@ -1,32 +1,3 @@
-option(INCLUDE_CONFORMANCE_TESTS "Include Conformance Tests Into Build"  OFF)
-if (INCLUDE_CONFORMANCE_TESTS OR INCLUDE_CONFORMANCE_1_2_TESTS OR INCLUDE_CONFORMANCE_2_0_TESTS OR INCLUDE_CONFORMANCE_ITP_TESTS)
-    
-    if (WIN32)    
-        set(MSVC 1)
-        set(USE_ICC 1)
-    endif (WIN32)
-    
-    if (INCLUDE_CONFORMANCE_TESTS)
-        # Add conformance 1.1 sources
-        add_subdirectory( conform1.1 )
-    endif (INCLUDE_CONFORMANCE_TESTS)
-    
-    if (INCLUDE_CONFORMANCE_1_2_TESTS)
-        # Add conformance 1.2 sources
-        add_subdirectory( conform1.2 )
-    endif (INCLUDE_CONFORMANCE_1_2_TESTS)    
-
-    if (INCLUDE_CONFORMANCE_2_0_TESTS)
-        # Add conformance 2.0 sources
-         add_subdirectory( conform2.0 )
-    endif (INCLUDE_CONFORMANCE_2_0_TESTS)
-
-    if (INCLUDE_CONFORMANCE_ITP_TESTS)
-        # Add conformance ITP sources
-        add_subdirectory( conform.itp )
-    endif (INCLUDE_CONFORMANCE_ITP_TESTS)
-endif (INCLUDE_CONFORMANCE_TESTS OR INCLUDE_CONFORMANCE_1_2_TESTS OR INCLUDE_CONFORMANCE_2_0_TESTS OR INCLUDE_CONFORMANCE_ITP_TESTS)
-
 # The conformance tests must be conpiled with the headers located in
 # ${OCL_CONFORMANCE_INCLUDE} and not the ones in ${OCL_GLOBAL_INCLUDE}
 # Therefore, it must be added to the include directories only after 
