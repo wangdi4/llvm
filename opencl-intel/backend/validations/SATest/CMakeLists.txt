@@ -36,35 +36,35 @@ if( NOT WIN32 )
     link_directories(${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR})
 endif( NOT WIN32)
 
-link_directories(${LLVM_LIBRARY_DIR})
+link_directories(${LLVM_LIBRARY_DIRS})
 
 include_directories(
-    ${LLVM_INCLUDE_DIR}
-    ${VALIDATIONS_ROOT}/SATest
-    ${VALIDATIONS_ROOT}/DataVersion
-    ${VALIDATIONS_ROOT}/DataManager
-    ${VALIDATIONS_ROOT}/NEAT
-    ${VALIDATIONS_ROOT}/REFALU
-    ${VALIDATIONS_ROOT}/Comparator
-    ${VALIDATIONS_ROOT}/Common
-    ${VALIDATIONS_ROOT}/OCLBuiltins
-    ${VALIDATIONS_ROOT}/../external/tinyxml
-    ${BACKEND_ROOT_DIR}/../cl_api
-    ${VALIDATIONS_ROOT}/../ocl_cpu_backend
-    ${VALIDATIONS_ROOT}/../ocl_cpu_backend/export
-    ${BACKEND_ROOT_DIR}/utils
-    ${BACKEND_ROOT_DIR}/arch_headers
-    ${BACKEND_ROOT_DIR}/dynamic_lib
-    ${BACKEND_ROOT_DIR}/name_mangling
-    ${LLVM_ROOT}/lib/ExecutionEngine/Interpreter
-    ${VALIDATIONS_ROOT}/InterpreterPluggable
-    ${VALIDATIONS_ROOT}/PlugInNEAT
-    ${VALIDATIONS_ROOT}/OCLBuilder
-    ${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser
-    ${VALIDATIONS_ROOT}/OCLKernelDataGenerator
-    ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
-    ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang
-    ${VALIDATIONS_ROOT}/ProgramConfiguration
+  ${LLVM_INCLUDE_DIRS}
+  ${VALIDATIONS_ROOT}/SATest
+  ${VALIDATIONS_ROOT}/DataVersion
+  ${VALIDATIONS_ROOT}/DataManager
+  ${VALIDATIONS_ROOT}/NEAT
+  ${VALIDATIONS_ROOT}/REFALU
+  ${VALIDATIONS_ROOT}/Comparator
+  ${VALIDATIONS_ROOT}/Common
+  ${VALIDATIONS_ROOT}/OCLBuiltins
+  ${VALIDATIONS_ROOT}/../external/tinyxml
+  ${BACKEND_ROOT_DIR}/../cl_api
+  ${VALIDATIONS_ROOT}/../ocl_cpu_backend
+  ${VALIDATIONS_ROOT}/../ocl_cpu_backend/export
+  ${BACKEND_ROOT_DIR}/utils
+  ${BACKEND_ROOT_DIR}/arch_headers
+  ${BACKEND_ROOT_DIR}/dynamic_lib
+  ${BACKEND_ROOT_DIR}/name_mangling
+  ${LLVM_ROOT}/lib/ExecutionEngine/Interpreter
+  ${VALIDATIONS_ROOT}/InterpreterPluggable
+  ${VALIDATIONS_ROOT}/PlugInNEAT
+  ${VALIDATIONS_ROOT}/OCLBuilder
+  ${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser
+  ${VALIDATIONS_ROOT}/OCLKernelDataGenerator
+  ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
+  ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang
+  ${VALIDATIONS_ROOT}/ProgramConfiguration
 )
 
 set (TARGET_HEADER_FILES

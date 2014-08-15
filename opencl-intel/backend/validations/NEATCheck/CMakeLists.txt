@@ -1,14 +1,15 @@
 set (CMP_INCLUDE_FILES)
 set (TARGET_NAME NEATChecker)
 
-include_directories( 
-${LLVM_INCLUDE_DIR}
-${CMAKE_CURRENT_SOURCE_DIR}/../../external/tinyxml
-${VALIDATIONS_ROOT}/DataManager 
-${VALIDATIONS_ROOT}/NEAT )
+include_directories(
+  ${LLVM_INCLUDE_DIRS}
+  ${CMAKE_CURRENT_SOURCE_DIR}/../../external/tinyxml
+  ${VALIDATIONS_ROOT}/DataManager
+  ${VALIDATIONS_ROOT}/NEAT
+)
 
 link_directories (
-    ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR}
+  ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR}
 )
 
 add_executable(${TARGET_NAME}

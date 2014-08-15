@@ -88,7 +88,7 @@ add_library(
 )
 
 include_directories(
-  ${LLVM_INCLUDE_DIR}
+  ${LLVM_INCLUDE_DIRS}
   ${CMAKE_SOURCE_DIR}/backend/name_mangling
   ${CMAKE_SOURCE_DIR}/backend/utils
 )

@@ -13,8 +13,8 @@ set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:source /fp:strict /Qlong-double /Q
 set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /fp:source /fp:strict /Qlong-double /Qpc80 /Qprec-div" ) 
 endif(WIN32)
 
-include_directories(${LLVM_INCLUDE_DIR}
-                    ${BACKEND_ROOT_DIR}/../cl_api 
+include_directories(${LLVM_INCLUDE_DIRS}
+                    ${BACKEND_ROOT_DIR}/../cl_api
                     ${CMAKE_CURRENT_SOURCE_DIR}/../ImathLibd
                     ${CMAKE_CURRENT_SOURCE_DIR}/../Common
                     ${CMAKE_CURRENT_SOURCE_DIR}/Conformance

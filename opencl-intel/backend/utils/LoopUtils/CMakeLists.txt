@@ -2,7 +2,7 @@ use_rtti( FALSE )
 set( TARGET_NAME LoopUtils)
 
 include_directories(
-  ${LLVM_INCLUDE_DIR}
+  ${LLVM_INCLUDE_DIRS}
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/Driver/OpenCL
   ${BACKEND_ROOT_DIR}/reflection_module

@@ -6,7 +6,7 @@ include_directories(BEFORE "Driver/OpenCL")
 include_directories(BEFORE "Driver/Shared")
 
 include_directories(
-  ${LLVM_INCLUDE_DIR}
+  ${LLVM_INCLUDE_DIRS}
   ${BACKEND_ROOT_DIR}/reflection_module
   ${BACKEND_ROOT_DIR}/name_mangling
   ${BACKEND_ROOT_DIR}/passes

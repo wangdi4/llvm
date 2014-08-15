@@ -1,10 +1,10 @@
 set(TARGET_NAME oclopt)
 
-include_directories(${LLVM_INCLUDE_DIR}
+include_directories(${LLVM_INCLUDE_DIRS}
                     ${BACKEND_ROOT_DIR}/passes
                     ${BACKEND_ROOT_DIR}/utils
                     ${BACKEND_ROOT_DIR}/arch_headers)
-link_directories(${LLVM_LIBRARY_DIR})
+link_directories(${LLVM_LIBRARY_DIRS})
                     
 add_executable(${TARGET_NAME}
     ocl_opt.cpp

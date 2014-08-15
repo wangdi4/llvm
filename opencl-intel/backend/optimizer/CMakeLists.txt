@@ -9,7 +9,7 @@ set(TARGET_SOURCE_FILES
 )
 
 include_directories(
-    ${LLVM_INCLUDE_DIR}
+    ${LLVM_INCLUDE_DIRS}
     ${BACKEND_ROOT_DIR}/ocl_cpu_backend
     ${BACKEND_ROOT_DIR}/utils
     ${BACKEND_ROOT_DIR}/vectorizer/Utils

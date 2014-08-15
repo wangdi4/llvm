@@ -1,17 +1,17 @@
 # Find the native LLVM includes and library
 #
-#  LLVM_INCLUDE_DIR - where to find llvm include files
-#  LLVM_LIBRARY_DIR - where to find llvm libs
+#  LLVM_LIBRARY_DIRS - where to find llvm libs
+#  LLVM_INCLUDE_DIRS - where to find llvm include files
 #  LLVM_MODULE_LIBS - list of llvm libs for working with modules.
-#  LLVM_FOUND       - True if llvm found.
+
 if(BUILD_LLVM_FROM_SOURCE )
-    set (LLVM_INCLUDE_DIR ${LLVM_SRC_ROOT}/include ${LLVM_SRC_ROOT}/tools/clang/include ${CMAKE_CURRENT_BINARY_DIR}/llvm/include ${CMAKE_CURRENT_BINARY_DIR}/llvm/tools/clang/include)
-    set (LLVM_LIBRARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/llvm/lib/${CMAKE_CFG_INTDIR})
+    set (LLVM_INCLUDE_DIRS ${LLVM_SRC_ROOT}/include ${LLVM_SRC_ROOT}/tools/clang/include ${CMAKE_CURRENT_BINARY_DIR}/llvm/include ${CMAKE_CURRENT_BINARY_DIR}/llvm/tools/clang/include)
+    set (LLVM_LIBRARY_DIRS ${CMAKE_CURRENT_BINARY_DIR}/llvm/lib/${CMAKE_CFG_INTDIR})
     set (LLVM_BINARY_DIR  ${CMAKE_CURRENT_BINARY_DIR}/llvm/bin/${CMAKE_CFG_INTDIR})
     set (LLVM_MODULE_LIBS ${STATIC_LLVM_MODULE_LIBS})
 else(BUILD_LLVM_FROM_SOURCE )
     if (APPLE)
-        set(LLVM_INCLUDE_DIR   "/System/Library/Frameworks/OpenGL.framework/PrivateHeaders/llvm/include")
+        set(LLVM_INCLUDE_DIRS   "/System/Library/Frameworks/OpenGL.framework/PrivateHeaders/llvm/include")
         set(CVMS_INCLUDE_DIR   "/System/Library/Frameworks/OpenGL.framework/PrivateHeaders")
     else (APPLE)
         # reset the LLVM related variables

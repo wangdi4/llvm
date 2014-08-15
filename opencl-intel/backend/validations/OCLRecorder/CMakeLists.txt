@@ -44,27 +44,24 @@ set (OCL_RECORDER_SOURCE_FILES
 
 # Resources
 if (WIN32)
-	set (OCL_RECORDER_RESOURCE_FILES
-		ocl_recorder.rc
-	)
-else (WIN32)
-	set (OCL_RECORDER_RESOURCE_FILES
-	)
+  set (OCL_RECORDER_RESOURCE_FILES
+    ocl_recorder.rc
+  )
 endif (WIN32)
 
 # Add include directories
 include_directories(
-${LLVM_INCLUDE_DIR}
-${VALIDATIONS_ROOT}/DataVersion
-${OCL_RECORDER_IMPORT_DIR} 
-${OCL_RECORDER_EXPORT_DIR} 
-${OCL_BACKEND_IMPORTS_DIR} 
-${OCL_BACKEND_EXPORTS_DIR} 
-${OCL_EXTERNAL_DIR}/tinyxml 
-${OCL_DATAMANAGER_DIR} 
-${OCL_NEAT_DIR}
-${CMAKE_SOURCE_DIR}/backend/plugin_manager
-${CMAKE_SOURCE_DIR}/fe_compilers/common_clang
+  ${LLVM_INCLUDE_DIRS}
+  ${VALIDATIONS_ROOT}/DataVersion
+  ${OCL_RECORDER_IMPORT_DIR}
+  ${OCL_RECORDER_EXPORT_DIR}
+  ${OCL_BACKEND_IMPORTS_DIR}
+  ${OCL_BACKEND_EXPORTS_DIR}
+  ${OCL_EXTERNAL_DIR}/tinyxml
+  ${OCL_DATAMANAGER_DIR}
+  ${OCL_NEAT_DIR}
+  ${CMAKE_SOURCE_DIR}/backend/plugin_manager
+  ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang
 )
 
 if(WIN32)

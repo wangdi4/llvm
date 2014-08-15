@@ -7,7 +7,7 @@ if (MIC_TESTING_MODE)
 	include_directories( BEFORE
 							../../ 
 							../../../../backend/ocl_cpu_backend 
-							${LLVM_INCLUDE_DIR}
+                                                        ${LLVM_INCLUDE_DIRS}
 							)
 					
 	FIND_SOURCES()

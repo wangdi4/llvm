@@ -17,7 +17,7 @@ add_definitions(
 )
 
 include_directories(
-  ${LLVM_INCLUDE_DIR}
+  ${LLVM_INCLUDE_DIRS}
   ${CMAKE_SOURCE_DIR}/backend/validations/OCLBuilder/
   ${CMAKE_SOURCE_DIR}/backend/validations/Common/
   ${CMAKE_SOURCE_DIR}/backend/name_mangling/

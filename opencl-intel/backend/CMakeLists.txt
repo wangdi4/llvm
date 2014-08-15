@@ -7,7 +7,7 @@ endif()
 
 set(LLVM_PATH ${LLVM_PATH_BE})
 find_package(LLVM REQUIRED)
-message( STATUS "Backend LLVM_INCLUDE_DIR: ${LLVM_INCLUDE_DIR}")
+message( STATUS "Backend LLVM_INCLUDE_DIRS: ${LLVM_INCLUDE_DIRS}" )
 
 if( ANDROID )
     set( BACKEND_BUILD_TESTS            OFF  CACHE STRING "")
