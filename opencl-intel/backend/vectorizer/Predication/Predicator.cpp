@@ -13,6 +13,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Logger.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
+#include "OCLAddressSpace.h"
 
 #include "llvm/Pass.h"
 #include "llvm/IR/Function.h"
@@ -72,6 +73,15 @@ Predicator::Predicator() :
   OCLSTAT_INIT(Predicated,
     "one if the function is predicated, zero otherwise",
     m_kernelStats),
+  OCLSTAT_INIT(Unpredicated_Uniform_Store_Load,
+    "instructions being unpredicated because they are uniform store/load",
+    m_kernelStats),
+  OCLSTAT_INIT(Unpredicated_Cosecutive_Local_Memory_Load,
+    "instructions being unpredicated because they are consecuitve local memory load",
+    m_kernelStats),
+  OCLSTAT_INIT(Predicated_Consecutive_Local_Memory_Load,
+    "load instructions of local memory that could potentially be unmasked, but currently aren't",
+    m_kernelStats),
   OCLSTAT_INIT(Edge_Not_Being_Specialized_Because_EdgeHot,
     "edges that were chosen not to be specialized because of the EdgeHot heuristic",
     m_kernelStats),
@@ -90,6 +100,18 @@ Predicator::Predicator() :
 {
   initializePredicatorPass(*llvm::PassRegistry::getPassRegistry());
   m_rtServices = NULL;
+}
+
+bool Predicator::doFunctionArgumentsContainLocalMem(Function* F) {
+  for (Function::ArgumentListType::iterator it = F->getArgumentList().begin(),
+    e = F->getArgumentList().end(); it!= e; ++it) {
+    if (PointerType* ptrType = dyn_cast<PointerType>(it->getType())) {
+      if (ptrType->getAddressSpace() == Intel::OpenCL::DeviceBackend::Utils::OCLAddressSpace::Local) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 void Predicator::createAllOne(Module &M) {
@@ -655,12 +677,31 @@ Function* Predicator::createPredicatedFunction(Instruction *inst,
   return f;
 }
 
+bool Predicator::isLocalMemoryConsecutiveLoad(Instruction* inst) {
+  if (LoadInst* load = dyn_cast<LoadInst>(inst)) {
+    if (load->getPointerAddressSpace() == Intel::OpenCL::DeviceBackend::Utils::OCLAddressSpace::Local) {
+      if (m_WIA->whichDepend(load->getPointerOperand()) == WIAnalysis::PTR_CONSECUTIVE)
+        return true;
+    }
+  }
+  return false;
+}
+
 bool Predicator::keepOriginalInstructionAsWell(Instruction* original) {
   if ((isa<StoreInst>(original) || isa<LoadInst>(original)) &&
     m_WIA->whichDepend(original) == WIAnalysis::UNIFORM) {
       Predicated_Uniform_Store_Or_Loads++; // statistics
       return true; // to later unpredicate a uniform store or load
                    // if it is being allzero-bypassed.
+  }
+  // Local memory inside the kernel is created on the stack,
+  // on a padded buffer. Thus such loads can safely be done without mask,
+  // if the address is consecutive and the mask is not empty.
+  if (isLocalMemoryConsecutiveLoad(original)) {
+    Predicated_Consecutive_Local_Memory_Load++; // statistics
+    if (!m_hasLocalMemoryArgs) {
+      return true;
+    }
   }
   if (m_valuableAllOnesBlocks.count(original->getParent())) {
     return true; // for all-ones optimization
@@ -1550,6 +1591,7 @@ void Predicator::predicateFunction(Function *F) {
   m_DT = DT; // save the dominator tree.
   LoopInfo *LI = &getAnalysis<LoopInfo>();
   m_LI = LI;
+  m_hasLocalMemoryArgs = doFunctionArgumentsContainLocalMem(F);
   V_ASSERT(LI && "Unable to get loop analysis");
   OCLBranchProbability *OBP = &getAnalysis<OCLBranchProbability>();
   assert (OBP && "OpenCL Branch Probability is not available");
@@ -1693,8 +1735,6 @@ void Predicator::unpredicateInstruction(Instruction* call) {
   V_ASSERT(m_predicatedToOriginalInst.count(call) &&
     "missing predicated to original entry");
 
-  Predicated_Uniform_Store_Or_Loads--; // statistics
-
   // simply use original instruction.
   Instruction* original = m_predicatedToOriginalInst[call];
 
@@ -1766,7 +1806,20 @@ void Predicator::blockIsBeingZeroBypassed(BasicBlock* BB) {
 
   for (std::vector<Instruction*>::iterator it = inBB.begin(), e = inBB.end();
     it != e; ++ it) {
+    V_ASSERT(m_predicatedToOriginalInst.count(*it) && "missing original inst");
     if (isMaskedUniformStoreOrLoad(*it)) {
+      Predicated_Uniform_Store_Or_Loads--; // statistics
+      Unpredicated_Uniform_Store_Load++; // statistics
+      unpredicateInstruction(*it);
+    }
+    // Local memory inside the kernel is
+    // created on the stack, in a padded buffer. thus such loads can
+    // safely be done without mask, if the address is consecutive
+    // and the mask is not empty.
+    else if (!m_hasLocalMemoryArgs &&
+      isLocalMemoryConsecutiveLoad(m_predicatedToOriginalInst[*it])) {
+      Unpredicated_Cosecutive_Local_Memory_Load++; // statistics
+      Predicated_Consecutive_Local_Memory_Load--; // statistics
       unpredicateInstruction(*it);
     }
   }
