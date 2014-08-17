@@ -59,11 +59,11 @@ using namespace Validation::OCLBuiltins;
 extern "C" {
 BUILTINS_API void initOCLBuiltinsGeometric() {return;}
   }];
-  
+
   code Epilog = [{
 }
 
   }];
-  
+
 }
   def inc : Generic;

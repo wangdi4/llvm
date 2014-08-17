@@ -19,6 +19,18 @@ cmake_minimum_required(VERSION 2.8.7)
 cmake_policy(SET CMP0001 NEW)
 cmake_policy(SET CMP0011 OLD)
 
+# In this project we use binaries from OpenCL prject (e.g. oclopt), LLVM for
+# front-end compiler (e.g. clang) and LLVM for back-end compiler (e.g. llc).
+# oclopt utility is built with LLVM version for the back-end compiler, so when
+# applies passes to the RTL it converts LLVM IR to newer version. This restrict
+# the tools we use after oclopt to the tools from LLVM for back-end compiler.
+# So we have to set path to tools directory for BE version of LLVM.
+# We know that LLVM for the back-end compiler is already configured, so just
+# save LLVM_BINARY_DIR for later use by LLVM tools running after oclopt.
+# TODO: to make this file more self contained we should not rely on the
+# assumption above and configure LLVM for the back-end right here.
+set(BE_LLVM_BINARY_DIR ${LLVM_BINARY_DIR})
+
 if( NOT DEFINED LLVM_PATH_FE )
     message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for fronted using LLVM_PATH_FE parameter to CMAKE" )
 endif()
@@ -103,14 +115,18 @@ if(APPLE)
 endif()
 
 if( CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE )
-  set(TOOL_BINARY_DIR "${LLVM_BINARY_DIR}/../native/bin")
+  set(TOOL_BINARY_DIR "${BE_LLVM_BINARY_DIR}/../native/bin")
 else()
-  set(TOOL_BINARY_DIR "${LLVM_BINARY_DIR}" )
+  set(TOOL_BINARY_DIR "${BE_LLVM_BINARY_DIR}" )
 endif()
 
 # LLVM tools are assumed to be pre-built within the global project
 if (NOT DEFINED OCL_HOST_CLANG)
-  set (CLANG "${TOOL_BINARY_DIR}/clang")
+  if( CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE )
+    set (CLANG "${LLVM_BINARY_DIR}/../native/bin/clang")
+  else()
+    set (CLANG "${LLVM_BINARY_DIR}/clang")
+  endif()
 else()
   set (CLANG ${OCL_HOST_CLANG})
 endif()

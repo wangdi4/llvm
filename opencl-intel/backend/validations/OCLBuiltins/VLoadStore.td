@@ -336,11 +336,11 @@ VSTOREAD_HALF_CONVERT(rtn)
 extern "C" {
 BUILTINS_API void initOCLBuiltinsVLoadStore() {return;}
   }];
-  
+
   code Epilog = [{
 }
 
   }];
-  
+
 }
   def inc : Generic;

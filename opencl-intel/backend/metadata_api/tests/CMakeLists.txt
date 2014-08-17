@@ -1,6 +1,7 @@
 set(TARGET_NAME test_metadataapi)
 
 include_directories(
+  ${LLVM_INCLUDE_DIR}
   ${BACKEND_ROOT_DIR}/../externals/gtest/include
   ${BACKEND_ROOT_DIR}/metadata_api
 )

@@ -4,6 +4,7 @@ use_eh(TRUE)
 set(TARGET_NAME NameManglingTests)
 
 include_directories(
+  ${LLVM_INCLUDE_DIR}
   ${BACKEND_ROOT_DIR}/../externals/gtest/include
   ${BACKEND_ROOT_DIR}/name_mangling
 )

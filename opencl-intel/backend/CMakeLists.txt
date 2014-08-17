@@ -113,7 +113,6 @@ option(LLVM_BUILD_APPLE_BACKEND "Build OpenCL CPU Apple backend plugin." OFF)
 
 project(Backend)
 
-include_directories(${LLVM_INCLUDE_DIR})
 set(ADD_CXX_FLAGS "-D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ADD_CXX_FLAGS}")
 use_rtti(FALSE)

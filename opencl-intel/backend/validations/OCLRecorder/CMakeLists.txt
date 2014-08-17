@@ -53,12 +53,19 @@ else (WIN32)
 endif (WIN32)
 
 # Add include directories
-include_directories(${VALIDATIONS_ROOT}/DataVersion)
-include_directories(${OCL_RECORDER_IMPORT_DIR} ${OCL_RECORDER_EXPORT_DIR} )
-include_directories(${OCL_BACKEND_IMPORTS_DIR} ${OCL_BACKEND_EXPORTS_DIR} )
-include_directories(${OCL_EXTERNAL_DIR}/tinyxml ${OCL_DATAMANAGER_DIR} ${OCL_NEAT_DIR})
-include_directories(${CMAKE_SOURCE_DIR}/backend/plugin_manager)
-include_directories(${CMAKE_SOURCE_DIR}/fe_compilers/common_clang)
+include_directories(
+${LLVM_INCLUDE_DIR}
+${VALIDATIONS_ROOT}/DataVersion
+${OCL_RECORDER_IMPORT_DIR} 
+${OCL_RECORDER_EXPORT_DIR} 
+${OCL_BACKEND_IMPORTS_DIR} 
+${OCL_BACKEND_EXPORTS_DIR} 
+${OCL_EXTERNAL_DIR}/tinyxml 
+${OCL_DATAMANAGER_DIR} 
+${OCL_NEAT_DIR}
+${CMAKE_SOURCE_DIR}/backend/plugin_manager
+${CMAKE_SOURCE_DIR}/fe_compilers/common_clang
+)
 
 if(WIN32)
     get_target_property( lib_dir NEAT_wrapper lib_dir )

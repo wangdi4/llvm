@@ -14,6 +14,14 @@ else(BUILD_LLVM_FROM_SOURCE )
         set(LLVM_INCLUDE_DIR   "/System/Library/Frameworks/OpenGL.framework/PrivateHeaders/llvm/include")
         set(CVMS_INCLUDE_DIR   "/System/Library/Frameworks/OpenGL.framework/PrivateHeaders")
     else (APPLE)
+        # reset the LLVM related variables
+        set( LLVM_MODULE_LIBS )
+        if( DEFINED CMAKE_MODULE_PATH_ORIGINAL)
+            set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH_ORIGINAL})
+        else()
+            set(CMAKE_MODULE_PATH_ORIGINAL ${CMAKE_MODULE_PATH})
+        endif()
+                
         # detect where to look for the LLVM installation
         if( DEFINED LLVM_PATH )
             set(LLVM_INSTALL_PATH ${LLVM_PATH})

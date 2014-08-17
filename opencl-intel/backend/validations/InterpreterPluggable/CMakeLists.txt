@@ -3,7 +3,8 @@ use_rtti(FALSE)
 set(TARGET_NAME LLVMInterpreterPluggable)
 
 include_directories(
-  ${BACKEND_ROOT_DIR}/name_mangling
+    ${LLVM_INCLUDE_DIR}
+    ${BACKEND_ROOT_DIR}/name_mangling
 )
 
 add_library(${TARGET_NAME}

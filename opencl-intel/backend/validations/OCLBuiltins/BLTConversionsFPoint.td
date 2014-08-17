@@ -66,11 +66,11 @@ using namespace Validation::OCLBuiltins;
 extern "C" {
 BUILTINS_API void initOCLBuiltinsConvFPoint() {return;}
 }];
-  
+
   code Epilog = [{
 }
 
   }];
-  
+
 }
   def inc : Generic;

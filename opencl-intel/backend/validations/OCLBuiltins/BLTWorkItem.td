@@ -229,7 +229,7 @@ llvm::GenericValue lle_X_get_enqueued_local_size(llvm::FunctionType *FT,
 extern "C" {
 BUILTINS_API void initOCLBuiltinsWorkItem() {return;}
 }];
-  
+
   code Epilog = [{
 
 }
