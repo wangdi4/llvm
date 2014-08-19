@@ -335,7 +335,9 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
       }
 
       // Leave this GEP as is if there are no uniform indices detected
-      if(uniformVals.empty()) return false;
+      if(uniformVals.empty())
+        return false;
+
       // Make uniform and divergent indices
       Value * uniformIdx   = makeIndexSum(uniformVals, pGEP, "uniformIdx");
       Value * divergentIdx = makeIndexSum(divergentVals, pGEP, "divergentIdx");
@@ -346,6 +348,9 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
                                                                     "uniformGEP", pGEP);
       GetElementPtrInst * pDivergentGEP = GetElementPtrInst::Create(pUniformGEP, divergentIdx,
                                                                     "divergentGEP", pGEP);
+
+      pUniformGEP->setIsInBounds(pGEP->isInBounds());
+      pDivergentGEP->setIsInBounds(pGEP->isInBounds());
       // Update the debug information
       VectorizerUtils::SetDebugLocBy(pUniformGEP, pGEP);
       VectorizerUtils::SetDebugLocBy(pDivergentGEP, pGEP);

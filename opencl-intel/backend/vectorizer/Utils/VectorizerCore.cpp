@@ -244,12 +244,12 @@ bool VectorizerCore::runOnFunction(Function &F) {
     fpm2.add(widDepPass);
 #endif
 
-    if (m_pConfig->GetCpuId().HasGatherScatter()) {
-      // Register simplifyGEP only is GatherScatter is supported
-      fpm2.add(new WIAnalysis(m_vectorizationDim));
-      FunctionPass *simplifyGEP = createSimplifyGEPPass();
-      fpm2.add(simplifyGEP);
-    }
+    // Add WIAnalysis for SimplifyGEP.
+    fpm2.add(new WIAnalysis(m_vectorizationDim));
+
+    // Register SimplifyGEP
+    FunctionPass *simplifyGEP = createSimplifyGEPPass();
+    fpm2.add(simplifyGEP);
 
     // add WIAnalysis for the packetizer.
     fpm2.add(new WIAnalysis(m_vectorizationDim));
