@@ -7,7 +7,11 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "PreventDivCrashes.h"
 #include "OCLPassSupport.h"
+#include "NameMangleAPI.h"
+#include "ParameterType.h"
+#include "InitializePasses.h"
 
+#include "llvm/IR/Module.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
@@ -20,21 +24,30 @@ extern "C" {
   void* createPreventDivisionCrashesPass() {
     return new intel::PreventDivCrashes();
   }
+
+  void* createOptimizeIDivPass() {
+    return new intel::OptimizeIDiv();
+  }
 }
+
 
 namespace intel {
 
   char PreventDivCrashes::ID = 0;
+  char OptimizeIDiv::ID = 0;
 
 /// Register pass to for opt
   OCL_INITIALIZE_PASS(PreventDivCrashes, "prevent-div-crash", "Dynamically handle cases that divisor is zero or there is integer overflow during division", false, false)
+
+  OCL_INITIALIZE_PASS_BEGIN(OptimizeIDiv, "optimize-idiv-irem", "Replace integer divide and integer remainder with call to SVML", false, false)
+  OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+  OCL_INITIALIZE_PASS_END(OptimizeIDiv, "optimize-idiv-irem", "Replace integer divide and integer remainder with call to SVML", false, false)
 
   static const unsigned int DIVIDEND_POSITION = 0;
   static const unsigned int DIVISOR_POSITION = 1;
 
   bool PreventDivCrashes::runOnFunction(Function &F) {
     m_divInstuctions.clear();
-
     findDivInstructions(F);
     return  handleDiv();
   }
@@ -93,6 +106,7 @@ namespace intel {
     for (unsigned i=0; i< m_divInstuctions.size(); ++i) {
 
       BinaryOperator* divInst = m_divInstuctions[i];
+
       // Extract the context
       LLVMContext& context = divInst->getContext();
 
@@ -155,6 +169,130 @@ namespace intel {
     }
 
     return true;
+  }
+
+  /// @brief Replace the given instruction with a call to built-in function (if possible)
+  /// @returns true if instructin was replaced
+  static
+  bool ReplaceWithBuiltInCall(BinaryOperator* divInst, const intel::RuntimeServices *rtServices) {
+
+    Type* divisorType = divInst->getType();
+
+    // Performance measurements show that such replacement is good only for vectors
+    if (!divisorType->isVectorTy())
+      return false;
+
+    Type* divisorElemType = ((VectorType *)divisorType)->getElementType();
+
+    assert(divisorElemType->isIntegerTy() && "Unexpected divisor element type");
+
+    // this optimization exists only for 32 bit integers
+    if (((IntegerType*)divisorElemType)->getBitWidth() != 32)
+      return false;
+
+    Value* divisor = divInst->getOperand(1);
+    // do not optimize constants that may be replaced with shifts in the future
+    if (dyn_cast<Constant>(divisor)) {
+      Constant *constOp = dyn_cast<Constant>(divisor)->getSplatValue();
+      if (constOp) {
+        const APInt &constIntVal = cast<ConstantInt>(constOp)->getValue();
+        if (constIntVal.isPowerOf2() || (-constIntVal).isPowerOf2())
+          return false;
+      }
+    }
+    VectorType* vecType = static_cast<VectorType *>(divisorType);
+    reflection::FunctionDescriptor funcDesc;
+    funcDesc.width = (reflection::width::V)vecType->getNumElements();
+    if ((funcDesc.width != 8) && (funcDesc.width != 16))
+      return false;
+
+    reflection::TypePrimitiveEnum primitiveType;
+    switch(divInst->getOpcode()) {
+      default:
+        return false;
+      case Instruction::SRem:
+        funcDesc.name = "irem";
+        primitiveType = reflection::PRIMITIVE_INT;
+        break;
+      case Instruction::URem:
+        funcDesc.name = "urem";
+        primitiveType = reflection::PRIMITIVE_UINT;
+        break;
+      case Instruction::SDiv:
+        funcDesc.name = "idiv";
+        primitiveType = reflection::PRIMITIVE_INT;
+        break;
+      case Instruction::UDiv:
+        funcDesc.name = "udiv";
+        primitiveType = reflection::PRIMITIVE_UINT;
+        break;
+    }
+
+    reflection::RefParamType scalarTy(new reflection::PrimitiveType(primitiveType));
+
+    reflection::RefParamType vectorTy(new reflection::VectorType(scalarTy, vecType->getNumElements()));
+    funcDesc.parameters.push_back(vectorTy);
+    funcDesc.parameters.push_back(vectorTy);
+
+    // get name of the built-in function
+    std::string funcName = mangle(funcDesc);
+
+    Function* divFuncRT = rtServices->findInRuntimeModule(funcName);
+    if (!divFuncRT)
+      return false;
+
+    // put function declaration inside current module
+    SmallVector<Type *, 2> types;
+    types.push_back(divisorType);
+    types.push_back(divisorType);
+    FunctionType *intr = FunctionType::get(divisorType, types, false);
+    llvm::Module* pModule = divInst->getParent()->getParent()->getParent();
+    Function* divFuncInModule = cast<Function>(pModule->getOrInsertFunction(funcName.c_str(), intr));
+
+    // Create a call
+    SmallVector<Value*, 2> args;
+    args.push_back(divInst->getOperand(0));
+    args.push_back(divInst->getOperand(1));
+    CallInst* newCall = CallInst::Create(divFuncInModule, args, funcName, divInst);
+    newCall->setDebugLoc(divInst->getDebugLoc());
+
+    // replace original instruction with call
+    divInst->replaceAllUsesWith(newCall);
+    divInst->eraseFromParent();
+    
+    return true;
+  }
+
+  bool OptimizeIDiv::runOnFunction(Function &F) {
+
+    std::vector<BinaryOperator*> divInstuctions;
+    for (inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
+
+      // Div and rem instructions are of type BinaryOperator
+      BinaryOperator* inst = dyn_cast<BinaryOperator>(&*i);
+      if (!inst) continue;
+
+      Instruction::BinaryOps opcode = inst->getOpcode();
+
+      // Check if opcode is div or rem
+      if((opcode == Instruction::UDiv)
+            || (opcode == Instruction::SDiv)
+            || (opcode == Instruction::URem)
+            || (opcode == Instruction::SRem)) {
+        divInstuctions.push_back(inst);
+
+      }
+    }
+
+    const RuntimeServices* rtServices =
+      getAnalysis<BuiltinLibInfo>().getRuntimeServices();
+    bool changed = false;
+    for (unsigned i=0; i< divInstuctions.size(); ++i) {
+
+      BinaryOperator* divInst = divInstuctions[i];
+      changed |= ReplaceWithBuiltInCall(divInst, rtServices);
+    }
+    return changed;
   }
 
 } // namespace intel

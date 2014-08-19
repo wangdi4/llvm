@@ -1,6 +1,7 @@
 use_eh(TRUE)
 
 include_directories(
+${LLVM_INCLUDE_DIR}
 ${VALIDATIONS_ROOT}/DataVersion
 ${VALIDATIONS_ROOT}/DataManager
 ${VALIDATIONS_ROOT}/NEAT

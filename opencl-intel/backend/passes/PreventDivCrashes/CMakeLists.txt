@@ -10,6 +10,8 @@ set(TARGET_SOURCE_FILES
 
 include_directories(
     ${BACKEND_ROOT_DIR}/passes
+    ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo
+    ${BACKEND_ROOT_DIR}/name_mangling
 )
 
 add_library(${TARGET_NAME}

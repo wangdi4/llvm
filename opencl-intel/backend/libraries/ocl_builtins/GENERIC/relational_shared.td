@@ -4,7 +4,7 @@
 // OpenCL 1.2 rev 15, Table 6.14
 
 // isnan
-OclBuiltinImpl isnan_f64_v1_v8 = OclBuiltinImpl<isnan, [v1f64, v8f64], 0, [{
+OclBuiltinImpl isnan_f64_v1 = OclBuiltinImpl<isnan, [v1f64], 0, [{
     return $Arg0VarName != $Arg0VarName;
   }]>;
 OclBuiltinImpl isnan_f64_promote = OclBuiltinImpl<isnan, [v2f64], 0, Promote1>;
@@ -33,8 +33,6 @@ OclBuiltinImpl isnormal_f64_expand = OclBuiltinImpl<isnormal, [v16f64], 0, Expan
 //   ret = as_long4(as_ulong4(ret) >> shift);
 //   return convert_int4(ret);
 // }
-
-
 OclBuiltinImpl soa_any1_impl = OclBuiltinImpl<soa_any1, [v4i8,  v8i8,  v16i8,
              v4i16, v8i16, v16i16,
              v4i32, v8i32, v16i32,
@@ -57,6 +55,7 @@ OclBuiltinImpl soa_any2_impl = OclBuiltinImpl<soa_any2, [v4i8,  v8i8,  v16i8,
     $ReturnVarName = as_$Arg0Type(as_$Arg0ugentype($ReturnVarName) >> shift);
     return convert_$ReturnType(as_$Arg0ugentype($ReturnVarName));
   }]>;
+
  
  OclBuiltinImpl soa_any3_impl = OclBuiltinImpl<soa_any3, [v4i8,  v8i8,  v16i8,
          v4i16, v8i16, v16i16,

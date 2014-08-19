@@ -1,0 +1,42 @@
+// Copyright (c) 2006-2009 Intel Corporation
+// All rights reserved.
+//
+// WARRANTY DISCLAIMER
+//
+// THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL INTEL OR ITS
+// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+// OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
+// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
+// MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// Intel Corporation is the author of the Materials, and requests that all
+// problem reports or change requests be submitted to it directly
+
+#include "options.h"
+#include "clang/Driver/OptTable.h"
+#include "clang/Driver/Option.h"
+
+#define PREFIX(NAME, VALUE) const char *const NAME[] = VALUE;
+#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, FLAGS, PARAM, \
+    HELPTEXT, METAVAR)
+#include "opencl_link_options.inc"
+#undef OPTION
+#undef PREFIX
+
+static const OptTable::Info ClangOptionsInfoTable[] = {
+#define PREFIX(NAME, VALUE)
+#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, FLAGS, PARAM, HELPTEXT, METAVAR) \
+    { PREFIX, NAME, HELPTEXT, METAVAR, OPT_LINK_##ID, clang::driver::Option::KIND##Class, PARAM, FLAGS, OPT_LINK_##GROUP, OPT_LINK_##ALIAS },
+#include "opencl_link_options.inc"
+};
+
+OpenCLLinkOptTable::OpenCLLinkOptTable():
+    OpenCLOptTable(ClangOptionsInfoTable, sizeof(ClangOptionsInfoTable) / sizeof(ClangOptionsInfoTable[0]))
+{
+}

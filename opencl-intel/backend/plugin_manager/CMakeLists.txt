@@ -6,10 +6,13 @@ project(${TARGET_NAME})
 cmake_minimum_required(VERSION 2.8.7)
 
 include_directories(
+  ${LLVM_INCLUDE_DIR}
   ${BACKEND_ROOT_DIR}/ocl_cpu_backend/export
   ${BACKEND_ROOT_DIR}/dynamic_lib
   ${BACKEND_ROOT_DIR}/../cl_api
   ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
+  ${CMAKE_SOURCE_DIR}/utils/cl_hw_utils/export
+
 )
 
 add_library( ${TARGET_NAME} STATIC

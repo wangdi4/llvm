@@ -7,6 +7,7 @@
 #include "cl_synch_objects.h"
 #include "oclEventsMapper.h"
 #include "oclRetainers.h"
+#include "ApiExecutionTime.h"
 
 using Intel::OpenCL::Utils::EventsMapper;
 using Intel::OpenCL::Utils::OclMutex;
@@ -166,6 +167,10 @@ public:
 	virtual void SamplerCreate (cl_sampler /* sampler */, cl_context /* context */)=0;
 	virtual void SamplerFree (cl_sampler /* sampler */)=0;
 
+	/* SVM Callbacks */
+	virtual void SVMCreate(void *svm_ptr, cl_context context)=0;
+	virtual void SVMFree(void *svm_ptr)=0;
+
 	/* Program Callbacks */
 	virtual void ProgramCreate (cl_program /* program */, cl_context, bool, bool)=0;
 	virtual void ProgramFree (cl_program /* program */)=0;
@@ -176,6 +181,7 @@ public:
 	virtual void KernelFree (cl_kernel /* kernel */, bool internalRelease)=0;	// clReleaseKernel
 	virtual void KernelSetArg (cl_kernel /* kernel */, cl_uint /* arg_index */, size_t /* argSize */,const void* /* arg_value */ )=0;
 	virtual void KernelEnqueue (cl_kernel, cl_command_queue, cl_event*, unsigned int traceCookie)=0;
+	virtual void NativeKernelEnqueue (cl_uint, const cl_mem*, cl_command_queue, cl_event*, unsigned int traceCookie)=0;
 	virtual void KernelReleased (cl_kernel)=0;	// called when kernel no longer exists in Profiler & RT
 
 	/* Command Callbacks */
@@ -185,7 +191,9 @@ public:
 	virtual void ObjectInfo(const void* /* obj */, const pair<string,string> data[],const int dataLength)=0;
 	virtual void ObjectRetain(const void* obj, bool internalRetain)=0;
 	virtual void TraceCall( const char* call, cl_int errcode_ret,
-                            OclParameters* parameters, unsigned int* traceCookie = NULL)=0;
+                            OclParameters* parameters,
+                            ApiExecutionTime* execution_time = NULL,
+							unsigned int* traceCookie = NULL)=0;
 
 	virtual ~oclNotifier() {}
 };
@@ -284,6 +292,11 @@ public:
 	virtual void SamplerCreate (cl_sampler /* sampler */, cl_context /* context */);
 	virtual void SamplerFree (cl_sampler /* sampler */);
 
+	/* SVM Callbacks */
+	virtual void SVMCreate(void *svm_ptr, cl_context context);
+	virtual void SVMFree(void *svm_ptr);
+
+
 	/* Program Callbacks */
 	virtual void ProgramCreate (cl_program /* program */, cl_context, bool, bool );
 	virtual void ProgramFree (cl_program /* program */);
@@ -294,6 +307,7 @@ public:
 	virtual void KernelFree (cl_kernel /* kernel */, bool internalRelease);
 	virtual void KernelSetArg (cl_kernel /* kernel */, cl_uint /* arg_index */, size_t /* argSize */,const void* /* arg_value */ );
 	virtual void KernelEnqueue (cl_kernel, cl_command_queue, cl_event*, unsigned int traceCookie);
+	virtual void NativeKernelEnqueue (cl_uint, const cl_mem*, cl_command_queue, cl_event*, unsigned int traceCookie);
 	virtual void KernelReleased (cl_kernel);	// called when kernel no longer exists in Profiler & RT
 
 	/* Command Callbacks */
@@ -303,7 +317,9 @@ public:
 	virtual void ObjectInfo(const void* /* obj */, const pair<string,string> data[],const int dataLength);
 	virtual void ObjectRetain(const void* obj, bool internalRetain);
 	virtual void TraceCall( const char* call, cl_int errcode_ret,
-                            OclParameters* parameters, unsigned int* traceCookie = NULL);
+                            OclParameters* parameters,
+                            ApiExecutionTime* execution_time = NULL,
+							unsigned int* traceCookie = NULL);
 
 
 

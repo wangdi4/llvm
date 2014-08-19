@@ -60,8 +60,10 @@ void ISPCommandBase::NotifyCommandStatusChanged(cl_int status, cl_dev_err_code e
 }
 
 NDRange::NDRange(IOCLDevLogDescriptor* logDesc, cl_int logHandle,cl_dev_cmd_desc* pCmd,
-                 IOCLFrameworkCallbacks* frameworkCallbacks, CameraShim* pCameraShim) :
-ISPCommandBase(logDesc, logHandle, pCmd, frameworkCallbacks), m_pCameraShim(pCameraShim)
+                 IOCLFrameworkCallbacks* frameworkCallbacks, CameraShim* pCameraShim,
+                 ISPExtensionManager* pIspExtensionManager) :
+ISPCommandBase(logDesc, logHandle, pCmd, frameworkCallbacks), m_pCameraShim(pCameraShim),
+m_pIspExtensionManager(pIspExtensionManager)
 {
     cl_dev_cmd_param_kernel* cmdParams = reinterpret_cast<cl_dev_cmd_param_kernel*>(m_pCmdDesc->params);
     m_pIspKernel = reinterpret_cast<const ISPKernel*>(cmdParams->kernel);
@@ -69,7 +71,6 @@ ISPCommandBase(logDesc, logHandle, pCmd, frameworkCallbacks), m_pCameraShim(pCam
 
 //------------------------------------------------
 // NDRange Command
-// TODO: maybe use one function for all commands ?
 cl_dev_err_code NDRange::Create(ISPDeviceQueue* pDeviceQueue, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* ppTask)
 {
     assert(NULL != pDeviceQueue && "Invalid create command parameter");
@@ -81,7 +82,8 @@ cl_dev_err_code NDRange::Create(ISPDeviceQueue* pDeviceQueue, cl_dev_cmd_desc* p
                                 pDeviceQueue->GetLogHandle(),
                                 pCmd,
                                 pDeviceQueue->GetFrameworkCallbacks(),
-                                pDeviceQueue->GetCameraHandle());
+                                pDeviceQueue->GetCameraHandle(),
+                                pDeviceQueue->GetExtensionManager());
     if (NULL == pCommand)
     {
         return CL_DEV_OUT_OF_MEMORY;
@@ -225,6 +227,13 @@ bool NDRange::ExecuteStopPreview()
         return false;
     }
 
+    // clear extension mode preview
+    if (CL_FAILED(m_pIspExtensionManager->ClearRunning()))
+    {
+        IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Failed to clear extension mode kernels from preview"));
+        return false;
+    }
+
     return true;
 }
 bool NDRange::ExecuteAutoFocus()
@@ -353,6 +362,8 @@ bool NDRange::ExecuteStandaloneCustomKernel()
     //    5.c - Free the allocated buffer on ISP
     //  6 - Unload the firmware from ISP
 
+    void* pAllocatedArgsBuffer = NULL;
+    isp_ptr pMappedArgsBuffer = NULL;
 
     // firmware is already allocated on ISP, just need to upload it
     fw_info firmwareInfo = m_pIspKernel->GetBlob();
@@ -370,12 +381,14 @@ bool NDRange::ExecuteStandaloneCustomKernel()
     const size_t stArgsBufferSizePrototype = m_pIspKernel->GetKernelArgsBufferSize();
     assert(stArgsBufferSizeActual == stArgsBufferSizePrototype && "Prototype is different from actual arguments size");
 
+    // TODO: handle extreme case of 0 args
+    // TODO: handle failures
+
     // allocate required buffer on ISP
-    void* pAllocatedArgsBuffer = m_pCameraShim->host_alloc(stArgsBufferSizeActual);
+    pAllocatedArgsBuffer = m_pCameraShim->host_alloc(stArgsBufferSizeActual);
     if (NULL == pAllocatedArgsBuffer)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Could not allocate arguments buffer on ISP"));
-        m_pCameraShim->acc_unload(firmwareInfo);
         return false;
     }
 
@@ -387,20 +400,14 @@ bool NDRange::ExecuteStandaloneCustomKernel()
     if (!MapArgumentsToISP(pAllocatedArgsBuffer))
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Could not map pointer arguments"));
-        m_pCameraShim->host_free(pAllocatedArgsBuffer);
-        m_pCameraShim->acc_unload(firmwareInfo);
         return false;
     }
 
     // map whole argument buffer to ISP space
-    isp_ptr pMappedArgsBuffer = NULL;
     ret = m_pCameraShim->acc_map(pAllocatedArgsBuffer, pMappedArgsBuffer);
     if (0 != ret)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Could not map arguments buffer"));
-        UnmapArgumentsFromISP();
-        m_pCameraShim->host_free(pAllocatedArgsBuffer);
-        m_pCameraShim->acc_unload(firmwareInfo);
         return false;
     }
 
@@ -409,10 +416,6 @@ bool NDRange::ExecuteStandaloneCustomKernel()
     if (0 != ret)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Could not send arguments buffer to ISP"));
-        m_pCameraShim->acc_unmap(pMappedArgsBuffer);
-        UnmapArgumentsFromISP();
-        m_pCameraShim->host_free(pAllocatedArgsBuffer);
-        m_pCameraShim->acc_unload(firmwareInfo);
         return false;
     }
 
@@ -421,39 +424,6 @@ bool NDRange::ExecuteStandaloneCustomKernel()
     if (0 != ret)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Could not start ISP with custom firmware"));
-        m_pCameraShim->acc_unmap(pMappedArgsBuffer);
-        UnmapArgumentsFromISP();
-        m_pCameraShim->host_free(pAllocatedArgsBuffer);
-        m_pCameraShim->acc_unload(firmwareInfo);
-        return false;
-    }
-
-    // unmap whole arguments buffer from ISP space
-    ret = m_pCameraShim->acc_unmap(pMappedArgsBuffer);
-    if (0 != ret)
-    {
-        IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Could not unmap arguments buffer"));
-        UnmapArgumentsFromISP();
-        m_pCameraShim->host_free(pAllocatedArgsBuffer);
-        m_pCameraShim->acc_unload(firmwareInfo);
-        return false;
-    }
-
-    // unmap pointer arguments from ISP space
-    if (!UnmapArgumentsFromISP())
-    {
-        IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Could not unmap pointer arguments"));
-        m_pCameraShim->host_free(pAllocatedArgsBuffer);
-        m_pCameraShim->acc_unload(firmwareInfo);
-        return false;
-    }
-
-    // free the allocated area in ISP space
-    ret = m_pCameraShim->host_free(pAllocatedArgsBuffer);
-    if (0 != ret)
-    {
-        IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Could not free arguments buffer"));
-        m_pCameraShim->acc_unload(firmwareInfo);
         return false;
     }
 
@@ -465,10 +435,33 @@ bool NDRange::ExecuteStandaloneCustomKernel()
         return false;
     }
 
+    // unmap whole arguments buffer from ISP space
+    ret = m_pCameraShim->acc_unmap(pMappedArgsBuffer);
+    if (0 != ret)
+    {
+        IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Could not unmap arguments buffer"));
+        return false;
+    }
+
+    // unmap pointer arguments from ISP space
+    if (!UnmapArgumentsFromISP(pAllocatedArgsBuffer))
+    {
+        IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Could not unmap pointer arguments"));
+        return false;
+    }
+
+    // free the allocated area in ISP space
+    ret = m_pCameraShim->host_free(pAllocatedArgsBuffer);
+    if (0 != ret)
+    {
+        IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Could not free arguments buffer"));
+        return false;
+    }
+
     return true;
 }
 
-bool NDRange::MapArgumentsToISP(void* pMappedArgsBuffer)
+bool NDRange::MapArgumentsToISP(void* pArgsBuffer)
 {
     // iterate over all arguments values and replace all pointers with mapped pointers from ISP space
 
@@ -476,7 +469,7 @@ bool NDRange::MapArgumentsToISP(void* pMappedArgsBuffer)
 
     cl_uint uiArgsNum = m_pIspKernel->GetKernelArgsCount();
     const cl_kernel_argument* argsPrototype = m_pIspKernel->GetKernelArgsPrototype();
-    unsigned char* pMappedArgsBase = reinterpret_cast<unsigned char*>(pMappedArgsBuffer);
+    unsigned char* pArgsBufferBase = reinterpret_cast<unsigned char*>(pArgsBuffer);
 
     for (cl_uint i = 0; i < uiArgsNum; ++i)
     {
@@ -486,7 +479,10 @@ bool NDRange::MapArgumentsToISP(void* pMappedArgsBuffer)
         case CL_KRNL_ARG_PTR_CONST:
             {
                 IOCLDevMemoryObject* pMemObj = *((IOCLDevMemoryObject**)(m_vArgs[i]));
-                assert(NULL != pMemObj && "Invalid handle to memory object");
+                if (NULL == pMemObj)
+                {
+                    continue;
+                }
 
                 cl_mem_obj_descriptor* pMemObjDesc;
                 cl_dev_err_code err = pMemObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CUSTOM, 0, (cl_dev_memobj_handle*) &pMemObjDesc);
@@ -506,7 +502,7 @@ bool NDRange::MapArgumentsToISP(void* pMappedArgsBuffer)
                     return false;
                 }
 
-                *(isp_ptr*)(pMappedArgsBase + argsPrototype[i].offset_in_bytes) = pMappedData;
+                *(isp_ptr*)(pArgsBufferBase + argsPrototype[i].offset_in_bytes) = pMappedData;
 
                 break;
             }
@@ -541,13 +537,13 @@ bool NDRange::MapArgumentsToISP(void* pMappedArgsBuffer)
 
     return true;
 }
-bool NDRange::UnmapArgumentsFromISP()
+bool NDRange::UnmapArgumentsFromISP(void* pMappedArgsBuffer)
 {
     // iterate over all arguments values and unmap all pointers from ISP space
 
     cl_uint uiArgsNum = m_pIspKernel->GetKernelArgsCount();
     const cl_kernel_argument* argsPrototype = m_pIspKernel->GetKernelArgsPrototype();
-    unsigned char* pArgsBufferBase = (unsigned char*)m_vArgs[0];
+    unsigned char* pArgsBufferBase = reinterpret_cast<unsigned char*>(pMappedArgsBuffer);
 
     for (cl_uint i = 0; i < uiArgsNum; ++i)
     {
@@ -557,6 +553,10 @@ bool NDRange::UnmapArgumentsFromISP()
         case CL_KRNL_ARG_PTR_CONST:
             {
                 isp_ptr pMappedData = *(isp_ptr*)(pArgsBufferBase + argsPrototype[i].offset_in_bytes);
+                if (NULL == pMappedData)
+                {
+                    continue;
+                }
                 status_t ret = m_pCameraShim->acc_unmap(pMappedData);
                 if (0 != ret)
                 {
@@ -1016,4 +1016,159 @@ cl_dev_err_code CommandFailureNotification::Create(ISPDeviceQueue* pDeviceQueue,
 
     return CL_DEV_SUCCESS;
 }
+
+//------------------------------------------------
+// extension mode
+// PipeLineNDRange
+cl_dev_err_code PipelineNDRange::Create(ISPDeviceQueue* pDeviceQueue, std::vector<cl_dev_cmd_desc*>& commands, SharedPtr<ITaskBase>* ppTask)
+{
+    assert(NULL != pDeviceQueue && "Invalid create command parameter");
+    assert(NULL != ppTask && "Invalid create command parameter");
+
+    PipelineNDRange* pCommand = new PipelineNDRange(
+                                pDeviceQueue->GetLogDescriptor(),
+                                pDeviceQueue->GetLogHandle(),
+                                commands,
+                                pDeviceQueue->GetFrameworkCallbacks(),
+                                pDeviceQueue->GetCameraHandle(),
+                                pDeviceQueue->GetExtensionManager());
+    if (NULL == pCommand)
+    {
+        return CL_DEV_OUT_OF_MEMORY;
+    }
+
+    *ppTask = pCommand;
+
+    return CL_DEV_SUCCESS;
+}
+
+PipelineNDRange::PipelineNDRange(IOCLDevLogDescriptor* logDesc, cl_int logHandle, std::vector<cl_dev_cmd_desc*>& commands,
+                IOCLFrameworkCallbacks* frameworkCallbacks, CameraShim* pCameraShim, ISPExtensionManager* pIspExtensionManager)  :
+                ISPCommandBase(logDesc, logHandle, NULL, frameworkCallbacks), m_vCommandsDesc(commands),
+                m_pCameraShim(pCameraShim), m_pIspExtensionManager(pIspExtensionManager)
+{
+    assert(m_vCommandsDesc.size() >= 2 && "Pipeline command should at least contain BEGIN_PIPELINE and END_PIPELINE");
+
+    m_itrBeginPipelineCmdDesc = m_vCommandsDesc.begin();
+    m_itrEndPipelineCmdDesc = m_vCommandsDesc.end();
+    --m_itrEndPipelineCmdDesc;
+
+    cl_dev_cmd_param_kernel* cmdParams;
+    const ISPKernel* pIspKernel;
+
+    cmdParams = reinterpret_cast<cl_dev_cmd_param_kernel*>((*m_itrBeginPipelineCmdDesc)->params);
+    pIspKernel = reinterpret_cast<const ISPKernel*>(cmdParams->kernel);
+    assert(pIspKernel->GetCameraCommand() == CAMERA_BEGIN_PIPELINE && "First command in pipeline should be BEGIN_PIPELINE");
+
+    cmdParams = reinterpret_cast<cl_dev_cmd_param_kernel*>((*m_itrEndPipelineCmdDesc)->params);
+    pIspKernel = reinterpret_cast<const ISPKernel*>(cmdParams->kernel);
+    assert(pIspKernel->GetCameraCommand() == CAMERA_END_PIPELINE && "Last command in pipeline should be END_PIPELINE");
+
+    // extract the pipeline stages (between BEGIN and END)
+    std::vector<cl_dev_cmd_desc*>::iterator pStageCmdDesc = m_itrBeginPipelineCmdDesc;
+    ++pStageCmdDesc;
+
+    for ( ;pStageCmdDesc != m_itrEndPipelineCmdDesc; ++pStageCmdDesc)
+    {
+        m_vPipelineStages.push_back(*pStageCmdDesc);
+    }
+}
+
+bool PipelineNDRange::Execute()
+{
+    NotifyCommandStatusChanged(CL_RUNNING, CL_DEV_SUCCESS);
+
+    // iterate over the pipeline stages (between BEGIN and END)
+    for (std::vector<cl_dev_cmd_desc*>::iterator pPipelineStage = m_vPipelineStages.begin();
+         pPipelineStage != m_vPipelineStages.end(); ++pPipelineStage)
+    {
+        cl_dev_cmd_param_kernel* cmdParams = reinterpret_cast<cl_dev_cmd_param_kernel*>((*pPipelineStage)->params);
+        const ISPKernel* pIspKernel = reinterpret_cast<const ISPKernel*>(cmdParams->kernel);
+        void* argsValuesBase = cmdParams->arg_values;
+
+        if (CL_FAILED(m_pIspExtensionManager->RequestExtension(pIspKernel, argsValuesBase)))
+        {
+            m_pIspExtensionManager->ClearRequested();
+            //TODO: fail
+        }
+    }
+
+    if (CL_FAILED(m_pIspExtensionManager->CreatePipelineFromRequested()))
+    {
+        //TODO: fail
+    }
+
+    cl_dev_cmd_param_kernel* cmdParams = reinterpret_cast<cl_dev_cmd_param_kernel*>((*m_itrBeginPipelineCmdDesc)->params);
+
+    IOCLDevMemoryObject* pMemObj = *((IOCLDevMemoryObject**)(cmdParams->arg_values));
+    if (NULL == pMemObj)
+    {
+        //TODO: fail
+    }
+
+    cl_mem_obj_descriptor* pMemObjDesc = NULL;
+    pMemObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CUSTOM, 0, (cl_dev_memobj_handle*) &pMemObjDesc);
+    assert(NULL != pMemObjDesc && "Couldn't get the memory object descriptor");
+
+    //TODO
+    m_pCameraShim->preview_start();
+
+    Frame currentFrame;
+    status_t ret = m_pCameraShim->preview_grabbuffer(currentFrame);
+    if (0 != ret)
+    {
+        IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Could not grab preview buffer"));
+        return false;
+    }
+    size_t bytesToCopy = currentFrame.size;
+
+    if (pMemObjDesc->dimensions.buffer_size < bytesToCopy)
+    {
+        // not a fatal error for the command
+        bytesToCopy = pMemObjDesc->dimensions.buffer_size;
+        // TODO
+        //IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Mem object too small, can only copy partial preview buffer"));
+    }
+
+    IspDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("MEMCPY_S(%p, %d, %p, %d)"), pMemObjDesc->pData, pMemObjDesc->dimensions.buffer_size, currentFrame.img_data, bytesToCopy);
+    MEMCPY_S(pMemObjDesc->pData, pMemObjDesc->dimensions.buffer_size, currentFrame.img_data, bytesToCopy);
+
+    ret = m_pCameraShim->preview_releasebuffer(currentFrame);
+    if(0 != ret)
+    {
+        // TODO
+        //IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Could not release preview buffer"));
+        //return false;
+    }
+
+    NotifyCommandStatusChanged(CL_COMPLETE, CL_DEV_SUCCESS);
+    return true;
+}
+
+void PipelineNDRange::NotifyCommandStatusChanged(cl_int status, cl_dev_err_code errorCode)
+{
+    if (CL_COMPLETE == status)
+    {
+        // TODO: add ITask->Release ?
+        m_bCompleted = true;
+    }
+
+    cl_ulong timer = 0;
+
+    // notify framework about status change
+    for (std::vector<cl_dev_cmd_desc*>::iterator pCmdDesc = m_vCommandsDesc.begin();
+         pCmdDesc != m_vCommandsDesc.end();
+         ++pCmdDesc)
+    {
+        // if profiling enabled for the command get timer
+        if ((*pCmdDesc)->profiling)
+        {
+            timer = HostTime();
+        }
+        m_pFrameworkCallBacks->clDevCmdStatusChanged((*pCmdDesc)->id, (*pCmdDesc)->data, status, (cl_int)errorCode, timer);
+    }
+}
+
+
+
 

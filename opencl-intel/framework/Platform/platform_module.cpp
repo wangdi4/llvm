@@ -492,13 +492,13 @@ cl_int    PlatformModule::GetDeviceInfo(cl_device_id clDevice,
     size_t szParamSize = 0;
     cl_bool bBoolValue = CL_TRUE;
     const void * pValue = NULL;
+	  const cl_platform_id id = &m_clPlatformId;
 
     switch(clParamName)
     {
     case CL_DEVICE_PLATFORM:
         {
             szParamSize = sizeof(cl_platform_id);
-            cl_platform_id id = &m_clPlatformId;
             pValue = &id;
             break;
         }

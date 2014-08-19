@@ -43,6 +43,6 @@ class VR10_Fission: public FissionWrapper{};
 //|
 TEST_F(VR10_Fission, CPUGPUbinaries)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(ocl_descriptor));
 	ASSERT_NO_FATAL_FAILURE(testCPUGPUbinariesBody(ocl_descriptor));
 }

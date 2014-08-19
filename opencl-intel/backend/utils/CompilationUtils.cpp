@@ -778,6 +778,10 @@ std::string CompilationUtils::mangledGetLocalSize() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_LOCAL_SIZE.c_str());
 }
 
+std::string CompilationUtils::mangledGetNumGroups() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_NUM_GROUPS.c_str());
+}
+
 std::string CompilationUtils::mangledGetEnqueuedLocalSize(){
   return mangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_ENQUEUED_LOCAL_SIZE.c_str(), 1);
 }

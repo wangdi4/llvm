@@ -1,3 +1,11 @@
+#ensure we are using the frontend LLVM tools
+if( NOT DEFINED LLVM_PATH_FE )
+    message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for fronted using LLVM_PATH_FE parameter to CMAKE" )
+endif()
+
+set(LLVM_PATH ${LLVM_PATH_FE})
+find_package(LLVM REQUIRED)
+
 # remove the restriction of warning as error for this component
 if (NOT WIN32)
 remove_definitions( -Werror )

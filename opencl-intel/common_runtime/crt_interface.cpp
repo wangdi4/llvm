@@ -8976,7 +8976,6 @@ CL_API_ENTRY cl_mem CL_API_CALL clCreateFromVA_APIMediaSurfaceINTEL(
                                                     cl_context   context,
                                                     cl_mem_flags flags,
                                                     VASurfaceID  *surface,
-                                                    VADisplay    display,
                                                     cl_uint      plane,
                                                     cl_int       *errcode_ret )
 {
@@ -8995,7 +8994,6 @@ CL_API_ENTRY cl_mem CL_API_CALL clCreateFromVA_APIMediaSurfaceINTEL(
                                                                         context,
                                                                         flags,
                                                                         surface,
-                                                                        display,
                                                                         plane,
                                                                         &errorCode );
 

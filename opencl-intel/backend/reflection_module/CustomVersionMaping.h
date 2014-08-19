@@ -47,7 +47,7 @@ TableRow mappings[] = {
   {{"_f_v._Z9normalizeDv3_f","_f_v.__vertical_normalize3f2","_f_v.__vertical_normalize3f4","_f_v.__vertical_normalize3f8","_f_v.__vertical_normalize3f16",INVALID_ENTRY}, false, true},
   {{"_f_v._Z9normalizeDv4_f","_f_v.__vertical_normalize4f2","_f_v.__vertical_normalize4f4","_f_v.__vertical_normalize4f8","_f_v.__vertical_normalize4f16",INVALID_ENTRY}, false, true},
    */
-  
+
   // Do not try to scalarize/vectorize prefetches. No, really.
   {{"_Z8prefetchPKU3AS1cm", INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY}, false, false },
   {{"_Z8prefetchPKU3AS1hm", INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY, INVALID_ENTRY}, false, false },
@@ -106,7 +106,7 @@ TableRow mappings[] = {
   {{"_Z18__cl_islessgreaterdd" , "_Z18__cl_islessgreaterDv2_fS_", "_Z18__cl_islessgreaterDv4_fS_", "_Z18__cl_islessgreaterDv8_fS_", "_Z18__cl_islessgreaterDv16_fS_", "_Z18__cl_islessgreaterDv3_fS_"}, false, false },
   {{"_Z18__cl_islessgreaterff" , "_Z18__cl_islessgreaterDv2_dS_", "_Z18__cl_islessgreaterDv4_dS_", "_Z18__cl_islessgreaterDv8_dS_", "_Z18__cl_islessgreaterDv16_dS_", "_Z18__cl_islessgreaterDv3_dS_"}, false, false },
 
-  // fract, native_fract, modf, native_modf, sincos, native_sincos
+  // fract, native_fract, modf, sincos, native_sincos
   {{"_Z19__retbyvector_fractd" , INVALID_ENTRY, "_Z13fract_ret2ptrDv4_dPS_S0_" , "_Z13fract_ret2ptrDv8_dPS_S0_" , "_Z13fract_ret2ptrDv16_dPS_S0_" , INVALID_ENTRY}, false, true},
   {{"_Z19__retbyvector_fractf" , INVALID_ENTRY, "_Z13fract_ret2ptrDv4_fPS_S0_" , "_Z13fract_ret2ptrDv8_fPS_S0_" , "_Z13fract_ret2ptrDv16_fPS_S0_" , INVALID_ENTRY}, false, true},
   {{"_Z19__retbyvector_fractd" , "_Z18__retbyarray_fractDv2_d" , "_Z18__retbyarray_fractDv4_d" , "_Z18__retbyarray_fractDv8_d" , "_Z18__retbyarray_fractDv16_d" , "_Z18__retbyarray_fractDv3_d" }, true, false},
@@ -119,10 +119,6 @@ TableRow mappings[] = {
   {{"_Z26__retbyvector_native_fractf" , INVALID_ENTRY, "_Z20native_fract_ret2ptrDv4_fPS_S0_" , "_Z20native_fract_ret2ptrDv8_fPS_S0_" , "_Z20native_fract_ret2ptrDv16_fPS_S0_" , INVALID_ENTRY}, false, true},
   {{"_Z26__retbyvector_native_fractd" , "_Z25__retbyarray_native_fractDv2_d" , "_Z25__retbyarray_native_fractDv4_d" , "_Z25__retbyarray_native_fractDv8_d" , "_Z25__retbyarray_native_fractDv16_d" , "_Z25__retbyarray_native_fractDv3_d" }, true, false},
   {{"_Z26__retbyvector_native_fractf" , "_Z25__retbyarray_native_fractDv2_f" , "_Z25__retbyarray_native_fractDv4_f" , "_Z25__retbyarray_native_fractDv8_f" , "_Z25__retbyarray_native_fractDv16_f" , "_Z25__retbyarray_native_fractDv3_f" }, true, false},
-  {{"_Z25__retbyvector_native_modfd" , INVALID_ENTRY, "_Z19native_modf_ret2ptrDv4_dPS_S0_" , "_Z19native_modf_ret2ptrDv8_dPS_S0_" , "_Z19native_modf_ret2ptrDv16_dPS_S0_" , INVALID_ENTRY}, false, true},
-  {{"_Z25__retbyvector_native_modff" , INVALID_ENTRY, "_Z19native_modf_ret2ptrDv4_fPS_S0_" , "_Z19native_modf_ret2ptrDv8_fPS_S0_" , "_Z19native_modf_ret2ptrDv16_fPS_S0_" , INVALID_ENTRY}, false, true},
-  {{"_Z25__retbyvector_native_modfd" , "_Z24__retbyarray_native_modfDv2_d" , "_Z24__retbyarray_native_modfDv4_d" , "_Z24__retbyarray_native_modfDv8_d" , "_Z24__retbyarray_native_modfDv16_d" , "_Z24__retbyarray_native_modfDv3_d" }, true, false},
-  {{"_Z25__retbyvector_native_modff" , "_Z24__retbyarray_native_modfDv2_f" , "_Z24__retbyarray_native_modfDv4_f" , "_Z24__retbyarray_native_modfDv8_f" , "_Z24__retbyarray_native_modfDv16_f" , "_Z24__retbyarray_native_modfDv3_f" }, true, false},
   {{"_Z27__retbyvector_native_sincosd" , INVALID_ENTRY, "_Z21native_sincos_ret2ptrDv4_dPS_S0_" , "_Z21native_sincos_ret2ptrDv8_dPS_S0_" , "_Z21native_sincos_ret2ptrDv16_dPS_S0_" , INVALID_ENTRY}, false, true},
   {{"_Z27__retbyvector_native_sincosf" , INVALID_ENTRY, "_Z21native_sincos_ret2ptrDv4_fPS_S0_" , "_Z21native_sincos_ret2ptrDv8_fPS_S0_" , "_Z21native_sincos_ret2ptrDv16_fPS_S0_" , INVALID_ENTRY}, false, true},
   {{"_Z27__retbyvector_native_sincosd" , "_Z26__retbyarray_native_sincosDv2_d" , "_Z26__retbyarray_native_sincosDv4_d" , "_Z26__retbyarray_native_sincosDv8_d" , "_Z26__retbyarray_native_sincosDv16_d" , "_Z26__retbyarray_native_sincosDv3_d" }, true, false},
@@ -131,7 +127,7 @@ TableRow mappings[] = {
   {{"_Z20__retbyvector_sincosf" , INVALID_ENTRY, "_Z14sincos_ret2ptrDv4_fPS_S0_" , "_Z14sincos_ret2ptrDv8_fPS_S0_" , "_Z14sincos_ret2ptrDv16_fPS_S0_" , INVALID_ENTRY}, false, true},
   {{"_Z20__retbyvector_sincosd" , "_Z19__retbyarray_sincosDv2_d" , "_Z19__retbyarray_sincosDv4_d" , "_Z19__retbyarray_sincosDv8_d" , "_Z19__retbyarray_sincosDv16_d" , "_Z19__retbyarray_sincosDv3_d" }, true, false},
   {{"_Z20__retbyvector_sincosf" , "_Z19__retbyarray_sincosDv2_f" , "_Z19__retbyarray_sincosDv4_f" , "_Z19__retbyarray_sincosDv8_f" , "_Z19__retbyarray_sincosDv16_f" , "_Z19__retbyarray_sincosDv3_f" }, true, false},
-  
+
   // read / write image
   {{"_f_v._Z11read_imagefPU3AS110_image2d_t11ocl_samplerDv2_f",INVALID_ENTRY,"_Z33__read_transposed_imagef_resamplePU3AS110_image2d_t11ocl_samplerDv4_fS1_PS1_S2_S2_S2_",
     "_Z33__read_transposed_imagef_resamplePU3AS110_image2d_t11ocl_samplerDv8_fS1_PS1_S2_S2_S2_",INVALID_ENTRY,INVALID_ENTRY}, false, true},
@@ -139,15 +135,15 @@ TableRow mappings[] = {
     "_Z36__read_transposed_3d_imagef_resamplePU3AS110_image3d_t11ocl_samplerDv8_fS1_S1_PS1_S2_S2_S2_",INVALID_ENTRY,INVALID_ENTRY}, false, true},
   {{"_f_v._Z12write_imagefPU3AS110_image2d_tDv2_iDv4_f",INVALID_ENTRY,"_Z23write_transposed_imagefPU3AS110_image2d_tiiDv4_fS1_S1_S1_",
     "_Z23write_transposed_imagefPU3AS110_image2d_tiiDv8_fS1_S1_S1_",INVALID_ENTRY,INVALID_ENTRY}, false, true},
-  
+
   //ci_gamma
   {{"_f_v.__ci_gamma_scalar_SPI",INVALID_ENTRY,"_f_v.__ci_gamma_SPI","_f_v.__ci_gamma_SPI_8",INVALID_ENTRY,INVALID_ENTRY}, false, true},
 
   // wrappers
   { {"__ocl_allOne","__ocl_allOne_v2","__ocl_allOne_v4","__ocl_allOne_v8","__ocl_allOne_v16",INVALID_ENTRY}, false, true},
   { {"__ocl_allZero","__ocl_allZero_v2","__ocl_allZero_v4","__ocl_allZero_v8","__ocl_allZero_v16",INVALID_ENTRY}, false, true},
-  
-  
+
+
 };
 #else
 TableRow mappings[] = {

@@ -31,11 +31,12 @@ namespace Validation
     class IOpenCLKernelArgumentsParser
     {
     public:
-        /// @brief parse of kernel argument descriptions 
+        /// @brief parse of kernel argument descriptions
         /// @param [IN] programObject LLVM program object
         /// @param [IN] kernelName Name of kernel
         /// @return list of kernel argument descriptions
         virtual OCLKernelArgumentsList KernelArgumentsParser(const std::string& kernelName,const llvm::Module* programObject) = 0;
+        virtual ~IOpenCLKernelArgumentsParser() {}
     };
 
 

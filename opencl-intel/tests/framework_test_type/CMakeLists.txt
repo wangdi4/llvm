@@ -1,3 +1,19 @@
+#ensure we are using the frontend LLVM tools
+if( NOT DEFINED LLVM_PATH_FE )
+    message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for fronted using LLVM_PATH_FE parameter to CMAKE" )
+endif()
+
+set(LLVM_PATH ${LLVM_PATH_FE})
+find_package(LLVM REQUIRED)
+
+if( CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE OR ANDROID )
+   set(TOOLS_BINARY_DIR "${LLVM_BINARY_DIR}/../native/bin")
+else()
+   set(TOOLS_BINARY_DIR "${LLVM_BINARY_DIR}" )
+endif()
+
+set( CLANG "${TOOLS_BINARY_DIR}/clang" )
+
 # remove the restriction of warning as error for this component
 if (NOT WIN32)
 remove_definitions( -Werror )
@@ -125,19 +141,11 @@ if ( INCLUDE_MIC_DEVICE )
   set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/${MIC_OUTPUT_FILE} PROPERTIES GENERATED TRUE)
 endif ( INCLUDE_MIC_DEVICE )
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE} DESTINATION ${CREATE_DIR_NAME})
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE} DESTINATION bin)
 if ( INCLUDE_MIC_DEVICE )
   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${MIC_OUTPUT_FILE} DESTINATION ${CREATE_DIR_NAME})
-  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${MIC_OUTPUT_FILE} DESTINATION bin)
 endif ( INCLUDE_MIC_DEVICE )
 
 set_target_properties( ${TARGET} PROPERTIES FOLDER "validation/workloads" )
 #set_target_properties( framework_test_type_kernel PROPERTIES FOLDER "validation/workloads" )
 
 add_dependencies( ${TARGET} clang_compiler${BUILD_PLATFORM} )
-
-#copy external files that tests use
-file(GLOB_RECURSE CP_FILES RELATIVE  ${CMAKE_CURRENT_SOURCE_DIR} externals/*.cl )
-install(FILES ${CP_FILES} DESTINATION bin)
-install(FILES ${CP_FILES} DESTINATION ${CREATE_DIR_NAME})
-

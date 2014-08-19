@@ -20,9 +20,9 @@ Copyright 2000 - 2008 Intel Corporation All Rights Reserved.
 
 File Name: base_translation_controller.h
 
-Abstract: 
+Abstract:
 
-Notes: 
+Notes:
 
 \******************************************************************************/
 #pragma once
@@ -30,15 +30,6 @@ Notes:
 #include "tc_common.h"
 
 #define TC_SERIALIZE_BUILDS        ( 1 )  // 1 = disable re-entry to compiler DLLs
-
-#ifdef _MSC_VER
-#define TC_ENABLE_THREADING        ( 1 )  // 1 = allow builds to be spawned on new thread
-#else
-#define TC_ENABLE_THREADING        ( 0 )  // 0 = builds take place at the original process
-#endif
-
-#define TC_ENABLE_BUILD_TIMER      ( 1 )  // 1 = enable timing of builds
-#define TC_UNLOAD_FRONTEND_PER_USE ( 0 )  // 1 = unload the front end DLL per translate call
 #define TC_SUFFIX_LENGTH           ( 32 )
 
 namespace TC
@@ -48,11 +39,9 @@ class CTranslationController;
 class CTranslator;
 class CTranslationChain;
 struct SChainLink;
-    
+
 // global variables
 extern CTranslationController* g_pTranslationController;
-static const UINT g_scTranslationWaitMS = 5; // amount of ms to sleep per loop, 
-                                             // waiting for a threaded build
 
 /******************************************************************************\
 Class:
@@ -82,40 +71,27 @@ private:
 
     TC_RETVAL Initialize();
 
-    TC_RETVAL InitializeTranslation( 
-        STC_TranslateArgs* pTranslateArgs, 
-        UINT& startIdx, 
+    TC_RETVAL InitializeTranslation(
+        STC_TranslateArgs* pTranslateArgs,
+        UINT& startIdx,
         UINT& stopIdx );
 
     TC_RETVAL GetStartIndex( TC_CHAIN_TYPE chainType, TB_DATA_FORMAT inputType, UINT& startIdx );
     TC_RETVAL GetStopIndex( TC_CHAIN_TYPE chainType, TB_DATA_FORMAT outputType, UINT& stopIdx );
-
-    void DumpProgramData(
-        char* pBuffer,
-        UINT  size,
-        char* pFileName );
-
-    void PrintELF( char* pElfBinary, size_t elfBinarySize, char* pFilename );
 
     //Copying and Assignment is NOT allowed.
     CTranslationController( const CTranslationController &a );
     CTranslationController operator = ( CTranslationController a );
 
     bool  m_isInitialized;
-    bool  m_parseBinary;
 
     // Translators
     CTranslator* m_pFrontEnd;
-    CTranslator* m_pBackend;
 
     // Compiler links
-    SChainLink* m_pCLTxt2LLTxt;
-    SChainLink* m_pCLTxt2LLBin;
     SChainLink* m_pElf2LLBin;
-    SChainLink* m_pElf2LLLib;
 
     // Compiler chains
     CTranslationChain* m_pChains[TC_NUM_CHAIN_TYPES];
 };
-
 } // namespace TC

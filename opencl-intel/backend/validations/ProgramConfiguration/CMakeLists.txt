@@ -5,6 +5,7 @@ cmake_policy(SET CMP0011 OLD)
 set(TARGET_NAME ProgramConfiguration)
 
 include_directories(
+    ${LLVM_INCLUDE_DIR}
     ${VALIDATIONS_ROOT}/SATest
     ${VALIDATIONS_ROOT}/NEAT
     ${VALIDATIONS_ROOT}/Common

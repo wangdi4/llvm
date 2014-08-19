@@ -1,7 +1,7 @@
 # Create the passes seperate projects
 use_rtti( FALSE )
 
-
+include_directories(${LLVM_INCLUDE_DIR})
 add_subdirectory(AddImplicitArgs)
 add_subdirectory(OclFunctionAttrs)
 add_subdirectory(BuiltInFuncImport)

@@ -53,7 +53,7 @@ public:
   //(the previously given) library.
   //Returns value: IOCLFEBinaryResult, which contains the binary result in its
   //bytecode form, with some metadeta on it (size in bytes etc.)
-  Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult* build();
+  Intel::OpenCL::ClangFE::IOCLFEBinaryResult* build();
 
 private:
   CommonOCLBuilder();

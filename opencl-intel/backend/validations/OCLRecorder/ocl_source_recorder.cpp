@@ -17,10 +17,14 @@ File Name:  ocl_source_recorder.cpp
 \*****************************************************************************/
 
 #include <assert.h>
+#include <algorithm>
+#include <vector>
+
 #include "llvm/Support/MutexGuard.h"
 #include "ocl_source_recorder.h"
 #include "link_data.h"
 #include "compile_data.h"
+#include "common_clang.h"
 
 namespace Validation{
     using namespace Intel::OpenCL::Frontend;
@@ -29,7 +33,31 @@ namespace Validation{
     }
 
     void OclSourceRecorder::OnLink(const LinkData* linkData){
-      //TODO: to be implemented on OCL recorder for OCL 1.2
+      //Currently we are only supporting linking of the single buffer
+      if( linkData->inputBuffersCount() > 1 )
+          return;
+
+      // Nothing to do if link failed or output result not set
+      if( !linkData->getBinaryResult() )
+          return;
+
+      std::vector<LinkData::BufferInfo>::const_iterator it = linkData->beginInputBuffers(), ie = linkData->endInputBuffers();
+      for(;it != ie; ++it){
+        unsigned char* pInputBuff = (unsigned char*)const_cast<void*>(it->first);
+        MD5 md5Input(pInputBuff, it->second);
+        MD5Code inputHash = md5Input.digest();
+
+        unsigned char* pOutputBuff = (unsigned char*)const_cast<void*>(linkData->getBinaryResult()->GetIR());
+        MD5 md5Output(pOutputBuff, linkData->getBinaryResult()->GetIRSize());
+        MD5Code outputHash = md5Output.digest();
+
+        {
+          llvm::MutexGuard lock(m_sourcemapLock);
+          m_sourceMap[outputHash] = m_sourceMap[inputHash];
+        } 
+        // get out after first iteration
+        break;
+      }
     }
 
     //

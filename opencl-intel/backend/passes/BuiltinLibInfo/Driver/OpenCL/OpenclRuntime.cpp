@@ -50,17 +50,16 @@ const dotProdInlineData dotInlineTable [] = {
   {"_Z3dotDv4_dS_",4},
   {NULL,0}
 };
-  
+
 const char* BuiltinReturnByPtr[] = {
   "fract",
   "modf",
   "native_fract",
-  "native_modf",
   "native_sincos",
   "sincos",
 };
 const size_t BuiltinReturnByPtrLength = sizeof(BuiltinReturnByPtr) / sizeof(BuiltinReturnByPtr[0]);
-  
+
 
 /// @brief Constructor which get arbitraty table as input
 OpenclRuntime::OpenclRuntime(const Module *runtimeModule,
@@ -70,7 +69,7 @@ m_packetizationWidth(0) {
   initScalarSelectSet(scalarSelects);
   initDotMap();
 }
-  
+
 void OpenclRuntime::initDotMap() {
   const dotProdInlineData *entryPtr = dotInlineTable;
   while (entryPtr->name) {
@@ -199,7 +198,7 @@ bool OpenclRuntime::isSafeToSpeculativeExecute(const std::string &func_name) con
 bool OpenclRuntime::isExpensiveCall(const std::string &func_name) const {
   if (!isMangledName(func_name.c_str()))
     return false;
-  StringRef stripped = stripName(func_name.c_str()); 
+  StringRef stripped = stripName(func_name.c_str());
   return stripped.startswith("read_image") || stripped.startswith("write_image");
 }
 
@@ -212,7 +211,7 @@ bool OpenclRuntime::isWorkItemBuiltin(const std::string &name) const {
     CompilationUtils::isGetGroupId(name)   ||
     CompilationUtils::isGetWorkDim(name)   ||
     CompilationUtils::isGlobalOffset(name) ||
-    CompilationUtils::isGetNumGroups(name) || 
+    CompilationUtils::isGetNumGroups(name) ||
     (0 == name.compare("get_base_global_id.")) ||
     // The following is applicabble for OpenCL 2.0 or more recent versions.
     CompilationUtils::isGetEnqueuedLocalSize(name);
@@ -312,7 +311,7 @@ bool OpenclRuntime::isFakedFunction(StringRef fname)const{
   //the function resides within the runtime module.
   return (pMaskedFunction == NULL);
 }
-  
+
 unsigned OpenclRuntime::isInlineDot(const std::string &funcName) const{
   std::map<std::string, unsigned>::const_iterator it = m_dotOpWidth.find(funcName);
   if (it != m_dotOpWidth.end()) {
@@ -320,7 +319,7 @@ unsigned OpenclRuntime::isInlineDot(const std::string &funcName) const{
   }
   return 0;
 }
-  
+
 bool OpenclRuntime::isAtomicBuiltin(const std::string &func_name) const {
   Function *bltn = findInRuntimeModule(func_name);
   if (!bltn) return false;
@@ -349,5 +348,5 @@ bool OpenclRuntime::isScalarMinMaxBuiltin(StringRef funcName, bool &isMin,
       basicType != PRIMITIVE_ULONG)  return false;
   return true;
 }
-  
+
 } // Namespace

@@ -1,5 +1,5 @@
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -11,7 +11,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -24,7 +24,7 @@ template <typename T>
 class Fission_VR20_CL_R_CL_SIGNED_INT32 : public ImageTypedCommonRuntime<T>, public FissionWrapper{
 public:
 
-	virtual void SetUp() 
+	virtual void SetUp()
 	{
 		FissionWrapper::SetUp();
 		this->image_format.image_channel_order = CL_R;
@@ -44,24 +44,24 @@ static const char* d3KernelName = "read_write_image3D_int4_first";
 
 TYPED_TEST(Fission_VR20_CL_R_CL_SIGNED_INT32, Image2DReadWriteUseHostPtrCPUGPU)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));	
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
 	ASSERT_NO_FATAL_FAILURE(test2DReadWriteCommands<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName));
 }
 
 TYPED_TEST(Fission_VR20_CL_R_CL_SIGNED_INT32, Image3DReadWriteUseHostPtrCPUGPU)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));	
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
 	ASSERT_NO_FATAL_FAILURE(test3DReadWriteCommands<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName));
 }
 
 TYPED_TEST(Fission_VR20_CL_R_CL_SIGNED_INT32, Image2DReadWriteKernelCPUGPU)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));	
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
 	ASSERT_NO_FATAL_FAILURE(test2DReadWriteThroughKernel<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName));
 }
 
 TYPED_TEST(Fission_VR20_CL_R_CL_SIGNED_INT32, Image3DReadWriteKernelCPUGPU)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));	
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
 	ASSERT_NO_FATAL_FAILURE(test3DReadWriteThroughKernel<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName));
 }

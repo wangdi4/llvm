@@ -98,14 +98,7 @@ MICCompiler::MICCompiler(const IMICCompilerConfig& config):
 
 void MICCompiler::CreateExecutionEngine(llvm::Module* m)
 {
-    // !!!WORKAROUND!!! if module wasn't built previously than we use
-    // optimizer output to create execution engine in compiler
-    // spModule is now owned by the execution engine
-
-    if(!m_needLoadBuiltins)
-    {
-        m_pCGEngine = CreateMICCodeGenerationEngine( m );
-    }
+    m_pCGEngine = CreateMICCodeGenerationEngine( m );
 }
 
 MICCompiler::~MICCompiler()

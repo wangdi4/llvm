@@ -81,6 +81,10 @@ bool ChooseVectorizationDimension::canSwitchDimensions(Function* F) {
     (CompilationUtils::mangledGetGroupID());
   Function* localSize = F->getParent()->getFunction
     (CompilationUtils::mangledGetLocalSize());
+  Function* numGroups = F->getParent()->getFunction
+    (CompilationUtils::mangledGetNumGroups());
+  Function* enqueuedLocalSize = F->getParent()->getFunction
+    (CompilationUtils::mangledGetEnqueuedLocalSize());
 
   std::set<Function *> forbiddenFunctions;
   if (lid)
@@ -89,6 +93,10 @@ bool ChooseVectorizationDimension::canSwitchDimensions(Function* F) {
     forbiddenFunctions.insert(groupId);
   if (localSize)
     forbiddenFunctions.insert(localSize);
+  if (numGroups)
+    forbiddenFunctions.insert(numGroups);
+  if (enqueuedLocalSize)
+    forbiddenFunctions.insert(enqueuedLocalSize);
 
   std::set<Function *> userFuncs;
   LoopUtils::fillFuncUsersSet(forbiddenFunctions, userFuncs);
@@ -219,7 +227,6 @@ void ChooseVectorizationDimension::setFinalDecision(int dim, bool canUnitWorkGro
     canUnitWorkGroups = false;
   }
   Chosen_Vectorization_Dim = dim; // Statistics
-  dim = 0; // set dimension to zero temporarily to avoid regressions until commit by Ella&Mohammed.
   m_vectorizationDim = dim;
   m_canUniteWorkgroups = canUnitWorkGroups;
 }

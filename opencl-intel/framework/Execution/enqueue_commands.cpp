@@ -119,7 +119,7 @@ Command::~Command()
     RELEASE_LOGGER_CLIENT;
 }
 
-cl_err_code Command::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger& apiLogger)
+cl_err_code Command::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger)
 {
     if (NULL != cpEeventWaitList && NULL != pEvent && pEvent >= cpEeventWaitList && pEvent < &cpEeventWaitList[uNumEventsInWaitList])
     {
@@ -976,7 +976,7 @@ cl_err_code MapMemObjCommand::CommandDone()
 /******************************************************************
  *
  ******************************************************************/
-cl_err_code MapMemObjCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger& apiLogger)
+cl_err_code MapMemObjCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger)
 {
     // 'this' may disapper during Enqueue if it was successful!
     cl_err_code err = CL_SUCCESS;
@@ -1345,7 +1345,7 @@ cl_err_code UnmapMemObjectCommand::CommandDone()
 /******************************************************************
  *
  ******************************************************************/
-cl_err_code UnmapMemObjectCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger& apiLogger)
+cl_err_code UnmapMemObjectCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger)
 {
     cl_err_code err;
 

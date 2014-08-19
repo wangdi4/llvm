@@ -1,15 +1,25 @@
-#
-# Project variables:
-#  OCL_SOURCE_DIR    - points to the top src directory
-#  OCL_BINARY_DIR    - points to the directory outside of OCL_SOURCE_DIR - root of generated files
-#
-
-# set that name of the main output file as a target name
 set( TARGET_NAME Platform )
 
-FIND_SOURCES()
-CALCULATE_TARGET_SOURCES()
+set(TARGET_INCLUDE_FILES
+    Device.h
+    fe_compiler.h
+    iplatform.h
+    observer.h
+    platform_module.h
+)
 
-# add a target named ${TARGET_NAME}
-add_library (${TARGET_NAME} STATIC ${TARGET_SOURCES})
+set(TARGET_SOURCE_FILES
+    Device.cpp
+    fe_compiler.cpp
+    platform_module.cpp
+)
+
+include_directories( 
+            ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang 
+            )
+
+add_library (${TARGET_NAME} STATIC 
+             ${TARGET_SOURCE_FILES}
+             ${TARGET_INCLUDE_FILES})
+
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${RUNTIME_FOLDER_NAME} )

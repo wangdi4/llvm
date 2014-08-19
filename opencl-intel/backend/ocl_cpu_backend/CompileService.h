@@ -26,9 +26,7 @@ File Name:  CompileService.h
 #include "plugin_manager.h"
 #endif
 
-
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
 class CompileService: public ICLDevBackendCompilationService
 {
 public:
@@ -48,14 +46,14 @@ public:
      *  CL_DEV_OUT_OF_MEMORY if there's no sufficient memory
      *  CL_DEV_ERROR_FAIL in any other error
      */
-    cl_dev_err_code CreateProgram( const cl_prog_container_header* pByteCodeContainer,
-                                   ICLDevBackendProgram_** ppProgram) const;
+    cl_dev_err_code CreateProgram( const void* pBinary,
+                                   size_t uiBinarySize,
+                                   ICLDevBackendProgram_** ppProgram);
 
     /**
      * Releases Program instance
      */
     void ReleaseProgram( ICLDevBackendProgram_* pProgram) const;
-
 
     /**
      * Builds the program
@@ -107,6 +105,7 @@ public:
                                           const std::string& filename) const;
 
 protected:
+    virtual const ProgramBuilder* GetProgramBuilder() const = 0;
     virtual ProgramBuilder* GetProgramBuilder() = 0;
 
     // pointer to the Backend Factory, not owned by this class
@@ -116,7 +115,5 @@ protected:
     #ifdef OCL_DEV_BACKEND_PLUGINS
     mutable Intel::OpenCL::PluginManager   m_pluginManager;
     #endif
-
 };
-
 }}}

@@ -980,7 +980,6 @@ public:
     template <typename T>
     static NEATValue fmod( const NEATValue& dividend, const NEATValue& divisor)
     {
-        typedef typename superT<T>::type SuperT;
         if(dividend.IsAny() && divisor.IsAny())
             return NEATValue(NEATValue::ANY);
         // if a or b is NaN, res is NaN
@@ -1142,8 +1141,6 @@ public:
     template <typename T>
     static NEATValue remainder( const NEATValue& x, const NEATValue& y)
     {
-        typedef typename superT<T>::type SuperT;
-
         if(CheckAUU(x) || CheckAUU(y))
         {
             return NEATValue(NEATValue::UNKNOWN);
@@ -3052,7 +3049,6 @@ public:
     template<typename T>
     static NEATValue lgamma(const NEATValue& a)
     {
-        typedef typename superT<T>::type SuperT;
         if(CheckAUU(a))
             return NEATValue(NEATValue::UNKNOWN);
 
@@ -3097,7 +3093,6 @@ public:
     template<typename T>
     static NEATValue lgamma_r(const NEATValue& a, int32_t *signp)
     {
-        typedef typename superT<T>::type SuperT;
         if(CheckAUU(a))
             return NEATValue(NEATValue::UNKNOWN);
 
@@ -3151,7 +3146,6 @@ public:
     template<typename T>
     static NEATValue mad(const NEATValue& a, const NEATValue& b, const NEATValue& c)
     {
-        typedef typename superT<T>::type SuperT;
         if(CheckAUU(a) || CheckAUU(b) || CheckAUU(c))
             return NEATValue(NEATValue::UNKNOWN);
 
@@ -3434,8 +3428,6 @@ public:
     template<typename T>
     static NEATValue clamp(const NEATValue& a, const NEATValue& in_min, const NEATValue& in_max)
     {
-        typedef typename superT<T>::type SuperT;
-
         // If all values are NaNs then answer is NaN
         if(a.IsNaN<T>() || in_min.IsNaN<T>() || in_max.IsNaN<T>())
             return NEATValue::NaN<T>();

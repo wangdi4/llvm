@@ -18,6 +18,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Module.h"
+#include "llvm/DebugInfo.h"
 
 #include <sstream>
 #include <set>
@@ -79,11 +80,20 @@ bool CLWGLoopCreator::runOnModule(Module &M) {
         itrVecKernelInfo->second.get() && "Failed finding vectorized kernel info");
       //Set the vectorized width
       vectWidth = itrVecKernelInfo->second->getVectorizedWidth();
+
+      //save the relevant information from the vectorized kernel in skimd
+      //prior to erasing this information
+      unsigned int vectorizeOnDim = itrVecKernelInfo->second->getVectorizationDimension();
+      unsigned int canUniteWG = itrVecKernelInfo->second->getCanUniteWorkgroups();
+      skimd->setVectorizationDimension(vectorizeOnDim);
+      skimd->setCanUniteWorkgroups(canUniteWG);
+
       //Erase vectorized kernel info and update scalaized kernel info
       mdUtils.eraseKernelsInfoItem(itrVecKernelInfo);
       skimd->setVectorizedKernel(NULL);
       skimd->setVectorizedWidth(vectWidth);
     }
+
     // We can create loops for this kernel - runOnFunction on it!!
     changed |= runOnFunction(*F, vectKernel, vectWidth);
   }
@@ -460,7 +470,32 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
   }
   return vectorEntryBlock;
 }
-/*/
+*/
+
+static void dropSubprogramMDNode (DebugInfoFinder const& diFinder, const Value * subprog) {
+  for (DebugInfoFinder::iterator CUIter = diFinder.compile_unit_begin(),
+                                 E = diFinder.compile_unit_end(); CUIter != E; ++CUIter) {
+    bool found = false;
+    // Prepare operands for a new subprogram list excluding the specified subprogram
+    DICompileUnit compileUnit(*CUIter);
+    SmallVector<Value*, 16> operands;
+    DIArray oldSubprogList(compileUnit.getSubprograms());
+
+    for (unsigned i = 0; i < oldSubprogList.getNumElements(); i++) {
+      if (oldSubprogList.getElement(i) == subprog) {
+        found = true;
+      } else {
+        operands.push_back(oldSubprogList.getElement(i));
+      }
+    }
+
+    if (found) {
+      // Replace the old subprogram list MD node w\ the new one
+      MDNode *newSubprogList = MDNode::get(oldSubprogList->getContext(), operands);
+      oldSubprogList->replaceAllUsesWith(newSubprogList);
+    }
+  }
+}
 
 BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
   // Create denseMap of function arguments
@@ -473,11 +508,36 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
   for (; argIt != argE; ++argIt, ++VArgIt) {
   valueMap[VArgIt] = argIt;
   }
+
+  // Find the vector and scalar subprogram DIEs and map the vector DIE
+  // to the scalar DIE.
+  Value *scaSubprog = NULL; // scalar subprogram DIE
+  Value *vecSubprog = NULL; // vector subprogram DIE
+  DebugInfoFinder diFinder;
+  diFinder.processModule(*m_F->getParent());
+  for (DebugInfoFinder::iterator I = diFinder.subprogram_begin(),
+                                 E = diFinder.subprogram_end(); I != E; ++I) {
+    DISubprogram subprog(*I);
+    if (subprog.describes(m_F)) {
+      assert(scaSubprog == NULL && "there must be only one scalar subprogram DIE");
+      scaSubprog = subprog;
+
+    } else if(subprog.describes(m_vectorFunc)) {
+      assert(vecSubprog == NULL && "there must be only one vector subprogram DIE");
+      vecSubprog = subprog;
+    }
+  }
+  assert(((vecSubprog != NULL && scaSubprog != NULL) || (vecSubprog == NULL && scaSubprog == NULL)) &&
+         "scalar and vector subprogram DIEs must always go togeter");
+  if(vecSubprog && scaSubprog)
+    valueMap[vecSubprog] = scaSubprog;
+
   // create a list for return values
   SmallVector<ReturnInst*, 2> returns;
 
   // Do actual cloning work
-  CloneFunctionInto(m_F, m_vectorFunc, valueMap, false, returns, "vector_func");
+  // Set 'ModuleLevelChanges' to 'true' to update the debug metadata as well
+  CloneFunctionInto(m_F, m_vectorFunc, valueMap, true, returns, "vector_func");
   for(Function::iterator bbit = m_vectorFunc->begin(),
       bbe = m_vectorFunc->end(); bbit != bbe; ++bbit){
     BasicBlock *clonedBB = dyn_cast<BasicBlock>(valueMap[bbit]);
@@ -506,6 +566,11 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
   if (!m_vectorFunc->getNumUses()) {
     intel::Statistic::removeFunctionStats(*m_vectorFunc);
     m_vectorFunc->eraseFromParent();
+    // remove the DISubprogram metadata from the module
+    if(vecSubprog) {
+      assert(scaSubprog && "scalar DISubprogram must be present as well");
+      dropSubprogramMDNode(diFinder, vecSubprog);
+    }
   }
   return vectorEntryBlock;
 }

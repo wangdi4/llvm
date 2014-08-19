@@ -12,6 +12,12 @@ let Types = [v8i16],
   def __ocl_Half8ToFloat8   : OclBuiltin<"__ocl_Half8ToFloat8",   (outs v8f32:$ret), (ins gentype:$xmm0), [], [], 0, 0>;
 }
 
+let Types = [v16i16],
+    Attrs = [INTERNAL_INLINE, OVERLOADABLE],
+    NeedForwardDecl = 1 in {
+  def __ocl_Half16ToFloat16   : OclBuiltin<"__ocl_Half16ToFloat16",   (outs v16f32:$ret), (ins gentype:$xmm0), [], [], 0, 0>;
+}
+
 let Types = [v4f32],
     Attrs = [INTERNAL_INLINE, OVERLOADABLE],
     NeedForwardDecl = 1 in {
@@ -30,6 +36,16 @@ let Types = [v8f32],
   def __ocl_float2half8_rtn   : OclBuiltin<"__ocl_float2half8_rtn",   (outs v4f32:$ret), (ins gentype:$param), [], [], 0, 0>;
   def __ocl_float2half8_rtp   : OclBuiltin<"__ocl_float2half8_rtp",   (outs v4f32:$ret), (ins gentype:$param), [], [], 0, 0>;
   def __ocl_float2half8   : OclBuiltin<"__ocl_float2half8",   (outs v4f32:$ret), (ins gentype:$param), [], [], 0, 0>;
+}
+
+let Types = [v16f32],
+    Attrs = [INTERNAL_INLINE, OVERLOADABLE],
+    NeedForwardDecl = 1 in {
+  def __ocl_float2half16_rte   : OclBuiltin<"__ocl_float2half16_rte",   (outs v8f32:$ret), (ins gentype:$param), [], [], 0, 0>;
+  def __ocl_float2half16_rtz   : OclBuiltin<"__ocl_float2half16_rtz",   (outs v8f32:$ret), (ins gentype:$param), [], [], 0, 0>;
+  def __ocl_float2half16_rtn   : OclBuiltin<"__ocl_float2half16_rtn",   (outs v8f32:$ret), (ins gentype:$param), [], [], 0, 0>;
+  def __ocl_float2half16_rtp   : OclBuiltin<"__ocl_float2half16_rtp",   (outs v8f32:$ret), (ins gentype:$param), [], [], 0, 0>;
+  def __ocl_float2half16       : OclBuiltin<"__ocl_float2half16",       (outs v8f32:$ret), (ins gentype:$param), [], [], 0, 0>;
 }
 
 let Types = [v2f64],
@@ -52,6 +68,15 @@ let Types = [v4f64],
   def __ocl_double4ToHalf4   : OclBuiltin<"__ocl_double4ToHalf4",   (outs v4f32:$ret), (ins gentype:$param), [], [], 0, 0>;
 }
 
+let Types = [v8f64],
+    Attrs = [INTERNAL_INLINE, OVERLOADABLE],
+    NeedForwardDecl = 1 in {
+  def __ocl_double8ToHalf8_rte   : OclBuiltin<"__ocl_double8ToHalf8_rte",   (outs v4f32:$ret), (ins gentype:$param), [], [], 0, 0>;
+  def __ocl_double8ToHalf8_rtp   : OclBuiltin<"__ocl_double8ToHalf8_rtp",   (outs v4f32:$ret), (ins gentype:$param), [], [], 0, 0>;
+  def __ocl_double8ToHalf8_rtn   : OclBuiltin<"__ocl_double8ToHalf8_rtn",   (outs v4f32:$ret), (ins gentype:$param), [], [], 0, 0>;
+  def __ocl_double8ToHalf8_rtz   : OclBuiltin<"__ocl_double8ToHalf8_rtz",   (outs v4f32:$ret), (ins gentype:$param), [], [], 0, 0>;
+  def __ocl_double8ToHalf8   : OclBuiltin<"__ocl_double8ToHalf8",   (outs v4f32:$ret), (ins gentype:$param), [], [], 0, 0>;
+}
 // ****************************************************************************
 //                                 transpose
 // ****************************************************************************
@@ -112,11 +137,22 @@ def __ocl_masked_load4   : OclBuiltin<"__ocl_masked_load_$ReturnType",   (outs g
 def __ocl_masked_store4   : OclBuiltin<"__ocl_masked_store_$Arg1Type",   (outs), (ins pgentype:$pStoreAdd, gentype:$data, v4i32:$mask), [], [], 0, 0>, PRIVATE;
 }
 }
-let Types = [v8i32, v8i64, v8f32, v8f64] in {
-let NeedForwardDecl = 1 in {
+
+let Types = [v8i32, v8i64, v8f32, v8f64], NeedForwardDecl = 1 in {
 def __ocl_masked_load8   : OclBuiltin<"__ocl_masked_load_$ReturnType",   (outs gentype:$ret), (ins pgentype:$pLoadAdd, v8i32:$mask), [], [], 0, 0>, PRIVATE;
 def __ocl_masked_store8   : OclBuiltin<"__ocl_masked_store_$Arg1Type",   (outs), (ins pgentype:$pStoreAdd, gentype:$data, v8i32:$mask),[], [], 0, 0>, PRIVATE;
 }
+
+
+let Types = [v8i64, v8f64], NeedForwardDecl = 1 in {
+def __ocl_masked_load8_knl   : OclBuiltin<"__ocl_imasked_load_$ReturnType",   (outs gentype:$ret), (ins pgentype:$pLoadAdd, v1u8:$mask), [], [], 0, 0>, PRIVATE;
+def __ocl_masked_store8_knl   : OclBuiltin<"__ocl_imasked_store_$Arg1Type",   (outs), (ins pgentype:$pStoreAdd, gentype:$data, v1u8:$mask),[], [], 0, 0>, PRIVATE;
+}
+
+
+let Types = [v16i32, v16i64, v16f32, v16f64], NeedForwardDecl = 1 in {
+def __ocl_masked_load16_knl   : OclBuiltin<"__ocl_imasked_load_$ReturnType",   (outs gentype:$ret), (ins pgentype:$pLoadAdd, v1u16:$mask), [], [], 0, 0>, PRIVATE;
+def __ocl_masked_store16_knl   : OclBuiltin<"__ocl_imasked_store_$Arg1Type",   (outs), (ins pgentype:$pStoreAdd, gentype:$data, v1u16:$mask),[], [], 0, 0>, PRIVATE;
 }
 
 // ****************************************************************************

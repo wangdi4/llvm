@@ -1,6 +1,13 @@
 cmake_minimum_required(VERSION 2.8.7)
+# LLVM
 
-link_directories(${LLVM_LIBRARY_DIR})
+if( NOT DEFINED LLVM_PATH_BE )
+    message( FATAL_ERROR "LLVM_PATH_BE is not specified. Please specify LLVM library location for backend using LLVM_PATH_BE parameter to CMAKE" )
+endif()
+
+set(LLVM_PATH ${LLVM_PATH_BE})
+find_package(LLVM REQUIRED)
+message( STATUS "Backend LLVM_INCLUDE_DIR: ${LLVM_INCLUDE_DIR}")
 
 if( ANDROID )
     set( BACKEND_BUILD_TESTS            OFF  CACHE STRING "")
@@ -17,7 +24,7 @@ set_property( GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "__BUILD__")
 
 set( BACKEND_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set( BACKEND_FOLDER_NAME       Backend )
-set( BACKEND_TESTS_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/Tests )
+set( BACKEND_TESTS_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/tests )
 set( BACKEND_PASSES_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/passes )
 set( BACKEND_VALIDATION_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/validation )
 
@@ -106,8 +113,6 @@ option(LLVM_BUILD_APPLE_BACKEND "Build OpenCL CPU Apple backend plugin." OFF)
 
 project(Backend)
 
-include_directories(${LLVM_INCLUDE_DIR})
-message( STATUS "LLVM include directory: ${LLVM_INCLUDE_DIR}")
 set(ADD_CXX_FLAGS "-D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ADD_CXX_FLAGS}")
 use_rtti(FALSE)
@@ -188,13 +193,12 @@ else(LLVM_BUILD_APPLE_BACKEND)
     if (BACKEND_BUILD_VERIFICATION_LIB)
         add_subdirectory(external/tinyxml  "${CMAKE_CURRENT_BINARY_DIR}/tinyxml")
         add_subdirectory(validations       "${CMAKE_CURRENT_BINARY_DIR}/validations")
+        add_subdirectory(tests/type_conversion)
 
         # copying MICRegression suite tests to install directory
         install(DIRECTORY ${BACKEND_ROOT_DIR}/tests/MIC/satest/mic/
                 DESTINATION bin/validation/MICRegression/)
-    endif ()
 
-    if (BACKEND_BUILD_VERIFICATION_LIB)
         set_target_properties( DataVersion PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
         set_target_properties( Comparator PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
         set_target_properties( DataGenerator PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )

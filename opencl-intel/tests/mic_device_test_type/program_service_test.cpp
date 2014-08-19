@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -46,7 +46,7 @@
 bool BuildProgram(const char* szFileName, cl_dev_program* prog)
 {
 	bool isDLL = false;
-	unsigned int uiContSize = sizeof(cl_prog_container_header) + sizeof(cl_llvm_prog_header);
+	unsigned int uiContSize = 0;
 
 	FILE* pIRfile = NULL;
 	FOPEN(pIRfile, szFileName, "rb");
@@ -62,27 +62,16 @@ bool BuildProgram(const char* szFileName, cl_dev_program* prog)
 	fclose(pIRfile);
 
 	// Construct program container
-	cl_prog_container_header* pCont = (cl_prog_container_header*)malloc(uiContSize);
-
+	unsigned char* pCont = (unsigned char*)malloc(uiContSize);
 	if ( NULL == pCont )
 	{
 		return false;
 	}
-	memset(pCont, 0, sizeof(cl_prog_container_header)+ sizeof(cl_llvm_prog_header));
-
-	// Container mask
-	memcpy((void*)pCont->mask, _CL_CONTAINER_MASK_, sizeof(pCont->mask));
-
-	pCont->container_type = CL_PROG_CNT_PRIVATE;
-	pCont->description.bin_type = CL_PROG_BIN_EXECUTABLE_LLVM;
-	pCont->description.bin_ver_major = 1;
-	pCont->description.bin_ver_minor = 1;
 	pIRfile = NULL;
 	FOPEN(pIRfile, szFileName, "rb");
 	if ( NULL != pIRfile )
 	{
-		pCont->container_size = (unsigned int)GET_FPOS_T(fileSize) + sizeof(cl_llvm_prog_header);
-		fread(((unsigned char*)pCont)+sizeof(cl_prog_container_header)+ sizeof(cl_llvm_prog_header), 1, (size_t)GET_FPOS_T(fileSize), pIRfile);
+		fread(pCont, 1, (size_t)GET_FPOS_T(fileSize), pIRfile);
 		fclose(pIRfile);
 	}
 
@@ -111,7 +100,6 @@ bool CreateKernel(cl_dev_program prog, const char* szKernelName, cl_dev_kernel* 
 
 bool BuildFromBinary_test(const char* szDLLName, unsigned int uiTotal, const char* szKernelName, unsigned int uiParams)
 {
-
 	// Start kernels test
 	cl_dev_program	prog;
 	cl_dev_kernel id;

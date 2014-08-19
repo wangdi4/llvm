@@ -103,6 +103,11 @@ void CPUTestCallbacks::clDevCmdStatusChanged(cl_dev_cmd_id  cmd_id, void* data, 
 	}
 }
 
+Intel::OpenCL::TaskExecutor::ITaskExecutor* CPUTestCallbacks::clDevGetTaskExecutor() 
+{ 
+    return GetTaskExecutor(); 
+}
+
 //GetDeviceInfo with CL_DEVICE_TYPE test
 bool clGetDeviceInfo_TypeTest()
 {
@@ -662,7 +667,7 @@ TEST(CpuDeviceTestType, Test_ExecuteNativeKernel)
 
 TEST(CpuDeviceTestType, Test_BuildFromBinary)
 {
-	EXPECT_TRUE(BuildFromBinary_test("test.bc", 2, "dot_product", 3));
+	EXPECT_TRUE(BuildFromBinary_test("validation/cpu_device_test_type/test.bc", 2, "dot_product", 3));
 }
 
 TEST(CpuDeviceTestType, Test_memoryTest)
@@ -672,7 +677,7 @@ TEST(CpuDeviceTestType, Test_memoryTest)
 
 TEST(CpuDeviceTestType, Test_KernelExecute_Math)
 {
-	EXPECT_TRUE(KernelExecute_Math_Test("test.bc"));
+	EXPECT_TRUE(KernelExecute_Math_Test("validation/cpu_device_test_type/test.bc"));
 }
 
 #ifndef _WIN32

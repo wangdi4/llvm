@@ -8,6 +8,7 @@ set (CMP_INCLUDE_FILES
   )
 
 include_directories( 
+    ${LLVM_INCLUDE_DIR}
     ${VALIDATIONS_ROOT}/DataManager
     ${VALIDATIONS_ROOT}/NEAT
     ${BACKEND_ROOT_DIR}/../cl_api

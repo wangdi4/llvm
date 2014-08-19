@@ -2,13 +2,18 @@
 // Integers Built-In Functions
 // Generic
 
+// abs on signed long vector
+OclBuiltinImpl abs_i64 = OclBuiltinImpl<abs, [v8i64], 0, [{
+    return as_$ReturnType(($Arg0VarName < 0) ? -$Arg0VarName : $Arg0VarName);
+  }]>;
+
 /*****************************************************************\
  * abs_diff:                                                     *
  *   ugentype abs_diff (gentype x, gentype y)                    *
  *   Returns | x - y |                                           *
 \*****************************************************************/
 OclBuiltinImpl abs_diff_igeneric_not_shared = OclBuiltinImpl<abs_diff, [v16i16, v8i32, v4i64,
-                                                             v16u16, v8u32, v4u64], 0, abs_diff_igeneric_code>;
+                     v16u16, v8u32, v4u64, v16i32, v16u32, v8i64, v8u64], 0, abs_diff_igeneric_code>;
 
 
 /*****************************************************************\
@@ -46,7 +51,7 @@ OclBuiltinImpl rhadd_igeneric_not_shared = OclBuiltinImpl<rhadd, [v16i32], 0, rh
 
 // max vector
 OclBuiltinImpl max_ivector_not_shared = OclBuiltinImpl<max, [ v16i8, v8i16, v4i32, v16u8, v8u16, v4u32,
-                                                   v16i16, v8i32, v16u16, v8u32], 0, max_ivector_code>;
+                                                   v16i16, v8i32, v16u16, v8u32, v16i32, v16u32, v8i64, v8u64], 0, max_ivector_code>;
 
 
 /*****************************************************************\
@@ -58,7 +63,7 @@ OclBuiltinImpl max_ivector_not_shared = OclBuiltinImpl<max, [ v16i8, v8i16, v4i3
 
 // min vectors
 OclBuiltinImpl min_ivector_not_shared = OclBuiltinImpl<min, [ v16i8, v8i16, v4i32, v16u8, v8u16, v4u32,
-                                                   v16i16, v8i32, v16u16, v8u32] , 0, min_ivector_code>;
+                                                   v16i16, v8i32, v16u16, v8u32, v16i32, v16u32, v8i64, v8u64] , 0, min_ivector_code>;
 
 
 

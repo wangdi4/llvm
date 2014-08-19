@@ -106,7 +106,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
         ******************************************************************************************/
         PlatformModule * GetPlatformModule() const { return m_pPlatformModule; }
 
-           /******************************************************************************************
+        /******************************************************************************************
+        * Function:     GetTaskExecutor
+        * Description:    Get global TaskExecutor Interface for Framework
+        * Arguments:        
+        * Return value:  
+        * Author:        
+        * Date:            
+        ******************************************************************************************/
+        Intel::OpenCL::TaskExecutor::ITaskExecutor*  GetTaskExecutor() const;
+
+        /******************************************************************************************
         * Function:     Activate
         * Description:    Simple TaskExecutor Interface for Framework
         * Arguments:        
@@ -210,14 +220,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // handle to the configuration object
         OCLConfig * m_pConfig;
 
-        ocl_gpa_data m_GPAData;
+        mutable ocl_gpa_data m_GPAData;
 
         // handle to TaskExecutor
         // During shutdown task_executor dll may finish before current dll and destroy all internal objects
         // We can discover this case but we cannot access any task_executor object at that time point because
         // it may be already destroyed. As SharedPtr accesses the object itself to manage counters, we cannot use
         // SharedPointers at all.
-        Intel::OpenCL::TaskExecutor::ITaskExecutor*         m_pTaskExecutor;
+        mutable Intel::OpenCL::TaskExecutor::ITaskExecutor* m_pTaskExecutor;
         mutable Intel::OpenCL::TaskExecutor::ITaskList*     m_pTaskList;
         mutable unsigned int    m_uiTEActivationCount;
 
