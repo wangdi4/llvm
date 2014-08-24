@@ -45,6 +45,7 @@ void initializeRemoveDuplicationBarrierPass(llvm::PassRegistry&);
 void initializeSplitBBonBarrierPass(llvm::PassRegistry&);
 void initializeBarrierPass(llvm::PassRegistry&);
 void initializeWIRelatedValuePass(llvm::PassRegistry&);
+void initializeSinCosFoldPass(llvm::PassRegistry&);
 void initializeDataPerBarrierPass(llvm::PassRegistry&);
 void initializeDataPerValuePass(llvm::PassRegistry&);
 void initializePreventDivCrashesPass(llvm::PassRegistry&);

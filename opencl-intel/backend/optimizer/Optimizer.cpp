@@ -87,6 +87,7 @@ llvm::ModulePass *createReduceAlignmentPass();
 llvm::ModulePass* createProfilingInfoPass();
 llvm::Pass *createSmartGVNPass(bool, unsigned int);
 #endif
+llvm::ModulePass* createSinCosFoldPass();
 llvm::ModulePass *createResolveWICallPass();
 llvm::ModulePass *createDetectFuncPtrCalls();
 llvm::ModulePass *createDetectRecursionPass();
@@ -369,6 +370,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
         PM.add(createPrintIRPass(DUMP_IR_VECTORIZER,
                OPTION_IR_DUMPTYPE_BEFORE, pConfig->GetDumpIRDir()));
     }
+    PM.add(createSinCosFoldPass());
 #endif //#ifndef __APPLE__
     if(pRtlModule != NULL) {
         PM.add(createVectorizerPass(pRtlModule, pConfig));

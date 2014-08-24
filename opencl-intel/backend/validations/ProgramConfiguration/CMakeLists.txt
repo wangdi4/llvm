@@ -5,14 +5,14 @@ cmake_policy(SET CMP0011 OLD)
 set(TARGET_NAME ProgramConfiguration)
 
 include_directories(
-    ${LLVM_INCLUDE_DIR}
-    ${VALIDATIONS_ROOT}/SATest
-    ${VALIDATIONS_ROOT}/NEAT
-    ${VALIDATIONS_ROOT}/Common
-    ${VALIDATIONS_ROOT}/../external/tinyxml
-    ${BACKEND_ROOT_DIR}/../cl_api
-    ${VALIDATIONS_ROOT}/OCLKernelDataGenerator
-    ${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser
+  ${LLVM_INCLUDE_DIRS}
+  ${VALIDATIONS_ROOT}/SATest
+  ${VALIDATIONS_ROOT}/NEAT
+  ${VALIDATIONS_ROOT}/Common
+  ${VALIDATIONS_ROOT}/../external/tinyxml
+  ${BACKEND_ROOT_DIR}/../cl_api
+  ${VALIDATIONS_ROOT}/OCLKernelDataGenerator
+  ${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser
 )
 
 add_library(${TARGET_NAME} STATIC

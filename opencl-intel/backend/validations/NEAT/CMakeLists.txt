@@ -14,19 +14,19 @@ set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /fp:source /fp:strict /Qlong-double /Qpc80
 endif(WIN32)
 
 include_directories(
-    ${LLVM_INCLUDE_DIR}
-    ${BACKEND_ROOT_DIR}/../cl_api
-    ${CMAKE_CURRENT_SOURCE_DIR}/../REFALU
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ImathLibd
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Common
-    )
+  ${LLVM_INCLUDE_DIRS}
+  ${BACKEND_ROOT_DIR}/../cl_api
+  ${CMAKE_CURRENT_SOURCE_DIR}/../REFALU
+  ${CMAKE_CURRENT_SOURCE_DIR}/../ImathLibd
+  ${CMAKE_CURRENT_SOURCE_DIR}/../Common
+)
 
 add_library(${TARGET_NAME} STATIC
-    IntervalError.cpp
-    NEATALU.cpp
-    NEATValue.cpp
-    NEATVector.cpp
-    NEAT_WRAP.cpp
-    )
+  IntervalError.cpp
+  NEATALU.cpp
+  NEATValue.cpp
+  NEATVector.cpp
+  NEAT_WRAP.cpp
+)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_VALIDATION_FOLDER_NAME} )

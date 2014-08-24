@@ -37,7 +37,7 @@ using namespace Intel::OpenCL::Utils;
 #include <assert.h>
 #include <unistd.h>
 
-#include <sys/resource.h> 
+#include <sys/resource.h>
 #include <sys/sysinfo.h>
 
 #ifndef __ANDROID__
@@ -102,7 +102,7 @@ unsigned long long Intel::OpenCL::Utils::TotalPhysicalSize()
 unsigned long long Intel::OpenCL::Utils::MaxClockFrequency()
 {
 	static unsigned long long freq = 0;
-	unsigned int cpuInfo[4] = {-1};
+	unsigned int cpuInfo[4] = {0-1u};
 	char buffer[sizeof(cpuInfo)*3 + 1];
 	char* pBuffer = buffer;
 
@@ -344,7 +344,7 @@ unsigned long Intel::OpenCL::Utils::GetNumberOfProcessors()
         clGetThreadAffinityMask(&mask, mainThreadTID);
         numProcessors = CPU_COUNT(&mask);
     }
-    return numProcessors;        
+    return numProcessors;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -393,7 +393,7 @@ bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affi
         *nodeSize = node_size;
     }
     return true;
-#else 
+#else
     return false;
 #endif //DISABLE_NUMA_SUPPORT
 }
@@ -449,5 +449,5 @@ unsigned int Intel::OpenCL::Utils::GetThreadId()
 	return (unsigned int) gettid();
 #else
     return (unsigned int)syscall(SYS_gettid);
-#endif	
+#endif
 }

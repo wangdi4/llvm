@@ -9,7 +9,7 @@ include (../../cmake_utils/CMakeFuncs.txt)
 set( TARGET_NAME SumStats )
 
 include_directories(
-  ${LLVM_INCLUDE_DIR}
+  ${LLVM_INCLUDE_DIRS}
   ${CMAKE_BINARY_DIR}/include/
   ${BACKEND_ROOT_DIR}/metadata_api
 )

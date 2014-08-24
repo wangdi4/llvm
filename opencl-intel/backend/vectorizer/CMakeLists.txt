@@ -11,7 +11,7 @@ include_directories(BEFORE "OCLBranchProbability")
 include_directories(BEFORE "ChooseVectorizationDimension")
 
 include_directories(
-  ${LLVM_INCLUDE_DIR}
+  ${LLVM_INCLUDE_DIRS}
   ${BACKEND_ROOT_DIR}/arch_headers
   ${BACKEND_ROOT_DIR}/reflection_module
   ${BACKEND_ROOT_DIR}/name_mangling

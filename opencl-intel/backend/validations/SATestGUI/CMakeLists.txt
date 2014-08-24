@@ -15,7 +15,7 @@ if (WIN32)
 
     link_directories( "${ICC_WIN32_PATH}/compiler/lib/${ICC_PLATFORM}" )
 endif(WIN32)
-link_directories(${LLVM_LIBRARY_DIR})
+link_directories(${LLVM_LIBRARY_DIRS})
 
 SET(QT_USE_QTXML TRUE)
 file(GLOB SATESTGUI_SRCS *.cpp)
@@ -34,7 +34,7 @@ ADD_EXECUTABLE(${TARGET_NAME} ${SATESTGUI_SRCS}
         ${SATESTGUI_RC_SRCS})
 
 include_directories(
-    ${LLVM_INCLUDE_DIR}
+    ${LLVM_INCLUDE_DIRS}
     ${CMAKE_CURRENT_BINARY_DIR}
     ${VALIDATIONS_ROOT}/DataVersion
     ${VALIDATIONS_ROOT}/SATest

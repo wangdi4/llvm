@@ -3,7 +3,7 @@ use_eh(TRUE)
 set (TARGET_NAME OCLKernelDataGenerator)
 
 # TinyXML library is used for serialization to XML.
-include_directories(${LLVM_INCLUDE_DIR})
+include_directories(${LLVM_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../external/tinyxml)
 include_directories(${VALIDATIONS_ROOT}/DataManager )
 include_directories(${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser )

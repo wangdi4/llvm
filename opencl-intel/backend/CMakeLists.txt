@@ -7,7 +7,7 @@ endif()
 
 set(LLVM_PATH ${LLVM_PATH_BE})
 find_package(LLVM REQUIRED)
-message( STATUS "Backend LLVM_INCLUDE_DIR: ${LLVM_INCLUDE_DIR}")
+message( STATUS "Backend LLVM_INCLUDE_DIRS: ${LLVM_INCLUDE_DIRS}" )
 
 if( ANDROID )
     set( BACKEND_BUILD_TESTS            OFF  CACHE STRING "")
@@ -113,8 +113,7 @@ option(LLVM_BUILD_APPLE_BACKEND "Build OpenCL CPU Apple backend plugin." OFF)
 
 project(Backend)
 
-set(ADD_CXX_FLAGS "-D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ADD_CXX_FLAGS}")
+add_definitions(${LLVM_DEFINITIONS})
 use_rtti(FALSE)
 
 if (LLVM_BUILD_APPLE_BACKEND)

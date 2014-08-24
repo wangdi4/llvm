@@ -1,7 +1,7 @@
 use_eh(TRUE)
 
-include_directories(${LLVM_INCLUDE_DIR}
-                    ${VALIDATIONS_ROOT}/DataManager 
+include_directories(${LLVM_INCLUDE_DIRS}
+                    ${VALIDATIONS_ROOT}/DataManager
 )
 # NEAT library to (de)serialize NEAT data.
 include_directories(${VALIDATIONS_ROOT}/NEAT)

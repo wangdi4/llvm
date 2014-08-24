@@ -255,6 +255,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
 
     if (m_pConfig->GetCpuId().HasGatherScatter()) {
       // Register simplifyGEP only is GatherScatter is supported
+      fpm2.add(new WIAnalysis(m_vectorizationDim));
       FunctionPass *simplifyGEP = createSimplifyGEPPass();
       fpm2.add(simplifyGEP);
     }

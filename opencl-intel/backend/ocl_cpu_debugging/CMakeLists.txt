@@ -146,7 +146,7 @@ set (OCL_CPU_DEBUGGING_RC_FILES
 
 
 include_directories(
-  ${LLVM_INCLUDE_DIR}
+  ${LLVM_INCLUDE_DIRS}
   ${OCL_CPU_DEBUGGING_IMPORT_DIRS}
   ${OCL_SOURCE_DIR}/externals/tbb/include
 )

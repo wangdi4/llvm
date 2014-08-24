@@ -109,6 +109,10 @@ private:
   /// are zero
   /// @param M Module to place func
   void createAllOne(Module &M);
+  /// @brief returns true if the function arguments contain a pointer
+  /// to local memory, false otherwise.
+  /// @param F the function to test.
+  bool doFunctionArgumentsContainLocalMem(Function* F);
   /// @brief Create a function call from a general instruction
   /// @param inst Instruction to model
   /// @param pred predicator to consider
@@ -302,6 +306,10 @@ private:
   /// is present in m_predicatedToOriginalInst.
   /// @param inst The instruction to unpredicate.
   void unpredicateInstruction(Instruction* inst);
+  /// @brief returns true if the given instruction is a load
+  /// of local memory.
+  /// @param inst Instruction to test whether it is load of local memory.
+  bool isLocalMemoryConsecutiveLoad(Instruction* inst);
   /// @brief check if the instruction is a masked store or load
   /// with uniform parameters. That is, the mask is the only non-unifrom
   /// parameter.
@@ -460,7 +468,8 @@ private:
   int m_maskedStoreCtr;
   /// Counter for masked call
   int m_maskedCallCtr;
-
+  /// true if the predicated function gets arguments that are pointers to local mem.
+  bool m_hasLocalMemoryArgs;
   // Work-item analysis pointer
   WIAnalysis* m_WIA;
   // Dominator tree pointer.
@@ -489,6 +498,9 @@ private:
   Statistic AllOnes_Bypasses;
   Statistic AllOnes_Bypasses_Due_To_Non_Consecutive_Store_Load;
   Statistic Predicated;
+  Statistic Unpredicated_Uniform_Store_Load;
+  Statistic Unpredicated_Cosecutive_Local_Memory_Load;
+  Statistic Predicated_Consecutive_Local_Memory_Load;
   public: Statistic Edge_Not_Being_Specialized_Because_EdgeHot;
   public: Statistic Edge_Not_Being_Specialized_Because_EdgeHot_At_Least_50Insts;
   public: Statistic Edge_Not_Being_Specialized_Because_Should_Not_Specialize;

@@ -48,7 +48,7 @@ if (NOT APPLE)
 endif (NOT APPLE)
 
 include_directories(
-  ${LLVM_INCLUDE_DIR}
+  ${LLVM_INCLUDE_DIRS}
   ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
