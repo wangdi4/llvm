@@ -53,7 +53,7 @@ int EffectiveOptionsFilter::s_progID = 1;
 ///
 // Options filter that validates the opencl used options
 //
-std::string EffectiveOptionsFilter::processOptions(const OpenCLArgList& args, ArgsVector& effectiveArgs )
+std::string EffectiveOptionsFilter::processOptions(const OpenCLArgList& args, const char* pszOptionsEx, ArgsVector& effectiveArgs )
 {
     // Reset args
     int  iCLStdSet = 0;
@@ -175,14 +175,21 @@ std::string EffectiveOptionsFilter::processOptions(const OpenCLArgList& args, Ar
         iCLStdSet = 120;
     }
 
+    //add the external options verbatim
+    std::back_insert_iterator<ArgsVector> it( std::back_inserter(effectiveArgs));
+    quoted_tokenize(it, pszOptionsEx, " \t", '"', '\x00');
+
     effectiveArgs.push_back("-D");
     effectiveArgs.push_back("__OPENCL_VERSION__="+m_opencl_ver);
     effectiveArgs.push_back("-x");
     effectiveArgs.push_back("cl");
-    effectiveArgs.push_back("-S");
-    effectiveArgs.push_back("-emit-llvm-bc");
     effectiveArgs.push_back("-cl-kernel-arg-info");
     effectiveArgs.push_back("-O0"); // Don't optimize in the frontend
+
+    if( !strstr(pszOptionsEx, "-emit" ) && !strstr(pszOptionsEx, "-S") )
+    {
+        effectiveArgs.push_back("-emit-llvm-bc");
+    }
 
     effectiveArgs.push_back("-triple");
     if( szTriple.empty())
@@ -289,13 +296,9 @@ void CompileOptionsParser::processOptions(const char* pszOptions, const char* ps
     llvm::OwningPtr<OpenCLArgList> pArgs( m_optTbl.ParseArgs(pszOptions, missingArgIndex, missingArgCount));
 
     //post process logic
-    m_sourceName = m_commonFilter.processOptions(*pArgs, m_effectiveArgs);
+    m_sourceName = m_commonFilter.processOptions(*pArgs, pszOptionsEx, m_effectiveArgs);
     m_spirFilter.processOptions(*pArgs, m_effectiveArgs);
     m_pragmasFilter.processOptions(*pArgs, m_effectiveArgs);
-
-    //add the external options verbatim
-    std::back_insert_iterator<ArgsVector> it( std::back_inserter(m_effectiveArgs));
-    quoted_tokenize(it, pszOptionsEx, " \t", '"', '\x00');
 
     //build the raw options array
     for( ArgsVector::iterator it = m_effectiveArgs.begin(), end = m_effectiveArgs.end();
