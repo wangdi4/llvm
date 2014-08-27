@@ -263,11 +263,6 @@ void *CPUCompiler::GetPointerToFunction(llvm::Function *pf)
     return m_pExecEngine->getPointerToFunction(pf);
 }
 
-void CPUCompiler::freeMachineCodeForFunction(llvm::Function* pf) const
-{
-    // With MCJIT, memory is freed on a per-module basis, not per-function.
-}
-
 void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuFeatures )
 {
     Intel::ECPU selectedCpuId = Utils::GetOrDetectCpuId( cpuName );
@@ -315,12 +310,9 @@ void CPUCompiler::CreateExecutionEngine(llvm::Module* pModule)
     // Compiler keeps a pointer to the execution engine object
     // and is not responsible for EE release
     m_pExecEngine = CreateCPUExecutionEngine(pModule);
-
-    if (m_needLoadBuiltins)
-      m_pExecEngine->addModule(m_pBuiltinModule->GetRtlModule());
 }
 
-llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModule ) const
+llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModule) const
 {
     // Leaving MArch blank implies using auto-detect
     llvm::StringRef MCPU  = m_CpuId.GetCPUName();
@@ -388,48 +380,38 @@ void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) c
     std::string err;
     llvm::Triple triple(pModule->getTargetTriple());
     const llvm::Target *pTarget = llvm::TargetRegistry::lookupTarget(triple.getTriple(), err);
-
-
     if( !err.empty() || NULL == pTarget )
     {
         throw Exceptions::CompilerException(std::string("Failed to retrieve the target for given module during dump operation:") + err);
     }
 
-    std::vector<std::string> localCpuFeatures = m_forcedCpuFeatures;
-
-    std::string cpuName( m_CpuId.GetCPUName());
     TargetOptions Options;
-
     if (pModule->getNamedMetadata("opencl.enable.FP_CONTRACT")) {
         Options.AllowFPOpFusion = llvm::FPOpFusion::Fast;
     } else {
         Options.AllowFPOpFusion = llvm::FPOpFusion::Standard;
     }
 
+    std::string cpuName( m_CpuId.GetCPUName());
+    std::vector<std::string> localCpuFeatures = m_forcedCpuFeatures;
     std::string cpuFeatures( Utils::JoinStrings(localCpuFeatures, ","));
-
     TargetMachine* pTargetMachine = pTarget->createTargetMachine(triple.getTriple(), cpuName, cpuFeatures, Options);
-
     if( NULL == pTargetMachine )
     {
         throw Exceptions::CompilerException("Failed to create TargetMachine object");
     }
 
-    // Build up all of the passes that we want to do to the module.
-    PassManager pm;
-
     llvm::raw_fd_ostream out(filename.c_str(), err, llvm::raw_fd_ostream::F_Binary);
-
     if (!err.empty())
     {
         throw Exceptions::CompilerException(std::string("Failed to open the target file for dump:") + err);
     }
 
+    // Build up all of the passes that we want to do to the module.
+    PassManager pm;
     llvm::formatted_raw_ostream fos(out);
-
     pTargetMachine->addPassesToEmitFile(pm, fos, TargetMachine::CGFT_AssemblyFile, /*DisableVerify*/ true);
     pm.run(*pModule);
-
 }
 
 void CPUCompiler::SetObjectCache(ObjectCodeCache* pCache)

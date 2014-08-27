@@ -29,7 +29,8 @@ File Name:  Compiler.cpp
 #include "exceptions.h"
 #include "BuiltinModuleManager.h"
 #include "CompilationUtils.h"
-
+#include "MetaDataApi.h"
+#include "common_clang.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -56,14 +57,12 @@ using std::string;
 #include <iostream>
 #include <sstream>
 
-
 namespace llvm
 {
   extern bool DisablePrettyStackTrace;
 }
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
 void dumpModule(llvm::Module& m){
 #ifndef NDEBUG
   static unsigned counter=0;
@@ -128,9 +127,7 @@ void LogHasRecursion( llvm::raw_ostream& logs, const std::vector<std::string>& e
 }
 
 bool TerminationBlocker::s_released = false;
-
 } //namespace Utils
-
 
 ProgramBuildResult::ProgramBuildResult():
     m_result(CL_DEV_SUCCESS),
@@ -165,6 +162,57 @@ void ProgramBuildResult::SetBuildResult( cl_dev_err_code code )
 cl_dev_err_code ProgramBuildResult::GetBuildResult() const
 {
     return m_result;
+}
+
+CompilerBuildOptions::CompilerBuildOptions( llvm::Module* pModule):
+    m_debugInfo(false),
+    m_profiling(false),
+    m_disableOpt(false),
+    m_relaxedMath(false),
+    m_denormalsZero(false),
+    m_libraryModule(false),
+    m_APFLevel(0)
+{
+    assert(pModule);
+
+    NamedMDNode* metadata = pModule->getNamedMetadata("opencl.compiler.options");
+
+    if(NULL == metadata)
+    {
+        return;
+    }
+
+    if(metadata->getNumOperands() == 0)
+    {
+        return;
+    }
+
+    MDNode* flag = metadata->getOperand(0);
+    for(uint32_t i =0; flag && (i < flag->getNumOperands()); ++i)
+    {
+        MDString* flagName = dyn_cast<MDString>(flag->getOperand(i));
+
+        if(flagName->getString() == "-g")
+            m_debugInfo = true;
+        if(flagName->getString() == "-profiling")
+            m_profiling = true;
+        if(flagName->getString() == "-cl-opt-disable")
+            m_disableOpt = true;
+        if(flagName->getString() == "-cl-fast-relaxed-math")
+            m_relaxedMath = true;
+        if(flagName->getString() == "-create-library")
+            m_libraryModule = true;
+        if(flagName->getString() == "-cl-denorms-are-zero")
+            m_denormalsZero = true;
+        if(flagName->getString() == "-auto-prefetch-level=0")
+            m_APFLevel = 0;
+        if(flagName->getString() == "-auto-prefetch-level=1")
+            m_APFLevel = 1;
+        if(flagName->getString() == "-auto-prefetch-level=2")
+            m_APFLevel = 2;
+        if(flagName->getString() == "-auto-prefetch-level=3")
+            m_APFLevel = 3;
+    }
 }
 
 bool Compiler::s_globalStateInitialized = false;
@@ -204,11 +252,11 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
     std::vector<std::string> args;
 
     args.push_back("OclBackend");
-    // OpecnCL assumes stack is aligned
-    // We are forccing LLVM to align the stack
+    // OpenCL assumes stack is aligned
+    // We are forcing LLVM to align the stack
     args.push_back("-force-align-stack");
-    // SSE requirest maximum alignment of parameters of 16 bytes
-    // AVX265 requirest maximum alignment of parameters of 32 bytes
+    // SSE requires maximum alignment of parameters of 16 bytes
+    // AVX requires maximum alignment of parameters of 32 bytes
     args.push_back("-stack-alignment=32");
 
     if( config.EnableTiming() && false == config.InfoOutputFile().empty())
@@ -228,7 +276,7 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
 
     for(; i != e; ++i )
     {
-        //be carefull here. The pointer returned by c_str() is only guaranteed to remain unchanged
+        //be careful here. The pointer returned by c_str() is only guaranteed to remain unchanged
         //until the next call to a non-constant member function of the string object.
         argv.push_back( const_cast<char*>(i->c_str()) );
     }
@@ -239,7 +287,6 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
 
     s_globalStateInitialized = true;
 }
-
 
 /*
  * This is a static method which must be called from the
@@ -257,7 +304,6 @@ Compiler::Compiler(const ICompilerConfig& config):
     m_IRDumpAfter(config.GetIRDumpOptionsAfter()),
     m_IRDumpBefore(config.GetIRDumpOptionsBefore()),
     m_IRDumpDir(config.GetDumpIRDir()),
-    m_needLoadBuiltins(config.GetLoadBuiltins()),
     m_dumpHeuristicIR(config.GetDumpHeuristicIRFlag()),
     m_debug(false)
 {
@@ -274,25 +320,21 @@ Compiler::~Compiler()
     delete m_pLLVMContext;
 }
 
-llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
-                                     const CompilerBuildOptions* pOptions,
+llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
                                      ProgramBuildResult* pResult)
 {
-    assert(pIRBuffer && "pIRBuffer parameter must not be NULL");
+    assert(pModule && "pModule parameter must not be NULL");
     assert(pResult && "Build results pointer must not be NULL");
-    assert(pOptions && "Build options pointer must not be NULL");
 
     validateVectorizerMode(pResult->LogS());
 
-    //TODO: Add log
-    std::auto_ptr<llvm::Module> spModule(ParseModuleIR(pIRBuffer));
-    assert(spModule.get() && "Cannot Created llvm Module from the Program Bit Code");
-
     // Check if given program is valid for the target.
-    if (!isProgramValid(spModule.get(), pResult))
+    if (!isProgramValid(pModule, pResult))
     {
         throw Exceptions::CompilerException("Program is not valid for this target", CL_DEV_INVALID_BINARY);
     }
+
+    CompilerBuildOptions buildOptions(pModule);
 
     //
     // Apply IR=>IR optimizations
@@ -302,17 +344,17 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
                                             m_IRDumpAfter,
                                             m_IRDumpBefore,
                                             m_IRDumpDir,
-                                            pOptions->GetDebugInfoFlag(),
-                                            pOptions->GetProfilingFlag(),
-                                            pOptions->GetDisableOpt(),
-                                            pOptions->GetRelaxedMath(),
-                                            pOptions->GetlibraryModule(),
+                                            buildOptions.GetDebugInfoFlag(),
+                                            buildOptions.GetProfilingFlag(),
+                                            buildOptions.GetDisableOpt(),
+                                            buildOptions.GetRelaxedMath(),
+                                            buildOptions.GetlibraryModule(),
                                             m_dumpHeuristicIR,
-                                            pOptions->GetAPFLevel());
-    Optimizer optimizer( spModule.get(), GetRtlModule(), &optimizerConfig);
+                                            buildOptions.GetAPFLevel());
+    Optimizer optimizer( pModule, GetRtlModule(), &optimizerConfig);
     optimizer.Optimize();
 
-    if( optimizer.hasUndefinedExternals() && !pOptions->GetlibraryModule())
+    if( optimizer.hasUndefinedExternals() && !buildOptions.GetlibraryModule())
     {
         Utils::LogUndefinedExternals( pResult->LogS(), optimizer.GetUndefinedExternals());
         throw Exceptions::CompilerException( "Failed to parse IR", CL_DEV_INVALID_BINARY);
@@ -334,9 +376,9 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
     //
     // Populate the build results
     //
-    m_debug = pOptions->GetDebugInfoFlag();
+    m_debug = buildOptions.GetDebugInfoFlag();
 
-    //dumpModule(*(spModule.get()));
+    //dumpModule(*(pModule));
 
     pResult->SetBuildResult( CL_DEV_SUCCESS );
 
@@ -346,8 +388,8 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
     // as well and be responsible for release, of course.
 
     // Compiler creates execution engine but only keeps a pointer to the latest
-    CreateExecutionEngine(spModule.get());
-    return spModule.release();
+    CreateExecutionEngine(pModule);
+    return pModule;
 }
 
 llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
@@ -364,7 +406,7 @@ llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
     return pModule;
 }
 
-// for CPU implementation rtl module consisits of two libraries: shared (common for all cpu architectures)
+// for CPU implementation RTL module consists of two libraries: shared (common for all CPU architectures)
 // and particular (optimized for one architecture), they should be linked,
 // for KNC we have the particular RTL only
 llvm::Module* Compiler::CreateRTLModule(BuiltinLibrary* pLibrary) const
@@ -388,14 +430,18 @@ llvm::Module* Compiler::CreateRTLModule(BuiltinLibrary* pLibrary) const
 
     // on KNC we don't have shared (common) library, so skip loading
     if (pLibrary->GetCPU() != MIC_KNC) {
-        // the shared rtl is loaded here
+        // the shared RTL is loaded here
         llvm::MemoryBuffer* pRtlBufferSvmlShared = pLibrary->GetRtlBufferSvmlShared();
-
         std::auto_ptr<llvm::Module> spModuleSvmlShared(llvm::ParseBitcodeFile(pRtlBufferSvmlShared, *m_pLLVMContext));
 
         if ( NULL == spModuleSvmlShared.get()) {
             throw Exceptions::CompilerException("Failed to allocate/parse buitin module");
         }
+
+        // on both 64-bit and 32-bit platform the same shared RTL contatinig platform independent byte code is used,
+        // so set triple and data layout for shared RTL from particular RTL in order to avoid warnings from linker.
+        spModuleSvmlShared.get()->setTargetTriple(spModule.get()->getTargetTriple());
+        spModuleSvmlShared.get()->setDataLayout(spModule.get()->getDataLayout());
 
         std::string ErrorMessage;
         // we need to link particular and shared RTLs together
@@ -510,5 +556,4 @@ void UpdateTargetTriple(llvm::Module *pModule)
                                                   // i686-pc-win32-elf
   }
 }
-
 }}}

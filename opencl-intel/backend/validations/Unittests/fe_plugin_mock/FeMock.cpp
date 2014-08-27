@@ -26,7 +26,6 @@ using namespace Intel::OpenCL::Frontend;
 using namespace Intel::OpenCL::DeviceBackend;
 
 struct FePluginMock: ICLFrontendPlugin {
-
   FePluginMock(){
   }
 
@@ -41,16 +40,17 @@ struct FePluginMock: ICLFrontendPlugin {
 };
 
 struct NullPlugin: ICLDevBackendPlugin{
-  void OnCreateBinary(const ICLDevBackendKernel_* pKernel, 
-                      const _cl_work_description_type* pWorkDesc, 
-                      size_t bufSize, 
+  void OnCreateBinary(const ICLDevBackendKernel_* pKernel,
+                      const _cl_work_description_type* pWorkDesc,
+                      size_t bufSize,
                       void* pArgsBuffer){}
 
   void OnCreateKernel(const ICLDevBackendProgram_* pProgram,
                       const ICLDevBackendKernel_* pKernel,
-                      const llvm::Function* pFunction){}
+                      const void* pFunction){}
 
-  void OnCreateProgram(const _cl_prog_container_header* pContainer, 
+  void OnCreateProgram(const void* pBinary,
+                       size_t uiBinarySize,
                        const ICLDevBackendProgram_* pProgram){}
 
   void OnReleaseProgram(const ICLDevBackendProgram_* pProgram){}

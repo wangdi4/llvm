@@ -31,11 +31,18 @@ namespace Intel { namespace OpenCL { namespace Utils {
 #define START(x)	static Timer timer##x(#x); timer##x.start();
 #define STOP(x)		timer##x.stop();
 
+
+
 /**
  * This class represents a timer that measures time in microseconds from the moment it is m_bStarted until it is stopped
  */
 class Timer {
 public:
+
+	/**
+	 * @return the current time in microseconds
+	 */
+	static unsigned long long GetTimeInUsecs();
 
 #ifdef ENABLE_GLOBALLY  // an option for globally controlling the use of timers
     /**

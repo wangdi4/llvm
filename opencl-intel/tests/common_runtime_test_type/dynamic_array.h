@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2012 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 //
@@ -56,7 +56,7 @@ private:
 
 	//	canBeFreed - will deallocate memory in destructor iff is true
 	bool canBeFreed;
-	
+
 	// allocateAlignedArray - returns aligned array
 	inline void* allocateAlignedArray(size_t size);
 
@@ -86,17 +86,17 @@ private:
 		T initValue = (T)0;
 		for(int i=0; i<arraySize; ++i)
 		{
-			input_array[i] = initValue = getNextValue(initValue); 
+			input_array[i] = initValue = getNextValue(initValue);
 		}
 	}
 
 	//	initializeArray - initializes inputArray'selements with value
 	inline void initializeDynamicArray(T* inputArray, int arraySize, T value);
 
-public: 
+public:
 	T* dynamic_array;
 	int dynamic_array_size;
-	
+
 	DynamicArray(DynamicArray& rhs)
 	{
 		dynamic_array = NULL;
@@ -175,13 +175,13 @@ public:
 			ASSERT_TRUE(false) << "compareArray failed, different sizes";
 		}
 		for(int i=0; i<dynamic_array_size; ++i){
-			if(false == compare(rhsArray.dynamic_array[i],dynamic_array[i])){
+			if(false == VectorComparator<T>::compare(rhsArray.dynamic_array[i],dynamic_array[i])){
 				EXPECT_TRUE(false) << "compareArray failed for index " << i;
 				return;
 			}
 		}
 	}
-	
+
 	//	compareArray - compares this array to rhsArray (element-wise)
 	//	rhsArray must contain at least dynamic_array_size elements
 	inline void compareArray(T* rhsArray, size_t arraySize)
@@ -191,18 +191,18 @@ public:
 			ASSERT_TRUE(false) << "Null argument provided";
 		}
 		cl_float* float_array = new cl_float[dynamic_array_size];
-	
+
 		//copy current half array to float array
 		halfp2singles(float_array, dynamic_array, dynamic_array_size);
 
 		cl_float* float_array2 = new cl_float[dynamic_array_size];
-	
+
 		//copy current half array to float array
 		halfp2singles(float_array2, rhsArray, dynamic_array_size);
 
 		arraySize = arraySize<(cl_uint)dynamic_array_size?arraySize:dynamic_array_size;
 		for(cl_uint i=0; i<arraySize; ++i){
-			if(false == compare(rhsArray[i],dynamic_array[i])){
+			if(false == VectorComparator<T>::compare(rhsArray[i],dynamic_array[i])){
 				ASSERT_TRUE(false) << "compareArray failed for index " << i;
 				return;
 			}
@@ -214,7 +214,7 @@ public:
 	{
 		for(int i=0; i<dynamic_array_size; ++i){
 			if(expectedValue != dynamic_array[i]){
-				//	the following will always result in an error but will give informative output and will break from the loop	
+				//	the following will always result in an error but will give informative output and will break from the loop
 				EXPECT_EQ(expectedValue, dynamic_array[i]) << "compareArray failed for index " << i;
 				return;
 			}
@@ -237,7 +237,7 @@ public:
 		float actualSum = sumElements();
 		if(fabs(fabs(actualSum)-fabs(expectedSum))>1.0f){
 			EXPECT_EQ(actualSum, expectedSum) << "compareArraySum failed (content is not equal to expectedSum)";
-		}				
+		}
 	}
 
 	//	sumElements - returns sum of all elements in dynamic_array
@@ -342,7 +342,7 @@ inline void DynamicArray<cl_char2>::initializeDynamicArray(cl_char2* input_array
 	{
 		for(int k=0; k<2; ++k)
 		{
-			input_array[i].s[k] = initValue = getNextValue(initValue); 
+			input_array[i].s[k] = initValue = getNextValue(initValue);
 		}
 	}
 }
@@ -654,7 +654,7 @@ inline void DynamicArray<cl_long2>::initializeDynamicArray(cl_long2* input_array
 	{
 		for(int k=0; k<2; ++k)
 		{
-			input_array[i].s[k] = initValue = getNextValue(initValue); 
+			input_array[i].s[k] = initValue = getNextValue(initValue);
 		}
 	}
 }
@@ -990,19 +990,19 @@ template<>
 inline void DynamicArray<cl_half>::multBy(int value, bool saturate)
 {
 	cl_float* float_array = new cl_float[dynamic_array_size];
-	
+
 	//copy current half array to float array
 	halfp2singles(float_array, dynamic_array, dynamic_array_size);
-	
+
 	// multiply elements of float array
 	for(int i=0; i<dynamic_array_size; ++i){
-		float_array[i]*=value;		
+		float_array[i]*=value;
 	}
 
 	// copy float array back to singles array
 	singles2halfp(dynamic_array, float_array, dynamic_array_size);
 	delete[] float_array;
-	
+
 }
 
 template<>
@@ -1013,7 +1013,7 @@ inline void DynamicArray<cl_float4>::multBy(int value, bool saturate)
 		{
 			dynamic_array[i].s[k]*=value;
 		}
-		
+
 	}
 }
 
@@ -1040,7 +1040,7 @@ inline void DynamicArray<cl_char4>::multBy(int value, bool saturate)
 				dynamic_array[i].s[k]*=value;
 			}
 		}
-		
+
 	}
 }
 
@@ -1067,7 +1067,7 @@ inline void DynamicArray<cl_short4>::multBy(int value, bool saturate)
 				dynamic_array[i].s[k]*=value;
 			}
 		}
-		
+
 	}
 }
 
@@ -1079,7 +1079,7 @@ inline void DynamicArray<cl_int4>::multBy(int value, bool saturate)
 		{
 			dynamic_array[i].s[k]*=value;
 		}
-		
+
 	}
 }
 
@@ -1106,7 +1106,7 @@ inline void DynamicArray<cl_uchar4>::multBy(int value, bool saturate)
 				dynamic_array[i].s[k]*=value;
 			}
 		}
-		
+
 	}
 }
 
@@ -1133,7 +1133,7 @@ inline void DynamicArray<cl_ushort4>::multBy(int value, bool saturate)
 				dynamic_array[i].s[k]*=value;
 			}
 		}
-		
+
 	}
 }
 
@@ -1145,7 +1145,7 @@ inline void DynamicArray<cl_uint4>::multBy(int value, bool saturate)
 		{
 			dynamic_array[i].s[k]*=value;
 		}
-		
+
 	}
 }
 

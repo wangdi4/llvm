@@ -18,17 +18,72 @@ File Name:  LinkData.h
 #ifndef __LINKDATA_H__
 #define __LINKDATA_H__
 
-namespace Intel { namespace OpenCL { namespace Frontend {
+#include <vector>
+#include <string>
 
+namespace Intel { namespace OpenCL { namespace ClangFE {
+    struct IOCLFEBinaryResult;
+}}}
+
+using namespace Intel::OpenCL::ClangFE;
+
+namespace Intel { namespace OpenCL { namespace Frontend {
 //
 //Description:
 //  Represents the data used by a link operation.
-class LinkData{
+class LinkData
+{
+//typedefs
 public:
-  virtual ~LinkData(){}
+    typedef std::pair<const void*, size_t> BufferInfo;
+
+//methods
+public:
+    virtual ~LinkData(){}
+
+    void addInputBuffer(const void* pBuffer, size_t size)
+    {
+        m_inputBuffers.push_back( BufferInfo(pBuffer, size) );
+    }
+
+    size_t inputBuffersCount() const
+    {
+        return m_inputBuffers.size();
+    }
+
+    std::vector<BufferInfo>::const_iterator beginInputBuffers() const
+    {
+        return m_inputBuffers.begin();
+    }
+
+    std::vector<BufferInfo>::const_iterator endInputBuffers() const
+    {
+        return m_inputBuffers.end();
+    }
+
+    void setOptions(const char* pszOptions)
+    {
+        if( pszOptions )
+        {
+            m_options = pszOptions;
+        }
+    }
+
+    void setBinaryResult(IOCLFEBinaryResult* pResult)
+    {
+        m_pResult = pResult;
+    }
+
+    IOCLFEBinaryResult* getBinaryResult() const
+    {
+        return m_pResult;
+    }
+
+private:
+    std::vector<BufferInfo> m_inputBuffers;
+    IOCLFEBinaryResult* m_pResult;
+    std::string m_options;
 };
-
 }}}
-
 
 #endif

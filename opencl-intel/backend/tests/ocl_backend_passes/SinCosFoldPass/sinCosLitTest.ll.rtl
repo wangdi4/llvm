@@ -1,0 +1,41 @@
+; Function Attrs: nounwind readnone
+declare float @_Z3sinf(float %x) nounwind readnone
+
+; Function Attrs: nounwind readnone
+declare <2 x float> @_Z3sinDv2_f(<2 x float> %x) nounwind readnone
+
+; Function Attrs: nounwind readnone
+declare float @_Z3cosf(float %x) nounwind readnone
+
+; Function Attrs: nounwind readnone
+declare <2 x float> @_Z3cosDv2_f(<2 x float> %x) nounwind readnone
+
+; Function Attrs: nounwind readnone
+declare <2 x double> @_Z3cosDv2_d(<2 x double> %x) nounwind readnone
+
+; Function Attrs: nounwind readnone
+declare double @_Z3cosd(double %x) nounwind readnone
+
+; Function Attrs: nounwind readnone
+declare double @_Z3sind(double %x) nounwind readnone
+
+; Function Attrs: nounwind readnone
+declare <4 x float> @_Z3cosDv4_f(<4 x float> %x) nounwind readnone
+
+; Function Attrs: nounwind readnone
+declare <4 x float> @_Z3sinDv4_f(<4 x float> %x) nounwind readnone
+
+; Function Attrs: nounwind readnone
+declare <8 x float> @_Z3cosDv8_f(<8 x float> %x) nounwind readnone
+
+; Function Attrs: nounwind readnone
+declare <8 x float> @_Z3sinDv8_f(<8 x float> %x) nounwind readnone
+
+; Function Attrs: nounwind
+declare <4 x float> @_Z6sincosDv4_fPS_(<4 x float> %x, <4 x float>* nocapture %cosval) nounwind
+
+; Function Attrs: nounwind
+declare <8 x float> @_Z6sincosDv8_fPS_(<8 x float> %x, <8 x float>* nocapture %cosval) nounwind
+
+; Function Attrs: nounwind
+declare double @_Z6sincosdPd(double %x, double* nocapture %cosval) nounwind

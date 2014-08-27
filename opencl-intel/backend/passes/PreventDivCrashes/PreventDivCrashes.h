@@ -8,10 +8,12 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __PREVENT_DIV_CRASHES_H__
 #define __PREVENT_DIV_CRASHES_H__
 
+#include "BuiltinLibInfo.h"
+
 #include "llvm/Pass.h"
 #include "llvm/IR/InstrTypes.h"
 
-#include <set>
+#include <vector>
 
 namespace intel {
 
@@ -21,7 +23,7 @@ namespace intel {
   ///         div and rem instructions is not 0 and that there is no integer overflow (MIN_INT/-1).
   ///         In case the divisor is 0, PreventDivCrashes or there is integer overflow the pass
   ///         replaces the divisor with 1.
-  ///         PreventDivCrashes is intendent to prevent crashes during division.
+  ///         PreventDivCrashes is intended to prevent crashes during division.
   class PreventDivCrashes : public FunctionPass {
 
   public:
@@ -56,9 +58,33 @@ namespace intel {
   private:
     /// The division instructions (div, rem) in the function
     std::vector<BinaryOperator*> m_divInstuctions;
-
   };
 
+  /// @brief  OptimizeIDiv class replaces integer division and integer remainder
+  ///         with call to svml
+  class OptimizeIDiv : public FunctionPass {
+
+  public:
+    /// Pass identification, replacement for typeid
+    static char ID;
+
+    // Constructor
+    OptimizeIDiv() : FunctionPass(ID){}
+
+    /// @brief Provides name of pass
+    virtual const char *getPassName() const {
+      return "OptimizeIDiv";
+    }
+
+    /// @brief    LLVM Function pass entry
+    /// @param F  Function to transform
+    /// @returns  true if changed
+    virtual bool runOnFunction(Function &F);
+
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+      AU.addRequired<BuiltinLibInfo>();
+    }
+  };
 } // namespace intel
 
 #endif // __PREVENT_DIV_CRASHES_H__

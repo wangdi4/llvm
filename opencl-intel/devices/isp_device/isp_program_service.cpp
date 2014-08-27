@@ -94,7 +94,7 @@ cl_dev_err_code ISPProgramService::Init()
         return CL_DEV_ERROR_FAIL;
     }
     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Camera built-in commands added"));
-
+/*
     // Add built-in firmwares
     // TODO: Put in a config file or so
     std::string dirToSearch = "/etc/firmware/";
@@ -105,6 +105,13 @@ cl_dev_err_code ISPProgramService::Init()
     }
     //FindFirmwares("/system/etc/firmware/");
     dirToSearch = "/data/kernels/";
+    ret = FindFirmwares(dirToSearch);
+    if (CL_DEV_FAILED(ret))
+    {
+        return CL_DEV_ERROR_FAIL;
+    }*/
+
+    std::string dirToSearch = "/data/kernels/";
     ret = FindFirmwares(dirToSearch);
     if (CL_DEV_FAILED(ret))
     {
@@ -166,13 +173,13 @@ cl_dev_err_code ISPProgramService::FindFirmwares(std::string dir)
         file.read(fileContent, fileSize);
         file.close();
 
-        // check if valid binary
-        if (CL_DEV_FAILED(CheckProgramBinary(fileSize, fileContent)))
+        // check if valid binary // TODO
+        /*if (CL_DEV_FAILED(CheckProgramBinary(fileSize, fileContent)))
         {
             IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s%s"), TEXT("Not a valid firmware file - skipping: "), filename->c_str());
             delete[] fileContent;
             continue;
-        }
+        }*/
 
         // add the firmware to our built-ins
         if (CL_DEV_FAILED(m_pBuiltInKernelRegistry->AddFirmware(fileContent, fileSize)))
@@ -958,6 +965,9 @@ cl_dev_err_code ISPKernel::BuildFromBinary(std::string& log)
         return CL_DEV_INVALID_VALUE;
     }
 
+    m_requiredState = CAMERA_STATE_PREVIEW_STOPPED;
+    m_stateAfterExecution = CAMERA_STATE_INDIFFERENT;
+
     log.append("Building kernel " + m_kernelName + "\n");
 
     unsigned int currentOffset = 0; //no alignment required
@@ -1051,6 +1061,13 @@ cl_dev_err_code ISPKernel::BuildFromCommand(std::string& log)
             m_stateAfterExecution = CAMERA_STATE_PREVIEW_STOPPED;
             break;
 
+        case (CAMERA_BEGIN_PIPELINE):
+            AddKernelArgPrototype(CL_KRNL_ARG_PTR_GLOBAL, sizeof(cl_mem), 0, 0); // Image buffer
+            break;
+
+        case (CAMERA_END_PIPELINE):
+            break;
+
         default:
             log.append("Invalid command: " + m_kernelName + "\n");
             log.append("Build failed\n");
@@ -1118,6 +1135,8 @@ const char* ISPKernel::CommandToString(enum cameraCommand cmd)
         case (CAMERA_START_PREVIEW): return "CAMERA_START_PREVIEW";
         case (CAMERA_STOP_PREVIEW): return "CAMERA_STOP_PREVIEW";
         case (CAMERA_COPY_PREVIEW_BUFFER): return "CAMERA_COPY_PREVIEW_BUFFER";
+        case (CAMERA_BEGIN_PIPELINE): return "CAMERA_BEGIN_PIPELINE";
+        case (CAMERA_END_PIPELINE): return "CAMERA_END_PIPELINE";
 
         default:
             // Unknown command
@@ -1185,7 +1204,7 @@ BuiltInKernelRegistry::~BuiltInKernelRegistry()
 
     // release the fw info that was allocated on ISP
     std::vector<fw_info>::iterator blob = m_blobs.begin();
-    for ( ; blob != m_blobs.end(); ++blob);
+    for ( ; blob != m_blobs.end(); ++blob)
     {
         m_pCameraShim->host_free(blob->data);
     }
@@ -1378,9 +1397,14 @@ cl_dev_err_code ISPProgram::BuildFromBinary()
 
     m_buildLog.append("Build started\n");
 
-    char kernelName[KERNEL_NAME_MAX_LENGTH + 1];
+    //char * kernelName = "nv12convert";
+    //char kernelName[KERNEL_NAME_MAX_LENGTH + 1];
     // TODO: need to learn about CSS for this
-    SPRINTF_S(kernelName, sizeof(kernelName), "%s", (char*)m_binary + sizeof(struct sh_css_fw_info));
+    //SPRINTF_S(kernelName, sizeof(kernelName), "%s", (char*)m_binary + sizeof(struct sh_css_fw_info));
+
+    char kernelName[KERNEL_NAME_MAX_LENGTH + 1];
+    // TODO: nasty hack
+    SPRINTF_S(kernelName, sizeof(kernelName), "%s", (char*)m_binary + 0x3d8);
 
     m_buildLog.append("Found kernel " + std::string(kernelName) + "\n");
 

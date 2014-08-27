@@ -32,6 +32,7 @@
 #include "logger_test.h"
 #include <cl_device_api.h>
 #include <gtest/gtest.h>
+#include "cl_user_logger.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,7 +54,19 @@ RTMemObjService localRTMemService;
 
 // Static variables for testing
 static TestKernel_param_t	gNativeKernelParam;
-volatile bool	gExecDone = true; 
+volatile bool	gExecDone = true;
+
+namespace Intel { namespace OpenCL { namespace Utils {
+
+FrameworkUserLogger* g_pUserLogger = NULL;
+
+FrameworkUserLogger& FrameworkUserLogger::Instance()
+{
+  static FrameworkUserLogger instance;
+  return instance;
+}
+
+}}}
 
 unsigned int gDeviceIdInType = 0;
 class MICTestCallbacks : public IOCLFrameworkCallbacks
@@ -84,6 +97,8 @@ public:
 			profile_run = timer;
 		}
 	}
+
+    Intel::OpenCL::TaskExecutor::ITaskExecutor* clDevGetTaskExecutor() { return NULL; }
 };
 
 //GetDeviceInfo with CL_DEVICE_TYPE test
@@ -646,7 +661,7 @@ TEST(MicDeviceTestType, Test_CommandList)
 
 TEST(MicDeviceTestType, Test_BuildFromBinary)
 {
-	EXPECT_TRUE(BuildFromBinary_test("test.bc", 2, "dot_product", 3));
+	EXPECT_TRUE(BuildFromBinary_test("validation/mic_device_test_type/test.bc", 2, "dot_product", 3));
 }
 
 TEST(MicDeviceTestType, Test_memoryTest)
@@ -656,7 +671,7 @@ TEST(MicDeviceTestType, Test_memoryTest)
 
 TEST(MicDeviceTestType, Test_KernelExecute_Math)
 {
-	EXPECT_TRUE(KernelExecute_Math_Test("test.bc"));
+	EXPECT_TRUE(KernelExecute_Math_Test("validation/mic_device_test_type/test.bc"));
 }
 
 // Manual test, don't enable
@@ -711,7 +726,7 @@ int main(int argc, char* argv[])
 
 	gDeviceIdInType = deviceIdsList[0];
 
-	iRes = clDevCreateDeviceInstance(gDeviceIdInType, &dev_callbacks, &log_desc, &dev_entry);
+	iRes = clDevCreateDeviceInstance(gDeviceIdInType, &dev_callbacks, &log_desc, &dev_entry, NULL);
 	EXPECT_TRUE(CL_DEV_SUCCEEDED(iRes));
 
 	int rc = RUN_ALL_TESTS();

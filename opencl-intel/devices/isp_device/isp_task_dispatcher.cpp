@@ -39,7 +39,7 @@ using Intel::OpenCL::Utils::SharedPtr;
 ISPTaskDispatcher::ISPTaskDispatcher(cl_int devId, IOCLDevLogDescriptor *logDesc,
             IOCLFrameworkCallbacks* frameworkCallbacks, CameraShim* pCameraShim) :
 m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_pTaskExecutor(NULL),
-m_pFrameworkCallBacks(frameworkCallbacks), m_pCameraShim(pCameraShim)
+m_pFrameworkCallBacks(frameworkCallbacks), m_pCameraShim(pCameraShim), m_pIspExtensionManager(NULL)
 {
     if (NULL != logDesc)
     {
@@ -64,6 +64,11 @@ ISPTaskDispatcher::~ISPTaskDispatcher()
         IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Task Executer is deactivated"));
     }
 
+    if (NULL != m_pIspExtensionManager)
+    {
+        delete m_pIspExtensionManager;
+    }
+
     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("ISPDevice: Task Dispatcher - Destructed"));
 
     if (0 != m_iLogHandle)
@@ -84,6 +89,13 @@ cl_dev_err_code ISPTaskDispatcher::Init()
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid handle to Camera was provided by framework"));
         return CL_DEV_INVALID_VALUE;
+    }
+
+    m_pIspExtensionManager = new ISPExtensionManager(m_pCameraShim);
+    if (NULL == m_pIspExtensionManager)
+    {
+        IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Failed to allocate memory for ISP Extension mode preview manager"));
+        return CL_DEV_OUT_OF_MEMORY;
     }
 
     m_pTaskExecutor = GetTaskExecutor();
@@ -125,7 +137,7 @@ cl_dev_err_code ISPTaskDispatcher::CreateCommandList(cl_dev_cmd_list_props IN pr
     assert(0 == subdevice_id && "Subdevices feature is currently not supported");
 
     ISPDeviceQueue* pIspDeviceQueue = new ISPDeviceQueue(m_pLogDescriptor, m_iLogHandle,
-                                                        m_pFrameworkCallBacks, m_pCameraShim);
+                                                        m_pFrameworkCallBacks, m_pCameraShim, m_pIspExtensionManager);
     if (NULL == pIspDeviceQueue)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Cannot allocate memory for command list"));
@@ -374,9 +386,10 @@ cl_dev_err_code ISPTaskDispatcher::ReleaseCommand(cl_dev_cmd_desc* IN cmdToRelea
 // TODO: support multiple device queues
 cl_uint ISPDeviceQueue::m_deviceQueuesCount = 0;
 ISPDeviceQueue::ISPDeviceQueue(IOCLDevLogDescriptor* logDesc, cl_int logHandle,
-                               IOCLFrameworkCallbacks* frameworkCallbacks, CameraShim* pCameraShim) :
+                               IOCLFrameworkCallbacks* frameworkCallbacks, CameraShim* pCameraShim,
+                               ISPExtensionManager* pIspExtensionManager) :
 m_pLogDescriptor(logDesc), m_iLogHandle(logHandle), m_pFrameworkCallBacks(frameworkCallbacks),
-m_pCameraShim(pCameraShim)
+m_pCameraShim(pCameraShim), m_bExtModeEnabled(false), m_pIspExtensionManager(pIspExtensionManager)
 {
     assert(0 == m_deviceQueuesCount && "multiple device queues is not supported yet");
     m_deviceQueuesCount++;
@@ -414,40 +427,107 @@ fnDispatcherCommandCreate_t* ISPDeviceQueue::m_vCommands[] =
     NULL, //&NativeFunction::Create,        //    CL_DEV_CMD_EXEC_NATIVE,
     &FillMemoryObject::Create,          //    CL_DEV_CMD_FILL_BUFFER
     &FillMemoryObject::Create,          //    CL_DEV_CMD_FILL_IMAGE
-    NULL, //&MigrateMemObject::Create       //    CL_DEV_CMD_MIGRATE
+    &MigrateMemoryObject::Create        //    CL_DEV_CMD_MIGRATE
 };
 
-cl_dev_err_code ISPDeviceQueue::CreateCommand(cl_dev_cmd_desc* pCmd)
+cl_dev_err_code ISPDeviceQueue::CreateCommand(cl_dev_cmd_desc* pCmdDesc)
 {
-    if (NULL == pCmd)
+    if (NULL == pCmdDesc)
     {
         return CL_DEV_INVALID_VALUE;
     }
 
-    // TODO: add support for extension mode
-    // TODO: if not buffering commands -> execute
+    SharedPtr<ITaskBase> pCommand;
 
-    // TODO: if (CL_DEV_CMD_EXEC_KERNEL == pCmd->type)
-
-    assert(pCmd->type < CL_DEV_CMD_MAX_COMMAND_TYPE);
+    // TODO: what should we do in case commands buffering for extension mode fails ?
 
 
-    fnDispatcherCommandCreate_t* fnCreate = m_vCommands[pCmd->type];
+    assert(pCmdDesc->type < CL_DEV_CMD_MAX_COMMAND_TYPE);
+
+    // check for extension mode
+    if (CL_DEV_CMD_EXEC_KERNEL == pCmdDesc->type)
+    {
+        cl_dev_cmd_param_kernel* cmdParams = reinterpret_cast<cl_dev_cmd_param_kernel*>(pCmdDesc->params);
+        const ISPKernel* pIspKernel = reinterpret_cast<const ISPKernel*>(cmdParams->kernel);
+        if (CAMERA_BEGIN_PIPELINE == pIspKernel->GetCameraCommand())
+        {
+            if (m_bExtModeEnabled)
+            {
+                // CAMERA_BEGIN_PIPELINE was already enqueued and still not finished !
+                // TODO: fail!!
+            }
+            // pipeline setup starts now - buffer next commands
+            assert(m_bufferedCommands.empty() && "Extension mode is disabled while there are still buffered commands");
+            m_bufferedCommands.push_back(pCmdDesc);
+            m_bExtModeEnabled = true;
+            return CL_DEV_SUCCESS;
+        }
+        else if (CAMERA_END_PIPELINE == pIspKernel->GetCameraCommand())
+        {
+            if (!m_bExtModeEnabled)
+            {
+                // CAMERA_BEGIN_PIPELINE has not been enqueued !
+                // TODO: fail!!
+            }
+            m_bExtModeEnabled = false;
+            m_bufferedCommands.push_back(pCmdDesc);
+
+            cl_dev_err_code ret = PipelineNDRange::Create(this, m_bufferedCommands, &pCommand);
+
+            if (CL_DEV_SUCCEEDED(ret))
+            {
+                pCommand->IncRefCnt();
+                pCmdDesc->device_agent_data = pCommand.GetPtr();
+                m_pTaskList->Enqueue(pCommand);
+            }
+            else
+            {
+                // Try to notify about the error in the same list
+                ret = NotifyFailureForAll(m_bufferedCommands);
+            }
+
+            m_bufferedCommands.clear();
+
+            return ret;
+        }
+        else if (CAMERA_NO_COMMAND == pIspKernel->GetCameraCommand())
+        {
+            if (m_bExtModeEnabled)
+            {
+                // current command is a pipeline stage (we are between BEGIN_PIPELINE and END_PIPELINE)
+                assert(!m_bufferedCommands.empty() && "BEGIN_PIPELINE should have been buffered when extension mode is enabled");
+                m_bufferedCommands.push_back(pCmdDesc);
+                return CL_DEV_SUCCESS;
+            }
+            // else: stand-alone custom firmware
+            // TODO: should we clear running extensions?
+        }
+        else // all other commands
+        {
+            if (m_bExtModeEnabled)
+            {
+                // cannot add camera commands as pipeline stage !
+                // TODO: fail!!
+            }
+        }
+    }
+    // not extension mode command
+
+    fnDispatcherCommandCreate_t* fnCreate = m_vCommands[pCmdDesc->type];
 
     assert(NULL != fnCreate && "Invalid create command function");
 
-    SharedPtr<ITaskBase> pCommand;
-    cl_dev_err_code ret = fnCreate(this, pCmd, &pCommand);
+    cl_dev_err_code ret = fnCreate(this, pCmdDesc, &pCommand);
     if (CL_DEV_SUCCEEDED(ret))
     {
         pCommand->IncRefCnt();
-        pCmd->device_agent_data = pCommand.GetPtr();
+        pCmdDesc->device_agent_data = pCommand.GetPtr();
         m_pTaskList->Enqueue(pCommand);
     }
     else
     {
         // Try to notify about the error in the same list
-        ret = NotifyFailure(pCmd);
+        ret = NotifyFailure(pCmdDesc);
         if (CL_DEV_FAILED(ret))
         {
             return ret;
@@ -473,6 +553,17 @@ cl_dev_err_code ISPDeviceQueue::NotifyFailure(cl_dev_cmd_desc* pCmd)
     return CL_DEV_SUCCESS;
 }
 
+cl_dev_err_code ISPDeviceQueue::NotifyFailureForAll(std::vector<cl_dev_cmd_desc*>& cmds)
+{
+    for (std::vector<cl_dev_cmd_desc*>::iterator pCmd = cmds.begin();
+         pCmd != cmds.end();
+         ++pCmd)
+    {
+        NotifyFailure(*pCmd);
+    }
+    return CL_DEV_SUCCESS;
+}
+
 cl_dev_err_code ISPDeviceQueue::Cancel()
 {
     m_pTaskList->Cancel();
@@ -491,6 +582,8 @@ cl_dev_err_code ISPDeviceQueue::WaitForCommand(cl_dev_cmd_desc* pCmd)
 {
     // TODO: what about buffered commands?
     // TODO: cancel all buffered commands ? or insert implicit END_PIPELINE ? or return error ?
+
+    assert(!m_bExtModeEnabled && "wait for forever ?");
 
     assert(NULL != pCmd && "Invalid command descriptor, should call WaitForAllCommands() instead");
 
@@ -541,3 +634,182 @@ cl_dev_err_code ISPDeviceQueue::WaitForAllCommands()
     // else: waiting is not supported
     return CL_DEV_NOT_SUPPORTED;
 }
+
+cl_dev_err_code RunningExtension::Init(RequestedExtension* requestedExtension, CameraShim* pCameraShim)
+{
+    const ISPKernel* pIspKernel = requestedExtension->m_pIspKernel;
+    assert(NULL != pIspKernel && "Invalid kernel");
+    m_blob = pIspKernel->GetBlob();
+    m_pCameraShim = pCameraShim;
+
+    const size_t stArgsBufferSizePrototype = pIspKernel->GetKernelArgsBufferSize();
+
+    // store a copy of the original arguments for later
+    m_pOriginalArgs = (void*)new char[stArgsBufferSizePrototype];
+    MEMCPY_S(m_pOriginalArgs, stArgsBufferSizePrototype, requestedExtension->m_pKernelArgs, stArgsBufferSizePrototype);
+
+    // firmware is already allocated on ISP, just need to upload it
+    status_t ret = m_pCameraShim->acc_upload_fw_extension(m_blob);
+    assert(0 == ret && "TODO: handle errors");
+
+    void* pAllocatedArgsBuffer = NULL;
+    isp_ptr pMappedArgsBuffer = NULL;
+
+    // allocate required buffer on ISP
+    pAllocatedArgsBuffer = m_pCameraShim->host_alloc(stArgsBufferSizePrototype);
+    assert(NULL != pAllocatedArgsBuffer && "TODO: handle errors");
+    m_allocatedBuffers.push_back(pAllocatedArgsBuffer);
+
+    // copy the actual arguments values
+    MEMCPY_S(pAllocatedArgsBuffer, stArgsBufferSizePrototype, m_pOriginalArgs, stArgsBufferSizePrototype);
+
+    // TODO: add mapping of the actual pointers arguments
+
+    // map whole argument buffer to ISP space
+    ret = m_pCameraShim->acc_map(pAllocatedArgsBuffer, pMappedArgsBuffer);
+    assert(0 == ret && "TODO: handle errors");
+    m_mappedPointers.push_back(pMappedArgsBuffer);
+
+    // send the mapped arguments buffer to ISP
+    ret = m_pCameraShim->acc_sendarg(m_blob, pMappedArgsBuffer);
+    assert(0 == ret && "TODO: handle errors");
+
+    return CL_DEV_SUCCESS;
+}
+
+cl_dev_err_code RunningExtension::Clean()
+{
+    m_pCameraShim->acc_unload(m_blob);
+
+    std::vector<void*>::iterator mappedPointer = m_mappedPointers.begin();
+    for ( ; mappedPointer != m_mappedPointers.end(); ++mappedPointer)
+    {
+        m_pCameraShim->acc_unmap(*mappedPointer);
+    }
+
+    std::vector<void*>::iterator allocatedBuffer = m_allocatedBuffers.begin();
+    for ( ; allocatedBuffer != m_allocatedBuffers.end(); ++allocatedBuffer)
+    {
+        m_pCameraShim->host_free(*allocatedBuffer);
+    }
+
+    if (NULL != m_pOriginalArgs)
+    {
+        delete[] m_pOriginalArgs;
+    }
+
+    return CL_DEV_SUCCESS;
+}
+
+bool RunningExtension::isDifferentFrom(RequestedExtension* requestedExtension)
+{
+    const ISPKernel* pIspKernel = requestedExtension->m_pIspKernel;
+
+    if (m_blob.data != pIspKernel->GetBlob().data ||
+        m_blob.size != pIspKernel->GetBlob().size )
+    {
+        // firmware is different
+        return true;
+    }
+
+    size_t argsSize = pIspKernel->GetKernelArgsBufferSize();
+
+    if (0 != memcmp(m_pOriginalArgs, requestedExtension->m_pKernelArgs, argsSize))
+    {
+        // kernel arguments are different
+        return true;
+    }
+
+    return false;
+}
+
+cl_dev_err_code ISPExtensionManager::RequestExtension(const ISPKernel* pIspKernel, const void* pKernelArgs)
+{
+    RequestedExtension requestedExtension(pIspKernel, pKernelArgs);
+    m_vRequestedExtensions.push_back(requestedExtension);
+
+    return CL_DEV_SUCCESS;
+}
+
+cl_dev_err_code ISPExtensionManager::ClearRequested()
+{
+    m_vRequestedExtensions.clear();
+
+    return CL_DEV_SUCCESS;
+}
+
+cl_dev_err_code ISPExtensionManager::ClearRunning()
+{
+    m_pCameraShim->preview_stop();
+
+    for (std::vector<RunningExtension>::iterator runningExtension = m_vRunningExtensions.begin();
+         runningExtension != m_vRunningExtensions.end();
+         ++runningExtension)
+    {
+        runningExtension->Clean();
+    }
+    m_vRunningExtensions.clear();
+
+    return CL_DEV_SUCCESS;
+}
+
+bool ISPExtensionManager::NeedToRecreate()
+{
+    if (m_vRunningExtensions.size() != m_vRequestedExtensions.size())
+    {
+        // number of stages is different, thus need to re-create
+        return true;
+    }
+
+    std::vector<RunningExtension>::iterator runningExtension = m_vRunningExtensions.begin();
+    std::vector<RequestedExtension>::iterator requestedExtension = m_vRequestedExtensions.begin();
+
+    // compare the requested stages vs the already running stages
+    for ( ; runningExtension != m_vRunningExtensions.end() &&
+            requestedExtension != m_vRequestedExtensions.end();
+        ++runningExtension, ++requestedExtension)
+    {
+        if (runningExtension->isDifferentFrom(&(*requestedExtension)))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+cl_dev_err_code ISPExtensionManager::CreatePipelineFromRequested()
+{
+    // check if pipeline needs to be recreated
+    if (!NeedToRecreate())
+    {
+        // no need to recreate the pipeline
+        ClearRequested();
+        return CL_DEV_SUCCESS;
+    }
+
+    // clear the current running pipeline
+    ClearRunning();
+
+    // create new pipeline
+    for (std::vector<RequestedExtension>::iterator requestedExtension = m_vRequestedExtensions.begin();
+         requestedExtension != m_vRequestedExtensions.end();
+         ++requestedExtension)
+    {
+        RunningExtension runningExtension;
+        if (CL_FAILED(runningExtension.Init(&(*requestedExtension), m_pCameraShim)))
+        {
+            ClearRunning();
+            ClearRequested();
+            return CL_DEV_ERROR_FAIL;
+        }
+        m_vRunningExtensions.push_back(runningExtension);
+    }
+
+    ClearRequested();
+
+    return CL_DEV_SUCCESS;
+}
+
+
+

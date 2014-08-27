@@ -408,10 +408,10 @@ void FrameworkProxy::Initialize()
     m_pExecutionModule = new ExecutionModule(m_pPlatformModule, m_pContextModule);
     m_pExecutionModule->Initialize(&OclEntryPoints, m_pConfig, &m_GPAData);
 
-	// Initialize TaskExecutor
-	LOG_INFO(TEXT("%s"), "Initialize Executor");
-	m_pTaskExecutor = GetTaskExecutor();
-  m_pTaskExecutor->Init(&GetUserLoggerInstance(), TE_AUTO_THREADS, &m_GPAData);
+#ifdef __ANDROID__
+    // Init task executor and load TBB immediately
+    GetTaskExecutor();
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -594,10 +594,32 @@ FrameworkProxy* FrameworkProxy::Instance()
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+// FrameworkProxy::GetTaskExecutor()
+///////////////////////////////////////////////////////////////////////////////////////////////////
+Intel::OpenCL::TaskExecutor::ITaskExecutor*  FrameworkProxy::GetTaskExecutor() const
+{
+    if (NULL == m_pTaskExecutor)
+    {
+        // Initialize TaskExecutor
+        OclAutoMutex cs(&m_initializationMutex);
+        if (NULL == m_pTaskExecutor)
+        {
+            LOG_INFO(TEXT("%s"), "Initialize Executor");
+            m_pTaskExecutor = TaskExecutor::GetTaskExecutor();
+            m_pTaskExecutor->Init(g_pUserLogger, TE_AUTO_THREADS, &m_GPAData);
+        }
+    }
+
+    return m_pTaskExecutor;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // FrameworkProxy::ActivateTaskExecutor()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 bool FrameworkProxy::ActivateTaskExecutor() const
 {
+    ITaskExecutor* pTaskExecutor = GetTaskExecutor();
+
     OclAutoMutex cs(&m_initializationMutex);
 
     if (NULL == m_pTaskList)
@@ -609,7 +631,7 @@ bool FrameworkProxy::ActivateTaskExecutor() const
 
         // create root device in flat mode. Use all available HW threads 
         // and allow non-worker threads to participate in execution but do not assume they will join.
-        SharedPtr<ITEDevice> pTERootDevice = m_pTaskExecutor->CreateRootDevice(
+        SharedPtr<ITEDevice> pTERootDevice = pTaskExecutor->CreateRootDevice(
                     RootDeviceCreationParam(TE_AUTO_THREADS, TE_ENABLE_MASTERS_JOIN, 1));
 
         SharedPtr<ITaskList> pTaskList;

@@ -42,7 +42,7 @@ class VR17_Fission: public FissionWrapper{};
 
 TEST_F(VR17_Fission, SharedTask)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(ocl_descriptor));
 	// set up OpenCL context, program and queues
 	ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "shared_kernel.cl"));
 	// create 2 shared kernels

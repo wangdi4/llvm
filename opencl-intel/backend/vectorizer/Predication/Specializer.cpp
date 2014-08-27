@@ -4,6 +4,7 @@ Subject to the terms and conditions of the Master Development License
 Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
+#define DEBUG_TYPE "Specializer"
 #include "Specializer.h"
 #include "Predicator.h"
 #include "Linearizer.h"
@@ -22,10 +23,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/IntrinsicInst.h"
 
 #include <stack>
-
-static cl::opt<unsigned>
-SpecializeThreshold("specialize-threshold", cl::init(15), cl::Hidden,
-  cl::desc("The cut-off point for specialization of a single basic block"));
+    static cl::opt<unsigned>
+        SpecializeThreshold("specialize-threshold", cl::init(15), cl::Hidden,
+                            cl::desc("The cut-off point for specialization of "
+                                     "a single basic block"));
 
 static cl::opt<bool>
 EnableSpecialization("specialize", cl::init(true), cl::Hidden,
@@ -239,13 +240,13 @@ bool FunctionSpecializer::CanSpecialize() {
 void FunctionSpecializer::ObtainMasksToZero(BypassInfo & bi) {
   V_ASSERT(bi.m_postDom && bi.m_foot && "NULL argumnets?");
   std::vector<std::pair<BasicBlock*, BasicBlock*> > outMasks;
-  // We need to make sure the outmask on the region exit edge is zero if 
+  // We need to make sure the outmask on the region exit edge is zero if
   // we by pass the region.
   outMasks.push_back (std::make_pair(bi.m_postDom, bi.m_foot));
 
   // It can be that we bypass the preheader of a loop but we will not bypass
-  // the loop itself when the exit edge is between the loop preheader and the 
-  // loop header. The preheader initializes the loop\exit masks of the loop 
+  // the loop itself when the exit edge is between the loop preheader and the
+  // loop header. The preheader initializes the loop\exit masks of the loop
   // so we need to enforce them being 0 in case the preheader is skipped (which
   // means the loop should be masked out, and the exit edges are zero also).
   Loop *footLoop = m_LI->getLoopFor(bi.m_foot);
@@ -336,7 +337,7 @@ void FunctionSpecializer::addAuxBBForSingleExitEdge(BypassInfo & info) {
       }
     }
 
-    // Update the scheduling constrains for the predicated regions 
+    // Update the scheduling constrains for the predicated regions
     SchdConstMap & predSched = m_WIA->getSchedulingConstraints();
     for (SchdConstMap::iterator itr = predSched.begin();
            itr != predSched.end();
@@ -606,8 +607,8 @@ BasicBlock* FunctionSpecializer::createIntermediateBlock(
 void FunctionSpecializer::ZeroBypassedMasks(BypassInfo & bi, BasicBlock *src,
                                     BasicBlock *exit, BasicBlock *footer) {
   // Some mask are initialized or computed inside the region but are used
-  // outside the region. These edges, blocks of these masks were collected 
-  // in the collectDominanceInfo stage. we use phi node that collect the 
+  // outside the region. These edges, blocks of these masks were collected
+  // in the collectDominanceInfo stage. we use phi node that collect the
   // value computed inside the region or zero if the region is bypassed, and
   // set the mask in the region footer.
   std::map<BypassInfo, BasicBlock*, BypassInfoComparator>::iterator inIt = m_inMasksToZero.find(bi);

@@ -220,7 +220,7 @@ TaskDispatcher::TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *devCallback
 
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("TaskDispatcher Created"));
 
-    m_pTaskExecutor = GetTaskExecutor();
+    m_pTaskExecutor = m_pFrameworkCallBacks->clDevGetTaskExecutor();
     m_pGPAData = m_pTaskExecutor->GetGPAData();
 
     assert(devCallbacks);    // We assume that pointer to callback functions always must be provided

@@ -47,7 +47,7 @@ TEST_F(VR7_Fission, CPUThenGPUBufferSynch)
 	// all elements of array matching cpu_replacement will be replaced with gpu_replacement in GPU
 	int gpu_replacement = 5;
 
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(ocl_descriptor));
 
 	// allocate OpenCL objects and determined devices order and execute kernels	
 	// execute kernels
@@ -82,7 +82,7 @@ TEST_F(VR7_Fission, GPUThenCPUBufferSynch)
 	// all elements of array matching cpu_replacement will be replaced with gpu_replacement in GPU
 	int gpu_replacement = 5;
 
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(ocl_descriptor));
 
 	// allocate OpenCL objects and determined devices order and execute kernels	
 	// execute kernels
@@ -119,6 +119,6 @@ TEST_F(VR7_Fission, GPUThenCPUBufferSynch)
 //|
 TEST_F(VR7_Fission, SharedBufferCPUGPU)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(ocl_descriptor));
 	ASSERT_NO_FATAL_FAILURE(sharedBufferCPUGPUBody(ocl_descriptor));
 }

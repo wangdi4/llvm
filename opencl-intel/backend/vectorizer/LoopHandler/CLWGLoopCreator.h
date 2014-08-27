@@ -208,6 +208,13 @@ private:
   /// @returns number of dimensions.
   unsigned computeNumDim();
 
+  /// @brief returns the "true" dimension taking into account that
+  /// the vectorized dimension might not be 0. If m_vectorizedDim
+  /// is 0, then the returned value is always the same as dim.
+  /// but suppose m_vectorizedDim is 1, then resolveDimension(1) = 0,
+  /// and resolveDimension(0) = 1. Since now dim 1 is the innermost loop.
+  unsigned int resolveDimension(unsigned int dim);
+
   ///@brief size_t type.
   Type *m_indTy;
 
@@ -279,6 +286,9 @@ private:
 
   ///@brief early exit call.
   CallInst *m_EECall;
+
+  ///@brief the dimension by which we vectorize (usually 0).
+  unsigned int m_vectorizedDim;
 };// CLWGLoopCreator
 } //namespace
 

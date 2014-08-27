@@ -1,8 +1,8 @@
 // Copyright (c) 2008-2013 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -95,7 +95,7 @@ ExecutionModule::ExecutionModule( PlatformModule *pPlatformModule, ContextModule
 }
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
 ExecutionModule::~ExecutionModule()
 {
@@ -104,7 +104,7 @@ ExecutionModule::~ExecutionModule()
 
 /******************************************************************
  * This function initialize the execution modeule.
- * If this function fails, the object must be released. 
+ * If this function fails, the object must be released.
  * If the caller will not release it, other function will terminate
  * the application.
  ******************************************************************/
@@ -119,7 +119,7 @@ cl_err_code ExecutionModule::Initialize(ocl_entry_points * pOclEntryPoints, OCLC
     m_pGPAData = pGPAData;
 
     m_opencl_ver = pOclConfig->GetOpenCLVersion();
-    
+
     if ( (NULL == m_pOclCommandQueueMap) || ( NULL == m_pEventsManager))
     {
         return CL_ERR_FAILURE;
@@ -152,13 +152,13 @@ cl_err_code ExecutionModule::Release(bool bTerminate)
 }
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
-cl_command_queue ExecutionModule::CreateCommandQueue(    
+cl_command_queue ExecutionModule::CreateCommandQueue(
     cl_context                  clContext,
     cl_device_id                clDevice,
     const cl_command_queue_properties* clQueueProperties,
-    cl_int*                     pErrRet             
+    cl_int*                     pErrRet
     )
 {
     cl_command_queue iQueueID   = CL_INVALID_HANDLE;
@@ -199,10 +199,10 @@ cl_command_queue ExecutionModule::CreateCommandQueue(
             errVal = pCommandQueue->Initialize();
             if(CL_SUCCEEDED(errVal))
             {
-                // TODO: guard ObjMap... better doing so inside the map        
+                // TODO: guard ObjMap... better doing so inside the map
                 m_pOclCommandQueueMap->AddObject(pCommandQueue);
                 iQueueID = pCommandQueue->GetHandle();
-                
+
                 // this is the first place where we are sure that the commmand queue was created
                 errVal = pCommandQueue->GPA_InitializeQueue();
             }
@@ -246,7 +246,7 @@ static cl_err_code ParseQueueProperties(const cl_command_queue_properties* clQue
             {
                 cl_uint uiMaxQueueSize;
                 const cl_err_code err = pDev->GetInfo(CL_DEVICE_QUEUE_ON_DEVICE_MAX_SIZE, sizeof(uiMaxQueueSize), &uiMaxQueueSize, NULL);
-            
+
                 if (CL_FAILED(err))
                 {
                     return err;
@@ -272,11 +272,11 @@ static cl_err_code ParseQueueProperties(const cl_command_queue_properties* clQue
 }
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
 cl_err_code ExecutionModule::CheckCreateCommandQueueParams( cl_context clContext, cl_device_id clDevice, const cl_command_queue_properties* clQueueProperties, SharedPtr<Context>* ppContext,
                                                             cl_command_queue_properties& queueProps, cl_uint& uiQueueSize)
-{       
+{
     *ppContext = m_pContextModule->GetContext(clContext);
     if (NULL == *ppContext)
     {
@@ -286,7 +286,7 @@ cl_err_code ExecutionModule::CheckCreateCommandQueueParams( cl_context clContext
     SharedPtr<FissionableDevice> pDev = (*ppContext)->GetDevice(clDevice);
     if (NULL == pDev)
     {
-        return CL_INVALID_DEVICE;        
+        return CL_INVALID_DEVICE;
     }
     if (NULL == clQueueProperties)
     {
@@ -317,7 +317,7 @@ bool ExecutionModule::IsValidQueueHandle(cl_command_queue clCommandQueue)
 }
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
 cl_err_code ExecutionModule::RetainCommandQueue(cl_command_queue clCommandQueue)
 {
@@ -331,13 +331,13 @@ cl_err_code ExecutionModule::RetainCommandQueue(cl_command_queue clCommandQueue)
 }
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
 cl_err_code ExecutionModule::ReleaseCommandQueue(cl_command_queue clCommandQueue)
 {
     cl_err_code errCode = Flush(clCommandQueue);
     if ( CL_FAILED(errCode) )
-    {        
+    {
         return errCode;
     }
     m_pOclCommandQueueMap->GetOCLObject((_cl_command_queue_int*)clCommandQueue).StaticCast<OclCommandQueue>()->ReleaseQueue();
@@ -350,7 +350,7 @@ cl_err_code ExecutionModule::ReleaseCommandQueue(cl_command_queue clCommandQueue
 }
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
 cl_err_code ExecutionModule::GetCommandQueueInfo( cl_command_queue clCommandQueue, cl_command_queue_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet )
 {
@@ -369,7 +369,7 @@ cl_err_code ExecutionModule::GetCommandQueueInfo( cl_command_queue clCommandQueu
 
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
 cl_err_code ExecutionModule::SetCommandQueueProperty ( cl_command_queue clCommandQueue, cl_command_queue_properties clProperties, cl_bool bEnable, cl_command_queue_properties* pclOldProperties)
 {
@@ -383,11 +383,11 @@ cl_err_code ExecutionModule::SetCommandQueueProperty ( cl_command_queue clComman
     if(NULL != pclOldProperties)
     {
         *pclOldProperties = 0x0;
-        if( pOclCommandQueue->IsProfilingEnabled() ) 
+        if( pOclCommandQueue->IsProfilingEnabled() )
         {
             *pclOldProperties |= CL_QUEUE_PROFILING_ENABLE;
         }
-        if( pOclCommandQueue->IsOutOfOrderExecModeEnabled() ) 
+        if( pOclCommandQueue->IsOutOfOrderExecModeEnabled() )
         {
             *pclOldProperties |= CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE;
         }
@@ -402,7 +402,7 @@ cl_err_code ExecutionModule::SetCommandQueueProperty ( cl_command_queue clComman
     else
     {
         // Check that only properties that are defined by the spec are in use
-        cl_command_queue_properties mask = ( CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE 
+        cl_command_queue_properties mask = ( CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE
                                            | CL_QUEUE_PROFILING_ENABLE );
 
         if ( ( clProperties & mask ) == 0 )
@@ -428,11 +428,11 @@ cl_err_code ExecutionModule::SetCommandQueueProperty ( cl_command_queue clComman
             // Asked to set profiling
             pOclCommandQueue->EnableProfiling( bEnable );
         }
-        
+
         if( CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE == (clProperties & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE))
         {
             // Asked to set execution mdoe
-            pOclCommandQueue->EnableOutOfOrderExecMode( bEnable );  
+            pOclCommandQueue->EnableOutOfOrderExecMode( bEnable );
         }
     }
     return CL_SUCCESS;
@@ -440,7 +440,7 @@ cl_err_code ExecutionModule::SetCommandQueueProperty ( cl_command_queue clComman
 
 /******************************************************************
  * On flush, the implementation always create a flush command
- * Enqueue 
+ * Enqueue
  ******************************************************************/
 cl_err_code ExecutionModule::Flush ( cl_command_queue clCommandQueue )
 {
@@ -452,7 +452,7 @@ cl_err_code ExecutionModule::Flush ( cl_command_queue clCommandQueue )
         if (!IsValidQueueHandle(clCommandQueue))    // otherwise it's just a device queue, which isn't a IOclCommandQueueBase
         {
             res = CL_INVALID_COMMAND_QUEUE;
-        }        
+        }
     }
     else
     {
@@ -481,7 +481,7 @@ cl_err_code ExecutionModule::Finish ( const SharedPtr<IOclCommandQueueBase>& pCo
     cl_err_code res = CL_SUCCESS;
     cl_event dummy = NULL;
 
-    res = EnqueueMarker(pCommandQueue, &dummy);
+    res = EnqueueMarker(pCommandQueue, &dummy, NULL);
     if (CL_FAILED(res))
     {
         return res;
@@ -505,17 +505,17 @@ cl_err_code ExecutionModule::Finish ( const SharedPtr<IOclCommandQueueBase>& pCo
 /**
  * @fn cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent)
  */
-cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent)
+cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent, ApiLogger* pApiLogger)
 {
-    SharedPtr<IOclCommandQueueBase> const pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();    
+    SharedPtr<IOclCommandQueueBase> const pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-    return EnqueueMarkerWithWaitList(  pCommandQueue, uiNumEvents, pEventList, pEvent);
+    return EnqueueMarkerWithWaitList(  pCommandQueue, uiNumEvents, pEventList, pEvent, pApiLogger);
 }
 
-cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(const SharedPtr<IOclCommandQueueBase>& pCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent)
+cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(const SharedPtr<IOclCommandQueueBase>& pCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent, ApiLogger* pApiLogger)
 {
     if ((NULL == pEventList && uiNumEvents > 0) || (NULL != pEventList && 0 == uiNumEvents))
     {
@@ -535,7 +535,7 @@ cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(const SharedPtr<IOclComma
         return err;
     }
 
-    err = pCommandQueue->EnqueueRuntimeCommandWaitEvents(IOclCommandQueueBase::MARKER, pMarkerCommand, uiNumEvents, pEventList, pEvent);
+    err = pCommandQueue->EnqueueRuntimeCommandWaitEvents(IOclCommandQueueBase::MARKER, pMarkerCommand, uiNumEvents, pEventList, pEvent, pApiLogger);
     if (CL_FAILED(err))
     {
         pMarkerCommand->CommandDone();
@@ -547,7 +547,7 @@ cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(const SharedPtr<IOclComma
 /**
  * @fn cl_err_code ExecutionModule::EnqueueBarrierWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent)
  */
-cl_err_code ExecutionModule::EnqueueBarrierWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent)
+cl_err_code ExecutionModule::EnqueueBarrierWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent, ApiLogger* pApiLogger)
 {
     SharedPtr<IOclCommandQueueBase> const pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
     if (NULL == pCommandQueue)
@@ -558,7 +558,7 @@ cl_err_code ExecutionModule::EnqueueBarrierWithWaitList(cl_command_queue clComma
     {
         return CL_INVALID_EVENT_WAIT_LIST;
     }
-    
+
     BarrierCommand* const pBarrierCommand = new BarrierCommand(pCommandQueue, uiNumEvents > 0);
     if (NULL == pBarrierCommand)
     {
@@ -571,8 +571,8 @@ cl_err_code ExecutionModule::EnqueueBarrierWithWaitList(cl_command_queue clComma
         delete pBarrierCommand;
         return err;
     }
-    
-    err = pCommandQueue->EnqueueRuntimeCommandWaitEvents(IOclCommandQueueBase::BARRIER, pBarrierCommand, uiNumEvents, pEventList, pEvent);
+
+    err = pCommandQueue->EnqueueRuntimeCommandWaitEvents(IOclCommandQueueBase::BARRIER, pBarrierCommand, uiNumEvents, pEventList, pEvent, pApiLogger);
     if (CL_FAILED(err))
     {
         pBarrierCommand->CommandDone();
@@ -582,22 +582,22 @@ cl_err_code ExecutionModule::EnqueueBarrierWithWaitList(cl_command_queue clComma
 }
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
-cl_err_code ExecutionModule::EnqueueMarker(cl_command_queue clCommandQueue, cl_event *pEvent)
+cl_err_code ExecutionModule::EnqueueMarker(cl_command_queue clCommandQueue, cl_event *pEvent, ApiLogger* pApiLogger)
 {
-    return EnqueueMarkerWithWaitList(clCommandQueue, 0, NULL, pEvent);
+    return EnqueueMarkerWithWaitList(clCommandQueue, 0, NULL, pEvent, pApiLogger);
 }
 
-cl_err_code ExecutionModule::EnqueueMarker(const SharedPtr<IOclCommandQueueBase>& clCommandQueue, cl_event *pEvent)
+cl_err_code ExecutionModule::EnqueueMarker(const SharedPtr<IOclCommandQueueBase>& clCommandQueue, cl_event *pEvent, ApiLogger* pApiLogger)
 {
-    return EnqueueMarkerWithWaitList(clCommandQueue, 0, NULL, pEvent);
+    return EnqueueMarkerWithWaitList(clCommandQueue, 0, NULL, pEvent, pApiLogger);
 }
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
-cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* cpEventList)
+cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* cpEventList, ApiLogger* apiLogger)
 {
     cl_err_code errVal;
     if ( (NULL == cpEventList) || (0 == uiNumEvents) )
@@ -611,7 +611,7 @@ cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue clCommandQueu
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-    
+
     Command* pWaitForEventsCommand = new WaitForEventsCommand(pCommandQueue, uiNumEvents > 0);
     if (NULL == pWaitForEventsCommand)
     {
@@ -625,7 +625,7 @@ cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue clCommandQueu
         return errVal;
     }
 
-    errVal = pCommandQueue->EnqueueRuntimeCommandWaitEvents(IOclCommandQueueBase::JUST_WAIT, pWaitForEventsCommand, uiNumEvents, cpEventList, NULL);
+    errVal = pCommandQueue->EnqueueRuntimeCommandWaitEvents(IOclCommandQueueBase::JUST_WAIT, pWaitForEventsCommand, uiNumEvents, cpEventList, NULL, apiLogger);
     if ( CL_FAILED(errVal) )
     {
         pWaitForEventsCommand->CommandDone();
@@ -636,16 +636,16 @@ cl_err_code ExecutionModule::EnqueueWaitForEvents(cl_command_queue clCommandQueu
 }
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
-cl_err_code ExecutionModule::EnqueueBarrier(cl_command_queue clCommandQueue)
+cl_err_code ExecutionModule::EnqueueBarrier(cl_command_queue clCommandQueue, ApiLogger* pApiLogger)
 {
-    return EnqueueBarrierWithWaitList(clCommandQueue, 0, NULL, NULL);
+    return EnqueueBarrierWithWaitList(clCommandQueue, 0, NULL, NULL, pApiLogger);
 }
 
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
 cl_err_code ExecutionModule::WaitForEvents( cl_uint uiNumEvents, const cl_event* cpEventList )
 {
@@ -664,7 +664,7 @@ cl_err_code ExecutionModule::WaitForEvents( cl_uint uiNumEvents, const cl_event*
 
     clEventsContext = pEvent->GetParentHandle();
 
-    // Before waiting all on events, the function need to flush all relevant queues, 
+    // Before waiting all on events, the function need to flush all relevant queues,
     // Since the dependencies between events in different queues is unknown it is better
     // to flush all queues in the context.
     FlushAllQueuesForContext(clEventsContext);
@@ -679,7 +679,7 @@ cl_err_code ExecutionModule::WaitForEvents( cl_uint uiNumEvents, const cl_event*
 }
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
 cl_err_code ExecutionModule::GetEventInfo( cl_event clEvent, cl_event_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet )
 {
@@ -688,7 +688,7 @@ cl_err_code ExecutionModule::GetEventInfo( cl_event clEvent, cl_event_info clPar
 }
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
 cl_err_code ExecutionModule::RetainEvent(cl_event clEevent)
 {
@@ -701,7 +701,7 @@ cl_err_code ExecutionModule::RetainEvent(cl_event clEevent)
 }
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
 cl_err_code ExecutionModule::ReleaseEvent(cl_event clEvent)
 {
@@ -710,7 +710,7 @@ cl_err_code ExecutionModule::ReleaseEvent(cl_event clEvent)
 }
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
 typedef std::list<SharedPtr<UserEvent> >  EventsListType;
 void ExecutionModule::ReleaseAllUserEvents( bool preserve_user_handles)
@@ -736,13 +736,13 @@ void ExecutionModule::ReleaseAllUserEvents( bool preserve_user_handles)
         {
             pUserEvent->SetComplete(CL_DEVICE_NOT_AVAILABLE);
         }
-        
+
         m_pEventsManager->ReleaseEvent( pUserEvent->GetHandle() );
     }
 }
 
 /******************************************************************
-* 
+*
 ******************************************************************/
 cl_event ExecutionModule::CreateUserEvent(cl_context context, cl_int * errcode_ret)
 {
@@ -776,7 +776,7 @@ cl_event ExecutionModule::CreateUserEvent(cl_context context, cl_int * errcode_r
 }
 
 /******************************************************************
-* 
+*
 ******************************************************************/
 cl_int ExecutionModule::SetUserEventStatus(cl_event evt, cl_int status)
 {
@@ -800,7 +800,7 @@ cl_int ExecutionModule::SetUserEventStatus(cl_event evt, cl_int status)
     return CL_SUCCESS;
 }
 /******************************************************************
-* 
+*
 ******************************************************************/
 cl_err_code ExecutionModule::SetEventCallback(cl_event evt, cl_int status, void (CL_CALLBACK *fn)(cl_event, cl_int, void *), void *userData)
 {
@@ -816,7 +816,7 @@ cl_err_code ExecutionModule::EnqueueMigrateMemObjects(cl_command_queue clCommand
                                                       cl_mem_migration_flags clFlags,
                                                       cl_uint uiNumEventsInWaitList,
                                                       const cl_event* pEventWaitList,
-                                                      cl_event* pEvent)
+                                                      cl_event* pEvent, ApiLogger* apiLogger)
 {
     if ((NULL == pEventWaitList && uiNumEventsInWaitList > 0) || (NULL != pEventWaitList && 0 == uiNumEventsInWaitList))
     {
@@ -831,12 +831,12 @@ cl_err_code ExecutionModule::EnqueueMigrateMemObjects(cl_command_queue clCommand
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
-    }    
-    
+    }
+
     MigrateMemObjCommand* pMigrateCommand = new MigrateMemObjCommand(
-                                        pCommandQueue, (ocl_entry_points*)((_cl_command_queue_int*)pCommandQueue->GetHandle())->dispatch, 
+                                        pCommandQueue, (ocl_entry_points*)((_cl_command_queue_int*)pCommandQueue->GetHandle())->dispatch,
                                         m_pContextModule,
-                                        clFlags, 
+                                        clFlags,
                                         uiNumMemObjects, pMemObjects );
     if (NULL == pMigrateCommand)
     {
@@ -850,7 +850,7 @@ cl_err_code ExecutionModule::EnqueueMigrateMemObjects(cl_command_queue clCommand
         return err;
     }
 
-    err = pMigrateCommand->EnqueueSelf(CL_FALSE, uiNumEventsInWaitList, pEventWaitList, pEvent);
+    err = pMigrateCommand->EnqueueSelf(CL_FALSE, uiNumEventsInWaitList, pEventWaitList, pEvent, apiLogger);
     if(CL_FAILED(err))
     {
         // Enqueue failed, free resources
@@ -862,9 +862,9 @@ cl_err_code ExecutionModule::EnqueueMigrateMemObjects(cl_command_queue clCommand
 }
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
-cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlocking, size_t szOffset, size_t szCb, void* pOutData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
+cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlocking, size_t szOffset, size_t szCb, void* pOutData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger)
 {
     cl_err_code errVal = CL_SUCCESS;
     if (NULL == pOutData)
@@ -877,7 +877,7 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, 
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-    
+
     SharedPtr<MemoryObject> pBuffer = m_pContextModule->GetMemoryObject(clBuffer);
     if (NULL == pBuffer)
     {
@@ -899,7 +899,7 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, 
         // Out of bounds check.
         return errVal;
     }
-    
+
     if ((NULL == cpEeventWaitList && (0 < uNumEventsInWaitList)) || (cpEeventWaitList && (0 == uNumEventsInWaitList)))
     {
         return CL_INVALID_EVENT_WAIT_LIST;
@@ -921,7 +921,7 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, 
         return  errVal;
     }
 
-    errVal = pEnqueueReadBufferCmd->EnqueueSelf(bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    errVal = pEnqueueReadBufferCmd->EnqueueSelf(bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
@@ -932,26 +932,27 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, 
 }
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
 cl_err_code ExecutionModule::EnqueueReadBufferRect(
-                        cl_command_queue    clCommandQueue, 
-                        cl_mem                clBuffer, 
-                        cl_bool                bBlocking, 
-                        const size_t        szBufferOrigin[MAX_WORK_DIM], 
-                        const size_t        szHostOrigin[MAX_WORK_DIM], 
-                        const size_t        region[MAX_WORK_DIM], 
-                        size_t                buffer_row_pitch, 
-                        size_t                buffer_slice_pitch, 
-                        size_t                host_row_pitch, 
-                        size_t                host_slice_pitch, 
-                        void*                pOutData, 
-                        cl_uint                uNumEventsInWaitList, 
-                        const cl_event*        cpEeventWaitList, 
-                        cl_event*            pEvent)
+                        cl_command_queue    clCommandQueue,
+                        cl_mem                clBuffer,
+                        cl_bool                bBlocking,
+                        const size_t        szBufferOrigin[MAX_WORK_DIM],
+                        const size_t        szHostOrigin[MAX_WORK_DIM],
+                        const size_t        region[MAX_WORK_DIM],
+                        size_t                buffer_row_pitch,
+                        size_t                buffer_slice_pitch,
+                        size_t                host_row_pitch,
+                        size_t                host_slice_pitch,
+                        void*                pOutData,
+                        cl_uint                uNumEventsInWaitList,
+                        const cl_event*        cpEeventWaitList,
+                        cl_event*            pEvent,
+                        ApiLogger* apiLogger)
 {
     cl_err_code errVal = CL_SUCCESS;
-    
+
     if (NULL == pOutData || NULL == szBufferOrigin || NULL == szHostOrigin || NULL == region)
     {
         return CL_INVALID_VALUE;
@@ -962,13 +963,13 @@ cl_err_code ExecutionModule::EnqueueReadBufferRect(
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-    
+
     SharedPtr<MemoryObject> pBuffer = m_pContextModule->GetMemoryObject(clBuffer);
     if (NULL == pBuffer)
     {
         return CL_INVALID_MEM_OBJECT;
     }
-    
+
     if (pBuffer->GetContext()->GetId() != pCommandQueue->GetContextId())
     {
         return CL_INVALID_CONTEXT;
@@ -980,10 +981,10 @@ cl_err_code ExecutionModule::EnqueueReadBufferRect(
     }
 
     if (CheckIfAnyDimIsZero(region)                                                        ||
-        (buffer_row_pitch    !=0 && buffer_row_pitch        <region[0])                        || 
-        (host_row_pitch        !=0 && host_row_pitch        <region[0])                        || 
-        (buffer_slice_pitch    !=0 && buffer_slice_pitch    <(region[1]*buffer_row_pitch))    || 
-        (host_slice_pitch    !=0 && host_slice_pitch        <(region[1]*host_row_pitch))  
+        (buffer_row_pitch    !=0 && buffer_row_pitch        <region[0])                        ||
+        (host_row_pitch        !=0 && host_row_pitch        <region[0])                        ||
+        (buffer_slice_pitch    !=0 && buffer_slice_pitch    <(region[1]*buffer_row_pitch))    ||
+        (host_slice_pitch    !=0 && host_slice_pitch        <(region[1]*host_row_pitch))
         )
     {
         return CL_INVALID_VALUE;
@@ -992,26 +993,26 @@ cl_err_code ExecutionModule::EnqueueReadBufferRect(
     SetIfZero(buffer_row_pitch        , region[0]);
     SetIfZero(host_row_pitch        , region[0]);
     SetIfZero(buffer_slice_pitch    , region[1] * buffer_row_pitch);
-    SetIfZero(host_slice_pitch        , region[1] * host_row_pitch);        
+    SetIfZero(host_slice_pitch        , region[1] * host_row_pitch);
 
     if (CL_SUCCESS != (errVal = pBuffer->CheckBoundsRect(szBufferOrigin, region, buffer_row_pitch, buffer_slice_pitch)))
     {
         // Out of bounds check.
         return errVal;
     }
-    
+
     // Is Sub-buffer
     if ( NULL != pBuffer->GetParent() )
-    {        
+    {
         if (!pBuffer->IsSupportedByDevice(pCommandQueue->GetDefaultDevice()))
         {
             return CL_MISALIGNED_SUB_BUFFER_OFFSET;
         }
     }
-           
 
-    Command* pEnqueueReadBufferRectCmd = new ReadBufferRectCommand(pCommandQueue, m_pOclEntryPoints, pBuffer, szBufferOrigin, szHostOrigin, region, buffer_row_pitch, 
-        buffer_slice_pitch, host_row_pitch, host_slice_pitch, pOutData);    
+
+    Command* pEnqueueReadBufferRectCmd = new ReadBufferRectCommand(pCommandQueue, m_pOclEntryPoints, pBuffer, szBufferOrigin, szHostOrigin, region, buffer_row_pitch,
+        buffer_slice_pitch, host_row_pitch, host_slice_pitch, pOutData);
     if(NULL == pEnqueueReadBufferRectCmd)
     {
          return CL_OUT_OF_HOST_MEMORY;
@@ -1024,7 +1025,7 @@ cl_err_code ExecutionModule::EnqueueReadBufferRect(
         return  errVal;
     }
 
-    errVal = pEnqueueReadBufferRectCmd->EnqueueSelf(bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    errVal = pEnqueueReadBufferRectCmd->EnqueueSelf(bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
@@ -1034,9 +1035,9 @@ cl_err_code ExecutionModule::EnqueueReadBufferRect(
     return  errVal;
 }
 /******************************************************************
- * 
+ *
  ******************************************************************/
-cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlocking, size_t szOffset, size_t szCb, const void* cpSrcData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
+cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlocking, size_t szOffset, size_t szCb, const void* cpSrcData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger)
 {
     cl_start;
     cl_err_code errVal = CL_SUCCESS;
@@ -1050,7 +1051,7 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue,
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-    
+
     SharedPtr<MemoryObject> pBuffer = m_pContextModule->GetMemoryObject(clBuffer);
     if (NULL == pBuffer)
     {
@@ -1094,7 +1095,7 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue,
         return  errVal;
     }
 
-    errVal = pWriteBufferCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    errVal = pWriteBufferCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
     if(CL_FAILED(errVal))
     {
         pWriteBufferCmd->CommandDone();
@@ -1105,23 +1106,24 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue,
 }
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
 cl_err_code ExecutionModule::EnqueueWriteBufferRect(
-                        cl_command_queue    clCommandQueue, 
-                        cl_mem                clBuffer, 
-                        cl_bool                bBlocking, 
-                        const size_t        szBufferOrigin[MAX_WORK_DIM], 
-                        const size_t        szHostOrigin[MAX_WORK_DIM], 
-                        const size_t        region[MAX_WORK_DIM], 
-                        size_t                buffer_row_pitch, 
-                        size_t                buffer_slice_pitch, 
-                        size_t                host_row_pitch, 
-                        size_t                host_slice_pitch, 
-                        const void*            pOutData, 
-                        cl_uint                uNumEventsInWaitList, 
-                        const cl_event*        cpEeventWaitList, 
-                        cl_event*            pEvent)
+                        cl_command_queue    clCommandQueue,
+                        cl_mem                clBuffer,
+                        cl_bool                bBlocking,
+                        const size_t        szBufferOrigin[MAX_WORK_DIM],
+                        const size_t        szHostOrigin[MAX_WORK_DIM],
+                        const size_t        region[MAX_WORK_DIM],
+                        size_t                buffer_row_pitch,
+                        size_t                buffer_slice_pitch,
+                        size_t                host_row_pitch,
+                        size_t                host_slice_pitch,
+                        const void*            pOutData,
+                        cl_uint                uNumEventsInWaitList,
+                        const cl_event*        cpEeventWaitList,
+                        cl_event*            pEvent,
+                        ApiLogger* apiLogger)
 {
     cl_start;
     cl_err_code errVal = CL_SUCCESS;
@@ -1136,7 +1138,7 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-    
+
     SharedPtr<MemoryObject> pBuffer = m_pContextModule->GetMemoryObject(clBuffer);
     if (NULL == pBuffer)
     {
@@ -1146,7 +1148,7 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
     if (pBuffer->GetContext()->GetId() != pCommandQueue->GetContextId())
     {
         return CL_INVALID_CONTEXT;
-    }  
+    }
 
     if (pBuffer->GetFlags() & (CL_MEM_HOST_NO_ACCESS | CL_MEM_HOST_READ_ONLY) )
     {
@@ -1154,10 +1156,10 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
     }
 
     if (CheckIfAnyDimIsZero(region)                                                        ||
-        (buffer_row_pitch    !=0 && buffer_row_pitch        <region[0])                        || 
-        (host_row_pitch        !=0 && host_row_pitch        <region[0])                        || 
-        (buffer_slice_pitch    !=0 && buffer_slice_pitch    <(region[1]*buffer_row_pitch))    || 
-        (host_slice_pitch    !=0 && host_slice_pitch        <(region[1]*host_row_pitch))  
+        (buffer_row_pitch    !=0 && buffer_row_pitch        <region[0])                        ||
+        (host_row_pitch        !=0 && host_row_pitch        <region[0])                        ||
+        (buffer_slice_pitch    !=0 && buffer_slice_pitch    <(region[1]*buffer_row_pitch))    ||
+        (host_slice_pitch    !=0 && host_slice_pitch        <(region[1]*host_row_pitch))
         )
     {
         return CL_INVALID_VALUE;
@@ -1167,8 +1169,8 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
     SetIfZero(host_row_pitch        , region[0]);
     SetIfZero(buffer_slice_pitch    , region[1] * buffer_row_pitch);
     SetIfZero(host_slice_pitch        , region[1] * host_row_pitch);
-    
-    
+
+
     if (CL_SUCCESS != (errVal = pBuffer->CheckBoundsRect(szBufferOrigin, region, buffer_row_pitch, buffer_slice_pitch)))
     {
         // Out of bounds check.
@@ -1176,17 +1178,17 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
     }
 
     if ( NULL != pBuffer->GetParent() )
-    {        
+    {
         if (!pBuffer->IsSupportedByDevice(pCommandQueue->GetDefaultDevice()))
         {
             return CL_MISALIGNED_SUB_BUFFER_OFFSET;
         }
     }
-           
 
-    Command* pWriteBufferRectCmd = new WriteBufferRectCommand(pCommandQueue, m_pOclEntryPoints, bBlocking, pBuffer, szBufferOrigin, szHostOrigin, region, buffer_row_pitch, 
+
+    Command* pWriteBufferRectCmd = new WriteBufferRectCommand(pCommandQueue, m_pOclEntryPoints, bBlocking, pBuffer, szBufferOrigin, szHostOrigin, region, buffer_row_pitch,
         buffer_slice_pitch, host_row_pitch, host_slice_pitch, pOutData);
-    
+
     if (NULL == pWriteBufferRectCmd)
     {
         return CL_OUT_OF_HOST_MEMORY;
@@ -1199,7 +1201,7 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
         return  errVal;
     }
 
-    errVal = pWriteBufferRectCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    errVal = pWriteBufferRectCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
     if(CL_FAILED(errVal))
     {
         pWriteBufferRectCmd->CommandDone();
@@ -1239,7 +1241,8 @@ cl_err_code ExecutionModule::EnqueueFillBuffer (cl_command_queue clCommandQueue,
         size_t size,
         cl_uint num_events_in_wait_list,
         const cl_event *event_wait_list,
-        cl_event *pEvent)
+        cl_event *pEvent,
+        ApiLogger* apiLogger)
 {
     cl_start;
     cl_err_code errVal = CL_SUCCESS;
@@ -1319,7 +1322,7 @@ cl_err_code ExecutionModule::EnqueueFillBuffer (cl_command_queue clCommandQueue,
         return  errVal;
     }
 
-    errVal = pCommandQueue->EnqueueCommand(pFillBufferCmd, CL_FALSE, num_events_in_wait_list, event_wait_list, pEvent);
+    errVal = pCommandQueue->EnqueueCommand(pFillBufferCmd, CL_FALSE, num_events_in_wait_list, event_wait_list, pEvent, apiLogger);
     if(CL_FAILED(errVal))
     {
         pFillBufferCmd->CommandDone();
@@ -1330,18 +1333,19 @@ cl_err_code ExecutionModule::EnqueueFillBuffer (cl_command_queue clCommandQueue,
 }
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
 cl_err_code ExecutionModule::EnqueueCopyBuffer(
-    cl_command_queue    clCommandQueue, 
-    cl_mem              clSrcBuffer, 
-    cl_mem              clDstBuffer, 
-    size_t              szSrcOffset, 
-    size_t              szDstOffset, 
-    size_t              szCb, 
-    cl_uint             uNumEventsInWaitList, 
-    const cl_event*     cpEeventWaitList, 
-    cl_event*           pEvent
+    cl_command_queue    clCommandQueue,
+    cl_mem              clSrcBuffer,
+    cl_mem              clDstBuffer,
+    size_t              szSrcOffset,
+    size_t              szDstOffset,
+    size_t              szCb,
+    cl_uint             uNumEventsInWaitList,
+    const cl_event*     cpEeventWaitList,
+    cl_event*           pEvent,
+    ApiLogger* apiLogger
     )
 {
     cl_err_code errVal = CL_SUCCESS;
@@ -1350,7 +1354,7 @@ cl_err_code ExecutionModule::EnqueueCopyBuffer(
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-    
+
     SharedPtr<MemoryObject> pSrcBuffer = m_pContextModule->GetMemoryObject(clSrcBuffer);
     SharedPtr<MemoryObject> pDstBuffer = m_pContextModule->GetMemoryObject(clDstBuffer);
     if (NULL == pSrcBuffer || NULL == pDstBuffer)
@@ -1359,7 +1363,7 @@ cl_err_code ExecutionModule::EnqueueCopyBuffer(
     }
 
     if (pSrcBuffer->GetContext()->GetId() != pCommandQueue->GetContextId()  ||
-        pSrcBuffer->GetContext()->GetId() != pDstBuffer->GetContext()->GetId() 
+        pSrcBuffer->GetContext()->GetId() != pDstBuffer->GetContext()->GetId()
         )
     {
         return CL_INVALID_CONTEXT;
@@ -1401,7 +1405,7 @@ cl_err_code ExecutionModule::EnqueueCopyBuffer(
     }
 
     // Enqueue copy command, never blocking
-    errVal = pCopyBufferCommand->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    errVal = pCopyBufferCommand->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
@@ -1413,23 +1417,24 @@ cl_err_code ExecutionModule::EnqueueCopyBuffer(
 }
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
 
 cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
-                        cl_command_queue    clCommandQueue, 
-                        cl_mem                clSrcBuffer, 
-                        cl_mem                clDstBuffer, 
-                        const size_t        szSrcOrigin[MAX_WORK_DIM], 
-                        const size_t        szDstOrigin[MAX_WORK_DIM], 
-                        const size_t        region[MAX_WORK_DIM], 
-                        size_t                src_buffer_row_pitch, 
-                        size_t                src_buffer_slice_pitch, 
-                        size_t                dst_buffer_row_pitch, 
-                        size_t                dst_buffer_slice_pitch, 
-                        cl_uint                uNumEventsInWaitList, 
-                        const cl_event*        cpEeventWaitList, 
-                        cl_event* pEvent)
+                        cl_command_queue    clCommandQueue,
+                        cl_mem                clSrcBuffer,
+                        cl_mem                clDstBuffer,
+                        const size_t        szSrcOrigin[MAX_WORK_DIM],
+                        const size_t        szDstOrigin[MAX_WORK_DIM],
+                        const size_t        region[MAX_WORK_DIM],
+                        size_t                src_buffer_row_pitch,
+                        size_t                src_buffer_slice_pitch,
+                        size_t                dst_buffer_row_pitch,
+                        size_t                dst_buffer_slice_pitch,
+                        cl_uint                uNumEventsInWaitList,
+                        const cl_event*        cpEeventWaitList,
+                        cl_event* pEvent,
+                        ApiLogger* apiLogger)
 {
     cl_err_code errVal = CL_SUCCESS;
     if (NULL == szSrcOrigin || NULL == szDstOrigin || NULL == region)
@@ -1441,7 +1446,7 @@ cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-    
+
     SharedPtr<MemoryObject> pSrcBuffer = m_pContextModule->GetMemoryObject(clSrcBuffer);
     SharedPtr<MemoryObject> pDstBuffer = m_pContextModule->GetMemoryObject(clDstBuffer);
     if (NULL == pSrcBuffer || NULL == pDstBuffer)
@@ -1450,20 +1455,20 @@ cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
     }
 
     if (pSrcBuffer->GetContext()->GetId() != pCommandQueue->GetContextId()  ||
-        pSrcBuffer->GetContext()->GetId() != pDstBuffer->GetContext()->GetId() 
+        pSrcBuffer->GetContext()->GetId() != pDstBuffer->GetContext()->GetId()
         )
     {
         return CL_INVALID_CONTEXT;
     }
 
     if (CheckIfAnyDimIsZero(region)                                                                    ||
-        (src_buffer_row_pitch    !=0 && src_buffer_row_pitch        <region[0])                            || 
-        (dst_buffer_row_pitch    !=0 && dst_buffer_row_pitch        <region[0])                            || 
-        (src_buffer_slice_pitch    !=0 && src_buffer_slice_pitch    <(region[1]*src_buffer_row_pitch))    || 
-        (dst_buffer_slice_pitch    !=0 && dst_buffer_slice_pitch    <(region[1]*dst_buffer_row_pitch))  
+        (src_buffer_row_pitch    !=0 && src_buffer_row_pitch        <region[0])                            ||
+        (dst_buffer_row_pitch    !=0 && dst_buffer_row_pitch        <region[0])                            ||
+        (src_buffer_slice_pitch    !=0 && src_buffer_slice_pitch    <(region[1]*src_buffer_row_pitch))    ||
+        (dst_buffer_slice_pitch    !=0 && dst_buffer_slice_pitch    <(region[1]*dst_buffer_row_pitch))
         )
     {
-        
+
         return CL_INVALID_VALUE;
     }
 
@@ -1472,9 +1477,9 @@ cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
     SetIfZero(dst_buffer_row_pitch        , region[0]);
     SetIfZero(src_buffer_slice_pitch    , region[1] * src_buffer_row_pitch);
     SetIfZero(dst_buffer_slice_pitch    , region[1] * dst_buffer_row_pitch);
-    
-    
-    if (CL_SUCCESS != (errVal = pSrcBuffer->CheckBoundsRect(szSrcOrigin, region, src_buffer_row_pitch, src_buffer_slice_pitch)) || 
+
+
+    if (CL_SUCCESS != (errVal = pSrcBuffer->CheckBoundsRect(szSrcOrigin, region, src_buffer_row_pitch, src_buffer_slice_pitch)) ||
         CL_SUCCESS != (errVal = pDstBuffer->CheckBoundsRect(szDstOrigin, region, dst_buffer_row_pitch, dst_buffer_slice_pitch)))
 
     {
@@ -1483,7 +1488,7 @@ cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
     }
 
     if ( NULL != pSrcBuffer->GetParent())
-    {        
+    {
         if (!pSrcBuffer->IsSupportedByDevice(pCommandQueue->GetDefaultDevice()))
         {
             return CL_MISALIGNED_SUB_BUFFER_OFFSET;
@@ -1491,13 +1496,13 @@ cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
     }
 
     if ( NULL != pDstBuffer->GetParent())
-    {        
+    {
         if (!pDstBuffer->IsSupportedByDevice(pCommandQueue->GetDefaultDevice()))
         {
             return CL_MISALIGNED_SUB_BUFFER_OFFSET;
         }
     }
-   
+
     if( clSrcBuffer == clDstBuffer)
     {
         // Check overlapping
@@ -1508,7 +1513,7 @@ cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
             return CL_MEM_COPY_OVERLAP;
         }
     }
-    
+
     Command* pCopyBufferRectCommand = new CopyBufferRectCommand(pCommandQueue, m_pOclEntryPoints, pSrcBuffer, pDstBuffer, szSrcOrigin, szDstOrigin, region,
         src_buffer_row_pitch, src_buffer_slice_pitch, dst_buffer_row_pitch, dst_buffer_slice_pitch);
     if (NULL == pCopyBufferRectCommand)
@@ -1524,7 +1529,7 @@ cl_err_code  ExecutionModule::EnqueueCopyBufferRect (
     }
 
     // Enqueue copy command, never blocking
-    errVal = pCopyBufferRectCommand->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    errVal = pCopyBufferRectCommand->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
@@ -1618,7 +1623,8 @@ cl_err_code ExecutionModule::EnqueueFillImage(cl_command_queue clCommandQueue,
         const size_t *region,
         cl_uint num_events_in_wait_list,
         const cl_event *event_wait_list,
-        cl_event *event)
+        cl_event *event,
+        ApiLogger* apiLogger)
 {
     cl_start;
     cl_err_code errVal = CL_SUCCESS;
@@ -1667,7 +1673,7 @@ cl_err_code ExecutionModule::EnqueueFillImage(cl_command_queue clCommandQueue,
 
     cl_uint img_dim_count = 1;
     size_t dim_sz = 0;
-    
+
     errVal = img->GetImageInfo(CL_IMAGE_HEIGHT, sizeof(size_t), &dim_sz, NULL);
     if (CL_SUCCESS == errVal)
     {
@@ -1685,7 +1691,7 @@ cl_err_code ExecutionModule::EnqueueFillImage(cl_command_queue clCommandQueue,
     {
         if (dim_sz) ++img_dim_count;
     } else return CL_INVALID_MEM_OBJECT;
-    
+
     cl_uchar pattern[MAX_PATTERN_SIZE];
     size_t pattern_size = GenericMemObjectBackingStore::get_element_size(&format);
     assert(MAX_PATTERN_SIZE >= pattern_size && "Trying to assign a color format too big.");
@@ -1712,7 +1718,7 @@ cl_err_code ExecutionModule::EnqueueFillImage(cl_command_queue clCommandQueue,
         return  errVal;
     }
 
-    errVal = pCommandQueue->EnqueueCommand(pFillBufferCmd, CL_FALSE, num_events_in_wait_list, event_wait_list, event);
+    errVal = pCommandQueue->EnqueueCommand(pFillBufferCmd, CL_FALSE, num_events_in_wait_list, event_wait_list, event, apiLogger);
     if(CL_FAILED(errVal))
     {
         pFillBufferCmd->CommandDone();
@@ -1723,10 +1729,10 @@ cl_err_code ExecutionModule::EnqueueFillImage(cl_command_queue clCommandQueue,
 }
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
-void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlockingMap, cl_map_flags clMapFlags, size_t szOffset, size_t szCb, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, cl_int* pErrcodeRet)
-{   
+void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlockingMap, cl_map_flags clMapFlags, size_t szOffset, size_t szCb, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, cl_int* pErrcodeRet, ApiLogger* apiLogger)
+{
     cl_int err = CL_SUCCESS;
     if (NULL == pErrcodeRet)
     {
@@ -1747,7 +1753,7 @@ void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem
     }
 
 
-    SharedPtr<MemoryObject> pBuffer = m_pContextModule->GetMemoryObject(clBuffer);    
+    SharedPtr<MemoryObject> pBuffer = m_pContextModule->GetMemoryObject(clBuffer);
     if (NULL == pBuffer)
     {
         *pErrcodeRet =  CL_INVALID_MEM_OBJECT;
@@ -1770,7 +1776,7 @@ void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem
     {
         if (!pBuffer->IsSupportedByDevice(pCommandQueue->GetDefaultDevice()))
         {
-            *pErrcodeRet = CL_MISALIGNED_SUB_BUFFER_OFFSET;            
+            *pErrcodeRet = CL_MISALIGNED_SUB_BUFFER_OFFSET;
             return NULL;
         }
     }
@@ -1806,7 +1812,7 @@ void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem
     // Note that if EnqueueCommand succeeded, by the time it returns, the command may be deleted already.
     void* mappedPtr = pMapBufferCommand->GetMappedPtr();
 
-    *pErrcodeRet = pMapBufferCommand->EnqueueSelf(bBlockingMap, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    *pErrcodeRet = pMapBufferCommand->EnqueueSelf(bBlockingMap, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
     if(CL_FAILED(*pErrcodeRet))
     {
         // Enqueue failed, free resources
@@ -1818,9 +1824,9 @@ void * ExecutionModule::EnqueueMapBuffer(cl_command_queue clCommandQueue, cl_mem
 }
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
-cl_err_code ExecutionModule::EnqueueUnmapMemObject(cl_command_queue clCommandQueue,cl_mem clMemObj, void* mappedPtr, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
+cl_err_code ExecutionModule::EnqueueUnmapMemObject(cl_command_queue clCommandQueue,cl_mem clMemObj, void* mappedPtr, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger)
 {
     cl_err_code errVal;
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
@@ -1828,8 +1834,8 @@ cl_err_code ExecutionModule::EnqueueUnmapMemObject(cl_command_queue clCommandQue
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-    
-    SharedPtr<MemoryObject> pMemObject = m_pContextModule->GetMemoryObject(clMemObj);    
+
+    SharedPtr<MemoryObject> pMemObject = m_pContextModule->GetMemoryObject(clMemObj);
     if (NULL == pMemObject)
     {
         return  CL_INVALID_MEM_OBJECT;
@@ -1839,7 +1845,7 @@ cl_err_code ExecutionModule::EnqueueUnmapMemObject(cl_command_queue clCommandQue
     {
         return CL_INVALID_CONTEXT;
     }
-    
+
     Command* pUnmapMemObjectCommand = new UnmapMemObjectCommand(pCommandQueue, m_pOclEntryPoints, pMemObject, mappedPtr);
     // Must set device Id before init for buffer resource allocation.
     if (NULL == pUnmapMemObjectCommand)
@@ -1854,30 +1860,31 @@ cl_err_code ExecutionModule::EnqueueUnmapMemObject(cl_command_queue clCommandQue
         return  errVal;
     }
 
-    errVal = pUnmapMemObjectCommand->EnqueueSelf(CL_FALSE /*never blocks*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    errVal = pUnmapMemObjectCommand->EnqueueSelf(CL_FALSE /*never blocks*/, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
         pUnmapMemObjectCommand->CommandDone();
         delete pUnmapMemObjectCommand;
     }
-    
+
     return  errVal;
 }
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
 cl_err_code ExecutionModule::EnqueueNDRangeKernel(
-    cl_command_queue clCommandQueue, 
+    cl_command_queue clCommandQueue,
     cl_kernel       clKernel,
     cl_uint         uiWorkDim,
-    const size_t*   cpszGlobalWorkOffset, 
-    const size_t*   cpszGlobalWorkSize, 
-    const size_t*   cpszLocalWorkSize, 
-    cl_uint         uNumEventsInWaitList, 
-    const cl_event* cpEeventWaitList, 
-    cl_event*       pEvent
+    const size_t*   cpszGlobalWorkOffset,
+    const size_t*   cpszGlobalWorkSize,
+    const size_t*   cpszLocalWorkSize,
+    cl_uint         uNumEventsInWaitList,
+    const cl_event* cpEeventWaitList,
+    cl_event*       pEvent,
+    ApiLogger*      apiLogger
     )
 {
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
@@ -1930,7 +1937,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     }
 
     const SharedPtr<FissionableDevice>& pDevice = pCommandQueue->GetDefaultDevice();
-    
+
     // CL_INVALID_KERNEL_ARGS if the kernel argument values have not been specified.
     if(!pKernel->IsValidKernelArgs())
     {
@@ -1954,7 +1961,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
         __itt_task_end(m_pGPAData->pAPIDomain); // "ExecutionModule::EnqueueNDRangeKernel()->ArgumentValidation..."
     }
 #endif
-    
+
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
       if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
       {
@@ -1969,7 +1976,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
 
     // TODO: create buffer resources in advance, if they are not exists,
     //      On error return: CL_OUT_OF_RESOURCES
-    Command* pNDRangeKernelCmd = new NDRangeKernelCommand(pCommandQueue, m_pOclEntryPoints, pKernel, uiWorkDim, cpszGlobalWorkOffset, cpszGlobalWorkSize, cpszLocalWorkSize); 
+    Command* pNDRangeKernelCmd = new NDRangeKernelCommand(pCommandQueue, m_pOclEntryPoints, pKernel, uiWorkDim, cpszGlobalWorkOffset, cpszGlobalWorkSize, cpszLocalWorkSize);
     if ( NULL == pNDRangeKernelCmd )
     {
         return CL_OUT_OF_HOST_MEMORY;
@@ -1999,7 +2006,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
         __itt_task_begin(m_pGPAData->pAPIDomain, __itt_null, __itt_null, pTaskName);
       }
 #endif
-    errVal = pNDRangeKernelCmd->EnqueueSelf(false/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    errVal = pNDRangeKernelCmd->EnqueueSelf(false/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
     {
@@ -2019,9 +2026,9 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
 
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
-cl_err_code ExecutionModule::EnqueueTask( cl_command_queue clCommandQueue, cl_kernel clKernel, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
+cl_err_code ExecutionModule::EnqueueTask( cl_command_queue clCommandQueue, cl_kernel clKernel, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger)
 {
     cl_err_code errVal = CL_SUCCESS;
 
@@ -2057,7 +2064,7 @@ cl_err_code ExecutionModule::EnqueueTask( cl_command_queue clCommandQueue, cl_ke
     // TODO: Handle those error values, probably through the kernel object...
     // CL_INVALID_WORK_GROUP_SIZE
 
-    Command* pTaskCommand = new TaskCommand(pCommandQueue, m_pOclEntryPoints, pKernel); 
+    Command* pTaskCommand = new TaskCommand(pCommandQueue, m_pOclEntryPoints, pKernel);
     // Must set device Id before init for buffer resource allocation.
     if (NULL == pTaskCommand)
     {
@@ -2071,7 +2078,7 @@ cl_err_code ExecutionModule::EnqueueTask( cl_command_queue clCommandQueue, cl_ke
         return  errVal;
     }
 
-    errVal = pTaskCommand->EnqueueSelf(false/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    errVal = pTaskCommand->EnqueueSelf(false/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
@@ -2083,9 +2090,9 @@ cl_err_code ExecutionModule::EnqueueTask( cl_command_queue clCommandQueue, cl_ke
 }
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
-cl_err_code ExecutionModule::EnqueueNativeKernel(cl_command_queue clCommandQueue, void (CL_CALLBACK*pUserFnc)(void *), void* pArgs, size_t szCbArgs, cl_uint uNumMemObjects, const cl_mem* clMemList, const void** ppArgsMemLoc, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
+cl_err_code ExecutionModule::EnqueueNativeKernel(cl_command_queue clCommandQueue, void (CL_CALLBACK*pUserFnc)(void *), void* pArgs, size_t szCbArgs, cl_uint uNumMemObjects, const cl_mem* clMemList, const void** ppArgsMemLoc, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger)
 {
     cl_err_code errVal = CL_SUCCESS;
 
@@ -2109,7 +2116,7 @@ cl_err_code ExecutionModule::EnqueueNativeKernel(cl_command_queue clCommandQueue
     {
         // Create MemoryObjects references
         pMemObjectsList = new SharedPtr<MemoryObject>[uNumMemObjects];
-        
+
         if(NULL == pMemObjectsList)
         {
             return CL_OUT_OF_HOST_MEMORY;
@@ -2129,7 +2136,7 @@ cl_err_code ExecutionModule::EnqueueNativeKernel(cl_command_queue clCommandQueue
 
     // TODO: Handle those error values, probably through the DEVICE object...
     // CL_INVALID_OPERATION
-   
+
     Command* pNativeKernelCommand = new NativeKernelCommand(pCommandQueue, m_pOclEntryPoints, pUserFnc, pArgs, szCbArgs, uNumMemObjects, pMemObjectsList, ppArgsMemLoc );
     if(NULL == pNativeKernelCommand)
     {
@@ -2151,7 +2158,7 @@ cl_err_code ExecutionModule::EnqueueNativeKernel(cl_command_queue clCommandQueue
         return  errVal;
     }
 
-    errVal = pNativeKernelCommand->EnqueueSelf(CL_FALSE/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    errVal = pNativeKernelCommand->EnqueueSelf(CL_FALSE/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
@@ -2189,7 +2196,7 @@ inline bool ExecutionModule::CheckMemoryObjectOverlapping(SharedPtr<MemoryObject
     const size_t src_max[] = {szSrcOrigin[0]+szRegion[0], szSrcOrigin[1]+szRegion[1], szSrcOrigin[2]+szRegion[2]};
 
     const size_t dst_min[] = {szDstOrigin[0], szDstOrigin[1], szDstOrigin[2]};
-    const size_t dst_max[] = {szDstOrigin[0]+szRegion[0], szDstOrigin[1]+szRegion[1], szDstOrigin[2]+szRegion[2]};    
+    const size_t dst_max[] = {szDstOrigin[0]+szRegion[0], szDstOrigin[1]+szRegion[1], szDstOrigin[2]+szRegion[2]};
 
     size_t dimensionsToCompare = 0;
 
@@ -2203,12 +2210,12 @@ inline bool ExecutionModule::CheckMemoryObjectOverlapping(SharedPtr<MemoryObject
         if (szSrcOrigin[2] != szDstOrigin[2])
 
         {
-            // For image array with different image index, no need to compare any boundaries 
+            // For image array with different image index, no need to compare any boundaries
             // keep dimensionToCompare at 0.
             break;
         }
         dimensionsToCompare = 2;
-        break;    
+        break;
 
     case CL_MEM_OBJECT_IMAGE2D:
         dimensionsToCompare = 2;
@@ -2218,7 +2225,7 @@ inline bool ExecutionModule::CheckMemoryObjectOverlapping(SharedPtr<MemoryObject
         if (szSrcOrigin[1] == szDstOrigin[1])
         {
             dimensionsToCompare = 1;
-        }        
+        }
         break;
 
     case CL_MEM_OBJECT_IMAGE1D:
@@ -2283,7 +2290,7 @@ inline cl_err_code ExecutionModule::CheckImageFormats( SharedPtr<MemoryObject> p
              )
         {
             errVal = CL_IMAGE_FORMAT_MISMATCH;
-        }        
+        }
     }
     return errVal;
 }
@@ -2292,17 +2299,18 @@ inline cl_err_code ExecutionModule::CheckImageFormats( SharedPtr<MemoryObject> p
  *
  ******************************************************************/
 cl_err_code ExecutionModule::EnqueueReadImage(
-                                cl_command_queue clCommandQueue, 
+                                cl_command_queue clCommandQueue,
                                 cl_mem           clImage,
-                                cl_bool          bBlocking, 
+                                cl_bool          bBlocking,
                                 const size_t     szOrigin[MAX_WORK_DIM],
                                 const size_t     szRegion[MAX_WORK_DIM],
                                 size_t           szRowPitch,
                                 size_t           szSlicePitch,
-                                void*            pOutData, 
-                                cl_uint          uNumEventsInWaitList, 
-                                const cl_event*  cpEeventWaitList, 
-                                cl_event*        pEvent      
+                                void*            pOutData,
+                                cl_uint          uNumEventsInWaitList,
+                                const cl_event*  cpEeventWaitList,
+                                cl_event*        pEvent,
+                                ApiLogger* apiLogger
                                 )
 {
     cl_err_code errVal = CL_SUCCESS;
@@ -2316,7 +2324,7 @@ cl_err_code ExecutionModule::EnqueueReadImage(
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-    
+
     SharedPtr<MemoryObject> pImage = m_pContextModule->GetMemoryObject(clImage);
     if (NULL == pImage)
     {
@@ -2360,7 +2368,7 @@ cl_err_code ExecutionModule::EnqueueReadImage(
         return  errVal;
     }
 
-    errVal = pReadImageCmd->EnqueueSelf(bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    errVal = pReadImageCmd->EnqueueSelf(bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
@@ -2375,17 +2383,18 @@ cl_err_code ExecutionModule::EnqueueReadImage(
  *
  ******************************************************************/
 cl_err_code ExecutionModule::EnqueueWriteImage(
-                                cl_command_queue clCommandQueue, 
+                                cl_command_queue clCommandQueue,
                                 cl_mem           clImage,
-                                cl_bool          bBlocking, 
+                                cl_bool          bBlocking,
                                 const size_t     szOrigin[MAX_WORK_DIM],
                                 const size_t     szRegion[MAX_WORK_DIM],
                                 size_t           szRowPitch,
                                 size_t           szSlicePitch,
                                 const void *     cpSrcData,
-                                cl_uint          uNumEventsInWaitList, 
-                                const cl_event*  cpEeventWaitList, 
-                                cl_event*        pEvent
+                                cl_uint          uNumEventsInWaitList,
+                                const cl_event*  cpEeventWaitList,
+                                cl_event*        pEvent,
+                                ApiLogger* apiLogger
                                 )
 {
     cl_err_code errVal = CL_SUCCESS;
@@ -2399,7 +2408,7 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-    
+
     SharedPtr<MemoryObject> pImage = m_pContextModule->GetMemoryObject(clImage);
     if (NULL == pImage)
     {
@@ -2443,7 +2452,7 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
         return  errVal;
     }
 
-    errVal = pWriteImageCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    errVal = pWriteImageCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
@@ -2459,13 +2468,13 @@ static bool IsImageDimSupportedByDevice(const MemoryObject& img, const Fissionab
     size_t szImgVal, szDevVal, szValSize;
 
     cl_err_code clErr = img.GetImageInfo(clImgInfo, sizeof(szImgVal), &szImgVal, &szValSize);
-    
+
     assert(CL_SUCCEEDED(clErr));
     if (CL_FAILED(clErr))
     {
         return false;
     }
-    
+
     assert(sizeof(szImgVal) == szValSize);
     clErr = dev.GetInfo(iDevInfo, sizeof(szDevVal), &szDevVal, &szValSize);
 
@@ -2474,7 +2483,7 @@ static bool IsImageDimSupportedByDevice(const MemoryObject& img, const Fissionab
     {
         return false;
     }
-    
+
     assert(sizeof(szDevVal) == szValSize);
     return szImgVal <= szDevVal;
 }
@@ -2529,9 +2538,10 @@ cl_err_code ExecutionModule::EnqueueCopyImage(
                                 const size_t     szSrcOrigin[MAX_WORK_DIM],
                                 const size_t     szDstOrigin[MAX_WORK_DIM],
                                 const size_t     szRegion[MAX_WORK_DIM],
-                                cl_uint          uNumEventsInWaitList, 
-                                const cl_event*  cpEeventWaitList, 
-                                cl_event*        pEvent      
+                                cl_uint          uNumEventsInWaitList,
+                                const cl_event*  cpEeventWaitList,
+                                cl_event*        pEvent,
+                                ApiLogger* apiLogger
                                 )
 {
     cl_err_code errVal = CL_SUCCESS;
@@ -2544,7 +2554,7 @@ cl_err_code ExecutionModule::EnqueueCopyImage(
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-    
+
     SharedPtr<MemoryObject> pSrcImage = m_pContextModule->GetMemoryObject(clSrcImage);
     SharedPtr<MemoryObject> pDstImage = m_pContextModule->GetMemoryObject(clDstImage);
     if (NULL == pSrcImage || NULL == pDstImage)
@@ -2553,12 +2563,12 @@ cl_err_code ExecutionModule::EnqueueCopyImage(
     }
 
     if (pSrcImage->GetContext()->GetId() != pCommandQueue->GetContextId()  ||
-        pSrcImage->GetContext()->GetId() != pDstImage->GetContext()->GetId() 
+        pSrcImage->GetContext()->GetId() != pDstImage->GetContext()->GetId()
         )
     {
         return CL_INVALID_CONTEXT;
     }
-    
+
     // Check format
     errVal = CheckImageFormats(pSrcImage, pDstImage);
     if(CL_FAILED(errVal))
@@ -2611,7 +2621,7 @@ cl_err_code ExecutionModule::EnqueueCopyImage(
     }
 
     // Enqueue copy command, never blocking
-    errVal = pCopyImageCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    errVal = pCopyImageCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
@@ -2633,9 +2643,10 @@ cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(
                                 const size_t     szSrcOrigin[MAX_WORK_DIM],
                                 const size_t     szRegion[MAX_WORK_DIM],
                                 size_t           szDstOffset,
-                                cl_uint          uNumEventsInWaitList, 
-                                const cl_event*  cpEeventWaitList, 
-                                cl_event*        pEvent
+                                cl_uint          uNumEventsInWaitList,
+                                const cl_event*  cpEeventWaitList,
+                                cl_event*        pEvent,
+                                ApiLogger* apiLogger
                                 )
 {
     cl_err_code errVal = CL_SUCCESS;
@@ -2644,7 +2655,7 @@ cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-    
+
     SharedPtr<MemoryObject> pSrcImage = m_pContextModule->GetMemoryObject(clSrcImage);
     SharedPtr<MemoryObject> pDstBuffer = m_pContextModule->GetMemoryObject(clDstBuffer);
     if (NULL == pSrcImage || NULL == pDstBuffer)
@@ -2653,11 +2664,11 @@ cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(
     }
 
     if (pSrcImage->GetContext()->GetId() != pCommandQueue->GetContextId()  ||
-        pSrcImage->GetContext()->GetId() != pDstBuffer->GetContext()->GetId() 
+        pSrcImage->GetContext()->GetId() != pDstBuffer->GetContext()->GetId()
         )
     {
         return CL_INVALID_CONTEXT;
-    }    
+    }
 
     // Calculate dst_cb
     size_t szDstCb = CalcRegionSizeInBytes(pSrcImage, szRegion);
@@ -2696,7 +2707,7 @@ cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(
     }
 
     // Enqueue copy command, never blocking
-    errVal = pCopyImageToBufferCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    errVal = pCopyImageToBufferCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
@@ -2719,8 +2730,9 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
                                 const size_t     szDstOrigin[MAX_WORK_DIM],
                                 const size_t     szRegion[MAX_WORK_DIM],
                                 cl_uint          uNumEventsInWaitList,
-                                const cl_event*  cpEeventWaitList, 
-                                cl_event*        pEvent
+                                const cl_event*  cpEeventWaitList,
+                                cl_event*        pEvent,
+                                ApiLogger* apiLogger
                                 )
 {
     cl_err_code errVal = CL_SUCCESS;
@@ -2729,7 +2741,7 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-    
+
     SharedPtr<MemoryObject> pSrcBuffer = m_pContextModule->GetMemoryObject(clSrcBuffer);
     SharedPtr<MemoryObject> pDstImage = m_pContextModule->GetMemoryObject(clDstImage);
     if (NULL == pSrcBuffer || NULL == pDstImage)
@@ -2738,11 +2750,11 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
     }
 
     if (pSrcBuffer->GetContext()->GetId() != pCommandQueue->GetContextId()  ||
-        pSrcBuffer->GetContext()->GetId() != pDstImage->GetContext()->GetId() 
+        pSrcBuffer->GetContext()->GetId() != pDstImage->GetContext()->GetId()
         )
     {
         return CL_INVALID_CONTEXT;
-    }    
+    }
 
     // Calculate dst_cb
     size_t szDstCb = CalcRegionSizeInBytes(pDstImage, szRegion);
@@ -2769,7 +2781,7 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
 
     size_t    pszSrcOffset[3] = {szSrcOffset,0,0};
     Command* pCopyBufferToImageCmd = new CopyBufferToImageCommand(pCommandQueue, m_pOclEntryPoints, pSrcBuffer, pDstImage, pszSrcOffset, szDstOrigin, szRegion);
-    if (NULL == pCopyBufferToImageCmd)    
+    if (NULL == pCopyBufferToImageCmd)
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
@@ -2782,7 +2794,7 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
     }
 
     // Enqueue copy command, never blocking
-    errVal = pCopyBufferToImageCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    errVal = pCopyBufferToImageCmd->EnqueueSelf(CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
@@ -2797,20 +2809,21 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
  *
  ******************************************************************/
 void * ExecutionModule::EnqueueMapImage(
-    cl_command_queue    clCommandQueue, 
-    cl_mem              clImage, 
-    cl_bool             bBlockingMap, 
-    cl_map_flags        clMapFlags, 
-    const size_t        szOrigin[MAX_WORK_DIM], 
-    const size_t        szRegion[MAX_WORK_DIM], 
-    size_t*             pszImageRowPitch, 
-    size_t*             pszImageSlicePitch, 
-    cl_uint             uNumEventsInWaitList, 
-    const cl_event*     cpEeventWaitList, 
-    cl_event*           pEvent, 
-    cl_int*             pErrcodeRet)
+    cl_command_queue    clCommandQueue,
+    cl_mem              clImage,
+    cl_bool             bBlockingMap,
+    cl_map_flags        clMapFlags,
+    const size_t        szOrigin[MAX_WORK_DIM],
+    const size_t        szRegion[MAX_WORK_DIM],
+    size_t*             pszImageRowPitch,
+    size_t*             pszImageSlicePitch,
+    cl_uint             uNumEventsInWaitList,
+    const cl_event*     cpEeventWaitList,
+    cl_event*           pEvent,
+    cl_int*             pErrcodeRet,
+    ApiLogger* apiLogger)
 {
-    cl_int err = CL_SUCCESS;    
+    cl_int err = CL_SUCCESS;
     if (NULL == pErrcodeRet)
     {
         pErrcodeRet = &err;
@@ -2825,7 +2838,7 @@ void * ExecutionModule::EnqueueMapImage(
         return NULL;
     }
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
-    SharedPtr<MemoryObject> pImage = m_pContextModule->GetMemoryObject(clImage);    
+    SharedPtr<MemoryObject> pImage = m_pContextModule->GetMemoryObject(clImage);
 
     if (NULL == pCommandQueue)
     {
@@ -2848,7 +2861,7 @@ void * ExecutionModule::EnqueueMapImage(
     {
         *pErrcodeRet = CL_INVALID_CONTEXT;
         return NULL;
-    }    
+    }
     else
     {
         if (CL_SUCCESS != (err = pImage->CheckBounds(szOrigin, szRegion)))
@@ -2859,7 +2872,7 @@ void * ExecutionModule::EnqueueMapImage(
         {
             const cl_mem_object_type imgType = pImage->GetType();
             if ((NULL == pszImageRowPitch)                                      ||
-                ((CL_MEM_OBJECT_IMAGE3D == imgType || CL_MEM_OBJECT_IMAGE1D_ARRAY == imgType || CL_MEM_OBJECT_IMAGE2D_ARRAY == imgType) && (NULL == pszImageSlicePitch))  
+                ((CL_MEM_OBJECT_IMAGE3D == imgType || CL_MEM_OBJECT_IMAGE1D_ARRAY == imgType || CL_MEM_OBJECT_IMAGE2D_ARRAY == imgType) && (NULL == pszImageSlicePitch))
                 )
             {
                 *pErrcodeRet = CL_INVALID_VALUE;
@@ -2899,7 +2912,7 @@ void * ExecutionModule::EnqueueMapImage(
     // Get pointer for mapped region since it is allocated on init. Execute will lock the region
     // Note that if EnqueueCommand succeeded, by the time it returns, the command may be deleted already.
     void* mappedPtr = pMapImageCmd->GetMappedPtr();
-    *pErrcodeRet = pMapImageCmd->EnqueueSelf(bBlockingMap, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+    *pErrcodeRet = pMapImageCmd->EnqueueSelf(bBlockingMap, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
     if(CL_FAILED(*pErrcodeRet))
     {
         pMapImageCmd->CommandDone();
@@ -2912,12 +2925,12 @@ void * ExecutionModule::EnqueueMapImage(
 
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
-cl_err_code ExecutionModule::GetEventProfilingInfo (cl_event clEvent, 
-                                                    cl_profiling_info clParamName, 
-                                                    size_t szParamValueSize, 
-                                                    void * pParamValue, 
+cl_err_code ExecutionModule::GetEventProfilingInfo (cl_event clEvent,
+                                                    cl_profiling_info clParamName,
+                                                    size_t szParamValueSize,
+                                                    void * pParamValue,
                                                     size_t * pszParamValueSizeRet)
 {
     cl_err_code res = m_pEventsManager->GetEventProfilingInfo(clEvent, clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
@@ -2930,13 +2943,13 @@ static cl_int CheckEventList(const SharedPtr<OclCommandQueue>& pQueue, cl_uint u
     if (!pQueue->GetEventsManager()->IsValidEventList(uiNumEventsInWaitList, pEventWaitList, &eventWaitListVec))
     {
         return CL_INVALID_EVENT_WAIT_LIST;
-    }    
+    }
     return CL_SUCCESS;
 }
 
 cl_int ExecutionModule::EnqueueSVMFree(cl_command_queue clCommandQueue, cl_uint uiNumSvmPointers, void* pSvmPointers[],
                                     void (CL_CALLBACK* pfnFreeFunc)(cl_command_queue queue, cl_uint uiNumSvmPointers, void* pSvmPointers[],    void* pUserData),
-                                    void* pUserData, cl_uint uiNumEventsInWaitList,    const cl_event* pEventWaitList,    cl_event* pEvent)
+                                    void* pUserData, cl_uint uiNumEventsInWaitList,    const cl_event* pEventWaitList,    cl_event* pEvent, ApiLogger* apiLogger)
 {
     SharedPtr<IOclCommandQueueBase> pQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
     if (NULL == pQueue)
@@ -2954,7 +2967,7 @@ cl_int ExecutionModule::EnqueueSVMFree(cl_command_queue clCommandQueue, cl_uint 
             return CL_INVALID_VALUE;
         }
     }
-    
+
     cl_err_code err = CheckEventList(pQueue, uiNumEventsInWaitList, pEventWaitList);
     if (CL_FAILED(err))
     {
@@ -2966,14 +2979,14 @@ cl_int ExecutionModule::EnqueueSVMFree(cl_command_queue clCommandQueue, cl_uint 
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
-    
+
     err = pSvmFreeCmd->Init();
     if (CL_FAILED(err))
     {
         delete pSvmFreeCmd;
         return err;
     }
-    err = pSvmFreeCmd->EnqueueSelf(false, uiNumEventsInWaitList, pEventWaitList, pEvent);
+    err = pSvmFreeCmd->EnqueueSelf(false, uiNumEventsInWaitList, pEventWaitList, pEvent, apiLogger);
     if (CL_FAILED(err))
     {
         pSvmFreeCmd->CommandDone();
@@ -2984,7 +2997,7 @@ cl_int ExecutionModule::EnqueueSVMFree(cl_command_queue clCommandQueue, cl_uint 
 }
 
 cl_int ExecutionModule::EnqueueSVMMemcpy(cl_command_queue clCommandQueue, cl_bool bBlockingCopy, void* pDstPtr, const void* pSrcPtr, size_t size, cl_uint uiNumEventsInWaitList,
-    const cl_event* pEventWaitList, cl_event* pEvent)
+    const cl_event* pEventWaitList, cl_event* pEvent, ApiLogger* apiLogger)
 {
     // validate parameters:
     SharedPtr<IOclCommandQueueBase> pQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
@@ -3023,8 +3036,8 @@ cl_int ExecutionModule::EnqueueSVMMemcpy(cl_command_queue clCommandQueue, cl_boo
     // do the work:
     Command* pCmd;
     const size_t
-        pszSrcOrigin[] = { pSrcSvmBuffer != NULL ? (char*)pSrcPtr - (char*)pSrcSvmBuffer->GetAddr() : 0, 0, 0 },
-        pszDstOrigin[] = { pDstSvmBuffer != NULL ? (char*)pDstPtr - (char*)pDstSvmBuffer->GetAddr() : 0, 0, 0 },
+        pszSrcOrigin[] = { pSrcSvmBuffer != NULL ? (size_t)((char*)pSrcPtr - (char*)pSrcSvmBuffer->GetAddr()) : 0, 0, 0 },
+        pszDstOrigin[] = { pDstSvmBuffer != NULL ? (size_t)((char*)pDstPtr - (char*)pDstSvmBuffer->GetAddr()) : 0, 0, 0 },
         pszRegion[] = { size, 1, 1 };
     if (NULL == pSrcSvmBuffer)
     {
@@ -3034,7 +3047,7 @@ cl_int ExecutionModule::EnqueueSVMMemcpy(cl_command_queue clCommandQueue, cl_boo
         }
         else
         {
-            pCmd = new WriteSvmBufferCommand(pQueue, m_pOclEntryPoints, bBlockingCopy, pDstSvmBuffer, pszDstOrigin, pszRegion, pSrcPtr); 
+            pCmd = new WriteSvmBufferCommand(pQueue, m_pOclEntryPoints, bBlockingCopy, pDstSvmBuffer, pszDstOrigin, pszRegion, pSrcPtr);
         }
     }
     else
@@ -3058,7 +3071,7 @@ cl_int ExecutionModule::EnqueueSVMMemcpy(cl_command_queue clCommandQueue, cl_boo
         delete pCmd;
         return err;
     }
-    err = pCmd->EnqueueSelf(bBlockingCopy, uiNumEventsInWaitList, pEventWaitList, pEvent);
+    err = pCmd->EnqueueSelf(bBlockingCopy, uiNumEventsInWaitList, pEventWaitList, pEvent, apiLogger);
     if (CL_FAILED(err))
     {
         pCmd->CommandDone();
@@ -3069,7 +3082,7 @@ cl_int ExecutionModule::EnqueueSVMMemcpy(cl_command_queue clCommandQueue, cl_boo
 }
 
 cl_int ExecutionModule::EnqueueSVMMemFill(cl_command_queue clCommandQueue, void* pSvmPtr, const void* pPattern, size_t szPatternSize, size_t size, cl_uint uiNumEventsInWaitList,
-                                          const cl_event* pEventWaitList, cl_event* pEvent)
+                                          const cl_event* pEventWaitList, cl_event* pEvent, ApiLogger* apiLogger)
 {
     // validate parameters:
     SharedPtr<IOclCommandQueueBase> pQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
@@ -3077,7 +3090,7 @@ cl_int ExecutionModule::EnqueueSVMMemFill(cl_command_queue clCommandQueue, void*
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-    
+
     cl_err_code err = CheckEventList(pQueue, uiNumEventsInWaitList, pEventWaitList);
     if (CL_FAILED(err))
     {
@@ -3094,7 +3107,7 @@ cl_int ExecutionModule::EnqueueSVMMemFill(cl_command_queue clCommandQueue, void*
     {
         return CL_INVALID_VALUE;
     }
-    
+
     // do the work:
     Command* pCmd;
     if (pSvmBuf != NULL)
@@ -3115,25 +3128,25 @@ cl_int ExecutionModule::EnqueueSVMMemFill(cl_command_queue clCommandQueue, void*
         delete pCmd;
         return err;
     }
-    err = pCmd->EnqueueSelf(false, uiNumEventsInWaitList, pEventWaitList, pEvent);
+    err = pCmd->EnqueueSelf(false, uiNumEventsInWaitList, pEventWaitList, pEvent, apiLogger);
     if (CL_FAILED(err))
     {
         pCmd->CommandDone();
         delete pCmd;
         return err;
     }
-    return CL_SUCCESS;    
+    return CL_SUCCESS;
 }
 
 cl_int ExecutionModule::EnqueueSVMMap(cl_command_queue clCommandQueue, cl_bool bBlockingMap, cl_map_flags mapflags, void* pSvmPtr, size_t size, cl_uint uiNumEventsInWaitList,
-                                      const cl_event* pEventWaitList, cl_event* pEvent)
+                                      const cl_event* pEventWaitList, cl_event* pEvent, ApiLogger* apiLogger)
 {
     SharedPtr<IOclCommandQueueBase> pQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
     if (NULL == pQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-    
+
     cl_err_code err = CheckEventList(pQueue, uiNumEventsInWaitList, pEventWaitList);
     if (CL_FAILED(err))
     {
@@ -3159,7 +3172,7 @@ cl_int ExecutionModule::EnqueueSVMMap(cl_command_queue clCommandQueue, cl_bool b
     {
         return CL_INVALID_VALUE;
     }
-    
+
     MapBufferCommand* const pCmd = new MapSvmBufferCommand(pQueue, m_pOclEntryPoints, pSvmBuf, mapflags, (char*)pSvmPtr - (char*)pSvmBuf->GetAddr(), size);
     if (NULL == pCmd)
     {
@@ -3172,17 +3185,17 @@ cl_int ExecutionModule::EnqueueSVMMap(cl_command_queue clCommandQueue, cl_bool b
         return err;
     }
     assert(pCmd->GetMappedPtr() == pSvmPtr && "pCmd->GetMappedPtr() != pSvmPtr");
-    err = pCmd->EnqueueSelf(bBlockingMap, uiNumEventsInWaitList, pEventWaitList, pEvent);
+    err = pCmd->EnqueueSelf(bBlockingMap, uiNumEventsInWaitList, pEventWaitList, pEvent, apiLogger);
     if (CL_FAILED(err))
     {
         pCmd->CommandDone();
         delete pCmd;
         return err;
-    }    
+    }
     return CL_SUCCESS;
 }
 
-cl_int ExecutionModule::EnqueueSVMUnmap(cl_command_queue clCommandQueue, void* pSvmPtr, cl_uint uiNumEventsInWaitList, const cl_event* pEventWaitList, cl_event* pEvent)
+cl_int ExecutionModule::EnqueueSVMUnmap(cl_command_queue clCommandQueue, void* pSvmPtr, cl_uint uiNumEventsInWaitList, const cl_event* pEventWaitList, cl_event* pEvent, ApiLogger* apiLogger)
 {
     SharedPtr<IOclCommandQueueBase> pQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
     if (NULL == pQueue)
@@ -3222,7 +3235,7 @@ cl_int ExecutionModule::EnqueueSVMUnmap(cl_command_queue clCommandQueue, void* p
         delete pCmd;
         return err;
     }
-    err = pCmd->EnqueueSelf(false, uiNumEventsInWaitList, pEventWaitList, pEvent);
+    err = pCmd->EnqueueSelf(false, uiNumEventsInWaitList, pEventWaitList, pEvent, apiLogger);
     if (CL_FAILED(err))
     {
         pCmd->CommandDone();
@@ -3233,15 +3246,16 @@ cl_int ExecutionModule::EnqueueSVMUnmap(cl_command_queue clCommandQueue, void* p
 }
 
 /******************************************************************
- * 
+ *
  ******************************************************************/
 cl_err_code ExecutionModule::EnqueueSyncGLObjects(cl_command_queue clCommandQueue,
-                                                     cl_command_type cmdType, 
-                                                     cl_uint uiNumObjects, 
-                                                     const cl_mem * pclMemObjects, 
-                                                     cl_uint uiNumEventsInWaitList, 
-                                                     const cl_event * pclEventWaitList, 
-                                                     cl_event * pclEvent)
+                                                     cl_command_type cmdType,
+                                                     cl_uint uiNumObjects,
+                                                     const cl_mem * pclMemObjects,
+                                                     cl_uint uiNumEventsInWaitList,
+                                                     const cl_event * pclEventWaitList,
+                                                     cl_event * pclEvent,
+                                                     ApiLogger* apiLogger)
 {
 #if defined (_WIN32) //TODO GL support for Linux
     cl_err_code errVal = CL_SUCCESS;
@@ -3265,7 +3279,7 @@ cl_err_code ExecutionModule::EnqueueSyncGLObjects(cl_command_queue clCommandQueu
     {
         return CL_INVALID_CONTEXT;
     }
-    
+
     SharedPtr<GraphicsApiMemoryObject>* pMemObjects = new SharedPtr<GraphicsApiMemoryObject>[uiNumObjects];
     if ( NULL == pMemObjects )
     {
@@ -3310,7 +3324,7 @@ cl_err_code ExecutionModule::EnqueueSyncGLObjects(cl_command_queue clCommandQueu
         return  errVal;
     }
 
-    errVal = pAcquireCmd->EnqueueSelf(FALSE, uiNumEventsInWaitList, pclEventWaitList, pclEvent);
+    errVal = pAcquireCmd->EnqueueSelf(FALSE, uiNumEventsInWaitList, pclEventWaitList, pclEvent, apiLogger);
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
@@ -3387,12 +3401,11 @@ cl_int checkMapFlagsMutex(const cl_map_flags clMapFlags)
 {
     if (0 == ( clMapFlags & (CL_MAP_READ | CL_MAP_WRITE | CL_MAP_WRITE_INVALIDATE_REGION) ) )
         return CL_SUCCESS;
-    
+
     if ( (clMapFlags & CL_MAP_WRITE_INVALIDATE_REGION) & (CL_MAP_READ | CL_MAP_WRITE) )
     {
         return CL_INVALID_VALUE;
     }
-    
+
     return CL_SUCCESS;
 }
-

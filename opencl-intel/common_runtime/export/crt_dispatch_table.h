@@ -155,7 +155,6 @@ namespace CRT_ICD_DISPATCH
         cl_context                  context,
         cl_mem_flags                flags,
         VASurfaceID *               surface,
-        VADisplay                   display,
         cl_uint                     plane,
         cl_int *                    errcode_ret );
 

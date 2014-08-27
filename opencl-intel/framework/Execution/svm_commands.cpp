@@ -29,12 +29,12 @@ cl_err_code SVMFreeCommand::Execute()
 {
     if (m_freeFunc != NULL)
     {
-        if (GetUserLoggerInstance().IsApiLoggingEnabled())
+        if (NULL != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled())
         {
             std::stringstream stream;
             stream << "SVMFreeCommand callback(" << GetCommandQueue()->GetHandle() << ", " << m_svmPtrs.size() << ", " << &m_svmPtrs[0] << ", " << m_pUserData << ")"
                 << std::endl;
-            GetUserLoggerInstance().PrintString(stream.str());
+            g_pUserLogger->PrintString(stream.str());
         }
         m_freeFunc(GetCommandQueue()->GetHandle(), m_svmPtrs.size(), &m_svmPtrs[0], m_pUserData);
     }

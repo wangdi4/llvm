@@ -116,18 +116,33 @@ bool Vectorizer::runOnModule(Module &M)
     // default values for non vectorized kernels.
     Function *vectFunc = 0;
     int vectFuncWidth = 1;
+    unsigned int vectDim = 0;
+    bool canUniteWorkgroups = false;
 
     if (*fi) {
       // Clone the kernel
       ValueToValueMapTy vmap;
-      Function *clone = CloneFunction(*fi,vmap, false, NULL);
-      clone->setName("__Vectorized_." + (*fi)->getName());
+      Function *clone = CloneFunction(*fi, vmap, true, NULL, "__Vectorized_." + (*fi)->getName());
       M.getFunctionList().push_back(clone);
+
+      // Todo: due to a bug in the metadata we can't save changes more than once
+      // (even if we reinstantiate the metadata object after saving).
+      // Until this is fixed, we send the scalar function directly to the vectorizer core.
+      //Intel::KernelInfoMetaDataHandle vkimd = mdUtils.getOrInsertKernelsInfoItem(clone);
+      //vkimd->setVectorizedKernel(NULL);
+      //vkimd->setScalarizedKernel(*fi);
+      //Save Metadata to the module
+      //mdUtils.save(M.getContext());
+
+      vectCore->setScalarFunc(*fi);
+
       vectPM.run(*clone);
       if (vectCore->isFunctionVectorized()) {
         // if the function is successfully vectorized update vectFunc and width.
         vectFunc = clone;
         vectFuncWidth = vectCore->getPacketWidth();
+        vectDim = vectCore->getVectorizationDim();
+        canUniteWorkgroups = vectCore->getCanUniteWorkgroups();
         // copy stats from the original function to the new one
         intel::Statistic::copyFunctionStats(**fi, *clone);
       } else {
@@ -155,6 +170,8 @@ bool Vectorizer::runOnModule(Module &M)
         vkimd->setVectorizedKernel(NULL);
         vkimd->setVectorizedWidth(vectFuncWidth);
         vkimd->setScalarizedKernel(*fi);
+        vkimd->setVectorizationDimension(vectDim);
+        vkimd->setCanUniteWorkgroups(canUniteWorkgroups);
       }
     }
   }

@@ -115,7 +115,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 													const cl_mem *    IN pclMemObjects,
 													cl_uint           IN uiNumEventsInWaitList,
 													const cl_event *  IN pclEventWaitList,
-													cl_event *       OUT pclEvent) = 0;
+													cl_event *       OUT pclEvent,
+													ApiLogger*        IN apiLogger) = 0;
 
 
 

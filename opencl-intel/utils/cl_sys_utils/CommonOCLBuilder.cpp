@@ -17,11 +17,13 @@ File Name: CommonOCLBuilder.cpp
 \*****************************************************************************/
 
 #include "CommonOCLBuilder.h"
+#include "common_clang.h"
 #include <string>
 #include <clang_device_info.h>
 #include "ocl_string_exception.h"
 
 using namespace Intel::OpenCL::FECompilerAPI;
+using namespace Intel::OpenCL::ClangFE;
 using namespace Intel::OpenCL::Utils;
 using namespace std;
 
@@ -127,7 +129,7 @@ IOCLFECompiler* CommonOCLBuilder::createCompiler(const char* lib){
   m_dynamicLoader.Load(lib);
   fnCreateFECompilerInstance* factoryMethod =
     (fnCreateFECompilerInstance*)(intptr_t)m_dynamicLoader.GetFunctionPtrByName(fnFactoryName);
-  int rc = factoryMethod(&sDeviceInfo, sizeof(sDeviceInfo), &ret);
+  int rc = factoryMethod(&sDeviceInfo, sizeof(sDeviceInfo), &ret, NULL);
   if (rc || NULL == ret)
     throw ocl_string_exception("factory method failed");
   return ret;

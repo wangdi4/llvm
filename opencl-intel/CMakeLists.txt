@@ -1,7 +1,6 @@
 #
 # Global setup file for OpenCL CMake
 #
-#
 cmake_minimum_required(VERSION 2.8.7)
 cmake_policy(SET CMP0001 NEW)
 cmake_policy(SET CMP0011 OLD)
@@ -12,8 +11,6 @@ set(CMAKE_MODULE_PATH
     "${CMAKE_SOURCE_DIR}/cmake/Modules/"
     "${CMAKE_SOURCE_DIR}/cmake_utils/"
 )
-message( STATUS "CMAKE_MODULE_PATH: ${CMAKE_MODULE_PATH}" )
-message( STATUS "CMAKE_ROOT: ${CMAKE_ROOT}" )
 include( cmake_utils/CMakeFuncs.txt )
 
 if (WIN32)
@@ -27,8 +24,30 @@ elseif( ANDROID)
        include( CMake_android_tools )
     endif ()
 else()
-    include( CMake_linux_tools )
+  include( CMake_linux_tools )
 endif ()
+
+# Supported configurations
+set(CMAKE_CONFIGURATION_TYPES
+    "Debug"
+    "Release"
+  )
+set(CMAKE_CONFIGURATION_TYPES ${CMAKE_CONFIGURATION_TYPES} CACHE STRING "Available build configurations." FORCE)
+
+
+# ITT/VTune integration
+if( NOT ANDROID )
+  add_definitions( -DUSE_ITT )
+  include_directories( ${CMAKE_SOURCE_DIR}/externals/itt/include
+       ${CMAKE_SOURCE_DIR}/externals/itt/ittnotify/ )
+endif( NOT ANDROID )
+
+if (NOT WIN32 AND NOT APPLE)
+  add_custom_target(strip
+    ${CMAKE_SOURCE_DIR}/cmake_utils/separate_linux_symbols.sh
+    WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/bin
+    COMMENT "Separating debug symbols from binaries...")
+endif (NOT WIN32 AND NOT APPLE)
 
 if (WIN32)
     # Add definitions that make MSVC much less annoying.
@@ -88,7 +107,9 @@ if(CMAKE_CROSSCOMPILING)
                             # We are cross compiling when building for android, hence we are
                             # dropping off all non required build components, such tests/verification
                             -DBACKEND_BUILD_VERIFICATION_LIB=OFF
-                            -DLLVM_PATH=${LLVM_PATH}/native
+                            -DLLVM_PATH_BE=${LLVM_PATH_BE}/native
+                            -DLLVM_PATH_FE=${LLVM_PATH_FE}/native
+                            -DLLVM_PATH_SPIR12=${LLVM_PATH_SPIR12}/native
                             -DBUILD_X64=True
                             ${CMAKE_SOURCE_DIR}
                             WORKING_DIRECTORY ${CX_NATIVE_TG_DIR}
@@ -205,11 +226,10 @@ option(INCLUDE_MIC_DEVICE "Include MIC device Into Build"  OFF)
 option(USE_ITT_INTERNAL "Report internal tasks start/stop to VTune" OFF)
 option(USE_HARD_TRAPPING "Use hard trapping for workers on CPU device"  ON)
 option(USE_COMMON_CLANG "Use VPG supplied common clang dll instead of internale implementation" OFF)
+option(INCLUDE_CMRT "Include Common Runtime into Build"  OFF)
+option(BUILD_LLVM_FROM_SOURCE "Build the llvm package from source instead of using pre-installed binaries" OFF)
 
 # find the used external packages
-
-# LLVM
-find_package(LLVM REQUIRED)
 
 # QTGUI
 if (BUILD_QTGUI AND NOT ANDROID)
@@ -289,7 +309,6 @@ endif ()
 #
 # Project defs
 #
-
 project(OCL)
 
 # GIT
@@ -307,19 +326,25 @@ if (GIT_REVISIONS)
                     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
                     OUTPUT_VARIABLE GIT_REVISION)
 
-    if ("${LLVM_PATH}" STREQUAL "")
-        set(LLVM_PATH_STRING 0)
+    if ("${LLVM_PATH_BE}" STREQUAL "")
+        set(LLVM_PATH_BE_STRING 0)
     else()
-        set(LLVM_PATH_STRING ${LLVM_PATH})
+        set(LLVM_PATH_BE_STRING ${LLVM_PATH_BE})
     endif()
 
+    if ("${LLVM_PATH_FE}" STREQUAL "")
+        set(LLVM_PATH_FE_STRING 0)
+    else()
+        set(LLVM_PATH_FE_STRING ${LLVM_PATH_FE})
+    endif()
+    
     if ("${LLVM_PATH_SPIR12}" STREQUAL "")
         set(LLVM_PATH_SPIR12_STRING 0)
     else()
         set(LLVM_PATH_SPIR12_STRING ${LLVM_PATH_SPIR12})
     endif()
 
-    file(WRITE ${OCL_BINARY_DIR}/revision.txt "REVISION=${GIT_REVISION}DESCRIBE=${GIT_DESCRIPTION}LLVM_PATH=${LLVM_PATH_STRING}\nLLVM_PATH_SPIR12=${LLVM_PATH_SPIR12_STRING}")
+    file(WRITE ${OCL_BINARY_DIR}/revision.txt "REVISION=${GIT_REVISION}\nDESCRIBE=${GIT_DESCRIPTION}\nLLVM_PATH_BE=${LLVM_PATH_BE_STRING}\nLLVM_PATH_FE=${LLVM_PATH_FE_STRING}\nLLVM_PATH_SPIR12=${LLVM_PATH_SPIR12_STRING}")
     install(FILES ${OCL_BINARY_DIR}/revision.txt DESTINATION ./)
 endif (GIT_REVISIONS)
 message(STATUS "Current build version is ${BUILDVER_WC_REVISION}")
@@ -372,7 +397,6 @@ else ()
 endif ()
 
 set( OCL_GLOBAL_INCLUDE  ${OCL_SOURCE_DIR}/cl_api )
-set( OCL_1_2_INCLUDE ${OCL_SOURCE_DIR}/cl_api/CL-1.2 )
 set( OCL_CLANG_HEADERS   ${OCL_SOURCE_DIR}/backend/clang_headers )
 
 # set OS-dependent source tree elements
@@ -471,7 +495,6 @@ if (INCLUDE_MIC_DEVICE)
 endif (INCLUDE_MIC_DEVICE)
 
 # paths
-#set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES )
 include_directories( BEFORE
         utils/cl_logger/export
         utils/cl_hw_utils/export
@@ -479,7 +502,6 @@ include_directories( BEFORE
         devices/device_commands/export
         externals/tbb/include
         externals/tbb/enhancements
-        ${LLVM_INCLUDE_DIR}
     )
 
 # Framework IDE Folders Names
@@ -490,8 +512,9 @@ set( DEVICES_FOLDER_NAME        ${FRAMEWORK_FOLDER_NAME}/Devices )
 set( RUNTIME_FOLDER_NAME        ${FRAMEWORK_FOLDER_NAME}/Runtime )
 set( UTILS_FOLDER_NAME          ${FRAMEWORK_FOLDER_NAME}/utils )
 set( TOOLS_FOLDER_NAME          ${FRAMEWORK_FOLDER_NAME}/Tools )
-set( FE_COMPILER_FOLDER_NAME    "${FRAMEWORK_FOLDER_NAME}/Front-end Compiler" )
+set( FRONTEND_FOLDER_NAME       Frontend )
 set( EXTERNAL_FOLDER_NAME       External )
+
 
 if (APPLE)
     include_directories( BEFORE ${OCL_GLOBAL_INCLUDE} )
@@ -505,7 +528,7 @@ else(APPLE)
     if(BUILD_LLVM_FROM_SOURCE)
         add_subdirectory(${LLVM_SRC_ROOT} "${CMAKE_CURRENT_BINARY_DIR}/llvm")
     endif()
-
+    
     #validation
     add_subdirectory( tests )
 
@@ -518,7 +541,7 @@ else(APPLE)
     add_definitions(-D__TBB_NO_IMPLICIT_LINKAGE=1)
 
     # externals
-    add_subdirectory(externals)
+    add_subdirectory( externals )
 
     add_subdirectory( cl_api )
     add_subdirectory( utils )
@@ -536,17 +559,18 @@ else(APPLE)
     add_subdirectory( framework )
 
     # Common Runtime
-    option(INCLUDE_CMRT "Include Common Runtime into Build"  OFF)
     if ( INCLUDE_CMRT )
-      add_subdirectory ( common_runtime )
+        add_subdirectory ( common_runtime )
     endif( INCLUDE_CMRT )
-    #tools
+    
+    # Tools
     if( INCLUDE_TOOLS )
         add_subdirectory ( tools )
     endif( INCLUDE_TOOLS )
 
     #workloads
     add_subdirectory( workloads )
+    
 endif(APPLE)
 
 # install additional files required by the installer

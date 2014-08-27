@@ -1197,12 +1197,12 @@ cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth,
 void Context::NotifyError(const char * pcErrInfo, const void * pPrivateInfo, size_t szCb)
 {
     if (NULL != m_pfnNotify)
-    {
-        if (GetUserLoggerInstance().IsApiLoggingEnabled())
+    {        
+        if (NULL != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled())
         {
             std::stringstream stream;
             stream << "clCreateContext callback(" << pcErrInfo << ", " << pPrivateInfo << ", " << szCb << ")" << std::endl;
-            GetUserLoggerInstance().PrintString(stream.str());
+            g_pUserLogger->PrintString(stream.str());
         }
         m_pfnNotify(pcErrInfo, pPrivateInfo, szCb, m_pUserData);
     }

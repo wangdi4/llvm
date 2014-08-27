@@ -21,7 +21,8 @@ endif ( BUILD_2_0_RT )
 include_directories( AFTER
             ../cl_hw_utils/export
             ${CMAKE_SOURCE_DIR}/fe_compilers/clang_compiler
-			${CMAKE_SOURCE_DIR}/tools/OCLProfiler/Inc
+            ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang
+            ${CMAKE_SOURCE_DIR}/tools/OCLProfiler/Inc
             )
 
 FIND_SOURCES_IN_FOLDER(../cl_sys_utils)
@@ -32,11 +33,10 @@ SET_UNICODE_OFF()
 # Include the ASM sources
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     if (WIN32)
-        set (UTILS_ASM_SOURCES ../cl_sys_utils/kernel_execute_64.asm)
+        CREATE_ASM_RULES( UTILS_ASM_ADD_TO_SOURCES_LIST ../cl_sys_utils/kernel_execute_64.asm )
     else (WIN32)
-        set (UTILS_ASM_SOURCES ../cl_sys_utils/linux64_utils.s)
+        set (UTILS_ASM_ADD_TO_SOURCES_LIST ../cl_sys_utils/linux64_utils.s)
     endif (WIN32)
-    CREATE_ASM_RULES( UTILS_ASM_ADD_TO_SOURCES_LIST ${UTILS_ASM_SOURCES} )
 endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 
 # add a target named ${TARGET_NAME}

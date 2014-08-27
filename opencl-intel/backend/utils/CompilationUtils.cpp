@@ -770,8 +770,16 @@ std::string CompilationUtils::mangledGetLID() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_LID.c_str());
 }
 
+std::string CompilationUtils::mangledGetGroupID() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_GROUP_ID.c_str());
+}
+
 std::string CompilationUtils::mangledGetLocalSize() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_LOCAL_SIZE.c_str());
+}
+
+std::string CompilationUtils::mangledGetNumGroups() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_NUM_GROUPS.c_str());
 }
 
 std::string CompilationUtils::mangledGetEnqueuedLocalSize(){

@@ -166,7 +166,7 @@ namespace intel {
     Module* m_pModule;
 
     /// Map between values (functions/globals) in source module
-    //  to their counterpart values in destination module
+    /// to their counterpart values in destination module
     ValueToValueMapTy  m_valueMap;
     /// List of source functions to import
     TFunctionsVec      m_functionsToImport;

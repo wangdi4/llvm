@@ -513,7 +513,7 @@ TYPED_TEST(NEATMathTestOneArg, acosh)
         {
             if(!testVec[i].IsAcc())
             {
-                bool passed = TestAcoshInterval(*x[i].GetMin<TypeP>(), 
+                bool passed = TestAcoshInterval(*x[i].GetMin<TypeP>(),
                     *x[i].GetMax<TypeP>(), testVec[i], NEATALU::ACOSH_ERROR);
                 EXPECT_TRUE(passed);
             }
@@ -565,7 +565,7 @@ TYPED_TEST(NEATMathTestOneArg, atanh)
     for(uint32_t i = NUM_TESTS * vectorWidth / 2; i< NUM_TESTS * vectorWidth; i++)
     {
         /// Tests not-NaNs as input.
-        /// Values in the interval 
+        /// Values in the interval
         NEATValue notNaN = NEATValue(argMin[i]);
         testVal = NEATALU::atanh<TypeP>(notNaN);
         EXPECT_FALSE(testVal.IsNaN<TypeP>());
@@ -641,7 +641,7 @@ TYPED_TEST(NEATMathTestOneArg, atanh)
         {
             if(!testVec[i].IsAcc())
             {
-                bool passed = TestAtanhInterval(*x[i].GetMin<TypeP>(), 
+                bool passed = TestAtanhInterval(*x[i].GetMin<TypeP>(),
                     *x[i].GetMax<TypeP>(), testVec[i], NEATALU::ATANH_ERROR);
                 EXPECT_TRUE(passed);
             }
@@ -688,7 +688,6 @@ void TestClampInterval(const NEATValue& a, const NEATValue& in_min, const NEATVa
 TYPED_TEST(NEATMathTestThreeArgs, clamp)
 {
     typedef typename  TypeParam::Type TypeP;
-    typedef typename  superT<TypeP>::type sT;
 
     if (SkipDoubleTest<TypeP>()){
         return;
@@ -2210,7 +2209,6 @@ void TestPowInterval(const NEATValue& x, const NEATValue& y, const NEATValue& in
 TYPED_TEST(NEATMathTestTwoArgs, pow)
 {
     typedef typename TypeParam::Type TypeP;
-    typedef typename superT<TypeP>::type sT;
 
     if (SkipDoubleTest<TypeP>())
         return;
@@ -2395,7 +2393,6 @@ void TestPowrInterval(const NEATValue& x, const NEATValue& y, const NEATValue& i
 TYPED_TEST(NEATMathTestTwoArgs, powr)
 {
     typedef typename TypeParam::Type TypeP;
-    typedef typename superT<TypeP>::type sT;
 
     if (SkipDoubleTest<TypeP>())
         return;
@@ -2504,7 +2501,6 @@ TYPED_TEST(NEATMathTestTwoArgs, powr)
 TYPED_TEST(NEATMathTestTwoArgs, half_powr)
 {
     typedef typename TypeParam::Type TypeP;
-    typedef typename superT<TypeP>::type sT;
 
     if (SkipDoubleTest<TypeP>())
         return;
@@ -2818,7 +2814,7 @@ public:
     typedef NEATVector (*NEATFuncVecP)(const NEATVector&);
     typedef sT (*RefFuncP) (const sT&);
 
-    void TestRoundAddReq(void) 
+    void TestRoundAddReq(void)
     {
         T Arr[vectorWidth*NUM_TESTS];
         GenerateRangedVectorsAutoSeed(dataTypeVal, &Arr[0], curWidth, NUM_TESTS, T(-0.5), T(0));
@@ -2856,15 +2852,15 @@ public:
         NEATValue accVal = NEATValue(T(+0.0));
         NEATValue testAccVal = NEATFunc(accVal);
         EXPECT_TRUE(TestAccValue<T>(testAccVal,T(+0.0)));
-   
+
         accVal = NEATValue(T(-0.0));
         testAccVal = NEATFunc(accVal);
         EXPECT_TRUE(TestAccValue<T>(testAccVal,T(-0.0)));
-   
+
         accVal = NEATValue(Utils::GetPInf<T>());
         testAccVal = NEATFunc(accVal);
         EXPECT_TRUE(TestAccValue<T>(testAccVal, Utils::GetPInf<T>()));
-   
+
         accVal = NEATValue(Utils::GetNInf<T>());
         testAccVal = NEATFunc(accVal);
         EXPECT_TRUE(TestAccValue<T>(testAccVal, Utils::GetNInf<T>()));
@@ -2874,11 +2870,11 @@ public:
             NEATValue accVal, intVal;
             NEATValue testAccVal, testIntVal;
             NEATValue refAccVal, refIntVal;
-    
+
             /* load data for interval from min T to max T */
             NEATVector accurate(curWidth);
             NEATVector interval(curWidth);
-    
+
             // generate accurate and interval values
             for(uint32_t i = 0; i<vectorWidth; i++)
             {
@@ -2886,25 +2882,25 @@ public:
                 interval[i] = NEATValue(Arg1Min[testIdx*vectorWidth+i],
                                         Arg1Max[testIdx*vectorWidth+i]);
             }
-    
+
             /* test for single accurate NEAT value*/
             accVal = accurate[0];
             testAccVal = NEATFunc(accVal);
             sT refAccValFloat;
-    
+
             refAccValFloat = RefFunc(sT(*accVal.GetAcc<T>()));
-    
+
             // for accurate check floor return accurate
             bool passed = testAccVal.IsAcc();
             passed &= ( T(refAccValFloat) == *(testAccVal.GetAcc<T>()) );
             EXPECT_TRUE(passed);
-    
+
             /* test for single interval NEAT value */
             sT refIntValMin, refIntValMax;
-    
+
             intVal = interval[0];
             testIntVal = NEATFunc(intVal);
-    
+
             refIntValMax = RefFunc(sT(*intVal.GetMax<T>()));
             refIntValMin = RefFunc(sT(*intVal.GetMin<T>()));
             if(refIntValMin == refIntValMax)
@@ -2913,7 +2909,7 @@ public:
             }
             else passed = testIntVal.IsUnknown();
             EXPECT_TRUE(passed);
-    
+
             /* test for vector of NEAT accurate */
             NEATVector testAccVec = NEATFuncVec(accurate);
             for(uint32_t i = 0; i<vectorWidth; i++) {
@@ -2922,7 +2918,7 @@ public:
                 passed &= (T(refAccValFloat) == *(testAccVec[i].GetAcc<T>()));
                 EXPECT_TRUE(passed);
             }
-    
+
             /* test for vector of NEAT intervals */
             NEATVector testIntVec = NEATFuncVec(interval);
             for(uint32_t i = 0; i<vectorWidth; i++) {
@@ -3039,7 +3035,7 @@ TYPED_TEST(NEATMathTestTwoArgs, fract)
     if (SkipDoubleTest<TypeP>()){
         return;
     }
-    
+
     /* test for specific values */
     NEATValue accValx, accValy;
     NEATValue testAccVal;
@@ -3138,10 +3134,10 @@ TYPED_TEST(NEATMathTestTwoArgs, fract)
         refMaxValFloat = RefALU::fract(
             SuperT(*xVal.GetMax<TypeP>()),
             &refMaxOutVal);
-        // The fract funtion is discontinious. Multiple non-intersecting intervals cannot be represented by current implementation 
+        // The fract funtion is discontinious. Multiple non-intersecting intervals cannot be represented by current implementation
         // To get defined resut we need to ensure that output values Y = {y = fract(x), x from Min to Max }
         // belong to continuous interval
-        // 
+        //
         // diff is difference between floor(min) and floor(max)
         // min = floor(min)+fract(min)
         SuperT diff = RefALU::fabs( RefALU::floor((SuperT)*xVal.GetMin<TypeP>()) - RefALU::floor((SuperT)*xVal.GetMax<TypeP>()) );
@@ -3672,7 +3668,7 @@ static void ModfTest(T refIntegrMax, T refIntegrMin, T refMax, T refMin, NEATVal
 
         if(testVal.IsUnknown()) {
             // for example, min=1.8, max=2.2, fractial part should be greater
-            // than 0.8 and less than 0.2, we are not able to make correct interval, 
+            // than 0.8 and less than 0.2, we are not able to make correct interval,
             // so we set UNKNOWN here
             // in this case the difference between min and max should be < 1.0
             EXPECT_TRUE( ::fabs(*xVal.GetMax<dT>() - *xVal.GetMin<dT>()) < dT(1.0) );
@@ -3763,7 +3759,7 @@ TYPED_TEST(NEATMathTestOneArg, modf)
 
         for(uint32_t i = 0; i < this->vectorWidth; ++i)
         {
-            x[i] = NEATValue(this->Arg1Min[testIdx*this->vectorWidth+i]);            
+            x[i] = NEATValue(this->Arg1Min[testIdx*this->vectorWidth+i]);
         }
 
         // 2.a Test single accurate value
@@ -3824,7 +3820,7 @@ static void RootnAccTest( T refAccValFloat, NEATValue xVal, NEATValue testVal, i
         EXPECT_TRUE(testVal.IsNaN<dT>());
     else if( *xVal.GetAcc<dT>() < 0 && 0 == (powN&1) )
         EXPECT_TRUE(testVal.IsNaN<dT>());
-    else 
+    else
         EXPECT_TRUE(TestAccExpanded<T>(refAccValFloat, testVal, NEATALU::ROOTN_ERROR));
 }
 
@@ -3966,7 +3962,7 @@ TYPED_TEST(NEATMathTestOneArg, rootn)
         NEATVector testVec = NEATALU::rootn<TypeP>(x,powVec);
         for(uint32_t i = 0; i < this->vectorWidth; ++i) {
             refAccValFloat = RefALU::rootn(sT(*x[i].GetAcc<TypeP>()),powVec[i]);
-            RootnAccTest<sT>(refAccValFloat, x[i], testVec[i], powVec[i]);            
+            RootnAccTest<sT>(refAccValFloat, x[i], testVec[i], powVec[i]);
         }
 
 
@@ -4011,7 +4007,7 @@ static void PownAccTest( T refIn, NEATValue xVal, NEATValue testVal, int y) {
         EXPECT_TRUE(TestAccValue<dT>(testVal, dT(1.0)));
         return;
     }
-    // calculate values to expand reference result interval, 
+    // calculate values to expand reference result interval,
     // if input interval includes edge value
     if(xVal.IsAcc() && (Utils::eq(*xVal.GetAcc<T>(),T(+0.0)) || Utils::eq(*xVal.GetAcc<T>(), (T)-0.0)) ) {
         if(y < 0)  {
@@ -4028,10 +4024,10 @@ static void PownAccTest( T refIn, NEATValue xVal, NEATValue testVal, int y) {
         } else {
             if( y&1 ) {
                 if (Utils::eq(*xVal.GetAcc<T>(),T(-0.0)))
-                //pown ( +-0,  n ) is +-0 for odd n > 0                        
+                //pown ( +-0,  n ) is +-0 for odd n > 0
                     ref = T(-0.0);
                 else if (Utils::eq(*xVal.GetAcc<T>(),T(0.0)))
-                //pown ( +-0,  n ) is +-0 for odd n > 0                        
+                //pown ( +-0,  n ) is +-0 for odd n > 0
                     ref = T(0.0);
             } else {
                 //pown ( +-0,  n ) is +0 for even n > 0
@@ -4068,7 +4064,7 @@ static void PownIntervalTest( T refMinIn, T refMaxIn, NEATValue xVal, NEATValue 
         return;
     }
 
-    // calculate values to expand reference result interval, 
+    // calculate values to expand reference result interval,
     // if input interval includes edge values
     if( y < 0) {
         if( y&1 ) {
@@ -4242,7 +4238,7 @@ static bool TestNEATVal_fdim(NEATValue x, NEATValue y, NEATValue test)
     T xMax = *x.GetMax<T>();
     T yMin = *y.GetMin<T>();
 
-    if( Utils::le<T>(xMax, yMin)) {        
+    if( Utils::le<T>(xMax, yMin)) {
         passed &= test.IsAcc();
         passed &= Utils::eq(*test.GetAcc<T>(), T(+0.0));
         return passed;
@@ -4267,7 +4263,7 @@ static bool TestNEATVal_fdim(NEATValue x, NEATValue y, NEATValue test)
         refMin = RefALU::sub<sT>(sT(xMin), sT(yMax));
     else
         refMin = 0;
-    
+
     refMax = RefALU::sub<sT>(sT(xMax), sT(yMin));
     double diffMin = ::fabs(Utils::ulpsDiff(refMin, testMin));
     double diffMax = ::fabs(Utils::ulpsDiff(refMax, testMax));
@@ -4279,7 +4275,6 @@ static bool TestNEATVal_fdim(NEATValue x, NEATValue y, NEATValue test)
 TYPED_TEST(NEATMathTestTwoArgs, fdim)
 {
     typedef typename TypeParam::Type TypeP;
-    typedef typename superT<TypeP>::type sT;
 
     if (SkipDoubleTest<TypeP>())
         return;
@@ -4341,8 +4336,8 @@ TYPED_TEST(NEATMathTestTwoArgs, fdim)
         testVec = NEATALU::fdim<TypeP>(y,x);
         for(uint32_t i = 0; i < this->vectorWidth; ++i) {
             EXPECT_TRUE(TestNEATVal_fdim<TypeP>(y[i],x[i],testVec[i]));
-        }        
-       
+        }
+
         for(uint32_t i = 0; i < this->vectorWidth; ++i)
         {
             x[i] = NEATValue(this->Arg1Min[testIdx*this->vectorWidth+i], this->Arg1Max[testIdx*this->vectorWidth+i]);
@@ -4359,7 +4354,7 @@ TYPED_TEST(NEATMathTestTwoArgs, fdim)
         for(uint32_t i = 0; i < this->vectorWidth; ++i) {
             EXPECT_TRUE(TestNEATVal_fdim<TypeP>(x[i],y[i],testVec[i]));
         }
-        
+
     }
 }
 
@@ -4387,7 +4382,7 @@ TYPED_TEST(NEATMathTestOneArg, lgamma_r)
 
     int32_t sign = 0; // int32_t is used for both floates and doubles
     int32_t * signp = &sign;
-    
+
     // The ULP values for built-in math functions lgamma and lgamma_r is currently undefined,
     // so we test special NEAT values: UNKNOWN, UNWRITTEN and ANY only
     NEATValue testAccVal = NEATALU::lgamma_r<TypeP>(NEATValue(NEATValue::ANY),signp);
@@ -4462,7 +4457,7 @@ public:
         NEATValue any  = NEATValue(NEATValue::ANY);
         NEATValue nan  = NEATValue::NaN<T>();
         NEATValue tmp;
-    
+
         tmp = NEATFunc(nan, any);
         EXPECT_TRUE(tmp.IsUnknown());
         tmp = NEATFunc(any, nan);
@@ -4526,11 +4521,11 @@ public:
             NEATValue accVal, intVal;
             NEATValue testAccVal, testIntVal;
             NEATValue refAccVal, refIntVal;
-       
+
             for(uint32_t i = 0; i<vectorWidth; i++)
             {
                 uint32_t idx = testIdx * vectorWidth + i;
-    
+
                 // Test for accurate operation (input is accurate values, output - interval)
                 NEATValue aAcc = NEATValue(Arg1Min[idx]);
                 NEATValue bAcc = NEATValue(Arg2Min[idx]);
@@ -4627,7 +4622,6 @@ TYPED_TEST(NEATMaxMinMagTestRun, minmag)
 TYPED_TEST(NEATMathTestTwoArgs, remainder)
 {
     typedef typename TypeParam::Type T;
-    typedef typename superT<T>::type sT;
 
     if (SkipDoubleTest<T>())
         return;
@@ -4673,7 +4667,7 @@ TYPED_TEST(NEATMathTestTwoArgs, remainder)
             EXPECT_TRUE(*testVal.GetAcc<T>() == refVal);
         else
             EXPECT_TRUE(testVal.IsUnknown());
-        
+
         // Test vector of accurate values x and y
         NEATVector testVec = NEATALU::remainder<T>(x,y);
         for(uint32_t i = 0; i < this->vectorWidth; ++i) {
@@ -4735,7 +4729,7 @@ TYPED_TEST(NEATMathTestTwoArgs, remainder)
                 T dividendStep = (*dividend.GetMax<T>() - *dividend.GetMin<T>()) / STEPS_COUNT;
 
                 T min = *rem.GetMin<T>();
-                T max = *rem.GetMax<T>();                
+                T max = *rem.GetMax<T>();
 
                 for(T divisorIdx = *divisor.GetMin<T>(); divisorIdx < *divisor.GetMax<T>(); divisorIdx += divisorStep)
                 {
@@ -4781,15 +4775,14 @@ TYPED_TEST(NEATMathTestTwoArgs, remainder)
 TYPED_TEST(NEATMathTestTwoArgs, remquo)
 {
     typedef typename TypeParam::Type T;
-    typedef typename superT<T>::type sT;
 
     if (SkipDoubleTest<T>())
         return;
 
     // The quo value (the lower seven bits of the integral quotient x/y) is the only
     // difference bitween remainder and remquo functions, but this value is not valid for interval case,
-    // so test checks the accurate values only: remquo actually calls remainder function for 
-    // other cases. 
+    // so test checks the accurate values only: remquo actually calls remainder function for
+    // other cases.
 
     int32_t testQuo = 1, refQuo;
 
@@ -4838,7 +4831,7 @@ TYPED_TEST(NEATMathTestTwoArgs, remquo)
     {
         // Test on accurate values
         NEATVector x(Width), y(Width);
-        std::vector<int32_t> testQuoVec;        
+        std::vector<int32_t> testQuoVec;
 
         for(uint32_t i = 0; i < this->vectorWidth; ++i)
         {
@@ -4858,7 +4851,7 @@ TYPED_TEST(NEATMathTestTwoArgs, remquo)
         }
         else
             EXPECT_TRUE(testVal.IsUnknown());
-        
+
         // Test vector of accurate values x and y
         NEATVector testVec = NEATALU::remquo<T>(x,y,testQuoVec);
         for(uint32_t i = 0; i < this->vectorWidth; ++i) {

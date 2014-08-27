@@ -119,7 +119,7 @@ Command::~Command()
     RELEASE_LOGGER_CLIENT;
 }
 
-cl_err_code Command::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
+cl_err_code Command::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger)
 {
     if (NULL != cpEeventWaitList && NULL != pEvent && pEvent >= cpEeventWaitList && pEvent < &cpEeventWaitList[uNumEventsInWaitList])
     {
@@ -127,7 +127,7 @@ cl_err_code Command::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList
         return CL_INVALID_EVENT;
     }
     // 'this' may disapper during Enqueue if it was successful!
-    return GetCommandQueue().StaticCast<IOclCommandQueueBase>()->EnqueueCommand( this, bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent );
+    return GetCommandQueue().StaticCast<IOclCommandQueueBase>()->EnqueueCommand( this, bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
 }
 
 /******************************************************************
@@ -976,7 +976,7 @@ cl_err_code MapMemObjCommand::CommandDone()
 /******************************************************************
  *
  ******************************************************************/
-cl_err_code MapMemObjCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
+cl_err_code MapMemObjCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger)
 {
     // 'this' may disapper during Enqueue if it was successful!
     cl_err_code err = CL_SUCCESS;
@@ -991,7 +991,7 @@ cl_err_code MapMemObjCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsI
 
         // 'this' may disapper after the self-enqueue is successful!
         // First command should be BLOCKING
-        err = Command::EnqueueSelf( CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, &intermediate_pEvent );
+        err = Command::EnqueueSelf( CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, &intermediate_pEvent, apiLogger);
         if (CL_FAILED(err))
         {
             LogErrorA("Command - Command::EnqueueSelf: %s (Id: %d) failed, Err: %x", GetCommandName(), m_Event->GetId(), err);
@@ -1000,7 +1000,7 @@ cl_err_code MapMemObjCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsI
             return err;
         }
 
-        err = postfix->EnqueueSelf( bBlocking, 1, &intermediate_pEvent, pEvent );
+        err = postfix->EnqueueSelf( bBlocking, 1, &intermediate_pEvent, pEvent, apiLogger);
         if (CL_FAILED(err))
         {
             LogErrorA("Command - ostfix->EnqueueSelf: %s (Id: %d) failed, Err: %x", postfix->GetCommandName(), m_Event->GetId(), err);
@@ -1028,7 +1028,7 @@ cl_err_code MapMemObjCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsI
     else
     {
         // 'this' may disapper after the self-enqueue is successful!
-        return Command::EnqueueSelf( bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent );
+        return Command::EnqueueSelf( bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
     }
 }
 
@@ -1345,7 +1345,7 @@ cl_err_code UnmapMemObjectCommand::CommandDone()
 /******************************************************************
  *
  ******************************************************************/
-cl_err_code UnmapMemObjectCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent)
+cl_err_code UnmapMemObjectCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger)
 {
     cl_err_code err;
 
@@ -1355,7 +1355,7 @@ cl_err_code UnmapMemObjectCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEv
         EventsManager*    event_manager = GetCommandQueue()->GetEventsManager();
 
         // The first command is always NON-BLOCKING
-        err = m_pPrefixCommand->EnqueueSelf( CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, &intermediate_pEvent );
+        err = m_pPrefixCommand->EnqueueSelf( CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, &intermediate_pEvent, apiLogger);
         if (CL_FAILED(err))
         {
             return err;
@@ -1365,7 +1365,7 @@ cl_err_code UnmapMemObjectCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEv
         m_pPrefixCommand = NULL;
 
         // 'this' may disapper during Enqueue if it was successful!
-        err = Command::EnqueueSelf( bBlocking, 1, &intermediate_pEvent, pEvent );
+        err = Command::EnqueueSelf( bBlocking, 1, &intermediate_pEvent, pEvent, apiLogger);
 
         // release intermediate event
         event_manager->ReleaseEvent( intermediate_pEvent );
@@ -1373,7 +1373,7 @@ cl_err_code UnmapMemObjectCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEv
     else
     {
         // 'this' may disapper during Enqueue if it was successful!
-        err = Command::EnqueueSelf( bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent );
+        err = Command::EnqueueSelf( bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
     }
 
     return err;

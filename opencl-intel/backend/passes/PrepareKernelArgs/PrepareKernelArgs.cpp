@@ -20,6 +20,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <sstream>
 #include <memory>
 
+#define STACK_PADDING_BUFFER DEV_MAXIMUM_ALIGN*1
+
 extern "C"{
   /// @brief Creates new PrepareKernelArgs module pass
   /// @returns new PrepareKernelArgs module pass
@@ -218,13 +220,25 @@ namespace intel{
           uint64_t slmSizeInBytes = kimd->getLocalBufferSize();
           // TODO: when slmSizeInBytes equal 0, we might want to set dummy
           // address for debugging!
-          Type *slmType = ArrayType::get(m_I8Ty, slmSizeInBytes);
+        if (slmSizeInBytes == 0) { // no need to create of pad this buffer.
+          pArg = Constant::getNullValue(PointerType::get(m_I8Ty, 3));
+        }
+        else {
+          // add stack padding before and after this alloca, to allow unmasked wide loads
+          // inside the vectorizer.
+          Type *slmType = ArrayType::get(m_I8Ty,
+            slmSizeInBytes+STACK_PADDING_BUFFER*2);
           AllocaInst *slmBuffer = builder.CreateAlloca(slmType);
           // Set alignment of implicit local buffer to max alignment.
           // TODO: we should choose the min required alignment size
           slmBuffer->setAlignment(TypeAlignment::MAX_ALIGNMENT);
-          pArg = builder.CreateBitCast(slmBuffer, PointerType::get(m_I8Ty, 3));
+          // move argument up over the lower side padding.
+          Value* castBuf = builder.CreateBitCast(slmBuffer,
+            PointerType::get(m_I8Ty, 3));
+          pArg = builder.CreateGEP(castBuf,
+            ConstantInt::get(m_I32Ty, STACK_PADDING_BUFFER));
         }
+      }
         break;
       case ImplicitArgsUtils::IA_WORK_GROUP_ID:
         // WGID is passed by value as an argument to the wrapper
@@ -316,7 +330,7 @@ namespace intel{
       params.push_back(pArg);
       ++callIt;
     }
-    
+
     return params;
   }
   

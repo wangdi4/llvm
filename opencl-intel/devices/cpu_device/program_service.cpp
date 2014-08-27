@@ -116,7 +116,7 @@ ProgramService::~ProgramService()
 ********************************************************************************************************************/
 cl_dev_err_code ProgramService::Init()
 {
-	ProgramConfig programConfig;
+    ProgramConfig programConfig;
     programConfig.InitFromCpuConfig(*m_pCPUConfig);
 
     ICLDevBackendCompilationService* pCompiler = NULL;
@@ -169,52 +169,21 @@ cl_dev_err_code ProgramService::Init()
 ********************************************************************************************************************/
 cl_dev_err_code ProgramService::CheckProgramBinary (size_t IN binSize, const void* IN bin)
 {
-    const cl_prog_container_header* pProgCont = (cl_prog_container_header*)bin;
-
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CheckProgramBinary enter"));
 
-    // Check container size
-    if ( sizeof(cl_prog_container_header) > binSize )
+    //If it is Binary Object, no other checks needed
+    if ( _CL_OBJECT_BITCODE_MASK_ == ((const int*)bin)[0] )
     {
-        CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid Binary Size was provided"));
-        return CL_DEV_INVALID_BINARY;
+        return CL_DEV_SUCCESS;
     }
 
-    // Check container mask
-    if ( memcmp(_CL_CONTAINER_MASK_, pProgCont->mask, sizeof(pProgCont->mask)) )
+    // If it is SPIR binary, no other checks needed
+    if ( !memcmp(_CL_LLVM_BITCODE_MASK_, bin, sizeof(_CL_LLVM_BITCODE_MASK_) - 1) )
     {
-        CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid Container Mask was provided"));
-        return CL_DEV_INVALID_BINARY;
+        return CL_DEV_SUCCESS;
     }
 
-    // Check supported container type
-    switch ( pProgCont->container_type )
-    {
-    // Supported containers
-    case CL_PROG_CNT_PRIVATE:
-        break;
-
-    default:
-        CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid Container Type was provided"));
-        return CL_DEV_INVALID_BINARY;
-    }
-
-    // Check supported binary types
-    switch ( pProgCont->description.bin_type )
-    {
-    // Supported program binaries
-    case CL_PROG_BIN_EXECUTABLE_LLVM:          // The container should contain valid LLVM-IR
-    case CL_PROG_BIN_BUILT_OBJECT:             // The container contains binary object
-        break;
-
-    case CL_PROG_OBJ_X86:           // The container should contain binary buffer of object file
-    case CL_PROG_DLL_X86:           // The container should contain a full path name to DLL file to load
-    default:
-        CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("Invalid Container Type was provided<%0X>"), pProgCont->description.bin_type);
-        return CL_DEV_INVALID_BINARY;
-    }
-
-    return CL_DEV_SUCCESS;
+    return CL_DEV_INVALID_BINARY;
 }
 
 /*******************************************************************************************************************
@@ -266,7 +235,6 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
     }
 
     // Create new program
-    const cl_prog_container_header* pProgCont = (cl_prog_container_header*)bin;
     TProgramEntry*  pEntry      = new TProgramEntry;
     if ( NULL == pEntry )
     {
@@ -279,18 +247,8 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
     pEntry->clBuildStatus = CL_BUILD_NONE;
 
     cl_dev_err_code ret;
-    switch(pProgCont->description.bin_type)
-    {
-    case CL_PROG_BIN_EXECUTABLE_LLVM:
-    case CL_PROG_BIN_BUILT_OBJECT:
-        assert(m_pBackendCompiler);
-        ret = m_pBackendCompiler->CreateProgram(pProgCont, &pEntry->pProgram);
-        break;
-    default:
-        CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Failed to find approproiate program for type<%d>"), pProgCont->description.bin_type);
-        delete pEntry;
-        return CL_DEV_INVALID_BINARY;
-    }
+    assert(m_pBackendCompiler);
+    ret = m_pBackendCompiler->CreateProgram(bin, binSize, &pEntry->pProgram);
 
     if ( CL_DEV_FAILED(ret) )
     {

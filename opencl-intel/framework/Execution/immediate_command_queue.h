@@ -68,7 +68,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         virtual cl_err_code Initialize();  
 
-        virtual cl_err_code EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
+        virtual cl_err_code EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
         virtual cl_err_code Enqueue(Command* cmd);
         virtual cl_err_code EnqueueWaitForEvents(Command* cmd) {return Enqueue(cmd);}
         virtual cl_err_code EnqueueMarkerWaitForEvents(Command* marker);

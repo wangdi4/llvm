@@ -164,8 +164,8 @@ private:
 	cl_dev_err_code m_err;
 	volatile bool m_bCompleted;
 	unsigned long long m_ulStartExecTime;
-	unsigned long long m_ulExecTime;        // CL_PROFILING_COMMAND_END – CL_PROFLING_COMMAND_START
-  unsigned long long m_ulCompleteTime;    // CL_PROFILING_COMMAND_COMPLETE – CL_PROFILING_COMAMND_START
+	unsigned long long m_ulExecTime;        // CL_PROFILING_COMMAND_END ï¿½ CL_PROFLING_COMMAND_START
+  unsigned long long m_ulCompleteTime;    // CL_PROFILING_COMMAND_COMPLETE ï¿½ CL_PROFILING_COMAMND_START
 	volatile void* m_pExecTimeUserPtr;      // a pointer to two 64-bit values: the first will hold m_ulExecTime and the second to m_ulCompleteTime
 	std::vector<SharedPtr<DeviceCommand> > m_waitingCommandsForThis;    // a list of DeviceCommands waiting for this DeviceCommand to finish
   // a list of DeviceCommands this DeviceCommand is waiting for (for holding a SharedPtr to them, so they wouldn't be deleted until this DeviceCommand is finished)
@@ -174,8 +174,8 @@ private:
 	mutable OclSpinMutex m_mutex;
 	ITaskBase* const m_pMyTaskBase;
 	const bool m_bIsProfilingEnabled;
-	static const long CMD_STAMP = 0xEFEBDAEFEBDA7190; // memory stamp for detecting if the object belongs to the DeviceCommand class
-	const long m_CMD_STAMP;
+    static const long long CMD_STAMP = 0xEFEBDAEFEBDA7190; // memory stamp for detecting if the object belongs to the DeviceCommand class
+	const long long m_CMD_STAMP;
 };
 
 /**

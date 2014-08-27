@@ -51,6 +51,7 @@ llvm::Pass* createCLBuiltinLICMPass();
 llvm::Pass* createLoopStridedCodeMotionPass();
 llvm::Pass* createCLStreamSamplerPass();
 llvm::Pass *createPreventDivisionCrashesPass();
+llvm::Pass *createOptimizeIDivPass();
 llvm::Pass *createShiftZeroUpperBitsPass();
 llvm::Pass *createBuiltinCallToInstPass();
 llvm::Pass *createRelaxedPass();
@@ -86,6 +87,7 @@ llvm::ModulePass *createReduceAlignmentPass();
 llvm::ModulePass* createProfilingInfoPass();
 llvm::Pass *createSmartGVNPass(bool, unsigned int);
 #endif
+llvm::ModulePass* createSinCosFoldPass();
 llvm::ModulePass *createResolveWICallPass();
 llvm::ModulePass *createDetectFuncPtrCalls();
 llvm::ModulePass *createDetectRecursionPass();
@@ -157,7 +159,7 @@ createStandardLLVMPasses(llvm::PassManagerBase *PM,
     PM->add(llvm::createLoopUnrollPass(512, 0, 0)); // Unroll small loops
   }
   if (!isDBG) {
-    PM->add(llvm::createFunctionInliningPass(20000)); // Inline (not only small)
+    PM->add(llvm::createFunctionInliningPass(4096)); // Inline (not only small)
                                                      // functions
   }
   // A workaround to fix regression in sgemm on CPU and not causing new
@@ -368,6 +370,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
         PM.add(createPrintIRPass(DUMP_IR_VECTORIZER,
                OPTION_IR_DUMPTYPE_BEFORE, pConfig->GetDumpIRDir()));
     }
+    PM.add(createSinCosFoldPass());
 #endif //#ifndef __APPLE__
     if(pRtlModule != NULL) {
         PM.add(createVectorizerPass(pRtlModule, pConfig));
@@ -392,6 +395,8 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   // may transform scalar shifts into vector shifts, and we want this pass to fix all vector
   // shift in this module.
   PM.add(createShiftZeroUpperBitsPass());
+  if (!HasGatherScatter)
+    PM.add(createOptimizeIDivPass());
   PM.add(createPreventDivisionCrashesPass());
   // We need InstructionCombining and GVN passes after ShiftZeroUpperBits, PreventDivisionCrashes passes
   // to optimize redundancy introduced by those passes
@@ -491,7 +496,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
 
   if (debugType == intel::None) {
     if (HasGatherScatter)
-      PM.add(llvm::createFunctionInliningPass(20000)); // Inline (not only small) functions.
+      PM.add(llvm::createFunctionInliningPass(4096)); // Inline (not only small) functions.
     else
       PM.add(llvm::createFunctionInliningPass());     // Inline small functions
   } else {

@@ -66,6 +66,12 @@ volatile bool	gExecDone = true;
 
 unsigned int gDeviceIdInType = 0;
 
+namespace Intel { namespace OpenCL { namespace Utils {
+
+FrameworkUserLogger* g_pUserLogger = NULL;
+
+}}}
+
 void CPUTestCallbacks::clDevCmdStatusChanged(cl_dev_cmd_id  cmd_id, void* data, cl_int cmd_status, cl_int completion_result, cl_ulong timer )
 {
 	unsigned int cmdId = (unsigned int)(size_t)cmd_id;
@@ -95,6 +101,11 @@ void CPUTestCallbacks::clDevCmdStatusChanged(cl_dev_cmd_id  cmd_id, void* data, 
 	{
 		(*iter)->clDevCmdStatusChanged(cmd_id, data, cmd_status, completion_result, timer);
 	}
+}
+
+Intel::OpenCL::TaskExecutor::ITaskExecutor* CPUTestCallbacks::clDevGetTaskExecutor() 
+{ 
+    return GetTaskExecutor(); 
 }
 
 //GetDeviceInfo with CL_DEVICE_TYPE test
@@ -656,7 +667,7 @@ TEST(CpuDeviceTestType, Test_ExecuteNativeKernel)
 
 TEST(CpuDeviceTestType, Test_BuildFromBinary)
 {
-	EXPECT_TRUE(BuildFromBinary_test("test.bc", 2, "dot_product", 3));
+	EXPECT_TRUE(BuildFromBinary_test("validation/cpu_device_test_type/test.bc", 2, "dot_product", 3));
 }
 
 TEST(CpuDeviceTestType, Test_memoryTest)
@@ -666,7 +677,7 @@ TEST(CpuDeviceTestType, Test_memoryTest)
 
 TEST(CpuDeviceTestType, Test_KernelExecute_Math)
 {
-	EXPECT_TRUE(KernelExecute_Math_Test("test.bc"));
+	EXPECT_TRUE(KernelExecute_Math_Test("validation/cpu_device_test_type/test.bc"));
 }
 
 #ifndef _WIN32
@@ -737,7 +748,7 @@ int CPUDeviceTest_Main()
 
 	gDeviceIdInType = deviceIdsList[0];
 
-	iRes = clDevCreateDeviceInstance(gDeviceIdInType, &g_dev_callbacks, &log_desc, &dev_entry);
+	iRes = clDevCreateDeviceInstance(gDeviceIdInType, &g_dev_callbacks, &log_desc, &dev_entry, NULL);
 	EXPECT_TRUE(CL_DEV_SUCCEEDED(iRes));
 
 	int rc = RUN_ALL_TESTS();

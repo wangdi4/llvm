@@ -2,7 +2,7 @@
 
 set ( TARGET_LIB_NAME        native_logger)
 
-message ("Building project for ${TARGET_LIB_NAME}")
+message (STATUS "Building project for ${TARGET_LIB_NAME}")
 
 set( TARGET_SOURCES )
 FIND_SOURCES_EX( ${LOGGER_DIR}  )

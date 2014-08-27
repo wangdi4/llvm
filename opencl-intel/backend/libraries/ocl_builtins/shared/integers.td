@@ -11,8 +11,6 @@
 OclBuiltinImpl abs_ipromote = OclBuiltinImpl<abs, [ v2i8,  v3i8,  v4i8,  v8i8,
                                                     v2i16, v3i16, v4i16,
                                                     v2i32, v3i32                      ], 0, Promote1>;
-// abs expand
-OclBuiltinImpl abs_iexpand  = OclBuiltinImpl<abs, [v16i32], 0, Expand1>;
 // abs native
 OclBuiltinImpl abs_inative = OclBuiltinImpl<abs, [v16i8, v8i16, v4i32] , 0, [{
     return as_u$Arg0Type(_mm_abs_epi$BitWidth((__m128i)$Arg0VarName));
@@ -35,10 +33,10 @@ OclBuiltinImpl abs_diff_iv1 = OclBuiltinImpl<abs_diff, [ v1i8,  v1u8,
     return r;
   }]>;
 // abs_diff on signed vector
-OclBuiltinImpl abs_diff_svector = OclBuiltinImpl<abs_diff, [ v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
+OclBuiltinImpl abs_diff_svector = OclBuiltinImpl<abs_diff, [ v2i8,  v3i8, v4i8,  v8i8,  v16i8,
                                                             v2i16, v3i16, v4i16, v8i16, 
-                                                            v2i32, v3i32, v4i32,        v16i32,
-                                                            v2i64, v3i64,        v8i64, v16i64] , 0, [{
+                                                            v2i32, v3i32, v4i32,
+                                                            v2i64, v3i64, v16i64] , 0, [{
     $Arg0Type tmp1 = $Arg0VarName - $Arg1VarName;
     $Arg0Type tmp2 = $Arg1VarName - $Arg0VarName;
     $Arg0Type tmpc = $Arg1VarName > $Arg0VarName;
@@ -49,8 +47,8 @@ OclBuiltinImpl abs_diff_svector = OclBuiltinImpl<abs_diff, [ v2i8,  v3i8,  v4i8,
 // abs_diff on unsigned vector
 OclBuiltinImpl abs_diff_uvector = OclBuiltinImpl<abs_diff, [ v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
                                                             v2u16, v3u16, v4u16, v8u16,
-                                                            v2u32, v3u32, v4u32,        v16u32,
-                                                            v2u64, v3u64,        v8u64, v16u64] , 0, [{
+                                                            v2u32, v3u32, v4u32,
+                                                            v2u64, v3u64, v16u64] , 0, [{
     $Arg0Type tmp1 = $Arg0VarName - $Arg1VarName;
     $Arg0Type tmp2 = $Arg1VarName - $Arg0VarName;
     $Arg0Type tmpc = as_$Arg0Type($Arg1VarName > $Arg0VarName);
@@ -208,10 +206,7 @@ OclBuiltinImpl mad_sat_ipromote = OclBuiltinImpl<mad_sat, [ v2i8,  v3i8,
                                                             v2u32, v3u32              ], 0, Promote3>;
 // mad_sat expand
 OclBuiltinImpl mad_sat_iexpand  = OclBuiltinImpl<mad_sat, [                             v16i16,
-                                                                                        v16i32,
                                                             v2i64, v3i64, v4i64, v8i64, v16i64,
-
-                                                                                        v16u32,
                                                             v2u64, v3u64, v4u64, v8u64, v16u64], 0, Expand3>;
 // mad_sat native char16
 OclBuiltinImpl mad_sat_v16i8 = OclBuiltinImpl<mad_sat, [v16i8], 0, [{
@@ -323,8 +318,6 @@ OclBuiltinImpl max_ipromote = OclBuiltinImpl<max, [ v2i8,  v3i8,
                                                     v2u16, v3u16, v4u16,
                                                     v2i32, v3i32,
                                                     v2u32, v3u32                      ], 0, Promote2>;
-// max expand
-OclBuiltinImpl max_iexpand  = OclBuiltinImpl<max, [v16i32, v16u32], 0, Expand2>;
 
 /*****************************************************************\
  * min:                                                          *
@@ -361,8 +354,6 @@ OclBuiltinImpl min_ipromote = OclBuiltinImpl<min, [ v2i8,  v3i8,
                                                     v2u16, v3u16, v4u16,
                                                     v2i32, v3i32,
                                                     v2u32, v3u32                       ], 0, Promote2>;
-// min expand
-OclBuiltinImpl min_iexpand  = OclBuiltinImpl<min, [v16i32, v16u32], 0, Expand2>;
 
 
 /*****************************************************************\
@@ -378,10 +369,8 @@ OclBuiltinImpl mul_hi_ipromote = OclBuiltinImpl<mul_hi, [ v2i8,  v3i8,  v4i8,  v
                                                           v2u16, v3u16, v4u16,
                                                           v2u32, v3u32                      ], 0, Promote2>;
 // mul_hi expand
-OclBuiltinImpl mul_hi_iexpand  = OclBuiltinImpl<mul_hi, [                             v16i32,
-                                                          v2i64, v3i64, v4i64, v8i64, v16i64,
-                                                                                      v16u32,
-                                                          v2u64, v3u64,        v8u64, v16u64], 0, Expand2>;
+OclBuiltinImpl mul_hi_iexpand  = OclBuiltinImpl<mul_hi, [v2i64, v3i64, v4i64, v16i64,
+                                                         v2u64, v3u64, v16u64], 0, Expand2>;
 // mul_hi native char16
 OclBuiltinImpl mul_hi_v16i8 = OclBuiltinImpl<mul_hi, [v16i8], 0, [{
     $Arg0Type zero = ($Arg0Type)0;

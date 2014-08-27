@@ -39,19 +39,6 @@ if (NOT WIN32)
 
     set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Werror -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-unused-function")
 
-    # Assembler setup - use private rules
-    # set( CMAKE_ASM_FLAGS               --64 ) # do not quote this!!!!
-    set( CMAKE_ASM_INCLUDE_DIR_FLAG    -I )
-    set( CMAKE_ASM_OUTPUT_NAME_FLAG    -o )
-    if( NOT ANDROID )
-      if (CVCC_ASM_PATH)
-        set(CMAKE_ASM_COMPILER         ${CVCC_ASM_PATH})
-      else(CVCC_ASM_PATH)
-        message(STATUS "Using system assembler, check that its version is 4.3.x")
-        set( CMAKE_ASM_COMPILER             as )
-      endif(CVCC_ASM_PATH)
-    endif( NOT ANDROID )
-
     # Compiler switches that CANNOT be modified during makefile generation
     set (ADD_COMMON_C_FLAGS  "-msse3 -mssse3 -fPIC -fdiagnostics-show-option -funsigned-bitfields")
 
@@ -139,7 +126,6 @@ if (WIN32)
     set( CMAKE_ASM_COMPILER "$(VCInstallDir)bin/x86_amd64/ml64.exe")
     set( CMAKE_ASM_LINK_FLAG "/nologo")
 
-
 endif (WIN32)
 
 
@@ -183,7 +169,6 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     KernelProperties.h
     Program.h
     ProgramBuilder.h
-    ProgramContainerMemoryBuffer.h
     RuntimeService.h
     Serializer.h
     ServiceFactory.h
@@ -231,7 +216,6 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     CPUSerializationService.cpp
     ObjectCodeContainer.cpp
     ProgramBuilder.cpp
-    ProgramContainerMemoryBuffer.cpp
     ServiceFactory.cpp
     TargetDescription.cpp
     cpu_builtin_functions.cpp
@@ -304,14 +288,15 @@ endif (WIN32)
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     if (WIN32)
         set (ASM_SOURCES kernel_execute_64.asm)
+        CREATE_ASM_RULES( ASM_ADD_TO_SOURCES_LIST ${ASM_SOURCES} )
     else (WIN32)
-        set (ASM_SOURCES linux64_utils.s)
+        set (ASM_ADD_TO_SOURCES_LIST linux64_utils.s)
     endif (WIN32)
-    CREATE_ASM_RULES( ASM_ADD_TO_SOURCES_LIST ${ASM_SOURCES} )
 endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 
 # Add include directories
 include_directories(
+    ${LLVM_INCLUDE_DIRS}
     ${BACKEND_ROOT_DIR}
     ${OCL_CPU_BACKEND_DIR}
     ${OCL_CPU_BACKEND_DIR}/export
@@ -327,6 +312,8 @@ include_directories(
     ${BACKEND_ROOT_DIR}/utils
     ${BACKEND_ROOT_DIR}/metadata_api
     ${BACKEND_ROOT_DIR}/../utils/cache_binary_handler
+    ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang
+    ${CMAKE_SOURCE_DIR}/utils/CLElfLib 
     ${CMAKE_BINARY_DIR}/include/
     ${OCL_BINARY_DIR}
 )
@@ -335,8 +322,6 @@ if (INCLUDE_MIC_DEVICE)
     ${BACKEND_ROOT_DIR}/ocl_mic_executor
   )
 endif (INCLUDE_MIC_DEVICE)
-
-link_directories (${LLVM_LIBRARY_DIR})
 
 # Add additional link directories
 if( LLVM_USE_INTEL_JITEVENTS )
@@ -394,6 +379,7 @@ set( BACKEND_PASSES
     ResolveBlockToStaticCall
     PatchCallbackArgs
     SmartGVN
+    SinCosFold
 )
 
 set(UTILS_LIBS
@@ -428,11 +414,6 @@ if(ANDROID)
     # dynamic link with STL library
      target_link_libraries(${TARGET_NAME} gnustl_shared)
 endif(ANDROID)
-if(NOT WIN32)
-    if(NOT ANDROID)
-        target_link_libraries(${TARGET_NAME} pthread rt)
-    endif(NOT ANDROID)
-endif(NOT WIN32)
 
 set( CMAKE_CXX_FLAGS_DEBUG "-DOCL_DEV_BACKEND_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
 

@@ -48,6 +48,6 @@ class VR21_Fission: public FissionWrapper{};
 
 TEST_F(VR21_Fission, CPUGPUsampler)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(ocl_descriptor));
 	ASSERT_NO_FATAL_FAILURE(testCPUGPUsamplerBody(ocl_descriptor));
 }

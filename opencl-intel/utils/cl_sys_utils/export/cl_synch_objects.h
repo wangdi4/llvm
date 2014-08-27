@@ -364,6 +364,26 @@ namespace Intel { namespace OpenCL { namespace Utils {
         OclNonReentrantSpinMutex m_queueLock;
     };
 
+    template<class T, class S>
+    class OclNaiveConcurrentMap
+    {
+    public:
+        OclNaiveConcurrentMap() {}
+        ~OclNaiveConcurrentMap() {}
+
+        bool IsEmpty();
+        void Insert(const T& key, const S& val);
+        S    Find(const T& key);
+        void Erase(const T& key);
+        bool IsFound(const T& key, S& val);
+        void Clear();
+
+    private:
+        std::map<T,S>            m_map;
+        OclNonReentrantSpinMutex m_mapLock;
+		
+        bool IsEmptyInternal() const;
+    };
 
     /* AtomicBitField define a bit field array which support the operations:
        Bit test and reset.

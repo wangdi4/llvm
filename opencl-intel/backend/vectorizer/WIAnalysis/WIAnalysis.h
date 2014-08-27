@@ -43,6 +43,10 @@ class WIAnalysis : public FunctionPass {
 public:
     static char ID; // Pass identification, replacement for typeid
     WIAnalysis();
+    /// @breif special C'tor used by ChooseVectorizationDimension.
+    /// This forces the vectorization dimension to be the given value,
+    /// regardless of the metadata.
+    WIAnalysis(unsigned int vectorizationDimension);
 
     /// @brief Provides name of pass
     virtual const char *getPassName() const {
@@ -243,6 +247,9 @@ private:
     // together with its influence region and its immediate post-dominator.
     // Later on we use it to add scheduling constraints for the linearizer
     SchdConstMap m_SchedulingConstraints;
+
+    // the dimension over which we vectorize (usually 0).
+    unsigned int m_vectorizedDim;
   };
 } // namespace
 

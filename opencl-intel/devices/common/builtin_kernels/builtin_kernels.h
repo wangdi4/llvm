@@ -32,7 +32,6 @@
 #include <cl_thread.h>
 
 namespace Intel { namespace OpenCL { namespace BuiltInKernels {
-
 #ifndef __OMP2TBB__
 class OMPExecutorThread;
 #endif

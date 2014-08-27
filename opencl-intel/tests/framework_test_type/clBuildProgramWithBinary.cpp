@@ -51,7 +51,7 @@ bool clBuildProgramWithBinaryTest(openBcFunc pFunc)
 	size_t * pBinarySizes;
 	cl_int * pBinaryStatus; 
 	cl_context context;
-	cl_prog_container_header** ppContainers;
+	char** ppContainers;
 //	cl_program program;
 
 	cl_platform_id platform = 0;
@@ -78,7 +78,7 @@ bool clBuildProgramWithBinaryTest(openBcFunc pFunc)
 	pDevices = new cl_device_id[uiNumDevices];
 	pBinarySizes = new size_t[uiNumDevices];
 	pBinaryStatus = new cl_int[uiNumDevices];
-	ppContainers = new cl_prog_container_header*[uiNumDevices];
+	ppContainers = new char*[uiNumDevices];
 
 	iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, pDevices, NULL);
 	if (CL_SUCCESS != iRet)
@@ -106,7 +106,7 @@ bool clBuildProgramWithBinaryTest(openBcFunc pFunc)
 	printf("context = %p\n", context);
 
 	// create binary container
-	unsigned int uiContSize = sizeof(cl_prog_container_header)+sizeof(cl_llvm_prog_header);
+	unsigned int uiContSize = 0;
 	FILE* pIRfile = NULL;
     pFunc(pIRfile);
 	fpos_t fileSize;
@@ -125,7 +125,7 @@ bool clBuildProgramWithBinaryTest(openBcFunc pFunc)
 	uiContSize += (unsigned int)GET_FPOS_T(fileSize);
 	fseek(pIRfile, 0, SEEK_SET);
 
-	cl_prog_container_header* pCont = (cl_prog_container_header*)malloc(uiContSize);
+	char* pCont = (char*)malloc(uiContSize);
 	if ( NULL == pCont )
 	{
 		delete []pDevices;
@@ -135,16 +135,7 @@ bool clBuildProgramWithBinaryTest(openBcFunc pFunc)
 		return false;
 	}
 	// Construct program container
-	memset(pCont, 0, sizeof(cl_prog_container_header)+sizeof(cl_llvm_prog_header));
-	// Container mask
-	memcpy((void*)pCont->mask, _CL_CONTAINER_MASK_, sizeof(pCont->mask));
-
-	pCont->container_type = CL_PROG_CNT_PRIVATE;
-	pCont->description.bin_type = CL_PROG_BIN_EXECUTABLE_LLVM;
-	pCont->description.bin_ver_major = 1;
-	pCont->description.bin_ver_minor = 1;
-	pCont->container_size = (unsigned int)GET_FPOS_T(fileSize)+sizeof(cl_llvm_prog_header);
-	fread(((unsigned char*)pCont)+sizeof(cl_prog_container_header)+sizeof(cl_llvm_prog_header), 1, (size_t)GET_FPOS_T(fileSize), pIRfile);
+	fread(((unsigned char*)pCont), 1, (size_t)GET_FPOS_T(fileSize), pIRfile);
 	fclose(pIRfile);
 
 

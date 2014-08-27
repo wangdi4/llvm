@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Compilation of a C file by ICC Compiler
 # All variables in the form of CMake vars will be replaced by CMake:
 #     ICC_CPU_ENV_SCRIPT_NATIVE - script setting the ICC environment

@@ -99,7 +99,7 @@ static void TestSetKernelExecInfo(cl_context context, cl_device_id device, cl_co
 	CheckException(L"clSetKernelExecInfo", CL_SUCCESS, iRet);
 
 	const size_t szGlobalWorkOffset = 0, szWorkSize = 1;
-	iRet = clEnqueueNDRangeKernel(queue, kernel, 1, &szGlobalWorkOffset, &szWorkSize, &szWorkSize, 0, NULL, NULL);
+	iRet = clEnqueueNDRangeKernel(queue, kernel, 1, &szGlobalWorkOffset, &szWorkSize, NULL, 0, NULL, NULL);
 	CheckException(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
 	iRet = clFinish(queue);
 	CheckException(L"clFinish",  CL_SUCCESS, iRet);
@@ -145,7 +145,7 @@ static void TestSetKernelArgSVMPointer(cl_context context, cl_device_id device, 
 	CheckException(L"clSetKernelArgSVMPointer", CL_SUCCESS, iRet);
 
 	const size_t szGlobalWorkOffset = 0, szWorkSize = 1;
-	iRet = clEnqueueNDRangeKernel(queue, kernel, 1, &szGlobalWorkOffset, &szWorkSize, &szWorkSize, 0, NULL, NULL);
+	iRet = clEnqueueNDRangeKernel(queue, kernel, 1, &szGlobalWorkOffset, &szWorkSize, NULL, 0, NULL, NULL);
 	CheckException(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
 	iRet = clFinish(queue);
 	CheckException(L"clFinish",  CL_SUCCESS, iRet);
@@ -353,8 +353,13 @@ bool clSvmTest()
         const cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };    
         context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
 		CheckException(L"clCreateContextFromType", CL_SUCCESS, iRet);
-		
-		queue = clCreateCommandQueue(context, device, 0, &iRet);
+
+#if _WIN32
+#pragma warning( suppress : 4996 )
+    queue = clCreateCommandQueue(context, device, 0, &iRet);
+#else
+    queue = clCreateCommandQueue(context, device, 0, &iRet);
+#endif		
 		CheckException(L"clCreateCommandQueue", CL_SUCCESS, iRet);
 
 		TestEnqueueSVMCommands(context, queue, MEMCPY);
@@ -366,7 +371,7 @@ bool clSvmTest()
 		const size_t szLengths = { strlen(sProg) };
 		cl_program prog = clCreateProgramWithSource(context, 1, &sProg, &szLengths, &iRet);
 		CheckException(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
-		iRet = clBuildProgram(prog, 1, &device, "", NULL, NULL);
+		iRet = clBuildProgram(prog, 1, &device, NULL, NULL, NULL);
 		CheckException(L"clBuildProgram", CL_SUCCESS, iRet);
 		TestSetKernelArgSVMPointer(context, device, queue, prog, false);
         TestSetKernelArgSVMPointer(context, device, queue, prog, true);

@@ -9,13 +9,10 @@ set (TARGET_NAME "ImathLibd")
 set( TARGET_SOURCE_FILES
     dllmain.cpp
     imathLibd.cpp
-    stdafx.cpp
 )
 
 # project header files
 set( TARGET_HEADER_FILES
-    stdafx.h
-    targetver.h
     imathLibd.h
 )
 

@@ -133,6 +133,11 @@ public:
         Unmap();
     }
 
+    /**
+     * Destructor
+     */
+    virtual ~D3d11BufferMapper(){};
+
 protected:
 
     virtual ID3D11Buffer* CreateResource(const D3D11_BUFFER_DESC& desc);
@@ -160,6 +165,11 @@ public:
         Unmap();
         m_uiRowPitch = GetMappedSubresource().RowPitch;
     }
+
+    /**
+     * Destructor
+     */
+    virtual ~D3d11Texture2DMapper(){};
 
     /**
      * @return the row pitch of the 2D texture
@@ -199,6 +209,11 @@ public:
         m_uiRowPitch = d3d11MappedSubresource.RowPitch;
         m_uiDepthPitch = d3d11MappedSubresource.DepthPitch;
     }
+
+    /**
+     * Destructor
+     */
+    virtual ~D3d11Texture3DMapper(){};
 
     /**
      * @return the row pitch of the 3D texture

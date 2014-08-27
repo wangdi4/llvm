@@ -56,9 +56,16 @@ OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(PacketizeFunction, "packetize", "packetize functions", false, false)
 
-PacketizeFunction::PacketizeFunction(bool SupportScatterGather) : FunctionPass(ID),
+PacketizeFunction::PacketizeFunction(bool SupportScatterGather,
+                                     unsigned int vectorizationDimension) : FunctionPass(ID),
+  OCLSTAT_INIT(GEP_With_2_Indices,
+  "Loads and stores of an address with exactly two indices",
+  m_kernelStats),
+  OCLSTAT_INIT(GEP_With_More_Than_2_Indices,
+  "Loads and stores of addresses with more than two indices that are scalarized instead of gathered / scattered",
+  m_kernelStats),
   OCLSTAT_INIT(Array_Of_Structs_Store_Or_Loads,
-  "store and loads that are scalarized instead of gather / scatter in an A[id].x format",
+  "Gathered / scattered stores and loads in an A[id].x format",
   m_kernelStats),
   OCLSTAT_INIT(Cant_Load_Transpose_Because_Of_Non_Extract_Users,
   "Load of vector types, where the load value is used both by extracts and by non-extrats instructions, and thus not transposed",
@@ -130,6 +137,7 @@ PacketizeFunction::PacketizeFunction(bool SupportScatterGather) : FunctionPass(I
   m_cannotHandleCtr = 0;
   m_allocaCtr = 0;
   UseScatterGather = SupportScatterGather || EnableScatterGatherSubscript;
+  m_vectorizedDim = vectorizationDimension;
   m_rtServices = NULL;
 
   // VCM buffer allocation
@@ -152,6 +160,7 @@ bool PacketizeFunction::runOnFunction(Function &F)
 {
   m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
   V_ASSERT(m_rtServices && "Runtime services were not initialized!");
+  m_pDL = &getAnalysis<DataLayout>();
 
   m_currFunc = &F;
   m_moduleContext = &(m_currFunc->getContext());
@@ -584,7 +593,7 @@ void PacketizeFunction::dispatchInstructionToPacketize(Instruction *I)
   unsigned dim;
   isTidGen = m_rtServices->isTIDGenerator(I, &err, &dim);
   V_ASSERT((!err) && "TIDGen inst receives non-constant input. Cannot vectorize!");
-  if (isTidGen && dim == 0)
+  if (isTidGen && dim == m_vectorizedDim)
   {
     V_PRINT(packetizer,
         "\t\tVectorizing TID creation Instruction: " << I->getName() << "\n");
@@ -1028,7 +1037,12 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   }
 
   Type *IndexTy = MO.Index->getType();
-  obtainVectorizedValue(&MO.Index, MO.Index, MO.Orig);
+  if (IndexTy->isVectorTy() && IndexTy->getVectorElementType()->isIntegerTy()) {
+    // Index is already a ready-to-use vector of indices
+    IndexTy = IndexTy->getVectorElementType();
+  } else {
+    obtainVectorizedValue(&MO.Index, MO.Index, MO.Orig);
+  }
 
   if (m_soaAllocaAnalysis->isSoaAllocaScalarRelated(MO.Orig)) {
     // This is load/store from SOA-alloca instruction,
@@ -1394,32 +1408,63 @@ void PacketizeFunction::obtainBaseIndex(MemoryOperation &MO) {
       V_PRINT(gather_scatter_stat, "PACKETIZER: BASE NON UNIFORM " << *MO.Orig << " Base: " << *Base << "\n");
     }
   }
+  else if (Gep && Gep->getNumIndices() == 2) {
+    // handling an array of structs
+    // for example, suppose A is an array of structs, one of the elements
+    // in it is x. Then we handle the following load.
+    // int loaded = A[i].x;
+    GEP_With_2_Indices++; // statistics
+    Base = Gep->getOperand(0);
+    Value* arrayIndex = Gep->getOperand(1);
+    Value* field = Gep->getOperand(2);
+    WIAnalysis::WIDependancy depBase = m_depAnalysis->whichDepend(Base);
+    WIAnalysis::WIDependancy gepArg1Dep = m_depAnalysis->whichDepend(arrayIndex);
+    ConstantInt* fieldConstantInt = dyn_cast<ConstantInt>(field);
+    PointerType* basePointerType = dyn_cast<PointerType>(Base->getType());
+    StructType* structType =
+      basePointerType ? dyn_cast<StructType>(basePointerType->getElementType()): NULL;
+    if (structType &&
+        depBase == WIAnalysis::UNIFORM &&
+        gepArg1Dep == WIAnalysis::CONSECUTIVE &&
+        fieldConstantInt && !fieldConstantInt->isNegative()) {
+      // Make sure this actually is a struct field access
+      uint64_t structAllocSize = m_pDL->getTypeAllocSize(structType);
+      uint64_t fieldIndex = fieldConstantInt->getZExtValue();
+      Type* fieldType = structType->getElementType(fieldIndex);
+      uint64_t fieldSize = m_pDL->getTypeStoreSize(fieldType);
+      uint64_t fieldOffset = m_pDL->getStructLayout(structType)->getElementOffset(fieldIndex);
+      // make sure struct is not too large for current packet width and
+      // that the resulting field addresses are aligned to fieldSize (or
+      // we can't express them as array indices).
+      if (structAllocSize * (m_packetWidth - 1) + fieldSize < 0x7fffffff &&
+          structAllocSize % fieldSize == 0 &&
+          fieldOffset % fieldSize == 0) {
+        // Use the original GEP as the base for scatter/gather and
+        // generate a int32[m_packetWidth] constant vector for the
+        // index where index[j] = j * structAllocSize / fieldSize.
+        Array_Of_Structs_Store_Or_Loads++; // statistics
+        IntegerType* int32Type = Type::getInt32Ty(Gep->getContext());
+        uint64_t newIndex = structAllocSize / fieldSize;
+        std::vector<Constant*> constList;
+        for (unsigned j=0; j < m_packetWidth; ++j) {
+          constList.push_back(ConstantInt::getSigned(int32Type, j * newIndex));
+        }
+        Constant* newIndexConst = ConstantVector::get(ArrayRef<Constant*>(constList));
+        MO.IndexIsSigned = true;
+        uint64_t maxIndex = newIndex * (m_packetWidth - 1);
+        MO.IndexValidBits = VectorizerUtils::getBSR(maxIndex) + 1;
+        MO.Index = newIndexConst;
+        MO.Base = Gep;
+      }
+    }
+  }
   else if (!Gep) {
     V_PRINT(gather_scatter_stat, "PACKETIZER: NOT GEP " << *MO.Ptr << "\n");
   } else {
-    V_PRINT(gather_scatter_stat, "PACKETIZER: GEP NOT SINGLE INDEX " << *Gep << "\n");
+    V_PRINT(gather_scatter_stat, "PACKETIZER: GEP MORE THAN TWO INDICES " << *Gep << "\n");
+    GEP_With_More_Than_2_Indices++; // statistics
   }
-  OCLSTAT_GATHER_CHECK(
-    if (Gep && Gep->getNumIndices() == 2) {
-      // counting an array of structs
-      // for example, suppose A is an array of structs, one of the elements
-      // in it is x. Then we handle the following load.
-      // int loaded = A[i].x;
-      Base = Gep->getOperand(0);
-      WIAnalysis::WIDependancy depBase = m_depAnalysis->whichDepend(Base);
-      if (depBase == WIAnalysis::UNIFORM) {
-        Value* structMember = Gep->getOperand(2);
-        if (isa<ConstantInt>(structMember)) {
-          if (m_depAnalysis->whichDepend(Gep->getOperand(1)) ==
-            WIAnalysis::CONSECUTIVE) {
-              Array_Of_Structs_Store_Or_Loads++; // statistics
-          }
-        }
-      }
-    }
-  );
 }
-
 
 void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
   V_ASSERT(MO.Orig && "Invalid instruction");
@@ -3054,8 +3099,9 @@ void PacketizeFunction::generateSequentialIndices(Instruction *I)
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  FunctionPass* createPacketizerPass(bool scatterGather = false) {
-    return new intel::PacketizeFunction(scatterGather);
+  FunctionPass* createPacketizerPass(bool scatterGather = false,
+                                     unsigned int vectorizationDimension = 0) {
+    return new intel::PacketizeFunction(scatterGather, vectorizationDimension);
   }
 }
 

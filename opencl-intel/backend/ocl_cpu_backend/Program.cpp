@@ -24,7 +24,6 @@ File Name:  Program.cpp
 #include "Serializer.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
 Program::Program():
     m_pObjectCodeContainer(NULL),
     m_pIRCodeContainer(NULL),
@@ -66,8 +65,6 @@ const ICLDevBackendProgramJITCodeProperties* Program::GetProgramJITCodePropertie
     assert(false && "NotImplemented");
     return NULL;
 }
-
-
 
 cl_dev_err_code Program::GetKernelByName(const char* IN pKernelName,
                                          const ICLDevBackendKernel_** OUT pKernel) const
@@ -121,12 +118,14 @@ cl_dev_err_code Program::GetKernel(int kernelIndex,
     return CL_DEV_SUCCESS;
 }
 
-size_t Program::GetGlobalVariableTotalSize() const {
-  return m_globalVariableTotalSize;
+size_t Program::GetGlobalVariableTotalSize() const
+{
+    return m_globalVariableTotalSize;
 }
 
-void Program::SetGlobalVariableTotalSize(size_t size) {
-  m_globalVariableTotalSize = size;
+void Program::SetGlobalVariableTotalSize(size_t size)
+{
+    m_globalVariableTotalSize = size;
 }
 
 void Program::SetObjectCodeContainer(ObjectCodeContainer* pObjCodeContainer)
@@ -163,39 +162,9 @@ void Program::SetModule( void* pModule)
 }
 
 void* Program::GetModule()
-{ 
-    assert(m_pIRCodeContainer && "code container should be initialized by now");
-    return m_pIRCodeContainer->GetModule(); 
-}
-
-bool Program::GetDisableOpt() const
 {
     assert(m_pIRCodeContainer && "code container should be initialized by now");
-    return m_pIRCodeContainer->GetProgramHeader()->bDisableOpt;
-}
-
-bool Program::GetDebugInfoFlag() const
-{
-    assert(m_pIRCodeContainer && "code container should be initialized by now");
-    return m_pIRCodeContainer->GetProgramHeader()->bDebugInfo;
-}
-
-bool Program::GetProfilingFlag() const
-{
-    assert(m_pIRCodeContainer && "code container should be initialized by now");
-    return m_pIRCodeContainer->GetProgramHeader()->bProfiling;
-}
-
-bool Program::GetFastRelaxedMath() const
-{
-    assert(m_pIRCodeContainer && "code container should be initialized by now");
-    return m_pIRCodeContainer->GetProgramHeader()->bFastRelaxedMath;
-}
-
-bool Program::GetDAZ() const
-{
-    assert(m_pIRCodeContainer && "code container should be initialized by now");
-    return m_pIRCodeContainer->GetProgramHeader()->bDenormsAreZero;
+    return m_pIRCodeContainer->GetModule();
 }
 
 void Program::Serialize(IOutputStream& ost, SerializationStatus* stats) const
@@ -207,7 +176,7 @@ void Program::Serialize(IOutputStream& ost, SerializationStatus* stats) const
     for(unsigned int i = 0; i < m_kernels->GetCount(); ++i)
     {
         Kernel* currentKernel = m_kernels->GetKernel(i);
-        Serializer::SerialPointerHint((const void**)&currentKernel, ost); 
+        Serializer::SerialPointerHint((const void**)&currentKernel, ost);
         if(NULL != currentKernel)
         {
             currentKernel->Serialize(ost, stats);
@@ -227,7 +196,7 @@ void Program::Deserialize(IInputStream& ist, SerializationStatus* stats)
     for(unsigned int i = 0; i < kernelsCount; ++i)
     {
         Kernel* currentKernel = NULL;
-        Serializer::DeserialPointerHint((void**)(&currentKernel), ist); 
+        Serializer::DeserialPointerHint((void**)(&currentKernel), ist);
         if(NULL != currentKernel)
         {
             currentKernel = stats->GetBackendFactory()->CreateKernel();
@@ -239,5 +208,4 @@ void Program::Deserialize(IInputStream& ist, SerializationStatus* stats)
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
     m_globalVariableTotalSize = (size_t)tmp;
 }
-
 }}}

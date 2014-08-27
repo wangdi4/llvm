@@ -124,3 +124,77 @@ bool OclNaiveConcurrentQueue<T>::TryPop(T& val)
 
     return true;
 }
+
+/////////////////////////////////////////////////////////////////////////////
+// OclNaiveConcurrentMap
+/////////////////////////////////////////////////////////////////////////////
+template<class T, class S> inline
+bool OclNaiveConcurrentMap<T,S>::IsEmpty()
+{
+    OclAutoMutex mu(&m_mapLock);
+
+    return IsEmptyInternal();
+}
+
+template<class T, class S>
+void OclNaiveConcurrentMap<T,S>::Insert(const T& key, const S& val)
+{
+    OclAutoMutex mu(&m_mapLock);
+
+    m_map[key] = val;
+}
+
+template<class T, class S>
+S OclNaiveConcurrentMap<T,S>::Find(const T& key)
+{
+    OclAutoMutex mu(&m_mapLock);
+
+    assert(!IsEmptyInternal());
+    typename std::map<T,S>::const_iterator it = m_map.find(key);
+    assert(it != m_map.end());
+    S val = it->second;
+    return val;
+}
+
+template<class T, class S>
+void OclNaiveConcurrentMap<T,S>::Erase(const T& key)
+{
+    OclAutoMutex mu(&m_mapLock);
+
+    assert(!IsEmptyInternal());
+    m_map.erase(key);
+}
+
+template<class T, class S>
+bool OclNaiveConcurrentMap<T,S>::IsFound(const T& key, S& val)
+{
+    OclAutoMutex mu(&m_mapLock);
+
+    if (IsEmptyInternal())
+    {
+        return false;
+    }
+	
+    typename std::map<T,S>::iterator it = m_map.find(key);
+    if (it == m_map.end())
+    {
+        return false;
+    }
+	
+    val = it->second;
+    return true;
+}
+
+template<class T, class S>
+void OclNaiveConcurrentMap<T,S>::Clear()
+{
+    OclAutoMutex mu(&m_mapLock);
+
+    m_map.clear();
+}
+
+template<class T, class S>
+bool OclNaiveConcurrentMap<T,S>::IsEmptyInternal() const
+{
+    return m_map.empty();
+}

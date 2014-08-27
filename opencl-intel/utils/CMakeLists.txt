@@ -12,6 +12,7 @@ endif(WIN32)
 
 add_subdirectory( task_executor )
 
+if(WIN32)
 macro( CREATE_ASM_RULES ADD_TO_SOURCES_LIST_VAR )
 
     if (${ARGC} GREATER  1)
@@ -47,3 +48,4 @@ macro( CREATE_ASM_RULES ADD_TO_SOURCES_LIST_VAR )
     endif(DEFINED OBJ_FILES)
 
 endmacro( CREATE_ASM_RULES )
+endif(WIN32)

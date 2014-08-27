@@ -28,7 +28,6 @@ File Name:  Program.h
 #include <memory>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
 class KernelSet;
 class BitCodeContainer;
 class ObjectCodeContainer;
@@ -185,15 +184,6 @@ public:
 
     virtual void SetExecutionEngine(void *eE) {}
 
-    bool GetDisableOpt() const;
-
-    bool GetDebugInfoFlag() const;
-
-    bool GetProfilingFlag() const;
-    bool GetFastRelaxedMath() const;
-
-    bool GetDAZ() const;
-
     /// get runtime service
     RuntimeServiceSharedPtr GetRuntimeService() const{
       return m_RuntimeService;
@@ -213,7 +203,7 @@ public:
      * Serialization methods for the class (used by the serialization service)
      */
     virtual void Serialize(IOutputStream& ost, SerializationStatus* stats) const;
-    virtual void Deserialize(IInputStream& ist, SerializationStatus* stats); 
+    virtual void Deserialize(IInputStream& ist, SerializationStatus* stats);
 
 protected:
     ObjectCodeContainer* m_pObjectCodeContainer;
@@ -228,7 +218,5 @@ private:
     // Disable copy ctor and assignment operator
     Program( const Program& );
     bool operator = (const Program& );
-
 };
-
 }}}

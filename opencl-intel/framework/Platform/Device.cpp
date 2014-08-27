@@ -314,7 +314,7 @@ cl_err_code Device::CreateInstance()
             }
 
             LOG_DEBUG(TEXT("%s"), TEXT("Call Device::fn_clDevCreateDeviceInstance"));
-            int clDevErr = devCreateInstance(m_devId, this, this, &m_pDevice);
+            int clDevErr = devCreateInstance(m_devId, this, this, &m_pDevice, g_pUserLogger);
             if (clDevErr != (int)CL_DEV_SUCCESS)
             {
                 LOG_ERROR(TEXT("Device::devCreateInstance returned %d"), clDevErr);
@@ -435,6 +435,11 @@ void Device::clDevCmdStatusChanged(cl_dev_cmd_id cmd_id, void * pData, cl_int cm
                                       (cl_int(CL_DEV_COMMAND_CANCELLED)==status_result) ? CL_DEVICE_NOT_AVAILABLE : status_result, 
                                       timer);
     return;
+}
+
+Intel::OpenCL::TaskExecutor::ITaskExecutor* Device::clDevGetTaskExecutor()
+{
+    return FrameworkProxy::Instance()->GetTaskExecutor();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

@@ -3,8 +3,6 @@
 #  See home page: http://code.google.com/p/android-cmake/
 #
 
-find_program( IWHICH_FOUND iwhich NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH NO_CMAKE_SYSTEM_PATH NO_CMAKE_FIND_ROOT_PATH )
-
 set( CMAKE_SYSTEM_NAME Linux )
 set( CMAKE_CROSSCOMPILING True )
 set( CMAKE_SYSTEM_VERSION 1 )
@@ -12,8 +10,6 @@ set( ANDROID_NDK_DEFAULT_SEARCH_PATH ${ANDROID_NDK} )
 set( ANDROID_NDK_SUPPORTED_VERSIONS -r8 "")
 set( ANDROID_NDK_TOOLCHAIN_DEFAULT_SEARCH_PATH ${ANDROID_NDK_TOOLCHAIN_ROOT} )
 set( TOOL_OS_SUFFIX "" )
-set( GCC_VERSION "" )
-set( GCC_VERSION_OUTPUT "" )
 
 # set Android toolchain directory name
 set ( ANDROID_TOOLCHAIN_DIRECTORY_NAME android-toolchain-x86_64 )
@@ -29,8 +25,6 @@ set(CMAKE_FIND_ROOT_PATH  ${ANDROID_NDK_TOOLCHAIN_ROOT})
 execute_process(COMMAND "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/x86_64-linux-android-gcc${TOOL_OS_SUFFIX}" --version
                 OUTPUT_VARIABLE GCC_VERSION_OUTPUT OUTPUT_STRIP_TRAILING_WHITESPACE )
 STRING( REGEX MATCH "[0-9](\\.[0-9])+" GCC_VERSION "${GCC_VERSION_OUTPUT}" )
-#message("\n******************\n GCC VERSION IS: ${GCC_VERSION} \n***************\n" )
-
 
 ##############################################################
 #        Detect Android API Level
@@ -152,13 +146,12 @@ set( CMAKE_OBJCOPY      "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/x86_64-linux-android-
 set( CMAKE_OBJDUMP      "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/x86_64-linux-android-objdump${TOOL_OS_SUFFIX}" CACHE PATH "objdump" FORCE )
 set( CMAKE_STRIP        "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/x86_64-linux-android-strip${TOOL_OS_SUFFIX}"   CACHE PATH "strip" FORCE )
 set( CMAKE_RANLIB       "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/x86_64-linux-android-ranlib${TOOL_OS_SUFFIX}"  CACHE PATH "ranlib" FORCE )
-# ARK Added to support assembly
-set( CMAKE_ASM_COMPILER "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/x86_64-linux-android-as${TOOL_OS_SUFFIX}"  CACHE PATH "as" FORCE )
+
+# Assembly support
+set( CMAKE_ASM_COMPILER "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/x86_64-linux-android-gcc${TOOL_OS_SUFFIX}"  CACHE PATH "gcc" FORCE )
 set( CMAKE_ASM_INCLUDE_DIR_FLAG "-I" )
 set( CMAKE_ASM_OUTPUT_NAME_FLAG "-o" )
-
-message( STATUS "CMAKE_ASM_COMPILER ${CMAKE_ASM_COMPILER}" )
-message( STATUS "CMAKE_C_COMPILER is ${CMAKE_C_COMPILER}" )
+enable_language(ASM)
 
 ##############################################################
 #        Set OUTPUT directories
@@ -212,7 +205,6 @@ if( BUILD_WITH_ANDROID_NDK_TOOLCHAIN )
 endif()
 message( STATUS "STL_LIBRARIES_PATH is ${STL_LIBRARIES_PATH}" )
 
-
 # only search for libraries and includes in the ndk toolchain
 # ARK - Had the change the CMAKE_FIND_ROOT_PATH_MODE_PROGRAM variable to FIRST 
 # so that Perl could be found
@@ -220,19 +212,8 @@ set( CMAKE_FIND_ROOT_PATH_MODE_PROGRAM BOTH )
 set( CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY )
 set( CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY )
 
-set( CMAKE_CXX_FLAGS "-fPIC -DANDROID -Wno-psabi -fsigned-char" )
-set( CMAKE_C_FLAGS "-fPIC -DANDROID -Wno-psabi -fsigned-char" )
-
-#set( FORCE_ARM OFF CACHE BOOL "Use 32-bit ARM instructions instead of Thumb-1" )
-#if( NOT FORCE_ARM )
- #It is recommended to use the -mthumb compiler flag to force the generation
- #of 16-bit Thumb-1 instructions (the default being 32-bit ARM ones).
-# set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mthumb" )
-# set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mthumb" )
-#else()
-# set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -marm" )
-# set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -marm" )
-#endif()
+set( CMAKE_CXX_FLAGS " -m64 -fPIC -DANDROID -Wno-psabi -fsigned-char" )
+set( CMAKE_C_FLAGS " -m64 -fPIC -DANDROID -Wno-psabi -fsigned-char" )
 
 if( BUILD_WITH_ANDROID_NDK )
  set( CMAKE_CXX_FLAGS "--sysroot=${ANDROID_NDK_SYSROOT} ${CMAKE_CXX_FLAGS}" )
@@ -245,30 +226,9 @@ if( BUILD_WITH_ANDROID_NDK )
  CMAKE_FORCE_CXX_COMPILER("${CMAKE_CXX_COMPILER}" GNU)
 endif()
 
-if( ARMEABI_V7A )
- #these are required flags for android armv7-a
- set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv7-a -mfloat-abi=softfp" )
- set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv7-a -mfloat-abi=softfp" )
- if( NEON )
-  set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=neon" )
-  set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=neon" )
- elseif( VFPV3 )
-  set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=vfpv3" )
-  set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=vfpv3" )
- endif()
-endif()
-
 if( INCLUDE_ATOM )
  set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mssse3" )
  set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mssse3" )
-endif()
-
-if( BUILD_X64 )
-  set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m64" )
-  set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m64" )
-else()
-  set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m64" )
-  set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m64" )
 endif()
 
 # -O3 generates unaligned movdqa instructions.
@@ -277,6 +237,8 @@ set ( CMAKE_C_FLAGS_RELEASE "-O2 -DNDEBUG" )
 
 set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" CACHE STRING "c++ flags" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "c flags" )
+
+set( CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -Xassembler --64" )
 
 #-------------------------------------------------
 # My add Rami
@@ -287,7 +249,6 @@ set (ADD_CXX_FLAGS       "${ADD_COMMON_C_FLAGS}" )
 set (ADD_C_FLAGS_DEBUG   "-O0 -ggdb3 -D _DEBUG" )
 set (ADD_C_FLAGS_RELEASE "-O2 -ggdb2 -U _DEBUG")
 set (ADD_C_FLAGS_RELWITHDEBINFO "-O2 -ggdb3 -U _DEBUG")
-
 
 # C switches
 set( CMAKE_C_FLAGS         "${CMAKE_C_FLAGS}         ${ADD_C_FLAGS}")
@@ -304,14 +265,7 @@ set( CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${ADD_CXX
 # My add Rami - End
 #-------------------------------------------------
       
-#-Wl,-L${LIBCPP_LINK_DIR},-lstdc++,-lsupc++
-#-L${LIBCPP_LINK_DIR} -lstdc++ -lsupc++
-#Also, this is *required* to use the following linker flags that routes around
-#a CPU bug in some Cortex-A8 implementations:
-if ( ARMEABI )
-set( LINKER_FLAGS "-Wl,--fix-cortex-a8 " )
-endif ( ARMEABI )
-set( LINKER_FLAGS "-L${STL_LIBRARIES_PATH} -L${CMAKE_INSTALL_PREFIX}/libs/${ARMEABI_NDK_NAME} -lstdc++ " )
+set( LINKER_FLAGS "-L${STL_LIBRARIES_PATH} -lstdc++ " )
 
 set( NO_UNDEFINED ON CACHE BOOL "Don't allow undefined symbols" )
 if( NO_UNDEFINED )
@@ -326,7 +280,6 @@ endif()
 set( CMAKE_SHARED_LINKER_FLAGS "${LINKER_FLAGS}" CACHE STRING "linker flags" FORCE )
 set( CMAKE_MODULE_LINKER_FLAGS "${LINKER_FLAGS}" CACHE STRING "linker flags" FORCE )
 set( CMAKE_EXE_LINKER_FLAGS "${LINKER_FLAGS}" CACHE STRING "linker flags" FORCE )
-
 
 #set these global flags for cmake client scripts to change behavior
 set( ANDROID True )
@@ -381,7 +334,16 @@ endmacro()
 
 MARK_AS_ADVANCED(FORCE_ARM NO_UNDEFINED)
 
-add_custom_target(strip 
-                    ${CMAKE_SOURCE_DIR}/cmake_utils/separate_linux_symbols.sh 
-                    WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/bin 
-                    COMMENT "Separating debug symbols from binaries...")
+message(STATUS "\n\n** ** ** COMPILER Definitions ** ** **")
+message(STATUS "CMAKE_C_COMPILER        = ${CMAKE_C_COMPILER}")
+message(STATUS "CMAKE_C_FLAGS           = ${CMAKE_C_FLAGS}")
+message(STATUS "")
+message(STATUS "CMAKE_CXX_COMPILER      = ${CMAKE_CXX_COMPILER}")
+message(STATUS "CMAKE_CXX_FLAGS         = ${CMAKE_CXX_FLAGS}")
+message(STATUS "")
+message(STATUS "CMAKE_ASM_COMPILER      = ${CMAKE_ASM_COMPILER}")
+message(STATUS "CMAKE_ASM_FLAGS         = ${CMAKE_ASM_FLAGS}")
+message(STATUS "")
+message(STATUS "CMAKE_EXE_LINKER_FLAGS  = ${CMAKE_EXE_LINKER_FLAGS}")
+message(STATUS "")
+message(STATUS "CMAKE_BUILD_TOOL        = ${CMAKE_BUILD_TOOL}")

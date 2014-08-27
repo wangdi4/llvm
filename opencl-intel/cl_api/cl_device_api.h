@@ -166,26 +166,6 @@ struct cl_prog_program
 #define OBJECT_SECTION_INDEX     3
 #define CHECK_INDEX              4
 
-/*! \struct cl_binary_container_header
- *  \brief This strcuture defines a specific container for binary objects (cached programs)
- */
-typedef struct _cl_object_container_header
-{
-    cl_char                 mask[4];       //!< A container identifier mask must be 0x7f ELF
-    unsigned int            total_size;    //!< total size of the container
-    unsigned int            section_size[8];//!< container sections sizes
-} cl_object_container_header;
-/*! \struct cl_prog_container_header
- *  \brief This structure defines a specific container for binaries or IR of OCL programs
- */
-typedef struct _cl_prog_container_header
-{
-    cl_char                 mask[4];        //!< A container identifier mask must be "CLPC"
-    cl_prog_binary_desc     description;    //!< Binary/IR description that is held by a container
-    cl_prog_container_type  container_type; //!< Type of container that stores program binary, as defined by cl_prog_container_type
-    unsigned int            container_size; //!< Size in bytes of the container data
-} cl_prog_container_header;
-
 // Interface declaration
 class IOCLFrameworkCallbacks;
 class IOCLDevLogDescriptor;
@@ -537,12 +517,12 @@ struct  cl_dev_cmd_param_kernel
                                                                  //!< values that describe the offset used to calculate the global ID of a work-item.
     size_t              glb_wrk_size[MAX_WORK_DIM];              //!< An array of work_dim unsigned values that describe the number of global work-items
                                                                  //!< in work_dim dimensions that will execute the kernel function. The total number of
-                                                                 //!< global work-items is computed as glb_wrk_size[0] * … *glb_wrk_size[work_dim – 1].
+                                                                 //!< global work-items is computed as glb_wrk_size[0] * â€¦ *glb_wrk_size[work_dim â€“ 1].
                                                                  //!< When executing a task, this value must be equal to 1.
     size_t              lcl_wrk_size[WG_SIZE_NUM][MAX_WORK_DIM]; //!< An array of work_dim unsigned values that describe the number of work-items+
                                                                  //!< that make up a work-group (also referred to as the size of the work-group)
                                                                  //!< that will execute the kernel specified by kernel. The total number of work-items in a work-group
-                                                                 //!< is computed as lcl_wrk_size[0] * … * lcl_wrk_size[work_dim – 1].
+                                                                 //!< is computed as lcl_wrk_size[0] * â€¦ * lcl_wrk_size[work_dim â€“ 1].
                                                                  //!< When executing a task, this value must be equal to 1. When the values are 0, and hint or required
                                                                  //!< work-group size is defined for the kernel, the agent will use these values for execution.
                                                                  //!< When the values are 0, and neither hint nor required work-group sizes is not defined,
@@ -631,11 +611,25 @@ class IOCLDevice;
         CL_DEV_SUCCESS      The device was successfully created. pDevEntry holds updated pointers
         CL_DEV_ERROR_FAIL   Internal error
 */
+
+namespace Intel { namespace OpenCL { namespace Utils {
+
+class FrameworkUserLogger;
+
+}}}
+
+namespace Intel { namespace OpenCL { namespace TaskExecutor {
+
+class ITaskExecutor;
+
+}}}
+
 typedef cl_dev_err_code (fn_clDevCreateDeviceInstance)(
                                    unsigned int     dev_id,
                                    IOCLFrameworkCallbacks   *pDevCallBacks,
                                    IOCLDevLogDescriptor     *pLogDesc,
-                                   IOCLDeviceAgent*             *pDevice
+                                   IOCLDeviceAgent*             *pDevice,
+                                   Intel::OpenCL::Utils::FrameworkUserLogger* pUserLogger
                                    );
 
 //! This function return device specific information defined by cl_device_info enumeration as specified in OCL spec. table 4.3.
@@ -713,6 +707,9 @@ public:
                                             cl_int          IN completion_result,
                                             cl_ulong        IN timer
                                             ) = 0;
+
+    //! Get ITaskExecutor to run tasks on the host
+    virtual Intel::OpenCL::TaskExecutor::ITaskExecutor* clDevGetTaskExecutor() = 0;
 };
 
 /*!

@@ -33,7 +33,6 @@ File Name:  ocl_recorder.h
     #define OCL_RECORDER_API
 #endif
 
-
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Atomic.h"
 #include "llvm/Support/Mutex.h"
@@ -117,7 +116,6 @@ namespace Validation
             return true;
         }
 
-
         const std::string getBaseName( ) const;
 
         unsigned int  getWorkDimention() const { return m_workDesc.workDimension; }
@@ -128,13 +126,11 @@ namespace Validation
 
         const size_t* getGlobalWorkOffset() const { return m_workDesc.globalWorkOffset; }
 
-
     public:
         std::string m_name;
         cl_work_description_type m_workDesc;
         int         m_index;
     };
-
 
     class KernelContext
     {
@@ -169,7 +165,6 @@ namespace Validation
         const llvm::Function* m_pFunc;
         BinaryContextList m_binaries;
     };
-
 
     ///\brief Context maintained for each program during recording
     class RecorderContext
@@ -222,7 +217,7 @@ namespace Validation
         bool containsKernel( const ICLDevBackendKernel_* pKernel );
 
         KernelContext* getKernelContext(const ICLDevBackendKernel_* pKernel );
-        
+
         TiXmlDocument   m_config;
         TiXmlElement   *m_pRunConfig;
         llvm::sys::Mutex m_configLock;
@@ -275,17 +270,18 @@ namespace Validation
 
         virtual void OnCreateKernel(const ICLDevBackendProgram_* pProgram,
                                     const ICLDevBackendKernel_* pKernel,
-                                    const llvm::Function* pFunction);
+                                    const void* pFunction);
 
-        virtual void OnCreateProgram(const _cl_prog_container_header* pContainer,
+        virtual void OnCreateProgram(const void * pBinary,
+                                     size_t uiBinarySize,
                                      const ICLDevBackendProgram_* pProgram);
 
         virtual void OnReleaseProgram(const ICLDevBackendProgram_* pProgram);
-    
+
         void SetSourceRecorder(const OclSourceRecorder* recorder);
 
     private: // Internal method
-        void RecordByteCode(const _cl_prog_container_header* pContainer, const RecorderContext& context);
+        void RecordByteCode(const void* pBinary, size_t uiBinarySize, const RecorderContext& context);
 
         void RecordProgramConfig(RecorderContext& context);
 
@@ -327,8 +323,8 @@ namespace Validation
         // kernel context methods
 
         BinaryContext* GetKernelContext(ICLDevBackendKernel_* pKernel);
-        
-        //Parameter(s): 
+
+        //Parameter(s):
         // (in): code- the md5 hash code of the bytecode that serves as an
         // entry point for the program.
         // (out): pSourceFile- source file ebing compiled, to be purged to the
@@ -346,9 +342,6 @@ namespace Validation
         llvm::sys::Mutex   m_contextsLock; // synchronization for the contexts container
         std::string        m_logsDir;      // optional path to log directory
         std::string        m_prefix;       // optional prefix to add to generated files
-        llvm::LLVMContext* m_pLLVMContext; // context used to re-parse the recorder modules
         const OclSourceRecorder* m_pSourceRecorder; //holds source-level recording data
     };
 }
-
-

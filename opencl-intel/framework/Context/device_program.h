@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2012 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -34,7 +34,6 @@
 #include <build_event.h>
 
 namespace Intel { namespace OpenCL { namespace Framework {
-
     class Device;
     class FissionableDevice;
 
@@ -70,7 +69,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         void           SetHandle(cl_program handle)   { m_parentProgramHandle = handle; }
         void           SetContext(cl_context context) { m_parentProgramContext = context;}
 
-
         // Attempts to attach the given binary to the device associated with this program
         // Creates a copy of the input
         // Returns CL_SUCCESS if nothing unexpected happened -- note that iBinaryStatus can still be CL_INVALID_BINARY
@@ -82,9 +80,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // Otherwise, return error
         cl_err_code   GetBinary(size_t uiBinSize, void * pBin, size_t * puiBinSizeRet);
 
-        cl_err_code GetBuildInfo (cl_program_build_info clParamName, 
-                                 size_t                uiParamValueSize, 
-                                 void *                pParamValue, 
+        cl_err_code GetBuildInfo (cl_program_build_info clParamName,
+                                 size_t                uiParamValueSize,
+                                 void *                pParamValue,
                                  size_t *              puiParamValueSizeRet) const;
 
         cl_build_status GetBuildStatus() const;
@@ -92,7 +90,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         bool IsBinaryAvailable(cl_program_binary_type requestedType) const;
 
         cl_err_code GetNumKernels(cl_uint* pszNumKernels);
-        // Returns an array of NULL-terminated strings, one for each 
+        // Returns an array of NULL-terminated strings, one for each
         cl_err_code GetKernelNames(char** ppNames, size_t* pszNameSizes, size_t szNumNames);
 
         // Returns true if the object can be safely worked on and false otherwise
@@ -121,7 +119,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // Creates a copy of the input
         // Returns CL_SUCCESS if nothing unexpected happened
         cl_err_code   SetBinaryInternal(size_t uiBinarySize, const void* pBinary, cl_program_binary_type clBinaryType);
-
 
         // Clears the current build log, called in the beginning of each build sequence
         // Returns CL_SUCCESS if nothing unexpected happened
@@ -152,7 +149,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     protected:
 
-        bool CheckProgramBinary(size_t uiBinSize, const void* pBinary);
+        bool CheckProgramBinary(size_t uiBinSize, const void* pBinary, cl_prog_binary_type* pBinaryType = NULL);
 
         // Current program state
         EDeviceProgramState m_state;
@@ -179,7 +176,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         char*               m_pBinaryBits;
         size_t              m_uiBinaryBitsSize;
         cl_program_binary_type m_clBinaryBitsType;
-        
+
         // Ensure the object is multi-thread safe
         mutable Intel::OpenCL::Utils::AtomicCounter m_currentAccesses;
 
@@ -187,4 +184,3 @@ namespace Intel { namespace OpenCL { namespace Framework {
         DeviceProgram& operator=(const DeviceProgram&);
     };
 }}}
-

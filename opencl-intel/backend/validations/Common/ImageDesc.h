@@ -45,6 +45,8 @@ namespace Validation
             m_dataType(),
             m_imageType(),
             m_size(),
+            m_num_mip_levels(0),
+            m_num_samples(0),
             m_isNEAT(false)
         {}
 
@@ -345,8 +347,8 @@ namespace Validation
         ImageChannelDataTypeValWrapper m_dataType; ///< data type
         ImageTypeVal m_imageType;
         ImageSizeDesc m_size;                   ///< size of image including pitch
-        uint64_t m_num_mip_levels;              // reserved for future use
-        uint64_t m_num_samples;                 // reserved for future use
+        uint64_t m_num_mip_levels;              ///< reserved for future use
+        uint64_t m_num_samples;                 ///< reserved for future use
         bool    m_isNEAT;                       ///< Is image contains NEAT structures
     };
 

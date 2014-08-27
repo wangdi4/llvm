@@ -48,6 +48,14 @@ using namespace Intel::OpenCL::Utils;
 
 #define MAX_STRDUP_SIZE 1024
 
+#if !_WIN32 && !DEVICE_NATIVE
+namespace Intel { namespace OpenCL { namespace Utils {
+
+FrameworkUserLogger* g_pUserLogger = NULL;
+
+}}}
+#endif
+
 /**
  * Safe version of strdup.
  */

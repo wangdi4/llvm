@@ -3,13 +3,13 @@
 
 #
 #  Variables which override defaults (used only by OCL SDK build)
-#      OCL_INSTALL_DIR               overrides output directory. The default is where the rest of OCL CPU BE resides.
-#      OCL_CLANG_HEADERS             overrides directory name for clang headers. The default is 'clang_headers' in Volcano root
-#     OCL_GLOBAL_INCLUDE         overrides directory name for global headers. The default is 'cl_api' in Volcano root
-#     OCL_SOURCE_DIR                 TRUE when invoked by OCL SDK build
-#     OCL_HOST_CLANG         overrides 'clang' tool selection. The default is to use 'clang' tool from the same build
-#     OCL_HOST_OPT                     overrides 'opt' tool selection. The default is to use 'opt' tool from the same build
-#     OCL_HOST_LLVM_LINK         overrides 'llvm-link' tool selection. The default is to use 'llvm-link' tool from the same build
+#     OCL_INSTALL_DIR               overrides output directory. The default is where the rest of OCL CPU BE resides.
+#     OCL_CLANG_HEADERS             overrides directory name for clang headers. The default is 'clang_headers' in Volcano root
+#     OCL_GLOBAL_INCLUDE            overrides directory name for global headers. The default is 'cl_api' in Volcano root
+#     OCL_SOURCE_DIR                TRUE when invoked by OCL SDK build
+#     OCL_HOST_CLANG                overrides 'clang' tool selection. The default is to use 'clang' tool from the same build
+#     OCL_HOST_OPT                  overrides 'opt' tool selection. The default is to use 'opt' tool from the same build
+#     OCL_HOST_LLVM_LINK            overrides 'llvm-link' tool selection. The default is to use 'llvm-link' tool from the same build
 #
 
 #
@@ -19,11 +19,26 @@ cmake_minimum_required(VERSION 2.8.7)
 cmake_policy(SET CMP0001 NEW)
 cmake_policy(SET CMP0011 OLD)
 
-project(cl_builtins)
+# In this project we use binaries from OpenCL prject (e.g. oclopt), LLVM for
+# front-end compiler (e.g. clang) and LLVM for back-end compiler (e.g. llc).
+# oclopt utility is built with LLVM version for the back-end compiler, so when
+# applies passes to the RTL it converts LLVM IR to newer version. This restrict
+# the tools we use after oclopt to the tools from LLVM for back-end compiler.
+# So we have to set path to tools directory for BE version of LLVM.
+# We know that LLVM for the back-end compiler is already configured, so just
+# save LLVM_BINARY_DIR for later use by LLVM tools running after oclopt.
+# TODO: to make this file more self contained we should not rely on the
+# assumption above and configure LLVM for the back-end right here.
+set(BE_LLVM_BINARY_DIR ${LLVM_BINARY_DIR})
 
-# Only MIC supports this flag so far. Remove this option as well as legacy code
-# for OCL builtin support when both CPU and MIC move to the new solution.
-option (AUTOGEN_OCL_BUILTIN "Generate OCL builtins" ON)
+if( NOT DEFINED LLVM_PATH_FE )
+    message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for fronted using LLVM_PATH_FE parameter to CMAKE" )
+endif()
+
+set(LLVM_PATH ${LLVM_PATH_FE})
+find_package(LLVM REQUIRED)
+
+project(cl_builtins)
 
 # target name prefix to be used for generated binaries
 set (TARGET_NAME_PREFIX clbltfn)
@@ -100,14 +115,18 @@ if(APPLE)
 endif()
 
 if( CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE )
-  set(TOOL_BINARY_DIR "${LLVM_BINARY_DIR}/../native/bin")
+  set(TOOL_BINARY_DIR "${BE_LLVM_BINARY_DIR}/../native/bin")
 else()
-  set(TOOL_BINARY_DIR "${LLVM_BINARY_DIR}" )
+  set(TOOL_BINARY_DIR "${BE_LLVM_BINARY_DIR}" )
 endif()
 
 # LLVM tools are assumed to be pre-built within the global project
 if (NOT DEFINED OCL_HOST_CLANG)
-  set (CLANG "${TOOL_BINARY_DIR}/clang")
+  if( CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE )
+    set (CLANG "${LLVM_BINARY_DIR}/../native/bin/clang")
+  else()
+    set (CLANG "${LLVM_BINARY_DIR}/clang")
+  endif()
 else()
   set (CLANG ${OCL_HOST_CLANG})
 endif()
@@ -170,14 +189,14 @@ message (STATUS "TRIPLE:    ${TRIPLE}")
 set (OCL_OUTPUT_EXTENSION .rtl)
 set (OCL_PRECOMPILED_OUTPUT_EXTENSION .o)
 set (CLANG_LLVM_INCLUDE_DIRS)
-string( REPLACE  \${CMAKE_CFG_INTDIR} ${CMAKE_CFG_INTDIR} LLVM_INCLUDE_DIR "${LLVM_INCLUDE_DIR}" )
-foreach( LLVM_INCLUDE_DIR_ITEM ${LLVM_INCLUDE_DIR} )
+string( REPLACE  \${CMAKE_CFG_INTDIR} ${CMAKE_CFG_INTDIR} LLVM_INCLUDE_DIRS "${LLVM_INCLUDE_DIRS}" )
+foreach( LLVM_INCLUDE_DIR_ITEM ${LLVM_INCLUDE_DIRS} )
   set(CLANG_LLVM_INCLUDE_DIRS ${CLANG_LLVM_INCLUDE_DIRS} -I ${LLVM_INCLUDE_DIR_ITEM})
 endforeach( LLVM_INCLUDE_DIR_ITEM)
 
 # Adding include path for "micintrin.h", "micintrin_mici64ext.h"
 if(INCLUDE_MIC_DEVICE)
-  set(MIC_HEADERS_DIR ${LLVM_LIBRARY_DIR}/clang/3.4/include)
+  set(MIC_HEADERS_DIR ${LLVM_LIBRARY_DIRS}/clang/3.4/include)
   set(CLANG_LLVM_INCLUDE_DIRS ${CLANG_LLVM_INCLUDE_DIRS} -I ${MIC_HEADERS_DIR})
 endif(INCLUDE_MIC_DEVICE)
 
@@ -253,16 +272,16 @@ endfunction( compile_ocl )
 #
 # add_ocl_library( OUTPUT_FILE_VAR TARGET_NAME ARCH PROC USE_OPT OUTPUT_DIR ...FILES... )
 #
-#   OUTPUT_FILE_VAR   - output, contains generated library (rtl file)
+#   OUTPUT_FILE_VAR             - output, contains generated library (rtl file)
 #   PRECOMPILED_OUTPUT_FILE_VAR - output, contains generated library (obj file)
-#   TARGET_NAME       - name of the target and base name of the lib. Extension is OCL_OUTPUT_EXTENSION
-#   TARGET_DIR        - directory of target-*.td file
-#   ARCH              - target SIMD arch type
-#   PROC              - target CPU
-#   USE_OPT           - Optimize output library with llvm opt tool
-#   ENABLE_PRECOMPILE - enable precompiling (to native machine code)
-#   OUTPUT_DIR        - output directory for the intermediate files
-#   FILES             - input files list
+#   TARGET_NAME                 - name of the target and base name of the lib. Extension is OCL_OUTPUT_EXTENSION
+#   TARGET_DIR                  - directory of target-*.td file
+#   ARCH                        - target SIMD arch type
+#   PROC                        - target CPU
+#   USE_OPT                     - Optimize output library with llvm opt tool
+#   ENABLE_PRECOMPILE           - enable precompiling (to native machine code)
+#   OUTPUT_DIR                  - output directory for the intermediate files
+#   FILES                       - input files list
 #
 
 function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAME TARGET_DIR ARCH PROC USE_OPT ENABLE_PRECOMPILE BI_LIB_NAME OUTPUT_DIR)
@@ -500,69 +519,6 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
   endif(WIN32)
 
 endfunction( create_target)
-
-
-
-function( create_shared_rtl )
-
-  set (TARGET_DIR ${SHARED_RTL_NAME})
-  
-  message (STATUS "Building target:   ${TARGET_NAME_SHARED}")
-
-  # intermediate directory for OpenCL compilation/link
-  set (INTERMEDIATE_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
-
-  list(APPEND CMD_ARGS -gen-ocl-bi )
-  # generate OCL builtin implementation
-  tblgenoclblt(OCL_TABLEGEN_SOURCE
-    ${INTERMEDIATE_OUTPUT_DIR}
-    ${TARGET_DIR}
-    target-${SHARED_RTL_NAME}.td
-    target-${SHARED_RTL_NAME}.cl
-    ${CMD_ARGS}
-  )
-
-  # build .rtl file out of OCL code (by clang) and copy it to install directory
-  set (OUTPUT_FILE ${TARGET_NAME_SHARED}${OCL_OUTPUT_EXTENSION})
-  set (PROC core2)
-  # Compile all files and prepare a 'TMP_FILES' list of .rtl files
-  foreach (FILE ${OCL_TABLEGEN_SOURCE})
-    compile_ocl( TMP_RTL ${PROC} ${FILE} ${INTERMEDIATE_OUTPUT_DIR})
-    list (APPEND TMP_FILES ${TMP_RTL})
-  endforeach (FILE)
-
-  add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
-    COMMENT "OCL Linking shared ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}"
-    COMMAND ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE} ${TMP_FILES}
-    DEPENDS ${LLVM_LINK} ${TMP_FILES}
-    VERBATIM
-    )
-
-  message (STATUS "Outputting direct ${OUTPUT_FILE}")
-
-  set (TARGET_DEPENDENCIES ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE})
-
-  # top-level target for OCL target
-  add_custom_target (${TARGET_NAME_SHARED} ALL
-    DEPENDS ${TARGET_DEPENDENCIES}
-    COMMENT "Target ${TARGET_NAME_SHARED} build completed"
-    VERBATIM
-    SOURCES ${OCL_TABLEGEN_SOURCE}
-  )
-
-  set_target_properties (${TARGET_NAME_SHARED} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/cl_builtins)
-
-  if (WIN32)
-    set (INSTALL_LIST ${OCL_TOOLS_BINARY_DIR}/\${BUILD_TYPE}/${OUTPUT_FILE})
-    install( FILES ${INSTALL_LIST} DESTINATION bin)
-  else(WIN32)
-    set (INSTALL_LIST ${OCL_TOOLS_BINARY_DIR}/${OUTPUT_FILE})
-    install( FILES ${INSTALL_LIST} DESTINATION bin)
-  endif(WIN32)
-
-
-endfunction( create_shared_rtl)
-
 
 #------------------ Main -----------------------
 

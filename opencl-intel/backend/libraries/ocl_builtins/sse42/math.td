@@ -45,11 +45,6 @@ OclBuiltinImpl rint_f32_impl = OclBuiltinImpl<rint, [v4f32], 0, [{
   }]>;
 // leave only implementaion for float4. others sizes are promoted and expanded to float4 version
 
-// ilogb
-// leave only implementaion for float4. float, float2 are promoted to float4
-// float3 is promoted in the shared rtl
-OclBuiltinImpl ilogb_f32_promote = OclBuiltinImpl<ilogb, [v1f32, v2f32], 0, Promote1>;
-
 //fract
 // leave only implementaion for float4. float, float2, float3 are promoted to float4
 OclBuiltinImpl fract_pas_f32_promote = OclBuiltinImpl<fract_pas, [v1f32, v2f32, v3f32], 0, Promote_fract>;

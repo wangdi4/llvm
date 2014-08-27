@@ -456,7 +456,7 @@ cl_int CrtContext::GetReferenceCount(cl_uint* refCountParam)
 CrtContext::~CrtContext()
 {
     m_contexts.clear();
-    m_commandQueues.clear();
+    m_HostcommandQueues.clear();
 }
 
 cl_int CrtContext::FlushQueues()
@@ -464,8 +464,8 @@ cl_int CrtContext::FlushQueues()
     OCLCRT::Utils::OclAutoMutex CS(&m_mutex);   // Critical section
 
     cl_uint errCode = CL_SUCCESS;
-    for( std::list<cl_command_queue>::iterator itr = m_commandQueues.begin();
-        itr != m_commandQueues.end();
+    for( std::list<cl_command_queue>::iterator itr = m_HostcommandQueues.begin();
+        itr != m_HostcommandQueues.end();
         itr++ )
     {
         const cl_command_queue q = *itr;
@@ -2017,7 +2017,7 @@ cl_int  CrtContext::CreateCommandQueue(
         *crtQueue = pCrtQueue;
         {
             OCLCRT::Utils::OclAutoMutex CS(&m_mutex);   // Critical section
-            m_commandQueues.push_back(queueDEV);
+            m_HostcommandQueues.push_back(queueDEV);
         }
     }
     return errCode;
@@ -2057,9 +2057,34 @@ cl_int  CrtContext::CreateCommandQueueWithProperties(
         pCrtQueue->m_device = device;
         pCrtQueue->m_queue_handle = queue_crt_handle;
         *crtQueue = pCrtQueue;
+
+        bool QueueOnDevice = false;
+
+        //extract data from cl_queue_properties, to see if queue on device is being created.
+        cl_queue_properties PropertyType ;
+        cl_queue_properties PropertyValue ;
+        if( properties != NULL )
+        {
+            while( *properties != 0 )
+            {
+                PropertyType  = properties[0];
+                PropertyValue = properties[1];
+                properties += 2;
+                if( PropertyType == CL_QUEUE_PROPERTIES )
+                {
+                    if( ( ( ( cl_command_queue_properties ) PropertyValue ) & CL_QUEUE_ON_DEVICE ) != 0 )
+                    {
+                        QueueOnDevice = true;
+                        break;
+                    }
+                }
+            }
+        }
+        //add only if we have craete non device queue, such queues can't flush on host
+        if( QueueOnDevice == false )
         {
             OCLCRT::Utils::OclAutoMutex CS( &m_mutex );   // Critical section
-            m_commandQueues.push_back( queueDEV );
+            m_HostcommandQueues.push_back( queueDEV );
         }
     }
     return errCode;
@@ -2141,7 +2166,7 @@ cl_int CrtQueue::Release()
 {
     OCLCRT::Utils::OclAutoMutex CS(&m_contextCRT->m_mutex);   // Critical section
     cl_int errCode  = m_cmdQueueDEV->dispatch->clReleaseCommandQueue(m_cmdQueueDEV);    
-    m_contextCRT->m_commandQueues.remove(m_cmdQueueDEV);
+    m_contextCRT->m_HostcommandQueues.remove(m_cmdQueueDEV);
     return errCode;
 }
 

@@ -21,25 +21,24 @@
 #include "UserLoggerOutputParams.h"
 
 using namespace Intel::OpenCL::Framework;
+using Intel::OpenCL::Utils::g_pUserLogger;
+using std::string;
 
 void OutputParamsValueProvider::Print2Logger()
 {
-    Intel::OpenCL::Utils::UserLogger& instance = GetUserLoggerInstance();
-    instance.SetExpectOutputParams(false);
-    if (CL_SUCCEEDED(instance.GetLastRetVal()))
+    if (CL_SUCCEEDED(m_apiLogger.GetLastRetVal()))
     {
         for (std::vector<ParamInfo>::const_iterator iter = m_outputParamsVec.begin(); iter != m_outputParamsVec.end(); ++iter)
         {
-            instance.PrintOutputParam(iter->m_name, iter->m_addr, iter->m_size, iter->m_bIsPtr2Ptr, iter->m_bIsUnsigned);
+            m_apiLogger.PrintOutputParam(iter->m_name, iter->m_addr, iter->m_size, iter->m_bIsPtr2Ptr, iter->m_bIsUnsigned);
         }
         if (NULL != m_specialPrinter)
         {
-            const std::string str2Print = m_specialPrinter->GetStringToPrint();
+            const string str2Print = m_specialPrinter->GetStringToPrint();
             if (!str2Print.empty())
             {
-                instance.PrintString(", " + str2Print, false);
+                m_apiLogger.PrintOutputParamStr((string(", ") + str2Print).c_str());
             }
         }
-    }
-    instance.PrintString("\n", false);
+    }    
 }

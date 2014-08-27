@@ -91,11 +91,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // Out Of Order Execution synch commands
         // ---------------------
-        cl_err_code EnqueueMarker           (cl_command_queue clCommandQueue, cl_event *pEvent);
-        cl_err_code EnqueueMarkerWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent);
-        cl_err_code EnqueueWaitForEvents    (cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* cpEventList);
-        cl_err_code EnqueueBarrier          (cl_command_queue clCommandQueue);
-        cl_err_code EnqueueBarrierWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent);
+        cl_err_code EnqueueMarker           (cl_command_queue clCommandQueue, cl_event *pEvent, ApiLogger* pApiLogger);
+        cl_err_code EnqueueMarkerWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent, ApiLogger* pApiLogger);
+        cl_err_code EnqueueWaitForEvents    (cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* cpEventList, ApiLogger* apiLogger);
+        cl_err_code EnqueueBarrier          (cl_command_queue clCommandQueue, ApiLogger* pApiLogger);
+        cl_err_code EnqueueBarrierWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent, ApiLogger* pApiLogger);
 
 
         // Event objects functions
@@ -108,40 +108,40 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code SetEventCallback        ( cl_event evt, cl_int status, void (CL_CALLBACK *fn)(cl_event, cl_int, void*), void* userData);
 
         // Enqueue commands
-        cl_err_code EnqueueReadBuffer       (cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlocking, size_t szOffset, size_t szCb, void* pOutData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);		
-        cl_err_code EnqueueWriteBuffer      (cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlocking, size_t szOffset, size_t szCb, const void* cpSrcData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
-		cl_err_code EnqueueCopyBuffer       (cl_command_queue clCommandQueue, cl_mem clSrcBuffer, cl_mem clDstBuffer, size_t szSrcOffset, size_t szDstOffset, size_t szCb, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
-		cl_err_code EnqueueFillBuffer       (cl_command_queue clCommandQueue, cl_mem clBuffer, const void *pattern, size_t pattern_size, size_t offset, size_t size, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *pEvent);
+        cl_err_code EnqueueReadBuffer       (cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlocking, size_t szOffset, size_t szCb, void* pOutData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger);		
+        cl_err_code EnqueueWriteBuffer      (cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlocking, size_t szOffset, size_t szCb, const void* cpSrcData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
+		cl_err_code EnqueueCopyBuffer       (cl_command_queue clCommandQueue, cl_mem clSrcBuffer, cl_mem clDstBuffer, size_t szSrcOffset, size_t szDstOffset, size_t szCb, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
+		cl_err_code EnqueueFillBuffer       (cl_command_queue clCommandQueue, cl_mem clBuffer, const void *pattern, size_t pattern_size, size_t offset, size_t size, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *pEvent, ApiLogger* apiLogger);
 
-		cl_err_code EnqueueReadBufferRect   (cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlocking, const size_t szBufferOrigin[3], const size_t szHostOrigin[3], const size_t region[3], size_t buffer_row_pitch, size_t buffer_slice_pitch, size_t host_row_pitch, size_t host_slice_pitch, void* pOutData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
-		cl_err_code EnqueueWriteBufferRect  (cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlocking, const size_t szBufferOrigin[3], const size_t szHostOrigin[3], const size_t region[3], size_t buffer_row_pitch, size_t buffer_slice_pitch, size_t host_row_pitch, size_t host_slice_pitch, const void* pOutData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
-		cl_err_code EnqueueCopyBufferRect   (cl_command_queue clCommandQueue, cl_mem clSrcBuffer, cl_mem clDstBuffer, const size_t szSrcBufferOrigin[3], const size_t szDstBufferOrigin[3], const size_t region[3], size_t src_buffer_row_pitch, size_t src_buffer_slice_pitch, size_t dst_buffer_row_pitch, size_t dst_buffer_slice_pitch, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
+		cl_err_code EnqueueReadBufferRect   (cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlocking, const size_t szBufferOrigin[3], const size_t szHostOrigin[3], const size_t region[3], size_t buffer_row_pitch, size_t buffer_slice_pitch, size_t host_row_pitch, size_t host_slice_pitch, void* pOutData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
+		cl_err_code EnqueueWriteBufferRect  (cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlocking, const size_t szBufferOrigin[3], const size_t szHostOrigin[3], const size_t region[3], size_t buffer_row_pitch, size_t buffer_slice_pitch, size_t host_row_pitch, size_t host_slice_pitch, const void* pOutData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
+		cl_err_code EnqueueCopyBufferRect   (cl_command_queue clCommandQueue, cl_mem clSrcBuffer, cl_mem clDstBuffer, const size_t szSrcBufferOrigin[3], const size_t szDstBufferOrigin[3], const size_t region[3], size_t src_buffer_row_pitch, size_t src_buffer_slice_pitch, size_t dst_buffer_row_pitch, size_t dst_buffer_slice_pitch, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
 
-        cl_err_code EnqueueReadImage        (cl_command_queue clCommandQueue, cl_mem clImage, cl_bool bBlocking, const size_t szOrigin[3], const size_t szRegion[3], size_t szRowPitch, size_t szSlicePitch, void* pOutData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
-        cl_err_code EnqueueWriteImage       (cl_command_queue clCommandQueue, cl_mem clImage, cl_bool bBlocking, const size_t szOrigin[3], const size_t szRegion[3], size_t szRowPitch, size_t szSlicePitch, const void* cpSrcData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
-        cl_err_code EnqueueCopyImage        (cl_command_queue clCommandQueue, cl_mem clSrcImage, cl_mem clDstImage, const size_t szSrcOrigin[3], const size_t szDstOrigin[3], const size_t szRegion[3], cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
-        cl_err_code EnqueueFillImage        (cl_command_queue clCommandQueue, cl_mem clImage, const void *fillColor, const size_t *origin, const size_t *region, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
+        cl_err_code EnqueueReadImage        (cl_command_queue clCommandQueue, cl_mem clImage, cl_bool bBlocking, const size_t szOrigin[3], const size_t szRegion[3], size_t szRowPitch, size_t szSlicePitch, void* pOutData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
+        cl_err_code EnqueueWriteImage       (cl_command_queue clCommandQueue, cl_mem clImage, cl_bool bBlocking, const size_t szOrigin[3], const size_t szRegion[3], size_t szRowPitch, size_t szSlicePitch, const void* cpSrcData, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
+        cl_err_code EnqueueCopyImage        (cl_command_queue clCommandQueue, cl_mem clSrcImage, cl_mem clDstImage, const size_t szSrcOrigin[3], const size_t szDstOrigin[3], const size_t szRegion[3], cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
+        cl_err_code EnqueueFillImage        (cl_command_queue clCommandQueue, cl_mem clImage, const void *fillColor, const size_t *origin, const size_t *region, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event, ApiLogger* apiLogger);
 
-        cl_err_code EnqueueCopyImageToBuffer(cl_command_queue clCommandQueue, cl_mem clSrcImage, cl_mem clDstBuffer, const size_t szSrcOrigin[3], const size_t szRegion[3], size_t szDstOffset, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
-        cl_err_code EnqueueCopyBufferToImage(cl_command_queue clCommandQueue, cl_mem clSrcBuffer, cl_mem clDstImage, size_t szSrcOffset, const size_t szDstOrigin[3], const size_t szRegion[3], cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
-        void*       EnqueueMapBuffer        (cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlockingMap, cl_map_flags clMapFlags, size_t szOffset, size_t szCb, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, cl_int* pErrcodeRet);
-        void*       EnqueueMapImage         (cl_command_queue clCommandQueue, cl_mem clImage, cl_bool bBlockingMap, cl_map_flags clMapFlags, const size_t szOrigin[3], const size_t szRegion[3], size_t* pszImageRowPitch, size_t* pszImageSlicePitch, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, cl_int* pErrcodeRet);
-        cl_err_code EnqueueUnmapMemObject   (cl_command_queue clCommandQueue, cl_mem clMemObj, void* mappedPtr, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
-        cl_err_code EnqueueNDRangeKernel    (cl_command_queue clCommandQueue, cl_kernel clKernel, cl_uint uiWorkDim, const size_t* cpszGlobalWorkOffset, const size_t* cpszGlobalWorkSize, const size_t* cpszLocalWorkSize, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
-        cl_err_code EnqueueTask             (cl_command_queue clCommandQueue, cl_kernel clKernel, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
-        cl_err_code EnqueueNativeKernel     (cl_command_queue clCommandQueue, void (CL_CALLBACK*pUserFnc)(void *), void* pArgs, size_t szCbArgs, cl_uint uNumMemObjects, const cl_mem* clMemList, const void** ppArgsMemLoc, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
-        cl_err_code EnqueueMigrateMemObjects(cl_command_queue clCommandQueue, cl_uint uiNumMemObjects, const cl_mem* pMemObjects, cl_mem_migration_flags clFlags, cl_uint uiNumEventsInWaitList, const cl_event* pEventWaitList, cl_event* pEvent);
+        cl_err_code EnqueueCopyImageToBuffer(cl_command_queue clCommandQueue, cl_mem clSrcImage, cl_mem clDstBuffer, const size_t szSrcOrigin[3], const size_t szRegion[3], size_t szDstOffset, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
+        cl_err_code EnqueueCopyBufferToImage(cl_command_queue clCommandQueue, cl_mem clSrcBuffer, cl_mem clDstImage, size_t szSrcOffset, const size_t szDstOrigin[3], const size_t szRegion[3], cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
+        void*       EnqueueMapBuffer        (cl_command_queue clCommandQueue, cl_mem clBuffer, cl_bool bBlockingMap, cl_map_flags clMapFlags, size_t szOffset, size_t szCb, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, cl_int* pErrcodeRet, ApiLogger* apiLogger);
+        void*       EnqueueMapImage         (cl_command_queue clCommandQueue, cl_mem clImage, cl_bool bBlockingMap, cl_map_flags clMapFlags, const size_t szOrigin[3], const size_t szRegion[3], size_t* pszImageRowPitch, size_t* pszImageSlicePitch, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, cl_int* pErrcodeRet, ApiLogger* apiLogger);
+        cl_err_code EnqueueUnmapMemObject   (cl_command_queue clCommandQueue, cl_mem clMemObj, void* mappedPtr, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
+        cl_err_code EnqueueNDRangeKernel    (cl_command_queue clCommandQueue, cl_kernel clKernel, cl_uint uiWorkDim, const size_t* cpszGlobalWorkOffset, const size_t* cpszGlobalWorkSize, const size_t* cpszLocalWorkSize, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
+        cl_err_code EnqueueTask             (cl_command_queue clCommandQueue, cl_kernel clKernel, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
+        cl_err_code EnqueueNativeKernel     (cl_command_queue clCommandQueue, void (CL_CALLBACK*pUserFnc)(void *), void* pArgs, size_t szCbArgs, cl_uint uNumMemObjects, const cl_mem* clMemList, const void** ppArgsMemLoc, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
+        cl_err_code EnqueueMigrateMemObjects(cl_command_queue clCommandQueue, cl_uint uiNumMemObjects, const cl_mem* pMemObjects, cl_mem_migration_flags clFlags, cl_uint uiNumEventsInWaitList, const cl_event* pEventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
 
         // Profiling
 		cl_err_code GetEventProfilingInfo (cl_event clEvent, cl_profiling_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
 
 		// GL
-		cl_err_code EnqueueSyncGLObjects(cl_command_queue clCommandQueue, cl_command_type cmdType, cl_uint uiNumObjects, const cl_mem * pclMemObjects, cl_uint uiNumEventsInWaitList, const cl_event * pclEventWaitList, cl_event * pclEvent);
+		cl_err_code EnqueueSyncGLObjects(cl_command_queue clCommandQueue, cl_command_type cmdType, cl_uint uiNumObjects, const cl_mem * pclMemObjects, cl_uint uiNumEventsInWaitList, const cl_event * pclEventWaitList, cl_event * pclEvent, ApiLogger* apiLogger);
 
         // Direct3D 9
 #if defined (DX_MEDIA_SHARING)
         template<typename RESOURCE_TYPE, typename DEV_TYPE>
-        cl_int EnqueueSyncD3DObjects(cl_command_queue clCommandQueue, cl_command_type cmdType, cl_uint uiNumObjects, const cl_mem *pclMemObjects, cl_uint uiNumEventsInWaitList, const cl_event *pclEventWaitList, cl_event *pclEvent);
+        cl_int EnqueueSyncD3DObjects(cl_command_queue clCommandQueue, cl_command_type cmdType, cl_uint uiNumObjects, const cl_mem *pclMemObjects, cl_uint uiNumEventsInWaitList, const cl_event *pclEventWaitList, cl_event *pclEvent, ApiLogger* apiLogger);
 #endif
 
         cl_err_code         Release(bool bTerminate);
@@ -150,14 +150,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		cl_int EnqueueSVMFree(cl_command_queue clCommandQueue, cl_uint uiNumSvmPointers, void* pSvmPointers[],
 							  void (CL_CALLBACK* pfnFreeFunc)(cl_command_queue queue, cl_uint uiNumSvmPointers, void* pSvmPointers[], void* pUserData),
-							  void* pUserData, cl_uint uiNumEventsInWaitList,	const cl_event* pEventWaitList,	cl_event* pEvent);
+                void* pUserData, cl_uint uiNumEventsInWaitList,	const cl_event* pEventWaitList,	cl_event* pEvent, ApiLogger* apiLogger);
 		cl_int EnqueueSVMMemcpy(cl_command_queue clCommandQueue, cl_bool bBlockingCopy, void* pDstPtr, const void* pSrcPtr, size_t size, cl_uint uiNumEventsInWaitList,
-								const cl_event* pEventWaitList, cl_event* pEvent);
+								const cl_event* pEventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
 		cl_int EnqueueSVMMemFill(cl_command_queue clCommandQueue, void* pSvmPtr, const void* pPattern, size_t szPatternSize, size_t size, cl_uint uiNumEventsInWaitList,
-								 const cl_event* pEventWaitList, cl_event* pEvent);
+								 const cl_event* pEventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
 		cl_int EnqueueSVMMap(cl_command_queue clCommandQueue, cl_bool bBlockingMap,	cl_map_flags mapflags, void* pSvmPtr, size_t size, cl_uint uiNumEventsInWaitList,
-							 const cl_event* pEventWaitList, cl_event* pEvent);
-		cl_int EnqueueSVMUnmap(cl_command_queue clCommandQueue, void* pSvmPtr, cl_uint uiNumEventsInWaitList, const cl_event* pEventWaitList, cl_event* pEvent);
+							 const cl_event* pEventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
+		cl_int EnqueueSVMUnmap(cl_command_queue clCommandQueue, void* pSvmPtr, cl_uint uiNumEventsInWaitList, const cl_event* pEventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
 
         EventsManager*      GetEventsManager() const { return m_pEventsManager; }
         void                ReleaseAllUserEvents( bool preserve_user_handles );
@@ -177,8 +177,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         bool                CheckMemoryObjectOverlapping(SharedPtr<MemoryObject> pMemObj, const size_t* szSrcOrigin, const size_t* szDstOrigin, const size_t* szRegion);
         size_t              CalcRegionSizeInBytes(SharedPtr<MemoryObject> pImage, const size_t* szRegion);
         cl_err_code         FlushAllQueuesForContext(cl_context ctx);
-        cl_err_code         EnqueueMarkerWithWaitList(const SharedPtr<IOclCommandQueueBase>& clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent);
-        cl_err_code         EnqueueMarker(const SharedPtr<IOclCommandQueueBase>& clCommandQueue, cl_event *pEvent);
+        cl_err_code         EnqueueMarkerWithWaitList(const SharedPtr<IOclCommandQueueBase>& clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent, ApiLogger* pApiLogger);
+        cl_err_code         EnqueueMarker(const SharedPtr<IOclCommandQueueBase>& clCommandQueue, cl_event *pEvent, ApiLogger* pApiLogger);
 
         PlatformModule*     m_pPlatfromModule;                                                  // Pointer to the platform operation. This is the internal interface of the module.
         ContextModule*      m_pContextModule;                                                   // Pointer to the context operation. This is the internal interface of the module.
@@ -205,7 +205,8 @@ cl_int ExecutionModule::EnqueueSyncD3DObjects(cl_command_queue clCommandQueue,
                                                  const cl_mem *pclMemObjects,
                                                  cl_uint uiNumEventsInWaitList,
                                                  const cl_event *pclEventWaitList,
-                                                 cl_event *pclEvent)
+                                                 cl_event *pclEvent,
+                                                 ApiLogger* apiLogger)
 {
     cl_err_code errVal = CL_SUCCESS;
     if (NULL == pclMemObjects && 0 == uiNumObjects)
@@ -286,7 +287,7 @@ cl_int ExecutionModule::EnqueueSyncD3DObjects(cl_command_queue clCommandQueue,
             CL_COMMAND_RELEASE_DX9_OBJECTS_INTEL == cmdType :
             !pContext->m_bIsInteropUserSync;
 
-        errVal = pAcquireCmd->EnqueueSelf(bBlocking, uiNumEventsInWaitList, pclEventWaitList, pclEvent);
+        errVal = pAcquireCmd->EnqueueSelf(bBlocking, uiNumEventsInWaitList, pclEventWaitList, pclEvent, apiLogger);
         if (CL_FAILED(errVal))
         {
             // Enqueue failed, free resources. pAcquireCmd->CommandDone() was already called in EnqueueCommand.            

@@ -42,6 +42,8 @@
 #include "mic_sys_info.h"
 #include "command_list.h"
 #include "clang_device_info.h"
+#include "mic_user_logger.h"
+#include "cl_user_logger.h"
 
 #ifdef __INCLUDE_MKL__
 #include <mkl_builtins.h>
@@ -68,6 +70,12 @@ static struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO MICDevInfo = {NULL,0,1,0};
 #ifdef USE_ITT
 ocl_gpa_data* MICDevice::g_pGPAData = NULL;
 #endif
+
+namespace Intel { namespace OpenCL { namespace Utils {
+
+FrameworkUserLogger* g_pUserLogger = NULL;
+
+}}}
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -141,6 +149,16 @@ MICDevice::MICDevice(cl_uint uiMicId, IOCLFrameworkCallbacks *devCallbacks, IOCL
     : m_pFrameworkCallBacks(devCallbacks), m_uiMicId(uiMicId),
     m_pLogDescriptor(logDesc), m_iLogHandle (0), m_defaultCommandList(NULL), m_pDeviceServiceComm(NULL)
 {
+#if 0 // this is infrastructure for the future
+    try
+    {
+        MicUserLogger::Instance();  // no need to save the returned instance - this call just makes sure the singleton is created
+    }
+    catch (const IOError& e)
+    {
+        Intel::OpenCL::Utils::g_pUserLogger->PrintError(string("Error in starting user logger in MIC device: ") + e.what());
+    }
+#endif	
 }
 
 cl_dev_err_code MICDevice::Init()
@@ -258,7 +276,8 @@ extern "C"
 cl_dev_err_code clDevCreateDeviceInstance(  cl_uint        dev_id,
                                    IOCLFrameworkCallbacks  *pDevCallBacks,
                                    IOCLDevLogDescriptor    *pLogDesc,
-                                   IOCLDeviceAgent*        *pDevice
+                                   IOCLDeviceAgent*        *pDevice,
+                                   FrameworkUserLogger* pUserLogger
                                    )
 {
     if(NULL == pDevCallBacks || NULL == pDevice)
@@ -266,6 +285,7 @@ cl_dev_err_code clDevCreateDeviceInstance(  cl_uint        dev_id,
         return CL_DEV_INVALID_OPERATION;
     }
 
+    g_pUserLogger = pUserLogger;
     MICDevice *pNewDevice = new MICDevice(dev_id, pDevCallBacks, pLogDesc);
     if ( NULL == pNewDevice )
     {

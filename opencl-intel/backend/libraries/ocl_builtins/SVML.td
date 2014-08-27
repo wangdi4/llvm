@@ -245,3 +245,17 @@ def svml_cvtu64v1tofp_rtp : OclBuiltin<"__ocl_svml_$Target_cvtu64tofp$up$SVMLSuf
 def svml_cvtu64v1tofp_rtn : OclBuiltin<"__ocl_svml_$Target_cvtu64tofp$down$SVMLSuffix",  (outs gentype:$ret), (ins u64gentype:$x), [], []>;
 }
 
+let Types = [v1i32, v2i32, v3i32, v4i32, v8i32, v16i32],
+    Attrs = [CONSTFUNC],
+    IsDeclOnly = 1, NeedForwardDecl = 1 in {
+def svml_idiv          : OclBuiltin<"__ocl_svml_$Target_idiv",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
+def svml_irem          : OclBuiltin<"__ocl_svml_$Target_irem",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
+
+}
+let Types = [v1u32, v2u32, v3u32, v4u32, v8u32, v16u32],
+    Attrs = [CONSTFUNC],
+    IsDeclOnly = 1, NeedForwardDecl = 1 in {
+def svml_udiv          : OclBuiltin<"__ocl_svml_$Target_udiv",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
+def svml_urem          : OclBuiltin<"__ocl_svml_$Target_urem",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
+}
+

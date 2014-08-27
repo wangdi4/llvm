@@ -8,8 +8,10 @@ include_directories(BEFORE "Utils")
 include_directories(BEFORE "WIAnalysis")
 include_directories(BEFORE "Predication")
 include_directories(BEFORE "OCLBranchProbability")
+include_directories(BEFORE "ChooseVectorizationDimension")
 
 include_directories(
+  ${LLVM_INCLUDE_DIRS}
   ${BACKEND_ROOT_DIR}/arch_headers
   ${BACKEND_ROOT_DIR}/reflection_module
   ${BACKEND_ROOT_DIR}/name_mangling
@@ -80,6 +82,7 @@ set(TARGET_INCLUDE_FILES
   VolcanoWrapper/Main.h
   WIAnalysis/WIAnalysis.h
   OCLBranchProbability/OCLBranchProbability.h
+  ChooseVectorizationDimension/ChooseVectorizationDimension.h
   ${TARGET_EXTRA_INCLUDE_FILES}
 )
 
@@ -112,6 +115,7 @@ set(TARGET_SOURCE_FILES
   VolcanoWrapper/Main.cpp
   WIAnalysis/WIAnalysis.cpp
   OCLBranchProbability/OCLBranchProbability.cpp
+  ChooseVectorizationDimension/ChooseVectorizationDimension.cpp
   ${TARGET_EXTRA_SOURCE_FILES}
 )
 

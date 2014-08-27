@@ -1,127 +1,48 @@
-# binary output directory suffix
-
-# note - the search is done only when the CMake cache is built
-find_program( IWHICH_FOUND iwhich NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH NO_CMAKE_SYSTEM_PATH NO_CMAKE_FIND_ROOT_PATH )
-
-
-set(OS Lin )
-set(IMPLIB_SUBDIR bin )
-set(IMPLIB_PREFIX lib )
-set(IMPLIB_SUFFIX .so )
-
-set(RT_LIB "-lrt")
-set(PTHREAD_LIB "-lpthread")
-# C/CXX Compiler and cross-compilation flags
-# defined by toolchain
-# Linux-Intel.cmake and Linux-GNU.cmake
-include("${OCL_TOOLCHAIN_FILE}")
-
-if (TARGET_CPU STREQUAL "Atom")
-    set(CMAKE_EXE_LINKER_FLAGS        "${CMAKE_EXE_LINKER_FLAGS}    ${ATOM_SPECIFIC_FLAGS}")
-    set(CMAKE_SHARED_LINKER_FLAGS     "${CMAKE_SHARED_LINKER_FLAGS} ${ATOM_SPECIFIC_FLAGS}")
-    set(CMAKE_CXX_FLAGS               "${CMAKE_CXX_FLAGS} ${ATOM_SPECIFIC_FLAGS}")
-    set(CMAKE_C_FLAGS                 "${CMAKE_C_FLAGS}   ${ATOM_SPECIFIC_FLAGS}")
-    set(CMAKE_ASM_FLAGS               ${CMAKE_ASM_FLAGS} ${ATOM_SPECIFIC_FLAGS_ASM}) # Do not quote (CREATE_ASM_RULES)!
-endif (TARGET_CPU STREQUAL "Atom")
-
+# Options common to all projects.
 message(STATUS "** ** ** Enable Languages ** ** **")
 
 enable_language( C )
 enable_language( CXX )
 enable_language( ASM )
 
-
-# The sysroot command is different for each compiler, so just set it now - after the toolchain is defined.
-if (OCL_MEEGO)
-    set(BIN_OUTPUT_DIR_SUFFIX "lin") # Problems using Meego suffix, since it is invalid.
-    set(CMAKE_EXE_LINKER_FLAGS        "${SET_XCOMPILE_SYSROOT_CMD} ${CMAKE_EXE_LINKER_FLAGS}" )
-    set(CMAKE_SHARED_LINKER_FLAGS     "${SET_XCOMPILE_SYSROOT_CMD} ${CMAKE_SHARED_LINKER_FLAGS}" )
-    set(CMAKE_CXX_FLAGS               "${SET_XCOMPILE_SYSROOT_CMD} ${CMAKE_CXX_FLAGS}" )
-    set(CMAKE_C_FLAGS                 "${SET_XCOMPILE_SYSROOT_CMD} ${CMAKE_C_FLAGS}" )
-    set(ADD_CMAKE_EXE_LINKER_FLAGS    "${SET_XCOMPILE_SYSROOT_CMD} ${ATOM_SPECIFIC_FLAGS}")
-else()
-    set(BIN_OUTPUT_DIR_SUFFIX "lin")
-endif(OCL_MEEGO)
-
-
 if(BUILD_X64)
-    set(BIN_OUTPUT_DIR_SUFFIX "${BIN_OUTPUT_DIR_SUFFIX}64" )
-    set(ARCH_BIT -m64 )
-    set(ASM_BIT  --64 )
+  set(ARCH_BIT -m64 )
+  set(ASM_BIT  "-Xassembler --64" )
 else()
-    set(BIN_OUTPUT_DIR_SUFFIX "${BIN_OUTPUT_DIR_SUFFIX}32" )
-    if (TARGET_CPU STREQUAL "Atom")
-        # architecture will be according to ATOM
-        set(ARCH_BIT -m32 )
-        set(ASM_BIT  --32 )
-    else ()
-        # need to force a more modern architecture than the degault m32 (i386).
-        set(ARCH_BIT "-m32 -march=core2" )
-        set(ASM_BIT  --32 -march=core2 )
-    endif (TARGET_CPU STREQUAL "Atom")
+  if (TARGET_CPU STREQUAL "Atom")
+    # architecture will be according to ATOM
+    set(ARCH_BIT -m32 )
+    set(ASM_BIT  "-Xassembler --32" )
+  else ()
+    # need to force a more modern architecture than the degault m32 (i386).
+    set(ARCH_BIT "-m32 -march=core2" )
+    set(ASM_BIT  "-Wa,--32,-march=core2" )
+  endif (TARGET_CPU STREQUAL "Atom")
 endif()
 
-# set CMAKE SVN client to be first SVN client in the PATH
-execute_process(COMMAND which svn OUTPUT_VARIABLE Subversion_SVN_EXECUTABLE OUTPUT_STRIP_TRAILING_WHITESPACE )
-
-if (NOT "${IWHICH_FOUND}" STREQUAL IWHICH_FOUND-NOTFOUND)
-	execute_process(COMMAND ${IWHICH_FOUND}  ${CMAKE_C_COMPILER} OUTPUT_VARIABLE INTEL_IT_COMPILER_FOUND OUTPUT_STRIP_TRAILING_WHITESPACE )
-	if (NOT "${INTEL_IT_COMPILER_FOUND}" STREQUAL "")
-		set( INTEL_IT_BUILD_ENV_FOUND ON )
-	endif (NOT "${INTEL_IT_COMPILER_FOUND}" STREQUAL "")
-endif (NOT "${IWHICH_FOUND}" STREQUAL IWHICH_FOUND-NOTFOUND)
-
-if (DEFINED INTEL_IT_BUILD_ENV_FOUND)
-    # setup Intel IT tools versions database
-    set( ENV{USER_ITOOLS} ${CMAKE_SOURCE_DIR}/cmake_utils/intel_it_linux_tool_versions.txt )
-
-    # find required compiler setup
-    execute_process(COMMAND ${IWHICH_FOUND} ${CMAKE_C_COMPILER} OUTPUT_VARIABLE INTEL_IT_COMPILER_PATH OUTPUT_STRIP_TRAILING_WHITESPACE )
-    string( REPLACE /bin/${CMAKE_C_COMPILER} "" INTEL_IT_COMPILER_PATH  ${INTEL_IT_COMPILER_PATH} )
-
-    # prepend all cmake paths intel IT path
-    set( CMAKE_PREFIX_PATH  /usr/intel ${INTEL_IT_COMPILER_PATH})
-endif (DEFINED INTEL_IT_BUILD_ENV_FOUND)
-
-execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpversion OUTPUT_VARIABLE GCC_VERSION)
 # Warning level
+add_definitions(-pedantic -Wall -Wextra -Werror -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-deprecated-declarations)
+# Additional warning switches for newer GCC.
+execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpversion OUTPUT_VARIABLE GCC_VERSION)
 if (GCC_VERSION VERSION_GREATER 4.6 OR GCC_VERSION VERSION_EQUAL 4.6)
-  set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Werror -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-deprecated-declarations -Wno-int-to-pointer-cast -Wno-unused-but-set-variable" )
-else ()
-  set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Werror -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-deprecated-declarations")
+  add_definitions(-Wno-int-to-pointer-cast -Wno-unused-but-set-variable)
 endif ()
 
 # Compiler switches that CANNOT be modified during makefile generation
+set (ADD_COMMON_C_FLAGS         "-msse3 -mssse3 ${SSE4_VAL} ${ARCH_BIT} -fPIC -fdiagnostics-show-option -funsigned-bitfields -fstack-protector" )
 
-set (ADD_COMMON_C_FLAGS  "-msse3 -mssse3 ${SSE4_VAL} ${ARCH_BIT} -fPIC -fdiagnostics-show-option -funsigned-bitfields -fstack-protector" )
-
-set (ADD_C_FLAGS         "${ADD_COMMON_C_FLAGS} -std=gnu99" )
-set (ADD_CXX_FLAGS       "${ADD_COMMON_C_FLAGS}" )
-if (DEFINED UBUNTU64_BUILD)
-  set (ADD_CXX_FLAGS       "${ADD_COMMON_C_FLAGS}  -Wno-conversion-null -Wno-unused-result")
-endif()
-
-# ITT/VTune integration
-if( NOT ANDROID )
-	add_definitions( -DUSE_ITT )
-	include_directories( ${CMAKE_SOURCE_DIR}/externals/itt/include
-						 ${CMAKE_SOURCE_DIR}/externals/itt/ittnotify/ )
-endif( NOT ANDROID )
-
-
-set (ADD_C_FLAGS_DEBUG   "-O0 -ggdb3 -D _DEBUG" )
-set (ADD_C_FLAGS_RELEASE "-O2 -ggdb2 -U _DEBUG")
+set (ADD_C_FLAGS                "${ADD_COMMON_C_FLAGS} -std=gnu99" )
+set (ADD_C_FLAGS_DEBUG          "-O0 -ggdb3 -D _DEBUG" )
+set (ADD_C_FLAGS_RELEASE        "-O2 -ggdb2 -U _DEBUG")
 set (ADD_C_FLAGS_RELWITHDEBINFO "-O2 -ggdb3 -U _DEBUG")
 
-# Compiler switches that CAN be modified during makefile generation and configuration-independent
-add_definitions( ${WARNING_LEVEL} )
-# gcc 4.1 complains about missing virtual dtor for interface classes. this is bad and wrong, we should supress it.
-add_definitions(${VIRTUAL_DISTRUCTOR_WARNING})
+set (ADD_CXX_FLAGS              "${ADD_COMMON_C_FLAGS}" )
+if (DEFINED UBUNTU64_BUILD)
+  set (ADD_CXX_FLAGS            "${ADD_COMMON_C_FLAGS}  -Wno-conversion-null -Wno-unused-result")
+endif()
 
 # Linker switches
-set (INIT_LINKER_FLAGS        "-Wl,--enable-new-dtags" ) # --enable-new-dtags sets RUNPATH to the same value as RPATH
-set (ADD_LINKER_FLAGS_DEBUG        )
-set (ADD_LINKER_FLAGS_RELEASE " ")
+set (INIT_LINKER_FLAGS          "-Wl,--enable-new-dtags" ) # --enable-new-dtags sets RUNPATH to the same value as RPATH
 
 # embed RPATH and RUNPATH to the binaries that assumes that everything is installed in the same directory
 #
@@ -129,11 +50,11 @@ set (ADD_LINKER_FLAGS_RELEASE " ")
 #   RPATH is used to locate dynamically load shared libraries/objects (DLLs) for the non-standard OS
 #   locations without need of relinking DLLs during installation. The algorithm is the following:
 #
-#     1. If RPATH is present in the EXE/DLL and RUNPATH is NOT present, search through it.
-#     2. If LD_LIBRARY_PATH env variable is present, search through it
-#     3. If RUNPATH is present in the EXE/DLL, search through it
-#     4. Search through locations, configured by system admin and cached in /etc/ld.so.cache
-#     5. Search through /lib and /usr/lib
+#   1. If RPATH is present in the EXE/DLL and RUNPATH is NOT present, search through it.
+#   2. If LD_LIBRARY_PATH env variable is present, search through it
+#   3. If RUNPATH is present in the EXE/DLL, search through it
+#   4. Search through locations, configured by system admin and cached in /etc/ld.so.cache
+#   5. Search through /lib and /usr/lib
 #
 #   RUNPATH influences only the immediate dependencies, while RPATH influences the whole subtree of dependencies
 #   RPATH is concidered deprecated in favor of RUNPATH, but RUNPATH does not supported by some Linux systems.
@@ -145,62 +66,53 @@ set (ADD_LINKER_FLAGS_RELEASE " ")
 #   Security issue 2: if RPATH/RUNPATH references relative subdirs, intruder may fool it by using softlinks
 #
 if (BUILD_FOR_COMPILATION_PURPOSES_ONLY)
-    SET(CMAKE_SKIP_BUILD_RPATH                  FALSE )   # add pointers to the build tree, so it can be used during compilation
+  SET(CMAKE_SKIP_BUILD_RPATH          FALSE )  # add pointers to the build tree, so it can be used during compilation
 else ()
-    SET(CMAKE_SKIP_BUILD_RPATH                  TRUE )   # do not add pointers to the build tree
+  SET(CMAKE_SKIP_BUILD_RPATH          TRUE )   # do not add pointers to the build tree
 endif (BUILD_FOR_COMPILATION_PURPOSES_ONLY)
-SET(CMAKE_BUILD_WITH_INSTALL_RPATH          TRUE )   # build rpath as if already installed
-SET(CMAKE_INSTALL_RPATH                     "$ORIGIN::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::" ) # the rpath to use - search through installation dir only
-SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH       FALSE)  # do not use static link paths as rpath
+SET(CMAKE_BUILD_WITH_INSTALL_RPATH    TRUE )   # build rpath as if already installed
+SET(CMAKE_INSTALL_RPATH               "$ORIGIN::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::" ) # the rpath to use - search through installation dir only
+SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)   # do not use static link paths as rpath
 
 # C switches
-set( CMAKE_C_FLAGS         "${CMAKE_C_FLAGS}         ${ADD_C_FLAGS}")
-set( CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG}   ${ADD_C_FLAGS_DEBUG}")
-set( CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${ADD_C_FLAGS_RELEASE}")
-set( CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} ${ADD_C_FLAGS_RELWITHDEBINFO}")
+set( CMAKE_C_FLAGS                          "${CMAKE_C_FLAGS}                         ${ADD_C_FLAGS}")
+set( CMAKE_C_FLAGS_DEBUG                    "${CMAKE_C_FLAGS_DEBUG}                   ${ADD_C_FLAGS_DEBUG}")
+set( CMAKE_C_FLAGS_RELEASE                  "${CMAKE_C_FLAGS_RELEASE}                 ${ADD_C_FLAGS_RELEASE}")
+set( CMAKE_C_FLAGS_RELWITHDEBINFO           "${CMAKE_C_FLAGS_RELWITHDEBINFO}          ${ADD_C_FLAGS_RELWITHDEBINFO}")
 
 # C++ switches
-set( CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS}         ${ADD_CXX_FLAGS}")
-set( CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG}   ${ADD_C_FLAGS_DEBUG}")
-set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${ADD_C_FLAGS_RELEASE}")
-set( CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${ADD_CXX_FLAGS_RELWITHDEBINFO}")
+set( CMAKE_CXX_FLAGS                        "${CMAKE_CXX_FLAGS}                       ${ADD_CXX_FLAGS}")
+set( CMAKE_CXX_FLAGS_DEBUG                  "${CMAKE_CXX_FLAGS_DEBUG}                 ${ADD_C_FLAGS_DEBUG}")
+set( CMAKE_CXX_FLAGS_RELEASE                "${CMAKE_CXX_FLAGS_RELEASE}               ${ADD_C_FLAGS_RELEASE}")
+set( CMAKE_CXX_FLAGS_RELWITHDEBINFO         "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}        ${ADD_CXX_FLAGS_RELWITHDEBINFO}")
 
 # ASM switches
-set( CMAKE_ASM_FLAGS               ${CMAKE_ASM_FLAGS} ${ASM_BIT} ) # do not quote, because of CREATE_ASM_RULES
-set( CMAKE_ASM_INCLUDE_DIR_FLAG    -I )
-set( CMAKE_ASM_OUTPUT_NAME_FLAG    -o )
+set( CMAKE_ASM_FLAGS                        ${CMAKE_ASM_FLAGS}                        ${ASM_BIT} )
+set( CMAKE_ASM_INCLUDE_DIR_FLAG             -I )
+set( CMAKE_ASM_OUTPUT_NAME_FLAG             -o )
 
 # Linker switches - EXE
-set( CMAKE_EXE_LINKER_FLAGS           "${INIT_LINKER_FLAGS} ${ADD_CMAKE_EXE_LINKER_FLAGS}")
-set( CMAKE_EXE_LINKER_FLAGS_DEBUG     "${CMAKE_EXE_LINKER_FLAGS_DEBUG}   ${ADD_LINKER_FLAGS_DEBUG} ${ADD_CMAKE_EXE_LINKER_FLAGS}")
-set( CMAKE_EXE_LINKER_FLAGS_RELEASE   "${CMAKE_EXE_LINKER_FLAGS_RELEASE} ${ADD_LINKER_FLAGS_RELEASE} ${ADD_CMAKE_EXE_LINKER_FLAGS}")
-set( CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO   "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} ${ADD_LINKER_FLAGS_RELWITHDEBINFO} ${ADD_CMAKE_EXE_LINKER_FLAGS}")
+set( CMAKE_EXE_LINKER_FLAGS                 "${INIT_LINKER_FLAGS}                     ${ADD_CMAKE_EXE_LINKER_FLAGS}")
+set( CMAKE_EXE_LINKER_FLAGS_DEBUG           "${CMAKE_EXE_LINKER_FLAGS_DEBUG}          ${ADD_LINKER_FLAGS_DEBUG}           ${ADD_CMAKE_EXE_LINKER_FLAGS}")
+set( CMAKE_EXE_LINKER_FLAGS_RELEASE         "${CMAKE_EXE_LINKER_FLAGS_RELEASE}        ${ADD_LINKER_FLAGS_RELEASE}         ${ADD_CMAKE_EXE_LINKER_FLAGS}")
+set( CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO  "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} ${ADD_LINKER_FLAGS_RELWITHDEBINFO}  ${ADD_CMAKE_EXE_LINKER_FLAGS}")
 
 # Linker switches - DLL
-set( CMAKE_SHARED_LINKER_FLAGS         "${INIT_LINKER_FLAGS} ${ADD_CMAKE_EXE_LINKER_FLAGS}")
-set( CMAKE_SHARED_LINKER_FLAGS_DEBUG   "${CMAKE_SHARED_LINKER_FLAGS_DEBUG}   ${ADD_LINKER_FLAGS_DEBUG} ${ADD_CMAKE_EXE_LINKER_FLAGS}")
-set( CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} ${ADD_LINKER_FLAGS_RELEASE} ${ADD_CMAKE_EXE_LINKER_FLAGS}")
-
-set( CMAKE_BUILD_TOOL "$(MAKE)")
+set( CMAKE_SHARED_LINKER_FLAGS              "${INIT_LINKER_FLAGS}                     ${ADD_CMAKE_EXE_LINKER_FLAGS}")
+set( CMAKE_SHARED_LINKER_FLAGS_DEBUG        "${CMAKE_SHARED_LINKER_FLAGS_DEBUG}       ${ADD_LINKER_FLAGS_DEBUG}           ${ADD_CMAKE_EXE_LINKER_FLAGS}")
+set( CMAKE_SHARED_LINKER_FLAGS_RELEASE      "${CMAKE_SHARED_LINKER_FLAGS_RELEASE}     ${ADD_LINKER_FLAGS_RELEASE}         ${ADD_CMAKE_EXE_LINKER_FLAGS}")
 
 message(STATUS "\n\n** ** ** COMPILER Definitions ** ** **")
-message(STATUS "CMAKE_C_COMPILER = ${CMAKE_C_COMPILER}")
-message(STATUS "CMAKE_C_FLAGS = ${CMAKE_C_FLAGS}")
+message(STATUS "CMAKE_C_COMPILER        = ${CMAKE_C_COMPILER}")
+message(STATUS "CMAKE_C_FLAGS           = ${CMAKE_C_FLAGS}")
 message(STATUS "")
-message(STATUS "CMAKE_CXX_COMPILER = ${CMAKE_CXX_COMPILER}")
-message(STATUS "CMAKE_CXX_FLAGS = ${CMAKE_CXX_FLAGS}")
+message(STATUS "CMAKE_CXX_COMPILER      = ${CMAKE_CXX_COMPILER}")
+message(STATUS "CMAKE_CXX_FLAGS         = ${CMAKE_CXX_FLAGS}")
 message(STATUS "")
-message(STATUS "CMAKE_ASM_COMPILER = ${CMAKE_ASM_COMPILER}")
-message(STATUS "CMAKE_ASM_FLAGS = ${CMAKE_ASM_FLAGS}")
+message(STATUS "CMAKE_ASM_COMPILER      = ${CMAKE_ASM_COMPILER}")
+message(STATUS "CMAKE_ASM_FLAGS         = ${CMAKE_ASM_FLAGS}")
 message(STATUS "")
-message(STATUS "CMAKE_FIND_ROOT_PATH = ${CMAKE_FIND_ROOT_PATH}")
-message(STATUS "CMAKE_EXE_LINKER_FLAGS = ${CMAKE_EXE_LINKER_FLAGS}")
+message(STATUS "CMAKE_EXE_LINKER_FLAGS  = ${CMAKE_EXE_LINKER_FLAGS}")
 message(STATUS "")
-message(STATUS "CMAKE_BUILD_TOOL = ${CMAKE_BUILD_TOOL}")
+message(STATUS "CMAKE_BUILD_TOOL        = ${CMAKE_BUILD_TOOL}")
 
-add_custom_target(strip 
-                    ${CMAKE_SOURCE_DIR}/cmake_utils/separate_linux_symbols.sh 
-                    WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/bin 
-                    COMMENT "Separating debug symbols from binaries...")
-
-#add_custom_command(TARGET install POST_BUILD WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/bin COMMAND ${CMAKE_SOURCE_DIR}/cmake_utils/separate_linux_symbols.sh COMMENT "separating debug symbols...")

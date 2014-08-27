@@ -20,7 +20,38 @@ struct CPUID_PARAMS {
     unsigned long long   m_rcx;
     unsigned long long   m_rdx;
 } __attribute__ ((packed));
-extern "C" void hw_cpuid( struct CPUID_PARAMS *);
+
+#if !defined(_M_X64) && !defined(__LP64__) && !defined(__APPLE__)
+// we have a inline assembler implementation for non windows 32 bit platforms
+#define SAVE_EBX     "mov  %%ebx, %%edi\n\r"
+#define RESTORE_EBX  "xchg %%edi, %%ebx\n\r"
+typedef unsigned int UINT32;
+
+extern "C" void  hw_cpuid(CPUID_PARAMS *params)
+{
+    UINT32 type = (UINT32)params->m_rax;
+    UINT32 eax, ebx, ecx, edx;
+
+    // Android NDK 32-bit compiler ignores clobbered registers
+    // list, hence, i am preserving here the %ebx register
+    // which might be used by the compiler
+    __asm__ __volatile__(SAVE_EBX
+			 "cpuid\n\r"
+			 RESTORE_EBX
+			 : "=a" (eax),
+			   "=D" (ebx),
+			   "=c" (ecx),
+			   "=d" (edx)
+                         : "a" (type));
+
+    params->m_rax = eax;
+    params->m_rbx = ebx;
+    params->m_rcx = ecx;
+    params->m_rdx = edx;
+}
+#else
+    extern "C" void hw_cpuid( struct CPUID_PARAMS *);
+#endif
 
 //------------------------------------------------------------------------------
 // void ASM_FUNCTION cpuid( int cpuid_info[4], UINT32 type);
@@ -88,7 +119,6 @@ extern "C" void hw_xgetbv( struct XGETBV_PARAMS *);
 
 using namespace Intel::OpenCL::DeviceBackend::Utils;
 
-
 CPUDetect::CPUDetect(void)
 {
     int viCPUInfo[4] = {-1};
@@ -135,7 +165,6 @@ CPUDetect::CPUDetect(void)
         // Check if XSAVE enabled by OS
         if (viCPUInfo[2] & 0x08000000)
         {
-
 #if defined(_WIN32) && !defined(_M_X64)
             // Use this inline asm in Win32 only
             __asm
@@ -186,7 +215,7 @@ CPUDetect::CPUDetect(void)
     m_CPUId = CPUId(CPU, uiCPUFeatures, sizeof(void*)==8);
 }
 
-CPUDetect::~CPUDetect(void) 
+CPUDetect::~CPUDetect(void)
 {
 }
 

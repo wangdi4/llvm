@@ -641,11 +641,12 @@ cl_dev_err_code ISPDevice::clDevGetAvailableDeviceList(size_t IN  deviceListSize
 
     // TODO: Hard-coded app name...
     // TODO: change CameraShim to ISPCameraService
-    CameraShim* pCameraShim = CameraShim::instance("com.example.opencldemo", 0);
+/*    CameraShim* pCameraShim = CameraShim::instance("com.example.opencldemo", 0);
+    //CameraShim* pCameraShim = CameraShim::instance("test_api", 0);
     if (NULL == pCameraShim)
     {
         return CL_DEV_ERROR_FAIL;
-    }
+    }*/
 
     if (deviceIdsList)
     {
@@ -1047,12 +1048,15 @@ clDevCreateDeviceInstance
 extern "C" cl_dev_err_code clDevCreateDeviceInstance(cl_uint IN dev_id,
                                    IOCLFrameworkCallbacks*   IN pDevCallBacks,
                                    IOCLDevLogDescriptor*     IN pLogDesc,
-                                   IOCLDeviceAgent**        OUT ppDevice)
+                                   IOCLDeviceAgent**        OUT ppDevice,
+                                   Intel::OpenCL::Utils::FrameworkUserLogger*      IN pUserLogger)
 {
     if (NULL == ppDevice)
     {
         return CL_DEV_INVALID_OPERATION;
     }
+
+    // TODO: currently pUserLogger is ignored
 
     ISPDevice *pNewDevice = new ISPDevice(dev_id, pDevCallBacks, pLogDesc);
     if ( NULL == pNewDevice )

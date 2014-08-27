@@ -32,6 +32,7 @@ class KernelJITProperties
 {
 public:
     KernelJITProperties();
+    virtual ~KernelJITProperties();
 
     void SetVectorSize(unsigned int size){ m_vectorSize = size; }
     void SetUseVTune(bool value) { m_useVTune = value; }
@@ -173,6 +174,8 @@ public:
     void SetPointerSize(unsigned int value) { m_uiSizeT = value; }
     void SetIsBlock(const bool value) { m_bIsBlock = value; }
     void SetIsNonUniformWGSizeSupported(const bool value) { m_bIsNonUniformWGSizeSupported = value; }
+    void SetCanUniteWG(const bool value) { m_canUniteWG = value; }
+    void SetVerctorizeOnDimention(unsigned int value) { m_verctorizeOnDimention = value; }
 
     unsigned int  GetOptWGSize()      const { return m_optWGSize; }
     const size_t* GetReqdWGSize()     const { return m_reqdWGSize; }
@@ -182,12 +185,14 @@ public:
     bool          IsVectorizedWithTail() const { return m_isVectorizedWithTail; }
     // Get size of pointer in bytes
     unsigned int  GetPointerSize()     const { return m_uiSizeT;}
+    bool          GetCanUniteWG() const { return m_canUniteWG; }
+    unsigned int  GetVectorizedDimention() const { return m_verctorizeOnDimention;}
 
     /**
      * Serialization methods for the class (used by the serialization service)
      */
     virtual void Serialize(IOutputStream& ost, SerializationStatus* stats) const;
-    virtual void Deserialize(IInputStream& ist, SerializationStatus* stats); 
+    virtual void Deserialize(IInputStream& ist, SerializationStatus* stats);
 
 
 protected:
@@ -208,6 +213,8 @@ protected:
     unsigned int m_uiSizeT;
     bool m_bIsBlock;
     bool m_bIsNonUniformWGSizeSupported;
+    bool m_canUniteWG;
+    unsigned int m_verctorizeOnDimention;
 };
 
 }}}

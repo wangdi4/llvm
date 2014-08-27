@@ -40,11 +40,11 @@ enum ECPUFeatureSupport {
 };
 class CPUId {
 public:
-    CPUId(): m_CPU(DEVICE_INVALID), m_CPUFeatures(0), m_is64BitOS(false) {}
+    CPUId(): m_CPU(DEVICE_INVALID), m_CPUFeatures(0), m_is64BitOS(0) {}
     CPUId(ECPU CPU, unsigned int cpuFeatures, bool is64BitOS):
         m_CPU(CPU),
         m_CPUFeatures(cpuFeatures),
-        m_is64BitOS(is64BitOS)
+        m_is64BitOS(is64BitOS?1:0)
     {}
     bool operator==(const CPUId& RHS) const {
         return m_CPU == RHS.m_CPU && m_CPUFeatures == RHS.m_CPUFeatures;
@@ -98,9 +98,9 @@ public:
     const char*         GetCPUPrefix() const {
       if( Intel::CPU_SANDYBRIDGE == GetCPU() && !HasAVX1()) {
         // Use SSE4 if AVX1 is not supported
-        return GetCPUPrefix(Intel::CPU_COREI7, m_is64BitOS);
+        return GetCPUPrefix(Intel::CPU_COREI7, m_is64BitOS != 0);
       } else {
-        return GetCPUPrefix(m_CPU, m_is64BitOS);
+        return GetCPUPrefix(m_CPU, m_is64BitOS != 0);
       }
     }
     static const char*  GetCPUPrefix(ECPU CPU, bool is64BitOS) {
@@ -195,7 +195,7 @@ public:
         return (1 << CPU);
     }
     bool Is64BitOS() const {
-        return m_is64BitOS;
+        return m_is64BitOS > 0;
     }
     void ToggleFeatureOn(unsigned int FeatureBits) {
         m_CPUFeatures |= FeatureBits;
@@ -203,7 +203,7 @@ public:
 private:
     ECPU m_CPU;
     unsigned int m_CPUFeatures;
-    bool m_is64BitOS;
+    unsigned int m_is64BitOS;
 };
 }
 #endif

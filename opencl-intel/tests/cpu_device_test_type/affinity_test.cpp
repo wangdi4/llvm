@@ -25,6 +25,7 @@
 #include "../framework_test_type/test_utils.h"
 #include "cl_synch_objects.h"
 #include "cl_sys_info.h"
+#include "task_executor.h"
 
 using Intel::OpenCL::Utils::OclBinarySemaphore;
 using std::vector;
@@ -97,6 +98,8 @@ public:
 			}
 		}
 	}	
+
+    Intel::OpenCL::TaskExecutor::ITaskExecutor* clDevGetTaskExecutor() { return Intel::OpenCL::TaskExecutor::GetTaskExecutor(); }
 
 private:
 

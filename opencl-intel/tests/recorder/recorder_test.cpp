@@ -248,7 +248,6 @@ static void setRecorderEnvVars(){
   std::cout << recorderFullName.c_str() << std::endl;
 }
 
-
 TEST(OclRecorder, dupKernels){
   setRecorderEnvVars();
 
@@ -257,8 +256,8 @@ TEST(OclRecorder, dupKernels){
     return;
   }
 
-  const char*const REC_FILE = "OclRecorderTest.recorder_test.sample_test0.cl";
-  const char*const REC_FILE1= "OclRecorderTest.recorder_test.2.sample_test0.1.cl";
+  const char*const REC_FILE = "OclRecorderTest.recorder_test.10.cl";
+  const char*const REC_FILE1= "OclRecorderTest.recorder_test.2.20.cl";
   const char*const REC_CFG= "OclRecorderTest.recorder_test.cfg";
   const char*const REC_CFG1= "OclRecorderTest.recorder_test.2.cfg";
   const char*const REC_DAT = "OclRecorderTest.recorder_test.sample_test.dat";
@@ -302,7 +301,6 @@ TEST(OclRecorder, dupKernels){
   remove(REC_FILE1);
   remove(REC_CFG1);
 }
-
 
 static bool runAndVerify_forLocalMem(cl_context context, cl_uint uiNumDevices,
     cl_device_id *pDevices, cl_command_queue queue){
@@ -368,7 +366,6 @@ static bool runAndVerify_forLocalMem(cl_context context, cl_uint uiNumDevices,
     clReleaseProgram(prog);
   }
 
-
   mem1 = clCreateBuffer(context, (cl_mem_flags)(CL_MEM_READ_WRITE), sizeof(cl_long), NULL, &iRet);
   bResult &= Check((wchar_t*)L"clCreateBuffer", CL_SUCCESS, iRet);
   if (!bResult) {
@@ -431,7 +428,6 @@ static bool runAndVerify_forLocalMem(cl_context context, cl_uint uiNumDevices,
   return result == expectedResult;
 }
 
-
 bool clBuildRunLocalMemTest(){
   bool bResult = true;
 
@@ -470,7 +466,6 @@ bool clBuildRunLocalMemTest(){
   return ret;
 }
 
-
 TEST(OclRecorder, recording_local_memory){
   setRecorderEnvVars();
   if (!clBuildRunLocalMemTest()){
@@ -478,7 +473,7 @@ TEST(OclRecorder, recording_local_memory){
     return;
   }
 
-  const char*const REC_FILE = "OclRecorderTest.recorder_test.3.sample_test0.2.cl";
+  const char*const REC_FILE = "OclRecorderTest.recorder_test.3.30.cl";
   const char*const REC_CFG= "OclRecorderTest.recorder_test.3.cfg";
   const char*const REC_DAT= "OclRecorderTest.recorder_test.3.sample_test.dat";
 
@@ -561,7 +556,7 @@ TEST(OclRecorder, recording_local_memory2)
     clReleaseCommandQueue(queue);
     clReleaseContext(context);
 
-    const char* const REC_CL_FILE_NAME = "OclRecorderTest.recorder_test.4.sample_test0.3.cl";
+    const char* const REC_CL_FILE_NAME = "OclRecorderTest.recorder_test.4.40.cl";
     const char* const REC_CFG_FILE_NAME = "OclRecorderTest.recorder_test.4.cfg";
     const char* const REC_DAT_FILE_NAME = "OclRecorderTest.recorder_test.4.sample_test.dat";
 

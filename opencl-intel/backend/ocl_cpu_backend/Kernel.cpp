@@ -143,7 +143,52 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs)
     UseAutoGroupSize = UseAutoGroupSize && ((UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i]) == 0);
   }
 
-  if (UseAutoGroupSize) {
+  // TODO[MA]: recheck if the CanUniteWG flag is set only if the correctness analysis passed
+  bool canUniteWG = m_pProps->GetCanUniteWG();
+  unsigned int vectorizeOnDim = m_pProps->GetVectorizedDimention();
+
+  // In case we can merge WG's but we have local size given (not NULL)
+  if (canUniteWG && !UseAutoGroupSize){
+    // need to merge WG in the specified dimensions
+    size_t localWorkSizeX = UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][vectorizeOnDim];
+    size_t globalWorkSizeX = UniformImplicitArgs->GlobalSize[vectorizeOnDim];
+
+    unsigned int localSizeUpperLimit = min(globalWorkSizeX,
+             m_pProps->GetMaxWorkGroupSize(MAX_WORK_GROUP_SIZE, MAX_WG_PRIVATE_SIZE));
+
+    unsigned int minMultiplyFactor = m_pProps->GetMinGroupSizeFactorial();
+    size_t loopUpperLimit = min(minMultiplyFactor*localWorkSizeX, localSizeUpperLimit);
+
+    size_t baseVectorIterations = localWorkSizeX / minMultiplyFactor;
+    size_t baseScalarIterations = localWorkSizeX - (baseVectorIterations * minMultiplyFactor);
+
+    size_t vectorIterations = 0;
+    size_t scalarIterations = 0;
+
+    size_t maxUtil = 0;
+    size_t bestLocalSize = localWorkSizeX;
+    for(size_t currLocalSize = localWorkSizeX; currLocalSize < loopUpperLimit; currLocalSize += localWorkSizeX) {
+      // update vector and scalar iterations counters
+      vectorIterations += baseVectorIterations;
+      scalarIterations += baseScalarIterations;
+      if(scalarIterations >= minMultiplyFactor) {
+        scalarIterations -= minMultiplyFactor;
+        vectorIterations += 1;
+      }
+
+      // if the suggest WG size (currLocalSize) don't divide the global size move on
+      if((globalWorkSizeX % currLocalSize) != 0) continue;
+
+      size_t currentUtil = currLocalSize / (vectorIterations + scalarIterations);
+      if(currentUtil > maxUtil) {
+        maxUtil = currentUtil;
+        bestLocalSize = currLocalSize;
+      }
+    }
+    UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][vectorizeOnDim] = bestLocalSize;
+  }
+
+  else if (UseAutoGroupSize) {
     // Try hint size, find GCD for each dimension
     if (m_pProps->GetHintWGSize()[0] != 0) {
       for (unsigned int i = 0; i < UniformImplicitArgs->WorkDim; ++i) {
@@ -165,7 +210,11 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs)
 
       // New Heuristic
       unsigned int globalWorkSizeYZ = 1;
-      for (unsigned int i = 1; i < UniformImplicitArgs->WorkDim; ++i) {
+      for (unsigned int i = 0; i < UniformImplicitArgs->WorkDim; ++i) {
+        if (vectorizeOnDim == i){ //skip the dimension on which we vectorized
+          continue;
+        }
+
         // Calculate global group size on dimensions Y & Z
         globalWorkSizeYZ *= UniformImplicitArgs->GlobalSize[i];
         // Set local group size on dimensions Y & Z to 1
@@ -173,7 +222,7 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs)
         UniformImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][i]  = 1;
       }
 
-      unsigned int globalWorkSizeX = UniformImplicitArgs->GlobalSize[0];
+      unsigned int globalWorkSizeX = UniformImplicitArgs->GlobalSize[vectorizeOnDim];
       unsigned int localSizeUpperLimit = min(globalWorkSizeX,
             m_pProps->GetMaxWorkGroupSize(MAX_WORK_GROUP_SIZE, MAX_WG_PRIVATE_SIZE));
       assert(0 < localSizeUpperLimit &&
@@ -267,9 +316,9 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs)
           }
         }
       }
-      UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][0] =
-      UniformImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][0] = newHeuristic;
-      assert(UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][0] > 0 &&
+      UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][vectorizeOnDim] =
+      UniformImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][vectorizeOnDim] = newHeuristic;
+      assert(UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][vectorizeOnDim] > 0 &&
              "local size must be positive number");
     }
   }
@@ -613,7 +662,7 @@ void Kernel::Deserialize(IInputStream& ist, SerializationStatus* stats)
 
   Serializer::DeserialPointerHint((void **)&m_pProps, ist);
   if (NULL != m_pProps) {
-    m_pProps = 
+    m_pProps =
         stats->GetBackendFactory()->CreateKernelProperties();
     m_pProps->Deserialize(ist, stats);
   }
@@ -623,7 +672,7 @@ void Kernel::Deserialize(IInputStream& ist, SerializationStatus* stats)
     IKernelJITContainer *currentArgument = NULL;
     Serializer::DeserialPointerHint((void **)&currentArgument, ist);
     if (NULL != currentArgument) {
-      currentArgument = 
+      currentArgument =
           stats->GetBackendFactory()->CreateKernelJITContainer();
       currentArgument->Deserialize(ist, stats);
     }

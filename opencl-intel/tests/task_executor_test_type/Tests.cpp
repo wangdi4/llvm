@@ -26,6 +26,12 @@ using namespace std;
 
 ITaskExecutor* TaskExecutorTester::m_pTaskExecutor = NULL;
 
+namespace Intel { namespace OpenCL { namespace Utils {
+
+FrameworkUserLogger* g_pUserLogger = NULL;
+
+}}}
+
 struct DeviceAuto
 {
     SharedPtr<ITEDevice> deviceHandle;
