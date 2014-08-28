@@ -691,6 +691,9 @@ typedef cl_dev_err_code (fn_clDevInitDeviceAgent)(void);
 class IOCLFrameworkCallbacks
 {
 public:
+
+    virtual ~IOCLFrameworkCallbacks() { }
+
     //! This function is called when previously enqueued command changes its state to RUNNING or COMPLETED.
     /*!
         \param[in]  cmd_id              Identifier of the enqueued command that changes its status
@@ -722,6 +725,9 @@ public:
 class IOCLDevBackingStore
 {
 public:
+
+    virtual ~IOCLDevBackingStore() { }
+
     //! Returns pointer to a backing store data
     /*!
         \retval A pointer to backing store raw data area
@@ -789,6 +795,9 @@ public:
 class IOCLDevRTMemObjectService
 {
 public:
+
+    virtual ~IOCLDevRTMemObjectService() { }
+
     //! Retrieves current memory object backing store.
     /*!
         \param[in]  flags   A flag represents backing store access flags
@@ -837,6 +846,9 @@ public:
 class IOCLDevMemoryObject
 {
 public:
+
+    virtual ~IOCLDevMemoryObject() { }
+
     //! Creates host mapped memory region for further buffer map operation.
     /*!
         \param[in,out] pMapParams   A valid pointer to descriptor of memory mapped region.
@@ -964,6 +976,9 @@ public:
 class IOCLDeviceFECompilerDescription
 {
 public:
+
+    virtual ~IOCLDeviceFECompilerDescription() { }
+
     /* clDevFEModuleName
         Description
             This function returns the front compiler module name
@@ -998,6 +1013,9 @@ public:
 class IOCLDevRawMemoryAllocator
 {
 public:
+
+    virtual ~IOCLDevRawMemoryAllocator() { }
+
     //! This function allocates a memory region that is shared with host.
     /*!
         \param[in]  allocSize           Size of the requested allocation.
@@ -1025,6 +1043,8 @@ public:
 class IOCLDeviceAgent
 {
 public:
+
+    virtual ~IOCLDeviceAgent() { }
 
     /* clDevPartition
         Description
@@ -1477,6 +1497,9 @@ public:
 class IOCLDevLogDescriptor
 {
 public:
+
+    virtual ~IOCLDevLogDescriptor() { }
+
     //! This function creates a logger client for the device. Each device may create multiple logger clients,
     //  e.g. client per each internal component.
     /*!
@@ -1573,6 +1596,8 @@ class IWGContextPool
 {
 
 public:
+
+    virtual ~IWGContextPool() { }
 
     /**
      * @param bBelongsToMasterThread whether the WG context belong to a master thread
