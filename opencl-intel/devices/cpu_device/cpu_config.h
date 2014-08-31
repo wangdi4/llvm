@@ -40,8 +40,11 @@ using namespace Intel::OpenCL::Utils;
 #define CL_CONFIG_USE_VECTORIZER                "CL_CONFIG_USE_VECTORIZER"                  // bool
 #define CL_CONFIG_USE_VTUNE                     "CL_CONFIG_USE_VTUNE"                       // bool
 #define CL_CONFIG_USE_TRAPPING                  "CL_CONFIG_USE_TRAPPING"                    // bool
+#define CL_CONFIG_GL_DIRECTX_INTEROP            "CL_CONFIG_GL_DIRECTX_INTEROP"              // bool
+
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
+
 
     extern const char* CPU_STRING;
 
@@ -58,6 +61,10 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 
         bool            UseVectorizer() const  { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VECTORIZER, true ); }
         bool            UseVTune()      const  { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VTUNE,      false); }
+        bool            IsGLDirectXSupported() const  { return m_pConfigFile->Read<bool>(CL_CONFIG_GL_DIRECTX_INTEROP, true); }
+        const char*     GetExtensions(bool IsAtom) const;
+        
+
 #ifdef __HARD_TRAPPING__
         bool            UseTrapping()   const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_TRAPPING,    false); }
 #endif

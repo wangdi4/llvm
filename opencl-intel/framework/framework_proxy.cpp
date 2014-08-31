@@ -230,7 +230,15 @@ void FrameworkProxy::InitOCLEntryPoints()
 	ICDDispatchTable.clCreatePipe = (KHRpfn_clCreatePipe)GET_ALIAS(clCreatePipe);
 	ICDDispatchTable.clGetPipeInfo = (KHRpfn_clGetPipeInfo)GET_ALIAS(clGetPipeInfo);
 
+
+    /// Extra functions for Common Runtime
+    CRTDispatchTable.clGetKernelArgInfo = (KHRpfn_clGetKernelArgInfo)GET_ALIAS(clGetKernelArgInfo);
 #if defined DX_MEDIA_SHARING
+    CRTDispatchTable.clGetDeviceIDsFromDX9INTEL = (INTELpfn_clGetDeviceIDsFromDX9INTEL)GET_ALIAS(clGetDeviceIDsFromDX9INTEL);
+    CRTDispatchTable.clCreateFromDX9MediaSurfaceINTEL = (INTELpfn_clCreateFromDX9MediaSurfaceINTEL)GET_ALIAS(clCreateFromDX9MediaSurfaceINTEL);
+    CRTDispatchTable.clEnqueueAcquireDX9ObjectsINTEL = (INTELpfn_clEnqueueAcquireDX9ObjectsINTEL)GET_ALIAS(clEnqueueAcquireDX9ObjectsINTEL);
+    CRTDispatchTable.clEnqueueReleaseDX9ObjectsINTEL = (INTELpfn_clEnqueueReleaseDX9ObjectsINTEL)GET_ALIAS(clEnqueueReleaseDX9ObjectsINTEL);
+
     ICDDispatchTable.clGetDeviceIDsFromDX9MediaAdapterKHR = (KHRpfn_clGetDeviceIDsFromDX9MediaAdapterKHR)GET_ALIAS(clGetDeviceIDsFromDX9MediaAdapterKHR);
     ICDDispatchTable.clCreateFromDX9MediaSurfaceKHR = (KHRpfn_clCreateFromDX9MediaSurfaceKHR)GET_ALIAS(clCreateFromDX9MediaSurfaceKHR);
     ICDDispatchTable.clEnqueueAcquireDX9MediaSurfacesKHR = (KHRpfn_clEnqueueAcquireDX9MediaSurfacesKHR)GET_ALIAS(clEnqueueAcquireDX9MediaSurfacesKHR);
@@ -242,20 +250,23 @@ void FrameworkProxy::InitOCLEntryPoints()
     ICDDispatchTable.clCreateFromD3D11Texture3DKHR = (KHRpfn_clCreateFromD3D11Texture3DKHR)GET_ALIAS(clCreateFromD3D11Texture3DKHR);
     ICDDispatchTable.clEnqueueAcquireD3D11ObjectsKHR = (KHRpfn_clEnqueueAcquireD3D11ObjectsKHR)GET_ALIAS(clEnqueueAcquireD3D11ObjectsKHR);
     ICDDispatchTable.clEnqueueReleaseD3D11ObjectsKHR = (KHRpfn_clEnqueueReleaseD3D11ObjectsKHR)GET_ALIAS(clEnqueueReleaseD3D11ObjectsKHR);
-#endif
-
-    /// Extra functions for Common Runtime
-    CRTDispatchTable.clGetKernelArgInfo = (KHRpfn_clGetKernelArgInfo)GET_ALIAS(clGetKernelArgInfo);
-#if defined DX_MEDIA_SHARING
-    CRTDispatchTable.clGetDeviceIDsFromDX9INTEL = (INTELpfn_clGetDeviceIDsFromDX9INTEL)GET_ALIAS(clGetDeviceIDsFromDX9INTEL);
-    CRTDispatchTable.clCreateFromDX9MediaSurfaceINTEL = (INTELpfn_clCreateFromDX9MediaSurfaceINTEL)GET_ALIAS(clCreateFromDX9MediaSurfaceINTEL);
-    CRTDispatchTable.clEnqueueAcquireDX9ObjectsINTEL = (INTELpfn_clEnqueueAcquireDX9ObjectsINTEL)GET_ALIAS(clEnqueueAcquireDX9ObjectsINTEL);
-    CRTDispatchTable.clEnqueueReleaseDX9ObjectsINTEL = (INTELpfn_clEnqueueReleaseDX9ObjectsINTEL)GET_ALIAS(clEnqueueReleaseDX9ObjectsINTEL);
 #else
     CRTDispatchTable.clGetDeviceIDsFromDX9INTEL = NULL;
     CRTDispatchTable.clCreateFromDX9MediaSurfaceINTEL = NULL;
     CRTDispatchTable.clEnqueueAcquireDX9ObjectsINTEL = NULL;
     CRTDispatchTable.clEnqueueReleaseDX9ObjectsINTEL = NULL;
+
+    ICDDispatchTable.clGetDeviceIDsFromDX9MediaAdapterKHR = NULL; 
+    ICDDispatchTable.clCreateFromDX9MediaSurfaceKHR       = NULL;
+    ICDDispatchTable.clEnqueueAcquireDX9MediaSurfacesKHR  = NULL;
+    ICDDispatchTable.clEnqueueReleaseDX9MediaSurfacesKHR  = NULL;
+
+    ICDDispatchTable.clGetDeviceIDsFromD3D11KHR           = NULL;
+    ICDDispatchTable.clCreateFromD3D11BufferKHR           = NULL;
+    ICDDispatchTable.clCreateFromD3D11Texture2DKHR        = NULL;
+    ICDDispatchTable.clCreateFromD3D11Texture3DKHR        = NULL;
+    ICDDispatchTable.clEnqueueAcquireD3D11ObjectsKHR      = NULL;
+    ICDDispatchTable.clEnqueueReleaseD3D11ObjectsKHR      = NULL;
 #endif
     // Nullify entries which are not relevant for CPU
     CRTDispatchTable.clGetImageParamsINTEL = NULL;

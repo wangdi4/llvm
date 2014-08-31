@@ -76,8 +76,6 @@ const char* Intel::OpenCL::CPUDevice::VENDOR_STRING = "Intel(R) Corporation";
 
 volatile bool CPUDevice::m_bDeviceIsRunning = false;
 
-// We put it here, because just here all the required macros are defined.
-#include "ocl_supported_extensions.h"
 
 cl_ulong GetGlobalMemorySize(bool* isForced = NULL)
 {
@@ -133,28 +131,7 @@ struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO *GetCPUDevInfo(CPUDeviceConfig& co
     static struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO CPUDevInfo = {NULL, 1, 1, 0};
     if (NULL == CPUDevInfo.sExtensionStrings)
     {
-        if (CPUDetect::GetInstance()->IsProcessorType(PT_ATOM))
-        {
-            if (config.GetOpenCLVersion() == OPENCL_VERSION_1_2)
-            {
-                CPUDevInfo.sExtensionStrings = OCL_SUPPORTED_EXTENSIONS_ATOM_1_2;
-            }
-            else
-            {
-                CPUDevInfo.sExtensionStrings = OCL_SUPPORTED_EXTENSIONS_ATOM_2_0;
-            }
-        }
-        else
-        {
-            if (config.GetOpenCLVersion() == OPENCL_VERSION_1_2)
-            {
-                CPUDevInfo.sExtensionStrings = OCL_SUPPORTED_EXTENSIONS_1_2;
-            }
-            else
-            {
-                CPUDevInfo.sExtensionStrings = OCL_SUPPORTED_EXTENSIONS_2_0;
-            }
-        }
+        CPUDevInfo.sExtensionStrings = config.GetExtensions(CPUDetect::GetInstance()->IsProcessorType(PT_ATOM));
     }
     return &CPUDevInfo;
 }
@@ -1375,12 +1352,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         {
             CPUDeviceConfig config;
             config.Initialize(GetConfigFilePath());
-            OPENCL_VERSION ver = config.GetOpenCLVersion();
-            const char* oclSupportedExtensions = OPENCL_VERSION_1_2 == ver ? OCL_SUPPORTED_EXTENSIONS_1_2 : OCL_SUPPORTED_EXTENSIONS_2_0;
-            if (CPUDetect::GetInstance()->IsProcessorType(PT_ATOM))
-            {
-                oclSupportedExtensions = OPENCL_VERSION_1_2 == ver ? OCL_SUPPORTED_EXTENSIONS_ATOM_1_2 : OCL_SUPPORTED_EXTENSIONS_ATOM_2_0;
-            }
+            const char* oclSupportedExtensions = config.GetExtensions(CPUDetect::GetInstance()->IsProcessorType(PT_ATOM));       
             *pinternalRetunedValueSize = strlen(oclSupportedExtensions) + 1;
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
