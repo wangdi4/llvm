@@ -95,6 +95,7 @@ protected:
      * Constructor
      * @param list				the ITaskList that implements the command-queue on which this DeviceCommand executes
      * @param parent			the parent KernelCommand or NULL if this KernelCommand has been enqueued from the host
+     * @param childrenTaskGroup ITaskGroup for waiting for children kernels
      * @param pMyTaskBase		a pointer to itself as ITaskBase or NULL if the concrete class does not inherit from ITaskBase
      */
     KernelCommand(ITaskList* pList, KernelCommand* parent, ITaskBase* pMyTaskBase) :
