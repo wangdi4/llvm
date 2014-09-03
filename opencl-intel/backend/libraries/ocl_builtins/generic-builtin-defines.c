@@ -64,12 +64,12 @@ const constant double d2const_minusOneStorage[2]  = {-1.0, -1.0};
 const constant double d2const_nanStorage[2] = {0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF};
 
 // AVX - common
-const constant float f8const_oneStorage[8]       = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
-const constant float f8const_minusZeroStorage[8] = {-0.0f, -0.0f, -0.0f, -0.0f, -0.0f, -0.0f, -0.0f, -0.0f};
-const constant float f8const_minusOneStorage[8]  = {-1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f};
-const constant float f8const_nanStorage[8] = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF};
+const constant float8 f8const_oneStorage       = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
+const constant float8 f8const_minusZeroStorage = {-0.0f, -0.0f, -0.0f, -0.0f, -0.0f, -0.0f, -0.0f, -0.0f};
+const constant float8 f8const_minusOneStorage  = {-1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f};
+const constant float8 f8const_nanStorage       = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF};
 
-const constant double d4const_oneStorage[4]       = {1.0, 1.0, 1.0, 1.0};
-const constant double d4const_minusZeroStorage[4] = {-0.0, -0.0, -0.0, -0.0};
-const constant double d4const_minusOneStorage[4]  = {-1.0, -1.0, -1.0, -1.0};
-const constant double d4const_nanStorage[4] = {0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF};
+const constant double4 d4const_oneStorage       = {1.0, 1.0, 1.0, 1.0};
+const constant double4 d4const_minusZeroStorage = {-0.0, -0.0, -0.0, -0.0};
+const constant double4 d4const_minusOneStorage  = {-1.0, -1.0, -1.0, -1.0};
+const constant double4 d4const_nanStorage       = {0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF};

@@ -69,15 +69,15 @@ extern const constant double d2const_minusOneStorage[2];
 extern const constant double d2const_nanStorage[2];
 
 // AVX - common
-extern const constant float f8const_oneStorage[8];
-extern const constant float f8const_minusZeroStorage[8];
-extern const constant float f8const_minusOneStorage[8];
-extern const constant float f8const_nanStorage[8];
+extern const constant float8 f8const_oneStorage;
+extern const constant float8 f8const_minusZeroStorage;
+extern const constant float8 f8const_minusOneStorage;
+extern const constant float8 f8const_nanStorage;
 
-extern const constant double d4const_oneStorage[4];
-extern const constant double d4const_minusZeroStorage[4];
-extern const constant double d4const_minusOneStorage[4];
-extern const constant double d4const_nanStorage[4];
+extern const constant double4 d4const_oneStorage;
+extern const constant double4 d4const_minusZeroStorage;
+extern const constant double4 d4const_minusOneStorage;
+extern const constant double4 d4const_nanStorage;
 
 typedef int ocl_int32 __attribute__((ext_vector_type(32)));
 typedef uint ocl_uint32 __attribute__((ext_vector_type(32)));
@@ -104,14 +104,14 @@ void INTERNAL_INLINE_ATTRIBUTE multiply_unsigned_64_by_64( ulong sourceA, ulong 
     highA = sourceA >> 32;
     lowB = sourceB & 0xffffffff;
     highB = sourceB >> 32;
-    
+
     // Note that, with this split, our multiplication becomes:
     //     ( a * b )
     // = ( ( aHI << 32 + aLO ) * ( bHI << 32 + bLO ) ) >> 64
     // = ( ( aHI << 32 * bHI << 32 ) + ( aHI << 32 * bLO ) + ( aLO * bHI << 32 ) + ( aLO * bLO ) ) >> 64
     // = ( ( aHI * bHI << 64 ) + ( aHI * bLO << 32 ) + ( aLO * bHI << 32 ) + ( aLO * bLO ) ) >> 64
     // = ( aHI * bHI ) + ( aHI * bLO >> 32 ) + ( aLO * bHI >> 32 ) + ( aLO * bLO >> 64 )
-    
+
     // Now, since each value is 32 bits, the max size of any multiplication is:
     // ( 2 ^ 32 - 1 ) * ( 2 ^ 32 - 1 ) = 2^64 - 4^32 + 1 = 2^64 - 2^33 + 1, which fits within 64 bits
     // Which means we can do each component within a 64-bit integer as necessary (each component above marked as AB1 - AB4)
@@ -119,12 +119,12 @@ void INTERNAL_INLINE_ATTRIBUTE multiply_unsigned_64_by_64( ulong sourceA, ulong 
     ulong aHibLo = highA * lowB;
     ulong aLobHi = lowA * highB;
     ulong aLobLo = lowA * lowB;
-    
-    // Assemble terms. 
+
+    // Assemble terms.
     //  We note that in certain cases, sums of products cannot overflow:
     //
-    //      The maximum product of two N-bit unsigned numbers is 
-    //  
+    //      The maximum product of two N-bit unsigned numbers is
+    //
     //          (2**N-1)^2 = 2**2N - 2**(N+1) + 1
     //
     //      We note that we can add the maximum N-bit number to the 2N-bit product twice without overflow:
@@ -156,15 +156,15 @@ void INTERNAL_INLINE_ATTRIBUTE multiply_unsigned_64_by_64( ulong sourceA, ulong 
     // x                                            b.hi                b.lo
     //===============================================================================
     //  (b.hi*a.hi).hi      (b.hi*a.hi).lo
-    //                      (b.hi*a.lo).hi      
-    //                    [ (b.lo*a.hi).hi + (b.lo*a.hi).lo + other ] 
+    //                      (b.hi*a.lo).hi
+    //                    [ (b.lo*a.hi).hi + (b.lo*a.hi).lo + other ]
     // +                                                                (b.lo*a.lo).lo
     //===============================================================================
 
     // All of the overflow potential from the right half has now been accumulated into the [ (b.lo*a.hi).hi + (b.lo*a.hi).lo ] 2N bit term.
     // We can safely separate into high and low parts. Per our rule above, we know we can accumulate the high part of that and (b.hi*a.lo).hi
     // into the 2N bit term (b.lo*a.hi) without carry.  The low part can be pieced together with (b.lo*a.lo).lo, to give the final low result
-    
+
     (*destHi) = aHibHi + (aHibLo >> 32 ) + (aLobHi >> 32);             // Cant overflow
     (*destLow) = (aHibLo << 32) | ( aLobLo & 0xFFFFFFFFUL );
 }
@@ -189,12 +189,12 @@ void INTERNAL_INLINE_ATTRIBUTE multiply_signed_64_by_64( long sourceA, long sour
         (*destLow) ^= resultSign;
         hi  ^= resultSign;
         (*destLow) -= resultSign;
-        
+
         //carry if necessary
         if( 0 == (*destLow) )
             hi -= resultSign;
     }
-    
+
     (*destHi) = (long) hi;
 }
 
