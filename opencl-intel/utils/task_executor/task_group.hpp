@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2014 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -18,11 +18,28 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-#include "base_command_list.h"
-#include "cl_user_logger.h"
+#include "task_group.h"
+#include "arena_handler.h"
 
-using Intel::OpenCL::Utils::ApiLogger;
-using namespace Intel::OpenCL::TaskExecutor;
+namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
-template<typename Func>
-void TbbTaskGroup::Run(Func& f) { m_tskGrp.run(f); }
+// TaskGroup methods:
+
+template<typename F>
+void TaskGroup::EnqueueFunc(const F& f)
+{
+    m_pRootTask->increment_ref_count();   // Increment the reference count here. It will be decremented inside runner's function after f() has been called.
+    ArenaFunctorRunner<F> runner(m_pRootTask, f);
+    m_device->Enqueue(runner);    
+}
+
+// SpawningTaskGroup methods:
+
+template<typename F>
+void SpawningTaskGroup::Spawn(const F& f)
+{
+    tbb::task* t = new(tbb::task::allocate_additional_child_of(*m_pRootTask)) TaskGroupTask<F>(f);
+    tbb::task::spawn(*t);
+}
+
+}}}
