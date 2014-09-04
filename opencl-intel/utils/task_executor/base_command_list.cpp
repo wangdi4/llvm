@@ -18,10 +18,11 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-#include "base_command_list.hpp"
 #include "arena_handler.h"
 #include "tbb_executor.h"
 #include "cl_shared_ptr.hpp"
+#include "task_group.hpp"
+#include "base_command_list.hpp"
 
 using namespace Intel::OpenCL::TaskExecutor;
 
@@ -38,21 +39,6 @@ IThreadLibTaskGroup::TaskGroupStatus TbbTaskGroup::Wait()
     default:
         assert(false && "invalid return code from tbb::task_group::wait");
         return (IThreadLibTaskGroup::TaskGroupStatus)-1;
-    }
-}
-
-void TaskGroup::WaitForAll()
-{
-    TEDeviceStateAutoLock lock(*m_device);
-
-    if ((!m_device->isTerminating()) && (m_rootTask.ref_count() > 1))
-    {
-#ifdef _DEBUG 
-        TBB_PerActiveThreadData* tls = m_device->GetTaskExecutor().GetThreadManager().GetCurrentThreadDescriptor();
-        assert( ((NULL == tls) || (NULL == tls->device) || (m_device == tls->device)) && "Attempting to wait for other device while working inside some device" );
-#endif
-        ArenaFunctorWaiter waiter(m_rootTask);
-        m_device->Execute(waiter);
     }
 }
 
@@ -205,23 +191,24 @@ out_of_order_command_list::~out_of_order_command_list()
 class TaskGroupWaiter
 {
 public:
-    TaskGroupWaiter(tbb::task_group& tbbTskGrp, TaskGroup& tskGrp) : m_tbbTskGrp(tbbTskGrp), m_tskGrp(tskGrp) { }
+    TaskGroupWaiter(const SharedPtr<SpawningTaskGroup>& tbbTskGrp, TaskGroup& tskGrp, const TEDevice& dev) : m_spawnTskGrp(tbbTskGrp), m_tskGrp(tskGrp), m_dev(dev) { }
 
     void operator()()
     {
-      m_tbbTskGrp.wait();
-      m_tskGrp.WaitForAll();
+        m_spawnTskGrp->WaitForAll();
+        m_tskGrp.WaitForAll();
     }
 
 private:
-    tbb::task_group& m_tbbTskGrp;
+    SharedPtr<SpawningTaskGroup> m_spawnTskGrp;
     TaskGroup& m_tskGrp;
+    const TEDevice& m_dev;
 };
 
 void out_of_order_command_list::WaitForIdle()
 {
     // we wait here for 2 things separately: commands and execution tasks
-    TaskGroupWaiter waiter(m_oooTaskGroup, *m_taskGroup);
+    TaskGroupWaiter waiter(m_oooTaskGroup, *m_taskGroup, *m_device);
     m_device->Execute(waiter);
 }
 
