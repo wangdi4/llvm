@@ -341,6 +341,12 @@ public:
     cl_event getNotifierEvent(cl_event userEvent);
     cl_event getUserEvent(cl_event notifierEvent);
 
+    bool injectEventToWaitList(cl_command_queue commandQueue,
+        cl_uint numEventsInWaitList,
+        const cl_event* eventWaitList,
+        cl_event* userEvent,
+        vector<cl_event>& newEventWaitList);
+
 private:
 	//singleton
 	NotifierCollection(): m_eventsMapper(NULL) {}
