@@ -249,7 +249,7 @@ cl_err_code InOrderCommandQueue::SendCommandsToDevice()
                 {
                     break;
                 }
-                else if ( ((EVENT_STATE_ISSUED_TO_DEVICE == color) || (EVENT_STATE_EXECUTING_ON_DEVICE  == color)) && 
+                else if ( ((EVENT_STATE_ISSUED_TO_DEVICE == color) || (EVENT_STATE_EXECUTING_ON_DEVICE  == color) || (EVENT_STATE_DONE_EXECUTING_ON_DEVICE == color)) && 
                           (RUNTIME_EXECUTION_TYPE == cmd->GetExecutionType()) 
                         )
                 {
