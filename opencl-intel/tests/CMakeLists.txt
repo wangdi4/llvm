@@ -11,6 +11,7 @@ add_subdirectory( debugger_test_type )
 
 if (MSVC)
   add_subdirectory( vs_test_type )
+  add_subdirectory( analyze_package_test_type )
 endif (MSVC)
 
 add_subdirectory( SWTBot_test_type )
