@@ -58,15 +58,15 @@ extern const constant ulong   generic_min_ulong;
 extern const constant ulong   generic_max_ulong;
 
 // sse - common
-extern const constant float f4const_oneStorage[4];
-extern const constant float f4const_minusOneStorage[4];
-extern const constant float f4const_minusZeroStorage[4];
-extern const constant float f4const_nanStorage[4];
+extern const constant float4 f4const_oneStorage;
+extern const constant float4 f4const_minusOneStorage;
+extern const constant float4 f4const_minusZeroStorage;
+extern const constant float4 f4const_nanStorage;
 
-extern const constant double d2const_oneStorage[2];
-extern const constant double d2const_minusZeroStorage[2];
-extern const constant double d2const_minusOneStorage[2];
-extern const constant double d2const_nanStorage[2];
+extern const constant double2 d2const_oneStorage;
+extern const constant double2 d2const_minusZeroStorage;
+extern const constant double2 d2const_minusOneStorage;
+extern const constant double2 d2const_nanStorage;
 
 // AVX - common
 extern const constant float8 f8const_oneStorage;
