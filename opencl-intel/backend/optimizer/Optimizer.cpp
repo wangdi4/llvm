@@ -88,6 +88,7 @@ llvm::ModulePass *createDetectFuncPtrCalls();
 llvm::ModulePass *createDetectRecursionPass();
 llvm::ModulePass *createCloneBlockInvokeFuncToKernelPass();
 llvm::Pass *createResolveBlockToStaticCallPass();
+llvm::FunctionPass *createPreLegalizeBoolsPass();
 }
 
 using namespace intel;
@@ -470,7 +471,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   PM.add(createUndifinedExternalFunctionsPass(UndefinedExternals));
 
   if(pRtlModule != NULL) {
-      PM.add(createBuiltInImportPass(pConfig->GetCpuId().GetCPUPrefix())); // Inline BI function
+    PM.add(createBuiltInImportPass(pConfig->GetCpuId().GetCPUPrefix())); // Inline BI function
     //Need to convert shuffle calls to shuffle IR before running inline pass on built-ins
     PM.add(createBuiltinCallToInstPass());
   }
@@ -525,6 +526,8 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   if ( debugType == intel::None ) {
     // These passes come after PrepareKernelArgs pass to eliminate the redundancy reducced by it
     PM.add(llvm::createFunctionInliningPass());           // Inline
+    if (!HasGatherScatter)                  // Workaround boolean vectors legalization issue.
+      PM.add(createPreLegalizeBoolsPass()); // For details see PreLegalizeBools header file.
     PM.add(llvm::createDeadCodeEliminationPass());        // Delete dead instructions
     PM.add(llvm::createCFGSimplificationPass());          // Simplify CFG
     PM.add(llvm::createInstructionCombiningPass());       // Instruction combining
