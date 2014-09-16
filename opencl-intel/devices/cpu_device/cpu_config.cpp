@@ -26,6 +26,10 @@
 #include "stdafx.h"
 #include "cpu_config.h"
 #include "ICLDevBackendOptions.h"
+#if !defined(__ANDROID__)
+#define __DOUBLE_ENABLED__
+#endif
+#include "ocl_supported_extensions.h"
 
 #include <string>
 #include <sstream>
@@ -117,4 +121,48 @@ cl_int CPUDeviceConfig::GetVectorizerMode() const
     using namespace Intel::OpenCL::DeviceBackend;
     return m_pConfigFile->Read(CL_CONFIG_CPU_VECTORIZER_MODE,
                                static_cast<cl_int>(TRANSPOSE_SIZE_AUTO));
+}
+
+
+const char* CPUDeviceConfig::GetExtensions(bool IsAtom) const
+{
+    const char* sExtensions = NULL;
+    if (IsAtom)
+    {
+        if (GetOpenCLVersion() == OPENCL_VERSION_1_2)
+        {
+            sExtensions = OCL_SUPPORTED_EXTENSIONS_ATOM_1_2;
+        }
+        else
+        {
+            sExtensions = OCL_SUPPORTED_EXTENSIONS_ATOM_2_0;
+        }
+    }
+    else
+    {
+        if (IsGLDirectXSupported())
+        {
+            if (GetOpenCLVersion() == OPENCL_VERSION_1_2)
+            {
+                sExtensions = OCL_SUPPORTED_EXTENSIONS_1_2;
+            }
+            else
+            {
+                sExtensions = OCL_SUPPORTED_EXTENSIONS_2_0;
+            }
+        }
+        else
+        {
+            if (GetOpenCLVersion() == OPENCL_VERSION_1_2)
+            {
+                sExtensions = OCL_SUPPORTED_EXTENSIONS_XE_1_2;
+            }
+            else
+            {
+                sExtensions = OCL_SUPPORTED_EXTENSIONS_XE_2_0;
+            }
+        }
+    }
+    
+    return sExtensions;
 }

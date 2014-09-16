@@ -23,6 +23,7 @@
 #include "cl_synch_objects.h"
 #include "cl_shared_ptr.h"
 #include "task_executor.h"
+#include "task_group.h"
 #include "tbb/tbb.h"
 #include "tbb/task_group.h"
 
@@ -86,7 +87,7 @@ public:
      * @param f the functor object
      */
     template<typename Func>
-    void Run(Func& f) { m_tskGrp.run(f); }
+    void Run(Func& f);
 
     // overriden methods
 
@@ -95,130 +96,6 @@ public:
 private:
 
     tbb::task_group m_tskGrp;
-
-};
-
-/**
- * This class represents a group of tasks for which one can wait to their completion. It replaces tbb::task_group, which can't be used the way we need: parallel_for from one task_group might
- * steal the task which starts another parallel_for.
- */
-class TaskGroup : public ITaskGroup
-{
-public:
-    PREPARE_SHARED_PTR(TaskGroup)
-
-    /**
-     * @param device the TEDevice for enqueuing and executing tasks
-     * @return a new TaskGroup
-     */
-    static SharedPtr<TaskGroup> Allocate(TEDevice* device)
-    {
-      return new TaskGroup(device);
-    }
-
-    /**
-     * Destructor
-     */
-    ~TaskGroup()
-    {
-        assert(m_rootTask.ref_count() == 1);    // steady state of reference count when no functor is pending execution is 1
-        tbb::task::destroy(m_rootTask);
-    }
-
-    tbb::task_group_context& GetContext() {return m_taskGroupContext; }
-    /**
-     * Enqueue a functor
-     * @param F the functor's type
-     * @param f the functor object			
-     */
-    template<typename F>
-    void EnqueueFunc(const F& f);
-
-#ifdef __HARD_TRAPPING__
-    template<typename F>
-    void EnqueueFuncEx(const F& f);
-#endif
-// overrriden methods:
-
-    virtual void WaitForAll();
-private:
-
-	/**
-     * Constructor
-     * @param device the TEDevice for enqueuing and executing tasks
-     */
-    TaskGroup(TEDevice* device) :
-        m_taskGroupContext(tbb::task_group_context::bound, tbb::task_group_context::default_traits | tbb::task_group_context::concurrent_wait),
-        m_rootTask(*new(tbb::task::allocate_root(m_taskGroupContext)) tbb::empty_task()), m_device(device)
-    {
-        m_rootTask.increment_ref_count();
-    }
-
-    tbb::task_group_context m_taskGroupContext;
-    tbb::empty_task& m_rootTask;  // an empty task whose reference count represents the number of enqueued tasks that haven't been completed
-    TEDevice* m_device;
-
-    // auxiliary functor classes to be replaced by lambda functions
-    class ArenaFunctor
-    {
-    protected:
-
-        ArenaFunctor(tbb::task& rootTask) : m_rootTask(rootTask) { }
-
-        tbb::task& m_rootTask;
-    };    
-
-#ifdef __HARD_TRAPPING__
-    template<typename F>
-    class ArenaFunctorSpawner : public ArenaFunctor, public tbb::task
-    {
-    public:
-        ArenaFunctorSpawner<F>(tbb::task& rootTask, const F& func) : ArenaFunctor(rootTask), m_func(func) { }
-
-        void operator()()
-        {
-            m_rootTask.spawn( *(new (m_rootTask.allocate_additional_child_of(m_rootTask)) ArenaFunctorSpawner<F>(m_rootTask, m_func)));
-        }
-
-        tbb::task* execute()
-        {
-            m_func();
-            //m_rootTask.decrement_ref_count();
-            return NULL;
-        }
-
-    private:
-        F m_func;
-    };
-#endif
-
-    template<typename F>
-    class ArenaFunctorRunner : public ArenaFunctor
-    {
-    public:
-        ArenaFunctorRunner<F>(tbb::task& rootTask, const F& func) : ArenaFunctor(rootTask), m_func(func) { }
-
-        void operator()()
-        {
-            m_func();
-            m_rootTask.decrement_ref_count();
-        }
-
-    private:
-        F m_func;
-    };
-
-    class ArenaFunctorWaiter : public ArenaFunctor
-    {
-    public:
-        ArenaFunctorWaiter(tbb::task& rootTask) : ArenaFunctor(rootTask) { }
-
-        void operator()()
-        {
-            m_rootTask.wait_for_all();  // joins the work in current arena  WARNING: consumes stack, need to reduce number of simultaneously run calls to avoid memory blow-up            
-        }
-
-    };
 
 };
 
@@ -389,7 +266,7 @@ public:
     template<typename F>
     void ExecOOOFunc(const F& f)
     {
-        m_oooTaskGroup.run(f);
+        m_oooTaskGroup->Spawn(f);
     }
 
     /**
@@ -397,7 +274,7 @@ public:
     */
     void WaitForAllCommands()
     {
-        m_oooTaskGroup.wait();
+        m_oooTaskGroup->WaitForAll();
     }
 
      // overriden methods:
@@ -411,10 +288,11 @@ public:
 private:
     virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = NULL);
 
-    tbb::task_group m_oooTaskGroup;
+    SharedPtr<SpawningTaskGroup> m_oooTaskGroup;
 
     out_of_order_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam& param) :
-		base_command_list(pTBBExec, device, param, param.isProfilingEnabled) { }
+        base_command_list(pTBBExec, device, param, param.isProfilingEnabled), m_oooTaskGroup(SpawningTaskGroup::Allocate(device.GetPtr())) { }
+
 };
 
 bool execute_command(const SharedPtr<ITaskBase>& pCmd, base_command_list& cmdList);

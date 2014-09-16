@@ -19,7 +19,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <llvm/IRReader/IRReader.h>
 #include <llvm/Support/SourceMgr.h>
 #include <llvm/Support/Debug.h>
-#include <llvm/Version.h>
 
 #include <string>
 
@@ -298,7 +297,7 @@ namespace intel {
         continue;
       }
       if(visitedSet.count(pCalledFunc)) continue;
-      
+
       assert(!m_cpuPrefix.empty() && "m_cpuPrefix is empty");
       UpdateSvmlBuiltinName(pCalledFunc,m_cpuPrefix.c_str());
 

@@ -2291,6 +2291,7 @@ cl_mem CL_API_CALL clCreateFromDX9MediaSurfaceKHR(cl_context context,
         return CONTEXT_MODULE->CreateFromD3D9Surface(context, flags, adapter_type, (cl_dx9_surface_info_khr*)surface_info, plane, errcode_ret, KhrD3D9Definitions());
     }
 }
+REGISTER_EXTENSION_FUNCTION(clCreateFromDX9MediaSurfaceKHR, clCreateFromDX9MediaSurfaceKHR);
 SET_ALIAS(clCreateFromDX9MediaSurfaceKHR);
 
 cl_mem CL_API_CALL clCreateFromDX9MediaSurfaceINTEL(cl_context context,
@@ -2345,6 +2346,7 @@ cl_int CL_API_CALL clEnqueueAcquireDX9MediaSurfacesKHR(cl_command_queue command_
     }
 }
 SET_ALIAS(clEnqueueAcquireDX9MediaSurfacesKHR);
+REGISTER_EXTENSION_FUNCTION(clEnqueueAcquireDX9MediaSurfacesKHR, clEnqueueAcquireDX9MediaSurfacesKHR);
 
 cl_int CL_API_CALL clEnqueueAcquireDX9ObjectsINTEL(cl_command_queue command_queue,
                                                  cl_uint num_objects,
@@ -2397,6 +2399,7 @@ cl_int CL_API_CALL clEnqueueReleaseDX9MediaSurfacesKHR(cl_command_queue command_
     }
 }
 SET_ALIAS(clEnqueueReleaseDX9MediaSurfacesKHR);
+REGISTER_EXTENSION_FUNCTION(clEnqueueReleaseDX9MediaSurfacesKHR, clEnqueueReleaseDX9MediaSurfacesKHR);
 
 cl_int CL_API_CALL clEnqueueReleaseDX9ObjectsINTEL(cl_command_queue command_queue,
                                                  cl_uint num_objects,
@@ -2451,6 +2454,7 @@ cl_int CL_API_CALL clGetDeviceIDsFromDX9MediaAdapterKHR(cl_platform_id platform,
             media_adapters, media_adapter_set, num_entries, devices, num_devices, KhrD3D9Definitions());
     }
 }
+REGISTER_EXTENSION_FUNCTION(clGetDeviceIDsFromDX9MediaAdapterKHR, clGetDeviceIDsFromDX9MediaAdapterKHR);
 SET_ALIAS(clGetDeviceIDsFromDX9MediaAdapterKHR);
 
 cl_int CL_API_CALL clGetDeviceIDsFromDX9INTEL(cl_platform_id platform,

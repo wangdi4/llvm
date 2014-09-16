@@ -224,16 +224,8 @@ namespace intel {
     typedef std::map<Function *, Function *> F2FMap;
     F2FMap OldF2PatchedF;
     // Setup stuff needed for adding another argument to patched functions
-#if LLVM_VERSION == 3200
-    SmallVector<Attributes, 1> NewAttrs(
-        1, Attributes::get(*m_pContext, Attributes::NoAlias));
-#elif LLVM_VERSION == 3425
-    SmallVector<Attributes, 1> NewAttrs(
-        1, Attributes::get(*m_pContext, Attributes::NoAlias));
-#else
     SmallVector<AttributeSet, 1> NewAttrs(
         1, AttributeSet::get(*m_pContext, 0, Attribute::NoAlias));
-#endif
     // Patch the functions
     for (std::set<Function *>::iterator I = FuncsToPatch.begin(),
                                         E = FuncsToPatch.end();
@@ -274,7 +266,7 @@ namespace intel {
       I != E; ++I) {
         ConstantExpr *CE = I->first;
         Function* CalledF = I->second;
-        assert(OldF2PatchedF.find(CalledF) != OldF2PatchedF.end() && 
+        assert(OldF2PatchedF.find(CalledF) != OldF2PatchedF.end() &&
           "expected to find patched function in map");
         Function *PatchedF = OldF2PatchedF[CalledF];
         // this case happens when global block variable is used
@@ -841,10 +833,10 @@ namespace intel {
     //   br i1 %0, label %get.wi.properties, label %split.continue
     //
     // get.wi.properties:  (new basic block in case of in bound)
-    //   ... ; load the property 
+    //   ... ; load the property
     //   br label %split.continue
     //
-    // split.continue:  (the second half of the splitted basic block head) 
+    // split.continue:  (the second half of the splitted basic block head)
     //   %4 = phi i32 [ %res, %get.wi.properties ], [ out-of-bound-value, %entry ]
 
     BasicBlock *pBlock = pCall->getParent();

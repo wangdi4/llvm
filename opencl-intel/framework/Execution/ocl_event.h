@@ -49,6 +49,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         EVENT_STATE_READY_TO_EXECUTE,        // The command is ready to be executed - no dependencies.
         EVENT_STATE_ISSUED_TO_DEVICE,        // The command was issued to the device, but is not being processed yet.
         EVENT_STATE_EXECUTING_ON_DEVICE,    // The command is currently executing on the device.
+        EVENT_STATE_DONE_EXECUTING_ON_DEVICE,   // The command itself is done executing on the device, but offspring commands may still be running
         EVENT_STATE_DONE                    // The command is done, and can be deleted.
     } OclEventState;
 
@@ -97,6 +98,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_ulong    m_ulCommandEnd;        // A 64-bit value that describes the current device time
         // counter in nanoseconds when the command identified by
         // event has finished execution on the device
+
+        cl_ulong    m_ulCommandComplete;    // A 64-bit value that describes the current device time
+        // counter in nanoseconds when the command identified by
+        // event and any child commands enqueued by this command on the device have finished execution.
     };
 
     /**********************************************************************************************

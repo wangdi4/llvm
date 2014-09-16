@@ -609,6 +609,41 @@ cl_event NotifierCollection::getUserEvent(cl_event notifierEvent)
     return userEvent;
 }
 
+bool NotifierCollection::injectEventToWaitList(cl_command_queue commandQueue,
+        cl_uint numEventsInWaitList,
+        const cl_event* eventWaitList,
+        cl_event *syncEvent,
+        vector<cl_event>& newEventWaitList)
+{
+    cl_context context;
+    cl_int err;
+    vector<cl_event>::iterator it = newEventWaitList.begin();
+    if (NULL != eventWaitList)
+    {
+        newEventWaitList.insert(it, eventWaitList, eventWaitList + numEventsInWaitList);
+    }
+
+    err = _clGetCommandQueueInfoINTERNAL(commandQueue, CL_QUEUE_CONTEXT, sizeof(cl_context), &context, NULL);
+    if (CL_SUCCESS == err)
+    {
+        *syncEvent = _clCreateUserEventINTERNAL(context, &err);
+        if (CL_SUCCESS == err)
+        {
+            newEventWaitList.push_back(*syncEvent);
+        }
+        else
+        {
+            return false;
+        }
+    }
+    else
+    {
+        return false;
+    }
+
+    return true;
+}
+
 inline void NotifierCollection::addQueueProperty(
     vector<cl_queue_properties>& queueProps,
     cl_queue_properties key,

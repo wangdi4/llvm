@@ -176,7 +176,7 @@ void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValu
     // Put broadcasted constant in returned structure
     *retValue = broadcastedVal;
   }
-  V_PRINT(packetizer, 
+  V_PRINT(packetizer,
       "\t\tObtained vectorized value(s) of type: " << *((*retValue)->getType()) << "\n");
 }
 
@@ -211,6 +211,30 @@ void PacketizeFunction::obtainMultiScalarValues(Value *retValues[],
           // found pre-prepared multi-scalar values
           for (unsigned i = 0; i < m_packetWidth; i++)
             retValues[i] = foundEntry->multiScalarValues[i];
+        }
+        else if(isa<SExtInst>(origInst) || isa<ZExtInst>(origInst))
+        {
+          // For performance reasons it is better to use the original non-extended vector
+          // because in general "vector extract -> scalar extend" X86 sequence is better
+          // than the "vector extend -> vector extract" for following multiscalar operation.
+
+          // TODO: To avoid negative performance impact do this only if all users
+          //       of this SExt/ZExt are non-packetiziable
+
+          SmallVector<Value *, 16> nonExtValues(m_packetWidth);
+          obtainMultiScalarValues(nonExtValues.data(), origInst->getOperand(0), NULL);
+
+          Instruction * insertPoint = findInsertPoint(foundEntry->vectorValue);
+          for (unsigned index = 0; index < m_packetWidth; ++index) {
+            CastInst * pCast = CastInst::Create((Instruction::CastOps)origInst->getOpcode(),
+                                                 nonExtValues[index], origInst->getType());
+            VectorizerUtils::SetDebugLocBy(pCast, origInst);
+
+            pCast->insertAfter(insertPoint);
+            retValues[index] = pCast;
+            foundEntry->multiScalarValues[index] = pCast;
+            insertPoint = pCast;
+          }
         }
         else
         {
@@ -317,7 +341,7 @@ void PacketizeFunction::createDummyVectorVal(Value *origValue, Value **vectorVal
   V_ASSERT(!isa<VectorType>(origValue->getType()) && "cannot packetize vectors");
 
   VCMEntry * dummyEntry;
-  
+
   // First, try to find if the needed dummy values already exist
   if (m_deferredResMap.count(origValue))
   {
@@ -336,7 +360,7 @@ void PacketizeFunction::createDummyVectorVal(Value *origValue, Value **vectorVal
     m_deferredResOrder.push_back(origValue);
   }
 
-  
+
   // Create the dummy values and place them in VCMEntry
   Type* origType = origValue->getType();
   Type *dummyType = m_soaAllocaAnalysis->isSoaAllocaRelatedPointer(origValue) ?
@@ -427,7 +451,7 @@ bool PacketizeFunction::resolveDeferredInstructions()
     if (NULL != dummyEntry->multiScalarValues[0])
     {
       Value * resolvedVals[MAX_PACKET_WIDTH];
-      // Plcing "NULL" as the "origInst" value in obtainMultiScalarValues should be safe,
+      // Placing "NULL" as the "origInst" value in obtainMultiScalarValues should be safe,
       // as long as we know there is a VCM entry...
       obtainMultiScalarValues(resolvedVals, origVal, NULL);
 

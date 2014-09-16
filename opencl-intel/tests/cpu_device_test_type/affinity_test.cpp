@@ -152,21 +152,22 @@ static bool AffinityTestForDevice(cl_dev_subdevice_id dev, NativeKernelParams* p
 		if (!bMasterJoinsWork)
 		{
 			sem.Wait();
+			// we can't ensure that the commands have really finished their execution here, so we can't release them or the list
 		}
 		else
 		{
 			err = dev_entry->clDevCommandListWaitCompletion(list, NULL);
-			CheckException(L"clDevCommandListWaitCompletion", CL_DEV_SUCCESS, err);
+			CheckException(L"clDevCommandListWaitCompletion", CL_DEV_SUCCESS, err);			
+			for (unsigned long i = 0; i < params->m_ulNumKernels; i++)
+			{
+				err = dev_entry->clDevReleaseCommand(&cmdDescArr[i]);
+				CheckException(L"clDevReleaseCommand", CL_DEV_SUCCESS, err);
+			}
+			err = dev_entry->clDevReleaseCommandList(list);
+			CheckException(L"clDevReleaseCommandList", CL_DEV_SUCCESS, err);
 		}
-
-        for (unsigned long i = 0; i < params->m_ulNumKernels; i++)
-        {
-            dev_entry->clDevReleaseCommand(&cmdDescArr[i]);
-        }
-        delete[] cmdDescArr;
+		delete[] cmdDescArr;
 		
-		err = dev_entry->clDevReleaseCommandList(list);
-		CheckException(L"clDevReleaseCommandList", CL_DEV_SUCCESS, err);
 #ifndef _WIN32
         if (NULL != params->m_pMask)
         {

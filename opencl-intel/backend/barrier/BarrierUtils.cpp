@@ -13,7 +13,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/CFG.h"
-#include "llvm/Version.h"
 
 #include <set>
 using namespace Intel::OpenCL::DeviceBackend;
@@ -148,7 +147,7 @@ namespace intel {
   }
 
   TInstructionVector& BarrierUtils::getWGCallInstructions(CALL_BI_TYPE type) {
-    
+
     //Clear old collected data
     m_WGcallInstructions.clear();
 
@@ -269,10 +268,8 @@ namespace intel {
       funcTyArgs.push_back(IntegerType::get(m_pModule->getContext(), 32));
       m_barrierFunc =
         createFunctionDeclaration(CompilationUtils::mangledBarrier(), pResult, funcTyArgs);
-#if (LLVM_VERSION != 3200) && (LLVM_VERSION != 3425)
       m_barrierFunc->setAttributes(m_barrierFunc->getAttributes().addAttribute(
         m_barrierFunc->getContext(), AttributeSet::FunctionIndex, Attribute::NoDuplicate));
-#endif
     }
     if ( !m_localMemFenceValue ) {
       //LocalMemFenceValue is not initialized yet
@@ -526,11 +523,7 @@ namespace intel {
       /*Linkage=*/GlobalValue::ExternalLinkage,
       /*Name=*/name, m_pModule); //(external, no body)
     pNewFunc->setCallingConv(CallingConv::C);
-#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
-    AttrListPtr barrier_Func_PAL;
-#else
     AttributeSet barrier_Func_PAL;
-#endif
     pNewFunc->setAttributes(barrier_Func_PAL);
 
     assert( pNewFunc && "Failed to create new function declaration" );
@@ -539,30 +532,10 @@ namespace intel {
   }
 
   void BarrierUtils::SetFunctionAttributeReadNone(Function* pFunc) {
-#if LLVM_VERSION == 3200
-    AttrListPtr func_factorial_PAL;
-    SmallVector<AttributeWithIndex, 4> Attrs;
-    AttributeWithIndex PAWI;
-    PAWI.Index = 4294967295U;
-    AttrBuilder attBuilder;
-    attBuilder.addAttribute(Attributes::None).addAttribute(Attributes::NoUnwind).addAttribute(Attributes::ReadNone) /* .addAttribute(Attribute::UWTable) */;
-    PAWI.Attrs = Attributes::get(pFunc->getContext(), attBuilder);
-    Attrs.push_back(PAWI);
-    func_factorial_PAL = AttrListPtr::get(pFunc->getContext(), Attrs);
-#elif LLVM_VERSION == 3425
-    AttrListPtr func_factorial_PAL;
-    SmallVector<AttributeWithIndex, 4> Attrs;
-    AttributeWithIndex PAWI;
-    PAWI.Index = 4294967295U;
-    PAWI.Attrs = Attribute::None  | Attribute::NoUnwind | Attribute::ReadNone/* | Attribute::UWTable*/;
-    Attrs.push_back(PAWI);
-    func_factorial_PAL = AttrListPtr::get(Attrs);
-#else
     AttributeSet func_factorial_PAL;
     AttrBuilder attBuilder;
     attBuilder.addAttribute(Attribute::NoUnwind).addAttribute(Attribute::ReadNone) /* .addAttribute(Attribute::UWTable) */;
     func_factorial_PAL = AttributeSet::get(pFunc->getContext(), ~0, attBuilder);
-#endif
     pFunc->setAttributes(func_factorial_PAL);
   }
 } // namespace intel

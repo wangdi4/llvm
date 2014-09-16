@@ -43,12 +43,7 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/system_error.h"
-#include "llvm/Version.h"
-#if LLVM_VERSION == 3425
-#include "llvm/Target/TargetData.h"
-#else
 #include "llvm/IR/DataLayout.h"
-#endif
 #include "llvm/Target/TargetLibraryInfo.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
@@ -130,17 +125,13 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
                                 &kCFTypeDictionaryValueCallBacks);
   if (!d)
     return -1;
-  
+
   *info = d;
   if (!numKernels) {
     return 0;
   }
   // Create the DataLayout structure from the Module's arch info.
-#if LLVM_VERSION == 3425
-  TargetData DL(M);
-#else
   DataLayout DL(M);
-#endif
 
   Intel::MetaDataUtils::KernelsList::const_iterator iter = mdUtils.begin_Kernels(), end = mdUtils.end_Kernels();
   for(unsigned int i=0; iter != end; ++iter, ++i) {
@@ -213,7 +204,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
     assert(arguments.size() <= pFunc->arg_size() && "There is not enough arguments!");
     for(unsigned int j=0; j<arguments.size(); ++j, ++ai) {
       cl_kernel_argument arg = arguments[j];
-    
+
       // Create a CFNumber to hold the size value.
       int size = ((int)Intel::OpenCL::DeviceBackend::TypeAlignment::getSize(arg));
       const void *vptrsize = (const void *)&size;
@@ -325,7 +316,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
     if (KernelRWGsize) {
       // Get Required work group size.
       for (unsigned k = 0; k < max_wg_dim; ++k) {
-        // With this MDNode, there is a key followed by max_wg_dim number of type WG sizes 
+        // With this MDNode, there is a key followed by max_wg_dim number of type WG sizes
         // The first element is the key, so offset arg index by one.
         uint64_t val = llvm::dyn_cast<llvm::ConstantInt>(MDRWGS->getOperand(i+1))->getValue().getZExtValue();
         const void *vptr = (const void *)&val;
@@ -351,7 +342,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
       // Get Required work group size.
       assert(args_desc[j+1] == 'W' && args_desc[j+2] == 'G' &&
              "Expected required work group size");
-    
+
       char* ValStart = &args_desc[j+3];
       char* ValEnd;
       for (unsigned k = 0; k < max_wg_dim; ++k) {
@@ -359,11 +350,11 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
         uint64_t val = strtol(ValStart, &ValEnd, 10);
         const void *vptr = (const void *)&val;
         CFNumberRef valref = CFNumberCreate(NULL, kCFNumberLongLongType, vptr);
-      
+
         // Append to info value to the function arg info array.
         CFArrayAppendValue(kf_wg_dims, valref);
         CFRelease(valref);
-      
+
         ValStart = *ValEnd == '\0' ? ValEnd : ValEnd+1;
       }
     } else {
@@ -390,13 +381,13 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
       Intel::KernelInfoMetaDataHandle vkimd = mdUtils.getKernelsInfoItem(pVecFunc);
       VKernelName = vkimd->getKernelWrapper()->getName().str();
       VWidthMax = vkimd->getVectorizedWidth();
-      
+
     }
     CFStringRef vname = CFStringCreateWithCString(NULL, VKernelName.c_str(),
                                                   kCFStringEncodingUTF8);
     const void *vwmaxptr = (const void *)&VWidthMax;
     CFNumberRef vwmax = CFNumberCreate(NULL, kCFNumberIntType, vwmaxptr);
-  
+
     //hasBarrier, indicator for kernel that was compiled with barrier path
     int hasBarrier = !(kimd->isNoBarrierPathHasValue() && kimd->getNoBarrierPath());
     const void *hbarrierptr = (const void *)&hasBarrier;
@@ -420,7 +411,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
     const void *entry[] = { kfinfo, kf_argsizes, kf_argalignments, sname, vname, vwmax, hbarrier, bbs,
       kf_wg_dims, kf_argnames, kf_argtypes, kf_argtypequals, lsmax, ilb };
     CFArrayRef arrayref = CFArrayCreate(NULL, entry, 14, &kCFTypeArrayCallBacks);
-  
+
     CFRelease(kfinfo);
     CFRelease(kf_argsizes);
     CFRelease(kf_argalignments);
@@ -435,11 +426,11 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
     CFRelease(kf_argtypequals);
     CFRelease(lsmax);
     CFRelease(ilb);
-  
+
     // Create a CFString from the function name to use as the key.
     CFStringRef kfstr = CFStringCreateWithCString(NULL, pWrapperFunc->getName().str().c_str(),
                                                   kCFStringEncodingUTF8);
-  
+
     // Insert the info array into the dictionary.
     CFDictionaryAddValue(*info, kfstr, arrayref);
     CFRelease(kfstr);
@@ -519,11 +510,7 @@ static void cld_replace_uses(Value* From, Value* To, Instruction* AfterPos) {
 }
 
 static
-#if LLVM_VERSION == 3425
-Function *cld_genwrapper(Module *M, TargetData &DL, Function *kf,
-#else
 Function *cld_genwrapper(Module *M, DataLayout &DL, Function *kf,
-#endif
                          FunctionType *WTy, ConstantArray *LGVs,
                          bool debug, bool vector) {
   LLVMContext &CTX = M->getContext();
@@ -780,21 +767,21 @@ static int compileProgram(
 {
   CPUPluginPrivateData* pluginData = (CPUPluginPrivateData*)objects->private_service;
   Intel::CPUId cpuId;
-    
+
   if( pluginData != NULL)
     cpuId = pluginData->cpuId;
   else
     cpuId = selectCPU();
-    
+
   // Get the runtime module, which contains all the OpenCL runtime functions.
-  // The module will be freed during termination 
+  // The module will be freed during termination
   assert(!objects->llvm_module && "assuming built-in module is not recieved from runtime");
 
   if (!Runtime) {
       std::string bitcode_name =
         std::string("/System/Library/Frameworks/OpenCL.framework/Resources/runtime.") +
         getBuiltinName(cpuId) + std::string(".bc");
-      
+
     OwningPtr<MemoryBuffer> bc_memory_buffer;
     MemoryBuffer::getFileOrSTDIN(bitcode_name, bc_memory_buffer);
     Runtime = getLazyBitcodeModule(bc_memory_buffer.take(), getGlobalContext(), NULL);
@@ -970,7 +957,7 @@ static int compileProgram(
 
   Intel::OpenCL::DeviceBackend::Optimizer optimizer(SM, Runtime, &optimizerConfig);
   optimizer.Optimize();
-  
+
   if (has_kernel_annotation) {
     alloc_kernels_info((CFMutableDictionaryRef*)info, init, SM);
     annotation->eraseFromParent();

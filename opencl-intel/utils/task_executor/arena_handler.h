@@ -278,6 +278,7 @@ public:
      *  Owning task executor
      */
     TBBTaskExecutor&  GetTaskExecutor() { return m_taskExecutor; }
+    const TBBTaskExecutor&  GetTaskExecutor() const { return m_taskExecutor; }
 
     // observer methods
     void on_scheduler_entry(bool bIsWorker, ArenaHandler& arena );
@@ -285,6 +286,11 @@ public:
     bool on_scheduler_leaving( ArenaHandler& arena );
 
     bool isSubDevice() const { return (NULL != m_pParentDevice.GetPtr()); }	
+
+    /**
+     * @return whether the current thread is in this TEDevice's task_arena
+     */
+    bool IsCurrentThreadInArena() const;
 
 private:
 
