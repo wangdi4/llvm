@@ -192,12 +192,24 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
         m_Event->SetEventState(EVENT_STATE_EXECUTING_ON_DEVICE);
         break;
 
-    case CL_COMPLETE:
-        assert(EVENT_STATE_DONE != m_Event->GetEventState());
+    case CL_ENDED_RUNNING:
         if ( m_Event->m_bProfilingEnabled )
         {
             m_Event->SetProfilingInfo(CL_PROFILING_COMMAND_END, ulTimer);
         }
+        m_Event->SetEventState(EVENT_STATE_DONE_EXECUTING_ON_DEVICE);
+        break;
+
+    case CL_COMPLETE:
+        assert(EVENT_STATE_DONE != m_Event->GetEventState());
+        if (m_Event->m_bProfilingEnabled)
+        {
+            if (m_Event->GetEventState() != EVENT_STATE_DONE_EXECUTING_ON_DEVICE)
+            {
+                m_Event->SetProfilingInfo(CL_PROFILING_COMMAND_END, ulTimer);
+            }
+            m_Event->SetProfilingInfo(CL_PROFILING_COMMAND_COMPLETE, ulTimer);
+        }      
         
         // Complete command,
         // do that before set event, since side effect of SetEvent(black) may be deleting of this instance.

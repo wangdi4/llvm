@@ -80,7 +80,8 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
         virtual unsigned int GetPosition( unsigned int level = 0 ) const;
 
         typedef TBB_ThreadManager<TBB_PerActiveThreadData> ThreadManager;
-        ThreadManager& GetThreadManager() { return m_threadManager; };
+        ThreadManager& GetThreadManager() { return m_threadManager; }
+        const ThreadManager& GetThreadManager() const { return m_threadManager; }
 
         virtual SharedPtr<IThreadLibTaskGroup> CreateTaskGroup(const SharedPtr<ITEDevice>& device);
 

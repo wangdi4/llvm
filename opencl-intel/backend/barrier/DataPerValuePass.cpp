@@ -15,7 +15,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/CFG.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Version.h"
 
 using namespace Intel::OpenCL::DeviceBackend;
 
@@ -42,11 +41,7 @@ namespace intel {
     m_util.init(&M);
 
     // obtain DataLayout of the module
-#if LLVM_VERSION == 3425
-    m_pDL = getAnalysisIfAvailable<TargetData>();
-#else
     m_pDL = getAnalysisIfAvailable<DataLayout>();
-#endif
     assert( m_pDL && "Failed to obtain instance of DataLayout!" );
 
     // Find and sort all connected function into disjointed groups
@@ -97,7 +92,7 @@ namespace intel {
     //  Important: we make exclusion for Alloca instructions which
     //             reside between 2 dummyBarrier calls:
     //             a) one     - the 1st instruction which inserted by BarrierInFunctionPass
-    //             b) another - the instruction which marks the bottom of Allocas 
+    //             b) another - the instruction which marks the bottom of Allocas
     //                          of WG function return value accumulators
     //Group-B.1 : Values crossed barriers and the value is
     //            related to WI-Id or initialized inside a loop
@@ -118,7 +113,7 @@ namespace intel {
               // This alloca is a candidate for exclusion
               allocaExclusions.insert(pInst);
             } else if ( CallInst *pCallInst = dyn_cast<CallInst>(pInst) ) {
-              // Locate boundary of code extent where exclusions are possible: 
+              // Locate boundary of code extent where exclusions are possible:
               // next dummy barrier, w/o a barrier call in the way.
               if (m_util.isDummyBarrierCall(pCallInst)) {
                 break;
@@ -131,7 +126,7 @@ namespace intel {
           }   // end of collect-allocas loop
         }     // end of 1st-instruction-is-a-dummy-barrier-call case
       }
-    }         
+    }
 
     // Then - sort-out instructions among Group-A, Group-B.1 and Group-B.2
     for ( inst_iterator ii = inst_begin(F), ie = inst_end(F); ii != ie; ++ii ) {
@@ -349,7 +344,7 @@ namespace intel {
     //unsigned int alignment = m_pDL->getABITypeAlignment(pType);
     unsigned int alignment = (allocaAlignment) ? allocaAlignment : m_pDL->getPrefTypeAlignment(pType);
     unsigned int sizeInBits = m_pDL->getTypeSizeInBits(pType);
-    
+
     Type *pElementType = pType;
     VectorType* pVecType = dyn_cast<VectorType>(pType);
     if ( pVecType ) {

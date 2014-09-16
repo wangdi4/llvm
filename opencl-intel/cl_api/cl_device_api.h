@@ -688,6 +688,14 @@ typedef cl_dev_err_code (fn_clDevInitDeviceAgent)(void);
   Thought this interface a device agent notifies runtime on command execution status change and
   back-end build completion.
 */
+
+// internal state for NDRangeKernel commands, which means that the kernel itself has ended running, but it may still have offspring kernels running
+#define CL_ENDED_RUNNING    (CL_QUEUED + 1)
+#ifdef _WIN32
+static_assert(CL_ENDED_RUNNING != CL_COMPLETE && CL_ENDED_RUNNING != CL_RUNNING && CL_ENDED_RUNNING != CL_SUBMITTED,
+              "CL_ENDED_RUNNING's value is the same as of one of the other command states");
+#endif
+
 class IOCLFrameworkCallbacks
 {
 public:

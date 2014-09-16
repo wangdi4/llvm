@@ -21,12 +21,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Function.h"
 #include "llvm/Pass.h"
 #include "llvm/IR/DerivedTypes.h"
-#include "llvm/Version.h"
-#if LLVM_VERSION == 3425
-#include "llvm/Target/TargetData.h"
-#else
 #include "llvm/IR/DataLayout.h"
-#endif
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Analysis/Passes.h"
@@ -201,14 +196,6 @@ createStandardLLVMPasses(llvm::PassManagerBase *PM,
   PM->add(llvm::createUnifyFunctionExitNodesPass());
 }
 
-Pass *createDataLayout(Module *M) {
-#if LLVM_VERSION == 3425
-  return new llvm::TargetData(M);
-#else
-  return new llvm::DataLayout(M);
-#endif
-}
-
 static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
                                        llvm::Module *M,
                                        unsigned OptLevel,
@@ -224,7 +211,7 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
 #endif
   bool HasGatherScatter = pConfig->GetCpuId().HasGatherScatter();
 
-  PM.add(createDataLayout(M));
+  PM.add(new llvm::DataLayout(M));
   PM.add(createOclSyncFunctionAttrsPass());
   if (isOcl20) {
     // OCL2.0 resolve block to static call
@@ -323,7 +310,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(pConfig->GetIRDumpOptionsBefore());
 #endif
-  PM.add(createDataLayout(M));
+  PM.add(new llvm::DataLayout(M));
   PM.add(createBuiltinLibInfoPass(pRtlModule, ""));
   PM.add(createImplicitArgsAnalysisPass(&M->getContext()));
 

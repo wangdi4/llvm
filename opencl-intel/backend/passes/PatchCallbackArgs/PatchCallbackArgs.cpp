@@ -13,12 +13,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "MetaDataApi.h"
 
 #include "llvm/Support/InstIterator.h"
-#include "llvm/Version.h"
-#if LLVM_VERSION == 3425
-#include "llvm/Target/TargetData.h"
-#else
 #include "llvm/IR/DataLayout.h"
-#endif
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/IRBuilder.h"

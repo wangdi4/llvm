@@ -12,9 +12,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "MetaDataApi.h"
 #include "OCLPassSupport.h"
 #include "OclTune.h"
+
 #include "llvm/IR/Attributes.h"
 #include "llvm/Support/ValueHandle.h"
-#include "llvm/Version.h"
 #include "llvm/ADT/SetVector.h"
 
 #include <sstream>
@@ -68,7 +68,7 @@ namespace intel{
     m_mdUtils->save(*m_pLLVMContext);
     return true;
   }
-  
+
   Function* PrepareKernelArgs::createWrapper(Function* pFunc) {
     // Create new function's argument type list
     // The new function receives one argument: i8* pBuffer
@@ -86,10 +86,10 @@ namespace intel{
     // Create a new function
     Function *pNewF = Function::Create(FTy, pFunc->getLinkage(), pFunc->getName());
     pNewF->setCallingConv(pFunc->getCallingConv());
-    
+
     return pNewF;
   }
-  
+
   std::vector<Value *> PrepareKernelArgs::createArgumentLoads(
       IRBuilder<> &builder, Function *WrappedKernel, Argument *pArgsBuffer,
       Argument *pArgGID, Argument *RuntimeContext) {
@@ -98,12 +98,12 @@ namespace intel{
     std::vector<cl_kernel_argument> arguments;
     std::vector<unsigned int>       memoryArguments;
     CompilationUtils::parseKernelArguments(m_pModule, WrappedKernel, arguments, memoryArguments);
-    
+
     Intel::KernelInfoMetaDataHandle kimd = m_mdUtils->getKernelsInfoItem(WrappedKernel);
     assert(kimd.get() && "Function info should be available at this point");
     std::vector<Value*> params;
     llvm::Function::arg_iterator callIt = WrappedKernel->arg_begin();
-    
+
     // TODO :  get common code from the following 2 for loops into a function
 
     // Handle explicit arguments
@@ -111,16 +111,16 @@ namespace intel{
       cl_kernel_argument arg = arguments[ArgNo];
       //  %0 = getelementptr i8* %pBuffer, i32 currOffset
       Value* pGEP = builder.CreateGEP(pArgsBuffer, ConstantInt::get(m_I32Ty, arg.offset_in_bytes));
-      
+
       Value* pArg;
-      
+
       if (arg.type == CL_KRNL_ARG_COMPOSITE || arg.type == CL_KRNL_ARG_VECTOR_BY_REF) {
         // If this is a struct argument, then the struct itself is passed by value inside pArgsBuffer
         // and the original kernel signature was:
         // foo(..., MyStruct* byval myStruct, ...)
         // meaning pGEP already points to the structure and we do not need to load it
         // we just need to have a bitcast from i8* to MyStruct* and pass the pointer (!!!) to foo
-        
+
         // %myStruct = bitcast i8* to MyStruct*
         // foo(..., %myStruct, ...)
 
@@ -156,11 +156,11 @@ namespace intel{
         // foo(..., int4 vec, ...)
         // meaning pGEP points to int4 and we just need to have a bitcast from i8* to int4*
         // load the int4 and pass the loaded value (!!!) to foo
-        
+
         // %pVec = bitcast i8* %0 to int4 *
         // %vec = load int4 * %pVec {, align <alignment> }
         // foo(..., vec, ...)
-        
+
         Value* pBitCast = builder.CreateBitCast(pGEP, PointerType::get(callIt->getType(), 0));
         LoadInst* pLoad = builder.CreateLoad(pBitCast);
         size_t alignment = TypeAlignment::getAlignment(arg);
@@ -170,20 +170,14 @@ namespace intel{
         pArg = pLoad;
       }
 
-    
-      // Here we mark the load instructions from the struct that are the actual parameters for 
-      // the original kernel's restricted formal parameters  
-      // This info is used later on in OpenCLAliasAnalysis to overcome the fact that inlining 
+
+      // Here we mark the load instructions from the struct that are the actual parameters for
+      // the original kernel's restricted formal parameters
+      // This info is used later on in OpenCLAliasAnalysis to overcome the fact that inlining
       // does not maintain the restrict information.
       Instruction* pArgInst = cast<Instruction>(pArg);
-#if LLVM_VERSION == 3200
-      if (WrappedKernel->getParamAttributes(ArgNo + 1).hasAttribute(Attributes::NoAlias)) {
-#elif LLVM_VERSION == 3425
-      if (WrappedKernel->paramHasAttr(ArgNo + 1, Attribute::NoAlias)) {
-#else
       if (WrappedKernel->getAttributes().hasAttribute(ArgNo + 1, Attribute::NoAlias)) {
-#endif
-        pArgInst->setMetadata("restrict", llvm::MDNode::get(*m_pLLVMContext, 0)); 
+        pArgInst->setMetadata("restrict", llvm::MDNode::get(*m_pLLVMContext, 0));
       }
 
       //TODO: Maybe get arg name from metadata?
@@ -191,7 +185,7 @@ namespace intel{
       Name << "explicit_" << ArgNo;
       pArg->setName(Name.str());
       params.push_back(pArg);
-      
+
       ++callIt;
     }
 
@@ -288,7 +282,7 @@ namespace intel{
         } break;
         //TODO: Remove this #ifndef when apple no longer pass barrier memory buffer
 #ifndef __APPLE__
-      case ImplicitArgsUtils::IA_BARRIER_BUFFER: 
+      case ImplicitArgsUtils::IA_BARRIER_BUFFER:
         {
           // We obtain the number of bytes needed per item from the Metadata
           // which is set by the Barrier pass
@@ -313,7 +307,7 @@ namespace intel{
         // UniformKernelArgs structure and passed on to the kernel
         const ImplicitArgProperties &implicitArgProp =
             ImplicitArgsUtils::getImplicitArgProps(i);
-        // %0 = getelementptr i8* %pBuffer, i32 currOffset  
+        // %0 = getelementptr i8* %pBuffer, i32 currOffset
         Value *pGEP = builder.CreateGEP(pArgsBuffer,
                                         ConstantInt::get(m_I32Ty, currOffset));
         pArg = builder.CreateBitCast(pGEP, callIt->getType());
@@ -333,16 +327,10 @@ namespace intel{
 
     return params;
   }
-  
+
   void PrepareKernelArgs::createWrapperBody(Function* pWrapper, Function* WrappedKernel) {
     // Set new function's argument name
-    #if LLVM_VERSION == 3200
-    Attributes NoAlias = Attributes::get(*m_pLLVMContext, Attributes::NoAlias);
-#elif LLVM_VERSION == 3425
-    Attributes NoAlias = Attributes::get(*m_pLLVMContext, Attribute::NoAlias);
-#else
     AttributeSet NoAlias = AttributeSet::get(*m_pLLVMContext, 0, Attribute::NoAlias);
-#endif
     Function::arg_iterator DestI = pWrapper->arg_begin();
     DestI->setName("pUniformArgs");
     DestI->addAttr(NoAlias);
@@ -354,33 +342,29 @@ namespace intel{
     DestI->addAttr(NoAlias);
     Argument *RuntimeContext = DestI++;
     assert(DestI == pWrapper->arg_end() && "Expected to be past last arg");
-    
+
     // Create wrapper function
     BasicBlock* block = BasicBlock::Create(*m_pLLVMContext, "wrapper_entry", pWrapper);
     IRBuilder<> builder(block);
-    
+
     std::vector<Value*> params = createArgumentLoads(builder, WrappedKernel, pArgsBuffer, pArgGID, RuntimeContext);
-    
+
     CallInst* call = builder.CreateCall(WrappedKernel, ArrayRef<Value*>(params));
     call->setCallingConv(WrappedKernel->getCallingConv());
-    
+
     builder.CreateRetVoid();
   }
 
   bool PrepareKernelArgs::runOnFunction(Function *pFunc) {
-  
+
     // Create wrapper function
     Function *pWrapper = createWrapper(pFunc);
-    
+
     // Change name of old function
     pFunc->setName("__" + pFunc->getName() + "_separated_args");
     // Make sure old function always inlined
     // We want to do inlining pass after PrepareKernelArgs pass to gain performance
-#if LLVM_VERSION == 3200
-    pFunc->addFnAttr(llvm::Attributes::AlwaysInline);
-#else
     pFunc->addFnAttr(llvm::Attribute::AlwaysInline);
-#endif
 
     createWrapperBody(pWrapper, pFunc);
 

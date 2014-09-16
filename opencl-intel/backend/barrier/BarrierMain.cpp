@@ -13,12 +13,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/PassManagers.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Analysis/Verifier.h"
-#include "llvm/Version.h"
-#if LLVM_VERSION == 3425
-#include "llvm/Target/TargetData.h"
-#else
 #include "llvm/IR/DataLayout.h"
-#endif
 
 using namespace llvm;
 
@@ -52,11 +47,7 @@ namespace intel {
     PassManager barrierModulePM;
 
     //Register DataLayout to the pass manager
-#if LLVM_VERSION == 3425
-    barrierModulePM.add(new llvm::TargetData(&M));
-#else
     barrierModulePM.add(new llvm::DataLayout(&M));
-#endif
     barrierModulePM.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModule(), ""));
 
     if( m_debugType == None ) {
@@ -72,7 +63,7 @@ namespace intel {
 
     // Only run this when not debugging or when not in native (gdb) debugging
     if ( m_debugType != Native ) {
-      // This optimization removes debug information from extraneous barrier 
+      // This optimization removes debug information from extraneous barrier
       // calls by deleting them.
       barrierModulePM.add((ModulePass*)createRemoveDuplicationBarrierPass());
     }

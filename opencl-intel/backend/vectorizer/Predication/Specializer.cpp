@@ -19,7 +19,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/Version.h"
 #include "llvm/IR/IntrinsicInst.h"
 
 #include <stack>
@@ -157,16 +156,10 @@ void FunctionSpecializer::initializeBICost() {
 
 bool FunctionSpecializer::addHeuristics(const BasicBlock *BB) const {
   // Collect instruction amount metrics
-#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
-  CodeMetrics Metrics;
-  Metrics.analyzeBasicBlock(BB);
-  unsigned numInst = Metrics.NumInsts;
-#else
   // in LLVM3.3+ CodeMetrics requires target specific info. Since we don't have
   // it at this point, imported here the non target specific estimation from
   // the LLVM 3.2 implementation.
   unsigned numInst = estimateNumInsts(BB);
-#endif
 
   // Check whether there is a function call
   for (BasicBlock::const_iterator it = BB->begin(); it != BB->end(); it++) {

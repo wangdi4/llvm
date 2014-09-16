@@ -14,16 +14,15 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Pass.h"
 #include "llvm/IR/Type.h"
 #include "llvm/PassManager.h"
-#include "llvm/Version.h"
 
 using namespace llvm;
 
 
 namespace intel {
 
-///@brief 
+///@brief
 /// This pass takes an openCL scalar kernel and prepare it for vectorization
-/// it replaces scalar function calls with fake scalar function that are more 
+/// it replaces scalar function calls with fake scalar function that are more
 /// suitable for vectorization and root it's arguments and return value
 /// This Pass assumes runtime services of type OpenclRuntime
 class OCLBuiltinPreVectorizationPass : public FunctionPass {
@@ -33,15 +32,15 @@ public:
   static char ID;
   /// @brief C'tor
   OCLBuiltinPreVectorizationPass();
-  
+
   /// @brief D'tor
   ~OCLBuiltinPreVectorizationPass();
-  
+
   /// @brief Provides name of pass
   virtual const char *getPassName() const {
     return "OCL Builtin Pre Vectorization Pass";
   }
-  
+
   virtual bool runOnFunction(Function &M);
 
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
@@ -73,11 +72,7 @@ private:
   /// @param attrs - attributeList of function to insert
   /// @return inserted functuion declaration in curModule
   Function *getOrInsertDeclarationToModule(std::string &name, const FunctionType *fType,
-#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
-                                           const AttrListPtr &attrs);
-#else
                                            const AttributeSet &attrs);
-#endif
 
   /// @brief utility function that inserts a fake declaration to into m_curModule
   /// @param name - name of function to insert
@@ -99,7 +94,7 @@ private:
 
   ///@brief hold the instruction marked for removal
   std::vector<Instruction *> m_removedInsts;
-  
+
 
 
 };// OCLBuiltinPreVectorizationPass

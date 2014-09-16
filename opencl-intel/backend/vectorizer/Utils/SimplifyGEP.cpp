@@ -11,8 +11,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "VectorizerUtils.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
+
 #include "llvm/Support/InstIterator.h"
-#include "llvm/Version.h"
 #include "llvm/ADT/SmallVector.h"
 #include <vector>
 
@@ -37,11 +37,7 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
 
   bool SimplifyGEP::runOnFunction(Function &F) {
     // obtain TagetData of the module
-#if LLVM_VERSION == 3425
-    m_pDL = getAnalysisIfAvailable<TargetData>();
-#else
     m_pDL = getAnalysisIfAvailable<DataLayout>();
-#endif
 
     // Obtain WIAnalysis of the function
     m_depAnalysis = &getAnalysis<WIAnalysis>();
@@ -339,7 +335,9 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
       }
 
       // Leave this GEP as is if there are no uniform indices detected
-      if(uniformVals.empty()) return false;
+      if(uniformVals.empty())
+        return false;
+
       // Make uniform and divergent indices
       Value * uniformIdx   = makeIndexSum(uniformVals, pGEP, "uniformIdx");
       Value * divergentIdx = makeIndexSum(divergentVals, pGEP, "divergentIdx");
@@ -350,6 +348,9 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
                                                                     "uniformGEP", pGEP);
       GetElementPtrInst * pDivergentGEP = GetElementPtrInst::Create(pUniformGEP, divergentIdx,
                                                                     "divergentGEP", pGEP);
+
+      pUniformGEP->setIsInBounds(pGEP->isInBounds());
+      pDivergentGEP->setIsInBounds(pGEP->isInBounds());
       // Update the debug information
       VectorizerUtils::SetDebugLocBy(pUniformGEP, pGEP);
       VectorizerUtils::SetDebugLocBy(pDivergentGEP, pGEP);

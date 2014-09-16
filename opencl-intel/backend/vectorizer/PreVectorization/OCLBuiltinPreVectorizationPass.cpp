@@ -9,11 +9,11 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Mangler.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
+
 #include "llvm/Support/InstIterator.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/Version.h"
 
 namespace intel{
 
@@ -242,19 +242,9 @@ void OCLBuiltinPreVectorizationPass::handleReturnByPtrBuiltin(CallInst* CI, cons
   Type* retType = isOriginalFuncRetVector ?
     static_cast<Type*>(ArrayType::get(retValType, 2)) :
     static_cast<Type*>(VectorType::get(retValType, 2));
-#if LLVM_VERSION == 3200
-  SmallVector<Attributes, 4> attrs;
-  attrs.push_back(Attributes::get(CI->getContext(), Attributes::ReadNone));
-  attrs.push_back(Attributes::get(CI->getContext(), Attributes::NoUnwind));
-#elif LLVM_VERSION == 3425
-  SmallVector<Attributes, 4> attrs;
-  attrs.push_back(Attribute::ReadNone);
-  attrs.push_back(Attribute::NoUnwind);
-#else
   SmallVector<Attribute::AttrKind, 4> attrs;
   attrs.push_back(Attribute::ReadNone);
   attrs.push_back(Attribute::NoUnwind);
-#endif
   CallInst *newCall = VectorizerUtils::createFunctionCall(m_curModule, newFuncName, retType, args, attrs, CI);
   V_ASSERT(newCall && "adding function failed");
   SmallVector<Instruction*, 2> extractVals;
@@ -267,7 +257,7 @@ void OCLBuiltinPreVectorizationPass::handleReturnByPtrBuiltin(CallInst* CI, cons
       extractVals.push_back(ExtractElementInst::Create(newCall, constIndex, newFuncName + "_extract.", CI));
     }
   }
-  Type *retOrigType = (CI->getType()->isVoidTy()) ? 
+  Type *retOrigType = (CI->getType()->isVoidTy()) ?
     (cast<PointerType>(CI->getOperand(0)->getType()))->getElementType() : CI->getType();
   if (extractVals[0]->getType() != retOrigType) {
     //Assuming that original return value is with same size or larger than actual return value

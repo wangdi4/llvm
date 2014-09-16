@@ -9,7 +9,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/Version.h"
 #include <vector>
 
 
@@ -26,7 +25,7 @@ public:
   /// @param I instruction whose debug location will be set.
   /// @param setBy instruction from which debug location is gathered.
   static void SetDebugLocBy(Instruction *I, const Instruction *setBy);
-  
+
   /// @brief set debug location of I according to SetBy.
   /// @param I instruction whose debug location will be set.
   /// @param setBy instruction from which debug location is gathered.
@@ -46,7 +45,7 @@ public:
   /// @param CI The CALL instruction
   /// @return The root value if found, or NULL otherwise
   static Value *RootInputArgumentBySignature(Value *arg, unsigned int paramNum, CallInst *CI);
-  
+
   /// @brief Follow thru a function return argument, until its type matches the "expected" type
   /// @param retVal The actual returned value of the CALL inst
   /// @param rootType The desired (or "real") type to find
@@ -76,11 +75,7 @@ public:
   /// @param insertBefore instruction to insert new callInst before
   /// @return new call instruction
   static CallInst *createFunctionCall(Module *pModule, const std::string &name,
-#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
-    Type *retType, const SmallVectorImpl<Value *> &args, const SmallVectorImpl<Attributes>& attrs, Instruction* insertBefore);
-#else
     Type *retType, const SmallVectorImpl<Value *> &args, const SmallVectorImpl<Attribute::AttrKind>& attrs, Instruction* insertBefore);
-#endif
 
   /// @brief Creates a broadcast sequance (InsertElement + Shuffle)
   /// @param pVal value to prodcast
@@ -109,19 +104,19 @@ public:
 
   /// @brief convert given type (of pointer to arrays of scalar/vector)
   ///        to type (of pointer to arrays of vector/scalar).
-  /// @param type original type 
+  /// @param type original type
   /// @param width if 0 convert original type to scalar type,
   ///        otherwise packetize original type according to width.
   static Type* convertSoaAllocaType(Type *type, unsigned int width);
 
-  /// @brief Generate type-conversion and place in given location 
+  /// @brief Generate type-conversion and place in given location
   ///  but on debug accpets only cases size(orig) >= size(target)
   /// @param orig Source value
   /// @param targetType Target type to convert to
   /// @param insertPoint instruction to insert before
   static Instruction *ExtendValToType(Value *orig, Type *targetType, Instruction *insertPoint);
 
-  /// @brief Generate type-conversion and place in given location 
+  /// @brief Generate type-conversion and place in given location
   ///  but on debug accpets only cases size(orig) <= size(target)
   /// @param orig Source value
   /// @param targetType Target type to convert to
@@ -168,7 +163,7 @@ private:
   /// @returns converted val if possible, NULL otherwise.
   static Instruction *convertUsingShuffle(Value *v, const Type *realType, Instruction *loc);
 
-  /// @brief checks if any of the values in ValInChain can be coverted into 
+  /// @brief checks if any of the values in ValInChain can be coverted into
   ///        realType using shuffle vector instruction.
   /// @param valInChain - values to check.
   /// @realType - type to convert into.

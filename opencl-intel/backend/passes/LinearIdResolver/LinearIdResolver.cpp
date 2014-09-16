@@ -14,12 +14,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Constants.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Version.h"
-#if LLVM_VERSION == 3425
-#include "llvm/Target/TargetData.h"
-#else
 #include "llvm/IR/DataLayout.h"
-#endif
 
 #include <utility>
 
@@ -48,11 +43,7 @@ namespace intel {
     m_zero = ConstantInt::get(Type::getInt32Ty(F.getParent()->getContext()), 0);
     m_one  = ConstantInt::get(Type::getInt32Ty(F.getParent()->getContext()), 1);
     m_two  = ConstantInt::get(Type::getInt32Ty(F.getParent()->getContext()), 2);
-#if LLVM_VERSION == 3425
-    m_ret = IntegerType::get(M->getContext(), TargetData(M).getPointerSizeInBits());
-#else
     m_ret = IntegerType::get(M->getContext(), DataLayout(M).getPointerSizeInBits());
-#endif
 
     // looking for get_{global,local}_linear_id()
     for (inst_iterator itr = inst_begin(F);
@@ -99,7 +90,7 @@ namespace intel {
     // (get_global_id(0) – get_global_offset(0))
     //    ==
     // ((get_global_id(2) – get_global_offset(2))
-    //  * get_global_size(1) 
+    //  * get_global_size(1)
     //  + (get_global_id(1) – get_global_offset(1)))
     // * get_global_size(0)
     // + (get_global_id(0) – get_global_offset(0))
@@ -126,7 +117,7 @@ namespace intel {
 
     // ((get_global_id(2) – get_global_offset(2))
     BinaryOperator * op0 = BinaryOperator::Create(Instruction::Sub, gid2, gof2, "lgid.op0", insertBefore);
-    //  * get_global_size(1) 
+    //  * get_global_size(1)
     BinaryOperator * op1 = BinaryOperator::Create(Instruction::Mul, op0,  gsz1, "lgid.op1", insertBefore);
     //  + (get_global_id(1) – get_global_offset(1)))
     BinaryOperator * op2 = BinaryOperator::Create(Instruction::Sub, gid1, gof1, "lgid.op2", insertBefore);
@@ -143,12 +134,12 @@ namespace intel {
     // Replace get_local_linear_id() with the following sequence.
     // get_local_id(2) * get_local_size(1) * get_local_size(0) +
     // get_local_id(1) * get_local_size(0) +
-    // get_local_id(0) 
-    //    == 
+    // get_local_id(0)
+    //    ==
     // (get_local_id(2) * get_local_size(1)
     //  + get_local_id(1))
     // * get_local_size(0)
-    // + get_local_id(0) 
+    // + get_local_id(0)
     std::string idName   = CompilationUtils::mangledGetLID();
     std::string sizeName = CompilationUtils::mangledGetLocalSize();
 
@@ -167,9 +158,9 @@ namespace intel {
     BinaryOperator * op0 = BinaryOperator::Create(Instruction::Mul, lid2, lsz1, "llid.op0", insertBefore);
     //  + get_local_id(1))
     BinaryOperator * op1 = BinaryOperator::Create(Instruction::Add, op0, lid1, "llid.op1", insertBefore);
-    // * get_local_size(0) 
+    // * get_local_size(0)
     BinaryOperator * op2 = BinaryOperator::Create(Instruction::Mul, op1, lsz0, "llid.op2", insertBefore);
-    // + get_local_id(0) 
+    // + get_local_id(0)
     BinaryOperator * res = BinaryOperator::Create(Instruction::Add, op2, lid0, "llid.res", insertBefore);
     return res;
   }
