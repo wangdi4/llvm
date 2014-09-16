@@ -16,73 +16,61 @@ File Name:  OpenCLReferenceRunner.cpp
 
 \*****************************************************************************/
 
-#define DEBUG_TYPE "OpenCLReferenceRunner"
-
-#include <string>
-#include <exception>
-#include <vector>
-#include <list>
-#include <algorithm>
-#include "mem_utils.h"
-using std::exception;
+#include "BinaryDataReader.h"
+#include "BinaryDataWriter.h"
+#include "Buffer.h"
+#include "BufferContainerList.h"
+#include "CPUDetect.h"
+#include "ContainerCopier.h"
+#include "DataVersion.h"
+#include "Exception.h"
+#include "InterpreterPlugIn.h"
+#include "InterpreterPluggable.h"
+#include "OCLKernelDataGenerator.h"
+#include "OpenCLArgsBuffer.h"
+#include "OpenCLCompilationFlags.h"
+#include "OpenCLKernelArgumentsParser.h"
+#include "OpenCLProgram.h"
+#include "OpenCLReferenceRunner.h"
+#include "OpenCLRunConfiguration.h"
+#include "PlugInNEAT.h"
+#include "RunResult.h"
+#include "SATestException.h"
+#include "SystemInfo.h"
+#include "WorkGroupStorage.h"
+#include "WorkItemStorage.h"
+#include "XMLDataReader.h"
+#include "XMLDataWriter.h"
+#include "cl_device_api.h"
 #include "cpu_dev_limits.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
+#include "mem_utils.h"
+
+// Some header above icludes windows.h, which defines MemoryFence colliding
+// with LLVM's MemoryFence function definition.
+#undef MemoryFence
+
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/Interpreter.h"
-#include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
-// debug macros
-#include "llvm/Support/Debug.h"
-// Command line options
+#include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
-// mutex
 #include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Mutex.h"
 
-#include "RunResult.h"
-#include "OpenCLReferenceRunner.h"
-#include "OpenCLRunConfiguration.h"
-#include "SATestException.h"
-#include "OpenCLProgram.h"
-#include "cl_device_api.h"
-#include "SystemInfo.h"
-#include "CPUDetect.h"
-#include "Buffer.h"
-#include "XMLDataWriter.h"
-#include "XMLDataReader.h"
-#include "BinaryDataReader.h"
-#include "BinaryDataWriter.h"
-#include "BufferContainerList.h"
-#include "OpenCLArgsBuffer.h"
-#include "ContainerCopier.h"
-#include "OpenCLKernelArgumentsParser.h"
-#include "OCLKernelDataGenerator.h"
-#include "OpenCLCompilationFlags.h"
+#define DEBUG_TYPE "OpenCLReferenceRunner"
+#include "llvm/Support/Debug.h"
 
-#include "InterpreterPlugIn.h"
-#include "InterpreterPluggable.h"
-#include "PlugInNEAT.h"
-#include "WorkItemStorage.h"
-#include "WorkGroupStorage.h"
-
-#include "DataVersion.h"
-
-using namespace llvm;
-using std::string;
-
-extern "C" void LLVMLinkInInterpreterPluggable();
-
-using namespace Validation;
-using namespace Validation::Exception;
-using namespace llvm;
-using namespace Intel::OpenCL::DeviceBackend;
-using namespace Intel::OpenCL::DeviceBackend::Utils;
+#include <algorithm>
+#include <list>
+#include <string>
+#include <vector>
 
 //headers
 #if defined(__LP64__)
@@ -91,6 +79,14 @@ using namespace Intel::OpenCL::DeviceBackend::Utils;
 #elif defined(_WIN32)
 #include <windows.h>
 #endif
+
+extern "C" void LLVMLinkInInterpreterPluggable();
+
+using namespace Intel::OpenCL::DeviceBackend;
+using namespace Intel::OpenCL::DeviceBackend::Utils;
+using namespace Validation;
+using namespace Validation::Exception;
+using namespace llvm;
 
 static const size_t MAX_LOCAL_MEMORY_SIZE = 30000;
 // mutex for RunKernel to be thread-safe
@@ -359,7 +355,7 @@ void OpenCLReferenceRunner::ReadReferenceBuffer(OpenCLKernelConfiguration* pKern
     std::string filename = pKernelConfig->GetStampedPathReference();
     if( filename.empty() )
     {
-        throw Exception::IOError("BinaryContainerListReader: cannot open reference file");
+        throw Exception::ParserBadTypeException("ReadReferenceBuffer: reference file name is empty.");
     }
 
     ReadBufferContainer(pKernelConfig->GetStampedPathReference(),
@@ -375,7 +371,7 @@ void OpenCLReferenceRunner::ReadNEATBuffer(OpenCLKernelConfiguration* pKernelCon
     std::string filename = pKernelConfig->GetStampedPathNeat();
     if( filename.empty() )
     {
-        throw Exception::IOError("BinaryContainerListReader: cannot open NEAT file");
+        throw Exception::ParserBadTypeException("ReadNEATBuffer: NEAT file name is empty.");
     }
 
     ReadBufferContainer(pKernelConfig->GetStampedPathNeat(),
@@ -924,8 +920,8 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
             if (globalWGSizes[i] % localWGSizes[i] != 0 && wgSizeMustUniform)
             {
                 // SATest could get the value of localSize from .cfg only, so if globalWorkSize
-                // is not evenly divisible by localWorkSize, set localWGSizes to 1, then print 
-                // warning and continue working check 
+                // is not evenly divisible by localWorkSize, set localWGSizes to 1, then print
+                // warning and continue working check
                 // globalWGSizes[i] % localWGSizes[i] if it is not OCL 2.0
                 llvm::errs() << "[OpenCLReferenceRunner::RunKernel warning] workDim # "
                     << i << " globalWorkSize = " << globalWGSizes[i]
@@ -937,10 +933,10 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
         }
         else if (globalWGSizes[i] % localWGSizes[i] != 0 && wgSizeMustUniform)
         {
-            // throw exeption if it is not OCL 2.0, because 
+            // throw exeption if it is not OCL 2.0, because
             // globalWGSizes[i] % localWGSizes[i] != 0 is valid for OCL2.0
             std::ostringstream s;
-            s << "workDim # " << i << " globalWorkSize = " << globalWGSizes[i] << 
+            s << "workDim # " << i << " globalWorkSize = " << globalWGSizes[i] <<
             " is not evenly divisible by localWorkSize = " << localWGSizes[i] << "\n";
             throw TestReferenceRunnerException(s.str());
         }
