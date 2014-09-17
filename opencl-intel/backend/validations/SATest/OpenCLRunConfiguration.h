@@ -21,7 +21,9 @@ File Name:  OpenCLRunConfiguration.h
 #include <cstddef>      // for std::size_t not included in ICLDevBackendOptions.h! TODO: Remove when the bug is fixed.
 #include "ICLDevBackendOptions.h"
 #include "IRunConfiguration.h"
+
 #include "llvm/Support/DataTypes.h"
+
 #include <string>
 #include <vector>
 
@@ -62,8 +64,6 @@ namespace Validation
         // These are comparator related configurations
         RC_COMP_DETAILED_STAT,
         RC_COMP_ULP_TOLERANCE,
-
-
 
         RC_END
     };
