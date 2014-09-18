@@ -7,7 +7,6 @@ include_directories( BEFORE ${OCL_GLOBAL_INCLUDE} )
 add_subdirectory( tbb_native_test_type )
 add_subdirectory( cpu_device_test_type )
 add_subdirectory( framework_test_type )
-add_subdirectory( debugger_test_type )
 
 if (MSVC)
   add_subdirectory( vs_test_type )

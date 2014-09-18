@@ -183,6 +183,11 @@ else(LLVM_BUILD_APPLE_BACKEND)
             add_subdirectory(ocl_mic_executor "${CMAKE_CURRENT_BINARY_DIR}/ocl_mic_executor")
             add_subdirectory(MICJITEngine     "${CMAKE_CURRENT_BINARY_DIR}/MICJITEngine")
         endif ()
+
+        # Tests
+        add_subdirectory(tests/type_conversion)
+        add_subdirectory(tests/recorder)
+        add_subdirectory(tests/debugger_test_type)
     endif (LLVM_BUILD_OCL_CPU_BACKEND)
 
     # Validation utilities
@@ -192,10 +197,6 @@ else(LLVM_BUILD_APPLE_BACKEND)
     if (BACKEND_BUILD_VERIFICATION_LIB)
         add_subdirectory(external/tinyxml  "${CMAKE_CURRENT_BINARY_DIR}/tinyxml")
         add_subdirectory(validations       "${CMAKE_CURRENT_BINARY_DIR}/validations")
-
-        # Tests
-        add_subdirectory(tests/type_conversion)
-        add_subdirectory(tests/recorder)
 
         # copying MICRegression suite tests to install directory
         install(DIRECTORY ${BACKEND_ROOT_DIR}/tests/MIC/satest/mic/
