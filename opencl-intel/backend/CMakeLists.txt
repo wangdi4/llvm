@@ -192,7 +192,10 @@ else(LLVM_BUILD_APPLE_BACKEND)
     if (BACKEND_BUILD_VERIFICATION_LIB)
         add_subdirectory(external/tinyxml  "${CMAKE_CURRENT_BINARY_DIR}/tinyxml")
         add_subdirectory(validations       "${CMAKE_CURRENT_BINARY_DIR}/validations")
+
+        # Tests
         add_subdirectory(tests/type_conversion)
+        add_subdirectory(tests/recorder)
 
         # copying MICRegression suite tests to install directory
         install(DIRECTORY ${BACKEND_ROOT_DIR}/tests/MIC/satest/mic/

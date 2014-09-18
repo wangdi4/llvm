@@ -15,17 +15,14 @@ if (MSVC)
 endif (MSVC)
 
 add_subdirectory( SWTBot_test_type )
- 
+
 if(INCLUDE_TOOLS AND NOT ANDROID)
   add_subdirectory( tools_test_type)
   add_subdirectory( KFC_test_type )
   add_subdirectory( analyzer_test_type )
   if(BUILD_QTGUI)
     add_subdirectory( KBAPI_test_type)
-  ENDIF(BUILD_QTGUI)
-  if(NOT ANDROID)
-    add_subdirectory(recorder)
-  endif(NOT ANDROID)
+  endif(BUILD_QTGUI)
 endif(INCLUDE_TOOLS AND NOT ANDROID)
 
 add_subdirectory( task_executor_test_type )
@@ -35,18 +32,18 @@ if ( INCLUDE_MIC_DEVICE )
 endif( INCLUDE_MIC_DEVICE )
 
 if( USE_VALGRIND )
-    add_subdirectory( valgrind )
+  add_subdirectory( valgrind )
 endif( USE_VALGRIND )
 
 if (INCLUDE_CMRT)
-    message (STATUS "Adding Common runtime tests ...")
-    if (NOT ANDROID OR NOT BUILD_X64)
-        add_subdirectory ( common_runtime_test_type ) # until compilation errors are resolved
-    endif (NOT ANDROID OR NOT BUILD_X64)
+  message (STATUS "Adding Common runtime tests ...")
+  if (NOT ANDROID OR NOT BUILD_X64)
+    add_subdirectory ( common_runtime_test_type ) # until compilation errors are resolved
+  endif (NOT ANDROID OR NOT BUILD_X64)
 endif(INCLUDE_CMRT)
 
 #Samples
 option(INCLUDE_SMPLS "Include Samples into Build"  OFF)
 if (INCLUDE_SMPLS)
-    add_subdirectory( samples )
+  add_subdirectory( samples )
 endif(INCLUDE_SMPLS)
