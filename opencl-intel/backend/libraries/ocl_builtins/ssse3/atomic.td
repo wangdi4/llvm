@@ -6,8 +6,9 @@ code add_g = [{
   }];
 code add_l = [{
     // this implementation relies on that a workgroup is executed by single phy. thread
-    $ReturnType oldValue = *$Arg0VarName;
-    *$Arg0VarName = oldValue + $Arg1VarName;
+    local $ReturnType* tmp = (local $ReturnType*)$Arg0VarName;
+    $ReturnType oldValue = *tmp;
+    *tmp = oldValue + $Arg1VarName;
     return oldValue;
   }];
 code sub_g = [{
@@ -15,8 +16,9 @@ code sub_g = [{
   }];
 code sub_l = [{
     // this implementation relies on that a workgroup is executed by single phy. thread
-    $ReturnType oldValue = *$Arg0VarName;
-    *$Arg0VarName = oldValue - $Arg1VarName;
+    local $ReturnType* tmp = (local $ReturnType*)$Arg0VarName;
+    $ReturnType oldValue = *tmp;
+    *tmp = oldValue - $Arg1VarName;
     return oldValue;
   }];
 code xchg_g = [{
@@ -24,9 +26,10 @@ code xchg_g = [{
     return ($ReturnType)__sync_lock_test_and_set($Arg0VarName, $Arg1VarName);
   }];
 code xchg_l = [{
+    local $ReturnType* tmp = (local $ReturnType*)$Arg0VarName;
     // this implementation relies on that a workgroup is executed by single phy. thread
-    $ReturnType oldValue = *$Arg0VarName;
-    *$Arg0VarName = $Arg1VarName;
+    $ReturnType oldValue = *tmp;
+    *tmp = $Arg1VarName;
     return oldValue;
   }];
 code xchg_g_fp = [{
@@ -34,8 +37,6 @@ code xchg_g_fp = [{
     int ret = ( __sync_lock_test_and_set((intrin_type*)$Arg0VarName, *((int *)(&$Arg1VarName))) );
     return as_float(ret);
   }];
-
-
 
 code max_g = [{
     while (true)
@@ -47,8 +48,9 @@ code max_g = [{
     }
   }];
 code max_l = [{
-    $ReturnType oldValue = *$Arg0VarName;
-    *$Arg0VarName = (($Arg1VarName > oldValue) ? $Arg1VarName : oldValue);
+    local $ReturnType* tmp = (local $ReturnType*)$Arg0VarName;
+    $ReturnType oldValue = *tmp;
+    *tmp = (($Arg1VarName > oldValue) ? $Arg1VarName : oldValue);
     return oldValue;
   }];
 code min_g = [{
@@ -61,8 +63,9 @@ code min_g = [{
     }
   }];
 code min_l = [{
-    $ReturnType oldValue = *$Arg0VarName;
-    *$Arg0VarName = (($Arg1VarName < oldValue) ? $Arg1VarName : oldValue);
+    local $ReturnType* tmp = (local $ReturnType*)$Arg0VarName;
+    $ReturnType oldValue = *tmp;
+    *tmp = (($Arg1VarName < oldValue) ? $Arg1VarName : oldValue);
     return oldValue;
   }];
 
@@ -71,8 +74,9 @@ code inc_g = [{
   }];
 code inc_l = [{
     // this implementation relies on that a workgroup is executed by single phy. thread
-    $ReturnType oldValue = *$Arg0VarName;
-    *$Arg0VarName = oldValue + 1;
+    local $ReturnType* tmp = (local $ReturnType*)$Arg0VarName;
+    $ReturnType oldValue = *tmp;
+    *tmp = oldValue + 1;
     return oldValue;
   }];
 code dec_g = [{
@@ -80,8 +84,9 @@ code dec_g = [{
   }];
 code dec_l = [{
     // this implementation relies on that a workgroup is executed by single phy. thread
-    $ReturnType oldValue = *$Arg0VarName;
-    *$Arg0VarName = oldValue - 1;
+    local $ReturnType* tmp = (local $ReturnType*)$Arg0VarName;
+    $ReturnType oldValue = *tmp;
+    *tmp = oldValue - 1;
     return oldValue;
   }];
 code cmpxchg_g = [{
@@ -89,10 +94,11 @@ code cmpxchg_g = [{
   }];
 code cmpxchg_l = [{
     // this implementation relies on that a workgroup is executed by single phy. thread
-    $ReturnType oldValue = *$Arg0VarName;
+    local $ReturnType* tmp = (local $ReturnType*)$Arg0VarName;
+    $ReturnType oldValue = *tmp;
     if (oldValue == $Arg1VarName)
     {
-      *$Arg0VarName = $Arg2VarName;
+      *tmp = $Arg2VarName;
     }
     return oldValue;
   }];
@@ -101,8 +107,9 @@ code and_g = [{
   }];
 code and_l = [{
     // this implementation relies on that a workgroup is executed by single phy. thread
-    $ReturnType oldValue = *$Arg0VarName;
-    *$Arg0VarName = oldValue & $Arg1VarName;
+    local $ReturnType* tmp = (local $ReturnType*)$Arg0VarName;
+    $ReturnType oldValue = *tmp;
+    *tmp = oldValue & $Arg1VarName;
     return oldValue;
   }];
 code or_g = [{
@@ -110,8 +117,9 @@ code or_g = [{
   }];
 code or_l = [{
     // this implementation relies on that a workgroup is executed by single phy. thread
-    $ReturnType oldValue = *$Arg0VarName;
-    *$Arg0VarName = oldValue | $Arg1VarName;
+    local $ReturnType* tmp = (local $ReturnType*)$Arg0VarName;
+    $ReturnType oldValue = *tmp;
+    *tmp = oldValue | $Arg1VarName;
     return oldValue;
   }];
 code xor_g = [{
@@ -119,8 +127,9 @@ code xor_g = [{
   }];
 code xor_l = [{
     // this implementation relies on that a workgroup is executed by single phy. thread
-    $ReturnType oldValue = *$Arg0VarName;
-    *$Arg0VarName = oldValue ^ $Arg1VarName;
+    local $ReturnType* tmp = (local $ReturnType*)$Arg0VarName;
+    $ReturnType oldValue = *tmp;
+    *tmp = oldValue ^ $Arg1VarName;
     return oldValue;
   }];
 

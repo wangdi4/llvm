@@ -56,36 +56,36 @@ static const char* d3KernelName = "read_image3D_float4_first";
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 TYPED_TEST(Fission_VR8_CL_I_CL_UNORM_INT8, Image2DUseHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
 	ASSERT_NO_FATAL_FAILURE(test2DUseHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName, divisor, succDevicesNum));
 }
 
 TYPED_TEST(Fission_VR8_CL_I_CL_UNORM_INT8, Image2AllocHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
 	ASSERT_NO_FATAL_FAILURE(test2DAllocHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName, divisor, succDevicesNum));
 }
 
 TYPED_TEST(Fission_VR8_CL_I_CL_UNORM_INT8, Image2CopyHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
 	ASSERT_NO_FATAL_FAILURE(test2DCopyHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName, divisor, succDevicesNum));
 }
 
 TYPED_TEST(Fission_VR8_CL_I_CL_UNORM_INT8, Image3DUseHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
 	ASSERT_NO_FATAL_FAILURE(test3DUseHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName, divisor, succDevicesNum));
 }
 
 TYPED_TEST(Fission_VR8_CL_I_CL_UNORM_INT8, Image3DAllocHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
 	ASSERT_NO_FATAL_FAILURE(test3DAllocHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName, divisor, succDevicesNum));
 }
 
 TYPED_TEST(Fission_VR8_CL_I_CL_UNORM_INT8, Image3DCopyHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
 	ASSERT_NO_FATAL_FAILURE(test3DCopyHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName, divisor, succDevicesNum));
 }

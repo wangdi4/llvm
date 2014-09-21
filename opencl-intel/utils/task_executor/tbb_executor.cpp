@@ -39,9 +39,10 @@
 #include <tbb/task.h>
 #include <tbb/enumerable_thread_specific.h>
 #include "cl_shared_ptr.hpp"
-#include "base_command_list.hpp"
+#include "task_group.hpp"
 #include "tbb_execution_schedulers.h"
 #include "cl_user_logger.h"
+#include "base_command_list.hpp"
 
 // no local atexit handler - only global
 USE_SHUTDOWN_HANDLER(NULL);

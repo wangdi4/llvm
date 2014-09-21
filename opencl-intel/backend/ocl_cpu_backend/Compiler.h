@@ -36,7 +36,6 @@ namespace llvm {
 extern bool s_ignore_termination;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
 class BuiltinLibrary;
 class BuiltinModule;
 class ProgramBuildResult;
@@ -78,19 +77,7 @@ private:
 class CompilerBuildOptions
 {
 public:
-    CompilerBuildOptions( bool debugInfo,
-                          bool profiling,
-                          bool disableOpt,
-                          bool relaxedMath,
-                          bool libraryModule,
-                          int  APFLevel):
-      m_debugInfo(debugInfo),
-      m_profiling(profiling),
-      m_disableOpt(disableOpt),
-      m_relaxedMath(relaxedMath),
-      m_libraryModule(libraryModule),
-      m_APFLevel(APFLevel)
-    {}
+    CompilerBuildOptions( llvm::Module* pModule);
 
     bool GetDisableOpt()    const { return m_disableOpt; }
     bool GetDebugInfoFlag() const { return m_debugInfo; }
@@ -98,12 +85,14 @@ public:
     bool GetRelaxedMath()   const { return m_relaxedMath; }
     bool GetlibraryModule() const { return m_libraryModule; }
     int  GetAPFLevel()      const { return m_APFLevel; }
+    bool GetDenormalsZero() const { return m_denormalsZero;}
 
 private:
     bool m_debugInfo;
     bool m_profiling;
     bool m_disableOpt;
     bool m_relaxedMath;
+    bool m_denormalsZero;
     // Sets whether optimized code is library module or a set of kernels
     // If this options is set to true then some optimization passes will be skipped
     bool m_libraryModule;
@@ -170,15 +159,13 @@ public:
     /**
      * Build the given program using the supplied build options
      */
-    llvm::Module* BuildProgram(llvm::MemoryBuffer* pIRBuffer,
-                               const CompilerBuildOptions* pOptions,
+    llvm::Module* BuildProgram(llvm::Module*,
                                ProgramBuildResult* pResult);
 
     const CPUId &GetCpuId() const
     {
         return m_CpuId;
     }
-
 
     // Create execution engine
     virtual void CreateExecutionEngine(llvm::Module* m)  = 0;
@@ -210,7 +197,6 @@ protected:
     std::vector<int>         m_IRDumpAfter;
     std::vector<int>         m_IRDumpBefore;
     std::string              m_IRDumpDir;
-    bool                     m_needLoadBuiltins;
     bool                     m_dumpHeuristicIR;
     bool                     m_debug;
 
@@ -228,5 +214,4 @@ private:
 };
 
 void UpdateTargetTriple(llvm::Module *pModule);
-
 }}}

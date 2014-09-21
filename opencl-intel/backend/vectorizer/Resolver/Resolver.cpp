@@ -18,7 +18,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/Version.h"
 
 #include <vector>
 
@@ -382,22 +381,18 @@ bool FuncResolver::isResolvedMaskedLoad(CallInst* caller) {
     // If there is a matching BI function - call it instead of fake function call
     SmallVector<Value*, 8> args;
     // at first, extend mask to the size expected by BI functions
-    Instruction* extMask = extendMaskAsBIParameter(loadFuncRT, Mask); 
+    Instruction* extMask = extendMaskAsBIParameter(loadFuncRT, Mask);
     VectorizerUtils::SetDebugLocBy(extMask, caller);
     extMask->insertBefore(caller);
     // then, convert data pointer to target address space
     Instruction* memPtr = adjustPtrAddressSpace(loadFuncRT, Ptr);
     VectorizerUtils::SetDebugLocBy(memPtr, caller);
     memPtr->insertBefore(caller);
-    args.push_back(memPtr); 
+    args.push_back(memPtr);
     args.push_back(extMask);
     CallInst* newCall = VectorizerUtils::createFunctionCall(
-            caller->getParent()->getParent()->getParent(), funcName, 
-#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
-            caller->getType(), args, SmallVector<Attributes, 4>(), caller);
-#else
+            caller->getParent()->getParent()->getParent(), funcName,
             caller->getType(), args, SmallVector<Attribute::AttrKind, 4>(), caller);
-#endif
     caller->replaceAllUsesWith(newCall);
     caller->eraseFromParent();
     return true;
@@ -501,10 +496,10 @@ bool FuncResolver::isResolvedMaskedStore(CallInst* caller) {
   Function* storeFuncRT = m_rtServices->findInRuntimeModule(funcName);
 
   if (storeFuncRT) {
-    // If there is a matching BI function - call it instead of fake function call 
+    // If there is a matching BI function - call it instead of fake function call
     SmallVector<Value*, 8> args;
     // at first, extend mask to the size expected by BI functions
-    Instruction* extMask = extendMaskAsBIParameter(storeFuncRT, Mask); 
+    Instruction* extMask = extendMaskAsBIParameter(storeFuncRT, Mask);
     VectorizerUtils::SetDebugLocBy(extMask, caller);
     extMask->insertBefore(caller);
     // then, convert data pointer to target address space
@@ -515,12 +510,8 @@ bool FuncResolver::isResolvedMaskedStore(CallInst* caller) {
     args.push_back(Data);
     args.push_back(extMask);
     (void) VectorizerUtils::createFunctionCall(
-            caller->getParent()->getParent()->getParent(), funcName, 
-#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
-            caller->getType(), args, SmallVector<Attributes, 4>(), caller);
-#else
+            caller->getParent()->getParent()->getParent(), funcName,
             caller->getType(), args, SmallVector<Attribute::AttrKind, 4>(), caller);
-#endif
     // no need in 'funcName' call instruction value - as it has void result
     caller->eraseFromParent();
     return true;
@@ -564,32 +555,19 @@ void FuncResolver::resolveFunc(CallInst* caller) {
     func, ArrayRef<Value*>(params), "", caller);
   //Update new call instruction with calling convention and attributes
   pcall->setCallingConv(caller->getCallingConv());
-#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
-  for (unsigned int i=1; i < caller->getNumArgOperands(); ++i) {
-    //Parameter attributes starts with index 1-NumOfParams
-    unsigned int idx = i+1;
-    //pcall starts with mask argument, skip it when setting original argument attributes.
-    pcall->addAttribute(idx - 1, caller->getAttributes().getParamAttributes(idx));
-  }
-  //set function attributes of pcall
-  pcall->addAttribute(~0, caller->getAttributes().getFnAttributes());
-  //set return value attributes of pcall
-  pcall->addAttribute(0, caller->getAttributes().getRetAttributes());
-#else
   AttributeSet as;
   AttributeSet callAttr = caller->getAttributes();
   for (unsigned int i=0; i < caller->getNumArgOperands(); ++i) {
     //Parameter attributes starts with index 1-NumOfParams
     unsigned int idx = i+1;
     //pcall starts with mask argument, skip it when setting original argument attributes.
-	  as.addAttributes(func->getContext(), 1 + idx, callAttr.getParamAttributes(idx));
+    as.addAttributes(func->getContext(), 1 + idx, callAttr.getParamAttributes(idx));
   }
   //set function attributes of pcall
   as.addAttributes(func->getContext(), AttributeSet::FunctionIndex, callAttr.getFnAttributes());
   //set return value attributes of pcall
   as.addAttributes(func->getContext(), AttributeSet::ReturnIndex, callAttr.getRetAttributes());
   pcall->setAttributes(as);
-#endif
   VectorizerUtils::SetDebugLocBy(pcall, caller);
   caller->replaceAllUsesWith(pcall);
   // Replace predicate with control flow

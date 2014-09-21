@@ -602,6 +602,12 @@ int TEDevice::GetConcurrency() const
     return m_deviceDescriptor.uiThreadsPerLevel[0];
 }
 
+bool TEDevice::IsCurrentThreadInArena() const
+{
+    TBB_PerActiveThreadData* tls = GetTaskExecutor().GetThreadManager().GetCurrentThreadDescriptor();
+    return !(NULL == tls || NULL == tls->device || this != tls->device);
+}
+
 #ifdef __HARD_TRAPPING__
 
 struct TrapperRunner

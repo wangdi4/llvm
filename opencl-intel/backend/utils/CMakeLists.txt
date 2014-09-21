@@ -57,6 +57,7 @@ set (TARGET_SOURCE_FILES
 )
 
 include_directories(
+  ${LLVM_INCLUDE_DIRS}
   ${BACKEND_ROOT_DIR}/../cl_api
   ${BACKEND_ROOT_DIR}/name_mangling
   ${BACKEND_ROOT_DIR}/metadata_api

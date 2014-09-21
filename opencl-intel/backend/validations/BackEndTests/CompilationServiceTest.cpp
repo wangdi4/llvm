@@ -36,11 +36,13 @@ TEST_F(BackEndTests_CompilationService, CreateProgramSuccess)
     // load pre created bitcode buffer in correct format - with kernels
     std::auto_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper.get());
-    const cl_prog_container_header* pHeader = pBackendWrapper->CreateProgramContainer(FILE_BC_WITH_KERNELS);
-    ASSERT_TRUE(pHeader);
-    // call CreateProgram with valid parameters - should success
+    std::vector<char> program;
+    pBackendWrapper->CreateProgramContainer(FILE_BC_WITH_KERNELS, program);
+    ASSERT_TRUE(program.size() > 0);
+
+    // create the program with valid parameters - should success
     ICLDevBackendProgram_* pProgram = NULL;
-    ret = pCompileService->CreateProgram(pHeader, &pProgram);
+    ret = pCompileService->CreateProgram(program.data(), program.size(), &pProgram);
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
 }
 
@@ -63,11 +65,13 @@ TEST_F(BackEndTests_CompilationService, CreateProgramNoKernels)
     // load pre created bitcode buffer in correct format - with no kernels
     std::auto_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper.get());
-    const cl_prog_container_header* pHeader = pBackendWrapper->CreateProgramContainer(FILE_BC_NO_KERNELS);
-    ASSERT_TRUE(pHeader);
-    // call CreateProgram with valid parameters - should success
+    std::vector<char> program;
+    pBackendWrapper->CreateProgramContainer(FILE_BC_NO_KERNELS, program);
+    ASSERT_TRUE(program.size() > 0);
+
+    // create the program with valid parameters - should success
     ICLDevBackendProgram_* pProgram = NULL;
-    ret = pCompileService->CreateProgram(pHeader, &pProgram);
+    ret = pCompileService->CreateProgram(program.data(), program.size(), &pProgram);
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
 }
 
@@ -90,7 +94,7 @@ TEST_F(BackEndTests_CompilationService, CreateProgramFailure)
     // call the CreateProgram with invalid parameters - NULL in pByteCodeContainer
     ICLDevBackendProgram_* pProgram = NULL;
     // invalid parameters - should fail with no crash
-    ret = pCompileService->CreateProgram(NULL, &pProgram);
+    ret = pCompileService->CreateProgram(NULL, 0, &pProgram);
     EXPECT_NE(CL_DEV_SUCCESS, ret);
 
 
@@ -99,10 +103,11 @@ TEST_F(BackEndTests_CompilationService, CreateProgramFailure)
     // load pre created bitcode buffer in correct format
     std::auto_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper.get());
-    const cl_prog_container_header* pHeader = pBackendWrapper.get()->CreateProgramContainer(FILE_BC_WITH_KERNELS);
-    ASSERT_TRUE(pHeader);
+    std::vector<char> program;
+    pBackendWrapper->CreateProgramContainer(FILE_BC_WITH_KERNELS, program);
+    ASSERT_TRUE(program.size() > 0);
     // invalid parameters - should fail with no crash
-    ret = pCompileService->CreateProgram(pHeader, NULL);
+    ret = pCompileService->CreateProgram(program.data(), program.size(), NULL);
     EXPECT_NE(CL_DEV_SUCCESS, ret);
 }
 
@@ -129,10 +134,11 @@ TEST_F(BackEndTests_CompilationService, BuildProgramSuccess)
     // create & build program with valid parameters - with kernels - valid options
     std::auto_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper.get());
-    const cl_prog_container_header* pHeader = pBackendWrapper->CreateProgramContainer(FILE_BC_WITH_KERNELS);
-    ASSERT_TRUE(pHeader);
+    std::vector<char> program;
+    pBackendWrapper->CreateProgramContainer(FILE_BC_WITH_KERNELS, program);
+    ASSERT_TRUE(program.size() > 0);
     ICLDevBackendProgram_* pProgram = NULL;
-    ret = pCompileService->CreateProgram(pHeader, &pProgram);
+    ret = pCompileService->CreateProgram(program.data(), program.size(), &pProgram);
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
     // call BuildProgram with valid parameters - should success
     ret = pCompileService->BuildProgram(pProgram, &buildOptions);
@@ -145,10 +151,11 @@ TEST_F(BackEndTests_CompilationService, BuildProgramSuccess)
     // create & build program with valid parameters - with no kernels - valid options
     std::auto_ptr<BackendWrapper> pBackendWrapper2(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper2.get());
-    const cl_prog_container_header* pHeader2 = pBackendWrapper2->CreateProgramContainer(FILE_BC_NO_KERNELS);
-    ASSERT_TRUE(pHeader2);
+    std::vector<char> program2;
+    pBackendWrapper2->CreateProgramContainer(FILE_BC_NO_KERNELS, program2);
+    ASSERT_TRUE(program2.size() > 0);
     ICLDevBackendProgram_* pProgram2 = NULL;
-    ret = pCompileService->CreateProgram(pHeader2, &pProgram2);
+    ret = pCompileService->CreateProgram(program2.data(), program2.size(), &pProgram2);
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
     // call BuildProgram with valid parameters - should success
     ret = pCompileService->BuildProgram(pProgram2, &buildOptions);
@@ -161,10 +168,11 @@ TEST_F(BackEndTests_CompilationService, BuildProgramSuccess)
     // create & build program with valid parameters - with kernels - NULL options
     std::auto_ptr<BackendWrapper> pBackendWrapper3(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper3.get());
-    const cl_prog_container_header* pHeader3 = pBackendWrapper3->CreateProgramContainer(FILE_BC_WITH_KERNELS);
-    ASSERT_TRUE(pHeader3);
+    std::vector<char> program3;
+    pBackendWrapper3->CreateProgramContainer(FILE_BC_WITH_KERNELS, program3);
+    ASSERT_TRUE(program3.size() > 0);
     ICLDevBackendProgram_* pProgram3 = NULL;
-    ret = pCompileService->CreateProgram(pHeader3, &pProgram3);
+    ret = pCompileService->CreateProgram(program3.data(), program3.size(), &pProgram3);
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
     // call BuildProgram with valid parameters - should success
     ret = pCompileService->BuildProgram(pProgram3, NULL);
@@ -177,10 +185,12 @@ TEST_F(BackEndTests_CompilationService, BuildProgramSuccess)
     // create & build program with valid parameters - with no kernels - NULL options
     std::auto_ptr<BackendWrapper> pBackendWrapper4(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper4.get());
-    const cl_prog_container_header* pHeader4 = pBackendWrapper4->CreateProgramContainer(FILE_BC_NO_KERNELS);
-    ASSERT_TRUE(pHeader4);
+    std::vector<char> program4;
+    pBackendWrapper4->CreateProgramContainer(FILE_BC_NO_KERNELS, program4);
+    ASSERT_TRUE(program4.size() > 0);
+
     ICLDevBackendProgram_* pProgram4 = NULL;
-    ret = pCompileService->CreateProgram(pHeader4, &pProgram4);
+    ret = pCompileService->CreateProgram(program4.data(), program4.size(), &pProgram4);
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
     // call BuildProgram with valid parameters - should success
     ret = pCompileService->BuildProgram(pProgram4,NULL);
@@ -208,11 +218,13 @@ TEST_F(BackEndTests_CompilationService, BuildProgramFailure)
     // create program with invalid bitcode
     std::auto_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper.get());
-    const cl_prog_container_header* pHeader = pBackendWrapper->CreateProgramContainer(FILE_BC_NOISE);
-    ASSERT_TRUE(pHeader);
+    std::vector<char> program;
+    pBackendWrapper->CreateProgramContainer(FILE_BC_NOISE, program);
+    ASSERT_TRUE(program.size() > 0);
+
     ICLDevBackendProgram_* pProgram = NULL;
-    ret = pCompileService->CreateProgram(pHeader, &pProgram);
-    EXPECT_EQ(CL_DEV_SUCCESS, ret);
+    ret = pCompileService->CreateProgram(program.data(), program.size(), &pProgram);
+    EXPECT_NE(CL_DEV_SUCCESS, ret);
     // call BuildProgram with invalid bitcode - should fail
     ret = pCompileService->BuildProgram(pProgram, NULL);
     EXPECT_NE(CL_DEV_SUCCESS, ret);

@@ -51,11 +51,13 @@ QueueEvent::QueueEvent(const SharedPtr<IOclCommandQueueBase>& cmdQueue) :
     m_sProfilingInfo.m_ulCommandSubmit    = 0;
     m_sProfilingInfo.m_ulCommandStart     = 0;
     m_sProfilingInfo.m_ulCommandEnd       = 0;
+    m_sProfilingInfo.m_ulCommandComplete  = 0;
 
     m_bCommandQueuedValid = false;
     m_bCommandSubmitValid = false;
     m_bCommandStartValid  = false;
     m_bCommandEndValid    = false;
+    m_bCommandCompleteValid = false;
     m_bVisibleToUser      = false;
 
     if (cmdQueue != NULL)
@@ -203,6 +205,13 @@ cl_err_code QueueEvent::GetProfilingInfo(cl_profiling_info clParamName, size_t s
         }
         ulProfilingInfo = m_sProfilingInfo.m_ulCommandEnd;
         break;
+    case CL_PROFILING_COMMAND_COMPLETE:
+        if (eventStatus > CL_COMPLETE)
+        {
+            return CL_PROFILING_INFO_NOT_AVAILABLE;
+        }
+        ulProfilingInfo = m_sProfilingInfo.m_ulCommandComplete;
+        break;
     default:
         return CL_INVALID_VALUE;
     }
@@ -264,6 +273,15 @@ void QueueEvent::SetProfilingInfo(cl_profiling_info clParamName, cl_ulong ulData
             m_bCommandEndValid = true;
         }
         break;
+
+    case CL_PROFILING_COMMAND_COMPLETE:
+        if (!m_bCommandCompleteValid || m_sProfilingInfo.m_ulCommandComplete < ulData)
+        {
+            m_sProfilingInfo.m_ulCommandComplete = ulData;
+            m_bCommandEndValid = true;
+        }
+        break;
+
     default:
         break;
     }
@@ -291,6 +309,11 @@ void QueueEvent::IncludeProfilingInfo( const SharedPtr<QueueEvent>& other )
     if (other->m_bCommandEndValid)
     {
         SetProfilingInfo( CL_PROFILING_COMMAND_END,    other->m_sProfilingInfo.m_ulCommandEnd );
+    }
+
+    if (other->m_bCommandCompleteValid)
+    {
+        SetProfilingInfo(CL_PROFILING_COMMAND_COMPLETE, other->m_sProfilingInfo.m_ulCommandComplete);
     }
 }
 

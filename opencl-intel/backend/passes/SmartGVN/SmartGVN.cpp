@@ -24,11 +24,7 @@ File Name:  SmartGVN.cpp
 #include <llvm/PassManager.h>
 #include <llvm/Transforms/Scalar.h>
 #include <llvm/IR/Instructions.h>
-#if LLVM_VERSION == 3425
-#include <llvm/Target/TargetData.h>
-#else
 #include <llvm/IR/DataLayout.h>
-#endif
 #include <llvm/Analysis/Passes.h>
 #include <llvm/Support/CommandLine.h>
 
@@ -67,11 +63,7 @@ bool SmartGVN::runOnModule(Module &M)
 
   { // With NoLoads option on - it will not hoist loads out of the loops.
     PassManager pm;
-#if LLVM_VERSION == 3425
-    pm.add(new TargetData(&M));
-#else
     pm.add(new DataLayout(&M));
-#endif
     pm.add(llvm::createBasicAliasAnalysisPass());
     pm.add(new llvm::DominatorTree());
     pm.add(llvm::createMemoryDependenceAnalysisPass(memoryDependencyAnalysisThreshold));

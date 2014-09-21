@@ -172,6 +172,7 @@ IcdDispatchMgr::IcdDispatchMgr()
     REGISTER_DISPATCH_ENTRYPOINT( clSetKernelExecInfo , clSetKernelExecInfo )
 
     REGISTER_DISPATCH_ENTRYPOINT( clCreateSamplerWithProperties , clCreateSamplerWithProperties )
+    REGISTER_DISPATCH_ENTRYPOINT( clCreateCommandQueueWithProperties , clCreateCommandQueueWithProperties)
 
     //disabling this now as there is no CPU nor GPU support
     //when reenabling GPU support a check must be added in clGetKernelSubGroupInfoKHR implementation

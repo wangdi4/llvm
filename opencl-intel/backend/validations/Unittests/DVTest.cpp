@@ -17,6 +17,7 @@ File Name: DVTest.cpp
 
 #include <gtest/gtest.h>
 #include "cl_types.h"
+#include "common_clang.h"
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
@@ -34,6 +35,7 @@ File Name: DVTest.cpp
 
 using namespace Intel::OpenCL::DeviceBackend::Utils;
 using namespace Intel::OpenCL::FECompilerAPI;
+using namespace Intel::OpenCL::ClangFE;
 using namespace Validation;
 
 enum TestSamplerType {
@@ -171,9 +173,8 @@ static void  testFindSamplers(std::string sourceIn, std::vector<unsigned int >& 
     const void* binaryBuff;
     size_t binaryBuffsize;
 
-    const size_t bufferLen = sizeof(_cl_prog_container_header) + sizeof(cl_llvm_prog_header);
-    binaryBuff = (char*)pBinary->GetIR() + bufferLen;
-    binaryBuffsize   = pBinary->GetIRSize() - bufferLen;
+    binaryBuff = (char*)pBinary->GetIR();
+    binaryBuffsize   = pBinary->GetIRSize();
 
     llvm::SMDiagnostic err;
     llvm::LLVMContext  ctxt;
@@ -348,9 +349,8 @@ TEST(DataVersionTest, DISABLED_ConvertData) /* CSSD100018373 */ {
     const void* binaryBuff;
     size_t binaryBuffsize;
 
-    const size_t bufferLen = sizeof(_cl_prog_container_header) + sizeof(cl_llvm_prog_header);
-    binaryBuff = (char*)pBinary->GetIR() + bufferLen;
-    binaryBuffsize   = pBinary->GetIRSize() - bufferLen;
+    binaryBuff = (char*)pBinary->GetIR();
+    binaryBuffsize   = pBinary->GetIRSize();
 
     llvm::SMDiagnostic err;
     llvm::LLVMContext  ctxt;

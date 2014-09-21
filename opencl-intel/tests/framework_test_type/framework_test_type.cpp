@@ -500,13 +500,15 @@ TEST(FrameworkTestType, Test_cl_uniteWG_VectorizeOnDiffentDim)
     EXPECT_TRUE(clCheckVectorizingDim1And2AndUniteWG(1,false));
     EXPECT_TRUE(clCheckVectorizingDim1And2AndUniteWG(0,true));
     EXPECT_TRUE(clCheckVectorizingDim1And2AndUniteWG(1,true));
-    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(0,true));
-    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(1,true));
-    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(2,true));
-    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(3,true));
-    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(0,false));
-    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(1,false));
-    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(2,false));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(0,true,false));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(1,true,false));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(2,true,false));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(3,true,false));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(0,false,false));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(1,false,false));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(2,false,false));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(4,false,false));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(4,false,true));
 }
 
 #endif

@@ -30,17 +30,15 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class ObjectCodeContainer : public ICLDevBackendCodeContainer
 {
 public:
-    ObjectCodeContainer(const cl_prog_container_header* pObjectCodeContainer);
+    ObjectCodeContainer(const void *pBinary, size_t uiBinarySize);
     ~ObjectCodeContainer();
 
     const void* GetCode() const;
     size_t GetCodeSize() const;
 
-    const void* GetObject() const;
-    size_t GetObjectSize() const;
-
 private:
-    cl_prog_container_header* m_pObjectCodeContainer; 
+    char* m_pBinary;
+    size_t m_uiBinarySize;
 
     // Klockwork Issue
     ObjectCodeContainer ( const ObjectCodeContainer& x );

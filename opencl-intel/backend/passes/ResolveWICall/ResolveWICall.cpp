@@ -13,15 +13,11 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CallbackDesc.h"
 
 #include "llvm/Support/InstIterator.h"
-#include "llvm/Version.h"
-#if LLVM_VERSION == 3425
-#include "llvm/Target/TargetData.h"
-#else
 #include "llvm/IR/DataLayout.h"
-#endif
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/IRBuilder.h"
+
 #include <algorithm>
 
 using namespace Intel::OpenCL::DeviceBackend;
@@ -314,11 +310,7 @@ namespace intel {
   Value* ResolveWICall::updatePrintf(CallInst *pCall) {
 
     assert( m_pRuntimeHandle && "Context pointer m_pRuntimeHandle created as expected" );
-#if LLVM_VERSION == 3425
-    TargetData DL(m_pModule);
-#else
     DataLayout DL(m_pModule);
-#endif
 
     // Find out the buffer size required to store all the arguments.
     // Note: CallInst->getNumOperands() returns the number of operands in
@@ -418,11 +410,7 @@ namespace intel {
 
   void ResolveWICall::updatePrefetch(llvm::CallInst *pCall) {
 
-#if LLVM_VERSION == 3425
-    TargetData DL(m_pModule);
-#else
     DataLayout DL(m_pModule);
-#endif
 
     unsigned int uiSizeT = m_pModule->getPointerSize()*32;
 
@@ -598,8 +586,8 @@ namespace intel {
           assert(bufSizeTy->isIntegerTy() && "enqueue_kernel():: local buffer size argument expected to be uint type");
           // replace noninteger with zero
           if(!bufSizeTy->isIntegerTy()) {
-            errs() << "WARNING: " << 
-              "enqueue_kernel():: local buffer size argument expected to be uint type" << 
+            errs() << "WARNING: " <<
+              "enqueue_kernel():: local buffer size argument expected to be uint type" <<
               "setting argument " << bufSize << " to zero\n";
             bufSize = ConstantInt::get(Type::getInt32Ty(m_pModule->getContext()), APInt(32, 0));
           }

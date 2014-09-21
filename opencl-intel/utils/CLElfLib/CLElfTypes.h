@@ -24,14 +24,10 @@ Abstract:  Defines the types used for ELF headers/sections.  This uses
            System V Application Binary Interface - DRAFT - 19 October 2010 as
            a reference as well as LLVM's ELF.h to ensure compatibility.
 
-Notes: 
+Notes:
 
 \******************************************************************************/
 #pragma once
-
-#ifdef __linux__
-    #include "os_inc.h"
-#endif
 
 #if !defined(_MSC_VER) // || (_MSC_VER >= 1700) // NOTE: This header will most likely be supported in MSVC 2012
     #include <inttypes.h>
@@ -86,7 +82,8 @@ enum E_EH_TYPE
     EH_TYPE_OPENCL_SOURCE        = 0xff01, // format used to pass CL text sections to FE
     EH_TYPE_OPENCL_OBJECTS       = 0xff02, // format used to pass LLVM objects / store LLVM binary output
     EH_TYPE_OPENCL_LIBRARY       = 0xff03, // format used to store LLVM archive output
-    EH_TYPE_OPENCL_EXECUTABLE    = 0xff04 // format used to store executable output
+    EH_TYPE_OPENCL_EXECUTABLE    = 0xff04, // format used to store executable output
+    EH_TYPE_OPENCL_LINKED_OBJECTS= 0xff05  // format used to store LLVM IR after link
 };
 
 // E_EH_MACHINE - List of pre-defined machine types.
@@ -219,5 +216,4 @@ struct SElf64SectionHeader
     Elf64_Xword   Alignment;
     Elf64_Xword   EntrySize;
 };
-
 } // namespace ELFlib

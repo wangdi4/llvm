@@ -18,7 +18,6 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //  program_service.cpp
 //  Implementation of the Program service class
@@ -37,12 +36,26 @@
 #include "cl_shared_ptr.hpp"
 #include "Device.h"
 #include "cl_user_logger.h"
+#include "ElfWriter.h"
+#include "cl_autoptr_ex.h"
 #include <cl_local_array.h>
 
 #include <string>
 
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
+
+//
+// ElfWriterDP- ElfWriter delete policy for autoptr.
+//
+struct ElfWriterDP
+{
+    static void Delete(CLElfLib::CElfWriter* pElfWriter)
+    {
+        CLElfLib::CElfWriter::Delete(pElfWriter);
+    }
+};
+typedef auto_ptr_ex<CLElfLib::CElfWriter, ElfWriterDP> ElfWriterPtr;
 
 // In this file we use CompileTask, LinkTask and PostBuildTask as building blocks to create a general build tree.
 //
@@ -92,7 +105,6 @@ void BuildTask::SetComplete(cl_int returnCode)
     BuildEvent::SetComplete(returnCode);
 }
 
-
 ///////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -117,19 +129,20 @@ CompileTask::~CompileTask()
 
 bool CompileTask::Execute()
 {
-    char* pOutBinary = NULL;
+    auto_ptr_ex<char, ArrayDP<char> > pOutBinary;
+    auto_ptr_ex<char, ArrayDP<char> > szOutCompileLog;
     size_t uiOutBinarySize = 0;
-    char* szOutCompileLog = NULL;
 
     m_pDeviceProgram->SetBuildLogInternal("Compilation started\n");
     m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_FE_COMPILING);
 
-    // check if program contains spir binary
-    if (m_pDeviceProgram->GetBinaryTypeInternal() == CL_PROGRAM_BINARY_TYPE_INTERMEDIATE)
+    // check if program contains already compiled data
+    if (m_pDeviceProgram->GetBinaryTypeInternal() == CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT ||
+        m_pDeviceProgram->GetBinaryTypeInternal() == CL_PROGRAM_BINARY_TYPE_INTERMEDIATE ||
+        m_pDeviceProgram->GetBinaryTypeInternal() == CL_PROGRAM_BINARY_TYPE_LIBRARY)
     {
         // we have spir binary, no need for FE compilation
         m_pDeviceProgram->SetBuildLogInternal("Compilation done\n");
-        m_pDeviceProgram->SetBinaryTypeInternal(CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT);
         SetComplete(CL_BUILD_SUCCESS);
         return true;
     }
@@ -149,20 +162,18 @@ bool CompileTask::Execute()
                                   m_pszHeaders,
                                   m_pszHeadersNames,
                                   m_sOptions.c_str(),
-                                  &pOutBinary,
+                                  pOutBinary.getOutPtr(),
                                   &uiOutBinarySize,
-                                  &szOutCompileLog);
+                                  szOutCompileLog.getOutPtr());
 
-
-    if (NULL != szOutCompileLog)
+    if (NULL != szOutCompileLog.get())
     {
-        m_pDeviceProgram->SetBuildLogInternal(szOutCompileLog);
-        delete[] szOutCompileLog;
+        m_pDeviceProgram->SetBuildLogInternal(szOutCompileLog.get());
     }
 
     if (0 == uiOutBinarySize)
     {
-        assert( NULL == pOutBinary);
+        assert( NULL == pOutBinary.get());
         //Build failed
         m_pDeviceProgram->SetBuildLogInternal("Compilation failed\n");
         m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_COMPILE_FAILED);
@@ -170,12 +181,60 @@ bool CompileTask::Execute()
         return true;
     }
 
-    //Else compile succeeded
-    m_pDeviceProgram->SetBuildLogInternal("Compilation done\n");
-    m_pDeviceProgram->SetBinaryInternal(uiOutBinarySize, pOutBinary, CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT);
-    delete[] pOutBinary;
-    SetComplete(CL_BUILD_SUCCESS);
+    //compile succeeded
+    ElfWriterPtr pElfWriter(CLElfLib::CElfWriter::Create( CLElfLib::EH_TYPE_OPENCL_OBJECTS,
+                                                          CLElfLib::EH_MACHINE_NONE,
+                                                          0 ));
+    CLElfLib::SSectionNode sectionNode;
+    sectionNode.Name = ".ocl.ir";
+    sectionNode.pData = pOutBinary.get();
+    sectionNode.DataSize = uiOutBinarySize;
+    sectionNode.Flags = 0;
+    sectionNode.Type = CLElfLib::SH_TYPE_OPENCL_LLVM_BINARY;
 
+    if( pElfWriter->AddSection( &sectionNode ) != CLElfLib::SUCCESS)
+    {
+        //Build failed
+        m_pDeviceProgram->SetBuildLogInternal("Compilation failed\n");
+        m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_COMPILE_FAILED);
+        SetComplete(CL_BUILD_SUCCESS);
+        return true;
+    }
+
+    auto_ptr_ex<char, ArrayDP<char> > pBinary;
+    unsigned int uiBinarySize = 0;
+
+    if( pElfWriter->ResolveBinary( *pBinary.getOutPtr(), uiBinarySize ) != CLElfLib::SUCCESS )
+    {
+        //Build failed
+        m_pDeviceProgram->SetBuildLogInternal("Compilation failed\n");
+        m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_COMPILE_FAILED);
+        SetComplete(CL_BUILD_SUCCESS);
+        return true;
+    }
+
+    pBinary.reset(new char[uiBinarySize]);
+    if( NULL == pBinary.get())
+    {
+        //Build failed
+        m_pDeviceProgram->SetBuildLogInternal("Compilation failed\n");
+        m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_COMPILE_FAILED);
+        SetComplete(CL_BUILD_SUCCESS);
+        return true;
+    }
+
+    if(pElfWriter->ResolveBinary( *pBinary.getOutPtr(), uiBinarySize ) != CLElfLib::SUCCESS )
+    {
+        //Build failed
+        m_pDeviceProgram->SetBuildLogInternal("Compilation failed\n");
+        m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_COMPILE_FAILED);
+        SetComplete(CL_BUILD_SUCCESS);
+        return true;
+    }
+
+    m_pDeviceProgram->SetBuildLogInternal("Compilation done\n");
+    m_pDeviceProgram->SetBinaryInternal(uiBinarySize, pBinary.get(), CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT);
+    SetComplete(CL_BUILD_SUCCESS);
     return true;
 }
 
@@ -203,8 +262,8 @@ LinkTask::~LinkTask()
 
 bool LinkTask::Execute()
 {
-    char* pBinary = NULL;
-    size_t uiBinarySize = 0;
+    auto_ptr_ex<char, ArrayDP<char> > pOutBinary;
+    size_t uiOutBinarySize = 0;
     std::vector<char> linkLog;
     bool bIsLibrary = false;
 
@@ -248,14 +307,14 @@ bool LinkTask::Execute()
                                m_uiNumPrograms,
                                arrBinariesSizes,
                                m_sOptions.c_str(),
-                               &pBinary,
-                               &uiBinarySize,
+                               pOutBinary.getOutPtr(),
+                               &uiOutBinarySize,
                                linkLog,
                                &bIsLibrary);
 
-    if (0 == uiBinarySize)
+    if (0 == uiOutBinarySize)
     {
-        assert( NULL == pBinary);
+        assert( NULL == pOutBinary.get());
         //Build failed
         m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_LINK_FAILED);
 
@@ -272,25 +331,68 @@ bool LinkTask::Execute()
 
     //Else link succeeded
 
+    ElfWriterPtr pElfWriter(CLElfLib::CElfWriter::Create( bIsLibrary? CLElfLib::EH_TYPE_OPENCL_LIBRARY : CLElfLib::EH_TYPE_OPENCL_LINKED_OBJECTS,
+                                                          CLElfLib::EH_MACHINE_NONE,
+                                                          0 ));
+    CLElfLib::SSectionNode sectionNode;
+    sectionNode.Name = ".ocl.ir";
+    sectionNode.pData = pOutBinary.get();
+    sectionNode.DataSize = uiOutBinarySize;
+    sectionNode.Flags = 0;
+    sectionNode.Type = CLElfLib::SH_TYPE_OPENCL_LLVM_BINARY;
+
+    if( pElfWriter->AddSection( &sectionNode ) != CLElfLib::SUCCESS)
+    {
+        //Build failed
+        m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_LINK_FAILED);
+        m_pDeviceProgram->SetBuildLogInternal("Linking failed\n");
+        SetComplete(CL_BUILD_SUCCESS);
+        return true;
+    }
+
+    auto_ptr_ex<char, ArrayDP<char> > pBinary;
+    unsigned int uiBinarySize = 0;
+
+    if( pElfWriter->ResolveBinary( *pBinary.getOutPtr(), uiBinarySize ) != CLElfLib::SUCCESS )
+    {
+        //Build failed
+        m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_LINK_FAILED);
+        m_pDeviceProgram->SetBuildLogInternal("Linking failed\n");
+        SetComplete(CL_BUILD_SUCCESS);
+        return true;
+    }
+
+    pBinary.reset(new char[uiBinarySize]);
+    if( NULL == pBinary.get())
+    {
+        //Build failed
+        m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_LINK_FAILED);
+        m_pDeviceProgram->SetBuildLogInternal("Linking failed\n");
+        SetComplete(CL_BUILD_SUCCESS);
+        return true;
+    }
+
+    if(pElfWriter->ResolveBinary( *pBinary.getOutPtr(), uiBinarySize ) != CLElfLib::SUCCESS )
+    {
+        //Build failed
+        m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_LINK_FAILED);
+        m_pDeviceProgram->SetBuildLogInternal("Linking failed\n");
+        SetComplete(CL_BUILD_SUCCESS);
+        return true;
+    }
+
     // Update binary
     if ( bIsLibrary )
     {
-        m_pDeviceProgram->SetBinaryInternal(uiBinarySize, pBinary, CL_PROGRAM_BINARY_TYPE_LIBRARY);
+        m_pDeviceProgram->SetBinaryInternal(uiBinarySize, pBinary.get(), CL_PROGRAM_BINARY_TYPE_LIBRARY);
     }
     else // executable
     {
-        // update RT binary container - device will check for this
-        cl_prog_container_header* pHeader = (cl_prog_container_header*)pBinary;
-        // in case of object no change needed
-        if ( CL_PROG_BIN_BUILT_OBJECT != pHeader->description.bin_type )
-            pHeader->description.bin_type = CL_PROG_BIN_EXECUTABLE_LLVM;
-
-        m_pDeviceProgram->SetBinaryInternal(uiBinarySize, pBinary, CL_PROGRAM_BINARY_TYPE_EXECUTABLE);
+        m_pDeviceProgram->SetBinaryInternal(uiBinarySize, pBinary.get(), CL_PROGRAM_BINARY_TYPE_EXECUTABLE);
     }
 
     m_pDeviceProgram->SetBuildLogInternal("Linking done\n");
     SetComplete(CL_BUILD_SUCCESS);
-    delete[] pBinary;
     return true;
 }
 
@@ -298,7 +400,6 @@ void LinkTask::Cancel()
 {
     SetComplete(CL_BUILD_ERROR);
 }
-
 
 DeviceBuildTask::DeviceBuildTask(_cl_context_int*           context,
                                 const SharedPtr<Program>&   pProg,
@@ -393,7 +494,6 @@ void DeviceBuildTask::Cancel()
 {
     SetComplete(CL_BUILD_ERROR);
 }
-
 
 PostBuildTask::PostBuildTask(_cl_context_int*           context,
                              const SharedPtr<Program>&  pProg,
@@ -692,7 +792,7 @@ cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>&    program,
 
         arrFeCompilers[i] = pDevice->GetFrontEndCompiler();
         char* szUnrecognizedOptions = new char[buildOptions.size() + 1];
-        if (!arrFeCompilers[i]->CheckCompileOptions(buildOptions.c_str(), &szUnrecognizedOptions))
+        if (!arrFeCompilers[i]->CheckCompileOptions(buildOptions.c_str(), szUnrecognizedOptions, buildOptions.size()+1))
         {
             for (cl_uint j = 0; j < uiNumDevices; ++j)
             {
@@ -719,7 +819,6 @@ cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>&    program,
         }
         delete[] szUnrecognizedOptions;
     }
-
 
     bool bNeedToBuild = false;
 
@@ -912,6 +1011,7 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>&   program,
             cl_device_id clDeviceID = ppDevicePrograms[devIndex]->GetDeviceId();
             cl_program_binary_type clBinaryType = input_programs[libIndex]->GetBinaryTypeInternal( clDeviceID );
             if ((CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT == clBinaryType) ||
+                (CL_PROGRAM_BINARY_TYPE_INTERMEDIATE  == clBinaryType) ||
                 (CL_PROGRAM_BINARY_TYPE_LIBRARY == clBinaryType) )
             {
                 ++uiFoundBinaries;
@@ -970,7 +1070,7 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>&   program,
 
         arrFeCompilers[i] = pDevice->GetFrontEndCompiler();
         char* szUnrecognizedOptions = new char[buildOptions.size() + 1];
-        if (!arrFeCompilers[i]->CheckLinkOptions(buildOptions.c_str(), &szUnrecognizedOptions))
+        if (!arrFeCompilers[i]->CheckLinkOptions(buildOptions.c_str(), szUnrecognizedOptions, buildOptions.size() + 1))
         {
             for (cl_uint j = 0; j < uiNumDevices; ++j)
             {
@@ -1146,7 +1246,7 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
 
     clLocalArray<SharedPtr<BuildTask> > arrCompileTasks(uiNumDevices);
     clLocalArray<SharedPtr<BuildTask> > arrLinkTasks(uiNumDevices);
-    clLocalArray<SharedPtr<BuildTask> > arrDeviceBuildTasks(uiNumDevices);    
+    clLocalArray<SharedPtr<BuildTask> > arrDeviceBuildTasks(uiNumDevices);
 
     // this will be released in PostBuildTask
     DeviceProgram** ppDevicePrograms = new DeviceProgram*[uiNumDevices];
@@ -1203,7 +1303,7 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
 
         arrFeCompilers[i] = pDevice->GetFrontEndCompiler();
         char* szUnrecognizedOptions = new char[buildOptions.size() + 1];
-        if (!arrFeCompilers[i]->CheckCompileOptions(buildOptions.c_str(), &szUnrecognizedOptions))
+        if (!arrFeCompilers[i]->CheckCompileOptions(buildOptions.c_str(), szUnrecognizedOptions, buildOptions.size()+1))
         {
             for (cl_uint j = 0; j < uiNumDevices; ++j)
             {

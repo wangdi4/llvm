@@ -13,12 +13,12 @@ list<OclType> math_svml_vF_promote = [v3f32, v3f64];
 list<OclType> math_svml_vF_expand = [v16f64];
 list<OclType> math_svml_vFvF_promote = [v3f32, v3f64];
 list<OclType> math_svml_vFvF_expand = [v16f64];
-list<OclType> math_svml_vFvI32_expand = [v2f32, v16f32, v2f64, v8f64, v16f64];
+list<OclType> math_svml_vFvI32_expand = [v2f32, v2f64, v16f64];
 list<OclType> math_svml_vFvI32_promote = [v3f32, v3f64];
-list<OclType> math_svml_vF32_expand = [v3f32, v16f32];
-list<OclType> math_svml_vF32vF32_expand = [v3f32, v16f32];
-list<OclType> math_svml_vF64_expand = [v16f64, v8f64];
-list<OclType> math_svml_vF_expand_native = [v16f64, v16f32, v8f64];
+list<OclType> math_svml_vF32_expand = [v3f32];
+list<OclType> math_svml_vF32vF32_expand = [v3f32];
+list<OclType> math_svml_vF64_expand = [v16f64];
+list<OclType> math_svml_vF_expand_native = [v16f64];
 list<OclType> math_svml_vFRM_expand = [v16f32];
 
 // acos f(vXfX)
@@ -118,9 +118,8 @@ OclBuiltinImpl fabs_f32_promote = OclBuiltinImpl<fabs, [v1f32, v2f32, v3f32], 0,
 OclBuiltinImpl fdim_f32_promote = OclBuiltinImpl<fdim, [v1f32, v2f32, v3f32], 0, Promote2>;
 
 OclBuiltinImpl floor_f32_promote = OclBuiltinImpl<floor, [v1f32, v2f32, v3f32], 0, Promote1>;
-OclBuiltinImpl floor_f32_expand = OclBuiltinImpl<floor, [v16f32], 0, Expand1>;
 OclBuiltinImpl floor_f64_promote = OclBuiltinImpl<floor, [v1f64], 0, Promote1>;
-OclBuiltinImpl floor_f64_expand = OclBuiltinImpl<floor, [v3f64, v8f64, v16f64], 0, Expand1>;
+OclBuiltinImpl floor_f64_expand = OclBuiltinImpl<floor, [v3f64, v16f64], 0, Expand1>;
 
 // fmin
 // leave only implementaion for float4. float, float2, float3 are promoted to float4
@@ -161,16 +160,16 @@ code hypot_impl_nr = [{
 // hypot
 // float, float2, float4, float8 version uses inline NewtonRaphson
 OclBuiltinImpl hypot_v148f32 = OclBuiltinImpl<hypot, [v1f32, v2f32, v4f32, v8f32], 0, hypot_impl_nr>;
+
 // hypot f(vXfX, vXfX)
-// we have inlined version of hypot float. hypot double calls SVML
-OclBuiltinImpl hypot_f64_svml_hack_expand = OclBuiltinImpl<hypot, [v16f32, v8f64, v16f64], 0, Expand2>;
-OclBuiltinImpl hypot_f64_svml_hack_promote = OclBuiltinImpl<hypot, math_svml_vFvF_promote, 0, Promote2_v3_to_v4>;
+OclBuiltinImpl hypot_svml_expand = OclBuiltinImpl<hypot, math_svml_vFvF_expand, 0, Expand2>;
+OclBuiltinImpl hypot_svml_promote = OclBuiltinImpl<hypot, math_svml_vFvF_promote, 0, Promote2_v3_to_v4>;
 
 // ilogb
 // float3 are promoted to float4
 OclBuiltinImpl ilogb_f32_promote = OclBuiltinImpl<ilogb, [v3f32], 0, Promote1>;
 // ilogb(v2f64) is not efficient. calls v1f64. this is hack
-OclBuiltinImpl ilogb_svml_expand = OclBuiltinImpl<ilogb, [v2f64, v16f64, v8f64], 0, Expand1>;
+OclBuiltinImpl ilogb_svml_expand = OclBuiltinImpl<ilogb, [v2f64, v16f64], 0, Expand1>;
 OclBuiltinImpl ilogb_svml_promote = OclBuiltinImpl<ilogb, [v3f64], 0, Promote1_v3_to_v4>;
 
 // ldexp f(vXfX, vXI32)
@@ -217,11 +216,11 @@ OclBuiltinImpl nan_f32_promote = OclBuiltinImpl<nan, [v1f32, v2f32, v3f32], 0, P
 OclBuiltinImpl nan_f64_promote = OclBuiltinImpl<nan, [v1f64], 0, Promote1>;
 
 // nextafter  f(vXfX, vXfX)
-OclBuiltinImpl nextafter_svml_expand = OclBuiltinImpl<nextafter, [v16f32, v8f64, v16f64], 0, Expand2>;
+OclBuiltinImpl nextafter_svml_expand = OclBuiltinImpl<nextafter, [v16f64], 0, Expand2>;
 OclBuiltinImpl nextafter_svml_promote = OclBuiltinImpl<nextafter, math_svml_vFvF_promote, 0, Promote2_v3_to_v4>;
 
 // pow f(vXfX, vXfX)
-OclBuiltinImpl pow_svml_hack_expand = OclBuiltinImpl<pow, [v16f32, v8f64, v16f64], 0, Expand2>;
+OclBuiltinImpl pow_svml_hack_expand = OclBuiltinImpl<pow, [v16f64], 0, Expand2>;
 OclBuiltinImpl pow_svml_hack_promote = OclBuiltinImpl<pow, math_svml_vFvF_promote, 0, Promote2_v3_to_v4>;
 
 // pown f(vXfX, vXI32X)
@@ -229,19 +228,19 @@ OclBuiltinImpl pown_svml_hack_expand = OclBuiltinImpl<pown, math_svml_vFvI32_exp
 OclBuiltinImpl pown_svml_hack_promote = OclBuiltinImpl<pown, math_svml_vFvI32_promote, 0, Promote2_v3_to_v4>;
 
 // pown f(vXfX, vXfX)
-OclBuiltinImpl powr_svml_expand = OclBuiltinImpl<powr, [v16f32, v8f64, v16f64], 0, Expand2>;
+OclBuiltinImpl powr_svml_expand = OclBuiltinImpl<powr, [v16f64], 0, Expand2>;
 OclBuiltinImpl powr_svml_promote = OclBuiltinImpl<powr, math_svml_vFvF_promote, 0, Promote2_v3_to_v4>;
 
 // remainder f(vXfX, vXfX)
-OclBuiltinImpl remainder_svml_expand = OclBuiltinImpl<remainder, [v16f32, v8f64, v16f64], 0, Expand2>;
+OclBuiltinImpl remainder_svml_expand = OclBuiltinImpl<remainder, [v16f64], 0, Expand2>;
 OclBuiltinImpl remainder_svml_promote = OclBuiltinImpl<remainder, math_svml_vFvF_promote, 0, Promote2_v3_to_v4>;
 
 // rint f(vXfX)
-OclBuiltinImpl rint_svml_expand = OclBuiltinImpl<rint, [v16f32, v3f64, v8f64, v16f64], 0, Expand1>;
+OclBuiltinImpl rint_svml_expand = OclBuiltinImpl<rint, [v3f64, v16f64], 0, Expand1>;
 OclBuiltinImpl rint_svml_promote = OclBuiltinImpl<rint, [v1f32, v2f32, v3f32, v1f64], 0, Promote1>;
 
 // rint f(vXfX)
-OclBuiltinImpl round_svml_expand = OclBuiltinImpl<round, [v16f32, v3f64, v8f64, v16f64], 0, Expand1>;
+OclBuiltinImpl round_svml_expand = OclBuiltinImpl<round, [v3f64, v16f64], 0, Expand1>;
 OclBuiltinImpl round_svml_promote = OclBuiltinImpl<round, [v1f32, v2f32, v3f32, v1f64], 0, Promote1>;
 
 // rootn f(vXfX, vI32X)
@@ -378,28 +377,18 @@ OclBuiltinImpl native_divide_v4f32_impl = OclBuiltinImpl<native_divide, [v4f32],
     return $Arg0VarName * $ReturnVarName;
   }]>;
 OclBuiltinImpl native_divide_f32_promote = OclBuiltinImpl<native_divide, [v1f32, v2f32, v3f32], 0, Promote2>;
-OclBuiltinImpl native_divide_f32_expand = OclBuiltinImpl<native_divide, [v16f32], 0, Expand2>;
 
 // native_recip
 // leave only implementaion for float4. others sizes are promoted and expanded to float4 version
 OclBuiltinImpl native_recip_v4f32_impl = OclBuiltinImpl<native_recip, [v4f32], 0, [{
     return _mm_rcp_ps($Arg0VarName);
   }]>;
-OclBuiltinImpl native_recip_f32_promote = OclBuiltinImpl<native_recip, [v1f32, v2f32, v3f32], 0, Promote1>;
-OclBuiltinImpl native_recip_f32_expand = OclBuiltinImpl<native_recip, [v16f32], 0, Expand1>;
+OclBuiltinImpl native_recip_f32_promote = OclBuiltinImpl<native_recip, [v2f32, v3f32], 0, Promote1>;
 
-// native_rsqrt
-// leave only implementaion for float1,4. others sizes are promoted and expanded to float4 version
-OclBuiltinImpl native_rsqrt_v1f32_impl = OclBuiltinImpl<native_rsqrt, [v1f32], 0, [{
-    float4 tmp;
-    tmp.s0 = $Arg0VarName;
-    return as_float4(_mm_rsqrt_ss(tmp)).s0;
-  }]>;
 OclBuiltinImpl native_rsqrt_v4f32_impl = OclBuiltinImpl<native_rsqrt, [v4f32], 0, [{
     return _mm_rsqrt_ps($Arg0VarName);
   }]>;
 OclBuiltinImpl native_rsqrt_f32_promote = OclBuiltinImpl<native_rsqrt, [v2f32, v3f32], 0, Promote1>;
-OclBuiltinImpl native_rsqrt_f32_expand = OclBuiltinImpl<native_rsqrt, [v16f32], 0, Expand1>;
 
 // native_sqrt
 // leave only implementaion for float4. others sizes are promoted and expanded to float4 version

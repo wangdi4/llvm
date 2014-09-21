@@ -31,6 +31,7 @@
 #include <cl_device_api.h>
 #include <cl_monitor.h>
 #include <map>
+#include <vector>
 #include <string>
 #include <locale>
 #include <iostream>
@@ -63,6 +64,13 @@ typedef int threadid_t;
 typedef pid_t  threadid_t;
 #define INVALID_THREAD_HANDLE ((threadid_t)-1)
 #endif
+
+typedef enum {
+    OCL_BUFFER,
+    OCL_IMAGE,
+    OCL_PIPE,
+    OCL_UNKNOWN
+} OclMemObjectType;
 
 /**************************************************************************************************
 * Function: 	ClErrTxt
@@ -139,6 +147,18 @@ std::string FormatClError(const std::string& Base, cl_int CLError);
 //    char * chars - the chars to "clean" from the source string
 /////////////////////////////////////////////////////////////////////////
 std::string TrimString (const std::string& sSource, const char *chars = " \t");
+
+
+/////////////////////////////////////////////////////////////////////////
+// SplitString
+//  Split the string using given delimiter 
+//  Input: 
+//    string s - the string to split
+//    char dlim - the char to use as a delimiter
+/////////////////////////////////////////////////////////////////////////
+std::vector<std::string> &SplitString(const std::string &s, char delim, std::vector<std::string> &elems);
+std::vector<std::string> SplitString(const std::string &s, char delim);
+
 
 /**************************************************************************************************
 * Function: 	XXXtoString
@@ -424,3 +444,5 @@ string ReadFileContents(const string& filePath);
  * @Write the given text to the file
  */
 void WriteContentToFile(const string& content, const string& filePath);
+
+OclMemObjectType getSimplifiedMemoryObjectType(const cl_mem_object_type MemObjectType);

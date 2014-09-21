@@ -26,8 +26,8 @@ if (WIN32)
     set( DEVICE_COMPILER ${SCRIPT_DIR}/${DEVICE_COMPILER_SCRIPT} )
     set( DEVICE_ARCHIVER ${SCRIPT_DIR}/${DEVICE_ARCHIVER_SCRIPT} )
 
-    string( REPLACE  ";" " -I " LLVM_INCLUDE_DIR "${LLVM_INCLUDE_DIR}" )
-    string( REPLACE  \${CMAKE_CFG_INTDIR} %CONFIG_NAME% LLVM_INCLUDE_DIR "${LLVM_INCLUDE_DIR}" )
+    string( REPLACE  ";" " -I " LLVM_INCLUDE_DIRS "${LLVM_INCLUDE_DIRS}" )
+    string( REPLACE  ${CMAKE_CFG_INTDIR} %CONFIG_NAME% LLVM_INCLUDE_DIRS "${LLVM_INCLUDE_DIRS}" )
 
 else ()
     # Linux    
@@ -201,7 +201,7 @@ list( APPEND MIC_FLAGS
                 -I ${CMAKE_SOURCE_DIR}/backend/ocl_cpu_backend
                 -I ${CMAKE_SOURCE_DIR}/backend/dynamic_lib
                 -I ${CMAKE_SOURCE_DIR}/backend/plugin_manager
-                -I ${LLVM_INCLUDE_DIR}
+                -I ${LLVM_INCLUDE_DIRS}
                 -I ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/itt/include
                 -I ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
                 )
@@ -225,7 +225,7 @@ if (WIN32)
     string( REPLACE  / \\ FINAL_MIC_FLAGS "${FINAL_MIC_FLAGS}" )
 endif(WIN32)
 
-# FINAL_MIC_FLAGS and FINAL_MIC_LINK_FLAGS are used now
+# FINAL_MIC_FLAGS are used now
 configure_file(${DEVICE_COMPILER_SCRIPT} ${DEVICE_COMPILER} @ONLY)
 configure_file(${DEVICE_ARCHIVER_SCRIPT} ${DEVICE_ARCHIVER} @ONLY) 
 

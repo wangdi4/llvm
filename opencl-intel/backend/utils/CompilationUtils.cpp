@@ -23,12 +23,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Instructions.h"
 #include "llvm/DebugInfo.h"
 
-#include "llvm/Version.h"
-#if LLVM_VERSION == 3425
-#include "llvm/Target/TargetData.h"
-#else
 #include "llvm/IR/DataLayout.h"
-#endif
 #include "llvm/ADT/SetVector.h"
 #include "BlockUtils.h"
 
@@ -354,11 +349,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           {
               llvm::StructType *STy = llvm::cast<llvm::StructType>(arg_it->getType());
               curArg.type = CL_KRNL_ARG_COMPOSITE;
-#if LLVM_VERSION == 3425
-              TargetData dataLayout(pModule);
-#else
               DataLayout dataLayout(pModule);
-#endif
               curArg.size_in_bytes = dataLayout.getTypeAllocSize(STy);
               break;
           }
@@ -486,11 +477,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
               llvm::StructType *STy = llvm::cast<llvm::StructType>(Ty);
               assert(!STy->isOpaque() &&
                      "cannot handle user-defined opaque types with an unknown size");
-#if LLVM_VERSION == 3425
-              TargetData dataLayout(pModule);
-#else
               DataLayout dataLayout(pModule);
-#endif
               curArg.size_in_bytes = dataLayout.getTypeAllocSize(STy);
               curArg.type = CL_KRNL_ARG_COMPOSITE;
               break;

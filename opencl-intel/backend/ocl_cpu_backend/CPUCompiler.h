@@ -61,8 +61,6 @@ public:
     // Get execution engine
     virtual void *GetExecutionEngine() { return m_pExecEngine; }
 
-    virtual void freeMachineCodeForFunction(llvm::Function* pf) const;
-
     void DumpJIT( llvm::Module* pModule, const std::string& filename) const;
 
     virtual void SetObjectCache(ObjectCodeCache* pCache);

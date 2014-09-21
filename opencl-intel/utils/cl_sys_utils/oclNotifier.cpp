@@ -269,7 +269,17 @@ void NotifierCollection::SamplerFree( cl_sampler sampler )
 	CHECK_FOR_NULL(sampler);
 	NOTIFY(SamplerFree, sampler);	
 }
-
+void NotifierCollection::SVMCreate(void *svm_ptr, cl_context context)
+{
+	CHECK_FOR_NULL(svm_ptr);
+	CHECK_FOR_NULL(context);
+	NOTIFY(SVMCreate, svm_ptr, context);	
+}
+void NotifierCollection::SVMFree(void *svm_ptr)
+{
+	CHECK_FOR_NULL(svm_ptr);
+	NOTIFY(SVMFree, svm_ptr);	
+}
 void NotifierCollection::ProgramCreate( cl_program program, cl_context context, bool withBinary, bool withSource=true )
 {
 	CHECK_FOR_NULL(program);
@@ -311,6 +321,15 @@ void NotifierCollection::KernelEnqueue (cl_kernel kernel,
 {
 	NOTIFY(KernelEnqueue, kernel, queue, event, cookie);
 }
+void NotifierCollection::NativeKernelEnqueue (cl_uint num_mem_objects,
+                                              const cl_mem* mem_list,
+                                              cl_command_queue queue,
+                                              cl_event* event,
+                                              unsigned int cookie)
+{
+	NOTIFY(NativeKernelEnqueue, num_mem_objects, mem_list, queue, event, cookie);
+}
+
 void NotifierCollection::KernelReleased (cl_kernel kernel)
 {
 	NOTIFY(KernelReleased, kernel);
@@ -588,6 +607,41 @@ cl_event NotifierCollection::getUserEvent(cl_event notifierEvent)
         userEvent = notifierEvent;
     }
     return userEvent;
+}
+
+bool NotifierCollection::injectEventToWaitList(cl_command_queue commandQueue,
+        cl_uint numEventsInWaitList,
+        const cl_event* eventWaitList,
+        cl_event *syncEvent,
+        vector<cl_event>& newEventWaitList)
+{
+    cl_context context;
+    cl_int err;
+    vector<cl_event>::iterator it = newEventWaitList.begin();
+    if (NULL != eventWaitList)
+    {
+        newEventWaitList.insert(it, eventWaitList, eventWaitList + numEventsInWaitList);
+    }
+
+    err = _clGetCommandQueueInfoINTERNAL(commandQueue, CL_QUEUE_CONTEXT, sizeof(cl_context), &context, NULL);
+    if (CL_SUCCESS == err)
+    {
+        *syncEvent = _clCreateUserEventINTERNAL(context, &err);
+        if (CL_SUCCESS == err)
+        {
+            newEventWaitList.push_back(*syncEvent);
+        }
+        else
+        {
+            return false;
+        }
+    }
+    else
+    {
+        return false;
+    }
+
+    return true;
 }
 
 inline void NotifierCollection::addQueueProperty(

@@ -1,5 +1,5 @@
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -11,7 +11,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -25,7 +25,7 @@ template <typename T>
 class Fission_VR8_BGRA_CL_UNORM_INT8 : public ImageTypedCommonRuntime<T>, public FissionWrapper{
 public:
 
-	virtual void SetUp() 
+	virtual void SetUp()
 	{
 		FissionWrapper::SetUp();
 		this->image_format.image_channel_order = CL_BGRA;
@@ -50,36 +50,36 @@ static const char* d3KernelName = "read_image3D_float4";
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 TYPED_TEST(Fission_VR8_BGRA_CL_UNORM_INT8, Image2DUseHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
 	ASSERT_NO_FATAL_FAILURE(test2DUseHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName, divisor));
 }
 
 TYPED_TEST(Fission_VR8_BGRA_CL_UNORM_INT8, Image2AllocHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
 	ASSERT_NO_FATAL_FAILURE(test2DAllocHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName, divisor));
 }
 
 TYPED_TEST(Fission_VR8_BGRA_CL_UNORM_INT8, Image2CopyHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
 	ASSERT_NO_FATAL_FAILURE(test2DCopyHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName, divisor));
 }
 
 TYPED_TEST(Fission_VR8_BGRA_CL_UNORM_INT8, Image3DUseHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
 	ASSERT_NO_FATAL_FAILURE(test3DUseHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName, divisor));
 }
 
 TYPED_TEST(Fission_VR8_BGRA_CL_UNORM_INT8, Image3DAllocHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
 	ASSERT_NO_FATAL_FAILURE(test3DAllocHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName, divisor));
 }
 
 TYPED_TEST(Fission_VR8_BGRA_CL_UNORM_INT8, Image3DCopyHostPtr)
 {
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(this->ocl_descriptor));
 	ASSERT_NO_FATAL_FAILURE(test3DCopyHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName, divisor));
 }

@@ -5,6 +5,8 @@
 #define OclCpuDebugging_EXPORTS
 #endif // OclCpuDebugging_EXPORTS
 
+#include "llvm/Support/Mutex.h"
+
 #include "export/icldebuggingservice.h"
 #include <memory>
 
@@ -72,6 +74,8 @@ private:
     // No copying
     DebugServer(const DebugServer&);
     DebugServer& operator=(const DebugServer&);
+protected:
+     mutable llvm::sys::Mutex       m_Lock;
 };
 
 

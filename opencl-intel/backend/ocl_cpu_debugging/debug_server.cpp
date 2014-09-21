@@ -15,6 +15,7 @@
 #undef max
 #endif
 
+#include "llvm/Support/MutexGuard.h"
 #include "llvm/DebugInfo.h"
 #include "llvm/Support/Dwarf.h"
 #include "llvm/IR/GlobalVariable.h"
@@ -974,6 +975,7 @@ void DebugServer::EnterFunction(const llvm::MDNode* subprogram_mdn)
     FunctionStackFrame stack_frame = FunctionStackFrame();
     stack_frame.function_metadata = subprogram_mdn;
     stack_frame.calling_line_metadata = d->m_prev_stoppoint_line;
+    llvm::MutexGuard lock(m_Lock);
     d->m_stack.push_front(stack_frame);
 }
 
@@ -981,6 +983,7 @@ void DebugServer::EnterFunction(const llvm::MDNode* subprogram_mdn)
 void DebugServer::ExitFunction(const llvm::MDNode* subprogram_mdn)
 {
     assert(d->m_stack.size() > 0);
+    llvm::MutexGuard lock(m_Lock);
     d->m_stack.pop_front();
 }
 
@@ -989,6 +992,7 @@ void DebugServer::DeclareLocal(void* addr, const llvm::MDNode* description)
 {
     FunctionStackFrame::VarDeclInfo varinfo(addr, description, false);
     assert(d->m_stack.size() > 0);
+    llvm::MutexGuard lock(m_Lock);
     d->m_stack.front().vars.push_back(varinfo);
 }
 
@@ -997,6 +1001,7 @@ void DebugServer::DeclareGlobal(void* addr, const llvm::MDNode* description)
 {
     FunctionStackFrame::VarDeclInfo varinfo(addr, description, true);
     assert(d->m_stack.size() > 0);
+    llvm::MutexGuard lock(m_Lock);
     d->m_stack.front().vars.push_back(varinfo);
 }
 

@@ -3,7 +3,7 @@ cmake_policy(SET CMP0001 NEW)
 cmake_policy(SET CMP0011 OLD)
 use_eh(TRUE)
 
-set (TARGET_NAME "ValidationTests")
+set (TARGET_NAME ValidationTests)
 
 # to be shure that ICC compiler uses the correct presentation of 80-bit long doubles
 # we have to set proper compiler options, for win32 only, for linux gcc(g++) is used and 
@@ -34,34 +34,36 @@ set(TARGET_SOURCE_FILES
     SourceRecorder.cpp
     ClangSA.cpp
     OCLKernelDataGeneratorTest.cpp
-)  
+)
 
-include_directories(${BACKEND_ROOT_DIR}/../externals/gtest/include)
-include_directories(${BACKEND_ROOT_DIR}/../cl_api)
-include_directories(${BACKEND_ROOT_DIR}/external/tinyxml)
-include_directories(${BACKEND_ROOT_DIR}/plugin_manager)
-include_directories(${BACKEND_ROOT_DIR}/dynamic_lib)
-include_directories(${BACKEND_ROOT_DIR}/ocl_cpu_backend/export)
-include_directories(${VALIDATIONS_ROOT}/Common)
-include_directories(${VALIDATIONS_ROOT}/DataVersion)
-include_directories(${VALIDATIONS_ROOT}/DataManager)
-include_directories(${VALIDATIONS_ROOT}/Comparator)
-include_directories(${VALIDATIONS_ROOT}/ImathLibd)
-include_directories(${VALIDATIONS_ROOT}/NEAT)
-include_directories(${VALIDATIONS_ROOT}/REFALU)
-include_directories(${VALIDATIONS_ROOT}/DataGenerator)
-include_directories(${VALIDATIONS_ROOT}/OCLBuiltins)
-include_directories(${VALIDATIONS_ROOT}/PlugInNEAT)
-include_directories(${VALIDATIONS_ROOT}/OCLBuilder)
-include_directories(${VALIDATIONS_ROOT}/OCLRecorder)
-include_directories(${VALIDATIONS_ROOT}/OCLKernelDataGenerator)
-include_directories(${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/Common )
-include_directories(${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export)
- 
- 
+include_directories(
+    ${LLVM_INCLUDE_DIRS}
+    ${BACKEND_ROOT_DIR}/../externals/gtest/include
+    ${BACKEND_ROOT_DIR}/../cl_api
+    ${BACKEND_ROOT_DIR}/external/tinyxml
+    ${BACKEND_ROOT_DIR}/plugin_manager
+    ${BACKEND_ROOT_DIR}/dynamic_lib
+    ${BACKEND_ROOT_DIR}/ocl_cpu_backend/export
+    ${VALIDATIONS_ROOT}/Common
+    ${VALIDATIONS_ROOT}/DataVersion
+    ${VALIDATIONS_ROOT}/DataManager
+    ${VALIDATIONS_ROOT}/Comparator
+    ${VALIDATIONS_ROOT}/ImathLibd
+    ${VALIDATIONS_ROOT}/NEAT
+    ${VALIDATIONS_ROOT}/REFALU
+    ${VALIDATIONS_ROOT}/DataGenerator
+    ${VALIDATIONS_ROOT}/OCLBuiltins
+    ${VALIDATIONS_ROOT}/PlugInNEAT
+    ${VALIDATIONS_ROOT}/OCLBuilder
+    ${VALIDATIONS_ROOT}/OCLRecorder
+    ${VALIDATIONS_ROOT}/OCLKernelDataGenerator
+    ${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser
+    ${CMAKE_CURRENT_SOURCE_DIR}/Common 
+    ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
+    ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang
+)
+
 link_directories(
-    ${LLVM_LIBRARY_DIR}
     ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR}
 )
 
@@ -92,7 +94,6 @@ target_link_libraries(${TARGET_NAME}
 )
 
 if(NOT WIN32)
-    target_link_libraries(${TARGET_NAME} pthread)
     add_dependencies(${TARGET_NAME} ImathLibd_wrapper)
 endif(NOT WIN32)
 

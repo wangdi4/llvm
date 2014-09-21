@@ -13,10 +13,10 @@
 ;;}
 
 ; The test checks that debug info (specifically calls to dbg_declare_global) do not cause extra local memory to be allocated.
-; The request size is 100 bytes, which we expect to be rounded to 128.
-; In the problematic scenario, the call to dbg_declare global in @f1 causes double memory allocation, which wil result in alloca [256 .
+; The request size is 100 bytes. Together with 256 bytes of padding needed for vectorizer, it is 356, which we expect to be rounded to 384 (128*3).
+; In the problematic scenario, the call to dbg_declare global in @f1 causes double memory allocation, which wil result in alloca [512 .
 ; CHECK-NOT: alloca [
-; CHECK: alloca [128
+; CHECK: alloca [384
 ; CHECK-NOT: alloca [
 
 ; ModuleID = 'Program'

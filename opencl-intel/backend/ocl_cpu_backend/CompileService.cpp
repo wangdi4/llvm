@@ -21,6 +21,8 @@ File Name:  CompileService.cpp
 #include "Program.h"
 #include "BitCodeContainer.h"
 #include "ObjectCodeContainer.h"
+#include "elf_binary.h"
+#include "cache_binary_handler.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
@@ -42,38 +44,56 @@ File Name:  CompileService.cpp
 #include "llvm/PassManager.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
+using namespace Intel::OpenCL::ELFUtils;
 
 CompileService::CompileService()
 {}
 
-cl_dev_err_code CompileService::CreateProgram( const cl_prog_container_header* pByteCodeContainer,
-                                               ICLDevBackendProgram_** ppProgram) const
+cl_dev_err_code CompileService::CreateProgram( const void* pBinary,
+                                               size_t uiBinarySize,
+                                               ICLDevBackendProgram_** ppProgram)
 {
     assert(m_backendFactory);
+
     try
     {
-        if(NULL == pByteCodeContainer || NULL == ppProgram)
+        const char* pBinaryData = (const char*)pBinary;
+        size_t uiBinaryDataSize = uiBinarySize;
+
+        if(NULL == pBinary || uiBinarySize == 0 || NULL == ppProgram)
         {
             return CL_DEV_INVALID_VALUE;
         }
 
         std::auto_ptr<Program> spProgram(m_backendFactory->CreateProgram());
 
-        if(CL_PROG_BIN_BUILT_OBJECT == pByteCodeContainer->description.bin_type)
+        //check if it is Binary object
+        if( OCLElfBinaryReader::IsValidOpenCLBinary((const char*)pBinary, uiBinarySize))
         {
-            ObjectCodeContainer* objCodeContainer = new ObjectCodeContainer(pByteCodeContainer);
-            spProgram->SetObjectCodeContainer(objCodeContainer);
+            OCLElfBinaryReader reader((const char*)pBinary,uiBinarySize);
+            reader.GetIR(const_cast<char*&>(pBinaryData), uiBinaryDataSize);
+            spProgram->SetBitCodeContainer(new BitCodeContainer(pBinaryData, uiBinaryDataSize, "main"));
+            GetProgramBuilder()->ParseProgram(spProgram.get());
+        }
+        else if(CacheBinaryReader::IsValidCacheObject((const char*)pBinary, uiBinarySize))
+        {
+            spProgram->SetObjectCodeContainer(new ObjectCodeContainer(pBinaryData, uiBinaryDataSize));
+        }
+        //check if it is LLVM IR object
+        else if ( !memcmp(_CL_LLVM_BITCODE_MASK_, pBinary, sizeof(_CL_LLVM_BITCODE_MASK_) - 1) )
+        {
+            spProgram->SetBitCodeContainer(new BitCodeContainer(pBinaryData, uiBinaryDataSize, "main"));
+            GetProgramBuilder()->ParseProgram(spProgram.get());
         }
         else
         {
-            BitCodeContainer* bitCodeContainer = new BitCodeContainer(pByteCodeContainer);
-            spProgram->SetBitCodeContainer(bitCodeContainer);
+            throw Exceptions::DeviceBackendExceptionBase("Unknown binary type", CL_DEV_INVALID_BINARY);
         }
-        *ppProgram = spProgram.release();
 #ifdef OCL_DEV_BACKEND_PLUGINS
         // Notify the plugin manager
-        m_pluginManager.OnCreateProgram(pByteCodeContainer, *ppProgram);
+        m_pluginManager.OnCreateProgram(pBinaryData, uiBinaryDataSize, spProgram.get());
 #endif
+        *ppProgram = spProgram.release();
         return CL_DEV_SUCCESS;
     }
     catch( Exceptions::DeviceBackendExceptionBase& e )
@@ -162,7 +182,6 @@ cl_dev_err_code CompileService::DumpCodeContainer( const ICLDevBackendCodeContai
     }
 }
 
-
 void CompileService::Release()
 {
     delete this;
@@ -175,5 +194,4 @@ cl_dev_err_code CompileService::DumpJITCodeContainer( const ICLDevBackendCodeCon
     assert(false);
     return CL_DEV_NOT_SUPPORTED;
 }
-
 }}}

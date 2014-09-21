@@ -41,7 +41,7 @@ class VR11_Fission: public FissionWrapper{};
 TEST_F(VR11_Fission, CPUOnlyBuild)
 {
 	// get pltfrom and device id
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(ocl_descriptor));
 
 	// create context for CPU and GPU
 	ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context, 0, 2, ocl_descriptor.devices, NULL, NULL));
@@ -72,7 +72,7 @@ TEST_F(VR11_Fission, CPUOnlyBuild)
 TEST_F(VR11_Fission, GPUOnlyBuild)
 {
 	// get pltfrom and device id
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(ocl_descriptor));
 
 	// create context for CPU
 	ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context, 0, 2, ocl_descriptor.devices, NULL, NULL));
@@ -103,7 +103,7 @@ TEST_F(VR11_Fission, GPUOnlyBuild)
 TEST_F(VR11_Fission, CPUGPUBuild)
 {
 	// get pltfrom and device id
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(ocl_descriptor));
 
 	// create context for CPU
 	ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context, 0, 2, ocl_descriptor.devices, NULL, NULL));
@@ -137,7 +137,7 @@ TEST_F(VR11_Fission, CPUGPUBuild)
 TEST_F(VR11_Fission, CPUGPUBuildIfDef)
 {
   // get pltfrom and device id
-  ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
+  ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(ocl_descriptor));
 
   // create context for CPU
   ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context, 0, 2, ocl_descriptor.devices, NULL, NULL));
@@ -170,7 +170,7 @@ TEST_F(VR11_Fission, CPUGPUBuildIfDef)
 TEST_F(VR11_Fission, GPUErrorKernelOnCPU)
 {
 	// get pltfrom and device ids
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(ocl_descriptor));
 	// cpu is at index 0, gpu is at index 1
 
 	// create context for CPU
@@ -204,7 +204,7 @@ TEST_F(VR11_Fission, GPUErrorKernelOnCPU)
 TEST_F(VR11_Fission, GPUErrorKernelOnGPU)
 {
 	// get pltfrom and device ids
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(ocl_descriptor));
 	// cpu is at index 0, gpu is at index 1
 
 	// create context for GPU
@@ -244,7 +244,7 @@ TEST_F(VR11_Fission, GPUErrorKernelOnGPU)
 TEST_F(VR11_Fission, GPUErrorKernelOnCPUGPU)
 {
 	// get pltfrom and device ids
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(ocl_descriptor));
 	// cpu is at index 0, gpu is at index 1
 
 	// create shared context

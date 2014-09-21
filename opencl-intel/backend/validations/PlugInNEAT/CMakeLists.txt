@@ -32,6 +32,7 @@ add_library(${TARGET_NAME}
   PlugInNEAT.cpp
   )
 include_directories (
+  ${LLVM_INCLUDE_DIRS}
   ../Interpreter
   ../InterpreterPluggable
   ${BACKEND_ROOT_DIR}/validations/OCLBuiltins

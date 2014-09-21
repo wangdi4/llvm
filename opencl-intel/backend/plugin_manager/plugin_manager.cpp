@@ -16,14 +16,22 @@ File Name:  plugin_manager.cpp
 
 \*****************************************************************************/
 
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/MutexGuard.h"
+#include "plugin_manager.h"
+#include "plugin_interface.h"
+#include <BE_DynamicLib.h>
+#include "cl_utils.h"
+#include "cl_synch_objects.h"
+
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Support/Atomic.h"
+#include "llvm/Support/Mutex.h"
+
 #include <assert.h>
 #include <algorithm>
 #include <cstdio>
 #include <functional>
-#include "plugin_manager.h"
-#include "plugin_interface.h"
+#include <exception>
 
 #ifdef WIN32
 #include <Windows.h>
@@ -32,7 +40,6 @@ File Name:  plugin_manager.cpp
 using namespace Intel::OpenCL::DeviceBackend::Utils;
 
 namespace Intel { namespace OpenCL {
-
 static DeviceBackend::ICLDevBackendPlugin* getBackendPlugin(IPlugin* plugin)
 {
     assert (plugin && "Null plugin given!");
@@ -49,11 +56,23 @@ static Frontend::ICLFrontendPlugin* getFrontendPlugin(IPlugin* plugin)
     return ret;
 }
 
+class PluginInfo
+{
+    Intel::OpenCL::DeviceBackend::Utils::BE_DynamicLib m_dll;
+    IPlugin* m_pPlugin;
+    //lock for the cleanup operation
+    Utils::OclMutex m_lock;
+public:
+    PluginInfo(const std::string& dllName);
+    ~PluginInfo();
+    IPlugin* plugin();
+};//end class PluginInfo
+
 //
 //PluginManager
 //
-PluginManager::PluginManager(){
-  LoadPlugins();
+PluginManager::PluginManager():m_bInitialized(false)
+{
 }
 
 PluginManager::~PluginManager()
@@ -64,7 +83,10 @@ PluginManager::~PluginManager()
 
 void PluginManager::LoadPlugins()
 {
-    typedef llvm::SmallVector<llvm::StringRef, 10> DllNamesVector;
+    if( m_bInitialized)
+        return;
+
+    typedef std::vector<std::string> DllNamesVector;
 #ifdef WIN32
     char buffer[MAX_PATH];
     const char *dlls = buffer;
@@ -78,45 +100,55 @@ void PluginManager::LoadPlugins()
     if (NULL == dlls || (std::string)dlls == "")
         return;
     DllNamesVector namesVector;
-    llvm::StringRef namesEnv(dlls);
-    namesEnv.split(namesVector, ",", -1, false);
+    std::string namesEnv(dlls);
+    SplitString(namesEnv, ',', namesVector);
+    PluginsList plugins;
     for( DllNamesVector::iterator it = namesVector.begin(); it != namesVector.end(); ++it)
     {
         try
         {
             PluginInfo* pInfo = new PluginInfo(*it);
-            m_listPlugins.insert(pInfo);
+            plugins.push_back(pInfo);
         }
         catch (DeviceBackend::Exceptions::DynamicLibException ex)
         {
             throw PluginManagerException(ex.what());
         }
+        catch (std::bad_alloc& )
+        {
+            throw PluginManagerException("Out of memory");
+        }
     }
+    m_listPlugins.swap(plugins);
+    m_bInitialized = true;
 }
 
 /**
  * Called by OCL Backend on each call for CreateBinary.
  */
 void PluginManager::OnCreateBinary(const DeviceBackend::ICLDevBackendKernel_* pKernel,
-                                   const _cl_work_description_type* pWorkDesc, 
-                                   size_t bufSize, 
+                                   const _cl_work_description_type* pWorkDesc,
+                                   size_t bufSize,
                                    void* pArgsBuffer)
 {
+    LoadPlugins();
     for( PluginsList::iterator it= m_listPlugins.begin() ; it != m_listPlugins.end() ; ++it)
-        getBackendPlugin((*it)->plugin())->OnCreateBinary(pKernel, 
-                                 pWorkDesc, 
-                                 bufSize, 
+        getBackendPlugin((*it)->plugin())->OnCreateBinary(pKernel,
+                                 pWorkDesc,
+                                 bufSize,
                                  pArgsBuffer);
 }
 
 /**
  * Called by OCL Backend on CreateProgram call
  */
-void PluginManager::OnCreateProgram(const _cl_prog_container_header* pContainer, 
+void PluginManager::OnCreateProgram(const void * pBinary,
+                                    size_t uiBinarySize,
                                     const DeviceBackend::ICLDevBackendProgram_* pProgram)
 {
+    LoadPlugins();
     for (PluginsList::iterator it = m_listPlugins.begin() ; it != m_listPlugins.end() ; ++it)
-        getBackendPlugin((*it)->plugin())->OnCreateProgram(pContainer, pProgram);
+        getBackendPlugin((*it)->plugin())->OnCreateProgram(pBinary, uiBinarySize, pProgram);
 }
 
 /**
@@ -124,30 +156,34 @@ void PluginManager::OnCreateProgram(const _cl_prog_container_header* pContainer,
  */
 void PluginManager::OnCreateKernel(const DeviceBackend::ICLDevBackendProgram_* pProgram,
                                    const DeviceBackend::ICLDevBackendKernel_* pKernel,
-                                   const llvm::Function* pFunc)
+                                   const void* pFunc)
 {
+    LoadPlugins();
     for (PluginsList::iterator it = m_listPlugins.begin() ; it != m_listPlugins.end() ; ++it)
         getBackendPlugin((*it)->plugin())->OnCreateKernel(pProgram, pKernel, pFunc);
 }
 
 /*
  * called by OCL Backend on each call the Program.Release method.
- * 
+ *
  */
 void PluginManager::OnReleaseProgram(const DeviceBackend::ICLDevBackendProgram_* pProgram)
 {
+    LoadPlugins();
     for (PluginsList::iterator it = m_listPlugins.begin() ; it != m_listPlugins.end() ; ++it)
         getBackendPlugin((*it)->plugin())->OnReleaseProgram(pProgram);
 }
 
 void PluginManager::OnLink(const Frontend::LinkData* linkData)
 {
+    LoadPlugins();
     for (PluginsList::iterator it = m_listPlugins.begin() ; it != m_listPlugins.end() ; ++it)
         getFrontendPlugin((*it)->plugin())->OnLink(linkData);
 }
 
 void PluginManager::OnCompile(const Frontend::CompileData* compileData)
 {
+    LoadPlugins();
     for (PluginsList::iterator it = m_listPlugins.begin() ; it != m_listPlugins.end() ; ++it)
         getFrontendPlugin((*it)->plugin())->OnCompile(compileData);
 }
@@ -162,28 +198,26 @@ PluginManagerException::PluginManagerException(std::string message) : std::runti
 
 ///PluginInfo
 //
-PluginManager::PluginInfo::PluginInfo(const std::string& dllName)
+PluginInfo::PluginInfo(const std::string& dllName)
 {
     m_dll.Load(dllName.c_str());
-    PLUGIN_CREATE_FUNCPTR factory 
-        = (PLUGIN_CREATE_FUNCPTR)(intptr_t)m_dll.GetFuncPtr("CreatePlugin");
+    PLUGIN_CREATE_FUNCPTR factory = (PLUGIN_CREATE_FUNCPTR)(intptr_t)m_dll.GetFuncPtr("CreatePlugin");
     if (NULL == factory)
     {
         m_pPlugin = NULL;
-        throw DeviceBackend::Exceptions::DynamicLibException(dllName);        
+        throw DeviceBackend::Exceptions::DynamicLibException(dllName);
     }
     m_pPlugin = factory();
 }
 
-PluginManager::PluginInfo::~PluginInfo()
+PluginInfo::~PluginInfo()
 {
     if (NULL != m_pPlugin)
     {
-        PLUGIN_RELEASE_FUNCPTR cleanup
-            = (PLUGIN_RELEASE_FUNCPTR)(intptr_t)m_dll.GetFuncPtr("ReleasePlugin");
+        PLUGIN_RELEASE_FUNCPTR cleanup = (PLUGIN_RELEASE_FUNCPTR)(intptr_t)m_dll.GetFuncPtr("ReleasePlugin");
         {
             assert(m_pPlugin && "NULL plugin");
-            llvm::MutexGuard cleanlock(m_lock);
+            Utils::OclAutoMutex cleanlock(&m_lock);
             cleanup(m_pPlugin);
         }
         m_pPlugin = NULL;
@@ -191,9 +225,8 @@ PluginManager::PluginInfo::~PluginInfo()
     }
 }
 
-IPlugin* PluginManager::PluginInfo::plugin()
+IPlugin* PluginInfo::plugin()
 {
     return m_pPlugin;
 }
-
 }}

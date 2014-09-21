@@ -712,7 +712,9 @@ code Load_half2 = [{
   }];
 code Load_half3 = [{
     short8 tmp;
-    tmp.s012 = *((short3 *)($Arg1VarName + 3*$Arg0VarName));
+    // vload_half3 by spec. must load 6 bytes
+    short * base = (short*)$Arg1VarName + 3*$Arg0VarName;
+    tmp.s012 = (short3)(*(short2*)base, base[2]);
     float4 temp = __ocl_Half4ToFloat4(tmp);
     return temp.s012;
   }];

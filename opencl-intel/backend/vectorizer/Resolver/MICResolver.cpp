@@ -7,7 +7,6 @@
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/Version.h"
 
 #include "OCLPassSupport.h"
 #include <vector>
@@ -215,11 +214,7 @@ Instruction* MICResolver::CreateGatherScatterAndReplaceCall(CallInst* caller, Va
 
   // Create new gather/scatter caller instruction
   Instruction *newCaller = VectorizerUtils::createFunctionCall(pModule, name, caller->getType(), args,
-#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
-        SmallVector<Attributes, 4>(), caller);
-#else
         SmallVector<Attribute::AttrKind, 4>(), caller);
-#endif
 
   // Replace caller with new gather/scatter caller instruction
   caller->replaceAllUsesWith(newCaller);
@@ -304,11 +299,7 @@ void MICResolver::FixBaseAndIndexIfNeeded(
 
     // Call cttz intrinsics name
     Instruction *CttzCaller = VectorizerUtils::createFunctionCall(pModule, sname.str(), MaskCombinedTy, args,
-#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
-        SmallVector<Attributes, 4>(), caller);
-#else
         SmallVector<Attribute::AttrKind, 4>(), caller);
-#endif
     // Convert cttz result to i32 before using it as index parameter for extract element instruction.
     CttzCaller = BitCastInst::CreateIntegerCast(CttzCaller, i32Ty, false,  "ZExti16Toi32", caller);
     // Mask with (Vector-width-1), this is needed for the case of zero mask!

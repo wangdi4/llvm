@@ -3,6 +3,7 @@ use_rtti(FALSE)
 set(TARGET_NAME LLVMInterpreterPluggable)
 
 include_directories(
+  ${LLVM_INCLUDE_DIRS}
   ${BACKEND_ROOT_DIR}/name_mangling
 )
 

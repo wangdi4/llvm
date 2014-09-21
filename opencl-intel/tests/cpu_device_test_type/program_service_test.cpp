@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2012 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -34,6 +34,8 @@
 #endif
 #include <stdio.h>
 #include <math.h>
+#include <iosfwd>
+#include <vector>
 
 #if ( defined(_WIN32) || defined(__ANDROID__) )
 #define SET_FPOS_T(var, val) (var) = (val)
@@ -45,212 +47,173 @@
 
 bool BuildProgram(const char* szFileName, cl_dev_program* prog)
 {
-	bool isDLL = false;
-	unsigned int uiContSize = sizeof(cl_prog_container_header) + sizeof(cl_llvm_prog_header);
+    std::ifstream testFile(szFileName, std::ios::binary);
+    std::vector<char> buffer;
 
-	FILE* pIRfile = NULL;
-	FOPEN(pIRfile, szFileName, "rb");
-	fpos_t fileSize;
-	SET_FPOS_T(fileSize, 0);
-	if ( NULL == pIRfile )
-	{
-		return false;
-	}
-	fseek(pIRfile, 0, SEEK_END);
-	fgetpos(pIRfile, &fileSize);
-	uiContSize += (unsigned int)GET_FPOS_T(fileSize);
-	fclose(pIRfile);
+    buffer.assign(std::istreambuf_iterator<char>(testFile), std::istreambuf_iterator<char>());
 
-	// Construct program container
-	cl_prog_container_header* pCont = (cl_prog_container_header*)malloc(uiContSize);
-
-	if ( NULL == pCont )
-	{
-		return false;
-	}
-	memset(pCont, 0, sizeof(cl_prog_container_header)+ sizeof(cl_llvm_prog_header));
-
-	// Container mask
-	memcpy((void*)pCont->mask, _CL_CONTAINER_MASK_, sizeof(pCont->mask));
-
-	pCont->container_type = CL_PROG_CNT_PRIVATE;
-	pCont->description.bin_type = CL_PROG_BIN_EXECUTABLE_LLVM;
-	pCont->description.bin_ver_major = 1;
-	pCont->description.bin_ver_minor = 1;
-	pIRfile = NULL;
-	FOPEN(pIRfile, szFileName, "rb");
-	if ( NULL != pIRfile )
-	{
-		pCont->container_size = (unsigned int)GET_FPOS_T(fileSize) + sizeof(cl_llvm_prog_header);
-		fread(((unsigned char*)pCont)+sizeof(cl_prog_container_header)+ sizeof(cl_llvm_prog_header), 1, (size_t)GET_FPOS_T(fileSize), pIRfile);
-		fclose(pIRfile);
-	}
-
-	cl_int rc = dev_entry->clDevCreateProgram(uiContSize, pCont, CL_DEV_BINARY_USER, prog);
+    cl_int rc = dev_entry->clDevCreateProgram(buffer.size(), (const void*)buffer.data(), CL_DEV_BINARY_USER, prog);
     cl_build_status     build_status;
-	rc = dev_entry->clDevBuildProgram(*prog, NULL, &build_status);
+    rc = dev_entry->clDevBuildProgram(*prog, NULL, &build_status);
 
     printf(">>>>>>> The program %x was built, status%X\n", prog, build_status);
 
-	free(pCont);
-
-	return CL_DEV_SUCCEEDED(rc);
+    return CL_DEV_SUCCEEDED(rc);
 }
 
 bool CreateKernel(cl_dev_program prog, const char* szKernelName, cl_dev_kernel* kernel_id)
 {
-	cl_int rc = dev_entry->clDevGetKernelId(prog, szKernelName, kernel_id);
-	if ( CL_DEV_FAILED(rc) )
-	{
-		printf("pclDevGetKernelId failed <%s>:<%X>\n", szKernelName, rc);
-		return false;
-	}
+    cl_int rc = dev_entry->clDevGetKernelId(prog, szKernelName, kernel_id);
+    if ( CL_DEV_FAILED(rc) )
+    {
+        printf("pclDevGetKernelId failed <%s>:<%X>\n", szKernelName, rc);
+        return false;
+    }
 
-	return true;
+    return true;
 }
 
 bool BuildFromBinary_test(const char* szDLLName, unsigned int uiTotal, const char* szKernelName, unsigned int uiParams)
 {
+    // Start kernels test
+    cl_dev_program	prog;
+    cl_dev_kernel id;
 
-	// Start kernels test
-	cl_dev_program	prog;
-	cl_dev_kernel id;
+    if ( !BuildProgram(szDLLName,  &prog) )
+    {
+        return false;
+    }
 
-	if ( !BuildProgram(szDLLName,  &prog) )
-	{
-		return false;
-	}
+    if ( !CreateKernel(prog, szKernelName,  &id) )
+    {
+        return false;
+    }
 
-	if ( !CreateKernel(prog, szKernelName,  &id) )
-	{
-		return false;
-	}
+    size_t stParamSize;
 
-	size_t stParamSize;
+    // Test Kernel information
+    cl_int rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_PROTOTYPE, 0, NULL, &stParamSize);
+    if ( CL_DEV_FAILED(rc) )
+    {
+        printf("pclDevGetKernelInfo failed[CL_DEV_KERNEL_PROTOTYPE] <%X>\n", rc);
+        dev_entry->clDevReleaseProgram(prog);
+        return false;
+    }
+    uiParams *= sizeof(cl_kernel_argument);
+    if ( stParamSize != uiParams )
+    {
+        printf("pclDevGetKernelInfo invalid parameters %u <-> %u\n", stParamSize, uiParams);
+        dev_entry->clDevReleaseProgram(prog);
+        return false;
+    }
 
-	// Test Kernel information
-	cl_int rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_PROTOTYPE, 0, NULL, &stParamSize);
-	if ( CL_DEV_FAILED(rc) )
-	{
-		printf("pclDevGetKernelInfo failed[CL_DEV_KERNEL_PROTOTYPE] <%X>\n", rc);
-		dev_entry->clDevReleaseProgram(prog);
-		return false;
-	}
-	uiParams *= sizeof(cl_kernel_argument);
-	if ( stParamSize != uiParams )
-	{
-		printf("pclDevGetKernelInfo invalid parameters %u <-> %u\n", stParamSize, uiParams);
-		dev_entry->clDevReleaseProgram(prog);
-		return false;
-	}
+    // Get required size
+    size_t stReqdWGSize[3];
+    rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_WG_SIZE_REQUIRED,
+        sizeof(stReqdWGSize), stReqdWGSize, NULL);
+    if ( CL_DEV_FAILED(rc) )
+    {
+        printf("pclDevGetKernelInfo[CL_DEV_KERNEL_COMPILE_WG_SIZE] failed <%X>\n", rc);
+        dev_entry->clDevReleaseProgram(prog);
+        return false;
+    }
+    for(int i=0;i<3;++i)
+    {
+        if ( 0 != stReqdWGSize[i] )
+        {
+            dev_entry->clDevReleaseProgram(prog);
+            return false;
+        }
+    }
 
-	// Get required size
-	size_t stReqdWGSize[3];
-	rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_WG_SIZE_REQUIRED,
-		sizeof(stReqdWGSize), stReqdWGSize, NULL);
-	if ( CL_DEV_FAILED(rc) )
-	{
-		printf("pclDevGetKernelInfo[CL_DEV_KERNEL_COMPILE_WG_SIZE] failed <%X>\n", rc);
-		dev_entry->clDevReleaseProgram(prog);
-		return false;
-	}
-	for(int i=0;i<3;++i)
-	{
-		if ( 0 != stReqdWGSize[i] )
-		{
-			dev_entry->clDevReleaseProgram(prog);
-			return false;
-		}
-	}
+    // Get optimal size
+    rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_WG_SIZE,
+        sizeof(stParamSize), &stParamSize, NULL);
+    if ( CL_DEV_FAILED(rc) )
+    {
+        printf("pclDevGetKernelInfo[CL_DEV_KERNEL_WG_SIZE] failed <%X>\n", rc);
+        dev_entry->clDevReleaseProgram(prog);
+        return false;
+    }
+    if ( stParamSize != 128 )
+    {
+        dev_entry->clDevReleaseProgram(prog);
+        return false;
+    }
 
-	// Get optimal size
-	rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_WG_SIZE,
-		sizeof(stParamSize), &stParamSize, NULL);
-	if ( CL_DEV_FAILED(rc) )
-	{
-		printf("pclDevGetKernelInfo[CL_DEV_KERNEL_WG_SIZE] failed <%X>\n", rc);
-		dev_entry->clDevReleaseProgram(prog);
-		return false;
-	}
-	if ( stParamSize != 128 )
-	{
-		dev_entry->clDevReleaseProgram(prog);
-		return false;
-	}
+    // Implicit local memory size
+    cl_ulong ullLocalSize;
+    rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE,
+        sizeof(cl_ulong), &ullLocalSize, NULL);
+    if ( CL_DEV_FAILED(rc) )
+    {
+        printf("pclDevGetKernelInfo[CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE] failed <%X>\n", rc);
+        dev_entry->clDevReleaseProgram(prog);
+        return false;
+    }
+    if ( ullLocalSize != 0 )
+    {
+        dev_entry->clDevReleaseProgram(prog);
+        return false;
+    }
 
-	// Implicit local memory size
-	cl_ulong ullLocalSize;
-	rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE,
-		sizeof(cl_ulong), &ullLocalSize, NULL);
-	if ( CL_DEV_FAILED(rc) )
-	{
-		printf("pclDevGetKernelInfo[CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE] failed <%X>\n", rc);
-		dev_entry->clDevReleaseProgram(prog);
-		return false;
-	}
-	if ( ullLocalSize != 0 )
-	{
-		dev_entry->clDevReleaseProgram(prog);
-		return false;
-	}
+    // private memory size
+    cl_ulong ullPrivateSize = 0;
+    rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_PRIVATE_SIZE, sizeof(cl_ulong), &ullPrivateSize, NULL);
+    if ( CL_DEV_FAILED(rc) )
+    {
+        printf("pclDevGetKernelInfo[CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE] failed <%X>\n", rc);
+        dev_entry->clDevReleaseProgram(prog);
+        return false;
+    }
 
-	// private memory size
-	cl_ulong ullPrivateSize = 0;
-	rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_PRIVATE_SIZE, sizeof(cl_ulong), &ullPrivateSize, NULL);
-	if ( CL_DEV_FAILED(rc) )
-	{
-		printf("pclDevGetKernelInfo[CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE] failed <%X>\n", rc);
-		dev_entry->clDevReleaseProgram(prog);
-		return false;
-	}
+    // Get maximum size
+    size_t stWGMaxSize = 0;
+    rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_MAX_WG_SIZE, sizeof(stWGMaxSize), &stWGMaxSize, NULL);
+    if ( CL_DEV_FAILED(rc) )
+    {
+        printf("pclDevGetKernelInfo[CL_DEV_KERNEL_WG_SIZE] failed <%X>\n", rc);
+        dev_entry->clDevReleaseProgram(prog);
+        return false;
+    }
+    if ( CPU_MAX_WORK_GROUP_SIZE != stWGMaxSize )
+    {
+        dev_entry->clDevReleaseProgram(prog);
+        return false;
+    }
 
-	// Get maximum size
-	size_t stWGMaxSize = 0;
-	rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_MAX_WG_SIZE, sizeof(stWGMaxSize), &stWGMaxSize, NULL);
-	if ( CL_DEV_FAILED(rc) )
-	{
-		printf("pclDevGetKernelInfo[CL_DEV_KERNEL_WG_SIZE] failed <%X>\n", rc);
-		dev_entry->clDevReleaseProgram(prog);
-		return false;
-	}
-	if ( CPU_MAX_WORK_GROUP_SIZE != stWGMaxSize )
-	{
-		dev_entry->clDevReleaseProgram(prog);
-		return false;
-	}
+    // Get all kernels
+    cl_uint uiKernels;
+    rc = dev_entry->clDevGetProgramKernels(prog, 0, NULL, &uiKernels);
+    if ( CL_DEV_FAILED(rc) )
+    {
+        printf("pclDevGetProgramKernels failed <%X>\n", rc);
+        dev_entry->clDevReleaseProgram(prog);
+        return false;
+    }
+    if ( uiTotal != uiKernels )
+    {
+        printf("pclDevGetProgramKernels invalid amount of kernels %u <-> %u\n", uiTotal, uiKernels);
+        dev_entry->clDevReleaseProgram(prog);
+        return false;
+    }
 
-	// Get all kernels
-	cl_uint uiKernels;
-	rc = dev_entry->clDevGetProgramKernels(prog, 0, NULL, &uiKernels);
-	if ( CL_DEV_FAILED(rc) )
-	{
-		printf("pclDevGetProgramKernels failed <%X>\n", rc);
-		dev_entry->clDevReleaseProgram(prog);
-		return false;
-	}
-	if ( uiTotal != uiKernels )
-	{
-		printf("pclDevGetProgramKernels invalid amount of kernels %u <-> %u\n", uiTotal, uiKernels);
-		dev_entry->clDevReleaseProgram(prog);
-		return false;
-	}
+    cl_dev_kernel* pKernels = new cl_dev_kernel[uiKernels];
+    memset(pKernels, 0, sizeof(cl_dev_kernel)*uiKernels);
+    rc = dev_entry->clDevGetProgramKernels(prog, uiKernels, pKernels, &uiKernels);
+    for(unsigned int i=1; i<=uiTotal; ++i)
+    {
+        if ( 0 == (unsigned int)(size_t)pKernels[i-1] )
+        {
+            printf("pclDevGetProgramKernels failed to fill kernel ID array", uiTotal, uiKernels);
+            delete []pKernels;
+            dev_entry->clDevReleaseProgram(prog);
+            return false;
+        }
+    }
 
-	cl_dev_kernel* pKernels = new cl_dev_kernel[uiKernels];
-	memset(pKernels, 0, sizeof(cl_dev_kernel)*uiKernels);
-	rc = dev_entry->clDevGetProgramKernels(prog, uiKernels, pKernels, &uiKernels);
-	for(unsigned int i=1; i<=uiTotal; ++i)
-	{
-		if ( 0 == (unsigned int)(size_t)pKernels[i-1] )
-		{
-			printf("pclDevGetProgramKernels failed to fill kernel ID array", uiTotal, uiKernels);
-			delete []pKernels;
-			dev_entry->clDevReleaseProgram(prog);
-			return false;
-		}
-	}
+    delete []pKernels;
+    dev_entry->clDevReleaseProgram(prog);
 
-	delete []pKernels;
-	dev_entry->clDevReleaseProgram(prog);
-
-	return true;
+    return true;
 }

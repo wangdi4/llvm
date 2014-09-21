@@ -7,6 +7,9 @@
 
 OclBuiltinImpl isnan_f64_promote_not_shared = OclBuiltinImpl<isnan, [v3f64, v4f64], 0, Promote1>;
 
+OclBuiltinImpl isnan_f64_v8 = OclBuiltinImpl<isnan, [v8f64], 0, [{
+    return $Arg0VarName != $Arg0VarName;
+  }]>;
 OclBuiltinImpl isnormalal_f64_promote_not_shared = OclBuiltinImpl<isnormal, [v3f64], 0, Promote1>;
 
 

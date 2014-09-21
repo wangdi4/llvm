@@ -29,6 +29,7 @@
 #include "Context.h"
 #include "program.h"
 #include "fe_compiler.h"
+#include "common_clang.h"
 #include "sampler.h"
 #include "cl_shared_ptr.hpp"
 #include "svm_buffer.h"
@@ -645,14 +646,15 @@ cl_err_code Kernel::SetKernelArgumentInfo(const DeviceKernel* pDeviceKernel)
     const ConstSharedPtr<FrontEndCompiler>& pFECompiler = pDevice->GetRootDevice()->GetFrontEndCompiler();
     cl_device_id devID = (cl_device_id)pDevice->GetHandle();
     const char* pBin = m_pProgram->GetBinaryInternal(devID);
+    size_t uiBinSize = m_pProgram->GetBinarySizeInternal(devID);
 
     cl_err_code clErrCode = CL_SUCCESS;
 
     if ( (NULL != pFECompiler) || (NULL != pBin) )
     {
         // First use Front-end compiler for the information
-        FECompilerAPI::FEKernelArgInfo* pArgsInfo;
-        clErrCode = pFECompiler->GetKernelArgInfo(pBin, m_sKernelPrototype.m_szKernelName.c_str(), &pArgsInfo );
+        ClangFE::IOCLFEKernelArgInfo* pArgsInfo;
+        clErrCode = pFECompiler->GetKernelArgInfo(pBin, uiBinSize, m_sKernelPrototype.m_szKernelName.c_str(), &pArgsInfo );
         if ( CL_FAILED(clErrCode) )
         {
             // If no kernel arg info, so just ignore.

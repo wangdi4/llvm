@@ -686,7 +686,7 @@ TEST(CpuDeviceTestType, Test_AffinityRootDevice)
 	EXPECT_TRUE(AffinityRootDeviceTest(pMask));
 }
 
-TEST(CpuDeviceTestType, Test_AffinitySubDevice)
+TEST(CpuDeviceTestType, DISABLED_Test_AffinitySubDevice)    // ticket CSSD100020139
 {
 	EXPECT_TRUE(AffinitySubDeviceTest(pMask));
 }

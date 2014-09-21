@@ -192,7 +192,7 @@ TC_RETVAL CTranslator::Load()
         RegisterPlugin( &m_registerArgs );
 
         // Ensure that we're using the same block version
-        assert(( m_registerArgs.Version == STB_VERSION ) && "ERROR: fe dll is not the correct version" );
+        // assert(( m_registerArgs.Version == STB_VERSION ) && "ERROR: fe dll is not the correct version" );
 
         // Allocate room for the translation block's codes
         m_registerArgs.pTranslationCodes = new TC::STB_TranslationCode[ m_registerArgs.NumTranslationCodes ];

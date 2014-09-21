@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2012 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 //
@@ -33,7 +33,6 @@
 #include "dynamic_array.h"
 #include "common_methods.h"
 
-
 /*
  * CommonRuntime - fixture for all test cases, containins ocl_descriptor.
  * ocl_descriptor encapsulates all commonly needed OpenCL objects
@@ -43,31 +42,31 @@ class CommonRuntime : public ::testing::Test{
 	OpenCLDescriptor ocl_descriptor;
 
 	// SetUp - called before each test is being run
-	virtual void SetUp() 
-	{		
+	virtual void SetUp()
+	{
 	}
 
 	//	TearDown - called after each test
-	virtual void TearDown() 
-	{		
+	virtual void TearDown()
+	{
 	}
 };
 
-// FissionWrapper - encapsulates allocation and automatic dealocation of subdevices 
+// FissionWrapper - encapsulates allocation and automatic dealocation of subdevices
 class FissionWrapper: public virtual CommonRuntime{
 public:
 	cl_device_id* subdevices;
 	cl_uint subdevices_size;
 	// SetUp - called before each test is being run
-	virtual void SetUp() 
-	{		
+	virtual void SetUp()
+	{
 		subdevices = NULL;
 		subdevices_size = 0;
 	}
 
 	//	TearDown - called after each test
-	virtual void TearDown() 
-	{		
+	virtual void TearDown()
+	{
 		if(NULL != subdevices)
 		{
 			for(cl_uint i = 0; i < subdevices_size ; i++){
@@ -123,7 +122,7 @@ public:
 		{
 			ASSERT_TRUE(false) << "subdevices were not initialized";
 		}
-		cl_uint i=0; 
+		cl_uint i=0;
 		for(i=0; i<subdevices_size; ++i)
 		{
 			out_devices[i] = subdevices[i];
@@ -146,7 +145,7 @@ public:
 	cl_image_format image_format;
 	const char* kernelName;
 
-	virtual void SetUp() 
+	virtual void SetUp()
 	{
 		this->image_format.image_channel_order = CL_RGBA;
 		this->image_format.image_channel_data_type = CL_FLOAT;

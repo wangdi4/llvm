@@ -3,25 +3,22 @@ include "ssse3/code_relational.td"
 
 OclBuiltinImpl isfinite_promote       =  OclBuiltinImpl  <isfinite,  [v2f32, v3f32],                                            0, Promote1>;
 
-//OclBuiltinImpl isfinite_expand        =  OclBuiltinImpl  <isfinite,  [v8f32, v16f32, v8f64, v16f64],                            0, Expand1>;
 OclBuiltinImpl isinf_promotef2        =  OclBuiltinImpl  <isinf,  [v2f32, v3f32],                                               0, Promote1>;
 
-//OclBuiltinImpl isinf_expand           =  OclBuiltinImpl  <isinf,  [v8f32, v16f32, v8f64, v16f64],                               0, Expand1>;
 OclBuiltinImpl isnan_promote          =  OclBuiltinImpl  <isnan,  [v2f32, v3f32],                                               0, Promote1>;
 
-OclBuiltinImpl isnan_expand           =  OclBuiltinImpl  <isnan,  [v16f32, v8f64, v16f64],                                      0, Expand1>;
+OclBuiltinImpl isnan_expand           =  OclBuiltinImpl  <isnan,  [v16f64],                                                     0, Expand1>;
 OclBuiltinImpl isnormal_promote       =  OclBuiltinImpl  <isnormal,  [v2f32, v3f32],                                            0, Promote1>;
 
-//OclBuiltinImpl isnormal_expand        =  OclBuiltinImpl  <isnormal,  [v8f32, v16f32, v8f64, v16f64],                            0, Expand1>;
 OclBuiltinImpl isordered_promote      =  OclBuiltinImpl  <isordered,  [v2f32, v3f32],                                           0, Promote2>;
 
-OclBuiltinImpl isordered_expand       =  OclBuiltinImpl  <isordered,  [v16f32, v8f64, v16f64],                    0, Expand2>;
+OclBuiltinImpl isordered_expand       =  OclBuiltinImpl  <isordered,  [v16f64],                                                 0, Expand2>;
 OclBuiltinImpl isunordered_promote    =  OclBuiltinImpl  <isunordered,  [v2f32, v3f32],                                         0, Promote2>;
 
-OclBuiltinImpl isunordered_expand     =  OclBuiltinImpl  <isunordered,  [v16f32, v8f64, v16f64],                  0, Expand2>;
+OclBuiltinImpl isunordered_expand     =  OclBuiltinImpl  <isunordered,  [v16f64],                  0, Expand2>;
 OclBuiltinImpl signbit_promote        =  OclBuiltinImpl  <signbit,  [v2f32, v3f32],                                             0, Promote1>;
 
-OclBuiltinImpl signbit_expand         =  OclBuiltinImpl  <signbit,  [v16f32, v8f64, v16f64],                      0, Expand1>;
+OclBuiltinImpl signbit_expand         =  OclBuiltinImpl  <signbit,  [v16f64],                      0, Expand1>;
 
 OclBuiltinImpl any_expand1           =  OclBuiltinImpl  <any,  [v3i8, v3i16],                                              0,Expand_any_3i8_3i16 >;
 OclBuiltinImpl any_expand2           =  OclBuiltinImpl  <any,  [v2i8, v16i16, v16i32, v2i16, v8i64, v8i64],  0, Expand_any>;
@@ -40,20 +37,16 @@ OclBuiltinImpl all_expand7           =  OclBuiltinImpl  <all,  [v3i32],         
 OclBuiltinImpl bitselect_promote     =  OclBuiltinImpl  <bitselect,  [v2f32, v3f32, v2i32, v2u32, v3i32, v3u32, v2i8, 
                                                                       v2u8, v3i8, v3u8, v4i8, v4u8, v2i16, v2u16, 
                                                                       v3i16, v3u16, v4i16, v4u16, v8i8, v8u8],                           0, Promote3>;
-OclBuiltinImpl bitselect_expand      =  OclBuiltinImpl  <bitselect,  [v8u64, v16u32, v16f32, v8f64, v16f64, 
-                                                                      v8i64, v16i64, v16u64, v16i32],                             0, Expand3>;
+OclBuiltinImpl bitselect_expand      =  OclBuiltinImpl  <bitselect,  [v16f64, v16i64, v16u64],                             0, Expand3>;
+
 OclBuiltinImpl iselect_promote       =  OclBuiltinImpl  <iselect,  [v2f32, v3f32, v2i32, v2u32, v3i32, v3u32, v2i8, 
                                                                     v2u8, v3i8, v3u8, v4i8, v4u8, v2i16, v2u16, 
-                                                                    v3i16, v3u16, v4i16, v4u16, v8i8, v8u8],                             0, Promote3>;
-OclBuiltinImpl iselect_expand        =  OclBuiltinImpl  <iselect,  [v16f32, v8f64, v16f64,
-                                                                   v16u16, v16i16, 
-                                                                   v8i64, v16i64,  v16u32, v16i32, v16u64, v8u64],                0, Expand3>;
+                                                                    v3i16, v3u16, v4i16, v4u16, v8i8, v8u8],               0, Promote3>;
+OclBuiltinImpl iselect_expand        =  OclBuiltinImpl  <iselect,  [v16f64,v16u16, v16i16, v16i64,  v16u64],               0, Expand3>;
 OclBuiltinImpl uselect_promote       =  OclBuiltinImpl  <uselect,  [v2f32, v3f32, v2i32, v2u32, v3i32, v3u32, v2i8, 
                                                                     v2u8, v3i8, v3u8, v4i8, v4u8, v2i16, v2u16, 
-                                                                    v3i16, v3u16, v4i16, v4u16, v8i8, v8u8],                             0, Promote3>;
-OclBuiltinImpl uselect_expand        =  OclBuiltinImpl  <uselect,  [v16f32, v8f64, v16f64, 
-                                                                   v16u16, v16i16, 
-                                                                   v8i64, v16i64, v16u32, v8u64, v16u64, v16i32],                 0, Expand3>;
+                                                                    v3i16, v3u16, v4i16, v4u16, v8i8, v8u8],               0, Promote3>;
+OclBuiltinImpl uselect_expand        =  OclBuiltinImpl  <uselect,  [v16f64, v16u16, v16i16, v16i64, v16u64],               0, Expand3>;
 
 OclBuiltinImpl islessgreater1        =   OclBuiltinImpl  <islessgreater,  [v1f32, v1f64,  v2f64, v4f32], 0, [{
     return (($Arg0VarName < $Arg1VarName) | ($Arg0VarName > $Arg1VarName)) ;

@@ -51,9 +51,10 @@ code cmpxchg_g = [{
 code max_l = [{
     while (true)
     {
-      int oldValue = *$Arg0VarName;
+      local $ReturnType* tmp = (local $ReturnType*)$Arg0VarName;
+      int oldValue = *tmp;
       if (oldValue >= $Arg1VarName) return oldValue;
-      int retVal = _InterlockedCompareExchange_local((intrin_type *)$Arg0VarName, oldValue, $Arg1VarName);
+      int retVal = _InterlockedCompareExchange_local((intrin_type *)tmp, oldValue, $Arg1VarName);
       if (retVal == oldValue) return oldValue;
     }
   }];
@@ -69,9 +70,10 @@ code max_g = [{
 code min_l = [{
     while (true)
     {
-      int oldValue = *$Arg0VarName;
+      local $ReturnType* tmp = (local $ReturnType*)$Arg0VarName;
+      int oldValue = *tmp;
       if (oldValue <= $Arg1VarName) return oldValue;
-      int retVal = _InterlockedCompareExchange_local((intrin_type *)$Arg0VarName, oldValue, $Arg1VarName);
+      int retVal = _InterlockedCompareExchange_local((intrin_type *)tmp, oldValue, $Arg1VarName);
       if (retVal == oldValue) return oldValue;
     }
   }];

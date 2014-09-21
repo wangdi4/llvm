@@ -137,10 +137,13 @@ GLContext::~GLContext()
 	}
 #endif
 
-	// All device passed, update GL info
-    for (cl_uint idx = 0; idx < m_uiNumRootDevices; ++idx)
+    if (NULL != m_ppExplicitRootDevices)
     {
-        m_ppExplicitRootDevices[idx]->SetGLProperties(NULL, NULL);
+        // All device passed, update GL info
+        for (cl_uint idx = 0; idx < m_uiNumRootDevices; ++idx)
+        {
+            m_ppExplicitRootDevices[idx]->SetGLProperties(NULL, NULL);
+        }
     }
 }
 

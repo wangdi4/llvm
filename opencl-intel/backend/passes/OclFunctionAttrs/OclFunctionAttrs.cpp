@@ -10,13 +10,12 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CompilationUtils.h"
 #include "LoopUtils/LoopUtils.h"
 #include "OCLAddressSpace.h"
+
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
-
 #include "llvm/Support/InstIterator.h"
-#include "llvm/Version.h"
 
 extern "C" {
   void* createOclFunctionAttrsPass() {
@@ -62,11 +61,7 @@ namespace intel{
   // in V without this attribute, otherwise sets all arguments in V with the
   // attribute. 'NoAlias' is passed in for efficiency.
   static void setNoAlias(SmallVectorImpl<Argument *> &V,
-#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
-                         const Attributes &NoAlias, bool ReturnAfterFirst) {
-#else
                          const AttributeSet &NoAlias, bool ReturnAfterFirst) {
-#endif
     for (SmallVectorImpl<Argument *>::iterator AI = V.begin(), AE = V.end();
          AI != AE; ++AI) {
       if (!(*AI)->hasNoAliasAttr()) {
@@ -122,13 +117,7 @@ namespace intel{
         NumArgsNoAlias[AS]++;
     }
     // Modify the arguments
-#if LLVM_VERSION == 3200
-    Attributes NoAlias = Attributes::get(F.getContext(), Attributes::NoAlias);
-#elif LLVM_VERSION == 3425
-    Attributes NoAlias = Attributes::get(F.getContext(), Attribute::NoAlias);
-#else
     AttributeSet NoAlias = AttributeSet::get(F.getContext(), 0, Attribute::NoAlias);
-#endif
     bool Changed = false;
     for (unsigned AS = 0; AS < LastStaticAddrSpace + 1; ++AS) {
       if (Args[AS].size() && Args[AS].size() - 1 == NumArgsNoAlias[AS]) {
@@ -191,10 +180,8 @@ namespace intel{
     for (Module::iterator I = M.begin(), E = M.end(); I != E; ++I) {
       Function* pFunc = &*I;
       if (oclSyncFunctions.count(pFunc) || oclSyncBuiltins.count(pFunc)) {
-#if (LLVM_VERSION != 3200) && (LLVM_VERSION != 3425)
         pFunc->setAttributes(pFunc->getAttributes().addAttribute(
           pFunc->getContext(), AttributeSet::FunctionIndex, Attribute::NoDuplicate));
-#endif
         Changed = true;
       }
     }
