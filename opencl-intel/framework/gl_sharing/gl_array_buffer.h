@@ -31,22 +31,21 @@
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
-    class GLTextureBuffer : public GLMemoryObject
+    class GLArrayBuffer : public GLMemoryObject
     {
     public:
 
-        PREPARE_SHARED_PTR(GLTextureBuffer)
+        PREPARE_SHARED_PTR(GLArrayBuffer)
 
-        static SharedPtr<GLTextureBuffer> Allocate(SharedPtr<Context> pContext, cl_mem_object_type clObjType)
+        static SharedPtr<GLArrayBuffer> Allocate(SharedPtr<Context> pContext, cl_mem_object_type clObjType)
         {
-            return SharedPtr<GLTextureBuffer>(new GLTextureBuffer(pContext, clObjType));
+            return SharedPtr<GLArrayBuffer>(new GLArrayBuffer(pContext, clObjType));
         }
 
-        // GLMemoryObject interfaces
         cl_err_code AcquireGLObject();
         cl_err_code ReleaseGLObject();
 
-        // MemoryObject interfaces
+        // MemoryObject Interface
         cl_err_code Initialize(cl_mem_flags clMemFlags, const cl_image_format* pclImageFormat, unsigned int dim_count,
             const size_t* dimension, const size_t* pitches, void* pHostPtr, cl_rt_memobj_creation_flags creation_flags);
 
@@ -59,31 +58,22 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t GetSlicePitchSize() const  { return 0;};
 
         cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const;
-        cl_err_code GetDimensionSizes(size_t* pszRegion) const;
-        virtual void GetLayout(size_t* dimensions, size_t* rowPitch, size_t* slicePitch) const;
 
-        cl_err_code GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const;
-        cl_err_code GetGLTextureInfo(cl_gl_texture_info glTextInfo, size_t valSize, void* pVal, size_t* pRetSize);
+        cl_err_code GetDimensionSizes(size_t* pszRegion) const;
+
+        virtual void GetLayout(size_t* dimensions, size_t* rowPitch, size_t* slicePitch) const;
 
     protected:
 
-        GLTextureBuffer(SharedPtr<Context> pContext, cl_mem_object_type clObjType);
+        GLArrayBuffer(SharedPtr<Context> pContext, cl_gl_object_type clglObjType);
 
         cl_err_code CreateChildObject() { assert(false && "shouldn't be called"); return CL_INVALID_OPERATION; }
-
         // do not implement
-        GLTextureBuffer(const GLTextureBuffer&);
-        GLTextureBuffer& operator=(const GLTextureBuffer&);
+        GLArrayBuffer(const GLArrayBuffer&);
+        GLArrayBuffer& operator=(const GLArrayBuffer&);
 
-        cl_image_format_ext m_clFormat;
-        GLint   m_glInternalFormat;
-
-        GLint   m_glMipLevel;
-
-        GLint m_glAttachedBuffer;
-
-        GLenum  m_glTextureTarget;
-        GLenum  m_glTextureTargetBinding;
+        GLenum m_glBufferTarget;
+        GLenum m_glBufferTargetBinding;
     };
 
 }}}
