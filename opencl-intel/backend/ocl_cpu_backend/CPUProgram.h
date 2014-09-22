@@ -20,6 +20,7 @@ File Name:  CPUProgram.h
 #pragma once
 
 #include "Program.h"
+#include "ObjectCodeCache.h"
 
 namespace llvm {
   class ExecutionEngine;
@@ -27,7 +28,6 @@ namespace llvm {
 }
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
 
 class CPUProgram : public Program
 {
@@ -51,9 +51,12 @@ public:
      */
     virtual void Deserialize(IInputStream& ist, SerializationStatus* stats);
 
+    void SetObjectCache(ObjectCodeCache *);
+
 private:
     llvm::ExecutionEngine*  m_pExecutionEngine;
     void *                  m_pBIModule;
+    std::auto_ptr<ObjectCodeCache> m_ObjectCodeCache;
 
 private:
     // Disable copy ctor and assignment operator
