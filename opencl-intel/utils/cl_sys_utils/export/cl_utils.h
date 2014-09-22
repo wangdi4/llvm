@@ -441,8 +441,19 @@ bool EmulatorEnabled();
 string ReadFileContents(const string& filePath);
 
 /**
+ * @return the size of the read data, allocates 'sizeToRead' memory and read the data into bufferPtr
+ *  if sizeToRead is 0 reads the entire file content
+ */
+unsigned int ReadBinaryFileContents(const string& filePath, char** bufferPtr, unsigned int sizeToRead);
+
+/**
  * @Write the given text to the file
  */
 void WriteContentToFile(const string& content, const string& filePath);
+
+/**
+ * @Write the given text to the file
+ */
+void WriteBinaryContentToFile(const char* content, unsigned int size, const string& filePath);
 
 OclMemObjectType getSimplifiedMemoryObjectType(const cl_mem_object_type MemObjectType);

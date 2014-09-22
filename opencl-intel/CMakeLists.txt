@@ -158,7 +158,7 @@ if(INCLUDE_TOOLS)
     set (Boost_NO_SYSTEM_PATHS ON) # Don't search PATH
 
     # To add new components for Boost simply add to BOOST_COMPONENTS below
-    set (BOOST_COMPONENTS regex system filesystem date_time signals)
+    set (BOOST_COMPONENTS regex system filesystem date_time signals thread)
 
     if(NOT ANDROID)
         set(Boost_USE_STATIC_LIBS ON )
@@ -180,6 +180,7 @@ if(INCLUDE_TOOLS)
                            ${Boost_DATE_TIME_LIBRARY}
                            ${Boost_REGEX_LIBRARY}
                            ${Boost_SIGNALS_LIBRARY}
+                           ${Boost_THREAD_LIBRARY}
                            )
     list(REMOVE_ITEM BOOST_INSTALL_LIBS debug optimized)
 

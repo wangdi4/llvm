@@ -1635,15 +1635,63 @@ string ReadFileContents(const string& filePath)
     return sstr.str();
 }
 
+unsigned int ReadBinaryFileContents(const string& filePath, char** bufferPtr, unsigned int sizeToRead)
+{
+    ifstream stream(filePath.c_str(), std::ios::binary);
+    if (stream)
+    {
+        // get length of filePath:
+        stream.seekg (0, stream.end);
+        unsigned int length = stream.tellg();
+        stream.seekg (0, stream.beg);
+
+        if (sizeToRead > length)
+        {
+            throw string("File " + filePath + " contains only " + stringify(length) + " bytes\nCan't read " + stringify(sizeToRead));
+        }
+
+        unsigned int size = sizeToRead == 0 ? length : sizeToRead;
+        char * buffer = new char [size];
+
+        stream.read (buffer, size);
+
+        if (!stream)
+        {
+            throw string("Error: only " + stringify(stream.gcount()) + " bytes could be read from file " + filePath);
+        }
+        stream.close();
+
+        *bufferPtr = buffer;
+        return size;
+    }
+    return 0;
+}
+
 void WriteContentToFile(const string& content, const string& filePath)
 {
     ofstream stream(filePath.c_str());
     if (!stream.good())
     {
-        return;
+        throw string("Failed to open file: " + filePath);
     }
 
     stream << content;
+    stream.close();
+}
+
+void WriteBinaryContentToFile(const char* content, unsigned int size, const string& filePath)
+{
+    ofstream stream(filePath.c_str(), std::ios::binary);
+    if (!stream.good())
+    {
+        throw string("Failed to open file: " + filePath);
+    }
+
+    stream.write(content, size);
+    if (stream.fail() || stream.bad())
+    {
+        throw string("Failed to write to file: " + filePath);
+    }
     stream.close();
 }
 
