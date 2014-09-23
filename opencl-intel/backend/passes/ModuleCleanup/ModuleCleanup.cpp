@@ -73,7 +73,9 @@ namespace intel{
       }
       if (!GVar->isConstant()) continue;
       // Remove only image callback table and only if it's not used in the kernels.
-      if (GVar->getName() != "coord_translate_i_callback") continue;
+      if (GVar->getName() != "coord_translate_i_callback" &&
+          GVar->getName() != "soa4_coord_translate_i_callback" &&
+          GVar->getName() != "soa8_coord_translate_i_callback") continue;
       // WORKAROUND: Even when image callback is inlined the use list for the callback table is not empty.
       // The check here should be like this:
       // if (!GVar->use_empty()) continue;
