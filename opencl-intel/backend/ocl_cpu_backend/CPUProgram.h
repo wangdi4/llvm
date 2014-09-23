@@ -21,6 +21,7 @@ File Name:  CPUProgram.h
 
 #include "Program.h"
 #include "ObjectCodeCache.h"
+#include <memory>
 
 namespace llvm {
   class ExecutionEngine;
