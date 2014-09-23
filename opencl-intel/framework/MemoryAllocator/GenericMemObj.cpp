@@ -33,7 +33,6 @@
 #include "cl_sys_defines.h"
 
 #include "MemoryObjectFactory.h"
-#include "ImageBuffer.h"
 #include "cl_shared_ptr.hpp"
 
 using namespace std;
@@ -838,7 +837,7 @@ cl_err_code GenericMemObject::GetImageInfo(cl_image_info clParamName, size_t szP
     const void * pValue = NULL;
     size_t    stZero = 0;
     cl_uint uiZero = 0;
-    const cl_mem nullBuffer = NULL;
+    cl_mem imageBuffer = GetParent() != NULL ? const_cast<_cl_mem_int*>(GetParent()->GetHandle()) : CL_INVALID_HANDLE;
 
     switch (clParamName)
     {
@@ -927,8 +926,8 @@ cl_err_code GenericMemObject::GetImageInfo(cl_image_info clParamName, size_t szP
         pValue = &uiZero;
         break;
     case CL_IMAGE_BUFFER:
-        szSize = sizeof(nullBuffer);
-        pValue = &nullBuffer;
+        szSize = sizeof(imageBuffer);
+        pValue = &imageBuffer;
         break;
     default:
         return CL_INVALID_VALUE;
