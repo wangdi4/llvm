@@ -107,6 +107,7 @@ bool CPUDetect::IsProcessorType(EProcessorType processorType)
         return false;
     }
     
+
     switch(processorType)
     {
     case PT_ALL:
@@ -158,7 +159,8 @@ bool CPUDetect::IsProcessorType(EProcessorType processorType)
         }
         break;
     case PT_HASWELL:
-        if (m_ucFamily == 0x6 && m_ucModel == 0xC)
+        if ((m_ucFamily == 0x6 && m_ucModel == 0xC) ||
+            (m_ucFamily == 0x6 && m_ucModel == 0x6)) // HSW 4770R
         {
             return true;
         }
