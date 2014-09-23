@@ -64,7 +64,7 @@ void Validation::FillMemObjDescriptor( cl_mem_obj_descriptor& mem_desc, const Bu
 {
     mem_desc.dim_count = 1;
     mem_desc.memObjType = CL_MEM_OBJECT_BUFFER;
-    mem_desc.dimensions.dim[0] = buffer_desc.GetBufferSizeInBytes();
+    mem_desc.dimensions.dim[0] = buffer_desc.GetSizeInBytes();
     mem_desc.pData = pData;
 }
 
@@ -180,7 +180,7 @@ void OpenCLArgsBuffer::FillArgsBuffer(IBufferContainerList * input)
             // TODO: This code is almost identical to the next branch. Rewrite it using common function.
             // Kernel argument is an image - need to pass a pointer in the arguments buffer
             ImageDesc imageDesc = GetImageDescription(pMemObj->GetMemoryObjectDesc());
-            size_t imageSize = imageDesc.GetImageSizeInBytes();
+            size_t imageSize = imageDesc.GetSizeInBytes();
 
             // Kernel execution assumes all buffer arguments are aligned
             // If we do not align the buffer the execution crashes
@@ -201,7 +201,7 @@ void OpenCLArgsBuffer::FillArgsBuffer(IBufferContainerList * input)
         {
             // Kernel argument is a buffer - need to pass a pointer in the arguments buffer
             BufferDesc bufferDesc = GetBufferDescription(pMemObj->GetMemoryObjectDesc());
-            size_t bufferSize = bufferDesc.GetBufferSizeInBytes();
+            size_t bufferSize = bufferDesc.GetSizeInBytes();
             
             // Add Padding to both sides of the buffer
             if (m_isCheckOOBAccess) 
@@ -239,7 +239,7 @@ void OpenCLArgsBuffer::FillArgsBuffer(IBufferContainerList * input)
             // Need to pass pointer to somewhere in local memory buffer
 
             BufferDesc bufferDesc = GetBufferDescription(pMemObj->GetMemoryObjectDesc());
-            size_t origSize = bufferDesc.GetBufferSizeInBytes();
+            size_t origSize = bufferDesc.GetSizeInBytes();
             size_t locSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(origSize); 
             *(size_t *)(m_pArgsBuffer + offset) = locSize;
             stLocMemSize += locSize;
@@ -383,7 +383,7 @@ void OpenCLArgsBuffer::CopyOutput(IBufferContainerList &output, const IBufferCon
             IMemoryObject * buffer = bufferContainer->CreateImage(imageDesc);
             void * pData = buffer->GetDataPtr();
 
-            size_t imageSize = imageDesc.GetImageSizeInBytes();
+            size_t imageSize = imageDesc.GetSizeInBytes();
 
             void ** pImageArg = (void **)(m_pArgsBuffer + offset);
             cl_mem_obj_descriptor* pMemDesc = *(cl_mem_obj_descriptor**)pImageArg;
@@ -404,7 +404,7 @@ void OpenCLArgsBuffer::CopyOutput(IBufferContainerList &output, const IBufferCon
             // Kernel argument is a buffer
             // Need to pass a pointer in the arguments buffer
 
-            size_t bufferSize = bufferDesc.GetBufferSizeInBytes();
+            size_t bufferSize = bufferDesc.GetSizeInBytes();
 
             void ** pBufferArg = (void **)(m_pArgsBuffer + offset);
             cl_mem_obj_descriptor* pMemDesc = *(cl_mem_obj_descriptor**)pBufferArg;

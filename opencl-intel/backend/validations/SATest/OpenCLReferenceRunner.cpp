@@ -476,7 +476,7 @@ void OpenCLReferenceRunner::ReadKernelArgs(
                 // TODO: This code is almost identical to the next branch. Rewrite it using common function.
                 // Kernel argument is an image - need to pass a pointer in the arguments buffer
                 ImageDesc imageDesc = GetImageDescription(currBuffer->GetMemoryObjectDesc());
-                size_t imageSize = imageDesc.GetImageSizeInBytes();
+                size_t imageSize = imageDesc.GetSizeInBytes();
                 IMemoryObject* outputImage = outputContainer->CreateImage(imageDesc);
 
                 // copy image data
@@ -702,7 +702,7 @@ void* OpenCLReferenceRunner::GetPointerToTheArgValues( const IMemoryObject* buff
     case Type::VectorTyID:
     case Type::StructTyID:
         {
-            std::copy((char*)(buffer->GetDataPtr()), (char*)(buffer->GetDataPtr()) + buffDsc.GetBufferSizeInBytes(), (char*)(outBuffer->GetDataPtr()));
+            std::copy((char*)(buffer->GetDataPtr()), (char*)(buffer->GetDataPtr()) + buffDsc.GetSizeInBytes(), (char*)(outBuffer->GetDataPtr()));
             m_pointerArgs.push_back(outBuffer->GetDataPtr());
             break;
         }

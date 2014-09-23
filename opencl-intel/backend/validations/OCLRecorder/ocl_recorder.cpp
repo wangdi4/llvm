@@ -778,7 +778,7 @@ namespace Validation
 
                 // fill it with data
                 char* pData = (char*)pImage->GetDataPtr();
-                size_t size  = desc.GetImageSizeInBytes();
+                size_t size  = desc.GetSizeInBytes();
                 memcpy( pData, mem_descriptor->pData, size);
             }
             else if ( CL_KRNL_ARG_PTR_GLOBAL <= pKernelArgs[i].type )
@@ -791,7 +791,7 @@ namespace Validation
                 // fill it with data
                 char* pData = (char*)pBuffer->GetDataPtr();
                 size_t size  = Utils::GetBufferSizeInBytes(mem_descriptor);
-                memset( pData, 0, desc.GetBufferSizeInBytes());
+                memset( pData, 0, desc.GetSizeInBytes());
                 memcpy( pData, mem_descriptor->pData, size);
             }
             else if (CL_KRNL_ARG_PTR_LOCAL == pKernelArgs[i].type)
@@ -802,7 +802,7 @@ namespace Validation
 
                 // fill it with data
                 char* pData = (char*)pBuffer->GetDataPtr();
-                size_t size  = desc.GetBufferSizeInBytes();
+                size_t size  = desc.GetSizeInBytes();
                 memset( pData, 0, size);
             }
             else if (CL_KRNL_ARG_VECTOR == pKernelArgs[i].type || CL_KRNL_ARG_VECTOR_BY_REF == pKernelArgs[i].type)
