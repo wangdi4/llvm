@@ -21,6 +21,7 @@ File Name:  CPUProgram.cpp
 #include "CPUProgram.h"
 #include "BitCodeContainer.h"
 #include "Kernel.h"
+#include "ObjectCodeCache.h"
 
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -65,4 +66,7 @@ void CPUProgram::Deserialize(IInputStream& ist, SerializationStatus* stats)
     Program::Deserialize(ist, stats);
 }
 
+void CPUProgram::SetObjectCache(ObjectCodeCache *oc) {
+  m_ObjectCodeCache.reset(oc);
+}
 }}}

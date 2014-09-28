@@ -46,7 +46,7 @@ namespace Validation
         catch (std::bad_alloc e)
         {
             std::ostringstream oss;
-            oss << buffDesc.GetBufferSizeInBytes();
+            oss << buffDesc.GetSizeInBytes();
             throw Exception::InvalidArgument("CreateBuffer was unable to allocate buffer with size: " + oss.str() + " bytes.");
         }
     }
@@ -63,7 +63,7 @@ namespace Validation
         catch (std::bad_alloc e)
         {
             std::ostringstream oss;
-            oss << imDesc.GetImageSizeInBytes();
+            oss << imDesc.GetSizeInBytes();
             throw Exception::InvalidArgument("CreateImage was unable to allocate image with size: " + oss.str() + " bytes.");
         }
     }

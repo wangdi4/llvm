@@ -201,6 +201,7 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
 
     ObjectCodeCache* pCache = new ObjectCodeCache((llvm::Module*)pProgram->GetModule(), objectBuffer, objectSize);
     pEngine->setObjectCache(pCache);
+    static_cast<CPUProgram*>(pProgram)->SetObjectCache(pCache);
 
     // deserialize the management objects
     std::auto_ptr<CPUSerializationService> pCPUSerializationService(new CPUSerializationService(NULL));

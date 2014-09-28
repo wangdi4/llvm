@@ -15,6 +15,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Module.h"
 
 namespace intel{
+using namespace llvm;
 
 void VectorizerUtils::SetDebugLocBy(Instruction *I, const Instruction *setBy) {
   if (!setBy->getDebugLoc().isUnknown()) {
@@ -727,8 +728,5 @@ Value *VectorizerUtils::canRootInputByShuffle(SmallVector<Value *, 4> &valInChai
   }
   return NULL;
 }
-
-
-
 
 } // nampespace intel

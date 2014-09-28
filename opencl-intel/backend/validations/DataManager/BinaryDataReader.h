@@ -196,7 +196,7 @@ namespace Validation
                     bd.SetElementDecs(elemDesc);
                     bd.SetNeat(bool(isNeat));
                     IMemoryObject* pBuffer = pContainer->CreateBuffer(bd);
-                    m_stream.read( (char*)pBuffer->GetDataPtr(), bd.GetBufferSizeInBytes());
+                    m_stream.read( (char*)pBuffer->GetDataPtr(), bd.GetSizeInBytes());
                 }
                 else if (marker == Image::GetImageName())
                 {
@@ -242,7 +242,7 @@ namespace Validation
                     assert((size_t)pixelSize == imd.GetElementSize() );
 
                     IMemoryObject* pImage = pContainer->CreateImage(imd);
-                    m_stream.read( (char*)pImage->GetDataPtr(), imd.GetImageSizeInBytes());
+                    m_stream.read( (char*)pImage->GetDataPtr(), imd.GetSizeInBytes());
                 }
                 else
                 {

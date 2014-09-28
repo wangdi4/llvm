@@ -123,7 +123,7 @@ namespace Validation
 
         /// get image data size in bytes
         /// in case of NEAT returns correct number of bytes occupied by NEAT image
-        inline size_t GetImageSizeInBytes() const {
+        inline size_t GetSizeInBytes() const {
             size_t res = 0;
             if(m_isNEAT)
             {

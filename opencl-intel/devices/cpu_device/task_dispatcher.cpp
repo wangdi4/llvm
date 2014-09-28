@@ -568,7 +568,7 @@ TE_BOOLEAN_ANSWER TaskDispatcher::MayThreadLeaveDevice( void* currentThreadData 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 AffinitizeThreads::AffinitizeThreads(unsigned int numThreads, cl_ulong timeOutInTicks, IAffinityChangeObserver* observer) :
-    m_numThreads(numThreads), m_timeOut(timeOutInTicks), m_failed(false), m_pObserver(observer)
+    m_numThreads(numThreads), m_timeOut(timeOutInTicks), m_failed(false), m_pObserver(observer), m_uiMasterHWId(0)
 {
 }
 
@@ -586,6 +586,7 @@ void AffinitizeThreads::WaitForEndOfTask() const
 
 int AffinitizeThreads::Init(size_t region[], unsigned int &dimCount)
 {
+    m_uiMasterHWId = Intel::OpenCL::Utils::GetCpuId(); 
     // copy execution parameters
     unsigned int i;
     for (i = 1; i < MAX_WORK_DIM; ++i)
@@ -620,11 +621,12 @@ bool AffinitizeThreads::ExecuteIteration(size_t x, size_t y, size_t z, void* pWg
 
     ITaskExecutor* pTaskExecutor = reinterpret_cast<ITaskExecutor*>(pWgContext);
 
+    unsigned int   uiPositionInDevice = pTaskExecutor->GetPosition();
     if ( !pTaskExecutor->IsMaster() )
     {
-        // Set NUMA node prior to allocation
+        m_pObserver->NotifyAffinity(clMyThreadId() , (uiPositionInDevice == m_uiMasterHWId) ? 0 : uiPositionInDevice);
+        // Set NUMA node 
         clNUMASetLocalNodeAlloc();
-        m_pObserver->NotifyAffinity(clMyThreadId(), x);
     }
 
     m_barrier--;

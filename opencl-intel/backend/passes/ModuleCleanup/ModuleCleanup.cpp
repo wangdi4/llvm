@@ -32,7 +32,7 @@ namespace intel{
 
   char ModuleCleanup::ID = 0;
   /// Register pass to for opt
- OCL_INITIALIZE_PASS(ModuleCleanup, "module-cleanup", "Cleans OpenCL module: removes functions which are not kernels (or called by kernels)", false, false)
+  OCL_INITIALIZE_PASS(ModuleCleanup, "module-cleanup", "Cleans OpenCL module: removes functions which are not kernels (or called by kernels)", false, false)
 
   bool ModuleCleanup::runOnModule(Module& M) {
     bool didDeleteAny = false;
@@ -56,6 +56,48 @@ namespace intel{
       intel::Statistic::removeFunctionStats(*func);
       didDeleteAny = true;
     }
+
+    // Erase global constants which are not needed.
+    std::vector<GlobalVariable*> toDelete;
+    for (Module::global_iterator I = M.global_begin(), E = M.global_end();
+               I != E; ++I) {
+      assert(isa<GlobalVariable>(*I) && "Global variable is expected.");
+      GlobalVariable *GVar = cast<GlobalVariable>(I);
+      // TODO: remove once SPIR 2.0 format for blocks is used.
+      // Clang produces _NSConcreteGlobalBlock unresolved external variable which is not used by OpenCL.
+      // MCJIT do not compile a module with unresolved external symbols, so we delete _NSConcreteGlobalBlock and replace all usages with undef.
+      if (GVar->hasExternalLinkage() && GVar->getName() == "_NSConcreteGlobalBlock") {
+        GVar->replaceAllUsesWith(UndefValue::get(GVar->getType()));
+        toDelete.push_back(GVar);
+        continue;
+      }
+      if (!GVar->isConstant()) continue;
+      // Remove only image callback table and only if it's not used in the kernels.
+      if (GVar->getName() != "coord_translate_i_callback" &&
+          GVar->getName() != "soa4_coord_translate_i_callback" &&
+          GVar->getName() != "soa8_coord_translate_i_callback") continue;
+      // WORKAROUND: Even when image callback is inlined the use list for the callback table is not empty.
+      // The check here should be like this:
+      // if (!GVar->use_empty()) continue;
+      // TODO: Check why not all uses were dropped when all calls were inlined.
+      // Meanwhile we check that all functions that uses our global variable are used by some kernel.
+      bool isNeeded = false;
+      for (Value::use_iterator U = GVar->use_begin(), UE = GVar->use_end(); U != UE; ++U) {
+        if (ConstantExpr* CE = dyn_cast<ConstantExpr>(*U)) {
+          if (CE->use_empty()) {
+            continue;
+          }
+        }
+        isNeeded = true;
+        break;
+      }
+      if (isNeeded) continue;
+      toDelete.push_back(GVar);
+    }
+    for (std::vector<GlobalVariable*>::iterator i = toDelete.begin(), ie = toDelete.end(); i != ie; ++i) {
+      (*i)->eraseFromParent();
+      didDeleteAny = true;
+    }
     return didDeleteAny;
   }
 
@@ -74,8 +116,7 @@ namespace intel{
     while (workList.size()) {
       Value *user = workList.back();
       workList.pop_back();
-      if (visited.count(user)) continue;
-      visited.insert(user);
+      if (visited.insert(user).second == false) continue;
 
       Instruction *pI = dyn_cast<Instruction>(user);
       if (pI) {

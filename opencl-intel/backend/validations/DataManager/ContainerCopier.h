@@ -57,7 +57,7 @@ namespace Validation
             void *pOldData = in_pImage->GetDataPtr();
             const ImageDesc *pImgDesc = 
                 static_cast<const ImageDesc *>(in_pImage->GetMemoryObjectDesc());
-            memcpy(pNewData, pOldData, pImgDesc->GetImageSizeInBytes());
+            memcpy(pNewData, pOldData, pImgDesc->GetSizeInBytes());
         }
 
         virtual void visitBuffer( const IMemoryObject* in_pBuffer )
@@ -71,7 +71,7 @@ namespace Validation
             void *pOldData = in_pBuffer->GetDataPtr();
             const BufferDesc *pBufDesc = 
                 static_cast<const BufferDesc *>(in_pBuffer->GetMemoryObjectDesc());
-            memcpy(pNewData, pOldData, pBufDesc->GetBufferSizeInBytes());
+            memcpy(pNewData, pOldData, pBufDesc->GetSizeInBytes());
         }
 
         virtual void visitBufferContainer( const IBufferContainer* pBufferContainer)
