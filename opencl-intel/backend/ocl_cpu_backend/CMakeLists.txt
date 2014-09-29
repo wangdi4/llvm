@@ -380,6 +380,7 @@ set( BACKEND_PASSES
     PatchCallbackArgs
     SmartGVN
     SinCosFold
+    PreLegalizeBools
 )
 
 set(UTILS_LIBS

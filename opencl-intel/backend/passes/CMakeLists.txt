@@ -27,6 +27,7 @@ add_subdirectory(LinearIdResolver)
 add_subdirectory(DetectRecursion)
 add_subdirectory(ResolveBlockToStaticCall)
 add_subdirectory(PatchCallbackArgs)
+add_subdirectory(PreLegalizeBools)
 
 if(APPLE)
   add_subdirectory(ClangCompatFixer)

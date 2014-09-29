@@ -665,6 +665,28 @@ bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
       case Instruction::Call:
         // Only Supported candidate is tid generator itself
         return m_TIDs.count(tid);
+      case Instruction::AShr: {
+        if (!isCmpSigned) {
+          return false;
+        }
+        Value * shiftVal = tidInst->getOperand(1);
+        Instruction *shlInst = dyn_cast<Instruction>(tidInst->getOperand(0));
+        if (!shlInst || shlInst->getOpcode() != Instruction::Shl) {
+          return false;
+        }
+        ConstantInt * shiftLeftVal = dyn_cast<ConstantInt>(
+          shlInst->getOperand(1));
+        ConstantInt * shiftRightVal = dyn_cast<ConstantInt>(shiftVal);
+        if (!shiftLeftVal || !shiftRightVal ||
+          shiftLeftVal->getType() != shiftVal->getType()) {
+          return false;
+        }
+        if (shiftLeftVal->getValue()!=shiftRightVal->getValue()) {
+          return false;
+        }
+        tid = shlInst->getOperand(0);
+        break;
+      }
       default:
         // No other patterns supported.
         return false;

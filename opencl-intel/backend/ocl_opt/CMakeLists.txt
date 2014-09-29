@@ -47,6 +47,7 @@ set(OCL_BE_PASSES
     ShiftZeroUpperBits
     SmartGVN
     SinCosFold
+    PreLegalizeBools
 )
 
 # Dependencies of the passes

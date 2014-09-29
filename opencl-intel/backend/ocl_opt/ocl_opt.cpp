@@ -95,6 +95,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeDeduceMaxWGDimPass(Registry);
     intel::initializeRenderscriptVectorizerPass(Registry);
     intel::initializeSinCosFoldPass(Registry);
+    intel::initializePreLegalizeBoolsPass(Registry);
 }
 
 
