@@ -1,241 +1,99 @@
 # Find the native LLVM includes and library
 #
-#  LLVM_INCLUDE_DIR - where to find llvm include files
-#  LLVM_LIBRARY_DIR - where to find llvm libs
-#  LLVM_CFLAGS      - llvm compiler flags
-#  LLVM_LFLAGS      - llvm linker flags
+#  LLVM_LIBRARY_DIRS - where to find llvm libs
+#  LLVM_INCLUDE_DIRS - where to find llvm include files
 #  LLVM_MODULE_LIBS - list of llvm libs for working with modules.
-#  LLVM_FOUND       - True if llvm found.
-if(WIN32)
-    if (INCLUDE_MIC_DEVICE)
-        list(APPEND STATIC_LLVM_MODULE_LIBS
-            LLVMY86AsmParser
-            LLVMY86CodeGen
-            LLVMMICModuleJIT
-            LLVMY86Desc
-            LLVMY86AsmPrinter
-            LLVMY86Disassembler
-            LLVMY86Info
-            LLVMY86Utils
-            libpcg
-            svml_dispmt
-            libirc
-            libmmt
-            libdecimal
-            )
-    endif()
-    list(APPEND STATIC_LLVM_MODULE_LIBS
-        LLVMIRReader
-        LLVMAsmParser
-        LLVMTableGen
-        LLVMDebugInfo
-        LLVMX86AsmParser
-        LLVMX86Disassembler
-        LLVMX86CodeGen
-        LLVMSelectionDAG
-        LLVMAsmPrinter
-        LLVMX86Desc
-        LLVMX86Info
-        LLVMX86AsmPrinter
-        LLVMX86Utils
-        LLVMJIT
-        LLVMMCDisassembler
-        LLVMMCParser
-        LLVMInstrumentation
-        LLVMInterpreter
-        LLVMCodeGen
-        LLVMipo
-        LLVMVectorize
-        LLVMScalarOpts
-        LLVMInstCombine
-        LLVMLinker
-        LLVMTransformUtils
-        LLVMipa
-        LLVMAnalysis
-        LLVMArchive
-        LLVMBitReader
-        LLVMBitWriter
-        LLVMMCJIT
-        LLVMRuntimeDyld
-        LLVMExecutionEngine
-        LLVMTarget
-        LLVMMC
-        LLVMObject
-        LLVMObjCARCOpts
-        LLVMCore
-        LLVMSupport
-    )
-    if(NOT CMAKE_CROSSCOMPILING)
-        list(APPEND STATIC_LLVM_MODULE_LIBS
-            LLVMIntelJITEvents
-        )
-    endif()
 
-else()
-    if( INCLUDE_MIC_DEVICE)
-        list(APPEND STATIC_LLVM_MODULE_LIBS
-            LLVMY86AsmParser
-            LLVMY86CodeGen
-            LLVMMICModuleJIT
-            LLVMY86Desc
-            LLVMY86AsmPrinter
-            LLVMY86Disassembler
-            LLVMY86Info
-            LLVMY86Utils
-            pcg
-            svml
-            irc
-            )
-    endif()
-    list(APPEND STATIC_LLVM_MODULE_LIBS
-        LLVMIRReader
-        LLVMAsmParser
-        LLVMTableGen
-        LLVMDebugInfo
-        LLVMX86AsmParser
-        LLVMX86Disassembler
-        LLVMX86CodeGen
-        LLVMSelectionDAG
-        LLVMAsmPrinter
-        LLVMX86Desc
-        LLVMX86Info
-        LLVMX86AsmPrinter
-        LLVMX86Utils
-        LLVMJIT
-        LLVMMCDisassembler
-        LLVMMCParser
-        LLVMInstrumentation
-        LLVMInterpreter
-        LLVMCodeGen
-        LLVMipo
-        LLVMVectorize
-        LLVMScalarOpts
-        LLVMInstCombine
-        LLVMLinker
-        LLVMTransformUtils
-        LLVMipa
-        LLVMAnalysis
-        LLVMArchive
-        LLVMBitReader
-        LLVMBitWriter
-        LLVMMCJIT
-        LLVMRuntimeDyld
-        LLVMExecutionEngine
-        LLVMTarget
-        LLVMMC
-        LLVMObject
-        LLVMObjCARCOpts
-        LLVMCore
-        LLVMSupport
-        )
-    if(NOT CMAKE_CROSSCOMPILING)
-        list(APPEND STATIC_LLVM_MODULE_LIBS
-            LLVMIntelJITEvents
-        )
-    endif()
-endif()
-option(BUILD_LLVM_FROM_SOURCE "Build the llvm package from source instead of using pre-installed binaries" OFF)
 if(BUILD_LLVM_FROM_SOURCE )
-    set (LLVM_INCLUDE_DIR ${LLVM_SRC_ROOT}/include ${LLVM_SRC_ROOT}/tools/clang/include ${CMAKE_CURRENT_BINARY_DIR}/llvm/include ${CMAKE_CURRENT_BINARY_DIR}/llvm/tools/clang/include)
-    set (LLVM_LIBRARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/llvm/lib/${CMAKE_CFG_INTDIR})
-    set (LLVM_BINARY_DIR  ${CMAKE_CURRENT_BINARY_DIR}/llvm/bin/${CMAKE_CFG_INTDIR})
-    set (LLVM_MODULE_LIBS ${STATIC_LLVM_MODULE_LIBS})
+  set (LLVM_INCLUDE_DIRS ${LLVM_SRC_ROOT}/include ${LLVM_SRC_ROOT}/tools/clang/include ${CMAKE_CURRENT_BINARY_DIR}/llvm/include ${CMAKE_CURRENT_BINARY_DIR}/llvm/tools/clang/include)
+  set (LLVM_LIBRARY_DIRS ${CMAKE_CURRENT_BINARY_DIR}/llvm/lib/${CMAKE_CFG_INTDIR})
+  set (LLVM_BINARY_DIR  ${CMAKE_CURRENT_BINARY_DIR}/llvm/bin/${CMAKE_CFG_INTDIR})
+  set (LLVM_MODULE_LIBS ${STATIC_LLVM_MODULE_LIBS})
 else(BUILD_LLVM_FROM_SOURCE )
-    if (APPLE)
-        set(LLVM_INCLUDE_DIR   "/System/Library/Frameworks/OpenGL.framework/PrivateHeaders/llvm/include")
-        set(CVMS_INCLUDE_DIR   "/System/Library/Frameworks/OpenGL.framework/PrivateHeaders")
-    else (APPLE)
-        if(NOT ANDROID)
-            find_program(LLVM_CONFIG_EXECUTABLE NAMES llvm-config HINTS ~/usr/local/bin /usr/local/bin ${LLVM_PATH} ENV LLVM_PATH PATH_SUFFIXES bin DOC "llvm-config executable")
+  if (APPLE)
+    set(LLVM_INCLUDE_DIRS   "/System/Library/Frameworks/OpenGL.framework/PrivateHeaders/llvm/include")
+    set(CVMS_INCLUDE_DIR   "/System/Library/Frameworks/OpenGL.framework/PrivateHeaders")
+  else (APPLE)
+    # reset the LLVM related variables
+    set( LLVM_MODULE_LIBS )
+    if( DEFINED CMAKE_MODULE_PATH_ORIGINAL)
+      set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH_ORIGINAL})
+    else()
+      set(CMAKE_MODULE_PATH_ORIGINAL ${CMAKE_MODULE_PATH})
+    endif()
+
+    # detect where to look for the LLVM installation
+    if( DEFINED LLVM_PATH )
+      set(LLVM_INSTALL_PATH ${LLVM_PATH})
+    else()
+      message( FATAL_ERROR "Can't find LLVM library. Please specify LLVM library location using LLVM_PATH parameter to CMAKE" )
+    endif()
+
+    # detect where the LLVMConfig should be found
+    if( DEFINED CMAKE_BUILD_TYPE )
+      set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${LLVM_PATH}/share/llvm/cmake)
+    else()
+      # we need to include some file from LLVM share, the problem is
+      # that for VS the LLVM_PATH is not full but contain the ${CMAKE_CFG_INTDIR} macro
+      # we need to explicitly check for existence of either release or debug cmake then
+      string( REPLACE  \${CMAKE_CFG_INTDIR} Debug LLVM_PATH_DEBUG "${LLVM_PATH}" )
+      string( REPLACE  \${CMAKE_CFG_INTDIR} Release LLVM_PATH_RELEASE "${LLVM_PATH}" )
+      set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${LLVM_PATH_DEBUG}/share/llvm/cmake ${LLVM_PATH_RELEASE}/share/llvm/cmake)
+    endif()
+    set( CMAKE_MODULE_PATH_SAVE ${CMAKE_MODULE_PATH})
+    include( LLVMConfig )
+    set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH_SAVE})
+
+    message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
+
+    if (${LLVM_PACKAGE_VERSION} VERSION_LESS "3.5")
+      #reset some LLVM internal variables that were set in LLVMConfig
+      set(LLVM_TOOLS_BINARY_DIR ${LLVM_PATH}/bin)
+      set(LLVM_INSTALL_PREFIX ${LLVM_PATH})
+
+      #set variable used further in the project
+      set(LLVM_INCLUDE_DIRS  ${LLVM_PATH}/include)
+      set(LLVM_LIBRARY_DIRS  ${LLVM_PATH}/lib)
+      set(LLVM_BINARY_DIR  ${LLVM_PATH}/bin)
+
+      #configure the string to include expanded ${CMAKE_CFG_INTDIR}
+      string( CONFIGURE ${LLVM_INCLUDE_DIRS} LLVM_INCLUDE_DIRS)
+      string( CONFIGURE ${LLVM_LIBRARY_DIRS} LLVM_LIBRARY_DIRS)
+      string( CONFIGURE ${LLVM_BINARY_DIR}  LLVM_BINARY_DIR)
+
+      #remove predefined unnecessary components
+      get_property(temp_list GLOBAL PROPERTY LLVM_LIBS)
+      list(REMOVE_ITEM temp_list gtest gtest_main profile_rt-static profile_rt-shared LTO LTO_static)
+      set_property( GLOBAL PROPERTY LLVM_LIBS ${temp_list})
+    else()
+      #LLVM_BINARY_DIR is set only if AddLLVM.cmake is used.
+      set(LLVM_BINARY_DIR ${LLVM_INSTALL_PREFIX}/bin)
+
+      #remove predefined unnecessary components
+      list(REMOVE_ITEM LLVM_AVAILABLE_LIBS gtest gtest_main profile_rt-static profile_rt-shared LTO LTO_static)
+    endif()
+
+    #build the list of the llvm libraries in the right dependency order
+    if (${LLVM_PACKAGE_VERSION} VERSION_LESS "3.5")
+      llvm_map_components_to_libraries(LLVM_MODULE_LIBS_SHORT all)
+    else()
+      llvm_map_components_to_libnames(LLVM_MODULE_LIBS all)
+    endif()
+
+    if (${LLVM_PACKAGE_VERSION} VERSION_LESS "3.5")
+      #patch all the libraries to contain the full path
+      get_system_libs(SYSTEM_LIBS)
+      foreach(LLVM_LIB ${LLVM_MODULE_LIBS_SHORT})
+        list(FIND SYSTEM_LIBS ${LLVM_LIB} IDX)
+        if (IDX EQUAL -1)
+          list(APPEND LLVM_MODULE_LIBS ${LLVM_LIBRARY_DIRS}/${CMAKE_STATIC_LIBRARY_PREFIX}${LLVM_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX})
+        else()
+          list(APPEND LLVM_MODULE_LIBS ${LLVM_LIB})
         endif()
-
-        if (LLVM_CONFIG_EXECUTABLE)
-            message(STATUS "Using llvm-config found at: ${LLVM_CONFIG_EXECUTABLE}")
-
-            execute_process(
-              COMMAND ${LLVM_CONFIG_EXECUTABLE} --components
-              OUTPUT_VARIABLE LLVM_COMPONENTS
-              OUTPUT_STRIP_TRAILING_WHITESPACE
-            )
-            string(REPLACE " " ";" REQUIRED_LLVM_COMPONENTS ${LLVM_COMPONENTS})
-            if (NOT ${INCLUDE_MIC_DEVICE})
-              # remove y86 components
-              list(REMOVE_ITEM REQUIRED_LLVM_COMPONENTS all all-targets micmodulejit y86 y86asmparser y86asmprinter y86codegen y86desc y86disassembler y86info y86utils)
-            endif ()
-
-            execute_process(
-              COMMAND ${LLVM_CONFIG_EXECUTABLE} --includedir
-              OUTPUT_VARIABLE LLVM_INCLUDE_DIR
-              OUTPUT_STRIP_TRAILING_WHITESPACE
-            )
-
-            execute_process(
-              COMMAND ${LLVM_CONFIG_EXECUTABLE} --libdir
-              OUTPUT_VARIABLE LLVM_LIBRARY_DIR
-              OUTPUT_STRIP_TRAILING_WHITESPACE
-            )
-
-            execute_process(
-              COMMAND ${LLVM_CONFIG_EXECUTABLE} --bindir
-              OUTPUT_VARIABLE LLVM_BINARY_DIR
-              OUTPUT_STRIP_TRAILING_WHITESPACE
-            )
-
-            execute_process(
-              COMMAND ${LLVM_CONFIG_EXECUTABLE} --cppflags
-              OUTPUT_VARIABLE LLVM_CFLAGS
-              OUTPUT_STRIP_TRAILING_WHITESPACE
-            )
-
-            execute_process(
-              COMMAND ${LLVM_CONFIG_EXECUTABLE} --ldflags
-              OUTPUT_VARIABLE LLVM_LFLAGS
-              OUTPUT_STRIP_TRAILING_WHITESPACE
-            )
-
-            execute_process(
-              COMMAND ${LLVM_CONFIG_EXECUTABLE} --libs ${REQUIRED_LLVM_COMPONENTS}
-              OUTPUT_VARIABLE LLVM_MODULE_LIBS
-              OUTPUT_STRIP_TRAILING_WHITESPACE
-            )
-
-            if( INCLUDE_MIC_DEVICE)
-                list(APPEND LLVM_MODULE_LIBS
-                    pcg
-                    svml
-                    irc
-                    )
-            endif( INCLUDE_MIC_DEVICE)
-
-        else (LLVM_CONFIG_EXECUTABLE)
-
-            if( NOT WIN32 AND NOT ANDROID)
-                message( FATAL_ERROR "Can't find llvm-config. LLVM installation is corrupted or missing" )
-            endif()
-
-            if( DEFINED LLVM_PATH )
-                set(LLVM_INSTALL_PATH ${LLVM_PATH})
-                message (STATUS "Using LLVM root location specified in LLVM_PATH variable: " ${LLVM_PATH})
-            elseif( EXISTS $ENV{LLVM_PATH} )
-                set(LLVM_INSTALL_PATH $ENV{LLVM_PATH})
-                message (STATUS "Using LLVM location specified in LLVM_PATH environment variable: " $ENV{LLVM_PATH} )
-            else()
-                message( FATAL_ERROR "Can't find LLVM library. Please specify LLVM library location using either LLVM_PATH environment variable or defining LLVM_PATH parameter to CMAKE" )
-            endif()
-
-            set(LLVM_INCLUDE_DIR ${LLVM_INSTALL_PATH}/include)
-            set(LLVM_LIBRARY_DIR ${LLVM_INSTALL_PATH}/lib)
-            string( CONFIGURE ${LLVM_LIBRARY_DIR} LLVM_LIBRARY_DIR)
-            set(LLVM_BINARY_DIR ${LLVM_INSTALL_PATH}/bin)
-            string( CONFIGURE ${LLVM_BINARY_DIR} LLVM_BINARY_DIR)
-            set(LLVM_CFLAGS)
-            set(LLVM_LFLAGS)
-            set(LLVM_MODULE_LIBS ${STATIC_LLVM_MODULE_LIBS})
-
-        endif (LLVM_CONFIG_EXECUTABLE)
-
-    endif (APPLE)
-
+      endforeach(LLVM_LIB)
+    endif()
+  endif (APPLE)
 endif(BUILD_LLVM_FROM_SOURCE )
 
-message( STATUS "LLVM libs: ${LLVM_MODULE_LIBS}")
+#kept as comment for the debug purposes.
+#message( STATUS "LLVM libs: ${LLVM_MODULE_LIBS}")

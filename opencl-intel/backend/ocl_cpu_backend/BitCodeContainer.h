@@ -19,21 +19,23 @@ File Name:  BitCodeContainer.h
 
 #include "cl_dev_backend_api.h"
 #include "cl_types.h"
+#include "llvm/ADT/StringRef.h"
 
+// forward decl
+namespace llvm { class MemoryBuffer; }
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
 class ProgramContainerMemoryBuffer;
 
 /**
  * Represents the container for LLVM serialized bitcode
  *
- * Also get ownership on LLVM materialized module 
+ * Also get ownership on LLVM materialized module
  */
 class BitCodeContainer : public ICLDevBackendCodeContainer
 {
 public:
-    BitCodeContainer(const cl_prog_container_header* pByteCodeContainer);
+    BitCodeContainer(const void *pBinary, size_t uiBinarySize, const char* name = "");
     ~BitCodeContainer();
 
     const void* GetCode() const;
@@ -44,16 +46,11 @@ public:
      * Get ownership on passed module
      */
     void   SetModule( void* pModule);
-    
+
     /**
      * Retun the LLVM Module as a plain pointer
      */
     void*  GetModule() const;
-
-    /**
-     * Returns the pointer to the serialized bitcode buffer
-     */
-    const cl_llvm_prog_header* GetProgramHeader() const;
 
     /**
      * Retunrs the serialized bitcode buffer as a plain pointer (convert to LLVM MemoryBuffer)
@@ -67,14 +64,12 @@ public:
 
 private:
     void*  m_pModule;
-    ProgramContainerMemoryBuffer* m_pBuffer;
+    llvm::MemoryBuffer* m_pBuffer;
 
     // Klockwork Issue
     BitCodeContainer ( const BitCodeContainer& x );
 
     // Klockwork Issue
     BitCodeContainer& operator= ( const BitCodeContainer& x );
-
 };
-
 }}} // namespace

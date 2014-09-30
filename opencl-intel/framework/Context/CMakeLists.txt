@@ -10,6 +10,12 @@ set( TARGET_NAME Context )
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
 
+include_directories( 
+            ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang 
+            ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
+            ${CMAKE_SOURCE_DIR}/utils/CLElfLib 
+            )
+
 # add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} STATIC ${TARGET_SOURCES})
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${RUNTIME_FOLDER_NAME} )

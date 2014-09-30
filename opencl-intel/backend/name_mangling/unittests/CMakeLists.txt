@@ -4,12 +4,9 @@ use_eh(TRUE)
 set(TARGET_NAME NameManglingTests)
 
 include_directories(
+  ${LLVM_INCLUDE_DIRS}
   ${BACKEND_ROOT_DIR}/../externals/gtest/include
   ${BACKEND_ROOT_DIR}/name_mangling
-)
-
-link_directories(
-    ${LLVM_LIBRARY_DIR}
 )
 
 if(CMAKE_CROSSCOMPILING)
@@ -42,14 +39,10 @@ target_link_libraries(
   ${TARGET_NAME}
   name_mangle
   googletest
-  LLVMSupport
+  ${LLVM_MODULE_LIBS}
 )
 
-if (NOT WIN32)
-  if(NOT ANDROID)
-    target_link_libraries(${TARGET_NAME} pthread)
-  endif()
-endif (NOT WIN32)
+
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_TESTS_FOLDER_NAME} )
 

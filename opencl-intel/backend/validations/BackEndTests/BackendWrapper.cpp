@@ -16,7 +16,9 @@ File Name:  BackendWrapper.cpp
 
 \*****************************************************************************/
 #include <assert.h>
+#include <iterator>
 #include "BackendWrapper.h"
+#include "plugin_manager.h"
 
 BackendWrapper::BackendWrapper(void):
 m_funcInit(NULL),
@@ -144,51 +146,12 @@ ICLDevBackendServiceFactory* BackendWrapper::GetBackendServiceFactory()
     return m_funcGetFactory();
 }
 
-cl_prog_container_header* BackendWrapper::CreateProgramContainer(const std::string& programFile)
+void BackendWrapper::CreateProgramContainer(const std::string& programFile, std::vector<char>& buffer)
 {
-    const char* szFileName = programFile.c_str();
-    // minimum container size
-    containerSize = sizeof(cl_prog_container_header) + sizeof(cl_llvm_prog_header);
-
     // open the bitcode file
-    FILE* pIRfile = NULL;
-#ifdef _WIN32
-    fopen_s(&pIRfile, szFileName, "rb");
-#else
-    pIRfile = fopen(szFileName, "rb");
-#endif
-
-    if ( NULL == pIRfile )
-    {
-        return NULL;
-    }
-    // calc the bitcode file size
-    fseek(pIRfile, 0, SEEK_END);
-    unsigned int fileSizeUint = (unsigned int)(ftell (pIRfile));
-    fseek(pIRfile, 0, SEEK_SET);
-
-    containerSize += fileSizeUint;
-
-    // construct program container
-    pContainer = (cl_prog_container_header*)(new char[containerSize]);
-    memset(pContainer, 0, sizeof(cl_prog_container_header) +
-        sizeof(cl_llvm_prog_header));
-
-    // copy the container mask
-    memcpy((void*)pContainer->mask, _CL_CONTAINER_MASK_, sizeof(pContainer->mask));
-    // set the container fields
-    pContainer->container_type = CL_PROG_CNT_PRIVATE;
-    pContainer->description.bin_type = CL_PROG_BIN_EXECUTABLE_LLVM;
-    pContainer->description.bin_ver_major = 1;
-    pContainer->description.bin_ver_minor = 1;
-    pContainer->container_size = fileSizeUint + sizeof(cl_llvm_prog_header);
-
-    // copy the bitcode from the file to the container
-    fread(((char*)pContainer) + sizeof(cl_prog_container_header) +
-        sizeof(cl_llvm_prog_header), 1, (size_t)fileSizeUint, pIRfile);
-
-    fclose(pIRfile);
-    return pContainer;
+    std::ifstream testFile(programFile.c_str(), std::ios::binary);
+    buffer.assign(std::istreambuf_iterator<char>(testFile),
+                  std::istreambuf_iterator<char>());    
 }
 
 
@@ -228,13 +191,32 @@ void BackEndTests_Plugins::CreateTestEvent()
     // load pre created bitcode buffer in correct format - with kernels
     std::auto_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
     ASSERT_TRUE(pBackendWrapper.get());
-    const cl_prog_container_header* pHeader = pBackendWrapper->CreateProgramContainer(FILE_BC_WITH_KERNELS);
-    ASSERT_TRUE(pHeader);
+    std::vector<char> program;
+    pBackendWrapper->CreateProgramContainer(FILE_BC_WITH_KERNELS, program);
+    ASSERT_TRUE(program.size() > 0);
 
     // create the program with valid parameters - should success
     ICLDevBackendProgram_* pProgram = NULL;
-    ret = pCompileService->CreateProgram(pHeader, &pProgram);
+    ret = pCompileService->CreateProgram(program.data(), program.size(), &pProgram);
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
+}
+
+/** @brief creating the event for testing the plugin flag (see SamplePlugin)
+ *        in our case the event is CreateProgram
+ *        this method is called in the plugins test body
+ */
+void BackEndTests_Plugins::CreateTestEvent(Intel::OpenCL::PluginManager* pManager)
+{
+    // load pre created bitcode buffer in correct format - with kernels
+    std::auto_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
+    ASSERT_TRUE(pBackendWrapper.get());
+    std::vector<char> program;
+    pBackendWrapper->CreateProgramContainer(FILE_BC_WITH_KERNELS, program);
+    ASSERT_TRUE(program.size() > 0);
+
+    // create the program with valid parameters - should success
+    std::auto_ptr<ICLDevBackendProgram_> pProgram (new OCLProgramMock() );
+    pManager->OnCreateProgram(program.data(), program.size(), pProgram.get());
 }
 
 

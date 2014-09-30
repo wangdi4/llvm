@@ -21,12 +21,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/Version.h"
-#if LLVM_VERSION == 3425
-#include "llvm/Target/TargetData.h"
-#else
 #include "llvm/IR/DataLayout.h"
-#endif
 
 #include <string>
 #include <sstream>
@@ -93,13 +88,13 @@ private:
   ///  packetized has vector argument or vector return value. we assume that in
   ///  theses cases that arg\return should have soa form, so we force assembly
   ///  of the vectors args from scalars, and update the SCM with extracts of
-  ///  the vector return - these will be transformed by the packetizer into 
+  ///  the vector return - these will be transformed by the packetizer into
   ///  vectors
   /// @param CI - call instruction to handle
   void scalarizeCallWithVecArgsToScalarCallsWithScalarArgs(CallInst* CI);
 
   ///@brief this function handles case when scalar builtin return vector by
-  /// creating extracts of the return value, and update the SCM as if the Call 
+  /// creating extracts of the return value, and update the SCM as if the Call
   /// was generated with scalar arguments.
   ///@param callerInst call instrunction to handle
   void handleScalarRetVector(CallInst* callerInst);
@@ -133,7 +128,7 @@ private:
 
   /// @brief a set contains vector from original kernel that need to be used after sclarization
   SmallPtrSet<Value*, ESTIMATED_INST_NUM> m_usedVectors;
-  
+
   /// @brief update museVectors set with the vectori value to be obtained at when scalarization finish
   /// @param vectorVal Vector being added to set
   void obtainVectorValueWhichMightBeScalarized(Value *vectorVal);
@@ -143,7 +138,7 @@ private:
   /// @param vectorVal Vector being checked
   void obtainVectorValueWhichMightBeScalarizedImpl(Value * vectorVal);
 
-  /// @brief obtaining vector values that are needed after scalarizaion by invoking 
+  /// @brief obtaining vector values that are needed after scalarizaion by invoking
   ///  obtainVectorValueWhichMightBeScalarizedImpl over m_usedVectors
   void resolveVectorValues();
 
@@ -168,11 +163,7 @@ private:
   ///@param funcType - [output] place to return function type
   ///@param funcAttr - [output] place to return function attribute
   ///@return true if succeeded and false otherwise.
-#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
-  bool getScalarizedFunctionType(std::string &strScalarFuncName, FunctionType*& funcType, AttrListPtr& funcAttr);
-#else
   bool getScalarizedFunctionType(std::string &strScalarFuncName, FunctionType*& funcType, AttributeSet& funcAttr);
-#endif
 
   /// @brief Pointer to current function's context
   LLVMContext *m_moduleContext;
@@ -205,7 +196,7 @@ private:
   /// @param scalarValues array of values to place in SCMEntry
   /// @param origValue Value which is the key of the SCMEntry
   /// @param isOrigValueRemoved True if original (vector) value was erased during scalarization
-  /// @param matchDbgLoc True if we want to match debug loc of the scalar value to orig Value.  
+  /// @param matchDbgLoc True if we want to match debug loc of the scalar value to orig Value.
   void updateSCMEntryWithValues(SCMEntry *entry, Value *scalarValues[],
                                 const Value *origValue, bool isOrigValueRemoved,
                                 bool matchDbgLoc = true);
@@ -270,11 +261,7 @@ private:
   bool UseScatterGather;
 
   /// @brief This holds DataLayout of processed module
-#if LLVM_VERSION == 3425
-  TargetData *m_pDL;
-#else
   DataLayout *m_pDL;
-#endif
 
 };
 

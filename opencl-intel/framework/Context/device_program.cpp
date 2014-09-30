@@ -31,10 +31,23 @@
 #include "events_manager.h"
 #include "fe_compiler.h"
 #include "cl_sys_defines.h"
+#include "ElfReader.h"
+#include "cl_autoptr_ex.h"
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
+//
+// ElfReaderDP- ElfReader delete policy for autoptr.
+//
+struct ElfReaderDP
+{
+    static void Delete(CLElfLib::CElfReader* pElfReader)
+    {
+        CLElfLib::CElfReader::Delete(pElfReader);
+    }
+};
+typedef auto_ptr_ex<CLElfLib::CElfReader, ElfReaderDP> ElfReaderPtr;
 
 DeviceProgram::DeviceProgram() : m_state(DEVICE_PROGRAM_INVALID),
 m_bBuiltFromSource(false), m_bFECompilerSuccess(false), m_bIsClone(false), m_pDevice(NULL),
@@ -101,10 +114,9 @@ void DeviceProgram::SetDevice(const SharedPtr<FissionableDevice>& pDevice)
 
 cl_err_code DeviceProgram::SetBinary(size_t uiBinarySize, const unsigned char* pBinary, cl_int* piBinaryStatus)
 {
-    cl_program_binary_type clBinaryType = CL_PROGRAM_BINARY_TYPE_NONE;
-
+    cl_prog_binary_type uiBinaryType;
     // Check if binary format is known by the runtime
-    if (!CheckProgramBinary(uiBinarySize, pBinary))
+    if (!CheckProgramBinary(uiBinarySize, pBinary, &uiBinaryType))
     {
         // Format is not supported by the runtime
         // Need to explicitly check if binary is supported by the device
@@ -120,48 +132,28 @@ cl_err_code DeviceProgram::SetBinary(size_t uiBinarySize, const unsigned char* p
         }
     }
 
-    // detect binary type
-    const cl_prog_container_header* pProgCont = (cl_prog_container_header*)pBinary;
-    if ( !memcmp(pProgCont->mask, _CL_CONTAINER_MASK_, sizeof(_CL_CONTAINER_MASK_) - 1) )
+    cl_program_binary_type clBinaryType = CL_PROGRAM_BINARY_TYPE_NONE;
+
+    switch( uiBinaryType)
     {
-        // binary has RT container - it includes the binary type
-        switch ( pProgCont->description.bin_type )
-        {
-        case CL_PROG_BIN_COMPILED_LLVM:
-            clBinaryType = CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT;
-            break;
-
-        case CL_PROG_BIN_LINKED_LLVM:
-            clBinaryType = CL_PROGRAM_BINARY_TYPE_LIBRARY;
-            break;
-
-        case CL_PROG_BIN_EXECUTABLE_LLVM:
-        case CL_PROG_BIN_BUILT_OBJECT:
-            clBinaryType = CL_PROGRAM_BINARY_TYPE_EXECUTABLE;
-            break;
-
-        default:
-            assert (false && "Binary has RT container but not supported binary type");
-            if (piBinaryStatus)
-            {
-                *piBinaryStatus = CL_INVALID_BINARY;
-            }
-            return CL_INVALID_BINARY;
-        }
-    }
-    else if ( !memcmp(pBinary, _CL_LLVM_BITCODE_MASK_, sizeof(_CL_LLVM_BITCODE_MASK_) - 1) )
-    {
-        // binary is SPIR - its intermediate by spec
+    case CL_PROG_BIN_COMPILED_SPIR:
         clBinaryType = CL_PROGRAM_BINARY_TYPE_INTERMEDIATE;
-    }
-    else if ( _CL_OBJECT_BITCODE_MASK_ == ((const int*)pBinary)[0] )
-    {
+        break;
+    case CL_PROG_BIN_COMPILED_LLVM:
+        clBinaryType = CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT;
+        break;
+    case CL_PROG_BIN_LINKED_LLVM:
+        clBinaryType = CL_PROGRAM_BINARY_TYPE_LIBRARY;
+        break;
+    case CL_PROG_BIN_EXECUTABLE_LLVM:
         clBinaryType = CL_PROGRAM_BINARY_TYPE_EXECUTABLE;
-    }
-    else
-    {
-        // anything else is considered executable
-        clBinaryType = CL_PROGRAM_BINARY_TYPE_EXECUTABLE;
+        break;
+    default:
+        if (piBinaryStatus)
+        {
+            *piBinaryStatus = CL_INVALID_BINARY;
+        }
+        return CL_INVALID_BINARY;
     }
 
     if (piBinaryStatus)
@@ -174,14 +166,16 @@ cl_err_code DeviceProgram::SetBinary(size_t uiBinarySize, const unsigned char* p
 }
 
 cl_err_code DeviceProgram::SetBinaryInternal(size_t uiBinarySize, const void *pBinary, cl_program_binary_type clBinaryType)
- {
+{
     if (m_uiBinaryBitsSize > 0)
-     {
+    {
         assert(m_pBinaryBits);
         delete[] m_pBinaryBits;
-     }
+    }
+
     m_uiBinaryBitsSize = uiBinarySize;
     m_pBinaryBits      = new char[uiBinarySize];
+
     if (!m_pBinaryBits)
     {
         m_uiBinaryBitsSize = 0;
@@ -236,7 +230,6 @@ cl_err_code DeviceProgram::SetBuildLogInternal(const char* szBuildLog)
 
         return CL_SUCCESS;
     }
-
 
     m_szBuildLog = new char[uiLogSize];
     if (!m_szBuildLog)
@@ -645,57 +638,52 @@ cl_err_code DeviceProgram::SetDeviceHandleInternal(cl_dev_program programHandle)
     return CL_SUCCESS;
 }
 
-bool DeviceProgram::CheckProgramBinary(size_t uiBinSize, const void *pBinary)
+bool DeviceProgram::CheckProgramBinary(size_t uiBinSize, const void *pBinary, cl_prog_binary_type* pBinaryType)
 {
-    const cl_prog_container_header* pProgCont = (cl_prog_container_header*)pBinary;
-
-    //If it is Binary Object, no other checks needed
-    if ( _CL_OBJECT_BITCODE_MASK_ == ((const int*)pBinary)[0] )
+    //check if it is Binary object
+    if( CLElfLib::CElfReader::IsValidElf64((const char*)pBinary, uiBinSize))
     {
+        if( pBinaryType )
+        {
+            ElfReaderPtr pReader(CLElfLib::CElfReader::Create((const char*)pBinary, uiBinSize));
+            switch( pReader->GetElfHeader()->Type)
+            {
+               case CLElfLib::EH_TYPE_OPENCL_OBJECTS   :
+                   *pBinaryType = CL_PROG_BIN_COMPILED_LLVM;
+                   break;
+               case CLElfLib::EH_TYPE_OPENCL_LIBRARY   :
+                   *pBinaryType = CL_PROG_BIN_LINKED_LLVM;
+                   break;
+               case CLElfLib::EH_TYPE_OPENCL_EXECUTABLE:
+               case CLElfLib::EH_TYPE_OPENCL_LINKED_OBJECTS:
+                   *pBinaryType = CL_PROG_BIN_EXECUTABLE_LLVM;
+                   break;
+               case CLElfLib::EH_TYPE_NONE             :
+               case CLElfLib::EH_TYPE_RELOCATABLE      :
+               case CLElfLib::EH_TYPE_EXECUTABLE       :
+               case CLElfLib::EH_TYPE_DYNAMIC          :
+               case CLElfLib::EH_TYPE_CORE             :
+               case CLElfLib::EH_TYPE_OPENCL_SOURCE    :
+               default:
+                   return false;
+            }
+        }
         return true;
     }
 
-    // If it is SPIR binary, no other checks needed
+    if (sizeof(_CL_LLVM_BITCODE_MASK_) > uiBinSize )
+    {
+        return false;
+    }
+
+    //check if it is LLVM IR object
     if ( !memcmp(_CL_LLVM_BITCODE_MASK_, pBinary, sizeof(_CL_LLVM_BITCODE_MASK_) - 1) )
     {
+        if( pBinaryType )
+            *pBinaryType = CL_PROG_BIN_COMPILED_SPIR;
+
         return true;
     }
 
-    // Check container size
-    if ( sizeof(cl_prog_container_header) > uiBinSize )
-    {
-        return false;
-    }
-
-    // Check container mask
-    if ( memcmp(_CL_CONTAINER_MASK_, pProgCont->mask, sizeof(pProgCont->mask)) )
-    {
-        return false;
-    }
-
-    // Check supported container type
-    switch ( pProgCont->container_type )
-    {
-    // Supported containers
-    case CL_PROG_CNT_PRIVATE:
-        break;
-
-    default:
-        return false;
-    }
-
-    // Check supported binary types
-    switch ( pProgCont->description.bin_type )
-    {
-    // Supported program binaries
-    case CL_PROG_BIN_COMPILED_LLVM:
-    case CL_PROG_BIN_LINKED_LLVM:
-    case CL_PROG_BIN_EXECUTABLE_LLVM:          // The container should contain valid LLVM-IR
-        break;
-
-    default:
-        return false;
-    }
-
-    return true;
+    return false;
 }

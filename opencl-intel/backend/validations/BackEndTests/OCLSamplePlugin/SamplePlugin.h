@@ -46,10 +46,10 @@ public:
     SamplePlugin()  {}
     ~SamplePlugin() {}
 
-    /// @brief dummy implemention of the interface's method 
-    void OnCreateBinary(const ICLDevBackendKernel_* pKernel, 
-                        const _cl_work_description_type* pWorkDesc, 
-                        size_t bufSize, 
+    /// @brief dummy implemention of the interface's method
+    void OnCreateBinary(const ICLDevBackendKernel_* pKernel,
+                        const _cl_work_description_type* pWorkDesc,
+                        size_t bufSize,
                         void* pArgsBuffer)
     {
         // do nothing
@@ -58,13 +58,14 @@ public:
     /// @brief dummy implemention of the interface's method
     void OnCreateKernel(const ICLDevBackendProgram_* pProgram,
                         const ICLDevBackendKernel_* pKernel,
-                        const llvm::Function* pFunction)
+                        const void* pFunction)
     {
         // do nothing
     }
 
     /// @brief implementing the interface's method, the ONLY method that changes pluginWorked
-    void OnCreateProgram(const _cl_prog_container_header* pContainer, 
+    void OnCreateProgram(const void * pBinary,
+                         size_t uiBinarySize,
                          const ICLDevBackendProgram_* pProgram)
     {
         // we are using this event to check if the plugin is loaded (see backend plugin tests)
@@ -76,7 +77,7 @@ public:
     {
         // do nothing
     }
-    
+
     /// @brief we call this after we created a program to check if the plugin is loaded
     static bool DidPluginWork() { return pluginWorked; }
 private:
@@ -92,12 +93,12 @@ OCL_SAMPLEPLUGIN_API void ReleasePlugin(Intel::OpenCL::IPlugin* pPlugin);
 }
 #endif
 /** @brief OclSamplePlugin used for returning the backend plugin SamplePlugin
- *         to the plugin manager       
+ *         to the plugin manager
  */
 class OclSamplePlugin: public Intel::OpenCL::IPlugin
 {
     friend void ReleasePlugin(Intel::OpenCL::IPlugin*);
-    
+
 public:
     /// @brief return the singleton instance
     static OclSamplePlugin* Instance();

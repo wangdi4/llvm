@@ -114,6 +114,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         bool                    m_bCommandSubmitValid;
         bool                    m_bCommandStartValid;
         bool                    m_bCommandEndValid;
+        bool                    m_bCommandCompleteValid;
         bool                    m_bVisibleToUser;
         Command*                m_pCommand;                 // Pointer to the command represented by this event
 

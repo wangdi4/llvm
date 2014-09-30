@@ -13,11 +13,11 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OCLPassSupport.h"
 #include "ImplicitArgsUtils.h"
 #include "ImplicitArgsAnalysis/ImplicitArgsAnalysis.h"
+
 #include "llvm/Support/InstIterator.h"
 #include "llvm/ADT/ValueMap.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Attributes.h"
-#include "llvm/Version.h"
 
 extern "C"{
   /// @brief Creates new AddImplicitArgs module pass
@@ -124,16 +124,8 @@ namespace intel{
     // Calculate pointer to the local memory buffer. Do this before pFunc is deleted.
     unsigned int directLocalSize =
         (unsigned int)m_localBuffersAnalysis->getDirectLocalsSize(pFunc);
-#if LLVM_VERSION == 3200
-    Attributes NoAlias = Attributes::get(*m_pLLVMContext, Attributes::NoAlias);
-    Attributes NoAttr = Attributes::get(*m_pLLVMContext, Attributes::None);
-#elif LLVM_VERSION == 3425
-    Attributes NoAlias = Attributes::get(*m_pLLVMContext, Attribute::NoAlias);
-    Attributes NoAttr = Attributes::get(*m_pLLVMContext, Attribute::None);
-#else
     AttributeSet NoAlias = AttributeSet::get(*m_pLLVMContext, 0, Attribute::NoAlias);
     AttributeSet NoAttr;
-#endif
     // For each implicit arg, setup its type, name and attributes
     for (unsigned i=0; i < ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++i) {
       Type* ArgType = m_IAA->getArgType(i);
@@ -197,10 +189,10 @@ namespace intel{
 
     std::vector<Value*> uses(pFunc->use_begin(), pFunc->use_end());
     for (std::vector<Value*>::const_iterator it = uses.begin(), e = uses.end(); it != e; ++it) {
-      // handle constant expression with bitcast of function pointer 
+      // handle constant expression with bitcast of function pointer
       // it handles cases like block_literal global variable definitions
       // Example of case:
-      // @__block_literal_global = internal constant { ..., i8*, ... } 
+      // @__block_literal_global = internal constant { ..., i8*, ... }
       //    { ..., i8* bitcast (i32 (i8*, i32)* @globalBlock_block_invoke to i8*), ... }
       if(ConstantExpr *CE = dyn_cast<ConstantExpr>(*it)){
         if(CE->getOpcode() == Instruction::BitCast &&
@@ -217,7 +209,7 @@ namespace intel{
       }
       // handle metadata
       else if (isa<MDNode>(*it)){
-        // do nothing 
+        // do nothing
       }
       else{
         // we should not be here

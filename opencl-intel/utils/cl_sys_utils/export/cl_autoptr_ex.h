@@ -32,6 +32,11 @@ namespace Intel { namespace OpenCL { namespace Utils {
     {
         static void Delete(T* pT) { delete[] pT; }
     };
+    
+    template<class T> struct ReleaseDP
+    {
+        static void Delete(T* pT) { if(pT) pT->Release(); }
+    };
 
     template<class _Ty, class _DP>
     class auto_ptr_ex;

@@ -25,8 +25,7 @@ File Name:  DeviceBitCodeContainer.cpp
  */
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
-BitCodeContainer::BitCodeContainer(const cl_prog_container_header* pContainer):
+BitCodeContainer::BitCodeContainer(const void *pBinary, size_t uiBinarySize, const char* name ):
     m_pModule(NULL),
     m_pBuffer(NULL)
 {
@@ -47,20 +46,16 @@ size_t BitCodeContainer::GetCodeSize() const
 }
 
 void   BitCodeContainer::SetModule( void* pModule)
-{ 
+{
+    m_pModule = pModule;
 }
 
-void*  BitCodeContainer::GetModule() const 
-{ 
-    return NULL; 
-}
-
-const cl_llvm_prog_header* BitCodeContainer::GetProgramHeader() const 
-{ 
+void*  BitCodeContainer::GetModule() const
+{
     return NULL;
 }
 
-void* BitCodeContainer::GetMemoryBuffer() const 
+void* BitCodeContainer::GetMemoryBuffer() const
 {
     return NULL;
 }
@@ -69,5 +64,4 @@ void BitCodeContainer::Release()
 {
     delete this;
 }
-
 }}} // namespace

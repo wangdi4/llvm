@@ -50,6 +50,7 @@ static const char UNUSED_ATTR *GetEventStateName(const cl_int state)
     CASE_ENTRY(EVENT_STATE_READY_TO_EXECUTE)
     CASE_ENTRY(EVENT_STATE_ISSUED_TO_DEVICE)
     CASE_ENTRY(EVENT_STATE_EXECUTING_ON_DEVICE)
+    CASE_ENTRY(EVENT_STATE_DONE_EXECUTING_ON_DEVICE)
     CASE_ENTRY(EVENT_STATE_DONE)
     default:
         return "error state";
@@ -474,6 +475,8 @@ cl_int OclEvent::GetEventExecState(const OclEventState state) const
     case EVENT_STATE_ISSUED_TO_DEVICE:
         return CL_SUBMITTED;
     case EVENT_STATE_EXECUTING_ON_DEVICE:
+        // Fall through
+    case EVENT_STATE_DONE_EXECUTING_ON_DEVICE:
         return CL_RUNNING;
     case EVENT_STATE_DONE:
     default:

@@ -13,6 +13,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Logger.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
+#include "OCLAddressSpace.h"
 
 #include "llvm/Pass.h"
 #include "llvm/IR/Function.h"
@@ -29,7 +30,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/Version.h"
 
 static cl::opt<bool>
 EnableOptMasks("optmasks", cl::init(true), cl::Hidden,
@@ -72,6 +72,15 @@ Predicator::Predicator() :
   OCLSTAT_INIT(Predicated,
     "one if the function is predicated, zero otherwise",
     m_kernelStats),
+  OCLSTAT_INIT(Unpredicated_Uniform_Store_Load,
+    "instructions being unpredicated because they are uniform store/load",
+    m_kernelStats),
+  OCLSTAT_INIT(Unpredicated_Cosecutive_Local_Memory_Load,
+    "instructions being unpredicated because they are consecuitve local memory load",
+    m_kernelStats),
+  OCLSTAT_INIT(Predicated_Consecutive_Local_Memory_Load,
+    "load instructions of local memory that could potentially be unmasked, but currently aren't",
+    m_kernelStats),
   OCLSTAT_INIT(Edge_Not_Being_Specialized_Because_EdgeHot,
     "edges that were chosen not to be specialized because of the EdgeHot heuristic",
     m_kernelStats),
@@ -90,6 +99,18 @@ Predicator::Predicator() :
 {
   initializePredicatorPass(*llvm::PassRegistry::getPassRegistry());
   m_rtServices = NULL;
+}
+
+bool Predicator::doFunctionArgumentsContainLocalMem(Function* F) {
+  for (Function::ArgumentListType::iterator it = F->getArgumentList().begin(),
+    e = F->getArgumentList().end(); it!= e; ++it) {
+    if (PointerType* ptrType = dyn_cast<PointerType>(it->getType())) {
+      if (ptrType->getAddressSpace() == Intel::OpenCL::DeviceBackend::Utils::OCLAddressSpace::Local) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 void Predicator::createAllOne(Module &M) {
@@ -597,8 +618,15 @@ void Predicator::convertPhiToSelect(BasicBlock* BB) {
                          phi->getIncomingValue(secondValIndex), "merge", edge_mask);
     m_WIA->setDepend(phi, select);
     VectorizerUtils::SetDebugLocBy(select, phi);
-    // Put in a place which satisfies data dependencies
+
+    // Put in a place which satisfies data dependencies.
+    // Note, selectOutsideUsedInstructions assumes all non-phi instructions
+    // (such as select instructions) are placed after storing the in_mask
+    // of the BB. Thus, we move the instrcution after the edge_mask,
+    // even if doesn't use it.
+    select->setOperand(0, edge_mask);
     moveAfterLastDependant(select);
+    select->setOperand(0, selectCond);
 
     phi->replaceAllUsesWith(select);
     phi->eraseFromParent();
@@ -648,12 +676,31 @@ Function* Predicator::createPredicatedFunction(Instruction *inst,
   return f;
 }
 
+bool Predicator::isLocalMemoryConsecutiveLoad(Instruction* inst) {
+  if (LoadInst* load = dyn_cast<LoadInst>(inst)) {
+    if (load->getPointerAddressSpace() == Intel::OpenCL::DeviceBackend::Utils::OCLAddressSpace::Local) {
+      if (m_WIA->whichDepend(load->getPointerOperand()) == WIAnalysis::PTR_CONSECUTIVE)
+        return true;
+    }
+  }
+  return false;
+}
+
 bool Predicator::keepOriginalInstructionAsWell(Instruction* original) {
   if ((isa<StoreInst>(original) || isa<LoadInst>(original)) &&
     m_WIA->whichDepend(original) == WIAnalysis::UNIFORM) {
       Predicated_Uniform_Store_Or_Loads++; // statistics
       return true; // to later unpredicate a uniform store or load
                    // if it is being allzero-bypassed.
+  }
+  // Local memory inside the kernel is created on the stack,
+  // on a padded buffer. Thus such loads can safely be done without mask,
+  // if the address is consecutive and the mask is not empty.
+  if (isLocalMemoryConsecutiveLoad(original)) {
+    Predicated_Consecutive_Local_Memory_Load++; // statistics
+    if (!m_hasLocalMemoryArgs) {
+      return true;
+    }
   }
   if (m_valuableAllOnesBlocks.count(original->getParent())) {
     return true; // for all-ones optimization
@@ -669,7 +716,7 @@ void Predicator::replaceInstructionByPredicatedOne(Instruction* original,
     for (Value::use_iterator it = original->use_begin(),
        e = original->use_end(); it != e ; ++it) {
          Instruction* inst = dyn_cast<Instruction>(*it);
-         if (inst && m_predicatedSelects.count(inst) && 
+         if (inst && m_predicatedSelects.count(inst) &&
                        m_predicatedSelects[inst] == original)   {
            m_predicatedSelects[inst] = predicated;
          }
@@ -763,38 +810,36 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
       CallInst::Create(func, ArrayRef<Value*>(params), "", call);
     //Update new call instruction with calling convention and attributes
     pcall->setCallingConv(call->getCallingConv());
-#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
-    for (unsigned int i=0; i < call->getNumArgOperands(); ++i) {
-      //Parameter attributes starts with index 1-NumOfParams
-      unsigned int idx = i+1;
-      //pcall starts with mask argument, skip it when setting original argument attributes.
-      pcall->addAttribute(1 + idx, call->getAttributes().getParamAttributes(idx));
-    }
-    //set function attributes of pcall
-    pcall->addAttribute(~0, call->getAttributes().getFnAttributes());
-    //set return value attributes of pcall
-    pcall->addAttribute(0, call->getAttributes().getRetAttributes());
-#else
     AttributeSet as;
     AttributeSet callAttr = call->getAttributes();
     for (unsigned int i=0; i < call->getNumArgOperands(); ++i) {
       //Parameter attributes starts with index 1-NumOfParams
       unsigned int idx = i+1;
       //pcall starts with mask argument, skip it when setting original argument attributes.
-	    as.addAttributes(func->getContext(), 1 + idx, callAttr.getParamAttributes(idx));
+      as.addAttributes(func->getContext(), 1 + idx, callAttr.getParamAttributes(idx));
     }
     //set function attributes of pcall
     as.addAttributes(func->getContext(), AttributeSet::FunctionIndex, callAttr.getFnAttributes());
     //set return value attributes of pcall
     as.addAttributes(func->getContext(), AttributeSet::ReturnIndex, callAttr.getRetAttributes());
     pcall->setAttributes(as);
-#endif
     replaceInstructionByPredicatedOne(call, pcall);
     return pcall;
   }
 
   // Nothing to do for this instruction
   return NULL;
+}
+
+static bool isInstructionABeforeB(BasicBlock* BB, Instruction* A, Instruction* B) {
+  for (BasicBlock::iterator it = BB->begin(), e = BB->end();
+    it != e; ++it) {
+    if (&*it == A)
+      return true;
+    if (&*it == B)
+      return false;
+  }
+  return false;
 }
 
 void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
@@ -823,7 +868,7 @@ void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
 
   V_ASSERT (m_inInst.find(BB) != m_inInst.end() &&
             "Where did we save the mask in this BB ?");
- 
+
   // Load the predicate value and place the select
   // We will place them in the correct place in the next section
   Instruction* predicate  = new LoadInst(pred,"predicate");
@@ -846,6 +891,8 @@ void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
       select->insertAfter(loc);
     }
   } else {
+    V_ASSERT(m_inInst.count(BB) && isInstructionABeforeB(BB, m_inInst[BB], inst) &&
+      "bug! creating a select before the mask is ready!");
     // make sure the instructions we created are after the original instruction
     select->insertAfter(inst);
   }
@@ -981,7 +1028,7 @@ bool Predicator::isAlwaysFollowedBy(Loop *L, BasicBlock* exitBlock) {
   {
     BasicBlock* curr = unTracedBlocks.back();
     unTracedBlocks.pop_back();
-    
+
     TerminatorInst* term = curr->getTerminator();
     BranchInst* br = dyn_cast<BranchInst>(term);
     // if we reached a return instruction not via the exitBlock:
@@ -1008,7 +1055,7 @@ bool Predicator::isAlwaysFollowedBy(Loop *L, BasicBlock* exitBlock) {
     }
 
   }
-  // no path from the loop header back to itself without passing through the 
+  // no path from the loop header back to itself without passing through the
   // exit block
   return true;
 }
@@ -1110,7 +1157,7 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
     // Incase there is only one exiting block can use the incoming mask
     // of the preheader since all work items entering the loop will exit
     // through this edge.
-    V_ASSERT(L == outestLoop && 
+    V_ASSERT(L == outestLoop &&
       "same block can't be the single exit of a loop, and also exit a higher level loop");
     V_ASSERT(preHeader && m_inMask.count(preHeader) && "no in mask for preheader");
     m_outMask[std::make_pair(BB, BBexit)] = m_inMask[L->getLoopPreheader()];
@@ -1137,7 +1184,7 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
   do {
     V_ASSERT(m_inMask.count(L->getHeader()) && "header has no in-mask");
     // If this block (BB) is not nested, then its in mask is
-    // the same as the loop mask, and the new loop mask 
+    // the same as the loop mask, and the new loop mask
     // is simply the local edge value. (and inMask, localCond).
     Value *newLoopMask = localOutMask;
     Value* loopMask_p = m_inMask[L->getHeader()];
@@ -1190,7 +1237,7 @@ void Predicator::maskOutgoing_fork(BasicBlock *BB) {
   ///
   /// In here we handle simple forking of two basic blocks to non exit blocks.
   //
- 
+
   /// One side takes the condition as is,
   /// the other uses the negation of the condition
   BinaryOperator* notCond = BinaryOperator::Create(
@@ -1314,9 +1361,9 @@ void Predicator::maskOutgoing(BasicBlock *BB) {
   BranchInst* br = dyn_cast<BranchInst>(term);
   V_ASSERT(br && "Unable to handle non return/branch terminators");
 
-  // Implementation of unconditional branches or uniform branches in 
+  // Implementation of unconditional branches or uniform branches in
   // a non divergent blocks can be easily done
-  if (br->isUnconditional() || 
+  if (br->isUnconditional() ||
     (m_WIA->whichDepend(br) == WIAnalysis::UNIFORM && !m_WIA->isDivergentBlock(BB))) {
     // If this outgoing mask is an optimized case
     return maskOutgoing_useIncoming(BB, BB);
@@ -1530,6 +1577,7 @@ void Predicator::predicateFunction(Function *F) {
   m_DT = DT; // save the dominator tree.
   LoopInfo *LI = &getAnalysis<LoopInfo>();
   m_LI = LI;
+  m_hasLocalMemoryArgs = doFunctionArgumentsContainLocalMem(F);
   V_ASSERT(LI && "Unable to get loop analysis");
   OCLBranchProbability *OBP = &getAnalysis<OCLBranchProbability>();
   assert (OBP && "OpenCL Branch Probability is not available");
@@ -1597,7 +1645,7 @@ void Predicator::predicateFunction(Function *F) {
   for (Function::iterator it = F->begin(), e  = F->end(); it != e ; ++it) {
     maskIncoming(it);
   }
-  /// Replace all the divergent PHINodes and the PHINodes in 
+  /// Replace all the divergent PHINodes and the PHINodes in
   /// divergent blocks with select instructions
   for (Function::iterator it = F->begin(), e  = F->end(); it != e ; ++it) {
     if (m_WIA->isDivergentBlock(it) || m_WIA->isDivergentPhiBlocks(it))
@@ -1673,8 +1721,6 @@ void Predicator::unpredicateInstruction(Instruction* call) {
   V_ASSERT(m_predicatedToOriginalInst.count(call) &&
     "missing predicated to original entry");
 
-  Predicated_Uniform_Store_Or_Loads--; // statistics
-
   // simply use original instruction.
   Instruction* original = m_predicatedToOriginalInst[call];
 
@@ -1746,7 +1792,20 @@ void Predicator::blockIsBeingZeroBypassed(BasicBlock* BB) {
 
   for (std::vector<Instruction*>::iterator it = inBB.begin(), e = inBB.end();
     it != e; ++ it) {
+    V_ASSERT(m_predicatedToOriginalInst.count(*it) && "missing original inst");
     if (isMaskedUniformStoreOrLoad(*it)) {
+      Predicated_Uniform_Store_Or_Loads--; // statistics
+      Unpredicated_Uniform_Store_Load++; // statistics
+      unpredicateInstruction(*it);
+    }
+    // Local memory inside the kernel is
+    // created on the stack, in a padded buffer. thus such loads can
+    // safely be done without mask, if the address is consecutive
+    // and the mask is not empty.
+    else if (!m_hasLocalMemoryArgs &&
+      isLocalMemoryConsecutiveLoad(m_predicatedToOriginalInst[*it])) {
+      Unpredicated_Cosecutive_Local_Memory_Load++; // statistics
+      Predicated_Consecutive_Local_Memory_Load--; // statistics
       unpredicateInstruction(*it);
     }
   }

@@ -164,7 +164,7 @@ void NEATPlugIn::visitLoadInst(LoadInst &I)
 }
 
 
-NEATGenericValue NEATPlugIn::getConstantExprValue (ConstantExpr *CE,NEATExecutionContext &SF) 
+NEATGenericValue NEATPlugIn::getConstantExprValue (ConstantExpr *CE,NEATExecutionContext &SF)
 {
     switch (CE->getOpcode()) {
     case Instruction::GetElementPtr:
@@ -331,7 +331,7 @@ void NEATDataLayout ::InitMemory( void* Memory, const Type* Ty ) const
       {
           InitMemory(ptr, STy->getContainedType(i));
           ptr += getTypeStoreSize(STy->getContainedType(i));
-          
+
       }
     break;
   }
@@ -771,14 +771,14 @@ void CopyBufferToNEAT (const IMemoryObject& src, IMemoryObject& dst)
     std::size_t bufferLen = srcDesc.NumOfElements();
     // Number of elements in ordinary buffer and buffer with NEAT must be the same.
     assert(bufferLen == dstDesc.NumOfElements());
-    const char *srcPrt = static_cast<const char*>(src.GetDataPtr());
+    const char *srcPtr = static_cast<const char*>(src.GetDataPtr());
     char *dstPtr = static_cast<char*>(dst.GetDataPtr());
-    std::size_t srcBufferSize = srcDesc.GetBufferSizeInBytes();
-    std::size_t dstBufferSize = dstDesc.GetBufferSizeInBytes();
+    std::size_t srcBufferSize = srcDesc.GetSizeInBytes();
+    std::size_t dstBufferSize = dstDesc.GetSizeInBytes();
     for (std::size_t i = 0; i < bufferLen; ++i)
     {
-        CopyBufferElementToNEAT(srcPrt, dstPtr, srcDesc.GetElementDescription(), dstDesc.GetElementDescription());
-        srcPrt += srcBufferSize/bufferLen;
+        CopyBufferElementToNEAT(srcPtr, dstPtr, srcDesc.GetElementDescription(), dstDesc.GetElementDescription());
+        srcPtr += srcBufferSize/bufferLen;
         dstPtr += dstBufferSize/bufferLen;
     }
 }
@@ -1289,7 +1289,7 @@ void NEATPlugIn::visitShuffleVectorInst( ShuffleVectorInst &I )
   Dest.NEATVec = NEAT_WRAP::shufflevector_fd(Src1.NEATVec, Src2.NEATVec, mask_vec);
 
   // mask vector is an integer vector got from interpreter
-  // The shuffle mask operand is required to be a constant vector 
+  // The shuffle mask operand is required to be a constant vector
   // with either constant integer or undef values
   Constant *CPV = dyn_cast<Constant>(I.getOperand(2));
   assert(CPV != NULL);
@@ -1299,7 +1299,7 @@ void NEATPlugIn::visitShuffleVectorInst( ShuffleVectorInst &I )
       assert(VTy->getElementType()->isIntegerTy());
       unsigned elemNum = VTy->getNumElements();
       std::vector<unsigned> undef_vec(elemNum,0);
-   
+
       bool isAnyUndef = false;
       for (unsigned i = 0; i < elemNum; ++i){
           if (isa<UndefValue>(CV->getOperand(i))) {
@@ -1307,7 +1307,7 @@ void NEATPlugIn::visitShuffleVectorInst( ShuffleVectorInst &I )
               undef_vec[i] = 1; // mark undef values
           }
       }
-   
+
       if(isAnyUndef) {
           if( elemNum != (unsigned)(Dest.NEATVec.GetSize()) ) {
               throw Exception::NEATTrackFailure("NEATPlugin::shufflevector. Wrong mask vector size");
@@ -2733,7 +2733,7 @@ void NEATPlugIn::execute_async_work_group_copy(Function *F,
 {
     Function::arg_iterator Fit = F->arg_begin();
     Value* arg0 = Fit++;
-    
+
     const Type *Ty = arg0->getType();
     const PointerType *PTy = dyn_cast<PointerType>(Ty);
     const Type *ETy = PTy->getElementType();
@@ -3203,14 +3203,14 @@ void NEATPlugIn::execute_nan(Function *F,
     Value *arg0 = Fit++;
     GenericValue ValArg = GetGenericArg(0);
     const Type *Ty = arg0->getType();
-    if (Ty->isIntegerTy()) {        
+    if (Ty->isIntegerTy()) {
         int n = Ty->getPrimitiveSizeInBits();
         int val = ValArg.IntVal.getSExtValue();
         if( n == 32) {
             Result.NEATVal = NEAT_WRAP::nan_f(uint32_t(val));
         }  else if (n  == 64 ) {
             Result.NEATVal = NEAT_WRAP::nan_d(uint64_t(val));
-        } else 
+        } else
             throw Exception::IllegalFunctionCall("[NEATPlug-in::execute_nan]: Not valid data type for built-in (scalar)");
     } else if (Ty->isVectorTy()) {
         const VectorType *VTy = cast<VectorType>(Ty);
@@ -3225,13 +3225,13 @@ void NEATPlugIn::execute_nan(Function *F,
             for (unsigned i = 0; i < ValArg.AggregateVal.size(); ++i)
                 vec0.push_back((uint64_t)(ValArg.AggregateVal[i].IntVal.getZExtValue()));
             Result.NEATVec = NEAT_WRAP::nan_d(vec0);
-        } else 
+        } else
             throw Exception::IllegalFunctionCall("[NEATPlug-in::execute_nan]: Not valid data type for built-in (vector)");
 
         if (Result.NEATVec.GetSize() != cast<VectorType>(Ty)->getNumElements())
             throw Exception::NEATTrackFailure("[NEATPlugIn::execute_nan]: wrong vector size.");
 
-    } else 
+    } else
         throw Exception::IllegalFunctionCall("[NEATPlug-in::execute_nan]: Not valid data type for built-in");
 }
 
@@ -3242,7 +3242,7 @@ void NEATPlugIn::execute_read_imagef(Function *F,
                   const OCLBuiltinParser::ArgVector& ArgList)
 {
     cl_mem_obj_descriptor * memobj = (cl_mem_obj_descriptor *)GetGenericArg(0).PointerVal;
-    
+
     // samplerless read image functions have 2 parameters,
     // functions with sampler have 3 parameters
     const bool IsSamplerLess = bool(ArgList.size() == 2);
@@ -3277,7 +3277,7 @@ void NEATPlugIn::execute_read_imagef(Function *F,
 
         OCLBuiltins::getCoordsByImageType<float,float>(objType,CoordGV,u,v,w);
 
-    } else { 
+    } else {
        // int coordinates
        OCLBuiltins::getCoordsByImageType<int32_t,float>(objType,CoordGV,u,v,w);
     }
@@ -3865,7 +3865,7 @@ bool NEATPlugIn::DetectAndExecuteOCLBuiltins( Function *F,
 
     //opencl 2.0 fast relaxed math functions Table 7.2
     //placed in top in order to call frm funtions instead of usual if frm extension enabled
-    
+
     HANDLE_BI_ONEARG_FRM(190, cos);
     HANDLE_BI_ONEARG_FRM(191, exp);
     HANDLE_BI_ONEARG_FRM(192, exp2);
@@ -4231,6 +4231,6 @@ void * NEATPlugIn::getPointerToGlobal( const GlobalValue *GV )
 bool NEATPlugIn::isFRMPrecisionOn()
 {
     return ( std::find(m_cFlags.begin(), m_cFlags.end(), CL_FAST_RELAXED_MATH) != m_cFlags.end() &&
-        std::find(m_cFlags.begin(), m_cFlags.end(), CL_STD_20) != m_cFlags.end() 
+        std::find(m_cFlags.begin(), m_cFlags.end(), CL_STD_20) != m_cFlags.end()
         );
 }

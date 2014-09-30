@@ -21,6 +21,7 @@ File Name:  CPUProgram.cpp
 #include "CPUProgram.h"
 #include "BitCodeContainer.h"
 #include "Kernel.h"
+#include "ObjectCodeCache.h"
 
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -31,12 +32,18 @@ void CPUProgram::ReleaseExecutionEngine()
     // since this module is owned by compiler
     if (m_pExecutionEngine)
     {
-      if (m_pBIModule) 
-        m_pExecutionEngine->removeModule(static_cast<llvm::Module*>(m_pBIModule));
-      if (m_pIRCodeContainer->GetModule())
-        m_pExecutionEngine->removeModule(static_cast<llvm::Module*>(m_pIRCodeContainer->GetModule()));
-      delete m_pExecutionEngine;
-      m_pExecutionEngine = NULL;
+        if (m_pBIModule) 
+        {
+            m_pExecutionEngine->removeModule(static_cast<llvm::Module*>(m_pBIModule));
+        }
+
+        if (m_pIRCodeContainer->GetModule())
+        {
+            m_pExecutionEngine->removeModule(static_cast<llvm::Module*>(m_pIRCodeContainer->GetModule()));
+        }
+
+        delete m_pExecutionEngine;
+        m_pExecutionEngine = NULL;
     }
 }
 
@@ -59,4 +66,7 @@ void CPUProgram::Deserialize(IInputStream& ist, SerializationStatus* stats)
     Program::Deserialize(ist, stats);
 }
 
+void CPUProgram::SetObjectCache(ObjectCodeCache *oc) {
+  m_ObjectCodeCache.reset(oc);
+}
 }}}

@@ -201,8 +201,6 @@ namespace Validation
         }
     }
 
-
-
     ImageChannelDataTypeVal GetImageChannelDataTypeVal(cl_channel_type t)
     {
         ImageChannelDataTypeVal res = UNSPECIFIED_IMAGE_DATA_TYPE;
@@ -251,7 +249,6 @@ namespace Validation
         return res;
     }
 
-
     const ImageDesc GetImageDesc(cl_mem_obj_descriptor* pmem_obj, const llvm::Argument& func_arg)
     {
         assert(NULL != pmem_obj);
@@ -278,9 +275,7 @@ namespace Validation
             GetImageChannelDataTypeVal(pmem_obj->format.image_channel_data_type),
             GetImageChannelOrderVal(pmem_obj->format.image_channel_order));
     }
-
     }
-
 
     const std::string BinaryContext::getBaseName( ) const
     {
@@ -457,14 +452,12 @@ namespace Validation
     OCLRecorder::OCLRecorder( const std::string& logsDir, const std::string& prefix ):
         m_logsDir(logsDir),
         m_prefix(prefix),
-        m_pLLVMContext(new llvm::LLVMContext),
         m_pSourceRecorder(NULL)
     {
     }
 
     OCLRecorder::~OCLRecorder()
     {
-        delete m_pLLVMContext;
     }
 
     RecorderContext* OCLRecorder::GetProgramContext(const ICLDevBackendProgram_* pProgram)
@@ -551,38 +544,38 @@ namespace Validation
 
     void OCLRecorder::OnCreateKernel(const ICLDevBackendProgram_* pProgram,
                                      const ICLDevBackendKernel_* pKernel,
-                                     const llvm::Function* pFunction)
+                                     const void* pFunction)
     {
         RecorderContext* pProgramContext = GetProgramContext(pProgram);
         if (!pProgramContext->containsKernel(pKernel))
         {
-            pProgramContext->createKernelContext(pKernel, pFunction);
+            pProgramContext->createKernelContext(pKernel, (const llvm::Function*)pFunction);
         }
     }
 
-    void OCLRecorder::OnCreateProgram(const _cl_prog_container_header* pContainer,
+    void OCLRecorder::OnCreateProgram(const void * pBinary,
+                                      size_t uiBinarySize,
                                       const ICLDevBackendProgram_* pProgram)
     {
         assert( m_contexts.end()== m_contexts.find(pProgram));
+        llvm::LLVMContext context;
         std::auto_ptr<RecorderContext> spContext(new RecorderContext(m_logsDir, m_prefix));
         // Create target data object.
-        char * fileData = (char*)pContainer + sizeof(_cl_prog_container_header)+ sizeof(cl_llvm_prog_header);
-        size_t fileDataSize = pContainer->container_size - sizeof(cl_llvm_prog_header);
-        llvm::StringRef bitCodeStr(fileData, fileDataSize);
+        llvm::StringRef bitCodeStr((const char*)pBinary, uiBinarySize);
         llvm::MemoryBuffer* pMemBuff = llvm::MemoryBuffer::getMemBufferCopy(bitCodeStr);
         if ( NULL == pMemBuff )
         {
             throw Exception::ValidationExceptionBase("Can't create memory buffer from IR.");
         }
         std::string strLastError;
-        llvm::Module *pModule = ParseBitcodeFile(pMemBuff, *m_pLLVMContext, &strLastError);
+        llvm::Module *pModule = ParseBitcodeFile(pMemBuff, context, &strLastError);
         if ( NULL == pModule )
         {
             throw Exception::ValidationExceptionBase("Failed to parse IR");
         }
         spContext->m_DL = new llvm::DataLayout(pModule);
         //checking whehter we need source or byte-level recording
-        MD5 md5((unsigned char*)fileData, fileDataSize);
+        MD5 md5((unsigned char*)const_cast<void*>(pBinary), uiBinarySize);
         MD5Code code = md5.digest();
         Frontend::SourceFile sourceFile;
         if (NeedSourceRecording(code, OUT &sourceFile))
@@ -591,7 +584,7 @@ namespace Validation
         }
         else
         {
-            RecordByteCode(pContainer, *spContext);
+            RecordByteCode(pBinary, uiBinarySize, *spContext);
             RecordProgramConfig(*spContext);
         }
         AddNewProgramContext(pProgram, spContext.release());
@@ -751,7 +744,6 @@ namespace Validation
         programContext.Flush();
     }
 
-
     void OCLRecorder::RecordKernelInputs( const RecorderContext& programContext,
                                           const KernelContext& kernelContext,
                                           const BinaryContext& binaryContext,
@@ -786,7 +778,7 @@ namespace Validation
 
                 // fill it with data
                 char* pData = (char*)pImage->GetDataPtr();
-                size_t size  = desc.GetImageSizeInBytes();
+                size_t size  = desc.GetSizeInBytes();
                 memcpy( pData, mem_descriptor->pData, size);
             }
             else if ( CL_KRNL_ARG_PTR_GLOBAL <= pKernelArgs[i].type )
@@ -799,7 +791,7 @@ namespace Validation
                 // fill it with data
                 char* pData = (char*)pBuffer->GetDataPtr();
                 size_t size  = Utils::GetBufferSizeInBytes(mem_descriptor);
-                memset( pData, 0, desc.GetBufferSizeInBytes());
+                memset( pData, 0, desc.GetSizeInBytes());
                 memcpy( pData, mem_descriptor->pData, size);
             }
             else if (CL_KRNL_ARG_PTR_LOCAL == pKernelArgs[i].type)
@@ -810,7 +802,7 @@ namespace Validation
 
                 // fill it with data
                 char* pData = (char*)pBuffer->GetDataPtr();
-                size_t size  = desc.GetBufferSizeInBytes();
+                size_t size  = desc.GetSizeInBytes();
                 memset( pData, 0, size);
             }
             else if (CL_KRNL_ARG_VECTOR == pKernelArgs[i].type || CL_KRNL_ARG_VECTOR_BY_REF == pKernelArgs[i].type)
@@ -852,7 +844,7 @@ namespace Validation
       return std::find(m_recordedFiles.begin(), e, f) != e;
     }
 
-    void OCLRecorder::RecordByteCode(const _cl_prog_container_header* pContainer, const RecorderContext& context)
+    void OCLRecorder::RecordByteCode(const void* pBinary, size_t uiBinarySize, const RecorderContext& context)
     {
         std::string error;
         llvm::raw_fd_ostream binStream( context.getByteCodeFilePath().c_str(), error, llvm::raw_fd_ostream::F_Binary);
@@ -862,9 +854,7 @@ namespace Validation
             throw Exception::ValidationExceptionBase("Can't open the file for output");
         }
 
-        char * fileData = (char*)pContainer + sizeof(_cl_prog_container_header)+ sizeof(cl_llvm_prog_header);
-        size_t fileDataSize = pContainer->container_size - sizeof(cl_llvm_prog_header);
-        binStream.write( fileData, fileDataSize );
+        binStream.write( (const char*)pBinary, uiBinarySize );
     }
     //
     //OclRecorderPlugin
@@ -872,23 +862,19 @@ namespace Validation
     class OclRecorderPlugin: public IPlugin{
     public:
 
-        ~OclRecorderPlugin(){
-            if(pOclRecorder)
-                delete pOclRecorder;
-            if(pSourceRecorder)
-                delete pSourceRecorder;
+        ~OclRecorderPlugin()
+        {
+            delete pOclRecorder;
+            delete pSourceRecorder;
         }
         //returns a pointer to the singleton instance of this class
-        static OclRecorderPlugin* Instance(){
-            {
-                llvm::MutexGuard mutex(lock);
-                if(NULL == instance)
-                    instance = new OclRecorderPlugin();
-            }
-            return instance;
+        static OclRecorderPlugin* Instance()
+        {
+            return &instance;
         }
         //lazy-semantic getter for the BE plugin
-        DeviceBackend::ICLDevBackendPlugin* getBackendPlugin(){
+        DeviceBackend::ICLDevBackendPlugin* getBackendPlugin()
+        {
             {
                 llvm::MutexGuard mutex(lock);
                 if (pOclRecorder)
@@ -915,7 +901,8 @@ namespace Validation
             return pOclRecorder;
         }
         //lazy-semantic getter for the FE plugin
-        Frontend::ICLFrontendPlugin* getFrontendPlugin(){
+        Frontend::ICLFrontendPlugin* getFrontendPlugin()
+        {
             {
                 llvm::MutexGuard mutex(lock);
                 if (pSourceRecorder)
@@ -933,21 +920,21 @@ namespace Validation
         //a lock to ensure the singularity of the plugin instance
         static llvm::sys::Mutex lock;
         //a pointer to the plugin instance
-        static OclRecorderPlugin* instance;
+        static OclRecorderPlugin instance;
         //Assigns a reference to the source recorder, whithin the backend recorder
         //Note: should be only called once, after the instantiation of the second
         //recorder.
-        void assignSourceRecorder(){
+        void assignSourceRecorder()
+        {
             if (pOclRecorder && pSourceRecorder)
                 pOclRecorder->SetSourceRecorder(pSourceRecorder);
         }
 
-        OclRecorderPlugin() : pOclRecorder(NULL), pSourceRecorder(NULL){
-        }
+        OclRecorderPlugin() : pOclRecorder(NULL), pSourceRecorder(NULL)
+        {}
     };//End OclRecorderPlugin
 
-    OclRecorderPlugin* OclRecorderPlugin::instance = NULL;
-
+    OclRecorderPlugin OclRecorderPlugin::instance;
     llvm::sys::Mutex OclRecorderPlugin::lock;
 }//end Validation
 

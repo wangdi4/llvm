@@ -125,7 +125,7 @@ OclBuiltinImpl expm1_svml_not_shared = OclBuiltinImpl<expm1, math_not_shared_typ
     return __ocl_svml_$Target_expm1$SVMLSuffix($Arg0VarName);
   }]>;
 // floor
-OclBuiltinImpl floor_svml_not_shared = OclBuiltinImpl<floor, [v4f32, v8f32, v2f64, v4f64], 0, [{
+OclBuiltinImpl floor_svml_not_shared = OclBuiltinImpl<floor, [v4f32, v8f32, v2f64, v4f64, v8f64, v16f32], 0, [{
     return __ocl_svml_$Target_floor$SVMLSuffix($Arg0VarName);
   }]>;
 
@@ -288,6 +288,17 @@ OclBuiltinImpl log1p_svml_not_shared = OclBuiltinImpl<log1p, math_not_shared_typ
 OclBuiltinImpl logb_svml_not_shared = OclBuiltinImpl<logb, math_not_shared_types, 0, [{
     return __ocl_svml_$Target_logb$SVMLSuffix($Arg0VarName);
   }]>;
+  
+// remainder
+OclBuiltinImpl remainder_svml_not_shared = OclBuiltinImpl<remainder, math_not_shared_types, 0, [{
+    return __ocl_svml_$Target_remainder$SVMLSuffix($Arg0VarName, $Arg1VarName);
+  }]>;
+
+// rootn
+OclBuiltinImpl rootn_svml_not_shared = OclBuiltinImpl<rootn, math_not_shared_types, 0, [{
+    return __ocl_svml_$Target_rootn$SVMLSuffix($Arg0VarName, $Arg1VarName);
+  }]>;
+
 // modf
 code modf_svml = [{
     return __ocl_svml_$Target_modf$SVMLSuffix($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
@@ -320,6 +331,10 @@ OclBuiltinImpl round_svml_not_shared = OclBuiltinImpl<round, [v4f32, v8f32, v2f6
 OclBuiltinImpl rsqrt_svml_not_shared = OclBuiltinImpl<rsqrt, [v8f32, v16f32, v2f64, v4f64, v8f64], 0, [{
     return __ocl_svml_$Target_rsqrt$SVMLSuffix($Arg0VarName);
   }]>;
+
+OclBuiltinImpl hypot_svml = OclBuiltinImpl<hypot, math_not_shared_types, 0, [{
+  return __ocl_svml_$Target_hypot$SVMLSuffix($Arg0VarName, $Arg1VarName);
+}]>;
 
 // sin
 OclBuiltinImpl sin_svml_not_shared = OclBuiltinImpl<sin, math_not_shared_types, 0, [{
@@ -363,6 +378,10 @@ OclBuiltinImpl tanpi_svml_not_shared = OclBuiltinImpl<tanpi, math_not_shared_typ
     return __ocl_svml_$Target_tanpi$SVMLSuffix($Arg0VarName);
   }]>;
 
+// tgamma
+OclBuiltinImpl tgamma_svml_not_shared = OclBuiltinImpl<tgamma, math_not_shared_types, 0, [{
+    return __ocl_svml_$Target_tgamma$SVMLSuffix($Arg0VarName);
+  }]>;
 
 // trunc
 OclBuiltinImpl trunc_svml_not_shared = OclBuiltinImpl<trunc,[v4f32, v8f32, v2f64, v4f64], 0, [{
@@ -375,12 +394,12 @@ OclBuiltinImpl native_divide_impl_not_shared = OclBuiltinImpl<native_divide, [v8
   }]>;
 
 // native_recip
-OclBuiltinImpl native_recip_svml_not_shared = OclBuiltinImpl<native_recip, [v8f32], 0, [{
+OclBuiltinImpl native_recip_svml_not_shared = OclBuiltinImpl<native_recip, [v8f32, v1f64], 0, [{
     return __ocl_svml_$Target_inv$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_rsqrt
-OclBuiltinImpl native_rsqrt_impl_not_shared = OclBuiltinImpl<native_rsqrt, [v8f32], 0, [{
+OclBuiltinImpl native_rsqrt_impl_not_shared = OclBuiltinImpl<native_rsqrt, [v1f32, v1f64, v8f32], 0, [{
     return __ocl_svml_$Target_rsqrt$SVMLSuffix_native($Arg0VarName);
   }]>;
 
@@ -427,13 +446,6 @@ code sincos_ret2ptr = [{
     *$Arg1VarName = res;
   }];
 OclBuiltinImpl sincos_ret2ptr_pas = OclBuiltinImpl<sincos_pas2, [v4f32, v8f32, v16f32, v4f64, v8f64, v16f64], 0, sincos_ret2ptr>;
-
-// This built-in is the one which the Packetizer replaces with the above
-code native_modf_ret2ptr = [{
-    $Arg0Type res = native_modf($Arg0VarName, $Arg2VarName);
-    *$Arg1VarName = res;
-  }];
-OclBuiltinImpl native_modf_ret2ptr_pas = OclBuiltinImpl<native_modf_pas2, [v4f32, v8f32, v16f32, v4f64, v8f64, v16f64], 0, native_modf_ret2ptr>;
 
 // This built-in is the one which the Packetizer replaces with the above
 code modf_ret2ptr = [{

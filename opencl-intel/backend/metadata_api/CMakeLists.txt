@@ -53,6 +53,7 @@ add_library(
 )
 
 include_directories(
+  ${LLVM_INCLUDE_DIRS}
   ${CMAKE_BINARY_DIR}/include/
   ${CMAKE_CURRENT_SOURCE_DIR}
 )

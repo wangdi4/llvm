@@ -6,7 +6,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #include "Scalarize.h"
 #include "VectorizerUtils.h"
-#include "llvm/Version.h"
 
 namespace intel {
 
@@ -41,7 +40,7 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
 {
   llvm::SmallVectorImpl<Value*> &rets = getReturns(rootVals);
   llvm::SmallVectorImpl<Value*> &args = getArgs(rootVals);
-  // Look for the called function in the built-in functions hash 
+  // Look for the called function in the built-in functions hash
   Function *vectorFunc = CI->getCalledFunction();
   std::string vectorFuncName = vectorFunc->getName().str();
   V_PRINT(scalarizer, "\tRoot function scanning for function: " << vectorFuncName << "\n");
@@ -62,11 +61,7 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
   // Vector function was found in hash. Now find the function prototype of the scalar function
   std::string strScalarFuncName = foundFunction->getVersion(0);
   FunctionType * scalarFuncType;
-#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
-  AttrListPtr funcAttrDummy;
-#else
   AttributeSet funcAttrDummy;
-#endif
   if(!getScalarizedFunctionType(strScalarFuncName, scalarFuncType, funcAttrDummy)) {
     V_ASSERT(false && "Functions hash mismatch with runtime module!");
     // In release mode - fail scalarizing function call "gracefully"
@@ -114,7 +109,7 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
     // No scanning to do. Just fill the output vector and exit
     if (SFRT->isVectorTy()) {
       //Sort usages (which are assumed to be all extractvalue's) by index
-      
+
       rets.resize(cast<VectorType>(SFRT)->getNumElements());
       for (Value::use_iterator ui = CI->use_begin(), ue = CI->use_end(); ui!=ue;
           ++ui) {
@@ -132,7 +127,7 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
     }
     return true;
   }
-  V_ASSERT(!SFRT->isVectorTy() && 
+  V_ASSERT(!SFRT->isVectorTy() &&
           "Should have already handled all cases of scalar functions which return a vector");
 
   // Getting here, the function doesn't have the desired type.
@@ -150,7 +145,7 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
   // If root return value was not found, give up on the scanning
   if (!rootRetVal) return false;
   // add return-value root to rootVals vector
-  rets.push_back(rootRetVal); 
+  rets.push_back(rootRetVal);
 
   // Second, obtain the input arguments, and fill the rootVals vector
   for (unsigned i = 0; i < numInputParams; ++i)

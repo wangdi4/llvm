@@ -166,26 +166,6 @@ struct cl_prog_program
 #define OBJECT_SECTION_INDEX     3
 #define CHECK_INDEX              4
 
-/*! \struct cl_binary_container_header
- *  \brief This strcuture defines a specific container for binary objects (cached programs)
- */
-typedef struct _cl_object_container_header
-{
-    cl_char                 mask[4];       //!< A container identifier mask must be 0x7f ELF
-    unsigned int            total_size;    //!< total size of the container
-    unsigned int            section_size[8];//!< container sections sizes
-} cl_object_container_header;
-/*! \struct cl_prog_container_header
- *  \brief This structure defines a specific container for binaries or IR of OCL programs
- */
-typedef struct _cl_prog_container_header
-{
-    cl_char                 mask[4];        //!< A container identifier mask must be "CLPC"
-    cl_prog_binary_desc     description;    //!< Binary/IR description that is held by a container
-    cl_prog_container_type  container_type; //!< Type of container that stores program binary, as defined by cl_prog_container_type
-    unsigned int            container_size; //!< Size in bytes of the container data
-} cl_prog_container_header;
-
 // Interface declaration
 class IOCLFrameworkCallbacks;
 class IOCLDevLogDescriptor;
@@ -708,9 +688,20 @@ typedef cl_dev_err_code (fn_clDevInitDeviceAgent)(void);
   Thought this interface a device agent notifies runtime on command execution status change and
   back-end build completion.
 */
+
+// internal state for NDRangeKernel commands, which means that the kernel itself has ended running, but it may still have offspring kernels running
+#define CL_ENDED_RUNNING    (CL_QUEUED + 1)
+#ifdef _WIN32
+static_assert(CL_ENDED_RUNNING != CL_COMPLETE && CL_ENDED_RUNNING != CL_RUNNING && CL_ENDED_RUNNING != CL_SUBMITTED,
+              "CL_ENDED_RUNNING's value is the same as of one of the other command states");
+#endif
+
 class IOCLFrameworkCallbacks
 {
 public:
+
+    virtual ~IOCLFrameworkCallbacks() { }
+
     //! This function is called when previously enqueued command changes its state to RUNNING or COMPLETED.
     /*!
         \param[in]  cmd_id              Identifier of the enqueued command that changes its status
@@ -742,6 +733,9 @@ public:
 class IOCLDevBackingStore
 {
 public:
+
+    virtual ~IOCLDevBackingStore() { }
+
     //! Returns pointer to a backing store data
     /*!
         \retval A pointer to backing store raw data area
@@ -809,6 +803,9 @@ public:
 class IOCLDevRTMemObjectService
 {
 public:
+
+    virtual ~IOCLDevRTMemObjectService() { }
+
     //! Retrieves current memory object backing store.
     /*!
         \param[in]  flags   A flag represents backing store access flags
@@ -857,6 +854,9 @@ public:
 class IOCLDevMemoryObject
 {
 public:
+
+    virtual ~IOCLDevMemoryObject() { }
+
     //! Creates host mapped memory region for further buffer map operation.
     /*!
         \param[in,out] pMapParams   A valid pointer to descriptor of memory mapped region.
@@ -984,6 +984,9 @@ public:
 class IOCLDeviceFECompilerDescription
 {
 public:
+
+    virtual ~IOCLDeviceFECompilerDescription() { }
+
     /* clDevFEModuleName
         Description
             This function returns the front compiler module name
@@ -1018,6 +1021,9 @@ public:
 class IOCLDevRawMemoryAllocator
 {
 public:
+
+    virtual ~IOCLDevRawMemoryAllocator() { }
+
     //! This function allocates a memory region that is shared with host.
     /*!
         \param[in]  allocSize           Size of the requested allocation.
@@ -1045,6 +1051,8 @@ public:
 class IOCLDeviceAgent
 {
 public:
+
+    virtual ~IOCLDeviceAgent() { }
 
     /* clDevPartition
         Description
@@ -1497,6 +1505,9 @@ public:
 class IOCLDevLogDescriptor
 {
 public:
+
+    virtual ~IOCLDevLogDescriptor() { }
+
     //! This function creates a logger client for the device. Each device may create multiple logger clients,
     //  e.g. client per each internal component.
     /*!
@@ -1593,6 +1604,8 @@ class IWGContextPool
 {
 
 public:
+
+    virtual ~IWGContextPool() { }
 
     /**
      * @param bBelongsToMasterThread whether the WG context belong to a master thread

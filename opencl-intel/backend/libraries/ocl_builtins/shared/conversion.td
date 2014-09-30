@@ -447,7 +447,7 @@ OclBuiltinImpl sse42_convert_i32_rtz_v2f64 = OclBuiltinImpl<convert_i32_rtz, [v2
 
 // convert_intn_rtz float&double expand
 OclBuiltinImpl sse42_convert_i32_rtz_fpexpand = OclBuiltinImpl<convert_i32_rtz,
-                            [v8f64, v16f64], 0, Expand_rtz>;
+                            [v16f64], 0, Expand_rtz>;
 
 /*****************************************************************\
  * convert_int_rtp:                                              *
@@ -516,7 +516,7 @@ OclBuiltinImpl sse42_convert_u32_rtz_v4f32 = OclBuiltinImpl<convert_u32_rtz, [v4
 
 // convert_intn_rtz float&double expand
 OclBuiltinImpl sse42_convert_u32_rtz_fpexpand = OclBuiltinImpl<convert_u32_rtz, 
-                                [v16f32, v16f64], 0, Expand_rtz >;
+                                [v16f64], 0, Expand_rtz >;
 
 /*****************************************************************\
  * convert_uint_rtp:                                              *
@@ -587,7 +587,7 @@ OclBuiltinImpl sse42_cvt_v2f32_v2f64 = OclBuiltinImpl<convert_f32, [v2f64], 0, [
   }]>;
   
 OclBuiltinImpl sse42_cvt_f32_f64 = OclBuiltinImpl<convert_f32,
-                                          [v8f64, v16f64], 0, Expand_default>;
+                                          [v16f64], 0, Expand_default>;
   
 
 OclBuiltinImpl sse42_cvt_f32_i8i16 = OclBuiltinImpl<convert_f32,

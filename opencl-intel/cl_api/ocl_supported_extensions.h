@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2009 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -27,7 +27,7 @@
 
 #define OCL_COMMON_SUPPORTED_EXTENSIONS "cl_khr_icd cl_khr_global_int32_base_atomics "\
     "cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics "\
-    "cl_khr_local_int32_extended_atomics cl_khr_byte_addressable_store"    
+    "cl_khr_local_int32_extended_atomics cl_khr_byte_addressable_store"
 
 #if defined(__ANDROID__)
 #define OCL_SPIR
@@ -57,6 +57,13 @@ static const char OCL_SUPPORTED_EXTENSIONS_1_2[] =
 #endif
     ;
 
+static const char OCL_SUPPORTED_EXTENSIONS_XE_1_2[] =
+    OCL_COMMON_SUPPORTED_EXTENSIONS_CPU " "
+#if defined __DOUBLE_ENABLED__
+    OCL_DOUBLE " "
+#endif
+    ;
+
 static const char OCL_SUPPORTED_EXTENSIONS_2_0[] =
 OCL_COMMON_SUPPORTED_EXTENSIONS_CPU " "
 OCL_COMMON_SUPPORTED_EXTENSTIONS_2_0 " "
@@ -65,6 +72,14 @@ OCL_COMMON_SUPPORTED_EXTENSTIONS_2_0 " "
 #endif
 #if (_WIN32)
     OCL_SUPPORTED_EXTENSIONS_WIN " "
+#endif
+    ;
+
+static const char OCL_SUPPORTED_EXTENSIONS_XE_2_0[] =
+OCL_COMMON_SUPPORTED_EXTENSIONS_CPU " "
+OCL_COMMON_SUPPORTED_EXTENSTIONS_2_0 " "
+#if defined __DOUBLE_ENABLED__
+    OCL_DOUBLE " "
 #endif
     ;
 

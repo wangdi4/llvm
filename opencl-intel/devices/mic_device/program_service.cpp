@@ -365,7 +365,6 @@ bool ProgramService::LoadBackendServices(void)
     ICLDevBackendCompilationService*    comp_temp = NULL;
     ICLDevBackendSerializationService*  ser_temp = NULL;
 
-
     if (NULL != m_BE_Compiler.pCompilationService)
     {
         return true;
@@ -462,7 +461,6 @@ void ProgramService::ReleaseBackendServices(void)
     }
 
     m_BE_Compiler.be_wrapper.Terminate();
-
 }
 
 /****************************************************************************************************************
@@ -482,52 +480,21 @@ void ProgramService::ReleaseBackendServices(void)
 ********************************************************************************************************************/
 cl_dev_err_code ProgramService::CheckProgramBinary (size_t IN binSize, const void* IN bin)
 {
-    const cl_prog_container_header*    pProgCont = (cl_prog_container_header*)bin;
-
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "CheckProgramBinary enter");
 
-    // Check container size
-    if ( sizeof(cl_prog_container_header) > binSize )
+    //If it is Binary Object, no other checks needed
+    if ( _CL_OBJECT_BITCODE_MASK_ == ((const int*)bin)[0] )
     {
-        MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "Invalid Binary Size was provided");
-        return CL_DEV_INVALID_BINARY;
+        return CL_DEV_SUCCESS;
     }
 
-    // Check container mask
-    if ( memcmp(_CL_CONTAINER_MASK_, pProgCont->mask, sizeof(pProgCont->mask)) )
+    // If it is SPIR binary, no other checks needed
+    if ( !memcmp(_CL_LLVM_BITCODE_MASK_, bin, sizeof(_CL_LLVM_BITCODE_MASK_) - 1) )
     {
-        MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "Invalid Container Mask was provided");
-        return CL_DEV_INVALID_BINARY;
+        return CL_DEV_SUCCESS;
     }
 
-    // Check supported container type
-    switch ( pProgCont->container_type )
-    {
-    // Supported containers
-    case CL_PROG_CNT_PRIVATE:
-        break;
-
-    default:
-        MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "Invalid Container Type was provided");
-        return CL_DEV_INVALID_BINARY;
-    }
-
-    // Check supported binary types
-    switch ( pProgCont->description.bin_type )
-    {
-    // Supported program binaries
-    case CL_PROG_BIN_EXECUTABLE_LLVM:// The container should contain valid LLVM-IR
-    case CL_PROG_BIN_BUILT_OBJECT:// The container contains binary object
-        break;
-
-    case CL_PROG_OBJ_X86:            // The container should contain binary buffer of object file
-    case CL_PROG_DLL_X86:            // The container should contain a full path name to DLL file to load
-    default:
-        MicInfoLog(m_pLogDescriptor, m_iLogHandle, "Invalid Container Type was provided<%0X>", pProgCont->description.bin_type);
-        return CL_DEV_INVALID_BINARY;
-    }
-
-    return CL_DEV_SUCCESS;
+    return CL_DEV_INVALID_BINARY;
 }
 
 /*******************************************************************************************************************
@@ -579,7 +546,6 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
     }
 
     // Create new program
-    const cl_prog_container_header* pProgCont = (cl_prog_container_header*)bin;
     TProgramEntry*                  pEntry    = new TProgramEntry(m_iDevId);
     if ( NULL == pEntry )
     {
@@ -588,25 +554,13 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
     }
 
     cl_dev_err_code ret;
-    switch(pProgCont->description.bin_type)
+    ICLDevBackendCompilationService* compiler = GetCompilationService();
+    if (NULL == compiler)
     {
-    case CL_PROG_BIN_EXECUTABLE_LLVM:
-    case CL_PROG_BIN_BUILT_OBJECT:
-        {
-            ICLDevBackendCompilationService* compiler = GetCompilationService();
-            if (NULL == compiler)
-            {
-                MicErrLog(m_pLogDescriptor, m_iLogHandle, "Cannot load compilation service", "");
-                return CL_DEV_OUT_OF_MEMORY;
-            }
-            ret = compiler->CreateProgram(pProgCont, (ICLDevBackendProgram_**)&pEntry->pProgram);
-        }
-        break;
-    default:
-        MicErrLog(m_pLogDescriptor, m_iLogHandle, "Failed to find approproiate program for type<%d>", pProgCont->description.bin_type);
-        delete pEntry;
-        return CL_DEV_INVALID_BINARY;
+        MicErrLog(m_pLogDescriptor, m_iLogHandle, "Cannot load compilation service", "");
+        return CL_DEV_OUT_OF_MEMORY;
     }
+    ret = compiler->CreateProgram(bin, binSize, (ICLDevBackendProgram_**)&pEntry->pProgram);
 
     if ( CL_DEV_FAILED(ret) )
     {
@@ -679,7 +633,6 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
                                     cl_build_status* OUT buildStatus
                                    )
 {
-
     const char *p = NULL;
 
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "BuildProgram enter");
@@ -970,7 +923,6 @@ cl_dev_err_code ProgramService::GetSupportedBinaries( size_t IN size,
 
     return CL_DEV_SUCCESS;
 }
-
 
 cl_dev_err_code ProgramService::GetKernelId( cl_dev_program IN prog, const char* IN name, cl_dev_kernel* OUT kernelId )
 {
@@ -1343,7 +1295,6 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
 
         if ( COI_SUCCESS != coi_err )
         {
-
             MicErrLog(m_pLogDescriptor, m_iLogHandle,
                 "MICDevice: Program Service failed to create COI buffer for program serialization. Buffer size is %d bytes. COI returned %s",
                 prog_blob_size,
@@ -1364,7 +1315,6 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
 
         if ( COI_SUCCESS != coi_err )
         {
-
             MicErrLog(m_pLogDescriptor, m_iLogHandle,
                 "MICDevice: Program Service failed to map COI buffer for program serialization. Buffer size is %d bytes. COI returned %s",
                 prog_blob_size,
@@ -1390,7 +1340,6 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
             MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"),"MICDevice: Serialization Service failed to calculate blob size");
             break;
         }
-
 
         // 5. Unmap serialization buffer
         coi_err = COIBufferUnmap( map_instance, 0, NULL, NULL ); // execute immediately
@@ -1539,7 +1488,6 @@ cl_dev_err_code ProgramService::CreateBuiltinProgramOnDevice(TProgramEntry* pEnt
     return CL_DEV_SUCCESS;
 }
 
-
 bool ProgramService::FillProgramEntry(const COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT* devicePorgram, TProgramEntry* pEntry)
 {
     STATIC_ASSERT((sizeof(unsigned long long int)<=sizeof(uint64_t)));
@@ -1573,7 +1521,6 @@ bool ProgramService::FillProgramEntry(const COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT
 
             // insert entry to the TKernelId2Entry map
             pEntry->mapId2Kernels[ kernel_entry->pKernel->GetKernelID() ] = kernel_entry;
-
         }
     }
 
@@ -1600,4 +1547,3 @@ bool ProgramService::RemoveProgramFromDevice( const TProgramEntry* pEntry )
 
     return ok;
 }
-

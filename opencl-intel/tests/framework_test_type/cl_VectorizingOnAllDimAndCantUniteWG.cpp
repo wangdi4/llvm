@@ -25,6 +25,9 @@
 
 #define WORK_SIZE_EVEN 16
 #define WORK_SIZE_ODD 15
+#define WORK_SIZE_X 100;
+#define WORK_SIZE_Y 200;
+#define WORK_SIZE_Z 245;
 
 using namespace std;
 
@@ -83,15 +86,29 @@ static const char* noWGUnite =
 "                a_dev[index] = num;\n"
 "}";
 
-cl_int getByIndex(cl_int * arr, int x, int y, int z,int size){
-    return *(arr+x*size*size+y*size+z);
+static const char* differentSizes =
+"__kernel void Fan(__global int *m_dev,\n"
+"                  __global int *a_dev,\n"
+"                  __global int *b_dev,\n"
+"                  const int sizeX,\n"
+"                  const int sizeY,\n"
+"                  const int sizeZ){\n"
+"                int x = get_global_id(1);\n"
+"                int y = get_global_id(0);\n"
+"                int z = get_global_id(2);\n"
+"                int index = x*sizeX*sizeY + y * sizeY + z;\n"
+"                b_dev[index] = a_dev[index]+m_dev[index];\n"
+"}";
+
+cl_int getByIndex(cl_int * arr, int x, int y, int z,int sizeX,int sizeY,int sizeZ){
+    return *(arr+x*sizeX*sizeY+y*sizeY+z);
 }
 
-void setByIndex(cl_int * arr, int x, int y, int z,int size,cl_int val){
-    *(arr+x*size*size+y*size+z) = val;
+void setByIndex(cl_int * arr, int x, int y, int z,int sizeX,int sizeY,int sizeZ,cl_int val){
+    *(arr+x*sizeX*sizeY+y*sizeY+z) = val;
 }
 
-bool clCheckVectorizingOnAllDimAndCantUniteWG(int progIndex, bool oddDimention)
+bool clCheckVectorizingOnAllDimAndCantUniteWG(int progIndex, bool oddDimention, bool hasLocalWGSize)
 {
     cl_int iRet = CL_SUCCESS;
     cl_platform_id platform = 0;
@@ -107,7 +124,7 @@ bool clCheckVectorizingOnAllDimAndCantUniteWG(int progIndex, bool oddDimention)
 
     try
     {
-        if (progIndex>3 || progIndex<0){
+        if (progIndex>4 || progIndex<0){
             std::cout << "Invalid program index" << std::endl;
             throw exception();
         }
@@ -124,6 +141,7 @@ bool clCheckVectorizingOnAllDimAndCantUniteWG(int progIndex, bool oddDimention)
         queue = clCreateCommandQueue(context, device, 0, &iRet);
         CheckException(L"clCreateCommandQueue", CL_SUCCESS, iRet);
 
+        bool additionalSizes = false;
         const char * program  = sProg_prefer3;
         if (progIndex == 0){
             program = sProg_prefer1;
@@ -133,6 +151,10 @@ bool clCheckVectorizingOnAllDimAndCantUniteWG(int progIndex, bool oddDimention)
         }
         else if (progIndex == 3){
             program = noWGUnite;
+        }
+        else if (progIndex == 4){
+            program = differentSizes;
+            additionalSizes = true;
         }
 
         cl_int workSize = WORK_SIZE_EVEN;
@@ -150,22 +172,32 @@ bool clCheckVectorizingOnAllDimAndCantUniteWG(int progIndex, bool oddDimention)
         cl_kernel kernel = clCreateKernel(prog, "Fan", &iRet);
         CheckException(L"clCreateKernel", CL_SUCCESS, iRet);
 
+        //decide about the work size
+        int workSizeX = workSize;
+        int workSizeY = workSize;
+        int workSizeZ = workSize;
+        if (additionalSizes){
+            workSizeX = WORK_SIZE_X;
+            workSizeY = WORK_SIZE_Y;
+            workSizeZ = WORK_SIZE_Z;
+        }
+
         //create input
-        int memorySize = workSize * workSize * workSize * sizeof(cl_int);
+        int memorySize = workSizeX * workSizeY * workSizeZ * sizeof(cl_int);
         cl_int * iSrcArr1 = (cl_int *) malloc (memorySize);
         cl_int * iSrcArr2 = (cl_int *) malloc (memorySize);
         cl_int * iDstArr = (cl_int *) malloc (memorySize);
         cl_int * iDstArr_correct = (cl_int *) malloc (memorySize);
-        for (cl_int i = 0; i < workSize; i++)
+        for (cl_int i = 0; i < workSizeX; i++)
         {
-            for (cl_int j = 0; j < workSize; j++)
+            for (cl_int j = 0; j < workSizeY; j++)
             {
-                for (cl_int k = 0; k < workSize; k++)
+                for (cl_int k = 0; k < workSizeZ; k++)
                 {
-                    setByIndex(iSrcArr1,i,j,k,workSize,i+j+k);
-                    setByIndex(iSrcArr2,i,j,k,workSize,j);
-                    setByIndex(iDstArr,i,j,k,workSize,1);
-                    setByIndex(iDstArr_correct,i,j,k,workSize,1);
+                    setByIndex(iSrcArr1,i,j,k,workSizeX,workSizeY,workSizeZ,i+j+k);
+                    setByIndex(iSrcArr2,i,j,k,workSizeX,workSizeY,workSizeZ,j);
+                    setByIndex(iDstArr,i,j,k,workSizeX,workSizeY,workSizeZ,1);
+                    setByIndex(iDstArr_correct,i,j,k,workSizeX,workSizeY,workSizeZ,1);
                 }
             }
         }
@@ -185,40 +217,58 @@ bool clCheckVectorizingOnAllDimAndCantUniteWG(int progIndex, bool oddDimention)
         CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
         iRet = clSetKernelArg(kernel, 2, sizeof(cl_mem), &dstBuf);
         CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
-        iRet = clSetKernelArg(kernel, 3, sizeof(cl_int), &workSize);
-        CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
+        if (additionalSizes){
+            iRet = clSetKernelArg(kernel, 3, sizeof(cl_int), &workSizeX);
+            CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
+            iRet = clSetKernelArg(kernel, 4, sizeof(cl_int), &workSizeY);
+            CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
+            iRet = clSetKernelArg(kernel, 5, sizeof(cl_int), &workSizeZ);
+            CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
+        }
+        else{
+            iRet = clSetKernelArg(kernel, 3, sizeof(cl_int), &workSize);
+            CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
+        }
 
-        size_t szGlobalWorkSize[3] = {workSize, workSize, workSize};
+        size_t szGlobalWorkSize[3] = {workSizeX, workSizeY, workSizeZ};
 
-        iRet = clEnqueueNDRangeKernel(queue, kernel, 3, NULL, szGlobalWorkSize, NULL, 0, NULL, NULL);
-        CheckException(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
+        if (additionalSizes && hasLocalWGSize){
+            size_t localWGSize[3]={1,1,5};
+            iRet = clEnqueueNDRangeKernel(queue, kernel, 3, NULL, szGlobalWorkSize, localWGSize , 0, NULL, NULL);
+            CheckException(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
+        }
+        else{
+            iRet = clEnqueueNDRangeKernel(queue, kernel, 3, NULL, szGlobalWorkSize, NULL, 0, NULL, NULL);
+            CheckException(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
+        }
 
         iRet = clEnqueueReadBuffer(queue, dstBuf, CL_TRUE, 0, memorySize, iDstArr, 0, NULL, NULL);
         CheckException(L"clEnqueueReadBuffer", CL_SUCCESS, iRet);
 
         // Calculate correct result
-        for (size_t i = 0; i < workSize; i++)
+        for (size_t i = 0; i < workSizeX; i++)
         {
-            for (size_t j = 0; j < workSize; j++)
+            for (size_t j = 0; j < workSizeY; j++)
             {
-                for (size_t  k= 0; k < workSize; k++)
+                for (size_t  k= 0; k < workSizeZ; k++)
                 {
-                    setByIndex(iDstArr_correct,i,j,k,workSize,getByIndex(iSrcArr1,i,j,k,workSize)+getByIndex(iSrcArr2,i,j,k,workSize));
+                    setByIndex(iDstArr_correct,i,j,k,workSizeX,workSizeY,workSizeZ,
+                        getByIndex(iSrcArr1,i,j,k,workSizeX,workSizeY,workSizeZ)+getByIndex(iSrcArr2,i,j,k,workSizeX,workSizeY,workSizeZ));
                 }
             }
         }
 
         //compare results
-        for (size_t i = 0; i < workSize; i++)
+        for (size_t i = 0; i < workSizeX; i++)
         {
-            for (size_t j = 0; j < workSize; j++)
+            for (size_t j = 0; j < workSizeY; j++)
             {
-                for (size_t  k= 0; k < workSize; k++)
+                for (size_t  k= 0; k < workSizeZ; k++)
                 {
-                    if (getByIndex(iDstArr_correct,i,j,k,workSize) != getByIndex(iDstArr,i,j,k,workSize))
+                    if (getByIndex(iDstArr_correct,i,j,k,workSizeX,workSizeY,workSizeZ) != getByIndex(iDstArr,i,j,k,workSizeX,workSizeY,workSizeZ))
                     {
                         cout << "result is not as expected for work item " << i<<" "<<j<<" "<< k << endl;
-                        cout << getByIndex(iDstArr_correct,i,j,k,workSize) << " vs " << getByIndex(iDstArr,i,j,k,workSize)<< endl;
+                        cout << getByIndex(iDstArr_correct,i,j,k,workSizeX,workSizeY,workSizeZ) << " vs " << getByIndex(iDstArr,i,j,k,workSizeX,workSizeY,workSizeZ)<< endl;
                         throw exception();
                     }
                 }

@@ -1,7 +1,7 @@
 # Create the passes seperate projects
 use_rtti( FALSE )
 
-
+include_directories(${LLVM_INCLUDE_DIRS})
 add_subdirectory(AddImplicitArgs)
 add_subdirectory(OclFunctionAttrs)
 add_subdirectory(BuiltInFuncImport)
@@ -14,6 +14,7 @@ add_subdirectory(LocalBuffAnalysis)
 add_subdirectory(LocalBuffers)
 add_subdirectory(ModuleCleanup)
 add_subdirectory(PrepareKernelArgs)
+add_subdirectory(SinCosFold)
 add_subdirectory(PreventDivCrashes)
 add_subdirectory(RelaxedPass)
 add_subdirectory(ResolveWICall)
@@ -26,6 +27,7 @@ add_subdirectory(LinearIdResolver)
 add_subdirectory(DetectRecursion)
 add_subdirectory(ResolveBlockToStaticCall)
 add_subdirectory(PatchCallbackArgs)
+add_subdirectory(PreLegalizeBools)
 
 if(APPLE)
   add_subdirectory(ClangCompatFixer)

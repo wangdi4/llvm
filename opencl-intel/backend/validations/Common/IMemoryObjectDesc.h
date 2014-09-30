@@ -32,6 +32,8 @@ namespace Validation
         virtual IMemoryObjectDesc * Clone() const = 0;
         /// @brief get Name of class
         virtual std::string GetName() const = 0;
+        /// @brief computes object size.
+        virtual size_t GetSizeInBytes() const = 0;
     };
 
     // helper class to track IMemoryObjectDesc * objects

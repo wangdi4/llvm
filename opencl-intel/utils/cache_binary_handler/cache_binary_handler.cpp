@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2009 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -26,11 +26,10 @@
 #include "ElfReader.h"
 #include "ElfWriter.h"
 #include "CLElfTypes.h"
+#include "elf_binary.h"
 #include "assert.h"
 
-namespace CacheBinaryHandler
-{
-
+namespace Intel{ namespace OpenCL{ namespace ELFUtils {
 const char* g_metaSectionName = ".ocl.meta";
 const char* g_irSectionName   = ".ocl.ir";
 const char* g_optSectionName  = ".ocl.opt";
@@ -46,6 +45,19 @@ CacheBinaryReader::~CacheBinaryReader()
 {
     if(m_pReader) CLElfLib::CElfReader::Delete(m_pReader);
     m_pReader = NULL;
+}
+
+bool CacheBinaryReader::IsValidCacheObject(const void*pBlob, size_t size)
+{
+    if( CLElfLib::CElfReader::IsValidElf64((const char*)pBlob, size))
+    {
+        ElfReaderPtr pReader(CLElfLib::CElfReader::Create((const char*)pBlob, size));
+        if( NULL != pReader.get() )
+        {
+            return (CLElfLib::EH_TYPE_OPENCL_EXECUTABLE == pReader->GetElfHeader()->Type);
+        }
+    }
+    return false;
 }
 
 bool CacheBinaryReader::IsCachedObject() const
@@ -156,6 +168,4 @@ bool CacheBinaryWriter::GetBinary(char* pBinary) const
     unsigned int DataSize = 0;
     return ( m_pWriter->ResolveBinary( pBinary, DataSize ) == CLElfLib::SUCCESS );
 }
-
-}
-
+}}}

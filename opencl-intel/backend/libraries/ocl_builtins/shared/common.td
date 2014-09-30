@@ -57,7 +57,7 @@ OclBuiltinImpl step_v4f32 = OclBuiltinImpl<step,
   [v4f32] , 0, [{
     $ReturnType $ReturnVarName;
     $ReturnVarName = _mm_cmpge_ps($Arg1VarName,$Arg0VarName);
-    $ReturnVarName = _mm_and_ps($ReturnVarName,*(($ReturnType *)f4const_oneStorage));
+    $ReturnVarName = _mm_and_ps($ReturnVarName, f4const_oneStorage);
     return $ReturnVarName;
   }]>;
   
@@ -65,7 +65,7 @@ OclBuiltinImpl step_v2f64 = OclBuiltinImpl<step,
   [v2f64] , 0, [{
     $ReturnType $ReturnVarName;
     $ReturnVarName = _mm_cmpge_pd($Arg1VarName,$Arg0VarName);
-    $ReturnVarName = _mm_and_pd($ReturnVarName,*(($ReturnType *)d2const_oneStorage));
+    $ReturnVarName = _mm_and_pd($ReturnVarName, d2const_oneStorage);
     return $ReturnVarName;
   }]>;
    
@@ -75,16 +75,16 @@ OclBuiltinImpl sign_v4f32 = OclBuiltinImpl<sign,[v4f32] , 0, [{
     //if X=nan -> x=0    
     //    __m128 nan = _mm_set1_ps(0x7FFFFFFF); // or numeric_limits<float>::quiet_NaN();
     
-    $ReturnType f4res = _mm_cmpneq_ps($Arg0VarName, *(($ReturnType *)f4const_nanStorage)); //if x=nan f4res=0
+    $ReturnType f4res = _mm_cmpneq_ps($Arg0VarName, f4const_nanStorage); //if x=nan f4res=0
     $Arg0VarName = _mm_and_ps(f4res, $Arg0VarName);//if f4res=0 (x=nan) x=0
     
     //if x>0 return res=1
     $ReturnType res = _mm_cmpgt_ps($Arg0VarName, _mm_setzero_ps());
-    res = _mm_and_ps(res, *(($ReturnType *)f4const_oneStorage)); //res = 1 if x>0
+    res = _mm_and_ps(res, f4const_oneStorage); //res = 1 if x>0
     
     //if x<-0 return res1=-1
-    $ReturnType res1 = _mm_cmplt_ps($Arg0VarName, *(($ReturnType *)f4const_minusZeroStorage)); ////res1 = -1 if x<-0
-    res1 = _mm_and_ps(res1, *(($ReturnType *)f4const_minusOneStorage));
+    $ReturnType res1 = _mm_cmplt_ps($Arg0VarName, f4const_minusZeroStorage); ////res1 = -1 if x<-0
+    res1 = _mm_and_ps(res1, f4const_minusOneStorage);
     res = _mm_or_ps(res, res1);
     //if x=0 res=0 (if x=0 res0=res1=0) - no need to do anything
     return res;
@@ -92,16 +92,16 @@ OclBuiltinImpl sign_v4f32 = OclBuiltinImpl<sign,[v4f32] , 0, [{
   
 OclBuiltinImpl sign_v2f64 = OclBuiltinImpl<sign,[v2f64] , 0, [{
      //if X=nan -> x=0    
-     $ReturnType d2res = _mm_cmpneq_pd($Arg0VarName, *(($ReturnType *)d2const_nanStorage));//if x=nan d2res=0
+     $ReturnType d2res = _mm_cmpneq_pd($Arg0VarName, d2const_nanStorage);//if x=nan d2res=0
      $Arg0VarName = _mm_and_pd(d2res, $Arg0VarName);//if d2res=0 (x=nan) x=0
 
     //if x>0 return res=1
     $ReturnType res = _mm_cmpgt_pd($Arg0VarName, _mm_setzero_pd());
-    res = _mm_and_pd(res, *(($ReturnType *)d2const_oneStorage)); //res = 1 if x>0
+    res = _mm_and_pd(res, d2const_oneStorage); //res = 1 if x>0
 
     //if x<-0 return res1=-1
-    $ReturnType res1 = _mm_cmplt_pd($Arg0VarName, *(($ReturnType *)d2const_minusZeroStorage)); ////res1 = -1 if x<-0
-    res1 = _mm_and_pd(res1, *(($ReturnType *)d2const_minusOneStorage));
+    $ReturnType res1 = _mm_cmplt_pd($Arg0VarName, d2const_minusZeroStorage); ////res1 = -1 if x<-0
+    res1 = _mm_and_pd(res1, d2const_minusOneStorage);
     res = _mm_or_pd(res, res1);
     //if x=0 res=0 (if x=0 res0=res1=0) - no need to do anything
     return res;

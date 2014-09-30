@@ -45,6 +45,7 @@ File Name:  ProgramBuilder.cpp
 #include "CompilationUtils.h"
 #include "cache_binary_handler.h"
 #include "ObjectCodeContainer.h"
+#include "ObjectCodeCache.h"
 #include "OclTune.h"
 
 #include "llvm/Support/Atomic.h"
@@ -74,13 +75,11 @@ File Name:  ProgramBuilder.cpp
 using std::string;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
 /*
  * Utility methods
  */
 namespace Utils
 {
-
 static int getFileCount() {
   static volatile llvm::sys::cas_flag fileCount = 0;
 
@@ -106,8 +105,9 @@ void UpdateKernelsWithRuntimeService( const RuntimeServiceSharedPtr& rs, KernelS
     pK->SetRuntimeService(rs);
   }
 }
-
 } //namespace Utils
+
+using namespace Intel::OpenCL::ELFUtils;
 
 ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& config):
     m_pBackendFactory(pBackendFactory),
@@ -175,7 +175,7 @@ bool ProgramBuilder::CheckIfProgramHasCachedExecutable(Program* pProgram) const
     {
         const char* pObject = (const char*)pProgram->GetObjectCodeContainer()->GetCode();
         size_t objectSize = pProgram->GetObjectCodeContainer()->GetCodeSize();
-        CacheBinaryHandler::CacheBinaryReader reader(pObject, objectSize);
+        CacheBinaryReader reader(pObject, objectSize);
         return reader.IsCachedObject();
     }
     return false;
@@ -212,6 +212,19 @@ void ProgramBuilder::DumpModuleStats(llvm::Module* pModule)
     }
 }
 
+void ProgramBuilder::ParseProgram(Program* pProgram)
+{
+    try
+    {
+        assert(!CheckIfProgramHasCachedExecutable(pProgram) && "Program should not has been loaded from cache");
+        pProgram->SetModule( GetCompiler()->ParseModuleIR( Utils::GetProgramMemoryBuffer(pProgram)));
+    }
+    catch(Exceptions::CompilerException& e)
+    {
+        throw Exceptions::DeviceBackendExceptionBase(e.what());
+    }
+}
+
 cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBackendOptions* pOptions)
 {
     assert(pProgram && "Program parameter must not be NULL");
@@ -227,18 +240,16 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
              return CL_DEV_SUCCESS;
         }
         Compiler* pCompiler = GetCompiler();
+        llvm::Module* pModule = (llvm::Module*)pProgram->GetModule();
 
-        CompilerBuildOptions buildOptions(pProgram->GetDebugInfoFlag(),
-                                          pProgram->GetProfilingFlag(),
-                                          pProgram->GetDisableOpt(),
-                                          pProgram->GetFastRelaxedMath(),
-                                          false,
-                                          pOptions? pOptions->GetIntValue(CL_DEV_BACKEND_OPTION_APF_LEVEL, 0) : 0);
+        if(!pModule)
+        {
+            ParseProgram(pProgram);
+            pModule = (llvm::Module*)pProgram->GetModule();
+        }
+        assert(pModule && "Module parsing has failed without exception. Strage");
 
-        std::auto_ptr<llvm::Module> spModule( pCompiler->BuildProgram( Utils::GetProgramMemoryBuffer(pProgram),
-                                                                       &buildOptions,
-                                                                       &buildResult));
-
+        pCompiler->BuildProgram( pModule, &buildResult);
         std::auto_ptr<ObjectCodeCache> pObjectCodeCache(new ObjectCodeCache(NULL, NULL, 0));
         pCompiler->SetObjectCache(pObjectCodeCache.get());
 
@@ -252,15 +263,15 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
         pProgram->SetRuntimeService(lRuntimeService);
 
         // Dump module stats just before lowering if requested
-        DumpModuleStats(spModule.get());
+        DumpModuleStats(pModule);
 
-        PostOptimizationProcessing(pProgram, spModule.get(), pOptions);
+        PostOptimizationProcessing(pProgram, pModule, pOptions);
 
         if (!(pOptions && pOptions->GetBooleanValue(CL_DEV_BACKEND_OPTION_STOP_BEFORE_JIT, false)))
         {
             //LLVMBackend::GetInstance()->m_logger->Log(Logger::DEBUG_LEVEL, L"Start iterating over kernels");
             KernelSet* pKernels = CreateKernels( pProgram,
-                                                 spModule.get(),
+                                                 pModule,
                                                  buildResult);
             // update kernels with RuntimeService
             Utils::UpdateKernelsWithRuntimeService( lRuntimeService, pKernels );
@@ -269,9 +280,8 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
         }
 
         // call post build method
-        PostBuildProgramStep( pProgram, spModule.get(), pOptions );
-        updateGlobalVariableTotalSize(pProgram, spModule.get());
-        pProgram->SetModule( spModule.release() );
+        PostBuildProgramStep( pProgram, pModule, pOptions );
+        updateGlobalVariableTotalSize(pProgram, pModule);
 
         BuildProgramCachedExecutable(pObjectCodeCache.get(), pProgram);
     }
@@ -496,6 +506,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     barrierBufferSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(barrierBufferSize);
     privateMemorySize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(privateMemorySize);
 
+    CompilerBuildOptions buildOptions(pModule);
     KernelProperties* pProps = new KernelProperties();
 
     // Kernel should keep size of pointer specified inside module
@@ -511,8 +522,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     pProps->SetHasGlobalSync(hasGlobalSync);
     pProps->SetKernelExecutionLength(executionLength);
     pProps->SetKernelAttributes(kernelAttributes.str());
-
-    pProps->SetDAZ(pProgram->GetDAZ());
+    pProps->SetDAZ(buildOptions.GetDenormalsZero());
     pProps->SetCpuId(GetCompiler()->GetCpuId());
     if (HasNoBarrierPath)
       pProps->EnableVectorizedWithTail();
@@ -540,5 +550,4 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
 
     return pProps;
 }
-
 }}}

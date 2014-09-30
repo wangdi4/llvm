@@ -21,7 +21,6 @@ File Name:  ImageCallbackLibrary.cpp
 #include "Compiler.h"
 #include "exceptions.h"
 #include "ImageCallbackLibrary.h"
-#include "ProgramContainerMemoryBuffer.h"
 #include "SystemInfo.h"
 #include "ServiceFactory.h"
 

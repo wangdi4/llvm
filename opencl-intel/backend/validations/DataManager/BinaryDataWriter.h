@@ -137,7 +137,7 @@ namespace Validation
             writeElementDesc(bd.GetElementDescription());
             writeValue((uint32_t)bd.IsNEAT());
 
-            size_t size = bd.GetBufferSizeInBytes();
+            size_t size = bd.GetSizeInBytes();
             // then the buffer itself
             m_stream.write( (const char*)pBuffer->GetDataPtr(), size);
         }
@@ -160,7 +160,7 @@ namespace Validation
             writeValue((uint32_t)imDesc.GetElementSize());
             writeValue(imDesc.IsNEAT());
             // then the image itself
-            m_stream.write( (const char*)pImage->GetDataPtr(), imDesc.GetImageSizeInBytes());
+            m_stream.write( (const char*)pImage->GetDataPtr(), imDesc.GetSizeInBytes());
         }
 
         void visitBufferContainer( const IBufferContainer* pBufferContainer)

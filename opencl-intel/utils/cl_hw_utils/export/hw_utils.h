@@ -54,14 +54,14 @@ typedef struct {
 		return (cpuid_info[1] >> 24);
 	}
 #else
-	extern "C" void ASM_FUNCTION  hw_cpuid(CPUID_PARAMS *);
+	extern "C" void ASM_FUNCTION  cl_hw_cpuid(CPUID_PARAMS *);
 
 	inline void cpuid( UINT32 cpuid_info[], UINT32 type, UINT32 ecxVal = 0 )
 	{
 		CPUID_PARAMS __cpuid_params;
 		__cpuid_params.m_rax = type;
 		__cpuid_params.m_rcx = ecxVal;
-		hw_cpuid(&__cpuid_params);
+		cl_hw_cpuid(&__cpuid_params);
 
 		cpuid_info[0] = (UINT32)__cpuid_params.m_rax;
 		cpuid_info[1] = (UINT32)__cpuid_params.m_rbx;
@@ -73,7 +73,7 @@ typedef struct {
 	{
 		CPUID_PARAMS __cpuid_params;
 		__cpuid_params.m_rax = 1;
-		hw_cpuid(&__cpuid_params);
+		cl_hw_cpuid(&__cpuid_params);
 		return (UINT32)__cpuid_params.m_rbx >> 24;
 	}
 #endif

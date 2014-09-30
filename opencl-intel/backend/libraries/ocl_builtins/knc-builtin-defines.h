@@ -875,7 +875,7 @@ __inline__ __attribute__((always_inline)) int _InterlockedXor_global(volatile in
 }
 
 // local calls implementations
-int __inline__ __attribute__((always_inline)) atomicInc_local(volatile int* p)
+int __inline__ __attribute__((always_inline)) atomicInc_local(int* p)
 {
     // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
     int oldValue = *p;
@@ -883,7 +883,7 @@ int __inline__ __attribute__((always_inline)) atomicInc_local(volatile int* p)
     return oldValue;
 }
 
-int __inline__ __attribute__((always_inline)) atomicDec_local(volatile int* p)
+int __inline__ __attribute__((always_inline)) atomicDec_local(int* p)
 {
     // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
     int oldValue = *p;
@@ -891,7 +891,7 @@ int __inline__ __attribute__((always_inline)) atomicDec_local(volatile int* p)
     return oldValue;
 }
 
-int __inline__ __attribute__((always_inline)) atomicAdd_local(volatile int* p, int val)
+int __inline__ __attribute__((always_inline)) atomicAdd_local(int* p, int val)
 {
     // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
     int oldValue = *p;
@@ -899,7 +899,7 @@ int __inline__ __attribute__((always_inline)) atomicAdd_local(volatile int* p, i
     return oldValue;
 }
 
-int __inline__ __attribute__((always_inline)) atomicSub_local(volatile int* p, int val)
+int __inline__ __attribute__((always_inline)) atomicSub_local(int* p, int val)
 {
     // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
     int oldValue = *p;
@@ -907,7 +907,7 @@ int __inline__ __attribute__((always_inline)) atomicSub_local(volatile int* p, i
     return oldValue;
 }
 
-__inline__ __attribute__((always_inline)) int _InterlockedCompareExchange_local(volatile int * const Destination, const int Comperand, const int Exchange)
+__inline__ __attribute__((always_inline)) int _InterlockedCompareExchange_local(int * const Destination, const int Comperand, const int Exchange)
 {
     // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
     int oldValue = *Destination;
@@ -918,7 +918,7 @@ __inline__ __attribute__((always_inline)) int _InterlockedCompareExchange_local(
     return oldValue;
 }
 
-__inline__ __attribute__((always_inline)) int InterlockedExchange_local(volatile int * const Target, const int Value)
+__inline__ __attribute__((always_inline)) int InterlockedExchange_local(int * const Target, const int Value)
 {
     // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
     int oldValue = *Target;
@@ -926,7 +926,7 @@ __inline__ __attribute__((always_inline)) int InterlockedExchange_local(volatile
     return oldValue;
 }
 
-__inline__ __attribute__((always_inline)) int _InterlockedAnd_local(volatile int * const value, const int mask)
+__inline__ __attribute__((always_inline)) int _InterlockedAnd_local(int * const value, const int mask)
 {
     // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
     int oldValue = *value;
@@ -934,7 +934,7 @@ __inline__ __attribute__((always_inline)) int _InterlockedAnd_local(volatile int
     return oldValue;
 }
 
-__inline__ __attribute__((always_inline)) int _InterlockedOr_local(volatile int * const value, const int mask)
+__inline__ __attribute__((always_inline)) int _InterlockedOr_local(int * const value, const int mask)
 {
     // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
     int oldValue = *value;
@@ -942,7 +942,7 @@ __inline__ __attribute__((always_inline)) int _InterlockedOr_local(volatile int 
     return oldValue;
 }
 
-__inline__ __attribute__((always_inline)) int _InterlockedXor_local(volatile int * const value, const int mask)
+__inline__ __attribute__((always_inline)) int _InterlockedXor_local(int * const value, const int mask)
 {
     // this implementation relies on that workgroup executed by single phy. thread see comment in the beginning of the file
     int oldValue = *value;

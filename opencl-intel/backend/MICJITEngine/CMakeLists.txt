@@ -3,4 +3,6 @@ add_library(LLVMMICCodeGenerationEngine
   )
 set_target_properties( LLVMMICCodeGenerationEngine PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/llvm )
 
-include_directories (../)
+include_directories (${LLVM_INCLUDE_DIRS}
+                     ../
+)

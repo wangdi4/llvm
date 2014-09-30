@@ -12,12 +12,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "MetaDataApi.h"
 
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/Version.h"
-#if LLVM_VERSION == 3425
-#include "llvm/Target/TargetData.h"
-#else
 #include "llvm/IR/DataLayout.h"
-#endif
 
 extern "C"
 {
@@ -175,14 +170,14 @@ namespace intel{
       assert(IE  && "Unable to find source constant");
       return IE;
     }
-    
+
     if (isa<ConstantArray>(pCE)) {
       // Right now, the only case in which this happens is when replacing annotations
       // This means we can simply avoid replacing it.
       // However, this may become relevant in the future, so leaving a special case.
       return 0;
     }
-    
+
     // No need to check for ConstantDataVector here - it is composed of data,
     // so none of the elements can ever be the replaced val.
 
@@ -268,11 +263,7 @@ namespace intel{
         }
 
         // Calculate required buffer size
-#if LLVM_VERSION == 3425
-        llvm::TargetData DL(m_pModule);
-#else
         llvm::DataLayout DL(m_pModule);
-#endif
         size_t uiArraySize = DL.getTypeAllocSize(pLclBuff->getType()->getElementType());
         assert(0 != uiArraySize && "zero array size!");
         // Now retrieve to the offset of the local buffer

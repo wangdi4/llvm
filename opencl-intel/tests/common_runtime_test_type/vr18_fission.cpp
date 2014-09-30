@@ -65,7 +65,7 @@ TEST_F(VR18_Fission, Native)
 
 	// set up shared context, program and queues
 	// get pltfrom and device ids
-	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(ocl_descriptor));
+	ASSERT_NO_FATAL_FAILURE(this->createAndMergeWithGPU(ocl_descriptor));
 
 	// create context
 	ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context, 0, 2, ocl_descriptor.devices, NULL, NULL));

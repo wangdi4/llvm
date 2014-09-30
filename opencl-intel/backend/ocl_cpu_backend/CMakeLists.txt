@@ -126,7 +126,6 @@ if (WIN32)
     set( CMAKE_ASM_COMPILER "$(VCInstallDir)bin/x86_amd64/ml64.exe")
     set( CMAKE_ASM_LINK_FLAG "/nologo")
 
-
 endif (WIN32)
 
 
@@ -170,7 +169,6 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     KernelProperties.h
     Program.h
     ProgramBuilder.h
-    ProgramContainerMemoryBuffer.h
     RuntimeService.h
     Serializer.h
     ServiceFactory.h
@@ -218,7 +216,6 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     CPUSerializationService.cpp
     ObjectCodeContainer.cpp
     ProgramBuilder.cpp
-    ProgramContainerMemoryBuffer.cpp
     ServiceFactory.cpp
     TargetDescription.cpp
     cpu_builtin_functions.cpp
@@ -299,6 +296,7 @@ endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 
 # Add include directories
 include_directories(
+    ${LLVM_INCLUDE_DIRS}
     ${BACKEND_ROOT_DIR}
     ${OCL_CPU_BACKEND_DIR}
     ${OCL_CPU_BACKEND_DIR}/export
@@ -314,6 +312,8 @@ include_directories(
     ${BACKEND_ROOT_DIR}/utils
     ${BACKEND_ROOT_DIR}/metadata_api
     ${BACKEND_ROOT_DIR}/../utils/cache_binary_handler
+    ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang
+    ${CMAKE_SOURCE_DIR}/utils/CLElfLib 
     ${CMAKE_BINARY_DIR}/include/
     ${OCL_BINARY_DIR}
 )
@@ -322,8 +322,6 @@ if (INCLUDE_MIC_DEVICE)
     ${BACKEND_ROOT_DIR}/ocl_mic_executor
   )
 endif (INCLUDE_MIC_DEVICE)
-
-link_directories (${LLVM_LIBRARY_DIR})
 
 # Add additional link directories
 if( LLVM_USE_INTEL_JITEVENTS )
@@ -381,6 +379,8 @@ set( BACKEND_PASSES
     ResolveBlockToStaticCall
     PatchCallbackArgs
     SmartGVN
+    SinCosFold
+    PreLegalizeBools
 )
 
 set(UTILS_LIBS
@@ -415,11 +415,6 @@ if(ANDROID)
     # dynamic link with STL library
      target_link_libraries(${TARGET_NAME} gnustl_shared)
 endif(ANDROID)
-if(NOT WIN32)
-    if(NOT ANDROID)
-        target_link_libraries(${TARGET_NAME} pthread rt)
-    endif(NOT ANDROID)
-endif(NOT WIN32)
 
 set( CMAKE_CXX_FLAGS_DEBUG "-DOCL_DEV_BACKEND_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
 

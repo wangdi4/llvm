@@ -139,7 +139,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // wrapper above Enqueue command to allow pre/post-fix commands
         // pEvent is an external user pointer that will point to the user-wisible command which completion means user command completion
         // Note: this may disapper during Enqueue if it was successful!
-        virtual cl_err_code EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger& apiLogger);
+        virtual cl_err_code EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
 
         // Prefix and Postfix Runtime commands
         // Each command may schedule prefix and postfix runtime commands for itself. Such commands are invisible for users
@@ -965,7 +965,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         ECommandExecutionType   GetExecutionType() const{ return m_ExecutionType; }
         
-        virtual cl_err_code EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger& apiLogger);
+        virtual cl_err_code EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
         virtual cl_err_code    PostfixExecute();
 
         // Object only function
@@ -1077,7 +1077,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code             Execute();
         cl_err_code             CommandDone();
 
-        cl_err_code                EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger& apiLogger);
+        cl_err_code                EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
         cl_err_code                PrefixExecute();
 
         cl_command_type         GetCommandType() const  { return CL_COMMAND_UNMAP_MEM_OBJECT; }

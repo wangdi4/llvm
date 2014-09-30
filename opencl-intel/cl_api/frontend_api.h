@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2011 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -23,6 +23,13 @@
 #include <stddef.h>
 #include <CL/cl.h>
 
+namespace Intel { namespace OpenCL { namespace ClangFE {
+    struct IOCLFEBinaryResult;
+    struct IOCLFEKernelArgInfo;
+}}}
+
+using namespace Intel::OpenCL::ClangFE;
+
 namespace Intel { namespace OpenCL { namespace Utils {
 
 class FrameworkUserLogger;
@@ -30,22 +37,7 @@ class FrameworkUserLogger;
 }}}
 
 namespace Intel { namespace OpenCL { namespace FECompilerAPI {
-
 #define CL_FE_INTERNAL_ERROR_OHNO -1    //thanks to doron for the awesome name
-
-class FEKernelArgInfo
-{
-public:
-    virtual unsigned int getNumArgs() const = 0;
-    virtual const char* getArgName(unsigned int index) const = 0;
-    virtual const char* getArgTypeName(unsigned int index) const = 0;
-    virtual cl_kernel_arg_address_qualifier getArgAdressQualifier(unsigned int index) const = 0;
-    virtual cl_kernel_arg_access_qualifier getArgAccessQualifier(unsigned int index) const = 0;
-    virtual cl_kernel_arg_type_qualifier getArgTypeQualifier(unsigned int index) const = 0;
-
-    // release result
-    virtual long Release() = 0;
-};
 
 // Compile task descriptor, contains FE compilation info
 struct	FECompileProgramDescriptor
@@ -53,11 +45,11 @@ struct	FECompileProgramDescriptor
     // A pointer to main program's source (assumed one nullterminated string)
     const char*     pProgramSource;
     // the number of input headers in pInputHeaders
-    unsigned int    uiNumInputHeaders; 
+    unsigned int    uiNumInputHeaders;
     // array of additional input headers to be passed in memory
     const char**    pInputHeaders;
     // array of input headers names corresponding to pInputHeaders
-    const char**    pszInputHeadersNames;  
+    const char**    pszInputHeadersNames;
     // A string for compile options
     const char*     pszOptions;
 };
@@ -66,27 +58,13 @@ struct	FECompileProgramDescriptor
 struct	FELinkProgramsDescriptor
 {
     // array of binary containers
-    const void**    pBinaryContainers;	
+    const void**    pBinaryContainers;
     // the number of input binaries in pBinaryContainers
     unsigned int    uiNumBinaries;
     // the size in bytes of each container in pBinaryContainers
     const size_t*   puiBinariesSizes;
     // A string for link options
     const char*     pszOptions;
-};
-
-// This interface represents the FE compiler build result
-class IOCLFEBinaryResult
-{
-public:
-    virtual size_t      GetIRSize() = 0;
-    virtual const void* GetIR() = 0;
-    virtual const char* GetErrorLog() = 0;
-    // release result
-    virtual long        Release() = 0;
-
-    // Will be true if link is called with "-create-library"
-    virtual bool IsLibrary() { return false; }
 };
 
 // This interface represent FE compiler instance
@@ -114,22 +92,27 @@ public:
     //          CL_OUT_OF_HOST_MEMORY for out of host memory
     //          CL_FE_INTERNAL_ERROR_OHNO for internal errors (should never happen)
     virtual int GetKernelArgInfo(const void*        pBin,
+                                 size_t             uiBinarySize,
                                  const char*        szKernelName,
-                                 FEKernelArgInfo*   *pArgInfo) = 0;
+                                 IOCLFEKernelArgInfo*   *pArgInfo) = 0;
 
     // Synchronous function
     // Input: szOptions - a string representing the compile options
+    //        uiUnrecognizedOptionsSize - size of the szUnrecognizedOptions buffer
     // Output: szUnrecognizedOptions - a new string containing the unrecognized options separated by spaces
     // Returns: 'true' if the compile options are legal and 'false' otherwise
     virtual bool CheckCompileOptions(const char*  szOptions,
-                                     char**       szUnrecognizedOptions) = 0;
+                                     char*        szUnrecognizedOptions,
+                                     size_t       uiUnrecognizedOptionsSize) = 0;
 
     // Synchronous function
     // Input: szOptions - a string representing the link options
+    //        uiUnrecognizedOptionsSize - size of the szUnrecognizedOptions buffer
     // Output: szUnrecognizedOptions - a new string containing the unrecognized options separated by spaces
     // Returns: 'true' if the link options are legal and 'false' otherwise
     virtual bool CheckLinkOptions(const char*  szOptions,
-                                  char**       szUnrecognizedOptions) = 0;
+                                     char*        szUnrecognizedOptions,
+                                     size_t       uiUnrecognizedOptionsSize) = 0;
 
     // release compiler instance
     virtual void Release() = 0;
@@ -138,5 +121,4 @@ public:
 // Create an instance of the FE compiler tagged to specific device
 // Input: pDeviceInfo - device Specific information
 typedef int fnCreateFECompilerInstance(const void* pDeviceInfo, size_t devInfoSize, IOCLFECompiler* *pFECompiler, Intel::OpenCL::Utils::FrameworkUserLogger* pUserLogger);
-
 }}}

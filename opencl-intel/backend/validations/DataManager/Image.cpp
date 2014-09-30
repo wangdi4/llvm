@@ -28,7 +28,7 @@ namespace Validation
     void Image::AllocateMemoryForData()
     {
         // Compute size of memory to allocate
-        std::size_t buffSize = m_desc.GetImageSizeInBytes();
+        std::size_t buffSize = m_desc.GetSizeInBytes();
         // Allocate memory
         m_data = new uint8_t[buffSize];
     }

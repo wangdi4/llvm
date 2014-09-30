@@ -1,5 +1,12 @@
 use_eh(TRUE)
 
+if( NOT DEFINED LLVM_PATH_FE )
+    message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for backend using LLVM_PATH_FE parameter to CMAKE" )
+endif()
+
+set(LLVM_PATH ${LLVM_PATH_FE})
+find_package(LLVM REQUIRED)
+
 set(TARGET_NAME ocl-tblgen)
 set(CLANG_BIN_PATH "${LLVM_BINARY_DIR}/clang")
 set(CLANG_INCLUDE_PATH "${BACKEND_ROOT_DIR}/clang_headers/")
@@ -10,6 +17,7 @@ add_definitions(
 )
 
 include_directories(
+  ${LLVM_INCLUDE_DIRS}
   ${CMAKE_SOURCE_DIR}/backend/validations/OCLBuilder/
   ${CMAKE_SOURCE_DIR}/backend/validations/Common/
   ${CMAKE_SOURCE_DIR}/backend/name_mangling/
@@ -17,9 +25,6 @@ include_directories(
   ${CMAKE_SOURCE_DIR}/backend/dynamic_lib
 )
 
-link_directories(
-    ${LLVM_LIBRARY_DIR}
-)
 
 add_executable(
   ${TARGET_NAME}
@@ -32,7 +37,7 @@ add_executable(
   ClangUtils.cpp
 )
 
-add_dependencies(${TARGET_NAME} 
+add_dependencies(${TARGET_NAME}
   clang
 )
 
@@ -40,12 +45,6 @@ target_link_libraries(${TARGET_NAME}
   name_mangle
   ${LLVM_MODULE_LIBS}
 )
-
-if (NOT WIN32)
-  if(NOT ANDROID)
-    target_link_libraries(${TARGET_NAME} pthread dl)
-  endif(NOT ANDROID)
-endif (NOT WIN32)
 
 install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
 
