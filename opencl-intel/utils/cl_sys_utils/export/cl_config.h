@@ -470,7 +470,7 @@ template<typename T>
 T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal)
 {
     HKEY key = NULL;
-    LONG res = RegOpenKey(HKEY_LOCAL_MACHINE, keyName.c_str(), &key);    
+	LONG res = RegOpenKeyEx(HKEY_LOCAL_MACHINE, keyName.c_str(), 0, KEY_QUERY_VALUE | KEY_WOW64_64KEY, &key);
 
     if (ERROR_SUCCESS != res)
     {
