@@ -96,7 +96,6 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeRenderscriptVectorizerPass(Registry);
     intel::initializeSinCosFoldPass(Registry);
     intel::initializePreLegalizeBoolsPass(Registry);
-    intel::initializeOCLAliasAnalysisPass(Registry);
 }
 
 

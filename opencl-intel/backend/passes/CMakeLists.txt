@@ -28,7 +28,6 @@ add_subdirectory(DetectRecursion)
 add_subdirectory(ResolveBlockToStaticCall)
 add_subdirectory(PatchCallbackArgs)
 add_subdirectory(PreLegalizeBools)
-add_subdirectory(OCLAliasAnalysis)
 
 if(APPLE)
   add_subdirectory(ClangCompatFixer)

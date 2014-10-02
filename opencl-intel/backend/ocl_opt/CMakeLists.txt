@@ -48,7 +48,6 @@ set(OCL_BE_PASSES
     SmartGVN
     SinCosFold
     PreLegalizeBools
-    OCLAliasAnalysis
 )
 
 # Dependencies of the passes

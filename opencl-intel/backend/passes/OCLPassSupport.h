@@ -37,39 +37,4 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
     CALL_ONCE_INITIALIZATION(initialize##passName##PassOnce) \
   }
 
-#define OCL_INITIALIZE_AG_PASS(passName, agName, arg, name, cfg, analysis, def) \
-  static void* initialize##passName##PassOnce(PassRegistry &Registry) { \
-    if (!def) initialize##agName##AnalysisGroup(Registry); \
-    PassInfo *PI = new PassInfo(name, arg, & passName ::ID, \
-      PassInfo::NormalCtor_t(callDefaultCtor< passName >), cfg, analysis); \
-    Registry.registerPass(*PI, true); \
-    \
-    PassInfo *AI = new PassInfo(name, & agName :: ID); \
-    Registry.registerAnalysisGroup(& agName ::ID, & passName ::ID, \
-                                   *AI, def, true); \
-    return AI; \
-  } \
-  void initialize##passName##Pass(PassRegistry &Registry) { \
-    CALL_ONCE_INITIALIZATION(initialize##passName##PassOnce) \
-  }
-
-
-#define OCL_INITIALIZE_AG_PASS_BEGIN(passName, agName, arg, n, cfg, analysis, def) \
-  static void* initialize##passName##PassOnce(PassRegistry &Registry) { \
-    if (!def) initialize##agName##AnalysisGroup(Registry);
-
-#define OCL_INITIALIZE_AG_PASS_END(passName, agName, arg, n, cfg, analysis, def) \
-    PassInfo *PI = new PassInfo(n, arg, & passName ::ID, \
-      PassInfo::NormalCtor_t(callDefaultCtor< passName >), cfg, analysis); \
-    Registry.registerPass(*PI, true); \
-    \
-    PassInfo *AI = new PassInfo(n, & agName :: ID); \
-    Registry.registerAnalysisGroup(& agName ::ID, & passName ::ID, \
-                                   *AI, def, true); \
-    return AI; \
-  } \
-  void initialize##passName##Pass(PassRegistry &Registry) { \
-    CALL_ONCE_INITIALIZATION(initialize##passName##PassOnce) \
-  }
-
 #endif

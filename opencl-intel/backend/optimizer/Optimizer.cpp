@@ -89,7 +89,6 @@ llvm::ModulePass *createDetectRecursionPass();
 llvm::ModulePass *createCloneBlockInvokeFuncToKernelPass();
 llvm::Pass *createResolveBlockToStaticCallPass();
 llvm::FunctionPass *createPreLegalizeBoolsPass();
-llvm::ImmutablePass* createOCLAliasAnalysisPass();
 }
 
 using namespace intel;
@@ -262,7 +261,6 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
     PM.add(createGenericAddressStaticResolutionPass());
   }
   PM.add(llvm::createBasicAliasAnalysisPass());
-  PM.add(createOCLAliasAnalysisPass());
 #ifndef __APPLE__
   if (dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)) {
     PM.add(createPrintIRPass(DUMP_IR_TARGERT_DATA, OPTION_IR_DUMPTYPE_AFTER,
@@ -331,7 +329,6 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
 
 
   PM.add(llvm::createBasicAliasAnalysisPass());
-  PM.add(createOCLAliasAnalysisPass());
 
   // Should be called before vectorizer!
   PM.add((llvm::Pass*)createInstToFuncCallPass(HasGatherScatter));
