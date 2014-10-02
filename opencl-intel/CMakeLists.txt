@@ -655,6 +655,8 @@ else (WIN32)
     install(FILES setup/boost_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
     install(FILES setup/readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
     install(FILES setup/kernel_builder_readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
+	install(FILES setup/docs/Code_builder_MSS_release_notes.pdf DESTINATION ${MISC_INSTALLER_FOLDER})
+	install(FILES setup/docs/Code_builder_MSS_user_manual.pdf DESTINATION ${MISC_INSTALLER_FOLDER})
 
     if(BUILD_X64)
         install(PROGRAMS setup/Android64/OpenCL_Android_Install DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
