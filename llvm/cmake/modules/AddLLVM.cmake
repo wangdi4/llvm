@@ -86,7 +86,7 @@ function(add_llvm_symbol_exports target_name export_file)
     set(native_export_file "${target_name}.def")
 
     set(CAT "type")
-    if(CYGWIN)
+    if(CYGWIN OR 1)    # INTEL Hack to work with u4win on windows.
       set(CAT "cat")
     endif()
 
