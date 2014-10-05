@@ -179,6 +179,8 @@ private:
   std::set<llvm::Function *> m_WIUniqueFuncUsers;
   ///@brief OpenCL C version the module is compiled for
   unsigned m_oclVersion;
+  ///@brief true iff upper bound was set to be inclusive.
+  bool m_rightBoundInc;
 
   // Statistics:
   intel::Statistic::ActiveStatsT m_kernelStats;
@@ -299,6 +301,8 @@ private:
   ///@param v2 - second input value.
   ///@param isCmpSigned - is this is a signed comparison.
   ///@param loc - place to put instructions to correct the bound.
+  ///IMPORTANT - upon a cmp early exit the location should be the cmp
+  ///intruction.
   ///@param bound - will hold the boundary values in case of success.
   ///@params tid - will hold the get***id in case of success.
   ///@returns true iff succeeded to trace back bound.
@@ -382,6 +386,28 @@ private:
   /// @param M pointer to the Module
   void print(raw_ostream &OS, const llvm::Module *M = 0) const;
 
+  /// @brief sign extends the bound in case a trunc instruction was called
+  /// over the result and the comparison is signed
+  /// @param isCmpSigned is the comparison signed
+  /// @param loc the location to insert the new instructions
+  /// @param bound the current bound - will be updated by the function
+  /// @param leftbound is the left bound of the early exit
+  /// @param originalType the original type of the bound (NULL if no trunc
+  /// istruction was performed)
+  /// @param newType the type to which we are doing the sext
+  /// @param inst the instruction used to compute the right bound
+  /// @returns true if right bound is created and false if failed
+  /// to create an early exit
+  bool createRightBound(bool isCmpSigned, Instruction *loc, Value **bound,
+    Value *leftBound, Type * originalType, Type * newType,
+    Instruction::BinaryOps inst);
+
+  /// @brief checks if given the left bound and the comparisonType,
+  /// early exit can be created.
+  /// @param comparisonType data type of the comparison
+  /// @param leftbound is the left bound of the early exit
+  /// @returns true if left bound fits and false otherwise
+  bool doesLeftBoundFit(Type * comparisonType, Value *leftBound);
 };
 } // namespace
 

@@ -23,6 +23,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/DataLayout.h"
 
 #include <set>
 
@@ -532,6 +533,130 @@ bool CLWGLoopBoundaries::collectCond(SmallVector<ICmpInst *, 4>& compares,
   return true;
 }
 
+bool CLWGLoopBoundaries::createRightBound(bool isCmpSigned, Instruction *loc,
+  Value **bound, Value *leftBound, Type * originalType, Type * newType,
+  Instruction::BinaryOps inst){
+
+  CmpInst * cmp = dyn_cast<CmpInst>(loc);
+  if (isCmpSigned && !cmp){
+    return false;
+  }
+
+  if (!isCmpSigned){
+    *bound = BinaryOperator::Create(inst, *bound, leftBound,
+        "right_boundary_align", loc);
+    return true;
+  }
+
+  // In case we perform trunc over the (id+a) expression we want to make sure
+  // that we take the left bound with the correct sign (and not Zext(a)).
+  // When the comparison is signed we can assume that
+  // Sext(id+a) == Sext(id) + Sext(a) - as we are not handling underflow and
+  // overflow and as we check the left bound prior to it.
+  // Thus before adding a into the right bound we perform Sext(Trunc(a))
+  if (originalType) {
+    Value * castedLeftBound = new TruncInst(leftBound, originalType,
+      "casted_left_bound",loc);
+    leftBound = new SExtInst(castedLeftBound, newType, "left_sext_bound",
+      loc);
+  }
+
+  //checking if empty range is created - right bound is negative
+  Value * createEmptyRange = NULL;
+  bool isLT = cmp->getPredicate() == CmpInst::ICMP_SLT;
+  bool isGT = cmp->getPredicate() == CmpInst::ICMP_SGT;
+
+  CmpInst::Predicate condCmpInst = CmpInst::ICMP_SLT;
+  if (isLT || isGT) {
+    condCmpInst = CmpInst::ICMP_SLE;
+  }
+  assert(inst == Instruction::Sub || inst == Instruction::Add);
+  if (inst == Instruction::Sub) {
+    createEmptyRange = new ICmpInst(loc, condCmpInst,
+      *(bound), leftBound, "right_lt_left");
+  }
+  else {
+    Value * negLeft = BinaryOperator::CreateNeg(leftBound, "left_boundary",
+        loc);
+    createEmptyRange = new ICmpInst(loc, condCmpInst,
+      *(bound), negLeft, "right_lt_left");
+  }
+
+  //detect right bound overflow
+  Value * nonNegativeRightBound =  BinaryOperator::CreateNot(createEmptyRange,
+    "non_negative_right_bound", loc);
+  *bound = BinaryOperator::Create(inst, *bound, leftBound,
+    "right_boundary_align", loc);
+
+  //make upper bound inclusive
+  //beause in case of overflow we would like to make it maximum value inclusive
+  if (isLT || isGT) {
+    Instruction::BinaryOps inst = isLT ? Instruction::Sub : Instruction::Add;
+    CmpInst::Predicate cmpInst = isLT ? CmpInst::ICMP_SGT : CmpInst::ICMP_SLT;
+    Value *inclusiveBound = BinaryOperator::Create(inst, *bound, m_constOne,
+      "inclusive_right_boundary", loc);
+    Instruction *compare = new ICmpInst(loc, cmpInst , inclusiveBound, *bound, "");
+    *(bound) = SelectInst::Create(compare, *(bound), inclusiveBound,
+      "inclusive_right_bound", loc);
+    m_rightBoundInc = true;
+  }
+
+  //in case we deduce empty range is created we set the bounds to
+  //[MAX,-1] so that if the bounds should be inversed we would get
+  //the whole range inclusive [-1,MAX]
+  //Otherwise, no left bound is needed, therefore it is set to -2
+  // (could be any number<-1) to mark that it is not relevant.
+  llvm::DataLayout TD(m_M);
+  unsigned int sizeInBits = TD.getTypeAllocSizeInBits((*bound)->getType());
+  APInt maxSigned = APInt::getSignedMaxValue(sizeInBits);
+  Value * max = ConstantInt::get((*bound)->getType(),maxSigned);
+  Value * minusOne = ConstantInt::get((*bound)->getType(), -1);
+  Value * minus = ConstantInt::get((*bound)->getType(), -2);
+  *(bound) = SelectInst::Create(createEmptyRange, minusOne,
+    *(bound), "right_bound", loc);
+  //if left bound is not relevant set it to a negative number
+  *(bound+1) = SelectInst::Create(createEmptyRange, max,
+      minus, "final_left_bound", loc);
+
+  //detect right bound overflow
+  //left and right parts are possitive but the total is negative
+  Value * right_bound_neg =  new ICmpInst(loc, CmpInst::ICMP_SLT,
+    *(bound), m_constZero, "negative_right");
+  Value * right_overflow =  BinaryOperator::Create(Instruction::And,
+    right_bound_neg, nonNegativeRightBound, "right_overflow",loc);
+  *(bound) = SelectInst::Create(right_overflow, max,
+        *(bound), "final_right_bound", loc);
+  return true;
+}
+
+bool CLWGLoopBoundaries::doesLeftBoundFit(Type * comparisonType,
+                                          Value *leftBound) {
+  llvm::DataLayout TD(m_M);
+  // if the left bound is a constant - it is already trunced into the
+  // correct size
+  if (isa<ConstantInt>(leftBound)) {
+    return true;
+  }
+  else{
+    // if left bound is a variable check its' type is less or equal the
+    // comparison type
+    uint64_t typeSize = TD.getTypeAllocSizeInBits(leftBound->getType());
+    if (Instruction * leftBoundInst = dyn_cast<Instruction>(leftBound)) {
+      // in case the left bound is an instruction, maybe it is SExt or ZExt
+      // in this case we want to check the original type of the left bound.
+      unsigned int op = leftBoundInst->getOpcode();
+      if (op==Instruction::SExt || op==Instruction::ZExt) {
+        typeSize = TD.getTypeAllocSizeInBits(leftBoundInst->getOperand(0)->
+          getType());
+      }
+    }
+    if (typeSize > (TD.getTypeAllocSizeInBits(comparisonType))) {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
                                         Instruction *loc, Value **bound,
                                         Value *&tid) {
@@ -543,6 +668,9 @@ bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
   if (isV1Uniform == isV2Uniform) return false;
   *bound = isV1Uniform ? v1 : v2;
   tid   = isV1Uniform ? v2 : v1;
+  Type * originalType = NULL;
+  Type * comparisonType = v1->getType();
+  m_rightBoundInc = false;
 
   // The pattern of boundary condition is: comparison between TID and Uniform.
   // But more general pattern is comparison between f(TID) and Uniform.
@@ -551,6 +679,7 @@ bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
     bool isFirstOperandUniform = isUniform(tidInst->getOperand(0));
     switch (tidInst->getOpcode()) {
       case Instruction::Trunc: {
+        originalType = (*bound)->getType();
         // If candidate is trunc instruction than we can safely extend the
         // bound to have equivalent condition according to sign of comparison.
         tid = tidInst->getOperand(0);
@@ -570,107 +699,117 @@ bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
       case Instruction::Add: {
         // At the moment we are looking for particular pattern:
         //
-        //  (id + a) < b    // unsigned comparison
+        //  (id + a) < b    // both signed and unsigned comparisons
         //
         // We are trying to replace it with boundaries for id.
         //
-        //  -a <= id
+        //  -a <= id  //in the unsigned case only
         //  id < (b - a)
         //
-        // In addition to that we should make sure there were no unsigned integer
-        // overflow during the boundary computations,
+        // In addition to that we should make sure there were no unsigned
+        // integer overflow during the boundary computations,
         // otherwise boundaries would be incorrect.
-        //
-        // Comparison must be unsigned, otherwise it's not the pattern
-        // we are looking for.
-        if (isCmpSigned) return false;
         tid = isFirstOperandUniform ? tidInst->getOperand(1):
                                       tidInst->getOperand(0);
         Value* leftBound = isFirstOperandUniform ? tidInst->getOperand(0):
                                                    tidInst->getOperand(1);
+
+        if (isCmpSigned && !doesLeftBoundFit(comparisonType, leftBound)) {
+          return false;
+        }
+
         assert((*bound)->getType() == leftBound->getType() &&
             "Types must match.");
         // Compute right (upper) boundary for the id:
         //   id < (b - a)
-        // Unsigned overflow is now allowed, i.e. result value must be
-        // non-negative, otherwise it will result in wrong boundary at unsigned
-        // comparison.
-        // If overflow has happend, right boundary is less than left boundary,
-        // so there are no WI to execute. If we are dealing with slack
-        // inequality i.e. id <= (b - a), we need to set bounds so, there are
-        // no local id that will comply with both of them. We use the following
-        // bounds: (b - a + 1) <= id <= (b - a).
-        Value* rigthBound = *bound;
-        Instruction* rightOverflowCheck = new ICmpInst(loc, CmpInst::ICMP_SLT,
-          rigthBound, leftBound, "right_lt_left");
-        *bound =  BinaryOperator::Create(Instruction::Sub, *bound, leftBound,
-                  "right_boundary_align", loc);
-
-        // Compute left (lower) boundary for the id: -a <= id
-        // Add additional check for unsigned overflow i.e. -a < 0
-        *(bound+1) = BinaryOperator::CreateNeg(leftBound, "left_boundary",
-                      cast<Instruction>(*bound));
-        Value* zero = ConstantInt::get((*(bound+1))->getType(), 0);
-        Instruction* cmp = new ICmpInst(loc, CmpInst::ICMP_SLT, *(bound+1),
-                                        zero, "left_lt_zero");
-        *(bound+1) = SelectInst::Create(cmp, zero, *(bound+1),
-                                        "non_negative_left_bound", loc);
-        // If overflow has happend for right boundary computation,
-        // make left (lower) boundary greater than right (upper) boundary
-        // by incrementing right boundary value.
-        Value* one = ConstantInt::get((*bound)->getType(), 1);
-        BinaryOperator *leftPlusOne = BinaryOperator::Create(Instruction::Add,
-          *bound, one, "left_after_overflow", loc);
-        *(bound+1) = SelectInst::Create(rightOverflowCheck, leftPlusOne,
-          *(bound+1), "final_left_bound", loc);
+        Value* rightBound = *bound;
+        if (!createRightBound(isCmpSigned, loc, bound, leftBound, originalType,
+          tid->getType(), Instruction::Sub)) {
+          return false;
+        }
+        if (!isCmpSigned) {
+          //left bound is needed only is unsigned comparisons
+          *(bound+1) = BinaryOperator::CreateNeg(leftBound, "left_boundary",
+                        cast<Instruction>(*bound));
+          Value* zero = ConstantInt::get((*(bound+1))->getType(), 0);
+          Instruction* cmp = new ICmpInst(loc, CmpInst::ICMP_SLT, *(bound+1),
+                                          zero, "left_lt_zero");
+          *(bound+1) = SelectInst::Create(cmp, zero, *(bound+1),
+                                          "non_negative_left_bound", loc);
+          // Unsigned overflow is now allowed, i.e. result value must be
+          // non-negative, otherwise it will result in wrong boundary at
+          // unsigned comparison.
+          // If overflow has happend, right boundary is less than left
+          // boundary, so there are no WI to execute. If we are dealing with
+          // slack inequality i.e. id <= (b - a), we need to set bounds so,
+          // there are no local id that will comply with both of them.
+          // We use the following bounds: (b - a + 1) <= id <= (b - a).
+          Instruction* rightOverflowCheck = new ICmpInst(loc,
+            CmpInst::ICMP_SLT, rightBound, leftBound, "right_lt_left");
+          // Compute left (lower) boundary for the id: -a <= id
+          // Add additional check for unsigned overflow i.e. -a < 0
+          // If overflow has happend for right boundary computation,
+          // make left (lower) boundary greater than right (upper) boundary
+          // by incrementing right boundary value.
+          Value* one = ConstantInt::get((*bound)->getType(), 1);
+          BinaryOperator *leftPlusOne = BinaryOperator::Create(
+            Instruction::Add, *bound, one, "left_after_overflow", loc);
+          *(bound+1) = SelectInst::Create(rightOverflowCheck, leftPlusOne,
+            *(bound+1), "final_left_bound", loc);
+        }
         break;
       }
       case Instruction::Sub: {
         // At the moment we are looking for particular pattern:
         //
-        //  (id - a) < b    // unsigned comparison
+        //  (id - a) < b    // both signed and unsigned comparisons
         //
         // We are trying to replace it with boundaries for id.
         //
-        //  a <= id
+        //  a <= id //in the unsigned case only
         //  id < (b + a)
         //
-        // In addition to that we should make sure there were no unsigned integer
-        // overflow during the boundary computations,
+        // In addition to that we should make sure there were no unsigned
+        // integer overflow during the boundary computations,
         // otherwise boundaries would be incorrect.
-        //
-        // Comparison must be unsigned, otherwise it's not the pattern
-        // we are looking for.
-        if (isCmpSigned) return false;
         tid = isFirstOperandUniform ? tidInst->getOperand(1):
                                       tidInst->getOperand(0);
         Value* leftBound = isFirstOperandUniform ? tidInst->getOperand(0):
                                                    tidInst->getOperand(1);
         assert((*bound)->getType() == leftBound->getType() &&
             "Types must match.");
-        // Compute right (upper) boundary for the id:
-        //   min(ID_MAX, b + a)
-        // Unsigned overflow is now allowed, otherwise it will result in wrong
-        // boundary at unsigned comparison.
-        Value* rightBound = *bound;
-        *bound = BinaryOperator::Create(Instruction::Add, *bound, leftBound,
-                 "right_boundary_align", loc);
-        Instruction* rightOverflowCheck = new ICmpInst(loc, CmpInst::ICMP_SLT,
-          *bound, rightBound, "right_lt_left");
 
-        // Compute left (lower) boundary for the id: max(0, a)
-        // Add additional check for unsigned overflow.
-        *(bound+1) = leftBound;
-        Value* zero = ConstantInt::get((*(bound+1))->getType(), 0);
-        Instruction* cmp = new ICmpInst(loc, CmpInst::ICMP_SLT, *(bound+1),
+        if (isCmpSigned && !doesLeftBoundFit(comparisonType, leftBound)) {
+          return false;
+        }
+
+        Value* rightBound = *bound;
+        if (!createRightBound(isCmpSigned, loc, bound, leftBound, originalType,
+          tid->getType(), Instruction::Add)) {
+          return false;
+        }
+        if (!isCmpSigned) {
+          // left bound is needed only is unsigned comparisons
+          // Compute left (lower) boundary for the id: max(0, a)
+          // Add additional check for unsigned overflow.
+          *(bound+1) = leftBound;
+          Value* zero = ConstantInt::get((*(bound+1))->getType(), 0);
+          Instruction* cmp = new ICmpInst(loc, CmpInst::ICMP_SLT, *(bound+1),
                                         zero, "left_lt_zero");
-        *(bound+1) = SelectInst::Create(cmp, zero, *(bound+1),
+          *(bound+1) = SelectInst::Create(cmp, zero, *(bound+1),
                                         "non_negative_left_bound", loc);
-        // If overflow has happend for right boundary computation,
-        // set upper bound to maximum possible value.
-        Value* max = ConstantInt::getAllOnesValue((*bound)->getType());
-        *bound = SelectInst::Create(rightOverflowCheck, max,
-          *bound, "final_left_bound", loc);
+          Instruction* rightOverflowCheck = new ICmpInst(loc,
+            CmpInst::ICMP_SLT, *bound, rightBound, "right_lt_left");
+          // If overflow has happend for right boundary computation,
+          // set upper bound to maximum possible value.
+          // Compute right (upper) boundary for the id:
+          //   min(ID_MAX, b + a)
+          // Unsigned overflow is now allowed, otherwise it will result in
+          // wrong boundary at unsigned comparison.
+          Value* max = ConstantInt::getAllOnesValue((*bound)->getType());
+          *bound = SelectInst::Create(rightOverflowCheck, max,
+            *bound, "final_right_bound", loc);
+        }
         break;
       }
       case Instruction::Call:
@@ -822,8 +961,9 @@ bool CLWGLoopBoundaries::obtainBoundaryEE(ICmpInst *cmp, Value **bound,
             "unexpected relational cmp predicate");
   //Collect attributes of the compare instruction.
   bool isPredLower = isComparePredicateLower(pred); // is pred <, <=
-  bool isInclusive = isComparePredicateInclusive(pred); // is pred <=, >=`
   bool isSigned = cmp->isSigned();
+  bool isInclusive = isComparePredicateInclusive(pred); // is pred <=, >=`
+  isInclusive = isInclusive || m_rightBoundInc;
 
   // When deciding whether the uniform value is an upper bound, and whether it
   // is inclusive we need to take into consideration the index of uniform value
@@ -834,14 +974,21 @@ bool CLWGLoopBoundaries::obtainBoundaryEE(ICmpInst *cmp, Value **bound,
   // If BB2 is return uni is an upper bound, and exclusive
   // if BB1 is return uni is lower bound and inclusive
   bool isUpper = isPredLower ^ (TIDInd == 1) ^ EETrueSide;
+  //not handling inverse bound of a form [a,b]
+  //as it might result in two intervals
+  if (!isUpper && !isSigned && *(bound+1)) {
+    return false;
+  }
   bool containsVal = isInclusive ^ EETrueSide;
 
   // Update the boundary descriptions vector with the current compare.
   eeVec.push_back(TIDDesc(*bound, dim, isUpper, containsVal, isSigned, isGID));
 
-  if (!isSigned && *(bound+1)) {
-    // Second bound keeps the offset of the left bound which was 0.
-    eeVec.push_back(TIDDesc(*(bound+1), dim, !isUpper, true, false, isGID));
+  if (*(bound+1)) {
+    // Second bound keeps the offset of the left bound which was 0 in the unsigned case.
+    // might also keep a value in the signed case in some special cases.
+    // for instance get_global_id(0)+x<y and y<x result in upper and lower bound.
+    eeVec.push_back(TIDDesc(*(bound+1), dim, !isUpper, true, isSigned, isGID));
   }
   return true;
 }
@@ -944,6 +1091,12 @@ Value *getMin(bool isSigned, Value *a, Value *b, BasicBlock *BB) {
   assert(a->getType()->isIntegerTy() && b->getType()->isIntegerTy());
   CmpInst::Predicate pred = isSigned ? CmpInst::ICMP_SLT : CmpInst::ICMP_ULT;
   Instruction *compare = new ICmpInst(*BB, pred, a, b, "");
+  if (isSigned){
+    Value * zero = ConstantInt::get(a->getType(), 0);
+    Instruction *compareNonNegative = new ICmpInst(*BB, CmpInst::ICMP_SLT, b , zero, "");
+    Instruction *selectA = BinaryOperator::Create(Instruction::Or, compareNonNegative, compare, "", BB);
+    return SelectInst::Create(selectA, a, b, "", BB);
+  }
   return SelectInst::Create(compare, a, b, "", BB);
 }
 
