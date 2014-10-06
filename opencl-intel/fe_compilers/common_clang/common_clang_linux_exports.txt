@@ -1,0 +1,14 @@
+Base { 
+    global: 
+       extern "C"{ 
+         CheckCompileOptions*;
+         CheckLinkOptions*;
+         Compile*;
+         Link*;
+         GetKernelArgInfo*;
+       };
+    local:
+        *; 
+};
+
+

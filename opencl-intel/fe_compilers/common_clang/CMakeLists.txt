@@ -10,6 +10,22 @@ use_rtti(FALSE)
 # set that name of the main output file as a target name
 set( TARGET_NAME common_clang${BUILD_PLATFORM} )
 
+if (NOT WIN32)
+    #
+    # Usage
+    #     SET_LINUX_EXPORTS_FILE( TARGET FILE_NAME )
+    # This function provides special linkage options for OCL Back-End. These options prevents exposure of function symbols
+    # externally (except functions which are explicitly listed in version script
+
+    function ( SET_LINUX_EXPORTS_FILE TARGET FILE_NAME )
+            get_target_property( SOURCE_FILES ${TARGET_NAME} SOURCES )
+            list( GET SOURCE_FILES 0 FIRST_SOURCE )
+            set_source_files_properties( ${FIRST_SOURCE} PROPERTIES OBJECT_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${FILE_NAME} )
+            set_property( TARGET ${TARGET_NAME} APPEND_STRING PROPERTY
+                            LINK_FLAGS "-Wl,-Bsymbolic -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/${FILE_NAME}" )
+    endfunction ( SET_LINUX_EXPORTS_FILE )
+endif()    
+
 #
 # TblGen the options include file
 #
@@ -119,6 +135,10 @@ add_library(${TARGET_NAME} SHARED
     ${TARGET_INCLUDE_FILES}
     ${TARGET_SOURCE_FILES}
 )
+
+if (NOT WIN32)
+    SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} common_clang_linux_exports.txt )
+endif (NOT WIN32)
 
 set_target_properties(${TARGET_NAME} PROPERTIES LINK_INTERFACE_LIBRARIES "" )
 
