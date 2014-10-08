@@ -1206,6 +1206,14 @@ bool CanVectorizeImpl::canVectorize(Function &F, DominatorTree &DT, RuntimeServi
     return false;
   }
 
+  if (hasUnreachableInstructions(F)) {
+    dbgPrint() << "Has unreachable instructions, can not vectorize\n";
+    OCLSTAT_DEFINE(CantVectUnreachableCode,"Unable to vectorize because the code contains unreachable code",kernelStats);
+    CantVectUnreachableCode++;
+    intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
+    return false;
+  }
+
   OCLSTAT_DEFINE(CanVect,"Code is vectorizable",kernelStats);
   CanVect++;
   intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
@@ -1384,6 +1392,14 @@ bool CanVectorizeImpl::hasDirectStreamCalls(Function &F, RuntimeServices* servic
 
   return unsupportedFunctions.count(&F);
 
+}
+
+bool CanVectorizeImpl::hasUnreachableInstructions(Function &F) {
+  for (Function::iterator bbit = F.begin(), bbe = F.end(); bbit != bbe; ++bbit) {
+    if (isa<UnreachableInst>(bbit->getTerminator()))
+      return true;
+  }
+  return false;
 }
 
 extern "C" {

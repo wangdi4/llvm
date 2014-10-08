@@ -432,6 +432,11 @@ TEST(FrameworkTestType, Test_GenStats)
     EXPECT_TRUE(cl_GenStats());
 }
 
+TEST(FrameworkTestType, clDoNotVectorizeUnreachable)
+{
+    EXPECT_TRUE(clDoNotVectorizeUnreachable());
+}
+
 CommandLineOption<std::string> deviceOption("--device_type");
 
 #ifdef INCLUDE_MIC_DEVICE
