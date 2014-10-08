@@ -420,23 +420,3 @@ OclBuiltinImpl transpose_scatter_float4x4_avx2 = OclBuiltinImpl<__ocl_transpose_
     *$Arg3VarName = xyzw23.hi;
   }]>;
 
-  
-  
-// ****************************************************************************
-//                                 float2x8
-// ****************************************************************************  
-OclBuiltinImpl transpose_load_float2x8_avx2 = OclBuiltinImpl<__ocl_load_transpose2x8, [v2f32],  0, [{
-
-    __private float* tmpLoadAdd = (__private float*)$Arg0VarName;
-    float8 Arg0 = vload8(0, tmpLoadAdd);                                              
-    float8 Arg1 = vload8(1, tmpLoadAdd);  
-    
- 
-    uint8 firstArray = {0, 2, 4, 6, 8, 10, 12, 14}; 	
-    uint8 secondArray = {1, 3, 5, 7, 9, 11, 13, 15};
-    *$Arg1VarName = __ocl_helper_shuffle2(Arg0, Arg1, firstArray);
-    *$Arg2VarName = __ocl_helper_shuffle2(Arg0, Arg1, secondArray);
-    
-    
-  }]>;
-
