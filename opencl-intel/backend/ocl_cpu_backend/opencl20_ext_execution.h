@@ -99,6 +99,12 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void
 ocl20_release_event(clk_event_t event, IDeviceCommandManager *);
 
 /// @brief callback for
+///  int is_valid_event(
+///     clk_event_tevent)
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE bool
+ocl20_is_valid_event(clk_event_t, IDeviceCommandManager *);
+
+/// @brief callback for
 ///  clk_event_tcreate_user_event ()
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE clk_event_t
 ocl20_create_user_event(IDeviceCommandManager *);
