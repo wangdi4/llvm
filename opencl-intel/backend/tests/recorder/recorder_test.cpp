@@ -583,6 +583,196 @@ TEST(OclRecorder, recording_local_memory2)
     remove(REC_DAT_FILE_NAME);
 }
 
+//All runs with different local and global size.
+//First and second runs with equal arguments, but third run have one another argument.
+void RunKernel( const cl_device_id& computeDevices, const cl_context& context, const cl_command_queue& queue, const char *kernelSrc, cl_int returnResult, const char* kernel_name)
+{
+    cl_program program = clCreateProgramWithSource(context, 1, &kernelSrc, NULL, &returnResult);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateProgramWithSource";
+
+    returnResult = clBuildProgram(program, 1, &computeDevices, NULL, NULL, NULL);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clBuildProgram";
+
+    cl_kernel kernel = clCreateKernel(program, kernel_name, &returnResult);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateKernel";
+
+
+    cl_image_format format;
+    format.image_channel_order = CL_RGBA;
+    format.image_channel_data_type = CL_UNORM_INT8;
+
+    const size_t channels = 4;
+    const size_t width   = 50;
+    const size_t height  = 50;
+    char buffer_for_image[channels * width * height];
+    memset(buffer_for_image, 0, channels * width * height);
+
+    cl_image_desc image_desc = {0};
+    image_desc.image_type        = CL_MEM_OBJECT_IMAGE2D;
+    image_desc.image_width       = width;
+    image_desc.image_height      = height;
+    image_desc.image_array_size  = 1;
+    image_desc.mem_object        = NULL;
+    image_desc.buffer            = NULL;
+
+    cl_mem img =  clCreateImage( context, (CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR), &format, &image_desc, buffer_for_image, &returnResult);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateImage";
+
+    cl_long value_for_buffer = 5;
+    cl_mem globalMemBuf = clCreateBuffer(context, (CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR), sizeof(cl_long), &value_for_buffer, &returnResult);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateBuffer";
+
+    cl_int arg_a = 1;
+    returnResult = clSetKernelArg(kernel, 0, sizeof(cl_int), &arg_a);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clSetKernelArg";
+
+    returnResult = clSetKernelArg(kernel, 1, sizeof(cl_long), NULL);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clSetKernelArg";
+
+    returnResult = clSetKernelArg(kernel, 2, sizeof(cl_mem), &globalMemBuf);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clSetKernelArg";
+
+    returnResult = clSetKernelArg(kernel, 3, sizeof(cl_mem), &img);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clSetKernelArg";
+
+    size_t globalDim[]={ 1, 0, 0 }, localDim[]={ 1, 0, 0 };
+
+    //First run kernel.
+    returnResult = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, globalDim, localDim, 0, NULL, NULL);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clEnqueueNDRangeKernel";
+
+    globalDim[0]=2;
+    localDim[0]=2;
+
+    //Second run kernel. With another local and global dimensions.
+    returnResult = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, globalDim, localDim, 0, NULL, NULL);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clEnqueueNDRangeKernel";
+
+    globalDim[0]=3;
+    localDim[0]=3;
+
+    arg_a = 2;
+    returnResult = clSetKernelArg(kernel, 0, sizeof(cl_int), &arg_a);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clSetKernelArg";
+
+    //Third run kernel. With another local, global dimensions and argument value.
+    returnResult = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, globalDim, localDim, 0, NULL, NULL);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clEnqueueNDRangeKernel";
+
+    returnResult = clFinish(queue);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clFinish";
+
+    clReleaseMemObject(globalMemBuf);
+    clReleaseKernel(kernel);
+    clReleaseProgram(program);
+}
+
+
+TEST(OclRecorder, equal_arguments)
+{
+    setRecorderEnvVars();
+
+    //Create general objects:
+    cl_int returnResult = CL_SUCCESS;
+    cl_platform_id computePlatform;
+
+    returnResult = clGetPlatformIDs(1, &computePlatform, NULL);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clGetPlatformIDs";
+
+    cl_device_id computeDevices;
+    returnResult = clGetDeviceIDs(computePlatform, CL_DEVICE_TYPE_CPU, 1, &computeDevices, NULL);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clGetDeviceIDs";
+
+    cl_context_properties prop[] = { CL_CONTEXT_PLATFORM, reinterpret_cast<cl_context_properties>(computePlatform), 0 };
+    cl_context context = clCreateContext(prop, 1, &computeDevices, NULL, NULL, &returnResult);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateContext";
+
+    cl_command_queue queue = clCreateCommandQueue(context, computeDevices, 0, &returnResult);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateCommandQueue";
+
+    const char *kernelSrc = "__kernel void sample(const int a, __local long *b, __global long *c, __read_only image2d_t img) { }";
+    const char *kernel_name = "sample";
+    const char *another_kernelSrc = "__kernel void another_sample(const int a, __local long *b, __global long *c, __read_only image2d_t img) { }";
+    const char *another_kernel_name = "another_sample";
+
+    // Create program, build program, create kernel twice:
+    RunKernel(computeDevices, context, queue, kernelSrc, returnResult, kernel_name);
+    RunKernel(computeDevices, context, queue, another_kernelSrc, returnResult, another_kernel_name);
+
+    clReleaseCommandQueue(queue);
+    clReleaseContext(context);
+
+    //List of all file names that can exist:
+    const char* const REC_CL1_FILE_NAME  = "OclRecorderTest.recorder_test.5.50.cl";
+    const char* const REC_CL2_FILE_NAME  = "OclRecorderTest.recorder_test.6.60.cl";
+    const char* const REC_CFG1_FILE_NAME  = "OclRecorderTest.recorder_test.5.cfg";
+    const char* const REC_CFG2_FILE_NAME = "OclRecorderTest.recorder_test.6.cfg";
+    const char* const REC_DAT1_FILE_NAME = "OclRecorderTest.recorder_test.5.sample.dat";
+    const char* const REC_DAT2_FILE_NAME = "OclRecorderTest.recorder_test.5.sample.1.dat";
+    const char* const REC_DAT3_FILE_NAME = "OclRecorderTest.recorder_test.5.sample.2.dat";
+    const char* const REC_DAT4_FILE_NAME = "OclRecorderTest.recorder_test.6.another_sample.dat";
+    const char* const REC_DAT5_FILE_NAME = "OclRecorderTest.recorder_test.6.another_sample.1.dat";
+    const char* const REC_DAT6_FILE_NAME = "OclRecorderTest.recorder_test.6.another_sample.2.dat";
+
+    std::fstream recordCl1File(REC_CL1_FILE_NAME);
+    std::fstream recordCl2File(REC_CL2_FILE_NAME);
+    std::fstream recordCfgFile(REC_CFG1_FILE_NAME);
+    std::fstream recordCfg2File(REC_CFG2_FILE_NAME);
+    std::fstream recordDat1File(REC_DAT1_FILE_NAME);
+    std::fstream recordDat2File(REC_DAT2_FILE_NAME);
+    std::fstream recordDat3File(REC_DAT3_FILE_NAME);
+    std::fstream recordDat4File(REC_DAT4_FILE_NAME);
+    std::fstream recordDat5File(REC_DAT5_FILE_NAME);
+    std::fstream recordDat6File(REC_DAT6_FILE_NAME);
+
+#if defined(OCLFRONTEND_PLUGINS)
+
+    //These files should exist:
+    ASSERT_TRUE(recordCl1File.good());
+    ASSERT_TRUE(recordCl2File.good());
+    ASSERT_TRUE(recordCfgFile.good());
+    ASSERT_TRUE(recordCfg2File.good());
+    ASSERT_TRUE(recordDat1File.good());
+    ASSERT_TRUE(recordDat3File.good());
+
+    //These files should NOT exist:
+    ASSERT_FALSE(recordDat2File.good());
+    ASSERT_FALSE(recordDat4File.good());
+    ASSERT_FALSE(recordDat5File.good());
+    ASSERT_FALSE(recordDat6File.good());
+
+    //Delete files that exist
+    remove(REC_CL1_FILE_NAME);
+    remove(REC_CL2_FILE_NAME);
+    remove(REC_CFG1_FILE_NAME);
+    remove(REC_CFG2_FILE_NAME);
+    remove(REC_DAT1_FILE_NAME);
+    remove(REC_DAT3_FILE_NAME);
+#else
+    ASSERT_FALSE(recordCl1File.good());
+    ASSERT_FALSE(recordCl2File.good());
+    ASSERT_FALSE(recordCfgFile.good());
+    ASSERT_FALSE(recordCfg2File.good());
+    ASSERT_FALSE(recordDat1File.good());
+    ASSERT_FALSE(recordDat2File.good());
+    ASSERT_FALSE(recordDat3File.good());
+    ASSERT_FALSE(recordDat4File.good());
+    ASSERT_FALSE(recordDat5File.good());
+    ASSERT_FALSE(recordDat6File.good());
+#endif// defined(OCLFRONTEND_PLUGINS)
+
+    recordCl1File.close();
+    recordCl2File.close();
+    recordCfgFile.close();
+    recordCfg2File.close();
+    recordDat1File.close();
+    recordDat2File.close();
+    recordDat3File.close();
+    recordDat4File.close();
+    recordDat5File.close();
+    recordDat6File.close();
+}
+
 int main(int argc, char** argv){
    ::testing::InitGoogleTest(&argc, argv);
    return RUN_ALL_TESTS();

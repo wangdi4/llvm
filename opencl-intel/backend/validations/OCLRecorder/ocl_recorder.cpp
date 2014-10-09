@@ -537,8 +537,9 @@ namespace Validation
 
         if( created )
         {
-            RecordKernelConfig( *pProgramContext, *pKernelContext, *pBinaryContext);
-            RecordKernelInputs( *pProgramContext, *pKernelContext, *pBinaryContext, pKernel, bufSize, pArgsBuffer);
+            std::string pathToDataInputFile;
+            RecordKernelInputs( *pProgramContext, *pKernelContext, *pBinaryContext, pKernel, bufSize, pArgsBuffer, pathToDataInputFile);
+            RecordKernelConfig( *pProgramContext, *pKernelContext, *pBinaryContext, pathToDataInputFile);
         }
     }
 
@@ -676,7 +677,8 @@ namespace Validation
 
     void OCLRecorder::RecordKernelConfig(RecorderContext& programContext,
                                          const KernelContext& kernelContext,
-                                         const BinaryContext& binaryContext)
+                                         const BinaryContext& binaryContext,
+                                         const std::string& pathToInputFile)
     {
         TiXmlElement *pNodeKernelConfig = new TiXmlElement("KernelConfiguration");
         pNodeKernelConfig->SetAttribute( "Name", kernelContext.getName().c_str());
@@ -716,7 +718,7 @@ namespace Validation
         }
         // Write Input data filename
         {
-            AddChildTextNode( pNodeKernelConfig, "InputDataFile", programContext.getInputFileName(binaryContext.getBaseName()));
+            AddChildTextNode( pNodeKernelConfig, "InputDataFile", pathToInputFile);
         }
         // Write Input data type
         {
@@ -749,7 +751,8 @@ namespace Validation
                                           const BinaryContext& binaryContext,
                                           const ICLDevBackendKernel_* pKernel,
                                           size_t bufSize,
-                                          void* pArgsBuffer)
+                                          void* pArgsBuffer,
+                                          std::string& pathToInputFile)
     {
         assert(NULL != pKernel);
         // get kernel arguments
@@ -762,8 +765,12 @@ namespace Validation
 
         // iterate over all the kernel parameters and populate the buffer container
         llvm::Function::const_arg_iterator arg_it = kernelContext.getFuncPtr()->arg_begin();
+
+        std::vector<MD5Code> hashes;
         for(unsigned int i=0; i<argsCount; ++i)
         {
+            char* pData = NULL;
+            size_t size = 0;
             if (( CL_KRNL_ARG_PTR_IMG_2D == pKernelArgs[i].type ) ||
                 ( CL_KRNL_ARG_PTR_IMG_1D == pKernelArgs[i].type ) ||
                 ( CL_KRNL_ARG_PTR_IMG_1D_ARR == pKernelArgs[i].type ) ||
@@ -777,8 +784,8 @@ namespace Validation
                 IMemoryObject* pImage = pBufferContainer->CreateImage(desc);
 
                 // fill it with data
-                char* pData = (char*)pImage->GetDataPtr();
-                size_t size  = desc.GetSizeInBytes();
+                pData = (char*)pImage->GetDataPtr();
+                size  = desc.GetSizeInBytes();
                 memcpy( pData, mem_descriptor->pData, size);
             }
             else if ( CL_KRNL_ARG_PTR_GLOBAL <= pKernelArgs[i].type )
@@ -789,8 +796,8 @@ namespace Validation
                 IMemoryObject* pBuffer = pBufferContainer->CreateBuffer(desc);
 
                 // fill it with data
-                char* pData = (char*)pBuffer->GetDataPtr();
-                size_t size  = Utils::GetBufferSizeInBytes(mem_descriptor);
+                pData = (char*)pBuffer->GetDataPtr();
+                size  = Utils::GetBufferSizeInBytes(mem_descriptor);
                 memset( pData, 0, desc.GetSizeInBytes());
                 memcpy( pData, mem_descriptor->pData, size);
             }
@@ -801,37 +808,73 @@ namespace Validation
                 IMemoryObject* pBuffer = pBufferContainer->CreateBuffer(desc);
 
                 // fill it with data
-                char* pData = (char*)pBuffer->GetDataPtr();
-                size_t size  = desc.GetSizeInBytes();
+                pData = (char*)pBuffer->GetDataPtr();
+                size  = desc.GetSizeInBytes();
                 memset( pData, 0, size);
             }
             else if (CL_KRNL_ARG_VECTOR == pKernelArgs[i].type || CL_KRNL_ARG_VECTOR_BY_REF == pKernelArgs[i].type)
             {
                 size_t elemSize = pKernelArgs[i].size_in_bytes >> 16;
                 size_t numElements = (pKernelArgs[i].size_in_bytes) & 0xFFFF;
-                size_t uiSize = elemSize * numElements;
+                size = elemSize * numElements;
 
                 BufferDesc desc = Utils::GetBufferDesc(elemSize, numElements, *arg_it, programContext.m_DL);
                 IMemoryObject* pBuffer = pBufferContainer->CreateBuffer(desc);
-                memcpy( pBuffer->GetDataPtr(), (void *)((char*)pArgsBuffer + pKernelArgs[i].offset_in_bytes), uiSize);
+                pData = (char*)pBuffer->GetDataPtr();
+                memcpy( pData, (void *)((char*)pArgsBuffer + pKernelArgs[i].offset_in_bytes), size);
             }
             else if (CL_KRNL_ARG_SAMPLER == pKernelArgs[i].type)
             {
                 BufferDesc desc = Utils::GetBufferDesc(sizeof(unsigned int), *arg_it, programContext.m_DL);
                 IMemoryObject* pBuffer = pBufferContainer->CreateBuffer(desc);
-                memcpy( pBuffer->GetDataPtr(), (void *)((char*)pArgsBuffer + pKernelArgs[i].offset_in_bytes), sizeof(unsigned int));
+                pData = (char*)pBuffer->GetDataPtr();
+                size = sizeof(unsigned int);
+                memcpy( pData, (void *)((char*)pArgsBuffer + pKernelArgs[i].offset_in_bytes), size);
             }
             else
             {
                 BufferDesc desc = Utils::GetBufferDesc((size_t)pKernelArgs[i].size_in_bytes, *arg_it, programContext.m_DL);
                 IMemoryObject* pBuffer = pBufferContainer->CreateBuffer(desc);
-                memcpy( pBuffer->GetDataPtr(), (void *)((char*)pArgsBuffer + pKernelArgs[i].offset_in_bytes), pKernelArgs[i].size_in_bytes);
+                pData = (char*)pBuffer->GetDataPtr();
+                size = pKernelArgs[i].size_in_bytes;
+                memcpy( pData, (void *)((char*)pArgsBuffer + pKernelArgs[i].offset_in_bytes), size);
             }
             ++arg_it;
+
+            assert (pData != NULL && "Data must be present at this point!");
+            //If argument don't allocate in local address space then calculate md5 hash sum:
+            if( pKernelArgs[i].type != CL_KRNL_ARG_PTR_LOCAL)
+            {
+                unsigned char* pObject = reinterpret_cast<unsigned char*>(pData);
+                MD5 md5Hash(pObject, size);
+                hashes.push_back(md5Hash.digest());
+            }
+        }
+
+        //Calculate only one md5 hash sum for all hash sums:
+        MD5 md5Hash(reinterpret_cast<unsigned char*>(&hashes.front()), hashes.size() * sizeof(MD5Code));
+        MD5Code hash = md5Hash.digest();
+
+        const std::string* path = GetPathToInputData(hash);
+        if( path != 0)
+        {
+            pathToInputFile = *path;
+            return;
+        }
+        else
+        {
+            pathToInputFile = programContext.getInputFileName( binaryContext.getBaseName());
+            m_hashToPath[hash] = pathToInputFile;
         }
 
         BinaryContainerListWriter bufferWriter(programContext.getInputFilePath( binaryContext.getBaseName()));
         bufferWriter.Write(&bufferList);
+    }
+
+    const std::string* OCLRecorder::GetPathToInputData(const MD5Code& hash)const{
+      std::map<MD5Code, std::string, HashComparator>::const_iterator e;
+      e = m_hashToPath.find(hash);
+      return ( e != m_hashToPath.end()) ? &e->second : 0;
     }
 
     void OCLRecorder::AddRecordedFile(const std::string& f){
