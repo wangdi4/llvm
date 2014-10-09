@@ -50,7 +50,8 @@ namespace intel{
       if ( (CompilationUtils::getCLVersionFromModuleOrDefault(M) >=
                               OclVersion::CL_VER_2_0) &&
          BlockUtils::isBlockInvokeFunction(*func)) continue; // skip block_invoke functions
-      if (isNeededByKernel(func)) continue; // skip needed functions
+      std::set<Value *> visited; // list to avoid infinite loops
+      if (isNeededByKernel(func, visited)) continue; // skip needed functions
       func->deleteBody();
       // erase function stats from the metadata
       intel::Statistic::removeFunctionStats(*func);
@@ -104,14 +105,13 @@ namespace intel{
   // This is a recursive function which checks whether a function is used
   // by a kernel. It marks all such functions along the way, to save on
   // extra checks in follow up queries
-  bool ModuleCleanup::isNeededByKernel(Function* func) {
+  bool ModuleCleanup::isNeededByKernel(Function* func, std::set<Value*> &visited) {
     if (m_neededFuncsSet.count(func)) return true;
 
     // Getting here, this function is not a kernel. list its users..
     std::set<Function*> funcUsers;
     std::set<Function*>::iterator it, ie;
     SmallVector<Value*, 8> workList(func->use_begin(), func->use_end());
-    std::set<Value *> visited; // list to avoid infinite loops
 
     while (workList.size()) {
       Value *user = workList.back();
@@ -130,7 +130,7 @@ namespace intel{
 
     // Scan all the users (functions), recursively
     for (it = funcUsers.begin(), ie = funcUsers.end(); it != ie; ++it) {
-      bool isNeeded = isNeededByKernel(*it);
+      bool isNeeded = isNeededByKernel(*it, visited);
       if (isNeeded) {
         // Function "func" is needed! Add it to the list
         m_neededFuncsSet.insert(func);
