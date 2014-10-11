@@ -745,6 +745,7 @@ DebugServer::~DebugServer()
 
 bool DebugServer::Init(unsigned int port_number)
 {
+    llvm::MutexGuard lock(m_Lock);
     if (d->m_initialized)
         return true;
     
@@ -796,6 +797,7 @@ void DebugServer::WaitForStartCommand()
 {
     // Receive a START_SESSION message and reply to it
     //
+    llvm::MutexGuard lock(m_Lock);
     ClientToServerMessage msg = d->m_comm->receiveMessage();
     LOG_RECEIVED_MESSAGE(msg);
 
@@ -870,6 +872,7 @@ void DebugServer::Stoppoint(const MDNode* line_metadata)
     string absPath = file;
 #endif
 
+    llvm::MutexGuard lock(m_Lock);
     d->m_prev_stoppoint_line = line_metadata;
     bool stopped = false;
 
@@ -966,6 +969,7 @@ void DebugServer::Stoppoint(const MDNode* line_metadata)
 
 bool DebugServer::DebuggedGlobalIdMatch(unsigned x, unsigned y, unsigned z)
 {
+    llvm::MutexGuard lock(m_Lock);
     return d->DebuggedGlobalIdMatch(x, y, z);
 }
 
@@ -1008,6 +1012,7 @@ void DebugServer::DeclareGlobal(void* addr, const llvm::MDNode* description)
 
 void DebugServer::TerminateConnection()
 {
+    llvm::MutexGuard lock(m_Lock);
     d->TerminateCommunicator();
 }
 
