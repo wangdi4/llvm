@@ -3,9 +3,9 @@
 #  OCL_SOURCE_DIR    - points to the top src directory
 #  OCL_BINARY_DIR    - points to the directory outside of OCL_SOURCE_DIR - root of generated files
 #
+project( common_clang )
 use_eh(TRUE)
 use_rtti(FALSE)
-
 
 # set that name of the main output file as a target name
 set( TARGET_NAME common_clang${BUILD_PLATFORM} )
@@ -111,22 +111,6 @@ include_directories( AFTER
             ${CMAKE_SOURCE_DIR}/cl_api
             )
 
-if (WIN32)
-    include_directories( AFTER 
-        ../common/windows/headers
-    )
-else()
-    include_directories( AFTER
-        ../common/linux/headers
-    )
-endif()
-            
-if (WIN32)
-    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-        add_definitions( -DRESOURCE_X64 )
-    endif (CMAKE_SIZEOF_VOID_P EQUAL 8) 
-endif ()
-
 link_directories( 
     ${LLVM_LIBRARY_DIRS}
 )
@@ -140,19 +124,16 @@ if (NOT WIN32)
     SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} common_clang_linux_exports.txt )
 endif (NOT WIN32)
 
-set_target_properties(${TARGET_NAME} PROPERTIES LINK_INTERFACE_LIBRARIES "" )
-
 install(TARGETS ${TARGET_NAME} 
     RUNTIME DESTINATION bin
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION bin)
 
-
-
 # The list of clang libraries is taken from clang makefile
 # (build/tools/clang/tools/driver/CMakeFiles/clang.dir/build.make)
 # All duplicate libraries are there on purpose 
 target_link_libraries( ${TARGET_NAME} 
+                       LINK_PRIVATE
                        clangFrontendTool
                        clangAST
                        clangAnalysis

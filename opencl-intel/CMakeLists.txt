@@ -357,10 +357,10 @@ math(EXPR BUILDVER_16_BIT_MINOR "${BUILDVER_WC_REVISION} % 65536")
 # write a file with the BUILDVERSION define
 file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt
 "#define BUILDVERSION ${BUILDVER_WC_REVISION}\n
-#ifndef\ _DEBUG
-    #define BUILDVERSIONSTR "\"(Build\ ${BUILDVER_WC_REVISION})"\"
-#else
-    #define BUILDVERSIONSTR "\"(Build[DEBUG]\ ${BUILDVER_WC_REVISION})"\"
+#ifndef\ _DEBUG\n
+    #define BUILDVERSIONSTR \"(Build\ ${BUILDVER_WC_REVISION})\"\n
+#else\n
+    #define BUILDVERSIONSTR \"(Build[DEBUG]\ ${BUILDVER_WC_REVISION})\"\n
 #endif\n
 #define PRODUCTVERSION_MAJOR ${PRODUCTVER_MAJOR}\n
 #define PRODUCTVERSION_MINOR ${PRODUCTVER_MINOR}\n
