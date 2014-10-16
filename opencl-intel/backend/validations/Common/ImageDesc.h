@@ -108,7 +108,9 @@ namespace Validation
         /// Get channel data type. In case of NEAT returns underlying data type.
         ImageChannelDataTypeVal GetImageChannelDataType() const {return m_dataType.GetValue();}
 
-        ImageTypeVal GetImageType() const {return m_imageType;}
+        ImageTypeVal GetImageType() const {return m_imageType.GetValue();}
+
+        ImageTypeValWrapper GetImageTypeDesc() const {return m_imageType;}
 
         uint32_t GetDimensionCount() const {
             if (m_imageType == OpenCL_MEM_OBJECT_IMAGE1D || m_imageType == OpenCL_MEM_OBJECT_IMAGE1D_BUFFER)
@@ -127,7 +129,7 @@ namespace Validation
             size_t res = 0;
             if(m_isNEAT)
             {
-                switch(m_imageType) {
+                switch(m_imageType.GetValue()) {
                     case OpenCL_MEM_OBJECT_IMAGE1D :
                     case OpenCL_MEM_OBJECT_IMAGE1D_BUFFER :
                         res = GetElementSize() * m_size.width;
@@ -150,7 +152,7 @@ namespace Validation
             }
             else
             {
-                switch(m_imageType) {
+                switch(m_imageType.GetValue()) {
                     case OpenCL_MEM_OBJECT_IMAGE1D :
                     case OpenCL_MEM_OBJECT_IMAGE1D_BUFFER :
                         res = m_size.row;
@@ -338,14 +340,14 @@ namespace Validation
             const uint64_t pitchNEAT = nchannels * sizeof(NEATValue) * in.width;
             const uint64_t sliceNEAT = pitchNEAT * in.height;
 
-            res.Init(m_imageType, in.width, in.height, in.depth, pitchNEAT, sliceNEAT, in.array_size);
+            res.Init(m_imageType.GetValue(), in.width, in.height, in.depth, pitchNEAT, sliceNEAT, in.array_size);
 
             return res;
         }
     private:
         ImageChannelOrderValWrapper m_order; ///< channels
         ImageChannelDataTypeValWrapper m_dataType; ///< data type
-        ImageTypeVal m_imageType;
+        ImageTypeValWrapper m_imageType;
         ImageSizeDesc m_size;                   ///< size of image including pitch
         uint64_t m_num_mip_levels;              ///< reserved for future use
         uint64_t m_num_samples;                 ///< reserved for future use

@@ -48,6 +48,11 @@ StopBeforeJIT("stop-before-jit",
         llvm::cl::desc("Stops compilation after all optimization passes, but before binary generation."),
         llvm::cl::init(false));
 
+llvm::cl::opt<bool>
+Verbose("verbose",
+        llvm::cl::desc("Print argument's metadata."),
+        llvm::cl::init(false));
+
 llvm::cl::opt<std::string>
 BaseDirectory("basedir",
            llvm::cl::desc("Base directory to use for configuration and data files lookup. "

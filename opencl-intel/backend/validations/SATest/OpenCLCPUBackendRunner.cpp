@@ -61,6 +61,8 @@ using namespace Intel::OpenCL::DeviceBackend;
 namespace Validation
 {
 
+static int numberOfSpace = 4;
+
 namespace Utils
 {
     std::string GetDataFilePath(const std::string& fileName, const std::string& baseDirectory);
@@ -277,6 +279,115 @@ OpenCLCPUBackendRunner::~OpenCLCPUBackendRunner()
 {
 }
 
+void PrintImage (const ImageDesc* pImageDesc, int i)
+{
+    std::string indent (numberOfSpace, ' ');
+    ImageTypeValWrapper type_val = pImageDesc->GetImageTypeDesc();
+    ImageSizeDesc sizeDesc = pImageDesc->GetSizesDesc();
+    std::size_t dimention  = type_val.GetDimentionCount();
+    std::cout << "Argument " << i << " (Image)" << std::endl;
+    std::cout << indent << "Image type      : " << type_val.ToString()            << std::endl;
+    std::cout << indent << "Image size(B)   : " << pImageDesc->GetSizeInBytes()   << std::endl;
+    std::cout << indent << "Element size(B) : " << pImageDesc->GetElementSize()   << std::endl;
+    std::cout << indent << "Channel type    : " << pImageDesc->DataTypeToString() << std::endl;
+    std::cout << indent << "Channel order   : " << pImageDesc->OrderToString()    << std::endl;
+    std::cout << indent << "Width           : " << sizeDesc.width                 << std::endl;
+    if (1 < dimention)
+    {
+        std::cout << indent << "Height          : " << sizeDesc.height                << std::endl;
+    }
+    if (2 < dimention)
+    {
+        std::cout << indent << "Depth           : " << sizeDesc.depth                 << std::endl;
+    }
+    std::cout << indent << "Row             : " << sizeDesc.row                   << std::endl;
+    std::cout << indent << "Slice           : " << sizeDesc.slice                 << std::endl;
+}
+
+void PrintVector (TypeDesc& desc, std::size_t depth)
+{
+    std::string indent (depth * numberOfSpace, ' ');
+    TypeDesc sub_desc = desc.GetSubTypeDesc(0);
+    std::cout << indent << "    VectorType      : " << sub_desc.TypeToString() << " x " << desc.GetSizeInBytes() / sub_desc.GetSizeInBytes() << std::endl;
+}
+
+void PrintStruct (TypeDesc& desc, std::size_t depth)
+{
+    depth++;
+    std::string indent (depth * numberOfSpace, ' ');
+    std::size_t num_of_sub_types = desc.GetNumOfSubTypes();
+    std::cout << indent << "Number of subtypes : " << num_of_sub_types << std::endl;
+    std::cout << indent << "{" << std::endl;
+    for (std::size_t i = 0; i < num_of_sub_types; ++i)
+    {
+        TypeDesc sub_desc = desc.GetSubTypeDesc(i);
+        std::cout << indent << "    Type            : " << sub_desc.TypeToString()      << std::endl;
+        std::cout << indent << "    Element size(B) : " << sub_desc.GetSizeInBytes()    << std::endl;
+        std::cout << indent << "    Offset          : " << sub_desc.GetOffsetInStruct() << std::endl;
+        if(sub_desc.IsStruct())
+        {
+            PrintStruct(sub_desc, depth);
+        }
+        else if( sub_desc.IsVector())
+        {
+            PrintVector(sub_desc, depth);
+        }
+        std::cout << std::endl;
+    }
+    std::cout << indent << "}" << std::endl;
+}
+
+void PrintBuffer (const BufferDesc* pBufferDesc, std::size_t i)
+{
+    std::string indent (numberOfSpace, ' ');
+    TypeDesc type_desc = pBufferDesc->GetElementDescription();
+    std::cout << "Argument " << i << " (Buffer)" << std::endl;
+    std::cout << indent << "Length          : " << pBufferDesc->NumOfElements()    << std::endl;
+    std::cout << indent << "Type            : " << type_desc.TypeToString()   << std::endl;
+    std::cout << indent << "Element size(B) : " << type_desc.GetSizeInBytes() << std::endl;
+    if(type_desc.IsStruct())
+    {
+        PrintStruct(type_desc, 0);
+    }
+    else if( type_desc.IsVector())
+    {
+        PrintVector(type_desc, 0);
+    }
+}
+
+void PrintMeta (BufferContainerList& input)
+{
+    std::size_t containerCount = input.GetBufferContainerCount();
+    for (std::size_t j = 0; j < containerCount; ++j)
+    {
+        IBufferContainer* container = input.GetBufferContainer(j);
+        std::size_t objectCount = container->GetMemoryObjectCount();
+        std::cout << "Number of arguments: " << objectCount << std::endl << std::endl;
+
+        for(std::size_t i = 0; i < objectCount; ++i)
+        {
+            IMemoryObject* object = container->GetMemoryObject(i);
+            const IMemoryObjectDesc* desc = object->GetMemoryObjectDesc();
+            if (BufferDesc::GetBufferDescName() == desc->GetName()) //Buffer
+            {
+                const BufferDesc* buffer = reinterpret_cast<const BufferDesc*>(desc);
+                PrintBuffer(buffer, i);
+            }
+            else if (ImageDesc::GetImageDescName() == desc->GetName())//Image
+            {
+                const ImageDesc* pImageDesc  = reinterpret_cast<const ImageDesc*>(desc);
+                PrintImage(pImageDesc, i);
+            }
+            else //Anything else
+            {
+                assert("Argument type don't known.\n");
+            }
+            std::cout << std::endl;
+        }
+    }
+
+}
+
 void OpenCLCPUBackendRunner::Run(IRunResult* runResult,
                               const IProgram* program,
                               const IProgramConfiguration* programConfig,
@@ -381,6 +492,11 @@ void OpenCLCPUBackendRunner::Run(IRunResult* runResult,
     {
         BufferContainerList input;
         LoadInputBuffer(*it, &input);
+
+        if (pOCLRunConfig->GetValue<bool>(RC_BR_VERBOSE, false))
+        {
+            PrintMeta(input);
+        }
 
         PriorityBooster booster(!pOCLRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false));
         for( uint32_t i = 0; i < pOCLRunConfig->GetValue<uint32_t>(RC_BR_EXECUTE_ITERATIONS_COUNT, 1); ++i)

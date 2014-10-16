@@ -43,6 +43,7 @@ namespace Validation
         RC_BR_EXECUTE_ITERATIONS_COUNT,
         RC_BR_MEASURE_PERFORMANCE,
         RC_BR_TRANSPOSE_SIZE,
+        RC_BR_VERBOSE,
         RC_BR_USE_SDE,
         RC_BR_USE_PIN_TRACE_MARKS,
         RC_BR_USE_VTUNE,
@@ -88,6 +89,7 @@ namespace Validation
         bool m_runSingleWG;
         bool m_buildOnly;
         bool m_stopBeforeJIT;
+        bool m_verbose;
         uint32_t m_defaultLocalWGSize;
         uint64_t m_RandomDataGeneratorSeed;
         uint32_t  m_buildIterationsCount;
