@@ -157,6 +157,20 @@ struct FunctionStackFrame
         VarDeclInfo(void* addr_, const MDNode* description_, bool is_global_ = false)
             : addr(addr_), description(description_), is_global(is_global_)
         {
+            DIVariable di_var(description);
+            if (!is_global && di_var.hasComplexAddress()) {
+              unsigned N = di_var.getNumAddrElements();
+              for (unsigned i = 0; i < N; ++i) {
+                uint64_t Element = di_var.getAddrElement(i);
+                if (Element == 1) { // +
+                  uint64_t a = reinterpret_cast<uint64_t>(addr);
+                  a += di_var.getAddrElement(++i);
+                  addr = reinterpret_cast<void*>(a);
+                } else if (Element == 2) { // deref
+                  addr = *(reinterpret_cast<void**>(addr));
+                } else llvm_unreachable("unknown complex address opcode");
+              }
+            }
         }
 
         void* addr;
