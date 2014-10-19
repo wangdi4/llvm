@@ -160,7 +160,7 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
     assert(pCachedObject && "Object Code Container is null");
 
     // get sizes
-    CacheBinaryReader reader = CacheBinaryReader(pCachedObject,cacheSize);
+    CacheBinaryReader reader(pCachedObject,cacheSize);
     size_t serializationSize = reader.GetSectionSize(g_metaSectionName);
     size_t optModuleSize = reader.GetSectionSize(g_optSectionName);
     size_t objectSize = reader.GetSectionSize(g_objSectionName);
