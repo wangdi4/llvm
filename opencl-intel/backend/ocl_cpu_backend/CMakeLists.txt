@@ -381,6 +381,7 @@ set( BACKEND_PASSES
     SmartGVN
     SinCosFold
     PreLegalizeBools
+    OCLAliasAnalysis
 )
 
 set(UTILS_LIBS
