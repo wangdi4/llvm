@@ -336,6 +336,26 @@ void clCopyMemoryRegion(SMemCpyParams* pCopyCmd);
  ************************************************************************/
 size_t clGetPixelBytesCount(const cl_image_format* pclImageFormat);
 
+/************************************************************************
+ * Function:        clGetPixelElementsCount
+ * Parameters:
+ *  pclImageFormat  a cl_image_format
+ * Return value:    the element number in a pixel of the specified order
+ * Author:          Arik Zur
+ * Date:            October 2014
+ ************************************************************************/
+size_t clGetPixelElementsCount(const cl_image_format* pclImageFormat);
+
+/************************************************************************
+ * Function:        clGetChannelTypeBytesCount
+ * Parameters:
+ *  pclImageChannelType  a cl_channel_type
+ * Return value:    the size in bytes of each element in an image of the specified channel type
+ * Author:          Arik Zur
+ * Date:            October 2014
+ ************************************************************************/
+size_t clGetChannelTypeBytesCount(cl_channel_type pclImageChannelType);
+
 /////////////////////////////////////////////////////////////////////////
 // GetTempDir
 // Parameters: None
