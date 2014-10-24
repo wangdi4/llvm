@@ -736,7 +736,11 @@ code Load_half16 = [{
     return res;
   }];
 code Loada_half3 = [{
-    float4 temp = __ocl_Half4ToFloat4(as_short8(_mm_lddqu_si128((__m128i *)($Arg1VarName + 4*$Arg0VarName))));
+    short8 tmp;
+    // vloada_half3 by spec. must load 6 bytes
+    short * base = (short*)$Arg1VarName + 4*$Arg0VarName;
+    tmp.s012 = (short3)(*(short2*)base, base[2]);
+    float4 temp = __ocl_Half4ToFloat4(tmp);
     return temp.s012;
   }];
 //==============store==================
