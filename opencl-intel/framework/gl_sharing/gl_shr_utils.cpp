@@ -201,23 +201,5 @@ GLenum Intel::OpenCL::Framework::GetGLFormat(cl_channel_type clType, bool isExt)
 		return GL_RGBA;
 	}
 
-	/*
-	switch (clType)
-	{
-	case CL_UNORM_INT8:
-	case CL_UNORM_INT16:
-		return GL_RGBA;
-	case CL_SIGNED_INT8:
-	case CL_SIGNED_INT16:
-	case CL_SIGNED_INT32:
-	case CL_UNSIGNED_INT8:
-	case CL_UNSIGNED_INT16:
-	case CL_UNSIGNED_INT32:
-	case CL_HALF_FLOAT:
-		return GL_RGBA_INTEGER_EXT;
-	case CL_FLOAT:
-		return GL_RGBA;
-	}
-	*/
 	return 0;
 }

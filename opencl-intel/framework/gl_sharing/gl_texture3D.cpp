@@ -87,46 +87,42 @@ cl_err_code GLTexture3D::GetDimensionSizes(size_t* pszRegion) const
 
 cl_err_code GLTexture3D::AcquireGLObject()
 {
-	// Since there is no efficien mechanism to access 3D texture we need to allacte real memory object
-	// Now we need to create child object
-	SharedPtr<MemoryObject> pChild;
+    // Since there is no efficien mechanism to access 3D texture we need to allacte real memory object
+    // Now we need to create child object
+    SharedPtr<MemoryObject> pChild;
     cl_err_code res = MemoryObjectFactory::GetInstance()->CreateMemoryObject(CL_DEVICE_TYPE_CPU, m_clMemObjectType, CL_MEMOBJ_GFX_SHARE_NONE, m_pContext, &pChild);
-	if (CL_FAILED(res))
-	{
-		m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
-		return res;
-	}
+    if (CL_FAILED(res))
+    {
+        m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
+        return res;
+    }
 
-	res = pChild->Initialize(m_clFlags, &m_clFormat.clType, m_uiNumDim, m_stDimensions, NULL, NULL, 0);
-	if (CL_FAILED(res))
-	{
-		pChild->Release();
-		m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
-		return CL_OUT_OF_RESOURCES;
-	}
+    res = pChild->Initialize(m_clFlags, &m_clFormat.clType, m_uiNumDim, m_stDimensions, NULL, NULL, 0);
+    if (CL_FAILED(res))
+    {
+        pChild->Release();
+        m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
+        return CL_OUT_OF_RESOURCES;
+    }
 
-	m_pMemObjData = pChild->GetBackingStoreData(NULL);
+    m_pMemObjData = pChild->GetBackingStoreData(NULL);
 
-	// Now read image data if required
-	if ( (m_clFlags & CL_MEM_READ_WRITE) || (m_clFlags & CL_MEM_READ_ONLY) )
-	{
-		GLint	currTexture;
-		GLenum	targetBinding = GetTargetBinding(m_txtDescriptor.glTextureTarget);
-		GLint glErr = 0;
-		glGetIntegerv(targetBinding, &currTexture);
+    // Now read image data
+    GLint currTexture;
+    GLenum targetBinding = GetTargetBinding(m_txtDescriptor.glTextureTarget);
+    GLint glErr = 0;
+    glGetIntegerv(targetBinding, &currTexture);
 
-		GLenum glBaseTarget = GetBaseTarget(m_txtDescriptor.glTextureTarget);
-		glBindTexture(glBaseTarget, m_txtDescriptor.glTexture);
+    GLenum glBaseTarget = GetBaseTarget(m_txtDescriptor.glTextureTarget);
+    glBindTexture(glBaseTarget, m_txtDescriptor.glTexture);
 
-		glGetTexImage( m_txtDescriptor.glTextureTarget, m_txtDescriptor.glMipLevel, m_glReadBackFormat, m_glReadBackType, m_pMemObjData );
+    glGetTexImage( m_txtDescriptor.glTextureTarget, m_txtDescriptor.glMipLevel, m_glReadBackFormat, m_glReadBackType, m_pMemObjData );
 
-		glBindTexture(glBaseTarget, currTexture);
-	}
+    glBindTexture(glBaseTarget, currTexture);
 
-	m_itCurrentAcquriedObject->second = pChild;
+    m_itCurrentAcquriedObject->second = pChild;
 
-	return CL_SUCCESS;
-
+    return CL_SUCCESS;
 }
 
 cl_err_code GLTexture3D::ReleaseGLObject()
