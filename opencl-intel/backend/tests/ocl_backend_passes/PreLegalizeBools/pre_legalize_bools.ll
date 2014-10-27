@@ -72,16 +72,26 @@ BB2:
 }
 
 ; Test that no PHI nodes of type <8 x 1> are left in a vectorized "loop"
-declare i32 @llvm.x86.avx.ptestz.256(<4 x i64>, <4 x i64>) nounwind readnone
+declare i1 @__ocl_allOne_v8(<8 x i1>)
+
+declare i1 @__ocl_allZero_v8(<8 x i1>)
+
 ; CHECK-LABEL: @test_vloop
-define <8 x i32> @test_vloop(<8 x i32> %ind.var, <8 x i32> %trip.cnt, <8 x i32> %step) {
+define <8 x i32> @test_vloop(<8 x i32> %ind.var, <8 x i32> %trip.cnt, <8 x i32> %step, i1 %sca) {
 ENTRY:
+; CHECK:     %[[EXTSCA:[A-Za-z0-9.]+]] = sext i1 %sca to i32
+; CHECK:     %[[INSEL:[A-Za-z0-9.]+]] = insertelement <8 x i32> undef, i32 %[[EXTSCA]], i32 0
+  %temp = insertelement <8 x i1> undef, i1 %sca, i32 0
+; CHECK:     %[[BRDCST:[A-Za-z0-9.]+]] = shufflevector <8 x i32> %[[INSEL]], <8 x i32> undef, <8 x i32> zeroinitializer
+  %brdcst = shufflevector <8 x i1> %temp, <8 x i1> undef, <8 x i32> zeroinitializer
+; CHECK:     %[[EXTMSK:[A-Za-z0-9.]+]] = sext <8 x i1> %mask.e to <8 x i32>
   %mask.e = icmp ult <8 x i32> %ind.var, %trip.cnt
-  %mask.e.s = sext <8 x i1> %mask.e to <8 x i32>
-  %mask.e.cast = bitcast <8 x i32> %mask.e.s to <4 x i64>
-  %testz.e = call i32 @llvm.x86.avx.ptestz.256(<4 x i64> %mask.e.cast, <4 x i64> %mask.e.cast) nounwind
-  %test.e = trunc i32 %testz.e to i1
-  br i1 %test.e, label %EXIT, label %BODY
+; CHECK:     %[[EXTMERGE:[A-Za-z0-9.]+]] = and <8 x i32> %[[EXTMSK]], %[[BRDCST]]
+  %mask.merge = and <8 x i1> %mask.e, %brdcst
+; CHECK-NOT: __ocl_allOne_v8(
+; CHECK:     __ocl_allOne_v8_i32(<8 x i32> %[[EXTMERGE]])
+  %test.one = call i1 @__ocl_allOne_v8(<8 x i1> %mask.merge)
+  br i1 %test.one, label %EXIT, label %BODY
 BODY:
 ; CHECK-NOT: phi <8 x i1>
 ; CHECK:     %[[MSKPRV:[A-Za-z0-9.]+]] = phi <8 x i32> [ %{{.+}}, %ENTRY ], [ %[[MSKNXT:[A-Za-z0-9.]+]], %BODY ]
@@ -91,15 +101,12 @@ BODY:
   %ind.var.next = add <8 x i32> %ind.var.b, %step
 ; CHECK:     %[[MSKB:[A-Za-z0-9.]+]] = sext <8 x i1> %mask.b to <8 x i32>
   %mask.b = icmp ult <8 x i32> %ind.var.next, %trip.cnt
-; CHECK:     %[[MSKNXT]] = and <8 x i32> %[[MSKB]], %[[MSKPRV]]
+; CHECK:     %[[MSKNXT:[A-Za-z0-9.]+]] = and <8 x i32> %[[MSKB]], %[[MSKPRV]]
   %mask.next = and <8 x i1> %mask.b, %mask.prev
-; CHECK-NOT: sext <8 x i1> %mask.next to <8 x i32>
-  %mask.next.s = sext <8 x i1> %mask.next to <8 x i32>
-; CHECK:      bitcast <8 x i32> %[[MSKNXT]] to <4 x i64>
-  %mask.next.cast = bitcast <8 x i32> %mask.next.s to <4 x i64>
-  %testz.b = call i32 @llvm.x86.avx.ptestz.256(<4 x i64> %mask.next.cast, <4 x i64> %mask.next.cast) nounwind
-  %test.b = trunc i32 %testz.b to i1
-  br i1 %test.b, label %EXIT, label %BODY
+; CHECK-NOT: __ocl_allZero_v8(
+; CHECK:     __ocl_allZero_v8_i32(<8 x i32> %[[MSKNXT]])
+  %test.zero = call i1 @__ocl_allZero_v8(<8 x i1> %mask.next)
+  br i1 %test.zero, label %EXIT, label %BODY
 EXIT:
   %ind.var.e = phi <8 x i32> [ %ind.var, %ENTRY ], [ %ind.var.next, %BODY ]
   ret <8 x i32> %ind.var.e

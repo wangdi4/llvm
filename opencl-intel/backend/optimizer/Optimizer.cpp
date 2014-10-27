@@ -88,7 +88,7 @@ llvm::ModulePass *createDetectFuncPtrCalls();
 llvm::ModulePass *createDetectRecursionPass();
 llvm::ModulePass *createCloneBlockInvokeFuncToKernelPass();
 llvm::Pass *createResolveBlockToStaticCallPass();
-llvm::FunctionPass *createPreLegalizeBoolsPass();
+llvm::ModulePass *createPreLegalizeBoolsPass();
 llvm::ImmutablePass* createOCLAliasAnalysisPass();
 }
 
@@ -373,6 +373,10 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
     }
     if (!HasGatherScatter) {
       PM.add(createReduceAlignmentPass());
+      if(pConfig->GetCpuId().HasSSE41()) { // no point to run for older CPU archs
+        // Workaround boolean vectors legalization issue.
+        PM.add(createPreLegalizeBoolsPass());
+      }
     }
 #endif //#ifndef __APPLE__
   }
@@ -529,8 +533,6 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   if ( debugType == intel::None ) {
     // These passes come after PrepareKernelArgs pass to eliminate the redundancy reducced by it
     PM.add(llvm::createFunctionInliningPass());           // Inline
-    if (!HasGatherScatter)                  // Workaround boolean vectors legalization issue.
-      PM.add(createPreLegalizeBoolsPass()); // For details see PreLegalizeBools header file.
     PM.add(llvm::createDeadCodeEliminationPass());        // Delete dead instructions
     PM.add(llvm::createCFGSimplificationPass());          // Simplify CFG
     PM.add(llvm::createInstructionCombiningPass());       // Instruction combining

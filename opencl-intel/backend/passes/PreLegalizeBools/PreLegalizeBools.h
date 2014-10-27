@@ -82,7 +82,7 @@ namespace intel {
   //         sequences.
   //
   //         Related CQ ticket: CSSD100019855
-  class PreLegalizeBools : public llvm::FunctionPass
+  class PreLegalizeBools : public llvm::ModulePass
   {
   public:
     static char ID; // Pass identification, replacement for typeid
@@ -90,7 +90,9 @@ namespace intel {
     // Constructor
     PreLegalizeBools();
 
-    bool runOnFunction(llvm::Function &Func);
+    bool runOnModule(llvm::Module &M);
+
+    bool runOnFunction(llvm::Function &F);
 
   private:
     /// \brief Produces an extended to pNewTy value of pVal
@@ -105,12 +107,17 @@ namespace intel {
     /// \brief Check for the pattern strarting from SExt instruction
     bool testSExt(llvm::Instruction * pInst);
 
+    /// \brief Replace calls to i1 versions of __ocl_allOne, __ocl_allZero w\ i32 versions
+    bool replaceAllOneZeroCalls(llvm::Function &F);
+    /// \brief Bottom-up propagation of sign extended boolean vectors
+    bool propagateSExt(llvm::Function &F);
+
     /// \brief List of detected patterns
-    std::list<llvm::Instruction *> m_worklist;
-    /// \brief  Cache to minimize redundant instructions
+    std::set<llvm::Instruction *> m_workSet;
+    /// \brief Cache to minimize redundant instructions
     std::map<llvm::Type *, std::map<llvm::Value *, llvm::Value *> > m_sextCache;
-    /// \brief  Set of instructions which probably could be erased at the end
-    std::set<llvm::Instruction *> m_pendingErase;
+    /// \brief Set of Trunc instructions created by this pass
+    std::set<llvm::Instruction *> m_edgeTruncs;
   };
 }
 #endif
