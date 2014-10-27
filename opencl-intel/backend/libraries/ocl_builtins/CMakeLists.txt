@@ -32,7 +32,7 @@ cmake_policy(SET CMP0011 OLD)
 set(BE_LLVM_BINARY_DIR ${LLVM_BINARY_DIR})
 
 if( NOT DEFINED LLVM_PATH_FE )
-    message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for fronted using LLVM_PATH_FE parameter to CMAKE" )
+  message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for fronted using LLVM_PATH_FE parameter to CMAKE" )
 endif()
 
 set(LLVM_PATH ${LLVM_PATH_FE})
