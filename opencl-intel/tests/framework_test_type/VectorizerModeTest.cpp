@@ -113,30 +113,28 @@ static bool vectorizerModeTest(std::string const& mode)
     }
 
     // check if target architecture supports width 8
+    // 1. check if back-end specific env. variable (VOLCANO_CPU_ARCH) sets cpu
+    // architecture that doesn't support vector size 8.
     const char* cpuArch = getenv("VOLCANO_CPU_ARCH");
-    if(cpuArch)
-    {
-      if(std::string("corei7") == cpuArch && mode == "8")
+    if(cpuArch && (std::string("corei7") == cpuArch) && mode == "8")
         return deathTestSuccess();
-    }
-    else
-    {
-      cl_int nativeWidth;
-      iRet = clGetDeviceInfo(pDevices[0], CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT,
-                             sizeof(cl_int), &nativeWidth, NULL);
-      if (CL_SUCCESS != iRet)
-      {
-          printf("clGetDeviceInfo = %s\n",ClErrTxt(iRet));
-          delete []pDevices;
-          return deathTestFailure();
-      }
 
-      // check if device supports this width.
-      if(mode == "8" && nativeWidth < 8)
-      {
-          // TODO: add exceptions tests
-          return deathTestSuccess();
-      }
+    // 2. Let OpenCL run-time to determine supported vector size.
+    cl_int nativeWidth;
+    iRet = clGetDeviceInfo(pDevices[0], CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT,
+                            sizeof(cl_int), &nativeWidth, NULL);
+    if (CL_SUCCESS != iRet)
+    {
+        printf("clGetDeviceInfo = %s\n",ClErrTxt(iRet));
+        delete []pDevices;
+        return deathTestFailure();
+    }
+
+    // check if device supports this width.
+    if(mode == "8" && nativeWidth < 8)
+    {
+        // TODO: add exceptions tests
+        return deathTestSuccess();
     }
 
     context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
