@@ -120,7 +120,9 @@ loopRegion createLoop(BasicBlock *head, BasicBlock *latch, Value *begin,
   void fillInstructionUsers(Function *F,
                                    SmallVectorImpl<Instruction *> &userInsts);
   void fillAtomicBuiltinUsers(Module &m, const OpenclRuntime *rt,
-                                     std::set<Function *> &userFuncs);
+                              std::set<Function *> &userFuncs);
+  void fillWorkItemPipeBuiltinUsers(Module &m, const OpenclRuntime *rt,
+                                    std::set<Function *> &userFuncs);
   void fillInternalFuncUsers(Module &m, const OpenclRuntime *rt,
                              std::set<Function *> &userFuncs);
   /// Finds all the function which are users of calls to work item functions with non-const

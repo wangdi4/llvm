@@ -1031,6 +1031,16 @@ bool CompilationUtils::isAtomicBuiltin(const std::string& funcName){
   return std::string(stripName(funcName.c_str())).compare(0, 4, "atom") == 0;
 }
 
+bool CompilationUtils::isWorkItemPipeBuiltin(const std::string& funcName){
+  // S is work item pipe built-in name if
+  // - it's mangled (only built-in function names are mangled)
+  // - it doesn't start w\ "work_group" and ends with "_pipe"
+  if (!isMangledName(funcName.c_str()))
+    return false;
+  StringRef name = stripName(funcName.c_str());
+  return !name.startswith("work_group") && name.endswith("_pipe");
+}
+
 bool CompilationUtils::isAtomicWorkItemFenceBuiltin(const std::string& funcName){
   // S is atomic built-in name if
   // - it's mangled (only built-in function names are mangled)

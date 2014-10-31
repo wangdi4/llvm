@@ -175,8 +175,12 @@ private:
   SmallVector<SmallVector<CallInst *, 4>, 4> m_TIDByDim;
   ///@brief holds instruction marked for removal.
   SmallPtrSet<Instruction *, 8> m_toRemove;
-  ///@brief true iff the function call is an atomic builtin
-  bool m_hasAtomicCalls;
+  ///@brief true iff the function call is an atomic or pipe built-in
+  bool m_hasWIUniqueCalls;
+  ///@brief Users of atomic/pipe functions.
+  std::set<llvm::Function *> m_WIUniqueFuncUsers;
+  ///@brief OpenCL C version the module is compiled for
+  unsigned m_oclVersion;
 
   // Statistics:
   intel::Statistic::ActiveStatsT m_kernelStats;
@@ -190,9 +194,12 @@ private:
   // even if early-exit was done for several conditions and/or dimensions.
   Statistic Created_Early_Exit;
 
-  ///@brief checks if the current function has an atomic call.
-  ///@returns returns true iff the current function has an atomic call.
-  bool currentFunctionHasAtomicCalls();
+  ///@brief Collect kernels MaxD WG loop boundaries must be always created for.
+  void collectWIUniqueFuncUsers(llvm::Module &M);
+
+  ///@brief checks if the current function has an atomic/pipe call.
+  ///@returns returns true if the current function has an atomic/pipe call.
+  bool currentFunctionHasWIUniqueCalls() const;
 
   ///@brief in case entry block branch is an early exit branch, remove the
   ///       branch and create early exit description\s.

@@ -27,6 +27,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <set>
 
 using namespace Intel::OpenCL::DeviceBackend;
+using namespace llvm;
 
 namespace intel {
 
@@ -63,6 +64,10 @@ bool CLWGLoopBoundaries::runOnModule(Module &M) {
   m_rtServices = static_cast<OpenclRuntime *>(getAnalysis<BuiltinLibInfo>().getRuntimeServices());
   assert(m_rtServices && "expected to have openCL runtime");
 
+  // Obtain OpenCL C version from this  module
+  m_oclVersion = CompilationUtils::getCLVersionFromModuleOrDefault(M);
+  // Collect all users of atomic/pipe built-ins
+  collectWIUniqueFuncUsers(M);
   // Get the kernels using the barrier for work group loops.
   Intel::MetaDataUtils::KernelsList::const_iterator itr = mdUtils.begin_Kernels();
   Intel::MetaDataUtils::KernelsList::const_iterator end = mdUtils.end_Kernels();
@@ -76,8 +81,27 @@ bool CLWGLoopBoundaries::runOnModule(Module &M) {
       changed |= runOnFunction(*pFunc);
     }
   }
+
+  m_WIUniqueFuncUsers.clear();
   return changed;
 }
+
+void CLWGLoopBoundaries::collectWIUniqueFuncUsers(Module &M) {
+  // First obtain all the atomic/pipe functions in the module.
+  std::set<Function *> wiUniqueFuncs;
+  for (Module::iterator fit = M.begin(), fe = M.end(); fit != fe; ++fit){
+    std::string name = fit->getName().str();
+    if (m_rtServices->isAtomicBuiltin(name) ||
+        (OclVersion::CL_VER_2_0 <= m_oclVersion && m_rtServices->isWorkItemPipeBuiltin(name))){
+       wiUniqueFuncs.insert(fit);
+    }
+  }
+  // Obtain all the recursive users of the atomic/pipe functions.
+  if(wiUniqueFuncs.size() > 0) {
+    LoopUtils::fillFuncUsersSet(wiUniqueFuncs, m_WIUniqueFuncUsers);
+  }
+}
+
 
 bool CLWGLoopBoundaries::isUniform(Value *v) {
   Instruction *I = dyn_cast<Instruction>(v);
@@ -170,8 +194,8 @@ bool CLWGLoopBoundaries::runOnFunction(Function& F) {
   collectTIDData();
   // Collects uniform data from the current basic block.
   CollcectBlockData(&m_F->getEntryBlock());
-  // Check if the function calls an atomic builtin.
-  m_hasAtomicCalls = currentFunctionHasAtomicCalls();
+  // Check if the function calls an atomic/pipe built-in.
+  m_hasWIUniqueCalls = currentFunctionHasWIUniqueCalls();
 
   // Iteratively examines if the entry block branch is early exit branch,
   // min\max with uniform value.
@@ -392,10 +416,10 @@ bool CLWGLoopBoundaries::findAndHandleTIDMinMaxBound() {
   // know who are the users of each dimension.
   if (m_hasVariableTid) return false;
 
-  // In case there is an atomic call we cannot avoid running two work items
+  // In case there is an atomic/pipe call we cannot avoid running two work items
   // that use essentially the same id (due to min(get***id(),uniform) as
-  // the atomic call may have different consequences for the same id.
-  if (m_hasAtomicCalls) return false;
+  // the atomic/pipe call may have different consequences for the same id.
+  if (m_hasWIUniqueCalls) return false;
 
   bool removedMinMaxBound = false;
   assert(m_TIDByDim.size() == m_numDim && "num dimension mismatch");
@@ -421,23 +445,10 @@ bool CLWGLoopBoundaries::findAndHandleTIDMinMaxBound() {
   return removedMinMaxBound;
 }
 
-bool CLWGLoopBoundaries::currentFunctionHasAtomicCalls() {
-  // First obtain all the atomic functions in the module.
-  std::set<Function *> atomicFuncs;
-  for (Module::iterator fit = m_M->begin(), fe = m_M->end(); fit != fe; ++fit){
-    std::string name = fit->getName().str();
-    if (m_rtServices->isAtomicBuiltin(name)) atomicFuncs.insert(fit);
-  }
-  // No atomic functions means there is no atomic call in the current function.
-  if (!atomicFuncs.size()) return false;
-
-  // Obtain all the recursive users of the atomic functions.
-  std::set<Function *> atomicUsers;
-  LoopUtils::fillFuncUsersSet(atomicFuncs, atomicUsers);
-  // return true iff the current function is a recursive user of atomic function.
-  return atomicUsers.count(m_F);
+bool CLWGLoopBoundaries::currentFunctionHasWIUniqueCalls() const {
+  // return true if the current function is a recursive user of atomic/pipe built-in.
+  return m_WIUniqueFuncUsers.count(m_F);
 }
-
 
 bool CLWGLoopBoundaries::findAndCollapseEarlyExit() {
   // Supported pattern is that entry block ends with conditional branch,
@@ -977,11 +988,7 @@ void CLWGLoopBoundaries::fillInitialBoundaries(BasicBlock *BB) {
   const char *baseGIDName = m_rtServices->getBaseGIDName();
   for (unsigned dim=0; dim < m_numDim; ++dim) {
     CallInst *localSize = LoopUtils::getWICall(
-    m_M,
-    CompilationUtils::mangledGetLocalSize(),
-    m_indTy,
-    dim,
-    BB);
+      m_M, CompilationUtils::mangledGetLocalSize(), m_indTy, dim, BB);
     CallInst *baseGID = LoopUtils::getWICall(m_M, baseGIDName, m_indTy, dim, BB, "");
     m_localSizes.push_back(localSize);
     m_baseGIDs.push_back(baseGID);

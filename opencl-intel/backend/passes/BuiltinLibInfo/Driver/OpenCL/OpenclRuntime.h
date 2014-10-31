@@ -118,8 +118,11 @@ public:
   /// @brief retrun name of builtin to retrieve base global id for this work group.
   virtual const char *getBaseGIDName() const;
 
-  /// @brief returns true iff this name of atomic built-in.
-  virtual bool isAtomicBuiltin(const std::string &func_name) const;
+  /// @brief returns true if this name of atomic built-in.
+  bool isAtomicBuiltin(const std::string &func_name) const;
+
+  /// @brief returns true if this name of pipe built-in.
+  bool isWorkItemPipeBuiltin(const std::string &func_name) const;
 
   /// @brief checks if funcName is mangled scalar min\max name.
   /// @param funcName input mangled name.

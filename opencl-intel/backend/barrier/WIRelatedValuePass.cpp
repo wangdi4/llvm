@@ -24,7 +24,8 @@ namespace intel {
   bool WIRelatedValue::runOnModule(Module &M) {
     //Initialize barrier utils class with current module
     m_util.init(&M);
-
+    // Obtain OpenCL C version from this  module
+    m_oclVersion = CompilationUtils::getCLVersionFromModuleOrDefault(M);
     //Calculate the calling order for the functions to be analyzed
     calculateCallingOrder();
 
@@ -186,8 +187,10 @@ namespace intel {
       return false;
     }
 
-    if ( CompilationUtils::isAtomicBuiltin(origFuncName) ) {
-      // Atomic built-ins are WI Id related
+    if ( CompilationUtils::isAtomicBuiltin(origFuncName) ||
+         (OclVersion::CL_VER_2_0 <= m_oclVersion &&
+          CompilationUtils::isWorkItemPipeBuiltin(origFuncName)) ) {
+      // Atomic and pipe built-ins are WI Id related
       return true;
     }
 

@@ -61,6 +61,8 @@ namespace intel {
         PointerType* ptr = cast<PointerType>(Arg0->getType());
         assert(!IS_ADDR_SPACE_GENERIC(ptr->getAddressSpace()) &&
               "Generic address space must be resolved before KernelInfoPass.");
+        // [OpenCL 2.0] The following condition covers pipe built-ins as well
+        // because the first arguments is a pipe which is a __global opaque pointer.
         if (IS_ADDR_SPACE_GLOBAL(ptr->getAddressSpace()))
           return true;
       }
