@@ -19,8 +19,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include <set>
 
-using namespace llvm;
-
 // class CLWGLoopBoundaries
 //-----------------------------------------------------------------------------
 // This class implements a pass that recieves an openCL kernel, and checks if
@@ -76,7 +74,7 @@ using namespace llvm;
 //-----------------------------------------------------------------------------
 
 namespace intel {
-class CLWGLoopBoundaries : public ModulePass {
+class CLWGLoopBoundaries : public llvm::ModulePass {
 public:
   static char ID;
   /// @brief C'tor
@@ -91,12 +89,12 @@ public:
   ///@brief LLVM interface.
   ///@param M - module to process.
   ///@returns true if the module changed
-  virtual bool runOnModule(Module &M);
+  virtual bool runOnModule(llvm::Module &M);
 
   ///@brief additional interface to be on a function not as Pass.
   ///@param F - function to process.
   ///@returns true if the function changed
-  virtual bool runOnFunction(Function &F);
+  virtual bool runOnFunction(llvm::Function &F);
 
   ///@brief LLVM interface.
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
@@ -106,14 +104,14 @@ public:
 private:
   /// struct that contain boundary early exit description.
   struct TIDDesc{
-    Value *m_bound;         //actual bound
+    llvm::Value *m_bound;   //actual bound
     unsigned m_dim;         //dimesnion of boundary
     bool m_isUpperBound;    //true upper bound, false lower bound
     bool m_containsVal;     //true inclusive, false exclusive
     bool m_isSigned;        //true bound is signed comparison, false not
     bool m_isGID;           //true bound is on global id, false on local id
 
-    TIDDesc(Value *bound, unsigned dim, bool isUpperBound,
+    TIDDesc(llvm::Value *bound, unsigned dim, bool isUpperBound,
             bool containsVal, bool isSigned, bool isGID) :
       m_bound(bound), m_dim(dim), m_isUpperBound(isUpperBound),
       m_containsVal(containsVal), m_isSigned(isSigned) ,m_isGID(isGID)
@@ -122,32 +120,32 @@ private:
 
   ///@brief struct that contain uniform early exit description.
   struct UniDesc{
-    Value *m_cond;    //condition an i1 value
-    bool m_exitOnTrue;  //if true exit when condition is set.
+    llvm::Value *m_cond;    //condition an i1 value
+    bool m_exitOnTrue;      //if true exit when condition is set.
 
-    UniDesc (Value *cond, bool exitOnTrue) :
+    UniDesc (llvm::Value *cond, bool exitOnTrue) :
     m_cond(cond), m_exitOnTrue(exitOnTrue)
     {}
   };
 
   ///@brief helpful shortcuts for structures.
-  typedef SmallVector<Value *, 4> VVec;
-  typedef SmallVector<Instruction *, 4> IVec;
-  typedef DenseMap<Value *, Value *> VMap;
+  typedef llvm::SmallVector<llvm::Value *, 4> VVec;
+  typedef llvm::SmallVector<Instruction *, 4> IVec;
+  typedef llvm::DenseMap<llvm::Value *, llvm::Value *> VMap;
   ///@brief Module of function being processed.
-  Module *m_M;
+  llvm::Module *m_M;
   ///@brief Function being processed.
-  Function *m_F;
+  llvm::Function *m_F;
   ///@brief Context of the current function.
-  LLVMContext *m_context;
+  llvm::LLVMContext *m_context;
   ///@brief size_t type
-  Type *m_indTy;
+  llvm::Type *m_indTy;
   ///@brief size_t one constant
-  Constant *m_constOne;
+  llvm::Constant *m_constOne;
   ///@brief size_t zero constant
-  Constant *m_constZero;
+  llvm::Constant *m_constZero;
   ///@brief runtime services object.
-  const OpenclRuntime* m_rtServices;
+  const OpenclRuntime* m_clRtServices;
   ///@brief number of WG dimensions per dimension.
   unsigned m_numDim;
   ///@brief local_id lower bounds per dimension.
@@ -159,9 +157,9 @@ private:
   ///@brief loop_size per dimension (upper_bound - lower_bound)
   IVec m_loopSizes;
   ///@brief map get***id calls to their dimension and whether the are global\local
-  std::map<Value *, std::pair<unsigned, bool> > m_TIDs;
+  std::map<llvm::Value *, std::pair<unsigned, bool> > m_TIDs;
   ///@brief maps instruction to whether they are uniform or not.
-  std::map<Value *, bool> m_Uni;
+  std::map<llvm::Value *, bool> m_Uni;
   ///@brief vector boundary descriptions.
   typedef SmallVector<TIDDesc, 4> TIDDescVec;
   TIDDescVec m_TIDDesc;
@@ -224,13 +222,13 @@ private:
   ///@brief returns true iff BB contains instruction with side effect.
   ///@param BB - basic block to check.
   ///@retruns as above.
-  bool hasSideEffectInst(BasicBlock *BB);
+  bool hasSideEffectInst(llvm::BasicBlock *BB);
 
   ///@brief returns true if the block lead unconditionally to return
   ///       instruction with no side effect instructions.
   ///@param BB - basic block to check.
   ///@retruns as above.
-  bool isEarlyExitSucc(BasicBlock *BB);
+  bool isEarlyExitSucc(llvm::BasicBlock *BB);
 
   ///@brief checks whether the branch is an early exit pattern. fills
   ///        class members with early exit description if so.
@@ -241,7 +239,7 @@ private:
 
   ///@brief retruns true if the value as uniform across all work items.
   ///@retruns as above.
-  bool isUniform(Value *v);
+  bool isUniform(llvm::Value *v);
 
   ///@brief returns true if all operands are uniform.
   ///@param I - Instruction to check.
@@ -262,13 +260,13 @@ private:
   ///@param uniformConds - vector uniform conditions to fill
   ///@param root - original and\or to traceback
   ///@returns true iff this recurive and\or of icmp and uniform conditions
-  bool collectCond (SmallVector<ICmpInst *, 4>& compares,
+  bool collectCond (SmallVector<llvm::ICmpInst *, 4>& compares,
                     IVec &uniformConds, Instruction *root);
 
   ///@brief Collect tid calls, and check uniformity of instructions in the
   ///       in the input block.
   ///@param BB - basic block to check.
-  void CollcectBlockData(BasicBlock *BB);
+  void CollcectBlockData(llvm::BasicBlock *BB);
 
   ///@brief checks if the input cmp instruction is supported boundary compare
   ///       if so fills description of the boundary compare into eeVec.
@@ -278,13 +276,13 @@ private:
   ///@param EETrueSide - inidicate whether early exit occurs if cmp is true.
   ///@param eeVec - vector of early exit description to fill.
   ///@returns true iff cmp is supported boundary compare.
-  bool obtainBoundaryEE(ICmpInst *cmp, Value **bound, Value *tid,
+  bool obtainBoundaryEE(llvm::ICmpInst *cmp, llvm::Value **bound, llvm::Value *tid,
                             bool EETrueSide, TIDDescVec& eeVec);
 
   ///@brief returns loop boundaries function declaration with the original
   ///       function arguments.
   ///@retruns as above.
-  Function *createLoopBoundariesFunctionDcl();
+  llvm::Function *createLoopBoundariesFunctionDcl();
 
   ///@brief Recover all Values in roots and instruction leading to them
   ///       from m_F into BasicBlock BB in newF. Updates valueMap on the way.
@@ -292,8 +290,8 @@ private:
   ///@param roots - original roots to recover.
   ///@param BB - basic block to put instructions in.
   ///@param newF - new Function.
-  void recoverInstructions (VMap &valueMap, VVec &roots, BasicBlock *BB,
-                            Function *newF);
+  void recoverInstructions (VMap &valueMap, VVec &roots, llvm::BasicBlock *BB,
+                            llvm::Function *newF);
 
   ///@brief traces back the two input value if one is tid dependent and the
   ///       other is uniform, assuming the two are compared.
@@ -304,22 +302,22 @@ private:
   ///@param bound - will hold the boundary values in case of success.
   ///@params tid - will hold the get***id in case of success.
   ///@returns true iff succeeded to trace back bound.
-  bool traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
-                Instruction *loc, Value **bound, Value *&tid);
+  bool traceBackBound(llvm::Value *v1, llvm::Value *v2, bool isCmpSigned,
+                Instruction *loc, llvm::Value **bound, llvm::Value *&tid);
 
   ///@brief serves as easier interface for traceBackBound for tracking
   ///       compare instruction operands.
   ///@param cmp - compare instruction to inspect.
   ///@param bound - will hold the boundary values in case of success.
   ///@params tid - will hold the get***id in case of success.
-  bool traceBackCmp(ICmpInst *cmp, Value **bound, Value *&tid);
+  bool traceBackCmp(llvm::ICmpInst *cmp, llvm::Value **bound, llvm::Value *&tid);
 
   ///@brief serves as easier interface for traceBackBound for tracking
   ///       min\max builtins opernads.
   ///@param - CI min\max builtin to inspect.
   ///@param bound - will hold the boundary value in case of success.
   ///@params tid - will hold the get***id in case of success.
-  bool traceBackMinMaxCall(CallInst *CI, Value **bound, Value *&tid);
+  bool traceBackMinMaxCall(CallInst *CI, llvm::Value **bound, llvm::Value *&tid);
 
   ///@brief updates the internal data members with cmp-select boundary.
   ///@param cmp - compare for which cmp-select pattern was found.
@@ -327,62 +325,62 @@ private:
   ///@param tid - the get***id call.
   ///@param isSameOrder - true iff the select and cmp agree on operands order.
   ///@returns true if cmp-select boundary pattern was found.
-  bool obtainBoundaryCmpSelect(ICmpInst *cmp, Value *bound,
-                               Value *tid, bool isSameOrder);
+  bool obtainBoundaryCmpSelect(llvm::ICmpInst *cmp, llvm::Value *bound,
+                               llvm::Value *tid, bool isSameOrder);
 
   ///@brief helper function checks that cmp predicate is supported.
   ///@param p - predicate to inspect.
   ///@returns true iff compare relational predicate is supported.
-  bool isSupportedRelationalComparePredicate(CmpInst::Predicate p);
+  bool isSupportedRelationalComparePredicate(llvm::CmpInst::Predicate p);
 
   ///@brief helper function checks that cmp predicate is <,<=.
   ///@param p - predicate to inspect.
   ///@returns true iff compare predicate is supported <,<=.
-  bool isComparePredicateLower(CmpInst::Predicate p);
+  bool isComparePredicateLower(llvm::CmpInst::Predicate p);
 
   ///@brief helper function checks that cmp predicate is <=,>=.
   ///@param p - predicate to inspect.
   ///@returns true iff compare predicate is supported <=,>=.
-  bool isComparePredicateInclusive(CmpInst::Predicate p);
+  bool isComparePredicateInclusive(llvm::CmpInst::Predicate p);
 
   ///@brief fills m_loopSizes, m_lowerBounds, m_localSize, m_baseGIDs
   ///       with initial values in case no boundary early exit.
   ///@param BB - basic block to put instructions.
-  void fillInitialBoundaries(BasicBlock *BB);
+  void fillInitialBoundaries(llvm::BasicBlock *BB);
 
   ///@brief Recover boundary values, and uniform early exit conditions and the
-  ///       the instructions leading to them in BasicBlock BB.
+  ///       the instructions leading to them in llvm::BasicBlock BB.
   ///       Updates valueMap on the way.
   ///@param valueMap - maps values from m_F to their clone in newF,
   ///@param BB - basic block to put instructions in.
-  void recoverBoundInstructions(VMap &valueMap, BasicBlock *BB);
+  void recoverBoundInstructions(VMap &valueMap, llvm::BasicBlock *BB);
 
   ///@brief Safely corrects the boundary value in case bound is on
   ///       local_id, or is inclusive\exclusive when it shouldn't.
   ///@param td - maps values from m_F to their clone in newF,
   ///@param BB - basic block to put instructions in.
-  Value *correctBound(TIDDesc &td, BasicBlock *BB, Value *bound);
+  llvm::Value *correctBound(TIDDesc &td, llvm::BasicBlock *BB, llvm::Value *bound);
 
   ///@brief create the loop boundaries function for the current kernel.
   void createWGLoopBoundariesFunction();
 
   ///@brief Run through all descriptions, and update m_loopSizes,
   //        m_lowerBounds according to the boundary descriptions.
-  void obtainEEBoundaries(BasicBlock *BB, VMap &valueMap);
+  void obtainEEBoundaries(llvm::BasicBlock *BB, VMap &valueMap);
 
   ///@brief retruns the uniform early exit condition.
-  Value *obtainUniformCond(BasicBlock *BB, VMap &valueMap);
+  llvm::Value *obtainUniformCond(llvm::BasicBlock *BB, VMap &valueMap);
 
   ///@brief replaces tid calls with given value.
   ///@param isGID - true get_global_id , false get_local_id.
   ///@param dim - dimension argument.
   ///@param toRep - value to replace tid with.
-  void replaceTidWithBound (bool isGID, unsigned dim, Value *toRep);
+  void replaceTidWithBound (bool isGID, unsigned dim, llvm::Value *toRep);
 
   /// @brief print data collected by the pass on the given module
   /// @param OS stream to print the info regarding the module into
   /// @param M pointer to the Module
-  void print(raw_ostream &OS, const Module *M = 0) const;
+  void print(raw_ostream &OS, const llvm::Module *M = 0) const;
 
 };
 } // namespace

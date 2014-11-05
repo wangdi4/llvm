@@ -37,7 +37,7 @@ OCL_INITIALIZE_PASS_BEGIN(CLWGLoopBoundaries, "cl-loop-bound", "create loop boun
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(CLWGLoopBoundaries, "cl-loop-bound", "create loop boundaries array function", false, false)
 
-CLWGLoopBoundaries::CLWGLoopBoundaries() : ModulePass(ID), m_rtServices(NULL),
+CLWGLoopBoundaries::CLWGLoopBoundaries() : ModulePass(ID), m_clRtServices(NULL),
 OCLSTAT_INIT(Early_Exit_Givenup_Due_To_Loads,
 "early exit wasn't tried because block consists of a load instruction (but no store instructions). However, it is still likely early exit was impossible regardless of it",
     m_kernelStats),
@@ -61,8 +61,8 @@ bool CLWGLoopBoundaries::runOnModule(Module &M) {
     return changed;
   }
 
-  m_rtServices = static_cast<OpenclRuntime *>(getAnalysis<BuiltinLibInfo>().getRuntimeServices());
-  assert(m_rtServices && "expected to have openCL runtime");
+  m_clRtServices = static_cast<OpenclRuntime *>(getAnalysis<BuiltinLibInfo>().getRuntimeServices());
+  assert(m_clRtServices && "expected to have openCL runtime");
 
   // Obtain OpenCL C version from this  module
   m_oclVersion = CompilationUtils::getCLVersionFromModuleOrDefault(M);
@@ -91,8 +91,8 @@ void CLWGLoopBoundaries::collectWIUniqueFuncUsers(Module &M) {
   std::set<Function *> wiUniqueFuncs;
   for (Module::iterator fit = M.begin(), fe = M.end(); fit != fe; ++fit){
     std::string name = fit->getName().str();
-    if (m_rtServices->isAtomicBuiltin(name) ||
-        (OclVersion::CL_VER_2_0 <= m_oclVersion && m_rtServices->isWorkItemPipeBuiltin(name))){
+    if (m_clRtServices->isAtomicBuiltin(name) ||
+        (OclVersion::CL_VER_2_0 <= m_oclVersion && m_clRtServices->isWorkItemPipeBuiltin(name))){
        wiUniqueFuncs.insert(fit);
     }
   }
@@ -180,7 +180,7 @@ bool CLWGLoopBoundaries::runOnFunction(Function& F) {
   m_F = &F;
   m_M = F.getParent();
   m_context = &F.getContext();
-  m_numDim = m_rtServices->getNumJitDimensions();
+  m_numDim = m_clRtServices->getNumJitDimensions();
   m_indTy = LoopUtils::getIndTy(m_M);
   m_constOne = ConstantInt::get(m_indTy, 1);
   m_constZero = ConstantInt::get(m_indTy, 0);
@@ -309,7 +309,7 @@ bool CLWGLoopBoundaries::handleBuiltinBoundMinMax(Instruction *tidInst) {
   if (!calledFunc) return false;
   StringRef fname = calledFunc->getName();
   bool isMinBltn, isSigned;
-  if (!m_rtServices->isScalarMinMaxBuiltin(fname, isMinBltn, isSigned))
+  if (!m_clRtServices->isScalarMinMaxBuiltin(fname, isMinBltn, isSigned))
     return false;
   assert(CI->getNumArgOperands() == 2 && "bad min,max signature");
 
@@ -926,7 +926,7 @@ bool CLWGLoopBoundaries::hasSideEffectInst(BasicBlock *BB) {
       case Instruction::Call :
       {
         std::string name = (cast<CallInst>(it))->getCalledFunction()->getName().str();
-        if (!m_rtServices->hasNoSideEffect(name)) return true;
+        if (!m_clRtServices->hasNoSideEffect(name)) return true;
         break;
       }
       default:
@@ -985,7 +985,7 @@ void CLWGLoopBoundaries::fillInitialBoundaries(BasicBlock *BB) {
   m_localSizes.clear();
   m_baseGIDs.clear();
   m_loopSizes.clear();
-  const char *baseGIDName = m_rtServices->getBaseGIDName();
+  const char *baseGIDName = m_clRtServices->getBaseGIDName();
   for (unsigned dim=0; dim < m_numDim; ++dim) {
     CallInst *localSize = LoopUtils::getWICall(
       m_M, CompilationUtils::mangledGetLocalSize(), m_indTy, dim, BB);
