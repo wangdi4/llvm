@@ -30,37 +30,35 @@ using namespace std;
 extern cl_device_type gDeviceType;
 
 static const char* sProg_prefer2 =
-"__kernel void Fan2(__global int *m_dev,\n"
-"                  __global int *a_dev,\n"
-"                  __global int *b_dev,\n"
-"                  const int size,\n"
-"                  const int t) {\n"
-"                  int globalIdx = get_global_id(0);\n"
-"                  int globalIdy = get_global_id(1);\n"
+"__kernel void test(__global int *m,\n"
+"                  __global int *a,\n"
+"                  __global int *b,\n"
+"                  const int size) {\n"
+"                  int x = get_global_id(0);\n"
+"                  int y = get_global_id(1);\n"
 "                  \n"
-"                  if (globalIdx < size-1-t && globalIdy < size-t) {\n"
-"                      a_dev[size*(globalIdx+1+t)+(globalIdy+t)] -= m_dev[size*(globalIdx+1+t)+t] * a_dev[size*t+(globalIdy+t)];\n"
+"                  if (x < size-1 && y < size) {\n"
+"                      a[size*(x+1)+y] -= m[size*(x+1)] * a[y];\n"
 "                      \n"
-"                      if(globalIdy == 0){\n"
-"                           b_dev[globalIdx+1+t] -= m_dev[size*(globalIdx+1+t)+(globalIdy+t)] * b_dev[t];\n"
+"                      if(y == 0){\n"
+"                           b[x+1] -= m[size*(x+1)+y] * b[0];\n"
 "                      }\n"
 "                  } \n"
 "}";
 
 static const char* sProg_prefer1 =
-"__kernel void Fan2(__global int *m_dev,\n"
-"                  __global int *a_dev,\n"
-"                  __global int *b_dev,\n"
-"                  const int size,\n"
-"                  const int t) {\n"
-"                int globalIdx = get_global_id(1);\n"
-"                int globalIdy = get_global_id(0);\n"
+"__kernel void test(__global int *m,\n"
+"                  __global int *a,\n"
+"                  __global int *b,\n"
+"                  const int size) {\n"
+"                int x = get_global_id(1);\n"
+"                int y = get_global_id(0);\n"
 "                \n"
-"                if (globalIdx < size-1-t && globalIdy < size-t) {\n"
-"                a_dev[size*(globalIdx+1+t)+(globalIdy+t)] -= m_dev[size*(globalIdx+1+t)+t] * a_dev[size*t+(globalIdy+t)];\n"
+"                if (x < size-1 && y < size) {\n"
+"                a[size*(x+1)+y] -= m[size*(x+1)] * a[y];\n"
 "                \n"
-"                if(globalIdy == 0){\n"
-"                   b_dev[globalIdx+1+t] -= m_dev[size*(globalIdx+1+t)+(globalIdy+t)] * b_dev[t];\n"
+"                if(y == 0){\n"
+"                   b[x+1] -= m[size*(x+1)+y] * b[0];\n"
 "                }\n"
 "            } \n"
 "}";
@@ -101,7 +99,7 @@ bool clCheckVectorizingDim1And2AndUniteWG(int progIndex,bool hasLocalWGSize)
         iRet = clBuildProgram(prog, 1, &device, NULL, NULL, NULL);
         CheckException(L"clBuildProgram", CL_SUCCESS, iRet);
 
-        cl_kernel kernel = clCreateKernel(prog, "Fan2", &iRet);
+        cl_kernel kernel = clCreateKernel(prog, "test", &iRet);
         CheckException(L"clCreateKernel", CL_SUCCESS, iRet);
 
         //create input
@@ -120,7 +118,6 @@ bool clCheckVectorizingDim1And2AndUniteWG(int progIndex,bool hasLocalWGSize)
             iDstArr_correct[i] = 1;
         }
         cl_int size = WORK_SIZE_DIM;
-        cl_int t = 0;
 
         //create buffers
         clMemWrapper srcBuf1 = clCreateBuffer(context, CL_MEM_USE_HOST_PTR, sizeof(iSrcArr1), iSrcArr1, &iRet);
@@ -138,8 +135,6 @@ bool clCheckVectorizingDim1And2AndUniteWG(int progIndex,bool hasLocalWGSize)
         iRet = clSetKernelArg(kernel, 2, sizeof(cl_mem), &dstBuf);
         CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
         iRet = clSetKernelArg(kernel, 3, sizeof(cl_int), &size);
-        CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
-        iRet = clSetKernelArg(kernel, 4, sizeof(cl_int), &t);
         CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
 
         size_t szGlobalWorkSize[2] = {WORK_SIZE_DIM, WORK_SIZE_DIM};
@@ -162,10 +157,10 @@ bool clCheckVectorizingDim1And2AndUniteWG(int progIndex,bool hasLocalWGSize)
         {
             for (size_t j = 0; j < WORK_SIZE_DIM; j++)
             {
-                if (i < size-1-t && j < size-t){
-                    iSrcArr2[i+1+t][j+t] -= iSrcArr1[i+1+t][t]*iSrcArr2[t][j+t] ;
+                if (i < size-1 && j < size){
+                    iSrcArr2[i+1][j] -= iSrcArr1[i+1][0]*iSrcArr2[0][j] ;
                     if (j==0){
-                        iDstArr_correct[i+1+t] -= iSrcArr1[i+1+t][j+t]*iDstArr_correct[t];
+                        iDstArr_correct[i+1] -= iSrcArr1[i+1][j]*iDstArr_correct[0];
                     }
                 }
             }
