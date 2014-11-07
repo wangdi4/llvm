@@ -5,5 +5,5 @@ __kernel void main_kernel(__global uchar* buf_in, __global uchar* buf_out)
     fl4.w += (float)get_global_id(0);
 
     if (get_global_id(0) == 3)
-        printf("%d %6.2v4f - that's all\n", ii2.x, fl4);
+        printf("%d %6.2v4hlf - that's all\n", ii2.x, fl4);
 }

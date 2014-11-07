@@ -1,6 +1,5 @@
 from testlib.debuggertestcase import DebuggerTestCase
 
-
 class TestWithoutDebug(DebuggerTestCase):
     CLNAME = 'printf_tester1.cl'
 
