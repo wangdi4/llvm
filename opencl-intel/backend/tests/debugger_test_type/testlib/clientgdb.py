@@ -231,13 +231,14 @@ class ClientGDB(TestClient):
     def start_session(self, gid_x, gid_y, gid_z, timeout=10):
         """ Send 'start' command to GDB """
 
-        self.started = True
         self.gid_x = gid_x
         self.gid_y = gid_y
         self.gid_z = gid_z
         # When multiple tests are running at the same time, GDB may take
         # longer to return from the "start" command.
-        self._command("start", timeout=200);
+        output = self._command("start", timeout=200);
+        logd("result of start command: " + output)
+        self.started = True
 
     def debug_run(self, breakpoints, timeout=900):
         """ Set the given breakpoints and issue a 'continue' command in GDB.
@@ -288,6 +289,9 @@ class ClientGDB(TestClient):
                     return
             elif status == StopReason.BREAKPOINT_HIT:
                 raise ClientError("Expecting exit but hit breakpoint at " \
+                  + str(details))
+            elif status == StopReason.NOT_RUNNING:
+                raise ClientError("Expecting exit but program not is not being run: " \
                   + str(details))
             else:
                 raise ClientError("Inferior stopped unexpectedly: " + str(details))
