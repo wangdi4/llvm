@@ -577,6 +577,7 @@ namespace intel {
         VMap[src_arg_it] = new_arg_it;
       }
       SmallVector<ReturnInst*, 8> Returns;
+      CloneDebugInfoMetadata(pNewFunc, pCallee, VMap);
       CloneFunctionInto(pNewFunc, pCallee, VMap, false, Returns);
       // Now - induce bitcasts between resolved arguments and GAS pointers
       // (still in use within the clone)
