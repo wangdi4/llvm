@@ -221,14 +221,15 @@ public:
     void WaitForEndOfTask() const;
 
 protected:
-    unsigned int						  m_numThreads;
-    cl_ulong      						m_timeOut;
+    unsigned int                        m_numThreads;
+    cl_ulong                            m_timeOut;
     Intel::OpenCL::Utils::AtomicCounter	m_barrier;
-    volatile bool 						m_failed;
+    volatile bool                       m_failed;
 
     Intel::OpenCL::Utils::AtomicCounter	m_endBarrier;
 
-    IAffinityChangeObserver* m_pObserver;
+    IAffinityChangeObserver*            m_pObserver;
+    unsigned int                        m_uiMasterHWId;
 
     AffinitizeThreads(unsigned int numThreads, cl_ulong timeOutInTicks, IAffinityChangeObserver* observer);
 };

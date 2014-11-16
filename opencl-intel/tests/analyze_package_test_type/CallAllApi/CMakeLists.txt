@@ -29,9 +29,14 @@ if(WIN32)
 endif(WIN32)
 
 set( CREATE_DIR_NAME bin/validation/analyze_package_test_type)
+set( TARGET_DIR_NAME bin/validation/analyze_package_test_type)
 
 # Copy generated executable to appropriate test directory in 'Release' area.
 install( TARGETS ${TARGET_NAME} DESTINATION ${CREATE_DIR_NAME} )
+
+#copy cl files that tests use
+FILE(GLOB CRT_KERNELS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} kernels/[^.]*)
+install(FILES ${CRT_KERNELS} DESTINATION ${TARGET_DIR_NAME})
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER "validation/workloads" )
 

@@ -15,19 +15,15 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Analysis/LoopInfo.h"
 
 
-using namespace llvm;
-
 namespace intel {
-
 
 /// @brief VectorizerCore pass is used to abstract all the VectorizerCore's work
 ///  as a single module pass, which is to be scheduled by the compiler
-class VectorizerCore : public FunctionPass {
+class VectorizerCore : public llvm::FunctionPass {
 
 public:
     static char ID;
     /// @brief C'tor
-    /// @param rt Runtime module (contains declarations of all builtin funcs)
     VectorizerCore(const OptimizerConfig* pConfig=0);
     /// @brief D'tor
     ~VectorizerCore();
@@ -39,10 +35,10 @@ public:
     /// @brief execute pass on given module
     /// @param M module to optimize
     /// @returns True if module was modified
-    virtual bool runOnFunction(Function &F);
-    
+    virtual bool runOnFunction(llvm::Function &F);
+
     /// @brief Inform about usage/mofication/dependency of this pass
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const {
       AU.addRequired<LoopInfo>();
       AU.addRequired<BuiltinLibInfo>();
     }
@@ -63,7 +59,7 @@ public:
     /// @brief set the scalar function of the function that is to
     /// be vectorized. This is a temporary hack since a bug in the
     /// metadata prevents passing this info through the MD.
-    void setScalarFunc(Function* func);
+    void setScalarFunc(llvm::Function* func);
 
 private:
     /// @brief packetization width
@@ -82,7 +78,7 @@ private:
     float m_postWeight;
 
     /// The scalar function of the function we vectorize.
-    Function* m_scalarFunc;
+    llvm::Function* m_scalarFunc;
 
     /// The vectorized dimension
     unsigned int m_vectorizationDim;

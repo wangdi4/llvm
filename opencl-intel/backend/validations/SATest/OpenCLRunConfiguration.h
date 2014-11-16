@@ -21,7 +21,9 @@ File Name:  OpenCLRunConfiguration.h
 #include <cstddef>      // for std::size_t not included in ICLDevBackendOptions.h! TODO: Remove when the bug is fixed.
 #include "ICLDevBackendOptions.h"
 #include "IRunConfiguration.h"
+
 #include "llvm/Support/DataTypes.h"
+
 #include <string>
 #include <vector>
 
@@ -41,6 +43,7 @@ namespace Validation
         RC_BR_EXECUTE_ITERATIONS_COUNT,
         RC_BR_MEASURE_PERFORMANCE,
         RC_BR_TRANSPOSE_SIZE,
+        RC_BR_VERBOSE,
         RC_BR_USE_SDE,
         RC_BR_USE_PIN_TRACE_MARKS,
         RC_BR_USE_VTUNE,
@@ -62,8 +65,6 @@ namespace Validation
         // These are comparator related configurations
         RC_COMP_DETAILED_STAT,
         RC_COMP_ULP_TOLERANCE,
-
-
 
         RC_END
     };
@@ -88,6 +89,7 @@ namespace Validation
         bool m_runSingleWG;
         bool m_buildOnly;
         bool m_stopBeforeJIT;
+        bool m_verbose;
         uint32_t m_defaultLocalWGSize;
         uint64_t m_RandomDataGeneratorSeed;
         uint32_t  m_buildIterationsCount;

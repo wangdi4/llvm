@@ -311,8 +311,8 @@ void OpenCLMICBackendRunner::CopyOutputData( BufferContainer& output,
             // Copy output data from the device.
             char*   imagePtr;
             m_coiFuncArgs.Map(COI_MAP_READ_ONLY, 0, NULL, (void**)&imagePtr, coiFuncArgsId);
-            std::copy(imagePtr, imagePtr + imageDesc.GetImageSizeInBytes(), (char*)pData);
-            DEBUG(llvm::dbgs()<< "Read image from the buffer #" << coiFuncArgsId << ". Image size (bytes): " << imageDesc.GetImageSizeInBytes() << ".\n");
+            std::copy(imagePtr, imagePtr + imageDesc.GetSizeInBytes(), (char*)pData);
+            DEBUG(llvm::dbgs()<< "Read image from the buffer #" << coiFuncArgsId << ". Image size (bytes): " << imageDesc.GetSizeInBytes() << ".\n");
             DEBUG(llvm::dbgs()<< "First three values (as floats): " << *(float*)imagePtr << ", " << *(((float*)imagePtr) + 1)  << ", " << *(((float*)imagePtr) + 2) << ".\n");
             DEBUG(llvm::dbgs()<< "First three values (as ints): " << *(int*)imagePtr << ", " << *(((int*)imagePtr) + 1)  << ", " << *(((int*)imagePtr) + 2) << ".\n");
             m_coiFuncArgs.UnMap();
@@ -339,8 +339,8 @@ void OpenCLMICBackendRunner::CopyOutputData( BufferContainer& output,
             DEBUG(llvm::dbgs()<< "Output data before copying the results.\n");
             DEBUG(llvm::dbgs()<< "First three values (as floats): " << *(float*)pData << ", " << *(((float*)pData) + 1)  << ", " << *(((float*)pData) + 2) << ".\n");
             DEBUG(llvm::dbgs()<< "First three values (as ints): " << *(int*)pData << ", " << *(((int*)pData) + 1)  << ", " << *(((int*)pData) + 2) << ".\n");
-            std::copy(bufferPtr, bufferPtr + bufferDesc.GetBufferSizeInBytes(), (char*)pData);
-            DEBUG(llvm::dbgs()<< "Read array from the buffer #" << coiFuncArgsId << ". Array size (bytes): " << bufferDesc.GetBufferSizeInBytes() << ".\n");
+            std::copy(bufferPtr, bufferPtr + bufferDesc.GetSizeInBytes(), (char*)pData);
+            DEBUG(llvm::dbgs()<< "Read array from the buffer #" << coiFuncArgsId << ". Array size (bytes): " << bufferDesc.GetSizeInBytes() << ".\n");
             DEBUG(llvm::dbgs()<< "First three values (as floats): " << *(float*)bufferPtr << ", " << *(((float*)bufferPtr) + 1)  << ", " << *(((float*)bufferPtr) + 2) << ".\n");
             DEBUG(llvm::dbgs()<< "First three values (as ints): " << *(int*)bufferPtr << ", " << *(((int*)bufferPtr) + 1)  << ", " << *(((int*)bufferPtr) + 2) << ".\n");
             DEBUG(llvm::dbgs()<< "Output data after copying the results.\n");

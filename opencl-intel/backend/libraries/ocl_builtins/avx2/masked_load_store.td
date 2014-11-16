@@ -89,6 +89,22 @@ OclBuiltinImpl __ocl_masked_store_int_4x4_AVX2 = OclBuiltinImpl<__ocl_masked_sto
     _mm256_maskstore_epi32((int*)&(tm$Arg0VarName[0]), (__m256i)maskLow, (__m256i)tm$Arg1VarName[0]);
     _mm256_maskstore_epi32((int*)&(tm$Arg0VarName[1]), (__m256i)maskHigh, (__m256i)tm$Arg1VarName[1]);
   }]>;
+  
+// ****************************************************************************
+//                                 int2x8
+// ****************************************************************************
+OclBuiltinImpl __ocl_masked_load_int_2x8_AVX2 = OclBuiltinImpl<__ocl_masked_load2x8, [v2i32], 0, [{
+  
+  int8 maskLow  = mask.s00112233;
+  int8 maskHigh = mask.s44556677;
+  
+  __private int8* tm$Arg0VarName = (__private int8*)$Arg0VarName;
+  __private int8* tm$Arg1VarName = (__private int8*)$Arg1VarName;
+  
+  tm$Arg1VarName[0] = as_int8(_mm256_maskload_epi32((int*)&(tm$Arg0VarName[0]), (__m256i)maskLow));
+  tm$Arg1VarName[1] = as_int8(_mm256_maskload_epi32((int*)&(tm$Arg0VarName[1]), (__m256i)maskHigh));
+  
+  }]>;
 
 // ****************************************************************************
 //                                 int4

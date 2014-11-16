@@ -602,28 +602,28 @@ define void @gatherpf.v16f32(float* %addr, <16 x i32>%index) {
 ;;       MASK Operations 
 ;; ------------------------------------
 
-define i1 @__ocl_allOne_v16(<16 x i1> %pred) {
+define i1 @__ocl_allOne_v16(<16 x i1> %pred) nounwind readnone {
 entry:
   %ipred = bitcast <16 x i1> %pred to i16
   %res = icmp eq i16 %ipred, -1
   ret i1 %res
 }
 
-define i1 @__ocl_allZero_v16(<16 x i1> %pred) {
+define i1 @__ocl_allZero_v16(<16 x i1> %pred) nounwind readnone {
 entry:
   %ipred = bitcast <16 x i1> %pred to i16
   %res = icmp eq i16 %ipred, 0
   ret i1 %res
 }
 
-define i1 @__ocl_allZero_v8(<8 x i1> %pred) {
+define i1 @__ocl_allZero_v8(<8 x i1> %pred) nounwind readnone {
 entry:
   %ipred = bitcast <8 x i1> %pred to i8
   %res = icmp eq i8 %ipred, 0
   ret i1 %res
 }
 
-define i1 @__ocl_allOne_v8(<8 x i1> %pred) {
+define i1 @__ocl_allOne_v8(<8 x i1> %pred) nounwind readnone {
 entry:
   %ipred = bitcast <8 x i1> %pred to i8
   %res = icmp eq i8 %ipred, -1

@@ -30,7 +30,6 @@
 #include <set>
 #include <algorithm>
 #include "GenericMemObj.h"
-#include "ImageBuffer.h"
 #include "cl_shared_ptr.hpp"
 #include "command_queue.h"
 #include "events_manager.h"
@@ -1982,7 +1981,9 @@ cl_mem ContextModule::Create2DImageFromImage(cl_context context, cl_mem_flags fl
     pOtherImg->GetImageInfo(CL_IMAGE_ROW_PITCH, sizeof(szOtherRowPitch), &szOtherRowPitch, NULL);
     pOtherImg->GetImageInfo(CL_IMAGE_FORMAT, sizeof(otherImgFormat), &otherImgFormat, NULL);
 
-    if (pImageDesc->image_width != szOtherWidth || pImageDesc->image_height != szOtherHeight || pImageDesc->image_row_pitch != szOtherRowPitch ||
+    if (pImageDesc->image_width != szOtherWidth || pImageDesc->image_height != szOtherHeight || 
+        (pImageDesc->image_row_pitch != 0 && pImageDesc->image_row_pitch != szOtherRowPitch) ||
+        (pImageDesc->image_row_pitch == 0 && clGetPixelBytesCount(pImageFormat) * pImageDesc->image_width != szOtherRowPitch) ||
         !((pImageFormat->image_channel_order == CL_sBGRA && otherImgFormat.image_channel_order == CL_BGRA) ||
           (pImageFormat->image_channel_order == CL_BGRA && otherImgFormat.image_channel_order == CL_sBGRA) ||
           (pImageFormat->image_channel_order == CL_sRGBA && otherImgFormat.image_channel_order == CL_RGBA) ||
@@ -1999,8 +2000,11 @@ cl_mem ContextModule::Create2DImageFromImage(cl_context context, cl_mem_flags fl
         return CL_INVALID_HANDLE;
     }
     void* const pData = pOtherImg->GetBackingStoreData();
-    return CreateScalarImage<2, CL_MEM_OBJECT_IMAGE2D>(context, flags, pImageFormat, pImageDesc->image_width, pImageDesc->image_height, 1, pImageDesc->image_row_pitch, 0, pData,
+    cl_mem clImg = CreateScalarImage<2, CL_MEM_OBJECT_IMAGE2D>(context, flags, pImageFormat, pImageDesc->image_width, pImageDesc->image_height, 1, pImageDesc->image_row_pitch, 0, pData,
         piErrcodeRet, true);
+    SharedPtr<MemoryObject> pImg = m_mapMemObjects.GetOCLObject((_cl_mem_int*)clImg).DynamicCast<MemoryObject>();
+    pImg->SetParent(pOtherImg);
+    return clImg;
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -1,11 +1,11 @@
 
 
-define i1 @__ocl_allOne(i1 %pred) {
+define i1 @__ocl_allOne(i1 %pred) nounwind readnone {
 entry:
   ret i1 %pred
 }
 
-define i1 @__ocl_allOne_v2(<2 x i1> %pred) {
+define i1 @__ocl_allOne_v2(<2 x i1> %pred) nounwind readnone {
 entry:
   %elem0 = extractelement <2 x i1> %pred, i32 0
   %elem1 = extractelement <2 x i1> %pred, i32 1
@@ -13,7 +13,7 @@ entry:
   ret i1 %res
 }
 
-define i1 @__ocl_allOne_v4(<4 x i1> %pred) {
+define i1 @__ocl_allOne_v4(<4 x i1> %pred) nounwind readnone {
 entry:
   %elem0 = extractelement <4 x i1> %pred, i32 0
   %elem1 = extractelement <4 x i1> %pred, i32 1
@@ -27,7 +27,7 @@ entry:
   ret i1 %res
 }
 
-define i1 @__ocl_allOne_v8(<8 x i1> %pred) {
+define i1 @__ocl_allOne_v8(<8 x i1> %pred) nounwind readnone {
 entry:
   %elem0 = extractelement <8 x i1> %pred, i32 0
   %elem1 = extractelement <8 x i1> %pred, i32 1
@@ -50,7 +50,7 @@ entry:
   ret i1 %res
 }
 
-define i1 @__ocl_allOne_v16(<16 x i1> %pred) {
+define i1 @__ocl_allOne_v16(<16 x i1> %pred) nounwind readnone {
 entry:
   %elem0 = extractelement <16 x i1> %pred, i32 0
   %elem1 = extractelement <16 x i1> %pred, i32 1
@@ -94,13 +94,13 @@ entry:
 
 
 
-define i1 @__ocl_allZero(i1 %t) {
+define i1 @__ocl_allZero(i1 %t) nounwind readnone {
 entry:
   %pred = xor i1 %t, true
   ret i1 %pred
 }
 
-define i1 @__ocl_allZero_v2(<2 x i1> %t) {
+define i1 @__ocl_allZero_v2(<2 x i1> %t) nounwind readnone {
 entry:
   %pred = xor <2 x i1> %t, <i1 true, i1 true>
   %elem0 = extractelement <2 x i1> %pred, i32 0
@@ -109,7 +109,7 @@ entry:
   ret i1 %res
 }
 
-define i1 @__ocl_allZero_v4(<4 x i1> %t) {
+define i1 @__ocl_allZero_v4(<4 x i1> %t) nounwind readnone {
 entry:
   %pred = xor <4 x i1> %t, <i1 true, i1 true, i1 true, i1 true>
   %elem0 = extractelement <4 x i1> %pred, i32 0
@@ -124,7 +124,7 @@ entry:
   ret i1 %res
 }
 
-define i1 @__ocl_allZero_v8(<8 x i1> %t) {
+define i1 @__ocl_allZero_v8(<8 x i1> %t) nounwind readnone {
 entry:
   %pred = xor <8 x i1> %t, <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>
   %elem0 = extractelement <8 x i1> %pred, i32 0
@@ -148,7 +148,7 @@ entry:
   ret i1 %res
 }
 
-define i1 @__ocl_allZero_v16(<16 x i1> %t) {
+define i1 @__ocl_allZero_v16(<16 x i1> %t) nounwind readnone {
 entry:
   %pred = xor <16 x i1> %t, <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>
   %elem0 = extractelement <16 x i1> %pred, i32 0

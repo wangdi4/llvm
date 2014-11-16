@@ -54,7 +54,7 @@ protected:
 
         // TODO: add image support to data generator.
         uint8_t *pData = reinterpret_cast<uint8_t*>(image->GetDataPtr());
-        for(size_t i = 0; i < argDesc.GetImageSizeInBytes(); ++i)
+        for(size_t i = 0; i < argDesc.GetSizeInBytes(); ++i)
         {
             pData[i] = i;
         }
@@ -72,10 +72,10 @@ protected:
         ASSERT_TRUE(readImage != NULL);
         const ImageDesc *expectedDesc = static_cast<const ImageDesc*>(expectedImage->GetMemoryObjectDesc());
         const ImageDesc *readDesc = static_cast<const ImageDesc*>(readImage->GetMemoryObjectDesc());
-        EXPECT_TRUE(expectedDesc->GetImageSizeInBytes() == readDesc->GetImageSizeInBytes());
+        EXPECT_TRUE(expectedDesc->GetSizeInBytes() == readDesc->GetSizeInBytes());
         uint8_t *expectedData = reinterpret_cast<uint8_t*>(expectedImage->GetDataPtr());
         uint8_t *readData = reinterpret_cast<uint8_t*>(readImage->GetDataPtr());
-        for (size_t i = 0; i < readDesc->GetImageSizeInBytes(); ++i)
+        for (size_t i = 0; i < readDesc->GetSizeInBytes(); ++i)
         {
             EXPECT_TRUE(expectedData[i] == readData[i]);
         }

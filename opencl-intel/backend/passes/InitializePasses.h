@@ -46,6 +46,7 @@ void initializeSplitBBonBarrierPass(llvm::PassRegistry&);
 void initializeBarrierPass(llvm::PassRegistry&);
 void initializeWIRelatedValuePass(llvm::PassRegistry&);
 void initializeSinCosFoldPass(llvm::PassRegistry&);
+void initializePreLegalizeBoolsPass(llvm::PassRegistry&);
 void initializeDataPerBarrierPass(llvm::PassRegistry&);
 void initializeDataPerValuePass(llvm::PassRegistry&);
 void initializePreventDivCrashesPass(llvm::PassRegistry&);
@@ -83,6 +84,7 @@ void initializeImplicitArgsAnalysisPass(llvm::PassRegistry&);
 void initializeSmartGVNPass(llvm::PassRegistry&);
 void initializeDeduceMaxWGDimPass(llvm::PassRegistry&);
 void initializeRenderscriptVectorizerPass(llvm::PassRegistry&);
+void initializeOCLAliasAnalysisPass(llvm::PassRegistry&);
 }
 
 #endif

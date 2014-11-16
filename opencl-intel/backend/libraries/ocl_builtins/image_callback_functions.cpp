@@ -65,6 +65,9 @@ ALIGN16 const constant uint4 i4uint16Max = {USHRT_MAX, USHRT_MAX, USHRT_MAX, USH
 ALIGN16 const constant float4 BorderColorAlphaFloat = {0.0f, 0.0f, 0.0f, 1.0f};
 ALIGN16 const constant int4 BorderColorAlphaInt = {0, 0, 0, 1};
 
+// Clamp Border color used for CL_DEPTH
+ALIGN16 const constant float4 BorderColorDepthFloat = {1.0f, 1.0f, 1.0f, 1.0f};
+
 ALIGN16 const constant uint4 BorderColorAlphaUint = {0, 0, 0, 1};
 ALIGN16 const constant float f4SignMask[] = {-0.f, -0.f, -0.f, -0.f};
 
@@ -749,8 +752,8 @@ IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RG_SNORM_INT8, BorderColorAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RG_SNORM_INT16, BorderColorAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RG_FLOAT, BorderColorAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RG_HALF_FLOAT, BorderColorAlphaFloat)
-IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(DEPTH_FLOAT, BorderColorAlphaFloat)
-IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(DEPTH_UNORM_INT16, BorderColorAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(DEPTH_FLOAT, BorderColorDepthFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(DEPTH_UNORM_INT16, BorderColorDepthFloat)
 
 void write_sample_RGBA_UNSIGNED_INT8(__private void* pixel, uint4 color)
 {
@@ -1617,8 +1620,8 @@ IMPLEMENT_read_sample_LINEAR1D_CLAMP(RG_SNORM_INT16, BorderColorAlphaFloat, dumm
 IMPLEMENT_read_sample_LINEAR1D_CLAMP(RG_HALF_FLOAT, BorderColorAlphaFloat, dummyFnc)
 // the following implementations are workaround to avoid changes
 // in the image callback library architecture
-IMPLEMENT_read_sample_LINEAR1D_CLAMP(DEPTH_FLOAT, BorderColorAlphaFloat, dummyFnc)
-IMPLEMENT_read_sample_LINEAR1D_CLAMP(DEPTH_UNORM_INT16, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(DEPTH_FLOAT, BorderColorDepthFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(DEPTH_UNORM_INT16, BorderColorDepthFloat, dummyFnc)
 
 
 #define IMPLEMENT_read_sample_LINEAR2D_CLAMP_CH1(TYPE, POST_PROCESSING) \
@@ -1692,8 +1695,8 @@ IMPLEMENT_read_sample_LINEAR2D_CLAMP(RG_UNORM_INT16, BorderColorAlphaFloat, dumm
 IMPLEMENT_read_sample_LINEAR2D_CLAMP(RG_SNORM_INT8, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_CLAMP(RG_SNORM_INT16, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_CLAMP(RG_HALF_FLOAT, BorderColorAlphaFloat, dummyFnc)
-IMPLEMENT_read_sample_LINEAR2D_CLAMP(DEPTH_FLOAT, BorderColorAlphaFloat, dummyFnc)
-IMPLEMENT_read_sample_LINEAR2D_CLAMP(DEPTH_UNORM_INT16, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_CLAMP(DEPTH_FLOAT, BorderColorDepthFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_CLAMP(DEPTH_UNORM_INT16, BorderColorDepthFloat, dummyFnc)
 
 
 #define IMPLEMENT_read_sample_LINEAR3D_CLAMP(TYPE, BORDER_COLOR, POST_PROCESSING) \
@@ -1757,8 +1760,8 @@ IMPLEMENT_read_sample_LINEAR3D_CLAMP(RG_SNORM_INT16, BorderColorAlphaFloat, dumm
 IMPLEMENT_read_sample_LINEAR3D_CLAMP(RG_HALF_FLOAT, BorderColorAlphaFloat, dummyFnc)
 // the following implementations are workaround to avoid changes
 // in the image callback library architecture
-IMPLEMENT_read_sample_LINEAR3D_CLAMP(DEPTH_FLOAT, BorderColorAlphaFloat, dummyFnc)
-IMPLEMENT_read_sample_LINEAR3D_CLAMP(DEPTH_UNORM_INT16, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_CLAMP(DEPTH_FLOAT, BorderColorDepthFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_CLAMP(DEPTH_UNORM_INT16, BorderColorDepthFloat, dummyFnc)
 
 
 //////////////////////////////////////
@@ -1852,10 +1855,10 @@ float4 load_pixel_R_FLOAT(__private void* pPixel)
 // @param image: the image object
 // @param pPixel: the pointer to the pixel
 //
-// returns a float4 (d, 0, 0, 1.0)
+// returns a float4 (d, 1.0, 1.0, 1.0)
 float4 load_pixel_DEPTH_FLOAT(__private void* pPixel)
 {
-    float4 pixel = (float4)(0.f, 0.f, 0.f, 1.f);
+    float4 pixel = (float4)(0.f, 1.f, 1.f, 1.f);
     pixel.x = *((__private float*)pPixel);
     return pixel;
 }
@@ -2277,11 +2280,11 @@ float4 load_pixel_R_UNORM_INT16(__private void* pPixel)
 // @param image: the image object
 // @param pPixel: the pointer to the pixel
 //
-// returns a float4 (d, 0, 0, 1)
+// returns a float4 (d, 1, 1, 1)
 float4 load_pixel_DEPTH_UNORM_INT16(__private void* pPixel)
 {
     float d = convert_float(*(__private ushort*)pPixel) / 65535.f;
-    return (float4)(d, 0.f, 0.f, 1.f);
+    return (float4)(d, 1.f, 1.f, 1.f);
 }
 
 // loads and converts pixel data from a given pixel pointer when the image has the following properties:
@@ -2543,7 +2546,7 @@ uint4 read_sample_UNDEFINED_QUAD_INT(image2d_t image, int4 coord, __private void
     return BorderColorNoAlphaUint;  //return all zeros vector
 }
 
-float4 read_sample_UNDEFINED_QUAD_FLOAT(image2d_t image, int4 square0, int4 square1, float4 fraction, __private void* pData)  \
+float4 read_sample_UNDEFINED_QUAD_FLOAT(image2d_t image, int4 square0, int4 square1, float4 fraction, __private void* pData)
 {
     return BorderColorNoAlphaFloat;  //return all zeros vector
 }

@@ -146,7 +146,7 @@ public:
         assert( pszOpenCLVer != NULL);
     }
 
-    std::string processOptions(const OpenCLArgList& args, ArgsVector& effectiveArgs );
+    std::string processOptions(const OpenCLArgList& args, const char* pszOptionsEx, ArgsVector& effectiveArgs );
 
 private:
     std::string m_opencl_ver;

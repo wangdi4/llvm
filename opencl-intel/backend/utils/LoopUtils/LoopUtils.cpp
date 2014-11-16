@@ -209,6 +209,17 @@ void fillAtomicBuiltinUsers(Module &m, const OpenclRuntime *rt,
   fillFuncUsersSet(atomicFuncs, userFuncs);
 }
 
+void fillWorkItemPipeBuiltinUsers(Module &m, const OpenclRuntime *rt,
+                                  std::set<Function *> &userFuncs) {
+  std::set<Function *> pipeFuncs;
+  for (Module::iterator fit = m.begin(), fe = m.end(); fit != fe; ++fit) {
+    std::string name = fit->getName().str();
+    if (rt->isWorkItemPipeBuiltin(name))
+      pipeFuncs.insert(fit);
+  }
+  fillFuncUsersSet(pipeFuncs, userFuncs);
+}
+
 void collectTIDCallInst(const char *name, IVecVec &tidCalls, Function *F) {
   const unsigned MAX_OCL_NUM_DIM = 3;
   IVec emptyVec;

@@ -134,6 +134,11 @@ namespace Validation
             return m_value == TSTRUCT;
         }
 
+        bool IsVector() const
+        {
+            return m_value == TVECTOR;
+        }
+
         bool IsInteger() const
         {
             return (m_value > TDOUBLE) && (m_value < TBOOL);
@@ -326,6 +331,11 @@ namespace Validation
         bool IsStruct() const
         {
             return m_type.IsStruct();
+        }
+
+        bool IsVector() const
+        {
+            return m_type.IsVector();
         }
 
         bool IsInteger() const

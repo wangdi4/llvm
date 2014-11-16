@@ -157,6 +157,20 @@ struct FunctionStackFrame
         VarDeclInfo(void* addr_, const MDNode* description_, bool is_global_ = false)
             : addr(addr_), description(description_), is_global(is_global_)
         {
+            DIVariable di_var(description);
+            if (!is_global && di_var.hasComplexAddress()) {
+              unsigned N = di_var.getNumAddrElements();
+              for (unsigned i = 0; i < N; ++i) {
+                uint64_t Element = di_var.getAddrElement(i);
+                if (Element == 1) { // +
+                  uint64_t a = reinterpret_cast<uint64_t>(addr);
+                  a += di_var.getAddrElement(++i);
+                  addr = reinterpret_cast<void*>(a);
+                } else if (Element == 2) { // deref
+                  addr = *(reinterpret_cast<void**>(addr));
+                } else llvm_unreachable("unknown complex address opcode");
+              }
+            }
         }
 
         void* addr;
@@ -745,6 +759,7 @@ DebugServer::~DebugServer()
 
 bool DebugServer::Init(unsigned int port_number)
 {
+    llvm::MutexGuard lock(m_Lock);
     if (d->m_initialized)
         return true;
     
@@ -796,6 +811,7 @@ void DebugServer::WaitForStartCommand()
 {
     // Receive a START_SESSION message and reply to it
     //
+    llvm::MutexGuard lock(m_Lock);
     ClientToServerMessage msg = d->m_comm->receiveMessage();
     LOG_RECEIVED_MESSAGE(msg);
 
@@ -870,6 +886,7 @@ void DebugServer::Stoppoint(const MDNode* line_metadata)
     string absPath = file;
 #endif
 
+    llvm::MutexGuard lock(m_Lock);
     d->m_prev_stoppoint_line = line_metadata;
     bool stopped = false;
 
@@ -966,6 +983,7 @@ void DebugServer::Stoppoint(const MDNode* line_metadata)
 
 bool DebugServer::DebuggedGlobalIdMatch(unsigned x, unsigned y, unsigned z)
 {
+    llvm::MutexGuard lock(m_Lock);
     return d->DebuggedGlobalIdMatch(x, y, z);
 }
 
@@ -1008,6 +1026,7 @@ void DebugServer::DeclareGlobal(void* addr, const llvm::MDNode* description)
 
 void DebugServer::TerminateConnection()
 {
+    llvm::MutexGuard lock(m_Lock);
     d->TerminateCommunicator();
 }
 

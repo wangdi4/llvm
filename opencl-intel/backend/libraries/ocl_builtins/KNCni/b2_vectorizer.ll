@@ -7,12 +7,12 @@ declare i32 @llvm.x86.mic.kortestz(i16, i16) nounwind readnone
 
 declare i16 @llvm.x86.mic.knot(i16) nounwind readnone
 
-define i1 @__ocl_allOne(i1 %pred) {
+define i1 @__ocl_allOne(i1 %pred) nounwind readnone {
 entry:
   ret i1 %pred
 }
 
-define i1 @__ocl_allOne_v2(<2 x i1> %pred) {
+define i1 @__ocl_allOne_v2(<2 x i1> %pred) nounwind readnone {
 entry:
   %0 = shufflevector <2 x i1> %pred, <2 x i1> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
   %1 = shufflevector <4 x i1> %0, <4 x i1> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
@@ -24,7 +24,7 @@ entry:
   ret i1 %res
 }
 
-define i1 @__ocl_allOne_v4(<4 x i1> %pred) {
+define i1 @__ocl_allOne_v4(<4 x i1> %pred) nounwind readnone {
 entry:
   %0 = shufflevector <4 x i1> %pred, <4 x i1> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
   %1 = shufflevector <8 x i1> %0, <8 x i1> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
@@ -35,7 +35,7 @@ entry:
   ret i1 %res
 }
 
-define i1 @__ocl_allOne_v8(<8 x i1> %pred) {
+define i1 @__ocl_allOne_v8(<8 x i1> %pred) nounwind readnone {
 entry:
   %0 = shufflevector <8 x i1> %pred, <8 x i1> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
   %ipred = bitcast <16 x i1> %0 to i16
@@ -45,7 +45,7 @@ entry:
   ret i1 %res
 }
 
-define i1 @__ocl_allOne_v16(<16 x i1> %pred) {
+define i1 @__ocl_allOne_v16(<16 x i1> %pred) nounwind readnone {
 entry:
   %ipred = bitcast <16 x i1> %pred to i16
   %val = call i32 @llvm.x86.mic.kortestc(i16 %ipred, i16 %ipred)
@@ -53,13 +53,13 @@ entry:
   ret i1 %res
 }
 
-define i1 @__ocl_allZero(i1 %t) {
+define i1 @__ocl_allZero(i1 %t) nounwind readnone {
 entry:
   %pred = xor i1 %t, true
   ret i1 %pred
 }
 
-define i1 @__ocl_allZero_v2(<2 x i1> %t) {
+define i1 @__ocl_allZero_v2(<2 x i1> %t) nounwind readnone {
 entry:
   %0 = shufflevector <2 x i1> %t, <2 x i1> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
   %1 = shufflevector <4 x i1> %0, <4 x i1> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
@@ -71,7 +71,7 @@ entry:
   ret i1 %res
 }
 
-define i1 @__ocl_allZero_v4(<4 x i1> %t) {
+define i1 @__ocl_allZero_v4(<4 x i1> %t) nounwind readnone {
 entry:
   %0 = shufflevector <4 x i1> %t, <4 x i1> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
   %1 = shufflevector <8 x i1> %0, <8 x i1> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
@@ -82,7 +82,7 @@ entry:
   ret i1 %res
 }
 
-define i1 @__ocl_allZero_v8(<8 x i1> %t) {
+define i1 @__ocl_allZero_v8(<8 x i1> %t) nounwind readnone {
 entry:
   %0 = shufflevector <8 x i1> %t, <8 x i1> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
   %ipred = bitcast <16 x i1> %0 to i16
@@ -92,7 +92,7 @@ entry:
   ret i1 %res
 }
 
-define i1 @__ocl_allZero_v16(<16 x i1> %t) {
+define i1 @__ocl_allZero_v16(<16 x i1> %t) nounwind readnone {
 entry:
   %ipred = bitcast <16 x i1> %t to i16
   %val = call i32 @llvm.x86.mic.kortestz(i16 %ipred, i16 %ipred)

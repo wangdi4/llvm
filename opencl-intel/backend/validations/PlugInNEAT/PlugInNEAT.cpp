@@ -773,8 +773,8 @@ void CopyBufferToNEAT (const IMemoryObject& src, IMemoryObject& dst)
     assert(bufferLen == dstDesc.NumOfElements());
     const char *srcPtr = static_cast<const char*>(src.GetDataPtr());
     char *dstPtr = static_cast<char*>(dst.GetDataPtr());
-    std::size_t srcBufferSize = srcDesc.GetBufferSizeInBytes();
-    std::size_t dstBufferSize = dstDesc.GetBufferSizeInBytes();
+    std::size_t srcBufferSize = srcDesc.GetSizeInBytes();
+    std::size_t dstBufferSize = dstDesc.GetSizeInBytes();
     for (std::size_t i = 0; i < bufferLen; ++i)
     {
         CopyBufferElementToNEAT(srcPtr, dstPtr, srcDesc.GetElementDescription(), dstDesc.GetElementDescription());

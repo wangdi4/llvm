@@ -1910,6 +1910,8 @@ SET_ALIAS(clEnqueueBarrier);
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Sharing Memory Objects with OpenGL / OpenGL ES Buffer, Texture and Renderbuffer Objects
 ///////////////////////////////////////////////////////////////////////////////////////////////////                              
+#if defined (WIN32)
+
 SET_ALIAS(clCreateFromGLBuffer);
 REGISTER_EXTENSION_FUNCTION(clCreateFromGLBuffer, clCreateFromGLBuffer);
 cl_mem CL_API_CALL clCreateFromGLBuffer(cl_context   context,
@@ -2132,6 +2134,9 @@ cl_int CL_API_CALL clGetGLContextInfoKHR(const cl_context_properties * propertie
         CALL_INSTRUMENTED_API(PLATFORM_MODULE, cl_int, GetGLContextInfo(properties, param_name, param_value_size, param_value, param_value_size_ret));
     }
 }
+
+#endif // end of GL extension functions
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // New OpenCL 1.1 functions
 ///////////////////////////////////////////////////////////////////////////////////////////////////                              

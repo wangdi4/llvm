@@ -24,7 +24,7 @@ else(BUILD_LLVM_FROM_SOURCE )
 
     # detect where to look for the LLVM installation
     if( DEFINED LLVM_PATH )
-      set(LLVM_INSTALL_PATH ${LLVM_PATH})
+        set(LLVM_INSTALL_PATH ${LLVM_PATH})
     else()
       message( FATAL_ERROR "Can't find LLVM library. Please specify LLVM library location using LLVM_PATH parameter to CMAKE" )
     endif()
@@ -44,7 +44,11 @@ else(BUILD_LLVM_FROM_SOURCE )
     include( LLVMConfig )
     set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH_SAVE})
 
-    message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
+    if( DEFINED LLVM_PACKAGE_VERSION)
+        message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
+    else()
+        message(FATAL_ERROR "Can't find LLVM in supplied path: ${LLVM_PATH}")
+    endif()
 
     if (${LLVM_PACKAGE_VERSION} VERSION_LESS "3.5")
       #reset some LLVM internal variables that were set in LLVMConfig

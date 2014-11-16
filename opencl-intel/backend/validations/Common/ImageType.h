@@ -82,6 +82,11 @@ namespace Validation
             throw Exception::InvalidArgument("NonSupported Image Channel Data Type " + str);
         }
 
+        inline bool operator == (const ImageTypeVal& a) const
+        {
+            return (a == m_value);
+        }
+
         inline bool operator == (const ImageTypeValWrapper& a) const
         {
             return (a.m_value == m_value);

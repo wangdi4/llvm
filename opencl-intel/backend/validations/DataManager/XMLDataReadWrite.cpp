@@ -352,7 +352,7 @@ namespace Validation
     inline void ReadWriteImageBinary(IMemoryObject * pB, TiXmlElement *pXml, IXMLReadWriteBase::RWOperationType rwtype)
     {
         ImageDesc desc = GetImageDescription(pB->GetMemoryObjectDesc());
-        size_t imageSize = desc.GetImageSizeInBytes();
+        size_t imageSize = desc.GetSizeInBytes();
 
         std::stringstream imageSrt;
         if (IXMLReadWriteBase::READ == rwtype) imageSrt.str(pXml->GetText());

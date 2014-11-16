@@ -88,6 +88,8 @@ llvm::ModulePass *createDetectFuncPtrCalls();
 llvm::ModulePass *createDetectRecursionPass();
 llvm::ModulePass *createCloneBlockInvokeFuncToKernelPass();
 llvm::Pass *createResolveBlockToStaticCallPass();
+llvm::ModulePass *createPreLegalizeBoolsPass();
+llvm::ImmutablePass* createOCLAliasAnalysisPass();
 }
 
 using namespace intel;
@@ -260,6 +262,7 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
     PM.add(createGenericAddressStaticResolutionPass());
   }
   PM.add(llvm::createBasicAliasAnalysisPass());
+  PM.add(createOCLAliasAnalysisPass());
 #ifndef __APPLE__
   if (dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)) {
     PM.add(createPrintIRPass(DUMP_IR_TARGERT_DATA, OPTION_IR_DUMPTYPE_AFTER,
@@ -328,6 +331,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
 
 
   PM.add(llvm::createBasicAliasAnalysisPass());
+  PM.add(createOCLAliasAnalysisPass());
 
   // Should be called before vectorizer!
   PM.add((llvm::Pass*)createInstToFuncCallPass(HasGatherScatter));
@@ -369,6 +373,10 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
     }
     if (!HasGatherScatter) {
       PM.add(createReduceAlignmentPass());
+      if(pConfig->GetCpuId().HasSSE41()) { // no point to run for older CPU archs
+        // Workaround boolean vectors legalization issue.
+        PM.add(createPreLegalizeBoolsPass());
+      }
     }
 #endif //#ifndef __APPLE__
   }
@@ -470,7 +478,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   PM.add(createUndifinedExternalFunctionsPass(UndefinedExternals));
 
   if(pRtlModule != NULL) {
-      PM.add(createBuiltInImportPass(pConfig->GetCpuId().GetCPUPrefix())); // Inline BI function
+    PM.add(createBuiltInImportPass(pConfig->GetCpuId().GetCPUPrefix())); // Inline BI function
     //Need to convert shuffle calls to shuffle IR before running inline pass on built-ins
     PM.add(createBuiltinCallToInstPass());
   }

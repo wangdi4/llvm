@@ -58,15 +58,11 @@ cl_err_code GLTexture1D::Initialize(cl_mem_flags clMemFlags, const cl_image_form
 		return CL_OUT_OF_RESOURCES;
 	}
 
-	if ( (m_clFlags & CL_MEM_READ_ONLY) || (m_clFlags & CL_MEM_READ_WRITE) )
+	// Now we need to create a frame buffer
+	m_pGLContext->glGenFramebuffersEXT( 1, &m_glFramebuffer );
+	if ( 0 != glGetError() )
 	{
-
-		// Now we need to create a frame buffer
-		m_pGLContext->glGenFramebuffersEXT( 1, &m_glFramebuffer );
-		if ( 0 != glGetError() )
-		{
-			return CL_OUT_OF_RESOURCES;
-		}
+		return CL_OUT_OF_RESOURCES;
 	}
 
 	return CL_SUCCESS;

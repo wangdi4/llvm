@@ -319,6 +319,20 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Date:            August 2010
         ******************************************************************************************/
         SharedPtr<MemoryObject> GetParent() {return m_pParentObject;}
+        ConstSharedPtr<MemoryObject> GetParent() const {return m_pParentObject;}
+
+        /******************************************************************************************
+        * Function:     SetParent
+        * Description:  Sets the parrent object. This method should not be called if a parent object already exists.
+        * Arguments:    pParentObject the parrent object to set
+        * Author:       Aharon Abramson
+        * Date:         September 2014
+        ******************************************************************************************/
+        void SetParent(const SharedPtr<MemoryObject>& pParentObject)
+        {
+            assert(NULL == m_pParentObject);
+            m_pParentObject = pParentObject;
+        }
 
         /******************************************************************************************
         * Function:     IsSupportedByDevice

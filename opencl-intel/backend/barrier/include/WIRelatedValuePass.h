@@ -131,6 +131,8 @@ namespace intel {
     /// This holds a map between value and it relation on WI-id (related or not)
     TValuesMap m_specialValues;
 
+    /// OpenCL C version the module is compiled for
+    unsigned m_oclVersion;
   };
 
 } // namespace intel

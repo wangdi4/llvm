@@ -243,6 +243,17 @@ namespace Validation
         static llvm::sys::cas_flag s_counter;
     };
 
+    class HashComparator
+    {
+    public:
+        bool operator() (const MD5Code& lhs, const MD5Code& rhs) const
+        {
+            int result = memcmp(lhs.code(), rhs.code(), 16);
+            return (result < 0)? true: false;
+        }
+    };
+
+
     ///
     ///\brief OCL Recorder plug-in
     ///
@@ -290,14 +301,16 @@ namespace Validation
 
         void RecordKernelConfig(RecorderContext& programContext,
                                 const KernelContext& kernelContext,
-                                const BinaryContext& binaryContext);
+                                const BinaryContext& binaryContext,
+                                const std::string& pathToDataInputFile);
 
         void RecordKernelInputs(const RecorderContext& programContext,
                                 const KernelContext& kernelContext,
                                 const BinaryContext& binaryContext,
                                 const ICLDevBackendKernel_* pKernel,
                                 size_t bufSize,
-                                void* pArgsBuffer);
+                                void* pArgsBuffer,
+                                std::string& pathToDataInputFile);
         //adds a file name to be recorded in this context
         //
         void AddRecordedFile(const std::string&);
@@ -305,6 +318,8 @@ namespace Validation
         //within this context
         //
         bool IsRecordedFile(const std::string&)const;
+
+        const std::string* GetPathToInputData(const MD5Code&) const;
 
     private: // Utility methods
 
@@ -338,6 +353,7 @@ namespace Validation
 
         //files names that has been recorded in this session (avoid overruns)
         std::vector<std::string> m_recordedFiles;
+        std::map<MD5Code, std::string, HashComparator> m_hashToPath; //container for saved hash of used data
         RecorderContextMap m_contexts;     // container for program specific contexts
         llvm::sys::Mutex   m_contextsLock; // synchronization for the contexts container
         std::string        m_logsDir;      // optional path to log directory

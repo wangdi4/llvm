@@ -1,0 +1,32 @@
+; RUN: opt -module-cleanup -S %s -o %t.ll
+; RUN: FileCheck %s --input-file=%t.ll
+
+; CHECK-NOT:    @_NSConcreteGlobalBlock
+; CHECK-NOT:    external
+
+@_NSConcreteGlobalBlock = external global i8*
+@.str = private unnamed_addr constant [9 x i8] c"i12@?0i8\00", align 1
+@__block_descriptor_tmp = internal constant { i64, i64, i8*, i8* } { i64 0, i64 32, i8* getelementptr inbounds ([9 x i8]* @.str, i32 0, i32 0), i8* null }
+
+define spir_kernel void @block_typedef_reassign(i32 addrspace(1)* %res) nounwind {
+  ret void
+}
+
+!opencl.kernels = !{!0}
+!opencl.enable.FP_CONTRACT = !{}
+!opencl.spir.version = !{!6}
+!opencl.ocl.version = !{!7}
+!opencl.used.extensions = !{!8}
+!opencl.used.optional.core.features = !{!8}
+!opencl.compiler.options = !{!9}
+
+!0 = metadata !{void (i32 addrspace(1)*)* @block_typedef_reassign, metadata !1, metadata !2, metadata !3, metadata !4, metadata !5}
+!1 = metadata !{metadata !"kernel_arg_addr_space", i32 1}
+!2 = metadata !{metadata !"kernel_arg_access_qual", metadata !"none"}
+!3 = metadata !{metadata !"kernel_arg_type", metadata !"int*"}
+!4 = metadata !{metadata !"kernel_arg_type_qual", metadata !""}
+!5 = metadata !{metadata !"kernel_arg_name", metadata !"res"}
+!6 = metadata !{i32 1, i32 0}
+!7 = metadata !{i32 2, i32 0}
+!8 = metadata !{}
+!9 = metadata !{metadata !"-cl-std=CL2.0"}

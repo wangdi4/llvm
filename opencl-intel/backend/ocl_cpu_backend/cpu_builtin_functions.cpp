@@ -134,4 +134,5 @@ void RegisterCPUBIFunctions(void)
     REGISTER_BI_FUNCTION("ocl20_get_kernel_wg_size_local",ocl20_get_kernel_wg_size_local)
     REGISTER_BI_FUNCTION("ocl20_get_kernel_preferred_wg_size_multiple",ocl20_get_kernel_preferred_wg_size_multiple)
     REGISTER_BI_FUNCTION("ocl20_get_kernel_preferred_wg_size_multiple_local",ocl20_get_kernel_preferred_wg_size_multiple_local)
+    REGISTER_BI_FUNCTION("ocl20_is_valid_event",ocl20_is_valid_event)
 }

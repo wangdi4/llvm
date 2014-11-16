@@ -238,15 +238,8 @@ cl_err_code GLTexture::CreateChildObject()
 	SharedPtr<GLContext> pGLContext = m_pContext.DynamicCast<GLContext>();
 	GLContext::GLContextSync sync(pGLContext.GetPtr());
 
-	if ( (m_clFlags & CL_MEM_READ_ONLY) || (m_clFlags & CL_MEM_READ_WRITE) )
-	{
-		glBindingType = GL_PIXEL_PACK_BUFFER_BINDING_ARB;
-		glBind = GL_PIXEL_PACK_BUFFER_ARB;
-	} else if ( m_clFlags & CL_MEM_WRITE_ONLY )
-	{
-		glBindingType = GL_PIXEL_UNPACK_BUFFER_BINDING_ARB;
-		glBind = GL_PIXEL_UNPACK_BUFFER_ARB;
-	}
+    glBindingType = GL_PIXEL_PACK_BUFFER_BINDING_ARB;
+	glBind = GL_PIXEL_PACK_BUFFER_ARB;
 
 	glGetIntegerv(glBindingType, &pboBinding);
 	glErr = glGetError();
@@ -379,170 +372,114 @@ cl_err_code GLTexture::Initialize(cl_mem_flags clMemFlags, const cl_image_format
 
 cl_err_code GLTexture::AcquireGLObject()
 {
-	Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease);
+    Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease);
 
-	if ( m_lstAcquiredObjectDescriptors.end() != m_itCurrentAcquriedObject && 
-		  ( (CL_GFX_OBJECT_NOT_ACQUIRED != m_itCurrentAcquriedObject->second) &&
-		    (CL_GFX_OBJECT_NOT_READY != m_itCurrentAcquriedObject->second) &&
+    if ( m_lstAcquiredObjectDescriptors.end() != m_itCurrentAcquriedObject && 
+          ( (CL_GFX_OBJECT_NOT_ACQUIRED != m_itCurrentAcquriedObject->second) &&
+            (CL_GFX_OBJECT_NOT_READY != m_itCurrentAcquriedObject->second) &&
         (CL_GFX_OBJECT_FAIL_IN_ACQUIRE != m_itCurrentAcquriedObject->second) )
-		)
-	{
-		// We have already acquired object
-		return CL_SUCCESS;
-	}
+        )
+    {
+        // We have already acquired object
+        return CL_SUCCESS;
+    }
 
-	if ( (m_clFlags & CL_MEM_READ_ONLY) || (m_clFlags & CL_MEM_READ_WRITE) )
-	{
-		GLint	currFBO;
-		GLint glErr = 0;
-		glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currFBO);
-		glErr |= glGetError();
+    GLint	currFBO;
+    GLint glErr = 0;
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currFBO);
+    glErr |= glGetError();
 
-		// Create and bind a frame buffer to texture
-		m_pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER_EXT, m_glFramebuffer );
-		if( glGetError() != GL_NO_ERROR )
-		{
-			m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
-			return CL_INVALID_OPERATION;
-		}
+    // Create and bind a frame buffer to texture
+    m_pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER_EXT, m_glFramebuffer );
+    if( glGetError() != GL_NO_ERROR )
+    {
+        m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
+        return CL_INVALID_OPERATION;
+    }
 
-		BindFramebuffer2Texture();
-		if( glGetError() != GL_NO_ERROR )
-		{
-			m_pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER_EXT, currFBO );
-			m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
-			return CL_INVALID_OPERATION;
-		}
-		if( m_pGLContext->glCheckFramebufferStatusEXT( GL_FRAMEBUFFER_EXT ) != GL_FRAMEBUFFER_COMPLETE_EXT )
-		{
-			m_pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER_EXT, currFBO );
-			m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
-			return CL_INVALID_OPERATION;
-		}
+    BindFramebuffer2Texture();
+    if( glGetError() != GL_NO_ERROR )
+    {
+        m_pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER_EXT, currFBO );
+        m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
+        return CL_INVALID_OPERATION;
+    }
+    if( m_pGLContext->glCheckFramebufferStatusEXT( GL_FRAMEBUFFER_EXT ) != GL_FRAMEBUFFER_COMPLETE_EXT )
+    {
+        m_pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER_EXT, currFBO );
+        m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
+        return CL_INVALID_OPERATION;
+    }
 
-		GLint pboBinding;
-		glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING_ARB, &pboBinding);
-        assert( glGetError() == GL_NO_ERROR && "error after glFlush" );
+    GLint pboBinding;
+    glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING_ARB, &pboBinding);
+    assert( glGetError() == GL_NO_ERROR && "error after glFlush" );
 
-		// read pixels from framebuffer to PBO
-		m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, m_glPBO);
-		if( glGetError() != GL_NO_ERROR )
-		{
-			m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
-			m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
-			return CL_INVALID_OPERATION;
-		}
-		GLenum glUsage = m_clFlags & CL_MEM_READ_ONLY ? GL_STREAM_READ_ARB : GL_STREAM_COPY_ARB;
-		m_pGLContext->glBufferData(GL_PIXEL_PACK_BUFFER_ARB, m_stMemObjSize, NULL, glUsage );
-		if( (glErr = glGetError()) != GL_NO_ERROR )
-		{
-			m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
-			m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
-			return CL_INVALID_OPERATION;
-		}
-		// glReadPixels() should return immediately, the transfer is in background by DMA
-		glReadPixels(0, 0, (GLsizei)m_stDimensions[0], (GLsizei)m_stDimensions[1], m_glReadBackFormat, m_glReadBackType, 0);
-		if( glGetError() != GL_NO_ERROR )
-		{
-			m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
-			m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
-			return CL_INVALID_OPERATION;
-		}
+    // read pixels from framebuffer to PBO
+    m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, m_glPBO);
+    if( glGetError() != GL_NO_ERROR )
+    {
+        m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
+        m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
+        return CL_INVALID_OPERATION;
+    }
+    GLenum glUsage = m_clFlags & CL_MEM_READ_ONLY ? GL_STREAM_READ_ARB : GL_STREAM_COPY_ARB;
+    m_pGLContext->glBufferData(GL_PIXEL_PACK_BUFFER_ARB, m_stMemObjSize, NULL, glUsage );
+    if( (glErr = glGetError()) != GL_NO_ERROR )
+    {
+        m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
+        m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
+        return CL_INVALID_OPERATION;
+    }
+    // glReadPixels() should return immediately, the transfer is in background by DMA
+    glReadPixels(0, 0, (GLsizei)m_stDimensions[0], (GLsizei)m_stDimensions[1], m_glReadBackFormat, m_glReadBackType, 0);
+    if( glGetError() != GL_NO_ERROR )
+    {
+        m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
+        m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
+        return CL_INVALID_OPERATION;
+    }
 
-		m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
+    m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
 
-		// Bind Old FBO
-		m_pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER_EXT, currFBO );
+    // Bind Old FBO
+    m_pGLContext->glBindFramebufferEXT( GL_FRAMEBUFFER_EXT, currFBO );
 
-	}
-	else if ( m_clFlags & CL_MEM_WRITE_ONLY )
-	{
-		GLint pboBinding;
-		glGetIntegerv(GL_PIXEL_UNPACK_BUFFER_BINDING_ARB, &pboBinding);
+    m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_NOT_READY;
 
-		// bind PBO to update texture source
-		m_pGLContext->glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, m_glPBO);
-		if( glGetError() != GL_NO_ERROR )
-		{
-			m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
-			m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
-			return CL_INVALID_OPERATION;
-		}
-
-		// Note that glMapBufferARB() causes sync issue.
-		// If GPU is working with this buffer, glMapBufferARB() will wait(stall)
-		// until GPU to finish its job. To avoid waiting (idle), you can call
-		// first glBufferDataARB() with NULL pointer before glMapBufferARB().
-		// If you do that, the previous data in PBO will be discarded and
-		// glMapBufferARB() returns a new allocated pointer immediately
-		// even if GPU is still working with the previous data.
-		m_pGLContext->glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, m_stMemObjSize, NULL, GL_STREAM_DRAW_ARB);
-		if( glGetError() != GL_NO_ERROR )
-		{
-			m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
-			m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
-			return CL_INVALID_OPERATION;
-		}
-
-		m_pGLContext->glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, pboBinding);
-	}
-
-	m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_NOT_READY;
-
-	return CL_SUCCESS;
+    return CL_SUCCESS;
 }
 
 cl_err_code GLTexture::ReleaseGLObject()
 {
-	if ( (m_clFlags & CL_MEM_WRITE_ONLY) || (m_clFlags & CL_MEM_READ_WRITE) )
-	{
-		GLenum pboBinding = m_clFlags & CL_MEM_WRITE_ONLY ? GL_PIXEL_UNPACK_BUFFER_BINDING_ARB : GL_PIXEL_PACK_BUFFER_BINDING_ARB;
-		GLenum pboTarget = m_clFlags & CL_MEM_WRITE_ONLY ? GL_PIXEL_UNPACK_BUFFER_ARB : GL_PIXEL_PACK_BUFFER_ARB;
+    GLint pboCurrent;
+    glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING_ARB, &pboCurrent);
 
-		GLint pboCurrent;
-		glGetIntegerv(pboBinding, &pboCurrent);
+    // unmap the PBO
+    m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, m_glPBO);
+    m_pGLContext->glUnmapBuffer(GL_PIXEL_PACK_BUFFER_ARB);
+    m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboCurrent);
 
-		// bind PBO to update texture source
-		m_pGLContext->glBindBuffer(pboTarget, m_glPBO);
-		m_pGLContext->glUnmapBuffer(pboTarget);
+    if ( (m_clFlags & CL_MEM_WRITE_ONLY) || (m_clFlags & CL_MEM_READ_WRITE) )
+    {
+        // If texture has WRITE memory flag then we need to update the texture in GL
+        // Bind PBO as UNPACK then TexSubImage will do the updating from it
+        glGetIntegerv(GL_PIXEL_UNPACK_BUFFER_BINDING_ARB, &pboCurrent);
 
-		// If texture is read/write we need to remap the PBO as an UNPACK buffer
-		if ( CL_MEM_READ_WRITE == m_clFlags )
-		{
-			// Bind old PACK buffer
-			m_pGLContext->glBindBuffer(pboTarget, pboCurrent);
+        m_pGLContext->glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, m_glPBO);
 
-			pboBinding = GL_PIXEL_UNPACK_BUFFER_BINDING_ARB;
-			pboTarget = GL_PIXEL_UNPACK_BUFFER_ARB;
-			glGetIntegerv(pboBinding, &pboCurrent);
+        GLenum targetBinding = GetTargetBinding(m_txtDescriptor.glTextureTarget);
 
-			// now bind PBO as UNPACK to update texture source
-			m_pGLContext->glBindBuffer(pboTarget, m_glPBO);
-		}
+        GLenum glBaseTarget = GetBaseTarget(m_txtDescriptor.glTextureTarget);
+        GLint currTexture;
+        glGetIntegerv(targetBinding, &currTexture);
+        glBindTexture(glBaseTarget, m_txtDescriptor.glTexture);
 
-		GLenum	targetBinding = GetTargetBinding(m_txtDescriptor.glTextureTarget);
+        TexSubImage();
 
-		GLenum glBaseTarget = GetBaseTarget(m_txtDescriptor.glTextureTarget);
-		GLint	currTexture;
-		glGetIntegerv(targetBinding, &currTexture);
-		glBindTexture(glBaseTarget, m_txtDescriptor.glTexture);
+        m_pGLContext->glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, pboCurrent);
+        glBindTexture(glBaseTarget, currTexture);
+    }
 
-		TexSubImage();
-
-		m_pGLContext->glBindBuffer(pboTarget, pboCurrent);
-		glBindTexture(glBaseTarget, currTexture);
-	}
-	else if ( m_clFlags & CL_MEM_READ_ONLY )
-	{
-		GLint pboBinding;
-		glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING_ARB, &pboBinding);
-
-		// bind PBO to update texture source
-		m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, m_glPBO);
-
-		m_pGLContext->glUnmapBuffer(GL_PIXEL_PACK_BUFFER_ARB);
-		m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);
-	}
-
-	return CL_SUCCESS;
+    return CL_SUCCESS;
 }

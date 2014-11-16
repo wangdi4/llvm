@@ -36,7 +36,21 @@ Timer::~Timer()
 #endif
 }
 
-unsigned long long Timer::GetTimeInUsecs()
+unsigned long long Timer::GetCurrentTicks()
+{
+#ifdef _WIN32
+    LARGE_INTEGER time0;
+    const BOOL ret = QueryPerformanceCounter(&time0);
+    assert(0 != ret);
+    return time0.QuadPart ;
+#else
+    // todo - implement for Linux
+	return 0;
+#endif
+}
+
+
+unsigned long long Timer::GetFrequency()
 {
 #ifdef _WIN32
     static LARGE_INTEGER s_freq = { 0 };
@@ -46,16 +60,27 @@ unsigned long long Timer::GetTimeInUsecs()
         assert(0 != s_freq.QuadPart);
     }
 
+    return s_freq.QuadPart;
+#else
+     // todo - implement for Linux
+	return 0;
+#endif
+}
+
+unsigned long long Timer::GetTimeInUsecs()
+{
+#ifdef _WIN32
     LARGE_INTEGER time;
     const BOOL ret = QueryPerformanceCounter(&time);
     assert(0 != ret);
-    return time.QuadPart * 1000000 / s_freq.QuadPart;
+    return time.QuadPart * 1000000 / GetFrequency();
 #else
     struct timeval tv;
     gettimeofday(&tv, NULL);
     return tv.tv_sec * 1000000 + tv.tv_usec;
 #endif
 }
+
 
 void Timer::Start()
 {

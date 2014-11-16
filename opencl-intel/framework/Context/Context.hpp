@@ -19,7 +19,6 @@
 // problem reports or change requests be submitted to it directly
 
 #include "Context.h"
-#include "ImageBuffer.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 

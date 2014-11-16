@@ -31,7 +31,7 @@ namespace intel{
 
     private:
         /// @brief Scan recursively if function is used by kernel.
-        bool isNeededByKernel(Function* func);
+        bool isNeededByKernel(Function* func, std::set<Value*> &visited);
 
     public:
         /// @brief Pass identification, replacement for typeid

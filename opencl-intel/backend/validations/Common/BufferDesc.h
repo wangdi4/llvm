@@ -75,7 +75,7 @@ namespace Validation
         }
 
         /// @brief Computes buffer size.
-        std::size_t GetBufferSizeInBytes() const {
+        std::size_t GetSizeInBytes() const {
             return m_numOfElements * m_elemenType.GetSizeInBytes();
         }
 

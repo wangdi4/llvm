@@ -780,7 +780,7 @@ void TestCompareSingleImage(ImageTypeVal imageType, const uint64_t& width, const
     
     // set imgAct1 values
     pixtype * pData = (pixtype*)imgAct1->GetDataPtr();
-    size_t numBytes = desc.GetImageSizeInBytes();
+    size_t numBytes = desc.GetSizeInBytes();
     uint32_t numNumbers = uint32_t(numBytes/sizeof(pixtype));
 
     DataTypeVal dataTypeVal = GetDataTypeVal<pixtype>();
@@ -788,7 +788,7 @@ void TestCompareSingleImage(ImageTypeVal imageType, const uint64_t& width, const
 
     GenerateRangedVectorsAutoSeed<pixtype>(dataTypeVal, pData, V1, numNumbers, pixtype(5), pixtype(100) );
     // copy to Reference
-    ::memcpy(imgRef1->GetDataPtr(), imgAct1->GetDataPtr(), desc.GetImageSizeInBytes());
+    ::memcpy(imgRef1->GetDataPtr(), imgAct1->GetDataPtr(), desc.GetSizeInBytes());
 
     // expect they are equal
     EXPECT_EQ(PASSED, cmp.Compare(compRes, NULL, listAct, &listRef, NULL));
@@ -923,7 +923,7 @@ public:
         m_imgDesc = ImageDesc(imageTypeIn, imSize, DataType, Order, false);
         m_imgDescNEAT = ImageDesc(imageTypeIn, imSize, DataType, Order, true);
         
-        std::size_t imSizeBytes = m_imgDesc.GetImageSizeInBytes();
+        std::size_t imSizeBytes = m_imgDesc.GetSizeInBytes();
 
         Arg1Min = (T*) malloc(imSizeBytes);
         Arg1Max = (T*) malloc(imSizeBytes);

@@ -46,7 +46,6 @@ ocl_wrap_data::ocl_wrap_data()
     commandQueuesOrder = new list<cl_command_queue>;
     contextsOrder = new list<cl_context>;
 
-    // generate two dir up from the current dir (for test with debug files output)
     apiCallsOut.open("ApiCalls_output.txt");
     kernelLaunchOut.open("kernelLaunch_output.txt");
     memCommandsOut.open("memoryCommands_output.txt");
@@ -114,14 +113,14 @@ void printDimSizeToSS(stringstream* ss, const size_t* size, size_t work_dim, ocl
     {
         switch (work_dim)
         {
-        case 1: *ss << "(" <<size[0] << ")"; break;
+        case 1:    *ss << "(" <<size[0] << ")"; break;
 
         case 2:    *ss << "(" <<size[0] << "," << size[1] << ")"; break;
 
         case 3:    *ss << "(" <<size[0] << "," << size[1] << "," << size[2] << ")"; break;
 
         default:
-            LogError("WTF!! work_dim is zerp or greater than 3\n");
+            LogError("Error: work_dim is zero or greater than 3\n");
             break;
         }
     }

@@ -336,6 +336,26 @@ void clCopyMemoryRegion(SMemCpyParams* pCopyCmd);
  ************************************************************************/
 size_t clGetPixelBytesCount(const cl_image_format* pclImageFormat);
 
+/************************************************************************
+ * Function:        clGetPixelElementsCount
+ * Parameters:
+ *  pclImageFormat  a cl_image_format
+ * Return value:    the element number in a pixel of the specified order
+ * Author:          Arik Zur
+ * Date:            October 2014
+ ************************************************************************/
+size_t clGetPixelElementsCount(const cl_image_format* pclImageFormat);
+
+/************************************************************************
+ * Function:        clGetChannelTypeBytesCount
+ * Parameters:
+ *  pclImageChannelType  a cl_channel_type
+ * Return value:    the size in bytes of each element in an image of the specified channel type
+ * Author:          Arik Zur
+ * Date:            October 2014
+ ************************************************************************/
+size_t clGetChannelTypeBytesCount(cl_channel_type pclImageChannelType);
+
 /////////////////////////////////////////////////////////////////////////
 // GetTempDir
 // Parameters: None
@@ -441,8 +461,19 @@ bool EmulatorEnabled();
 string ReadFileContents(const string& filePath);
 
 /**
+ * @return the size of the read data, allocates 'sizeToRead' memory and read the data into bufferPtr
+ *  if sizeToRead is 0 reads the entire file content
+ */
+unsigned int ReadBinaryFileContents(const string& filePath, char** bufferPtr, unsigned int sizeToRead);
+
+/**
  * @Write the given text to the file
  */
 void WriteContentToFile(const string& content, const string& filePath);
+
+/**
+ * @Write the given text to the file
+ */
+void WriteBinaryContentToFile(const char* content, unsigned int size, const string& filePath);
 
 OclMemObjectType getSimplifiedMemoryObjectType(const cl_mem_object_type MemObjectType);

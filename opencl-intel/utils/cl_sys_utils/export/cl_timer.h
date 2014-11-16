@@ -43,6 +43,8 @@ public:
 	 * @return the current time in microseconds
 	 */
 	static unsigned long long GetTimeInUsecs();
+	static unsigned long long GetCurrentTicks();
+	static unsigned long long GetFrequency();
 
 #ifdef ENABLE_GLOBALLY  // an option for globally controlling the use of timers
     /**

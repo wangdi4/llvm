@@ -10,12 +10,7 @@
 ; }
 
 ; CHECK: CLWGLoopBoundaries
-; CHECK: found 2 early exit boundaries
-; CHECK: dim=0, contains=F, isGID=F, isSigned=F, isUpper=F
-; CHECK-NEXT: %right_boundary_align = sub i64 %uniform2, %uniform1
-; CHECK-NEXT: dim=0, contains=T, isGID=F, isSigned=F, isUpper=T
-; CHECK-NEXT: %final_left_bound = select i1 %right_lt_left, i64 %left_after_overflow, i64 %non_negative_left_bound
-; CHECK: found 0 uniform early exit conditions
+; CHECK: found 0 early exit boundaries
 
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v24:32:32-v32:32:32-v48:64:64-v64:64:64-v96:128:128-v128:128:128-v192:256:256-v256:256:256-v512:512:512-v1024:1024:1024-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"

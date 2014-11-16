@@ -107,7 +107,8 @@ namespace AnalysingSystemTester
        
             string VS_version = Environment.GetEnvironmentVariable("VisualStudioVersion");
 
-            codedUIStartInfo.FileName = @"C:\Program Files (x86)\Microsoft Visual Studio " + VS_version + @"\Common7\IDE\devenv.exe";
+            // using VS_version instead of "11.0" causing problem when running it on nightly from the cmd
+            codedUIStartInfo.FileName = @"C:\Program Files (x86)\Microsoft Visual Studio " + "11.0" + @"\Common7\IDE\devenv.exe";
 
             codedUIStartInfo.Arguments = @"/ranu /rootsuffix Exp";
 

@@ -28,7 +28,7 @@ namespace Validation
     void Buffer::AllocateMemoryForData()
     {
         // Compute size of memory to allocate
-        std::size_t buffSize = m_desc.GetBufferSizeInBytes();
+        std::size_t buffSize = m_desc.GetSizeInBytes();
         // Allocate memory
         m_data = new uint8_t[buffSize];
     }

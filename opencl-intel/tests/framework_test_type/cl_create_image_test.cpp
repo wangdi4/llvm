@@ -665,68 +665,32 @@ static void TestNegative(const cl_image_format& clFormat, const cl_image_desc& c
 	CheckException("clReleaseMemObject", CL_SUCCESS, iRet);	
 }
 
-static void TestOpenCL2_0ImageFormats(cl_context context)
-{
-	const struct {
-		cl_image_format m_format;
-		bool m_bExpectSuccess;
-	} formats[] = {
-		{ { CL_DEPTH, CL_UNORM_INT16}, true },
-		{ { CL_DEPTH, CL_SNORM_INT8}, false },
-		{ { CL_sRGB, CL_UNORM_INT8}, true },
-		{ { CL_sRGBx, CL_UNORM_INT8}, true },
-		{ { CL_sRGBA, CL_UNORM_INT8}, true },
-		{ { CL_sBGRA, CL_UNORM_INT8}, true },
-		{ { CL_sBGRA, CL_UNORM_INT16}, false },
-		{ { CL_sRGB, CL_UNORM_INT16}, false },
-		{ { CL_ABGR, CL_UNORM_INT8}, true },
-		{ { CL_ABGR, CL_UNORM_INT16}, false }
-	};
-	cl_image_desc desc = { 0 };
-	cl_int iRet;
-
-	desc.mem_object = NULL;
-	desc.image_type = CL_MEM_OBJECT_IMAGE1D;
-	desc.image_width = IMAGE_WIDTH;	
-
-	cout << "Checking new image formats in OpenCL 2.0: " << endl;
-	for (size_t i = 0; i < sizeof(formats) / sizeof(formats[0]); i++)
-	{
-		cout << channelOrderToString(formats[i].m_format.image_channel_order) << endl;
-		cl_mem img = clCreateImage(context, 0, &formats[i].m_format, &desc, NULL, &iRet);
-		CheckException("clCreateImage", CL_SUCCEEDED(iRet), formats[i].m_bExpectSuccess);
-		iRet = clReleaseMemObject(img);
-		CheckException("clReleaseMemObject", CL_SUCCESS, iRet);
-	}
-}
-
 static void Test2DImageFromImage(cl_context context, cl_command_queue queue)
 {
-	cl_image_desc desc = {0};
-	cl_image_format format;
+    cl_image_desc desc = {0};
+    cl_image_format format;
+    cl_int iRet;
 
-	desc.image_width = IMAGE_WIDTH;
-	desc.image_height = IMAGE_HEIGHT;
-	desc.image_type = CL_MEM_OBJECT_IMAGE2D;
-	format.image_channel_data_type = CL_UNORM_INT8;
-	format.image_channel_order = CL_sRGB;
+    desc.image_width = IMAGE_WIDTH;
+    desc.image_height = IMAGE_HEIGHT;
+    desc.image_type = CL_MEM_OBJECT_IMAGE2D;
+    format.image_channel_data_type = CL_UNORM_INT8;
+    format.image_channel_order = CL_sRGBA;
 
-#if 0	// disabled until BE supports the new formats
-	cl_mem img = clCreateImage(context, 0, &format, &desc, NULL, &iRet);
-	CheckException(L"clCreateImage", CL_SUCCESS, iRet);
+    cl_mem img = clCreateImage(context, CL_MEM_READ_ONLY, &format, &desc, NULL, &iRet);
+    CheckException(L"clCreateImage", CL_SUCCESS, iRet);
 
-	format.image_channel_order = CL_RGB;
-	desc.mem_object = img;
-	cl_mem newImg = clCreateImage(context, 0, &format, &desc, NULL, &iRet);
-	CheckException(L"clCreateImage", CL_SUCCESS, iRet);
+    format.image_channel_order = CL_RGBA;
+    desc.mem_object = img;
+    cl_mem newImg = clCreateImage(context, 0, &format, &desc, NULL, &iRet);
+    CheckException(L"clCreateImage", CL_SUCCESS, iRet);
 
-	TestImageFromMemObject(queue, img, newImg, desc, false); 
+    TestImageFromMemObject(queue, img, newImg, desc, false); 
 
-	iRet = clReleaseMemObject(img);
-	CheckException("clReleaseMemObject", CL_SUCCESS, iRet);
-	iRet = clReleaseMemObject(newImg);
-	CheckException("clReleaseMemObject", CL_SUCCESS, iRet);
-#endif	
+    iRet = clReleaseMemObject(img);
+    CheckException("clReleaseMemObject", CL_SUCCESS, iRet);
+    iRet = clReleaseMemObject(newImg);
+    CheckException("clReleaseMemObject", CL_SUCCESS, iRet);
 }
 
 bool clCreateImageTest()
@@ -880,11 +844,6 @@ bool clCreateImageTest()
         TestNegative(clFormat, clImageDesc, context, device, queue);
 
         TestInvalidFlags(context, clFormat, clImageDesc);
-
-		// disabled until BE support the new formats
-#if 0
-		TestOpenCL2_0ImageFormats(context);
-#endif
     }
     catch (const std::exception&)
     {

@@ -31,7 +31,6 @@
 #include "cl_objects_map.h"
 #include "Context.h"
 #include "GenericMemObj.h"
-#include "ImageBuffer.h"
 #include <Logger.h>
 #if defined (DX_MEDIA_SHARING)
 #include <d3d9.h>
@@ -633,9 +632,9 @@ cl_mem ContextModule::CreateImageBuffer(cl_context context, cl_mem_flags clFlags
         return clImgBuf;
     }
 
-    SharedPtr<ImageBuffer> pImgBuf = m_mapMemObjects.GetOCLObject((_cl_mem_int*)clImgBuf).DynamicCast<ImageBuffer>();
+    SharedPtr<MemoryObject> pImgBuf = m_mapMemObjects.GetOCLObject((_cl_mem_int*)clImgBuf).DynamicCast<MemoryObject>();
     assert(pImgBuf);
-    pImgBuf->SetBuffer(pBuffer);
+    pImgBuf->SetParent(pBuffer);
     return clImgBuf;
 }
 

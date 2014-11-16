@@ -432,6 +432,28 @@ TEST(FrameworkTestType, Test_GenStats)
     EXPECT_TRUE(cl_GenStats());
 }
 
+TEST(FrameworkTestType, clDoNotVectorizeUnreachable)
+{
+    EXPECT_TRUE(clDoNotVectorizeUnreachable());
+}
+
+TEST(FrameworkTestType, Test_cl_uniteWG_VectorizeOnDiffentDim)
+{
+    EXPECT_TRUE(clCheckVectorizingDim1And2AndUniteWG(0,false));
+    EXPECT_TRUE(clCheckVectorizingDim1And2AndUniteWG(1,false));
+    EXPECT_TRUE(clCheckVectorizingDim1And2AndUniteWG(0,true));
+    EXPECT_TRUE(clCheckVectorizingDim1And2AndUniteWG(1,true));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(0,true,false));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(1,true,false));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(2,true,false));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(3,true,false));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(0,false,false));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(1,false,false));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(2,false,false));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(4,false,false));
+    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(4,false,true));
+}
+
 CommandLineOption<std::string> deviceOption("--device_type");
 
 #ifdef INCLUDE_MIC_DEVICE
@@ -493,22 +515,6 @@ TEST(FrameworkTestType, TEST_APFLevel)
 TEST(FrameworkTestType, clAoSFieldScatterGather)
 {
     EXPECT_TRUE(clAoSFieldScatterGather());
-}
-TEST(FrameworkTestType, Test_cl_uniteWG_VectorizeOnDiffentDim)
-{
-    EXPECT_TRUE(clCheckVectorizingDim1And2AndUniteWG(0,false));
-    EXPECT_TRUE(clCheckVectorizingDim1And2AndUniteWG(1,false));
-    EXPECT_TRUE(clCheckVectorizingDim1And2AndUniteWG(0,true));
-    EXPECT_TRUE(clCheckVectorizingDim1And2AndUniteWG(1,true));
-    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(0,true,false));
-    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(1,true,false));
-    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(2,true,false));
-    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(3,true,false));
-    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(0,false,false));
-    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(1,false,false));
-    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(2,false,false));
-    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(4,false,false));
-    EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(4,false,true));
 }
 
 #endif

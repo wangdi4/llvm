@@ -158,7 +158,7 @@ if(INCLUDE_TOOLS)
     set (Boost_NO_SYSTEM_PATHS ON) # Don't search PATH
 
     # To add new components for Boost simply add to BOOST_COMPONENTS below
-    set (BOOST_COMPONENTS regex system filesystem date_time signals)
+    set (BOOST_COMPONENTS regex system filesystem date_time signals thread)
 
     if(NOT ANDROID)
         set(Boost_USE_STATIC_LIBS ON )
@@ -180,6 +180,7 @@ if(INCLUDE_TOOLS)
                            ${Boost_DATE_TIME_LIBRARY}
                            ${Boost_REGEX_LIBRARY}
                            ${Boost_SIGNALS_LIBRARY}
+                           ${Boost_THREAD_LIBRARY}
                            )
     list(REMOVE_ITEM BOOST_INSTALL_LIBS debug optimized)
 
@@ -357,10 +358,10 @@ math(EXPR BUILDVER_16_BIT_MINOR "${BUILDVER_WC_REVISION} % 65536")
 # write a file with the BUILDVERSION define
 file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt
 "#define BUILDVERSION ${BUILDVER_WC_REVISION}\n
-#ifndef\ _DEBUG
-    #define BUILDVERSIONSTR "\"(Build\ ${BUILDVER_WC_REVISION})"\"
-#else
-    #define BUILDVERSIONSTR "\"(Build[DEBUG]\ ${BUILDVER_WC_REVISION})"\"
+#ifndef\ _DEBUG\n
+    #define BUILDVERSIONSTR \"(Build\ ${BUILDVER_WC_REVISION})\"\n
+#else\n
+    #define BUILDVERSIONSTR \"(Build[DEBUG]\ ${BUILDVER_WC_REVISION})\"\n
 #endif\n
 #define PRODUCTVERSION_MAJOR ${PRODUCTVER_MAJOR}\n
 #define PRODUCTVERSION_MINOR ${PRODUCTVER_MINOR}\n
@@ -624,6 +625,8 @@ if (WIN32)
     install(FILES setup/CPOL.txt DESTINATION ${MISC_INSTALLER_FOLDER})
     install(FILES setup/readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
     install(FILES "setup/docs/Intel(R)_SDK_for_OpenCL_Applications_Documentation.htm" DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
+    install(FILES "setup/docs/Code_builder_MSS_release_notes.pdf" DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
+	install(FILES "setup/docs/Code_builder_MSS_user_manual.pdf" DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
     install(FILES setup/Android/OpenCL_Android_Install.bat DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
     install(FILES setup/Android/Android_Setup.bat DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
 
@@ -653,6 +656,8 @@ else (WIN32)
     install(FILES setup/boost_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
     install(FILES setup/readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
     install(FILES setup/kernel_builder_readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
+	install(FILES setup/docs/Code_builder_MSS_release_notes.pdf DESTINATION ${MISC_INSTALLER_FOLDER})
+	install(FILES setup/docs/Code_builder_MSS_user_manual.pdf DESTINATION ${MISC_INSTALLER_FOLDER})
 
     if(BUILD_X64)
         install(PROGRAMS setup/Android64/OpenCL_Android_Install DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
@@ -670,6 +675,7 @@ else (WIN32)
 endif (WIN32)
 
 install(FILES setup/redist.txt DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
+install(FILES setup/third_party_programs.txt DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
 install(FILES setup/bom_files/installer_content_windows.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)
 install(FILES setup/bom_files/installer_content_windows_mic.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)
 install(FILES setup/bom_files/installer_content_linux.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)

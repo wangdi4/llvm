@@ -51,6 +51,10 @@ public:
     const void* GetSectionData(const char* sectionName) const;
 
 private:
+    // Disable copy ctor and assignment operator
+    CacheBinaryReader( const CacheBinaryReader& );
+    bool operator = (const CacheBinaryReader& );
+
     static int GetSectionIndexByName(CLElfLib::CElfReader* pReader, std::string Name);
     CLElfLib::CElfReader* m_pReader;
 };
@@ -65,6 +69,10 @@ public:
     bool GetBinary(char* pBinary) const;
 
 private:
+    // Disable copy ctor and assignment operator
+    CacheBinaryWriter( const CacheBinaryWriter& );
+    bool operator = (const CacheBinaryWriter& );
+
     CLElfLib::CElfWriter* m_pWriter;
 };
 }}} // namespace

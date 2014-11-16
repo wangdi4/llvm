@@ -96,6 +96,9 @@ DumpHeuristicIR;
 extern llvm::cl::opt<std::string>
 DumpJIT;
 
+extern llvm::cl::opt<bool>
+Verbose;
+
 extern llvm::cl::opt<std::string>
 TimePasses;
 
@@ -146,6 +149,8 @@ namespace Validation
             return m_useVTune;
         case RC_BR_PRINT_BUILD_LOG :
             return m_printBuildLog;
+        case RC_BR_VERBOSE:
+            return m_verbose;
         case RC_BR_MEASURE_PERFORMANCE :
             return m_measurePerformance;
         case RC_BR_BUILD_ONLY :
@@ -272,6 +277,7 @@ namespace Validation
         m_TimePasses = ::TimePasses;
         m_InjectedObject = ::ObjectFile;
         m_dumpHeuristcIR = ::DumpHeuristicIR;
+        m_verbose = ::Verbose;
     }
 
     ComparatorRunOptions::ComparatorRunOptions():

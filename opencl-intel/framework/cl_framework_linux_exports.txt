@@ -5,10 +5,6 @@ Base {
         clCreateCommandQueue;
         clCreateContext;
         clCreateContextFromType;
-        clCreateFromGLBuffer;
-        clCreateFromGLRenderbuffer;
-        clCreateFromGLTexture2D;
-        clCreateFromGLTexture3D;
         clCreateImage2D;
         clCreateImage3D;
         clCreateKernel;
@@ -16,8 +12,6 @@ Base {
         clCreateProgramWithBinary;
         clCreateProgramWithSource;
         clCreateSampler;
-	clCreateSamplerWithProperties;
-        clEnqueueAcquireGLObjects;
         clEnqueueBarrier;
         clEnqueueCopyBuffer;
         clEnqueueCopyBufferToImage;
@@ -30,7 +24,6 @@ Base {
         clEnqueueNativeKernel;
         clEnqueueReadBuffer;
         clEnqueueReadImage;
-        clEnqueueReleaseGLObjects;
         clEnqueueTask;
         clEnqueueUnmapMemObject;
         clEnqueueWaitForEvents;
@@ -45,8 +38,6 @@ Base {
         clGetEventInfo;
         clGetEventProfilingInfo;
         clGetExtensionFunctionAddress;
-        clGetGLObjectInfo;
-        clGetGLTextureInfo;
         clGetImageInfo;
         clGetKernelInfo;
         clGetKernelWorkGroupInfo;
@@ -84,7 +75,6 @@ Base {
         clSetMemObjectDestructorCallback;
         clSetUserEventStatus;
         clCompileProgram;
-        clCreateFromGLTexture;
         clCreateImage;
         clCreateProgramWithBuiltInKernels;
         clCreateSubDevices;
@@ -100,25 +90,23 @@ Base {
         clRetainDevice;
         clUnloadPlatformCompiler;
 
-        clCreateSubDevicesEXT;
-        clReleaseDeviceEXT;
+        clSVMAlloc;
+        clSVMFree;
+        clEnqueueSVMFree;
+        clEnqueueSVMMemcpy;
+        clEnqueueSVMMemFill;
+        clEnqueueSVMMap;
+        clEnqueueSVMUnmap;
+        clSetKernelArgSVMPointer;
+        clSetKernelExecInfo;
 
-	clSVMAlloc;
-	clSVMFree;
-	clEnqueueSVMFree;
-	clEnqueueSVMMemcpy;
-	clEnqueueSVMMemFill;
-	clEnqueueSVMMap;
-	clEnqueueSVMUnmap;
-	clSetKernelArgSVMPointer;
-	clSetKernelExecInfo;
+        clCreatePipe;
+        clCreatePipeINTEL;
+        clGetPipeInfo;
 
-	clCreatePipe;
-	clCreatePipeINTEL;
-	clGetPipeInfo;
+        clCreateCommandQueueWithProperties;
+        clCreateSamplerWithProperties;
 
-	clCreateCommandQueueWithProperties;
-		
     local:
         *;
 };
