@@ -593,7 +593,8 @@ bool CLWGLoopBoundaries::createRightBound(bool isCmpSigned, Instruction *loc,
   if (isLT || isGT) {
     Instruction::BinaryOps inst = isLT ? Instruction::Sub : Instruction::Add;
     CmpInst::Predicate cmpInst = isLT ? CmpInst::ICMP_SGT : CmpInst::ICMP_SLT;
-    Value *inclusiveBound = BinaryOperator::Create(inst, *bound, m_constOne,
+    Value * one = ConstantInt::get((*bound)->getType(), 1);
+    Value * inclusiveBound = BinaryOperator::Create(inst, *bound, one,
       "inclusive_right_boundary", loc);
     Instruction *compare = new ICmpInst(loc, cmpInst , inclusiveBound, *bound, "");
     *(bound) = SelectInst::Create(compare, *(bound), inclusiveBound,
@@ -620,8 +621,9 @@ bool CLWGLoopBoundaries::createRightBound(bool isCmpSigned, Instruction *loc,
 
   //detect right bound overflow
   //left and right parts are possitive but the total is negative
+  Value * zero = ConstantInt::get((*bound)->getType(), 0);
   Value * right_bound_neg =  new ICmpInst(loc, CmpInst::ICMP_SLT,
-    *(bound), m_constZero, "negative_right");
+    *(bound), zero, "negative_right");
   Value * right_overflow =  BinaryOperator::Create(Instruction::And,
     right_bound_neg, nonNegativeRightBound, "right_overflow",loc);
   *(bound) = SelectInst::Create(right_overflow, max,
@@ -683,16 +685,11 @@ bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
         // If candidate is trunc instruction than we can safely extend the
         // bound to have equivalent condition according to sign of comparison.
         tid = tidInst->getOperand(0);
-        if (isCmpSigned) {
-          *bound = new SExtInst(*bound, tid->getType(), "sext_cast", loc);
-          assert((*(bound+1) == 0) &&
-            "Only one bound is tracked from signed comparison");
-        } else {
-          *bound = new ZExtInst(*bound, tid->getType(), "zext_cast", loc);
-          if (*(bound+1)) {
-            *(bound+1) = new ZExtInst(*(bound+1), tid->getType(), "zext_cast",
-                                      loc);
-          }
+        *bound = CastInst::CreateIntegerCast(*bound, tid->getType(),
+                                             isCmpSigned, "to_tid_type", loc);
+        if (*(bound+1)) {
+          *(bound+1) = CastInst::CreateIntegerCast(*(bound+1), tid->getType(),
+                                                   isCmpSigned, "to_tid_type", loc);
         }
         break;
       }
