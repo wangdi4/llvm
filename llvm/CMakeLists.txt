@@ -1,4 +1,4 @@
-# See docs/CMake.html for instructions about how to build LLVM with CMake.
+# See docs/CMake.html for instructions about how to build LLVM with CMake. 
 
 cmake_minimum_required(VERSION 2.8.8)
 
