@@ -1272,7 +1272,7 @@ void CLWGLoopBoundaries::createWGLoopBoundariesFunction() {
   ReturnInst::Create(*m_context, retVal, BB);
 }
 
-char toChar(bool v) {
+static char toChar(bool v) {
   if (v) return 'T';
   return 'F';
 }
