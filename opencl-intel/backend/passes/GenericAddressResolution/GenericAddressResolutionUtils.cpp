@@ -74,7 +74,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
                       "enqueue_kernel",
                       "enqueue_marker",
                       "read_pipe",
-                      "wait_group_events",
                       "write_pipe"
   };
 
