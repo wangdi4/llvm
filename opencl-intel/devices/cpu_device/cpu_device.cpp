@@ -47,9 +47,6 @@
 #if defined (__GNUC__) && !(__INTEL_COMPILER)  && !(_WIN32)
 #include "hw_utils.h"
 #endif
-#if !defined(__ANDROID__)
-  #define __DOUBLE_ENABLED__
-#endif
 
 using namespace Intel::OpenCL::CPUDevice;
 using Intel::OpenCL::Utils::FrameworkUserLogger;
@@ -131,7 +128,7 @@ struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO *GetCPUDevInfo(CPUDeviceConfig& co
     static struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO CPUDevInfo = {NULL, 1, 1, 0};
     if (NULL == CPUDevInfo.sExtensionStrings)
     {
-        CPUDevInfo.sExtensionStrings = config.GetExtensions(CPUDetect::GetInstance()->IsProcessorType(PT_ATOM));
+        CPUDevInfo.sExtensionStrings = config.GetExtensions();
     }
     return &CPUDevInfo;
 }
@@ -527,11 +524,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
     size_t  *pinternalRetunedValueSize;
     unsigned int viCPUInfo[4] = {(unsigned int)-1};
 
+    static CPUDeviceConfig config;
+
     // Do static initialize of the OpenCL Version
     static OPENCL_VERSION ver = OPENCL_VERSION_UNKNOWN;
     if ( OPENCL_VERSION_UNKNOWN == ver )
     {
-        CPUDeviceConfig config;
         config.Initialize(GetConfigFilePath());
         ver = config.GetOpenCLVersion();
     }
@@ -649,7 +647,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             }
             return CL_DEV_SUCCESS;
         }
-        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE): //Keeping double separate to allow control via the __DOUBLE_ENABLED__ macro
+        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE): //Keeping double separate to allow control via the CPU config
         {
             //For all supported types, we currently prefer scalars so the vectorizer doesn't have to scalarize
             *pinternalRetunedValueSize = sizeof(cl_uint);
@@ -660,18 +658,14 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-#ifdef __DOUBLE_ENABLED__
-                if (CPUDetect::GetInstance()->IsProcessorType(PT_ATOM))
-                {
-                    *(cl_uint*)paramVal = 0;
-                }
-                else
+                if (config.IsDoubleSupported())
                 {
                     *(cl_uint*)paramVal = 1;
                 }
-#else
-                *(cl_uint*)paramVal = 0;
-#endif
+                else
+                {
+                    *(cl_uint*)paramVal = 0;
+                }
             }
             return CL_DEV_SUCCESS;
         }
@@ -696,7 +690,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             }
             return CL_DEV_SUCCESS;
         }
-        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE): //Keeping double separate to allow control via the __DOUBLE_ENABLED__ macro
+        case( CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE): //Keeping double separate to allow control via the CPU config
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
@@ -706,18 +700,14 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-#ifdef __DOUBLE_ENABLED__
-                if (CPUDetect::GetInstance()->IsProcessorType(PT_ATOM))
-                {
-                    *(cl_uint*)paramVal = 0;
-                }
-                else
+                if (config.IsDoubleSupported())
                 {
                     *(cl_uint*)paramVal = GetNativeVectorWidth(CPU_DEVICE_DATA_TYPE_DOUBLE);
                 }
-#else
-                *(cl_uint*)paramVal = 0;
-#endif
+                else
+                {
+                    *(cl_uint*)paramVal = 0;
+                }
             }
             return CL_DEV_SUCCESS;
         }
@@ -768,15 +758,11 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         }
         case(CL_DEVICE_DOUBLE_FP_CONFIG):
         {
-#ifdef __DOUBLE_ENABLED__
             cl_device_fp_config fpConfig = 0;
-            if (!CPUDetect::GetInstance()->IsProcessorType(PT_ATOM))
+            if (config.IsDoubleSupported())
             {
                 fpConfig = CL_FP_ROUND_TO_NEAREST | CL_FP_INF_NAN | CL_FP_DENORM | CL_FP_FMA |  CL_FP_ROUND_TO_ZERO |  CL_FP_ROUND_TO_INF;
             }
-#else
-            cl_device_fp_config fpConfig = 0;
-#endif
             *pinternalRetunedValueSize = sizeof(cl_device_fp_config);
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
@@ -1350,9 +1336,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         }
         case( CL_DEVICE_EXTENSIONS):
         {
-            CPUDeviceConfig config;
-            config.Initialize(GetConfigFilePath());
-            const char* oclSupportedExtensions = config.GetExtensions(CPUDetect::GetInstance()->IsProcessorType(PT_ATOM));       
+            const char* oclSupportedExtensions = config.GetExtensions();
             *pinternalRetunedValueSize = strlen(oclSupportedExtensions) + 1;
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {

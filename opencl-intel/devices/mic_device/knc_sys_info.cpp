@@ -15,9 +15,19 @@
 #include "mic_common_macros.h"
 #include <CL/cl_ext.h>
 
-#define __DOUBLE_ENABLED__
-// We must include it after definition of "__DOUBLE_ENABLED__".
 #include "ocl_supported_extensions.h"
+
+// define supported extensions for KNC
+static const char OCL_SUPPORTED_EXTENSIONS_KNC_1_2[] =
+    OCL_EXT_KHR_ICD " "
+    OCL_EXT_KHR_GLOBAL_BASE_ATOMICS " "
+    OCL_EXT_KHR_GLOBAL_EXTENDED_ATOMICS " "
+    OCL_EXT_KHR_LOCAL_BASE_ATOMICS " "
+    OCL_EXT_KHR_LOCAL_EXTENDED_ATOMICS " "
+    OCL_EXT_KHR_BYTE_ADDRESSABLE_STORE " "
+    OCL_EXT_KHR_FP64 " "
+    OCL_EXT_KHR_SPIR
+    ;
 
 using namespace Intel::OpenCL::MICDevice;
 

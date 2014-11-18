@@ -20,14 +20,14 @@
 
 /*
 *
-* File cpu_device.h
-* declares C++ interface between the device and the Open CL frame work.
+* File cpu_config.h
 *
 */
 #pragma once
 
+#include <string>
+
 #include "cl_config.h"
-using namespace Intel::OpenCL::Utils;
 
 /**************************************************************************************************
 * Configuration keys
@@ -61,9 +61,11 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 
         bool            UseVectorizer() const  { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VECTORIZER, true ); }
         bool            UseVTune()      const  { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VTUNE,      false); }
-        bool            IsGLDirectXSupported() const  { return m_pConfigFile->Read<bool>(CL_CONFIG_GL_DIRECTX_INTEROP, true); }
-        const char*     GetExtensions(bool IsAtom) const;
-        
+
+        bool            IsSpirSupported() const;
+        bool            IsGLDirectXSupported() const;
+        bool            IsDoubleSupported() const;
+        const char*     GetExtensions() const;
 
 #ifdef __HARD_TRAPPING__
         bool            UseTrapping()   const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_TRAPPING,    false); }
@@ -71,6 +73,8 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
     private:
         CPUDeviceConfig(const CPUDeviceConfig&);
         CPUDeviceConfig& operator=(const CPUDeviceConfig&);
+
+        static std::string  m_extensions;
     };
 
 }}}

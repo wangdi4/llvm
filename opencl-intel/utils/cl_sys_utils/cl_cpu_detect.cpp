@@ -102,6 +102,11 @@ bool CPUDetect::IsGenuineIntel()
 
 bool CPUDetect::IsProcessorType(EProcessorType processorType)
 {
+    // !!! IMPORTANT NOTE !!!
+    //     This whole method is wrong, CPUID's family and model numbers are unreliable
+    //     Core Haswell has the same family and model numbers as Atom Cherrytrail !!!
+    //     TODO: Implement a better way for detecting different micro-architectures
+
     if (!IsGenuineIntel())
     {
         return false;
@@ -116,8 +121,9 @@ bool CPUDetect::IsProcessorType(EProcessorType processorType)
     case PT_ATOM:
         if (m_ucFamily == 0x6 &&
             (m_ucExtendedModel == 0x35 ||  // CloverTrail
-            m_ucExtendedModel == 0x36 ||  // CedarTrail
-            m_ucExtendedModel == 0x37))   // Baytrail
+            m_ucExtendedModel == 0x36  ||  // CedarTrail
+            m_ucExtendedModel == 0x37  ||  // Baytrail
+            m_ucExtendedModel == 0x4C))    // Cherrytrail
         {
             return true;
         }

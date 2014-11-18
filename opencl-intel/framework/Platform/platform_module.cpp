@@ -41,7 +41,6 @@
 #include <assert.h>
 #include <malloc.h>
 #include <string>
-#include "ocl_supported_extensions.h"
 #include "cl_local_array.h"
 #include "cl_shared_ptr.hpp"
 

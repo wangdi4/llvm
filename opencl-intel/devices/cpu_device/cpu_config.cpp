@@ -26,15 +26,17 @@
 #include "stdafx.h"
 #include "cpu_config.h"
 #include "ICLDevBackendOptions.h"
-#if !defined(__ANDROID__)
-#define __DOUBLE_ENABLED__
-#endif
 #include "ocl_supported_extensions.h"
+
+#include <cl_cpu_detect.h>
 
 #include <string>
 #include <sstream>
 
+using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::CPUDevice;
+
+std::string CPUDeviceConfig::m_extensions;
 
 CPUDeviceConfig::CPUDeviceConfig()
 {
@@ -123,46 +125,86 @@ cl_int CPUDeviceConfig::GetVectorizerMode() const
                                static_cast<cl_int>(TRANSPOSE_SIZE_AUTO));
 }
 
-
-const char* CPUDeviceConfig::GetExtensions(bool IsAtom) const
+bool CPUDeviceConfig::IsSpirSupported() const
 {
-    const char* sExtensions = NULL;
-    if (IsAtom)
+    // disabled only in Android
+#ifdef __ANDROID__
+    return false;
+#else
+    return true;
+#endif
+}
+
+bool CPUDeviceConfig::IsGLDirectXSupported() const
+{
+    // enabled only in Windows, also may be changed via configuration
+#if WIN32
+    return m_pConfigFile->Read<bool>(CL_CONFIG_GL_DIRECTX_INTEROP, true);
+#else
+    return false;
+#endif
+}
+
+bool CPUDeviceConfig::IsDoubleSupported() const
+{
+    // disabled in Android and/or in Atom
+#ifndef __ANDROID__
+    // we consider Atom as a CPU without AVX support
+    bool isAtom = !(CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX10));
+    return !isAtom;
+#else
+    return false;
+#endif
+}
+
+const char* CPUDeviceConfig::GetExtensions() const
+{
+    if (m_extensions.empty())
     {
-        if (GetOpenCLVersion() == OPENCL_VERSION_1_2)
+        // build the extensions list dynamically
+
+        // common KHR extensions
+        m_extensions =  OCL_EXT_KHR_ICD " ";
+        m_extensions += OCL_EXT_KHR_GLOBAL_BASE_ATOMICS " ";
+        m_extensions += OCL_EXT_KHR_GLOBAL_EXTENDED_ATOMICS " ";
+        m_extensions += OCL_EXT_KHR_LOCAL_BASE_ATOMICS " ";
+        m_extensions += OCL_EXT_KHR_LOCAL_EXTENDED_ATOMICS " ";
+        m_extensions += OCL_EXT_KHR_BYTE_ADDRESSABLE_STORE " ";
+
+        // KHR CPU execlusive extensions
+        m_extensions += OCL_EXT_KHR_DEPTH_IMAGES " ";
+        m_extensions += OCL_EXT_KHR_3D_IMAGE_WRITES " ";
+
+        // INTEL CPU execlusive extensions
+        m_extensions += OCL_EXT_INTEL_EXEC_BY_LOCAL_THREAD " ";
+
+        // SPIR extension
+        if (IsSpirSupported())
         {
-            sExtensions = OCL_SUPPORTED_EXTENSIONS_ATOM_1_2;
+            m_extensions += OCL_EXT_KHR_SPIR " ";
         }
-        else
-        {
-            sExtensions = OCL_SUPPORTED_EXTENSIONS_ATOM_2_0;
-        }
-    }
-    else
-    {
+
+        // media sharing extensions
         if (IsGLDirectXSupported())
         {
-            if (GetOpenCLVersion() == OPENCL_VERSION_1_2)
-            {
-                sExtensions = OCL_SUPPORTED_EXTENSIONS_1_2;
-            }
-            else
-            {
-                sExtensions = OCL_SUPPORTED_EXTENSIONS_2_0;
-            }
+            m_extensions += OCL_EXT_KHR_DX9_MEDIA_SHARING " ";
+            m_extensions += OCL_EXT_INTEL_DX9_MEDIA_SHARING " ";
+            m_extensions += OCL_EXT_KHR_D3D11_SHARING " ";
+            m_extensions += OCL_EXT_KHR_GL_SHARING " ";
         }
-        else
+
+        // double floating point extension
+        if (IsDoubleSupported())
         {
-            if (GetOpenCLVersion() == OPENCL_VERSION_1_2)
-            {
-                sExtensions = OCL_SUPPORTED_EXTENSIONS_XE_1_2;
-            }
-            else
-            {
-                sExtensions = OCL_SUPPORTED_EXTENSIONS_XE_2_0;
-            }
+            m_extensions += OCL_EXT_KHR_FP64 " ";
+        }
+
+        // OpenCL 2.0 extensions
+        if (OPENCL_VERSION_2_0 == GetOpenCLVersion())
+        {
+            m_extensions += OCL_EXT_KHR_IMAGE2D_FROM_BUFFER " ";
         }
     }
-    
-    return sExtensions;
+
+    return m_extensions.c_str();
 }

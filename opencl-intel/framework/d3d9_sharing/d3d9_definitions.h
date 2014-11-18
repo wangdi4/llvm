@@ -128,7 +128,7 @@ public:
 
     D3DSharingVersion GetVersion() const { return D3D9_KHR; }
 
-    std::string GetExtensionName() const { return OCL_KHR_DX9_MEDIA_SHARING_EXT; }
+    std::string GetExtensionName() const { return OCL_EXT_KHR_DX9_MEDIA_SHARING; }
 
     std::vector<int> GetValidDeviceTypes() const
     {
@@ -182,7 +182,7 @@ public:
 
     D3DSharingVersion GetVersion() const { return D3D9_INTEL; }
 
-    std::string GetExtensionName() const { return OCL_INTEL_DX9_MEDIA_SHARING_EXT; }
+    std::string GetExtensionName() const { return OCL_EXT_INTEL_DX9_MEDIA_SHARING; }
 
     std::vector<int> GetValidDeviceTypes() const
     {
@@ -236,7 +236,7 @@ public:
 
     D3DSharingVersion GetVersion() const { return D3D11; }
 
-    std::string GetExtensionName() const { return OCL_KHR_D3D11_SHARING_EXT; }
+    std::string GetExtensionName() const { return OCL_EXT_KHR_D3D11_SHARING; }
 
     std::vector<int> GetValidDeviceTypes() const
     {
