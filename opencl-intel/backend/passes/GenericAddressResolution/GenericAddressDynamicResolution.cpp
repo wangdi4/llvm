@@ -8,6 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include <OCLPassSupport.h>
 #include <NameMangleAPI.h>
+#include <CompilationUtils.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/InstrTypes.h>
 #include <llvm/IR/Intrinsics.h>
@@ -23,6 +24,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend::Passes::GenericAddressSpace;
+using namespace Intel::OpenCL::DeviceBackend;
 
 extern "C" {
   /// @brief  Creates new GenericAddressDynamicResolution module pass
@@ -112,11 +114,19 @@ namespace intel {
   void GenericAddressDynamicResolution::analyzeBIorIntrinsicCall(CallInst *pCallInstr, FuncCallType category) {
 
     assert((category == CallBuiltIn || category == CallIntrinsic) && "Unexpected function category!");
+
+    StringRef funcName = pCallInstr->getCalledFunction()->getName();
+
     // Address space enforcement: highest priority is 'global' for BI and 'private' for intrinsic
     // [we would like to have 'private' for all, however not all BIs have prototype with 'private']
-    OCLAddressSpace::spaces hiPriSpace = (category == CallBuiltIn)? 
-                                                    OCLAddressSpace::Global :
-                                                    OCLAddressSpace::Private; 
+
+    // If we resolve "wait_group_events" call we should resolve second argument( event_t** ) to private
+    // because by the spec event_t may be only in private address space qualifiers.
+    OCLAddressSpace::spaces hiPriSpace = (category == CallBuiltIn && !CompilationUtils::isWaitGroupEvents(funcName.str()))?
+                                          OCLAddressSpace::Global :
+                                          OCLAddressSpace::Private;
+
+
     // Check for pointer arguments
     for (unsigned idx = 0; idx < pCallInstr->getNumArgOperands(); idx++) {
       if (const PointerType *pSrcType = 
