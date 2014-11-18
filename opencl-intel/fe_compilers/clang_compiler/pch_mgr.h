@@ -28,14 +28,14 @@ class ResourceManager
 public:
     static ResourceManager& instance(){return g_instance;}
 
-    const char* get_resource(unsigned int id, const char* pszType, bool requireNullTerminate, size_t& out_size);
+    const char* get_resource(unsigned int id, const char* pszType, bool requireNullTerminate, size_t& out_size, const char* lib);
 
     const char* get_file(const char* path, bool binary, bool requireNullTerminate, size_t& out_size);
 
 private:
     ResourceManager(){}
 
-    void load_resource(unsigned int id, const char* pszType, bool requireNullTerminate);
+    void load_resource(unsigned int id, const char* pszType, bool requireNullTerminate, const char* lib);
 
     void load_file(const char* path, bool binary, bool requireNullTerminate);
 

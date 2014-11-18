@@ -135,7 +135,16 @@ if(CMAKE_CROSSCOMPILING)
                             COMMENT "Building native targets..."
     )
 
-    add_custom_target(ConfigureNativeTargets DEPENDS ${CX_NATIVE_TG_DIR}/bin/ocloptimg ${CX_NATIVE_TG_DIR}/bin/ocl-tblgen)
+    add_custom_command(OUTPUT ${CX_NATIVE_TG_DIR}/bin/linux_resource_linker
+                            COMMAND ${CMAKE_COMMAND}
+                            --build ${CX_NATIVE_TG_DIR}
+                            --target linux_resource_linker
+                            --config ${CMAKE_BUILD_TYPE} -- -j
+                            WORKING_DIRECTORY ${CX_NATIVE_TG_DIR}
+                            DEPENDS ${CX_NATIVE_TG_DIR}/CMakeCache.txt
+    )
+
+    add_custom_target(ConfigureNativeTargets DEPENDS ${CX_NATIVE_TG_DIR}/bin/ocloptimg ${CX_NATIVE_TG_DIR}/bin/ocl-tblgen ${CX_NATIVE_TG_DIR}/bin/linux_resource_linker)
     set_directory_properties(PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES ${CX_NATIVE_TG_DIR})
 endif()
 

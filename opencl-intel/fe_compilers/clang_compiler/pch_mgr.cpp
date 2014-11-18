@@ -79,7 +79,7 @@ ResourceManager ResourceManager::g_instance;
 void dummy(){}
 
 // returns the pointer to the buffer loaded from the resource with the given id
-const char* ResourceManager::get_resource(unsigned int id, const char* pszType, bool requireNullTerminate, size_t& out_size)
+const char* ResourceManager::get_resource(unsigned int id, const char* pszType, bool requireNullTerminate, size_t& out_size, const char* lib)
 {
     OclAutoMutex mutexGuard(&m_lock);
 
@@ -88,7 +88,7 @@ const char* ResourceManager::get_resource(unsigned int id, const char* pszType, 
     if( m_buffers.find(key) == m_buffers.end() )
     {
         // lazy load the resource if not found in the cache
-        load_resource(id, pszType, requireNullTerminate);
+        load_resource(id, pszType, requireNullTerminate, lib);
     }
 
     assert(m_buffers.find(key) != m_buffers.end());
@@ -113,7 +113,7 @@ const char* ResourceManager::get_file(const char* path, bool binary, bool requir
     return m_buffers[key].first;
 }
 
-void ResourceManager::load_resource(unsigned int id, const char* pszType, bool requireNullTerminate)
+void ResourceManager::load_resource(unsigned int id, const char* pszType, bool requireNullTerminate, const char* lib)
 {
     // this function is called under lock
     std::string key = static_cast<ostringstream*>( &(ostringstream() << id) )->str();
@@ -182,14 +182,23 @@ void ResourceManager::load_resource(unsigned int id, const char* pszType, bool r
     char size_name[69];
     void *symbol;
     uint32_t size;
+    void *handle;
 
     snprintf(name, 64, "%s_%u", pszType, id);
     snprintf(size_name, 64, "%s_%u_size", pszType, id);
-    #ifdef __ANDROID__
-    auto_dlclose module(RTLD_DEFAULT);
-    #else
-    auto_dlclose module(dlopen(NULL, RTLD_NOW));
-    #endif
+    if (!lib)
+    {
+#ifdef __ANDROID__
+        handle = RTLD_DEFAULT;
+#else
+        handle = dlopen(NULL, RTLD_NOW);
+#endif
+    }
+    else
+    {
+        handle = dlopen(lib, RTLD_NOW);
+    }
+    auto_dlclose module(handle);
     if (!module)
     {
         throw internal_error("can't open the module");

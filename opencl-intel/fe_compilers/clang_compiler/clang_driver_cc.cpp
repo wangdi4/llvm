@@ -215,7 +215,7 @@ int ClangFECompilerCompileTask::Compile()
     bool clStd20 = std::string(m_pProgDesc->pszOptions).find("-cl-std=CL2.0") != std::string::npos;
     int rcid = clStd20 ? IDR_PCH2 : IDR_PCH1;
     size_t uiPCHSize = 0;
-    const char* pPCHBuff = ResourceManager::instance().get_resource(rcid, "PCH", false, uiPCHSize);
+    const char* pPCHBuff = ResourceManager::instance().get_resource(rcid, "PCH", false, uiPCHSize, 0);
 
     std::stringstream optionsEx;
     // Add standard OpenCL options
