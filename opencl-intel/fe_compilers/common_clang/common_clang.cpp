@@ -87,29 +87,51 @@ void LLVMErrorHandler(void *pUserData, const std::string &message, bool gen_cras
     exit(1);
 }
 
-extern "C" CC_DLL_EXPORT  int Compile(const char*   pszProgramSource,
-                                      const char**  pInputHeaders,
-                                      unsigned int  uiNumInputHeaders,
-                                      const char**  pInputHeadersNames,
-                                      const char*   pPCHBuffer,
-                                      size_t        uiPCHBufferSize,
-                                      const char*   pszOptions,
-                                      const char*   pszOptionsEx,
-                                      const char*   pszDeviceSupportedExtensions,
-                                      const char*   pszOpenCLVer,
-                                      IOCLFEBinaryResult** pBinaryResult)
+class MemoryBufferCache
+{
+public:
+    ~MemoryBufferCache()
+    {
+        std::vector<llvm::MemoryBuffer*>::iterator i = m_cache.begin();
+        std::vector<llvm::MemoryBuffer*>::iterator e = m_cache.end();
+
+        for(; i != e; ++i)
+            delete *i;
+    }
+
+    llvm::MemoryBuffer* getMemBuffer(llvm::StringRef InputData,
+                                     llvm::StringRef BufferName = "",
+                                     bool RequiresNullTerminator = true)
+    {
+        llvm::MemoryBuffer *pBuffer = llvm::MemoryBuffer::getMemBuffer(InputData, BufferName, RequiresNullTerminator);
+        m_cache.push_back(pBuffer);
+        return pBuffer;
+    }
+
+private:
+    std::vector<llvm::MemoryBuffer*> m_cache;
+};
+
+extern "C" CC_DLL_EXPORT int Compile(const char*   pszProgramSource,
+                                     const char**  pInputHeaders,
+                                     unsigned int  uiNumInputHeaders,
+                                     const char**  pInputHeadersNames,
+                                     const char*   pPCHBuffer,
+                                     size_t        uiPCHBufferSize,
+                                     const char*   pszOptions,
+                                     const char*   pszOptionsEx,
+                                     const char*   pszDeviceSupportedExtensions,
+                                     const char*   pszOpenCLVer,
+                                     IOCLFEBinaryResult** pBinaryResult)
 {
     try
     {   // create a new scope to make sure the mutex will be released last
+        MemoryBufferCache bufferCache;
         llvm::OwningPtr<OCLFEBinaryResult> pResult ( new OCLFEBinaryResult() );
 
         // Parse options
         CompileOptionsParser optionsParser(pszDeviceSupportedExtensions, pszOpenCLVer);
         optionsParser.processOptions(pszOptions, pszOptionsEx);
-
-        // Prepare input Buffer
-        llvm::StringRef programSource(pszProgramSource);
-        llvm::OwningPtr<llvm::MemoryBuffer> inputBuffer( llvm::MemoryBuffer::getMemBuffer( programSource, optionsParser.getSourceName()));
 
         // Prepare output buffer
         llvm::raw_svector_ostream ir_ostream(pResult->getIRBufferRef());
@@ -128,8 +150,9 @@ extern "C" CC_DLL_EXPORT  int Compile(const char*   pszProgramSource,
         // Create the clang compiler
         llvm::OwningPtr<clang::CompilerInstance> compiler(new clang::CompilerInstance());
 
-        // Set buffers (CompilerInstance takes ownership over its buffers)
-        compiler->SetInputBuffer(inputBuffer.take());
+        // Set buffers
+        // CompilerInstance takes ownership over input buffer
+        compiler->SetInputBuffer(llvm::MemoryBuffer::getMemBuffer( llvm::StringRef(pszProgramSource), optionsParser.getSourceName()));
         compiler->SetOutputStream(&ir_ostream);
         compiler->setDiagnostics(Diags.getPtr());
 
@@ -141,6 +164,8 @@ extern "C" CC_DLL_EXPORT  int Compile(const char*   pszProgramSource,
         // Pre processor options
         clang::PreprocessorOptions &ppOptions = compiler->getPreprocessorOpts();
         optionsParser.getSupportedPragmas(ppOptions.SupportedPragmas);
+        // We'll manage the remapped files buffers
+        ppOptions.RetainRemappedFileBuffers = true;
 
         // Set an error handler, so that any LLVM backend diagnostics go through our error handler.
         // (currently commented out since setting the llvm error handling in multi-threaded environment is unsupported)
@@ -150,16 +175,14 @@ extern "C" CC_DLL_EXPORT  int Compile(const char*   pszProgramSource,
         // Input Headers
         for (unsigned int i = 0; i < uiNumInputHeaders; ++i)
         {
-            llvm::StringRef headerBuffer = llvm::StringRef(pInputHeaders[i]);
-            llvm::MemoryBuffer *header = llvm::MemoryBuffer::getMemBuffer(pInputHeaders[i], pInputHeadersNames[i]);
-            // CompilerInstance takes ownership over its buffers
+            llvm::MemoryBuffer *header = bufferCache.getMemBuffer(pInputHeaders[i], pInputHeadersNames[i]);
             compiler->AddInMemoryHeader(header, pInputHeadersNames[i]);
         }
 
         // PCH buffer
         if( pPCHBuffer && uiPCHBufferSize > 0)
         {
-            llvm::MemoryBuffer *pchBuffer = llvm::MemoryBuffer::getMemBuffer(llvm::StringRef(pPCHBuffer,uiPCHBufferSize), "", false);
+            llvm::MemoryBuffer *pchBuffer = bufferCache.getMemBuffer(llvm::StringRef(pPCHBuffer,uiPCHBufferSize), "", false);
             ppOptions.addRemappedFile("PCHeader.pch", pchBuffer);
             ppOptions.ImplicitPCHInclude = "PCHeader.pch";
         }
