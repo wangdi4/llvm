@@ -27,12 +27,10 @@
 #define DEBUGINFO_UTILS_H
 
 #include <string>
-#include <sstream>
 
 namespace debugservermessages {
     class VarTypeDescriptor;
 }
-
 
 namespace llvm {
     class DIType;

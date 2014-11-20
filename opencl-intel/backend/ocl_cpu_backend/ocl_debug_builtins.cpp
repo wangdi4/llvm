@@ -16,16 +16,16 @@ File Name:  ocl_debug_builtins.cpp
 
 \*****************************************************************************/
 
-#include "../ServiceFactory.h"
+#include "ServiceFactory.h"
 #include "icldebuggingservice.h"
 #include "cl_dev_backend_api.h"
-#include "llvm/Support/DataTypes.h"
+
 #include "llvm/DebugInfo.h"
 #include "llvm/IR/Metadata.h"
+#include "llvm/Support/DataTypes.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
-
 
 template <class T>
 static inline T* objptr_from_addr(uint64_t addr)
@@ -40,13 +40,13 @@ static inline T* objptr_from_addr(uint64_t addr)
 //
 static inline ICLDebuggingService* TheDebuggingService()
 {
-    ICLDevBackendServiceFactoryInternal* serviceFactory = 
+    ICLDevBackendServiceFactoryInternal* serviceFactory =
         ServiceFactory::GetInstanceInternal();
     ICLDebuggingService* debuggingService;
     if (serviceFactory->GetDebuggingService(&debuggingService) == CL_DEV_SUCCESS)
         return debuggingService;
     else
-        return NULL;    
+        return NULL;
 }
 
 

@@ -30,9 +30,10 @@
 #define OclCpuDebugging_EXPORTS
 #endif // OclCpuDebugging_EXPORTS
 
+#include "export/icldebuggingservice.h"
+
 #include "llvm/Support/Mutex.h"
 
-#include "export/icldebuggingservice.h"
 #include <memory>
 
 
@@ -40,9 +41,7 @@
 
 namespace llvm {
     class MDNode;
-    class NamedMDNode;
 }
-
 
 // Initialize the debug server if debugging is enabled.
 // Note: this blocks further execution until a client connects to the server
@@ -51,6 +50,7 @@ namespace llvm {
 //
 bool InitDebugServer(unsigned int port_number);
 
+namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 // Interface of the debug server.
 //
@@ -103,5 +103,6 @@ protected:
      mutable llvm::sys::Mutex       m_Lock;
 };
 
+}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 #endif // DEBUG_SERVER_H

@@ -26,12 +26,9 @@
 #ifndef ICLDEBUGGINGSERVICE_H
 #define ICLDEBUGGINGSERVICE_H
 
-
 namespace llvm {
     class MDNode;
-    class NamedMDNode;
 }
-
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -47,7 +44,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     #endif
 #endif
 
-
 class ICLDebuggingService {
 public:
     virtual void Stoppoint(const llvm::MDNode* line_metadata) = 0;
@@ -58,16 +54,13 @@ public:
     virtual bool DebuggedGlobalIdMatch(unsigned x, unsigned y, unsigned z) = 0;
 };
 
-
-}}}
+}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
-    using namespace Intel::OpenCL::DeviceBackend;
-
     // Initialize the debugging service. Return 'true' if initialization 
     // succeeded, false otherwise. If the debugging service is disabled, true
     // is returned.
@@ -76,7 +69,7 @@ extern "C"
 
     // Get a pointer to the debugging service instance
     //
-    DEBUG_SERVICE_API ICLDebuggingService* DebuggingServiceInstance();
+    DEBUG_SERVICE_API Intel::OpenCL::DeviceBackend::ICLDebuggingService* DebuggingServiceInstance();
 
     // Terminates the debugging service
     //
@@ -85,7 +78,7 @@ extern "C"
     // Function pointer types
     //
     typedef bool (*DEBUGGING_SERVICE_INIT_FUNC)(unsigned int);
-    typedef ICLDebuggingService* (*DEBUGGING_SERVICE_INSTANCE_FUNC)();
+    typedef Intel::OpenCL::DeviceBackend::ICLDebuggingService* (*DEBUGGING_SERVICE_INSTANCE_FUNC)();
     typedef void (*DEBUGGING_SERVICE_TERMINATE_FUNC)();
 
 #ifdef __cplusplus
