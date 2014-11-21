@@ -1,6 +1,6 @@
 /////////////////////////////////////////////////////////////////////////
 // INTEL CONFIDENTIAL
-// Copyright 2007-2013 Intel Corporation All Rights Reserved.
+// Copyright 2007-2014 Intel Corporation All Rights Reserved.
 //
 // The source code contained or described herein and all documents related
 // to the source code ("Material") are owned by Intel Corporation or its
@@ -25,12 +25,13 @@
 
 #include "debuginfo_utils.h"
 #include "debugservermessages.pb.h"
+#include <cl_utils.h>
+
 #include "llvm/DebugInfo.h"
 #include "llvm/Support/Dwarf.h"
 #include "llvm/IR/Metadata.h"
-#include <cl_utils.h>
-#include <iostream>
 
+#include <iostream>
 
 using namespace std;
 using namespace llvm;
@@ -72,7 +73,7 @@ static pair<string, size_t> split_vector_name(string type_name)
 // with its value packed at address addr.
 //
 template<typename T> 
-static inline std::string stringify_vector(size_t N, void* addr)
+static inline string stringify_vector(size_t N, void* addr)
 {
     string s = "";
     T* ptr = static_cast<T*>(addr);
@@ -336,6 +337,8 @@ static VarTypeDescriptor GenerateStubType()
 
 }
 
+namespace {
+
 class Generator {
     // pointer chasing depth
     unsigned m_pointerDepth;
@@ -548,6 +551,8 @@ VarTypeDescriptor Generator::GenerateVarTypeDescriptor(const DIType& di_type)
     //
     return GenerateUnknownVarType();
 }
+
+} // namespace
 
 VarTypeDescriptor GenerateVarTypeDescriptor(const DIType& di_type)
 {

@@ -250,6 +250,7 @@ cl_dev_err_code ServiceFactory::GetDebuggingService(
     *pDebuggingService = instance;
     return instance == NULL ? CL_DEV_ERROR_FAIL : CL_DEV_SUCCESS;
 }
+
 cl_dev_err_code ServiceFactory::GetImageService(
     const ICLDevBackendOptions* pBackendOptions,
     ICLDevBackendImageService** ppBackendImageService)

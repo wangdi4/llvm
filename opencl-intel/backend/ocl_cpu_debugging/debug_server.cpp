@@ -1,8 +1,34 @@
+/////////////////////////////////////////////////////////////////////////
+// INTEL CONFIDENTIAL
+// Copyright 2007-2014 Intel Corporation All Rights Reserved.
+//
+// The source code contained or described herein and all documents related
+// to the source code ("Material") are owned by Intel Corporation or its
+// suppliers or licensors. Title to the Material remains with Intel Corporation
+// or its suppliers and licensors. The Material may contain trade secrets and
+// proprietary and confidential information of Intel Corporation and its
+// suppliers and licensors, and is protected by worldwide copyright and trade
+// secret laws and treaty provisions. No part of the Material may be used, copied,
+// reproduced, modified, published, uploaded, posted, transmitted, distributed,
+// or disclosed in any way without Intel’s prior express written permission.
+//
+// No license under any patent, copyright, trade secret or other intellectual
+// property right is granted to or conferred upon you by disclosure or delivery
+// of the Materials, either expressly, by implication, inducement, estoppel or
+// otherwise. Any license under such intellectual property rights must be express
+// and approved by Intel in writing.
+//
+// Unless otherwise agreed by Intel in writing, you may not remove or alter this notice
+// or any other notice embedded in Materials by Intel or Intel’s suppliers or licensors
+// in any way.
+/////////////////////////////////////////////////////////////////////////
+
 #include "debug_server.h"
 #include "debugservermessages.pb.h"
 #include "debug_communicator.h"
 #include "debuginfo_utils.h"
 #include "cl_env.h"
+#include "google/protobuf/text_format.h"
 
 // These can be defined as macros in earlier headers and can interfere with
 // similarly named methods in LLVM headers
@@ -22,7 +48,7 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
-#include "google/protobuf/text_format.h"
+
 #include <string>
 #include <deque>
 #include <vector>
@@ -30,27 +56,19 @@
 #include <map>
 #include <iostream>
 #include <sstream>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
-const unsigned DEBUG_SERVER_PORT_DEFAULT = 56203;
-const uint64_t MAX_MEMORY_RANGE_SIZE = 16 * 1024;
+static const unsigned DEBUG_SERVER_PORT_DEFAULT = 56203;
+static const uint64_t MAX_MEMORY_RANGE_SIZE = 16 * 1024;
 
 using namespace std;
 using namespace llvm;
 using namespace debugservermessages;
-
-
-void LOG_RECEIVED_MESSAGE(const ClientToServerMessage& msg)
-{
-    DEBUG_SERVER_LOG("Message received:");
-    string s;
-    google::protobuf::TextFormat::PrintToString(msg, &s);
-    DEBUG_SERVER_LOG(s);
-}
-
+using namespace Intel::OpenCL::DeviceBackend;
 
 #ifdef _WIN32
-#include <windows.h>
-
 // Get a string value from the registry.
 //   top_hkey: one of standard the HKEY_* constants
 //   path: path to the key in the registry
@@ -138,15 +156,21 @@ static string getAbsPath(string file, string dir)
     return absPathStr;
 }
 
-
 #endif // _WIN32
 
+static void LOG_RECEIVED_MESSAGE(const ClientToServerMessage& msg)
+{
+    DEBUG_SERVER_LOG("Message received:");
+    string s;
+    google::protobuf::TextFormat::PrintToString(msg, &s);
+    DEBUG_SERVER_LOG(s);
+}
 
 // Define the singleton instance
 //
 DebugServer DebugServer::instance;
 
-
+namespace {
 // Used to collect the variable declarations visible up to a certain point in 
 // a function.
 //
@@ -214,13 +238,15 @@ struct VarDescription
     VarTypeDescriptor type_descriptor;
 };
 
+} // namespace
+
 typedef map<string, VarDescription> VarsMapping;
 
 
 // Merge the vars from 'src' into 'dest'. Only those vars that are not already
 // in 'dest' are added.
 //
-void MergeVarsMapping(VarsMapping& dest, const VarsMapping& src)
+static void MergeVarsMapping(VarsMapping& dest, const VarsMapping& src)
 {
     for (VarsMapping::const_iterator i = src.begin(); i != src.end(); ++i) {
         if (dest.find(i->first) == dest.end())
@@ -231,7 +257,7 @@ void MergeVarsMapping(VarsMapping& dest, const VarsMapping& src)
 
 // Dump a mapping for debugging
 //
-void dump_vars_mapping(VarsMapping mapp)
+static void dump_vars_mapping(VarsMapping mapp)
 {
     for (VarsMapping::const_iterator i = mapp.begin(); i != mapp.end(); ++i) {
         cerr << i->first << " ";
@@ -239,8 +265,7 @@ void dump_vars_mapping(VarsMapping mapp)
     cerr << endl;
 }
 
-
-struct DebugServer::DebugServerImpl 
+struct DebugServer::DebugServerImpl
 {
     DebugServerImpl()
         :   m_comm(0), m_initialized(false), m_runningmode(RUNNING_NORMAL),
@@ -1039,7 +1064,7 @@ DEBUG_SERVICE_API bool InitDebuggingService(unsigned int port_number)
 
 DEBUG_SERVICE_API ICLDebuggingService* DebuggingServiceInstance()
 {
-    return &DebugServer::GetInstance();   
+    return &DebugServer::GetInstance();
 }
 
 

@@ -1,3 +1,28 @@
+/////////////////////////////////////////////////////////////////////////
+// INTEL CONFIDENTIAL
+// Copyright 2007-2014 Intel Corporation All Rights Reserved.
+//
+// The source code contained or described herein and all documents related
+// to the source code ("Material") are owned by Intel Corporation or its
+// suppliers or licensors. Title to the Material remains with Intel Corporation
+// or its suppliers and licensors. The Material may contain trade secrets and
+// proprietary and confidential information of Intel Corporation and its
+// suppliers and licensors, and is protected by worldwide copyright and trade
+// secret laws and treaty provisions. No part of the Material may be used, copied,
+// reproduced, modified, published, uploaded, posted, transmitted, distributed,
+// or disclosed in any way without Intel’s prior express written permission.
+//
+// No license under any patent, copyright, trade secret or other intellectual
+// property right is granted to or conferred upon you by disclosure or delivery
+// of the Materials, either expressly, by implication, inducement, estoppel or
+// otherwise. Any license under such intellectual property rights must be express
+// and approved by Intel in writing.
+//
+// Unless otherwise agreed by Intel in writing, you may not remove or alter this notice
+// or any other notice embedded in Materials by Intel or Intel’s suppliers or licensors
+// in any way.
+/////////////////////////////////////////////////////////////////////////
+
 #ifndef DEBUG_SERVER_H
 #define DEBUG_SERVER_H
 
@@ -5,9 +30,10 @@
 #define OclCpuDebugging_EXPORTS
 #endif // OclCpuDebugging_EXPORTS
 
+#include "export/icldebuggingservice.h"
+
 #include "llvm/Support/Mutex.h"
 
-#include "export/icldebuggingservice.h"
 #include <memory>
 
 
@@ -15,9 +41,7 @@
 
 namespace llvm {
     class MDNode;
-    class NamedMDNode;
 }
-
 
 // Initialize the debug server if debugging is enabled.
 // Note: this blocks further execution until a client connects to the server
@@ -26,6 +50,7 @@ namespace llvm {
 //
 bool InitDebugServer(unsigned int port_number);
 
+namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 // Interface of the debug server.
 //
@@ -78,5 +103,6 @@ protected:
      mutable llvm::sys::Mutex       m_Lock;
 };
 
+}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 #endif // DEBUG_SERVER_H
