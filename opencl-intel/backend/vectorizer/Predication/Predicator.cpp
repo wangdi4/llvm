@@ -628,6 +628,19 @@ void Predicator::convertPhiToSelect(BasicBlock* BB) {
     moveAfterLastDependant(select);
     select->setOperand(0, selectCond);
 
+    // If this phi is a condition for a branch we need to replace it in
+    // m_branchesInfo with the newly created select.
+    for (Value::use_iterator it = phi->use_begin(),
+	 end = phi->use_end();
+	 it != end; ++it) {
+      BranchInst* br = dyn_cast<BranchInst>(*it);
+      if (!br || !br->isConditional()) {
+	continue;
+      }
+      BasicBlock* usingBB = br->getParent();
+      m_branchesInfo[usingBB].m_cond = select;
+    }
+
     phi->replaceAllUsesWith(select);
     phi->eraseFromParent();
     // We may change instructions which we planned on prev-select-ing
