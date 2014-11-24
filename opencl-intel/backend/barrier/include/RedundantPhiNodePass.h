@@ -25,7 +25,7 @@ namespace intel {
     RedundantPhiNode();
 
     /// @brief D'tor
-    ~RedundantPhiNode() {};
+    ~RedundantPhiNode() {}
 
     /// @brief Provides name of pass
     virtual const char *getPassName() const {

@@ -38,7 +38,7 @@ public:
   CLStreamSampler();
 
   /// @brief destructor.
-  ~CLStreamSampler() {};
+  ~CLStreamSampler() {}
 
   /// @brief LLVM interface.
   /// @param L - Loop to transform.

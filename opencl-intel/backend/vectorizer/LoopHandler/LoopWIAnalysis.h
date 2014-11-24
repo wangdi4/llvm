@@ -21,7 +21,7 @@ public:
   LoopWIAnalysis();
 
   /// @brief destructor.
-  ~LoopWIAnalysis() {};
+  ~LoopWIAnalysis() {}
 
   /// @brief LLVM interface.
   /// @param L - Loop to analyze.

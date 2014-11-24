@@ -29,7 +29,7 @@ namespace intel {
     GroupBuiltin();
 
     /// @brief D'tor
-    ~GroupBuiltin() {};
+    ~GroupBuiltin() {}
 
     /// @brief Provides name of pass
     virtual const char *getPassName() const {

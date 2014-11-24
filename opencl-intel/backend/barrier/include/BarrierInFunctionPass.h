@@ -34,7 +34,7 @@ namespace intel {
     BarrierInFunction();
 
     /// @brief D'tor
-    ~BarrierInFunction() {};
+    ~BarrierInFunction() {}
 
     /// @brief Provides name of pass
     virtual const char *getPassName() const {

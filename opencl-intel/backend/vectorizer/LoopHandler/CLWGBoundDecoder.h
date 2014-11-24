@@ -13,9 +13,9 @@ namespace intel {
 class CLWGBoundDecoder{
 public:
   /// @brief C'tor
-  CLWGBoundDecoder(){};
+  CLWGBoundDecoder(){}
   /// @brief D'tor
-  ~CLWGBoundDecoder(){};
+  ~CLWGBoundDecoder(){}
  
   ///@brief returns the initial global id index for dimension dim in the
   ///       work group boundaries array.

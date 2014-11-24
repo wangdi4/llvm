@@ -56,7 +56,7 @@ public:
   virtual bool runOnModule(Module &M);
 
   ///@brief LLVM interface.
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {};
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const {}
 
 private:
 

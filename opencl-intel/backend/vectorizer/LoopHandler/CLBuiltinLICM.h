@@ -38,7 +38,7 @@ public:
   CLBuiltinLICM();
 
   /// @brief destructor.
-  ~CLBuiltinLICM() {};
+  ~CLBuiltinLICM() {}
 
   /// @brief LLVM interface.
   /// @param L - Loop to analyze.

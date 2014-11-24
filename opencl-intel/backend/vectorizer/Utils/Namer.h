@@ -31,7 +31,7 @@ public:
     m_nameAll = nameAll;
   };
   /// @brief D'tor
-  ~nameByInstType(){};
+  ~nameByInstType(){}
   /// @brief Provides name of pass
   virtual const char *getPassName() const {
     return "nameByInstType";
@@ -43,7 +43,7 @@ public:
   ///@brief public API to be use not as a pass.
   void RenameValues(Function &F);
 
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {};
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const {}
 };
 }
 #endif //define __INST_TYPE_NAMER_H_

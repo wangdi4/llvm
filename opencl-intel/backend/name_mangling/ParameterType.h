@@ -88,10 +88,10 @@ namespace reflection {
   struct ParamType {
     ///@brief Constructor
     ///@param TypeEnum type id
-    ParamType(TypeEnum typeId) : m_typeId(typeId) {};
+    ParamType(TypeEnum typeId) : m_typeId(typeId) {}
 
     ///@brief Destructor
-    virtual ~ParamType() {};
+    virtual ~ParamType() {}
 
     /// Abstract Methods ///
 

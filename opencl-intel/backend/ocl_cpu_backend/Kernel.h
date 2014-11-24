@@ -65,7 +65,7 @@ public:
 
 class Kernel : public ICLDevBackendKernel_, public ICLDevBackendKernelRunner {
 public:
-  Kernel() : m_pProps(NULL) {};
+  Kernel() : m_pProps(NULL) {}
 
   Kernel(const std::string &name, const std::vector<cl_kernel_argument> &args,
          const std::vector<unsigned int> &memArgs, KernelProperties *pProps);

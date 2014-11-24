@@ -23,7 +23,7 @@ public:
   LoopStridedCodeMotion();
 
   /// @brief destructor.
-  ~LoopStridedCodeMotion() {};
+  ~LoopStridedCodeMotion() {}
 
   /// @brief LLVM interface.
   /// @param L - Loop to transform.

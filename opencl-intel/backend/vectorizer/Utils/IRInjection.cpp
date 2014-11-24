@@ -76,7 +76,7 @@ public:
     m_newModulePath = newModulePath;
   };
   /// @brief D'tor
-  ~IRInjectModule(){};
+  ~IRInjectModule(){}
   /// @brief Provides name of pass
   virtual const char *getPassName() const {
     return "IRInjectModule";
