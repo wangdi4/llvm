@@ -19,26 +19,26 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
       -- creates kernel with name org_name+_kernel. Update opencl.kernels metadata
 */
 namespace intel {
-  using namespace llvm;
-  struct CloneBlockInvokeFuncToKernel : public ModulePass {
+  struct CloneBlockInvokeFuncToKernel : public llvm::ModulePass {
     static char ID;
     /// ctor
     CloneBlockInvokeFuncToKernel()
-      : ModulePass(ID), m_pModule(0), m_pContext(0), m_pTD(0)
+      : llvm::ModulePass(ID), m_pModule(0), m_pContext(0), m_pTD(0)
     {}
 
     /// main function
-    virtual bool runOnModule(Module &M);
+    virtual bool runOnModule(llvm::Module &M);
 
   private:
-      size_t computeBlockLiteralSize(Function *F);
-      Module *m_pModule;
-      LLVMContext *m_pContext;
-      DataLayout *m_pTD;
+      size_t computeBlockLiteralSize(llvm::Function *F);
+
+      llvm::Module      *m_pModule;
+      llvm::LLVMContext *m_pContext;
+      llvm::DataLayout  *m_pTD;
 
   }; // struct CloneBlockInvokeFuncToKernel
 
   /// create pass
-  Pass *createCloneBlockInvokeFuncToKernelPass();
+  llvm::Pass *createCloneBlockInvokeFuncToKernelPass();
 } // namespace intel
 #endif // __CLONE_BLOCK_INVOKE_FUNC_TO_KERNEL_H__

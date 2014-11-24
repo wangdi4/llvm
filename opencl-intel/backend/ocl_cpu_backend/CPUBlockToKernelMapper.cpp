@@ -35,10 +35,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   CPUBlockToKernelMapper::CPUBlockToKernelMapper(Program *pProgram, const llvm::Module* pModule)
   {
+    assert(pModule && "Module is NULL");
+    assert(pProgram && "Program is NULL");
     DEBUG(llvm::dbgs() << "Entry point CPUBlockToKernelMapper ctor \n");
     DEBUG(llvm::dbgs() << pProgram->GetKernelsCount() << " kernels in program \n");
-    assert(pProgram && "Program is NULL");
-    assert(pModule && "Module is NULL");
 
 
     // loop over kernels in program
