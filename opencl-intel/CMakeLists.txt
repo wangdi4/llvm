@@ -581,6 +581,13 @@ else(APPLE)
     #workloads
     add_subdirectory( workloads )
     
+    #Linux samples
+    option(INCLUDE_SMPLS "Include Linux Samples into Build"  OFF)
+    if (INCLUDE_SMPLS AND NOT WIN32 AND NOT ANDROID)
+        add_subdirectory( samples )
+    endif(INCLUDE_SMPLS AND NOT WIN32 AND NOT ANDROID)
+
+    
 endif(APPLE)
 
 # install additional files required by the installer
