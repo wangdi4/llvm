@@ -16,16 +16,7 @@ File Name:  ProgramBuilder.cpp
 
 \*****************************************************************************/
 #define NOMINMAX
-#define DEBUG_TYPE "ProgramBuilder"
 
-#if defined (WIN32)
-#include <windows.h>
-#include <shellapi.h>
-#include <codecvt>
-#endif // WIN32
-
-#include <vector>
-#include <string>
 #include "cl_types.h"
 #include "cpu_dev_limits.h"
 #include "Compiler.h"
@@ -48,6 +39,7 @@ File Name:  ProgramBuilder.cpp
 #include "ObjectCodeCache.h"
 #include "OclTune.h"
 
+#define DEBUG_TYPE "ProgramBuilder"
 #include "llvm/Support/Atomic.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
@@ -72,6 +64,14 @@ File Name:  ProgramBuilder.cpp
 #include <algorithm>
 #include <sstream>
 
+#if defined (WIN32)
+#include <windows.h>
+#include <shellapi.h>
+#include <codecvt>
+#endif // WIN32
+
+#include <vector>
+#include <string>
 using std::string;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {

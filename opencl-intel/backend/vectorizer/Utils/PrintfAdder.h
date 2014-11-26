@@ -54,7 +54,7 @@ public:
     m_printConditionally = printConditionaly;
   };
   
-  ~PrintfAdder()  {};
+  ~PrintfAdder()  {}
   virtual const char *getPassName() const {
     return "PrintfAdder";
   }

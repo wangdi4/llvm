@@ -9,15 +9,15 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "BlockUtils.h"
 #include "CloneBlockInvokeFuncToKernel.h"
-#include "OCLPassSupport.h"
 #include "MetaDataApi.h"
+#include "OCLPassSupport.h"
 
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Attributes.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 #include <assert.h>
 
@@ -89,13 +89,14 @@ static bool canBlockInvokeFunctionBeEnqueued(Function *F)
     return false;
 
   // check 1st arg is NOT struct return attribute
-  // In this case block returns struct - not accecptable for enqueue
+  // In this case block returns struct - not acceptable for enqueue
   Argument* Arg1= F->arg_begin();
   if ( Arg1->hasStructRetAttr() )
     return false;
 
   return true;
 }
+
 bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
 {
   m_pModule = &M;
@@ -121,9 +122,9 @@ bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
 
   // obtain node with kernels
   NamedMDNode *OpenCLKernelMetadata = M.getNamedMetadata("opencl.kernels");
-  if( NULL == OpenCLKernelMetadata )
-  {
-      // workaround to overcome klockwork issue
+  assert(OpenCLKernelMetadata && "There is no \"opencl.kernels\" metadata.");
+  // workaround to overcome klockwork issue
+  if( !OpenCLKernelMetadata ) {
       return false;
   }
 

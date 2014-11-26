@@ -133,22 +133,8 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult* *pBinaryResult)
     bool bProfiling = std::string(m_pProgDesc->pszOptions).find("-profiling") != std::string::npos;
     size_t uiPCHSize = 0;
 
-#ifdef WIN32
     int rcid = clStd20 ? IDR_PCH2 : IDR_PCH1;
-    const char* pPCHBuff = ResourceManager::instance().get_resource(rcid, "PCH", false, uiPCHSize);
-#else
-    const char* pchFileName = clStd20 ? "opencl20_.pch"
-                                      : "opencl_.pch";
-    char szBinaryPath[MAX_STR_BUFF];
-    char szOclIncPath[MAX_STR_BUFF];
-    char szOclPchPath[MAX_STR_BUFF];
-
-    // Retrieve local relatively to binary directory
-    GetModuleDirectory(szBinaryPath, MAX_STR_BUFF);
-    SPRINTF_S(szOclIncPath, MAX_STR_BUFF, "%sfe_include", szBinaryPath);
-    SPRINTF_S(szOclPchPath, MAX_STR_BUFF, "%s%s", szBinaryPath, pchFileName);
-    const char* pPCHBuff = ResourceManager::instance().get_file(szOclPchPath, true, false, uiPCHSize );
-#endif
+    const char* pPCHBuff = ResourceManager::instance().get_resource(rcid, "PCH", false, uiPCHSize, "libclang_compiler.so");
     // Force the -profiling option if such was not supplied by user
     std::string options;
     const char* pszOptions = m_pProgDesc->pszOptions;

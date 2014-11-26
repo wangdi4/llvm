@@ -87,7 +87,7 @@ namespace Frontend {
         //invoked when a program is being compiled
         virtual void OnCompile(const CompileData* compileData) = 0;
 
-        virtual ~ICLFrontendPlugin(){};
+        virtual ~ICLFrontendPlugin(){}
     };
 }//Forntend
 
@@ -99,7 +99,7 @@ struct IPlugin{
     //When implemented in derived classes, should return a pointer to a frontend
     //pluging. Note: NULL valude is not legal.
     virtual Frontend::ICLFrontendPlugin* getFrontendPlugin() = 0;
-    virtual ~IPlugin() {};
+    virtual ~IPlugin() {}
 };
 }}
 

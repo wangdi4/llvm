@@ -36,7 +36,7 @@ namespace intel {
     DuplicateCalledKernels();
 
     /// @brief D'tor
-    ~DuplicateCalledKernels() {};
+    ~DuplicateCalledKernels() {}
 
     /// @brief Provides name of pass
     virtual const char *getPassName() const {

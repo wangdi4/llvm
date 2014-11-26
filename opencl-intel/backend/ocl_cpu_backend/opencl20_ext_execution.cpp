@@ -16,10 +16,6 @@ File Name:  opencl20_ext_execution.cpp
 
 \*****************************************************************************/
 
-#define DEBUG_TYPE "opencl20-ext-execution"
-
-#include <string.h>
-
 #if defined (__MIC__) || defined(__MIC2__)
   #include "mic_dev_limits.h"
   #define MAX_WORK_GROUP_SIZE      MIC_MAX_WORK_GROUP_SIZE
@@ -37,9 +33,13 @@ File Name:  opencl20_ext_execution.cpp
 #include "cl_device_api.h"
 #include "IDeviceCommandManager.h"
 
-#include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/SmallVector.h"
+
+#define DEBUG_TYPE "opencl20-ext-execution"
+#include "llvm/Support/Debug.h"
+
+#include <string.h>
 
 using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend;

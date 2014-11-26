@@ -21,7 +21,7 @@ struct hashEntry;
 //Purpose: Provides vectorizer-specific data on a (built-in) function
 ///////////////////////////////////////////////////////////////////////////////
 struct VectorizerFunction{
-  virtual ~VectorizerFunction(){};
+  virtual ~VectorizerFunction(){}
   /////////////////////////////////////////////////////////////////////////////
   //Purpose: returns the width of the function represented by the receiver of
   //this object.

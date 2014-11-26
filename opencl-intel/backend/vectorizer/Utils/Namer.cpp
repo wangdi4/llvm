@@ -34,9 +34,9 @@ public:
 
   static char ID;
   /// @brief C'tor
-  nameRemove(): FunctionPass(ID){};
+  nameRemove(): FunctionPass(ID){}
   /// @brief D'tor
-  ~nameRemove(){};
+  ~nameRemove(){}
   /// @brief Provides name of pass
   virtual const char *getPassName() const {
     return "nameRemove";

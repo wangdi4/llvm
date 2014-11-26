@@ -19,7 +19,7 @@ File Name:  IBlockToKernelMapper.h
 #define __IBLOCK_TO_KERNEL_MAPPER_H__
 
 /*
-    Interface for mapping enqueued Block to ICLDevBackendKernel object
+  Interface for mapping enqueued Block to ICLDevBackendKernel object
 */
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
   class ICLDevBackendKernel_;
@@ -41,7 +41,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     virtual const ICLDevBackendKernel_ * Map(const void * key) const = 0;
 
     /// @brief dtor
-    virtual ~IBlockToKernelMapper() {};
+    virtual ~IBlockToKernelMapper() {}
   };
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
