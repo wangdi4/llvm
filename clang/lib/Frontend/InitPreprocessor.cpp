@@ -458,7 +458,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
                       + getClangFullRepositoryVersion() + "\"");
 #undef TOSTR
 #undef TOSTR2
-  if (!LangOpts.MSVCCompat) {
+  if (!LangOpts.MSVCCompat && !LangOpts.IntelCompat) { //***INTEL
     // Currently claim to be compatible with GCC 4.2.1-5621, but only if we're
     // not compiling for MSVC compatibility
     Builder.defineMacro("__GNUC_MINOR__", "2");

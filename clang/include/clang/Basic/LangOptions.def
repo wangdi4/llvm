@@ -41,6 +41,11 @@
      ENUM_LANGOPT(Name, Type, Bits, Default, Description)
 #endif
 
+#if INTEL_CUSTOMIZATION
+LANGOPT(IntelCompat       , 1, 0,
+        "Enables or disables Intel Compiler compatibility mode")
+#endif // INTEL_CUSTOMIZATION
+
 LANGOPT(C99               , 1, 0, "C99")
 LANGOPT(C11               , 1, 0, "C11")
 LANGOPT(MSVCCompat        , 1, 0, "Microsoft Visual C++ full compatibility mode")

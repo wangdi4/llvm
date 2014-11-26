@@ -518,6 +518,8 @@ def fno_rtti_data : Flag<["-"], "fno-rtti-data">,
   HelpText<"Control emission of RTTI data">;
 def fallow_half_arguments_and_returns : Flag<["-"], "fallow-half-arguments-and-returns">,
   HelpText<"Allow function arguments and returns of type half">;
+def fintel_compatibility : Flag<["-"], "fintel-compatibility">,
+  HelpText<"Enable full Intel C/C++ compatibility">;
 
 //===----------------------------------------------------------------------===//
 // Header Search Options
