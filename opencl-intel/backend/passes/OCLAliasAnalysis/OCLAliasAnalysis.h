@@ -12,6 +12,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/ValueTracking.h"
+#include "llvm/ADT/SmallPtrSet.h"
 
 using namespace llvm;
 
@@ -41,6 +42,10 @@ namespace intel {
       return this;
     }
 
+    virtual void deleteValue (Value *V);
+    virtual void copyValue (Value *From, Value *To);
+    virtual void addEscapingUse (Use &U);
+
     private:
 
       // Helper class to hold the result of address space resolution
@@ -56,12 +61,20 @@ namespace intel {
 	}
 	bool isResolved() {return resolved;}
 	unsigned int getAddressSpace() {return addressSpace;}
+	bool operator==(const ResolveResult& other) {
+	  return (resolved == other.resolved) &&
+	         (addressSpace == other.addressSpace);
+	}
       private:
 	bool resolved;
 	unsigned int addressSpace;
       };
 
-      ResolveResult resolveAddressSpace(const Value& value);
+      ResolveResult resolveAddressSpace(const Value* value, bool force);
+
+      typedef SmallPtrSet<const Value*, 16> SmallValueSet;
+      ResolveResult cacheResult(SmallValueSet& values, ResolveResult resolveResult);
+      std::map<const Value*, ResolveResult> m_cachedResults;
 
       int m_disjointAddressSpaces;
 

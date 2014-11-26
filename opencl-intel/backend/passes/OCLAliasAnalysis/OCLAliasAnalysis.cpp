@@ -8,7 +8,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OCLAliasAnalysis.h"
 #include "OCLPassSupport.h"
 #include "OCLAddressSpace.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include <queue>
 
 using namespace Intel::OpenCL::DeviceBackend::Utils;
@@ -31,6 +30,25 @@ OCLAliasAnalysis::OCLAliasAnalysis() : ImmutablePass(ID) {
                             getAddressSpaceMask(OCLAddressSpace::Local);
 }
 
+void OCLAliasAnalysis::deleteValue (Value *V) {
+  m_cachedResults.erase(V);
+}
+void OCLAliasAnalysis::copyValue (Value *From, Value *To) {
+  // Do nothing, i.e. let new value compute in resolveAddressSpace.
+}
+void OCLAliasAnalysis::addEscapingUse (Use &U) {
+  resolveAddressSpace(U.get(), true);
+}
+
+OCLAliasAnalysis::ResolveResult
+OCLAliasAnalysis::cacheResult(SmallValueSet& values,
+			      ResolveResult resolveResult) {
+  for (SmallValueSet::iterator it = values.begin(); it != values.end(); ++it) {
+    m_cachedResults.insert(std::make_pair(*it, resolveResult));
+  }
+  return resolveResult;
+}
+
 // We may be given a value which by itself does not explicitly specify an OpenCL address
 // space although the address does belong to one (e.g. alloca instructions are used for
 // both Local and Private memory, but do not explicitly specify the addrspace.
@@ -45,19 +63,27 @@ OCLAliasAnalysis::OCLAliasAnalysis() : ImmutablePass(ID) {
 // - the pointer is not escaping our analysis via casting to/from int
 // (note that when we do find a non-default address space we don't care if the pointer is casted
 // to/from int as no pointer arithmetic can escape the OpenCL address space).
-OCLAliasAnalysis::ResolveResult OCLAliasAnalysis::resolveAddressSpace(const Value& value) {
+OCLAliasAnalysis::ResolveResult OCLAliasAnalysis::resolveAddressSpace(const Value* value, bool force) {
   std::queue<const Value*> nextPointerValues;
-  SmallPtrSet<const Value*, 16> visitedPointerValues;
+  SmallValueSet visitedPointerValues;
 
   // Assume this is the default namespace.
   unsigned int addressSpace = OCLAddressSpace::Private;
   // Keep track of whether this pointer originates from or gets casted to an int.
-  bool isEscapingToInt = false;
+  bool isEscaping = false;
 
-  nextPointerValues.push(&value);
+  nextPointerValues.push(value);
   do {
     const Value* pointerValue = nextPointerValues.front();
     nextPointerValues.pop();
+
+    if(!force) {
+      std::map<const Value*, ResolveResult>::iterator it = m_cachedResults.find(pointerValue);
+      if (it != m_cachedResults.end()) {
+        return cacheResult(visitedPointerValues, it->second);
+      }
+    }
+
     if (!visitedPointerValues.insert(pointerValue))
       continue;
 
@@ -66,19 +92,15 @@ OCLAliasAnalysis::ResolveResult OCLAliasAnalysis::resolveAddressSpace(const Valu
     assert(pointerType && "Value is not of a pointer type");
     unsigned int valueAddressSpace = pointerType->getAddressSpace();
 
-    assert((addressSpace == OCLAddressSpace::Private || addressSpace == valueAddressSpace) &&
-	   "Address used for more than one address space");
-    addressSpace = valueAddressSpace;
+    if(addressSpace != OCLAddressSpace::Private && valueAddressSpace != OCLAddressSpace::Private && addressSpace != valueAddressSpace)
+      isEscaping = true;
+
+    if(valueAddressSpace != OCLAddressSpace::Private)
+      addressSpace = valueAddressSpace;
 
     // Check whether the pointer value stems from or gets casted to an int.
     if (isa<IntToPtrInst>(pointerValue) || isa<PtrToIntInst>(pointerValue))
-      isEscapingToInt = true;
-
-    // We assume address space consistency: one explicit relation of the
-    // address to an non-default address space is enough, as there is no
-    // way in OpenCL to escapse out of an address space.
-    if (addressSpace != OCLAddressSpace::Private)
-      break;
+      isEscaping = true;
 
     // Mark this value's users to be visited.
     for (Value::const_use_iterator it = pointerValue->use_begin(), end = pointerValue->use_end(); it != end; ++it)
@@ -94,7 +116,8 @@ OCLAliasAnalysis::ResolveResult OCLAliasAnalysis::resolveAddressSpace(const Valu
     }
   } while (!nextPointerValues.empty());
 
-  return ResolveResult(!isEscapingToInt, addressSpace);
+  ResolveResult resolveResult = ResolveResult(!isEscaping, addressSpace);
+  return cacheResult(visitedPointerValues, resolveResult);
 }
 
 // Check aliasing using the fact that in openCL pointers from different
@@ -111,8 +134,8 @@ AliasAnalysis::AliasResult OCLAliasAnalysis::alias(const Location &LocA,
     // If V1 and V2 are pointers to different address spaces then they do not alias.
     // This is not true in general, however, in openCL the memory addresses
     // for private, local, and global are disjoint.
-    ResolveResult rrV1 = resolveAddressSpace(*V1);
-    ResolveResult rrV2 = resolveAddressSpace(*V2);
+    ResolveResult rrV1 = resolveAddressSpace(V1, false);
+    ResolveResult rrV2 = resolveAddressSpace(V2, false);
     if (rrV1.isResolved() && rrV1.isResolved()) {
       unsigned int V1PAddressSpace = rrV1.getAddressSpace();
       unsigned int V2PAddressSpace = rrV2.getAddressSpace();
