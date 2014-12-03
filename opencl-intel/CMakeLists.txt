@@ -691,6 +691,7 @@ else (WIN32)
 endif (WIN32)
 
 install(FILES setup/redist.txt DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
+install(FILES setup/LICENSE.txt DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
 install(FILES setup/third_party_programs.txt DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
 install(FILES setup/bom_files/installer_content_windows.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)
 install(FILES setup/bom_files/installer_content_windows_mic.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)
