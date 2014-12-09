@@ -358,7 +358,10 @@ void NotifierCollection::TraceCall(const char* call, cl_int errcode_ret,
 	NOTIFY(TraceCall, call, errcode_ret, parameters, execution_time, cookie);
 }
 
-
+void NotifierCollection::ReturnValue(uint64_t value, unsigned int* cookie)
+{
+    NOTIFY(ReturnValue, value, cookie);
+}
 void NotifierCollection::commandQueueProfiling( cl_command_queue_properties &properties )
 {
 	IF_EMPTY_RETURN; //we don't want to change anything if we don't have notifiers...

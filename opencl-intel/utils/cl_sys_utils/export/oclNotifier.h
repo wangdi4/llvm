@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CL/cl.h"
+#include <stdint.h>
 #include <string>
 #include <set>
 #include <list>
@@ -84,6 +85,11 @@ template<typename T> inline void addParameter(OclParameters& params, string para
 inline void addParameter(OclParameters& params, string paramName, const char* c)
 {
     params.parameters.push_back(make_pair(paramName, stringify(c)));
+}
+
+template<typename T> inline uint64_t toUint64(const T& x)
+{
+    return (uint64_t)(uintptr_t)x;
 }
 
 // Describes the external memory object type, used to create
@@ -194,6 +200,7 @@ public:
                             OclParameters* parameters,
                             ApiExecutionTime* execution_time = NULL,
 							unsigned int* traceCookie = NULL)=0;
+	virtual void ReturnValue(uint64_t value, unsigned int* traceCookie)=0;
 
 	virtual ~oclNotifier() {}
 };
@@ -320,7 +327,7 @@ public:
                             OclParameters* parameters,
                             ApiExecutionTime* execution_time = NULL,
 							unsigned int* traceCookie = NULL);
-
+	virtual void ReturnValue(uint64_t value, unsigned int* traceCookie);
 
 
 	/******* Helper methods *******/

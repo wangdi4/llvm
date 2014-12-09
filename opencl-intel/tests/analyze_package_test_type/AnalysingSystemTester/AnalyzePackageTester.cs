@@ -115,6 +115,11 @@ namespace AnalysingSystemTester
             startProcess.StartInfo = codedUIStartInfo;
             startProcess.Start();
 
+            // wait for 20 second, let the visual studio open
+            Playback.Wait(20000);
+
+
+
             this.UIMap.OpenAnalyzeSession();
 
         }

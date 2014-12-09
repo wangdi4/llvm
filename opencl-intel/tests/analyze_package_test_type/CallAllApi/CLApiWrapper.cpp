@@ -41,7 +41,7 @@ ocl_wrap_data::ocl_wrap_data()
 {
     apiCallsMap = new map<string, list<int>, mapComparer>;
     kernelLaunchList = new list<string>;
-    memCommandsMap = new map<int, list<string> >;
+    memCommandsList = new list<string>;
 
     commandQueuesOrder = new list<cl_command_queue>;
     contextsOrder = new list<cl_context>;
@@ -57,8 +57,8 @@ ocl_wrap_data::~ocl_wrap_data()
     delete apiCallsMap;
     apiCallsMap = NULL;
 
-    delete memCommandsMap;
-    memCommandsMap = NULL;
+    delete memCommandsList;
+    memCommandsList = NULL;
 
     delete kernelLaunchList;
     kernelLaunchList = NULL;
@@ -155,6 +155,13 @@ void updateKernelLaunch(string funcName, cl_command_queue command_queue,cl_kerne
     string outLine;
 
     size_t kernelNameSize;
+
+	//TODO: delete this, for now we don't want to report clEnqueueTask calls
+	if(funcName == "clEnqueueTask")
+	{
+		return;
+	}
+	////////////
 
     err = GetKernelInfo(kernel,CL_KERNEL_FUNCTION_NAME, 0, NULL, &kernelNameSize, wrap_data);
     if( err != CL_SUCCESS)
@@ -269,7 +276,7 @@ void updateMemCommands(string commandName, cl_command_queue command_queue, cl_me
     }
     string memFlags;
     memFlags = memFlagsToString(flags);
-    ss << "," << memFlags;
+    ss << ", " << memFlags;
 
     cl_context context;
     err = GetCommandQueueInfo(command_queue, CL_QUEUE_CONTEXT, sizeof(cl_context), &context, NULL, wrap_data);
@@ -292,6 +299,9 @@ void updateMemCommands(string commandName, cl_command_queue command_queue, cl_me
         LogError("Erro: GetMemObjectInfo returned %d\n", err);
         return;
     }
+
+	// !!!!!!!! this addded to skip all extensions report because we don't want to added to the output file.
+	goto Skip_Extensions_Report;
 
     // if it is a buffer command so there is no other command details to show
     if(isBufferCommand)
@@ -370,22 +380,13 @@ void updateMemCommands(string commandName, cl_command_queue command_queue, cl_me
 
 End:
     ss << ", Map Count = " << mapCount << ",";    //this comma to pass validation vs analyze system output file
-    ss << endl;
 
+Skip_Extensions_Report:
+    
+	ss << endl;
     outLine = ss.str();
     // check if it first time we call this function
-    map< int, list<string>, mapComparer >::iterator it =  wrap_data->memCommandsMap->find(queueId);
-    if( it == wrap_data->memCommandsMap->end() )
-    {
-        list<string>* outList = new list<string>;
-        outList->push_back(outLine);
-        wrap_data->memCommandsMap->insert(pair<int, list<string> >(queueId, *outList ) );
-        delete outList;
-    }
-    else
-    {
-        (*wrap_data->memCommandsMap)[queueId].push_back(outLine);
-    }
+	wrap_data->memCommandsList->push_front(outLine);
 }
 
 // ***************** OpenCL 2.0 Wrappers *****************************************
@@ -1082,7 +1083,7 @@ cl_int EnqueueNDRangeKernel (    cl_command_queue command_queue,
 {
     cl_int ret_val;
 
-    ret_val = clEnqueueNDRangeKernel(command_queue, kernel, work_dim, global_work_offset, global_work_size, local_work_size, num_events_in_wait_list, event_wait_list, event);clEnqueueNDRangeKernel(command_queue, kernel, work_dim, global_work_offset, global_work_size, local_work_size, num_events_in_wait_list, event_wait_list, event);
+    ret_val = clEnqueueNDRangeKernel(command_queue, kernel, work_dim, global_work_offset, global_work_size, local_work_size, num_events_in_wait_list, event_wait_list, event);
 
     updateApiMap("clEnqueueNDRangeKernel", ret_val, wrap_data);
 
