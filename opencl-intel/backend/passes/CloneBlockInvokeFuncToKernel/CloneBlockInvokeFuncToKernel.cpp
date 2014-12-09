@@ -143,7 +143,7 @@ bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
     // copy function to new
     ValueToValueMapTy VMap;
     Function *NewFn = llvm::CloneFunction(*I, VMap,
-                                              /*ModuleLevelChanges=*/false);
+                                              /*ModuleLevelChanges=*/true);
     assert(NewFn && "CloneFunction returned NULL");
 
     // obtain name for kernel
