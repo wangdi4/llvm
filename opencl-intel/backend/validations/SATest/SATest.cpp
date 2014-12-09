@@ -52,6 +52,18 @@ SATest::SATest(const string& configFileName,
     ValidateEnvironment();
     m_pProgramConfiguration = m_factory.CreateProgramConfiguration(configFileName, baseDirectory);
     m_pProgram = m_factory.CreateProgram( m_pProgramConfiguration, pRunConfiguration);
+
+    const OpenCLProgramConfiguration *pProgramConfig = static_cast<const OpenCLProgramConfiguration *>(m_pProgramConfiguration);
+
+    for(OpenCLProgramConfiguration::KernelConfigList::const_iterator it = pProgramConfig->beginKernels();
+            it != pProgramConfig->endKernels(); ++it )
+    {
+        if( Random == (*it)->GetInputFileType())
+        {
+            pRunConfiguration->SetForceReference(true);
+            break;
+        }
+    }
 }
 
 SATest::~SATest(void)
@@ -170,7 +182,7 @@ void SATest::LoadOrGenerateReference(IRunConfiguration* pRunConfiguration, IRunR
 
     stamp.generateStamps();
 #endif
-    if(pRunConfiguration->ForceReference())
+    if(pRunConfiguration->GetForceReference())
     {
         GenerateReference(pResult, spRefRunner.get(), pRunConfiguration->GetReferenceRunnerConfiguration());
     }

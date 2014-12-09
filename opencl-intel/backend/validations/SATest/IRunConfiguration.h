@@ -46,7 +46,10 @@ namespace Validation
         virtual bool UseReference() const = 0;
 
         /// @brief Returns true if reference should unconditionally generated
-        virtual bool ForceReference() const = 0;
+        virtual bool GetForceReference() const = 0;
+
+        /// @brief Set "force_ref" flag to passed value.
+        virtual void SetForceReference(bool enable) = 0;
 
         /// @brief Returns current test mode.
         virtual TEST_MODE TestMode() const = 0;

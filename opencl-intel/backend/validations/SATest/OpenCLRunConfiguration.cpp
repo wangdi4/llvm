@@ -389,9 +389,14 @@ namespace Validation
         return m_useReference;
     }
 
-    bool OpenCLRunConfiguration::ForceReference() const
+    bool OpenCLRunConfiguration::GetForceReference() const
     {
         return m_forceReference;
+    }
+
+    void OpenCLRunConfiguration::SetForceReference( bool enable)
+    {
+        m_forceReference = enable;
     }
 
     TEST_MODE OpenCLRunConfiguration::TestMode() const
