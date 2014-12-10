@@ -22,8 +22,8 @@ entry:
   br label %entry.split
 
 entry.split:                                      ; preds = %entry
-  tail call void @llvm.dbg.value(metadata !{%struct.b* %A}, i64 0, metadata !16), !dbg !23
-  tail call void @llvm.dbg.value(metadata !24, i64 0, metadata !17), !dbg !25
+  tail call void @llvm.dbg.value(metadata %struct.b* %A, i64 0, metadata !16), !dbg !23
+  tail call void @llvm.dbg.value(metadata i32 0, i64 0, metadata !17), !dbg !25
   %b = getelementptr inbounds %struct.b* %A, i64 0, i32 0, !dbg !26
   br label %for.body, !dbg !27
 
@@ -62,38 +62,38 @@ attributes #1 = { nounwind readnone }
 !llvm.module.flags = !{!20, !21}
 !llvm.ident = !{!22}
 
-!0 = metadata !{i32 786449, metadata !1, i32 12, metadata !"clang version 3.5.0 ", i1 true, metadata !"", i32 0, metadata !2, metadata !2, metadata !3, metadata !2, metadata !2, metadata !"", i32 1} ; [ DW_TAG_compile_unit ] [test/ScopDetectionDiagnostics/ReportVariantBasePtr01.c] [DW_LANG_C99]
-!1 = metadata !{metadata !"ReportVariantBasePtr01.c", metadata !"test/ScopDetectionDiagnostics"}
-!2 = metadata !{}
-!3 = metadata !{metadata !4}
-!4 = metadata !{i32 786478, metadata !1, metadata !5, metadata !"a", metadata !"a", metadata !"", i32 5, metadata !6, i1 false, i1 true, i32 0, i32 0, null, i32 256, i1 true, void (%struct.b*)* @a, null, null, metadata !15, i32 5} ; [ DW_TAG_subprogram ] [line 5] [def] [a]
-!5 = metadata !{i32 786473, metadata !1}          ; [ DW_TAG_file_type ] [test/ScopDetectionDiagnostics/ReportVariantBasePtr01.c]
-!6 = metadata !{i32 786453, i32 0, null, metadata !"", i32 0, i64 0, i64 0, i64 0, i32 0, null, metadata !7, i32 0, null, null, null} ; [ DW_TAG_subroutine_type ] [line 0, size 0, align 0, offset 0] [from ]
-!7 = metadata !{null, metadata !8}
-!8 = metadata !{i32 786447, null, null, metadata !"", i32 0, i64 64, i64 64, i64 0, i32 0, metadata !9} ; [ DW_TAG_pointer_type ] [line 0, size 64, align 64, offset 0] [from b]
-!9 = metadata !{i32 786451, metadata !1, null, metadata !"b", i32 1, i64 64, i64 64, i32 0, i32 0, null, metadata !10, i32 0, null, null, null} ; [ DW_TAG_structure_type ] [b] [line 1, size 64, align 64, offset 0] [def] [from ]
-!10 = metadata !{metadata !11}
-!11 = metadata !{i32 786445, metadata !1, metadata !9, metadata !"b", i32 2, i64 64, i64 64, i64 0, i32 0, metadata !12} ; [ DW_TAG_member ] [b] [line 2, size 64, align 64, offset 0] [from ]
-!12 = metadata !{i32 786447, null, null, metadata !"", i32 0, i64 64, i64 64, i64 0, i32 0, metadata !13} ; [ DW_TAG_pointer_type ] [line 0, size 64, align 64, offset 0] [from ]
-!13 = metadata !{i32 786447, null, null, metadata !"", i32 0, i64 64, i64 64, i64 0, i32 0, metadata !14} ; [ DW_TAG_pointer_type ] [line 0, size 64, align 64, offset 0] [from double]
-!14 = metadata !{i32 786468, null, null, metadata !"double", i32 0, i64 64, i64 64, i64 0, i32 0, i32 4} ; [ DW_TAG_base_type ] [double] [line 0, size 64, align 64, offset 0, enc DW_ATE_float]
-!15 = metadata !{metadata !16, metadata !17}
-!16 = metadata !{i32 786689, metadata !4, metadata !"A", metadata !5, i32 16777221, metadata !8, i32 0, i32 0} ; [ DW_TAG_arg_variable ] [A] [line 5]
-!17 = metadata !{i32 786688, metadata !18, metadata !"i", metadata !5, i32 6, metadata !19, i32 0, i32 0} ; [ DW_TAG_auto_variable ] [i] [line 6]
-!18 = metadata !{i32 786443, metadata !1, metadata !4, i32 6, i32 3, i32 0, i32 0} ; [ DW_TAG_lexical_block ] [test/ScopDetectionDiagnostics/ReportVariantBasePtr01.c]
-!19 = metadata !{i32 786468, null, null, metadata !"int", i32 0, i64 32, i64 32, i64 0, i32 0, i32 5} ; [ DW_TAG_base_type ] [int] [line 0, size 32, align 32, offset 0, enc DW_ATE_signed]
-!20 = metadata !{i32 2, metadata !"Dwarf Version", i32 4}
-!21 = metadata !{i32 2, metadata !"Debug Info Version", i32 1}
-!22 = metadata !{metadata !"clang version 3.5.0 "}
-!23 = metadata !{i32 5, i32 18, metadata !4, null}
-!24 = metadata !{i32 0}
-!25 = metadata !{i32 6, i32 12, metadata !18, null}
-!26 = metadata !{i32 7, i32 5, metadata !18, null}
-!27 = metadata !{i32 6, i32 8, metadata !18, null}
-!28 = metadata !{metadata !29, metadata !30, i64 0}
-!29 = metadata !{metadata !"b", metadata !30, i64 0}
-!30 = metadata !{metadata !"any pointer", metadata !31, i64 0}
-!31 = metadata !{metadata !"omnipotent char", metadata !32, i64 0}
-!32 = metadata !{metadata !"Simple C/C++ TBAA"}
-!33 = metadata !{metadata !30, metadata !30, i64 0}
-!34 = metadata !{i32 8, i32 1, metadata !4, null} ; [ DW_TAG_imported_declaration ]
+!0 = !{!"0x11\0012\00clang version 3.5.0 \001\00\000\00\001", !1, !2, !2, !3, !2, !2} ; [ DW_TAG_compile_unit ] [test/ScopDetectionDiagnostics/ReportVariantBasePtr01.c] [DW_LANG_C99]
+!1 = !{!"ReportVariantBasePtr01.c", !"test/ScopDetectionDiagnostics"}
+!2 = !{}
+!3 = !{!4}
+!4 = !{!"0x2e\00a\00a\00\005\000\001\000\006\00256\001\005", !1, !5, !6, null, void (%struct.b*)* @a, null, null, !15} ; [ DW_TAG_subprogram ] [line 5] [def] [a]
+!5 = !{!"0x29", !1}          ; [ DW_TAG_file_type ] [test/ScopDetectionDiagnostics/ReportVariantBasePtr01.c]
+!6 = !{!"0x15\00\000\000\000\000\000\000", i32 0, null, null, !7, null, null, null} ; [ DW_TAG_subroutine_type ] [line 0, size 0, align 0, offset 0] [from ]
+!7 = !{null, !8}
+!8 = !{!"0xf\00\000\0064\0064\000\000", null, null, !9} ; [ DW_TAG_pointer_type ] [line 0, size 64, align 64, offset 0] [from b]
+!9 = !{!"0x13\00b\001\0064\0064\000\000\000", !1, null, null, !10, null, null, null} ; [ DW_TAG_structure_type ] [b] [line 1, size 64, align 64, offset 0] [def] [from ]
+!10 = !{!11}
+!11 = !{!"0xd\00b\002\0064\0064\000\000", !1, !9, !12} ; [ DW_TAG_member ] [b] [line 2, size 64, align 64, offset 0] [from ]
+!12 = !{!"0xf\00\000\0064\0064\000\000", null, null, !13} ; [ DW_TAG_pointer_type ] [line 0, size 64, align 64, offset 0] [from ]
+!13 = !{!"0xf\00\000\0064\0064\000\000", null, null, !14} ; [ DW_TAG_pointer_type ] [line 0, size 64, align 64, offset 0] [from double]
+!14 = !{!"0x24\00double\000\0064\0064\000\000\004", null, null} ; [ DW_TAG_base_type ] [double] [line 0, size 64, align 64, offset 0, enc DW_ATE_float]
+!15 = !{!16, !17}
+!16 = !{!"0x101\00A\0016777221\000", !4, !5, !8} ; [ DW_TAG_arg_variable ] [A] [line 5]
+!17 = !{!"0x100\00i\006\000", !18, !5, !19} ; [ DW_TAG_auto_variable ] [i] [line 6]
+!18 = !{!"0xb\006\003\000", !1, !4} ; [ DW_TAG_lexical_block ] [test/ScopDetectionDiagnostics/ReportVariantBasePtr01.c]
+!19 = !{!"0x24\00int\000\0032\0032\000\000\005", null, null} ; [ DW_TAG_base_type ] [int] [line 0, size 32, align 32, offset 0, enc DW_ATE_signed]
+!20 = !{i32 2, !"Dwarf Version", i32 4}
+!21 = !{i32 2, !"Debug Info Version", i32 2}
+!22 = !{!"clang version 3.5.0 "}
+!23 = !{i32 5, i32 18, !4, null}
+!24 = !{i32 0}
+!25 = !{i32 6, i32 12, !18, null}
+!26 = !{i32 7, i32 5, !18, null}
+!27 = !{i32 6, i32 8, !18, null}
+!28 = !{!29, !30, i64 0}
+!29 = !{!"b", !30, i64 0}
+!30 = !{!"any pointer", !31, i64 0}
+!31 = !{!"omnipotent char", !32, i64 0}
+!32 = !{!"Simple C/C++ TBAA"}
+!33 = !{!30, !30, i64 0}
+!34 = !{i32 8, i32 1, !4, null}

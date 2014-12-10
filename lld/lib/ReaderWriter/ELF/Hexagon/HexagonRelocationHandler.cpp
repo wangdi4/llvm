@@ -9,9 +9,8 @@
 
 #include "HexagonTargetHandler.h"
 #include "HexagonLinkingContext.h"
-#include "HexagonRelocationHandler.h"
 #include "HexagonRelocationFunctions.h"
-
+#include "HexagonRelocationHandler.h"
 
 using namespace lld;
 using namespace elf;
@@ -344,13 +343,8 @@ std::error_code HexagonTargetRelocationHandler::applyRelocation(
                            ref.addend(), _hexagonTargetLayout.getGOTSymAddr());
     break;
 
-  default : {
-    std::string str;
-    llvm::raw_string_ostream s(str);
-    s << "Unhandled Hexagon relocation: #" << ref.kindValue();
-    s.flush();
-    llvm_unreachable(str.c_str());
-  }
+  default:
+    unhandledReferenceType(*atom._atom, ref);
   }
 
   return std::error_code();

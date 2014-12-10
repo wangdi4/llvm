@@ -11,10 +11,8 @@
 #include "lld/Core/Simple.h"
 #include "lld/Passes/RoundTripNativePass.h"
 #include "lld/ReaderWriter/Writer.h"
-
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Path.h"
-
 #include <memory>
 
 using namespace lld;
@@ -42,7 +40,8 @@ void RoundTripNativePass::perform(std::unique_ptr<MutableFile> &mergedFile) {
   if (!mb)
     return;
 
-  std::error_code ec = _context.registry().parseFile(mb.get(), _nativeFile);
+  std::error_code ec = _context.registry().parseFile(
+      std::move(mb.get()), _nativeFile);
   if (ec) {
     // Note: we need a way for Passes to report errors.
     llvm_unreachable("native reader not registered or read error");

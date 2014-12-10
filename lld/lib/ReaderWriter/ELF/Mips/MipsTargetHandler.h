@@ -10,12 +10,12 @@
 #define LLD_READER_WRITER_ELF_MIPS_MIPS_TARGET_HANDLER_H
 
 #include "DefaultTargetHandler.h"
+#include "MipsELFFlagsMerger.h"
 #include "MipsELFReader.h"
 #include "MipsLinkingContext.h"
 #include "MipsRelocationHandler.h"
 #include "MipsSectionChunks.h"
 #include "TargetLayout.h"
-
 #include "llvm/ADT/DenseSet.h"
 
 namespace lld {
@@ -45,43 +45,6 @@ public:
                                                  order);
   }
 
-  StringRef getSectionName(const DefinedAtom *da) const override {
-    return llvm::StringSwitch<StringRef>(da->customSectionName())
-        .StartsWith(".ctors", ".ctors")
-        .StartsWith(".dtors", ".dtors")
-        .Default(TargetLayout<ELFType>::getSectionName(da));
-  }
-
-  Layout::SegmentType getSegmentType(Section<ELFType> *section) const override {
-    switch (section->order()) {
-    case DefaultLayout<ELFType>::ORDER_CTORS:
-    case DefaultLayout<ELFType>::ORDER_DTORS:
-      return llvm::ELF::PT_LOAD;
-    default:
-      return TargetLayout<ELFType>::getSegmentType(section);
-    }
-  }
-
-  ErrorOr<const lld::AtomLayout &> addAtom(const Atom *atom) override {
-    // Maintain:
-    // 1. Set of shared library atoms referenced by regular defined atoms.
-    // 2. Set of shared library atoms have corresponding R_MIPS_COPY copies.
-    if (const auto *da = dyn_cast<DefinedAtom>(atom))
-      for (const Reference *ref : *da) {
-        if (ref->kindNamespace() == lld::Reference::KindNamespace::ELF) {
-          assert(ref->kindArch() == Reference::KindArch::Mips);
-          if (ref->kindValue() == llvm::ELF::R_MIPS_COPY)
-            _copiedDynSymNames.insert(atom->name());
-        }
-      }
-
-    return TargetLayout<ELFType>::addAtom(atom);
-  }
-
-  bool isCopied(const SharedLibraryAtom *sla) const {
-    return _copiedDynSymNames.count(sla->name());
-  }
-
   /// \brief GP offset relative to .got section.
   uint64_t getGPOffset() const { return 0x7FF0; }
 
@@ -109,7 +72,6 @@ private:
   MipsPLTSection<ELFType> *_pltSection;
   llvm::Optional<AtomLayout *> _gpAtom;
   llvm::Optional<AtomLayout *> _gpDispAtom;
-  llvm::StringSet<> _copiedDynSymNames;
 };
 
 /// \brief Mips Runtime file.
@@ -125,12 +87,22 @@ class MipsTargetHandler final : public DefaultTargetHandler<Mips32ElELFType> {
 public:
   MipsTargetHandler(MipsLinkingContext &ctx);
 
+  const MipsELFFlagsMerger &getELFFlagsMerger() const {
+    return _elfFlagsMerger;
+  }
+
   MipsTargetLayout<Mips32ElELFType> &getTargetLayout() override {
     return *_targetLayout;
   }
 
   std::unique_ptr<Reader> getObjReader(bool atomizeStrings) override {
-    return std::unique_ptr<Reader>(new MipsELFObjectReader(atomizeStrings));
+    return std::unique_ptr<Reader>(
+        new MipsELFObjectReader(_elfFlagsMerger, atomizeStrings));
+  }
+
+  std::unique_ptr<Reader> getDSOReader(bool useShlibUndefines) override {
+    return std::unique_ptr<Reader>(
+        new MipsELFDSOReader(_elfFlagsMerger, useShlibUndefines));
   }
 
   const MipsTargetRelocationHandler &getRelocationHandler() const override {
@@ -144,9 +116,52 @@ public:
 private:
   static const Registry::KindStrings kindStrings[];
   MipsLinkingContext &_ctx;
+  MipsELFFlagsMerger _elfFlagsMerger;
   std::unique_ptr<MipsRuntimeFile<Mips32ElELFType>> _runtimeFile;
   std::unique_ptr<MipsTargetLayout<Mips32ElELFType>> _targetLayout;
   std::unique_ptr<MipsTargetRelocationHandler> _relocationHandler;
+};
+
+template <class ELFT> class MipsSymbolTable : public SymbolTable<ELFT> {
+public:
+  typedef llvm::object::Elf_Sym_Impl<ELFT> Elf_Sym;
+
+  MipsSymbolTable(const MipsLinkingContext &ctx)
+      : SymbolTable<ELFT>(ctx, ".symtab",
+                          DefaultLayout<ELFT>::ORDER_SYMBOL_TABLE) {}
+
+  void addDefinedAtom(Elf_Sym &sym, const DefinedAtom *da,
+                      int64_t addr) override {
+    SymbolTable<ELFT>::addDefinedAtom(sym, da, addr);
+
+    switch (da->codeModel()) {
+    case DefinedAtom::codeMipsMicro:
+      sym.st_other |= llvm::ELF::STO_MIPS_MICROMIPS;
+      break;
+    case DefinedAtom::codeMipsMicroPIC:
+      sym.st_other |= llvm::ELF::STO_MIPS_MICROMIPS | llvm::ELF::STO_MIPS_PIC;
+      break;
+    default:
+      break;
+    }
+  }
+
+  void finalize(bool sort = true) override {
+    SymbolTable<ELFT>::finalize(sort);
+
+    for (auto &ste : this->_symbolTable) {
+      if (!ste._atom)
+        continue;
+      if (const auto *da = dyn_cast<DefinedAtom>(ste._atom)) {
+        if (da->codeModel() == DefinedAtom::codeMipsMicro ||
+            da->codeModel() == DefinedAtom::codeMipsMicroPIC) {
+          // Adjust dynamic microMIPS symbol value. That allows a dynamic
+          // linker to recognize and handle this symbol correctly.
+          ste._symbol.st_value = ste._symbol.st_value | 1;
+        }
+      }
+    }
+  }
 };
 
 template <class ELFT>
@@ -171,23 +186,34 @@ public:
   }
 
   void finalize() override {
+    DynamicSymbolTable<ELFT>::finalize();
+
     const auto &pltSection = _targetLayout.getPLTSection();
 
-    // Under some conditions a dynamic symbol table record should hold a symbol
-    // value of the corresponding PLT entry. For details look at the PLT entry
-    // creation code in the class MipsRelocationPass. Let's update atomLayout
-    // fields for such symbols.
     for (auto &ste : this->_symbolTable) {
-      if (!ste._atom || ste._atomLayout)
+      const Atom *a = ste._atom;
+      if (!a)
         continue;
-      auto *layout = pltSection.findPLTLayout(ste._atom);
-      if (layout) {
+      if (auto *layout = pltSection.findPLTLayout(a)) {
+        a = layout->_atom;
+        // Under some conditions a dynamic symbol table record should hold
+        // a symbol value of the corresponding PLT entry. For details look
+        // at the PLT entry creation code in the class MipsRelocationPass.
+        // Let's update atomLayout fields for such symbols.
+        assert(!ste._atomLayout);
         ste._symbol.st_value = layout->_virtualAddr;
         ste._symbol.st_other |= ELF::STO_MIPS_PLT;
       }
-    }
 
-    DynamicSymbolTable<Mips32ElELFType>::finalize();
+      if (const auto *da = dyn_cast<DefinedAtom>(a)) {
+        if (da->codeModel() == DefinedAtom::codeMipsMicro ||
+            da->codeModel() == DefinedAtom::codeMipsMicroPIC) {
+          // Adjust dynamic microMIPS symbol value. That allows a dynamic
+          // linker to recognize and handle this symbol correctly.
+          ste._symbol.st_value = ste._symbol.st_value | 1;
+        }
+      }
+    }
   }
 
 private:

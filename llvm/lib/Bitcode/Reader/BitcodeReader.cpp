@@ -56,7 +56,7 @@ std::error_code BitcodeReader::materializeForwardReferencedFunctions() {
       return Error(BitcodeError::NeverResolvedFunctionFromBlockAddress);
 
     // Try to materialize F.
-    if (std::error_code EC = Materialize(F))
+    if (std::error_code EC = materialize(F))
       return EC;
   }
   assert(BasicBlockFwdRefs.empty() && "Function missing from queue");
@@ -100,26 +100,41 @@ static bool ConvertToString(ArrayRef<uint64_t> Record, unsigned Idx,
   return false;
 }
 
-static GlobalValue::LinkageTypes GetDecodedLinkage(unsigned Val) {
+static GlobalValue::LinkageTypes getDecodedLinkage(unsigned Val) {
   switch (Val) {
   default: // Map unknown/new linkages to external
-  case 0:  return GlobalValue::ExternalLinkage;
-  case 1:  return GlobalValue::WeakAnyLinkage;
-  case 2:  return GlobalValue::AppendingLinkage;
-  case 3:  return GlobalValue::InternalLinkage;
-  case 4:  return GlobalValue::LinkOnceAnyLinkage;
-  case 5:  return GlobalValue::ExternalLinkage; // Obsolete DLLImportLinkage
-  case 6:  return GlobalValue::ExternalLinkage; // Obsolete DLLExportLinkage
-  case 7:  return GlobalValue::ExternalWeakLinkage;
-  case 8:  return GlobalValue::CommonLinkage;
-  case 9:  return GlobalValue::PrivateLinkage;
-  case 10: return GlobalValue::WeakODRLinkage;
-  case 11: return GlobalValue::LinkOnceODRLinkage;
-  case 12: return GlobalValue::AvailableExternallyLinkage;
+  case 0:
+    return GlobalValue::ExternalLinkage;
+  case 1:
+    return GlobalValue::WeakAnyLinkage;
+  case 2:
+    return GlobalValue::AppendingLinkage;
+  case 3:
+    return GlobalValue::InternalLinkage;
+  case 4:
+    return GlobalValue::LinkOnceAnyLinkage;
+  case 5:
+    return GlobalValue::ExternalLinkage; // Obsolete DLLImportLinkage
+  case 6:
+    return GlobalValue::ExternalLinkage; // Obsolete DLLExportLinkage
+  case 7:
+    return GlobalValue::ExternalWeakLinkage;
+  case 8:
+    return GlobalValue::CommonLinkage;
+  case 9:
+    return GlobalValue::PrivateLinkage;
+  case 10:
+    return GlobalValue::WeakODRLinkage;
+  case 11:
+    return GlobalValue::LinkOnceODRLinkage;
+  case 12:
+    return GlobalValue::AvailableExternallyLinkage;
   case 13:
     return GlobalValue::PrivateLinkage; // Obsolete LinkerPrivateLinkage
   case 14:
     return GlobalValue::PrivateLinkage; // Obsolete LinkerPrivateWeakLinkage
+  case 15:
+    return GlobalValue::ExternalLinkage; // Obsolete LinkOnceODRAutoHideLinkage
   }
 }
 
@@ -280,7 +295,7 @@ namespace {
 
 
     /// Provide fast operand accessors
-    //DECLARE_TRANSPARENT_OPERAND_ACCESSORS(Value);
+    DECLARE_TRANSPARENT_OPERAND_ACCESSORS(Value);
   };
 }
 
@@ -289,6 +304,7 @@ template <>
 struct OperandTraits<ConstantPlaceHolder> :
   public FixedNumOperandTraits<ConstantPlaceHolder, 1> {
 };
+DEFINE_TRANSPARENT_OPERAND_ACCESSORS(ConstantPlaceHolder, Value)
 }
 
 
@@ -437,43 +453,58 @@ void BitcodeReaderValueList::ResolveConstantForwardRefs() {
   }
 }
 
-void BitcodeReaderMDValueList::AssignValue(Value *V, unsigned Idx) {
+void BitcodeReaderMDValueList::AssignValue(Metadata *MD, unsigned Idx) {
   if (Idx == size()) {
-    push_back(V);
+    push_back(MD);
     return;
   }
 
   if (Idx >= size())
     resize(Idx+1);
 
-  WeakVH &OldV = MDValuePtrs[Idx];
-  if (!OldV) {
-    OldV = V;
+  TrackingMDRef &OldMD = MDValuePtrs[Idx];
+  if (!OldMD) {
+    OldMD.reset(MD);
     return;
   }
 
   // If there was a forward reference to this value, replace it.
-  MDNode *PrevVal = cast<MDNode>(OldV);
-  OldV->replaceAllUsesWith(V);
-  MDNode::deleteTemporary(PrevVal);
-  // Deleting PrevVal sets Idx value in MDValuePtrs to null. Set new
-  // value for Idx.
-  MDValuePtrs[Idx] = V;
+  MDNodeFwdDecl *PrevMD = cast<MDNodeFwdDecl>(OldMD.get());
+  PrevMD->replaceAllUsesWith(MD);
+  MDNode::deleteTemporary(PrevMD);
+  --NumFwdRefs;
 }
 
-Value *BitcodeReaderMDValueList::getValueFwdRef(unsigned Idx) {
+Metadata *BitcodeReaderMDValueList::getValueFwdRef(unsigned Idx) {
   if (Idx >= size())
     resize(Idx + 1);
 
-  if (Value *V = MDValuePtrs[Idx]) {
-    assert(V->getType()->isMetadataTy() && "Type mismatch in value table!");
-    return V;
-  }
+  if (Metadata *MD = MDValuePtrs[Idx])
+    return MD;
 
   // Create and return a placeholder, which will later be RAUW'd.
-  Value *V = MDNode::getTemporary(Context, None);
-  MDValuePtrs[Idx] = V;
-  return V;
+  AnyFwdRefs = true;
+  ++NumFwdRefs;
+  Metadata *MD = MDNode::getTemporary(Context, None);
+  MDValuePtrs[Idx].reset(MD);
+  return MD;
+}
+
+void BitcodeReaderMDValueList::tryToResolveCycles() {
+  if (!AnyFwdRefs)
+    // Nothing to do.
+    return;
+
+  if (NumFwdRefs)
+    // Still forward references... can't resolve cycles.
+    return;
+
+  // Resolve any cycles.
+  for (auto &MD : MDValuePtrs) {
+    assert(!(MD && isa<MDNodeFwdDecl>(MD)) && "Unexpected forward reference");
+    if (auto *G = dyn_cast_or_null<GenericMDNode>(MD))
+      G->resolveCycles();
+  }
 }
 
 Type *BitcodeReader::getTypeByID(unsigned ID) {
@@ -486,7 +517,20 @@ Type *BitcodeReader::getTypeByID(unsigned ID) {
 
   // If we have a forward reference, the only possible case is when it is to a
   // named struct.  Just create a placeholder for now.
-  return TypeList[ID] = StructType::create(Context);
+  return TypeList[ID] = createIdentifiedStructType(Context);
+}
+
+StructType *BitcodeReader::createIdentifiedStructType(LLVMContext &Context,
+                                                      StringRef Name) {
+  auto *Ret = StructType::create(Context, Name);
+  IdentifiedStructTypes.push_back(Ret);
+  return Ret;
+}
+
+StructType *BitcodeReader::createIdentifiedStructType(LLVMContext &Context) {
+  auto *Ret = StructType::create(Context);
+  IdentifiedStructTypes.push_back(Ret);
+  return Ret;
 }
 
 
@@ -921,7 +965,7 @@ std::error_code BitcodeReader::ParseTypeTableBody() {
         Res->setName(TypeName);
         TypeList[NumRecords] = nullptr;
       } else  // Otherwise, create a new struct.
-        Res = StructType::create(Context, TypeName);
+        Res = createIdentifiedStructType(Context, TypeName);
       TypeName.clear();
 
       SmallVector<Type*, 8> EltTys;
@@ -950,7 +994,7 @@ std::error_code BitcodeReader::ParseTypeTableBody() {
         Res->setName(TypeName);
         TypeList[NumRecords] = nullptr;
       } else  // Otherwise, create a new struct with no body.
-        Res = StructType::create(Context, TypeName);
+        Res = createIdentifiedStructType(Context, TypeName);
       TypeName.clear();
       ResultTy = Res;
       break;
@@ -1052,16 +1096,17 @@ std::error_code BitcodeReader::ParseMetadata() {
     case BitstreamEntry::Error:
       return Error(BitcodeError::MalformedBlock);
     case BitstreamEntry::EndBlock:
+      MDValueList.tryToResolveCycles();
       return std::error_code();
     case BitstreamEntry::Record:
       // The interesting case.
       break;
     }
 
-    bool IsFunctionLocal = false;
     // Read a record.
     Record.clear();
     unsigned Code = Stream.readRecord(Entry.ID, Record);
+    bool IsDistinct = false;
     switch (Code) {
     default:  // Default behavior: ignore.
       break;
@@ -1086,36 +1131,90 @@ std::error_code BitcodeReader::ParseMetadata() {
       }
       break;
     }
-    case bitc::METADATA_FN_NODE:
-      IsFunctionLocal = true;
-      // fall-through
-    case bitc::METADATA_NODE: {
+    case bitc::METADATA_OLD_FN_NODE: {
+      // FIXME: Remove in 4.0.
+      // This is a LocalAsMetadata record, the only type of function-local
+      // metadata.
+      if (Record.size() % 2 == 1)
+        return Error(BitcodeError::InvalidRecord);
+
+      // If this isn't a LocalAsMetadata record, we're dropping it.  This used
+      // to be legal, but there's no upgrade path.
+      auto dropRecord = [&] {
+        MDValueList.AssignValue(MDNode::get(Context, None), NextMDValueNo++);
+      };
+      if (Record.size() != 2) {
+        dropRecord();
+        break;
+      }
+
+      Type *Ty = getTypeByID(Record[0]);
+      if (Ty->isMetadataTy() || Ty->isVoidTy()) {
+        dropRecord();
+        break;
+      }
+
+      MDValueList.AssignValue(
+          LocalAsMetadata::get(ValueList.getValueFwdRef(Record[1], Ty)),
+          NextMDValueNo++);
+      break;
+    }
+    case bitc::METADATA_OLD_NODE: {
+      // FIXME: Remove in 4.0.
       if (Record.size() % 2 == 1)
         return Error(BitcodeError::InvalidRecord);
 
       unsigned Size = Record.size();
-      SmallVector<Value*, 8> Elts;
+      SmallVector<Metadata *, 8> Elts;
       for (unsigned i = 0; i != Size; i += 2) {
         Type *Ty = getTypeByID(Record[i]);
         if (!Ty)
           return Error(BitcodeError::InvalidRecord);
         if (Ty->isMetadataTy())
           Elts.push_back(MDValueList.getValueFwdRef(Record[i+1]));
-        else if (!Ty->isVoidTy())
-          Elts.push_back(ValueList.getValueFwdRef(Record[i+1], Ty));
-        else
+        else if (!Ty->isVoidTy()) {
+          auto *MD =
+              ValueAsMetadata::get(ValueList.getValueFwdRef(Record[i + 1], Ty));
+          assert(isa<ConstantAsMetadata>(MD) &&
+                 "Expected non-function-local metadata");
+          Elts.push_back(MD);
+        } else
           Elts.push_back(nullptr);
       }
-      Value *V = MDNode::getWhenValsUnresolved(Context, Elts, IsFunctionLocal);
-      IsFunctionLocal = false;
-      MDValueList.AssignValue(V, NextMDValueNo++);
+      MDValueList.AssignValue(MDNode::get(Context, Elts), NextMDValueNo++);
+      break;
+    }
+    case bitc::METADATA_VALUE: {
+      if (Record.size() != 2)
+        return Error(BitcodeError::InvalidRecord);
+
+      Type *Ty = getTypeByID(Record[0]);
+      if (Ty->isMetadataTy() || Ty->isVoidTy())
+        return Error(BitcodeError::InvalidRecord);
+
+      MDValueList.AssignValue(
+          ValueAsMetadata::get(ValueList.getValueFwdRef(Record[1], Ty)),
+          NextMDValueNo++);
+      break;
+    }
+    case bitc::METADATA_DISTINCT_NODE:
+      IsDistinct = true;
+      // fallthrough...
+    case bitc::METADATA_NODE: {
+      SmallVector<Metadata *, 8> Elts;
+      Elts.reserve(Record.size());
+      for (unsigned ID : Record)
+        Elts.push_back(ID ? MDValueList.getValueFwdRef(ID - 1) : nullptr);
+      MDValueList.AssignValue(IsDistinct ? MDNode::getDistinct(Context, Elts)
+                                         : MDNode::get(Context, Elts),
+                              NextMDValueNo++);
       break;
     }
     case bitc::METADATA_STRING: {
       std::string String(Record.begin(), Record.end());
       llvm::UpgradeMDStringConstant(String);
-      Value *V = MDString::get(Context, String);
-      MDValueList.AssignValue(V, NextMDValueNo++);
+      Metadata *MD = MDString::get(Context, String);
+      MDValueList.AssignValue(MD, NextMDValueNo++);
       break;
     }
     case bitc::METADATA_KIND: {
@@ -1151,10 +1250,12 @@ std::error_code BitcodeReader::ResolveGlobalAndAliasInits() {
   std::vector<std::pair<GlobalVariable*, unsigned> > GlobalInitWorklist;
   std::vector<std::pair<GlobalAlias*, unsigned> > AliasInitWorklist;
   std::vector<std::pair<Function*, unsigned> > FunctionPrefixWorklist;
+  std::vector<std::pair<Function*, unsigned> > FunctionPrologueWorklist;
 
   GlobalInitWorklist.swap(GlobalInits);
   AliasInitWorklist.swap(AliasInits);
   FunctionPrefixWorklist.swap(FunctionPrefixes);
+  FunctionPrologueWorklist.swap(FunctionPrologues);
 
   while (!GlobalInitWorklist.empty()) {
     unsigned ValID = GlobalInitWorklist.back().second;
@@ -1194,6 +1295,19 @@ std::error_code BitcodeReader::ResolveGlobalAndAliasInits() {
         return Error(BitcodeError::ExpectedConstant);
     }
     FunctionPrefixWorklist.pop_back();
+  }
+
+  while (!FunctionPrologueWorklist.empty()) {
+    unsigned ValID = FunctionPrologueWorklist.back().second;
+    if (ValID >= ValueList.size()) {
+      FunctionPrologues.push_back(FunctionPrologueWorklist.back());
+    } else {
+      if (Constant *C = dyn_cast_or_null<Constant>(ValueList[ValID]))
+        FunctionPrologueWorklist.back().first->setPrologueData(C);
+      else
+        return Error(BitcodeError::ExpectedConstant);
+    }
+    FunctionPrologueWorklist.pop_back();
   }
 
   return std::error_code();
@@ -1955,7 +2069,7 @@ std::error_code BitcodeReader::ParseModule(bool Resume) {
       Ty = cast<PointerType>(Ty)->getElementType();
 
       bool isConstant = Record[1];
-      GlobalValue::LinkageTypes Linkage = GetDecodedLinkage(Record[3]);
+      GlobalValue::LinkageTypes Linkage = getDecodedLinkage(Record[3]);
       unsigned Alignment = (1 << Record[4]) >> 1;
       std::string Section;
       if (Record[5]) {
@@ -2010,7 +2124,7 @@ std::error_code BitcodeReader::ParseModule(bool Resume) {
     }
     // FUNCTION:  [type, callingconv, isproto, linkage, paramattr,
     //             alignment, section, visibility, gc, unnamed_addr,
-    //             dllstorageclass]
+    //             prologuedata, dllstorageclass, comdat, prefixdata]
     case bitc::MODULE_CODE_FUNCTION: {
       if (Record.size() < 8)
         return Error(BitcodeError::InvalidRecord);
@@ -2029,7 +2143,7 @@ std::error_code BitcodeReader::ParseModule(bool Resume) {
 
       Func->setCallingConv(static_cast<CallingConv::ID>(Record[1]));
       bool isProto = Record[2];
-      Func->setLinkage(GetDecodedLinkage(Record[3]));
+      Func->setLinkage(getDecodedLinkage(Record[3]));
       Func->setAttributes(getAttributes(Record[4]));
 
       Func->setAlignment((1 << Record[5]) >> 1);
@@ -2052,7 +2166,7 @@ std::error_code BitcodeReader::ParseModule(bool Resume) {
         UnnamedAddr = Record[9];
       Func->setUnnamedAddr(UnnamedAddr);
       if (Record.size() > 10 && Record[10] != 0)
-        FunctionPrefixes.push_back(std::make_pair(Func, Record[10]-1));
+        FunctionPrologues.push_back(std::make_pair(Func, Record[10]-1));
 
       if (Record.size() > 11)
         Func->setDLLStorageClass(GetDecodedDLLStorageClass(Record[11]));
@@ -2065,13 +2179,18 @@ std::error_code BitcodeReader::ParseModule(bool Resume) {
           Func->setComdat(ComdatList[ComdatID - 1]);
         }
 
+      if (Record.size() > 13 && Record[13] != 0)
+        FunctionPrefixes.push_back(std::make_pair(Func, Record[13]-1));
+
       ValueList.push_back(Func);
 
       // If this is a function with a body, remember the prototype we are
       // creating now, so that we can match up the body with them later.
       if (!isProto) {
+        Func->setIsMaterializable(true);
         FunctionsWithBodies.push_back(Func);
-        if (LazyStreamer) DeferredFunctionInfo[Func] = 0;
+        if (LazyStreamer)
+          DeferredFunctionInfo[Func] = 0;
       }
       break;
     }
@@ -2089,7 +2208,7 @@ std::error_code BitcodeReader::ParseModule(bool Resume) {
 
       auto *NewGA =
           GlobalAlias::create(PTy->getElementType(), PTy->getAddressSpace(),
-                              GetDecodedLinkage(Record[2]), "", TheModule);
+                              getDecodedLinkage(Record[2]), "", TheModule);
       // Old bitcode files didn't have visibility field.
       // Local linkage must have default visibility.
       if (Record.size() > 3 && !NewGA->hasLocalLinkage())
@@ -2100,9 +2219,9 @@ std::error_code BitcodeReader::ParseModule(bool Resume) {
       else
         UpgradeDLLImportExportLinkage(NewGA, Record[2]);
       if (Record.size() > 5)
-	NewGA->setThreadLocalMode(GetDecodedThreadLocalMode(Record[5]));
+        NewGA->setThreadLocalMode(GetDecodedThreadLocalMode(Record[5]));
       if (Record.size() > 6)
-	NewGA->setUnnamedAddr(Record[6]);
+        NewGA->setUnnamedAddr(Record[6]);
       ValueList.push_back(NewGA);
       AliasInits.push_back(std::make_pair(NewGA, Record[1]));
       break;
@@ -2301,7 +2420,11 @@ std::error_code BitcodeReader::ParseMetadataAttachment() {
           MDKindMap.find(Kind);
         if (I == MDKindMap.end())
           return Error(BitcodeError::InvalidID);
-        Value *Node = MDValueList.getValueFwdRef(Record[i+1]);
+        Metadata *Node = MDValueList.getValueFwdRef(Record[i + 1]);
+        if (isa<LocalAsMetadata>(Node))
+          // Drop the attachment.  This used to be legal, but there's no
+          // upgrade path.
+          break;
         Inst->setMetadata(I->second, cast<MDNode>(Node));
         if (I->second == LLVMContext::MD_tbaa)
           InstsWithTBAATag.push_back(Inst);
@@ -2330,6 +2453,14 @@ std::error_code BitcodeReader::ParseFunctionBody(Function *F) {
   unsigned CurBBNo = 0;
 
   DebugLoc LastLoc;
+  auto getLastInstruction = [&]() -> Instruction * {
+    if (CurBB && !CurBB->empty())
+      return &CurBB->back();
+    else if (CurBBNo && FunctionBBs[CurBBNo - 1] &&
+             !FunctionBBs[CurBBNo - 1]->empty())
+      return &FunctionBBs[CurBBNo - 1]->back();
+    return nullptr;
+  };
 
   // Read all the records.
   SmallVector<uint64_t, 64> Record;
@@ -2422,14 +2553,7 @@ std::error_code BitcodeReader::ParseFunctionBody(Function *F) {
     case bitc::FUNC_CODE_DEBUG_LOC_AGAIN:  // DEBUG_LOC_AGAIN
       // This record indicates that the last instruction is at the same
       // location as the previous instruction with a location.
-      I = nullptr;
-
-      // Get the last instruction emitted.
-      if (CurBB && !CurBB->empty())
-        I = &CurBB->back();
-      else if (CurBBNo && FunctionBBs[CurBBNo-1] &&
-               !FunctionBBs[CurBBNo-1]->empty())
-        I = &FunctionBBs[CurBBNo-1]->back();
+      I = getLastInstruction();
 
       if (!I)
         return Error(BitcodeError::InvalidRecord);
@@ -2438,12 +2562,7 @@ std::error_code BitcodeReader::ParseFunctionBody(Function *F) {
       continue;
 
     case bitc::FUNC_CODE_DEBUG_LOC: {      // DEBUG_LOC: [line, col, scope, ia]
-      I = nullptr;     // Get the last instruction emitted.
-      if (CurBB && !CurBB->empty())
-        I = &CurBB->back();
-      else if (CurBBNo && FunctionBBs[CurBBNo-1] &&
-               !FunctionBBs[CurBBNo-1]->empty())
-        I = &FunctionBBs[CurBBNo-1]->back();
+      I = getLastInstruction();
       if (!I || Record.size() < 4)
         return Error(BitcodeError::InvalidRecord);
 
@@ -3280,15 +3399,7 @@ std::error_code BitcodeReader::FindFunctionInStream(
 
 void BitcodeReader::releaseBuffer() { Buffer.release(); }
 
-bool BitcodeReader::isMaterializable(const GlobalValue *GV) const {
-  if (const Function *F = dyn_cast<Function>(GV)) {
-    return F->isDeclaration() &&
-      DeferredFunctionInfo.count(const_cast<Function*>(F));
-  }
-  return false;
-}
-
-std::error_code BitcodeReader::Materialize(GlobalValue *GV) {
+std::error_code BitcodeReader::materialize(GlobalValue *GV) {
   Function *F = dyn_cast<Function>(GV);
   // If it's not a function or is already material, ignore the request.
   if (!F || !F->isMaterializable())
@@ -3307,6 +3418,7 @@ std::error_code BitcodeReader::Materialize(GlobalValue *GV) {
 
   if (std::error_code EC = ParseFunctionBody(F))
     return EC;
+  F->setIsMaterializable(false);
 
   // Upgrade any old intrinsic calls in the function.
   for (UpgradedIntrinsicMap::iterator I = UpgradedIntrinsics.begin(),
@@ -3348,6 +3460,7 @@ void BitcodeReader::Dematerialize(GlobalValue *GV) {
 
   // Just forget the function body, we can remat it later.
   F->dropAllReferences();
+  F->setIsMaterializable(true);
 }
 
 std::error_code BitcodeReader::MaterializeModule(Module *M) {
@@ -3361,10 +3474,8 @@ std::error_code BitcodeReader::MaterializeModule(Module *M) {
   // disk.
   for (Module::iterator F = TheModule->begin(), E = TheModule->end();
        F != E; ++F) {
-    if (F->isMaterializable()) {
-      if (std::error_code EC = Materialize(F))
-        return EC;
-    }
+    if (std::error_code EC = materialize(F))
+      return EC;
   }
   // At this point, if there are any function bodies, the current bit is
   // pointing to the END_BLOCK record after them. Now make sure the rest
@@ -3403,6 +3514,10 @@ std::error_code BitcodeReader::MaterializeModule(Module *M) {
   return std::error_code();
 }
 
+std::vector<StructType *> BitcodeReader::getIdentifiedStructTypes() const {
+  return IdentifiedStructTypes;
+}
+
 std::error_code BitcodeReader::InitStream() {
   if (LazyStreamer)
     return InitLazyStream();
@@ -3423,7 +3538,7 @@ std::error_code BitcodeReader::InitStreamFromBuffer() {
       return Error(BitcodeError::InvalidBitcodeWrapperHeader);
 
   StreamFile.reset(new BitstreamReader(BufPtr, BufEnd));
-  Stream.init(*StreamFile);
+  Stream.init(&*StreamFile);
 
   return std::error_code();
 }
@@ -3431,12 +3546,13 @@ std::error_code BitcodeReader::InitStreamFromBuffer() {
 std::error_code BitcodeReader::InitLazyStream() {
   // Check and strip off the bitcode wrapper; BitstreamReader expects never to
   // see it.
-  StreamingMemoryObject *Bytes = new StreamingMemoryObject(LazyStreamer);
-  StreamFile.reset(new BitstreamReader(Bytes));
-  Stream.init(*StreamFile);
+  auto OwnedBytes = llvm::make_unique<StreamingMemoryObject>(LazyStreamer);
+  StreamingMemoryObject &Bytes = *OwnedBytes;
+  StreamFile = llvm::make_unique<BitstreamReader>(std::move(OwnedBytes));
+  Stream.init(&*StreamFile);
 
   unsigned char buf[16];
-  if (Bytes->readBytes(0, 16, buf) == -1)
+  if (Bytes.readBytes(buf, 16, 0) != 16)
     return Error(BitcodeError::InvalidBitcodeSignature);
 
   if (!isBitcode(buf, buf + 16))
@@ -3446,8 +3562,8 @@ std::error_code BitcodeReader::InitLazyStream() {
     const unsigned char *bitcodeStart = buf;
     const unsigned char *bitcodeEnd = buf + 16;
     SkipBitcodeWrapperHeader(bitcodeStart, bitcodeEnd, false);
-    Bytes->dropLeadingBytes(bitcodeStart - buf);
-    Bytes->setKnownObjectSize(bitcodeEnd - bitcodeStart);
+    Bytes.dropLeadingBytes(bitcodeStart - buf);
+    Bytes.setKnownObjectSize(bitcodeEnd - bitcodeStart);
   }
   return std::error_code();
 }
@@ -3553,20 +3669,15 @@ llvm::getLazyBitcodeModule(std::unique_ptr<MemoryBuffer> &&Buffer,
   return getLazyBitcodeModuleImpl(std::move(Buffer), Context, false);
 }
 
-Module *llvm::getStreamedBitcodeModule(const std::string &name,
-                                       DataStreamer *streamer,
-                                       LLVMContext &Context,
-                                       std::string *ErrMsg) {
-  Module *M = new Module(name, Context);
-  BitcodeReader *R = new BitcodeReader(streamer, Context);
+ErrorOr<std::unique_ptr<Module>>
+llvm::getStreamedBitcodeModule(StringRef Name, DataStreamer *Streamer,
+                               LLVMContext &Context) {
+  std::unique_ptr<Module> M = make_unique<Module>(Name, Context);
+  BitcodeReader *R = new BitcodeReader(Streamer, Context);
   M->setMaterializer(R);
-  if (std::error_code EC = R->ParseBitcodeInto(M)) {
-    if (ErrMsg)
-      *ErrMsg = EC.message();
-    delete M;  // Also deletes R.
-    return nullptr;
-  }
-  return M;
+  if (std::error_code EC = R->ParseBitcodeInto(M.get()))
+    return EC;
+  return std::move(M);
 }
 
 ErrorOr<Module *> llvm::parseBitcodeFile(MemoryBufferRef Buffer,

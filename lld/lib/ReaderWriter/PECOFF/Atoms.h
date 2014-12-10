@@ -14,7 +14,6 @@
 #include "lld/Core/Simple.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/Object/COFF.h"
-
 #include <vector>
 
 namespace lld {
@@ -99,7 +98,6 @@ public:
   Interposable interposable() const override { return interposeNo; }
   Merge merge() const override { return mergeNo; }
   Alignment alignment() const override { return Alignment(0); }
-  SectionChoice sectionChoice() const = 0;
   StringRef customSectionName() const override { return ""; }
   SectionPosition sectionPosition() const override {
     return sectionPositionAny;

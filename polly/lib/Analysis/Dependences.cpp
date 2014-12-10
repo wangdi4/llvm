@@ -1,4 +1,4 @@
-//===- Dependency.cpp - Calculate dependency information for a Scop.  -----===//
+//===- Dependences.cpp - Calculate dependency information for a Scop. -----===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -102,17 +102,11 @@ void Dependences::collectInfo(Scop &S, isl_union_map **Read,
         // but as we transformed the access domain we need the scattering
         // to match the new access domains, thus we need
         //   [Stmt[i0, i1] -> MemAcc_A[i0 + i1]] -> [0, i0, 2, i1, 0]
+        isl_map *Scatter = Stmt->getScattering();
+        Scatter = isl_map_apply_domain(
+            Scatter, isl_map_reverse(isl_map_domain_map(isl_map_copy(accdom))));
         accdom = isl_map_range_map(accdom);
-
-        isl_map *stmt_scatter = Stmt->getScattering();
-        isl_set *scatter_dom = isl_map_domain(isl_map_copy(accdom));
-        isl_set *scatter_ran = isl_map_range(stmt_scatter);
-        isl_map *scatter =
-            isl_map_from_domain_and_range(scatter_dom, scatter_ran);
-        for (unsigned u = 0, e = Stmt->getNumIterators(); u != e; u++)
-          scatter =
-              isl_map_equate(scatter, isl_dim_out, 2 * u + 1, isl_dim_in, u);
-        *AccessSchedule = isl_union_map_add_map(*AccessSchedule, scatter);
+        *AccessSchedule = isl_union_map_add_map(*AccessSchedule, Scatter);
       }
 
       if (MA->isRead())
@@ -122,6 +116,9 @@ void Dependences::collectInfo(Scop &S, isl_union_map **Read,
     }
     *StmtSchedule = isl_union_map_add_map(*StmtSchedule, Stmt->getScattering());
   }
+
+  *StmtSchedule =
+      isl_union_map_intersect_params(*StmtSchedule, S.getAssumedContext());
 }
 
 /// @brief Fix all dimension of @p Zero to 0 and add it to @p user
@@ -188,7 +185,7 @@ void Dependences::addPrivatizationDependences() {
   // FIXME: Apply the current schedule instead of assuming the identity schedule
   //        here. The current approach is only valid as long as we compute the
   //        dependences only with the initial (identity schedule). Any other
-  //        schedule could change "the direction of the backward depenendes" we
+  //        schedule could change "the direction of the backward dependences" we
   //        want to eliminate here.
   isl_union_set *UDeltas = isl_union_map_deltas(isl_union_map_copy(TC_RED));
   isl_union_set *Universe = isl_union_set_universe(isl_union_set_copy(UDeltas));
@@ -309,7 +306,11 @@ void Dependences::calculateDependences(Scop &S) {
       isl_union_map_domain(isl_union_map_copy(StmtSchedule)));
   STMT_WAR = isl_union_map_intersect_domain(isl_union_map_copy(WAR),
                                             isl_union_map_domain(StmtSchedule));
-  DEBUG(dbgs() << "Wrapped Dependences:\n"; printScop(dbgs()); dbgs() << "\n");
+  DEBUG({
+    dbgs() << "Wrapped Dependences:\n";
+    printScop(dbgs());
+    dbgs() << "\n";
+  });
 
   // To handle reduction dependences we proceed as follows:
   // 1) Aggregate all possible reduction dependences, namely all self
@@ -352,8 +353,11 @@ void Dependences::calculateDependences(Scop &S) {
     addPrivatizationDependences();
   }
 
-  DEBUG(dbgs() << "Final Wrapped Dependences:\n"; printScop(dbgs());
-        dbgs() << "\n");
+  DEBUG({
+    dbgs() << "Final Wrapped Dependences:\n";
+    printScop(dbgs());
+    dbgs() << "\n";
+  });
 
   // RED_SIN is used to collect all reduction dependences again after we
   // split them according to the causing memory accesses. The current assumption
@@ -397,7 +401,11 @@ void Dependences::calculateDependences(Scop &S) {
   RED = isl_union_map_zip(RED);
   TC_RED = isl_union_map_zip(TC_RED);
 
-  DEBUG(dbgs() << "Zipped Dependences:\n"; printScop(dbgs()); dbgs() << "\n");
+  DEBUG({
+    dbgs() << "Zipped Dependences:\n";
+    printScop(dbgs());
+    dbgs() << "\n";
+  });
 
   RAW = isl_union_set_unwrap(isl_union_map_domain(RAW));
   WAW = isl_union_set_unwrap(isl_union_map_domain(WAW));
@@ -405,8 +413,11 @@ void Dependences::calculateDependences(Scop &S) {
   RED = isl_union_set_unwrap(isl_union_map_domain(RED));
   TC_RED = isl_union_set_unwrap(isl_union_map_domain(TC_RED));
 
-  DEBUG(dbgs() << "Unwrapped Dependences:\n"; printScop(dbgs());
-        dbgs() << "\n");
+  DEBUG({
+    dbgs() << "Unwrapped Dependences:\n";
+    printScop(dbgs());
+    dbgs() << "\n";
+  });
 
   RAW = isl_union_map_union(RAW, STMT_RAW);
   WAW = isl_union_map_union(WAW, STMT_WAW);
@@ -421,10 +432,14 @@ void Dependences::calculateDependences(Scop &S) {
   DEBUG(printScop(dbgs()));
 }
 
-bool Dependences::runOnScop(Scop &S) {
+void Dependences::recomputeDependences() {
   releaseMemory();
-  calculateDependences(S);
+  calculateDependences(*S);
+}
 
+bool Dependences::runOnScop(Scop &ScopVar) {
+  S = &ScopVar;
+  recomputeDependences();
   return false;
 }
 
@@ -438,7 +453,7 @@ bool Dependences::isValidScattering(StatementToIslMapTy *NewScattering) {
   isl_space *Space = S.getParamSpace();
   isl_union_map *Scattering = isl_union_map_empty(Space);
 
-  isl_space *ScatteringSpace = 0;
+  isl_space *ScatteringSpace = nullptr;
 
   for (ScopStmt *Stmt : S) {
     isl_map *StmtScat;

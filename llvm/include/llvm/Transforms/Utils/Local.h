@@ -34,7 +34,7 @@ class Value;
 class Pass;
 class PHINode;
 class AllocaInst;
-class AssumptionTracker;
+class AssumptionCache;
 class ConstantExpr;
 class DataLayout;
 class TargetLibraryInfo;
@@ -138,8 +138,8 @@ bool EliminateDuplicatePHINodes(BasicBlock *BB);
 /// the basic block that was pointed to.
 ///
 bool SimplifyCFG(BasicBlock *BB, const TargetTransformInfo &TTI,
-                 const DataLayout *TD = nullptr,
-                 AssumptionTracker *AT = nullptr);
+                 unsigned BonusInstThreshold, const DataLayout *TD = nullptr,
+                 AssumptionCache *AC = nullptr);
 
 /// FlatternCFG - This function is used to flatten a CFG.  For
 /// example, it uses parallel-and and parallel-or mode to collapse
@@ -151,7 +151,8 @@ bool FlattenCFG(BasicBlock *BB, AliasAnalysis *AA = nullptr);
 /// and if a predecessor branches to us and one of our successors, fold the
 /// setcc into the predecessor and use logical operations to pick the right
 /// destination.
-bool FoldBranchToCommonDest(BranchInst *BI, const DataLayout *DL = nullptr);
+bool FoldBranchToCommonDest(BranchInst *BI, const DataLayout *DL = nullptr,
+                            unsigned BonusInstThreshold = 1);
 
 /// DemoteRegToStack - This function takes a virtual register computed by an
 /// Instruction and replaces it with a slot in the stack frame, allocated via
@@ -174,17 +175,17 @@ AllocaInst *DemotePHIToStack(PHINode *P, Instruction *AllocaPoint = nullptr);
 /// increase the alignment of the ultimate object, making this check succeed.
 unsigned getOrEnforceKnownAlignment(Value *V, unsigned PrefAlign,
                                     const DataLayout *TD = nullptr,
-                                    AssumptionTracker *AT = nullptr,
+                                    AssumptionCache *AC = nullptr,
                                     const Instruction *CxtI = nullptr,
                                     const DominatorTree *DT = nullptr);
 
 /// getKnownAlignment - Try to infer an alignment for the specified pointer.
 static inline unsigned getKnownAlignment(Value *V,
                                          const DataLayout *TD = nullptr,
-                                         AssumptionTracker *AT = nullptr,
+                                         AssumptionCache *AC = nullptr,
                                          const Instruction *CxtI = nullptr,
                                          const DominatorTree *DT = nullptr) {
-  return getOrEnforceKnownAlignment(V, 0, TD, AT, CxtI, DT);
+  return getOrEnforceKnownAlignment(V, 0, TD, AC, CxtI, DT);
 }
 
 /// EmitGEPOffset - Given a getelementptr instruction/constantexpr, emit the
