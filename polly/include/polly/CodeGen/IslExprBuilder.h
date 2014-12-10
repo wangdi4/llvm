@@ -14,9 +14,13 @@
 
 #include "polly/CodeGen/IRBuilder.h"
 
+#include "llvm/ADT/MapVector.h"
+
 #include "isl/ast.h"
 
-#include <map>
+namespace llvm {
+class SCEVExpander;
+}
 
 namespace polly {
 
@@ -77,7 +81,7 @@ namespace polly {
 class IslExprBuilder {
 public:
   /// @brief A map from isl_ids to llvm::Values.
-  typedef std::map<isl_id *, llvm::Value *> IDToValueTy;
+  typedef llvm::MapVector<isl_id *, llvm::Value *> IDToValueTy;
 
   /// @brief Construct an IslExprBuilder.
   ///
@@ -89,8 +93,11 @@ public:
   ///                  variables (identified by an isl_id). The IDTOValue map
   ///                  specifies the LLVM-IR Values that correspond to these
   ///                  parameters and variables.
-  IslExprBuilder(PollyIRBuilder &Builder, IDToValueTy &IDToValue)
-      : Builder(Builder), IDToValue(IDToValue) {}
+  /// @param Expander  A SCEVExpander to create the indices for multi
+  ///                  dimensional accesses.
+  IslExprBuilder(PollyIRBuilder &Builder, IDToValueTy &IDToValue,
+                 llvm::SCEVExpander &Expander)
+      : Builder(Builder), IDToValue(IDToValue), Expander(Expander) {}
 
   /// @brief Create LLVM-IR for an isl_ast_expr[ession].
   ///
@@ -118,7 +125,10 @@ public:
 
 private:
   PollyIRBuilder &Builder;
-  std::map<isl_id *, llvm::Value *> &IDToValue;
+  IDToValueTy &IDToValue;
+
+  /// @brief A SCEVExpander to translate dimension sizes to llvm values.
+  llvm::SCEVExpander &Expander;
 
   llvm::Value *createOp(__isl_take isl_ast_expr *Expr);
   llvm::Value *createOpUnary(__isl_take isl_ast_expr *Expr);

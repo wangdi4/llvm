@@ -6,6 +6,7 @@
 // Source Licenses. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
+// XFAIL: arm
 #include <assert.h>
 #include <stddef.h>
 #include <unwind.h>

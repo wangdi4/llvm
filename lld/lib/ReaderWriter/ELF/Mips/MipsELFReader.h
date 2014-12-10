@@ -11,9 +11,12 @@
 
 #include "ELFReader.h"
 #include "MipsELFFile.h"
+#include "MipsELFFlagsMerger.h"
 
 namespace lld {
 namespace elf {
+
+typedef llvm::object::ELFType<llvm::support::little, 2, false> Mips32ElELFType;
 
 struct MipsELFFileCreateTraits {
   typedef llvm::ErrorOr<std::unique_ptr<lld::File>> result_type;
@@ -25,23 +28,60 @@ struct MipsELFFileCreateTraits {
   }
 };
 
-class MipsELFObjectReader : public ELFObjectReader {
+struct MipsDynamicFileCreateELFTraits {
+  typedef llvm::ErrorOr<std::unique_ptr<lld::SharedLibraryFile>> result_type;
+
+  template <class ELFT>
+  static result_type create(std::unique_ptr<llvm::MemoryBuffer> mb,
+                            bool useUndefines) {
+    return lld::elf::MipsDynamicFile<ELFT>::create(std::move(mb), useUndefines);
+  }
+};
+
+class MipsELFObjectReader
+    : public ELFObjectReader<Mips32ElELFType, MipsELFFileCreateTraits> {
+  typedef ELFObjectReader<Mips32ElELFType, MipsELFFileCreateTraits>
+      BaseReaderType;
+
 public:
-  MipsELFObjectReader(bool atomizeStrings) : ELFObjectReader(atomizeStrings) {}
+  MipsELFObjectReader(MipsELFFlagsMerger &flagMerger, bool atomizeStrings)
+      : BaseReaderType(atomizeStrings, llvm::ELF::EM_MIPS),
+        _flagMerger(flagMerger) {}
 
   std::error_code
-  parseFile(std::unique_ptr<MemoryBuffer> &mb, const class Registry &,
+  parseFile(std::unique_ptr<MemoryBuffer> mb, const Registry &registry,
             std::vector<std::unique_ptr<File>> &result) const override {
-    std::size_t maxAlignment =
-        1ULL << llvm::countTrailingZeros(uintptr_t(mb->getBufferStart()));
-    auto f = createELF<MipsELFFileCreateTraits>(
-        llvm::object::getElfArchType(mb->getBuffer()), maxAlignment,
-        std::move(mb), _atomizeStrings);
-    if (std::error_code ec = f.getError())
+    auto &hdr = *elfHeader(*mb);
+    if (std::error_code ec = _flagMerger.merge(hdr.getFileClass(), hdr.e_flags))
       return ec;
-    result.push_back(std::move(*f));
-    return std::error_code();
+    return BaseReaderType::parseFile(std::move(mb), registry, result);
   }
+
+private:
+  MipsELFFlagsMerger &_flagMerger;
+};
+
+class MipsELFDSOReader
+    : public ELFDSOReader<Mips32ElELFType, MipsDynamicFileCreateELFTraits> {
+  typedef ELFDSOReader<Mips32ElELFType, MipsDynamicFileCreateELFTraits>
+      BaseReaderType;
+
+public:
+  MipsELFDSOReader(MipsELFFlagsMerger &flagMerger, bool useUndefines)
+      : BaseReaderType(useUndefines, llvm::ELF::EM_MIPS),
+        _flagMerger(flagMerger) {}
+
+  std::error_code
+  parseFile(std::unique_ptr<MemoryBuffer> mb, const Registry &registry,
+            std::vector<std::unique_ptr<File>> &result) const override {
+    auto &hdr = *elfHeader(*mb);
+    if (std::error_code ec = _flagMerger.merge(hdr.getFileClass(), hdr.e_flags))
+      return ec;
+    return BaseReaderType::parseFile(std::move(mb), registry, result);
+  }
+
+private:
+  MipsELFFlagsMerger &_flagMerger;
 };
 
 } // namespace elf

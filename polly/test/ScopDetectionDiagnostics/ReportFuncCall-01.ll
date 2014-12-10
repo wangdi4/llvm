@@ -40,28 +40,28 @@ for.end:                                          ; preds = %for.end.loopexit, %
 declare double @invalidCall(double*) #1
 
 ; CHECK: remark: ReportFuncCall.c:4:8: The following errors keep this region from being a Scop.
-; CHECK: remark: ReportFuncCall.c:5:12: This function call cannot be handeled. Try to inline it.
+; CHECK: remark: ReportFuncCall.c:5:12: This function call cannot be handled. Try to inline it.
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!7, !8}
 !llvm.ident = !{!9}
 
-!0 = metadata !{i32 786449, metadata !1, i32 12, metadata !"clang version 3.5.0 ", i1 true, metadata !"", i32 0, metadata !2, metadata !2, metadata !3, metadata !2, metadata !2, metadata !"", i32 2} ; [ DW_TAG_compile_unit ] [/home/simbuerg/Projekte/llvm/tools/polly/test/ScopDetectionDiagnostics/ReportFuncCall.c] [DW_LANG_C99]
-!1 = metadata !{metadata !"ReportFuncCall.c", metadata !"/home/simbuerg/Projekte/llvm/tools/polly/test/ScopDetectionDiagnostics"}
-!2 = metadata !{}
-!3 = metadata !{metadata !4}
-!4 = metadata !{i32 786478, metadata !1, metadata !5, metadata !"a", metadata !"a", metadata !"", i32 3, metadata !6, i1 false, i1 true, i32 0, i32 0, null, i32 256, i1 true, void (double*, i32)* @a, null, null, metadata !2, i32 3} ; [ DW_TAG_subprogram ] [line 3] [def] [a]
-!5 = metadata !{i32 786473, metadata !1}          ; [ DW_TAG_file_type ] [/home/simbuerg/Projekte/llvm/tools/polly/test/ScopDetectionDiagnostics/ReportFuncCall.c]
-!6 = metadata !{i32 786453, i32 0, null, metadata !"", i32 0, i64 0, i64 0, i64 0, i32 0, null, metadata !2, i32 0, null, null, null} ; [ DW_TAG_subroutine_type ] [line 0, size 0, align 0, offset 0] [from ]
-!7 = metadata !{i32 2, metadata !"Dwarf Version", i32 4}
-!8 = metadata !{i32 2, metadata !"Debug Info Version", i32 1}
-!9 = metadata !{metadata !"clang version 3.5.0 "}
-!10 = metadata !{i32 4, i32 8, metadata !11, null}
-!11 = metadata !{i32 786443, metadata !1, metadata !4, i32 4, i32 3, i32 0, i32 0} ; [ DW_TAG_lexical_block ] [/home/simbuerg/Projekte/llvm/tools/polly/test/ScopDetectionDiagnostics/ReportFuncCall.c]
-!12 = metadata !{i32 5, i32 12, metadata !13, null}
-!13 = metadata !{i32 786443, metadata !1, metadata !11, i32 4, i32 27, i32 0, i32 1} ; [ DW_TAG_lexical_block ] [/home/simbuerg/Projekte/llvm/tools/polly/test/ScopDetectionDiagnostics/ReportFuncCall.c]
-!14 = metadata !{metadata !15, metadata !15, i64 0}
-!15 = metadata !{metadata !"double", metadata !16, i64 0}
-!16 = metadata !{metadata !"omnipotent char", metadata !17, i64 0}
-!17 = metadata !{metadata !"Simple C/C++ TBAA"}
-!18 = metadata !{i32 7, i32 1, metadata !4, null}
+!0 = !{!"0x11\0012\00clang version 3.5.0 \001\00\000\00\002", !1, !2, !2, !3, !2, !2} ; [ DW_TAG_compile_unit ] [/home/simbuerg/Projekte/llvm/tools/polly/test/ScopDetectionDiagnostics/ReportFuncCall.c] [DW_LANG_C99]
+!1 = !{!"ReportFuncCall.c", !"/home/simbuerg/Projekte/llvm/tools/polly/test/ScopDetectionDiagnostics"}
+!2 = !{}
+!3 = !{!4}
+!4 = !{!"0x2e\00a\00a\00\003\000\001\000\006\00256\001\003", !1, !5, !6, null, void (double*, i32)* @a, null, null, !2} ; [ DW_TAG_subprogram ] [line 3] [def] [a]
+!5 = !{!"0x29", !1}          ; [ DW_TAG_file_type ] [/home/simbuerg/Projekte/llvm/tools/polly/test/ScopDetectionDiagnostics/ReportFuncCall.c]
+!6 = !{!"0x15\00\000\000\000\000\000\000", i32 0, null, null, !2, null, null, null} ; [ DW_TAG_subroutine_type ] [line 0, size 0, align 0, offset 0] [from ]
+!7 = !{i32 2, !"Dwarf Version", i32 4}
+!8 = !{i32 2, !"Debug Info Version", i32 2}
+!9 = !{!"clang version 3.5.0 "}
+!10 = !{i32 4, i32 8, !11, null}
+!11 = !{!"0xb\004\003\000", !1, !4} ; [ DW_TAG_lexical_block ] [/home/simbuerg/Projekte/llvm/tools/polly/test/ScopDetectionDiagnostics/ReportFuncCall.c]
+!12 = !{i32 5, i32 12, !13, null}
+!13 = !{!"0xb\004\0027\000", !1, !11} ; [ DW_TAG_lexical_block ] [/home/simbuerg/Projekte/llvm/tools/polly/test/ScopDetectionDiagnostics/ReportFuncCall.c]
+!14 = !{!15, !15, i64 0}
+!15 = !{!"double", !16, i64 0}
+!16 = !{!"omnipotent char", !17, i64 0}
+!17 = !{!"Simple C/C++ TBAA"}
+!18 = !{i32 7, i32 1, !4, null}

@@ -13,17 +13,15 @@
 #include "lld/Core/DefinedAtom.h"
 #include "lld/Core/File.h"
 #include "lld/Core/LLVM.h"
+#include "lld/Core/LinkingContext.h"
 #include "lld/Core/Resolver.h"
 #include "lld/Core/SharedLibraryAtom.h"
-#include "lld/Core/LinkingContext.h"
 #include "lld/Core/UndefinedAtom.h"
-
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/ADT/Hashing.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
-
 #include <algorithm>
 #include <cassert>
 #include <cstdlib>
@@ -189,11 +187,10 @@ bool SymbolTable::addByName(const Atom &newAtom) {
   case NCR_Second:
     useNew = true;
     break;
-  case NCR_DupDef:
-    assert(existing->definition() == Atom::definitionRegular);
-    assert(newAtom.definition() == Atom::definitionRegular);
-    switch (mergeSelect(((DefinedAtom*)existing)->merge(),
-                        ((DefinedAtom*)&newAtom)->merge())) {
+  case NCR_DupDef: {
+    const auto *existingDef = cast<DefinedAtom>(existing);
+    const auto *newDef = cast<DefinedAtom>(&newAtom);
+    switch (mergeSelect(existingDef->merge(), newDef->merge())) {
     case MCR_First:
       useNew = false;
       break;
@@ -201,14 +198,14 @@ bool SymbolTable::addByName(const Atom &newAtom) {
       useNew = true;
       break;
     case MCR_Largest: {
-      uint64_t existingSize = sectionSize((DefinedAtom*)existing);
-      uint64_t newSize = sectionSize((DefinedAtom*)&newAtom);
+      uint64_t existingSize = sectionSize(existingDef);
+      uint64_t newSize = sectionSize(newDef);
       useNew = (newSize >= existingSize);
       break;
     }
     case MCR_SameSize: {
-      uint64_t existingSize = sectionSize((DefinedAtom*)existing);
-      uint64_t newSize = sectionSize((DefinedAtom*)&newAtom);
+      uint64_t existingSize = sectionSize(existingDef);
+      uint64_t newSize = sectionSize(newDef);
       if (existingSize == newSize) {
         useNew = true;
         break;
@@ -235,6 +232,7 @@ bool SymbolTable::addByName(const Atom &newAtom) {
       break;
     }
     break;
+  }
   case NCR_DupUndef: {
     const UndefinedAtom* existingUndef = cast<UndefinedAtom>(existing);
     const UndefinedAtom* newUndef = cast<UndefinedAtom>(&newAtom);
@@ -339,6 +337,12 @@ bool SymbolTable::AtomMappingInfo::isEqual(const DefinedAtom * const l,
     return false;
   if (l->size() != r->size())
     return false;
+  if (l->sectionChoice() != r->sectionChoice())
+    return false;
+  if (l->sectionChoice() == DefinedAtom::sectionCustomRequired) {
+    if (!l->customSectionName().equals(r->customSectionName()))
+      return false;
+  }
   ArrayRef<uint8_t> lc = l->rawContent();
   ArrayRef<uint8_t> rc = r->rawContent();
   return memcmp(lc.data(), rc.data(), lc.size()) == 0;
@@ -365,7 +369,7 @@ const Atom *SymbolTable::findByName(StringRef sym) {
 
 bool SymbolTable::isDefined(StringRef sym) {
   if (const Atom *atom = findByName(sym))
-    return atom->definition() != Atom::definitionUndefined;
+    return !isa<UndefinedAtom>(atom);
   return false;
 }
 

@@ -11,8 +11,10 @@
 
 #include "polly/CodeGen/IslExprBuilder.h"
 
+#include "polly/ScopInfo.h"
 #include "polly/Support/GICHelper.h"
 
+#include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/Support/Debug.h"
 
 using namespace llvm;
@@ -99,43 +101,46 @@ Value *IslExprBuilder::createAccessAddress(isl_ast_expr *Expr) {
   assert(isl_ast_expr_get_op_n_arg(Expr) >= 2 &&
          "We need at least two operands to create a member access.");
 
-  // TODO: Support for multi-dimensional array.
-  assert(isl_ast_expr_get_op_n_arg(Expr) == 2 &&
-         "Multidimensional access functions are not supported yet");
+  Value *Base, *IndexOp, *Access;
+  isl_ast_expr *BaseExpr;
+  isl_id *BaseId;
 
-  Value *Base, *IndexOp, *Zero, *Access;
-  SmallVector<Value *, 4> Indices;
-  Type *PtrElTy;
+  BaseExpr = isl_ast_expr_get_op_arg(Expr, 0);
+  BaseId = isl_ast_expr_get_id(BaseExpr);
+  isl_ast_expr_free(BaseExpr);
 
-  Base = create(isl_ast_expr_get_op_arg(Expr, 0));
+  const ScopArrayInfo *SAI = ScopArrayInfo::getFromId(BaseId);
+  Base = SAI->getBasePtr();
   assert(Base->getType()->isPointerTy() && "Access base should be a pointer");
+  StringRef BaseName = Base->getName();
 
-  IndexOp = create(isl_ast_expr_get_op_arg(Expr, 1));
-  assert(IndexOp->getType()->isIntegerTy() &&
-         "Access index should be an integer");
-  Zero = ConstantInt::getNullValue(IndexOp->getType());
+  if (Base->getType() != SAI->getType())
+    Base = Builder.CreateBitCast(Base, SAI->getType(),
+                                 "polly.access.cast." + BaseName);
 
-  // If base is a array type like,
-  //   int A[N][M][K];
-  // we have to adjust the GEP. The easiest way is to transform accesses like,
-  //   A[i][j][k]
-  // into equivalent ones like,
-  //   A[0][0][ i*N*M + j*M + k]
-  // because SCEV already folded the "peudo dimensions" into one. Thus our index
-  // operand will be 'i*N*M + j*M + k' anyway.
-  PtrElTy = Base->getType()->getPointerElementType();
-  while (PtrElTy->isArrayTy()) {
-    Indices.push_back(Zero);
-    PtrElTy = PtrElTy->getArrayElementType();
+  IndexOp = nullptr;
+  for (unsigned u = 1, e = isl_ast_expr_get_op_n_arg(Expr); u < e; u++) {
+    Value *NextIndex = create(isl_ast_expr_get_op_arg(Expr, u));
+    assert(NextIndex->getType()->isIntegerTy() &&
+           "Access index should be an integer");
+
+    if (!IndexOp)
+      IndexOp = NextIndex;
+    else
+      IndexOp = Builder.CreateAdd(IndexOp, NextIndex);
+
+    // For every but the last dimension multiply the size, for the last
+    // dimension we can exit the loop.
+    if (u + 1 >= e)
+      break;
+
+    const SCEV *DimSCEV = SAI->getDimensionSize(u - 1);
+    Value *DimSize = Expander.expandCodeFor(DimSCEV, IndexOp->getType(),
+                                            Builder.GetInsertPoint());
+    IndexOp = Builder.CreateMul(IndexOp, DimSize);
   }
 
-  Indices.push_back(IndexOp);
-  assert((PtrElTy->isIntOrIntVectorTy() || PtrElTy->isFPOrFPVectorTy() ||
-          PtrElTy->isPtrOrPtrVectorTy()) &&
-         "We do not yet change the type of the access base during code "
-         "generation.");
-
-  Access = Builder.CreateGEP(Base, Indices, "polly.access." + Base->getName());
+  Access = Builder.CreateGEP(Base, IndexOp, "polly.access." + BaseName);
 
   isl_ast_expr_free(Expr);
   return Access;
@@ -177,6 +182,7 @@ Value *IslExprBuilder::createOpBin(__isl_take isl_ast_expr *Expr) {
   case isl_ast_op_pdiv_r:
   case isl_ast_op_div:
   case isl_ast_op_fdiv_q:
+  case isl_ast_op_zdiv_r:
     // Do nothing
     break;
   case isl_ast_op_add:
@@ -225,6 +231,7 @@ Value *IslExprBuilder::createOpBin(__isl_take isl_ast_expr *Expr) {
     break;
   }
   case isl_ast_op_pdiv_r: // Dividend is non-negative
+  case isl_ast_op_zdiv_r: // Result only compared against zero
     Res = Builder.CreateSRem(LHS, RHS);
     break;
   }
@@ -244,6 +251,8 @@ Value *IslExprBuilder::createOpSelect(__isl_take isl_ast_expr *Expr) {
   Type *MaxType = getType(Expr);
 
   Cond = create(isl_ast_expr_get_op_arg(Expr, 0));
+  if (!Cond->getType()->isIntegerTy(1))
+    Cond = Builder.CreateIsNotNull(Cond);
 
   LHS = create(isl_ast_expr_get_op_arg(Expr, 1));
   RHS = create(isl_ast_expr_get_op_arg(Expr, 2));
@@ -271,13 +280,16 @@ Value *IslExprBuilder::createOpICmp(__isl_take isl_ast_expr *Expr) {
   LHS = create(isl_ast_expr_get_op_arg(Expr, 0));
   RHS = create(isl_ast_expr_get_op_arg(Expr, 1));
 
-  bool IsPtrType = LHS->getType()->isPointerTy();
-  assert((!IsPtrType || RHS->getType()->isPointerTy()) &&
-         "Both ICmp operators should be pointer types or none of them");
+  bool IsPtrType =
+      LHS->getType()->isPointerTy() || RHS->getType()->isPointerTy();
 
   if (LHS->getType() != RHS->getType()) {
     if (IsPtrType) {
       Type *I8PtrTy = Builder.getInt8PtrTy();
+      if (!LHS->getType()->isPointerTy())
+        LHS = Builder.CreateIntToPtr(LHS, I8PtrTy);
+      if (!RHS->getType()->isPointerTy())
+        RHS = Builder.CreateIntToPtr(RHS, I8PtrTy);
       if (LHS->getType() != I8PtrTy)
         LHS = Builder.CreateBitCast(LHS, I8PtrTy);
       if (RHS->getType() != I8PtrTy)
@@ -385,6 +397,7 @@ Value *IslExprBuilder::createOp(__isl_take isl_ast_expr *Expr) {
   case isl_ast_op_fdiv_q: // Round towards -infty
   case isl_ast_op_pdiv_q: // Dividend is non-negative
   case isl_ast_op_pdiv_r: // Dividend is non-negative
+  case isl_ast_op_zdiv_r: // Result only compared against zero
     return createOpBin(Expr);
   case isl_ast_op_minus:
     return createOpUnary(Expr);

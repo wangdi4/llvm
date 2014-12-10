@@ -46,7 +46,9 @@ if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     set(LLVM_CMAKE_PATH "${LLVM_BINARY_DIR}/share/llvm/cmake")
     set(LLVM_LIT_PATH "${LLVM_PATH}/utils/lit/lit.py")
   else()
-    message(FATAL_ERROR "llvm-config not found and LLVM_MAIN_SRC_DIR not defined")
+    message(FATAL_ERROR "llvm-config not found and LLVM_MAIN_SRC_DIR not defined. "
+                        "Reconfigure with -DLLVM_CONFIG=path/to/llvm-config "
+                        "or -DLLVM_PATH=path/to/llvm-source-root.")
   endif()
 
   if(EXISTS ${LLVM_CMAKE_PATH})
@@ -87,12 +89,16 @@ if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     set(LLVM_INCLUDE_TESTS OFF)
   endif()
 
-  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+  set(LIBCXXABI_LIBDIR_SUFFIX "" CACHE STRING
+      "Define suffix of library directory name (32/64)")
+
+  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib${LIBCXXABI_LIBDIR_SUFFIX})
+  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib${LIBCXXABI_LIBDIR_SUFFIX})
 
   set(LIBCXXABI_BUILT_STANDALONE 1)
 else()
   set(LLVM_LIT "${CMAKE_SOURCE_DIR}/utils/lit/lit.py")
+  set(LIBCXXABI_LIBDIR_SUFFIX ${LLVM_LIBDIR_SUFFIX})
 endif()
 
 #===============================================================================
@@ -104,6 +110,7 @@ option(LIBCXXABI_ENABLE_ASSERTIONS "Enable assertions independent of build mode.
 option(LIBCXXABI_ENABLE_PEDANTIC "Compile with pedantic enabled." ON)
 option(LIBCXXABI_ENABLE_WERROR "Fail and stop if a warning is triggered." OFF)
 option(LIBCXXABI_USE_LLVM_UNWINDER "Build and use the LLVM unwinder." OFF)
+option(LIBCXXABI_ENABLE_THREADS "Build with threads enabled" ON)
 
 # Default to building a shared library so that the default options still test
 # the libc++abi that is being built. There are two problems with testing a
@@ -139,6 +146,11 @@ set(CMAKE_MODULE_PATH
 # Configure compiler.
 include(config-ix)
 
+set(LIBCXXABI_COMPILER    ${CMAKE_CXX_COMPILER})
+set(LIBCXXABI_SOURCE_DIR  ${CMAKE_CURRENT_SOURCE_DIR})
+set(LIBCXXABI_BINARY_DIR  ${CMAKE_CURRENT_BINARY_DIR})
+set(LIBCXXABI_LIBRARY_DIR ${CMAKE_BINARY_DIR}/lib${LIBCXXABI_LIBDIR_SUFFIX})
+
 #===============================================================================
 # Setup Compiler Flags
 #===============================================================================
@@ -150,69 +162,82 @@ macro(append_if list condition var)
   endif()
 endmacro()
 
+set(LIBCXXABI_CXX_FLAGS "")
+set(LIBCXXABI_COMPILE_FLAGS "")
+set(LIBCXXABI_LINK_FLAGS "")
+
+
 if (LIBCXXABI_HAS_NOSTDINCXX_FLAG)
-  list(APPEND LIBCXXABI_CXX_REQUIRED_FLAGS -nostdinc++)
+  list(APPEND LIBCXXABI_COMPILE_FLAGS -nostdinc++)
+  # Remove -stdlib flags to prevent them from causing an unused flag warning.
+  string(REPLACE "-stdlib=libc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+  string(REPLACE "-stdlib=libstdc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif()
 
-append_if(LIBCXXABI_CXX_REQUIRED_FLAGS LIBCXXABI_HAS_WERROR_FLAG -Werror=return-type)
+
+append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WERROR_FLAG -Werror=return-type)
 
 # Get warning flags
-append_if(LIBCXXABI_CXX_WARNING_FLAGS LIBCXXABI_HAS_W_FLAG -W)
-append_if(LIBCXXABI_CXX_WARNING_FLAGS LIBCXXABI_HAS_WALL_FLAG -Wall)
-append_if(LIBCXXABI_CXX_WARNING_FLAGS LIBCXXABI_HAS_WCHAR_SUBSCRIPTS_FLAG -Wchar-subscripts)
-append_if(LIBCXXABI_CXX_WARNING_FLAGS LIBCXXABI_HAS_WCONVERSION_FLAG -Wconversion)
-append_if(LIBCXXABI_CXX_WARNING_FLAGS LIBCXXABI_HAS_WMISMATCHED_TAGS_FLAG -Wmismatched-tags)
-append_if(LIBCXXABI_CXX_WARNING_FLAGS LIBCXXABI_HAS_WMISSING_BRACES_FLAG -Wmissing-braces)
-append_if(LIBCXXABI_CXX_WARNING_FLAGS LIBCXXABI_HAS_WNEWLINE_EOF_FLAG -Wnewline-eof)
-append_if(LIBCXXABI_CXX_WARNING_FLAGS LIBCXXABI_HAS_WNO_UNUSED_FUNCTION_FLAG -Wno-unused-function)
-append_if(LIBCXXABI_CXX_WARNING_FLAGS LIBCXXABI_HAS_WSHADOW_FLAG -Wshadow)
-append_if(LIBCXXABI_CXX_WARNING_FLAGS LIBCXXABI_HAS_WSHORTEN_64_TO_32_FLAG -Wshorten-64-to-32)
-append_if(LIBCXXABI_CXX_WARNING_FLAGS LIBCXXABI_HAS_WSIGN_COMPARE_FLAG -Wsign-compare)
-append_if(LIBCXXABI_CXX_WARNING_FLAGS LIBCXXABI_HAS_WSIGN_CONVERSION_FLAG -Wsign-conversion)
-append_if(LIBCXXABI_CXX_WARNING_FLAGS LIBCXXABI_HAS_WSTRICT_ALIASING_FLAG -Wstrict-aliasing=2)
-append_if(LIBCXXABI_CXX_WARNING_FLAGS LIBCXXABI_HAS_WSTRICT_OVERFLOW_FLAG -Wstrict-overflow=4)
-append_if(LIBCXXABI_CXX_WARNING_FLAGS LIBCXXABI_HAS_WUNUSED_PARAMETER_FLAG -Wunused-parameter)
-append_if(LIBCXXABI_CXX_WARNING_FLAGS LIBCXXABI_HAS_WUNUSED_VARIABLE_FLAG -Wunused-variable)
-append_if(LIBCXXABI_CXX_WARNING_FLAGS LIBCXXABI_HAS_WWRITE_STRINGS_FLAG -Wwrite-strings)
+append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_W_FLAG -W)
+append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WALL_FLAG -Wall)
+append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WCHAR_SUBSCRIPTS_FLAG -Wchar-subscripts)
+append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WCONVERSION_FLAG -Wconversion)
+append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WMISMATCHED_TAGS_FLAG -Wmismatched-tags)
+append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WMISSING_BRACES_FLAG -Wmissing-braces)
+append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WNEWLINE_EOF_FLAG -Wnewline-eof)
+append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WNO_UNUSED_FUNCTION_FLAG -Wno-unused-function)
+append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WSHADOW_FLAG -Wshadow)
+append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WSHORTEN_64_TO_32_FLAG -Wshorten-64-to-32)
+append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WSIGN_COMPARE_FLAG -Wsign-compare)
+append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WSIGN_CONVERSION_FLAG -Wsign-conversion)
+append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WSTRICT_ALIASING_FLAG -Wstrict-aliasing=2)
+append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WSTRICT_OVERFLOW_FLAG -Wstrict-overflow=4)
+append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WUNUSED_PARAMETER_FLAG -Wunused-parameter)
+append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WUNUSED_VARIABLE_FLAG -Wunused-variable)
+append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WWRITE_STRINGS_FLAG -Wwrite-strings)
 
 if (LIBCXXABI_ENABLE_WERROR)
-  append_if(LIBCXXABI_CXX_WARNING_FLAGS LIBCXXABI_HAS_WERROR_FLAG -Werror)
-  append_if(LIBCXXABI_CXX_WARNING_FLAGS LIBCXXABI_HAS_WX_FLAG -WX)
+  append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WERROR_FLAG -Werror)
+  append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WX_FLAG -WX)
 else()
-  append_if(LIBCXXABI_CXX_WARNING_FLAGS LIBCXXABI_HAS_WNO_ERROR_FLAG -Wno-error)
-  append_if(LIBCXXABI_CXX_WARNING_FLAGS LIBCXXABI_HAS_NO_WX_FLAG -WX-)
+  append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WNO_ERROR_FLAG -Wno-error)
+  append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_NO_WX_FLAG -WX-)
 endif()
 if (LIBCXXABI_ENABLE_PEDANTIC)
-  append_if(LIBCXXABI_CXX_WARNING_FLAGS LIBCXXABI_HAS_PEDANTIC_FLAG -pedantic)
+  append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_PEDANTIC_FLAG -pedantic)
 endif()
 
 # Get feature flags.
 # Exceptions
 # Catches C++ exceptions only and tells the compiler to assume that extern C
 # functions never throw a C++ exception.
-append_if(LIBCXXABI_CXX_FEATURE_FLAGS LIBCXXABI_HAS_FSTRICT_ALIASING_FLAG -fstrict-aliasing)
-append_if(LIBCXXABI_CXX_FEATURE_FLAGS LIBCXXABI_HAS_EHSC_FLAG -EHsc)
+append_if(LIBCXXABI_CXX_FLAGS LIBCXXABI_HAS_FSTRICT_ALIASING_FLAG -fstrict-aliasing)
+append_if(LIBCXXABI_CXX_FLAGS LIBCXXABI_HAS_EHSC_FLAG -EHsc)
 
 # Assert
 string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
 if (LIBCXXABI_ENABLE_ASSERTIONS)
   # MSVC doesn't like _DEBUG on release builds. See PR 4379.
   if (NOT MSVC)
-    list(APPEND LIBCXXABI_CXX_FEATURE_FLAGS -D_DEBUG)
+    list(APPEND LIBCXXABI_COMPILE_FLAGS -D_DEBUG)
   endif()
   # On Release builds cmake automatically defines NDEBUG, so we
   # explicitly undefine it:
   if (uppercase_CMAKE_BUILD_TYPE STREQUAL "RELEASE")
-    list(APPEND LIBCXXABI_CXX_FEATURE_FLAGS -UNDEBUG)
+    list(APPEND LIBCXXABI_COMPILE_FLAGS -UNDEBUG)
   endif()
 else()
   if (NOT uppercase_CMAKE_BUILD_TYPE STREQUAL "RELEASE")
-    list(APPEND LIBCXXABI_CXX_FEATURE_FLAGS -DNDEBUG)
+    list(APPEND LIBCXXABI_COMPILE_FLAGS -DNDEBUG)
   endif()
 endif()
 # Static library
 if (NOT LIBCXXABI_ENABLE_SHARED)
-  list(APPEND LIBCXXABI_CXX_FEATURE_FLAGS -D_LIBCPP_BUILD_STATIC)
+  list(APPEND LIBCXXABI_COMPILE_FLAGS -D_LIBCPP_BUILD_STATIC)
+endif()
+
+if (NOT LIBCXXABI_ENABLE_THREADS)
+  add_definitions(-DLIBCXXABI_HAS_NO_THREADS=1)
 endif()
 
 # This is the _ONLY_ place where add_definitions is called.
@@ -220,14 +245,8 @@ if (MSVC)
   add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 endif()
 
-string(REPLACE ";" " " LIBCXXABI_CXX_REQUIRED_FLAGS "${LIBCXXABI_CXX_REQUIRED_FLAGS}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LIBCXXABI_CXX_REQUIRED_FLAGS}")
-
-string(REPLACE ";" " " LIBCXXABI_CXX_WARNING_FLAGS "${LIBCXXABI_CXX_WARNING_FLAGS}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LIBCXXABI_CXX_WARNING_FLAGS}")
-
-string(REPLACE ";" " " LIBCXXABI_CXX_FEATURE_FLAGS "${LIBCXXABI_CXX_FEATURE_FLAGS}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LIBCXXABI_CXX_FEATURE_FLAGS}")
+string(REPLACE ";" " " LIBCXXABI_CXX_FLAGS "${LIBCXXABI_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LIBCXXABI_CXX_FLAGS}")
 
 #===============================================================================
 # Setup Source Code

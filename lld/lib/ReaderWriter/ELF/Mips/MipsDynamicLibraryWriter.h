@@ -17,13 +17,16 @@
 namespace lld {
 namespace elf {
 
+template <typename ELFT> class MipsSymbolTable;
+template <typename ELFT> class MipsDynamicSymbolTable;
 template <typename ELFT> class MipsTargetLayout;
 
 template <class ELFT>
 class MipsDynamicLibraryWriter : public DynamicLibraryWriter<ELFT> {
 public:
   MipsDynamicLibraryWriter(MipsLinkingContext &ctx,
-                           MipsTargetLayout<ELFT> &layout);
+                           MipsTargetLayout<ELFT> &layout,
+                           MipsELFFlagsMerger &elfFlagsMerger);
 
 protected:
   // Add any runtime files and their atoms to the output
@@ -37,17 +40,11 @@ protected:
     return std::error_code();
   }
 
-  bool isDynSymEntryRequired(const SharedLibraryAtom *sla) const override {
-    return _writeHelper.isDynSymEntryRequired(sla);
-  }
+  LLD_UNIQUE_BUMP_PTR(SymbolTable<ELFT>) createSymbolTable() override;
+  LLD_UNIQUE_BUMP_PTR(DynamicTable<ELFT>) createDynamicTable() override;
 
-  bool isNeededTagRequired(const SharedLibraryAtom *sla) const override {
-    return _writeHelper.isNeededTagRequired(sla);
-  }
-
-  LLD_UNIQUE_BUMP_PTR(DynamicTable<ELFT>) createDynamicTable();
-
-  LLD_UNIQUE_BUMP_PTR(DynamicSymbolTable<ELFT>) createDynamicSymbolTable();
+  LLD_UNIQUE_BUMP_PTR(DynamicSymbolTable<ELFT>)
+      createDynamicSymbolTable() override;
 
 private:
   MipsELFWriter<ELFT> _writeHelper;
@@ -57,9 +54,11 @@ private:
 
 template <class ELFT>
 MipsDynamicLibraryWriter<ELFT>::MipsDynamicLibraryWriter(
-    MipsLinkingContext &ctx, MipsTargetLayout<ELFT> &layout)
-    : DynamicLibraryWriter<ELFT>(ctx, layout), _writeHelper(ctx, layout),
-      _mipsContext(ctx), _mipsTargetLayout(layout) {}
+    MipsLinkingContext &ctx, MipsTargetLayout<ELFT> &layout,
+    MipsELFFlagsMerger &elfFlagsMerger)
+    : DynamicLibraryWriter<ELFT>(ctx, layout),
+      _writeHelper(ctx, layout, elfFlagsMerger), _mipsContext(ctx),
+      _mipsTargetLayout(layout) {}
 
 template <class ELFT>
 bool MipsDynamicLibraryWriter<ELFT>::createImplicitFiles(
@@ -74,6 +73,13 @@ void MipsDynamicLibraryWriter<ELFT>::finalizeDefaultAtomValues() {
   // Finalize the atom values that are part of the parent.
   DynamicLibraryWriter<ELFT>::finalizeDefaultAtomValues();
   _writeHelper.finalizeMipsRuntimeAtomValues();
+}
+
+template <class ELFT>
+LLD_UNIQUE_BUMP_PTR(SymbolTable<ELFT>)
+    MipsDynamicLibraryWriter<ELFT>::createSymbolTable() {
+  return LLD_UNIQUE_BUMP_PTR(SymbolTable<ELFT>)(new (
+      this->_alloc) MipsSymbolTable<ELFT>(_mipsContext));
 }
 
 /// \brief create dynamic table

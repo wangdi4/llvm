@@ -102,7 +102,6 @@ void LeakyResetEnv(const char *name, const char *name_value) {
 }
 
 void MaybeReexec() {
-  if (!flags()->allow_reexec) return;
   // Make sure the dynamic ASan runtime library is preloaded so that the
   // wrappers work. If it is not, set DYLD_INSERT_LIBRARIES and re-exec
   // ourselves.
@@ -114,7 +113,7 @@ void MaybeReexec() {
       internal_strlen(dyld_insert_libraries) : 0;
   uptr fname_len = internal_strlen(info.dli_fname);
   if (!dyld_insert_libraries ||
-      !REAL(strstr)(dyld_insert_libraries, info.dli_fname)) {
+      !REAL(strstr)(dyld_insert_libraries, StripModuleName(info.dli_fname))) {
     // DYLD_INSERT_LIBRARIES is not set or does not contain the runtime
     // library.
     char program_name[1024];
@@ -140,8 +139,15 @@ void MaybeReexec() {
     VReport(1, "exec()-ing the program with\n");
     VReport(1, "%s=%s\n", kDyldInsertLibraries, new_env);
     VReport(1, "to enable ASan wrappers.\n");
-    VReport(1, "Set ASAN_OPTIONS=allow_reexec=0 to disable this.\n");
     execv(program_name, *_NSGetArgv());
+
+    // We get here only if execv() failed.
+    Report("ERROR: The process is launched without DYLD_INSERT_LIBRARIES, "
+           "which is required for ASan to work. ASan tried to set the "
+           "environment variable and re-execute itself, but execv() failed, "
+           "possibly because of sandbox restrictions. Make sure to launch the "
+           "executable with:\n%s=%s\n", kDyldInsertLibraries, new_env);
+    CHECK("execv failed" && 0);
   } else {
     // DYLD_INSERT_LIBRARIES is set and contains the runtime library.
     if (old_env_len == fname_len) {
@@ -264,9 +270,8 @@ ALWAYS_INLINE
 void asan_register_worker_thread(int parent_tid, StackTrace *stack) {
   AsanThread *t = GetCurrentThread();
   if (!t) {
-    t = AsanThread::Create(0, 0);
-    CreateThreadContextArgs args = { t, stack };
-    asanThreadRegistry().CreateThread(*(uptr*)t, true, parent_tid, &args);
+    t = AsanThread::Create(/* start_routine */ nullptr, /* arg */ nullptr,
+                           parent_tid, stack, /* detached */ true);
     t->Init();
     asanThreadRegistry().StartThread(t->tid(), 0, 0);
     SetCurrentThread(t);
@@ -297,7 +302,7 @@ using namespace __asan;  // NOLINT
 // The caller retains control of the allocated context.
 extern "C"
 asan_block_context_t *alloc_asan_context(void *ctxt, dispatch_function_t func,
-                                         StackTrace *stack) {
+                                         BufferedStackTrace *stack) {
   asan_block_context_t *asan_ctxt =
       (asan_block_context_t*) asan_malloc(sizeof(asan_block_context_t), stack);
   asan_ctxt->block = ctxt;
@@ -404,6 +409,10 @@ INTERCEPTOR(void, dispatch_after,
 
 INTERCEPTOR(void, dispatch_source_set_cancel_handler,
             dispatch_source_t ds, void(^work)(void)) {
+  if (!work) {
+    REAL(dispatch_source_set_cancel_handler)(ds, work);
+    return;
+  }
   ENABLE_FRAME_POINTER;
   GET_ASAN_BLOCK(work);
   REAL(dispatch_source_set_cancel_handler)(ds, asan_block);

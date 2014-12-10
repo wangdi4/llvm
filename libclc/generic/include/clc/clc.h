@@ -47,8 +47,10 @@
 #include <clc/math/fma.h>
 #include <clc/math/fmax.h>
 #include <clc/math/fmin.h>
+#include <clc/math/fmod.h>
 #include <clc/math/hypot.h>
 #include <clc/math/log.h>
+#include <clc/math/log1p.h>
 #include <clc/math/log2.h>
 #include <clc/math/mad.h>
 #include <clc/math/mix.h>
@@ -137,7 +139,10 @@
 #include <clc/synchronization/barrier.h>
 
 /* 6.11.10 Async Copy and Prefetch Functions */
+#include <clc/async/async_work_group_copy.h>
+#include <clc/async/async_work_group_strided_copy.h>
 #include <clc/async/prefetch.h>
+#include <clc/async/wait_group_events.h>
 
 /* 6.11.11 Atomic Functions */
 #include <clc/atomic/atomic_add.h>

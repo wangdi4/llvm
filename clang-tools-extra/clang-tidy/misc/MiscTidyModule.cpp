@@ -12,11 +12,10 @@
 #include "../ClangTidyModuleRegistry.h"
 #include "ArgumentCommentCheck.h"
 #include "BoolPointerImplicitConversion.h"
-#include "FunctionSize.h"
-#include "RedundantSmartptrGet.h"
 #include "SwappedArgumentsCheck.h"
 #include "UndelegatedConstructor.h"
 #include "UnusedRAII.h"
+#include "UniqueptrResetRelease.h"
 #include "UseOverride.h"
 
 namespace clang {
@@ -28,13 +27,12 @@ public:
     CheckFactories.registerCheck<ArgumentCommentCheck>("misc-argument-comment");
     CheckFactories.registerCheck<BoolPointerImplicitConversion>(
         "misc-bool-pointer-implicit-conversion");
-    CheckFactories.registerCheck<FunctionSizeCheck>("misc-function-size");
-    CheckFactories.registerCheck<RedundantSmartptrGet>(
-        "misc-redundant-smartptr-get");
     CheckFactories.registerCheck<SwappedArgumentsCheck>(
         "misc-swapped-arguments");
     CheckFactories.registerCheck<UndelegatedConstructorCheck>(
         "misc-undelegated-constructor");
+    CheckFactories.registerCheck<UniqueptrResetRelease>(
+        "misc-uniqueptr-reset-release");
     CheckFactories.registerCheck<UnusedRAIICheck>("misc-unused-raii");
     CheckFactories.registerCheck<UseOverride>("misc-use-override");
   }

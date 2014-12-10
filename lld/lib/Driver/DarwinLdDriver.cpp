@@ -29,9 +29,8 @@
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/PrettyStackTrace.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Signals.h"
-
+#include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 
 using namespace lld;
@@ -85,9 +84,14 @@ static std::string canonicalizePath(StringRef path) {
 }
 
 static void addFile(StringRef path, std::unique_ptr<InputGraph> &inputGraph,
-                    bool forceLoad) {
-   inputGraph->addInputElement(std::unique_ptr<InputElement>(
-                                          new MachOFileNode(path, forceLoad)));
+                    MachOLinkingContext &ctx, bool loadWholeArchive,
+                    bool upwardDylib) {
+  auto node = llvm::make_unique<MachOFileNode>(path, ctx);
+  if (loadWholeArchive)
+    node->setLoadWholeArchive();
+  if (upwardDylib)
+    node->setUpwardDylib();
+  inputGraph->addInputElement(std::move(node));
 }
 
 // Export lists are one symbol per line.  Blank lines are ignored.
@@ -100,6 +104,7 @@ static std::error_code parseExportsList(StringRef exportFilePath,
                                    MemoryBuffer::getFileOrSTDIN(exportFilePath);
   if (std::error_code ec = mb.getError())
     return ec;
+  ctx.addInputFileDependency(exportFilePath);
   StringRef buffer = mb->get()->getBuffer();
   while (!buffer.empty()) {
     // Split off each line in the file.
@@ -111,6 +116,59 @@ static std::error_code parseExportsList(StringRef exportFilePath,
     if (!sym.empty())
       ctx.addExportSymbol(sym);
     buffer = lineAndRest.second;
+  }
+  return std::error_code();
+}
+
+
+
+/// Order files are one symbol per line. Blank lines are ignored.
+/// Trailing comments start with #. Symbol names can be prefixed with an
+/// architecture name and/or .o leaf name.  Examples:
+///     _foo
+///     bar.o:_bar
+///     libfrob.a(bar.o):_bar
+///     x86_64:_foo64
+static std::error_code parseOrderFile(StringRef orderFilePath,
+                                      MachOLinkingContext &ctx,
+                                      raw_ostream &diagnostics) {
+  // Map in order file.
+  ErrorOr<std::unique_ptr<MemoryBuffer>> mb =
+                                   MemoryBuffer::getFileOrSTDIN(orderFilePath);
+  if (std::error_code ec = mb.getError())
+    return ec;
+  ctx.addInputFileDependency(orderFilePath);
+  StringRef buffer = mb->get()->getBuffer();
+  while (!buffer.empty()) {
+    // Split off each line in the file.
+    std::pair<StringRef, StringRef> lineAndRest = buffer.split('\n');
+    StringRef line = lineAndRest.first;
+    buffer = lineAndRest.second;
+    // Ignore trailing # comments.
+    std::pair<StringRef, StringRef> symAndComment = line.split('#');
+    if (symAndComment.first.empty())
+      continue;
+    StringRef sym = symAndComment.first.trim();
+    if (sym.empty())
+      continue;
+    // Check for prefix.
+    StringRef prefix;
+    std::pair<StringRef, StringRef> prefixAndSym = sym.split(':');
+    if (!prefixAndSym.second.empty()) {
+      sym = prefixAndSym.second;
+      prefix = prefixAndSym.first;
+      if (!prefix.endswith(".o") && !prefix.endswith(".o)")) {
+        // If arch name prefix does not match arch being linked, ignore symbol.
+        if (!ctx.archName().equals(prefix))
+          continue;
+        prefix = "";
+      }
+    } else
+     sym = prefixAndSym.first;
+    if (!sym.empty()) {
+      ctx.appendOrderedSymbol(sym, prefix);
+      //llvm::errs() << sym << ", prefix=" << prefix << "\n";
+    }
   }
   return std::error_code();
 }
@@ -134,6 +192,7 @@ static std::error_code parseFileList(StringRef fileListPath,
   std::pair<StringRef, StringRef> opt = fileListPath.split(',');
   StringRef filePath = opt.first;
   StringRef dirName = opt.second;
+  ctx.addInputFileDependency(filePath);
   // Map in file list file.
   ErrorOr<std::unique_ptr<MemoryBuffer>> mb =
                                         MemoryBuffer::getFileOrSTDIN(filePath);
@@ -163,7 +222,7 @@ static std::error_code parseFileList(StringRef fileListPath,
     if (ctx.testingFileUsage()) {
       diagnostics << "Found filelist entry " << canonicalizePath(path) << '\n';
     }
-    addFile(path, inputGraph, forceLoad);
+    addFile(path, inputGraph, ctx, forceLoad, false);
     buffer = lineAndRest.second;
   }
   return std::error_code();
@@ -425,11 +484,25 @@ bool DarwinLdDriver::parse(int argc, const char *argv[],
   if (parsedArgs->getLastArg(OPT_t))
     ctx.setLogInputFiles(true);
 
+  // Handle -demangle option.
+  if (parsedArgs->getLastArg(OPT_demangle))
+    ctx.setDemangleSymbols(true);
+
   // Handle -keep_private_externs
   if (parsedArgs->getLastArg(OPT_keep_private_externs)) {
     ctx.setKeepPrivateExterns(true);
     if (ctx.outputMachOType() != llvm::MachO::MH_OBJECT)
       diagnostics << "warning: -keep_private_externs only used in -r mode\n";
+  }
+
+  // Handle -dependency_info <path> used by Xcode.
+  if (llvm::opt::Arg *depInfo = parsedArgs->getLastArg(OPT_dependency_info)) {
+    if (std::error_code ec = ctx.createDependencyFile(depInfo->getValue())) {
+      diagnostics << "warning: " << ec.message()
+                  << ", processing '-dependency_info "
+                  << depInfo->getValue()
+                  << "'\n";
+    }
   }
 
   // In -test_file_usage mode, we'll be given an explicit list of paths that
@@ -568,8 +641,8 @@ bool DarwinLdDriver::parse(int argc, const char *argv[],
     }
     else {
       if (ctx.outputMachOType() != llvm::MachO::MH_DYLIB) {
-        diagnostics << "-single_module only used when creating a dylib\n";
-        return false;
+        diagnostics << "warning: -single_module being ignored. "
+                       "It is only for use when producing a dylib\n";
       }
     }
   }
@@ -620,36 +693,93 @@ bool DarwinLdDriver::parse(int argc, const char *argv[],
     }
   }
 
+  // Handle debug info handling options: -S
+  if (parsedArgs->hasArg(OPT_S))
+    ctx.setDebugInfoMode(MachOLinkingContext::DebugInfoMode::noDebugMap);
+
+  // Handle -order_file <file>
+  for (auto orderFile : parsedArgs->filtered(OPT_order_file)) {
+    if (std::error_code ec = parseOrderFile(orderFile->getValue(), ctx,
+                                              diagnostics)) {
+      diagnostics << "error: " << ec.message()
+                  << ", processing '-order_file "
+                  << orderFile->getValue()
+                  << "'\n";
+      return false;
+    }
+  }
+
+  // Handle -rpath <path>
+  if (parsedArgs->hasArg(OPT_rpath)) {
+    switch (ctx.outputMachOType()) {
+      case llvm::MachO::MH_EXECUTE:
+      case llvm::MachO::MH_DYLIB:
+      case llvm::MachO::MH_BUNDLE:
+        if (!ctx.minOS("10.5", "2.0")) {
+          if (ctx.os() == MachOLinkingContext::OS::macOSX) {
+            diagnostics << "error: -rpath can only be used when targeting "
+                           "OS X 10.5 or later\n";
+          } else {
+            diagnostics << "error: -rpath can only be used when targeting "
+                           "iOS 2.0 or later\n";
+          }
+          return false;
+        }
+        break;
+      default:
+        diagnostics << "error: -rpath can only be used when creating "
+                       "a dynamic final linked image\n";
+        return false;
+    }
+
+    for (auto rPath : parsedArgs->filtered(OPT_rpath)) {
+      ctx.addRpath(rPath->getValue());
+    }
+  }
+
   // Handle input files
   for (auto &arg : *parsedArgs) {
+    bool upward;
     ErrorOr<StringRef> resolvedPath = StringRef();
     switch (arg->getOption().getID()) {
     default:
       continue;
     case OPT_INPUT:
-      addFile(arg->getValue(), inputGraph, globalWholeArchive);
+      addFile(arg->getValue(), inputGraph, ctx, globalWholeArchive, false);
+      break;
+    case OPT_upward_library:
+      addFile(arg->getValue(), inputGraph, ctx, false, true);
+      break;
+    case OPT_force_load:
+      addFile(arg->getValue(), inputGraph, ctx, true, false);
       break;
     case OPT_l:
+    case OPT_upward_l:
+      upward = (arg->getOption().getID() == OPT_upward_l);
       resolvedPath = ctx.searchLibrary(arg->getValue());
       if (!resolvedPath) {
-        diagnostics << "Unable to find library -l" << arg->getValue() << "\n";
+        diagnostics << "Unable to find library for " << arg->getSpelling()
+                    << arg->getValue() << "\n";
         return false;
       } else if (ctx.testingFileUsage()) {
-       diagnostics << "Found library "
+        diagnostics << "Found " << (upward ? "upward " : " ") << "library "
                    << canonicalizePath(resolvedPath.get()) << '\n';
       }
-      addFile(resolvedPath.get(), inputGraph, globalWholeArchive);
+      addFile(resolvedPath.get(), inputGraph, ctx, globalWholeArchive, upward);
       break;
     case OPT_framework:
+    case OPT_upward_framework:
+      upward = (arg->getOption().getID() == OPT_upward_framework);
       resolvedPath = ctx.findPathForFramework(arg->getValue());
       if (!resolvedPath) {
-        diagnostics << "Unable to find -framework " << arg->getValue() << "\n";
+        diagnostics << "Unable to find framework for "
+                    << arg->getSpelling() << " " << arg->getValue() << "\n";
         return false;
       } else if (ctx.testingFileUsage()) {
-        diagnostics << "Found framework "
+        diagnostics << "Found " << (upward ? "upward " : " ") << "framework "
                     << canonicalizePath(resolvedPath.get()) << '\n';
       }
-      addFile(resolvedPath.get(), inputGraph, globalWholeArchive);
+      addFile(resolvedPath.get(), inputGraph, ctx, globalWholeArchive, upward);
       break;
     case OPT_filelist:
       if (std::error_code ec = parseFileList(arg->getValue(), inputGraph,

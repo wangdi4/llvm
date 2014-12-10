@@ -15,9 +15,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "lld/Driver/Driver.h"
-
+#include "lld/Config/Version.h"
 #include "lld/Core/LLVM.h"
-
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
@@ -182,9 +181,16 @@ bool UniversalDriver::link(int argc, const char *argv[],
     return false;
   }
 
-  // Handle --help
+  // Handle -help
   if (parsedArgs->getLastArg(OPT_help)) {
     table.PrintHelp(llvm::outs(), programName.data(), "LLVM Linker", false);
+    return true;
+  }
+
+  // Handle -version
+  if (parsedArgs->getLastArg(OPT_version)) {
+    diagnostics << "LLVM Linker Version: " << getLLDVersion()
+                << getLLDRepositoryVersion() << "\n";
     return true;
   }
 

@@ -8,35 +8,33 @@
 //===----------------------------------------------------------------------===//
 
 #include "lld/Core/InputGraph.h"
-
 #include "lld/Core/Resolver.h"
-
 #include <memory>
 
 using namespace lld;
 
-ErrorOr<File &> InputGraph::getNextFile() {
+InputGraph::~InputGraph() { }
+
+File *InputGraph::getNextFile() {
   // Try to get the next file of _currentInputElement. If the current input
   // element points to an archive file, and there's a file left in the archive,
   // it will succeed. If not, try to get the next file in the input graph.
   for (;;) {
     if (_currentInputElement) {
-      ErrorOr<File &> next = _currentInputElement->getNextFile();
-      if (next.getError() != InputGraphError::no_more_files) {
+      File *next = _currentInputElement->getNextFile();
+      if (next) {
         for (const std::function<void(File *)> &observer : _observers)
-          observer(&next.get());
-        return std::move(next);
+          observer(next);
+        return next;
       }
     }
 
-    ErrorOr<InputElement *> elt = getNextInputElement();
-    if (elt.getError() == InputGraphError::no_more_elements || *elt == nullptr)
-      return make_error_code(InputGraphError::no_more_files);
-    _currentInputElement = *elt;
+    InputElement *elt = getNextInputElement();
+    if (!elt)
+      return nullptr;
+    _currentInputElement = elt;
   }
 }
-
-void InputGraph::notifyProgress() { _currentInputElement->notifyProgress(); }
 
 void InputGraph::registerObserver(std::function<void(File *)> fn) {
   _observers.push_back(fn);
@@ -58,15 +56,16 @@ bool InputGraph::dump(raw_ostream &diagnostics) {
 }
 
 /// \brief Helper functions for the resolver
-ErrorOr<InputElement *> InputGraph::getNextInputElement() {
+InputElement *InputGraph::getNextInputElement() {
   if (_nextElementIndex >= _inputArgs.size())
-    return make_error_code(InputGraphError::no_more_elements);
-  return _inputArgs[_nextElementIndex++].get();
+    return nullptr;
+  InputElement *elem = _inputArgs[_nextElementIndex++].get();
+  if (isa<GroupEnd>(elem))
+    return getNextInputElement();
+  return elem;
 }
 
 void InputGraph::normalize() {
-  for (std::unique_ptr<InputElement> &elt : _inputArgs)
-    elt->expand();
   std::vector<std::unique_ptr<InputElement>> vec;
   for (std::unique_ptr<InputElement> &elt : _inputArgs) {
     if (elt->getReplacements(vec))
@@ -76,43 +75,36 @@ void InputGraph::normalize() {
   _inputArgs = std::move(vec);
 }
 
-/// \brief Read the file into _buffer.
-std::error_code FileNode::getBuffer(StringRef filePath) {
-  // Create a memory buffer
-  ErrorOr<std::unique_ptr<MemoryBuffer>> mb =
-      MemoryBuffer::getFileOrSTDIN(filePath);
-  if (std::error_code ec = mb.getError())
-    return ec;
-  _buffer = std::move(mb.get());
-  return std::error_code();
+// If we are at the end of a group, return its size (which indicates
+// how many files we need to go back in the command line).
+// Returns 0 if we are not at the end of a group.
+int InputGraph::getGroupSize() {
+  if (_nextElementIndex >= _inputArgs.size())
+    return 0;
+  InputElement *elem = _inputArgs[_nextElementIndex].get();
+  if (const GroupEnd *group = dyn_cast<GroupEnd>(elem))
+    return group->getSize();
+  return 0;
 }
 
-/// \brief Return the next file that need to be processed by the resolver.
-/// This also processes input elements depending on the resolve status
-/// of the input elements contained in the group.
-ErrorOr<File &> Group::getNextFile() {
-  // If there are no elements, move on to the next input element
-  if (_elements.empty())
-    return make_error_code(InputGraphError::no_more_files);
+void InputGraph::skipGroup() {
+  if (_nextElementIndex >= _inputArgs.size())
+    return;
+  if (isa<GroupEnd>(_inputArgs[_nextElementIndex].get()))
+    _nextElementIndex++;
+}
 
-  for (;;) {
-    // If we have processed all the elements, and have made no progress on
-    // linking, we cannot resolve any symbol from this group. Continue to the
-    // next one by returning no_more_files.
-    if (_nextElementIndex == _elements.size()) {
-      if (!_madeProgress)
-        return make_error_code(InputGraphError::no_more_files);
-      resetNextIndex();
-    }
+bool FileNode::getReplacements(InputGraph::InputElementVectorT &result) {
+  if (_files.size() < 2)
+    return false;
+  for (std::unique_ptr<File> &file : _files)
+    result.push_back(llvm::make_unique<SimpleFileNode>(_path, std::move(file)));
+  return true;
+}
 
-    _currentElementIndex = _nextElementIndex;
-    auto file = _elements[_nextElementIndex]->getNextFile();
-    // Move on to the next element if we have finished processing all
-    // the files in the input element
-    if (file.getError() == InputGraphError::no_more_files) {
-      _nextElementIndex++;
-      continue;
-    }
-    return *file;
-  }
+std::error_code FileNode::parse(const LinkingContext &, raw_ostream &) {
+  for (std::unique_ptr<File> &file : _files)
+    if (std::error_code ec = file->parse())
+      return ec;
+  return std::error_code();
 }

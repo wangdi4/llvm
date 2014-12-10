@@ -13,14 +13,11 @@
 #include "lld/Core/Error.h"
 #include "lld/Core/InputGraph.h"
 #include "lld/Core/LLVM.h"
-#include "lld/Core/range.h"
 #include "lld/Core/Reference.h"
-
+#include "lld/Core/range.h"
 #include "lld/ReaderWriter/Reader.h"
-
 #include "llvm/Support/ErrorOr.h"
 #include "llvm/Support/raw_ostream.h"
-
 #include <string>
 #include <vector>
 
@@ -270,6 +267,11 @@ public:
   /// \returns true if there is an error with the current settings.
   bool validate(raw_ostream &diagnostics);
 
+  /// Formats symbol name for use in error messages.
+  virtual std::string demangle(StringRef symbolName) const {
+    return symbolName;
+  }
+
   /// @}
   /// \name Methods used by Driver::link()
   /// @{
@@ -302,7 +304,7 @@ public:
   /// This method is called by core linking to give the Writer a chance
   /// to add file format specific "files" to set of files to be linked. This is
   /// how file format specific atoms can be added to the link.
-  virtual bool createImplicitFiles(std::vector<std::unique_ptr<File> > &) const;
+  virtual bool createImplicitFiles(std::vector<std::unique_ptr<File> > &);
 
   /// This method is called by core linking to build the list of Passes to be
   /// run on the merged/linked graph of all input files.
@@ -316,8 +318,15 @@ public:
   /// Return the next ordinal and Increment it.
   virtual uint64_t getNextOrdinalAndIncrement() const { return _nextOrdinal++; }
 
-  /// @}
+#ifndef NDEBUG
+  bool runRoundTripPass() const { return _runRoundTripPasses; }
+#endif
 
+  // This function is called just before the Resolver kicks in.
+  // Derived classes may use that chance to rearrange the input files.
+  virtual void maybeSortInputFiles() {}
+
+  /// @}
 protected:
   LinkingContext(); // Must be subclassed
 
@@ -348,6 +357,9 @@ protected:
   bool _allowRemainingUndefines;
   bool _logInputFiles;
   bool _allowShlibUndefines;
+#ifndef NDEBUG
+  bool _runRoundTripPasses;
+#endif
   OutputFileType _outputFileType;
   std::vector<StringRef> _deadStripRoots;
   std::map<std::string, std::string> _aliasSymbols;
