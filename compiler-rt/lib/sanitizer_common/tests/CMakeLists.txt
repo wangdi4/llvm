@@ -21,6 +21,7 @@ set(SANITIZER_UNITTESTS
   sanitizer_printf_test.cc
   sanitizer_procmaps_test.cc
   sanitizer_stackdepot_test.cc
+  sanitizer_stacktrace_printer_test.cc
   sanitizer_stacktrace_test.cc
   sanitizer_stoptheworld_test.cc
   sanitizer_suppressions_test.cc
@@ -58,12 +59,12 @@ if(NOT MSVC)
 endif()
 
 set(SANITIZER_TEST_LINK_LIBS)
-append_if(ANDROID log SANITIZER_TEST_LINK_LIBS)
+append_list_if(ANDROID log SANITIZER_TEST_LINK_LIBS)
 # NDK r10 requires -latomic almost always.
-append_if(ANDROID atomic SANITIZER_TEST_LINK_LIBS)
+append_list_if(ANDROID atomic SANITIZER_TEST_LINK_LIBS)
 
-append_if(COMPILER_RT_HAS_LIBDL -ldl SANITIZER_TEST_LINK_FLAGS_COMMON)
-append_if(COMPILER_RT_HAS_LIBPTHREAD -pthread SANITIZER_TEST_LINK_FLAGS_COMMON)
+append_list_if(COMPILER_RT_HAS_LIBDL -ldl SANITIZER_TEST_LINK_FLAGS_COMMON)
+append_list_if(COMPILER_RT_HAS_LIBPTHREAD -pthread SANITIZER_TEST_LINK_FLAGS_COMMON)
 # x86_64 FreeBSD 9.2 additionally requires libc++ to build the tests. Also,
 # 'libm' shall be specified explicitly to build i386 tests.
 if(CMAKE_SYSTEM MATCHES "FreeBSD-9.2-RELEASE")

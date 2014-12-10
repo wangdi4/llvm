@@ -410,9 +410,6 @@ class NestedNameSpecifierValidatorCCC : public CorrectionCandidateCallback {
 /// \brief Build a new nested-name-specifier for "identifier::", as described
 /// by ActOnCXXNestedNameSpecifier.
 ///
-/// This routine differs only slightly from ActOnCXXNestedNameSpecifier, in
-/// that it contains an extra parameter \p ScopeLookupResult.
-///
 /// \param S Scope in which the nested-name-specifier occurs.
 /// \param Identifier Identifier in the sequence "identifier" "::".
 /// \param IdentifierLoc Location of the \p Identifier.
@@ -575,12 +572,11 @@ bool Sema::BuildCXXNestedNameSpecifier(Scope *S,
     // We haven't found anything, and we're not recovering from a
     // different kind of error, so look for typos.
     DeclarationName Name = Found.getLookupName();
-    NestedNameSpecifierValidatorCCC Validator(*this);
     Found.clear();
-    if (TypoCorrection Corrected =
-            CorrectTypo(Found.getLookupNameInfo(), Found.getLookupKind(), S,
-                        &SS, Validator, CTK_ErrorRecovery, LookupCtx,
-                        EnteringContext)) {
+    if (TypoCorrection Corrected = CorrectTypo(
+            Found.getLookupNameInfo(), Found.getLookupKind(), S, &SS,
+            llvm::make_unique<NestedNameSpecifierValidatorCCC>(*this),
+            CTK_ErrorRecovery, LookupCtx, EnteringContext)) {
       if (LookupCtx) {
         bool DroppedSpecifier =
             Corrected.WillReplaceSpecifier() &&
@@ -653,6 +649,10 @@ bool Sema::BuildCXXNestedNameSpecifier(Scope *S,
     // don't extend the nested-name-specifier. Just return now.
     if (ErrorRecoveryLookup)
       return false;
+
+    // The use of a nested name specifier may trigger deprecation warnings.
+    DiagnoseUseOfDecl(SD, CCLoc);
+
     
     if (NamespaceDecl *Namespace = dyn_cast<NamespaceDecl>(SD)) {
       SS.Extend(Context, Namespace, IdentifierLoc, CCLoc);

@@ -105,7 +105,7 @@ public:
   std::string DefaultTargetTriple;
 
   /// Default name for linked images (e.g., "a.out").
-  std::string DefaultImageName;
+  mutable std::string DefaultImageName;
 
   /// Driver title to use with help.
   std::string DriverTitle;
@@ -193,6 +193,9 @@ private:
 
   // Before executing jobs, sets up response files for commands that need them.
   void setUpResponseFiles(Compilation &C, Job &J);
+
+  void generatePrefixedToolNames(const char *Tool, const ToolChain &TC,
+                                 SmallVectorImpl<std::string> &Names) const;
 
 public:
   Driver(StringRef _ClangExecutable,
@@ -304,7 +307,7 @@ public:
   /// including preprocessed source file(s).
   /// 
   void generateCompilationDiagnostics(Compilation &C,
-                                      const Command *FailingCommand);
+                                      const Command &FailingCommand);
 
   /// @}
   /// @name Helper Methods

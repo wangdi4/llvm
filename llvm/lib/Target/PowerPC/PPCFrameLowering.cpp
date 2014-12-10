@@ -505,7 +505,7 @@ void PPCFrameLowering::emitPrologue(MachineFunction &MF) const {
   MachineModuleInfo &MMI = MF.getMMI();
   const MCRegisterInfo *MRI = MMI.getContext().getRegisterInfo();
   DebugLoc dl;
-  bool needsFrameMoves = MMI.hasDebugInfo() ||
+  bool needsCFI = MMI.hasDebugInfo() ||
     MF.getFunction()->needsUnwindTableEntry();
   bool isPIC = MF.getTarget().getRelocationModel() == Reloc::PIC_;
 
@@ -644,6 +644,14 @@ void PPCFrameLowering::emitPrologue(MachineFunction &MF) const {
       .addImm(FPOffset)
       .addReg(SPReg);
 
+  if (isPIC && !isDarwinABI && !isPPC64 &&
+      MF.getInfo<PPCFunctionInfo>()->usesPICBase())
+    // FIXME: On PPC32 SVR4, we must not spill before claiming the stackframe.
+    BuildMI(MBB, MBBI, dl, StoreInst)
+      .addReg(PPC::R30)
+      .addImm(-8U)
+      .addReg(SPReg);
+
   if (HasBP)
     // FIXME: On PPC32 SVR4, we must not spill before claiming the stackframe.
     BuildMI(MBB, MBBI, dl, StoreInst)
@@ -726,17 +734,28 @@ void PPCFrameLowering::emitPrologue(MachineFunction &MF) const {
       .addReg(ScratchReg);
   }
 
-  // Add the "machine moves" for the instructions we generated above, but in
-  // reverse order.
-  if (needsFrameMoves) {
-    // Show update of SP.
-    assert(NegFrameSize);
-    unsigned CFIIndex = MMI.addFrameInst(
-        MCCFIInstruction::createDefCfaOffset(nullptr, NegFrameSize));
+  // Add Call Frame Information for the instructions we generated above.
+  if (needsCFI) {
+    unsigned CFIIndex;
+
+    if (HasBP) {
+      // Define CFA in terms of BP. Do this in preference to using FP/SP,
+      // because if the stack needed aligning then CFA won't be at a fixed
+      // offset from FP/SP.
+      unsigned Reg = MRI->getDwarfRegNum(BPReg, true);
+      CFIIndex = MMI.addFrameInst(
+          MCCFIInstruction::createDefCfaRegister(nullptr, Reg));
+    } else {
+      // Adjust the definition of CFA to account for the change in SP.
+      assert(NegFrameSize);
+      CFIIndex = MMI.addFrameInst(
+          MCCFIInstruction::createDefCfaOffset(nullptr, NegFrameSize));
+    }
     BuildMI(MBB, MBBI, dl, TII.get(TargetOpcode::CFI_INSTRUCTION))
         .addCFIIndex(CFIIndex);
 
     if (HasFP) {
+      // Describe where FP was saved, at a fixed offset from CFA.
       unsigned Reg = MRI->getDwarfRegNum(FPReg, true);
       CFIIndex = MMI.addFrameInst(
           MCCFIInstruction::createOffset(nullptr, Reg, FPOffset));
@@ -745,6 +764,7 @@ void PPCFrameLowering::emitPrologue(MachineFunction &MF) const {
     }
 
     if (HasBP) {
+      // Describe where BP was saved, at a fixed offset from CFA.
       unsigned Reg = MRI->getDwarfRegNum(BPReg, true);
       CFIIndex = MMI.addFrameInst(
           MCCFIInstruction::createOffset(nullptr, Reg, BPOffset));
@@ -753,6 +773,7 @@ void PPCFrameLowering::emitPrologue(MachineFunction &MF) const {
     }
 
     if (MustSaveLR) {
+      // Describe where LR was saved, at a fixed offset from CFA.
       unsigned Reg = MRI->getDwarfRegNum(LRReg, true);
       CFIIndex = MMI.addFrameInst(
           MCCFIInstruction::createOffset(nullptr, Reg, LROffset));
@@ -767,8 +788,9 @@ void PPCFrameLowering::emitPrologue(MachineFunction &MF) const {
       .addReg(SPReg)
       .addReg(SPReg);
 
-    if (needsFrameMoves) {
-      // Mark effective beginning of when frame pointer is ready.
+    if (!HasBP && needsCFI) {
+      // Change the definition of CFA from SP+offset to FP+offset, because SP
+      // will change at every alloca.
       unsigned Reg = MRI->getDwarfRegNum(FPReg, true);
       unsigned CFIIndex = MMI.addFrameInst(
           MCCFIInstruction::createDefCfaRegister(nullptr, Reg));
@@ -778,8 +800,9 @@ void PPCFrameLowering::emitPrologue(MachineFunction &MF) const {
     }
   }
 
-  if (needsFrameMoves) {
-    // Add callee saved registers to move list.
+  if (needsCFI) {
+    // Describe where callee saved registers were saved, at fixed offsets from
+    // CFA.
     const std::vector<CalleeSavedInfo> &CSI = MFI->getCalleeSavedInfo();
     for (unsigned I = 0, E = CSI.size(); I != E; ++I) {
       unsigned Reg = CSI[I].getReg();
@@ -986,6 +1009,14 @@ void PPCFrameLowering::emitEpilogue(MachineFunction &MF,
   if (HasFP)
     BuildMI(MBB, MBBI, dl, LoadInst, FPReg)
       .addImm(FPOffset)
+      .addReg(SPReg);
+
+  if (isPIC && !isDarwinABI && !isPPC64 &&
+      MF.getInfo<PPCFunctionInfo>()->usesPICBase())
+    // FIXME: On PPC32 SVR4, we must not spill before claiming the stackframe.
+    BuildMI(MBB, MBBI, dl, LoadInst)
+      .addReg(PPC::R30)
+      .addImm(-8U)
       .addReg(SPReg);
 
   if (HasBP)

@@ -5,6 +5,7 @@ set(ASAN_TESTSUITES)
 macro(get_bits_for_arch arch bits)
   if (${arch} STREQUAL "arm" OR
       ${arch} STREQUAL "i386" OR
+      ${arch} STREQUAL "i686" OR
       ${arch} STREQUAL "mips")
     set(bits 32)
   elseif (${arch} STREQUAL "aarch64" OR
@@ -67,7 +68,7 @@ else()  # Not Android
     list(APPEND ASAN_TESTSUITES ${CMAKE_CURRENT_BINARY_DIR}/AArch64LinuxConfig)
   endif()
 
-  if(CAN_TARGET_x86_64 OR CAN_TARGET_powerpc64)
+  if(CAN_TARGET_x86_64 OR CAN_TARGET_powerpc64 OR CAN_TARGET_mips64 OR CAN_TARGET_mips64el)
     set(ASAN_TEST_CONFIG_SUFFIX "64")
     set(ASAN_TEST_BITS "64")
     set(ASAN_TEST_TARGET_CFLAGS ${TARGET_64_BIT_CFLAGS})
@@ -108,7 +109,7 @@ else()  # Not Android
     endif()
   endif()
 
-  if(CAN_TARGET_mips)
+  if(CAN_TARGET_mips OR CAN_TARGET_mipsel)
     set(ASAN_TEST_CONFIG_SUFFIX "32")
     set(ASAN_TEST_BITS "32")
     set(ASAN_TEST_TARGET_CFLAGS ${TARGET_32_BIT_CFLAGS})
@@ -137,7 +138,9 @@ endif()
 
 set(ASAN_TEST_DEPS ${SANITIZER_COMMON_LIT_TEST_DEPS})
 if(COMPILER_RT_STANDALONE_BUILD)
-  list(APPEND ASAN_TEST_DEPS ${LLVM_TOOLS_BINARY_DIR}/FileCheck)
+  add_executable(FileCheck IMPORTED GLOBAL)
+  set_property(TARGET FileCheck PROPERTY IMPORTED_LOCATION ${LLVM_TOOLS_BINARY_DIR}/FileCheck)
+  list(APPEND ASAN_TEST_DEPS FileCheck)
 else()
   list(APPEND ASAN_TEST_DEPS asan)
 endif()

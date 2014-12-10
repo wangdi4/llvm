@@ -21,10 +21,8 @@
 ///                    +-------+
 
 #include "MachONormalizedFile.h"
-
 #include "ArchHandler.h"
 #include "MachONormalizedFileBinaryUtils.h"
-
 #include "lld/Core/Error.h"
 #include "lld/Core/LLVM.h"
 #include "llvm/ADT/StringRef.h"
@@ -97,6 +95,7 @@ class Util {
 public:
   Util(const MachOLinkingContext &ctxt)
       : _context(ctxt), _archHandler(ctxt.archHandler()), _entryAtom(nullptr) {}
+  ~Util();
 
   void      assignAtomsToSections(const lld::File &atomFile);
   void      organizeSections();
@@ -169,8 +168,25 @@ private:
   DylibPathToInfo               _dylibInfo;
   const DefinedAtom            *_entryAtom;
   AtomToIndex                   _atomToSymbolIndex;
+  std::vector<const Atom *>     _machHeaderAliasAtoms;
 };
 
+Util::~Util() {
+  // The SectionInfo structs are BumpPtr allocated, but atomsAndOffsets needs
+  // to be deleted.
+  for (SectionInfo *si : _sectionInfos) {
+    // clear() destroys vector elements, but does not deallocate.
+    // Instead use swap() to deallocate vector buffer.
+    std::vector<AtomInfo> empty;
+    si->atomsAndOffsets.swap(empty);
+  }
+  // The SegmentInfo structs are BumpPtr allocated, but sections needs
+  // to be deleted.
+  for (SegmentInfo *sgi : _segmentInfos) {
+    std::vector<SectionInfo*> empty2;
+    sgi->sections.swap(empty2);
+  }
+}
 
 SectionInfo *Util::getRelocatableSection(DefinedAtom::ContentType type) {
   StringRef segmentName;
@@ -220,6 +236,7 @@ const MachOFinalSectionFromAtomType sectsToAtomType[] = {
   ENTRY("__TEXT", "__stub_helper",    S_REGULAR,          typeStubHelper),
   ENTRY("__TEXT", "__gcc_except_tab", S_REGULAR,          typeLSDA),
   ENTRY("__TEXT", "__eh_frame",       S_COALESCED,        typeCFI),
+  ENTRY("__TEXT", "__unwind_info",    S_REGULAR,          typeProcessedUnwindInfo),
   ENTRY("__DATA", "__data",           S_REGULAR,          typeData),
   ENTRY("__DATA", "__const",          S_REGULAR,          typeConstData),
   ENTRY("__DATA", "__cfstring",       S_REGULAR,          typeCFString),
@@ -229,15 +246,10 @@ const MachOFinalSectionFromAtomType sectsToAtomType[] = {
                                                           typeInitializerPtr),
   ENTRY("__DATA", "__mod_term_func",  S_MOD_TERM_FUNC_POINTERS,
                                                           typeTerminatorPtr),
-  ENTRY("__DATA", "___got",           S_NON_LAZY_SYMBOL_POINTERS,
+  ENTRY("__DATA", "__got",            S_NON_LAZY_SYMBOL_POINTERS,
                                                           typeGOT),
-  ENTRY("__DATA", "___bss",           S_ZEROFILL,         typeZeroFill),
-
-  // FIXME: __compact_unwind actually needs to be processed by a pass and put
-  // into __TEXT,__unwind_info. For now, forwarding it back to
-  // __LD,__compact_unwind is harmless (it's ignored by the unwinder, which then
-  // proceeds to process __TEXT,__eh_frame for its instructions).
-  ENTRY("__LD",   "__compact_unwind", S_REGULAR,         typeCompactUnwindInfo),
+  ENTRY("__DATA", "__bss",            S_ZEROFILL,         typeZeroFill),
+  ENTRY("__DATA", "__interposing",    S_INTERPOSING,      typeInterposingTuples),
 };
 #undef ENTRY
 
@@ -250,6 +262,7 @@ SectionInfo *Util::getFinalSection(DefinedAtom::ContentType atomType) {
     switch (atomType) {
     case DefinedAtom::typeCode:
     case DefinedAtom::typeStub:
+    case DefinedAtom::typeStubHelper:
       sectionAttrs = S_ATTR_PURE_INSTRUCTIONS;
       break;
     default:
@@ -336,7 +349,10 @@ void Util::appendAtom(SectionInfo *sect, const DefinedAtom *atom) {
 
 void Util::assignAtomsToSections(const lld::File &atomFile) {
   for (const DefinedAtom *atom : atomFile.defined()) {
-    appendAtom(sectionForAtom(atom), atom);
+    if (atom->contentType() == DefinedAtom::typeMachHeader)
+      _machHeaderAliasAtoms.push_back(atom);
+    else
+      appendAtom(sectionForAtom(atom), atom);
   }
 }
 
@@ -395,9 +411,19 @@ void Util::organizeSections() {
       si->finalSectionIndex = sectionIndex++;
     }
   } else {
-    // Main executables, need a zero-page segment
-    if (_context.outputMachOType() == llvm::MachO::MH_EXECUTE)
+    switch (_context.outputMachOType()){
+    case llvm::MachO::MH_EXECUTE:
+      // Main executables, need a zero-page segment
       segmentForName("__PAGEZERO");
+      // Fall into next case.
+    case llvm::MachO::MH_DYLIB:
+    case llvm::MachO::MH_BUNDLE:
+      // All dynamic code needs TEXT segment to hold the load commands.
+      segmentForName("__TEXT");
+      break;
+    default:
+      break;
+    }
     // Group sections into segments.
     for (SectionInfo *si : _sectionInfos) {
       SegmentInfo *seg = segmentForName(si->segmentName);
@@ -436,7 +462,7 @@ void Util::layoutSectionsInSegment(SegmentInfo *seg, uint64_t &addr) {
   seg->address = addr;
   for (SectionInfo *sect : seg->sections) {
     sect->address = alignTo(addr, sect->alignment);
-    addr += sect->size;
+    addr = sect->address + sect->size;
   }
   seg->size = llvm::RoundUpToAlignment(addr - seg->address,_context.pageSize());
 }
@@ -555,17 +581,30 @@ void Util::copySectionContent(NormalizedFile &file) {
     return pos->second;
   };
 
+  auto sectionAddrForAtom = [&] (const Atom &atom) -> uint64_t {
+    for (const SectionInfo *sectInfo : _sectionInfos)
+      for (const AtomInfo &atomInfo : sectInfo->atomsAndOffsets)
+        if (atomInfo.atom == &atom)
+          return sectInfo->address;
+    llvm_unreachable("atom not assigned to section");
+  };
+
   for (SectionInfo *si : _sectionInfos) {
-    if (si->type == llvm::MachO::S_ZEROFILL)
+    Section *normSect = &file.sections[si->normalizedSectionIndex];
+    if (si->type == llvm::MachO::S_ZEROFILL) {
+      const uint8_t *empty = nullptr;
+      normSect->content = llvm::makeArrayRef(empty, si->size);
       continue;
+    }
     // Copy content from atoms to content buffer for section.
     uint8_t *sectionContent = file.ownedAllocations.Allocate<uint8_t>(si->size);
-    Section *normSect = &file.sections[si->normalizedSectionIndex];
     normSect->content = llvm::makeArrayRef(sectionContent, si->size);
     for (AtomInfo &ai : si->atomsAndOffsets) {
       uint8_t *atomContent = reinterpret_cast<uint8_t*>
                                           (&sectionContent[ai.offsetInSection]);
-      _archHandler.generateAtomContent(*ai.atom, r, addrForAtom, atomContent);
+      _archHandler.generateAtomContent(*ai.atom, r, addrForAtom,
+                                       sectionAddrForAtom,
+                                       _context.baseAddress(), atomContent);
     }
   }
 }
@@ -637,6 +676,14 @@ void Util::buildAtomToAddressMap() {
               << " atom=" << info.atom
               << " name=" << info.atom->name() << "\n");
     }
+  }
+  for (const Atom *atom : _machHeaderAliasAtoms) {
+    _atomToAddress[atom] = _context.baseAddress();
+    DEBUG_WITH_TYPE("WriterMachO-address", llvm::dbgs()
+              << "   address="
+              << llvm::format("0x%016X", _atomToAddress[atom])
+              << " atom=" << atom
+              << " name=" << atom->name() << "\n");
   }
 }
 
@@ -911,6 +958,8 @@ void Util::addDependentDylibs(const lld::File &atomFile,NormalizedFile &nFile) {
       DependentDylib depInfo;
       depInfo.path = loadPath;
       depInfo.kind = llvm::MachO::LC_LOAD_DYLIB;
+      depInfo.currentVersion = _context.dylibCurrentVersion(loadPath);
+      depInfo.compatVersion = _context.dylibCompatVersion(loadPath);
       nFile.dependentDylibs.push_back(depInfo);
     } else {
       if ( slAtom->canBeNullAtRuntime() )
@@ -924,6 +973,8 @@ void Util::addDependentDylibs(const lld::File &atomFile,NormalizedFile &nFile) {
     DylibInfo &info = _dylibInfo[dep.path];
     if (info.hasWeak && !info.hasNonWeak)
       dep.kind = llvm::MachO::LC_LOAD_WEAK_DYLIB;
+    else if (_context.isUpwardDylib(dep.path))
+      dep.kind = llvm::MachO::LC_LOAD_UPWARD_DYLIB;
   }
 }
 
@@ -1156,7 +1207,10 @@ normalizedFromAtoms(const lld::File &atomFile,
   normFile.fileType = context.outputMachOType();
   normFile.flags = util.fileFlags();
   normFile.installName = context.installName();
+  normFile.currentVersion = context.currentVersion();
+  normFile.compatVersion = context.compatibilityVersion();
   normFile.pageSize = context.pageSize();
+  normFile.rpaths = context.rpaths();
   util.addDependentDylibs(atomFile, normFile);
   util.copySegmentInfo(normFile);
   util.copySectionInfo(normFile);

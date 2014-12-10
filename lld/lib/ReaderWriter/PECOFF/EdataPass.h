@@ -20,13 +20,11 @@
 #define LLD_READER_WRITER_PE_COFF_EDATA_PASS_H
 
 #include "Atoms.h"
-
 #include "lld/Core/File.h"
 #include "lld/Core/Pass.h"
 #include "lld/Core/Simple.h"
 #include "lld/ReaderWriter/PECOFFLinkingContext.h"
 #include "llvm/Support/COFF.h"
-
 #include <map>
 
 using llvm::COFF::ImportDirectoryTableEntry;
@@ -57,7 +55,7 @@ public:
   ContentPermissions permissions() const override { return permR__; }
 
   template <typename T> T *getContents() const {
-    return (T *)rawContent().data();
+    return (T *)const_cast<uint8_t *>(rawContent().data());
   }
 };
 

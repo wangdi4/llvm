@@ -11,9 +11,7 @@
 #define LLD_READER_WRITER_ELF_PPC_PPC_LINKING_CONTEXT_H
 
 #include "PPCTargetHandler.h"
-
 #include "lld/ReaderWriter/ELFLinkingContext.h"
-
 #include "llvm/Object/ELF.h"
 #include "llvm/Support/ELF.h"
 
@@ -25,8 +23,6 @@ public:
   PPCLinkingContext(llvm::Triple triple)
       : ELFLinkingContext(triple, std::unique_ptr<TargetHandlerBase>(
                                       new PPCTargetHandler(*this))) {}
-
-  bool isLittleEndian() const override { return false; }
 
   /// \brief PPC has no relative relocations defined
   bool isRelativeReloc(const Reference &) const override { return false; }

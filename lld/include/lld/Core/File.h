@@ -12,13 +12,14 @@
 
 #include "lld/Core/AbsoluteAtom.h"
 #include "lld/Core/DefinedAtom.h"
-#include "lld/Core/range.h"
 #include "lld/Core/SharedLibraryAtom.h"
-#include "lld/Core/LinkingContext.h"
 #include "lld/Core/UndefinedAtom.h"
-
+#include "lld/Core/range.h"
+#include "llvm/ADT/Optional.h"
+#include "llvm/ADT/Twine.h"
 #include "llvm/Support/ErrorHandling.h"
-
+#include <functional>
+#include <memory>
 #include <vector>
 
 namespace lld {
@@ -72,6 +73,11 @@ public:
   void setOrdinal(uint64_t ordinal) const { _ordinal = ordinal; }
 
   template <typename T> class atom_iterator; // forward reference
+
+  /// For allocating any objects owned by this File.
+  llvm::BumpPtrAllocator &allocator() const {
+    return _allocator;
+  }
 
   /// \brief For use interating over DefinedAtoms in this File.
   typedef atom_iterator<DefinedAtom>  defined_iterator;
@@ -149,9 +155,35 @@ public:
   /// all AbsoluteAtoms in this File.
   virtual const atom_collection<AbsoluteAtom> &absolute() const = 0;
 
+  /// \brief If a file is parsed using a different method than doParse(),
+  /// one must use this method to set the last error status, so that
+  /// doParse will not be called twice. Only YAML reader uses this
+  /// (because YAML reader does not read blobs but structured data).
+  void setLastError(std::error_code err) { _lastError = err; }
+
+  std::error_code parse() {
+    if (!_lastError.hasValue())
+      _lastError = doParse();
+    return _lastError.getValue();
+  }
+
+  // Usually each file owns a std::unique_ptr<MemoryBuffer>.
+  // However, there's one special case. If a file is an archive file,
+  // the archive file and its children all shares the same memory buffer.
+  // This method is used by the ArchiveFile to give its children
+  // co-ownership of the buffer.
+  void setSharedMemoryBuffer(std::shared_ptr<MemoryBuffer> mb) {
+    _sharedMemoryBuffer = mb;
+  }
+
 protected:
   /// \brief only subclasses of File can be instantiated
-  File(StringRef p, Kind kind) : _path(p), _kind(kind), _ordinal(UINT64_MAX) {}
+  File(StringRef p, Kind kind)
+      : _path(p), _kind(kind), _ordinal(UINT64_MAX) {}
+
+  /// \brief Subclasses should override this method to parse the
+  /// memory buffer passed to this file's constructor.
+  virtual std::error_code doParse() { return std::error_code(); }
 
   /// \brief This is a convenience class for File subclasses which manage their
   /// atoms as a simple std::vector<>.
@@ -207,11 +239,14 @@ protected:
   static atom_collection_empty<UndefinedAtom>     _noUndefinedAtoms;
   static atom_collection_empty<SharedLibraryAtom> _noSharedLibraryAtoms;
   static atom_collection_empty<AbsoluteAtom>      _noAbsoluteAtoms;
+  llvm::Optional<std::error_code>                 _lastError;
+  mutable llvm::BumpPtrAllocator                  _allocator;
 
 private:
   StringRef _path;
   Kind              _kind;
   mutable uint64_t  _ordinal;
+  std::shared_ptr<MemoryBuffer> _sharedMemoryBuffer;
 };
 
 /// \brief A mutable File.
@@ -224,10 +259,42 @@ public:
   typedef range<std::vector<const DefinedAtom *>::iterator> DefinedAtomRange;
   virtual DefinedAtomRange definedAtoms() = 0;
 
+  virtual void
+  removeDefinedAtomsIf(std::function<bool(const DefinedAtom *)> pred) = 0;
+
 protected:
   /// \brief only subclasses of MutableFile can be instantiated
   MutableFile(StringRef p) : File(p, kindObject) {}
 };
+
+/// An ErrorFile represents a file that doesn't exist.
+/// If you try to parse a file which doesn't exist, an instance of this
+/// class will be returned. That's parse method always returns an error.
+/// This is useful to delay erroring on non-existent files, so that we
+/// can do unit testing a driver using non-existing file paths.
+class ErrorFile : public File {
+public:
+  ErrorFile(StringRef p, std::error_code ec) : File(p, kindObject), _ec(ec) {}
+
+  std::error_code doParse() override { return _ec; }
+
+  const atom_collection<DefinedAtom> &defined() const override {
+    llvm_unreachable("internal error");
+  }
+  const atom_collection<UndefinedAtom> &undefined() const override {
+    llvm_unreachable("internal error");
+  }
+  const atom_collection<SharedLibraryAtom> &sharedLibrary() const override {
+    llvm_unreachable("internal error");
+  }
+  const atom_collection<AbsoluteAtom> &absolute() const override {
+    llvm_unreachable("internal error");
+  }
+
+private:
+  std::error_code _ec;
+};
+
 } // end namespace lld
 
 #endif

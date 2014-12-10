@@ -1,4 +1,4 @@
-//===- lib/ReaderWriter/PECOFF/LinkerGeneratedSymbolFile.cpp --------------===//
+//===- lib/ReaderWriter/PECOFF/LinkerGeneratedSymbolFile.h ----------------===//
 //
 //                             The LLVM Linker
 //
@@ -8,18 +8,21 @@
 //===----------------------------------------------------------------------===//
 
 #include "Atoms.h"
-
 #include "lld/Core/ArchiveLibraryFile.h"
 #include "lld/Core/Simple.h"
 #include "lld/ReaderWriter/PECOFFLinkingContext.h"
 #include "llvm/Support/Allocator.h"
-
+#include <algorithm>
 #include <mutex>
 
 using llvm::COFF::WindowsSubsystem;
 
 namespace lld {
 namespace pecoff {
+
+class ResolvableSymbols;
+bool findDecoratedSymbol(PECOFFLinkingContext *ctx, ResolvableSymbols *syms,
+                         std::string sym, std::string &res);
 
 namespace impl {
 
@@ -132,15 +135,16 @@ private:
   COFFAbsoluteAtom _imageBaseAtom;
 };
 
-// A LocallyImporteSymbolFile is an archive file containing _imp_
+// A LocallyImporteSymbolFile is an archive file containing __imp_
 // symbols for local use.
 //
 // For each defined symbol, linker creates an implicit defined symbol
-// by appending "_imp_" prefix to the original name. The content of
+// by appending "__imp_" prefix to the original name. The content of
 // the implicit symbol is a pointer to the original symbol
 // content. This feature allows one to compile and link the following
 // code without error, although _imp__hello is not defined in the
-// code.
+// code. (the leading "_" in this example is automatically appended,
+// assuming it's x86.)
 //
 //   void hello() { printf("Hello\n"); }
 //   extern void (*_imp__hello)();
@@ -153,19 +157,18 @@ private:
 class LocallyImportedSymbolFile : public impl::VirtualArchiveLibraryFile {
 public:
   LocallyImportedSymbolFile(const PECOFFLinkingContext &ctx)
-      : VirtualArchiveLibraryFile("__imp_"),
-        _prefix(ctx.decorateSymbol("_imp_")), _is64(ctx.is64Bit()),
+      : VirtualArchiveLibraryFile("__imp_"), _is64(ctx.is64Bit()),
         _ordinal(0) {}
 
   const File *find(StringRef sym, bool dataSymbolOnly) const override {
-    if (!sym.startswith(_prefix))
+    std::string prefix = "__imp_";
+    if (!sym.startswith(prefix))
       return nullptr;
-    StringRef undef = sym.substr(_prefix.size());
+    StringRef undef = sym.substr(prefix.size());
     return new (_alloc) impl::ImpSymbolFile(sym, undef, _ordinal++, _is64);
   }
 
 private:
-  std::string _prefix;
   bool _is64;
   mutable uint64_t _ordinal;
   mutable llvm::BumpPtrAllocator _alloc;
@@ -247,55 +250,27 @@ public:
       : VirtualArchiveLibraryFile("<export>"), _syms(syms),
         _ctx(const_cast<PECOFFLinkingContext *>(&ctx)) {
     for (PECOFFLinkingContext::ExportDesc &desc : _ctx->getDllExports())
-      _exportedSyms[desc.name] = &desc;
+      _exportedSyms.insert(desc.name);
   }
 
   const File *find(StringRef sym, bool dataSymbolOnly) const override {
-    auto it = _exportedSyms.find(sym);
-    if (it == _exportedSyms.end())
+    typedef PECOFFLinkingContext::ExportDesc ExportDesc;
+    if (_exportedSyms.count(sym) == 0)
       return nullptr;
     std::string replace;
-    if (!findDecoratedSymbol(sym.str(), replace))
+    if (!findDecoratedSymbol(_ctx, _syms.get(), sym.str(), replace))
       return nullptr;
-    it->second->name = replace;
+
+    for (ExportDesc &exp : _ctx->getDllExports())
+      if (exp.name == sym)
+        exp.mangledName = replace;
     if (_ctx->deadStrip())
       _ctx->addDeadStripRoot(_ctx->allocate(replace));
     return new (_alloc) impl::SymbolRenameFile(sym, replace);
   }
 
 private:
-  // Find decorated symbol, namely /sym@[0-9]+/ or /\?sym@@.+/.
-  bool findDecoratedSymbol(std::string sym, std::string &res) const {
-    const std::set<std::string> &defined = _syms->defined();
-    // Search for /sym@[0-9]+/
-    {
-      std::string s = sym + '@';
-      auto it = defined.lower_bound(s);
-      for (auto e = defined.end(); it != e; ++it) {
-        if (!StringRef(*it).startswith(s))
-          break;
-        if (it->size() == s.size())
-          continue;
-        StringRef suffix = StringRef(*it).substr(s.size());
-        if (suffix.find_first_not_of("0123456789") != StringRef::npos)
-          continue;
-        res = *it;
-        return true;
-      }
-    }
-    // Search for /\?sym@@.+/
-    {
-      std::string s = "?" + _ctx->undecorateSymbol(sym).str() + "@@";
-      auto it = defined.lower_bound(s);
-      if (it != defined.end() && StringRef(*it).startswith(s)) {
-        res = *it;
-        return true;
-      }
-    }
-    return false;
-  }
-
-  std::map<std::string, PECOFFLinkingContext::ExportDesc *> _exportedSyms;
+  std::set<std::string> _exportedSyms;
   std::shared_ptr<ResolvableSymbols> _syms;
   mutable llvm::BumpPtrAllocator _alloc;
   mutable PECOFFLinkingContext *_ctx;
@@ -325,7 +300,7 @@ private:
     _firstTime = false;
 
     if (_ctx->hasEntry()) {
-      StringRef entrySym = _ctx->allocate(_ctx->decorateSymbol(getEntry()));
+      StringRef entrySym = _ctx->allocate(getEntry());
       _undefinedAtoms._atoms.push_back(
           new (_alloc) SimpleUndefinedAtom(*this, entrySym));
       _ctx->setHasEntry(true);
@@ -336,22 +311,25 @@ private:
     return _undefinedAtoms;
   }
 
-  // Returns the entry point function name. It also sets the inferred
-  // subsystem if it's unknown.
+  // Returns the entry point function name.
   std::string getEntry() const {
     StringRef opt = _ctx->getEntrySymbolName();
-    if (!opt.empty())
-      return opt;
+    if (!opt.empty()) {
+      std::string mangled;
+      if (findDecoratedSymbol(_ctx, _syms.get(), opt, mangled))
+        return mangled;
+      return _ctx->decorateSymbol(opt);
+    }
+    return _ctx->decorateSymbol(getDefaultEntry());
+  }
 
+  std::string getDefaultEntry() const {
     const std::string wWinMainCRTStartup = "wWinMainCRTStartup";
     const std::string WinMainCRTStartup = "WinMainCRTStartup";
     const std::string wmainCRTStartup = "wmainCRTStartup";
     const std::string mainCRTStartup = "mainCRTStartup";
-    auto windows = WindowsSubsystem::IMAGE_SUBSYSTEM_WINDOWS_GUI;
-    auto console = WindowsSubsystem::IMAGE_SUBSYSTEM_WINDOWS_CUI;
 
     if (_ctx->isDll()) {
-      _ctx->setSubsystem(windows);
       if (_ctx->getMachineType() == llvm::COFF::IMAGE_FILE_MACHINE_I386)
         return "_DllMainCRTStartup@12";
       return "_DllMainCRTStartup";
@@ -359,26 +337,23 @@ private:
 
     // Returns true if a given name exists in an input object file.
     auto defined = [&](StringRef name) -> bool {
-      return _syms->defined().count(_ctx->decorateSymbol(name));
+      StringRef sym = _ctx->decorateSymbol(name);
+      if (_syms->defined().count(sym))
+        return true;
+      std::string ignore;
+      return findDecoratedSymbol(_ctx, _syms.get(), sym, ignore);
     };
 
     switch (_ctx->getSubsystem()) {
     case WindowsSubsystem::IMAGE_SUBSYSTEM_UNKNOWN: {
-      if (defined("wWinMain")) {
-        _ctx->setSubsystem(windows);
+      if (defined("wWinMain"))
         return wWinMainCRTStartup;
-      }
-      if (defined("WinMain")) {
-        _ctx->setSubsystem(windows);
+      if (defined("WinMain"))
         return WinMainCRTStartup;
-      }
-      if (defined("wmain")) {
-        _ctx->setSubsystem(console);
+      if (defined("wmain"))
         return wmainCRTStartup;
-      }
       if (!defined("main"))
         llvm::errs() << "Cannot infer subsystem; assuming /subsystem:console\n";
-      _ctx->setSubsystem(console);
       return mainCRTStartup;
     }
     case WindowsSubsystem::IMAGE_SUBSYSTEM_WINDOWS_GUI:

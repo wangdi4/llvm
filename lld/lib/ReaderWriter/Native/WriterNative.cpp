@@ -10,6 +10,7 @@
 #include "lld/ReaderWriter/Writer.h"
 #include "NativeFileFormat.h"
 #include "lld/Core/File.h"
+#include "lld/Core/LinkingContext.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
@@ -426,6 +427,7 @@ private:
                           = atom.sectionChoice() << 4 | atom.sectionPosition();
     attrs.deadStrip         = atom.deadStrip();
     attrs.dynamicExport     = atom.dynamicExport();
+    attrs.codeModel         = atom.codeModel();
     attrs.permissions       = atom.permissions();
     return attrs;
   }

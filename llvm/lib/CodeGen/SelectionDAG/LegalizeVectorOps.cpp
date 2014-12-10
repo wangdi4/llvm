@@ -200,7 +200,8 @@ SDValue VectorLegalizer::LegalizeOp(SDValue Op) {
     LoadSDNode *LD = cast<LoadSDNode>(Op.getNode());
     ISD::LoadExtType ExtType = LD->getExtensionType();
     if (LD->getMemoryVT().isVector() && ExtType != ISD::NON_EXTLOAD)
-      switch (TLI.getLoadExtAction(LD->getExtensionType(), LD->getMemoryVT())) {
+      switch (TLI.getLoadExtAction(LD->getExtensionType(), LD->getValueType(0),
+                                   LD->getMemoryVT())) {
       default: llvm_unreachable("This action is not supported yet!");
       case TargetLowering::Legal:
         return TranslateLegalizeResults(Op, Result);
@@ -290,6 +291,8 @@ SDValue VectorLegalizer::LegalizeOp(SDValue Op) {
   case ISD::FP_TO_UINT:
   case ISD::FNEG:
   case ISD::FABS:
+  case ISD::FMINNUM:
+  case ISD::FMAXNUM:
   case ISD::FCOPYSIGN:
   case ISD::FSQRT:
   case ISD::FSIN:

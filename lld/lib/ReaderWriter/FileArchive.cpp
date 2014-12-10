@@ -9,7 +9,7 @@
 
 #include "lld/Core/ArchiveLibraryFile.h"
 #include "lld/Core/LLVM.h"
-
+#include "lld/Core/LinkingContext.h"
 #include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Object/Archive.h"
@@ -17,7 +17,6 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/MemoryBuffer.h"
-
 #include <memory>
 #include <set>
 #include <unordered_map>
@@ -35,11 +34,10 @@ namespace {
 /// \brief The FileArchive class represents an Archive Library file
 class FileArchive : public lld::ArchiveLibraryFile {
 public:
-  FileArchive(const Registry &registry, Archive *archive, StringRef path,
-              bool isWholeArchive, bool logLoading)
-      : ArchiveLibraryFile(path), _registry(registry),
-        _archive(std::move(archive)), _isWholeArchive(isWholeArchive),
-        _logLoading(logLoading) {}
+  FileArchive(std::unique_ptr<MemoryBuffer> mb, const Registry &reg,
+              StringRef path, bool logLoading)
+      : ArchiveLibraryFile(path), _mb(std::shared_ptr<MemoryBuffer>(mb.release())),
+        _registry(reg), _logLoading(logLoading) {}
 
   virtual ~FileArchive() {}
 
@@ -66,9 +64,6 @@ public:
     // give up the pointer so that this object no longer manages it
     return result.release();
   }
-
-  /// \brief Load all members of the archive?
-  virtual bool isWholeArchive() const { return _isWholeArchive; }
 
   /// \brief parse each member
   std::error_code
@@ -127,6 +122,18 @@ public:
     return ret;
   }
 
+protected:
+  std::error_code doParse() override {
+    // Make Archive object which will be owned by FileArchive object.
+    std::error_code ec;
+    _archive.reset(new Archive(_mb->getMemBufferRef(), ec));
+    if (ec)
+      return ec;
+    if ((ec = buildTableOfContents()))
+      return ec;
+    return std::error_code();
+  }
+
 private:
   std::error_code
   instantiateMember(Archive::child_iterator member,
@@ -135,16 +142,23 @@ private:
     if (std::error_code ec = mbOrErr.getError())
       return ec;
     llvm::MemoryBufferRef mb = mbOrErr.get();
-    if (_logLoading)
-      llvm::outs() << mb.getBufferIdentifier() << "\n";
+    std::string memberPath = (_archive->getFileName() + "("
+                           + mb.getBufferIdentifier() + ")").str();
 
-    std::unique_ptr<MemoryBuffer> buf(MemoryBuffer::getMemBuffer(
-        mb.getBuffer(), mb.getBufferIdentifier(), false));
+    if (_logLoading)
+      llvm::errs() << memberPath << "\n";
+
+    std::unique_ptr<MemoryBuffer> memberMB(MemoryBuffer::getMemBuffer(
+        mb.getBuffer(), memberPath, false));
 
     std::vector<std::unique_ptr<File>> files;
-    _registry.parseFile(buf, files);
+    _registry.parseFile(std::move(memberMB), files);
     assert(files.size() == 1);
     result = std::move(files[0]);
+
+    // The memory buffer is co-owned by the archive file and the children,
+    // so that the bufffer is deallocated when all the members are destructed.
+    result->setSharedMemoryBuffer(_mb);
     return std::error_code();
   }
 
@@ -195,6 +209,7 @@ private:
   typedef std::unordered_map<StringRef, Archive::child_iterator> MemberMap;
   typedef std::set<const char *> InstantiatedSet;
 
+  std::shared_ptr<MemoryBuffer> _mb;
   const Registry &_registry;
   std::unique_ptr<Archive> _archive;
   mutable MemberMap _symbolMemberMap;
@@ -203,8 +218,8 @@ private:
   atom_collection_vector<UndefinedAtom> _undefinedAtoms;
   atom_collection_vector<SharedLibraryAtom> _sharedLibraryAtoms;
   atom_collection_vector<AbsoluteAtom> _absoluteAtoms;
-  bool _isWholeArchive;
   bool _logLoading;
+  mutable std::vector<std::unique_ptr<MemoryBuffer>> _memberBuffers;
 };
 
 class ArchiveReader : public Reader {
@@ -217,22 +232,11 @@ public:
   }
 
   std::error_code
-  parseFile(std::unique_ptr<MemoryBuffer> &mb, const Registry &reg,
+  parseFile(std::unique_ptr<MemoryBuffer> mb, const Registry &reg,
             std::vector<std::unique_ptr<File>> &result) const override {
-    MemoryBuffer &buff = *mb;
-    // Make Archive object which will be owned by FileArchive object.
-    std::error_code ec;
-    Archive *archive = new Archive(mb->getMemBufferRef(), ec);
-    if (ec)
-      return ec;
-    StringRef path = buff.getBufferIdentifier();
-    // Construct FileArchive object.
+    StringRef path = mb->getBufferIdentifier();
     std::unique_ptr<FileArchive> file(
-        new FileArchive(reg, archive, path, false, _logLoading));
-    ec = file->buildTableOfContents();
-    if (ec)
-      return ec;
-
+        new FileArchive(std::move(mb), reg, path, _logLoading));
     result.push_back(std::move(file));
     return std::error_code();
   }

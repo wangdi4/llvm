@@ -300,7 +300,19 @@ private:
     StringRef StringValue;
 
     static bool LessTag(const AttributeItem &LHS, const AttributeItem &RHS) {
-      return (LHS.Tag < RHS.Tag);
+      // The conformance tag must be emitted first when serialised
+      // into an object file. Specifically, the addenda to the ARM ABI
+      // states that (2.3.7.4):
+      //
+      // "To simplify recognition by consumers in the common case of
+      // claiming conformity for the whole file, this tag should be
+      // emitted first in a file-scope sub-subsection of the first
+      // public subsection of the attributes section."
+      //
+      // So it is special-cased in this comparison predicate when the
+      // attributes are sorted in finishAttributeSection().
+      return (RHS.Tag != ARMBuildAttrs::conformance) &&
+             ((LHS.Tag == ARMBuildAttrs::conformance) || (LHS.Tag < RHS.Tag));
     }
   };
 
@@ -848,6 +860,14 @@ void ARMTargetELFStreamer::emitFPUDefaultAttributes() {
                      /* OverwriteExisting= */ false);
     break;
 
+  // FPV5_D16 is identical to FP_ARMV8 except for the number of D registers, so
+  // uses the FP_ARMV8_D16 build attribute.
+  case ARM::FPV5_D16:
+    setAttributeItem(ARMBuildAttrs::FP_arch,
+                     ARMBuildAttrs::AllowFPARMv8B,
+                     /* OverwriteExisting= */ false);
+    break;
+
   case ARM::NEON:
     setAttributeItem(ARMBuildAttrs::FP_arch,
                      ARMBuildAttrs::AllowFPv3A,
@@ -971,12 +991,12 @@ void ARMTargetELFStreamer::finishAttributeSection() {
       Streamer.EmitULEB128IntValue(item.IntValue);
       break;
     case AttributeItem::TextAttribute:
-      Streamer.EmitBytes(item.StringValue.upper());
+      Streamer.EmitBytes(item.StringValue);
       Streamer.EmitIntValue(0, 1); // '\0'
       break;
     case AttributeItem::NumericAndTextAttributes:
       Streamer.EmitULEB128IntValue(item.IntValue);
-      Streamer.EmitBytes(item.StringValue.upper());
+      Streamer.EmitBytes(item.StringValue);
       Streamer.EmitIntValue(0, 1); // '\0'
       break;
     }
@@ -1339,10 +1359,9 @@ MCStreamer *createARMNullStreamer(MCContext &Ctx) {
   return S;
 }
 
-  MCELFStreamer* createARMELFStreamer(MCContext &Context, MCAsmBackend &TAB,
-                                      raw_ostream &OS, MCCodeEmitter *Emitter,
-                                      bool RelaxAll, bool NoExecStack,
-                                      bool IsThumb) {
+MCELFStreamer *createARMELFStreamer(MCContext &Context, MCAsmBackend &TAB,
+                                    raw_ostream &OS, MCCodeEmitter *Emitter,
+                                    bool RelaxAll, bool IsThumb) {
     ARMELFStreamer *S = new ARMELFStreamer(Context, TAB, OS, Emitter, IsThumb);
     new ARMTargetELFStreamer(*S);
     // FIXME: This should eventually end up somewhere else where more
@@ -1352,8 +1371,6 @@ MCStreamer *createARMNullStreamer(MCContext &Ctx) {
 
     if (RelaxAll)
       S->getAssembler().setRelaxAll(true);
-    if (NoExecStack)
-      S->getAssembler().setNoExecStack(true);
     return S;
   }
 

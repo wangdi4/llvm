@@ -135,12 +135,15 @@ public:
     typeObjCClassPtr,       // pointer to ObjC class [Darwin]
     typeObjC2CategoryList,  // pointers to ObjC category [Darwin]
     typeDTraceDOF,          // runtime data for Dtrace [Darwin]
+    typeInterposingTuples,  // tuples of interposing info for dyld [Darwin]
     typeTempLTO,            // temporary atom for bitcode reader
     typeCompactUnwindInfo,  // runtime data for unwinder [Darwin]
+    typeProcessedUnwindInfo,// compressed compact unwind info [Darwin]
     typeThunkTLV,           // thunk used to access a TLV [Darwin]
     typeTLVInitialData,     // initial data for a TLV [Darwin]
     typeTLVInitialZeroFill, // TLV initial zero fill data [Darwin]
     typeTLVInitializerPtr,  // pointer to thread local initializer [Darwin]
+    typeMachHeader,         // atom representing mach_header [Darwin]
     typeThreadZeroFill,     // Uninitialized thread local data(TBSS) [ELF]
     typeThreadData,         // Initialized thread local data(TDATA) [ELF]
     typeRONote,             // Identifies readonly note sections [ELF]
@@ -189,6 +192,15 @@ public:
     dynamicExportNormal,
     /// \brief The linker will always export this atom dynamically.
     dynamicExportAlways,
+  };
+
+  // Attributes describe a code model used by the atom.
+  enum CodeModel {
+    codeNA,           // no specific code model
+    codeMipsPIC,      // PIC function in a PIC / non-PIC mixed file
+    codeMipsMicro,    // microMIPS instruction encoding
+    codeMipsMicroPIC, // microMIPS instruction encoding + PIC
+    codeMips16,       // MIPS-16 instruction encoding
   };
 
   struct Alignment {
@@ -263,6 +275,9 @@ public:
     return dynamicExportNormal;
   }
 
+  /// \brief Code model used by the atom.
+  virtual CodeModel codeModel() const { return codeNA; }
+
   /// \brief Returns the OS memory protections required for this atom's content
   /// at runtime.
   ///
@@ -317,7 +332,7 @@ public:
   static ContentPermissions permissions(ContentType type);
 
   /// Utility function to check if the atom occupies file space
-  virtual bool occupiesDiskSpace() const {
+  bool occupiesDiskSpace() const {
     ContentType atomContentType = contentType();
     return !(atomContentType == DefinedAtom::typeZeroFill ||
              atomContentType == DefinedAtom::typeZeroFillFast ||
