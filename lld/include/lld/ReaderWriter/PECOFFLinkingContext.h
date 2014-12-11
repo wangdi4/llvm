@@ -13,13 +13,11 @@
 #include "lld/Core/LinkingContext.h"
 #include "lld/ReaderWriter/Reader.h"
 #include "lld/ReaderWriter/Writer.h"
-
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/COFF.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileUtilities.h"
-
 #include <map>
 #include <mutex>
 #include <set>
@@ -31,7 +29,6 @@ using llvm::COFF::WindowsSubsystem;
 static const uint8_t DEFAULT_DOS_STUB[128] = {'M', 'Z'};
 
 namespace lld {
-class Group;
 
 class PECOFFLinkingContext : public LinkingContext {
 public:
@@ -49,8 +46,8 @@ public:
         _createManifest(true), _embedManifest(false), _manifestId(1),
         _manifestUAC(true), _manifestLevel("'asInvoker'"),
         _manifestUiAccess("'false'"), _isDll(false), _highEntropyVA(true),
-        _requireSEH(false), _noSEH(false), _implib(""),
-        _dosStub(llvm::makeArrayRef(DEFAULT_DOS_STUB)) {
+        _requireSEH(false), _noSEH(false), _implib(""), _debug(false),
+        _pdbFilePath(""), _dosStub(llvm::makeArrayRef(DEFAULT_DOS_STUB)) {
     setDeadStripping(true);
   }
 
@@ -63,12 +60,22 @@ public:
   struct ExportDesc {
     ExportDesc()
         : ordinal(-1), noname(false), isData(false), isPrivate(false) {}
+
     bool operator<(const ExportDesc &other) const {
-      return name.compare(other.name) < 0;
+      return getExternalName().compare(other.getExternalName()) < 0;
+    }
+
+    StringRef getRealName() const {
+      return mangledName.empty() ? name : mangledName;
+    }
+
+    StringRef getExternalName() const {
+      return externalName.empty() ? name : externalName;
     }
 
     std::string name;
     std::string externalName;
+    std::string mangledName;
     int ordinal;
     bool noname;
     bool isData;
@@ -84,7 +91,7 @@ public:
   void addPasses(PassManager &pm) override;
 
   bool createImplicitFiles(
-      std::vector<std::unique_ptr<File> > &result) const override;
+      std::vector<std::unique_ptr<File> > &result) override;
 
   bool is64Bit() const {
     return _machineType == llvm::COFF::IMAGE_FILE_MACHINE_AMD64;
@@ -226,6 +233,19 @@ public:
   void setOutputImportLibraryPath(const std::string &val) { _implib = val; }
   std::string getOutputImportLibraryPath() const;
 
+  void setDebug(bool val) { _debug = val; }
+  bool getDebug() { return _debug; }
+
+  void setPDBFilePath(StringRef str) { _pdbFilePath = str; }
+  std::string getPDBFilePath() const;
+
+  void addDelayLoadDLL(StringRef dll) {
+    _delayLoadDLLs.insert(dll.lower());
+  }
+  bool isDelayLoadDLL(StringRef dll) const {
+    return _delayLoadDLLs.count(dll.lower()) == 1;
+  }
+
   StringRef getOutputSectionName(StringRef sectionName) const;
   bool addSectionRenaming(raw_ostream &diagnostics,
                           StringRef from, StringRef to);
@@ -236,9 +256,17 @@ public:
   }
   void setAlternateName(StringRef def, StringRef weak);
 
-  void addNoDefaultLib(StringRef path) { _noDefaultLibs.insert(path); }
+  void addNoDefaultLib(StringRef path) {
+    if (path.endswith_lower(".lib"))
+      _noDefaultLibs.insert(path.drop_back(4).lower());
+    else
+      _noDefaultLibs.insert(path.lower());
+  }
+
   bool hasNoDefaultLib(StringRef path) const {
-    return _noDefaultLibs.count(path) == 1;
+    if (path.endswith_lower(".lib"))
+      return _noDefaultLibs.count(path.drop_back(4).lower()) > 0;
+    return _noDefaultLibs.count(path.lower()) > 0;
   }
 
   void setNoDefaultLibAll(bool val) { _noDefaultLibAll = val; }
@@ -254,6 +282,10 @@ public:
   void addDllExport(ExportDesc &desc);
   std::vector<ExportDesc> &getDllExports() { return _dllExports; }
   const std::vector<ExportDesc> &getDllExports() const { return _dllExports; }
+
+  StringRef getDelayLoadHelperName() const {
+    return is64Bit() ? "__delayLoadHelper2" : "___delayLoadHelper2@8";
+  }
 
   StringRef allocate(StringRef ref) const {
     _allocMutex.lock();
@@ -285,8 +317,7 @@ public:
   void setEntryNode(SimpleFileNode *node) { _entryNode = node; }
   SimpleFileNode *getEntryNode() const { return _entryNode; }
 
-  void setLibraryGroup(Group *group) { _libraryGroup = group; }
-  Group *getLibraryGroup() const { return _libraryGroup; }
+  void addLibraryFile(std::unique_ptr<FileNode> file);
 
   void setModuleDefinitionFile(const std::string val) {
     _moduleDefinitionFile = val;
@@ -366,6 +397,15 @@ private:
   // /IMPLIB command line option.
   std::string _implib;
 
+  // True if /DEBUG is given.
+  bool _debug;
+
+  // PDB file output path. NB: this is dummy -- LLD just creates the empty file.
+  std::string _pdbFilePath;
+
+  // /DELAYLOAD option.
+  std::set<std::string> _delayLoadDLLs;
+
   // The set to store /nodefaultlib arguments.
   std::set<std::string> _noDefaultLibs;
 
@@ -398,9 +438,6 @@ private:
 
   // The node containing the entry point file.
   SimpleFileNode *_entryNode;
-
-  // The PECOFFGroup that contains all the .lib files.
-  Group *_libraryGroup;
 
   // Name of the temporary file for lib.exe subcommand. For debugging
   // only.

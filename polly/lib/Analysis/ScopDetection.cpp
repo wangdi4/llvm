@@ -120,6 +120,11 @@ static cl::opt<bool>
                    cl::Hidden, cl::init(false), cl::ZeroOrMore,
                    cl::cat(PollyCategory));
 
+static cl::opt<bool> AllowUnsigned("polly-allow-unsigned",
+                                   cl::desc("Allow unsigned expressions"),
+                                   cl::Hidden, cl::init(false), cl::ZeroOrMore,
+                                   cl::cat(PollyCategory));
+
 static cl::opt<bool, true>
     TrackFailures("polly-detect-track-failures",
                   cl::desc("Track failure strings in detecting scop regions"),
@@ -202,25 +207,11 @@ ScopDetection::ScopDetection() : FunctionPass(ID) {
     return;
   }
 
-  if (PollyDelinearize) {
-    DEBUG(errs() << "WARNING: We disable runtime alias checks as "
-                    "delinearization is enabled.\n");
-    PollyUseRuntimeAliasChecks = false;
-  }
-
   if (AllowNonAffine) {
     DEBUG(errs() << "WARNING: We disable runtime alias checks as non affine "
                     "accesses are enabled.\n");
     PollyUseRuntimeAliasChecks = false;
   }
-
-#ifdef CLOOG_FOUND
-  if (PollyCodeGenChoice == CODEGEN_CLOOG) {
-    DEBUG(errs() << "WARNING: We disable runtime alias checks as the cloog "
-                    "code generation cannot emit them.\n");
-    PollyUseRuntimeAliasChecks = false;
-  }
-#endif
 }
 
 template <class RR, typename... Args>
@@ -306,7 +297,7 @@ bool ScopDetection::isValidCFG(BasicBlock &BB,
     //
     // TODO: This is not sufficient and just hides bugs. However it does pretty
     // well.
-    if (ICmp->isUnsigned())
+    if (ICmp->isUnsigned() && !AllowUnsigned)
       return false;
 
     // Are both operands of the ICmp affine?
@@ -471,8 +462,8 @@ bool ScopDetection::hasAffineMemoryAccesses(DetectionContext &Context) const {
       if (IsNonAffine) {
         BasePtrHasNonAffine = true;
         if (!AllowNonAffine)
-          invalid<ReportNonAffineAccess>(Context, /*Assert=*/true, AF, Insn,
-                                         BaseValue);
+          invalid<ReportNonAffineAccess>(Context, /*Assert=*/true, Pair.second,
+                                         Insn, BaseValue);
         if (!KeepGoing && !AllowNonAffine)
           return false;
       }
@@ -543,9 +534,10 @@ bool ScopDetection::isValidMemoryAccess(Instruction &Inst,
 
   // Check if the base pointer of the memory access does alias with
   // any other pointer. This cannot be handled at the moment.
-  AliasSet &AS =
-      Context.AST.getAliasSetForPointer(BaseValue, AliasAnalysis::UnknownSize,
-                                        Inst.getMetadata(LLVMContext::MD_tbaa));
+  AAMDNodes AATags;
+  Inst.getAAMetadata(AATags);
+  AliasSet &AS = Context.AST.getAliasSetForPointer(
+      BaseValue, AliasAnalysis::UnknownSize, AATags);
 
   // INVALID triggers an assertion in verifying mode, if it detects that a
   // SCoP was detected by SCoP detection and that this SCoP was invalidated by
@@ -582,12 +574,7 @@ bool ScopDetection::isValidInstruction(Instruction &Inst,
                                        DetectionContext &Context) const {
   if (PHINode *PN = dyn_cast<PHINode>(&Inst))
     if (!canSynthesize(PN, LI, SE, &Context.CurRegion)) {
-      if (SCEVCodegen)
-        return invalid<ReportPhiNodeRefInRegion>(Context, /*Assert=*/true,
-                                                 &Inst);
-      else
-        return invalid<ReportNonCanonicalPhiNode>(Context, /*Assert=*/true,
-                                                  &Inst);
+      return invalid<ReportPhiNodeRefInRegion>(Context, /*Assert=*/true, &Inst);
     }
 
   // We only check the call instruction but not invoke instruction.
@@ -614,14 +601,6 @@ bool ScopDetection::isValidInstruction(Instruction &Inst,
 }
 
 bool ScopDetection::isValidLoop(Loop *L, DetectionContext &Context) const {
-  if (!SCEVCodegen) {
-    // If code generation is not in scev based mode, we need to ensure that
-    // each loop has a canonical induction variable.
-    PHINode *IndVar = L->getCanonicalInductionVariable();
-    if (!IndVar)
-      return invalid<ReportLoopHeader>(Context, /*Assert=*/true, L);
-  }
-
   // Is the loop count affine?
   const SCEV *LoopCount = SE->getBackedgeTakenCount(L);
   if (!isAffineExpr(&Context.CurRegion, LoopCount, *SE))
@@ -696,13 +675,13 @@ static bool regionWithoutLoops(Region &R, LoopInfo *LI) {
 // but do not recurse further if the first child has been found.
 //
 // Return the number of regions erased from Regs.
-static unsigned eraseAllChildren(std::set<const Region *> &Regs,
+static unsigned eraseAllChildren(ScopDetection::RegionSet &Regs,
                                  const Region &R) {
   unsigned Count = 0;
   for (auto &SubRegion : R) {
-    if (Regs.find(SubRegion.get()) != Regs.end()) {
+    if (Regs.count(SubRegion.get())) {
       ++Count;
-      Regs.erase(SubRegion.get());
+      Regs.remove(SubRegion.get());
     } else {
       Count += eraseAllChildren(Regs, *SubRegion);
     }
@@ -745,7 +724,7 @@ void ScopDetection::findScops(Region &R) {
 
     // Skip invalid regions. Regions may become invalid, if they are element of
     // an already expanded region.
-    if (ValidRegions.find(CurrentRegion) == ValidRegions.end())
+    if (!ValidRegions.count(CurrentRegion))
       continue;
 
     Region *ExpandedR = expandRegion(*CurrentRegion);
@@ -755,7 +734,7 @@ void ScopDetection::findScops(Region &R) {
 
     R.addSubRegion(ExpandedR, true);
     ValidRegions.insert(ExpandedR);
-    ValidRegions.erase(CurrentRegion);
+    ValidRegions.remove(CurrentRegion);
 
     // Erase all (direct and indirect) children of ExpandedR from the valid
     // regions and update the number of valid regions.
@@ -818,7 +797,7 @@ bool ScopDetection::isValidRegion(DetectionContext &Context) const {
   DEBUG(dbgs() << "Checking region: " << R.getNameStr() << "\n\t");
 
   if (R.isTopLevelRegion()) {
-    DEBUG(dbgs() << "Top level region is invalid"; dbgs() << "\n");
+    DEBUG(dbgs() << "Top level region is invalid\n");
     return false;
   }
 
@@ -882,9 +861,8 @@ void ScopDetection::printLocations(llvm::Function &F) {
   }
 }
 
-void
-ScopDetection::emitMissedRemarksForValidRegions(const Function &F,
-                                                const RegionSet &ValidRegions) {
+void ScopDetection::emitMissedRemarksForValidRegions(
+    const Function &F, const RegionSet &ValidRegions) {
   for (const Region *R : ValidRegions) {
     const Region *Parent = R->getParent();
     if (Parent && !Parent->isTopLevelRegion() && RejectLogs.count(Parent))
@@ -939,7 +917,7 @@ bool ScopDetection::runOnFunction(llvm::Function &F) {
   for (const Region *R : ValidRegions)
     emitValidRemarks(F, R);
 
-  if (ReportLevel >= 1)
+  if (ReportLevel)
     printLocations(F);
 
   return false;

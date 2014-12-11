@@ -9,18 +9,23 @@
 #ifndef LLD_READER_WRITER_ELF_MIPS_MIPS_ELF_WRITERS_H
 #define LLD_READER_WRITER_ELF_MIPS_MIPS_ELF_WRITERS_H
 
+#include "MipsELFFlagsMerger.h"
 #include "MipsLinkingContext.h"
 #include "OutputELFWriter.h"
 
 namespace lld {
 namespace elf {
 
+template <class ELFT> class MipsRuntimeFile;
+
 template <class ELFT> class MipsTargetLayout;
 
 template <typename ELFT> class MipsELFWriter {
 public:
-  MipsELFWriter(MipsLinkingContext &ctx, MipsTargetLayout<ELFT> &targetLayout)
-      : _ctx(ctx), _targetLayout(targetLayout) {}
+  MipsELFWriter(MipsLinkingContext &ctx, MipsTargetLayout<ELFT> &targetLayout,
+                MipsELFFlagsMerger &elfFlagsMerger)
+      : _ctx(ctx), _targetLayout(targetLayout),
+        _elfFlagsMerger(elfFlagsMerger) {}
 
   void setELFHeader(ELFHeader<ELFT> &elfHeader) {
     elfHeader.e_version(1);
@@ -31,13 +36,7 @@ public:
     else
       elfHeader.e_ident(llvm::ELF::EI_ABIVERSION, 0);
 
-    // FIXME (simon): Read elf flags from all inputs, check compatibility,
-    // merge them and write result here.
-    uint32_t flags = llvm::ELF::EF_MIPS_NOREORDER | llvm::ELF::EF_MIPS_ABI_O32 |
-                     llvm::ELF::EF_MIPS_CPIC | llvm::ELF::EF_MIPS_ARCH_32R2;
-    if (_ctx.getOutputELFType() == llvm::ELF::ET_DYN)
-      flags |= EF_MIPS_PIC;
-    elfHeader.e_flags(flags);
+    elfHeader.e_flags(_elfFlagsMerger.getMergedELFFlags());
   }
 
   void finalizeMipsRuntimeAtomValues() {
@@ -69,18 +68,10 @@ public:
     return file;
   }
 
-  bool isDynSymEntryRequired(const SharedLibraryAtom *sla) const {
-    return _targetLayout.isReferencedByDefinedAtom(sla);
-  }
-
-  bool isNeededTagRequired(const SharedLibraryAtom *sla) const {
-    return _targetLayout.isReferencedByDefinedAtom(sla) ||
-           _targetLayout.isCopied(sla);
-  }
-
 private:
   MipsLinkingContext &_ctx;
   MipsTargetLayout<ELFT> &_targetLayout;
+  MipsELFFlagsMerger &_elfFlagsMerger;
 
   void setAtomValue(StringRef name, uint64_t value) {
     auto atom = _targetLayout.findAbsoluteAtom(name);

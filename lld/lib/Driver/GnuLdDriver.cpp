@@ -15,7 +15,7 @@
 
 #include "lld/Driver/Driver.h"
 #include "lld/Driver/GnuLdInputGraph.h"
-
+#include "lld/ReaderWriter/LinkerScript.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
@@ -30,9 +30,8 @@
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/PrettyStackTrace.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Signals.h"
-
+#include "llvm/Support/raw_ostream.h"
 #include <cstring>
 #include <tuple>
 
@@ -113,8 +112,8 @@ maybeExpandResponseFiles(int argc, const char **argv, BumpPtrAllocator &alloc) {
 }
 
 // Get the Input file magic for creating appropriate InputGraph nodes.
-static std::error_code getFileMagic(ELFLinkingContext &ctx, StringRef path,
-                                    llvm::sys::fs::file_magic &magic) {
+static std::error_code
+getFileMagic(StringRef path, llvm::sys::fs::file_magic &magic) {
   std::error_code ec = llvm::sys::fs::identify_magic(path, magic);
   if (ec)
     return ec;
@@ -125,9 +124,8 @@ static std::error_code getFileMagic(ELFLinkingContext &ctx, StringRef path,
   case llvm::sys::fs::file_magic::unknown:
     return std::error_code();
   default:
-    break;
+    return make_dynamic_error_code(StringRef("unknown type of object file"));
   }
-  return make_error_code(ReaderError::unknown_file_format);
 }
 
 // Parses an argument of --defsym=<sym>=<number>
@@ -153,19 +151,16 @@ static bool parseDefsymAsAlias(StringRef opt, StringRef &sym,
   return !target.empty();
 }
 
-llvm::ErrorOr<StringRef> ELFFileNode::getPath(const LinkingContext &) const {
-  if (_attributes._isDashlPrefix)
-    return _elfLinkingContext.searchLibrary(_path);
-  return _elfLinkingContext.searchFile(_path, _attributes._isSysRooted);
-}
-
-std::string ELFFileNode::errStr(std::error_code errc) {
-  if (errc == llvm::errc::no_such_file_or_directory) {
-    if (_attributes._isDashlPrefix)
-      return (Twine("Unable to find library -l") + _path).str();
-    return (Twine("Unable to find file ") + _path).str();
-  }
-  return FileNode::errStr(errc);
+// Parses dashz options for max-page-size.
+static bool parseZOption(StringRef opt, uint64_t &val) {
+  size_t equalPos = opt.find('=');
+  if (equalPos == 0 || equalPos == StringRef::npos)
+    return false;
+  StringRef value = opt.substr(equalPos + 1);
+  val = 0;
+  if (value.getAsInteger(0, val) || !val)
+    return false;
+  return true;
 }
 
 bool GnuLdDriver::linkELF(int argc, const char *argv[],
@@ -211,6 +206,64 @@ getArchType(const llvm::Triple &triple, StringRef value) {
   default:
     return llvm::None;
   }
+}
+
+static bool isLinkerScript(StringRef path, raw_ostream &diag) {
+  llvm::sys::fs::file_magic magic = llvm::sys::fs::file_magic::unknown;
+  std::error_code ec = getFileMagic(path, magic);
+  if (ec) {
+    diag << "unknown input file format for file " << path << "\n";
+    return false;
+  }
+  return magic == llvm::sys::fs::file_magic::unknown;
+}
+
+static bool isPathUnderSysroot(StringRef sysroot, StringRef path) {
+  if (sysroot.empty())
+    return false;
+  while (!path.empty() && !llvm::sys::fs::equivalent(sysroot, path))
+    path = llvm::sys::path::parent_path(path);
+  return !path.empty();
+}
+
+static std::error_code
+evaluateLinkerScript(ELFLinkingContext &ctx, InputGraph *inputGraph,
+                     StringRef path, raw_ostream &diag) {
+  // Read the script file from disk and parse.
+  ErrorOr<std::unique_ptr<MemoryBuffer>> mb =
+      MemoryBuffer::getFileOrSTDIN(path);
+  if (std::error_code ec = mb.getError())
+    return ec;
+  if (ctx.logInputFiles())
+    diag << path << "\n";
+  auto lexer = llvm::make_unique<script::Lexer>(std::move(mb.get()));
+  auto parser = llvm::make_unique<script::Parser>(*lexer);
+  script::LinkerScript *script = parser->parse();
+  if (!script)
+    return LinkerScriptReaderError::parse_error;
+
+  // Evaluate script commands.
+  // Currently we only recognize GROUP() command.
+  bool sysroot = (!ctx.getSysroot().empty()
+                  && isPathUnderSysroot(ctx.getSysroot(), path));
+  for (const script::Command *c : script->_commands) {
+    auto *group = dyn_cast<script::Group>(c);
+    if (!group)
+      continue;
+    int numfiles = 0;
+    for (const script::Path &path : group->getPaths()) {
+      // TODO : Propagate Set WholeArchive/dashlPrefix
+      ELFFileNode::Attributes attr;
+      attr.setSysRooted(sysroot);
+      attr.setAsNeeded(path._asNeeded);
+      attr.setDashlPrefix(path._isDashlPrefix);
+      ++numfiles;
+      inputGraph->addInputElement(llvm::make_unique<ELFFileNode>(
+                                      ctx, ctx.allocateString(path._path), attr));
+    }
+    inputGraph->addInputElement(llvm::make_unique<GroupEnd>(numfiles));
+  }
+  return std::error_code();
 }
 
 bool GnuLdDriver::applyEmulation(llvm::Triple &triple,
@@ -285,7 +338,8 @@ bool GnuLdDriver::parse(int argc, const char *argv[],
   }
 
   std::unique_ptr<InputGraph> inputGraph(new InputGraph());
-  std::stack<Group *> groupStack;
+  std::stack<int> groupStack;
+  int numfiles = 0;
 
   ELFFileNode::Attributes attributes;
 
@@ -306,6 +360,14 @@ bool GnuLdDriver::parse(int argc, const char *argv[],
 
   if (!parsedArgs->hasArg(OPT_nostdlib))
     addPlatformSearchDirs(*ctx, triple, baseTriple);
+
+  // Handle --demangle option(For compatibility)
+  if (parsedArgs->getLastArg(OPT_demangle))
+    ctx->setDemangleSymbols(true);
+
+  // Handle --no-demangle option.
+  if (parsedArgs->getLastArg(OPT_no_demangle))
+    ctx->setDemangleSymbols(false);
 
   // Figure out output kind ( -r, -static, -shared)
   if (llvm::opt::Arg *kind =
@@ -372,6 +434,10 @@ bool GnuLdDriver::parse(int argc, const char *argv[],
       ctx->setAllowRemainingUndefines(true);
       break;
 
+    case OPT_export_dynamic:
+      ctx->setExportDynamic(true);
+      break;
+
     case OPT_merge_strings:
       ctx->setMergeCommonStrings(true);
       break;
@@ -405,11 +471,11 @@ bool GnuLdDriver::parse(int argc, const char *argv[],
       break;
 
     case OPT_init:
-      ctx->addInitFunction(inputArg->getValue());
+      ctx->setInitFunction(inputArg->getValue());
       break;
 
     case OPT_fini:
-      ctx->addFiniFunction(inputArg->getValue());
+      ctx->setFiniFunction(inputArg->getValue());
       break;
 
     case OPT_output_filetype:
@@ -446,22 +512,44 @@ bool GnuLdDriver::parse(int argc, const char *argv[],
       break;
     }
 
-    case OPT_start_group: {
-      std::unique_ptr<Group> group(new Group());
-      groupStack.push(group.get());
-      inputGraph->addInputElement(std::move(group));
+    case OPT_start_group:
+      groupStack.push(numfiles);
       break;
-    }
 
-    case OPT_end_group:
+    case OPT_end_group: {
+      if (groupStack.empty()) {
+        diagnostics << "stray --end-group\n";
+        return false;
+      }
+      int startGroupPos = groupStack.top();
+      inputGraph->addInputElement(
+          llvm::make_unique<GroupEnd>(numfiles - startGroupPos));
       groupStack.pop();
       break;
+    }
 
     case OPT_z: {
       StringRef extOpt = inputArg->getValue();
       if (extOpt == "muldefs")
         ctx->setAllowDuplicates(true);
-      else
+      else if (extOpt.startswith("max-page-size")) {
+        // Parse -z max-page-size option.
+        // The default page size is considered the minimum page size the user
+        // can set, check the user input if its atleast the minimum page size
+        // and doesnot exceed the maximum page size allowed for the target.
+        uint64_t maxPageSize = 0;
+
+        // Error if the page size user set is less than the maximum page size
+        // and greather than the default page size and the user page size is a
+        // modulo of the default page size.
+        if ((!parseZOption(extOpt, maxPageSize)) ||
+            (maxPageSize < ctx->getPageSize()) ||
+            (maxPageSize % ctx->getPageSize())) {
+          diagnostics << "invalid option: " << extOpt << "\n";
+          return false;
+        }
+        ctx->setMaxPageSize(maxPageSize);
+      } else
         diagnostics << "warning: ignoring unknown argument for -z: " << extOpt
                     << "\n";
       break;
@@ -469,55 +557,40 @@ bool GnuLdDriver::parse(int argc, const char *argv[],
 
     case OPT_INPUT:
     case OPT_l: {
-      bool isDashlPrefix = (inputArg->getOption().getID() == OPT_l);
-      attributes.setDashlPrefix(isDashlPrefix);
-      bool isELFFileNode = true;
-      StringRef userPath = inputArg->getValue();
-      std::string resolvedInputPath = userPath;
+      bool dashL = (inputArg->getOption().getID() == OPT_l);
+      attributes.setDashlPrefix(dashL);
+      StringRef path = inputArg->getValue();
+      std::string realpath = path;
 
       // If the path was referred to by using a -l argument, let's search
       // for the file in the search path.
-      if (isDashlPrefix) {
-        ErrorOr<StringRef> resolvedPath = ctx->searchLibrary(userPath);
-        if (!resolvedPath) {
-          diagnostics << " Unable to find library -l" << userPath << "\n";
+      if (dashL) {
+        ErrorOr<StringRef> pathOrErr = ctx->searchLibrary(path);
+        if (!pathOrErr) {
+          diagnostics << " Unable to find library -l" << path << "\n";
           return false;
         }
-        resolvedInputPath = resolvedPath->str();
+        realpath = pathOrErr->str();
       }
-      // FIXME: Calling getFileMagic() is expensive.  It would be better to
-      // wire up the LdScript parser into the registry.
-      llvm::sys::fs::file_magic magic = llvm::sys::fs::file_magic::unknown;
-      if (!llvm::sys::fs::exists(resolvedInputPath)) {
-        diagnostics << "lld: cannot find file " << userPath << "\n";
+      if (!llvm::sys::fs::exists(realpath)) {
+        diagnostics << "lld: cannot find file " << path << "\n";
         return false;
       }
-      std::error_code ec = getFileMagic(*ctx, resolvedInputPath, magic);
-      if (ec) {
-        diagnostics << "lld: unknown input file format for file " << userPath
-                    << "\n";
-        return false;
-      }
-      if (!userPath.endswith(".objtxt") &&
-          magic == llvm::sys::fs::file_magic::unknown)
-        isELFFileNode = false;
-      FileNode *inputNode = nullptr;
-      if (isELFFileNode) {
-        inputNode = new ELFFileNode(*ctx, userPath, attributes);
-      } else {
-        inputNode = new ELFGNULdScript(*ctx, resolvedInputPath);
-        ec = inputNode->parse(*ctx, diagnostics);
+      bool isScript =
+          (!path.endswith(".objtxt") && isLinkerScript(realpath, diagnostics));
+      if (isScript) {
+        std::error_code ec = evaluateLinkerScript(
+            *ctx, inputGraph.get(), realpath, diagnostics);
         if (ec) {
-          diagnostics << userPath << ": Error parsing linker script\n";
+          diagnostics << path << ": Error parsing linker script: "
+                      << ec.message() << "\n";
           return false;
         }
+        break;
       }
-      std::unique_ptr<InputElement> inputFile(inputNode);
-      if (groupStack.empty()) {
-        inputGraph->addInputElement(std::move(inputFile));
-      } else {
-        groupStack.top()->addFile(std::move(inputFile));
-      }
+      ++numfiles;
+      inputGraph->addInputElement(
+          llvm::make_unique<ELFFileNode>(*ctx, path, attributes));
       break;
     }
 
@@ -544,6 +617,22 @@ bool GnuLdDriver::parse(int argc, const char *argv[],
     case OPT_rosegment:
       ctx->setCreateSeparateROSegment();
       break;
+
+    case OPT_no_align_segments:
+      ctx->setAlignSegments(false);
+      break;
+
+    case OPT_image_base: {
+      uint64_t baseAddress = 0;
+      StringRef inputValue = inputArg->getValue();
+      if ((inputValue.getAsInteger(0, baseAddress)) || !baseAddress) {
+        diagnostics << "invalid value for image base " << inputValue
+                    << "\n";
+        return false;
+      }
+      ctx->setBaseAddress(baseAddress);
+      break;
+    }
 
     default:
       break;

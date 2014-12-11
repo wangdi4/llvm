@@ -93,13 +93,13 @@ ObjCContainerDecl::getMethod(Selector Sel, bool isInstance,
   return nullptr;
 }
 
-/// HasUserDeclaredSetterMethod - This routine returns 'true' if a user declared setter
-/// method was found in the class, its protocols, its super classes or categories.
-/// It also returns 'true' if one of its categories has declared a 'readwrite' property.
-/// This is because, user must provide a setter method for the category's 'readwrite'
-/// property.
-bool
-ObjCContainerDecl::HasUserDeclaredSetterMethod(const ObjCPropertyDecl *Property) const {
+/// \brief This routine returns 'true' if a user declared setter method was
+/// found in the class, its protocols, its super classes or categories.
+/// It also returns 'true' if one of its categories has declared a 'readwrite'
+/// property.  This is because, user must provide a setter method for the
+/// category's 'readwrite' property.
+bool ObjCContainerDecl::HasUserDeclaredSetterMethod(
+    const ObjCPropertyDecl *Property) const {
   Selector Sel = Property->getSetterName();
   lookup_const_result R = lookup(Sel);
   for (lookup_const_iterator Meth = R.begin(), MethEnd = R.end();
@@ -118,9 +118,10 @@ ObjCContainerDecl::HasUserDeclaredSetterMethod(const ObjCPropertyDecl *Property)
           return true;
       if (Cat->IsClassExtension())
         continue;
-      // Also search through the categories looking for a 'readwrite' declaration
-      // of this property. If one found, presumably a setter will be provided
-      // (properties declared in categories will not get auto-synthesized).
+      // Also search through the categories looking for a 'readwrite'
+      // declaration of this property. If one found, presumably a setter will
+      // be provided (properties declared in categories will not get
+      // auto-synthesized).
       for (const auto *P : Cat->properties())
         if (P->getIdentifier() == Property->getIdentifier()) {
           if (P->getPropertyAttributes() & ObjCPropertyDecl::OBJC_PR_readwrite)
@@ -151,7 +152,7 @@ ObjCContainerDecl::HasUserDeclaredSetterMethod(const ObjCPropertyDecl *Property)
 
 ObjCPropertyDecl *
 ObjCPropertyDecl::findPropertyDecl(const DeclContext *DC,
-                                   IdentifierInfo *propertyID) {
+                                   const IdentifierInfo *propertyID) {
   // If this context is a hidden protocol definition, don't find any
   // property.
   if (const ObjCProtocolDecl *Proto = dyn_cast<ObjCProtocolDecl>(DC)) {
@@ -181,8 +182,8 @@ ObjCPropertyDecl::getDefaultSynthIvarName(ASTContext &Ctx) const {
 
 /// FindPropertyDeclaration - Finds declaration of the property given its name
 /// in 'PropertyId' and returns it. It returns 0, if not found.
-ObjCPropertyDecl *
-ObjCContainerDecl::FindPropertyDeclaration(IdentifierInfo *PropertyId) const {
+ObjCPropertyDecl *ObjCContainerDecl::FindPropertyDeclaration(
+    const IdentifierInfo *PropertyId) const {
   // Don't find properties within hidden protocol definitions.
   if (const ObjCProtocolDecl *Proto = dyn_cast<ObjCProtocolDecl>(this)) {
     if (const ObjCProtocolDecl *Def = Proto->getDefinition())

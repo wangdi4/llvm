@@ -8,7 +8,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "lld/Driver/DarwinInputGraph.h"
-
 #include "lld/Core/ArchiveLibraryFile.h"
 #include "lld/Core/DefinedAtom.h"
 #include "lld/Core/File.h"
@@ -16,9 +15,8 @@
 #include "lld/Core/Reference.h"
 #include "lld/Core/SharedLibraryFile.h"
 
-#include "lld/ReaderWriter/MachOLinkingContext.h"
-
 namespace lld {
+
 
 /// \brief Parse the input file to lld::File.
 std::error_code MachOFileNode::parse(const LinkingContext &ctx,
@@ -26,44 +24,60 @@ std::error_code MachOFileNode::parse(const LinkingContext &ctx,
   ErrorOr<StringRef> filePath = getPath(ctx);
   if (std::error_code ec = filePath.getError())
     return ec;
-
-  if (std::error_code ec = getBuffer(*filePath))
+  ErrorOr<std::unique_ptr<MemoryBuffer>> mbOrErr =
+      MemoryBuffer::getFileOrSTDIN(*filePath);
+  if (std::error_code ec = mbOrErr.getError())
     return ec;
+  std::unique_ptr<MemoryBuffer> mb = std::move(mbOrErr.get());
 
+  _context.addInputFileDependency(*filePath);
   if (ctx.logInputFiles())
     diagnostics << *filePath << "\n";
 
+  narrowFatBuffer(mb, *filePath);
+
   std::vector<std::unique_ptr<File>> parsedFiles;
-  if (_isWholeArchive) {
-    std::error_code ec = ctx.registry().parseFile(_buffer, parsedFiles);
-    if (ec)
-      return ec;
-    assert(parsedFiles.size() == 1);
-    std::unique_ptr<File> f(parsedFiles[0].release());
-    if (auto archive =
-            reinterpret_cast<const ArchiveLibraryFile *>(f.get())) {
-      // FIXME: something needs to own archive File
-      //_files.push_back(std::move(archive));
-      return archive->parseAllMembers(_files);
-    } else {
-      // if --whole-archive is around non-archive, just use it as normal.
-      _files.push_back(std::move(f));
-      return std::error_code();
-    }
-  }
-  if (std::error_code ec = ctx.registry().parseFile(_buffer, parsedFiles))
+  if (std::error_code ec = ctx.registry().parseFile(std::move(mb), parsedFiles))
     return ec;
   for (std::unique_ptr<File> &pf : parsedFiles) {
-    // If a dylib was parsed, inform LinkingContext about it.
+    // If file is a dylib, inform LinkingContext about it.
     if (SharedLibraryFile *shl = dyn_cast<SharedLibraryFile>(pf.get())) {
-      MachOLinkingContext *mctx = (MachOLinkingContext*)(&ctx);
-      mctx->registerDylib(reinterpret_cast<mach_o::MachODylibFile*>(shl));
+      _context.registerDylib(reinterpret_cast<mach_o::MachODylibFile*>(shl),
+                             _upwardDylib);
+    }
+    // If file is an archive and -all_load, then add all members.
+    if (ArchiveLibraryFile *archive = dyn_cast<ArchiveLibraryFile>(pf.get())) {
+      if (_isWholeArchive) {
+        // Have this node own the FileArchive object.
+        _archiveFile.reset(archive);
+        pf.release();
+        // Add all members to _files vector
+        return archive->parseAllMembers(_files);
+      }
     }
     _files.push_back(std::move(pf));
   }
   return std::error_code();
 }
 
+
+/// If buffer contains a fat file, find required arch in fat buffer and
+/// switch buffer to point to just that required slice.
+void MachOFileNode::narrowFatBuffer(std::unique_ptr<MemoryBuffer> &mb,
+                                    StringRef filePath) {
+  // Check if buffer is a "fat" file that contains needed arch.
+  uint32_t offset;
+  uint32_t size;
+  if (!_context.sliceFromFatFile(*mb, offset, size)) {
+    return;
+  }
+  // Create new buffer containing just the needed slice.
+  auto subuf = MemoryBuffer::getFileSlice(filePath, size, offset);
+  if (subuf.getError())
+    return;
+  // The assignment to mb will release previous buffer.
+  mb = std::move(subuf.get());
+}
 
 
 } // end namesapce lld

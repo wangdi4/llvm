@@ -11,9 +11,7 @@
 #define LLD_READER_WRITER_ELF_AARCH64_AARCH64_LINKING_CONTEXT_H
 
 #include "AArch64TargetHandler.h"
-
 #include "lld/ReaderWriter/ELFLinkingContext.h"
-
 #include "llvm/Object/ELF.h"
 #include "llvm/Support/ELF.h"
 
@@ -59,6 +57,15 @@ public:
     }
   }
 
+  bool isCopyRelocation(const Reference &r) const override {
+    if (r.kindNamespace() != Reference::KindNamespace::ELF)
+      return false;
+    assert(r.kindArch() == Reference::KindArch::AArch64);
+    if (r.kindValue() == llvm::ELF::R_AARCH64_COPY)
+      return true;
+    return false;
+  }
+
   bool isPLTRelocation(const DefinedAtom &,
                                const Reference &r) const override {
     if (r.kindNamespace() != Reference::KindNamespace::ELF)
@@ -85,9 +92,6 @@ public:
       return false;
     }
   }
-
-  /// \brief Create Internal files for Init/Fini
-  void createInternalFiles(std::vector<std::unique_ptr<File>> &) const override;
 };
 } // end namespace elf
 } // end namespace lld

@@ -39,6 +39,7 @@
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/ObjCARC.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include <memory>
 using namespace clang;
 using namespace llvm;
@@ -179,6 +180,14 @@ static void addBoundsCheckingPass(const PassManagerBuilder &Builder,
   PM.add(createBoundsCheckingPass());
 }
 
+static void addSanitizerCoveragePass(const PassManagerBuilder &Builder,
+                                     PassManagerBase &PM) {
+  const PassManagerBuilderWrapper &BuilderWrapper =
+      static_cast<const PassManagerBuilderWrapper&>(Builder);
+  const CodeGenOptions &CGOpts = BuilderWrapper.getCGOpts();
+  PM.add(createSanitizerCoverageModulePass(CGOpts.SanitizeCoverage));
+}
+
 static void addAddressSanitizerPasses(const PassManagerBuilder &Builder,
                                       PassManagerBase &PM) {
   PM.add(createAddressSanitizerFunctionPass());
@@ -214,8 +223,8 @@ static void addDataFlowSanitizerPass(const PassManagerBuilder &Builder,
                                      PassManagerBase &PM) {
   const PassManagerBuilderWrapper &BuilderWrapper =
       static_cast<const PassManagerBuilderWrapper&>(Builder);
-  const CodeGenOptions &CGOpts = BuilderWrapper.getCGOpts();
-  PM.add(createDataFlowSanitizerPass(CGOpts.SanitizerBlacklistFile));
+  const LangOptions &LangOpts = BuilderWrapper.getLangOpts();
+  PM.add(createDataFlowSanitizerPass(LangOpts.SanitizerBlacklistFile));
 }
 
 static TargetLibraryInfo *createTLI(llvm::Triple &TargetTriple,
@@ -224,6 +233,17 @@ static TargetLibraryInfo *createTLI(llvm::Triple &TargetTriple,
   if (!CodeGenOpts.SimplifyLibCalls)
     TLI->disableAllFunctions();
   return TLI;
+}
+
+static void addSymbolRewriterPass(const CodeGenOptions &Opts,
+                                  PassManager *MPM) {
+  llvm::SymbolRewriter::RewriteDescriptorList DL;
+
+  llvm::SymbolRewriter::RewriteMapParser MapParser;
+  for (const auto &MapFile : Opts.RewriteMapFiles)
+    MapParser.parse(MapFile, &DL);
+
+  MPM->add(createRewriteSymbolsPass(DL));
 }
 
 void EmitAssemblyHelper::CreatePasses() {
@@ -247,6 +267,7 @@ void EmitAssemblyHelper::CreatePasses() {
   PMBuilder.DisableTailCalls = CodeGenOpts.DisableTailCalls;
   PMBuilder.DisableUnitAtATime = !CodeGenOpts.UnitAtATime;
   PMBuilder.DisableUnrollLoops = !CodeGenOpts.UnrollLoops;
+  PMBuilder.MergeFunctions = CodeGenOpts.MergeFunctions;
   PMBuilder.RerollLoops = CodeGenOpts.RerollLoops;
 
   PMBuilder.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
@@ -266,35 +287,42 @@ void EmitAssemblyHelper::CreatePasses() {
                            addObjCARCOptPass);
   }
 
-  if (LangOpts.Sanitize.LocalBounds) {
+  if (LangOpts.Sanitize.has(SanitizerKind::LocalBounds)) {
     PMBuilder.addExtension(PassManagerBuilder::EP_ScalarOptimizerLate,
                            addBoundsCheckingPass);
     PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
                            addBoundsCheckingPass);
   }
 
-  if (LangOpts.Sanitize.Address) {
+  if (CodeGenOpts.SanitizeCoverage) {
+    PMBuilder.addExtension(PassManagerBuilder::EP_OptimizerLast,
+                           addSanitizerCoveragePass);
+    PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
+                           addSanitizerCoveragePass);
+  }
+
+  if (LangOpts.Sanitize.has(SanitizerKind::Address)) {
     PMBuilder.addExtension(PassManagerBuilder::EP_OptimizerLast,
                            addAddressSanitizerPasses);
     PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
                            addAddressSanitizerPasses);
   }
 
-  if (LangOpts.Sanitize.Memory) {
+  if (LangOpts.Sanitize.has(SanitizerKind::Memory)) {
     PMBuilder.addExtension(PassManagerBuilder::EP_OptimizerLast,
                            addMemorySanitizerPass);
     PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
                            addMemorySanitizerPass);
   }
 
-  if (LangOpts.Sanitize.Thread) {
+  if (LangOpts.Sanitize.has(SanitizerKind::Thread)) {
     PMBuilder.addExtension(PassManagerBuilder::EP_OptimizerLast,
                            addThreadSanitizerPass);
     PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
                            addThreadSanitizerPass);
   }
 
-  if (LangOpts.Sanitize.DataFlow) {
+  if (LangOpts.Sanitize.has(SanitizerKind::DataFlow)) {
     PMBuilder.addExtension(PassManagerBuilder::EP_OptimizerLast,
                            addDataFlowSanitizerPass);
     PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
@@ -330,6 +358,8 @@ void EmitAssemblyHelper::CreatePasses() {
 
   // Set up the per-module pass manager.
   PassManager *MPM = getPerModulePasses();
+  if (!CodeGenOpts.RewriteMapFiles.empty())
+    addSymbolRewriterPass(CodeGenOpts, MPM);
   if (CodeGenOpts.VerifyModule)
     MPM->add(createDebugInfoVerifierPass());
 
@@ -348,6 +378,12 @@ void EmitAssemblyHelper::CreatePasses() {
     MPM->add(createGCOVProfilerPass(Options));
     if (CodeGenOpts.getDebugInfo() == CodeGenOptions::NoDebugInfo)
       MPM->add(createStripSymbolsPass(true));
+  }
+
+  if (CodeGenOpts.ProfileInstrGenerate) {
+    InstrProfOptions Options;
+    Options.NoRedZone = CodeGenOpts.DisableRedZone;
+    MPM->add(createInstrProfilingPass(Options));
   }
 
   PMBuilder.populateModulePassManager(*MPM);
@@ -425,6 +461,11 @@ TargetMachine *EmitAssemblyHelper::CreateTargetMachine(bool MustCreateTM) {
 
   llvm::TargetOptions Options;
 
+  Options.ThreadModel =
+    llvm::StringSwitch<llvm::ThreadModel::Model>(CodeGenOpts.ThreadModel)
+      .Case("posix", llvm::ThreadModel::POSIX)
+      .Case("single", llvm::ThreadModel::Single);
+
   if (CodeGenOpts.DisableIntegratedAS)
     Options.DisableIntegratedAS = true;
 
@@ -475,6 +516,7 @@ TargetMachine *EmitAssemblyHelper::CreateTargetMachine(bool MustCreateTM) {
   Options.StackAlignmentOverride = CodeGenOpts.StackAlignment;
   Options.DisableTailCalls = CodeGenOpts.DisableTailCalls;
   Options.TrapFuncName = CodeGenOpts.TrapFuncName;
+  Options.ABIName = TargetOpts.ABI;
   Options.PositionIndependentExecutable = LangOpts.PIELevel != 0;
   Options.FunctionSections = CodeGenOpts.FunctionSections;
   Options.DataSections = CodeGenOpts.DataSections;

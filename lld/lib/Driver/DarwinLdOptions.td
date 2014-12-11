@@ -28,6 +28,8 @@ def macosx_version_min : Separate<["-"], "macosx_version_min">,
 def ios_version_min : Separate<["-"], "ios_version_min">,
      MetaVarName<"<version>">,
      HelpText<"Minimum iOS version">, Group<grp_opts>;
+def iphoneos_version_min : Separate<["-"], "iphoneos_version_min">,
+     Alias<ios_version_min>;
 def ios_simulator_version_min : Separate<["-"], "ios_simulator_version_min">,
      MetaVarName<"<version>">,
      HelpText<"Minimum iOS simulator version">, Group<grp_opts>;
@@ -49,6 +51,10 @@ def unexported_symbol : Separate<["-"], "unexported_symbol">,
 def keep_private_externs : Flag<["-"], "keep_private_externs">,
      HelpText<"Private extern (hidden) symbols should not be transformed "
               "into local symbols">, Group<grp_opts>;
+def order_file : Separate<["-"], "order_file">,
+     MetaVarName<"<file-path>">,
+     HelpText<"re-order and move specified symbols to start of their section">,
+     Group<grp_opts>;
 
 // main executable options
 def grp_main : OptionGroup<"opts">, HelpText<"MAIN EXECUTABLE OPTIONS">;
@@ -105,6 +111,10 @@ def Z : Flag<["-"], "Z">,
 def all_load : Flag<["-"], "all_load">,
      HelpText<"Forces all members of all static libraries to be loaded">,
      Group<grp_libs>;
+def force_load : Separate<["-"], "force_load">,
+     MetaVarName<"<library-path>">,
+     HelpText<"Forces all members of specified static libraries to be loaded">,
+     Group<grp_libs>;
 def syslibroot : Separate<["-"], "syslibroot">, MetaVarName<"<dir>">,
      HelpText<"Add path to SDK to all absolute library search paths">,
      Group<grp_libs>;
@@ -113,9 +123,18 @@ def syslibroot : Separate<["-"], "syslibroot">, MetaVarName<"<dir>">,
 def l : Joined<["-"], "l">,
      MetaVarName<"<libname>">,
      HelpText<"Base name of library searched for in -L directories">;
+def upward_l : Joined<["-"], "upward-l">,
+     MetaVarName<"<libname>">,
+     HelpText<"Base name of upward library searched for in -L directories">;
 def framework : Separate<["-"], "framework">,
      MetaVarName<"<name>">,
      HelpText<"Base name of framework searched for in -F directories">;
+def upward_framework : Separate<["-"], "upward_framework">,
+     MetaVarName<"<name>">,
+     HelpText<"Base name of upward framework searched for in -F directories">;
+def upward_library : Separate<["-"], "upward_library">,
+     MetaVarName<"<path>">,
+     HelpText<"path to upward dylib to link with">;
 def filelist : Separate<["-"], "filelist">,
      MetaVarName<"<path>">,
      HelpText<"file containing paths to input files">;
@@ -144,6 +163,16 @@ def sectalign : MultiArg<["-"], "sectalign", 3>,
      HelpText<"alignment for segment/section">;
 def image_base : Separate<["-"], "image_base">;
 def seg1addr : Separate<["-"], "seg1addr">, Alias<image_base>;
+def demangle : Flag<["-"], "demangle">,
+     HelpText<"Demangles symbol names in errors and warnings">;
+def dependency_info : Separate<["-"], "dependency_info">,
+     MetaVarName<"<file>">,
+     HelpText<"Write binary list of files used during link">;
+def S : Flag<["-"], "S">,
+     HelpText<"Remove debug information (STABS or DWARF) from the output file">;
+def rpath : Separate<["-"], "rpath">,
+     MetaVarName<"<path>">,
+     HelpText<"Add path to the runpath search path list for image being created">;
 
 def t : Flag<["-"], "t">,
      HelpText<"Print the names of the input files as ld processes them">;

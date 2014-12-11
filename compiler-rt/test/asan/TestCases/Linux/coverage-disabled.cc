@@ -1,6 +1,6 @@
 // Test that no data is collected without a runtime flag.
 //
-// RUN: %clangxx_asan -mllvm -asan-coverage=1 %s -o %t
+// RUN: %clangxx_asan -fsanitize-coverage=1 %s -o %t
 //
 // RUN: rm -rf %T/coverage-disabled
 //
@@ -12,6 +12,8 @@
 // RUN: ASAN_OPTIONS=coverage_direct=1:coverage_dir=%T/coverage-disabled/direct:verbosity=1 %run %t
 // RUN: cd %T/coverage-disabled/direct
 // RUN: not %sancov rawunpack *.sancov
+//
+// XFAIL: android
 
 int main(int argc, char **argv) {
   return 0;

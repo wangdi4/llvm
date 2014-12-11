@@ -26,6 +26,17 @@ multiclass dashEq<string opt1, string opt2, string help> {
 }
 
 //===----------------------------------------------------------------------===//
+/// LLVM and Target options
+//===----------------------------------------------------------------------===//
+def grp_llvmtarget : OptionGroup<"opts">,
+     HelpText<"LLVM and Target Options">;
+def mllvm : Separate<["-"], "mllvm">,
+     HelpText<"Options to pass to LLVM">, Group<grp_llvmtarget>;
+def target : Separate<["-"], "target">, MetaVarName<"<triple>">,
+     HelpText<"Target triple to link for">,
+     Group<grp_llvmtarget>;
+
+//===----------------------------------------------------------------------===//
 /// Output Kinds
 //===----------------------------------------------------------------------===//
 def grp_kind : OptionGroup<"outs">,
@@ -48,9 +59,6 @@ def Bshareable : Flag<["-"], "Bshareable">, Alias<shared>;
 //===----------------------------------------------------------------------===//
 def grp_general : OptionGroup<"opts">,
      HelpText<"GENERAL OPTIONS">;
-def target : Separate<["-"], "target">, MetaVarName<"<triple>">,
-     HelpText<"Target triple to link for">,
-     Group<grp_general>;
 def output : Separate<["-"], "o">, MetaVarName<"<path>">,
      HelpText<"Path to file to write output">,
      Group<grp_general>;
@@ -98,6 +106,9 @@ def no_whole_archive: Flag<["--"], "no-whole-archive">,
 def nostdlib : Flag<["-"], "nostdlib">,
      HelpText<"Disable default search path for libraries">,
      Group<grp_main>;
+def image_base : Separate<["--"], "image-base">,
+     HelpText<"Set the base address">,
+     Group<grp_main>;
 
 //===----------------------------------------------------------------------===//
 /// Static Executable Options
@@ -139,6 +150,12 @@ defm rpath : dashEq<"rpath", "rpath",
 def rpath_link : Separate<["-"], "rpath-link">,
      HelpText<"Specifies the first set of directories to search">,
      Group<grp_dynlibexec>;
+def export_dynamic : Flag<["--"], "export-dynamic">,
+     HelpText<"Add all symbols to the dynamic symbol table"
+              " when creating executables">,
+     Group<grp_main>;
+def alias_export_dynamic: Flag<["-"], "E">,
+      Alias<export_dynamic>;
 
 //===----------------------------------------------------------------------===//
 /// Dynamic Library Options
@@ -207,14 +224,27 @@ def rosegment: Flag<["--"], "rosegment">,
 def z : Separate<["-"], "z">,
      HelpText<"Linker Option extensions">,
      Group<grp_customopts>;
+def no_align_segments: Flag<["--"], "no-align-segments">,
+     HelpText<"Don't align ELF segments(virtualaddress/fileoffset) to page boundaries">,
+     Group<grp_customopts>;
+
+//===----------------------------------------------------------------------===//
+/// Symbol options
+//===----------------------------------------------------------------------===//
+def grp_symbolopts : OptionGroup<"opts">,
+     HelpText<"SYMBOL OPTIONS">;
+def demangle : Flag<["--"], "demangle">,
+     HelpText<"Demangle C++ symbols">,
+     Group<grp_symbolopts>;
+def no_demangle : Flag<["--"], "no-demangle">,
+     HelpText<"Dont demangle C++ symbols">,
+     Group<grp_symbolopts>;
 
 //===----------------------------------------------------------------------===//
 /// Optimization Options
 //===----------------------------------------------------------------------===//
 def grp_opts : OptionGroup<"opts">,
      HelpText<"OPTIMIZATIONS">;
-def mllvm : Separate<["-"], "mllvm">,
-     HelpText<"Options to pass to LLVM during LTO">, Group<grp_opts>;
 def hash_style : Joined <["--"], "hash-style=">,
      HelpText<"Set the type of linker's hash table(s)">,
      Group<grp_opts>;
@@ -245,6 +275,21 @@ def output_filetype: Separate<["--"], "output-filetype">,
       Group<grp_extns>;
 def alias_output_filetype: Joined<["--"], "output-filetype=">,
       Alias<output_filetype>;
+
+//===----------------------------------------------------------------------===//
+/// Ignored options
+//===----------------------------------------------------------------------===//
+def grp_ignored: OptionGroup<"ignored">,
+     HelpText<"GNU Options ignored for Compatibility ">;
+def dashg : Flag<["-"], "g">,
+     HelpText<"Ignored.">,
+     Group<grp_ignored>;
+def Qy : Flag<["-"], "Qy">,
+     HelpText<"Ignored for SVR4 Compatibility">,
+     Group<grp_ignored>;
+def qmagic : Flag<["-"], "qmagic">,
+     HelpText<"Ignored for Linux Compatibility">,
+     Group<grp_ignored>;
 
 //===----------------------------------------------------------------------===//
 /// Help

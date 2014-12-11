@@ -8,29 +8,59 @@
 //===----------------------------------------------------------------------===//
 
 #include "lld/Driver/Driver.h"
-
-#include "lld/Core/LLVM.h"
+#include "lld/Core/ArchiveLibraryFile.h"
+#include "lld/Core/File.h"
 #include "lld/Core/Instrumentation.h"
-#include "lld/Core/PassManager.h"
+#include "lld/Core/LLVM.h"
 #include "lld/Core/Parallel.h"
+#include "lld/Core/PassManager.h"
 #include "lld/Core/Resolver.h"
-#include "lld/ReaderWriter/Reader.h"
-#include "lld/ReaderWriter/Writer.h"
 #include "lld/Passes/RoundTripNativePass.h"
 #include "lld/Passes/RoundTripYAMLPass.h"
-
+#include "lld/ReaderWriter/Reader.h"
+#include "lld/ReaderWriter/Writer.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Option/Arg.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
-#include "llvm/Support/Process.h"
 #include "llvm/Support/raw_ostream.h"
-
 #include <mutex>
 
 namespace lld {
+
+FileVector makeErrorFile(StringRef path, std::error_code ec) {
+  std::vector<std::unique_ptr<File>> result;
+  result.push_back(llvm::make_unique<ErrorFile>(path, ec));
+  return result;
+}
+
+FileVector parseMemberFiles(FileVector &files) {
+  std::vector<std::unique_ptr<File>> members;
+  for (std::unique_ptr<File> &file : files) {
+    if (auto *archive = dyn_cast<ArchiveLibraryFile>(file.get())) {
+      if (std::error_code ec = archive->parseAllMembers(members))
+        return makeErrorFile(file->path(), ec);
+    } else {
+      members.push_back(std::move(file));
+    }
+  }
+  return members;
+}
+
+FileVector parseFile(LinkingContext &ctx, StringRef path, bool wholeArchive) {
+  ErrorOr<std::unique_ptr<MemoryBuffer>> mb
+      = MemoryBuffer::getFileOrSTDIN(path);
+  if (std::error_code ec = mb.getError())
+    return makeErrorFile(path, ec);
+  std::vector<std::unique_ptr<File>> files;
+  if (std::error_code ec = ctx.registry().parseFile(std::move(mb.get()), files))
+    return makeErrorFile(path, ec);
+  if (wholeArchive)
+    return parseMemberFiles(files);
+  return files;
+}
 
 /// This is where the link is actually performed.
 bool Driver::link(LinkingContext &context, raw_ostream &diagnostics) {
@@ -66,9 +96,6 @@ bool Driver::link(LinkingContext &context, raw_ostream &diagnostics) {
       if (std::error_code ec = ie->parse(context, stream)) {
         if (FileNode *fileNode = dyn_cast<FileNode>(ie.get()))
           stream << fileNode->errStr(ec) << "\n";
-        else if (dyn_cast<Group>(ie.get()))
-          // FIXME: We need a better diagnostics here
-          stream << "Cannot parse group input element\n";
         else
           llvm_unreachable("Unknown type of input element");
         fail = true;
@@ -87,21 +114,24 @@ bool Driver::link(LinkingContext &context, raw_ostream &diagnostics) {
   if (fail)
     return false;
 
-  std::unique_ptr<SimpleFileNode> fileNode(
-      new SimpleFileNode("Internal Files"));
-
   InputGraph::FileVectorT internalFiles;
   context.createInternalFiles(internalFiles);
-
-  if (internalFiles.size())
-    fileNode->addFiles(std::move(internalFiles));
+  for (auto i = internalFiles.rbegin(), e = internalFiles.rend(); i != e; ++i) {
+    context.getInputGraph().addInputElementFront(
+        llvm::make_unique<SimpleFileNode>("internal", std::move(*i)));
+  }
 
   // Give target a chance to add files.
   InputGraph::FileVectorT implicitFiles;
   context.createImplicitFiles(implicitFiles);
-  if (implicitFiles.size())
-    fileNode->addFiles(std::move(implicitFiles));
-  context.getInputGraph().addInputElementFront(std::move(fileNode));
+  for (auto i = implicitFiles.rbegin(), e = implicitFiles.rend(); i != e; ++i) {
+    context.getInputGraph().addInputElementFront(
+        llvm::make_unique<SimpleFileNode>("implicit", std::move(*i)));
+  }
+
+  // Give target a chance to sort the input files.
+  // Mach-O uses this chance to move all object files before library files.
+  context.maybeSortInputFiles();
 
   // Do core linking.
   ScopedTask resolveTask(getDefaultDomain(), "Resolve");
@@ -117,8 +147,7 @@ bool Driver::link(LinkingContext &context, raw_ostream &diagnostics) {
   context.addPasses(pm);
 
 #ifndef NDEBUG
-  llvm::Optional<std::string> env = llvm::sys::Process::GetEnv("LLD_RUN_ROUNDTRIP_TEST");
-  if (env.hasValue() && !env.getValue().empty()) {
+  if (context.runRoundTripPass()) {
     pm.add(std::unique_ptr<Pass>(new RoundTripYAMLPass(context)));
     pm.add(std::unique_ptr<Pass>(new RoundTripNativePass(context)));
   }

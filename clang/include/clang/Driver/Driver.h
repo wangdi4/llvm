@@ -104,9 +104,6 @@ public:
   /// Default target triple.
   std::string DefaultTargetTriple;
 
-  /// Default name for linked images (e.g., "a.out").
-  std::string DefaultImageName;
-
   /// Driver title to use with help.
   std::string DriverTitle;
 
@@ -193,6 +190,9 @@ private:
 
   // Before executing jobs, sets up response files for commands that need them.
   void setUpResponseFiles(Compilation &C, Job &J);
+
+  void generatePrefixedToolNames(const char *Tool, const ToolChain &TC,
+                                 SmallVectorImpl<std::string> &Names) const;
 
 public:
   Driver(StringRef _ClangExecutable,
@@ -304,7 +304,7 @@ public:
   /// including preprocessed source file(s).
   /// 
   void generateCompilationDiagnostics(Compilation &C,
-                                      const Command *FailingCommand);
+                                      const Command &FailingCommand);
 
   /// @}
   /// @name Helper Methods
@@ -361,6 +361,9 @@ public:
                           bool MultipleArchs,
                           const char *LinkingOutput,
                           InputInfo &Result) const;
+
+  /// Returns the default name for linked images (e.g., "a.out").
+  const char *getDefaultImageName() const;
 
   /// GetNamedOutputPath - Return the name to use for the output of
   /// the action \p JA. The result is appended to the compilation's

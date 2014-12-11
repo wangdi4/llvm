@@ -1,4 +1,4 @@
-// RUN: $(dirname %s)/check_clang_tidy_fix.sh %s google-readability-todo %t -config="{User: 'some user'}" --
+// RUN: $(dirname %s)/check_clang_tidy.sh %s google-readability-todo %t -config="{User: 'some user'}" --
 // REQUIRES: shell
 
 //   TODOfix this1
@@ -23,3 +23,5 @@
 // TODO(bar):
 // TODO(foo): paint bikeshed
 // TODO(b/12345): find the holy grail
+// TODO (b/12345): allow spaces before parentheses
+// TODO(asdf) allow missing semicolon
