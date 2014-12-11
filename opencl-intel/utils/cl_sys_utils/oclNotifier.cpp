@@ -419,6 +419,7 @@ CommandData* NotifierCollection::createCommandAndEvent(cl_event** pEvent)
         return NULL;
     }
 
+    commandData->queue = NULL;
     commandData->callbackEvent = NULL;
     commandData->ourEvent = NULL;
     if (NULL == *pEvent)
@@ -434,6 +435,7 @@ CommandData* NotifierCollection::createCommandAndEvent(cl_event** pEvent)
 void NotifierCollection::profileCommand(
     cl_event profiledEvent,
     cl_event callbackEvent,
+    cl_command_queue commandQueue,
     CommandData* commandData)
 {
     IF_EMPTY_RETURN;
@@ -492,39 +494,53 @@ void NotifierCollection::profileCommand(
     commandData->callbackEvent = callbackEvent;
 	commandData->key = (long) commandsIDs;
 	++commandsIDs;
-    commandData->refCounter = 3;
+
 	cl_int err;
-	err = _clSetEventCallbackINTERNAL(profiledEvent, CL_SUBMITTED, &commandCallBack, (void*) commandData);
-	if (err != CL_SUCCESS)
+    err = clRetainCommandQueue(commandQueue);
+    if (err != CL_SUCCESS)
     {
-		// TODO: add logging
-		commandData->refCounter--;
-	}
-
-	err = _clSetEventCallbackINTERNAL(profiledEvent, CL_RUNNING, &commandCallBack, (void*) commandData);
-	if (err != CL_SUCCESS)
+        releaseCommandData(commandData);
+    }
+    else
     {
-		commandData->refCounter--;
-	}
-
-	err = _clSetEventCallbackINTERNAL(profiledEvent, CL_COMPLETE, &commandCallBack, (void*) commandData);
-	if (err != CL_SUCCESS)
-    {
-		if (--commandData->refCounter == 0)
+        commandData->queue = commandQueue;
+        commandData->refCounter = 3;
+        err = _clSetEventCallbackINTERNAL(profiledEvent, CL_SUBMITTED, &commandCallBack, (void*) commandData);
+        if (err != CL_SUCCESS)
         {
-			releaseCommandData(commandData);
-		}
-	}
+            // TODO: add logging
+            commandData->refCounter--;
+        }
+
+        err = _clSetEventCallbackINTERNAL(profiledEvent, CL_RUNNING, &commandCallBack, (void*) commandData);
+        if (err != CL_SUCCESS)
+        {
+            commandData->refCounter--;
+        }
+
+        err = _clSetEventCallbackINTERNAL(profiledEvent, CL_COMPLETE, &commandCallBack, (void*) commandData);
+        if (err != CL_SUCCESS)
+        {
+            if (--commandData->refCounter == 0)
+            {
+                releaseCommandData(commandData);
+            }
+        }
+    }
 	
     // From here commandData is considered invalid, because all 
     // the event callbacks might have already executed.
 }
 void NotifierCollection::releaseCommandData(CommandData* data)
 {
-	CHECK_FOR_NULL(data);
+    CHECK_FOR_NULL(data);
     if (NULL != data->callbackEvent && data->retained)
     {
         _clReleaseEventINTERNAL(data->callbackEvent);
+    }
+    if (NULL != data->queue)
+    {
+        _clReleaseCommandQueueINTERNAL(data->queue);
     }
     list<OclRetainer*>::iterator it = data->retainers.begin();
     for ( ; it != data->retainers.end(); ++it)
