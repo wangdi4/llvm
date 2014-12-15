@@ -70,6 +70,13 @@ namespace intel {
 	unsigned int addressSpace;
       };
 
+      // Go over used values and usages and loop for a cast to a named address
+      // space. If there are no conversions from/to int and only one namespace
+      // different from default (__private) is found resolve all values found
+      // on the way to this address space.
+      // 1st arg: pointer value to resolve
+      // 2nd arg: if true force the resolving once more instead of using
+      //          cached results.
       ResolveResult resolveAddressSpace(const Value* value, bool force);
 
       typedef SmallPtrSet<const Value*, 16> SmallValueSet;
