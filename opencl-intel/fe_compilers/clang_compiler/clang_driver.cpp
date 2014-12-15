@@ -131,19 +131,27 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult* *pBinaryResult)
 
     bool clStd20    = std::string(m_pProgDesc->pszOptions).find("-cl-std=CL2.0") != std::string::npos;
     bool bProfiling = std::string(m_pProgDesc->pszOptions).find("-profiling") != std::string::npos;
+    bool bRelaxedMath = std::string(m_pProgDesc->pszOptions).find("-cl-fast-relaxed-math") != std::string::npos;
+
     size_t uiPCHSize = 0;
 
     int rcid = clStd20 ? IDR_PCH2 : IDR_PCH1;
     const char* pPCHBuff = ResourceManager::instance().get_resource(rcid, "PCH", false, uiPCHSize, "libclang_compiler.so");
     // Force the -profiling option if such was not supplied by user
-    std::string options;
-    const char* pszOptions = m_pProgDesc->pszOptions;
+    std::stringstream options;
+    options << m_pProgDesc->pszOptions;
 
     if (m_sDeviceInfo.bEnableSourceLevelProfiling && !bProfiling)
     {
-        options.assign(pszOptions);
-        options += " -profiling";
-        pszOptions = options.c_str();
+        options << " -profiling";
+    }
+
+    // Passing -cl-fast-relaxed-math option if specifed in the environment variable or in the config
+    const bool useRelaxedMath = m_config.UseRelaxedMath();
+
+    if (useRelaxedMath && !bRelaxedMath)
+    {
+        options << " -cl-fast-relaxed-math";
     }
 
     std::stringstream optionsEx;
@@ -166,7 +174,7 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult* *pBinaryResult)
                     m_pProgDesc->pszInputHeadersNames,
                     pPCHBuff,
                     uiPCHSize,
-                    pszOptions,
+                    options.str().c_str(),   // pszOptions
                     optionsEx.str().c_str(), // pszOptionsEx
                     m_sDeviceInfo.sExtensionStrings,
                     GetOpenCLVersionStr(m_config.GetOpenCLVersion()),
