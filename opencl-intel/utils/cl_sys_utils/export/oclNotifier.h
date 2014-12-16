@@ -48,6 +48,9 @@ typedef struct CommandData {
     // for the original (user) events.
     cl_event callbackEvent;
 
+    // Used to keep the command queue alive while 
+    // the commands are being monitored
+    cl_command_queue queue;
     // Associated memobj with the event, optional field.
     // It is used for retaining & releasing the user memory object
     // (to ensure it still exists during monitoring).
@@ -187,7 +190,7 @@ public:
 	virtual void KernelFree (cl_kernel /* kernel */, bool internalRelease)=0;	// clReleaseKernel
 	virtual void KernelSetArg (cl_kernel /* kernel */, cl_uint /* arg_index */, size_t /* argSize */,const void* /* arg_value */ )=0;
 	virtual void KernelEnqueue (cl_kernel, cl_command_queue, cl_event*, unsigned int traceCookie)=0;
-	virtual void NativeKernelEnqueue (cl_uint, const cl_mem*, cl_command_queue, cl_event*, unsigned int traceCookie)=0;
+	virtual void ReadMemObjects (cl_uint, const cl_mem*, cl_command_queue, cl_event*, unsigned int traceCookie)=0;
 	virtual void KernelReleased (cl_kernel)=0;	// called when kernel no longer exists in Profiler & RT
 
 	/* Command Callbacks */
@@ -314,7 +317,7 @@ public:
 	virtual void KernelFree (cl_kernel /* kernel */, bool internalRelease);
 	virtual void KernelSetArg (cl_kernel /* kernel */, cl_uint /* arg_index */, size_t /* argSize */,const void* /* arg_value */ );
 	virtual void KernelEnqueue (cl_kernel, cl_command_queue, cl_event*, unsigned int traceCookie);
-	virtual void NativeKernelEnqueue (cl_uint, const cl_mem*, cl_command_queue, cl_event*, unsigned int traceCookie);
+	virtual void ReadMemObjects (cl_uint, const cl_mem*, cl_command_queue, cl_event*, unsigned int traceCookie);
 	virtual void KernelReleased (cl_kernel);	// called when kernel no longer exists in Profiler & RT
 
 	/* Command Callbacks */
@@ -337,7 +340,7 @@ public:
     vector<cl_queue_properties> commandQueueProfiling(const cl_queue_properties* properties);
 	
     CommandData* createCommandAndEvent(cl_event** pEvent);
-	void profileCommand(cl_event profiledEvent, cl_event callbackEvent, CommandData *data);
+	void profileCommand(cl_event profiledEvent, cl_event callbackEvent, cl_command_queue Commandqueue, CommandData *data);
 	static void releaseCommandData(CommandData* data);
 
 	const char* enableKernelArgumentInfo(const char* options);

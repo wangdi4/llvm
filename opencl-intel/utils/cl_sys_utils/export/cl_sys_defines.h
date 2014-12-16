@@ -97,6 +97,7 @@
 #define SPRINTF_S                         sprintf_s
 #define VSPRINTF_S                        vsprintf_s
 #define STRCMPI_S                         _strnicmp
+#define SSCANF_S                          sscanf_s
 
 typedef unsigned long long               affinityMask_t;
 
@@ -324,6 +325,7 @@ typedef cpu_set_t                      affinityMask_t;
 #define SPRINTF_S                       snprintf
 #define VSPRINTF_S                      Intel::OpenCL::Utils::safeVStrPrintf
 #define STRCMPI_S                       strncasecmp
+#define SSCANF_S                        sscanf
 
 #define STACK_ALLOC( size )             alloca(size)
 #define STACK_FREE( ptr )
