@@ -92,7 +92,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 //    pszUnknownOptions - optional outbound pointer to the space separated unrecognized options
 //    uiUnknownOptionsSize - size of the pszUnknownOptions buffer
 //Returns:
-//    true if the options verification was succesfull, false otherwise
+//    true if the options verification was successful, false otherwise
 //
 extern "C" CC_DLL_EXPORT bool CheckCompileOptions(
     // A string for compile options
@@ -104,13 +104,13 @@ extern "C" CC_DLL_EXPORT bool CheckCompileOptions(
     );
 
 //
-//Verifies the given OpenCL application supplied ling options
+//Verifies the given OpenCL application supplied link options
 //Params:
 //    pszOptions - compilation options string
 //    pszUnknownOptions - optional outbound pointer to the space separated unrecognized options
 //    uiUnknownOptionsSize - size of the pszUnknownOptions buffer
 //Returns:
-//    true if the options verification was succesfull, false otherwise
+//    true if the options verification was successful, false otherwise
 //
 extern "C" CC_DLL_EXPORT bool CheckLinkOptions(
     // A string for compile options

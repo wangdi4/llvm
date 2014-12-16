@@ -36,7 +36,7 @@ OpenCLArgList::OpenCLArgList(const char* pszOptions)
     std::back_insert_iterator<ArgsVector> it( std::back_inserter(m_synthesizedStrings));
     quoted_tokenize(it, pszOptions, " \t", '"', '\x00');
 
-    // need to be carefull about the reallocation that could happen in m_synthesizedStrings upon push_back
+    // need to be careful about the reallocation that could happen in m_synthesizedStrings upon push_back
     for( ArgsVector::const_iterator it = m_synthesizedStrings.begin(), end = m_synthesizedStrings.end(); it != end; ++it )
     {
         m_argStrings.push_back(it->c_str());

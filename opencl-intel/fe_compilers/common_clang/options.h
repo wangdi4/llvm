@@ -212,7 +212,7 @@ public:
     }
 
     //
-    // Returnes the calculated source name for the input source
+    // Returns the calculated source name for the input source
     //
     std::string getSourceName() const
     {
@@ -260,7 +260,7 @@ void quoted_tokenize(OutIt dest, llvm::StringRef str, llvm::StringRef delims, ch
     // is_escaped - is the current char escaped (i.e. was the
     //              previous char = escape, inside a quote)
     // in_quote   - are we in a quote now (i.e. a quote character
-    //              appeared without a maching closing quote)
+    //              appeared without a matching closing quote)
     // tok        - accumulates the current token. once an unquoted
     //              delimiter or end of string is encountered, tok
     //              is added to the return vector and re-initialized

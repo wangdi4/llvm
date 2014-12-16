@@ -254,7 +254,7 @@ public:
 
     void Link(llvm::Module* pModule)
     {
-        // do NOT take the link options overwrides into account yet
+        // do NOT take the link options overrides into account yet
         SpirOptions options(pModule);
 
         m_effectiveOptions.setDebugInfoFlag( m_effectiveOptions.getDebugInfoFlag() & options.getDebugInfoFlag());

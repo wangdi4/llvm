@@ -176,7 +176,7 @@ extern "C" CC_DLL_EXPORT int GetKernelArgInfo(const void *pBin,
             // Now we have an off by one that we need to compensate for
             CACHED_ARG_INFO argInfo;
 
-            // Adress qualifier
+            // Address qualifier
             llvm::ConstantInt* pAddressQualifier = llvm::dyn_cast<llvm::ConstantInt>(pAddressQualifiers->getOperand(i));
             assert(pAddressQualifier && "pAddressQualifier is not a valid ConstantInt*");
 

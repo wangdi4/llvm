@@ -90,7 +90,7 @@ std::string EffectiveOptionsFilter::processOptions(const OpenCLArgList& args, co
                 '\\', '/');
 
 #ifdef _WIN32
-            // On Windows only, normalize the filename to lowercase, since
+            // On Windows only, normalize the file name to lower case, since
             // LLVM saves buffer names in a case-sensitive manner, while
             // other Windows tools don't.
             //
@@ -152,7 +152,7 @@ std::string EffectiveOptionsFilter::processOptions(const OpenCLArgList& args, co
             //TODO: move the validation of the value to the check section of the option processing to be reported as an unknown option
             break;
             //Just ignore the unknown options ( they will be listed in the unknown list inside the ArgsList anyway)
-            //The below assert is usable for manuall debugging only
+            //The below assert is usable for manual debugging only
             //default:
             //assert(false && "some unknown argument");
         }
