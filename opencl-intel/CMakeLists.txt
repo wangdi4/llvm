@@ -674,21 +674,17 @@ else (WIN32)
     install(FILES setup/kernel_builder_readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
 	install(FILES setup/docs/Code_builder_MSS_release_notes.pdf DESTINATION ${MISC_INSTALLER_FOLDER})
 	install(FILES setup/docs/Code_builder_MSS_user_manual.pdf DESTINATION ${MISC_INSTALLER_FOLDER})
-
-    if(BUILD_X64)
-        install(PROGRAMS setup/Android64/OpenCL_Android_Install DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-        install(PROGRAMS setup/Android64/OpenCL_Android_Uninstall DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-        install(PROGRAMS setup/Android64/Android_Setup DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-    else(BUILD_X64)
-        install(PROGRAMS setup/Android/OpenCL_Android_Install DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-        install(PROGRAMS setup/Android/OpenCL_Android_Uninstall DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-        install(PROGRAMS setup/Android/Android_Setup DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-    endif(BUILD_X64)
     install(FILES setup/LicenseAgreement_Linux.txt DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-
     install(FILES "../utils/RPM_BUILDER/intelocl64.icd" DESTINATION ${MISC_INSTALLER_FOLDER})
 
 endif (WIN32)
+
+install(PROGRAMS setup/Android64/OpenCL_Android_Install DESTINATION ${MISC_INSTALLER_FOLDER}/setup/Android64)
+install(PROGRAMS setup/Android64/OpenCL_Android_Uninstall DESTINATION ${MISC_INSTALLER_FOLDER}/setup/Android64)
+install(PROGRAMS setup/Android64/Android_Setup DESTINATION ${MISC_INSTALLER_FOLDER}/setup/Android64)
+install(PROGRAMS setup/Android/OpenCL_Android_Install DESTINATION ${MISC_INSTALLER_FOLDER}/setup/Android32)
+install(PROGRAMS setup/Android/OpenCL_Android_Uninstall DESTINATION ${MISC_INSTALLER_FOLDER}/setup/Android32)
+install(PROGRAMS setup/Android/Android_Setup DESTINATION ${MISC_INSTALLER_FOLDER}/setup/Android32)
 
 install(FILES setup/redist.txt DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
 install(FILES setup/LICENSE.txt DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
