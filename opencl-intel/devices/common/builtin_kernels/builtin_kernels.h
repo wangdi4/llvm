@@ -96,6 +96,7 @@ protected:
         size_t GetKernelExecutionLength() const {return -1;}
         bool HasPrintOperation() const {return false;}
         bool HasBarrierOperation() const {return false;}
+        bool HasDebugInfo() const {return false;}
         bool HasKernelCallOperation() const {return false;}
         bool IsNonUniformWGSizeSupported() const {return false;}
         unsigned int GetMinGroupSizeFactorial() const { return 0;}

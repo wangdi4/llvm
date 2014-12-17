@@ -514,6 +514,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     unsigned int ptrSizeInBytes = pModule->getPointerSize()*4;
     pProps->SetPointerSize(ptrSizeInBytes);
 
+    pProps->SetHasDebugInfo(buildOptions.GetDebugInfoFlag());
     pProps->SetOptWGSize(optWGSize);
     pProps->SetReqdWGSize(reqdWGSize);
     pProps->SetHintWGSize(hintWGSize);

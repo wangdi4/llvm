@@ -103,6 +103,13 @@ public:
      *  false otherwise
      */
     virtual bool HasBarrierOperation() const = 0;
+
+    /**
+     * @returns true if the specified kernel has debug info,
+     *  false otherwise
+     */
+    virtual bool HasDebugInfo() const = 0;
+
     /**
      * @returns true if the specified kernel calls other kernerls in the kernel body, 
      *  false otherwise

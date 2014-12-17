@@ -131,6 +131,12 @@ public:
     virtual bool HasBarrierOperation() const;
 
     /**
+     * @returns true if the specified kernel has debug info,
+     *  false otherwise
+     */
+    virtual bool HasDebugInfo() const;
+
+    /**
      * @returns true if the specified kernel has global synchronization
      *  in the kernel body (e.g. atomic_add to global memory),
      *  false otherwise
@@ -176,6 +182,7 @@ public:
     void SetIsNonUniformWGSizeSupported(const bool value) { m_bIsNonUniformWGSizeSupported = value; }
     void SetCanUniteWG(const bool value) { m_canUniteWG = value; }
     void SetVerctorizeOnDimention(unsigned int value) { m_verctorizeOnDimention = value; }
+    void SetHasDebugInfo(const bool value) { m_debugInfo = value; }
 
     unsigned int  GetOptWGSize()      const { return m_optWGSize; }
     const size_t* GetReqdWGSize()     const { return m_reqdWGSize; }
@@ -215,6 +222,7 @@ protected:
     bool m_bIsNonUniformWGSizeSupported;
     bool m_canUniteWG;
     unsigned int m_verctorizeOnDimention;
+    bool m_debugInfo;
 };
 
 }}}
