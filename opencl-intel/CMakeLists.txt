@@ -691,7 +691,7 @@ install(PROGRAMS setup/Android64/OpenCL_Android_Uninstall.bat DESTINATION ${MISC
 install(PROGRAMS setup/Android64/Android_Setup.bat DESTINATION ${MISC_INSTALLER_FOLDER}/setup/Android64)
 install(PROGRAMS setup/Android/OpenCL_Android_Install.bat DESTINATION ${MISC_INSTALLER_FOLDER}/setup/Android32)
 install(PROGRAMS setup/Android/OpenCL_Android_Uninstall.bat DESTINATION ${MISC_INSTALLER_FOLDER}/setup/Android32)
-install(PROGRAMS setup/Android/Android_Setup DESTINATION.bat ${MISC_INSTALLER_FOLDER}/setup/Android32)
+install(PROGRAMS setup/Android/Android_Setup.bat DESTINATION ${MISC_INSTALLER_FOLDER}/setup/Android32)
 
 install(FILES setup/redist.txt DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
 install(FILES setup/LICENSE.txt DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
