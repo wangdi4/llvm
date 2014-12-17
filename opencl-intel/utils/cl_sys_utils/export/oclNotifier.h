@@ -128,7 +128,7 @@ public:
 
 	/* Command Queue Callbacks */
 	virtual void CommandQueueCreate (cl_command_queue /* queue */)=0;
-	virtual void CommandQueueFree (cl_command_queue /* queue */)=0;
+	virtual void CommandQueueFree (cl_command_queue /* queue */, bool internalRelease)=0;
 
 	/* Event Callbacks */
 	virtual void EventCreate (cl_event event,
@@ -257,7 +257,7 @@ public:
 
 	/* Command Queue Callbacks */
 	virtual void CommandQueueCreate (cl_command_queue /* queue */);
-	virtual void CommandQueueFree (cl_command_queue /* queue */);
+	virtual void CommandQueueFree (cl_command_queue /* queue */, bool internalRelease);
 
 	/* Event Callbacks */
 	virtual void EventCreate (cl_event event,

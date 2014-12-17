@@ -136,10 +136,10 @@ void NotifierCollection::CommandQueueCreate( cl_command_queue queue )
 	CHECK_FOR_NULL(queue);
 	NOTIFY(CommandQueueCreate, queue );	
 }
-void NotifierCollection::CommandQueueFree( cl_command_queue queue )
+void NotifierCollection::CommandQueueFree(cl_command_queue queue, bool internalRelease)
 {
 	CHECK_FOR_NULL(queue);
-	NOTIFY(CommandQueueFree, queue);	
+	NOTIFY(CommandQueueFree, queue, internalRelease);
 }
 
 void NotifierCollection::EventCreate (
@@ -492,11 +492,11 @@ void NotifierCollection::profileCommand(
     }
 
     commandData->callbackEvent = callbackEvent;
-	commandData->key = (long) commandsIDs;
-	++commandsIDs;
+    commandData->key = (long) commandsIDs;
+    ++commandsIDs;
 
-	cl_int err;
-    err = clRetainCommandQueue(commandQueue);
+    cl_int err;
+    err = _clRetainCommandQueueINTERNAL(commandQueue, true);
     if (err != CL_SUCCESS)
     {
         releaseCommandData(commandData);
@@ -540,7 +540,7 @@ void NotifierCollection::releaseCommandData(CommandData* data)
     }
     if (NULL != data->queue)
     {
-        _clReleaseCommandQueueINTERNAL(data->queue);
+        _clReleaseCommandQueueINTERNAL(data->queue, true);
     }
     list<OclRetainer*>::iterator it = data->retainers.begin();
     for ( ; it != data->retainers.end(); ++it)
