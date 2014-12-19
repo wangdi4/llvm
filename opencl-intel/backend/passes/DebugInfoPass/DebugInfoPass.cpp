@@ -361,7 +361,8 @@ void DebugInfoPass::addDebugCallsToFunction(Function* pFunc, const FunctionConte
              instr_iter != block_iter->end(); ++instr_iter) {
             // To insert stoppoints:
             // - Find the current C line for this instruction
-            // - If the line was found and it's different from the previous
+            // - If the line was found and it's greater ( greater because we don't want
+            //   to stop on declaration of variable imported by block scope) than the previous
             //   saved C line, insert a stoppoint.
             //
             unsigned cur_c_lineno = getCLinenoFromDbgMetadata(instr_iter);
@@ -370,9 +371,10 @@ void DebugInfoPass::addDebugCallsToFunction(Function* pFunc, const FunctionConte
                 // declarations in the beginning of a function, including
                 // declarations of function arguments.
                 //
-                if (cur_c_lineno != prev_c_lineno)
+                if (cur_c_lineno > prev_c_lineno){
                     insertDbgStoppointCall(instr_iter, fContext);
-                prev_c_lineno = cur_c_lineno;
+                    prev_c_lineno = cur_c_lineno;
+                }
             }
 
             // Now handle specific instructions. We're interested in:
