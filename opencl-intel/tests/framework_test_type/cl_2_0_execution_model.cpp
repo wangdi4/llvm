@@ -57,6 +57,7 @@ static const char* sProgSrc[] = {
     "}"
     "static void waste_time()"
     "{"
+    "    printf(\"child begins execution\\n\");"
 	  "  for (int i = 0; i < 1000000; i++)"
 		"    do_nothing();"
     "}"
@@ -66,76 +67,80 @@ static const char* sProgSrc[] = {
     "    clk_event_t child;"
     "    queue_t queue = get_default_queue();"
     "    enqueue_kernel(queue, CLK_ENQUEUE_FLAGS_WAIT_KERNEL, ndrange, 0, NULL, &child, ^{ waste_time(); });"
+    "    printf(\"parent ends execution\\n\");"
     "}"
 };
 
 static void CL_CALLBACK NativeKernel(void* data) { }
 
-static bool TestProfilingCommandComplete(cl_context context, cl_device_id dev)
+static void TestProfilingCommandComplete(cl_context context, cl_device_id dev)
 {
-    try
+    cl_int iRet = CL_SUCCESS;
+    const size_t szLen = strlen(sProgSrc[0]);
+    cl_program prog = clCreateProgramWithSource(context, 1, sProgSrc, &szLen, &iRet);
+    CheckException(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+    iRet = clBuildProgram(prog, 1, &dev, "-cl-std=CL2.0", NULL, NULL);
+    if (iRet != CL_SUCCESS)
     {
-        cl_int iRet = CL_SUCCESS;
-        const size_t szLen = strlen(sProgSrc[0]);
-        cl_program prog = clCreateProgramWithSource(context, 1, sProgSrc, &szLen, &iRet);
-        CheckException(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
-        iRet = clBuildProgram(prog, 1, &dev, "-cl-std=CL2.0", NULL, NULL);
-        CheckException(L"clBuildProgram", CL_SUCCESS, iRet);
+        size_t szParamValSize;
+        cl_int iRet = clGetProgramBuildInfo(prog, dev, CL_PROGRAM_BUILD_LOG, 0, NULL, &szParamValSize);
+        CheckException(L"clGetProgramBuildInfo", CL_SUCCESS, iRet);
+        std::vector<char> paramVal(szParamValSize);
+        iRet = clGetProgramBuildInfo(prog, dev, CL_PROGRAM_BUILD_LOG, szParamValSize, &paramVal[0], NULL);
+        CheckException(L"clGetProgramBuildInfo", CL_SUCCESS, iRet);
+        cout << "Program build failed:" << endl;
+        cout << &paramVal[0] << endl;
+    }
+    CheckException(L"clBuildProgram", CL_SUCCESS, iRet);
         
-        cl_kernel kernel = clCreateKernel(prog, "parent", &iRet);
-        CheckException(L"clCreateKernel", CL_SUCCESS, iRet);
+    cl_kernel kernel = clCreateKernel(prog, "parent", &iRet);
+    CheckException(L"clCreateKernel", CL_SUCCESS, iRet);
 
-        const cl_queue_properties queueProps[] = { CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE, 0 };
-        cl_command_queue queue = clCreateCommandQueueWithProperties(context, dev, queueProps, &iRet);
-        CheckException(L"clCreateCommandQueueWithProperties", CL_SUCCESS, iRet);
+    const cl_queue_properties queueProps[] = { CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE, 0 };
+    cl_command_queue queue = clCreateCommandQueueWithProperties(context, dev, queueProps, &iRet);
+    CheckException(L"clCreateCommandQueueWithProperties", CL_SUCCESS, iRet);
                 
-        cl_event userEvent = clCreateUserEvent(context, &iRet);
-        CheckException(L"clCreateUserEvent", CL_SUCCESS, iRet);
+    cl_event userEvent = clCreateUserEvent(context, &iRet);
+    CheckException(L"clCreateUserEvent", CL_SUCCESS, iRet);
 
-        cl_event kernelEvent;
-        const size_t szGlobalWorkOffset = 0, szGlobalWorkSize = 1;
-        iRet = clEnqueueNDRangeKernel(queue, kernel, 1, &szGlobalWorkOffset, &szGlobalWorkSize, NULL, 1, &userEvent, &kernelEvent);
-        CheckException(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
+    cl_event kernelEvent;
+    const size_t szGlobalWorkOffset = 0, szGlobalWorkSize = 1;
+    iRet = clEnqueueNDRangeKernel(queue, kernel, 1, &szGlobalWorkOffset, &szGlobalWorkSize, NULL, 1, &userEvent, &kernelEvent);
+    CheckException(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
 
-        cl_ulong ulCmdEnd, ulCmdComplete;
-        iRet = clGetEventProfilingInfo(kernelEvent, CL_PROFILING_COMMAND_COMPLETE, sizeof(ulCmdComplete), &ulCmdComplete, NULL);
-        CheckException(L"clGetEventProfilingInfo", CL_PROFILING_INFO_NOT_AVAILABLE, iRet);
+    cl_ulong ulCmdEnd, ulCmdComplete;
+    iRet = clGetEventProfilingInfo(kernelEvent, CL_PROFILING_COMMAND_COMPLETE, sizeof(ulCmdComplete), &ulCmdComplete, NULL);
+    CheckException(L"clGetEventProfilingInfo", CL_PROFILING_INFO_NOT_AVAILABLE, iRet);
 
-        iRet = clSetUserEventStatus(userEvent, CL_COMPLETE);
-        CheckException(L"clSetUserEventStatus", CL_SUCCESS, iRet);
+    iRet = clSetUserEventStatus(userEvent, CL_COMPLETE);
+    CheckException(L"clSetUserEventStatus", CL_SUCCESS, iRet);
 
-        cl_event nativeKernelEvent;
-        iRet = clEnqueueNativeKernel(queue, NativeKernel, NULL, 0, 0, NULL, NULL, 0, NULL, &nativeKernelEvent);
+    cl_event nativeKernelEvent;
+    iRet = clEnqueueNativeKernel(queue, NativeKernel, NULL, 0, 0, NULL, NULL, 0, NULL, &nativeKernelEvent);
 
-        iRet = clFinish(queue);
-        CheckException(L"clFinish", CL_SUCCESS, iRet);
+    iRet = clFinish(queue);
+    CheckException(L"clFinish", CL_SUCCESS, iRet);
         
-        // check profiling of kernelEvent
-        iRet = clGetEventProfilingInfo(kernelEvent, CL_PROFILING_COMMAND_END, sizeof(ulCmdEnd), &ulCmdEnd, NULL);
-        CheckException(L"CL_PROFILING_COMMAND_END", CL_SUCCESS, iRet);
-        iRet = clGetEventProfilingInfo(kernelEvent, CL_PROFILING_COMMAND_COMPLETE, sizeof(ulCmdComplete), &ulCmdComplete, NULL);
-        CheckException(L"CL_PROFILING_COMMAND_COMPLETE", CL_SUCCESS, iRet);
-        CheckException(L"complete time should be after end time", ulCmdEnd < ulCmdComplete, true);
+    // check profiling of kernelEvent
+    iRet = clGetEventProfilingInfo(kernelEvent, CL_PROFILING_COMMAND_END, sizeof(ulCmdEnd), &ulCmdEnd, NULL);
+    CheckException(L"CL_PROFILING_COMMAND_END", CL_SUCCESS, iRet);
+    iRet = clGetEventProfilingInfo(kernelEvent, CL_PROFILING_COMMAND_COMPLETE, sizeof(ulCmdComplete), &ulCmdComplete, NULL);
+    CheckException(L"CL_PROFILING_COMMAND_COMPLETE", CL_SUCCESS, iRet);
+    CheckException(L"complete time should be after end time", ulCmdEnd < ulCmdComplete, true);
 
-        // check profiling of nativeKernelEvent
-        iRet = clGetEventProfilingInfo(nativeKernelEvent, CL_PROFILING_COMMAND_END, sizeof(ulCmdEnd), &ulCmdEnd, NULL);
-        CheckException(L"CL_PROFILING_COMMAND_END", CL_SUCCESS, iRet);
-        iRet = clGetEventProfilingInfo(nativeKernelEvent, CL_PROFILING_COMMAND_COMPLETE, sizeof(ulCmdComplete), &ulCmdComplete, NULL);
-        CheckException(L"CL_PROFILING_COMMAND_COMPLETE", CL_SUCCESS, iRet);
-        CheckException(L"complete time should equal end time", ulCmdEnd == ulCmdComplete, true);
+    // check profiling of nativeKernelEvent
+    iRet = clGetEventProfilingInfo(nativeKernelEvent, CL_PROFILING_COMMAND_END, sizeof(ulCmdEnd), &ulCmdEnd, NULL);
+    CheckException(L"CL_PROFILING_COMMAND_END", CL_SUCCESS, iRet);
+    iRet = clGetEventProfilingInfo(nativeKernelEvent, CL_PROFILING_COMMAND_COMPLETE, sizeof(ulCmdComplete), &ulCmdComplete, NULL);
+    CheckException(L"CL_PROFILING_COMMAND_COMPLETE", CL_SUCCESS, iRet);
+    CheckException(L"complete time should equal end time", ulCmdEnd == ulCmdComplete, true);
 
-        clReleaseEvent(userEvent);
-        clReleaseEvent(kernelEvent);
-        clReleaseEvent(nativeKernelEvent);
-        clReleaseCommandQueue(queue);
-        clReleaseKernel(kernel);
-        clReleaseProgram(prog);
-    }
-    catch (const exception&)
-    {
-        return false;
-    }
-    return true;    
+    clReleaseEvent(userEvent);
+    clReleaseEvent(kernelEvent);
+    clReleaseEvent(nativeKernelEvent);
+    clReleaseCommandQueue(queue);
+    clReleaseKernel(kernel);
+    clReleaseProgram(prog);
 }
 
 bool cl20ExecutionModel()
@@ -155,12 +160,25 @@ bool cl20ExecutionModel()
 	{
 		// create context
 		iRet = clGetPlatformIDs(1, &platform, NULL);
-        CheckException(L"clGetPlatformIDs", CL_SUCCESS, iRet);        
-        iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
-        CheckException(L"clGetDeviceIDs", CL_SUCCESS, iRet);        
-        const cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };    
-        context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);    
-        CheckException(L"clCreateContextFromType", CL_SUCCESS, iRet);    
+    CheckException(L"clGetPlatformIDs", CL_SUCCESS, iRet);        
+    iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
+    CheckException(L"clGetDeviceIDs", CL_SUCCESS, iRet);        
+    // check that device supports OpenCL 2.0
+    size_t szParamValSize;
+    iRet = clGetDeviceInfo(device, CL_DEVICE_VERSION, NULL, NULL, &szParamValSize);
+    CheckException(L"clGetDeviceInfo", CL_SUCCESS, iRet);
+    vector<char> devVersion(szParamValSize);
+    iRet = clGetDeviceInfo(device, CL_DEVICE_VERSION, szParamValSize, &devVersion[0], NULL);
+    CheckException(L"clGetDeviceInfo", CL_SUCCESS, iRet);    
+    if (string(&devVersion[0]).find("OpenCL 2.0") == string::npos)
+    {
+        cout << "device doesn't support OpenCL 2.0 - skip this sub-test" << endl;
+        return true;
+    }
+
+    const cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };    
+    context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);    
+    CheckException(L"clCreateContextFromType", CL_SUCCESS, iRet);    
 
 		// do the real testing		
 

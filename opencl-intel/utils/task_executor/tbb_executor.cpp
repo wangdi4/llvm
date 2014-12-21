@@ -279,7 +279,7 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger, unsigned int uiNumOf
     }
     m_pScheduler->initialize(gWorker_threads);
     m_threadManager.Init(gWorker_threads + SPARE_STATIC_DATA); // + SPARE to allow temporary oversubscription in flat mode and additional root devices
-
+    
     LOG_INFO(TEXT("TBBTaskExecutor constructed to %d threads"), gWorker_threads);
     return gWorker_threads;
 }
@@ -292,7 +292,7 @@ void TBBTaskExecutor::Finalize()
         m_pScheduler = NULL;
     }
 
-    gWorker_threads = 0;
+    gWorker_threads = 0;    
     LOG_INFO(TEXT("%s"),"TBBTaskExecutor Destroyed");
     RELEASE_LOGGER_CLIENT;
 }
@@ -349,7 +349,20 @@ TBBTaskExecutor::CreateRootDevice( const RootDeviceCreationParam& device_desc, v
     {
         LOG_INFO(TEXT("Root device created with %d threads"), overall_threads);
     }
+    const CommandListCreationParam param(TE_CMD_LIST_IN_ORDER);
+    m_pDebugInOrderDeviceQueue = in_order_command_list::Allocate(*this, root, param);
     return root;
+}
+
+void TBBTaskExecutor::CreateDebugDeviceQueue(const SharedPtr<ITEDevice>& rootDevice)
+{
+    const CommandListCreationParam param(TE_CMD_LIST_IN_ORDER);
+    m_pDebugInOrderDeviceQueue = in_order_command_list::Allocate(*this, rootDevice.StaticCast<TEDevice>(), param);
+}
+
+void TBBTaskExecutor::DestroyDebugDeviceQueue()
+{
+    m_pDebugInOrderDeviceQueue = NULL;
 }
 
 unsigned int TBBTaskExecutor::GetMaxNumOfConcurrentThreads() const

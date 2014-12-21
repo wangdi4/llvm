@@ -143,15 +143,23 @@ int KernelCommand::EnqueueKernel(queue_t queue, kernel_enqueue_flags_t flags, cl
         }
       }
     }
-
+    // debug mode: make sure all child kernels start after the parent ends its execution and then run in-order    
+    const bool bIsDebugMode = pKernel->GetKernelProporties()->HasDebugInfo();
+    if (bIsDebugMode)
+    {
+        // indeed BE is supposed to force this flag, but we force it ourselves just to make sure
+        flags = CLK_ENQUEUE_FLAGS_WAIT_KERNEL;
+    }
+    ITaskList* const pDebugList = pList->GetDebugInOrderDeviceQueue();
+    assert(pDebugList != NULL);
     SharedPtr<KernelCommand> pChild;
 #if __USE_TBB_ALLOCATOR__
         DeviceNDRange* const pChildAddress = m_deviceNDRangeAllocator.allocate(sizeof(DeviceNDRange));    // currently we ignore bad_alloc
         pChild = ::new(pChildAddress) DeviceNDRange(m_pTaskDispatcher, pList, pParent, pKernel, pContext, szContextSize, pNdrange, m_deviceNDRangeAllocator, m_deviceNDRangeContextAllocator);
 #else
-        pChild = AllocateChildCommand(pList, pKernel, pBlockLiteral, stBlockSize, pLocalSizes, stLocalSizeCount, pNDRange);
+        pChild = AllocateChildCommand(bIsDebugMode ? pDebugList : pList, pKernel, pBlockLiteral, stBlockSize, pLocalSizes, stLocalSizeCount, pNDRange);
 #endif
-    const bool bAllEventsCompleted = pChild->AddWaitListDependencies(pEventWaitList, uiNumEventsInWaitList);
+    const bool bAllEventsCompleted = pChild->AddWaitListDependencies(pEventWaitList, uiNumEventsInWaitList);    
 
     // if no need to wait, enqueue and flush
     if (CLK_ENQUEUE_FLAGS_NO_WAIT == flags )

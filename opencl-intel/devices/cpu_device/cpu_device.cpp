@@ -293,7 +293,12 @@ cl_dev_err_code CPUDevice::Init()
         return CL_DEV_OUT_OF_MEMORY;
     }
 
-    return m_pTaskDispatcher->init();
+    ret = m_pTaskDispatcher->init();
+    if (CL_DEV_SUCCESS != ret)
+    {
+        return CL_DEV_ERROR_FAIL;
+    }
+    return CL_DEV_SUCCESS;
 }
 
 cl_dev_err_code CPUDevice::QueryHWInfo()

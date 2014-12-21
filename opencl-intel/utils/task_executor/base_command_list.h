@@ -285,6 +285,8 @@ public:
 
     virtual SharedPtr<IThreadLibTaskGroup> GetNDRangeChildrenTaskGroup() { return TbbTaskGroup::Allocate(); }
 
+    virtual ITaskList* GetDebugInOrderDeviceQueue();
+
 private:
     virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = NULL);
 

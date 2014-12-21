@@ -248,6 +248,7 @@ TaskDispatcher::~TaskDispatcher()
     {
         m_pLogDescriptor->clLogReleaseClient(m_iLogHandle);
     }
+    m_pTaskExecutor->DestroyDebugDeviceQueue();
 }
 
 cl_dev_err_code TaskDispatcher::init()
@@ -284,6 +285,9 @@ cl_dev_err_code TaskDispatcher::init()
     }
     m_pOMPExecutionThread->Start();
 #endif
+
+    m_pTaskExecutor->CreateDebugDeviceQueue(m_pRootDevice);
+
     bool bInitTasksRequired = isDestributedAllocationRequired() || isThreadAffinityRequired();
 
     if (!bInitTasksRequired)
@@ -310,7 +314,7 @@ cl_dev_err_code TaskDispatcher::init()
     pTaskList->Enqueue(pAffinitizeThreads);
     pTaskList->Flush();
     pTaskList->WaitForCompletion(NULL);
- //  pAffinitizeThreads->WaitForEndOfTask();
+ //  pAffinitizeThreads->WaitForEndOfTask();   
 
     return CL_DEV_SUCCESS;
 }

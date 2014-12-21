@@ -85,6 +85,12 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
         virtual SharedPtr<IThreadLibTaskGroup> CreateTaskGroup(const SharedPtr<ITEDevice>& device);
 
+        ITaskList* GetDebugInOrderDeviceQueue() { return m_pDebugInOrderDeviceQueue.GetPtr(); }
+
+        virtual void CreateDebugDeviceQueue(const SharedPtr<ITEDevice>& rootDevice);
+
+        virtual void DestroyDebugDeviceQueue();
+
     protected:
         // Load TBB library explicitly
         bool LoadTBBLibrary();
@@ -96,6 +102,8 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
            in a certain master thread, TBB creates a global task_scheduler_init object that future created task_arenas will use. Once they fix this bug, we can remove this attribute.
            They seem to have another bug in ~task_scheduler_init(), so we work around it by allocating and not deleting it. */
         tbb::task_scheduler_init*           m_pScheduler;
+
+        SharedPtr<ITaskList>                m_pDebugInOrderDeviceQueue;
 
         // Logger
         DECLARE_LOGGER_CLIENT;
