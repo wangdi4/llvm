@@ -9,13 +9,11 @@
 
 #include "Pass.h"
 #include "EdataPass.h"
-
 #include "lld/Core/File.h"
 #include "lld/Core/Pass.h"
 #include "lld/Core/Simple.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Path.h"
-
 #include <climits>
 #include <ctime>
 #include <utility>
@@ -28,20 +26,54 @@ using llvm::object::export_directory_table_entry;
 namespace lld {
 namespace pecoff {
 
+typedef PECOFFLinkingContext::ExportDesc ExportDesc;
+
+// dedupExports removes duplicate export entries. If two exports are
+// referring the same symbol, they are considered duplicates.
+// This could happen if the same symbol name is specified as an argument
+// to /export more than once, or an unmangled and mangled name of the
+// same symbol are given to /export. In the latter case, we choose
+// unmangled (shorter) name.
+static void dedupExports(PECOFFLinkingContext &ctx) {
+  std::vector<ExportDesc> &exports = ctx.getDllExports();
+  // Pass 1: find duplicate entries
+  std::set<const ExportDesc *> dup;
+  std::map<StringRef, ExportDesc *> map;
+  for (ExportDesc &exp : exports) {
+    if (!exp.externalName.empty())
+      continue;
+    StringRef symbol = exp.getRealName();
+    auto it = map.find(symbol);
+    if (it == map.end()) {
+      map[symbol] = &exp;
+    } else if (symbol.size() < it->second->getRealName().size()) {
+      map[symbol] = &exp;
+      dup.insert(it->second);
+    } else {
+      dup.insert(&exp);
+    }
+  }
+  // Pass 2: remove duplicate entries
+  auto pred = [&](const ExportDesc &exp) {
+    return dup.count(&exp) == 1;
+  };
+  exports.erase(std::remove_if(exports.begin(), exports.end(), pred),
+                exports.end());
+}
+
 static void assignOrdinals(PECOFFLinkingContext &ctx) {
-  std::vector<PECOFFLinkingContext::ExportDesc> &exports = ctx.getDllExports();
+  std::vector<ExportDesc> &exports = ctx.getDllExports();
   int maxOrdinal = -1;
-  for (PECOFFLinkingContext::ExportDesc &desc : exports)
+  for (ExportDesc &desc : exports)
     maxOrdinal = std::max(maxOrdinal, desc.ordinal);
 
   std::sort(exports.begin(), exports.end(),
-            [](const PECOFFLinkingContext::ExportDesc &a,
-               const PECOFFLinkingContext::ExportDesc &b) {
-    return a.name.compare(b.name) < 0;
+            [](const ExportDesc &a, const ExportDesc &b) {
+    return a.getExternalName().compare(b.getExternalName()) < 0;
   });
 
   int nextOrdinal = (maxOrdinal == -1) ? 1 : (maxOrdinal + 1);
-  for (PECOFFLinkingContext::ExportDesc &desc : exports)
+  for (ExportDesc &desc : exports)
     if (desc.ordinal == -1)
       desc.ordinal = nextOrdinal++;
 }
@@ -53,7 +85,7 @@ static bool getExportedAtoms(PECOFFLinkingContext &ctx, MutableFile *file,
     definedAtoms[atom->name()] = atom;
 
   for (PECOFFLinkingContext::ExportDesc &desc : ctx.getDllExports()) {
-    auto it = definedAtoms.find(desc.name);
+    auto it = definedAtoms.find(desc.getRealName());
     if (it == definedAtoms.end()) {
       llvm::errs() << "Symbol <" << desc.name
                    << "> is exported but not defined.\n";
@@ -64,12 +96,14 @@ static bool getExportedAtoms(PECOFFLinkingContext &ctx, MutableFile *file,
     // One can export a symbol with a different name than the symbol
     // name used in DLL. If such name is specified, use it in the
     // .edata section.
-    ret.push_back(TableEntry(desc.externalName, desc.ordinal, atom, desc.noname));
+    ret.push_back(TableEntry(ctx.undecorateSymbol(desc.getExternalName()),
+                             desc.ordinal, atom, desc.noname));
   }
   std::sort(ret.begin(), ret.end(),
             [](const TableEntry &a, const TableEntry &b) {
     return a.exportName.compare(b.exportName) < 0;
   });
+
   return true;
 }
 
@@ -93,7 +127,7 @@ EdataPass::createAddressTable(const std::vector<TableEntry> &entries,
   for (const TableEntry &e : entries) {
     int index = e.ordinal - ordinalBase;
     size_t offset = index * sizeof(export_address_table_entry);
-    addDir32NBReloc(addressTable, e.atom, _is64, offset);
+    addDir32NBReloc(addressTable, e.atom, _ctx.getMachineType(), offset);
   }
   return addressTable;
 }
@@ -108,9 +142,9 @@ EdataPass::createNamePointerTable(const PECOFFLinkingContext &ctx,
   size_t offset = 0;
   for (const TableEntry &e : entries) {
     auto *stringAtom = new (_alloc) COFFStringAtom(
-        _file, _stringOrdinal++, ".edata", ctx.undecorateSymbol(e.exportName));
+        _file, _stringOrdinal++, ".edata", e.exportName);
     file->addAtom(*stringAtom);
-    addDir32NBReloc(table, stringAtom, _is64, offset);
+    addDir32NBReloc(table, stringAtom, _ctx.getMachineType(), offset);
     offset += sizeof(uint32_t);
   }
   return table;
@@ -142,6 +176,7 @@ EdataPass::createOrdinalTable(const std::vector<TableEntry> &entries,
 }
 
 void EdataPass::perform(std::unique_ptr<MutableFile> &file) {
+  dedupExports(_ctx);
   assignOrdinals(_ctx);
 
   std::vector<TableEntry> entries;
@@ -166,25 +201,25 @@ void EdataPass::perform(std::unique_ptr<MutableFile> &file) {
       new (_alloc) COFFStringAtom(_file, _stringOrdinal++, ".edata",
                                   llvm::sys::path::filename(_ctx.outputPath()));
   file->addAtom(*dllName);
-  addDir32NBReloc(table, dllName, _is64,
+  addDir32NBReloc(table, dllName, _ctx.getMachineType(),
                   offsetof(export_directory_table_entry, NameRVA));
 
   EdataAtom *addressTable =
       createAddressTable(entries, ordinalBase, maxOrdinal);
   file->addAtom(*addressTable);
   addDir32NBReloc(
-      table, addressTable, _is64,
+      table, addressTable, _ctx.getMachineType(),
       offsetof(export_directory_table_entry, ExportAddressTableRVA));
 
   EdataAtom *namePointerTable =
       createNamePointerTable(_ctx, namedEntries, file.get());
   file->addAtom(*namePointerTable);
-  addDir32NBReloc(table, namePointerTable, _is64,
+  addDir32NBReloc(table, namePointerTable, _ctx.getMachineType(),
                   offsetof(export_directory_table_entry, NamePointerRVA));
 
   EdataAtom *ordinalTable = createOrdinalTable(namedEntries, ordinalBase);
   file->addAtom(*ordinalTable);
-  addDir32NBReloc(table, ordinalTable, _is64,
+  addDir32NBReloc(table, ordinalTable, _ctx.getMachineType(),
                   offsetof(export_directory_table_entry, OrdinalTableRVA));
 }
 

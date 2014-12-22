@@ -17,12 +17,12 @@
 #include "lld/Driver/WinLinkInputGraph.h"
 #include "lld/Driver/WinLinkModuleDef.h"
 #include "lld/ReaderWriter/PECOFFLinkingContext.h"
-
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/Object/COFF.h"
 #include "llvm/Option/Arg.h"
 #include "llvm/Option/Option.h"
 #include "llvm/Support/CommandLine.h"
@@ -31,7 +31,6 @@
 #include "llvm/Support/Process.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/raw_ostream.h"
-
 #include <algorithm>
 #include <cctype>
 #include <map>
@@ -283,6 +282,29 @@ static bool parseManifest(StringRef option, bool &enable, bool &embed,
   return true;
 }
 
+static bool isLibraryFile(StringRef path) {
+  return path.endswith_lower(".lib") || path.endswith_lower(".imp");
+}
+
+static StringRef getObjectPath(PECOFFLinkingContext &ctx, StringRef path) {
+  std::string result;
+  if (isLibraryFile(path)) {
+    result = ctx.searchLibraryFile(path);
+  } else if (llvm::sys::path::extension(path).empty()) {
+    result = path.str() + ".obj";
+  } else {
+    result = path;
+  }
+  return ctx.allocate(result);
+}
+
+static StringRef getLibraryPath(PECOFFLinkingContext &ctx, StringRef path) {
+  std::string result = isLibraryFile(path)
+      ? ctx.searchLibraryFile(path)
+      : ctx.searchLibraryFile(path.str() + ".lib");
+  return ctx.allocate(result);
+}
+
 // Returns true if the given file is a Windows resource file.
 static bool isResoruceFile(StringRef path) {
   llvm::sys::fs::file_magic fileType;
@@ -307,11 +329,12 @@ static bool convertResourceFiles(PECOFFLinkingContext &ctx,
 
   // Construct CVTRES.EXE command line and execute it.
   std::string program = "cvtres.exe";
-  std::string programPath = llvm::sys::FindProgramByName(program);
-  if (programPath.empty()) {
+  ErrorOr<std::string> programPathOrErr = llvm::sys::findProgramByName(program);
+  if (!programPathOrErr) {
     llvm::errs() << "Unable to find " << program << " in PATH\n";
     return false;
   }
+  const std::string &programPath = *programPathOrErr;
 
   std::vector<const char *> args;
   args.push_back(programPath.c_str());
@@ -361,6 +384,25 @@ static bool parseManifestUAC(StringRef option,
   }
 }
 
+// Returns the machine type (e.g. x86) of the given input file.
+// If the file is not COFF, returns false.
+static bool getMachineType(StringRef path, llvm::COFF::MachineTypes &result) {
+  llvm::sys::fs::file_magic fileType;
+  if (llvm::sys::fs::identify_magic(path, fileType))
+    return false;
+  if (fileType != llvm::sys::fs::file_magic::coff_object)
+    return false;
+  ErrorOr<std::unique_ptr<MemoryBuffer>> buf = MemoryBuffer::getFile(path);
+  if (!buf)
+    return false;
+  std::error_code ec;
+  llvm::object::COFFObjectFile obj(buf.get()->getMemBufferRef(), ec);
+  if (ec)
+    return false;
+  result = static_cast<llvm::COFF::MachineTypes>(obj.getMachine());
+  return true;
+}
+
 // Parse /export:entryname[=internalname][,@ordinal[,NONAME]][,DATA][,PRIVATE].
 //
 // MSDN doesn't say anything about /export:foo=bar style option or PRIVATE
@@ -374,7 +416,6 @@ static bool parseExport(StringRef option,
     return false;
   if (name.find('=') == StringRef::npos) {
     ret.name = name;
-    ret.externalName = name;
   } else {
     std::tie(ret.externalName, ret.name) = name.split("=");
     if (ret.name.empty())
@@ -545,11 +586,12 @@ static bool createManifestResourceFile(PECOFFLinkingContext &ctx,
 
   // Run RC.EXE /fo tmp.res tmp.rc
   std::string program = "rc.exe";
-  std::string programPath = llvm::sys::FindProgramByName(program);
-  if (programPath.empty()) {
+  ErrorOr<std::string> programPathOrErr = llvm::sys::findProgramByName(program);
+  if (!programPathOrErr) {
     diag << "Unable to find " << program << " in PATH\n";
     return false;
   }
+  const std::string &programPath = *programPathOrErr;
   std::vector<const char *> args;
   args.push_back(programPath.c_str());
   args.push_back("/fo");
@@ -762,7 +804,7 @@ static bool hasLibrary(const PECOFFLinkingContext &ctx, FileNode *fileNode) {
   ErrorOr<StringRef> path = fileNode->getPath(ctx);
   if (!path)
     return false;
-  for (std::unique_ptr<InputElement> &p : ctx.getLibraryGroup()->elements())
+  for (std::unique_ptr<InputElement> &p : ctx.getInputGraph().inputElements())
     if (auto *f = dyn_cast<FileNode>(p.get()))
       if (*path == *f->getPath(ctx))
         return true;
@@ -777,11 +819,12 @@ static bool maybeRunLibCommand(int argc, const char **argv, raw_ostream &diag) {
     return false;
   if (!StringRef(argv[1]).equals_lower("/lib"))
     return false;
-  std::string path = llvm::sys::FindProgramByName("lib.exe");
-  if (path.empty()) {
+  ErrorOr<std::string> pathOrErr = llvm::sys::findProgramByName("lib.exe");
+  if (!pathOrErr) {
     diag << "Unable to find lib.exe in PATH\n";
     return true;
   }
+  const std::string &path = *pathOrErr;
 
   // Run lib.exe
   std::vector<const char *> vec;
@@ -854,9 +897,6 @@ bool WinLinkDriver::parse(int argc, const char *argv[],
   // Handle /machine before parsing all the other options, as the target machine
   // type affects how to handle other options. For example, x86 needs the
   // leading underscore to mangle symbols, while x64 doesn't need it.
-  //
-  // TODO: If /machine option is missing, we probably should take a look at
-  // the magic byte of the first object file to set machine type.
   if (llvm::opt::Arg *inputArg = parsedArgs->getLastArg(OPT_machine)) {
     StringRef arg = inputArg->getValue();
     llvm::COFF::MachineTypes type = stringToMachineType(arg);
@@ -865,6 +905,25 @@ bool WinLinkDriver::parse(int argc, const char *argv[],
       return false;
     }
     ctx.setMachineType(type);
+  } else {
+    // If /machine option is missing, we need to take a look at
+    // the magic byte of the first object file to infer machine type.
+    std::vector<StringRef> filePaths;
+    for (auto arg : *parsedArgs)
+      if (arg->getOption().getID() == OPT_INPUT)
+        filePaths.push_back(arg->getValue());
+    if (llvm::opt::Arg *arg = parsedArgs->getLastArg(OPT_DASH_DASH))
+      filePaths.insert(filePaths.end(), arg->getValues().begin(),
+                   arg->getValues().end());
+    for (StringRef path : filePaths) {
+      llvm::COFF::MachineTypes type;
+      if (!getMachineType(path, type))
+        continue;
+      if (type == llvm::COFF::IMAGE_FILE_MACHINE_UNKNOWN)
+        continue;
+      ctx.setMachineType(type);
+      break;
+    }
   }
 
   // Handle /nodefaultlib:<lib>. The same option without argument is handled in
@@ -1141,8 +1200,10 @@ bool WinLinkDriver::parse(int argc, const char *argv[],
 
     case OPT_debug:
       // LLD is not yet capable of creating a PDB file, so /debug does not have
-      // any effect, other than disabling dead stripping.
-      ctx.setDeadStripping(false);
+      // any effect.
+      // TODO: This should disable dead stripping. Currently we can't do that
+      // because removal of associative sections depends on dead stripping.
+      ctx.setDebug(true);
       break;
 
     case OPT_verbose:
@@ -1189,6 +1250,11 @@ bool WinLinkDriver::parse(int argc, const char *argv[],
       ctx.setOutputImportLibraryPath(inputArg->getValue());
       break;
 
+    case OPT_delayload:
+      ctx.addInitialUndefinedSymbol(ctx.getDelayLoadHelperName());
+      ctx.addDelayLoadDLL(inputArg->getValue());
+      break;
+
     case OPT_stub: {
       ArrayRef<uint8_t> contents;
       if (!readFile(ctx, inputArg->getValue(), contents)) {
@@ -1223,6 +1289,10 @@ bool WinLinkDriver::parse(int argc, const char *argv[],
 
     case OPT_INPUT:
       inputFiles.push_back(ctx.allocate(inputArg->getValue()));
+      break;
+
+    case OPT_pdb:
+      ctx.setPDBFilePath(inputArg->getValue());
       break;
 
     case OPT_lldmoduledeffile:
@@ -1292,10 +1362,12 @@ bool WinLinkDriver::parse(int argc, const char *argv[],
   // Prepare objects to add them to input graph.
   for (StringRef path : inputFiles) {
     path = ctx.allocate(path);
-    if (isCOFFLibraryFileExtension(path)) {
-      libraries.push_back(std::unique_ptr<FileNode>(new PECOFFLibraryNode(ctx, path)));
+    if (isLibraryFile(path)) {
+      libraries.push_back(std::unique_ptr<FileNode>(
+          new PECOFFFileNode(ctx, getLibraryPath(ctx, path))));
     } else {
-      files.push_back(std::unique_ptr<FileNode>(new PECOFFFileNode(ctx, path)));
+      files.push_back(std::unique_ptr<FileNode>(
+          new PECOFFFileNode(ctx, getObjectPath(ctx, path))));
     }
   }
 
@@ -1318,7 +1390,7 @@ bool WinLinkDriver::parse(int argc, const char *argv[],
     for (const StringRef path : defaultLibs)
       if (!ctx.hasNoDefaultLib(path))
         libraries.push_back(std::unique_ptr<FileNode>(
-                              new PECOFFLibraryNode(ctx, ctx.allocate(path.lower()))));
+            new PECOFFFileNode(ctx, getLibraryPath(ctx, path.lower()))));
 
   if (files.empty() && !isReadingDirectiveSection) {
     diag << "No input files\n";
@@ -1350,10 +1422,8 @@ bool WinLinkDriver::parse(int argc, const char *argv[],
     ctx.setEntryNode(entry.get());
     ctx.getInputGraph().addInputElement(std::move(entry));
 
-    // The container for all library files.
-    std::unique_ptr<Group> group(new PECOFFGroup(ctx));
-    ctx.setLibraryGroup(group.get());
-    ctx.getInputGraph().addInputElement(std::move(group));
+    // Add a group-end marker.
+    ctx.getInputGraph().addInputElement(llvm::make_unique<GroupEnd>(0));
   }
 
   // Add the library files to the library group.
@@ -1362,7 +1432,7 @@ bool WinLinkDriver::parse(int argc, const char *argv[],
       if (isReadingDirectiveSection)
         if (lib->parse(ctx, diag))
           return false;
-      ctx.getLibraryGroup()->addFile(std::move(lib));
+      ctx.addLibraryFile(std::move(lib));
     }
   }
 

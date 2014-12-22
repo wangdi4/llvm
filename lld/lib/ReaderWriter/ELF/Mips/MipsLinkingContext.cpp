@@ -20,8 +20,10 @@ MipsLinkingContext::MipsLinkingContext(llvm::Triple triple)
     : ELFLinkingContext(triple, std::unique_ptr<TargetHandlerBase>(
                                     new MipsTargetHandler(*this))) {}
 
-bool MipsLinkingContext::isLittleEndian() const {
-  return Mips32ElELFType::TargetEndianness == llvm::support::little;
+uint32_t MipsLinkingContext::getMergedELFFlags() const {
+  const auto &handler = static_cast<MipsTargetHandler &>(
+      ELFLinkingContext::getTargetHandler<Mips32ElELFType>());
+  return handler.getELFFlagsMerger().getMergedELFFlags();
 }
 
 uint64_t MipsLinkingContext::getBaseAddress() const {
@@ -63,6 +65,15 @@ bool MipsLinkingContext::isDynamicRelocation(const DefinedAtom &,
   default:
     return false;
   }
+}
+
+bool MipsLinkingContext::isCopyRelocation(const Reference &r) const {
+  if (r.kindNamespace() != Reference::KindNamespace::ELF)
+    return false;
+  assert(r.kindArch() == Reference::KindArch::Mips);
+  if (r.kindValue() == llvm::ELF::R_MIPS_COPY)
+    return true;
+  return false;
 }
 
 bool MipsLinkingContext::isPLTRelocation(const DefinedAtom &,

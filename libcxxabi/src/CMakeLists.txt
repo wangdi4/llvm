@@ -19,6 +19,10 @@ set(LIBCXXABI_SOURCES
   typeinfo.cpp
 )
 
+if (UNIX AND NOT (APPLE OR CYGWIN))
+  list(APPEND LIBCXXABI_SOURCES cxa_thread_atexit.cpp)
+endif()
+
 set(LIBCXXABI_HEADERS ../include/cxxabi.h)
 
 # Add all the headers to the project for IDEs.
@@ -44,10 +48,16 @@ endif()
 
 include_directories("${LIBCXXABI_LIBCXX_INCLUDES}")
 
+if (LIBCXXABI_HAS_CXA_THREAD_ATEXIT_IMPL)
+  add_definitions(-DHAVE___CXA_THREAD_ATEXIT_IMPL)
+endif()
+
 # Generate library list.
 set(libraries ${LIBCXXABI_CXX_ABI_LIBRARIES})
 append_if(libraries LIBCXXABI_HAS_C_LIB c)
-append_if(libraries LIBCXXABI_HAS_PTHREAD_LIB pthread)
+if (LIBCXXABI_ENABLE_THREADS)
+  append_if(libraries LIBCXXABI_HAS_PTHREAD_LIB pthread)
+endif()
 
 if (LIBCXXABI_USE_LLVM_UNWINDER)
   list(APPEND libraries unwind)
@@ -58,37 +68,37 @@ endif()
 target_link_libraries(cxxabi ${libraries})
 
 # Setup flags.
-append_if(compile_flags LIBCXXABI_HAS_FPIC_FLAG -fPIC)
-append_if(link_flags LIBCXXABI_HAS_NODEFAULTLIBS_FLAG -nodefaultlibs)
+append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_FPIC_FLAG -fPIC)
+append_if(LIBCXXABI_LINK_FLAGS LIBCXXABI_HAS_NODEFAULTLIBS_FLAG -nodefaultlibs)
 
 if ( APPLE )
   if ( CMAKE_OSX_DEPLOYMENT_TARGET STREQUAL "10.6" )
-    list(APPEND compile_flags "-U__STRICT_ANSI__")
-    list(APPEND link_flags
+    list(APPEND LIBCXXABI_COMPILE_FLAGS "-U__STRICT_ANSI__")
+    list(APPEND LIBCXXABI_LINK_FLAGS
       "-compatibility_version 1"
       "-current_version 1"
       "-install_name /usr/lib/libc++abi.1.dylib"
       "/usr/lib/libSystem.B.dylib")
   else()
-    list(APPEND link_flags
+    list(APPEND LIBCXXABI_LINK_FLAGS
       "-compatibility_version 1"
       "-install_name /usr/lib/libc++abi.1.dylib")
   endif()
 endif()
 
-string(REPLACE ";" " " compile_flags "${compile_flags}")
-string(REPLACE ";" " " link_flags "${link_flags}")
+string(REPLACE ";" " " LIBCXXABI_COMPILE_FLAGS "${LIBCXXABI_COMPILE_FLAGS}")
+string(REPLACE ";" " " LIBCXXABI_LINK_FLAGS "${LIBCXXABI_LINK_FLAGS}")
 
 set_target_properties(cxxabi
   PROPERTIES
-    COMPILE_FLAGS "${compile_flags}"
-    LINK_FLAGS    "${link_flags}"
+    COMPILE_FLAGS "${LIBCXXABI_COMPILE_FLAGS}"
+    LINK_FLAGS    "${LIBCXXABI_LINK_FLAGS}"
     OUTPUT_NAME   "c++abi"
     VERSION       "1.0"
     SOVERSION     "1"
   )
 
 install(TARGETS cxxabi
-  LIBRARY DESTINATION lib${LLVM_LIBDIR_SUFFIX}
-  ARCHIVE DESTINATION lib${LLVM_LIBDIR_SUFFIX}
+  LIBRARY DESTINATION lib${LIBCXXABI_LIBDIR_SUFFIX}
+  ARCHIVE DESTINATION lib${LIBCXXABI_LIBDIR_SUFFIX}
   )

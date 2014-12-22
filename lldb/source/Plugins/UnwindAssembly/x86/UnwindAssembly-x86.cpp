@@ -638,6 +638,12 @@ AssemblyParse_x86::get_non_call_site_unwind_plan (UnwindPlan &unwind_plan)
     *newrow = *row.get();
     row.reset(newrow);
 
+    // Track which registers have been saved so far in the prologue.
+    // If we see another push of that register, it's not part of the prologue.
+    // The register numbers used here are the machine register #'s
+    // (i386_register_numbers, x86_64_register_numbers).
+    std::vector<bool> saved_registers(32, false);
+
     const bool prefer_file_cache = true;
 
     Target *target = m_exe_ctx.GetTargetPtr();
@@ -707,12 +713,15 @@ AssemblyParse_x86::get_non_call_site_unwind_plan (UnwindPlan &unwind_plan)
                 row->SetCFAOffset (current_sp_bytes_offset_from_cfa);
             }
             // record where non-volatile (callee-saved, spilled) registers are saved on the stack
-            if (nonvolatile_reg_p (machine_regno) && machine_regno_to_lldb_regno (machine_regno, lldb_regno))
+            if (nonvolatile_reg_p (machine_regno) 
+                && machine_regno_to_lldb_regno (machine_regno, lldb_regno)
+                && saved_registers[machine_regno] == false)
             {
                 need_to_push_row = true;
                 UnwindPlan::Row::RegisterLocation regloc;
                 regloc.SetAtCFAPlusOffset (-current_sp_bytes_offset_from_cfa);
                 row->SetRegisterInfo (lldb_regno, regloc);
+                saved_registers[machine_regno] = true;
             }
             if (need_to_push_row)
             {
@@ -728,8 +737,10 @@ AssemblyParse_x86::get_non_call_site_unwind_plan (UnwindPlan &unwind_plan)
 
         if (mov_reg_to_local_stack_frame_p (machine_regno, stack_offset) && nonvolatile_reg_p (machine_regno))
         {
-            if (machine_regno_to_lldb_regno (machine_regno, lldb_regno))
+            if (machine_regno_to_lldb_regno (machine_regno, lldb_regno) && saved_registers[machine_regno] == false)
             {
+                saved_registers[machine_regno] = true;
+
                 row->SetOffset (current_func_text_offset + insn_len);
                 UnwindPlan::Row::RegisterLocation regloc;
 
@@ -804,6 +815,12 @@ loopnext:
     //  [ 0xc3 ] ret
     //  [ 0xe8 xx xx xx xx ] call __stack_chk_fail  (this is sometimes the final insn in the function)
 
+    // or
+
+    //  [ 0x5d ] mov %rbp, %rsp  (aka pop %rbp)
+    //  [ 0xc3 ] ret
+    //  [ 0x0f 0x1f 0x44 xx xx ] nopl (%rax,%rax)   (aka nop)
+
     // We want to add a Row describing how to unwind when we're stopped on the 'ret' instruction where the
     // CFA is no longer defined in terms of rbp, but is now defined in terms of rsp like on function entry.
     // (or the 'jmp' instruction in the second case)
@@ -831,6 +848,11 @@ loopnext:
                 ret_insn_offset = m_func_bounds.GetByteSize() - 5;
             }
             else if (bytebuf[0] == 0x5d && bytebuf[1] == 0xc3 && bytebuf[2] == 0xe8) // mov & ret & call
+            {
+                ret_insn_offset = m_func_bounds.GetByteSize() - 6;
+            }
+            else if (bytebuf[0] == 0x5d && bytebuf[1] == 0xc3
+                     && bytebuf[2] == 0x0f && bytebuf[3] == 0x1f && bytebuf[4] == 0x44) // mov & ret & nop
             {
                 ret_insn_offset = m_func_bounds.GetByteSize() - 6;
             }
@@ -1074,6 +1096,7 @@ AssemblyParse_x86::augment_unwind_plan_from_call_site (AddressRange& func, Unwin
         unwind_plan_source += " plus augmentation from assembly parsing";
         unwind_plan.SetSourceName (unwind_plan_source.c_str());
         unwind_plan.SetSourcedFromCompiler (eLazyBoolNo);
+        unwind_plan.SetUnwindPlanValidAtAllInstructions (eLazyBoolYes);
     }
     return true;
 }
@@ -1247,9 +1270,41 @@ UnwindAssembly_x86::AugmentUnwindPlanFromCallSite (AddressRange& func, Thread& t
 bool
 UnwindAssembly_x86::GetFastUnwindPlan (AddressRange& func, Thread& thread, UnwindPlan &unwind_plan)
 {
-    ExecutionContext exe_ctx (thread.shared_from_this());
-    AssemblyParse_x86 asm_parse(exe_ctx, m_cpu, m_arch, func);
-    return asm_parse.get_fast_unwind_plan (func, unwind_plan);
+    // if prologue is
+    //   55     pushl %ebp
+    //   89 e5  movl %esp, %ebp
+    //  or
+    //   55        pushq %rbp
+    //   48 89 e5  movq %rsp, %rbp
+
+    // We should pull in the ABI architecture default unwind plan and return that
+
+    llvm::SmallVector <uint8_t, 4> opcode_data;
+
+    ProcessSP process_sp = thread.GetProcess();
+    if (process_sp)
+    {
+        Target &target (process_sp->GetTarget());
+        const bool prefer_file_cache = true;
+        Error error;
+        if (target.ReadMemory (func.GetBaseAddress (), prefer_file_cache, opcode_data.data(),
+                               4, error) == 4)
+        {
+            uint8_t i386_push_mov[] = {0x55, 0x89, 0xe5};
+            uint8_t x86_64_push_mov[] = {0x55, 0x48, 0x89, 0xe5};
+
+            if (memcmp (opcode_data.data(), i386_push_mov, sizeof (i386_push_mov)) == 0
+                || memcmp (opcode_data.data(), x86_64_push_mov, sizeof (x86_64_push_mov)) == 0)
+            {
+                ABISP abi_sp = process_sp->GetABI();
+                if (abi_sp)
+                {
+                    return abi_sp->CreateDefaultUnwindPlan (unwind_plan);
+                }
+            }
+        }
+    }
+    return false;
 }
 
 bool

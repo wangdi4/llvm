@@ -13,12 +13,10 @@
 #include "lld/Core/LinkingContext.h"
 #include "lld/ReaderWriter/Reader.h"
 #include "lld/ReaderWriter/Writer.h"
-
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MachO.h"
-
 #include <set>
 
 using llvm::MachO::HeaderFileType;
@@ -28,6 +26,7 @@ namespace lld {
 namespace mach_o {
 class ArchHandler;
 class MachODylibFile;
+class MachOFile;
 }
 
 class MachOLinkingContext : public LinkingContext {
@@ -59,6 +58,11 @@ public:
     blackList   // -unexported_symbol[s_list], no listed symbol exported.
   };
 
+  enum class DebugInfoMode {
+    addDebugMap,    // Default
+    noDebugMap      // -S option
+  };
+
   /// Initializes the context to sane default values given the specified output
   /// file type, arch, os, and minimum os version.  This should be called before
   /// other setXXX() methods.
@@ -66,7 +70,9 @@ public:
 
   void addPasses(PassManager &pm) override;
   bool validateImpl(raw_ostream &diagnostics) override;
-  bool createImplicitFiles(std::vector<std::unique_ptr<File>> &) const override;
+  std::string demangle(StringRef symbolName) const override;
+
+  bool createImplicitFiles(std::vector<std::unique_ptr<File>> &) override;
 
   uint32_t getCPUType() const;
   uint32_t getCPUSubType() const;
@@ -93,8 +99,23 @@ public:
   bool exportRestrictMode() const { return _exportMode != ExportMode::globals; }
   bool exportSymbolNamed(StringRef sym) const;
 
+  DebugInfoMode debugInfoMode() const { return _debugInfoMode; }
+  void setDebugInfoMode(DebugInfoMode mode) {
+    _debugInfoMode = mode;
+  }
+
+  void appendOrderedSymbol(StringRef symbol, StringRef filename);
+
   bool keepPrivateExterns() const { return _keepPrivateExterns; }
   void setKeepPrivateExterns(bool v) { _keepPrivateExterns = v; }
+  bool demangleSymbols() const { return _demangle; }
+  void setDemangleSymbols(bool d) { _demangle = d; }
+  /// Create file at specified path which will contain a binary encoding
+  /// of all input and output file paths.
+  std::error_code createDependencyFile(StringRef path);
+  void addInputFileDependency(StringRef path) const;
+  void addInputFileNotFound(StringRef path) const;
+  void addOutputFileDependency(StringRef path) const;
 
   bool minOS(StringRef mac, StringRef iOS) const;
   void setDoNothing(bool value) { _doNothing = value; }
@@ -117,6 +138,9 @@ public:
   /// internally maintained list of files that exist (provided by -path_exists)
   /// instead of the actual filesystem.
   bool pathExists(StringRef path) const;
+
+  /// Like pathExists() but only used on files - not directories.
+  bool fileExists(StringRef path) const;
 
   /// \brief Adds any library search paths derived from the given base, possibly
   /// modified by -syslibroots.
@@ -200,6 +224,9 @@ public:
     _existingPaths.insert(path);
   }
 
+  void addRpath(StringRef rpath);
+  const StringRefVector &rpaths() const { return _rpaths; }
+
   /// Add section alignment constraint on final layout.
   void addSectionAlignment(StringRef seg, StringRef sect, uint8_t align2);
 
@@ -214,19 +241,37 @@ public:
   // GOT creation Pass should be run.
   bool needsGOTPass() const;
 
+  /// Pass to transform __compact_unwind into __unwind_info should be run.
+  bool needsCompactUnwindPass() const;
+
+  /// Pass to add shims switching between thumb and arm mode.
+  bool needsShimPass() const;
+
   /// Magic symbol name stubs will need to help lazy bind.
   StringRef binderSymbolName() const;
 
   /// Used to keep track of direct and indirect dylibs.
-  void registerDylib(mach_o::MachODylibFile *dylib);
+  void registerDylib(mach_o::MachODylibFile *dylib, bool upward) const;
 
   /// Used to find indirect dylibs. Instantiates a MachODylibFile if one
   /// has not already been made for the requested dylib.  Uses -L and -F
   /// search paths to allow indirect dylibs to be overridden.
-  mach_o::MachODylibFile* findIndirectDylib(StringRef path) const;
+  mach_o::MachODylibFile* findIndirectDylib(StringRef path);
+
+  uint32_t dylibCurrentVersion(StringRef installName) const;
+
+  uint32_t dylibCompatVersion(StringRef installName) const;
 
   /// Creates a copy (owned by this MachOLinkingContext) of a string.
   StringRef copy(StringRef str) { return str.copy(_allocator); }
+
+  /// If the memoryBuffer is a fat file with a slice for the current arch,
+  /// this method will return the offset and size of that slice.
+  bool sliceFromFatFile(const MemoryBuffer &mb, uint32_t &offset,
+                        uint32_t &size);
+
+  /// Returns if a command line option specified dylib is an upward link.
+  bool isUpwardDylib(StringRef installName) const;
 
   static bool isThinObjectFile(StringRef path, Arch &arch);
   static Arch archFromCpuType(uint32_t cputype, uint32_t cpusubtype);
@@ -242,13 +287,15 @@ public:
   /// bits are xxxx.yy.zz.  Largest number is 65535.255.255
   static bool parsePackedVersion(StringRef str, uint32_t &result);
 
+  void maybeSortInputFiles() override;
+
 private:
   Writer &writer() const override;
-  mach_o::MachODylibFile* loadIndirectDylib(StringRef path) const;
+  mach_o::MachODylibFile* loadIndirectDylib(StringRef path);
   void checkExportWhiteList(const DefinedAtom *atom) const;
   void checkExportBlackList(const DefinedAtom *atom) const;
-
-
+  bool customAtomOrderer(const DefinedAtom *left, const DefinedAtom *right,
+                         bool &leftBeforeRight);
   struct ArchInfo {
     StringRef                 archName;
     MachOLinkingContext::Arch arch;
@@ -262,6 +309,14 @@ private:
     StringRef sectionName;
     uint8_t   align2;
   };
+
+  struct OrderFileNode {
+    StringRef fileFilter;
+    unsigned  order;
+  };
+
+  static bool findOrderOrdinal(const std::vector<OrderFileNode> &nodes,
+                             const DefinedAtom *atom, unsigned &ordinal);
 
   static ArchInfo _s_archInfos[];
 
@@ -282,19 +337,26 @@ private:
   uint32_t _compatibilityVersion;
   uint32_t _currentVersion;
   StringRef _installName;
+  StringRefVector _rpaths;
   bool _deadStrippableDylib;
   bool _printAtoms;
   bool _testingFileUsage;
   bool _keepPrivateExterns;
+  bool _demangle;
   StringRef _bundleLoader;
   mutable std::unique_ptr<mach_o::ArchHandler> _archHandler;
   mutable std::unique_ptr<Writer> _writer;
   std::vector<SectionAlign> _sectAligns;
-  llvm::StringMap<mach_o::MachODylibFile*> _pathToDylibMap;
-  std::set<mach_o::MachODylibFile*> _allDylibs;
+  mutable llvm::StringMap<mach_o::MachODylibFile*> _pathToDylibMap;
+  mutable std::set<mach_o::MachODylibFile*> _allDylibs;
+  mutable std::set<mach_o::MachODylibFile*> _upwardDylibs;
   mutable std::vector<std::unique_ptr<class MachOFileNode>> _indirectDylibs;
   ExportMode _exportMode;
   llvm::StringSet<> _exportedSymbols;
+  DebugInfoMode _debugInfoMode;
+  std::unique_ptr<llvm::raw_fd_ostream> _dependencyInfo;
+  llvm::StringMap<std::vector<OrderFileNode>> _orderFiles;
+  unsigned _orderFileEntries;
 };
 
 } // end namespace lld

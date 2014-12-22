@@ -18,13 +18,9 @@
 #include "sanitizer_common/sanitizer_libc.h"
 #include "tsan_stat.h"
 
-#ifndef TSAN_DEBUG
-#define TSAN_DEBUG 0
-#endif  // TSAN_DEBUG
-
 namespace __tsan {
 
-#ifdef TSAN_GO
+#ifdef SANITIZER_GO
 const bool kGoMode = true;
 const bool kCppMode = false;
 const char *const kTsanOptionsEnv = "GORACE";
@@ -43,7 +39,6 @@ const unsigned kMaxTidInClock = kMaxTid * 2;  // This includes msb 'freed' bit.
 const int kClkBits = 42;
 const unsigned kMaxTidReuse = (1 << (64 - kClkBits)) - 1;
 const uptr kShadowStackSize = 64 * 1024;
-const uptr kTraceStackSize = 256;
 
 #ifdef TSAN_SHADOW_COUNT
 # if TSAN_SHADOW_COUNT == 2 \
@@ -89,7 +84,7 @@ const bool kCollectStats = false;
 // The following "build consistency" machinery ensures that all source files
 // are built in the same configuration. Inconsistent builds lead to
 // hard to debug crashes.
-#if TSAN_DEBUG
+#if SANITIZER_DEBUG
 void build_consistency_debug();
 #else
 void build_consistency_release();
@@ -112,7 +107,7 @@ void build_consistency_shadow8();
 #endif
 
 static inline void USED build_consistency() {
-#if TSAN_DEBUG
+#if SANITIZER_DEBUG
   build_consistency_debug();
 #else
   build_consistency_release();
@@ -174,7 +169,6 @@ struct Context;
 struct ReportStack;
 class ReportDesc;
 class RegionAlloc;
-class StackTrace;
 
 // Descriptor of user's memory block.
 struct MBlock {

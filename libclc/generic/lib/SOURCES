@@ -1,4 +1,7 @@
+async/async_work_group_copy.cl
+async/async_work_group_strided_copy.cl
 async/prefetch.cl
+async/wait_group_events.cl
 atomic/atomic_xchg.cl
 atomic/atomic_impl.ll
 cl_khr_global_int32_base_atomics/atom_add.cl
@@ -58,9 +61,12 @@ math/exp.cl
 math/exp10.cl
 math/fmax.cl
 math/fmin.cl
+math/fmod.cl
 math/hypot.cl
+math/log1p.cl
 math/mad.cl
 math/mix.cl
+math/tables.cl
 math/clc_nextafter.cl
 math/nextafter.cl
 math/pown.cl

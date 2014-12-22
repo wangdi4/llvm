@@ -12,13 +12,12 @@
 #include "DefaultLayout.h"
 #include "ELFFile.h"
 #include "TargetLayout.h"
-
 #include "lld/Core/Instrumentation.h"
 #include "lld/Core/Parallel.h"
 #include "lld/ReaderWriter/ELFLinkingContext.h"
 #include "lld/ReaderWriter/Writer.h"
-
 #include "llvm/ADT/StringSet.h"
+#include "llvm/Support/Path.h"
 
 namespace lld {
 namespace elf {
@@ -101,6 +100,9 @@ protected:
   // This is a hook for creating default dynamic entries
   virtual void createDefaultDynamicEntries() {}
 
+  /// \brief Create symbol table.
+  virtual LLD_UNIQUE_BUMP_PTR(SymbolTable<ELFT>) createSymbolTable();
+
   /// \brief create dynamic table.
   virtual LLD_UNIQUE_BUMP_PTR(DynamicTable<ELFT>) createDynamicTable();
 
@@ -115,7 +117,7 @@ protected:
 
   /// \brief Create DT_NEEDED dynamic tage for the shared library.
   virtual bool isNeededTagRequired(const SharedLibraryAtom *sla) const {
-    return true;
+    return false;
   }
 
   llvm::BumpPtrAllocator _alloc;
@@ -178,21 +180,17 @@ void OutputELFWriter<ELFT>::buildStaticSymbolTable(const File &file) {
 template <class ELFT>
 void OutputELFWriter<ELFT>::buildDynamicSymbolTable(const File &file) {
   ScopedTask task(getDefaultDomain(), "buildDynamicSymbolTable");
-  for (auto sec : this->_layout.sections())
-    if (auto section = dyn_cast<AtomSection<ELFT>>(sec))
-      for (const auto &atom : section->atoms()) {
-        const DefinedAtom *da = dyn_cast<const DefinedAtom>(atom->_atom);
-        if (da && (da->dynamicExport() == DefinedAtom::dynamicExportAlways ||
-                   _context.isDynamicallyExportedSymbol(da->name())))
-          _dynamicSymbolTable->addSymbol(atom->_atom, section->ordinal(),
-                                         atom->_virtualAddr, atom);
-      }
   for (const auto &sla : file.sharedLibrary()) {
-    if (isDynSymEntryRequired(sla))
+    if (isDynSymEntryRequired(sla)) {
       _dynamicSymbolTable->addSymbol(sla, ELF::SHN_UNDEF);
+      _soNeeded.insert(sla->loadName());
+      continue;
+    }
     if (isNeededTagRequired(sla))
       _soNeeded.insert(sla->loadName());
   }
+  // Never mark the dynamic linker as DT_NEEDED
+  _soNeeded.erase(sys::path::filename(_context.getInterpreter()));
   for (const auto &loadName : _soNeeded) {
     Elf_Dyn dyn;
     dyn.d_tag = DT_NEEDED;
@@ -251,26 +249,26 @@ void OutputELFWriter<ELFT>::buildAtomToAddressMap(const File &file) {
 template<class ELFT>
 void OutputELFWriter<ELFT>::buildSectionHeaderTable() {
   ScopedTask task(getDefaultDomain(), "buildSectionHeaderTable");
-  for (auto mergedSec : _layout.mergedSections()) {
-    if (mergedSec->kind() != Chunk<ELFT>::Kind::ELFSection &&
-        mergedSec->kind() != Chunk<ELFT>::Kind::AtomSection)
+  for (auto outputSection : _layout.outputSections()) {
+    if (outputSection->kind() != Chunk<ELFT>::Kind::ELFSection &&
+        outputSection->kind() != Chunk<ELFT>::Kind::AtomSection)
       continue;
-    if (mergedSec->hasSegment())
-      _shdrtab->appendSection(mergedSec);
+    if (outputSection->hasSegment())
+      _shdrtab->appendSection(outputSection);
   }
 }
 
 template<class ELFT>
 void OutputELFWriter<ELFT>::assignSectionsWithNoSegments() {
   ScopedTask task(getDefaultDomain(), "assignSectionsWithNoSegments");
-  for (auto mergedSec : _layout.mergedSections()) {
-    if (mergedSec->kind() != Chunk<ELFT>::Kind::ELFSection &&
-        mergedSec->kind() != Chunk<ELFT>::Kind::AtomSection)
+  for (auto outputSection : _layout.outputSections()) {
+    if (outputSection->kind() != Chunk<ELFT>::Kind::ELFSection &&
+        outputSection->kind() != Chunk<ELFT>::Kind::AtomSection)
       continue;
-    if (!mergedSec->hasSegment())
-      _shdrtab->appendSection(mergedSec);
+    if (!outputSection->hasSegment())
+      _shdrtab->appendSection(outputSection);
   }
-  _layout.assignOffsetsForMiscSections();
+  _layout.assignFileOffsetsForMiscSections();
   for (auto sec : _layout.sections())
     if (auto section = dyn_cast<Section<ELFT>>(sec))
       if (!DefaultLayout<ELFT>::hasOutputSegment(section))
@@ -289,8 +287,7 @@ template <class ELFT> void OutputELFWriter<ELFT>::createDefaultSections() {
   _layout.setHeader(_elfHeader.get());
   _layout.setProgramHeader(_programHeader.get());
 
-  _symtab.reset(new (_alloc) SymbolTable<ELFT>(
-      _context, ".symtab", DefaultLayout<ELFT>::ORDER_SYMBOL_TABLE));
+  _symtab = std::move(this->createSymbolTable());
   _strtab.reset(new (_alloc) StringTable<ELFT>(
       _context, ".strtab", DefaultLayout<ELFT>::ORDER_STRING_TABLE));
   _shstrtab.reset(new (_alloc) StringTable<ELFT>(
@@ -305,7 +302,9 @@ template <class ELFT> void OutputELFWriter<ELFT>::createDefaultSections() {
   _layout.addSection(_shdrtab.get());
 
   for (auto sec : _layout.sections()) {
-    if (sec->name() != ".eh_frame")
+    // TODO: use findOutputSection
+    auto section = dyn_cast<Section<ELFT>>(sec);
+    if (!section || section->outputSectionName() != ".eh_frame")
       continue;
     _ehFrameHeader.reset(new (_alloc) EHFrameHeader<ELFT>(
         _context, ".eh_frame_hdr", _layout,
@@ -339,6 +338,13 @@ template <class ELFT> void OutputELFWriter<ELFT>::createDefaultSections() {
       _layout.getPLTRelocationTable()->setSymbolTable(
           _dynamicSymbolTable.get());
   }
+}
+
+template <class ELFT>
+LLD_UNIQUE_BUMP_PTR(SymbolTable<ELFT>)
+    OutputELFWriter<ELFT>::createSymbolTable() {
+  return LLD_UNIQUE_BUMP_PTR(SymbolTable<ELFT>)(new (_alloc) SymbolTable<ELFT>(
+      this->_context, ".symtab", DefaultLayout<ELFT>::ORDER_SYMBOL_TABLE));
 }
 
 /// \brief create dynamic table
@@ -382,7 +388,6 @@ std::error_code OutputELFWriter<ELFT>::buildOutput(const File &file) {
   // contained in them, in anyway the targets may want
   _layout.doPreFlight();
 
-  _layout.assignFileOffsets();
   _layout.assignVirtualAddress();
 
   // Finalize the default value of symbols that the linker adds
@@ -411,11 +416,6 @@ std::error_code OutputELFWriter<ELFT>::buildOutput(const File &file) {
 }
 
 template <class ELFT> std::error_code OutputELFWriter<ELFT>::setELFHeader() {
-  _elfHeader->e_ident(ELF::EI_CLASS,
-                      _context.is64Bits() ? ELF::ELFCLASS64 : ELF::ELFCLASS32);
-  _elfHeader->e_ident(ELF::EI_DATA, _context.isLittleEndian()
-                                        ? ELF::ELFDATA2LSB
-                                        : ELF::ELFDATA2MSB);
   _elfHeader->e_type(_context.getOutputELFType());
   _elfHeader->e_machine(_context.getOutputMachine());
   _elfHeader->e_ident(ELF::EI_VERSION, 1);
@@ -428,9 +428,10 @@ template <class ELFT> std::error_code OutputELFWriter<ELFT>::setELFHeader() {
   _elfHeader->e_shentsize(_shdrtab->entsize());
   _elfHeader->e_shnum(_shdrtab->numHeaders());
   _elfHeader->e_shstrndx(_shstrtab->ordinal());
-  uint64_t virtualAddr = 0;
-  _layout.findAtomAddrByName(_context.entrySymbolName(), virtualAddr);
-  _elfHeader->e_entry(virtualAddr);
+  if (const auto *al = _layout.findAtomLayoutByName(_context.entrySymbolName()))
+    _elfHeader->e_entry(al->_virtualAddr);
+  else
+    _elfHeader->e_entry(0);
 
   return std::error_code();
 }
@@ -456,6 +457,11 @@ std::error_code OutputELFWriter<ELFT>::writeOutput(const File &file,
   // HACK: We have to write out the header and program header here even though
   // they are a member of a segment because only sections are written in the
   // following loop.
+
+  // Finalize ELF Header / Program Headers.
+  _elfHeader->finalize();
+  _programHeader->finalize();
+
   _elfHeader->write(this, _layout, *buffer);
   _programHeader->write(this, _layout, *buffer);
 

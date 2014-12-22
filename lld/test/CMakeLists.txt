@@ -2,7 +2,7 @@ set(LLVM_SOURCE_DIR "${LLVM_MAIN_SRC_DIR}")
 set(LLVM_BINARY_DIR "${LLVM_BINARY_DIR}")
 set(LLVM_BUILD_MODE "%(build_mode)s")
 set(LLVM_TOOLS_DIR "${LLVM_TOOLS_BINARY_DIR}/%(build_config)s")
-set(LLVM_LIBS_DIR "${LLVM_BINARY_DIR}/lib/%(build_config)s")
+set(LLVM_LIBS_DIR "${LLVM_BINARY_DIR}/lib${LLVM_LIBDIR_SUFFIX}/%(build_config)s")
 set(CLANG_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/..")
 set(CLANG_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/..")
 if(BUILD_SHARED_LIBS)
@@ -23,8 +23,8 @@ if ( NOT LLD_BUILT_STANDALONE )
 
   set(LLD_TEST_DEPS
     FileCheck not llvm-nm
-    lld llvm-config llvm-objdump llvm-readobj llvm-mc yaml2obj obj2yaml
-    linker-script-test macho-dump
+    lld llvm-config llvm-objdump llvm-readobj yaml2obj obj2yaml
+    linker-script-test macho-dump llvm-mc
     LLDUnitTests
     )
   set(LLD_TEST_PARAMS

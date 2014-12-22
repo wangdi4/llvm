@@ -7,14 +7,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "MachONormalizedFile.h"
 #include "Atoms.h"
-
+#include "File.h"
+#include "MachONormalizedFile.h"
 #include "lld/Core/LLVM.h"
 #include "lld/Core/Reference.h"
 #include "lld/Core/Simple.h"
 #include "lld/ReaderWriter/MachOLinkingContext.h"
-
 #include "llvm/ADT/Triple.h"
 
 #ifndef LLD_READER_WRITER_MACHO_ARCH_HANDLER_H
@@ -50,8 +49,44 @@ public:
     return false;
   }
 
+  /// Used by ShimPass to insert shims in branches that switch mode.
+  virtual bool isNonCallBranch(const Reference &) = 0;
+
   /// Used by GOTPass to update GOT References
   virtual void updateReferenceToGOT(const Reference *, bool targetIsNowGOT) {}
+
+  /// Does this architecture make use of __unwind_info sections for exception
+  /// handling? If so, it will need a separate pass to create them.
+  virtual bool needsCompactUnwind() = 0;
+
+  /// Returns the kind of reference to use to synthesize a 32-bit image-offset
+  /// value, used in the __unwind_info section.
+  virtual Reference::KindValue imageOffsetKind() = 0;
+
+  /// Returns the kind of reference to use to synthesize a 32-bit image-offset
+  /// indirect value. Used for personality functions in the __unwind_info
+  /// section.
+  virtual Reference::KindValue imageOffsetKindIndirect() = 0;
+
+  /// Architecture specific compact unwind type that signals __eh_frame should
+  /// actually be used.
+  virtual uint32_t dwarfCompactUnwindType() = 0;
+
+  /// Reference from an __eh_frame FDE to the CIE it's based on.
+  virtual Reference::KindValue unwindRefToCIEKind() = 0;
+
+  /// Reference from an __eh_frame FDE atom to the function it's
+  /// describing. Usually pointer-sized and PC-relative, but differs in whether
+  /// it needs to be in relocatable objects.
+  virtual Reference::KindValue unwindRefToFunctionKind() = 0;
+
+  /// Reference from an __unwind_info entry of dwarfCompactUnwindType to the
+  /// required __eh_frame entry. On current architectures, the low 24 bits
+  /// represent the offset of the function's FDE entry from the start of
+  /// __eh_frame.
+  virtual Reference::KindValue unwindRefToEhFrameKind() = 0;
+
+  virtual const Atom *fdeTargetFunction(const DefinedAtom *fde);
 
   /// Used by normalizedFromAtoms() to know where to generated rebasing and 
   /// binding info in final executables.
@@ -83,7 +118,7 @@ public:
           getReferenceInfo(const normalized::Relocation &reloc,
                            const DefinedAtom *inAtom,
                            uint32_t offsetInAtom,
-                           uint64_t fixupAddress, bool swap,
+                           uint64_t fixupAddress, bool isBigEndian,
                            FindAtomBySectionAndAddress atomFromAddress,
                            FindAtomBySymbolIndex atomFromSymbolIndex,
                            Reference::KindValue *kind, 
@@ -99,7 +134,7 @@ public:
                            const normalized::Relocation &reloc2,
                            const DefinedAtom *inAtom,
                            uint32_t offsetInAtom,
-                           uint64_t fixupAddress, bool swap,
+                           uint64_t fixupAddress, bool isBig, bool scatterable,
                            FindAtomBySectionAndAddress atomFromAddress,
                            FindAtomBySymbolIndex atomFromSymbolIndex,
                            Reference::KindValue *kind, 
@@ -126,6 +161,8 @@ public:
   /// Copy raw content then apply all fixup References on an Atom.
   virtual void generateAtomContent(const DefinedAtom &atom, bool relocatable,
                                    FindAddressForAtom findAddress,
+                                   FindAddressForAtom findSectionAddress,
+                                   uint64_t imageBaseAddress,
                                    uint8_t *atomContentBuffer) = 0;
 
   /// Used in -r mode to convert a Reference to a mach-o relocation.
@@ -166,6 +203,15 @@ public:
 
   /// Only relevant for 32-bit arm archs.
   virtual bool isThumbFunction(const DefinedAtom &atom) { return false; }
+
+  /// Only relevant for 32-bit arm archs.
+  virtual const DefinedAtom *createShim(MachOFile &file, bool thumbToArm,
+                                        const DefinedAtom &) {
+    llvm_unreachable("shims only support on arm");
+  }
+
+  /// Does a given unwind-cfi atom represent a CIE (as opposed to an FDE).
+  static bool isDwarfCIE(bool isBig, const DefinedAtom *atom);
 
   struct ReferenceInfo {
     Reference::KindArch arch;
@@ -242,10 +288,10 @@ protected:
                           RelocPattern pattern);
 
 
-  static int16_t  readS16(bool swap, const uint8_t *addr);
-  static int32_t  readS32(bool swap, const uint8_t *addr);
-  static uint32_t readU32(bool swap, const uint8_t *addr);
-  static int64_t  readS64(bool swap, const uint8_t *addr);
+  static int16_t  readS16(const uint8_t *addr, bool isBig);
+  static int32_t  readS32(const uint8_t *addr, bool isBig);
+  static uint32_t readU32(const uint8_t *addr, bool isBig);
+  static int64_t  readS64(const uint8_t *addr, bool isBig);
 };
 
 } // namespace mach_o
