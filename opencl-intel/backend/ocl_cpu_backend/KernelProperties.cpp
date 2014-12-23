@@ -56,7 +56,8 @@ KernelProperties::KernelProperties():
     m_uiSizeT(sizeof(void*)),
     m_bIsBlock(false),
     m_canUniteWG(false),
-    m_verctorizeOnDimention(0)
+    m_verctorizeOnDimention(0),
+    m_debugInfo(false)
 {
     memset(m_reqdWGSize, 0, MAX_WORK_DIM * sizeof(size_t));
     memset(m_hintWGSize, 0, MAX_WORK_DIM * sizeof(size_t));
@@ -202,6 +203,11 @@ bool KernelProperties::HasGlobalSyncOperation() const
 bool KernelProperties::HasBarrierOperation() const
 {
     return m_hasBarrier;
+}
+
+bool KernelProperties::HasDebugInfo() const
+{
+    return m_debugInfo;
 }
 
 bool KernelProperties::HasKernelCallOperation() const
