@@ -1,0 +1,39 @@
+#
+# Set compiler RTTI options according to the given flag
+#
+function(use_rtti val)
+    if( CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+        if( ${val} )
+            replace_compiler_option(CMAKE_CXX_FLAGS "-fno-rtti" "-frtti")
+        else()
+            replace_compiler_option(CMAKE_CXX_FLAGS "-frtti" "-fno-rtti" )
+        endif()    
+    else(MSVC)
+        if( ${val} )
+            replace_compiler_option(CMAKE_CXX_FLAGS "/GR-" "/GR")
+        else()
+            replace_compiler_option(CMAKE_CXX_FLAGS "/GR" "/GR-" )
+        endif()    
+    endif()
+    set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" PARENT_SCOPE )
+endfunction(use_rtti)
+
+#
+# Replaces a compiler option or switch `old' in `var' by `new'.
+# If `old' is not in `var', appends `new' to `var'.
+# If the option already is on the variable, don't add it
+# Usage: llvm_replace_compiler_option(CMAKE_CXX_FLAGS_RELEASE "-O3" "-O2")
+#
+function(replace_compiler_option var old new)
+  if( "${${var}}" MATCHES "(^| )${new}($| )" )
+    set(n "")
+  else()
+    set(n "${new}")
+  endif()
+  if( "${${var}}" MATCHES "(^| )${old}($| )" )
+    string( REGEX REPLACE "(^| )${old}($| )" " ${n} " ${var} "${${var}}" )
+  else()
+    set( ${var} "${${var}} ${n}" )
+  endif()
+  set( ${var} "${${var}}" PARENT_SCOPE )
+endfunction(replace_compiler_option)

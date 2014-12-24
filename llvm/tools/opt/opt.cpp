@@ -287,6 +287,12 @@ void initializePollyPasses(llvm::PassRegistry &Registry);
 }
 #endif
 
+#if INTEL_CUSTOMIZATION
+namespace llvm {
+void initializeVPOVectorizer(PassRegistry &Registry);
+}
+#endif
+
 //===----------------------------------------------------------------------===//
 // main for opt
 //
@@ -325,6 +331,10 @@ int main(int argc, char **argv) {
 
 #ifdef LINK_POLLY_INTO_TOOLS
   polly::initializePollyPasses(Registry);
+#endif
+
+#if INTEL_CUSTOMIZATION
+  initializeVPOVectorizer(Registry);
 #endif
 
   cl::ParseCommandLineOptions(argc, argv,
