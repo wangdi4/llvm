@@ -147,14 +147,40 @@ bool CPUDeviceConfig::IsGLDirectXSupported() const
 
 bool CPUDeviceConfig::IsDoubleSupported() const
 {
-    // disabled in Android and/or in Atom
-#ifndef __ANDROID__
-    // we consider Atom as a CPU without AVX support
-    bool isAtom = !(CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX10));
-    return !isAtom;
-#else
+    // disabled on Android
+#ifdef __ANDROID__
     return false;
 #endif
+
+    // disabled on Atom
+    if (BRAND_INTEL_ATOM == CPUDetect::GetInstance()->GetCPUBrandFamily())
+    {
+        return false;
+    }
+
+    // enabled on non-Atom brands
+    if (BRAND_UNKNOWN != CPUDetect::GetInstance()->GetCPUBrandFamily())
+    {
+        return true;
+    }
+
+    // if we can't detect brand, fallback to AVX support check
+    // enabled on CPUs with AVX support
+    bool isAVXSupported = CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX10);
+    if (isAVXSupported)
+    {
+        return true;
+    }
+
+    // enabled on Westmere
+    bool isWestmere = CPUDetect::GetInstance()->IsMicroArchitecture(MA_WESTMERE);
+    if (isWestmere)
+    {
+        return true;
+    }
+
+    // disabled in any other case
+    return false;
 }
 
 const char* CPUDeviceConfig::GetExtensions() const

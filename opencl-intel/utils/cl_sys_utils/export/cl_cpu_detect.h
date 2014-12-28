@@ -36,7 +36,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 	// returns CL_ERR_CPU_NOT_SUPPORTED otherwise
 	cl_err_code IsCPUSupported();
 
-	// CPU Features enumeration
+    // CPU Features enumeration
     enum ECPUFeatureSupport
     {
         CFS_NONE    = 0x0000,
@@ -50,19 +50,32 @@ namespace Intel { namespace OpenCL { namespace Utils {
         CFS_FMA     = 0x0080
     };
 
-	// Processor type enumeration
-    enum EProcessorType
+    // Processor microarchitecture
+    enum EMicroArchitecture
     {
-        PT_ALL,
-        PT_ATOM,
-        PT_YONAH,
-        PT_MEROM,
-        PT_PENRYN,
-        PT_NEHALEM,
-        PT_SANDYBRIDGE,
-        PT_IVYBRIDGE,
-        PT_HASWELL,
-        PT_BROADWELL
+        MA_ALL,
+        MA_YONAH,
+        MA_MEROM,
+        MA_PENRYN,
+        MA_NEHALEM,
+        MA_WESTMERE,
+        MA_SANDYBRIDGE,
+        MA_IVYBRIDGE,
+        MA_HASWELL,
+        MA_BROADWELL,
+        MA_SKYLAKE,
+        MA_CANNONLAKE
+    };
+
+    // Processor brand family
+    enum ECPUBrandFamily
+    {
+        BRAND_UNKNOWN,
+        BRAND_INTEL_CORE,
+        BRAND_INTEL_ATOM,
+        BRAND_INTEL_PENTIUM,
+        BRAND_INTEL_CELERON,
+        BRAND_INTEL_XEON
     };
 
 	// CPU detection class (singleton)
@@ -74,7 +87,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 
 		bool IsGenuineIntel();
 
-		bool IsProcessorType(EProcessorType processorType);
+		bool IsMicroArchitecture(EMicroArchitecture microArchitecture);
 
 		bool IsFeatureSupported(ECPUFeatureSupport featureType);
 
@@ -86,6 +99,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		const char *	GetCPUBrandString() { return m_szCPUBrandString; }
 		unsigned int	GetCPUFeatureSupport() { return m_uiCPUFeatures; }
 		unsigned int	GetCoreCount() { return m_uiCoreCount; }
+		ECPUBrandFamily	GetCPUBrandFamily() { return m_eCPUBrand; }
 
 	private:
 
@@ -103,6 +117,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
         char *			m_szCPUBrandString;
         unsigned int	m_uiCPUFeatures;
 		unsigned int	m_uiCoreCount;
+        ECPUBrandFamily m_eCPUBrand;
 
 		void			GetCPUInfo();
 		bool			ShouldBypassCPUCheck();

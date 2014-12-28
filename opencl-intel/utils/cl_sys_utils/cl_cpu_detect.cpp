@@ -100,7 +100,7 @@ bool CPUDetect::IsGenuineIntel()
     return m_bIsGenuineIntel;
 }
 
-bool CPUDetect::IsProcessorType(EProcessorType processorType)
+bool CPUDetect::IsMicroArchitecture(EMicroArchitecture microArchitecture)
 {
     // !!! IMPORTANT NOTE !!!
     //     This whole method is wrong, CPUID's family and model numbers are unreliable
@@ -111,68 +111,72 @@ bool CPUDetect::IsProcessorType(EProcessorType processorType)
     {
         return false;
     }
-    
 
-    switch(processorType)
+    switch(microArchitecture)
     {
-    case PT_ALL:
+    case MA_ALL:
         return true;
         break;
-    case PT_ATOM:
-        if (m_ucFamily == 0x6 &&
-            (m_ucExtendedModel == 0x35 ||  // CloverTrail
-            m_ucExtendedModel == 0x36  ||  // CedarTrail
-            m_ucExtendedModel == 0x37  ||  // Baytrail
-            m_ucExtendedModel == 0x4C))    // Cherrytrail
-        {
-            return true;
-        }
-        break;
-    case PT_YONAH:
+    case MA_YONAH:
+        // TODO: is this correct ?
         if (m_ucFamily == 0x6 && m_ucModel == 0xE)
         {
             return true;
         }
         break;
-    case PT_MEROM:
-        if (m_ucFamily == 0x6 && m_ucModel == 0xF)
+    case MA_MEROM:
+        if ((m_ucFamily == 0x6 && m_ucExtendedModel == 0x0F) || // Clovertown
+            (m_ucFamily == 0x6 && m_ucExtendedModel == 0x16))   // Merom Conroe
         {
             return true;
         }
         break;
-    case PT_PENRYN:
-        if (m_ucFamily == 0xF && m_ucModel == 0x6)
+    case MA_PENRYN:
+        if ((m_ucFamily == 0x6 && m_ucExtendedModel == 0x17) || // Yorkfield/Wolfdale
+            (m_ucFamily == 0x6 && m_ucExtendedModel == 0x1D))   // Dunnington
         {
             return true;
         }
         break;
-    case PT_NEHALEM:
-        if (m_ucFamily == 0xF && m_ucModel == 0xE)
+    case MA_NEHALEM:
+        if ((m_ucFamily == 0x6 && m_ucExtendedModel == 0x1E) || // Clarksfield
+            (m_ucFamily == 0x6 && m_ucExtendedModel == 0x1A) || // Bloomfield
+            (m_ucFamily == 0x6 && m_ucExtendedModel == 0x2E))   // Nehalem-EX (Xeon)
         {
             return true;
         }
         break;
-    case PT_SANDYBRIDGE:
-        if (m_ucFamily == 0x6 && m_ucModel == 0xA && m_ucExtendedModel == 0x2A)
+    case MA_WESTMERE:
+        if ((m_ucFamily == 0x6 && m_ucExtendedModel == 0x2C) || // Arrandale/Clarksdale
+            (m_ucFamily == 0x6 && m_ucExtendedModel == 0x25) || // Gulftown/Westmere-EP
+            (m_ucFamily == 0x6 && m_ucExtendedModel == 0x2F))   // Westmere-EX (Xeon)
         {
             return true;
         }
         break;
-    case PT_IVYBRIDGE:
-        if (m_ucFamily == 0x6 && m_ucModel == 0xA && m_ucExtendedModel == 0x3A)
+    case MA_SANDYBRIDGE:
+        if ((m_ucFamily == 0x6 && m_ucExtendedModel == 0x2A) || // SandyBridge
+            (m_ucFamily == 0x6 && m_ucExtendedModel == 0x2D))   // SandyBridge-E
         {
             return true;
         }
         break;
-    case PT_HASWELL:
-        if ((m_ucFamily == 0x6 && m_ucModel == 0xC) ||
+    // TODO: find values for ivybridge/haswell/broadwell
+    case MA_IVYBRIDGE:
+        if (m_ucFamily == 0x6 && m_ucExtendedModel == 0x3A)
+        {
+            return true;
+        }
+        break;
+    case MA_HASWELL:
+        if ((m_ucFamily == 0x6 && m_ucExtendedModel == 0x3C) ||
             (m_ucFamily == 0x6 && m_ucModel == 0x6)) // HSW 4770R
         {
             return true;
         }
         break;
-    case PT_BROADWELL:
-        if (m_ucFamily == 0x6 && m_ucModel == 0xD && m_ucExtendedModel == 0x3D)
+    case MA_BROADWELL:
+        if (m_ucFamily == 0x6 && m_ucExtendedModel == 0x3D)
         {
             return true;
         }
@@ -221,7 +225,8 @@ CPUDetect::CPUDetect(void) :
 	m_szCPUString(NULL),
 	m_szCPUBrandString(NULL),
 	m_uiCPUFeatures(0),
-	m_uiCoreCount(0)
+	m_uiCoreCount(0),
+    m_eCPUBrand(BRAND_UNKNOWN)
 {
     m_bBypassCPUDetect = ShouldBypassCPUCheck();
     GetCPUInfo();
@@ -352,7 +357,7 @@ void CPUDetect::GetCPUInfo()
     {
 #if defined(__ANDROID__)
 	// Android is not supporting Brand String query
-	m_szCPUBrandString = STRDUP("Atom");
+	m_szCPUBrandString = STRDUP("Intel(R) Atom(TM)");
 #endif
     }
     else
@@ -376,6 +381,36 @@ void CPUDetect::GetCPUInfo()
             }
         }
         m_szCPUBrandString = STRDUP(vcCPUBrandString);
+    }
+
+    // detect CPU brand
+    if (NULL != m_szCPUBrandString)
+    {
+        if (m_szCPUBrandString == strstr(m_szCPUBrandString, "Intel(R) Core(TM)"))
+        {
+            m_eCPUBrand = BRAND_INTEL_CORE;
+        }
+        else if (m_szCPUBrandString == strstr(m_szCPUBrandString, "Intel(R) Atom(TM)"))
+        {
+            m_eCPUBrand = BRAND_INTEL_ATOM;
+        }
+        else if (m_szCPUBrandString == strstr(m_szCPUBrandString, "Intel(R) Pentium(R)"))
+        {
+            m_eCPUBrand = BRAND_INTEL_PENTIUM;
+        }
+        else if (m_szCPUBrandString == strstr(m_szCPUBrandString, "Intel(R) Celeron(R)"))
+        {
+            m_eCPUBrand = BRAND_INTEL_CELERON;
+        }
+        else if (m_szCPUBrandString == strstr(m_szCPUBrandString, "Intel(R) Xeon(R)"))
+        {
+            m_eCPUBrand = BRAND_INTEL_XEON;
+        }
+        else
+        {
+            // uknown brand name
+            m_eCPUBrand = BRAND_UNKNOWN;
+        }
     }
 }
 
