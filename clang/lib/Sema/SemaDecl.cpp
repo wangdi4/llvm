@@ -8187,9 +8187,18 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
     }
 
     if (mismatch) {
+#ifdef INTEL_CUSTOMIZATION
+      // CQ#364268 - emit a warning in IntelCompat mode, continue compilation
+      if (getLangOpts().IntelCompat) {
+        Diag(FD->getLocation(), diag::warn_main_arg_wrong) << i << Expected[i];
+      } else {
+#endif      
       Diag(FD->getLocation(), diag::err_main_arg_wrong) << i << Expected[i];
       // TODO: suggest replacing given type with expected type
       FD->setInvalidDecl(true);
+#ifdef INTEL_CUSTOMIZATION
+      }
+#endif
     }
   }
 

@@ -485,6 +485,12 @@ def warn_main_one_arg : Warning<"only one parameter on 'main' declaration">,
 def err_main_arg_wrong : Error<"%select{first|second|third|fourth}0 "
     "parameter of 'main' (%select{argument count|argument array|environment|"
     "platform-specific data}0) must be of type %1">;
+// CQ#364268
+// if INTEL_CUSTOMIZATION
+def warn_main_arg_wrong : Warning<"%select{first|second|third|fourth}0 "
+    "parameter of 'main' (%select{argument count|argument array|environment|"
+    "platform-specific data}0) should be of type %1">, InGroup<Main>;
+// endif INTEL_CUSTOMIZATION
 def ext_main_used : Extension<
   "ISO C++ does not allow 'main' to be used by a program">, InGroup<Main>;
 
