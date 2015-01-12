@@ -3870,7 +3870,13 @@ void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl) {
 
   // C does not allow an empty enumerator-list, C++ does [dcl.enum].
   if (Tok.is(tok::r_brace) && !getLangOpts().CPlusPlus)
-    Diag(Tok, diag::error_empty_enum);
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#364426 - emit a warning in IntelCompat mode
+    if (getLangOpts().IntelCompat)
+      Diag(Tok, diag::warn_empty_enum);
+    else
+#endif
+      Diag(Tok, diag::error_empty_enum);
 
   SmallVector<Decl *, 32> EnumConstantDecls;
 
