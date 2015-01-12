@@ -260,8 +260,8 @@ void CLStreamSampler::CollectReadImgAttributes(CallInst *readImgCall) {
     }
 
     // The pointer has 2 users
-    Value *user1 = *(AI->use_begin());
-    Value *user2 = *(++(AI->use_begin()));
+    Value *user1 = *(AI->user_begin());
+    Value *user2 = *(++(AI->user_begin()));
     LoadInst *load = NULL;
     if (user1 == readImgCall) {
       load = dyn_cast<LoadInst>(user2);
@@ -629,7 +629,7 @@ void CLStreamSampler::generateAllocasForStream(unsigned width,
 void CLStreamSampler::removeRedundantPHI(PHINode *PN) {
   if (!PN->hasOneUse()) return;
 
-  Instruction *user = dyn_cast<Instruction>(*(PN->use_begin()));
+  Instruction *user = dyn_cast<Instruction>(*(PN->user_begin()));
   Value *latchVal = PN->getIncomingValueForBlock(m_latch);
   if (!user || user != latchVal || !user->hasOneUse()) return;
 

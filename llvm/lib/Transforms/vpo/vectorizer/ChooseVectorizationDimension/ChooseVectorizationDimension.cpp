@@ -70,8 +70,8 @@ bool ChooseVectorizationDimension::hasDim(Function* F, unsigned int dim) {
   if (!gid)
     return false;
 
-  for ( Value::use_iterator ui = gid->use_begin(),
-    ue = gid->use_end(); ui != ue; ++ui ) {
+  for ( Value::user_iterator ui = gid->user_begin(),
+    ue = gid->user_end(); ui != ue; ++ui ) {
     if (isa<Function>(*ui)) {
       // xmain ::: get_global_id() is defined in the compiled module (as opposed
       // to the runtime module), so just ignore the definition.

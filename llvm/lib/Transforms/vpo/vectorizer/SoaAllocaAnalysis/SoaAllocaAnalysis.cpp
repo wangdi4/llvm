@@ -120,7 +120,7 @@ OCL_INITIALIZE_PASS(SoaAllocaAnalysis, "SoaAllocaAnalysis", "SoaAllocaAnalysis p
 
   bool SoaAllocaAnalysis::isSupportedAlloca(const AllocaInst *pAI, bool isVectorBasedType,
       unsigned int arrayNestedLevel, std::set<const Value*> &visited) {
-    std::vector<const Value*> usages(pAI->use_begin(), pAI->use_end());
+    std::vector<const Value*> usages(pAI->user_begin(), pAI->user_end());
     visited.clear();
     visited.insert(pAI);
     while (!usages.empty()) {
@@ -135,7 +135,7 @@ OCL_INITIALIZE_PASS(SoaAllocaAnalysis, "SoaAllocaAnalysis", "SoaAllocaAnalysis p
         if (pGEP->getNumIndices() <= arrayNestedLevel+1) {
           // These are allowed instructions that result in pointers,
           // so need to check their usages too.
-          usages.insert(usages.end(), usage->use_begin(), usage->use_end());
+          usages.insert(usages.end(), usage->user_begin(), usage->user_end());
           continue;
         }
         // Cannot support GEP with last index for vector type!
@@ -160,14 +160,14 @@ OCL_INITIALIZE_PASS(SoaAllocaAnalysis, "SoaAllocaAnalysis", "SoaAllocaAnalysis p
         // Bitcast on alloca with vector based type is not supported.
         // Only Bitcast of alloca instruction is supported.
         if (!isVectorBasedType && BC->getOperand(0) == pAI) {
-          for(Value::const_use_iterator ui = BC->use_begin(), ue = BC->use_end(); ui!= ue; ++ui) {
+          for(Value::const_user_iterator ui = BC->user_begin(), ue = BC->user_end(); ui!= ue; ++ui) {
             // Only BitCastInst with users that are only memset are supported.
             if(!isSupportedMemset(dyn_cast<CallInst>(*ui))) {
               V_PRINT(soa_alloca_stat, "SoaAllocaAnalysis: alloca with unsupported bitcast usage (" << *usage << ")\n");
               return false;
             }
           }
-          visited.insert(usage->use_begin(), usage->use_end());
+          visited.insert(usage->user_begin(), usage->user_end());
           continue;
         }
         V_PRINT(soa_alloca_stat, "SoaAllocaAnalysis: alloca with unsupported bitcast usage (" << *usage << ")\n");

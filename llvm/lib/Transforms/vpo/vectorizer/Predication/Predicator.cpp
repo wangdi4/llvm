@@ -180,8 +180,8 @@ bool Predicator::hasOutsideRandomUsers(Instruction* inst, Loop* loop) {
   /// We check if we have users outside the loop.
   /// Note that we do not care if the user is in a different basic block because
   /// the entire loop will compress into a single BB.
-  for (Value::use_iterator it = inst->use_begin(),
-       e = inst->use_end(); it != e ; ++it) {
+  for (Value::user_iterator it = inst->user_begin(),
+       e = inst->user_end(); it != e ; ++it) {
     // Is user instruction ?
     if (Instruction* user = dyn_cast<Instruction>(*it)) {
       // if the user is non-random, then either it is inside the loop,
@@ -235,7 +235,7 @@ void Predicator::moveAfterLastDependant(Instruction* inst) {
        e=BB->end(); it != e; ++it) {
     // If this instruction is in our use-chain
     // or if this is a phi-node
-    if (std::find(it->use_begin(), it->use_end(), inst) != it->use_end() ||
+    if (std::find(it->user_begin(), it->user_end(), inst) != it->user_end() ||
         dyn_cast<PHINode>(it)) {
       last_user = it;
     }
@@ -615,6 +615,19 @@ void Predicator::convertPhiToSelect(BasicBlock* BB) {
     moveAfterLastDependant(select);
     select->setOperand(0, selectCond);
 
+    // If this phi is a condition for a branch we need to replace it in
+    // m_branchesInfo with the newly created select.
+    for (Value::user_iterator it = phi->user_begin(),
+        end = phi->user_end();
+        it != end; ++it) {
+      BranchInst* br = dyn_cast<BranchInst>(*it);
+      if (!br || !br->isConditional()) {
+       continue;
+      }
+      BasicBlock* usingBB = br->getParent();
+      m_branchesInfo[usingBB].m_cond = select;
+    }
+
     phi->replaceAllUsesWith(select);
     phi->eraseFromParent();
     // We may change instructions which we planned on prev-select-ing
@@ -699,8 +712,8 @@ void Predicator::replaceInstructionByPredicatedOne(Instruction* original,
   VectorizerUtils::SetDebugLocBy(predicated, original);
   // need to keep m_predicatedSelect dictionary updated.
   if (m_valuableAllOnesBlocks.count(original->getParent())) {
-    for (Value::use_iterator it = original->use_begin(),
-       e = original->use_end(); it != e ; ++it) {
+    for (Value::user_iterator it = original->user_begin(),
+       e = original->user_end(); it != e ; ++it) {
          Instruction* inst = dyn_cast<Instruction>(*it);
          if (inst && m_predicatedSelects.count(inst) &&
                        m_predicatedSelects[inst] == original)   {
@@ -890,7 +903,7 @@ void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
   // We only replace instructions which do not belong to the same loop.
   // Instructions which are inside the loop will be predicated with local masks
   // instructions outside the loop need the special masking.
-  std::vector<Value*> users(inst->use_begin(), inst->use_end());
+  std::vector<Value*> users(inst->user_begin(), inst->user_end());
   for (std::vector<Value*>::iterator it = users.begin(),
        e = users.end(); it != e; ++it) {
     // If the user is an instruction
@@ -1710,8 +1723,8 @@ void Predicator::unpredicateInstruction(Instruction* call) {
   Instruction* original = m_predicatedToOriginalInst[call];
 
    // need to keep m_predicatedSelect dictionary updated.
-  for (Value::use_iterator it = call->use_begin(),
-    e = call->use_end(); it != e ; ++it) {
+  for (Value::user_iterator it = call->user_begin(),
+    e = call->user_end(); it != e ; ++it) {
     Instruction* user = dyn_cast<Instruction>(*it);
     if (user && m_predicatedSelects.count(user) &&
                   m_predicatedSelects[user] == call)   {
@@ -2010,7 +2023,7 @@ void Predicator::insertAllOnesBypassesSingleBlockLoopCase(BasicBlock* original) 
     ii != e2; ++ii) {
       PHINode* predicationPhi = NULL;
       // changing users, so we need to iterate on copy.
-      std::vector<Value*> users(ii->use_begin(), ii->use_end());
+      std::vector<Value*> users(ii->user_begin(), ii->user_end());
       for (std::vector<Value*>::iterator user = users.begin(), e3 = users.end();
         user != e3; ++ user) {
           Instruction* userInst = dyn_cast<Instruction>(*user);
@@ -2254,7 +2267,7 @@ void Predicator::insertAllOnesBypasses() {
         ii != e2; ++ii) {
           PHINode* predicationPhi = NULL;
           // changing users, so we need to iterate on copy.
-          std::vector<Value*> users(ii->use_begin(), ii->use_end());
+          std::vector<Value*> users(ii->user_begin(), ii->user_end());
           for (std::vector<Value*>::iterator user = users.begin(), e3 = users.end();
             user != e3; ++ user) {
               Instruction* userInst = dyn_cast<Instruction>(*user);

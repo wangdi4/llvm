@@ -301,7 +301,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
       preVectorizationCosts.clear();
       ////////////////////////////////////////////////////////////////////////////
       m_postWeight = postCounter->getWeight();
-      float Ratio = (float)m_postWeight / m_preWeight;
+      float Ratio = 0 /* (float)m_postWeight / m_preWeight */ ; // xmain
       int attemptedWidth = m_packetWidth;
       if (Ratio >= WeightedInstCounter::RATIO_MULTIPLIER * m_packetWidth) {
         m_packetWidth = 1;

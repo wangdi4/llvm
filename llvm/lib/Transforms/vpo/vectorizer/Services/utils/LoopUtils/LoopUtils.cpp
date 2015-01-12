@@ -61,7 +61,7 @@ void getAllCallInFunc(StringRef funcName, Function *funcToSearch,
   if (!F)
     return;
 
-  for (Value::use_iterator useIt = F->use_begin(), useE = F->use_end();
+  for (Value::user_iterator useIt = F->user_begin(), useE = F->user_end();
        useIt != useE; ++useIt) {
     CallInst *CI = dyn_cast<CallInst>(*useIt);
     Function *parentFunc = CI->getParent()->getParent();
@@ -168,7 +168,7 @@ void fillFuncUsersSet(std::set<Function *> &roots,
 void fillInstructionUsers(Function *F,
                           SmallVectorImpl<Instruction *> &userInsts) {
   // Holds values to check.
-  SmallVector<Value *, 8> workList(F->use_begin(), F->use_end());
+  SmallVector<Value *, 8> workList(F->user_begin(), F->user_end());
   // Holds values that already been checked, in order to prevent
   // inifinite loops.
   std::set<Value *> visited;
@@ -185,7 +185,7 @@ void fillInstructionUsers(Function *F,
     if (I) {
       userInsts.push_back(I);
     } else {
-      workList.append(user->use_begin(), user->use_end());
+      workList.append(user->user_begin(), user->user_end());
     }
   }
 }

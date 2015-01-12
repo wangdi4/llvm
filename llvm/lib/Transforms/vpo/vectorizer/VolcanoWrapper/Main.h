@@ -26,6 +26,7 @@ class OptimizerConfig;
 class Vectorizer : public ModulePass {
 private:
     typedef SmallVector<Function*, ESTIMATED_NUM_OF_FUNCTIONS> funcsVector;
+    typedef SmallVector<Function*, 20> VectorizationStubsVector;
     
 public:
     static char ID;
@@ -49,6 +50,12 @@ public:
     }
 
 private:
+
+    void createVectorizationStubs(Module& M);
+    void deleteVectorizationStubs();
+    /// @brief declarations for functions used for expressing vectorization
+    VectorizationStubsVector m_vectorizationStubs; 
+
     /// @brief holds all the "original" (scalar) functions
     funcsVector m_scalarFuncsList; 
 /* xmain */

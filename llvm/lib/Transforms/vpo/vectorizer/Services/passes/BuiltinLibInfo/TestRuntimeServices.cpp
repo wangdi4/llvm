@@ -13,43 +13,75 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CompilationUtils.h"
 
 #include "llvm/IR/Constants.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/Module.h"
 #include "llvm/ADT/StringRef.h"
 
+using namespace std;
 using namespace reflection;
 namespace intel {
 
 class TestVFunction: public VectorizerFunction{
+private:
+  unsigned m_width;
 public:
   TestVFunction(const std::string& s) : m_name(s) {
+    size_t last_underscore = m_name.find_last_of("_");
+    if (last_underscore == string::npos)
+      m_width = width::SCALAR;
+    else {
+      string widthSuffix = m_name.substr(last_underscore);
+      if (widthSuffix == "_v2")
+	m_width = width::TWO;
+      else if (widthSuffix == "_v4")
+	m_width = width::FOUR;
+      else if (widthSuffix == "_v8")
+	m_width = width::EIGHT;
+      else if (widthSuffix == "_v16")
+	m_width = width::SIXTEEN;
+      else
+	m_width = width::SCALAR;
+    }
   }
 
   ~TestVFunction() {}
 
   virtual unsigned getWidth() const {
-    assert(false && "builtin vectorized functions are not supported");
-    return 0;
+    return m_width;
   }
 
   virtual bool isPacketizable() const {
-    assert(false && "builtin vectorized functions are not supported");
-    return false;
+    // for now, all functions have vector versions
+    return true;
   }
 
   virtual bool isScalarizable() const {
-    assert(false && "builtin vectorized functions are not supported");
-    return false;
+    // for now, all functions have a scalar version
+    return true;
   }
 
-  virtual std::string getVersion(unsigned) const {
-    assert(false && "builtin vectorized functions are not supported");
-    return "__NOT_SUPPORTED__";
+  virtual std::string getVersion(unsigned index) const {
+    // simple scheme - base name + "_v" + index
+    if (index == 0U)
+      return m_name;
+    width::V w;
+    switch(index){
+      case 0U: w = width::SCALAR; break;
+      case 1U: w = width::TWO; break;
+      case 2U: w = width::FOUR; break;
+      case 3U: w = width::EIGHT; break;
+      case 4U: w = width::SIXTEEN; break;
+      case 5U: w = width::THREE; break;
+      default:
+	assert(false && "invalid index");
+	return FunctionDescriptor::nullString();
+    }
+
+    return m_name + "_v" + ::to_string(w);
   }
 
   virtual bool isNull() const {
-    return true;
+    return false;
   }
 private:
   const std::string m_name;

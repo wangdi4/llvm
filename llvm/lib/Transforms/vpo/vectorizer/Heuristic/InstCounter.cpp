@@ -1049,7 +1049,7 @@ void WeightedInstCounter::estimateMemOpCosts(Function &F, DenseMap<Instruction*,
   // it should be cheap.
   for (std::vector<Instruction*>::iterator I = ExpensiveGEP.begin(), E = ExpensiveGEP.end();
     I != E; ++I) {
-    for (Instruction::use_iterator U = (*I)->use_begin(), UE = (*I)->use_end();
+    for (Instruction::user_iterator U = (*I)->user_begin(), UE = (*I)->user_end();
         U != UE; ++U)
     {
       if (Instruction* User = dyn_cast<Instruction>(*U))
@@ -1063,7 +1063,7 @@ void WeightedInstCounter::estimateMemOpCosts(Function &F, DenseMap<Instruction*,
 
   for (std::vector<Instruction*>::iterator I = CheapGEP.begin(), E = CheapGEP.end();
     I != E; I++) {
-    for (Instruction::use_iterator U = (*I)->use_begin(), UE = (*I)->use_end();
+    for (Instruction::user_iterator U = (*I)->user_begin(), UE = (*I)->user_end();
         U != UE; ++U)
     {
       if (Instruction* User = dyn_cast<Instruction>(*U))
@@ -1080,7 +1080,7 @@ void WeightedInstCounter::addUsersToWorklist(Instruction *I,
                                 std::vector<Instruction*> &WorkList) const
 {
   // Find all users, add them to the worklist if they haven't been visited yet
-  for (Instruction::use_iterator U = I->use_begin(), UE = I->use_end();
+  for (Instruction::user_iterator U = I->user_begin(), UE = I->user_end();
        U != UE; U++)
     if (Instruction* User = dyn_cast<Instruction>(*U))
       if (Visited.find(User) == Visited.end())
@@ -1341,7 +1341,7 @@ bool CanVectorizeImpl::hasNonInlineUnsupportedFunctions(Function &F) {
 
   for ( CompilationUtils::FunctionSet::iterator fi = oclFunction.begin(), fe = oclFunction.end(); fi != fe; ++fi ) {
     Function *F = *fi;
-    for (Function::use_iterator ui = F->use_begin(), ue = F->use_end(); ui != ue; ++ui ) {
+    for (Function::user_iterator ui = F->user_begin(), ue = F->user_end(); ui != ue; ++ui ) {
       CallInst *CI = dyn_cast<CallInst> (*ui);
       if (!CI) continue;
       Function *pCallingFunc = CI->getParent()->getParent();

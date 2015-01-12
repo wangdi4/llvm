@@ -6,6 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 
 #include "Main.h"
+#include "Mangler.h"
 #include "VectorizerCore.h"
 #include "MetaDataApi.h"
 #include "OclTune.h"
@@ -16,6 +17,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/PassManager.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Module.h"
+
+#include <sstream>
+
+using namespace std;
 
 // Placeholders for debug log files
 FILE * prtFile;
@@ -92,6 +97,84 @@ Vectorizer::~Vectorizer()
   V_DESTROY_PRINT;
 }
 
+void Vectorizer::createVectorizationStubs(Module& M) {
+  IntegerType* i1Type = Type::getInt1Ty(M.getContext());
+  IntegerType* i32Type = Type::getInt32Ty(M.getContext());
+  // Declare all-{zero,one}
+  for (int i = 1; i <= 16; i *= 2) {
+    stringstream version;
+    Type* argType = i1Type;
+    if (i > 1) {
+      version << "_v" << i;
+      argType = VectorType::get(i1Type, i);
+    }
+    std::vector<Type*> parameterTypes;
+    parameterTypes.push_back(argType);
+    FunctionType* funcType = FunctionType::get(i1Type, parameterTypes, false);
+    Function* allOneFunc =
+      dyn_cast<Function>(M.getOrInsertFunction(Mangler::name_allOne + version.str(),
+					       funcType));
+    V_ASSERT(allOneFunc && "Function type is incorrect, so dyn_cast failed");
+    allOneFunc->addFnAttr(Attribute::NoUnwind);
+    allOneFunc->addFnAttr(Attribute::ReadNone);
+    m_vectorizationStubs.push_back(allOneFunc);
+    Function* allZeroFunc =
+      dyn_cast<Function>(M.getOrInsertFunction(Mangler::name_allZero + version.str(),
+					       funcType));
+    V_ASSERT(allZeroFunc && "Function type is incorrect, so dyn_cast failed");
+    allZeroFunc->addFnAttr(Attribute::NoUnwind);
+    allZeroFunc->addFnAttr(Attribute::ReadNone);
+    m_vectorizationStubs.push_back(allZeroFunc);
+  }
+
+  // Declare masked load/store
+  vector<Type*> maskedTypes;
+  maskedTypes.push_back(Type::getInt32Ty(M.getContext()));
+  maskedTypes.push_back(Type::getInt64Ty(M.getContext()));
+  maskedTypes.push_back(Type::getFloatTy(M.getContext()));
+  maskedTypes.push_back(Type::getDoubleTy(M.getContext()));
+  vector<Type*>::iterator it, end;
+  for (it = maskedTypes.begin(), end = maskedTypes.end(); it != end; it++) {
+    for (int i = 2; i <= 16; i *= 2) {
+      // Create the masked load function
+      VectorType* valueType = VectorType::get(*it, i);
+      std::vector<Type*> loadParameterTypes;
+      loadParameterTypes.push_back(VectorType::get(*it, i)->getPointerTo());
+      loadParameterTypes.push_back(VectorType::get(i32Type, i));
+      FunctionType* loadFuncType = FunctionType::get(valueType,
+						     loadParameterTypes,
+						     false);
+      string loadFuncName = Mangler::getMaskedLoadStoreBuiltinName(true, valueType);
+      Function* loadFunc =
+	dyn_cast<Function>(M.getOrInsertFunction(loadFuncName, loadFuncType));
+      V_ASSERT(loadFunc && "Function type is incorrect, so dyn_cast failed");
+      loadFunc->addFnAttr(Attribute::NoUnwind);
+      m_vectorizationStubs.push_back(loadFunc);
+
+      // Create the masked store function
+      std::vector<Type*> storeParameterTypes;
+      storeParameterTypes.push_back(VectorType::get(*it, i)->getPointerTo());
+      storeParameterTypes.push_back(valueType);
+      storeParameterTypes.push_back(VectorType::get(i32Type, i));
+      FunctionType* storeFuncType = FunctionType::get(Type::getVoidTy(M.getContext()),
+						      storeParameterTypes,
+						      false);
+      string storeFuncName = Mangler::getMaskedLoadStoreBuiltinName(false, valueType);
+      Function* storeFunc =
+	dyn_cast<Function>(M.getOrInsertFunction(storeFuncName, storeFuncType));
+      V_ASSERT(storeFunc && "Function type is incorrect, so dyn_cast failed");
+      storeFunc->addFnAttr(Attribute::NoUnwind);
+      m_vectorizationStubs.push_back(storeFunc);
+    }
+  }
+}
+
+void Vectorizer::deleteVectorizationStubs() {
+  VectorizationStubsVector::iterator it = m_vectorizationStubs.begin();
+  VectorizationStubsVector::iterator end = m_vectorizationStubs.end();
+  for (; it != end; it++)
+    (*it)->eraseFromParent();
+}
 
 bool Vectorizer::runOnModule(Module &M)
 {
@@ -115,6 +198,7 @@ bool Vectorizer::runOnModule(Module &M)
     return false;
   }
 /* xmain */
+  createVectorizationStubs(M);
 #if 0
   if (!m_runtimeModule)
   {
@@ -153,7 +237,7 @@ bool Vectorizer::runOnModule(Module &M)
   // Create the vectorizer core pass that will do the vectotrization work.
   VectorizerCore *vectCore = (VectorizerCore *)createVectorizerCorePass(m_pConfig);
   FunctionPassManager vectPM(&M);
-  Module* builtinModule = new Module("empty", *new LLVMContext()); // xmain
+  Module* builtinModule = &M;
 //  Module* builtinModule = getAnalysis<BuiltinLibInfo>().getBuiltinModule();
   vectPM.add(createBuiltinLibInfoPass(builtinModule, ""));
   vectPM.add(vectCore);
