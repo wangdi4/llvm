@@ -144,14 +144,16 @@ int KernelCommand::EnqueueKernel(queue_t queue, kernel_enqueue_flags_t flags, cl
       }
     }
     // debug mode: make sure all child kernels start after the parent ends its execution and then run in-order    
+    ITaskList* const pDebugList = pList->GetDebugInOrderDeviceQueue();
+    assert(pDebugList != NULL);
     const bool bIsDebugMode = pKernel->GetKernelProporties()->HasDebugInfo();
     if (bIsDebugMode)
     {
         // indeed BE is supposed to force this flag, but we force it ourselves just to make sure
         flags = CLK_ENQUEUE_FLAGS_WAIT_KERNEL;
+        m_childrenTaskGroup = pDebugList->GetNDRangeChildrenTaskGroup();
     }
-    ITaskList* const pDebugList = pList->GetDebugInOrderDeviceQueue();
-    assert(pDebugList != NULL);
+    
     SharedPtr<KernelCommand> pChild;
 #if __USE_TBB_ALLOCATOR__
         DeviceNDRange* const pChildAddress = m_deviceNDRangeAllocator.allocate(sizeof(DeviceNDRange));    // currently we ignore bad_alloc
