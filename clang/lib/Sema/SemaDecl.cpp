@@ -8094,10 +8094,17 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
   assert(T->isFunctionType() && "function decl is not of function type");
   const FunctionType* FT = T->castAs<FunctionType>();
 
+#ifndef INTEL_CUSTOMIZATION
   if (getLangOpts().GNUMode && !getLangOpts().CPlusPlus) {
     // In C with GNU extensions we allow main() to have non-integer return
     // type, but we should warn about the extension, and we disable the
     // implicit-return-zero rule.
+#else
+  if (getLangOpts().GNUMode && !getLangOpts().CPlusPlus ||
+      getLangOpts().IntelCompat) {
+    // The same should be done in IntelCompat mode as well.
+    // See CQ#364427 for details.
+#endif
 
     // GCC in C mode accepts qualified 'int'.
     if (Context.hasSameUnqualifiedType(FT->getReturnType(), Context.IntTy))
@@ -8180,9 +8187,18 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
     }
 
     if (mismatch) {
+#ifdef INTEL_CUSTOMIZATION
+      // CQ#364268 - emit a warning in IntelCompat mode, continue compilation
+      if (getLangOpts().IntelCompat) {
+        Diag(FD->getLocation(), diag::warn_main_arg_wrong) << i << Expected[i];
+      } else {
+#endif      
       Diag(FD->getLocation(), diag::err_main_arg_wrong) << i << Expected[i];
       // TODO: suggest replacing given type with expected type
       FD->setInvalidDecl(true);
+#ifdef INTEL_CUSTOMIZATION
+      }
+#endif
     }
   }
 
