@@ -215,13 +215,20 @@ public:
 
     static SharedPtr<in_order_command_list> Allocate( TBBTaskExecutor& pTBBExec, 
                                                       const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, 
-                                                      const CommandListCreationParam& param )
+                                                      const CommandListCreationParam& param, bool bIsDebugList = false)
     {
-        return new in_order_command_list(pTBBExec, device, param);
+        return new in_order_command_list(pTBBExec, device, param, bIsDebugList);
     }
 
     // This is an optimization: since only one NDRange command can Simultaneously run, all NDRange commands can share the same TaskGroup, without the need to allocate a new one for each of them.
-    virtual SharedPtr<IThreadLibTaskGroup> GetNDRangeChildrenTaskGroup() { return m_ndrangeChildrenTaskGroup; }
+    virtual SharedPtr<IThreadLibTaskGroup> GetNDRangeChildrenTaskGroup()
+    {
+        if (NULL != m_ndrangeChildrenTaskGroup)
+        {
+            return m_ndrangeChildrenTaskGroup;
+        }
+        return TbbTaskGroup::Allocate();
+    }
 
     virtual bool DoesSupportDeviceSideCommandEnqueue() const { return true; }
 
@@ -234,10 +241,11 @@ protected:
     virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = NULL );
 
 private:
+
     SharedPtr<IThreadLibTaskGroup>			 m_ndrangeChildrenTaskGroup;
 
-    in_order_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam& param) :
-        base_command_list(pTBBExec, device, param), m_ndrangeChildrenTaskGroup(TbbTaskGroup::Allocate())  {}
+    in_order_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam& param, bool bIsDebugList) :
+        base_command_list(pTBBExec, device, param), m_ndrangeChildrenTaskGroup(bIsDebugList ? SharedPtr<TbbTaskGroup>(NULL) : TbbTaskGroup::Allocate())  {}
 
 };
 
