@@ -16,6 +16,9 @@
 #include "CGCXXABI.h"
 #include "CGCall.h"
 #include "CGDebugInfo.h"
+#ifdef INTEL_CUSTOMIZATION
+#include "intel/CGCilkPlusRuntime.h"
+#endif
 #include "CGObjCRuntime.h"
 #include "CGOpenCLRuntime.h"
 #include "CGOpenMPRuntime.h"
@@ -82,7 +85,11 @@ CodeGenModule::CodeGenModule(ASTContext &C, const CodeGenOptions &CGO,
       ABI(createCXXABI(*this)), VMContext(M.getContext()), TBAA(nullptr),
       TheTargetCodeGenInfo(nullptr), Types(*this), VTables(*this),
       ObjCRuntime(nullptr), OpenCLRuntime(nullptr), OpenMPRuntime(nullptr),
-      CUDARuntime(nullptr), DebugInfo(nullptr), ARCData(nullptr),
+      CUDARuntime(nullptr), 
+#ifdef INTEL_CUSTOMIZATION
+      CilkPlusRuntime(nullptr), 
+#endif
+      DebugInfo(nullptr), ARCData(nullptr),
       NoObjCARCExceptionsMetadata(nullptr), RRData(nullptr), PGOReader(nullptr),
       CFConstantStringClassRef(nullptr), ConstantStringClassRef(nullptr),
       NSConstantStringType(nullptr), NSConcreteGlobalBlock(nullptr),
@@ -119,7 +126,10 @@ CodeGenModule::CodeGenModule(ASTContext &C, const CodeGenOptions &CGO,
     createOpenMPRuntime();
   if (LangOpts.CUDA)
     createCUDARuntime();
-
+#ifdef INTEL_CUSTOMIZATION	
+  if (LangOpts.CilkPlus)
+    createCilkPlusRuntime();
+#endif
   // Enable TBAA unless it's suppressed. ThreadSanitizer needs TBAA even at O0.
   if (LangOpts.Sanitize.has(SanitizerKind::Thread) ||
       (!CodeGenOpts.RelaxedAliasing && CodeGenOpts.OptimizationLevel > 0))
@@ -196,6 +206,12 @@ void CodeGenModule::createOpenMPRuntime() {
 void CodeGenModule::createCUDARuntime() {
   CUDARuntime = CreateNVCUDARuntime(*this);
 }
+
+#ifdef INTEL_CUSTOMIZATION
+void CodeGenModule::createCilkPlusRuntime() {
+  CilkPlusRuntime = new CGCilkPlusRuntime;
+}
+#endif
 
 void CodeGenModule::addReplacement(StringRef Name, llvm::Constant *C) {
   Replacements[Name] = C;
@@ -408,7 +424,10 @@ void CodeGenModule::Release() {
 
   if (getCodeGenOpts().EmitDeclMetadata)
     EmitDeclMetadata();
-
+#ifdef INTEL_CUSTOMIZATION
+  if (getLangOpts().CilkPlus)
+    EmitCilkElementalVariants();
+#endif
   if (getCodeGenOpts().EmitGcovArcs || getCodeGenOpts().EmitGcovNotes)
     EmitCoverageFile();
 
@@ -599,6 +618,10 @@ StringRef CodeGenModule::getBlockMangledName(GlobalDecl GD,
   return Result.first->first();
 }
 
+void CodeGenModule::registerAsMangled(StringRef Name, GlobalDecl GD) {	//***INTEL
+  MangledDeclNames[GD.getCanonicalDecl()] = Name;						//***INTEL
+}																		//***INTEL
+
 llvm::GlobalValue *CodeGenModule::GetGlobalValue(StringRef Name) {
   return getModule().getNamedValue(Name);
 }
@@ -680,6 +703,12 @@ void CodeGenModule::SetLLVMFunctionAttributes(const Decl *D,
   ConstructAttributeList(Info, D, AttributeList, CallingConv, false);
   F->setAttributes(llvm::AttributeSet::get(getLLVMContext(), AttributeList));
   F->setCallingConv(static_cast<llvm::CallingConv::ID>(CallingConv));
+#ifdef INTEL_CUSTOMIZATION
+  // Add metadata if this is a Cilk Plus elemental function.
+  if (getLangOpts().CilkPlus)
+    if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
+      EmitCilkElementalMetadata(Info, FD, F);
+#endif
 }
 
 /// Determines whether the language options require us to model
@@ -2007,6 +2036,17 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
   if (D->hasAttr<AnnotateAttr>())
     AddGlobalAnnotations(D, GV);
 
+  if (D->getType().isRestrictQualified()) {							//***INTEL 
+    llvm::LLVMContext &Context = getLLVMContext();					//***INTEL 
+
+    // Common metadata nodes.										//***INTEL 
+    llvm::NamedMDNode *GlobalsRestrict =							//***INTEL 
+      getModule().getOrInsertNamedMetadata("globals.restrict");		//***INTEL 
+    llvm::Value *Args[] = {GV};										//***INTEL 
+    llvm::MDNode *Node = llvm::MDNode::get(Context, Args);			//***INTEL 
+    GlobalsRestrict->addOperand(Node);								//***INTEL 
+  }																	//***INTEL 
+
   GV->setInitializer(Init);
 
   // If it is safe to mark the global 'constant', do so now.
@@ -3262,7 +3302,11 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
       getModule().setModuleInlineAsm(S + '\n' + AsmString.str());
     break;
   }
-
+#ifdef INTEL_CUSTOMIZATION
+  case Decl::Pragma:
+    CodeGenFunction(*this).EmitPragmaDecl(cast<PragmaDecl>(*D));
+    break;
+#endif
   case Decl::Import: {
     auto *Import = cast<ImportDecl>(D);
 
@@ -3296,6 +3340,10 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
     assert(isa<TypeDecl>(D) && "Unsupported decl kind");
     break;
   }
+#ifdef INTEL_CUSTOMIZATION  
+  if (D->hasAttr<AvoidFalseShareAttr>())
+    CodeGenFunction(*this).EmitIntelAttribute(*D);
+#endif
 }
 
 void CodeGenModule::AddDeferredUnusedCoverageMapping(Decl *D) {

@@ -130,7 +130,9 @@ namespace clang {
     void VisitObjCPropertyDecl(ObjCPropertyDecl *D);
     void VisitObjCPropertyImplDecl(ObjCPropertyImplDecl *D);
     void VisitOMPThreadPrivateDecl(OMPThreadPrivateDecl *D);
-
+#ifdef INTEL_CUSTOMIZATION
+    void VisitPragmaDecl(PragmaDecl *D);
+#endif
     void AddFunctionDefinition(const FunctionDecl *FD) {
       assert(FD->doesThisDeclarationHaveABody());
       if (auto *CD = dyn_cast<CXXConstructorDecl>(FD))
@@ -2025,6 +2027,15 @@ void ASTWriter::WriteDecl(ASTContext &Context, Decl *D) {
   if (isRequiredDecl(D, Context))
     EagerlyDeserializedDecls.push_back(ID);
 }
+
+#ifdef INTEL_CUSTOMIZATION
+void ASTDeclWriter::VisitPragmaDecl(PragmaDecl *D) {
+  VisitDecl(D);
+  Writer.AddStmt(D->getStmt());
+
+  Code = serialization::DECL_PRAGMA;
+}
+#endif
 
 void ASTWriter::AddFunctionDefinition(const FunctionDecl *FD,
                                       RecordData &Record) {

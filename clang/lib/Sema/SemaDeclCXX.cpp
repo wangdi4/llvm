@@ -67,6 +67,9 @@ namespace {
     bool VisitDeclRefExpr(DeclRefExpr *DRE);
     bool VisitCXXThisExpr(CXXThisExpr *ThisE);
     bool VisitLambdaExpr(LambdaExpr *Lambda);
+#ifdef INTEL_CUSTOMIZATION	
+    bool VisitCEANIndexExpr(CEANIndexExpr *Node);
+#endif
     bool VisitPseudoObjectExpr(PseudoObjectExpr *POE);
   };
 
@@ -145,6 +148,15 @@ namespace {
     return S->Diag(Lambda->getLocStart(), 
                    diag::err_lambda_capture_default_arg);
   }
+#ifdef INTEL_CUSTOMIZATION	
+  bool CheckDefaultArgumentVisitor::VisitCEANIndexExpr(CEANIndexExpr *Node) {
+    bool IsInvalid = false;
+    for (Stmt::child_range I = Node->children(); I; ++I)
+      if (*I)
+        IsInvalid |= Visit(*I);
+    return IsInvalid;
+  }
+#endif  
 }
 
 void
@@ -11588,6 +11600,9 @@ bool Sema::CheckLiteralOperatorDeclaration(FunctionDecl *FnDecl) {
     // as the only parameters.
     if (Context.hasSameType(T, Context.UnsignedLongLongTy) ||
         Context.hasSameType(T, Context.LongDoubleTy) ||
+#ifdef INTEL_CUSTOMIZATION
+        Context.hasSameType(T, Context.Float128Ty) ||
+#endif
         Context.hasSameType(T, Context.CharTy) ||
         Context.hasSameType(T, Context.WideCharTy) ||
         Context.hasSameType(T, Context.Char16Ty) ||

@@ -234,3 +234,7 @@ FunctionScopeInfo::~FunctionScopeInfo() { }
 BlockScopeInfo::~BlockScopeInfo() { }
 LambdaScopeInfo::~LambdaScopeInfo() { }
 CapturedRegionScopeInfo::~CapturedRegionScopeInfo() { }
+#ifdef INTEL_CUSTOMIZATION
+CilkForScopeInfo::~CilkForScopeInfo() { }
+SIMDForScopeInfo::~SIMDForScopeInfo() { }
+#endif

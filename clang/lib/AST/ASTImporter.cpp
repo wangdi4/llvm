@@ -180,6 +180,9 @@ namespace clang {
     Expr *VisitCompoundAssignOperator(CompoundAssignOperator *E);
     Expr *VisitImplicitCastExpr(ImplicitCastExpr *E);
     Expr *VisitCStyleCastExpr(CStyleCastExpr *E);
+#ifdef INTEL_CUSTOMIZATION
+    Decl *VisitPragmaDecl(PragmaDecl *D);
+#endif
   };
 }
 using namespace clang;
@@ -5120,3 +5123,9 @@ bool ASTImporter::IsStructurallyEquivalent(QualType From, QualType To,
                                    false, Complain);
   return Ctx.IsStructurallyEquivalent(From, To);
 }
+
+#ifdef INTEL_CUSTOMIZATION
+Decl *ASTNodeImporter::VisitPragmaDecl(PragmaDecl *D) {
+  return VisitDecl(D);
+}
+#endif

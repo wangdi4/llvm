@@ -19,6 +19,8 @@ add_clang_library(clangSema
   SemaCXXScopeSpec.cpp
   SemaCast.cpp
   SemaChecking.cpp
+#***INTEL 
+  intel/SemaCilk.cpp
   SemaCodeComplete.cpp
   SemaConsumer.cpp
   SemaCUDA.cpp

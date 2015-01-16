@@ -12,6 +12,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "CodeGenFunction.h"
+#ifdef INTEL_CUSTOMIZATION
+#include "intel/CGCilkPlusRuntime.h"
+#endif
 #include "CGCUDARuntime.h"
 #include "CGCXXABI.h"
 #include "CGDebugInfo.h"
@@ -38,6 +41,9 @@ CodeGenFunction::CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext)
       Builder(cgm.getModule().getContext(), llvm::ConstantFolder(),
               CGBuilderInserterTy(this)),
       CurFn(nullptr), CapturedStmtInfo(nullptr),
+#ifdef INTEL_CUSTOMIZATION	  
+	  CurCGCilkImplicitSyncInfo(nullptr),
+#endif
       SanOpts(CGM.getLangOpts().Sanitize), IsSanitizerScope(false),
       CurFuncIsThunk(false), AutoreleaseResult(false), SawAsmBlock(false),
       BlockInfo(nullptr), BlockPointer(nullptr),
@@ -51,8 +57,10 @@ CodeGenFunction::CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext)
       CXXABIThisDecl(nullptr), CXXABIThisValue(nullptr), CXXThisValue(nullptr),
       CXXDefaultInitExprThis(nullptr), CXXStructorImplicitParamDecl(nullptr),
       CXXStructorImplicitParamValue(nullptr), OutermostConditional(nullptr),
-      CurLexicalScope(nullptr), TerminateLandingPad(nullptr),
-      TerminateHandler(nullptr), TrapBB(nullptr) {
+      CurLexicalScope(nullptr),
+	  ExceptionsDisabled(false),	//***INTEL 
+      TerminateLandingPad(nullptr), 
+	  TerminateHandler(nullptr), TrapBB(nullptr) {
   if (!suppressNewContext)
     CGM.getCXXABI().getMangleContext().startNewFunction();
 
@@ -74,7 +82,9 @@ CodeGenFunction::~CodeGenFunction() {
   // something.
   if (FirstBlockInfo)
     destroyBlockInfos(FirstBlockInfo);
-
+#ifdef INTEL_CUSTOMIZATION
+  delete CurCGCilkImplicitSyncInfo;
+#endif
   if (getLangOpts().OpenMP) {
     CGM.getOpenMPRuntime().FunctionFinished(*this);
   }
@@ -182,6 +192,7 @@ void CodeGenFunction::EmitReturnBlock() {
       // branch.  This is really subtle and only works because the next change
       // in location will hit the caching in CGDebugInfo::EmitLocation and not
       // override this.
+      ReturnLoc = BI->getDebugLoc();	//***INTEL 
       Builder.SetCurrentDebugLocation(BI->getDebugLoc());
       Builder.SetInsertPoint(BI->getParent());
       BI->eraseFromParent();
@@ -690,6 +701,20 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
   EmitStartEHSpec(CurCodeDecl);
 
   PrologueCleanupDepth = EHStack.stable_begin();
+#ifdef INTEL_CUSTOMIZATION
+  // If emitting a spawning function, a Cilk stack frame will be allocated and
+  // fully initialized before processing any function parameters, which
+  // makes associated cleanups happen last.
+  //
+  // If emitting a helper function (parallel region), a Cilk stack frame will
+  // be allocated and partially initialized before processing any parameters.
+  if (getLangOpts().CilkPlus && D && D->isSpawning()) {
+    CurCGCilkImplicitSyncInfo = CreateCilkImplicitSyncInfo(*this);
+    CGM.getCilkPlusRuntime().EmitCilkParentStackFrame(*this);
+    if (CurCGCilkImplicitSyncInfo->needsImplicitSync())
+      CGM.getCilkPlusRuntime().pushCilkImplicitSyncCleanup(*this);
+  }
+#endif
   EmitFunctionProlog(*CurFnInfo, CurFn, Args);
 
   if (D && isa<CXXMethodDecl>(D) && cast<CXXMethodDecl>(D)->isInstance()) {
@@ -935,6 +960,10 @@ bool CodeGenFunction::ContainsLabel(const Stmt *S, bool IgnoreCaseStmts) {
   // can't jump to one from outside their declared region.
   if (isa<LabelStmt>(S))
     return true;
+#ifdef INTEL_CUSTOMIZATION
+  if (isa<PragmaStmt>(S))
+    return true;
+#endif
 
   // If this is a case/default statement, and we haven't seen a switch, we have
   // to emit the code.

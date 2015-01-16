@@ -373,7 +373,12 @@ KEYWORD(__FUNCSIG__                 , KEYMS)
 KEYWORD(L__FUNCTION__               , KEYMS)
 TYPE_TRAIT_1(__is_interface_class, IsInterfaceClass, KEYMS)
 TYPE_TRAIT_1(__is_sealed, IsSealed, KEYMS)
-
+//#ifdef INTEL_CUSTOMIZATION
+KEYWORD(_Quad                       , KEYFLOAT128)	
+KEYWORD(_Cilk_spawn                 , KEYCILKPLUS)
+KEYWORD(_Cilk_sync                  , KEYCILKPLUS)
+KEYWORD(_Cilk_for                   , KEYCILKPLUS)
+//#endif
 // MSVC12.0 / VS2013 Type Traits
 TYPE_TRAIT_1(__is_destructible, IsDestructible, KEYMS)
 TYPE_TRAIT_1(__is_nothrow_destructible, IsNothrowDestructible, KEYMS)
@@ -532,6 +537,9 @@ ALIAS("__signed"     , signed     , KEYALL)
 ALIAS("__signed__"   , signed     , KEYALL)
 ALIAS("__typeof"     , typeof     , KEYALL)
 ALIAS("__typeof__"   , typeof     , KEYALL)
+#ifdef INTEL_CUSTOMIZATION
+ALIAS("_Typeof"      , typeof     , KEYALL)
+#endif
 ALIAS("__volatile"   , volatile   , KEYALL)
 ALIAS("__volatile__" , volatile   , KEYALL)
 
@@ -713,6 +721,151 @@ ANNOTATION(pragma_opencl_extension)
 // handles #pragma omp ... directives.
 ANNOTATION(pragma_openmp)
 ANNOTATION(pragma_openmp_end)
+
+//#ifdef INTEL_CUSTOMIZATION
+// Annotation for #pragma cilk grainsize...
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_cilk_grainsize_begin)
+
+// Annotation for #pragma cilk grainsize...
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_cilk_grainsize_end)
+
+// Annotation for #pragma simd
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_simd)
+ANNOTATION(pragma_simd_end)
+
+///#ifdef INTEL_CUSTOMIZATION
+// Alternate spelling for alignof
+ALIAS("__ALIGNOF__" , __alignof , KEYALL)
+
+ANNOTATION(pragma_end)
+
+// Annotation for #pragma ivdep
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_ivdep)
+
+// Annotation for #pragma novector
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_novector)
+
+// Annotation for #pragma distribute_point
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_distribute_point)
+
+// Annotation for #pragma inline, forceinline and noinline
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_inline)
+
+// Annotation for #pragma loop_count
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_loop_count)
+
+// Annotation for #pragma optimize
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_optimize)
+
+// Annotation for #pragma optimization_level
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_optimization_level)
+
+// Annotation for #pragma noparallel
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_noparallel)
+
+// Annotation for #pragma nounroll, unroll
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_unroll)
+
+// Annotation for #pragma nounroll_and_jam, unroll_and_jam
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_unroll_and_jam)
+
+// Annotation for #pragma nofusion
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_nofusion)
+
+// Annotation for #pragma vector
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_vector)
+
+// Annotation for #pragma intel optimization_parameter
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_optimization_parameter)
+
+// Annotation for #pragma parallel
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_parallel)
+
+// Annotation for #pragma alloc_section
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_alloc_section)
+
+// Annotation for #pragma section
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_section)
+
+// Annotation for #pragma alloc_text
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_alloc_text)
+
+// Annotation for #pragma auto_inline
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_auto_inline)
+
+// Annotation for #pragma bss_seg|code_seg|const_seg|data_seg
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_seg)
+
+// Annotation for #pragma check_stack
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_check_stack)
+
+// Annotation for #pragma conform
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_conform)
+
+// Annotation for #pragma init_seg
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_init_seg)
+
+// Annotation for #pragma float_control
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_float_control)
+
+// Annotation for #pragma fp_contract, fenv_access
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_intel_fp_contract)
+ANNOTATION(pragma_fenv_access)
+//#endif
 
 // Annotations for loop pragma directives #pragma clang loop ...
 // The lexer produces these so that they only take effect when the parser

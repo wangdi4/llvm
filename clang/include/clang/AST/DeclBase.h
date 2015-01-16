@@ -851,6 +851,13 @@ public:
             DeclKind <= Decl::lastFunction) ||
            DeclKind == FunctionTemplate;
   }
+  
+#ifdef INTEL_CUSTOMIZATION
+  /// \brief Whether this declaration has Cilk spawns.
+  ///
+  /// Currently only FunctionDecl and CapturedDecl can have Cilk spawns.
+  bool isSpawning() const;
+#endif
 
   /// \brief Returns the function itself, or the templated function if this is a
   /// function template.

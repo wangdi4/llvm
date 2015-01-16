@@ -267,6 +267,9 @@ bool Parser::SkipUntil(ArrayRef<tok::TokenKind> Toks, SkipUntilFlags Flags) {
     case tok::annot_module_begin:
     case tok::annot_module_end:
     case tok::annot_module_include:
+#ifdef INTEL_CUSTOMIZATION	
+    case tok::annot_pragma_simd_end:
+#endif	
       // Stop before we change submodules. They generally indicate a "good"
       // place to pick up parsing again (except in the special case where
       // we're trying to skip to EOF).
@@ -606,6 +609,9 @@ Parser::ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
 
   Decl *SingleDecl = nullptr;
   switch (Tok.getKind()) {
+#ifdef INTEL_CUSTOMIZATION
+#include "intel/Parser_ParseExternalDeclaration.cpp"
+#endif
   case tok::annot_pragma_vis:
     HandlePragmaVisibility();
     return DeclGroupPtrTy();

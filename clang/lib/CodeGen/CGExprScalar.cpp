@@ -259,7 +259,21 @@ public:
     // Otherwise, assume the mapping is the scalar directly.
     return CGF.getOpaqueRValueMapping(E).getScalarVal();
   }
+#ifdef INTEL_CUSTOMIZATION
+  Value *VisitCEANIndexExpr(CEANIndexExpr *E) {
+    assert (E->getIndexExpr() && "Index expr is not set");
+    return CGF.EmitScalarExpr(E->getIndexExpr());
+  }
 
+  Value *VisitCEANBuiltinExpr(CEANBuiltinExpr *E) {
+    CodeGenFunction::LocalVarsDeclGuard Guard(CGF);
+    CGF.EmitCEANBuiltinExprBody(E);
+    if (E->getBuiltinKind() != CEANBuiltinExpr::ReduceMutating)
+      return E->getReturnExpr()->isRValue() ? Visit(E->getReturnExpr()) :
+                                              EmitLoadOfLValue(E->getReturnExpr());
+    return 0;
+  }
+#endif
   // l-values.
   Value *VisitDeclRefExpr(DeclRefExpr *E) {
     if (CodeGenFunction::ConstantEmission result = CGF.tryEmitAsConstant(E)) {
@@ -565,6 +579,12 @@ public:
   }
   Value *VisitAsTypeExpr(AsTypeExpr *CE);
   Value *VisitAtomicExpr(AtomicExpr *AE);
+#ifdef INTEL_CUSTOMIZATION
+  Value *VisitCilkSpawnExpr(CilkSpawnExpr *E) {
+    CGF.EmitCilkSpawnExpr(E);
+    return 0;
+  }
+#endif
 };
 }  // end anonymous namespace.
 
@@ -2939,11 +2959,26 @@ Value *ScalarExprEmitter::VisitBinAssign(const BinaryOperator *E) {
   // No reason to do any of these differently.
   case Qualifiers::OCL_None:
   case Qualifiers::OCL_ExplicitNone:
+#ifdef INTEL_CUSTOMIZATION
+    // Cilk Plus needs the LHS evaluated first to handle cases such as
+    // array[f()] = _Cilk_spawn foo();
+    // This evaluation order requirement implies that _Cilk_spawn cannot
+    // spawn Objective C block calls.
+    if (CGF.getLangOpts().CilkPlus && E->getRHS()->isCilkSpawn()) {
+      LHS = EmitCheckedLValue(E->getLHS(), CodeGenFunction::TCK_Store);
+      RHS = Visit(E->getRHS());
+    } else {
+      // __block variables need to have the rhs evaluated first, plus
+      // this should improve codegen just a little.
+      RHS = Visit(E->getRHS());
+      LHS = EmitCheckedLValue(E->getLHS(), CodeGenFunction::TCK_Store);
+    }
+#else
     // __block variables need to have the rhs evaluated first, plus
     // this should improve codegen just a little.
     RHS = Visit(E->getRHS());
     LHS = EmitCheckedLValue(E->getLHS(), CodeGenFunction::TCK_Store);
-
+#endif
     // Store the value into the LHS.  Bit-fields are handled specially
     // because the result is altered by the store, i.e., [C99 6.5.16p1]
     // 'An assignment expression has the value of the left operand after

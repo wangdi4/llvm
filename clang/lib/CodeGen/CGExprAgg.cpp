@@ -109,7 +109,17 @@ public:
   void VisitSubstNonTypeTemplateParmExpr(SubstNonTypeTemplateParmExpr *E) {
     return Visit(E->getReplacement());
   }
-
+#ifdef INTEL_CUSTOMIZATION
+  void VisitCEANBuiltinExpr(CEANBuiltinExpr *E) {
+    CodeGenFunction::LocalVarsDeclGuard Guard(CGF);
+    CGF.EmitCEANBuiltinExprBody(E);
+    if (E->getBuiltinKind() != CEANBuiltinExpr::ReduceMutating)
+      Visit(E->getReturnExpr());
+  }
+  void VisitCilkSpawnExpr(CilkSpawnExpr *E) {
+    CGF.EmitCilkSpawnExpr(E);
+  }  
+#endif
   // l-values.
   void VisitDeclRefExpr(DeclRefExpr *E) {
     // For aggregates, we should always be able to emit the variable

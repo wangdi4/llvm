@@ -14,6 +14,9 @@
 
 #include "CGCall.h"
 #include "ABIInfo.h"
+#ifdef INTEL_CUSTOMIZATION
+#include "intel/CGCilkPlusRuntime.h"
+#endif
 #include "CGCXXABI.h"
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
@@ -1175,6 +1178,10 @@ bool CodeGenModule::ReturnTypeUsesFPRet(QualType ResultType) {
       return getTarget().useObjCFPRetForRealType(TargetInfo::Double);
     case BuiltinType::LongDouble:
       return getTarget().useObjCFPRetForRealType(TargetInfo::LongDouble);
+#ifdef INTEL_CUSTOMIZATION
+    case BuiltinType::Float128:
+      return getTarget().useObjCFPRetForRealType(TargetInfo::Float128);
+#endif	  
     }
   }
 
@@ -2179,7 +2186,9 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
 
   // Functions with no result always return void.
   if (!ReturnValue) {
-    Builder.CreateRetVoid();
+    llvm::Instruction *Ret = Builder.CreateRetVoid();	//***INTEL
+    if (EmitRetDbgLoc && !ReturnLoc.isUnknown())		//***INTEL 
+      Ret->setDebugLoc(ReturnLoc);						//***INTEL 
     return;
   }
 
@@ -2310,6 +2319,8 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
 
   if (!RetDbgLoc.isUnknown())
     Ret->setDebugLoc(RetDbgLoc);
+  else if (EmitRetDbgLoc && !ReturnLoc.isUnknown())	//***INTEL 
+    Ret->setDebugLoc(ReturnLoc);					//***INTEL 
 }
 
 static bool isInAllocaArgument(CGCXXABI &ABI, QualType type) {
@@ -2938,7 +2949,11 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
                                  ReturnValueSlot ReturnValue,
                                  const CallArgList &CallArgs,
                                  const Decl *TargetDecl,
-                                 llvm::Instruction **callOrInvoke) {
+                                 llvm::Instruction **callOrInvoke
+#ifdef INTEL_CUSTOMIZATION								 
+                                 , bool IsCilkSpawnCall
+#endif								 
+								 ) {
   // FIXME: We no longer need the types from CallArgs; lift up and simplify.
 
   // Handle struct-return functions by passing a pointer to the
@@ -3263,7 +3278,12 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
                              CallingConv, true);
   llvm::AttributeSet Attrs = llvm::AttributeSet::get(getLLVMContext(),
                                                      AttributeList);
-
+#ifdef INTEL_CUSTOMIZATION
+  // If this call is a Cilk spawn call, then we need to emit the prologue
+  // before emitting the real call.
+  if (IsCilkSpawnCall)
+    CGM.getCilkPlusRuntime().EmitCilkHelperPrologue(*this);
+#endif
   llvm::BasicBlock *InvokeDest = nullptr;
   if (!Attrs.hasAttribute(llvm::AttributeSet::FunctionIndex,
                           llvm::Attribute::NoUnwind))

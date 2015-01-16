@@ -88,6 +88,9 @@ namespace {
                                  const TemplateArgumentList *Args = nullptr);
     void prettyPrintAttributes(Decl *D);
     void printDeclType(QualType T, StringRef DeclName, bool Pack = false);
+#ifdef INTEL_CUSTOMIZATION
+    void VisitPragmaDecl(PragmaDecl *D);
+#endif
   };
 }
 
@@ -309,6 +312,10 @@ void DeclPrinter::VisitDeclContext(DeclContext *DC, bool Indent) {
              isa<ObjCCategoryImplDecl>(*D) ||
              isa<ObjCCategoryDecl>(*D))
       Terminator = nullptr;
+#ifdef INTEL_CUSTOMIZATION
+    else if (isa<PragmaDecl>(*D))
+      Terminator = 0;
+#endif
     else if (isa<EnumConstantDecl>(*D)) {
       DeclContext::decl_iterator Next = D;
       ++Next;
@@ -1204,6 +1211,12 @@ void DeclPrinter::VisitUnresolvedUsingValueDecl(UnresolvedUsingValueDecl *D) {
 void DeclPrinter::VisitUsingShadowDecl(UsingShadowDecl *D) {
   // ignore
 }
+
+#ifdef INTEL_CUSTOMIZATION
+void DeclPrinter::VisitPragmaDecl(PragmaDecl *PD) {
+  PD->getStmt()->printPretty(Out, 0, Policy, Indentation);
+}
+#endif
 
 void DeclPrinter::VisitOMPThreadPrivateDecl(OMPThreadPrivateDecl *D) {
   Out << "#pragma omp threadprivate";

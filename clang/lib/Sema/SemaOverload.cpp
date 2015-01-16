@@ -1854,6 +1854,16 @@ bool Sema::IsFloatingPointPromotion(QualType FromType, QualType ToType) {
           (ToBuiltin->getKind() == BuiltinType::LongDouble))
         return true;
 
+      // C99 6.3.1.5p1:
+      //   When a float is promoted to double or long double, or a
+      //   double is promoted to long double [...].
+      if (!getLangOpts().CPlusPlus &&
+          (FromBuiltin->getKind() == BuiltinType::Float ||
+           FromBuiltin->getKind() == BuiltinType::Double ||
+           FromBuiltin->getKind() == BuiltinType::LongDouble) &&
+          (ToBuiltin->getKind() == BuiltinType::Float128))
+        return true;
+
       // Half can be promoted to float.
       if (!getLangOpts().NativeHalfType &&
            FromBuiltin->getKind() == BuiltinType::Half &&
@@ -6995,13 +7005,16 @@ class BuiltinOperatorOverloadBuilder {
   // provided via the getArithmeticType() method below.
   // The "promoted arithmetic types" are the arithmetic
   // types are that preserved by promotion (C++ [over.built]p2).
-  static const unsigned FirstIntegralType = 3;
-  static const unsigned LastIntegralType = 20;
-  static const unsigned FirstPromotedIntegralType = 3,
-                        LastPromotedIntegralType = 11;
-  static const unsigned FirstPromotedArithmeticType = 0,
-                        LastPromotedArithmeticType = 11;
-  static const unsigned NumArithmeticTypes = 20;
+  static const unsigned FirstIntegralType = 4;				//***INTEL
+  static const unsigned LastIntegralType = 21;				//***INTEL
+  static const unsigned FirstPromotedIntegralType = 4,		//***INTEL
+                        LastPromotedIntegralType = 12;		//***INTEL
+  static const unsigned FirstPromotedArithmeticType = 0,	//***INTEL
+                        LastPromotedArithmeticType = 12;	//***INTEL
+  static const unsigned NumArithmeticTypes = 21;			//***INTEL
+#ifdef INTEL_CUSTOMIZATION
+  static const unsigned Float128Type = 3;
+#endif
 
   /// \brief Get the canonical type for a given arithmetic type index.
   CanQualType getArithmeticType(unsigned index) {
@@ -7012,6 +7025,9 @@ class BuiltinOperatorOverloadBuilder {
       &ASTContext::FloatTy,
       &ASTContext::DoubleTy,
       &ASTContext::LongDoubleTy,
+#ifdef INTEL_CUSTOMIZATION
+      &ASTContext::Float128Ty,
+#endif
 
       // Start of integral types.
       &ASTContext::IntTy,
@@ -7054,23 +7070,25 @@ class BuiltinOperatorOverloadBuilder {
     // (we could precompute SLL x UI for all known platforms, but it's
     // better not to make any assumptions).
     // We assume that int128 has a higher rank than long long on all platforms.
+	//FIXME: #ifdef INTEL_CUSTOMIZATION
     enum PromotedType {
             Dep=-1,
-            Flt,  Dbl, LDbl,   SI,   SL,  SLL, S128,   UI,   UL,  ULL, U128
+            Flt,  Dbl, LDbl, Flt128,  SI,   SL,  SLL, S128,   UI,   UL,  ULL, U128
     };
     static const PromotedType ConversionsTable[LastPromotedArithmeticType]
                                         [LastPromotedArithmeticType] = {
-/* Flt*/ {  Flt,  Dbl, LDbl,  Flt,  Flt,  Flt,  Flt,  Flt,  Flt,  Flt,  Flt },
-/* Dbl*/ {  Dbl,  Dbl, LDbl,  Dbl,  Dbl,  Dbl,  Dbl,  Dbl,  Dbl,  Dbl,  Dbl },
-/*LDbl*/ { LDbl, LDbl, LDbl, LDbl, LDbl, LDbl, LDbl, LDbl, LDbl, LDbl, LDbl },
-/*  SI*/ {  Flt,  Dbl, LDbl,   SI,   SL,  SLL, S128,   UI,   UL,  ULL, U128 },
-/*  SL*/ {  Flt,  Dbl, LDbl,   SL,   SL,  SLL, S128,  Dep,   UL,  ULL, U128 },
-/* SLL*/ {  Flt,  Dbl, LDbl,  SLL,  SLL,  SLL, S128,  Dep,  Dep,  ULL, U128 },
-/*S128*/ {  Flt,  Dbl, LDbl, S128, S128, S128, S128, S128, S128, S128, U128 },
-/*  UI*/ {  Flt,  Dbl, LDbl,   UI,  Dep,  Dep, S128,   UI,   UL,  ULL, U128 },
-/*  UL*/ {  Flt,  Dbl, LDbl,   UL,   UL,  Dep, S128,   UL,   UL,  ULL, U128 },
-/* ULL*/ {  Flt,  Dbl, LDbl,  ULL,  ULL,  ULL, S128,  ULL,  ULL,  ULL, U128 },
-/*U128*/ {  Flt,  Dbl, LDbl, U128, U128, U128, U128, U128, U128, U128, U128 },
+/* Flt*/ {  Flt,  Dbl, LDbl,  Flt128, Flt,  Flt,  Flt,  Flt,  Flt,  Flt,  Flt,  Flt },
+/* Dbl*/ {  Dbl,  Dbl, LDbl,  Flt128, Dbl,  Dbl,  Dbl,  Dbl,  Dbl,  Dbl,  Dbl,  Dbl },
+/*LDbl*/ { LDbl, LDbl, LDbl, Flt128, LDbl, LDbl, LDbl, LDbl, LDbl, LDbl, LDbl, LDbl },
+/*Flt128*/{ Flt128, Flt128, Flt128, Flt128, Flt128, Flt128, Flt128, Flt128, Flt128, Flt128, Flt128, Flt128 },
+/*  SI*/ {  Flt,  Dbl, LDbl,   Flt128, SI,   SL,  SLL, S128,   UI,   UL,  ULL, U128 },
+/*  SL*/ {  Flt,  Dbl, LDbl,   Flt128, SL,   SL,  SLL, S128,  Dep,   UL,  ULL, U128 },
+/* SLL*/ {  Flt,  Dbl, LDbl,  Flt128, SLL,  SLL,  SLL, S128,  Dep,  Dep,  ULL, U128 },
+/*S128*/ {  Flt,  Dbl, LDbl, Flt128, S128, S128, S128, S128, S128, S128, S128, U128 },
+/*  UI*/ {  Flt,  Dbl, LDbl, Flt128,   UI,  Dep,  Dep, S128,   UI,   UL,  ULL, U128 },
+/*  UL*/ {  Flt,  Dbl, LDbl, Flt128,   UL,   UL,  Dep, S128,   UL,   UL,  ULL, U128 },
+/* ULL*/ {  Flt,  Dbl, LDbl, Flt128,  ULL,  ULL,  ULL, S128,  ULL,  ULL,  ULL, U128 },
+/*U128*/ {  Flt,  Dbl, LDbl, Flt128, U128, U128, U128, U128, U128, U128, U128, U128 },
     };
 
     assert(L < LastPromotedArithmeticType);
@@ -7549,6 +7567,10 @@ public:
          Left < LastPromotedArithmeticType; ++Left) {
       for (unsigned Right = FirstPromotedArithmeticType;
            Right < LastPromotedArithmeticType; ++Right) {
+#ifdef INTEL_CUSTOMIZATION
+        if (!S.getLangOpts().Float128 &&
+            (Left == Float128Type || Right == Float128Type)) continue;
+#endif
         QualType LandR[2] = { getArithmeticType(Left),
                               getArithmeticType(Right) };
         QualType Result =
@@ -7604,6 +7626,10 @@ public:
          Left < LastPromotedIntegralType; ++Left) {
       for (unsigned Right = FirstPromotedIntegralType;
            Right < LastPromotedIntegralType; ++Right) {
+#ifdef INTEL_CUSTOMIZATION
+        if (!S.getLangOpts().Float128 &&
+            (Left == Float128Type || Right == Float128Type)) continue;
+#endif
         QualType LandR[2] = { getArithmeticType(Left),
                               getArithmeticType(Right) };
         QualType Result = (Op == OO_LessLess || Op == OO_GreaterGreater)

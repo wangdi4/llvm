@@ -1234,7 +1234,10 @@ DEF_TRAVERSE_DECL(CapturedDecl, {
   // is skipped - don't remove it.
   return true;
 })
-
+#ifdef INTEL_CUSTOMIZATION
+DEF_TRAVERSE_DECL(PragmaDecl, {})
+DEF_TRAVERSE_DECL(CilkSpawnDecl, {})
+#endif
 DEF_TRAVERSE_DECL(EmptyDecl, {})
 
 DEF_TRAVERSE_DECL(FileScopeAsmDecl,
@@ -2170,7 +2173,12 @@ DEF_TRAVERSE_STMT(CXXUnresolvedConstructExpr, {
 DEF_TRAVERSE_STMT(CXXConstructExpr, {})
 DEF_TRAVERSE_STMT(CallExpr, {})
 DEF_TRAVERSE_STMT(CXXMemberCallExpr, {})
-
+#ifdef INTEL_CUSTOMIZATION
+DEF_TRAVERSE_STMT(CilkSpawnExpr, {
+  TRY_TO(TraverseDecl(S->getSpawnDecl()));
+  return true; // no child statements to loop through.
+})
+#endif
 // These exprs (most of them), do not need any action except iterating
 // over the children.
 DEF_TRAVERSE_STMT(AddrLabelExpr, {})
@@ -2245,7 +2253,16 @@ DEF_TRAVERSE_STMT(UnresolvedMemberExpr, {
                                               S->getNumTemplateArgs()));
   }
 })
-
+#ifdef INTEL_CUSTOMIZATION
+DEF_TRAVERSE_STMT(CEANIndexExpr, { })
+DEF_TRAVERSE_STMT(CEANBuiltinExpr, { })
+DEF_TRAVERSE_STMT(PragmaStmt, { })
+DEF_TRAVERSE_STMT(CilkSyncStmt, { })
+DEF_TRAVERSE_STMT(CilkForGrainsizeStmt, { })
+DEF_TRAVERSE_STMT(CilkForStmt, { })
+DEF_TRAVERSE_STMT(SIMDForStmt, { })
+DEF_TRAVERSE_STMT(CilkRankedStmt, { })
+#endif
 DEF_TRAVERSE_STMT(SEHTryStmt, {})
 DEF_TRAVERSE_STMT(SEHExceptStmt, {})
 DEF_TRAVERSE_STMT(SEHFinallyStmt, {})
@@ -2256,7 +2273,6 @@ DEF_TRAVERSE_STMT(CXXOperatorCallExpr, {})
 DEF_TRAVERSE_STMT(OpaqueValueExpr, {})
 DEF_TRAVERSE_STMT(TypoExpr, {})
 DEF_TRAVERSE_STMT(CUDAKernelCallExpr, {})
-
 // These operators (all of them) do not need any action except
 // iterating over the children.
 DEF_TRAVERSE_STMT(BinaryConditionalOperator, {})

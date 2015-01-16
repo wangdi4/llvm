@@ -30,6 +30,7 @@
 namespace clang {
 struct ASTTemplateArgumentListInfo;
 class CXXTemporary;
+class CapturedStmt; //***INTEL
 class CompoundStmt;
 class DependentFunctionTemplateSpecializationInfo;
 class Expr;
@@ -1476,7 +1477,9 @@ private:
   bool HasImplicitReturnZero : 1;
   bool IsLateTemplateParsed : 1;
   bool IsConstexpr : 1;
-
+#ifdef INTEL_CUSTOMIZATION  
+  bool IsSpawning: 1;
+#endif
   /// \brief Indicates if the function was a definition but its body was
   /// skipped.
   unsigned HasSkippedBody : 1;
@@ -1565,7 +1568,11 @@ protected:
       HasWrittenPrototype(true), IsDeleted(false), IsTrivial(false),
       IsDefaulted(false), IsExplicitlyDefaulted(false),
       HasImplicitReturnZero(false), IsLateTemplateParsed(false),
-      IsConstexpr(isConstexprSpecified), HasSkippedBody(false),
+      IsConstexpr(isConstexprSpecified),
+#ifdef INTEL_CUSTOMIZATION
+      IsSpawning(false),
+#endif
+      HasSkippedBody(false),
       EndRangeLoc(NameInfo.getEndLoc()),
       TemplateOrSpecialization(),
       DNLoc(NameInfo.getInfo()) {}
@@ -1745,7 +1752,11 @@ public:
   /// Whether this is a (C++11) constexpr function or constexpr constructor.
   bool isConstexpr() const { return IsConstexpr; }
   void setConstexpr(bool IC) { IsConstexpr = IC; }
-
+#ifdef INTEL_CUSTOMIZATION
+  /// \brief Whether this function is a Cilk spawning function.
+  bool isSpawning() const { return IsSpawning; }
+  void setSpawning() { IsSpawning = true; }
+#endif
   /// \brief Whether this function has been deleted.
   ///
   /// A function that is "deleted" (via the C++0x "= delete" syntax)
@@ -3513,10 +3524,17 @@ private:
   unsigned ContextParam;
   /// \brief The body of the outlined function.
   llvm::PointerIntPair<Stmt *, 1, bool> BodyAndNothrow;
-
+#ifdef INTEL_CUSTOMIZATION  
+  /// \brief Whether this CapturedDecl contains Cilk spawns.
+  bool IsSpawning;
+#endif
   explicit CapturedDecl(DeclContext *DC, unsigned NumParams)
     : Decl(Captured, DC, SourceLocation()), DeclContext(Captured),
-      NumParams(NumParams), ContextParam(0), BodyAndNothrow(nullptr, false) { }
+      NumParams(NumParams), ContextParam(0), BodyAndNothrow(nullptr, false)
+#ifdef INTEL_CUSTOMIZATION	  
+      , IsSpawning(false) 
+#endif	  
+	  { }
 
   ImplicitParamDecl **getParams() const {
     return reinterpret_cast<ImplicitParamDecl **>(
@@ -3531,7 +3549,10 @@ public:
 
   Stmt *getBody() const override { return BodyAndNothrow.getPointer(); }
   void setBody(Stmt *B) { BodyAndNothrow.setPointer(B); }
-
+#ifdef INTEL_CUSTOMIZATION
+  void setSpawning() { IsSpawning = true; }
+  bool isSpawning() const { return IsSpawning; }
+#endif
   bool isNothrow() const { return BodyAndNothrow.getInt(); }
   void setNothrow(bool Nothrow = true) { BodyAndNothrow.setInt(Nothrow); }
 
@@ -3582,7 +3603,42 @@ public:
   friend class ASTDeclReader;
   friend class ASTDeclWriter;
 };
+#ifdef INTEL_CUSTOMIZATION
+class CilkSpawnDecl : public Decl {
+  /// \brief The CapturedStmt associated to the expression or statement with
+  /// a Cilk spawn call.
+  CapturedStmt *CapturedSpawn;
 
+  CilkSpawnDecl(DeclContext *DC, CapturedStmt *Spawn);
+
+public:
+  static CilkSpawnDecl *Create(ASTContext &C, DeclContext *DC,
+                               CapturedStmt *Spawn);
+  static CilkSpawnDecl *CreateDeserialized(ASTContext &C, unsigned ID);
+
+  /// \brief Returns if this Cilk spawn has a receiver.
+  bool hasReceiver() const;
+
+  /// \brief Returns the receiver declaration.
+  VarDecl *getReceiverDecl() const;
+
+  /// \brief Returns the expression or statement with a Cilk spawn.
+  Stmt *getSpawnStmt();
+  const Stmt *getSpawnStmt() const {
+    return const_cast<CilkSpawnDecl *>(this)->getSpawnStmt();
+  }
+
+  /// \brief Returns the associated CapturedStmt.
+  CapturedStmt *getCapturedStmt() { return CapturedSpawn; }
+  const CapturedStmt *getCapturedStmt() const { return CapturedSpawn; }
+
+  static bool classof(const Decl *D) { return classofKind(D->getKind()); }
+  static bool classofKind(Kind K) { return K == CilkSpawn; }
+
+  friend class ASTDeclReader;
+  friend class ASTDeclWriter;
+};
+#endif
 /// \brief Describes a module import declaration, which makes the contents
 /// of the named module visible in the current translation unit.
 ///
@@ -3732,6 +3788,42 @@ inline bool IsEnumDeclComplete(EnumDecl *ED) {
 inline bool IsEnumDeclScoped(EnumDecl *ED) {
   return ED->isScoped();
 }
+
+#ifdef INTEL_CUSTOMIZATION
+/// PragmaDecl 
+class PragmaStmt;
+class PragmaDecl : public Decl {
+  virtual void anchor();
+  PragmaStmt *TheStmt;
+  SourceLocation LocStart;
+
+  PragmaDecl(DeclContext *DC, SourceLocation IdentL)
+    : Decl(Pragma, DC, IdentL), TheStmt(NULL), LocStart(IdentL) {
+    setReferenced();
+    setIsUsed();
+  }
+
+public:
+  static PragmaDecl *Create(ASTContext &C, DeclContext *DC,
+                           SourceLocation IdentL);
+  static PragmaDecl *CreateDeserialized(ASTContext &C, unsigned ID);
+
+  PragmaStmt *getStmt() const { return TheStmt; }
+  void setStmt(PragmaStmt *T) { TheStmt = T; }
+
+  void setLocStart(SourceLocation L) { LocStart = L; }
+  SourceLocation getLocStart() { return LocStart; }
+
+  SourceRange getSourceRange() const LLVM_READONLY {
+    return SourceRange(LocStart, getLocation());
+  }
+
+  // Implement isa/cast/dyncast/etc.
+  static bool classof(const Decl *D) { return classofKind(D->getKind()); }
+  static bool classof(const PragmaDecl *D) { return true; }
+  static bool classofKind(Kind K) { return K == Pragma; }
+};
+#endif
 
 }  // end namespace clang
 

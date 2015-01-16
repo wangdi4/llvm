@@ -24,6 +24,7 @@
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/TypoCorrection.h"
 #include "llvm/ADT/SmallString.h"
+#include "clang/AST/StmtCXX.h"
 using namespace clang;
 
 //===----------------------------------------------------------------------===//
@@ -44,6 +45,7 @@ StmtResult Parser::ParseStatement(SourceLocation *TrailingElseLoc) {
 
   return Res;
 }
+
 
 /// ParseStatementOrDeclaration - Read 'statement' or 'declaration'.
 ///       StatementOrDeclaration:
@@ -79,6 +81,7 @@ StmtResult Parser::ParseStatement(SourceLocation *TrailingElseLoc) {
 ///         while-statement
 ///         do-statement
 ///         for-statement
+///         grainsize-pragma[opt] cilk-for-statement
 ///
 ///       expression-statement:
 ///         expression[opt] ';'
@@ -89,6 +92,7 @@ StmtResult Parser::ParseStatement(SourceLocation *TrailingElseLoc) {
 ///         'break' ';'
 ///         'return' expression[opt] ';'
 /// [GNU]   'goto' '*' expression ';'
+/// [CP]    '_Cilk_sync' ';'
 ///
 /// [OBC] objc-throw-statement:
 /// [OBC]   '@' 'throw' expression ';'
@@ -108,6 +112,9 @@ Parser::ParseStatementOrDeclaration(StmtVector &Stmts, bool OnlyStatement,
 
   assert((Attrs.empty() || Res.isInvalid() || Res.isUsable()) &&
          "attributes on empty statement");
+#ifdef INTEL_CUSTOMIZATION
+#include "intel/ParseStmt_ParseStatementOrDeclaration.cpp"
+#endif
 
   if (Attrs.empty() || Res.isInvalid())
     return Res;
@@ -153,7 +160,9 @@ Parser::ParseStatementOrDeclarationAfterAttributes(StmtVector &Stmts,
           ParsedAttributesWithRange &Attrs) {
   const char *SemiError = nullptr;
   StmtResult Res;
-
+#ifdef INTEL_CUSTOMIZATION  
+  SuppressCEANSupport NoCEAN(*this);
+#endif
   // Cases in this switch statement should fall through if the parser expects
   // the token to end in a semicolon (in which case SemiError should be set),
   // or they directly 'return;' if not.
@@ -288,6 +297,10 @@ Retry:
     ProhibitAttributes(Attrs); // TODO: is it correct?
     return ParseSEHTryBlock();
 
+#ifdef INTEL_CUSTOMIZATION
+#include "intel/ParseStmt_Parse.cpp"
+#endif
+
   case tok::kw___leave:
     Res = ParseSEHLeaveStatement();
     SemiError = "__leave";
@@ -342,7 +355,32 @@ Retry:
   case tok::annot_pragma_captured:
     ProhibitAttributes(Attrs);
     return HandlePragmaCaptured();
+#ifdef INTEL_CUSTOMIZATION
+  case tok::kw__Cilk_sync:
+    if (!getLangOpts().CilkPlus) {
+      Diag(Tok, diag::err_cilkplus_disable);
+      SkipUntil(tok::semi);
+      return StmtError();
+    }
 
+    Res = Actions.ActOnCilkSyncStmt(ConsumeToken());
+    SemiError = "_Cilk_sync";
+    break;
+  case tok::kw__Cilk_for:
+    if (!getLangOpts().CilkPlus) {
+      Diag(Tok, diag::err_cilkplus_disable);
+      SkipUntil(tok::semi);
+      return StmtError();
+    }
+
+    return ParseCilkForStmt();
+  case tok::annot_pragma_cilk_grainsize_begin:
+    return ParsePragmaCilkGrainsize();
+
+  case tok::annot_pragma_simd:
+    ProhibitAttributes(Attrs);
+    return ParseSIMDDirective();
+#endif
   case tok::annot_pragma_openmp:
     ProhibitAttributes(Attrs);
     return ParseOpenMPDeclarativeOrExecutableDirective(!OnlyStatement);
@@ -374,14 +412,54 @@ Retry:
 
   return Res;
 }
+#ifdef INTEL_CUSTOMIZATION
+StmtResult Parser::ParsePragmaCilkGrainsize() {
+  assert(getLangOpts().CilkPlus && "Cilk Plus extension not enabled");
+  SourceLocation HashLoc = ConsumeToken(); // Eat 'annot_pragma_cilk_grainsize_begin'.
 
+  ExprResult E = ParseExpression();
+  if (E.isInvalid()) {
+    SkipUntil(tok::annot_pragma_cilk_grainsize_end);
+    return StmtError();
+  }
+
+  if (Tok.isNot(tok::annot_pragma_cilk_grainsize_end)) {
+    Diag(Tok, diag::warn_pragma_extra_tokens_at_eol) << "cilk";
+    SkipUntil(tok::annot_pragma_cilk_grainsize_end);
+  } else
+    ConsumeToken(); // Eat 'annot_pragma_cilk_grainsize_end'.
+
+  // Parse the following statement.
+  StmtResult FollowingStmt(ParseStatement());
+  if (FollowingStmt.isInvalid())
+    return StmtError();
+
+  // NOTE: The following statement is not necessarily a _Cilk_for statement.
+  // It can also be another pragma that appertains to the _Cilk_for. However,
+  // since grainsize is the only pragma supported by _Cilk_for, we require the
+  // following statement to be a _Cilk_for.
+  if (!isa<CilkForStmt>(FollowingStmt.get())) {
+    Diag(FollowingStmt.get()->getLocStart(),
+         diag::warn_cilk_for_following_grainsize);
+    return FollowingStmt;
+  }
+
+  return Actions.ActOnCilkForGrainsizePragma(E.get(), FollowingStmt.get(), HashLoc);
+}
+#endif
 /// \brief Parse an expression statement.
 StmtResult Parser::ParseExprStatement() {
   // If a case keyword is missing, this is where it should be inserted.
   Token OldToken = Tok;
 
+#ifdef INTEL_CUSTOMIZATION
   // expression[opt] ';'
+  Actions.ActOnStartCEANExpr(Sema::FullCEANAllowed);
+#endif  
   ExprResult Expr(ParseExpression());
+#ifdef INTEL_CUSTOMIZATION
+  Actions.ActOnEndCEANExpr(Expr.get());
+#endif  
   if (Expr.isInvalid()) {
     // If the expression is invalid, skip ahead to the next semicolon or '}'.
     // Not doing this opens us up to the possibility of infinite loops if
@@ -928,8 +1006,12 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr) {
     StmtResult R = Actions.ActOnDeclStmt(Res, LabelLoc, Tok.getLocation());
 
     ExpectAndConsumeSemi(diag::err_expected_semi_declaration);
-    if (R.isUsable())
+    if (R.isUsable()) {
       Stmts.push_back(R.get());
+#ifdef INTEL_CUSTOMIZATION
+#include "intel/ParseStmt_CheckStmt.cpp"
+#endif
+    }
   }
 
   while (Tok.isNot(tok::r_brace) && !isEofOrEom()) {
@@ -981,8 +1063,12 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr) {
       }
     }
 
-    if (R.isUsable())
+    if (R.isUsable()) {
       Stmts.push_back(R.get());
+#ifdef INTEL_CUSTOMIZATION
+#include "intel/ParseStmt_CheckStmt.cpp"
+#endif
+    }
   }
 
   SourceLocation CloseLoc = Tok.getLocation();
@@ -1090,11 +1176,20 @@ StmtResult Parser::ParseIfStatement(SourceLocation *TrailingElseLoc) {
   // Parse the condition.
   ExprResult CondExp;
   Decl *CondVar = nullptr;
-  if (ParseParenExprOrCondition(CondExp, CondVar, IfLoc, true))
+#ifdef INTEL_CUSTOMIZATION  
+  Actions.ActOnStartCEANExpr(Sema::FullCEANAllowed);
+#endif  
+  if (ParseParenExprOrCondition(CondExp, CondVar, IfLoc, true)) {
+#ifdef INTEL_CUSTOMIZATION  
+    Actions.ActOnEndCEANExpr(0);
+#endif
     return StmtError();
+  }
 
   FullExprArg FullCondExp(Actions.MakeFullExpr(CondExp.get(), IfLoc));
-
+#ifdef INTEL_CUSTOMIZATION
+  Actions.ActOnEndCEANExpr(FullCondExp.get());
+#endif  
   // C99 6.8.4p3 - In C99, the body of the if statement is a scope, even if
   // there is no compound stmt.  C90 does not have this clause.  We only do this
   // if the body isn't a compound statement to avoid push/pop in common cases.
@@ -1472,7 +1567,11 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
   // as those declared in the condition.
   //
   unsigned ScopeFlags = 0;
-  if (C99orCXXorObjC)
+  if (C99orCXXorObjC
+#ifdef INTEL_CUSTOMIZATION
+    && getLangOpts().Zc_forScope
+#endif
+  )
     ScopeFlags = Scope::DeclScope | Scope::ControlScope;
 
   ParseScope ForScope(this, ScopeFlags);
@@ -2096,8 +2195,12 @@ void Parser::ParseMicrosoftIfExistsStatement(StmtVector &Stmts) {
                                                               Result.SS,
                                                               Result.Name,
                                                               Compound.get());
-    if (DepResult.isUsable())
+    if (DepResult.isUsable()) {
       Stmts.push_back(DepResult.get());
+#ifdef INTEL_CUSTOMIZATION
+#include "intel/ParseStmt_CheckStmt.cpp"
+#endif
+    }
     return;
   }
 
@@ -2123,8 +2226,221 @@ void Parser::ParseMicrosoftIfExistsStatement(StmtVector &Stmts) {
   // Condition is true, parse the statements.
   while (Tok.isNot(tok::r_brace)) {
     StmtResult R = ParseStatementOrDeclaration(Stmts, false);
-    if (R.isUsable())
+    if (R.isUsable()) {
       Stmts.push_back(R.get());
+#ifdef INTEL_CUSTOMIZATION
+#include "intel/ParseStmt_CheckStmt.cpp"
+#endif
+    }
   }
   Braces.consumeClose();
 }
+#ifdef INTEL_CUSTOMIZATION
+/// ParseCilkForStatement
+///       cilk-for-statement:
+/// [C]     '_Cilk_for' '(' assignment-expr';' condition ';' expr ')' stmt
+/// [C++]   '_Cilk_for' '(' for-init-stmt condition ';' expr ')' stmt
+StmtResult Parser::ParseCilkForStmt() {
+  assert(Tok.is(tok::kw__Cilk_for) && "Not a Cilk for stmt!");
+  SourceLocation CilkForLoc = ConsumeToken();  // eat the '_Cilk_for'.
+
+  if (Tok.isNot(tok::l_paren)) {
+    Diag(Tok, diag::err_expected_lparen_after) << "_Cilk_for";
+    SkipUntil(tok::semi);
+    return StmtError();
+  }
+
+  bool C99orCXXorObjC = getLangOpts().C99 || getLangOpts().CPlusPlus ||
+                        getLangOpts().ObjC1;
+
+  // Start the loop scope.
+  //
+  // A program contains a return, break or goto statement that would transfer
+  // control into or out of a _Cilk_for loop is ill-formed.
+  //
+  unsigned ScopeFlags = Scope::ContinueScope;
+  if (C99orCXXorObjC)
+    ScopeFlags |= Scope::DeclScope | Scope::ControlScope;
+
+  ParseScope CilkForScope(this, ScopeFlags);
+
+  BalancedDelimiterTracker T(*this, tok::l_paren);
+  T.consumeOpen();
+
+  if (Tok.is(tok::code_completion)) {
+    Actions.CodeCompleteOrdinaryName(getCurScope(),
+                                     C99orCXXorObjC ? Sema::PCC_ForInit
+                                                    : Sema::PCC_Expression);
+    cutOffParsing();
+    return StmtError();
+  }
+
+  ParsedAttributesWithRange attrs(AttrFactory);
+  MaybeParseCXX11Attributes(attrs);
+
+  // '_Cilk_for' '(' for-init-stmt
+  // '_Cilk_for' '(' assignment-expr;
+  StmtResult FirstPart;
+
+  if (Tok.is(tok::semi)) {  // _Cilk_for (;
+    ProhibitAttributes(attrs);
+    // no control variable declaration initialization, eat the ';'.
+    Diag(Tok, diag::err_cilk_for_missing_control_variable);
+    ConsumeToken();
+  } else if (isForInitDeclaration(false)) {  // _Cilk_for (int i = 0;
+    // Parse declaration, which eats the ';'.
+    if (!C99orCXXorObjC)   // Use of C99-style for loops in C90 mode?
+      Diag(Tok, diag::ext_c99_variable_decl_in_for_loop);
+
+    SourceLocation DeclStart = Tok.getLocation();
+    SourceLocation DeclEnd;
+
+    // Still use Declarator::ForContext. A new enum item CilkForContext
+    // may be needed for extra checks.
+	
+    DeclGroupPtrTy DG = ParseSimpleDeclaration(Declarator::ForContext,
+                                               DeclEnd, attrs,
+                                               /*RequireSemi*/false,
+                                               /*ForRangeInit*/0);
+    FirstPart = Actions.ActOnDeclStmt(DG, DeclStart, Tok.getLocation());
+
+    if(Tok.is(tok::semi))
+      ConsumeToken(); // Eat the ';'.
+    else
+      Diag(Tok, diag::err_cilk_for_missing_semi);
+  } else {
+    ProhibitAttributes(attrs);
+    ExprResult E = ParseExpression();
+
+    if (!E.isInvalid())
+      FirstPart = Actions.ActOnExprStmt(E);
+
+    if (Tok.is(tok::semi))
+      ConsumeToken(); // Eat the ';'
+    else if (!E.isInvalid())
+      Diag(Tok, diag::err_cilk_for_missing_semi);
+    else {
+      // Skip until semicolon or rparen, don't consume it.
+      SkipUntil(tok::r_paren, StopAtSemi | StopBeforeMatch);
+      if (Tok.is(tok::semi))
+        ConsumeToken();
+    }
+  }
+
+  // '_Cilk_for' '(' for-init-stmt condition ;
+  // '_Cilk_for' '(' assignment-expr; condition ;
+  FullExprArg SecondPart(Actions);
+  FullExprArg ThirdPart(Actions);
+
+  // True while inside the Cilk for variable capturing region.
+  bool InCapturingRegion = false;
+
+  if (Tok.is(tok::r_paren)) { // _Cilk_for (...;)
+    Diag(Tok, diag::err_cilk_for_missing_condition);
+    Diag(Tok, diag::err_cilk_for_missing_increment);
+  } else {
+    if (Tok.is(tok::semi)) {  // _Cilk_for (...;;
+      // No condition part.
+      Diag(Tok, diag::err_cilk_for_missing_condition);
+      ConsumeToken(); // Eat the ';'
+    } else {
+      ExprResult E = ParseExpression();
+      if (!E.isInvalid())
+        E = Actions.ActOnBooleanCondition(getCurScope(), CilkForLoc, E.get());
+      SecondPart = Actions.MakeFullExpr(E.get(), CilkForLoc);
+
+      if (Tok.isNot(tok::semi)) {
+        if (!E.isInvalid())
+          Diag(Tok, diag::err_cilk_for_missing_semi);
+        else
+          // Skip until semicolon or rparen, don't consume it.
+          SkipUntil(tok::r_paren, StopAtSemi | StopBeforeMatch);
+      }
+
+      if (Tok.is(tok::semi))
+        ConsumeToken();
+    }
+
+    // Parse the third part.
+    if (Tok.is(tok::r_paren)) { // _Cilk_for (...;...;)
+      // No increment part
+      Diag(Tok, diag::err_cilk_for_missing_increment);
+    } else {
+      // Enter the variable capturing region for both Cilk for
+      // increment and body.
+      //
+      // For the following Cilk for loop,
+      //
+      // _Cilk_for (T x = a;  x < b; x += c) {
+      //   // body
+      // }
+      //
+      // The outlined function would look like
+      //
+      // void helper(Context, low, high) {
+      //   _index_var = low
+      //   x += low * c
+      //
+      //   while (_index_var < high) {
+      //     // body
+      //     x += c                // loop increment
+      //     _index_var++;
+      //   }
+      // }
+      //
+      // The loop increment would be part of the outlined function,
+      // together with the loop body. Hence, we enter a capturing region
+      // before parsing the loop increment.
+      Actions.ActOnStartOfCilkForStmt(CilkForLoc, getCurScope(), FirstPart);
+      InCapturingRegion = true;
+
+      ExprResult E = ParseExpression();
+      // FIXME: The C++11 standard doesn't actually say that this is a
+      // discarded-value expression, but it clearly should be.
+      ThirdPart = Actions.MakeFullDiscardedValueExpr(E.get());
+    }
+  }
+
+  // Match the ')'.
+  T.consumeClose();
+
+  // Enter the variable capturing region for Cilk for body.
+  if (!InCapturingRegion)
+    Actions.ActOnStartOfCilkForStmt(CilkForLoc, getCurScope(), FirstPart);
+
+  // Cannot use goto to exit the Cilk for body.
+  ParseScope InnerScope(this, Scope::BlockScope | Scope::FnScope |
+                              Scope::DeclScope | Scope::ContinueScope);
+
+  // Read the body statement.
+  StmtResult Body(ParseStatement());
+
+  // Pop the body scope if needed.
+  InnerScope.Exit();
+
+  // Leave the for-scope.
+  CilkForScope.Exit();
+
+  if (!FirstPart.isUsable() || !SecondPart.get() || !ThirdPart.get() ||
+      !Body.isUsable()) {
+    Actions.ActOnCilkForStmtError();
+    return StmtError();
+  }
+
+  if (Actions.CheckIfBodyModifiesLoopControlVar(Body.get())) {
+    Actions.ActOnCilkForStmtError();
+    return StmtError();
+  }
+
+  StmtResult Result = Actions.ActOnCilkForStmt(CilkForLoc, T.getOpenLocation(),
+                                               FirstPart.get(), SecondPart,
+                                               ThirdPart, T.getCloseLocation(),
+                                               Body.get());
+  if (Result.isInvalid()) {
+    Actions.ActOnCilkForStmtError();
+    return StmtError();
+  }
+
+  return Result;
+}
+#endif

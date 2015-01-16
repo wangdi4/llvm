@@ -143,7 +143,16 @@ public:
   ComplexPairTy VisitPseudoObjectExpr(PseudoObjectExpr *E) {
     return CGF.EmitPseudoObjectRValue(E).getComplexVal();
   }
-
+#ifdef INTEL_CUSTOMIZATION
+  ComplexPairTy VisitCEANBuiltinExpr(CEANBuiltinExpr *E) {
+    CodeGenFunction::LocalVarsDeclGuard Guard(CGF);
+    CGF.EmitCEANBuiltinExprBody(E);
+    if (E->getBuiltinKind() != CEANBuiltinExpr::ReduceMutating)
+      return E->getReturnExpr()->isRValue() ? Visit(E->getReturnExpr()) :
+                                              EmitLoadOfLValue(E->getReturnExpr());
+    return ComplexPairTy();
+  }
+#endif
   // FIXME: CompoundLiteralExpr
 
   ComplexPairTy EmitCast(CastKind CK, Expr *Op, QualType DestTy);
@@ -762,12 +771,18 @@ ComplexPairTy ComplexExprEmitter::EmitBinDiv(const BinOpInfo &Op) {
       }
     }
     assert(LHSi && "Can have at most one non-complex operand!");
+#ifdef INTEL_CUSTOMIZATION
+//#include "intel/CGExprComplex_DivFloat.cpp"
+#endif
 
     DSTr = Builder.CreateFDiv(LHSr, RHSr);
     DSTi = Builder.CreateFDiv(LHSi, RHSr);
   } else {
     assert(Op.LHS.second && Op.RHS.second &&
            "Both operands of integer complex operators must be complex!");
+#ifdef INTEL_CUSTOMIZATION
+//#include "intel/CGExprComplex_DivInt.cpp"
+#endif
     // (a+ib) / (c+id) = ((ac+bd)/(cc+dd)) + i((bc-ad)/(cc+dd))
     llvm::Value *Tmp1 = Builder.CreateMul(LHSr, RHSr); // a*c
     llvm::Value *Tmp2 = Builder.CreateMul(LHSi, RHSi); // b*d
@@ -828,6 +843,17 @@ EmitCompoundAssignLValue(const CompoundAssignOperator *E,
   OpInfo.Ty = E->getComputationResultType();
   QualType ComplexElementTy = cast<ComplexType>(OpInfo.Ty)->getElementType();
 
+#ifdef INTEL_CUSTOMIZATION
+  LValue LHS;
+
+  // Cilk Plus needs the LHS evaluated first to handle cases such as
+  // array[f()] = _Cilk_spawn foo();
+  // This evaluation order requirement implies that _Cilk_spawn cannot
+  // spawn Objective C block calls.
+  if (CGF.getLangOpts().CilkPlus &&  E->getRHS()->isCilkSpawn())
+    LHS = CGF.EmitLValue(E->getLHS());
+#endif
+
   // The RHS should have been converted to the computation type.
   if (E->getRHS()->getType()->isRealFloatingType()) {
     assert(
@@ -840,7 +866,12 @@ EmitCompoundAssignLValue(const CompoundAssignOperator *E,
     OpInfo.RHS = Visit(E->getRHS());
   }
 
+#ifdef INTEL_CUSTOMIZATION
+  if (!(CGF.getLangOpts().CilkPlus &&  E->getRHS()->isCilkSpawn()))
+    LHS = CGF.EmitLValue(E->getLHS());
+#else
   LValue LHS = CGF.EmitLValue(E->getLHS());
+#endif
 
   // Load from the l-value and convert it.
   if (LHSTy->isAnyComplexType()) {
@@ -902,13 +933,27 @@ LValue ComplexExprEmitter::EmitBinAssignLValue(const BinaryOperator *E,
          "Invalid assignment");
   TestAndClearIgnoreReal();
   TestAndClearIgnoreImag();
-
+#ifdef INTEL_CUSTOMIZATION
+  LValue LHS;
+  // Cilk Plus needs the LHS evaluated first to handle cases such as
+  // array[f()] = _Cilk_spawn foo();
+  // This evaluation order requirement implies that _Cilk_spawn cannot
+  // spawn Objective C block calls.
+  if (CGF.getLangOpts().CilkPlus && E->getRHS()->isCilkSpawn()) {
+    LHS = CGF.EmitLValue(E->getLHS());
+    Val = Visit(E->getRHS());
+  } else {
+    // Emit the RHS.  __block variables need the RHS evaluated first.
+    Val = Visit(E->getRHS());
+    // Compute the address to store into.
+    LHS = CGF.EmitLValue(E->getLHS());
+  }
+#else
   // Emit the RHS.  __block variables need the RHS evaluated first.
   Val = Visit(E->getRHS());
-
   // Compute the address to store into.
   LValue LHS = CGF.EmitLValue(E->getLHS());
-
+#endif
   // Store the result value into the LHS lvalue.
   EmitStoreOfComplex(Val, LHS, /*isInit*/ false);
 

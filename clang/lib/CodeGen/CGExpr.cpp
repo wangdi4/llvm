@@ -14,6 +14,9 @@
 #include "CodeGenFunction.h"
 #include "CGCXXABI.h"
 #include "CGCall.h"
+#ifdef INTEL_CUSTOMIZATION
+#include "intel/CGCilkPlusRuntime.h"
+#endif
 #include "CGDebugInfo.h"
 #include "CGObjCRuntime.h"
 #include "CGOpenMPRuntime.h"
@@ -300,8 +303,20 @@ createReferenceTemporary(CodeGenFunction &CGF,
                          const MaterializeTemporaryExpr *M, const Expr *Inner) {
   switch (M->getStorageDuration()) {
   case SD_FullExpression:
-  case SD_Automatic:
+  case SD_Automatic: {
+#ifdef INTEL_CUSTOMIZATION  
+    // In a captured statement, don't alloca the receiver temp; it is passed in.
+    if (CodeGenFunction::CGCilkSpawnInfo *Info =
+          dyn_cast_or_null<CodeGenFunction::CGCilkSpawnInfo>(CGF.CapturedStmtInfo)) {
+      if (Info->isReceiverDecl(M->getExtendingDecl())) {
+        assert(Info->getReceiverTmp() &&
+               "Expected receiver temporary in captured statement");
+        return Info->getReceiverTmp();
+      }
+    }
+#endif
     return CGF.CreateMemTemp(Inner->getType(), "ref.tmp");
+  }
 
   case SD_Thread:
   case SD_Static:
@@ -1931,13 +1946,21 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
 
   if (const auto *VD = dyn_cast<VarDecl>(ND)) {
     // Check if this is a global variable.
-    if (VD->hasLinkage() || VD->isStaticDataMember())
+    bool IsCaptured = false;											//***INTEL 
+    if (CapturedStmtInfo && CapturedStmtInfo->lookup(VD))				//***INTEL 
+      IsCaptured = true;												//***INTEL 
+    else																//***INTEL 
+      IsCaptured = LambdaCaptureFields.lookup(VD);						//***INTEL 
+
+    if (!IsCaptured && (VD->hasLinkage() || VD->isStaticDataMember()))	//***INTEL 
       return EmitGlobalVarDeclLValue(*this, E, VD);
 
     bool isBlockVariable = VD->hasAttr<BlocksAttr>();
 
     llvm::Value *V = LocalDeclMap.lookup(VD);
-    if (!V && VD->isStaticLocal())
+
+    if (!IsCaptured && !V && VD->isStaticLocal())						//***INTEL 
+      // Do not use static local address if it has been captured.		//***INTEL 
       V = CGM.getOrCreateStaticVarDecl(
           *VD, CGM.getLLVMLinkageVarDefinition(VD, /*isConstant=*/false));
 
@@ -1952,9 +1975,33 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
       if (FieldDecl *FD = LambdaCaptureFields.lookup(VD)) {
         return EmitCapturedFieldLValue(*this, FD, CXXABIThisValue);
       } else if (CapturedStmtInfo) {
-        if (const FieldDecl *FD = CapturedStmtInfo->lookup(VD))
+        if (const FieldDecl *FD = CapturedStmtInfo->lookup(VD)) {
+#ifdef INTEL_CUSTOMIZATION
+          // If referencing a loop control variable, then load its
+          // corresponding inner loop control variable.
+          if (CapturedStmtInfo->getKind() == CR_CilkFor) {
+            CGCilkForStmtInfo *CFSI =
+                reinterpret_cast<CGCilkForStmtInfo*>(CapturedStmtInfo);
+            if (CFSI->getCilkForStmt().getLoopControlVar() == VD) {
+              llvm::Value *Addr = CFSI->getInnerLoopControlVarAddr();
+              assert(Addr && "missing inner loop control variable address");
+              return MakeAddrLValue(Addr, T, Alignment);
+            }
+          } else if (CapturedStmtInfo->getKind() == CR_SIMDFor) {
+            // If this variable is a SIMD data-privatization variable, then
+            // load its corresponding local copy.
+            CGSIMDForStmtInfo *FSI = cast<CGSIMDForStmtInfo>(CapturedStmtInfo);
+            if (FSI->shouldReplaceWithLocal())
+              if (llvm::Value *Addr = FSI->lookupLocalAddr(VD)) {
+                assert(Addr && "missing local variable address");
+                return MakeAddrLValue(Addr, T, Alignment);
+              }
+          }
+          // Otherwise load it from the captured struct.
+#endif
           return EmitCapturedFieldLValue(*this, FD,
                                          CapturedStmtInfo->getContextValue());
+        }
       }
 
       assert(isa<BlockDecl>(CurCodeDecl) && E->refersToEnclosingLocal());
@@ -3130,9 +3177,24 @@ LValue CodeGenFunction::EmitBinaryOperatorLValue(const BinaryOperator *E) {
     case Qualifiers::OCL_Weak:
       break;
     }
-
+#ifdef INTEL_CUSTOMIZATION
+    LValue LV;
+    RValue RV;
+    // Cilk Plus needs the LHS evaluated first to handle cases such as
+    // array[f()] = _Cilk_spawn foo();
+    // This evaluation order requirement implies that _Cilk_spawn cannot
+    // spawn Objective C block calls.
+    if (getLangOpts().CilkPlus && E->getRHS()->isCilkSpawn()) {
+      LV = EmitCheckedLValue(E->getLHS(), TCK_Store);
+      RV = EmitAnyExpr(E->getRHS());
+    } else {
+      RV = EmitAnyExpr(E->getRHS());
+      LV = EmitCheckedLValue(E->getLHS(), TCK_Store);
+    }
+#else
     RValue RV = EmitAnyExpr(E->getRHS());
     LValue LV = EmitCheckedLValue(E->getLHS(), TCK_Store);
+#endif
     EmitStoreThroughLValue(RV, LV);
     return LV;
   }
@@ -3362,7 +3424,11 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, llvm::Value *Callee,
     Callee = Builder.CreateBitCast(Callee, CalleeTy, "callee.knr.cast");
   }
 
-  return EmitCall(FnInfo, Callee, ReturnValue, Args, TargetDecl);
+  return EmitCall(FnInfo, Callee, ReturnValue, Args, TargetDecl
+#ifdef INTEL_CUSTOMIZATION
+                  , /*callOrInvoke=*/0, E->isCilkSpawnCall()
+#endif
+  );
 }
 
 LValue CodeGenFunction::
@@ -3493,3 +3559,48 @@ RValue CodeGenFunction::EmitPseudoObjectRValue(const PseudoObjectExpr *E,
 LValue CodeGenFunction::EmitPseudoObjectLValue(const PseudoObjectExpr *E) {
   return emitPseudoObjectExpr(*this, E, true, AggValueSlot::ignored()).LV;
 }
+#ifdef INTEL_CUSTOMIZATION
+static void EmitRecursiveCEANBuiltinExpr(CodeGenFunction &CGF,
+                                         const CEANBuiltinExpr *E,
+                                         unsigned Rank) {
+  if (Rank < E->getRank()) {
+    const DeclStmt *DS = cast<DeclStmt>(E->getVars()[Rank]);
+    CGF.EmitStmt(DS);
+    llvm::BasicBlock *CondBlock = CGF.createBasicBlock("cean.loop.cond");
+    CGF.EmitBranch(CondBlock);
+    CGF.EmitBlock(CondBlock);
+    CGF.LoopStack.setParallel();
+    CGF.LoopStack.setVectorizerEnable(true);
+    CGF.LoopStack.push(CondBlock);
+    llvm::BasicBlock *MainLoop = CGF.createBasicBlock("cean.loop.body");
+    llvm::BasicBlock *ExitLoop = CGF.createBasicBlock("cean.loop.exit");
+    const VarDecl *VD = cast<VarDecl>(DS->getSingleDecl());
+    CGF.Builder.CreateCondBr(
+                CGF.Builder.CreateICmpNE(CGF.Builder.CreateLoad(CGF.GetAddrOfLocalVar(VD)),
+                                         CGF.EmitScalarExpr(E->getLengths()[Rank])),
+                MainLoop, ExitLoop);
+    CGF.EmitBlock(MainLoop);
+    EmitRecursiveCEANBuiltinExpr(CGF, E, Rank + 1);
+    CGF.EmitStmt(E->getIncrements()[Rank]);
+    CGF.EmitBranch(CondBlock);
+    CGF.LoopStack.pop();
+    CGF.EmitBlock(ExitLoop, true);
+  } else {
+    CodeGenFunction::RunCleanupsScope BodyScope(CGF);
+    CGF.EmitStmt(E->getBody());
+  }
+}
+
+void CodeGenFunction::EmitCEANBuiltinExprBody(const CEANBuiltinExpr *E) {
+  if (E->getBuiltinKind() != CEANBuiltinExpr::ImplicitIndex) {
+    if (E->getBuiltinKind() != CEANBuiltinExpr::ReduceMutating)
+      EmitStmt(E->getInit());
+    JumpDest ExitExpr = getJumpDestInCurrentScope("cean.builtin.end");
+    BreakContinueStack.push_back(BreakContinue(ExitExpr, ExitExpr));
+    EmitRecursiveCEANBuiltinExpr(*this, E, 0);
+    BreakContinueStack.pop_back();
+    EmitBranchThroughCleanup(ExitExpr);
+    EmitBlock(ExitExpr.getBlock());
+  }
+}
+#endif

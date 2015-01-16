@@ -66,6 +66,9 @@ struct Info {
 class Context {
   const Info *TSRecords;
   unsigned NumTSRecords;
+#ifdef INTEL_CUSTOMIZATION  
+  bool IsIntelTBAA;
+#endif
 public:
   Context();
 
@@ -121,14 +124,22 @@ public:
   /// \brief Return true if this is a builtin for a libc/libm function,
   /// with a "__builtin_" prefix (e.g. __builtin_abs).
   bool isLibFunction(unsigned ID) const {
-    return strchr(GetRecord(ID).Attributes, 'F') != nullptr;
+    return strchr(GetRecord(ID).Attributes, 'F') != nullptr
+#ifdef INTEL_CUSTOMIZATION	
+      || (!IsIntelTBAA && (strchr(GetRecord(ID).Attributes, 'I') != nullptr))
+#endif
+	;
   }
 
   /// \brief Determines whether this builtin is a predefined libc/libm
   /// function, such as "malloc", where we know the signature a
   /// priori.
   bool isPredefinedLibFunction(unsigned ID) const {
-    return strchr(GetRecord(ID).Attributes, 'f') != nullptr;
+    return strchr(GetRecord(ID).Attributes, 'f') != nullptr
+#ifdef INTEL_CUSTOMIZATION
+      || (IsIntelTBAA && (strchr(GetRecord(ID).Attributes, 'I') != nullptr))
+#endif
+	;
   }
 
   /// \brief Determines whether this builtin is a predefined compiler-rt/libgcc

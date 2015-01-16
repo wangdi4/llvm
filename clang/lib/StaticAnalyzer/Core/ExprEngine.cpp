@@ -746,6 +746,10 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
   assert(!isa<Expr>(S) || S == cast<Expr>(S)->IgnoreParens());
 
   switch (S->getStmtClass()) {
+#ifdef INTEL_CUSTOMIZATION
+    case Stmt::PragmaStmtClass:
+      llvm_unreachable("Pragma should not be in analyzer evaluation loop");
+#endif
     // C++ and ARC stuff we don't support yet.
     case Expr::ObjCIndirectCopyRestoreExprClass:
     case Stmt::CXXDependentScopeMemberExprClass:
@@ -801,6 +805,13 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Expr::MSDependentExistsStmtClass:
     case Stmt::CapturedStmtClass:
     case Stmt::OMPParallelDirectiveClass:
+#ifdef INTEL_CUSTOMIZATION
+    case Stmt::CilkSyncStmtClass:
+    case Stmt::CilkForGrainsizeStmtClass:
+    case Stmt::CilkForStmtClass:
+    case Stmt::SIMDForStmtClass:
+    case Expr::CilkRankedStmtClass:
+#endif	
     case Stmt::OMPSimdDirectiveClass:
     case Stmt::OMPForDirectiveClass:
     case Stmt::OMPForSimdDirectiveClass:
@@ -877,6 +888,10 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::OpaqueValueExprClass:
     case Stmt::AsTypeExprClass:
     case Stmt::AtomicExprClass:
+#ifdef INTEL_CUSTOMIZATION	
+    case Stmt::CEANIndexExprClass:
+    case Stmt::CEANBuiltinExprClass:
+#endif	
       // Fall through.
 
     // Cases we intentionally don't evaluate, since they don't need
@@ -1005,7 +1020,10 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
       VisitBlockExpr(cast<BlockExpr>(S), Pred, Dst);
       Bldr.addNodes(Dst);
       break;
-
+#ifdef INTEL_CUSTOMIZATION
+    case Stmt::CilkSpawnExprClass:
+      llvm_unreachable("not implemented yet");
+#endif
     case Stmt::BinaryOperatorClass: {
       const BinaryOperator* B = cast<BinaryOperator>(S);
       if (B->isLogicalOp()) {

@@ -130,6 +130,13 @@ void Sema::AddAlignmentAttributesForRecord(RecordDecl *RD) {
 }
 
 void Sema::AddMsStructLayoutForRecord(RecordDecl *RD) {
+#ifdef INTEL_CUSTOMIZATION
+  if (!getLangOpts().MicrosoftExt && !MSStructPragmaOn 
+//***INTEL: compatibility fix
+    && !Context.getLangOpts().MSBitfields)
+//***INTEL: compatibility fix
+    return;
+#endif
   if (MSStructPragmaOn)
     RD->addAttr(MsStructAttr::CreateImplicit(Context));
 
@@ -614,3 +621,7 @@ void Sema::PopPragmaVisibility(bool IsNamespaceEnd, SourceLocation EndLoc) {
   if (Stack->empty())
     FreeVisContext();
 }
+
+#ifdef INTEL_CUSTOMIZATION
+#include "intel/SemaAttr.cpp"
+#endif

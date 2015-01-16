@@ -762,6 +762,11 @@ namespace clang {
       PREDEF_TYPE_EVENT_ID      = 44,
       /// \brief OpenCL sampler type.
       PREDEF_TYPE_SAMPLER_ID    = 45
+#ifdef INTEL_CUSTOMIZATION
+	  ,
+      /// \brief _Quad type
+      PREDEF_TYPE_FLOAT128_ID       = 46
+#endif	  
     };
 
     /// \brief The number of predefined type IDs that are reserved for
@@ -1085,6 +1090,10 @@ namespace clang {
       DECL_OMP_THREADPRIVATE,
       /// \brief An EmptyDecl record.
       DECL_EMPTY
+#ifdef INTEL_CUSTOMIZATION
+      /// \brief A PragmaDecl record.
+      ,DECL_PRAGMA
+#endif
     };
 
     /// \brief Record codes for each kind of statement or expression.
@@ -1112,6 +1121,10 @@ namespace clang {
       STMT_DEFAULT,
       /// \brief A LabelStmt record.
       STMT_LABEL,
+#ifdef INTEL_CUSTOMIZATION
+      /// \brief A PragmaStmt record.
+      STMT_PRAGMA,
+#endif
       /// \brief An AttributedStmt record.
       STMT_ATTRIBUTED,
       /// \brief An IfStmt record.
@@ -1214,7 +1227,11 @@ namespace clang {
       EXPR_PSEUDO_OBJECT,
       /// \brief An AtomicExpr record.
       EXPR_ATOMIC,
-
+#ifdef INTEL_CUSTOMIZATION	  
+      /// \brief A CEANIndexExpr record.
+      EXPR_CEAN_INDEX,
+      EXPR_CEAN_BUILTIN,
+#endif
       // Objective-C
 
       /// \brief An ObjCStringLiteral record.
@@ -1376,7 +1393,16 @@ namespace clang {
       EXPR_OBJC_BRIDGED_CAST,     // ObjCBridgedCastExpr
       
       STMT_MS_DEPENDENT_EXISTS,   // MSDependentExistsStmt
-      EXPR_LAMBDA                 // LambdaExpr
+      EXPR_LAMBDA                // LambdaExpr
+#ifdef INTEL_CUSTOMIZATION
+      // Cilk Plus
+	  ,
+      STMT_CILKSYNC,
+      STMT_CILK_FOR_GRAINSIZE,
+      STMT_CILK_FOR,
+      STMT_SIMD_FOR,
+      STMT_CILK_RANKED
+#endif
     };
 
     /// \brief The kinds of designators that can occur in a

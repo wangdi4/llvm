@@ -587,7 +587,101 @@ void ASTStmtReader::VisitArraySubscriptExpr(ArraySubscriptExpr *E) {
   E->setLHS(Reader.ReadSubExpr());
   E->setRHS(Reader.ReadSubExpr());
   E->setRBracketLoc(ReadSourceLocation(Record, Idx));
+#ifdef INTEL_CUSTOMIZATION  
+  if (CEANIndexExpr *CIE = dyn_cast_or_null<CEANIndexExpr>(E->getIdx()))
+    CIE->setBase(E->getBase());
+#endif	
 }
+
+#ifdef INTEL_CUSTOMIZATION
+//===----------------------------------------------------------------------===//
+// Cilk Plus Expressions and Statements.
+//===----------------------------------------------------------------------===//
+
+void ASTStmtReader::VisitCEANIndexExpr(CEANIndexExpr *E) {
+  VisitExpr(E);
+  E->setBase(0);
+  E->setLowerBound(Reader.ReadSubExpr());
+  E->setColonLoc1(ReadSourceLocation(Record, Idx));
+  E->setLength(Reader.ReadSubExpr());
+  E->setColonLoc2(ReadSourceLocation(Record, Idx));
+  E->setStride(Reader.ReadSubExpr());
+  E->setIndexExpr(Reader.ReadSubExpr());
+  E->setRank(Record[Idx++]);
+}
+
+void ASTStmtReader::VisitCEANBuiltinExpr(CEANBuiltinExpr *E) {
+  VisitExpr(E);
+  ++Idx;
+  ++Idx;
+  E->setBuiltinKind(static_cast<CEANBuiltinExpr::CEANKindType>(Record[Idx++]));
+  E->setStartLoc(ReadSourceLocation(Record, Idx));
+  E->setRParenLoc(ReadSourceLocation(Record, Idx));
+  llvm::SmallVector<Expr *, 16> Args;
+  for (unsigned i = 0; i < E->getArgsSize(); ++i)
+    Args.push_back(Reader.ReadSubExpr());
+  E->setArgs(Args);
+  Args.clear();
+  for (unsigned i = 0; i < E->getRank(); ++i)
+    Args.push_back(Reader.ReadSubExpr());
+  E->setLengths(Args);
+  llvm::SmallVector<Stmt *, 16> Vars;
+  for (unsigned i = 0; i < E->getRank(); ++i)
+    Vars.push_back(Reader.ReadSubStmt());
+  E->setVars(Vars);
+  Vars.clear();
+  for (unsigned i = 0; i < E->getRank(); ++i)
+    Vars.push_back(Reader.ReadSubStmt());
+  E->setIncrements(Vars);
+  E->setInit(Reader.ReadSubStmt());
+  E->setBody(Reader.ReadSubStmt());
+  E->setReturnExpr(Reader.ReadSubExpr());
+}
+
+void ASTStmtReader::VisitCilkSpawnExpr(CilkSpawnExpr *E) {
+  llvm_unreachable("not implemented yet");
+}
+
+void ASTStmtReader::VisitCilkSyncStmt(CilkSyncStmt *S) {
+  VisitStmt(S);
+  S->SyncLoc = ReadSourceLocation(Record, Idx);
+}
+
+void ASTStmtReader::VisitCilkForGrainsizeStmt(CilkForGrainsizeStmt *S) {
+  llvm_unreachable("not implemented yet");
+}
+
+void ASTStmtReader::VisitCilkForStmt(CilkForStmt *S) {
+  llvm_unreachable("not implemented yet");
+}
+
+void ASTStmtReader::VisitSIMDForStmt(SIMDForStmt *S) {
+  llvm_unreachable("not implemented yet");
+}
+
+void ASTStmtReader::VisitCilkRankedStmt(CilkRankedStmt *S) {
+  VisitStmt(S);
+  ++Idx;
+  SmallVector<Expr *, 16> Lengths;
+  for (unsigned i = 0, N = S->getRank(); i < N; ++i)
+    Lengths.push_back(Reader.ReadSubExpr());
+  if (S->getRank() > 0)
+    S->setLengths(Lengths);
+  SmallVector<Stmt *, 16> Vars;
+  for (unsigned i = 0, N = S->getRank(); i < N; ++i)
+    Vars.push_back(Reader.ReadSubStmt());
+  if (S->getRank() > 0)
+    S->setVars(Vars);
+  Vars.clear();
+  for (unsigned i = 0, N = S->getRank(); i < N; ++i)
+    Vars.push_back(Reader.ReadSubStmt());
+  if (S->getRank() > 0)
+    S->setIncrements(Vars);
+  S->setAssociatedStmt(Reader.ReadSubStmt());
+  S->setInits(Reader.ReadSubStmt());
+}
+
+#endif
 
 void ASTStmtReader::VisitCallExpr(CallExpr *E) {
   VisitExpr(E);
@@ -1183,6 +1277,11 @@ void ASTStmtReader::VisitCXXOperatorCallExpr(CXXOperatorCallExpr *E) {
   E->Operator = (OverloadedOperatorKind)Record[Idx++];
   E->Range = Reader.ReadSourceRange(F, Record, Idx);
   E->setFPContractable((bool)Record[Idx++]);
+#ifdef INTEL_CUSTOMIZATION  
+  if (E->Operator == OO_Subscript)
+    if (CEANIndexExpr *CIE = dyn_cast_or_null<CEANIndexExpr>(E->getArg(0)))
+      CIE->setBase(E->getCallee());
+#endif
 }
 
 void ASTStmtReader::VisitCXXConstructExpr(CXXConstructExpr *E) {
@@ -2298,7 +2397,11 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
     case STMT_DECL:
       S = new (Context) DeclStmt(Empty);
       break;
-
+#ifdef INTEL_CUSTOMIZATION
+    case STMT_PRAGMA:
+      S = new (Context) PragmaStmt(Empty);
+      break;
+#endif
     case STMT_GCCASM:
       S = new (Context) GCCAsmStmt(Empty);
       break;
@@ -2372,7 +2475,16 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
     case EXPR_ARRAY_SUBSCRIPT:
       S = new (Context) ArraySubscriptExpr(Empty);
       break;
+#ifdef INTEL_CUSTOMIZATION
+    case EXPR_CEAN_INDEX:
+      S = new (Context) CEANIndexExpr(Empty);
+      break;
 
+    case EXPR_CEAN_BUILTIN:
+      S = CEANBuiltinExpr::CreateEmpty(Context, Record[ASTStmtReader::NumExprFields],
+                                       Record[ASTStmtReader::NumExprFields + 1]);
+      break;
+#endif
     case EXPR_CALL:
       S = new (Context) CallExpr(Context, Stmt::CallExprClass, Empty);
       break;
@@ -2955,6 +3067,29 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
                                          NumArrayIndexVars);
       break;
     }
+#ifdef INTEL_CUSTOMIZATION
+    case STMT_CILKSYNC:
+      S = new (Context) CilkSyncStmt(Empty);
+      break;
+
+    case STMT_CILK_RANKED:
+      S = CilkRankedStmt::CreateEmpty(Context,
+                                      Record[ASTStmtReader::NumStmtFields],
+                                      Empty);
+      break;
+
+    case STMT_CILK_FOR_GRAINSIZE:
+      llvm_unreachable("not implemented yet");
+      break;
+
+    case STMT_CILK_FOR:
+      llvm_unreachable("not implemented yet");
+      break;
+
+    case STMT_SIMD_FOR:
+      llvm_unreachable("not implemented yet");
+      break;
+#endif
     }
     
     // We hit a STMT_STOP, so we're done with this expression.
@@ -2977,3 +3112,23 @@ Done:
   assert(StmtStack.size() == PrevNumStmts + 1 && "Extra expressions on stack!");
   return StmtStack.pop_back_val();
 }
+
+#ifdef INTEL_CUSTOMIZATION
+void ASTStmtReader::VisitPragmaStmt(PragmaStmt *S) {
+  size_t Attribs;
+  VisitStmt(S);
+  S->setSemiLoc(ReadSourceLocation(Record, Idx));
+  Attribs = Record[Idx++];
+  for(size_t i = 0; i < Attribs; ++i) {
+    S->getAttribs().push_back(
+      IntelPragmaAttrib(Reader.ReadSubExpr(), (IntelPragmaExprKind)Record[Idx++]));
+  }
+  Attribs = Record[Idx++];
+  for(size_t i = 0; i < Attribs; ++i) {
+    S->getRealAttribs().push_back(Reader.ReadSubExpr());
+  }
+  S->setPragmaKind((IntelPragmaKindType)Record[Idx++]);
+  if (Record[Idx++] > 0)
+    S->setDecl();
+}
+#endif

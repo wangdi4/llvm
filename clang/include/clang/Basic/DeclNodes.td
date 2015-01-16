@@ -82,4 +82,7 @@ def ClassScopeFunctionSpecialization : Decl;
 def Import : Decl;
 def OMPThreadPrivate : Decl;
 def Empty : Decl;
-
+//#ifdef INTEL_CUSTOMIZATION
+def CilkSpawn : Decl;
+def Pragma : Decl;
+//#endif

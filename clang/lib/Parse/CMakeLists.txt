@@ -16,6 +16,8 @@ add_clang_library(clangParse
   ParseOpenMP.cpp
   ParsePragma.cpp
   ParseStmt.cpp
+#***INTEL 
+  intel/ParseSIMD.cpp
   ParseStmtAsm.cpp
   ParseTemplate.cpp
   ParseTentative.cpp

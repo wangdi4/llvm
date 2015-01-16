@@ -79,7 +79,12 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorCall(
       *this, MD, Callee, ReturnValue, This, ImplicitParam, ImplicitParamTy, CE,
       Args);
   return EmitCall(CGM.getTypes().arrangeCXXMethodCall(Args, FPT, required),
-                  Callee, ReturnValue, Args, MD);
+                  Callee, ReturnValue, Args, MD
+#ifdef INTEL_CUSTOMIZATION
+                  , /*callOrInvoke=*/0,
+                  CE ? CE->isCilkSpawnCall() : false
+#endif
+  );
 }
 
 RValue CodeGenFunction::EmitCXXStructorCall(
@@ -321,7 +326,12 @@ CodeGenFunction::EmitCXXMemberPointerCallExpr(const CXXMemberCallExpr *E,
   // And the rest of the call args
   EmitCallArgs(Args, FPT, E->arg_begin(), E->arg_end(), E->getDirectCallee());
   return EmitCall(CGM.getTypes().arrangeCXXMethodCall(Args, FPT, required),
-                  Callee, ReturnValue, Args);
+                  Callee, ReturnValue, Args
+#ifdef INTEL_CUSTOMIZATION
+                  , /*TargetDecl=*/0, /*callOrInvoke=*/0,
+                  E->isCilkSpawnCall()
+#endif
+  );
 }
 
 RValue
