@@ -5286,7 +5286,11 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
   case Intrinsic::var_annotation:
     // Discard annotate attributes and assumptions
     return nullptr;
-
+#ifdef INTEL_CUSTOMIZATION
+  case Intrinsic::intel_pragma:
+    // Discard everything
+    return nullptr;
+#endif
   case Intrinsic::init_trampoline: {
     const Function *F = cast<Function>(I.getArgOperand(1)->stripPointerCasts());
 
