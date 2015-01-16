@@ -580,6 +580,41 @@ void StmtProfiler::VisitArraySubscriptExpr(const ArraySubscriptExpr *S) {
   VisitExpr(S);
 }
 
+#ifdef INTEL_CUSTOMIZATION
+void StmtProfiler::VisitCEANIndexExpr(const CEANIndexExpr *S) {
+  VisitExpr(S);
+}
+
+void StmtProfiler::VisitCEANBuiltinExpr(const CEANBuiltinExpr *S) {
+  VisitExpr(S);
+}
+
+void StmtProfiler::VisitCilkSpawnExpr(const CilkSpawnExpr *S) {
+  llvm_unreachable("not implemented yet");
+}
+
+void StmtProfiler::VisitCilkSyncStmt(const CilkSyncStmt *S) {
+  VisitStmt(S);
+}
+
+void StmtProfiler::VisitCilkForGrainsizeStmt(const CilkForGrainsizeStmt *S) {
+  VisitStmt(S);
+}
+
+void StmtProfiler::VisitCilkForStmt(const CilkForStmt *S) {
+  VisitStmt(S);
+}
+
+void StmtProfiler::VisitSIMDForStmt(const SIMDForStmt *S) {
+  VisitStmt(S);
+}
+
+void StmtProfiler::VisitCilkRankedStmt(const CilkRankedStmt *S) {
+  VisitStmt(S);
+}
+
+#endif
+
 void StmtProfiler::VisitCallExpr(const CallExpr *S) {
   VisitExpr(S);
 }
@@ -1461,3 +1496,9 @@ void Stmt::Profile(llvm::FoldingSetNodeID &ID, const ASTContext &Context,
   StmtProfiler Profiler(ID, Context, Canonical);
   Profiler.Visit(this);
 }
+
+#ifdef INTEL_CUSTOMIZATION
+void StmtProfiler::VisitPragmaStmt(const PragmaStmt *S) {
+  VisitStmt(S);
+}
+#endif

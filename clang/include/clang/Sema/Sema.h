@@ -197,6 +197,10 @@ namespace sema {
   class LambdaScopeInfo;
   class PossiblyUnreachableDiag;
   class TemplateDeductionInfo;
+#ifdef INTEL_CUSTOMIZATION
+  class CilkForScopeInfo;
+  class SIMDForScopeInfo;
+#endif
 }
 
 // FIXME: No way to easily map from TemplateTypeParmTypes to
@@ -364,7 +368,11 @@ public:
   ///  of the enclosing full expression.  This is cleared at the end of each 
   ///  full expression. 
   llvm::SmallPtrSet<Expr*, 2> MaybeODRUseExprs;
-
+#ifdef INTEL_CUSTOMIZATION
+  /// \brief All the Cilk spawn call expressions in this expression
+  /// evaluation context.
+  llvm::SmallVector<CallExpr*, 2> CilkSpawnCalls;
+#endif
   /// \brief Stack containing information about each of the nested
   /// function, block, and method scopes that are currently active.
   ///
@@ -761,7 +769,11 @@ public:
     unsigned NumTypos;
 
     llvm::SmallPtrSet<Expr*, 2> SavedMaybeODRUseExprs;
-
+#ifdef INTEL_CUSTOMIZATION
+    /// \brief All the Cilk spawn call expressions when we entered this
+    /// expression evaluation context.
+    llvm::SmallVector<CallExpr*, 2> SavedCilkSpawnCalls;
+#endif
     /// \brief The lambdas that are present within this context, if it
     /// is indeed an unevaluated context.
     SmallVector<LambdaExpr *, 2> Lambdas;
@@ -1073,6 +1085,13 @@ public:
   void PushCapturedRegionScope(Scope *RegionScope, CapturedDecl *CD,
                                RecordDecl *RD,
                                CapturedRegionKind K);
+#ifdef INTEL_CUSTOMIZATION							   
+  void PushCilkForScope(Scope *S, CapturedDecl *FD, RecordDecl *RD,
+                        const VarDecl *LoopControlVariable,
+                        SourceLocation CilkForLoc);
+  void PushSIMDForScope(Scope *S, CapturedDecl *FD, RecordDecl *RD,
+                        SourceLocation PragmaLoc);
+#endif
   void
   PopFunctionScopeInfo(const sema::AnalysisBasedWarnings::Policy *WP = nullptr,
                        const Decl *D = nullptr,
@@ -1104,7 +1123,27 @@ public:
   void PopCompoundScope();
 
   sema::CompoundScopeInfo &getCurCompoundScope() const;
+#ifdef INTEL_CUSTOMIZATION
+  /// \brief Retrieve the enclosing compound scope but skip Cilk for scopes.
+  /// For example, the compound scope of the function body is returned in
+  /// the following example:
+  /// \code
+  /// void func() {
+  ///   _Cilk_for (int i = 0; i < 10; ++i) {
+  ///     foo();
+  ///   }
+  /// }
+  /// \endcode
+  sema::CompoundScopeInfo &getCurCompoundScopeSkipCilkFor() const;
 
+  sema::CompoundScopeInfo &getCurCompoundScopeSkipSIMDFor() const;
+
+  /// \brief Retrieve the current cilk for region, if any.
+  sema::CilkForScopeInfo *getCurCilkFor();
+
+  /// \brief Retrieve the current SIMD for region, if any.
+  sema::SIMDForScopeInfo *getCurSIMDFor();
+#endif
   bool hasAnyUnrecoverableErrorsInThisFunction() const;
 
   /// \brief Retrieve the current block, if any.
@@ -1646,7 +1685,18 @@ public:
                                SourceLocation EqualLoc);
 
   void AddInitializerToDecl(Decl *dcl, Expr *init, bool DirectInit,
-                            bool TypeMayContainAuto);
+                            bool TypeMayContainAuto) 
+#ifdef INTEL_CUSTOMIZATION
+  {
+    bool IsCilkSpawnReceiver = false;
+    AddInitializerToDecl(dcl, init, DirectInit, TypeMayContainAuto,
+                         IsCilkSpawnReceiver);
+  }
+  void AddInitializerToDecl(Decl *dcl, Expr *init, bool DirectInit,
+                            bool TypeMayContainAuto,
+                            bool &IsCilkSpawnReceiver)
+#endif
+	;
   void ActOnUninitializedDecl(Decl *dcl, bool TypeMayContainAuto);
   void ActOnInitializerError(Decl *Dcl);
   void ActOnCXXForRangeDecl(Decl *D);
@@ -2625,7 +2675,22 @@ private:
                              DeclContext *MemberContext, bool EnteringContext,
                              const ObjCObjectPointerType *OPT,
                              bool ErrorRecovery, bool &IsUnqualifiedLookup);
-
+#ifdef INTEL_CUSTOMIZATION
+public:
+  enum CEANSupportState {
+    NoCEANAllowed,
+    FullCEANAllowed
+  };
+private:
+  /// \brief Allow CEAN constructs in expressions.
+  llvm::SmallVector<CEANSupportState, 16> CEANStack;
+  unsigned CEANLevelCounter;
+public:
+  void StartCEAN(CEANSupportState Flag) { CEANStack.push_back(Flag); }
+  void EndCEAN() { CEANStack.pop_back(); }
+  bool IsCEANAllowed() { return CEANStack.back() != NoCEANAllowed; }
+  CEANSupportState GetCEANState() { return CEANStack.back(); }
+#endif
 public:
   const TypoExprState &getTypoExprState(TypoExpr *TE) const;
 
@@ -3138,6 +3203,8 @@ public:
                                  SourceLocation CondLParen, Expr *Cond,
                                  SourceLocation CondRParen);
 
+  void CheckForLoopConditionalStatement(Expr *Second, Expr *Third, Stmt *Body); //***INTEL
+
   StmtResult ActOnForStmt(SourceLocation ForLoc,
                           SourceLocation LParenLoc,
                           Stmt *First, FullExprArg Second,
@@ -3205,6 +3272,57 @@ public:
                              Scope *CurScope);
   StmtResult BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp);
   StmtResult ActOnCapScopeReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp);
+#ifdef INTEL_CUSTOMIZATION
+  void DiagnoseCilkSpawn(Stmt *S);
+  void DiagnoseCilkElemental(FunctionDecl *D, Stmt *S);
+  bool DiagnoseElementalAttributes(FunctionDecl *FD);
+  Expr *CheckCilkVecLengthArg(Expr *E);
+  Expr *CheckCilkLinearArg(Expr *E);
+
+  StmtResult ActOnCilkSyncStmt(SourceLocation SyncLoc);
+  ExprResult ActOnCilkSpawnCall(SourceLocation SpawnLoc, Expr *E);
+  ExprResult BuildCilkSpawnCall(SourceLocation SpawnLoc, Expr *E);
+
+  /// \brief Convert a full expression into a CilkSpawnExpr.
+  ExprResult BuildCilkSpawnExpr(Expr *E);
+
+  /// \brief Convert a declaration initialized by a Cilk spawn call into
+  /// a CilkSpawnDecl.
+  CilkSpawnDecl *BuildCilkSpawnDecl(Decl *D);
+
+  bool DiagCilkSpawnFullExpr(Expr *E);
+  StmtResult ActOnCilkForGrainsizePragma(Expr *GrainsizeExpr,
+                                         Stmt *CilkFor,
+                                         SourceLocation LocStart);
+
+  bool CheckIfBodyModifiesLoopControlVar(Stmt *Body);
+
+  StmtResult ActOnCilkForStmt(SourceLocation CilkForLoc,
+                              SourceLocation LParenLoc,
+                              Stmt *First, FullExprArg Second,
+                              FullExprArg Third,
+                              SourceLocation RParenLoc,
+                              Stmt *Body);
+
+  StmtResult BuildCilkForStmt(SourceLocation CilkForLoc,
+                              SourceLocation LParenLoc,
+                              Stmt *Init, Expr *Cond, Expr *Inc,
+                              SourceLocation RParenLoc, Stmt *Body,
+                              Expr *LoopCount, Expr *Stride,
+                              QualType SpanType);
+
+  void ActOnStartOfCilkForStmt(SourceLocation CilkForLoc, Scope *CurScope,
+                               StmtResult FirstPart);
+
+  void ActOnCilkForStmtError();
+
+  ExprResult CalculateCilkForLoopCount(SourceLocation CilkForLoc, Expr *Span,
+                                       Expr *Increment, Expr *StrideExpr,
+                                       int Dir, BinaryOperatorKind Opcode);
+
+  ExprResult ActOnCustomIdExpression(Scope *CurScope, CXXScopeSpec &ScopeSpec,
+                                     const DeclarationNameInfo &Id);
+#endif
 
   StmtResult ActOnGCCAsmStmt(SourceLocation AsmLoc, bool IsSimple,
                              bool IsVolatile, unsigned NumOutputs,
@@ -3620,7 +3738,19 @@ public:
                                      Expr *Idx, SourceLocation RLoc);
   ExprResult CreateBuiltinArraySubscriptExpr(Expr *Base, SourceLocation LLoc,
                                              Expr *Idx, SourceLocation RLoc);
-
+#ifdef INTEL_CUSTOMIZATION
+  ExprResult ActOnCEANIndexExpr(Scope *S, Expr *Base, Expr *LowerBound,
+                                SourceLocation ColonLoc1, Expr *Length,
+                                SourceLocation ColonLoc2, Expr *Stride);
+  bool CheckCEANExpr(Scope *S, Expr *E);
+  void ActOnStartCEANExpr(CEANSupportState Flag);
+  void ActOnEndCEANExpr(Expr *E);
+  StmtResult ActOnCEANExpr(Expr *E);
+  StmtResult ActOnCEANIfStmt(Stmt *S);
+  ExprResult ActOnCEANBuiltinExpr(Scope *S, SourceLocation StartLoc,
+                                  unsigned Kind, ArrayRef<Expr *> Args,
+                                  SourceLocation RParenLoc);
+#endif
   // This struct is for use by ActOnMemberAccess to allow
   // BuildMemberReferenceExpr to be able to reinvoke ActOnMemberAccess after
   // changing the access operator from a '.' to a '->' (to see if that is the
@@ -4568,10 +4698,30 @@ public:
     return ActOnFinishFullExpr(Expr, Expr ? Expr->getExprLoc()
                                           : SourceLocation());
   }
+#ifdef INTEL_CUSTOMIZATION
+  enum CilkReceiverKind {
+    CRK_MaybeReceiver,
+    CRK_IsReceiver,
+    CRK_IsNotReceiver
+  };
+
+  ExprResult ActOnFinishFullExpr(Expr *Expr, SourceLocation CC,
+                                 bool DiscardedValue = false,
+                                 bool IsConstexpr = false) {
+    CilkReceiverKind Kind = CRK_IsNotReceiver;
+    return ActOnFinishFullExpr(Expr, CC, Kind, DiscardedValue, IsConstexpr);
+  }
+  ExprResult ActOnFinishFullExpr(Expr *Expr, SourceLocation CC,
+                                 CilkReceiverKind &Kind,
+                                 bool DiscardedValue = false,
+                                 bool IsConstexpr = false,
+                                 bool IsLambdaInitCaptureInitializer = false);
+#else
   ExprResult ActOnFinishFullExpr(Expr *Expr, SourceLocation CC,
                                  bool DiscardedValue = false,
                                  bool IsConstexpr = false,
                                  bool IsLambdaInitCaptureInitializer = false);
+#endif								 
   StmtResult ActOnFinishFullStmt(Stmt *Stmt);
 
   // Marks SS invalid if it represents an incomplete type.
@@ -7389,7 +7539,54 @@ public:
   /// ActOnPragmaFPContract - Called on well formed
   /// \#pragma {STDC,OPENCL} FP_CONTRACT
   void ActOnPragmaFPContract(tok::OnOffSwitch OOS);
+#ifdef INTEL_CUSTOMIZATION
+  AttrResult ActOnPragmaSIMDLength(SourceLocation VectorLengthLoc,
+                                   Expr *VectorLengthExpr);
 
+  AttrResult ActOnPragmaSIMDLinear(SourceLocation LinearLoc,
+                                   ArrayRef<Expr *> Exprs);
+
+  AttrResult
+      ActOnPragmaSIMDReduction(SourceLocation ReductionLoc,
+                               SIMDReductionAttr::SIMDReductionKind Operator,
+                               llvm::MutableArrayRef<Expr *> VarList);
+
+  StmtResult ActOnSIMDForStmt(SourceLocation PragmaLoc,
+                              ArrayRef<Attr *> Attrs,
+                              SourceLocation ForLoc,
+                              SourceLocation LParenLoc,
+                              Stmt *First, FullExprArg Second,
+                              FullExprArg Third,
+                              SourceLocation RParenLoc,
+                              Stmt *Body);
+  StmtResult BuildSIMDForStmt(SourceLocation PragmaLoc,
+                              ArrayRef<Attr *> Attrs,
+                              SourceLocation ForLoc,
+                              SourceLocation LParenLoc,
+                              Stmt *Init, Expr *Cond, Expr *Inc,
+                              SourceLocation RParenLoc, Stmt *Body,
+                              Expr *LoopCount, Expr *StrideExpr,
+                              VarDecl *LoopControlVar);
+  void CheckSIMDPragmaClauses(SourceLocation PragmaLoc,
+                              ArrayRef<Attr *> Attrs);
+  void ActOnStartOfSIMDForStmt(SourceLocation PragmaLoc, Scope *CurScope,
+                               ArrayRef<Attr *> SIMDAttrList);
+  void ActOnSIMDForStmtError();
+
+  enum SIMDPrivateKind {
+    SIMD_Private,
+    SIMD_FirstPrivate,
+    SIMD_LastPrivate
+  };
+
+  ExprResult ActOnPragmaSIMDPrivateVariable(CXXScopeSpec SS,
+                                            DeclarationNameInfo Name,
+                                            SIMDPrivateKind Kind);
+
+  AttrResult ActOnPragmaSIMDPrivate(SourceLocation PrivateLoc,
+                                    llvm::MutableArrayRef<Expr *> Exprs,
+                                    SIMDPrivateKind Kind);
+#endif
   /// AddAlignmentAttributesForRecord - Adds any needed alignment attributes to
   /// a the record decl, to handle '\#pragma pack' and '\#pragma options align'.
   void AddAlignmentAttributesForRecord(RecordDecl *RD);
@@ -8706,6 +8903,240 @@ public:
       DC = CatD->getClassInterface();
     return DC;
   }
+#ifdef INTEL_CUSTOMIZATION
+void SetMac68kAlignment();
+
+
+enum IntelPragmaCommonOnOff {
+  IntelPragmaFPContract,
+  IntelPragmaFEnvAccess
+};
+enum IntelCommonDefaultOnOff {
+  IntelCommonDefault,
+  IntelCommonOff,
+  IntelCommonOn
+};
+StmtResult ActOnPragmaCommonOnOff(SourceLocation KindLoc, const char *RealPragmaName,
+  const char *SpecPragmaName, const IntelCommonDefaultOnOff DOO, const IntelPragmaCommonOnOff Kind, unsigned &FC);
+void ActOnPragmaCommonOnOff(PragmaStmt *Pragma, const char *SpecPragmaName);
+
+// Ivdep pragma
+
+// ActOnPragmaOptionsIvdep - Called on #pragma ivdep
+enum IntelPragmaIvdepOption {
+  IntelPragmaIvdepOptionNone,
+  IntelPragmaIvdepOptionLoop
+};
+StmtResult ActOnPragmaOptionsIvdep(SourceLocation KindLoc, IntelPragmaIvdepOption Opt);
+
+// novector pragma
+
+// ActOnPragmaOptionsNoVector - Called on #pragma novector
+StmtResult ActOnPragmaOptionsNoVector(SourceLocation KindLoc);
+
+// distribute_point pragma
+
+// ActOnPragmaOptionsDistribute - Called on #pragma distribute_point
+StmtResult ActOnPragmaOptionsDistribute(SourceLocation KindLoc);
+
+// inline, forceinline and noinline pragmas
+
+// ActOnPragmaOptionsInline - Called on #pragma inline, forceinline, noinline
+enum IntelPragmaInlineOption {
+  IntelPragmaInlineOptionNone,
+  IntelPragmaInlineOptionRecursive
+};
+enum IntelPragmaInlineKind {
+  IntelPragmaSimpleInline,
+  IntelPragmaNoInline,
+  IntelPragmaForceInline
+};
+StmtResult ActOnPragmaOptionsInline(SourceLocation KindLoc, 
+  IntelPragmaInlineKind PragmaKind, IntelPragmaInlineOption Option);
+StmtResult ActOnPragmaOptionsEndInline(SourceLocation KindLoc);
+
+// loop_count pragma
+
+// ActOnPragmaOptionsLoopCount - Called on #pragma loop_count
+StmtResult ActOnPragmaOptionsLoopCount(SourceLocation KindLoc, 
+  const SmallVector<ExprResult, 4> &MinAvgMax,
+  const SmallVector<ExprResult, 4> &Regular);
+
+// optimize pragma
+
+// ActOnPragmaOptionsOptimize - Called on #pragma optimize
+enum IntelPragmaOptimizeOption {
+  IntelPragmaOptimizeOptionOn,
+  IntelPragmaOptimizeOptionOff
+};
+StmtResult ActOnPragmaOptionsOptimize(SourceLocation KindLoc, 
+  IntelPragmaOptimizeOption Kind);
+void ActOnPragmaOptionsOptimize(PragmaStmt *Pragma);
+
+// ActOnPragmaOptionsOptimizationLevel - Called on #pragma optimization_level
+void ActOnPragmaOptionsOptimizationLevel(SourceLocation KindLoc, const Token &Tok, bool IsIntelPragma);
+
+// noparallel pragma
+
+// ActOnPragmaOptionsNoParallel - Called on #pragma noparallel
+StmtResult ActOnPragmaOptionsNoParallel(SourceLocation KindLoc);
+
+// (no)unroll pragmas
+
+// ActOnPragmaOptionsUnroll - Called on #pragma unroll, nounroll
+enum IntelPragmaUnrollKind {
+  IntelPragmaSimpleUnroll,
+  IntelPragmaNoUnroll
+};
+StmtResult ActOnPragmaOptionsUnroll(SourceLocation KindLoc, IntelPragmaUnrollKind Kind, ExprResult Opt);
+
+// (no)unroll_and_jam pragmas
+
+// ActOnPragmaOptionsUnrollAndJam - Called on #pragma unroll_and_jam, nounroll_and_jam
+enum IntelPragmaUnrollAndJamKind {
+  IntelPragmaSimpleUnrollAndJam,
+  IntelPragmaNoUnrollAndJam
+};
+StmtResult ActOnPragmaOptionsUnrollAndJam(SourceLocation KindLoc, IntelPragmaUnrollAndJamKind Kind, ExprResult Opt);
+
+// nofusion pragma
+
+// ActOnPragmaOptionsNoFusion - Called on #pragma nofusion
+StmtResult ActOnPragmaOptionsNoFusion(SourceLocation KindLoc);
+
+// vector pragma
+
+// ActOnPragmaOptionsVector - Called on #pragma vector
+enum IntelPragmaVectorOption {
+  IntelPragmaVectorUnknown,
+  IntelPragmaVectorAlways = 1<<0,
+  IntelPragmaVectorAssert = 1<<1,
+  IntelPragmaVectorAligned = 1<<2,
+  IntelPragmaVectorUnAligned = 1<<3,
+  IntelPragmaVectorMaskReadWrite = 1<<4,
+  IntelPragmaVectorNoMaskReadWrite = 1<<5,
+  IntelPragmaVectorVecRemainder = 1<<6,
+  IntelPragmaVectorNoVecRemainder = 1<<7,
+  IntelPragmaVectorTemporal = 1<<8,
+  IntelPragmaVectorNonTemporal = 1<<9
+};
+StmtResult ActOnPragmaOptionsVector(Scope *S, SourceLocation KindLoc, int Opt, 
+  const SmallVector<ExprResult, 4> &Exprs);
+
+// ActOnPragmaOptionsOptimizationParameter - Called on #pragma intel optimization_parameter
+void ActOnPragmaOptionsOptimizationParameter(SourceLocation KindLoc, const StringRef &CPU);
+
+// ActOnPragmaOptionsParallel - Called on #pragma parallel
+
+private:
+  FunctionDecl *GenerateWrapperDefaultConstructor(SourceLocation Loc, CXXConstructorDecl *ElemFun, const Type *ElemType);
+  FunctionDecl *GenerateWrapperCopyConstructor(SourceLocation Loc, CXXConstructorDecl *ElemFun, const Type *ElemType);
+  FunctionDecl *GenerateWrapperCopyAssignment(SourceLocation Loc, CXXMethodDecl *ElemFun, const Type *ElemType);
+  FunctionDecl *GenerateWrapperDestructor(SourceLocation Loc, CXXDestructorDecl *ElemFun, const Type *ElemType);
+  FunctionDecl *GenerateArrayDefaultConstructor(SourceLocation Loc, CXXConstructorDecl *ElemFun, const Type *ElemType, QualType ArrayType);
+  FunctionDecl *GenerateArrayCopyConstructor(SourceLocation Loc, CXXConstructorDecl *ElemFun, const Type *ElemType, QualType ArrayType, bool SizeFromType);
+  FunctionDecl *GenerateArrayCopyAssignment(SourceLocation Loc, CXXMethodDecl *ElemFun, const Type *ElemType, QualType ArrayType, bool SizeFromType);
+  FunctionDecl *GenerateArrayDestructor(SourceLocation Loc, CXXDestructorDecl *ElemFun, const Type *ElemType);
+  bool ActOnNonPODVariable(SourceLocation Loc, QualType QT, PragmaAttribsVector &Attribs);
+  void CheckAndGenVars(Scope *S, SourceLocation KindLoc,
+    const SmallVector<ExprResult, 4> &VarsExprs, const SmallVector<ExprResult, 4> &SizeVarsExprs,
+    const char *RealAttrib, const char *MainAttrib,
+    PragmaStmt *stmt, const SmallVector<ExprResult, 4> &CheckAgainstVarsExprs);
+public:
+enum IntelPragmaParallelOption {
+  IntelPragmaParallelUnknown = 0,
+  IntelPragmaParallelAlways = 1 << 0,
+  IntelPragmaParallelAssert = 1 << 1,
+  IntelPragmaParallelCollapse = 1 << 2,
+  IntelPragmaParallelNumThreads = 1 << 3,
+  IntelPragmaParallelVars = 1 << 4
+};
+StmtResult ActOnPragmaOptionsParallel(Scope *S, SourceLocation KindLoc, int Opt, 
+  const SmallVector<ExprResult, 4> &Private, const SmallVector<ExprResult, 4> &SizePrivate, 
+  const SmallVector<ExprResult, 4> &LastPrivate, const SmallVector<ExprResult, 4> &SizeLastPrivate,
+  const SmallVector<ExprResult, 4> &FirstPrivate, const SmallVector<ExprResult, 4> &SizeFirstPrivate,
+  ExprResult Collapse, ExprResult NumThreads);
+
+// ActOnPragmaOptionsAllocSection - Called on #pragma alloc_section
+StmtResult ActOnPragmaOptionsAllocSection(SourceLocation KindLoc, const SmallVector<ExprResult, 4> &VarNames, const ExprResult &Section);
+void ActOnPragmaOptionsAllocSection(PragmaStmt *Pragma);
+
+// ActOnPragmaOptionsSection - Called on #pragma section
+StmtResult ActOnPragmaOptionsSection(SourceLocation KindLoc, const ExprResult &Section, const SmallVector<Token, 4> &AttrNames);
+void ActOnPragmaOptionsSection(PragmaStmt *Pragma);
+
+// ActOnPragmaOptionsAllocText - Called on #pragma alloc_text
+StmtResult ActOnPragmaOptionsAllocText(SourceLocation KindLoc, const ExprResult &Section, const SmallVector<ExprResult, 4> &FuncNames);
+void ActOnPragmaOptionsAllocText(PragmaStmt *Pragma);
+
+// ActOnPragmaOptionsAutoInline - Called on #pragma auto_inline
+enum IntelPragmaAutoInlineOption {
+  IntelPragmaAutoInlineOptionOn,
+  IntelPragmaAutoInlineOptionOff
+};
+StmtResult ActOnPragmaOptionsAutoInline(SourceLocation KindLoc, 
+  IntelPragmaAutoInlineOption Kind);
+void ActOnPragmaOptionsAutoInline(PragmaStmt *Pragma);
+
+// ActOnPragmaOptionsSeg - Called on #pragma bss_seg|code_seg|const_seg|data_seg
+enum IntelPragmaSegKind {
+  IntelPragmaBssSeg,
+  IntelPragmaCodeSeg,
+  IntelPragmaConstSeg,
+  IntelPragmaDataSeg,
+  IntelPragmaSegCount
+};
+enum IntelPragmaSegOption {
+  IntelPragmaSegOptionSet,
+  IntelPragmaSegOptionPush,
+  IntelPragmaSegOptionPop
+};
+StmtResult ActOnPragmaOptionsSeg(SourceLocation KindLoc, 
+  IntelPragmaSegKind Kind, IntelPragmaSegOption Opt, bool IdentifierSet, const std::string &Identifier,
+  bool SegNameSet, const std::string &SegName, bool ClassNameSet, const std::string &ClassName);
+void ActOnPragmaOptionsSeg(PragmaStmt *Pragma);
+void ActOnVarFunctionDeclForSections(Decl *VFD);
+std::string SegNames[IntelPragmaSegCount];
+std::string SegClasses[IntelPragmaSegCount];
+
+// ActOnPragmaOptionsCheckStack - Called on #pragma check_stack
+enum IntelPragmaCheckStackOption {
+  IntelPragmaCheckStackOptionOn,
+  IntelPragmaCheckStackOptionOff
+};
+StmtResult ActOnPragmaOptionsCheckStack(SourceLocation KindLoc, 
+  IntelPragmaCheckStackOption Kind);
+void ActOnPragmaOptionsCheckStack(PragmaStmt *Pragma);
+
+// ActOnPragmaOptionsFloatControl - Called on #pragma float_control
+enum IntelPragmaFloatControlOption {
+  IntelPragmaFloatControlUndefined = 0,
+  IntelPragmaFloatControlFast = 1,
+  IntelPragmaFloatControlPrecise = 2,
+  IntelPragmaFloatControlSource = 4,
+  IntelPragmaFloatControlDouble = 8,
+  IntelPragmaFloatControlExtended = 16,
+  IntelPragmaFloatControlExcept = 32
+};
+enum IntelPragmaFloatControlOnOff {
+  IntelPragmaFloatControlOn,
+  IntelPragmaFloatControlOff
+};
+StmtResult ActOnPragmaOptionsFloatControl(SourceLocation KindLoc, unsigned &FC,
+  IntelPragmaFloatControlOption Kind = IntelPragmaFloatControlUndefined,
+  IntelPragmaFloatControlOnOff OOS = IntelPragmaFloatControlOn);
+void ActOnPragmaOptionsFloatControl(Stmt *Pragma);
+
+// ActOnPragmaOptionsInitSeg - Called on #pragma init_seg
+StmtResult ActOnPragmaOptionsInitSeg(SourceLocation KindLoc, const std::string &Section);
+void ActOnPragmaOptionsInitSeg(PragmaStmt *Pragma);
+
+private:
+llvm::StringMap<int> CommonFunctionOptions;
+llvm::SmallVector<Stmt*,4> OptionsList;
+public:
+void DeletePragmaOnError(PragmaStmt *Pragma);
+#endif
 };
 
 /// \brief RAII object that enters a new expression evaluation context.

@@ -136,6 +136,9 @@ void Preprocessor::RegisterBuiltinMacros() {
     Ident__building_module = nullptr;
     Ident__MODULE__ = nullptr;
   }
+#ifdef INTEL_CUSTOMIZATION
+  Ident__pragma = RegisterBuiltinMacro(*this, "__pragma");
+#endif
 }
 
 /// isTrivialSingleTokenExpansion - Return true if MI, which has a single token

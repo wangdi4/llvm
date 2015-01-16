@@ -116,7 +116,11 @@ std::string getClangFullRepositoryVersion() {
 }
 
 std::string getClangFullVersion() {
+#if defined (INTEL_CUSTOMIZED) && defined(INTEL_SPECIFIC_IL0_BACKEND)
+  return getClangToolFullVersion("Clang Front-End");
+#else
   return getClangToolFullVersion("clang");
+#endif
 }
 
 std::string getClangToolFullVersion(StringRef ToolName) {

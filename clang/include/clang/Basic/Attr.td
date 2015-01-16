@@ -140,7 +140,10 @@ class TypeArgument<string name, bit opt = 0> : Argument<name, opt>;
 class UnsignedArgument<string name, bit opt = 0> : Argument<name, opt>;
 class VariadicUnsignedArgument<string name> : Argument<name, 1>;
 class VariadicExprArgument<string name> : Argument<name, 1>;
-
+//#ifdef INTEL_CUSTOMIZATION
+class SourceLocArgument<string name, bit opt = 0> : Argument<name, opt>;
+class CheckedExprArgument<string name> : Argument<name, 1>;
+//#endif
 // A version of the form major.minor[.subminor].
 class VersionArgument<string name, bit opt = 0> : Argument<name, opt>;
 
@@ -201,6 +204,10 @@ class Pragma<string namespace, string name> : Spelling<name, "Pragma"> {
 class GCC<string name> : Spelling<name, "GCC"> {
   let KnownToGCC = 1;
 }
+
+//#ifdef INTEL_CUSTOMIZATION
+class CilkKeyword<string name> : Spelling<name, "CilkKeyword">;
+//#endif
 
 class Accessor<string name, list<Spelling> spellings> {
   string Name = name;
@@ -1853,6 +1860,284 @@ def InitSeg : Attr {
 def Unaligned : IgnoredAttr {
   let Spellings = [Keyword<"__unaligned">];
 }
+
+//#ifdef INTEL_CUSTOMIZATION
+def SIMD : InheritableAttr {
+  let Spellings = [];
+  let Documentation = [Undocumented];
+}
+
+def SIMDLength : Attr {
+  let Spellings = [CilkKeyword<"vectorlength">];
+  let Args = [ExprArgument<"ValueExpr">];
+  let Documentation = [Undocumented];
+}
+
+def SIMDLinear : Attr {
+  let Spellings = [CilkKeyword<"linear">];
+  // Array alternates between linear variable and linear step.
+  let Args = [VariadicExprArgument<"Items">];
+  let AdditionalMembers = [{
+    class linear_iterator {
+    private:
+      items_iterator it;
+    public:
+      linear_iterator(const SIMDLinearAttr &A, bool step, bool end) {
+        it = ((end) ? A.items_end() : A.items_begin()) + step;
+      }
+      Expr *operator*() { return *it; }
+      void operator++() { it += 2; }
+      bool operator!=(const linear_iterator &i) const { return (it != i.it); }
+    };
+    linear_iterator vars_begin() const {
+      return linear_iterator(*this, false, false);
+    }
+    linear_iterator steps_begin() const {
+      return linear_iterator(*this, true, false);
+    }
+    linear_iterator vars_end() const {
+      return linear_iterator(*this, false, true);
+    }
+    linear_iterator steps_end() const {
+      return linear_iterator(*this, true, true);
+    }
+  }];
+  let Documentation = [Undocumented];
+}
+
+def SIMDPrivate : Attr {
+  let Spellings = [CilkKeyword<"private">];
+  let Args = [VariadicExprArgument<"Variables">];
+  let Documentation = [Undocumented];
+}
+
+def SIMDLastPrivate : Attr {
+  let Spellings = [CilkKeyword<"lastprivate">];
+  let Args = [VariadicExprArgument<"Variables">];
+  let Documentation = [Undocumented];
+}
+
+def SIMDFirstPrivate : Attr {
+  let Spellings = [CilkKeyword<"firstprivate">];
+  let Args = [VariadicExprArgument<"Variables">];
+  let Documentation = [Undocumented];
+}
+
+def SIMDReduction : Attr {
+  let Spellings = [CilkKeyword<"reduction">];
+  let Args = [VariadicExprArgument<"Variables">];
+  let AdditionalMembers = [{
+    enum SIMDReductionKind {
+      plus = tok::plus,
+      star = tok::star,
+      minus = tok::minus,
+      amp = tok::amp,
+      pipe = tok::pipe,
+      caret = tok::caret,
+      ampamp = tok::ampamp,
+      pipepipe = tok::pipepipe,
+      max,
+      min
+    };
+    SIMDReductionKind Operator;
+  }];
+  let Documentation = [Undocumented];
+}
+
+// Cilk Plus elemental function vector() attribute arguments are defined
+// as attributes themselves in the dummy _Cilk_elemental scope.
+def CilkProcessor : InheritableAttr {
+  let Spellings = [CXX11<"_Cilk_elemental", "processor">];
+  let Args = [EnumArgument<"Processor", "CilkProcessor",
+                           ["<unspecified>",
+                            "pentium_4",
+                            "pentium_4_sse3",
+                            "core_2_duo_ssse3",
+                            "core_2_duo_sse4_1",
+                            "core_i7_sse4_2",
+                            "core_2nd_gen_avx",
+                            "core_3rd_gen_avx",
+                            "core_4th_gen_avx"],
+                           ["Unspecified",
+                            "Pentium_4",
+                            "Pentium_4_sse3",
+                            "Core_2_duo_ssse3",
+                            "Core_2_duo_sse4_1",
+                            "Core_i7_sse4_2",
+                            "Core_2nd_gen_avx",
+                            "Core_3rd_gen_avx",
+                            "Core_4th_gen_avx"]>,
+              SourceLocArgument<"Group">];
+  let Subjects = SubjectList<[Function]>;
+  let TemplateDependent = 1;
+  let AdditionalMembers =
+    [{
+      static CilkProcessor getValue(llvm::StringRef Processor) {
+        return llvm::StringSwitch<CilkProcessor>(Processor)
+          .Case("pentium_4",         Pentium_4)
+          .Case("pentium_4_sse3",    Pentium_4_sse3)
+          .Case("core_2_duo_ssse3",  Core_2_duo_ssse3)
+          .Case("core_2_duo_sse4_1", Core_2_duo_sse4_1)
+          .Case("core_i7_sse4_2",    Core_i7_sse4_2)
+          .Case("core_2nd_gen_avx",  Core_2nd_gen_avx)
+          .Case("core_3rd_gen_avx",  Core_3rd_gen_avx)
+          .Case("core_4th_gen_avx",  Core_4th_gen_avx)
+          .Default(Unspecified);
+      }
+      static StringRef getProcessorString(CilkProcessor Processor) {
+        switch (Processor) {
+        case Pentium_4:         return "pentium_4";
+        case Pentium_4_sse3:    return "pentium_4_sse3";
+        case Core_2_duo_ssse3:  return "core_2_duo_ssse3";
+        case Core_2_duo_sse4_1: return "core_2_duo_sse4_1";
+        case Core_i7_sse4_2:    return "core_i7_sse4_2";
+        case Core_2nd_gen_avx:  return "core_2nd_gen_avx";
+        case Core_3rd_gen_avx:  return "core_3rd_gen_avx";
+        case Core_4th_gen_avx:  return "core_4th_gen_avx";
+        default:
+          return "";
+        }
+      }
+      StringRef getName() const {
+        return getProcessorString(processor);
+      }
+      static unsigned getProcessorVectorBytes(CilkProcessor Proc) {
+        switch (Proc) {
+        case Pentium_4:
+        case Pentium_4_sse3:
+        case Core_2_duo_ssse3:
+        case Core_2_duo_sse4_1:
+        case Core_i7_sse4_2:
+          return 16;
+        case Core_2nd_gen_avx:
+        case Core_3rd_gen_avx:
+        case Core_4th_gen_avx:
+          return 32;
+        default:
+          return 1;
+        }
+      }
+      unsigned getVectorBytes() const {
+        return getProcessorVectorBytes(processor);
+      }
+    }];
+  let HasCustomParsing = 1;
+  let Documentation = [Undocumented];
+}
+
+def CilkVecLength : InheritableAttr {
+  let Spellings = [CXX11<"_Cilk_elemental", "vectorlength">];
+  let Args = [CheckedExprArgument<"Length">, SourceLocArgument<"Group">];
+  let Subjects = SubjectList<[Function]>;
+  let TemplateDependent = 1;
+  let AdditionalMembers =
+    [{
+      template <typename SemaMemberPtr>
+      Expr *CheckArgument(Sema &S, Expr *E, SemaMemberPtr Fn) const {
+        return (S.*Fn)(E);
+      }
+    }];
+  let HasCustomParsing = 1;
+  let Documentation = [Undocumented];
+}
+
+def CilkLinear : InheritableAttr {
+  let Spellings = [CXX11<"_Cilk_elemental", "linear">];
+  let Args = [IdentifierArgument<"Parameter">,
+              SourceLocArgument<"ParameterLoc">,
+              CheckedExprArgument<"StepExpr">,
+              SourceLocArgument<"Group">];
+  let Subjects = SubjectList<[Function]>;
+  let TemplateDependent = 1;
+  let AdditionalMembers =
+    [{
+      IdentifierInfo *getStepParameter() const {
+        DeclRefExpr *E = dyn_cast_or_null<DeclRefExpr>(getStepExpr());
+        return E ? E->getDecl()->getIdentifier() : 0;
+      }
+      SourceLocation getStepLoc() const {
+        Expr *E = getStepExpr();
+        return E ? E->getExprLoc() : SourceLocation();
+      }
+      template <typename SemaMemberPtr>
+        Expr *CheckArgument(Sema &S, Expr *E, SemaMemberPtr Fn) const {
+        return (S.*Fn)(E);
+      }
+    }];
+  let HasCustomParsing = 1;
+  let Documentation = [Undocumented];
+}
+
+def CilkUniform : InheritableAttr {
+  let Spellings = [CXX11<"_Cilk_elemental", "uniform">];
+  let Args = [IdentifierArgument<"Parameter">,
+              SourceLocArgument<"ParameterLoc">,
+              SourceLocArgument<"Group">];
+  let Subjects = SubjectList<[Function]>;
+  let TemplateDependent = 1;
+  let HasCustomParsing = 1;
+  let Documentation = [Undocumented];
+}
+
+def CilkMask : InheritableAttr {
+  let Spellings = [CXX11<"_Cilk_elemental", "mask">];
+  let Args = [BoolArgument<"Mask">, SourceLocArgument<"Group">];
+  let Subjects = SubjectList<[Function]>;
+  let TemplateDependent = 1;
+  let HasCustomParsing = 1;
+  let Documentation = [Undocumented];
+}
+
+def CilkNoMask : InheritableAttr {
+  let Spellings = [CXX11<"_Cilk_elemental", "nomask">];
+  let Args = [SourceLocArgument<"Group">];
+  let Subjects = SubjectList<[Function]>;
+  let TemplateDependent = 1;
+  let HasCustomParsing = 1;
+  let Documentation = [Undocumented];
+}
+
+def CilkElemental : InheritableAttr {
+  let Spellings = [Declspec<"vector">,
+                   GNU<"vector">,
+                   CXX11<"_Cilk_elemental", "vector">];
+  let Args = [SourceLocArgument<"Group">];
+  let Subjects = SubjectList<[Function]>;
+  let TemplateDependent = 1;
+  let HasCustomParsing = 1;
+  let Documentation = [Undocumented];
+}
+
+def AvoidFalseShare : InheritableAttr {
+  let Spellings = [Declspec<"avoid_false_share">];
+  let Args = [StringArgument<"ExceptionId">];
+  let HasCustomParsing = 1;
+  let Documentation = [Undocumented];
+}
+def Allocate : InheritableAttr {
+  let Spellings = [GNU<"allocate">];
+  let Args = [StringArgument<"Name">];
+  let HasCustomParsing = 1;
+  let Documentation = [Undocumented];
+}
+def GCCStruct : InheritableAttr {
+  let Spellings = [GNU<"gcc_struct">];
+  let Subjects = SubjectList<[Record]>;
+  let HasCustomParsing = 1;
+  let Documentation = [Undocumented];
+}
+def BNDLegacy : InheritableAttr {
+  let Spellings = [GNU<"bnd_legacy">];
+  let Subjects = SubjectList<[Function]>;
+  let Documentation = [Undocumented];
+}
+def BNDVarSize : InheritableAttr {
+  let Spellings = [GNU<"bnd_variable_size">];
+  let Subjects = SubjectList<[Field], WarnDiag,
+                             "ExpectedFieldOrGlobalVar">;
+  let Documentation = [Undocumented];
+}
+//#endif
 
 def LoopHint : Attr {
   /// #pragma clang loop <option> directive

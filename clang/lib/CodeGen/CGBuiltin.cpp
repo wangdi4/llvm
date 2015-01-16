@@ -27,6 +27,10 @@ using namespace clang;
 using namespace CodeGen;
 using namespace llvm;
 
+#ifdef INTEL_CUSTOMIZATION
+#include "intel/CGBuiltin_getBuiltinIntelLibFunction.cpp"
+#endif
+
 /// getBuiltinLibFunction - Given a builtin id for a function like
 /// "__builtin_fabsf", return a Function* for "fabsf".
 llvm::Value *CodeGenModule::getBuiltinLibFunction(const FunctionDecl *FD,
@@ -903,7 +907,134 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   case Builtin::BI__sync_lock_test_and_set:
   case Builtin::BI__sync_lock_release:
   case Builtin::BI__sync_swap:
+#ifdef INTEL_CUSTOMIZATION
+  case Builtin::BI__atomic_store_explicit:
+  case Builtin::BI__atomic_load_explicit:
+  case Builtin::BI__atomic_exchange_explicit:
+  case Builtin::BI__atomic_compare_exchange_weak_explicit:
+  case Builtin::BI__atomic_compare_exchange_strong_explicit:
+  case Builtin::BI__atomic_fetch_add_explicit:
+  case Builtin::BI__atomic_fetch_sub_explicit:
+  case Builtin::BI__atomic_fetch_and_explicit:
+  case Builtin::BI__atomic_fetch_nand_explicit:
+  case Builtin::BI__atomic_fetch_or_explicit:
+  case Builtin::BI__atomic_fetch_xor_explicit:
+  case Builtin::BI__atomic_add_fetch_explicit:
+  case Builtin::BI__atomic_sub_fetch_explicit:
+  case Builtin::BI__atomic_and_fetch_explicit:
+  case Builtin::BI__atomic_nand_fetch_explicit:
+  case Builtin::BI__atomic_or_fetch_explicit:
+  case Builtin::BI__atomic_xor_fetch_explicit:
+#endif
     llvm_unreachable("Shouldn't make it through sema");
+#ifdef INTEL_CUSTOMIZATION
+  case Builtin::BI__builtin_return:
+  case Builtin::BI__builtin_apply:
+  case Builtin::BI__builtin_apply_args:
+  case Builtin::BI__atomic_flag_test_and_set_explicit:
+  case Builtin::BI__atomic_flag_clear_explicit:
+    return emitLibraryCall(*this, FD, E, CGM.getBuiltinIntelLibFunction(FD, BuiltinID));
+  case Builtin::BI__assume_aligned: {
+    llvm::SmallVector<llvm::Value*, 4> Args;
+    Args.push_back(llvm::MDString::get(CGM.getLLVMContext(), "ASSUME_ALIGNED"));
+    llvm::Value *Arg1 = EmitScalarExpr(E->getArg(0));
+    llvm::Value *Arg2 = EmitScalarExpr(E->getArg(1));
+    llvm::Type *UIntTy = ConvertTypeForMem(getContext().UnsignedIntTy);
+    llvm::Value *Res = Builder.CreatePtrToInt(Arg1, UIntTy);
+    llvm::Value *Sub = Builder.CreateIntCast(Arg2, UIntTy, false);
+    Sub = Builder.CreateSub(Sub, llvm::ConstantInt::get(UIntTy, 1));
+    Res = Builder.CreateAnd(Res, Sub);
+    Args.push_back(Builder.CreateIsNull(Res));
+    llvm::MDNode *Node = llvm::MDNode::get(CGM.getLLVMContext(), Args);
+    llvm::Value *Fn = CGM.getIntrinsic(llvm::Intrinsic::intel_pragma);
+    return RValue::get(Builder.CreateCall(Fn, Node));
+    }
+    break;
+  case Builtin::BI__atomic_store_explicit_1:
+  case Builtin::BI__atomic_store_explicit_2:
+  case Builtin::BI__atomic_store_explicit_4:
+  case Builtin::BI__atomic_store_explicit_8:
+  case Builtin::BI__atomic_store_explicit_16:
+  case Builtin::BI__atomic_load_explicit_1:
+  case Builtin::BI__atomic_load_explicit_2:
+  case Builtin::BI__atomic_load_explicit_4:
+  case Builtin::BI__atomic_load_explicit_8:
+  case Builtin::BI__atomic_load_explicit_16:
+  case Builtin::BI__atomic_exchange_explicit_1:
+  case Builtin::BI__atomic_exchange_explicit_2:
+  case Builtin::BI__atomic_exchange_explicit_4:
+  case Builtin::BI__atomic_exchange_explicit_8:
+  case Builtin::BI__atomic_exchange_explicit_16:
+  case Builtin::BI__atomic_compare_exchange_weak_explicit_1:
+  case Builtin::BI__atomic_compare_exchange_weak_explicit_2:
+  case Builtin::BI__atomic_compare_exchange_weak_explicit_4:
+  case Builtin::BI__atomic_compare_exchange_weak_explicit_8:
+  case Builtin::BI__atomic_compare_exchange_strong_explicit_1:
+  case Builtin::BI__atomic_compare_exchange_strong_explicit_2:
+  case Builtin::BI__atomic_compare_exchange_strong_explicit_4:
+  case Builtin::BI__atomic_compare_exchange_strong_explicit_8:
+  case Builtin::BI__atomic_fetch_add_explicit_1:
+  case Builtin::BI__atomic_fetch_add_explicit_2:
+  case Builtin::BI__atomic_fetch_add_explicit_4:
+  case Builtin::BI__atomic_fetch_add_explicit_8:
+  case Builtin::BI__atomic_fetch_add_explicit_16:
+  case Builtin::BI__atomic_fetch_sub_explicit_1:
+  case Builtin::BI__atomic_fetch_sub_explicit_2:
+  case Builtin::BI__atomic_fetch_sub_explicit_4:
+  case Builtin::BI__atomic_fetch_sub_explicit_8:
+  case Builtin::BI__atomic_fetch_sub_explicit_16:
+  case Builtin::BI__atomic_fetch_and_explicit_1:
+  case Builtin::BI__atomic_fetch_and_explicit_2:
+  case Builtin::BI__atomic_fetch_and_explicit_4:
+  case Builtin::BI__atomic_fetch_and_explicit_8:
+  case Builtin::BI__atomic_fetch_and_explicit_16:
+  case Builtin::BI__atomic_fetch_nand_explicit_1:
+  case Builtin::BI__atomic_fetch_nand_explicit_2:
+  case Builtin::BI__atomic_fetch_nand_explicit_4:
+  case Builtin::BI__atomic_fetch_nand_explicit_8:
+  case Builtin::BI__atomic_fetch_nand_explicit_16:
+  case Builtin::BI__atomic_fetch_or_explicit_1:
+  case Builtin::BI__atomic_fetch_or_explicit_2:
+  case Builtin::BI__atomic_fetch_or_explicit_4:
+  case Builtin::BI__atomic_fetch_or_explicit_8:
+  case Builtin::BI__atomic_fetch_or_explicit_16:
+  case Builtin::BI__atomic_fetch_xor_explicit_1:
+  case Builtin::BI__atomic_fetch_xor_explicit_2:
+  case Builtin::BI__atomic_fetch_xor_explicit_4:
+  case Builtin::BI__atomic_fetch_xor_explicit_8:
+  case Builtin::BI__atomic_fetch_xor_explicit_16:
+  case Builtin::BI__atomic_add_fetch_explicit_1:
+  case Builtin::BI__atomic_add_fetch_explicit_2:
+  case Builtin::BI__atomic_add_fetch_explicit_4:
+  case Builtin::BI__atomic_add_fetch_explicit_8:
+  case Builtin::BI__atomic_add_fetch_explicit_16:
+  case Builtin::BI__atomic_sub_fetch_explicit_1:
+  case Builtin::BI__atomic_sub_fetch_explicit_2:
+  case Builtin::BI__atomic_sub_fetch_explicit_4:
+  case Builtin::BI__atomic_sub_fetch_explicit_8:
+  case Builtin::BI__atomic_sub_fetch_explicit_16:
+  case Builtin::BI__atomic_and_fetch_explicit_1:
+  case Builtin::BI__atomic_and_fetch_explicit_2:
+  case Builtin::BI__atomic_and_fetch_explicit_4:
+  case Builtin::BI__atomic_and_fetch_explicit_8:
+  case Builtin::BI__atomic_and_fetch_explicit_16:
+  case Builtin::BI__atomic_nand_fetch_explicit_1:
+  case Builtin::BI__atomic_nand_fetch_explicit_2:
+  case Builtin::BI__atomic_nand_fetch_explicit_4:
+  case Builtin::BI__atomic_nand_fetch_explicit_8:
+  case Builtin::BI__atomic_nand_fetch_explicit_16:
+  case Builtin::BI__atomic_or_fetch_explicit_1:
+  case Builtin::BI__atomic_or_fetch_explicit_2:
+  case Builtin::BI__atomic_or_fetch_explicit_4:
+  case Builtin::BI__atomic_or_fetch_explicit_8:
+  case Builtin::BI__atomic_or_fetch_explicit_16:
+  case Builtin::BI__atomic_xor_fetch_explicit_1:
+  case Builtin::BI__atomic_xor_fetch_explicit_2:
+  case Builtin::BI__atomic_xor_fetch_explicit_4:
+  case Builtin::BI__atomic_xor_fetch_explicit_8:
+  case Builtin::BI__atomic_xor_fetch_explicit_16:
+    return emitLibraryCall(*this, FD, E, CGM.getBuiltinIntelLibFunction(FD, BuiltinID));
+#endif
   case Builtin::BI__sync_fetch_and_add_1:
   case Builtin::BI__sync_fetch_and_add_2:
   case Builtin::BI__sync_fetch_and_add_4:
@@ -1116,7 +1247,11 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
                                                RequiredArgs::All);
     llvm::FunctionType *FTy = CGM.getTypes().GetFunctionType(FuncInfo);
     llvm::Constant *Func = CGM.CreateRuntimeFunction(FTy, LibCallName);
-    return EmitCall(FuncInfo, Func, ReturnValueSlot(), Args);
+    return EmitCall(FuncInfo, Func, ReturnValueSlot(), Args
+#ifdef INTEL_CUSTOMIZATION	
+                    , 0, 0, E->isCilkSpawnCall()
+#endif
+					);
   }
 
   case Builtin::BI__atomic_test_and_set: {
@@ -1640,6 +1775,12 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
         Builder.CreateAlignedLoad(IntToPtr, /*Align=*/4, /*isVolatile=*/true);
     return RValue::get(Load);
   }
+#ifdef INTEL_CUSTOMIZATION
+  case Builtin::BI__notify_intrinsic:
+  case Builtin::BI__notify_zc_intrinsic:
+    // FIXME: not implemented yet.
+    return RValue::get(0);
+#endif
   }
 
   // If this is an alias for a lib function (e.g. __builtin_sin), emit

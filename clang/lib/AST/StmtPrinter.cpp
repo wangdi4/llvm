@@ -1102,6 +1102,9 @@ static void PrintFloatingLiteral(raw_ostream &OS, FloatingLiteral *Node,
   case BuiltinType::Double:     break; // no suffix.
   case BuiltinType::Float:      OS << 'F'; break;
   case BuiltinType::LongDouble: OS << 'L'; break;
+#ifdef INTEL_CUSTOMIZATION  
+  case BuiltinType::Float128:   OS << 'Q'; break;
+#endif
   }
 }
 
@@ -1232,6 +1235,75 @@ void StmtPrinter::VisitArraySubscriptExpr(ArraySubscriptExpr *Node) {
   OS << "]";
 }
 
+#ifdef INTEL_CUSTOMIZATION
+void StmtPrinter::VisitCEANIndexExpr(CEANIndexExpr *Node) {
+  if (Node->getLowerBound() && Node->getLowerBound()->getLocStart().isValid())
+    PrintExpr(Node->getLowerBound());
+  OS << ":";
+  if (Node->getLength() && Node->getLength()->getLocStart().isValid())
+    PrintExpr(Node->getLength());
+  bool PrintStride =
+    Node->getStride() && Node->getStride()->getLocStart().isValid();
+  if (PrintStride) {
+    OS << ":";
+    PrintExpr(Node->getStride());
+  }
+}
+
+void StmtPrinter::VisitCEANBuiltinExpr(CEANBuiltinExpr *Node) {
+  switch (Node->getBuiltinKind()) {
+  case CEANBuiltinExpr::ReduceAdd:
+    OS << "__sec_reduce_add";
+    break;
+  case CEANBuiltinExpr::ReduceMul:
+    OS << "__sec_reduce_mul";
+    break;
+  case CEANBuiltinExpr::ReduceMax:
+    OS << "__sec_reduce_max";
+    break;
+  case CEANBuiltinExpr::ReduceMin:
+    OS << "__sec_reduce_min";
+    break;
+  case CEANBuiltinExpr::ReduceMaxIndex:
+    OS << "__sec_reduce_max_index";
+    break;
+  case CEANBuiltinExpr::ReduceMinIndex:
+    OS << "__sec_reduce_min_index";
+    break;
+  case CEANBuiltinExpr::ReduceAllZero:
+    OS << "__sec_reduce_max_all_zero";
+    break;
+  case CEANBuiltinExpr::ReduceAllNonZero:
+    OS << "__sec_reduce_max_all_nonzero";
+    break;
+  case CEANBuiltinExpr::ReduceAnyZero:
+    OS << "__sec_reduce_max_any_zero";
+    break;
+  case CEANBuiltinExpr::ReduceAnyNonZero:
+    OS << "__sec_reduce_max_any_nonzero";
+    break;
+  case CEANBuiltinExpr::Reduce:
+    OS << "__sec_reduce";
+    break;
+  case CEANBuiltinExpr::ReduceMutating:
+    OS << "__sec_reduce_mutating";
+    break;
+  case CEANBuiltinExpr::ImplicitIndex:
+    OS << "__sec_implicit_index";
+    break;
+  case CEANBuiltinExpr::Unknown:
+    return;
+  }
+  ArrayRef<Expr *> Args = Node->getArgs();
+  for (ArrayRef<Expr *>::iterator I = Args.begin(), B = I, E = Args.end();
+       I != E; ++I) {
+    OS << ((I == B) ? "(" : ",");
+    PrintExpr(*I);
+  }
+  OS << ")";
+}
+#endif
+
 void StmtPrinter::PrintCallArgs(CallExpr *Call) {
   for (unsigned i = 0, e = Call->getNumArgs(); i != e; ++i) {
     if (isa<CXXDefaultArgExpr>(Call->getArg(i))) {
@@ -1245,6 +1317,10 @@ void StmtPrinter::PrintCallArgs(CallExpr *Call) {
 }
 
 void StmtPrinter::VisitCallExpr(CallExpr *Call) {
+#ifdef INTEL_CUSTOMIZATION
+  if (Call->isCilkSpawnCall())
+    OS << "_Cilk_spawn ";
+#endif	
   PrintExpr(Call->getCallee());
   OS << "(";
   PrintCallArgs(Call);
@@ -2193,6 +2269,101 @@ void StmtPrinter::VisitAsTypeExpr(AsTypeExpr *Node) {
   OS << ")";
 }
 
+#ifdef INTEL_CUSTOMIZATION
+void StmtPrinter::VisitCilkSpawnExpr(CilkSpawnExpr *Node) {
+  llvm_unreachable("not implemented yet");
+}
+
+void StmtPrinter::VisitCilkSyncStmt(CilkSyncStmt *) {
+  Indent() << "_Cilk_sync;\n";
+}
+
+void StmtPrinter::VisitCilkForGrainsizeStmt(CilkForGrainsizeStmt *Node) {
+  Indent() << "#pragma cilk grainsize = ";
+  PrintExpr(Node->getGrainsize());
+  Indent() << "\n";
+  PrintStmt(Node->getCilkFor());
+}
+
+void StmtPrinter::VisitCilkForStmt(CilkForStmt *Node) {
+  Indent() << "_Cilk_for (";
+  if (Node->getInit()) {
+    if (DeclStmt *DS = dyn_cast<DeclStmt>(Node->getInit()))
+      PrintRawDeclStmt(DS);
+    else
+      PrintExpr(cast<Expr>(Node->getInit()));
+  }
+  OS << ";";
+  if (Node->getCond()) {
+    OS << " ";
+    PrintExpr(Node->getCond());
+  }
+  OS << ";";
+  if (Node->getInc()) {
+    OS << " ";
+    PrintExpr(Node->getInc());
+  }
+  OS << ") ";
+
+  if (CompoundStmt *CS = dyn_cast<CompoundStmt>(Node->getBody())) {
+    PrintRawCompoundStmt(CS);
+    OS << "\n";
+  } else {
+    OS << "\n";
+    PrintStmt(Node->getBody());
+  }
+}
+
+void StmtPrinter::VisitSIMDForStmt(SIMDForStmt *Node) {
+  OS << "#pragma simd";
+  for (ArrayRef<Attr*>::iterator I = Node->getSIMDAttrs().begin(),
+                                 E = Node->getSIMDAttrs().end();
+                                 I != E; ++I) {
+    OS << " ";
+    (*I)->printPretty(OS, Policy);
+  }
+  OS << "\n";
+
+  Indent() << "for (";
+  if (Node->getInit()) {
+    if (DeclStmt *DS = dyn_cast<DeclStmt>(Node->getInit()))
+      PrintRawDeclStmt(DS);
+    else
+      PrintExpr(cast<Expr>(Node->getInit()));
+  }
+  OS << ";";
+  if (Node->getCond()) {
+    OS << " ";
+    PrintExpr(Node->getCond());
+  }
+  OS << ";";
+  if (Node->getInc()) {
+    OS << " ";
+    PrintExpr(Node->getInc());
+  }
+  OS << ") \n";
+  PrintStmt(Node->getBody());
+}
+
+void StmtPrinter::VisitCilkRankedStmt(CilkRankedStmt *Node) {
+  OS << " // Ranked Stmt: Rank " << Node->getRank();
+  for (ArrayRef<Expr *>::iterator I = Node->getLengths().begin(),
+                                  E = Node->getLengths().end();
+       I  != E; ++I) {
+    OS << ", ";
+    PrintExpr(*I);
+  }
+  OS << "\n";
+  Indent() << "{\n";
+  for (Stmt::child_range ChRange = Node->getInits()->children();
+       ChRange; ++ChRange)
+    PrintStmt(*ChRange);
+  if (Node->getAssociatedStmt())
+    PrintStmt(Node->getAssociatedStmt());
+  Indent() << "}\n";
+}
+#endif
+
 //===----------------------------------------------------------------------===//
 // Stmt method implementations
 //===----------------------------------------------------------------------===//
@@ -2215,3 +2386,20 @@ void Stmt::printPretty(raw_ostream &OS,
 
 // Implement virtual destructor.
 PrinterHelper::~PrinterHelper() {}
+#ifdef INTEL_CUSTOMIZATION
+void StmtPrinter::VisitPragmaStmt(PragmaStmt *Node) {
+  if (!Node->isNullOp()) {
+    OS << "#pragma ";
+    for (size_t i = 0; i < Node->getRealAttribs().size(); ++i) {
+      if (isa<StringLiteral>((Node->getRealAttribs())[i])) {
+        OS << cast<StringLiteral>((Node->getRealAttribs())[i])->getString();
+      }
+      else {
+        PrintExpr((Node->getRealAttribs())[i]);
+      }
+    }
+    if (!Node->isDecl())
+      OS << "\n";
+  }
+}
+#endif

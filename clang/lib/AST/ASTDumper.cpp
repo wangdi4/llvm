@@ -421,6 +421,12 @@ namespace  {
     void VisitVarDecl(const VarDecl *D);
     void VisitFileScopeAsmDecl(const FileScopeAsmDecl *D);
     void VisitImportDecl(const ImportDecl *D);
+#ifdef INTEL_CUSTOMIZATION	
+    void VisitCilkSpawnDecl(const CilkSpawnDecl *D);
+    void VisitCapturedStmt(const CapturedStmt *Node);
+    void VisitSIMDForStmt(const SIMDForStmt *Node);
+    void VisitCilkSpawnExpr(const CilkSpawnExpr *Node);
+#endif
 
     // C++ Decls
     void VisitNamespaceDecl(const NamespaceDecl *D);
@@ -1387,7 +1393,11 @@ void ASTDumper::VisitFriendDecl(const FriendDecl *D) {
   else
     dumpDecl(D->getFriendDecl());
 }
-
+#ifdef INTEL_CUSTOMIZATION
+void ASTDumper::VisitCilkSpawnDecl(const CilkSpawnDecl *D) {
+  dumpStmt(D->getCapturedStmt());
+}
+#endif
 //===----------------------------------------------------------------------===//
 // Obj-C Declarations
 //===----------------------------------------------------------------------===//
@@ -1623,6 +1633,48 @@ void ASTDumper::VisitGotoStmt(const GotoStmt *Node) {
   OS << " '" << Node->getLabel()->getName() << "'";
   dumpPointer(Node->getLabel());
 }
+
+#ifdef INTEL_CUSTOMIZATION
+void ASTDumper::VisitSIMDForStmt(const SIMDForStmt *Node) {
+  VisitStmt(Node);
+  for (ArrayRef<Attr *>::iterator I = Node->getSIMDAttrs().begin(),
+                                  E = Node->getSIMDAttrs().end();
+       I != E; ++I) {
+    dumpAttr(*I);
+  }
+}
+
+void ASTDumper::VisitCapturedStmt(const CapturedStmt *Node) {
+  VisitStmt(Node);
+  for (CapturedStmt::const_capture_iterator I = Node->capture_begin(),
+                                            E = Node->capture_end();
+                                            I != E; ++I) {
+    dumpChild([=]{
+      OS << "Capture ";
+      switch (I->getCaptureKind()) {
+      case CapturedStmt::VCK_This:
+        OS << "this";
+        break;
+      case CapturedStmt::VCK_ByRef:
+        OS << "byref ";
+        dumpBareDeclRef(I->getCapturedVar());
+        break;
+      case CapturedStmt::VCK_VLAType:
+        OS << "vla  ";
+        dumpBareDeclRef(I->getCapturedVar());
+        break;
+      }
+	});
+  }
+  dumpDecl(Node->getCapturedDecl());
+}
+
+void ASTDumper::VisitCilkSpawnExpr(const CilkSpawnExpr *Node) {
+  VisitExpr(Node);
+  dumpDecl(Node->getSpawnDecl());
+}
+
+#endif
 
 void ASTDumper::VisitCXXCatchStmt(const CXXCatchStmt *Node) {
   VisitStmt(Node);

@@ -42,7 +42,9 @@ public:
   void VisitBlockExpr(BlockExpr *E) { }
   void VisitCXXUuidofExpr(CXXUuidofExpr *E) { }  
   void VisitCXXNoexceptExpr(CXXNoexceptExpr *E) { }
-  
+#ifdef INTEL_CUSTOMIZATION
+  void VisitCEANBuiltinExpr(CEANBuiltinExpr *E) { }
+#endif  
   void VisitMemberExpr(MemberExpr *E) {
     // Only the base matters.
     return this->Visit(E->getBase());

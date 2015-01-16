@@ -167,6 +167,13 @@ CXSourceRange cxloc::translateSourceRange(const SourceManager &SM,
 static SourceRange getRawCursorExtent(CXCursor C);
 static SourceRange getFullCursorExtent(CXCursor C, SourceManager &SrcMgr);
 
+#ifdef INTEL_CUSTOMIZATION
+bool CursorVisitor::VisitPragmaDecl(PragmaDecl *D) {
+  if (Stmt *PS = D->getStmt())
+    return Visit(MakeCXCursor(PS, StmtParent, TU, RegionOfInterest));
+  return false;
+}
+#endif
 
 RangeComparisonResult CursorVisitor::CompareRegionOfInterest(SourceRange R) {
   return RangeCompare(AU->getSourceManager(), R, RegionOfInterest);
@@ -4166,6 +4173,10 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
     return cxstring::createRef("CXXAccessSpecifier");
   case CXCursor_ModuleImportDecl:
     return cxstring::createRef("ModuleImport");
+#ifdef INTEL_CUSTOMIZATION
+  case CXCursor_CilkRankedStmt:
+    return cxstring::createRef("CilkRankedStmt");
+#endif  
   case CXCursor_OMPParallelDirective:
     return cxstring::createRef("OMPParallelDirective");
   case CXCursor_OMPSimdDirective:
@@ -4914,6 +4925,10 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
     return clang_getNullCursor();
 
   switch (D->getKind()) {
+#ifdef INTEL_CUSTOMIZATION
+  case Decl::Pragma:
+    break;
+#endif
   // Declaration kinds that don't really separate the notions of
   // declaration and definition.
   case Decl::Namespace:
@@ -4940,6 +4955,9 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
   case Decl::StaticAssert:
   case Decl::Block:
   case Decl::Captured:
+#ifdef INTEL_CUSTOMIZATION  
+  case Decl::CilkSpawn:
+#endif  
   case Decl::Label:  // FIXME: Is this right??
   case Decl::ClassScopeFunctionSpecialization:
   case Decl::Import:

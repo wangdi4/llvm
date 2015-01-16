@@ -352,6 +352,9 @@ namespace clang {
     void VisitObjCPropertyDecl(ObjCPropertyDecl *D);
     void VisitObjCPropertyImplDecl(ObjCPropertyImplDecl *D);
     void VisitOMPThreadPrivateDecl(OMPThreadPrivateDecl *D);
+#ifdef INTEL_CUSTOMIZATION
+    void VisitPragmaDecl(PragmaDecl *D);
+#endif
   };
 }
 
@@ -3097,6 +3100,11 @@ Decl *ASTReader::ReadDeclRecord(DeclID ID) {
   case DECL_EMPTY:
     D = EmptyDecl::CreateDeserialized(Context, ID);
     break;
+#ifdef INTEL_CUSTOMIZATION
+  case DECL_PRAGMA:
+    D = PragmaDecl::CreateDeserialized(Context, ID);
+    break;
+#endif
   }
 
   assert(D && "Unknown declaration reading AST file");
@@ -3692,3 +3700,10 @@ void ASTDeclReader::UpdateDecl(Decl *D, ModuleFile &ModuleFile,
     }
   }
 }
+#ifdef INTEL_CUSTOMIZATION
+void ASTDeclReader::VisitPragmaDecl(PragmaDecl *ND) {
+  VisitDecl(ND);
+  ND->setStmt(cast<PragmaStmt>(Reader.ReadStmt(F)));
+  ND->setLocStart(ND->getStmt()->getSemiLoc());
+}
+#endif

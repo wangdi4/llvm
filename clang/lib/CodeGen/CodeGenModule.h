@@ -86,6 +86,9 @@ class CGObjCRuntime;
 class CGOpenCLRuntime;
 class CGOpenMPRuntime;
 class CGCUDARuntime;
+#ifdef INTEL_CUSTOMIZATION
+class CGCilkPlusRuntime;
+#endif
 class BlockFieldFlags;
 class FunctionArgList;
 class CoverageMappingModuleGen;
@@ -300,13 +303,35 @@ class CodeGenModule : public CodeGenTypeCache {
   CGOpenCLRuntime* OpenCLRuntime;
   CGOpenMPRuntime* OpenMPRuntime;
   CGCUDARuntime* CUDARuntime;
+#ifdef INTEL_CUSTOMIZATION  
+  CGCilkPlusRuntime *CilkPlusRuntime;
+#endif
   CGDebugInfo* DebugInfo;
   ARCEntrypoints *ARCData;
   llvm::MDNode *NoObjCARCExceptionsMetadata;
   RREntrypoints *RRData;
   std::unique_ptr<llvm::IndexedInstrProfReader> PGOReader;
   InstrProfStats PGOStats;
+#ifdef INTEL_CUSTOMIZATION
+  struct ElementalVariantInfo {
+    /// \brief The CodeGen infomation of this function.
+    const CGFunctionInfo *FnInfo;
+    /// \brief The elemental function declaration.
+    const FunctionDecl *FD;
+    /// \brief The LLVM function of this declaration.
+    llvm::Function *Fn;
+    /// \brief The metadata describing this elemental function.
+    llvm::MDNode *KernelMD;
 
+    ElementalVariantInfo(const CGFunctionInfo *FnInfo, const FunctionDecl *FD,
+                         llvm::Function *Fn, llvm::MDNode *KernelMD)
+    : FnInfo(FnInfo), FD(FD), Fn(Fn), KernelMD(KernelMD) { }
+  };
+
+  /// ElementalVariantToEmit - This contains all Cilk Plus elemental function
+  /// variants to be emitted.
+  llvm::SmallVector<ElementalVariantInfo, 8> ElementalVariantToEmit;
+#endif
   // A set of references that have only been seen via a weakref so far. This is
   // used to remove the weak of the reference if we ever see a direct reference
   // or a definition.
@@ -449,7 +474,9 @@ class CodeGenModule : public CodeGenTypeCache {
   void createOpenCLRuntime();
   void createOpenMPRuntime();
   void createCUDARuntime();
-
+#ifdef INTEL_CUSTOMIZATION  
+  void createCilkPlusRuntime();
+#endif
   bool isTriviallyRecursive(const FunctionDecl *F);
   bool shouldEmitFunction(GlobalDecl GD);
 
@@ -523,7 +550,82 @@ public:
     assert(CUDARuntime != nullptr);
     return *CUDARuntime;
   }
+#ifdef INTEL_CUSTOMIZATION
+  CGCilkPlusRuntime &getCilkPlusRuntime() {
+    assert(CilkPlusRuntime != 0);
+    return *CilkPlusRuntime;
+  }
 
+  // A common data structure to represent vector function attributes in
+  // cilk vector functions and 'omp declare simd' functions.
+  struct CilkElementalGroup {
+    typedef SmallVector<CilkProcessorAttr::CilkProcessor, 1> ProcessorVector;
+    typedef SmallVector<QualType, 1> VecLengthForVector;
+    typedef SmallVector<unsigned, 1> VecLengthVector;
+    // Masking: 0-nomask/notinbranch, 1-mask/inbranch
+    typedef SmallVector<unsigned, 2> MaskVector;
+    typedef std::map<std::string, std::pair<int,std::string> > LinearMap;
+    typedef std::map<std::string, unsigned> AlignedMap;
+    typedef std::set<std::string> UniformSet;
+
+    ProcessorVector Processor;
+    VecLengthVector VecLength;
+    VecLengthForVector VecLengthFor;
+    LinearMap  LinearParms;
+    AlignedMap AlignedParms;
+    UniformSet UniformParms;
+    MaskVector Mask;
+
+    bool getUniformAttr(std::string Name) const {
+      return UniformParms.count(Name) != 0;
+    }
+
+    bool getLinearAttr(std::string Name, std::pair<int,std::string> *out_step) const {
+      const LinearMap::const_iterator it = LinearParms.find(Name);
+      if (it == LinearParms.end()) return false;
+      *out_step = it->second;
+      return true;
+    }
+
+    bool getAlignedAttr(std::string Name, unsigned *out_alignment) const {
+      const AlignedMap::const_iterator I = AlignedParms.find(Name);
+      if (I == AlignedParms.end()) return false;
+      *out_alignment = I->second;
+      return true;
+    }
+
+    void setLinear(std::string Name, std::string Idname, int Step) {
+      LinearParms[Name].first = Step;
+      LinearParms[Name].second = Idname;
+    }
+
+    void setAligned(std::string Name, unsigned Alignment) {
+      AlignedParms[Name] = Alignment;
+    }
+
+    void setUniform(std::string Name) {
+      UniformParms.insert(Name);
+    }
+  };
+
+  typedef llvm::SmallDenseMap<unsigned, CilkElementalGroup, 4> GroupMap;
+
+  // The following is common part for 'cilk vector functions' and
+  // 'omp declare simd' functions metadata generation.
+  //
+  void EmitVectorVariantsMetadata(const CGFunctionInfo &FnInfo,
+                                  const FunctionDecl *FD,
+                                  llvm::Function *Fn,
+                                  GroupMap &Groups);
+
+  /// Add an elemental function metadata node to the named metadata node
+  /// 'cilk.functions'.
+  void EmitCilkElementalMetadata(const CGFunctionInfo &FnInfo,
+                                 const FunctionDecl *FD, llvm::Function *Fn);
+
+  /// Emit all elemental function vector variants in this module.
+  void EmitCilkElementalVariants();
+#endif
   ARCEntrypoints &getARCEntrypoints() const {
     assert(getLangOpts().ObjCAutoRefCount && ARCData != nullptr);
     return *ARCData;
@@ -829,6 +931,12 @@ public:
                        llvm::FunctionType *FnType = nullptr,
                        bool DontDefer = false);
 
+#ifdef INTEL_CUSTOMIZATION
+  /// getBuiltinIntelLibFunction - Given a builtin id for a function like
+  /// "__apply_args", return a Function* for "__apply_args".
+  llvm::Value *getBuiltinIntelLibFunction(const FunctionDecl *FD,
+                                          unsigned BuiltinID);
+#endif
   /// Given a builtin id for a function like "__builtin_fabsf", return a
   /// Function* for "fabsf".
   llvm::Value *getBuiltinLibFunction(const FunctionDecl *FD,
@@ -987,6 +1095,7 @@ public:
 
   StringRef getMangledName(GlobalDecl GD);
   StringRef getBlockMangledName(GlobalDecl GD, const BlockDecl *BD);
+  void registerAsMangled(StringRef Name, GlobalDecl GD);  //***INTEL 
 
   void EmitTentativeDefinition(const VarDecl *D);
 

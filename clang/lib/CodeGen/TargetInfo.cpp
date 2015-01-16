@@ -1769,6 +1769,11 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase,
     } else if (k == BuiltinType::LongDouble) {
       Lo = X87;
       Hi = X87Up;
+#ifdef INTEL_CUSTOMIZATION	  
+    } else if (k == BuiltinType::Float128) {
+      Lo = SSE;
+      Hi = SSEUp;
+#endif
     }
     // FIXME: _Decimal32 and _Decimal64 are SSE.
     // FIXME: _float128 and _Decimal128 are (SSE, SSEUp).
@@ -1926,6 +1931,19 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase,
 
     postMerge(Size, Lo, Hi);
     assert((Hi != SSEUp || Lo == SSE) && "Invalid SSEUp array classification.");
+#ifdef INTEL_CUSTOMIZATION
+    if ((Hi == SSE && Lo == SSE) && (Size == 128 || (HasAVX && Size == 256))) {
+      // Arguments of 256-bits are split into four eightbyte chunks. The
+      // least significant one belongs to class SSE and all the others to class
+      // SSEUP. The original Lo and Hi design considers that types can't be
+      // greater than 128-bits, so a 64-bit split in Hi and Lo makes sense.
+      // This design isn't correct for 256-bits, but since there're no cases
+      // where the upper parts would need to be inspected, avoid adding
+      // complexity and just consider Hi to match the 64-256 part.
+      Lo = SSE;
+      Hi = SSEUp;
+    }
+#endif	
     return;
   }
 
@@ -2041,6 +2059,19 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase,
     }
 
     postMerge(Size, Lo, Hi);
+#ifdef INTEL_CUSTOMIZATION	
+    if ((Hi == SSE && Lo == SSE) && (Size == 128 || (HasAVX && Size == 256))) {
+      // Arguments of 256-bits are split into four eightbyte chunks. The
+      // least significant one belongs to class SSE and all the others to class
+      // SSEUP. The original Lo and Hi design considers that types can't be
+      // greater than 128-bits, so a 64-bit split in Hi and Lo makes sense.
+      // This design isn't correct for 256-bits, but since there're no cases
+      // where the upper parts would need to be inspected, avoid adding
+      // complexity and just consider Hi to match the 64-256 part.
+      Lo = SSE;
+      Hi = SSEUp;
+    }
+#endif	
   }
 }
 
@@ -2154,8 +2185,22 @@ llvm::Type *X86_64ABIInfo::GetByteVectorType(QualType Ty) const {
          EltTy->isIntegerTy(32) || EltTy->isIntegerTy(64) ||
          EltTy->isIntegerTy(128)))
       return VT;
-  }
-
+  } 
+#ifdef INTEL_CUSTOMIZATION  
+  else if (llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(IRType)) {
+    llvm::Type *EltTy = AT->getElementType();
+    if (EltTy->isFloatTy() || EltTy->isDoubleTy() ||
+        EltTy->isIntegerTy(8) || EltTy->isIntegerTy(16) ||
+        EltTy->isIntegerTy(32) || EltTy->isIntegerTy(64) ||
+        EltTy->isIntegerTy(128)) {
+      unsigned BitWidth = EltTy->getPrimitiveSizeInBits() * AT->getNumElements();
+      if (BitWidth >= 128 && BitWidth <= 256)
+        return llvm::VectorType::get(EltTy, AT->getNumElements());
+    }
+    return IRType;
+  } else if (IRType->isStructTy())
+    return IRType;
+#endif
   return llvm::VectorType::get(llvm::Type::getDoubleTy(getVMContext()), 2);
 }
 
@@ -4673,6 +4718,12 @@ ABIArgInfo ARMABIInfo::classifyArgumentType(QualType Ty, bool isVariadic,
         markAllocatedVFPs(2, 2);
         IsCPRC = true;
       }
+#ifdef INTEL_CUSTOMIZATION	  
+      if (BT->getKind() == BuiltinType::Float128) {
+        markAllocatedVFPs(4, 4);
+        IsCPRC = true;
+      }
+#endif	  
     }
   }
 
@@ -4953,7 +5004,11 @@ bool ARMABIInfo::isHomogeneousAggregateBaseType(QualType Ty) const {
   if (const BuiltinType *BT = Ty->getAs<BuiltinType>()) {
     if (BT->getKind() == BuiltinType::Float ||
         BT->getKind() == BuiltinType::Double ||
-        BT->getKind() == BuiltinType::LongDouble)
+        BT->getKind() == BuiltinType::LongDouble
+#ifdef INTEL_CUSTOMIZATION
+		, BT->getKind() == BuiltinType::Float128
+#endif		
+		)
       return true;
   } else if (const VectorType *VT = Ty->getAs<VectorType>()) {
     unsigned VecSize = getContext().getTypeSize(VT);

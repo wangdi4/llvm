@@ -2780,7 +2780,87 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
         ConsumeExtraSemi(InsideStruct, TagType);
         continue;
       }
-
+#ifdef INTEL_CUSTOMIZATION
+      if (getLangOpts().Intel) {
+        switch (Tok.getKind())
+        {
+          case (tok::annot_pragma_ivdep):
+            HandlePragmaIvdepDecl();
+            continue;
+          case (tok::annot_pragma_novector):
+            HandlePragmaNoVectorDecl();
+            continue;
+          case (tok::annot_pragma_vector):
+            HandlePragmaVectorDecl();
+            continue;
+          case (tok::annot_pragma_distribute_point):
+            HandlePragmaDistributeDecl();
+            continue;
+          case (tok::annot_pragma_inline):
+            HandlePragmaInlineDecl();
+            continue;
+          case (tok::annot_pragma_loop_count):
+            HandlePragmaLoopCountDecl();
+            continue;
+          case (tok::annot_pragma_optimize):
+            HandlePragmaOptimizeDecl();
+            continue;
+          case (tok::annot_pragma_optimization_level):
+            HandlePragmaOptimizationLevelDecl();
+            continue;
+          case (tok::annot_pragma_parallel):
+            HandlePragmaParallelDecl();
+            continue;
+          case (tok::annot_pragma_noparallel):
+            HandlePragmaNoParallelDecl();
+            continue;
+          case (tok::annot_pragma_unroll):
+            HandlePragmaUnrollDecl();
+            continue;
+          case (tok::annot_pragma_unroll_and_jam):
+            HandlePragmaUnrollAndJamDecl();
+            continue;
+          case (tok::annot_pragma_nofusion):
+            HandlePragmaNoFusionDecl();
+            continue;
+          case (tok::annot_pragma_optimization_parameter):
+            HandlePragmaOptimizationParameterDecl();
+            continue;
+          case (tok::annot_pragma_alloc_section):
+            HandlePragmaAllocSectionDecl();
+            continue;
+          case (tok::annot_pragma_section):
+            HandlePragmaSectionDecl();
+            continue;
+          case (tok::annot_pragma_alloc_text):
+            HandlePragmaAllocTextDecl();
+            continue;
+          case (tok::annot_pragma_auto_inline):
+            HandlePragmaAutoInlineDecl();
+            continue;
+          case (tok::annot_pragma_seg):
+            HandlePragmaSegDecl();
+            continue;
+          case (tok::annot_pragma_check_stack):
+            HandlePragmaCheckStackDecl();
+            continue;
+          case (tok::annot_pragma_init_seg):
+            HandlePragmaInitSegDecl();
+            continue;
+          case (tok::annot_pragma_float_control):
+            HandlePragmaFloatControlDecl();
+            continue;
+          case (tok::annot_pragma_intel_fp_contract):
+            HandlePragmaCommonOnOffDecl(Sema::IntelPragmaFPContract, false);
+            continue;
+          case (tok::annot_pragma_fenv_access):
+            HandlePragmaCommonOnOffDecl(Sema::IntelPragmaFEnvAccess, false);
+            continue;
+          default:
+            break;
+        }
+      }
+#endif
       if (Tok.is(tok::annot_pragma_vis)) {
         HandlePragmaVisibility();
         continue;
@@ -3558,9 +3638,20 @@ void Parser::ParseCXX11AttributeSpecifier(ParsedAttributes &attrs,
           << AttrName << SourceRange(SeenAttrs[AttrName]);
 
     // Parse attribute arguments
-    if (Tok.is(tok::l_paren))
-      AttrParsed = ParseCXX11AttributeArgs(AttrName, AttrLoc, attrs, endLoc,
-                                           ScopeName, ScopeLoc);
+    if (Tok.is(tok::l_paren)) {
+#ifdef INTEL_CUSTOMIZATION	
+      if ((ScopeName && ScopeName->isStr("gnu")) ||
+          (getLangOpts().CilkPlus &&
+           (!ScopeName || ScopeName->isStr("cilkplus")) &&
+           AttrName->isStr("vector"))) {
+        ParseGNUAttributeArgs(AttrName, AttrLoc, attrs, endLoc, ScopeName,
+                              ScopeLoc, AttributeList::AS_CXX11, nullptr);
+        AttrParsed = true;
+      } else
+#endif	  
+        AttrParsed = ParseCXX11AttributeArgs(AttrName, AttrLoc, attrs, endLoc,
+                                             ScopeName, ScopeLoc);
+    }
 
     if (!AttrParsed)
       attrs.addNew(AttrName,

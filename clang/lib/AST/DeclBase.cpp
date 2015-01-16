@@ -171,6 +171,17 @@ bool Decl::isTemplateDecl() const {
   return isa<TemplateDecl>(this);
 }
 
+#ifdef INTEL_CUSTOMIZATION
+bool Decl::isSpawning() const {
+  if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(this))
+    return FD->isSpawning();
+  else if (const CapturedDecl *CD = dyn_cast<CapturedDecl>(this))
+    return CD->isSpawning();
+
+  return false;
+}
+#endif
+
 const DeclContext *Decl::getParentFunctionOrMethod() const {
   for (const DeclContext *DC = getDeclContext();
        DC && !DC->isTranslationUnit() && !DC->isNamespace(); 
@@ -582,6 +593,10 @@ unsigned Decl::getIdentifierNamespaceForKind(Kind DeclKind) {
     case ObjCPropertyImpl:
     case Block:
     case Captured:
+#ifdef INTEL_CUSTOMIZATION
+    case CilkSpawn:
+    case Pragma:
+#endif
     case TranslationUnit:
 
     case UsingDirective:

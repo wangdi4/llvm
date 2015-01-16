@@ -150,6 +150,12 @@ void Parser::ParseGNUAttributes(ParsedAttributes &attrs,
       SourceLocation AttrNameLoc = ConsumeToken();
 
       if (Tok.isNot(tok::l_paren)) {
+#ifdef INTEL_CUSTOMIZATION	  
+        if (AttrName->isStr("vector") && !getLangOpts().CilkPlus) {
+          Diag(Tok, diag::err_cilkplus_disable);
+          SkipUntil(tok::r_paren, StopAtSemi | StopBeforeMatch);
+        }
+#endif		
         attrs.addNew(AttrName, AttrNameLoc, nullptr, AttrNameLoc, nullptr, 0,
                      AttributeList::AS_GNU);
         continue;
@@ -341,7 +347,19 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
 
   AttributeList::Kind AttrKind =
       AttributeList::getKind(AttrName, ScopeName, Syntax);
-
+#ifdef INTEL_CUSTOMIZATION
+  if (AttrName->isStr("vector")) {
+    // Cilk Plus elemental function attributes have their own grammar.
+    if (!getLangOpts().CilkPlus) {
+      Diag(Tok, diag::err_cilkplus_disable);
+      SkipUntil(tok::r_paren, StopAtSemi | StopBeforeMatch);
+      return;
+    }
+    ParseCilkPlusElementalAttribute(*AttrName, AttrNameLoc, Attrs, EndLoc,
+                                    Syntax);
+    return;
+  } else 
+#endif  
   if (AttrKind == AttributeList::AT_Availability) {
     ParseAvailabilityAttribute(*AttrName, AttrNameLoc, Attrs, EndLoc, ScopeName,
                                ScopeLoc, Syntax);
@@ -505,6 +523,18 @@ bool Parser::ParseMicrosoftDeclSpecArgs(IdentifierInfo *AttrName,
                                AttributeList::AS_Declspec);
     T.skipToEnd();
     return !HasInvalidAccessor;
+#ifdef INTEL_CUSTOMIZATION	
+  } else if (AttrName->isStr("vector")) {
+    // The vector declspec may have optional argument clauses. Check for a l-paren
+    // to decide wether we should parse argument clauses or not.
+    if (Tok.getKind() == tok::l_paren)
+      ParseCilkPlusElementalAttribute(*AttrName, AttrNameLoc, Attrs, 0,
+                                      AttributeList::AS_Declspec);
+    else
+      Attrs.addNew(AttrName, AttrNameLoc, 0, AttrNameLoc, 0, 0,
+                   AttributeList::AS_Declspec);
+    return true;
+#endif	
   }
 
   unsigned NumArgs =
@@ -1186,6 +1216,202 @@ void Parser::ParseLexedAttribute(LateParsedAttribute &LA,
       ConsumeAnyToken();
   }
 }
+#ifdef INTEL_CUSTOMIZATION
+/// \brief Parse Cilk Plus elemental function attribute clauses.
+///
+/// We need to special case the parsing due to the fact that a Cilk Plus
+/// vector() attribute can contain arguments that themselves have arguments.
+/// Each property is parsed and stored as if it were a distinct attribute.
+/// This drastically simplifies parsing and Sema at the cost of re-grouping
+/// the attributes in CodeGen.
+///
+/// elemental-clauses:
+///   elemental-clause
+///   elemental-clauses , elemental-clause
+///
+/// elemental-clause:
+///   processor-clause
+///   vectorlength-clause
+///   elemental-uniform-clause
+///   elemental-linear-clause
+///   mask-clause
+void Parser::ParseCilkPlusElementalAttribute(IdentifierInfo &AttrName,
+                                             SourceLocation AttrNameLoc,
+                                             ParsedAttributes &Attrs,
+                                             SourceLocation *EndLoc,
+                                             AttributeList::Syntax Syntax) {
+  assert(Tok.is(tok::l_paren) && "Attribute arg list not starting with '('");
+
+  IdentifierInfo *CilkScopeName = PP.getIdentifierInfo("_Cilk_elemental");
+
+  // Add the 'vector' attribute itself.
+  Attrs.addNew(&AttrName, AttrNameLoc, 0, AttrNameLoc,
+               0, 0, AttributeList::AS_GNU);
+
+  BalancedDelimiterTracker T(*this, tok::l_paren);
+  T.consumeOpen();
+
+  while (Tok.isNot(tok::r_paren)) {
+    if (Tok.isNot(tok::identifier)) {
+      Diag(Tok, diag::err_expected_ident);
+      T.skipToEnd();
+      return;
+    }
+    IdentifierInfo *SubAttrName = Tok.getIdentifierInfo();
+    SourceLocation SubAttrNameLoc = ConsumeToken();
+
+    if (Tok.is(tok::l_paren)) {
+      if (SubAttrName->isStr("uniform") || SubAttrName->isStr("linear")) {
+        // These sub-attributes are parsed specially because their
+        // arguments are function parameters not yet declared.
+        ParseFunctionParameterAttribute(*SubAttrName, SubAttrNameLoc,
+                                        Attrs, EndLoc, *CilkScopeName,
+                                        AttrNameLoc);
+      } else {
+        ParseGNUAttributeArgs(SubAttrName, SubAttrNameLoc, Attrs, EndLoc,
+                              CilkScopeName, AttrNameLoc,
+                              AttributeList::AS_CXX11, nullptr);
+      }
+    } else {
+      Attrs.addNew(SubAttrName, SubAttrNameLoc,
+                   CilkScopeName, AttrNameLoc,
+                   0, 0, AttributeList::AS_CXX11);
+    }
+
+    if (Tok.isNot(tok::comma))
+      break;
+    ConsumeToken(); // Eat the comma, move to the next argument
+  }
+  // Match the ')'.
+  T.consumeClose();
+  if (EndLoc)
+    *EndLoc = T.getCloseLocation();
+}
+
+/// \brief Parse an identifer list.
+///
+/// We need to special case the parsing due to the fact that identifiers
+/// may appear as attribute arguments before they appear as parameters
+/// in a function declaration.
+///
+/// uniform-param-list:
+///   parameter-name
+///   uniform-param-list , parameter-name
+///
+/// elemental-linear-param-list:
+///   elemental-linear-param
+///   elemental-linear-param-list , elemental-linear-param
+///
+/// elemental-linear-param:
+///   parameter-name
+///   parameter-name : elemental-linear-step
+///
+/// elemental-linear-step:
+///   constant-expression
+///   parameter-name
+///
+/// parameter-name:
+///   identifier
+///   this
+///
+void Parser::ParseFunctionParameterAttribute(IdentifierInfo &AttrName,
+                                             SourceLocation AttrNameLoc,
+                                             ParsedAttributes &Attrs,
+                                             SourceLocation *EndLoc,
+                                             IdentifierInfo &ScopeName,
+                                             SourceLocation ScopeLoc) {
+  assert(Tok.is(tok::l_paren) && "Attribute arg list not starting with '('");
+
+  BalancedDelimiterTracker T(*this, tok::l_paren);
+  T.consumeOpen();
+
+  // Now parse the list of identifiers or this.
+  do {
+    // Create a separate attribute for each identifier or this, in order to
+    // be able to use the Parm field.
+    IdentifierInfo *ParmName = 0;
+    SourceLocation ParmLoc;
+
+    if (getLangOpts().CPlusPlus && Tok.is(tok::kw_this)) {
+      // Create a 'this' identifier if the current token is keyword 'this'.
+      ParmName = PP.getIdentifierInfo("this");
+      ParmLoc = ConsumeToken();
+    } else if (Tok.isNot(tok::identifier)) {
+      Diag(Tok, getLangOpts().CPlusPlus ? diag::err_expected_ident_or_this
+                                        : diag::err_expected_ident);
+      T.skipToEnd();
+      return;
+    } else {
+      ParmName = Tok.getIdentifierInfo();
+      ParmLoc = ConsumeToken();
+    }
+    IdentifierInfo *StepName = 0;
+    ArgsVector ArgExprs;
+    IdentifierLoc *IdArg = IdentifierLoc::create(Actions.getASTContext(),
+                                                 ParmLoc,
+                                                 ParmName);
+    ArgExprs.push_back(IdArg);
+
+    if (AttrName.isStr("linear")) {
+      if (Tok.is(tok::colon)) {
+        ConsumeToken();
+        // The grammar is ambiguous for the linear step, which could be a
+        // parameter name or a reference of a variable. To disambiguate it,
+        // we do a one token look ahead and perform a name lookup when all
+        // parameter names are available.
+        //
+        // If the linear step starts with an identifier and the following token
+        // is ')' or ',', then the step could be a parameter name or a reference
+        // to a declared variable. The second case will be left to Sema.
+        const Token &Next = GetLookAheadToken(1);
+        if (Tok.is(tok::identifier) && (Next.is(tok::r_paren) ||
+                                        Next.is(tok::comma))) {
+          StepName = Tok.getIdentifierInfo();
+          IdArg = IdentifierLoc::create(Actions.getASTContext(),
+                                        Tok.getLocation(),
+                                        StepName);
+          ArgExprs.push_back(IdArg);
+          ConsumeToken();
+        }
+
+        // If StepName is not null, then the step must be a compile time
+        // integer constant.
+        if (!StepName) {
+          ExprResult StepExpr = ParseConstantExpression();
+          if (StepExpr.isInvalid()) {
+            SkipUntil(tok::r_paren);
+            return;
+          }
+          ArgExprs.push_back(StepExpr.get());
+        }
+      }
+    }
+
+    if (Tok.is(tok::ellipsis)) {
+      SourceLocation EllipsisLoc = ConsumeToken();
+      if (getLangOpts().CPlusPlus11) {
+        Diag(EllipsisLoc, diag::err_elemental_parameter_pack_unsupported)
+          << AttrName.getName();
+        SkipUntil(tok::r_paren);
+        return;
+      }
+    }
+
+    Attrs.addNew(&AttrName, AttrNameLoc, &ScopeName, ScopeLoc,
+                 ArgExprs.data(), ArgExprs.size(),
+                 AttributeList::AS_CXX11);
+
+    if (Tok.isNot(tok::comma))
+      break;
+    ConsumeToken(); // Eat the comma, move to the next argument
+  } while (Tok.isNot(tok::r_paren));
+
+  // Match the ')'.
+  T.consumeClose();
+  if (EndLoc)
+    *EndLoc = T.getCloseLocation();
+}
+#endif
 
 void Parser::ParseTypeTagForDatatypeAttribute(IdentifierInfo &AttrName,
                                               SourceLocation AttrNameLoc,
@@ -1644,6 +1870,9 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
 
         Decl *TheDecl =
           ParseFunctionDefinition(D, ParsedTemplateInfo(), &LateParsedAttrs);
+#ifdef INTEL_CUSTOMIZATION
+        Actions.ActOnVarFunctionDeclForSections(TheDecl);
+#endif
         return Actions.ConvertDeclToDeclGroup(TheDecl);
       }
 
@@ -1872,7 +2101,9 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
   }
 
   bool TypeContainsAuto = D.getDeclSpec().containsPlaceholderType();
-
+#ifdef INTEL_CUSTOMIZATION  
+  bool IsCilkSpawnReceiver = false;
+#endif
   // Parse declarator '=' initializer.
   // If a '==' or '+=' is found, suggest a fixit to '='.
   if (isTokenEqualOrEqualTypo()) {
@@ -1931,7 +2162,11 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
         Actions.ActOnInitializerError(ThisDecl);
       } else
         Actions.AddInitializerToDecl(ThisDecl, Init.get(),
-                                     /*DirectInit=*/false, TypeContainsAuto);
+                                     /*DirectInit=*/false, TypeContainsAuto
+#ifdef INTEL_CUSTOMIZATION									 
+									 , IsCilkSpawnReceiver
+#endif									 
+									 );
     }
   } else if (Tok.is(tok::l_paren)) {
     // Parse C++ direct initializer: '(' expression-list ')'
@@ -1970,7 +2205,11 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
                                                           T.getCloseLocation(),
                                                           Exprs);
       Actions.AddInitializerToDecl(ThisDecl, Initializer.get(),
-                                   /*DirectInit=*/true, TypeContainsAuto);
+                                   /*DirectInit=*/true, TypeContainsAuto
+#ifdef INTEL_CUSTOMIZATION
+								   , IsCilkSpawnReceiver
+#endif
+								   );
     }
   } else if (getLangOpts().CPlusPlus11 && Tok.is(tok::l_brace) &&
              (!CurParsedObjCImpl || !D.isFunctionDeclarator())) {
@@ -1993,14 +2232,24 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
       Actions.ActOnInitializerError(ThisDecl);
     } else
       Actions.AddInitializerToDecl(ThisDecl, Init.get(),
-                                   /*DirectInit=*/true, TypeContainsAuto);
+                                   /*DirectInit=*/true, TypeContainsAuto
+#ifdef INTEL_CUSTOMIZATION
+								   , IsCilkSpawnReceiver
+#endif
+								   );
 
   } else {
     Actions.ActOnUninitializedDecl(ThisDecl, TypeContainsAuto);
   }
 
   Actions.FinalizeDeclaration(ThisDecl);
+#ifdef INTEL_CUSTOMIZATION  
+  Actions.DiscardCleanupsInEvaluationContext();
 
+  if (getLangOpts().CilkPlus && IsCilkSpawnReceiver && isa<VarDecl>(ThisDecl))
+    return Actions.BuildCilkSpawnDecl(ThisDecl);
+  Actions.ActOnVarFunctionDeclForSections(ThisDecl);
+#endif
   return ThisDecl;
 }
 
@@ -3111,6 +3360,12 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_double, Loc, PrevSpec,
                                      DiagID, Policy);
       break;
+#ifdef INTEL_CUSTOMIZATION
+    case tok::kw__Quad:
+      isInvalid = DS.SetTypeSpecType(DeclSpec::TST_float128, Loc, PrevSpec,
+                                     DiagID, Policy);
+      break;
+#endif
     case tok::kw_wchar_t:
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_wchar, Loc, PrevSpec,
                                      DiagID, Policy);
@@ -4042,6 +4297,9 @@ bool Parser::isKnownToBeTypeSpecifier(const Token &Tok) const {
   case tok::kw_float:
   case tok::kw_double:
   case tok::kw_bool:
+#ifdef INTEL_CUSTOMIZATION
+  case tok::kw__Quad:
+#endif
   case tok::kw__Bool:
   case tok::kw__Decimal32:
   case tok::kw__Decimal64:
@@ -4113,6 +4371,9 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
+#ifdef INTEL_CUSTOMIZATION
+  case tok::kw__Quad:
+#endif
   case tok::kw_bool:
   case tok::kw__Bool:
   case tok::kw__Decimal32:
@@ -4255,6 +4516,9 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
+#ifdef INTEL_CUSTOMIZATION
+  case tok::kw__Quad:
+#endif
   case tok::kw_bool:
   case tok::kw__Bool:
   case tok::kw__Decimal32:

@@ -2609,6 +2609,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasArg(options::OPT_static))
     CmdArgs.push_back("-static-define");
 
+  if (Args.hasArg(options::OPT_extended_float_types))
+    CmdArgs.push_back("--extended_float_types");
+
   if (isa<AnalyzeJobAction>(JA)) {
     // Enable region store model by default.
     CmdArgs.push_back("-analyzer-store=region");
@@ -3626,7 +3629,16 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     Args.AddLastArg(CmdArgs, options::OPT_faltivec);
   Args.AddLastArg(CmdArgs, options::OPT_fdiagnostics_show_template_tree);
   Args.AddLastArg(CmdArgs, options::OPT_fno_elide_type);
+#ifdef INTEL_CUSTOMIZATION
+  Args.AddLastArg(CmdArgs, options::OPT_fcilkplus);
 
+  if (Args.hasArg(options::OPT_fcilkplus))
+    if (getToolChain().getTriple().getOS() != llvm::Triple::Linux &&
+        getToolChain().getTriple().getOS() != llvm::Triple::UnknownOS &&
+        !getToolChain().getTriple().isMacOSX() &&
+        !getToolChain().getTriple().isOSFreeBSD())
+      D.Diag(diag::err_drv_cilk_unsupported);
+#endif
   const SanitizerArgs &Sanitize = getToolChain().getSanitizerArgs();
   Sanitize.addArgs(Args, CmdArgs);
 
@@ -5882,7 +5894,10 @@ void darwin::Link::ConstructJob(Compilation &C, const JobAction &JA,
   case LibUnknown:
     break;
   }
-
+#ifdef INTEL_CUSTOMIZATION
+  if (Args.hasArg(options::OPT_fcilkplus))
+    CmdArgs.push_back("-lcilkrts");
+#endif
   AddLinkerInputs(getToolChain(), Inputs, Args, CmdArgs);
   // Build the input file for -filelist (list of linker input files) in case we
   // need it later
@@ -7517,7 +7532,10 @@ void gnutools::Link::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-Bdynamic");
     CmdArgs.push_back("-lm");
   }
-
+#ifdef INTEL_CUSTOMIZATION
+  if (Args.hasArg(options::OPT_fcilkplus))
+    CmdArgs.push_back("-lcilkrts");
+#endif
   if (!Args.hasArg(options::OPT_nostdlib)) {
     if (!Args.hasArg(options::OPT_nodefaultlibs)) {
       if (Args.hasArg(options::OPT_static))

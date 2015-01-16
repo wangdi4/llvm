@@ -107,7 +107,13 @@ namespace {
     KEYARC = 0x800,
     KEYNOMS = 0x01000,
     WCHARSUPPORT = 0x02000,
+#ifdef INTEL_CUSTOMIZATION
+    KEYCILKPLUS = 0x04000,
+    KEYFLOAT128 = 0x08000,
+    HALFSUPPORT = 0x10000,
+#else
     HALFSUPPORT = 0x04000,
+#endif
     KEYALL = (0xffff & ~KEYNOMS) // Because KEYNOMS is used to exclude.
   };
 
@@ -131,6 +137,10 @@ static KeywordStatus GetKeywordStatus(const LangOptions &LangOpts,
   if (LangOpts.GNUKeywords && (Flags & KEYGNU)) return KS_Extension;
   if (LangOpts.MicrosoftExt && (Flags & KEYMS)) return KS_Extension;
   if (LangOpts.Borland && (Flags & KEYBORLAND)) return KS_Extension;
+#ifdef INTEL_CUSTOMIZATION
+  else if (LangOpts.CilkPlus && (Flags & KEYCILKPLUS)) return KS_Extension;
+  else if (LangOpts.Float128 && (Flags & KEYFLOAT128)) return KS_Extension;
+#endif
   if (LangOpts.Bool && (Flags & BOOLSUPPORT)) return KS_Enabled;
   if (LangOpts.Half && (Flags & HALFSUPPORT)) return KS_Enabled;
   if (LangOpts.WChar && (Flags & WCHARSUPPORT)) return KS_Enabled;

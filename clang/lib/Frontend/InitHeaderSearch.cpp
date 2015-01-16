@@ -680,8 +680,12 @@ void clang::ApplyHeaderSearchOptions(HeaderSearch &HS,
   InitHeaderSearch Init(HS, HSOpts.Verbose, HSOpts.Sysroot);
 
   // Add the user defined entries.
+  StringRef IntelSystem;
   for (unsigned i = 0, e = HSOpts.UserEntries.size(); i != e; ++i) {
     const HeaderSearchOptions::Entry &E = HSOpts.UserEntries[i];
+    if (E.Group == frontend::System && StringRef(E.Path).endswith("clang")) {
+      IntelSystem = E.Path;
+    }
     if (E.IgnoreSysRoot) {
       Init.AddUnmappedPath(E.Path, E.Group, E.IsFramework);
     } else {
@@ -701,6 +705,11 @@ void clang::ApplyHeaderSearchOptions(HeaderSearch &HS,
     llvm::sys::path::append(P, "include");
     if (const DirectoryEntry *Dir = HS.getFileMgr().getDirectory(P.str()))
       HS.getModuleMap().setBuiltinIncludeDir(Dir);
+    else if (!IntelSystem.empty()) {
+      P = StringRef(IntelSystem);
+      if (const DirectoryEntry *Dir = HS.getFileMgr().getDirectory(P.str()))
+        HS.getModuleMap().setBuiltinIncludeDir(Dir);
+    }
   }
 
   Init.Realize(Lang);

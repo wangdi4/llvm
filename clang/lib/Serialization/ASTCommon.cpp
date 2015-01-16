@@ -49,6 +49,9 @@ serialization::TypeIdxFromBuiltin(const BuiltinType *BT) {
   case BuiltinType::Float:      ID = PREDEF_TYPE_FLOAT_ID;      break;
   case BuiltinType::Double:     ID = PREDEF_TYPE_DOUBLE_ID;     break;
   case BuiltinType::LongDouble: ID = PREDEF_TYPE_LONGDOUBLE_ID; break;
+#ifdef INTEL_CUSTOMIZATION
+  case BuiltinType::Float128:   ID = PREDEF_TYPE_FLOAT128_ID;   break;
+#endif
   case BuiltinType::NullPtr:    ID = PREDEF_TYPE_NULLPTR_ID;    break;
   case BuiltinType::Char16:     ID = PREDEF_TYPE_CHAR16_ID;     break;
   case BuiltinType::Char32:     ID = PREDEF_TYPE_CHAR32_ID;     break;
@@ -207,6 +210,10 @@ bool serialization::isRedeclarableDeclKind(unsigned Kind) {
   case Decl::StaticAssert:
   case Decl::Block:
   case Decl::Captured:
+#ifdef INTEL_CUSTOMIZATION
+  case Decl::CilkSpawn:
+  case Decl::Pragma:
+#endif  
   case Decl::ClassScopeFunctionSpecialization:
   case Decl::Import:
   case Decl::OMPThreadPrivate:

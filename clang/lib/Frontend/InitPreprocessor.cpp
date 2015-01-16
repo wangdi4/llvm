@@ -474,7 +474,10 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
                       + getClangFullRepositoryVersion() + "\"");
 #undef TOSTR
 #undef TOSTR2
-  if (!LangOpts.MSVCCompat && !LangOpts.IntelCompat) { //***INTEL
+#ifdef INTEL_CUSTOMIZATION
+  if (!LangOpts.IntelCompat)
+#endif
+  if (!LangOpts.MSVCCompat) {
     // Currently claim to be compatible with GCC 4.2.1-5621, but only if we're
     // not compiling for MSVC compatibility
     Builder.defineMacro("__GNUC_MINOR__", "2");
@@ -869,7 +872,11 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     //   version of the OpenMP API that the implementation support.
     Builder.defineMacro("_OPENMP", "201307");
   }
-
+#ifdef INTEL_CUSTOMIZATION
+  Builder.defineMacro("__I__", "1j");
+  if (LangOpts.CilkPlus)
+    Builder.defineMacro("__cilk", "200");
+#endif
   // Get other target #defines.
   TI.getTargetDefines(LangOpts, Builder);
 }

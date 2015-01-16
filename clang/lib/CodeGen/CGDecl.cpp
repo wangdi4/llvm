@@ -33,6 +33,11 @@ using namespace CodeGen;
 
 void CodeGenFunction::EmitDecl(const Decl &D) {
   switch (D.getKind()) {
+#ifdef INTEL_CUSTOMIZATION
+  case Decl::Pragma:
+    CodeGenFunction(CGM).EmitPragmaDecl(cast<PragmaDecl>(D));
+    return;
+#endif
   case Decl::TranslationUnit:
   case Decl::Namespace:
   case Decl::UnresolvedUsingTypename:
@@ -109,7 +114,10 @@ void CodeGenFunction::EmitDecl(const Decl &D) {
            "Should not see file-scope variables inside a function!");
     return EmitVarDecl(VD);
   }
-
+#ifdef INTEL_CUSTOMIZATION  
+  case Decl::CilkSpawn:
+    return EmitCilkSpawnDecl(cast<CilkSpawnDecl>(&D));
+#endif
   case Decl::Typedef:      // typedef int X;
   case Decl::TypeAlias: {  // using X = int; [C++0x]
     const TypedefNameDecl &TD = cast<TypedefNameDecl>(D);
@@ -848,12 +856,36 @@ static bool shouldUseLifetimeMarkers(CodeGenFunction &CGF, const VarDecl &D,
 
   return Size > SizeThreshold;
 }
-
-
+#ifdef INTEL_CUSTOMIZATION
+/// EmitCaptureReceiverDecl - Emit allocation and cleanup code for
+/// a receiver declaration in a captured statement. The initialization
+/// is emitted in the helper function.
+void CodeGenFunction::EmitCaptureReceiverDecl(const VarDecl &D) {
+#ifndef NDEBUG
+  const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(CurFuncDecl);
+  assert(FD && FD->isSpawning() && "unexpected function declaration");
+#endif
+  AutoVarEmission Emission = EmitAutoVarAlloca(D);
+  EmitAutoVarCleanups(Emission);
+}
+#endif
 /// EmitAutoVarDecl - Emit code and set up an entry in LocalDeclMap for a
 /// variable declaration with auto, register, or no storage class specifier.
 /// These turn into simple stack objects, or GlobalValues depending on target.
 void CodeGenFunction::EmitAutoVarDecl(const VarDecl &D) {
+#ifdef INTEL_CUSTOMIZATION
+  if (CGCilkSpawnInfo *Info =
+        dyn_cast_or_null<CGCilkSpawnInfo>(CapturedStmtInfo)) {
+    // Do initialization if this decl is inside the helper function.
+    if (Info->isReceiverDecl(&D)) {
+      AutoVarEmission Emission(D);
+      Emission.Alignment = getContext().getDeclAlign(&D);
+      Emission.Address = Info->getReceiverAddr();
+      EmitAutoVarInit(Emission);
+      return;
+    }
+  }
+#endif
   AutoVarEmission emission = EmitAutoVarAlloca(D);
   EmitAutoVarInit(emission);
   EmitAutoVarCleanups(emission);

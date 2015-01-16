@@ -2311,6 +2311,288 @@ static void handleVecTypeHint(Sema &S, Decl *D, const AttributeList &Attr) {
                                                ParmTSI,
                                         Attr.getAttributeSpellingListIndex()));
 }
+#ifdef INTEL_CUSTOMIZATION
+static void handleCilkElementalAttr(Sema &S, Decl *D,
+                                    const AttributeList &Attr) {
+  assert(Attr.getKind() == AttributeList::AT_CilkElemental);
+  D->addAttr(::new (S.Context) CilkElementalAttr(Attr.getLoc(), S.Context,
+                                                 Attr.getScopeLoc(), 0));
+}
+
+static void handleCilkMaskAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+  if (!checkAttributeNumArgs(S, Attr, 0))
+    return;
+  bool Mask = false;
+  switch (Attr.getKind()) {
+  case AttributeList::AT_CilkMask:
+    Mask = true;
+    break;
+  case AttributeList::AT_CilkNoMask:
+    Mask = false;
+    break;
+  default:
+    llvm_unreachable("attribute is not 'mask' or 'nomask'");
+  }
+  D->addAttr(::new (S.Context) CilkMaskAttr(Attr.getLoc(), S.Context,
+                                            Mask, Attr.getScopeLoc(), 0));
+}
+
+template<typename A>
+A *getGroupAttr(Decl *D, SourceLocation Loc) {
+  for (specific_attr_iterator<A>
+        I = D->specific_attr_begin<A>(),
+        E = D->specific_attr_end<A>(); I != E; ++I)
+    if ((*I)->getGroup() == Loc)
+      return *I;
+  return 0;
+}
+
+static void handleCilkProcessorAttr(Sema &S, Decl *D,
+                                    const AttributeList &Attr) {
+  assert(Attr.getKind() == AttributeList::AT_CilkProcessor);
+  unsigned NumArgs = Attr.getNumArgs();
+  StringRef SR;
+  SourceLocation PLoc;
+  if (NumArgs == 1) {
+    if (Attr.getArg(0).is<Expr *>()) {
+      // Argument as string.
+      Expr *ArgExpr = Attr.getArg(0).get<Expr *>();
+      StringLiteral *SE = dyn_cast<StringLiteral>(ArgExpr);
+      if (!SE) {
+        S.Diag(ArgExpr->getLocStart(), diag::err_attribute_argument_type)
+          << Attr.getName() << AANT_ArgumentString;
+        return;
+      }
+      SR = SE->getString();
+      PLoc = ArgExpr->getExprLoc();
+    } else {
+    // Argument as identifier.
+      IdentifierLoc *ILoc = Attr.getArg(0).get<IdentifierLoc *>();
+      IdentifierInfo *ProcessorName = ILoc->Ident;
+      if (!ProcessorName) {
+        S.Diag(Attr.getLoc(), diag::err_attribute_argument_type)
+          << Attr.getName() << AANT_ArgumentIdentifier;
+        return;
+      }
+      SR = ProcessorName->getName();
+      PLoc = ILoc->Loc;
+    }
+  } else {
+    S.Diag(Attr.getLoc(), diag::err_attribute_wrong_number_arguments)
+      << Attr.getName() << 1;
+    return;
+  }
+  CilkProcessorAttr::CilkProcessor Processor = CilkProcessorAttr::getValue(SR);
+
+  // Check for multiple different processor attributes in one vector().
+  CilkProcessorAttr *ExistingAttr =
+    getGroupAttr<CilkProcessorAttr>(D, Attr.getScopeLoc());
+  if (ExistingAttr && ExistingAttr->getProcessor() != Processor) {
+    // CodeGen does actually allow this, so we just warn and continue.
+    S.Diag(PLoc,
+           diag::warn_cilk_elemental_inconsistent_processor);
+    S.Diag(ExistingAttr->getLocation(), diag::note_previous_attribute);
+  }
+  if (Processor == CilkProcessorAttr::Unspecified) {
+    S.Diag(PLoc,
+           diag::err_cilk_elemental_unrecognized_processor);
+    return;
+  }
+  D->addAttr(::new (S.Context)
+             CilkProcessorAttr(Attr.getRange(), S.Context,
+                               Processor, Attr.getScopeLoc(), 0));
+}
+
+static void handleCilkVecLengthAttr(Sema &S, Decl *D,
+                                    const AttributeList &Attr) {
+  assert(Attr.getKind() == AttributeList::AT_CilkVecLength);
+  if (!checkAttributeNumArgs(S, Attr, 1))
+    return;
+
+  // Check for multiple vectorlength attributes in one vector attribute.
+  if (CilkVecLengthAttr *Prev =
+        getGroupAttr<CilkVecLengthAttr>(D, Attr.getScopeLoc())) {
+    S.Diag(Attr.getLoc(), diag::err_cilk_elemental_repeated_vectorlength) << 0;
+    S.Diag(Prev->getLocation(), diag::note_previous_attribute);
+    return;
+  }
+
+  for (unsigned I = 0, NumArgs = Attr.getNumArgs(); I < NumArgs; ++I) {
+    Expr *LengthExpr = Attr.getArg(I).get<Expr *>();
+    ExprResult Result = S.CheckCilkVecLengthArg(LengthExpr);
+    if (!Result.isUsable())
+      return;
+
+    D->addAttr(::new (S.Context)
+               CilkVecLengthAttr(Attr.getRange(), S.Context,
+                                 Result.get(), Attr.getScopeLoc(), 0));
+  }
+}
+
+static bool diagnoseCilkAttrSubject(Sema &S, const FunctionDecl *FD,
+                                    const AttributeList &Attr,
+                                    IdentifierLoc *&IdLoc) {
+  assert(FD && "null function declaration");
+  IdLoc = 0;
+  if (Attr.getNumArgs() == 0) {
+    S.Diag(Attr.getLoc(), diag::err_attribute_argument_type)
+      << Attr.getName() << AANT_ArgumentIdentifier;
+    IdLoc = 0;
+    return false;
+  }
+  if (!Attr.getArg(0).is<IdentifierLoc *>()) return true;
+
+  IdLoc = Attr.getArg(0).get<IdentifierLoc *>();
+  IdentifierInfo *SubjectName = IdLoc->Ident;
+  if (!SubjectName) {
+    S.Diag(Attr.getLoc(), diag::err_attribute_argument_type)
+      << Attr.getName() << AANT_ArgumentIdentifier;
+    IdLoc = 0;
+    return false;
+  }
+
+  StringRef Name = SubjectName->getName();
+  SourceLocation Loc = IdLoc->Loc;
+
+  // Check uniform(this) and linear(this).
+  if (S.getLangOpts().CPlusPlus && Name.equals("this")) {
+    const CXXMethodDecl *Method = dyn_cast<CXXMethodDecl>(FD);
+    if (!Method || !Method->isInstance()) {
+      S.Diag(Loc, diag::err_invalid_this_use);
+      IdLoc = 0;
+      return false;
+    }
+    return true;
+  }
+
+  // Otherwise, check the subject is a function parameter name.
+  const VarDecl *Param = 0;
+  for (FunctionDecl::param_const_iterator I = FD->param_begin(),
+                                          E = FD->param_end();
+                                          I != E; ++I)
+    if ((*I)->getName().equals(Name)) {
+      Param = *I;
+      break;
+    }
+
+  if (!Param) {
+    S.Diag(Loc, diag::err_cilk_elemental_not_function_parameter);
+    IdLoc = 0;
+    return false;
+  }
+
+  return true;
+}
+
+static void handleCilkUniformAttr(Sema &S, Decl *D,
+                                  const AttributeList &Attr) {
+  const FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
+  if (!FD || FD->isInvalidDecl())
+    return;
+
+  IdentifierLoc *IdLoc = 0;
+  if (!diagnoseCilkAttrSubject(S, FD, Attr, IdLoc))
+    return;
+
+  unsigned NumArgs = Attr.getNumArgs();
+  if (NumArgs > 1) {
+    S.Diag(Attr.getLoc(), diag::err_attribute_wrong_number_arguments)
+      << Attr.getName() << NumArgs - 1;
+    return;
+  }
+
+  // Add the uniform attribute to the function.
+  CilkUniformAttr *UniformAttr = ::new (S.Context) CilkUniformAttr(
+      Attr.getLoc(), S.Context, IdLoc ? IdLoc->Ident : 0,
+      IdLoc ? IdLoc->Loc : SourceLocation(), Attr.getScopeLoc(), 0);
+  D->addAttr(UniformAttr);
+}
+
+static void handleCilkLinearAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+  FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
+  if (!FD || FD->isInvalidDecl())
+    return;
+
+  IdentifierLoc *IdLoc = 0;
+  if (!diagnoseCilkAttrSubject(S, FD, Attr, IdLoc))
+    return;
+
+  Expr *StepExpr = 0;
+  unsigned NumArgs = Attr.getNumArgs();
+
+  if (NumArgs == 2 && Attr.getArg(1).is<IdentifierLoc *>()) {
+    IdentifierLoc *Step = Attr.getArg(1).get<IdentifierLoc *>();
+    IdentifierInfo *StepId = Step->Ident;
+    SourceLocation StepLoc = Step->Loc;
+
+    // First, check if linear step is a parameter name.
+    assert(StepId && "null step name unexpected");
+    for (unsigned i = 0, NumParams = FD->getNumParams(); i < NumParams; ++i) {
+      ParmVarDecl *StepParm = FD->getParamDecl(i);
+      if (StepParm->getName().equals(StepId->getName())) {
+        Sema::ContextRAII SavedContext(S, StepParm->getDeclContext());
+        QualType Ty = StepParm->getType().getNonReferenceType();
+        ExprResult Ref = S.BuildDeclRefExpr(StepParm, Ty, VK_LValue, StepLoc);
+        assert(Ref.isUsable() && "reference cannot fail");
+        StepExpr = Ref.get();
+        break;
+      }
+    }
+
+    // If linear step is not a parameter, we perform a lookup to find
+    // the declaration which the step identifier is referencing to.
+    if (!StepExpr) {
+      DeclarationNameInfo Name(StepId, StepLoc);
+      LookupResult Result(S, Name, Sema::LookupOrdinaryName);
+      S.LookupName(Result, S.getCurScope());
+
+      if (Result.empty()) {
+        S.Diag(StepLoc, diag::err_undeclared_var_use) << StepId;
+        return;
+      } else if (Result.isSingleResult()) {
+        NamedDecl *ND = Result.getFoundDecl();
+        assert(ND && "declaration not found");
+        if (!isa<ValueDecl>(ND)) {
+          S.Diag(StepLoc, diag::err_ref_non_value) << StepId;
+          S.Diag(ND->getLocation(), diag::note_declared_at);
+          return;
+        }
+        CXXScopeSpec SS;
+        ExprResult Ref = S.BuildDeclarationNameExpr(SS, Result, /*ADL*/false);
+        if (!Ref.isUsable())
+          return;
+        StepExpr = Ref.get();
+      } else {
+        S.Diag(StepLoc, diag::err_cilk_elemental_not_function_parameter);
+        return;
+      }
+    }
+  } else if (NumArgs == 1) {
+    // By default, the step is 1.
+    StepExpr = IntegerLiteral::Create(S.Context, llvm::APInt(32, 1),
+                                      S.Context.IntTy, SourceLocation());
+  } else if (NumArgs == 2) {
+    StepExpr = Attr.getArg(1).get<Expr *>();
+  } else {
+    S.Diag(Attr.getLoc(), diag::err_attribute_wrong_number_arguments)
+      << Attr.getName() << 1;
+    return;
+  }
+
+  StepExpr = S.CheckCilkLinearArg(StepExpr);
+  if (!StepExpr)
+    return;
+
+  // Add the linear attribute to the function.
+  CilkLinearAttr *LinearAttr =
+    ::new (S.Context) CilkLinearAttr(Attr.getLoc(), S.Context,
+                                     IdLoc ? IdLoc->Ident : 0,
+                                     IdLoc ? IdLoc->Loc : SourceLocation(),
+                                     StepExpr,
+                                     Attr.getScopeLoc(), 0);
+  D->addAttr(LinearAttr);
+}
+#endif
 
 SectionAttr *Sema::mergeSectionAttr(Decl *D, SourceRange Range,
                                     StringRef Name,
@@ -2334,13 +2616,14 @@ static void handleSectionAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str, &LiteralLoc))
     return;
 
-  // If the target wants to validate the section specifier, make it happen.
-  std::string Error = S.Context.getTargetInfo().isValidSectionSpecifier(Str);
-  if (!Error.empty()) {
-    S.Diag(LiteralLoc, diag::err_attribute_section_invalid_for_target)
-    << Error;
-    return;
-  }
+//***INTEL: compatibility fix
+//  // If the target wants to validate the section specifier, make it happen.
+//  std::string Error = S.Context.getTargetInfo().isValidSectionSpecifier(Str);
+//  if (!Error.empty()) {
+//    S.Diag(LiteralLoc, diag::err_attribute_section_invalid_for_target)
+//    << Error;
+//    return;
+//  }
 
   unsigned Index = Attr.getAttributeSpellingListIndex();
   SectionAttr *NewAttr = S.mergeSectionAttr(D, Attr.getRange(), Str, Index);
@@ -4196,6 +4479,87 @@ static bool handleCommonAttributeFeatures(Sema &S, Scope *scope, Decl *D,
 //===----------------------------------------------------------------------===//
 // Top Level Sema Entry Points
 //===----------------------------------------------------------------------===//
+#ifdef INTEL_CUSTOMIZATION
+static void handleAvoidFalseShareAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+  // Check the attribute arguments.
+  if (Attr.getNumArgs() > 1) {
+    S.Diag(Attr.getLoc(), diag::err_attribute_too_many_arguments) << 1;
+    return;
+  }
+
+  if (!isa<VarDecl>(D) || cast<VarDecl>(D)->getType().isNull() || 
+    cast<VarDecl>(D)->getType()->isReferenceType() || 
+    !(cast<VarDecl>(D)->isLocalVarDecl() || cast<VarDecl>(D)->isFileVarDecl())) {
+    S.Diag(Attr.getLoc(), diag::x_warn_intel_attribute_variable_only)
+      << Attr.getName();
+    return;
+  }
+
+  // Handle the case where deprecated attribute has a text message.
+  StringRef Str;
+  if (Attr.getNumArgs() == 1) {
+    StringLiteral *SE = dyn_cast<StringLiteral>(Attr.getArg(0).get<Expr *>());
+    if (!SE) {
+      S.Diag(Attr.getArg(0).get<Expr *>()->getLocStart(),
+             diag::x_err_attribute_not_string)
+        << Attr.getName();
+      return;
+    }
+    Str = SE->getString();
+  }
+
+  D->addAttr(::new (S.Context) AvoidFalseShareAttr(Attr.getRange(), S.Context, Str, 0));
+}
+
+static void handleAllocateAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+  // Check the attribute arguments.
+  if (!checkAttributeNumArgs(S, Attr, 1)) {
+    return;
+  }
+
+  if (!isa<VarDecl>(D) || cast<VarDecl>(D)->getType().isNull() || 
+    cast<VarDecl>(D)->getType()->isReferenceType()) {
+    S.Diag(Attr.getLoc(), diag::x_warn_intel_attribute_variable_only)
+      << Attr.getName();
+    return;
+  }
+
+  if (isa<VarDecl>(D) && cast<VarDecl>(D)->hasLocalStorage()) {
+    S.Diag(Attr.getLoc(), diag::err_attribute_section_local_variable);
+    return;
+  }
+
+  // Handle the case where deprecated attribute has a text message.
+  StringRef Str;
+  StringLiteral *SE = dyn_cast<StringLiteral>(Attr.getArg(0).get<Expr *>());
+  if (!SE) {
+    S.Diag(Attr.getArg(0).get<Expr *>()->getLocStart(),
+           diag::x_err_attribute_not_string)
+      << Attr.getName();
+    return;
+  }
+  Str = SE->getString();
+
+  D->addAttr(::new (S.Context) SectionAttr(Attr.getRange(), S.Context, Str, 0));
+}
+
+static void handleGCCStructAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+  if (TagDecl *TD = dyn_cast<TagDecl>(D)) {
+    TD->dropAttr<MsStructAttr>();
+    TD->addAttr(::new (S.Context) GCCStructAttr(Attr.getRange(), S.Context, 0));
+  }
+  else
+    S.Diag(Attr.getLoc(), diag::warn_attribute_ignored) << Attr.getName();
+}
+
+static void handleBNDLegacyAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+  D->addAttr(::new (S.Context) BNDLegacyAttr(Attr.getRange(), S.Context, 0));
+}
+
+static void handleBNDVarSizeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+  D->addAttr(::new (S.Context) BNDVarSizeAttr(Attr.getRange(), S.Context, 0));
+}
+#endif
 
 /// ProcessDeclAttribute - Apply the specific attribute to the specified decl if
 /// the attribute applies to decls.  If the attribute is a type attribute, just
@@ -4701,6 +5065,38 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_TypeTagForDatatype:
     handleTypeTagForDatatypeAttr(S, D, Attr);
     break;
+#ifdef INTEL_CUSTOMIZATION
+  // Cilk Plus attributes.
+  case AttributeList::AT_CilkElemental:
+    handleCilkElementalAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_CilkMask:
+  case AttributeList::AT_CilkNoMask:
+    handleCilkMaskAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_CilkProcessor:
+    handleCilkProcessorAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_CilkLinear:
+    handleCilkLinearAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_CilkUniform:
+    handleCilkUniformAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_CilkVecLength:
+    handleCilkVecLengthAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_AvoidFalseShare:
+    handleAvoidFalseShareAttr  (S, D, Attr); break;
+  case AttributeList::AT_Allocate:
+    handleAllocateAttr  (S, D, Attr); break;
+  case AttributeList::AT_GCCStruct:
+    handleGCCStructAttr  (S, D, Attr); break;
+  case AttributeList::AT_BNDLegacy:
+    handleBNDLegacyAttr  (S, D, Attr); break;
+  case AttributeList::AT_BNDVarSize:
+    handleBNDVarSizeAttr  (S, D, Attr); break;
+#endif
   }
 }
 

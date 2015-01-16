@@ -156,7 +156,14 @@ struct PragmaUnrollHintHandler : public PragmaHandler {
                     Token &FirstToken) override;
 };
 
+#ifdef INTEL_CUSTOMIZATION
+#include "intel/ParsePragma.h"
+#endif
 }  // end namespace
+
+#ifdef INTEL_CUSTOMIZATION
+#include "intel/ParsePragma.cpp"
+#endif
 
 void Parser::initializePragmaHandlers() {
   AlignHandler.reset(new PragmaAlignHandler());
@@ -226,12 +233,17 @@ void Parser::initializePragmaHandlers() {
 
   LoopHintHandler.reset(new PragmaLoopHintHandler());
   PP.AddPragmaHandler("clang", LoopHintHandler.get());
-
-  UnrollHintHandler.reset(new PragmaUnrollHintHandler("unroll"));
-  PP.AddPragmaHandler(UnrollHintHandler.get());
-
-  NoUnrollHintHandler.reset(new PragmaUnrollHintHandler("nounroll"));
-  PP.AddPragmaHandler(NoUnrollHintHandler.get());
+#ifdef INTEL_CUSTOMIZATION
+  if (!getLangOpts().Intel) {
+#endif
+  	UnrollHintHandler.reset(new PragmaUnrollHintHandler("unroll"));
+  	PP.AddPragmaHandler(UnrollHintHandler.get());
+	NoUnrollHintHandler.reset(new PragmaUnrollHintHandler("nounroll"));
+    PP.AddPragmaHandler(NoUnrollHintHandler.get());
+#ifdef INTEL_CUSTOMIZATION
+  }
+#include "intel/Parser_Parser.cpp"
+#endif
 }
 
 void Parser::resetPragmaHandlers() {
@@ -293,11 +305,18 @@ void Parser::resetPragmaHandlers() {
   PP.RemovePragmaHandler("clang", LoopHintHandler.get());
   LoopHintHandler.reset();
 
-  PP.RemovePragmaHandler(UnrollHintHandler.get());
-  UnrollHintHandler.reset();
+#ifdef INTEL_CUSTOMIZATION
+  if (!getLangOpts().Intel) {
+#endif
+    PP.RemovePragmaHandler(UnrollHintHandler.get());
+    UnrollHintHandler.reset();
 
-  PP.RemovePragmaHandler(NoUnrollHintHandler.get());
-  NoUnrollHintHandler.reset();
+    PP.RemovePragmaHandler(NoUnrollHintHandler.get());
+    NoUnrollHintHandler.reset();
+#ifdef INTEL_CUSTOMIZATION
+  }
+#include "intel/Parser_desParser.cpp"
+#endif
 }
 
 /// \brief Handle the annotation token produced for #pragma unused(...)

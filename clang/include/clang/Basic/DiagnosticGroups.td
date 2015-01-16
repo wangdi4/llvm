@@ -556,6 +556,12 @@ def IntToVoidPointerCast : DiagGroup<"int-to-void-pointer-cast">;
 def IntToPointerCast : DiagGroup<"int-to-pointer-cast",
                                  [IntToVoidPointerCast]>;
 
+//#ifdef INTEL_CUSTOMIZATION
+// Cilk Plus warnings.
+def SourceUsesCilkPlus : DiagGroup<"source-uses-cilk-plus">;
+def CilkPlusLoopControlVarModification : DiagGroup<"cilk-loop-control-var-modification">;
+def CilkPlusCEAN : DiagGroup<"extended-array-notation">;
+//#endif
 def Extra : DiagGroup<"extra", [
     MissingFieldInitializers,
     IgnoredQualifiers,
@@ -591,6 +597,10 @@ def Most : DiagGroup<"most", [
     OverloadedVirtual,
     PrivateExtern,
     SelTypeCast,
+//#ifdef INTEL_CUSTOMIZATION    
+    CilkPlusLoopControlVarModification,
+    CilkPlusCEAN,
+//#endif
     ExternCCompat
  ]>;
 

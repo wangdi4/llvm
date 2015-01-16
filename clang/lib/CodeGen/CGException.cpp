@@ -12,6 +12,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "CodeGenFunction.h"
+#ifdef INTEL_CUSTOMIZATION
+#include "intel/CGCilkPlusRuntime.h"
+#endif
 #include "CGCleanup.h"
 #include "CGCXXABI.h"
 #include "CGObjCRuntime.h"
@@ -595,6 +598,25 @@ void CodeGenFunction::EmitCXXTryStmt(const CXXTryStmt &S) {
   }
 
   EnterCXXTryStmt(S);
+#ifdef INTEL_CUSTOMIZATION  
+  {
+    if (getLangOpts().CilkPlus && CurCGCilkImplicitSyncInfo) {
+      // The following implicit sync is not required by the Cilk Plus
+      // Language Extension Specificition V1.1. However, this is required
+      // in N1665 [2.8.1] and other compilers also insert this implicit sync.
+      //
+      // Optimizations should be able to elide those unnecessary syncs.
+      CGM.getCilkPlusRuntime().EmitCilkSync(*this);
+    }
+
+    // Entering a new scope before we emit the try body. An implicit sync will
+    // be emitted on exiting the try (and before any catch blocks).
+    RunCleanupsScope Scope(*this);
+    if (CurCGCilkImplicitSyncInfo &&
+        CurCGCilkImplicitSyncInfo->needsImplicitSync(&S))
+      CGM.getCilkPlusRuntime().pushCilkImplicitSyncCleanup(*this);
+  }
+#endif  
   EmitStmt(S.getTryBlock());
   ExitCXXTryStmt(S);
 }
@@ -695,7 +717,7 @@ llvm::BasicBlock *CodeGenFunction::getInvokeDestImpl() {
   assert(EHStack.requiresLandingPad());
   assert(!EHStack.empty());
 
-  if (!CGM.getLangOpts().Exceptions)
+  if (!CGM.getLangOpts().Exceptions || ExceptionsDisabled)	//***INTEL 
     return nullptr;
 
   // Check the innermost scope for a cached landing pad.  If this is

@@ -2225,7 +2225,13 @@ enum CXCursorKind {
    */
   CXCursor_OMPTeamsDirective             = 253,
 
+#ifdef INTEL_CUSTOMIZATION
+  CXCursor_CilkRankedStmt                = 254,
+  CXCursor_LastStmt                      = CXCursor_CilkRankedStmt,
+#else
   CXCursor_LastStmt                      = CXCursor_OMPTeamsDirective,
+#endif
+
 
   /**
    * \brief Cursor that represents the translation unit itself.
@@ -2815,8 +2821,12 @@ enum CXTypeKind {
   CXType_ObjCClass = 28,
   CXType_ObjCSel = 29,
   CXType_FirstBuiltin = CXType_Void,
+#ifdef INTEL_CUSTOMIZATION  
+  CXType_Float128 = 30,
+  CXType_LastBuiltin  = CXType_Float128,
+#else
   CXType_LastBuiltin  = CXType_ObjCSel,
-
+#endif
   CXType_Complex = 100,
   CXType_Pointer = 101,
   CXType_BlockPointer = 102,

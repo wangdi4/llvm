@@ -345,6 +345,9 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
   case Builtin::BI__sync_swap_4:
   case Builtin::BI__sync_swap_8:
   case Builtin::BI__sync_swap_16:
+#ifdef INTEL_CUSTOMIZATION
+#include "intel/SemaChecking_CheckBuiltinFunctionCall.cpp"
+#endif
     return SemaBuiltinAtomicOverloaded(TheCallResult);
 #define BUILTIN(ID, TYPE, ATTRS)
 #define ATOMIC_BUILTIN(ID, TYPE, ATTRS) \
@@ -355,6 +358,94 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     if (SemaBuiltinAnnotation(*this, TheCall))
       return ExprError();
     break;
+#ifdef INTEL_CUSTOMIZATION	
+  case Builtin::BI__sec_reduce_add:
+  case Builtin::BI__sec_reduce_mul:
+  case Builtin::BI__sec_reduce_max:
+  case Builtin::BI__sec_reduce_min:
+  case Builtin::BI__sec_reduce_max_ind:
+  case Builtin::BI__sec_reduce_min_ind:
+  case Builtin::BI__sec_reduce_all_zero:
+  case Builtin::BI__sec_reduce_all_nonzero:
+  case Builtin::BI__sec_reduce_any_zero:
+  case Builtin::BI__sec_reduce_any_nonzero:
+  case Builtin::BI__sec_reduce:
+  case Builtin::BI__sec_reduce_mutating:
+  case Builtin::BI__sec_implicit_index: {
+    CEANBuiltinExpr::CEANKindType Kind = CEANBuiltinExpr::Unknown;
+    switch (BuiltinID) {
+    case Builtin::BI__sec_reduce_add:
+      Kind = CEANBuiltinExpr::ReduceAdd;
+      break;
+    case Builtin::BI__sec_reduce_mul:
+      Kind = CEANBuiltinExpr::ReduceMul;
+      break;
+    case Builtin::BI__sec_reduce_max:
+      Kind = CEANBuiltinExpr::ReduceMax;
+      break;
+    case Builtin::BI__sec_reduce_min:
+      Kind = CEANBuiltinExpr::ReduceMin;
+      break;
+    case Builtin::BI__sec_reduce_max_ind:
+      Kind = CEANBuiltinExpr::ReduceMaxIndex;
+      break;
+    case Builtin::BI__sec_reduce_min_ind:
+      Kind = CEANBuiltinExpr::ReduceMinIndex;
+      break;
+    case Builtin::BI__sec_reduce_all_zero:
+      Kind = CEANBuiltinExpr::ReduceAllZero;
+      break;
+    case Builtin::BI__sec_reduce_all_nonzero:
+      Kind = CEANBuiltinExpr::ReduceAllNonZero;
+      break;
+    case Builtin::BI__sec_reduce_any_zero:
+      Kind = CEANBuiltinExpr::ReduceAnyZero;
+      break;
+    case Builtin::BI__sec_reduce_any_nonzero:
+      Kind = CEANBuiltinExpr::ReduceAnyNonZero;
+      break;
+    case Builtin::BI__sec_reduce:
+      Kind = CEANBuiltinExpr::Reduce;
+      break;
+    case Builtin::BI__sec_reduce_mutating:
+      Kind = CEANBuiltinExpr::ReduceMutating;
+      break;
+    case Builtin::BI__sec_implicit_index:
+      Kind = CEANBuiltinExpr::ImplicitIndex;
+      break;
+    default:
+      llvm_unreachable("Unsupported CEAN intrinsic.");
+    }
+    return ActOnCEANBuiltinExpr(CurScope, TheCall->getLocStart(), Kind,
+                                llvm::makeArrayRef(TheCall->getArgs(), TheCall->getNumArgs()),
+                                TheCall->getRParenLoc());
+    }
+    break;
+  case Builtin::BI__assume_aligned: {
+    if (checkArgCount(*this, TheCall, 2)) return ExprError();
+    Expr *Arg1 = TheCall->getArg(0);
+    Expr *Arg2 = TheCall->getArg(1);
+    QualType QTy1 = Arg1->getType();
+    QualType QTy2 = Arg2->getType();
+    if (QTy1->isDependentType() ||
+        QTy2->isDependentType() ||
+        QTy1->isInstantiationDependentType() ||
+        QTy2->isInstantiationDependentType()) break;
+    if (!QTy1->isPointerType()) {
+      Diag(Arg1->getExprLoc(), diag::err_assume_aligned_not_pointer)
+        << QTy1 << Arg1->getSourceRange();
+      return ExprError();
+    }
+    llvm::APSInt Result;
+    if (SemaBuiltinConstantArg(TheCall, 1, Result) || !Result.isStrictlyPositive() ||
+        !Result.isPowerOf2()) {
+      Diag(Arg2->getExprLoc(), diag::err_assume_aligned_not_integer)
+        << QTy2 << Arg2->getSourceRange();
+      return ExprError();
+    }
+    }
+    break;
+#endif
   case Builtin::BI__builtin_addressof:
     if (SemaBuiltinAddressof(*this, TheCall))
       return ExprError();
@@ -1544,6 +1635,25 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
     BUILTIN_ROW(__sync_lock_test_and_set),
     BUILTIN_ROW(__sync_lock_release),
     BUILTIN_ROW(__sync_swap)
+#ifdef INTEL_CUSTOMIZATION
+    , BUILTIN_ROW(__atomic_store_explicit),
+    BUILTIN_ROW(__atomic_load_explicit),
+    BUILTIN_ROW(__atomic_exchange_explicit),
+    BUILTIN_ROW(__atomic_compare_exchange_weak_explicit),
+    BUILTIN_ROW(__atomic_compare_exchange_strong_explicit),
+    BUILTIN_ROW(__atomic_fetch_add_explicit),
+    BUILTIN_ROW(__atomic_fetch_sub_explicit),
+    BUILTIN_ROW(__atomic_fetch_and_explicit),
+    BUILTIN_ROW(__atomic_fetch_nand_explicit),
+    BUILTIN_ROW(__atomic_fetch_or_explicit),
+    BUILTIN_ROW(__atomic_fetch_xor_explicit),
+    BUILTIN_ROW(__atomic_add_fetch_explicit),
+    BUILTIN_ROW(__atomic_sub_fetch_explicit),
+    BUILTIN_ROW(__atomic_and_fetch_explicit),
+    BUILTIN_ROW(__atomic_nand_fetch_explicit),
+    BUILTIN_ROW(__atomic_or_fetch_explicit),
+    BUILTIN_ROW(__atomic_xor_fetch_explicit)
+#endif
   };
 #undef BUILTIN_ROW
 
@@ -1729,6 +1839,166 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
   case Builtin::BI__sync_swap_16:
     BuiltinIndex = 16; 
     break;
+#ifdef INTEL_CUSTOMIZATION
+  case Builtin::BI__atomic_store_explicit:
+  case Builtin::BI__atomic_store_explicit_1:
+  case Builtin::BI__atomic_store_explicit_2:
+  case Builtin::BI__atomic_store_explicit_4:
+  case Builtin::BI__atomic_store_explicit_8:
+  case Builtin::BI__atomic_store_explicit_16:
+    NumFixed = 2;
+    BuiltinIndex = 17;
+    ResultType = Context.VoidTy;
+    break;
+
+  case Builtin::BI__atomic_load_explicit:
+  case Builtin::BI__atomic_load_explicit_1:
+  case Builtin::BI__atomic_load_explicit_2:
+  case Builtin::BI__atomic_load_explicit_4:
+  case Builtin::BI__atomic_load_explicit_8:
+  case Builtin::BI__atomic_load_explicit_16:
+    NumFixed = 1;
+    BuiltinIndex = 18;
+    break;
+
+  case Builtin::BI__atomic_exchange_explicit:
+  case Builtin::BI__atomic_exchange_explicit_1:
+  case Builtin::BI__atomic_exchange_explicit_2:
+  case Builtin::BI__atomic_exchange_explicit_4:
+  case Builtin::BI__atomic_exchange_explicit_8:
+  case Builtin::BI__atomic_exchange_explicit_16:
+    NumFixed = 2;
+    BuiltinIndex = 19;
+    break;
+
+  case Builtin::BI__atomic_compare_exchange_weak_explicit:
+  case Builtin::BI__atomic_compare_exchange_weak_explicit_1:
+  case Builtin::BI__atomic_compare_exchange_weak_explicit_2:
+  case Builtin::BI__atomic_compare_exchange_weak_explicit_4:
+  case Builtin::BI__atomic_compare_exchange_weak_explicit_8:
+    NumFixed = 4;
+    BuiltinIndex = 20;
+    ResultType = Context.IntTy;
+    break;
+
+  case Builtin::BI__atomic_compare_exchange_strong_explicit:
+  case Builtin::BI__atomic_compare_exchange_strong_explicit_1:
+  case Builtin::BI__atomic_compare_exchange_strong_explicit_2:
+  case Builtin::BI__atomic_compare_exchange_strong_explicit_4:
+  case Builtin::BI__atomic_compare_exchange_strong_explicit_8:
+    NumFixed = 4;
+    BuiltinIndex = 21;
+    ResultType = Context.IntTy;
+    break;
+  case Builtin::BI__atomic_fetch_add_explicit:
+  case Builtin::BI__atomic_fetch_add_explicit_1:
+  case Builtin::BI__atomic_fetch_add_explicit_2:
+  case Builtin::BI__atomic_fetch_add_explicit_4:
+  case Builtin::BI__atomic_fetch_add_explicit_8:
+  case Builtin::BI__atomic_fetch_add_explicit_16:
+    NumFixed = 2;
+    BuiltinIndex = 22;
+    break;
+  case Builtin::BI__atomic_fetch_sub_explicit:
+  case Builtin::BI__atomic_fetch_sub_explicit_1:
+  case Builtin::BI__atomic_fetch_sub_explicit_2:
+  case Builtin::BI__atomic_fetch_sub_explicit_4:
+  case Builtin::BI__atomic_fetch_sub_explicit_8:
+  case Builtin::BI__atomic_fetch_sub_explicit_16:
+    NumFixed = 2;
+    BuiltinIndex = 23;
+    break;
+  case Builtin::BI__atomic_fetch_and_explicit:
+  case Builtin::BI__atomic_fetch_and_explicit_1:
+  case Builtin::BI__atomic_fetch_and_explicit_2:
+  case Builtin::BI__atomic_fetch_and_explicit_4:
+  case Builtin::BI__atomic_fetch_and_explicit_8:
+  case Builtin::BI__atomic_fetch_and_explicit_16:
+    NumFixed = 2;
+    BuiltinIndex = 24;
+    break;
+  case Builtin::BI__atomic_fetch_nand_explicit:
+  case Builtin::BI__atomic_fetch_nand_explicit_1:
+  case Builtin::BI__atomic_fetch_nand_explicit_2:
+  case Builtin::BI__atomic_fetch_nand_explicit_4:
+  case Builtin::BI__atomic_fetch_nand_explicit_8:
+  case Builtin::BI__atomic_fetch_nand_explicit_16:
+    NumFixed = 2;
+    BuiltinIndex = 25;
+    break;
+  case Builtin::BI__atomic_fetch_or_explicit:
+  case Builtin::BI__atomic_fetch_or_explicit_1:
+  case Builtin::BI__atomic_fetch_or_explicit_2:
+  case Builtin::BI__atomic_fetch_or_explicit_4:
+  case Builtin::BI__atomic_fetch_or_explicit_8:
+  case Builtin::BI__atomic_fetch_or_explicit_16:
+    NumFixed = 2;
+    BuiltinIndex = 26;
+    break;
+  case Builtin::BI__atomic_fetch_xor_explicit:
+  case Builtin::BI__atomic_fetch_xor_explicit_1:
+  case Builtin::BI__atomic_fetch_xor_explicit_2:
+  case Builtin::BI__atomic_fetch_xor_explicit_4:
+  case Builtin::BI__atomic_fetch_xor_explicit_8:
+  case Builtin::BI__atomic_fetch_xor_explicit_16:
+    NumFixed = 2;
+    BuiltinIndex = 27;
+    break;
+  case Builtin::BI__atomic_add_fetch_explicit:
+  case Builtin::BI__atomic_add_fetch_explicit_1:
+  case Builtin::BI__atomic_add_fetch_explicit_2:
+  case Builtin::BI__atomic_add_fetch_explicit_4:
+  case Builtin::BI__atomic_add_fetch_explicit_8:
+  case Builtin::BI__atomic_add_fetch_explicit_16:
+    NumFixed = 2;
+    BuiltinIndex = 28;
+    break;
+  case Builtin::BI__atomic_sub_fetch_explicit:
+  case Builtin::BI__atomic_sub_fetch_explicit_1:
+  case Builtin::BI__atomic_sub_fetch_explicit_2:
+  case Builtin::BI__atomic_sub_fetch_explicit_4:
+  case Builtin::BI__atomic_sub_fetch_explicit_8:
+  case Builtin::BI__atomic_sub_fetch_explicit_16:
+    NumFixed = 2;
+    BuiltinIndex = 29;
+    break;
+  case Builtin::BI__atomic_and_fetch_explicit:
+  case Builtin::BI__atomic_and_fetch_explicit_1:
+  case Builtin::BI__atomic_and_fetch_explicit_2:
+  case Builtin::BI__atomic_and_fetch_explicit_4:
+  case Builtin::BI__atomic_and_fetch_explicit_8:
+  case Builtin::BI__atomic_and_fetch_explicit_16:
+    NumFixed = 2;
+    BuiltinIndex = 30;
+    break;
+  case Builtin::BI__atomic_nand_fetch_explicit:
+  case Builtin::BI__atomic_nand_fetch_explicit_1:
+  case Builtin::BI__atomic_nand_fetch_explicit_2:
+  case Builtin::BI__atomic_nand_fetch_explicit_4:
+  case Builtin::BI__atomic_nand_fetch_explicit_8:
+  case Builtin::BI__atomic_nand_fetch_explicit_16:
+    NumFixed = 2;
+    BuiltinIndex = 31;
+    break;
+  case Builtin::BI__atomic_or_fetch_explicit:
+  case Builtin::BI__atomic_or_fetch_explicit_1:
+  case Builtin::BI__atomic_or_fetch_explicit_2:
+  case Builtin::BI__atomic_or_fetch_explicit_4:
+  case Builtin::BI__atomic_or_fetch_explicit_8:
+  case Builtin::BI__atomic_or_fetch_explicit_16:
+    NumFixed = 2;
+    BuiltinIndex = 32;
+    break;
+  case Builtin::BI__atomic_xor_fetch_explicit:
+  case Builtin::BI__atomic_xor_fetch_explicit_1:
+  case Builtin::BI__atomic_xor_fetch_explicit_2:
+  case Builtin::BI__atomic_xor_fetch_explicit_4:
+  case Builtin::BI__atomic_xor_fetch_explicit_8:
+  case Builtin::BI__atomic_xor_fetch_explicit_16:
+    NumFixed = 2;
+    BuiltinIndex = 33;
+    break;
+#endif
   }
 
   // Now that we know how many fixed arguments we expect, first check that we
@@ -1762,7 +2032,151 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
     if (!NewBuiltinDecl)
       return ExprError();
   }
+#ifdef INTEL_CUSTOMIZATION
+  switch (NewBuiltinID) {
+  case Builtin::BI__atomic_store_explicit_1:
+  case Builtin::BI__atomic_store_explicit_2:
+  case Builtin::BI__atomic_store_explicit_4:
+  case Builtin::BI__atomic_store_explicit_8:
+  case Builtin::BI__atomic_store_explicit_16:
+  case Builtin::BI__atomic_load_explicit_1:
+  case Builtin::BI__atomic_load_explicit_2:
+  case Builtin::BI__atomic_load_explicit_4:
+  case Builtin::BI__atomic_load_explicit_8:
+  case Builtin::BI__atomic_load_explicit_16:
+  case Builtin::BI__atomic_exchange_explicit_1:
+  case Builtin::BI__atomic_exchange_explicit_2:
+  case Builtin::BI__atomic_exchange_explicit_4:
+  case Builtin::BI__atomic_exchange_explicit_8:
+  case Builtin::BI__atomic_exchange_explicit_16:
+  case Builtin::BI__atomic_compare_exchange_weak_explicit_1:
+  case Builtin::BI__atomic_compare_exchange_weak_explicit_2:
+  case Builtin::BI__atomic_compare_exchange_weak_explicit_4:
+  case Builtin::BI__atomic_compare_exchange_weak_explicit_8:
+  case Builtin::BI__atomic_compare_exchange_strong_explicit_1:
+  case Builtin::BI__atomic_compare_exchange_strong_explicit_2:
+  case Builtin::BI__atomic_compare_exchange_strong_explicit_4:
+  case Builtin::BI__atomic_compare_exchange_strong_explicit_8:
+  case Builtin::BI__atomic_fetch_add_explicit_1:
+  case Builtin::BI__atomic_fetch_add_explicit_2:
+  case Builtin::BI__atomic_fetch_add_explicit_4:
+  case Builtin::BI__atomic_fetch_add_explicit_8:
+  case Builtin::BI__atomic_fetch_add_explicit_16:
+  case Builtin::BI__atomic_fetch_sub_explicit_1:
+  case Builtin::BI__atomic_fetch_sub_explicit_2:
+  case Builtin::BI__atomic_fetch_sub_explicit_4:
+  case Builtin::BI__atomic_fetch_sub_explicit_8:
+  case Builtin::BI__atomic_fetch_sub_explicit_16:
+  case Builtin::BI__atomic_fetch_and_explicit_1:
+  case Builtin::BI__atomic_fetch_and_explicit_2:
+  case Builtin::BI__atomic_fetch_and_explicit_4:
+  case Builtin::BI__atomic_fetch_and_explicit_8:
+  case Builtin::BI__atomic_fetch_and_explicit_16:
+  case Builtin::BI__atomic_fetch_nand_explicit_1:
+  case Builtin::BI__atomic_fetch_nand_explicit_2:
+  case Builtin::BI__atomic_fetch_nand_explicit_4:
+  case Builtin::BI__atomic_fetch_nand_explicit_8:
+  case Builtin::BI__atomic_fetch_nand_explicit_16:
+  case Builtin::BI__atomic_fetch_or_explicit_1:
+  case Builtin::BI__atomic_fetch_or_explicit_2:
+  case Builtin::BI__atomic_fetch_or_explicit_4:
+  case Builtin::BI__atomic_fetch_or_explicit_8:
+  case Builtin::BI__atomic_fetch_or_explicit_16:
+  case Builtin::BI__atomic_fetch_xor_explicit_1:
+  case Builtin::BI__atomic_fetch_xor_explicit_2:
+  case Builtin::BI__atomic_fetch_xor_explicit_4:
+  case Builtin::BI__atomic_fetch_xor_explicit_8:
+  case Builtin::BI__atomic_fetch_xor_explicit_16:
+  case Builtin::BI__atomic_add_fetch_explicit_1:
+  case Builtin::BI__atomic_add_fetch_explicit_2:
+  case Builtin::BI__atomic_add_fetch_explicit_4:
+  case Builtin::BI__atomic_add_fetch_explicit_8:
+  case Builtin::BI__atomic_add_fetch_explicit_16:
+  case Builtin::BI__atomic_sub_fetch_explicit_1:
+  case Builtin::BI__atomic_sub_fetch_explicit_2:
+  case Builtin::BI__atomic_sub_fetch_explicit_4:
+  case Builtin::BI__atomic_sub_fetch_explicit_8:
+  case Builtin::BI__atomic_sub_fetch_explicit_16:
+  case Builtin::BI__atomic_and_fetch_explicit_1:
+  case Builtin::BI__atomic_and_fetch_explicit_2:
+  case Builtin::BI__atomic_and_fetch_explicit_4:
+  case Builtin::BI__atomic_and_fetch_explicit_8:
+  case Builtin::BI__atomic_and_fetch_explicit_16:
+  case Builtin::BI__atomic_nand_fetch_explicit_1:
+  case Builtin::BI__atomic_nand_fetch_explicit_2:
+  case Builtin::BI__atomic_nand_fetch_explicit_4:
+  case Builtin::BI__atomic_nand_fetch_explicit_8:
+  case Builtin::BI__atomic_nand_fetch_explicit_16:
+  case Builtin::BI__atomic_or_fetch_explicit_1:
+  case Builtin::BI__atomic_or_fetch_explicit_2:
+  case Builtin::BI__atomic_or_fetch_explicit_4:
+  case Builtin::BI__atomic_or_fetch_explicit_8:
+  case Builtin::BI__atomic_or_fetch_explicit_16:
+  case Builtin::BI__atomic_xor_fetch_explicit_1:
+  case Builtin::BI__atomic_xor_fetch_explicit_2:
+  case Builtin::BI__atomic_xor_fetch_explicit_4:
+  case Builtin::BI__atomic_xor_fetch_explicit_8:
+  case Builtin::BI__atomic_xor_fetch_explicit_16: {
+    // The first argument --- the pointer --- has a fixed type; we
+    // deduce the types of the rest of the arguments accordingly.  Walk
+    // the remaining arguments, converting them to the deduced value type.
+    for (unsigned i = 0, e = NewBuiltinDecl->getNumParams(); i < e; ++i) {
+      ExprResult Arg = TheCall->getArg(i);
+      ValType = NewBuiltinDecl->getParamDecl(i)->getType().getUnqualifiedType();
+      Arg = PerformImplicitConversion(Arg.get(), ValType, AA_Passing);
+      //CastKind CK = PrepareScalarCast(Arg, ValType);
+      //if (CK != CK_NoOp)
+      //  Arg = ImpCastExprToType(DefaultLvalueConversion(Arg.get()).get(),
+      //                          ValType, CK);
+      if (Arg.isInvalid())
+        return ExprError();
 
+      // GCC does an implicit conversion to the pointer or integer ValType.  This
+      // can fail in some cases (1i -> int**), check for this error case now.
+      // Initialize the argument.
+      InitializedEntity Entity = InitializedEntity::InitializeParameter(Context,
+                                                     ValType, /*consume*/ false);
+      Arg = PerformCopyInitialization(Entity, SourceLocation(), Arg);
+      if (Arg.isInvalid())
+        return ExprError();
+
+      // Okay, we have something that *can* be converted to the right type.  Check
+      // to see if there is a potentially weird extension going on here.  This can
+      // happen when you do an atomic operation on something like an char* and
+      // pass in 42.  The 42 gets converted to char.  This is even more strange
+      // for things like 45.123 -> char, etc.
+      // FIXME: Do this check.
+      TheCall->setArg(i, Arg.get());
+    }
+
+    // Create a new DeclRefExpr to refer to the new decl.
+    DeclRefExpr* NewDRE = DeclRefExpr::Create(
+      Context,
+      DRE->getQualifierLoc(),
+      SourceLocation(),
+      NewBuiltinDecl,
+      /*enclosing*/ false,
+      DRE->getLocation(),
+      Context.BuiltinFnTy,
+      DRE->getValueKind());
+
+    // Set the callee in the CallExpr.
+    // FIXME: This loses syntactic information.
+    QualType CalleePtrTy = Context.getPointerType(NewBuiltinDecl->getType());
+    ExprResult PromotedCall = ImpCastExprToType(NewDRE, CalleePtrTy,
+                                              CK_BuiltinFnToFnPtr);
+    TheCall->setCallee(PromotedCall.get());
+
+    // Change the result type of the call to match the original value type. This
+    // is arbitrary, but the codegen for these builtins ins design to handle it
+    // gracefully.
+    TheCall->setType(NewBuiltinDecl->getCallResultType());
+    }
+    return PerformImplicitConversion(TheCall, ResultType, AA_Converting);
+  default:
+    break;
+  }
+#endif
   // The first argument --- the pointer --- has a fixed type; we
   // deduce the types of the rest of the arguments accordingly.  Walk
   // the remaining arguments, converting them to the deduced value type.
@@ -8199,6 +8613,16 @@ void Sema::DiagnoseEmptyLoopBody(const Stmt *S,
     StmtLoc = WS->getCond()->getSourceRange().getEnd();
     Body = WS->getBody();
     DiagID = diag::warn_empty_while_body;
+#ifdef INTEL_CUSTOMIZATION
+  } else if (const CilkForStmt *CFS = dyn_cast<CilkForStmt>(S)) {
+    StmtLoc = CFS->getCilkForLoc();
+    Body = CFS->getBody()->getCapturedStmt();
+    DiagID = diag::warn_empty_cilk_for_body;
+  } else if (const SIMDForStmt *FS = dyn_cast<SIMDForStmt>(S)) {
+    StmtLoc = FS->getForLoc();
+    Body = FS->getBody()->getCapturedStmt();
+    DiagID = diag::warn_empty_simd_for_body;
+#endif
   } else
     return; // Neither `for' nor `while'.
 
