@@ -10,6 +10,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 #include "CompilationUtils.h"
+#include "VectorVariant.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -145,6 +146,9 @@ bool WIAnalysis::runOnFunction(Function &F) {
 
   m_SchedulingConstraints.clear();
 
+  // initialize predefined WI dependencies
+  initPredefinedDependencies(F);
+
   // Compute the  first iteration of the WI-dep according to ordering
   // instructions this ordering is generally good (as it usually correlates
   // well with dominance).
@@ -189,6 +193,27 @@ bool WIAnalysis::runOnFunction(Function &F) {
   }
 
   return false;
+}
+
+void WIAnalysis::initPredefinedDependencies(Function &F) {
+  VectorVariant vectorVariant(F.getName());
+  const Function::ArgumentListType& arguments = F.getArgumentList();
+  std::vector<VectorKind>& parameters = vectorVariant.getParameters();
+  assert(arguments.size() == parameters.size() &&
+	 "Vector variant doesn't match function parameters");
+  Function::ArgumentListType::const_iterator argIt = arguments.begin();
+  Function::ArgumentListType::const_iterator argEnd = arguments.end();
+  std::vector<VectorKind>::iterator vkIt = parameters.begin();
+  for (; argIt != argEnd; argIt++, vkIt++) {
+    const Value& argument = *argIt;
+    VectorKind& vectorKind = *vkIt;
+    WIDependancy dep = WIDependancy::RANDOM;
+    if (vectorKind.isUniform())
+      dep = WIDependancy::UNIFORM;
+    else if (vectorKind.isLinear())
+      dep = WIDependancy::CONSECUTIVE;
+    m_deps[&argument] = dep;
+  }
 }
 
 void WIAnalysis::updateDeps() {

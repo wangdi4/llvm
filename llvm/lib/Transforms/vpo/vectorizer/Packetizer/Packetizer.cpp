@@ -2975,9 +2975,22 @@ void PacketizeFunction::packetizeInstruction(ReturnInst *RI)
 {
   V_PRINT(packetizer, "\t\tRet Instruction\n");
   V_ASSERT(RI && "instruction type dynamic cast failed");
-  V_ASSERT(NULL == RI->getReturnValue());
-  // Just use the existing instruction
-  return useOriginalConstantInstruction(RI);
+  Value* retVal = RI->getReturnValue();
+  if (retVal == NULL) {
+    // Empty return: just use the existing instruction
+    return useOriginalConstantInstruction(RI);
+  }
+  Type* returnType = retVal->getType();
+  if (!returnType->isVectorTy()) {
+    // Scalar return type: just use the existing instruction
+    return useOriginalConstantInstruction(RI);
+  }
+  // Signature expects a scalar: return the first element of the vector
+  // to keep the function valid.
+  Value* zero = ConstantInt::get(Type::getInt32Ty(RI->getContext()), 0);
+  Value *fakeRetVal = ExtractElementInst::Create(retVal, zero, "fake_return_val", RI);
+  ReturnInst::Create(RI->getContext(), fakeRetVal, RI->getParent());
+  m_removedInsts.insert(RI); // Remove original instruction
 }
 
 

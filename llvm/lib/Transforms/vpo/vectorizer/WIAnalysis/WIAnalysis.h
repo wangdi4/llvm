@@ -58,6 +58,13 @@ public:
     /// @return True if changed
     virtual bool runOnFunction(Function &F);
 
+    /// @brief Initialize root values
+    /// Some values (e.g. the function's parameters) can have a predefined
+    /// WI dependency. These predefined values jumpstart the analysis by
+    /// injecting non-default dependencies.
+    /// @param F Function being analyzed
+    void initPredefinedDependencies(Function &F);
+
     /// @brief Update dependency relations between all values
     void updateDeps();
 

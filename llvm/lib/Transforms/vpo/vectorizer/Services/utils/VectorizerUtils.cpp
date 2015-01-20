@@ -565,6 +565,27 @@ Instruction *VectorizerUtils::createBroadcast(Value *pVal, unsigned int width, I
   return shuffle;
 }
 
+Instruction *VectorizerUtils::createConsecutiveVector(Value *pVal, unsigned int width, Instruction* whereTo, bool insertAfter) {
+  Instruction *broadcastedValue = createBroadcast(pVal, width, whereTo, insertAfter);
+  std::vector<Constant*> consecutiveConstants;
+  for (unsigned int i = 0; i < width; i++)
+    consecutiveConstants.push_back(ConstantInt::get(Type::getInt32Ty(pVal->getContext()), i));
+  Constant *incrementalVector = ConstantVector::get(consecutiveConstants);
+  Instruction *nullInstruction = NULL;
+  BinaryOperator *consecutiveVector =
+    BinaryOperator::CreateAdd(broadcastedValue, incrementalVector, "consecutiveValue", nullInstruction);
+
+  // Insert instructions in reverse order after the broadcast value
+  consecutiveVector->insertAfter(broadcastedValue);
+
+  if(Instruction *pInst = dyn_cast<Instruction>(pVal)) {
+    // Set debug location
+    SetDebugLocBy(consecutiveVector, pInst);
+  }
+
+  return consecutiveVector;
+}
+
 unsigned int VectorizerUtils::getBSR(uint64_t number) {
   unsigned int res = 0;
   for(int i=63; i>=0; --i) {

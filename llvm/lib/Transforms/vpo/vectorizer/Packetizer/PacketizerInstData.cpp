@@ -80,6 +80,7 @@ void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValu
     origValue->getType()->isIntegerTy() ||
     origValue->getType()->isFloatingPointTy())
     && "Trying to get a packetized value of non-primitive type!");
+  *retValue = NULL;
   if (isa<Instruction>(origValue))
   {
     Instruction *origInst = cast<Instruction>(origValue);
@@ -144,7 +145,45 @@ void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValu
       createDummyVectorVal(origValue, retValue);
     }
   }
-  else
+  else if (isa<Argument>(origValue))
+  {
+    if (m_VCM.count(origValue))
+    {
+      // Entry is found in VCM
+      VCMEntry * foundEntry = m_VCM[origValue];
+      V_ASSERT(foundEntry->vectorValue != NULL && "expected vector value for argument");
+      *retValue = foundEntry->vectorValue;
+    }
+    else
+    {
+      // Create a new entry in VCM
+      Instruction* vectorValue;
+      switch (m_depAnalysis->whichDepend(origValue)) {
+        case WIAnalysis::CONSECUTIVE:
+	  vectorValue = VectorizerUtils::createConsecutiveVector(origValue, m_packetWidth,
+								 findInsertPoint(origValue),
+								 false);
+	  break;
+        case WIAnalysis::RANDOM:
+	  vectorValue = VectorizerUtils::createBroadcast(origValue, m_packetWidth,
+							 findInsertPoint(origValue),
+							 false);
+	  break;
+        default:
+	  vectorValue = NULL;
+	  break;
+      }
+      if (vectorValue) {
+	VCMEntry* newEntry = allocateNewVCMEntry();
+	newEntry->vectorValue = vectorValue;
+	newEntry->isScalarRemoved = false;
+	m_VCM.insert(std::pair<Value *, VCMEntry *>(origValue, newEntry));
+	*retValue = vectorValue;
+      }
+    }
+  }
+
+  if (*retValue == NULL)
   {
     Value * broadcastedVal;
     // Check if this value is a "proper" constant value, or an Undef
@@ -158,24 +197,25 @@ void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValu
       // Check in BAG (broadcast arguments and globals) whether we have this value already
       if (m_BAG.count(origValue))
       {
-        // Value was already broadcasted. use it
-        broadcastedVal = m_BAG[origValue];
-        V_ASSERT(broadcastedVal && "BAG held null value");
+	// Value was already broadcasted. use it
+	broadcastedVal = m_BAG[origValue];
+	V_ASSERT(broadcastedVal && "BAG held null value");
       }
       else
       {
-        // Need to broadcast the value
-        //    %temp   = insertelement <4 x Type> undef  , Type %value, i32 0
-        //    %vector = shufflevector <4 x Type> %temp, <4 x Type> %undef, <4 x i32> <0,0,0,0>
-        broadcastedVal = VectorizerUtils::createBroadcast(origValue, m_packetWidth, findInsertPoint(origValue), true);
-        // Add broadcast to BAG
-        m_BAG.insert(std::pair<Value*,Value*>(origValue, broadcastedVal));
+	// Need to broadcast the value
+	//    %temp   = insertelement <4 x Type> undef  , Type %value, i32 0
+	//    %vector = shufflevector <4 x Type> %temp, <4 x Type> %undef, <4 x i32> <0,0,0,0>
+	broadcastedVal = VectorizerUtils::createBroadcast(origValue, m_packetWidth, findInsertPoint(origValue), true);
+	// Add broadcast to BAG
+	m_BAG.insert(std::pair<Value*,Value*>(origValue, broadcastedVal));
       }
     }
 
     // Put broadcasted constant in returned structure
     *retValue = broadcastedVal;
   }
+
   V_PRINT(packetizer,
       "\t\tObtained vectorized value(s) of type: " << *((*retValue)->getType()) << "\n");
 }

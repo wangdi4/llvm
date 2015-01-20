@@ -7,6 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __MAIN_H__
 #define __MAIN_H__
 
+#include "VectorVariant.h"
 #include "BuiltinLibInfo.h"
 #include "Logger.h"
 
@@ -51,6 +52,9 @@ public:
 
 private:
 
+    Function* createVectorVersion(Function& vectorizedFunction,
+				  VectorVariant& vectorVariant,
+				  std::string scalarFuncName);
     void createVectorizationStubs(Module& M);
     void deleteVectorizationStubs();
     /// @brief declarations for functions used for expressing vectorization

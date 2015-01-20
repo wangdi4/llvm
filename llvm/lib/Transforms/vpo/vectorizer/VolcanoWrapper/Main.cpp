@@ -176,6 +176,161 @@ void Vectorizer::deleteVectorizationStubs() {
     (*it)->eraseFromParent();
 }
 
+string guessVectorVariant(Function& F) {
+  stringstream sst;
+  sst << "_ZGV";
+  sst << 'Y'; // AVX2
+  sst << 'N'; // No mask
+  sst << '8'; // vlen
+  const Function::ArgumentListType& arguments = F.getArgumentList();
+  Function::ArgumentListType::const_iterator argIt = arguments.begin();
+  Function::ArgumentListType::const_iterator argEnd = arguments.end();
+  for (; argIt != argEnd; argIt++) {
+    const Value& argument = *argIt;
+    StringRef argName = argument.getName();
+    if (argName[0] == 'u')
+      sst << 'u';
+    else if (argName[0] == 'l')
+      sst << 'l';
+    else
+      sst << 'v';
+  }
+  sst << "_";
+  return sst.str();
+}
+
+Function* Vectorizer::createVectorVersion(Function& vectorizedFunction,
+					  VectorVariant& vectorVariant,
+					  std::string scalarFuncName) {
+  // Create a new function type with vector types for the RANDOM parameters
+  FunctionType* originalFunctionType = vectorizedFunction.getFunctionType();
+  Type* originalReturnType = originalFunctionType->getReturnType();
+  Type* vectorReturnType;
+  if (originalReturnType->isVoidTy())
+    vectorReturnType = originalReturnType;
+  else
+    vectorReturnType = VectorType::get(originalFunctionType->getReturnType(),
+				       vectorVariant.getVlen());
+  std::vector<VectorKind> parameterKinds = vectorVariant.getParameters();
+  vector<Type*> parameterTypes;
+  assert(originalFunctionType->getNumParams() == parameterKinds.size());
+  FunctionType::param_iterator it = originalFunctionType->param_begin();
+  FunctionType::param_iterator end = originalFunctionType->param_end();
+  std::vector<VectorKind>::iterator vkIt = parameterKinds.begin();
+  for (; it != end; it++, vkIt++) {
+    if (vkIt->isVector())
+      parameterTypes.push_back(VectorType::get(*it, vectorVariant.getVlen()));
+    else
+      parameterTypes.push_back(*it);
+  }
+  FunctionType* vectorFunctionType = FunctionType::get(vectorReturnType,
+						       parameterTypes,
+						       false);
+  std::string name = vectorVariant.encode() + scalarFuncName;
+  Function* wrapperFunc = Function::Create(vectorFunctionType,
+					   vectorizedFunction.getLinkage(),
+					   name,
+					   vectorizedFunction.getParent());
+  wrapperFunc->copyAttributesFrom(&vectorizedFunction);
+  BasicBlock* entryBB = BasicBlock::Create(wrapperFunc->getContext(),
+					   "wrapper.entry",
+					   wrapperFunc);
+
+  std::vector<ExtractElementInst*> extractedValues;
+  std::vector<Instruction*> removedInstructions;
+
+  // Generate a call to the vectorized function and return its value
+  Value* zero = ConstantInt::get(Type::getInt32Ty(wrapperFunc->getContext()), 0);
+  Function::arg_iterator argIt = wrapperFunc->arg_begin();
+  Function::arg_iterator argEnd = wrapperFunc->arg_end();
+  Function::arg_iterator origArgIt = vectorizedFunction.arg_begin();
+  std::vector<Value*> callArguments;
+  for (vkIt = parameterKinds.begin(); argIt != argEnd; argIt++, origArgIt++, vkIt++) {
+    argIt->setName(origArgIt->getName());
+    if (vkIt->isVector()) {
+      // Create extract element 0 as the fake scalar argument
+      ExtractElementInst* fakeScalarArg =
+	ExtractElementInst::Create(&*argIt, zero, "fake_arg", entryBB);
+      extractedValues.push_back(fakeScalarArg);
+      callArguments.push_back(fakeScalarArg);
+    }
+    else
+      callArguments.push_back(&*argIt);
+  }
+  CallInst* call = CallInst::Create(&vectorizedFunction,
+				    callArguments,
+				    (vectorReturnType->isVoidTy() ? "" : "scalar_ret_val"),
+				    entryBB);
+
+  if (vectorReturnType->isVoidTy())
+    ReturnInst::Create(wrapperFunc->getContext(), entryBB);
+  else
+  {
+    // Return the function's (scalar) return value as a vector
+    Value* undefs = UndefValue::get(vectorReturnType);
+    Instruction* fakeRetVal =
+      InsertElementInst::Create(undefs, call, zero, "fake_ret_val", entryBB);
+    ReturnInst::Create(wrapperFunc->getContext(), fakeRetVal, entryBB);
+  }
+
+  // Inline the wrapper call
+  InlineFunctionInfo ifi;
+  bool inlined = llvm::InlineFunction(call, ifi, false);
+  assert(inlined && "expected inline to succeed");
+
+  // Fix the vector arguments to be used correctly instead of the fake
+  // extract/insert element pair
+  std::vector<ExtractElementInst*>::iterator extractedIt = extractedValues.begin();
+  std::vector<ExtractElementInst*>::iterator extractedEnd = extractedValues.end();
+  for (; extractedIt != extractedEnd; extractedIt++) {
+    ExtractElementInst* eei = *extractedIt;
+    assert(eei->getNumUses() == 1 && "expected exactly 1 use for extract-element");
+    User* eeiUser = eei->user_back();
+    InsertElementInst* iei = dyn_cast<InsertElementInst>(eeiUser);
+    assert(iei && "expected user to be an insert-element");
+    assert(iei->getNumUses() == 1 && "expected exactly 1 use for insert-element");
+    User* ieiUser = iei->user_back();
+    ShuffleVectorInst* svi = dyn_cast<ShuffleVectorInst>(ieiUser);
+    assert(svi && "expected user to be a shuffle-vector");
+    svi->replaceAllUsesWith(eei->getVectorOperand());
+    removedInstructions.push_back(eei);
+    removedInstructions.push_back(iei);
+    removedInstructions.push_back(svi);
+  }
+
+  if (!vectorReturnType->isVoidTy()) {
+    // Fix the return value to use the actual vector result instead of the fake
+    // extract/insert element pair
+    Function::iterator bbIt = wrapperFunc->begin(), bbEnd = wrapperFunc->end();
+    for (; bbIt != bbEnd; bbIt++) {
+      TerminatorInst* terminator = bbIt->getTerminator();
+      ReturnInst* returnInst = dyn_cast<ReturnInst>(terminator);
+      if (!returnInst)
+	continue;
+      InsertElementInst* iei = dyn_cast<InsertElementInst>(returnInst->getReturnValue());
+      assert(iei && "expected return value to be an insert-element");
+      assert(iei->getNumUses() == 1 && "expected exactly 1 use for insert-element");
+      ExtractElementInst* eei = dyn_cast<ExtractElementInst>(iei->getOperand(1));
+      assert(eei && "expected fake scalar return value to be extract-element");
+      Value* actualVectorRetVal = eei->getVectorOperand();
+      eei->replaceAllUsesWith(actualVectorRetVal);
+      removedInstructions.push_back(iei);
+      removedInstructions.push_back(eei);
+      break; // there can be only one
+    }
+  }
+
+  // Erase all fake values
+  std::vector<Instruction*>::iterator removedIt = removedInstructions.begin();
+  std::vector<Instruction*>::iterator removedEnd = removedInstructions.end();
+  for (; removedIt != removedEnd; removedIt++) {
+    (*removedIt)->replaceAllUsesWith(UndefValue::get((*removedIt)->getType()));
+    (*removedIt)->eraseFromParent();
+  }
+
+  return wrapperFunc;
+}
+
 bool Vectorizer::runOnModule(Module &M)
 {
   V_PRINT(wrapper, "\nEntered Vectorizer Wrapper!\n");
@@ -257,7 +412,8 @@ bool Vectorizer::runOnModule(Module &M)
       // Clone the kernel
       ValueToValueMapTy vmap;
       Function *clone = CloneFunction(*fi, vmap, true, NULL);
-      clone->setName("__Vectorized_." + (*fi)->getName());
+      VectorVariant vectorVariant(guessVectorVariant(**fi));
+      clone->setName(vectorVariant.encode() + "_Vectorized_." + (*fi)->getName());
       M.getFunctionList().push_back(clone);
 
       // Todo: due to a bug in the metadata we can't save changes more than once
@@ -274,12 +430,13 @@ bool Vectorizer::runOnModule(Module &M)
       vectPM.run(*clone);
       if (vectCore->isFunctionVectorized()) {
         // if the function is successfully vectorized update vectFunc and width.
-        vectFunc = clone;
         vectFuncWidth = vectCore->getPacketWidth();
         vectDim = vectCore->getVectorizationDim();
         canUniteWorkgroups = vectCore->getCanUniteWorkgroups();
+	// Create the final version version with the corrent signature
+        vectFunc = createVectorVersion(*clone, vectorVariant, (*fi)->getName().str());
         // copy stats from the original function to the new one
-        intel::Statistic::copyFunctionStats(**fi, *clone);
+        intel::Statistic::copyFunctionStats(**fi, *vectFunc);
       } else {
         // We can't or choose not to vectorize the kernel, erase the clone from the module.
         // but first copy the vectorizer stats back to the original function

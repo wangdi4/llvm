@@ -81,6 +81,14 @@ public:
   /// @return new broadcast vector
   static llvm::Instruction *createBroadcast(llvm::Value * pVal, unsigned int packetWidth, llvm::Instruction* whereTo, bool insertAfter = false);
 
+  /// @brief Creates a consecutive vector (<pVal, pVal, ...> + <0, 1, ... width>)
+  /// @param pVal value to prodcast
+  /// @param packetWidth width of generated vector with broadcast value
+  /// @param whereTo instruction to insert new instructions before or after
+  /// @param insertAfter if true, insert after whereTo instruction, otherwise insert before it.
+  /// @return new consecutive vector
+  static llvm::Instruction *createConsecutiveVector(llvm::Value *pVal, unsigned int width, llvm::Instruction* whereTo, bool insertAfter = false);
+
   /// @brief Calculate BSR - (bit set reverse order) if argument is not zero
   ///  it is equivalent to count-leading-zeroes + 1. Mathematically, it computes floor(log(x)).
   /// @param number given number
