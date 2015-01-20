@@ -64,7 +64,6 @@ bool clExecutionTest();
 bool clCreateBufferTest();
 bool clCreateSubBufferTest();
 bool clEnqueueRWBuffer();
-bool clFastRelaxedMathModeTest();
 bool clImagePermissions();
 bool clOutOfOrderTest();
 bool clOODotProductTest( int iNumLoops );
