@@ -435,6 +435,7 @@ bool Vectorizer::runOnModule(Module &M)
         canUniteWorkgroups = vectCore->getCanUniteWorkgroups();
 	// Create the final version version with the corrent signature
         vectFunc = createVectorVersion(*clone, vectorVariant, (*fi)->getName().str());
+	clone->eraseFromParent();
         // copy stats from the original function to the new one
         intel::Statistic::copyFunctionStats(**fi, *vectFunc);
       } else {
