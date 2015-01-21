@@ -44,7 +44,7 @@ extern "C" void dumpDebugPoint(std::string tag, std::string title) {
   ++dbg_counter;
   out.flush();
 }
-extern "C" void dumpModule(std::string tag, 
+extern "C" void dumpModule(std::string tag,
   std::string title,
   llvm::Module& module) {
   static unsigned int pre_counter = 0;
@@ -56,7 +56,7 @@ extern "C" void dumpModule(std::string tag,
   stream << module;
   ++pre_counter;
   stream.flush();
-  out << buffer; 
+  out << buffer;
   out.flush();
 }
 #endif // __DEBUG
@@ -109,7 +109,8 @@ RenderscriptVectorizer::RenderscriptVectorizer() :
             false,
             false,
             false,
-            0);
+            0,
+            1);
   V_INIT_PRINT;
 }
 
@@ -246,7 +247,7 @@ extern "C" intel::OptimizerConfig* createRenderscriptConfiguration(int width)
 
   Intel::CPUId cpuId(Intel::CPU_COREI7, Intel::CFS_SSE42, false);
 
-  return new intel::OptimizerConfig(cpuId, 
+  return new intel::OptimizerConfig(cpuId,
             width,
             dumpIROptionAfter,
             dumpIROptionBefore,
@@ -257,12 +258,13 @@ extern "C" intel::OptimizerConfig* createRenderscriptConfiguration(int width)
             false,
             false,
             false,
-            0);
+            0,
+            1);
 }
 
 extern "C" void deleteRenderscriptConfiguration(intel::OptimizerConfig*& pConfig)
 {
-  V_ASSERT(NULL != pConfig && "Trying to delete a null object!"); 
+  V_ASSERT(NULL != pConfig && "Trying to delete a null object!");
   delete pConfig;
   pConfig = NULL;
 }

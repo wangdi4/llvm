@@ -24,7 +24,8 @@ public:
             bool relaxedMath,
             bool libraryModule,
             bool heuristicIR,
-            int  APFLevel):
+            int  APFLevel,
+            int rtLoopUnrollFactor):
       m_cpuId(cpuId),
       m_transposeSize(tranposeSize),
       m_dumpIROptionsAfter(dumpIROptionAfter),
@@ -36,7 +37,8 @@ public:
       m_relaxedMath(relaxedMath),
       m_libraryModule(libraryModule),
       m_dumpHeuristicIR(heuristicIR),
-      m_APFLevel(APFLevel)
+      m_APFLevel(APFLevel),
+      m_rtLoopUnrollFactor(rtLoopUnrollFactor)
     {}
 
     const Intel::CPUId &GetCpuId() const { return m_cpuId; }
@@ -49,6 +51,7 @@ public:
     bool GetDebugInfoFlag() const { return m_debugInfo; }
     bool GetProfilingFlag() const { return m_profiling; }
     bool GetRelaxedMath()   const { return m_relaxedMath; }
+    int GetRTLoopUnrollFactor() const { return m_rtLoopUnrollFactor; }
     // Sets whether optimized code is library module or not (contains kernels)
     // If this options is set to true then some optimization passes will be skipped
     bool GetLibraryModule()   const { return m_libraryModule; }
@@ -73,6 +76,8 @@ private:
     bool m_dumpHeuristicIR;
     // Auto prefetch disable options
     int  m_APFLevel;
+
+    int m_rtLoopUnrollFactor;
 };
 
 
