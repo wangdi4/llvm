@@ -161,9 +161,9 @@ public:
         return !m_quIncomingWork.IsEmpty();
     }
 
-    virtual bool IsProfilingEnabled() const { return m_bProfilingEnabled; }
+    virtual bool IsProfilingEnabled() const { return m_bProfilingEnabled; }    
 
-    void Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, IThreadLibTaskGroup& taskGroup);
+    virtual ITaskList* GetDebugInOrderDeviceQueue();
 
 protected:
     friend class in_order_executor_task;
@@ -234,7 +234,9 @@ public:
 
     virtual bool IsProfilingEnabled() const { return false; }
 
-    virtual bool IsMasterJoined() const { return m_bMasterRunning;}
+    virtual bool IsMasterJoined() const { return m_bMasterRunning;}  
+
+    virtual void Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, IThreadLibTaskGroup& taskGroup);
 
 protected:
 
@@ -291,9 +293,9 @@ public:
     void WaitForIdle();
     bool DoesSupportDeviceSideCommandEnqueue() const { return true; }
 
-    virtual SharedPtr<IThreadLibTaskGroup> GetNDRangeChildrenTaskGroup() { return TbbTaskGroup::Allocate(); }
+    virtual SharedPtr<IThreadLibTaskGroup> GetNDRangeChildrenTaskGroup() { return TbbTaskGroup::Allocate(); }    
 
-    virtual ITaskList* GetDebugInOrderDeviceQueue();
+    void Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, IThreadLibTaskGroup& taskGroup);
 
 private:
     virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = NULL);
@@ -350,6 +352,8 @@ public:
     virtual bool IsProfilingEnabled() const { return false; }
 
     bool IsMasterJoined() const { return true;}
+
+    virtual void Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, IThreadLibTaskGroup& taskGroup);
 
 protected:
 
