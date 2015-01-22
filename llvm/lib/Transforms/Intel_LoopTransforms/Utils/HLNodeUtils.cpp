@@ -1,0 +1,68 @@
+//===------- HLNodeUtils.cpp - Implements HLNodeUtils class ------*- C++ -*-===//
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements HLNodeUtils class.
+//
+//===----------------------------------------------------------------------===//
+
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/IR/Intel_LoopIR/HLNode.h"
+#include "llvm/IR/Intel_LoopIR/HLRegion.h"
+#include "llvm/IR/Intel_LoopIR/HLSwitch.h"
+#include "llvm/IR/Intel_LoopIR/HLLabel.h"
+#include "llvm/IR/Intel_LoopIR/HLGoto.h"
+#include "llvm/IR/Intel_LoopIR/HLInst.h"
+#include "llvm/IR/Intel_LoopIR/HLIf.h"
+#include "llvm/IR/Intel_LoopIR/HLLoop.h"
+
+using namespace llvm;
+using namespace loopopt;
+
+HLRegion* HLNodeUtils::createHLRegion(std::set< BasicBlock* >& OrigBBs,
+  BasicBlock* PredBB, BasicBlock* SuccBB) {
+
+  return new HLRegion(OrigBBs, PredBB, SuccBB);
+}
+
+HLSwitch* HLNodeUtils::createHLSwitch(HLNode* Par) {
+  return new HLSwitch(Par);
+}
+
+HLLabel* HLNodeUtils::createHLLabel(BasicBlock* SrcBB, HLNode* Par) {
+  return new HLLabel(Par, SrcBB);
+}
+
+HLGoto* HLNodeUtils::createHLGoto(BasicBlock* TargetBB, HLLabel* TargetL, 
+  HLNode* Par) {
+  
+  return new HLGoto(Par, TargetBB, TargetL);
+}
+
+HLInst* HLNodeUtils::createHLInst(Instruction* In, HLNode* Par) {
+  return new HLInst(Par, In);
+}
+
+HLIf* HLNodeUtils::createHLIf(HLNode* Par) {
+  return new HLIf(Par);
+}
+
+HLLoop* HLNodeUtils::createHLLoop(HLNode* Par, HLIf* ZttIf, bool isDoWh, 
+  unsigned NumEx) {
+
+  return new HLLoop(Par, ZttIf, isDoWh, NumEx);
+}
+
+void HLNodeUtils::destroy(HLNode* Node) {
+  Node->destroy();
+}
+
+void HLNodeUtils::destroyAll() {
+  HLNode::destroyAll();
+}
+

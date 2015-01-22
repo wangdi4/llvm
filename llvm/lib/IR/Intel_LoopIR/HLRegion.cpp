@@ -1,0 +1,30 @@
+//===--- HLRegion.cpp - Implements the HLRegion class ---------------------===//
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the HLRegion class.
+//
+//===----------------------------------------------------------------------===//
+
+#include "llvm/IR/Intel_LoopIR/HLRegion.h"
+
+using namespace llvm;
+using namespace llvm::loopopt;
+
+HLRegion::HLRegion(std::set< BasicBlock* >& OrigBBs,
+  BasicBlock* PredBB, BasicBlock* SuccBB)
+  : HLNode(HLNode::HLRegionVal, nullptr), OrigBBlocks(OrigBBs)
+  , PredBBlock(PredBB), SuccBBlock(SuccBB) { }
+
+
+HLRegion* HLRegion::clone_impl() const {
+  // TODO: placeholder, implement later
+  return nullptr;
+}
+
+
