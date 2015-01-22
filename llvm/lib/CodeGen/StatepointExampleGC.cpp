@@ -16,9 +16,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/CodeGen/GCStrategy.h"
-#include "llvm/IR/Value.h"
+#include "llvm/IR/GCStrategy.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Value.h"
 
 using namespace llvm;
 
@@ -33,7 +33,6 @@ public:
     NeededSafePoints = 0;
     UsesMetadata = false;
     CustomRoots = false;
-    CustomSafePoints = false;
   }
   Optional<bool> isGCManagedPointer(const Value *V) const override {
     // Method is only valid on pointer typed values.

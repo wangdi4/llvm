@@ -27,7 +27,6 @@
 #include <stdio.h>
 #include <wchar.h>
 #include <math.h>
-#include <malloc.h>
 
 #include <arpa/inet.h>
 #include <dlfcn.h>
@@ -43,19 +42,25 @@
 #include <sys/resource.h>
 #include <sys/ioctl.h>
 #include <sys/statvfs.h>
-#include <sys/sysinfo.h>
 #include <sys/utsname.h>
 #include <sys/mman.h>
-#include <sys/vfs.h>
 #include <dirent.h>
 #include <pwd.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <wordexp.h>
-#include <mntent.h>
-#include <netinet/ether.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+
+#if !defined(__FreeBSD__)
+# include <malloc.h>
+# include <sys/sysinfo.h>
+# include <sys/vfs.h>
+# include <mntent.h>
+# include <netinet/ether.h>
+#else
+# include <netinet/in.h>
+#endif
 
 #if defined(__i386__) || defined(__x86_64__)
 # include <emmintrin.h>
@@ -66,6 +71,13 @@
 
 #ifdef __AVX2__
 # include <immintrin.h>
+#endif
+
+// On FreeBSD procfs is not enabled by default.
+#if defined(__FreeBSD__)
+# define FILE_TO_READ "/bin/cat"
+#else
+# define FILE_TO_READ "/proc/self/stat"
 #endif
 
 static const size_t kPageSize = 4096;
@@ -559,7 +571,7 @@ TEST(MemorySanitizer, strerror_r) {
 
 TEST(MemorySanitizer, fread) {
   char *x = new char[32];
-  FILE *f = fopen("/proc/self/stat", "r");
+  FILE *f = fopen(FILE_TO_READ, "r");
   ASSERT_TRUE(f != NULL);
   fread(x, 1, 32, f);
   EXPECT_NOT_POISONED(x[0]);
@@ -571,7 +583,7 @@ TEST(MemorySanitizer, fread) {
 
 TEST(MemorySanitizer, read) {
   char *x = new char[32];
-  int fd = open("/proc/self/stat", O_RDONLY);
+  int fd = open(FILE_TO_READ, O_RDONLY);
   ASSERT_GT(fd, 0);
   int sz = read(fd, x, 32);
   ASSERT_EQ(sz, 32);
@@ -584,7 +596,7 @@ TEST(MemorySanitizer, read) {
 
 TEST(MemorySanitizer, pread) {
   char *x = new char[32];
-  int fd = open("/proc/self/stat", O_RDONLY);
+  int fd = open(FILE_TO_READ, O_RDONLY);
   ASSERT_GT(fd, 0);
   int sz = pread(fd, x, 32, 0);
   ASSERT_EQ(sz, 32);
@@ -602,7 +614,7 @@ TEST(MemorySanitizer, readv) {
   iov[0].iov_len = 5;
   iov[1].iov_base = buf + 10;
   iov[1].iov_len = 2000;
-  int fd = open("/proc/self/stat", O_RDONLY);
+  int fd = open(FILE_TO_READ, O_RDONLY);
   ASSERT_GT(fd, 0);
   int sz = readv(fd, iov, 2);
   ASSERT_GE(sz, 0);
@@ -626,7 +638,7 @@ TEST(MemorySanitizer, preadv) {
   iov[0].iov_len = 5;
   iov[1].iov_base = buf + 10;
   iov[1].iov_len = 2000;
-  int fd = open("/proc/self/stat", O_RDONLY);
+  int fd = open(FILE_TO_READ, O_RDONLY);
   ASSERT_GT(fd, 0);
   int sz = preadv(fd, iov, 2, 3);
   ASSERT_GE(sz, 0);
@@ -657,10 +669,9 @@ TEST(MemorySanitizer, readlink) {
   delete [] x;
 }
 
-
 TEST(MemorySanitizer, stat) {
   struct stat* st = new struct stat;
-  int res = stat("/proc/self/stat", st);
+  int res = stat(FILE_TO_READ, st);
   ASSERT_EQ(0, res);
   EXPECT_NOT_POISONED(st->st_dev);
   EXPECT_NOT_POISONED(st->st_mode);
@@ -973,7 +984,6 @@ TEST(MemorySanitizer, recvmsg) {
   ASSERT_EQ(0, res);
   ASSERT_EQ(sizeof(client_sai), sz);
 
-  
   const char *s = "message text";
   struct iovec iov;
   iov.iov_base = (void *)s;
@@ -1157,7 +1167,7 @@ TEST(MemorySanitizer, shmctl) {
 
 TEST(MemorySanitizer, shmat) {
   void *p = mmap(NULL, 4096, PROT_READ | PROT_WRITE,
-                 MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+                 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   ASSERT_NE(MAP_FAILED, p);
 
   ((char *)p)[10] = *GetPoisoned<U1>();
@@ -1538,55 +1548,74 @@ TEST(MemorySanitizer, strncat_overflow) {  // NOLINT
   EXPECT_POISONED(a[7]);
 }
 
-#define TEST_STRTO_INT(func_name)          \
-  TEST(MemorySanitizer, func_name) {       \
-    char *e;                               \
-    EXPECT_EQ(1U, func_name("1", &e, 10)); \
-    EXPECT_NOT_POISONED((S8)e);            \
+#define TEST_STRTO_INT(func_name, char_type, str_prefix) \
+  TEST(MemorySanitizer, func_name) {                     \
+    char_type *e;                                        \
+    EXPECT_EQ(1U, func_name(str_prefix##"1", &e, 10));   \
+    EXPECT_NOT_POISONED((S8)e);                          \
   }
 
-#define TEST_STRTO_FLOAT(func_name)     \
-  TEST(MemorySanitizer, func_name) {    \
-    char *e;                            \
-    EXPECT_NE(0, func_name("1.5", &e)); \
-    EXPECT_NOT_POISONED((S8)e);         \
+#define TEST_STRTO_FLOAT(func_name, char_type, str_prefix) \
+  TEST(MemorySanitizer, func_name) {                       \
+    char_type *e;                                          \
+    EXPECT_NE(0, func_name(str_prefix##"1.5", &e));        \
+    EXPECT_NOT_POISONED((S8)e);                            \
   }
 
-#define TEST_STRTO_FLOAT_LOC(func_name)                          \
+#define TEST_STRTO_FLOAT_LOC(func_name, char_type, str_prefix)   \
   TEST(MemorySanitizer, func_name) {                             \
     locale_t loc = newlocale(LC_NUMERIC_MASK, "C", (locale_t)0); \
-    char *e;                                                     \
-    EXPECT_NE(0, func_name("1.5", &e, loc));                     \
+    char_type *e;                                                \
+    EXPECT_NE(0, func_name(str_prefix##"1.5", &e, loc));         \
     EXPECT_NOT_POISONED((S8)e);                                  \
     freelocale(loc);                                             \
   }
 
-#define TEST_STRTO_INT_LOC(func_name)                            \
+#define TEST_STRTO_INT_LOC(func_name, char_type, str_prefix)     \
   TEST(MemorySanitizer, func_name) {                             \
     locale_t loc = newlocale(LC_NUMERIC_MASK, "C", (locale_t)0); \
-    char *e;                                                     \
-    ASSERT_EQ(1U, func_name("1", &e, 10, loc));                  \
+    char_type *e;                                                \
+    ASSERT_EQ(1U, func_name(str_prefix##"1", &e, 10, loc));      \
     EXPECT_NOT_POISONED((S8)e);                                  \
     freelocale(loc);                                             \
   }
 
-TEST_STRTO_INT(strtol)
-TEST_STRTO_INT(strtoll)
-TEST_STRTO_INT(strtoul)
-TEST_STRTO_INT(strtoull)
+TEST_STRTO_INT(strtol, char, )
+TEST_STRTO_INT(strtoll, char, )
+TEST_STRTO_INT(strtoul, char, )
+TEST_STRTO_INT(strtoull, char, )
 
-TEST_STRTO_FLOAT(strtof)
-TEST_STRTO_FLOAT(strtod)
-TEST_STRTO_FLOAT(strtold)
+TEST_STRTO_FLOAT(strtof, char, )
+TEST_STRTO_FLOAT(strtod, char, )
+TEST_STRTO_FLOAT(strtold, char, )
 
-TEST_STRTO_FLOAT_LOC(strtof_l)
-TEST_STRTO_FLOAT_LOC(strtod_l)
-TEST_STRTO_FLOAT_LOC(strtold_l)
+TEST_STRTO_FLOAT_LOC(strtof_l, char, )
+TEST_STRTO_FLOAT_LOC(strtod_l, char, )
+TEST_STRTO_FLOAT_LOC(strtold_l, char, )
 
-TEST_STRTO_INT_LOC(strtol_l)
-TEST_STRTO_INT_LOC(strtoll_l)
-TEST_STRTO_INT_LOC(strtoul_l)
-TEST_STRTO_INT_LOC(strtoull_l)
+TEST_STRTO_INT_LOC(strtol_l, char, )
+TEST_STRTO_INT_LOC(strtoll_l, char, )
+TEST_STRTO_INT_LOC(strtoul_l, char, )
+TEST_STRTO_INT_LOC(strtoull_l, char, )
+
+TEST_STRTO_INT(wcstol, wchar_t, L)
+TEST_STRTO_INT(wcstoll, wchar_t, L)
+TEST_STRTO_INT(wcstoul, wchar_t, L)
+TEST_STRTO_INT(wcstoull, wchar_t, L)
+
+TEST_STRTO_FLOAT(wcstof, wchar_t, L)
+TEST_STRTO_FLOAT(wcstod, wchar_t, L)
+TEST_STRTO_FLOAT(wcstold, wchar_t, L)
+
+TEST_STRTO_FLOAT_LOC(wcstof_l, wchar_t, L)
+TEST_STRTO_FLOAT_LOC(wcstod_l, wchar_t, L)
+TEST_STRTO_FLOAT_LOC(wcstold_l, wchar_t, L)
+
+TEST_STRTO_INT_LOC(wcstol_l, wchar_t, L)
+TEST_STRTO_INT_LOC(wcstoll_l, wchar_t, L)
+TEST_STRTO_INT_LOC(wcstoul_l, wchar_t, L)
+TEST_STRTO_INT_LOC(wcstoull_l, wchar_t, L)
+
 
 TEST(MemorySanitizer, strtoimax) {
   char *e;
@@ -1602,12 +1631,20 @@ TEST(MemorySanitizer, strtoumax) {
 
 #ifdef __GLIBC__
 extern "C" float __strtof_l(const char *nptr, char **endptr, locale_t loc);
-TEST_STRTO_FLOAT_LOC(__strtof_l)
+TEST_STRTO_FLOAT_LOC(__strtof_l, char, )
 extern "C" double __strtod_l(const char *nptr, char **endptr, locale_t loc);
-TEST_STRTO_FLOAT_LOC(__strtod_l)
+TEST_STRTO_FLOAT_LOC(__strtod_l, char, )
 extern "C" long double __strtold_l(const char *nptr, char **endptr,
                                    locale_t loc);
-TEST_STRTO_FLOAT_LOC(__strtold_l)
+TEST_STRTO_FLOAT_LOC(__strtold_l, char, )
+
+extern "C" float __wcstof_l(const wchar_t *nptr, wchar_t **endptr, locale_t loc);
+TEST_STRTO_FLOAT_LOC(__wcstof_l, wchar_t, L)
+extern "C" double __wcstod_l(const wchar_t *nptr, wchar_t **endptr, locale_t loc);
+TEST_STRTO_FLOAT_LOC(__wcstod_l, wchar_t, L)
+extern "C" long double __wcstold_l(const wchar_t *nptr, wchar_t **endptr,
+                                   locale_t loc);
+TEST_STRTO_FLOAT_LOC(__wcstold_l, wchar_t, L)
 #endif  // __GLIBC__
 
 TEST(MemorySanitizer, modf) {
@@ -4089,7 +4126,8 @@ TEST(MemorySanitizer, LargeAllocatorUnpoisonsOnFree) {
 
   // Allocate the page that was released to the OS in free() with the real mmap,
   // bypassing the interceptor.
-  char *q = (char *)real_mmap(p, 4096, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+  char *q = (char *)real_mmap(p, 4096, PROT_READ | PROT_WRITE,
+                              MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   ASSERT_NE((char *)0, q);
 
   ASSERT_TRUE(q <= p);

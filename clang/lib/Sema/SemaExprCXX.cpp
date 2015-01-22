@@ -113,6 +113,9 @@ ParsedType Sema::getDestructorName(SourceLocation TildeLoc,
   bool isDependent = false;
   bool LookInScope = false;
 
+  if (SS.isInvalid())
+    return ParsedType();
+
   // If we have an object type, it's because we are in a
   // pseudo-destructor-expression or a member access expression, and
   // we know what type we're looking for.
@@ -5991,8 +5994,10 @@ static ExprResult attemptRecovery(Sema &SemaRef,
       if (auto *NNS = TC.getCorrectionSpecifier())
         Record = NNS->getAsType()->getAsCXXRecordDecl();
       if (!Record)
-        Record = cast<CXXRecordDecl>(ND->getDeclContext()->getRedeclContext());
-      R.setNamingClass(Record);
+        Record =
+            dyn_cast<CXXRecordDecl>(ND->getDeclContext()->getRedeclContext());
+      if (Record)
+        R.setNamingClass(Record);
 
       // Detect and handle the case where the decl might be an implicit
       // member.

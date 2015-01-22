@@ -87,11 +87,17 @@ std::unique_ptr<File> PECOFFLinkingContext::createUndefinedSymbolFile() const {
       "<command line option /include>");
 }
 
+static int getGroupStartPos(std::vector<std::unique_ptr<Node>> &nodes) {
+  for (int i = 0, e = nodes.size(); i < e; ++i)
+    if (GroupEnd *group = dyn_cast<GroupEnd>(nodes[i].get()))
+      return i - group->getSize();
+  llvm::report_fatal_error("internal error");
+}
+
 void PECOFFLinkingContext::addLibraryFile(std::unique_ptr<FileNode> file) {
   GroupEnd *currentGroupEnd;
   int pos = -1;
-  std::vector<std::unique_ptr<InputElement>> &elements
-      = getInputGraph().inputElements();
+  std::vector<std::unique_ptr<Node>> &elements = getNodes();
   for (int i = 0, e = elements.size(); i < e; ++i) {
     if ((currentGroupEnd = dyn_cast<GroupEnd>(elements[i].get()))) {
       pos = i;
@@ -106,31 +112,29 @@ void PECOFFLinkingContext::addLibraryFile(std::unique_ptr<FileNode> file) {
 
 bool PECOFFLinkingContext::createImplicitFiles(
     std::vector<std::unique_ptr<File>> &) {
-  // Create a file for __ImageBase.
-  auto fileNode = llvm::make_unique<SimpleFileNode>("Implicit Files");
-  fileNode->appendInputFile(
-      llvm::make_unique<pecoff::LinkerGeneratedSymbolFile>(*this));
-  getInputGraph().addInputElement(std::move(fileNode));
-
-  // Create a file for _imp_ symbols.
-  auto impFileNode = llvm::make_unique<SimpleFileNode>("imp");
-  impFileNode->appendInputFile(
-      llvm::make_unique<pecoff::LocallyImportedSymbolFile>(*this));
-  getInputGraph().addInputElement(std::move(impFileNode));
-
-  std::shared_ptr<pecoff::ResolvableSymbols> syms(
-      new pecoff::ResolvableSymbols());
-  getInputGraph().registerObserver([=](File *file) { syms->add(file); });
-
-  // Create a file for dllexported symbols.
-  auto exportNode = llvm::make_unique<SimpleFileNode>("<export>");
-  exportNode->appendInputFile(
-      llvm::make_unique<pecoff::ExportedSymbolRenameFile>(*this, syms));
-  addLibraryFile(std::move(exportNode));
+  pecoff::ResolvableSymbols* syms = getResolvableSymsFile();
+  std::vector<std::unique_ptr<Node>> &members = getNodes();
 
   // Create a file for the entry point function.
-  getEntryNode()->appendInputFile(
-      llvm::make_unique<pecoff::EntryPointFile>(*this, syms));
+  std::unique_ptr<FileNode> entry(new FileNode(
+      llvm::make_unique<pecoff::EntryPointFile>(*this, syms)));
+  members.insert(members.begin() + getGroupStartPos(members), std::move(entry));
+
+  // Create a file for __ImageBase.
+  std::unique_ptr<FileNode> fileNode(new FileNode(
+      llvm::make_unique<pecoff::LinkerGeneratedSymbolFile>(*this)));
+  members.push_back(std::move(fileNode));
+
+  // Create a file for _imp_ symbols.
+  std::unique_ptr<FileNode> impFileNode(new FileNode(
+      llvm::make_unique<pecoff::LocallyImportedSymbolFile>(*this)));
+  members.push_back(std::move(impFileNode));
+
+  // Create a file for dllexported symbols.
+  std::unique_ptr<FileNode> exportNode(new FileNode(
+      llvm::make_unique<pecoff::ExportedSymbolRenameFile>(*this, syms)));
+  addLibraryFile(std::move(exportNode));
+
   return true;
 }
 
@@ -329,6 +333,31 @@ void PECOFFLinkingContext::addPasses(PassManager &pm) {
   pm.add(std::unique_ptr<Pass>(new pecoff::LoadConfigPass(*this)));
   pm.add(std::unique_ptr<Pass>(new pecoff::GroupedSectionsPass()));
   pm.add(std::unique_ptr<Pass>(new pecoff::InferSubsystemPass(*this)));
+}
+
+void pecoff::ResolvableSymbols::add(File *file) {
+  std::lock_guard<std::mutex> lock(_mutex);
+  if (_seen.count(file) > 0)
+    return;
+  _seen.insert(file);
+  _queue.insert(file);
+}
+
+void pecoff::ResolvableSymbols::readAllSymbols() {
+  std::lock_guard<std::mutex> lock(_mutex);
+  for (File *file : _queue) {
+    if (file->parse())
+      return;
+    if (auto *archive = dyn_cast<ArchiveLibraryFile>(file)) {
+      for (const std::string &sym : archive->getDefinedSymbols())
+	_defined.insert(sym);
+      continue;
+    }
+    for (const DefinedAtom *atom : file->defined())
+      if (!atom->name().empty())
+	_defined.insert(atom->name());
+  }
+  _queue.clear();
 }
 
 } // end namespace lld

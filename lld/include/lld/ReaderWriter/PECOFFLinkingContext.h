@@ -30,6 +30,28 @@ static const uint8_t DEFAULT_DOS_STUB[128] = {'M', 'Z'};
 
 namespace lld {
 
+namespace pecoff {
+class ResolvableSymbols {
+public:
+  void add(File *file);
+
+  const std::set<std::string> &defined() {
+    readAllSymbols();
+    return _defined;
+  }
+
+private:
+  // Files are read lazily, so that it has no runtime overhead if
+  // no one accesses this class.
+  void readAllSymbols();
+
+  std::set<std::string> _defined;
+  std::set<File *> _seen;
+  std::set<File *> _queue;
+  std::mutex _mutex;
+};
+} // end namespace pecoff
+
 class PECOFFLinkingContext : public LinkingContext {
 public:
   PECOFFLinkingContext()
@@ -312,11 +334,6 @@ public:
     return *r;
   }
 
-  virtual bool hasInputGraph() { return !!_inputGraph; }
-
-  void setEntryNode(SimpleFileNode *node) { _entryNode = node; }
-  SimpleFileNode *getEntryNode() const { return _entryNode; }
-
   void addLibraryFile(std::unique_ptr<FileNode> file);
 
   void setModuleDefinitionFile(const std::string val) {
@@ -327,6 +344,10 @@ public:
   }
 
   std::recursive_mutex &getMutex() { return _mutex; }
+
+  pecoff::ResolvableSymbols *getResolvableSymsFile() {
+    return &_resolvableSyms;
+  }
 
 protected:
   /// Method to create a internal file for the entry symbol
@@ -436,12 +457,11 @@ private:
   // Microsoft Windows." This feature was somewhat useful before Windows 95.
   ArrayRef<uint8_t> _dosStub;
 
-  // The node containing the entry point file.
-  SimpleFileNode *_entryNode;
-
   // Name of the temporary file for lib.exe subcommand. For debugging
   // only.
   std::string _moduleDefinitionFile;
+
+  pecoff::ResolvableSymbols _resolvableSyms;
 };
 
 } // end namespace lld

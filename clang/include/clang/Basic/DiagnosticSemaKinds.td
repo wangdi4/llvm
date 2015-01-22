@@ -2201,6 +2201,9 @@ def err_attribute_dllimport_static_field_definition : Error<
 def warn_attribute_dllimport_static_field_definition : Warning<
   "definition of dllimport static field">,
   InGroup<DiagGroup<"dllimport-static-field-def">>;
+def warn_attribute_dllexport_explicit_instantiation_decl : Warning<
+  "explicit instantiation declaration should not be 'dllexport'">,
+  InGroup<DiagGroup<"dllexport-explicit-instantation-decl">>;
 def warn_invalid_initializer_from_system_header : Warning<
   "invalid constructor form class in system header, should not be explicit">,
   InGroup<DiagGroup<"invalid-initializer-from-system-header">>;
@@ -4320,6 +4323,8 @@ def note_exits_block_captures_strong : Note<
 def note_exits_block_captures_weak : Note<
   "jump exits lifetime of block which weakly captures a variable">;
 
+def err_func_returning_qualified_void : Error<
+  "function cannot return qualified void type %0">;
 def err_func_returning_array_function : Error<
   "function cannot return %select{array|function}0 type %1">;
 def err_field_declared_as_function : Error<"field %0 declared as a function">;
@@ -4701,6 +4706,9 @@ def warn_addition_in_bitshift : Warning<
 def warn_self_assignment : Warning<
   "explicitly assigning value of variable of type %0 to itself">,
   InGroup<SelfAssignment>, DefaultIgnore;
+def warn_self_move : Warning<
+  "explicitly moving variable of type %0 to itself">,
+  InGroup<SelfMove>, DefaultIgnore;
 
 def warn_string_plus_int : Warning<
   "adding %0 to a string does not append to the string">,
@@ -4984,8 +4992,6 @@ def err_typecheck_op_on_nonoverlapping_address_space_pointers : Error<
   "|arithmetic operation with operands of type %diff{ ($ and $)|}0,1}2"
   " which are pointers to non-overlapping address spaces">;
 def err_typecheck_assign_const : Error<"read-only variable is not assignable">;
-def err_stmtexpr_file_scope : Error<
-  "statement expression not allowed at file scope">;
 def warn_mixed_sign_comparison : Warning<
   "comparison of integers of different signs: %0 and %1">,
   InGroup<SignCompare>, DefaultIgnore;
@@ -7225,7 +7231,7 @@ def err_omp_var_scope : Error<
 def err_omp_var_used : Error<
   "'#pragma omp %0' must precede all references to variable %q1">;
 def err_omp_var_thread_local : Error<
-  "variable %0 cannot be threadprivate because it is thread-local">;
+  "variable %0 cannot be threadprivate because it is %select{thread-local|a global named register variable}1">;
 def err_omp_private_incomplete_type : Error<
   "a private variable with incomplete type %0">;
 def err_omp_firstprivate_incomplete_type : Error<
