@@ -5596,18 +5596,6 @@ Sema::AddOverloadCandidate(FunctionDecl *Function,
   // Overload resolution is always an unevaluated context.
   EnterExpressionEvaluationContext Unevaluated(*this, Sema::Unevaluated);
 
-  if (Constructor) {
-    // C++ [class.copy]p3:
-    //   A member function template is never instantiated to perform the copy
-    //   of a class object to an object of its class type.
-    QualType ClassType = Context.getTypeDeclType(Constructor->getParent());
-    if (Args.size() == 1 &&
-        Constructor->isSpecializationCopyingObject() &&
-        (Context.hasSameUnqualifiedType(ClassType, Args[0]->getType()) ||
-         IsDerivedFrom(Args[0]->getType(), ClassType)))
-      return;
-  }
-
   // Add this candidate
   OverloadCandidate &Candidate = CandidateSet.addCandidate(Args.size());
   Candidate.FoundDecl = FoundDecl;
@@ -5616,6 +5604,21 @@ Sema::AddOverloadCandidate(FunctionDecl *Function,
   Candidate.IsSurrogate = false;
   Candidate.IgnoreObjectArgument = false;
   Candidate.ExplicitCallArguments = Args.size();
+
+  if (Constructor) {
+    // C++ [class.copy]p3:
+    //   A member function template is never instantiated to perform the copy
+    //   of a class object to an object of its class type.
+    QualType ClassType = Context.getTypeDeclType(Constructor->getParent());
+    if (Args.size() == 1 &&
+        Constructor->isSpecializationCopyingObject() &&
+        (Context.hasSameUnqualifiedType(ClassType, Args[0]->getType()) ||
+         IsDerivedFrom(Args[0]->getType(), ClassType))) {
+      Candidate.Viable = false;
+      Candidate.FailureKind = ovl_fail_illegal_constructor;
+      return;
+    }
+  }
 
   unsigned NumParams = Proto->getNumParams();
 
@@ -5799,6 +5802,7 @@ EnableIfAttr *Sema::CheckEnableIf(FunctionDecl *Function, ArrayRef<Expr *> Args,
   // Convert the arguments.
   SmallVector<Expr *, 16> ConvertedArgs;
   bool InitializationFailed = false;
+  bool ContainsValueDependentExpr = false;
   for (unsigned i = 0, e = Args.size(); i != e; ++i) {
     if (i == 0 && !MissingImplicitThis && isa<CXXMethodDecl>(Function) &&
         !cast<CXXMethodDecl>(Function)->isStatic() &&
@@ -5811,6 +5815,7 @@ EnableIfAttr *Sema::CheckEnableIf(FunctionDecl *Function, ArrayRef<Expr *> Args,
         InitializationFailed = true;
         break;
       }
+      ContainsValueDependentExpr |= R.get()->isValueDependent();
       ConvertedArgs.push_back(R.get());
     } else {
       ExprResult R =
@@ -5823,6 +5828,7 @@ EnableIfAttr *Sema::CheckEnableIf(FunctionDecl *Function, ArrayRef<Expr *> Args,
         InitializationFailed = true;
         break;
       }
+      ContainsValueDependentExpr |= R.get()->isValueDependent();
       ConvertedArgs.push_back(R.get());
     }
   }
@@ -5833,9 +5839,16 @@ EnableIfAttr *Sema::CheckEnableIf(FunctionDecl *Function, ArrayRef<Expr *> Args,
   for (AttrVec::iterator I = Attrs.begin(); I != E; ++I) {
     APValue Result;
     EnableIfAttr *EIA = cast<EnableIfAttr>(*I);
+    if (EIA->getCond()->isValueDependent()) {
+      // Don't even try now, we'll examine it after instantiation.
+      continue;
+    }
+
     if (!EIA->getCond()->EvaluateWithSubstitution(
-            Result, Context, Function, llvm::makeArrayRef(ConvertedArgs)) ||
-        !Result.isInt() || !Result.getInt().getBoolValue()) {
+            Result, Context, Function, llvm::makeArrayRef(ConvertedArgs))) {
+      if (!ContainsValueDependentExpr)
+        return EIA;
+    } else if (!Result.isInt() || !Result.getInt().getBoolValue()) {
       return EIA;
     }
   }
@@ -9261,6 +9274,13 @@ static void NoteFunctionCandidate(Sema &S, OverloadCandidate *Cand,
   case ovl_fail_bad_deduction:
     return DiagnoseBadDeduction(S, Cand, NumArgs);
 
+  case ovl_fail_illegal_constructor: {
+    S.Diag(Fn->getLocation(), diag::note_ovl_candidate_illegal_constructor)
+      << (Fn->getPrimaryTemplate() ? 1 : 0);
+    MaybeEmitInheritedConstructorNote(S, Fn);
+    return;
+  }
+
   case ovl_fail_trivial_conversion:
   case ovl_fail_bad_final_conversion:
   case ovl_fail_final_conversion_not_exact:
@@ -11205,7 +11225,12 @@ Sema::CreateOverloadedBinOp(SourceLocation OpLoc,
         // Cut off the implicit 'this'.
         if (isa<CXXMethodDecl>(FnDecl))
           ArgsArray = ArgsArray.slice(1);
-        checkCall(FnDecl, ArgsArray, 0, isa<CXXMethodDecl>(FnDecl), OpLoc, 
+
+        // Check for a self move.
+        if (Op == OO_Equal)
+          DiagnoseSelfMove(Args[0], Args[1], OpLoc);
+
+        checkCall(FnDecl, ArgsArray, 0, isa<CXXMethodDecl>(FnDecl), OpLoc,
                   TheCall->getSourceRange(), VariadicDoesNotApply);
 
         return MaybeBindToTemporary(TheCall);

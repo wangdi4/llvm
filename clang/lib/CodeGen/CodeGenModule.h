@@ -264,6 +264,7 @@ class CodeGenModule : public CodeGenTypeCache {
   CodeGenModule(const CodeGenModule &) LLVM_DELETED_FUNCTION;
   void operator=(const CodeGenModule &) LLVM_DELETED_FUNCTION;
 
+public:
   struct Structor {
     Structor() : Priority(0), Initializer(nullptr), AssociatedData(nullptr) {}
     Structor(int Priority, llvm::Constant *Initializer,
@@ -277,6 +278,7 @@ class CodeGenModule : public CodeGenTypeCache {
 
   typedef std::vector<Structor> CtorList;
 
+private:
   ASTContext &Context;
   const LangOptions &LangOpts;
   const CodeGenOptions &CodeGenOpts;
@@ -446,7 +448,7 @@ class CodeGenModule : public CodeGenTypeCache {
   llvm::SetVector<clang::Module *> ImportedModules;
 
   /// \brief A vector of metadata strings.
-  SmallVector<llvm::Value *, 16> LinkerOptionsMetadata;
+  SmallVector<llvm::Metadata *, 16> LinkerOptionsMetadata;
 
   /// @name Cache for Objective-C runtime types
   /// @{
@@ -693,9 +695,7 @@ public:
 
   llvm::MDNode *getNoObjCARCExceptionsMetadata() {
     if (!NoObjCARCExceptionsMetadata)
-      NoObjCARCExceptionsMetadata =
-        llvm::MDNode::get(getLLVMContext(),
-                          SmallVector<llvm::Value*,1>());
+      NoObjCARCExceptionsMetadata = llvm::MDNode::get(getLLVMContext(), None);
     return NoObjCARCExceptionsMetadata;
   }
 
@@ -708,6 +708,7 @@ public:
   const TargetInfo &getTarget() const { return Target; }
   const llvm::Triple &getTriple() const;
   bool supportsCOMDAT() const;
+  void maybeSetTrivialComdat(const Decl &D, llvm::GlobalObject &GO);
 
   CGCXXABI &getCXXABI() const { return *ABI; }
   llvm::LLVMContext &getLLVMContext() { return VMContext; }
@@ -727,6 +728,9 @@ public:
   MicrosoftVTableContext &getMicrosoftVTableContext() {
     return VTables.getMicrosoftVTableContext();
   }
+
+  CtorList &getGlobalCtors() { return GlobalCtors; }
+  CtorList &getGlobalDtors() { return GlobalDtors; }
 
   llvm::MDNode *getTBAAInfo(QualType QTy);
   llvm::MDNode *getTBAAInfoForVTablePtr();
@@ -1099,7 +1103,7 @@ public:
 
   void EmitTentativeDefinition(const VarDecl *D);
 
-  void EmitVTable(CXXRecordDecl *Class, bool DefinitionRequired);
+  void EmitVTable(CXXRecordDecl *Class);
 
   /// Emit the RTTI descriptors for the builtin types.
   void EmitFundamentalRTTIDescriptors();
@@ -1306,9 +1310,15 @@ private:
   /// Emits the initializer for a uuidof string.
   llvm::Constant *EmitUuidofInitializer(StringRef uuidstr);
 
-  /// Determine if the given decl can be emitted lazily; this is only relevant
-  /// for definitions. The given decl must be either a function or var decl.
-  bool MayDeferGeneration(const ValueDecl *D);
+  /// Determine whether the definition must be emitted; if this returns \c
+  /// false, the definition can be emitted lazily if it's used.
+  bool MustBeEmitted(const ValueDecl *D);
+
+  /// Determine whether the definition can be emitted eagerly, or should be
+  /// delayed until the end of the translation unit. This is relevant for
+  /// definitions whose linkage can change, e.g. implicit function instantions
+  /// which may later be explicitly instantiated.
+  bool MayBeEmittedEagerly(const ValueDecl *D);
 
   /// Check whether we can use a "simpler", more core exceptions personality
   /// function.

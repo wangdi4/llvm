@@ -3138,6 +3138,7 @@
 // MIPS64BE:#define __SIG_ATOMIC_WIDTH__ 32
 // MIPS64BE:#define __SIZEOF_DOUBLE__ 8
 // MIPS64BE:#define __SIZEOF_FLOAT__ 4
+// MIPS64BE-NOT:#define __SIZEOF_INT128__ 16
 // MIPS64BE:#define __SIZEOF_INT__ 4
 // MIPS64BE:#define __SIZEOF_LONG_DOUBLE__ 16
 // MIPS64BE:#define __SIZEOF_LONG_LONG__ 8
@@ -3345,6 +3346,7 @@
 // MIPS64EL:#define __SIG_ATOMIC_WIDTH__ 32
 // MIPS64EL:#define __SIZEOF_DOUBLE__ 8
 // MIPS64EL:#define __SIZEOF_FLOAT__ 4
+// MIPS64EL-NOT:#define __SIZEOF_INT128__ 16
 // MIPS64EL:#define __SIZEOF_INT__ 4
 // MIPS64EL:#define __SIZEOF_LONG_DOUBLE__ 16
 // MIPS64EL:#define __SIZEOF_LONG_LONG__ 8
@@ -3440,6 +3442,15 @@
 // MIPS-ARCH-32R2:#define _MIPS_ISA _MIPS_ISA_MIPS32
 // MIPS-ARCH-32R2:#define __mips_isa_rev 2
 //
+// RUN: %clang_cc1 -E -dM -ffreestanding -triple=mips-none-none \
+// RUN:            -target-cpu mips32r6 < /dev/null \
+// RUN:   | FileCheck -check-prefix MIPS-ARCH-32R6 %s
+//
+// MIPS-ARCH-32R6:#define _MIPS_ARCH "mips32r6"
+// MIPS-ARCH-32R6:#define _MIPS_ARCH_MIPS32R6 1
+// MIPS-ARCH-32R6:#define _MIPS_ISA _MIPS_ISA_MIPS32
+// MIPS-ARCH-32R6:#define __mips_isa_rev 6
+//
 // RUN: %clang_cc1 -E -dM -ffreestanding -triple=mips64-none-none \
 // RUN:            < /dev/null \
 // RUN:   | FileCheck -check-prefix MIPS-ARCH-DEF64 %s
@@ -3466,6 +3477,15 @@
 // MIPS-ARCH-64R2:#define _MIPS_ARCH_MIPS64R2 1
 // MIPS-ARCH-64R2:#define _MIPS_ISA _MIPS_ISA_MIPS64
 // MIPS-ARCH-64R2:#define __mips_isa_rev 2
+//
+// RUN: %clang_cc1 -E -dM -ffreestanding -triple=mips64-none-none \
+// RUN:            -target-cpu mips64r6 < /dev/null \
+// RUN:   | FileCheck -check-prefix MIPS-ARCH-64R6 %s
+//
+// MIPS-ARCH-64R6:#define _MIPS_ARCH "mips64r6"
+// MIPS-ARCH-64R6:#define _MIPS_ARCH_MIPS64R6 1
+// MIPS-ARCH-64R6:#define _MIPS_ISA _MIPS_ISA_MIPS64
+// MIPS-ARCH-64R6:#define __mips_isa_rev 6
 //
 // Check MIPS float ABI macros
 //

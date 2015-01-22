@@ -273,6 +273,12 @@ protected:
     // On FreeBSD, wchar_t contains the number of the code point as
     // used by the character set of the locale. These character sets are
     // not necessarily a superset of ASCII.
+    //
+    // FIXME: This is wrong; the macro refers to the numerical values
+    // of wchar_t *literals*, which are not locale-dependent. However,
+    // FreeBSD systems apparently depend on us getting this wrong, and
+    // setting this to 1 is conforming even if all the basic source
+    // character literals have the same encoding as char and wchar_t.
     Builder.defineMacro("__STDC_MB_MIGHT_NEQ_WC__", "1");
   }
 public:
@@ -1377,6 +1383,16 @@ namespace {
   class NVPTXTargetInfo : public TargetInfo {
     static const char * const GCCRegNames[];
     static const Builtin::Info BuiltinInfo[];
+
+  // The GPU profiles supported by the NVPTX backend
+  enum GPUKind {
+    GK_NONE,
+    GK_SM20,
+    GK_SM21,
+    GK_SM30,
+    GK_SM35,
+  } GPU;
+
   public:
     NVPTXTargetInfo(const llvm::Triple &Triple) : TargetInfo(Triple) {
       BigEndian = false;
@@ -1387,11 +1403,34 @@ namespace {
       // Define available target features
       // These must be defined in sorted order!
       NoAsmVariants = true;
+      // Set the default GPU to sm20
+      GPU = GK_SM20;
     }
     void getTargetDefines(const LangOptions &Opts,
                           MacroBuilder &Builder) const override {
       Builder.defineMacro("__PTX__");
       Builder.defineMacro("__NVPTX__");
+      if (Opts.CUDAIsDevice) {
+        // Set __CUDA_ARCH__ for the GPU specified.
+        std::string CUDAArchCode;
+        switch (GPU) {
+        case GK_SM20:
+          CUDAArchCode = "200";
+          break;
+        case GK_SM21:
+          CUDAArchCode = "210";
+          break;
+        case GK_SM30:
+          CUDAArchCode = "300";
+          break;
+        case GK_SM35:
+          CUDAArchCode = "350";
+          break;
+        default:
+          llvm_unreachable("Unhandled target CPU");
+        }
+        Builder.defineMacro("__CUDA_ARCH__", CUDAArchCode);
+      }
     }
     void getTargetBuiltins(const Builtin::Info *&Records,
                            unsigned &NumRecords) const override {
@@ -1434,14 +1473,14 @@ namespace {
       return TargetInfo::CharPtrBuiltinVaList;
     }
     bool setCPU(const std::string &Name) override {
-      bool Valid = llvm::StringSwitch<bool>(Name)
-        .Case("sm_20", true)
-        .Case("sm_21", true)
-        .Case("sm_30", true)
-        .Case("sm_35", true)
-        .Default(false);
+      GPU = llvm::StringSwitch<GPUKind>(Name)
+                .Case("sm_20", GK_SM20)
+                .Case("sm_21", GK_SM21)
+                .Case("sm_30", GK_SM30)
+                .Case("sm_35", GK_SM35)
+                .Default(GK_NONE);
 
-      return Valid;
+      return GPU != GK_NONE;
     }
   };
 
@@ -1802,27 +1841,41 @@ class X86TargetInfo : public TargetInfo {
     /// \name Atom
     /// Atom processors
     //@{
-    CK_Atom,
+    CK_Bonnell,
     CK_Silvermont,
     //@}
 
     /// \name Nehalem
     /// Nehalem microarchitecture based processors.
-    //@{
-    CK_Corei7,
-    CK_Corei7AVX,
-    CK_CoreAVXi,
-    CK_CoreAVX2,
+    CK_Nehalem,
+
+    /// \name Westmere
+    /// Westmere microarchitecture based processors.
+    CK_Westmere,
+
+    /// \name Sandy Bridge
+    /// Sandy Bridge microarchitecture based processors.
+    CK_SandyBridge,
+
+    /// \name Ivy Bridge
+    /// Ivy Bridge microarchitecture based processors.
+    CK_IvyBridge,
+
+    /// \name Haswell
+    /// Haswell microarchitecture based processors.
+    CK_Haswell,
+
+    /// \name Broadwell
+    /// Broadwell microarchitecture based processors.
     CK_Broadwell,
-    //@}
+
+    /// \name Skylake
+    /// Skylake microarchitecture based processors.
+    CK_Skylake,
 
     /// \name Knights Landing
     /// Knights Landing processor.
     CK_KNL,
-
-    /// \name Skylake Server
-    /// Skylake server processor.
-    CK_SKX,
 
     /// \name K6
     /// K6 architecture processors.
@@ -1993,15 +2046,23 @@ public:
       .Case("nocona", CK_Nocona)
       .Case("core2", CK_Core2)
       .Case("penryn", CK_Penryn)
-      .Case("atom", CK_Atom)
-      .Case("slm", CK_Silvermont)
-      .Case("corei7", CK_Corei7)
-      .Case("corei7-avx", CK_Corei7AVX)
-      .Case("core-avx-i", CK_CoreAVXi)
-      .Case("core-avx2", CK_CoreAVX2)
+      .Case("bonnell", CK_Bonnell)
+      .Case("atom", CK_Bonnell) // Legacy name.
+      .Case("silvermont", CK_Silvermont)
+      .Case("slm", CK_Silvermont) // Legacy name.
+      .Case("nehalem", CK_Nehalem)
+      .Case("corei7", CK_Nehalem) // Legacy name.
+      .Case("westmere", CK_Westmere)
+      .Case("sandybridge", CK_SandyBridge)
+      .Case("corei7-avx", CK_SandyBridge) // Legacy name.
+      .Case("ivybridge", CK_IvyBridge)
+      .Case("core-avx-i", CK_IvyBridge) // Legacy name.
+      .Case("haswell", CK_Haswell)
+      .Case("core-avx2", CK_Haswell) // Legacy name.
       .Case("broadwell", CK_Broadwell)
+      .Case("skylake", CK_Skylake)
+      .Case("skx", CK_Skylake) // Legacy name.
       .Case("knl", CK_KNL)
-      .Case("skx", CK_SKX)
       .Case("k6", CK_K6)
       .Case("k6-2", CK_K6_2)
       .Case("k6-3", CK_K6_3)
@@ -2017,6 +2078,7 @@ public:
       .Case("k8-sse3", CK_K8SSE3)
       .Case("opteron", CK_Opteron)
       .Case("opteron-sse3", CK_OpteronSSE3)
+      .Case("barcelona", CK_AMDFAM10)
       .Case("amdfam10", CK_AMDFAM10)
       .Case("btver1", CK_BTVER1)
       .Case("btver2", CK_BTVER2)
@@ -2073,15 +2135,16 @@ public:
     case CK_Nocona:
     case CK_Core2:
     case CK_Penryn:
-    case CK_Atom:
+    case CK_Bonnell:
     case CK_Silvermont:
-    case CK_Corei7:
-    case CK_Corei7AVX:
-    case CK_CoreAVXi:
-    case CK_CoreAVX2:
+    case CK_Nehalem:
+    case CK_Westmere:
+    case CK_SandyBridge:
+    case CK_IvyBridge:
+    case CK_Haswell:
     case CK_Broadwell:
+    case CK_Skylake:
     case CK_KNL:
-    case CK_SKX:
     case CK_Athlon64:
     case CK_Athlon64SSE3:
     case CK_AthlonFX:
@@ -2172,7 +2235,7 @@ void X86TargetInfo::getDefaultFeatures(llvm::StringMap<bool> &Features) const {
     setFeatureEnabledImpl(Features, "cx16", true);
     break;
   case CK_Core2:
-  case CK_Atom:
+  case CK_Bonnell:
     setFeatureEnabledImpl(Features, "ssse3", true);
     setFeatureEnabledImpl(Features, "cx16", true);
     break;
@@ -2180,7 +2243,7 @@ void X86TargetInfo::getDefaultFeatures(llvm::StringMap<bool> &Features) const {
     setFeatureEnabledImpl(Features, "sse4.1", true);
     setFeatureEnabledImpl(Features, "cx16", true);
     break;
-  case CK_SKX:
+  case CK_Skylake:
     setFeatureEnabledImpl(Features, "avx512f", true);
     setFeatureEnabledImpl(Features, "avx512cd", true);
     setFeatureEnabledImpl(Features, "avx512dq", true);
@@ -2191,7 +2254,7 @@ void X86TargetInfo::getDefaultFeatures(llvm::StringMap<bool> &Features) const {
     setFeatureEnabledImpl(Features, "rdseed", true);
     setFeatureEnabledImpl(Features, "adx", true);
     // FALLTHROUGH
-  case CK_CoreAVX2:
+  case CK_Haswell:
     setFeatureEnabledImpl(Features, "avx2", true);
     setFeatureEnabledImpl(Features, "lzcnt", true);
     setFeatureEnabledImpl(Features, "bmi", true);
@@ -2199,19 +2262,20 @@ void X86TargetInfo::getDefaultFeatures(llvm::StringMap<bool> &Features) const {
     setFeatureEnabledImpl(Features, "rtm", true);
     setFeatureEnabledImpl(Features, "fma", true);
     // FALLTHROUGH
-  case CK_CoreAVXi:
+  case CK_IvyBridge:
     setFeatureEnabledImpl(Features, "rdrnd", true);
     setFeatureEnabledImpl(Features, "f16c", true);
     setFeatureEnabledImpl(Features, "fsgsbase", true);
     // FALLTHROUGH
-  case CK_Corei7AVX:
+  case CK_SandyBridge:
     setFeatureEnabledImpl(Features, "avx", true);
     // FALLTHROUGH
+  case CK_Westmere:
   case CK_Silvermont:
     setFeatureEnabledImpl(Features, "aes", true);
     setFeatureEnabledImpl(Features, "pclmul", true);
     // FALLTHROUGH
-  case CK_Corei7:
+  case CK_Nehalem:
     setFeatureEnabledImpl(Features, "sse4.2", true);
     setFeatureEnabledImpl(Features, "cx16", true);
     break;
@@ -2360,8 +2424,8 @@ void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
     Features["avx2"] = false;
   case AVX512F:
     Features["avx512f"] = Features["avx512cd"] = Features["avx512er"] =
-        Features["avx512pf"] = Features["avx512dq"] = Features["avx512bw"] =
-            Features["avx512vl"] = false;
+      Features["avx512pf"] = Features["avx512dq"] = Features["avx512bw"] =
+      Features["avx512vl"] = false;
   }
 }
 
@@ -2754,24 +2818,32 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_Penryn:
     defineCPUMacros(Builder, "core2");
     break;
-  case CK_Atom:
+  case CK_Bonnell:
     defineCPUMacros(Builder, "atom");
     break;
   case CK_Silvermont:
     defineCPUMacros(Builder, "slm");
     break;
-  case CK_Corei7:
-  case CK_Corei7AVX:
-  case CK_CoreAVXi:
-  case CK_CoreAVX2:
+  case CK_Nehalem:
+  case CK_Westmere:
+  case CK_SandyBridge:
+  case CK_IvyBridge:
+  case CK_Haswell:
   case CK_Broadwell:
+    // FIXME: Historically, we defined this legacy name, it would be nice to
+    // remove it at some point. We've never exposed fine-grained names for
+    // recent primary x86 CPUs, and we should keep it that way.
     defineCPUMacros(Builder, "corei7");
+    break;
+  case CK_Skylake:
+    // FIXME: Historically, we defined this legacy name, it would be nice to
+    // remove it at some point. This is the only fine-grained CPU macro in the
+    // main intel CPU line, and it would be better to not have these and force
+    // people to use ISA macros.
+    defineCPUMacros(Builder, "skx");
     break;
   case CK_KNL:
     defineCPUMacros(Builder, "knl");
-    break;
-  case CK_SKX:
-    defineCPUMacros(Builder, "skx");
     break;
   case CK_K6_2:
     Builder.defineMacro("__k6_2__");
@@ -3036,6 +3108,28 @@ X86TargetInfo::validateAsmConstraint(const char *&Name,
                                      TargetInfo::ConstraintInfo &Info) const {
   switch (*Name) {
   default: return false;
+  case 'I':
+    Info.setRequiresImmediate(0, 31);
+    return true;
+  case 'J':
+    Info.setRequiresImmediate(0, 63);
+    return true;
+  case 'K':
+    Info.setRequiresImmediate(-128, 127);
+    return true;
+  case 'L':
+    // FIXME: properly analyze this constraint:
+    //  must be one of 0xff, 0xffff, or 0xffffffff
+    return true;
+  case 'M':
+    Info.setRequiresImmediate(0, 3);
+    return true;
+  case 'N':
+    Info.setRequiresImmediate(0, 255);
+    return true;
+  case 'O':
+    Info.setRequiresImmediate(0, 127);
+    return true;
   case 'Y': // first letter of a pair:
     switch (*(Name+1)) {
     default: return false;
@@ -3805,7 +3899,45 @@ public:
     // FIXME: Should we just treat this as a feature?
     IsThumb = getTriple().getArchName().startswith("thumb");
 
-    setABI("aapcs-linux");
+    // FIXME: This duplicates code from the driver that sets the -target-abi
+    // option - this code is used if -target-abi isn't passed and should
+    // be unified in some way.
+    if (Triple.isOSBinFormatMachO()) {
+      // The backend is hardwired to assume AAPCS for M-class processors, ensure
+      // the frontend matches that.
+      if (Triple.getEnvironment() == llvm::Triple::EABI ||
+          Triple.getOS() == llvm::Triple::UnknownOS ||
+          StringRef(CPU).startswith("cortex-m")) {
+        setABI("aapcs");
+      } else {
+        setABI("apcs-gnu");
+      }
+    } else if (Triple.isOSWindows()) {
+      // FIXME: this is invalid for WindowsCE
+      setABI("aapcs");
+    } else {
+      // Select the default based on the platform.
+      switch (Triple.getEnvironment()) {
+      case llvm::Triple::Android:
+      case llvm::Triple::GNUEABI:
+      case llvm::Triple::GNUEABIHF:
+        setABI("aapcs-linux");
+        break;
+      case llvm::Triple::EABIHF:
+      case llvm::Triple::EABI:
+        setABI("aapcs");
+        break;
+      case llvm::Triple::GNU:
+	setABI("apcs-gnu");
+	break;
+      default:
+        if (Triple.getOS() == llvm::Triple::NetBSD)
+          setABI("apcs-gnu");
+        else
+          setABI("aapcs");
+        break;
+      }
+    }
 
     // ARM targets default to using the ARM C++ ABI.
     TheCXXABI.set(TargetCXXABI::GenericARM);
@@ -3841,11 +3973,6 @@ public:
   }
 
   void getDefaultFeatures(llvm::StringMap<bool> &Features) const override {
-    if (IsAAPCS)
-      Features["aapcs"] = true;
-    else
-      Features["apcs"] = true;
-
     StringRef ArchName = getTriple().getArchName();
     if (CPU == "arm1136jf-s" || CPU == "arm1176jzf-s" || CPU == "mpcore")
       Features["vfp2"] = true;
@@ -4190,6 +4317,13 @@ public:
     case 'P': // VFP Floating point register double precision
       Info.setAllowsRegister();
       return true;
+    case 'I':
+    case 'J':
+    case 'K':
+    case 'L':
+    case 'M':
+      // FIXME
+      return true;
     case 'Q': // A memory address that is a single base register.
       Info.setAllowsMemory();
       return true;
@@ -4515,6 +4649,13 @@ public:
     // {} in inline assembly are neon specifiers, not assembly variant
     // specifiers.
     NoAsmVariants = true;
+
+    // AAPCS gives rules for bitfields. 7.1.7 says: "The container type
+    // contributes to the alignment of the containing aggregate in the same way
+    // a plain (non bit-field) member of that type would, without exception for
+    // zero-sized or anonymous bit-fields."
+    UseBitFieldTypeAlignment = true;
+    UseZeroLengthBitfieldAlignment = true;
 
     // AArch64 targets default to using the ARM C++ ABI.
     TheCXXABI.set(TargetCXXABI::GenericAArch64);
@@ -5053,6 +5194,16 @@ public:
   bool validateAsmConstraint(const char *&Name,
                              TargetInfo::ConstraintInfo &info) const override {
     // FIXME: Implement!
+    switch (*Name) {
+    case 'I': // Signed 13-bit constant
+    case 'J': // Zero
+    case 'K': // 32-bit constant with the low 12 bits clear
+    case 'L': // A constant in the range supported by movcc (11-bit signed imm)
+    case 'M': // A constant in the range supported by movrcc (19-bit signed imm)
+    case 'N': // Same as 'K' but zext (required for SIMode)
+    case 'O': // The constant 4096
+      return true;
+    }
     return false;
   }
   const char *getClobbers() const override {
@@ -5345,6 +5496,13 @@ namespace {
     bool
     validateAsmConstraint(const char *&Name,
                           TargetInfo::ConstraintInfo &info) const override {
+      // FIXME: implement
+      switch (*Name) {
+      case 'K': // the constant 1
+      case 'L': // constant -1^20 .. 1^19
+      case 'M': // constant 1-4:
+        return true;
+      }
       // No target constraints for now.
       return false;
     }
@@ -5641,6 +5799,15 @@ public:
     case 'x': // hilo register pair
       Info.setAllowsRegister();
       return true;
+    case 'I': // Signed 16-bit constant
+    case 'J': // Integer 0
+    case 'K': // Unsigned 16-bit constant
+    case 'L': // Signed 32-bit constant, lower 16-bit zeros (for lui)
+    case 'M': // Constants not loadable via lui, addiu, or ori
+    case 'N': // Constant -1 to -65535
+    case 'O': // A signed 15-bit constant
+    case 'P': // A constant between 1 go 65535
+      return true;
     case 'R': // An address that can be used in a non-macro load or store
       Info.setAllowsMemory();
       return true;
@@ -5648,8 +5815,28 @@ public:
   }
 
   const char *getClobbers() const override {
-    // FIXME: Implement!
-    return "";
+    // In GCC, $1 is not widely used in generated code (it's used only in a few
+    // specific situations), so there is no real need for users to add it to
+    // the clobbers list if they want to use it in their inline assembly code.
+    //
+    // In LLVM, $1 is treated as a normal GPR and is always allocatable during
+    // code generation, so using it in inline assembly without adding it to the
+    // clobbers list can cause conflicts between the inline assembly code and
+    // the surrounding generated code.
+    //
+    // Another problem is that LLVM is allowed to choose $1 for inline assembly
+    // operands, which will conflict with the ".set at" assembler option (which
+    // we use only for inline assembly, in order to maintain compatibility with
+    // GCC) and will also conflict with the user's usage of $1.
+    //
+    // The easiest way to avoid these conflicts and keep $1 as an allocatable
+    // register for generated code is to automatically clobber $1 for all inline
+    // assembly code.
+    //
+    // FIXME: We should automatically clobber $1 only for inline assembly code
+    // which actually uses it. This would allow LLVM to use $1 for inline
+    // assembly operands if the user's assembly code doesn't use it.
+    return "~{$1}";
   }
 
   bool handleTargetFeatures(std::vector<std::string> &Features,
@@ -5742,6 +5929,8 @@ public:
       Builder.defineMacro("__mips_isa_rev", "1");
     else if (CPUStr == "mips32r2")
       Builder.defineMacro("__mips_isa_rev", "2");
+    else if (CPUStr == "mips32r6")
+      Builder.defineMacro("__mips_isa_rev", "6");
 
     if (ABI == "o32") {
       Builder.defineMacro("__mips_o32");
@@ -5885,6 +6074,8 @@ public:
       Builder.defineMacro("__mips_isa_rev", "1");
     else if (CPUStr == "mips64r2")
       Builder.defineMacro("__mips_isa_rev", "2");
+    else if (CPUStr == "mips64r6")
+      Builder.defineMacro("__mips_isa_rev", "6");
 
     if (ABI == "n32") {
       Builder.defineMacro("__mips_n32");
@@ -6481,6 +6672,7 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
   case llvm::Triple::nvptx64:
     return new NVPTX64TargetInfo(Triple);
 
+  case llvm::Triple::amdgcn:
   case llvm::Triple::r600:
     return new R600TargetInfo(Triple);
 

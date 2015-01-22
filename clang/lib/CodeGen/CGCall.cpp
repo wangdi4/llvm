@@ -86,14 +86,15 @@ CodeGenTypes::arrangeFreeFunctionType(CanQual<FunctionNoProtoType> FTNP) {
   // When translating an unprototyped function type, always use a
   // variadic type.
   return arrangeLLVMFunctionInfo(FTNP->getReturnType().getUnqualifiedType(),
-                                 false, None, FTNP->getExtInfo(),
-                                 RequiredArgs(0));
+                                 /*instanceMethod=*/false,
+                                 /*chainCall=*/false, None,
+                                 FTNP->getExtInfo(), RequiredArgs(0));
 }
 
 /// Arrange the LLVM function layout for a value of the given function
 /// type, on top of any implicit parameters already stored.
 static const CGFunctionInfo &
-arrangeLLVMFunctionInfo(CodeGenTypes &CGT, bool IsInstanceMethod,
+arrangeLLVMFunctionInfo(CodeGenTypes &CGT, bool instanceMethod,
                         SmallVectorImpl<CanQualType> &prefix,
                         CanQual<FunctionProtoType> FTP) {
   RequiredArgs required = RequiredArgs::forPrototypePlus(FTP, prefix.size());
@@ -101,7 +102,8 @@ arrangeLLVMFunctionInfo(CodeGenTypes &CGT, bool IsInstanceMethod,
   for (unsigned i = 0, e = FTP->getNumParams(); i != e; ++i)
     prefix.push_back(FTP->getParamType(i));
   CanQualType resultType = FTP->getReturnType().getUnqualifiedType();
-  return CGT.arrangeLLVMFunctionInfo(resultType, IsInstanceMethod, prefix,
+  return CGT.arrangeLLVMFunctionInfo(resultType, instanceMethod,
+                                     /*chainCall=*/false, prefix,
                                      FTP->getExtInfo(), required);
 }
 
@@ -110,7 +112,8 @@ arrangeLLVMFunctionInfo(CodeGenTypes &CGT, bool IsInstanceMethod,
 const CGFunctionInfo &
 CodeGenTypes::arrangeFreeFunctionType(CanQual<FunctionProtoType> FTP) {
   SmallVector<CanQualType, 16> argTypes;
-  return ::arrangeLLVMFunctionInfo(*this, false, argTypes, FTP);
+  return ::arrangeLLVMFunctionInfo(*this, /*instanceMethod=*/false, argTypes,
+                                   FTP);
 }
 
 static CallingConv getCallingConventionForDecl(const Decl *D, bool IsWindows) {
@@ -222,7 +225,9 @@ CodeGenTypes::arrangeCXXStructorDeclaration(const CXXMethodDecl *MD,
                                : TheCXXABI.hasMostDerivedReturn(GD)
                                      ? CGM.getContext().VoidPtrTy
                                      : Context.VoidTy;
-  return arrangeLLVMFunctionInfo(resultType, true, argTypes, extInfo, required);
+  return arrangeLLVMFunctionInfo(resultType, /*instanceMethod=*/true,
+                                 /*chainCall=*/false, argTypes, extInfo,
+                                 required);
 }
 
 /// Arrange a call to a C++ method, passing the given arguments.
@@ -246,7 +251,9 @@ CodeGenTypes::arrangeCXXConstructorCall(const CallArgList &args,
                                      : Context.VoidTy;
 
   FunctionType::ExtInfo Info = FPT->getExtInfo();
-  return arrangeLLVMFunctionInfo(ResultType, true, ArgTypes, Info, Required);
+  return arrangeLLVMFunctionInfo(ResultType, /*instanceMethod=*/true,
+                                 /*chainCall=*/false, ArgTypes, Info,
+                                 Required);
 }
 
 /// Arrange the argument and result information for the declaration or
@@ -265,8 +272,9 @@ CodeGenTypes::arrangeFunctionDeclaration(const FunctionDecl *FD) {
   // non-variadic type.
   if (isa<FunctionNoProtoType>(FTy)) {
     CanQual<FunctionNoProtoType> noProto = FTy.getAs<FunctionNoProtoType>();
-    return arrangeLLVMFunctionInfo(noProto->getReturnType(), false, None,
-                                   noProto->getExtInfo(), RequiredArgs::All);
+    return arrangeLLVMFunctionInfo(
+        noProto->getReturnType(), /*instanceMethod=*/false,
+        /*chainCall=*/false, None, noProto->getExtInfo(), RequiredArgs::All);
   }
 
   assert(isa<FunctionProtoType>(FTy));
@@ -310,8 +318,9 @@ CodeGenTypes::arrangeObjCMessageSendSignature(const ObjCMethodDecl *MD,
   RequiredArgs required =
     (MD->isVariadic() ? RequiredArgs(argTys.size()) : RequiredArgs::All);
 
-  return arrangeLLVMFunctionInfo(GetReturnType(MD->getReturnType()), false,
-                                 argTys, einfo, required);
+  return arrangeLLVMFunctionInfo(
+      GetReturnType(MD->getReturnType()), /*instanceMethod=*/false,
+      /*chainCall=*/false, argTys, einfo, required);
 }
 
 const CGFunctionInfo &
@@ -338,7 +347,8 @@ CodeGenTypes::arrangeMSMemberPointerThunk(const CXXMethodDecl *MD) {
   assert(MD->isVirtual() && "only virtual memptrs have thunks");
   CanQual<FunctionProtoType> FTP = GetFormalType(MD);
   CanQualType ArgTys[] = { GetThisType(Context, MD->getParent()) };
-  return arrangeLLVMFunctionInfo(Context.VoidTy, false, ArgTys,
+  return arrangeLLVMFunctionInfo(Context.VoidTy, /*instanceMethod=*/false,
+                                 /*chainCall=*/false, ArgTys,
                                  FTP->getExtInfo(), RequiredArgs(1));
 }
 
@@ -349,7 +359,8 @@ arrangeFreeFunctionLikeCall(CodeGenTypes &CGT,
                             CodeGenModule &CGM,
                             const CallArgList &args,
                             const FunctionType *fnType,
-                            unsigned numExtraRequiredArgs) {
+                            unsigned numExtraRequiredArgs,
+                            bool chainCall) {
   assert(args.size() >= numExtraRequiredArgs);
 
   // In most cases, there are no optional arguments.
@@ -371,8 +382,13 @@ arrangeFreeFunctionLikeCall(CodeGenTypes &CGT,
     required = RequiredArgs(args.size());
   }
 
-  return CGT.arrangeFreeFunctionCall(fnType->getReturnType(), args,
-                                     fnType->getExtInfo(), required);
+  // FIXME: Kill copy.
+  SmallVector<CanQualType, 16> argTypes;
+  for (const auto &arg : args)
+    argTypes.push_back(CGT.getContext().getCanonicalParamType(arg.Ty));
+  return CGT.arrangeLLVMFunctionInfo(GetReturnType(fnType->getReturnType()),
+                                     /*instanceMethod=*/false, chainCall,
+                                     argTypes, fnType->getExtInfo(), required);
 }
 
 /// Figure out the rules for calling a function with the given formal
@@ -381,8 +397,10 @@ arrangeFreeFunctionLikeCall(CodeGenTypes &CGT,
 /// target-dependent in crazy ways.
 const CGFunctionInfo &
 CodeGenTypes::arrangeFreeFunctionCall(const CallArgList &args,
-                                      const FunctionType *fnType) {
-  return arrangeFreeFunctionLikeCall(*this, CGM, args, fnType, 0);
+                                      const FunctionType *fnType,
+                                      bool chainCall) {
+  return arrangeFreeFunctionLikeCall(*this, CGM, args, fnType,
+                                     chainCall ? 1 : 0, chainCall);
 }
 
 /// A block function call is essentially a free-function call with an
@@ -390,7 +408,8 @@ CodeGenTypes::arrangeFreeFunctionCall(const CallArgList &args,
 const CGFunctionInfo &
 CodeGenTypes::arrangeBlockFunctionCall(const CallArgList &args,
                                        const FunctionType *fnType) {
-  return arrangeFreeFunctionLikeCall(*this, CGM, args, fnType, 1);
+  return arrangeFreeFunctionLikeCall(*this, CGM, args, fnType, 1,
+                                     /*chainCall=*/false);
 }
 
 const CGFunctionInfo &
@@ -402,8 +421,9 @@ CodeGenTypes::arrangeFreeFunctionCall(QualType resultType,
   SmallVector<CanQualType, 16> argTypes;
   for (const auto &Arg : args)
     argTypes.push_back(Context.getCanonicalParamType(Arg.Ty));
-  return arrangeLLVMFunctionInfo(GetReturnType(resultType), false, argTypes,
-                                 info, required);
+  return arrangeLLVMFunctionInfo(
+      GetReturnType(resultType), /*instanceMethod=*/false,
+      /*chainCall=*/false, argTypes, info, required);
 }
 
 /// Arrange a call to a C++ method, passing the given arguments.
@@ -417,8 +437,9 @@ CodeGenTypes::arrangeCXXMethodCall(const CallArgList &args,
     argTypes.push_back(Context.getCanonicalParamType(Arg.Ty));
 
   FunctionType::ExtInfo info = FPT->getExtInfo();
-  return arrangeLLVMFunctionInfo(GetReturnType(FPT->getReturnType()), true,
-                                 argTypes, info, required);
+  return arrangeLLVMFunctionInfo(
+      GetReturnType(FPT->getReturnType()), /*instanceMethod=*/true,
+      /*chainCall=*/false, argTypes, info, required);
 }
 
 const CGFunctionInfo &CodeGenTypes::arrangeFreeFunctionDeclaration(
@@ -431,13 +452,15 @@ const CGFunctionInfo &CodeGenTypes::arrangeFreeFunctionDeclaration(
 
   RequiredArgs required =
     (isVariadic ? RequiredArgs(args.size()) : RequiredArgs::All);
-  return arrangeLLVMFunctionInfo(GetReturnType(resultType), false, argTypes, info,
-                                 required);
+  return arrangeLLVMFunctionInfo(
+      GetReturnType(resultType), /*instanceMethod=*/false,
+      /*chainCall=*/false, argTypes, info, required);
 }
 
 const CGFunctionInfo &CodeGenTypes::arrangeNullaryFunction() {
-  return arrangeLLVMFunctionInfo(getContext().VoidTy, false, None,
-                                 FunctionType::ExtInfo(), RequiredArgs::All);
+  return arrangeLLVMFunctionInfo(
+      getContext().VoidTy, /*instanceMethod=*/false, /*chainCall=*/false,
+      None, FunctionType::ExtInfo(), RequiredArgs::All);
 }
 
 /// Arrange the argument and result information for an abstract value
@@ -445,7 +468,8 @@ const CGFunctionInfo &CodeGenTypes::arrangeNullaryFunction() {
 /// above functions ultimately defer to.
 const CGFunctionInfo &
 CodeGenTypes::arrangeLLVMFunctionInfo(CanQualType resultType,
-                                      bool IsInstanceMethod,
+                                      bool instanceMethod,
+                                      bool chainCall,
                                       ArrayRef<CanQualType> argTypes,
                                       FunctionType::ExtInfo info,
                                       RequiredArgs required) {
@@ -456,8 +480,8 @@ CodeGenTypes::arrangeLLVMFunctionInfo(CanQualType resultType,
 
   // Lookup or create unique function info.
   llvm::FoldingSetNodeID ID;
-  CGFunctionInfo::Profile(ID, IsInstanceMethod, info, required, resultType,
-                          argTypes);
+  CGFunctionInfo::Profile(ID, instanceMethod, chainCall, info, required,
+                          resultType, argTypes);
 
   void *insertPos = nullptr;
   CGFunctionInfo *FI = FunctionInfos.FindNodeOrInsertPos(ID, insertPos);
@@ -465,8 +489,8 @@ CodeGenTypes::arrangeLLVMFunctionInfo(CanQualType resultType,
     return *FI;
 
   // Construct the function info.  We co-allocate the ArgInfos.
-  FI = CGFunctionInfo::create(CC, IsInstanceMethod, info, resultType, argTypes,
-                              required);
+  FI = CGFunctionInfo::create(CC, instanceMethod, chainCall, info,
+                              resultType, argTypes, required);
   FunctionInfos.InsertNode(FI, insertPos);
 
   bool inserted = FunctionsBeingProcessed.insert(FI).second;
@@ -494,7 +518,8 @@ CodeGenTypes::arrangeLLVMFunctionInfo(CanQualType resultType,
 }
 
 CGFunctionInfo *CGFunctionInfo::create(unsigned llvmCC,
-                                       bool IsInstanceMethod,
+                                       bool instanceMethod,
+                                       bool chainCall,
                                        const FunctionType::ExtInfo &info,
                                        CanQualType resultType,
                                        ArrayRef<CanQualType> argTypes,
@@ -505,7 +530,8 @@ CGFunctionInfo *CGFunctionInfo::create(unsigned llvmCC,
   FI->CallingConvention = llvmCC;
   FI->EffectiveCallingConvention = llvmCC;
   FI->ASTCallingConvention = info.getCC();
-  FI->InstanceMethod = IsInstanceMethod;
+  FI->InstanceMethod = instanceMethod;
+  FI->ChainCall = chainCall;
   FI->NoReturn = info.getNoReturn();
   FI->ReturnsRetained = info.getProducesResult();
   FI->Required = required;
@@ -1347,6 +1373,7 @@ void CodeGenModule::ConstructAttributeList(const CGFunctionInfo &FI,
                                            bool AttrOnCallSite) {
   llvm::AttrBuilder FuncAttrs;
   llvm::AttrBuilder RetAttrs;
+  bool HasOptnone = false;
 
   CallingConv = FI.getEffectiveCallingConvention();
 
@@ -1387,12 +1414,18 @@ void CodeGenModule::ConstructAttributeList(const CGFunctionInfo &FI,
       RetAttrs.addAttribute(llvm::Attribute::NoAlias);
     if (TargetDecl->hasAttr<ReturnsNonNullAttr>())
       RetAttrs.addAttribute(llvm::Attribute::NonNull);
+
+    HasOptnone = TargetDecl->hasAttr<OptimizeNoneAttr>();
   }
 
-  if (CodeGenOpts.OptimizeSize)
-    FuncAttrs.addAttribute(llvm::Attribute::OptimizeForSize);
-  if (CodeGenOpts.OptimizeSize == 2)
-    FuncAttrs.addAttribute(llvm::Attribute::MinSize);
+  // OptimizeNoneAttr takes precedence over -Os or -Oz. No warning needed.
+  if (!HasOptnone) {
+    if (CodeGenOpts.OptimizeSize)
+      FuncAttrs.addAttribute(llvm::Attribute::OptimizeForSize);
+    if (CodeGenOpts.OptimizeSize == 2)
+      FuncAttrs.addAttribute(llvm::Attribute::MinSize);
+  }
+
   if (CodeGenOpts.DisableRedZone)
     FuncAttrs.addAttribute(llvm::Attribute::NoRedZone);
   if (CodeGenOpts.NoImplicitFloat)
@@ -1497,7 +1530,6 @@ void CodeGenModule::ConstructAttributeList(const CGFunctionInfo &FI,
         getLLVMContext(), IRFunctionArgs.getInallocaArgNo() + 1, Attrs));
   }
 
-
   unsigned ArgNo = 0;
   for (CGFunctionInfo::const_arg_iterator I = FI.arg_begin(),
                                           E = FI.arg_end();
@@ -1525,7 +1557,9 @@ void CodeGenModule::ConstructAttributeList(const CGFunctionInfo &FI,
         Attrs.addAttribute(llvm::Attribute::ZExt);
       // FALL THROUGH
     case ABIArgInfo::Direct:
-      if (AI.getInReg())
+      if (ArgNo == 0 && FI.isChainCall())
+        Attrs.addAttribute(llvm::Attribute::Nest);
+      else if (AI.getInReg())
         Attrs.addAttribute(llvm::Attribute::InReg);
       break;
 

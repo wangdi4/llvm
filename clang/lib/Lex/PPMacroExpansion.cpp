@@ -118,6 +118,7 @@ void Preprocessor::RegisterBuiltinMacros() {
   Ident__has_extension    = RegisterBuiltinMacro(*this, "__has_extension");
   Ident__has_builtin      = RegisterBuiltinMacro(*this, "__has_builtin");
   Ident__has_attribute    = RegisterBuiltinMacro(*this, "__has_attribute");
+  Ident__has_declspec = RegisterBuiltinMacro(*this, "__has_declspec_attribute");
   Ident__has_include      = RegisterBuiltinMacro(*this, "__has_include");
   Ident__has_include_next = RegisterBuiltinMacro(*this, "__has_include_next");
   Ident__has_warning      = RegisterBuiltinMacro(*this, "__has_warning");
@@ -914,6 +915,7 @@ static bool HasFeature(const Preprocessor &PP, const IdentifierInfo *II) {
       .Case("objc_dictionary_literals", LangOpts.ObjC2)
       .Case("objc_boxed_expressions", LangOpts.ObjC2)
       .Case("arc_cf_code_audited", true)
+      .Case("objc_bridge_id", LangOpts.ObjC2)
       // C11 features
       .Case("c_alignas", LangOpts.C11)
       .Case("c_alignof", LangOpts.C11)
@@ -1384,6 +1386,7 @@ void Preprocessor::ExpandBuiltinMacro(Token &Tok) {
              II == Ident__has_builtin   ||
              II == Ident__is_identifier ||
              II == Ident__has_attribute ||
+             II == Ident__has_declspec  ||
              II == Ident__has_cpp_attribute) {
     // The argument to these builtins should be a parenthesized identifier.
     SourceLocation StartLoc = Tok.getLocation();
@@ -1415,6 +1418,10 @@ void Preprocessor::ExpandBuiltinMacro(Token &Tok) {
         if (IsScopeValid && Tok.is(tok::r_paren))
           IsValid = true;
       }
+      // Eat tokens until ')'.
+      while (Tok.isNot(tok::r_paren) && Tok.isNot(tok::eod) &&
+             Tok.isNot(tok::eof))
+        LexUnexpandedToken(Tok);
     }
 
     int Value = 0;
@@ -1426,10 +1433,13 @@ void Preprocessor::ExpandBuiltinMacro(Token &Tok) {
       // Check for a builtin is trivial.
       Value = FeatureII->getBuiltinID() != 0;
     } else if (II == Ident__has_attribute)
-      Value = hasAttribute(AttrSyntax::Generic, nullptr, FeatureII,
+      Value = hasAttribute(AttrSyntax::GNU, nullptr, FeatureII,
                            getTargetInfo().getTriple(), getLangOpts());
     else if (II == Ident__has_cpp_attribute)
       Value = hasAttribute(AttrSyntax::CXX, ScopeII, FeatureII,
+                           getTargetInfo().getTriple(), getLangOpts());
+    else if (II == Ident__has_declspec)
+      Value = hasAttribute(AttrSyntax::Declspec, nullptr, FeatureII,
                            getTargetInfo().getTriple(), getLangOpts());
     else if (II == Ident__has_extension)
       Value = HasExtension(*this, FeatureII);
@@ -1438,9 +1448,10 @@ void Preprocessor::ExpandBuiltinMacro(Token &Tok) {
       Value = HasFeature(*this, FeatureII);
     }
 
+    if (!IsValid)
+      return;
     OS << Value;
-    if (IsValid)
-      Tok.setKind(tok::numeric_constant);
+    Tok.setKind(tok::numeric_constant);
   } else if (II == Ident__has_include ||
              II == Ident__has_include_next) {
     // The argument to these two builtins should be a parenthesized
@@ -1504,9 +1515,10 @@ void Preprocessor::ExpandBuiltinMacro(Token &Tok) {
                               WarningName.substr(2), Diags);
     } while (false);
 
+    if (!IsValid)
+      return;
     OS << (int)Value;
-    if (IsValid)
-      Tok.setKind(tok::numeric_constant);
+    Tok.setKind(tok::numeric_constant);
   } else if (II == Ident__building_module) {
     // The argument to this builtin should be an identifier. The
     // builtin evaluates to 1 when that identifier names the module we are

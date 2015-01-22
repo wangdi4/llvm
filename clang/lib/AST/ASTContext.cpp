@@ -737,7 +737,7 @@ ASTContext::ASTContext(LangOptions &LOpts, SourceManager &SM,
       FILEDecl(nullptr), jmp_bufDecl(nullptr), sigjmp_bufDecl(nullptr),
       ucontext_tDecl(nullptr), BlockDescriptorType(nullptr),
       BlockDescriptorExtendedType(nullptr), cudaConfigureCallDecl(nullptr),
-      NullTypeSourceInfo(QualType()), FirstLocalImport(), LastLocalImport(),
+      FirstLocalImport(), LastLocalImport(),
       SourceMgr(SM), LangOpts(LOpts),
       SanitizerBL(new SanitizerBlacklist(LangOpts.SanitizerBlacklistFile, SM)),
       AddrSpaceMap(nullptr), Target(nullptr), PrintingPolicy(LOpts),
@@ -876,6 +876,8 @@ RecordDecl *ASTContext::buildImplicitRecord(StringRef Name,
     NewDecl = RecordDecl::Create(*this, TK, getTranslationUnitDecl(), Loc, Loc,
                                  &Idents.get(Name));
   NewDecl->setImplicit();
+  NewDecl->addAttr(TypeVisibilityAttr::CreateImplicit(
+      const_cast<ASTContext &>(*this), TypeVisibilityAttr::Default));
   return NewDecl;
 }
 
@@ -7576,7 +7578,7 @@ static QualType DecodeTypeFromStr(const char *&Str, const ASTContext &Context,
       break;
     case 'U':
       assert(!Signed && "Can't use both 'S' and 'U' modifiers!");
-      assert(!Unsigned && "Can't use 'S' modifier multiple times!");
+      assert(!Unsigned && "Can't use 'U' modifier multiple times!");
       Unsigned = true;
       break;
     case 'L':
@@ -7611,7 +7613,7 @@ static QualType DecodeTypeFromStr(const char *&Str, const ASTContext &Context,
     break;
   case 'h':
     assert(HowLong == 0 && !Signed && !Unsigned &&
-           "Bad modifiers used with 'f'!");
+           "Bad modifiers used with 'h'!");
     Type = Context.HalfTy;
     break;
   case 'f':

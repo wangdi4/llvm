@@ -12,8 +12,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/TableGen/Error.h"
@@ -1447,6 +1447,7 @@ static bool isIdentifierArgument(Record *Arg) {
     llvm::StringSwitch<bool>(Arg->getSuperClasses().back()->getName())
     .Case("IdentifierArgument", true)
     .Case("EnumArgument", true)
+    .Case("VariadicEnumArgument", true)
     .Default(false);
 }
 
@@ -1980,9 +1981,6 @@ void EmitClangAttrHasAttrImpl(RecordKeeper &Records, raw_ostream &OS) {
   }
 
   OS << "switch (Syntax) {\n";
-  OS << "case AttrSyntax::Generic:\n";
-  OS << "  return llvm::StringSwitch<int>(Name)\n";
-  GenerateHasAttrSpellingStringSwitch(Attrs, OS);
   OS << "case AttrSyntax::GNU:\n";
   OS << "  return llvm::StringSwitch<int>(Name)\n";
   GenerateHasAttrSpellingStringSwitch(GNU, OS, "GNU");

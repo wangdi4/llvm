@@ -24,8 +24,8 @@
 #include "CodeGenModule.h"
 #include "TargetInfo.h"
 #include "clang/AST/ASTContext.h"
-#include "clang/AST/DeclObjC.h"
 #include "clang/AST/Attr.h"
+#include "clang/AST/DeclObjC.h"
 #include "clang/Frontend/CodeGenOptions.h"
 #include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/StringExtras.h"
@@ -1430,8 +1430,8 @@ llvm::Value *CodeGenFunction::EmitExtVectorElementLValue(LValue LV) {
 RValue CodeGenFunction::EmitLoadOfGlobalRegLValue(LValue LV) {
   assert((LV.getType()->isIntegerType() || LV.getType()->isPointerType()) &&
          "Bad type for register variable");
-  llvm::MDNode *RegName = dyn_cast<llvm::MDNode>(LV.getGlobalReg());
-  assert(RegName && "Register LValue is not metadata");
+  llvm::MDNode *RegName = cast<llvm::MDNode>(
+      cast<llvm::MetadataAsValue>(LV.getGlobalReg())->getMetadata());
 
   // We accept integer and pointer types only
   llvm::Type *OrigTy = CGM.getTypes().ConvertType(LV.getType());
@@ -1441,7 +1441,8 @@ RValue CodeGenFunction::EmitLoadOfGlobalRegLValue(LValue LV) {
   llvm::Type *Types[] = { Ty };
 
   llvm::Value *F = CGM.getIntrinsic(llvm::Intrinsic::read_register, Types);
-  llvm::Value *Call = Builder.CreateCall(F, RegName);
+  llvm::Value *Call = Builder.CreateCall(
+      F, llvm::MetadataAsValue::get(Ty->getContext(), RegName));
   if (OrigTy->isPointerTy())
     Call = Builder.CreateIntToPtr(Call, OrigTy);
   return RValue::get(Call);
@@ -1691,7 +1692,8 @@ void CodeGenFunction::EmitStoreThroughExtVectorComponentLValue(RValue Src,
 void CodeGenFunction::EmitStoreThroughGlobalRegLValue(RValue Src, LValue Dst) {
   assert((Dst.getType()->isIntegerType() || Dst.getType()->isPointerType()) &&
          "Bad type for register variable");
-  llvm::MDNode *RegName = dyn_cast<llvm::MDNode>(Dst.getGlobalReg());
+  llvm::MDNode *RegName = cast<llvm::MDNode>(
+      cast<llvm::MetadataAsValue>(Dst.getGlobalReg())->getMetadata());
   assert(RegName && "Register LValue is not metadata");
 
   // We accept integer and pointer types only
@@ -1705,7 +1707,8 @@ void CodeGenFunction::EmitStoreThroughGlobalRegLValue(RValue Src, LValue Dst) {
   llvm::Value *Value = Src.getScalarVal();
   if (OrigTy->isPointerTy())
     Value = Builder.CreatePtrToInt(Value, Ty);
-  Builder.CreateCall2(F, RegName, Value);
+  Builder.CreateCall2(F, llvm::MetadataAsValue::get(Ty->getContext(), RegName),
+                      Value);
 }
 
 // setObjCGCLValueClass - sets class of the lvalue for the purpose of
@@ -1900,10 +1903,12 @@ static LValue EmitGlobalNamedRegister(const VarDecl *VD,
   if (M->getNumOperands() == 0) {
     llvm::MDString *Str = llvm::MDString::get(CGM.getLLVMContext(),
                                               Asm->getLabel());
-    llvm::Value *Ops[] = { Str };
+    llvm::Metadata *Ops[] = {Str};
     M->addOperand(llvm::MDNode::get(CGM.getLLVMContext(), Ops));
   }
-  return LValue::MakeGlobalReg(M->getOperand(0), VD->getType(), Alignment);
+  return LValue::MakeGlobalReg(
+      llvm::MetadataAsValue::get(CGM.getLLVMContext(), M->getOperand(0)),
+      VD->getType(), Alignment);
 }
 
 LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
@@ -1928,6 +1933,22 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
       assert(Val && "failed to emit reference constant expression");
       // FIXME: Eventually we will want to emit vector element references.
       return MakeAddrLValue(Val, T, Alignment);
+    }
+
+    // Check for captured variables.
+    if (E->refersToEnclosingVariableOrCapture()) {
+      if (auto *FD = LambdaCaptureFields.lookup(VD))
+        return EmitCapturedFieldLValue(*this, FD, CXXABIThisValue);
+      else if (CapturedStmtInfo) {
+        if (auto *V = LocalDeclMap.lookup(VD))
+          return MakeAddrLValue(V, T, Alignment);
+        else
+          return EmitCapturedFieldLValue(*this, CapturedStmtInfo->lookup(VD),
+                                         CapturedStmtInfo->getContextValue());
+      }
+      assert(isa<BlockDecl>(CurCodeDecl));
+      return MakeAddrLValue(GetAddrOfBlockDecl(VD, VD->hasAttr<BlocksAttr>()),
+                            T, Alignment);
     }
   }
 
@@ -1970,6 +1991,7 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
           *this, VD, T, V, getTypes().ConvertTypeForMem(VD->getType()),
           Alignment, E->getExprLoc());
 
+#if INTEL_CLANG_FIXME // Merge conflict. CLANG no longer has any of this.
     // Use special handling for lambdas.
     if (!V) {
       if (FieldDecl *FD = LambdaCaptureFields.lookup(VD)) {
@@ -2008,6 +2030,7 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
       return MakeAddrLValue(GetAddrOfBlockDecl(VD, isBlockVariable),
                             T, Alignment);
     }
+#endif  // INTEL_CLANG_FIXME
 
     assert(V && "DeclRefExpr not entered in LocalDeclMap?");
 
@@ -2248,9 +2271,10 @@ llvm::Constant *CodeGenFunction::EmitCheckSourceLocation(SourceLocation Loc) {
 namespace {
 /// \brief Specify under what conditions this check can be recovered
 enum class CheckRecoverableKind {
-  /// Always terminate program execution if this check fails
+  /// Always terminate program execution if this check fails.
   Unrecoverable,
-  /// Check supports recovering, allows user to specify which
+  /// Check supports recovering, runtime has both fatal (noreturn) and
+  /// non-fatal handlers for this check.
   Recoverable,
   /// Runtime conditionally aborts, always need to support recovery.
   AlwaysRecoverable
@@ -2269,42 +2293,95 @@ static CheckRecoverableKind getRecoverableKind(SanitizerKind Kind) {
   }
 }
 
+static void emitCheckHandlerCall(CodeGenFunction &CGF,
+                                 llvm::FunctionType *FnType,
+                                 ArrayRef<llvm::Value *> FnArgs,
+                                 StringRef CheckName,
+                                 CheckRecoverableKind RecoverKind, bool IsFatal,
+                                 llvm::BasicBlock *ContBB) {
+  assert(IsFatal || RecoverKind != CheckRecoverableKind::Unrecoverable);
+  bool NeedsAbortSuffix =
+      IsFatal && RecoverKind != CheckRecoverableKind::Unrecoverable;
+  std::string FnName = ("__ubsan_handle_" + CheckName +
+                        (NeedsAbortSuffix ? "_abort" : "")).str();
+  bool MayReturn =
+      !IsFatal || RecoverKind == CheckRecoverableKind::AlwaysRecoverable;
+
+  llvm::AttrBuilder B;
+  if (!MayReturn) {
+    B.addAttribute(llvm::Attribute::NoReturn)
+        .addAttribute(llvm::Attribute::NoUnwind);
+  }
+  B.addAttribute(llvm::Attribute::UWTable);
+
+  llvm::Value *Fn = CGF.CGM.CreateRuntimeFunction(
+      FnType, FnName,
+      llvm::AttributeSet::get(CGF.getLLVMContext(),
+                              llvm::AttributeSet::FunctionIndex, B));
+  llvm::CallInst *HandlerCall = CGF.EmitNounwindRuntimeCall(Fn, FnArgs);
+  if (!MayReturn) {
+    HandlerCall->setDoesNotReturn();
+    CGF.Builder.CreateUnreachable();
+  } else {
+    CGF.Builder.CreateBr(ContBB);
+  }
+}
+
 void CodeGenFunction::EmitCheck(
     ArrayRef<std::pair<llvm::Value *, SanitizerKind>> Checked,
     StringRef CheckName, ArrayRef<llvm::Constant *> StaticArgs,
     ArrayRef<llvm::Value *> DynamicArgs) {
   assert(IsSanitizerScope);
   assert(Checked.size() > 0);
-  llvm::Value *Cond = Checked[0].first;
+
+  llvm::Value *FatalCond = nullptr;
+  llvm::Value *RecoverableCond = nullptr;
+  for (int i = 0, n = Checked.size(); i < n; ++i) {
+    llvm::Value *Check = Checked[i].first;
+    llvm::Value *&Cond =
+        CGM.getCodeGenOpts().SanitizeRecover.has(Checked[i].second)
+            ? RecoverableCond
+            : FatalCond;
+    Cond = Cond ? Builder.CreateAnd(Cond, Check) : Check;
+  }
+
+  llvm::Value *JointCond;
+  if (FatalCond && RecoverableCond)
+    JointCond = Builder.CreateAnd(FatalCond, RecoverableCond);
+  else
+    JointCond = FatalCond ? FatalCond : RecoverableCond;
+  assert(JointCond);
+
   CheckRecoverableKind RecoverKind = getRecoverableKind(Checked[0].second);
   assert(SanOpts.has(Checked[0].second));
+#ifndef NDEBUG
   for (int i = 1, n = Checked.size(); i < n; ++i) {
-    Cond = Builder.CreateAnd(Cond, Checked[i].first);
     assert(RecoverKind == getRecoverableKind(Checked[i].second) &&
            "All recoverable kinds in a single check must be same!");
     assert(SanOpts.has(Checked[i].second));
   }
+#endif
 
   if (CGM.getCodeGenOpts().SanitizeUndefinedTrapOnError) {
-    assert (RecoverKind != CheckRecoverableKind::AlwaysRecoverable &&
-            "Runtime call required for AlwaysRecoverable kind!");
-    return EmitTrapCheck(Cond);
+    assert(RecoverKind != CheckRecoverableKind::AlwaysRecoverable &&
+           "Runtime call required for AlwaysRecoverable kind!");
+    // Assume that -fsanitize-undefined-trap-on-error overrides
+    // -fsanitize-recover= options, as we can only print meaningful error
+    // message and recover if we have a runtime support.
+    return EmitTrapCheck(JointCond);
   }
 
   llvm::BasicBlock *Cont = createBasicBlock("cont");
-
-  llvm::BasicBlock *Handler = createBasicBlock("handler." + CheckName);
-
-  llvm::Instruction *Branch = Builder.CreateCondBr(Cond, Cont, Handler);
-
+  llvm::BasicBlock *Handlers = createBasicBlock("handler." + CheckName);
+  llvm::Instruction *Branch = Builder.CreateCondBr(JointCond, Cont, Handlers);
   // Give hint that we very much don't expect to execute the handler
   // Value chosen to match UR_NONTAKEN_WEIGHT, see BranchProbabilityInfo.cpp
   llvm::MDBuilder MDHelper(getLLVMContext());
   llvm::MDNode *Node = MDHelper.createBranchWeights((1U << 20) - 1, 1);
   Branch->setMetadata(llvm::LLVMContext::MD_prof, Node);
+  EmitBlock(Handlers);
 
-  EmitBlock(Handler);
-
+  // Emit handler arguments and create handler function type.
   llvm::Constant *Info = llvm::ConstantStruct::getAnon(StaticArgs);
   auto *InfoPtr =
       new llvm::GlobalVariable(CGM.getModule(), Info->getType(), false,
@@ -2327,34 +2404,27 @@ void CodeGenFunction::EmitCheck(
     ArgTypes.push_back(IntPtrTy);
   }
 
-  bool Recover = RecoverKind == CheckRecoverableKind::AlwaysRecoverable ||
-                 (RecoverKind == CheckRecoverableKind::Recoverable &&
-                  CGM.getCodeGenOpts().SanitizeRecover);
-
   llvm::FunctionType *FnType =
     llvm::FunctionType::get(CGM.VoidTy, ArgTypes, false);
-  llvm::AttrBuilder B;
-  if (!Recover) {
-    B.addAttribute(llvm::Attribute::NoReturn)
-     .addAttribute(llvm::Attribute::NoUnwind);
-  }
-  B.addAttribute(llvm::Attribute::UWTable);
 
-  // Checks that have two variants use a suffix to differentiate them
-  bool NeedsAbortSuffix = RecoverKind != CheckRecoverableKind::Unrecoverable &&
-                          !CGM.getCodeGenOpts().SanitizeRecover;
-  std::string FunctionName = ("__ubsan_handle_" + CheckName +
-                              (NeedsAbortSuffix? "_abort" : "")).str();
-  llvm::Value *Fn = CGM.CreateRuntimeFunction(
-      FnType, FunctionName,
-      llvm::AttributeSet::get(getLLVMContext(),
-                              llvm::AttributeSet::FunctionIndex, B));
-  llvm::CallInst *HandlerCall = EmitNounwindRuntimeCall(Fn, Args);
-  if (Recover) {
-    Builder.CreateBr(Cont);
+  if (!FatalCond || !RecoverableCond) {
+    // Simple case: we need to generate a single handler call, either
+    // fatal, or non-fatal.
+    emitCheckHandlerCall(*this, FnType, Args, CheckName, RecoverKind,
+                         (FatalCond != nullptr), Cont);
   } else {
-    HandlerCall->setDoesNotReturn();
-    Builder.CreateUnreachable();
+    // Emit two handler calls: first one for set of unrecoverable checks,
+    // another one for recoverable.
+    llvm::BasicBlock *NonFatalHandlerBB =
+        createBasicBlock("non_fatal." + CheckName);
+    llvm::BasicBlock *FatalHandlerBB = createBasicBlock("fatal." + CheckName);
+    Builder.CreateCondBr(FatalCond, NonFatalHandlerBB, FatalHandlerBB);
+    EmitBlock(FatalHandlerBB);
+    emitCheckHandlerCall(*this, FnType, Args, CheckName, RecoverKind, true,
+                         NonFatalHandlerBB);
+    EmitBlock(NonFatalHandlerBB);
+    emitCheckHandlerCall(*this, FnType, Args, CheckName, RecoverKind, false,
+                         Cont);
   }
 
   EmitBlock(Cont);
@@ -3053,18 +3123,15 @@ RValue CodeGenFunction::EmitRValueForField(LValue LV,
 
 RValue CodeGenFunction::EmitCallExpr(const CallExpr *E,
                                      ReturnValueSlot ReturnValue) {
-  if (CGDebugInfo *DI = getDebugInfo()) {
-    SourceLocation Loc = E->getLocStart();
-    // Force column info to be generated so we can differentiate
-    // multiple call sites on the same line in the debug info.
-    // FIXME: This is insufficient. Two calls coming from the same macro
-    // expansion will still get the same line/column and break debug info. It's
-    // possible that LLVM can be fixed to not rely on this uniqueness, at which
-    // point this workaround can be removed.
-    const FunctionDecl* Callee = E->getDirectCallee();
-    bool ForceColumnInfo = Callee && Callee->isInlineSpecified();
-    DI->EmitLocation(Builder, Loc, ForceColumnInfo);
-  }
+  // Force column info to be generated so we can differentiate
+  // multiple call sites on the same line in the debug info.
+  // FIXME: This is insufficient. Two calls coming from the same macro
+  // expansion will still get the same line/column and break debug info. It's
+  // possible that LLVM can be fixed to not rely on this uniqueness, at which
+  // point this workaround can be removed.
+  ApplyDebugLocation DL(*this, E->getLocStart(),
+                        E->getDirectCallee() &&
+                            E->getDirectCallee()->isInlineSpecified());
 
   // Builtins never have block type.
   if (E->getCallee()->getType()->isBlockPointerType())
@@ -3079,7 +3146,7 @@ RValue CodeGenFunction::EmitCallExpr(const CallExpr *E,
   const Decl *TargetDecl = E->getCalleeDecl();
   if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(TargetDecl)) {
     if (unsigned builtinID = FD->getBuiltinID())
-      return EmitBuiltinExpr(FD, builtinID, E);
+      return EmitBuiltinExpr(FD, builtinID, E, ReturnValue);
   }
 
   if (const auto *CE = dyn_cast<CXXOperatorCallExpr>(E))
@@ -3329,7 +3396,7 @@ LValue CodeGenFunction::EmitStmtExprLValue(const StmtExpr *E) {
 
 RValue CodeGenFunction::EmitCall(QualType CalleeType, llvm::Value *Callee,
                                  const CallExpr *E, ReturnValueSlot ReturnValue,
-                                 const Decl *TargetDecl) {
+                                 const Decl *TargetDecl, llvm::Value *Chain) {
   // Get the actual function type. The callee type will always be a pointer to
   // function type or a block pointer type.
   assert(CalleeType->isFunctionPointerType() &&
@@ -3394,12 +3461,15 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, llvm::Value *Callee,
   }
 
   CallArgList Args;
+  if (Chain)
+    Args.add(RValue::get(Builder.CreateBitCast(Chain, CGM.VoidPtrTy)),
+             CGM.getContext().VoidPtrTy);
   EmitCallArgs(Args, dyn_cast<FunctionProtoType>(FnType), E->arg_begin(),
                E->arg_end(), E->getDirectCallee(), /*ParamsToSkip*/ 0,
                ForceColumnInfo);
 
-  const CGFunctionInfo &FnInfo =
-    CGM.getTypes().arrangeFreeFunctionCall(Args, FnType);
+  const CGFunctionInfo &FnInfo = CGM.getTypes().arrangeFreeFunctionCall(
+      Args, FnType, /*isChainCall=*/Chain);
 
   // C99 6.5.2.2p6:
   //   If the expression that denotes the called function has a type
@@ -3418,7 +3488,10 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, llvm::Value *Callee,
   // through an unprototyped function type works like a *non-variadic*
   // call.  The way we make this work is to cast to the exact type
   // of the promoted arguments.
-  if (isa<FunctionNoProtoType>(FnType)) {
+  //
+  // Chain calls use this same code path to add the invisible chain parameter
+  // to the function type.
+  if (isa<FunctionNoProtoType>(FnType) || Chain) {
     llvm::Type *CalleeTy = getTypes().GetFunctionType(FnInfo);
     CalleeTy = CalleeTy->getPointerTo();
     Callee = Builder.CreateBitCast(Callee, CalleeTy, "callee.knr.cast");

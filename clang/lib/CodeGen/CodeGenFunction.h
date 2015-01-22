@@ -96,19 +96,6 @@ enum TypeEvaluationKind {
   TEK_Aggregate
 };
 
-class SuppressDebugLocation {
-  llvm::DebugLoc CurLoc;
-  llvm::IRBuilderBase &Builder;
-public:
-  SuppressDebugLocation(llvm::IRBuilderBase &Builder)
-      : CurLoc(Builder.getCurrentDebugLocation()), Builder(Builder) {
-    Builder.SetCurrentDebugLocation(llvm::DebugLoc());
-  }
-  ~SuppressDebugLocation() {
-    Builder.SetCurrentDebugLocation(CurLoc);
-  }
-};
-
 /// CodeGenFunction - This class organizes the per-function state that is used
 /// while generating LLVM code.
 class CodeGenFunction : public CodeGenTypeCache {
@@ -185,6 +172,8 @@ public:
   /// \brief API for captured statement code generation.
   class CGCapturedStmtInfo {
   public:
+    explicit CGCapturedStmtInfo(CapturedRegionKind K = CR_Default)
+        : Kind(K), ThisValue(nullptr), CXXThisFieldDecl(nullptr) {}
     explicit CGCapturedStmtInfo(const CapturedStmt &S,
                                 CapturedRegionKind K = CR_Default)
       : Kind(K), ThisValue(nullptr), CXXThisFieldDecl(nullptr) {
@@ -889,7 +878,6 @@ public:
     addPrivate(const VarDecl *LocalVD,
                const std::function<llvm::Value *()> &PrivateGen) {
       assert(PerformCleanup && "adding private to dead scope");
-      assert(LocalVD->isLocalVarDecl() && "privatizing non-local variable");
       if (SavedLocals.count(LocalVD) > 0) return false;
       SavedLocals[LocalVD] = CGF.LocalDeclMap.lookup(LocalVD);
       CGF.LocalDeclMap.erase(LocalVD);
@@ -1483,9 +1471,7 @@ public:
 
   void GenerateObjCMethod(const ObjCMethodDecl *OMD);
 
-  void StartObjCMethod(const ObjCMethodDecl *MD,
-                       const ObjCContainerDecl *CD,
-                       SourceLocation StartLoc);
+  void StartObjCMethod(const ObjCMethodDecl *MD, const ObjCContainerDecl *CD);
 
   /// GenerateObjCGetter - Synthesize an Objective-C property getter function.
   void GenerateObjCGetter(ObjCImplementationDecl *IMP,
@@ -1579,7 +1565,7 @@ public:
 
   /// EmitReturnBlock - Emit the unified return block, trying to avoid its
   /// emission when possible.
-  void EmitReturnBlock();
+  llvm::DebugLoc EmitReturnBlock();
 
   /// FinishFunction - Complete IR generation of the current function. It is
   /// legal to call this function even if there is no current insertion point.
@@ -1848,8 +1834,8 @@ public:
 
   /// EmitExprAsInit - Emits the code necessary to initialize a
   /// location in memory with the given initializer.
-  void EmitExprAsInit(const Expr *init, const ValueDecl *D,
-                      LValue lvalue, bool capturedByInit);
+  void EmitExprAsInit(const Expr *init, const ValueDecl *D, LValue lvalue,
+                      bool capturedByInit);
 
   /// hasVolatileMember - returns true if aggregate type has a volatile
   /// member.
@@ -2137,8 +2123,8 @@ public:
   /// This function can be called with a null (unreachable) insert point.
   void EmitVarDecl(const VarDecl &D);
 
-  void EmitScalarInit(const Expr *init, const ValueDecl *D,
-                      LValue lvalue, bool capturedByInit);
+  void EmitScalarInit(const Expr *init, const ValueDecl *D, LValue lvalue,
+                      bool capturedByInit);
   void EmitScalarInit(llvm::Value *init, LValue lvalue);
 
   typedef void SpecialInitFn(CodeGenFunction &Init, const VarDecl &D,
@@ -2366,12 +2352,17 @@ public:
   void EmitOMPTargetDirective(const OMPTargetDirective &S);
   void EmitOMPTeamsDirective(const OMPTeamsDirective &S);
 
-  /// Helpers for 'omp simd' directive.
+private:
+
+  /// Helpers for the OpenMP loop directives.
   void EmitOMPLoopBody(const OMPLoopDirective &Directive,
                        bool SeparateIter = false);
   void EmitOMPInnerLoop(const OMPLoopDirective &S, OMPPrivateScope &LoopScope,
                         bool SeparateIter = false);
   void EmitOMPSimdFinal(const OMPLoopDirective &S);
+  void EmitOMPWorksharingLoop(const OMPLoopDirective &S);
+
+public:
 
   //===--------------------------------------------------------------------===//
   //                         LValue Expression Emission
@@ -2424,6 +2415,12 @@ public:
 
   void EmitAtomicStore(RValue rvalue, LValue lvalue, bool isInit);
 
+  std::pair<RValue, RValue> EmitAtomicCompareExchange(
+      LValue Obj, RValue Expected, RValue Desired, SourceLocation Loc,
+      llvm::AtomicOrdering Success = llvm::SequentiallyConsistent,
+      llvm::AtomicOrdering Failure = llvm::SequentiallyConsistent,
+      bool IsWeak = false, AggValueSlot Slot = AggValueSlot::ignored());
+
   /// EmitToMemory - Change a scalar value from its value
   /// representation to its in-memory representation.
   llvm::Value *EmitToMemory(llvm::Value *Value, QualType Ty);
@@ -2475,7 +2472,7 @@ public:
   /// EmitStoreThroughLValue - Store the specified rvalue into the specified
   /// lvalue, where both are guaranteed to the have the same type, and that type
   /// is 'Ty'.
-  void EmitStoreThroughLValue(RValue Src, LValue Dst, bool isInit=false);
+  void EmitStoreThroughLValue(RValue Src, LValue Dst, bool isInit = false);
   void EmitStoreThroughExtVectorComponentLValue(RValue Src, LValue Dst);
   void EmitStoreThroughGlobalRegLValue(RValue Src, LValue Dst);
 
@@ -2610,7 +2607,8 @@ public:
 
   RValue EmitCall(QualType FnType, llvm::Value *Callee, const CallExpr *E,
                   ReturnValueSlot ReturnValue,
-                  const Decl *TargetDecl = nullptr);
+                  const Decl *TargetDecl = nullptr,
+                  llvm::Value *Chain = nullptr);
   RValue EmitCallExpr(const CallExpr *E,
                       ReturnValueSlot ReturnValue = ReturnValueSlot());
 
@@ -2677,7 +2675,8 @@ public:
 
 
   RValue EmitBuiltinExpr(const FunctionDecl *FD,
-                         unsigned BuiltinID, const CallExpr *E);
+                         unsigned BuiltinID, const CallExpr *E,
+                         ReturnValueSlot ReturnValue);
 
   RValue EmitBlockCallExpr(const CallExpr *E, ReturnValueSlot ReturnValue);
 
@@ -3065,28 +3064,13 @@ public:
                 E = CallArgTypeInfo->param_type_end();
            I != E; ++I, ++Arg) {
         assert(Arg != ArgEnd && "Running over edge of argument list!");
-#ifndef NDEBUG
-        QualType ArgType = *I;
-        QualType ActualArgType = Arg->getType();
-        if (ArgType->isPointerType() && ActualArgType->isPointerType()) {
-          QualType ActualBaseType =
-              ActualArgType->getAs<PointerType>()->getPointeeType();
-          QualType ArgBaseType =
-              ArgType->getAs<PointerType>()->getPointeeType();
-          if (ArgBaseType->isVariableArrayType()) {
-            if (const VariableArrayType *VAT =
-                    getContext().getAsVariableArrayType(ActualBaseType)) {
-              if (!VAT->getSizeExpr())
-                ActualArgType = ArgType;
-            }
-          }
-        }
-        assert(getContext()
-                       .getCanonicalType(ArgType.getNonReferenceType())
-                       .getTypePtr() ==
-                   getContext().getCanonicalType(ActualArgType).getTypePtr() &&
-               "type mismatch in call argument!");
-#endif
+        assert(
+            ((*I)->isVariablyModifiedType() ||
+             getContext()
+                     .getCanonicalType((*I).getNonReferenceType())
+                     .getTypePtr() ==
+                 getContext().getCanonicalType(Arg->getType()).getTypePtr()) &&
+            "type mismatch in call argument!");
         ArgTypes.push_back(*I);
       }
     }
@@ -3129,6 +3113,9 @@ private:
   /// GetPointeeAlignment - Given an expression with a pointer type, emit the
   /// value and compute our best estimate of the alignment of the pointee.
   std::pair<llvm::Value*, unsigned> EmitPointerWithAlignment(const Expr *Addr);
+
+  llvm::Value *GetValueForARMHint(unsigned BuiltinID);
+
 #ifdef INTEL_CUSTOMIZATION
 public:
   void EmitPragmaDecl(const PragmaDecl &D);

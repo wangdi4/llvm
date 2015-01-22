@@ -71,6 +71,12 @@ CodeGenFunction::CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext)
     FMF.setNoNaNs();
     FMF.setNoInfs();
   }
+  if (CGM.getCodeGenOpts().NoNaNsFPMath) {
+    FMF.setNoNaNs();
+  }
+  if (CGM.getCodeGenOpts().NoSignedZeros) {
+    FMF.setNoSignedZeros();
+  }
   Builder.SetFastMathFlags(FMF);
 }
 
@@ -162,7 +168,7 @@ TypeEvaluationKind CodeGenFunction::getEvaluationKind(QualType type) {
   }
 }
 
-void CodeGenFunction::EmitReturnBlock() {
+llvm::DebugLoc CodeGenFunction::EmitReturnBlock() {
   // For cleanliness, we try to avoid emitting the return block for
   // simple cases.
   llvm::BasicBlock *CurBB = Builder.GetInsertBlock();
@@ -177,7 +183,7 @@ void CodeGenFunction::EmitReturnBlock() {
       delete ReturnBlock.getBlock();
     } else
       EmitBlock(ReturnBlock.getBlock());
-    return;
+    return llvm::DebugLoc();
   }
 
   // Otherwise, if the return block is the target of a single direct
@@ -188,16 +194,15 @@ void CodeGenFunction::EmitReturnBlock() {
       dyn_cast<llvm::BranchInst>(*ReturnBlock.getBlock()->user_begin());
     if (BI && BI->isUnconditional() &&
         BI->getSuccessor(0) == ReturnBlock.getBlock()) {
-      // Reset insertion point, including debug location, and delete the
-      // branch.  This is really subtle and only works because the next change
-      // in location will hit the caching in CGDebugInfo::EmitLocation and not
-      // override this.
-      ReturnLoc = BI->getDebugLoc();	//***INTEL 
       Builder.SetCurrentDebugLocation(BI->getDebugLoc());
+      // Record/return the DebugLoc of the simple 'return' expression to be used
+      // later by the actual 'ret' instruction.
+      llvm::DebugLoc Loc = BI->getDebugLoc();
+      ReturnLoc = Loc;                                     //***INTEL 
       Builder.SetInsertPoint(BI->getParent());
       BI->eraseFromParent();
       delete ReturnBlock.getBlock();
-      return;
+      return Loc;
     }
   }
 
@@ -206,6 +211,7 @@ void CodeGenFunction::EmitReturnBlock() {
   // region.end for now.
 
   EmitBlock(ReturnBlock.getBlock());
+  return llvm::DebugLoc();
 }
 
 static void EmitIfUsed(CodeGenFunction &CGF, llvm::BasicBlock *BB) {
@@ -259,16 +265,18 @@ void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
   }
 
   // Emit function epilog (to return).
-  EmitReturnBlock();
+  llvm::DebugLoc Loc = EmitReturnBlock();
 
   if (ShouldInstrumentFunction())
     EmitFunctionInstrumentation("__cyg_profile_func_exit");
 
   // Emit debug descriptor for function end.
-  if (CGDebugInfo *DI = getDebugInfo()) {
+  if (CGDebugInfo *DI = getDebugInfo())
     DI->EmitFunctionEnd(Builder);
-  }
 
+  // Reset the debug location to that of the simple 'return' expression, if any
+  // rather than that of the end of the function's scope '}'.
+  ApplyDebugLocation AL(*this, Loc);
   EmitFunctionEpilog(*CurFnInfo, EmitRetDbgLoc, EndLoc);
   EmitEndEHSpec(CurCodeDecl);
 
@@ -360,9 +368,9 @@ void CodeGenFunction::EmitMCountInstrumentation() {
 // information in the program executable. The argument information stored
 // includes the argument name, its type, the address and access qualifiers used.
 static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
-                                 CodeGenModule &CGM,llvm::LLVMContext &Context,
-                                 SmallVector <llvm::Value*, 5> &kernelMDArgs,
-                                 CGBuilderTy& Builder, ASTContext &ASTCtx) {
+                                 CodeGenModule &CGM, llvm::LLVMContext &Context,
+                                 SmallVector<llvm::Metadata *, 5> &kernelMDArgs,
+                                 CGBuilderTy &Builder, ASTContext &ASTCtx) {
   // Create MDNodes that represent the kernel arg metadata.
   // Each MDNode is a list in the form of "key", N number of values which is
   // the same number of values as their are kernel arguments.
@@ -370,28 +378,28 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
   const PrintingPolicy &Policy = ASTCtx.getPrintingPolicy();
 
   // MDNode for the kernel argument address space qualifiers.
-  SmallVector<llvm::Value*, 8> addressQuals;
+  SmallVector<llvm::Metadata *, 8> addressQuals;
   addressQuals.push_back(llvm::MDString::get(Context, "kernel_arg_addr_space"));
 
   // MDNode for the kernel argument access qualifiers (images only).
-  SmallVector<llvm::Value*, 8> accessQuals;
+  SmallVector<llvm::Metadata *, 8> accessQuals;
   accessQuals.push_back(llvm::MDString::get(Context, "kernel_arg_access_qual"));
 
   // MDNode for the kernel argument type names.
-  SmallVector<llvm::Value*, 8> argTypeNames;
+  SmallVector<llvm::Metadata *, 8> argTypeNames;
   argTypeNames.push_back(llvm::MDString::get(Context, "kernel_arg_type"));
 
   // MDNode for the kernel argument base type names.
-  SmallVector<llvm::Value*, 8> argBaseTypeNames;
+  SmallVector<llvm::Metadata *, 8> argBaseTypeNames;
   argBaseTypeNames.push_back(
       llvm::MDString::get(Context, "kernel_arg_base_type"));
 
   // MDNode for the kernel argument type qualifiers.
-  SmallVector<llvm::Value*, 8> argTypeQuals;
+  SmallVector<llvm::Metadata *, 8> argTypeQuals;
   argTypeQuals.push_back(llvm::MDString::get(Context, "kernel_arg_type_qual"));
 
   // MDNode for the kernel argument names.
-  SmallVector<llvm::Value*, 8> argNames;
+  SmallVector<llvm::Metadata *, 8> argNames;
   argNames.push_back(llvm::MDString::get(Context, "kernel_arg_name"));
 
   for (unsigned i = 0, e = FD->getNumParams(); i != e; ++i) {
@@ -403,8 +411,8 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
       QualType pointeeTy = ty->getPointeeType();
 
       // Get address qualifier.
-      addressQuals.push_back(Builder.getInt32(ASTCtx.getTargetAddressSpace(
-        pointeeTy.getAddressSpace())));
+      addressQuals.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(
+          ASTCtx.getTargetAddressSpace(pointeeTy.getAddressSpace()))));
 
       // Get argument type name.
       std::string typeName =
@@ -443,7 +451,8 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
         AddrSpc =
           CGM.getContext().getTargetAddressSpace(LangAS::opencl_global);
 
-      addressQuals.push_back(Builder.getInt32(AddrSpc));
+      addressQuals.push_back(
+          llvm::ConstantAsMetadata::get(Builder.getInt32(AddrSpc)));
 
       // Get argument type name.
       std::string typeName = ty.getUnqualifiedType().getAsString(Policy);
@@ -494,7 +503,8 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
   kernelMDArgs.push_back(llvm::MDNode::get(Context, argTypeNames));
   kernelMDArgs.push_back(llvm::MDNode::get(Context, argBaseTypeNames));
   kernelMDArgs.push_back(llvm::MDNode::get(Context, argTypeQuals));
-  kernelMDArgs.push_back(llvm::MDNode::get(Context, argNames));
+  if (CGM.getCodeGenOpts().EmitOpenCLArgMetadata)
+    kernelMDArgs.push_back(llvm::MDNode::get(Context, argNames));
 }
 
 void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
@@ -505,12 +515,11 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
 
   llvm::LLVMContext &Context = getLLVMContext();
 
-  SmallVector <llvm::Value*, 5> kernelMDArgs;
-  kernelMDArgs.push_back(Fn);
+  SmallVector<llvm::Metadata *, 5> kernelMDArgs;
+  kernelMDArgs.push_back(llvm::ConstantAsMetadata::get(Fn));
 
-  if (CGM.getCodeGenOpts().EmitOpenCLArgMetadata)
-    GenOpenCLArgMetadata(FD, Fn, CGM, Context, kernelMDArgs,
-                         Builder, getContext());
+  GenOpenCLArgMetadata(FD, Fn, CGM, Context, kernelMDArgs, Builder,
+                       getContext());
 
   if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
     QualType hintQTy = A->getTypeHint();
@@ -518,33 +527,31 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
     bool isSignedInteger =
         hintQTy->isSignedIntegerType() ||
         (hintEltQTy && hintEltQTy->getElementType()->isSignedIntegerType());
-    llvm::Value *attrMDArgs[] = {
-      llvm::MDString::get(Context, "vec_type_hint"),
-      llvm::UndefValue::get(CGM.getTypes().ConvertType(A->getTypeHint())),
-      llvm::ConstantInt::get(
-          llvm::IntegerType::get(Context, 32),
-          llvm::APInt(32, (uint64_t)(isSignedInteger ? 1 : 0)))
-    };
+    llvm::Metadata *attrMDArgs[] = {
+        llvm::MDString::get(Context, "vec_type_hint"),
+        llvm::ConstantAsMetadata::get(llvm::UndefValue::get(
+            CGM.getTypes().ConvertType(A->getTypeHint()))),
+        llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
+            llvm::IntegerType::get(Context, 32),
+            llvm::APInt(32, (uint64_t)(isSignedInteger ? 1 : 0))))};
     kernelMDArgs.push_back(llvm::MDNode::get(Context, attrMDArgs));
   }
 
   if (const WorkGroupSizeHintAttr *A = FD->getAttr<WorkGroupSizeHintAttr>()) {
-    llvm::Value *attrMDArgs[] = {
-      llvm::MDString::get(Context, "work_group_size_hint"),
-      Builder.getInt32(A->getXDim()),
-      Builder.getInt32(A->getYDim()),
-      Builder.getInt32(A->getZDim())
-    };
+    llvm::Metadata *attrMDArgs[] = {
+        llvm::MDString::get(Context, "work_group_size_hint"),
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getXDim())),
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getYDim())),
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getZDim()))};
     kernelMDArgs.push_back(llvm::MDNode::get(Context, attrMDArgs));
   }
 
   if (const ReqdWorkGroupSizeAttr *A = FD->getAttr<ReqdWorkGroupSizeAttr>()) {
-    llvm::Value *attrMDArgs[] = {
-      llvm::MDString::get(Context, "reqd_work_group_size"),
-      Builder.getInt32(A->getXDim()),
-      Builder.getInt32(A->getYDim()),
-      Builder.getInt32(A->getZDim())
-    };
+    llvm::Metadata *attrMDArgs[] = {
+        llvm::MDString::get(Context, "reqd_work_group_size"),
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getXDim())),
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getYDim())),
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getZDim()))};
     kernelMDArgs.push_back(llvm::MDNode::get(Context, attrMDArgs));
   }
 
@@ -941,9 +948,6 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
   // a quick pass now to see if we can.
   if (!CurFn->doesNotThrow())
     TryMarkNoThrow(CurFn);
-
-  PGO.emitInstrumentationData();
-  PGO.destroyRegionCounters();
 }
 
 /// ContainsLabel - Return true if the statement contains a label in it.  If
