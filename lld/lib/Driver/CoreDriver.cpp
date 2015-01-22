@@ -8,7 +8,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "lld/Driver/Driver.h"
-#include "lld/Driver/WrapperInputGraph.h"
 #include "lld/ReaderWriter/CoreLinkingContext.h"
 #include "lld/ReaderWriter/Reader.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -104,8 +103,6 @@ bool CoreDriver::parse(int argc, const char *argv[], CoreLinkingContext &ctx,
     return false;
   }
 
-  std::unique_ptr<InputGraph> inputGraph(new InputGraph());
-
   // Set default options
   ctx.setOutputPath("-");
   ctx.setDeadStripping(false);
@@ -152,11 +149,9 @@ bool CoreDriver::parse(int argc, const char *argv[], CoreLinkingContext &ctx,
 
     case OPT_INPUT: {
       std::vector<std::unique_ptr<File>> files
-        = parseFile(ctx, inputArg->getValue(), false);
-      for (std::unique_ptr<File> &file : files) {
-        inputGraph->addInputElement(std::unique_ptr<InputElement>(
-            new WrapperNode(std::move(file))));
-      }
+        = loadFile(ctx, inputArg->getValue(), false);
+      for (std::unique_ptr<File> &file : files)
+        ctx.getNodes().push_back(llvm::make_unique<FileNode>(std::move(file)));
       break;
     }
 
@@ -165,12 +160,10 @@ bool CoreDriver::parse(int argc, const char *argv[], CoreLinkingContext &ctx,
     }
   }
 
-  if (!inputGraph->size()) {
+  if (ctx.getNodes().empty()) {
     diagnostics << "No input files\n";
     return false;
   }
-
-  ctx.setInputGraph(std::move(inputGraph));
 
   // Validate the combination of options used.
   return ctx.validate(diagnostics);

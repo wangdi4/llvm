@@ -23,7 +23,6 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/LeakDetector.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/RWMutex.h"
@@ -46,20 +45,13 @@ Argument::Argument(Type *Ty, const Twine &Name, Function *Par)
   : Value(Ty, Value::ArgumentVal) {
   Parent = nullptr;
 
-  // Make sure that we get added to a function
-  LeakDetector::addGarbageObject(this);
-
   if (Par)
     Par->getArgumentList().push_back(this);
   setName(Name);
 }
 
 void Argument::setParent(Function *parent) {
-  if (getParent())
-    LeakDetector::addGarbageObject(this);
   Parent = parent;
-  if (getParent())
-    LeakDetector::removeGarbageObject(this);
 }
 
 /// getArgNo - Return the index of this formal argument in its containing
@@ -260,9 +252,6 @@ Function::Function(FunctionType *Ty, LinkageTypes Linkage, const Twine &name,
   if (Ty->getNumParams())
     setValueSubclassData(1);   // Set the "has lazy arguments" bit.
 
-  // Make sure that we get added to a function
-  LeakDetector::addGarbageObject(this);
-
   if (ParentModule)
     ParentModule->getFunctionList().push_back(this);
 
@@ -309,11 +298,7 @@ bool Function::arg_empty() const {
 }
 
 void Function::setParent(Module *parent) {
-  if (getParent())
-    LeakDetector::addGarbageObject(this);
   Parent = parent;
-  if (getParent())
-    LeakDetector::removeGarbageObject(this);
 }
 
 // dropAllReferences() - This function causes all the subinstructions to "let
@@ -401,6 +386,12 @@ void Function::clearGC() {
   }
 }
 
+GCStrategy *Function::getGCStrategy() const {
+  // Lookup the GCStrategy (which is owned by the Context), given the name of
+  // the GC in question.
+  return getContext().pImpl->getGCStrategy(getGC());
+}
+
 /// copyAttributesFrom - copy all additional attributes (those not needed to
 /// create a Function) from the Function Src to this one.
 void Function::copyAttributesFrom(const GlobalValue *Src) {
@@ -470,6 +461,10 @@ unsigned Function::lookupIntrinsicID() const {
 /// which can't be confused with it's prefix.  This ensures we don't have
 /// collisions between two unrelated function types. Otherwise, you might
 /// parse ffXX as f(fXX) or f(fX)X.  (X is a placeholder for any other type.)
+/// Manglings of integers, floats, and vectors ('i', 'f', and 'v' prefix in most
+/// cases) fall back to the MVT codepath, where they could be mangled to
+/// 'x86mmx', for example; matching on derived types is not sufficient to mangle
+/// everything.
 static std::string getMangledTypeStr(Type* Ty) {
   std::string Result;
   if (PointerType* PTyp = dyn_cast<PointerType>(Ty)) {
@@ -551,7 +546,9 @@ enum IIT_Info {
   IIT_ANYPTR = 26,
   IIT_V1   = 27,
   IIT_VARARG = 28,
-  IIT_HALF_VEC_ARG = 29
+  IIT_HALF_VEC_ARG = 29,
+  IIT_SAME_VEC_WIDTH_ARG = 30,
+  IIT_PTR_TO_ARG = 31
 };
 
 
@@ -656,6 +653,18 @@ static void DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
   case IIT_HALF_VEC_ARG: {
     unsigned ArgInfo = (NextElt == Infos.size() ? 0 : Infos[NextElt++]);
     OutputTable.push_back(IITDescriptor::get(IITDescriptor::HalfVecArgument,
+                                             ArgInfo));
+    return;
+  }
+  case IIT_SAME_VEC_WIDTH_ARG: {
+    unsigned ArgInfo = (NextElt == Infos.size() ? 0 : Infos[NextElt++]);
+    OutputTable.push_back(IITDescriptor::get(IITDescriptor::SameVecWidthArgument,
+                                             ArgInfo));
+    return;
+  }
+  case IIT_PTR_TO_ARG: {
+    unsigned ArgInfo = (NextElt == Infos.size() ? 0 : Infos[NextElt++]);
+    OutputTable.push_back(IITDescriptor::get(IITDescriptor::PtrToArgument,
                                              ArgInfo));
     return;
   }
@@ -766,7 +775,19 @@ static Type *DecodeFixedType(ArrayRef<Intrinsic::IITDescriptor> &Infos,
   case IITDescriptor::HalfVecArgument:
     return VectorType::getHalfElementsVectorType(cast<VectorType>(
                                                   Tys[D.getArgumentNumber()]));
+  case IITDescriptor::SameVecWidthArgument: {
+    Type *EltTy = DecodeFixedType(Infos, Tys, Context);
+    Type *Ty = Tys[D.getArgumentNumber()];
+    if (VectorType *VTy = dyn_cast<VectorType>(Ty)) {
+      return VectorType::get(EltTy, VTy->getNumElements());
+    }
+    llvm_unreachable("unhandled");
   }
+  case IITDescriptor::PtrToArgument: {
+    Type *Ty = Tys[D.getArgumentNumber()];
+    return PointerType::getUnqual(Ty);
+  }
+ }
   llvm_unreachable("unhandled");
 }
 

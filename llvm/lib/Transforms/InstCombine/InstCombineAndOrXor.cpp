@@ -117,6 +117,61 @@ static Value *getFCmpValue(bool isordered, unsigned code,
   return Builder->CreateFCmp(Pred, LHS, RHS);
 }
 
+/// \brief Transform BITWISE_OP(BSWAP(A),BSWAP(B)) to BSWAP(BITWISE_OP(A, B))
+/// \param I Binary operator to transform.
+/// \return Pointer to node that must replace the original binary operator, or
+///         null pointer if no transformation was made.
+Value *InstCombiner::SimplifyBSwap(BinaryOperator &I) {
+  IntegerType *ITy = dyn_cast<IntegerType>(I.getType());
+
+  // Can't do vectors.
+  if (I.getType()->isVectorTy()) return nullptr;
+
+  // Can only do bitwise ops.
+  unsigned Op = I.getOpcode();
+  if (Op != Instruction::And && Op != Instruction::Or &&
+      Op != Instruction::Xor)
+    return nullptr;
+
+  Value *OldLHS = I.getOperand(0);
+  Value *OldRHS = I.getOperand(1);
+  ConstantInt *ConstLHS = dyn_cast<ConstantInt>(OldLHS);
+  ConstantInt *ConstRHS = dyn_cast<ConstantInt>(OldRHS);
+  IntrinsicInst *IntrLHS = dyn_cast<IntrinsicInst>(OldLHS);
+  IntrinsicInst *IntrRHS = dyn_cast<IntrinsicInst>(OldRHS);
+  bool IsBswapLHS = (IntrLHS && IntrLHS->getIntrinsicID() == Intrinsic::bswap);
+  bool IsBswapRHS = (IntrRHS && IntrRHS->getIntrinsicID() == Intrinsic::bswap);
+
+  if (!IsBswapLHS && !IsBswapRHS)
+    return nullptr;
+
+  if (!IsBswapLHS && !ConstLHS)
+    return nullptr;
+
+  if (!IsBswapRHS && !ConstRHS)
+    return nullptr;
+
+  /// OP( BSWAP(x), BSWAP(y) ) -> BSWAP( OP(x, y) )
+  /// OP( BSWAP(x), CONSTANT ) -> BSWAP( OP(x, BSWAP(CONSTANT) ) )
+  Value *NewLHS = IsBswapLHS ? IntrLHS->getOperand(0) :
+                  Builder->getInt(ConstLHS->getValue().byteSwap());
+
+  Value *NewRHS = IsBswapRHS ? IntrRHS->getOperand(0) :
+                  Builder->getInt(ConstRHS->getValue().byteSwap());
+
+  Value *BinOp = nullptr;
+  if (Op == Instruction::And)
+    BinOp = Builder->CreateAnd(NewLHS, NewRHS);
+  else if (Op == Instruction::Or)
+    BinOp = Builder->CreateOr(NewLHS, NewRHS);
+  else //if (Op == Instruction::Xor)
+    BinOp = Builder->CreateXor(NewLHS, NewRHS);
+
+  Module *M = I.getParent()->getParent()->getParent();
+  Function *F = Intrinsic::getDeclaration(M, Intrinsic::bswap, ITy);
+  return Builder->CreateCall(F, BinOp);
+}
+
 // OptAndOp - This handles expressions of the form ((val OP C1) & C2).  Where
 // the Op parameter is 'OP', OpRHS is 'C1', and AndRHS is 'C2'.  Op is
 // guaranteed to be a binary operator.
@@ -831,8 +886,7 @@ Value *InstCombiner::simplifyRangeCheck(ICmpInst *Cmp0, ICmpInst *Cmp1,
 
   // This simplification is only valid if the upper range is not negative.
   bool IsNegative, IsNotNegative;
-  ComputeSignBit(RangeEnd, IsNotNegative, IsNegative, DL, 0, AT,
-                 Cmp1, DT);
+  ComputeSignBit(RangeEnd, IsNotNegative, IsNegative, /*Depth=*/0, Cmp1);
   if (!IsNotNegative)
     return nullptr;
 
@@ -1173,7 +1227,7 @@ Instruction *InstCombiner::visitAnd(BinaryOperator &I) {
   if (Value *V = SimplifyVectorOp(I))
     return ReplaceInstUsesWith(I, V);
 
-  if (Value *V = SimplifyAndInst(Op0, Op1, DL, TLI, DT, AT))
+  if (Value *V = SimplifyAndInst(Op0, Op1, DL, TLI, DT, AC))
     return ReplaceInstUsesWith(I, V);
 
   // (A|B)&(A|C) -> A|(B&C) etc
@@ -1184,6 +1238,9 @@ Instruction *InstCombiner::visitAnd(BinaryOperator &I) {
   // purpose is to compute bits we don't care about.
   if (SimplifyDemandedInstructionBits(I))
     return &I;
+
+  if (Value *V = SimplifyBSwap(I))
+    return ReplaceInstUsesWith(I, V);
 
   if (ConstantInt *AndRHS = dyn_cast<ConstantInt>(Op1)) {
     const APInt &AndRHSMask = AndRHS->getValue();
@@ -1670,15 +1727,15 @@ Value *InstCombiner::FoldOrOfICmps(ICmpInst *LHS, ICmpInst *RHS,
       Value *Mask = nullptr;
       Value *Masked = nullptr;
       if (LAnd->getOperand(0) == RAnd->getOperand(0) &&
-          isKnownToBeAPowerOfTwo(LAnd->getOperand(1), false, 0, AT, CxtI, DT) &&
-          isKnownToBeAPowerOfTwo(RAnd->getOperand(1), false, 0, AT, CxtI, DT)) {
+          isKnownToBeAPowerOfTwo(LAnd->getOperand(1), false, 0, AC, CxtI, DT) &&
+          isKnownToBeAPowerOfTwo(RAnd->getOperand(1), false, 0, AC, CxtI, DT)) {
         Mask = Builder->CreateOr(LAnd->getOperand(1), RAnd->getOperand(1));
         Masked = Builder->CreateAnd(LAnd->getOperand(0), Mask);
       } else if (LAnd->getOperand(1) == RAnd->getOperand(1) &&
-                 isKnownToBeAPowerOfTwo(LAnd->getOperand(0),
-                                        false, 0, AT, CxtI, DT) &&
-                 isKnownToBeAPowerOfTwo(RAnd->getOperand(0),
-                                        false, 0, AT, CxtI, DT)) {
+                 isKnownToBeAPowerOfTwo(LAnd->getOperand(0), false, 0, AC, CxtI,
+                                        DT) &&
+                 isKnownToBeAPowerOfTwo(RAnd->getOperand(0), false, 0, AC, CxtI,
+                                        DT)) {
         Mask = Builder->CreateOr(LAnd->getOperand(0), RAnd->getOperand(0));
         Masked = Builder->CreateAnd(LAnd->getOperand(1), Mask);
       }
@@ -2106,7 +2163,7 @@ Instruction *InstCombiner::visitOr(BinaryOperator &I) {
   if (Value *V = SimplifyVectorOp(I))
     return ReplaceInstUsesWith(I, V);
 
-  if (Value *V = SimplifyOrInst(Op0, Op1, DL, TLI, DT, AT))
+  if (Value *V = SimplifyOrInst(Op0, Op1, DL, TLI, DT, AC))
     return ReplaceInstUsesWith(I, V);
 
   // (A&B)|(A&C) -> A&(B|C) etc
@@ -2117,6 +2174,9 @@ Instruction *InstCombiner::visitOr(BinaryOperator &I) {
   // purpose is to compute bits we don't care about.
   if (SimplifyDemandedInstructionBits(I))
     return &I;
+
+  if (Value *V = SimplifyBSwap(I))
+    return ReplaceInstUsesWith(I, V);
 
   if (ConstantInt *RHS = dyn_cast<ConstantInt>(Op1)) {
     ConstantInt *C1 = nullptr; Value *X = nullptr;
@@ -2490,7 +2550,7 @@ Instruction *InstCombiner::visitXor(BinaryOperator &I) {
   if (Value *V = SimplifyVectorOp(I))
     return ReplaceInstUsesWith(I, V);
 
-  if (Value *V = SimplifyXorInst(Op0, Op1, DL, TLI, DT, AT))
+  if (Value *V = SimplifyXorInst(Op0, Op1, DL, TLI, DT, AC))
     return ReplaceInstUsesWith(I, V);
 
   // (A&B)^(A&C) -> A&(B^C) etc
@@ -2501,6 +2561,9 @@ Instruction *InstCombiner::visitXor(BinaryOperator &I) {
   // purpose is to compute bits we don't care about.
   if (SimplifyDemandedInstructionBits(I))
     return &I;
+
+  if (Value *V = SimplifyBSwap(I))
+    return ReplaceInstUsesWith(I, V);
 
   // Is this a ~ operation?
   if (Value *NotOp = dyn_castNotVal(&I)) {

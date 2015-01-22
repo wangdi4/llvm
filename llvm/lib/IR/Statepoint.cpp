@@ -13,9 +13,8 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/Support/CommandLine.h"
-
 #include "llvm/IR/Statepoint.h"
+#include "llvm/Support/CommandLine.h"
 
 using namespace std;
 using namespace llvm;
@@ -51,7 +50,7 @@ bool llvm::isGCResult(const ImmutableCallSite &CS) {
   return isGCResult(CS.getInstruction());
 }
 bool llvm::isGCResult(const Instruction *inst) {
-  if (const CallInst *call = cast<CallInst>(inst)) {
+  if (const CallInst *call = dyn_cast<CallInst>(inst)) {
     if (Function *F = call->getCalledFunction()) {
       return (F->getIntrinsicID() == Intrinsic::experimental_gc_result_int ||
               F->getIntrinsicID() == Intrinsic::experimental_gc_result_float ||
