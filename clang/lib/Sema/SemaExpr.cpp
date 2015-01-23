@@ -12562,9 +12562,6 @@ bool Sema::tryCaptureVariable(VarDecl *Var, SourceLocation ExprLoc,
           SIMDIndex = I;
         break;
       }
-    if (SIMDIndex == 0)
-      // This global or static is not inside a SIMD For loop.
-      return true;
   }
 #endif
 

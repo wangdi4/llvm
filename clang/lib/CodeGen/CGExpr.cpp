@@ -1943,8 +1943,35 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
         if (auto *V = LocalDeclMap.lookup(VD))
           return MakeAddrLValue(V, T, Alignment);
         else
+#ifdef INTEL_CUSTOMIZATION
+        {
+          // If referencing a loop control variable, then load its
+          // corresponding inner loop control variable.
+          if (CapturedStmtInfo->getKind() == CR_CilkFor) {
+            CGCilkForStmtInfo *CFSI =
+                reinterpret_cast<CGCilkForStmtInfo *>(CapturedStmtInfo);
+            if (CFSI->getCilkForStmt().getLoopControlVar() == VD) {
+              llvm::Value *Addr = CFSI->getInnerLoopControlVarAddr();
+              assert(Addr && "missing inner loop control variable address");
+              return MakeAddrLValue(Addr, T, Alignment);
+            }
+          } else if (CapturedStmtInfo->getKind() == CR_SIMDFor) {
+            // If this variable is a SIMD data-privatization variable, then
+            // load its corresponding local copy.
+            CGSIMDForStmtInfo *FSI = cast<CGSIMDForStmtInfo>(CapturedStmtInfo);
+            if (FSI->shouldReplaceWithLocal())
+              if (llvm::Value *Addr = FSI->lookupLocalAddr(VD)) {
+                assert(Addr && "missing local variable address");
+                return MakeAddrLValue(Addr, T, Alignment);
+              }
+          }
+// Otherwise load it from the captured struct.
+#endif
           return EmitCapturedFieldLValue(*this, CapturedStmtInfo->lookup(VD),
                                          CapturedStmtInfo->getContextValue());
+#ifdef INTEL_CUSTOMIZATION
+        }
+#endif
       }
       assert(isa<BlockDecl>(CurCodeDecl));
       return MakeAddrLValue(GetAddrOfBlockDecl(VD, VD->hasAttr<BlocksAttr>()),
@@ -1967,21 +1994,14 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
 
   if (const auto *VD = dyn_cast<VarDecl>(ND)) {
     // Check if this is a global variable.
-    bool IsCaptured = false;											//***INTEL 
-    if (CapturedStmtInfo && CapturedStmtInfo->lookup(VD))				//***INTEL 
-      IsCaptured = true;												//***INTEL 
-    else																//***INTEL 
-      IsCaptured = LambdaCaptureFields.lookup(VD);						//***INTEL 
-
-    if (!IsCaptured && (VD->hasLinkage() || VD->isStaticDataMember()))	//***INTEL 
+   if (VD->hasLinkage() || VD->isStaticDataMember())
       return EmitGlobalVarDeclLValue(*this, E, VD);
 
     bool isBlockVariable = VD->hasAttr<BlocksAttr>();
 
     llvm::Value *V = LocalDeclMap.lookup(VD);
 
-    if (!IsCaptured && !V && VD->isStaticLocal())						//***INTEL 
-      // Do not use static local address if it has been captured.		//***INTEL 
+    if (!V && VD->isStaticLocal())
       V = CGM.getOrCreateStaticVarDecl(
           *VD, CGM.getLLVMLinkageVarDefinition(VD, /*isConstant=*/false));
 
@@ -1990,47 +2010,6 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
       return EmitThreadPrivateVarDeclLValue(
           *this, VD, T, V, getTypes().ConvertTypeForMem(VD->getType()),
           Alignment, E->getExprLoc());
-
-#if INTEL_CLANG_FIXME // Merge conflict. CLANG no longer has any of this.
-    // Use special handling for lambdas.
-    if (!V) {
-      if (FieldDecl *FD = LambdaCaptureFields.lookup(VD)) {
-        return EmitCapturedFieldLValue(*this, FD, CXXABIThisValue);
-      } else if (CapturedStmtInfo) {
-        if (const FieldDecl *FD = CapturedStmtInfo->lookup(VD)) {
-#ifdef INTEL_CUSTOMIZATION
-          // If referencing a loop control variable, then load its
-          // corresponding inner loop control variable.
-          if (CapturedStmtInfo->getKind() == CR_CilkFor) {
-            CGCilkForStmtInfo *CFSI =
-                reinterpret_cast<CGCilkForStmtInfo*>(CapturedStmtInfo);
-            if (CFSI->getCilkForStmt().getLoopControlVar() == VD) {
-              llvm::Value *Addr = CFSI->getInnerLoopControlVarAddr();
-              assert(Addr && "missing inner loop control variable address");
-              return MakeAddrLValue(Addr, T, Alignment);
-            }
-          } else if (CapturedStmtInfo->getKind() == CR_SIMDFor) {
-            // If this variable is a SIMD data-privatization variable, then
-            // load its corresponding local copy.
-            CGSIMDForStmtInfo *FSI = cast<CGSIMDForStmtInfo>(CapturedStmtInfo);
-            if (FSI->shouldReplaceWithLocal())
-              if (llvm::Value *Addr = FSI->lookupLocalAddr(VD)) {
-                assert(Addr && "missing local variable address");
-                return MakeAddrLValue(Addr, T, Alignment);
-              }
-          }
-          // Otherwise load it from the captured struct.
-#endif
-          return EmitCapturedFieldLValue(*this, FD,
-                                         CapturedStmtInfo->getContextValue());
-        }
-      }
-
-      assert(isa<BlockDecl>(CurCodeDecl) && E->refersToEnclosingLocal());
-      return MakeAddrLValue(GetAddrOfBlockDecl(VD, isBlockVariable),
-                            T, Alignment);
-    }
-#endif  // INTEL_CLANG_FIXME
 
     assert(V && "DeclRefExpr not entered in LocalDeclMap?");
 
