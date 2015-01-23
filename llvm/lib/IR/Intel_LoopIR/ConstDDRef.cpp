@@ -17,7 +17,7 @@ using namespace llvm;
 using namespace llvm::loopopt;
 
 
-ConstDDRef::ConstDDRef(CanonExpr* CE, HLDDNode* HNode)
+ConstDDRef::ConstDDRef(CanonExpr* CE, HLNode* HNode)
   : DDRef(DDRef::ConstDDRefVal, -1), CExpr(CE), Node(HNode) { }
 
 ConstDDRef* ConstDDRef::clone_impl() const {

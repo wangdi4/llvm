@@ -26,6 +26,7 @@ class BasicBlock;
 namespace loopopt {
 
 class DDRef;
+class HLLoop;
 
 /// \brief Base class for high level nodes which can contain DDRefs
 class HLDDNode : public HLNode {

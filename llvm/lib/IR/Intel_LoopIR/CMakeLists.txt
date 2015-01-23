@@ -1,5 +1,16 @@
 add_llvm_library(LLVMIntel_LoopIR
-  HLNode.cpp
-  DDRef.cpp
+  BlobDDRef.cpp
   CanonExpr.cpp
+  ConstDDRef.cpp
+  DDRef.cpp
+  HLDDNode.cpp  
+  HLGoto.cpp  
+  HLIf.cpp  
+  HLInst.cpp  
+  HLLabel.cpp  
+  HLLoop.cpp
+  HLNode.cpp
+  HLRegion.cpp
+  HLSwitch.cpp
+  RegDDRef.cpp
   )

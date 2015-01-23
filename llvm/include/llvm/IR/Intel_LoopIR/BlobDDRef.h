@@ -22,6 +22,8 @@ namespace llvm {
 namespace loopopt {
 
 class CanonExpr;
+class RegDDRef;
+class HLNode;
 
 /// \brief Represents a blob present in a canonical expr of a RegDDRef
 ///

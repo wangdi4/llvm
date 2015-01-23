@@ -16,7 +16,7 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-RegDDRef::RegDDRef(int SB, HLDDNode* HNode)
+RegDDRef::RegDDRef(int SB, HLNode* HNode)
   : DDRef(DDRef::RegDDRefVal, SB), Node(HNode) { }
 
 RegDDRef* RegDDRef::clone_impl() const {

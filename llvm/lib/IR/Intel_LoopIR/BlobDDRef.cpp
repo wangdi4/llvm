@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
+#include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -25,7 +26,7 @@ BlobDDRef* BlobDDRef::clone_impl() const {
   return nullptr;
 }
 
-HLDDNode* BlobDDRef::getHLNode() const {
+HLNode* BlobDDRef::getHLNode() const {
 
   if (ParentDDRef) {
     return ParentDDRef->getHLNode();
@@ -34,7 +35,7 @@ HLDDNode* BlobDDRef::getHLNode() const {
   return nullptr;
 }
 
-void BlobDDRef::setHLNode(HLDDNode* HNode) {
+void BlobDDRef::setHLNode(HLNode* HNode) {
   llvm_unreachable("Should not set HLNode via blob DDRef");
 }
 

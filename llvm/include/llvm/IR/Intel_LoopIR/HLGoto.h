@@ -24,6 +24,8 @@ class BasicBlock;
 
 namespace loopopt {
 
+class HLLabel;
+
 /// \brief High level node represening an unconditional jump
 class HLGoto : public HLDDNode {
 private:
