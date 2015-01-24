@@ -28,6 +28,10 @@ class Type;
 
 namespace loopopt {
 
+/// \brief The maximum loopnest level allowed in HIR
+const int MaxLoopNestLevel = 9;
+
+
 /// \brief Canonical form in high level IR
 ///
 /// This class represents the closed form as a linear equation in terms of
@@ -44,6 +48,7 @@ public:
   typedef std::pair<bool, int64_t> BlobOrConstToValTy;
   typedef std::pair<int, int64_t> BlobIndexToCoeffTy;
   typedef SmallVector<BlobOrConstToValTy, 4> IVTy;
+  /// Kept sorted by blob index
   typedef SmallVector<BlobIndexToCoeffTy, 2> BlobTy;
 
   /// Iterators to iterate over induction variables
@@ -59,17 +64,11 @@ public:
   typedef BlobTy::const_reverse_iterator const_reverse_blob_iterator; 
 
 private:
-  /// \brief Make class uncopyable.
-  CanonExpr(const CanonExpr &) LLVM_DELETED_FUNCTION;
+  /// \brief Copy constructor; only used for cloning.
+  CanonExpr(const CanonExpr &);
+  /// \brief Make class unassignable.
   void operator=(const CanonExpr &) LLVM_DELETED_FUNCTION;
 
-  CanonExpr(Type* Typ, bool Gen, int Level, int64_t Cons, int64_t Denom);
-  ~CanonExpr() { }
-
-  friend class CanonExprUtils;
-
-  /// \brief Destroys the object.
-  void destroy();
   /// \brief Destroys all objects of this class. Should only be
   /// called after code gen.
   static void destroyAll();
@@ -83,6 +82,37 @@ private:
   BlobTy BlobCoeffs;
   int64_t Const;
   int64_t Denominator;
+
+protected:
+  CanonExpr(Type* Typ, bool Gen, int DefLevel, int64_t Cons, int64_t Denom);
+  ~CanonExpr() { }
+
+  friend class CanonExprUtils;
+
+  /// \brief Destroys the object.
+  void destroy();
+
+  /// \brief Returns the IV coefficient vector.
+  /// Only used intenally for copy constructor.
+  const IVTy& getIVCoeffs() const { return IVCoeffs; }
+
+  /// \brief Returns the Blob coefficient vector.
+  /// Only used intenally for copy constructor.
+  const BlobTy& getBlobCoeffs() const { return BlobCoeffs; }
+
+  /// \brief Resizes IVCoeffs to max loopnest level if the passed in level goes 
+  /// beyond the current size. This will avoid future reallocs.
+  ///
+  /// Returns true if we did resize.
+  bool resizeIVCoeffsToMax(unsigned Lvl);
+
+  /// \brief Sets an IV coefficient. Depending upon the overwrite flag the 
+  /// existing coefficient is either overwritten or added to.
+  void addIVInternal(unsigned Lvl, int64_t Coeff, bool IsBlobCoeff, bool overwrite);
+
+  /// \brief Sets a blob coefficient. Depending upon the overwrite flag the 
+  /// existing coefficient is either overwritten or added to.
+  void addBlobInternal(int BlobIndex, int64_t BlobCoeff, bool overwrite);
 
 public:
 
@@ -103,7 +133,7 @@ public:
   /// in this canon expr is defined. The canon expr in linear in all 
   //  the inner loop levels w.r.t this level.
   int getDefinedAtLevel() const { return DefinedAtLevel; }
-  void setDefinedAtLevel(int Lvl) { DefinedAtLevel = Lvl; }
+  void setDefinedAtLevel(int DefLvl) { DefinedAtLevel = DefLvl; }
 
   /// \brief Returns true if this is linear at all levels.
   bool isProperLinear() const { return (Generable && (DefinedAtLevel == 0)); }
@@ -126,19 +156,23 @@ public:
   /// \brief Returns true if this contains any blobs.
   bool hasBlob() const { return !BlobCoeffs.empty(); }
 
-  /// \brief Returns the IV coeffieicent at a particular loop level.
-  int64_t getIVCoeff(int Lvl, bool* isBlobCoeff) const;
-  /// \brief Sets the IV coeffieicent at a particular loop level.
-  void setIVCoeff(int Lvl, int64_t Val, bool isBlobCoeff);
+  /// \brief Returns the IV coefficient at a particular loop level.
+  int64_t getIVCoeff(unsigned Lvl, bool* isBlobCoeff) const;
+  /// \brief Sets the IV coefficient at a particular loop level.
+  void setIVCoeff(unsigned Lvl, int64_t Coeff, bool isBlobCoeff);
   
-  /// \brief Adds to the existing IV coefficient at a particular loop level. 
-  void addIV(int Lvl, int64_t Coeff, bool IsBlobCoeff);
+  /// \brief Adds to the existing constant IV coefficient at a particular loop 
+  /// level. 
+  void addIV(unsigned Lvl, int64_t Coeff);
   /// \brief Removes IV at a particular loop level.
-  void removeIV(int Lvl);
+  void removeIV(unsigned Lvl);
 
-  /// \brief Returns the blob coeffieicent.
+  /// \brief Replaces IV by a constant at a particular loop level.
+  void replaceIVByConstant(unsigned Lvl, int64_t Val);
+
+  /// \brief Returns the blob coefficient.
   int64_t getBlobCoeff(int BlobIndex) const;
-  /// \brief Sets the blob coeffieicent.
+  /// \brief Sets the blob coefficient.
   void setBlobCoeff(int BlobIndex, int64_t BlobCoeff);
 
   /// \brief Adds to the existing blob coefficient.
@@ -149,18 +183,14 @@ public:
   /// \brief Replaces an old blob with a new one.
   void replaceBlob(int OldBlobIndex, int NewBlobIndex);
 
-  /// \brief Shifts the canon expr by a constant offset.
-  void shiftAtLevel(int Lvl, int64_t Val);
+  /// \brief Shifts the canon expr by a constant offset at a particular loop 
+  /// level.
+  void shift(unsigned Lvl, int64_t Val);
   
-  /// \brief Adds the passed in canon expr to this one.
-  void add(CanonExpr* CE);
-  /// \brief Subtracts the passed in canon expr from this one.
-  void subtract(CanonExpr* CE);
-
   /// \brief Multiplies this canon expr by a contant.
-  CanonExpr* multiplyByConstant(int64_t Const);
+  void multiplyByConstant(int64_t Const);
   /// \brief Multiplies this canon expr by a blob.
-  CanonExpr* multiplyByBlob(int BlobIndex);
+  void multiplyByBlob(int BlobIndex);
 
   /// IV iterator methods
   iv_iterator               iv_begin()        { return IVCoeffs.begin(); }
