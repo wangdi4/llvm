@@ -19,7 +19,8 @@ BB0:
   br i1 %icmp.10.0, label %BB1, label %BB4
 
 BB1:                                              ; preds = %BB0
-  %icmp.10.1 = icmp sgt i32 %arg1, 5
+  %add.10.1 = add i32 %arg1, %call.10.0
+  %icmp.10.1 = icmp sgt i32 %arg1, %add.10.1
   br i1 %icmp.10.1, label %BB2, label %BB3
 
 BB2:                                              ; preds = %BB1

@@ -379,8 +379,11 @@ bool FunctionSpecializer::calculateBypassInfoPerBranch(BasicBlock *root) {
   if (!head)
     return false;
 
-  // find the first post-dom of root that also dominated by root
+  // Do not insert bypasses leading from inside UCF regions
+  if(m_pred->isUCFInter(root) || m_pred->isUCFExit(root))
+    return false;
 
+  // find the first post-dom of root that also dominated by root
   m_bypassInfoContainer.push_back(BypassInfo(head, root));
   BypassInfo & info = m_bypassInfoContainer.back();
 
@@ -391,22 +394,27 @@ bool FunctionSpecializer::calculateBypassInfoPerBranch(BasicBlock *root) {
   // (of course no loop means the same loop)
 
   while(1) {
-    DomTreeNode * currentNode = m_PDT->getNode(postDom);
-    DomTreeNode * postDomNode = 0;
-
-    if (currentNode) // Can be 0 in case of infinite loops
-      postDomNode = currentNode->getIDom();
-
-    if (postDomNode) { // Can be 0 in case of last basic block
-      postDom = postDomNode->getBlock();
+    if(m_pred->isUCFEntry(postDom)) {
+      postDom = m_pred->getUCFExit(postDom); // Always bypass the entire UCF region
     }
     else {
-      if (! info.m_postDom) { // root is either an exit block or inside an infinite loop
-        m_bypassInfoContainer.pop_back();
-        return false;
+      DomTreeNode * currentNode = m_PDT->getNode(postDom);
+      DomTreeNode * postDomNode = 0;
+
+      if (currentNode) // Can be 0 in case of infinite loops
+        postDomNode = currentNode->getIDom();
+
+      if (postDomNode) { // Can be 0 in case of last basic block
+        postDom = postDomNode->getBlock();
       }
-      else
-        break;
+      else {
+        if (! info.m_postDom) { // root is either an exit block or inside an infinite loop
+          m_bypassInfoContainer.pop_back();
+          return false;
+        }
+        else
+          break;
+      }
     }
 
     // The postDom should be dominated by root and in the same loop
@@ -538,6 +546,8 @@ void FunctionSpecializer::registerSchedulingScopes(SchedulingScope& parent) {
     if (! shouldSpecialize(bi)) continue;
     // bypasses over a single BB does not cause to additional linearization constraints
     if (bi.m_skippedBlocks.size() == 1) continue;
+    // avoid duplication of UCF scheduling scopes
+    if (m_pred->getUCFExit(bi.m_root) == bi.m_postDom) continue;
 
     // create a scheduling scope
     SchedulingScope *scp = new SchedulingScope(NULL);
@@ -692,7 +702,13 @@ void FunctionSpecializer::specializeEdge(BypassInfo & bi) {
   // inform the predicator about the blocks that are bypassed
   for (std::set<BasicBlock*>::iterator it = bi.m_skippedBlocks.begin(),
     e = bi.m_skippedBlocks.end(); it != e; ++ it) {
-    if (m_PDT->dominates(*it, entry)) {
+    // If the skipped block is inside UCF region then it may not postdominate
+    // bypass region entry but since CF wasn't canceled only the UCF entry
+    // must postdominate the bypass entry. Note that UCF exit postdominates
+    // UCF entry so no need to handle it specifically
+    BasicBlock * bb = m_pred->getUCFEntry(*it);
+    bb = NULL != bb ? bb : *it;
+    if (m_PDT->dominates(bb, entry)) {
       m_pred->blockIsBeingZeroBypassed(*it);
     }
   }

@@ -30,10 +30,17 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
+
+#include <iostream>
 
 static cl::opt<bool>
 EnableOptMasks("optmasks", cl::init(true), cl::Hidden,
   cl::desc("Optimize masks generation"));
+
+static cl::opt<bool>
+PreserveUCF("presucf", cl::init(true), cl::Hidden,
+  cl::desc("Partially preserve uniform control flow inside divergent region"));
 
 // Invoked by runOnModule for every predicated function
 STATISTIC(PredicatorCounter, "Counts number of functions visited");
@@ -80,6 +87,9 @@ Predicator::Predicator() :
     m_kernelStats),
   OCLSTAT_INIT(Predicated_Consecutive_Local_Memory_Load,
     "load instructions of local memory that could potentially be unmasked, but currently aren't",
+    m_kernelStats),
+  OCLSTAT_INIT(Preserved_Uniform_Conrol_Flow_Regions,
+    "preserved Uniform Control Flow regions inside Divergent Control Flow regions",
     m_kernelStats),
   OCLSTAT_INIT(Edge_Not_Being_Specialized_Because_EdgeHot,
     "edges that were chosen not to be specialized because of the EdgeHot heuristic",
@@ -259,12 +269,10 @@ void Predicator::moveAfterLastDependant(Instruction* inst) {
   last_user->moveBefore(inst);
 }
 
-void Predicator::LinearizeBlock(
-  BasicBlock* block, BasicBlock* next, BasicBlock* next_after_loop) {
+void Predicator::LinearizeBlock(BasicBlock* block, BasicBlock* next,
+                                Loop* loop, BasicBlock* next_after_loop) {
 
   V_ASSERT(block && "Block must be valid");
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
-  Loop* loop = LI->getLoopFor(block);
 
   TerminatorInst* term = block->getTerminator();
   V_ASSERT(term && "no terminator ?");
@@ -382,7 +390,9 @@ void Predicator::registerLoopSchedulingScopes(SchedulingScope& parent,
   // Create a scope for each loop
   for (Function::iterator bb = F->begin(), bb_e = F->end(); bb != bb_e ; ++bb) {
     Loop* loop = LI->getLoopFor(bb);
-    if (loop && scopes.find(loop) == scopes.end()) {
+    // Check if loop is scheduled as UCF region
+    if (loop && !isUCFInter(loop->getHeader()) &&
+       scopes.find(loop) == scopes.end()) {
       // Add the new scopes to the scopes container. Later add them to the
       // parent scope which will delete them upon destruction.
       scopes[loop] = new SchedulingScope(loop->getHeader());
@@ -426,13 +436,13 @@ void Predicator::addDivergentBranchesSchedConstraints(SchedulingScope& main_scop
     assert(itr->second.size() > 1 && "Constraint size should be larger than 1.");
 
     SchedulingScope *scp = new SchedulingScope(NULL);
-    for (std::vector<BasicBlock*>::iterator bbItr = itr->second.begin();
-         bbItr !=  itr->second.end();
-         ++bbItr) {
+    for (std::vector<BasicBlock*>::iterator bbIt = itr->second.begin();
+         bbIt !=  itr->second.end();
+         ++bbIt) {
       // If a function has two return statements then the immediate post dom of a branch might be null
-      if (! (*bbItr)) continue;
+      if (! (*bbIt)) continue;
 
-      scp->addBasicBlock(*bbItr);
+      scp->addBasicBlock(*bbIt);
     }
 
     // register the bypass info restrictions with parent
@@ -448,7 +458,7 @@ void Predicator::linearizeFunction(Function* F,
 
   // global scope which contains the entire function
   // When this scope is destroyed, all sub-scopes will be deleted.
-  SchedulingScope main_scope(NULL);
+  SchedulingScope main_scope(NULL, true);
 
   LoopInfo *LI = &getAnalysis<LoopInfo>();
   // register the scheduling constraints which are derived from loops
@@ -459,6 +469,9 @@ void Predicator::linearizeFunction(Function* F,
 
   // add scheduling constraints for the predicated regions
   addDivergentBranchesSchedConstraints(main_scope);
+
+  // register UCF scheduling constraints
+  registerUCFSchedulingScopes(main_scope);
 
   // Perform the actual scheduling of the blocks
   std::vector<BasicBlock*> schedule;
@@ -473,19 +486,23 @@ void Predicator::linearizeFunction(Function* F,
 
     // If we are in a loop, we need to find which basic block
     // comes right after the loop
-    if (loop) {
-      V_ASSERT(headers.find(loop->getHeader()) != headers.end() &&
-               "Unable to find loop");
-
+    if (loop && headers.count(loop->getHeader()) != 0) {
       SchedulingScope* scp = headers[loop->getHeader()];
       next_after_loop = scp->getFirstBlockAfter(schedule);
+    } else {
+      // This means BB isn't inside a loop or the entire loop is inside UCF region
+      // which should not be linearized
+      loop = NULL;
     }
+    // Preserve control flow inside UCF regions
+    if(isUCFInter(current) || isUCFEntry(current))
+      continue;
 
     V_ASSERT(next_after_loop && "nothing comes after this loop");
     V_ASSERT(next      && "nothing comes after this block");
     // Perform the actual linearization of a single basic block
     // This will adjust the outgoing edged of each BB
-    LinearizeBlock(current, next, next_after_loop);
+    LinearizeBlock(current, next, loop, next_after_loop);
   }
 }
 
@@ -997,9 +1014,9 @@ void Predicator::collectInstructionsToPredicate(BasicBlock *BB) {
       }
     }
 
-    // If this instruction is used outside its BB,
+    // If this instruction is used outside its BB and the loop is not inside UCF region,
     // save it for later.
-    if (loop && hasOutsideRandomUsers(it, loop)) {
+    if (loop && !isUCFInter(loop->getHeader()) && hasOutsideRandomUsers(it, loop)) {
       m_outsideUsers.insert(it);
     }
   }
@@ -1324,6 +1341,8 @@ void Predicator::collectOptimizedMasks(Function* F,
     if (loopX && loopX->getHeader() == x) {
       continue;
     }
+    // Skip UCF interior and exit BBs because they all use the UCF entry's mask
+    if(isUCFInter(x) || isUCFExit(x)) continue;
 
     for (Function::iterator y = F->begin(), y_e = F->end(); y != y_e ; ++y) {
       // If we are the header block in the loop
@@ -1359,6 +1378,274 @@ void Predicator::collectOptimizedMasks(Function* F,
 
 }
 
+
+bool Predicator::isUCFEntry(BasicBlock* BB) const {
+  return m_ucfEntry2Exit.find(BB) != m_ucfEntry2Exit.end();
+}
+
+bool Predicator::isUCFInter(BasicBlock* BB) const {
+  return m_ucfInter2Entry.find(BB) != m_ucfInter2Entry.end();
+}
+
+bool Predicator::isUCFExit(BasicBlock* BB) const {
+  return m_ucfExit2Entry.find(BB) != m_ucfExit2Entry.end();
+}
+
+BasicBlock * Predicator::getUCFExit(BasicBlock* BB) {
+  // Return this BB if it is an exit
+  if(isUCFExit(BB))
+    return BB;
+  // Otherwise try to find UCF entry
+  BasicBlock * ucfEntryBB = getUCFEntry(BB);
+  if(!ucfEntryBB) return NULL;
+  // And map it to UCF exit
+  BasicBlock * ucfExitBB = m_ucfEntry2Exit[ucfEntryBB];
+  V_ASSERT(ucfExitBB && "corrupted UCF data");
+  return ucfExitBB;
+}
+
+BasicBlock * Predicator::getUCFEntry(BasicBlock* BB) {
+  // Return this BB if it is an entry
+  if(m_ucfEntry2Exit.count(BB))
+    return BB;
+  // Check if this is an interior BB
+  std::map<BasicBlock*, BasicBlock*>::iterator findInterIt = m_ucfInter2Entry.find(BB);
+  if(findInterIt != m_ucfInter2Entry.end())
+    return findInterIt->second;
+  // Check if this is an exit BB
+  std::map<BasicBlock*, BasicBlock*>::iterator findExitIt = m_ucfExit2Entry.find(BB);
+  if(findExitIt != m_ucfExit2Entry.end())
+    return findExitIt->second;
+
+  return NULL;
+}
+
+static bool isInsideEntryLoop(Loop const * entryLoop, Loop const * interLoop) {
+  if(entryLoop == NULL)
+    return true;
+
+  while(interLoop) {
+    if(entryLoop == interLoop)
+      return true;
+    else
+      interLoop = interLoop->getParentLoop();
+  }
+  return false;
+}
+
+bool Predicator::isUCFRegion(BasicBlock * const entryBB, BasicBlock * const exitBB, LoopInfo * LI) {
+  // Go over this region and check if there are non-uniform conditional branches or any of BBs is
+  // outside of a loop containing the entry BB.
+  Loop const * entryLoop = LI->getLoopFor(entryBB);
+  std::set<BasicBlock *> visited;
+  visited.insert(exitBB);
+  std::queue<BasicBlock *> workqueue;
+  workqueue.push(entryBB);
+
+  while(!workqueue.empty()) {
+    BasicBlock * currBB = workqueue.front();
+    workqueue.pop();
+    visited.insert(currBB);
+
+    BranchInst * br = dyn_cast<BranchInst>(currBB->getTerminator());
+    V_ASSERT((br || currBB->getTerminator()->getNumSuccessors() < 2) && "unexpected BB terminator");
+
+    if(br && br->isConditional() && m_WIA->whichDepend(br) != WIAnalysis::UNIFORM) {
+      return false;
+    }
+    else if(!isInsideEntryLoop(entryLoop, LI->getLoopFor(currBB))) {
+      return false;
+    }
+
+    for(succ_iterator succBB = succ_begin(currBB), succEndBB = succ_end(currBB);
+          succBB != succEndBB; ++succBB) {
+      if(visited.count(*succBB) == 0) workqueue.push(*succBB);
+    }
+  }
+  return true;
+}
+
+void Predicator::collectUCFRegions(Function* F, LoopInfo * LI,
+                                   PostDominatorTree * PDT,
+                                   DominatorTree *  DT) {
+  // Go over divergent regions identified by WIAnalysys and collect largest UCF regions
+  // nested inside divergent regions.
+  SchdConstMap & predSched = m_WIA->getSchedulingConstraints();
+
+  for(SchdConstMap::iterator divRegIt = predSched.begin(), divRegEnd = predSched.end();
+        divRegIt != divRegEnd; ++divRegIt) {
+    // First collect smallest Single Entry Single Exit regions
+    // The BB at the front of the scheduling constraints received from WIAnalysis is an entry BB
+    // to the main divergent control flow region and the BB at the back is the full join BB (an exit)
+    for(std::vector<BasicBlock*>::iterator bbIt = divRegIt->second.begin() + 1, bbEnd = divRegIt->second.end() - 1;
+          bbIt != bbEnd; ++bbIt) {
+      BasicBlock * entryBB = *bbIt;
+      // Skip NULL references to BBs which might be received from the WIAnalysis under some specific
+      // circumstances
+      if(NULL == entryBB) continue;
+
+      Loop* loop = LI->getLoopFor(entryBB);
+      // For simplicity handle loops with one exit block only
+      if(loop && loop->getHeader() == entryBB && loop->getUniqueExitBlock()) {
+        BasicBlock * preHeaderBB = loop->getLoopPreheader();
+        BasicBlock * loopExitBB = loop->getUniqueExitBlock();
+        if(LI->getLoopFor(preHeaderBB) == LI->getLoopFor(loopExitBB) && !isUCFEntry(preHeaderBB) &&
+           DT->dominates(preHeaderBB, loopExitBB) && PDT->dominates(loopExitBB, preHeaderBB) &&
+           isUCFRegion(preHeaderBB, loopExitBB, LI)) {
+          m_ucfEntry2Exit[preHeaderBB] = loopExitBB;
+          m_ucfExit2Entry[loopExitBB] = preHeaderBB;
+          continue;
+        }
+      }
+
+      // Check if this BB has uniform conditional branch
+      BranchInst * br = dyn_cast<BranchInst>(entryBB->getTerminator());
+      if(!br || br->isUnconditional() || m_WIA->whichDepend(br) != WIAnalysis::UNIFORM) continue;
+
+      DomTreeNode * postDomNode = PDT->getNode(entryBB);
+      DomTreeNode * iPostDom = postDomNode->getIDom();
+      // Skip infinite loops and return BBs
+      if(!iPostDom) continue;
+      BasicBlock * exitBB = iPostDom->getBlock();
+      // Check the entry dominates its exit BB and they are both located inside the same loop
+      if(!DT->dominates(entryBB, exitBB) ||
+          LI->getLoopFor(entryBB) != LI->getLoopFor(exitBB)) continue;
+
+      // Register new UCF region.
+      if(isUCFRegion(entryBB, exitBB, LI)) {
+        // There must be unique pairs of entry -> exit BBs which might be invalidated by
+        // the loop handling above
+        if(isUCFExit(exitBB)) {
+          // So, if the exit is already registered
+          BasicBlock * existingEntry = m_ucfExit2Entry[exitBB];
+          V_ASSERT(existingEntry && "entry BB had to be registered along with exit BB");
+          // And the already registered entry BB dominates a new entry then drop the new
+          // region which is smaller
+          if (DT->dominates(existingEntry, entryBB)) {
+            continue;
+          }
+          // Otherwise remove the existing entry and register the new region which is bigger
+          else {
+            m_ucfEntry2Exit.erase(existingEntry);
+          }
+        }
+
+        m_ucfEntry2Exit[entryBB] = exitBB;
+        m_ucfExit2Entry[exitBB] = entryBB;
+      }
+    }
+  }
+
+  // Concatenate consecutive UCF regions into one region
+  for(std::map<BasicBlock*, BasicBlock*>::iterator regionIt = m_ucfEntry2Exit.begin(), regionEnd = m_ucfEntry2Exit.end();
+        regionIt != regionEnd;) {
+    std::map<BasicBlock*, BasicBlock*>::iterator currRegIt = regionIt++;
+    // Check if an exit BB is an entry to another subregion
+    BasicBlock * currEntryBB = currRegIt->first;
+    BasicBlock * currExitBB = currRegIt->second;
+
+    // Go backward while there is unique predecessor and this predecessor has single successor
+    BasicBlock * prevExitBB = currEntryBB;
+    while(!isUCFExit(prevExitBB)) {
+      BasicBlock * predBB = prevExitBB->getUniquePredecessor();
+      if(!predBB || predBB->getTerminator()->getNumSuccessors() != 1) {
+        prevExitBB = NULL;
+        break;
+      }
+      prevExitBB = predBB;
+    }
+    // Check if there is a preceeding UCF region
+    if(prevExitBB) {
+      BasicBlock * prevEntryBB = m_ucfExit2Entry[prevExitBB];
+      V_ASSERT(prevEntryBB && "UCF region data is corrupted");
+      // Update new region info
+      m_ucfEntry2Exit[prevEntryBB] = currExitBB;
+      m_ucfExit2Entry[currExitBB] = prevEntryBB;
+      // And erase the outdated (and invalid) data
+      m_ucfEntry2Exit.erase(currEntryBB);
+      m_ucfExit2Entry.erase(prevExitBB);
+    }
+  }
+
+  // Collect scheduling constraints and interior BBs of UCF regions
+  for(std::map<BasicBlock*, BasicBlock*>::iterator regionIt = m_ucfExit2Entry.begin(), regionEnd = m_ucfExit2Entry.end();
+        regionIt != regionEnd;) {
+    std::map<BasicBlock*, BasicBlock*>::iterator currRegIt = regionIt++;
+
+    BasicBlock * entryBB = currRegIt->second;
+    BasicBlock * exitBB = currRegIt->first;
+
+    std::vector<BasicBlock *> & schRegion = m_ucfSchedulingConstraints[entryBB];
+    V_ASSERT(schRegion.empty() && "an initialized scheduling UCF region must be empty");
+
+    std::set<BasicBlock *> visited;
+    std::queue<BasicBlock *> workqueue;
+    // Go over all BBs starting from an entry BB till its exit BB
+    workqueue.push(entryBB);
+    visited.insert(exitBB);
+
+    while(!workqueue.empty()) {
+      BasicBlock * currBB = workqueue.front();
+      workqueue.pop();
+      // If there is BB inside the current region which is an entry to anther UCF region
+      // then just delete the nested UCF region.
+      if(currBB != entryBB && isUCFEntry(currBB)) {
+        BasicBlock * const nestedEntryBB = currBB;
+        BasicBlock * const nestedExitBB = getUCFExit(currBB);
+        V_ASSERT(nestedExitBB && "the exit must be tied till here with the entry");
+        // First, check if the iterator isn't going to be invalidated
+        if(m_ucfExit2Entry.end() != regionIt &&
+           m_ucfExit2Entry.find(nestedExitBB) == regionIt)
+          ++regionIt;
+        // Clear out nested UCF region
+        m_ucfEntry2Exit.erase(nestedEntryBB);
+        m_ucfExit2Entry.erase(nestedExitBB);
+        m_ucfSchedulingConstraints.erase(nestedEntryBB);
+      }
+      // Note here the entry BB is temporary became interior BB for itself (at the very first iteration)
+      schRegion.push_back(currBB);
+      // In case the nested region was handled before its outer region the nested data is overwritten
+      m_ucfInter2Entry[currBB] = entryBB;
+
+      for(succ_iterator succIt = succ_begin(currBB), succEnd = succ_end(currBB);
+            succIt != succEnd; ++succIt) {
+        BasicBlock * interBB = *succIt;
+        // Do not cross the exit BB of this region and do not follow backedges
+        // inside UCF region.
+        if(!visited.insert(interBB).second)
+          continue;
+        workqueue.push(interBB);
+      }
+    }
+    // Remove the entry BB from the interior set of BBs
+    m_ucfInter2Entry.erase(entryBB);
+    // The exit BB is always at the back of the scheduling constraints container
+    // and the entry BB is at the front
+    schRegion.push_back(exitBB);
+    V_ASSERT(schRegion.front() == entryBB && "the entry BB of UCF must go first");
+  }
+
+  if(m_ucfSchedulingConstraints.size() > 0) {
+    Preserved_Uniform_Conrol_Flow_Regions = m_ucfSchedulingConstraints.size();
+  }
+}
+
+void Predicator::registerUCFSchedulingScopes(SchedulingScope& main_scope) {
+  // Go over the UCF constraints and add these as scheduling scopes
+  for (SchdConstMap::iterator itr = m_ucfSchedulingConstraints.begin();
+       itr != m_ucfSchedulingConstraints.end(); ++itr) {
+    V_ASSERT(itr->second.size() >= 2 && "UCF scope must contain at least two BBs, entry and exit");
+
+    SchedulingScope *scp = new SchedulingScope(NULL, true);
+    for (std::vector<BasicBlock*>::iterator bbIt = itr->second.begin(), itrEnd = itr->second.end();
+         bbIt != itrEnd; ++bbIt) {
+      scp->addBasicBlock(*bbIt);
+    }
+    // Add this UCF scope to the main scope.
+    main_scope.addSubSchedulingScope(scp);
+  }
+}
+
 void Predicator::maskOutgoing(BasicBlock *BB) {
   //V_PRINT(predicate,
   //"Masking Outgoing BasicBlock:"<<BB->getName()<<"\n");
@@ -1375,9 +1662,10 @@ void Predicator::maskOutgoing(BasicBlock *BB) {
   V_ASSERT(br && "Unable to handle non return/branch terminators");
 
   // Implementation of unconditional branches or uniform branches in
-  // a non divergent blocks can be easily done
+  // non divergent blocks or in UCF regions can be easily done
   if (br->isUnconditional() ||
-    (m_WIA->whichDepend(br) == WIAnalysis::UNIFORM && !m_WIA->isDivergentBlock(BB))) {
+    (m_WIA->whichDepend(br) == WIAnalysis::UNIFORM && !m_WIA->isDivergentBlock(BB)) ||
+    isUCFEntry(BB) || isUCFInter(BB)) {
     // If this outgoing mask is an optimized case
     return maskOutgoing_useIncoming(BB, BB);
   }
@@ -1417,17 +1705,6 @@ void Predicator::maskIncoming_singlePred(BasicBlock *BB, BasicBlock* pred) {
   /// Find the old dummy mask
   V_ASSERT(m_inMask.find(BB) != m_inMask.end() && "BB has no in-mask");
   Value* old_in = m_inMask[BB];
-
-  // If not, and this is the entry block, there is nothing to do
-  if (!pred) {
-    ConstantInt* one = ConstantInt::get(
-      BB->getParent()->getContext(), APInt(1, StringRef("1"), 10));
-
-    Instruction* st = new StoreInst(one, old_in, BB->getFirstNonPHI());
-    moveAfterLastDependant(st);
-    m_inInst[BB] = st;
-    return;
-  }
 
   /// Else, there is only one way to get here.
   /// We shall use this mask as in-mask.
@@ -1492,6 +1769,34 @@ void Predicator::maskIncoming(BasicBlock *BB) {
   //V_PRINT(predicate,
   // "Masking Incoming BasicBlock:"<<BB->getName()<<"\n");
 
+  // If this is the function entry block set its mask to all ones
+  BasicBlock * funcEntryBB = &BB->getParent()->getEntryBlock();
+  if (funcEntryBB == BB) {
+    ConstantInt* one = ConstantInt::get(
+      BB->getParent()->getContext(), APInt(1, StringRef("1"), 10));
+
+    Instruction* st = new StoreInst(one, m_inMask[BB], BB->getFirstNonPHI());
+    moveAfterLastDependant(st);
+    m_inInst[BB] = st;
+    return;
+  }
+
+  // If this BB is not divergent use function entry BB's mask
+  if(!m_WIA->isDivergentBlock(BB)) {
+    maskIncoming_optimized(BB, funcEntryBB);
+  }
+
+  // If this is an interior or exit UCF BB then use the
+  // UCF entry mask
+  if(isUCFInter(BB)) {
+    maskIncoming_optimized(BB, m_ucfInter2Entry[BB]);
+    return;
+  }
+  if(isUCFExit(BB)) {
+    maskIncoming_optimized(BB, m_ucfExit2Entry[BB]);
+    return;
+  }
+
   if (std::distance(pred_begin(BB), pred_end(BB)) < 2) {
     // Get single pred or NULL
     maskIncoming_singlePred(BB, BB->getSinglePredecessor());
@@ -1506,8 +1811,8 @@ void Predicator::maskIncoming(BasicBlock *BB) {
   //
   // If we are the header block in the loop
   // This is where the backedge merges.
-  //
   if (loop && loop->getHeader() == BB) {
+    V_ASSERT(!isUCFExit(BB) && "loop header must not be UCF exit");
     maskIncoming_loopHeader(BB, loop->getLoopPreheader());
     return;
   }
@@ -1520,7 +1825,6 @@ void Predicator::maskIncoming(BasicBlock *BB) {
     V_ASSERT(BB != par && "Can't use our own mask");
     return maskIncoming_optimized(BB, par);
   }
-
   maskIncoming_simpleMerge(BB);
 }
 
@@ -1583,6 +1887,10 @@ void Predicator::predicateFunction(Function *F) {
   m_predicatedToOriginalInst.clear();
   m_predicatedSelects.clear();
   m_branchesInfo.clear();
+  m_ucfEntry2Exit.clear();
+  m_ucfInter2Entry.clear();
+  m_ucfExit2Entry.clear();
+  m_ucfSchedulingConstraints.clear();
 
   // Get Dominator and Post-Dominator analysis passes
   PostDominatorTree* PDT = &getAnalysis<PostDominatorTree>();
@@ -1602,6 +1910,13 @@ void Predicator::predicateFunction(Function *F) {
 
   // collect branches info before the branches are changed.
   collectBranchesInfo(F);
+
+  // Collect UCF regions inside divergent regions.
+  // Must be run before specializer.CollectDominanceInfo because it
+  // uses the collected information.
+  if(PreserveUCF) {
+    collectUCFRegions(F, LI, PDT, DT);
+  }
 
   /// Before we begin the predication process we need to collect specialization
   /// information. This is formation is the dominator-frontier properties of
@@ -1661,6 +1976,9 @@ void Predicator::predicateFunction(Function *F) {
   /// Replace all the divergent PHINodes and the PHINodes in
   /// divergent blocks with select instructions
   for (Function::iterator it = F->begin(), e  = F->end(); it != e ; ++it) {
+    // Skip UCF regions except it's entry BB
+    if(isUCFInter(it) || isUCFExit(it))
+      continue;
     if (m_WIA->isDivergentBlock(it) || m_WIA->isDivergentPhiBlocks(it))
       convertPhiToSelect(it);
   }
@@ -1824,8 +2142,139 @@ void Predicator::blockIsBeingZeroBypassed(BasicBlock* BB) {
   }
 }
 
+void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
+  BasicBlock * const ucfExitBB = getUCFExit(ucfEntryBB);
+  V_ASSERT(m_inMask.count(ucfEntryBB) && "missing in mask");
+  Value* ucfMask = m_inMask[ucfEntryBB];
+
+  ValueToValueMapTy clonesMap;
+  // Choose an instruction which the first predicated instruction
+  // in this BB or it's terminator. This is crutial for the correct mask handling.
+  Instruction * firstPredOrTerm = NULL;
+  for(BasicBlock::iterator bbIt = ucfEntryBB->begin(), bbEnd = ucfEntryBB->end();
+        bbIt != bbEnd; ++bbIt) {
+    firstPredOrTerm = bbIt;
+    if(m_predicatedToOriginalInst.count(firstPredOrTerm)) break;
+  }
+  V_ASSERT(firstPredOrTerm && "it is a branch or the 1st predicated inst. in this BB");
+  // Split the UCF entry so that all PHI nodes are stay intact. Other instructions go
+  // into the second half (which is a brand new BB)
+  BasicBlock* allOnesBeginBB = ucfEntryBB;
+  // Note that the allOnesBeginBB is actually is UCF entry
+  BasicBlock * postEntryBB = SplitBlock(allOnesBeginBB, firstPredOrTerm, this);
+  m_ucfInter2Entry[postEntryBB] = ucfEntryBB;
+  // Split exit BB at the terminator instruction.
+  BasicBlock* allOnesEndBB = SplitBlock(ucfExitBB, ucfExitBB->getTerminator(), this);
+  m_ucfEntry2Exit[ucfEntryBB] = allOnesEndBB;
+  m_ucfExit2Entry[allOnesEndBB] = ucfEntryBB;
+
+  // Collect users outside the original UCF region including the allOnesEndBB
+  // plus the used values itself
+  std::set<Instruction *> origUsedValues;
+  SmallVector<Instruction *, 16> outsideUsers;
+  std::set<BasicBlock *> originalUCF;
+  originalUCF.insert(postEntryBB);
+  originalUCF.insert(ucfExitBB);
+
+  SmallVector<BasicBlock *, 8> workqueue;
+  workqueue.push_back(postEntryBB);
+  workqueue.push_back(ucfExitBB);
+  while(workqueue.size() > 0) {
+    BasicBlock * ucfOrigBB = workqueue.back();
+    workqueue.pop_back();
+    // Look for instructions used outside of the original UCF including the new entry and exit BBs
+    // (namely allOnesBeginBB and allOnesEndBB) and remember the users and the used values
+    for (BasicBlock::iterator ii = ucfOrigBB->begin(), ei = ucfOrigBB->end(); ii != ei; ++ii) {
+      for(Value::use_iterator useIt = ii->use_begin(); useIt != ii->use_end(); ++useIt) {
+        Instruction * userInst = dyn_cast<Instruction>(*useIt);
+        BasicBlock * userBB = userInst->getParent();
+        if(userInst &&
+           (userBB == allOnesEndBB  || userBB == allOnesBeginBB || getUCFEntry(userBB) != ucfEntryBB)) {
+          // Found an outside user
+          outsideUsers.push_back(userInst);
+          origUsedValues.insert(ii);
+        }
+      }
+    }
+
+    if(ucfOrigBB == ucfExitBB) continue;
+    for (succ_iterator succ = succ_begin(ucfOrigBB), end = succ_end(ucfOrigBB);
+        succ != end; ++succ) {
+      if(originalUCF.insert(*succ).second) {
+        workqueue.push_back(*succ);
+      }
+    }
+  }
+
+  // Clone the entire region
+  SmallVector<BasicBlock *, 8> clones;
+  for(std::set<BasicBlock *>::iterator ucfIt = originalUCF.begin(), ucfEnd = originalUCF.end();
+        ucfIt != ucfEnd; ++ucfIt) {
+    BasicBlock * ucfOrigBB = *ucfIt;
+    BasicBlock * cloneBB =
+      CloneBasicBlock(ucfOrigBB, clonesMap, ".ucf_allones", ucfOrigBB->getParent());
+    clonesMap[ucfOrigBB] = cloneBB;
+    clones.push_back(cloneBB);
+  }
+
+  // Update references inside the clones.
+  for(SmallVector<BasicBlock *, 8>::iterator bbIt = clones.begin(), bbEnd = clones.end();
+        bbIt != bbEnd; ++bbIt) {
+    BasicBlock * cloneBB = *bbIt;
+    for (BasicBlock::iterator ii = cloneBB->begin(); ii != cloneBB->end(); ++ii)
+      RemapInstruction(ii, clonesMap, RF_IgnoreMissingEntries);
+  }
+
+  // Create conditional branch to the original and cloned UCF entry BBs
+  allOnesBeginBB->getTerminator()->eraseFromParent();
+  LoadInst* loadMask = new LoadInst(ucfMask, "ucf_region_mask", allOnesBeginBB);
+  CallInst* isAllOnesTest = CallInst::Create(m_allone, loadMask, "isAllOnes", allOnesBeginBB);
+  BasicBlock * postEntryCloneBB = cast<BasicBlock>(clonesMap[postEntryBB]);
+  BranchInst::Create(postEntryCloneBB, postEntryBB, isAllOnesTest, allOnesBeginBB);
+
+  // Create a phi node for each value used outside of this UCF region (including the allones end BB's terminator)
+  // and populate original value to new PHI value mapping
+  ValueToValueMapTy outsidersMap;
+  for(std::set<Instruction *>::iterator origUsedIt = origUsedValues.begin(), usedEnd = origUsedValues.end();
+        origUsedIt != usedEnd; ++origUsedIt) {
+    Value * orig = *origUsedIt;
+    Value * clone = clonesMap[orig];
+    // Create new PHI node
+    PHINode * phi = PHINode::Create(orig->getType(), 2, orig->getName() + "ucf_allones", allOnesEndBB->getTerminator());
+    phi->addIncoming(orig, ucfExitBB);
+    phi->addIncoming(clone, cast<BasicBlock>(clonesMap[ucfExitBB]));
+    // And add the mapping
+    outsidersMap[orig] = phi;
+  }
+  outsidersMap[ucfExitBB] = allOnesEndBB;
+  // Update refereneces in the outside users
+  for(SmallVector<Instruction *, 16>::iterator userIt = outsideUsers.begin(), userEnd = outsideUsers.end();
+        userIt != userEnd; ++userIt) {
+    RemapInstruction(*userIt, outsidersMap, RF_IgnoreMissingEntries);
+  }
+  // Unpredicate the cloned UCF region
+  for(std::set<BasicBlock *>::iterator ucfIt = originalUCF.begin(), ucfEnd = originalUCF.end();
+        ucfIt != ucfEnd; ++ucfIt) {
+    BasicBlock * ucfOrigBB = *ucfIt;
+    for (BasicBlock::iterator ii = ucfOrigBB->begin(), ei = ucfOrigBB->end(); ii != ei; ++ii) {
+      Instruction * const origPred = ii;
+      if(m_predicatedToOriginalInst.count(origPred)) {
+        Instruction *  const origUnpred =  m_predicatedToOriginalInst[origPred];
+        V_ASSERT(origUnpred && "broken reference in m_predicatedToOriginalInst");
+        Instruction * clonePred = cast<Instruction>(clonesMap[origPred]);
+        Instruction * const cloneUnpred = cast<Instruction>(clonesMap[origUnpred]);
+        V_ASSERT(clonePred && cloneUnpred && "clones mapping is broken");
+        clonePred->replaceAllUsesWith(cloneUnpred);
+        clonePred->eraseFromParent();
+      }
+    }
+  }
+
+  return;
+}
+
 void Predicator::insertAllOnesBypassesSingleBlockLoopCase(BasicBlock* original) {
-  // we are going to replace the original block, which is a loop,
+  // If this is a divergent loop we are going to replace the original block
   // with the following structure.
   //             entry
   //               .         .
@@ -2108,6 +2557,8 @@ static bool isSingleBlockLoop(BasicBlock* BB) {
 }
 
 void Predicator::insertAllOnesBypasses() {
+  std::set<BasicBlock *> ucfVisited;
+
   for (std::set<BasicBlock*>::iterator it = m_valuableAllOnesBlocks.begin(),
     e = m_valuableAllOnesBlocks.end(); it != e; ++it) {
       // for each block to be bypassed
@@ -2127,6 +2578,13 @@ void Predicator::insertAllOnesBypasses() {
         continue;
       }
 
+      // Check if UCF region has been handled already.
+      BasicBlock* ucfEntryBB = getUCFEntry(original);
+      if(ucfEntryBB && !ucfVisited.insert(ucfEntryBB).second) {
+        // This UCF regions has been handled already
+        continue;
+      }
+
       // statistics:://////////////////////////////////////
       AllOnes_Bypasses++;
       // if the bypass is due to a consecutive store/load,
@@ -2137,6 +2595,14 @@ void Predicator::insertAllOnesBypasses() {
       // unpredication of uniform store/loads.
       AllOnes_Bypasses_Due_To_Non_Consecutive_Store_Load++;
       /////////////////////////////////////////////////////
+
+      if(ucfEntryBB) {
+        // In case this BB is inside UCF region the modification is pretty strigthforward
+        // because the UCF region has a single entry and a single exit. For the simplicity
+        // the whole SESE region is unpdredicated.
+        insertAllOnesBypassesUCFRegion(ucfEntryBB);
+        continue;
+      }
 
       if (isSingleBlockLoop(original)) {
         // we treat loops made of a single block as a special case

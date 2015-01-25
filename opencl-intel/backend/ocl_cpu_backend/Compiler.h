@@ -194,6 +194,7 @@ protected:
     Intel::CPUId             m_CpuId;
     std::vector<std::string> m_forcedCpuFeatures;
     ETransposeSize           m_transposeSize;
+    int                      m_rtLoopUnrollFactor;
     std::vector<int>         m_IRDumpAfter;
     std::vector<int>         m_IRDumpBefore;
     std::string              m_IRDumpDir;

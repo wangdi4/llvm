@@ -35,6 +35,7 @@ public:
     std::string GetCpuArch() const     { return CompilerConfig::GetCpuArch(); }
     std::string GetCpuFeatures() const { return CompilerConfig::GetCpuFeatures(); }
     ETransposeSize GetTransposeSize() const   { return CompilerConfig::GetTransposeSize(); }
+    int GetRTLoopUnrollFactor() const         { return 1; } // not used for MIC
     bool  GetUseVTune() const                 { return CompilerConfig::GetUseVTune(); }
     bool  GetLoadBuiltins() const             { return CompilerConfig::GetLoadBuiltins(); }
     std::vector<int> GetIRDumpOptionsAfter() const { return CompilerConfig::GetIRDumpOptionsAfter(); }

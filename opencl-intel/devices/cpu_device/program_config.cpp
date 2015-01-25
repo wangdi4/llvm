@@ -33,6 +33,7 @@ void ProgramConfig::InitFromCpuConfig(const CPUDeviceConfig& cpuConfig)
 {
     m_useVectorizer  = cpuConfig.UseVectorizer();
     m_vectorizerMode = cpuConfig.GetVectorizerMode();
+    m_rtLoopUnrollFactor   = cpuConfig.GetRTLoopUnrollFactor();
     m_useVTune       = cpuConfig.UseVTune();
 }
 
