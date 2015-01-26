@@ -2676,14 +2676,44 @@ void CodeGenFunction::EmitCallArgs(CallArgList &Args,
 
     // Evaluate each argument.
     size_t CallArgsStart = Args.size();
+#ifdef INTEL_CUSTOMIZATION
+    // Fix for CQ#364545 - allow use of arguments in references as default
+    // value
+    if (getLangOpts().MSVCCompat) {
+      RefParmInCall.push_back(ParmExpValMapTy());
+      if (CalleeDecl)
+        for (unsigned I = 0, E = ArgTypes.size(); I != E; ++I) {
+          if (ArgTypes[I]->isReferenceType())
+            RefParmInCall.back()[CalleeDecl->getParamDecl(I)] =
+                std::make_pair(*(ArgBeg + I), nullptr);
+        }
+    }
+#endif
     for (int I = ArgTypes.size() - 1; I >= 0; --I) {
       CallExpr::const_arg_iterator Arg = ArgBeg + I;
+#ifdef INTEL_CUSTOMIZATION
+      // Fix for CQ#364545 - allow use of arguments in references as default
+      // value
+      if (getLangOpts().MSVCCompat && CalleeDecl &&
+          ArgTypes[I]->isReferenceType() &&
+          RefParmInCall.back()[CalleeDecl->getParamDecl(I)].second) {
+        Args.add(RValue::get(
+                     RefParmInCall.back()[CalleeDecl->getParamDecl(I)].second),
+                 ArgTypes[I]);
+      } else
+#endif
       EmitCallArg(Args, *Arg, ArgTypes[I]);
       emitNonNullArgCheck(*this, Args.back().RV, ArgTypes[I], Arg->getExprLoc(),
                           CalleeDecl, ParamsToSkip + I);
       // Restore the debug location.
       if (DI) DI->EmitLocation(Builder, CallLoc, ForceColumnInfo);
     }
+#ifdef INTEL_CUSTOMIZATION
+    // Fix for CQ#364545 - allow use of arguments in references as default
+    // value
+    if (getLangOpts().MSVCCompat)
+      RefParmInCall.pop_back();
+#endif
 
     // Un-reverse the arguments we just evaluated so they match up with the LLVM
     // IR function.
@@ -2691,15 +2721,34 @@ void CodeGenFunction::EmitCallArgs(CallArgList &Args,
     return;
   }
 
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ#364545 - allow use of arguments in references as default
+  // value
+  if (getLangOpts().MSVCCompat)
+    RefParmInCall.push_back(ParmExpValMapTy());
+#endif
   for (unsigned I = 0, E = ArgTypes.size(); I != E; ++I) {
     CallExpr::const_arg_iterator Arg = ArgBeg + I;
     assert(Arg != ArgEnd);
     EmitCallArg(Args, *Arg, ArgTypes[I]);
     emitNonNullArgCheck(*this, Args.back().RV, ArgTypes[I], Arg->getExprLoc(),
                         CalleeDecl, ParamsToSkip + I);
+#ifdef INTEL_CUSTOMIZATION
+    // Fix for CQ#364545 - allow use of arguments in references as default value
+    if (getLangOpts().MSVCCompat && CalleeDecl &&
+        ArgTypes[I]->isReferenceType())
+      RefParmInCall.back()[CalleeDecl->getParamDecl(I)] =
+          std::make_pair(*Arg, Args.back().RV.getScalarVal());
+#endif
     // Restore the debug location.
     if (DI) DI->EmitLocation(Builder, CallLoc, ForceColumnInfo);
   }
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ#364545 - allow use of arguments in references as default
+  // value
+  if (getLangOpts().MSVCCompat)
+    RefParmInCall.pop_back();
+#endif
 }
 
 namespace {

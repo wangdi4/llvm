@@ -95,6 +95,11 @@ namespace {
       //   evaluated. Parameters of a function declared before a default
       //   argument expression are in scope and can hide namespace and
       //   class member names.
+#ifdef INTEL_CUSTOMIZATION
+      // Fix for CQ#364545 - allow use of arguments in references as default
+      // value
+      if (!S->getLangOpts().MSVCCompat || !Param->getType()->isReferenceType())
+#endif
       return S->Diag(DRE->getLocStart(),
                      diag::err_param_default_argument_references_param)
          << Param->getDeclName() << DefaultArg->getSourceRange();
@@ -156,7 +161,7 @@ namespace {
         IsInvalid |= Visit(*I);
     return IsInvalid;
   }
-#endif  
+#endif
 }
 
 void
