@@ -12,10 +12,12 @@
 //===----------------------------------------------------------------------===//
 
 
-#ifndef LLVM_TRANSFORMS_INTEL_LOOPUTILS_CANONEXPRUTILS_H
-#define LLVM_TRANSFORMS_INTEL_LOOPUTILS_CANONEXPRUTILS_H
+#ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_CANONEXPRUTILS_H
+#define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_CANONEXPRUTILS_H
 
 #include <stdint.h>
+#include "llvm/Support/Compiler.h"
+
 
 namespace llvm {
 
@@ -25,7 +27,16 @@ namespace loopopt {
 
 class CanonExpr;
 
+/// \brief Defines utilities for CanonExpr class
+///
+/// It contains a bunch of static member functions which manipulate CanonExprs.
+/// It does not store any state.
+///
 class CanonExprUtils {
+private:
+  /// \brief Do not allow instantiation.
+  CanonExprUtils() LLVM_DELETED_FUNCTION;
+
 public:
   /// \brief Returns a new CanonExpr.
   static CanonExpr* createCanonExpr(Type* Typ, bool Gen = true, 

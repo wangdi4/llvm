@@ -118,6 +118,17 @@ private:
   mutable ilist_half_node<loopopt::HLNode> Sentinel;
 };
 
+/// Global definitions
+
+namespace loopopt {
+
+typedef iplist<HLNode> HLContainerTy;
+
+/// Top level HLNodes (regions)
+HLContainerTy HLRegions;
+
+
+} // End loopopt namespace 
 
 } // End llvm namespace
 

@@ -27,7 +27,7 @@ class HLIf : public HLDDNode {
 public:
   typedef std::vector< CmpInst::Predicate* > PredTy;
   typedef std::vector<unsigned> ConjunctionTy;
-  typedef iplist<HLNode> ChildNodeTy;
+  typedef HLContainerTy ChildNodeTy;
 
   /// Iterators to iterate over then/else children nodes
   typedef ChildNodeTy::iterator then_iterator;

@@ -30,7 +30,7 @@ class HLLoop : public HLDDNode {
 public:
   typedef HLIf::PredTy ZttPredTy;
   typedef HLIf::ConjunctionTy ZttConjunctionTy;
-  typedef iplist<HLNode> ChildNodeTy;
+  typedef HLContainerTy ChildNodeTy;
   typedef ChildNodeTy PreheaderTy;
   typedef ChildNodeTy PostexitTy;
 

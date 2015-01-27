@@ -32,7 +32,7 @@ CanonExpr::CanonExpr(Type* Typ, bool Gen, int DefLevel, int64_t Cons,
 
 CanonExpr::CanonExpr(const CanonExpr& CE)
   : Ty(CE.Ty), Generable(CE.Generable), DefinedAtLevel(CE.DefinedAtLevel) 
-  , IVCoeffs(CE.getIVCoeffs()), BlobCoeffs(CE.getBlobCoeffs()), Const(CE.Const)
+  , IVCoeffs(CE.IVCoeffs), BlobCoeffs(CE.BlobCoeffs), Const(CE.Const)
   , Denominator(CE.Denominator) {
   
   Objs.insert(this);

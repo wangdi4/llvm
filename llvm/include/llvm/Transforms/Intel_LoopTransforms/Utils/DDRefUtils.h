@@ -12,8 +12,10 @@
 //===----------------------------------------------------------------------===//
 
 
-#ifndef LLVM_TRANSFORMS_INTEL_LOOPUTILS_DDREFUTILS_H
-#define LLVM_TRANSFORMS_INTEL_LOOPUTILS_DDREFUTILS_H
+#ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_DDREFUTILS_H
+#define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_DDREFUTILS_H
+
+#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 
@@ -26,7 +28,16 @@ class ConstDDRef;
 class BlobDDRef;
 class CanonExpr;
 
+/// \brief Defines utilities for DDRef class
+///
+/// It contains a bunch of static member functions which manipulate DDRefs.
+/// It does not store any state.
+///
 class DDRefUtils {
+private:
+  /// \brief Do not allow instantiation.
+  DDRefUtils() LLVM_DELETED_FUNCTION;
+
 public:
   /// \brief Returns a new ConstDDRef.
   static ConstDDRef* createConstDDRef(CanonExpr* CE,

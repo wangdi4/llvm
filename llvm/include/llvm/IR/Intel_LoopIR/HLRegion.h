@@ -33,7 +33,7 @@ namespace loopopt {
 class HLRegion : public HLNode {
 public:
   /// List of children nodes inside region
-  typedef iplist<HLNode> ChildNodeTy;
+  typedef HLContainerTy ChildNodeTy;
 
   /// Iterators to iterate over children nodes
   typedef ChildNodeTy::iterator child_iterator;

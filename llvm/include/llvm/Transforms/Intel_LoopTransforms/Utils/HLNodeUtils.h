@@ -1,4 +1,4 @@
-//===-------- HLNodeUtils.h - Utilities for HLNode class ----------*- C++ -*-===//
+//===-------- HLNodeUtils.h - Utilities for HLNode class --------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -12,10 +12,13 @@
 //===----------------------------------------------------------------------===//
 
 
-#ifndef LLVM_TRANSFORMS_INTEL_LOOPUTILS_HLNODEUTILS_H
-#define LLVM_TRANSFORMS_INTEL_LOOPUTILS_HLNODEUTILS_H
+#ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HLNODEUTILS_H
+#define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HLNODEUTILS_H
 
 #include <set>
+#include "llvm/Support/Compiler.h"
+#include "llvm/IR/Intel_LoopIR/HLNode.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
 
 namespace llvm {
 
@@ -24,7 +27,6 @@ class Instruction;
 
 namespace loopopt {
 
-class HLNode;
 class HLRegion;
 class HLSwitch;
 class HLLabel;
@@ -33,7 +35,16 @@ class HLInst;
 class HLIf;
 class HLLoop;
 
+/// \brief Defines utilities for HLNode class
+///
+/// It contains a bunch of static member functions which manipulate HLNodes. 
+/// It does not store any state.
+///
 class HLNodeUtils {
+private:
+  /// \brief Do not allow instantiation.
+  HLNodeUtils() LLVM_DELETED_FUNCTION;
+
 public:
   /// \brief Returns a new HLRegion.
   static HLRegion* createHLRegion(std::set< BasicBlock* >& OrigBBs, 
@@ -63,6 +74,22 @@ public:
   static void destroy(HLNode* Node);
   /// \brief Destroys all HLNodes. Should only be called after code gen.
   static void destroyAll();
+
+  /// \brief Visits HLNodes in the forward direction in the range [begin, end).
+  template<typename HV>
+  static void forwardVisit(HV* Visitor, HLContainerTy::iterator Begin, 
+    HLContainerTy::iterator End, bool Recursive = true);
+  /// \brief Visits HLNodes in the backward direction in the range [begin, end).
+  template<typename HV>
+  static void backwardVisit(HV* Visitor, HLContainerTy::iterator Begin, 
+    HLContainerTy::iterator End, bool Recursive = true);
+
+  /// \brief Visits all HLNodes in the HIR in forward direction.
+  template<typename HV>
+  static void forwardVisitAll(HV* Visitor);
+  /// \brief Visits all HLNodes in the HIR in backward direction.
+  template<typename HV>
+  static void backwardVisitAll(HV* Visitor); 
   
 };
 

@@ -29,7 +29,7 @@ class Type;
 namespace loopopt {
 
 /// \brief The maximum loopnest level allowed in HIR
-const int MaxLoopNestLevel = 9;
+const unsigned MaxLoopNestLevel = 9;
 
 
 /// \brief Canonical form in high level IR
@@ -91,14 +91,6 @@ protected:
 
   /// \brief Destroys the object.
   void destroy();
-
-  /// \brief Returns the IV coefficient vector.
-  /// Only used intenally for copy constructor.
-  const IVTy& getIVCoeffs() const { return IVCoeffs; }
-
-  /// \brief Returns the Blob coefficient vector.
-  /// Only used intenally for copy constructor.
-  const BlobTy& getBlobCoeffs() const { return BlobCoeffs; }
 
   /// \brief Resizes IVCoeffs to max loopnest level if the passed in level goes 
   /// beyond the current size. This will avoid future reallocs.
