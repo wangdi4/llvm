@@ -125,7 +125,7 @@ namespace loopopt {
 typedef iplist<HLNode> HLContainerTy;
 
 /// Top level HLNodes (regions)
-HLContainerTy HLRegions;
+extern HLContainerTy HLRegions;
 
 
 } // End loopopt namespace 

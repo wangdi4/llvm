@@ -16,6 +16,8 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
+HLContainerTy HLRegions();
+
 std::set< HLNode* >HLNode::Objs;
 
 HLNode::HLNode(unsigned SCID, HLNode* Par)
