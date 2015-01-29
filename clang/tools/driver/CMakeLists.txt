@@ -15,7 +15,6 @@ set( LLVM_LINK_COMPONENTS
   Support
   TransformUtils
   Vectorize
-  Intel_LoopTransforms
   )
 
 option(CLANG_PLUGIN_SUPPORT "Build clang with plugin support" ON)
