@@ -721,10 +721,10 @@ void WeightedInstCounter::estimateIterations(Function &F,
     if (Predicator::getAllOnesBlockType(L->getHeader())
       == Predicator::SINGLE_BLOCK_LOOP_ORIGINAL) {
         Latch = Predicator::getAllOnesSingleLoopBlock(L->getHeader());
-        Count = SI->getSmallConstantTripCount(LI->getLoopFor(Latch), Latch);
+        Count = SI->getSmallConstantTripCount(LI->getLoopFor(Latch));
     }
     else if (Latch)
-      Count = SI->getSmallConstantTripCount(L, Latch);
+      Count = SI->getSmallConstantTripCount(L);
 
     // getSmallConstantTripCount() returns 0 for non-constant trip counts
     // and on error conditions. In this case guess and hope for the best.

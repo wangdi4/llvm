@@ -170,10 +170,6 @@ bool PacketizeFunction::runOnFunction(Function &F)
   V_ASSERT(4 <= m_packetWidth && MAX_PACKET_WIDTH >= m_packetWidth &&
     "Requested packetization width out of range!");
 
-  // Packetization is possible only on functions which return void (kernels)
-  if (!F.getReturnType()->isVoidTy()) {
-    return false;
-  }
   V_PRINT(packetizer, "\nStarting packetization of: " << m_currFunc->getName());
   V_PRINT(packetizer, " to Width: " << m_packetWidth << "\n");
 
@@ -602,22 +598,30 @@ void PacketizeFunction::dispatchInstructionToPacketize(Instruction *I)
   {
     // since we are never getting uniform values from other dependencies
     // (even though sub consecutive consecutive = uniform)
-    // we can just not packetize all uniform values
+    // we can just not packetize all uniform values except for the
+    // following special cases.
 
-    // that is, unless it is an all-ones or all-zeroes call-function,
-    // which returns a uniform value, but still needs to be packetized.
-    bool isAllOneAllZeroFunctionCall = false;
-    CallInst* inst = dyn_cast<CallInst>(I);
-    if (inst && inst->getCalledFunction()) {
-      StringRef funcName = inst->getCalledFunction()->getName();
-      if (Mangler::isAllOne(funcName)) {
-        isAllOneAllZeroFunctionCall = true;
-      }
-      else if (Mangler::isAllZero(funcName)) {
-        isAllOneAllZeroFunctionCall = true;
+    bool canUseOriginalInstruction = true;
+
+    CallInst* callInst = dyn_cast<CallInst>(I);
+    if (callInst && callInst->getCalledFunction()) {
+      StringRef funcName = callInst->getCalledFunction()->getName();
+      if (Mangler::isAllOne(funcName) || Mangler::isAllZero(funcName)) {
+	// all-ones and all-zeroes call-function reduce a packetized value into
+	// a uniform value, so they still need to be packetized.
+	canUseOriginalInstruction = false;
       }
     }
-    if (!isAllOneAllZeroFunctionCall) {
+    ReturnInst* returnInst = dyn_cast<ReturnInst>(I);
+    if (returnInst) {
+      // return instructions are uniform in behavior, but the return value may
+      // not be and must still be packetized.
+      Value* retVal = returnInst->getReturnValue();
+      if (retVal != NULL)
+	canUseOriginalInstruction = false;
+    }
+
+    if (canUseOriginalInstruction) {
       return useOriginalConstantInstruction(I);
     }
   }
@@ -2975,20 +2979,20 @@ void PacketizeFunction::packetizeInstruction(ReturnInst *RI)
 {
   V_PRINT(packetizer, "\t\tRet Instruction\n");
   V_ASSERT(RI && "instruction type dynamic cast failed");
+
   Value* retVal = RI->getReturnValue();
   if (retVal == NULL) {
     // Empty return: just use the existing instruction
     return useOriginalConstantInstruction(RI);
   }
-  Type* returnType = retVal->getType();
-  if (!returnType->isVectorTy()) {
-    // Scalar return type: just use the existing instruction
-    return useOriginalConstantInstruction(RI);
-  }
+
+  // Obtain the vectorized return value
+  Value* vectorRetVal;
+  obtainVectorizedValue(&vectorRetVal, retVal, RI);
   // Signature expects a scalar: return the first element of the vector
   // to keep the function valid.
   Value* zero = ConstantInt::get(Type::getInt32Ty(RI->getContext()), 0);
-  Value *fakeRetVal = ExtractElementInst::Create(retVal, zero, "fake_return_val", RI);
+  Value *fakeRetVal = ExtractElementInst::Create(vectorRetVal, zero, "fake_return_val", RI);
   ReturnInst::Create(RI->getContext(), fakeRetVal, RI->getParent());
   m_removedInsts.insert(RI); // Remove original instruction
 }

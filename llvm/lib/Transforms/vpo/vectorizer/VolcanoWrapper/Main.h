@@ -52,9 +52,13 @@ public:
 
 private:
 
+    bool preVectorizeFunction(Function& F);
+    void vectorizeFunction(Function& F, VectorVariant& vectorVariant);
     Function* createVectorVersion(Function& vectorizedFunction,
 				  VectorVariant& vectorVariant,
 				  std::string scalarFuncName);
+    void postVectorizeFunction(Function& F);
+
     void createVectorizationStubs(Module& M);
     void deleteVectorizationStubs();
     /// @brief declarations for functions used for expressing vectorization

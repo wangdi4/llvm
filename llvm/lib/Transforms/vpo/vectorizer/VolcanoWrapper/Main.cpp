@@ -6,8 +6,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 
 #include "Main.h"
+#include "VecConfig.h"
 #include "Mangler.h"
-#include "VectorizerCore.h"
+#include "WIAnalysis.h"
+#include "InstCounter.h"
 #include "MetaDataApi.h"
 #include "OclTune.h"
 #include "OCLPassSupport.h"
@@ -17,6 +19,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/PassManager.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
 #include <sstream>
 
@@ -29,7 +33,27 @@ FILE * moduleDmp;
 char intel::Vectorizer::ID = 0;
 
 extern "C" FunctionPass* createVectorizerCorePass(const intel::OptimizerConfig*);
+extern "C" FunctionPass* createPhiCanon();
+extern "C" FunctionPass* createPredicator();
+extern "C" FunctionPass* createSimplifyGEPPass();
+extern "C" FunctionPass* createPacketizerPass(bool, unsigned int);
 extern "C" Pass* createBuiltinLibInfoPass(llvm::Module* pRTModule, std::string type);
+
+extern "C" FunctionPass* createGatherScatterResolverPass();
+extern "C" FunctionPass* createX86ResolverPass();
+extern "C" FunctionPass *createIRPrinterPass(std::string dumpDir, std::string dumpName);
+
+
+static FunctionPass* createResolverPass(const Intel::CPUId& CpuId) {
+  if (CpuId.HasGatherScatter())
+    return createGatherScatterResolverPass();
+  return createX86ResolverPass();
+}
+
+static FunctionPass* createPacketizer(const Intel::CPUId& CpuId,
+                                      unsigned int vectorizationDimension) {
+  return createPacketizerPass(CpuId.HasGatherScatter(), vectorizationDimension);
+}
 
 using namespace intel;
 OCL_INITIALIZE_PASS_BEGIN(Vectorizer, "vpo-vectorize", "vpo vectorizer", false, false)
@@ -71,6 +95,8 @@ static OptimizerConfig defaultOptimizerConfig(cpuId, transposeSize,
 					      profiling, disableOpt,
 					      relaxedMath, libraryModule,
 					      dumpHeuristicIR, APFLevel);
+
+static unsigned int vectorizationDim = 0;
 
 Vectorizer::Vectorizer(const Module * rt, const OptimizerConfig* pConfig) :
   ModulePass(ID),
@@ -199,6 +225,228 @@ string guessVectorVariant(Function& F) {
   return sst.str();
 }
 
+bool Vectorizer::runOnModule(Module &M)
+{
+  V_PRINT(wrapper, "\nEntered Vectorizer Wrapper!\n");
+  // set isVectorized and proper number of kernels to zero, in case vectorization fails
+  m_numOfKernels = 0;
+  m_isModuleVectorized = true;
+
+  Intel::MetaDataUtils mdUtils(&M);
+
+  // check for some common module errors, before actually diving in
+  if (mdUtils.empty_Kernels())
+  {
+    V_PRINT(wrapper, "Failed to find annotation. Aborting!\n");
+    return false;
+  }
+  m_numOfKernels = mdUtils.size_Kernels();
+  if (m_numOfKernels == 0)
+  {
+    V_PRINT(wrapper, "Num of kernels is 0. Aborting!\n");
+    return false;
+  }
+/* xmain */
+  createVectorizationStubs(M);
+#if 0
+  if (!m_runtimeModule)
+  {
+    V_PRINT(wrapper, "Failed to find runtime module. Aborting!\n");
+    return false;
+  }
+#endif
+
+
+  for (Intel::MetaDataUtils::KernelsList::const_iterator i = mdUtils.begin_Kernels(), e = mdUtils.end_Kernels(); i != e; ++i) {
+    Intel::KernelMetaDataHandle kmd = (*i);
+    Function *F = kmd->getFunction();
+    bool disableVect = false;
+
+    //look for vector type hint metadata
+    if (kmd->isVecTypeHintHasValue()) {
+      Type* VTHTy = kmd->getVecTypeHint()->getType();
+      if (!VTHTy->isFloatTy()     &&
+          !VTHTy->isDoubleTy()    &&
+          !VTHTy->isIntegerTy(8)  &&
+          !VTHTy->isIntegerTy(16) &&
+          !VTHTy->isIntegerTy(32) &&
+          !VTHTy->isIntegerTy(64)) {
+            disableVect = true;
+      }
+    }
+
+    // Only add kernels to list, if they have scalar vec-type hint (or none)
+    if (!disableVect)
+      m_scalarFuncsList.push_back(F);
+    else
+      m_scalarFuncsList.push_back(NULL);
+  }
+
+  funcsVector::iterator fi = m_scalarFuncsList.begin();
+  funcsVector::iterator fe = m_scalarFuncsList.end();
+  for (; fi != fe; ++fi)
+  {
+    if (!*fi)
+      continue; // xmain ???
+
+    Function& F = **fi;
+    VectorVariant vectorVariant(guessVectorVariant(F));
+
+    // Clone the function
+    ValueToValueMapTy vmap;
+    Function *clone = CloneFunction(&F, vmap, true, NULL);
+    clone->setName(vectorVariant.encode() + "_Vectorized_." + F.getName());
+    M.getFunctionList().push_back(clone);
+
+    // Prepare for vectorization
+    bool canVectorize = preVectorizeFunction(*clone);
+    if (!canVectorize) {
+      // We can't or choose not to vectorize the kernel.
+      // Erase the clone from the module, but first copy the vectorizer
+      // stats back to the original function
+      intel::Statistic::copyFunctionStats(*clone, F);
+      intel::Statistic::removeFunctionStats(*clone);
+      clone->eraseFromParent();
+      continue;
+    }
+
+    // Do actual vectorization work on the clone
+    vectorizeFunction(*clone, vectorVariant);
+
+    // Generate a vector version of the function with the right signature
+    // and delete the vectorized clone.
+    Function* vectFunc = createVectorVersion(*clone,
+					     vectorVariant,
+					     F.getName().str());
+    clone->eraseFromParent();
+
+    // Do post vectorization work on the vector version
+    postVectorizeFunction(*vectFunc);
+
+    // copy stats from the original function to the new one
+    intel::Statistic::copyFunctionStats(F, *vectFunc);
+  }
+
+  //Save Metadata to the module
+  mdUtils.save(M.getContext());
+
+  V_DUMP_MODULE((&M));
+  //////////////////////////////////////////////
+  //////////////////////////////////////////////
+  V_PRINT(wrapper, "\nCompleted Vectorizer Wrapper!\n");
+
+  return m_isModuleVectorized;
+}
+
+bool Vectorizer::preVectorizeFunction(Function& F) {
+  // Case the config was not set quit gracefully.
+  // TODO: add default config or find another solutiuon for config options.
+  if (!m_pConfig) {
+    return false;
+  }
+
+  Module *M = F.getParent();
+
+  FunctionPassManager fpm(M);
+  DataLayoutPass *DLP = new DataLayoutPass();
+  fpm.add(DLP);
+  fpm.add(createBuiltinLibInfoPass(M, ""));
+
+  // Register lowerswitch
+  fpm.add(createLowerSwitchPass());
+
+  // A workaround to fix regression in sgemm on CPU and not causing new regression on Machine with Gather Scatter
+  int sroaArrSize = -1;
+  if (! m_pConfig->GetCpuId().HasGatherScatter())
+    sroaArrSize = 16;
+
+  fpm.add(createScalarReplAggregatesPass(1024, true, -1, sroaArrSize, 64));
+  fpm.add(createInstructionCombiningPass());
+  if (m_pConfig->GetDumpHeuristicIRFlag())
+    fpm.add(createIRPrinterPass(m_pConfig->GetDumpIRDir(), "pre_scalarizer"));
+  fpm.add(createDeadCodeEliminationPass());
+
+  // Register mergereturn
+  FunctionPass *mergeReturn = new UnifyFunctionExitNodes();
+  fpm.add(mergeReturn);
+
+  // Register phiCanon
+  FunctionPass *phiCanon = createPhiCanon();
+  fpm.add(phiCanon);
+
+  // Simplify loops
+  // This must happen after phiCanon since phi canonization can undo
+  // loop simplification by breaking dedicated exit nodes.
+  fpm.add(createLoopSimplifyPass());
+
+  fpm.add(createDeadCodeEliminationPass());
+  // Need to check for vectorization possibly AFTER phi canonization.
+  // In theory this shouldn't matter, since we should never introduce anything
+  // that prohibits vectorization in these three passes.
+  // In practice, however, phi canonization already had a bug that introduces
+  // irreducible control-flow, so a defensive check appears to be necessary.
+  VectorizationPossibilityPass* vecPossiblity = new VectorizationPossibilityPass();
+  fpm.add(vecPossiblity);
+
+  fpm.run(F);
+
+  return vecPossiblity->isVectorizable();
+}
+
+void Vectorizer::vectorizeFunction(Function& F, VectorVariant& vectorVariant) {
+  // Function-wide (vectorization)
+  V_PRINT(VectorizerCore, "\nBefore vectorization passes!\n");
+
+  Module *M = F.getParent();
+  FunctionPassManager fpm(M);
+  DataLayoutPass *DLP2 = new DataLayoutPass();
+  fpm.add(DLP2);
+  BuiltinLibInfo* pBuiltinInfoPass =
+    (BuiltinLibInfo*)createBuiltinLibInfoPass(M, "");
+  pBuiltinInfoPass->getRuntimeServices()->setPacketizationWidth(vectorVariant.getVlen());
+  fpm.add(pBuiltinInfoPass);
+
+  // add WIAnalysis for the predicator.
+  fpm.add(new WIAnalysis(vectorizationDim));
+
+  // Register predicate
+  FunctionPass *predicate = createPredicator();
+  fpm.add(predicate);
+
+  // Register mem2reg
+  FunctionPass *mem2reg = createPromoteMemoryToRegisterPass();
+  fpm.add(mem2reg);
+
+  // Register DCE
+  FunctionPass *dce = createDeadCodeEliminationPass();
+  fpm.add(dce);
+
+  // Add WIAnalysis for SimplifyGEP.
+  fpm.add(new WIAnalysis(vectorizationDim));
+
+  // Register SimplifyGEP
+  FunctionPass *simplifyGEP = createSimplifyGEPPass();
+  fpm.add(simplifyGEP);
+
+  // add WIAnalysis for the packetizer.
+  fpm.add(new WIAnalysis(vectorizationDim));
+
+  // Register packetize
+  FunctionPass *packetize = createPacketizer(m_pConfig->GetCpuId(), vectorizationDim);
+  fpm.add(packetize);
+
+  fpm.doInitialization();
+  fpm.run(F);
+}
+
+// Create a vector signature for a vectorized version.
+// Since the vectorized function still uses the original scalar signature
+// we need to generate the vector signature which correctly reflects the
+// vector variant.
+// The vector version contains a call to the vectorized function (with
+// vector parameters and return value extracted/inserted from/to fake
+// scalar values). The call is then inlined and the fake scalar proxies
+// are replaced with the real vector values.
 Function* Vectorizer::createVectorVersion(Function& vectorizedFunction,
 					  VectorVariant& vectorVariant,
 					  std::string scalarFuncName) {
@@ -283,17 +531,24 @@ Function* Vectorizer::createVectorVersion(Function& vectorizedFunction,
   std::vector<ExtractElementInst*>::iterator extractedIt = extractedValues.begin();
   std::vector<ExtractElementInst*>::iterator extractedEnd = extractedValues.end();
   for (; extractedIt != extractedEnd; extractedIt++) {
+    // Remove the fake scalar argument
     ExtractElementInst* eei = *extractedIt;
-    assert(eei->getNumUses() == 1 && "expected exactly 1 use for extract-element");
+    removedInstructions.push_back(eei);
+    if (eei->getNumUses() == 0)
+      continue;
+    // If the fake scalar was used replace its uses with the vector argument
+    // and remove the fake scalar expansion to vector.
+    assert(eei->getNumUses() == 1 &&
+	   "expected exactly 1 use for extract-element");
     User* eeiUser = eei->user_back();
     InsertElementInst* iei = dyn_cast<InsertElementInst>(eeiUser);
     assert(iei && "expected user to be an insert-element");
-    assert(iei->getNumUses() == 1 && "expected exactly 1 use for insert-element");
+    assert(iei->getNumUses() == 1 &&
+	   "expected exactly 1 use for insert-element");
     User* ieiUser = iei->user_back();
     ShuffleVectorInst* svi = dyn_cast<ShuffleVectorInst>(ieiUser);
     assert(svi && "expected user to be a shuffle-vector");
     svi->replaceAllUsesWith(eei->getVectorOperand());
-    removedInstructions.push_back(eei);
     removedInstructions.push_back(iei);
     removedInstructions.push_back(svi);
   }
@@ -313,7 +568,7 @@ Function* Vectorizer::createVectorVersion(Function& vectorizedFunction,
       ExtractElementInst* eei = dyn_cast<ExtractElementInst>(iei->getOperand(1));
       assert(eei && "expected fake scalar return value to be extract-element");
       Value* actualVectorRetVal = eei->getVectorOperand();
-      eei->replaceAllUsesWith(actualVectorRetVal);
+      iei->replaceAllUsesWith(actualVectorRetVal);
       removedInstructions.push_back(iei);
       removedInstructions.push_back(eei);
       break; // there can be only one
@@ -331,153 +586,38 @@ Function* Vectorizer::createVectorVersion(Function& vectorizedFunction,
   return wrapperFunc;
 }
 
-bool Vectorizer::runOnModule(Module &M)
-{
-  V_PRINT(wrapper, "\nEntered Vectorizer Wrapper!\n");
-  // set isVectorized and proper number of kernels to zero, in case vectorization fails
-  m_numOfKernels = 0;
-  m_isModuleVectorized = true;
+void Vectorizer::postVectorizeFunction(Function& F) {
+  Module *M = F.getParent();
+  FunctionPassManager fpm(M);
 
-  Intel::MetaDataUtils mdUtils(&M);
+  fpm.add(createBuiltinLibInfoPass(M, ""));
 
-  // check for some common module errors, before actually diving in
-  if (mdUtils.empty_Kernels())
-  {
-    V_PRINT(wrapper, "Failed to find annotation. Aborting!\n");
-    return false;
-  }
-  m_numOfKernels = mdUtils.size_Kernels();
-  if (m_numOfKernels == 0)
-  {
-    V_PRINT(wrapper, "Num of kernels is 0. Aborting!\n");
-    return false;
-  }
-/* xmain */
-  createVectorizationStubs(M);
-#if 0
-  if (!m_runtimeModule)
-  {
-    V_PRINT(wrapper, "Failed to find runtime module. Aborting!\n");
-    return false;
-  }
-#endif
+  // Register DCE
+  FunctionPass *dce = createDeadCodeEliminationPass();
+  fpm.add(dce);
 
+  if (m_pConfig->GetDumpHeuristicIRFlag())
+    fpm.add(createIRPrinterPass(m_pConfig->GetDumpIRDir(), "pre_resolver"));
 
-  for (Intel::MetaDataUtils::KernelsList::const_iterator i = mdUtils.begin_Kernels(), e = mdUtils.end_Kernels(); i != e; ++i) {
-    Intel::KernelMetaDataHandle kmd = (*i);
-    Function *F = kmd->getFunction();
-    bool disableVect = false;
+  // Register resolve
+  FunctionPass *resolver = createResolverPass(m_pConfig->GetCpuId());
+  fpm.add(resolver);
 
-    //look for vector type hint metadata
-    if (kmd->isVecTypeHintHasValue()) {
-      Type* VTHTy = kmd->getVecTypeHint()->getType();
-      if (!VTHTy->isFloatTy()     &&
-          !VTHTy->isDoubleTy()    &&
-          !VTHTy->isIntegerTy(8)  &&
-          !VTHTy->isIntegerTy(16) &&
-          !VTHTy->isIntegerTy(32) &&
-          !VTHTy->isIntegerTy(64)) {
-            disableVect = true;
-      }
-    }
+  // Final cleaning up
+  // TODO:: support patterns generated by instcombine in LoopWIAnalysis so
+  // it will be able to identify strided values which are important in apple
+  // for stream samplers handling.
+  fpm.add(createInstructionCombiningPass());
 
-    // Only add kernels to list, if they have scalar vec-type hint (or none)
-    if (!disableVect)
-      m_scalarFuncsList.push_back(F);
-    else
-      m_scalarFuncsList.push_back(NULL);
+  fpm.add(createCFGSimplificationPass());
+  fpm.add(createPromoteMemoryToRegisterPass());
+  fpm.add(createAggressiveDCEPass());
+  if (m_pConfig->GetDumpHeuristicIRFlag()) {
+    fpm.add(createIRPrinterPass(m_pConfig->GetDumpIRDir(), "vec_end"));
   }
 
-
-  // Create the vectorizer core pass that will do the vectotrization work.
-  VectorizerCore *vectCore = (VectorizerCore *)createVectorizerCorePass(m_pConfig);
-  FunctionPassManager vectPM(&M);
-  Module* builtinModule = &M;
-//  Module* builtinModule = getAnalysis<BuiltinLibInfo>().getBuiltinModule();
-  vectPM.add(createBuiltinLibInfoPass(builtinModule, ""));
-  vectPM.add(vectCore);
-
-
-  funcsVector::iterator fi = m_scalarFuncsList.begin();
-  funcsVector::iterator fe = m_scalarFuncsList.end();
-  for (; fi != fe; ++fi)
-  {
-    // default values for non vectorized kernels.
-    Function *vectFunc = 0;
-    int vectFuncWidth = 1;
-    unsigned int vectDim = 0;
-    bool canUniteWorkgroups = false;
-
-    if (*fi) {
-      // Clone the kernel
-      ValueToValueMapTy vmap;
-      Function *clone = CloneFunction(*fi, vmap, true, NULL);
-      VectorVariant vectorVariant(guessVectorVariant(**fi));
-      clone->setName(vectorVariant.encode() + "_Vectorized_." + (*fi)->getName());
-      M.getFunctionList().push_back(clone);
-
-      // Todo: due to a bug in the metadata we can't save changes more than once
-      // (even if we reinstantiate the metadata object after saving).
-      // Until this is fixed, we send the scalar function directly to the vectorizer core.
-      //Intel::KernelInfoMetaDataHandle vkimd = mdUtils.getOrInsertKernelsInfoItem(clone);
-      //vkimd->setVectorizedKernel(NULL);
-      //vkimd->setScalarizedKernel(*fi);
-      //Save Metadata to the module
-      //mdUtils.save(M.getContext());
-
-      vectCore->setScalarFunc(*fi);
-
-      vectPM.run(*clone);
-      if (vectCore->isFunctionVectorized()) {
-        // if the function is successfully vectorized update vectFunc and width.
-        vectFuncWidth = vectCore->getPacketWidth();
-        vectDim = vectCore->getVectorizationDim();
-        canUniteWorkgroups = vectCore->getCanUniteWorkgroups();
-	// Create the final version version with the corrent signature
-        vectFunc = createVectorVersion(*clone, vectorVariant, (*fi)->getName().str());
-	clone->eraseFromParent();
-        // copy stats from the original function to the new one
-        intel::Statistic::copyFunctionStats(**fi, *vectFunc);
-      } else {
-        // We can't or choose not to vectorize the kernel, erase the clone from the module.
-        // but first copy the vectorizer stats back to the original function
-        intel::Statistic::copyFunctionStats(*clone, **fi);
-        intel::Statistic::removeFunctionStats(*clone);
-        clone->eraseFromParent();
-      }
-      V_ASSERT(vectFuncWidth > 0 && "vect width for non vectoized kernels should be 1");
-      //Initialize scalar kernel information, which contains:
-      // * pointer to vectorized kernel
-      // * vectorized width of 1 (as it is the scalar version)
-      // * NULL as pointer to scalar version (as there is no scalar version for scalar kernel)
-      Intel::KernelInfoMetaDataHandle skimd = mdUtils.getOrInsertKernelsInfoItem(*fi);
-      skimd->setVectorizedKernel(vectFunc);
-      skimd->setVectorizedWidth(1);
-      skimd->setScalarizedKernel(NULL);
-      if (vectFunc) {
-        //Initialize vector kernel information
-        // * NULL pointer to vectorized kernel (as there is no vectorized version for vectroized kernel)
-        // * vectorized width
-        // * pointer to scalar version
-        Intel::KernelInfoMetaDataHandle vkimd = mdUtils.getOrInsertKernelsInfoItem(vectFunc);
-        vkimd->setVectorizedKernel(NULL);
-        vkimd->setVectorizedWidth(vectFuncWidth);
-        vkimd->setScalarizedKernel(*fi);
-        vkimd->setVectorizationDimension(vectDim);
-        vkimd->setCanUniteWorkgroups(canUniteWorkgroups);
-      }
-    }
-  }
-
-  //Save Metadata to the module
-  mdUtils.save(M.getContext());
-
-  V_DUMP_MODULE((&M));
-  //////////////////////////////////////////////
-  //////////////////////////////////////////////
-  V_PRINT(wrapper, "\nCompleted Vectorizer Wrapper!\n");
-
-  return m_isModuleVectorized;
+  fpm.doInitialization();
+  fpm.run(F);
 }
 
 } // Namespace intel
