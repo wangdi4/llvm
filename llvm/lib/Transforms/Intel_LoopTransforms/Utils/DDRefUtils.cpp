@@ -12,10 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/IR/Intel_LoopIR/DDRef.h"
-#include "llvm/IR/Intel_LoopIR/ConstDDRef.h"
-#include "llvm/IR/Intel_LoopIR/RegDDRef.h"
-#include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
 
 using namespace llvm;
 using namespace loopopt;

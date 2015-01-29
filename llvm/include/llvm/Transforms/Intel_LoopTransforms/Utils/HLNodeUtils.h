@@ -17,7 +17,13 @@
 
 #include <set>
 #include "llvm/Support/Compiler.h"
-#include "llvm/IR/Intel_LoopIR/HLNode.h"
+#include "llvm/IR/Intel_LoopIR/HLRegion.h"
+#include "llvm/IR/Intel_LoopIR/HLSwitch.h"
+#include "llvm/IR/Intel_LoopIR/HLLabel.h"
+#include "llvm/IR/Intel_LoopIR/HLGoto.h"
+#include "llvm/IR/Intel_LoopIR/HLInst.h"
+#include "llvm/IR/Intel_LoopIR/HLIf.h"
+#include "llvm/IR/Intel_LoopIR/HLLoop.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
 
 namespace llvm {
@@ -26,14 +32,6 @@ class BasicBlock;
 class Instruction;
 
 namespace loopopt {
-
-class HLRegion;
-class HLSwitch;
-class HLLabel;
-class HLGoto;
-class HLInst;
-class HLIf;
-class HLLoop;
 
 /// \brief Defines utilities for HLNode class
 ///

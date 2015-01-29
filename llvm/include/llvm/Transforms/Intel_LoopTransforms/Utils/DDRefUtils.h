@@ -16,16 +16,15 @@
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_DDREFUTILS_H
 
 #include "llvm/Support/Compiler.h"
+#include "llvm/IR/Intel_LoopIR/ConstDDRef.h"
+#include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
+#include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 
 namespace llvm {
 
 namespace loopopt {
 
 class HLNode;
-class DDRef;
-class RegDDRef;
-class ConstDDRef;
-class BlobDDRef;
 class CanonExpr;
 
 /// \brief Defines utilities for DDRef class

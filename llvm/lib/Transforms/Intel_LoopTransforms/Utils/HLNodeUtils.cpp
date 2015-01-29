@@ -12,14 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
-#include "llvm/IR/Intel_LoopIR/HLNode.h"
-#include "llvm/IR/Intel_LoopIR/HLRegion.h"
-#include "llvm/IR/Intel_LoopIR/HLSwitch.h"
-#include "llvm/IR/Intel_LoopIR/HLLabel.h"
-#include "llvm/IR/Intel_LoopIR/HLGoto.h"
-#include "llvm/IR/Intel_LoopIR/HLInst.h"
-#include "llvm/IR/Intel_LoopIR/HLIf.h"
-#include "llvm/IR/Intel_LoopIR/HLLoop.h"
 
 using namespace llvm;
 using namespace loopopt;
