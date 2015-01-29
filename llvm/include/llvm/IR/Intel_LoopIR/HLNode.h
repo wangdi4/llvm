@@ -48,7 +48,6 @@ private:
 
 protected:
   HLNode(unsigned SCID, HLNode* Par);
-  virtual ~HLNode() { }
 
   friend class HLNodeUtils;
 
@@ -61,6 +60,7 @@ protected:
 
 public:
   
+  virtual ~HLNode() { }
   HLNode* clone() const;
   /// TBD how to do this
   void dump() const;
@@ -86,11 +86,11 @@ public:
     HLGotoVal,
     HLSwitchVal
   };
-
+ 
+  //
 };
 
 } // End loopopt namespace
-
 /// \brief traits for iplist<HLNode>
 /// 
 /// Refer to ilist_traits<Instruction> in BasicBlock.h for explanation.
@@ -117,7 +117,6 @@ template<> struct ilist_traits<loopopt::HLNode> : public
 private:
   mutable ilist_half_node<loopopt::HLNode> Sentinel;
 };
-
 /// Global definitions
 
 namespace loopopt {

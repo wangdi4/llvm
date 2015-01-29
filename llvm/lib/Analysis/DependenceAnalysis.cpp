@@ -133,6 +133,16 @@ bool DependenceAnalysis::runOnFunction(Function &F) {
   AA = &getAnalysis<AliasAnalysis>();
   SE = &getAnalysis<ScalarEvolution>();
   LI = &getAnalysis<LoopInfo>();
+
+
+  raw_ostream &OS=dbgs();
+ 
+  OS <<  "\nLoopInfo=>\n";
+  LI->print(OS,0);
+  OS <<  "\n  SE=> \n";
+  SE->print(OS,0);
+
+
   return false;
 }
 

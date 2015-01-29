@@ -286,6 +286,8 @@ void initializeStackMapLivenessPass(PassRegistry&);
 void initializeMachineCombinerPass(PassRegistry &);
 void initializeLoadCombinePass(PassRegistry&);
 void initializeRewriteSymbolsPass(PassRegistry&);
+
+void initializeMockHIRPass(PassRegistry&);
 }
 
 #endif

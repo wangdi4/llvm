@@ -12,7 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
-
 using namespace llvm;
 using namespace loopopt;
 
@@ -84,3 +83,16 @@ void HLNodeUtils::backwardVisitAll(HV* Visitor) {
   V.backwardVisitAll();
 }
 
+void HLNodeUtils::setSimpleLoopZtt(HLIf *Ztt, BasicBlock *BBlock) {
+
+}
+
+void HLNodeUtils::dbgPushBackChild(HLNode *Parent, HLNode* Child) {
+    if(HLRegion *R = dyn_cast<HLRegion>(Parent) ) {
+        R->Children.push_back(Child); 
+    } else if(HLLoop *L = dyn_cast<HLLoop>(Parent) ) {
+        L->Children.push_back(Child); 
+    }
+   
+
+}

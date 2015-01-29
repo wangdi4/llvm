@@ -1,4 +1,4 @@
-;===- ./tools/opt/LLVMBuild.txt --------------------------------*- Conf -*--===;
+;===- ./lib/IR/LLVMBuild.txt -----------------------------------*- Conf -*--===;
 ;
 ;                     The LLVM Compiler Infrastructure
 ;
@@ -16,7 +16,7 @@
 ;===------------------------------------------------------------------------===;
 
 [component_0]
-type = Tool
-name = opt
-parent = Tools
-required_libraries = AsmParser BitReader BitWriter CodeGen IRReader IPO Instrumentation Scalar Intel_LoopTransforms ObjCARC Intel_LoopUtils Intel_LoopIR all-targets
+type = Library
+name = Intel_LoopIR
+parent = Libraries
+required_libraries = Analysis Core IPA Support Target

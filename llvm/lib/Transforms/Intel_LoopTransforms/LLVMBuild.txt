@@ -1,4 +1,4 @@
-;===- ./tools/opt/LLVMBuild.txt --------------------------------*- Conf -*--===;
+;===- ./lib/Transforms/LLVMBuild.txt ---------------------------*- Conf -*--===;
 ;
 ;                     The LLVM Compiler Infrastructure
 ;
@@ -15,8 +15,12 @@
 ;
 ;===------------------------------------------------------------------------===;
 
+[common]
+subdirectories = Utils
+
 [component_0]
-type = Tool
-name = opt
-parent = Tools
-required_libraries = AsmParser BitReader BitWriter CodeGen IRReader IPO Instrumentation Scalar Intel_LoopTransforms ObjCARC Intel_LoopUtils Intel_LoopIR all-targets
+type = Library
+name = Intel_LoopTransforms
+parent = Transforms
+
+required_libraries = Intel_LoopUtils

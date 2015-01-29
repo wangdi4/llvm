@@ -89,6 +89,9 @@ public:
   template<typename HV>
   static void backwardVisitAll(HV* Visitor); 
   
+
+  static void setSimpleLoopZtt(HLIf *Ztt, BasicBlock *BBlock);
+  static void dbgPushBackChild(HLNode *Parent, HLNode* Child);
 };
 
 } // End namespace loopopt
