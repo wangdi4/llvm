@@ -305,6 +305,10 @@ add_custom_command( TARGET ${TARGET_NAME}
                     VERBATIM
 )
 
+install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_.pch DESTINATION bin)
+install(FILES ${OPENCL_PCH_OUT_DIR}/opencl20_.pch DESTINATION bin)
+install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch DESTINATION bin)
+install(FILES ${OPENCL_PCH_OUT_DIR}/opencl20_android_.pch DESTINATION bin)
 install(DIRECTORY ${OCL_CLANG_HEADERS}/ DESTINATION include/fe_include PATTERN *.h EXCLUDE )
 if( USE_COMMON_CLANG )
     string(REPLACE "\${CMAKE_CFG_INTDIR}" "\${BUILD_TYPE}" COMMON_CLANG_INSTALL_PATH ${COMMON_CLANG_PATH})
