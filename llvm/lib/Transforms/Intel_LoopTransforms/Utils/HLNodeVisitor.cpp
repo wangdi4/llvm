@@ -42,6 +42,8 @@ bool HLNodeVisitor<HV>::visit(HLContainerTy::iterator It, bool Recursive,
       if (Ret) {
         return true;
       }
+
+      Visitor->postVisitRegion(Reg);
     }
   }
   else if (isa<HLSwitch>(It)) {
@@ -75,6 +77,8 @@ bool HLNodeVisitor<HV>::visit(HLContainerTy::iterator It, bool Recursive,
       if (Ret) {
         return true;
       }
+
+      Visitor->postVisitIf(If);
     }
   }
   else if (isa<HLLoop>(It)) {
@@ -103,6 +107,8 @@ bool HLNodeVisitor<HV>::visit(HLContainerTy::iterator It, bool Recursive,
       if (Ret) {
         return true;
       }
+
+      Visitor->postVisitLoop(Loop);
     }
   }
   else {

@@ -31,8 +31,12 @@ namespace loopopt {
 ///
 /// Visitor (template class HV) needs to implement:
 ///
-/// 1) Various visit[Element]() functions like visitRegion(), visitLoop etc.
-/// 2) bool isDone() for early termination of the traversal.
+/// 1) Various visit[NodeType]( HLNodeType* ) functions like visitRegion(), 
+///    visitLoop() etc.
+/// 2) Various postVisit[NodeType]( HLNodeType* ) functions for node types which 
+///    can contain other nodes. These are only needed for recursive walks and 
+///    are called after we finish visiting the children of the node.
+/// 3) bool isDone() for early termination of the traversal.
 ///  
 template<typename HV>
 class HLNodeVisitor {
