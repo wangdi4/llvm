@@ -27,7 +27,7 @@ namespace loopopt {
 class CanonExpr;
 class HLNode;
 
-/// \brief Base class for encamsulating Values/References which can cause 
+/// \brief Base class for encapsulating Values/References which can cause 
 /// data dependencies and/or for which we need to generate code using the 
 /// canonical form.
 ///

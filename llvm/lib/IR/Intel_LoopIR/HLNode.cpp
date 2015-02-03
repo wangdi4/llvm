@@ -12,11 +12,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
-
 using namespace llvm;
 using namespace llvm::loopopt;
 
-HLContainerTy HLRegions();
+//using HLRegions() is considered another declaration. very odd
+HLContainerTy llvm::loopopt::HLRegions;
 
 std::set< HLNode* >HLNode::Objs;
 

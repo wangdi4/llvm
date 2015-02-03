@@ -55,6 +55,13 @@ private:
   BlobDDRefsTy BlobDDRefs;
   GEPInfo* GepInfo;
   HLNode* Node;
+  void setGEP(CanonExpr* Base, StrideTy Stride, bool Inbounds) {
+      //TODO destructord
+        GepInfo = new GEPInfo;
+        GepInfo->BaseCE = Base;
+        GepInfo->Strides = Stride;
+        GepInfo->inbounds = Inbounds;
+  }
 
 protected:
    RegDDRef(int SB, HLNode* HNode);

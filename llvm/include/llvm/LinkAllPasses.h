@@ -36,6 +36,7 @@
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include "llvm/Transforms/Vectorize.h"
 #include "llvm/Transforms/Intel_LoopTransforms/MockHIR.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRCodeGen.h"
 #include <cstdlib>
 
 namespace {
@@ -176,6 +177,7 @@ namespace {
       X.add(nullptr, 0, llvm::AAMDNodes()); // for -print-alias-sets
 
       (void) llvm::createMockHIRPass();
+      (void) llvm::createHIRCodeGenPass();
     }
   } ForcePassLinking; // Force link by creating a global definition.
 }

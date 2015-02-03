@@ -96,3 +96,10 @@ void HLNodeUtils::dbgPushBackChild(HLNode *Parent, HLNode* Child) {
    
 
 }
+void HLNodeUtils::dbgPushDDRef(HLNode *Node, DDRef *Ref) {
+    if(HLLoop *L = dyn_cast<HLLoop>(Node) ) {
+        L->DDRefs.push_back(Ref);
+    } else if(HLInst *I = dyn_cast<HLInst>(Node) ) {
+        I->DDRefs.push_back(Ref);
+    }
+}

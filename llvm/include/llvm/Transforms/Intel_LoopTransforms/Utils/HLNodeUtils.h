@@ -85,12 +85,16 @@ public:
   /// \brief Visits all HLNodes in the HIR in forward direction.
   template<typename HV>
   static void forwardVisitAll(HV* Visitor);
+
   /// \brief Visits all HLNodes in the HIR in backward direction.
   template<typename HV>
   static void backwardVisitAll(HV* Visitor); 
   
 
+  // the following are debug only functions for mockhir. Should
+  // not be used in any other context
   static void setSimpleLoopZtt(HLIf *Ztt, BasicBlock *BBlock);
+  static void dbgPushDDRef(HLNode *Node, DDRef *Ref);
   static void dbgPushBackChild(HLNode *Parent, HLNode* Child);
 };
 

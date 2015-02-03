@@ -27,7 +27,7 @@ class HLNode;
 
 /// \brief Represents a blob present in a canonical expr of a RegDDRef
 ///
-/// This DDRef is associated with a RegDDref to expose data dependncies
+/// This DDRef is associated with a RegDDRef to expose data dependncies
 /// present due to blobs.
 class BlobDDRef : public DDRef {
 private:

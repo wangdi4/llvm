@@ -38,3 +38,10 @@ void DDRefUtils::destroy(DDRef* Ref) {
 void DDRefUtils::destroyAll() {
   DDRef::destroyAll();
 }
+void DDRefUtils::setGEP(RegDDRef *ref, CanonExpr* BaseCE, RegDDRef::StrideTy Strides,
+        bool inbounds) {
+    ref->setGEP(BaseCE, Strides, inbounds);
+}
+void DDRefUtils::dbgPushBlobDDRef(RegDDRef *Parent, BlobDDRef *BlobRef) {
+    Parent->BlobDDRefs.push_back(BlobRef);
+}

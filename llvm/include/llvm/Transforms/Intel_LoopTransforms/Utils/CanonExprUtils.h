@@ -17,6 +17,7 @@
 
 #include <stdint.h>
 #include "llvm/Support/Compiler.h"
+#include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 
 
 namespace llvm {
@@ -25,7 +26,6 @@ class Type;
 
 namespace loopopt {
 
-class CanonExpr;
 
 /// \brief Defines utilities for CanonExpr class
 ///
