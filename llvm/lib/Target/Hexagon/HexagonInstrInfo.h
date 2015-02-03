@@ -148,8 +148,9 @@ public:
   bool isProfitableToDupForIfCvt(MachineBasicBlock &MBB, unsigned NumCycles,
                            const BranchProbability &Probability) const override;
 
-  DFAPacketizer *
-  CreateTargetScheduleState(const TargetSubtargetInfo &STI) const override;
+  DFAPacketizer*
+  CreateTargetScheduleState(const TargetMachine *TM,
+                            const ScheduleDAG *DAG) const override;
 
   bool isSchedulingBoundary(const MachineInstr *MI,
                             const MachineBasicBlock *MBB,

@@ -127,7 +127,7 @@ class MachineModuleInfo : public ImmutablePass {
   unsigned CurCallSite;
 
   /// TypeInfos - List of C++ TypeInfo used in the current function.
-  std::vector<const GlobalValue *> TypeInfos;
+  std::vector<const GlobalVariable *> TypeInfos;
 
   /// FilterIds - List of typeids encoding filters used in the current function.
   std::vector<unsigned> FilterIds;
@@ -166,7 +166,6 @@ public:
 
   struct VariableDbgInfo {
     TrackingVH<MDNode> Var;
-    TrackingVH<MDNode> Expr;
     unsigned Slot;
     DebugLoc Loc;
   };
@@ -301,12 +300,12 @@ public:
   /// addCatchTypeInfo - Provide the catch typeinfo for a landing pad.
   ///
   void addCatchTypeInfo(MachineBasicBlock *LandingPad,
-                        ArrayRef<const GlobalValue *> TyInfo);
+                        ArrayRef<const GlobalVariable *> TyInfo);
 
   /// addFilterTypeInfo - Provide the filter typeinfo for a landing pad.
   ///
   void addFilterTypeInfo(MachineBasicBlock *LandingPad,
-                         ArrayRef<const GlobalValue *> TyInfo);
+                         ArrayRef<const GlobalVariable *> TyInfo);
 
   /// addCleanup - Add a cleanup action for a landing pad.
   ///
@@ -314,7 +313,7 @@ public:
 
   /// getTypeIDFor - Return the type id for the specified typeinfo.  This is
   /// function wide.
-  unsigned getTypeIDFor(const GlobalValue *TI);
+  unsigned getTypeIDFor(const GlobalVariable *TI);
 
   /// getFilterIDFor - Return the id of the filter encoded by TyIds.  This is
   /// function wide.
@@ -375,7 +374,7 @@ public:
 
   /// getTypeInfos - Return a reference to the C++ typeinfo for the current
   /// function.
-  const std::vector<const GlobalValue *> &getTypeInfos() const {
+  const std::vector<const GlobalVariable *> &getTypeInfos() const {
     return TypeInfos;
   }
 
@@ -391,9 +390,8 @@ public:
 
   /// setVariableDbgInfo - Collect information used to emit debugging
   /// information of a variable.
-  void setVariableDbgInfo(MDNode *Var, MDNode *Expr, unsigned Slot,
-                          DebugLoc Loc) {
-    VariableDbgInfo Info = {Var, Expr, Slot, Loc};
+  void setVariableDbgInfo(MDNode *N, unsigned Slot, DebugLoc Loc) {
+    VariableDbgInfo Info = { N, Slot, Loc };
     VariableDbgInfos.push_back(std::move(Info));
   }
 

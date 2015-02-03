@@ -1143,7 +1143,7 @@ namespace AArch64SysReg {
 
     SysRegMapper(uint64_t FeatureBits) : FeatureBits(FeatureBits) { }
     uint32_t fromString(StringRef Name, bool &Valid) const;
-    std::string toString(uint32_t Bits) const;
+    std::string toString(uint32_t Bits, bool &Valid) const;
   };
 
   struct MSRMapper : SysRegMapper {

@@ -41,6 +41,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetInstrInfo.h"
 #include "llvm/Target/TargetLowering.h"
+#include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
 using namespace llvm;
@@ -97,7 +98,7 @@ namespace {
     }
 
     bool runOnMachineFunction(MachineFunction &Fn) override;
-
+    
     bool enablePostRAScheduler(
         const TargetSubtargetInfo &ST, CodeGenOpt::Level OptLevel,
         TargetSubtargetInfo::AntiDepBreakMode &Mode,
@@ -198,10 +199,11 @@ SchedulePostRATDList::SchedulePostRATDList(
     SmallVectorImpl<const TargetRegisterClass *> &CriticalPathRCs)
     : ScheduleDAGInstrs(MF, &MLI, /*IsPostRA=*/true), AA(AA), EndIndex(0) {
 
+  const TargetMachine &TM = MF.getTarget();
   const InstrItineraryData *InstrItins =
-      MF.getSubtarget().getInstrItineraryData();
+      TM.getSubtargetImpl()->getInstrItineraryData();
   HazardRec =
-      MF.getSubtarget().getInstrInfo()->CreateTargetPostRAHazardRecognizer(
+      TM.getSubtargetImpl()->getInstrInfo()->CreateTargetPostRAHazardRecognizer(
           InstrItins, this);
 
   assert((AntiDepMode == TargetSubtargetInfo::ANTIDEP_NONE ||
@@ -559,10 +561,10 @@ void SchedulePostRATDList::ListScheduleTopDown() {
       if (HT == ScheduleHazardRecognizer::NoHazard) {
         if (HazardRec->ShouldPreferAnother(CurSUnit)) {
           if (!NotPreferredSUnit) {
-            // If this is the first non-preferred node for this cycle, then
-            // record it and continue searching for a preferred node. If this
-            // is not the first non-preferred node, then treat it as though
-            // there had been a hazard.
+	    // If this is the first non-preferred node for this cycle, then
+	    // record it and continue searching for a preferred node. If this
+	    // is not the first non-preferred node, then treat it as though
+	    // there had been a hazard.
             NotPreferredSUnit = CurSUnit;
             continue;
           }

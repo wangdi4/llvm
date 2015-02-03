@@ -13,7 +13,6 @@
 
 #include "DwarfAccelTable.h"
 #include "DIE.h"
-#include "DwarfCompileUnit.h"
 #include "DwarfDebug.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Twine.h"
@@ -175,7 +174,7 @@ void DwarfAccelTable::EmitOffsets(AsmPrinter *Asm, MCSymbol *SecBegin) {
 // Walk through the buckets and emit the full data for each element in
 // the bucket. For the string case emit the dies and the various offsets.
 // Terminate each HashData bucket with 0.
-void DwarfAccelTable::EmitData(AsmPrinter *Asm, DwarfDebug *D,
+void DwarfAccelTable::EmitData(AsmPrinter *Asm, DwarfFile *D,
                                MCSymbol *StrSym) {
   uint64_t PrevHash = UINT64_MAX;
   for (size_t i = 0, e = Buckets.size(); i < e; ++i) {
@@ -190,9 +189,7 @@ void DwarfAccelTable::EmitData(AsmPrinter *Asm, DwarfDebug *D,
       Asm->EmitInt32((*HI)->Data.Values.size());
       for (HashDataContents *HD : (*HI)->Data.Values) {
         // Emit the DIE offset
-        DwarfCompileUnit *CU = D->lookupUnit(HD->Die->getUnit());
-        assert(CU && "Accelerated DIE should belong to a CU.");
-        Asm->EmitInt32(HD->Die->getOffset() + CU->getDebugInfoOffset());
+        Asm->EmitInt32(HD->Die->getOffset());
         // If we have multiple Atoms emit that info too.
         // FIXME: A bit of a hack, we either emit only one atom or all info.
         if (HeaderData.Atoms.size() > 1) {
@@ -209,7 +206,7 @@ void DwarfAccelTable::EmitData(AsmPrinter *Asm, DwarfDebug *D,
 }
 
 // Emit the entire data structure to the output file.
-void DwarfAccelTable::Emit(AsmPrinter *Asm, MCSymbol *SecBegin, DwarfDebug *D,
+void DwarfAccelTable::Emit(AsmPrinter *Asm, MCSymbol *SecBegin, DwarfFile *D,
                            MCSymbol *StrSym) {
   // Emit the header.
   EmitHeader(Asm);

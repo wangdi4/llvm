@@ -568,12 +568,14 @@ public:
 template<>
 struct DenseMapInfo<AliasAnalysis::Location> {
   static inline AliasAnalysis::Location getEmptyKey() {
-    return AliasAnalysis::Location(DenseMapInfo<const Value *>::getEmptyKey(),
-                                   0);
+    return
+      AliasAnalysis::Location(DenseMapInfo<const Value *>::getEmptyKey(),
+                              0, nullptr);
   }
   static inline AliasAnalysis::Location getTombstoneKey() {
-    return AliasAnalysis::Location(
-        DenseMapInfo<const Value *>::getTombstoneKey(), 0);
+    return
+      AliasAnalysis::Location(DenseMapInfo<const Value *>::getTombstoneKey(),
+                              0, nullptr);
   }
   static unsigned getHashValue(const AliasAnalysis::Location &Val) {
     return DenseMapInfo<const Value *>::getHashValue(Val.Ptr) ^

@@ -79,13 +79,12 @@ AMDGPUSubtarget::AMDGPUSubtarget(StringRef TT, StringRef GPU, StringRef FS,
       FP64Denormals(false), FP32Denormals(false), CaymanISA(false),
       FlatAddressSpace(false), EnableIRStructurizer(true),
       EnablePromoteAlloca(false), EnableIfCvt(true),
-      EnableLoadStoreOpt(false), WavefrontSize(0), CFALUBug(false), LocalMemorySize(0),
+      WavefrontSize(0), CFALUBug(false), LocalMemorySize(0),
       DL(computeDataLayout(initializeSubtargetDependencies(GPU, FS))),
       FrameLowering(TargetFrameLowering::StackGrowsUp,
                     64 * 16, // Maximum stack alignment (long16)
                     0),
-      InstrItins(getInstrItineraryForCPU(GPU)),
-      TargetTriple(TT) {
+      InstrItins(getInstrItineraryForCPU(GPU)) {
   if (getGeneration() <= AMDGPUSubtarget::NORTHERN_ISLANDS) {
     InstrInfo.reset(new R600InstrInfo(*this));
     TLInfo.reset(new R600TargetLowering(TM));
@@ -106,12 +105,5 @@ unsigned AMDGPUSubtarget::getStackEntrySize() const {
     return 4;
   default:
     llvm_unreachable("Illegal wavefront size.");
-  }
-}
-
-unsigned AMDGPUSubtarget::getAmdKernelCodeChipID() const {
-  switch(getGeneration()) {
-  default: llvm_unreachable("ChipID unknown");
-  case SEA_ISLANDS: return 12;
   }
 }

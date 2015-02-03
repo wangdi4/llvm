@@ -135,7 +135,10 @@ void MipsSEDAGToDAGISel::initGlobalBaseReg(MachineFunction &MF) {
   unsigned V0, V1, GlobalBaseReg = MipsFI->getGlobalBaseReg();
   const TargetRegisterClass *RC;
 
-  RC = (Subtarget->isABI_N64()) ? &Mips::GPR64RegClass : &Mips::GPR32RegClass;
+  if (Subtarget->isABI_N64())
+    RC = (const TargetRegisterClass*)&Mips::GPR64RegClass;
+  else
+    RC = (const TargetRegisterClass*)&Mips::GPR32RegClass;
 
   V0 = RegInfo.createVirtualRegister(RC);
   V1 = RegInfo.createVirtualRegister(RC);

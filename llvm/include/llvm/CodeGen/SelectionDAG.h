@@ -128,10 +128,6 @@ public:
       DbgValMap[Node].push_back(V);
   }
 
-  /// \brief Invalidate all DbgValues attached to the node and remove
-  /// it from the Node-to-DbgValues map.
-  void erase(const SDNode *Node);
-
   void clear() {
     DbgValMap.clear();
     DbgValues.clear();
@@ -272,7 +268,7 @@ public:
   /// init - Prepare this SelectionDAG to process code in the given
   /// MachineFunction.
   ///
-  void init(MachineFunction &mf);
+  void init(MachineFunction &mf, const TargetLowering *TLI);
 
   /// clear - Clear state and free memory necessary to make this
   /// SelectionDAG ready to process a new block.
@@ -988,18 +984,15 @@ public:
 
   /// getDbgValue - Creates a SDDbgValue node.
   ///
-  /// SDNode
-  SDDbgValue *getDbgValue(MDNode *Var, MDNode *Expr, SDNode *N, unsigned R,
-                          bool IsIndirect, uint64_t Off, DebugLoc DL,
-                          unsigned O);
-
-  /// Constant
-  SDDbgValue *getConstantDbgValue(MDNode *Var, MDNode *Expr, const Value *C,
-                                  uint64_t Off, DebugLoc DL, unsigned O);
-
-  /// FrameIndex
-  SDDbgValue *getFrameIndexDbgValue(MDNode *Var, MDNode *Expr, unsigned FI,
-                                    uint64_t Off, DebugLoc DL, unsigned O);
+  SDDbgValue *getDbgValue(MDNode *MDPtr, SDNode *N, unsigned R,
+			  bool IsIndirect, uint64_t Off,
+                          DebugLoc DL, unsigned O);
+  /// Constant.
+  SDDbgValue *getConstantDbgValue(MDNode *MDPtr, const Value *C, uint64_t Off,
+				  DebugLoc DL, unsigned O);
+  /// Frame index.
+  SDDbgValue *getFrameIndexDbgValue(MDNode *MDPtr, unsigned FI, uint64_t Off,
+				    DebugLoc DL, unsigned O);
 
   /// RemoveDeadNode - Remove the specified node from the system. If any of its
   /// operands then becomes dead, remove them as well. Inform UpdateListener
@@ -1071,10 +1064,7 @@ public:
     case ISD::SADDO:
     case ISD::UADDO:
     case ISD::ADDC:
-    case ISD::ADDE:
-    case ISD::FMINNUM:
-    case ISD::FMAXNUM:
-      return true;
+    case ISD::ADDE: return true;
     default: return false;
     }
   }

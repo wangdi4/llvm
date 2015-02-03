@@ -1961,13 +1961,13 @@ int main(int argc, char *argv[]) {
       llvm::make_unique<llvm::Module>("my cool jit", context);
   llvm::Module *module = Owner.get();
 
-  std::unique_ptr<llvm::RTDyldMemoryManager> MemMgr(new llvm::SectionMemoryManager());
+  llvm::RTDyldMemoryManager *MemMgr = new llvm::SectionMemoryManager();
 
   // Build engine with JIT
   llvm::EngineBuilder factory(std::move(Owner));
   factory.setEngineKind(llvm::EngineKind::JIT);
   factory.setTargetOptions(Opts);
-  factory.setMCJITMemoryManager(std::move(MemMgr));
+  factory.setMCJITMemoryManager(MemMgr);
   llvm::ExecutionEngine *executionEngine = factory.create();
 
   {

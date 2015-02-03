@@ -1,4 +1,4 @@
-//===-- llvm/GlobalObject.h - Class to represent global objects -*- C++ -*-===//
+//===-- llvm/GlobalObject.h - Class to represent a global object *- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -35,23 +35,11 @@ protected:
 
   std::string Section;     // Section to emit this into, empty means default
   Comdat *ObjComdat;
-  static const unsigned AlignmentBits = 5;
-  static const unsigned GlobalObjectSubClassDataBits =
-      GlobalValueSubClassDataBits - AlignmentBits;
-
-private:
-  static const unsigned AlignmentMask = (1 << AlignmentBits) - 1;
-
 public:
   unsigned getAlignment() const {
-    unsigned Data = getGlobalValueSubClassData();
-    unsigned AlignmentData = Data & AlignmentMask;
-    return (1u << AlignmentData) >> 1;
+    return (1u << getGlobalValueSubClassData()) >> 1;
   }
   void setAlignment(unsigned Align);
-
-  unsigned getGlobalObjectSubClassData() const;
-  void setGlobalObjectSubClassData(unsigned Val);
 
   bool hasSection() const { return !StringRef(getSection()).empty(); }
   const char *getSection() const { return Section.c_str(); }

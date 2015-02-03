@@ -23,7 +23,6 @@ namespace llvm {
 class Module;
 
 class HexagonTargetMachine : public LLVMTargetMachine {
-  std::unique_ptr<TargetLoweringObjectFile> TLOF;
   HexagonSubtarget Subtarget;
 
 public:
@@ -31,7 +30,6 @@ public:
                        StringRef FS, const TargetOptions &Options,
                        Reloc::Model RM, CodeModel::Model CM,
                        CodeGenOpt::Level OL);
-  ~HexagonTargetMachine() override;
 
   const HexagonSubtarget *getSubtargetImpl() const override {
     return &Subtarget;
@@ -39,10 +37,6 @@ public:
   static unsigned getModuleMatchQuality(const Module &M);
 
   TargetPassConfig *createPassConfig(PassManagerBase &PM) override;
-
-  TargetLoweringObjectFile *getObjFileLowering() const override {
-    return TLOF.get();
-  }
 };
 
 extern bool flag_aligned_memcpy;

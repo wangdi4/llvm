@@ -121,11 +121,7 @@ class MachineFrameInfo {
         isSpillSlot(isSS), Alloca(Val), PreAllocated(false), isAliased(A) {}
   };
 
-  /// StackAlignment - The alignment of the stack.
-  unsigned StackAlignment;
-
-  /// StackRealignable - Can the stack be realigned.
-  bool StackRealignable;
+  const TargetMachine &TM;
 
   /// Objects - The list of stack objects allocated...
   ///
@@ -246,11 +242,10 @@ class MachineFrameInfo {
   /// True if this is a varargs function that contains a musttail call.
   bool HasMustTailInVarArgFunc;
 
+  const TargetFrameLowering *getFrameLowering() const;
 public:
-  explicit MachineFrameInfo(unsigned StackAlign, bool isStackRealign,
-                            bool RealignOpt)
-      : StackAlignment(StackAlign), StackRealignable(isStackRealign),
-        RealignOption(RealignOpt) {
+    explicit MachineFrameInfo(const TargetMachine &TM, bool RealignOpt)
+    : TM(TM), RealignOption(RealignOpt) {
     StackSize = NumFixedObjects = OffsetAdjustment = MaxAlignment = 0;
     HasVarSizedObjects = false;
     FrameAddressTaken = false;

@@ -1853,7 +1853,7 @@ bool ARMPreAllocLoadStoreOpt::runOnMachineFunction(MachineFunction &Fn) {
   TD = Fn.getSubtarget().getDataLayout();
   TII = Fn.getSubtarget().getInstrInfo();
   TRI = Fn.getSubtarget().getRegisterInfo();
-  STI = &static_cast<const ARMSubtarget &>(Fn.getSubtarget());
+  STI = &Fn.getTarget().getSubtarget<ARMSubtarget>();
   MRI = &Fn.getRegInfo();
   MF  = &Fn;
 

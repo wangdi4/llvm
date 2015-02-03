@@ -73,7 +73,7 @@ GCStrategy *GCModuleInfo::getOrCreateStrategy(const Module *M,
       std::unique_ptr<GCStrategy> S = I->instantiate();
       S->M = M;
       S->Name = Name;
-      StrategyMap[Name] = S.get();
+      StrategyMap.GetOrCreateValue(Name).setValue(S.get());
       StrategyList.push_back(std::move(S));
       return StrategyList.back().get();
     }

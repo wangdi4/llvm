@@ -150,16 +150,6 @@ public:
   bool visitLoadInst(LoadInst &);
   bool visitStoreInst(StoreInst &);
 
-  static void registerOptions() {
-    // This is disabled by default because having separate loads and stores
-    // makes it more likely that the -combiner-alias-analysis limits will be
-    // reached.
-    OptionRegistry::registerOption<bool, Scalarizer,
-                                 &Scalarizer::ScalarizeLoadStore>(
-        "scalarize-load-store",
-        "Allow the scalarizer pass to scalarize loads and store", false);
-  }
-
 private:
   Scatterer scatter(Instruction *, Value *);
   void gather(Instruction *, const ValueVector &);
@@ -174,14 +164,19 @@ private:
   GatherList Gathered;
   unsigned ParallelLoopAccessMDKind;
   const DataLayout *DL;
-  bool ScalarizeLoadStore;
 };
 
 char Scalarizer::ID = 0;
 } // end anonymous namespace
 
-INITIALIZE_PASS_WITH_OPTIONS(Scalarizer, "scalarizer",
-                             "Scalarize vector operations", false, false)
+// This is disabled by default because having separate loads and stores makes
+// it more likely that the -combiner-alias-analysis limits will be reached.
+static cl::opt<bool> ScalarizeLoadStore
+  ("scalarize-load-store", cl::Hidden, cl::init(false),
+   cl::desc("Allow the scalarizer pass to scalarize loads and store"));
+
+INITIALIZE_PASS(Scalarizer, "scalarizer", "Scalarize vector operations",
+                false, false)
 
 Scatterer::Scatterer(BasicBlock *bb, BasicBlock::iterator bbi, Value *v,
                      ValueVector *cachePtr)
@@ -241,9 +236,7 @@ Value *Scatterer::operator[](unsigned I) {
 
 bool Scalarizer::doInitialization(Module &M) {
   ParallelLoopAccessMDKind =
-      M.getContext().getMDKindID("llvm.mem.parallel_loop_access");
-  ScalarizeLoadStore =
-      M.getContext().getOption<bool, Scalarizer, &Scalarizer::ScalarizeLoadStore>();
+    M.getContext().getMDKindID("llvm.mem.parallel_loop_access");
   return false;
 }
 
@@ -331,10 +324,8 @@ void Scalarizer::transferMetadata(Instruction *Op, const ValueVector &CV) {
   Op->getAllMetadataOtherThanDebugLoc(MDs);
   for (unsigned I = 0, E = CV.size(); I != E; ++I) {
     if (Instruction *New = dyn_cast<Instruction>(CV[I])) {
-      for (SmallVectorImpl<std::pair<unsigned, MDNode *>>::iterator
-               MI = MDs.begin(),
-               ME = MDs.end();
-           MI != ME; ++MI)
+      for (SmallVectorImpl<std::pair<unsigned, MDNode *> >::iterator
+             MI = MDs.begin(), ME = MDs.end(); MI != ME; ++MI)
         if (canTransferMetadata(MI->first))
           New->setMetadata(MI->first, MI->second);
       New->setDebugLoc(Op->getDebugLoc());

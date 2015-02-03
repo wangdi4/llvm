@@ -36,16 +36,12 @@ void StringTableBuilder::finalize(Kind kind) {
 
   std::sort(Strings.begin(), Strings.end(), compareBySuffix);
 
-  switch (kind) {
-  case ELF:
-  case MachO:
+  if (kind == ELF) {
     // Start the table with a NUL byte.
     StringTable += '\x00';
-    break;
-  case WinCOFF:
+  } else if (kind == WinCOFF) {
     // Make room to write the table size later.
     StringTable.append(4, '\x00');
-    break;
   }
 
   StringRef Previous;
@@ -64,21 +60,11 @@ void StringTableBuilder::finalize(Kind kind) {
     Previous = s;
   }
 
-  switch (kind) {
-  case ELF:
-    break;
-  case MachO:
-    // Pad to multiple of 4.
-    while (StringTable.size() % 4)
-      StringTable += '\x00';
-    break;
-  case WinCOFF:
-    // Write the table size in the first word.
+  if (kind == WinCOFF) {
     assert(StringTable.size() <= std::numeric_limits<uint32_t>::max());
     uint32_t size = static_cast<uint32_t>(StringTable.size());
     support::endian::write<uint32_t, support::little, support::unaligned>(
         StringTable.data(), size);
-    break;
   }
 }
 

@@ -18,7 +18,6 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
@@ -64,7 +63,6 @@ STATISTIC(NumRetsDup,    "Number of return instructions duplicated");
 STATISTIC(NumDbgValueMoved, "Number of debug value instructions moved");
 STATISTIC(NumSelectsExpanded, "Number of selects turned into branches");
 STATISTIC(NumAndCmpsMoved, "Number of and/cmp's pushed into branches");
-STATISTIC(NumStoreExtractExposed, "Number of store(extractelement) exposed");
 
 static cl::opt<bool> DisableBranchOpts(
   "disable-cgp-branch-opts", cl::Hidden, cl::init(false),
@@ -82,29 +80,15 @@ static cl::opt<bool> EnableAndCmpSinking(
    "enable-andcmp-sinking", cl::Hidden, cl::init(true),
    cl::desc("Enable sinkinig and/cmp into branches."));
 
-static cl::opt<bool> DisableStoreExtract(
-    "disable-cgp-store-extract", cl::Hidden, cl::init(false),
-    cl::desc("Disable store(extract) optimizations in CodeGenPrepare"));
-
-static cl::opt<bool> StressStoreExtract(
-    "stress-cgp-store-extract", cl::Hidden, cl::init(false),
-    cl::desc("Stress test store(extract) optimizations in CodeGenPrepare"));
-
 namespace {
 typedef SmallPtrSet<Instruction *, 16> SetOfInstrs;
-struct TypeIsSExt {
-  Type *Ty;
-  bool IsSExt;
-  TypeIsSExt(Type *Ty, bool IsSExt) : Ty(Ty), IsSExt(IsSExt) {}
-};
-typedef DenseMap<Instruction *, TypeIsSExt> InstrToOrigTy;
+typedef DenseMap<Instruction *, Type *> InstrToOrigTy;
 
   class CodeGenPrepare : public FunctionPass {
     /// TLI - Keep a pointer of a TargetLowering to consult for determining
     /// transformation profitability.
     const TargetMachine *TM;
     const TargetLowering *TLI;
-    const TargetTransformInfo *TTI;
     const TargetLibraryInfo *TLInfo;
     DominatorTree *DT;
 
@@ -134,7 +118,7 @@ typedef DenseMap<Instruction *, TypeIsSExt> InstrToOrigTy;
   public:
     static char ID; // Pass identification, replacement for typeid
     explicit CodeGenPrepare(const TargetMachine *TM = nullptr)
-        : FunctionPass(ID), TM(TM), TLI(nullptr), TTI(nullptr) {
+      : FunctionPass(ID), TM(TM), TLI(nullptr) {
         initializeCodeGenPreparePass(*PassRegistry::getPassRegistry());
       }
     bool runOnFunction(Function &F) override;
@@ -144,7 +128,6 @@ typedef DenseMap<Instruction *, TypeIsSExt> InstrToOrigTy;
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addPreserved<DominatorTreeWrapperPass>();
       AU.addRequired<TargetLibraryInfo>();
-      AU.addRequired<TargetTransformInfo>();
     }
 
   private:
@@ -161,7 +144,6 @@ typedef DenseMap<Instruction *, TypeIsSExt> InstrToOrigTy;
     bool OptimizeExtUses(Instruction *I);
     bool OptimizeSelectInst(SelectInst *SI);
     bool OptimizeShuffleVectorInst(ShuffleVectorInst *SI);
-    bool OptimizeExtractElementInst(Instruction *Inst);
     bool DupRetToEnableTailCallOpts(BasicBlock *BB);
     bool PlaceDbgValues(Function &F);
     bool sinkAndCmp(Function &F);
@@ -189,7 +171,6 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
   if (TM)
     TLI = TM->getSubtargetImpl()->getTargetLowering();
   TLInfo = &getAnalysis<TargetLibraryInfo>();
-  TTI = &getAnalysis<TargetTransformInfo>();
   DominatorTreeWrapperPass *DTWP =
       getAnalysisIfAvailable<DominatorTreeWrapperPass>();
   DT = DTWP ? &DTWP->getDomTree() : nullptr;
@@ -687,8 +668,8 @@ SinkShiftAndTruncate(BinaryOperator *ShiftI, Instruction *User, ConstantInt *CI,
     // FIXME: always querying the result type is just an
     // approximation; some nodes' legality is determined by the
     // operand or other means. There's no good way to find out though.
-    if (TLI.isOperationLegalOrCustom(
-            ISDOpcode, TLI.getValueType(TruncUser->getType(), true)))
+    if (TLI.isOperationLegalOrCustom(ISDOpcode,
+                                     EVT::getEVT(TruncUser->getType(), true)))
       continue;
 
     // Don't bother for PHI nodes.
@@ -1001,7 +982,7 @@ bool CodeGenPrepare::DupRetToEnableTailCallOpts(BasicBlock *BB) {
   } else {
     SmallPtrSet<BasicBlock*, 4> VisitedBBs;
     for (pred_iterator PI = pred_begin(BB), PE = pred_end(BB); PI != PE; ++PI) {
-      if (!VisitedBBs.insert(*PI).second)
+      if (!VisitedBBs.insert(*PI))
         continue;
 
       BasicBlock::InstListType &InstList = (*PI)->getInstList();
@@ -1720,75 +1701,58 @@ static bool MightBeFoldableInst(Instruction *I) {
 
 /// \brief Hepler class to perform type promotion.
 class TypePromotionHelper {
-  /// \brief Utility function to check whether or not a sign or zero extension
-  /// of \p Inst with \p ConsideredExtType can be moved through \p Inst by
-  /// either using the operands of \p Inst or promoting \p Inst.
-  /// The type of the extension is defined by \p IsSExt.
+  /// \brief Utility function to check whether or not a sign extension of
+  /// \p Inst with \p ConsideredSExtType can be moved through \p Inst by either
+  /// using the operands of \p Inst or promoting \p Inst.
   /// In other words, check if:
-  /// ext (Ty Inst opnd1 opnd2 ... opndN) to ConsideredExtType.
+  /// sext (Ty Inst opnd1 opnd2 ... opndN) to ConsideredSExtType.
   /// #1 Promotion applies:
-  /// ConsideredExtType Inst (ext opnd1 to ConsideredExtType, ...).
+  /// ConsideredSExtType Inst (sext opnd1 to ConsideredSExtType, ...).
   /// #2 Operand reuses:
-  /// ext opnd1 to ConsideredExtType.
+  /// sext opnd1 to ConsideredSExtType.
   /// \p PromotedInsts maps the instructions to their type before promotion.
-  static bool canGetThrough(const Instruction *Inst, Type *ConsideredExtType,
-                            const InstrToOrigTy &PromotedInsts, bool IsSExt);
+  static bool canGetThrough(const Instruction *Inst, Type *ConsideredSExtType,
+                            const InstrToOrigTy &PromotedInsts);
 
   /// \brief Utility function to determine if \p OpIdx should be promoted when
   /// promoting \p Inst.
-  static bool shouldExtOperand(const Instruction *Inst, int OpIdx) {
+  static bool shouldSExtOperand(const Instruction *Inst, int OpIdx) {
     if (isa<SelectInst>(Inst) && OpIdx == 0)
       return false;
     return true;
   }
 
-  /// \brief Utility function to promote the operand of \p Ext when this
+  /// \brief Utility function to promote the operand of \p SExt when this
   /// operand is a promotable trunc or sext or zext.
   /// \p PromotedInsts maps the instructions to their type before promotion.
   /// \p CreatedInsts[out] contains how many non-free instructions have been
-  /// created to promote the operand of Ext.
+  /// created to promote the operand of SExt.
   /// Should never be called directly.
-  /// \return The promoted value which is used instead of Ext.
-  static Value *promoteOperandForTruncAndAnyExt(Instruction *Ext,
+  /// \return The promoted value which is used instead of SExt.
+  static Value *promoteOperandForTruncAndAnyExt(Instruction *SExt,
                                                 TypePromotionTransaction &TPT,
                                                 InstrToOrigTy &PromotedInsts,
                                                 unsigned &CreatedInsts);
 
-  /// \brief Utility function to promote the operand of \p Ext when this
+  /// \brief Utility function to promote the operand of \p SExt when this
   /// operand is promotable and is not a supported trunc or sext.
   /// \p PromotedInsts maps the instructions to their type before promotion.
   /// \p CreatedInsts[out] contains how many non-free instructions have been
-  /// created to promote the operand of Ext.
+  /// created to promote the operand of SExt.
   /// Should never be called directly.
-  /// \return The promoted value which is used instead of Ext.
-  static Value *promoteOperandForOther(Instruction *Ext,
+  /// \return The promoted value which is used instead of SExt.
+  static Value *promoteOperandForOther(Instruction *SExt,
                                        TypePromotionTransaction &TPT,
                                        InstrToOrigTy &PromotedInsts,
-                                       unsigned &CreatedInsts, bool IsSExt);
-
-  /// \see promoteOperandForOther.
-  static Value *signExtendOperandForOther(Instruction *Ext,
-                                          TypePromotionTransaction &TPT,
-                                          InstrToOrigTy &PromotedInsts,
-                                          unsigned &CreatedInsts) {
-    return promoteOperandForOther(Ext, TPT, PromotedInsts, CreatedInsts, true);
-  }
-
-  /// \see promoteOperandForOther.
-  static Value *zeroExtendOperandForOther(Instruction *Ext,
-                                          TypePromotionTransaction &TPT,
-                                          InstrToOrigTy &PromotedInsts,
-                                          unsigned &CreatedInsts) {
-    return promoteOperandForOther(Ext, TPT, PromotedInsts, CreatedInsts, false);
-  }
+                                       unsigned &CreatedInsts);
 
 public:
-  /// Type for the utility function that promotes the operand of Ext.
-  typedef Value *(*Action)(Instruction *Ext, TypePromotionTransaction &TPT,
+  /// Type for the utility function that promotes the operand of SExt.
+  typedef Value *(*Action)(Instruction *SExt, TypePromotionTransaction &TPT,
                            InstrToOrigTy &PromotedInsts,
                            unsigned &CreatedInsts);
-  /// \brief Given a sign/zero extend instruction \p Ext, return the approriate
-  /// action to promote the operand of \p Ext instead of using Ext.
+  /// \brief Given a sign extend instruction \p SExt, return the approriate
+  /// action to promote the operand of \p SExt instead of using SExt.
   /// \return NULL if no promotable action is possible with the current
   /// sign extension.
   /// \p InsertedTruncs keeps track of all the truncate instructions inserted by
@@ -1796,42 +1760,36 @@ public:
   /// because we do not want to promote these instructions as CodeGenPrepare
   /// will reinsert them later. Thus creating an infinite loop: create/remove.
   /// \p PromotedInsts maps the instructions to their type before promotion.
-  static Action getAction(Instruction *Ext, const SetOfInstrs &InsertedTruncs,
+  static Action getAction(Instruction *SExt, const SetOfInstrs &InsertedTruncs,
                           const TargetLowering &TLI,
                           const InstrToOrigTy &PromotedInsts);
 };
 
 bool TypePromotionHelper::canGetThrough(const Instruction *Inst,
-                                        Type *ConsideredExtType,
-                                        const InstrToOrigTy &PromotedInsts,
-                                        bool IsSExt) {
-  // We can always get through zext.
-  if (isa<ZExtInst>(Inst))
-    return true;
-
-  // sext(sext) is ok too.
-  if (IsSExt && isa<SExtInst>(Inst))
+                                        Type *ConsideredSExtType,
+                                        const InstrToOrigTy &PromotedInsts) {
+  // We can always get through sext or zext.
+  if (isa<SExtInst>(Inst) || isa<ZExtInst>(Inst))
     return true;
 
   // We can get through binary operator, if it is legal. In other words, the
   // binary operator must have a nuw or nsw flag.
   const BinaryOperator *BinOp = dyn_cast<BinaryOperator>(Inst);
   if (BinOp && isa<OverflowingBinaryOperator>(BinOp) &&
-      ((!IsSExt && BinOp->hasNoUnsignedWrap()) ||
-       (IsSExt && BinOp->hasNoSignedWrap())))
+      (BinOp->hasNoUnsignedWrap() || BinOp->hasNoSignedWrap()))
     return true;
 
   // Check if we can do the following simplification.
-  // ext(trunc(opnd)) --> ext(opnd)
+  // sext(trunc(sext)) --> sext
   if (!isa<TruncInst>(Inst))
     return false;
 
   Value *OpndVal = Inst->getOperand(0);
-  // Check if we can use this operand in the extension.
-  // If the type is larger than the result type of the extension,
+  // Check if we can use this operand in the sext.
+  // If the type is larger than the result type of the sign extension,
   // we cannot.
   if (OpndVal->getType()->getIntegerBitWidth() >
-      ConsideredExtType->getIntegerBitWidth())
+      ConsideredSExtType->getIntegerBitWidth())
     return false;
 
   // If the operand of the truncate is not an instruction, we will not have
@@ -1842,19 +1800,18 @@ bool TypePromotionHelper::canGetThrough(const Instruction *Inst,
     return false;
 
   // Check if the source of the type is narrow enough.
-  // I.e., check that trunc just drops extended bits of the same kind of
-  // the extension.
-  // #1 get the type of the operand and check the kind of the extended bits.
+  // I.e., check that trunc just drops sign extended bits.
+  // #1 get the type of the operand.
   const Type *OpndType;
   InstrToOrigTy::const_iterator It = PromotedInsts.find(Opnd);
-  if (It != PromotedInsts.end() && It->second.IsSExt == IsSExt)
-    OpndType = It->second.Ty;
-  else if ((IsSExt && isa<SExtInst>(Opnd)) || (!IsSExt && isa<ZExtInst>(Opnd)))
-    OpndType = Opnd->getOperand(0)->getType();
+  if (It != PromotedInsts.end())
+    OpndType = It->second;
+  else if (isa<SExtInst>(Opnd))
+    OpndType = cast<Instruction>(Opnd)->getOperand(0)->getType();
   else
     return false;
 
-  // #2 check that the truncate just drop extended bits.
+  // #2 check that the truncate just drop sign extended bits.
   if (Inst->getType()->getIntegerBitWidth() >= OpndType->getIntegerBitWidth())
     return true;
 
@@ -1862,36 +1819,34 @@ bool TypePromotionHelper::canGetThrough(const Instruction *Inst,
 }
 
 TypePromotionHelper::Action TypePromotionHelper::getAction(
-    Instruction *Ext, const SetOfInstrs &InsertedTruncs,
+    Instruction *SExt, const SetOfInstrs &InsertedTruncs,
     const TargetLowering &TLI, const InstrToOrigTy &PromotedInsts) {
-  assert((isa<SExtInst>(Ext) || isa<ZExtInst>(Ext)) &&
-         "Unexpected instruction type");
-  Instruction *ExtOpnd = dyn_cast<Instruction>(Ext->getOperand(0));
-  Type *ExtTy = Ext->getType();
-  bool IsSExt = isa<SExtInst>(Ext);
-  // If the operand of the extension is not an instruction, we cannot
+  Instruction *SExtOpnd = dyn_cast<Instruction>(SExt->getOperand(0));
+  Type *SExtTy = SExt->getType();
+  // If the operand of the sign extension is not an instruction, we cannot
   // get through.
   // If it, check we can get through.
-  if (!ExtOpnd || !canGetThrough(ExtOpnd, ExtTy, PromotedInsts, IsSExt))
+  if (!SExtOpnd || !canGetThrough(SExtOpnd, SExtTy, PromotedInsts))
     return nullptr;
 
   // Do not promote if the operand has been added by codegenprepare.
   // Otherwise, it means we are undoing an optimization that is likely to be
   // redone, thus causing potential infinite loop.
-  if (isa<TruncInst>(ExtOpnd) && InsertedTruncs.count(ExtOpnd))
+  if (isa<TruncInst>(SExtOpnd) && InsertedTruncs.count(SExtOpnd))
     return nullptr;
 
   // SExt or Trunc instructions.
   // Return the related handler.
-  if (isa<SExtInst>(ExtOpnd) || isa<TruncInst>(ExtOpnd) ||
-      isa<ZExtInst>(ExtOpnd))
+  if (isa<SExtInst>(SExtOpnd) || isa<TruncInst>(SExtOpnd) ||
+      isa<ZExtInst>(SExtOpnd))
     return promoteOperandForTruncAndAnyExt;
 
   // Regular instruction.
   // Abort early if we will have to insert non-free instructions.
-  if (!ExtOpnd->hasOneUse() && !TLI.isTruncateFree(ExtTy, ExtOpnd->getType()))
+  if (!SExtOpnd->hasOneUse() &&
+      !TLI.isTruncateFree(SExtTy, SExtOpnd->getType()))
     return nullptr;
-  return IsSExt ? signExtendOperandForOther : zeroExtendOperandForOther;
+  return promoteOperandForOther;
 }
 
 Value *TypePromotionHelper::promoteOperandForTruncAndAnyExt(
@@ -1902,7 +1857,7 @@ Value *TypePromotionHelper::promoteOperandForTruncAndAnyExt(
   Instruction *SExtOpnd = cast<Instruction>(SExt->getOperand(0));
   Value *ExtVal = SExt;
   if (isa<ZExtInst>(SExtOpnd)) {
-    // Replace s|zext(zext(opnd))
+    // Replace sext(zext(opnd))
     // => zext(opnd).
     Value *ZExt =
         TPT.createZExt(SExt, SExtOpnd->getOperand(0), SExt->getType());
@@ -1910,8 +1865,8 @@ Value *TypePromotionHelper::promoteOperandForTruncAndAnyExt(
     TPT.eraseInstruction(SExt);
     ExtVal = ZExt;
   } else {
-    // Replace z|sext(trunc(opnd)) or sext(sext(opnd))
-    // => z|sext(opnd).
+    // Replace sext(trunc(opnd)) or sext(sext(opnd))
+    // => sext(opnd).
     TPT.setOperand(SExt, 0, SExtOpnd->getOperand(0));
   }
   CreatedInsts = 0;
@@ -1932,97 +1887,97 @@ Value *TypePromotionHelper::promoteOperandForTruncAndAnyExt(
   return NextVal;
 }
 
-Value *TypePromotionHelper::promoteOperandForOther(
-    Instruction *Ext, TypePromotionTransaction &TPT,
-    InstrToOrigTy &PromotedInsts, unsigned &CreatedInsts, bool IsSExt) {
-  // By construction, the operand of Ext is an instruction. Otherwise we cannot
+Value *
+TypePromotionHelper::promoteOperandForOther(Instruction *SExt,
+                                            TypePromotionTransaction &TPT,
+                                            InstrToOrigTy &PromotedInsts,
+                                            unsigned &CreatedInsts) {
+  // By construction, the operand of SExt is an instruction. Otherwise we cannot
   // get through it and this method should not be called.
-  Instruction *ExtOpnd = cast<Instruction>(Ext->getOperand(0));
+  Instruction *SExtOpnd = cast<Instruction>(SExt->getOperand(0));
   CreatedInsts = 0;
-  if (!ExtOpnd->hasOneUse()) {
-    // ExtOpnd will be promoted.
-    // All its uses, but Ext, will need to use a truncated value of the
+  if (!SExtOpnd->hasOneUse()) {
+    // SExtOpnd will be promoted.
+    // All its uses, but SExt, will need to use a truncated value of the
     // promoted version.
     // Create the truncate now.
-    Value *Trunc = TPT.createTrunc(Ext, ExtOpnd->getType());
+    Value *Trunc = TPT.createTrunc(SExt, SExtOpnd->getType());
     if (Instruction *ITrunc = dyn_cast<Instruction>(Trunc)) {
       ITrunc->removeFromParent();
       // Insert it just after the definition.
-      ITrunc->insertAfter(ExtOpnd);
+      ITrunc->insertAfter(SExtOpnd);
     }
 
-    TPT.replaceAllUsesWith(ExtOpnd, Trunc);
-    // Restore the operand of Ext (which has been replace by the previous call
+    TPT.replaceAllUsesWith(SExtOpnd, Trunc);
+    // Restore the operand of SExt (which has been replace by the previous call
     // to replaceAllUsesWith) to avoid creating a cycle trunc <-> sext.
-    TPT.setOperand(Ext, 0, ExtOpnd);
+    TPT.setOperand(SExt, 0, SExtOpnd);
   }
 
   // Get through the Instruction:
   // 1. Update its type.
-  // 2. Replace the uses of Ext by Inst.
-  // 3. Extend each operand that needs to be extended.
+  // 2. Replace the uses of SExt by Inst.
+  // 3. Sign extend each operand that needs to be sign extended.
 
   // Remember the original type of the instruction before promotion.
   // This is useful to know that the high bits are sign extended bits.
-  PromotedInsts.insert(std::pair<Instruction *, TypeIsSExt>(
-      ExtOpnd, TypeIsSExt(ExtOpnd->getType(), IsSExt)));
+  PromotedInsts.insert(
+      std::pair<Instruction *, Type *>(SExtOpnd, SExtOpnd->getType()));
   // Step #1.
-  TPT.mutateType(ExtOpnd, Ext->getType());
+  TPT.mutateType(SExtOpnd, SExt->getType());
   // Step #2.
-  TPT.replaceAllUsesWith(Ext, ExtOpnd);
+  TPT.replaceAllUsesWith(SExt, SExtOpnd);
   // Step #3.
-  Instruction *ExtForOpnd = Ext;
+  Instruction *SExtForOpnd = SExt;
 
-  DEBUG(dbgs() << "Propagate Ext to operands\n");
-  for (int OpIdx = 0, EndOpIdx = ExtOpnd->getNumOperands(); OpIdx != EndOpIdx;
+  DEBUG(dbgs() << "Propagate SExt to operands\n");
+  for (int OpIdx = 0, EndOpIdx = SExtOpnd->getNumOperands(); OpIdx != EndOpIdx;
        ++OpIdx) {
-    DEBUG(dbgs() << "Operand:\n" << *(ExtOpnd->getOperand(OpIdx)) << '\n');
-    if (ExtOpnd->getOperand(OpIdx)->getType() == Ext->getType() ||
-        !shouldExtOperand(ExtOpnd, OpIdx)) {
+    DEBUG(dbgs() << "Operand:\n" << *(SExtOpnd->getOperand(OpIdx)) << '\n');
+    if (SExtOpnd->getOperand(OpIdx)->getType() == SExt->getType() ||
+        !shouldSExtOperand(SExtOpnd, OpIdx)) {
       DEBUG(dbgs() << "No need to propagate\n");
       continue;
     }
-    // Check if we can statically extend the operand.
-    Value *Opnd = ExtOpnd->getOperand(OpIdx);
+    // Check if we can statically sign extend the operand.
+    Value *Opnd = SExtOpnd->getOperand(OpIdx);
     if (const ConstantInt *Cst = dyn_cast<ConstantInt>(Opnd)) {
-      DEBUG(dbgs() << "Statically extend\n");
-      unsigned BitWidth = Ext->getType()->getIntegerBitWidth();
-      APInt CstVal = IsSExt ? Cst->getValue().sext(BitWidth)
-                            : Cst->getValue().zext(BitWidth);
-      TPT.setOperand(ExtOpnd, OpIdx, ConstantInt::get(Ext->getType(), CstVal));
+      DEBUG(dbgs() << "Statically sign extend\n");
+      TPT.setOperand(
+          SExtOpnd, OpIdx,
+          ConstantInt::getSigned(SExt->getType(), Cst->getSExtValue()));
       continue;
     }
     // UndefValue are typed, so we have to statically sign extend them.
     if (isa<UndefValue>(Opnd)) {
-      DEBUG(dbgs() << "Statically extend\n");
-      TPT.setOperand(ExtOpnd, OpIdx, UndefValue::get(Ext->getType()));
+      DEBUG(dbgs() << "Statically sign extend\n");
+      TPT.setOperand(SExtOpnd, OpIdx, UndefValue::get(SExt->getType()));
       continue;
     }
 
     // Otherwise we have to explicity sign extend the operand.
-    // Check if Ext was reused to extend an operand.
-    if (!ExtForOpnd) {
+    // Check if SExt was reused to sign extend an operand.
+    if (!SExtForOpnd) {
       // If yes, create a new one.
-      DEBUG(dbgs() << "More operands to ext\n");
-      ExtForOpnd =
-          cast<Instruction>(IsSExt ? TPT.createSExt(Ext, Opnd, Ext->getType())
-                                   : TPT.createZExt(Ext, Opnd, Ext->getType()));
+      DEBUG(dbgs() << "More operands to sext\n");
+      SExtForOpnd =
+        cast<Instruction>(TPT.createSExt(SExt, Opnd, SExt->getType()));
       ++CreatedInsts;
     }
 
-    TPT.setOperand(ExtForOpnd, 0, Opnd);
+    TPT.setOperand(SExtForOpnd, 0, Opnd);
 
     // Move the sign extension before the insertion point.
-    TPT.moveBefore(ExtForOpnd, ExtOpnd);
-    TPT.setOperand(ExtOpnd, OpIdx, ExtForOpnd);
+    TPT.moveBefore(SExtForOpnd, SExtOpnd);
+    TPT.setOperand(SExtOpnd, OpIdx, SExtForOpnd);
     // If more sext are required, new instructions will have to be created.
-    ExtForOpnd = nullptr;
+    SExtForOpnd = nullptr;
   }
-  if (ExtForOpnd == Ext) {
-    DEBUG(dbgs() << "Extension is useless now\n");
-    TPT.eraseInstruction(Ext);
+  if (SExtForOpnd == SExt) {
+    DEBUG(dbgs() << "Sign extension is useless now\n");
+    TPT.eraseInstruction(SExt);
   }
-  return ExtOpnd;
+  return SExtOpnd;
 }
 
 /// IsPromotionProfitable - Check whether or not promoting an instruction
@@ -2055,8 +2010,8 @@ AddressingModeMatcher::IsPromotionProfitable(unsigned MatchedSize,
   if (!ISDOpcode)
     return true;
   // Otherwise, check if the promoted instruction is legal or not.
-  return TLI.isOperationLegalOrCustom(
-      ISDOpcode, TLI.getValueType(PromotedInst->getType()));
+  return TLI.isOperationLegalOrCustom(ISDOpcode,
+                                      EVT::getEVT(PromotedInst->getType()));
 }
 
 /// MatchOperationAddr - Given an instruction or constant expr, see if we can
@@ -2234,32 +2189,31 @@ bool AddressingModeMatcher::MatchOperationAddr(User *AddrInst, unsigned Opcode,
 
     return true;
   }
-  case Instruction::SExt:
-  case Instruction::ZExt: {
-    Instruction *Ext = dyn_cast<Instruction>(AddrInst);
-    if (!Ext)
+  case Instruction::SExt: {
+    Instruction *SExt = dyn_cast<Instruction>(AddrInst);
+    if (!SExt)
       return false;
 
-    // Try to move this ext out of the way of the addressing mode.
+    // Try to move this sext out of the way of the addressing mode.
     // Ask for a method for doing so.
-    TypePromotionHelper::Action TPH =
-        TypePromotionHelper::getAction(Ext, InsertedTruncs, TLI, PromotedInsts);
+    TypePromotionHelper::Action TPH = TypePromotionHelper::getAction(
+        SExt, InsertedTruncs, TLI, PromotedInsts);
     if (!TPH)
       return false;
 
     TypePromotionTransaction::ConstRestorationPt LastKnownGood =
         TPT.getRestorationPoint();
     unsigned CreatedInsts = 0;
-    Value *PromotedOperand = TPH(Ext, TPT, PromotedInsts, CreatedInsts);
+    Value *PromotedOperand = TPH(SExt, TPT, PromotedInsts, CreatedInsts);
     // SExt has been moved away.
     // Thus either it will be rematched later in the recursive calls or it is
     // gone. Anyway, we must not fold it into the addressing mode at this point.
     // E.g.,
     // op = add opnd, 1
-    // idx = ext op
+    // idx = sext op
     // addr = gep base, idx
     // is now:
-    // promotedOpnd = ext opnd            <- no match here
+    // promotedOpnd = sext opnd           <- no match here
     // op = promoted_add promotedOpnd, 1  <- match (later in recursive calls)
     // addr = gep base, op                <- match
     if (MovedAway)
@@ -2401,7 +2355,7 @@ static bool FindAllMemoryUses(Instruction *I,
                               SmallPtrSetImpl<Instruction*> &ConsideredInsts,
                               const TargetLowering &TLI) {
   // If we already considered this instruction, we're done.
-  if (!ConsideredInsts.insert(I).second)
+  if (!ConsideredInsts.insert(I))
     return false;
 
   // If this is an obviously unfoldable instruction, bail out.
@@ -2615,7 +2569,7 @@ bool CodeGenPrepare::OptimizeMemoryInst(Instruction *MemoryInst, Value *Addr,
     worklist.pop_back();
 
     // Break use-def graph loops.
-    if (!Visited.insert(V).second) {
+    if (!Visited.insert(V)) {
       Consensus = nullptr;
       break;
     }
@@ -2805,8 +2759,8 @@ bool CodeGenPrepare::OptimizeMemoryInst(Instruction *MemoryInst, Value *Addr,
       if (AddrMode.BaseOffs) {
         Value *V = ConstantInt::get(IntPtrTy, AddrMode.BaseOffs);
         if (ResultIndex) {
-          // We need to add this separately from the scale above to help with
-          // SDAG consecutive load/store merging.
+	  // We need to add this separately from the scale above to help with
+	  // SDAG consecutive load/store merging.
           if (ResultPtr->getType() != I8PtrTy)
             ResultPtr = Builder.CreateBitCast(ResultPtr, I8PtrTy);
           ResultPtr = Builder.CreateGEP(ResultPtr, ResultIndex, "sunkaddr");
@@ -3214,367 +3168,6 @@ bool CodeGenPrepare::OptimizeShuffleVectorInst(ShuffleVectorInst *SVI) {
   return MadeChange;
 }
 
-namespace {
-/// \brief Helper class to promote a scalar operation to a vector one.
-/// This class is used to move downward extractelement transition.
-/// E.g.,
-/// a = vector_op <2 x i32>
-/// b = extractelement <2 x i32> a, i32 0
-/// c = scalar_op b
-/// store c
-///
-/// =>
-/// a = vector_op <2 x i32>
-/// c = vector_op a (equivalent to scalar_op on the related lane)
-/// * d = extractelement <2 x i32> c, i32 0
-/// * store d
-/// Assuming both extractelement and store can be combine, we get rid of the
-/// transition.
-class VectorPromoteHelper {
-  /// Used to perform some checks on the legality of vector operations.
-  const TargetLowering &TLI;
-
-  /// Used to estimated the cost of the promoted chain.
-  const TargetTransformInfo &TTI;
-
-  /// The transition being moved downwards.
-  Instruction *Transition;
-  /// The sequence of instructions to be promoted.
-  SmallVector<Instruction *, 4> InstsToBePromoted;
-  /// Cost of combining a store and an extract.
-  unsigned StoreExtractCombineCost;
-  /// Instruction that will be combined with the transition.
-  Instruction *CombineInst;
-
-  /// \brief The instruction that represents the current end of the transition.
-  /// Since we are faking the promotion until we reach the end of the chain
-  /// of computation, we need a way to get the current end of the transition.
-  Instruction *getEndOfTransition() const {
-    if (InstsToBePromoted.empty())
-      return Transition;
-    return InstsToBePromoted.back();
-  }
-
-  /// \brief Return the index of the original value in the transition.
-  /// E.g., for "extractelement <2 x i32> c, i32 1" the original value,
-  /// c, is at index 0.
-  unsigned getTransitionOriginalValueIdx() const {
-    assert(isa<ExtractElementInst>(Transition) &&
-           "Other kind of transitions are not supported yet");
-    return 0;
-  }
-
-  /// \brief Return the index of the index in the transition.
-  /// E.g., for "extractelement <2 x i32> c, i32 0" the index
-  /// is at index 1.
-  unsigned getTransitionIdx() const {
-    assert(isa<ExtractElementInst>(Transition) &&
-           "Other kind of transitions are not supported yet");
-    return 1;
-  }
-
-  /// \brief Get the type of the transition.
-  /// This is the type of the original value.
-  /// E.g., for "extractelement <2 x i32> c, i32 1" the type of the
-  /// transition is <2 x i32>.
-  Type *getTransitionType() const {
-    return Transition->getOperand(getTransitionOriginalValueIdx())->getType();
-  }
-
-  /// \brief Promote \p ToBePromoted by moving \p Def downward through.
-  /// I.e., we have the following sequence:
-  /// Def = Transition <ty1> a to <ty2>
-  /// b = ToBePromoted <ty2> Def, ...
-  /// =>
-  /// b = ToBePromoted <ty1> a, ...
-  /// Def = Transition <ty1> ToBePromoted to <ty2>
-  void promoteImpl(Instruction *ToBePromoted);
-
-  /// \brief Check whether or not it is profitable to promote all the
-  /// instructions enqueued to be promoted.
-  bool isProfitableToPromote() {
-    Value *ValIdx = Transition->getOperand(getTransitionOriginalValueIdx());
-    unsigned Index = isa<ConstantInt>(ValIdx)
-                         ? cast<ConstantInt>(ValIdx)->getZExtValue()
-                         : -1;
-    Type *PromotedType = getTransitionType();
-
-    StoreInst *ST = cast<StoreInst>(CombineInst);
-    unsigned AS = ST->getPointerAddressSpace();
-    unsigned Align = ST->getAlignment();
-    // Check if this store is supported.
-    if (!TLI.allowsMisalignedMemoryAccesses(
-            TLI.getValueType(ST->getValueOperand()->getType()), AS, Align)) {
-      // If this is not supported, there is no way we can combine
-      // the extract with the store.
-      return false;
-    }
-
-    // The scalar chain of computation has to pay for the transition
-    // scalar to vector.
-    // The vector chain has to account for the combining cost.
-    uint64_t ScalarCost =
-        TTI.getVectorInstrCost(Transition->getOpcode(), PromotedType, Index);
-    uint64_t VectorCost = StoreExtractCombineCost;
-    for (const auto &Inst : InstsToBePromoted) {
-      // Compute the cost.
-      // By construction, all instructions being promoted are arithmetic ones.
-      // Moreover, one argument is a constant that can be viewed as a splat
-      // constant.
-      Value *Arg0 = Inst->getOperand(0);
-      bool IsArg0Constant = isa<UndefValue>(Arg0) || isa<ConstantInt>(Arg0) ||
-                            isa<ConstantFP>(Arg0);
-      TargetTransformInfo::OperandValueKind Arg0OVK =
-          IsArg0Constant ? TargetTransformInfo::OK_UniformConstantValue
-                         : TargetTransformInfo::OK_AnyValue;
-      TargetTransformInfo::OperandValueKind Arg1OVK =
-          !IsArg0Constant ? TargetTransformInfo::OK_UniformConstantValue
-                          : TargetTransformInfo::OK_AnyValue;
-      ScalarCost += TTI.getArithmeticInstrCost(
-          Inst->getOpcode(), Inst->getType(), Arg0OVK, Arg1OVK);
-      VectorCost += TTI.getArithmeticInstrCost(Inst->getOpcode(), PromotedType,
-                                               Arg0OVK, Arg1OVK);
-    }
-    DEBUG(dbgs() << "Estimated cost of computation to be promoted:\nScalar: "
-                 << ScalarCost << "\nVector: " << VectorCost << '\n');
-    return ScalarCost > VectorCost;
-  }
-
-  /// \brief Generate a constant vector with \p Val with the same
-  /// number of elements as the transition.
-  /// \p UseSplat defines whether or not \p Val should be replicated
-  /// accross the whole vector.
-  /// In other words, if UseSplat == true, we generate <Val, Val, ..., Val>,
-  /// otherwise we generate a vector with as many undef as possible:
-  /// <undef, ..., undef, Val, undef, ..., undef> where \p Val is only
-  /// used at the index of the extract.
-  Value *getConstantVector(Constant *Val, bool UseSplat) const {
-    unsigned ExtractIdx = UINT_MAX;
-    if (!UseSplat) {
-      // If we cannot determine where the constant must be, we have to
-      // use a splat constant.
-      Value *ValExtractIdx = Transition->getOperand(getTransitionIdx());
-      if (ConstantInt *CstVal = dyn_cast<ConstantInt>(ValExtractIdx))
-        ExtractIdx = CstVal->getSExtValue();
-      else
-        UseSplat = true;
-    }
-
-    unsigned End = getTransitionType()->getVectorNumElements();
-    if (UseSplat)
-      return ConstantVector::getSplat(End, Val);
-
-    SmallVector<Constant *, 4> ConstVec;
-    UndefValue *UndefVal = UndefValue::get(Val->getType());
-    for (unsigned Idx = 0; Idx != End; ++Idx) {
-      if (Idx == ExtractIdx)
-        ConstVec.push_back(Val);
-      else
-        ConstVec.push_back(UndefVal);
-    }
-    return ConstantVector::get(ConstVec);
-  }
-
-  /// \brief Check if promoting to a vector type an operand at \p OperandIdx
-  /// in \p Use can trigger undefined behavior.
-  static bool canCauseUndefinedBehavior(const Instruction *Use,
-                                        unsigned OperandIdx) {
-    // This is not safe to introduce undef when the operand is on
-    // the right hand side of a division-like instruction.
-    if (OperandIdx != 1)
-      return false;
-    switch (Use->getOpcode()) {
-    default:
-      return false;
-    case Instruction::SDiv:
-    case Instruction::UDiv:
-    case Instruction::SRem:
-    case Instruction::URem:
-      return true;
-    case Instruction::FDiv:
-    case Instruction::FRem:
-      return !Use->hasNoNaNs();
-    }
-    llvm_unreachable(nullptr);
-  }
-
-public:
-  VectorPromoteHelper(const TargetLowering &TLI, const TargetTransformInfo &TTI,
-                      Instruction *Transition, unsigned CombineCost)
-      : TLI(TLI), TTI(TTI), Transition(Transition),
-        StoreExtractCombineCost(CombineCost), CombineInst(nullptr) {
-    assert(Transition && "Do not know how to promote null");
-  }
-
-  /// \brief Check if we can promote \p ToBePromoted to \p Type.
-  bool canPromote(const Instruction *ToBePromoted) const {
-    // We could support CastInst too.
-    return isa<BinaryOperator>(ToBePromoted);
-  }
-
-  /// \brief Check if it is profitable to promote \p ToBePromoted
-  /// by moving downward the transition through.
-  bool shouldPromote(const Instruction *ToBePromoted) const {
-    // Promote only if all the operands can be statically expanded.
-    // Indeed, we do not want to introduce any new kind of transitions.
-    for (const Use &U : ToBePromoted->operands()) {
-      const Value *Val = U.get();
-      if (Val == getEndOfTransition()) {
-        // If the use is a division and the transition is on the rhs,
-        // we cannot promote the operation, otherwise we may create a
-        // division by zero.
-        if (canCauseUndefinedBehavior(ToBePromoted, U.getOperandNo()))
-          return false;
-        continue;
-      }
-      if (!isa<ConstantInt>(Val) && !isa<UndefValue>(Val) &&
-          !isa<ConstantFP>(Val))
-        return false;
-    }
-    // Check that the resulting operation is legal.
-    int ISDOpcode = TLI.InstructionOpcodeToISD(ToBePromoted->getOpcode());
-    if (!ISDOpcode)
-      return false;
-    return StressStoreExtract ||
-           TLI.isOperationLegalOrCustom(
-               ISDOpcode, TLI.getValueType(getTransitionType(), true));
-  }
-
-  /// \brief Check whether or not \p Use can be combined
-  /// with the transition.
-  /// I.e., is it possible to do Use(Transition) => AnotherUse?
-  bool canCombine(const Instruction *Use) { return isa<StoreInst>(Use); }
-
-  /// \brief Record \p ToBePromoted as part of the chain to be promoted.
-  void enqueueForPromotion(Instruction *ToBePromoted) {
-    InstsToBePromoted.push_back(ToBePromoted);
-  }
-
-  /// \brief Set the instruction that will be combined with the transition.
-  void recordCombineInstruction(Instruction *ToBeCombined) {
-    assert(canCombine(ToBeCombined) && "Unsupported instruction to combine");
-    CombineInst = ToBeCombined;
-  }
-
-  /// \brief Promote all the instructions enqueued for promotion if it is
-  /// is profitable.
-  /// \return True if the promotion happened, false otherwise.
-  bool promote() {
-    // Check if there is something to promote.
-    // Right now, if we do not have anything to combine with,
-    // we assume the promotion is not profitable.
-    if (InstsToBePromoted.empty() || !CombineInst)
-      return false;
-
-    // Check cost.
-    if (!StressStoreExtract && !isProfitableToPromote())
-      return false;
-
-    // Promote.
-    for (auto &ToBePromoted : InstsToBePromoted)
-      promoteImpl(ToBePromoted);
-    InstsToBePromoted.clear();
-    return true;
-  }
-};
-} // End of anonymous namespace.
-
-void VectorPromoteHelper::promoteImpl(Instruction *ToBePromoted) {
-  // At this point, we know that all the operands of ToBePromoted but Def
-  // can be statically promoted.
-  // For Def, we need to use its parameter in ToBePromoted:
-  // b = ToBePromoted ty1 a
-  // Def = Transition ty1 b to ty2
-  // Move the transition down.
-  // 1. Replace all uses of the promoted operation by the transition.
-  // = ... b => = ... Def.
-  assert(ToBePromoted->getType() == Transition->getType() &&
-         "The type of the result of the transition does not match "
-         "the final type");
-  ToBePromoted->replaceAllUsesWith(Transition);
-  // 2. Update the type of the uses.
-  // b = ToBePromoted ty2 Def => b = ToBePromoted ty1 Def.
-  Type *TransitionTy = getTransitionType();
-  ToBePromoted->mutateType(TransitionTy);
-  // 3. Update all the operands of the promoted operation with promoted
-  // operands.
-  // b = ToBePromoted ty1 Def => b = ToBePromoted ty1 a.
-  for (Use &U : ToBePromoted->operands()) {
-    Value *Val = U.get();
-    Value *NewVal = nullptr;
-    if (Val == Transition)
-      NewVal = Transition->getOperand(getTransitionOriginalValueIdx());
-    else if (isa<UndefValue>(Val) || isa<ConstantInt>(Val) ||
-             isa<ConstantFP>(Val)) {
-      // Use a splat constant if it is not safe to use undef.
-      NewVal = getConstantVector(
-          cast<Constant>(Val),
-          isa<UndefValue>(Val) ||
-              canCauseUndefinedBehavior(ToBePromoted, U.getOperandNo()));
-    } else
-      assert(0 && "Did you modified shouldPromote and forgot to update this?");
-    ToBePromoted->setOperand(U.getOperandNo(), NewVal);
-  }
-  Transition->removeFromParent();
-  Transition->insertAfter(ToBePromoted);
-  Transition->setOperand(getTransitionOriginalValueIdx(), ToBePromoted);
-}
-
-/// Some targets can do store(extractelement) with one instruction.
-/// Try to push the extractelement towards the stores when the target
-/// has this feature and this is profitable.
-bool CodeGenPrepare::OptimizeExtractElementInst(Instruction *Inst) {
-  unsigned CombineCost = UINT_MAX;
-  if (DisableStoreExtract || !TLI ||
-      (!StressStoreExtract &&
-       !TLI->canCombineStoreAndExtract(Inst->getOperand(0)->getType(),
-                                       Inst->getOperand(1), CombineCost)))
-    return false;
-
-  // At this point we know that Inst is a vector to scalar transition.
-  // Try to move it down the def-use chain, until:
-  // - We can combine the transition with its single use
-  //   => we got rid of the transition.
-  // - We escape the current basic block
-  //   => we would need to check that we are moving it at a cheaper place and
-  //      we do not do that for now.
-  BasicBlock *Parent = Inst->getParent();
-  DEBUG(dbgs() << "Found an interesting transition: " << *Inst << '\n');
-  VectorPromoteHelper VPH(*TLI, *TTI, Inst, CombineCost);
-  // If the transition has more than one use, assume this is not going to be
-  // beneficial.
-  while (Inst->hasOneUse()) {
-    Instruction *ToBePromoted = cast<Instruction>(*Inst->user_begin());
-    DEBUG(dbgs() << "Use: " << *ToBePromoted << '\n');
-
-    if (ToBePromoted->getParent() != Parent) {
-      DEBUG(dbgs() << "Instruction to promote is in a different block ("
-                   << ToBePromoted->getParent()->getName()
-                   << ") than the transition (" << Parent->getName() << ").\n");
-      return false;
-    }
-
-    if (VPH.canCombine(ToBePromoted)) {
-      DEBUG(dbgs() << "Assume " << *Inst << '\n'
-                   << "will be combined with: " << *ToBePromoted << '\n');
-      VPH.recordCombineInstruction(ToBePromoted);
-      bool Changed = VPH.promote();
-      NumStoreExtractExposed += Changed;
-      return Changed;
-    }
-
-    DEBUG(dbgs() << "Try promoting.\n");
-    if (!VPH.canPromote(ToBePromoted) || !VPH.shouldPromote(ToBePromoted))
-      return false;
-
-    DEBUG(dbgs() << "Promoting is possible... Enqueue for promotion!\n");
-
-    VPH.enqueueForPromotion(ToBePromoted);
-    Inst = ToBePromoted;
-  }
-  return false;
-}
-
 bool CodeGenPrepare::OptimizeInst(Instruction *I) {
   if (PHINode *P = dyn_cast<PHINode>(I)) {
     // It is possible for very late stage optimizations (such as SimplifyCFG)
@@ -3668,9 +3261,6 @@ bool CodeGenPrepare::OptimizeInst(Instruction *I) {
 
   if (ShuffleVectorInst *SVI = dyn_cast<ShuffleVectorInst>(I))
     return OptimizeShuffleVectorInst(SVI);
-
-  if (isa<ExtractElementInst>(I))
-    return OptimizeExtractElementInst(I);
 
   return false;
 }

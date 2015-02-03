@@ -20,6 +20,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetMachine.h"
 
 using namespace llvm;
 
@@ -137,7 +138,7 @@ void RegisterClassInfo::compute(const TargetRegisterClass *RC) const {
   RCI.LastCostChange = LastCostChange;
 
   DEBUG({
-    dbgs() << "AllocationOrder(" << TRI->getRegClassName(RC) << ") = [";
+    dbgs() << "AllocationOrder(" << RC->getName() << ") = [";
     for (unsigned I = 0; I != RCI.NumRegs; ++I)
       dbgs() << ' ' << PrintReg(RCI.Order[I], TRI);
     dbgs() << (RCI.ProperSubClass ? " ] (sub-class)\n" : " ]\n");

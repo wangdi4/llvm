@@ -109,7 +109,7 @@ static void getUnderlyingObjects(const Value *V,
     for (SmallVectorImpl<Value *>::iterator I = Objs.begin(), IE = Objs.end();
          I != IE; ++I) {
       V = *I;
-      if (!Visited.insert(V).second)
+      if (!Visited.insert(V))
         continue;
       if (Operator::getOpcode(V) == Instruction::IntToPtr) {
         const Value *O =
@@ -588,7 +588,7 @@ iterateChainSucc(AliasAnalysis *AA, const MachineFrameInfo *MFI,
     return *Depth;
 
   // Remember visited nodes.
-  if (!Visited.insert(SUb).second)
+  if (!Visited.insert(SUb))
       return *Depth;
   // If there is _some_ dependency already in place, do not
   // descend any further.

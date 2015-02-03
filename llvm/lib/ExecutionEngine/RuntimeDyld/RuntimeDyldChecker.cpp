@@ -12,6 +12,7 @@
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCDisassembler.h"
 #include "llvm/MC/MCInst.h"
+#include "llvm/Support/StringRefMemoryObject.h"
 #include "llvm/Support/Path.h"
 #include "RuntimeDyldCheckerImpl.h"
 #include "RuntimeDyldImpl.h"
@@ -667,9 +668,7 @@ private:
   bool decodeInst(StringRef Symbol, MCInst &Inst, uint64_t &Size) const {
     MCDisassembler *Dis = Checker.Disassembler;
     StringRef SectionMem = Checker.getSubsectionStartingAt(Symbol);
-    ArrayRef<uint8_t> SectionBytes(
-        reinterpret_cast<const uint8_t *>(SectionMem.data()),
-        SectionMem.size());
+    StringRefMemoryObject SectionBytes(SectionMem, 0);
 
     MCDisassembler::DecodeStatus S =
         Dis->getInstruction(Inst, Size, SectionBytes, 0, nulls(), nulls());
@@ -740,9 +739,7 @@ uint64_t RuntimeDyldCheckerImpl::getSymbolLinkerAddr(StringRef Symbol) const {
 }
 
 uint64_t RuntimeDyldCheckerImpl::getSymbolRemoteAddr(StringRef Symbol) const {
-  if (uint64_t InternalSymbolAddr = getRTDyld().getSymbolLoadAddress(Symbol))
-      return InternalSymbolAddr;
-  return getRTDyld().MemMgr->getSymbolAddress(Symbol);
+  return getRTDyld().getAnySymbolRemoteAddress(Symbol);
 }
 
 uint64_t RuntimeDyldCheckerImpl::readMemoryAtAddr(uint64_t SrcAddr,

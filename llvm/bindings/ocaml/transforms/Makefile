@@ -8,7 +8,7 @@
 ##===----------------------------------------------------------------------===##
 
 LEVEL := ../../..
-DIRS = ipo passmgr_builder scalar_opts utils vectorize
+DIRS = scalar ipo vectorize passmgr_builder
 
 ocamldoc:
 	$(Verb) for i in $(DIRS) ; do \

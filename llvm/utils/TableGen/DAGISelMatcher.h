@@ -1,4 +1,4 @@
-//===- DAGISelMatcher.h - Representation of DAG pattern matcher -*- C++ -*-===//
+//===- DAGISelMatcher.h - Representation of DAG pattern matcher -----------===//
 //
 //                     The LLVM Compiler Infrastructure
 //

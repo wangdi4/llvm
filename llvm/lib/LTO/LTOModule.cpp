@@ -52,13 +52,6 @@ LTOModule::LTOModule(std::unique_ptr<object::IRObjectFile> Obj,
                      llvm::TargetMachine *TM)
     : IRFile(std::move(Obj)), _target(TM) {}
 
-LTOModule::LTOModule(std::unique_ptr<object::IRObjectFile> Obj,
-                     llvm::TargetMachine *TM,
-                     std::unique_ptr<LLVMContext> Context)
-    : OwnedContext(std::move(Context)), IRFile(std::move(Obj)), _target(TM) {}
-
-LTOModule::~LTOModule() {}
-
 /// isBitcodeFile - Returns 'true' if the file (or memory contents) is LLVM
 /// bitcode.
 bool LTOModule::isBitcodeFile(const void *Mem, size_t Length) {
@@ -84,8 +77,7 @@ bool LTOModule::isBitcodeForTarget(MemoryBuffer *Buffer,
       IRObjectFile::findBitcodeInMemBuffer(Buffer->getMemBufferRef());
   if (!BCOrErr)
     return false;
-  LLVMContext Context;
-  std::string Triple = getBitcodeTargetTriple(*BCOrErr, Context);
+  std::string Triple = getBitcodeTargetTriple(*BCOrErr, getGlobalContext());
   return StringRef(Triple).startswith(TriplePrefix);
 }
 
@@ -98,8 +90,7 @@ LTOModule *LTOModule::createFromFile(const char *path, TargetOptions options,
     return nullptr;
   }
   std::unique_ptr<MemoryBuffer> Buffer = std::move(BufferOrErr.get());
-  return makeLTOModule(Buffer->getMemBufferRef(), options, errMsg,
-                       &getGlobalContext());
+  return makeLTOModule(Buffer->getMemBufferRef(), options, errMsg);
 }
 
 LTOModule *LTOModule::createFromOpenFile(int fd, const char *path, size_t size,
@@ -119,49 +110,27 @@ LTOModule *LTOModule::createFromOpenFileSlice(int fd, const char *path,
     return nullptr;
   }
   std::unique_ptr<MemoryBuffer> Buffer = std::move(BufferOrErr.get());
-  return makeLTOModule(Buffer->getMemBufferRef(), options, errMsg,
-                       &getGlobalContext());
+  return makeLTOModule(Buffer->getMemBufferRef(), options, errMsg);
 }
 
 LTOModule *LTOModule::createFromBuffer(const void *mem, size_t length,
                                        TargetOptions options,
                                        std::string &errMsg, StringRef path) {
-  return createInContext(mem, length, options, errMsg, path,
-                         &getGlobalContext());
-}
-
-LTOModule *LTOModule::createInLocalContext(const void *mem, size_t length,
-                                           TargetOptions options,
-                                           std::string &errMsg,
-                                           StringRef path) {
-  return createInContext(mem, length, options, errMsg, path, nullptr);
-}
-
-LTOModule *LTOModule::createInContext(const void *mem, size_t length,
-                                      TargetOptions options,
-                                      std::string &errMsg, StringRef path,
-                                      LLVMContext *Context) {
   StringRef Data((const char *)mem, length);
   MemoryBufferRef Buffer(Data, path);
-  return makeLTOModule(Buffer, options, errMsg, Context);
+  return makeLTOModule(Buffer, options, errMsg);
 }
 
 LTOModule *LTOModule::makeLTOModule(MemoryBufferRef Buffer,
-                                    TargetOptions options, std::string &errMsg,
-                                    LLVMContext *Context) {
-  std::unique_ptr<LLVMContext> OwnedContext;
-  if (!Context) {
-    OwnedContext = llvm::make_unique<LLVMContext>();
-    Context = OwnedContext.get();
-  }
-
+                                    TargetOptions options,
+                                    std::string &errMsg) {
   ErrorOr<MemoryBufferRef> MBOrErr =
       IRObjectFile::findBitcodeInMemBuffer(Buffer);
   if (std::error_code EC = MBOrErr.getError()) {
     errMsg = EC.message();
     return nullptr;
   }
-  ErrorOr<Module *> MOrErr = parseBitcodeFile(*MBOrErr, *Context);
+  ErrorOr<Module *> MOrErr = parseBitcodeFile(*MBOrErr, getGlobalContext());
   if (std::error_code EC = MOrErr.getError()) {
     errMsg = EC.message();
     return nullptr;
@@ -200,11 +169,7 @@ LTOModule *LTOModule::makeLTOModule(MemoryBufferRef Buffer,
   std::unique_ptr<object::IRObjectFile> IRObj(
       new object::IRObjectFile(Buffer, std::move(M)));
 
-  LTOModule *Ret;
-  if (OwnedContext)
-    Ret = new LTOModule(std::move(IRObj), target, std::move(OwnedContext));
-  else
-    Ret = new LTOModule(std::move(IRObj), target);
+  LTOModule *Ret = new LTOModule(std::move(IRObj), target);
 
   if (Ret->parseSymbols(errMsg)) {
     delete Ret;
@@ -249,24 +214,27 @@ void LTOModule::addObjCClass(const GlobalVariable *clgv) {
   // second slot in __OBJC,__class is pointer to superclass name
   std::string superclassName;
   if (objcClassNameFromExpression(c->getOperand(1), superclassName)) {
-    auto IterBool =
-        _undefines.insert(std::make_pair(superclassName, NameAndAttributes()));
-    if (IterBool.second) {
-      NameAndAttributes &info = IterBool.first->second;
-      info.name = IterBool.first->first().data();
+    NameAndAttributes info;
+    StringMap<NameAndAttributes>::value_type &entry =
+      _undefines.GetOrCreateValue(superclassName);
+    if (!entry.getValue().name) {
+      const char *symbolName = entry.getKey().data();
+      info.name = symbolName;
       info.attributes = LTO_SYMBOL_DEFINITION_UNDEFINED;
       info.isFunction = false;
       info.symbol = clgv;
+      entry.setValue(info);
     }
   }
 
   // third slot in __OBJC,__class is pointer to class name
   std::string className;
   if (objcClassNameFromExpression(c->getOperand(2), className)) {
-    auto Iter = _defines.insert(className).first;
+    StringSet::value_type &entry = _defines.GetOrCreateValue(className);
+    entry.setValue(1);
 
     NameAndAttributes info;
-    info.name = Iter->first().data();
+    info.name = entry.getKey().data();
     info.attributes = LTO_SYMBOL_PERMISSIONS_DATA |
       LTO_SYMBOL_DEFINITION_REGULAR | LTO_SYMBOL_SCOPE_DEFAULT;
     info.isFunction = false;
@@ -285,17 +253,19 @@ void LTOModule::addObjCCategory(const GlobalVariable *clgv) {
   if (!objcClassNameFromExpression(c->getOperand(1), targetclassName))
     return;
 
-  auto IterBool =
-      _undefines.insert(std::make_pair(targetclassName, NameAndAttributes()));
+  NameAndAttributes info;
+  StringMap<NameAndAttributes>::value_type &entry =
+    _undefines.GetOrCreateValue(targetclassName);
 
-  if (!IterBool.second)
+  if (entry.getValue().name)
     return;
 
-  NameAndAttributes &info = IterBool.first->second;
-  info.name = IterBool.first->first().data();
+  const char *symbolName = entry.getKey().data();
+  info.name = symbolName;
   info.attributes = LTO_SYMBOL_DEFINITION_UNDEFINED;
   info.isFunction = false;
   info.symbol = clgv;
+  entry.setValue(info);
 }
 
 /// addObjCClassRef - Parse i386/ppc ObjC class list data structure.
@@ -304,17 +274,18 @@ void LTOModule::addObjCClassRef(const GlobalVariable *clgv) {
   if (!objcClassNameFromExpression(clgv->getInitializer(), targetclassName))
     return;
 
-  auto IterBool =
-      _undefines.insert(std::make_pair(targetclassName, NameAndAttributes()));
-
-  if (!IterBool.second)
+  NameAndAttributes info;
+  StringMap<NameAndAttributes>::value_type &entry =
+    _undefines.GetOrCreateValue(targetclassName);
+  if (entry.getValue().name)
     return;
 
-  NameAndAttributes &info = IterBool.first->second;
-  info.name = IterBool.first->first().data();
+  const char *symbolName = entry.getKey().data();
+  info.name = symbolName;
   info.attributes = LTO_SYMBOL_DEFINITION_UNDEFINED;
   info.isFunction = false;
   info.symbol = clgv;
+  entry.setValue(info);
 }
 
 void LTOModule::addDefinedDataSymbol(const object::BasicSymbolRef &Sym) {
@@ -433,11 +404,12 @@ void LTOModule::addDefinedSymbol(const char *Name, const GlobalValue *def,
   else
     attr |= LTO_SYMBOL_SCOPE_DEFAULT;
 
-  auto Iter = _defines.insert(Name).first;
+  StringSet::value_type &entry = _defines.GetOrCreateValue(Name);
+  entry.setValue(1);
 
   // fill information structure
   NameAndAttributes info;
-  StringRef NameRef = Iter->first();
+  StringRef NameRef = entry.getKey();
   info.name = NameRef.data();
   assert(info.name[NameRef.size()] == '\0');
   info.attributes = attr;
@@ -452,13 +424,15 @@ void LTOModule::addDefinedSymbol(const char *Name, const GlobalValue *def,
 /// defined list.
 void LTOModule::addAsmGlobalSymbol(const char *name,
                                    lto_symbol_attributes scope) {
-  auto IterBool = _defines.insert(name);
+  StringSet::value_type &entry = _defines.GetOrCreateValue(name);
 
   // only add new define if not already defined
-  if (!IterBool.second)
+  if (entry.getValue())
     return;
 
-  NameAndAttributes &info = _undefines[IterBool.first->first().data()];
+  entry.setValue(1);
+
+  NameAndAttributes &info = _undefines[entry.getKey().data()];
 
   if (info.symbol == nullptr) {
     // FIXME: This is trying to take care of module ASM like this:
@@ -470,7 +444,7 @@ void LTOModule::addAsmGlobalSymbol(const char *name,
     // much.
 
     // fill information structure
-    info.name = IterBool.first->first().data();
+    info.name = entry.getKey().data();
     info.attributes =
       LTO_SYMBOL_PERMISSIONS_DATA | LTO_SYMBOL_DEFINITION_REGULAR | scope;
     info.isFunction = false;
@@ -493,21 +467,24 @@ void LTOModule::addAsmGlobalSymbol(const char *name,
 /// addAsmGlobalSymbolUndef - Add a global symbol from module-level ASM to the
 /// undefined list.
 void LTOModule::addAsmGlobalSymbolUndef(const char *name) {
-  auto IterBool = _undefines.insert(std::make_pair(name, NameAndAttributes()));
+  StringMap<NameAndAttributes>::value_type &entry =
+    _undefines.GetOrCreateValue(name);
 
-  _asm_undefines.push_back(IterBool.first->first().data());
+  _asm_undefines.push_back(entry.getKey().data());
 
   // we already have the symbol
-  if (!IterBool.second)
+  if (entry.getValue().name)
     return;
 
   uint32_t attr = LTO_SYMBOL_DEFINITION_UNDEFINED;
   attr |= LTO_SYMBOL_SCOPE_DEFAULT;
-  NameAndAttributes &info = IterBool.first->second;
-  info.name = IterBool.first->first().data();
+  NameAndAttributes info;
+  info.name = entry.getKey().data();
   info.attributes = attr;
   info.isFunction = false;
   info.symbol = nullptr;
+
+  entry.setValue(info);
 }
 
 /// Add a symbol which isn't defined just yet to a list to be resolved later.
@@ -519,15 +496,16 @@ void LTOModule::addPotentialUndefinedSymbol(const object::BasicSymbolRef &Sym,
     Sym.printName(OS);
   }
 
-  auto IterBool = _undefines.insert(std::make_pair(name, NameAndAttributes()));
+  StringMap<NameAndAttributes>::value_type &entry =
+    _undefines.GetOrCreateValue(name);
 
   // we already have the symbol
-  if (!IterBool.second)
+  if (entry.getValue().name)
     return;
 
-  NameAndAttributes &info = IterBool.first->second;
+  NameAndAttributes info;
 
-  info.name = IterBool.first->first().data();
+  info.name = entry.getKey().data();
 
   const GlobalValue *decl = IRFile->getSymbolGV(Sym.getRawDataRefImpl());
 
@@ -538,6 +516,8 @@ void LTOModule::addPotentialUndefinedSymbol(const object::BasicSymbolRef &Sym,
 
   info.isFunction = isFunc;
   info.symbol = decl;
+
+  entry.setValue(info);
 }
 
 /// parseSymbols - Parse the symbols from the module and model-level ASM and add
@@ -610,11 +590,8 @@ void LTOModule::parseMetadata() {
       MDNode *MDOptions = cast<MDNode>(LinkerOptions->getOperand(i));
       for (unsigned ii = 0, ie = MDOptions->getNumOperands(); ii != ie; ++ii) {
         MDString *MDOption = cast<MDString>(MDOptions->getOperand(ii));
-        // FIXME: Make StringSet::insert match Self-Associative Container
-        // requirements, returning <iter,bool> rather than bool, and use that
-        // here.
-        StringRef Op =
-            _linkeropt_strings.insert(MDOption->getString()).first->first();
+        StringRef Op = _linkeropt_strings.
+            GetOrCreateValue(MDOption->getString()).getKey();
         StringRef DepLibName = _target->getSubtargetImpl()
                                    ->getTargetLowering()
                                    ->getObjFileLowering()

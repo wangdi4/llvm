@@ -52,11 +52,4 @@ U:
   resume { i8*, i32 } %exn
 }
 
-declare ghccc void @ghc_callee()
-
-define void @ghc_caller() {
-  call ghccc void @ghc_callee()
-  ret void
-}
-
 declare i32 @__gxx_personality_v0(...)

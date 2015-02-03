@@ -1,5 +1,5 @@
 ; RUN: llc -march=r600 -mcpu=SI < %s
-; CHECK: s_endpgm
+; CHECK: S_ENDPGM
 
 @gv = external unnamed_addr addrspace(2) constant [239 x i32], align 4
 

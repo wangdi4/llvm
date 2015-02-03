@@ -62,6 +62,7 @@ STATISTIC(NumPostRAHoisted,
 
 namespace {
   class MachineLICM : public MachineFunctionPass {
+    const TargetMachine   *TM;
     const TargetInstrInfo *TII;
     const TargetLoweringBase *TLI;
     const TargetRegisterInfo *TRI;
@@ -142,6 +143,9 @@ namespace {
       RegPressure.clear();
       RegLimit.clear();
       BackTrace.clear();
+      for (DenseMap<unsigned,std::vector<const MachineInstr*> >::iterator
+             CI = CSEMap.begin(), CE = CSEMap.end(); CI != CE; ++CI)
+        CI->second.clear();
       CSEMap.clear();
     }
 
@@ -321,12 +325,13 @@ bool MachineLICM::runOnMachineFunction(MachineFunction &MF) {
     return false;
 
   Changed = FirstInLoop = false;
-  TII = MF.getSubtarget().getInstrInfo();
-  TLI = MF.getSubtarget().getTargetLowering();
-  TRI = MF.getSubtarget().getRegisterInfo();
+  TM = &MF.getTarget();
+  TII = TM->getSubtargetImpl()->getInstrInfo();
+  TLI = TM->getSubtargetImpl()->getTargetLowering();
+  TRI = TM->getSubtargetImpl()->getRegisterInfo();
   MFI = MF.getFrameInfo();
   MRI = &MF.getRegInfo();
-  InstrItins = MF.getSubtarget().getInstrItineraryData();
+  InstrItins = TM->getSubtargetImpl()->getInstrItineraryData();
 
   PreRegAlloc = MRI->isSSA();
 
@@ -818,7 +823,7 @@ void MachineLICM::InitRegPressure(MachineBasicBlock *BB) {
       if (!TargetRegisterInfo::isVirtualRegister(Reg))
         continue;
 
-      bool isNew = RegSeen.insert(Reg).second;
+      bool isNew = RegSeen.insert(Reg);
       unsigned RCId, RCCost;
       getRegisterClassIDAndCost(MI, Reg, i, RCId, RCCost);
       if (MO.isDef())
@@ -850,7 +855,7 @@ void MachineLICM::UpdateRegPressure(const MachineInstr *MI) {
     if (!TargetRegisterInfo::isVirtualRegister(Reg))
       continue;
 
-    bool isNew = RegSeen.insert(Reg).second;
+    bool isNew = RegSeen.insert(Reg);
     if (MO.isDef())
       Defs.push_back(Reg);
     else if (!isNew && isOperandKill(MO, MRI)) {
@@ -1295,7 +1300,15 @@ void MachineLICM::InitCSEMap(MachineBasicBlock *BB) {
   for (MachineBasicBlock::iterator I = BB->begin(),E = BB->end(); I != E; ++I) {
     const MachineInstr *MI = &*I;
     unsigned Opcode = MI->getOpcode();
-    CSEMap[Opcode].push_back(MI);
+    DenseMap<unsigned, std::vector<const MachineInstr*> >::iterator
+      CI = CSEMap.find(Opcode);
+    if (CI != CSEMap.end())
+      CI->second.push_back(MI);
+    else {
+      std::vector<const MachineInstr*> CSEMIs;
+      CSEMIs.push_back(MI);
+      CSEMap.insert(std::make_pair(Opcode, CSEMIs));
+    }
   }
 }
 
@@ -1435,8 +1448,11 @@ bool MachineLICM::Hoist(MachineInstr *MI, MachineBasicBlock *Preheader) {
     // Add to the CSE map.
     if (CI != CSEMap.end())
       CI->second.push_back(MI);
-    else
-      CSEMap[Opcode].push_back(MI);
+    else {
+      std::vector<const MachineInstr*> CSEMIs;
+      CSEMIs.push_back(MI);
+      CSEMap.insert(std::make_pair(Opcode, CSEMIs));
+    }
   }
 
   ++NumHoisted;

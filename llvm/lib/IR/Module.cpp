@@ -23,7 +23,6 @@
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LeakDetector.h"
-#include "llvm/IR/TypeFinder.h"
 #include "llvm/Support/Dwarf.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/RandomNumberGenerator.h"
@@ -390,17 +389,28 @@ void Module::setMaterializer(GVMaterializer *GVM) {
   Materializer.reset(GVM);
 }
 
+bool Module::isMaterializable(const GlobalValue *GV) const {
+  if (Materializer)
+    return Materializer->isMaterializable(GV);
+  return false;
+}
+
 bool Module::isDematerializable(const GlobalValue *GV) const {
   if (Materializer)
     return Materializer->isDematerializable(GV);
   return false;
 }
 
-std::error_code Module::materialize(GlobalValue *GV) {
+bool Module::Materialize(GlobalValue *GV, std::string *ErrInfo) {
   if (!Materializer)
-    return std::error_code();
+    return false;
 
-  return Materializer->materialize(GV);
+  std::error_code EC = Materializer->Materialize(GV);
+  if (!EC)
+    return false;
+  if (ErrInfo)
+    *ErrInfo = EC.message();
+  return true;
 }
 
 void Module::Dematerialize(GlobalValue *GV) {
@@ -426,19 +436,6 @@ std::error_code Module::materializeAllPermanently() {
 // Other module related stuff.
 //
 
-std::vector<StructType *> Module::getIdentifiedStructTypes() const {
-  // If we have a materializer, it is possible that some unread function
-  // uses a type that is currently not visible to a TypeFinder, so ask
-  // the materializer which types it created.
-  if (Materializer)
-    return Materializer->getIdentifiedStructTypes();
-
-  std::vector<StructType *> Ret;
-  TypeFinder SrcStructTypes;
-  SrcStructTypes.run(*this, true);
-  Ret.assign(SrcStructTypes.begin(), SrcStructTypes.end());
-  return Ret;
-}
 
 // dropAllReferences() - This function causes all the subelements to "let go"
 // of all references that they are maintaining.  This allows one to 'delete' a
@@ -466,20 +463,9 @@ unsigned Module::getDwarfVersion() const {
 }
 
 Comdat *Module::getOrInsertComdat(StringRef Name) {
-  auto &Entry = *ComdatSymTab.insert(std::make_pair(Name, Comdat())).first;
+  Comdat C;
+  StringMapEntry<Comdat> &Entry =
+      ComdatSymTab.GetOrCreateValue(Name, std::move(C));
   Entry.second.Name = &Entry;
   return &Entry.second;
-}
-
-PICLevel::Level Module::getPICLevel() const {
-  Value *Val = getModuleFlag("PIC Level");
-
-  if (Val == NULL)
-    return PICLevel::Default;
-
-  return static_cast<PICLevel::Level>(cast<ConstantInt>(Val)->getZExtValue());
-}
-
-void Module::setPICLevel(PICLevel::Level PL) {
-  addModuleFlag(ModFlagBehavior::Error, "PIC Level", PL);
 }

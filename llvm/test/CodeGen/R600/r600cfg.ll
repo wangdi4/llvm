@@ -1,4 +1,5 @@
 ;RUN: llc < %s -march=r600 -mcpu=redwood
+;REQUIRES: asserts
 
 define void @main(<4 x float> inreg %reg0, <4 x float> inreg %reg1) #0 {
 main_body:

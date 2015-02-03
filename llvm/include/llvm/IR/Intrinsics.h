@@ -28,9 +28,10 @@ class LLVMContext;
 class Module;
 class AttributeSet;
 
-/// This namespace contains an enum with a value for every intrinsic/builtin
-/// function known by LLVM. The enum values are returned by
-/// Function::getIntrinsicID().
+/// Intrinsic Namespace - This namespace contains an enum with a value for
+/// every intrinsic/builtin function known by LLVM.  These enum values are
+/// returned by Function::getIntrinsicID().
+///
 namespace Intrinsic {
   enum ID {
     not_intrinsic = 0,   // Must be zero
@@ -42,21 +43,25 @@ namespace Intrinsic {
     , num_intrinsics
   };
   
-  /// Return the LLVM name for an intrinsic, such as "llvm.ppc.altivec.lvx".
+  /// Intrinsic::getName(ID) - Return the LLVM name for an intrinsic, such as
+  /// "llvm.ppc.altivec.lvx".
   std::string getName(ID id, ArrayRef<Type*> Tys = None);
 
-  /// Return the function type for an intrinsic.
+  /// Intrinsic::getType(ID) - Return the function type for an intrinsic.
+  ///
   FunctionType *getType(LLVMContext &Context, ID id,
                         ArrayRef<Type*> Tys = None);
 
-  /// Returns true if the intrinsic can be overloaded.
+  /// Intrinsic::isOverloaded(ID) - Returns true if the intrinsic can be
+  /// overloaded.
   bool isOverloaded(ID id);
 
-  /// Return the attributes for an intrinsic.
+  /// Intrinsic::getAttributes(ID) - Return the attributes for an intrinsic.
+  ///
   AttributeSet getAttributes(LLVMContext &C, ID id);
 
-  /// Create or insert an LLVM Function declaration for an intrinsic, and return
-  /// it.
+  /// Intrinsic::getDeclaration(M, ID) - Create or insert an LLVM Function
+  /// declaration for an intrinsic, and return it.
   ///
   /// The Tys parameter is for intrinsics with overloaded types (e.g., those
   /// using iAny, fAny, vAny, or iPTRAny).  For a declaration of an overloaded
@@ -70,8 +75,9 @@ namespace Intrinsic {
   /// Map a MS builtin name to an intrinsic ID.
   ID getIntrinsicForMSBuiltin(const char *Prefix, const char *BuiltinName);
   
-  /// This is a type descriptor which explains the type requirements of an
-  /// intrinsic. This is returned by getIntrinsicInfoTableEntries.
+  /// IITDescriptor - This is a type descriptor which explains the type
+  /// requirements of an intrinsic.  This is returned by
+  /// getIntrinsicInfoTableEntries.
   struct IITDescriptor {
     enum IITDescriptorKind {
       Void, VarArg, MMX, Metadata, Half, Float, Double,
@@ -111,8 +117,9 @@ namespace Intrinsic {
     }
   };
   
-  /// Return the IIT table descriptor for the specified intrinsic into an array
-  /// of IITDescriptors.
+  /// getIntrinsicInfoTableEntries - Return the IIT table descriptor for the
+  /// specified intrinsic into an array of IITDescriptors.
+  /// 
   void getIntrinsicInfoTableEntries(ID id, SmallVectorImpl<IITDescriptor> &T);
   
 } // End Intrinsic namespace

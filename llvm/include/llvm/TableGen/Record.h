@@ -1688,13 +1688,15 @@ public:
     auto I = Defs.find(Name);
     return I == Defs.end() ? nullptr : I->second.get();
   }
-  void addClass(std::unique_ptr<Record> R) {
+  void addClass(Record *_R) {
+    std::unique_ptr<Record> R(_R);
     bool Ins = Classes.insert(std::make_pair(R->getName(),
                                              std::move(R))).second;
     (void)Ins;
     assert(Ins && "Class already exists");
   }
-  void addDef(std::unique_ptr<Record> R) {
+  void addDef(Record *_R) {
+    std::unique_ptr<Record> R(_R);
     bool Ins = Defs.insert(std::make_pair(R->getName(),
                                           std::move(R))).second;
     (void)Ins;

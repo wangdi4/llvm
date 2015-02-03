@@ -144,16 +144,13 @@ def executeShCmd(cmd, cfg, cwd, results):
                     named_temp_files.append(f.name)
                     args[i] = f.name
 
-        try:
-            procs.append(subprocess.Popen(args, cwd=cwd,
-                                          executable = executable,
-                                          stdin = stdin,
-                                          stdout = stdout,
-                                          stderr = stderr,
-                                          env = cfg.environment,
-                                          close_fds = kUseCloseFDs))
-        except OSError as e:
-            raise InternalShellError(j, 'Could not create process due to {}'.format(e))
+        procs.append(subprocess.Popen(args, cwd=cwd,
+                                      executable = executable,
+                                      stdin = stdin,
+                                      stdout = stdout,
+                                      stderr = stderr,
+                                      env = cfg.environment,
+                                      close_fds = kUseCloseFDs))
 
         # Immediately close stdin for any process taking stdin from us.
         if stdin == subprocess.PIPE:
@@ -342,10 +339,6 @@ def parseIntegratedTestScriptCommands(source_path):
     try:
         # Read the entire file contents.
         data = f.read()
-
-        # Ensure the data ends with a newline.
-        if not data.endswith(to_bytes('\n')):
-            data = data + to_bytes('\n')
 
         # Iterate over the matches.
         line_number = 1

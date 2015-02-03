@@ -545,21 +545,10 @@ isProfitableToCommute(unsigned regA, unsigned regB, unsigned regC,
   if (ToRegA) {
     unsigned FromRegB = getMappedReg(regB, SrcRegMap);
     unsigned FromRegC = getMappedReg(regC, SrcRegMap);
-    bool CompB = FromRegB && regsAreCompatible(FromRegB, ToRegA, TRI);
-    bool CompC = FromRegC && regsAreCompatible(FromRegC, ToRegA, TRI);
-
-    // Compute if any of the following are true:
-    // -RegB is not tied to a register and RegC is compatible with RegA.
-    // -RegB is tied to the wrong physical register, but RegC is.
-    // -RegB is tied to the wrong physical register, and RegC isn't tied.
-    if ((!FromRegB && CompC) || (FromRegB && !CompB && (!FromRegC || CompC)))
-      return true;
-    // Don't compute if any of the following are true:
-    // -RegC is not tied to a register and RegB is compatible with RegA.
-    // -RegC is tied to the wrong physical register, but RegB is.
-    // -RegC is tied to the wrong physical register, and RegB isn't tied.
-    if ((!FromRegC && CompB) || (FromRegC && !CompC && (!FromRegB || CompB)))
-      return false;
+    bool BComp = !FromRegB || regsAreCompatible(FromRegB, ToRegA, TRI);
+    bool CComp = !FromRegC || regsAreCompatible(FromRegC, ToRegA, TRI);
+    if (BComp != CComp)
+      return !BComp && CComp;
   }
 
   // If there is a use of regC between its last def (could be livein) and this
@@ -678,7 +667,7 @@ TwoAddressInstructionPass::scanUses(unsigned DstReg) {
   unsigned Reg = DstReg;
   while (MachineInstr *UseMI = findOnlyInterestingUse(Reg, MBB, MRI, TII,IsCopy,
                                                       NewReg, IsDstPhys)) {
-    if (IsCopy && !Processed.insert(UseMI).second)
+    if (IsCopy && !Processed.insert(UseMI))
       break;
 
     DenseMap<MachineInstr*, unsigned>::iterator DI = DistanceMap.find(UseMI);

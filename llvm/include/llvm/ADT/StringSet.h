@@ -24,9 +24,20 @@ namespace llvm {
     typedef llvm::StringMap<char, AllocatorTy> base;
   public:
 
-    std::pair<typename base::iterator, bool> insert(StringRef Key) {
+    /// insert - Insert the specified key into the set.  If the key already
+    /// exists in the set, return false and ignore the request, otherwise insert
+    /// it and return true.
+    bool insert(StringRef Key) {
+      // Get or create the map entry for the key; if it doesn't exist the value
+      // type will be default constructed which we use to detect insert.
+      //
+      // We use '+' as the sentinel value in the map.
       assert(!Key.empty());
-      return base::insert(std::make_pair(Key, '\0'));
+      StringMapEntry<char> &Entry = this->GetOrCreateValue(Key);
+      if (Entry.getValue() == '+')
+        return false;
+      Entry.setValue('+');
+      return true;
     }
   };
 }

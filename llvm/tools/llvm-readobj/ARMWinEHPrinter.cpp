@@ -186,8 +186,13 @@ void Decoder::printRegisters(const std::pair<uint16_t, uint32_t> &RegisterMask) 
 ErrorOr<object::SectionRef>
 Decoder::getSectionContaining(const COFFObjectFile &COFF, uint64_t VA) {
   for (const auto &Section : COFF.sections()) {
-    uint64_t Address = Section.getAddress();
-    uint64_t Size = Section.getSize();
+    uint64_t Address;
+    uint64_t Size;
+
+    if (std::error_code EC = Section.getAddress(Address))
+      return EC;
+    if (std::error_code EC = Section.getSize(Size))
+      return EC;
 
     if (VA >= Address && (VA - Address) <= Size)
       return Section;
@@ -520,7 +525,10 @@ bool Decoder::dumpXDataRecord(const COFFObjectFile &COFF,
   if (COFF.getSectionContents(COFF.getCOFFSection(Section), Contents))
     return false;
 
-  uint64_t SectionVA = Section.getAddress();
+  uint64_t SectionVA;
+  if (Section.getAddress(SectionVA))
+    return false;
+
   uint64_t Offset = VA - SectionVA;
   const ulittle32_t *Data =
     reinterpret_cast<const ulittle32_t *>(Contents.data() + Offset);

@@ -188,7 +188,7 @@ static inline bool AreAnyUnderlyingObjectsAnAlloca(const Value *V) {
     if (isa<AllocaInst>(P))
       return true;
 
-    if (!Visited.insert(P).second)
+    if (!Visited.insert(P))
       continue;
 
     if (const SelectInst *SI = dyn_cast<const SelectInst>(P)) {
@@ -412,7 +412,7 @@ bool RRInfo::Merge(const RRInfo &Other) {
     // that makes this a partial merge.
     bool Partial = ReverseInsertPts.size() != Other.ReverseInsertPts.size();
     for (Instruction *Inst : Other.ReverseInsertPts)
-      Partial |= ReverseInsertPts.insert(Inst).second;
+      Partial |= ReverseInsertPts.insert(Inst);
     return Partial;
 }
 
@@ -2194,7 +2194,7 @@ ComputePostOrders(Function &F,
 
     while (SuccStack.back().second != SE) {
       BasicBlock *SuccBB = *SuccStack.back().second++;
-      if (Visited.insert(SuccBB).second) {
+      if (Visited.insert(SuccBB)) {
         TerminatorInst *TI = cast<TerminatorInst>(&SuccBB->back());
         SuccStack.push_back(std::make_pair(SuccBB, succ_iterator(TI)));
         BBStates[CurrBB].addSucc(SuccBB);
@@ -2235,7 +2235,7 @@ ComputePostOrders(Function &F,
       BBState::edge_iterator PE = BBStates[PredStack.back().first].pred_end();
       while (PredStack.back().second != PE) {
         BasicBlock *BB = *PredStack.back().second++;
-        if (Visited.insert(BB).second) {
+        if (Visited.insert(BB)) {
           PredStack.push_back(std::make_pair(BB, BBStates[BB].pred_begin()));
           goto reverse_dfs_next_succ;
         }
@@ -2390,7 +2390,7 @@ ObjCARCOpt::ConnectTDBUTraversals(DenseMap<const BasicBlock *, BBState>
         if (!NewRetainReleaseRRI.Calls.count(NewRetain))
           return false;
 
-        if (ReleasesToMove.Calls.insert(NewRetainRelease).second) {
+        if (ReleasesToMove.Calls.insert(NewRetainRelease)) {
 
           // If we overflow when we compute the path count, don't remove/move
           // anything.
@@ -2422,7 +2422,7 @@ ObjCARCOpt::ConnectTDBUTraversals(DenseMap<const BasicBlock *, BBState>
           // Collect the optimal insertion points.
           if (!KnownSafe)
             for (Instruction *RIP : NewRetainReleaseRRI.ReverseInsertPts) {
-              if (ReleasesToMove.ReverseInsertPts.insert(RIP).second) {
+              if (ReleasesToMove.ReverseInsertPts.insert(RIP)) {
                 // If we overflow when we compute the path count, don't
                 // remove/move anything.
                 const BBState &RIPBBState = BBStates[RIP->getParent()];
@@ -2467,7 +2467,7 @@ ObjCARCOpt::ConnectTDBUTraversals(DenseMap<const BasicBlock *, BBState>
         if (!NewReleaseRetainRRI.Calls.count(NewRelease))
           return false;
 
-        if (RetainsToMove.Calls.insert(NewReleaseRetain).second) {
+        if (RetainsToMove.Calls.insert(NewReleaseRetain)) {
           // If we overflow when we compute the path count, don't remove/move
           // anything.
           const BBState &NRRBBState = BBStates[NewReleaseRetain->getParent()];
@@ -2483,7 +2483,7 @@ ObjCARCOpt::ConnectTDBUTraversals(DenseMap<const BasicBlock *, BBState>
           // Collect the optimal insertion points.
           if (!KnownSafe)
             for (Instruction *RIP : NewReleaseRetainRRI.ReverseInsertPts) {
-              if (RetainsToMove.ReverseInsertPts.insert(RIP).second) {
+              if (RetainsToMove.ReverseInsertPts.insert(RIP)) {
                 // If we overflow when we compute the path count, don't
                 // remove/move anything.
                 const BBState &RIPBBState = BBStates[RIP->getParent()];

@@ -336,7 +336,7 @@ private:
         getHWInstrDesc(IsTex?CF_TC:CF_VC))
         .addImm(0) // ADDR
         .addImm(AluInstCount - 1); // COUNT
-    return ClauseFile(MIb, std::move(ClauseContent));
+    return ClauseFile(MIb, ClauseContent);
   }
 
   void getLiteral(MachineInstr *MI, std::vector<int64_t> &Lits) const {
@@ -426,7 +426,7 @@ private:
     }
     assert(ClauseContent.size() < 128 && "ALU clause is too big");
     ClauseHead->getOperand(7).setImm(ClauseContent.size() - 1);
-    return ClauseFile(ClauseHead, std::move(ClauseContent));
+    return ClauseFile(ClauseHead, ClauseContent);
   }
 
   void
@@ -459,9 +459,11 @@ private:
   void CounterPropagateAddr(MachineInstr *MI, unsigned Addr) const {
     MI->getOperand(0).setImm(Addr + MI->getOperand(0).getImm());
   }
-  void CounterPropagateAddr(const std::set<MachineInstr *> &MIs,
-                            unsigned Addr) const {
-    for (MachineInstr *MI : MIs) {
+  void CounterPropagateAddr(std::set<MachineInstr *> MIs, unsigned Addr)
+      const {
+    for (std::set<MachineInstr *>::iterator It = MIs.begin(), E = MIs.end();
+        It != E; ++It) {
+      MachineInstr *MI = *It;
       CounterPropagateAddr(MI, Addr);
     }
   }
@@ -541,7 +543,7 @@ public:
           std::pair<unsigned, std::set<MachineInstr *> > Pair(CfCount,
               std::set<MachineInstr *>());
           Pair.second.insert(MIb);
-          LoopStack.push_back(std::move(Pair));
+          LoopStack.push_back(Pair);
           MI->eraseFromParent();
           CfCount++;
           break;
@@ -549,7 +551,7 @@ public:
         case AMDGPU::ENDLOOP: {
           CFStack.popLoop();
           std::pair<unsigned, std::set<MachineInstr *> > Pair =
-              std::move(LoopStack.back());
+              LoopStack.back();
           LoopStack.pop_back();
           CounterPropagateAddr(Pair.second, CfCount);
           BuildMI(MBB, MI, MBB.findDebugLoc(MI), getHWInstrDesc(CF_END_LOOP))

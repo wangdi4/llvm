@@ -593,13 +593,8 @@ Constant *llvm::ConstantFoldCastInstruction(unsigned opc, Constant *V,
       bool ignored;
       uint64_t x[2]; 
       uint32_t DestBitWidth = cast<IntegerType>(DestTy)->getBitWidth();
-      if (APFloat::opInvalidOp ==
-          V.convertToInteger(x, DestBitWidth, opc==Instruction::FPToSI,
-                             APFloat::rmTowardZero, &ignored)) {
-        // Undefined behavior invoked - the destination type can't represent
-        // the input constant.
-        return UndefValue::get(DestTy);
-      }
+      (void) V.convertToInteger(x, DestBitWidth, opc==Instruction::FPToSI,
+                                APFloat::rmTowardZero, &ignored);
       APInt Val(DestBitWidth, x);
       return ConstantInt::get(FPC->getContext(), Val);
     }
@@ -658,13 +653,9 @@ Constant *llvm::ConstantFoldCastInstruction(unsigned opc, Constant *V,
       APInt api = CI->getValue();
       APFloat apf(DestTy->getFltSemantics(),
                   APInt::getNullValue(DestTy->getPrimitiveSizeInBits()));
-      if (APFloat::opOverflow &
-          apf.convertFromAPInt(api, opc==Instruction::SIToFP,
-                              APFloat::rmNearestTiesToEven)) {
-        // Undefined behavior invoked - the destination type can't represent
-        // the input constant.
-        return UndefValue::get(DestTy);
-      }
+      (void)apf.convertFromAPInt(api, 
+                                 opc==Instruction::SIToFP,
+                                 APFloat::rmNearestTiesToEven);
       return ConstantFP::get(V->getContext(), apf);
     }
     return nullptr;

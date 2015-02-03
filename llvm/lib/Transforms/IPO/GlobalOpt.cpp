@@ -88,7 +88,6 @@ namespace {
 
     const DataLayout *DL;
     TargetLibraryInfo *TLI;
-    SmallSet<const Comdat *, 8> NotDiscardableComdats;
   };
 }
 
@@ -639,7 +638,7 @@ static bool AllUsesOfValueWillTrapIfNull(const Value *V,
     } else if (const PHINode *PN = dyn_cast<PHINode>(U)) {
       // If we've already seen this phi node, ignore it, it has already been
       // checked.
-      if (PHIs.insert(PN).second && !AllUsesOfValueWillTrapIfNull(PN, PHIs))
+      if (PHIs.insert(PN) && !AllUsesOfValueWillTrapIfNull(PN, PHIs))
         return false;
     } else if (isa<ICmpInst>(U) &&
                isa<ConstantPointerNull>(U->getOperand(1))) {
@@ -982,7 +981,7 @@ static bool ValueIsOnlyUsedLocallyOrStoredToOneGlobal(const Instruction *V,
     if (const PHINode *PN = dyn_cast<PHINode>(Inst)) {
       // PHIs are ok if all uses are ok.  Don't infinitely recurse through PHI
       // cycles.
-      if (PHIs.insert(PN).second)
+      if (PHIs.insert(PN))
         if (!ValueIsOnlyUsedLocallyOrStoredToOneGlobal(PN, GV, PHIs))
           return false;
       continue;
@@ -1073,11 +1072,11 @@ static bool LoadUsesSimpleEnoughForHeapSRA(const Value *V,
     }
 
     if (const PHINode *PN = dyn_cast<PHINode>(UI)) {
-      if (!LoadUsingPHIsPerLoad.insert(PN).second)
+      if (!LoadUsingPHIsPerLoad.insert(PN))
         // This means some phi nodes are dependent on each other.
         // Avoid infinite looping!
         return false;
-      if (!LoadUsingPHIs.insert(PN).second)
+      if (!LoadUsingPHIs.insert(PN))
         // If we have already analyzed this PHI, then it is safe.
         continue;
 
@@ -1909,11 +1908,8 @@ bool GlobalOpt::OptimizeFunctions(Module &M) {
     // Functions without names cannot be referenced outside this module.
     if (!F->hasName() && !F->isDeclaration() && !F->hasLocalLinkage())
       F->setLinkage(GlobalValue::InternalLinkage);
-
-    const Comdat *C = F->getComdat();
-    bool inComdat = C && NotDiscardableComdats.count(C);
     F->removeDeadConstantUsers();
-    if ((!inComdat || F->hasLocalLinkage()) && F->isDefTriviallyDead()) {
+    if (F->isDefTriviallyDead()) {
       F->eraseFromParent();
       Changed = true;
       ++NumFnDeleted;
@@ -1945,6 +1941,12 @@ bool GlobalOpt::OptimizeFunctions(Module &M) {
 bool GlobalOpt::OptimizeGlobalVars(Module &M) {
   bool Changed = false;
 
+  SmallSet<const Comdat *, 8> NotDiscardableComdats;
+  for (const GlobalVariable &GV : M.globals())
+    if (const Comdat *C = GV.getComdat())
+      if (!GV.isDiscardableIfUnused())
+        NotDiscardableComdats.insert(C);
+
   for (Module::global_iterator GVI = M.global_begin(), E = M.global_end();
        GVI != E; ) {
     GlobalVariable *GV = GVI++;
@@ -1961,7 +1963,7 @@ bool GlobalOpt::OptimizeGlobalVars(Module &M) {
 
     if (GV->isDiscardableIfUnused()) {
       if (const Comdat *C = GV->getComdat())
-        if (NotDiscardableComdats.count(C) && !GV->hasLocalLinkage())
+        if (NotDiscardableComdats.count(C))
           continue;
       Changed |= ProcessGlobal(GV, GVI);
     }
@@ -2045,8 +2047,7 @@ isSimpleEnoughValueToCommit(Constant *C,
                             SmallPtrSetImpl<Constant*> &SimpleConstants,
                             const DataLayout *DL) {
   // If we already checked this constant, we win.
-  if (!SimpleConstants.insert(C).second)
-    return true;
+  if (!SimpleConstants.insert(C)) return true;
   // Check the constant.
   return isSimpleEnoughValueToCommitHelper(C, SimpleConstants, DL);
 }
@@ -2671,7 +2672,7 @@ bool Evaluator::EvaluateFunction(Function *F, Constant *&RetVal,
     // Okay, we succeeded in evaluating this control flow.  See if we have
     // executed the new block before.  If so, we have a looping function,
     // which we cannot evaluate in reasonable time.
-    if (!ExecutedBlocks.insert(NextBB).second)
+    if (!ExecutedBlocks.insert(NextBB))
       return false;  // looped!
 
     // Okay, we have never been in this block before.  Check to see if there
@@ -2780,10 +2781,8 @@ public:
   }
   bool usedErase(GlobalValue *GV) { return Used.erase(GV); }
   bool compilerUsedErase(GlobalValue *GV) { return CompilerUsed.erase(GV); }
-  bool usedInsert(GlobalValue *GV) { return Used.insert(GV).second; }
-  bool compilerUsedInsert(GlobalValue *GV) {
-    return CompilerUsed.insert(GV).second;
-  }
+  bool usedInsert(GlobalValue *GV) { return Used.insert(GV); }
+  bool compilerUsedInsert(GlobalValue *GV) { return CompilerUsed.insert(GV); }
 
   void syncVariablesAndSets() {
     if (UsedV)
@@ -2976,7 +2975,7 @@ static bool cxxDtorIsEmpty(const Function &Fn,
       SmallPtrSet<const Function *, 8> NewCalledFunctions(CalledFunctions);
 
       // Don't treat recursive functions as empty.
-      if (!NewCalledFunctions.insert(CalledFn).second)
+      if (!NewCalledFunctions.insert(CalledFn))
         return false;
 
       if (!cxxDtorIsEmpty(*CalledFn, NewCalledFunctions))
@@ -3047,20 +3046,6 @@ bool GlobalOpt::runOnModule(Module &M) {
   bool LocalChange = true;
   while (LocalChange) {
     LocalChange = false;
-
-    NotDiscardableComdats.clear();
-    for (const GlobalVariable &GV : M.globals())
-      if (const Comdat *C = GV.getComdat())
-        if (!GV.isDiscardableIfUnused() || !GV.use_empty())
-          NotDiscardableComdats.insert(C);
-    for (Function &F : M)
-      if (const Comdat *C = F.getComdat())
-        if (!F.isDefTriviallyDead())
-          NotDiscardableComdats.insert(C);
-    for (GlobalAlias &GA : M.aliases())
-      if (const Comdat *C = GA.getComdat())
-        if (!GA.isDiscardableIfUnused() || !GA.use_empty())
-          NotDiscardableComdats.insert(C);
 
     // Delete functions that are trivially dead, ccc -> fastcc
     LocalChange |= OptimizeFunctions(M);

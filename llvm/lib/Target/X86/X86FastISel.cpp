@@ -2065,8 +2065,9 @@ bool X86FastISel::X86SelectTrunc(const Instruction *I) {
   if (!Subtarget->is64Bit()) {
     // If we're on x86-32; we can't extract an i8 from a general register.
     // First issue a copy to GR16_ABCD or GR32_ABCD.
-    const TargetRegisterClass *CopyRC =
-      (SrcVT == MVT::i16) ? &X86::GR16_ABCDRegClass : &X86::GR32_ABCDRegClass;
+    const TargetRegisterClass *CopyRC = (SrcVT == MVT::i16) ?
+      (const TargetRegisterClass*)&X86::GR16_ABCDRegClass :
+      (const TargetRegisterClass*)&X86::GR32_ABCDRegClass;
     unsigned CopyReg = createResultReg(CopyRC);
     BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(TargetOpcode::COPY),
             CopyReg).addReg(InputReg);
@@ -2248,10 +2249,8 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
     const MCInstrDesc &II = TII.get(TargetOpcode::DBG_VALUE);
     // FIXME may need to add RegState::Debug to any registers produced,
     // although ESP/EBP should be the only ones at the moment.
-    addFullAddress(BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, II), AM)
-        .addImm(0)
-        .addMetadata(DI->getVariable())
-        .addMetadata(DI->getExpression());
+    addFullAddress(BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, II), AM).
+      addImm(0).addMetadata(DI->getVariable());
     return true;
   }
   case Intrinsic::trap: {
@@ -3270,7 +3269,7 @@ unsigned X86FastISel::fastMaterializeAlloca(const AllocaInst *C) {
   X86AddressMode AM;
   if (!X86SelectAddress(C, AM))
     return 0;
-  unsigned Opc = TLI.getPointerTy() == MVT::i32 ? X86::LEA32r : X86::LEA64r;
+  unsigned Opc = Subtarget->is64Bit() ? X86::LEA64r : X86::LEA32r;
   const TargetRegisterClass* RC = TLI.getRegClassFor(TLI.getPointerTy());
   unsigned ResultReg = createResultReg(RC);
   addFullAddress(BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc,
@@ -3336,8 +3335,7 @@ bool X86FastISel::tryToFoldLoadIntoMI(MachineInstr *MI, unsigned OpNo,
   AM.getFullAddress(AddrOps);
 
   MachineInstr *Result =
-    XII.foldMemoryOperandImpl(*FuncInfo.MF, MI, OpNo, AddrOps,
-                              Size, Alignment, /*AllowCommute=*/true);
+    XII.foldMemoryOperandImpl(*FuncInfo.MF, MI, OpNo, AddrOps, Size, Alignment);
   if (!Result)
     return false;
 

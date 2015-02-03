@@ -18,7 +18,7 @@
 #include "HexagonMachineFunctionInfo.h"
 #include "HexagonSubtarget.h"
 #include "HexagonTargetMachine.h"
-#include "MCTargetDesc/HexagonInstPrinter.h"
+#include "InstPrinter/HexagonInstPrinter.h"
 #include "MCTargetDesc/HexagonMCInst.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
@@ -196,7 +196,7 @@ void HexagonAsmPrinter::EmitInstruction(const MachineInstr *MI) {
     assert((Size+IgnoreCount) == MI->getBundleSize() && "Corrupt Bundle!");
     for (unsigned Index = 0; Index < Size; Index++) {
       HexagonMCInst MCI;
-      MCI.setPacketBegin(Index == 0);
+      MCI.setPacketStart(Index == 0);
       MCI.setPacketEnd(Index == (Size-1));
 
       HexagonLowerToMC(BundleMIs[Index], MCI, *this);
@@ -206,7 +206,7 @@ void HexagonAsmPrinter::EmitInstruction(const MachineInstr *MI) {
   else {
     HexagonMCInst MCI;
     if (MI->getOpcode() == Hexagon::ENDLOOP0) {
-      MCI.setPacketBegin(true);
+      MCI.setPacketStart(true);
       MCI.setPacketEnd(true);
     }
     HexagonLowerToMC(MI, MCI, *this);

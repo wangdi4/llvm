@@ -27,7 +27,6 @@ void llvm::initializeInstrumentation(PassRegistry &Registry) {
   initializeGCOVProfilerPass(Registry);
   initializeMemorySanitizerPass(Registry);
   initializeThreadSanitizerPass(Registry);
-  initializeSanitizerCoverageModulePass(Registry);
   initializeDataFlowSanitizerPass(Registry);
 }
 

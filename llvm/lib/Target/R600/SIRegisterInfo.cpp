@@ -40,8 +40,6 @@ BitVector SIRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
 
   Reserved.set(AMDGPU::INDIRECT_BASE_ADDR);
   Reserved.set(AMDGPU::FLAT_SCR);
-  Reserved.set(AMDGPU::FLAT_SCR_LO);
-  Reserved.set(AMDGPU::FLAT_SCR_HI);
 
   // Reserve some VGPRs to use as temp registers in case we have to spill VGPRs
   Reserved.set(AMDGPU::VGPR255);
@@ -147,7 +145,6 @@ void SIRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
       for (unsigned i = 0, e = NumSubRegs; i < e; ++i) {
         unsigned SubReg = getPhysRegSubReg(MI->getOperand(0).getReg(),
                                            &AMDGPU::SGPR_32RegClass, i);
-        bool isM0 = SubReg == AMDGPU::M0;
         struct SIMachineFunctionInfo::SpilledReg Spill =
             MFI->getSpilledReg(MF, Index, i);
 
@@ -156,17 +153,10 @@ void SIRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
            Ctx.emitError("Ran out of VGPRs for spilling SGPR");
         }
 
-        if (isM0) {
-          SubReg = RS->scavengeRegister(&AMDGPU::SGPR_32RegClass, MI, 0);
-        }
-
         BuildMI(*MBB, MI, DL, TII->get(AMDGPU::V_READLANE_B32), SubReg)
                 .addReg(Spill.VGPR)
                 .addImm(Spill.Lane);
-        if (isM0) {
-          BuildMI(*MBB, MI, DL, TII->get(AMDGPU::S_MOV_B32), AMDGPU::M0)
-                  .addReg(SubReg);
-        }
+
       }
       TII->insertNOPs(MI, 3);
       MI->eraseFromParent();
@@ -277,7 +267,7 @@ unsigned SIRegisterInfo::getHWRegIndex(unsigned Reg) const {
 const TargetRegisterClass *SIRegisterInfo::getPhysRegClass(unsigned Reg) const {
   assert(!TargetRegisterInfo::isVirtualRegister(Reg));
 
-  static const TargetRegisterClass *BaseClasses[] = {
+  const TargetRegisterClass *BaseClasses[] = {
     &AMDGPU::VReg_32RegClass,
     &AMDGPU::SReg_32RegClass,
     &AMDGPU::VReg_64RegClass,

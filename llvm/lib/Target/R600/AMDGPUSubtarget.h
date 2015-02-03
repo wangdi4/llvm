@@ -28,6 +28,8 @@
 #define GET_SUBTARGETINFO_HEADER
 #include "AMDGPUGenSubtargetInfo.inc"
 
+#define MAX_CB_SIZE (1 << 16)
+
 namespace llvm {
 
 class AMDGPUSubtarget : public AMDGPUGenSubtargetInfo {
@@ -58,7 +60,6 @@ private:
   bool EnableIRStructurizer;
   bool EnablePromoteAlloca;
   bool EnableIfCvt;
-  bool EnableLoadStoreOpt;
   unsigned WavefrontSize;
   bool CFALUBug;
   int LocalMemorySize;
@@ -68,7 +69,6 @@ private:
   std::unique_ptr<AMDGPUTargetLowering> TLInfo;
   std::unique_ptr<AMDGPUInstrInfo> InstrInfo;
   InstrItineraryData InstrItins;
-  Triple TargetTriple;
 
 public:
   AMDGPUSubtarget(StringRef TT, StringRef CPU, StringRef FS, TargetMachine &TM);
@@ -180,10 +180,6 @@ public:
     return EnableIfCvt;
   }
 
-  bool loadStoreOptEnabled() const {
-    return EnableLoadStoreOpt;
-  }
-
   unsigned getWavefrontSize() const {
     return WavefrontSize;
   }
@@ -198,8 +194,6 @@ public:
   int getLocalMemorySize() const {
     return LocalMemorySize;
   }
-
-  unsigned getAmdKernelCodeChipID() const;
 
   bool enableMachineScheduler() const override {
     return getGeneration() <= NORTHERN_ISLANDS;
@@ -219,9 +213,6 @@ public:
   }
   bool r600ALUEncoding() const {
     return R600ALUInst;
-  }
-  bool isAmdHsaOS() const {
-    return TargetTriple.getOS() == Triple::AMDHSA;
   }
 };
 

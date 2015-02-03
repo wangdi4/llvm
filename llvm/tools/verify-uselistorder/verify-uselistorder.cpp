@@ -197,12 +197,9 @@ ValueMapping::ValueMapping(const Module &M) {
       map(G.getInitializer());
   for (const GlobalAlias &A : M.aliases())
     map(A.getAliasee());
-  for (const Function &F : M) {
+  for (const Function &F : M)
     if (F.hasPrefixData())
       map(F.getPrefixData());
-    if (F.hasPrologueData())
-      map(F.getPrologueData());
-  }
 
   // Function bodies.
   for (const Function &F : M) {
@@ -466,12 +463,9 @@ static void changeUseLists(Module &M, Changer changeValueUseList) {
       changeValueUseList(G.getInitializer());
   for (GlobalAlias &A : M.aliases())
     changeValueUseList(A.getAliasee());
-  for (Function &F : M) {
+  for (Function &F : M)
     if (F.hasPrefixData())
       changeValueUseList(F.getPrefixData());
-    if (F.hasPrologueData())
-      changeValueUseList(F.getPrologueData());
-  }
 
   // Function bodies.
   for (Function &F : M) {

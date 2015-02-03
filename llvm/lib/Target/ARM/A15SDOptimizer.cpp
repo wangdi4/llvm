@@ -35,7 +35,6 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
-#include <map>
 #include <set>
 
 using namespace llvm;

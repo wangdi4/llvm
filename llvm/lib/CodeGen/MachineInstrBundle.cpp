@@ -104,12 +104,12 @@ void llvm::finalizeBundle(MachineBasicBlock &MBB,
   assert(FirstMI != LastMI && "Empty bundle?");
   MIBundleBuilder Bundle(MBB, FirstMI, LastMI);
 
-  MachineFunction &MF = *MBB.getParent();
-  const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
-  const TargetRegisterInfo *TRI = MF.getSubtarget().getRegisterInfo();
+  const TargetMachine &TM = MBB.getParent()->getTarget();
+  const TargetInstrInfo *TII = TM.getSubtargetImpl()->getInstrInfo();
+  const TargetRegisterInfo *TRI = TM.getSubtargetImpl()->getRegisterInfo();
 
-  MachineInstrBuilder MIB =
-      BuildMI(MF, FirstMI->getDebugLoc(), TII->get(TargetOpcode::BUNDLE));
+  MachineInstrBuilder MIB = BuildMI(*MBB.getParent(), FirstMI->getDebugLoc(),
+                                    TII->get(TargetOpcode::BUNDLE));
   Bundle.prepend(MIB);
 
   SmallVector<unsigned, 32> LocalDefs;
@@ -141,7 +141,7 @@ void llvm::finalizeBundle(MachineBasicBlock &MBB,
           // Internal def is now killed.
           KilledDefSet.insert(Reg);
       } else {
-        if (ExternUseSet.insert(Reg).second) {
+        if (ExternUseSet.insert(Reg)) {
           ExternUses.push_back(Reg);
           if (MO.isUndef())
             UndefUseSet.insert(Reg);
@@ -158,7 +158,7 @@ void llvm::finalizeBundle(MachineBasicBlock &MBB,
       if (!Reg)
         continue;
 
-      if (LocalDefSet.insert(Reg).second) {
+      if (LocalDefSet.insert(Reg)) {
         LocalDefs.push_back(Reg);
         if (MO.isDead()) {
           DeadDefSet.insert(Reg);
@@ -174,7 +174,7 @@ void llvm::finalizeBundle(MachineBasicBlock &MBB,
       if (!MO.isDead()) {
         for (MCSubRegIterator SubRegs(Reg, TRI); SubRegs.isValid(); ++SubRegs) {
           unsigned SubReg = *SubRegs;
-          if (LocalDefSet.insert(SubReg).second)
+          if (LocalDefSet.insert(SubReg))
             LocalDefs.push_back(SubReg);
         }
       }
@@ -186,7 +186,7 @@ void llvm::finalizeBundle(MachineBasicBlock &MBB,
   SmallSet<unsigned, 32> Added;
   for (unsigned i = 0, e = LocalDefs.size(); i != e; ++i) {
     unsigned Reg = LocalDefs[i];
-    if (Added.insert(Reg).second) {
+    if (Added.insert(Reg)) {
       // If it's not live beyond end of the bundle, mark it dead.
       bool isDead = DeadDefSet.count(Reg) || KilledDefSet.count(Reg);
       MIB.addReg(Reg, getDefRegState(true) | getDeadRegState(isDead) |

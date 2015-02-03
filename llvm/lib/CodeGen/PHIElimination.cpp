@@ -30,6 +30,7 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Target/TargetInstrInfo.h"
+#include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
 #include <algorithm>
 using namespace llvm;
@@ -367,7 +368,7 @@ void PHIElimination::LowerPHINode(MachineBasicBlock &MBB,
     // Check to make sure we haven't already emitted the copy for this block.
     // This can happen because PHI nodes may have multiple entries for the same
     // basic block.
-    if (!MBBsInsertedInto.insert(&opBlock).second)
+    if (!MBBsInsertedInto.insert(&opBlock))
       continue;  // If the copy has already been emitted, we're done.
 
     // Find a safe location to insert the copy, this may be the first terminator

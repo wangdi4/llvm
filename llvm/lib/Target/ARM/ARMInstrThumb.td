@@ -360,14 +360,6 @@ def tADDrSPi : T1pI<(outs tGPR:$dst), (ins GPRsp:$sp, t_imm0_1020s4:$imm),
   let DecoderMethod = "DecodeThumbAddSpecialReg";
 }
 
-// Thumb1 frame lowering is rather fragile, we hope to be able to use
-// tADDrSPi, but we may need to insert a sequence that clobbers CPSR.
-def tADDframe : PseudoInst<(outs tGPR:$dst), (ins i32imm:$base, i32imm:$offset),
-                           NoItinerary, []>,
-                Requires<[IsThumb, IsThumb1Only]> {
-  let Defs = [CPSR];
-}
-
 // ADD sp, sp, #<imm7>
 def tADDspi : T1pIt<(outs GPRsp:$Rdn), (ins GPRsp:$Rn, t_imm0_508s4:$imm),
                      IIC_iALUi, "add", "\t$Rdn, $imm", []>,
@@ -714,7 +706,7 @@ def tSTRspi : T1pIs<(outs), (ins tGPR:$Rt, t_addrmode_sp:$addr), IIC_iStore_i,
 //
 
 // These require base address to be written back or one of the loaded regs.
-let hasSideEffects = 0 in {
+let neverHasSideEffects = 1 in {
 
 let mayLoad = 1, hasExtraDefRegAllocReq = 1 in
 def tLDMIA : T1I<(outs), (ins tGPR:$Rn, pred:$p, reglist:$regs, variable_ops),
@@ -754,7 +746,7 @@ def tSTMIA_UPD : Thumb1I<(outs GPR:$wb),
   let Inst{7-0}  = regs;
 }
 
-} // hasSideEffects
+} // neverHasSideEffects
 
 def : InstAlias<"ldm${p} $Rn!, $regs",
                 (tLDMIA tGPR:$Rn, pred:$p, reglist:$regs)>,
@@ -888,7 +880,7 @@ def tADDrr :                    // A8.6.6 T1
                 "add", "\t$Rd, $Rn, $Rm",
                 [(set tGPR:$Rd, (add tGPR:$Rn, tGPR:$Rm))]>, Sched<[WriteALU]>;
 
-let hasSideEffects = 0 in
+let neverHasSideEffects = 1 in
 def tADDhirr : T1pIt<(outs GPR:$Rdn), (ins GPR:$Rn, GPR:$Rm), IIC_iALUr,
                      "add", "\t$Rdn, $Rm", []>,
                T1Special<{0,0,?,?}>, Sched<[WriteALU]> {
@@ -1048,7 +1040,7 @@ def : tInstAlias <"movs $Rdn, $imm",
 
 // A7-73: MOV(2) - mov setting flag.
 
-let hasSideEffects = 0 in {
+let neverHasSideEffects = 1 in {
 def tMOVr : Thumb1pI<(outs GPR:$Rd), (ins GPR:$Rm), AddrModeNone,
                       2, IIC_iMOVr,
                       "mov", "\t$Rd, $Rm", "", []>,
@@ -1070,7 +1062,7 @@ def tMOVSr      : T1I<(outs tGPR:$Rd), (ins tGPR:$Rm), IIC_iMOVr,
   let Inst{5-3}  = Rm;
   let Inst{2-0}  = Rd;
 }
-} // hasSideEffects
+} // neverHasSideEffects
 
 // Multiply register
 let isCommutable = 1 in
@@ -1248,7 +1240,7 @@ def tADR : T1I<(outs tGPR:$Rd), (ins t_adrlabel:$addr, pred:$p),
   let DecoderMethod = "DecodeThumbAddSpecialReg";
 }
 
-let hasSideEffects = 0, isReMaterializable = 1 in
+let neverHasSideEffects = 1, isReMaterializable = 1 in
 def tLEApcrel   : tPseudoInst<(outs tGPR:$Rd), (ins i32imm:$label, pred:$p),
                               2, IIC_iALUi, []>, Sched<[WriteALU]>;
 

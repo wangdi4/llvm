@@ -165,10 +165,10 @@ private:
   //
   bool ProcessInterval(NodeTy *Node) {
     BasicBlock *Header = getNodeHeader(Node);
-    if (!Visited.insert(Header).second)
-      return false;
+    if (Visited.count(Header)) return false;
 
     Interval *Int = new Interval(Header);
+    Visited.insert(Header);   // The header has now been visited!
 
     // Check all of our successors to see if they are in the interval...
     for (typename GT::ChildIteratorType I = GT::child_begin(Node),

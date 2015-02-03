@@ -29,6 +29,7 @@ namespace {
       return true;
     }
 
+    void EmitCOFFSecRel32(MCSymbol const *Symbol) override {}
     void EmitCommonSymbol(MCSymbol *Symbol, uint64_t Size,
                           unsigned ByteAlignment) override {}
     void EmitZerofill(const MCSection *Section, MCSymbol *Symbol = nullptr,

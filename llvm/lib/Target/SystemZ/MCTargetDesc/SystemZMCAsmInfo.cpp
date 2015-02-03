@@ -25,3 +25,9 @@ SystemZMCAsmInfo::SystemZMCAsmInfo(StringRef TT) {
   SupportsDebugInformation = true;
   ExceptionsType = ExceptionHandling::DwarfCFI;
 }
+
+const MCSection *
+SystemZMCAsmInfo::getNonexecutableStackSection(MCContext &Ctx) const {
+  return Ctx.getELFSection(".note.GNU-stack", ELF::SHT_PROGBITS,
+                           0, SectionKind::getMetadata());
+}

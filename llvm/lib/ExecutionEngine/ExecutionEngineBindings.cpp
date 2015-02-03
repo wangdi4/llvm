@@ -188,8 +188,7 @@ LLVMBool LLVMCreateMCJITCompilerForModule(
          .setCodeModel(unwrap(options.CodeModel))
          .setTargetOptions(targetOptions);
   if (options.MCJMM)
-    builder.setMCJITMemoryManager(
-      std::unique_ptr<RTDyldMemoryManager>(unwrap(options.MCJMM)));
+    builder.setMCJITMemoryManager(unwrap(options.MCJMM));
   if (ExecutionEngine *JIT = builder.create()) {
     *OutJIT = wrap(JIT);
     return 0;

@@ -42,7 +42,8 @@ SparcELFMCAsmInfo::SparcELFMCAsmInfo(StringRef TT) {
   SunStyleELFSectionSwitchSyntax = true;
   UsesELFSectionDirectiveForBSS = true;
 
-  if (TheTriple.isOSSolaris() || TheTriple.isOSOpenBSD())
+  if (TheTriple.getOS() == llvm::Triple::Solaris ||
+      TheTriple.getOS() == llvm::Triple::OpenBSD)
     UseIntegratedAssembler = true;
 }
 

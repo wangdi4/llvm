@@ -57,7 +57,9 @@ public:
     assert(!"Not implemented");
   }
   bool mayNeedRelaxation(const MCInst &Inst) const override { return false; }
-  bool writeNopData(uint64_t Count, MCObjectWriter *OW) const override;
+  bool writeNopData(uint64_t Count, MCObjectWriter *OW) const override {
+    return true;
+  }
 
   const MCFixupKindInfo &getFixupKindInfo(MCFixupKind Kind) const override;
 };
@@ -112,13 +114,6 @@ const MCFixupKindInfo &AMDGPUAsmBackend::getFixupKindInfo(
     return MCAsmBackend::getFixupKindInfo(Kind);
 
   return Infos[Kind - FirstTargetFixupKind];
-}
-
-bool AMDGPUAsmBackend::writeNopData(uint64_t Count, MCObjectWriter *OW) const {
-  for (unsigned i = 0; i < Count; ++i)
-    OW->Write8(0);
-
-  return true;
 }
 
 //===----------------------------------------------------------------------===//

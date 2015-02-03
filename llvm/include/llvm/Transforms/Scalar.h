@@ -216,7 +216,7 @@ FunctionPass *createJumpThreadingPass(int Threshold = -1);
 // CFGSimplification - Merge basic blocks, eliminate unreachable blocks,
 // simplify terminator instructions, etc...
 //
-FunctionPass *createCFGSimplificationPass(int Threshold = -1);
+FunctionPass *createCFGSimplificationPass();
 
 //===----------------------------------------------------------------------===//
 //
@@ -395,9 +395,7 @@ FunctionPass *createAddDiscriminatorsPass();
 //
 // SeparateConstOffsetFromGEP - Split GEPs for better CSE
 //
-FunctionPass *
-createSeparateConstOffsetFromGEPPass(const TargetMachine *TM = nullptr,
-                                     bool LowerGEP = false);
+FunctionPass *createSeparateConstOffsetFromGEPPass();
 
 //===----------------------------------------------------------------------===//
 //

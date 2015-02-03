@@ -22,14 +22,33 @@
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/MemoryObject.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 
-typedef std::pair<std::vector<unsigned char>, std::vector<const char *>>
-    ByteArrayTy;
+typedef std::vector<std::pair<unsigned char, const char*> > ByteArrayTy;
+
+namespace {
+class VectorMemoryObject : public MemoryObject {
+private:
+  const ByteArrayTy &Bytes;
+public:
+  VectorMemoryObject(const ByteArrayTy &bytes) : Bytes(bytes) {}
+
+  uint64_t getBase() const override { return 0; }
+  uint64_t getExtent() const override { return Bytes.size(); }
+
+  int readByte(uint64_t Addr, uint8_t *Byte) const override {
+    if (Addr >= getExtent())
+      return -1;
+    *Byte = Bytes[Addr].first;
+    return 0;
+  }
+};
+}
 
 static bool PrintInsts(const MCDisassembler &DisAsm,
                        const ByteArrayTy &Bytes,
@@ -37,21 +56,21 @@ static bool PrintInsts(const MCDisassembler &DisAsm,
                        MCStreamer &Streamer, bool InAtomicBlock,
                        const MCSubtargetInfo &STI) {
   // Wrap the vector in a MemoryObject.
-  ArrayRef<uint8_t> Data(Bytes.first.data(), Bytes.first.size());
+  VectorMemoryObject memoryObject(Bytes);
 
   // Disassemble it to strings.
   uint64_t Size;
   uint64_t Index;
 
-  for (Index = 0; Index < Bytes.first.size(); Index += Size) {
+  for (Index = 0; Index < Bytes.size(); Index += Size) {
     MCInst Inst;
 
     MCDisassembler::DecodeStatus S;
-    S = DisAsm.getInstruction(Inst, Size, Data.slice(Index), Index,
+    S = DisAsm.getInstruction(Inst, Size, memoryObject, Index,
                               /*REMOVE*/ nulls(), nulls());
     switch (S) {
     case MCDisassembler::Fail:
-      SM.PrintMessage(SMLoc::getFromPointer(Bytes.second[Index]),
+      SM.PrintMessage(SMLoc::getFromPointer(Bytes[Index].second),
                       SourceMgr::DK_Warning,
                       "invalid instruction encoding");
       // Don't try to resynchronise the stream in a block
@@ -64,7 +83,7 @@ static bool PrintInsts(const MCDisassembler &DisAsm,
       break;
 
     case MCDisassembler::SoftFail:
-      SM.PrintMessage(SMLoc::getFromPointer(Bytes.second[Index]),
+      SM.PrintMessage(SMLoc::getFromPointer(Bytes[Index].second),
                       SourceMgr::DK_Warning,
                       "potentially undefined instruction encoding");
       // Fall through
@@ -79,23 +98,29 @@ static bool PrintInsts(const MCDisassembler &DisAsm,
 }
 
 static bool SkipToToken(StringRef &Str) {
-  for (;;) {
-    if (Str.empty())
-      return false;
-
+  while (!Str.empty() && Str.find_first_not_of(" \t\r\n#,") != 0) {
     // Strip horizontal whitespace and commas.
-    if (size_t Pos = Str.find_first_not_of(" \t\r\n,")) {
+    if (size_t Pos = Str.find_first_not_of(" \t\r,")) {
       Str = Str.substr(Pos);
-      continue;
     }
 
-    // If this is the start of a comment, remove the rest of the line.
-    if (Str[0] == '#') {
+    // If this is the end of a line or start of a comment, remove the rest of
+    // the line.
+    if (Str[0] == '\n' || Str[0] == '#') {
+      // Strip to the end of line if we already processed any bytes on this
+      // line.  This strips the comment and/or the \n.
+      if (Str[0] == '\n') {
+        Str = Str.substr(1);
+      } else {
         Str = Str.substr(Str.find_first_of('\n'));
+        if (!Str.empty())
+          Str = Str.substr(1);
+      }
       continue;
     }
-    return true;
   }
+
+  return !Str.empty();
 }
 
 
@@ -118,13 +143,11 @@ static bool ByteArrayFromString(ByteArrayTy &ByteArray,
       SM.PrintMessage(SMLoc::getFromPointer(Value.data()), SourceMgr::DK_Error,
                       "invalid input token");
       Str = Str.substr(Str.find('\n'));
-      ByteArray.first.clear();
-      ByteArray.second.clear();
+      ByteArray.clear();
       continue;
     }
 
-    ByteArray.first.push_back(ByteVal);
-    ByteArray.second.push_back(Value.data());
+    ByteArray.push_back(std::make_pair((unsigned char)ByteVal, Value.data()));
     Str = Str.substr(Next);
   }
 
@@ -162,7 +185,7 @@ int Disassembler::disassemble(const Target &T,
   }
 
   // Set up initial section manually here
-  Streamer.InitSections(false);
+  Streamer.InitSections();
 
   bool ErrorOccurred = false;
 
@@ -172,8 +195,7 @@ int Disassembler::disassemble(const Target &T,
   bool InAtomicBlock = false;
 
   while (SkipToToken(Str)) {
-    ByteArray.first.clear();
-    ByteArray.second.clear();
+    ByteArray.clear();
 
     if (Str[0] == '[') {
       if (InAtomicBlock) {
@@ -198,7 +220,7 @@ int Disassembler::disassemble(const Target &T,
     // It's a real token, get the bytes and emit them
     ErrorOccurred |= ByteArrayFromString(ByteArray, Str, SM);
 
-    if (!ByteArray.first.empty())
+    if (!ByteArray.empty())
       ErrorOccurred |= PrintInsts(*DisAsm, ByteArray, SM, Out, Streamer,
                                   InAtomicBlock, STI);
   }

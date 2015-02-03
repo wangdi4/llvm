@@ -16,10 +16,8 @@ BUILT_SOURCES = HexagonGenRegisterInfo.inc \
                 HexagonGenAsmWriter.inc \
                 HexagonGenDAGISel.inc HexagonGenSubtargetInfo.inc \
                 HexagonGenCallingConv.inc \
-                HexagonGenDFAPacketizer.inc \
-                HexagonGenMCCodeEmitter.inc \
-                HexagonGenDisassemblerTables.inc
+                HexagonGenDFAPacketizer.inc
 
-DIRS = TargetInfo MCTargetDesc Disassembler
+DIRS = InstPrinter TargetInfo MCTargetDesc
 
 include $(LEVEL)/Makefile.common

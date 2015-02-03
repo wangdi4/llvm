@@ -1,6 +1,6 @@
 ;RUN: llc < %s -march=r600 -mcpu=redwood | FileCheck %s
 
-; CHECK-LABEL: {{^}}main:
+; CHECK: @main
 ; CHECK: ADD *
 
 define void @main(<4 x float> inreg %reg0, <4 x float> inreg %reg1, <4 x float> inreg %reg2) #0 {
@@ -29,7 +29,7 @@ main_body:
   ret void
 }
 
-; CHECK-LABEL: {{^}}main2:
+; CHECK: @main
 ; CHECK-NOT: ADD *
 
 define void @main2(<4 x float> inreg %reg0, <4 x float> inreg %reg1, <4 x float> inreg %reg2) #0 {

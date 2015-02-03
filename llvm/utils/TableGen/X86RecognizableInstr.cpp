@@ -541,14 +541,6 @@ void RecognizableInstr::emitInstructionSpecifier() {
   // physicalOperandIndex should always be < numPhysicalOperands
   unsigned physicalOperandIndex = 0;
 
-  // Given the set of prefix bits, how many additional operands does the
-  // instruction have?
-  unsigned additionalOperands = 0;
-  if (HasVEX_4V || HasVEX_4VOp3)
-    ++additionalOperands;
-  if (HasEVEX_K)
-    ++additionalOperands;
-
   switch (Form) {
   default: llvm_unreachable("Unhandled form");
   case X86Local::RawFrmSrc:
@@ -583,17 +575,17 @@ void RecognizableInstr::emitInstructionSpecifier() {
     break;
   case X86Local::MRMDestReg:
     // Operand 1 is a register operand in the R/M field.
-    // - In AVX512 there may be a mask operand here -
     // Operand 2 is a register operand in the Reg/Opcode field.
     // - In AVX, there is a register operand in the VEX.vvvv field here -
     // Operand 3 (optional) is an immediate.
-    assert(numPhysicalOperands >= 2 + additionalOperands &&
-           numPhysicalOperands <= 3 + additionalOperands &&
-           "Unexpected number of operands for MRMDestRegFrm");
+    if (HasVEX_4V)
+      assert(numPhysicalOperands >= 3 && numPhysicalOperands <= 4 &&
+             "Unexpected number of operands for MRMDestRegFrm with VEX_4V");
+    else
+      assert(numPhysicalOperands >= 2 && numPhysicalOperands <= 3 &&
+             "Unexpected number of operands for MRMDestRegFrm");
 
     HANDLE_OPERAND(rmRegister)
-    if (HasEVEX_K)
-      HANDLE_OPERAND(writemaskRegister)
 
     if (HasVEX_4V)
       // FIXME: In AVX, the register below becomes the one encoded
@@ -608,10 +600,12 @@ void RecognizableInstr::emitInstructionSpecifier() {
     // Operand 2 is a register operand in the Reg/Opcode field.
     // - In AVX, there is a register operand in the VEX.vvvv field here -
     // Operand 3 (optional) is an immediate.
-    assert(numPhysicalOperands >= 2 + additionalOperands &&
-           numPhysicalOperands <= 3 + additionalOperands &&
-           "Unexpected number of operands for MRMDestMemFrm with VEX_4V");
-
+    if (HasVEX_4V)
+      assert(numPhysicalOperands >= 3 && numPhysicalOperands <= 4 &&
+             "Unexpected number of operands for MRMDestMemFrm with VEX_4V");
+    else
+      assert(numPhysicalOperands >= 2 && numPhysicalOperands <= 3 &&
+             "Unexpected number of operands for MRMDestMemFrm");
     HANDLE_OPERAND(memory)
 
     if (HasEVEX_K)
@@ -632,9 +626,12 @@ void RecognizableInstr::emitInstructionSpecifier() {
     // Operand 3 (optional) is an immediate.
     // Operand 4 (optional) is an immediate.
 
-    assert(numPhysicalOperands >= 2 + additionalOperands &&
-           numPhysicalOperands <= 4 + additionalOperands &&
-           "Unexpected number of operands for MRMSrcRegFrm");
+    if (HasVEX_4V || HasVEX_4VOp3)
+      assert(numPhysicalOperands >= 3 && numPhysicalOperands <= 5 &&
+             "Unexpected number of operands for MRMSrcRegFrm with VEX_4V");
+    else
+      assert(numPhysicalOperands >= 2 && numPhysicalOperands <= 4 &&
+             "Unexpected number of operands for MRMSrcRegFrm");
 
     HANDLE_OPERAND(roRegister)
 
@@ -665,9 +662,12 @@ void RecognizableInstr::emitInstructionSpecifier() {
     // - In AVX, there is a register operand in the VEX.vvvv field here -
     // Operand 3 (optional) is an immediate.
 
-    assert(numPhysicalOperands >= 2 + additionalOperands &&
-           numPhysicalOperands <= 4 + additionalOperands &&
-           "Unexpected number of operands for MRMSrcMemFrm");
+    if (HasVEX_4V || HasVEX_4VOp3)
+      assert(numPhysicalOperands >= 3 && numPhysicalOperands <= 5 &&
+             "Unexpected number of operands for MRMSrcMemFrm with VEX_4V");
+    else
+      assert(numPhysicalOperands >= 2 && numPhysicalOperands <= 3 &&
+             "Unexpected number of operands for MRMSrcMemFrm");
 
     HANDLE_OPERAND(roRegister)
 
@@ -700,13 +700,15 @@ void RecognizableInstr::emitInstructionSpecifier() {
   case X86Local::MRM5r:
   case X86Local::MRM6r:
   case X86Local::MRM7r:
-    // Operand 1 is a register operand in the R/M field.
-    // Operand 2 (optional) is an immediate or relocation.
-    // Operand 3 (optional) is an immediate.
-    assert(numPhysicalOperands >= 0 + additionalOperands &&
-           numPhysicalOperands <= 3 + additionalOperands &&
-           "Unexpected number of operands for MRMnr");
-
+    {
+      // Operand 1 is a register operand in the R/M field.
+      // Operand 2 (optional) is an immediate or relocation.
+      // Operand 3 (optional) is an immediate.
+      unsigned kOp = (HasEVEX_K) ? 1:0;
+      unsigned Op4v = (HasVEX_4V) ? 1:0;
+      if (numPhysicalOperands > 3 + kOp + Op4v)
+        llvm_unreachable("Unexpected number of operands for MRMnr");
+    }
     if (HasVEX_4V)
       HANDLE_OPERAND(vvvvRegister)
 
@@ -725,12 +727,15 @@ void RecognizableInstr::emitInstructionSpecifier() {
   case X86Local::MRM5m:
   case X86Local::MRM6m:
   case X86Local::MRM7m:
-    // Operand 1 is a memory operand (possibly SIB-extended)
-    // Operand 2 (optional) is an immediate or relocation.
-    assert(numPhysicalOperands >= 1 + additionalOperands &&
-           numPhysicalOperands <= 2 + additionalOperands &&
-           "Unexpected number of operands for MRMnm");
-
+    {
+      // Operand 1 is a memory operand (possibly SIB-extended)
+      // Operand 2 (optional) is an immediate or relocation.
+      unsigned kOp = (HasEVEX_K) ? 1:0;
+      unsigned Op4v = (HasVEX_4V) ? 1:0;
+      if (numPhysicalOperands < 1 + kOp + Op4v ||
+          numPhysicalOperands > 2 + kOp + Op4v)
+        llvm_unreachable("Unexpected number of operands for MRMnm");
+    }
     if (HasVEX_4V)
       HANDLE_OPERAND(vvvvRegister)
     if (HasEVEX_K)

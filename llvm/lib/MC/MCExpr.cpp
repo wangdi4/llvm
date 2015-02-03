@@ -49,8 +49,12 @@ void MCExpr::print(raw_ostream &OS) const {
     else
       OS << Sym;
 
-    if (SRE.getKind() != MCSymbolRefExpr::VK_None)
-      SRE.printVariantKind(OS);
+    if (SRE.getKind() != MCSymbolRefExpr::VK_None) {
+      if (SRE.getMCAsmInfo().useParensForSymbolVariant())
+        OS << '(' << MCSymbolRefExpr::getVariantKindName(SRE.getKind()) << ')';
+      else
+        OS << '@' << MCSymbolRefExpr::getVariantKindName(SRE.getKind());
+    }
 
     return;
   }
@@ -145,15 +149,6 @@ const MCConstantExpr *MCConstantExpr::Create(int64_t Value, MCContext &Ctx) {
 }
 
 /* *** */
-
-MCSymbolRefExpr::MCSymbolRefExpr(const MCSymbol *Symbol, VariantKind Kind,
-                                 const MCAsmInfo *MAI)
-    : MCExpr(MCExpr::SymbolRef), Kind(Kind),
-      UseParensForSymbolVariant(MAI->useParensForSymbolVariant()),
-      HasSubsectionsViaSymbols(MAI->hasSubsectionsViaSymbols()),
-      Symbol(Symbol) {
-  assert(Symbol);
-}
 
 const MCSymbolRefExpr *MCSymbolRefExpr::Create(const MCSymbol *Sym,
                                                VariantKind Kind,
@@ -252,7 +247,6 @@ StringRef MCSymbolRefExpr::getVariantKindName(VariantKind Kind) {
   case VK_PPC_GOT_TLSLD_HI: return "got@tlsld@h";
   case VK_PPC_GOT_TLSLD_HA: return "got@tlsld@ha";
   case VK_PPC_TLSLD: return "tlsld";
-  case VK_PPC_LOCAL: return "local";
   case VK_Mips_GPREL: return "GPREL";
   case VK_Mips_GOT_CALL: return "GOT_CALL";
   case VK_Mips_GOT16: return "GOT16";
@@ -446,13 +440,6 @@ MCSymbolRefExpr::getVariantKindForName(StringRef Name) {
     .Case("TLSDESC", VK_ARM_TLSDESC)
     .Case("tlsdesc", VK_ARM_TLSDESC)
     .Default(VK_Invalid);
-}
-
-void MCSymbolRefExpr::printVariantKind(raw_ostream &OS) const {
-  if (UseParensForSymbolVariant)
-    OS << '(' << MCSymbolRefExpr::getVariantKindName(getKind()) << ')';
-  else
-    OS << '@' << MCSymbolRefExpr::getVariantKindName(getKind());
 }
 
 /* *** */
@@ -692,6 +679,7 @@ bool MCExpr::EvaluateAsRelocatableImpl(MCValue &Res, const MCAssembler *Asm,
   case SymbolRef: {
     const MCSymbolRefExpr *SRE = cast<MCSymbolRefExpr>(this);
     const MCSymbol &Sym = SRE->getSymbol();
+    const MCAsmInfo &MCAsmInfo = SRE->getMCAsmInfo();
 
     // Evaluate recursively if this is a variable.
     if (Sym.isVariable() && SRE->getKind() == MCSymbolRefExpr::VK_None) {
@@ -700,7 +688,7 @@ bool MCExpr::EvaluateAsRelocatableImpl(MCValue &Res, const MCAssembler *Asm,
         const MCSymbolRefExpr *A = Res.getSymA();
         const MCSymbolRefExpr *B = Res.getSymB();
 
-        if (SRE->hasSubsectionsViaSymbols()) {
+        if (MCAsmInfo.hasSubsectionsViaSymbols()) {
           // FIXME: This is small hack. Given
           // a = b + 4
           // .long a

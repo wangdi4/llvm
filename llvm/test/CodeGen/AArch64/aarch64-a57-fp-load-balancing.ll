@@ -1,7 +1,5 @@
-; RUN: llc < %s -mcpu=cortex-a57 -aarch64-a57-fp-load-balancing-override=1 -aarch64-a57-fp-load-balancing-force-all | FileCheck %s --check-prefix CHECK --check-prefix CHECK-A57 --check-prefix CHECK-EVEN
-; RUN: llc < %s -mcpu=cortex-a57 -aarch64-a57-fp-load-balancing-override=2 -aarch64-a57-fp-load-balancing-force-all | FileCheck %s --check-prefix CHECK --check-prefix CHECK-A57 --check-prefix CHECK-ODD
-; RUN: llc < %s -mcpu=cortex-a53 -aarch64-a57-fp-load-balancing-override=1 -aarch64-a57-fp-load-balancing-force-all | FileCheck %s --check-prefix CHECK --check-prefix CHECK-A53 --check-prefix CHECK-EVEN
-; RUN: llc < %s -mcpu=cortex-a53 -aarch64-a57-fp-load-balancing-override=2 -aarch64-a57-fp-load-balancing-force-all | FileCheck %s --check-prefix CHECK --check-prefix CHECK-A53 --check-prefix CHECK-ODD
+; RUN: llc < %s -mcpu=cortex-a57 -aarch64-a57-fp-load-balancing-override=1 -aarch64-a57-fp-load-balancing-force-all | FileCheck %s --check-prefix CHECK --check-prefix CHECK-EVEN
+; RUN: llc < %s -mcpu=cortex-a57 -aarch64-a57-fp-load-balancing-override=2 -aarch64-a57-fp-load-balancing-force-all | FileCheck %s --check-prefix CHECK --check-prefix CHECK-ODD
 
 ; Test the AArch64A57FPLoadBalancing pass. This pass relies heavily on register allocation, so
 ; our test strategy is to:
@@ -75,9 +73,7 @@ entry:
 ; CHECK: fmsub [[x]]
 ; CHECK: fmadd [[y]]
 ; CHECK: fmadd [[x]]
-; CHECK-A57: stp [[x]], [[y]]
-; CHECK-A53-DAG: str [[x]]
-; CHECK-A53-DAG: str [[y]]
+; CHECK: stp [[x]], [[y]]
 
 define void @f2(double* nocapture readonly %p, double* nocapture %q) #0 {
 entry:
@@ -170,9 +166,7 @@ declare void @g(...) #1
 ; CHECK: fmsub [[x]]
 ; CHECK: fmadd [[y]]
 ; CHECK: fmadd [[x]]
-; CHECK-A57: stp [[x]], [[y]]
-; CHECK-A53-DAG: str [[x]]
-; CHECK-A53-DAG: str [[y]]
+; CHECK: stp [[x]], [[y]]
 
 define void @f4(float* nocapture readonly %p, float* nocapture %q) #0 {
 entry:

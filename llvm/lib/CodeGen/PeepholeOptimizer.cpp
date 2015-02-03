@@ -107,8 +107,8 @@ STATISTIC(NumRewrittenCopies, "Number of copies rewritten");
 
 namespace {
   class PeepholeOptimizer : public MachineFunctionPass {
+    const TargetMachine   *TM;
     const TargetInstrInfo *TII;
-    const TargetRegisterInfo *TRI;
     MachineRegisterInfo   *MRI;
     MachineDominatorTree  *DT;  // Machine dominator tree
 
@@ -134,7 +134,6 @@ namespace {
     bool optimizeExtInstr(MachineInstr *MI, MachineBasicBlock *MBB,
                           SmallPtrSetImpl<MachineInstr*> &LocalMIs);
     bool optimizeSelect(MachineInstr *MI);
-    bool optimizeCondBranch(MachineInstr *MI);
     bool optimizeCopyOrBitcast(MachineInstr *MI);
     bool optimizeCoalescableCopy(MachineInstr *MI);
     bool optimizeUncoalescableCopy(MachineInstr *MI,
@@ -328,7 +327,8 @@ optimizeExtInstr(MachineInstr *MI, MachineBasicBlock *MBB,
   // Ensure DstReg can get a register class that actually supports
   // sub-registers. Don't change the class until we commit.
   const TargetRegisterClass *DstRC = MRI->getRegClass(DstReg);
-  DstRC = TRI->getSubClassWithSubReg(DstRC, SubIdx);
+  DstRC = TM->getSubtargetImpl()->getRegisterInfo()->getSubClassWithSubReg(
+      DstRC, SubIdx);
   if (!DstRC)
     return false;
 
@@ -338,7 +338,8 @@ optimizeExtInstr(MachineInstr *MI, MachineBasicBlock *MBB,
   // If UseSrcSubIdx is Set, SubIdx also applies to SrcReg, and only uses of
   // SrcReg:SubIdx should be replaced.
   bool UseSrcSubIdx =
-      TRI->getSubClassWithSubReg(MRI->getRegClass(SrcReg), SubIdx) != nullptr;
+      TM->getSubtargetImpl()->getRegisterInfo()->getSubClassWithSubReg(
+          MRI->getRegClass(SrcReg), SubIdx) != nullptr;
 
   // The source has other uses. See if we can replace the other uses with use of
   // the result of the extension.
@@ -498,12 +499,6 @@ bool PeepholeOptimizer::optimizeSelect(MachineInstr *MI) {
   return true;
 }
 
-/// \brief Check if a simpler conditional branch can be
-// generated
-bool PeepholeOptimizer::optimizeCondBranch(MachineInstr *MI) {
-  return TII->optimizeCondBranch(MI);
-}
-
 /// \brief Check if the registers defined by the pair (RegisterClass, SubReg)
 /// share the same register file.
 static bool shareSameRegisterFile(const TargetRegisterInfo &TRI,
@@ -553,6 +548,7 @@ bool PeepholeOptimizer::findNextSource(unsigned &Reg, unsigned &SubReg) {
   unsigned Src;
   unsigned SrcSubReg;
   bool ShouldRewrite = false;
+  const TargetRegisterInfo &TRI = *TM->getSubtargetImpl()->getRegisterInfo();
 
   // Follow the chain of copies until we reach the top of the use-def chain
   // or find a more suitable source.
@@ -575,7 +571,7 @@ bool PeepholeOptimizer::findNextSource(unsigned &Reg, unsigned &SubReg) {
     const TargetRegisterClass *SrcRC = MRI->getRegClass(Src);
 
     // If this source does not incur a cross register bank copy, use it.
-    ShouldRewrite = shareSameRegisterFile(*TRI, DefRC, DefSubReg, SrcRC,
+    ShouldRewrite = shareSameRegisterFile(TRI, DefRC, DefSubReg, SrcRC,
                                           SrcSubReg);
   } while (!ShouldRewrite);
 
@@ -1061,8 +1057,8 @@ bool PeepholeOptimizer::runOnMachineFunction(MachineFunction &MF) {
   if (DisablePeephole)
     return false;
 
-  TII = MF.getSubtarget().getInstrInfo();
-  TRI = MF.getSubtarget().getRegisterInfo();
+  TM  = &MF.getTarget();
+  TII = TM->getSubtargetImpl()->getInstrInfo();
   MRI = &MF.getRegInfo();
   DT  = Aggressive ? &getAnalysis<MachineDominatorTree>() : nullptr;
 
@@ -1105,11 +1101,6 @@ bool PeepholeOptimizer::runOnMachineFunction(MachineFunction &MF) {
           (MI->isSelect() && optimizeSelect(MI))) {
         // MI is deleted.
         LocalMIs.erase(MI);
-        Changed = true;
-        continue;
-      }
-
-      if (MI->isConditionalBranch() && optimizeCondBranch(MI)) {
         Changed = true;
         continue;
       }

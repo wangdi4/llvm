@@ -14,19 +14,15 @@
 #ifndef LLVM_LIB_TARGET_R600_MCTARGETDESC_AMDGPUMCASMINFO_H
 #define LLVM_LIB_TARGET_R600_MCTARGETDESC_AMDGPUMCASMINFO_H
 
-#include "llvm/MC/MCAsmInfoELF.h"
+#include "llvm/MC/MCAsmInfo.h"
 namespace llvm {
 
 class StringRef;
 
-// If you need to create another MCAsmInfo class, which inherits from MCAsmInfo,
-// you will need to make sure your new class sets PrivateGlobalPrefix to
-// a prefix that won't appeary in a fuction name.  The default value
-// for PrivateGlobalPrefix is 'L', so it will consider any function starting
-// with 'L' as a local symbol.
-class AMDGPUMCAsmInfo : public MCAsmInfoELF {
+class AMDGPUMCAsmInfo : public MCAsmInfo {
 public:
   explicit AMDGPUMCAsmInfo(StringRef &TT);
+  const MCSection* getNonexecutableStackSection(MCContext &CTX) const override;
 };
 } // namespace llvm
 #endif

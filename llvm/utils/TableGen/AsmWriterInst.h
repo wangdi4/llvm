@@ -88,7 +88,8 @@ namespace llvm {
     const CodeGenInstruction *CGI;
 
     AsmWriterInst(const CodeGenInstruction &CGI,
-                  unsigned Variant);
+                  unsigned Variant,
+                  int OperandSpacing);
 
     /// MatchesAllButOneOp - If this instruction is exactly identical to the
     /// specified instruction except for one differing operand, return the

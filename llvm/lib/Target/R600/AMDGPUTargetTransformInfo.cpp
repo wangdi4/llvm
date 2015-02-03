@@ -82,6 +82,8 @@ public:
   unsigned getNumberOfRegisters(bool Vector) const override;
   unsigned getRegisterBitWidth(bool Vector) const override;
   unsigned getMaxInterleaveFactor() const override;
+
+  /// @}
 };
 
 } // end anonymous namespace

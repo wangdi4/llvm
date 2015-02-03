@@ -16,7 +16,8 @@ static std::pair<MCSymbol *, unsigned> &
 getEntry(AsmPrinter &Asm,
          StringMap<std::pair<MCSymbol *, unsigned>, BumpPtrAllocator &> &Pool,
          StringRef Prefix, StringRef Str) {
-  std::pair<MCSymbol *, unsigned> &Entry = Pool[Str];
+  std::pair<MCSymbol *, unsigned> &Entry =
+      Pool.GetOrCreateValue(Str).getValue();
   if (!Entry.first) {
     Entry.second = Pool.size() - 1;
     Entry.first = Asm.GetTempSymbol(Prefix, Entry.second);

@@ -33,6 +33,8 @@ NVPTXMCAsmInfo::NVPTXMCAsmInfo(StringRef TT) {
 
   CommentString = "//";
 
+  HasSetDirective = false;
+
   HasSingleParameterDotFile = false;
 
   InlineAsmStart = " inline asm";
@@ -50,6 +52,5 @@ NVPTXMCAsmInfo::NVPTXMCAsmInfo(StringRef TT) {
   AscizDirective = " .b8";
 
   // @TODO: Can we just disable this?
-  WeakDirective = "\t// .weak\t";
   GlobalDirective = "\t// .globl\t";
 }

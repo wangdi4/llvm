@@ -9,7 +9,8 @@
 
 exception Error of string
 
-let () = Callback.register_exception "Llvm_linker.Error" (Error "")
+external register_exns : exn -> unit = "llvm_register_linker_exns"
+let _ = register_exns (Error "")
 
 module Mode = struct
   type t =

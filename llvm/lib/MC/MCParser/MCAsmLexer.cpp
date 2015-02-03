@@ -30,7 +30,3 @@ SMLoc AsmToken::getLoc() const {
 SMLoc AsmToken::getEndLoc() const {
   return SMLoc::getFromPointer(Str.data() + Str.size());
 }
-
-SMRange AsmToken::getLocRange() const {
-  return SMRange(getLoc(), getEndLoc());
-}

@@ -72,8 +72,11 @@ public:
                   AliasAnalysis *aa,
                   SchedulingPriorityQueue *availqueue)
     : ScheduleDAGSDNodes(mf), AvailableQueue(availqueue), AA(aa) {
-    const TargetSubtargetInfo &STI = mf.getSubtarget();
-    HazardRec = STI.getInstrInfo()->CreateTargetHazardRecognizer(&STI, this);
+
+    const TargetMachine &tm = mf.getTarget();
+    HazardRec =
+        tm.getSubtargetImpl()->getInstrInfo()->CreateTargetHazardRecognizer(
+            tm.getSubtargetImpl(), this);
   }
 
   ~ScheduleDAGVLIW() {

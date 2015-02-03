@@ -19,13 +19,11 @@
 #define LLVM_IR_GVMATERIALIZER_H
 
 #include <system_error>
-#include <vector>
 
 namespace llvm {
 class Function;
 class GlobalValue;
 class Module;
-class StructType;
 
 class GVMaterializer {
 protected:
@@ -34,13 +32,17 @@ protected:
 public:
   virtual ~GVMaterializer();
 
+  /// True if GV can be materialized from whatever backing store this
+  /// GVMaterializer uses and has not been materialized yet.
+  virtual bool isMaterializable(const GlobalValue *GV) const = 0;
+
   /// True if GV has been materialized and can be dematerialized back to
   /// whatever backing store this GVMaterializer uses.
   virtual bool isDematerializable(const GlobalValue *GV) const = 0;
 
   /// Make sure the given GlobalValue is fully read.
   ///
-  virtual std::error_code materialize(GlobalValue *GV) = 0;
+  virtual std::error_code Materialize(GlobalValue *GV) = 0;
 
   /// If the given GlobalValue is read in, and if the GVMaterializer supports
   /// it, release the memory for the GV, and set it up to be materialized
@@ -52,8 +54,6 @@ public:
   /// Make sure the entire Module has been completely read.
   ///
   virtual std::error_code MaterializeModule(Module *M) = 0;
-
-  virtual std::vector<StructType *> getIdentifiedStructTypes() const = 0;
 };
 
 } // End llvm namespace

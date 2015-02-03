@@ -19,8 +19,7 @@ for.body153:                                      ; preds = %for.body153, %for.b
 
 ; CHECK: add nsw i64 %indvars.iv, 1
 ; CHECK: sub nsw i64 %indvars.iv, 2
-; CHECK: sub nsw i64 4, %indvars.iv
-; CHECK: mul nsw i64 %indvars.iv, 8
+; CHECK: mul nsw i64 %indvars.iv, 4
 for.body170:                                      ; preds = %for.body170, %for.body153
   %i2.19 = phi i32 [ %add249, %for.body170 ], [ 0, %for.body153 ]
 
@@ -30,10 +29,7 @@ for.body170:                                      ; preds = %for.body170, %for.b
   %sub = sub nsw i32 %i2.19, 2
   %sub.idxprom = sext i32 %sub to i64
 
-  %sub.neg = sub nsw i32 4, %i2.19
-  %sub.neg.idxprom = sext i32 %sub.neg to i64
-
-  %mul = mul nsw i32 %i2.19, 8
+  %mul = mul nsw i32 %i2.19, 4
   %mul.idxprom = sext i32 %mul to i64
 
   %add249 = add nsw i32 %i2.19, %shl132

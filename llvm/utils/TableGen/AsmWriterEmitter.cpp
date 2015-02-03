@@ -208,6 +208,9 @@ FindUniqueOperandCommands(std::vector<std::string> &UniqueOperandCommands,
       // Otherwise, scan to see if all of the other instructions in this command
       // set share the operand.
       bool AllSame = true;
+      // Keep track of the maximum, number of operands or any
+      // instruction we see in the group.
+      size_t MaxSize = FirstInst->Operands.size();
 
       for (NIT = std::find(NIT+1, InstIdxs.end(), CommandIdx);
            NIT != InstIdxs.end();
@@ -216,6 +219,10 @@ FindUniqueOperandCommands(std::vector<std::string> &UniqueOperandCommands,
         // matches, we're ok, otherwise bail out.
         const AsmWriterInst *OtherInst =
           getAsmWriterInstByID(NIT-InstIdxs.begin());
+
+        if (OtherInst &&
+            OtherInst->Operands.size() > FirstInst->Operands.size())
+          MaxSize = std::max(MaxSize, OtherInst->Operands.size());
 
         if (!OtherInst || OtherInst->Operands.size() == Op ||
             OtherInst->Operands[Op] != FirstInst->Operands[Op]) {
@@ -343,7 +350,7 @@ void AsmWriterEmitter::EmitPrintInstruction(raw_ostream &O) {
   // in the opcode-indexed table.
   unsigned BitsLeft = 64-AsmStrBits;
 
-  std::vector<std::vector<std::string>> TableDrivenOperandPrinters;
+  std::vector<std::vector<std::string> > TableDrivenOperandPrinters;
 
   while (1) {
     std::vector<std::string> UniqueOperandCommands;
@@ -386,7 +393,7 @@ void AsmWriterEmitter::EmitPrintInstruction(raw_ostream &O) {
     }
 
     // Remember the handlers for this set of operands.
-    TableDrivenOperandPrinters.push_back(std::move(UniqueOperandCommands));
+    TableDrivenOperandPrinters.push_back(UniqueOperandCommands);
   }
 
 
@@ -467,7 +474,7 @@ void AsmWriterEmitter::EmitPrintInstruction(raw_ostream &O) {
       O << "  switch ((Bits >> "
         << (64-BitsLeft) << ") & "
         << ((1 << NumBits)-1) << ") {\n"
-        << "  default: llvm_unreachable(\"Invalid command number.\");\n";
+        << "  default:   // unreachable.\n";
 
       // Print out all the cases.
       for (unsigned i = 0, e = Commands.size(); i != e; ++i) {
@@ -513,23 +520,14 @@ void AsmWriterEmitter::EmitPrintInstruction(raw_ostream &O) {
   O << "}\n";
 }
 
-static const char *getMinimalTypeForRange(uint64_t Range) {
-  assert(Range < 0xFFFFFFFFULL && "Enum too large");
-  if (Range > 0xFFFF)
-    return "uint32_t";
-  if (Range > 0xFF)
-    return "uint16_t";
-  return "uint8_t";
-}
-
 static void
 emitRegisterNameString(raw_ostream &O, StringRef AltName,
-                       const std::deque<CodeGenRegister> &Registers) {
+                       const std::vector<CodeGenRegister*> &Registers) {
   SequenceToOffsetTable<std::string> StringTable;
   SmallVector<std::string, 4> AsmNames(Registers.size());
-  unsigned i = 0;
-  for (const auto &Reg : Registers) {
-    std::string &AsmName = AsmNames[i++];
+  for (unsigned i = 0, e = Registers.size(); i != e; ++i) {
+    const CodeGenRegister &Reg = *Registers[i];
+    std::string &AsmName = AsmNames[i];
 
     // "NoRegAltName" is special. We don't need to do a lookup for that,
     // as it's just a reference to the default register name.
@@ -566,8 +564,7 @@ emitRegisterNameString(raw_ostream &O, StringRef AltName,
   StringTable.emit(O, printChar);
   O << "  };\n\n";
 
-  O << "  static const " << getMinimalTypeForRange(StringTable.size()-1)
-    << " RegAsmOffset" << AltName << "[] = {";
+  O << "  static const uint32_t RegAsmOffset" << AltName << "[] = {";
   for (unsigned i = 0, e = Registers.size(); i != e; ++i) {
     if ((i % 14) == 0)
       O << "\n    ";
@@ -580,7 +577,8 @@ emitRegisterNameString(raw_ostream &O, StringRef AltName,
 void AsmWriterEmitter::EmitGetRegisterName(raw_ostream &O) {
   Record *AsmWriter = Target.getAsmWriter();
   std::string ClassName = AsmWriter->getValueAsString("AsmWriterClassName");
-  const auto &Registers = Target.getRegBank().getRegisters();
+  const std::vector<CodeGenRegister*> &Registers =
+    Target.getRegBank().getRegisters();
   std::vector<Record*> AltNameIndices = Target.getRegAltNameIndices();
   bool hasAltNames = AltNameIndices.size() > 1;
 
@@ -604,25 +602,26 @@ void AsmWriterEmitter::EmitGetRegisterName(raw_ostream &O) {
     emitRegisterNameString(O, "", Registers);
 
   if (hasAltNames) {
-    O << "  switch(AltIdx) {\n"
+    O << "  const uint32_t *RegAsmOffset;\n"
+      << "  const char *AsmStrs;\n"
+      << "  switch(AltIdx) {\n"
       << "  default: llvm_unreachable(\"Invalid register alt name index!\");\n";
     for (unsigned i = 0, e = AltNameIndices.size(); i < e; ++i) {
       std::string Namespace = AltNameIndices[1]->getValueAsString("Namespace");
       std::string AltName(AltNameIndices[i]->getName());
-      O << "  case " << Namespace << "::" << AltName << ":\n"
-        << "    assert(*(AsmStrs" << AltName << "+RegAsmOffset"
-        << AltName << "[RegNo-1]) &&\n"
-        << "           \"Invalid alt name index for register!\");\n"
-        << "    return AsmStrs" << AltName << "+RegAsmOffset"
-        << AltName << "[RegNo-1];\n";
+      O << "  case " << Namespace << "::" << AltName
+        << ":\n"
+        << "    AsmStrs = AsmStrs" << AltName  << ";\n"
+        << "    RegAsmOffset = RegAsmOffset" << AltName << ";\n"
+        << "    break;\n";
     }
-    O << "  }\n";
-  } else {
-    O << "  assert (*(AsmStrs+RegAsmOffset[RegNo-1]) &&\n"
-      << "          \"Invalid alt name index for register!\");\n"
-      << "  return AsmStrs+RegAsmOffset[RegNo-1];\n";
+    O << "}\n";
   }
-  O << "}\n";
+
+  O << "  assert (*(AsmStrs+RegAsmOffset[RegNo-1]) &&\n"
+    << "          \"Invalid alt name index for register!\");\n"
+    << "  return AsmStrs+RegAsmOffset[RegNo-1];\n"
+    << "}\n";
 }
 
 namespace {
@@ -1085,10 +1084,13 @@ void AsmWriterEmitter::EmitPrintAliasInstruction(raw_ostream &O) {
 
 AsmWriterEmitter::AsmWriterEmitter(RecordKeeper &R) : Records(R), Target(R) {
   Record *AsmWriter = Target.getAsmWriter();
-  for (const CodeGenInstruction *I : Target.instructions())
-    if (!I->AsmString.empty() && I->TheDef->getName() != "PHI")
+  for (CodeGenTarget::inst_iterator I = Target.inst_begin(),
+                                    E = Target.inst_end();
+       I != E; ++I)
+    if (!(*I)->AsmString.empty() && (*I)->TheDef->getName() != "PHI")
       Instructions.push_back(
-          AsmWriterInst(*I, AsmWriter->getValueAsInt("Variant")));
+          AsmWriterInst(**I, AsmWriter->getValueAsInt("Variant"),
+                        AsmWriter->getValueAsInt("OperandSpacing")));
 
   // Get the instruction numbering.
   NumberedInstructions = &Target.getInstructionsByEnumValue();

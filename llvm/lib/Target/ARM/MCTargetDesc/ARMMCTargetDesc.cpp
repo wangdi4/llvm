@@ -217,14 +217,31 @@ static MCAsmInfo *createARMMCAsmInfo(const MCRegisterInfo &MRI, StringRef TT) {
   Triple TheTriple(TT);
 
   MCAsmInfo *MAI;
-  if (TheTriple.isOSDarwin() || TheTriple.isOSBinFormatMachO())
+  switch (TheTriple.getOS()) {
+  case llvm::Triple::Darwin:
+  case llvm::Triple::IOS:
+  case llvm::Triple::MacOSX:
     MAI = new ARMMCAsmInfoDarwin(TT);
-  else if (TheTriple.isWindowsItaniumEnvironment())
-    MAI = new ARMCOFFMCAsmInfoGNU();
-  else if (TheTriple.isWindowsMSVCEnvironment())
-    MAI = new ARMCOFFMCAsmInfoMicrosoft();
-  else
-    MAI = new ARMELFMCAsmInfo(TT);
+    break;
+  case llvm::Triple::Win32:
+    switch (TheTriple.getEnvironment()) {
+    case llvm::Triple::Itanium:
+      MAI = new ARMCOFFMCAsmInfoGNU();
+      break;
+    case llvm::Triple::MSVC:
+      MAI = new ARMCOFFMCAsmInfoMicrosoft();
+      break;
+    default:
+      llvm_unreachable("invalid environment");
+    }
+    break;
+  default:
+    if (TheTriple.isOSBinFormatMachO())
+      MAI = new ARMMCAsmInfoDarwin(TT);
+    else
+      MAI = new ARMELFMCAsmInfo(TT);
+    break;
+  }
 
   unsigned Reg = MRI.getDwarfRegNum(ARM::SP, true);
   MAI->addInitialFrameState(MCCFIInstruction::createDefCfa(nullptr, Reg, 0));
@@ -248,8 +265,11 @@ static MCCodeGenInfo *createARMMCCodeGenInfo(StringRef TT, Reloc::Model RM,
 // This is duplicated code. Refactor this.
 static MCStreamer *createMCStreamer(const Target &T, StringRef TT,
                                     MCContext &Ctx, MCAsmBackend &MAB,
-                                    raw_ostream &OS, MCCodeEmitter *Emitter,
-                                    const MCSubtargetInfo &STI, bool RelaxAll) {
+                                    raw_ostream &OS,
+                                    MCCodeEmitter *Emitter,
+                                    const MCSubtargetInfo &STI,
+                                    bool RelaxAll,
+                                    bool NoExecStack) {
   Triple TheTriple(TT);
 
   switch (TheTriple.getObjectFormat()) {
@@ -263,7 +283,7 @@ static MCStreamer *createMCStreamer(const Target &T, StringRef TT,
     assert(TheTriple.isOSWindows() && "non-Windows ARM COFF is not supported");
     return createARMWinCOFFStreamer(Ctx, MAB, *Emitter, OS);
   case Triple::ELF:
-    return createARMELFStreamer(Ctx, MAB, OS, Emitter, false,
+    return createARMELFStreamer(Ctx, MAB, OS, Emitter, false, NoExecStack,
                                 TheTriple.getArch() == Triple::thumb);
   }
 }

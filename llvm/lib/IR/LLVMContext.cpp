@@ -76,23 +76,6 @@ LLVMContext::LLVMContext() : pImpl(new LLVMContextImpl(*this)) {
   unsigned NoAliasID = getMDKindID("noalias");
   assert(NoAliasID == MD_noalias && "noalias kind id drifted");
   (void)NoAliasID;
-
-  // Create the 'nontemporal' metadata kind.
-  unsigned NonTemporalID = getMDKindID("nontemporal");
-  assert(NonTemporalID == MD_nontemporal && "nontemporal kind id drifted");
-  (void)NonTemporalID;
-
-  // Create the 'llvm.mem.parallel_loop_access' metadata kind.
-  unsigned MemParallelLoopAccessID = getMDKindID("llvm.mem.parallel_loop_access");
-  assert(MemParallelLoopAccessID == MD_mem_parallel_loop_access &&
-         "mem_parallel_loop_access kind id drifted");
-  (void)MemParallelLoopAccessID;
-
-
-  // Create the 'nonnull' metadata kind.
-  unsigned NonNullID = getMDKindID("nonnull");
-  assert(NonNullID == MD_nonnull && "nonnull kind id drifted");
-  (void)NonNullID;
 }
 LLVMContext::~LLVMContext() { delete pImpl; }
 
@@ -129,11 +112,9 @@ void *LLVMContext::getInlineAsmDiagnosticContext() const {
 }
 
 void LLVMContext::setDiagnosticHandler(DiagnosticHandlerTy DiagnosticHandler,
-                                       void *DiagnosticContext,
-                                       bool RespectFilters) {
+                                       void *DiagnosticContext) {
   pImpl->DiagnosticHandler = DiagnosticHandler;
   pImpl->DiagnosticContext = DiagnosticContext;
-  pImpl->RespectDiagnosticFilters = RespectFilters;
 }
 
 LLVMContext::DiagnosticHandlerTy LLVMContext::getDiagnosticHandler() const {
@@ -164,7 +145,13 @@ void LLVMContext::emitError(const Instruction *I, const Twine &ErrorStr) {
   diagnose(DiagnosticInfoInlineAsm(*I, ErrorStr));
 }
 
-static bool isDiagnosticEnabled(const DiagnosticInfo &DI) {
+void LLVMContext::diagnose(const DiagnosticInfo &DI) {
+  // If there is a report handler, use it.
+  if (pImpl->DiagnosticHandler) {
+    pImpl->DiagnosticHandler(DI, pImpl->DiagnosticContext);
+    return;
+  }
+
   // Optimization remarks are selective. They need to check whether the regexp
   // pattern, passed via one of the -pass-remarks* flags, matches the name of
   // the pass that is emitting the diagnostic. If there is no match, ignore the
@@ -172,32 +159,19 @@ static bool isDiagnosticEnabled(const DiagnosticInfo &DI) {
   switch (DI.getKind()) {
   case llvm::DK_OptimizationRemark:
     if (!cast<DiagnosticInfoOptimizationRemark>(DI).isEnabled())
-      return false;
+      return;
     break;
   case llvm::DK_OptimizationRemarkMissed:
     if (!cast<DiagnosticInfoOptimizationRemarkMissed>(DI).isEnabled())
-      return false;
+      return;
     break;
   case llvm::DK_OptimizationRemarkAnalysis:
     if (!cast<DiagnosticInfoOptimizationRemarkAnalysis>(DI).isEnabled())
-      return false;
+      return;
     break;
   default:
     break;
   }
-  return true;
-}
-
-void LLVMContext::diagnose(const DiagnosticInfo &DI) {
-  // If there is a report handler, use it.
-  if (pImpl->DiagnosticHandler) {
-    if (!pImpl->RespectDiagnosticFilters || isDiagnosticEnabled(DI))
-      pImpl->DiagnosticHandler(DI, pImpl->DiagnosticContext);
-    return;
-  }
-
-  if (!isDiagnosticEnabled(DI))
-    return;
 
   // Otherwise, print the message with a prefix based on the severity.
   std::string MsgStorage;
@@ -253,10 +227,9 @@ unsigned LLVMContext::getMDKindID(StringRef Name) const {
   assert(isValidName(Name) && "Invalid MDNode name");
 
   // If this is new, assign it its ID.
-  return pImpl->CustomMDKindNames.insert(std::make_pair(
-                                             Name,
-                                             pImpl->CustomMDKindNames.size()))
-      .first->second;
+  return
+    pImpl->CustomMDKindNames.GetOrCreateValue(
+      Name, pImpl->CustomMDKindNames.size()).second;
 }
 
 /// getHandlerNames - Populate client supplied smallvector using custome

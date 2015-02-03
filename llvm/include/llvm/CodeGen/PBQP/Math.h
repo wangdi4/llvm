@@ -10,19 +10,17 @@
 #ifndef LLVM_CODEGEN_PBQP_MATH_H
 #define LLVM_CODEGEN_PBQP_MATH_H
 
-#include "llvm/ADT/Hashing.h"
 #include <algorithm>
 #include <cassert>
 #include <functional>
 
-namespace llvm {
 namespace PBQP {
 
 typedef float PBQPNum;
 
 /// \brief PBQP Vector class.
 class Vector {
-  friend hash_code hash_value(const Vector &);
+  friend class VectorComparator;
 public:
 
   /// \brief Construct a PBQP vector of the given size.
@@ -138,12 +136,21 @@ private:
   PBQPNum *Data;
 };
 
-/// \brief Return a hash_value for the given vector.
-inline hash_code hash_value(const Vector &V) {
-  unsigned *VBegin = reinterpret_cast<unsigned*>(V.Data);
-  unsigned *VEnd = reinterpret_cast<unsigned*>(V.Data + V.Length);
-  return hash_combine(V.Length, hash_combine_range(VBegin, VEnd));
-}
+class VectorComparator {
+public:
+  bool operator()(const Vector &A, const Vector &B) {
+    if (A.Length < B.Length)
+      return true;
+    if (B.Length < A.Length)
+      return false;
+    char *AData = reinterpret_cast<char*>(A.Data);
+    char *BData = reinterpret_cast<char*>(B.Data);
+    return std::lexicographical_compare(AData,
+                                        AData + A.Length * sizeof(PBQPNum),
+                                        BData,
+                                        BData + A.Length * sizeof(PBQPNum));
+  }
+};
 
 /// \brief Output a textual representation of the given vector on the given
 ///        output stream.
@@ -159,10 +166,11 @@ OStream& operator<<(OStream &OS, const Vector &V) {
   return OS;
 }
 
+
 /// \brief PBQP Matrix class
 class Matrix {
 private:
-  friend hash_code hash_value(const Matrix &);
+  friend class MatrixComparator;
 public:
 
   /// \brief Construct a PBQP Matrix with the given dimensions.
@@ -376,12 +384,24 @@ private:
   PBQPNum *Data;
 };
 
-/// \brief Return a hash_code for the given matrix.
-inline hash_code hash_value(const Matrix &M) {
-  unsigned *MBegin = reinterpret_cast<unsigned*>(M.Data);
-  unsigned *MEnd = reinterpret_cast<unsigned*>(M.Data + (M.Rows * M.Cols));
-  return hash_combine(M.Rows, M.Cols, hash_combine_range(MBegin, MEnd));
-}
+class MatrixComparator {
+public:
+  bool operator()(const Matrix &A, const Matrix &B) {
+    if (A.Rows < B.Rows)
+      return true;
+    if (B.Rows < A.Rows)
+      return false;
+    if (A.Cols < B.Cols)
+      return true;
+    if (B.Cols < A.Cols)
+      return false;
+    char *AData = reinterpret_cast<char*>(A.Data);
+    char *BData = reinterpret_cast<char*>(B.Data);
+    return std::lexicographical_compare(
+             AData, AData + (A.Rows * A.Cols * sizeof(PBQPNum)),
+             BData, BData + (A.Rows * A.Cols * sizeof(PBQPNum)));
+  }
+};
 
 /// \brief Output a textual representation of the given matrix on the given
 ///        output stream.
@@ -389,7 +409,7 @@ template <typename OStream>
 OStream& operator<<(OStream &OS, const Matrix &M) {
   assert((M.getRows() != 0) && "Zero-row matrix badness.");
   for (unsigned i = 0; i < M.getRows(); ++i)
-    OS << M.getRowAsVector(i) << "\n";
+    OS << M.getRowAsVector(i);
   return OS;
 }
 
@@ -404,11 +424,6 @@ private:
 };
 
 template <typename Metadata>
-inline hash_code hash_value(const MDVector<Metadata> &V) {
-  return hash_value(static_cast<const Vector&>(V));
-}
-
-template <typename Metadata>
 class MDMatrix : public Matrix {
 public:
   MDMatrix(const Matrix &m) : Matrix(m), md(*this) { }
@@ -418,12 +433,6 @@ private:
   Metadata md;
 };
 
-template <typename Metadata>
-inline hash_code hash_value(const MDMatrix<Metadata> &M) {
-  return hash_value(static_cast<const Matrix&>(M));
 }
-
-} // namespace PBQP
-} // namespace llvm
 
 #endif // LLVM_CODEGEN_PBQP_MATH_H

@@ -41,7 +41,7 @@ void MachObjectWriter::reset() {
 bool MachObjectWriter::
 doesSymbolRequireExternRelocation(const MCSymbolData *SD) {
   // Undefined symbols are always extern.
-  if (SD->getSymbol().isUndefined())
+  if (SD->Symbol->isUndefined())
     return true;
 
   // References to weak definitions require external relocation entries; the
@@ -525,10 +525,15 @@ void MachObjectWriter::BindIndirectSymbols(MCAssembler &Asm) {
 }
 
 /// ComputeSymbolTable - Compute the symbol table data
-void MachObjectWriter::ComputeSymbolTable(
-    MCAssembler &Asm, std::vector<MachSymbolData> &LocalSymbolData,
-    std::vector<MachSymbolData> &ExternalSymbolData,
-    std::vector<MachSymbolData> &UndefinedSymbolData) {
+///
+/// \param StringTable [out] - The string table data.
+/// \param StringIndexMap [out] - Map from symbol names to offsets in the
+/// string table.
+void MachObjectWriter::
+ComputeSymbolTable(MCAssembler &Asm, SmallString<256> &StringTable,
+                   std::vector<MachSymbolData> &LocalSymbolData,
+                   std::vector<MachSymbolData> &ExternalSymbolData,
+                   std::vector<MachSymbolData> &UndefinedSymbolData) {
   // Build section lookup table.
   DenseMap<const MCSection*, uint8_t> SectionIndexMap;
   unsigned Index = 1;
@@ -537,34 +542,37 @@ void MachObjectWriter::ComputeSymbolTable(
     SectionIndexMap[&it->getSection()] = Index;
   assert(Index <= 256 && "Too many sections!");
 
-  // Build the string table.
-  for (MCSymbolData &SD : Asm.symbols()) {
-    const MCSymbol &Symbol = SD.getSymbol();
-    if (!Asm.isSymbolLinkerVisible(Symbol))
-      continue;
+  // Index 0 is always the empty string.
+  StringMap<uint64_t> StringIndexMap;
+  StringTable += '\x00';
 
-    StringTable.add(Symbol.getName());
-  }
-  StringTable.finalize(StringTableBuilder::MachO);
-
-  // Build the symbol arrays but only for non-local symbols.
+  // Build the symbol arrays and the string table, but only for non-local
+  // symbols.
   //
-  // The particular order that we collect and then sort the symbols is chosen to
-  // match 'as'. Even though it doesn't matter for correctness, this is
-  // important for letting us diff .o files.
+  // The particular order that we collect the symbols and create the string
+  // table, then sort the symbols is chosen to match 'as'. Even though it
+  // doesn't matter for correctness, this is important for letting us diff .o
+  // files.
   for (MCSymbolData &SD : Asm.symbols()) {
     const MCSymbol &Symbol = SD.getSymbol();
 
     // Ignore non-linker visible symbols.
-    if (!Asm.isSymbolLinkerVisible(Symbol))
+    if (!Asm.isSymbolLinkerVisible(SD.getSymbol()))
       continue;
 
     if (!SD.isExternal() && !Symbol.isUndefined())
       continue;
 
+    uint64_t &Entry = StringIndexMap[Symbol.getName()];
+    if (!Entry) {
+      Entry = StringTable.size();
+      StringTable += Symbol.getName();
+      StringTable += '\x00';
+    }
+
     MachSymbolData MSD;
     MSD.SymbolData = &SD;
-    MSD.StringIndex = StringTable.getOffset(Symbol.getName());
+    MSD.StringIndex = Entry;
 
     if (Symbol.isUndefined()) {
       MSD.SectionIndex = 0;
@@ -584,15 +592,22 @@ void MachObjectWriter::ComputeSymbolTable(
     const MCSymbol &Symbol = SD.getSymbol();
 
     // Ignore non-linker visible symbols.
-    if (!Asm.isSymbolLinkerVisible(Symbol))
+    if (!Asm.isSymbolLinkerVisible(SD.getSymbol()))
       continue;
 
     if (SD.isExternal() || Symbol.isUndefined())
       continue;
 
+    uint64_t &Entry = StringIndexMap[Symbol.getName()];
+    if (!Entry) {
+      Entry = StringTable.size();
+      StringTable += Symbol.getName();
+      StringTable += '\x00';
+    }
+
     MachSymbolData MSD;
     MSD.SymbolData = &SD;
-    MSD.StringIndex = StringTable.getOffset(Symbol.getName());
+    MSD.StringIndex = Entry;
 
     if (Symbol.isAbsolute()) {
       MSD.SectionIndex = 0;
@@ -616,6 +631,10 @@ void MachObjectWriter::ComputeSymbolTable(
     ExternalSymbolData[i].SymbolData->setIndex(Index++);
   for (unsigned i = 0, e = UndefinedSymbolData.size(); i != e; ++i)
     UndefinedSymbolData[i].SymbolData->setIndex(Index++);
+
+  // The string table is padded to a multiple of 4.
+  while (StringTable.size() % 4)
+    StringTable += '\x00';
 }
 
 void MachObjectWriter::computeSectionAddresses(const MCAssembler &Asm,
@@ -664,7 +683,7 @@ void MachObjectWriter::ExecutePostLayoutBinding(MCAssembler &Asm,
   markAbsoluteVariableSymbols(Asm, Layout);
 
   // Compute symbol table information and bind symbol indices.
-  ComputeSymbolTable(Asm, LocalSymbolData, ExternalSymbolData,
+  ComputeSymbolTable(Asm, StringTable, LocalSymbolData, ExternalSymbolData,
                      UndefinedSymbolData);
 }
 
@@ -726,10 +745,6 @@ IsSymbolRefDifferenceFullyResolvedImpl(const MCAssembler &Asm,
       return false;
   }
 
-  // If they are not in the same section, we can't compute the diff.
-  if (&SecA != &SecB)
-    return false;
-
   const MCFragment *FA = Asm.getSymbolData(SA).getFragment();
 
   // Bail if the symbol has no fragment.
@@ -737,7 +752,12 @@ IsSymbolRefDifferenceFullyResolvedImpl(const MCAssembler &Asm,
     return false;
 
   A_Base = FA->getAtom();
+  if (!A_Base)
+    return false;
+
   B_Base = FB.getAtom();
+  if (!B_Base)
+    return false;
 
   // If the atoms are the same, they are guaranteed to have the same address.
   if (A_Base == B_Base)
@@ -902,7 +922,7 @@ void MachObjectWriter::WriteObject(MCAssembler &Asm,
                                               sizeof(MachO::nlist_64) :
                                               sizeof(MachO::nlist));
     WriteSymtabLoadCommand(SymbolTableOffset, NumSymTabSymbols,
-                           StringTableOffset, StringTable.data().size());
+                           StringTableOffset, StringTable.size());
 
     WriteDysymtabLoadCommand(FirstLocalSymbol, NumLocalSymbols,
                              FirstExternalSymbol, NumExternalSymbols,
@@ -1008,7 +1028,7 @@ void MachObjectWriter::WriteObject(MCAssembler &Asm,
       WriteNlist(UndefinedSymbolData[i], Layout);
 
     // Write the string table.
-    OS << StringTable.data();
+    OS << StringTable.str();
   }
 }
 

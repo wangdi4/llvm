@@ -133,7 +133,7 @@ std::string llvm::getQualifiedName(const Record *R) {
 /// getTarget - Return the current instance of the Target class.
 ///
 CodeGenTarget::CodeGenTarget(RecordKeeper &records)
-  : Records(records) {
+  : Records(records), RegBank(nullptr), SchedModels(nullptr) {
   std::vector<Record*> Targets = Records.getAllDerivedDefinitions("Target");
   if (Targets.size() == 0)
     PrintFatalError("ERROR: No 'Target' subclasses defined!");
@@ -144,6 +144,8 @@ CodeGenTarget::CodeGenTarget(RecordKeeper &records)
 
 CodeGenTarget::~CodeGenTarget() {
   DeleteContainerSeconds(Instructions);
+  delete RegBank;
+  delete SchedModels;
 }
 
 const std::string &CodeGenTarget::getName() const {
@@ -209,7 +211,7 @@ Record *CodeGenTarget::getAsmWriter() const {
 
 CodeGenRegBank &CodeGenTarget::getRegBank() const {
   if (!RegBank)
-    RegBank = llvm::make_unique<CodeGenRegBank>(Records);
+    RegBank = new CodeGenRegBank(Records);
   return *RegBank;
 }
 
@@ -263,7 +265,7 @@ void CodeGenTarget::ReadLegalValueTypes() const {
 
 CodeGenSchedModels &CodeGenTarget::getSchedModels() const {
   if (!SchedModels)
-    SchedModels = llvm::make_unique<CodeGenSchedModels>(Records, *this);
+    SchedModels = new CodeGenSchedModels(Records, *this);
   return *SchedModels;
 }
 
@@ -300,7 +302,6 @@ void CodeGenTarget::ComputeInstrsByEnum() const {
       "IMPLICIT_DEF", "SUBREG_TO_REG", "COPY_TO_REGCLASS", "DBG_VALUE",
       "REG_SEQUENCE", "COPY",          "BUNDLE",           "LIFETIME_START",
       "LIFETIME_END", "STACKMAP",      "PATCHPOINT",       "LOAD_STACK_GUARD",
-      "STATEPOINT",
       nullptr};
   const DenseMap<const Record*, CodeGenInstruction*> &Insts = getInstructions();
   for (const char *const *p = FixedInstrs; *p; ++p) {

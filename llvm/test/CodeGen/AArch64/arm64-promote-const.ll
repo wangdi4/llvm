@@ -41,7 +41,8 @@ entry:
 ; PROMOTED-LABEL: test2:
 ; In stress mode, constant vector are promoted
 ; PROMOTED: adrp [[PAGEADDR:x[0-9]+]], [[CSTV1:__PromotedConst[0-9]+]]@PAGE
-; PROMOTED: ldr q[[REGNUM:[0-9]+]], {{\[}}[[PAGEADDR]], [[CSTV1]]@PAGEOFF]
+; PROMOTED: add [[BASEADDR:x[0-9]+]], [[PAGEADDR]], [[CSTV1]]@PAGEOFF
+; PROMOTED: ldr q[[REGNUM:[0-9]+]], {{\[}}[[BASEADDR]]]
 ; Destination register is defined by ABI
 ; PROMOTED-NEXT: add.16b v0, v0, v[[REGNUM]]
 ; PROMOTED-NEXT: mla.16b v0, v0, v[[REGNUM]]
@@ -71,13 +72,15 @@ define <16 x i8> @test3(<16 x i8> %arg, i32 %path) {
 ; Since, the constant is the same as the previous function,
 ; the same address must be used
 ; PROMOTED: adrp [[PAGEADDR:x[0-9]+]], [[CSTV1]]@PAGE
-; PROMOTED-NEXT: ldr q[[REGNUM:[0-9]+]], {{\[}}[[PAGEADDR]], [[CSTV1]]@PAGEOFF]
+; PROMOTED: add [[BASEADDR:x[0-9]+]], [[PAGEADDR]], [[CSTV1]]@PAGEOFF
+; PROMOTED-NEXT: ldr q[[REGNUM:[0-9]+]], {{\[}}[[BASEADDR]]]
 ; Destination register is defined by ABI
 ; PROMOTED-NEXT: add.16b v0, v0, v[[REGNUM]]
 ; PROMOTED-NEXT: cbnz w0, [[LABEL:LBB.*]]
 ; Next BB
 ; PROMOTED: adrp [[PAGEADDR:x[0-9]+]], [[CSTV2:__PromotedConst[0-9]+]]@PAGE
-; PROMOTED-NEXT: ldr q[[REGNUM]], {{\[}}[[PAGEADDR]], [[CSTV2]]@PAGEOFF]
+; PROMOTED: add [[BASEADDR:x[0-9]+]], [[PAGEADDR]], [[CSTV2]]@PAGEOFF
+; PROMOTED-NEXT: ldr q[[REGNUM]], {{\[}}[[BASEADDR]]]
 ; Next BB
 ; PROMOTED-NEXT: [[LABEL]]:
 ; PROMOTED-NEXT: mul.16b [[DESTV:v[0-9]+]], v0, v[[REGNUM]]
@@ -133,7 +136,8 @@ define <16 x i8> @test4(<16 x i8> %arg, i32 %path) {
 ; Since, the constant is the same as the previous function,
 ; the same address must be used
 ; PROMOTED: adrp [[PAGEADDR:x[0-9]+]], [[CSTV1]]@PAGE
-; PROMOTED-NEXT: ldr q[[REGNUM:[0-9]+]], {{\[}}[[PAGEADDR]], [[CSTV1]]@PAGEOFF]
+; PROMOTED: add [[BASEADDR:x[0-9]+]], [[PAGEADDR]], [[CSTV1]]@PAGEOFF
+; PROMOTED-NEXT: ldr q[[REGNUM:[0-9]+]], {{\[}}[[BASEADDR]]]
 ; Destination register is defined by ABI
 ; PROMOTED-NEXT: add.16b v0, v0, v[[REGNUM]]
 ; PROMOTED-NEXT: cbz w0, [[LABEL:LBB.*]]
@@ -181,7 +185,8 @@ define <16 x i8> @test5(<16 x i8> %arg, i32 %path) {
 ; Since, the constant is the same as the previous function,
 ; the same address must be used
 ; PROMOTED: adrp [[PAGEADDR:x[0-9]+]], [[CSTV1]]@PAGE
-; PROMOTED-NEXT: ldr q[[REGNUM:[0-9]+]], {{\[}}[[PAGEADDR]], [[CSTV1]]@PAGEOFF]
+; PROMOTED: add [[BASEADDR:x[0-9]+]], [[PAGEADDR]], [[CSTV1]]@PAGEOFF
+; PROMOTED-NEXT: ldr q[[REGNUM:[0-9]+]], {{\[}}[[BASEADDR]]]
 ; PROMOTED-NEXT: cbz w0, [[LABEL:LBB.*]]
 ; Next BB
 ; PROMOTED: add.16b [[DESTV:v[0-9]+]], v0, v[[REGNUM]]

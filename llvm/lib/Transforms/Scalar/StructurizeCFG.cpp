@@ -10,7 +10,6 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SCCIterator.h"
-#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/RegionInfo.h"
 #include "llvm/Analysis/RegionIterator.h"
 #include "llvm/Analysis/RegionPass.h"
@@ -167,7 +166,6 @@ class StructurizeCFG : public RegionPass {
   Region *ParentRegion;
 
   DominatorTree *DT;
-  LoopInfo *LI;
 
   RNVector Order;
   BBSet Visited;
@@ -249,7 +247,6 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequiredID(LowerSwitchID);
     AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<LoopInfo>();
     AU.addPreserved<DominatorTreeWrapperPass>();
     RegionPass::getAnalysisUsage(AU);
   }
@@ -304,9 +301,8 @@ void StructurizeCFG::analyzeLoops(RegionNode *N) {
     for (unsigned i = 0, e = Term->getNumSuccessors(); i != e; ++i) {
       BasicBlock *Succ = Term->getSuccessor(i);
 
-      if (Visited.count(Succ) && LI->isLoopHeader(Succ) ) {
+      if (Visited.count(Succ))
         Loops[Succ] = BB;
-      }
     }
   }
 }
@@ -866,7 +862,6 @@ bool StructurizeCFG::runOnRegion(Region *R, RGPassManager &RGM) {
   ParentRegion = R;
 
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  LI = &getAnalysis<LoopInfo>();
 
   orderNodes();
   collectInfos();

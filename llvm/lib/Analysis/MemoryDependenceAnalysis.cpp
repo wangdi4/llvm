@@ -49,10 +49,7 @@ STATISTIC(NumCacheCompleteNonLocalPtr,
           "Number of block queries that were completely cached");
 
 // Limit for the number of instructions to scan in a block.
-static const unsigned int BlockScanLimit = 100;
-
-// Limit on the number of memdep results to process.
-static const unsigned int NumResultsLimit = 100;
+static const int BlockScanLimit = 100;
 
 char MemoryDependenceAnalysis::ID = 0;
 
@@ -776,7 +773,7 @@ MemoryDependenceAnalysis::getNonLocalCallDependency(CallSite QueryCS) {
     DirtyBlocks.pop_back();
 
     // Already processed this block?
-    if (!Visited.insert(DirtyBB).second)
+    if (!Visited.insert(DirtyBB))
       continue;
 
     // Do a binary search to see if we already have an entry for this block in
@@ -1136,25 +1133,6 @@ getNonLocalPointerDepFromBB(const PHITransAddr &Pointer,
   while (!Worklist.empty()) {
     BasicBlock *BB = Worklist.pop_back_val();
 
-    // If we do process a large number of blocks it becomes very expensive and
-    // likely it isn't worth worrying about
-    if (Result.size() > NumResultsLimit) {
-      Worklist.clear();
-      // Sort it now (if needed) so that recursive invocations of
-      // getNonLocalPointerDepFromBB and other routines that could reuse the
-      // cache value will only see properly sorted cache arrays.
-      if (Cache && NumSortedEntries != Cache->size()) {
-        SortNonLocalDepInfoCache(*Cache, NumSortedEntries);
-        NumSortedEntries = Cache->size();
-      }
-      // Since we bail out, the "Cache" set won't contain all of the
-      // results for the query.  This is ok (we can still use it to accelerate
-      // specific block queries) but we can't do the fastpath "return all
-      // results from the set".  Clear out the indicator for this.
-      CacheInfo->Pair = BBSkipFirstBlockPair();
-      return true;
-    }
-
     // Skip the first block if we have it.
     if (!SkipFirstBlock) {
       // Analyze the dependency of *Pointer in FromBB.  See if we already have
@@ -1361,7 +1339,7 @@ getNonLocalPointerDepFromBB(const PHITransAddr &Pointer,
       if (I->getBB() != BB)
         continue;
 
-      assert((I->getResult().isNonLocal() || !DT->isReachableFromEntry(BB)) &&
+      assert(I->getResult().isNonLocal() &&
              "Should only be here with transparent block");
       I->setResult(MemDepResult::getUnknown());
       Result.push_back(NonLocalDepResult(I->getBB(), I->getResult(),

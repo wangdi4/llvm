@@ -665,9 +665,7 @@ public:
       delete[] pVal;
     }
 
-    // Use memcpy so that type based alias analysis sees both VAL and pVal
-    // as modified.
-    memcpy(&VAL, &that.VAL, sizeof(uint64_t));
+    VAL = that.VAL;
 
     // If 'this == &that', avoid zeroing our own bitwidth by storing to 'that'
     // first.
@@ -947,8 +945,7 @@ public:
   APInt sdiv_ov(const APInt &RHS, bool &Overflow) const;
   APInt smul_ov(const APInt &RHS, bool &Overflow) const;
   APInt umul_ov(const APInt &RHS, bool &Overflow) const;
-  APInt sshl_ov(const APInt &Amt, bool &Overflow) const;
-  APInt ushl_ov(const APInt &Amt, bool &Overflow) const;
+  APInt sshl_ov(unsigned Amt, bool &Overflow) const;
 
   /// \brief Array-indexing support.
   ///

@@ -22,7 +22,6 @@
 #include "llvm/MC/MCInstrItineraries.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
-#include "MipsABIInfo.h"
 #include <string>
 
 #define GET_SUBTARGETINFO_HEADER
@@ -36,8 +35,14 @@ class MipsTargetMachine;
 class MipsSubtarget : public MipsGenSubtargetInfo {
   virtual void anchor();
 
+public:
+  // NOTE: O64 will not be supported.
+  enum MipsABIEnum {
+    UnknownABI, O32, N32, N64, EABI
+  };
+
+protected:
   enum MipsArchEnum {
-    MipsDefault,
     Mips1, Mips2, Mips32, Mips32r2, Mips32r6, Mips3, Mips4, Mips5, Mips64,
     Mips64r2, Mips64r6
   };
@@ -45,8 +50,8 @@ class MipsSubtarget : public MipsGenSubtargetInfo {
   // Mips architecture version
   MipsArchEnum MipsArchVersion;
 
-  // Selected ABI
-  MipsABIInfo ABI;
+  // Mips supported ABIs
+  MipsABIEnum MipsABI;
 
   // IsLittle - The target is Little Endian
   bool IsLittle;
@@ -153,12 +158,12 @@ public:
   CodeGenOpt::Level getOptLevelToEnablePostRAScheduler() const override;
 
   /// Only O32 and EABI supported right now.
-  bool isABI_EABI() const { return ABI.IsEABI(); }
-  bool isABI_N64() const { return ABI.IsN64(); }
-  bool isABI_N32() const { return ABI.IsN32(); }
-  bool isABI_O32() const { return ABI.IsO32(); }
+  bool isABI_EABI() const { return MipsABI == EABI; }
+  bool isABI_N64() const { return MipsABI == N64; }
+  bool isABI_N32() const { return MipsABI == N32; }
+  bool isABI_O32() const { return MipsABI == O32; }
   bool isABI_FPXX() const { return isABI_O32() && IsFPXX; }
-  const MipsABIInfo &getABI() const { return ABI; }
+  unsigned getTargetABI() const { return MipsABI; }
 
   /// This constructor initializes the data members to match that
   /// of the specified triple.

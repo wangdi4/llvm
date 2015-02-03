@@ -26,13 +26,12 @@ public:
   /// copy of s. Can only be used before the table is finalized.
   StringRef add(StringRef s) {
     assert(!isFinalized());
-    return StringIndexMap.insert(std::make_pair(s, 0)).first->first();
+    return StringIndexMap.GetOrCreateValue(s, 0).getKey();
   }
 
   enum Kind {
     ELF,
-    WinCOFF,
-    MachO
+    WinCOFF
   };
 
   /// \brief Analyze the strings and build the final table. No more strings can

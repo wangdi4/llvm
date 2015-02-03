@@ -302,14 +302,8 @@ bool DAE::DeleteDeadVarargs(Function &Fn) {
 
   // Patch the pointer to LLVM function in debug info descriptor.
   auto DI = FunctionDIs.find(&Fn);
-  if (DI != FunctionDIs.end()) {
-    DISubprogram SP = DI->second;
-    SP.replaceFunction(NF);
-    // Ensure the map is updated so it can be reused on non-varargs argument
-    // eliminations of the same function.
-    FunctionDIs.erase(DI);
-    FunctionDIs[NF] = SP;
-  }
+  if (DI != FunctionDIs.end())
+    DI->second.replaceFunction(NF);
 
   // Fix up any BlockAddresses that refer to the function.
   Fn.replaceAllUsesWith(ConstantExpr::getBitCast(NF, Fn.getType()));
@@ -1099,8 +1093,8 @@ bool DAE::runOnModule(Module &M) {
   // determine that dead arguments passed into recursive functions are dead).
   //
   DEBUG(dbgs() << "DAE - Determining liveness\n");
-  for (auto &F : M)
-    SurveyFunction(F);
+  for (Module::iterator I = M.begin(), E = M.end(); I != E; ++I)
+    SurveyFunction(*I);
 
   // Now, remove all dead arguments and return values from each function in
   // turn.
@@ -1113,8 +1107,11 @@ bool DAE::runOnModule(Module &M) {
 
   // Finally, look for any unused parameters in functions with non-local
   // linkage and replace the passed in parameters with undef.
-  for (auto &F : M)
+  for (Module::iterator I = M.begin(), E = M.end(); I != E; ++I) {
+    Function& F = *I;
+
     Changed |= RemoveDeadArgumentsFromCallers(F);
+  }
 
   return Changed;
 }

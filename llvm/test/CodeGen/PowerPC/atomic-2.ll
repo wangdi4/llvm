@@ -30,9 +30,8 @@ define void @atomic_store(i64* %mem, i64 %val) nounwind {
 entry:
 ; CHECK: @atomic_store
   store atomic i64 %val, i64* %mem release, align 64
-; CHECK: sync 1
-; CHECK-NOT: stdcx
-; CHECK: std
+; CHECK: ldarx
+; CHECK: stdcx.
   ret void
 }
 
@@ -40,9 +39,9 @@ define i64 @atomic_load(i64* %mem) nounwind {
 entry:
 ; CHECK: @atomic_load
   %tmp = load atomic i64* %mem acquire, align 64
-; CHECK-NOT: ldarx
-; CHECK: ld
-; CHECK: sync 1
+; CHECK: ldarx
+; CHECK: stdcx.
+; CHECK: stdcx.
   ret i64 %tmp
 }
 

@@ -55,7 +55,7 @@ StructLayout::StructLayout(StructType *ST, const DataLayout &DL) {
 
     // Add padding if necessary to align the data element properly.
     if ((StructSize & (TyAlign-1)) != 0)
-      StructSize = RoundUpToAlignment(StructSize, TyAlign);
+      StructSize = DataLayout::RoundUpAlignment(StructSize, TyAlign);
 
     // Keep track of maximum alignment constraint.
     StructAlignment = std::max(TyAlign, StructAlignment);
@@ -70,7 +70,7 @@ StructLayout::StructLayout(StructType *ST, const DataLayout &DL) {
   // Add padding to the end of the struct so that it could be put in an array
   // and all array elements would be aligned correctly.
   if ((StructSize & (StructAlignment-1)) != 0)
-    StructSize = RoundUpToAlignment(StructSize, StructAlignment);
+    StructSize = DataLayout::RoundUpAlignment(StructSize, StructAlignment);
 }
 
 
@@ -179,7 +179,7 @@ void DataLayout::reset(StringRef Desc) {
   clear();
 
   LayoutMap = nullptr;
-  BigEndian = false;
+  LittleEndian = false;
   StackNaturalAlign = 0;
   ManglingMode = MM_None;
 
@@ -239,10 +239,10 @@ void DataLayout::parseSpecifier(StringRef Desc) {
       // FIXME: remove this on LLVM 4.0.
       break;
     case 'E':
-      BigEndian = true;
+      LittleEndian = false;
       break;
     case 'e':
-      BigEndian = false;
+      LittleEndian = true;
       break;
     case 'p': {
       // Address space.
@@ -357,7 +357,7 @@ void DataLayout::init(const Module *M) {
 }
 
 bool DataLayout::operator==(const DataLayout &Other) const {
-  bool Ret = BigEndian == Other.BigEndian &&
+  bool Ret = LittleEndian == Other.LittleEndian &&
              StackNaturalAlign == Other.StackNaturalAlign &&
              ManglingMode == Other.ManglingMode &&
              LegalIntWidths == Other.LegalIntWidths &&
@@ -526,7 +526,7 @@ std::string DataLayout::getStringRepresentation() const {
   std::string Result;
   raw_string_ostream OS(Result);
 
-  OS << (BigEndian ? "E" : "e");
+  OS << (LittleEndian ? "e" : "E");
 
   switch (ManglingMode) {
   case MM_None:

@@ -232,7 +232,7 @@ namespace llvm {
 
   class ARMTargetLowering : public TargetLowering {
   public:
-    explicit ARMTargetLowering(const TargetMachine &TM);
+    explicit ARMTargetLowering(TargetMachine &TM);
 
     unsigned getJumpTableEncoding() const override;
 
@@ -409,9 +409,6 @@ namespace llvm {
     bool shouldExpandAtomicRMWInIR(AtomicRMWInst *AI) const override;
 
     bool useLoadStackGuardNode() const override;
-
-    bool canCombineStoreAndExtract(Type *VectorTy, Value *Idx,
-                                   unsigned &Cost) const override;
 
   protected:
     std::pair<const TargetRegisterClass*, uint8_t>

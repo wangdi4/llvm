@@ -30,6 +30,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetInstrInfo.h"
 #include "llvm/Target/TargetLowering.h"
+#include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
 #include <climits>
@@ -166,11 +167,13 @@ public:
       NeedLatency(needlatency), AvailableQueue(availqueue), CurCycle(0),
       Topo(SUnits, nullptr) {
 
-    const TargetSubtargetInfo &STI = mf.getSubtarget();
+    const TargetMachine &tm = mf.getTarget();
     if (DisableSchedCycles || !NeedLatency)
       HazardRec = new ScheduleHazardRecognizer();
     else
-      HazardRec = STI.getInstrInfo()->CreateTargetHazardRecognizer(&STI, this);
+      HazardRec =
+          tm.getSubtargetImpl()->getInstrInfo()->CreateTargetHazardRecognizer(
+              tm.getSubtargetImpl(), this);
   }
 
   ~ScheduleDAGRRList() {
@@ -945,7 +948,7 @@ SUnit *ScheduleDAGRRList::CopyAndMoveSuccessors(SUnit *SU) {
   SUnit *NewSU;
   bool TryUnfold = false;
   for (unsigned i = 0, e = N->getNumValues(); i != e; ++i) {
-    MVT VT = N->getSimpleValueType(i);
+    EVT VT = N->getValueType(i);
     if (VT == MVT::Glue)
       return nullptr;
     else if (VT == MVT::Other)
@@ -953,7 +956,7 @@ SUnit *ScheduleDAGRRList::CopyAndMoveSuccessors(SUnit *SU) {
   }
   for (unsigned i = 0, e = N->getNumOperands(); i != e; ++i) {
     const SDValue &Op = N->getOperand(i);
-    MVT VT = Op.getNode()->getSimpleValueType(Op.getResNo());
+    EVT VT = Op.getNode()->getValueType(Op.getResNo());
     if (VT == MVT::Glue)
       return nullptr;
   }
@@ -1188,23 +1191,17 @@ void ScheduleDAGRRList::InsertCopiesAndMoveSuccs(SUnit *SU, unsigned Reg,
 /// getPhysicalRegisterVT - Returns the ValueType of the physical register
 /// definition of the specified node.
 /// FIXME: Move to SelectionDAG?
-static MVT getPhysicalRegisterVT(SDNode *N, unsigned Reg,
+static EVT getPhysicalRegisterVT(SDNode *N, unsigned Reg,
                                  const TargetInstrInfo *TII) {
-  unsigned NumRes;
-  if (N->getOpcode() == ISD::CopyFromReg) {
-    // CopyFromReg has: "chain, Val, glue" so operand 1 gives the type.
-    NumRes = 1;
-  } else {
-    const MCInstrDesc &MCID = TII->get(N->getMachineOpcode());
-    assert(MCID.ImplicitDefs && "Physical reg def must be in implicit def list!");
-    NumRes = MCID.getNumDefs();
-    for (const uint16_t *ImpDef = MCID.getImplicitDefs(); *ImpDef; ++ImpDef) {
-      if (Reg == *ImpDef)
-        break;
-      ++NumRes;
-    }
+  const MCInstrDesc &MCID = TII->get(N->getMachineOpcode());
+  assert(MCID.ImplicitDefs && "Physical reg def must be in implicit def list!");
+  unsigned NumRes = MCID.getNumDefs();
+  for (const uint16_t *ImpDef = MCID.getImplicitDefs(); *ImpDef; ++ImpDef) {
+    if (Reg == *ImpDef)
+      break;
+    ++NumRes;
   }
-  return N->getSimpleValueType(NumRes);
+  return N->getValueType(NumRes);
 }
 
 /// CheckForLiveRegDef - Return true and update live register vector if the
@@ -1223,7 +1220,7 @@ static void CheckForLiveRegDef(SUnit *SU, unsigned Reg,
     if (LiveRegDefs[*AliasI] == SU) continue;
 
     // Add Reg to the set of interfering live regs.
-    if (RegAdded.insert(*AliasI).second) {
+    if (RegAdded.insert(*AliasI)) {
       LRegs.push_back(*AliasI);
     }
   }
@@ -1240,7 +1237,7 @@ static void CheckForLiveRegDefMasked(SUnit *SU, const uint32_t *RegMask,
     if (!LiveRegDefs[i]) continue;
     if (LiveRegDefs[i] == SU) continue;
     if (!MachineOperand::clobbersPhysReg(RegMask, i)) continue;
-    if (RegAdded.insert(i).second)
+    if (RegAdded.insert(i))
       LRegs.push_back(i);
   }
 }
@@ -1315,8 +1312,7 @@ DelayForLiveRegsBottomUp(SUnit *SU, SmallVectorImpl<unsigned> &LRegs) {
         SDNode *Gen = LiveRegGens[CallResource]->getNode();
         while (SDNode *Glued = Gen->getGluedNode())
           Gen = Glued;
-        if (!IsChainDependent(Gen, Node, 0, TII) &&
-            RegAdded.insert(CallResource).second)
+        if (!IsChainDependent(Gen, Node, 0, TII) && RegAdded.insert(CallResource))
           LRegs.push_back(CallResource);
       }
     }
@@ -1445,7 +1441,7 @@ SUnit *ScheduleDAGRRList::PickNodeToScheduleBottomUp() {
     assert(LRegs.size() == 1 && "Can't handle this yet!");
     unsigned Reg = LRegs[0];
     SUnit *LRDef = LiveRegDefs[Reg];
-    MVT VT = getPhysicalRegisterVT(LRDef->getNode(), Reg, TII);
+    EVT VT = getPhysicalRegisterVT(LRDef->getNode(), Reg, TII);
     const TargetRegisterClass *RC =
       TRI->getMinimalPhysRegClass(Reg, VT);
     const TargetRegisterClass *DestRC = TRI->getCrossCopyRegClass(RC);
@@ -1936,8 +1932,8 @@ void RegReductionPQBase::dumpRegPressure() const {
     unsigned Id = RC->getID();
     unsigned RP = RegPressure[Id];
     if (!RP) continue;
-    DEBUG(dbgs() << TRI->getRegClassName(RC) << ": " << RP << " / "
-          << RegLimit[Id] << '\n');
+    DEBUG(dbgs() << RC->getName() << ": " << RP << " / " << RegLimit[Id]
+          << '\n');
   }
 #endif
 }
@@ -2760,7 +2756,7 @@ static bool canClobberPhysRegDefs(const SUnit *SuccSU, const SUnit *SU,
     if (!SUImpDefs && !SURegMask)
       continue;
     for (unsigned i = NumDefs, e = N->getNumValues(); i != e; ++i) {
-      MVT VT = N->getSimpleValueType(i);
+      EVT VT = N->getValueType(i);
       if (VT == MVT::Glue || VT == MVT::Other)
         continue;
       if (!N->hasAnyUseOfValue(i))
@@ -2983,9 +2979,9 @@ void RegReductionPQBase::AddPseudoTwoAddrDeps() {
 llvm::ScheduleDAGSDNodes *
 llvm::createBURRListDAGScheduler(SelectionDAGISel *IS,
                                  CodeGenOpt::Level OptLevel) {
-  const TargetSubtargetInfo &STI = IS->MF->getSubtarget();
-  const TargetInstrInfo *TII = STI.getInstrInfo();
-  const TargetRegisterInfo *TRI = STI.getRegisterInfo();
+  const TargetMachine &TM = IS->TM;
+  const TargetInstrInfo *TII = TM.getSubtargetImpl()->getInstrInfo();
+  const TargetRegisterInfo *TRI = TM.getSubtargetImpl()->getRegisterInfo();
 
   BURegReductionPriorityQueue *PQ =
     new BURegReductionPriorityQueue(*IS->MF, false, false, TII, TRI, nullptr);
@@ -2997,9 +2993,9 @@ llvm::createBURRListDAGScheduler(SelectionDAGISel *IS,
 llvm::ScheduleDAGSDNodes *
 llvm::createSourceListDAGScheduler(SelectionDAGISel *IS,
                                    CodeGenOpt::Level OptLevel) {
-  const TargetSubtargetInfo &STI = IS->MF->getSubtarget();
-  const TargetInstrInfo *TII = STI.getInstrInfo();
-  const TargetRegisterInfo *TRI = STI.getRegisterInfo();
+  const TargetMachine &TM = IS->TM;
+  const TargetInstrInfo *TII = TM.getSubtargetImpl()->getInstrInfo();
+  const TargetRegisterInfo *TRI = TM.getSubtargetImpl()->getRegisterInfo();
 
   SrcRegReductionPriorityQueue *PQ =
     new SrcRegReductionPriorityQueue(*IS->MF, false, true, TII, TRI, nullptr);
@@ -3011,10 +3007,10 @@ llvm::createSourceListDAGScheduler(SelectionDAGISel *IS,
 llvm::ScheduleDAGSDNodes *
 llvm::createHybridListDAGScheduler(SelectionDAGISel *IS,
                                    CodeGenOpt::Level OptLevel) {
-  const TargetSubtargetInfo &STI = IS->MF->getSubtarget();
-  const TargetInstrInfo *TII = STI.getInstrInfo();
-  const TargetRegisterInfo *TRI = STI.getRegisterInfo();
-  const TargetLowering *TLI = IS->TLI;
+  const TargetMachine &TM = IS->TM;
+  const TargetInstrInfo *TII = TM.getSubtargetImpl()->getInstrInfo();
+  const TargetRegisterInfo *TRI = TM.getSubtargetImpl()->getRegisterInfo();
+  const TargetLowering *TLI = IS->getTargetLowering();
 
   HybridBURRPriorityQueue *PQ =
     new HybridBURRPriorityQueue(*IS->MF, true, false, TII, TRI, TLI);
@@ -3027,10 +3023,10 @@ llvm::createHybridListDAGScheduler(SelectionDAGISel *IS,
 llvm::ScheduleDAGSDNodes *
 llvm::createILPListDAGScheduler(SelectionDAGISel *IS,
                                 CodeGenOpt::Level OptLevel) {
-  const TargetSubtargetInfo &STI = IS->MF->getSubtarget();
-  const TargetInstrInfo *TII = STI.getInstrInfo();
-  const TargetRegisterInfo *TRI = STI.getRegisterInfo();
-  const TargetLowering *TLI = IS->TLI;
+  const TargetMachine &TM = IS->TM;
+  const TargetInstrInfo *TII = TM.getSubtargetImpl()->getInstrInfo();
+  const TargetRegisterInfo *TRI = TM.getSubtargetImpl()->getRegisterInfo();
+  const TargetLowering *TLI = IS->getTargetLowering();
 
   ILPBURRPriorityQueue *PQ =
     new ILPBURRPriorityQueue(*IS->MF, true, false, TII, TRI, TLI);

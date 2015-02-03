@@ -634,24 +634,22 @@ bool MemCpyOpt::performCallSlotOptzn(Instruction *cpy,
     if (destSize < srcSize)
       return false;
   } else if (Argument *A = dyn_cast<Argument>(cpyDest)) {
-    if (A->getDereferenceableBytes() < srcSize) {
-      // If the destination is an sret parameter then only accesses that are
-      // outside of the returned struct type can trap.
-      if (!A->hasStructRetAttr())
-        return false;
+    // If the destination is an sret parameter then only accesses that are
+    // outside of the returned struct type can trap.
+    if (!A->hasStructRetAttr())
+      return false;
 
-      Type *StructTy = cast<PointerType>(A->getType())->getElementType();
-      if (!StructTy->isSized()) {
-        // The call may never return and hence the copy-instruction may never
-        // be executed, and therefore it's not safe to say "the destination
-        // has at least <cpyLen> bytes, as implied by the copy-instruction",
-        return false;
-      }
-
-      uint64_t destSize = DL->getTypeAllocSize(StructTy);
-      if (destSize < srcSize)
-        return false;
+    Type *StructTy = cast<PointerType>(A->getType())->getElementType();
+    if (!StructTy->isSized()) {
+      // The call may never return and hence the copy-instruction may never
+      // be executed, and therefore it's not safe to say "the destination
+      // has at least <cpyLen> bytes, as implied by the copy-instruction",
+      return false;
     }
+
+    uint64_t destSize = DL->getTypeAllocSize(StructTy);
+    if (destSize < srcSize)
+      return false;
   } else {
     return false;
   }

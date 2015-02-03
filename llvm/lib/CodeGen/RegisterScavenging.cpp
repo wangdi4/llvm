@@ -24,6 +24,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetInstrInfo.h"
+#include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
 using namespace llvm;
@@ -62,8 +63,9 @@ void RegScavenger::initRegState() {
 
 void RegScavenger::enterBasicBlock(MachineBasicBlock *mbb) {
   MachineFunction &MF = *mbb->getParent();
-  TII = MF.getSubtarget().getInstrInfo();
-  TRI = MF.getSubtarget().getRegisterInfo();
+  const TargetMachine &TM = MF.getTarget();
+  TII = TM.getSubtargetImpl()->getInstrInfo();
+  TRI = TM.getSubtargetImpl()->getRegisterInfo();
   MRI = &MF.getRegInfo();
 
   assert((NumRegUnits == 0 || NumRegUnits == TRI->getNumRegUnits()) &&

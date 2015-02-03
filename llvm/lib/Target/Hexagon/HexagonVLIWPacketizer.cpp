@@ -145,23 +145,23 @@ namespace {
     bool PromoteToDotNew(MachineInstr* MI, SDep::Kind DepType,
                          MachineBasicBlock::iterator &MII,
                          const TargetRegisterClass* RC);
-    bool CanPromoteToDotNew(MachineInstr *MI, SUnit *PacketSU, unsigned DepReg,
-                            const std::map<MachineInstr *, SUnit *> &MIToSUnit,
+    bool CanPromoteToDotNew(MachineInstr* MI, SUnit* PacketSU,
+                            unsigned DepReg,
+                            std::map <MachineInstr*, SUnit*> MIToSUnit,
                             MachineBasicBlock::iterator &MII,
-                            const TargetRegisterClass *RC);
-    bool
-    CanPromoteToNewValue(MachineInstr *MI, SUnit *PacketSU, unsigned DepReg,
-                         const std::map<MachineInstr *, SUnit *> &MIToSUnit,
-                         MachineBasicBlock::iterator &MII);
-    bool CanPromoteToNewValueStore(
-        MachineInstr *MI, MachineInstr *PacketMI, unsigned DepReg,
-        const std::map<MachineInstr *, SUnit *> &MIToSUnit);
-    bool DemoteToDotOld(MachineInstr *MI);
-    bool ArePredicatesComplements(
-        MachineInstr *MI1, MachineInstr *MI2,
-        const std::map<MachineInstr *, SUnit *> &MIToSUnit);
-    bool RestrictingDepExistInPacket(MachineInstr *, unsigned,
-                                     const std::map<MachineInstr *, SUnit *> &);
+                            const TargetRegisterClass* RC);
+    bool CanPromoteToNewValue(MachineInstr* MI, SUnit* PacketSU,
+                              unsigned DepReg,
+                              std::map <MachineInstr*, SUnit*> MIToSUnit,
+                              MachineBasicBlock::iterator &MII);
+    bool CanPromoteToNewValueStore(MachineInstr* MI, MachineInstr* PacketMI,
+                                   unsigned DepReg,
+                                   std::map <MachineInstr*, SUnit*> MIToSUnit);
+    bool DemoteToDotOld(MachineInstr* MI);
+    bool ArePredicatesComplements(MachineInstr* MI1, MachineInstr* MI2,
+                    std::map <MachineInstr*, SUnit*> MIToSUnit);
+    bool RestrictingDepExistInPacket(MachineInstr*,
+                    unsigned, std::map <MachineInstr*, SUnit*>);
     bool isNewifiable(MachineInstr* MI);
     bool isCondInst(MachineInstr* MI);
     bool tryAllocateResourcesForConstExt(MachineInstr* MI);
@@ -323,7 +323,7 @@ bool HexagonPacketizerList::IsCallDependent(MachineInstr* MI,
 
   const HexagonInstrInfo *QII = (const HexagonInstrInfo *) TII;
   const HexagonRegisterInfo *QRI =
-      (const HexagonRegisterInfo *)MF.getSubtarget().getRegisterInfo();
+      (const HexagonRegisterInfo *)TM.getSubtargetImpl()->getRegisterInfo();
 
   // Check for lr dependence
   if (DepReg == QRI->getRARegister()) {
@@ -534,9 +534,9 @@ static MachineOperand& GetStoreValueOperand(MachineInstr *MI) {
 //    if there is a  new value store in the packet. Corollary, if there is
 //    already a store in a packet, there can not be a new value store.
 //    Arch Spec: 3.4.4.2
-bool HexagonPacketizerList::CanPromoteToNewValueStore(
-    MachineInstr *MI, MachineInstr *PacketMI, unsigned DepReg,
-    const std::map<MachineInstr *, SUnit *> &MIToSUnit) {
+bool HexagonPacketizerList::CanPromoteToNewValueStore( MachineInstr *MI,
+                MachineInstr *PacketMI, unsigned DepReg,
+                std::map <MachineInstr*, SUnit*> MIToSUnit) {
   const HexagonInstrInfo *QII = (const HexagonInstrInfo *) TII;
   // Make sure we are looking at the store, that can be promoted.
   if (!QII->mayBeNewStore(MI))
@@ -548,7 +548,7 @@ bool HexagonPacketizerList::CanPromoteToNewValueStore(
     return false;
 
   const HexagonRegisterInfo *QRI =
-      (const HexagonRegisterInfo *)MF.getSubtarget().getRegisterInfo();
+      (const HexagonRegisterInfo *)TM.getSubtargetImpl()->getRegisterInfo();
   const MCInstrDesc& MCID = PacketMI->getDesc();
   // first operand is always the result
 
@@ -559,7 +559,7 @@ bool HexagonPacketizerList::CanPromoteToNewValueStore(
   for (std::vector<MachineInstr*>::iterator VI = CurrentPacketMIs.begin(),
          VE = CurrentPacketMIs.end();
        (VI != VE); ++VI) {
-    SUnit *PacketSU = MIToSUnit.find(*VI)->second;
+    SUnit* PacketSU = MIToSUnit[*VI];
     if (PacketSU->getInstr()->getDesc().mayStore() ||
         // if we have mayStore = 1 set on ALLOCFRAME and DEALLOCFRAME,
         // then we don't need this
@@ -659,7 +659,7 @@ bool HexagonPacketizerList::CanPromoteToNewValueStore(
 
   for (VI=CurrentPacketMIs.begin(), VE = CurrentPacketMIs.end();
       (VI != VE); ++VI) {
-    SUnit *TempSU = MIToSUnit.find(*VI)->second;
+    SUnit* TempSU = MIToSUnit[*VI];
     MachineInstr* TempMI = TempSU->getInstr();
 
     // Following condition is true for all the instructions until PacketMI is
@@ -715,14 +715,15 @@ bool HexagonPacketizerList::CanPromoteToNewValueStore(
 
 // can this MI to promoted to either
 // new value store or new value jump
-bool HexagonPacketizerList::CanPromoteToNewValue(
-    MachineInstr *MI, SUnit *PacketSU, unsigned DepReg,
-    const std::map<MachineInstr *, SUnit *> &MIToSUnit,
-    MachineBasicBlock::iterator &MII) {
+bool HexagonPacketizerList::CanPromoteToNewValue( MachineInstr *MI,
+                SUnit *PacketSU, unsigned DepReg,
+                std::map <MachineInstr*, SUnit*> MIToSUnit,
+                MachineBasicBlock::iterator &MII)
+{
 
   const HexagonInstrInfo *QII = (const HexagonInstrInfo *) TII;
   const HexagonRegisterInfo *QRI =
-      (const HexagonRegisterInfo *)MF.getSubtarget().getRegisterInfo();
+      (const HexagonRegisterInfo *)TM.getSubtargetImpl()->getRegisterInfo();
   if (!QRI->Subtarget.hasV4TOps() ||
       !QII->mayBeNewStore(MI))
     return false;
@@ -743,10 +744,12 @@ bool HexagonPacketizerList::CanPromoteToNewValue(
 // 1. dot new on predicate - V2/V3/V4
 // 2. dot new on stores NV/ST - V4
 // 3. dot new on jump NV/J - V4 -- This is generated in a pass.
-bool HexagonPacketizerList::CanPromoteToDotNew(
-    MachineInstr *MI, SUnit *PacketSU, unsigned DepReg,
-    const std::map<MachineInstr *, SUnit *> &MIToSUnit,
-    MachineBasicBlock::iterator &MII, const TargetRegisterClass *RC) {
+bool HexagonPacketizerList::CanPromoteToDotNew( MachineInstr *MI,
+                              SUnit *PacketSU, unsigned DepReg,
+                              std::map <MachineInstr*, SUnit*> MIToSUnit,
+                              MachineBasicBlock::iterator &MII,
+                              const TargetRegisterClass* RC )
+{
   const HexagonInstrInfo *QII = (const HexagonInstrInfo *) TII;
   // Already a dot new instruction.
   if (QII->isDotNewInst(MI) && !QII->mayBeNewStore(MI))
@@ -798,12 +801,12 @@ bool HexagonPacketizerList::CanPromoteToDotNew(
 // The P3 from a) and d) will be complements after
 // a)'s P3 is converted to .new form
 // Anti Dep between c) and b) is irrelevant for this case
-bool HexagonPacketizerList::RestrictingDepExistInPacket(
-    MachineInstr *MI, unsigned DepReg,
-    const std::map<MachineInstr *, SUnit *> &MIToSUnit) {
+bool HexagonPacketizerList::RestrictingDepExistInPacket (MachineInstr* MI,
+      unsigned DepReg,
+      std::map <MachineInstr*, SUnit*> MIToSUnit) {
 
   const HexagonInstrInfo *QII = (const HexagonInstrInfo *) TII;
-  SUnit *PacketSUDep = MIToSUnit.find(MI)->second;
+  SUnit* PacketSUDep = MIToSUnit[MI];
 
   for (std::vector<MachineInstr*>::iterator VIN = CurrentPacketMIs.begin(),
        VEN = CurrentPacketMIs.end(); (VIN != VEN); ++VIN) {
@@ -812,7 +815,7 @@ bool HexagonPacketizerList::RestrictingDepExistInPacket(
     if(!QII->isPredicated(*VIN)) continue;
 
     // Scheduling Unit for current insn in the packet
-    SUnit *PacketSU = MIToSUnit.find(*VIN)->second;
+    SUnit* PacketSU = MIToSUnit[*VIN];
 
     // Look at dependencies between current members of the packet
     // and predicate defining instruction MI.
@@ -856,9 +859,8 @@ static unsigned getPredicatedRegister(MachineInstr *MI,
 
 // Given two predicated instructions, this function detects whether
 // the predicates are complements
-bool HexagonPacketizerList::ArePredicatesComplements(
-    MachineInstr *MI1, MachineInstr *MI2,
-    const std::map<MachineInstr *, SUnit *> &MIToSUnit) {
+bool HexagonPacketizerList::ArePredicatesComplements (MachineInstr* MI1,
+     MachineInstr* MI2, std::map <MachineInstr*, SUnit*> MIToSUnit) {
 
   const HexagonInstrInfo *QII = (const HexagonInstrInfo *) TII;
 
@@ -869,7 +871,7 @@ bool HexagonPacketizerList::ArePredicatesComplements(
     return false;
 
   // Scheduling unit for candidate
-  SUnit *SU = MIToSUnit.find(MI1)->second;
+  SUnit* SU = MIToSUnit[MI1];
 
   // One corner case deals with the following scenario:
   // Trying to add
@@ -894,7 +896,7 @@ bool HexagonPacketizerList::ArePredicatesComplements(
        VEN = CurrentPacketMIs.end(); (VIN != VEN); ++VIN) {
 
     // Scheduling Unit for current insn in the packet
-    SUnit *PacketSU = MIToSUnit.find(*VIN)->second;
+    SUnit* PacketSU = MIToSUnit[*VIN];
 
     // If this instruction in the packet is succeeded by the candidate...
     if (PacketSU->isSucc(SU)) {
@@ -1004,7 +1006,7 @@ bool HexagonPacketizerList::isLegalToPacketizeTogether(SUnit *SUI, SUnit *SUJ) {
 
   const unsigned FrameSize = MF.getFrameInfo()->getStackSize();
   const HexagonRegisterInfo *QRI =
-      (const HexagonRegisterInfo *)MF.getSubtarget().getRegisterInfo();
+      (const HexagonRegisterInfo *)TM.getSubtargetImpl()->getRegisterInfo();
   const HexagonInstrInfo *QII = (const HexagonInstrInfo *) TII;
 
   // Inline asm cannot go in the packet.
@@ -1099,7 +1101,7 @@ bool HexagonPacketizerList::isLegalToPacketizeTogether(SUnit *SUI, SUnit *SUJ) {
             VI = CurrentPacketMIs.begin(),
              VE = CurrentPacketMIs.end();
            (VI != VE && maintainNewValueJump); ++VI) {
-        SUnit *PacketSU = MIToSUnit.find(*VI)->second;
+        SUnit* PacketSU = MIToSUnit[*VI];
 
         // NVJ can not be part of the dual jump - Arch Spec: section 7.8
         if (PacketSU->getInstr()->getDesc().isCall()) {

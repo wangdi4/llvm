@@ -31,6 +31,11 @@ namespace llvm {
 
   };
 
+  /// Create and return a spiller object, as specified on the command line.
+  Spiller* createSpiller(MachineFunctionPass &pass,
+                         MachineFunction &mf,
+                         VirtRegMap &vrm);
+
   /// Create and return a spiller that will insert spill code directly instead
   /// of deferring though VirtRegMap.
   Spiller *createInlineSpiller(MachineFunctionPass &pass,

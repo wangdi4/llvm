@@ -275,7 +275,6 @@ namespace {
 
   private:
     void doInitialPlacement(std::vector<MachineInstr*> &CPEMIs);
-    bool BBHasFallthrough(MachineBasicBlock *MBB);
     CPEntry *findConstPoolEntry(unsigned CPI, const MachineInstr *CPEMI);
     unsigned getCPELogAlign(const MachineInstr *CPEMI);
     void scanFunctionJumpTables();
@@ -557,7 +556,9 @@ ARMConstantIslands::doInitialPlacement(std::vector<MachineInstr*> &CPEMIs) {
         InsPoint[a] = CPEMI;
 
     // Add a new CPEntry, but no corresponding CPUser yet.
-    CPEntries.emplace_back(1, CPEntry(CPEMI, i));
+    std::vector<CPEntry> CPEs;
+    CPEs.push_back(CPEntry(CPEMI, i));
+    CPEntries.push_back(CPEs);
     ++NumCPEs;
     DEBUG(dbgs() << "Moved CPI#" << i << " to end of function, size = "
                  << Size << ", align = " << Align <<'\n');
@@ -567,7 +568,7 @@ ARMConstantIslands::doInitialPlacement(std::vector<MachineInstr*> &CPEMIs) {
 
 /// BBHasFallthrough - Return true if the specified basic block can fallthrough
 /// into the block immediately after it.
-bool ARMConstantIslands::BBHasFallthrough(MachineBasicBlock *MBB) {
+static bool BBHasFallthrough(MachineBasicBlock *MBB) {
   // Get the next machine basic block in the function.
   MachineFunction::iterator MBBI = MBB;
   // Can't fall off end of function.
@@ -575,15 +576,12 @@ bool ARMConstantIslands::BBHasFallthrough(MachineBasicBlock *MBB) {
     return false;
 
   MachineBasicBlock *NextBB = std::next(MBBI);
-  if (std::find(MBB->succ_begin(), MBB->succ_end(), NextBB) == MBB->succ_end())
-    return false;
+  for (MachineBasicBlock::succ_iterator I = MBB->succ_begin(),
+       E = MBB->succ_end(); I != E; ++I)
+    if (*I == NextBB)
+      return true;
 
-  // Try to analyze the end of the block. A potential fallthrough may already
-  // have an unconditional branch for whatever reason.
-  MachineBasicBlock *TBB, *FBB;
-  SmallVector<MachineOperand, 4> Cond;
-  bool TooDifficult = TII->AnalyzeBranch(*MBB, TBB, FBB, Cond);
-  return TooDifficult || FBB == nullptr;
+  return false;
 }
 
 /// findConstPoolEntry - Given the constpool index and CONSTPOOL_ENTRY MI,
@@ -1207,8 +1205,7 @@ bool ARMConstantIslands::findAvailableWater(CPUser &U, unsigned UserOffset,
     unsigned Growth;
     if (isWaterInRange(UserOffset, WaterBB, U, Growth) &&
         (WaterBB->getNumber() < U.HighWaterMark->getNumber() ||
-         NewWaterList.count(WaterBB) || WaterBB == U.MI->getParent()) &&
-        Growth < BestGrowth) {
+         NewWaterList.count(WaterBB)) && Growth < BestGrowth) {
       // This is the least amount of required padding seen so far.
       BestGrowth = Growth;
       WaterIter = IP;
@@ -1314,12 +1311,7 @@ void ARMConstantIslands::createNewWater(unsigned CPUserIndex,
   // Back past any possible branches (allow for a conditional and a maximally
   // long unconditional).
   if (BaseInsertOffset + 8 >= UserBBI.postOffset()) {
-    // Ensure BaseInsertOffset is larger than the offset of the instruction
-    // following UserMI so that the loop which searches for the split point
-    // iterates at least once.
-    BaseInsertOffset =
-        std::max(UserBBI.postOffset() - UPad - 8,
-                 UserOffset + TII->GetInstSizeInBytes(UserMI) + 1);
+    BaseInsertOffset = UserBBI.postOffset() - UPad - 8;
     DEBUG(dbgs() << format("Move inside block: %#x\n", BaseInsertOffset));
   }
   unsigned EndInsertOffset = BaseInsertOffset + 4 + UPad +
@@ -1362,11 +1354,6 @@ void ARMConstantIslands::createNewWater(unsigned CPUserIndex,
     if (CC != ARMCC::AL)
       MI = LastIT;
   }
-
-  // We really must not split an IT block.
-  DEBUG(unsigned PredReg;
-        assert(!isThumb || getITInstrPredicate(MI, PredReg) == ARMCC::AL));
-
   NewMBB = splitBlockBeforeInstr(MI);
 }
 

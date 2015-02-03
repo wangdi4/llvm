@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "XCoreTargetMachine.h"
-#include "XCoreTargetObjectFile.h"
 #include "XCore.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Module.h"
@@ -27,12 +26,9 @@ XCoreTargetMachine::XCoreTargetMachine(const Target &T, StringRef TT,
                                        Reloc::Model RM, CodeModel::Model CM,
                                        CodeGenOpt::Level OL)
     : LLVMTargetMachine(T, TT, CPU, FS, Options, RM, CM, OL),
-      TLOF(make_unique<XCoreTargetObjectFile>()),
       Subtarget(TT, CPU, FS, *this) {
   initAsmInfo();
 }
-
-XCoreTargetMachine::~XCoreTargetMachine() {}
 
 namespace {
 /// XCore Code Generator Pass Configuration Options.
@@ -45,7 +41,6 @@ public:
     return getTM<XCoreTargetMachine>();
   }
 
-  void addIRPasses() override;
   bool addPreISel() override;
   bool addInstSelector() override;
   bool addPreEmitPass() override;
@@ -54,12 +49,6 @@ public:
 
 TargetPassConfig *XCoreTargetMachine::createPassConfig(PassManagerBase &PM) {
   return new XCorePassConfig(this, PM);
-}
-
-void XCorePassConfig::addIRPasses() {
-  addPass(createAtomicExpandPass(&getXCoreTargetMachine()));
-
-  TargetPassConfig::addIRPasses();
 }
 
 bool XCorePassConfig::addPreISel() {

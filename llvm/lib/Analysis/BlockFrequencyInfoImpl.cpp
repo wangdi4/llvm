@@ -14,6 +14,7 @@
 #include "llvm/Analysis/BlockFrequencyInfoImpl.h"
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/Support/raw_ostream.h"
+#include <deque>
 
 using namespace llvm;
 using namespace llvm::bfi_detail;
@@ -601,8 +602,7 @@ static void findIrreducibleHeaders(
       break;
     }
   }
-  assert(Headers.size() >= 2 &&
-         "Expected irreducible CFG; -loop-info is likely invalid");
+  assert(Headers.size() >= 2 && "Should be irreducible");
   if (Headers.size() == InSCC.size()) {
     // Every block is a header.
     std::sort(Headers.begin(), Headers.end());

@@ -160,7 +160,7 @@ public:
 protected:
   virtual const MCSection *
   SelectSectionForGlobal(const GlobalValue *GV, SectionKind Kind,
-                         Mangler &Mang, const TargetMachine &TM) const = 0;
+                         Mangler &Mang, const TargetMachine &TM) const;
 };
 
 } // end namespace llvm

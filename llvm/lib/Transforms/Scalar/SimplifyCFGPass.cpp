@@ -35,24 +35,17 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Utils/Local.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "simplifycfg"
-
-static cl::opt<unsigned>
-UserBonusInstThreshold("bonus-inst-threshold", cl::Hidden, cl::init(1),
-   cl::desc("Control the number of bonus instructions (default = 1)"));
 
 STATISTIC(NumSimpl, "Number of blocks simplified");
 
 namespace {
 struct CFGSimplifyPass : public FunctionPass {
   static char ID; // Pass identification, replacement for typeid
-  unsigned BonusInstThreshold;
-  CFGSimplifyPass(int T = -1) : FunctionPass(ID) {
-    BonusInstThreshold = (T == -1) ? UserBonusInstThreshold : unsigned(T);
+  CFGSimplifyPass() : FunctionPass(ID) {
     initializeCFGSimplifyPassPass(*PassRegistry::getPassRegistry());
   }
   bool runOnFunction(Function &F) override;
@@ -73,8 +66,8 @@ INITIALIZE_PASS_END(CFGSimplifyPass, "simplifycfg", "Simplify the CFG", false,
                     false)
 
 // Public interface to the CFGSimplification pass
-FunctionPass *llvm::createCFGSimplificationPass(int Threshold) {
-  return new CFGSimplifyPass(Threshold);
+FunctionPass *llvm::createCFGSimplificationPass() {
+  return new CFGSimplifyPass();
 }
 
 /// mergeEmptyReturnBlocks - If we have more than one empty (other than phi
@@ -157,8 +150,7 @@ static bool mergeEmptyReturnBlocks(Function &F) {
 /// iterating until no more changes are made.
 static bool iterativelySimplifyCFG(Function &F, const TargetTransformInfo &TTI,
                                    const DataLayout *DL,
-                                   AssumptionTracker *AT,
-                                   unsigned BonusInstThreshold) {
+                                   AssumptionTracker *AT) {
   bool Changed = false;
   bool LocalChange = true;
   while (LocalChange) {
@@ -167,7 +159,7 @@ static bool iterativelySimplifyCFG(Function &F, const TargetTransformInfo &TTI,
     // Loop over all of the basic blocks and remove them if they are unneeded...
     //
     for (Function::iterator BBIt = F.begin(); BBIt != F.end(); ) {
-      if (SimplifyCFG(BBIt++, TTI, BonusInstThreshold, DL, AT)) {
+      if (SimplifyCFG(BBIt++, TTI, DL, AT)) {
         LocalChange = true;
         ++NumSimpl;
       }
@@ -190,7 +182,7 @@ bool CFGSimplifyPass::runOnFunction(Function &F) {
   const DataLayout *DL = DLP ? &DLP->getDataLayout() : nullptr;
   bool EverChanged = removeUnreachableBlocks(F);
   EverChanged |= mergeEmptyReturnBlocks(F);
-  EverChanged |= iterativelySimplifyCFG(F, TTI, DL, AT, BonusInstThreshold);
+  EverChanged |= iterativelySimplifyCFG(F, TTI, DL, AT);
 
   // If neither pass changed anything, we're done.
   if (!EverChanged) return false;
@@ -204,7 +196,7 @@ bool CFGSimplifyPass::runOnFunction(Function &F) {
     return true;
 
   do {
-    EverChanged = iterativelySimplifyCFG(F, TTI, DL, AT, BonusInstThreshold);
+    EverChanged = iterativelySimplifyCFG(F, TTI, DL, AT);
     EverChanged |= removeUnreachableBlocks(F);
   } while (EverChanged);
 

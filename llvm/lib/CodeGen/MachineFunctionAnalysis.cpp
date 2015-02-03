@@ -46,7 +46,8 @@ bool MachineFunctionAnalysis::doInitialization(Module &M) {
 bool MachineFunctionAnalysis::runOnFunction(Function &F) {
   assert(!MF && "MachineFunctionAnalysis already initialized!");
   MF = new MachineFunction(&F, TM, NextFnNum++,
-                           getAnalysis<MachineModuleInfo>());
+                           getAnalysis<MachineModuleInfo>(),
+                           getAnalysisIfAvailable<GCModuleInfo>());
   return false;
 }
 

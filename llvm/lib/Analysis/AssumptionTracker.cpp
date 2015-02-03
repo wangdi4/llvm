@@ -29,14 +29,12 @@ void AssumptionTracker::FunctionCallbackVH::deleted() {
 }
 
 void AssumptionTracker::forgetCachedAssumptions(Function *F) {
-  auto I = CachedAssumeCalls.find_as(F);
-  if (I != CachedAssumeCalls.end())
-    CachedAssumeCalls.erase(I);
+  CachedAssumeCalls.erase(F);
 }
 
 void AssumptionTracker::CallCallbackVH::deleted() {
   assert(F && "delete callback called on dummy handle");
-  FunctionCallsMap::iterator I = AT->CachedAssumeCalls.find_as(F);
+  FunctionCallsMap::iterator I = AT->CachedAssumeCalls.find(F);
   assert(I != AT->CachedAssumeCalls.end() &&
          "Function cleared from the map without removing the values?");
 
@@ -46,8 +44,10 @@ void AssumptionTracker::CallCallbackVH::deleted() {
 
 AssumptionTracker::FunctionCallsMap::iterator
 AssumptionTracker::scanFunction(Function *F) {
-  auto IP = CachedAssumeCalls.insert(std::make_pair(
-      FunctionCallbackVH(F, this), llvm::make_unique<CallHandleSet>()));
+  auto IP =
+    CachedAssumeCalls.insert(std::make_pair(FunctionCallbackVH(F, this),
+                                            std::unique_ptr<CallHandleSet>(
+                                              new CallHandleSet())));
   assert(IP.second && "Scanning function already in the map?");
 
   FunctionCallsMap::iterator I = IP.first;
@@ -56,7 +56,7 @@ AssumptionTracker::scanFunction(Function *F) {
   // to our cache.
   for (BasicBlock &B : *F)
     for (Instruction &II : B)
-      if (match(&II, m_Intrinsic<Intrinsic::assume>()))
+      if (match(cast<Value>(&II), m_Intrinsic<Intrinsic::assume>(m_Value())))
         I->second->insert(CallCallbackVH(&II, this));
 
   return I;
@@ -67,8 +67,10 @@ void AssumptionTracker::verifyAnalysis() const {
   for (const auto &I : CachedAssumeCalls) {
     for (const BasicBlock &B : cast<Function>(*I.first))
       for (const Instruction &II : B) {
-        if (match(&II, m_Intrinsic<Intrinsic::assume>())) {
-          assert(I.second->find_as(&II) != I.second->end() &&
+        Instruction *C = const_cast<Instruction*>(&II);
+        if (match(C, m_Intrinsic<Intrinsic::assume>(m_Value()))) {
+          assert(I.second->count(CallCallbackVH(C,
+                   const_cast<AssumptionTracker*>(this))) &&
                  "Assumption in scanned function not in cache");
         }
     }
@@ -77,7 +79,8 @@ void AssumptionTracker::verifyAnalysis() const {
 }
 
 void AssumptionTracker::registerAssumption(CallInst *CI) {
-  assert(match(CI, m_Intrinsic<Intrinsic::assume>()) &&
+  assert(match(cast<Value>(CI),
+               m_Intrinsic<Intrinsic::assume>(m_Value())) &&
          "Registered call does not call @llvm.assume");
   assert(CI->getParent() &&
          "Cannot register @llvm.assume call not in a basic block");
@@ -85,7 +88,7 @@ void AssumptionTracker::registerAssumption(CallInst *CI) {
   Function *F = CI->getParent()->getParent();
   assert(F && "Cannot register @llvm.assume call not in a function");
 
-  FunctionCallsMap::iterator I = CachedAssumeCalls.find_as(F);
+  FunctionCallsMap::iterator I = CachedAssumeCalls.find(F);
   if (I == CachedAssumeCalls.end()) {
     // If this function has not already been scanned, then don't do anything
     // here. This intrinsic will be found, if it still exists, if the list of

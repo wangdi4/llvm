@@ -42,12 +42,15 @@ static cl::opt<signed> RegPressureThreshold(
   cl::desc("Track reg pressure and switch priority to in-depth"));
 
 ResourcePriorityQueue::ResourcePriorityQueue(SelectionDAGISel *IS)
-    : Picker(this), InstrItins(IS->MF->getSubtarget().getInstrItineraryData()) {
-  const TargetSubtargetInfo &STI = IS->MF->getSubtarget();
-  TRI = STI.getRegisterInfo();
-  TLI = IS->TLI;
-  TII = STI.getInstrInfo();
-  ResourcesModel = TII->CreateTargetScheduleState(STI);
+    : Picker(this), InstrItins(IS->getTargetLowering()
+                                   ->getTargetMachine()
+                                   .getSubtargetImpl()
+                                   ->getInstrItineraryData()) {
+  const TargetMachine &TM = (*IS->MF).getTarget();
+  TRI = TM.getSubtargetImpl()->getRegisterInfo();
+  TLI = IS->getTargetLowering();
+  TII = TM.getSubtargetImpl()->getInstrInfo();
+  ResourcesModel = TII->CreateTargetScheduleState(&TM, nullptr);
   // This hard requirement could be relaxed, but for now
   // do not let it procede.
   assert(ResourcesModel && "Unimplemented CreateTargetScheduleState.");

@@ -16,8 +16,8 @@ BUILT_SOURCES = AMDGPUGenRegisterInfo.inc AMDGPUGenInstrInfo.inc \
 		AMDGPUGenDAGISel.inc  AMDGPUGenSubtargetInfo.inc \
 		AMDGPUGenMCCodeEmitter.inc AMDGPUGenCallingConv.inc \
 		AMDGPUGenIntrinsics.inc AMDGPUGenDFAPacketizer.inc \
-		AMDGPUGenAsmWriter.inc AMDGPUGenAsmMatcher.inc
+		AMDGPUGenAsmWriter.inc
 
-DIRS = AsmParser InstPrinter TargetInfo MCTargetDesc
+DIRS = InstPrinter TargetInfo MCTargetDesc
 
 include $(LEVEL)/Makefile.common

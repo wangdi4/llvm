@@ -110,13 +110,7 @@ enum {
   /// to prevent the stack guard value or address from being spilled to the
   /// stack should override TargetLowering::emitLoadStackGuardNode and
   /// additionally expand this pseudo after register allocation.
-  LOAD_STACK_GUARD = 19,
-
-  /// Call instruction with associated vm state for deoptimization and list
-  /// of live pointers for relocation by the garbage collector.  It is
-  /// intended to support garbage collection with fully precise relocating
-  /// collectors and deoptimizations in either the callee or caller.
-  STATEPOINT = 20
+  LOAD_STACK_GUARD = 19
 };
 } // end namespace TargetOpcode
 } // end namespace llvm

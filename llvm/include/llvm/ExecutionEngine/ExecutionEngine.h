@@ -138,11 +138,10 @@ protected:
   /// getMemoryforGV - Allocate memory for a global variable.
   virtual char *getMemoryForGV(const GlobalVariable *GV);
 
-  static ExecutionEngine *(*MCJITCtor)(
-                                     std::unique_ptr<Module> M,
-                                     std::string *ErrorStr,
-                                     std::unique_ptr<RTDyldMemoryManager> MCJMM,
-                                     std::unique_ptr<TargetMachine> TM);
+  static ExecutionEngine *(*MCJITCtor)(std::unique_ptr<Module> M,
+                                       std::string *ErrorStr,
+                                       RTDyldMemoryManager *MCJMM,
+                                       std::unique_ptr<TargetMachine> TM);
   static ExecutionEngine *(*InterpCtor)(std::unique_ptr<Module> M,
                                         std::string *ErrorStr);
 
@@ -493,7 +492,7 @@ private:
   EngineKind::Kind WhichEngine;
   std::string *ErrorStr;
   CodeGenOpt::Level OptLevel;
-  std::unique_ptr<RTDyldMemoryManager> MCJMM;
+  RTDyldMemoryManager *MCJMM;
   TargetOptions Options;
   Reloc::Model RelocModel;
   CodeModel::Model CMModel;
@@ -507,10 +506,9 @@ private:
 
 public:
   /// Constructor for EngineBuilder.
-  EngineBuilder(std::unique_ptr<Module> M);
-
-  // Out-of-line since we don't have the def'n of RTDyldMemoryManager here.
-  ~EngineBuilder();
+  EngineBuilder(std::unique_ptr<Module> M) : M(std::move(M)) {
+    InitEngine();
+  }
 
   /// setEngineKind - Controls whether the user wants the interpreter, the JIT,
   /// or whichever engine works.  This option defaults to EngineKind::Either.
@@ -525,7 +523,10 @@ public:
   /// to create anything other than MCJIT will cause a runtime error. If create()
   /// is called and is successful, the created engine takes ownership of the
   /// memory manager. This option defaults to NULL.
-  EngineBuilder &setMCJITMemoryManager(std::unique_ptr<RTDyldMemoryManager> mcjmm);
+  EngineBuilder &setMCJITMemoryManager(RTDyldMemoryManager *mcjmm) {
+    MCJMM = mcjmm;
+    return *this;
+  }
 
   /// setErrorStr - Set the error string to write to on error.  This option
   /// defaults to NULL.

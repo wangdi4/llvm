@@ -1,6 +1,4 @@
-; RUN: llc < %s -mtriple=armv8-linux-gnueabihf -mattr=+fp-armv8 | FileCheck --check-prefix=CHECK --check-prefix=DP %s
-; RUN: llc < %s -mtriple=thumbv7em-linux-gnueabihf -mattr=+fp-armv8,+d16,+fp-only-sp | FileCheck --check-prefix=SP %s
-; RUN: llc < %s -mtriple=thumbv7em-linux-gnueabihf -mattr=+fp-armv8,+d16 | FileCheck --check-prefix=DP %s
+; RUN: llc < %s -mtriple=armv8-linux-gnueabihf -mattr=+fp-armv8 | FileCheck %s
 
 ; CHECK-LABEL: test1
 ; CHECK: vrintm.f32
@@ -11,8 +9,7 @@ entry:
 }
 
 ; CHECK-LABEL: test2
-; SP: b floor
-; DP: vrintm.f64
+; CHECK: vrintm.f64
 define double @test2(double %a) {
 entry:
   %call = call double @floor(double %a) nounwind readnone
@@ -28,8 +25,7 @@ entry:
 }
 
 ; CHECK-LABEL: test4
-; SP: b ceil
-; DP: vrintp.f64
+; CHECK: vrintp.f64
 define double @test4(double %a) {
 entry:
   %call = call double @ceil(double %a) nounwind readnone
@@ -45,8 +41,7 @@ entry:
 }
 
 ; CHECK-LABEL: test6
-; SP: b round
-; DP: vrinta.f64
+; CHECK: vrinta.f64
 define double @test6(double %a) {
 entry:
   %call = call double @round(double %a) nounwind readnone
@@ -62,8 +57,7 @@ entry:
 }
 
 ; CHECK-LABEL: test8
-; SP: b trunc
-; DP: vrintz.f64
+; CHECK: vrintz.f64
 define double @test8(double %a) {
 entry:
   %call = call double @trunc(double %a) nounwind readnone
@@ -79,8 +73,7 @@ entry:
 }
 
 ; CHECK-LABEL: test10
-; SP: b nearbyint
-; DP: vrintr.f64
+; CHECK: vrintr.f64
 define double @test10(double %a) {
 entry:
   %call = call double @nearbyint(double %a) nounwind readnone
@@ -96,8 +89,7 @@ entry:
 }
 
 ; CHECK-LABEL: test12
-; SP: b rint
-; DP: vrintx.f64
+; CHECK: vrintx.f64
 define double @test12(double %a) {
 entry:
   %call = call double @rint(double %a) nounwind readnone

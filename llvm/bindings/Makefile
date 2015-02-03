@@ -11,10 +11,6 @@ LEVEL := ..
 
 include $(LEVEL)/Makefile.config
 
-PARALLEL_DIRS =
-
-ifneq (,$(filter ocaml,$(BINDINGS_TO_BUILD)))
-PARALLEL_DIRS += ocaml
-endif
+PARALLEL_DIRS = $(BINDINGS_TO_BUILD)
 
 include $(LEVEL)/Makefile.common

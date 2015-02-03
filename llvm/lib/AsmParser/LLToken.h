@@ -83,12 +83,11 @@ namespace lltok {
     kw_inteldialect,
     kw_gc,
     kw_prefix,
-    kw_prologue,
     kw_c,
 
     kw_cc, kw_ccc, kw_fastcc, kw_coldcc,
     kw_intel_ocl_bicc,
-    kw_x86_stdcallcc, kw_x86_fastcallcc, kw_x86_thiscallcc, kw_x86_vectorcallcc,
+    kw_x86_stdcallcc, kw_x86_fastcallcc, kw_x86_thiscallcc,
     kw_arm_apcscc, kw_arm_aapcscc, kw_arm_aapcs_vfpcc,
     kw_msp430_intrcc,
     kw_ptx_kernel, kw_ptx_device,
@@ -96,7 +95,6 @@ namespace lltok {
     kw_x86_64_sysvcc, kw_x86_64_win64cc,
     kw_webkit_jscc, kw_anyregcc,
     kw_preserve_mostcc, kw_preserve_allcc,
-    kw_ghccc,
 
     // Attributes:
     kw_attributes,

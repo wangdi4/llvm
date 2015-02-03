@@ -61,11 +61,10 @@ struct LTOCodeGenerator {
   static const char *getVersionString();
 
   LTOCodeGenerator();
-  LTOCodeGenerator(std::unique_ptr<LLVMContext> Context);
   ~LTOCodeGenerator();
 
   // Merge given module, return true on success.
-  bool addModule(struct LTOModule *);
+  bool addModule(struct LTOModule*, std::string &errMsg);
 
   void setTargetOptions(TargetOptions options);
   void setDebugInfo(lto_debug_model);
@@ -102,7 +101,6 @@ struct LTOCodeGenerator {
                        bool disableOpt,
                        bool disableInline,
                        bool disableGVNLoadPRE,
-                       bool disableVectorization,
                        std::string &errMsg);
 
   // As with compile_to_file(), this function compiles the merged module into
@@ -114,19 +112,15 @@ struct LTOCodeGenerator {
                       bool disableOpt,
                       bool disableInline,
                       bool disableGVNLoadPRE,
-                      bool disableVectorization,
                       std::string &errMsg);
 
   void setDiagnosticHandler(lto_diagnostic_handler_t, void *);
-
-  LLVMContext &getContext() { return Context; }
 
 private:
   void initializeLTOPasses();
 
   bool generateObjectFile(raw_ostream &out, bool disableOpt, bool disableInline,
-                          bool disableGVNLoadPRE, bool disableVectorization,
-                          std::string &errMsg);
+                          bool disableGVNLoadPRE, std::string &errMsg);
   void applyScopeRestrictions();
   void applyRestriction(GlobalValue &GV, ArrayRef<StringRef> Libcalls,
                         std::vector<const char *> &MustPreserveList,
@@ -140,8 +134,6 @@ private:
 
   typedef StringMap<uint8_t> StringSet;
 
-  void initialize();
-  std::unique_ptr<LLVMContext> OwnedContext;
   LLVMContext &Context;
   Linker IRLinker;
   TargetMachine *TargetMach;

@@ -66,14 +66,14 @@ class CodeGenTarget {
   Record *TargetRec;
 
   mutable DenseMap<const Record*, CodeGenInstruction*> Instructions;
-  mutable std::unique_ptr<CodeGenRegBank> RegBank;
+  mutable CodeGenRegBank *RegBank;
   mutable std::vector<Record*> RegAltNameIndices;
   mutable SmallVector<MVT::SimpleValueType, 8> LegalValueTypes;
   void ReadRegAltNameIndices() const;
   void ReadInstructions() const;
   void ReadLegalValueTypes() const;
 
-  mutable std::unique_ptr<CodeGenSchedModels> SchedModels;
+  mutable CodeGenSchedModels *SchedModels;
 
   mutable std::vector<const CodeGenInstruction*> InstrsByEnum;
 public:

@@ -19,6 +19,7 @@
 #include "llvm/MC/MCInst.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/MemoryObject.h"
 #include "llvm/Support/TargetRegistry.h"
 
 using namespace llvm;
@@ -199,24 +200,26 @@ static MCDisassembler *createAArch64Disassembler(const Target &T,
 }
 
 DecodeStatus AArch64Disassembler::getInstruction(MCInst &MI, uint64_t &Size,
-                                                 ArrayRef<uint8_t> Bytes,
-                                                 uint64_t Address,
-                                                 raw_ostream &OS,
-                                                 raw_ostream &CS) const {
-  CommentStream = &CS;
+                                               const MemoryObject &Region,
+                                               uint64_t Address,
+                                               raw_ostream &os,
+                                               raw_ostream &cs) const {
+  CommentStream = &cs;
+
+  uint8_t bytes[4];
 
   Size = 0;
   // We want to read exactly 4 bytes of data.
-  if (Bytes.size() < 4)
+  if (Region.readBytes(Address, 4, (uint8_t *)bytes) == -1)
     return Fail;
   Size = 4;
 
   // Encoded as a small-endian 32-bit word in the stream.
-  uint32_t Insn =
-      (Bytes[3] << 24) | (Bytes[2] << 16) | (Bytes[1] << 8) | (Bytes[0] << 0);
+  uint32_t insn =
+      (bytes[3] << 24) | (bytes[2] << 16) | (bytes[1] << 8) | (bytes[0] << 0);
 
   // Calling the auto-generated decoder function.
-  return decodeInstruction(DecoderTable32, MI, Insn, Address, this, STI);
+  return decodeInstruction(DecoderTable32, MI, insn, Address, this, STI);
 }
 
 static MCSymbolizer *
@@ -623,19 +626,35 @@ static DecodeStatus DecodeMemExtend(llvm::MCInst &Inst, unsigned Imm,
 static DecodeStatus DecodeMRSSystemRegister(llvm::MCInst &Inst, unsigned Imm,
                                             uint64_t Address,
                                             const void *Decoder) {
+  const AArch64Disassembler *Dis =
+      static_cast<const AArch64Disassembler *>(Decoder);
+  const MCSubtargetInfo &STI = Dis->getSubtargetInfo();
+
+  Imm |= 0x8000;
   Inst.addOperand(MCOperand::CreateImm(Imm));
 
-  // Every system register in the encoding space is valid with the syntax
-  // S<op0>_<op1>_<Cn>_<Cm>_<op2>, so decoding system registers always succeeds.
-  return Success;
+  bool ValidNamed;
+  (void)AArch64SysReg::MRSMapper(STI.getFeatureBits())
+      .toString(Imm, ValidNamed);
+
+  return ValidNamed ? Success : Fail;
 }
 
 static DecodeStatus DecodeMSRSystemRegister(llvm::MCInst &Inst, unsigned Imm,
                                             uint64_t Address,
                                             const void *Decoder) {
+  const AArch64Disassembler *Dis =
+      static_cast<const AArch64Disassembler *>(Decoder);
+  const MCSubtargetInfo &STI = Dis->getSubtargetInfo();
+
+  Imm |= 0x8000;
   Inst.addOperand(MCOperand::CreateImm(Imm));
 
-  return Success;
+  bool ValidNamed;
+  (void)AArch64SysReg::MSRMapper(STI.getFeatureBits())
+      .toString(Imm, ValidNamed);
+
+  return ValidNamed ? Success : Fail;
 }
 
 static DecodeStatus DecodeFMOVLaneInstruction(llvm::MCInst &Inst, unsigned Insn,

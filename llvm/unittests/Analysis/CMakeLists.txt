@@ -1,5 +1,4 @@
 set(LLVM_LINK_COMPONENTS
-  IPA
   Analysis
   AsmParser
   Core
@@ -7,7 +6,6 @@ set(LLVM_LINK_COMPONENTS
   )
 
 add_llvm_unittest(AnalysisTests
-  CallGraphTest.cpp
   CFGTest.cpp
   LazyCallGraphTest.cpp
   ScalarEvolutionTest.cpp

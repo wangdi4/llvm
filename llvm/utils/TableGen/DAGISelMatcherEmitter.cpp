@@ -630,7 +630,7 @@ void MatcherTableEmitter::EmitPredicateFunctions(formatted_raw_ostream &OS) {
 
   for (CodeGenDAGPatterns::pf_iterator I = CGP.pf_begin(), E = CGP.pf_end();
        I != E; ++I)
-    PFsByName[I->first->getName()] = I->second.get();
+    PFsByName[I->first->getName()] = I->second;
 
   if (!NodePredicates.empty()) {
     OS << "bool CheckNodePredicate(SDNode *Node,\n";

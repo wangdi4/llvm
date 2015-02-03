@@ -12,26 +12,6 @@
 
 using namespace llvm;
 
-static bool isAtLineEnd(const char *P) {
-  if (*P == '\n')
-    return true;
-  if (*P == '\r' && *(P + 1) == '\n')
-    return true;
-  return false;
-}
-
-static bool skipIfAtLineEnd(const char *&P) {
-  if (*P == '\n') {
-    ++P;
-    return true;
-  }
-  if (*P == '\r' && *(P + 1) == '\n') {
-    P += 2;
-    return true;
-  }
-  return false;
-}
-
 line_iterator::line_iterator(const MemoryBuffer &Buffer, bool SkipBlanks,
                              char CommentMarker)
     : Buffer(Buffer.getBufferSize() ? &Buffer : nullptr),
@@ -43,7 +23,7 @@ line_iterator::line_iterator(const MemoryBuffer &Buffer, bool SkipBlanks,
   if (Buffer.getBufferSize()) {
     assert(Buffer.getBufferEnd()[0] == '\0');
     // Make sure we don't skip a leading newline if we're keeping blanks
-    if (SkipBlanks || !isAtLineEnd(Buffer.getBufferStart()))
+    if (SkipBlanks || *Buffer.getBufferStart() != '\n')
       advance();
   }
 }
@@ -52,27 +32,33 @@ void line_iterator::advance() {
   assert(Buffer && "Cannot advance past the end!");
 
   const char *Pos = CurrentLine.end();
-  assert(Pos == Buffer->getBufferStart() || isAtLineEnd(Pos) || *Pos == '\0');
+  assert(Pos == Buffer->getBufferStart() || *Pos == '\n' || *Pos == '\0');
 
-  if (skipIfAtLineEnd(Pos))
+  if (*Pos == '\n') {
+    ++Pos;
     ++LineNumber;
-  if (!SkipBlanks && isAtLineEnd(Pos)) {
+  }
+  if (!SkipBlanks && *Pos == '\n') {
     // Nothing to do for a blank line.
   } else if (CommentMarker == '\0') {
     // If we're not stripping comments, this is simpler.
-    while (skipIfAtLineEnd(Pos))
-      ++LineNumber;
+    size_t Blanks = 0;
+    while (Pos[Blanks] == '\n')
+      ++Blanks;
+    Pos += Blanks;
+    LineNumber += Blanks;
   } else {
     // Skip comments and count line numbers, which is a bit more complex.
     for (;;) {
-      if (isAtLineEnd(Pos) && !SkipBlanks)
+      if (*Pos == '\n' && !SkipBlanks)
         break;
       if (*Pos == CommentMarker)
         do {
           ++Pos;
-        } while (*Pos != '\0' && !isAtLineEnd(Pos));
-      if (!skipIfAtLineEnd(Pos))
+        } while (*Pos != '\0' && *Pos != '\n');
+      if (*Pos != '\n')
         break;
+      ++Pos;
       ++LineNumber;
     }
   }
@@ -86,7 +72,7 @@ void line_iterator::advance() {
 
   // Measure the line.
   size_t Length = 0;
-  while (Pos[Length] != '\0' && !isAtLineEnd(&Pos[Length])) {
+  while (Pos[Length] != '\0' && Pos[Length] != '\n') {
     ++Length;
   }
 

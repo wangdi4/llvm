@@ -24,6 +24,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetInstrInfo.h"
+#include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetRegisterInfo.h"
 using namespace llvm;
 
@@ -256,8 +257,11 @@ static void AntiDepEdges(const SUnit *SU, std::vector<const SDep*>& Edges) {
   for (SUnit::const_pred_iterator P = SU->Preds.begin(), PE = SU->Preds.end();
        P != PE; ++P) {
     if ((P->getKind() == SDep::Anti) || (P->getKind() == SDep::Output)) {
-      if (RegSet.insert(P->getReg()).second)
+      unsigned Reg = P->getReg();
+      if (RegSet.count(Reg) == 0) {
         Edges.push_back(&*P);
+        RegSet.insert(Reg);
+      }
     }
   }
 }
@@ -518,7 +522,7 @@ BitVector AggressiveAntiDepBreaker::GetRenameRegisters(unsigned Reg) {
       BV &= RCBV;
     }
 
-    DEBUG(dbgs() << " " << TRI->getRegClassName(RC));
+    DEBUG(dbgs() << " " << RC->getName());
   }
 
   return BV;
@@ -611,7 +615,8 @@ bool AggressiveAntiDepBreaker::FindSuitableFreeRegisters(
 
   DEBUG(dbgs() << "\tFind Registers:");
 
-  RenameOrder.insert(RenameOrderType::value_type(SuperRC, Order.size()));
+  if (RenameOrder.count(SuperRC) == 0)
+    RenameOrder.insert(RenameOrderType::value_type(SuperRC, Order.size()));
 
   unsigned OrigR = RenameOrder[SuperRC];
   unsigned EndR = ((OrigR == Order.size()) ? 0 : OrigR);

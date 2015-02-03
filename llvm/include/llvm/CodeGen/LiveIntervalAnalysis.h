@@ -50,6 +50,7 @@ namespace llvm {
   class LiveIntervals : public MachineFunctionPass {
     MachineFunction* MF;
     MachineRegisterInfo* MRI;
+    const TargetMachine* TM;
     const TargetRegisterInfo* TRI;
     const TargetInstrInfo* TII;
     AliasAnalysis *AA;

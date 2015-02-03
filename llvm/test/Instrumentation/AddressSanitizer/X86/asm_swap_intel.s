@@ -10,25 +10,25 @@
 # CHECK: callq __asan_report_load8@PLT
 # CHECK: leaq 128(%rsp), %rsp
 #
-# CHECK: movq (%rcx), %rax
+# CHECK-NEXT: movq (%rcx), %rax
 #
-# CHECK: leaq -128(%rsp), %rsp
+# CHECK-NEXT: leaq -128(%rsp), %rsp
 # CHECK: callq __asan_report_load8@PLT
 # CHECK: leaq 128(%rsp), %rsp
 #
-# CHECK: movq (%rdx), %rbx
+# CHECK-NEXT: movq (%rdx), %rbx
 #
-# CHECK: leaq -128(%rsp), %rsp
+# CHECK-NEXT: leaq -128(%rsp), %rsp
 # CHECK: callq __asan_report_store8@PLT
 # CHECK: leaq 128(%rsp), %rsp
 #
-# CHECK: movq %rbx, (%rcx)
+# CHECK-NEXT: movq %rbx, (%rcx)
 #
-# CHECK: leaq -128(%rsp), %rsp
+# CHECK-NEXT: leaq -128(%rsp), %rsp
 # CHECK: callq __asan_report_store8@PLT
 # CHECK: leaq 128(%rsp), %rsp
 #
-# CHECK: movq %rax, (%rdx)
+# CHECK-NEXT: movq %rax, (%rdx)
 swap:                                   # @swap
 	.cfi_startproc
 # BB#0:

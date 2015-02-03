@@ -344,6 +344,7 @@ namespace {
 
   const TargetMachine &TM;
   bool IsPIC;
+  unsigned ABI;
   const MipsSubtarget *STI;
   const Mips16InstrInfo *TII;
   MipsFunctionInfo *MFI;
@@ -366,7 +367,8 @@ namespace {
     static char ID;
     MipsConstantIslands(TargetMachine &tm)
         : MachineFunctionPass(ID), TM(tm),
-          IsPIC(TM.getRelocationModel() == Reloc::PIC_), STI(nullptr),
+          IsPIC(TM.getRelocationModel() == Reloc::PIC_),
+          ABI(TM.getSubtarget<MipsSubtarget>().getTargetABI()), STI(nullptr),
           MF(nullptr), MCP(nullptr), PrescannedForConstants(false) {}
 
     const char *getPassName() const override {
@@ -588,7 +590,9 @@ MipsConstantIslands::doInitialPlacement(std::vector<MachineInstr*> &CPEMIs) {
       if (InsPoint[a] == InsAt)
         InsPoint[a] = CPEMI;
     // Add a new CPEntry, but no corresponding CPUser yet.
-    CPEntries.emplace_back(1, CPEntry(CPEMI, i));
+    std::vector<CPEntry> CPEs;
+    CPEs.push_back(CPEntry(CPEMI, i));
+    CPEntries.push_back(CPEs);
     ++NumCPEs;
     DEBUG(dbgs() << "Moved CPI#" << i << " to end of function, size = "
                  << Size << ", align = " << Align <<'\n');

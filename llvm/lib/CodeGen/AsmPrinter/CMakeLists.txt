@@ -9,7 +9,6 @@ add_llvm_library(LLVMAsmPrinter
   DIEHash.cpp
   DwarfAccelTable.cpp
   DwarfCFIException.cpp
-  DwarfCompileUnit.cpp
   DwarfDebug.cpp
   DwarfFile.cpp
   DwarfStringPool.cpp

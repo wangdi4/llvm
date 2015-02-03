@@ -29,6 +29,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetInstrInfo.h"
+#include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
 
 using namespace llvm;
@@ -720,7 +721,7 @@ bool ExeDepsFix::runOnMachineFunction(MachineFunction &mf) {
   assert(NumRegs == RC->getNumRegs() && "Bad regclass");
 
   DEBUG(dbgs() << "********** FIX EXECUTION DEPENDENCIES: "
-               << TRI->getRegClassName(RC) << " **********\n");
+               << RC->getName() << " **********\n");
 
   // If no relevant registers are used in the function, we can skip it
   // completely.

@@ -22,7 +22,6 @@
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -104,8 +103,9 @@ struct AnonStructTypeKeyInfo {
     bool isPacked;
     KeyTy(const ArrayRef<Type*>& E, bool P) :
       ETypes(E), isPacked(P) {}
-    KeyTy(const StructType *ST)
-        : ETypes(ST->elements()), isPacked(ST->isPacked()) {}
+    KeyTy(const StructType* ST) :
+      ETypes(ArrayRef<Type*>(ST->element_begin(), ST->element_end())),
+      isPacked(ST->isPacked()) {}
     bool operator==(const KeyTy& that) const {
       if (isPacked != that.isPacked)
         return false;
@@ -148,9 +148,10 @@ struct FunctionTypeKeyInfo {
     bool isVarArg;
     KeyTy(const Type* R, const ArrayRef<Type*>& P, bool V) :
       ReturnType(R), Params(P), isVarArg(V) {}
-    KeyTy(const FunctionType *FT)
-        : ReturnType(FT->getReturnType()), Params(FT->params()),
-          isVarArg(FT->isVarArg()) {}
+    KeyTy(const FunctionType* FT) :
+      ReturnType(FT->getReturnType()),
+      Params(makeArrayRef(FT->param_begin(), FT->param_end())),
+      isVarArg(FT->isVarArg()) {}
     bool operator==(const KeyTy& that) const {
       if (ReturnType != that.ReturnType)
         return false;
@@ -189,52 +190,23 @@ struct FunctionTypeKeyInfo {
   }
 };
 
-/// \brief DenseMapInfo for GenericMDNode.
-///
-/// Note that we don't need the is-function-local bit, since that's implicit in
-/// the operands.
-struct GenericMDNodeInfo {
-  struct KeyTy {
-    ArrayRef<Value *> Ops;
-    unsigned Hash;
+// Provide a FoldingSetTrait::Equals specialization for MDNode that can use a
+// shortcut to avoid comparing all operands.
+template<> struct FoldingSetTrait<MDNode> : DefaultFoldingSetTrait<MDNode> {
+  static bool Equals(const MDNode &X, const FoldingSetNodeID &ID,
+                     unsigned IDHash, FoldingSetNodeID &TempID) {
+    assert(!X.isNotUniqued() && "Non-uniqued MDNode in FoldingSet?");
+    // First, check if the cached hashes match.  If they don't we can skip the
+    // expensive operand walk.
+    if (X.Hash != IDHash)
+      return false;
 
-    KeyTy(ArrayRef<Value *> Ops)
-        : Ops(Ops), Hash(hash_combine_range(Ops.begin(), Ops.end())) {}
-
-    KeyTy(GenericMDNode *N, SmallVectorImpl<Value *> &Storage) {
-      Storage.resize(N->getNumOperands());
-      for (unsigned I = 0, E = N->getNumOperands(); I != E; ++I)
-        Storage[I] = N->getOperand(I);
-      Ops = Storage;
-      Hash = hash_combine_range(Ops.begin(), Ops.end());
-    }
-
-    bool operator==(const GenericMDNode *RHS) const {
-      if (RHS == getEmptyKey() || RHS == getTombstoneKey())
-        return false;
-      if (Hash != RHS->getHash() || Ops.size() != RHS->getNumOperands())
-        return false;
-      for (unsigned I = 0, E = Ops.size(); I != E; ++I)
-        if (Ops[I] != RHS->getOperand(I))
-          return false;
-      return true;
-    }
-  };
-  static inline GenericMDNode *getEmptyKey() {
-    return DenseMapInfo<GenericMDNode *>::getEmptyKey();
+    // If they match we have to compare the operands.
+    X.Profile(TempID);
+    return TempID == ID;
   }
-  static inline GenericMDNode *getTombstoneKey() {
-    return DenseMapInfo<GenericMDNode *>::getTombstoneKey();
-  }
-  static unsigned getHashValue(const KeyTy &Key) { return Key.Hash; }
-  static unsigned getHashValue(const GenericMDNode *U) {
-    return U->getHash();
-  }
-  static bool isEqual(const KeyTy &LHS, const GenericMDNode *RHS) {
-    return LHS == RHS;
-  }
-  static bool isEqual(const GenericMDNode *LHS, const GenericMDNode *RHS) {
-    return LHS == RHS;
+  static unsigned ComputeHash(const MDNode &X, FoldingSetNodeID &) {
+    return X.Hash; // Return cached hash.
   }
 };
 
@@ -272,7 +244,6 @@ public:
 
   LLVMContext::DiagnosticHandlerTy DiagnosticHandler;
   void *DiagnosticContext;
-  bool RespectDiagnosticFilters;
 
   LLVMContext::YieldCallbackTy YieldCallback;
   void *YieldOpaqueHandle;
@@ -289,16 +260,16 @@ public:
   FoldingSet<AttributeSetImpl> AttrsLists;
   FoldingSet<AttributeSetNode> AttrsSetNodes;
 
-  StringMap<MDString> MDStringCache;
+  StringMap<Value*> MDStringCache;
 
-  DenseSet<GenericMDNode *, GenericMDNodeInfo> MDNodeSet;
+  FoldingSet<MDNode> MDNodeSet;
 
   // MDNodes may be uniqued or not uniqued.  When they're not uniqued, they
   // aren't in the MDNodeSet, but they're still shared between objects, so no
   // one object can destroy them.  This set allows us to at least destroy them
   // on Context destruction.
-  SmallPtrSet<GenericMDNode *, 1> NonUniquedMDNodes;
-
+  SmallPtrSet<MDNode*, 1> NonUniquedMDNodes;
+  
   DenseMap<Type*, ConstantAggregateZero*> CAZConstants;
 
   typedef ConstantUniqueMap<ConstantArray> ArrayConstantsTy;
@@ -400,12 +371,6 @@ public:
   /// operand of an unparented ReturnInst so that the prefix data has a Use.
   typedef DenseMap<const Function *, ReturnInst *> PrefixDataMapTy;
   PrefixDataMapTy PrefixDataMap;
-
-  /// \brief Mapping from a function to its prologue data, which is stored as
-  /// the operand of an unparented ReturnInst so that the prologue data has a
-  /// Use.
-  typedef DenseMap<const Function *, ReturnInst *> PrologueDataMapTy;
-  PrologueDataMapTy PrologueDataMap;
 
   int getOrAddScopeRecordIdxEntry(MDNode *N, int ExistingIdx);
   int getOrAddScopeInlinedAtIdxEntry(MDNode *Scope, MDNode *IA,int ExistingIdx);

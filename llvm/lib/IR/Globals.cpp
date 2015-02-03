@@ -29,15 +29,13 @@ using namespace llvm;
 //===----------------------------------------------------------------------===//
 
 bool GlobalValue::isMaterializable() const {
-  if (const Function *F = dyn_cast<Function>(this))
-    return F->isMaterializable();
-  return false;
+  return getParent() && getParent()->isMaterializable(this);
 }
 bool GlobalValue::isDematerializable() const {
   return getParent() && getParent()->isDematerializable(this);
 }
-std::error_code GlobalValue::materialize() {
-  return getParent()->materialize(this);
+bool GlobalValue::Materialize(std::string *ErrInfo) {
+  return getParent()->Materialize(this, ErrInfo);
 }
 void GlobalValue::Dematerialize() {
   getParent()->Dematerialize(this);
@@ -79,22 +77,8 @@ void GlobalObject::setAlignment(unsigned Align) {
   assert((Align & (Align-1)) == 0 && "Alignment is not a power of 2!");
   assert(Align <= MaximumAlignment &&
          "Alignment is greater than MaximumAlignment!");
-  unsigned AlignmentData = Log2_32(Align) + 1;
-  unsigned OldData = getGlobalValueSubClassData();
-  setGlobalValueSubClassData((OldData & ~AlignmentMask) | AlignmentData);
+  setGlobalValueSubClassData(Log2_32(Align) + 1);
   assert(getAlignment() == Align && "Alignment representation error!");
-}
-
-unsigned GlobalObject::getGlobalObjectSubClassData() const {
-  unsigned ValueData = getGlobalValueSubClassData();
-  return ValueData >> AlignmentBits;
-}
-
-void GlobalObject::setGlobalObjectSubClassData(unsigned Val) {
-  unsigned OldData = getGlobalValueSubClassData();
-  setGlobalValueSubClassData((OldData & AlignmentMask) |
-                             (Val << AlignmentBits));
-  assert(getGlobalObjectSubClassData() == Val && "representation error");
 }
 
 void GlobalObject::copyAttributesFrom(const GlobalValue *Src) {
@@ -133,7 +117,7 @@ bool GlobalValue::isDeclaration() const {
 
   // Functions are definitions if they have a body.
   if (const Function *F = dyn_cast<Function>(this))
-    return F->empty() && !F->isMaterializable();
+    return F->empty();
 
   // Aliases are always definitions.
   assert(isa<GlobalAlias>(this));
@@ -246,7 +230,6 @@ void GlobalVariable::copyAttributesFrom(const GlobalValue *Src) {
   GlobalObject::copyAttributesFrom(Src);
   const GlobalVariable *SrcVar = cast<GlobalVariable>(Src);
   setThreadLocalMode(SrcVar->getThreadLocalMode());
-  setExternallyInitialized(SrcVar->isExternallyInitialized());
 }
 
 

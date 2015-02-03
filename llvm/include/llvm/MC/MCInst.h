@@ -31,7 +31,7 @@ class MCInst;
 /// MCOperand - Instances of this class represent operands of the MCInst class.
 /// This is a simple discriminated union.
 class MCOperand {
-  enum MachineOperandType : unsigned char {
+  enum MachineOperandType {
     kInvalid,                 ///< Uninitialized.
     kRegister,                ///< Register operand.
     kImmediate,               ///< Immediate operand.
@@ -39,7 +39,7 @@ class MCOperand {
     kExpr,                    ///< Relocatable immediate operand.
     kInst                     ///< Sub-instruction operand.
   };
-  MachineOperandType Kind;
+  unsigned char Kind;
 
   union {
     unsigned RegVal;
@@ -172,11 +172,8 @@ public:
   size_t size() { return Operands.size(); }
 
   typedef SmallVectorImpl<MCOperand>::iterator iterator;
-  typedef SmallVectorImpl<MCOperand>::const_iterator const_iterator;
   iterator begin() { return Operands.begin(); }
-  const_iterator begin() const { return Operands.begin(); }
-  iterator end()   { return Operands.end(); }
-  const_iterator end() const { return Operands.end(); }
+  iterator end()   { return Operands.end();   }
   iterator insert(iterator I, const MCOperand &Op) {
     return Operands.insert(I, Op);
   }

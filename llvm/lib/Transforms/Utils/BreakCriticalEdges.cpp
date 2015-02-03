@@ -40,11 +40,7 @@ namespace {
       initializeBreakCriticalEdgesPass(*PassRegistry::getPassRegistry());
     }
 
-    bool runOnFunction(Function &F) override {
-      unsigned N = SplitAllCriticalEdges(F, this);
-      NumBroken += N;
-      return N > 0;
-    }
+    bool runOnFunction(Function &F) override;
 
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addPreserved<DominatorTreeWrapperPass>();
@@ -64,6 +60,24 @@ INITIALIZE_PASS(BreakCriticalEdges, "break-crit-edges",
 char &llvm::BreakCriticalEdgesID = BreakCriticalEdges::ID;
 FunctionPass *llvm::createBreakCriticalEdgesPass() {
   return new BreakCriticalEdges();
+}
+
+// runOnFunction - Loop over all of the edges in the CFG, breaking critical
+// edges as they are found.
+//
+bool BreakCriticalEdges::runOnFunction(Function &F) {
+  bool Changed = false;
+  for (Function::iterator I = F.begin(), E = F.end(); I != E; ++I) {
+    TerminatorInst *TI = I->getTerminator();
+    if (TI->getNumSuccessors() > 1 && !isa<IndirectBrInst>(TI))
+      for (unsigned i = 0, e = TI->getNumSuccessors(); i != e; ++i)
+        if (SplitCriticalEdge(TI, i, this)) {
+          ++NumBroken;
+          Changed = true;
+        }
+  }
+
+  return Changed;
 }
 
 //===----------------------------------------------------------------------===//

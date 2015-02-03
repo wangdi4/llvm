@@ -84,10 +84,12 @@ RWMutexImpl::RWMutexImpl() {
 }
 
 RWMutexImpl::~RWMutexImpl() {
-  if (!sHasSRW)
+  if (sHasSRW) {
+    // Nothing to do in the case of slim reader/writers
+  } else {
     DeleteCriticalSection(static_cast<LPCRITICAL_SECTION>(data_));
-  // Nothing to do in the case of slim reader/writers except free the memory.
-  free(data_);
+    free(data_);
+  }
 }
 
 bool RWMutexImpl::reader_acquire() {

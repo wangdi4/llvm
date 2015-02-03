@@ -1,5 +1,4 @@
 from __future__ import absolute_import
-import filecmp
 import os
 import sys
 
@@ -42,7 +41,7 @@ def mk_quote_string_for_target(value):
     """
     mk_quote_string_for_target(target_name) -> str
 
-    Return a quoted form of the given target_name suitable for including in a
+    Return a quoted form of the given target_name suitable for including in a 
     Makefile as a target name.
     """
 
@@ -341,7 +340,7 @@ subdirectories = %s
             # Compute the llvm-config "component name". For historical reasons,
             # this is lowercased based on the library name.
             llvmconfig_component_name = c.get_llvmconfig_component_name()
-
+            
             # Get the library name, or None for LibraryGroups.
             if c.type_name == 'Library' or c.type_name == 'OptionalLibrary':
                 library_name = c.get_prefixed_library_name()
@@ -383,7 +382,7 @@ subdirectories = %s
 
         # Write out the library table.
         make_install_dir(os.path.dirname(output_path))
-        f = open(output_path+'.new', 'w')
+        f = open(output_path, 'w')
         f.write("""\
 //===- llvm-build generated file --------------------------------*- C++ -*-===//
 //
@@ -421,14 +420,6 @@ subdirectories = %s
         f.write('};\n')
         f.close()
 
-        if not os.path.isfile(output_path):
-            os.rename(output_path+'.new', output_path)
-        elif filecmp.cmp(output_path, output_path+'.new'):
-            os.remove(output_path+'.new')
-        else:
-            os.remove(output_path)
-            os.rename(output_path+'.new', output_path)
-
     def get_required_libraries_for_component(self, ci, traverse_groups = False):
         """
         get_required_libraries_for_component(component_info) -> iter
@@ -439,14 +430,14 @@ subdirectories = %s
         traversed to include their required libraries.
         """
 
-        assert ci.type_name in ('Library', 'OptionalLibrary', 'LibraryGroup', 'TargetGroup')
+        assert ci.type_name in ('Library', 'LibraryGroup', 'TargetGroup')
 
         for name in ci.required_libraries:
             # Get the dependency info.
             dep = self.component_info_map[name]
 
             # If it is a library, yield it.
-            if dep.type_name == 'Library' or dep.type_name == 'OptionalLibrary':
+            if dep.type_name == 'Library':
                 yield dep
                 continue
 
@@ -501,7 +492,7 @@ subdirectories = %s
             if (path.startswith(self.source_root) and os.path.exists(path)):
                 yield path
 
-    def write_cmake_fragment(self, output_path, enabled_optional_components):
+    def write_cmake_fragment(self, output_path):
         """
         write_cmake_fragment(output_path) -> None
 
@@ -570,13 +561,8 @@ configure_file(\"%s\"
 # names to required libraries, in a way that is easily accessed from CMake.
 """)
         for ci in self.ordered_component_infos:
-            # Skip optional components which are not enabled.
-            if ci.type_name == 'OptionalLibrary' \
-                and ci.name not in enabled_optional_components:
-                continue
-
-            # We only write the information for certain components currently.
-            if ci.type_name not in ('Library', 'OptionalLibrary'):
+            # We only write the information for libraries currently.
+            if ci.type_name != 'Library':
                 continue
 
             f.write("""\
@@ -587,7 +573,7 @@ set_property(GLOBAL PROPERTY LLVMBUILD_LIB_DEPS_%s %s)\n""" % (
 
         f.close()
 
-    def write_cmake_exports_fragment(self, output_path, enabled_optional_components):
+    def write_cmake_exports_fragment(self, output_path):
         """
         write_cmake_exports_fragment(output_path) -> None
 
@@ -609,13 +595,8 @@ set_property(GLOBAL PROPERTY LLVMBUILD_LIB_DEPS_%s %s)\n""" % (
 # dependencies of libraries imported from LLVM.
 """)
         for ci in self.ordered_component_infos:
-            # Skip optional components which are not enabled.
-            if ci.type_name == 'OptionalLibrary' \
-                and ci.name not in enabled_optional_components:
-                continue
-
             # We only write the information for libraries currently.
-            if ci.type_name not in ('Library', 'OptionalLibrary'):
+            if ci.type_name != 'Library':
                 continue
 
             # Skip disabled targets.
@@ -924,11 +905,9 @@ given by --build-root) at the same SUBPATH""",
 
     # Write out the cmake fragment, if requested.
     if opts.write_cmake_fragment:
-        project_info.write_cmake_fragment(opts.write_cmake_fragment,
-                                          opts.optional_components)
+        project_info.write_cmake_fragment(opts.write_cmake_fragment)
     if opts.write_cmake_exports_fragment:
-        project_info.write_cmake_exports_fragment(opts.write_cmake_exports_fragment,
-                                                  opts.optional_components)
+        project_info.write_cmake_exports_fragment(opts.write_cmake_exports_fragment)
 
     # Configure target definition files, if requested.
     if opts.configure_target_def_files:

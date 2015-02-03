@@ -20,7 +20,6 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/Signals.h"
-#include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Mutex.h"
 #include "llvm/Support/MutexGuard.h"
 #include "llvm/Support/Threading.h"
@@ -42,18 +41,18 @@ using namespace llvm;
 static fatal_error_handler_t ErrorHandler = nullptr;
 static void *ErrorHandlerUserData = nullptr;
 
-static ManagedStatic<sys::Mutex> ErrorHandlerMutex;
+static sys::Mutex ErrorHandlerMutex;
 
 void llvm::install_fatal_error_handler(fatal_error_handler_t handler,
                                        void *user_data) {
-  llvm::MutexGuard Lock(*ErrorHandlerMutex);
+  llvm::MutexGuard Lock(ErrorHandlerMutex);
   assert(!ErrorHandler && "Error handler already registered!\n");
   ErrorHandler = handler;
   ErrorHandlerUserData = user_data;
 }
 
 void llvm::remove_fatal_error_handler() {
-  llvm::MutexGuard Lock(*ErrorHandlerMutex);
+  llvm::MutexGuard Lock(ErrorHandlerMutex);
   ErrorHandler = nullptr;
   ErrorHandlerUserData = nullptr;
 }
@@ -76,7 +75,7 @@ void llvm::report_fatal_error(const Twine &Reason, bool GenCrashDiag) {
   {
     // Only acquire the mutex while reading the handler, so as not to invoke a
     // user-supplied callback under a lock.
-    llvm::MutexGuard Lock(*ErrorHandlerMutex);
+    llvm::MutexGuard Lock(ErrorHandlerMutex);
     handler = ErrorHandler;
     handlerData = ErrorHandlerUserData;
   }

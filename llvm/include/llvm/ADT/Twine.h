@@ -80,7 +80,7 @@ namespace llvm {
   /// StringRef) codegen as desired.
   class Twine {
     /// NodeKind - Represent the type of an argument.
-    enum NodeKind : unsigned char {
+    enum NodeKind {
       /// An empty string; the result of concatenating anything with it is also
       /// empty.
       NullKind,
@@ -153,10 +153,12 @@ namespace llvm {
     /// RHS - The suffix in the concatenation, which may be uninitialized for
     /// Null or Empty kinds.
     Child RHS;
+    // enums stored as unsigned chars to save on space while some compilers
+    // don't support specifying the backing type for an enum
     /// LHSKind - The NodeKind of the left hand side, \see getLHSKind().
-    NodeKind LHSKind;
-    /// RHSKind - The NodeKind of the right hand side, \see getRHSKind().
-    NodeKind RHSKind;
+    unsigned char LHSKind;
+    /// RHSKind - The NodeKind of the left hand side, \see getLHSKind().
+    unsigned char RHSKind;
 
   private:
     /// Construct a nullary twine; the kind must be NullKind or EmptyKind.
@@ -236,10 +238,10 @@ namespace llvm {
     }
 
     /// getLHSKind - Get the NodeKind of the left-hand side.
-    NodeKind getLHSKind() const { return LHSKind; }
+    NodeKind getLHSKind() const { return (NodeKind) LHSKind; }
 
     /// getRHSKind - Get the NodeKind of the right-hand side.
-    NodeKind getRHSKind() const { return RHSKind; }
+    NodeKind getRHSKind() const { return (NodeKind) RHSKind; }
 
     /// printOneChild - Print one child from a twine.
     void printOneChild(raw_ostream &OS, Child Ptr, NodeKind Kind) const;

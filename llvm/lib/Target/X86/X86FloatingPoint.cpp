@@ -330,7 +330,7 @@ bool FPS::runOnMachineFunction(MachineFunction &MF) {
   // Process any unreachable blocks in arbitrary order now.
   if (MF.size() != Processed.size())
     for (MachineFunction::iterator BB = MF.begin(), E = MF.end(); BB != E; ++BB)
-      if (Processed.insert(BB).second)
+      if (Processed.insert(BB))
         Changed |= processBasicBlock(MF, *BB);
 
   LiveBundles.clear();
@@ -834,9 +834,7 @@ FPS::freeStackSlotBefore(MachineBasicBlock::iterator I, unsigned FPRegNo) {
   RegMap[TopReg]    = OldSlot;
   RegMap[FPRegNo]   = ~0;
   Stack[--StackTop] = ~0;
-  return BuildMI(*MBB, I, DebugLoc(), TII->get(X86::ST_FPrr))
-      .addReg(STReg)
-      .getInstr();
+  return BuildMI(*MBB, I, DebugLoc(), TII->get(X86::ST_FPrr)).addReg(STReg);
 }
 
 /// adjustLiveRegs - Kill and revive registers such that exactly the FP

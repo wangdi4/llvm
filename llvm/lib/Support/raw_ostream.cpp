@@ -536,8 +536,12 @@ raw_fd_ostream::raw_fd_ostream(int fd, bool shouldClose, bool unbuffered)
 raw_fd_ostream::~raw_fd_ostream() {
   if (FD >= 0) {
     flush();
-    if (ShouldClose && sys::Process::SafelyCloseFileDescriptor(FD))
-      error_detected();
+    if (ShouldClose)
+      while (::close(FD) != 0)
+        if (errno != EINTR) {
+          error_detected();
+          break;
+        }
   }
 
 #ifdef __MINGW32__
@@ -611,8 +615,11 @@ void raw_fd_ostream::close() {
   assert(ShouldClose);
   ShouldClose = false;
   flush();
-  if (sys::Process::SafelyCloseFileDescriptor(FD))
-    error_detected();
+  while (::close(FD) != 0)
+    if (errno != EINTR) {
+      error_detected();
+      break;
+    }
   FD = -1;
 }
 

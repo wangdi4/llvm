@@ -34,19 +34,18 @@ void SmallPtrSetImplBase::shrink_and_clear() {
   memset(CurArray, -1, CurArraySize*sizeof(void*));
 }
 
-std::pair<const void *const *, bool>
-SmallPtrSetImplBase::insert_imp(const void *Ptr) {
+bool SmallPtrSetImplBase::insert_imp(const void * Ptr) {
   if (isSmall()) {
     // Check to see if it is already in the set.
     for (const void **APtr = SmallArray, **E = SmallArray+NumElements;
          APtr != E; ++APtr)
       if (*APtr == Ptr)
-        return std::make_pair(APtr, false);
-
+        return false;
+    
     // Nope, there isn't.  If we stay small, just 'pushback' now.
     if (NumElements < CurArraySize) {
       SmallArray[NumElements++] = Ptr;
-      return std::make_pair(SmallArray + (NumElements - 1), true);
+      return true;
     }
     // Otherwise, hit the big set case, which will call grow.
   }
@@ -62,15 +61,14 @@ SmallPtrSetImplBase::insert_imp(const void *Ptr) {
   
   // Okay, we know we have space.  Find a hash bucket.
   const void **Bucket = const_cast<const void**>(FindBucketFor(Ptr));
-  if (*Bucket == Ptr)
-    return std::make_pair(Bucket, false); // Already inserted, good.
-
+  if (*Bucket == Ptr) return false; // Already inserted, good.
+  
   // Otherwise, insert it!
   if (*Bucket == getTombstoneMarker())
     --NumTombstones;
   *Bucket = Ptr;
   ++NumElements;  // Track density.
-  return std::make_pair(Bucket, true);
+  return true;
 }
 
 bool SmallPtrSetImplBase::erase_imp(const void * Ptr) {

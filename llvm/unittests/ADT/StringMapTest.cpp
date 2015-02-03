@@ -250,21 +250,15 @@ struct StringMapTestStruct {
 
 TEST_F(StringMapTest, NonDefaultConstructable) {
   StringMap<StringMapTestStruct> t;
-  t.insert(std::make_pair("Test", StringMapTestStruct(123)));
+  t.GetOrCreateValue("Test", StringMapTestStruct(123));
   StringMap<StringMapTestStruct>::iterator iter = t.find("Test");
   ASSERT_NE(iter, t.end());
   ASSERT_EQ(iter->second.i, 123);
 }
 
-struct Immovable {
-  Immovable() {}
-  Immovable(Immovable&&) LLVM_DELETED_FUNCTION; // will disable the other special members
-};
-
 struct MoveOnly {
   int i;
   MoveOnly(int i) : i(i) {}
-  MoveOnly(const Immovable&) : i(0) {}
   MoveOnly(MoveOnly &&RHS) : i(RHS.i) {}
   MoveOnly &operator=(MoveOnly &&RHS) {
     i = RHS.i;
@@ -276,23 +270,17 @@ private:
   MoveOnly &operator=(const MoveOnly &) LLVM_DELETED_FUNCTION;
 };
 
-TEST_F(StringMapTest, MoveOnly) {
+TEST_F(StringMapTest, MoveOnlyKey) {
   StringMap<MoveOnly> t;
-  t.insert(std::make_pair("Test", MoveOnly(42)));
+  t.GetOrCreateValue("Test", MoveOnly(42));
   StringRef Key = "Test";
   StringMapEntry<MoveOnly>::Create(Key, MoveOnly(42))
       ->Destroy();
 }
 
-TEST_F(StringMapTest, CtorArg) {
-  StringRef Key = "Test";
-  StringMapEntry<MoveOnly>::Create(Key, Immovable())
-      ->Destroy();
-}
-
 TEST_F(StringMapTest, MoveConstruct) {
   StringMap<int> A;
-  A["x"] = 42;
+  A.GetOrCreateValue("x", 42);
   StringMap<int> B = std::move(A);
   ASSERT_EQ(A.size(), 0u);
   ASSERT_EQ(B.size(), 1u);
@@ -337,7 +325,7 @@ struct Countable {
 TEST_F(StringMapTest, MoveDtor) {
   int InstanceCount = 0;
   StringMap<Countable> A;
-  A.insert(std::make_pair("x", Countable(42, InstanceCount)));
+  A.GetOrCreateValue("x", Countable(42, InstanceCount));
   ASSERT_EQ(InstanceCount, 1);
   auto I = A.find("x");
   ASSERT_NE(I, A.end());

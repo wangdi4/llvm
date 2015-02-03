@@ -1,8 +1,7 @@
 ; This test makes sure that these instructions are properly eliminated.
 ;
 
-; RUN: opt < %s -instcombine -S | FileCheck %s
-; CHECK-NOT: xor
+; RUN: opt < %s -instcombine -S | not grep xor
 
 define i32 @test1(i32 %A) {
         %B = xor i32 %A, -1             ; <i32> [#uses=1]
@@ -52,3 +51,4 @@ entry:
 	%retval67 = zext i1 %tmp3 to i8		; <i8> [#uses=1]
 	ret i8 %retval67
 }
+

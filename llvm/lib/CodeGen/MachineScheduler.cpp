@@ -2363,14 +2363,15 @@ void GenericScheduler::initialize(ScheduleDAGMI *dag) {
   // Initialize the HazardRecognizers. If itineraries don't exist, are empty, or
   // are disabled, then these HazardRecs will be disabled.
   const InstrItineraryData *Itin = SchedModel->getInstrItineraries();
+  const TargetMachine &TM = DAG->MF.getTarget();
   if (!Top.HazardRec) {
     Top.HazardRec =
-        DAG->MF.getSubtarget().getInstrInfo()->CreateTargetMIHazardRecognizer(
+        TM.getSubtargetImpl()->getInstrInfo()->CreateTargetMIHazardRecognizer(
             Itin, DAG);
   }
   if (!Bot.HazardRec) {
     Bot.HazardRec =
-        DAG->MF.getSubtarget().getInstrInfo()->CreateTargetMIHazardRecognizer(
+        TM.getSubtargetImpl()->getInstrInfo()->CreateTargetMIHazardRecognizer(
             Itin, DAG);
   }
 }
@@ -2379,8 +2380,8 @@ void GenericScheduler::initialize(ScheduleDAGMI *dag) {
 void GenericScheduler::initPolicy(MachineBasicBlock::iterator Begin,
                                   MachineBasicBlock::iterator End,
                                   unsigned NumRegionInstrs) {
-  const MachineFunction &MF = *Begin->getParent()->getParent();
-  const TargetLowering *TLI = MF.getSubtarget().getTargetLowering();
+  const TargetMachine &TM = Context->MF->getTarget();
+  const TargetLowering *TLI = TM.getSubtargetImpl()->getTargetLowering();
 
   // Avoid setting up the register pressure tracker for small regions to save
   // compile time. As a rough heuristic, only track pressure when the number of
@@ -2400,8 +2401,8 @@ void GenericScheduler::initPolicy(MachineBasicBlock::iterator Begin,
   RegionPolicy.OnlyBottomUp = true;
 
   // Allow the subtarget to override default policy.
-  MF.getSubtarget().overrideSchedPolicy(RegionPolicy, Begin, End,
-                                        NumRegionInstrs);
+  const TargetSubtargetInfo &ST = TM.getSubtarget<TargetSubtargetInfo>();
+  ST.overrideSchedPolicy(RegionPolicy, Begin, End, NumRegionInstrs);
 
   // After subtarget overrides, apply command line options.
   if (!EnableRegPressure)
@@ -2494,8 +2495,8 @@ static bool tryPressure(const PressureChange &TryP,
   }
   // If one candidate decreases and the other increases, go with it.
   // Invalid candidates have UnitInc==0.
-  if (tryGreater(TryP.getUnitInc() < 0, CandP.getUnitInc() < 0, TryCand, Cand,
-                 Reason)) {
+  if (tryLess(TryP.getUnitInc() < 0, CandP.getUnitInc() < 0, TryCand, Cand,
+              Reason)) {
     return true;
   }
   // If the candidates are decreasing pressure, reverse priority.
@@ -2897,9 +2898,10 @@ void PostGenericScheduler::initialize(ScheduleDAGMI *Dag) {
   // Initialize the HazardRecognizers. If itineraries don't exist, are empty,
   // or are disabled, then these HazardRecs will be disabled.
   const InstrItineraryData *Itin = SchedModel->getInstrItineraries();
+  const TargetMachine &TM = DAG->MF.getTarget();
   if (!Top.HazardRec) {
     Top.HazardRec =
-        DAG->MF.getSubtarget().getInstrInfo()->CreateTargetMIHazardRecognizer(
+        TM.getSubtargetImpl()->getInstrInfo()->CreateTargetMIHazardRecognizer(
             Itin, DAG);
   }
 }

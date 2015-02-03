@@ -138,7 +138,6 @@ bool EliminateDuplicatePHINodes(BasicBlock *BB);
 /// the basic block that was pointed to.
 ///
 bool SimplifyCFG(BasicBlock *BB, const TargetTransformInfo &TTI,
-                 unsigned BonusInstThreshold,
                  const DataLayout *TD = nullptr,
                  AssumptionTracker *AT = nullptr);
 
@@ -152,8 +151,7 @@ bool FlattenCFG(BasicBlock *BB, AliasAnalysis *AA = nullptr);
 /// and if a predecessor branches to us and one of our successors, fold the
 /// setcc into the predecessor and use logical operations to pick the right
 /// destination.
-bool FoldBranchToCommonDest(BranchInst *BI, const DataLayout *DL = nullptr,
-                            unsigned BonusInstThreshold = 1);
+bool FoldBranchToCommonDest(BranchInst *BI, const DataLayout *DL = nullptr);
 
 /// DemoteRegToStack - This function takes a virtual register computed by an
 /// Instruction and replaces it with a slot in the stack frame, allocated via

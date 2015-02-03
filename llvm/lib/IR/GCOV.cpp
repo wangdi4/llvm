@@ -298,8 +298,7 @@ uint64_t GCOVFunction::getExitCount() const {
 
 /// dump - Dump GCOVFunction content to dbgs() for debugging purposes.
 void GCOVFunction::dump() const {
-  dbgs() << "===== " << Name << " (" << Ident << ") @ " << Filename << ":"
-         << LineNumber << "\n";
+  dbgs() <<  "===== " << Name << " @ " << Filename << ":" << LineNumber << "\n";
   for (const auto &Block : Blocks)
     Block->dump();
 }

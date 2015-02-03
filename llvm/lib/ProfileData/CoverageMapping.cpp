@@ -27,83 +27,63 @@ using namespace coverage;
 
 #define DEBUG_TYPE "coverage-mapping"
 
-Counter CounterExpressionBuilder::get(const CounterExpression &E) {
-  auto It = ExpressionIndices.find(E);
-  if (It != ExpressionIndices.end())
-    return Counter::getExpression(It->second);
-  unsigned I = Expressions.size();
-  Expressions.push_back(E);
-  ExpressionIndices[E] = I;
-  return Counter::getExpression(I);
+CounterExpressionBuilder::CounterExpressionBuilder(unsigned NumCounterValues) {
+  Terms.resize(NumCounterValues);
 }
 
-void CounterExpressionBuilder::extractTerms(
-    Counter C, int Sign, SmallVectorImpl<std::pair<unsigned, int>> &Terms) {
+Counter CounterExpressionBuilder::get(const CounterExpression &E) {
+  for (unsigned I = 0, S = Expressions.size(); I < S; ++I) {
+    if (Expressions[I] == E)
+      return Counter::getExpression(I);
+  }
+  Expressions.push_back(E);
+  return Counter::getExpression(Expressions.size() - 1);
+}
+
+void CounterExpressionBuilder::extractTerms(Counter C, int Sign) {
   switch (C.getKind()) {
   case Counter::Zero:
     break;
   case Counter::CounterValueReference:
-    Terms.push_back(std::make_pair(C.getCounterID(), Sign));
+    Terms[C.getCounterID()] += Sign;
     break;
   case Counter::Expression:
     const auto &E = Expressions[C.getExpressionID()];
-    extractTerms(E.LHS, Sign, Terms);
-    extractTerms(E.RHS, E.Kind == CounterExpression::Subtract ? -Sign : Sign,
-                 Terms);
+    extractTerms(E.LHS, Sign);
+    extractTerms(E.RHS, E.Kind == CounterExpression::Subtract ? -Sign : Sign);
     break;
   }
 }
 
 Counter CounterExpressionBuilder::simplify(Counter ExpressionTree) {
   // Gather constant terms.
-  llvm::SmallVector<std::pair<unsigned, int>, 32> Terms;
-  extractTerms(ExpressionTree, +1, Terms);
-
-  // If there are no terms, this is just a zero. The algorithm below assumes at
-  // least one term.
-  if (Terms.size() == 0)
-    return Counter::getZero();
-
-  // Group the terms by counter ID.
-  std::sort(Terms.begin(), Terms.end(),
-            [](const std::pair<unsigned, int> &LHS,
-               const std::pair<unsigned, int> &RHS) {
-    return LHS.first < RHS.first;
-  });
-
-  // Combine terms by counter ID to eliminate counters that sum to zero.
-  auto Prev = Terms.begin();
-  for (auto I = Prev + 1, E = Terms.end(); I != E; ++I) {
-    if (I->first == Prev->first) {
-      Prev->second += I->second;
-      continue;
-    }
-    ++Prev;
-    *Prev = *I;
-  }
-  Terms.erase(++Prev, Terms.end());
+  for (auto &I : Terms)
+    I = 0;
+  extractTerms(ExpressionTree);
 
   Counter C;
-  // Create additions. We do this before subtractions to avoid constructs like
-  // ((0 - X) + Y), as opposed to (Y - X).
-  for (auto Term : Terms) {
-    if (Term.second <= 0)
+  // Create additions.
+  // Note: the additions are created first
+  // to avoid creation of a tree like ((0 - X) + Y) instead of (Y - X).
+  for (unsigned I = 0, S = Terms.size(); I < S; ++I) {
+    if (Terms[I] <= 0)
       continue;
-    for (int I = 0; I < Term.second; ++I)
+    for (int J = 0; J < Terms[I]; ++J) {
       if (C.isZero())
-        C = Counter::getCounter(Term.first);
+        C = Counter::getCounter(I);
       else
         C = get(CounterExpression(CounterExpression::Add, C,
-                                  Counter::getCounter(Term.first)));
+                                  Counter::getCounter(I)));
+    }
   }
 
   // Create subtractions.
-  for (auto Term : Terms) {
-    if (Term.second >= 0)
+  for (unsigned I = 0, S = Terms.size(); I < S; ++I) {
+    if (Terms[I] >= 0)
       continue;
-    for (int I = 0; I < -Term.second; ++I)
+    for (int J = 0; J < (-Terms[I]); ++J)
       C = get(CounterExpression(CounterExpression::Subtract, C,
-                                Counter::getCounter(Term.first)));
+                                Counter::getCounter(I)));
   }
   return C;
 }
@@ -170,14 +150,6 @@ ErrorOr<int64_t> CounterMappingContext::evaluate(const Counter &C) const {
   llvm_unreachable("Unhandled CounterKind");
 }
 
-void FunctionRecordIterator::skipOtherFiles() {
-  while (Current != Records.end() && !Filename.empty() &&
-         Filename != Current->Filenames[0])
-    ++Current;
-  if (Current == Records.end())
-    *this = FunctionRecordIterator();
-}
-
 ErrorOr<std::unique_ptr<CoverageMapping>>
 CoverageMapping::load(ObjectFileCoverageMappingReader &CoverageReader,
                       IndexedInstrProfReader &ProfileReader) {
@@ -210,7 +182,7 @@ CoverageMapping::load(ObjectFileCoverageMappingReader &CoverageReader,
       continue;
     }
 
-    Coverage->Functions.push_back(std::move(Function));
+    Coverage->Functions.push_back(Function);
   }
 
   return std::move(Coverage);
@@ -328,7 +300,7 @@ public:
 };
 }
 
-std::vector<StringRef> CoverageMapping::getUniqueSourceFiles() const {
+std::vector<StringRef> CoverageMapping::getUniqueSourceFiles() {
   std::vector<StringRef> Filenames;
   for (const auto &Function : getCoveredFunctions())
     for (const auto &Filename : Function.Filenames)

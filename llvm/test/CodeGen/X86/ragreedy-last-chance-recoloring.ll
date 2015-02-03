@@ -2,12 +2,10 @@
 ; Without the last chance recoloring, this test fails with:
 ; "ran out of registers".
 
-; NOTE: With the fix to PR18883, we don't actually run out of registers here
-; any more, and so those checks are disabled. This test remains only for general coverage.
-; XXX: not llc -regalloc=greedy -relocation-model=pic -lcr-max-depth=0  < %s 2>&1 | FileCheck %s --check-prefix=CHECK-DEPTH
+; RUN: not llc -regalloc=greedy -relocation-model=pic -lcr-max-depth=0  < %s 2>&1 | FileCheck %s --check-prefix=CHECK-DEPTH
 ; Test whether failure due to cutoff for depth is reported
 
-; XXX: not llc -regalloc=greedy -relocation-model=pic -lcr-max-interf=1  < %s 2>&1 | FileCheck %s --check-prefix=CHECK-INTERF
+; RUN: not llc -regalloc=greedy -relocation-model=pic -lcr-max-interf=1  < %s 2>&1 | FileCheck %s --check-prefix=CHECK-INTERF
 ; Test whether failure due to cutoff for interference is reported
 
 ; RUN: llc -regalloc=greedy -relocation-model=pic -lcr-max-interf=1 -lcr-max-depth=0 -exhaustive-register-search < %s > %t 2>&1

@@ -140,8 +140,7 @@ TEST_F(ExecutionEngineTest, LookupWithMangledName) {
 
   // Demonstrate that getSymbolAddress accepts mangled names and always strips
   // the leading underscore.
-  EXPECT_EQ(reinterpret_cast<uint64_t>(&x),
-            RTDyldMemoryManager::getSymbolAddressInProcess("_x"));
+  EXPECT_EQ(reinterpret_cast<uint64_t>(&x), getSymbolAddress("_x"));
 }
 
 TEST_F(ExecutionEngineTest, LookupWithMangledAndDemangledSymbol) {
@@ -152,8 +151,7 @@ TEST_F(ExecutionEngineTest, LookupWithMangledAndDemangledSymbol) {
 
   // Lookup the demangled name first, even if there's a demangled symbol that
   // matches the input already.
-  EXPECT_EQ(reinterpret_cast<uint64_t>(&x),
-            RTDyldMemoryManager::getSymbolAddressInProcess("_x"));
+  EXPECT_EQ(reinterpret_cast<uint64_t>(&x), getSymbolAddress("_x"));
 }
 
 TEST_F(ExecutionEngineTest, LookupwithDemangledName) {
@@ -161,8 +159,7 @@ TEST_F(ExecutionEngineTest, LookupwithDemangledName) {
   llvm::sys::DynamicLibrary::AddSymbol("_x", &_x);
 
   // But do fallback to looking up a demangled name if there's no ambiguity
-  EXPECT_EQ(reinterpret_cast<uint64_t>(&_x),
-            RTDyldMemoryManager::getSymbolAddressInProcess("_x"));
+  EXPECT_EQ(reinterpret_cast<uint64_t>(&_x), getSymbolAddress("_x"));
 }
 
 }

@@ -139,8 +139,6 @@ bool DWARFFormValue::extractValue(DataExtractor data, uint32_t *offset_ptr,
     switch (Form) {
     case DW_FORM_addr:
     case DW_FORM_ref_addr: {
-      if (!cu)
-        return false;
       uint16_t AddrSize =
           (Form == DW_FORM_addr)
               ? cu->getAddressByteSize()
@@ -181,10 +179,8 @@ bool DWARFFormValue::extractValue(DataExtractor data, uint32_t *offset_ptr,
       break;
     case DW_FORM_data4:
     case DW_FORM_ref4: {
+      RelocAddrMap::const_iterator AI = cu->getRelocMap()->find(*offset_ptr);
       Value.uval = data.getU32(offset_ptr);
-      if (!cu)
-        break;
-      RelocAddrMap::const_iterator AI = cu->getRelocMap()->find(*offset_ptr-4);
       if (AI != cu->getRelocMap()->end())
         Value.uval += AI->second.second;
       break;
@@ -197,12 +193,13 @@ bool DWARFFormValue::extractValue(DataExtractor data, uint32_t *offset_ptr,
       Value.sval = data.getSLEB128(offset_ptr);
       break;
     case DW_FORM_strp: {
-      Value.uval = data.getU32(offset_ptr);
-      if (!cu)
-        break;
-      RelocAddrMap::const_iterator AI = cu->getRelocMap()->find(*offset_ptr-4);
-      if (AI != cu->getRelocMap()->end())
-        Value.uval += AI->second.second;
+      RelocAddrMap::const_iterator AI
+        = cu->getRelocMap()->find(*offset_ptr);
+      if (AI != cu->getRelocMap()->end()) {
+        const std::pair<uint8_t, int64_t> &R = AI->second;
+        Value.uval = data.getU32(offset_ptr) + R.second;
+      } else
+        Value.uval = data.getU32(offset_ptr);
       break;
     }
     case DW_FORM_udata:
@@ -218,12 +215,13 @@ bool DWARFFormValue::extractValue(DataExtractor data, uint32_t *offset_ptr,
       break;
     case DW_FORM_sec_offset: {
       // FIXME: This is 64-bit for DWARF64.
-      Value.uval = data.getU32(offset_ptr);
-      if (!cu)
-        break;
-      RelocAddrMap::const_iterator AI = cu->getRelocMap()->find(*offset_ptr-4);
-      if (AI != cu->getRelocMap()->end())
-        Value.uval +=  AI->second.second;
+      RelocAddrMap::const_iterator AI
+        = cu->getRelocMap()->find(*offset_ptr);
+      if (AI != cu->getRelocMap()->end()) {
+        const std::pair<uint8_t, int64_t> &R = AI->second;
+        Value.uval = data.getU32(offset_ptr) + R.second;
+      } else
+        Value.uval = data.getU32(offset_ptr);
       break;
     }
     case DW_FORM_flag_present:
@@ -362,6 +360,8 @@ DWARFFormValue::skipValue(uint16_t form, DataExtractor debug_info_data,
 
 void
 DWARFFormValue::dump(raw_ostream &OS, const DWARFUnit *cu) const {
+  DataExtractor debug_str_data(cu->getStringSection(), true, 0);
+  DataExtractor debug_str_offset_data(cu->getStringOffsetSection(), true, 0);
   uint64_t uvalue = Value.uval;
   bool cu_relative_offset = false;
 

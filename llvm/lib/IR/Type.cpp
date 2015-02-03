@@ -458,11 +458,10 @@ void StructType::setName(StringRef Name) {
   }
   
   // Look up the entry for the name.
-  auto IterBool =
-      getContext().pImpl->NamedStructTypes.insert(std::make_pair(Name, this));
-
+  EntryTy *Entry = &getContext().pImpl->NamedStructTypes.GetOrCreateValue(Name);
+  
   // While we have a name collision, try a random rename.
-  if (!IterBool.second) {
+  if (Entry->getValue()) {
     SmallString<64> TempStr(Name);
     TempStr.push_back('.');
     raw_svector_ostream TmpStream(TempStr);
@@ -472,16 +471,19 @@ void StructType::setName(StringRef Name) {
       TempStr.resize(NameSize + 1);
       TmpStream.resync();
       TmpStream << getContext().pImpl->NamedStructTypesUniqueID++;
-
-      IterBool = getContext().pImpl->NamedStructTypes.insert(
-          std::make_pair(TmpStream.str(), this));
-    } while (!IterBool.second);
+      
+      Entry = &getContext().pImpl->
+                 NamedStructTypes.GetOrCreateValue(TmpStream.str());
+    } while (Entry->getValue());
   }
+
+  // Okay, we found an entry that isn't used.  It's us!
+  Entry->setValue(this);
 
   // Delete the old string data.
   if (SymbolTableEntry)
     ((EntryTy *)SymbolTableEntry)->Destroy(SymbolTable.getAllocator());
-  SymbolTableEntry = &*IterBool.first;
+  SymbolTableEntry = Entry;
 }
 
 //===----------------------------------------------------------------------===//
@@ -562,7 +564,7 @@ bool StructType::isSized(SmallPtrSetImpl<const Type*> *Visited) const {
   if (isOpaque())
     return false;
 
-  if (Visited && !Visited->insert(this).second)
+  if (Visited && !Visited->insert(this))
     return false;
 
   // Okay, our struct is sized if all of the elements are, but if one of the

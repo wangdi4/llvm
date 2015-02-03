@@ -39,5 +39,3 @@ void AArch64TargetStreamer::emitCurrentConstantPool() {
 
 // finish() - write out any non-empty assembler constant pools.
 void AArch64TargetStreamer::finish() { ConstantPools->emitAll(Streamer); }
-
-void AArch64TargetStreamer::emitInst(uint32_t Inst) {}

@@ -19,7 +19,6 @@
 
 #include "CodeGenDAGPatterns.h"
 #include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/TableGen/Error.h"
@@ -37,7 +36,6 @@ struct InstructionMemo {
   const CodeGenRegisterClass *RC;
   std::string SubRegNo;
   std::vector<std::string>* PhysRegs;
-  std::string PredicateCheck;
 };
 } // End anonymous namespace
 
@@ -366,9 +364,7 @@ struct OperandsSignature {
 
 namespace {
 class FastISelMap {
-  // A multimap is needed instead of a "plain" map because the key is 
-  // the instruction's complexity (an int) and they are not unique.
-  typedef std::multimap<int, InstructionMemo> PredMap;
+  typedef std::map<std::string, InstructionMemo> PredMap;
   typedef std::map<MVT::SimpleValueType, PredMap> RetPredMap;
   typedef std::map<MVT::SimpleValueType, RetPredMap> TypeRetPredMap;
   typedef std::map<std::string, TypeRetPredMap> OpcodeTypeRetPredMap;
@@ -376,16 +372,6 @@ class FastISelMap {
             OperandsOpcodeTypeRetPredMap;
 
   OperandsOpcodeTypeRetPredMap SimplePatterns;
-
-  // This is used to check that there are no duplicate predicates            
-  typedef std::multimap<std::string, bool> PredCheckMap;
-  typedef std::map<MVT::SimpleValueType, PredCheckMap> RetPredCheckMap;
-  typedef std::map<MVT::SimpleValueType, RetPredCheckMap> TypeRetPredCheckMap;
-  typedef std::map<std::string, TypeRetPredCheckMap> OpcodeTypeRetPredCheckMap;
-  typedef std::map<OperandsSignature, OpcodeTypeRetPredCheckMap>
-            OperandsOpcodeTypeRetPredCheckMap;
-
-  OperandsOpcodeTypeRetPredCheckMap SimplePatternsCheck;
 
   std::map<OperandsSignature, std::vector<OperandsSignature> >
     SignaturesWithConstantForms;
@@ -398,11 +384,6 @@ public:
   void collectPatterns(CodeGenDAGPatterns &CGP);
   void printImmediatePredicates(raw_ostream &OS);
   void printFunctionDefinitions(raw_ostream &OS);
-private:  
-  void emitInstructionCode(raw_ostream &OS, 
-                           const OperandsSignature &Operands,
-                           const PredMap &PM, 
-                           const std::string &RetVTName);
 };
 } // End anonymous namespace
 
@@ -560,17 +541,6 @@ void FastISelMap::collectPatterns(CodeGenDAGPatterns &CGP) {
         continue;
     }
 
-    // Check if the operands match one of the patterns handled by FastISel.
-    std::string ManglingSuffix;
-    raw_string_ostream SuffixOS(ManglingSuffix);
-    Operands.PrintManglingSuffix(SuffixOS, ImmediatePredicates, true);
-    SuffixOS.flush();
-    if (!StringSwitch<bool>(ManglingSuffix)
-        .Cases("", "r", "rr", "ri", "rf", true)
-        .Cases("rri", "i", "f", true)
-        .Default(false))
-      continue;
-
     // Get the predicate that guards this pattern.
     std::string PredicateCheck = Pattern.getPredicateCheck();
 
@@ -579,24 +549,14 @@ void FastISelMap::collectPatterns(CodeGenDAGPatterns &CGP) {
       Pattern.getDstPattern()->getOperator()->getName(),
       DstRC,
       SubRegNo,
-      PhysRegInputs,
-      PredicateCheck
+      PhysRegInputs
     };
-    
-    int complexity = Pattern.getPatternComplexity(CGP);
 
-    if (SimplePatternsCheck[Operands][OpcodeName][VT]
-         [RetVT].count(PredicateCheck)) {
+    if (SimplePatterns[Operands][OpcodeName][VT][RetVT].count(PredicateCheck))
       PrintFatalError(Pattern.getSrcRecord()->getLoc(),
-                    "Duplicate predicate in FastISel table!");
-    }
-    SimplePatternsCheck[Operands][OpcodeName][VT][RetVT].insert(
-            std::make_pair(PredicateCheck, true));
+                    "Duplicate record in FastISel table!");
 
-       // Note: Instructions with the same complexity will appear in the order
-          // that they are encountered.
-    SimplePatterns[Operands][OpcodeName][VT][RetVT].insert(
-      std::make_pair(complexity, Memo));
+    SimplePatterns[Operands][OpcodeName][VT][RetVT][PredicateCheck] = Memo;
 
     // If any of the operands were immediates with predicates on them, strip
     // them down to a signature that doesn't have predicates so that we can
@@ -620,72 +580,6 @@ void FastISelMap::printImmediatePredicates(raw_ostream &OS) {
   }
 
   OS << "\n\n";
-}
-
-void FastISelMap::emitInstructionCode(raw_ostream &OS, 
-                                      const OperandsSignature &Operands,
-                                      const PredMap &PM, 
-                                      const std::string &RetVTName) {
-  // Emit code for each possible instruction. There may be
-  // multiple if there are subtarget concerns.  A reverse iterator
-  // is used to produce the ones with highest complexity first.
-
-  bool OneHadNoPredicate = false;
-  for (PredMap::const_reverse_iterator PI = PM.rbegin(), PE = PM.rend();
-       PI != PE; ++PI) {
-    const InstructionMemo &Memo = PI->second;
-    std::string PredicateCheck = Memo.PredicateCheck;
-
-    if (PredicateCheck.empty()) {
-      assert(!OneHadNoPredicate &&
-             "Multiple instructions match and more than one had "
-             "no predicate!");
-      OneHadNoPredicate = true;
-    } else {
-      if (OneHadNoPredicate) {
-        // FIXME: This should be a PrintError once the x86 target
-        // fixes PR21575.
-        PrintWarning("Multiple instructions match and one with no "
-                     "predicate came before one with a predicate!  "
-                     "name:" + Memo.Name + "  predicate: " + 
-                     PredicateCheck);
-      }
-      OS << "  if (" + PredicateCheck + ") {\n";
-      OS << "  ";
-    }
-
-    for (unsigned i = 0; i < Memo.PhysRegs->size(); ++i) {
-      if ((*Memo.PhysRegs)[i] != "")
-        OS << "  BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, "
-           << "TII.get(TargetOpcode::COPY), "
-           << (*Memo.PhysRegs)[i] << ").addReg(Op" << i << ");\n";
-    }
-
-    OS << "  return fastEmitInst_";
-    if (Memo.SubRegNo.empty()) {
-      Operands.PrintManglingSuffix(OS, *Memo.PhysRegs,
-     ImmediatePredicates, true);
-      OS << "(" << InstNS << Memo.Name << ", ";
-      OS << "&" << InstNS << Memo.RC->getName() << "RegClass";
-      if (!Operands.empty())
-        OS << ", ";
-      Operands.PrintArguments(OS, *Memo.PhysRegs);
-      OS << ");\n";
-    } else {
-      OS << "extractsubreg(" << RetVTName
-         << ", Op0, Op0IsKill, " << Memo.SubRegNo << ");\n";
-    }
-
-    if (!PredicateCheck.empty()) {
-      OS << "  }\n";
-    }
-  }
-  // Return 0 if all of the possibilities had predicates but none
-  // were satisfied.
-  if (!OneHadNoPredicate)
-    OS << "  return 0;\n";
-  OS << "}\n";
-  OS << "\n";
 }
 
 
@@ -714,6 +608,7 @@ void FastISelMap::printFunctionDefinitions(raw_ostream &OS) {
                RI != RE; ++RI) {
             MVT::SimpleValueType RetVT = RI->first;
             const PredMap &PM = RI->second;
+            bool HasPred = false;
 
             OS << "unsigned fastEmit_"
                << getLegalCName(Opcode)
@@ -724,7 +619,54 @@ void FastISelMap::printFunctionDefinitions(raw_ostream &OS) {
             Operands.PrintParameters(OS);
             OS << ") {\n";
 
-            emitInstructionCode(OS, Operands, PM, getName(RetVT));
+            // Emit code for each possible instruction. There may be
+            // multiple if there are subtarget concerns.
+            for (PredMap::const_iterator PI = PM.begin(), PE = PM.end();
+                 PI != PE; ++PI) {
+              std::string PredicateCheck = PI->first;
+              const InstructionMemo &Memo = PI->second;
+
+              if (PredicateCheck.empty()) {
+                assert(!HasPred &&
+                       "Multiple instructions match, at least one has "
+                       "a predicate and at least one doesn't!");
+              } else {
+                OS << "  if (" + PredicateCheck + ") {\n";
+                OS << "  ";
+                HasPred = true;
+              }
+
+              for (unsigned i = 0; i < Memo.PhysRegs->size(); ++i) {
+                if ((*Memo.PhysRegs)[i] != "")
+                  OS << "  BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, "
+                     << "TII.get(TargetOpcode::COPY), "
+                     << (*Memo.PhysRegs)[i] << ").addReg(Op" << i << ");\n";
+              }
+
+              OS << "  return fastEmitInst_";
+              if (Memo.SubRegNo.empty()) {
+                Operands.PrintManglingSuffix(OS, *Memo.PhysRegs,
+                                             ImmediatePredicates, true);
+                OS << "(" << InstNS << Memo.Name << ", ";
+                OS << "&" << InstNS << Memo.RC->getName() << "RegClass";
+                if (!Operands.empty())
+                  OS << ", ";
+                Operands.PrintArguments(OS, *Memo.PhysRegs);
+                OS << ");\n";
+              } else {
+                OS << "extractsubreg(" << getName(RetVT);
+                OS << ", Op0, Op0IsKill, " << Memo.SubRegNo << ");\n";
+              }
+
+              if (HasPred)
+                OS << "  }\n";
+
+            }
+            // Return 0 if none of the predicates were satisfied.
+            if (HasPred)
+              OS << "  return 0;\n";
+            OS << "}\n";
+            OS << "\n";
           }
 
           // Emit one function for the type that demultiplexes on return type.
@@ -766,8 +708,58 @@ void FastISelMap::printFunctionDefinitions(raw_ostream &OS) {
              << ")\n    return 0;\n";
 
           const PredMap &PM = RM.begin()->second;
+          bool HasPred = false;
 
-          emitInstructionCode(OS, Operands, PM, "RetVT");
+          // Emit code for each possible instruction. There may be
+          // multiple if there are subtarget concerns.
+          for (PredMap::const_iterator PI = PM.begin(), PE = PM.end(); PI != PE;
+               ++PI) {
+            std::string PredicateCheck = PI->first;
+            const InstructionMemo &Memo = PI->second;
+
+            if (PredicateCheck.empty()) {
+              assert(!HasPred &&
+                     "Multiple instructions match, at least one has "
+                     "a predicate and at least one doesn't!");
+            } else {
+              OS << "  if (" + PredicateCheck + ") {\n";
+              OS << "  ";
+              HasPred = true;
+            }
+
+            for (unsigned i = 0; i < Memo.PhysRegs->size(); ++i) {
+              if ((*Memo.PhysRegs)[i] != "")
+                OS << "  BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, "
+                   << "TII.get(TargetOpcode::COPY), "
+                   << (*Memo.PhysRegs)[i] << ").addReg(Op" << i << ");\n";
+            }
+
+            OS << "  return fastEmitInst_";
+
+            if (Memo.SubRegNo.empty()) {
+              Operands.PrintManglingSuffix(OS, *Memo.PhysRegs,
+                                           ImmediatePredicates, true);
+              OS << "(" << InstNS << Memo.Name << ", ";
+              OS << "&" << InstNS << Memo.RC->getName() << "RegClass";
+              if (!Operands.empty())
+                OS << ", ";
+              Operands.PrintArguments(OS, *Memo.PhysRegs);
+              OS << ");\n";
+            } else {
+              OS << "extractsubreg(RetVT, Op0, Op0IsKill, ";
+              OS << Memo.SubRegNo;
+              OS << ");\n";
+            }
+
+             if (HasPred)
+               OS << "  }\n";
+          }
+
+          // Return 0 if none of the predicates were satisfied.
+          if (HasPred)
+            OS << "  return 0;\n";
+          OS << "}\n";
+          OS << "\n";
         }
       }
 
@@ -811,10 +803,7 @@ void FastISelMap::printFunctionDefinitions(raw_ostream &OS) {
     if (!Operands.empty())
       OS << ", ";
     Operands.PrintParameters(OS);
-    OS << ") ";
-    if (!Operands.hasAnyImmediateCodes())
-      OS << "override ";
-    OS << "{\n";
+    OS << ") {\n";
 
     // If there are any forms of this signature available that operate on
     // constrained forms of the immediate (e.g., 32-bit sext immediate in a

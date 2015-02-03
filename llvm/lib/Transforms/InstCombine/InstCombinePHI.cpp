@@ -511,7 +511,7 @@ static bool DeadPHICycle(PHINode *PN,
   if (!PN->hasOneUse()) return false;
 
   // Remember this node, and if we find the cycle, return.
-  if (!PotentiallyDeadPHIs.insert(PN).second)
+  if (!PotentiallyDeadPHIs.insert(PN))
     return true;
 
   // Don't scan crazily complex things.
@@ -530,7 +530,7 @@ static bool DeadPHICycle(PHINode *PN,
 static bool PHIsEqualValue(PHINode *PN, Value *NonPhiInVal,
                            SmallPtrSetImpl<PHINode*> &ValueEqualPHIs) {
   // See if we already saw this PHI node.
-  if (!ValueEqualPHIs.insert(PN).second)
+  if (!ValueEqualPHIs.insert(PN))
     return true;
 
   // Don't scan crazily complex things.
@@ -654,7 +654,7 @@ Instruction *InstCombiner::SliceUpIllegalIntegerPHI(PHINode &FirstPhi) {
 
       // If the user is a PHI, inspect its uses recursively.
       if (PHINode *UserPN = dyn_cast<PHINode>(UserI)) {
-        if (PHIsInspected.insert(UserPN).second)
+        if (PHIsInspected.insert(UserPN))
           PHIsToSlice.push_back(UserPN);
         continue;
       }

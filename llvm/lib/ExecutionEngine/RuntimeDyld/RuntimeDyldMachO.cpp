@@ -25,22 +25,6 @@ using namespace llvm::object;
 
 #define DEBUG_TYPE "dyld"
 
-namespace {
-
-class LoadedMachOObjectInfo : public RuntimeDyld::LoadedObjectInfo {
-public:
-  LoadedMachOObjectInfo(RuntimeDyldImpl &RTDyld, unsigned BeginIdx,
-                        unsigned EndIdx)
-    : RuntimeDyld::LoadedObjectInfo(RTDyld, BeginIdx, EndIdx) {}
-
-  OwningBinary<ObjectFile>
-  getObjectForDebug(const ObjectFile &Obj) const override {
-    return OwningBinary<ObjectFile>();
-  }
-};
-
-}
-
 namespace llvm {
 
 int64_t RuntimeDyldMachO::memcpyAddend(const RelocationEntry &RE) const {
@@ -51,11 +35,12 @@ int64_t RuntimeDyldMachO::memcpyAddend(const RelocationEntry &RE) const {
 }
 
 RelocationValueRef RuntimeDyldMachO::getRelocationValueRef(
-    const ObjectFile &BaseTObj, const relocation_iterator &RI,
-    const RelocationEntry &RE, ObjSectionToIDMap &ObjSectionToID) {
+    ObjectImage &ObjImg, const relocation_iterator &RI,
+    const RelocationEntry &RE, ObjSectionToIDMap &ObjSectionToID,
+    const SymbolTableMap &Symbols) {
 
   const MachOObjectFile &Obj =
-      static_cast<const MachOObjectFile &>(BaseTObj);
+      static_cast<const MachOObjectFile &>(*ObjImg.getObjectFile());
   MachO::any_relocation_info RelInfo =
       Obj.getRelocation(RI->getRawDataRefImpl());
   RelocationValueRef Value;
@@ -65,20 +50,27 @@ RelocationValueRef RuntimeDyldMachO::getRelocationValueRef(
     symbol_iterator Symbol = RI->getSymbol();
     StringRef TargetName;
     Symbol->getName(TargetName);
-    SymbolTableMap::const_iterator SI =
-      GlobalSymbolTable.find(TargetName.data());
-    if (SI != GlobalSymbolTable.end()) {
+    SymbolTableMap::const_iterator SI = Symbols.find(TargetName.data());
+    if (SI != Symbols.end()) {
       Value.SectionID = SI->second.first;
       Value.Offset = SI->second.second + RE.Addend;
     } else {
-      Value.SymbolName = TargetName.data();
-      Value.Offset = RE.Addend;
+      SI = GlobalSymbolTable.find(TargetName.data());
+      if (SI != GlobalSymbolTable.end()) {
+        Value.SectionID = SI->second.first;
+        Value.Offset = SI->second.second + RE.Addend;
+      } else {
+        Value.SymbolName = TargetName.data();
+        Value.Offset = RE.Addend;
+      }
     }
   } else {
     SectionRef Sec = Obj.getRelocationSection(RelInfo);
-    bool IsCode = Sec.isText();
-    Value.SectionID = findOrEmitSection(Obj, Sec, IsCode, ObjSectionToID);
-    uint64_t Addr = Sec.getAddress();
+    bool IsCode = false;
+    Sec.isText(IsCode);
+    Value.SectionID = findOrEmitSection(ObjImg, Sec, IsCode, ObjSectionToID);
+    uint64_t Addr;
+    Sec.getAddress(Addr);
     Value.Offset = RE.Addend - Addr;
   }
 
@@ -86,11 +78,11 @@ RelocationValueRef RuntimeDyldMachO::getRelocationValueRef(
 }
 
 void RuntimeDyldMachO::makeValueAddendPCRel(RelocationValueRef &Value,
-                                            const ObjectFile &BaseTObj,
+                                            ObjectImage &ObjImg,
                                             const relocation_iterator &RI,
                                             unsigned OffsetToNextPC) {
   const MachOObjectFile &Obj =
-      static_cast<const MachOObjectFile &>(BaseTObj);
+      static_cast<const MachOObjectFile &>(*ObjImg.getObjectFile());
   MachO::any_relocation_info RelInfo =
       Obj.getRelocation(RI->getRawDataRefImpl());
 
@@ -123,8 +115,9 @@ RuntimeDyldMachO::getSectionByAddress(const MachOObjectFile &Obj,
   section_iterator SE = Obj.section_end();
 
   for (; SI != SE; ++SI) {
-    uint64_t SAddr = SI->getAddress();
-    uint64_t SSize = SI->getSize();
+    uint64_t SAddr, SSize;
+    SI->getAddress(SAddr);
+    SI->getSize(SSize);
     if ((Addr >= SAddr) && (Addr < SAddr + SSize))
       return SI;
   }
@@ -135,7 +128,7 @@ RuntimeDyldMachO::getSectionByAddress(const MachOObjectFile &Obj,
 
 // Populate __pointers section.
 void RuntimeDyldMachO::populateIndirectSymbolPointersSection(
-                                                    const MachOObjectFile &Obj,
+                                                    MachOObjectFile &Obj,
                                                     const SectionRef &PTSection,
                                                     unsigned PTSectionID) {
   assert(!Obj.is64Bit() &&
@@ -173,12 +166,28 @@ void RuntimeDyldMachO::populateIndirectSymbolPointersSection(
   }
 }
 
-bool RuntimeDyldMachO::isCompatibleFile(const object::ObjectFile &Obj) const {
-  return Obj.isMachO();
+bool
+RuntimeDyldMachO::isCompatibleFormat(const ObjectBuffer *InputBuffer) const {
+  if (InputBuffer->getBufferSize() < 4)
+    return false;
+  StringRef Magic(InputBuffer->getBufferStart(), 4);
+  if (Magic == "\xFE\xED\xFA\xCE")
+    return true;
+  if (Magic == "\xCE\xFA\xED\xFE")
+    return true;
+  if (Magic == "\xFE\xED\xFA\xCF")
+    return true;
+  if (Magic == "\xCF\xFA\xED\xFE")
+    return true;
+  return false;
+}
+
+bool RuntimeDyldMachO::isCompatibleFile(const object::ObjectFile *Obj) const {
+  return Obj->isMachO();
 }
 
 template <typename Impl>
-void RuntimeDyldMachOCRTPBase<Impl>::finalizeLoad(const ObjectFile &ObjImg,
+void RuntimeDyldMachOCRTPBase<Impl>::finalizeLoad(ObjectImage &ObjImg,
                                                   ObjSectionToIDMap &SectionMap) {
   unsigned EHFrameSID = RTDYLD_INVALID_SECTION_ID;
   unsigned TextSID = RTDYLD_INVALID_SECTION_ID;
@@ -210,18 +219,17 @@ unsigned char *RuntimeDyldMachOCRTPBase<Impl>::processFDE(unsigned char *P,
 
   DEBUG(dbgs() << "Processing FDE: Delta for text: " << DeltaForText
                << ", Delta for EH: " << DeltaForEH << "\n");
-  uint32_t Length = readBytesUnaligned(P, 4);
+  uint32_t Length = *((uint32_t *)P);
   P += 4;
   unsigned char *Ret = P + Length;
-  uint32_t Offset = readBytesUnaligned(P, 4);
+  uint32_t Offset = *((uint32_t *)P);
   if (Offset == 0) // is a CIE
     return Ret;
 
   P += 4;
-  TargetPtrT FDELocation = readBytesUnaligned(P, sizeof(TargetPtrT));
+  TargetPtrT FDELocation = *((TargetPtrT*)P);
   TargetPtrT NewLocation = FDELocation - DeltaForText;
-  writeBytesUnaligned(NewLocation, P, sizeof(TargetPtrT));
-
+  *((TargetPtrT*)P) = NewLocation;
   P += sizeof(TargetPtrT);
 
   // Skip the FDE address range
@@ -230,9 +238,9 @@ unsigned char *RuntimeDyldMachOCRTPBase<Impl>::processFDE(unsigned char *P,
   uint8_t Augmentationsize = *P;
   P += 1;
   if (Augmentationsize != 0) {
-    TargetPtrT LSDA = readBytesUnaligned(P, sizeof(TargetPtrT));
+    TargetPtrT LSDA = *((TargetPtrT *)P);
     TargetPtrT NewLSDA = LSDA - DeltaForEH;
-    writeBytesUnaligned(NewLSDA, P, sizeof(TargetPtrT));
+    *((TargetPtrT *)P) = NewLSDA;
   }
 
   return Ret;
@@ -278,7 +286,7 @@ void RuntimeDyldMachOCRTPBase<Impl>::registerEHFrames() {
 }
 
 std::unique_ptr<RuntimeDyldMachO>
-RuntimeDyldMachO::create(Triple::ArchType Arch, RTDyldMemoryManager *MM) {
+llvm::RuntimeDyldMachO::create(Triple::ArchType Arch, RTDyldMemoryManager *MM) {
   switch (Arch) {
   default:
     llvm_unreachable("Unsupported target for RuntimeDyldMachO.");
@@ -288,14 +296,6 @@ RuntimeDyldMachO::create(Triple::ArchType Arch, RTDyldMemoryManager *MM) {
   case Triple::x86: return make_unique<RuntimeDyldMachOI386>(MM);
   case Triple::x86_64: return make_unique<RuntimeDyldMachOX86_64>(MM);
   }
-}
-
-std::unique_ptr<RuntimeDyld::LoadedObjectInfo>
-RuntimeDyldMachO::loadObject(const object::ObjectFile &O) {
-  unsigned SectionStartIdx, SectionEndIdx;
-  std::tie(SectionStartIdx, SectionEndIdx) = loadObjectImpl(O);
-  return llvm::make_unique<LoadedMachOObjectInfo>(*this, SectionStartIdx,
-                                                  SectionEndIdx);
 }
 
 } // end namespace llvm

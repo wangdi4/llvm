@@ -29,7 +29,6 @@
 #include "llvm/Support/COFF.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -61,7 +60,7 @@ void MCWinCOFFStreamer::EmitInstToData(const MCInst &Inst,
   DF->getContents().append(Code.begin(), Code.end());
 }
 
-void MCWinCOFFStreamer::InitSections(bool NoExecStack) {
+void MCWinCOFFStreamer::InitSections() {
   // FIXME: this is identical to the ELF one.
   // This emulates the same behavior of GNU as. This makes it easier
   // to compare the output as the major sections are in the same order.
@@ -133,7 +132,7 @@ void MCWinCOFFStreamer::EmitCOFFSymbolStorageClass(int StorageClass) {
   if (!CurSymbol)
     FatalError("storage class specified outside of symbol definition");
 
-  if (StorageClass & ~COFF::SSC_Invalid)
+  if (StorageClass & ~0xff)
     FatalError(Twine("storage class value '") + itostr(StorageClass) +
                "' out of range");
 
@@ -163,7 +162,7 @@ void MCWinCOFFStreamer::EmitCOFFSectionIndex(MCSymbol const *Symbol) {
   const MCSymbolRefExpr *SRE = MCSymbolRefExpr::Create(Symbol, getContext());
   MCFixup Fixup = MCFixup::Create(DF->getContents().size(), SRE, FK_SecRel_2);
   DF->getFixups().push_back(Fixup);
-  DF->getContents().resize(DF->getContents().size() + 2, 0);
+  DF->getContents().resize(DF->getContents().size() + 4, 0);
 }
 
 void MCWinCOFFStreamer::EmitCOFFSecRel32(MCSymbol const *Symbol) {
@@ -188,31 +187,23 @@ void MCWinCOFFStreamer::EmitCommonSymbol(MCSymbol *Symbol, uint64_t Size,
   if (T.isKnownWindowsMSVCEnvironment()) {
     if (ByteAlignment > 32)
       report_fatal_error("alignment is limited to 32-bytes");
-
-    // Round size up to alignment so that we will honor the alignment request.
-    Size = std::max(Size, static_cast<uint64_t>(ByteAlignment));
+  } else {
+    // The bfd linker from binutils only supports alignments less than 4 bytes
+    // without inserting -aligncomm arguments into the .drectve section.
+    // TODO: Support inserting -aligncomm into the .drectve section.
+    if (ByteAlignment > 4)
+      report_fatal_error("alignment is limited to 4-bytes");
   }
+  // Round size up to alignment so that we will honor the alignment request.
+  // TODO: We don't need to do this if we are targeting the bfd linker once we
+  // add support for adding -aligncomm into the .drectve section.
+  Size = std::max(Size, static_cast<uint64_t>(ByteAlignment));
 
   AssignSection(Symbol, nullptr);
 
   MCSymbolData &SD = getAssembler().getOrCreateSymbolData(*Symbol);
   SD.setExternal(true);
   SD.setCommon(Size, ByteAlignment);
-
-  if (!T.isKnownWindowsMSVCEnvironment() && ByteAlignment > 1) {
-    SmallString<128> Directive;
-    raw_svector_ostream OS(Directive);
-    const MCObjectFileInfo *MFI = getContext().getObjectFileInfo();
-
-    OS << " -aligncomm:\"" << Symbol->getName() << "\","
-       << Log2_32_Ceil(ByteAlignment);
-    OS.flush();
-
-    PushSection();
-    SwitchSection(MFI->getDrectveSection());
-    EmitBytes(Directive);
-    PopSection();
-  }
 }
 
 void MCWinCOFFStreamer::EmitLocalCommonSymbol(MCSymbol *Symbol, uint64_t Size,

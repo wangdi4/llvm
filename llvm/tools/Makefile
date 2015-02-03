@@ -21,8 +21,7 @@ endif
 
 # Build LLD and LLDB if present. Note LLDB must be built last as it depends on
 # the wider LLVM infrastructure (including Clang).
-OPTIONAL_PARALLEL_DIRS += lld
-OPTIONAL_DIRS := lldb
+OPTIONAL_DIRS := lld lldb
 
 # NOTE: The tools are organized into five groups of four consisting of one
 # large and three small executables. This is done to minimize memory load
@@ -72,10 +71,6 @@ ifneq ($(ENABLE_SHARED),1)
     PARALLEL_DIRS := $(filter-out bugpoint-passes, \
                         $(PARALLEL_DIRS))
   endif
-endif
-
-ifneq (,$(filter go,$(BINDINGS_TO_BUILD)))
-  PARALLEL_DIRS += llvm-go
 endif
 
 include $(LEVEL)/Makefile.common

@@ -571,7 +571,7 @@ R600InstrInfo::fitsReadPortLimitations(const std::vector<MachineInstr *> &IG,
   if (!isLastAluTrans)
     return FindSwizzleForVectorSlot(IGSrcs, ValidSwizzle, TransOps, TransBS);
 
-  TransOps = std::move(IGSrcs.back());
+  TransOps = IGSrcs.back();
   IGSrcs.pop_back();
   ValidSwizzle.pop_back();
 
@@ -654,10 +654,11 @@ R600InstrInfo::fitsConstReadLimitations(const std::vector<MachineInstr *> &MIs)
   return fitsConstReadLimitations(Consts);
 }
 
-DFAPacketizer *
-R600InstrInfo::CreateTargetScheduleState(const TargetSubtargetInfo &STI) const {
-  const InstrItineraryData *II = STI.getInstrItineraryData();
-  return static_cast<const AMDGPUSubtarget &>(STI).createDFAPacketizer(II);
+DFAPacketizer *R600InstrInfo::CreateTargetScheduleState(const TargetMachine *TM,
+    const ScheduleDAG *DAG) const {
+  const InstrItineraryData *II =
+      TM->getSubtargetImpl()->getInstrItineraryData();
+  return TM->getSubtarget<AMDGPUSubtarget>().createDFAPacketizer(II);
 }
 
 static bool

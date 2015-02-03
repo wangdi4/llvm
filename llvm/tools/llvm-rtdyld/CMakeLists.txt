@@ -3,7 +3,6 @@ set(LLVM_LINK_COMPONENTS
   DebugInfo
   ExecutionEngine
   MC
-  Object
   RuntimeDyld
   Support
   )

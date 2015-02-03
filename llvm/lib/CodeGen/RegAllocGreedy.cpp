@@ -514,7 +514,7 @@ void RAGreedy::enqueue(PQueue &CurQueue, LiveInterval *LI) {
     // Giant live ranges fall back to the global assignment heuristic, which
     // prevents excessive spilling in pathological cases.
     bool ReverseLocal = TRI->reverseLocalAssignment();
-    bool ForceGlobal = !ReverseLocal &&
+    bool ForceGlobal = !ReverseLocal && TRI->mayOverrideLocalAssignment() &&
       (Size / SlotIndex::InstrDist) > (2 * MRI->getRegClass(Reg)->getNumRegs());
 
     if (ExtraRegInfo[Reg].Stage == RS_Assign && !ForceGlobal && !LI->empty() &&
@@ -817,7 +817,7 @@ unsigned RAGreedy::tryEvict(LiveInterval &VirtReg,
     const TargetRegisterClass *RC = MRI->getRegClass(VirtReg.reg);
     unsigned MinCost = RegClassInfo.getMinCost(RC);
     if (MinCost >= CostPerUseLimit) {
-      DEBUG(dbgs() << TRI->getRegClassName(RC) << " minimum cost = " << MinCost
+      DEBUG(dbgs() << RC->getName() << " minimum cost = " << MinCost
                    << ", no cheaper registers to be found.\n");
       return 0;
     }
@@ -1789,11 +1789,9 @@ unsigned RAGreedy::tryLocalSplit(LiveInterval &VirtReg, AllocationOrder &Order,
         // instructions.
         //
         // Try to guess the size of the new interval.
-        const float EstWeight = normalizeSpillWeight(
-            blockFreq * (NewGaps + 1),
-            Uses[SplitBefore].distance(Uses[SplitAfter]) +
-                (LiveBefore + LiveAfter) * SlotIndex::InstrDist,
-            1);
+        const float EstWeight = normalizeSpillWeight(blockFreq * (NewGaps + 1),
+                                 Uses[SplitBefore].distance(Uses[SplitAfter]) +
+                                 (LiveBefore + LiveAfter)*SlotIndex::InstrDist);
         // Would this split be possible to allocate?
         // Never allocate all gaps, we wouldn't be making progress.
         DEBUG(dbgs() << " w=" << EstWeight);
@@ -2319,13 +2317,13 @@ bool RAGreedy::runOnMachineFunction(MachineFunction &mf) {
                << "********** Function: " << mf.getName() << '\n');
 
   MF = &mf;
-  TRI = MF->getSubtarget().getRegisterInfo();
-  TII = MF->getSubtarget().getInstrInfo();
+  const TargetMachine &TM = MF->getTarget();
+  TRI = TM.getSubtargetImpl()->getRegisterInfo();
+  TII = TM.getSubtargetImpl()->getInstrInfo();
   RCI.runOnMachineFunction(mf);
 
   EnableLocalReassign = EnableLocalReassignment ||
-                        MF->getSubtarget().enableRALocalReassignment(
-                            MF->getTarget().getOptLevel());
+    TM.getSubtargetImpl()->enableRALocalReassignment(TM.getOptLevel());
 
   if (VerifyEnabled)
     MF->verify(this, "Before greedy register allocator");

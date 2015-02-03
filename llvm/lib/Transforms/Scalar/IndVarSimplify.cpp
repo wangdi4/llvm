@@ -31,7 +31,6 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
@@ -70,12 +69,11 @@ static cl::opt<bool> ReduceLiveIVs("liv-reduce", cl::Hidden,
 
 namespace {
   class IndVarSimplify : public LoopPass {
-    LoopInfo                  *LI;
-    ScalarEvolution           *SE;
-    DominatorTree             *DT;
-    const DataLayout          *DL;
-    TargetLibraryInfo         *TLI;
-    const TargetTransformInfo *TTI;
+    LoopInfo        *LI;
+    ScalarEvolution *SE;
+    DominatorTree   *DT;
+    const DataLayout *DL;
+    TargetLibraryInfo *TLI;
 
     SmallVector<WeakVH, 16> DeadInsts;
     bool Changed;
@@ -663,7 +661,7 @@ namespace {
 /// extended by this sign or zero extend operation. This is used to determine
 /// the final width of the IV before actually widening it.
 static void visitIVCast(CastInst *Cast, WideIVInfo &WI, ScalarEvolution *SE,
-                        const DataLayout *DL, const TargetTransformInfo *TTI) {
+                        const DataLayout *DL) {
   bool IsSigned = Cast->getOpcode() == Instruction::SExt;
   if (!IsSigned && Cast->getOpcode() != Instruction::ZExt)
     return;
@@ -672,19 +670,6 @@ static void visitIVCast(CastInst *Cast, WideIVInfo &WI, ScalarEvolution *SE,
   uint64_t Width = SE->getTypeSizeInBits(Ty);
   if (DL && !DL->isLegalInteger(Width))
     return;
-
-  // Cast is either an sext or zext up to this point.
-  // We should not widen an indvar if arithmetics on the wider indvar are more
-  // expensive than those on the narrower indvar. We check only the cost of ADD
-  // because at least an ADD is required to increment the induction variable. We
-  // could compute more comprehensively the cost of all instructions on the
-  // induction variable when necessary.
-  if (TTI &&
-      TTI->getArithmeticInstrCost(Instruction::Add, Ty) >
-          TTI->getArithmeticInstrCost(Instruction::Add,
-                                      Cast->getOperand(0)->getType())) {
-    return;
-  }
 
   if (!WI.WidestNativeType) {
     WI.WidestNativeType = SE->getEffectiveSCEVType(Ty);
@@ -880,8 +865,7 @@ const SCEVAddRecExpr* WidenIV::GetExtendedOperandRecurrence(NarrowIVDefUse DU) {
 
   // One operand (NarrowDef) has already been extended to WideDef. Now determine
   // if extending the other will lead to a recurrence.
-  const unsigned ExtendOperIdx =
-      DU.NarrowUse->getOperand(0) == DU.NarrowDef ? 1 : 0;
+  unsigned ExtendOperIdx = DU.NarrowUse->getOperand(0) == DU.NarrowDef ? 1 : 0;
   assert(DU.NarrowUse->getOperand(1-ExtendOperIdx) == DU.NarrowDef && "bad DU");
 
   const SCEV *ExtendOperExpr = nullptr;
@@ -901,16 +885,8 @@ const SCEVAddRecExpr* WidenIV::GetExtendedOperandRecurrence(NarrowIVDefUse DU) {
   // behavior depends on. Non-control-equivalent instructions can be mapped to
   // the same SCEV expression, and it would be incorrect to transfer NSW/NUW
   // semantics to those operations.
-  const SCEV *lhs = SE->getSCEV(DU.WideDef);
-  const SCEV *rhs = ExtendOperExpr;
-
-  // Let's swap operands to the initial order for the case of non-commutative
-  // operations, like SUB. See PR21014.
-  if (ExtendOperIdx == 0)
-    std::swap(lhs, rhs);
-  const SCEVAddRecExpr *AddRec =
-      dyn_cast<SCEVAddRecExpr>(GetSCEVByOpCode(lhs, rhs, OpCode));
-
+  const SCEVAddRecExpr *AddRec = dyn_cast<SCEVAddRecExpr>(
+      GetSCEVByOpCode(SE->getSCEV(DU.WideDef), ExtendOperExpr, OpCode));
   if (!AddRec || AddRec->getLoop() != L)
     return nullptr;
   return AddRec;
@@ -1102,7 +1078,7 @@ void WidenIV::pushNarrowIVUsers(Instruction *NarrowDef, Instruction *WideDef) {
     Instruction *NarrowUser = cast<Instruction>(U);
 
     // Handle data flow merges and bizarre phi cycles.
-    if (!Widened.insert(NarrowUser).second)
+    if (!Widened.insert(NarrowUser))
       continue;
 
     NarrowIVUsers.push_back(NarrowIVDefUse(NarrowDef, NarrowUser, WideDef));
@@ -1202,16 +1178,14 @@ namespace {
   class IndVarSimplifyVisitor : public IVVisitor {
     ScalarEvolution *SE;
     const DataLayout *DL;
-    const TargetTransformInfo *TTI;
     PHINode *IVPhi;
 
   public:
     WideIVInfo WI;
 
     IndVarSimplifyVisitor(PHINode *IV, ScalarEvolution *SCEV,
-                          const DataLayout *DL, const TargetTransformInfo *TTI,
-                          const DominatorTree *DTree)
-        : SE(SCEV), DL(DL), TTI(TTI), IVPhi(IV) {
+                          const DataLayout *DL, const DominatorTree *DTree):
+      SE(SCEV), DL(DL), IVPhi(IV) {
       DT = DTree;
       WI.NarrowIV = IVPhi;
       if (ReduceLiveIVs)
@@ -1219,9 +1193,7 @@ namespace {
     }
 
     // Implement the interface used by simplifyUsersOfIV.
-    void visitCast(CastInst *Cast) override {
-      visitIVCast(Cast, WI, SE, DL, TTI);
-    }
+    void visitCast(CastInst *Cast) override { visitIVCast(Cast, WI, SE, DL); }
   };
 }
 
@@ -1255,7 +1227,7 @@ void IndVarSimplify::SimplifyAndExtend(Loop *L,
       PHINode *CurrIV = LoopPhis.pop_back_val();
 
       // Information about sign/zero extensions of CurrIV.
-      IndVarSimplifyVisitor Visitor(CurrIV, SE, DL, TTI, DT);
+      IndVarSimplifyVisitor Visitor(CurrIV, SE, DL, DT);
 
       Changed |= simplifyUsersOfIV(CurrIV, SE, &LPM, DeadInsts, &Visitor);
 
@@ -1284,7 +1256,7 @@ void IndVarSimplify::SimplifyAndExtend(Loop *L,
 static bool isHighCostExpansion(const SCEV *S, BranchInst *BI,
                                 SmallPtrSetImpl<const SCEV*> &Processed,
                                 ScalarEvolution *SE) {
-  if (!Processed.insert(S).second)
+  if (!Processed.insert(S))
     return false;
 
   // If the backedge-taken count is a UDiv, it's very likely a UDiv that
@@ -1475,7 +1447,7 @@ static bool hasConcreteDefImpl(Value *V, SmallPtrSetImpl<Value*> &Visited,
 
   // Optimistically handle other instructions.
   for (User::op_iterator OI = I->op_begin(), E = I->op_end(); OI != E; ++OI) {
-    if (!Visited.insert(*OI).second)
+    if (!Visited.insert(*OI))
       continue;
     if (!hasConcreteDefImpl(*OI, Visited, Depth+1))
       return false;
@@ -1719,29 +1691,8 @@ LinearFunctionTestReplace(Loop *L,
     // FIXME: In theory, SCEV could drop flags even though they exist in IR.
     // A more robust solution would involve getting a new expression for
     // CmpIndVar by applying non-NSW/NUW AddExprs.
-    auto WrappingFlags =
-        ScalarEvolution::setFlags(SCEV::FlagNUW, SCEV::FlagNSW);
-    const SCEV *IVInit = IncrementedIndvarSCEV->getStart();
-    if (SE->getTypeSizeInBits(IVInit->getType()) >
-        SE->getTypeSizeInBits(IVCount->getType()))
-      IVInit = SE->getTruncateExpr(IVInit, IVCount->getType());
-    unsigned BitWidth = SE->getTypeSizeInBits(IVCount->getType());
-    Type *WideTy = IntegerType::get(SE->getContext(), BitWidth + 1);
-    // Check if InitIV + BECount+1 requires sign/zero extension.
-    // If not, clear the corresponding flag from WrappingFlags because it is not
-    // necessary for those flags in the IncrementedIndvarSCEV expression.
-    if (SE->getSignExtendExpr(SE->getAddExpr(IVInit, BackedgeTakenCount),
-                              WideTy) ==
-        SE->getAddExpr(SE->getSignExtendExpr(IVInit, WideTy),
-                       SE->getSignExtendExpr(BackedgeTakenCount, WideTy)))
-      WrappingFlags = ScalarEvolution::clearFlags(WrappingFlags, SCEV::FlagNSW);
-    if (SE->getZeroExtendExpr(SE->getAddExpr(IVInit, BackedgeTakenCount),
-                              WideTy) ==
-        SE->getAddExpr(SE->getZeroExtendExpr(IVInit, WideTy),
-                       SE->getZeroExtendExpr(BackedgeTakenCount, WideTy)))
-      WrappingFlags = ScalarEvolution::clearFlags(WrappingFlags, SCEV::FlagNUW);
     if (!ScalarEvolution::maskFlags(IncrementedIndvarSCEV->getNoWrapFlags(),
-                                    WrappingFlags)) {
+                                    SCEV::FlagNUW | SCEV::FlagNSW)) {
       // Add one to the "backedge-taken" count to get the trip count.
       // This addition may overflow, which is valid as long as the comparison is
       // truncated to BackedgeTakenCount->getType().
@@ -1935,7 +1886,6 @@ bool IndVarSimplify::runOnLoop(Loop *L, LPPassManager &LPM) {
   DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
   DL = DLP ? &DLP->getDataLayout() : nullptr;
   TLI = getAnalysisIfAvailable<TargetLibraryInfo>();
-  TTI = getAnalysisIfAvailable<TargetTransformInfo>();
 
   DeadInsts.clear();
   Changed = false;

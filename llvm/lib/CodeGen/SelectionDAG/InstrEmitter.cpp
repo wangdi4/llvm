@@ -27,6 +27,7 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Target/TargetInstrInfo.h"
 #include "llvm/Target/TargetLowering.h"
+#include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
 using namespace llvm;
 
@@ -406,10 +407,11 @@ void InstrEmitter::AddOperand(MachineInstrBuilder &MIB,
     Type *Type = CP->getType();
     // MachineConstantPool wants an explicit alignment.
     if (Align == 0) {
-      Align = MF->getSubtarget().getDataLayout()->getPrefTypeAlignment(Type);
+      Align =
+          TM->getSubtargetImpl()->getDataLayout()->getPrefTypeAlignment(Type);
       if (Align == 0) {
         // Alignment of vector types.  FIXME!
-        Align = MF->getSubtarget().getDataLayout()->getTypeAllocSize(Type);
+        Align = TM->getSubtargetImpl()->getDataLayout()->getTypeAllocSize(Type);
       }
     }
 
@@ -647,18 +649,14 @@ MachineInstr *
 InstrEmitter::EmitDbgValue(SDDbgValue *SD,
                            DenseMap<SDValue, unsigned> &VRBaseMap) {
   uint64_t Offset = SD->getOffset();
-  MDNode *Var = SD->getVariable();
-  MDNode *Expr = SD->getExpression();
+  MDNode* MDPtr = SD->getMDPtr();
   DebugLoc DL = SD->getDebugLoc();
 
   if (SD->getKind() == SDDbgValue::FRAMEIX) {
     // Stack address; this needs to be lowered in target-dependent fashion.
     // EmitTargetCodeForFrameDebugValue is responsible for allocation.
     return BuildMI(*MF, DL, TII->get(TargetOpcode::DBG_VALUE))
-        .addFrameIndex(SD->getFrameIx())
-        .addImm(Offset)
-        .addMetadata(Var)
-        .addMetadata(Expr);
+        .addFrameIndex(SD->getFrameIx()).addImm(Offset).addMetadata(MDPtr);
   }
   // Otherwise, we're going to create an instruction here.
   const MCInstrDesc &II = TII->get(TargetOpcode::DBG_VALUE);
@@ -704,8 +702,7 @@ InstrEmitter::EmitDbgValue(SDDbgValue *SD,
     MIB.addReg(0U, RegState::Debug);
   }
 
-  MIB.addMetadata(Var);
-  MIB.addMetadata(Expr);
+  MIB.addMetadata(MDPtr);
 
   return &*MIB;
 }
@@ -1020,8 +1017,8 @@ EmitSpecialNode(SDNode *Node, bool IsClone, bool IsCloned,
 /// at the given position in the given block.
 InstrEmitter::InstrEmitter(MachineBasicBlock *mbb,
                            MachineBasicBlock::iterator insertpos)
-    : MF(mbb->getParent()), MRI(&MF->getRegInfo()),
-      TII(MF->getSubtarget().getInstrInfo()),
-      TRI(MF->getSubtarget().getRegisterInfo()),
-      TLI(MF->getSubtarget().getTargetLowering()), MBB(mbb),
+    : MF(mbb->getParent()), MRI(&MF->getRegInfo()), TM(&MF->getTarget()),
+      TII(TM->getSubtargetImpl()->getInstrInfo()),
+      TRI(TM->getSubtargetImpl()->getRegisterInfo()),
+      TLI(TM->getSubtargetImpl()->getTargetLowering()), MBB(mbb),
       InsertPos(insertpos) {}

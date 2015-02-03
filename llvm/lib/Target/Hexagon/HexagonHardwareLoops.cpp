@@ -540,16 +540,16 @@ CountValue *HexagonHardwareLoops::getLoopTripCount(MachineLoop *L,
     return nullptr;
 
   switch (CondOpc) {
-    case Hexagon::C2_cmpeqi:
-    case Hexagon::C2_cmpeq:
+    case Hexagon::CMPEQri:
+    case Hexagon::CMPEQrr:
       Cmp = !Negated ? Comparison::EQ : Comparison::NE;
       break;
-    case Hexagon::C2_cmpgtui:
-    case Hexagon::C2_cmpgtu:
+    case Hexagon::CMPGTUri:
+    case Hexagon::CMPGTUrr:
       Cmp = !Negated ? Comparison::GTu : Comparison::LEu;
       break;
-    case Hexagon::C2_cmpgti:
-    case Hexagon::C2_cmpgt:
+    case Hexagon::CMPGTri:
+    case Hexagon::CMPGTrr:
       Cmp = !Negated ? Comparison::GTs : Comparison::LEs;
       break;
     // Very limited support for byte/halfword compares.
@@ -781,7 +781,7 @@ CountValue *HexagonHardwareLoops::computeCount(MachineLoop *Loop,
     DistR = End->getReg();
     DistSR = End->getSubReg();
   } else {
-    const MCInstrDesc &SubD = RegToReg ? TII->get(Hexagon::A2_sub) :
+    const MCInstrDesc &SubD = RegToReg ? TII->get(Hexagon::SUB_rr) :
                               (RegToImm ? TII->get(Hexagon::SUB_ri) :
                                           TII->get(Hexagon::ADD_ri));
     unsigned SubR = MRI->createVirtualRegister(IntRC);

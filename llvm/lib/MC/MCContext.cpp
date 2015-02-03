@@ -100,33 +100,16 @@ void MCContext::reset() {
 MCSymbol *MCContext::GetOrCreateSymbol(StringRef Name) {
   assert(!Name.empty() && "Normal symbols cannot be unnamed!");
 
-  MCSymbol *&Sym = Symbols[Name];
+  // Do the lookup and get the entire StringMapEntry.  We want access to the
+  // key if we are creating the entry.
+  StringMapEntry<MCSymbol*> &Entry = Symbols.GetOrCreateValue(Name);
+  MCSymbol *Sym = Entry.getValue();
 
-  if (!Sym)
-    Sym = CreateSymbol(Name);
-
-  return Sym;
-}
-
-MCSymbol *MCContext::getOrCreateSectionSymbol(const MCSectionELF &Section) {
-  MCSymbol *&Sym = SectionSymbols[&Section];
   if (Sym)
     return Sym;
 
-  StringRef Name = Section.getSectionName();
-
-  MCSymbol *&OldSym = Symbols[Name];
-  if (OldSym && OldSym->isUndefined()) {
-    Sym = OldSym;
-    return OldSym;
-  }
-
-  auto NameIter = UsedNames.insert(std::make_pair(Name, true)).first;
-  Sym = new (*this) MCSymbol(NameIter->getKey(), /*isTemporary*/ false);
-
-  if (!OldSym)
-    OldSym = Sym;
-
+  Sym = CreateSymbol(Name);
+  Entry.setValue(Sym);
   return Sym;
 }
 
@@ -136,21 +119,21 @@ MCSymbol *MCContext::CreateSymbol(StringRef Name) {
   if (AllowTemporaryLabels)
     isTemporary = Name.startswith(MAI->getPrivateGlobalPrefix());
 
-  auto NameEntry = UsedNames.insert(std::make_pair(Name, true));
-  if (!NameEntry.second) {
+  StringMapEntry<bool> *NameEntry = &UsedNames.GetOrCreateValue(Name);
+  if (NameEntry->getValue()) {
     assert(isTemporary && "Cannot rename non-temporary symbols");
     SmallString<128> NewName = Name;
     do {
       NewName.resize(Name.size());
       raw_svector_ostream(NewName) << NextUniqueID++;
-      NameEntry = UsedNames.insert(std::make_pair(NewName, true));
-    } while (!NameEntry.second);
+      NameEntry = &UsedNames.GetOrCreateValue(NewName);
+    } while (NameEntry->getValue());
   }
+  NameEntry->setValue(true);
 
   // Ok, the entry doesn't already exist.  Have the MCSymbol object itself refer
   // to the copy of the string that is embedded in the UsedNames entry.
-  MCSymbol *Result =
-      new (*this) MCSymbol(NameEntry.first->getKey(), isTemporary);
+  MCSymbol *Result = new (*this) MCSymbol(NameEntry->getKey(), isTemporary);
 
   return Result;
 }

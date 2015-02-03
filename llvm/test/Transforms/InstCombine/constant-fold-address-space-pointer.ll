@@ -161,11 +161,12 @@ define i32 @constant_fold_bitcast_itof_load() {
   ret i32 %a
 }
 
-define <4 x float> @constant_fold_bitcast_vector_as() {
+define <4 x i32> @constant_fold_bitcast_vector_as() {
 ; CHECK-LABEL: @constant_fold_bitcast_vector_as(
 ; CHECK: load <4 x float> addrspace(3)* @g_v4f_as3, align 16
-  %a = load <4 x float> addrspace(3)* bitcast (<4 x i32> addrspace(3)* bitcast (<4 x float> addrspace(3)* @g_v4f_as3 to <4 x i32> addrspace(3)*) to <4 x float> addrspace(3)*), align 4
-  ret <4 x float> %a
+; CHECK: bitcast <4 x float> %1 to <4 x i32>
+  %a = load <4 x i32> addrspace(3)* bitcast (<4 x float> addrspace(3)* @g_v4f_as3 to <4 x i32> addrspace(3)*), align 4
+  ret <4 x i32> %a
 }
 
 @i32_array_as3 = addrspace(3) global [10 x i32] zeroinitializer

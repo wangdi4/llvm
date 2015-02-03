@@ -40,7 +40,6 @@ LLVMContextImpl::LLVMContextImpl(LLVMContext &C)
   InlineAsmDiagContext = nullptr;
   DiagnosticHandler = nullptr;
   DiagnosticContext = nullptr;
-  RespectDiagnosticFilters = false;
   YieldCallback = nullptr;
   YieldOpaqueHandle = nullptr;
   NamedStructTypesUniqueID = 0;
@@ -122,19 +121,20 @@ LLVMContextImpl::~LLVMContextImpl() {
 
   // Destroy MDNodes.  ~MDNode can move and remove nodes between the MDNodeSet
   // and the NonUniquedMDNodes sets, so copy the values out first.
-  SmallVector<GenericMDNode *, 8> MDNodes;
+  SmallVector<MDNode*, 8> MDNodes;
   MDNodes.reserve(MDNodeSet.size() + NonUniquedMDNodes.size());
-  MDNodes.append(MDNodeSet.begin(), MDNodeSet.end());
+  for (FoldingSetIterator<MDNode> I = MDNodeSet.begin(), E = MDNodeSet.end();
+       I != E; ++I)
+    MDNodes.push_back(&*I);
   MDNodes.append(NonUniquedMDNodes.begin(), NonUniquedMDNodes.end());
-  for (GenericMDNode *I : MDNodes)
-    I->dropAllReferences();
-  for (GenericMDNode *I : MDNodes)
-    delete I;
+  for (SmallVectorImpl<MDNode *>::iterator I = MDNodes.begin(),
+         E = MDNodes.end(); I != E; ++I)
+    (*I)->destroy();
   assert(MDNodeSet.empty() && NonUniquedMDNodes.empty() &&
          "Destroying all MDNodes didn't empty the Context's sets.");
 
   // Destroy MDStrings.
-  MDStringCache.clear();
+  DeleteContainerSeconds(MDStringCache);
 }
 
 // ConstantsContext anchors

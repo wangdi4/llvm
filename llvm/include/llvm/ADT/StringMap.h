@@ -117,9 +117,8 @@ public:
 
   explicit StringMapEntry(unsigned strLen)
     : StringMapEntryBase(strLen), second() {}
-  template <class InitTy>
-  StringMapEntry(unsigned strLen, InitTy &&V)
-      : StringMapEntryBase(strLen), second(std::forward<InitTy>(V)) {}
+  StringMapEntry(unsigned strLen, ValueTy V)
+      : StringMapEntryBase(strLen), second(std::move(V)) {}
 
   StringRef getKey() const {
     return StringRef(getKeyData(), getKeyLength());
@@ -139,9 +138,10 @@ public:
 
   /// Create - Create a StringMapEntry for the specified key and default
   /// construct the value.
-  template <typename AllocatorTy, typename InitType>
-  static StringMapEntry *Create(StringRef Key, AllocatorTy &Allocator,
-                                InitType &&InitVal) {
+  template<typename AllocatorTy, typename InitType>
+  static StringMapEntry *Create(StringRef Key,
+                                AllocatorTy &Allocator,
+                                InitType InitVal) {
     unsigned KeyLength = Key.size();
 
     // Allocate a new item with space for the string at the end and a null
@@ -154,7 +154,7 @@ public:
       static_cast<StringMapEntry*>(Allocator.Allocate(AllocSize,Alignment));
 
     // Default construct the value.
-    new (NewItem) StringMapEntry(KeyLength, std::forward<InitType>(InitVal));
+    new (NewItem) StringMapEntry(KeyLength, std::move(InitVal));
 
     // Copy the string information.
     char *StrBuffer = const_cast<char*>(NewItem->getKeyData());
@@ -170,9 +170,9 @@ public:
 
   /// Create - Create a StringMapEntry with normal malloc/free.
   template<typename InitType>
-  static StringMapEntry *Create(StringRef Key, InitType &&InitVal) {
+  static StringMapEntry *Create(StringRef Key, InitType InitVal) {
     MallocAllocator A;
-    return Create(Key, A, std::forward<InitType>(InitVal));
+    return Create(Key, A, std::move(InitVal));
   }
 
   static StringMapEntry *Create(StringRef Key) {
@@ -296,7 +296,7 @@ public:
   }
 
   ValueTy &operator[](StringRef Key) {
-    return insert(std::make_pair(Key, ValueTy())).first->second;
+    return GetOrCreateValue(Key).getValue();
   }
 
   /// count - Return 1 if the element is in the map, 0 otherwise.
@@ -361,6 +361,18 @@ public:
 
     NumItems = 0;
     NumTombstones = 0;
+  }
+
+  /// GetOrCreateValue - Look up the specified key in the table.  If a value
+  /// exists, return it.  Otherwise, default construct a value, insert it, and
+  /// return.
+  template <typename InitTy>
+  MapEntryTy &GetOrCreateValue(StringRef Key, InitTy Val) {
+    return *insert(std::make_pair(Key, std::move(Val))).first;
+  }
+
+  MapEntryTy &GetOrCreateValue(StringRef Key) {
+    return GetOrCreateValue(Key, ValueTy());
   }
 
   /// remove - Remove the specified key/value pair from the map, but do not

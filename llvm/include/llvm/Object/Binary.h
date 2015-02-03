@@ -139,10 +139,8 @@ public:
   OwningBinary(OwningBinary<T>&& Other);
   OwningBinary<T> &operator=(OwningBinary<T> &&Other);
 
-  std::pair<std::unique_ptr<T>, std::unique_ptr<MemoryBuffer>> takeBinary();
-
-  T* getBinary();
-  const T* getBinary() const;
+  std::unique_ptr<T> &getBinary();
+  std::unique_ptr<MemoryBuffer> &getBuffer();
 };
 
 template <typename T>
@@ -163,18 +161,13 @@ OwningBinary<T> &OwningBinary<T>::operator=(OwningBinary &&Other) {
   return *this;
 }
 
+template <typename T> std::unique_ptr<T> &OwningBinary<T>::getBinary() {
+  return Bin;
+}
+
 template <typename T>
-std::pair<std::unique_ptr<T>, std::unique_ptr<MemoryBuffer>>
-OwningBinary<T>::takeBinary() {
-  return std::make_pair(std::move(Bin), std::move(Buf));
-}
-
-template <typename T> T* OwningBinary<T>::getBinary() {
-  return Bin.get();
-}
-
-template <typename T> const T* OwningBinary<T>::getBinary() const {
-  return Bin.get();
+std::unique_ptr<MemoryBuffer> &OwningBinary<T>::getBuffer() {
+  return Buf;
 }
 
 ErrorOr<OwningBinary<Binary>> createBinary(StringRef Path);

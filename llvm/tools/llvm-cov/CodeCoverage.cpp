@@ -81,7 +81,7 @@ public:
   int report(int argc, const char **argv,
              CommandLineParserType commandLineParser);
 
-  std::string ObjectFilename;
+  StringRef ObjectFilename;
   CoverageViewOptions ViewOpts;
   std::string PGOFilename;
   CoverageFiltersMatchAll Filters;
@@ -233,10 +233,6 @@ int CodeCoverageTool::run(Command Cmd, int argc, const char **argv) {
   PrettyStackTraceProgram X(argc, argv);
   llvm_shutdown_obj Y; // Call llvm_shutdown() on exit.
 
-  cl::opt<std::string, true> ObjectFilename(
-      cl::Positional, cl::Required, cl::location(this->ObjectFilename),
-      cl::desc("Covered executable or object file."));
-
   cl::list<std::string> InputSourceFiles(
       cl::Positional, cl::desc("<Source files>"), cl::ZeroOrMore);
 
@@ -335,6 +331,23 @@ int CodeCoverageTool::run(Command Cmd, int argc, const char **argv) {
     }
     return 0;
   };
+
+  // Parse the object filename
+  if (argc > 1) {
+    StringRef Arg(argv[1]);
+    if (Arg.equals_lower("-help") || Arg.equals_lower("-version")) {
+      cl::ParseCommandLineOptions(2, argv, "LLVM code coverage tool\n");
+      return 0;
+    }
+    ObjectFilename = Arg;
+
+    argv[1] = argv[0];
+    --argc;
+    ++argv;
+  } else {
+    errs() << sys::path::filename(argv[0]) << ": No executable file given!\n";
+    return 1;
+  }
 
   switch (Cmd) {
   case Show:
@@ -462,7 +475,7 @@ int CodeCoverageTool::report(int argc, const char **argv,
     return 1;
 
   CoverageSummary Summarizer;
-  Summarizer.createSummaries(*Coverage);
+  Summarizer.createSummaries(Coverage->getCoveredFunctions());
   CoverageReport Report(ViewOpts, Summarizer);
   if (SourceFiles.empty() && Filters.empty()) {
     Report.renderFileReports(llvm::outs());
@@ -473,12 +486,12 @@ int CodeCoverageTool::report(int argc, const char **argv,
   return 0;
 }
 
-int showMain(int argc, const char *argv[]) {
+int show_main(int argc, const char **argv) {
   CodeCoverageTool Tool;
   return Tool.run(CodeCoverageTool::Show, argc, argv);
 }
 
-int reportMain(int argc, const char *argv[]) {
+int report_main(int argc, const char **argv) {
   CodeCoverageTool Tool;
   return Tool.run(CodeCoverageTool::Report, argc, argv);
 }
