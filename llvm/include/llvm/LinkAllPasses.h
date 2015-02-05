@@ -21,6 +21,7 @@
 #include "llvm/Analysis/IntervalPartition.h"
 #include "llvm/Analysis/Lint.h"
 #include "llvm/Analysis/Passes.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h" //***INTEL - HIR analysis
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/RegionPass.h"
 #include "llvm/Analysis/RegionPrinter.h"
@@ -177,6 +178,7 @@ namespace {
       X.add(nullptr, 0, llvm::AAMDNodes()); // for -print-alias-sets
 
       (void) llvm::createMockHIRPass();
+      (void) llvm::createRegionIdentificationPass();
       (void) llvm::createHIRCodeGenPass();
     }
   } ForcePassLinking; // Force link by creating a global definition.

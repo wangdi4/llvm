@@ -19,7 +19,6 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 
-
 namespace llvm {
 
 class Type;
@@ -55,10 +54,34 @@ public:
   static CanonExpr* addCanonExprs(CanonExpr* CE1, CanonExpr* CE2,
     bool CreateNewCE = false);
 
-  /// \brief Returns a canon expr which represents the difference of these canon exprs.
-  /// Subtracts CE2 from CE1 if CreateNewCE is false.
+  /// \brief Returns a canon expr which represents the difference of these canon
+  /// exprs. Subtracts CE2 from CE1 if CreateNewCE is false.
   static CanonExpr* subtractCanonExprs(CanonExpr* CE1, CanonExpr* CE2,
     bool CreateNewCE = false);
+
+  /// \brief Returns a blob which represents (LHS + RHS). Its index is returned 
+  /// via NewBlobIndex argument.
+  static BlobTy createAddBlob(BlobTy LHS, BlobTy RHS, unsigned* NewBlobIndex);
+  /// \brief Returns a blob which represents (LHS - RHS). Its index is returned 
+  /// via NewBlobIndex argument.
+  static BlobTy createSubBlob(BlobTy LHS, BlobTy RHS, unsigned* NewBlobIndex);
+  /// \brief Returns a blob which represents (LHS * RHS). Its index is returned 
+  /// via NewBlobIndex argument.
+  static BlobTy createMulBlob(BlobTy LHS, BlobTy RHS, unsigned* NewBlobIndex);
+  /// \brief Returns a blob which represents (LHS / RHS). Its index is returned 
+  /// via NewBlobIndex argument.
+  static BlobTy createUDivBlob(BlobTy LHS, BlobTy RHS, unsigned* NewBlobIndex);
+  /// \brief Returns a blob which represents (trunc Blob to Ty). Its index is 
+  /// returned via NewBlobIndex argument.
+  static BlobTy createTruncateBlob(BlobTy Blob, Type* Ty, unsigned* NewBlobIndex);
+  /// \brief Returns a blob which represents (zext Blob to Ty). Its index is 
+  /// returned via NewBlobIndex argument.
+  static BlobTy createZeroExtendBlob(BlobTy Blob, Type* Ty, unsigned* NewBlobIndex);
+  /// \brief Returns a blob which represents (sext Blob to Ty). Its index is 
+  /// returned via NewBlobIndex argument.
+  static BlobTy createSignExtendBlob(BlobTy Blob, Type* Ty, unsigned* NewBlobIndex);
+  
+
 };
 
 } // End namespace loopopt

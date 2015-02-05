@@ -288,6 +288,7 @@ void initializeLoadCombinePass(PassRegistry&);
 void initializeRewriteSymbolsPass(PassRegistry&);
 
 void initializeMockHIRPass(PassRegistry&);
+void initializeRegionIdentificationPass(PassRegistry&);
 }
 
 #endif

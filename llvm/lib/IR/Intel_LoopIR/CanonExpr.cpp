@@ -18,6 +18,7 @@ using namespace llvm;
 using namespace loopopt;
 
 std::set< CanonExpr* >CanonExpr::Objs;
+CanonExpr::BlobTableTy CanonExpr::BlobTable;
 
 CanonExpr::CanonExpr(Type* Typ, bool Gen, int DefLevel, int64_t Cons, 
   int64_t Denom)
@@ -169,7 +170,7 @@ void CanonExpr::replaceIVByConstant(unsigned Lvl, int64_t Val) {
   removeIV(Lvl);
 }
 
-int64_t CanonExpr::getBlobCoeff(int BlobIndex) const {
+int64_t CanonExpr::getBlobCoeff(unsigned BlobIndex) const {
 
   for (auto &I : BlobCoeffs) {
     if (I.first == BlobIndex) {
@@ -183,7 +184,7 @@ int64_t CanonExpr::getBlobCoeff(int BlobIndex) const {
   return 0;
 }
 
-void CanonExpr::addBlobInternal(int BlobIndex, int64_t BlobCoeff, 
+void CanonExpr::addBlobInternal(unsigned BlobIndex, int64_t BlobCoeff, 
   bool overwrite) {
 
   /// No blobs present, add this one
@@ -213,15 +214,15 @@ void CanonExpr::addBlobInternal(int BlobIndex, int64_t BlobCoeff,
   
 }
 
-void CanonExpr::setBlobCoeff(int BlobIndex, int64_t BlobCoeff) {
+void CanonExpr::setBlobCoeff(unsigned BlobIndex, int64_t BlobCoeff) {
   addBlobInternal(BlobIndex, BlobCoeff, true);
 }
 
-void CanonExpr::addBlob(int BlobIndex, int64_t BlobCoeff) {
+void CanonExpr::addBlob(unsigned BlobIndex, int64_t BlobCoeff) {
   addBlobInternal(BlobIndex, BlobCoeff, false);
 }
 
-void CanonExpr::removeBlob(int BlobIndex) {
+void CanonExpr::removeBlob(unsigned BlobIndex) {
   
   for (auto I = BlobCoeffs.begin(), E = BlobCoeffs.end(); I != E; I++) {
     if (I->first == BlobIndex) {
@@ -231,7 +232,7 @@ void CanonExpr::removeBlob(int BlobIndex) {
   }
 }
 
-void CanonExpr::replaceBlob(int OldBlobIndex, int NewBlobIndex) {
+void CanonExpr::replaceBlob(unsigned OldBlobIndex, unsigned NewBlobIndex) {
 
   int64_t Coeff;
 

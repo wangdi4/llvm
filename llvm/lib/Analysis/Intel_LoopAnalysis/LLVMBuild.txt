@@ -1,4 +1,4 @@
-;===- ./lib/Transforms/Scalar/LLVMBuild.txt --------------------*- Conf -*--===;
+;===- ./lib/IR/LLVMBuild.txt -----------------------------------*- Conf -*--===;
 ;
 ;                     The LLVM Compiler Infrastructure
 ;
@@ -17,6 +17,6 @@
 
 [component_0]
 type = Library
-name = Intel_LoopUtils
-parent = Transforms 
-required_libraries = Intel_LoopIR Intel_LoopAnalysis
+name = Intel_LoopAnalysis
+parent = Libraries
+required_libraries = Intel_LoopIR

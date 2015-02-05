@@ -25,12 +25,11 @@
 namespace llvm {
 
 class Type;
+class SCEV;
 
 namespace loopopt {
 
-/// \brief The maximum loopnest level allowed in HIR
-const unsigned MaxLoopNestLevel = 9;
-
+typedef const SCEV* BlobTy;
 
 /// \brief Canonical form in high level IR
 ///
@@ -46,22 +45,27 @@ const unsigned MaxLoopNestLevel = 9;
 class CanonExpr {
 public:
   typedef std::pair<bool, int64_t> BlobOrConstToValTy;
-  typedef std::pair<int, int64_t> BlobIndexToCoeffTy;
-  typedef SmallVector<BlobOrConstToValTy, 4> IVTy;
+  typedef std::pair<unsigned, int64_t> BlobIndexToCoeffTy;
+  typedef SmallVector<BlobOrConstToValTy, 4> IVCoeffsTy;
   /// Kept sorted by blob index
-  typedef SmallVector<BlobIndexToCoeffTy, 2> BlobTy;
+  typedef SmallVector<BlobIndexToCoeffTy, 2> BlobCoeffsTy;
+  /// Kept sorted
+  typedef std::vector< BlobTy > BlobTableTy;
+
+  /// \brief The maximum loopnest level allowed in HIR.
+  static const unsigned MaxLoopNestLevel = 9;
 
   /// Iterators to iterate over induction variables
-  typedef IVTy::iterator iv_iterator;
-  typedef IVTy::const_iterator const_iv_iterator;
-  typedef IVTy::reverse_iterator reverse_iv_iterator;
-  typedef IVTy::const_reverse_iterator const_reverse_iv_iterator; 
+  typedef IVCoeffsTy::iterator iv_iterator;
+  typedef IVCoeffsTy::const_iterator const_iv_iterator;
+  typedef IVCoeffsTy::reverse_iterator reverse_iv_iterator;
+  typedef IVCoeffsTy::const_reverse_iterator const_reverse_iv_iterator; 
 
   /// Iterators to iterate over blobs
-  typedef BlobTy::iterator blob_iterator;
-  typedef BlobTy::const_iterator const_blob_iterator;
-  typedef BlobTy::reverse_iterator reverse_blob_iterator;
-  typedef BlobTy::const_reverse_iterator const_reverse_blob_iterator; 
+  typedef BlobCoeffsTy::iterator blob_iterator;
+  typedef BlobCoeffsTy::const_iterator const_blob_iterator;
+  typedef BlobCoeffsTy::reverse_iterator reverse_blob_iterator;
+  typedef BlobCoeffsTy::const_reverse_iterator const_reverse_blob_iterator; 
 
 private:
   /// \brief Copy constructor; only used for cloning.
@@ -74,12 +78,14 @@ private:
   static void destroyAll();
   /// Keeps track of objects of this class.
   static std::set< CanonExpr* >Objs;
+  /// \brief Stores blobs for the current function.
+  static BlobTableTy BlobTable;
 
   Type* Ty;
   bool Generable;
   int DefinedAtLevel;
-  IVTy IVCoeffs;
-  BlobTy BlobCoeffs;
+  IVCoeffsTy IVCoeffs;
+  BlobCoeffsTy BlobCoeffs;
   int64_t Const;
   int64_t Denominator;
 
@@ -104,7 +110,7 @@ protected:
 
   /// \brief Sets a blob coefficient. Depending upon the overwrite flag the 
   /// existing coefficient is either overwritten or added to.
-  void addBlobInternal(int BlobIndex, int64_t BlobCoeff, bool overwrite);
+  void addBlobInternal(unsigned BlobIndex, int64_t BlobCoeff, bool overwrite);
 
 public:
 
@@ -163,17 +169,17 @@ public:
   void replaceIVByConstant(unsigned Lvl, int64_t Val);
 
   /// \brief Returns the blob coefficient.
-  int64_t getBlobCoeff(int BlobIndex) const;
+  int64_t getBlobCoeff(unsigned BlobIndex) const;
   /// \brief Sets the blob coefficient.
-  void setBlobCoeff(int BlobIndex, int64_t BlobCoeff);
+  void setBlobCoeff(unsigned BlobIndex, int64_t BlobCoeff);
 
   /// \brief Adds to the existing blob coefficient.
-  void addBlob(int BlobIndex, int64_t BlobCoeff);
+  void addBlob(unsigned BlobIndex, int64_t BlobCoeff);
   /// \brief Removes a blob.
-  void removeBlob(int BlobIndex);
+  void removeBlob(unsigned BlobIndex);
 
   /// \brief Replaces an old blob with a new one.
-  void replaceBlob(int OldBlobIndex, int NewBlobIndex);
+  void replaceBlob(unsigned OldBlobIndex, unsigned NewBlobIndex);
 
   /// \brief Shifts the canon expr by a constant offset at a particular loop 
   /// level.
@@ -182,7 +188,7 @@ public:
   /// \brief Multiplies this canon expr by a contant.
   void multiplyByConstant(int64_t Const);
   /// \brief Multiplies this canon expr by a blob.
-  void multiplyByBlob(int BlobIndex);
+  void multiplyByBlob(unsigned BlobIndex);
 
   /// IV iterator methods
   iv_iterator               iv_begin()        { return IVCoeffs.begin(); }
