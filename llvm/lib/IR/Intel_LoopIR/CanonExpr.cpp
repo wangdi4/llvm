@@ -170,16 +170,32 @@ void CanonExpr::replaceIVByConstant(unsigned Lvl, int64_t Val) {
   removeIV(Lvl);
 }
 
+namespace {
+  struct BlobIndexCompareLess {
+    bool operator() (const CanonExpr::BlobIndexToCoeffTy& B1, 
+      const CanonExpr::BlobIndexToCoeffTy& B2) {
+      return B1.first < B2.first;
+    }
+  };
+
+  struct BlobIndexCompareEqual {
+    bool operator() (const CanonExpr::BlobIndexToCoeffTy& B1,
+      const CanonExpr::BlobIndexToCoeffTy& B2) {
+      return B1.first == B2.first;
+    }
+  };
+}
+
 int64_t CanonExpr::getBlobCoeff(unsigned BlobIndex) const {
 
-  for (auto &I : BlobCoeffs) {
-    if (I.first == BlobIndex) {
-      return I.second;
-    }
-    else if (I.first > BlobIndex) {
-      break;
-    }
-  }  
+  BlobIndexToCoeffTy Blob(BlobIndex, 0);
+
+  auto I = std::lower_bound(BlobCoeffs.begin(), BlobCoeffs.end(), Blob, 
+            BlobIndexCompareLess());
+
+  if ((I != BlobCoeffs.end()) && BlobIndexCompareEqual()(*I, Blob)) {
+    return I->second;
+  }
 
   return 0;
 }
@@ -187,29 +203,30 @@ int64_t CanonExpr::getBlobCoeff(unsigned BlobIndex) const {
 void CanonExpr::addBlobInternal(unsigned BlobIndex, int64_t BlobCoeff, 
   bool overwrite) {
 
+   BlobIndexToCoeffTy Blob(BlobIndex, BlobCoeff);
+
   /// No blobs present, add this one
   if (BlobCoeffs.empty()) {
-    BlobCoeffs.push_back(BlobIndexToCoeffTy(BlobIndex, BlobCoeff));
+    BlobCoeffs.push_back(Blob);
     return;
   }
 
-  for (auto I = BlobCoeffs.begin(), E = BlobCoeffs.end(); I != E; I++) {
-    /// The blob already exists so just change the coeff
-    if (I->first == BlobIndex) {
+  auto I = std::lower_bound(BlobCoeffs.begin(), BlobCoeffs.end(), Blob, 
+            BlobIndexCompareLess());
 
-      if (overwrite) {
-        I->second = BlobCoeff;
-      }
-      else {
-        I->second += BlobCoeff;
-      }
-      return;
+
+  /// The blob already exists so just change the coeff
+  if ((I != BlobCoeffs.end()) && BlobIndexCompareEqual()(*I, Blob)) {
+    if (overwrite) {
+      I->second = BlobCoeff;
     }
-    /// We need to insert new blob at this (sorted) position
-    else if (I->first > BlobIndex) {
-      BlobCoeffs.insert(I, BlobIndexToCoeffTy(BlobIndex, BlobCoeff));
-      return;
+    else {
+      I->second += BlobCoeff;
     }
+  }
+  /// We need to insert new blob at this (sorted) position
+  else {
+    BlobCoeffs.insert(I, Blob);
   }
   
 }
@@ -224,38 +241,47 @@ void CanonExpr::addBlob(unsigned BlobIndex, int64_t BlobCoeff) {
 
 void CanonExpr::removeBlob(unsigned BlobIndex) {
   
-  for (auto I = BlobCoeffs.begin(), E = BlobCoeffs.end(); I != E; I++) {
-    if (I->first == BlobIndex) {
-      BlobCoeffs.erase(I);
-      return;
-    }
+  BlobIndexToCoeffTy Blob(BlobIndex, 0);
+
+  auto I = std::lower_bound(BlobCoeffs.begin(), BlobCoeffs.end(), Blob, 
+            BlobIndexCompareLess());
+
+  if ((I != BlobCoeffs.end()) && BlobIndexCompareEqual()(*I, Blob)) { 
+    BlobCoeffs.erase(I);
   }
 }
 
 void CanonExpr::replaceBlob(unsigned OldBlobIndex, unsigned NewBlobIndex) {
 
   int64_t Coeff;
+  bool found = false;
+  BlobIndexToCoeffTy Blob(OldBlobIndex, 0);
 
   assert(!BlobCoeffs.empty() && "Old blob index not found");
 
-  for (auto I = BlobCoeffs.begin(), E = BlobCoeffs.end(); I != E; I++) {
-    if (I->first == OldBlobIndex) {
-      /// Store the coeff as the iterator might get invalidated after erase.
-      Coeff = I->second;
-      BlobCoeffs.erase(I);
-      addBlob(NewBlobIndex, Coeff);
-      break;
-    }
-    else if (I->first > OldBlobIndex) {
-      assert("Old blob index not found");
-    }
+  auto I = std::lower_bound(BlobCoeffs.begin(), BlobCoeffs.end(), Blob, 
+            BlobIndexCompareLess());
+
+  if ((I != BlobCoeffs.end()) && BlobIndexCompareEqual()(*I, Blob)) {
+    /// Store the coeff as the iterator might get invalidated after erase.
+    Coeff = I->second;
+    BlobCoeffs.erase(I);
+    addBlob(NewBlobIndex, Coeff);
+    found = true;
   }
 
   /// Replace in IV coefficients
   for (auto &I : IVCoeffs) {
-    if ((I.first == true) && (I.second == OldBlobIndex)) {
+    if ((I.first == true) && 
+      BlobIndexCompareEqual()(BlobIndexToCoeffTy(I.second, 0), Blob)) {
+
       I.second = NewBlobIndex;
+      found = true;
     }
+  }
+
+  if (!found) {
+    assert("Old blob index not found");
   }
 }
 
