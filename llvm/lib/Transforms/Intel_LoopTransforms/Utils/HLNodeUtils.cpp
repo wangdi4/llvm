@@ -57,32 +57,6 @@ void HLNodeUtils::destroyAll() {
   HLNode::destroyAll();
 }
 
-template<typename HV>
-void HLNodeUtils::forwardVisit(HV* Visitor, HLContainerTy::iterator Begin, 
-  HLContainerTy::iterator End, bool Recursive) {
-  HLNodeVisitor<HV> V(Visitor);
-  V.forwardVisit(Begin, End, Recursive);  
-}
-
-template<typename HV>
-void HLNodeUtils::backwardVisit(HV* Visitor, HLContainerTy::iterator Begin,
-    HLContainerTy::iterator End, bool Recursive) {
-  HLNodeVisitor<HV> V(Visitor);
-  V.backwardVisit(Begin, End, Recursive);
-}
-
-template<typename HV>
-void HLNodeUtils::forwardVisitAll(HV* Visitor) {
-  HLNodeVisitor<HV> V(Visitor);
-  V.forwardVisitAll();
-}
-
-template<typename HV>
-void HLNodeUtils::backwardVisitAll(HV* Visitor) {
-  HLNodeVisitor<HV> V(Visitor);
-  V.backwardVisitAll();
-}
-
 void HLNodeUtils::setSimpleLoopZtt(HLIf *Ztt, BasicBlock *BBlock) {
 
 }

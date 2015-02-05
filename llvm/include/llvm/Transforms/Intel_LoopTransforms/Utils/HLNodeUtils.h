@@ -73,22 +73,43 @@ public:
   /// \brief Destroys all HLNodes. Should only be called after code gen.
   static void destroyAll();
 
+  /// \brief Visits the passed in HLNode.
+  template<typename HV>
+  static void visit(HV* Visitor, HLNode* Node, bool Recursive = true, 
+    bool Forward = true) {
+    HLNodeVisitor<HV> V(Visitor);
+    V.visit(Node, Recursive, Forward);
+  }
+
   /// \brief Visits HLNodes in the forward direction in the range [begin, end).
   template<typename HV>
   static void forwardVisit(HV* Visitor, HLContainerTy::iterator Begin, 
-    HLContainerTy::iterator End, bool Recursive = true);
+    HLContainerTy::iterator End, bool Recursive = true) {
+    HLNodeVisitor<HV> V(Visitor);
+    V.forwardVisit(Begin, End, Recursive);
+  }
+
   /// \brief Visits HLNodes in the backward direction in the range [begin, end).
   template<typename HV>
   static void backwardVisit(HV* Visitor, HLContainerTy::iterator Begin, 
-    HLContainerTy::iterator End, bool Recursive = true);
+    HLContainerTy::iterator End, bool Recursive = true) {
+    HLNodeVisitor<HV> V(Visitor);
+    V.backwardVisit(Begin, End, Recursive);
+  }
 
   /// \brief Visits all HLNodes in the HIR in forward direction.
   template<typename HV>
-  static void forwardVisitAll(HV* Visitor);
+  static void forwardVisitAll(HV* Visitor) {
+    HLNodeVisitor<HV> V(Visitor);
+    V.forwardVisitAll();
+  }
 
   /// \brief Visits all HLNodes in the HIR in backward direction.
   template<typename HV>
-  static void backwardVisitAll(HV* Visitor); 
+  static void backwardVisitAll(HV* Visitor) {
+    HLNodeVisitor<HV> V(Visitor);
+    V.backwardVisitAll();
+  }
   
 
   // the following are debug only functions for mockhir. Should
