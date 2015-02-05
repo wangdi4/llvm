@@ -81,36 +81,34 @@ public:
     V.visit(Node, Recursive, Forward);
   }
 
-  /// \brief Visits HLNodes in the forward direction in the range [begin, end).
+  /// \brief Visits HLNodes in the range [begin, end). The direction is 
+  /// specified using Forward flag.
   template<typename HV>
-  static void forwardVisit(HV* Visitor, HLContainerTy::iterator Begin, 
-    HLContainerTy::iterator End, bool Recursive = true) {
+  static void visit(HV* Visitor, HLContainerTy::iterator Begin, 
+    HLContainerTy::iterator End, bool Recursive = true, bool Forward = true) {
     HLNodeVisitor<HV> V(Visitor);
-    V.forwardVisit(Begin, End, Recursive);
+
+    if (Forward) {
+      V.forwardVisit(Begin, End, Recursive);
+    }
+    else {
+      V.backwardVisit(Begin, End, Recursive);
+    }
   }
 
-  /// \brief Visits HLNodes in the backward direction in the range [begin, end).
+  /// \brief Visits all HLNodes in the HIR. The direction is specified using 
+  /// Forward flag.
   template<typename HV>
-  static void backwardVisit(HV* Visitor, HLContainerTy::iterator Begin, 
-    HLContainerTy::iterator End, bool Recursive = true) {
+  static void visitAll(HV* Visitor, bool Forward = true) {
     HLNodeVisitor<HV> V(Visitor);
-    V.backwardVisit(Begin, End, Recursive);
-  }
 
-  /// \brief Visits all HLNodes in the HIR in forward direction.
-  template<typename HV>
-  static void forwardVisitAll(HV* Visitor) {
-    HLNodeVisitor<HV> V(Visitor);
-    V.forwardVisitAll();
+    if (Forward) {
+      V.forwardVisitAll();
+    }
+    else {
+      V.backwardVisitAll();
+    }
   }
-
-  /// \brief Visits all HLNodes in the HIR in backward direction.
-  template<typename HV>
-  static void backwardVisitAll(HV* Visitor) {
-    HLNodeVisitor<HV> V(Visitor);
-    V.backwardVisitAll();
-  }
-  
 
   // the following are debug only functions for mockhir. Should
   // not be used in any other context

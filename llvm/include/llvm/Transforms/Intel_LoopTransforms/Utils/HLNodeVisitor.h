@@ -96,12 +96,14 @@ template<typename HV>
 bool HLNodeVisitor<HV>::backwardVisit(HLContainerTy::iterator Begin,
   HLContainerTy::iterator End, bool Recursive) {
 
-  /// Change direction and Nodeerate backwards
-  for (auto RI = End, RNext = RI, RE = Begin; RI != RE; RI = RNext) {
+  HLContainerTy::reverse_iterator RI(End), RE(Begin);
 
-    RNext--;
+  /// Change direction and iterate backwards
+  for (auto RNext = RI; RI != RE; RI = RNext) {
 
-    if (visit(RNext, Recursive, false)) {
+    RNext++;
+
+    if (visit(&(*(RI)), Recursive, false)) {
       return true;
     }
   }
