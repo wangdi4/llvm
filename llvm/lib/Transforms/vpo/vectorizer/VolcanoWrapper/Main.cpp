@@ -204,7 +204,7 @@ void Vectorizer::deleteVectorizationStubs() {
 }
 
 static pair<VectorVariant, Type*> buildVectorVariant(Function& F) {
-  TargetProcessor targetProcessor = TargetProcessor::core_4nd_gen_avx;
+  TargetProcessor targetProcessor = TargetProcessor::core_4th_gen_avx;
   ISAClass isa = VectorVariant::targetProcessorISAClass(targetProcessor);
   bool mask = false;
   Type* returnType = F.getReturnType();

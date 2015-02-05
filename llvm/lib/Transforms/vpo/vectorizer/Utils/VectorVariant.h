@@ -14,8 +14,8 @@ enum TargetProcessor {
   core_2_duo_sse4_1,
   core_i7_sse4_2,
   core_2nd_gen_avx,
-  core_3nd_gen_avx,
-  core_4nd_gen_avx,
+  core_3rd_gen_avx,
+  core_4th_gen_avx,
   mic,
 };
 
@@ -141,9 +141,9 @@ public:
       case core_i7_sse4_2:
 	return XMM;
       case core_2nd_gen_avx:
-      case core_3nd_gen_avx:
+      case core_3rd_gen_avx:
 	return YMM1;
-      case core_4nd_gen_avx:
+      case core_4th_gen_avx:
 	return YMM2;
       case mic:
 	return ZMM;
