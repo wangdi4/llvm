@@ -70,6 +70,7 @@ VectorVariant::maximum_sizeof_ISA_Class_vector_register(ISAClass isa,
 	vectorRegisterSize = 128;
       else
 	vectorRegisterSize = 256;
+      break;
     case YMM2:
       if (type->isIntegerTy(8))
 	vectorRegisterSize = 128;
