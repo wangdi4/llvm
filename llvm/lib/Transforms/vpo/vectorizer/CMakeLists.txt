@@ -84,6 +84,7 @@ add_llvm_library(LLVMVPOVectorizer
   SoaAllocaAnalysis/SoaAllocaAnalysis.cpp
   Utils/SimplifyGEP.cpp
   Utils/VectorizerCore.cpp
+  Utils/VectorVariant.cpp
   VolcanoWrapper/Main.cpp
   WIAnalysis/WIAnalysis.cpp
   OCLBranchProbability/OCLBranchProbability.cpp

@@ -52,6 +52,9 @@ public:
 
 private:
 
+    Function* createFunctionToVectorize(Function& originalFunction,
+					VectorVariant& vectorVariant,
+					Type* characteristicDataType);
     bool preVectorizeFunction(Function& F);
     void vectorizeFunction(Function& F, VectorVariant& vectorVariant);
     Function* createVectorVersion(Function& vectorizedFunction,

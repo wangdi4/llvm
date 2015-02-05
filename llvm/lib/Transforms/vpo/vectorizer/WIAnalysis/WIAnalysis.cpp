@@ -210,8 +210,12 @@ void WIAnalysis::initPredefinedDependencies(Function &F) {
     WIDependancy dep = WIDependancy::RANDOM;
     if (vectorKind.isUniform())
       dep = WIDependancy::UNIFORM;
-    else if (vectorKind.isLinear())
-      dep = WIDependancy::CONSECUTIVE;
+    else if (vectorKind.isLinear()) {
+      if (argument.getType()->isPointerTy())
+	dep = WIDependancy::PTR_CONSECUTIVE;
+      else
+	dep = WIDependancy::CONSECUTIVE;
+    }
     m_deps[&argument] = dep;
   }
 }

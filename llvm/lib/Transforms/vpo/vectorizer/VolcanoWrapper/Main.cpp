@@ -21,6 +21,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Module.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
+#include "llvm/ADT/SmallPtrSet.h"
 
 #include <sstream>
 
@@ -202,27 +203,164 @@ void Vectorizer::deleteVectorizationStubs() {
     (*it)->eraseFromParent();
 }
 
-string guessVectorVariant(Function& F) {
-  stringstream sst;
-  sst << "_ZGV";
-  sst << 'Y'; // AVX2
-  sst << 'N'; // No mask
-  sst << '8'; // vlen
+static pair<VectorVariant, Type*> buildVectorVariant(Function& F) {
+  TargetProcessor targetProcessor = TargetProcessor::core_4nd_gen_avx;
+  ISAClass isa = VectorVariant::targetProcessorISAClass(targetProcessor);
+  bool mask = false;
+  Type* returnType = F.getReturnType();
+  Type* characteristicDataType = NULL;
+  if (!returnType->isVoidTy())
+    characteristicDataType = returnType;
   const Function::ArgumentListType& arguments = F.getArgumentList();
   Function::ArgumentListType::const_iterator argIt = arguments.begin();
   Function::ArgumentListType::const_iterator argEnd = arguments.end();
+  vector<VectorKind> parameters;
+  stringstream args_sst;
   for (; argIt != argEnd; argIt++) {
     const Value& argument = *argIt;
     StringRef argName = argument.getName();
     if (argName[0] == 'u')
-      sst << 'u';
+      parameters.push_back(VectorKind('u', VectorKind::NA()));
     else if (argName[0] == 'l')
-      sst << 'l';
-    else
-      sst << 'v';
+      parameters.push_back(VectorKind('l', 1));
+    else {
+      parameters.push_back(VectorKind('v', VectorKind::NA()));
+      if (!characteristicDataType)
+	characteristicDataType = argument.getType();
+    }
   }
-  sst << "_";
-  return sst.str();
+  // TODO except Clang's ComplexType
+  if (!characteristicDataType || characteristicDataType->isStructTy()) {
+    characteristicDataType = Type::getInt32Ty(F.getContext());
+  }
+  characteristicDataType =
+    VectorVariant::promoteToSupportedType(characteristicDataType, isa);
+  unsigned int vlen = VectorVariant::calcVlen(isa, characteristicDataType);
+  return pair<VectorVariant, Type*>(VectorVariant(isa, mask, vlen, parameters),
+				    characteristicDataType);
+}
+
+Function* Vectorizer::createFunctionToVectorize(Function& originalFunction,
+						VectorVariant& vectorVariant,
+						Type* characteristicDataType) {
+  Module* M = originalFunction.getParent();
+  std::string functionName =
+    vectorVariant.encode() + "_Vectorized_." + originalFunction.getName().str();
+
+  if (!vectorVariant.isMasked()) {
+    // Just clone the function
+    ValueToValueMapTy vmap;
+    Function* clone = CloneFunction(&originalFunction, vmap, true, NULL);
+    clone->setName(functionName);
+    M->getFunctionList().push_back(clone);
+    return clone;
+  }
+
+  // Create a new function with the same signature and an additional
+  // mask parameter and clone the original function into it.
+
+  FunctionType* originalFunctionType = originalFunction.getFunctionType();
+  Type* returnType = originalFunctionType->getReturnType();
+  vector<Type*> parameterTypes;
+  FunctionType::param_iterator it = originalFunctionType->param_begin();
+  FunctionType::param_iterator end = originalFunctionType->param_end();
+  for (; it != end; it++) {
+    Type* vectorABIType = vectorVariant.promoteToSupportedType(*it);
+    parameterTypes.push_back(vectorABIType);
+  }
+  unsigned int maskSize = characteristicDataType->getPrimitiveSizeInBits();
+  Type* maskType = Type::getIntNTy(originalFunction.getContext(), maskSize);
+  parameterTypes.push_back(maskType);
+  FunctionType* maskedFunctionType = FunctionType::get(returnType,
+						       parameterTypes,
+						       false);
+  Function* functionToVectorize = Function::Create(maskedFunctionType,
+						   originalFunction.getLinkage(),
+						   functionName,
+						   originalFunction.getParent());
+  LLVMContext& context = functionToVectorize->getContext();
+  functionToVectorize->copyAttributesFrom(&originalFunction);
+  ValueToValueMapTy vmap;
+  Function::arg_iterator argIt = originalFunction.arg_begin();
+  Function::arg_iterator argEnd = originalFunction.arg_end();
+  Function::arg_iterator newArgIt = functionToVectorize->arg_begin();
+  for (; argIt != argEnd; argIt++, newArgIt++) {
+    newArgIt->setName(argIt->getName());
+    vmap[argIt] = newArgIt;
+  }
+  Argument& maskArgument = *newArgIt;
+  maskArgument.setName("mask");
+  SmallVector<ReturnInst*, 8> returns;
+  bool moduleLevelChanges = false;
+  CloneFunctionInto(functionToVectorize,
+		    &originalFunction,
+		    vmap,
+		    moduleLevelChanges,
+		    returns);
+
+  // Condition the entire body of the function with the mask
+  BasicBlock& entryBlock = functionToVectorize->getEntryBlock();
+  BasicBlock* earlyExitBB = BasicBlock::Create(context,
+					       "earlyExit",
+					       functionToVectorize,
+					       &entryBlock);
+  if (returnType->isVoidTy())
+    ReturnInst::Create(context, earlyExitBB);
+  else
+    ReturnInst::Create(context,
+		       Constant::getNullValue(returnType),
+		       earlyExitBB);
+  BasicBlock* newEntryBlock = BasicBlock::Create(context,
+						 "testMask",
+						 functionToVectorize,
+						 earlyExitBB);
+  Value* resetMaskValue = ConstantInt::get(maskArgument.getType(), 0);
+  ICmpInst* testMask = new ICmpInst(*newEntryBlock,
+				    CmpInst::ICMP_EQ,
+				    &maskArgument,
+				    resetMaskValue,
+				    "maskTest");
+  BranchInst::Create(earlyExitBB, &entryBlock, testMask, newEntryBlock);
+
+  // Move any allocas from the previous entry block to the new on, as
+  // long as they do not use values from that BB (otherwise we need to
+  // move those as well and then need to make sure they have no side
+  // effects).
+  vector<Instruction*> toBeMoved;
+  SmallPtrSet<Instruction*, 20> doNotMove;
+  BasicBlock::iterator bbIt = entryBlock.begin();
+  BasicBlock::iterator bbEnd = entryBlock.end();
+  for (; bbIt != bbEnd; bbIt++) {
+    Instruction* inst = bbIt;
+    if (!isa<AllocaInst>(inst)) {
+      // Do not move non-alloca instructions
+      doNotMove.insert(inst);
+      continue;
+    }
+    // Check if this alloca uses any immovable instructions
+    bool usingImmovable = false;
+    User::op_iterator OI = inst->op_begin(), OE = inst->op_end();
+    for (; OI != OE; ++OI) {
+      Instruction* usedInstruction = dyn_cast<Instruction>(OI->get());
+      if (!usedInstruction)
+	continue;
+      if (doNotMove.count(usedInstruction) > 0) {
+	usingImmovable = true;
+	break;
+      }
+    }
+    if (usingImmovable)
+      doNotMove.insert(inst);
+    else
+      toBeMoved.push_back(inst);
+  }
+  vector<Instruction*>::iterator tbmIt = toBeMoved.begin();
+  vector<Instruction*>::iterator tbmEnd = toBeMoved.end();
+  for (; tbmIt != tbmEnd; tbmIt++) {
+    (*tbmIt)->moveBefore(testMask);
+  }
+
+  return functionToVectorize;
 }
 
 bool Vectorizer::runOnModule(Module &M)
@@ -232,20 +370,31 @@ bool Vectorizer::runOnModule(Module &M)
   m_numOfKernels = 0;
   m_isModuleVectorized = true;
 
+  NamedMDNode* functionsNMD = M.getNamedMetadata("vectorizer.functions");
+  if (!functionsNMD) {
+    // No functions to vectorize
+    return false;
+  }
+
+  vector<Function*> functionsToVectorize;
+  NamedMDNode::op_iterator nmdIt = functionsNMD->op_begin();
+  NamedMDNode::op_iterator nmdEnd = functionsNMD->op_end();
+  for (; nmdIt != nmdEnd; nmdIt++) {
+    MDNode* mdNode = *nmdIt;
+    assert(mdNode->getNumOperands() == 1 &&
+	   "function to vectorize metadata should only contain its name");
+    Value* mdValue = mdNode->getOperand(0);
+    MDString* mdString = dyn_cast<MDString>(mdValue);
+    assert(mdString &&
+	   "function to vectorize metadata should contain its name");
+    StringRef functionName = mdString->getString();
+    Function* F = M.getFunction(functionName);
+    if (F)
+      functionsToVectorize.push_back(F);
+  }
+
   Intel::MetaDataUtils mdUtils(&M);
 
-  // check for some common module errors, before actually diving in
-  if (mdUtils.empty_Kernels())
-  {
-    V_PRINT(wrapper, "Failed to find annotation. Aborting!\n");
-    return false;
-  }
-  m_numOfKernels = mdUtils.size_Kernels();
-  if (m_numOfKernels == 0)
-  {
-    V_PRINT(wrapper, "Num of kernels is 0. Aborting!\n");
-    return false;
-  }
 /* xmain */
   createVectorizationStubs(M);
 #if 0
@@ -256,47 +405,19 @@ bool Vectorizer::runOnModule(Module &M)
   }
 #endif
 
-
-  for (Intel::MetaDataUtils::KernelsList::const_iterator i = mdUtils.begin_Kernels(), e = mdUtils.end_Kernels(); i != e; ++i) {
-    Intel::KernelMetaDataHandle kmd = (*i);
-    Function *F = kmd->getFunction();
-    bool disableVect = false;
-
-    //look for vector type hint metadata
-    if (kmd->isVecTypeHintHasValue()) {
-      Type* VTHTy = kmd->getVecTypeHint()->getType();
-      if (!VTHTy->isFloatTy()     &&
-          !VTHTy->isDoubleTy()    &&
-          !VTHTy->isIntegerTy(8)  &&
-          !VTHTy->isIntegerTy(16) &&
-          !VTHTy->isIntegerTy(32) &&
-          !VTHTy->isIntegerTy(64)) {
-            disableVect = true;
-      }
-    }
-
-    // Only add kernels to list, if they have scalar vec-type hint (or none)
-    if (!disableVect)
-      m_scalarFuncsList.push_back(F);
-    else
-      m_scalarFuncsList.push_back(NULL);
-  }
-
-  funcsVector::iterator fi = m_scalarFuncsList.begin();
-  funcsVector::iterator fe = m_scalarFuncsList.end();
+  vector<Function*>::iterator fi = functionsToVectorize.begin();
+  vector<Function*>::iterator fe = functionsToVectorize.end();
   for (; fi != fe; ++fi)
   {
-    if (!*fi)
-      continue; // xmain ???
-
     Function& F = **fi;
-    VectorVariant vectorVariant(guessVectorVariant(F));
+    pair<VectorVariant, Type*> vectorABIInfo = buildVectorVariant(F);
+    VectorVariant& vectorVariant = vectorABIInfo.first;
+    Type* characteristicDataType = vectorABIInfo.second;
 
-    // Clone the function
-    ValueToValueMapTy vmap;
-    Function *clone = CloneFunction(&F, vmap, true, NULL);
-    clone->setName(vectorVariant.encode() + "_Vectorized_." + F.getName());
-    M.getFunctionList().push_back(clone);
+    // Get a working copy of the function to operate on
+    Function *clone = createFunctionToVectorize(F,
+						vectorVariant,
+						characteristicDataType);
 
     // Prepare for vectorization
     bool canVectorize = preVectorizeFunction(*clone);
@@ -488,7 +609,8 @@ Function* Vectorizer::createVectorVersion(Function& vectorizedFunction,
   std::vector<Instruction*> removedInstructions;
 
   // Generate a call to the vectorized function and return its value
-  Value* zero = ConstantInt::get(Type::getInt32Ty(wrapperFunc->getContext()), 0);
+  IntegerType* int32Type = Type::getInt32Ty(wrapperFunc->getContext());
+  Value* zero = ConstantInt::get(int32Type, 0);
   Function::arg_iterator argIt = wrapperFunc->arg_begin();
   Function::arg_iterator argEnd = wrapperFunc->arg_end();
   Function::arg_iterator origArgIt = vectorizedFunction.arg_begin();
