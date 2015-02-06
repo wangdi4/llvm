@@ -28,9 +28,10 @@ protected:
   explicit HLSwitch(HLNode* Par);
   ~HLSwitch() { }
 
-  friend class HLNodeUtils;
+  /// \brief Copy constructor used by cloning.
+  HLSwitch(const HLSwitch &HLSwitchObj);
 
-  HLSwitch* clone_impl() const override;
+  friend class HLNodeUtils;
 
 public:
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
@@ -38,6 +39,11 @@ public:
     return Node->getHLNodeID() == HLNode::HLSwitchVal;
   }
 
+  /// clone() - Create a copy of 'this' switch that is identical in all
+  /// ways except the following:
+  ///   * The Switch has no parent
+  ///   * TODO : Implement other cloning members later
+  HLSwitch* clone() const;
 };
 
 } // End namespace loopopt

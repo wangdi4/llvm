@@ -15,13 +15,14 @@
 #ifndef LLVM_IR_INTEL_LOOPIR_HLINST_H
 #define LLVM_IR_INTEL_LOOPIR_HLINST_H
 
+#include "llvm/IR/Instruction.h"
+
 #include "llvm/IR/Intel_LoopIR/HLDDNode.h"
 
 
 namespace llvm {
 
 class BasicBlock;
-class Instruction;
 
 namespace loopopt {
 
@@ -37,9 +38,10 @@ protected:
   HLInst(HLNode* Par, Instruction* In);
   ~HLInst() { }
 
-  friend class HLNodeUtils;
+  /// \brief Copy constructor used by cloning.
+  HLInst(const HLInst &HLInstObj);
 
-  HLInst* clone_impl() const override;
+  friend class HLNodeUtils;
 
 public:
   /// \brief Returns the underlying Instruction
@@ -58,6 +60,12 @@ public:
   static bool classof(const HLNode* Node) {
     return Node->getHLNodeID() == HLNode::HLInstVal;
   }
+
+  /// clone() - Create a copy of 'this' HLInst that is identical in all
+  /// ways except the following:
+  ///   * The HLInst has no parent
+  ///   * Safe Reduction Successor is set to nullptr
+  HLInst* clone() const override;
 
 };
 

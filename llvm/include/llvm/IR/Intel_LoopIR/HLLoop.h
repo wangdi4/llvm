@@ -70,14 +70,19 @@ protected:
   HLLoop(HLNode* Par, HLIf* ZttIf, bool isDoWh, unsigned NumEx);
   ~HLLoop() { }
 
-  friend class HLNodeUtils;
+  /// \brief Copy constructor used by cloning.
+  HLLoop(const HLLoop &HLLoopObj);
 
-  HLLoop* clone_impl() const override;
+  friend class HLNodeUtils;
 
 public:
 
   /// \brief Returns true if ztt is present.
   bool hasZtt() const { return Ztt != nullptr; }
+
+  /// \brief Returns the Ztt for HLLoop
+  const HLIf* getZtt() const { return Ztt; }
+  HLIf* getZtt()             { return Ztt; }
 
   /// \brief Returns the underlying type of ZTT.
   Type* getZttLLVMType() const;
@@ -116,14 +121,13 @@ public:
   /// \brief Returns true if this is a do loop.
   bool isDoLoop() const;
   /// \brief Returns true if this is a do-while loop.
-  bool isDoWhileLoop() const;
+  bool isDoWhileLoop() const { return isDoWhile; }
   /// \brief Returns true if this is a do multi-exit loop.
   bool isDoMultiExitLoop() const;
   /// \brief Returns true if this is an unknown loop.
   bool isUnknownLoop() const;
   /// \brief Returns the number of exits of the loop.
   unsigned getNumExits() const { return NumExits; }
-
 
   /// Preheader iterator methods
   pre_iterator               pre_begin()        { return Preheader.begin(); }
@@ -156,6 +160,7 @@ public:
   /// Postexit acess methods
   size_t         numPostexit() const  { return Postexit.size();  }
   bool           hasPostexit() const  { return !Postexit.empty(); }
+
 
   /// Children iterator methods
   child_iterator               child_begin()        { return Children.begin(); }
@@ -213,6 +218,10 @@ public:
     return Node->getHLNodeID() == HLNode::HLLoopVal;
   }
 
+  /// clone() - Create a copy of 'this' HLLoop that is identical in all
+  /// ways except the following:
+  ///   * The HLLoop has no parent
+  HLLoop* clone() const override;
 };
 
 

@@ -26,6 +26,12 @@ HLNode::HLNode(unsigned SCID, HLNode* Par)
   Objs.insert(this);
 }
 
+HLNode::HLNode(const HLNode &HLNodeObj)
+  : SubClassID(HLNodeObj.SubClassID), Parent(nullptr) {
+
+  Objs.insert(this);
+}
+
 void HLNode::destroy() {
   Objs.erase(this);
   delete this;

@@ -36,9 +36,10 @@ protected:
   HLGoto(HLNode* Par, BasicBlock* TargetBB, HLLabel* TargetL);
   ~HLGoto() { }
 
-  friend class HLNodeUtils;
+  /// \brief Copy constructor used by cloning.
+  HLGoto(const HLGoto &HLGotoObj);
 
-  HLGoto* clone_impl() const override;
+  friend class HLNodeUtils;
 
 public:
   /// \brief Returns the target basic block of this goto.
@@ -48,13 +49,17 @@ public:
   HLLabel* getTargetLabel() const { return TargetLabel; }
 
   /// \brief Returns true if this goto jumps outside the region.
-  bool isExternal() const;
+  bool isExternal() const { return (TargetLabel == nullptr); }
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode* Node) {
     return Node->getHLNodeID() == HLNode::HLGotoVal;
   }
 
+  /// clone() - Create a copy of 'this' HLGoto that is identical in all
+  /// ways except the following:
+  ///   * The HLGoto has no parent
+  HLGoto* clone() const override;
 };
 
 } // End namespace loopopt

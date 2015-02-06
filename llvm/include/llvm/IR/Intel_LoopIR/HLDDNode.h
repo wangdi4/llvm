@@ -47,11 +47,16 @@ private:
   /// Global number used for assigning unique numbers to HLDDNodes
   static unsigned GlobalNum;
 
+  void setNextNumber();
+
 protected:
   HLDDNode(unsigned SCID, HLNode* Par);
   virtual ~HLDDNode() { };
 
   friend class HLNodeUtils;
+
+  /// \brief Copy Constructor
+  HLDDNode(const HLDDNode &HLDDNodeObj);
 
   /// The DDRef indices correspond to the operand number in the instruction
   /// with the first DDRef being for lval, if applicable.
@@ -82,6 +87,9 @@ public:
 
   /// DDRef acess methods
   size_t         numDDRefs() const   { return DDRefs.size();  }
+
+  /// Virtual Clone method
+  virtual HLDDNode* clone() const = 0;
 };
 
 } // End namespace loopopt

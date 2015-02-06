@@ -33,9 +33,10 @@ protected:
   HLLabel(HLNode* Par, BasicBlock* SrcBB);
   ~HLLabel() { }
 
-  friend class HLNodeUtils;
+  /// \brief Copy constructor used by cloning.
+  HLLabel(const HLLabel &LabelObj);
 
-  HLLabel* clone_impl() const override;
+  friend class HLNodeUtils;
 
 public:
 
@@ -46,6 +47,11 @@ public:
   static bool classof(const HLNode* Node) {
     return Node->getHLNodeID() == HLNode::HLLabelVal;
   }
+
+  /// clone() - Create a copy of 'this' HLLabel that is identical in all
+  /// ways except the following:
+  ///   * The HLLoop has no parent
+  HLLabel* clone() const override;
 
 };
 

@@ -20,9 +20,18 @@ using namespace llvm::loopopt;
 HLLabel::HLLabel(HLNode* Par, BasicBlock* SrcBB)
   : HLDDNode(HLNode::HLLabelVal, Par), SrcBBlock(SrcBB) { }
 
+HLLabel::HLLabel(const HLLabel &LabelObj)
+  : HLDDNode(LabelObj), SrcBBlock(LabelObj.SrcBBlock) { }
 
-HLLabel* HLLabel::clone_impl() const {
-  // TODO: placeholder, implement later
-  return nullptr;
+HLLabel* HLLabel::clone() const {
+
+  /// Check for 'this' as null
+  assert(this && " HLLabel cannot be null");
+
+  /// Call Copy constructor
+  HLLabel *NewHLLabel = new HLLabel(*this);
+
+  return NewHLLabel;
 }
+
 

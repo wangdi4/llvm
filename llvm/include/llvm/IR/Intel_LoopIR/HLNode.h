@@ -34,7 +34,6 @@ namespace loopopt {
 class HLNode : public ilist_node<HLNode> {
 private:
   /// \brief Make class uncopyable.
-  HLNode(const HLNode&) LLVM_DELETED_FUNCTION;
   void operator=(const HLNode&) LLVM_DELETED_FUNCTION;
 
   /// \brief Destroys all objects of this class. Should only be
@@ -48,10 +47,9 @@ private:
 
 protected:
   HLNode(unsigned SCID, HLNode* Par);
+  HLNode(const HLNode &HLNodeObj);
 
   friend class HLNodeUtils;
-
-  virtual HLNode* clone_impl() const = 0;
 
   /// \brief Sets the lexical parent of this HLNode.
   void setParent(HLNode* Par) { Parent = Par; }
@@ -59,9 +57,10 @@ protected:
   void destroy();
 
 public:
-  
   virtual ~HLNode() { }
-  HLNode* clone() const;
+  
+  /// Virtual Clone Method
+  virtual HLNode* clone() const = 0;
   /// TBD how to do this
   void dump() const;
   /// TBD how to do this

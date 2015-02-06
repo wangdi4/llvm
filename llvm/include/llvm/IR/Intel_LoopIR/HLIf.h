@@ -50,19 +50,22 @@ protected:
   explicit HLIf(HLNode* Par);
   ~HLIf() { }
 
-  friend class HLNodeUtils;
+  /// \brief Copy constructor used by cloning.
+  HLIf(const HLIf &HLIfObj);
 
-  HLIf* clone_impl() const override;
+  friend class HLNodeUtils;
 
 public:
   /// \brief Returns the underlying type of if.
   Type* getLLVMType() const;
-  /// \brief Returns the vector of predictes associated with this if.
-  PredTy& getPredicates();
+  /// \brief Returns the vector of predicates associated with this if.
+  const PredTy& getPredicates() const { return Preds; }
+  PredTy& getPredicates()             { return Preds; }
+
   /// \brief Returns the vector of conjunctions combining the predicates
   /// of this if.
-  ConjunctionTy& getConjunctions();
-
+  const ConjunctionTy& getConjunctions() const { return Conjunctions; }
+  ConjunctionTy& getConjunctions()             { return Conjunctions; }
 
   /// Children iterator methods
   then_iterator               then_begin()     { return ThenChildren.begin(); }
@@ -76,7 +79,6 @@ public:
   }
   reverse_then_iterator       then_rend()        { return ThenChildren.rend(); }
   const_reverse_then_iterator then_rend()  const { return ThenChildren.rend(); }
-
 
   else_iterator               else_begin()      { return ElseChildren.begin(); }
   const_else_iterator         else_begin()  const{ return ElseChildren.begin();}
@@ -102,6 +104,10 @@ public:
     return Node->getHLNodeID() == HLNode::HLIfVal;
   }
 
+  /// clone() - Create a copy of 'this' HLIf that is identical in all
+  /// ways except the following:
+  ///   * The HLIf has no parent
+  HLIf* clone() const override;
 };
 
 

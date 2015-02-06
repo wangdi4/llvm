@@ -11,6 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Support/ErrorHandling.h"
+
 #include "llvm/IR/Intel_LoopIR/HLRegion.h"
 
 using namespace llvm;
@@ -22,8 +24,10 @@ HLRegion::HLRegion(std::set< BasicBlock* >& OrigBBs,
   , PredBBlock(PredBB), SuccBBlock(SuccBB) { }
 
 
-HLRegion* HLRegion::clone_impl() const {
-  // TODO: placeholder, implement later
+HLRegion* HLRegion::clone() const {
+
+  llvm_unreachable("Do not support HLRegion cloning.");
+
   return nullptr;
 }
 

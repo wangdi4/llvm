@@ -11,6 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Support/Debug.h"
+
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
 #include "llvm/IR/Intel_LoopIR/HLDDNode.h"
 
@@ -22,6 +24,17 @@ unsigned HLDDNode::GlobalNum(0);
 HLDDNode::HLDDNode(unsigned SCID, HLNode* Par)
   : HLNode(SCID, Par), TopSortNum(0) {
 
-  Number = GlobalNum++;
+  setNextNumber();
 }
 
+HLDDNode::HLDDNode(const HLDDNode &HLDDNodeObj)
+  : HLNode(HLDDNodeObj), TopSortNum(0), DDRefs(HLDDNodeObj.DDRefs) {
+
+  /// TODO : Add DDRefs Cloning
+
+  setNextNumber();
+}
+
+void HLDDNode::setNextNumber() {
+  Number = GlobalNum++;
+}

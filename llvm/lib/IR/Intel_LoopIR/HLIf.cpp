@@ -19,9 +19,33 @@ using namespace llvm::loopopt;
 HLIf::HLIf(HLNode* Par)
   : HLDDNode(HLNode::HLIfVal, Par) { }
 
+HLIf::HLIf(const HLIf &HLIfObj)
+  : HLDDNode(HLIfObj), Preds(HLIfObj.Preds),
+    Conjunctions(HLIfObj.Conjunctions) {
 
-HLIf* HLIf::clone_impl() const {
-  // TODO: placeholder, implement later
-  return nullptr;
+  /// Loop over Then children and Else children
+  for (const_then_iterator ThenIter = HLIfObj.then_begin(),
+       ThenIterEnd = HLIfObj.then_end(); ThenIter != ThenIterEnd; ++ThenIter) {
+    HLNode *NewHLNode = ThenIter->clone();
+    ThenChildren.push_back(NewHLNode);
+  }
+
+  for (const_then_iterator ElseIter = HLIfObj.else_begin(),
+       ElseIterEnd = HLIfObj.else_end();
+       ElseIter != ElseIterEnd; ++ElseIter) {
+    HLNode *NewHLNode = ElseIter->clone();
+    ElseChildren.push_back(NewHLNode);
+  }
+}
+
+HLIf* HLIf::clone() const {
+
+  /// Check for 'this' as null
+  assert(this && " HLIf cannot be null");
+
+  /// Call the Copy Constructor
+  HLIf *NewHLIf = new HLIf(*this);
+
+  return NewHLIf;
 }
 

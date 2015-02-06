@@ -48,8 +48,6 @@ protected:
 
   friend class HLNodeUtils;
 
-  HLRegion* clone_impl() const override;
-
 private:
   std::set< BasicBlock* >& OrigBBlocks;
   BasicBlock* PredBBlock;
@@ -94,6 +92,10 @@ public:
   static bool classof(const HLNode* Node) {
     return Node->getHLNodeID() == HLNode::HLRegionVal;
   }
+
+  /// clone() - Do not support Cloning of Region.
+  /// This is LLVM Unreachable code.
+  HLRegion* clone() const override;
 
 };
 

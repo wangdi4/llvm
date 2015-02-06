@@ -21,9 +21,18 @@ HLGoto::HLGoto(HLNode* Par, BasicBlock* TargetBB,
   : HLDDNode(HLNode::HLGotoVal, Par), TargetBBlock(TargetBB)
   , TargetLabel(TargetL) { }
 
+HLGoto::HLGoto(const HLGoto &HLGotoObj)
+  : HLDDNode(HLGotoObj), TargetBBlock(HLGotoObj.TargetBBlock),
+    TargetLabel(HLGotoObj.TargetLabel){ }
 
-HLGoto* HLGoto::clone_impl() const {
-  // TODO: placeholder, implement later
-  return nullptr;
+HLGoto* HLGoto::clone() const {
+
+  /// Check for 'this' as null
+  assert(this && " HLGoto cannot be null");
+
+  /// Call Copy constructor
+  HLGoto *NewHLGoto = new HLGoto(*this);
+
+  return NewHLGoto;
 }
 

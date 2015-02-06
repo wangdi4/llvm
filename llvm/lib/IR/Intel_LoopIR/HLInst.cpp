@@ -21,8 +21,21 @@ HLInst::HLInst(HLNode* Par, Instruction* In)
   : HLDDNode(HLNode::HLInstVal, Par), Inst(In)
   , SafeRednSucc(nullptr) { }
 
+HLInst::HLInst(const HLInst &HLInstObj)
+  : HLDDNode(HLInstObj), SafeRednSucc(nullptr) {
 
-HLInst* HLInst::clone_impl() const {
-  // TODO: placeholder, implement later
-  return nullptr;
+  /// Clone the LLVM Instruction
+  assert(HLInstObj.Inst && " LLVM Instruction for HLInst cannot be null");
+  Inst = HLInstObj.Inst->clone();
+}
+
+HLInst* HLInst::clone() const {
+
+  /// Check for 'this' as null
+  assert(this && " HLLInst cannot be null");
+
+  /// Call the Copy Constructor
+  HLInst *NewHLInst = new HLInst(*this);
+
+  return NewHLInst;
 }
