@@ -2004,37 +2004,6 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
         }
       }
 
-#ifdef INTEL_CUSTOMIZATION
-      // Fix for CQ#364545 - allow use of arguments in references as default
-      // value
-      if (getLangOpts().MSVCCompat &&
-          !(isa<BlockDecl>(CurCodeDecl) && E->refersToEnclosingLocal()) &&
-          VD->getType()->isReferenceType())
-        if (auto *PVD = dyn_cast<ParmVarDecl>(VD)) {
-          // If the function parameter is used in CXXDefaultArgExpr expression,
-          // then generate a memtemp for this parameter, store its value in this
-          // memtemp and then use this memtemp instead of the original
-          // expression
-          if (RefParmInCall.back().count(PVD) > 0) {
-            // CHeck if the memtemp was already generated or that the original
-            // expression for the corresponding function parameter was already
-            // generated - use generated memtemp/generated expression value
-            if (auto *Addr = RefParmInCall.back()[PVD].second)
-              return MakeNaturalAlignAddrLValue(Addr, PVD->getType());
-            // Generate expression and store it in the created memtemp
-            auto *RefExpr = RefParmInCall.back()[PVD].first;
-            auto *AI = CreateMemTemp(PVD->getType(), "outer_ref_parm");
-            RValue Val = EmitReferenceBindingToExpr(RefExpr);
-            LValue LV = MakeNaturalAlignAddrLValue(AI, PVD->getType());
-            EmitStoreOfScalar(Val.getScalarVal(), LV);
-            LV = MakeNaturalAlignAddrLValue(
-                EmitLoadOfScalar(LV, E->getExprLoc()), PVD->getType());
-            RefParmInCall.back()[PVD] =
-                std::make_pair(RefExpr, LV.getAddress());
-            return LV;
-          }
-        }
-#endif
       assert(isa<BlockDecl>(CurCodeDecl) && E->refersToEnclosingLocal());
       return MakeAddrLValue(GetAddrOfBlockDecl(VD, isBlockVariable),
                             T, Alignment);

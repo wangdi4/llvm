@@ -1253,16 +1253,6 @@ private:
   /// The last regular (non-return) debug location (breakpoint) in the function.
   SourceLocation LastStopPoint;
 
-#ifdef INTEL_CUSTOMIZATION
-  // Fix for CQ#364545 - allow use of arguments in references as default
-  // value
-  typedef std::pair<const Expr *, llvm::Value *> ExprValTy;
-  typedef llvm::DenseMap<const ParmVarDecl *, ExprValTy> ParmExpValMapTy;
-  /// \brief Keeps reference between function argument (if it is reference),
-  /// actual argument expression and temp IR storage (if it was generated)
-  SmallVector<ParmExpValMapTy, 4> RefParmInCall;
-#endif
-
   /// The location for one and only ReturnStmt.		//***INTEL 
   llvm::DebugLoc ReturnLoc;							//***INTEL 
 

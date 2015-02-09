@@ -8176,7 +8176,7 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
     // type, but we should warn about the extension, and we disable the
     // implicit-return-zero rule.
 #else
-  if (getLangOpts().GNUMode && !getLangOpts().CPlusPlus ||
+  if ((getLangOpts().GNUMode && !getLangOpts().CPlusPlus) ||
       getLangOpts().IntelCompat) {
     // The same should be done in IntelCompat mode as well.
     // See CQ#364427 for details.
