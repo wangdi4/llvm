@@ -18,13 +18,14 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-HLLoop::HLLoop(HLNode* Par, HLIf* ZttIf, bool isDoWh, unsigned NumEx)
-  : HLDDNode(HLNode::HLLoopVal, Par), Ztt(ZttIf), isDoWhile(isDoWh)
-  , NumExits(NumEx) { }
+HLLoop::HLLoop(HLNode* Par, HLIf* ZttIf, bool IsDoWh, unsigned NumEx)
+  : HLDDNode(HLNode::HLLoopVal, Par), Ztt(ZttIf), IsDoWhile(IsDoWh)
+  , NumExits(NumEx), NestingLevel(0), IsInnermost(true) { }
 
 HLLoop::HLLoop(const HLLoop &HLLoopObj)
-  : HLDDNode(HLLoopObj), isDoWhile(HLLoopObj.isDoWhile),
-    NumExits(HLLoopObj.NumExits) {
+  : HLDDNode(HLLoopObj), IsDoWhile(HLLoopObj.IsDoWhile)
+  , NumExits(HLLoopObj.NumExits), NestingLevel(0)
+  , IsInnermost(HLLoopObj.IsInnermost) {
 
   /// Clone the Ztt
   Ztt = nullptr;

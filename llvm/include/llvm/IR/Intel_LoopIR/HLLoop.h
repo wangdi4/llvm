@@ -63,11 +63,14 @@ private:
   PreheaderTy Preheader;
   PostexitTy Postexit;
   ChildNodeTy Children;
-  bool isDoWhile;
+  bool IsDoWhile;
   unsigned NumExits;
+  unsigned NestingLevel;
+  bool IsInnermost;
 
 protected:
-  HLLoop(HLNode* Par, HLIf* ZttIf, bool isDoWh, unsigned NumEx);
+  HLLoop(HLNode* Par, HLIf* ZttIf, bool IsDoWh, unsigned NumEx);
+
   ~HLLoop() { }
 
   /// \brief Copy constructor used by cloning.
@@ -121,13 +124,17 @@ public:
   /// \brief Returns true if this is a do loop.
   bool isDoLoop() const;
   /// \brief Returns true if this is a do-while loop.
-  bool isDoWhileLoop() const { return isDoWhile; }
+  bool isDoWhileLoop() const { return IsDoWhile; }
   /// \brief Returns true if this is a do multi-exit loop.
   bool isDoMultiExitLoop() const;
   /// \brief Returns true if this is an unknown loop.
   bool isUnknownLoop() const;
   /// \brief Returns the number of exits of the loop.
   unsigned getNumExits() const { return NumExits; }
+  /// \brief Returns the nesting level of the loop.
+  unsigned getNestingLevel() const { return NestingLevel; }
+  /// \brief Returns true if this is the innermost loop in the loopnest.
+  bool isInnermost() const { return IsInnermost; }
 
   /// Preheader iterator methods
   pre_iterator               pre_begin()        { return Preheader.begin(); }
@@ -220,7 +227,10 @@ public:
 
   /// clone() - Create a copy of 'this' HLLoop that is identical in all
   /// ways except the following:
-  ///   * The HLLoop has no parent
+  ///   * It has no parent.
+  ///   * Data members that depend on where the cloned loop lives in HIR (like
+  ///     nesting level) are not copied. They will be updated by HLNode
+  ///     insertion/removal utilities.
   HLLoop* clone() const override;
 };
 
