@@ -87,7 +87,7 @@ install(TARGETS ${TARGET} DESTINATION ${CREATE_DIR_NAME})
 # Copy *.xml cfg files which defines the options of the test to appropriate test directory in 'Release' area.
 install(FILES cfg_win.xml cfg_linux.xml DESTINATION ${CREATE_DIR_NAME}/framework_test)
 
-set( INCLUDE_HEADERS_PATH ${OCL_CLANG_HEADERS})
+set( INCLUDE_HEADERS_PATH ${OCL_SOURCE_DIR}/fe_compilers/common_clang/cl_headers)
 
 set( INPUT_FILE test.cl )
 set( OUTPUT_FILE test.bc )
@@ -128,7 +128,7 @@ endif ( INCLUDE_MIC_DEVICE )
 add_custom_command( TARGET ${TARGET}
   POST_BUILD
   COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE} 
-  -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc
+  -I ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang/cl_headers -emit-llvm-bc
   ${SPIR_OPT}
   -include opencl_.h -O0 -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE}
   MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}

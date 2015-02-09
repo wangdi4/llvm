@@ -18,7 +18,10 @@
 
 #include <map>
 #include <list>
-#include <cl_synch_objects.h>
+#include <iostream>
+#include <string>
+#include <vector>
+#include "llvm/Support/Mutex.h"
 
 // Singleton class for resource management
 // Its main purpose is to cache the buffers loaded from the resources
@@ -28,23 +31,23 @@ class ResourceManager
 public:
     static ResourceManager& instance(){return g_instance;}
 
-    const char* get_resource(unsigned int id, const char* pszType, bool requireNullTerminate, size_t& out_size, const char* lib);
+    const char* get_resource(const char* id, const char* pszType, bool requireNullTerminate, size_t& out_size, const char* lib);
 
     const char* get_file(const char* path, bool binary, bool requireNullTerminate, size_t& out_size);
 
 private:
     ResourceManager(){}
 
-    void load_resource(unsigned int id, const char* pszType, bool requireNullTerminate, const char* lib);
+    void load_resource(const char* id, const char* pszType, bool requireNullTerminate, const char* lib);
 
     void load_file(const char* path, bool binary, bool requireNullTerminate);
 
 private:
     static ResourceManager g_instance;
-    Intel::OpenCL::Utils::OclMutex m_lock;
+    llvm::sys::Mutex m_lock;
     // map that caches the pointers to the loaded buffers and their sizes
     // those buffers could be either the pointer to the loaded
     // resource or to the cached buffers (stored in the m_allocations var below)
     std::map<std::string, std::pair<const char*, size_t> > m_buffers;
-    std::map<std::string, vector<char> > m_allocations;
+    std::map<std::string, std::vector<char> > m_allocations;
 };

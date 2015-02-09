@@ -146,6 +146,14 @@ std::string EffectiveOptionsFilter::processOptions(const OpenCLArgList& args, co
         case OPT_COMPILE_auto_prefetch_level2:
         case OPT_COMPILE_auto_prefetch_level3:
             break;
+        case OPT_COMPILE_pch_cpu:
+            effectiveArgs.push_back("-include");
+            effectiveArgs.push_back("header_with_defs_cpu.h");
+            effectiveArgs.push_back("-include-pch");
+            effectiveArgs.push_back("PCH_CPU.pch");
+            break;
+        case OPT_COMPILE_pch_gpu:
+            break;
         case OPT_COMPILE_x:
             // ensure that the value is spir
             assert((*it)->getValue() == std::string("spir"));
@@ -185,6 +193,7 @@ std::string EffectiveOptionsFilter::processOptions(const OpenCLArgList& args, co
     effectiveArgs.push_back("cl");
     effectiveArgs.push_back("-cl-kernel-arg-info");
     effectiveArgs.push_back("-O0"); // Don't optimize in the frontend
+    effectiveArgs.push_back("-fno-validate-pch");
 
     if( !strstr(pszOptionsEx, "-emit" ) && !strstr(pszOptionsEx, "-S") )
     {

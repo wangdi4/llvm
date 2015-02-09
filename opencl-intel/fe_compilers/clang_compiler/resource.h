@@ -2,8 +2,7 @@
 // Microsoft Visual C++ generated include file.
 // Used by clang_compiler.rc
 //
-#define IDR_PCH1                        101
-#define IDR_PCH2                        102
+
 
 // Next default values for new objects
 // 

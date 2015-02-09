@@ -202,7 +202,7 @@ endif(INCLUDE_MIC_DEVICE)
 
 set (CLANG_COMPILER_PARAMS
   -cc1 -triple ${TRIPLE} -emit-llvm-bc -fwrapv -O3
-  -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl_.h
+  -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang/cl_headers/ -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl_.h
   -fblocks -D__OPENCL_C_VERSION__=200
   )
 

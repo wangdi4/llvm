@@ -21,8 +21,8 @@
 #include <cstdlib>
 #include <stdio.h>
 #include <assert.h>
-#include <cl_autoptr_ex.h>
-#include <cl_synch_objects.h>
+#include "llvm/Support/ELF.h"
+#include <fstream>
 
 #ifdef WIN32
 #include <Windows.h>
@@ -73,32 +73,31 @@ private:
 };
 #endif
 
-using namespace Intel::OpenCL::Utils;
 ResourceManager ResourceManager::g_instance;
 
 void dummy(){}
 
 // returns the pointer to the buffer loaded from the resource with the given id
-const char* ResourceManager::get_resource(unsigned int id, const char* pszType, bool requireNullTerminate, size_t& out_size, const char* lib)
+const char* ResourceManager::get_resource( const char* id, const char* pszType, bool requireNullTerminate, size_t& out_size, const char* lib)
 {
-    OclAutoMutex mutexGuard(&m_lock);
+    //OclAutoMutex mutexGuard(&m_lock);
+    llvm::sys::ScopedLock mutexGuard(m_lock);
 
-    std::string key = static_cast<ostringstream*>( &(ostringstream() << id) )->str();
-
-    if( m_buffers.find(key) == m_buffers.end() )
+    if( m_buffers.find(id) == m_buffers.end() )
     {
         // lazy load the resource if not found in the cache
         load_resource(id, pszType, requireNullTerminate, lib);
     }
 
-    assert(m_buffers.find(key) != m_buffers.end());
-    out_size = m_buffers[key].second;
-    return m_buffers[key].first;
+    assert(m_buffers.find(id) != m_buffers.end());
+    out_size = m_buffers[id].second;
+    return m_buffers[id].first;
 }
 
 const char* ResourceManager::get_file(const char* path, bool binary, bool requireNullTerminate, size_t& out_size)
 {
-    OclAutoMutex mutexGuard(&m_lock);
+    //OclAutoMutex mutexGuard(&m_lock);
+    llvm::sys::ScopedLock mutexGuard(m_lock);
 
     std::string key(path);
 
@@ -113,17 +112,16 @@ const char* ResourceManager::get_file(const char* path, bool binary, bool requir
     return m_buffers[key].first;
 }
 
-void ResourceManager::load_resource(unsigned int id, const char* pszType, bool requireNullTerminate, const char* lib)
+void ResourceManager::load_resource(const char* id, const char* pszType, bool requireNullTerminate, const char* lib)
 {
     // this function is called under lock
-    std::string key = static_cast<ostringstream*>( &(ostringstream() << id) )->str();
-    assert( m_buffers.find(key) == m_buffers.end());
+    assert( m_buffers.find(id) == m_buffers.end());
 
 #ifdef WIN32
     HMODULE hMod = NULL;
 
-    char ResName[5] = { '-' };
-    _snprintf_c(ResName, sizeof(ResName), "#%d", id);
+    char ResName[20] = { '-' };
+    _snprintf_c(ResName, sizeof(ResName), "\"%s\"", id);
 
     // Get the handle to the current module
     GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
@@ -166,15 +164,15 @@ void ResourceManager::load_resource(unsigned int id, const char* pszType, bool r
     if( requireNullTerminate && pData[dResSize-1] != '\0')
     {
         //reallocate the buffer to ensure the null termination
-        std::vector<char>& buffer = m_allocations[key];
+        std::vector<char>& buffer = m_allocations[id];
         buffer.resize(dResSize+1);
         buffer.assign(pData, pData+dResSize);
         buffer.push_back('\0');
-        m_buffers[key] = std::pair<const char*, size_t>(buffer.data(), buffer.size());
+        m_buffers[id] = std::pair<const char*, size_t>(buffer.data(), buffer.size());
     }
     else
     {
-        m_buffers[key] = std::pair<const char*, size_t>(pData, size_t(dResSize));
+        m_buffers[id] = std::pair<const char*, size_t>(pData, size_t(dResSize));
     }
 #else
     // Symbol Name is <type>_<number>
@@ -184,8 +182,8 @@ void ResourceManager::load_resource(unsigned int id, const char* pszType, bool r
     uint32_t size;
     void *handle;
 
-    snprintf(name, 64, "%s_%u", pszType, id);
-    snprintf(size_name, 64, "%s_%u_size", pszType, id);
+    snprintf(name, 64, "%s_%s", pszType, id);
+    snprintf(size_name, 64, "%s_%s_size", pszType, id);
     if (!lib)
     {
 #ifdef __ANDROID__
@@ -218,7 +216,7 @@ void ResourceManager::load_resource(unsigned int id, const char* pszType, bool r
     }
 
     // Cache the buffers
-    std::vector<char>& buffer = m_allocations[key];
+    std::vector<char>& buffer = m_allocations[id];
     if( requireNullTerminate && ((char*)symbol)[size-1] != '\0' )
     {
         buffer.resize(size+1);
@@ -230,7 +228,7 @@ void ResourceManager::load_resource(unsigned int id, const char* pszType, bool r
         buffer.resize(size);
         buffer.assign((char*)symbol, (char*)symbol+size);
     }
-    m_buffers[key] = std::pair<const char*, size_t>(buffer.data(), buffer.size());
+    m_buffers[id] = std::pair<const char*, size_t>(buffer.data(), buffer.size());
 #endif // WIN32
 }
 

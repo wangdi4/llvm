@@ -67,9 +67,11 @@ add_custom_command(
 set(TARGET_INCLUDE_FILES
     stdafx.h
     targetver.h
+    exceptions.h
     common_clang.h
     options.h
     binary_result.h
+    pch_mgr.h
     ${COMPILE_OPTIONS_TD}
     ${LINK_OPTIONS_TD}
     ${COMPILE_OPTIONS_INC}
@@ -83,8 +85,10 @@ set(TARGET_SOURCE_FILES
     getkernelarginfo.cpp
     common_clang.rc
     options.cpp
+    pch_mgr.cpp
     options_compile.cpp
     options_link.cpp
+    OpenCL.rc
 )
 
 if (WIN32)
@@ -94,6 +98,11 @@ if (WIN32)
 else()
     list( APPEND TARGET_SOURCE_FILES
             dllmain_linux.cpp
+            ${CMAKE_CURRENT_BINARY_DIR}/opencl_common_pch.cpp
+            ${CMAKE_CURRENT_BINARY_DIR}/cpu_opencl_pch.cpp
+            ${CMAKE_CURRENT_BINARY_DIR}/cpu_opencl_plat_spec_20_pch.cpp
+            ${CMAKE_CURRENT_BINARY_DIR}/cpu_opencl_plat_spec_12_pch.cpp
+            ${CMAKE_CURRENT_BINARY_DIR}/header_with_defs_cpu.h.cpp
         )
 endif()
 
@@ -197,3 +206,154 @@ if (WIN32)
 else (WIN32)
     set_target_properties( ${TARGET_NAME} PROPERTIES LINK_FLAGS "-Wl,-Bsymbolic")
 endif(WIN32)
+
+#
+# Generate PCHs.
+#
+
+set( OPENCL_PCH_OUT_DIR ${CMAKE_CURRENT_SOURCE_DIR} )
+set( CLANG_OPTIONS -cc1
+                   -x cl
+                   -fno-validate-pch
+                   -O0
+                   -emit-pch
+                   -working-directory ${OPENCL_PCH_OUT_DIR}
+                   -D __IMAGE2D_DEPTH__
+                   -D __WRITE_IMAGE3D__
+                   )
+
+set( CLANG_OPTIONS_OPENCL_12
+                    ${CLANG_OPTIONS}
+                    -cl-std=CL1.2
+                    -D __OPENCL_C_VERSION__=120
+                    )
+
+set( CLANG_OPTIONS_OPENCL_20
+                    ${CLANG_OPTIONS}
+                    -cl-std=CL2.0
+                    -D __OPENCL_C_VERSION__=200
+                    )
+
+if (BUILD_X64)
+    set( TRIPLE -triple spir64-unknown-unknown )
+else()
+    set( TRIPLE -triple spir-unknown-unknown )
+endif()
+
+set( CL_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/cl_headers/ )
+set( CLANG ${TOOL_BINARY_DIR}/clang )
+
+set( REDIRECTION_OPTION_COMMON   < ${CL_HEADERS}/opencl_common.h           )
+set( REDIRECTION_OPTION_CPU      < ${CL_HEADERS}/cpu/cpu_opencl_.h         )
+set( REDIRECTION_OPTION_CPU_PLAT < ${CL_HEADERS}/cpu/cpu_opencl_plat_spec.h)
+
+if (WIN32)
+    # The custom actions for generating the opencl_.pch/opencl20_.pch for windows and linux are almost equal
+    # but using only the latter currently breaks the USE_COMMON_CLANG option (which is soon to be deprecated).
+    # TODO: unify the following 2 sets of custom commands and put them outside of the if(WIN32) once
+    # USE_COMMON_CLANG is deprecated.
+    add_custom_command( TARGET ${TARGET_NAME}
+                        PRE_BUILD
+                        COMMAND ${CLANG} ${CLANG_OPTIONS} -o ${OPENCL_PCH_OUT_DIR}/opencl_common.h.pch ${REDIRECTION_OPTION_COMMON}
+                        COMMENT "Generate non-optimized Intel Op"
+                        DEPENDS ${CLANG} ${CL_HEADERS}/opencl_common.h
+                        VERBATIM
+        )
+
+    # Generate cpu specific file.
+    add_custom_command( TARGET ${TARGET_NAME}
+                        PRE_BUILD
+                        COMMAND ${CLANG} ${CLANG_OPTIONS} -include-pch opencl_common.h.pch -o ${OPENCL_PCH_OUT_DIR}/cpu_opencl_.h.pch ${REDIRECTION_OPTION_CPU}
+                        COMMENT "Generate non-optimized Intel OpenCL precompiled headers. CPU_OPENCL_.PCH ."
+                        DEPENDS ${CLANG} ${CL_HEADERS}/cpu_opencl_.h ${OPENCL_PCH_OUT_DIR}/opencl_common.h.pch
+                        VERBATIM
+    )
+
+    #Generate two files for OpenCL version specific.
+    add_custom_command( TARGET ${TARGET_NAME}
+                        PRE_BUILD
+                        COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_12} ${TRIPLE} -include-pch cpu_opencl_.h.pch -o ${OPENCL_PCH_OUT_DIR}/cpu_opencl_plat_spec_12.h.pch ${REDIRECTION_OPTION_CPU_PLAT}
+                        COMMENT "Generate non-optimized Intel OpenCL precompiled headers"
+                        DEPENDS ${CLANG} ${CL_HEADERS}/cpu_opencl_plat_spec.h ${OPENCL_PCH_OUT_DIR}/cpu_opencl_.h.pch
+                        VERBATIM
+     )
+
+   add_custom_command( TARGET ${TARGET_NAME}
+                       PRE_BUILD
+                       COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_20} ${TRIPLE} -include-pch cpu_opencl_.h.pch -o ${OPENCL_PCH_OUT_DIR}/cpu_opencl_plat_spec_20.h.pch ${REDIRECTION_OPTION_CPU_PLAT}
+                       COMMENT "Generate non-optimized Intel OpenCL precompiled headers. CPU_OPENCL_CPU_PLAT ."
+                       DEPENDS ${CLANG} ${CL_HEADERS}/cpu_opencl_plat_spec.h ${OPENCL_PCH_OUT_DIR}/cpu_opencl_.h.pch
+                       VERBATIM
+    )
+
+else()
+    # Generate common file.
+    add_custom_command( OUTPUT ${OPENCL_PCH_OUT_DIR}/opencl_common.h.pch
+                        COMMAND ${CLANG} ${CLANG_OPTIONS}  ${TRIPLE} -o ${OPENCL_PCH_OUT_DIR}/opencl_common.h.pch ${REDIRECTION_OPTION_COMMON}
+                        COMMENT "Generate non-optimized Intel OpenCL precompiled headers opencl_common.h.pch ."
+                        DEPENDS ${CLANG} ${CL_HEADERS}/opencl_common.h
+                        VERBATIM
+    )
+
+    # Generate cpu specific file.
+    add_custom_command( OUTPUT ${OPENCL_PCH_OUT_DIR}/cpu_opencl_.h.pch
+                        COMMAND ${CLANG} ${CLANG_OPTIONS}  ${TRIPLE} -include-pch opencl_common.h.pch -o ${OPENCL_PCH_OUT_DIR}/cpu_opencl_.h.pch ${REDIRECTION_OPTION_CPU}
+                        COMMENT "Generate non-optimized Intel OpenCL precompiled headers cpu_opencl_.h.pch ."
+                        DEPENDS ${CLANG} ${CL_HEADERS}/cpu/cpu_opencl_.h ${OPENCL_PCH_OUT_DIR}/opencl_common.h.pch
+                        VERBATIM
+    )
+
+    #Generate two files for OpenCL version specific.
+    add_custom_command( OUTPUT ${OPENCL_PCH_OUT_DIR}/cpu_opencl_plat_spec_12.h.pch
+                        COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_12} ${TRIPLE} -include-pch cpu_opencl_.h.pch -o ${OPENCL_PCH_OUT_DIR}/cpu_opencl_plat_spec_12.h.pch ${REDIRECTION_OPTION_CPU_PLAT}
+                        COMMENT "Generate non-optimized Intel OpenCL precompiled headers cpu_opencl_plat_spec_12.h.pch ."
+                        DEPENDS ${CLANG} ${CL_HEADERS}/cpu/cpu_opencl_plat_spec.h ${OPENCL_PCH_OUT_DIR}/cpu_opencl_.h.pch
+                        VERBATIM
+    )
+
+    add_custom_command( OUTPUT ${OPENCL_PCH_OUT_DIR}/cpu_opencl_plat_spec_20.h.pch
+                        COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_20} ${TRIPLE} -include-pch cpu_opencl_.h.pch -o ${OPENCL_PCH_OUT_DIR}/cpu_opencl_plat_spec_20.h.pch ${REDIRECTION_OPTION_CPU_PLAT}
+                        COMMENT "Generate non-optimized Intel OpenCL precompiled headers cpu_opencl_plat_spec_20.h.pch ."
+                        DEPENDS ${CLANG} ${CL_HEADERS}/cpu/cpu_opencl_plat_spec.h ${OPENCL_PCH_OUT_DIR}/cpu_opencl_.h.pch
+                        VERBATIM
+    )
+
+    if(CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE OR ANDROID)
+        set (LINUX_RESOURCE_LINKER_EXE "${CMAKE_BINARY_DIR}/native/bin/linux_resource_linker")
+        set (RESOURCE_TARGET ConfigureNativeTargets)
+    else()
+        set (LINUX_RESOURCE_LINKER_EXE "${CMAKE_BINARY_DIR}/bin/linux_resource_linker")
+        set (RESOURCE_TARGET linux_resource_linker)
+    endif()
+
+    # Convert PCHs and header_with_defs_cpu to array in C.
+    add_custom_command (
+        OUTPUT  ${CMAKE_CURRENT_BINARY_DIR}/opencl_common_pch.cpp
+        DEPENDS ${RESOURCE_TARGET} ${CLANG} ${OPENCL_PCH_OUT_DIR}/opencl_common.h.pch
+        COMMAND ${LINUX_RESOURCE_LINKER_EXE} ${OPENCL_PCH_OUT_DIR}/opencl_common.h.pch ${CMAKE_CURRENT_BINARY_DIR}/opencl_common_pch.cpp PCH_COMMON
+    )
+
+    add_custom_command (
+        OUTPUT  ${CMAKE_CURRENT_BINARY_DIR}/cpu_opencl_pch.cpp
+        DEPENDS ${RESOURCE_TARGET} ${CLANG} ${OPENCL_PCH_OUT_DIR}/cpu_opencl_.h.pch
+        COMMAND ${LINUX_RESOURCE_LINKER_EXE} ${OPENCL_PCH_OUT_DIR}/cpu_opencl_.h.pch ${CMAKE_CURRENT_BINARY_DIR}/cpu_opencl_pch.cpp PCH_CPU
+    )
+
+    add_custom_command (
+        OUTPUT  ${CMAKE_CURRENT_BINARY_DIR}/cpu_opencl_plat_spec_20_pch.cpp
+        DEPENDS ${RESOURCE_TARGET} ${CLANG} ${OPENCL_PCH_OUT_DIR}/cpu_opencl_plat_spec_20.h.pch
+        COMMAND ${LINUX_RESOURCE_LINKER_EXE} ${OPENCL_PCH_OUT_DIR}/cpu_opencl_plat_spec_20.h.pch ${CMAKE_CURRENT_BINARY_DIR}/cpu_opencl_plat_spec_20_pch.cpp PCH_CPU_SPEC_20
+    )
+
+    add_custom_command (
+        OUTPUT  ${CMAKE_CURRENT_BINARY_DIR}/cpu_opencl_plat_spec_12_pch.cpp
+        DEPENDS ${RESOURCE_TARGET} ${CLANG} ${OPENCL_PCH_OUT_DIR}/cpu_opencl_plat_spec_12.h.pch
+        COMMAND ${LINUX_RESOURCE_LINKER_EXE} ${OPENCL_PCH_OUT_DIR}/cpu_opencl_plat_spec_12.h.pch ${CMAKE_CURRENT_BINARY_DIR}/cpu_opencl_plat_spec_12_pch.cpp PCH_CPU_SPEC_12
+    )
+
+    add_custom_command (
+        OUTPUT  ${CMAKE_CURRENT_BINARY_DIR}/header_with_defs_cpu.h.cpp
+        DEPENDS ${RESOURCE_TARGET} ${CLANG} ${CL_HEADERS}/cpu/header_with_defs_cpu.h
+        COMMAND ${LINUX_RESOURCE_LINKER_EXE} ${CL_HEADERS}/cpu/header_with_defs_cpu.h ${CMAKE_CURRENT_BINARY_DIR}/header_with_defs_cpu.h.cpp PCH_DEFS_CPU
+    )
+endif()
