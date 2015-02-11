@@ -13,6 +13,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "MetaDataApi.h"
 #include "OclTune.h"
 #include "OCLPassSupport.h"
+#include "VectorizerUtils.h"
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Pass.h"
@@ -200,7 +201,8 @@ void Vectorizer::deleteVectorizationStubs() {
   VectorizationStubsVector::iterator it = m_vectorizationStubs.begin();
   VectorizationStubsVector::iterator end = m_vectorizationStubs.end();
   for (; it != end; it++)
-    (*it)->eraseFromParent();
+    if ((*it)->use_empty())
+      (*it)->eraseFromParent();
 }
 
 static pair<VectorVariant, Type*> buildVectorVariant(Function& F) {
@@ -291,7 +293,7 @@ Function* Vectorizer::createFunctionToVectorize(Function& originalFunction,
   Argument& maskArgument = *newArgIt;
   maskArgument.setName("mask");
   SmallVector<ReturnInst*, 8> returns;
-  bool moduleLevelChanges = false;
+  bool moduleLevelChanges = true;
   CloneFunctionInto(functionToVectorize,
 		    &originalFunction,
 		    vmap,
@@ -370,27 +372,11 @@ bool Vectorizer::runOnModule(Module &M)
   m_numOfKernels = 0;
   m_isModuleVectorized = true;
 
-  NamedMDNode* functionsNMD = M.getNamedMetadata("vectorizer.functions");
-  if (!functionsNMD) {
+  vector<Function*> functionsToVectorize;
+  VectorizerUtils::getFunctionsToVectorize(M, functionsToVectorize);
+  if (functionsToVectorize.empty()) {
     // No functions to vectorize
     return false;
-  }
-
-  vector<Function*> functionsToVectorize;
-  NamedMDNode::op_iterator nmdIt = functionsNMD->op_begin();
-  NamedMDNode::op_iterator nmdEnd = functionsNMD->op_end();
-  for (; nmdIt != nmdEnd; nmdIt++) {
-    MDNode* mdNode = *nmdIt;
-    assert(mdNode->getNumOperands() == 1 &&
-	   "function to vectorize metadata should only contain its name");
-    Value* mdValue = mdNode->getOperand(0);
-    MDString* mdString = dyn_cast<MDString>(mdValue);
-    assert(mdString &&
-	   "function to vectorize metadata should contain its name");
-    StringRef functionName = mdString->getString();
-    Function* F = M.getFunction(functionName);
-    if (F)
-      functionsToVectorize.push_back(F);
   }
 
   Intel::MetaDataUtils mdUtils(&M);
@@ -439,14 +425,16 @@ bool Vectorizer::runOnModule(Module &M)
     Function* vectFunc = createVectorVersion(*clone,
 					     vectorVariant,
 					     F.getName().str());
+    // copy stats from the original function to the new one
+    intel::Statistic::copyFunctionStats(*clone, *vectFunc);
+    intel::Statistic::removeFunctionStats(*clone);
     clone->eraseFromParent();
 
     // Do post vectorization work on the vector version
     postVectorizeFunction(*vectFunc);
-
-    // copy stats from the original function to the new one
-    intel::Statistic::copyFunctionStats(F, *vectFunc);
   }
+
+  deleteVectorizationStubs();
 
   //Save Metadata to the module
   mdUtils.save(M.getContext());

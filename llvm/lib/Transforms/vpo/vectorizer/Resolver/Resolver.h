@@ -78,6 +78,16 @@ private:
   void resolvePredicate(Value* pred, std::vector<Instruction*>& elements);
   /*! \} */
 
+  /*! \name Dynamic-Uniform Mask Resolvers
+   * \{ */
+  /// @brief Resolve allZero test
+  /// @param caller Instruction to resolve
+  void resolveAllZero(CallInst* caller);
+  /// @brief Resolve allOne test
+  /// @param caller Instruction to resolve
+  void resolveAllOne(CallInst* caller);
+  /*! \} */
+
   /*! \name Load Resolvers
    * \{ */
   /// @brief Resolve a call to 'masked_load'

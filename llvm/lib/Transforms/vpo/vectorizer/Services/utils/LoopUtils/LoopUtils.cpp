@@ -6,7 +6,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 
 #include "LoopUtils.h"
-#include "MetaDataApi.h"
 
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
@@ -81,17 +80,6 @@ bool inSubLoop(Loop *L, BasicBlock *BB) {
 bool inSubLoop(Loop *L, Instruction *I) {
   BasicBlock *BB = I->getParent();
   return inSubLoop(L, BB);
-}
-
-void GetOCLKernel(Module &M, SmallVectorImpl<Function *> &kernels) {
-  // List all kernels in module
-  Intel::MetaDataUtils mdUtils(&M);
-  Intel::MetaDataUtils::KernelsList::const_iterator itr =
-      mdUtils.begin_Kernels();
-  Intel::MetaDataUtils::KernelsList::const_iterator end = mdUtils.end_Kernels();
-  for (; itr != end; ++itr) {
-    kernels.push_back((*itr)->getFunction());
-  }
 }
 
 void

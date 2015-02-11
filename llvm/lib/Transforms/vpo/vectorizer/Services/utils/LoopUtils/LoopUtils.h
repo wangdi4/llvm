@@ -85,11 +85,6 @@ loopRegion createLoop(BasicBlock *head, BasicBlock *latch, Value *begin,
   ///@returns true iff I is in sub loop of L.
   bool inSubLoop(Loop *L, Instruction *I);
 
-  ///@brief fills kernels vector with openCL kernels according to metadata.
-  ///@param M - module to search.
-  ///@param kernels - vector to fill.
-  void GetOCLKernel(Module &M, SmallVectorImpl<Function *> &kernels);
-
   ///@brief fills the input vector with blocks that are executed once in L.
   ///@pararm L - loop to process.
   ///@param DT - dominator tree t use.

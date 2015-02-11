@@ -55,8 +55,8 @@ bool CLWGLoopCreator::runOnModule(Module &M) {
   assert(m_rtServices && "expected to have openCL runtime");
 
   // First obtain original scalar kernels from metadata.
-  SmallVector<Function *, 8> kernels;
-  LoopUtils::GetOCLKernel(M, kernels);
+  std::vector<Function *> kernels;
+  VectorizerUtils::GetFunctionsToVectorize(M, kernels);
 
   for (unsigned i=0, e = kernels.size(); i < e; ++i) {
     Function *F = kernels[i];

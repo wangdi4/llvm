@@ -17,6 +17,12 @@ class VectorizerUtils {
 
 public:
 
+  /// @brief Get all functions marked for vectorization in module.
+  /// @param I instruction whose debug location will be set.
+  /// @param setBy instruction from which debug location is gathered.
+  static void getFunctionsToVectorize(llvm::Module &M,
+				      std::vector<llvm::Function*>& funcs);
+
   /// @brief set debug location of I according to SetBy.
   /// @param I instruction whose debug location will be set.
   /// @param setBy instruction from which debug location is gathered.

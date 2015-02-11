@@ -202,6 +202,13 @@ void FuncResolver::resolve(CallInst* caller) {
 
   if (TargetSpecificResolve(caller)) return;
 
+  if (Mangler::isAllZero(calledName)) {
+    resolveAllZero(caller);
+  }
+  if (Mangler::isAllOne(calledName)) {
+    resolveAllOne(caller);
+  }
+
   // Use name to decide what to do
   if (Mangler::isMangledLoad(calledName)) {
     return resolveLoad(caller);
@@ -279,6 +286,51 @@ void FuncResolver::CFInstruction(std::vector<Instruction*> insts, Value* pred) {
     phi->addIncoming(getDefaultValForType(insts[i]->getType()), header);
     phi->addIncoming(insts[i], body);
   }
+}
+
+void FuncResolver::resolveAllZero(CallInst* caller) {
+  V_PRINT(DEBUG_TYPE, "Inspecting all-zero\n" <<*caller<<"\n");
+  V_ASSERT(caller->getNumArgOperands() == 1 && "Bad number of operands");
+  Value* arg0 = caller->getArgOperand(0);
+  Type* arg0Type = arg0->getType();
+  VectorType* arg0VectorType = dyn_cast<VectorType>(arg0Type);
+  V_ASSERT(arg0VectorType && "Bad op type");
+  unsigned int vecWidth = arg0VectorType->getNumElements();
+  Type* bitMaskType = Type::getIntNTy(caller->getContext(), vecWidth);
+  Instruction *bitCastInst = new BitCastInst(arg0,
+					     bitMaskType,
+					     "bitMask",
+					     caller);
+  Instruction *cmpInst = new ICmpInst(caller,
+				      CmpInst::ICMP_EQ,
+				      bitCastInst,
+				      Constant::getNullValue(bitMaskType),
+				      "isAllZero");
+  caller->replaceAllUsesWith(cmpInst);
+}
+
+void FuncResolver::resolveAllOne(CallInst* caller) {
+  V_PRINT(DEBUG_TYPE, "Inspecting all-one\n" <<*caller<<"\n");
+  V_ASSERT(caller->getNumArgOperands() == 1 && "Bad number of operands");
+  Value* arg0 = caller->getArgOperand(0);
+  Type* arg0Type = arg0->getType();
+  VectorType* arg0VectorType = dyn_cast<VectorType>(arg0Type);
+  V_ASSERT(arg0VectorType && "Bad op type");
+  unsigned int vecWidth = arg0VectorType->getNumElements();
+  //  unsigned int bitMaskWidth = std::max(vecWidth, 8u);
+  APInt allOnesMaskBits = APInt::getLowBitsSet(vecWidth, vecWidth);
+  Type* bitMaskType = Type::getIntNTy(caller->getContext(), vecWidth);
+  Instruction *bitCastInst = new BitCastInst(arg0,
+					     bitMaskType,
+					     "bitMask",
+					     caller);
+  Instruction *cmpInst = new ICmpInst(caller,
+				      CmpInst::ICMP_EQ,
+				      bitCastInst,
+				      ConstantInt::get(caller->getContext(),
+						       allOnesMaskBits),
+				      "isAllOne");
+  caller->replaceAllUsesWith(cmpInst);
 }
 
 void FuncResolver::resolveLoad(CallInst* caller) {

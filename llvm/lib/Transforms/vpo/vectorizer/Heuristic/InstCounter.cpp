@@ -10,6 +10,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Predicator.h"
 #include "Mangler.h"
 #include "LoopUtils/LoopUtils.h"
+#include "VectorizerUtils.h"
 #include "RuntimeServices.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
@@ -1327,8 +1328,8 @@ bool CanVectorizeImpl::hasNonInlineUnsupportedFunctions(Function &F) {
 
   // Add all kernels to root functions
   // Kernels assumes to have implicit barrier
-  SmallVector<Function *, 4> kernels;
-  LoopUtils::GetOCLKernel(*pM, kernels);
+  std::vector<Function *> kernels;
+  VectorizerUtils::getFunctionsToVectorize(*pM, kernels);
   roots.insert(kernels.begin(), kernels.end());
 
   // Add all functions that contains synchronize/get_local_id/get_global_id to root functions

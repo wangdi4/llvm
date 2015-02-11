@@ -17,6 +17,31 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 namespace intel{
 using namespace llvm;
 
+void VectorizerUtils::getFunctionsToVectorize(llvm::Module &M,
+					      std::vector<Function*>& funcs) {
+  NamedMDNode* functionsNMD = M.getNamedMetadata("vectorizer.functions");
+  if (!functionsNMD) {
+    // No functions to vectorize
+    return;
+  }
+
+  NamedMDNode::op_iterator nmdIt = functionsNMD->op_begin();
+  NamedMDNode::op_iterator nmdEnd = functionsNMD->op_end();
+  for (; nmdIt != nmdEnd; nmdIt++) {
+    MDNode* mdNode = *nmdIt;
+    assert(mdNode->getNumOperands() == 1 &&
+	   "function to vectorize metadata should only contain its name");
+    Value* mdValue = mdNode->getOperand(0);
+    MDString* mdString = dyn_cast<MDString>(mdValue);
+    assert(mdString &&
+	   "function to vectorize metadata should contain its name");
+    StringRef functionName = mdString->getString();
+    Function* F = M.getFunction(functionName);
+    if (F)
+      funcs.push_back(F);
+  }
+}
+
 void VectorizerUtils::SetDebugLocBy(Instruction *I, const Instruction *setBy) {
   if (!setBy->getDebugLoc().isUnknown()) {
     I->setDebugLoc(setBy->getDebugLoc());
