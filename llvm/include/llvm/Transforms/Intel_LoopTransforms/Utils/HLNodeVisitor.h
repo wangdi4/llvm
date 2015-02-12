@@ -41,26 +41,25 @@ namespace loopopt {
 //
 /// Visitor (template class HV) needs to implement:
 ///
-/// 1) Various visit[NodeType]( HLNodeType* ) functions like visitRegion(), 
-///    visitLoop() etc.
-/// 2) Various postVisit[NodeType]( HLNodeType* ) functions for node types which 
+/// 1) Various visit( HLNodeType* ) functions.
+/// 2) Various postVisit( HLNodeType* ) functions for node types which 
 ///    can contain other nodes. These are only needed for recursive walks and 
 ///    are called after we finish visiting the children of the node.
 /// 3) bool isDone() for early termination of the traversal.
 ///  
-/// Sample visitor class :
+/// Sample visitor class:
 /// 
 /// struct Visitor {
-///   void visitRegion(HLRegion* Region) { errs() << "visited region!\n"; }
-///   void postVisitRegion(HLRegion* Region) { } 
-///   void visitLoop(HLLoop* Loop) { errs() << "visited loop!\n"; }
-///   void postVisitLoop(HLLoop* Loop) { }
-///   void visitIf(HLIf* If) { errs() << "visited if!\n" }
-///   void postVisitIf(HLIf* If) { } 
-///   void visitSwitch(HlSwitch* Switch) { errs() << "visited switch!\n" }
-///   void visitLabel(HLLabel* Label) { errs() << "visited label!\n" } 
-///   void visitGoto(HLGoto* Goto) { errs() << "visited goto!\n" }
-///   void visitInst(HLInst* Inst) { errs() << "visited instruction!\n" } 
+///   void visit(HLRegion* Region) { errs() << "visited region!\n"; }
+///   void postVisit(HLRegion* Region) { } 
+///   void visit(HLLoop* Loop) { errs() << "visited loop!\n"; }
+///   void postVisit(HLLoop* Loop) { }
+///   void visit(HLIf* If) { errs() << "visited if!\n" }
+///   void postVisit(HLIf* If) { } 
+///   void visit(HlSwitch* Switch) { errs() << "visited switch!\n" }
+///   void visit(HLLabel* Label) { errs() << "visited label!\n" } 
+///   void visit(HLGoto* Goto) { errs() << "visited goto!\n" }
+///   void visit(HLInst* Inst) { errs() << "visited instruction!\n" } 
 ///   bool isDone() { return false; }
 /// };
 ///
@@ -148,7 +147,7 @@ bool HLNodeVisitor<HV>::visit(HLNode* Node, bool Recursive, bool Forward) {
   if (isa<HLRegion>(Node)) {
     HLRegion* Reg = cast<HLRegion>(Node);
 
-    Visitor->visitRegion(Reg);
+    Visitor->visit(Reg);
 
     if (Recursive) {
       Ret = Forward ? forwardVisit(Reg->child_begin(), Reg->child_end(), true) :
@@ -158,25 +157,25 @@ bool HLNodeVisitor<HV>::visit(HLNode* Node, bool Recursive, bool Forward) {
         return true;
       }
 
-      Visitor->postVisitRegion(Reg);
+      Visitor->postVisit(Reg);
     }
   }
   else if (isa<HLSwitch>(Node)) {
-    Visitor->visitSwitch(cast<HLSwitch>(Node));
+    Visitor->visit(cast<HLSwitch>(Node));
   }
   else if (isa<HLLabel>(Node)) {
-    Visitor->visitLabel(cast<HLLabel>(Node));
+    Visitor->visit(cast<HLLabel>(Node));
   }
   else if (isa<HLGoto>(Node)) {
-    Visitor->visitGoto(cast<HLGoto>(Node));
+    Visitor->visit(cast<HLGoto>(Node));
   }
   else if (isa<HLInst>(Node)) {
-    Visitor->visitInst(cast<HLInst>(Node));
+    Visitor->visit(cast<HLInst>(Node));
   }
   else if (isa<HLIf>(Node)) {
     HLIf* If = cast<HLIf>(Node);
 
-    Visitor->visitIf(If);
+    Visitor->visit(If);
 
     if (Recursive) {
       Ret = Forward ? forwardVisit(If->then_begin(), If->then_end(), true) :
@@ -193,13 +192,13 @@ bool HLNodeVisitor<HV>::visit(HLNode* Node, bool Recursive, bool Forward) {
         return true;
       }
 
-      Visitor->postVisitIf(If);
+      Visitor->postVisit(If);
     }
   }
   else if (isa<HLLoop>(Node)) {
     HLLoop* Loop = cast<HLLoop>(Node);
 
-    Visitor->visitLoop(Loop);
+    Visitor->visit(Loop);
 
     if (Recursive) {
       Ret = Forward ? forwardVisit(Loop->pre_begin(), Loop->pre_end(), true) :
@@ -223,7 +222,7 @@ bool HLNodeVisitor<HV>::visit(HLNode* Node, bool Recursive, bool Forward) {
         return true;
       }
 
-      Visitor->postVisitLoop(Loop);
+      Visitor->postVisit(Loop);
     }
   }
   else {
