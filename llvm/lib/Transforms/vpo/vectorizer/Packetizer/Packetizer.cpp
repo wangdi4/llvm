@@ -15,7 +15,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h"
 
 static const int __logs_vals[] = {-1, 0, 1, -1, 2, -1, -1, -1, 3, -1, -1, -1, -1, -1, -1, -1, 4};
@@ -142,6 +141,11 @@ PacketizeFunction::PacketizeFunction(bool SupportScatterGather,
   m_VCMAllocationArray = new VCMEntry[ESTIMATED_INST_NUM];
   m_VCMArrayLocation = 0;
   m_VCMArrays.push_back(m_VCMAllocationArray);
+
+  std::set<int>* powiUniformArgs = new std::set<int>();
+  powiUniformArgs->insert(1);
+  m_uniformIntrinsicArgs[Intrinsic::ID::powi] = powiUniformArgs;
+
   V_PRINT(packetizer, "PacketizeFunction constructor\n");
 }
 
@@ -1525,6 +1529,107 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
   return duplicateNonPacketizableInst(MO.Orig);
 }
 
+bool PacketizeFunction::isMathIntrinsic(Function* function) {
+  switch (function->getIntrinsicID()) {
+    case Intrinsic::sqrt:
+    case Intrinsic::sin:
+    case Intrinsic::cos:
+    case Intrinsic::exp:
+    case Intrinsic::exp2:
+    case Intrinsic::log:
+    case Intrinsic::log10:
+    case Intrinsic::log2:
+    case Intrinsic::fabs:
+    case Intrinsic::minnum:
+    case Intrinsic::maxnum:
+    case Intrinsic::copysign:
+    case Intrinsic::floor:
+    case Intrinsic::ceil:
+    case Intrinsic::trunc:
+    case Intrinsic::rint:
+    case Intrinsic::nearbyint:
+    case Intrinsic::round:
+    case Intrinsic::bswap:
+    case Intrinsic::ctpop:
+    case Intrinsic::pow:
+    case Intrinsic::fma:
+    case Intrinsic::fmuladd:
+    case Intrinsic::ctlz:
+    case Intrinsic::cttz:
+    case Intrinsic::powi:
+      return true;
+    default:
+      return false;
+  }
+}
+
+void PacketizeFunction::packetizeMathIntrinsic(CallInst *CI) {
+  Function *origFunc = CI->getCalledFunction();
+  assert(isMathIntrinsic(origFunc) && "called function is not a math intrinsic");
+  Intrinsic::ID intrinsicID = (Intrinsic::ID)origFunc->getIntrinsicID();
+  std::set<int>* uniformArgs = m_uniformIntrinsicArgs[intrinsicID];
+  std::vector<Type*> vectorTypes;
+  unsigned numArguments = CI->getNumArgOperands();
+  FunctionType *origFuncType = origFunc->getFunctionType();
+  for (unsigned argIndex = 0; argIndex < numArguments; ++argIndex) {
+    if (uniformArgs && uniformArgs->find(argIndex) != uniformArgs->end()) {
+      // This argument is marked as must-be-uniform (i.e. remains scalar
+      // in the vector version of the intrinsic).
+      // Make sure argument is uniform or scalarize
+      Value *curScalarArg = CI->getArgOperand(argIndex);
+      if (WIAnalysis::UNIFORM != m_depAnalysis->whichDepend(curScalarArg)) {
+	V_PRINT(vectorizer_stat,
+		"<<<<NoVectorFuncCtr(" << __FILE__ << ":" << __LINE__<< "): "
+		<< Instruction::getOpcodeName(CI->getOpcode())
+		<< " Could not find vectorized version for the function:"
+		<< origFunc->getName() << "\n");
+	V_STAT(m_noVectorFuncCtr++;)
+	Scalarize_Function_Call++; // statistics
+	return duplicateNonPacketizableInst(CI);
+      }
+    } else {
+      Type *neededType = VectorType::get(origFuncType->getParamType(argIndex),
+					 m_packetWidth);
+      V_ASSERT(neededType && "intrinsic argument error");
+      vectorTypes.push_back(neededType);
+    }
+  }
+  Function *vectorIntrinsic =
+    Intrinsic::getDeclaration(origFunc->getParent(),
+			      (Intrinsic::ID)intrinsicID,
+			      ArrayRef<Type*>(vectorTypes));
+
+  // Create new instruction
+  std::vector<Value *> newArgs;
+  if (!obtainNewCallArgs(CI, vectorIntrinsic, false, false, newArgs)) {
+    V_PRINT(vectorizer_stat,
+	    "<<<<NoVectorFuncCtr(" << __FILE__ << ":" <<__LINE__<< "): "
+	    << Instruction::getOpcodeName(CI->getOpcode())
+	    << " Failed to convert args to vectorized function:"
+	    << origFunc->getName() <<"\n");
+    V_STAT(m_noVectorFuncCtr++;)
+    Scalarize_Function_Call++; // statistics
+    return duplicateNonPacketizableInst(CI);
+  }
+  ArrayRef<Value*> newArgsRef(newArgs);
+  CallInst* newCall = CallInst::Create(vectorIntrinsic, newArgsRef, "", CI);
+
+  // update packetizer data structure with new packetized call
+  if (!handleCallReturn(CI, newCall)) {
+    m_removedInsts.insert(newCall);
+    V_PRINT(vectorizer_stat,
+	    "<<<<NoVectorFuncCtr(" << __FILE__<< ":" <<__LINE__<< "): "
+	    << Instruction::getOpcodeName(CI->getOpcode())
+	    <<" Failed to convert return value to vectorized function:"
+	    << origFunc->getName() << "\n");
+    V_STAT(m_noVectorFuncCtr++;)
+    Scalarize_Function_Call++; // statistics
+    return duplicateNonPacketizableInst(CI);
+  }
+
+  // Remove original instruction
+  m_removedInsts.insert(CI);
+}
 
 void PacketizeFunction::packetizeInstruction(CallInst *CI)
 {
@@ -1617,6 +1722,11 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
       CI->getCalledFunction()->getIntrinsicID() == Intrinsic::memset &&
       m_soaAllocaAnalysis->isSoaAllocaScalarRelated(CI)) {
     packetizedMemsetSoaAllocaDerivedInst(CI);
+    return;
+  }
+
+  if (isMathIntrinsic(origFunc)) {
+    packetizeMathIntrinsic(CI);
     return;
   }
 

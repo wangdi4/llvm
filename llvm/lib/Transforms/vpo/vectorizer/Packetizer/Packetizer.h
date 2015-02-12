@@ -19,6 +19,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/DataLayout.h"
 
 #include <string>
@@ -449,6 +450,15 @@ private:
   /// @returns the type of the mask
   Type* getMaskTypeForTranpose(Function* TransFunc);
 
+  /// @brief Answer wether a function is an LLVM math intrinsic
+  /// @param Function to query
+  /// @returns true if the function is a math intrinsic
+  bool isMathIntrinsic(Function* function);
+
+  /// @brief Packetize a call to an LLVM math intrinsic
+  /// @param Call instruction to packetize
+  void packetizeMathIntrinsic(CallInst *CI);
+
   // Pointer to runtime service object
   const RuntimeServices * m_rtServices;
 
@@ -492,6 +502,9 @@ private:
 
   /// @brief BAG (Broadcast Arguments and Globals) map. Map to broadcasted vals.
   DenseMap<Value *, Value *> m_BAG;
+
+  /// @brief Per each intrinsic - map to must-be-uniform argument indices
+  DenseMap<unsigned, std::set<int> *> m_uniformIntrinsicArgs;
 
   /// @brief maximum log buffere size.
   static const unsigned int MaxLogBufferSize;
