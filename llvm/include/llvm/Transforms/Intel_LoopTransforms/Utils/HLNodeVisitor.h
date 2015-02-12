@@ -36,7 +36,9 @@ namespace loopopt {
 /// invalidated (removed/replaced) as the next/prev iterator is saved so it 
 /// should work for most transformations. Specialized traversals might be needed
 /// otherwise.
-///
+/// 
+/// The public wrapper functions are in HLNodeUtils.h.
+//
 /// Visitor (template class HV) needs to implement:
 ///
 /// 1) Various visit[NodeType]( HLNodeType* ) functions like visitRegion(), 
@@ -46,6 +48,22 @@ namespace loopopt {
 ///    are called after we finish visiting the children of the node.
 /// 3) bool isDone() for early termination of the traversal.
 ///  
+/// Sample visitor class :
+/// 
+/// struct Visitor {
+///   void visitRegion(HLRegion* Region) { errs() << "visited region!\n"; }
+///   void postVisitRegion(HLRegion* Region) { } 
+///   void visitLoop(HLLoop* Loop) { errs() << "visited loop!\n"; }
+///   void postVisitLoop(HLLoop* Loop) { }
+///   void visitIf(HLIf* If) { errs() << "visited if!\n" }
+///   void postVisitIf(HLIf* If) { } 
+///   void visitSwitch(HlSwitch* Switch) { errs() << "visited switch!\n" }
+///   void visitLabel(HLLabel* Label) { errs() << "visited label!\n" } 
+///   void visitGoto(HLGoto* Goto) { errs() << "visited goto!\n" }
+///   void visitInst(HLInst* Inst) { errs() << "visited instruction!\n" } 
+///   bool isDone() { return false; }
+/// };
+///
 template<typename HV>
 class HLNodeVisitor {
 private:
@@ -153,7 +171,7 @@ bool HLNodeVisitor<HV>::visit(HLNode* Node, bool Recursive, bool Forward) {
     Visitor->visitGoto(cast<HLGoto>(Node));
   }
   else if (isa<HLInst>(Node)) {
-    Visitor->visitInstruction(cast<HLInst>(Node));
+    Visitor->visitInst(cast<HLInst>(Node));
   }
   else if (isa<HLIf>(Node)) {
     HLIf* If = cast<HLIf>(Node);
