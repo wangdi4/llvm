@@ -66,7 +66,7 @@ def ext_keyword_as_ident : ExtWarn<
 def error_empty_enum : Error<"use of empty enum">;
 // CQ#364426
 // if INTEL_CUSTOMIZATION
-def warn_empty_enum : Warning<"use of empty enum">, InGroup<Microsoft>;
+def warn_empty_enum : Warning<"use of empty enum">, InGroup<IntelCompat>;
 // endif INTEL_CUSTOMIZATION
 def err_invalid_sign_spec : Error<"'%0' cannot be signed or unsigned">;
 def err_invalid_short_spec : Error<"'short %0' is invalid">;

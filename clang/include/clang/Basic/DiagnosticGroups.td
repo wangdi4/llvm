@@ -694,6 +694,12 @@ def GccCompat : DiagGroup<"gcc-compat">;
 // A warning group for warnings about Microsoft extensions.
 def Microsoft : DiagGroup<"microsoft">;
 
+// CQ#364717
+// if INTEL_CUSTOMIZATION
+// A warning group for warnings about Intel compatibility extensions.
+def IntelCompat : DiagGroup<"intel-compat">;
+// endif INTEL_CUSTOMIZATION
+
 def ObjCNonUnifiedException : DiagGroup<"objc-nonunified-exceptions">;
 
 def ObjCProtocolMethodImpl : DiagGroup<"objc-protocol-method-implementation">;
