@@ -463,6 +463,10 @@ void IntrinsicLowering::LowerIntrinsicCall(CallInst *CI) {
   case Intrinsic::var_annotation:
     break;   // Strip out these intrinsics
  
+#ifdef INTEL_CUSTOMIZATION
+  case Intrinsic::intel_pragma:
+    break;   // Strip out intrinsic
+#endif
   case Intrinsic::memcpy: {
     Type *IntPtr = DL.getIntPtrType(Context);
     Value *Size = Builder.CreateIntCast(CI->getArgOperand(2), IntPtr,

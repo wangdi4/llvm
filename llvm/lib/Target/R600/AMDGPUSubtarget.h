@@ -20,9 +20,9 @@
 #include "AMDGPUIntrinsicInfo.h"
 #include "AMDGPUSubtarget.h"
 #include "R600ISelLowering.h"
-#include "llvm/IR/DataLayout.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
 
 #define GET_SUBTARGETINFO_HEADER
@@ -39,7 +39,8 @@ public:
     EVERGREEN,
     NORTHERN_ISLANDS,
     SOUTHERN_ISLANDS,
-    SEA_ISLANDS
+    SEA_ISLANDS,
+    VOLCANIC_ISLANDS,
   };
 
 private:
