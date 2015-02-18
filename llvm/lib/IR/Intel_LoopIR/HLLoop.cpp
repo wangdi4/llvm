@@ -29,13 +29,17 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
 
   /// Clone the Ztt
   Ztt = nullptr;
-  if (HLLoopObj.hasZtt())
+  if (HLLoopObj.hasZtt()) {
+  	/// TODO: Check if setParent is handled correctly
     Ztt = HLLoopObj.Ztt->clone();
+  }
 
   /// Loop over children, preheader and postexit
   for (const_pre_iterator PreIter = HLLoopObj.pre_begin(),
        PreIterEnd = HLLoopObj.pre_end(); PreIter != PreIterEnd; ++PreIter) {
     HLNode *NewHLNode = PreIter->clone();
+    /// TODO: Check if setParent is handled in push_back
+    /// NewHLNode->setParent(this);
     Preheader.push_back(NewHLNode);
   }
 
@@ -43,6 +47,8 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
        PostIterEnd = HLLoopObj.post_end();
        PostIter != PostIterEnd; ++PostIter) {
     HLNode *NewHLNode = PostIter->clone();
+    /// TODO: Check if setParent is handled in push_back
+    /// NewHLNode->setParent(this);
     Postexit.push_back(NewHLNode);
   }
 
@@ -50,14 +56,13 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
        ChildIterEnd = HLLoopObj.child_end();
        ChildIter != ChildIterEnd; ++ChildIter) {
     HLNode *NewHLNode = ChildIter->clone();
+    /// TODO: Check if setParent is handled in push_back
+    /// NewHLNode->setParent(this);
     Children.push_back(NewHLNode);
   }
 }
 
 HLLoop* HLLoop::clone() const {
-
-  /// Check for 'this' as null
-  assert(this && " HLLoop cannot be null");
 
   /// Call the Copy Constructor
   HLLoop *NewHLLoop = new HLLoop(*this);

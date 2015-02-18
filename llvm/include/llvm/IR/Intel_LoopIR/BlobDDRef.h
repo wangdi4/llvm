@@ -27,7 +27,7 @@ class HLNode;
 
 /// \brief Represents a blob present in a canonical expr of a RegDDRef
 ///
-/// This DDRef is associated with a RegDDRef to expose data dependncies
+/// This DDRef is associated with a RegDDRef to expose data dependencies
 /// present due to blobs.
 class BlobDDRef : public DDRef {
 private:
@@ -38,13 +38,16 @@ protected:
   explicit BlobDDRef(int SB, CanonExpr* CE, RegDDRef* Parent);
   ~BlobDDRef() { }
 
+  /// \brief Copy constructor used by cloning.
+  BlobDDRef(const BlobDDRef &BlobDDRefObj);
+
   friend class DDRefUtils;
 
-  BlobDDRef* clone_impl() const override;
-
+  /// \brief Sets the HLNode of BlobDDRef
   void setHLNode(HLNode* HNode) override;
 
 public:
+
   /// \brief Returns HLNode this DDRef is attached to.
   HLNode* getHLNode() const override;
 
@@ -52,17 +55,22 @@ public:
   Value* getLLVMValue() const override { return nullptr; }
  
   /// \brief Returns the canonical form associated with the blob.
-  CanonExpr* getCanonExpr() { return CExpr; }
+  CanonExpr* getCanonExpr()             { return CExpr; }
   const CanonExpr* getCanonExpr() const { return CExpr; }
 
   /// \brief Returns the RegDDRef this is attached to.
-  RegDDRef* getParentDDRef() { return ParentDDRef; }
+  RegDDRef* getParentDDRef()             { return ParentDDRef; }
   const RegDDRef* getParentDDRef() const { return ParentDDRef; }
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const DDRef* Ref) {
     return Ref->getDDRefID() == DDRef::BlobDDRefVal;
   }
+
+  /// clone() - Create a copy of 'this' BlobDDRef that is identical in all
+  /// ways except the following:
+  ///   * The Parent RegDDRef needs to be set explicitly
+  BlobDDRef* clone() const override;
 
 };
 

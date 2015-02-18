@@ -13,6 +13,7 @@
 
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
+#include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -21,9 +22,20 @@ using namespace llvm::loopopt;
 BlobDDRef::BlobDDRef(int SB, CanonExpr* CE, RegDDRef* Parent)
   : DDRef(DDRef::BlobDDRefVal, SB), CExpr(CE), ParentDDRef(Parent) { }
 
-BlobDDRef* BlobDDRef::clone_impl() const {
-  // TODO: placeholder, implement later
-  return nullptr;
+BlobDDRef::BlobDDRef(const BlobDDRef &BlobDDRefObj)
+  : DDRef(BlobDDRefObj), ParentDDRef(nullptr) {
+
+  /// Clone the Canon Expression linked to this BlobDDRef
+  assert(BlobDDRefObj.CExpr && " Canon Expr for BlobDDRefObj cannot be null");
+  CExpr = BlobDDRefObj.CExpr->clone();
+}
+
+BlobDDRef* BlobDDRef::clone() const {
+
+  /// Call Copy constructor
+  BlobDDRef *NewBlobDDRef = new BlobDDRef(*this);
+
+  return NewBlobDDRef;
 }
 
 HLNode* BlobDDRef::getHLNode() const {

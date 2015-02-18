@@ -13,6 +13,7 @@
 
 #include "llvm/Support/Debug.h"
 
+#include "llvm/IR/Intel_LoopIR/DDRef.h"
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
 #include "llvm/IR/Intel_LoopIR/HLDDNode.h"
 
@@ -28,9 +29,16 @@ HLDDNode::HLDDNode(unsigned SCID, HLNode* Par)
 }
 
 HLDDNode::HLDDNode(const HLDDNode &HLDDNodeObj)
-  : HLNode(HLDDNodeObj), TopSortNum(0), DDRefs(HLDDNodeObj.DDRefs) {
+  : HLNode(HLDDNodeObj), TopSortNum(0) {
 
-  /// TODO : Add DDRefs Cloning
+  /// Loop over DDRefs
+  for (const_ddref_iterator Iter = HLDDNodeObj.ddref_begin(),
+       IterEnd = HLDDNodeObj.ddref_end(); Iter != IterEnd; ++Iter) {
+    DDRef *NewDDRef = (*Iter)->clone();
+    /// TODO: Check if HLNode is appropriately set in push_back call
+    /// NewDDRef->setHLNode(this);
+    DDRefs.push_back(NewDDRef);
+  }
 
   setNextNumber();
 }

@@ -25,9 +25,6 @@ HLLabel::HLLabel(const HLLabel &LabelObj)
 
 HLLabel* HLLabel::clone() const {
 
-  /// Check for 'this' as null
-  assert(this && " HLLabel cannot be null");
-
   /// Call Copy constructor
   HLLabel *NewHLLabel = new HLLabel(*this);
 

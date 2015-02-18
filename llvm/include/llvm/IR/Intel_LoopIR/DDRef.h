@@ -16,6 +16,7 @@
 #define LLVM_IR_INTEL_LOOPIR_DDREF_H
 
 #include "llvm/Support/Compiler.h"
+
 #include <set>
 
 namespace llvm {
@@ -36,7 +37,6 @@ class HLNode;
 class DDRef {
 private:
   /// \brief Make class uncopyable.
-  DDRef(const DDRef &) LLVM_DELETED_FUNCTION;
   void operator=(const DDRef &) LLVM_DELETED_FUNCTION;
 
   /// \brief Destroys all objects of this class. Should only be
@@ -50,18 +50,21 @@ private:
 
 protected:
   DDRef(unsigned SCID, int SB);
+  DDRef(const DDRef &DDRefObj);
   virtual ~DDRef() { }
 
   friend class DDRefUtils;
 
+  /// \brief Virtual set HLNode
   virtual void setHLNode(HLNode* HNode) = 0;
-  virtual DDRef* clone_impl() const = 0;   
 
   /// \brief Destroys the object.
   void destroy();
 
 public:
-  DDRef* clone() const;
+
+  /// Virtual Clone Method
+  virtual DDRef* clone() const = 0;
   /// TBD how to do this
   void dump() const;
   /// TBD how to do this

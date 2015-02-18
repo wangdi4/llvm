@@ -27,9 +27,6 @@ HLGoto::HLGoto(const HLGoto &HLGotoObj)
 
 HLGoto* HLGoto::clone() const {
 
-  /// Check for 'this' as null
-  assert(this && " HLGoto cannot be null");
-
   /// Call Copy constructor
   HLGoto *NewHLGoto = new HLGoto(*this);
 

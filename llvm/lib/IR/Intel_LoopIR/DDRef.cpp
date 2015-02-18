@@ -26,6 +26,12 @@ DDRef::DDRef(unsigned SCID, int SB)
   Objs.insert(this);
 }
 
+DDRef::DDRef(const DDRef &DDRefObj)
+  : SubClassID(DDRefObj.SubClassID), SymBase(DDRefObj.SymBase) {
+
+  Objs.insert(this);
+}
+
 void DDRef::destroy() {
   Objs.erase(this);
   delete this;

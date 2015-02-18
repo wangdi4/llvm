@@ -27,9 +27,6 @@ HLSwitch::HLSwitch(const HLSwitch &HLSwitchObj)
 
 HLSwitch* HLSwitch::clone() const {
 
-  /// Check for 'this' as null
-  assert(this && " HLSwitch cannot be null");
-
   /// Call the Copy Constructor
   HLSwitch *NewHLSwitch = new HLSwitch(*this);
 

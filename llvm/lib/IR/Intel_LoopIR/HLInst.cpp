@@ -31,9 +31,6 @@ HLInst::HLInst(const HLInst &HLInstObj)
 
 HLInst* HLInst::clone() const {
 
-  /// Check for 'this' as null
-  assert(this && " HLLInst cannot be null");
-
   /// Call the Copy Constructor
   HLInst *NewHLInst = new HLInst(*this);
 

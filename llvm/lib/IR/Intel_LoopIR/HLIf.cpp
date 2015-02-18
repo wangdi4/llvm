@@ -27,6 +27,8 @@ HLIf::HLIf(const HLIf &HLIfObj)
   for (const_then_iterator ThenIter = HLIfObj.then_begin(),
        ThenIterEnd = HLIfObj.then_end(); ThenIter != ThenIterEnd; ++ThenIter) {
     HLNode *NewHLNode = ThenIter->clone();
+    /// TODO: Check if setParent is handled in push_back
+    /// NewHLNode->setParent(this);
     ThenChildren.push_back(NewHLNode);
   }
 
@@ -34,14 +36,13 @@ HLIf::HLIf(const HLIf &HLIfObj)
        ElseIterEnd = HLIfObj.else_end();
        ElseIter != ElseIterEnd; ++ElseIter) {
     HLNode *NewHLNode = ElseIter->clone();
+    /// TODO: Check if setParent is handled in push_back
+    /// NewHLNode->setParent(this);
     ElseChildren.push_back(NewHLNode);
   }
 }
 
 HLIf* HLIf::clone() const {
-
-  /// Check for 'this' as null
-  assert(this && " HLIf cannot be null");
 
   /// Call the Copy Constructor
   HLIf *NewHLIf = new HLIf(*this);

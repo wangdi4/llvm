@@ -39,18 +39,20 @@ protected:
   ConstDDRef(CanonExpr* CE, HLNode* HNode);
   ~ConstDDRef() { }
 
+  /// \brief Copy constructor used by cloning.
+  ConstDDRef(const ConstDDRef &ConstDDRefObj);
+
   friend class DDRefUtils;
 
-  virtual ConstDDRef* clone_impl() const override;
-
-  void setHLNode(HLNode* HNode) override { 
+  /// \brief Sets the HLNode of this ConstDDRef
+  void setHLNode(HLNode* HNode) override {
     assert (!isa<HLRegion>(HNode) && "Cannot attach DDRef to a region!");
-    Node = HNode; 
+    Node = HNode;
   }
 
 public:
   /// \brief Returns CanonExpr representing this ref.
-  CanonExpr* getCanonExpr() { return CExpr; }
+  CanonExpr* getCanonExpr()             { return CExpr; }
   const CanonExpr* getCanonExpr() const { return CExpr; }
 
   /// \brief Returns HLNode this DDRef is attached to.
@@ -64,6 +66,10 @@ public:
     return Ref->getDDRefID() == DDRef::ConstDDRefVal;
   }
 
+  /// clone() - Create a copy of 'this' ConstDDRef that is identical in all
+  /// ways except the following:
+  ///   * The HLNode needs to be set explicitly
+  ConstDDRef* clone() const override;
 };
 
 } // End namespace loopopt

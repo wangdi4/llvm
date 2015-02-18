@@ -18,14 +18,16 @@
 #include "llvm/IR/Intel_LoopIR/DDRef.h"
 #include "llvm/IR/Intel_LoopIR/HLRegion.h"
 #include "llvm/Support/Casting.h"
+
 #include <vector>
+
+#include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
 
 namespace llvm {
 
 namespace loopopt {
 
 class CanonExpr;
-class BlobDDRef;
 
 /// \brief Regular DDRef representing Values
 ///
@@ -67,16 +69,19 @@ protected:
    RegDDRef(int SB, HLNode* HNode);
   ~RegDDRef() { }
 
+  /// \brief Copy constructor used by cloning.
+  RegDDRef(const RegDDRef &RegDDRefObj);
+
   friend class DDRefUtils;
 
-  RegDDRef* clone_impl() const override;
-
+  /// \brief Sets the HLNode of this RegDDRef
   void setHLNode(HLNode* HNode) override { 
     assert (!isa<HLRegion>(HNode) && "Cannot attach DDRef to a region!");
     Node = HNode; 
   }
 
 public:
+
   /// \brief Returns HLNode this DDRef is attached to.
   HLNode* getHLNode() const override { return Node; };
 
@@ -84,11 +89,11 @@ public:
   Value* getLLVMValue() const override { return nullptr; }
 
   /// \brief Returns the canonical exprs associated with this DDRef
-  CanonExprsTy& getCanonExprs() { return CanonExprs; }
+  CanonExprsTy& getCanonExprs()             { return CanonExprs; }
   const CanonExprsTy& getCanonExprs() const { return CanonExprs; }
 
   /// \brief Returns the blob DDRefs associated with this DDRef
-  BlobDDRefsTy& getBlobDDRefs() { return BlobDDRefs; }
+  BlobDDRefsTy& getBlobDDRefs()             { return BlobDDRefs; }
   const BlobDDRefsTy& getBlobDDRefs() const { return BlobDDRefs; }
 
   /// \brief Returns the stride associated with each dimension
@@ -99,7 +104,7 @@ public:
   CanonExpr* getBaseCE();
   const CanonExpr* getBaseCE() const;
 
-  /// \brief Returns true if the inbouns attribute is set for this access
+  /// \brief Returns true if the inbounds attribute is set for this access
   bool isInBounds();
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
@@ -107,6 +112,10 @@ public:
     return Ref->getDDRefID() == DDRef::RegDDRefVal;
   }
 
+  /// clone() - Create a copy of 'this' RegDDRef that is identical in all
+  /// ways except the following:
+  ///   * The HLNode needs to be explicitly set
+  RegDDRef* clone() const override;
 };
 
 } // End namespace loopopt
