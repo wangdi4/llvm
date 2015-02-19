@@ -834,6 +834,9 @@ __kmp_hierarchical_barrier_gather(enum barrier_type bt, kmp_info_t *this_thr,
         KA_TRACE(20, ("__kmp_hierarchical_barrier_gather: T#%d(%d:%d) set team %d arrived(%p) = %u\n",
                       gtid, team->t.t_id, tid, team->t.t_id, &team->t.t_bar[bt].b_arrived, team->t.t_bar[bt].b_arrived));
     }
+    // If nested, but outer level is top-level, resume use of oncore optimization
+    if (this_thr->th.th_team->t.t_level <=2) thr_bar->use_oncore_barrier = 1;
+    else thr_bar->use_oncore_barrier = 0;
     // Is the team access below unsafe or just technically invalid?
     KA_TRACE(20, ("__kmp_hierarchical_barrier_gather: T#%d(%d:%d) exit for barrier type %d\n",
                   gtid, team->t.t_id, tid, bt));
@@ -896,7 +899,7 @@ __kmp_hierarchical_barrier_release(enum barrier_type bt, kmp_info_t *this_thr, i
         KMP_MB();  // Flush all pending memory write invalidates.
     }
 
-    if (this_thr->th.th_team->t.t_level == 1) thr_bar->use_oncore_barrier = 1;
+    if (this_thr->th.th_team->t.t_level <= 1) thr_bar->use_oncore_barrier = 1;
     else thr_bar->use_oncore_barrier = 0;
     nproc = this_thr->th.th_team_nproc;
 
@@ -1533,12 +1536,12 @@ __kmp_fork_barrier(int gtid, int tid)
     kmp_proc_bind_t proc_bind = team->t.t_proc_bind;
     if (proc_bind == proc_bind_intel) {
 #endif
-#if KMP_MIC
+#if KMP_AFFINITY_SUPPORTED
         // Call dynamic affinity settings
         if(__kmp_affinity_type == affinity_balanced && team->t.t_size_changed) {
             __kmp_balanced_affinity(tid, team->t.t_nproc);
         }
-#endif
+#endif // KMP_AFFINITY_SUPPORTED
 #if OMP_40_ENABLED && KMP_AFFINITY_SUPPORTED
     }
     else if ((proc_bind != proc_bind_false)

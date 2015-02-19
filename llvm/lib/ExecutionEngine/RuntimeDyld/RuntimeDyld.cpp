@@ -16,7 +16,7 @@
 #include "RuntimeDyldELF.h"
 #include "RuntimeDyldImpl.h"
 #include "RuntimeDyldMachO.h"
-#include "llvm/Object/ELF.h"
+#include "llvm/Object/ELFObjectFile.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/MutexGuard.h"
 
@@ -200,9 +200,14 @@ RuntimeDyldImpl::loadObjectImpl(const object::ObjectFile &Obj) {
         bool IsCode = SI->isText();
         unsigned SectionID =
             findOrEmitSection(Obj, *SI, IsCode, LocalSections);
-        DEBUG(dbgs() << "\tOffset: " << format("%p", (uintptr_t)SectOffset)
-                     << " flags: " << Flags << " SID: " << SectionID);
-        GlobalSymbolTable[Name] = SymbolLoc(SectionID, SectOffset);
+        DEBUG(dbgs() << "\tType: " << SymType << " Name: " << Name
+                     << " SID: " << SectionID << " Offset: "
+                     << format("%p", (uintptr_t)SectOffset)
+                     << " flags: " << Flags << "\n");
+        SymbolInfo::Visibility Vis =
+          (Flags & SymbolRef::SF_Exported) ?
+            SymbolInfo::Default : SymbolInfo::Hidden;
+        GlobalSymbolTable[Name] = SymbolInfo(SectionID, SectOffset, Vis);
       }
     }
     DEBUG(dbgs() << "\tType: " << SymType << " Name: " << Name << "\n");
@@ -263,6 +268,34 @@ computeAllocationSizeForSections(std::vector<uint64_t> &SectionSizes,
   return TotalSize;
 }
 
+static bool isRequiredForExecution(const SectionRef &Section) {
+  const ObjectFile *Obj = Section.getObject();
+  if (auto *ELFObj = dyn_cast<object::ELFObjectFileBase>(Obj))
+    return ELFObj->getSectionFlags(Section) & ELF::SHF_ALLOC;
+  assert(isa<MachOObjectFile>(Obj));
+  return true;
+ }
+
+static bool isReadOnlyData(const SectionRef &Section) {
+  const ObjectFile *Obj = Section.getObject();
+  if (auto *ELFObj = dyn_cast<object::ELFObjectFileBase>(Obj))
+    return !(ELFObj->getSectionFlags(Section) &
+             (ELF::SHF_WRITE | ELF::SHF_EXECINSTR));
+  assert(isa<MachOObjectFile>(Obj));
+  return false;
+}
+
+static bool isZeroInit(const SectionRef &Section) {
+  const ObjectFile *Obj = Section.getObject();
+  if (auto *ELFObj = dyn_cast<object::ELFObjectFileBase>(Obj))
+    return ELFObj->getSectionType(Section) == ELF::SHT_NOBITS;
+
+  auto *MachO = cast<MachOObjectFile>(Obj);
+  unsigned SectionType = MachO->getSectionType(Section);
+  return SectionType == MachO::S_ZEROFILL ||
+         SectionType == MachO::S_GB_ZEROFILL;
+}
+
 // Compute an upper bound of the memory size that is required to load all
 // sections
 void RuntimeDyldImpl::computeTotalAllocSize(const ObjectFile &Obj,
@@ -281,7 +314,7 @@ void RuntimeDyldImpl::computeTotalAllocSize(const ObjectFile &Obj,
        SI != SE; ++SI) {
     const SectionRef &Section = *SI;
 
-    bool IsRequired = Section.isRequiredForExecution();
+    bool IsRequired = isRequiredForExecution(Section);
 
     // Consider only the sections that are required to be loaded for execution
     if (IsRequired) {
@@ -289,7 +322,7 @@ void RuntimeDyldImpl::computeTotalAllocSize(const ObjectFile &Obj,
       uint64_t DataSize = Section.getSize();
       uint64_t Alignment64 = Section.getAlignment();
       bool IsCode = Section.isText();
-      bool IsReadOnly = Section.isReadOnlyData();
+      bool IsReadOnly = isReadOnlyData(Section);
       Check(Section.getName(Name));
       unsigned Alignment = (unsigned)Alignment64 & 0xffffffffL;
 
@@ -416,7 +449,7 @@ void RuntimeDyldImpl::writeBytesUnaligned(uint64_t Value, uint8_t *Dst,
 void RuntimeDyldImpl::emitCommonSymbols(const ObjectFile &Obj,
                                         const CommonSymbolMap &CommonSymbols,
                                         uint64_t TotalSize,
-                                        SymbolTableMap &SymbolTable) {
+                                        RTDyldSymbolTable &SymbolTable) {
   // Allocate memory for the section
   unsigned SectionID = Sections.size();
   uint8_t *Addr = MemMgr->allocateDataSection(TotalSize, sizeof(void *),
@@ -445,7 +478,11 @@ void RuntimeDyldImpl::emitCommonSymbols(const ObjectFile &Obj,
       DEBUG(dbgs() << "Allocating common symbol " << Name << " address "
                    << format("%p\n", Addr));
     }
-    SymbolTable[Name.data()] = SymbolLoc(SectionID, Offset);
+    uint32_t Flags = it->first.getFlags();
+    SymbolInfo::Visibility Vis =
+      (Flags & SymbolRef::SF_Exported) ?
+        SymbolInfo::Default : SymbolInfo::Hidden;
+    SymbolTable[Name.data()] = SymbolInfo(SectionID, Offset, Vis);
     Offset += Size;
     Addr += Size;
   }
@@ -462,10 +499,10 @@ unsigned RuntimeDyldImpl::emitSection(const ObjectFile &Obj,
   unsigned PaddingSize = 0;
   unsigned StubBufSize = 0;
   StringRef Name;
-  bool IsRequired = Section.isRequiredForExecution();
+  bool IsRequired = isRequiredForExecution(Section);
   bool IsVirtual = Section.isVirtual();
-  bool IsZeroInit = Section.isZeroInit();
-  bool IsReadOnly = Section.isReadOnlyData();
+  bool IsZeroInit = isZeroInit(Section);
+  bool IsReadOnly = isReadOnlyData(Section);
   uint64_t DataSize = Section.getSize();
   Check(Section.getName(Name));
 
@@ -561,14 +598,15 @@ void RuntimeDyldImpl::addRelocationForSymbol(const RelocationEntry &RE,
   // Relocation by symbol.  If the symbol is found in the global symbol table,
   // create an appropriate section relocation.  Otherwise, add it to
   // ExternalSymbolRelocations.
-  SymbolTableMap::const_iterator Loc = GlobalSymbolTable.find(SymbolName);
+  RTDyldSymbolTable::const_iterator Loc = GlobalSymbolTable.find(SymbolName);
   if (Loc == GlobalSymbolTable.end()) {
     ExternalSymbolRelocations[SymbolName].push_back(RE);
   } else {
     // Copy the RE since we want to modify its addend.
     RelocationEntry RECopy = RE;
-    RECopy.Addend += Loc->second.second;
-    Relocations[Loc->second.first].push_back(RECopy);
+    const auto &SymInfo = Loc->second;
+    RECopy.Addend += SymInfo.getOffset();
+    Relocations[SymInfo.getSectionID()].push_back(RECopy);
   }
 }
 
@@ -693,7 +731,7 @@ void RuntimeDyldImpl::resolveExternalSymbols() {
       resolveRelocationList(Relocs, 0);
     } else {
       uint64_t Addr = 0;
-      SymbolTableMap::const_iterator Loc = GlobalSymbolTable.find(Name);
+      RTDyldSymbolTable::const_iterator Loc = GlobalSymbolTable.find(Name);
       if (Loc == GlobalSymbolTable.end()) {
         // This is an external symbol, try to get its address from
         // MemoryManager.
@@ -708,8 +746,9 @@ void RuntimeDyldImpl::resolveExternalSymbols() {
       } else {
         // We found the symbol in our global table.  It was probably in a
         // Module that we loaded previously.
-        SymbolLoc SymLoc = Loc->second;
-        Addr = getSectionLoadAddress(SymLoc.first) + SymLoc.second;
+        const auto &SymInfo = Loc->second;
+        Addr = getSectionLoadAddress(SymInfo.getSectionID()) +
+               SymInfo.getOffset();
       }
 
       // FIXME: Implement error handling that doesn't kill the host program!
@@ -804,6 +843,12 @@ uint64_t RuntimeDyld::getSymbolLoadAddress(StringRef Name) const {
   if (!Dyld)
     return 0;
   return Dyld->getSymbolLoadAddress(Name);
+}
+
+uint64_t RuntimeDyld::getExportedSymbolLoadAddress(StringRef Name) const {
+  if (!Dyld)
+    return 0;
+  return Dyld->getExportedSymbolLoadAddress(Name);
 }
 
 void RuntimeDyld::resolveRelocations() { Dyld->resolveRelocations(); }
