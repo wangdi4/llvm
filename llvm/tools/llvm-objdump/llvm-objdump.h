@@ -34,6 +34,8 @@ extern cl::opt<bool> Rebase;
 extern cl::opt<bool> Bind;
 extern cl::opt<bool> LazyBind;
 extern cl::opt<bool> WeakBind;
+extern cl::opt<bool> UniversalHeaders;
+extern cl::opt<bool> ArchiveHeaders;
 
 // Various helper functions.
 bool error(std::error_code ec);

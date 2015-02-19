@@ -37,3 +37,34 @@ P* fun();
 
 - (P*) MethodReturnsPObj { return 0; }
 @end
+
+// rdar://19140267
+@interface Sub : P
+@end
+
+@implementation Sub
+- (int) Meth : (P*)array {
+  [super setCount : 100];
+
+  [super setCount : [array count]];
+
+  [[super PropertyReturnsPObj] setCount : [array count]];
+
+  [super setCount : (i1+i2*i3 - 100)];
+
+  return [super count] -
+         [(P*)0 count] + [array count] +
+         [fun() count] -
+         [[super PropertyReturnsPObj] count] +
+         [self->obj count];
+}
+@end
+
+
+@interface Rdar19038838
+@property id newItem; // should be marked objc_method_family(none), but isn't.
+@end
+
+id testRdar19038838(Rdar19038838 *obj) {
+  return [obj newItem];
+}

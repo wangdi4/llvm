@@ -1,5 +1,5 @@
 // CQ#364268
-// RUN: %clang_cc1 -emit-llvm -fintel-compatibility < %s | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -fintel-compatibility -o - %s | FileCheck %s
 
 typedef struct SC {
     unsigned char a;

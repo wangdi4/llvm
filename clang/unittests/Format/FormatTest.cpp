@@ -998,6 +998,14 @@ TEST_F(FormatTest, UnderstandsSingleLineComments) {
                    " // first\n"
                    "// at start\n"
                    "otherLine();"));
+  EXPECT_EQ("void f() {\n"
+            "  lineWith(); // comment\n"
+            "  // at start\n"
+            "}",
+            format("void              f() {\n"
+                   "  lineWith(); // comment\n"
+                   "  // at start\n"
+                   "}"));
 
   verifyFormat(
       "#define A                                                  \\\n"
@@ -2069,6 +2077,21 @@ TEST_F(FormatTest, FormatsNSEnums) {
                      "  // Information about aThirdDecentlyLongValue.\n"
                      "  aThirdDecentlyLongValue\n"
                      "};");
+  verifyGoogleFormat("typedef NS_OPTIONS(NSInteger, MyType) {\n"
+                     "  a = 1,\n"
+                     "  b = 2,\n"
+                     "  c = 3,\n"
+                     "};");
+  verifyGoogleFormat("typedef CF_ENUM(NSInteger, MyType) {\n"
+                     "  a = 1,\n"
+                     "  b = 2,\n"
+                     "  c = 3,\n"
+                     "};");
+  verifyGoogleFormat("typedef CF_OPTIONS(NSInteger, MyType) {\n"
+                     "  a = 1,\n"
+                     "  b = 2,\n"
+                     "  c = 3,\n"
+                     "};");
 }
 
 TEST_F(FormatTest, FormatsBitfields) {
@@ -2168,11 +2191,11 @@ TEST_F(FormatTest, FormatsInlineASM) {
       "    : \"a\"(value));");
   EXPECT_EQ(
       "void NS_InvokeByIndex(void *that, unsigned int methodIndex) {\n"
-      "    __asm {\n"
+      "  __asm {\n"
       "        mov     edx,[that] // vtable in edx\n"
       "        mov     eax,methodIndex\n"
       "        call    [edx][eax*4] // stdcall\n"
-      "    }\n"
+      "  }\n"
       "}",
       format("void NS_InvokeByIndex(void *that,   unsigned int methodIndex) {\n"
              "    __asm {\n"
@@ -2181,6 +2204,10 @@ TEST_F(FormatTest, FormatsInlineASM) {
              "        call    [edx][eax*4] // stdcall\n"
              "    }\n"
              "}"));
+  verifyFormat("void function() {\n"
+               "  // comment\n"
+               "  asm(\"\");\n"
+               "}");
 }
 
 TEST_F(FormatTest, FormatTryCatch) {
@@ -2609,6 +2636,9 @@ TEST_F(FormatTest, MacrosWithoutTrailingSemicolon) {
   EXPECT_EQ("SOME_WEIRD_LOG_MACRO << SomeThing;",
             format("SOME_WEIRD_LOG_MACRO\n"
                    "<< SomeThing;"));
+
+  verifyFormat("VISIT_GL_CALL(GenBuffers, void, (GLsizei n, GLuint* buffers), "
+               "(n, buffers))\n", getChromiumStyle(FormatStyle::LK_Cpp));
 }
 
 TEST_F(FormatTest, MacroCallsWithoutTrailingSemicolon) {
@@ -2784,6 +2814,17 @@ TEST_F(FormatTest, EscapedNewlineAtStartOfToken) {
 
 TEST_F(FormatTest, NoEscapedNewlineHandlingInBlockComments) {
   EXPECT_EQ("/* \\  \\  \\\n*/", format("\\\n/* \\  \\  \\\n*/"));
+}
+
+TEST_F(FormatTest, DontCrashOnBlockComments) {
+  EXPECT_EQ(
+      "int xxxxxxxxx; /* "
+      "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\n"
+      "zzzzzz\n"
+      "0*/",
+      format("int xxxxxxxxx;                          /* "
+             "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy zzzzzz\n"
+             "0*/"));
 }
 
 TEST_F(FormatTest, CalculateSpaceOnConsecutiveLinesInMacro) {
@@ -4648,6 +4689,10 @@ TEST_F(FormatTest, AlignsPipes) {
                "  CHECK_EQ(aaaa, (*bbbbbbbbb)->cccccc)\n"
                "      << \"qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq\";\n"
                "}");
+
+  // Handle 'endl'.
+  verifyFormat("llvm::errs() << aaaa << endl\n"
+               "             << bbbb << endl;");
 }
 
 TEST_F(FormatTest, UnderstandsEquals) {
@@ -4913,6 +4958,7 @@ TEST_F(FormatTest, UnderstandsTemplateParameters) {
 
   verifyFormat("f<int>();");
   verifyFormat("template <typename T> void f() {}");
+  verifyFormat("struct A<std::enable_if<sizeof(T2) < sizeof(int32)>::type>;");
 
   // Not template parameters.
   verifyFormat("return a < b && c > d;");
@@ -5146,6 +5192,7 @@ TEST_F(FormatTest, UnderstandsUsesOfStarAndAmp) {
       "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa(\n"
       "    aaaaaaaaaaaaaaaaaaaaaaaaaaaa, *aaaaaaaaaaaaaaaaaaaaaaaaaaaaa);");
 
+  verifyGoogleFormat("**outparam = 1;");
   verifyGoogleFormat("int main(int argc, char** argv) {}");
   verifyGoogleFormat("A<int*> a;");
   verifyGoogleFormat("A<int**> a;");
@@ -5611,6 +5658,10 @@ TEST_F(FormatTest, HandlesIncludeDirectives) {
   Style.AlwaysBreakBeforeMultilineStrings = true;
   Style.ColumnLimit = 0;
   verifyFormat("#import \"abc.h\"", Style);
+
+  // But 'import' might also be a regular C++ namespace.
+  verifyFormat("import::SomeFunction(aaaaaaaaaaaaaaaaaaaaaaaaaaa,\n"
+               "                     aaaaaaaaaaaaaaaaaaaaaaaaaaaaa);");
 }
 
 //===----------------------------------------------------------------------===//
@@ -5890,8 +5941,7 @@ TEST_F(FormatTest, LayoutCxx11BraceInitializers) {
       "             BracedList{ // comment 1 (Forcing interesting break)\n"
       "                         param1, param2,\n"
       "                         // comment 2\n"
-      "                         param3, param4\n"
-      "             });",
+      "                         param3, param4 });",
       ExtraSpaces);
   verifyFormat(
       "std::this_thread::sleep_for(\n"
@@ -6760,6 +6810,7 @@ TEST_F(FormatTest, FormatObjCMethodExpr) {
   // Whew!
 
   verifyFormat("return in[42];");
+  verifyFormat("for (auto v : in[1]) {\n}");
   verifyFormat("for (id foo in [self getStuffFor:bla]) {\n"
                "}");
   verifyFormat("[self aaaaa:MACRO(a, b:, c:)];");
@@ -7364,22 +7415,14 @@ TEST_F(FormatTest, BreaksWideAndNSStringLiterals) {
             format("@\"NSString literal\";", getGoogleStyleWithColumns(19)));
 }
 
-TEST_F(FormatTest, BreaksRawStringLiterals) {
-  EXPECT_EQ("R\"x(raw )x\"\n"
-            "R\"x(literal)x\";",
-            format("R\"x(raw literal)x\";", getGoogleStyleWithColumns(15)));
-  EXPECT_EQ("uR\"x(raw )x\"\n"
-            "uR\"x(literal)x\";",
-            format("uR\"x(raw literal)x\";", getGoogleStyleWithColumns(16)));
-  EXPECT_EQ("u8R\"x(raw )x\"\n"
-            "u8R\"x(literal)x\";",
-            format("u8R\"x(raw literal)x\";", getGoogleStyleWithColumns(17)));
-  EXPECT_EQ("LR\"x(raw )x\"\n"
-            "LR\"x(literal)x\";",
-            format("LR\"x(raw literal)x\";", getGoogleStyleWithColumns(16)));
-  EXPECT_EQ("UR\"x(raw )x\"\n"
-            "UR\"x(literal)x\";",
-            format("UR\"x(raw literal)x\";", getGoogleStyleWithColumns(16)));
+TEST_F(FormatTest, DoesNotBreakRawStringLiterals) {
+  FormatStyle Style = getGoogleStyleWithColumns(15);
+  EXPECT_EQ("R\"x(raw literal)x\";", format("R\"x(raw literal)x\";", Style));
+  EXPECT_EQ("uR\"x(raw literal)x\";", format("uR\"x(raw literal)x\";", Style));
+  EXPECT_EQ("LR\"x(raw literal)x\";", format("LR\"x(raw literal)x\";", Style));
+  EXPECT_EQ("UR\"x(raw literal)x\";", format("UR\"x(raw literal)x\";", Style));
+  EXPECT_EQ("u8R\"x(raw literal)x\";",
+            format("u8R\"x(raw literal)x\";", Style));
 }
 
 TEST_F(FormatTest, BreaksStringLiteralsWithin_TMacro) {
@@ -7568,11 +7611,6 @@ TEST_F(FormatTest, DoNotBreakStringLiteralsInEscapeSequence) {
             "\"00000000\"\n"
             "\"1\"",
             format("\"test\\000000000001\"", getLLVMStyleWithColumns(10)));
-  // FIXME: We probably don't need to care about escape sequences in raw
-  // literals.
-  EXPECT_EQ("R\"(\\x)\"\n"
-            "R\"(\\x00)\"\n",
-            format("R\"(\\x\\x00)\"\n", getGoogleStyleWithColumns(7)));
 }
 
 TEST_F(FormatTest, DoNotCreateUnreasonableUnwrappedLines) {
@@ -8351,6 +8389,11 @@ TEST_F(FormatTest, AllmanBraceBreaking) {
   verifyFormat("void f()\n"
                "{\n"
                "  [object someMethod:@{ @\"a\" : @\"b\" }];\n"
+               "}",
+               AllmanBraceStyle);
+  verifyFormat("int f()\n"
+               "{ // comment\n"
+               "  return 42;\n"
                "}",
                AllmanBraceStyle);
 
@@ -9348,12 +9391,17 @@ TEST_F(FormatTest, FormatsLambdas) {
   verifyFormat("string abc = SomeFunction(aaaaaaaaaaaaa, aaaaa, []() {\n"
                "  SomeOtherFunctioooooooooooooooooooooooooon();\n"
                "});");
+  verifyFormat("Constructor()\n"
+               "    : Field([] { // comment\n"
+               "        int i;\n"
+               "      }) {}");
 
   // Lambdas with return types.
   verifyFormat("int c = []() -> int { return 2; }();\n");
   verifyFormat("int c = []() -> vector<int> { return {2}; }();\n");
   verifyFormat("Foo([]() -> std::vector<int> { return {2}; }());");
   verifyGoogleFormat("auto a = [&b, c](D* d) -> D* {};");
+  verifyGoogleFormat("auto a = [&b, c](D* d) -> pair<D*, D*> {};");
   verifyGoogleFormat("auto a = [&b, c](D* d) -> D& {};");
   verifyGoogleFormat("auto a = [&b, c](D* d) -> const D* {};");
   verifyFormat("auto aaaaaaaa = [](int i, // break for some reason\n"
@@ -9392,6 +9440,12 @@ TEST_F(FormatTest, FormatsLambdas) {
   // Lambdas created through weird macros.
   verifyFormat("void f() {\n"
                "  MACRO((const AA &a) { return 1; });\n"
+               "}");
+
+  verifyFormat("if (blah_blah(whatever, whatever, [] {\n"
+               "      doo_dah();\n"
+               "      doo_dah();\n"
+               "    })) {\n"
                "}");
 }
 

@@ -301,7 +301,8 @@ static void registerSyncFunction(CodeGenFunction &CGF, llvm::Function *Fn) {
   llvm::NamedMDNode *SyncMetadata
     = CGF.CGM.getModule().getOrInsertNamedMetadata("cilk.sync");
 
-  SyncMetadata->addOperand(llvm::MDNode::get(Context, Fn));
+  SyncMetadata->addOperand(llvm::MDNode::get(Context,
+                                             llvm::ValueAsMetadata::get(Fn)));
 }
 
 /// \brief Register a spawn helper function with a named metadata.
@@ -310,7 +311,8 @@ static void registerSpawnFunction(CodeGenFunction &CGF, llvm::Function *Fn) {
   llvm::NamedMDNode *SpawnMetadata
     = CGF.CGM.getModule().getOrInsertNamedMetadata("cilk.spawn");
 
-  SpawnMetadata->addOperand(llvm::MDNode::get(Context, Fn));
+  SpawnMetadata->addOperand(llvm::MDNode::get(Context,
+                                              llvm::ValueAsMetadata::get(Fn)));
 }
 
 /// \brief Emit a call to the CILK_SETJMP function.

@@ -599,7 +599,7 @@ void CodeGenFunction::EmitIfStmt(const IfStmt &S) {
   if (const Stmt *Else = S.getElse()) {
     {
       // There is no need to emit line number for unconditional branch.
-      SuppressDebugLocation S(Builder);
+      ApplyDebugLocation DL(*this);
       EmitBlock(ElseBlock);
     }
     {
@@ -608,7 +608,7 @@ void CodeGenFunction::EmitIfStmt(const IfStmt &S) {
     }
     {
       // There is no need to emit line number for unconditional branch.
-      SuppressDebugLocation S(Builder);
+      ApplyDebugLocation DL(*this);
       EmitBranch(ContBlock);
     }
   }
@@ -625,7 +625,9 @@ void CodeGenFunction::EmitCondBrHints(llvm::LLVMContext &Context,
     return;
 
   // Add vectorize and unroll hints to the metadata on the conditional branch.
-  SmallVector<llvm::Value *, 2> Metadata(1);
+  //
+  // FIXME: Should this really start with a size of 1?
+  SmallVector<llvm::Metadata *, 2> Metadata(1);
   for (const auto *Attr : Attrs) {
     const LoopHintAttr *LH = dyn_cast<LoopHintAttr>(Attr);
 
@@ -663,7 +665,7 @@ void CodeGenFunction::EmitCondBrHints(llvm::LLVMContext &Context,
       ValueInt = static_cast<int>(ValueAPS.getSExtValue());
     }
 
-    llvm::Value *Value;
+    llvm::Constant *Value;
     llvm::MDString *Name;
     switch (Option) {
     case LoopHintAttr::Vectorize:
@@ -690,15 +692,16 @@ void CodeGenFunction::EmitCondBrHints(llvm::LLVMContext &Context,
       break;
     }
 
-    SmallVector<llvm::Value *, 2> OpValues;
+    SmallVector<llvm::Metadata *, 2> OpValues;
     OpValues.push_back(Name);
     if (Value)
-      OpValues.push_back(Value);
+      OpValues.push_back(llvm::ConstantAsMetadata::get(Value));
 
     // Set or overwrite metadata indicated by Name.
     Metadata.push_back(llvm::MDNode::get(Context, OpValues));
   }
 
+  // FIXME: This condition is never false.  Should it be an assert?
   if (!Metadata.empty()) {
     // Add llvm.loop MDNode to CondBr.
     llvm::MDNode *LoopID = llvm::MDNode::get(Context, Metadata);
@@ -1695,6 +1698,12 @@ SimplifyConstraint(const char *Constraint, const TargetInfo &Target,
       while (Constraint[1] && Constraint[1] != ',')
         Constraint++;
       break;
+    case '&':
+    case '%':
+      Result += *Constraint;
+      while (Constraint[1] && Constraint[1] == *Constraint)
+        Constraint++;
+      break;
     case ',':
       Result += "|";
       break;
@@ -1805,10 +1814,10 @@ llvm::Value* CodeGenFunction::EmitAsmInput(
 /// asm.
 static llvm::MDNode *getAsmSrcLocInfo(const StringLiteral *Str,
                                       CodeGenFunction &CGF) {
-  SmallVector<llvm::Value *, 8> Locs;
+  SmallVector<llvm::Metadata *, 8> Locs;
   // Add the location of the first line to the MDNode.
-  Locs.push_back(llvm::ConstantInt::get(CGF.Int32Ty,
-                                        Str->getLocStart().getRawEncoding()));
+  Locs.push_back(llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
+      CGF.Int32Ty, Str->getLocStart().getRawEncoding())));
   StringRef StrVal = Str->getString();
   if (!StrVal.empty()) {
     const SourceManager &SM = CGF.CGM.getContext().getSourceManager();
@@ -1820,8 +1829,8 @@ static llvm::MDNode *getAsmSrcLocInfo(const StringLiteral *Str,
       if (StrVal[i] != '\n') continue;
       SourceLocation LineLoc = Str->getLocationOfByte(i+1, SM, LangOpts,
                                                       CGF.getTarget());
-      Locs.push_back(llvm::ConstantInt::get(CGF.Int32Ty,
-                                            LineLoc.getRawEncoding()));
+      Locs.push_back(llvm::ConstantAsMetadata::get(
+          llvm::ConstantInt::get(CGF.Int32Ty, LineLoc.getRawEncoding())));
     }
   }
 
@@ -2091,7 +2100,9 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
   } else {
     // At least put the line number on MS inline asm blobs.
     auto Loc = llvm::ConstantInt::get(Int32Ty, S.getAsmLoc().getRawEncoding());
-    Result->setMetadata("srcloc", llvm::MDNode::get(getLLVMContext(), Loc));
+    Result->setMetadata("srcloc",
+                        llvm::MDNode::get(getLLVMContext(),
+                                          llvm::ConstantAsMetadata::get(Loc)));
   }
 
   // Extract all of the register value results from the asm.
@@ -2248,8 +2259,6 @@ CodeGenFunction::GenerateCapturedStmtFunction(const CapturedStmt &S) {
   PGO.assignRegionCounters(CD, F);
   CapturedStmtInfo->EmitBody(*this, CD->getBody());
   FinishFunction(CD->getBodyRBrace());
-  PGO.emitInstrumentationData();
-  PGO.destroyRegionCounters();
 
   return F;
 }
@@ -2622,7 +2631,7 @@ bool CodeGenFunction::CGPragmaSimd::emitSafelen(CodeGenFunction *CGF) const {
 void CodeGenFunction::CGPragmaSimd::emitIntelIntrinsic(CodeGenFunction *CGF,
     CodeGenModule *CGM, llvm::Value *LoopIndex, llvm::Value *LoopCount) const {
   llvm::Value *IntelFN = CGM->getIntrinsic(llvm::Intrinsic::intel_pragma);
-  llvm::SmallVector<llvm::Value*, 2> Args;
+  llvm::SmallVector<llvm::Metadata *, 2> Args;
   Args.push_back(llvm::MDString::get(CGM->getLLVMContext(), "SIMD_LOOP"));
 
   const ArrayRef<Attr *> &Attrs = SimdFor->getSIMDAttrs();
@@ -2637,7 +2646,7 @@ void CodeGenFunction::CGPragmaSimd::emitIntelIntrinsic(CodeGenFunction *CGF,
               AggValueSlot::ignored(), true);
           llvm::ConstantInt *C = dyn_cast<llvm::ConstantInt>(Width.getScalarVal());
           assert(C);
-          Args.push_back(C);
+          Args.push_back(llvm::ValueAsMetadata::get(C));
         } break;
       default:
         break;
@@ -2645,12 +2654,14 @@ void CodeGenFunction::CGPragmaSimd::emitIntelIntrinsic(CodeGenFunction *CGF,
   }
 
   Args.push_back(llvm::MDString::get(CGM->getLLVMContext(), "LINEAR"));
-  Args.push_back(LoopIndex);
-  Args.push_back(llvm::ConstantInt::get(LoopCount->getType(), 1));
+  Args.push_back(llvm::ValueAsMetadata::get(LoopIndex));
+  Args.push_back(llvm::ValueAsMetadata::get(
+                     llvm::ConstantInt::get(LoopCount->getType(), 1)));
   llvm::MDNode *RealArg = llvm::MDNode::get(CGM->getLLVMContext(), Args);
-  Args.clear();
-  Args.push_back(RealArg);
-  CGF->EmitRuntimeCall(IntelFN, Args);
+  llvm::SmallVector<llvm::Value *, 2> RealArgs;
+  RealArgs.push_back(
+      llvm::MetadataAsValue::get(CGM->getLLVMContext(), RealArg));
+  CGF->EmitRuntimeCall(IntelFN, RealArgs);
 }
 
 llvm::Function *CodeGenFunction::EmitSimdFunction(CGPragmaSimdWrapper &W) {
@@ -3114,12 +3125,15 @@ static void EmitRecursiveCilkRankedStmt(CodeGenFunction &CGF,
     // Generate intel intrinsic.
     if (Rank == S.getRank() - 1) {
       llvm::Value *IntelFN = CGF.CGM.getIntrinsic(llvm::Intrinsic::intel_pragma);
-      llvm::SmallVector<llvm::Value*, 1> Args;
+      llvm::SmallVector<llvm::Metadata*, 1> Args;
       Args.push_back(llvm::MDString::get(CGF.CGM.getLLVMContext(), "CEAN_LOOP"));
-      llvm::Value *RealArg = llvm::MDNode::get(CGF.CGM.getLLVMContext(), Args);
-      Args.clear();
-      Args.push_back(RealArg);
-      CGF.EmitRuntimeCall(IntelFN, Args);
+      llvm::Value *RealArg = 
+          llvm::MetadataAsValue::get(
+              CGF.CGM.getLLVMContext(),
+              llvm::MDNode::get(CGF.CGM.getLLVMContext(), Args));
+      llvm::SmallVector<llvm::Value*, 1> RealArgs;
+      RealArgs.push_back(RealArg);
+      CGF.EmitRuntimeCall(IntelFN, RealArgs);
     }
     CGF.EmitBranch(CondBlock);
     CGF.EmitBlock(CondBlock);
@@ -3219,7 +3233,7 @@ CodeGenFunction::CreateIPForInlineEnd(llvm::BasicBlock *InlineBB) {
 
 static llvm::SmallVector<llvm::BasicBlock *, 4> PreviousInlineBB;
 void CodeGenFunction::EmitPragmaStmt(const PragmaStmt &S) {
-  llvm::SmallVector<llvm::Value *, 4> args;
+  llvm::SmallVector<llvm::Metadata *, 4> args;
   llvm::MDNode *Node;
   llvm::Value *fn;
 //  llvm::CallInst *fakeCall;
@@ -3362,14 +3376,14 @@ void CodeGenFunction::EmitPragmaStmt(const PragmaStmt &S) {
     for (size_t i = 0; i < S.getAttribs().size(); ++i) {
       if (S.getAttribs()[i].ExprKind == IntelPragmaExprConst &&
           isa<StringLiteral>(S.getAttribs()[i].Value)) {
-        args.push_back(llvm::MDString::get(
-            CGM.getLLVMContext(),
+        args.push_back(
+          llvm::MDString::get(CGM.getLLVMContext(),
             cast<StringLiteral>(S.getAttribs()[i].Value)->getString()));
       } else if (S.getAttribs()[i].ExprKind == IntelPragmaExprConst) {
         args.push_back(llvm::MDString::get(CGM.getLLVMContext(), "CONSTANT"));
         res = CGM.EmitConstantExpr(S.getAttribs()[i].Value,
                                    S.getAttribs()[i].Value->getType());
-        args.push_back(res);
+        args.push_back(llvm::ValueAsMetadata::get(res));
       } else if (S.getAttribs()[i].ExprKind == IntelPragmaExprRValue) {
         DeclRefExpr *DRE;
         if (isa<DeclRefExpr>(S.getAttribs()[i].Value) &&
@@ -3378,26 +3392,28 @@ void CodeGenFunction::EmitPragmaStmt(const PragmaStmt &S) {
           // args.push_back(llvm::MDString::get(CGM.getLLVMContext(),
           // "FUNCTION_REFERENCE"));
           args.push_back(
-              CGM.GetAddrOfGlobal(cast<FunctionDecl>(DRE->getDecl())));
+            llvm::ValueAsMetadata::get(
+              CGM.GetAddrOfGlobal(cast<FunctionDecl>(DRE->getDecl()))));
         } else {
           RValue RVal = EmitAnyExprToTemp(S.getAttribs()[i].Value);
           args.push_back(llvm::MDString::get(CGM.getLLVMContext(), "RVALUE"));
           if (RVal.isScalar()) {
-            args.push_back(llvm::MDString::get(CGM.getLLVMContext(), "SCALAR"));
+            args.push_back(
+              llvm::MDString::get(CGM.getLLVMContext(), "SCALAR"));
             res = RVal.getScalarVal();
-            args.push_back(res);
+            args.push_back(llvm::ValueAsMetadata::get(res));
           } else if (RVal.isComplex()) {
             args.push_back(
-                llvm::MDString::get(CGM.getLLVMContext(), "COMPLEX"));
+              llvm::MDString::get(CGM.getLLVMContext(), "COMPLEX"));
             res = RVal.getComplexVal().first;
-            args.push_back(res);
+            args.push_back(llvm::ValueAsMetadata::get(res));
             res = RVal.getComplexVal().second;
-            args.push_back(res);
+            args.push_back(llvm::ValueAsMetadata::get(res));
           } else {
             args.push_back(
-                llvm::MDString::get(CGM.getLLVMContext(), "AGGREGATE"));
+              llvm::MDString::get(CGM.getLLVMContext(), "AGGREGATE"));
             res = RVal.getAggregateAddr();
-            args.push_back(res);
+            args.push_back(llvm::ValueAsMetadata::get(res));
           }
         }
       } else {
@@ -3406,54 +3422,57 @@ void CodeGenFunction::EmitPragmaStmt(const PragmaStmt &S) {
         if (LVal.isSimple()) {
           args.push_back(llvm::MDString::get(CGM.getLLVMContext(), "SIMPLE"));
           res = LVal.getAddress();
-          args.push_back(res);
+          args.push_back(llvm::ValueAsMetadata::get(res));
         } else if (LVal.isVectorElt()) {
           args.push_back(
-              llvm::MDString::get(CGM.getLLVMContext(), "VECTOR_ELT"));
+            llvm::MDString::get(CGM.getLLVMContext(), "VECTOR_ELT"));
           res = LVal.getVectorAddr();
-          args.push_back(res);
+          args.push_back(llvm::ValueAsMetadata::get(res));
           res = LVal.getVectorIdx();
-          args.push_back(res);
+          args.push_back(llvm::ValueAsMetadata::get(res));
         } else if (LVal.isExtVectorElt()) {
           RValue RVal = EmitLoadOfExtVectorElementLValue(LVal);
           args.push_back(
-              llvm::MDString::get(CGM.getLLVMContext(), "EXT_VECTOR_ELT"));
+            llvm::MDString::get(CGM.getLLVMContext(), "EXT_VECTOR_ELT"));
           if (RVal.isScalar()) {
-            args.push_back(llvm::MDString::get(CGM.getLLVMContext(), "SCALAR"));
+            args.push_back(
+              llvm::MDString::get(CGM.getLLVMContext(), "SCALAR"));
             res = RVal.getScalarVal();
-            args.push_back(res);
+            args.push_back(llvm::ValueAsMetadata::get(res));
           } else if (RVal.isComplex()) {
             args.push_back(
-                llvm::MDString::get(CGM.getLLVMContext(), "COMPLEX"));
+              llvm::MDString::get(CGM.getLLVMContext(), "COMPLEX"));
             res = RVal.getComplexVal().first;
-            args.push_back(res);
+            args.push_back(llvm::ValueAsMetadata::get(res));
             res = RVal.getComplexVal().second;
-            args.push_back(res);
+            args.push_back(llvm::ValueAsMetadata::get(res));
           } else {
             args.push_back(
-                llvm::MDString::get(CGM.getLLVMContext(), "AGGREGATE"));
+              llvm::MDString::get(CGM.getLLVMContext(), "AGGREGATE"));
             res = RVal.getAggregateAddr();
-            args.push_back(res);
+            args.push_back(llvm::ValueAsMetadata::get(res));
           }
         } else {
           RValue RVal = EmitLoadOfBitfieldLValue(LVal);
-          args.push_back(llvm::MDString::get(CGM.getLLVMContext(), "BITFIELD"));
+          args.push_back(
+            llvm::MDString::get(CGM.getLLVMContext(), "BITFIELD"));
           if (RVal.isScalar()) {
-            args.push_back(llvm::MDString::get(CGM.getLLVMContext(), "SCALAR"));
+            args.push_back(
+              llvm::MDString::get(CGM.getLLVMContext(), "SCALAR"));
             res = RVal.getScalarVal();
-            args.push_back(res);
+            args.push_back(llvm::ValueAsMetadata::get(res));
           } else if (RVal.isComplex()) {
             args.push_back(
-                llvm::MDString::get(CGM.getLLVMContext(), "COMPLEX"));
+              llvm::MDString::get(CGM.getLLVMContext(), "COMPLEX"));
             res = RVal.getComplexVal().first;
-            args.push_back(res);
+            args.push_back(llvm::ValueAsMetadata::get(res));
             res = RVal.getComplexVal().second;
-            args.push_back(res);
+            args.push_back(llvm::ValueAsMetadata::get(res));
           } else {
             args.push_back(
-                llvm::MDString::get(CGM.getLLVMContext(), "AGGREGATE"));
+              llvm::MDString::get(CGM.getLLVMContext(), "AGGREGATE"));
             res = RVal.getAggregateAddr();
-            args.push_back(res);
+            args.push_back(llvm::ValueAsMetadata::get(res));
           }
         }
       }
@@ -3474,7 +3493,8 @@ void CodeGenFunction::EmitPragmaStmt(const PragmaStmt &S) {
       VisitedBB.clear();
       SpecBasicBlock = this->CreateIPForInlineEnd(PreviousInlineBB.back());
     }
-    /*fakeCall =*/ Builder.CreateCall(fn, Node);
+    /*fakeCall =*/ Builder.CreateCall(fn,
+                     llvm::MetadataAsValue::get(CGM.getLLVMContext(), Node));
     // Special processing for pragma inline
     if (S.getPragmaKind() == IntelPragmaInline) {
       PreviousInlineBB.push_back(Builder.GetInsertBlock());

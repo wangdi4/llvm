@@ -20,11 +20,11 @@
 #include "clang/AST/RecordLayout.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
 #include "clang/Frontend/CodeGenOptions.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Support/raw_ostream.h"
-
 #include <algorithm>    // std::sort
 
 using namespace clang;
@@ -1144,6 +1144,10 @@ void X86_32ABIInfo::computeInfo(CGFunctionInfo &FI) const {
       FI.getReturnInfo().setInReg(true);
     }
   }
+
+  // The chain argument effectively gives us another free register.
+  if (FI.isChainCall())
+    ++State.FreeRegs;
 
   bool UsedInAlloca = false;
   for (auto &I : FI.arguments()) {
@@ -2730,6 +2734,10 @@ void X86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
   // integer register.
   if (FI.getReturnInfo().isIndirect())
     --freeIntRegs;
+
+  // The chain argument effectively gives us another free register.
+  if (FI.isChainCall())
+    ++freeIntRegs;
 
   unsigned NumRequiredArgs = FI.getNumRequiredArgs();
   // AMD64-ABI 3.2.3p3: Once arguments are classified, the registers
@@ -5268,9 +5276,10 @@ void NVPTXTargetCodeGenInfo::addNVVMMetadata(llvm::Function *F, StringRef Name,
   // Get "nvvm.annotations" metadata node
   llvm::NamedMDNode *MD = M->getOrInsertNamedMetadata("nvvm.annotations");
 
-  llvm::Value *MDVals[] = {
-      F, llvm::MDString::get(Ctx, Name),
-      llvm::ConstantInt::get(llvm::Type::getInt32Ty(Ctx), Operand)};
+  llvm::Metadata *MDVals[] = {
+      llvm::ConstantAsMetadata::get(F), llvm::MDString::get(Ctx, Name),
+      llvm::ConstantAsMetadata::get(
+          llvm::ConstantInt::get(llvm::Type::getInt32Ty(Ctx), Operand))};
   // Append metadata to nvvm.annotations
   MD->addOperand(llvm::MDNode::get(Ctx, MDVals));
 }
@@ -5739,6 +5748,8 @@ llvm::Type *MipsABIInfo::getPaddingType(uint64_t OrigOffset,
 
 ABIArgInfo
 MipsABIInfo::classifyArgumentType(QualType Ty, uint64_t &Offset) const {
+  Ty = useFirstFieldIfTransparentUnion(Ty);
+
   uint64_t OrigOffset = Offset;
   uint64_t TySize = getContext().getTypeSize(Ty);
   uint64_t Align = getContext().getTypeAlign(Ty) / 8;
@@ -5877,10 +5888,13 @@ llvm::Value* MipsABIInfo::EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
   llvm::Type *BP = CGF.Int8PtrTy;
   llvm::Type *BPP = CGF.Int8PtrPtrTy;
 
-  // Integer arguments are promoted 32-bit on O32 and 64-bit on N32/N64.
+  // Integer arguments are promoted to 32-bit on O32 and 64-bit on N32/N64.
+  // Pointers are also promoted in the same way but this only matters for N32.
   unsigned SlotSizeInBits = IsO32 ? 32 : 64;
-  if (Ty->isIntegerType() &&
-      CGF.getContext().getIntWidth(Ty) < SlotSizeInBits) {
+  unsigned PtrWidth = getTarget().getPointerWidth(0);
+  if ((Ty->isIntegerType() &&
+          CGF.getContext().getIntWidth(Ty) < SlotSizeInBits) ||
+      (Ty->isPointerType() && PtrWidth < SlotSizeInBits)) {
     Ty = CGF.getContext().getIntTypeForBitwidth(SlotSizeInBits,
                                                 Ty->isSignedIntegerType());
   }
@@ -5892,7 +5906,6 @@ llvm::Value* MipsABIInfo::EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
       std::min(getContext().getTypeAlign(Ty) / 8, StackAlignInBytes);
   llvm::Type *PTy = llvm::PointerType::getUnqual(CGF.ConvertType(Ty));
   llvm::Value *AddrTyped;
-  unsigned PtrWidth = getTarget().getPointerWidth(0);
   llvm::IntegerType *IntTy = (PtrWidth == 32) ? CGF.Int32Ty : CGF.Int64Ty;
 
   if (TypeAlign > MinABIStackAlignInBytes) {
@@ -5982,20 +5995,24 @@ void TCETargetCodeGenInfo::SetTargetAttributes(const Decl *D,
         llvm::NamedMDNode *OpenCLMetadata = 
             M.getModule().getOrInsertNamedMetadata("opencl.kernel_wg_size_info");
 
-        SmallVector<llvm::Value*, 5> Operands;
-        Operands.push_back(F);
+        SmallVector<llvm::Metadata *, 5> Operands;
+        Operands.push_back(llvm::ConstantAsMetadata::get(F));
 
-        Operands.push_back(llvm::Constant::getIntegerValue(M.Int32Ty, 
-                             llvm::APInt(32, Attr->getXDim())));
-        Operands.push_back(llvm::Constant::getIntegerValue(M.Int32Ty,
-                             llvm::APInt(32, Attr->getYDim())));
-        Operands.push_back(llvm::Constant::getIntegerValue(M.Int32Ty, 
-                             llvm::APInt(32, Attr->getZDim())));
+        Operands.push_back(
+            llvm::ConstantAsMetadata::get(llvm::Constant::getIntegerValue(
+                M.Int32Ty, llvm::APInt(32, Attr->getXDim()))));
+        Operands.push_back(
+            llvm::ConstantAsMetadata::get(llvm::Constant::getIntegerValue(
+                M.Int32Ty, llvm::APInt(32, Attr->getYDim()))));
+        Operands.push_back(
+            llvm::ConstantAsMetadata::get(llvm::Constant::getIntegerValue(
+                M.Int32Ty, llvm::APInt(32, Attr->getZDim()))));
 
         // Add a boolean constant operand for "required" (true) or "hint" (false)
         // for implementing the work_group_size_hint attr later. Currently 
         // always true as the hint is not yet implemented.
-        Operands.push_back(llvm::ConstantInt::getTrue(Context));
+        Operands.push_back(
+            llvm::ConstantAsMetadata::get(llvm::ConstantInt::getTrue(Context)));
         OpenCLMetadata->addOperand(llvm::MDNode::get(Context, Operands));
       }
     }
@@ -6135,6 +6152,45 @@ llvm::Value *HexagonABIInfo::EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
   Builder.CreateStore(NextAddr, VAListAddrAsBPP);
 
   return AddrTyped;
+}
+
+//===----------------------------------------------------------------------===//
+// AMDGPU ABI Implementation
+//===----------------------------------------------------------------------===//
+
+namespace {
+
+class AMDGPUTargetCodeGenInfo : public TargetCodeGenInfo {
+public:
+  AMDGPUTargetCodeGenInfo(CodeGenTypes &CGT)
+    : TargetCodeGenInfo(new DefaultABIInfo(CGT)) {}
+  void SetTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
+                           CodeGen::CodeGenModule &M) const override;
+};
+
+}
+
+void AMDGPUTargetCodeGenInfo::SetTargetAttributes(
+  const Decl *D,
+  llvm::GlobalValue *GV,
+  CodeGen::CodeGenModule &M) const {
+  const FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
+  if (!FD)
+    return;
+
+  if (const auto Attr = FD->getAttr<AMDGPUNumVGPRAttr>()) {
+    llvm::Function *F = cast<llvm::Function>(GV);
+    uint32_t NumVGPR = Attr->getNumVGPR();
+    if (NumVGPR != 0)
+      F->addFnAttr("amdgpu_num_vgpr", llvm::utostr(NumVGPR));
+  }
+
+  if (const auto Attr = FD->getAttr<AMDGPUNumSGPRAttr>()) {
+    llvm::Function *F = cast<llvm::Function>(GV);
+    unsigned NumSGPR = Attr->getNumSGPR();
+    if (NumSGPR != 0)
+      F->addFnAttr("amdgpu_num_sgpr", llvm::utostr(NumSGPR));
+  }
 }
 
 
@@ -6720,8 +6776,8 @@ void XCoreTargetCodeGenInfo::emitTargetMD(const Decl *D, llvm::GlobalValue *GV,
   SmallStringEnc Enc;
   if (getTypeString(Enc, D, CGM, TSC)) {
     llvm::LLVMContext &Ctx = CGM.getModule().getContext();
-    llvm::SmallVector<llvm::Value *, 2> MDVals;
-    MDVals.push_back(GV);
+    llvm::SmallVector<llvm::Metadata *, 2> MDVals;
+    MDVals.push_back(llvm::ConstantAsMetadata::get(GV));
     MDVals.push_back(llvm::MDString::get(Ctx, Enc.str()));
     llvm::NamedMDNode *MD =
       CGM.getModule().getOrInsertNamedMetadata("xcore.typestrings");
@@ -7198,6 +7254,10 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
   }
   case llvm::Triple::hexagon:
     return *(TheTargetCodeGenInfo = new HexagonTargetCodeGenInfo(Types));
+  case llvm::Triple::r600:
+    return *(TheTargetCodeGenInfo = new AMDGPUTargetCodeGenInfo(Types));
+  case llvm::Triple::amdgcn:
+    return *(TheTargetCodeGenInfo = new AMDGPUTargetCodeGenInfo(Types));
   case llvm::Triple::sparcv9:
     return *(TheTargetCodeGenInfo = new SparcV9TargetCodeGenInfo(Types));
   case llvm::Triple::xcore:
