@@ -33,7 +33,7 @@ set(SERVICES_TARGET_SOURCE_FILES
   Services/utils/CompilationUtils.cpp
   Services/utils/VectorizerUtils.cpp
   Services/utils/TypeConversion.cpp
-  Services/metadata_api/MetaDataApi.cpp
+#  Services/metadata_api/MetaDataApi.cpp
 )
 
 # -------------------------- VECTORIZER ---------------------------

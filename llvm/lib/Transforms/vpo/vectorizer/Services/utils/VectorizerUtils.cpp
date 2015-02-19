@@ -31,8 +31,7 @@ void VectorizerUtils::getFunctionsToVectorize(llvm::Module &M,
     MDNode* mdNode = *nmdIt;
     assert(mdNode->getNumOperands() == 1 &&
 	   "function to vectorize metadata should only contain its name");
-    Value* mdValue = mdNode->getOperand(0);
-    MDString* mdString = dyn_cast<MDString>(mdValue);
+    MDString* mdString = dyn_cast<MDString>(mdNode->getOperand(0));
     assert(mdString &&
 	   "function to vectorize metadata should contain its name");
     StringRef functionName = mdString->getString();

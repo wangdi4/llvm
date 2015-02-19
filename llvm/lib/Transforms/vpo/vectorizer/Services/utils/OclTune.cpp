@@ -19,11 +19,16 @@ File Name:  OclTune.cpp
 #ifdef OCLT
 #include "OclTune.h"
 #include "llvm/Support/CommandLine.h"
+#ifdef USE_METADATA_API
+#include "MetaDataApi.h"
+#endif
 
 #include <time.h>
 
 using namespace llvm;
+#ifdef USE_METADATA_API
 using namespace Intel;
+#endif
 
 namespace intel {
 
@@ -73,6 +78,7 @@ void Statistic::setModuleStatInfo (llvm::Module *M, const char * workloadName,
 
   strftime (buffer,80,"%Y-%m-%d %H:%M:%S",timeinfo);
 
+#ifdef USE_METADATA_API
   Intel::MetaDataUtils mdUtils(M);
 
   ModuleStatInfoMetaData *statInfo = ModuleStatInfoMetaData::get();
@@ -86,6 +92,7 @@ void Statistic::setModuleStatInfo (llvm::Module *M, const char * workloadName,
 
   //Save Metadata to the module
   mdUtils.save(M->getContext());
+#endif
 }
 
 void Statistic::pushFunctionStats (ActiveStatsT &activeStats, llvm::Function &F,
@@ -105,6 +112,7 @@ void Statistic::pushFunctionStats (ActiveStatsT &activeStats, llvm::Function &F,
   if (F.getParent() == NULL)
     return;
 
+#ifdef USE_METADATA_API
   Intel::MetaDataUtils mdUtils(F.getParent());
 
   // get a pointer to the list of this function stats
@@ -137,6 +145,7 @@ void Statistic::pushFunctionStats (ActiveStatsT &activeStats, llvm::Function &F,
 
   //Save Metadata to the module
   mdUtils.save(F.getContext());
+#endif
 
   // remove all stats registered for this list
   activeStats.clear();
@@ -156,6 +165,7 @@ void Statistic::moveFunctionStats (llvm::Function &FromFunction,
     return;
 
   // it is assumed that ToFunction and FromFunction are defined in the same context
+#ifdef USE_METADATA_API
   Intel::MetaDataUtils mdUtils(ToFunction.getParent());
 
   // if FromFunction has no stats return
@@ -185,6 +195,7 @@ void Statistic::moveFunctionStats (llvm::Function &FromFunction,
 
   //Save Metadata to the module
   mdUtils.save(FromFunction.getContext());
+#endif
 }
 
 void Statistic::copyFunctionStats (llvm::Function &FromFunction,
@@ -202,6 +213,7 @@ void Statistic::copyFunctionStats (llvm::Function &FromFunction,
     return;
 
   // it is assumed that ToFunction and FromFunction are defined in the same context
+#ifdef USE_METADATA_API
   Intel::MetaDataUtils mdUtils(ToFunction.getParent());
 
   // if FromFunction has no stats return
@@ -226,6 +238,7 @@ void Statistic::copyFunctionStats (llvm::Function &FromFunction,
 
   //Save Metadata to the module
   mdUtils.save(FromFunction.getContext());
+#endif
 }
 
 void Statistic::removeFunctionStats (llvm::Function &FromFunction)
@@ -241,6 +254,7 @@ void Statistic::removeFunctionStats (llvm::Function &FromFunction)
   if (FromFunction.getParent() == NULL)
     return;
 
+#ifdef USE_METADATA_API
   Intel::MetaDataUtils mdUtils(FromFunction.getParent());
 
   // if FromFunction has no stats return
@@ -253,6 +267,7 @@ void Statistic::removeFunctionStats (llvm::Function &FromFunction)
 
   //Save Metadata to the module
   mdUtils.save(FromFunction.getContext());
+#endif
 }
 
 }

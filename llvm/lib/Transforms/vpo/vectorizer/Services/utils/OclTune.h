@@ -21,7 +21,6 @@ File Name:  OclTune.h
 
 #include <string>
 #include <vector>
-#include "MetaDataApi.h"
 #include "llvm/IR/Function.h"
 
 #ifdef OCLT

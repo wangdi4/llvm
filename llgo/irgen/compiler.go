@@ -26,11 +26,11 @@ import (
 	"llvm.org/llgo/debug"
 	"llvm.org/llvm/bindings/go/llvm"
 
-	"llvm.org/llgo/third_party/go.tools/go/gccgoimporter"
-	"llvm.org/llgo/third_party/go.tools/go/importer"
-	"llvm.org/llgo/third_party/go.tools/go/loader"
-	"llvm.org/llgo/third_party/go.tools/go/ssa"
-	"llvm.org/llgo/third_party/go.tools/go/types"
+	"llvm.org/llgo/third_party/gotools/go/gccgoimporter"
+	"llvm.org/llgo/third_party/gotools/go/importer"
+	"llvm.org/llgo/third_party/gotools/go/loader"
+	"llvm.org/llgo/third_party/gotools/go/ssa"
+	"llvm.org/llgo/third_party/gotools/go/types"
 )
 
 type Module struct {
@@ -93,6 +93,15 @@ type CompilerOptions struct {
 	// compiler will set this field automatically using MakeImporter().
 	// If Importer is non-nil, InitMap must be non-nil also.
 	InitMap map[*types.Package]gccgoimporter.InitData
+
+	// PackageCreated is a hook passed to the go/loader package via
+	// loader.Config, see the documentation for that package for more
+	// information.
+	PackageCreated func(*types.Package)
+
+	// DisableUnusedImportCheck disables the unused import check performed
+	// by go/types if set to true.
+	DisableUnusedImportCheck bool
 }
 
 type Compiler struct {
@@ -201,8 +210,10 @@ func (compiler *compiler) compile(fset *token.FileSet, astFiles []*ast.File, imp
 		TypeChecker: types.Config{
 			Import: compiler.Importer,
 			Sizes:  compiler.llvmtypes,
+			DisableUnusedImportCheck: compiler.DisableUnusedImportCheck,
 		},
-		Build: &buildctx.Context,
+		Build:          &buildctx.Context,
+		PackageCreated: compiler.PackageCreated,
 	}
 	// If no import path is specified, then set the import
 	// path to be the same as the package's name.

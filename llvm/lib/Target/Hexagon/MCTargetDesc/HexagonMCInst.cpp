@@ -18,15 +18,49 @@
 
 using namespace llvm;
 
-HexagonMCInst::HexagonMCInst()
-    : MCInst(), MCID(nullptr), packetBegin(0), packetEnd(0){}
-HexagonMCInst::HexagonMCInst(MCInstrDesc const &mcid)
-    : MCInst(), MCID(&mcid), packetBegin(0), packetEnd(0){}
+std::unique_ptr <MCInstrInfo const> HexagonMCInst::MCII;
 
-bool HexagonMCInst::isPacketBegin() const { return (packetBegin); }
-bool HexagonMCInst::isPacketEnd() const { return (packetEnd); }
-void HexagonMCInst::setPacketBegin(bool Y) { packetBegin = Y; }
-void HexagonMCInst::setPacketEnd(bool Y) { packetEnd = Y; }
+HexagonMCInst::HexagonMCInst() : MCInst() {}
+HexagonMCInst::HexagonMCInst(MCInstrDesc const &mcid) : MCInst() {}
+
+void HexagonMCInst::AppendImplicitOperands(MCInst &MCI) {
+  MCI.addOperand(MCOperand::CreateImm(0));
+  MCI.addOperand(MCOperand::CreateInst(nullptr));
+}
+
+std::bitset<16> HexagonMCInst::GetImplicitBits(MCInst const &MCI) {
+  SanityCheckImplicitOperands(MCI);
+  std::bitset<16> Bits(MCI.getOperand(MCI.getNumOperands() - 2).getImm());
+  return Bits;
+}
+
+void HexagonMCInst::SetImplicitBits(MCInst &MCI, std::bitset<16> Bits) {
+  SanityCheckImplicitOperands(MCI);
+  MCI.getOperand(MCI.getNumOperands() - 2).setImm(Bits.to_ulong());
+}
+
+void HexagonMCInst::setPacketBegin(bool f) {
+  std::bitset<16> Bits(GetImplicitBits(*this));
+  Bits.set(packetBeginIndex, f);
+  SetImplicitBits(*this, Bits);
+}
+
+bool HexagonMCInst::isPacketBegin() const {
+  std::bitset<16> Bits(GetImplicitBits(*this));
+  return Bits.test(packetBeginIndex);
+}
+
+void HexagonMCInst::setPacketEnd(bool f) {
+  std::bitset<16> Bits(GetImplicitBits(*this));
+  Bits.set(packetEndIndex, f);
+  SetImplicitBits(*this, Bits);
+}
+
+bool HexagonMCInst::isPacketEnd() const {
+  std::bitset<16> Bits(GetImplicitBits(*this));
+  return Bits.test(packetEndIndex);
+}
+
 void HexagonMCInst::resetPacket() {
   setPacketBegin(false);
   setPacketEnd(false);
@@ -43,16 +77,18 @@ unsigned HexagonMCInst::getUnits(const HexagonTargetMachine *TM) const {
   return (IS->getUnits());
 }
 
+MCInstrDesc const& HexagonMCInst::getDesc() const { return (MCII->get(getOpcode())); }
+
 // Return the Hexagon ISA class for the insn.
 unsigned HexagonMCInst::getType() const {
-  const uint64_t F = MCID->TSFlags;
+  const uint64_t F = getDesc().TSFlags;
 
   return ((F >> HexagonII::TypePos) & HexagonII::TypeMask);
 }
 
 // Return whether the insn is an actual insn.
 bool HexagonMCInst::isCanon() const {
-  return (!MCID->isPseudo() && !isPrefix() &&
+  return (!getDesc().isPseudo() && !isPrefix() &&
           getType() != HexagonII::TypeENDLOOP);
 }
 
@@ -63,25 +99,25 @@ bool HexagonMCInst::isPrefix() const {
 
 // Return whether the insn is solo, i.e., cannot be in a packet.
 bool HexagonMCInst::isSolo() const {
-  const uint64_t F = MCID->TSFlags;
+  const uint64_t F = getDesc().TSFlags;
   return ((F >> HexagonII::SoloPos) & HexagonII::SoloMask);
 }
 
 // Return whether the insn is a new-value consumer.
 bool HexagonMCInst::isNewValue() const {
-  const uint64_t F = MCID->TSFlags;
+  const uint64_t F = getDesc().TSFlags;
   return ((F >> HexagonII::NewValuePos) & HexagonII::NewValueMask);
 }
 
 // Return whether the instruction is a legal new-value producer.
 bool HexagonMCInst::hasNewValue() const {
-  const uint64_t F = MCID->TSFlags;
+  const uint64_t F = getDesc().TSFlags;
   return ((F >> HexagonII::hasNewValuePos) & HexagonII::hasNewValueMask);
 }
 
 // Return the operand that consumes or produces a new value.
 const MCOperand &HexagonMCInst::getNewValue() const {
-  const uint64_t F = MCID->TSFlags;
+  const uint64_t F = getDesc().TSFlags;
   const unsigned O =
       (F >> HexagonII::NewValueOpPos) & HexagonII::NewValueOpMask;
   const MCOperand &MCO = getOperand(O);
@@ -129,31 +165,31 @@ bool HexagonMCInst::isConstExtended(void) const {
 
 // Return whether the instruction must be always extended.
 bool HexagonMCInst::isExtended(void) const {
-  const uint64_t F = MCID->TSFlags;
+  const uint64_t F = getDesc().TSFlags;
   return (F >> HexagonII::ExtendedPos) & HexagonII::ExtendedMask;
 }
 
 // Return true if the instruction may be extended based on the operand value.
 bool HexagonMCInst::isExtendable(void) const {
-  const uint64_t F = MCID->TSFlags;
+  const uint64_t F = getDesc().TSFlags;
   return (F >> HexagonII::ExtendablePos) & HexagonII::ExtendableMask;
 }
 
 // Return number of bits in the constant extended operand.
 unsigned HexagonMCInst::getBitCount(void) const {
-  const uint64_t F = MCID->TSFlags;
+  const uint64_t F = getDesc().TSFlags;
   return ((F >> HexagonII::ExtentBitsPos) & HexagonII::ExtentBitsMask);
 }
 
 // Return constant extended operand number.
 unsigned short HexagonMCInst::getCExtOpNum(void) const {
-  const uint64_t F = MCID->TSFlags;
+  const uint64_t F = getDesc().TSFlags;
   return ((F >> HexagonII::ExtendableOpPos) & HexagonII::ExtendableOpMask);
 }
 
 // Return whether the operand can be constant extended.
 bool HexagonMCInst::isOperandExtended(const unsigned short OperandNum) const {
-  const uint64_t F = MCID->TSFlags;
+  const uint64_t F = getDesc().TSFlags;
   return ((F >> HexagonII::ExtendableOpPos) & HexagonII::ExtendableOpMask) ==
          OperandNum;
 }
@@ -161,7 +197,7 @@ bool HexagonMCInst::isOperandExtended(const unsigned short OperandNum) const {
 // Return the min value that a constant extendable operand can have
 // without being extended.
 int HexagonMCInst::getMinValue(void) const {
-  const uint64_t F = MCID->TSFlags;
+  const uint64_t F = getDesc().TSFlags;
   unsigned isSigned =
       (F >> HexagonII::ExtentSignedPos) & HexagonII::ExtentSignedMask;
   unsigned bits = (F >> HexagonII::ExtentBitsPos) & HexagonII::ExtentBitsMask;
@@ -175,7 +211,7 @@ int HexagonMCInst::getMinValue(void) const {
 // Return the max value that a constant extendable operand can have
 // without being extended.
 int HexagonMCInst::getMaxValue(void) const {
-  const uint64_t F = MCID->TSFlags;
+  const uint64_t F = getDesc().TSFlags;
   unsigned isSigned =
       (F >> HexagonII::ExtentSignedPos) & HexagonII::ExtentSignedMask;
   unsigned bits = (F >> HexagonII::ExtentBitsPos) & HexagonII::ExtentBitsMask;

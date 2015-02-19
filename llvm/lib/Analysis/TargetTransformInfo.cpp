@@ -101,6 +101,17 @@ bool TargetTransformInfo::isLegalICmpImmediate(int64_t Imm) const {
   return PrevTTI->isLegalICmpImmediate(Imm);
 }
 
+bool TargetTransformInfo::isLegalMaskedLoad(Type *DataType,
+                                            int Consecutive) const {
+  return false;
+}
+
+bool TargetTransformInfo::isLegalMaskedStore(Type *DataType,
+                                             int Consecutive) const {
+  return false;
+}
+
+
 bool TargetTransformInfo::isLegalAddressingMode(Type *Ty, GlobalValue *BaseGV,
                                                 int64_t BaseOffset,
                                                 bool HasBaseReg,
@@ -208,7 +219,6 @@ unsigned TargetTransformInfo::getMemoryOpCost(unsigned Opcode, Type *Src,
                                               unsigned Alignment,
                                               unsigned AddressSpace) const {
   return PrevTTI->getMemoryOpCost(Opcode, Src, Alignment, AddressSpace);
-  ;
 }
 
 unsigned
@@ -392,6 +402,9 @@ struct NoTTI final : ImmutablePass, TargetTransformInfo {
       // FIXME: This is wrong for libc intrinsics.
       return TCC_Basic;
 
+#ifdef INTEL_CUSTOMIZATION
+    case Intrinsic::intel_pragma:
+#endif
     case Intrinsic::annotation:
     case Intrinsic::assume:
     case Intrinsic::dbg_declare:

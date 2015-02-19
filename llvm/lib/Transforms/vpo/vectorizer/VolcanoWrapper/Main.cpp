@@ -10,7 +10,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Mangler.h"
 #include "WIAnalysis.h"
 #include "InstCounter.h"
+#ifdef USE_METADATA_API
 #include "MetaDataApi.h"
+#endif
 #include "OclTune.h"
 #include "OCLPassSupport.h"
 #include "VectorizerUtils.h"
@@ -379,7 +381,9 @@ bool Vectorizer::runOnModule(Module &M)
     return false;
   }
 
+#ifdef USE_METADATA_API
   Intel::MetaDataUtils mdUtils(&M);
+#endif
 
 /* xmain */
   createVectorizationStubs(M);
@@ -436,8 +440,10 @@ bool Vectorizer::runOnModule(Module &M)
 
   deleteVectorizationStubs();
 
+#ifdef USE_METADATA_API
   //Save Metadata to the module
   mdUtils.save(M.getContext());
+#endif
 
   V_DUMP_MODULE((&M));
   //////////////////////////////////////////////
