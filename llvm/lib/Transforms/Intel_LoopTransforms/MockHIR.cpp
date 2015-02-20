@@ -142,9 +142,10 @@ void MockHIR::createMockHIRSimpleLoop() {
 
   CanonExpr *StoreLinearCE =
       CanonExprUtils::createCanonExpr(Int64Type, true, 1, 1, 1);
+  StoreLinearCE->addIV(1, 1);
   RegDDRef::StrideTy Strides2;
-  Strides.push_back(CanonExprUtils::createCanonExpr(Int64Type, true, 0, 0, 1));
-  Strides.push_back(StoreLinearCE);
+  Strides2.push_back(CanonExprUtils::createCanonExpr(Int64Type, true, 0, 0, 1));
+  Strides2.push_back(StoreLinearCE);
   DDRefUtils::setGEP(StoreRef, StoreBlobCE, Strides2, true);
   // Set refs into hlinst
 

@@ -97,15 +97,15 @@ public:
   const BlobDDRefsTy& getBlobDDRefs() const { return BlobDDRefs; }
 
   /// \brief Returns the stride associated with each dimension
-  StrideTy* getStrides();
+  StrideTy* getStrides() { return &(GepInfo->Strides); }
   const StrideTy* getStrides() const;
 
   /// \brief Returns the canonical form of the subscript base
-  CanonExpr* getBaseCE();
+  CanonExpr* getBaseCE() {return GepInfo->BaseCE; }
   const CanonExpr* getBaseCE() const;
 
   /// \brief Returns true if the inbounds attribute is set for this access
-  bool isInBounds();
+  bool isInBounds() {return GepInfo->inbounds;}
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const DDRef* Ref) {

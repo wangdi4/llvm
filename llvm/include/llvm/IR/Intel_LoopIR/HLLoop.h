@@ -102,6 +102,18 @@ public:
     return Ztt->getConjunctions(); 
   }
 
+  int computeNestingLevel() {
+    int CNestingLevel=1;
+    HLNode *curPar = this->getParent();
+    while((curPar)) {
+      if(isa<HLLoop>(curPar)) CNestingLevel++;
+      curPar = curPar->getParent();
+    }
+    return CNestingLevel;
+  }
+
+
+
   /// \brief Returns the DDRef associated with loop lower bound.
   /// The first DDRef is associated with lower bound.
   DDRef* getLowerDDRef() { return DDRefs[0]; }
