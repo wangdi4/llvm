@@ -12,6 +12,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
+#include "llvm/IR/Intel_LoopIR/HLRegion.h"
+#include "llvm/IR/Intel_LoopIR/HLLoop.h"
+
 using namespace llvm;
 using namespace llvm::loopopt;
 
@@ -20,8 +23,8 @@ HLContainerTy llvm::loopopt::HLRegions;
 
 std::set< HLNode* >HLNode::Objs;
 
-HLNode::HLNode(unsigned SCID, HLNode* Par)
-  : SubClassID(SCID), Parent(Par) {
+HLNode::HLNode(unsigned SCID)
+  : SubClassID(SCID), Parent(nullptr) {
 
   Objs.insert(this);
 }
@@ -46,3 +49,14 @@ void HLNode::destroyAll() {
   Objs.clear();
 }
 
+HLLoop* HLNode::getParentLoop() const {
+  assert( !isa<HLRegion>(this) && "Region cannot have a parent loop");
+
+  HLNode* Par = getParent();
+
+  while(Par && !isa<HLLoop>(Par)) {
+    Par = Par->getParent();
+  } 
+
+  return cast_or_null<HLLoop>(Par);
+}

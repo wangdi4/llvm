@@ -30,7 +30,7 @@ private:
   BasicBlock* SrcBBlock;
 
 protected:
-  HLLabel(HLNode* Par, BasicBlock* SrcBB);
+  explicit HLLabel(BasicBlock* SrcBB);
   ~HLLabel() { }
 
   /// \brief Copy constructor used by cloning.
@@ -50,7 +50,7 @@ public:
 
   /// clone() - Create a copy of 'this' HLLabel that is identical in all
   /// ways except the following:
-  ///   * The HLLoop has no parent
+  ///   * The HLLabel has no parent
   HLLabel* clone() const override;
 
 };

@@ -26,7 +26,6 @@ class BasicBlock;
 namespace loopopt {
 
 class DDRef;
-class HLLoop;
 
 /// \brief Base class for high level nodes which can contain DDRefs
 class HLDDNode : public HLNode {
@@ -50,7 +49,7 @@ private:
   void setNextNumber();
 
 protected:
-  HLDDNode(unsigned SCID, HLNode* Par);
+  HLDDNode(unsigned SCID);
   virtual ~HLDDNode() { };
 
   friend class HLNodeUtils;
@@ -69,9 +68,6 @@ public:
   /// \brief Returns the number of this node in the topological sort order.
   unsigned getTopSortNum() const { return TopSortNum; }
   void setTopSortNum (unsigned Num) { TopSortNum = Num; }
-
-  /// \brief Returns the parent loop of this node, if one exists.
-  HLLoop* getParentLoop() const;
 
   /// DDRef iterator methods
   ddref_iterator               ddref_begin()        { return DDRefs.begin(); }

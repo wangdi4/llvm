@@ -12,25 +12,31 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/Debug.h"
-
 #include "llvm/IR/Intel_LoopIR/HLLoop.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
 
-HLLoop::HLLoop(HLNode* Par, HLIf* ZttIf, bool IsDoWh, unsigned NumEx)
-  : HLDDNode(HLNode::HLLoopVal, Par), Ztt(ZttIf), IsDoWhile(IsDoWh)
-  , NumExits(NumEx), NestingLevel(0), IsInnermost(true) { }
+HLLoop::HLLoop(HLIf* ZttIf, bool IsDoWh, unsigned NumEx)
+  : HLDDNode(HLNode::HLLoopVal), Ztt(ZttIf), IsDoWhile(IsDoWh)
+  , NumExits(NumEx), NestingLevel(0), IsInnermost(true) { 
+
+  ChildBegin = Children.end();
+  PostexitBegin = Children.end();
+}
 
 HLLoop::HLLoop(const HLLoop &HLLoopObj)
   : HLDDNode(HLLoopObj), IsDoWhile(HLLoopObj.IsDoWhile)
   , NumExits(HLLoopObj.NumExits), NestingLevel(0)
   , IsInnermost(HLLoopObj.IsInnermost) {
 
+  ChildBegin = Children.end();
+  PostexitBegin = Children.end();
+
   /// Clone the Ztt
   Ztt = nullptr;
   if (HLLoopObj.hasZtt()) {
-  	/// TODO: Check if setParent is handled correctly
     Ztt = HLLoopObj.Ztt->clone();
   }
 
@@ -38,27 +44,21 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
   for (const_pre_iterator PreIter = HLLoopObj.pre_begin(),
        PreIterEnd = HLLoopObj.pre_end(); PreIter != PreIterEnd; ++PreIter) {
     HLNode *NewHLNode = PreIter->clone();
-    /// TODO: Check if setParent is handled in push_back
-    /// NewHLNode->setParent(this);
-    Preheader.push_back(NewHLNode);
-  }
-
-  for (const_post_iterator PostIter = HLLoopObj.post_begin(),
-       PostIterEnd = HLLoopObj.post_end();
-       PostIter != PostIterEnd; ++PostIter) {
-    HLNode *NewHLNode = PostIter->clone();
-    /// TODO: Check if setParent is handled in push_back
-    /// NewHLNode->setParent(this);
-    Postexit.push_back(NewHLNode);
+    HLNodeUtils::insertAsLastPreheaderNode(this, NewHLNode);
   }
 
   for (const_child_iterator ChildIter = HLLoopObj.child_begin(),
        ChildIterEnd = HLLoopObj.child_end();
        ChildIter != ChildIterEnd; ++ChildIter) {
     HLNode *NewHLNode = ChildIter->clone();
-    /// TODO: Check if setParent is handled in push_back
-    /// NewHLNode->setParent(this);
-    Children.push_back(NewHLNode);
+    HLNodeUtils::insertAsLastChild(this, NewHLNode);
+  }
+
+  for (const_post_iterator PostIter = HLLoopObj.post_begin(),
+       PostIterEnd = HLLoopObj.post_end();
+       PostIter != PostIterEnd; ++PostIter) {
+    HLNode *NewHLNode = PostIter->clone();
+    HLNodeUtils::insertAsLastPostexitNode(this, NewHLNode);
   }
 }
 

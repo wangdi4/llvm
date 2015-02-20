@@ -24,6 +24,8 @@ namespace llvm {
 
 namespace loopopt {
 
+class HLLoop;
+
 /// \brief High level IR node base class
 ///
 /// This represents a node of the High level IR. It is used to represent 
@@ -46,7 +48,7 @@ private:
   HLNode* Parent;
 
 protected:
-  HLNode(unsigned SCID, HLNode* Par);
+  HLNode(unsigned SCID);
   HLNode(const HLNode &HLNodeObj);
 
   friend class HLNodeUtils;
@@ -68,6 +70,9 @@ public:
 
   /// \brief Returns the immediate lexical parent of the HLNode. 
   HLNode* getParent() const { return Parent; }
+
+  /// \brief Returns the parent loop of this node, if one exists.
+  HLLoop* getParentLoop() const;
 
   /// \brief Return an ID for the concrete type of this object.
   ///

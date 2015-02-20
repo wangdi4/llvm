@@ -25,7 +25,7 @@ namespace loopopt {
 /// TODO: will be implemented later.
 class HLSwitch : public HLDDNode {
 protected:
-  explicit HLSwitch(HLNode* Par);
+  HLSwitch();
   ~HLSwitch() { }
 
   /// \brief Copy constructor used by cloning.

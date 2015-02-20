@@ -35,7 +35,7 @@ private:
   HLInst* SafeRednSucc;
 
 protected:
-  HLInst(HLNode* Par, Instruction* In);
+  explicit HLInst(Instruction* In);
   ~HLInst() { }
 
   /// \brief Copy constructor used by cloning.

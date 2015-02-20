@@ -22,8 +22,8 @@ using namespace llvm::loopopt;
 
 unsigned HLDDNode::GlobalNum(0);
 
-HLDDNode::HLDDNode(unsigned SCID, HLNode* Par)
-  : HLNode(SCID, Par), TopSortNum(0) {
+HLDDNode::HLDDNode(unsigned SCID)
+  : HLNode(SCID), TopSortNum(0) {
 
   setNextNumber();
 }

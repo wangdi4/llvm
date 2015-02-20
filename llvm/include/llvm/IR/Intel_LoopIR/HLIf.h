@@ -43,11 +43,15 @@ public:
 private:
   PredTy Preds;
   ConjunctionTy Conjunctions;
-  ChildNodeTy ThenChildren;
-  ChildNodeTy ElseChildren;
+  /// Contains both then and else children, in that order.
+  /// Having a single container allows for more efficient and cleaner
+  /// implementation of insert(Before/After) and remove(Before/After).
+  ChildNodeTy Children;
+  /// Iterator pointing to the begining of else children.
+  ChildNodeTy::iterator ElseBegin;
 
 protected:
-  explicit HLIf(HLNode* Par);
+  HLIf();
   ~HLIf() { }
 
   /// \brief Copy constructor used by cloning.
@@ -68,36 +72,48 @@ public:
   ConjunctionTy& getConjunctions()             { return Conjunctions; }
 
   /// Children iterator methods
-  then_iterator               then_begin()     { return ThenChildren.begin(); }
-  const_then_iterator         then_begin() const { return ThenChildren.begin();}
-  then_iterator               then_end()          { return ThenChildren.end(); }
-  const_then_iterator         then_end()   const { return ThenChildren.end(); }
+  then_iterator               then_begin()        { return Children.begin(); }
+  const_then_iterator         then_begin() const  { return Children.begin(); }
+  then_iterator               then_end()          { return ElseBegin; }
+  const_then_iterator         then_end()   const  { return ElseBegin; }
 
-  reverse_then_iterator       then_rbegin()    { return ThenChildren.rbegin(); }
+  reverse_then_iterator       then_rbegin()       { 
+    return ChildNodeTy::reverse_iterator(ElseBegin); 
+  }
   const_reverse_then_iterator then_rbegin() const {
-    return ThenChildren.rbegin();
+    return ChildNodeTy::const_reverse_iterator(ElseBegin);
   }
-  reverse_then_iterator       then_rend()        { return ThenChildren.rend(); }
-  const_reverse_then_iterator then_rend()  const { return ThenChildren.rend(); }
+  reverse_then_iterator       then_rend()         { return Children.rend(); }
+  const_reverse_then_iterator then_rend()  const  { return Children.rend(); }
 
-  else_iterator               else_begin()      { return ElseChildren.begin(); }
-  const_else_iterator         else_begin()  const{ return ElseChildren.begin();}
-  else_iterator               else_end()          { return ElseChildren.end(); }
-  const_else_iterator         else_end()    const { return ElseChildren.end(); }
+  else_iterator               else_begin()        { return ElseBegin; }
+  const_else_iterator         else_begin()  const { return ElseBegin; }
+  else_iterator               else_end()          { return Children.end(); }
+  const_else_iterator         else_end()    const { return Children.end(); }
 
-  reverse_else_iterator       else_rbegin()    { return ElseChildren.rbegin(); }
-  const_reverse_else_iterator else_rbegin() const {
-    return ElseChildren.rbegin();
+  reverse_else_iterator       else_rbegin()       { return Children.rbegin(); }
+  const_reverse_else_iterator else_rbegin() const { return Children.rbegin(); }
+
+  reverse_else_iterator       else_rend()         { 
+    return ChildNodeTy::reverse_iterator(ElseBegin); 
   }
-  reverse_else_iterator       else_rend()        { return ElseChildren.rend(); }
-  const_reverse_else_iterator else_rend()  const { return ElseChildren.rend(); }
+  const_reverse_else_iterator else_rend()  const  { 
+    return ChildNodeTy::const_reverse_iterator(ElseBegin); 
+  }
 
   /// Children acess methods
-  size_t         numThenChildren() const   { return ThenChildren.size();  }
-  bool           isThenEmpty() const  { return ThenChildren.empty(); }
-
-  size_t         numElseChildren() const   { return ElseChildren.size();  }
-  bool           isElseEmpty() const  { return ElseChildren.empty(); }
+  size_t         numThenChildren() const { 
+    return std::distance(then_begin(), then_end()); 
+  }
+  bool           isThenEmpty()     const { 
+    return (then_begin() != then_end()); 
+  }
+  size_t         numElseChildren() const { 
+    return std::distance(else_begin(), else_end()); 
+  }
+  bool           isElseEmpty()     const { 
+    return (else_begin() != else_end()); 
+  }
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode* Node) {

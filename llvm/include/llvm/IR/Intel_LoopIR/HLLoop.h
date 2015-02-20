@@ -60,16 +60,21 @@ public:
 
 private:
   HLIf* Ztt;
-  PreheaderTy Preheader;
-  PostexitTy Postexit;
+  /// Contains preheader, child and postexit nodes, in that order.
+  /// Having a single container allows for more efficient and cleaner 
+  /// implementation of insert(Before/After) and remove(Before/After).
   ChildNodeTy Children;
+  /// Iterator pointing to beginning of children nodes.
+  ChildNodeTy::iterator ChildBegin;
+  /// Iterator pointing to beginning of postexit nodes.
+  ChildNodeTy::iterator PostexitBegin;
   bool IsDoWhile;
   unsigned NumExits;
   unsigned NestingLevel;
   bool IsInnermost;
 
 protected:
-  HLLoop(HLNode* Par, HLIf* ZttIf, bool IsDoWh, unsigned NumEx);
+  HLLoop(HLIf* ZttIf, bool IsDoWh, unsigned NumEx);
 
   ~HLLoop() { }
 
@@ -77,6 +82,9 @@ protected:
   HLLoop(const HLLoop &HLLoopObj);
 
   friend class HLNodeUtils;
+
+  void setNestingLevel(unsigned Level) { NestingLevel = Level; }
+  void setInnermost(bool IsInnermst) { IsInnermost = IsInnermst; }
 
 public:
 
@@ -149,53 +157,74 @@ public:
   bool isInnermost() const { return IsInnermost; }
 
   /// Preheader iterator methods
-  pre_iterator               pre_begin()        { return Preheader.begin(); }
-  const_pre_iterator         pre_begin()  const { return Preheader.begin(); }
-  pre_iterator               pre_end()          { return Preheader.end(); }
-  const_pre_iterator         pre_end()    const { return Preheader.end(); }
+  pre_iterator               pre_begin()        { return Children.begin(); }
+  const_pre_iterator         pre_begin()  const { return Children.begin(); }
+  pre_iterator               pre_end()          { return ChildBegin; }
+  const_pre_iterator         pre_end()    const { return ChildBegin; }
 
-  reverse_pre_iterator       pre_rbegin()       { return Preheader.rbegin();}
-  const_reverse_pre_iterator pre_rbegin() const { return Preheader.rbegin();}
-  reverse_pre_iterator       pre_rend()         { return Preheader.rend(); }
-  const_reverse_pre_iterator pre_rend()   const { return Preheader.rend(); }
+  reverse_pre_iterator       pre_rbegin()       { 
+    return ChildNodeTy::reverse_iterator(ChildBegin);
+  }
+  const_reverse_pre_iterator pre_rbegin() const { 
+    return ChildNodeTy::const_reverse_iterator(ChildBegin);
+  }
+
+  reverse_pre_iterator       pre_rend()         { return Children.rend(); }
+  const_reverse_pre_iterator pre_rend()   const { return Children.rend(); }
 
 
   /// Preheader acess methods
-  size_t         numPreheader() const  { return Preheader.size();  }
-  bool           hasPreheader() const  { return !Preheader.empty(); }
+  size_t         numPreheader() const  { 
+    return std::distance(pre_begin(), pre_end());  
+  }
+  bool           hasPreheader() const  { 
+    return (pre_begin() != pre_end()); 
+  }
 
   /// Postexit iterator methods
-  post_iterator               post_begin()        { return Postexit.begin(); }
-  const_post_iterator         post_begin()  const { return Postexit.begin(); }
-  post_iterator               post_end()          { return Postexit.end(); }
-  const_post_iterator         post_end()    const { return Postexit.end(); }
+  post_iterator               post_begin()        { return PostexitBegin; }
+  const_post_iterator         post_begin()  const { return PostexitBegin; }
+  post_iterator               post_end()          { return Children.end(); }
+  const_post_iterator         post_end()    const { return Children.end(); }
 
-  reverse_post_iterator       post_rbegin()       { return Postexit.rbegin();}
-  const_reverse_post_iterator post_rbegin() const { return Postexit.rbegin();}
-  reverse_post_iterator       post_rend()         { return Postexit.rend(); }
-  const_reverse_post_iterator post_rend()   const { return Postexit.rend(); }
+  reverse_post_iterator       post_rbegin()       { return Children.rbegin(); }
+  const_reverse_post_iterator post_rbegin() const { return Children.rbegin(); }
+  reverse_post_iterator       post_rend()         { 
+    return ChildNodeTy::reverse_iterator(PostexitBegin); 
+  }
+  const_reverse_post_iterator post_rend()   const { 
+    return ChildNodeTy::const_reverse_iterator(PostexitBegin); 
+  }
 
 
   /// Postexit acess methods
-  size_t         numPostexit() const  { return Postexit.size();  }
-  bool           hasPostexit() const  { return !Postexit.empty(); }
+  size_t         numPostexit() const  { 
+    return std::distance(post_begin(), post_end());  
+  }
+  bool           hasPostexit() const  { 
+    return (post_begin() != post_end()); 
+  }
 
 
   /// Children iterator methods
-  child_iterator               child_begin()        { return Children.begin(); }
-  const_child_iterator         child_begin()  const { return Children.begin(); }
-  child_iterator               child_end()          { return Children.end(); }
-  const_child_iterator         child_end()    const { return Children.end(); }
+  child_iterator               child_begin()        { return pre_end(); }
+  const_child_iterator         child_begin()  const { return pre_end(); }
+  child_iterator               child_end()          { return post_begin(); }
+  const_child_iterator         child_end()    const { return post_begin(); }
 
-  reverse_child_iterator       child_rbegin()       { return Children.rbegin();}
-  const_reverse_child_iterator child_rbegin() const { return Children.rbegin();}
-  reverse_child_iterator       child_rend()         { return Children.rend(); }
-  const_reverse_child_iterator child_rend()   const { return Children.rend(); }
+  reverse_child_iterator       child_rbegin()       { return post_rend(); }
+  const_reverse_child_iterator child_rbegin() const { return post_rend(); }
+  reverse_child_iterator       child_rend()         { return pre_rbegin(); }
+  const_reverse_child_iterator child_rend()   const { return pre_rbegin(); }
 
 
   /// Children acess methods
-  size_t         numChildren() const   { return Children.size();  }
-  bool           hasChildren() const  { return Children.empty(); }
+  size_t         numChildren() const   { 
+    return std::distance(child_begin(), child_end());  
+  }
+  bool           hasChildren() const  { 
+    return (child_begin() != child_end()); 
+  }
 
   /// ZTT DDRef iterator methods
   ztt_ddref_iterator ztt_ddref_begin() {
@@ -239,9 +268,8 @@ public:
 
   /// clone() - Create a copy of 'this' HLLoop that is identical in all
   /// ways except the following:
-  ///   * It has no parent.
   ///   * Data members that depend on where the cloned loop lives in HIR (like
-  ///     nesting level) are not copied. They will be updated by HLNode
+  ///     parent, nesting level) are not copied. They will be updated by HLNode
   ///     insertion/removal utilities.
   HLLoop* clone() const override;
 };

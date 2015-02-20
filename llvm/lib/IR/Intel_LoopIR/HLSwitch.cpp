@@ -19,8 +19,8 @@ using namespace llvm;
 using namespace llvm::loopopt;
 
 
-HLSwitch::HLSwitch(HLNode* Par)
-  : HLDDNode(HLNode::HLSwitchVal, Par) { }
+HLSwitch::HLSwitch()
+  : HLDDNode(HLNode::HLSwitchVal) { }
 
 HLSwitch::HLSwitch(const HLSwitch &HLSwitchObj)
   : HLDDNode(HLSwitchObj) { }

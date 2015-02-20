@@ -46,7 +46,7 @@ void MockHIR::createMockHIRSimpleLoop() {
   // HLNodeUtils::setSimpleLoopZtt(Ztt, PrehdrBlock);
 
   // set up loop
-  HLLoop *Loop = HLNodeUtils::createHLLoop(Region, Ztt, false, 1);
+  HLLoop *Loop = HLNodeUtils::createHLLoop(Ztt, false, 1);
   // set loop bounds, znorm
   Type *Int64Type = IntegerType::get(getGlobalContext(), 64);
   CanonExpr *LBCE = CanonExprUtils::createCanonExpr(Int64Type, true, 1, 0, 1);
@@ -88,7 +88,7 @@ void MockHIR::createMockHIRSimpleLoop() {
     StorePtr = I->getPointerOperand();
   }
 
-  HLNode *InstNode = HLNodeUtils::createHLInst(StoreI, Loop);
+  HLNode *InstNode = HLNodeUtils::createHLInst(StoreI);
 
   HLNodeUtils::dbgPushBackChild(Loop, InstNode);
 

@@ -16,9 +16,8 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-HLGoto::HLGoto(HLNode* Par, BasicBlock* TargetBB,
-  HLLabel* TargetL)
-  : HLDDNode(HLNode::HLGotoVal, Par), TargetBBlock(TargetBB)
+HLGoto::HLGoto(BasicBlock* TargetBB, HLLabel* TargetL)
+  : HLDDNode(HLNode::HLGotoVal), TargetBBlock(TargetBB)
   , TargetLabel(TargetL) { }
 
 HLGoto::HLGoto(const HLGoto &HLGotoObj)

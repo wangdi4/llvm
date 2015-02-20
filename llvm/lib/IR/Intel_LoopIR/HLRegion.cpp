@@ -20,7 +20,7 @@ using namespace llvm::loopopt;
 
 HLRegion::HLRegion(std::set< BasicBlock* >& OrigBBs,
   BasicBlock* PredBB, BasicBlock* SuccBB)
-  : HLNode(HLNode::HLRegionVal, nullptr), OrigBBlocks(OrigBBs)
+  : HLNode(HLNode::HLRegionVal), OrigBBlocks(OrigBBs)
   , PredBBlock(PredBB), SuccBBlock(SuccBB) { }
 
 

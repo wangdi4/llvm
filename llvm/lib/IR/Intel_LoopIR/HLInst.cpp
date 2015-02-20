@@ -17,8 +17,8 @@ using namespace llvm;
 using namespace llvm::loopopt;
 
 
-HLInst::HLInst(HLNode* Par, Instruction* In)
-  : HLDDNode(HLNode::HLInstVal, Par), Inst(In)
+HLInst::HLInst(Instruction* In)
+  : HLDDNode(HLNode::HLInstVal), Inst(In)
   , SafeRednSucc(nullptr) { }
 
 HLInst::HLInst(const HLInst &HLInstObj)

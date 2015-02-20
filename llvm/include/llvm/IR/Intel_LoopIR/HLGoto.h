@@ -33,7 +33,7 @@ private:
   HLLabel* TargetLabel;
 
 protected:
-  HLGoto(HLNode* Par, BasicBlock* TargetBB, HLLabel* TargetL);
+  HLGoto(BasicBlock* TargetBB, HLLabel* TargetL);
   ~HLGoto() { }
 
   /// \brief Copy constructor used by cloning.

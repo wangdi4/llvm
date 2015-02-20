@@ -17,8 +17,8 @@ using namespace llvm;
 using namespace llvm::loopopt;
 
 
-HLLabel::HLLabel(HLNode* Par, BasicBlock* SrcBB)
-  : HLDDNode(HLNode::HLLabelVal, Par), SrcBBlock(SrcBB) { }
+HLLabel::HLLabel(BasicBlock* SrcBB)
+  : HLDDNode(HLNode::HLLabelVal), SrcBBlock(SrcBB) { }
 
 HLLabel::HLLabel(const HLLabel &LabelObj)
   : HLDDNode(LabelObj), SrcBBlock(LabelObj.SrcBBlock) { }
