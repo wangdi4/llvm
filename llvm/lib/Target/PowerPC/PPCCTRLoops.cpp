@@ -30,6 +30,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Dominators.h"
@@ -42,7 +43,6 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetLibraryInfo.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
@@ -173,7 +173,8 @@ bool PPCCTRLoops::runOnFunction(Function &F) {
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
   DL = DLP ? &DLP->getDataLayout() : nullptr;
-  LibInfo = getAnalysisIfAvailable<TargetLibraryInfo>();
+  auto *TLIP = getAnalysisIfAvailable<TargetLibraryInfoWrapperPass>();
+  LibInfo = TLIP ? &TLIP->getTLI() : nullptr;
 
   bool MadeChange = false;
 
@@ -192,6 +193,21 @@ static bool isLargeIntegerTy(bool Is32Bit, Type *Ty) {
     return ITy->getBitWidth() > (Is32Bit ? 32U : 64U);
 
   return false;
+}
+
+// Determining the address of a TLS variable results in a function call in
+// certain TLS models.
+static bool memAddrUsesCTR(const PPCTargetMachine *TM,
+                           const llvm::Value *MemAddr) {
+  const auto *GV = dyn_cast<GlobalValue>(MemAddr);
+  if (!GV)
+    return false;
+  if (!GV->isThreadLocal())
+    return false;
+  if (!TM)
+    return true;
+  TLSModel::Model Model = TM->getTLSModel(GV);
+  return Model == TLSModel::GeneralDynamic || Model == TLSModel::LocalDynamic;
 }
 
 bool PPCCTRLoops::mightUseCTR(const Triple &TT, BasicBlock *BB) {
@@ -389,6 +405,9 @@ bool PPCCTRLoops::mightUseCTR(const Triple &TT, BasicBlock *BB) {
       if (SI->getNumCases() + 1 >= (unsigned)TLI->getMinimumJumpTableEntries())
         return true;
     }
+    for (Value *Operand : J->operands())
+      if (memAddrUsesCTR(TM, Operand))
+        return true;
   }
 
   return false;

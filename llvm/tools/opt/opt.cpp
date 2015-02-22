@@ -20,6 +20,7 @@
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/RegionPass.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Bitcode/BitcodeWriterPass.h"
 #include "llvm/CodeGen/CommandFlags.h"
 #include "llvm/IR/DataLayout.h"
@@ -45,7 +46,6 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ToolOutputFile.h"
-#include "llvm/Target/TargetLibraryInfo.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include <algorithm>
@@ -107,10 +107,6 @@ DisableInline("disable-inlining", cl::desc("Do not run the inliner pass"));
 static cl::opt<bool>
 DisableOptimizations("disable-opt",
                      cl::desc("Do not run any optimization passes"));
-
-static cl::opt<bool>
-StandardCompileOpts("std-compile-opts",
-                   cl::desc("Include the standard compile time optimizations"));
 
 static cl::opt<bool>
 StandardLinkOpts("std-link-opts",
@@ -233,26 +229,6 @@ static void AddOptimizationPasses(PassManagerBase &MPM,FunctionPassManager &FPM,
   Builder.populateModulePassManager(MPM);
 }
 
-static void AddStandardCompilePasses(PassManagerBase &PM) {
-  PM.add(createVerifierPass());                  // Verify that input is correct
-
-  // If the -strip-debug command line option was specified, do it.
-  if (StripDebug)
-    addPass(PM, createStripSymbolsPass(true));
-
-  // Verify debug info only after it's (possibly) stripped.
-  PM.add(createDebugInfoVerifierPass());
-
-  if (DisableOptimizations) return;
-
-  // -std-compile-opts adds the same module passes as -O3.
-  PassManagerBuilder Builder;
-  if (!DisableInline)
-    Builder.Inliner = createFunctionInliningPass();
-  Builder.OptLevel = 3;
-  Builder.populateModulePassManager(PM);
-}
-
 static void AddStandardLinkPasses(PassManagerBase &PM) {
   PassManagerBuilder Builder;
   Builder.VerifyInput = true;
@@ -331,7 +307,6 @@ int main(int argc, char **argv) {
   // Initialize passes
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
   initializeCore(Registry);
-  initializeDebugIRPass(Registry);
   initializeScalarOpts(Registry);
   initializeObjCARCOpts(Registry);
   initializeVectorization(Registry);
@@ -346,6 +321,7 @@ int main(int argc, char **argv) {
   // supported.
   initializeCodeGenPreparePass(Registry);
   initializeAtomicExpandPass(Registry);
+  initializeRewriteSymbolsPass(Registry);
 
 #ifdef LINK_POLLY_INTO_TOOLS
   polly::initializePollyPasses(Registry);
@@ -364,7 +340,7 @@ int main(int argc, char **argv) {
   // Load the input module...
   std::unique_ptr<Module> M = parseIRFile(InputFilename, Err, Context);
 
-  if (!M.get()) {
+  if (!M) {
     Err.print(argv[0], errs());
     return 1;
   }
@@ -413,7 +389,7 @@ int main(int argc, char **argv) {
     // The user has asked to use the new pass manager and provided a pipeline
     // string. Hand off the rest of the functionality to the new code for that
     // layer.
-    return runPassPipeline(argv[0], Context, *M.get(), Out.get(), PassPipeline,
+    return runPassPipeline(argv[0], Context, *M, Out.get(), PassPipeline,
                            OK, VK)
                ? 0
                : 1;
@@ -425,18 +401,18 @@ int main(int argc, char **argv) {
   PassManager Passes;
 
   // Add an appropriate TargetLibraryInfo pass for the module's triple.
-  TargetLibraryInfo *TLI = new TargetLibraryInfo(Triple(M->getTargetTriple()));
+  TargetLibraryInfo TLI(Triple(M->getTargetTriple()));
 
   // The -disable-simplify-libcalls flag actually disables all builtin optzns.
   if (DisableSimplifyLibCalls)
-    TLI->disableAllFunctions();
-  Passes.add(TLI);
+    TLI.disableAllFunctions();
+  Passes.add(new TargetLibraryInfoWrapperPass(TLI));
 
   // Add an appropriate DataLayout instance for this module.
-  const DataLayout *DL = M.get()->getDataLayout();
+  const DataLayout *DL = M->getDataLayout();
   if (!DL && !DefaultDataLayout.empty()) {
     M->setDataLayout(DefaultDataLayout);
-    DL = M.get()->getDataLayout();
+    DL = M->getDataLayout();
   }
 
   if (DL)
@@ -449,7 +425,7 @@ int main(int argc, char **argv) {
   std::unique_ptr<TargetMachine> TM(Machine);
 
   // Add internal analysis passes from the target machine.
-  if (TM.get())
+  if (TM)
     TM->addAnalysisPasses(Passes);
 
   std::unique_ptr<FunctionPassManager> FPasses;
@@ -457,7 +433,7 @@ int main(int argc, char **argv) {
     FPasses.reset(new FunctionPassManager(M.get()));
     if (DL)
       FPasses->add(new DataLayoutPass());
-    if (TM.get())
+    if (TM)
       TM->addAnalysisPasses(*FPasses);
 
   }
@@ -469,7 +445,8 @@ int main(int argc, char **argv) {
         OutputFilename = "-";
 
       std::error_code EC;
-      Out.reset(new tool_output_file(OutputFilename, EC, sys::fs::F_None));
+      Out = llvm::make_unique<tool_output_file>(OutputFilename, EC,
+                                                sys::fs::F_None);
       if (EC) {
         errs() << EC.message() << '\n';
         return 1;
@@ -479,21 +456,12 @@ int main(int argc, char **argv) {
     NoOutput = true;
   }
 
-  // If the -strip-debug command line option was specified, add it.  If
-  // -std-compile-opts was also specified, it will handle StripDebug.
-  if (StripDebug && !StandardCompileOpts)
+  // If the -strip-debug command line option was specified, add it.
+  if (StripDebug)
     addPass(Passes, createStripSymbolsPass(true));
 
   // Create a new optimization pass for each one specified on the command line
   for (unsigned i = 0; i < PassList.size(); ++i) {
-    // Check to see if -std-compile-opts was specified before this option.  If
-    // so, handle it.
-    if (StandardCompileOpts &&
-        StandardCompileOpts.getPosition() < PassList.getPosition(i)) {
-      AddStandardCompilePasses(Passes);
-      StandardCompileOpts = false;
-    }
-
     if (StandardLinkOpts &&
         StandardLinkOpts.getPosition() < PassList.getPosition(i)) {
       AddStandardLinkPasses(Passes);
@@ -566,12 +534,6 @@ int main(int argc, char **argv) {
       Passes.add(createPrintModulePass(errs()));
   }
 
-  // If -std-compile-opts was specified at the end of the pass list, add them.
-  if (StandardCompileOpts) {
-    AddStandardCompilePasses(Passes);
-    StandardCompileOpts = false;
-  }
-
   if (StandardLinkOpts) {
     AddStandardLinkPasses(Passes);
     StandardLinkOpts = false;
@@ -594,8 +556,8 @@ int main(int argc, char **argv) {
 
   if (OptLevelO1 || OptLevelO2 || OptLevelOs || OptLevelOz || OptLevelO3) {
     FPasses->doInitialization();
-    for (Module::iterator F = M->begin(), E = M->end(); F != E; ++F)
-      FPasses->run(*F);
+    for (Function &F : *M)
+      FPasses->run(F);
     FPasses->doFinalization();
   }
 
@@ -617,7 +579,7 @@ int main(int argc, char **argv) {
   cl::PrintOptionValues();
 
   // Now that we have all of the passes ready, run them.
-  Passes.run(*M.get());
+  Passes.run(*M);
 
   // Declare success.
   if (!NoOutput || PrintBreakpoints)

@@ -10,10 +10,10 @@
 #ifndef LLVM_LIB_TARGET_MIPS_MIPSTARGETSTREAMER_H
 #define LLVM_LIB_TARGET_MIPS_MIPSTARGETSTREAMER_H
 
+#include "MCTargetDesc/MipsABIFlagsSection.h"
 #include "llvm/MC/MCELFStreamer.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCStreamer.h"
-#include "MCTargetDesc/MipsABIFlagsSection.h"
 
 namespace llvm {
 
@@ -67,7 +67,7 @@ public:
   virtual void emitDirectiveSetPush();
 
   // PIC support
-  virtual void emitDirectiveCpload(unsigned RegNo);
+  virtual void emitDirectiveCpLoad(unsigned RegNo);
   virtual void emitDirectiveCpsetup(unsigned RegNo, int RegOrOffset,
                                     const MCSymbol &Sym, bool IsReg);
 
@@ -171,7 +171,7 @@ public:
   void emitDirectiveSetPush() override;
 
   // PIC support
-  void emitDirectiveCpload(unsigned RegNo) override;
+  void emitDirectiveCpLoad(unsigned RegNo) override;
   void emitDirectiveCpsetup(unsigned RegNo, int RegOrOffset,
                             const MCSymbol &Sym, bool IsReg) override;
 
@@ -217,7 +217,7 @@ public:
   void emitFMask(unsigned FPUBitmask, int FPUTopSavedRegOff) override;
 
   // PIC support
-  void emitDirectiveCpload(unsigned RegNo) override;
+  void emitDirectiveCpLoad(unsigned RegNo) override;
   void emitDirectiveCpsetup(unsigned RegNo, int RegOrOffset,
                             const MCSymbol &Sym, bool IsReg) override;
 

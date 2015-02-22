@@ -98,6 +98,13 @@ FunctionPass *createScalarReplAggregatesPass(signed Threshold = -1,
 
 //===----------------------------------------------------------------------===//
 //
+// InductiveRangeCheckElimination - Transform loops to elide range checks on
+// linear functions of the induction variable.
+//
+Pass *createInductiveRangeCheckEliminationPass();
+
+//===----------------------------------------------------------------------===//
+//
 // InductionVariableSimplify - Transform induction variables in a program to all
 // use a single canonical induction variable per loop.
 //
@@ -216,7 +223,7 @@ FunctionPass *createJumpThreadingPass(int Threshold = -1);
 // CFGSimplification - Merge basic blocks, eliminate unreachable blocks,
 // simplify terminator instructions, etc...
 //
-FunctionPass *createCFGSimplificationPass();
+FunctionPass *createCFGSimplificationPass(int Threshold = -1);
 
 //===----------------------------------------------------------------------===//
 //
@@ -395,7 +402,9 @@ FunctionPass *createAddDiscriminatorsPass();
 //
 // SeparateConstOffsetFromGEP - Split GEPs for better CSE
 //
-FunctionPass *createSeparateConstOffsetFromGEPPass();
+FunctionPass *
+createSeparateConstOffsetFromGEPPass(const TargetMachine *TM = nullptr,
+                                     bool LowerGEP = false);
 
 //===----------------------------------------------------------------------===//
 //
