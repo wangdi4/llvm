@@ -295,6 +295,12 @@ m_context_handle(context_handle)
 
         CrtDeviceInfo* devInfo = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(outDevices[0]);
 
+        if( NULL == devInfo )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            break;
+        }
+
         cl_context_properties* props;
         if( CRT_FAIL == OCLCRT::ReplacePlatformId( properties, devInfo->m_crtPlatform->m_platformIdDEV, &props ) )
         {
@@ -383,7 +389,8 @@ void CrtContext::GetDevicesByPlatformId(
     cl_int devCount = 0;
     for( cl_uint i=0; i < inNumDevices; i++ )
     {
-        if( OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue( inDevices[i] )->m_crtPlatform->m_platformIdDEV == pId )
+        CrtDeviceInfo* devInfo = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue( inDevices[i] );
+        if( ( devInfo != NULL ) && ( devInfo->m_crtPlatform->m_platformIdDEV == pId ) )
         {
             if( !outDevices )
             {
@@ -406,7 +413,8 @@ void CrtContext::GetDevsIndicesByPlatformId(
     cl_int indexCount = 0;
     for( cl_uint i=0; i < inNumDevices; i++ )
     {
-        if( OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue( inDevices[i] )->m_crtPlatform->m_platformIdDEV == pId )
+        CrtDeviceInfo* devInfo = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue( inDevices[i] );
+        if( ( devInfo != NULL ) && ( devInfo->m_crtPlatform->m_platformIdDEV == pId ) )
         {
             if (!indices)
             {
@@ -719,8 +727,14 @@ cl_int CrtBuffer::Create(CrtMemObject** bufObj)
         itr++ )
     {
         cl_context ctx = itr->first;
-        cl_mem_flags crtCreateFlags = ( ( m_flags | CL_MEM_USE_HOST_PTR ) & ~CL_MEM_ALLOC_HOST_PTR ) &
-                                       ~CL_MEM_COPY_HOST_PTR;
+        cl_mem_flags crtCreateFlags = m_flags;
+
+        crtCreateFlags |= CL_MEM_USE_HOST_PTR;
+        crtCreateFlags &= ~CL_MEM_ALLOC_HOST_PTR;
+        crtCreateFlags &= ~CL_MEM_COPY_HOST_PTR;
+        crtCreateFlags &= ~CL_MEM_HOST_WRITE_ONLY;
+        crtCreateFlags &= ~CL_MEM_HOST_READ_ONLY;
+        crtCreateFlags &= ~CL_MEM_HOST_NO_ACCESS;
 
         cl_mem memObj = ctx->dispatch->clCreateBuffer(
             ctx,
@@ -809,9 +823,16 @@ cl_int CrtBuffer::Create(
             m_ContextToMemObj[itr->first] = itr->second;
             continue;
         }
+
+        cl_mem_flags crtCreateFlags = m_flags;
+
+        crtCreateFlags &= ~CL_MEM_HOST_WRITE_ONLY;
+        crtCreateFlags &= ~CL_MEM_HOST_READ_ONLY;
+        crtCreateFlags &= ~CL_MEM_HOST_NO_ACCESS;
+
         cl_mem memObj = itr->first->dispatch->clCreateSubBuffer(
             itr->second,
-            m_flags,
+            crtCreateFlags,
             buffer_create_type,
             buffer_create_info,
             &errCode );
@@ -1414,11 +1435,21 @@ cl_int CrtImage::Create(CrtMemObject**  imageObj)
     for( ;itr != m_pContext->m_contexts.end(); itr++ )
     {
         cl_context ctx = itr->first;
-        // - Force using Linear images
-        // - some flags are mutual execlusive, so we need to turn off CL_MEM_COPY_HOST_PTR
-        //     and CL_MEM_ALLOC_HOST_PTR since we are forcing CL_MEM_USE_HOST_PTR
-        cl_mem_flags crtCreateFlags = crtBuffer ? m_flags :
-                                     ((m_flags | CL_MEM_USE_HOST_PTR ) & ~CL_MEM_ALLOC_HOST_PTR) & ~CL_MEM_COPY_HOST_PTR;
+        cl_mem_flags crtCreateFlags = m_flags;
+
+        if( crtBuffer == NULL )
+        {
+            // - Force using Linear images
+            // - some flags are mutual execlusive, so we need to turn off CL_MEM_COPY_HOST_PTR
+            //     and CL_MEM_ALLOC_HOST_PTR since we are forcing CL_MEM_USE_HOST_PTR
+            crtCreateFlags |= CL_MEM_USE_HOST_PTR;
+            crtCreateFlags &= ~CL_MEM_ALLOC_HOST_PTR;
+            crtCreateFlags &= ~CL_MEM_COPY_HOST_PTR;
+            crtCreateFlags &= ~CL_MEM_HOST_WRITE_ONLY;
+            crtCreateFlags &= ~CL_MEM_HOST_READ_ONLY;
+            crtCreateFlags &= ~CL_MEM_HOST_NO_ACCESS;
+        }
+
         cl_mem memObj  = NULL;        
         cl_image_desc* imageDesc = &m_imageDesc.desc;
         cl_image_desc imageDescCopy;

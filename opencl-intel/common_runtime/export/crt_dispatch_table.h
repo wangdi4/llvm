@@ -28,7 +28,7 @@
 #include <CL/cl_d3d9.h>
 #else
 #ifdef LIBVA_SHARING
-#include <va_ext.h>
+#include <CL/IntelPublic/va_ext.h>
 #endif
 #endif
 
