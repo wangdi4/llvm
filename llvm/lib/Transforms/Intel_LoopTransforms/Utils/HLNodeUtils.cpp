@@ -186,8 +186,8 @@ void HLNodeUtils::insertImpl(HLNode* Parent, HLContainerTy::iterator Pos,
   }
 
 
-  for(auto It = std::prev(Pos); I < Distance; I++, It--) {
-    It->setParent(Parent);
+  for(auto It = Pos; I < Distance; I++, It--) {
+    std::prev(It)->setParent(Parent);
   }
 
   updateLoopInfoRecursively(std::prev(Pos, Distance), Pos);
