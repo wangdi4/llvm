@@ -128,6 +128,10 @@ Vectorizer::~Vectorizer()
 }
 
 void Vectorizer::createVectorizationStubs(Module& M) {
+  m_functionsToRetain.clear();
+  for (auto it = M.begin(), end = M.end(); it != end; it++)
+    m_functionsToRetain.insert(&*it);
+
   IntegerType* i1Type = Type::getInt1Ty(M.getContext());
   IntegerType* i32Type = Type::getInt32Ty(M.getContext());
   // Declare all-{zero,one}
@@ -147,14 +151,12 @@ void Vectorizer::createVectorizationStubs(Module& M) {
     V_ASSERT(allOneFunc && "Function type is incorrect, so dyn_cast failed");
     allOneFunc->addFnAttr(Attribute::NoUnwind);
     allOneFunc->addFnAttr(Attribute::ReadNone);
-    m_vectorizationStubs.push_back(allOneFunc);
     Function* allZeroFunc =
       dyn_cast<Function>(M.getOrInsertFunction(Mangler::name_allZero + version.str(),
 					       funcType));
     V_ASSERT(allZeroFunc && "Function type is incorrect, so dyn_cast failed");
     allZeroFunc->addFnAttr(Attribute::NoUnwind);
     allZeroFunc->addFnAttr(Attribute::ReadNone);
-    m_vectorizationStubs.push_back(allZeroFunc);
   }
 
   // Declare masked load/store
@@ -179,7 +181,6 @@ void Vectorizer::createVectorizationStubs(Module& M) {
 	dyn_cast<Function>(M.getOrInsertFunction(loadFuncName, loadFuncType));
       V_ASSERT(loadFunc && "Function type is incorrect, so dyn_cast failed");
       loadFunc->addFnAttr(Attribute::NoUnwind);
-      m_vectorizationStubs.push_back(loadFunc);
 
       // Create the masked store function
       std::vector<Type*> storeParameterTypes;
@@ -194,17 +195,25 @@ void Vectorizer::createVectorizationStubs(Module& M) {
 	dyn_cast<Function>(M.getOrInsertFunction(storeFuncName, storeFuncType));
       V_ASSERT(storeFunc && "Function type is incorrect, so dyn_cast failed");
       storeFunc->addFnAttr(Attribute::NoUnwind);
-      m_vectorizationStubs.push_back(storeFunc);
     }
   }
 }
 
-void Vectorizer::deleteVectorizationStubs() {
-  VectorizationStubsVector::iterator it = m_vectorizationStubs.begin();
-  VectorizationStubsVector::iterator end = m_vectorizationStubs.end();
-  for (; it != end; it++)
-    if ((*it)->use_empty())
-      (*it)->eraseFromParent();
+void Vectorizer::deleteVectorizationStubs(Module& M) {
+  std::vector<Function*> stubs;
+
+  // Collect all functions not marked to be retained and not used.
+  auto do_not_retain = m_functionsToRetain.end();
+  for (auto it = M.begin(), end = M.end(); it != end; it++)
+    if (m_functionsToRetain.find(&*it) == do_not_retain &&
+	it->use_empty())
+      stubs.push_back(&*it);
+
+  // Delete the collected functions
+  for (auto it = stubs.begin(), end = stubs.end(); it != end; it++)
+    (*it)->eraseFromParent();
+
+  m_functionsToRetain.clear();
 }
 
 static pair<VectorVariant, Type*> buildVectorVariant(Function& F) {
@@ -436,9 +445,11 @@ bool Vectorizer::runOnModule(Module &M)
 
     // Do post vectorization work on the vector version
     postVectorizeFunction(*vectFunc);
+
+    m_functionsToRetain.insert(vectFunc);
   }
 
-  deleteVectorizationStubs();
+  deleteVectorizationStubs(M);
 
 #ifdef USE_METADATA_API
   //Save Metadata to the module

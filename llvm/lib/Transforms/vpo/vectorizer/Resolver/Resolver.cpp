@@ -40,6 +40,8 @@ bool FuncResolver::runOnFunction(Function &F) {
 
   m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
 
+  m_IRBuilder = new IRBuilder<>(F.getContext());
+
   std::vector<CallInst*> calls;
 
   for (Function::iterator it = F.begin(), e = F.end(); it != e; ++it) {
@@ -96,6 +98,8 @@ bool FuncResolver::runOnFunction(Function &F) {
   )
 
   m_toCF.clear();
+  delete m_IRBuilder;
+  m_IRBuilder = NULL;
   V_PRINT(resolver, "---------------- Resolver After ---------------\n"<<F<<"\n");
   return (calls.begin() != calls.end());
 }
@@ -383,7 +387,7 @@ void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
   }
 
   // Masked vector load - try to utilize masked load built-in (if available)
-  if (isResolvedMaskedLoad(caller)) {
+  if (isResolvedMaskedLoad(caller, align)) {
     return;
   }
 
@@ -419,37 +423,17 @@ void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
   caller->eraseFromParent();
 }
 
-bool FuncResolver::isResolvedMaskedLoad(CallInst* caller) {
+bool FuncResolver::isResolvedMaskedLoad(CallInst* caller, unsigned align) {
   Value *Mask = caller->getArgOperand(0);
   Value *Ptr = caller->getArgOperand(1);
   PointerType* ptrType = dyn_cast<PointerType>(Ptr->getType());
   VectorType* vecType = dyn_cast<VectorType>(ptrType->getElementType());
   V_ASSERT(vecType && "Pointer must be of vector type");
-  // check availability of masked store BI
-  std::string funcName = Mangler::getMaskedLoadStoreBuiltinName(true, vecType);
-  Function* loadFuncRT = m_rtServices->findInRuntimeModule(funcName);
-
-  if (loadFuncRT) {
-    // If there is a matching BI function - call it instead of fake function call
-    SmallVector<Value*, 8> args;
-    // at first, extend mask to the size expected by BI functions
-    Instruction* extMask = extendMaskAsBIParameter(loadFuncRT, Mask);
-    VectorizerUtils::SetDebugLocBy(extMask, caller);
-    extMask->insertBefore(caller);
-    // then, convert data pointer to target address space
-    Instruction* memPtr = adjustPtrAddressSpace(loadFuncRT, Ptr);
-    VectorizerUtils::SetDebugLocBy(memPtr, caller);
-    memPtr->insertBefore(caller);
-    args.push_back(memPtr);
-    args.push_back(extMask);
-    CallInst* newCall = VectorizerUtils::createFunctionCall(
-            caller->getParent()->getParent()->getParent(), funcName,
-            caller->getType(), args, SmallVector<Attribute::AttrKind, 4>(), caller);
-    caller->replaceAllUsesWith(newCall);
-    caller->eraseFromParent();
-    return true;
-  }
-  return false;
+  m_IRBuilder->SetInsertPoint(caller);
+  CallInst* newCall = m_IRBuilder->CreateMaskedLoad(Ptr, align, Mask);
+  caller->replaceAllUsesWith(newCall);
+  caller->eraseFromParent();
+  return true;
 }
 
 void FuncResolver::resolveStore(CallInst* caller) {
@@ -488,14 +472,7 @@ void FuncResolver::resolveStoreVector(CallInst* caller, unsigned align) {
   Value *Ptr = caller->getArgOperand(2);
   V_ASSERT(caller->getNumArgOperands() == 3 && "Bad number of operands");
   V_ASSERT(caller->getType()->isVoidTy() && "Store is expected to return 'void'");
-
-  Type *Tp = Data->getType();
   V_ASSERT(Ptr->getType()->isPointerTy() && "Pointer must be of pointer type");
-
-  VectorType *VT = cast<VectorType>(Tp);
-  unsigned NumElem = VT->getNumElements();
-  Type *Elem = VT->getElementType();
-
 
   // Uniform mask for vector store.
   // Perform a single wide store and a single IF.
@@ -509,66 +486,23 @@ void FuncResolver::resolveStoreVector(CallInst* caller, unsigned align) {
   }
 
   // Masked vector store - try to utilize masked store built-in (if available)
-  if (isResolvedMaskedStore(caller)) {
+  if (isResolvedMaskedStore(caller, align)) {
     return;
   }
-
-  // Cast the ptr back to its original form
-  PointerType *InPT = cast<PointerType>(Ptr->getType());
-  PointerType *SclPtrTy = PointerType::get(Elem, InPT->getAddressSpace());
-  Ptr = new BitCastInst(Ptr, SclPtrTy, "ptrTypeCast", caller);
-
-  for (unsigned i=0; i< NumElem; ++i) {
-    V_STAT(m_unresolvedStoreCtr++;)
-    Constant *Idx = ConstantInt::get(Type::getInt32Ty(Elem->getContext()), i);
-    Instruction *GEP = GetElementPtrInst::Create(Ptr, Idx, "vstore", caller);
-    Instruction *MaskBit = ExtractElementInst::Create(Mask, Idx, "exmask", caller);
-    Instruction *DataElem = ExtractElementInst::Create(Data, Idx, "exData", caller);
-    Instruction *storer = new StoreInst(DataElem, GEP, false, align, caller);
-    VectorizerUtils::SetDebugLocBy(GEP, caller);
-    VectorizerUtils::SetDebugLocBy(MaskBit, caller);
-    VectorizerUtils::SetDebugLocBy(DataElem, caller);
-    VectorizerUtils::SetDebugLocBy(storer, caller);
-    toPredicate(DataElem, MaskBit);
-    toPredicate(storer, MaskBit);
-  }
-
-  caller->eraseFromParent();
 }
 
-bool FuncResolver::isResolvedMaskedStore(CallInst* caller) {
+bool FuncResolver::isResolvedMaskedStore(CallInst* caller, unsigned align) {
   Value *Mask = caller->getArgOperand(0);
   Value *Data = caller->getArgOperand(1);
   Value *Ptr = caller->getArgOperand(2);
   PointerType* ptrType = dyn_cast<PointerType>(Ptr->getType());
   VectorType* vecType = dyn_cast<VectorType>(ptrType->getElementType());
   V_ASSERT(vecType && "Pointer must be of vector type");
-  // check availability of masked store BI
-  std::string funcName = Mangler::getMaskedLoadStoreBuiltinName(false, vecType);
-  Function* storeFuncRT = m_rtServices->findInRuntimeModule(funcName);
-
-  if (storeFuncRT) {
-    // If there is a matching BI function - call it instead of fake function call
-    SmallVector<Value*, 8> args;
-    // at first, extend mask to the size expected by BI functions
-    Instruction* extMask = extendMaskAsBIParameter(storeFuncRT, Mask);
-    VectorizerUtils::SetDebugLocBy(extMask, caller);
-    extMask->insertBefore(caller);
-    // then, convert data pointer to target address space
-    Instruction* memPtr = adjustPtrAddressSpace(storeFuncRT, Ptr);
-    VectorizerUtils::SetDebugLocBy(memPtr, caller);
-    memPtr->insertBefore(caller);
-    args.push_back(memPtr);
-    args.push_back(Data);
-    args.push_back(extMask);
-    (void) VectorizerUtils::createFunctionCall(
-            caller->getParent()->getParent()->getParent(), funcName,
-            caller->getType(), args, SmallVector<Attribute::AttrKind, 4>(), caller);
-    // no need in 'funcName' call instruction value - as it has void result
-    caller->eraseFromParent();
-    return true;
-  }
-  return false;
+  m_IRBuilder->SetInsertPoint(caller);
+  CallInst* newCall = m_IRBuilder->CreateMaskedStore(Data, Ptr, align, Mask);
+  caller->replaceAllUsesWith(newCall);
+  caller->eraseFromParent();
+  return true;
 }
 
 

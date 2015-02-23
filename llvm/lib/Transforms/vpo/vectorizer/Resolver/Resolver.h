@@ -15,6 +15,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/IRBuilder.h"
 
 using namespace llvm;
 
@@ -33,6 +34,7 @@ public:
     m_unresolvedStoreCtr = 0;
     m_unresolvedCallCtr = 0;
     m_rtServices = NULL;
+    m_IRBuilder = NULL;
   }
 
   /// @brief LLVM Function pass entry
@@ -100,7 +102,7 @@ private:
   /// @brief Tries to produce masked vector load
   /// @param caller original load instruction
   /// @return TRUE if masked load was produced, or FALSE otherwise
-  bool isResolvedMaskedLoad(CallInst* caller);  
+  bool isResolvedMaskedLoad(CallInst* caller, unsigned align);
   /// @brief Resolve a call to 'masked_load' of the following signature:
   ///   define T @masked_loat(i1 %pred, T* %ptr)
   /// @param caller Instruction to resolve
@@ -119,7 +121,7 @@ private:
   /// @brief Tries to produce masked vector store
   /// @param caller original store instruction
   /// @return TRUE if masked store was produced, or FALSE otherwise
-  bool isResolvedMaskedStore(CallInst* caller);  
+  bool isResolvedMaskedStore(CallInst* caller, unsigned align);
   /// @brief Resolve a call to 'masked_load' of the following signature:
   ///   define @masked_loat(i1 %pred, T %val, T* %ptr)
   /// @param caller Instruction to resolve
@@ -198,6 +200,7 @@ private:
   // Pointer to runtime service object
   const RuntimeServices * m_rtServices;
 
+  IRBuilder<>* m_IRBuilder;
 };
 
 class X86Resolver : public FuncResolver {

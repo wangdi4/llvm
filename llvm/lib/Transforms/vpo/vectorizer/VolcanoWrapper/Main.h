@@ -13,6 +13,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/Pass.h"
 
+#include <set>
+
 using namespace llvm;
 
 
@@ -27,7 +29,6 @@ class OptimizerConfig;
 class Vectorizer : public ModulePass {
 private:
     typedef SmallVector<Function*, ESTIMATED_NUM_OF_FUNCTIONS> funcsVector;
-    typedef SmallVector<Function*, 20> VectorizationStubsVector;
     
 public:
     static char ID;
@@ -63,9 +64,13 @@ private:
     void postVectorizeFunction(Function& F);
 
     void createVectorizationStubs(Module& M);
-    void deleteVectorizationStubs();
-    /// @brief declarations for functions used for expressing vectorization
-    VectorizationStubsVector m_vectorizationStubs; 
+    void deleteVectorizationStubs(Module& M);
+    /// @brief Module functions to be retained
+    /// Should include all functions existing in the module on entering the
+    /// vectorizer and the vectorized versions we create. This info should
+    /// allow us to delete the various vectorization stubs generated along
+    /// the way.
+    std::set<Function*> m_functionsToRetain;
 
     /// @brief holds all the "original" (scalar) functions
     funcsVector m_scalarFuncsList; 
