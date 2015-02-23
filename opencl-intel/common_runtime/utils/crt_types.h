@@ -23,6 +23,7 @@
 #pragma once
 #include <CL/cl.h>
 #include <CL/cl_ext.h>
+#include <CL/IntelInternal/cl_ext_intel.h>
 #include <assert.h>
 #ifdef _WIN32
 #include <intrin.h>
@@ -68,7 +69,7 @@ typedef enum
 
 // default device type, which will be picked by the
 // CRT in case of two underlying devices
-#define CRT_DEFAULT_DEVICE_TYPE  CL_DEVICE_TYPE_CPU
+#define CRT_DEFAULT_DEVICE_TYPE  CL_DEVICE_TYPE_GPU
 
 // Alignment
 #define CRT_PAGE_ALIGNMENT           ( 4096 )

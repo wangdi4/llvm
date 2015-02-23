@@ -484,6 +484,12 @@ cl_context CL_API_CALL clCreateContext(
         const KHRicdVendorDispatch* dTable =
             (KHRicdVendorDispatch*)( &OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue( devices[0] )->m_origDispatchTable );
 
+        if( !dTable )
+        {
+            errCode = CL_INVALID_DEVICE;
+            goto FINISH; 
+        }
+
         cl_context_properties* props;
         if( CRT_FAIL == OCLCRT::ReplacePlatformId(
                             properties,
@@ -776,6 +782,12 @@ cl_int CL_API_CALL clGetContextInfo(
         case CL_CONTEXT_REFERENCE_COUNT:
             {
                 DEV_CTX_MAP::iterator itr = ctx->m_DeviceToContext.begin();
+                if( OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(itr->first) == NULL )
+                {
+                    errCode = CL_INVALID_VALUE;
+                    break;
+                }
+
                 errCode = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(itr->first)->m_origDispatchTable.clGetContextInfo(
                     itr->second,
                     param_name,
@@ -1550,6 +1562,23 @@ cl_int CL_API_CALL EnqueueReadWriteBufferRect(
         goto FINISH;
     }
 
+    if( read_command )
+    {
+        if( crtBuffer->m_flags & ( CL_MEM_HOST_NO_ACCESS | CL_MEM_HOST_WRITE_ONLY ) )
+        {
+            errCode = CL_INVALID_OPERATION;
+            goto FINISH;
+        }
+    }
+    else
+    {
+        if( crtBuffer->m_flags & ( CL_MEM_HOST_NO_ACCESS | CL_MEM_HOST_READ_ONLY ) )
+        {
+            errCode = CL_INVALID_OPERATION;
+            goto FINISH;
+        }
+    }
+
     if( blocking_cmd )
     {
         errCode = queue->m_contextCRT->FlushQueues();
@@ -1985,6 +2014,30 @@ void * CL_API_CALL clEnqueueMapBuffer(
         goto FINISH;
     }
 
+    if( ( map_flags & CL_MAP_WRITE ) && ( crtBuffer->m_flags & CL_MEM_HOST_READ_ONLY ) )
+    {
+        errCode = CL_INVALID_MEM_OBJECT;
+        goto FINISH;
+    }
+
+    if( ( map_flags & CL_MAP_WRITE ) && ( crtBuffer->m_flags & CL_MEM_HOST_NO_ACCESS ) )
+    {
+        errCode = CL_INVALID_MEM_OBJECT;
+        goto FINISH;
+    }
+
+    if( ( map_flags & CL_MAP_READ ) && ( crtBuffer->m_flags & CL_MEM_HOST_WRITE_ONLY ) )
+    {
+        errCode = CL_INVALID_MEM_OBJECT;
+        goto FINISH;
+    }
+
+    if( ( map_flags & CL_MAP_READ ) && ( crtBuffer->m_flags & CL_MEM_HOST_NO_ACCESS ) )
+    {
+        errCode = CL_INVALID_MEM_OBJECT;
+        goto FINISH;
+    }
+
     if( crtBuffer->m_pContext != queue->m_contextCRT )
     {
         errCode = CL_INVALID_CONTEXT;
@@ -2210,6 +2263,30 @@ void * CL_API_CALL clEnqueueMapImage(
     if( crtImage->m_pContext != queue->m_contextCRT )
     {
         errCode = CL_INVALID_CONTEXT;
+        goto FINISH;
+    }
+
+    if( ( map_flags & CL_MAP_WRITE ) && ( crtImage->m_flags & CL_MEM_HOST_READ_ONLY ) )
+    {
+        errCode = CL_INVALID_MEM_OBJECT;
+        goto FINISH;
+    }
+
+    if( ( map_flags & CL_MAP_WRITE ) && ( crtImage->m_flags & CL_MEM_HOST_NO_ACCESS ) )
+    {
+        errCode = CL_INVALID_MEM_OBJECT;
+        goto FINISH;
+    }
+
+    if( ( map_flags & CL_MAP_READ ) && ( crtImage->m_flags & CL_MEM_HOST_WRITE_ONLY ) )
+    {
+        errCode = CL_INVALID_MEM_OBJECT;
+        goto FINISH;
+    }
+
+    if( ( map_flags & CL_MAP_READ ) && ( crtImage->m_flags & CL_MEM_HOST_NO_ACCESS ) )
+    {
+        errCode = CL_INVALID_MEM_OBJECT;
         goto FINISH;
     }
 
@@ -4253,6 +4330,11 @@ cl_int CL_API_CALL clGetKernelSubGroupInfoKHR(
         return CL_INVALID_DEVICE;
     }
 
+    if( devCtx->dispatch->clGetKernelSubGroupInfoKHR == NULL )
+    {
+        return CL_INVALID_DEVICE;
+    }
+
     errCode = devCtx->dispatch->clGetKernelSubGroupInfoKHR(
         crtKernel->m_ContextToKernel[devCtx],
         device,
@@ -5534,6 +5616,12 @@ cl_int CL_API_CALL clEnqueueNativeKernel(
 
     // Check if device support Native Kernels in reported device capabilities
     CrtDeviceInfo * devInfo = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(queue->m_device);
+
+    if( !devInfo )
+    {
+        return CL_INVALID_DEVICE;
+    }
+
     if (!(devInfo->m_deviceCapabilities & CL_EXEC_NATIVE_KERNEL))
     {
         return CL_INVALID_OPERATION;
@@ -5851,6 +5939,23 @@ inline cl_int CL_API_CALL EnqueueReadWriteImage(
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
         goto FINISH;
+    }
+
+    if( read_command )
+    {
+        if( crtImage->m_flags & ( CL_MEM_HOST_NO_ACCESS | CL_MEM_HOST_WRITE_ONLY ) )
+        {
+            errCode = CL_INVALID_OPERATION;
+            goto FINISH;
+        }
+    }
+    else
+    {
+        if( crtImage->m_flags & ( CL_MEM_HOST_NO_ACCESS | CL_MEM_HOST_READ_ONLY ) )
+        {
+            errCode = CL_INVALID_OPERATION;
+            goto FINISH;
+        }
     }
 
     if (blocking_cmd)
