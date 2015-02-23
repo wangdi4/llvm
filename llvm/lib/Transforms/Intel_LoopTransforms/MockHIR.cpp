@@ -64,7 +64,8 @@ void MockHIR::createMockHIRSimpleLoop() {
   HLNodeUtils::dbgPushDDRef(Loop, StrideRef);
 
   // regions child is loop
-  HLNodeUtils::dbgPushBackChild(Region, Loop);
+  ///HLNodeUtils::dbgPushBackChild(Region, Loop);
+  HLNodeUtils::insertAsFirstChild(Region, Loop);
 
   // set up instruction(s) inside
   BasicBlock::iterator CurInst = ++LoopBlock->begin();
@@ -90,7 +91,9 @@ void MockHIR::createMockHIRSimpleLoop() {
 
   HLNode *InstNode = HLNodeUtils::createHLInst(StoreI);
 
-  HLNodeUtils::dbgPushBackChild(Loop, InstNode);
+ // HLNodeUtils::dbgPushBackChild(Loop, InstNode);
+
+  HLNodeUtils::insertAsFirstChild(Loop, InstNode);
 
   GEPOperator *SrcGEP = dyn_cast<GEPOperator>(StorePtr);
   GEPOperator *DstGEP = dyn_cast<GEPOperator>(LoadPtr);
