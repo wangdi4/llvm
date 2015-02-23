@@ -125,12 +125,15 @@ public:
   /// \brief Returns the DDRef associated with loop lower bound.
   /// The first DDRef is associated with lower bound.
   DDRef* getLowerDDRef() { return DDRefs[0]; }
+  const DDRef* getLowerDDRef() const { return DDRefs[0]; }
   /// \brief Returns the DDRef associated with loop trip count.
   /// The second DDRef is associated with trip count.
   DDRef* getTripCountDDRef() { return DDRefs[1]; }
+  const DDRef* getTripCountDDRef() const { return DDRefs[1]; }
   /// \brief Returns the DDRef associated with loop stride.
   /// The third DDRef is associated with stride.
   DDRef* getStrideDDRef() { return DDRefs[2]; }
+  const DDRef* getStrideDDRef() const { return DDRefs[2]; }
   /// \brief Returns the CanonExpr associated with loop lower bound.
   const CanonExpr* getLowerCanonExpr() const;
   /// \brief Returns the CanonExpr associated with loop trip count.
