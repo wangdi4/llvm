@@ -792,6 +792,14 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
         << FixItHint::CreateInsertion(DS.getLocStart(), "int");
       }
     } else if (!DS.hasTypeSpecifier()) {
+#ifdef INTEL_CUSTOMIZATION
+      // In IntelCompat mode we allow functions without type specifier in all
+      // languages. CQ#364053.
+      if (S.getLangOpts().IntelCompat) {
+        S.Diag(DeclLoc, diag::ext_missing_type_specifier)
+          << DS.getSourceRange();
+      } else
+#endif // INTEL_CUSTOMIZATION
       // C99 and C++ require a type specifier.  For example, C99 6.7.2p2 says:
       // "At least one type specifier shall be given in the declaration
       // specifiers in each declaration, and in the specifier-qualifier list in
