@@ -339,7 +339,9 @@ void HLNodeUtils::removeInternal(HLContainerTy& Container,
   HLContainerTy::iterator First, HLContainerTy::iterator Last, bool Erase) {
   HLNode* Node;
 
-  for(auto I = First, E = Last; I != E; I++) {
+  for(auto I = First, Next = I, E = Last; I != E; I = Next) {
+
+    Next++;
     Node = Container.remove(I);
 
     if (Erase) {
