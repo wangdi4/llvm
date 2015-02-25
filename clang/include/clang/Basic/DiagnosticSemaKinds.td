@@ -6937,6 +6937,13 @@ def warn_second_parameter_to_va_arg_never_compatible : Warning<
 def warn_return_missing_expr : Warning<
   "non-void %select{function|method}1 %0 should return a value">, DefaultError,
   InGroup<ReturnType>;
+// if INTEL_CUSTOMIZATION
+// Same as warn_return_missing_expr, but a warning, not an error, for
+// IntelCompat mode. CQ#364256
+def warn_return_missing_expr_no_err : Warning<
+  "non-void %select{function|method}1 %0 should return a value">,
+  InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def ext_return_missing_expr : ExtWarn<
   "non-void %select{function|method}1 %0 should return a value">, DefaultError,
   InGroup<ReturnType>;

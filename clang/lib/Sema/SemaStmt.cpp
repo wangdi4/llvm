@@ -3181,6 +3181,13 @@ StmtResult Sema::BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
     FunctionDecl *FD = getCurFunctionDecl();
 
     unsigned DiagID;
+#ifdef INTEL_CUSTOMIZATION
+    // Issue a warning, not error in MSVCCompat and IntelCompat modes
+    // (CQ#364256).
+    if (getLangOpts().MSVCCompat || getLangOpts().IntelCompat) {
+      DiagID = diag::warn_return_missing_expr_no_err;
+    } else
+#endif // INTEL_CUSTOMIZATION
     if (getLangOpts().CPlusPlus11 && FD && FD->isConstexpr()) {
       // C++11 [stmt.return]p2
       DiagID = diag::err_constexpr_return_missing_expr;
