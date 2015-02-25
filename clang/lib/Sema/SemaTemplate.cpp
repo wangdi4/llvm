@@ -5824,6 +5824,15 @@ static bool CheckTemplateSpecializationScope(Sema &S,
       S.Diag(Loc, diag::err_template_spec_redecl_global_scope)
         << EntityKind << Specialized;
     else if (isa<NamespaceDecl>(SpecializedContext))
+#ifdef INTEL_CUSTOMIZATION
+      // CQ#365451 - specializations can be declared in any namespace for
+      // MSVCCompat mode. Emit an extension warning in MSVCCompat mode,
+      // but not in IntelCompat mode.
+      if (S.getLangOpts().MSVCCompat && !S.getLangOpts().IntelCompat)
+        S.Diag(Loc, diag::ext_template_spec_redecl_out_of_scope)
+            << EntityKind << Specialized << cast<NamedDecl>(SpecializedContext);
+      else
+#endif
       S.Diag(Loc, diag::err_template_spec_redecl_out_of_scope)
         << EntityKind << Specialized
         << cast<NamedDecl>(SpecializedContext);

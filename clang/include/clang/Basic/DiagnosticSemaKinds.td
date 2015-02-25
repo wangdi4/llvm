@@ -3454,6 +3454,15 @@ def err_template_spec_redecl_out_of_scope : Error<
   "variable template partial|function template|member "
   "function|static data member|member class|member enumeration}0 "
   "specialization of %1 not in a namespace enclosing %2">;
+// CQ#365451
+// if INTEL_CUSTOMIZATION
+def ext_template_spec_redecl_out_of_scope: ExtWarn<
+  "%select{class template|class template partial|variable template|"
+  "variable template partial|function template|member "
+  "function|static data member|member class|member enumeration}0 "
+  "specialization of %1 not in a namespace enclosing %2 is a "
+  "Microsoft extension">, InGroup<Microsoft>;
+// endif INTEL_CUSTOMIZATION
 def err_template_spec_redecl_global_scope : Error<
   "%select{class template|class template partial|variable template|"
   "variable template partial|function template|member "
