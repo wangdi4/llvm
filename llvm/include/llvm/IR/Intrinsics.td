@@ -594,8 +594,8 @@ include "llvm/IR/IntrinsicsHexagon.td"
 include "llvm/IR/IntrinsicsNVVM.td"
 include "llvm/IR/IntrinsicsMips.td"
 include "llvm/IR/IntrinsicsR600.td"
-//#ifdef INTEL_CUSTOMIZATION
+//#ifdef INTEL_SPECIFIC_IL0_BACKEND
 def int_intel_pragma : Intrinsic<[],
                                    [llvm_metadata_ty],
                                    [], "llvm.intel.pragma">;
-//#endif
+//#endif  // INTEL_SPECIFIC_IL0_BACKEND
