@@ -363,9 +363,9 @@ NSAPI::getNSNumberFactoryMethodKind(QualType T) const {
   case BuiltinType::UnknownAny:
   case BuiltinType::ARCUnbridgedCast:
   case BuiltinType::Half:
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   case BuiltinType::Float128:
-#endif  
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   case BuiltinType::PseudoObject:
   case BuiltinType::BuiltinFn:
     break;

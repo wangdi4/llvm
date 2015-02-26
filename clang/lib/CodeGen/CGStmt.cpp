@@ -29,7 +29,7 @@
 #include "intel/CGCilkPlusRuntime.h"
 #include "clang/Basic/CapturedStmt.h"
 #include "llvm/IR/TypeBuilder.h"
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 using namespace clang;
 using namespace CodeGen;
@@ -81,7 +81,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
 #ifdef INTEL_CUSTOMIZATION
   case Stmt::PragmaStmtClass:
     llvm_unreachable("should have emitted this statement as simple");
-#endif
+#endif  // INTEL_CUSTOMIZATION
   case Stmt::NoStmtClass:
   case Stmt::CXXCatchStmtClass:
   case Stmt::SEHExceptStmtClass:
@@ -90,7 +90,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
     llvm_unreachable("invalid statement class to emit generically");
 #ifdef INTEL_CUSTOMIZATION
   case Stmt::CilkSyncStmtClass:
-#endif
+#endif  // INTEL_CUSTOMIZATION
   case Stmt::NullStmtClass:
   case Stmt::CompoundStmtClass:
   case Stmt::DeclStmtClass:
@@ -199,7 +199,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
   case Stmt::CilkRankedStmtClass:
     EmitCilkRankedStmt(cast<CilkRankedStmt>(*S));
     break;
-#endif  
+#endif  // INTEL_CUSTOMIZATION
   case Stmt::SEHLeaveStmtClass:
     EmitSEHLeaveStmt(cast<SEHLeaveStmt>(*S));
     break;
@@ -272,10 +272,10 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
 bool CodeGenFunction::EmitSimpleStmt(const Stmt *S) {
   switch (S->getStmtClass()) {
   default: return false;
-#ifdef INTEL_CUSTOMIZATION  
-  case Stmt::CilkSyncStmtClass: 
-  	CGM.getCilkPlusRuntime().EmitCilkSync(*this); break;
-#endif
+#ifdef INTEL_CUSTOMIZATION
+  case Stmt::CilkSyncStmtClass:
+    CGM.getCilkPlusRuntime().EmitCilkSync(*this); break;
+#endif  // INTEL_CUSTOMIZATION
   case Stmt::NullStmtClass: break;
   case Stmt::CompoundStmtClass: EmitCompoundStmt(cast<CompoundStmt>(*S)); break;
   case Stmt::DeclStmtClass:     EmitDeclStmt(cast<DeclStmt>(*S));         break;
@@ -287,9 +287,9 @@ bool CodeGenFunction::EmitSimpleStmt(const Stmt *S) {
   case Stmt::ContinueStmtClass: EmitContinueStmt(cast<ContinueStmt>(*S)); break;
   case Stmt::DefaultStmtClass:  EmitDefaultStmt(cast<DefaultStmt>(*S));   break;
   case Stmt::CaseStmtClass:     EmitCaseStmt(cast<CaseStmt>(*S));         break;
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   case Stmt::PragmaStmtClass:   EmitPragmaStmt(cast<PragmaStmt>(*S));     break;
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   }
 
   return true;
@@ -1132,10 +1132,10 @@ void CodeGenFunction::EmitDeclStmt(const DeclStmt &S) {
 
   for (const auto *I : S.decls()) {
     EmitDecl(*I);
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
     if (I->hasAttr<AvoidFalseShareAttr>())
       EmitIntelAttribute(*I);
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   }
 }
 
@@ -2225,7 +2225,9 @@ CodeGenFunction::GenerateCapturedStmtFunction(const CapturedStmt &S) {
   llvm::Function *F =
     llvm::Function::Create(FuncLLVMTy, llvm::GlobalValue::InternalLinkage,
                            CapturedStmtInfo->getHelperName(), &CGM.getModule());
-  CGM.registerAsMangled(F->getName(), CD);				//***INTEL 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  CGM.registerAsMangled(F->getName(), CD);
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   CGM.SetInternalFunctionAttributes(CD, F, FuncInfo);
 
   // Generate the function.
@@ -2262,6 +2264,7 @@ CodeGenFunction::GenerateCapturedStmtFunction(const CapturedStmt &S) {
 
   return F;
 }
+
 #ifdef INTEL_CUSTOMIZATION
 void
 CodeGenFunction::EmitCilkForGrainsizeStmt(const CilkForGrainsizeStmt &S) {
@@ -2544,9 +2547,13 @@ void CodeGenFunction::EmitSIMDForHelperCall(llvm::Function *BodyFunc,
     LastIter = llvm::ConstantInt::getFalse(BodyFunc->getContext());
   HelperArgs.push_back(LastIter);
 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   disableExceptions();
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   EmitCallOrInvoke(BodyFunc, HelperArgs);
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   enableExceptions();
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 }
 
 void CodeGenFunction::CGPragmaSimd::emitInit(CodeGenFunction &CGF,
@@ -2628,6 +2635,7 @@ bool CodeGenFunction::CGPragmaSimd::emitSafelen(CodeGenFunction *CGF) const {
   return SeparateLastIter;
 }
 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
 void CodeGenFunction::CGPragmaSimd::emitIntelIntrinsic(CodeGenFunction *CGF,
     CodeGenModule *CGM, llvm::Value *LoopIndex, llvm::Value *LoopCount) const {
   llvm::Value *IntelFN = CGM->getIntrinsic(llvm::Intrinsic::intel_pragma);
@@ -2639,12 +2647,14 @@ void CodeGenFunction::CGPragmaSimd::emitIntelIntrinsic(CodeGenFunction *CGF,
     switch (Attrs[i]->getKind()) {
       case clang::attr::SIMDLength:
         {
-          Args.push_back(llvm::MDString::get(CGM->getLLVMContext(), "VECTORLENGTH"));
+          Args.push_back(
+                  llvm::MDString::get(CGM->getLLVMContext(), "VECTORLENGTH"));
           const SIMDLengthAttr *SIMDLength = 0;
           SIMDLength = static_cast<const SIMDLengthAttr*>(Attrs[i]);
           RValue Width = CGF->EmitAnyExpr(SIMDLength->getValueExpr(),
               AggValueSlot::ignored(), true);
-          llvm::ConstantInt *C = dyn_cast<llvm::ConstantInt>(Width.getScalarVal());
+          llvm::ConstantInt *C =
+                        dyn_cast<llvm::ConstantInt>(Width.getScalarVal());
           assert(C);
           Args.push_back(llvm::ValueAsMetadata::get(C));
         } break;
@@ -2663,6 +2673,7 @@ void CodeGenFunction::CGPragmaSimd::emitIntelIntrinsic(CodeGenFunction *CGF,
       llvm::MetadataAsValue::get(CGM->getLLVMContext(), RealArg));
   CGF->EmitRuntimeCall(IntelFN, RealArgs);
 }
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 
 llvm::Function *CodeGenFunction::EmitSimdFunction(CGPragmaSimdWrapper &W) {
   const CapturedStmt &CS = *W.getAssociatedStmt();
@@ -2671,11 +2682,13 @@ llvm::Function *CodeGenFunction::EmitSimdFunction(CGPragmaSimdWrapper &W) {
                               LoopStack.getCurLoopParallel());
   CodeGenFunction CGF(CGM, true);
   CGF.CapturedStmtInfo = &CSInfo;
-
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   CGF.disableExceptions();
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   llvm::Function *BodyFunction = CGF.GenerateCapturedStmtFunction(CS);
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   CGF.enableExceptions();
-
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   // Always inline this function back to the call site.
   BodyFunction->addFnAttr(llvm::Attribute::AlwaysInline);
   return BodyFunction;
@@ -2716,8 +2729,10 @@ void CodeGenFunction::EmitPragmaSimd(CodeGenFunction::CGPragmaSimdWrapper &W) {
   // Initialize the captured struct.
   LValue CapStruct = InitCapturedStruct(*W.getAssociatedStmt());
 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   // Call intel_pragma intrinsic
   W.emitIntelIntrinsic(this, &CGM, LoopIndex, LoopCount);
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 
   {
     JumpDest LoopExit = getJumpDestInCurrentScope("for.end");
@@ -3122,11 +3137,14 @@ static void EmitRecursiveCilkRankedStmt(CodeGenFunction &CGF,
         CGF.EmitStmt(*ChRange);
       }
     }
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
     // Generate intel intrinsic.
     if (Rank == S.getRank() - 1) {
-      llvm::Value *IntelFN = CGF.CGM.getIntrinsic(llvm::Intrinsic::intel_pragma);
+      llvm::Value *IntelFN =
+                      CGF.CGM.getIntrinsic(llvm::Intrinsic::intel_pragma);
       llvm::SmallVector<llvm::Metadata*, 1> Args;
-      Args.push_back(llvm::MDString::get(CGF.CGM.getLLVMContext(), "CEAN_LOOP"));
+      Args.push_back(llvm::MDString::get(
+                                  CGF.CGM.getLLVMContext(), "CEAN_LOOP"));
       llvm::Value *RealArg = 
           llvm::MetadataAsValue::get(
               CGF.CGM.getLLVMContext(),
@@ -3135,6 +3153,7 @@ static void EmitRecursiveCilkRankedStmt(CodeGenFunction &CGF,
       RealArgs.push_back(RealArg);
       CGF.EmitRuntimeCall(IntelFN, RealArgs);
     }
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
     CGF.EmitBranch(CondBlock);
     CGF.EmitBlock(CondBlock);
     CGF.LoopStack.setParallel();
@@ -3162,6 +3181,8 @@ void CodeGenFunction::EmitCilkRankedStmt(const CilkRankedStmt &S) {
   CodeGenFunction::LocalVarsDeclGuard Guard(*this);
   EmitRecursiveCilkRankedStmt(*this, S, 0);
 }
+
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
 static StringRef CreateStringRef(const char *Str) {
   char *Data = new char[ ::strlen(Str) + 1];
   ::strcpy(Data, Str);
@@ -3594,4 +3615,5 @@ void CodeGenFunction::EmitIntelAttribute(const Decl &D) {
     }
   }
 }
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION

@@ -1301,7 +1301,7 @@ DEF_TRAVERSE_DECL(CapturedDecl, {
 })
 #ifdef INTEL_CUSTOMIZATION
 DEF_TRAVERSE_DECL(CilkSpawnDecl, {})
-#endif
+#endif  // INTEL_CUSTOMIZATION
 DEF_TRAVERSE_DECL(EmptyDecl, {})
 
 DEF_TRAVERSE_DECL(FileScopeAsmDecl,
@@ -1865,7 +1865,7 @@ DEF_TRAVERSE_DECL(ParmVarDecl, {
 })
 #ifdef INTEL_CUSTOMIZATION
 DEF_TRAVERSE_DECL(PragmaDecl, { })
-#endif
+#endif  // INTEL_CUSTOMIZATION
 #undef DEF_TRAVERSE_DECL
 
 // ----------------- Stmt traversal -----------------
@@ -2210,7 +2210,7 @@ DEF_TRAVERSE_STMT(CilkSpawnExpr, {
   TRY_TO(TraverseDecl(S->getSpawnDecl()));
   return true; // no child statements to loop through.
 })
-#endif
+#endif  // INTEL_CUSTOMIZATION
 DEF_TRAVERSE_STMT(ChooseExpr, {})
 DEF_TRAVERSE_STMT(CompoundLiteralExpr, {
   TRY_TO(TraverseTypeLoc(S->getTypeSourceInfo()->getTypeLoc()));
@@ -2285,7 +2285,7 @@ DEF_TRAVERSE_STMT(CilkForGrainsizeStmt, { })
 DEF_TRAVERSE_STMT(CilkForStmt, { })
 DEF_TRAVERSE_STMT(SIMDForStmt, { })
 DEF_TRAVERSE_STMT(CilkRankedStmt, { })
-#endif
+#endif  // INTEL_CUSTOMIZATION
 DEF_TRAVERSE_STMT(SEHTryStmt, {})
 DEF_TRAVERSE_STMT(SEHExceptStmt, {})
 DEF_TRAVERSE_STMT(SEHFinallyStmt, {})
@@ -2626,7 +2626,7 @@ bool RecursiveASTVisitor<Derived>::VisitOMPFlushClause(OMPFlushClause *C) {
 //    Every class that has getQualifier.
 #ifdef INTEL_CUSTOMIZATION
 DEF_TRAVERSE_STMT(PragmaStmt, { })
-#endif
+#endif  // INTEL_CUSTOMIZATION
 #undef DEF_TRAVERSE_STMT
 
 #undef TRY_TO

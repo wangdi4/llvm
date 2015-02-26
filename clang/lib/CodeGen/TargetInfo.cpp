@@ -1773,11 +1773,11 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase,
     } else if (k == BuiltinType::LongDouble) {
       Lo = X87;
       Hi = X87Up;
-#ifdef INTEL_CUSTOMIZATION	  
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
     } else if (k == BuiltinType::Float128) {
       Lo = SSE;
       Hi = SSEUp;
-#endif
+#endif  //INTEL_SPECIFIC_IL0_BACKEND
     }
     // FIXME: _Decimal32 and _Decimal64 are SSE.
     // FIXME: _float128 and _Decimal128 are (SSE, SSEUp).
@@ -1947,7 +1947,7 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase,
       Lo = SSE;
       Hi = SSEUp;
     }
-#endif	
+#endif  // INTEL_CUSTOMIZATION
     return;
   }
 
@@ -2063,7 +2063,7 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase,
     }
 
     postMerge(Size, Lo, Hi);
-#ifdef INTEL_CUSTOMIZATION	
+#ifdef INTEL_CUSTOMIZATION
     if ((Hi == SSE && Lo == SSE) && (Size == 128 || (HasAVX && Size == 256))) {
       // Arguments of 256-bits are split into four eightbyte chunks. The
       // least significant one belongs to class SSE and all the others to class
@@ -2075,7 +2075,7 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase,
       Lo = SSE;
       Hi = SSEUp;
     }
-#endif	
+#endif  // INTEL_CUSTOMIZATION
   }
 }
 
@@ -2190,7 +2190,7 @@ llvm::Type *X86_64ABIInfo::GetByteVectorType(QualType Ty) const {
          EltTy->isIntegerTy(128)))
       return VT;
   } 
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   else if (llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(IRType)) {
     llvm::Type *EltTy = AT->getElementType();
     if (EltTy->isFloatTy() || EltTy->isDoubleTy() ||
@@ -2204,7 +2204,7 @@ llvm::Type *X86_64ABIInfo::GetByteVectorType(QualType Ty) const {
     return IRType;
   } else if (IRType->isStructTy())
     return IRType;
-#endif
+#endif  // INTEL_CUSTOMIZATION
   return llvm::VectorType::get(llvm::Type::getDoubleTy(getVMContext()), 2);
 }
 
@@ -4726,12 +4726,12 @@ ABIArgInfo ARMABIInfo::classifyArgumentType(QualType Ty, bool isVariadic,
         markAllocatedVFPs(2, 2);
         IsCPRC = true;
       }
-#ifdef INTEL_CUSTOMIZATION	  
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
       if (BT->getKind() == BuiltinType::Float128) {
         markAllocatedVFPs(4, 4);
         IsCPRC = true;
       }
-#endif	  
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
     }
   }
 
@@ -5013,10 +5013,10 @@ bool ARMABIInfo::isHomogeneousAggregateBaseType(QualType Ty) const {
     if (BT->getKind() == BuiltinType::Float ||
         BT->getKind() == BuiltinType::Double ||
         BT->getKind() == BuiltinType::LongDouble
-#ifdef INTEL_CUSTOMIZATION
-		, BT->getKind() == BuiltinType::Float128
-#endif		
-		)
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+        || BT->getKind() == BuiltinType::Float128
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+       )
       return true;
   } else if (const VectorType *VT = Ty->getAs<VectorType>()) {
     unsigned VecSize = getContext().getTypeSize(VT);

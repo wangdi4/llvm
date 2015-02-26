@@ -51,9 +51,9 @@ static CXTypeKind GetBuiltinTypeKind(const BuiltinType *BT) {
     BTCASE(Float);
     BTCASE(Double);
     BTCASE(LongDouble);
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
     BTCASE(Float128);
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
     BTCASE(NullPtr);
     BTCASE(Overload);
     BTCASE(Dependent);
@@ -463,9 +463,9 @@ CXString clang_getTypeKindSpelling(enum CXTypeKind K) {
     TKIND(Float);
     TKIND(Double);
     TKIND(LongDouble);
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
     TKIND(Float128);
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
     TKIND(NullPtr);
     TKIND(Overload);
     TKIND(Dependent);

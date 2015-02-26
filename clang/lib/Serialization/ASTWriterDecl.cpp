@@ -132,7 +132,7 @@ namespace clang {
     void VisitOMPThreadPrivateDecl(OMPThreadPrivateDecl *D);
 #ifdef INTEL_CUSTOMIZATION
     void VisitPragmaDecl(PragmaDecl *D);
-#endif
+#endif  // INTEL_CUSTOMIZATION
     void AddFunctionDefinition(const FunctionDecl *FD) {
       assert(FD->doesThisDeclarationHaveABody());
       if (auto *CD = dyn_cast<CXXConstructorDecl>(FD))
@@ -2031,12 +2031,17 @@ void ASTWriter::WriteDecl(ASTContext &Context, Decl *D) {
 
 #ifdef INTEL_CUSTOMIZATION
 void ASTDeclWriter::VisitPragmaDecl(PragmaDecl *D) {
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   VisitDecl(D);
   Writer.AddStmt(D->getStmt());
 
   Code = serialization::DECL_PRAGMA;
+#else
+  llvm_unreachable(
+    "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 void ASTWriter::AddFunctionDefinition(const FunctionDecl *FD,
                                       RecordData &Record) {

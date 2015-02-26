@@ -16,11 +16,11 @@ namespace clang {
 /// \brief The different kinds of captured statement.
 enum CapturedRegionKind {
   CR_Default,
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   CR_CilkSpawn,
   CR_CilkFor,
   CR_SIMDFor,
-#endif  
+#endif  // INTEL_CUSTOMIZATION
   CR_OpenMP
 };
 

@@ -267,9 +267,9 @@ bool Parser::SkipUntil(ArrayRef<tok::TokenKind> Toks, SkipUntilFlags Flags) {
     case tok::annot_module_begin:
     case tok::annot_module_end:
     case tok::annot_module_include:
-#ifdef INTEL_CUSTOMIZATION	
+#ifdef INTEL_CUSTOMIZATION
     case tok::annot_pragma_simd_end:
-#endif	
+#endif  // INTEL_CUSTOMIZATION
       // Stop before we change submodules. They generally indicate a "good"
       // place to pick up parsing again (except in the special case where
       // we're trying to skip to EOF).
@@ -609,9 +609,80 @@ Parser::ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
 
   Decl *SingleDecl = nullptr;
   switch (Tok.getKind()) {
-#ifdef INTEL_CUSTOMIZATION
-#include "intel/Parser_ParseExternalDeclaration.cpp"
-#endif
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  case tok::annot_pragma_ivdep:
+    HandlePragmaIvdepDecl();
+    return DeclGroupPtrTy();
+  case tok::annot_pragma_novector:
+    HandlePragmaNoVectorDecl();
+    return DeclGroupPtrTy();
+  case tok::annot_pragma_vector:
+    HandlePragmaVectorDecl();
+    return DeclGroupPtrTy();
+  case tok::annot_pragma_distribute_point:
+    HandlePragmaDistributeDecl();
+    return DeclGroupPtrTy();
+  case tok::annot_pragma_inline:
+    HandlePragmaInlineDecl();
+    return DeclGroupPtrTy();
+  case tok::annot_pragma_loop_count:
+    HandlePragmaLoopCountDecl();
+    return DeclGroupPtrTy();
+  case tok::annot_pragma_optimize:
+    HandlePragmaOptimizeDecl();
+    return DeclGroupPtrTy();
+  case tok::annot_pragma_optimization_level:
+    HandlePragmaOptimizationLevelDecl();
+    return DeclGroupPtrTy();
+  case tok::annot_pragma_noparallel:
+    HandlePragmaNoParallelDecl();
+    return DeclGroupPtrTy();
+  case tok::annot_pragma_parallel:
+    HandlePragmaParallelDecl();
+    return DeclGroupPtrTy();
+  case tok::annot_pragma_unroll:
+    HandlePragmaUnrollDecl();
+    return DeclGroupPtrTy();
+  case tok::annot_pragma_unroll_and_jam:
+    HandlePragmaUnrollAndJamDecl();
+    return DeclGroupPtrTy();
+  case tok::annot_pragma_nofusion:
+    HandlePragmaNoFusionDecl();
+    return DeclGroupPtrTy();
+  case tok::annot_pragma_optimization_parameter:
+    HandlePragmaOptimizationParameterDecl();
+    return DeclGroupPtrTy();
+  case tok::annot_pragma_alloc_section:
+    HandlePragmaAllocSectionDecl();
+    return DeclGroupPtrTy();
+  case tok::annot_pragma_section:
+    HandlePragmaSectionDecl();
+    return DeclGroupPtrTy();
+  case tok::annot_pragma_alloc_text:
+    HandlePragmaAllocTextDecl();
+    return DeclGroupPtrTy();
+  case tok::annot_pragma_auto_inline:
+    HandlePragmaAutoInlineDecl();
+    return DeclGroupPtrTy();
+  case tok::annot_pragma_seg:
+    HandlePragmaSegDecl();
+    return DeclGroupPtrTy();
+  case tok::annot_pragma_check_stack:
+    HandlePragmaCheckStackDecl();
+    return DeclGroupPtrTy();
+  case tok::annot_pragma_init_seg:
+    HandlePragmaInitSegDecl();
+    return DeclGroupPtrTy();
+  case tok::annot_pragma_float_control:
+    HandlePragmaFloatControlDecl();
+    return DeclGroupPtrTy();
+  case tok::annot_pragma_intel_fp_contract:
+    HandlePragmaCommonOnOffDecl(Sema::IntelPragmaFPContract, false);
+    return DeclGroupPtrTy();
+  case (tok::annot_pragma_fenv_access):
+    HandlePragmaCommonOnOffDecl(Sema::IntelPragmaFEnvAccess, false);
+    return DeclGroupPtrTy();
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   case tok::annot_pragma_vis:
     HandlePragmaVisibility();
     return DeclGroupPtrTy();
@@ -641,6 +712,11 @@ Parser::ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
     return DeclGroupPtrTy();
   case tok::annot_pragma_openmp:
     return ParseOpenMPDeclarativeDirective();
+#ifdef INTEL_CUSTOMIZATION
+  case tok::annot_pragma_simd:
+    HandlePragmaSIMD();
+    return DeclGroupPtrTy();
+#endif
   case tok::annot_pragma_ms_pointers_to_members:
     HandlePragmaMSPointersToMembers();
     return DeclGroupPtrTy();

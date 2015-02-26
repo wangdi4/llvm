@@ -3256,10 +3256,10 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
     QualType Ty;
     if (Literal.isFloat)
       Ty = Context.FloatTy;
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
     else if (Literal.isFloat128)
       Ty = Context.Float128Ty;
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
     else if (!Literal.isLong)
       Ty = Context.DoubleTy;
     else
@@ -9633,7 +9633,7 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
                             LHS.get()->getLocEnd());
       }
     }
-#endif
+#endif  // INTEL_CUSTOMIZATION
     break;
   }
   if (ResultTy.isNull() || LHS.isInvalid() || RHS.isInvalid())
@@ -11473,7 +11473,7 @@ Sema::PushExpressionEvaluationContext(ExpressionEvaluationContext NewContext,
 #ifdef INTEL_CUSTOMIZATION
   if (!CilkSpawnCalls.empty())
     std::swap(CilkSpawnCalls, ExprEvalContexts.back().SavedCilkSpawnCalls);
-#endif
+#endif  // INTEL_CUSTOMIZATION
 }
 
 void
@@ -11534,7 +11534,7 @@ void Sema::PopExpressionEvaluationContext() {
 #ifdef INTEL_CUSTOMIZATION
   // Restore Cilk spawn calls into the current evaluation context.
   CilkSpawnCalls.swap(Rec.SavedCilkSpawnCalls);
-#endif
+#endif  // INTEL_CUSTOMIZATION
   // Pop the current expression evaluation context off the stack.
   ExprEvalContexts.pop_back();
 
@@ -11551,9 +11551,9 @@ void Sema::DiscardCleanupsInEvaluationContext() {
          ExprCleanupObjects.end());
   ExprNeedsCleanups = false;
   MaybeODRUseExprs.clear();
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   CilkSpawnCalls.clear();
-#endif  
+#endif  // INTEL_CUSTOMIZATION
 }
 
 ExprResult Sema::HandleExprEvaluationContextForTypeof(Expr *E) {
@@ -12049,7 +12049,7 @@ static void buildSIMDLocalVariable(Sema &S, SIMDForScopeInfo *FSI,
   } else
     FSI->SetInvalid(Var);
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 static bool isVariableAlreadyCapturedInScopeInfo(CapturingScopeInfo *CSI, VarDecl *Var, 
                                       bool &SubCapturesAreNested,
                                       QualType &CaptureType, 
@@ -12279,7 +12279,7 @@ static bool captureInCapturedRegion(CapturedRegionScopeInfo *RSI,
     // Actually capture the variable.
     RSI->addCapture(Var, /*isBlock*/false, ByRef, RefersToCapturedVariable, Loc,
                     SourceLocation(), CaptureType, CopyExpr);
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
     // Only build for a Cilk for.
     if (CilkForScopeInfo *CFSI = dyn_cast<CilkForScopeInfo>(RSI))
       buildInnerLoopControlVar(S, CFSI, Var, Field);
@@ -12287,7 +12287,7 @@ static bool captureInCapturedRegion(CapturedRegionScopeInfo *RSI,
     // Build local variables from SIMD for clauses.
     if (SIMDForScopeInfo *FSI = dyn_cast<SIMDForScopeInfo>(RSI))
       buildSIMDLocalVariable(S, FSI, Var);
-#endif
+#endif  // INTEL_CUSTOMIZATION
   }
   return true;
 }
@@ -12562,11 +12562,14 @@ bool Sema::tryCaptureVariable(VarDecl *Var, SourceLocation ExprLoc,
           SIMDIndex = I;
         break;
       }
+    if (SIMDIndex == 0)
+      // This global or static is not inside a SIMD For loop.
+      return true;
   }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
   // Capture global variables if it is required to use private copy of this
-  // variable.
+  // variable
   bool IsGlobal = !Var->hasLocalStorage();
   if (IsGlobal && !(LangOpts.OpenMP && IsOpenMPCapturedVar(Var)))
     return true;
@@ -12787,7 +12790,7 @@ bool Sema::tryCaptureVariable(VarDecl *Var, SourceLocation ExprLoc,
       FunctionScopesIndex--;
       break;
     }
-#endif
+#endif  // INTEL_CUSTOMIZATION
     FunctionScopesIndex--;
     DC = ParentDC;
     Explicit = false;
@@ -14123,20 +14126,20 @@ ExprResult
 Sema::BuildCilkSpawnCall(SourceLocation SpawnLoc, Expr *E) {
   assert(E && "null expression");
 
-  Expr *InnerE = E;
-  if (CXXBindTemporaryExpr *T = dyn_cast<CXXBindTemporaryExpr>(E))
-    InnerE = T->getSubExpr();
+  CallExpr *Call = dyn_cast<CallExpr>(E->IgnoreImplicitForCilkSpawn());
 
-  bool isCall = isa<CallExpr>(InnerE);
-  if (CXXOperatorCallExpr *O = dyn_cast<CXXOperatorCallExpr>(InnerE))
-    isCall = O->getOperator() == OO_Call;
+  if (Call){
+    if (CXXOperatorCallExpr *O = dyn_cast<CXXOperatorCallExpr>(Call))
+      Call = O->getOperator() == OO_Call ? Call : 0;
+    else if (dyn_cast<CXXPseudoDestructorExpr>(Call->getCallee()))
+      return E; // simply discard the spawning of pseudo destructor
+  }
 
-  if (!isCall) {
+  if (!Call) {
     Diag(E->getExprLoc(), PDiag(diag::err_not_a_call) << getExprRange(E));
     return ExprError();
   }
 
-  CallExpr *Call = cast<CallExpr>(InnerE);
   if (Call->isCilkSpawnCall()) {
     Diag(E->getExprLoc(), diag::err_spawn_spawn);
     return ExprError();
@@ -14148,4 +14151,4 @@ Sema::BuildCilkSpawnCall(SourceLocation SpawnLoc, Expr *E) {
 
   return E;
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION

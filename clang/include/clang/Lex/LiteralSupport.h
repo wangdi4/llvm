@@ -62,9 +62,9 @@ public:
   bool isLong;        // This is *not* set for long long.
   bool isLongLong;
   bool isFloat;       // 1.0f
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   bool isFloat128;
-#endif  
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   bool isImaginary;   // 1.0i
   uint8_t MicrosoftInteger;  // Microsoft suffix extension i8, i16, i32, or i64.
 

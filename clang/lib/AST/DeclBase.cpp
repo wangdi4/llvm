@@ -180,7 +180,7 @@ bool Decl::isSpawning() const {
 
   return false;
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 const DeclContext *Decl::getParentFunctionOrMethod() const {
   for (const DeclContext *DC = getDeclContext();
@@ -584,6 +584,14 @@ unsigned Decl::getIdentifierNamespaceForKind(Kind DeclKind) {
       return IDNS_Ordinary | IDNS_Tag | IDNS_Type;
 
     // Never have names.
+#ifdef INTEL_CUSTOMIZATION
+    case Pragma:
+#ifndef INTEL_SPECIFIC_IL0_BACKEND
+    llvm_unreachable(
+      "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+    case CilkSpawn:
+#endif  // INTEL_CUSTOMIZATION
     case Friend:
     case FriendTemplate:
     case AccessSpec:
@@ -593,10 +601,6 @@ unsigned Decl::getIdentifierNamespaceForKind(Kind DeclKind) {
     case ObjCPropertyImpl:
     case Block:
     case Captured:
-#ifdef INTEL_CUSTOMIZATION
-    case CilkSpawn:
-    case Pragma:
-#endif
     case TranslationUnit:
 
     case UsingDirective:

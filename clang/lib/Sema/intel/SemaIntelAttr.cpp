@@ -1,5 +1,15 @@
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#include "clang/Sema/SemaInternal.h"
+#include "clang/AST/ASTConsumer.h"
+#include "clang/AST/Attr.h"
+#include "clang/AST/Expr.h"
+#include "clang/Basic/TargetInfo.h"
+#include "clang/Lex/Preprocessor.h"
+#include "clang/Sema/Lookup.h"
 #include "llvm/ADT/StringExtras.h"
 #include "clang/AST/ExprCXX.h"
+
+using namespace clang;
 
 static StringRef CreateStringRef(const char *Str) {
   char *Data = new char[::strlen(Str) + 1];
@@ -35,15 +45,6 @@ static void MarkDeclarationsReferencedInPragma(Sema &S, PragmaStmt *P) {
     if (*I)
       S.MarkDeclarationsReferencedInExpr(*I);
   }
-}
-
-void Sema::SetMac68kAlignment() {
-  if (PackContext == 0)
-    PackContext = new PragmaPackStack();
-
-  PragmaPackStack *Context = static_cast<PragmaPackStack*>(PackContext);
-
-  Context->setAlignment(PackStackEntry::kMac68kAlignmentSentinel);
 }
 
 // #pragma ivdep
@@ -2356,3 +2357,4 @@ void Sema::DeletePragmaOnError(PragmaStmt *Pragma) {
   Pragma->turnToNullOp();
 }
 
+#endif  // INTEL_SPECIFIC_IL0_BACKEND

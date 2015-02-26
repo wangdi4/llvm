@@ -296,9 +296,9 @@ bool Declarator::isDeclarationOfFunction() const {
     case TST_decimal32:
     case TST_decimal64:
     case TST_double:
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
     case TST_float128:
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
     case TST_enum:
     case TST_error:
     case TST_float:
@@ -459,9 +459,9 @@ const char *DeclSpec::getSpecifierName(DeclSpec::TST T,
   case DeclSpec::TST_half:        return "half";
   case DeclSpec::TST_float:       return "float";
   case DeclSpec::TST_double:      return "double";
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   case DeclSpec::TST_float128:    return "_Quad";
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   case DeclSpec::TST_bool:        return Policy.Bool ? "bool" : "_Bool";
   case DeclSpec::TST_decimal32:   return "_Decimal32";
   case DeclSpec::TST_decimal64:   return "_Decimal64";
@@ -1072,11 +1072,11 @@ void DeclSpec::Finish(DiagnosticsEngine &D, Preprocessor &PP, const PrintingPoli
       // Note that this intentionally doesn't include _Complex _Bool.
       if (!PP.getLangOpts().CPlusPlus)
         Diag(D, TSTLoc, diag::ext_integer_complex);
-    } else if (TypeSpecType != TST_float && TypeSpecType != TST_double 
-#ifdef INTEL_CUSTOMIZATION
-				&& TypeSpecType != TST_float128
-#endif
-				) {
+    } else if (TypeSpecType != TST_float && TypeSpecType != TST_double
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+                && TypeSpecType != TST_float128
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+              ) {
       Diag(D, TSCLoc, diag::err_invalid_complex_spec)
         << getSpecifierName((TST)TypeSpecType, Policy);
       TypeSpecComplex = TSC_unspecified;

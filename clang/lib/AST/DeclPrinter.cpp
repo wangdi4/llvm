@@ -88,9 +88,9 @@ namespace {
                                  const TemplateArgumentList *Args = nullptr);
     void prettyPrintAttributes(Decl *D);
     void printDeclType(QualType T, StringRef DeclName, bool Pack = false);
-#ifdef INTEL_CUSTOMIZATION
+#ifdef  INTEL_CUSTOMIZATION
     void VisitPragmaDecl(PragmaDecl *D);
-#endif
+#endif  // INTEL_CUSTOMIZATION
   };
 }
 
@@ -312,10 +312,10 @@ void DeclPrinter::VisitDeclContext(DeclContext *DC, bool Indent) {
              isa<ObjCCategoryImplDecl>(*D) ||
              isa<ObjCCategoryDecl>(*D))
       Terminator = nullptr;
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
     else if (isa<PragmaDecl>(*D))
       Terminator = 0;
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
     else if (isa<EnumConstantDecl>(*D)) {
       DeclContext::decl_iterator Next = D;
       ++Next;
@@ -1214,9 +1214,14 @@ void DeclPrinter::VisitUsingShadowDecl(UsingShadowDecl *D) {
 
 #ifdef INTEL_CUSTOMIZATION
 void DeclPrinter::VisitPragmaDecl(PragmaDecl *PD) {
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   PD->getStmt()->printPretty(Out, 0, Policy, Indentation);
+#else
+  llvm_unreachable(
+      "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 void DeclPrinter::VisitOMPThreadPrivateDecl(OMPThreadPrivateDecl *D) {
   Out << "#pragma omp threadprivate";

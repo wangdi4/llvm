@@ -732,9 +732,9 @@ bool Sema::containsUnexpandedParameterPacks(Declarator &D) {
   case TST_half:
   case TST_float:
   case TST_double:
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   case TST_float128:
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   case TST_bool:
   case TST_decimal32:
   case TST_decimal64:

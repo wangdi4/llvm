@@ -958,9 +958,9 @@ Parser::isExpressionOrTypeSpecifierSimple(tok::TokenKind Kind) {
   case tok::kw_float:
   case tok::kw_int:
   case tok::kw_long:
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   case tok::kw__Quad:
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   case tok::kw___int64:
   case tok::kw___int128:
   case tok::kw_restrict:
@@ -1427,9 +1427,9 @@ Parser::isCXXDeclarationSpecifier(Parser::TPResult BracedCastResult,
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   case tok::kw__Quad:
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   case tok::kw_void:
   case tok::annot_decltype:
     if (NextToken().is(tok::l_paren))

@@ -408,9 +408,108 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
   case Builtin::BI__sync_swap_4:
   case Builtin::BI__sync_swap_8:
   case Builtin::BI__sync_swap_16:
-#ifdef INTEL_CUSTOMIZATION
-#include "intel/SemaChecking_CheckBuiltinFunctionCall.cpp"
-#endif
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  case Builtin::BI__atomic_store_explicit:
+  case Builtin::BI__atomic_store_explicit_1:
+  case Builtin::BI__atomic_store_explicit_2:
+  case Builtin::BI__atomic_store_explicit_4:
+  case Builtin::BI__atomic_store_explicit_8:
+  case Builtin::BI__atomic_store_explicit_16:
+  case Builtin::BI__atomic_load_explicit:
+  case Builtin::BI__atomic_load_explicit_1:
+  case Builtin::BI__atomic_load_explicit_2:
+  case Builtin::BI__atomic_load_explicit_4:
+  case Builtin::BI__atomic_load_explicit_8:
+  case Builtin::BI__atomic_load_explicit_16:
+  case Builtin::BI__atomic_exchange_explicit:
+  case Builtin::BI__atomic_exchange_explicit_1:
+  case Builtin::BI__atomic_exchange_explicit_2:
+  case Builtin::BI__atomic_exchange_explicit_4:
+  case Builtin::BI__atomic_exchange_explicit_8:
+  case Builtin::BI__atomic_exchange_explicit_16:
+  case Builtin::BI__atomic_compare_exchange_weak_explicit:
+  case Builtin::BI__atomic_compare_exchange_weak_explicit_1:
+  case Builtin::BI__atomic_compare_exchange_weak_explicit_2:
+  case Builtin::BI__atomic_compare_exchange_weak_explicit_4:
+  case Builtin::BI__atomic_compare_exchange_weak_explicit_8:
+  case Builtin::BI__atomic_compare_exchange_strong_explicit:
+  case Builtin::BI__atomic_compare_exchange_strong_explicit_1:
+  case Builtin::BI__atomic_compare_exchange_strong_explicit_2:
+  case Builtin::BI__atomic_compare_exchange_strong_explicit_4:
+  case Builtin::BI__atomic_compare_exchange_strong_explicit_8:
+  case Builtin::BI__atomic_fetch_add_explicit:
+  case Builtin::BI__atomic_fetch_add_explicit_1:
+  case Builtin::BI__atomic_fetch_add_explicit_2:
+  case Builtin::BI__atomic_fetch_add_explicit_4:
+  case Builtin::BI__atomic_fetch_add_explicit_8:
+  case Builtin::BI__atomic_fetch_add_explicit_16:
+  case Builtin::BI__atomic_fetch_sub_explicit:
+  case Builtin::BI__atomic_fetch_sub_explicit_1:
+  case Builtin::BI__atomic_fetch_sub_explicit_2:
+  case Builtin::BI__atomic_fetch_sub_explicit_4:
+  case Builtin::BI__atomic_fetch_sub_explicit_8:
+  case Builtin::BI__atomic_fetch_sub_explicit_16:
+  case Builtin::BI__atomic_fetch_and_explicit:
+  case Builtin::BI__atomic_fetch_and_explicit_1:
+  case Builtin::BI__atomic_fetch_and_explicit_2:
+  case Builtin::BI__atomic_fetch_and_explicit_4:
+  case Builtin::BI__atomic_fetch_and_explicit_8:
+  case Builtin::BI__atomic_fetch_and_explicit_16:
+  case Builtin::BI__atomic_fetch_nand_explicit:
+  case Builtin::BI__atomic_fetch_nand_explicit_1:
+  case Builtin::BI__atomic_fetch_nand_explicit_2:
+  case Builtin::BI__atomic_fetch_nand_explicit_4:
+  case Builtin::BI__atomic_fetch_nand_explicit_8:
+  case Builtin::BI__atomic_fetch_nand_explicit_16:
+  case Builtin::BI__atomic_fetch_or_explicit:
+  case Builtin::BI__atomic_fetch_or_explicit_1:
+  case Builtin::BI__atomic_fetch_or_explicit_2:
+  case Builtin::BI__atomic_fetch_or_explicit_4:
+  case Builtin::BI__atomic_fetch_or_explicit_8:
+  case Builtin::BI__atomic_fetch_or_explicit_16:
+  case Builtin::BI__atomic_fetch_xor_explicit:
+  case Builtin::BI__atomic_fetch_xor_explicit_1:
+  case Builtin::BI__atomic_fetch_xor_explicit_2:
+  case Builtin::BI__atomic_fetch_xor_explicit_4:
+  case Builtin::BI__atomic_fetch_xor_explicit_8:
+  case Builtin::BI__atomic_fetch_xor_explicit_16:
+  case Builtin::BI__atomic_add_fetch_explicit:
+  case Builtin::BI__atomic_add_fetch_explicit_1:
+  case Builtin::BI__atomic_add_fetch_explicit_2:
+  case Builtin::BI__atomic_add_fetch_explicit_4:
+  case Builtin::BI__atomic_add_fetch_explicit_8:
+  case Builtin::BI__atomic_add_fetch_explicit_16:
+  case Builtin::BI__atomic_sub_fetch_explicit:
+  case Builtin::BI__atomic_sub_fetch_explicit_1:
+  case Builtin::BI__atomic_sub_fetch_explicit_2:
+  case Builtin::BI__atomic_sub_fetch_explicit_4:
+  case Builtin::BI__atomic_sub_fetch_explicit_8:
+  case Builtin::BI__atomic_sub_fetch_explicit_16:
+  case Builtin::BI__atomic_and_fetch_explicit:
+  case Builtin::BI__atomic_and_fetch_explicit_1:
+  case Builtin::BI__atomic_and_fetch_explicit_2:
+  case Builtin::BI__atomic_and_fetch_explicit_4:
+  case Builtin::BI__atomic_and_fetch_explicit_8:
+  case Builtin::BI__atomic_and_fetch_explicit_16:
+  case Builtin::BI__atomic_nand_fetch_explicit:
+  case Builtin::BI__atomic_nand_fetch_explicit_1:
+  case Builtin::BI__atomic_nand_fetch_explicit_2:
+  case Builtin::BI__atomic_nand_fetch_explicit_4:
+  case Builtin::BI__atomic_nand_fetch_explicit_8:
+  case Builtin::BI__atomic_nand_fetch_explicit_16:
+  case Builtin::BI__atomic_or_fetch_explicit:
+  case Builtin::BI__atomic_or_fetch_explicit_1:
+  case Builtin::BI__atomic_or_fetch_explicit_2:
+  case Builtin::BI__atomic_or_fetch_explicit_4:
+  case Builtin::BI__atomic_or_fetch_explicit_8:
+  case Builtin::BI__atomic_or_fetch_explicit_16:
+  case Builtin::BI__atomic_xor_fetch_explicit:
+  case Builtin::BI__atomic_xor_fetch_explicit_1:
+  case Builtin::BI__atomic_xor_fetch_explicit_2:
+  case Builtin::BI__atomic_xor_fetch_explicit_4:
+  case Builtin::BI__atomic_xor_fetch_explicit_8:
+  case Builtin::BI__atomic_xor_fetch_explicit_16:
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
     return SemaBuiltinAtomicOverloaded(TheCallResult);
 #define BUILTIN(ID, TYPE, ATTRS)
 #define ATOMIC_BUILTIN(ID, TYPE, ATTRS) \
@@ -421,7 +520,7 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     if (SemaBuiltinAnnotation(*this, TheCall))
       return ExprError();
     break;
-#ifdef INTEL_CUSTOMIZATION	
+#ifdef INTEL_CUSTOMIZATION
   case Builtin::BI__sec_reduce_add:
   case Builtin::BI__sec_reduce_mul:
   case Builtin::BI__sec_reduce_max:
@@ -484,6 +583,7 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
                                 TheCall->getRParenLoc());
     }
     break;
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   case Builtin::BI__assume_aligned: {
     if (checkArgCount(*this, TheCall, 2)) return ExprError();
     Expr *Arg1 = TheCall->getArg(0);
@@ -508,7 +608,8 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     }
     }
     break;
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_addressof:
     if (SemaBuiltinAddressof(*this, TheCall))
       return ExprError();
@@ -1707,7 +1808,7 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
     BUILTIN_ROW(__sync_lock_test_and_set),
     BUILTIN_ROW(__sync_lock_release),
     BUILTIN_ROW(__sync_swap)
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
     , BUILTIN_ROW(__atomic_store_explicit),
     BUILTIN_ROW(__atomic_load_explicit),
     BUILTIN_ROW(__atomic_exchange_explicit),
@@ -1725,7 +1826,7 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
     BUILTIN_ROW(__atomic_nand_fetch_explicit),
     BUILTIN_ROW(__atomic_or_fetch_explicit),
     BUILTIN_ROW(__atomic_xor_fetch_explicit)
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   };
 #undef BUILTIN_ROW
 
@@ -1911,7 +2012,7 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
   case Builtin::BI__sync_swap_16:
     BuiltinIndex = 16; 
     break;
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   case Builtin::BI__atomic_store_explicit:
   case Builtin::BI__atomic_store_explicit_1:
   case Builtin::BI__atomic_store_explicit_2:
@@ -2070,7 +2171,7 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
     NumFixed = 2;
     BuiltinIndex = 33;
     break;
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   }
 
   // Now that we know how many fixed arguments we expect, first check that we
@@ -2104,7 +2205,7 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
     if (!NewBuiltinDecl)
       return ExprError();
   }
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   switch (NewBuiltinID) {
   case Builtin::BI__atomic_store_explicit_1:
   case Builtin::BI__atomic_store_explicit_2:
@@ -2248,7 +2349,7 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
   default:
     break;
   }
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   // The first argument --- the pointer --- has a fixed type; we
   // deduce the types of the rest of the arguments accordingly.  Walk
   // the remaining arguments, converting them to the deduced value type.
@@ -8695,7 +8796,7 @@ void Sema::DiagnoseEmptyLoopBody(const Stmt *S,
     StmtLoc = FS->getForLoc();
     Body = FS->getBody()->getCapturedStmt();
     DiagID = diag::warn_empty_simd_for_body;
-#endif
+#endif  // INTEL_CUSTOMIZATION
   } else
     return; // Neither `for' nor `while'.
 

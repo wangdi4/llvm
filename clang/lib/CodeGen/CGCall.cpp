@@ -16,7 +16,7 @@
 #include "ABIInfo.h"
 #ifdef INTEL_CUSTOMIZATION
 #include "intel/CGCilkPlusRuntime.h"
-#endif
+#endif  // INTEL_CUSTOMIZATION
 #include "CGCXXABI.h"
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
@@ -1204,10 +1204,10 @@ bool CodeGenModule::ReturnTypeUsesFPRet(QualType ResultType) {
       return getTarget().useObjCFPRetForRealType(TargetInfo::Double);
     case BuiltinType::LongDouble:
       return getTarget().useObjCFPRetForRealType(TargetInfo::LongDouble);
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
     case BuiltinType::Float128:
       return getTarget().useObjCFPRetForRealType(TargetInfo::Float128);
-#endif	  
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
     }
   }
 
@@ -2220,9 +2220,13 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
 
   // Functions with no result always return void.
   if (!ReturnValue) {
-    llvm::Instruction *Ret = Builder.CreateRetVoid();	//***INTEL
-    if (EmitRetDbgLoc && !ReturnLoc.isUnknown())		//***INTEL 
-      Ret->setDebugLoc(ReturnLoc);						//***INTEL 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+    llvm::Instruction *Ret = Builder.CreateRetVoid();
+    if (EmitRetDbgLoc && !ReturnLoc.isUnknown())
+      Ret->setDebugLoc(ReturnLoc);
+#else
+    Builder.CreateRetVoid();
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
     return;
   }
 
@@ -2353,8 +2357,10 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
 
   if (!RetDbgLoc.isUnknown())
     Ret->setDebugLoc(RetDbgLoc);
-  else if (EmitRetDbgLoc && !ReturnLoc.isUnknown())	//***INTEL 
-    Ret->setDebugLoc(ReturnLoc);					//***INTEL 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  else if (EmitRetDbgLoc && !ReturnLoc.isUnknown())
+    Ret->setDebugLoc(ReturnLoc);
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 }
 
 static bool isInAllocaArgument(CGCXXABI &ABI, QualType type) {
@@ -2984,10 +2990,10 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
                                  const CallArgList &CallArgs,
                                  const Decl *TargetDecl,
                                  llvm::Instruction **callOrInvoke
-#ifdef INTEL_CUSTOMIZATION								 
+#ifdef INTEL_CUSTOMIZATION
                                  , bool IsCilkSpawnCall
-#endif								 
-								 ) {
+#endif  // INTEL_CUSTOMIZATION
+                                ) {
   // FIXME: We no longer need the types from CallArgs; lift up and simplify.
 
   // Handle struct-return functions by passing a pointer to the
@@ -3317,7 +3323,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   // before emitting the real call.
   if (IsCilkSpawnCall)
     CGM.getCilkPlusRuntime().EmitCilkHelperPrologue(*this);
-#endif
+#endif  // INTEL_CUSTOMIZATION
   llvm::BasicBlock *InvokeDest = nullptr;
   if (!Attrs.hasAttribute(llvm::AttributeSet::FunctionIndex,
                           llvm::Attribute::NoUnwind))

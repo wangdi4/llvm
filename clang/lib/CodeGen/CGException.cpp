@@ -14,7 +14,8 @@
 #include "CodeGenFunction.h"
 #ifdef INTEL_CUSTOMIZATION
 #include "intel/CGCilkPlusRuntime.h"
-#endif
+#endif  // INTEL_CUSTOMIZATION
+#include "CGCleanup.h"
 #include "CGCXXABI.h"
 #include "CGCleanup.h"
 #include "CGObjCRuntime.h"
@@ -598,7 +599,7 @@ void CodeGenFunction::EmitCXXTryStmt(const CXXTryStmt &S) {
   }
 
   EnterCXXTryStmt(S);
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   {
     if (getLangOpts().CilkPlus && CurCGCilkImplicitSyncInfo) {
       // The following implicit sync is not required by the Cilk Plus
@@ -616,7 +617,7 @@ void CodeGenFunction::EmitCXXTryStmt(const CXXTryStmt &S) {
         CurCGCilkImplicitSyncInfo->needsImplicitSync(&S))
       CGM.getCilkPlusRuntime().pushCilkImplicitSyncCleanup(*this);
   }
-#endif  
+#endif  // INTEL_CUSTOMIZATION
   EmitStmt(S.getTryBlock());
   ExitCXXTryStmt(S);
 }
@@ -716,10 +717,12 @@ static bool isNonEHScope(const EHScope &S) {
 llvm::BasicBlock *CodeGenFunction::getInvokeDestImpl() {
   assert(EHStack.requiresLandingPad());
   assert(!EHStack.empty());
-
-  if (!CGM.getLangOpts().Exceptions || ExceptionsDisabled)	//***INTEL 
+  if (!CGM.getLangOpts().Exceptions
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+   || ExceptionsDisabled
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+   )
     return nullptr;
-
   // Check the innermost scope for a cached landing pad.  If this is
   // a non-EH cleanup, we'll check enclosing scopes in EmitLandingPad.
   llvm::BasicBlock *LP = EHStack.begin()->getCachedLandingPad();

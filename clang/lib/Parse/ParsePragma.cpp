@@ -156,14 +156,7 @@ struct PragmaUnrollHintHandler : public PragmaHandler {
                     Token &FirstToken) override;
 };
 
-#ifdef INTEL_CUSTOMIZATION
-#include "intel/ParsePragma.h"
-#endif
 }  // end namespace
-
-#ifdef INTEL_CUSTOMIZATION
-#include "intel/ParsePragma.cpp"
-#endif
 
 void Parser::initializePragmaHandlers() {
   AlignHandler.reset(new PragmaAlignHandler());
@@ -233,17 +226,22 @@ void Parser::initializePragmaHandlers() {
 
   LoopHintHandler.reset(new PragmaLoopHintHandler());
   PP.AddPragmaHandler("clang", LoopHintHandler.get());
+
 #ifdef INTEL_CUSTOMIZATION
-  if (!getLangOpts().Intel) {
-#endif
-  	UnrollHintHandler.reset(new PragmaUnrollHintHandler("unroll"));
-  	PP.AddPragmaHandler(UnrollHintHandler.get());
-	NoUnrollHintHandler.reset(new PragmaUnrollHintHandler("nounroll"));
-    PP.AddPragmaHandler(NoUnrollHintHandler.get());
-#ifdef INTEL_CUSTOMIZATION
+  initializeIntelPragmaHandlers ();
+#endif // INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  if (!getLangOpts().IntelCompat) {
+#endif // INTEL_SPECIFIC_IL0_BACKEND
+
+  UnrollHintHandler.reset(new PragmaUnrollHintHandler("unroll"));
+  PP.AddPragmaHandler(UnrollHintHandler.get());
+  NoUnrollHintHandler.reset(new PragmaUnrollHintHandler("nounroll"));
+  PP.AddPragmaHandler(NoUnrollHintHandler.get());
+
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   }
-#include "intel/Parser_Parser.cpp"
-#endif
+#endif // INTEL_SPECIFIC_IL0_BACKEND
 }
 
 void Parser::resetPragmaHandlers() {
@@ -306,17 +304,20 @@ void Parser::resetPragmaHandlers() {
   LoopHintHandler.reset();
 
 #ifdef INTEL_CUSTOMIZATION
-  if (!getLangOpts().Intel) {
-#endif
-    PP.RemovePragmaHandler(UnrollHintHandler.get());
-    UnrollHintHandler.reset();
+  resetIntelPragmaHandlers();
+#endif // INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  if (!getLangOpts().IntelCompat) {
+#endif // INTEL_SPECIFIC_IL0_BACKEND
 
-    PP.RemovePragmaHandler(NoUnrollHintHandler.get());
-    NoUnrollHintHandler.reset();
-#ifdef INTEL_CUSTOMIZATION
+  PP.RemovePragmaHandler(UnrollHintHandler.get());
+  UnrollHintHandler.reset();
+  PP.RemovePragmaHandler(NoUnrollHintHandler.get());
+  NoUnrollHintHandler.reset();
+
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   }
-#include "intel/Parser_desParser.cpp"
-#endif
+#endif // INTEL_SPECIFIC_IL0_BACKEND
 }
 
 /// \brief Handle the annotation token produced for #pragma unused(...)

@@ -476,7 +476,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
 #undef TOSTR2
 #ifdef INTEL_CUSTOMIZATION
   if (!LangOpts.IntelCompat)
-#endif
+#endif  // INTEL_CUSTOMIZATION
   if (!LangOpts.MSVCCompat) {
     // Currently claim to be compatible with GCC 4.2.1-5621, but only if we're
     // not compiling for MSVC compatibility
@@ -881,7 +881,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   Builder.defineMacro("__I__", "1j");
   if (LangOpts.CilkPlus)
     Builder.defineMacro("__cilk", "200");
-#endif
+#endif  // INTEL_CUSTOMIZATION
   // CUDA device path compilaton
   if (LangOpts.CUDAIsDevice) {
     // The CUDA_ARCH value is set for the GPU target specified in the NVPTX

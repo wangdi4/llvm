@@ -924,4 +924,4 @@ void CodeGenModule::EmitCilkElementalVariants() {
     createVectorVariant(I->KernelMD, I->FD, I->Fn);
 }
 
-#endif
+#endif  // INTEL_CUSTOMIZATION

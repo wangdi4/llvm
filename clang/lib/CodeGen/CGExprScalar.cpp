@@ -274,7 +274,7 @@ public:
                                               EmitLoadOfLValue(E->getReturnExpr());
     return 0;
   }
-#endif
+#endif  // INTEL_CUSTOMIZATION
   // l-values.
   Value *VisitDeclRefExpr(DeclRefExpr *E) {
     if (CodeGenFunction::ConstantEmission result = CGF.tryEmitAsConstant(E)) {
@@ -585,7 +585,7 @@ public:
     CGF.EmitCilkSpawnExpr(E);
     return 0;
   }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 };
 }  // end anonymous namespace.
 
@@ -2982,7 +2982,7 @@ Value *ScalarExprEmitter::VisitBinAssign(const BinaryOperator *E) {
     // this should improve codegen just a little.
     RHS = Visit(E->getRHS());
     LHS = EmitCheckedLValue(E->getLHS(), CodeGenFunction::TCK_Store);
-#endif
+#endif  // INTEL_CUSTOMIZATION
     // Store the value into the LHS.  Bit-fields are handled specially
     // because the result is altered by the store, i.e., [C99 6.5.16p1]
     // 'An assignment expression has the value of the left operand after

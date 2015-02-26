@@ -35,7 +35,7 @@
 #include "llvm/ADT/SmallVector.h"
 #ifdef INTEL_CUSTOMIZATION
 #include "clang/Basic/PartialDiagnostic.h"
-#endif
+#endif  // INTEL_CUSTOMIZATION
 using namespace clang;
 using namespace sema;
 
@@ -60,7 +60,7 @@ StmtResult Sema::ActOnExprStmt(ExprResult FE) {
   return StmtResult(Res.get());
 #else
   return StmtResult(FE.getAs<Stmt>());
-#endif
+#endif  // INTEL_CUSTOMIZATION
 }
 
 
@@ -348,10 +348,11 @@ sema::CompoundScopeInfo &Sema::getCurCompoundScopeSkipCilkFor() const {
 
   return getCurFunction()->CompoundScopes.back();
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 StmtResult Sema::ActOnCompoundStmt(SourceLocation L, SourceLocation R,
-                                   ArrayRef<Stmt *> Elts, bool isStmtExpr) {
+                                   ArrayRef<Stmt *> Elts,
+                                   bool isStmtExpr) { //***INTEL
   const unsigned NumElts = Elts.size();
 
   // If we're in C89 mode, check that we don't have any decls after stmts.  If
@@ -393,8 +394,9 @@ StmtResult Sema::ActOnCompoundStmt(SourceLocation L, SourceLocation R,
   // Check whether Cilk spawns in this compound statement are well-formed.
   if (getLangOpts().CilkPlus && getCurCompoundScope().HasCilkSpawn)
     for (unsigned i = 0; i < NumElts; ++i)
-      DiagnoseCilkSpawn(Elts[i]);
+      DiagnoseCilkSpawn(Elts[i], isStmtExpr);
 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   // Analisys for #pragma ivdep, distribute_point before empty statements (i.e. goto, break, continue, declspec)
   SmallVector<SourceLocation, 4> locs;
   SmallVector<unsigned, 4> messages;
@@ -457,7 +459,8 @@ StmtResult Sema::ActOnCompoundStmt(SourceLocation L, SourceLocation R,
   {
     Diag(locs[cnt - 1], messages[cnt - 1]) << locs[cnt - 1];
   }
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   return new (Context) CompoundStmt(Context, Elts, L, R);
 }
 
@@ -618,7 +621,7 @@ Sema::ActOnIfStmt(SourceLocation IfLoc, FullExprArg CondVal, Decl *CondVar,
 #else
   return new (Context) IfStmt(Context, IfLoc, ConditionVar, ConditionExpr,
                               thenStmt, ElseLoc, elseStmt);
-#endif
+#endif  // INTEL_CUSTOMIZATION
 }
 
 namespace {
@@ -1537,21 +1540,22 @@ namespace {
     bool FoundDeclInUse() { return FoundDecl; }
 
   };  // end class DeclMatcher
-}	//***INTEL 
+#ifdef INTEL_CUSTOMIZATION
+}
 
-void Sema::CheckForLoopConditionalStatement(Expr *Second, Expr *Third, 	//***INTEL 
-                                                          Stmt *Body) {	//***INTEL 
+void Sema::CheckForLoopConditionalStatement(Expr *Second, Expr *Third,
+                                                          Stmt *Body) {
   // Condition is empty
   if (!Second) return;
 
-  if (Diags.isIgnored(diag::warn_variables_not_in_loop_body,			//***INTEL 
+  if (Diags.isIgnored(diag::warn_variables_not_in_loop_body,
                           Second->getLocStart()))
       return;
 
-  PartialDiagnostic PD = PDiag(diag::warn_variables_not_in_loop_body);	//***INTEL 
+  PartialDiagnostic PD = PDiag(diag::warn_variables_not_in_loop_body);
   llvm::SmallPtrSet<VarDecl*, 8> Decls;
   SmallVector<SourceRange, 10> Ranges;
-  DeclExtractor DE(*this, Decls, Ranges);								//***INTEL 
+  DeclExtractor DE(*this, Decls, Ranges);
   DE.Visit(Second);
 
   // Don't analyze complex conditionals.
@@ -1567,20 +1571,20 @@ void Sema::CheckForLoopConditionalStatement(Expr *Second, Expr *Third, 	//***INT
     if ((*I)->getType().isVolatileQualified() ||
         (*I)->hasGlobalStorage()) return;
 
-  if (DeclMatcher(*this, Decls, Second).FoundDeclInUse() ||				//***INTEL 
-      DeclMatcher(*this, Decls, Third).FoundDeclInUse() ||				//***INTEL 
-      DeclMatcher(*this, Decls, Body).FoundDeclInUse())					//***INTEL 
+  if (DeclMatcher(*this, Decls, Second).FoundDeclInUse() ||
+      DeclMatcher(*this, Decls, Third).FoundDeclInUse() ||
+      DeclMatcher(*this, Decls, Body).FoundDeclInUse())
     return;
 
   // Load decl names into diagnostic.
   if (Decls.size() > 4)
-    PD << 0;															//***INTEL 
+    PD << 0;
   else {
-    PD << Decls.size();													//***INTEL 
+    PD << Decls.size();
     for (llvm::SmallPtrSetImpl<VarDecl*>::iterator I = Decls.begin(),
                                                    E = Decls.end();
          I != E; ++I)
-      PD << (*I)->getDeclName();										//***INTEL 
+      PD << (*I)->getDeclName();
   }
 
   // Load SourceRanges into diagnostic if there is room.
@@ -1589,14 +1593,72 @@ void Sema::CheckForLoopConditionalStatement(Expr *Second, Expr *Third, 	//***INT
     for (SmallVectorImpl<SourceRange>::iterator I = Ranges.begin(),
                                                 E = Ranges.end();
          I != E; ++I)
-      PD << *I;															//***INTEL 
+      PD << *I;
   else
-    PD << Second->getSourceRange();										//***INTEL 
+    PD << Second->getSourceRange();
 
-  Diag(Ranges.begin()->getBegin(), PD);									//***INTEL 
+  Diag(Ranges.begin()->getBegin(), PD);
 }
 
-namespace {																//***INTEL 
+namespace {
+#else
+  void CheckForLoopConditionalStatement(Sema &S, Expr *Second,
+                                        Expr *Third, Stmt *Body) {
+    // Condition is empty
+    if (!Second) return;
+
+    if (S.Diags.isIgnored(diag::warn_variables_not_in_loop_body,
+                          Second->getLocStart()))
+      return;
+
+    PartialDiagnostic PDiag = S.PDiag(diag::warn_variables_not_in_loop_body);
+    llvm::SmallPtrSet<VarDecl*, 8> Decls;
+    SmallVector<SourceRange, 10> Ranges;
+    DeclExtractor DE(S, Decls, Ranges);
+    DE.Visit(Second);
+
+    // Don't analyze complex conditionals.
+    if (!DE.isSimple()) return;
+
+    // No decls found.
+    if (Decls.size() == 0) return;
+
+    // Don't warn on volatile, static, or global variables.
+    for (llvm::SmallPtrSetImpl<VarDecl*>::iterator I = Decls.begin(),
+                                                   E = Decls.end();
+         I != E; ++I)
+      if ((*I)->getType().isVolatileQualified() ||
+          (*I)->hasGlobalStorage()) return;
+
+    if (DeclMatcher(S, Decls, Second).FoundDeclInUse() ||
+        DeclMatcher(S, Decls, Third).FoundDeclInUse() ||
+        DeclMatcher(S, Decls, Body).FoundDeclInUse())
+      return;
+
+    // Load decl names into diagnostic.
+    if (Decls.size() > 4)
+      PDiag << 0;
+    else {
+      PDiag << Decls.size();
+      for (llvm::SmallPtrSetImpl<VarDecl*>::iterator I = Decls.begin(),
+                                                     E = Decls.end();
+           I != E; ++I)
+        PDiag << (*I)->getDeclName();
+    }
+
+    // Load SourceRanges into diagnostic if there is room.
+    // Otherwise, load the SourceRange of the conditional expression.
+    if (Ranges.size() <= PartialDiagnostic::MaxArguments)
+      for (SmallVectorImpl<SourceRange>::iterator I = Ranges.begin(),
+                                                  E = Ranges.end();
+           I != E; ++I)
+        PDiag << *I;
+    else
+      PDiag << Second->getSourceRange();
+
+    S.Diag(Ranges.begin()->getBegin(), PDiag);
+  }
+#endif // INTEL_CUTOMIZATION
   // If Statement is an incemement or decrement, return true and sets the
   // variables Increment and DRE.
   bool ProcessIterationStmt(Sema &S, Stmt* Statement, bool &Increment,
@@ -1747,8 +1809,11 @@ Sema::ActOnForStmt(SourceLocation ForLoc, SourceLocation LParenLoc,
 
   CheckBreakContinueBinding(second.get());
   CheckBreakContinueBinding(third.get());
-
-  CheckForLoopConditionalStatement(second.get(), third.get(), Body);	//***INTEL 
+#ifdef INTEL_CUSTOMIZATION
+  CheckForLoopConditionalStatement(second.get(), third.get(), Body);
+#else
+  CheckForLoopConditionalStatement(*this, second.get(), third.get(), Body);
+#endif  // INTEL_CUSTOMIZATION
   CheckForRedundantIteration(*this, third.get(), Body);
 
   ExprResult SecondResult(second.release());
@@ -2556,7 +2621,7 @@ StmtResult
 Sema::ActOnBreakStmt(SourceLocation BreakLoc, Scope *CurScope) {
   Scope *S = CurScope->getBreakParent();
   if (!S) {
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
     // Break from a Cilk for loop is not allowed unless the break is
     // inside a nested loop or switch statement.
     if (isa<CilkForScopeInfo>(getCurFunction())) {
@@ -2566,7 +2631,7 @@ Sema::ActOnBreakStmt(SourceLocation BreakLoc, Scope *CurScope) {
       Diag(BreakLoc, diag::err_simd_for_cannot_break);
       return StmtError();
     }
-#endif
+#endif  // INTEL_CUSTOMIZATION
     // C99 6.8.6.3p1: A break shall appear only in or as a switch/loop body.
     return StmtError(Diag(BreakLoc, diag::err_break_not_in_loop_or_switch));
   }
@@ -2581,7 +2646,7 @@ StmtResult
 Sema::ActOnCilkSyncStmt(SourceLocation SyncLoc) {
   return new (Context) CilkSyncStmt(SyncLoc);
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 /// \brief Determine whether the given expression is a candidate for
 /// copy elision in either a return statement or a throw expression.
 ///
@@ -2760,7 +2825,7 @@ Sema::ActOnCapScopeReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
     Diag(ReturnLoc, diag::err_simd_for_cannot_return);
     return StmtError();
   }
-#endif
+#endif  // INTEL_CUSTOMIZATION
   if (CurLambda && hasDeducedReturnType(CurLambda->CallOperator)) {
     // In C++1y, the return type may involve 'auto'.
     // FIXME: Blocks might have a return type of 'auto' explicitly specified.
@@ -3724,16 +3789,16 @@ StmtResult Sema::ActOnCapturedRegionEnd(Stmt *S) {
 
   CapturedDecl *CD = RSI->TheCapturedDecl;
   RecordDecl *RD = RSI->TheRecordDecl;
-
-  // If capturing an expression, then needs to make this expression as a full	//***INTEL 
-  // expression. If it is not parsed after entering the captured region,		//***INTEL 
-  // then check if it has any nontrivial call.									//***INTEL 
-  if (Expr *E = dyn_cast<Expr>(S))												//***INTEL 
-    if (!isa<ExprWithCleanups>(E)) {											//***INTEL 
-      ExprNeedsCleanups |= E->hasNonTrivialCall(Context);						//***INTEL 
-      S = MaybeCreateExprWithCleanups(E);										//***INTEL 
-    }																			//***INTEL 
-
+#ifdef INTEL_CUSTOMIZATION
+  // If capturing an expression, then needs to make this expression as a full
+  // expression. If it is not parsed after entering the captured region,
+  // then check if it has any nontrivial call.
+  if (Expr *E = dyn_cast<Expr>(S))
+    if (!isa<ExprWithCleanups>(E)) {
+      ExprNeedsCleanups |= E->hasNonTrivialCall(Context);
+      S = MaybeCreateExprWithCleanups(E);
+    }
+#endif  // INTEL_CUSTOMIZATION
   CapturedStmt *Res = CapturedStmt::Create(getASTContext(), S,
                                            RSI->CapRegionKind, Captures,
                                            CaptureInits, CD, RD);
@@ -3975,7 +4040,7 @@ StmtResult Sema::BuildSIMDForStmt(SourceLocation PragmaLoc,
 
   return Result;
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 ExprResult Sema::ActOnCustomIdExpression(Scope *CurScope,
                                          CXXScopeSpec &ScopeSpec,

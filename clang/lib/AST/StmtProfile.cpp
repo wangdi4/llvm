@@ -612,8 +612,15 @@ void StmtProfiler::VisitSIMDForStmt(const SIMDForStmt *S) {
 void StmtProfiler::VisitCilkRankedStmt(const CilkRankedStmt *S) {
   VisitStmt(S);
 }
-
-#endif
+void StmtProfiler::VisitPragmaStmt(const PragmaStmt *S) {
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  VisitStmt(S);
+#else
+  llvm_unreachable(
+    "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+}
+#endif  // INTEL_CUSTOMIZATION
 
 void StmtProfiler::VisitCallExpr(const CallExpr *S) {
   VisitExpr(S);
@@ -1497,8 +1504,3 @@ void Stmt::Profile(llvm::FoldingSetNodeID &ID, const ASTContext &Context,
   Profiler.Visit(this);
 }
 
-#ifdef INTEL_CUSTOMIZATION
-void StmtProfiler::VisitPragmaStmt(const PragmaStmt *S) {
-  VisitStmt(S);
-}
-#endif

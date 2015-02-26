@@ -1102,9 +1102,9 @@ static void PrintFloatingLiteral(raw_ostream &OS, FloatingLiteral *Node,
   case BuiltinType::Double:     break; // no suffix.
   case BuiltinType::Float:      OS << 'F'; break;
   case BuiltinType::LongDouble: OS << 'L'; break;
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   case BuiltinType::Float128:   OS << 'Q'; break;
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   }
 }
 
@@ -1302,7 +1302,7 @@ void StmtPrinter::VisitCEANBuiltinExpr(CEANBuiltinExpr *Node) {
   }
   OS << ")";
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 void StmtPrinter::PrintCallArgs(CallExpr *Call) {
   for (unsigned i = 0, e = Call->getNumArgs(); i != e; ++i) {
@@ -1320,7 +1320,7 @@ void StmtPrinter::VisitCallExpr(CallExpr *Call) {
 #ifdef INTEL_CUSTOMIZATION
   if (Call->isCilkSpawnCall())
     OS << "_Cilk_spawn ";
-#endif	
+#endif  // INTEL_CUSTOMIZATION
   PrintExpr(Call->getCallee());
   OS << "(";
   PrintCallArgs(Call);
@@ -2362,7 +2362,27 @@ void StmtPrinter::VisitCilkRankedStmt(CilkRankedStmt *Node) {
     PrintStmt(Node->getAssociatedStmt());
   Indent() << "}\n";
 }
-#endif
+void StmtPrinter::VisitPragmaStmt(PragmaStmt *Node) {
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  if (!Node->isNullOp()) {
+    OS << "#pragma ";
+    for (size_t i = 0; i < Node->getRealAttribs().size(); ++i) {
+      if (isa<StringLiteral>((Node->getRealAttribs())[i])) {
+        OS << cast<StringLiteral>((Node->getRealAttribs())[i])->getString();
+      }
+      else {
+        PrintExpr((Node->getRealAttribs())[i]);
+      }
+    }
+    if (!Node->isDecl())
+      OS << "\n";
+  }
+#else
+  llvm_unreachable(
+    "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+}
+#endif  // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // Stmt method implementations
@@ -2386,20 +2406,4 @@ void Stmt::printPretty(raw_ostream &OS,
 
 // Implement virtual destructor.
 PrinterHelper::~PrinterHelper() {}
-#ifdef INTEL_CUSTOMIZATION
-void StmtPrinter::VisitPragmaStmt(PragmaStmt *Node) {
-  if (!Node->isNullOp()) {
-    OS << "#pragma ";
-    for (size_t i = 0; i < Node->getRealAttribs().size(); ++i) {
-      if (isa<StringLiteral>((Node->getRealAttribs())[i])) {
-        OS << cast<StringLiteral>((Node->getRealAttribs())[i])->getString();
-      }
-      else {
-        PrintExpr((Node->getRealAttribs())[i]);
-      }
-    }
-    if (!Node->isDecl())
-      OS << "\n";
-  }
-}
-#endif
+

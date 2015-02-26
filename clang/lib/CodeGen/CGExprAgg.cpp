@@ -118,8 +118,8 @@ public:
   }
   void VisitCilkSpawnExpr(CilkSpawnExpr *E) {
     CGF.EmitCilkSpawnExpr(E);
-  }  
-#endif
+  }
+#endif  // INTEL_CUSTOMIZATION
   // l-values.
   void VisitDeclRefExpr(DeclRefExpr *E) {
     // For aggregates, we should always be able to emit the variable

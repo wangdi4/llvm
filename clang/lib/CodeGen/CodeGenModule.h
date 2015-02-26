@@ -88,7 +88,7 @@ class CGOpenMPRuntime;
 class CGCUDARuntime;
 #ifdef INTEL_CUSTOMIZATION
 class CGCilkPlusRuntime;
-#endif
+#endif  // INTEL_CUSTOMIZATION
 class BlockFieldFlags;
 class FunctionArgList;
 class CoverageMappingModuleGen;
@@ -305,9 +305,9 @@ private:
   CGOpenCLRuntime* OpenCLRuntime;
   CGOpenMPRuntime* OpenMPRuntime;
   CGCUDARuntime* CUDARuntime;
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   CGCilkPlusRuntime *CilkPlusRuntime;
-#endif
+#endif  // INTEL_CUSTOMIZATION
   CGDebugInfo* DebugInfo;
   ARCEntrypoints *ARCData;
   llvm::MDNode *NoObjCARCExceptionsMetadata;
@@ -333,7 +333,7 @@ private:
   /// ElementalVariantToEmit - This contains all Cilk Plus elemental function
   /// variants to be emitted.
   llvm::SmallVector<ElementalVariantInfo, 8> ElementalVariantToEmit;
-#endif
+#endif  // INTEL_CUSTOMIZATION
   // A set of references that have only been seen via a weakref so far. This is
   // used to remove the weak of the reference if we ever see a direct reference
   // or a definition.
@@ -476,9 +476,9 @@ private:
   void createOpenCLRuntime();
   void createOpenMPRuntime();
   void createCUDARuntime();
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   void createCilkPlusRuntime();
-#endif
+#endif  // INTEL_CUSTOMIZATION
   bool isTriviallyRecursive(const FunctionDecl *F);
   bool shouldEmitFunction(GlobalDecl GD);
 
@@ -627,7 +627,7 @@ public:
 
   /// Emit all elemental function vector variants in this module.
   void EmitCilkElementalVariants();
-#endif
+#endif  // INTEL_CUSTOMIZATION
   ARCEntrypoints &getARCEntrypoints() const {
     assert(getLangOpts().ObjCAutoRefCount && ARCData != nullptr);
     return *ARCData;
@@ -935,12 +935,12 @@ public:
                        llvm::FunctionType *FnType = nullptr,
                        bool DontDefer = false);
 
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   /// getBuiltinIntelLibFunction - Given a builtin id for a function like
   /// "__apply_args", return a Function* for "__apply_args".
   llvm::Value *getBuiltinIntelLibFunction(const FunctionDecl *FD,
                                           unsigned BuiltinID);
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   /// Given a builtin id for a function like "__builtin_fabsf", return a
   /// Function* for "fabsf".
   llvm::Value *getBuiltinLibFunction(const FunctionDecl *FD,
@@ -1099,8 +1099,9 @@ public:
 
   StringRef getMangledName(GlobalDecl GD);
   StringRef getBlockMangledName(GlobalDecl GD, const BlockDecl *BD);
-  void registerAsMangled(StringRef Name, GlobalDecl GD);  //***INTEL 
-
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  void registerAsMangled(StringRef Name, GlobalDecl GD);
+#endif // INTEL_SPECIFIC_IL0_BACKEND
   void EmitTentativeDefinition(const VarDecl *D);
 
   void EmitVTable(CXXRecordDecl *Class);

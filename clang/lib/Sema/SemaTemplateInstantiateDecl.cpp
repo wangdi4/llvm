@@ -2399,6 +2399,7 @@ Decl *TemplateDeclInstantiator::VisitCilkSpawnDecl(CilkSpawnDecl *D) {
 }
 
 Decl *TemplateDeclInstantiator::VisitPragmaDecl(PragmaDecl *D) {
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   PragmaDecl *TD = PragmaDecl::Create(SemaRef.Context, Owner, D->getLocStart());
   PragmaStmt *S = D->getStmt();
   if (S) {
@@ -2408,8 +2409,13 @@ Decl *TemplateDeclInstantiator::VisitPragmaDecl(PragmaDecl *D) {
   }
   TD->setStmt(S);
   return TD;
+#else
+  llvm_unreachable(
+      "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
+  return nullptr;
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 Decl *TemplateDeclInstantiator::VisitOMPThreadPrivateDecl(
                                      OMPThreadPrivateDecl *D) {

@@ -1,3 +1,22 @@
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+
+#include "clang/Lex/Preprocessor.h"
+#include "clang/Basic/FileManager.h"
+#include "clang/Basic/SourceManager.h"
+#include "clang/Lex/CodeCompletionHandler.h"
+#include "clang/Lex/HeaderSearch.h"
+#include "clang/Lex/HeaderSearchOptions.h"
+#include "clang/Lex/LexDiagnostic.h"
+#include "clang/Lex/LiteralSupport.h"
+#include "clang/Lex/MacroInfo.h"
+#include "clang/Lex/ModuleLoader.h"
+#include "clang/Lex/Pragma.h"
+#include "llvm/ADT/APInt.h"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/Path.h"
+#include "llvm/Support/SaveAndRestore.h"
+using namespace clang;
+
 void Preprocessor::ParseStartMapRegion(SourceLocation HashLoc, Token &FilenameTok) {
   // Reserve a buffer to get the spelling.
   SmallString<128> FilenameBuffer;
@@ -195,3 +214,5 @@ void Preprocessor::ParseStartMapRegion(SourceLocation HashLoc, Token &FilenameTo
   // Finally, if all is good, enter the new file!
   EnterSourceFile(FID, CurDir, FilenameTok.getLocation());
 }
+
+#endif  // INTEL_SPECIFIC_IL0_BACKEND

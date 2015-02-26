@@ -84,9 +84,8 @@ public:
     /// #pragma ...
     AS_Pragma
 #ifdef INTEL_CUSTOMIZATION
-	,
-    AS_CilkKeyword
-#endif
+    , AS_CilkKeyword
+#endif  // INTEL_CUSTOMIZATION
   };
 
 private:
@@ -357,8 +356,9 @@ public:
 #ifndef INTEL_CUSTOMIZATION
   bool isKeywordAttribute() const { return SyntaxUsed == AS_Keyword; }
 #else
-  bool isKeywordAttribute() const { return SyntaxUsed == AS_Keyword || SyntaxUsed == AS_CilkKeyword; }
-#endif
+  bool isKeywordAttribute() const { return SyntaxUsed == AS_Keyword ||
+                                        SyntaxUsed == AS_CilkKeyword; }
+#endif  // INTEL_CUSTOMIZATION
   bool isInvalid() const { return Invalid; }
   void setInvalid(bool b = true) const { Invalid = b; }
 

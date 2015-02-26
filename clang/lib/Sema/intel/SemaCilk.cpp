@@ -1396,7 +1396,7 @@ AttrResult Sema::ActOnPragmaSIMDLength(SourceLocation VectorLengthLoc,
     Constant.setIsUnsigned(true);
     if (!VectorLengthExpr->isIntegerConstantExpr(Constant, Context,
                                                  &BadConstantLoc)) {
-      Diag(BadConstantLoc, diag::err_invalid_vectorlength_expr);
+      Diag(BadConstantLoc, diag::err_invalid_vectorlength_expr) << 0;
       return AttrError();
     }
     E = IntegerLiteral::Create(
@@ -3951,16 +3951,24 @@ namespace {
 class DiagnoseCilkSpawnHelper
     : public RecursiveASTVisitor<DiagnoseCilkSpawnHelper> {
   Sema &SemaRef;
+  bool isStmtExpr;
 
 public:
-  explicit DiagnoseCilkSpawnHelper(Sema &S) : SemaRef(S) {}
+  explicit DiagnoseCilkSpawnHelper(Sema &S, bool isStmtExpr):
+                  SemaRef(S), isStmtExpr(isStmtExpr) {}
 
   bool TraverseCompoundStmt(CompoundStmt *) { return true; }
   bool VisitCallExpr(CallExpr *E) {
-    if (E->isCilkSpawnCall())
-      SemaRef.Diag(E->getCilkSpawnLoc(),
+    if (E->isCilkSpawnCall()){
+      if (isStmtExpr){
+        SemaRef.Diag(E->getCilkSpawnLoc(),
+                   SemaRef.PDiag(diag::err_cilk_spawn_disable));
+      } else {
+        SemaRef.Diag(E->getCilkSpawnLoc(),
                    SemaRef.PDiag(diag::err_spawn_not_whole_expr)
                        << E->getSourceRange());
+      }
+    }
     return true;
   }
   bool VisitCilkSpawnDecl(CilkSpawnDecl *D) {
@@ -3981,9 +3989,13 @@ public:
 // compound scopes, but we do need to traverse into loops, ifs, etc. in case of:
 // if (cond) _Cilk_spawn foo();
 //           ^~~~~~~~~~~~~~~~~ not a compound scope
-void Sema::DiagnoseCilkSpawn(Stmt *S) {
-  DiagnoseCilkSpawnHelper D(*this);
+void Sema::DiagnoseCilkSpawn(Stmt *S, bool isStmtExpr) {
+  DiagnoseCilkSpawnHelper D(*this, isStmtExpr);
 
+  if (isStmtExpr){
+    D.TraverseStmt (S);
+    return;
+  }
   // already checked.
   if (isa<Expr>(S))
     return;
@@ -4264,6 +4276,13 @@ Expr *Sema::CheckCilkVecLengthArg(Expr *E) {
       return 0;
     }
 
+    if (!Val.isPowerOf2()) {
+      Diag(ExprLoc, diag::err_invalid_vectorlength_expr)
+        << 1 << E->getSourceRange();
+      return 0;
+    }
+
+
     // Create an integeral literal for the final attribute.
     return IntegerLiteral::Create(Context, Val, Ty, ExprLoc);
   }
@@ -4307,4 +4326,4 @@ Expr *Sema::CheckCilkLinearArg(Expr *E) {
   return E;
 }
 
-#endif
+#endif  // INTEL_CUSTOMIZATION

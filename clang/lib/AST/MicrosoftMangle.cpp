@@ -1478,9 +1478,9 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T,
   case BuiltinType::ULong: Out << 'K'; break;
   case BuiltinType::Float: Out << 'M'; break;
   case BuiltinType::Double: Out << 'N'; break;
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   case BuiltinType::Float128: // FIXME: Out << '_O'; break;
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   // TODO: Determine size and mangle accordingly
   case BuiltinType::LongDouble: Out << 'O'; break;
   case BuiltinType::LongLong: Out << "_J"; break;

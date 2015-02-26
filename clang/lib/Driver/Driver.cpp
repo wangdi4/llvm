@@ -40,7 +40,7 @@
 #include <map>
 #include <memory>
 
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
 #include "llvm/Support/raw_ostream.h"
 
 class HelpPragmaPrinter {
@@ -129,7 +129,7 @@ class HelpPragmaPrinter {
       OS << "                          ordered|nowait\n";
     }
 };
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 
 using namespace clang::driver;
 using namespace clang;
@@ -811,16 +811,16 @@ bool Driver::HandleImmediateArgs(const Compilation &C) {
     return false;
   }
 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   if (C.getArgs().hasArg(options::OPT_i_version)) {
     PrintVersion(C, llvm::outs());
   }
 
-#ifdef INTEL_CUSTOMIZATION
   if (C.getArgs().hasArg(options::OPT_help_pragma)) {
     HelpPragmaPrinter::Print(llvm::outs());
     return false;
   }
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   if (C.getArgs().hasArg(options::OPT_v) ||
       C.getArgs().hasArg(options::OPT__HASH_HASH_HASH)) {
     PrintVersion(C, llvm::errs());

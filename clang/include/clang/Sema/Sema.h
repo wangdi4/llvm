@@ -200,7 +200,7 @@ namespace sema {
 #ifdef INTEL_CUSTOMIZATION
   class CilkForScopeInfo;
   class SIMDForScopeInfo;
-#endif
+#endif  // INTEL_CUSTOMIZATION
 }
 
 // FIXME: No way to easily map from TemplateTypeParmTypes to
@@ -372,7 +372,7 @@ public:
   /// \brief All the Cilk spawn call expressions in this expression
   /// evaluation context.
   llvm::SmallVector<CallExpr*, 2> CilkSpawnCalls;
-#endif
+#endif  // INTEL_CUSTOMIZATION
   /// \brief Stack containing information about each of the nested
   /// function, block, and method scopes that are currently active.
   ///
@@ -773,7 +773,7 @@ public:
     /// \brief All the Cilk spawn call expressions when we entered this
     /// expression evaluation context.
     llvm::SmallVector<CallExpr*, 2> SavedCilkSpawnCalls;
-#endif
+#endif  // INTEL_CUSTOMIZATION
     /// \brief The lambdas that are present within this context, if it
     /// is indeed an unevaluated context.
     SmallVector<LambdaExpr *, 2> Lambdas;
@@ -1085,13 +1085,13 @@ public:
   void PushCapturedRegionScope(Scope *RegionScope, CapturedDecl *CD,
                                RecordDecl *RD,
                                CapturedRegionKind K);
-#ifdef INTEL_CUSTOMIZATION							   
+#ifdef INTEL_CUSTOMIZATION
   void PushCilkForScope(Scope *S, CapturedDecl *FD, RecordDecl *RD,
                         const VarDecl *LoopControlVariable,
                         SourceLocation CilkForLoc);
   void PushSIMDForScope(Scope *S, CapturedDecl *FD, RecordDecl *RD,
                         SourceLocation PragmaLoc);
-#endif
+#endif  // INTEL_CUSTOMIZATION
   void
   PopFunctionScopeInfo(const sema::AnalysisBasedWarnings::Policy *WP = nullptr,
                        const Decl *D = nullptr,
@@ -1143,7 +1143,7 @@ public:
 
   /// \brief Retrieve the current SIMD for region, if any.
   sema::SIMDForScopeInfo *getCurSIMDFor();
-#endif
+#endif  // INTEL_CUSTOMIZATION
   bool hasAnyUnrecoverableErrorsInThisFunction() const;
 
   /// \brief Retrieve the current block, if any.
@@ -1698,8 +1698,8 @@ public:
   void AddInitializerToDecl(Decl *dcl, Expr *init, bool DirectInit,
                             bool TypeMayContainAuto,
                             bool &IsCilkSpawnReceiver)
-#endif
-	;
+#endif  // INTEL_CUSTOMIZATION
+  ;
   void ActOnUninitializedDecl(Decl *dcl, bool TypeMayContainAuto);
   void ActOnInitializerError(Decl *Dcl);
   void ActOnCXXForRangeDecl(Decl *D);
@@ -2700,7 +2700,7 @@ public:
   void EndCEAN() { CEANStack.pop_back(); }
   bool IsCEANAllowed() { return CEANStack.back() != NoCEANAllowed; }
   CEANSupportState GetCEANState() { return CEANStack.back(); }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 public:
   const TypoExprState &getTypoExprState(TypoExpr *TE) const;
 
@@ -3292,7 +3292,7 @@ public:
   StmtResult BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp);
   StmtResult ActOnCapScopeReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp);
 #ifdef INTEL_CUSTOMIZATION
-  void DiagnoseCilkSpawn(Stmt *S);
+  void DiagnoseCilkSpawn(Stmt *S, bool isStmtExpr = false);
   void DiagnoseCilkElemental(FunctionDecl *D, Stmt *S);
   bool DiagnoseElementalAttributes(FunctionDecl *FD);
   Expr *CheckCilkVecLengthArg(Expr *E);
@@ -3341,7 +3341,7 @@ public:
 
   ExprResult ActOnCustomIdExpression(Scope *CurScope, CXXScopeSpec &ScopeSpec,
                                      const DeclarationNameInfo &Id);
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
   StmtResult ActOnGCCAsmStmt(SourceLocation AsmLoc, bool IsSimple,
                              bool IsVolatile, unsigned NumOutputs,
@@ -3776,7 +3776,7 @@ public:
   ExprResult ActOnCEANBuiltinExpr(Scope *S, SourceLocation StartLoc,
                                   unsigned Kind, ArrayRef<Expr *> Args,
                                   SourceLocation RParenLoc);
-#endif
+#endif  // INTEL_CUSTOMIZATION
   // This struct is for use by ActOnMemberAccess to allow
   // BuildMemberReferenceExpr to be able to reinvoke ActOnMemberAccess after
   // changing the access operator from a '.' to a '->' (to see if that is the
@@ -4747,7 +4747,7 @@ public:
                                  bool DiscardedValue = false,
                                  bool IsConstexpr = false,
                                  bool IsLambdaInitCaptureInitializer = false);
-#endif								 
+#endif  // INTEL_CUSTOMIZATION
   StmtResult ActOnFinishFullStmt(Stmt *Stmt);
 
   // Marks SS invalid if it represents an incomplete type.
@@ -7601,7 +7601,7 @@ public:
   AttrResult ActOnPragmaSIMDPrivate(SourceLocation PrivateLoc,
                                     llvm::MutableArrayRef<Expr *> Exprs,
                                     SIMDPrivateKind Kind);
-#endif
+#endif  // INTEL_CUSTOMIZATION
   /// AddAlignmentAttributesForRecord - Adds any needed alignment attributes to
   /// a the record decl, to handle '\#pragma pack' and '\#pragma options align'.
   void AddAlignmentAttributesForRecord(RecordDecl *RD);
@@ -8725,7 +8725,7 @@ private:
   bool CheckObjCString(Expr *Arg);
 
   ExprResult CheckBuiltinFunctionCall(FunctionDecl *FDecl,
-		                      unsigned BuiltinID, CallExpr *TheCall);
+                                      unsigned BuiltinID, CallExpr *TheCall);
 
   bool CheckARMBuiltinExclusiveCall(unsigned BuiltinID, CallExpr *TheCall,
                                     unsigned MaxWidth);
@@ -8919,9 +8919,9 @@ public:
       DC = CatD->getClassInterface();
     return DC;
   }
-#ifdef INTEL_CUSTOMIZATION
-void SetMac68kAlignment();
 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+void SetMac68kAlignment();
 
 enum IntelPragmaCommonOnOff {
   IntelPragmaFPContract,
@@ -9152,7 +9152,7 @@ llvm::StringMap<int> CommonFunctionOptions;
 llvm::SmallVector<Stmt*,4> OptionsList;
 public:
 void DeletePragmaOnError(PragmaStmt *Pragma);
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 };
 
 /// \brief RAII object that enters a new expression evaluation context.

@@ -3872,7 +3872,19 @@ VarDecl *CilkSpawnDecl::getReceiverDecl() const {
 
   return 0;
 }
-#endif
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+void PragmaDecl::anchor() { }
+
+PragmaDecl *PragmaDecl::Create(ASTContext &C, DeclContext *DC,
+                         SourceLocation IdentL) {
+  return new (C, DC) PragmaDecl(DC, IdentL);
+}
+
+PragmaDecl *PragmaDecl::CreateDeserialized(ASTContext &C, unsigned ID) {
+  return new (C, ID) PragmaDecl(nullptr, SourceLocation());
+}
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
 
 EnumConstantDecl *EnumConstantDecl::Create(ASTContext &C, EnumDecl *CD,
                                            SourceLocation L,
@@ -4055,15 +4067,3 @@ SourceRange ImportDecl::getSourceRange() const {
   return SourceRange(getLocation(), getIdentifierLocs().back());
 }
 
-#ifdef INTEL_CUSTOMIZATION
-void PragmaDecl::anchor() { }
-
-PragmaDecl *PragmaDecl::Create(ASTContext &C, DeclContext *DC,
-                         SourceLocation IdentL) {
-  return new (C, DC) PragmaDecl(DC, IdentL);
-}
-
-PragmaDecl *PragmaDecl::CreateDeserialized(ASTContext &C, unsigned ID) {
-  return new (C, ID) PragmaDecl(nullptr, SourceLocation());
-}
-#endif

@@ -27,7 +27,7 @@
 #include "clang/AST/StmtOpenMP.h"
 #ifdef INTEL_CUSTOMIZATION
 #include "clang/Basic/Builtins.h"
-#endif
+#endif  // INTEL_CUSTOMIZATION
 #include "clang/Sema/Designator.h"
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/Ownership.h"
@@ -414,7 +414,7 @@ public:
 #ifdef INTEL_CUSTOMIZATION
   /// \brief Transform the SIMD attribute associated with a SIMD for loop.
   AttrResult TransformSIMDAttr(Attr *A);
-#endif
+#endif  // INTEL_CUSTOMIZATION
   /// \brief Transform the attributes associated with the given declaration and
   /// place them on the new declaration.
   ///
@@ -1897,8 +1897,7 @@ public:
   ExprResult RebuildCilkSpawnCall(SourceLocation SpawnLoc, Expr *E) {
     return getSema().BuildCilkSpawnCall(SpawnLoc, E);
   }
-
-#endif
+#endif  // INTEL_CUSTOMIZATION
   /// \brief Build a new call expression.
   ///
   /// By default, performs semantic analysis to build the new expression.
@@ -2937,13 +2936,13 @@ StmtResult TreeTransform<Derived>::TransformStmt(Stmt *S) {
 #define EXPR(Node, Parent) case Stmt::Node##Class:
 #include "clang/AST/StmtNodes.inc"
     {
-#ifdef INTEL_CUSTOMIZATION	
+#ifdef INTEL_CUSTOMIZATION
       getSema().ActOnStartCEANExpr(Sema::FullCEANAllowed);
-#endif	  
+#endif  // INTEL_CUSTOMIZATION
       ExprResult E = getDerived().TransformExpr(cast<Expr>(S));
-#ifdef INTEL_CUSTOMIZATION	  
+#ifdef INTEL_CUSTOMIZATION
       getSema().ActOnEndCEANExpr(E.get());
-#endif	  
+#endif  // INTEL_CUSTOMIZATION
       if (E.isInvalid())
         return StmtError();
 
@@ -2988,12 +2987,12 @@ ExprResult TreeTransform<Derived>::TransformExpr(Expr *E) {
       if (getSema().CheckCEANExpr(0, Res.get()))                        \
         return ExprError();                                             \
       return Res;                                                       \
-	}
+  }
 #else
 #define EXPR(Node, Parent)                                              \
-    case Stmt::Node##Class: 											\
-		return getDerived().Transform##Node(cast<Node>(E));
-#endif
+    case Stmt::Node##Class:                                             \
+    return getDerived().Transform##Node(cast<Node>(E));
+#endif  //  INTEL_CUSTOMIZATION
 #include "clang/AST/StmtNodes.inc"
   }
 
@@ -5672,21 +5671,29 @@ TreeTransform<Derived>::TransformObjCObjectPointerType(TypeLocBuilder &TLB,
 #ifdef INTEL_CUSTOMIZATION
 template<typename Derived>
 StmtResult TreeTransform<Derived>::TransformPragmaStmt(PragmaStmt *S) {
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   PragmaStmt *PS = new (SemaRef.Context) PragmaStmt(S->getSemiLoc());
   PS->setPragmaKind(S->getPragmaKind());
   if (S->isDecl())
     PS->setDecl();
   for (unsigned i = 0; i < S->getAttribs().size(); ++i) {
     Expr *E = S->getAttribs()[i].Value;
-    PS->getAttribs().push_back(IntelPragmaAttrib(E ? getDerived().TransformExpr(E).get() : 0, S->getAttribs()[i].ExprKind));
+    PS->getAttribs().push_back(IntelPragmaAttrib(E ?
+                                  getDerived().TransformExpr(E).get() :
+                                  0, S->getAttribs()[i].ExprKind));
   }
   for (unsigned i = 0; i < S->getRealAttribs().size(); ++i) {
     Expr *E = S->getRealAttribs()[i];
     PS->getRealAttribs().push_back(E ? getDerived().TransformExpr(E).get() : 0);
   }
   return PS;
+#else
+  llvm_unreachable(
+      "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
+  return StmtError();
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 template<typename Derived>
 StmtResult
@@ -5959,7 +5966,7 @@ AttrResult TreeTransform<Derived>::TransformSIMDAttr(Attr *A) {
 
   return R;
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 template<typename Derived>
 StmtResult
@@ -5967,9 +5974,9 @@ TreeTransform<Derived>::TransformIfStmt(IfStmt *S) {
   // Transform the condition
   ExprResult Cond;
   VarDecl *ConditionVar = nullptr;
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   getSema().ActOnStartCEANExpr(Sema::FullCEANAllowed);
-#endif  
+#endif  // INTEL_CUSTOMIZATION
   if (S->getConditionVariable()) {
     ConditionVar
       = cast_or_null<VarDecl>(
@@ -5977,18 +5984,18 @@ TreeTransform<Derived>::TransformIfStmt(IfStmt *S) {
                                       S->getConditionVariable()->getLocation(),
                                                     S->getConditionVariable()));
     if (!ConditionVar) {
-#ifdef INTEL_CUSTOMIZATION	
+#ifdef INTEL_CUSTOMIZATION
       getSema().ActOnEndCEANExpr(0);
-#endif	  
+#endif  // INTEL_CUSTOMIZATION
       return StmtError();
     }
   } else {
     Cond = getDerived().TransformExpr(S->getCond());
 
     if (Cond.isInvalid()) {
-#ifdef INTEL_CUSTOMIZATION	
+#ifdef INTEL_CUSTOMIZATION
       getSema().ActOnEndCEANExpr(0);
-#endif	  
+#endif  // INTEL_CUSTOMIZATION
       return StmtError();
     }
 
@@ -5997,9 +6004,9 @@ TreeTransform<Derived>::TransformIfStmt(IfStmt *S) {
       ExprResult CondE = getSema().ActOnBooleanCondition(nullptr, S->getIfLoc(),
                                                          Cond.get());
       if (CondE.isInvalid()) {
-#ifdef INTEL_CUSTOMIZATION	  
+#ifdef INTEL_CUSTOMIZATION
         getSema().ActOnEndCEANExpr(0);
-#endif		
+#endif  // INTEL_CUSTOMIZATION
         return StmtError();
       }
 
@@ -6008,9 +6015,9 @@ TreeTransform<Derived>::TransformIfStmt(IfStmt *S) {
   }
 
   Sema::FullExprArg FullCond(getSema().MakeFullExpr(Cond.get()));
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   getSema().ActOnEndCEANExpr(FullCond.get());
-#endif
+#endif  // INTEL_CUSTOMIZATION
   if (!S->getConditionVariable() && S->getCond() && !FullCond.get())
     return StmtError();
 
@@ -7751,7 +7758,7 @@ TreeTransform<Derived>::TransformUnaryExprOrTypeTraitExpr(
 #ifdef INTEL_CUSTOMIZATION
   if (E->getKind() == UETT_SizeOf)
     getSema().ActOnStartCEANExpr(Sema::FullCEANAllowed);
-#endif
+#endif  // INTEL_CUSTOMIZATION
   // Try to recover if we have something like sizeof(T::X) where X is a type.
   // Notably, there must be *exactly* one set of parens if X is a type.
   TypeSourceInfo *RecoveryTSI = nullptr;
@@ -7763,10 +7770,10 @@ TreeTransform<Derived>::TransformUnaryExprOrTypeTraitExpr(
         PE, DRE, false, &RecoveryTSI);
   else
     SubExpr = getDerived().TransformExpr(E->getArgumentExpr());
-#ifdef INTEL_CUSTOMIZATION	
+#ifdef INTEL_CUSTOMIZATION
   if (E->getKind() == UETT_SizeOf)
     getSema().ActOnEndCEANExpr(SubExpr.get());
-#endif
+#endif  // INTEL_CUSTOMIZATION
   if (RecoveryTSI) {
     return getDerived().RebuildUnaryExprOrTypeTrait(
         RecoveryTSI, E->getOperatorLoc(), E->getKind(), E->getSourceRange());
@@ -7856,7 +7863,7 @@ TreeTransform<Derived>::TransformCEANBuiltinExpr(CEANBuiltinExpr *E) {
                                              TArgs,
                                              E->getLocEnd());
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 template<typename Derived>
 ExprResult
@@ -7894,14 +7901,14 @@ TreeTransform<Derived>::TransformCallExpr(CallExpr *E) {
   default:
     break;
   }
-#endif
-  
+#endif  // INTEL_CUSTOMIZATION
+
   // Transform arguments.
   bool ArgChanged = false;
   SmallVector<Expr*, 8> Args;
   if (getDerived().TransformExprs(E->getArgs(), E->getNumArgs(), true, Args,
                                   &ArgChanged)) {
-#ifdef INTEL_CUSTOMIZATION								  
+#ifdef INTEL_CUSTOMIZATION
     switch (BuiltinId) {
     case Builtin::BI__sec_reduce_add:
     case Builtin::BI__sec_reduce_mul:
@@ -7920,14 +7927,14 @@ TreeTransform<Derived>::TransformCallExpr(CallExpr *E) {
     default:
       break;
     }
-#endif	
+#endif  // INTEL_CUSTOMIZATION
     return ExprError();
   }
 
   if (!getDerived().AlwaysRebuild() &&
       Callee.get() == E->getCallee() &&
       !ArgChanged) {
-#ifdef INTEL_CUSTOMIZATION	  
+#ifdef INTEL_CUSTOMIZATION
     switch (BuiltinId) {
     case Builtin::BI__sec_reduce_add:
     case Builtin::BI__sec_reduce_mul:
@@ -7946,7 +7953,7 @@ TreeTransform<Derived>::TransformCallExpr(CallExpr *E) {
     default:
       break;
     }
-#endif	
+#endif  // INTEL_CUSTOMIZATION
     return SemaRef.MaybeBindToTemporary(E);
   }
 
@@ -7983,7 +7990,7 @@ TreeTransform<Derived>::TransformCallExpr(CallExpr *E) {
   return getDerived().RebuildCilkSpawnCall(E->getCilkSpawnLoc(), CE.get());
 #else
   return CE;
-#endif  
+#endif  // INTEL_CUSTOMIZATION
 }
 
 template<typename Derived>
@@ -10695,7 +10702,7 @@ TreeTransform<Derived>::TransformCilkSpawnExpr(CilkSpawnExpr *E) {
 
   return getSema().BuildCilkSpawnExpr(NewSpawn.get());
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 template<typename Derived>
 ExprResult
@@ -11392,7 +11399,7 @@ TreeTransform<Derived>::TransformSIMDForStmt(SIMDForStmt *S) {
 
   return Result;
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 } // end namespace clang
 
 #endif

@@ -1237,7 +1237,7 @@ DEF_TRAVERSE_DECL(CapturedDecl, {
 #ifdef INTEL_CUSTOMIZATION
 DEF_TRAVERSE_DECL(PragmaDecl, {})
 DEF_TRAVERSE_DECL(CilkSpawnDecl, {})
-#endif
+#endif  // INTEL_CUSTOMIZATION
 DEF_TRAVERSE_DECL(EmptyDecl, {})
 
 DEF_TRAVERSE_DECL(FileScopeAsmDecl,
@@ -2178,7 +2178,7 @@ DEF_TRAVERSE_STMT(CilkSpawnExpr, {
   TRY_TO(TraverseDecl(S->getSpawnDecl()));
   return true; // no child statements to loop through.
 })
-#endif
+#endif  // INTEL_CUSTOMIZATION
 // These exprs (most of them), do not need any action except iterating
 // over the children.
 DEF_TRAVERSE_STMT(AddrLabelExpr, {})
@@ -2256,13 +2256,13 @@ DEF_TRAVERSE_STMT(UnresolvedMemberExpr, {
 #ifdef INTEL_CUSTOMIZATION
 DEF_TRAVERSE_STMT(CEANIndexExpr, { })
 DEF_TRAVERSE_STMT(CEANBuiltinExpr, { })
-DEF_TRAVERSE_STMT(PragmaStmt, { })
 DEF_TRAVERSE_STMT(CilkSyncStmt, { })
 DEF_TRAVERSE_STMT(CilkForGrainsizeStmt, { })
 DEF_TRAVERSE_STMT(CilkForStmt, { })
 DEF_TRAVERSE_STMT(SIMDForStmt, { })
 DEF_TRAVERSE_STMT(CilkRankedStmt, { })
-#endif
+DEF_TRAVERSE_STMT(PragmaStmt, { })
+#endif  // INTEL_CUSTOMIZATION
 DEF_TRAVERSE_STMT(SEHTryStmt, {})
 DEF_TRAVERSE_STMT(SEHExceptStmt, {})
 DEF_TRAVERSE_STMT(SEHFinallyStmt, {})

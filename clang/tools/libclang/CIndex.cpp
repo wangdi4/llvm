@@ -169,11 +169,16 @@ static SourceRange getFullCursorExtent(CXCursor C, SourceManager &SrcMgr);
 
 #ifdef INTEL_CUSTOMIZATION
 bool CursorVisitor::VisitPragmaDecl(PragmaDecl *D) {
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   if (Stmt *PS = D->getStmt())
     return Visit(MakeCXCursor(PS, StmtParent, TU, RegionOfInterest));
   return false;
+#else
+  llvm_unreachable("Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
+  return false;
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 RangeComparisonResult CursorVisitor::CompareRegionOfInterest(SourceRange R) {
   return RangeCompare(AU->getSourceManager(), R, RegionOfInterest);
@@ -4176,7 +4181,7 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
 #ifdef INTEL_CUSTOMIZATION
   case CXCursor_CilkRankedStmt:
     return cxstring::createRef("CilkRankedStmt");
-#endif  
+#endif  // INTEL_CUSTOMIZATION
   case CXCursor_OMPParallelDirective:
     return cxstring::createRef("OMPParallelDirective");
   case CXCursor_OMPSimdDirective:
@@ -4927,8 +4932,12 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
   switch (D->getKind()) {
 #ifdef INTEL_CUSTOMIZATION
   case Decl::Pragma:
+#ifndef INTEL_SPECIFIC_IL0_BACKEND
+    llvm_unreachable(
+      "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
     break;
-#endif
+#endif  // INTEL_CUSTOMIZATION
   // Declaration kinds that don't really separate the notions of
   // declaration and definition.
   case Decl::Namespace:
@@ -4955,9 +4964,9 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
   case Decl::StaticAssert:
   case Decl::Block:
   case Decl::Captured:
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   case Decl::CilkSpawn:
-#endif  
+#endif  // INTEL_CUSTOMIZATION
   case Decl::Label:  // FIXME: Is this right??
   case Decl::ClassScopeFunctionSpecialization:
   case Decl::Import:

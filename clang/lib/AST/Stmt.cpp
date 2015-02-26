@@ -1081,7 +1081,7 @@ CapturedStmt::CapturedStmt(Stmt *S, CapturedRegionKind Kind,
                            CapturedDecl *CD,
                            RecordDecl *RD)
   : Stmt(CapturedStmtClass), NumCaptures(Captures.size()),
-    CapDecl(CD), Kind(Kind), TheRecordDecl(RD) {	//***INTEL 
+    CapDecl(CD), Kind(Kind), TheRecordDecl(RD) {  //***INTEL
   assert( S && "null captured statement");
   assert(CD && "null captured declaration for captured statement");
   assert(RD && "null record declaration for captured statement");
@@ -1101,7 +1101,7 @@ CapturedStmt::CapturedStmt(Stmt *S, CapturedRegionKind Kind,
 
 CapturedStmt::CapturedStmt(EmptyShell Empty, unsigned NumCaptures)
   : Stmt(CapturedStmtClass, Empty), NumCaptures(NumCaptures),
-    CapDecl(nullptr), Kind(CR_Default), TheRecordDecl(nullptr) {	//***INTEL 
+    CapDecl(nullptr), Kind(CR_Default), TheRecordDecl(nullptr) {  //***INTEL
   getStoredStmts()[NumCaptures] = nullptr;
 }
 
@@ -1351,7 +1351,7 @@ CilkRankedStmt *CilkRankedStmt::CreateEmpty(const ASTContext &C, unsigned N,
   return new (Mem) CilkRankedStmt(N);
 }
 
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 StmtRange OMPClause::children() {
   switch(getClauseKind()) {
@@ -2215,10 +2215,10 @@ OMPTeamsDirective *OMPTeamsDirective::CreateEmpty(const ASTContext &C,
   return new (Mem) OMPTeamsDirective(NumClauses);
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
 void PragmaStmt::turnToNullOp() {
   PragmaKind = IntelUnknownPragmaKind;
   Attribs.clear();
   RealAttribs.clear();
 }
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND

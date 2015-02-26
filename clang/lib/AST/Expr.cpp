@@ -2033,7 +2033,7 @@ SourceLocation CilkSpawnExpr::getLocStart() const {
 SourceLocation CilkSpawnExpr::getLocEnd() const {
   return TheSpawn->getSpawnStmt()->getLocEnd();
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // Generic Expression Routines
 //===----------------------------------------------------------------------===//
@@ -2148,7 +2148,7 @@ bool Expr::isUnusedResultAWarning(const Expr *&WarnE, SourceLocation &Loc,
     return false;
   }  
   case CEANIndexExprClass:
-#endif
+#endif  // INTEL_CUSTOMIZATION
   case CompoundAssignOperatorClass:
   case VAArgExprClass:
   case AtomicExprClass:
@@ -2672,6 +2672,7 @@ Expr *Expr::getSubExprAsWritten() {
 Expr *Expr::IgnoreImplicitForCilkSpawn() {
   Expr *E = this;
   while (E) {
+    E = E->IgnoreParens();
     if (ImplicitCastExpr *CE = dyn_cast<ImplicitCastExpr>(E))
       E = CE->getSubExprAsWritten();
     else if (ExprWithCleanups *EWC = dyn_cast<ExprWithCleanups>(E))
@@ -2694,7 +2695,7 @@ Expr *Expr::IgnoreImplicitForCilkSpawn() {
       break;
   }
 
-  return E;
+  return E->IgnoreParens();
 }
 
 bool Expr::isCilkSpawn() const {
@@ -2704,7 +2705,7 @@ bool Expr::isCilkSpawn() const {
 
   return false;
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 bool Expr::isDefaultArgument() const {
   const Expr *E = this;
@@ -3083,7 +3084,7 @@ bool Expr::HasSideEffects(const ASTContext &Ctx,
   case CilkSpawnExprClass:
   case CEANIndexExprClass:
   case CEANBuiltinExprClass:
-#endif  
+#endif  // INTEL_CUSTOMIZATION
     // These always have a side-effect.
     return true;
 
@@ -4463,7 +4464,8 @@ CEANBuiltinExpr *CEANBuiltinExpr::Create(ASTContext &C,
   return E;
 }
 
-CEANBuiltinExpr *CEANBuiltinExpr::CreateEmpty(ASTContext &C, unsigned Rank, unsigned ArgsSize) {
+CEANBuiltinExpr *CEANBuiltinExpr::CreateEmpty(ASTContext &C, unsigned Rank,
+                                              unsigned ArgsSize) {
   void *Mem = C.Allocate(sizeof(CEANBuiltinExpr) + 2 * sizeof(Stmt *) +
                          sizeof(Expr *) +
                          sizeof(Expr *) * ArgsSize +
@@ -4482,18 +4484,21 @@ void CEANBuiltinExpr::setArgs(ArrayRef<Expr *> Args) {
 void CEANBuiltinExpr::setLengths(ArrayRef<Expr *> Lengths) {
   assert(Lengths.size() == Rank &&
          "Number of lengths is not the same as the preallocated buffer");
-  std::copy(Lengths.begin(), Lengths.end(), &reinterpret_cast<Expr **>(this + 1)[3 + ArgsSize]);
+  std::copy(Lengths.begin(), Lengths.end(),
+            &reinterpret_cast<Expr **>(this + 1)[3 + ArgsSize]);
 }
 
 void CEANBuiltinExpr::setVars(ArrayRef<Stmt *> Vars) {
   assert(Vars.size() == Rank &&
          "Number of vars is not the same as the preallocated buffer");
-  std::copy(Vars.begin(), Vars.end(), &reinterpret_cast<Stmt **>(this + 1)[3 + Rank + ArgsSize]);
+  std::copy(Vars.begin(), Vars.end(),
+            &reinterpret_cast<Stmt **>(this + 1)[3 + Rank + ArgsSize]);
 }
 
 void CEANBuiltinExpr::setIncrements(ArrayRef<Stmt *> Increments) {
   assert(Increments.size() == Rank &&
          "Number of increments is not the same as the preallocated buffer");
-  std::copy(Increments.begin(), Increments.end(), &reinterpret_cast<Stmt **>(this + 1)[3 + 2 * Rank + ArgsSize]);
+  std::copy(Increments.begin(), Increments.end(),
+            &reinterpret_cast<Stmt **>(this + 1)[3 + 2 * Rank + ArgsSize]);
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION

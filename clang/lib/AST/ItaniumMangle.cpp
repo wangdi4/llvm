@@ -1976,9 +1976,9 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
   case BuiltinType::Float: Out << 'f'; break;
   case BuiltinType::Double: Out << 'd'; break;
   case BuiltinType::LongDouble: Out << 'e'; break;
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   case BuiltinType::Float128: Out << 'g'; break;
-#endif  
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   case BuiltinType::NullPtr: Out << "Dn"; break;
 
 #define BUILTIN_TYPE(Id, SingletonId)
@@ -2675,11 +2675,11 @@ recurse:
   case Expr::AsTypeExprClass:
   case Expr::PseudoObjectExprClass:
   case Expr::AtomicExprClass:
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   case Expr::CilkSpawnExprClass:
   case Expr::CEANIndexExprClass:
   case Expr::CEANBuiltinExprClass:
-#endif
+#endif  // INTEL_CUSTOMIZATION
   {
     // As bad as this diagnostic is, it's better than crashing.
     DiagnosticsEngine &Diags = Context.getDiags();

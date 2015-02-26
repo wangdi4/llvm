@@ -112,9 +112,26 @@ Parser::ParseStatementOrDeclaration(StmtVector &Stmts, bool OnlyStatement,
 
   assert((Attrs.empty() || Res.isInvalid() || Res.isUsable()) &&
          "attributes on empty statement");
-#ifdef INTEL_CUSTOMIZATION
-#include "intel/ParseStmt_ParseStatementOrDeclaration.cpp"
-#endif
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  if (OnlyStatement && Res.isUsable() && isa<PragmaStmt>(Res.get())) {
+    if (!Attrs.empty())
+      Res = Actions.ProcessStmtAttributes(Res.get(), Attrs.getList(), Attrs.Range);
+    StmtResult PragmaStmtRes = Res;
+    Res = ParseStatement(TrailingElseLoc);
+    if (Res.isInvalid())
+      return StmtError();
+    if (PragmaStmtRes.isInvalid())
+      return Res;
+    StmtVector Stmts;
+    Stmts.push_back(PragmaStmtRes.get());
+    Stmts.push_back(Res.get());
+    CheckIntelStmt (Stmts);
+    if (cast<PragmaStmt>(Stmts[0])->isNullOp())
+      return Stmts[1];
+    return Actions.ActOnCompoundStmt(Stmts[0]->getLocStart(), Stmts[1]->getLocEnd(),
+                                     Stmts, false);
+  }
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 
   if (Attrs.empty() || Res.isInvalid())
     return Res;
@@ -160,9 +177,9 @@ Parser::ParseStatementOrDeclarationAfterAttributes(StmtVector &Stmts,
           ParsedAttributesWithRange &Attrs) {
   const char *SemiError = nullptr;
   StmtResult Res;
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   SuppressCEANSupport NoCEAN(*this);
-#endif
+#endif  // INTEL_CUSTOMIZATION
   // Cases in this switch statement should fall through if the parser expects
   // the token to end in a semicolon (in which case SemiError should be set),
   // or they directly 'return;' if not.
@@ -296,11 +313,92 @@ Retry:
   case tok::kw___try:
     ProhibitAttributes(Attrs); // TODO: is it correct?
     return ParseSEHTryBlock();
-
-#ifdef INTEL_CUSTOMIZATION
-#include "intel/ParseStmt_Parse.cpp"
-#endif
-
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  case (tok::annot_pragma_ivdep):
+    Res = HandlePragmaIvdep();
+    return (Res);
+  case (tok::annot_pragma_novector):
+    Res = HandlePragmaNoVector();
+    return (Res);
+  case (tok::annot_pragma_vector):
+    Res = HandlePragmaVector();
+    return (Res);
+  case (tok::annot_pragma_distribute_point):
+    Res = HandlePragmaDistribute();
+    return (Res);
+  case (tok::annot_pragma_inline):
+    Res = HandlePragmaInline();
+    return (Res);
+  case (tok::annot_pragma_loop_count):
+    Res = HandlePragmaLoopCount();
+    return (Res);
+  case (tok::annot_pragma_optimize):
+    //Res = HandlePragmaOptimize();
+    HandlePragmaOptimize();
+    //return (Res);
+    return (StmtEmpty());
+  case (tok::annot_pragma_optimization_level):
+    HandlePragmaOptimizationLevel();
+    return (StmtError());
+  case (tok::annot_pragma_noparallel):
+    Res = HandlePragmaNoParallel();
+    return (Res);
+  case (tok::annot_pragma_parallel):
+    Res = HandlePragmaParallel();
+    return (Res);
+  case (tok::annot_pragma_unroll):
+    Res = HandlePragmaUnroll();
+    return (Res);
+  case (tok::annot_pragma_unroll_and_jam):
+    Res = HandlePragmaUnrollAndJam();
+    return (Res);
+  case (tok::annot_pragma_nofusion):
+    Res = HandlePragmaNoFusion();
+    return (Res);
+  case (tok::annot_pragma_optimization_parameter):
+    HandlePragmaOptimizationParameter();
+    return (StmtError());
+  case (tok::annot_pragma_alloc_section):
+    Res = HandlePragmaAllocSection();
+    return (Res);
+  case (tok::annot_pragma_section):
+    Res = HandlePragmaSection();
+    return (Res);
+  case (tok::annot_pragma_alloc_text):
+    Res = HandlePragmaAllocText();
+    return (Res);
+  case (tok::annot_pragma_auto_inline):
+    HandlePragmaAutoInline();
+    //Res = HandlePragmaAutoInline();
+    //return (Res);
+    return (StmtEmpty());
+  case (tok::annot_pragma_seg):
+    Res = HandlePragmaSeg();
+    return (Res);
+  case (tok::annot_pragma_check_stack):
+    HandlePragmaCheckStack();
+    //Res = HandlePragmaCheckStack();
+    //return (Res);
+    return (StmtEmpty());
+  case (tok::annot_pragma_init_seg):
+    Res = HandlePragmaInitSeg();
+    return (Res);
+  case (tok::annot_pragma_float_control):
+    //Res = HandlePragmaFloatControl();
+    //return (Res);
+    HandlePragmaFloatControl();
+    return (StmtEmpty());
+  case tok::annot_pragma_intel_fp_contract:
+    //Res = HandlePragmaCommonOnOff(Sema::IntelPragmaFPContract, false);
+    //return (Res);
+    HandlePragmaCommonOnOff(Sema::IntelPragmaFPContract, false);
+    return (StmtEmpty());
+  case (tok::annot_pragma_fenv_access):
+    //Res = HandlePragmaCommonOnOff(Sema::IntelPragmaFEnvAccess, false);
+    //return (Res);
+    HandlePragmaCommonOnOff(Sema::IntelPragmaFEnvAccess, false);
+    return (StmtEmpty());
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   case tok::kw___leave:
     Res = ParseSEHLeaveStatement();
     SemiError = "__leave";
@@ -380,7 +478,7 @@ Retry:
   case tok::annot_pragma_simd:
     ProhibitAttributes(Attrs);
     return ParseSIMDDirective();
-#endif
+#endif  // INTEL_CUSTOMIZATION
   case tok::annot_pragma_openmp:
     ProhibitAttributes(Attrs);
     return ParseOpenMPDeclarativeOrExecutableDirective(!OnlyStatement);
@@ -446,7 +544,7 @@ StmtResult Parser::ParsePragmaCilkGrainsize() {
 
   return Actions.ActOnCilkForGrainsizePragma(E.get(), FollowingStmt.get(), HashLoc);
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 /// \brief Parse an expression statement.
 StmtResult Parser::ParseExprStatement() {
   // If a case keyword is missing, this is where it should be inserted.
@@ -455,11 +553,11 @@ StmtResult Parser::ParseExprStatement() {
 #ifdef INTEL_CUSTOMIZATION
   // expression[opt] ';'
   Actions.ActOnStartCEANExpr(Sema::FullCEANAllowed);
-#endif  
+#endif  // INTEL_CUSTOMIZATION
   ExprResult Expr(ParseExpression());
 #ifdef INTEL_CUSTOMIZATION
   Actions.ActOnEndCEANExpr(Expr.get());
-#endif  
+#endif  // INTEL_CUSTOMIZATION
   if (Expr.isInvalid()) {
     // If the expression is invalid, skip ahead to the next semicolon or '}'.
     // Not doing this opens us up to the possibility of infinite loops if
@@ -1008,9 +1106,9 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr) {
     ExpectAndConsumeSemi(diag::err_expected_semi_declaration);
     if (R.isUsable()) {
       Stmts.push_back(R.get());
-#ifdef INTEL_CUSTOMIZATION
-#include "intel/ParseStmt_CheckStmt.cpp"
-#endif
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+      CheckIntelStmt (Stmts);
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
     }
   }
 
@@ -1065,9 +1163,9 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr) {
 
     if (R.isUsable()) {
       Stmts.push_back(R.get());
-#ifdef INTEL_CUSTOMIZATION
-#include "intel/ParseStmt_CheckStmt.cpp"
-#endif
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+      CheckIntelStmt (Stmts);
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
     }
   }
 
@@ -1176,20 +1274,20 @@ StmtResult Parser::ParseIfStatement(SourceLocation *TrailingElseLoc) {
   // Parse the condition.
   ExprResult CondExp;
   Decl *CondVar = nullptr;
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   Actions.ActOnStartCEANExpr(Sema::FullCEANAllowed);
-#endif  
+#endif  // INTEL_CUSTOMIZATION
   if (ParseParenExprOrCondition(CondExp, CondVar, IfLoc, true)) {
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
     Actions.ActOnEndCEANExpr(0);
-#endif
+#endif  // INTEL_CUSTOMIZATION
     return StmtError();
   }
 
   FullExprArg FullCondExp(Actions.MakeFullExpr(CondExp.get(), IfLoc));
 #ifdef INTEL_CUSTOMIZATION
   Actions.ActOnEndCEANExpr(FullCondExp.get());
-#endif  
+#endif  // INTEL_CUSTOMIZATION
   // C99 6.8.4p3 - In C99, the body of the if statement is a scope, even if
   // there is no compound stmt.  C90 does not have this clause.  We only do this
   // if the body isn't a compound statement to avoid push/pop in common cases.
@@ -1570,7 +1668,7 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
   if (C99orCXXorObjC
 #ifdef INTEL_CUSTOMIZATION
     && getLangOpts().Zc_forScope
-#endif
+#endif  // INTEL_CUSTOMIZATION
   )
     ScopeFlags = Scope::DeclScope | Scope::ControlScope;
 
@@ -2196,9 +2294,9 @@ void Parser::ParseMicrosoftIfExistsStatement(StmtVector &Stmts) {
                                                               Compound.get());
     if (DepResult.isUsable()) {
       Stmts.push_back(DepResult.get());
-#ifdef INTEL_CUSTOMIZATION
-#include "intel/ParseStmt_CheckStmt.cpp"
-#endif
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+      CheckIntelStmt (Stmts);
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
     }
     return;
   }
@@ -2227,9 +2325,9 @@ void Parser::ParseMicrosoftIfExistsStatement(StmtVector &Stmts) {
     StmtResult R = ParseStatementOrDeclaration(Stmts, false);
     if (R.isUsable()) {
       Stmts.push_back(R.get());
-#ifdef INTEL_CUSTOMIZATION
-#include "intel/ParseStmt_CheckStmt.cpp"
-#endif
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+      CheckIntelStmt (Stmts);
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
     }
   }
   Braces.consumeClose();
@@ -2296,7 +2394,7 @@ StmtResult Parser::ParseCilkForStmt() {
 
     // Still use Declarator::ForContext. A new enum item CilkForContext
     // may be needed for extra checks.
-	
+
     DeclGroupPtrTy DG = ParseSimpleDeclaration(Declarator::ForContext,
                                                DeclEnd, attrs,
                                                /*RequireSemi*/false,
@@ -2442,4 +2540,4 @@ StmtResult Parser::ParseCilkForStmt() {
 
   return Result;
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION

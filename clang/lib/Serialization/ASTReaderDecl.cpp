@@ -354,7 +354,7 @@ namespace clang {
     void VisitOMPThreadPrivateDecl(OMPThreadPrivateDecl *D);
 #ifdef INTEL_CUSTOMIZATION
     void VisitPragmaDecl(PragmaDecl *D);
-#endif
+#endif  // INTEL_CUSTOMIZATION
   };
 }
 
@@ -3100,11 +3100,11 @@ Decl *ASTReader::ReadDeclRecord(DeclID ID) {
   case DECL_EMPTY:
     D = EmptyDecl::CreateDeserialized(Context, ID);
     break;
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   case DECL_PRAGMA:
     D = PragmaDecl::CreateDeserialized(Context, ID);
     break;
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   }
 
   assert(D && "Unknown declaration reading AST file");
@@ -3702,8 +3702,13 @@ void ASTDeclReader::UpdateDecl(Decl *D, ModuleFile &ModuleFile,
 }
 #ifdef INTEL_CUSTOMIZATION
 void ASTDeclReader::VisitPragmaDecl(PragmaDecl *ND) {
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   VisitDecl(ND);
   ND->setStmt(cast<PragmaStmt>(Reader.ReadStmt(F)));
   ND->setLocStart(ND->getStmt()->getSemiLoc());
+#else
+  llvm_unreachable(
+    "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION

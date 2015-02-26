@@ -77,10 +77,10 @@ LoopInfo::LoopInfo(BasicBlock *Header, const LoopAttributes &Attrs)
     : LoopID(nullptr), Header(Header), Attrs(Attrs) {
   LoopID = createMetadata(Header->getContext(), Attrs);
 }
-
-LoopInfo::LoopInfo(llvm::MDNode *LoopID, const LoopAttributes &Attrs)	//***INTEL 
-  : LoopID(LoopID), Header(0), Attrs(Attrs) { }							//***INTEL 
-
+#ifdef INTEL_CUSTOMIZATION
+LoopInfo::LoopInfo(llvm::MDNode *LoopID, const LoopAttributes &Attrs)
+  : LoopID(LoopID), Header(0), Attrs(Attrs) { }
+#endif  // INTEL_CUSTOMIZATION
 void LoopInfoStack::push(BasicBlock *Header) {
   Active.push_back(LoopInfo(Header, StagedAttrs));
   // Clear the attributes so nested loops do not inherit them.
@@ -112,10 +112,11 @@ void LoopInfoStack::InsertHelper(Instruction *I) const {
   if (L.getAttributes().IsParallel && I->mayReadOrWriteMemory())
     I->setMetadata("llvm.mem.parallel_loop_access", L.getLoopID());
 }
-
-void LoopInfoStack::push(llvm::MDNode *LoopID, bool IsParallel) {	//***INTEL 
-  assert(Active.empty() && "cannot have an active loop");			//***INTEL 
-  Active.push_back(LoopInfo(LoopID, LoopAttributes(IsParallel)));	//***INTEL 
-  StagedAttrs.clear();												//***INTEL 
-}																	//***INTEL 
+#ifdef INTEL_CUSTOMIZATION
+void LoopInfoStack::push(llvm::MDNode *LoopID, bool IsParallel) {
+  assert(Active.empty() && "cannot have an active loop");
+  Active.push_back(LoopInfo(LoopID, LoopAttributes(IsParallel)));
+  StagedAttrs.clear();
+}
+#endif  // INTEL_CUSTOMIZATION
 

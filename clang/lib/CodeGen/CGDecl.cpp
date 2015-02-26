@@ -35,9 +35,14 @@ void CodeGenFunction::EmitDecl(const Decl &D) {
   switch (D.getKind()) {
 #ifdef INTEL_CUSTOMIZATION
   case Decl::Pragma:
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
     CodeGenFunction(CGM).EmitPragmaDecl(cast<PragmaDecl>(D));
     return;
-#endif
+#else
+    llvm_unreachable(
+      "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   case Decl::TranslationUnit:
   case Decl::Namespace:
   case Decl::UnresolvedUsingTypename:
@@ -114,10 +119,10 @@ void CodeGenFunction::EmitDecl(const Decl &D) {
            "Should not see file-scope variables inside a function!");
     return EmitVarDecl(VD);
   }
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   case Decl::CilkSpawn:
     return EmitCilkSpawnDecl(cast<CilkSpawnDecl>(&D));
-#endif
+#endif  // INTEL_CUSTOMIZATION
   case Decl::Typedef:      // typedef int X;
   case Decl::TypeAlias: {  // using X = int; [C++0x]
     const TypedefNameDecl &TD = cast<TypedefNameDecl>(D);
@@ -869,7 +874,7 @@ void CodeGenFunction::EmitCaptureReceiverDecl(const VarDecl &D) {
   AutoVarEmission Emission = EmitAutoVarAlloca(D);
   EmitAutoVarCleanups(Emission);
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 /// EmitAutoVarDecl - Emit code and set up an entry in LocalDeclMap for a
 /// variable declaration with auto, register, or no storage class specifier.
 /// These turn into simple stack objects, or GlobalValues depending on target.
@@ -886,7 +891,7 @@ void CodeGenFunction::EmitAutoVarDecl(const VarDecl &D) {
       return;
     }
   }
-#endif
+#endif  // INTEL_CUSTOMIZATION
   AutoVarEmission emission = EmitAutoVarAlloca(D);
   EmitAutoVarInit(emission);
   EmitAutoVarCleanups(emission);

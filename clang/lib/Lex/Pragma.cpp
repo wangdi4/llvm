@@ -1321,7 +1321,7 @@ struct PragmaARCCFCodeAuditedHandler : public PragmaHandler {
   }
 };
 
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
 // PragmaPOISONHandler - "#pragma POISON x" marks x as not usable.
 struct PragmaPOISONHandler : public PragmaHandler {
   PragmaPOISONHandler() : PragmaHandler("POISON") {}
@@ -1381,7 +1381,7 @@ struct PragmaIncludeDirectoryHandler : public PragmaHandler {
     }
   }
 };
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 /// \brief Handle "\#pragma region [...]"
 ///
 /// The syntax is
@@ -1438,13 +1438,22 @@ void Preprocessor::RegisterBuiltinPragmas() {
   AddPragmaHandler("STDC", new PragmaSTDC_CX_LIMITED_RANGEHandler());
   AddPragmaHandler("STDC", new PragmaSTDC_UnknownHandler());
 #ifdef INTEL_CUSTOMIZATION
-  if (LangOpts.Intel) {
-    AddPragmaHandler(new PragmaPoisonHandler());
-    AddPragmaHandler(new PragmaPOISONHandler());
-    AddPragmaHandler(new PragmaIncludeDirectoryHandler());
+  // MS extensions.
+  if (LangOpts.MicrosoftExt || LangOpts.IntelCompat) {
+    AddPragmaHandler(new PragmaWarningHandler());
+    AddPragmaHandler(new PragmaIncludeAliasHandler());
+    if (LangOpts.IntelCompat) {
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+      AddPragmaHandler(new PragmaPoisonHandler());
+      AddPragmaHandler(new PragmaPOISONHandler());
+      AddPragmaHandler(new PragmaIncludeDirectoryHandler());
+#endif // INTEL_SPECIFIC_IL0_BACKEND
+    } else {
+      AddPragmaHandler(new PragmaRegionHandler("region"));
+      AddPragmaHandler(new PragmaRegionHandler("endregion"));
+    }
   }
-#endif
-
+#else
   // MS extensions.
   if (LangOpts.MicrosoftExt) {
     AddPragmaHandler(new PragmaWarningHandler());
@@ -1452,6 +1461,8 @@ void Preprocessor::RegisterBuiltinPragmas() {
     AddPragmaHandler(new PragmaRegionHandler("region"));
     AddPragmaHandler(new PragmaRegionHandler("endregion"));
   }
+#endif // INTEL_CUSTOMIZATION
+
 }
 
 /// Ignore all pragmas, useful for modes such as -Eonly which would otherwise

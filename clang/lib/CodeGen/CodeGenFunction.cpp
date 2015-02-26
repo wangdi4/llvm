@@ -14,7 +14,7 @@
 #include "CodeGenFunction.h"
 #ifdef INTEL_CUSTOMIZATION
 #include "intel/CGCilkPlusRuntime.h"
-#endif
+#endif  // INTEL_CUSTOMIZATION
 #include "CGCUDARuntime.h"
 #include "CGCXXABI.h"
 #include "CGDebugInfo.h"
@@ -41,9 +41,9 @@ CodeGenFunction::CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext)
       Builder(cgm.getModule().getContext(), llvm::ConstantFolder(),
               CGBuilderInserterTy(this)),
       CurFn(nullptr), CapturedStmtInfo(nullptr),
-#ifdef INTEL_CUSTOMIZATION	  
-	  CurCGCilkImplicitSyncInfo(nullptr),
-#endif
+#ifdef INTEL_CUSTOMIZATION
+      CurCGCilkImplicitSyncInfo(nullptr),
+#endif  // INTEL_CUSTOMIZATION
       SanOpts(CGM.getLangOpts().Sanitize), IsSanitizerScope(false),
       CurFuncIsThunk(false), AutoreleaseResult(false), SawAsmBlock(false),
       BlockInfo(nullptr), BlockPointer(nullptr),
@@ -58,9 +58,11 @@ CodeGenFunction::CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext)
       CXXDefaultInitExprThis(nullptr), CXXStructorImplicitParamDecl(nullptr),
       CXXStructorImplicitParamValue(nullptr), OutermostConditional(nullptr),
       CurLexicalScope(nullptr),
-	  ExceptionsDisabled(false),	//***INTEL 
-      TerminateLandingPad(nullptr), 
-	  TerminateHandler(nullptr), TrapBB(nullptr) {
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+      ExceptionsDisabled(false),
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+      TerminateLandingPad(nullptr),
+      TerminateHandler(nullptr), TrapBB(nullptr) {
   if (!suppressNewContext)
     CGM.getCXXABI().getMangleContext().startNewFunction();
 
@@ -90,7 +92,7 @@ CodeGenFunction::~CodeGenFunction() {
     destroyBlockInfos(FirstBlockInfo);
 #ifdef INTEL_CUSTOMIZATION
   delete CurCGCilkImplicitSyncInfo;
-#endif
+#endif  // INTEL_CUSTOMIZATION
   if (getLangOpts().OpenMP) {
     CGM.getOpenMPRuntime().FunctionFinished(*this);
   }
@@ -198,7 +200,9 @@ llvm::DebugLoc CodeGenFunction::EmitReturnBlock() {
       // Record/return the DebugLoc of the simple 'return' expression to be used
       // later by the actual 'ret' instruction.
       llvm::DebugLoc Loc = BI->getDebugLoc();
-      ReturnLoc = Loc;                                     //***INTEL 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+      ReturnLoc = Loc;
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
       Builder.SetInsertPoint(BI->getParent());
       BI->eraseFromParent();
       delete ReturnBlock.getBlock();
@@ -721,7 +725,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
     if (CurCGCilkImplicitSyncInfo->needsImplicitSync())
       CGM.getCilkPlusRuntime().pushCilkImplicitSyncCleanup(*this);
   }
-#endif
+#endif  // INTEL_CUSTOMIZATION
   EmitFunctionProlog(*CurFnInfo, CurFn, Args);
 
   if (D && isa<CXXMethodDecl>(D) && cast<CXXMethodDecl>(D)->isInstance()) {
@@ -964,10 +968,10 @@ bool CodeGenFunction::ContainsLabel(const Stmt *S, bool IgnoreCaseStmts) {
   // can't jump to one from outside their declared region.
   if (isa<LabelStmt>(S))
     return true;
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   if (isa<PragmaStmt>(S))
     return true;
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 
   // If this is a case/default statement, and we haven't seen a switch, we have
   // to emit the code.

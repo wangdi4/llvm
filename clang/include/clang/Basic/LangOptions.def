@@ -68,10 +68,12 @@
 // FIXME: A lot of the BENIGN_ options should be COMPATIBLE_ instead.
 LANGOPT(C99               , 1, 0, "C99")
 LANGOPT(C11               , 1, 0, "C11")
-#if INTEL_CUSTOMIZATION
+#ifdef INTEL_CUSTOMIZATION
 LANGOPT(IntelCompat       , 1, 0,
         "Enables or disables Intel Compiler compatibility mode")
 LANGOPT(Zc_forScope      , 1, 1, "Supports Microsoft C++ behavior for the For loops")
+LANGOPT(CilkPlus, 1, 0, "Intel Cilk Plus extensions to C/C++")
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
 LANGOPT(PragmaOptimizationLevelIntel      , 1, 1, 
         "Specifies whether #pragma optimization_level shoud use Intel(DEFAULT) or GCC syntax")
 LANGOPT(vd      , 1, 1, 
@@ -80,8 +82,8 @@ ENUM_LANGOPT(FPModel, IntelFPModel, 32, static_cast<IntelFPModel>(IFP_Fast|IFP_F
         "Active float data precision")
 LANGOPT(AlignMac68k      , 1, 0, 
         "Enables or disables default mac68k alignment")
-LANGOPT(Intel      , 1, 0, "Enables or disables Intel mode")
-LANGOPT(CilkPlus, 1, 0, "Intel Cilk Plus extensions to C/C++")
+LANGOPT(Float128, 1, 0, "128 bit float support")
+#endif // INTEL_SPECIFIC_IL0_BACKEND
 #endif // INTEL_CUSTOMIZATION
 LANGOPT(MSVCCompat        , 1, 0, 
         "Microsoft Visual C++ full compatibility mode")
@@ -231,9 +233,6 @@ VALUE_LANGOPT(MSCompatibilityVersion, 32, 0, "Microsoft Visual C/C++ Version")
 VALUE_LANGOPT(VtorDispMode, 2, 1, "How many vtordisps to insert")
 
 LANGOPT(ApplePragmaPack, 1, 0, "Apple gcc-compatible #pragma pack handling")
-//#ifdef INTEL_CUSTOMIZATION
-LANGOPT(Float128, 1, 0, "128 bit float support")
-//#endif
 LANGOPT(RetainCommentsFromSystemHeaders, 1, 0, "retain documentation comments from system headers in the AST")
 
 LANGOPT(SanitizeAddressFieldPadding, 2, 0, "controls how aggressive is ASan "

@@ -2513,6 +2513,3 @@ void Preprocessor::HandleElifDirective(Token &ElifToken) {
                                /*FoundElse*/CI.FoundElse,
                                ElifToken.getLocation());
 }
-#ifdef INTEL_CUSTOMIZATION
-#include "intel/PPDirectives.cpp"
-#endif

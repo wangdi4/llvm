@@ -862,7 +862,7 @@ BUILTIN(__sec_reduce_mutating, "vi&iv*", "t")
 BUILTIN(__sec_implicit_index, "ii", "t")
 
 BUILTIN(__assume_aligned, "v.", "tn")
-//#endif
+//#endif  // INTEL_CUSTOMIZATION
 
 #undef ATOMIC_BUILTIN
 

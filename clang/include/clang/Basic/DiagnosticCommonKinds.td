@@ -96,7 +96,7 @@ def err_pragma_simd_expected_for_loop : Error<
   "expected for statement following '#pragma simd'">;
 def err_pragma_simd_invalid_linear_var : Error<
   "invalid linear variable">;
-//#endif
+//#endif  // INTEL_CUSTOMIZATION
 }
 
 // Sema && Lex
@@ -147,21 +147,22 @@ def err_unable_to_make_temp : Error<
 // Modules
 def err_module_file_conflict : Error<"module '%0' found in both '%1' and '%2'">;
 
-//#ifdef INTEL_CUSTOMIZATION
+//#ifdef INTEL_SPECIFIC_IL0_BACKEND
 // Parse && Sema
-def x_warn_intel_pragma_wrong_place : Warning<"this pragma may not be used here">;
+def x_warn_intel_pragma_wrong_place : Warning<"this pragma may not be used here">,
+  InGroup<IntelPragma>;
+def x_warn_intel_pragma_func_expect : Warning<"expected a function name">,
+  InGroup<IntelPragma>;
+def x_warn_intel_pragma_expected_common : Warning<"%0 %select{is|are}1 expected">,
+  InGroup<IntelPragma>;
 def x_error_intel_pragma_wrong_place : Error<"this pragma may not be used here">;
 def x_error_intel_pragma_loop_count : Error<"invalid loop count">;
 def x_error_intel_pragma_declaration_precede : Error<"this pragma must immediately precede a declaration">;
 def x_error_intel_pragma_invalid_parallel_pragma : Error<"invalid parallel pragma">;
 def x_error_intel_pragma_parallel_vars : Error<"only simple variables or array expressions are allowed in #pragma parallel">;
 def x_error_intel_pragma_parallel_private : Error<"variable %0 in firstprivate or lastprivate clause may not be in private clause">;
-def x_warn_intel_pragma_func_expect : Warning<"expected a function name">;
-def x_warn_intel_pragma_expected_common : Warning<"%0 %select{is|are}1 expected">;
 def x_error_intel_pragma_expected_common : Error<"%0 %select{is|are}1 expected">;
-//def x_error_intel_pragma_omp_directive_nonblock : Error<"directive bound to nonblock">;
-//def x_error_intel_pragma_omp_branch_out_of_construct : Error<"%0 branches to or from an OpenMP structured block are illegal">;
-//#endif
+//#endif  // INTEL_SPECIFIC_IL0_BACKEND
 
 // TransformActions
 // TODO: Use a custom category name to distinguish rewriter errors.

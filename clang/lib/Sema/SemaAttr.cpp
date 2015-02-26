@@ -130,13 +130,12 @@ void Sema::AddAlignmentAttributesForRecord(RecordDecl *RD) {
 }
 
 void Sema::AddMsStructLayoutForRecord(RecordDecl *RD) {
+  if (!getLangOpts().MicrosoftExt && !MSStructPragmaOn
 #ifdef INTEL_CUSTOMIZATION
-  if (!getLangOpts().MicrosoftExt && !MSStructPragmaOn 
-//***INTEL: compatibility fix
-    && !Context.getLangOpts().MSBitfields)
-//***INTEL: compatibility fix
+    && !Context.getLangOpts().MSBitfields
+#endif  // INTEL_CUSTOMIZATION
+     )
     return;
-#endif
   if (MSStructPragmaOn)
     RD->addAttr(MsStructAttr::CreateImplicit(Context));
 
@@ -622,6 +621,13 @@ void Sema::PopPragmaVisibility(bool IsNamespaceEnd, SourceLocation EndLoc) {
     FreeVisContext();
 }
 
-#ifdef INTEL_CUSTOMIZATION
-#include "intel/SemaAttr.cpp"
-#endif
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+void Sema::SetMac68kAlignment() {
+  if (PackContext == 0)
+    PackContext = new PragmaPackStack();
+
+  PragmaPackStack *Context = static_cast<PragmaPackStack*>(PackContext);
+
+  Context->setAlignment(PackStackEntry::kMac68kAlignmentSentinel);
+}
+#endif // INTEL_SPECIFIC_IL0_BACKEND

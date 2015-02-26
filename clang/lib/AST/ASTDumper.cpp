@@ -421,12 +421,12 @@ namespace  {
     void VisitVarDecl(const VarDecl *D);
     void VisitFileScopeAsmDecl(const FileScopeAsmDecl *D);
     void VisitImportDecl(const ImportDecl *D);
-#ifdef INTEL_CUSTOMIZATION	
+#ifdef INTEL_CUSTOMIZATION
     void VisitCilkSpawnDecl(const CilkSpawnDecl *D);
     void VisitCapturedStmt(const CapturedStmt *Node);
     void VisitSIMDForStmt(const SIMDForStmt *Node);
     void VisitCilkSpawnExpr(const CilkSpawnExpr *Node);
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
     // C++ Decls
     void VisitNamespaceDecl(const NamespaceDecl *D);
@@ -1401,7 +1401,7 @@ void ASTDumper::VisitFriendDecl(const FriendDecl *D) {
 void ASTDumper::VisitCilkSpawnDecl(const CilkSpawnDecl *D) {
   dumpStmt(D->getCapturedStmt());
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // Obj-C Declarations
 //===----------------------------------------------------------------------===//
@@ -1668,7 +1668,7 @@ void ASTDumper::VisitCapturedStmt(const CapturedStmt *Node) {
         dumpBareDeclRef(I->getCapturedVar());
         break;
       }
-	});
+  });
   }
   dumpDecl(Node->getCapturedDecl());
 }
@@ -1678,7 +1678,7 @@ void ASTDumper::VisitCilkSpawnExpr(const CilkSpawnExpr *Node) {
   dumpDecl(Node->getSpawnDecl());
 }
 
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 void ASTDumper::VisitCXXCatchStmt(const CXXCatchStmt *Node) {
   VisitStmt(Node);

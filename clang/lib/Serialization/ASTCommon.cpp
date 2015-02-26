@@ -49,9 +49,9 @@ serialization::TypeIdxFromBuiltin(const BuiltinType *BT) {
   case BuiltinType::Float:      ID = PREDEF_TYPE_FLOAT_ID;      break;
   case BuiltinType::Double:     ID = PREDEF_TYPE_DOUBLE_ID;     break;
   case BuiltinType::LongDouble: ID = PREDEF_TYPE_LONGDOUBLE_ID; break;
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   case BuiltinType::Float128:   ID = PREDEF_TYPE_FLOAT128_ID;   break;
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   case BuiltinType::NullPtr:    ID = PREDEF_TYPE_NULLPTR_ID;    break;
   case BuiltinType::Char16:     ID = PREDEF_TYPE_CHAR16_ID;     break;
   case BuiltinType::Char32:     ID = PREDEF_TYPE_CHAR32_ID;     break;
@@ -181,6 +181,13 @@ bool serialization::isRedeclarableDeclKind(unsigned Kind) {
     return true;
 
   // Never redeclarable.
+#ifdef INTEL_CUSTOMIZATION
+  case Decl::Pragma:
+#ifndef INTEL_SPECIFIC_IL0_BACKEND
+    llvm_unreachable(
+      "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   case Decl::UsingDirective:
   case Decl::Label:
   case Decl::UnresolvedUsingTypename:
@@ -212,8 +219,7 @@ bool serialization::isRedeclarableDeclKind(unsigned Kind) {
   case Decl::Captured:
 #ifdef INTEL_CUSTOMIZATION
   case Decl::CilkSpawn:
-  case Decl::Pragma:
-#endif  
+#endif  // INTEL_CUSTOMIZATION
   case Decl::ClassScopeFunctionSpecialization:
   case Decl::Import:
   case Decl::OMPThreadPrivate:

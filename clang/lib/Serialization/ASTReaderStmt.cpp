@@ -587,10 +587,10 @@ void ASTStmtReader::VisitArraySubscriptExpr(ArraySubscriptExpr *E) {
   E->setLHS(Reader.ReadSubExpr());
   E->setRHS(Reader.ReadSubExpr());
   E->setRBracketLoc(ReadSourceLocation(Record, Idx));
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   if (CEANIndexExpr *CIE = dyn_cast_or_null<CEANIndexExpr>(E->getIdx()))
     CIE->setBase(E->getBase());
-#endif	
+#endif  // INTEL_CUSTOMIZATION
 }
 
 #ifdef INTEL_CUSTOMIZATION
@@ -681,7 +681,7 @@ void ASTStmtReader::VisitCilkRankedStmt(CilkRankedStmt *S) {
   S->setInits(Reader.ReadSubStmt());
 }
 
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 void ASTStmtReader::VisitCallExpr(CallExpr *E) {
   VisitExpr(E);
@@ -1277,11 +1277,11 @@ void ASTStmtReader::VisitCXXOperatorCallExpr(CXXOperatorCallExpr *E) {
   E->Operator = (OverloadedOperatorKind)Record[Idx++];
   E->Range = Reader.ReadSourceRange(F, Record, Idx);
   E->setFPContractable((bool)Record[Idx++]);
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   if (E->Operator == OO_Subscript)
     if (CEANIndexExpr *CIE = dyn_cast_or_null<CEANIndexExpr>(E->getArg(0)))
       CIE->setBase(E->getCallee());
-#endif
+#endif  // INTEL_CUSTOMIZATION
 }
 
 void ASTStmtReader::VisitCXXConstructExpr(CXXConstructExpr *E) {
@@ -2406,11 +2406,11 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
     case STMT_DECL:
       S = new (Context) DeclStmt(Empty);
       break;
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
     case STMT_PRAGMA:
       S = new (Context) PragmaStmt(Empty);
       break;
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
     case STMT_GCCASM:
       S = new (Context) GCCAsmStmt(Empty);
       break;
@@ -2493,7 +2493,7 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       S = CEANBuiltinExpr::CreateEmpty(Context, Record[ASTStmtReader::NumExprFields],
                                        Record[ASTStmtReader::NumExprFields + 1]);
       break;
-#endif
+#endif  // INTEL_CUSTOMIZATION
     case EXPR_CALL:
       S = new (Context) CallExpr(Context, Stmt::CallExprClass, Empty);
       break;
@@ -3098,7 +3098,7 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
     case STMT_SIMD_FOR:
       llvm_unreachable("not implemented yet");
       break;
-#endif
+#endif  // INTEL_CUSTOMIZATION
     }
     
     // We hit a STMT_STOP, so we're done with this expression.
@@ -3124,13 +3124,15 @@ Done:
 
 #ifdef INTEL_CUSTOMIZATION
 void ASTStmtReader::VisitPragmaStmt(PragmaStmt *S) {
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   size_t Attribs;
   VisitStmt(S);
   S->setSemiLoc(ReadSourceLocation(Record, Idx));
   Attribs = Record[Idx++];
   for(size_t i = 0; i < Attribs; ++i) {
     S->getAttribs().push_back(
-      IntelPragmaAttrib(Reader.ReadSubExpr(), (IntelPragmaExprKind)Record[Idx++]));
+      IntelPragmaAttrib(Reader.ReadSubExpr(),
+                        (IntelPragmaExprKind)Record[Idx++]));
   }
   Attribs = Record[Idx++];
   for(size_t i = 0; i < Attribs; ++i) {
@@ -3139,5 +3141,9 @@ void ASTStmtReader::VisitPragmaStmt(PragmaStmt *S) {
   S->setPragmaKind((IntelPragmaKindType)Record[Idx++]);
   if (Record[Idx++] > 0)
     S->setDecl();
+#else
+  llvm_unreachable(
+    "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
+#endif // INTEL_SPECIFIC_IL0_BACKEND
 }
-#endif
+#endif // INTEL_CUSTOMIZATION

@@ -83,7 +83,7 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorCall(
 #ifdef INTEL_CUSTOMIZATION
                   , /*callOrInvoke=*/0,
                   CE ? CE->isCilkSpawnCall() : false
-#endif
+#endif  // INTEL_CUSTOMIZATION
   );
 }
 
@@ -330,7 +330,7 @@ CodeGenFunction::EmitCXXMemberPointerCallExpr(const CXXMemberCallExpr *E,
 #ifdef INTEL_CUSTOMIZATION
                   , /*TargetDecl=*/0, /*callOrInvoke=*/0,
                   E->isCilkSpawnCall()
-#endif
+#endif  // INTEL_CUSTOMIZATION
   );
 }
 

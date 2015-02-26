@@ -38,7 +38,7 @@ namespace clang {
   class QualType;
   class FunctionDecl;
   class TypeSourceInfo;
-  class Sema;	//***INTEL
+  class Sema;           //***INTEL
 
 
 /// Attr - This represents one attribute.

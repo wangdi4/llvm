@@ -30,10 +30,11 @@ add_clang_library(clangCodeGen
   CGAtomic.cpp
   CGBlocks.cpp
   CGBuiltin.cpp
-#***INTEL 
+#ifdef INTEL_CUSTOMIZATION
   intel/CGCilkPlusRuntime.cpp
   intel/CGElementalFunction.cpp
-#***INTEL 
+  intel/CGBuiltin_getBuiltinIntelLibFunction.cpp
+#endif // INTEL_CUSTOMIZATION
   CGCUDANV.cpp
   CGCUDARuntime.cpp
   CGCXX.cpp

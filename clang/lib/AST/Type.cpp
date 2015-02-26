@@ -797,11 +797,11 @@ bool Type::hasUnsignedIntegerRepresentation() const {
 bool Type::isFloatingType() const {
   if (const BuiltinType *BT = dyn_cast<BuiltinType>(CanonicalType))
     return BT->getKind() >= BuiltinType::Half &&
-#ifdef INTEL_CUSTOMIZATION	
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
            BT->getKind() <= BuiltinType::Float128;
 #else
            BT->getKind() <= BuiltinType::LongDouble;
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   if (const ComplexType *CT = dyn_cast<ComplexType>(CanonicalType))
     return CT->getElementType()->isFloatingType();
   return false;
@@ -823,11 +823,11 @@ bool Type::isRealFloatingType() const {
 bool Type::isRealType() const {
   if (const BuiltinType *BT = dyn_cast<BuiltinType>(CanonicalType))
     return BT->getKind() >= BuiltinType::Bool &&
-#ifdef INTEL_CUSTOMIZATION	
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
            BT->getKind() <= BuiltinType::Float128;
 #else
            BT->getKind() <= BuiltinType::LongDouble;
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   if (const EnumType *ET = dyn_cast<EnumType>(CanonicalType))
       return ET->getDecl()->isComplete() && !ET->getDecl()->isScoped();
   return false;
@@ -836,11 +836,11 @@ bool Type::isRealType() const {
 bool Type::isArithmeticType() const {
   if (const BuiltinType *BT = dyn_cast<BuiltinType>(CanonicalType))
     return BT->getKind() >= BuiltinType::Bool &&
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
            BT->getKind() <= BuiltinType::Float128;
 #else
            BT->getKind() <= BuiltinType::LongDouble;
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   if (const EnumType *ET = dyn_cast<EnumType>(CanonicalType))
     // GCC allows forward declaration of enum types (forbid by C99 6.7.2.3p2).
     // If a body isn't seen by the time we get here, return false.
@@ -1542,9 +1542,9 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
   case Float:             return "float";
   case Double:            return "double";
   case LongDouble:        return "long double";
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   case Float128:          return "_Quad";
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   case WChar_S:
   case WChar_U:           return Policy.MSWChar ? "__wchar_t" : "wchar_t";
   case Char16:            return "char16_t";

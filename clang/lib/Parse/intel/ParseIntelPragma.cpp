@@ -1,5 +1,110 @@
+#ifdef INTEL_CUSTOMIZATION
 
+#include "RAIIObjectsForParser.h"
+#include "clang/AST/ASTContext.h"
+#include "clang/Basic/TargetInfo.h"
+#include "clang/Lex/Preprocessor.h"
+#include "clang/Parse/ParseDiagnostic.h"
+#include "clang/Parse/Parser.h"
+#include "clang/Sema/LoopHint.h"
+#include "clang/Sema/Scope.h"
+#include "llvm/ADT/StringSwitch.h"
 
+using namespace clang;
+
+namespace {
+#include "intel/ParsePragma.h"
+}
+
+// #pragma simd
+void PragmaSIMDHandler::HandlePragma(Preprocessor &PP,
+                                     PragmaIntroducerKind Introducer,
+                                     Token &FirstTok) {
+  SmallVector<Token, 16> Pragma;
+  Token Tok;
+  Tok.startToken();
+  Tok.setKind(tok::annot_pragma_simd);
+  Tok.setLocation(FirstTok.getLocation());
+        
+  while (Tok.isNot(tok::eod)) {
+    Pragma.push_back(Tok);
+    PP.Lex(Tok);
+  }
+  SourceLocation EodLoc = Tok.getLocation();
+  Tok.startToken();
+  Tok.setKind(tok::annot_pragma_simd_end);
+  Tok.setLocation(EodLoc);
+  Pragma.push_back(Tok);
+  Token *Toks = new Token[Pragma.size()];
+  std::copy(Pragma.begin(), Pragma.end(), Toks);
+  PP.EnterTokenStream(Toks, Pragma.size(),
+                      /*DisableMacroExpansion=*/true, /*OwnsTokens=*/true);
+}
+
+/// \brief Handle Cilk Plus grainsize pragma.
+///
+/// #pragma 'cilk' 'grainsize' '=' expr new-line
+///
+void PragmaCilkGrainsizeHandler::HandlePragma(Preprocessor &PP,
+                                              PragmaIntroducerKind Introducer,
+                                              Token &FirstToken) {
+  Token Tok;
+  PP.Lex(Tok);
+  if (Tok.isNot(tok::identifier)) {
+    PP.Diag(Tok, diag::warn_pragma_expected_identifier) << "cilk";
+    return;
+  }
+
+  IdentifierInfo *Grainsize = Tok.getIdentifierInfo();
+  SourceLocation GrainsizeLoc = Tok.getLocation();
+
+  if (!Grainsize->isStr("grainsize")) {
+    PP.Diag(Tok, diag::err_cilk_for_expect_grainsize);
+    return;
+  }
+
+  PP.Lex(Tok);
+  if (Tok.isNot(tok::equal)) {
+    PP.Diag(Tok, diag::err_cilk_for_expect_assign);
+    return;
+  }
+
+  // Cache tokens after '=' and store them back to the token stream.
+  SmallVector<Token, 5> CachedToks;
+  while (true) {
+    PP.Lex(Tok);
+    if (Tok.is(tok::eod))
+      break;
+    CachedToks.push_back(Tok);
+  }
+
+  llvm::BumpPtrAllocator &Allocator = PP.getPreprocessorAllocator();
+  unsigned Size = CachedToks.size();
+
+  Token *Toks = (Token *) Allocator.Allocate(sizeof(Token) * (Size + 2),
+                                             llvm::alignOf<Token>());
+  auto StartLoc = Toks[0].getLocation();
+  Token &GsBeginTok = Toks[0];
+  GsBeginTok.startToken();
+  GsBeginTok.setKind(tok::annot_pragma_cilk_grainsize_begin);
+  GsBeginTok.setLocation(StartLoc);
+
+  SourceLocation EndLoc = Size ? CachedToks.back().getLocation()
+                               : GrainsizeLoc;
+
+  Token &GsEndTok = Toks[Size + 1];
+  GsEndTok.startToken();
+  GsEndTok.setKind(tok::annot_pragma_cilk_grainsize_end);
+  GsEndTok.setLocation(EndLoc);
+
+  for (unsigned i = 0; i < Size; ++i)
+    Toks[i + 1] = CachedToks[i];
+
+  PP.EnterTokenStream(Toks, Size + 2, /*DisableMacroExpansion=*/true,
+                      /*OwnsTokens=*/false);
+}
+
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
 void Parser::DiscardBeforeEndOfDirective() {
   while (Tok.isNot(tok::annot_pragma_end)) {
     PP.Lex(Tok);
@@ -2947,92 +3052,311 @@ void PragmaVtorDispHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind 
 
   PP.getLangOpts().vd = (OOS == tok::OOS_ON) ? 1 : 0;
 }
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 
-// #pragma simd
-void PragmaSIMDHandler::HandlePragma(Preprocessor &PP,
-                                     PragmaIntroducerKind Introducer,
-                                     Token &FirstTok) {
-  SmallVector<Token, 16> Pragma;
-  Token Tok;
-  Tok.startToken();
-  Tok.setKind(tok::annot_pragma_simd);
-  Tok.setLocation(FirstTok.getLocation());
-        
-  while (Tok.isNot(tok::eod)) {
-    Pragma.push_back(Tok);
-    PP.Lex(Tok);
+void Parser::initializeIntelPragmaHandlers() {
+  if (getLangOpts().CilkPlus) {
+    CilkGrainsizeHandler.reset(new PragmaCilkGrainsizeHandler());
+    PP.AddPragmaHandler(CilkGrainsizeHandler.get());
+    SIMDHandler.reset(new PragmaSIMDHandler());
+    PP.AddPragmaHandler(SIMDHandler.get());
   }
-  SourceLocation EodLoc = Tok.getLocation();
-  Tok.startToken();
-  Tok.setKind(tok::annot_pragma_simd_end);
-  Tok.setLocation(EodLoc);
-  Pragma.push_back(Tok);
-  Token *Toks = new Token[Pragma.size()];
-  std::copy(Pragma.begin(), Pragma.end(), Toks);
-  PP.EnterTokenStream(Toks, Pragma.size(),
-                      /*DisableMacroExpansion=*/true, /*OwnsTokens=*/true);
+
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  if (getLangOpts().IntelCompat) {
+    // #pragma ivdep
+    IvdepHandler.reset(new PragmaIvdepHandler());
+    PP.AddPragmaHandler(IvdepHandler.get());
+    // #pragma novector
+    NoVectorHandler.reset(new PragmaNoVectorHandler());
+    PP.AddPragmaHandler(NoVectorHandler.get());
+    // #pragma vector
+    VectorHandler.reset(new PragmaVectorHandler());
+    PP.AddPragmaHandler(VectorHandler.get());
+    // #pragma distribute_point
+    DistributeHandler.reset(new PragmaDistributeHandler());
+    PP.AddPragmaHandler(DistributeHandler.get());
+    DistributeHandler1.reset(new PragmaDistributeHandler1());
+    PP.AddPragmaHandler(DistributeHandler1.get());
+    // #pragma inline
+    InlineHandler.reset(new PragmaInlineHandler());
+    PP.AddPragmaHandler(InlineHandler.get());
+    // #pragma noinline
+    NoInlineHandler.reset(new PragmaNoInlineHandler());
+    PP.AddPragmaHandler(NoInlineHandler.get());
+    // #pragma forceinline
+    ForceInlineHandler.reset(new PragmaForceInlineHandler());
+    PP.AddPragmaHandler(ForceInlineHandler.get());
+    // #pragma loop_count
+    LoopCountHandler.reset(new PragmaLoopCountHandler());
+    PP.AddPragmaHandler(LoopCountHandler.get());
+    LoopCountHandler1.reset(new PragmaLoopCountHandler1());
+    PP.AddPragmaHandler(LoopCountHandler1.get());
+    // #pragma optimize
+    IntelOptimizeHandler.reset(new PragmaIntelOptimizeHandler());
+    PP.AddPragmaHandler(IntelOptimizeHandler.get());
+    // #pragma optimization_level
+    OptimizationLevelHandler.reset(new PragmaOptimizationLevelHandler(true));
+    PP.AddPragmaHandler("intel", OptimizationLevelHandler.get());
+    GCCOptimizationLevelHandler.reset(new PragmaOptimizationLevelHandler(false));
+    PP.AddPragmaHandler("GCC", GCCOptimizationLevelHandler.get());
+    PP.AddPragmaHandler((getLangOpts().PragmaOptimizationLevelIntel == 1)
+                            ? OptimizationLevelHandler.get()
+                            : GCCOptimizationLevelHandler.get());
+    // #pragma noparallel
+    NoParallelHandler.reset(new PragmaNoParallelHandler());
+    PP.AddPragmaHandler(NoParallelHandler.get());
+    // #pragma parallel
+    ParallelHandler.reset(new PragmaParallelHandler());
+    PP.AddPragmaHandler(ParallelHandler.get());
+    // #pragma nounroll
+    NoUnrollHandler.reset(new PragmaNoUnrollHandler());
+    PP.AddPragmaHandler(NoUnrollHandler.get());
+    // #pragma unroll
+    UnrollHandler.reset(new PragmaUnrollHandler());
+    PP.AddPragmaHandler(UnrollHandler.get());
+    // #pragma nounroll_and_jam
+    NoUnrollAndJamHandler.reset(new PragmaNoUnrollAndJamHandler());
+    PP.AddPragmaHandler(NoUnrollAndJamHandler.get());
+    // #pragma unroll_and_jam
+    UnrollAndJamHandler.reset(new PragmaUnrollAndJamHandler());
+    PP.AddPragmaHandler(UnrollAndJamHandler.get());
+    // #pragma nofusion
+    NoFusionHandler.reset(new PragmaNoFusionHandler());
+    PP.AddPragmaHandler(NoFusionHandler.get());
+    // #pragma ident
+    IdentHandler.reset(new PragmaIdentHandler());
+    PP.AddPragmaHandler(IdentHandler.get());
+    // #pragma optimization_parameter
+    OptimizationParameterHandler.reset(new PragmaOptimizationParameterHandler());
+    PP.AddPragmaHandler("intel", OptimizationParameterHandler.get());
+    // #pragma alloc_section
+    AllocSectionHandler.reset(new PragmaAllocSectionHandler());
+    PP.AddPragmaHandler(AllocSectionHandler.get());
+    // #pragma section
+    SectionHandler.reset(new PragmaSectionHandler());
+    PP.AddPragmaHandler(SectionHandler.get());
+    // #pragma alloc_text
+    AllocTextHandler.reset(new PragmaAllocTextHandler());
+    PP.AddPragmaHandler(AllocTextHandler.get());
+    // #pragma auto_inline
+    AutoInlineHandler.reset(new PragmaAutoInlineHandler());
+    PP.AddPragmaHandler(AutoInlineHandler.get());
+    // #pragma bss_seg|code_seg|const_seg|data_seg
+    BssSegHandler.reset(new PragmaBssSegHandler());
+    PP.AddPragmaHandler(BssSegHandler.get());
+    CodeSegHandler.reset(new PragmaCodeSegHandler());
+    PP.AddPragmaHandler(CodeSegHandler.get());
+    ConstSegHandler.reset(new PragmaConstSegHandler());
+    PP.AddPragmaHandler(ConstSegHandler.get());
+    DataSegHandler.reset(new PragmaDataSegHandler());
+    PP.AddPragmaHandler(DataSegHandler.get());
+    // #pragma check_stack
+    CheckStackHandler.reset(new PragmaCheckStackHandler());
+    PP.AddPragmaHandler(CheckStackHandler.get());
+    // #pragma component
+    ComponentHandler.reset(new PragmaComponentHandler());
+    PP.AddPragmaHandler(ComponentHandler.get());
+    // #pragma conform
+    ConformHandler.reset(new PragmaConformHandler());
+    PP.AddPragmaHandler(ConformHandler.get());
+    // #pragma deprecated
+    DeprecatedHandler.reset(new PragmaDeprecatedHandler());
+    PP.AddPragmaHandler(DeprecatedHandler.get());
+    // #pragma fp_contract
+    IntelFPContractHandler.reset(new PragmaIntelFPContractHandler());
+    PP.AddPragmaHandler(IntelFPContractHandler.get());
+    // #pragma fenv_access
+    IntelFenvAccessHandler.reset(new PragmaIntelFenvAccessHandler());
+    PP.AddPragmaHandler(IntelFenvAccessHandler.get());
+    // #pragma init_seg
+    InitSegHandler.reset(new PragmaInitSegHandler());
+    PP.AddPragmaHandler(InitSegHandler.get());
+    // #pragma float_control
+    FPState = getLangOpts().getFPModel();
+    FCVector.clear();
+    FCVector.push_back(FPState);
+    FloatControlHandler.reset(new PragmaFloatControlHandler());
+    PP.AddPragmaHandler(FloatControlHandler.get());
+    // Apply default fp options
+    if (FPState != (LangOptions::IFP_Fast | LangOptions::IFP_FP_Contract)) {
+      Actions.ActOnPragmaOptionsFloatControl(SourceLocation(), FPState);
+      if (FPState == (LangOptions::IFP_Precise | LangOptions::IFP_FEnv_Access |
+                      LangOptions::IFP_Except | LangOptions::IFP_ValueSafety)) {
+        Actions.ActOnPragmaCommonOnOff(SourceLocation(), "fp_contract",
+                                       "FP_CONTRACT", Sema::IntelCommonOff,
+                                       Sema::IntelPragmaFPContract, FPState);
+        Actions.ActOnPragmaCommonOnOff(SourceLocation(), "fenv_access",
+                                       "FENV_ACCESS", Sema::IntelCommonOn,
+                                       Sema::IntelPragmaFEnvAccess, FPState);
+      }
+    }
+    // #pragma region
+    RegionHandler.reset(new PragmaRegionHandler());
+    PP.AddPragmaHandler(RegionHandler.get());
+    // #pragma endregion
+    EndRegionHandler.reset(new PragmaEndRegionHandler());
+    PP.AddPragmaHandler(EndRegionHandler.get());
+    // #pragma start_map_region
+    PragmaStartMapRegionHandler *hndlr = new PragmaStartMapRegionHandler();
+    StartMapRegionHandler.reset(hndlr);
+    PP.AddPragmaHandler(StartMapRegionHandler.get());
+    // #pragma stop_map_region
+    StopMapRegionHandler.reset(
+        new PragmaStopMapRegionHandler(hndlr->RegionStarted));
+    PP.AddPragmaHandler(StopMapRegionHandler.get());
+    // #pragma vtordisp
+    VtorDispHandler.reset(new PragmaVtorDispHandler());
+    PP.AddPragmaHandler(VtorDispHandler.get());
+  
+    if (getLangOpts().AlignMac68k) {
+      Actions.SetMac68kAlignment();
+    }
+  }
+#endif // INTEL_SPECIFIC_IL0_BACKEND
+}  
+
+void Parser::resetIntelPragmaHandlers() {
+  // Remove the pragma handlers we installed.
+  if (getLangOpts().CilkPlus) {
+    PP.RemovePragmaHandler(CilkGrainsizeHandler.get());
+    CilkGrainsizeHandler.reset();
+    PP.RemovePragmaHandler(SIMDHandler.get());
+    SIMDHandler.reset(new PragmaSIMDHandler());
+  }
+
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  if (getLangOpts().IntelCompat) {
+    // #pragma ivdep
+    PP.RemovePragmaHandler(IvdepHandler.get());
+    IvdepHandler.reset();
+    // #pragma novector
+    PP.RemovePragmaHandler(NoVectorHandler.get());
+    NoVectorHandler.reset();
+    // #pragma vector
+    PP.RemovePragmaHandler(VectorHandler.get());
+    VectorHandler.reset();
+    // #pragma distribute_point
+    PP.RemovePragmaHandler(DistributeHandler.get());
+    DistributeHandler.reset();
+    PP.RemovePragmaHandler(DistributeHandler1.get());
+    DistributeHandler1.reset();
+    // #pragma inline
+    PP.RemovePragmaHandler(InlineHandler.get());
+    InlineHandler.reset();
+    // #pragma noinline
+    PP.RemovePragmaHandler(NoInlineHandler.get());
+    NoInlineHandler.reset();
+    // #pragma forceinline
+    PP.RemovePragmaHandler(ForceInlineHandler.get());
+    ForceInlineHandler.reset();
+    // #pragma loop_count
+    PP.RemovePragmaHandler(LoopCountHandler.get());
+    LoopCountHandler.reset();
+    PP.RemovePragmaHandler(LoopCountHandler1.get());
+    LoopCountHandler1.reset();
+    // #pragma optimize
+    PP.RemovePragmaHandler(IntelOptimizeHandler.get());
+    IntelOptimizeHandler.reset();
+    // #pragma optimization_level
+    PP.RemovePragmaHandler((getLangOpts().PragmaOptimizationLevelIntel == 1)
+                               ? OptimizationLevelHandler.get()
+                               : GCCOptimizationLevelHandler.get());
+    PP.RemovePragmaHandler("intel", OptimizationLevelHandler.get());
+    OptimizationLevelHandler.reset();
+    PP.RemovePragmaHandler("GCC", GCCOptimizationLevelHandler.get());
+    GCCOptimizationLevelHandler.reset();
+    // #pragma noparallel
+    PP.RemovePragmaHandler(NoParallelHandler.get());
+    NoParallelHandler.reset();
+    // #pragma parallel
+    PP.RemovePragmaHandler(ParallelHandler.get());
+    ParallelHandler.reset();
+    // #pragma nounroll
+    PP.RemovePragmaHandler(NoUnrollHandler.get());
+    NoUnrollHandler.reset();
+    // #pragma unroll
+    PP.RemovePragmaHandler(UnrollHandler.get());
+    UnrollHandler.reset();
+    // #pragma nounroll_and_jam
+    PP.RemovePragmaHandler(NoUnrollAndJamHandler.get());
+    NoUnrollAndJamHandler.reset();
+    // #pragma unroll_and_jam
+    PP.RemovePragmaHandler(UnrollAndJamHandler.get());
+    UnrollAndJamHandler.reset();
+    // #pragma nofusion
+    PP.RemovePragmaHandler(NoFusionHandler.get());
+    NoFusionHandler.reset();
+    // #pragma ident
+    PP.RemovePragmaHandler(IdentHandler.get());
+    IdentHandler.reset();
+    // #pragma optimization_parameter
+    PP.RemovePragmaHandler("intel", OptimizationParameterHandler.get());
+    OptimizationParameterHandler.reset();
+    // #pragma alloc_section
+    PP.RemovePragmaHandler(AllocSectionHandler.get());
+    AllocSectionHandler.reset();
+    // #pragma section
+    PP.RemovePragmaHandler(SectionHandler.get());
+    SectionHandler.reset();
+    // #pragma alloc_text
+    PP.RemovePragmaHandler(AllocTextHandler.get());
+    AllocTextHandler.reset();
+    // #pragma auto_inline
+    PP.RemovePragmaHandler(AutoInlineHandler.get());
+    AutoInlineHandler.reset();
+    // #pragma bss_seg|code_seg|const_seg|data_seg
+    PP.RemovePragmaHandler(BssSegHandler.get());
+    BssSegHandler.reset();
+    PP.RemovePragmaHandler(CodeSegHandler.get());
+    CodeSegHandler.reset();
+    PP.RemovePragmaHandler(ConstSegHandler.get());
+    ConstSegHandler.reset();
+    PP.RemovePragmaHandler(DataSegHandler.get());
+    DataSegHandler.reset();
+    // #pragma check_stack
+    PP.RemovePragmaHandler(CheckStackHandler.get());
+    CheckStackHandler.reset();
+    // #pragma component
+    PP.RemovePragmaHandler(ComponentHandler.get());
+    ComponentHandler.reset();
+    // #pragma conform
+    PP.RemovePragmaHandler(ConformHandler.get());
+    ConformHandler.reset();
+    // #pragma deprecated
+    PP.RemovePragmaHandler(DeprecatedHandler.get());
+    DeprecatedHandler.reset();
+    // #pragma fp_contract
+    PP.RemovePragmaHandler(IntelFPContractHandler.get());
+    IntelFPContractHandler.reset();
+    // #pragma fenv_access
+    PP.RemovePragmaHandler(IntelFenvAccessHandler.get());
+    IntelFenvAccessHandler.reset();
+    // #pragma init_seg
+    PP.RemovePragmaHandler(InitSegHandler.get());
+    InitSegHandler.reset();
+    // #pragma float_control
+    FCVector.clear();
+    PP.RemovePragmaHandler(FloatControlHandler.get());
+    FloatControlHandler.reset();
+    // #pragma region
+    static_cast<PragmaRegionHandler *>(RegionHandler.get())
+        ->CheckOpenedRegions(PP);
+    PP.RemovePragmaHandler(RegionHandler.get());
+    RegionHandler.reset();
+    // #pragma endregion
+    PP.RemovePragmaHandler(EndRegionHandler.get());
+    EndRegionHandler.reset();
+    // #pragma start_map_region
+    PP.RemovePragmaHandler(StartMapRegionHandler.get());
+    StartMapRegionHandler.reset();
+    // #pragma stop_map_region
+    PP.RemovePragmaHandler(StopMapRegionHandler.get());
+    StopMapRegionHandler.reset();
+    // #pragma vtordisp
+    PP.RemovePragmaHandler(VtorDispHandler.get());
+    VtorDispHandler.reset();
+  }
+#endif // INTEL_SPECIFIC_IL0_BACKEND
 }
-
-/// \brief Handle Cilk Plus grainsize pragma.
-///
-/// #pragma 'cilk' 'grainsize' '=' expr new-line
-///
-void PragmaCilkGrainsizeHandler::HandlePragma(Preprocessor &PP,
-                                              PragmaIntroducerKind Introducer,
-                                              Token &FirstToken) {
-  Token Tok;
-  PP.Lex(Tok);
-  if (Tok.isNot(tok::identifier)) {
-    PP.Diag(Tok, diag::warn_pragma_expected_identifier) << "cilk";
-    return;
-  }
-
-  IdentifierInfo *Grainsize = Tok.getIdentifierInfo();
-  SourceLocation GrainsizeLoc = Tok.getLocation();
-
-  if (!Grainsize->isStr("grainsize")) {
-    PP.Diag(Tok, diag::err_cilk_for_expect_grainsize);
-    return;
-  }
-
-  PP.Lex(Tok);
-  if (Tok.isNot(tok::equal)) {
-    PP.Diag(Tok, diag::err_cilk_for_expect_assign);
-    return;
-  }
-
-  // Cache tokens after '=' and store them back to the token stream.
-  SmallVector<Token, 5> CachedToks;
-  while (true) {
-    PP.Lex(Tok);
-    if (Tok.is(tok::eod))
-      break;
-    CachedToks.push_back(Tok);
-  }
-
-  llvm::BumpPtrAllocator &Allocator = PP.getPreprocessorAllocator();
-  unsigned Size = CachedToks.size();
-
-  Token *Toks = (Token *) Allocator.Allocate(sizeof(Token) * (Size + 2),
-                                             llvm::alignOf<Token>());
-  auto StartLoc = Toks[0].getLocation();
-  Token &GsBeginTok = Toks[0];
-  GsBeginTok.startToken();
-  GsBeginTok.setKind(tok::annot_pragma_cilk_grainsize_begin);
-  GsBeginTok.setLocation(StartLoc);
-
-  SourceLocation EndLoc = Size ? CachedToks.back().getLocation()
-                               : GrainsizeLoc;
-
-  Token &GsEndTok = Toks[Size + 1];
-  GsEndTok.startToken();
-  GsEndTok.setKind(tok::annot_pragma_cilk_grainsize_end);
-  GsEndTok.setLocation(EndLoc);
-
-  for (unsigned i = 0; i < Size; ++i)
-    Toks[i + 1] = CachedToks[i];
-
-  PP.EnterTokenStream(Toks, Size + 2, /*DisableMacroExpansion=*/true,
-                      /*OwnsTokens=*/false);
-}
-                                                                                                                                      
+#endif  // INTEL_CUSTOMIZATION                                                                                                                                      

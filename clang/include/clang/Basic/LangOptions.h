@@ -56,7 +56,7 @@ public:
     SOB_Defined,    // -fwrapv
     SOB_Trapping    // -ftrapv
   };
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   enum IntelFPModel {
     IFP_Fast = 1<<0,
     IFP_Precise = 1<<1,
@@ -71,7 +71,7 @@ public:
     IFP_ValueSafety = 1<<10,
     IFP_Fast2 = 1<<11
   };
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   enum PragmaMSPointersToMembersKind {
     PPTMK_BestCase,
     PPTMK_FullGeneralitySingleInheritance,

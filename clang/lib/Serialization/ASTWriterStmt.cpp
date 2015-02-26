@@ -597,7 +597,28 @@ void ASTStmtWriter::VisitCilkRankedStmt(CilkRankedStmt *S) {
   Writer.AddStmt(S->getInits());
 }
 
-#endif
+void ASTStmtWriter::VisitPragmaStmt(PragmaStmt *S) {
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  VisitStmt(S);
+  Writer.AddSourceLocation(S->getSemiLoc(), Record);
+  Record.push_back(S->Attribs.size());
+  for(size_t i = 0; i < S->Attribs.size(); ++i) {
+    Writer.AddStmt(S->Attribs[i].Value);
+    Record.push_back(S->Attribs[i].ExprKind);
+  }
+  Record.push_back(S->RealAttribs.size());
+  for(size_t i = 0; i < S->RealAttribs.size(); ++i) {
+    Writer.AddStmt(S->RealAttribs[i]);
+  }
+  Record.push_back(S->getPragmaKind());
+  Record.push_back(S->IsDecl ? 1 : 0);
+  Code = serialization::STMT_PRAGMA;
+#else
+  llvm_unreachable(
+    "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+}
+#endif  // INTEL_CUSTOMIZATION
 
 void ASTStmtWriter::VisitCallExpr(CallExpr *E) {
   VisitExpr(E);
@@ -2248,21 +2269,3 @@ void ASTWriter::FlushStmts() {
   StmtsToEmit.clear();
 }
 
-#ifdef INTEL_CUSTOMIZATION
-void ASTStmtWriter::VisitPragmaStmt(PragmaStmt *S) {
-  VisitStmt(S);
-  Writer.AddSourceLocation(S->getSemiLoc(), Record);
-  Record.push_back(S->Attribs.size());
-  for(size_t i = 0; i < S->Attribs.size(); ++i) {
-    Writer.AddStmt(S->Attribs[i].Value);
-    Record.push_back(S->Attribs[i].ExprKind);
-  }
-  Record.push_back(S->RealAttribs.size());
-  for(size_t i = 0; i < S->RealAttribs.size(); ++i) {
-    Writer.AddStmt(S->RealAttribs[i]);
-  }
-  Record.push_back(S->getPragmaKind());
-  Record.push_back(S->IsDecl ? 1 : 0);
-  Code = serialization::STMT_PRAGMA;
-}
-#endif

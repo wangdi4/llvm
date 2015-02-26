@@ -749,7 +749,7 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
 #ifdef INTEL_CUSTOMIZATION
     case Stmt::PragmaStmtClass:
       llvm_unreachable("Pragma should not be in analyzer evaluation loop");
-#endif
+#endif  // INTEL_CUSTOMIZATION
     // C++ and ARC stuff we don't support yet.
     case Expr::ObjCIndirectCopyRestoreExprClass:
     case Stmt::CXXDependentScopeMemberExprClass:
@@ -811,7 +811,7 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::CilkForStmtClass:
     case Stmt::SIMDForStmtClass:
     case Expr::CilkRankedStmtClass:
-#endif	
+#endif  // INTEL_CUSTOMIZATION
     case Stmt::OMPSimdDirectiveClass:
     case Stmt::OMPForDirectiveClass:
     case Stmt::OMPForSimdDirectiveClass:
@@ -888,10 +888,10 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::OpaqueValueExprClass:
     case Stmt::AsTypeExprClass:
     case Stmt::AtomicExprClass:
-#ifdef INTEL_CUSTOMIZATION	
+#ifdef INTEL_CUSTOMIZATION
     case Stmt::CEANIndexExprClass:
     case Stmt::CEANBuiltinExprClass:
-#endif	
+#endif  // INTEL_CUSTOMIZATION
       // Fall through.
 
     // Cases we intentionally don't evaluate, since they don't need
@@ -1023,7 +1023,7 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
 #ifdef INTEL_CUSTOMIZATION
     case Stmt::CilkSpawnExprClass:
       llvm_unreachable("not implemented yet");
-#endif
+#endif  // INTEL_CUSTOMIZATION
     case Stmt::BinaryOperatorClass: {
       const BinaryOperator* B = cast<BinaryOperator>(S);
       if (B->isLogicalOp()) {

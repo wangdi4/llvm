@@ -139,7 +139,7 @@ void Preprocessor::RegisterBuiltinMacros() {
   }
 #ifdef INTEL_CUSTOMIZATION
   Ident__pragma = RegisterBuiltinMacro(*this, "__pragma");
-#endif
+#endif  // INTEL_CUSTOMIZATION
 }
 
 /// isTrivialSingleTokenExpansion - Return true if MI, which has a single token

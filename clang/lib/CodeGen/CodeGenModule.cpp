@@ -18,7 +18,7 @@
 #include "CGDebugInfo.h"
 #ifdef INTEL_CUSTOMIZATION
 #include "intel/CGCilkPlusRuntime.h"
-#endif
+#endif  // INTEL_CUSTOMIZATION
 #include "CGObjCRuntime.h"
 #include "CGOpenCLRuntime.h"
 #include "CGOpenMPRuntime.h"
@@ -85,10 +85,10 @@ CodeGenModule::CodeGenModule(ASTContext &C, const CodeGenOptions &CGO,
       ABI(createCXXABI(*this)), VMContext(M.getContext()), TBAA(nullptr),
       TheTargetCodeGenInfo(nullptr), Types(*this), VTables(*this),
       ObjCRuntime(nullptr), OpenCLRuntime(nullptr), OpenMPRuntime(nullptr),
-      CUDARuntime(nullptr), 
+      CUDARuntime(nullptr),
 #ifdef INTEL_CUSTOMIZATION
-      CilkPlusRuntime(nullptr), 
-#endif
+      CilkPlusRuntime(nullptr),
+#endif  // INTEL_CUSTOMIZATION
       DebugInfo(nullptr), ARCData(nullptr),
       NoObjCARCExceptionsMetadata(nullptr), RRData(nullptr), PGOReader(nullptr),
       CFConstantStringClassRef(nullptr), ConstantStringClassRef(nullptr),
@@ -126,10 +126,10 @@ CodeGenModule::CodeGenModule(ASTContext &C, const CodeGenOptions &CGO,
     createOpenMPRuntime();
   if (LangOpts.CUDA)
     createCUDARuntime();
-#ifdef INTEL_CUSTOMIZATION	
+#ifdef INTEL_CUSTOMIZATION
   if (LangOpts.CilkPlus)
     createCilkPlusRuntime();
-#endif
+#endif  // INTEL_CUSTOMIZATION
   // Enable TBAA unless it's suppressed. ThreadSanitizer needs TBAA even at O0.
   if (LangOpts.Sanitize.has(SanitizerKind::Thread) ||
       (!CodeGenOpts.RelaxedAliasing && CodeGenOpts.OptimizationLevel > 0))
@@ -211,7 +211,7 @@ void CodeGenModule::createCUDARuntime() {
 void CodeGenModule::createCilkPlusRuntime() {
   CilkPlusRuntime = new CGCilkPlusRuntime;
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 void CodeGenModule::addReplacement(StringRef Name, llvm::Constant *C) {
   Replacements[Name] = C;
@@ -424,7 +424,7 @@ void CodeGenModule::Release() {
 #ifdef INTEL_CUSTOMIZATION
   if (getLangOpts().CilkPlus)
     EmitCilkElementalVariants();
-#endif
+#endif  // INTEL_CUSTOMIZATION
   if (getCodeGenOpts().EmitGcovArcs || getCodeGenOpts().EmitGcovNotes)
     EmitCoverageFile();
 
@@ -614,11 +614,11 @@ StringRef CodeGenModule::getBlockMangledName(GlobalDecl GD,
   auto Result = Manglings.insert(std::make_pair(Out.str(), BD));
   return Result.first->first();
 }
-
-void CodeGenModule::registerAsMangled(StringRef Name, GlobalDecl GD) {	//***INTEL
-  MangledDeclNames[GD.getCanonicalDecl()] = Name;						//***INTEL
-}																		//***INTEL
-
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+void CodeGenModule::registerAsMangled(StringRef Name, GlobalDecl GD) {
+  MangledDeclNames[GD.getCanonicalDecl()] = Name;
+}
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 llvm::GlobalValue *CodeGenModule::GetGlobalValue(StringRef Name) {
   return getModule().getNamedValue(Name);
 }
@@ -705,7 +705,7 @@ void CodeGenModule::SetLLVMFunctionAttributes(const Decl *D,
   if (getLangOpts().CilkPlus)
     if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
       EmitCilkElementalMetadata(Info, FD, F);
-#endif
+#endif  // INTEL_CUSTOMIZATION
 }
 
 /// Determines whether the language options require us to model
@@ -3364,11 +3364,11 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
       getModule().setModuleInlineAsm(S + '\n' + AsmString.str());
     break;
   }
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   case Decl::Pragma:
     CodeGenFunction(*this).EmitPragmaDecl(cast<PragmaDecl>(*D));
     break;
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   case Decl::Import: {
     auto *Import = cast<ImportDecl>(D);
 
@@ -3403,10 +3403,10 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
     assert(isa<TypeDecl>(D) && "Unsupported decl kind");
     break;
   }
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   if (D->hasAttr<AvoidFalseShareAttr>())
     CodeGenFunction(*this).EmitIntelAttribute(*D);
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 }
 
 void CodeGenModule::AddDeferredUnusedCoverageMapping(Decl *D) {

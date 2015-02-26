@@ -857,7 +857,7 @@ public:
   ///
   /// Currently only FunctionDecl and CapturedDecl can have Cilk spawns.
   bool isSpawning() const;
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
   /// \brief Returns the function itself, or the templated function if this is a
   /// function template.

@@ -371,12 +371,14 @@ KEYWORD(__FUNCSIG__                 , KEYMS)
 KEYWORD(L__FUNCTION__               , KEYMS)
 TYPE_TRAIT_1(__is_interface_class, IsInterfaceClass, KEYMS)
 TYPE_TRAIT_1(__is_sealed, IsSealed, KEYMS)
-//#ifdef INTEL_CUSTOMIZATION
-KEYWORD(_Quad                       , KEYFLOAT128)	
+#ifdef INTEL_CUSTOMIZATION
 KEYWORD(_Cilk_spawn                 , KEYCILKPLUS)
 KEYWORD(_Cilk_sync                  , KEYCILKPLUS)
 KEYWORD(_Cilk_for                   , KEYCILKPLUS)
-//#endif
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+KEYWORD(_Quad                       , KEYFLOAT128)
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
 // MSVC12.0 / VS2013 Type Traits
 TYPE_TRAIT_1(__is_destructible, IsDestructible, KEYMS)
 TYPE_TRAIT_1(__is_nothrow_destructible, IsNothrowDestructible, KEYMS)
@@ -538,7 +540,7 @@ ALIAS("__typeof"     , typeof     , KEYALL)
 ALIAS("__typeof__"   , typeof     , KEYALL)
 #ifdef INTEL_CUSTOMIZATION
 ALIAS("_Typeof"      , typeof     , KEYALL)
-#endif
+#endif  // INTEL_CUSTOMIZATION
 ALIAS("__volatile"   , volatile   , KEYALL)
 ALIAS("__volatile__" , volatile   , KEYALL)
 
@@ -721,7 +723,7 @@ ANNOTATION(pragma_opencl_extension)
 ANNOTATION(pragma_openmp)
 ANNOTATION(pragma_openmp_end)
 
-//#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_CUSTOMIZATION
 // Annotation for #pragma cilk grainsize...
 // The lexer produces these so that they only take effect when the parser
 // handles them.
@@ -738,7 +740,7 @@ ANNOTATION(pragma_cilk_grainsize_end)
 ANNOTATION(pragma_simd)
 ANNOTATION(pragma_simd_end)
 
-///#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
 // Alternate spelling for alignof
 ALIAS("__ALIGNOF__" , __alignof , KEYALL)
 
@@ -864,7 +866,8 @@ ANNOTATION(pragma_float_control)
 // handles them.
 ANNOTATION(pragma_intel_fp_contract)
 ANNOTATION(pragma_fenv_access)
-//#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
 
 // Annotations for loop pragma directives #pragma clang loop ...
 // The lexer produces these so that they only take effect when the parser

@@ -21,7 +21,7 @@
 #include "clang/Basic/LLVM.h"
 #ifdef INTEL_CUSTOMIZATION
 #include "clang/Basic/intel/PragmaSIMD.h"
-#endif
+#endif  // INTEL_CUSTOMIZATION
 #include "clang/Basic/SourceLocation.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/PointerIntPair.h"
@@ -2061,9 +2061,10 @@ private:
 
   /// \brief The pointer part is the implicit the outlined function and the 
   /// int part is the captured region kind, 'CR_Default' etc.
-  CapturedDecl *CapDecl;	//***INTEL
-  CapturedRegionKind Kind;	//***INTEL
-
+#ifdef INTEL_CUSTOMIZATION
+  CapturedDecl *CapDecl;
+  CapturedRegionKind Kind;
+#endif
   /// \brief The record for captured variables, a RecordDecl or CXXRecordDecl.
   RecordDecl *TheRecordDecl;
 
@@ -2099,7 +2100,7 @@ public:
   }
 
   /// \brief Retrieve the outlined function declaration.
-  CapturedDecl *getCapturedDecl() { return CapDecl; }	//***INTEL
+  CapturedDecl *getCapturedDecl() { return CapDecl; }     //***INTEL
   const CapturedDecl *getCapturedDecl() const {
     return const_cast<CapturedStmt *>(this)->getCapturedDecl();
   }
@@ -2107,19 +2108,19 @@ public:
   /// \brief Set the outlined function declaration.
   void setCapturedDecl(CapturedDecl *D) {
     assert(D && "null CapturedDecl");
-    CapDecl = D;	//***INTEL
+    CapDecl = D;                                          //***INTEL
   }
 
   /// \brief Retrieve the captured region kind.
   CapturedRegionKind getCapturedRegionKind() const {
-    return Kind;	//***INTEL
+    return Kind;                                          //***INTEL
   }
-
+#ifdef INTEL_CUSTOMIZATION
   /// \brief Set the captured region kind.
-  void setCapturedRegionKind(CapturedRegionKind CRKind) {	//***INTEL
-    Kind = CRKind;											//***INTEL
+  void setCapturedRegionKind(CapturedRegionKind CRKind) {
+    Kind = CRKind;
   }
-
+#endif
   /// \brief Retrieve the record declaration for captured variables.
   const RecordDecl *getCapturedRecordDecl() const { return TheRecordDecl; }
 
@@ -2723,6 +2724,7 @@ public:
   }
 };
 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
 /// PragmaStmt
 ///
 
@@ -2819,8 +2821,28 @@ public:
   friend class ASTStmtReader;
   friend class ASTStmtWriter;
 };
-
-#endif
+#else
+class PragmaStmt : public Stmt {
+public:
+  SourceLocation getLocStart() const LLVM_READONLY {
+    llvm_unreachable("Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
+    return SourceLocation();
+  }
+  SourceLocation getLocEnd() const LLVM_READONLY {
+    llvm_unreachable("Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
+    return SourceLocation();
+  }
+  child_range children() {
+    llvm_unreachable("Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
+    return child_range();
+  }
+  static bool classof(const Stmt *) {
+    llvm_unreachable("Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
+    return false;
+  }
+};
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
 }  // end namespace clang
 
 #endif
