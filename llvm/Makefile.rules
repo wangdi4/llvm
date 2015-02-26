@@ -450,7 +450,12 @@ ifeq ($(HOST_OS),MingW)
 endif
 
 CPP.BaseFlags += $(CPP.Defines)
-AR.Flags      := cru
+
+ifeq ($(HOST_OS),FreeBSD)
+  AR.Flags := cru -D
+else
+  AR.Flags := cru
+endif
 
 # Make Floating point IEEE compliant on Alpha.
 ifeq ($(ARCH),Alpha)
