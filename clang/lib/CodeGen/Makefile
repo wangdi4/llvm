@@ -15,5 +15,13 @@
 CLANG_LEVEL := ../..
 LIBRARYNAME := clangCodeGen
 
+# CQ#366833 - fix for iclang makefile - based build.
+ifeq ($(INTEL_CUSTOMIZATION),1)
+SOURCES = $(notdir $(wildcard $(PROJ_SRC_DIR)/*.cpp \
+	      $(PROJ_SRC_DIR)/*.cc $(PROJ_SRC_DIR)/*.c)) \
+	  intel/CGCilkPlusRuntime.cpp \
+	  intel/CGElementalFunction.cpp
+endif
+
 include $(CLANG_LEVEL)/Makefile
 
