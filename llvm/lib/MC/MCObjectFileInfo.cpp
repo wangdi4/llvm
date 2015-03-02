@@ -169,6 +169,8 @@ void MCObjectFileInfo::InitMachOMCObjectFileInfo(Triple T) {
                                      SectionKind::getReadOnlyWithRel());
 
   COFFDebugSymbolsSection = nullptr;
+//***INTEL
+  COFFDebugTypesSection = nullptr;
 
   if (useCompactUnwind(T)) {
     CompactUnwindSection =
@@ -506,6 +508,8 @@ void MCObjectFileInfo::InitELFMCObjectFileInfo(Triple T) {
                        SectionKind::getReadOnly());
 
   COFFDebugSymbolsSection = nullptr;
+//***INTEL
+  COFFDebugTypesSection = nullptr;
 
   // Debug Info Sections.
   DwarfAbbrevSection =
@@ -676,6 +680,14 @@ void MCObjectFileInfo::InitCOFFMCObjectFileInfo(Triple T) {
   // Debug info.
   COFFDebugSymbolsSection =
     Ctx->getCOFFSection(".debug$S",
+                        COFF::IMAGE_SCN_MEM_DISCARDABLE |
+                        COFF::IMAGE_SCN_CNT_INITIALIZED_DATA |
+                        COFF::IMAGE_SCN_MEM_READ,
+                        SectionKind::getMetadata());
+
+//***INTEL
+  COFFDebugTypesSection =
+    Ctx->getCOFFSection(".debug$T",
                         COFF::IMAGE_SCN_MEM_DISCARDABLE |
                         COFF::IMAGE_SCN_CNT_INITIALIZED_DATA |
                         COFF::IMAGE_SCN_MEM_READ,

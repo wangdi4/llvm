@@ -20,6 +20,9 @@ add_llvm_library(LLVMAsmPrinter
   OcamlGCPrinter.cpp
   Win64Exception.cpp
   WinCodeViewLineTables.cpp
+#***INTEL
+  intel/STIDebug.cpp
+  intel/STIIR.cpp
   )
 
 add_dependencies(LLVMAsmPrinter intrinsics_gen)
