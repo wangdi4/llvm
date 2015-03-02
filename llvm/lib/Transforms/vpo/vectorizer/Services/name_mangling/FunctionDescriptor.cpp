@@ -19,11 +19,11 @@ namespace reflection{
 ///////////////////////////////////////////////////////////////////////////////
 struct VWidthResolver: TypeVisitor {
   void visit(const PrimitiveType*) {
-    m_width = width::SCALAR;
+    m_width = FunctionDescriptor::SCALAR;
   }
 
   void visit(const VectorType* v) {
-    m_width = static_cast<width::V>(v->getLength());
+    m_width = v->getLength();
   }
 
   void visit(const PointerType* p) {
@@ -31,16 +31,16 @@ struct VWidthResolver: TypeVisitor {
   }
 
   void visit(const BlockType*) {
-    m_width = width::SCALAR;
+    m_width = FunctionDescriptor::SCALAR;
   }
 
   void visit(const UserDefinedType*) {
-    m_width = width::SCALAR;
+    m_width = FunctionDescriptor::SCALAR;
   }
 
-  width::V width() const { return m_width; }
+  unsigned width() const { return m_width; }
 private:
-  width::V m_width;
+  unsigned m_width;
 };
 
 llvm::StringRef FunctionDescriptor::nullString(){
@@ -113,7 +113,7 @@ bool FunctionDescriptor::operator < (const FunctionDescriptor& that)const{
 
 void FunctionDescriptor::assignAutomaticWidth(){
   VWidthResolver widthResolver;
-  width::V w = width::SCALAR;
+  unsigned w = FunctionDescriptor::SCALAR;
   size_t paramCount = parameters.size();
   for (size_t i=0 ; i<paramCount ; ++i){
     parameters[i]->accept(&widthResolver);

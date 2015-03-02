@@ -45,9 +45,6 @@ struct VectorizerFunction{
   /////////////////////////////////////////////////////////////////////////////
   //Purpose: returns the mangled string of the built-in function which is
   //equivalent to this one, in the requested version.
-  //Note!: until we fix it (due to legacy reasons), the versions are orginized
-  //as follows:
-  //0 -> SCALAR, 1 -> TWO, 2 -> FOUR, 3 -> EIGHT, 4 -> SIXTEEN, 5 -> THREE
   //Note: if the receiver represents a function that does not have the requested
   //version, FunctionDescriptor::nullString() is returned.
   /////////////////////////////////////////////////////////////////////////////

@@ -16,20 +16,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 namespace reflection {
 
-namespace width{
-
-enum V{
-  NONE = 0,
-  SCALAR = 1,
-  TWO = 2,
-  THREE = 3,
-  FOUR = 4,
-  EIGHT = 8,
-  SIXTEEN = 16
-};
-const size_t OCL_VERSIONS = 6;
-}
-
 #define INVALID_ENTRY "<invalid>"
 
 typedef std::vector<intel::RefCount<ParamType> > TypeVector;
@@ -44,7 +30,7 @@ struct FunctionDescriptor{
   //Parameter list of the function
   TypeVector parameters;
   //'version width'; the width to which this function is suitable for
-  width::V width;
+  unsigned width;
 
   bool operator == (const FunctionDescriptor&)const;
   
@@ -57,6 +43,8 @@ struct FunctionDescriptor{
   static FunctionDescriptor null();
 
   static llvm::StringRef nullString();
+
+  static const unsigned SCALAR = 0U;
 };
 
 template <typename T>

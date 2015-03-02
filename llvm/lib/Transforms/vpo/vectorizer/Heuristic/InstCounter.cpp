@@ -1328,9 +1328,10 @@ bool CanVectorizeImpl::hasNonInlineUnsupportedFunctions(Function &F) {
 
   // Add all kernels to root functions
   // Kernels assumes to have implicit barrier
-  std::vector<Function *> kernels;
+  VectorizerUtils::FunctionVariants kernels;
   VectorizerUtils::getFunctionsToVectorize(*pM, kernels);
-  roots.insert(kernels.begin(), kernels.end());
+  for (auto& pair : kernels)
+    roots.insert(pair.first);
 
   // Add all functions that contains synchronize/get_local_id/get_global_id to root functions
   CompilationUtils::FunctionSet oclFunction;

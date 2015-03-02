@@ -123,6 +123,10 @@ public:
     return promoteToSupportedType(type, getISA());
   }
 
+  static bool isVectorVariant(llvm::StringRef funcName) {
+    return funcName.startswith(PREFIX());
+  }
+
   static llvm::Type* promoteToSupportedType(llvm::Type* type, ISAClass isa) {
     // On ZMM promote char and short to int
     if (isa == ISAClass::ZMM && (type->isIntegerTy(8) ||

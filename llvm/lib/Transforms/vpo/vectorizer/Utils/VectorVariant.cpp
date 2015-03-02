@@ -3,7 +3,7 @@
 namespace intel {
 
 VectorVariant::VectorVariant(llvm::StringRef funcName) {
-  assert(funcName.startswith(PREFIX()) && "WI requires vector parameter annotation");
+  assert(isVectorVariant(funcName) && "invalid vector variant format");
   std::stringstream sst(funcName.drop_front(PREFIX().size()));
   // mandatory annotations
   char encodedISA;

@@ -216,41 +216,33 @@ void Vectorizer::deleteVectorizationStubs(Module& M) {
   m_functionsToRetain.clear();
 }
 
-static pair<VectorVariant, Type*> buildVectorVariant(Function& F) {
-  TargetProcessor targetProcessor = TargetProcessor::core_4th_gen_avx;
-  ISAClass isa = VectorVariant::targetProcessorISAClass(targetProcessor);
-  bool mask = false;
+static Type* calcCharacteristicType(Function& F, VectorVariant& vectorVariant) {
+  ISAClass isa = vectorVariant.getISA();
   Type* returnType = F.getReturnType();
   Type* characteristicDataType = NULL;
+  std::vector<VectorKind>& parameterKinds = vectorVariant.getParameters();
   if (!returnType->isVoidTy())
     characteristicDataType = returnType;
   const Function::ArgumentListType& arguments = F.getArgumentList();
   Function::ArgumentListType::const_iterator argIt = arguments.begin();
   Function::ArgumentListType::const_iterator argEnd = arguments.end();
+  std::vector<VectorKind>::iterator vkIt = parameterKinds.begin();
+
   vector<VectorKind> parameters;
   stringstream args_sst;
-  for (; argIt != argEnd; argIt++) {
-    const Value& argument = *argIt;
-    StringRef argName = argument.getName();
-    if (argName[0] == 'u')
-      parameters.push_back(VectorKind('u', VectorKind::NA()));
-    else if (argName[0] == 'l')
-      parameters.push_back(VectorKind('l', 1));
-    else {
-      parameters.push_back(VectorKind('v', VectorKind::NA()));
-      if (!characteristicDataType)
-	characteristicDataType = argument.getType();
-    }
+  for (; argIt != argEnd; argIt++, vkIt++) {
+    if (vkIt->isVector() && !characteristicDataType)
+      characteristicDataType = (*argIt).getType();
   }
+
   // TODO except Clang's ComplexType
   if (!characteristicDataType || characteristicDataType->isStructTy()) {
     characteristicDataType = Type::getInt32Ty(F.getContext());
   }
+
   characteristicDataType =
     VectorVariant::promoteToSupportedType(characteristicDataType, isa);
-  unsigned int vlen = VectorVariant::calcVlen(isa, characteristicDataType);
-  return pair<VectorVariant, Type*>(VectorVariant(isa, mask, vlen, parameters),
-				    characteristicDataType);
+  return characteristicDataType;
 }
 
 Function* Vectorizer::createFunctionToVectorize(Function& originalFunction,
@@ -383,7 +375,7 @@ bool Vectorizer::runOnModule(Module &M)
   m_numOfKernels = 0;
   m_isModuleVectorized = true;
 
-  vector<Function*> functionsToVectorize;
+  VectorizerUtils::FunctionVariants functionsToVectorize;
   VectorizerUtils::getFunctionsToVectorize(M, functionsToVectorize);
   if (functionsToVectorize.empty()) {
     // No functions to vectorize
@@ -404,49 +396,55 @@ bool Vectorizer::runOnModule(Module &M)
   }
 #endif
 
-  vector<Function*>::iterator fi = functionsToVectorize.begin();
-  vector<Function*>::iterator fe = functionsToVectorize.end();
-  for (; fi != fe; ++fi)
+  for (auto& pair : functionsToVectorize)
   {
-    Function& F = **fi;
-    pair<VectorVariant, Type*> vectorABIInfo = buildVectorVariant(F);
-    VectorVariant& vectorVariant = vectorABIInfo.first;
-    Type* characteristicDataType = vectorABIInfo.second;
+    Function& F = *pair.first;
+    VectorizerUtils::DeclaredVariants& declaredVariants = pair.second;
+    for (auto& declaredVariant : declaredVariants)
+    {
+      VectorVariant vectorVariant(declaredVariant);
+      assert(F.arg_size() ==
+	     (vectorVariant.getParameters().size() -
+	      (vectorVariant.isMasked() ? 1 : 0)) &&
+	     "function and vector variant differ in number of parameters");
 
-    // Get a working copy of the function to operate on
-    Function *clone = createFunctionToVectorize(F,
-						vectorVariant,
-						characteristicDataType);
+      Type* characteristicDataType = calcCharacteristicType(F, vectorVariant);
 
-    // Prepare for vectorization
-    bool canVectorize = preVectorizeFunction(*clone);
-    if (!canVectorize) {
-      // We can't or choose not to vectorize the kernel.
-      // Erase the clone from the module, but first copy the vectorizer
-      // stats back to the original function
-      intel::Statistic::copyFunctionStats(*clone, F);
+      // Get a working copy of the function to operate on
+      Function *clone = createFunctionToVectorize(F,
+						  vectorVariant,
+						  characteristicDataType);
+
+      // Prepare for vectorization
+      bool canVectorize = preVectorizeFunction(*clone);
+      if (!canVectorize) {
+	// We can't or choose not to vectorize the kernel.
+	// Erase the clone from the module, but first copy the vectorizer
+	// stats back to the original function
+	intel::Statistic::copyFunctionStats(*clone, F);
+	intel::Statistic::removeFunctionStats(*clone);
+	clone->eraseFromParent();
+	continue;
+      }
+
+      // Do actual vectorization work on the clone
+      vectorizeFunction(*clone, vectorVariant);
+
+      // Generate a vector version of the function with the right signature
+      // and delete the vectorized clone.
+      Function* vectFunc = createVectorVersion(*clone,
+					       vectorVariant,
+					       F.getName().str());
+      // copy stats from the original function to the new one
+      intel::Statistic::copyFunctionStats(*clone, *vectFunc);
       intel::Statistic::removeFunctionStats(*clone);
       clone->eraseFromParent();
-      continue;
+
+      // Do post vectorization work on the vector version
+      postVectorizeFunction(*vectFunc);
+
+      m_functionsToRetain.insert(vectFunc);
     }
-
-    // Do actual vectorization work on the clone
-    vectorizeFunction(*clone, vectorVariant);
-
-    // Generate a vector version of the function with the right signature
-    // and delete the vectorized clone.
-    Function* vectFunc = createVectorVersion(*clone,
-					     vectorVariant,
-					     F.getName().str());
-    // copy stats from the original function to the new one
-    intel::Statistic::copyFunctionStats(*clone, *vectFunc);
-    intel::Statistic::removeFunctionStats(*clone);
-    clone->eraseFromParent();
-
-    // Do post vectorization work on the vector version
-    postVectorizeFunction(*vectFunc);
-
-    m_functionsToRetain.insert(vectFunc);
   }
 
   deleteVectorizationStubs(M);
@@ -587,7 +585,6 @@ Function* Vectorizer::createVectorVersion(Function& vectorizedFunction,
 				       vectorVariant.getVlen());
   std::vector<VectorKind> parameterKinds = vectorVariant.getParameters();
   vector<Type*> parameterTypes;
-  assert(originalFunctionType->getNumParams() == parameterKinds.size());
   FunctionType::param_iterator it = originalFunctionType->param_begin();
   FunctionType::param_iterator end = originalFunctionType->param_end();
   std::vector<VectorKind>::iterator vkIt = parameterKinds.begin();

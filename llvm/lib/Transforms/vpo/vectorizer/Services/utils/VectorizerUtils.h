@@ -17,11 +17,15 @@ class VectorizerUtils {
 
 public:
 
+  typedef std::vector<std::string> DeclaredVariants;
+  typedef std::map<llvm::Function*, DeclaredVariants> FunctionVariants;
+
   /// @brief Get all functions marked for vectorization in module.
-  /// @param I instruction whose debug location will be set.
-  /// @param setBy instruction from which debug location is gathered.
+  /// @param M Module to query
+  /// @param funcVars Data structure to hold the declared vector variants
+  /// (in string form) for each function.
   static void getFunctionsToVectorize(llvm::Module &M,
-				      std::vector<llvm::Function*>& funcs);
+				      FunctionVariants& funcVars);
 
   /// @brief set debug location of I according to SetBy.
   /// @param I instruction whose debug location will be set.

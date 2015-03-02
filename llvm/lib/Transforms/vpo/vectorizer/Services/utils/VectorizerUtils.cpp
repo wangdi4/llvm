@@ -8,6 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "TypeConversion.h"
 #include "FunctionDescriptor.h"
 #include "NameMangleAPI.h"
+#include "VectorVariant.h"
 
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/InstIterator.h"
@@ -18,26 +19,24 @@ namespace intel{
 using namespace llvm;
 
 void VectorizerUtils::getFunctionsToVectorize(llvm::Module &M,
-					      std::vector<Function*>& funcs) {
-  NamedMDNode* functionsNMD = M.getNamedMetadata("vectorizer.functions");
-  if (!functionsNMD) {
-    // No functions to vectorize
-    return;
-  }
-
-  NamedMDNode::op_iterator nmdIt = functionsNMD->op_begin();
-  NamedMDNode::op_iterator nmdEnd = functionsNMD->op_end();
-  for (; nmdIt != nmdEnd; nmdIt++) {
-    MDNode* mdNode = *nmdIt;
-    assert(mdNode->getNumOperands() == 1 &&
-	   "function to vectorize metadata should only contain its name");
-    MDString* mdString = dyn_cast<MDString>(mdNode->getOperand(0));
-    assert(mdString &&
-	   "function to vectorize metadata should contain its name");
-    StringRef functionName = mdString->getString();
-    Function* F = M.getFunction(functionName);
-    if (F)
-      funcs.push_back(F);
+					      FunctionVariants& funcVars) {
+  for (auto it = M.begin(), end = M.end(); it != end; it++) {
+    Function& F = *it;
+    funcVars[&F] = DeclaredVariants();
+    DeclaredVariants& declaredVariants = funcVars[&F];
+    AttributeSet attributes = F.getAttributes().getFnAttributes();
+    AttributeSet::iterator itA = attributes.begin(0);
+    AttributeSet::iterator endA = attributes.end(0);
+    for (;itA != endA; ++itA) {
+      if (!itA->isStringAttribute())
+	continue;
+      StringRef attributeKind = itA->getKindAsString();
+      if (!VectorVariant::isVectorVariant(attributeKind))
+	continue;
+      declaredVariants.push_back(attributeKind);
+    }
+    if (declaredVariants.empty())
+      funcVars.erase(&F);
   }
 }
 
