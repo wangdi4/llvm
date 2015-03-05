@@ -16,32 +16,19 @@
 using namespace llvm;
 using namespace loopopt;
 
-ConstDDRef* DDRefUtils::createConstDDRef(CanonExpr* CE, HLNode* HNode) {
+ConstDDRef *DDRefUtils::createConstDDRef(CanonExpr *CE) {
 
-  return new ConstDDRef(CE, HNode);
+  return new ConstDDRef(CE);
 }
 
-RegDDRef* DDRefUtils::createRegDDRef(int SB, HLNode* HNode) {
-  return new RegDDRef(SB, HNode);
-}
-  
-BlobDDRef* DDRefUtils::createBlobDDRef(int SB, CanonExpr* CE,
-  RegDDRef* Parent) {
-    
+RegDDRef *DDRefUtils::createRegDDRef(int SB) { return new RegDDRef(SB); }
+
+BlobDDRef *DDRefUtils::createBlobDDRef(int SB, CanonExpr *CE,
+                                       RegDDRef *Parent) {
+
   return new BlobDDRef(SB, CE, Parent);
 }
 
-void DDRefUtils::destroy(DDRef* Ref) {
-  Ref->destroy();
-}
+void DDRefUtils::destroy(DDRef *Ref) { Ref->destroy(); }
 
-void DDRefUtils::destroyAll() {
-  DDRef::destroyAll();
-}
-void DDRefUtils::setGEP(RegDDRef *ref, CanonExpr* BaseCE, RegDDRef::StrideTy Strides,
-        bool inbounds) {
-    ref->setGEP(BaseCE, Strides, inbounds);
-}
-void DDRefUtils::dbgPushBlobDDRef(RegDDRef *Parent, BlobDDRef *BlobRef) {
-    Parent->BlobDDRefs.push_back(BlobRef);
-}
+void DDRefUtils::destroyAll() { DDRef::destroyAll(); }

@@ -26,7 +26,6 @@
 
 #include "llvm/Support/Debug.h"
 
-
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
@@ -113,14 +112,14 @@ private:
     }
 
     //\brief return value for coeff*iv with IV at level
-    Value *IVPairCG(CanonExpr::BlobOrConstToValTy Pair, int Level, Type *Ty);
+    Value *IVPairCG(CanonExpr::BlobOrConstToVal Pair, int Level, Type *Ty);
 
     // \brief retutn value for coeff*V
     Value *CoefCG(int Coeff, Value *V);
 
     //\brief returns value for blobCoeff*blob in <blobidx,coeff> pair
-    Value *BlobPairCG(CanonExpr::BlobIndexToCoeffTy BlobPair, Type *Ty) {
-      return CoefCG(BlobPair.second, getBlobValue(BlobPair.first, Ty));
+    Value *BlobPairCG(CanonExpr::BlobIndexToCoeff BlobPair, Type *Ty) {
+      return CoefCG(BlobPair.Coeff, getBlobValue(BlobPair.Index, Ty));
     }
 
     Function *F;
@@ -171,11 +170,11 @@ public:
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
-    //consider all analysis invalidated, however we lost a req analysis
-    //eithout this..not sure
-    //AU.setPreservesAll();
+    // consider all analysis invalidated, however we lost a req analysis
+    // eithout this..not sure
+    // AU.setPreservesAll();
 
-    //AU.addRequiredTransitive<ScalarEvolution>();
+    // AU.addRequiredTransitive<ScalarEvolution>();
     AU.addRequired<ScalarEvolution>();
     AU.addRequired<MockHIR>();
   }
@@ -193,7 +192,7 @@ Value *HIRCodeGen::CGVisitor::visitCanonExpr(CanonExpr *CE) {
   IVSum = sumIV(CE);
 
   int C0 = CE->getConstant();
-  Type *Ty = const_cast<Type *>(CE->getLLVMType());
+  Type *Ty = CE->getLLVMType();
   // TODO I dunno about htis more specially a pointer?
   // ie [i32 X 10] for type of base ptr what type to use?
   if (C0) {
@@ -226,20 +225,24 @@ Value *HIRCodeGen::CGVisitor::visitCanonExpr(CanonExpr *CE) {
   return Res;
 }
 
+/// Only works for single dimension arrays right now.
 Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
-  Value *BaseV = visitCanonExpr(Ref->getBaseCE());
+  assert((Ref->getNumDimensions() == 1) &&
+         "Cannot handle multiple dimensions!");
 
-  // TODO TODO currently we are cg out of strides, not correct.
-  std::vector<Value *> StridesV;
-  for (auto S = Ref->getStrides()->begin(), E = Ref->getStrides()->end();
-       S != E; S++) {
-    StridesV.push_back(visitCanonExpr(*S));
-  }
+  Value *BaseV = visitCanonExpr(Ref->getBaseCE());
+  // Create zero for the first GEP index
+  Value *Zero =
+      ConstantInt::getSigned(IntegerType::get(F->getContext(), 64), 0);
+
+  std::vector<Value *> IndexV;
+  IndexV.push_back(Zero);
+  IndexV.push_back(visitCanonExpr(*(Ref->canon_begin())));
 
   if (Ref->isInBounds()) {
-    return Builder->CreateInBoundsGEP(BaseV, StridesV, "arrayIdx");
+    return Builder->CreateInBoundsGEP(BaseV, IndexV, "arrayIdx");
   } else {
-    return Builder->CreateGEP(BaseV, StridesV, "arrayIdx");
+    return Builder->CreateGEP(BaseV, IndexV, "arrayIdx");
   }
 }
 
@@ -288,7 +291,7 @@ Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
     llvm_unreachable("no successor block to region");
 
   Builder->CreateBr(R->getSuccBBlock());
-  //DEBUG(F->dump());
+  // DEBUG(F->dump());
   return nullptr;
 }
 
@@ -307,7 +310,7 @@ Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *L) {
   // set up IV, I think we can reuse the IV allocation across
   // multiple loops of same depth
   AllocaInst *Alloca;
-  std::string IVName = getIVName(L->computeNestingLevel());
+  std::string IVName = getIVName(L->getNestingLevel());
   if (!NamedValues.count(IVName)) {
     Alloca = CreateEntryBlockAlloca(IVName, 0);
     NamedValues[IVName] = Alloca;
@@ -383,12 +386,12 @@ Value *HIRCodeGen::CGVisitor::sumBlobs(CanonExpr *CE) {
   if (!CE->hasBlob())
     return nullptr;
 
-  auto CurBlobPair = CE->blob_begin();
-  Type *Ty = const_cast<Type *>(CE->getLLVMType());
+  auto CurBlobPair = CE->blob_cbegin();
+  Type *Ty = CE->getLLVMType();
   Value *res = BlobPairCG(*CurBlobPair, Ty);
   CurBlobPair++;
 
-  for (auto E = CE->blob_end(); CurBlobPair != E; CurBlobPair++)
+  for (auto E = CE->blob_cend(); CurBlobPair != E; CurBlobPair++)
     res = Builder->CreateAdd(res, BlobPairCG(*CurBlobPair, Ty));
 
   return res;
@@ -398,41 +401,42 @@ Value *HIRCodeGen::CGVisitor::sumIV(CanonExpr *CE) {
   if (!CE->hasIV())
     return nullptr;
 
-  auto CurIVPair = CE->iv_begin();
+  auto CurIVPair = CE->iv_cbegin();
   int Level = 1;
   // start with first summation not of x*0
-  for (auto E = CE->iv_end(); CurIVPair != E; CurIVPair++, Level++) {
-    if (CurIVPair->second != 0)
+  for (auto E = CE->iv_cend(); CurIVPair != E; CurIVPair++, Level++) {
+    if (CurIVPair->Coeff != 0)
       break;
   }
 
-  if(CurIVPair == CE->iv_end()) llvm_unreachable("No iv in CE");
+  if (CurIVPair == CE->iv_cend())
+    llvm_unreachable("No iv in CE");
 
-  Type *Ty = const_cast<Type *>(CE->getLLVMType());
+  Type *Ty = CE->getLLVMType();
 
   Value *res = IVPairCG(*CurIVPair, Level, Ty);
   CurIVPair++;
   Level++;
 
   // accumulate other pairs
-  for (auto E = CE->iv_end(); CurIVPair != E; CurIVPair++, Level++) {
-    if (CurIVPair->second != 0)
+  for (auto E = CE->iv_cend(); CurIVPair != E; CurIVPair++, Level++) {
+    if (CurIVPair->Coeff != 0)
       res = Builder->CreateAdd(res, IVPairCG(*CurIVPair, Level, Ty));
   }
 
   return res;
 }
 
-Value *HIRCodeGen::CGVisitor::IVPairCG(CanonExpr::BlobOrConstToValTy Pair,
+Value *HIRCodeGen::CGVisitor::IVPairCG(CanonExpr::BlobOrConstToVal Pair,
                                        int Level, Type *Ty) {
 
   Value *IV = Builder->CreateLoad(NamedValues[getIVName(Level)]);
 
   // pairs are of form <isBlob, coeff>. if its a blob, coeff is the blobidx
-  if (Pair.first) {
-    return Builder->CreateMul(getBlobValue(Pair.second, Ty), IV);
+  if (Pair.IsBlobCoeff) {
+    return Builder->CreateMul(getBlobValue(Pair.Coeff, Ty), IV);
   } else {
-    return CoefCG(Pair.second, IV);
+    return CoefCG(Pair.Coeff, IV);
   }
 }
 Value *HIRCodeGen::CGVisitor::CoefCG(int Coeff, Value *V) {

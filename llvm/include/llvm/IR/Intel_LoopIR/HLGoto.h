@@ -11,12 +11,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 #ifndef LLVM_IR_INTEL_LOOPIR_HLGOTO_H
 #define LLVM_IR_INTEL_LOOPIR_HLGOTO_H
 
 #include "llvm/IR/Intel_LoopIR/HLDDNode.h"
-
 
 namespace llvm {
 
@@ -27,14 +25,14 @@ namespace loopopt {
 class HLLabel;
 
 /// \brief High level node represening an unconditional jump
-class HLGoto : public HLDDNode {
+class HLGoto : public HLNode {
 private:
-  BasicBlock* TargetBBlock;
-  HLLabel* TargetLabel;
+  BasicBlock *TargetBBlock;
+  HLLabel *TargetLabel;
 
 protected:
-  HLGoto(BasicBlock* TargetBB, HLLabel* TargetL);
-  ~HLGoto() { }
+  HLGoto(BasicBlock *TargetBB, HLLabel *TargetL);
+  ~HLGoto() {}
 
   /// \brief Copy constructor used by cloning.
   HLGoto(const HLGoto &HLGotoObj);
@@ -43,23 +41,23 @@ protected:
 
 public:
   /// \brief Returns the target basic block of this goto.
-  BasicBlock* getTargetBBlock() const { return TargetBBlock; }
+  BasicBlock *getTargetBBlock() const { return TargetBBlock; }
   /// \brief Returns the target label, if one exists. It is null
   /// for external gotos.
-  HLLabel* getTargetLabel() const { return TargetLabel; }
+  HLLabel *getTargetLabel() const { return TargetLabel; }
 
   /// \brief Returns true if this goto jumps outside the region.
   bool isExternal() const { return (TargetLabel == nullptr); }
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
-  static bool classof(const HLNode* Node) {
+  static bool classof(const HLNode *Node) {
     return Node->getHLNodeID() == HLNode::HLGotoVal;
   }
 
   /// clone() - Create a copy of 'this' HLGoto that is identical in all
   /// ways except the following:
   ///   * The HLGoto has no parent
-  HLGoto* clone() const override;
+  HLGoto *clone() const override;
 };
 
 } // End namespace loopopt

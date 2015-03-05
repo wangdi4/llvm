@@ -29,14 +29,14 @@ class SCEV;
 
 namespace loopopt {
 
-typedef const SCEV* BlobTy;
+typedef const SCEV *BlobTy;
 
 /// \brief Canonical form in high level IR
 ///
 /// This class represents the closed form as a linear equation in terms of
 /// induction variables and blobs. It is essentially an array of coefficients
-/// of induction variables and blobs. A blob is usually a non-inductive, 
-/// loop invariant variable in the equestion but is allowed to vary under 
+/// of induction variables and blobs. A blob is usually a non-inductive,
+/// loop invariant variable in the equestion but is allowed to vary under
 /// some cases where a more generic representation is required. Blob exprs
 /// are represented using SCEVs and mapped to blob indexes.
 ///
@@ -44,13 +44,26 @@ typedef const SCEV* BlobTy;
 /// Objects are created/destroyed using CanonExprUtils friend class.
 class CanonExpr {
 public:
-  typedef std::pair<bool, int64_t> BlobOrConstToValTy;
-  typedef std::pair<unsigned, int64_t> BlobIndexToCoeffTy;
-  typedef SmallVector<BlobOrConstToValTy, 4> IVCoeffsTy;
+  struct BlobOrConstToVal {
+    bool IsBlobCoeff;
+    /// Represents BlobIndex if IsBlobCoeff is true else represents Coeff Value.
+    int64_t Coeff;
+    BlobOrConstToVal(bool IsBlobCoef, int64_t Coef);
+    ~BlobOrConstToVal();
+  };
+
+  struct BlobIndexToCoeff {
+    unsigned Index;
+    int64_t Coeff;
+    BlobIndexToCoeff(unsigned Indx, int64_t Coef);
+    ~BlobIndexToCoeff();
+  };
+
+  typedef SmallVector<BlobOrConstToVal, 4> IVCoeffsTy;
   /// Kept sorted by blob index
-  typedef SmallVector<BlobIndexToCoeffTy, 2> BlobCoeffsTy;
+  typedef SmallVector<BlobIndexToCoeff, 2> BlobCoeffsTy;
   /// Kept sorted
-  typedef std::vector< BlobTy > BlobTableTy;
+  typedef std::vector<BlobTy> BlobTableTy;
 
   /// \brief The maximum loopnest level allowed in HIR.
   static const unsigned MaxLoopNestLevel = 9;
@@ -59,13 +72,13 @@ public:
   typedef IVCoeffsTy::iterator iv_iterator;
   typedef IVCoeffsTy::const_iterator const_iv_iterator;
   typedef IVCoeffsTy::reverse_iterator reverse_iv_iterator;
-  typedef IVCoeffsTy::const_reverse_iterator const_reverse_iv_iterator; 
+  typedef IVCoeffsTy::const_reverse_iterator const_reverse_iv_iterator;
 
   /// Iterators to iterate over blobs
   typedef BlobCoeffsTy::iterator blob_iterator;
   typedef BlobCoeffsTy::const_iterator const_blob_iterator;
   typedef BlobCoeffsTy::reverse_iterator reverse_blob_iterator;
-  typedef BlobCoeffsTy::const_reverse_iterator const_reverse_blob_iterator; 
+  typedef BlobCoeffsTy::const_reverse_iterator const_reverse_blob_iterator;
 
 private:
   /// \brief Copy constructor; only used for cloning.
@@ -77,11 +90,11 @@ private:
   /// called after code gen.
   static void destroyAll();
   /// Keeps track of objects of this class.
-  static std::set< CanonExpr* >Objs;
+  static std::set<CanonExpr *> Objs;
   /// \brief Stores blobs for the current function.
   static BlobTableTy BlobTable;
 
-  Type* Ty;
+  Type *Ty;
   bool Generable;
   int DefinedAtLevel;
   IVCoeffsTy IVCoeffs;
@@ -90,37 +103,49 @@ private:
   int64_t Denominator;
 
 protected:
-  CanonExpr(Type* Typ, bool Gen, int DefLevel, int64_t Cons, int64_t Denom);
-  ~CanonExpr() { }
+  CanonExpr(Type *Typ, bool Gen, int DefLevel, int64_t ConstVal, int64_t Denom);
+  ~CanonExpr() {}
 
   friend class CanonExprUtils;
 
   /// \brief Destroys the object.
   void destroy();
 
-  /// \brief Resizes IVCoeffs to max loopnest level if the passed in level goes 
+  /// \brief Resizes IVCoeffs to max loopnest level if the passed in level goes
   /// beyond the current size. This will avoid future reallocs.
   ///
   /// Returns true if we did resize.
   bool resizeIVCoeffsToMax(unsigned Lvl);
 
-  /// \brief Sets an IV coefficient. Depending upon the overwrite flag the 
+  /// \brief Sets an IV coefficient. Depending upon the overwrite flag the
   /// existing coefficient is either overwritten or added to.
-  void addIVInternal(unsigned Lvl, int64_t Coeff, bool IsBlobCoeff, bool overwrite);
+  void addIVInternal(unsigned Lvl, int64_t Coeff, bool IsBlobCoeff,
+                     bool overwrite);
 
-  /// \brief Sets a blob coefficient. Depending upon the overwrite flag the 
+  /// \brief Sets a blob coefficient. Depending upon the overwrite flag the
   /// existing coefficient is either overwritten or added to.
   void addBlobInternal(unsigned BlobIndex, int64_t BlobCoeff, bool overwrite);
 
-public:
+  /// Non-const IV iterator methods
+  iv_iterator iv_begin() { return IVCoeffs.begin(); }
+  iv_iterator iv_end() { return IVCoeffs.end(); }
+  reverse_iv_iterator iv_rbegin() { return IVCoeffs.rbegin(); }
+  reverse_iv_iterator iv_rend() { return IVCoeffs.rend(); }
 
-  CanonExpr* clone() const;
+  /// Non-const blob iterator methods
+  blob_iterator blob_begin() { return BlobCoeffs.begin(); }
+  blob_iterator blob_end() { return BlobCoeffs.end(); }
+  reverse_blob_iterator blob_rbegin() { return BlobCoeffs.rbegin(); }
+  reverse_blob_iterator blob_rend() { return BlobCoeffs.rend(); }
+
+public:
+  CanonExpr *clone() const;
   void dump() const;
   void print() const;
 
   /// \brief Returns the LLVM type of this canon expr.
-  const Type* getLLVMType() const { return Ty; }
-  void setLLVMType(Type* Typ) { Ty = Typ; }
+  Type *getLLVMType() const { return Ty; }
+  void setLLVMType(Type *Typ) { Ty = Typ; }
 
   /// \brief Returns true if we can generate code out of the closed form.
   /// This flag might move to DDRef
@@ -128,7 +153,7 @@ public:
   void setGenerable(bool Gen = true) { Generable = Gen; }
 
   /// \brief Returns the innermost level at which some blob present
-  /// in this canon expr is defined. The canon expr in linear in all 
+  /// in this canon expr is defined. The canon expr in linear in all
   //  the inner loop levels w.r.t this level.
   int getDefinedAtLevel() const { return DefinedAtLevel; }
   void setDefinedAtLevel(int DefLvl) { DefinedAtLevel = DefLvl; }
@@ -155,12 +180,12 @@ public:
   bool hasBlob() const { return !BlobCoeffs.empty(); }
 
   /// \brief Returns the IV coefficient at a particular loop level.
-  int64_t getIVCoeff(unsigned Lvl, bool* isBlobCoeff) const;
+  int64_t getIVCoeff(unsigned Lvl, bool *IsBlobCoeff) const;
   /// \brief Sets the IV coefficient at a particular loop level.
-  void setIVCoeff(unsigned Lvl, int64_t Coeff, bool isBlobCoeff);
-  
-  /// \brief Adds to the existing constant IV coefficient at a particular loop 
-  /// level. 
+  void setIVCoeff(unsigned Lvl, int64_t Coeff, bool IsBlobCoeff);
+
+  /// \brief Adds to the existing constant IV coefficient at a particular loop
+  /// level.
   void addIV(unsigned Lvl, int64_t Coeff);
   /// \brief Removes IV at a particular loop level.
   void removeIV(unsigned Lvl);
@@ -181,38 +206,36 @@ public:
   /// \brief Replaces an old blob with a new one.
   void replaceBlob(unsigned OldBlobIndex, unsigned NewBlobIndex);
 
-  /// \brief Shifts the canon expr by a constant offset at a particular loop 
+  /// \brief Shifts the canon expr by a constant offset at a particular loop
   /// level.
   void shift(unsigned Lvl, int64_t Val);
-  
+
   /// \brief Multiplies this canon expr by a contant.
   void multiplyByConstant(int64_t Const);
   /// \brief Multiplies this canon expr by a blob.
   void multiplyByBlob(unsigned BlobIndex);
 
+  /// \brief Populates BlobIndices with all blobs contained in the CanonExpr
+  /// (including blob IV coeffs).
+  void extractBlobIndices(SmallVectorImpl<unsigned> &BlobIndices);
+
   /// IV iterator methods
-  iv_iterator               iv_begin()        { return IVCoeffs.begin(); }
-  const_iv_iterator         iv_begin() const  { return IVCoeffs.begin(); }
-  iv_iterator               iv_end()          { return IVCoeffs.end(); }
-  const_iv_iterator         iv_end() const    { return IVCoeffs.end(); }
+  /// c-version allows use of "auto" keyword and doesn't conflict with protected
+  /// non-const begin() / end().
+  const_iv_iterator iv_cbegin() const { return IVCoeffs.begin(); }
+  const_iv_iterator iv_cend() const { return IVCoeffs.end(); }
+  const_reverse_iv_iterator iv_crbegin() const { return IVCoeffs.rbegin(); }
+  const_reverse_iv_iterator iv_crend() const { return IVCoeffs.rend(); }
 
-  reverse_iv_iterator       iv_rbegin()       { return IVCoeffs.rbegin(); }
-  const_reverse_iv_iterator iv_rbegin() const { return IVCoeffs.rbegin(); }
-  reverse_iv_iterator       iv_rend()         { return IVCoeffs.rend(); }
-  const_reverse_iv_iterator iv_rend() const   { return IVCoeffs.rend(); }
-
-
-  /// blob iterator methods
-  blob_iterator               blob_begin()        { return BlobCoeffs.begin(); }
-  const_blob_iterator         blob_begin()  const { return BlobCoeffs.begin(); }
-  blob_iterator               blob_end()          { return BlobCoeffs.end(); }
-  const_blob_iterator         blob_end()    const { return BlobCoeffs.end(); }
-
-  reverse_blob_iterator       blob_rbegin()       { return BlobCoeffs.rbegin();}
-  const_reverse_blob_iterator blob_rbegin() const { return BlobCoeffs.rbegin();}
-  reverse_blob_iterator       blob_rend()         { return BlobCoeffs.rend(); }
-  const_reverse_blob_iterator blob_rend()   const { return BlobCoeffs.rend(); }
-
+  /// Blob iterator methods
+  /// c-version allows use of "auto" keyword and doesn't conflict with protected
+  /// non-const begin() / end().
+  const_blob_iterator blob_cbegin() const { return BlobCoeffs.begin(); }
+  const_blob_iterator blob_cend() const { return BlobCoeffs.end(); }
+  const_reverse_blob_iterator blob_crbegin() const {
+    return BlobCoeffs.rbegin();
+  }
+  const_reverse_blob_iterator blob_crend() const { return BlobCoeffs.rend(); }
 };
 
 } // End loopopt namespace
@@ -220,4 +243,3 @@ public:
 } // End llvm namespace
 
 #endif
-

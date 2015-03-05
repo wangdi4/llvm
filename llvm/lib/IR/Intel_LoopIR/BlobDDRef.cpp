@@ -14,23 +14,23 @@
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
+#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
 
-
-BlobDDRef::BlobDDRef(int SB, CanonExpr* CE, RegDDRef* Parent)
-  : DDRef(DDRef::BlobDDRefVal, SB), CExpr(CE), ParentDDRef(Parent) { }
+BlobDDRef::BlobDDRef(int SB, CanonExpr *CE, RegDDRef *Parent)
+    : DDRef(DDRef::BlobDDRefVal, SB), CExpr(CE), ParentDDRef(Parent) {}
 
 BlobDDRef::BlobDDRef(const BlobDDRef &BlobDDRefObj)
-  : DDRef(BlobDDRefObj), ParentDDRef(nullptr) {
+    : DDRef(BlobDDRefObj), ParentDDRef(nullptr) {
 
   /// Clone the Canon Expression linked to this BlobDDRef
   assert(BlobDDRefObj.CExpr && " Canon Expr for BlobDDRefObj cannot be null");
   CExpr = BlobDDRefObj.CExpr->clone();
 }
 
-BlobDDRef* BlobDDRef::clone() const {
+BlobDDRef *BlobDDRef::clone() const {
 
   /// Call Copy constructor
   BlobDDRef *NewBlobDDRef = new BlobDDRef(*this);
@@ -38,16 +38,15 @@ BlobDDRef* BlobDDRef::clone() const {
   return NewBlobDDRef;
 }
 
-HLNode* BlobDDRef::getHLNode() const {
+HLDDNode *BlobDDRef::getHLDDNode() const {
 
   if (ParentDDRef) {
-    return ParentDDRef->getHLNode();
+    return ParentDDRef->getHLDDNode();
   }
 
   return nullptr;
 }
 
-void BlobDDRef::setHLNode(HLNode* HNode) {
-  llvm_unreachable("Should not set HLNode via blob DDRef");
+void BlobDDRef::setHLDDNode(HLDDNode *HNode) {
+  llvm_unreachable("Should not set HLDDNode via blob DDRef");
 }
-

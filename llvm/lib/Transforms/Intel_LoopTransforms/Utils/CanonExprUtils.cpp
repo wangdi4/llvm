@@ -17,17 +17,12 @@
 using namespace llvm;
 using namespace loopopt;
 
-CanonExpr* CanonExprUtils::createCanonExpr(Type* Typ, bool Gen, int Level, 
-  int64_t Cons, int64_t Denom) {
-  
-  return new CanonExpr(Typ, Gen, Level, Cons, Denom);
+CanonExpr *CanonExprUtils::createCanonExpr(Type *Typ, bool Gen, int Level,
+                                           int64_t Const, int64_t Denom) {
+
+  return new CanonExpr(Typ, Gen, Level, Const, Denom);
 }
 
-void CanonExprUtils::destroy(CanonExpr* CE) {
-  CE->destroy();
-}
+void CanonExprUtils::destroy(CanonExpr *CE) { CE->destroy(); }
 
-void CanonExprUtils::destroyAll() {
-  CanonExpr::destroyAll();
-}
-
+void CanonExprUtils::destroyAll() { CanonExpr::destroyAll(); }

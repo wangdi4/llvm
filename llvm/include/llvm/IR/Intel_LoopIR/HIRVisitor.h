@@ -54,8 +54,7 @@ namespace llvm {
 /// virtual function call overhead.  Defining and using an HIRVisitor is just
 /// as efficient as having your own switch statement
 //
-template<typename SubClass, typename RetTy=void>
-class HIRVisitor {
+template <typename SubClass, typename RetTy = void> class HIRVisitor {
 
 public:
   // Generic visit method - Allow visitation to all HIR in a range
@@ -66,25 +65,25 @@ public:
       static_cast<SubClass*>(this)->visit(*Start++);
   }
  */
-  RetTy visit(HLNode &Node)  { return visit(&Node); }
-  RetTy visit(HLNode *Node)  { 
-      if(HLRegion *R = dyn_cast<HLRegion>(Node) ) {
-          return static_cast<SubClass*>(this)->visitRegion(R); 
-      } else if(HLLoop *L = dyn_cast<HLLoop>(Node) ) {
-          return static_cast<SubClass*>(this)->visitLoop(L); 
-      } else if(HLSwitch *S = dyn_cast<HLSwitch>(Node) ) {
-          return static_cast<SubClass*>(this)->visitSwitch(S); 
-      } else if(HLInst *I = dyn_cast<HLInst>(Node) ) {
-          return static_cast<SubClass*>(this)->visitInst(I); 
-      } else if(HLGoto *G = dyn_cast<HLGoto>(Node) ) {
-          return static_cast<SubClass*>(this)->visitGoto(G); 
-      } else if(HLIf *If = dyn_cast<HLIf>(Node) ) {
-          return static_cast<SubClass*>(this)->visitIf(If); 
-      } else if(HLLabel *L = dyn_cast<HLLabel>(Node) ) {
-          return static_cast<SubClass*>(this)->visitLabel(L); 
-      } else {
-          llvm_unreachable("Unknown HIR type encountered!");
-      }
+  RetTy visit(HLNode &Node) { return visit(&Node); }
+  RetTy visit(HLNode *Node) {
+    if (HLRegion *R = dyn_cast<HLRegion>(Node)) {
+      return static_cast<SubClass *>(this)->visitRegion(R);
+    } else if (HLLoop *L = dyn_cast<HLLoop>(Node)) {
+      return static_cast<SubClass *>(this)->visitLoop(L);
+    } else if (HLSwitch *S = dyn_cast<HLSwitch>(Node)) {
+      return static_cast<SubClass *>(this)->visitSwitch(S);
+    } else if (HLInst *I = dyn_cast<HLInst>(Node)) {
+      return static_cast<SubClass *>(this)->visitInst(I);
+    } else if (HLGoto *G = dyn_cast<HLGoto>(Node)) {
+      return static_cast<SubClass *>(this)->visitGoto(G);
+    } else if (HLIf *If = dyn_cast<HLIf>(Node)) {
+      return static_cast<SubClass *>(this)->visitIf(If);
+    } else if (HLLabel *L = dyn_cast<HLLabel>(Node)) {
+      return static_cast<SubClass *>(this)->visitLabel(L);
+    } else {
+      llvm_unreachable("Unknown HIR type encountered!");
+    }
   }
 
   //===--------------------------------------------------------------------===//
@@ -95,16 +94,15 @@ public:
   // because there are no virtual functions to get in the way.
   //
   // Define HIR specific visitor functions that can be overridden to
-  // handle SPECIFIC HIRs. 
-  
-  RetTy visitLoop(HLLoop *L)             { visitHLNode(L);}
-  RetTy visitRegion(HLRegion *R)       { visitHLNode(R);}   
-  RetTy visitIf(HLIf *I)           { visitHLNode(I);}  
-  RetTy visitSwitch(HLSwitch *S)       { visitHLNode(S);}
-  RetTy visitInst(HLInst *I)         { visitHLNode(I);}  
-  RetTy visitLabel(HLLabel *L)         { visitHLNode(L);}  
-  RetTy visitGoto(HLGoto *G)         { visitHLNode(G);}  
+  // handle SPECIFIC HIRs.
 
+  RetTy visitLoop(HLLoop *L) { visitHLNode(L); }
+  RetTy visitRegion(HLRegion *R) { visitHLNode(R); }
+  RetTy visitIf(HLIf *I) { visitHLNode(I); }
+  RetTy visitSwitch(HLSwitch *S) { visitHLNode(S); }
+  RetTy visitInst(HLInst *I) { visitHLNode(I); }
+  RetTy visitLabel(HLLabel *L) { visitHLNode(L); }
+  RetTy visitGoto(HLGoto *G) { visitHLNode(G); }
 
   // If the user wants a 'default' case, they can choose to override this
   // function.  If this function is not overloaded in the user's subclass, then
@@ -112,10 +110,9 @@ public:
   //
   // Note that you MUST override this function if your return type is not void.
   //
-  void visitHLNode(HLNode *Node) {}  // Ignore unhandled instructions
+  void visitHLNode(HLNode *Node) {} // Ignore unhandled instructions
 
 private:
-
 };
 }
 #endif

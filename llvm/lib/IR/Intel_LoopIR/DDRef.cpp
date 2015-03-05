@@ -17,17 +17,15 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
+std::set<DDRef *> DDRef::Objs;
 
-std::set< DDRef* >DDRef::Objs;
-
-DDRef::DDRef(unsigned SCID, int SB) 
-  : SubClassID(SCID), SymBase(SB) { 
+DDRef::DDRef(unsigned SCID, int SB) : SubClassID(SCID), SymBase(SB) {
 
   Objs.insert(this);
 }
 
 DDRef::DDRef(const DDRef &DDRefObj)
-  : SubClassID(DDRefObj.SubClassID), SymBase(DDRefObj.SymBase) {
+    : SubClassID(DDRefObj.SubClassID), SymBase(DDRefObj.SymBase) {
 
   Objs.insert(this);
 }
@@ -40,10 +38,8 @@ void DDRef::destroy() {
 void DDRef::destroyAll() {
 
   for (auto &I : Objs) {
-      delete I;
+    delete I;
   }
 
   Objs.clear();
 }
-
-

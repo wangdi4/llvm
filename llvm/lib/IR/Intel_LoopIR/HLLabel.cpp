@@ -16,19 +16,16 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-
-HLLabel::HLLabel(BasicBlock* SrcBB)
-  : HLDDNode(HLNode::HLLabelVal), SrcBBlock(SrcBB) { }
+HLLabel::HLLabel(BasicBlock *SrcBB)
+    : HLNode(HLNode::HLLabelVal), SrcBBlock(SrcBB) {}
 
 HLLabel::HLLabel(const HLLabel &LabelObj)
-  : HLDDNode(LabelObj), SrcBBlock(LabelObj.SrcBBlock) { }
+    : HLNode(LabelObj), SrcBBlock(LabelObj.SrcBBlock) {}
 
-HLLabel* HLLabel::clone() const {
+HLLabel *HLLabel::clone() const {
 
   /// Call Copy constructor
   HLLabel *NewHLLabel = new HLLabel(*this);
 
   return NewHLLabel;
 }
-
-

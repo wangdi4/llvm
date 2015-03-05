@@ -11,7 +11,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 #ifndef LLVM_IR_INTEL_LOOPIR_HLREGION_H
 #define LLVM_IR_INTEL_LOOPIR_HLREGION_H
 
@@ -42,61 +41,69 @@ public:
   typedef ChildNodeTy::const_reverse_iterator const_reverse_child_iterator;
 
 protected:
-  HLRegion(std::set< BasicBlock* >& OrigBB, BasicBlock* PredBB,
-    BasicBlock* SuccBB);
-  ~HLRegion() { }
+  HLRegion(std::set<BasicBlock *> &OrigBB, BasicBlock *EntryBB,
+           BasicBlock *ExitBB);
+  ~HLRegion() {}
 
   friend class HLNodeUtils;
 
+  /// \brief Sets the entry(first) bblock of this region.
+  void setEntryBBlock(BasicBlock *EntryBB) { EntryBBlock = EntryBB; }
+
+  /// \brief Sets the exit(last) bblock of this region.
+  void setExitBBlock(BasicBlock *ExitBB) { ExitBBlock = ExitBB; }
+
 private:
-  std::set< BasicBlock* >& OrigBBlocks;
-  BasicBlock* PredBBlock;
-  BasicBlock* SuccBBlock;
+  std::set<BasicBlock *> &OrigBBlocks;
+  BasicBlock *EntryBBlock;
+  BasicBlock *ExitBBlock;
 
   bool GenCode;
   ChildNodeTy Children;
 
 public:
   /// \brief Returns the set of basic blocks which constitute this region.
-  const std::set< BasicBlock* >& getOrigBBlocks() const { return OrigBBlocks; }
+  const std::set<BasicBlock *> &getOrigBBlocks() const { return OrigBBlocks; }
+
+  /// \brief Returns the entry(first) bblock of this region.
+  BasicBlock *getEntryBBlock() const { return EntryBBlock; }
+  /// \brief Returns the exit(last) bblock of this region.
+  BasicBlock *getExitBBlock() const { return ExitBBlock; }
 
   /// \brief Returns the predecessor bblock of this region.
-  BasicBlock* getPredBBlock() const { return PredBBlock; }
-  void setPredBBlock(BasicBlock* PredBB) { PredBBlock = PredBB; }
-
+  BasicBlock *getPredBBlock() const;
   /// \brief Returns the successor bblock of this region.
-  BasicBlock* getSuccBBlock() const { return SuccBBlock; }
-  void setSuccBBlock(BasicBlock* SuccBB) { SuccBBlock = SuccBB; }
+  BasicBlock *getSuccBBlock() const;
 
   /// \brief Returns true if we need to generate code for this region.
   bool shouldGenCode() const { return GenCode; }
   void setGenCode(bool GC = true) { GenCode = GC; }
 
   /// Children iterator methods
-  child_iterator               child_begin()        { return Children.begin(); }
-  const_child_iterator         child_begin()  const { return Children.begin(); }
-  child_iterator               child_end()          { return Children.end(); }
-  const_child_iterator         child_end()    const { return Children.end(); }
+  child_iterator child_begin() { return Children.begin(); }
+  const_child_iterator child_begin() const { return Children.begin(); }
+  child_iterator child_end() { return Children.end(); }
+  const_child_iterator child_end() const { return Children.end(); }
 
-  reverse_child_iterator       child_rbegin()       { return Children.rbegin();}
-  const_reverse_child_iterator child_rbegin() const { return Children.rbegin();}
-  reverse_child_iterator       child_rend()         { return Children.rend(); }
-  const_reverse_child_iterator child_rend()   const { return Children.rend(); }
-
+  reverse_child_iterator child_rbegin() { return Children.rbegin(); }
+  const_reverse_child_iterator child_rbegin() const {
+    return Children.rbegin();
+  }
+  reverse_child_iterator child_rend() { return Children.rend(); }
+  const_reverse_child_iterator child_rend() const { return Children.rend(); }
 
   /// Children acess methods
-  size_t         numChildren() const   { return Children.size();  }
-  bool           empty() const  { return Children.empty(); }
+  unsigned getNumChildren() const { return Children.size(); }
+  bool empty() const { return Children.empty(); }
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
-  static bool classof(const HLNode* Node) {
+  static bool classof(const HLNode *Node) {
     return Node->getHLNodeID() == HLNode::HLRegionVal;
   }
 
   /// clone() - Do not support Cloning of Region.
   /// This is LLVM Unreachable code.
-  HLRegion* clone() const override;
-
+  HLRegion *clone() const override;
 };
 
 } // End namespace loopopt

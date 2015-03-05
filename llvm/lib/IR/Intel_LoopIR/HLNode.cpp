@@ -18,21 +18,22 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-//using HLRegions() is considered another declaration. very odd
+// using HLRegions() is considered another declaration. very odd
 HLContainerTy llvm::loopopt::HLRegions;
 
-std::set< HLNode* >HLNode::Objs;
+std::set<HLNode *> HLNode::Objs;
+unsigned HLNode::GlobalNum(0);
 
 HLNode::HLNode(unsigned SCID)
-  : SubClassID(SCID), Parent(nullptr) {
-
+    : SubClassID(SCID), Parent(nullptr), TopSortNum(0) {
   Objs.insert(this);
+  setNextNumber();
 }
 
 HLNode::HLNode(const HLNode &HLNodeObj)
-  : SubClassID(HLNodeObj.SubClassID), Parent(nullptr) {
-
+    : SubClassID(HLNodeObj.SubClassID), Parent(nullptr), TopSortNum(0) {
   Objs.insert(this);
+  setNextNumber();
 }
 
 void HLNode::destroy() {
@@ -43,20 +44,22 @@ void HLNode::destroy() {
 void HLNode::destroyAll() {
 
   for (auto &I : Objs) {
-      delete I;
+    delete I;
   }
 
   Objs.clear();
 }
 
-HLLoop* HLNode::getParentLoop() const {
-  assert( !isa<HLRegion>(this) && "Region cannot have a parent loop");
+void HLNode::setNextNumber() { Number = GlobalNum++; }
 
-  HLNode* Par = getParent();
+HLLoop *HLNode::getParentLoop() const {
+  assert(!isa<HLRegion>(this) && "Region cannot have a parent loop");
 
-  while(Par && !isa<HLLoop>(Par)) {
+  HLNode *Par = getParent();
+
+  while (Par && !isa<HLLoop>(Par)) {
     Par = Par->getParent();
-  } 
+  }
 
   return cast_or_null<HLLoop>(Par);
 }

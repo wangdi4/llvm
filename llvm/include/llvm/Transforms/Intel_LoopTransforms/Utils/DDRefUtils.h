@@ -11,7 +11,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_DDREFUTILS_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_DDREFUTILS_H
 
@@ -19,13 +18,11 @@
 #include "llvm/IR/Intel_LoopIR/ConstDDRef.h"
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 namespace llvm {
 
 namespace loopopt {
-
-class HLNode;
-class CanonExpr;
 
 /// \brief Defines utilities for DDRef class
 ///
@@ -39,26 +36,19 @@ private:
 
 public:
   /// \brief Returns a new ConstDDRef.
-  static ConstDDRef* createConstDDRef(CanonExpr* CE,
-     HLNode* HNode = nullptr);
+  static ConstDDRef *createConstDDRef(CanonExpr *CE);
 
   /// \brief Returns a new RegDDRef.
-  static RegDDRef* createRegDDRef(int SB, HLNode* HNode = nullptr);
+  static RegDDRef *createRegDDRef(int SB);
 
   /// \brief Returns a new BlobDDRef.
-  static BlobDDRef* createBlobDDRef(int SB, CanonExpr* CE,
-    RegDDRef* Parent = nullptr);
+  static BlobDDRef *createBlobDDRef(int SB, CanonExpr *CE,
+                                    RegDDRef *Parent = nullptr);
 
   /// \brief Destroys the passed in DDRef.
-  static void destroy(DDRef* Ref);
+  static void destroy(DDRef *Ref);
   /// \brief Destroys all DDRefs. Should only be called after code gen.
   static void destroyAll();
-
-  //the following are debug only functions for enabling mock versions HIR
-  //they should not be used in any other context
-  static void setGEP(RegDDRef* ref, CanonExpr* BaseCE, RegDDRef::StrideTy Strides, 
-          bool inbounds);
-  static void dbgPushBlobDDRef(RegDDRef *Parent, BlobDDRef *BlobRef);
 };
 
 } // End namespace loopopt

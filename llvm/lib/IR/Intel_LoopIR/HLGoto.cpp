@@ -16,19 +16,17 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-HLGoto::HLGoto(BasicBlock* TargetBB, HLLabel* TargetL)
-  : HLDDNode(HLNode::HLGotoVal), TargetBBlock(TargetBB)
-  , TargetLabel(TargetL) { }
+HLGoto::HLGoto(BasicBlock *TargetBB, HLLabel *TargetL)
+    : HLNode(HLNode::HLGotoVal), TargetBBlock(TargetBB), TargetLabel(TargetL) {}
 
 HLGoto::HLGoto(const HLGoto &HLGotoObj)
-  : HLDDNode(HLGotoObj), TargetBBlock(HLGotoObj.TargetBBlock),
-    TargetLabel(HLGotoObj.TargetLabel){ }
+    : HLNode(HLGotoObj), TargetBBlock(HLGotoObj.TargetBBlock),
+      TargetLabel(HLGotoObj.TargetLabel) {}
 
-HLGoto* HLGoto::clone() const {
+HLGoto *HLGoto::clone() const {
 
   /// Call Copy constructor
   HLGoto *NewHLGoto = new HLGoto(*this);
 
   return NewHLGoto;
 }
-

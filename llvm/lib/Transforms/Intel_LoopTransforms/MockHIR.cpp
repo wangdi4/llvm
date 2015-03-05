@@ -21,20 +21,15 @@ static RegisterPass<MockHIR> X("MockHIR", "Mock HIR Construction", false, true);
 
 void MockHIR::createMockHIRSimpleLoop() {
 
-  Function::iterator curBlock = F->begin();
-  BasicBlock *EntryBlock = curBlock;
+  auto curBlock = F->begin();
   BasicBlock *LoopBlock = ++curBlock;
-  BasicBlock *ExitBlock = ++curBlock;
 
   std::set<BasicBlock *> OrigBBs;
 
-  for (Function::iterator i = F->begin(), e = F->end(); i != e; ++i) {
-    OrigBBs.insert(i);
-  }
+  OrigBBs.insert(LoopBlock);
 
   // set up basic region
-  HLRegion *Region =
-      HLNodeUtils::createHLRegion(OrigBBs, EntryBlock, ExitBlock);
+  HLRegion *Region = HLNodeUtils::createHLRegion(OrigBBs, LoopBlock, LoopBlock);
 
   TopRegion = Region;
   HLRegions.clear();
@@ -46,25 +41,24 @@ void MockHIR::createMockHIRSimpleLoop() {
   // HLNodeUtils::setSimpleLoopZtt(Ztt, PrehdrBlock);
 
   // set up loop
-  HLLoop *Loop = HLNodeUtils::createHLLoop(Ztt, false, 1);
+  HLLoop *Loop = HLNodeUtils::createHLLoop(Ztt);
   // set loop bounds, znorm
   Type *Int64Type = IntegerType::get(getGlobalContext(), 64);
   CanonExpr *LBCE = CanonExprUtils::createCanonExpr(Int64Type, true, 1, 0, 1);
-  DDRef *LBRef = DDRefUtils::createConstDDRef(LBCE, Loop);
+  DDRef *LBRef = DDRefUtils::createConstDDRef(LBCE);
 
   CanonExpr *TCCE = CanonExprUtils::createCanonExpr(Int64Type, true, 1, 4, 1);
-  DDRef *TCRef = DDRefUtils::createConstDDRef(TCCE, Loop);
+  DDRef *TCRef = DDRefUtils::createConstDDRef(TCCE);
 
   CanonExpr *StrideCE =
       CanonExprUtils::createCanonExpr(Int64Type, true, 1, 1, 1);
-  DDRef *StrideRef = DDRefUtils::createConstDDRef(StrideCE, Loop);
+  DDRef *StrideRef = DDRefUtils::createConstDDRef(StrideCE);
 
-  HLNodeUtils::dbgPushDDRef(Loop, LBRef);
-  HLNodeUtils::dbgPushDDRef(Loop, TCRef);
-  HLNodeUtils::dbgPushDDRef(Loop, StrideRef);
+  Loop->setLowerDDRef(LBRef);
+  Loop->setTripCountDDRef(TCRef);
+  Loop->setStrideDDRef(StrideRef);
 
   // regions child is loop
-  ///HLNodeUtils::dbgPushBackChild(Region, Loop);
   HLNodeUtils::insertAsFirstChild(Region, Loop);
 
   // set up instruction(s) inside
@@ -89,9 +83,7 @@ void MockHIR::createMockHIRSimpleLoop() {
     StorePtr = I->getPointerOperand();
   }
 
-  HLNode *InstNode = HLNodeUtils::createHLInst(StoreI);
-
- // HLNodeUtils::dbgPushBackChild(Loop, InstNode);
+  HLInst *InstNode = HLNodeUtils::createHLInst(StoreI);
 
   HLNodeUtils::insertAsFirstChild(Loop, InstNode);
 
@@ -109,48 +101,46 @@ void MockHIR::createMockHIRSimpleLoop() {
                  << *(SrcGEP->getPointerOperandType()) << " \n");
   }
 
-  RegDDRef *StoreRef = DDRefUtils::createRegDDRef(2, InstNode);
-  RegDDRef *LoadRef = DDRefUtils::createRegDDRef(4, InstNode);
+  RegDDRef *StoreRef = DDRefUtils::createRegDDRef(2);
+  RegDDRef *LoadRef = DDRefUtils::createRegDDRef(4);
   // store loaded_val, store_loc
-  HLNodeUtils::dbgPushDDRef(InstNode, LoadRef);
-  HLNodeUtils::dbgPushDDRef(InstNode, StoreRef);
+  InstNode->setOperandDDRef(LoadRef, 1);
+  InstNode->setLvalDDRef(StoreRef);
 
   // load ptr is dst scev and blob idx 0, store is src and 1
   MockBlobTable.push_back(DstPtrSCEV);
   MockBlobTable.push_back(SrcPtrSCEV);
   // create blob refs
-  CanonExpr *StoreBlobCE = CanonExprUtils::createCanonExpr(
-      SrcGEP->getPointerOperandType(), true, 0, 0, 1);
-  StoreBlobCE->addBlob(1, 1);
-  BlobDDRef *StoreBlobRef =
-      DDRefUtils::createBlobDDRef(1, StoreBlobCE, StoreRef);
-  DDRefUtils::dbgPushBlobDDRef(StoreRef, StoreBlobRef);
+  // Blob ddrefs aren't required for now, commenting out
+  // BlobDDRef *StoreBlobRef =
+  //    DDRefUtils::createBlobDDRef(1, StoreBlobCE, StoreRef);
+  // DDRefUtils::dbgPushBlobDDRef(StoreRef, StoreBlobRef);
+  // BlobDDRef *LoadBlobRef = DDRefUtils::createBlobDDRef(3, LoadBlobCE,
+  // LoadRef);
+  // DDRefUtils::dbgPushBlobDDRef(LoadRef, LoadBlobRef);
 
-  CanonExpr *LoadBlobCE = CanonExprUtils::createCanonExpr(
-      DstGEP->getPointerOperandType(), true, 0, 0, 1);
+  CanonExpr *LoadBlobCE =
+      CanonExprUtils::createCanonExpr(DstGEP->getPointerOperandType());
   LoadBlobCE->addBlob(0, 1);
-  BlobDDRef *LoadBlobRef = DDRefUtils::createBlobDDRef(3, LoadBlobCE, LoadRef);
-  DDRefUtils::dbgPushBlobDDRef(LoadRef, LoadBlobRef);
-
   // finish reg ddref
   // Canon expr for stride
   // 1 + i_0*1, 0 norm in subscript form(ie not byte addressed)
-  CanonExpr *LoadLinearCE =
-      CanonExprUtils::createCanonExpr(Int64Type, true, 1, 1, 1);
+  CanonExpr *LoadLinearCE = CanonExprUtils::createCanonExpr(Int64Type);
   LoadLinearCE->addIV(1, 1);
-  RegDDRef::StrideTy Strides;
-  Strides.push_back(CanonExprUtils::createCanonExpr(Int64Type, true, 0, 0, 1));
-  Strides.push_back(LoadLinearCE);
-  DDRefUtils::setGEP(LoadRef, LoadBlobCE, Strides, true);
+  /// Setting null stride for the first dimension, revisit later
+  LoadRef->addDimension(LoadLinearCE, nullptr);
+  LoadRef->setBaseCE(LoadBlobCE);
+  LoadRef->setInBounds(DstGEP->isInBounds());
 
-  CanonExpr *StoreLinearCE =
-      CanonExprUtils::createCanonExpr(Int64Type, true, 1, 1, 1);
+  CanonExpr *StoreLinearCE = CanonExprUtils::createCanonExpr(Int64Type);
   StoreLinearCE->addIV(1, 1);
-  RegDDRef::StrideTy Strides2;
-  Strides2.push_back(CanonExprUtils::createCanonExpr(Int64Type, true, 0, 0, 1));
-  Strides2.push_back(StoreLinearCE);
-  DDRefUtils::setGEP(StoreRef, StoreBlobCE, Strides2, true);
-  // Set refs into hlinst
+  CanonExpr *StoreBlobCE =
+      CanonExprUtils::createCanonExpr(SrcGEP->getPointerOperandType());
+  StoreBlobCE->addBlob(1, 1);
+  /// Setting null stride for the first dimension, revisit later
+  StoreRef->addDimension(StoreLinearCE, nullptr);
+  StoreRef->setBaseCE(StoreBlobCE);
+  StoreRef->setInBounds(SrcGEP->isInBounds());
 
   // SE->dump();
 }
