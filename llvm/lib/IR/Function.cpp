@@ -486,8 +486,24 @@ static std::string getMangledTypeStr(Type* Ty) {
       Result += "vararg";
     // Ensure nested function types are distinguishable.
     Result += "f"; 
-  } else if (Ty)
-    Result += EVT::getEVT(Ty).getEVTString();
+  } else if (Ty) {
+    VectorType *VTyp = dyn_cast<VectorType>(Ty);
+    PointerType *PTyp = NULL;
+    if (VTyp) {
+      PTyp = dyn_cast<PointerType>(VTyp->getVectorElementType());
+    }
+    if (PTyp) {
+      // The underlying MVT class is not capable of giving us back
+      // types that involve vector of pointers, so you must avoid
+      // passing things like "<2 x double*>" to EVT::getEVT().
+      unsigned numElems = VTyp->getVectorNumElements();
+      Result += "p" + llvm::utostr(PTyp->getAddressSpace()) +
+                "v" + llvm::utostr(numElems) +
+                getMangledTypeStr(PTyp->getElementType());
+    } else {
+      Result += EVT::getEVT(Ty).getEVTString();
+    }
+  }
   return Result;
 }
 

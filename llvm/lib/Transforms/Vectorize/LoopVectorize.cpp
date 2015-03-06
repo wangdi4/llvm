@@ -3399,20 +3399,53 @@ void InnerLoopVectorizer::vectorizeBlockInLoop(BasicBlock *BB, PhiVector *PV) {
         scalarizeInstruction(it);
         break;
       default:
-        bool HasScalarOpd = hasVectorInstrinsicScalarOpd(ID, 1);
+
         for (unsigned Part = 0; Part < UF; ++Part) {
+
           SmallVector<Value *, 4> Args;
-          for (unsigned i = 0, ie = CI->getNumArgOperands(); i != ie; ++i) {
-            if (HasScalarOpd && i == 1) {
-              Args.push_back(CI->getArgOperand(i));
-              continue;
+
+          // descTable stores information about the types defined in the .td
+          // file for the intrinsic. We use this information to determine how
+          // to build the vector intrinsic's mangled name.
+          SmallVector<Intrinsic::IITDescriptor, 8> descTable;
+          getIntrinsicInfoTableEntries(ID, descTable);
+          SmallVector<Type*, 8> Tys;
+
+          if (VF > 1) {
+            // Get the vector type of the function return if not scalar or void,
+            // since there are no void vector types.
+            Type *retType;
+            if (CI->getType()->isVoidTy()) {
+              retType = CI->getType()->getScalarType();
+            } else {
+              retType = VectorType::get(CI->getType()->getScalarType(), VF);
             }
-            VectorParts &Arg = getVectorValue(CI->getArgOperand(i));
-            Args.push_back(Arg[Part]);
+            Tys.push_back(retType);
           }
-          Type *Tys[] = {CI->getType()};
-          if (VF > 1)
-            Tys[0] = VectorType::get(CI->getType()->getScalarType(), VF);
+
+          // We assume a single return register, and the intrinsic type
+          // descriptor table position 0 will refer to the return type. Thus,
+          // when evaluating the argument types, we will skip this one.
+          unsigned argIdx = 1;
+
+          for (unsigned i = 0, ie = CI->getNumArgOperands(); i != ie; ++i) {
+
+            VectorParts Arg;
+            unsigned argNum = descTable[argIdx].getArgumentNumber();
+            Tys.set_size(argNum + 1);
+
+            if (hasVectorInstrinsicScalarOpd(ID, i)) {
+              // This argument needs to be preserved as a scalar, so don't
+              // expand it.
+              Args.push_back(CI->getArgOperand(i));
+              Tys[argNum] = CI->getArgOperand(i)->getType();
+            } else {
+              Arg = getVectorValue(CI->getArgOperand(i));
+              Args.push_back(Arg[Part]);
+              Tys[argNum] = Arg[Part]->getType();
+            }
+            argIdx++;
+          }
 
           Function *F = Intrinsic::getDeclaration(M, ID, Tys);
           Entry[Part] = Builder.CreateCall(F, Args);

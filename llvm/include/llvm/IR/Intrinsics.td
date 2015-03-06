@@ -344,6 +344,7 @@ let Properties = [IntrNoMem] in {
   def int_exp2 : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
   def int_fabs : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
   def int_minnum : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>, LLVMMatchType<0>]>;
+  // for fmax()
   def int_maxnum : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>, LLVMMatchType<0>]>;
   def int_copysign : Intrinsic<[llvm_anyfloat_ty],
                                [LLVMMatchType<0>, LLVMMatchType<0>]>;
@@ -353,6 +354,71 @@ let Properties = [IntrNoMem] in {
   def int_rint  : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
   def int_nearbyint : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
   def int_round : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
+
+  // Additional SVML supported calls
+
+  def int_acos         : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
+  def int_acosh        : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
+  def int_asin         : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
+  def int_asinh        : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
+  def int_atan         : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
+  def int_atan2        : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>,
+                                                        LLVMMatchType<0>]>;
+  def int_atanh        : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
+  def int_cbrt         : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
+  def int_cdfnorm      : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
+  def int_cdfnorminv   : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
+
+  // Complex parameters are represented as aggregate types, e.g.,
+  // { double, double }, so we need to represent the return type
+  // and parameter type as such. These are just placeholders for
+  // now until we figure out what to do.
+  def int_cexp         : Intrinsic<[llvm_anyfloat_ty,  LLVMMatchType<0>],
+                                   [LLVMMatchType<0>,  LLVMMatchType<0>]>;
+  def int_cexpf        : Intrinsic<[llvm_anyfloat_ty,  LLVMMatchType<0>],
+                                   [LLVMMatchType<0>,  LLVMMatchType<0>]>;
+
+  def int_cosd         : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
+  def int_cosh         : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
+  def int_drand48      : Intrinsic<[llvm_anyfloat_ty], [llvm_void_ty]>;
+  def int_erand48      : Intrinsic<[llvm_anyfloat_ty], [llvm_anyptr_ty]>;
+  def int_erf          : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
+  def int_erfc         : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
+  def int_erfcinv      : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
+  def int_erfinv       : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
+  def int_exp10        : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
+  def int_expm1        : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
+  def int_fdim         : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>,
+                                                        LLVMMatchType<0>]>;
+  def int_finite       : Intrinsic<[llvm_anyint_ty],   [llvm_anyfloat_ty]>;
+  def int_fmod         : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>,
+                                                        LLVMMatchType<0>]>;
+  def int_hypot        : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>,
+                                                        LLVMMatchType<0>]>;
+  def int_ilogb        : Intrinsic<[llvm_anyint_ty],   [llvm_anyfloat_ty]>;
+  def int_invsqrt      : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
+  def int_isinf        : Intrinsic<[llvm_anyint_ty],   [llvm_anyfloat_ty]>;
+  def int_isnan        : Intrinsic<[llvm_anyint_ty],   [llvm_anyfloat_ty]>;
+  def int_jrand48      : Intrinsic<[llvm_anyint_ty],   [llvm_anyptr_ty]>;
+  def int_log1p        : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
+  def int_logb         : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
+  def int_lrand48      : Intrinsic<[llvm_anyint_ty],   [llvm_void_ty]>;
+  def int_mrand48      : Intrinsic<[llvm_anyint_ty],   [llvm_void_ty]>;
+  def int_nrand48      : Intrinsic<[llvm_anyint_ty],   [llvm_anyptr_ty]>;
+  def int_nextafter    : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>,
+                                                        LLVMMatchType<0>]>;
+  def int_remainder    : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>,
+                                                        LLVMMatchType<0>]>;
+  def int_scalbn       : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>,
+                                                        llvm_anyint_ty]>;
+  def int_sincos       : Intrinsic<[llvm_empty_ty],    [llvm_anyfloat_ty,
+                                                        llvm_anyptr_ty,
+                                                        LLVMMatchType<1>]>;
+  def int_sind         : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
+  def int_sinh         : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
+  def int_tan          : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
+  def int_tand         : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
+  def int_tanh         : Intrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>]>;
 }
 
 // NOTE: these are internal interfaces.

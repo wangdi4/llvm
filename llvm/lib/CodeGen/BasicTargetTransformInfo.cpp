@@ -548,7 +548,12 @@ unsigned BasicTTI::getIntrinsicInstrCost(Intrinsic::ID IID, Type *RetTy,
     for (unsigned i = 0, ie = Tys.size(); i != ie; ++i) {
       if (Tys[i]->isVectorTy()) {
         ScalarizationCost += getScalarizationOverhead(Tys[i], false, true);
-        ScalarCalls = std::max(ScalarCalls, RetTy->getVectorNumElements());
+        // void functions can still be vectorized (e.g., sincos()). Don't
+        // attempt getVectorNumElements() on void types since this will
+        // result in assertion.
+        if (RetTy->isVectorTy()) {
+          ScalarCalls = std::max(ScalarCalls, RetTy->getVectorNumElements());
+        }
       }
     }
 

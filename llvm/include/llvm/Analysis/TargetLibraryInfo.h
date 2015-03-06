@@ -58,6 +58,30 @@ class PreservedAnalyses;
       Znwm,
       /// void *new(unsigned long, nothrow);
       ZnwmRKSt9nothrow_t,
+      /// double __acos_finite(double x);
+      dunder_acos_finite,
+      /// float __acosf_finite(float x);
+      dunder_acosf_finite,
+      /// double __acosh_finite(double x);
+      dunder_acosh_finite,
+      /// float __acoshf_finite(float x);
+      dunder_acoshf_finite,
+      /// double __asin_finite(double x);
+      dunder_asin_finite,
+      /// float __asinf_finite(float x);
+      dunder_asinf_finite,
+      /// double __atan2_finite(double x, double y);
+      dunder_atan2_finite,
+      /// float __atan2f_finite(float x, float y);
+      dunder_atan2f_finite,
+      /// double __atan_finite(double x);
+      dunder_atanh_finite,
+      /// float __atanf_finite(float x);
+      dunder_atanhf_finite,
+      /// double __cosh_finite(double x);
+      dunder_cosh_finite,
+      /// float __coshf_finite(float x);
+      dunder_coshf_finite,
       /// double __cospi(double x);
       cospi,
       /// float __cospif(float x);
@@ -71,10 +95,50 @@ class PreservedAnalyses;
       cxa_guard_acquire,
       /// void __cxa_guard_release(guard_t *guard);
       cxa_guard_release,
+      /// double __exp2_finite(double x);
+      dunder_exp2_finite,
+      /// float __exp2f_finite(float x);
+      dunder_exp2f_finite,
+      /// double __exp_finite(double x);
+      dunder_exp_finite,
+      /// float __expf_finite(float x);
+      dunder_expf_finite,
+      /// int __finite(double x);
+      dunder_finite,
+      /// int __finitef(float x);
+      dunder_finitef,
+      /// double __fmod_finite(double x, double y);
+      dunder_fmod_finite,
+      /// float __fmodf_finite(float x, float y);
+      dunder_fmodf_finite,
+      /// double __hypot_finite(double x, double y);
+      dunder_hypot_finite,
+      /// float __hypotf_finite(float x, float y);
+      dunder_hypotf_finite,
+      /// int __isinf(double);
+      dunder_isinf,
+      /// int __isinff(float);
+      dunder_isinff,
+      /// int __isnanf(double);
+      dunder_isnan,
+      /// int __isnanf(float);
+      dunder_isnanf,
       /// int __isoc99_scanf (const char *format, ...)
       dunder_isoc99_scanf,
       /// int __isoc99_sscanf(const char *s, const char *format, ...)
       dunder_isoc99_sscanf,
+      /// double __log10_finite(double x);
+      dunder_log10_finite,
+      /// float __log10f_finite(float x);
+      dunder_log10f_finite,
+      /// double __log2_finite(double x);
+      dunder_log2_finite,
+      /// float __log2f_finite(float x);
+      dunder_log2f_finite,
+      /// double __log_finite(double x);
+      dunder_log_finite,
+      /// float __logf_finite(float x);
+      dunder_logf_finite,
       /// void *__memcpy_chk(void *s1, const void *s2, size_t n, size_t s1size);
       memcpy_chk,
       /// void *__memmove_chk(void *s1, const void *s2, size_t n,
@@ -82,10 +146,18 @@ class PreservedAnalyses;
       memmove_chk,
       /// void *__memset_chk(void *s, char v, size_t n, size_t s1size);
       memset_chk,
+      /// double __remainder_finite(double x, double y);
+      dunder_remainder_finite,
+      /// float __remainderf_finite(float x, float y);
+      dunder_remainderf_finite,
       /// double __sincospi_stret(double x);
       sincospi_stret,
       /// float __sincospif_stret(float x);
       sincospif_stret,
+      /// double __sinh_finite(double x);
+      dunder_sinh_finite,
+      /// float __sinhf_finite(float x);
+      dunder_sinhf_finite,
       /// double __sinpi(double x);
       sinpi,
       /// float __sinpif(float x);
@@ -112,6 +184,14 @@ class PreservedAnalyses;
       dunder_strndup,
       /// char * __strtok_r(char *s, const char *delim, char **save_ptr);
       dunder_strtok_r,
+      /// int _isinf(double);
+      under_isinf,
+      /// int _isinff(float);
+      under_isinff,
+      /// int _isnan(double x);
+      under_isnan,
+      /// int _isnanf(float x);
+      under_isnanf,
       /// int abs(int j);
       abs,
       /// int access(const char *path, int amode);
@@ -180,12 +260,22 @@ class PreservedAnalyses;
       cbrtf,
       /// long double cbrtl(long double x);
       cbrtl,
+      /// double cdfnorm(double x);
+      cdfnorm,
+      /// float cdfnormf(float x);
+      cdfnormf,
+      /// double cdfnorminv(double x);
+      cdfnorminv,
+      /// float cdfnorminvf(float x);
+      cdfnorminvf,
       /// double ceil(double x);
       ceil,
       /// float ceilf(float x);
       ceilf,
       /// long double ceill(long double x);
       ceill,
+      /// complex double cexp(complex double);
+      cexp,
       /// int chmod(const char *path, mode_t mode);
       chmod,
       /// int chown(const char *path, uid_t owner, gid_t group);
@@ -202,6 +292,10 @@ class PreservedAnalyses;
       copysignl,
       /// double cos(double x);
       cos,
+      /// double cosd(double x);
+      cosd,
+      /// float cosd(float x);
+      cosdf,
       /// float cosf(float x);
       cosf,
       /// double cosh(double x);
@@ -214,6 +308,26 @@ class PreservedAnalyses;
       cosl,
       /// char *ctermid(char *s);
       ctermid,
+      /// double drand48(void);
+      drand48,
+      /// double erand48(unsigned short *ptr);
+      erand48,
+      /// double erf(double x);
+      erf,
+      /// double erfc(double x);
+      erfc,
+      /// float erfcf(float x);
+      erfcf,
+      /// double erfcinv(double x);
+      erfcinv,
+      /// float erfcinvf(float x);
+      erfcinvf,
+      /// float erff(float x);
+      erff,
+      /// double erfinv(double x);
+      erfinv,
+      /// float erfinvf(float x);
+      erfinvf,
       /// double exp(double x);
       exp,
       /// double exp10(double x);
@@ -238,6 +352,8 @@ class PreservedAnalyses;
       expm1f,
       /// long double expm1l(long double x);
       expm1l,
+      /// float f_lanint_val(float x);
+      f_lanint_val,
       /// double fabs(double x);
       fabs,
       /// float fabsf(float x);
@@ -246,6 +362,10 @@ class PreservedAnalyses;
       fabsl,
       /// int fclose(FILE *stream);
       fclose,
+      /// double fdim(double x, double y);
+      fdim,
+      /// float fdimf(float x, float y);
+      fdimf,
       /// FILE *fdopen(int fildes, const char *mode);
       fdopen,
       /// int feof(FILE *stream);
@@ -369,12 +489,34 @@ class PreservedAnalyses;
       htonl,
       /// uint16_t htons(uint16_t hostshort);
       htons,
+      /// double hypot(double x, double y);
+      hypot,
+      /// float hypotf(float x, float y);
+      hypotf,
+      /// double ilogb(double x);
+      ilogb,
+      /// float ilogbf(float x);
+      ilogbf,
+      /// double invsqrt(double x);
+      invsqrt,
+      /// float invsqrtf(float x);
+      invsqrtf,
       /// int iprintf(const char *format, ...);
       iprintf,
       /// int isascii(int c);
       isascii,
       /// int isdigit(int c);
       isdigit,
+      /// int isinf(double x);
+      isinf,
+      /// int isinff(float x);
+      isinff,
+      /// int isnan(double x);
+      isnan,
+      /// int isnanf(float x);
+      isnanf,
+      /// long int jrand48(unsigned short *ptr);
+      jrand48,
       /// long int labs(long int j);
       labs,
       /// int lchown(const char *path, uid_t owner, gid_t group);
@@ -417,6 +559,8 @@ class PreservedAnalyses;
       logf,
       /// long double logl(long double x);
       logl,
+      /// long lrand48();
+      lrand48,
       /// int lstat(const char *path, struct stat *buf);
       lstat,
       /// int lstat64(const char *path, struct stat64 *buf);
@@ -451,12 +595,20 @@ class PreservedAnalyses;
       modff,
       /// long double modfl(long double value, long double *iptr);
       modfl,
+      /// long mrand48(void);
+      mrand48,
       /// double nearbyint(double x);
       nearbyint,
       /// float nearbyintf(float x);
       nearbyintf,
       /// long double nearbyintl(long double x);
       nearbyintl,
+      /// double nextafter(double x, double y);
+      nextafter,
+      /// float nextafter(float x, float y);
+      nextafterf,
+      /// long nrand48(unsigned short *ptr);
+      nrand48,
       /// uint32_t ntohl(uint32_t netlong);
       ntohl,
       /// uint16_t ntohs(uint16_t netshort);
@@ -507,6 +659,10 @@ class PreservedAnalyses;
       reallocf,
       /// char *realpath(const char *file_name, char *resolved_name);
       realpath,
+      /// double remainder(double x, double y);
+      remainder,
+      /// float remainderf(float x, float y);
+      remainderf,
       /// int remove(const char *path);
       remove,
       /// int rename(const char *old, const char *new);
@@ -527,6 +683,10 @@ class PreservedAnalyses;
       roundf,
       /// long double roundl(long double x);
       roundl,
+      /// double scalbn(double x, int n);
+      scalbn,
+      /// float scalbnf(float x, int n);
+      scalbnf,
       /// int scanf(const char *restrict format, ... );
       scanf,
       /// void setbuf(FILE *stream, char *buf);
@@ -538,6 +698,14 @@ class PreservedAnalyses;
       setvbuf,
       /// double sin(double x);
       sin,
+      /// void sincos(double x, double *y, double *z);
+      sincos,
+      /// void sincosf(float x, float *y, float *z);
+      sincosf,
+      /// double sind(double x);
+      sind,
+      /// float sindf(float x);
+      sindf,
       /// float sinf(float x);
       sinf,
       /// double sinh(double x);
@@ -637,6 +805,10 @@ class PreservedAnalyses;
       system,
       /// double tan(double x);
       tan,
+      /// double tand(double x);
+      tand,
+      /// float tand(float x);
+      tandf,
       /// float tanf(float x);
       tanf,
       /// double tanh(double x);
