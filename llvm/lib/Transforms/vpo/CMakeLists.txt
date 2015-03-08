@@ -1,1 +1,1 @@
-add_subdirectory(vectorizer)
+add_subdirectory(Vecopt)
