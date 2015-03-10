@@ -3409,12 +3409,12 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_double, Loc, PrevSpec,
                                      DiagID, Policy);
       break;
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
     case tok::kw__Quad:
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_float128, Loc, PrevSpec,
                                      DiagID, Policy);
       break;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
     case tok::kw_wchar_t:
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_wchar, Loc, PrevSpec,
                                      DiagID, Policy);
@@ -4353,9 +4353,9 @@ bool Parser::isKnownToBeTypeSpecifier(const Token &Tok) const {
   case tok::kw_float:
   case tok::kw_double:
   case tok::kw_bool:
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   case tok::kw__Quad:
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   case tok::kw__Bool:
   case tok::kw__Decimal32:
   case tok::kw__Decimal64:
@@ -4427,9 +4427,9 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   case tok::kw__Quad:
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   case tok::kw_bool:
   case tok::kw__Bool:
   case tok::kw__Decimal32:
@@ -4572,9 +4572,9 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   case tok::kw__Quad:
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   case tok::kw_bool:
   case tok::kw__Bool:
   case tok::kw__Decimal32:

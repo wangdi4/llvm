@@ -1204,10 +1204,10 @@ bool CodeGenModule::ReturnTypeUsesFPRet(QualType ResultType) {
       return getTarget().useObjCFPRetForRealType(TargetInfo::Double);
     case BuiltinType::LongDouble:
       return getTarget().useObjCFPRetForRealType(TargetInfo::LongDouble);
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
     case BuiltinType::Float128:
       return getTarget().useObjCFPRetForRealType(TargetInfo::Float128);
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
     }
   }
 

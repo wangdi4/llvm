@@ -1773,11 +1773,11 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase,
     } else if (k == BuiltinType::LongDouble) {
       Lo = X87;
       Hi = X87Up;
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
     } else if (k == BuiltinType::Float128) {
       Lo = SSE;
       Hi = SSEUp;
-#endif  //INTEL_SPECIFIC_IL0_BACKEND
+#endif  //INTEL_CUSTOMIZATION
     }
     // FIXME: _Decimal32 and _Decimal64 are SSE.
     // FIXME: _float128 and _Decimal128 are (SSE, SSEUp).
@@ -4726,12 +4726,12 @@ ABIArgInfo ARMABIInfo::classifyArgumentType(QualType Ty, bool isVariadic,
         markAllocatedVFPs(2, 2);
         IsCPRC = true;
       }
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
       if (BT->getKind() == BuiltinType::Float128) {
         markAllocatedVFPs(4, 4);
         IsCPRC = true;
       }
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif // INTEL_CUSTOMIZATION
     }
   }
 
@@ -5013,9 +5013,9 @@ bool ARMABIInfo::isHomogeneousAggregateBaseType(QualType Ty) const {
     if (BT->getKind() == BuiltinType::Float ||
         BT->getKind() == BuiltinType::Double ||
         BT->getKind() == BuiltinType::LongDouble
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
         || BT->getKind() == BuiltinType::Float128
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
        )
       return true;
   } else if (const VectorType *VT = Ty->getAs<VectorType>()) {

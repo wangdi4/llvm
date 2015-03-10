@@ -482,9 +482,9 @@ llvm::DIType CGDebugInfo::CreateType(const BuiltinType *BT) {
   case BuiltinType::Bool:
     Encoding = llvm::dwarf::DW_ATE_boolean;
     break;
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   case BuiltinType::Float128:
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   case BuiltinType::Half:
   case BuiltinType::Float:
   case BuiltinType::LongDouble:

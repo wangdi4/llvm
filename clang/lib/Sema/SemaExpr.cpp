@@ -3256,10 +3256,10 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
     QualType Ty;
     if (Literal.isFloat)
       Ty = Context.FloatTy;
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
     else if (Literal.isFloat128)
       Ty = Context.Float128Ty;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
     else if (!Literal.isLong)
       Ty = Context.DoubleTy;
     else

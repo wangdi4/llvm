@@ -126,9 +126,9 @@ public:
     Float = 0,
     Double,
     LongDouble
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
     , Float128
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   };
 
   /// \brief The different kinds of __builtin_va_list types defined by

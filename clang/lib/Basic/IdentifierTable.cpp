@@ -109,12 +109,8 @@ namespace {
     WCHARSUPPORT = 0x02000,
 #ifdef INTEL_CUSTOMIZATION
     KEYCILKPLUS = 0x04000,
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
     KEYFLOAT128 = 0x08000,
     HALFSUPPORT = 0x10000,
-#else
-    HALFSUPPORT = 0x8000,
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
 #else
     HALFSUPPORT = 0x04000,
 #endif  // INTEL_CUSTOMIZATION
@@ -143,9 +139,7 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
   if (LangOpts.Borland && (Flags & KEYBORLAND)) return KS_Extension;
 #ifdef INTEL_CUSTOMIZATION
   else if (LangOpts.CilkPlus && (Flags & KEYCILKPLUS)) return KS_Extension;
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
   else if (LangOpts.Float128 && (Flags & KEYFLOAT128)) return KS_Extension;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
 #endif  // INTEL_CUSTOMIZATION
   if (LangOpts.Bool && (Flags & BOOLSUPPORT)) return KS_Enabled;
   if (LangOpts.Half && (Flags & HALFSUPPORT)) return KS_Enabled;

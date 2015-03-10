@@ -367,9 +367,9 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
     case BuiltinType::Float:
     case BuiltinType::Double:
     case BuiltinType::LongDouble:
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
     case BuiltinType::Float128:
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
       ResultType = getTypeForFormat(getLLVMContext(),
                                     Context.getFloatTypeSemantics(T),
                                     /* UseNativeHalf = */ false);

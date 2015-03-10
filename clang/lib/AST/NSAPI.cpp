@@ -363,14 +363,14 @@ NSAPI::getNSNumberFactoryMethodKind(QualType T) const {
   case BuiltinType::UnknownAny:
   case BuiltinType::ARCUnbridgedCast:
   case BuiltinType::Half:
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   case BuiltinType::Float128:
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   case BuiltinType::PseudoObject:
   case BuiltinType::BuiltinFn:
     break;
   }
-  
+
   return None;
 }
 

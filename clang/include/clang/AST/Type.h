@@ -1899,11 +1899,11 @@ public:
   }
 
   bool isFloatingPoint() const {
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
     return getKind() >= Half && getKind() <= Float128;
 #else
     return getKind() >= Half && getKind() <= LongDouble;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   }
 
   /// Determines whether the given kind corresponds to a placeholder type.

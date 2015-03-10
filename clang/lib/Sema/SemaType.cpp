@@ -871,9 +871,9 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
     break;
   case DeclSpec::TST_half: Result = Context.HalfTy; break;
   case DeclSpec::TST_float: Result = Context.FloatTy; break;
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   case DeclSpec::TST_float128: Result = Context.Float128Ty; break;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   case DeclSpec::TST_double:
     if (DS.getTypeSpecWidth() == DeclSpec::TSW_long)
       Result = Context.LongDoubleTy;

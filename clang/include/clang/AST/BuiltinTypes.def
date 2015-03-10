@@ -133,10 +133,10 @@ FLOATING_TYPE(Double, DoubleTy)
 // 'long double'
 FLOATING_TYPE(LongDouble, LongDoubleTy)
 
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
 // '__float128'/'_Quad'
 FLOATING_TYPE(Float128, Float128Ty)
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
 //===- Language-specific types --------------------------------------------===//
 
 // This is the type of C++0x 'nullptr'.

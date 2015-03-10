@@ -11675,9 +11675,9 @@ bool Sema::CheckLiteralOperatorDeclaration(FunctionDecl *FnDecl) {
     // as the only parameters.
     if (Context.hasSameType(T, Context.UnsignedLongLongTy) ||
         Context.hasSameType(T, Context.LongDoubleTy) ||
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
         Context.hasSameType(T, Context.Float128Ty) ||
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
         Context.hasSameType(T, Context.CharTy) ||
         Context.hasSameType(T, Context.WideCharTy) ||
         Context.hasSameType(T, Context.Char16Ty) ||

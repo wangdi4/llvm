@@ -1861,9 +1861,9 @@ bool Sema::IsFloatingPointPromotion(QualType FromType, QualType ToType) {
           (FromBuiltin->getKind() == BuiltinType::Float ||
            FromBuiltin->getKind() == BuiltinType::Double ||
            FromBuiltin->getKind() == BuiltinType::LongDouble)
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
            && (ToBuiltin->getKind() == BuiltinType::Float128)
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
          )
         return true;
 
@@ -7021,7 +7021,7 @@ class BuiltinOperatorOverloadBuilder {
   // provided via the getArithmeticType() method below.
   // The "promoted arithmetic types" are the arithmetic
   // types are that preserved by promotion (C++ [over.built]p2).
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   static const unsigned FirstIntegralType = 4;
   static const unsigned LastIntegralType = 21;
   static const unsigned FirstPromotedIntegralType = 4,
@@ -7038,7 +7038,7 @@ class BuiltinOperatorOverloadBuilder {
   static const unsigned FirstPromotedArithmeticType = 0,
                         LastPromotedArithmeticType = 11;
   static const unsigned NumArithmeticTypes = 20;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
 
   /// \brief Get the canonical type for a given arithmetic type index.
   CanQualType getArithmeticType(unsigned index) {
@@ -7049,9 +7049,9 @@ class BuiltinOperatorOverloadBuilder {
       &ASTContext::FloatTy,
       &ASTContext::DoubleTy,
       &ASTContext::LongDoubleTy,
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
       &ASTContext::Float128Ty,
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
 
       // Start of integral types.
       &ASTContext::IntTy,
@@ -7625,10 +7625,10 @@ public:
          Left < LastPromotedArithmeticType; ++Left) {
       for (unsigned Right = FirstPromotedArithmeticType;
            Right < LastPromotedArithmeticType; ++Right) {
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
         if (!S.getLangOpts().Float128 &&
             (Left == Float128Type || Right == Float128Type)) continue;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
         QualType LandR[2] = { getArithmeticType(Left),
                               getArithmeticType(Right) };
         QualType Result =
@@ -7684,10 +7684,10 @@ public:
          Left < LastPromotedIntegralType; ++Left) {
       for (unsigned Right = FirstPromotedIntegralType;
            Right < LastPromotedIntegralType; ++Right) {
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
         if (!S.getLangOpts().Float128 &&
             (Left == Float128Type || Right == Float128Type)) continue;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
         QualType LandR[2] = { getArithmeticType(Left),
                               getArithmeticType(Right) };
         QualType Result = (Op == OO_LessLess || Op == OO_GreaterGreater)

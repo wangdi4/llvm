@@ -797,13 +797,13 @@ public:
   CanQualType UnsignedLongLongTy, UnsignedInt128Ty;
   CanQualType FloatTy, DoubleTy, LongDoubleTy;
   CanQualType HalfTy; // [OpenCL 6.1.1.1], ARM NEON
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   CanQualType Float128Ty;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   CanQualType FloatComplexTy, DoubleComplexTy, LongDoubleComplexTy;
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   CanQualType Float128ComplexTy;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   CanQualType VoidPtrTy, NullPtrTy;
   CanQualType DependentTy, OverloadTy, BoundMemberTy, UnknownAnyTy;
   CanQualType BuiltinFnTy;

@@ -505,11 +505,11 @@ public:
   bool needsExtraLocalData() const {
     BuiltinType::Kind bk = getTypePtr()->getKind();
     return (bk >= BuiltinType::UShort && bk <= BuiltinType::UInt128)
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
       || (bk >= BuiltinType::Short && bk <= BuiltinType::Float128)
 #else
       || (bk >= BuiltinType::Short && bk <= BuiltinType::LongDouble)
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
       || bk == BuiltinType::UChar
       || bk == BuiltinType::SChar;
   }

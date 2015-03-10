@@ -1976,9 +1976,9 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
   case BuiltinType::Float: Out << 'f'; break;
   case BuiltinType::Double: Out << 'd'; break;
   case BuiltinType::LongDouble: Out << 'e'; break;
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   case BuiltinType::Float128: Out << 'g'; break;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   case BuiltinType::NullPtr: Out << "Dn"; break;
 
 #define BUILTIN_TYPE(Id, SingletonId)

@@ -375,9 +375,7 @@ TYPE_TRAIT_1(__is_sealed, IsSealed, KEYMS)
 KEYWORD(_Cilk_spawn                 , KEYCILKPLUS)
 KEYWORD(_Cilk_sync                  , KEYCILKPLUS)
 KEYWORD(_Cilk_for                   , KEYCILKPLUS)
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
 KEYWORD(_Quad                       , KEYFLOAT128)
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
 #endif  // INTEL_CUSTOMIZATION
 // MSVC12.0 / VS2013 Type Traits
 TYPE_TRAIT_1(__is_destructible, IsDestructible, KEYMS)

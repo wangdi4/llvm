@@ -278,12 +278,12 @@ TypeSpecifierType BuiltinTypeLoc::getWrittenTypeSpec() const {
   case BuiltinType::Float:
   case BuiltinType::Double:
   case BuiltinType::LongDouble:
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   case BuiltinType::Float128:
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
     llvm_unreachable("Builtin type needs extra local data!");
     // Fall through, if the impossible happens.
-      
+
   case BuiltinType::NullPtr:
   case BuiltinType::Overload:
   case BuiltinType::Dependent:

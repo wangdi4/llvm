@@ -1367,15 +1367,15 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
     else
       LangStd = OpenCLLangStd;
   }
-  
+
   CompilerInvocation::setLangDefaults(Opts, IK, LangStd);
 #ifdef INTEL_CUSTOMIZATION
   Opts.IntelCompat = Args.hasArg(OPT_fintel_compatibility);
   Opts.CilkPlus = Args.hasArg(OPT_fcilkplus);
+  Opts.Float128 = Args.hasArg(OPT_extended_float_types);
   if (Opts.CilkPlus && (Opts.ObjC1 || Opts.ObjC2))
     Diags.Report(diag::err_drv_cilk_objc);
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
-  Opts.Float128 = Args.hasArg(OPT_extended_float_types);
   StringRef OptLevel = Args.getLastArgValue(OPT_pragma_optimization_level_EQ, "Intel");
   Opts.PragmaOptimizationLevelIntel = (OptLevel == "Intel") ? 1 : 0;
   Opts.AlignMac68k = Args.hasArg(OPT_malign_mac68k);

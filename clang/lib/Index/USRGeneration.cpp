@@ -602,10 +602,10 @@ void USRGenerator::VisitType(QualType T) {
           c = 'd'; break;
         case BuiltinType::LongDouble:
           c = 'D'; break;
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
         case BuiltinType::Float128:
           c = 'g'; break;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
         case BuiltinType::NullPtr:
           c = 'n'; break;
 #define BUILTIN_TYPE(Id, SingletonId)

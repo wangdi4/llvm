@@ -58,9 +58,9 @@ unsigned ASTContext::NumImplicitDestructorsDeclared;
 
 enum FloatingRank {
   HalfRank, FloatRank, DoubleRank, LongDoubleRank
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   , Float128Rank
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
 };
 
 RawComment *ASTContext::getRawCommentForDeclNoCache(const Decl *D) const {
@@ -1051,7 +1051,7 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target) {
 
   // half type (OpenCL 6.1.1.1) / ARM NEON __fp16
   InitBuiltinType(HalfTy, BuiltinType::Half);
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   // float128 type
   if (LangOpts.Float128) {
     InitBuiltinType(Float128Ty, BuiltinType::Float128);
@@ -1060,7 +1060,7 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target) {
     Float128Ty = LongDoubleTy;
     Float128ComplexTy = LongDoubleComplexTy;
   }
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   // Builtin type used to help define __builtin_va_list.
   VaListTagTy = QualType();
 }
@@ -1282,11 +1282,11 @@ const llvm::fltSemantics &ASTContext::getFloatTypeSemantics(QualType T) const {
   case BuiltinType::Float:      return Target->getFloatFormat();
   case BuiltinType::Double:     return Target->getDoubleFormat();
   case BuiltinType::LongDouble: return Target->getLongDoubleFormat();
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   case BuiltinType::Float128: return LangOpts.Float128 ?
                                       llvm::APFloat::IEEEquad
                                       : Target->getLongDoubleFormat();
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   }
 }
 
@@ -1585,12 +1585,12 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       Width = Target->getHalfWidth();
       Align = Target->getHalfAlign();
       break;
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
     case BuiltinType::Float128:
       Width = LangOpts.Float128 ? 128 : Target->getLongDoubleWidth();
       Align = LangOpts.Float128 ? 128 : Target->getLongDoubleAlign();
       break;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
     case BuiltinType::Float:
       Width = Target->getFloatWidth();
       Align = Target->getFloatAlign();
@@ -4412,9 +4412,9 @@ static FloatingRank getFloatingRank(QualType T) {
   case BuiltinType::Float:      return FloatRank;
   case BuiltinType::Double:     return DoubleRank;
   case BuiltinType::LongDouble: return LongDoubleRank;
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   case BuiltinType::Float128: return Float128Rank;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   }
 }
 
@@ -4431,10 +4431,10 @@ QualType ASTContext::getFloatingTypeOfSizeWithinDomain(QualType Size,
     case FloatRank:      return FloatComplexTy;
     case DoubleRank:     return DoubleComplexTy;
     case LongDoubleRank: return LongDoubleComplexTy;
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
     case Float128Rank: return LangOpts.Float128 ?
                               Float128ComplexTy : LongDoubleComplexTy;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
     }
   }
 
@@ -4444,10 +4444,10 @@ QualType ASTContext::getFloatingTypeOfSizeWithinDomain(QualType Size,
   case FloatRank:      return FloatTy;
   case DoubleRank:     return DoubleTy;
   case LongDoubleRank: return LongDoubleTy;
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   case Float128Rank: return LangOpts.Float128 ?
                             Float128Ty : LongDoubleTy;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   }
   llvm_unreachable("getFloatingRank(): illegal value for rank");
 }
@@ -5249,9 +5249,9 @@ static char getObjCEncodingForPrimitiveKind(const ASTContext *C,
     case BuiltinType::Float:      return 'f';
     case BuiltinType::Double:     return 'd';
     case BuiltinType::LongDouble: return 'D';
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
     case BuiltinType::Float128:   return 'Q';
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
     case BuiltinType::NullPtr:    return '*'; // like char*
 
     case BuiltinType::Half:
@@ -8156,10 +8156,10 @@ QualType ASTContext::getRealTypeForBitwidth(unsigned DestWidth) const {
     return DoubleTy;
   case TargetInfo::LongDouble:
     return LongDoubleTy;
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   case TargetInfo::Float128:
     return getLangOpts().Float128 ? Float128Ty : QualType();
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   case TargetInfo::NoFloat:
     return QualType();
   }

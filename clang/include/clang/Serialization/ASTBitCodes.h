@@ -765,11 +765,11 @@ namespace clang {
       PREDEF_TYPE_EVENT_ID      = 44,
       /// \brief OpenCL sampler type.
       PREDEF_TYPE_SAMPLER_ID    = 45
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-    ,
-      /// \brief _Quad type
-      PREDEF_TYPE_FLOAT128_ID       = 46
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
+      ,
+      /// \brief _Quad type.
+      PREDEF_TYPE_FLOAT128_ID   = 46
+#endif  // INTEL_CUSTOMIZATION
     };
 
     /// \brief The number of predefined type IDs that are reserved for

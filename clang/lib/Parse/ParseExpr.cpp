@@ -1132,9 +1132,9 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   case tok::kw__Quad:
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   case tok::kw_void:
   case tok::kw_typename:
   case tok::kw_typeof:

@@ -2821,12 +2821,12 @@ enum CXTypeKind {
   CXType_ObjCClass = 28,
   CXType_ObjCSel = 29,
   CXType_FirstBuiltin = CXType_Void,
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   CXType_Float128 = 30,
   CXType_LastBuiltin  = CXType_Float128,
 #else
   CXType_LastBuiltin  = CXType_ObjCSel,
-#endif  /* INTEL_SPECIFIC_IL0_BACKEND */
+#endif  /* INTEL_CUSTOMIZATION */
   CXType_Complex = 100,
   CXType_Pointer = 101,
   CXType_BlockPointer = 102,

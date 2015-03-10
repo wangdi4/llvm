@@ -522,9 +522,9 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
   isUnsigned = false;
   isLongLong = false;
   isFloat = false;
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   isFloat128 = false;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   isImaginary = false;
   MicrosoftInteger = 0;
   hadError = false;
@@ -584,14 +584,14 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
     case 'f':      // FP Suffix for "float"
     case 'F':
       if (!isFPConstant) break;  // Error for integer constant.
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
       if (isFloat || isLong || isFloat128) break; // FF, LF invalid.
 #else
       if (isFloat || isLong) break; // FF, LF invalid.
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
       isFloat = true;
       continue;  // Success.
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
     case 'q':      // FP Suffix for "_Quad"
     case 'Q':
       if (!PP.getLangOpts().Float128) break;
@@ -599,7 +599,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
       if (isFloat || isLong || isFloat128) break; // FF, LF invalid.
       isFloat128 = true;
       continue;  // Success.
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
     case 'u':
     case 'U':
       if (isFPConstant) break;  // Error for floating constant.
@@ -608,11 +608,11 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
       continue;  // Success.
     case 'l':
     case 'L':
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
       if (isLong || isLongLong || isFloat128) break;  // Cannot be repeated.
 #else
       if (isLong || isLongLong) break;  // Cannot be repeated.
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
       if (isFloat) break;               // LF invalid.
 
       // Check for long long.  The L's need to be adjacent and the same case.
@@ -626,11 +626,11 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
       continue;  // Success.
     case 'i':
     case 'I':
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
       if (!isLong && !isLongLong && !isFloat && !isFloat128) {
 #else
       if (PP.getLangOpts().MicrosoftExt) {
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
         if (isLong || isLongLong || MicrosoftInteger)
           break;
 

@@ -284,9 +284,9 @@ public:
   static const TST TST_half = clang::TST_half;
   static const TST TST_float = clang::TST_float;
   static const TST TST_double = clang::TST_double;
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   static const TST TST_float128 = clang::TST_float128;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   static const TST TST_bool = clang::TST_bool;
   static const TST TST_decimal32 = clang::TST_decimal32;
   static const TST TST_decimal64 = clang::TST_decimal64;
