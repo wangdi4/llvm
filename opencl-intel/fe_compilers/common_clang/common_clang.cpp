@@ -35,6 +35,7 @@
 #include "llvm/Support/Threading.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/Mutex.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/LLVMContext.h"
@@ -63,13 +64,26 @@
 
 using namespace Intel::OpenCL::ClangFE;
 
+static volatile bool lazyCCInit = true; // the flag must be 'volatile' to prevent caching in a CPU register
+static llvm::sys::Mutex lazyCCInitMutex;
+
+// This function mustn't be invoked from a static object constructor,
+// from a DllMain function (Windows specific), or from a function
+// w\ __attribute__ ((constructor)) (Linux specific).
 void CommonClangInitialize()
 {
-    llvm::llvm_start_multithreaded();
-    llvm::InitializeAllTargets();
-    llvm::InitializeAllAsmPrinters();
-    llvm::InitializeAllAsmParsers();
-    llvm::InitializeAllTargetMCs();
+    if(lazyCCInit) {
+      llvm::sys::ScopedLock lock(lazyCCInitMutex);
+
+        if(lazyCCInit) {
+            llvm::llvm_start_multithreaded();
+            llvm::InitializeAllTargets();
+            llvm::InitializeAllAsmPrinters();
+            llvm::InitializeAllAsmParsers();
+            llvm::InitializeAllTargetMCs();
+            lazyCCInit = false;
+        }
+    }
 }
 
 void CommonClangTerminate()
@@ -124,6 +138,9 @@ extern "C" CC_DLL_EXPORT int Compile(const char*   pszProgramSource,
                                      const char*   pszOpenCLVer,
                                      IOCLFEBinaryResult** pBinaryResult)
 {
+    // Lazy initialization
+    CommonClangInitialize();
+
     try
     {   // create a new scope to make sure the mutex will be released last
         MemoryBufferCache bufferCache;

@@ -32,6 +32,8 @@
 
 using namespace Intel::OpenCL::ClangFE;
 
+void CommonClangInitialize();
+
 struct CACHED_ARG_INFO
 {
     std::string name;
@@ -68,6 +70,9 @@ extern "C" CC_DLL_EXPORT int GetKernelArgInfo(const void *pBin,
                                               const char *szKernelName,
                                               IOCLFEKernelArgInfo** ppResult)
 {
+    // Lazy initialization
+    CommonClangInitialize();
+
     try
     {
         std::string sError;
