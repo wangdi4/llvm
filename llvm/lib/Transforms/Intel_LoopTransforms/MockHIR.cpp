@@ -19,12 +19,12 @@ using namespace llvm::loopopt;
 char MockHIR::ID = 0;
 static RegisterPass<MockHIR> X("MockHIR", "Mock HIR Construction", false, true);
 
+static std::set<BasicBlock *> OrigBBs;
+
 void MockHIR::createMockHIRSimpleLoop() {
 
   auto curBlock = F->begin();
   BasicBlock *LoopBlock = ++curBlock;
-
-  std::set<BasicBlock *> OrigBBs;
 
   OrigBBs.insert(LoopBlock);
 

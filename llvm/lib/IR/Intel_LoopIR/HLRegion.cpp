@@ -43,5 +43,13 @@ BasicBlock *HLRegion::getPredBBlock() const {
 }
 
 BasicBlock *HLRegion::getSuccBBlock() const {
-  return *(succ_begin(ExitBBlock));
+  auto SuccI = succ_begin(ExitBBlock);
+
+  /// In some cases the exit bblock is also the loop latch, so the successor
+  /// can be the loop header. We need to skip it, if that is the case.
+  if (OrigBBlocks.find(*SuccI) != OrigBBlocks.end()) {
+    SuccI++;
+  }
+
+  return *SuccI;
 }
