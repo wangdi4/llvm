@@ -16,9 +16,31 @@
 using namespace lld;
 using namespace lld::elf;
 
+std::unique_ptr<ELFLinkingContext>
+MipsLinkingContext::create(llvm::Triple triple) {
+  if (triple.getArch() == llvm::Triple::mipsel ||
+      triple.getArch() == llvm::Triple::mips64el)
+    return std::unique_ptr<ELFLinkingContext>(new MipsLinkingContext(triple));
+  return nullptr;
+}
+
+typedef std::unique_ptr<TargetHandlerBase> TargetHandlerBasePtr;
+
+static TargetHandlerBasePtr createTarget(llvm::Triple triple,
+                                         MipsLinkingContext &ctx) {
+  switch (triple.getArch()) {
+  case llvm::Triple::mipsel:
+    return TargetHandlerBasePtr(new MipsTargetHandler<Mips32ELType>(ctx));
+  case llvm::Triple::mips64el:
+    return TargetHandlerBasePtr(new MipsTargetHandler<Mips64ELType>(ctx));
+  default:
+    llvm_unreachable("Unhandled arch");
+  }
+}
+
 MipsLinkingContext::MipsLinkingContext(llvm::Triple triple)
-    : ELFLinkingContext(triple, std::unique_ptr<TargetHandlerBase>(
-                                    new MipsTargetHandler(*this))) {}
+    : ELFLinkingContext(triple, createTarget(triple, *this)),
+      _flagsMerger(triple.isArch64Bit()) {}
 
 uint32_t MipsLinkingContext::getMergedELFFlags() const {
   return _flagsMerger.getMergedELFFlags();
@@ -30,7 +52,7 @@ MipsELFFlagsMerger &MipsLinkingContext::getELFFlagsMerger() {
 
 uint64_t MipsLinkingContext::getBaseAddress() const {
   if (_baseAddress == 0 && getOutputELFType() == llvm::ELF::ET_EXEC)
-    return 0x400000;
+    return getTriple().isArch64Bit() ? 0x120000000 : 0x400000;
   return _baseAddress;
 }
 
@@ -41,7 +63,7 @@ StringRef MipsLinkingContext::entrySymbolName() const {
 }
 
 StringRef MipsLinkingContext::getDefaultInterpreter() const {
-  return "/lib/ld.so.1";
+  return getTriple().isArch64Bit() ? "/lib64/ld.so.1" : "/lib/ld.so.1";
 }
 
 void MipsLinkingContext::addPasses(PassManager &pm) {
@@ -49,11 +71,10 @@ void MipsLinkingContext::addPasses(PassManager &pm) {
   if (pass)
     pm.add(std::move(pass));
   ELFLinkingContext::addPasses(pm);
-  pm.add(std::unique_ptr<Pass>(new elf::MipsCtorsOrderPass()));
+  pm.add(llvm::make_unique<elf::MipsCtorsOrderPass>());
 }
 
-bool MipsLinkingContext::isDynamicRelocation(const DefinedAtom &,
-                                             const Reference &r) const {
+bool MipsLinkingContext::isDynamicRelocation(const Reference &r) const {
   if (r.kindNamespace() != Reference::KindNamespace::ELF)
     return false;
   assert(r.kindArch() == Reference::KindArch::Mips);
@@ -78,8 +99,7 @@ bool MipsLinkingContext::isCopyRelocation(const Reference &r) const {
   return false;
 }
 
-bool MipsLinkingContext::isPLTRelocation(const DefinedAtom &,
-                                         const Reference &r) const {
+bool MipsLinkingContext::isPLTRelocation(const Reference &r) const {
   if (r.kindNamespace() != Reference::KindNamespace::ELF)
     return false;
   assert(r.kindArch() == Reference::KindArch::Mips);

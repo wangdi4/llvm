@@ -14,6 +14,7 @@
 #include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
+#include "lldb/Target/Platform.h"
 #include "lldb/Core/Section.h"
 #include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Target/Process.h"
@@ -542,6 +543,9 @@ DynamicLoaderPOSIXDYLD::ComputeLoadOffset()
         return LLDB_INVALID_ADDRESS;
 
     ObjectFile *exe = module->GetObjectFile();
+    if (!exe)
+        return LLDB_INVALID_ADDRESS;
+
     Address file_entry = exe->GetEntryPointAddress();
 
     if (!file_entry.IsValid())

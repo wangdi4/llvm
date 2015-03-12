@@ -12,10 +12,10 @@
 #include "lld/Core/Error.h"
 #include "lld/Core/File.h"
 #include "lld/Core/LLVM.h"
+#include "lld/Core/Reader.h"
 #include "lld/Core/Reference.h"
 #include "lld/Core/Simple.h"
-#include "lld/ReaderWriter/Reader.h"
-#include "lld/ReaderWriter/Writer.h"
+#include "lld/Core/Writer.h"
 #include "lld/ReaderWriter/YamlContext.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringMap.h"
@@ -66,15 +66,6 @@ public:
       // Build map of atoms names to detect duplicates
       if (!atom->name().empty())
         buildDuplicateNameMap(*atom);
-
-      if (atom->isGroupParent()) {
-        for (const lld::Reference *ref : *atom) {
-          if (ref->kindNamespace() != lld::Reference::KindNamespace::all)
-            continue;
-          if (ref->kindValue() == lld::Reference::kindGroupChild)
-            buildDuplicateNameMap(*ref->target());
-        }
-      }
 
       // Find references to unnamed atoms and create ref-names for them.
       for (const lld::Reference *ref : *atom) {
@@ -276,7 +267,7 @@ LLVM_YAML_STRONG_TYPEDEF(bool, ShlibCanBeNull)
 struct RefKind {
   Reference::KindNamespace  ns;
   Reference::KindArch       arch;
-  uint16_t                  value;
+  Reference::KindValue      value;
 };
 
 } // namespace anon
@@ -394,6 +385,7 @@ template <> struct ScalarEnumerationTraits<lld::DefinedAtom::CodeModel> {
     io.enumCase(value, "mips-micro", lld::DefinedAtom::codeMipsMicro);
     io.enumCase(value, "mips-micro-pic", lld::DefinedAtom::codeMipsMicroPIC);
     io.enumCase(value, "mips-16", lld::DefinedAtom::codeMips16);
+    io.enumCase(value, "arm-thumb", lld::DefinedAtom::codeARMThumb);
   }
 };
 
@@ -628,16 +620,16 @@ template <> struct MappingTraits<const lld::File *> {
     const atom_collection<lld::AbsoluteAtom> &absolute() const override {
       return _noAbsoluteAtoms;
     }
-    const File *find(StringRef name, bool dataSymbolOnly) const override {
+    File *find(StringRef name, bool dataSymbolOnly) override {
       for (const ArchMember &member : _members) {
         for (const lld::DefinedAtom *atom : member._content->defined()) {
           if (name == atom->name()) {
             if (!dataSymbolOnly)
-              return member._content;
+              return const_cast<File *>(member._content);
             switch (atom->contentType()) {
             case lld::DefinedAtom::typeData:
             case lld::DefinedAtom::typeZeroFill:
-              return member._content;
+              return const_cast<File *>(member._content);
             default:
               break;
             }
@@ -822,7 +814,8 @@ template <> struct MappingTraits<const lld::DefinedAtom *> {
           _deadStrip(atom->deadStrip()), _dynamicExport(atom->dynamicExport()),
           _codeModel(atom->codeModel()),
           _permissions(atom->permissions()), _size(atom->size()),
-          _sectionName(atom->customSectionName()) {
+          _sectionName(atom->customSectionName()),
+          _sectionSize(atom->sectionSize()) {
       for (const lld::Reference *r : *atom)
         _references.push_back(r);
       if (!atom->occupiesDiskSpace())
@@ -868,6 +861,7 @@ template <> struct MappingTraits<const lld::DefinedAtom *> {
     Alignment alignment() const override { return _alignment; }
     SectionChoice sectionChoice() const override { return _sectionChoice; }
     StringRef customSectionName() const override { return _sectionName; }
+    uint64_t sectionSize() const override { return _sectionSize; }
     SectionPosition sectionPosition() const override { return _sectionPosition; }
     DeadStripKind deadStrip() const override { return _deadStrip; }
     DynamicExport dynamicExport() const override { return _dynamicExport; }
@@ -923,6 +917,7 @@ template <> struct MappingTraits<const lld::DefinedAtom *> {
     std::vector<ImplicitHex8>           _content;
     uint64_t                            _size;
     StringRef                           _sectionName;
+    uint64_t                            _sectionSize;
     std::vector<const lld::Reference *> _references;
     bool _isGroupChild;
   };
@@ -961,6 +956,7 @@ template <> struct MappingTraits<const lld::DefinedAtom *> {
     io.mapOptional("section-name",     keys->_sectionName, StringRef());
     io.mapOptional("section-position", keys->_sectionPosition,
                                          DefinedAtom::sectionPositionAny);
+    io.mapOptional("section-size",     keys->_sectionSize, (uint64_t)0);
     io.mapOptional("dead-strip",       keys->_deadStrip,
                                          DefinedAtom::deadStripNormal);
     io.mapOptional("dynamic-export",   keys->_dynamicExport,
@@ -1266,7 +1262,7 @@ public:
   std::error_code writeFile(const lld::File &file, StringRef outPath) override {
     // Create stream to path.
     std::error_code ec;
-    llvm::raw_fd_ostream out(outPath.data(), ec, llvm::sys::fs::F_Text);
+    llvm::raw_fd_ostream out(outPath, ec, llvm::sys::fs::F_Text);
     if (ec)
       return ec;
 

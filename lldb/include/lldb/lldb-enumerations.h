@@ -49,8 +49,10 @@ namespace lldb {
         eLaunchFlagLaunchInSeparateProcessGroup = (1u << 7), ///< Launch the process in a separate process group
         eLaunchFlagDontSetExitStatus = (1u << 8), ///< If you are going to hand the process off (e.g. to debugserver)
                                                    ///< set this flag so lldb & the handee don't race to set its exit status.
-        eLaunchFlagDetachOnError = (1u << 9)      ///< If set, then the client stub should detach rather than killing the debugee
+        eLaunchFlagDetachOnError = (1u << 9),     ///< If set, then the client stub should detach rather than killing the debugee
                                                    ///< if it loses connection with lldb.
+        eLaunchFlagShellExpandArguments  = (1u << 10),       ///< Perform shell-style argument expansion
+        eLaunchFlagCloseTTYOnExit = (1u << 11),    ///< Close the open TTY on exit
     } LaunchFlags;
         
     //----------------------------------------------------------------------
@@ -378,6 +380,8 @@ namespace lldb {
         eLanguageTypeUPC             = 0x0012,   ///< Unified Parallel C.
         eLanguageTypeD               = 0x0013,   ///< D.
         eLanguageTypePython          = 0x0014,   ///< Python.
+        // NOTE: The below are DWARF5 constants, subject to change upon
+        // completion of the DWARF5 specification
         eLanguageTypeOpenCL          = 0x0015,   ///< OpenCL.
         eLanguageTypeGo              = 0x0016,   ///< Go.
         eLanguageTypeModula3         = 0x0017,   ///< Modula 3.
@@ -390,6 +394,9 @@ namespace lldb {
         eLanguageTypeSwift           = 0x001e,   ///< Swift.
         eLanguageTypeJulia           = 0x001f,   ///< Julia.
         eLanguageTypeDylan           = 0x0020,   ///< Dylan.
+        eLanguageTypeC_plus_plus_14  = 0x0021,   ///< ISO C++:2014.
+        eLanguageTypeFortran03       = 0x0022,   ///< ISO Fortran 2003.
+        eLanguageTypeFortran08       = 0x0023,   ///< ISO Fortran 2008.
         eNumLanguageTypes
     } LanguageType;
     

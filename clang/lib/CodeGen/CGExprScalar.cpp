@@ -196,7 +196,7 @@ public:
   //===--------------------------------------------------------------------===//
 
   Value *Visit(Expr *E) {
-    ApplyDebugLocation DL(CGF, E->getLocStart());
+    ApplyDebugLocation DL(CGF, E);
     return StmtVisitor<ScalarExprEmitter, Value*>::Visit(E);
   }
 
@@ -320,7 +320,7 @@ public:
   Value *VisitCastExpr(CastExpr *E);
 
   Value *VisitCallExpr(const CallExpr *E) {
-    if (E->getCallReturnType()->isReferenceType())
+    if (E->getCallReturnType(CGF.getContext())->isReferenceType())
       return EmitLoadOfLValue(E);
 
     Value *V = CGF.EmitCallExpr(E).getScalarVal();
@@ -2056,7 +2056,7 @@ LValue ScalarExprEmitter::EmitCompoundAssignLValue(
   BinOpInfo OpInfo;
 
   if (E->getComputationResultType()->isAnyComplexType())
-    return CGF.EmitScalarCompooundAssignWithComplex(E, Result);
+    return CGF.EmitScalarCompoundAssignWithComplex(E, Result);
 
   // Emit the RHS first.  __block variables need to have the rhs evaluated
   // first, plus this should improve codegen a little.
@@ -2664,21 +2664,30 @@ Value *ScalarExprEmitter::EmitShl(const BinOpInfo &Ops) {
   if (Ops.LHS->getType() != RHS->getType())
     RHS = Builder.CreateIntCast(RHS, Ops.LHS->getType(), false, "sh_prom");
 
-  if (CGF.SanOpts.has(SanitizerKind::Shift) && !CGF.getLangOpts().OpenCL &&
-      isa<llvm::IntegerType>(Ops.LHS->getType())) {
+  // OpenCL 6.3j: shift values are effectively % word size of LHS.
+  if (CGF.getLangOpts().OpenCL)
+    RHS =
+        Builder.CreateAnd(RHS, GetWidthMinusOneValue(Ops.LHS, RHS), "shl.mask");
+  else if ((CGF.SanOpts.has(SanitizerKind::ShiftBase) ||
+            CGF.SanOpts.has(SanitizerKind::ShiftExponent)) &&
+           isa<llvm::IntegerType>(Ops.LHS->getType())) {
     CodeGenFunction::SanitizerScope SanScope(&CGF);
-    llvm::Value *WidthMinusOne = GetWidthMinusOneValue(Ops.LHS, RHS);
-    llvm::Value *Valid = Builder.CreateICmpULE(RHS, WidthMinusOne);
+    SmallVector<std::pair<Value *, SanitizerKind>, 2> Checks;
+    llvm::Value *WidthMinusOne = nullptr;
 
-    if (Ops.Ty->hasSignedIntegerRepresentation()) {
-      llvm::BasicBlock *Orig = Builder.GetInsertBlock();
-      llvm::BasicBlock *Cont = CGF.createBasicBlock("cont");
-      llvm::BasicBlock *CheckBitsShifted = CGF.createBasicBlock("check");
-      Builder.CreateCondBr(Valid, CheckBitsShifted, Cont);
+    if (CGF.SanOpts.has(SanitizerKind::ShiftExponent)) {
+      WidthMinusOne = GetWidthMinusOneValue(Ops.LHS, RHS);
+      llvm::Value *ValidExponent = Builder.CreateICmpULE(RHS, WidthMinusOne);
+      Checks.push_back(
+          std::make_pair(ValidExponent, SanitizerKind::ShiftExponent));
+    }
 
+    if (CGF.SanOpts.has(SanitizerKind::ShiftBase) &&
+        Ops.Ty->hasSignedIntegerRepresentation()) {
+      if (WidthMinusOne == nullptr)
+        WidthMinusOne = GetWidthMinusOneValue(Ops.LHS, RHS);
       // Check whether we are shifting any non-zero bits off the top of the
       // integer.
-      CGF.EmitBlock(CheckBitsShifted);
       llvm::Value *BitsShiftedOff =
         Builder.CreateLShr(Ops.LHS,
                            Builder.CreateSub(WidthMinusOne, RHS, "shl.zeros",
@@ -2693,19 +2702,14 @@ Value *ScalarExprEmitter::EmitShl(const BinOpInfo &Ops) {
         BitsShiftedOff = Builder.CreateLShr(BitsShiftedOff, One);
       }
       llvm::Value *Zero = llvm::ConstantInt::get(BitsShiftedOff->getType(), 0);
-      llvm::Value *SecondCheck = Builder.CreateICmpEQ(BitsShiftedOff, Zero);
-      CGF.EmitBlock(Cont);
-      llvm::PHINode *P = Builder.CreatePHI(Valid->getType(), 2);
-      P->addIncoming(Valid, Orig);
-      P->addIncoming(SecondCheck, CheckBitsShifted);
-      Valid = P;
+      llvm::Value *ValidBase = Builder.CreateICmpEQ(BitsShiftedOff, Zero);
+
+      Checks.push_back(std::make_pair(ValidBase, SanitizerKind::ShiftBase));
     }
 
-    EmitBinOpCheck(std::make_pair(Valid, SanitizerKind::Shift), Ops);
+    if (!Checks.empty())
+      EmitBinOpCheck(Checks, Ops);
   }
-  // OpenCL 6.3j: shift values are effectively % word size of LHS.
-  if (CGF.getLangOpts().OpenCL)
-    RHS = Builder.CreateAnd(RHS, GetWidthMinusOneValue(Ops.LHS, RHS), "shl.mask");
 
   return Builder.CreateShl(Ops.LHS, RHS, "shl");
 }
@@ -2717,17 +2721,17 @@ Value *ScalarExprEmitter::EmitShr(const BinOpInfo &Ops) {
   if (Ops.LHS->getType() != RHS->getType())
     RHS = Builder.CreateIntCast(RHS, Ops.LHS->getType(), false, "sh_prom");
 
-  if (CGF.SanOpts.has(SanitizerKind::Shift) && !CGF.getLangOpts().OpenCL &&
-      isa<llvm::IntegerType>(Ops.LHS->getType())) {
+  // OpenCL 6.3j: shift values are effectively % word size of LHS.
+  if (CGF.getLangOpts().OpenCL)
+    RHS =
+        Builder.CreateAnd(RHS, GetWidthMinusOneValue(Ops.LHS, RHS), "shr.mask");
+  else if (CGF.SanOpts.has(SanitizerKind::ShiftExponent) &&
+           isa<llvm::IntegerType>(Ops.LHS->getType())) {
     CodeGenFunction::SanitizerScope SanScope(&CGF);
     llvm::Value *Valid =
         Builder.CreateICmpULE(RHS, GetWidthMinusOneValue(Ops.LHS, RHS));
-    EmitBinOpCheck(std::make_pair(Valid, SanitizerKind::Shift), Ops);
+    EmitBinOpCheck(std::make_pair(Valid, SanitizerKind::ShiftExponent), Ops);
   }
-
-  // OpenCL 6.3j: shift values are effectively % word size of LHS.
-  if (CGF.getLangOpts().OpenCL)
-    RHS = Builder.CreateAnd(RHS, GetWidthMinusOneValue(Ops.LHS, RHS), "shr.mask");
 
   if (Ops.Ty->hasUnsignedIntegerRepresentation())
     return Builder.CreateLShr(Ops.LHS, RHS, "shr");
@@ -3043,7 +3047,7 @@ Value *ScalarExprEmitter::VisitBinLAnd(const BinaryOperator *E) {
   // Emit an unconditional branch from this block to ContBlock.
   {
     // There is no need to emit line number for unconditional branch.
-    ApplyDebugLocation DL(CGF);
+    auto NL = ApplyDebugLocation::CreateEmpty(CGF);
     CGF.EmitBlock(ContBlock);
   }
   // Insert an entry into the phi node for the edge with the value of RHSCond.
@@ -3393,13 +3397,8 @@ Value *CodeGenFunction::EmitScalarExpr(const Expr *E, bool IgnoreResultAssign) {
   assert(E && hasScalarEvaluationKind(E->getType()) &&
          "Invalid scalar expression to emit");
 
-  if (isa<CXXDefaultArgExpr>(E))
-    disableDebugInfo();
-  Value *V = ScalarExprEmitter(*this, IgnoreResultAssign)
-    .Visit(const_cast<Expr*>(E));
-  if (isa<CXXDefaultArgExpr>(E))
-    enableDebugInfo();
-  return V;
+  return ScalarExprEmitter(*this, IgnoreResultAssign)
+      .Visit(const_cast<Expr *>(E));
 }
 
 /// EmitScalarConversion - Emit a conversion from the specified type to the

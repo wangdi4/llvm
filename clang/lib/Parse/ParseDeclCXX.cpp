@@ -1310,11 +1310,19 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
     // is a base-specifier-list.
     ColonProtectionRAIIObject X(*this);
 
-    if (ParseOptionalCXXScopeSpecifier(SS, ParsedType(), EnteringContext))
+    CXXScopeSpec Spec;
+    bool HasValidSpec = true;
+    if (ParseOptionalCXXScopeSpecifier(Spec, ParsedType(), EnteringContext)) {
       DS.SetTypeSpecError();
-    if (SS.isSet())
-      if (Tok.isNot(tok::identifier) && Tok.isNot(tok::annot_template_id))
+      HasValidSpec = false;
+    }
+    if (Spec.isSet())
+      if (Tok.isNot(tok::identifier) && Tok.isNot(tok::annot_template_id)) {
         Diag(Tok, diag::err_expected) << tok::identifier;
+        HasValidSpec = false;
+      }
+    if (HasValidSpec)
+      SS = Spec;
   }
 
   TemplateParameterLists *TemplateParams = TemplateInfo.TemplateParams;
@@ -1882,51 +1890,40 @@ AccessSpecifier Parser::getAccessSpecifierIfPresent() const {
 /// the class definition.
 void Parser::HandleMemberFunctionDeclDelays(Declarator& DeclaratorInfo,
                                             Decl *ThisDecl) {
-  // We just declared a member function. If this member function
-  // has any default arguments or an exception-specification, we'll need to
-  // parse them later.
-  LateParsedMethodDeclaration *LateMethod = nullptr;
   DeclaratorChunk::FunctionTypeInfo &FTI
     = DeclaratorInfo.getFunctionTypeInfo();
+  // If there was a late-parsed exception-specification, we'll need a
+  // late parse
+  bool NeedLateParse = FTI.getExceptionSpecType() == EST_Unparsed;
 
-  // If there was a late-parsed exception-specification, hold onto its tokens.
-  if (FTI.getExceptionSpecType() == EST_Unparsed) {
+  if (!NeedLateParse) {
+    // Look ahead to see if there are any default args
+    for (unsigned ParamIdx = 0; ParamIdx < FTI.NumParams; ++ParamIdx) {
+      auto Param = cast<ParmVarDecl>(FTI.Params[ParamIdx].Param);
+      if (Param->hasUnparsedDefaultArg()) {
+        NeedLateParse = true;
+        break;
+      }
+    }
+  }
+
+  if (NeedLateParse) {
     // Push this method onto the stack of late-parsed method
     // declarations.
-    LateMethod = new LateParsedMethodDeclaration(this, ThisDecl);
+    auto LateMethod = new LateParsedMethodDeclaration(this, ThisDecl);
     getCurrentClass().LateParsedDeclarations.push_back(LateMethod);
     LateMethod->TemplateScope = getCurScope()->isTemplateParamScope();
 
-    // Stash the exception-specification tokens in the late-pased mthod.
+    // Stash the exception-specification tokens in the late-pased method.
     LateMethod->ExceptionSpecTokens = FTI.ExceptionSpecTokens;
     FTI.ExceptionSpecTokens = 0;
 
-    // Reserve space for the parameters.
+    // Push tokens for each parameter.  Those that do not have
+    // defaults will be NULL.
     LateMethod->DefaultArgs.reserve(FTI.NumParams);
-  }
-
-  for (unsigned ParamIdx = 0; ParamIdx < FTI.NumParams; ++ParamIdx) {
-    if (LateMethod || FTI.Params[ParamIdx].DefaultArgTokens) {
-      if (!LateMethod) {
-        // Push this method onto the stack of late-parsed method
-        // declarations.
-        LateMethod = new LateParsedMethodDeclaration(this, ThisDecl);
-        getCurrentClass().LateParsedDeclarations.push_back(LateMethod);
-        LateMethod->TemplateScope = getCurScope()->isTemplateParamScope();
-
-        // Add all of the parameters prior to this one (they don't
-        // have default arguments).
-        LateMethod->DefaultArgs.reserve(FTI.NumParams);
-        for (unsigned I = 0; I < ParamIdx; ++I)
-          LateMethod->DefaultArgs.push_back(
-              LateParsedDefaultArgument(FTI.Params[I].Param));
-      }
-
-      // Add this parameter to the list of parameters (it may or may
-      // not have a default argument).
+    for (unsigned ParamIdx = 0; ParamIdx < FTI.NumParams; ++ParamIdx)
       LateMethod->DefaultArgs.push_back(LateParsedDefaultArgument(
-          FTI.Params[ParamIdx].Param, FTI.Params[ParamIdx].DefaultArgTokens));
-    }
+        FTI.Params[ParamIdx].Param, FTI.Params[ParamIdx].DefaultArgTokens));
   }
 }
 
@@ -2533,8 +2530,8 @@ void Parser::ParseCXXClassMemberDeclaration(AccessSpecifier AS,
     // Parse the next declarator.
     DeclaratorInfo.clear();
     VS.clear();
-    BitfieldSize = nullptr;
-    Init = true;
+    BitfieldSize = ExprResult(/*Invalid=*/false);
+    Init = ExprResult(/*Invalid=*/false);
     HasInitializer = false;
     DeclaratorInfo.setCommaLoc(CommaLoc);
 
@@ -3478,7 +3475,6 @@ bool Parser::ParseCXX11AttributeArgs(IdentifierInfo *AttrName,
         // The attribute was allowed to have arguments, but none were provided
         // even though the attribute parsed successfully. This is an error.
         Diag(LParenLoc, diag::err_attribute_requires_arguments) << AttrName;
-        return false;
       } else if (!Attr->getMaxArgs()) {
         // The attribute parsed successfully, but was not allowed to have any
         // arguments. It doesn't matter whether any were provided -- the
@@ -3486,7 +3482,6 @@ bool Parser::ParseCXX11AttributeArgs(IdentifierInfo *AttrName,
         Diag(LParenLoc, diag::err_cxx11_attribute_forbids_arguments)
             << AttrName
             << FixItHint::CreateRemoval(SourceRange(LParenLoc, *EndLoc));
-        return false;
       }
     }
   }

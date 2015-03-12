@@ -86,7 +86,8 @@ void ShowStatsAndAbort() {
 
 // ---------------------- mmap -------------------- {{{1
 // Reserve memory range [beg, end].
-static void ReserveShadowMemoryRange(uptr beg, uptr end) {
+// We need to use inclusive range because end+1 may not be representable.
+void ReserveShadowMemoryRange(uptr beg, uptr end) {
   CHECK_EQ((beg % GetPageSizeCached()), 0);
   CHECK_EQ(((end + 1) % GetPageSizeCached()), 0);
   uptr size = end - beg + 1;
@@ -97,6 +98,10 @@ static void ReserveShadowMemoryRange(uptr beg, uptr end) {
            "Perhaps you're using ulimit -v\n", size);
     Abort();
   }
+  if (common_flags()->no_huge_pages_for_shadow)
+    NoHugePagesInRegion(beg, size);
+  if (common_flags()->use_madv_dontdump)
+    DontDumpShadowMemory(beg, size);
 }
 
 // --------------- LowLevelAllocateCallbac ---------- {{{1
@@ -242,7 +247,13 @@ static void InitializeHighMemEnd() {
 }
 
 static void ProtectGap(uptr a, uptr size) {
-  CHECK_EQ(a, (uptr)Mprotect(a, size));
+  void *res = Mprotect(a, size);
+  if (a == (uptr)res)
+    return;
+  Report("ERROR: Failed to protect the shadow gap. "
+         "ASan cannot proceed correctly. ABORTING.\n");
+  DumpProcessMap();
+  Die();
 }
 
 static void PrintAddressSpaceLayout() {
@@ -303,7 +314,7 @@ static void AsanInitInternal() {
 
   // Initialize flags. This must be done early, because most of the
   // initialization steps look at flags().
-  InitializeFlags(flags());
+  InitializeFlags();
 
   SetCanPoisonMemory(flags()->poison_heap);
   SetMallocContextSize(common_flags()->malloc_context_size);
@@ -353,8 +364,7 @@ static void AsanInitInternal() {
   }
 #endif
 
-  if (common_flags()->verbosity)
-    PrintAddressSpaceLayout();
+  if (Verbosity()) PrintAddressSpaceLayout();
 
   DisableCoreDumperIfNecessary();
 
@@ -384,6 +394,8 @@ static void AsanInitInternal() {
   } else {
     Report("Shadow memory range interleaves with an existing memory mapping. "
            "ASan cannot proceed correctly. ABORTING.\n");
+    Report("ASan shadow was supposed to be located in the [%p-%p] range.\n",
+           shadow_start, kHighShadowEnd);
     DumpProcessMap();
     Die();
   }
@@ -428,7 +440,7 @@ static void AsanInitInternal() {
   SanitizerInitializeUnwinder();
 
 #if CAN_SANITIZE_LEAKS
-  __lsan::InitCommonLsan(false);
+  __lsan::InitCommonLsan();
   if (common_flags()->detect_leaks && common_flags()->leak_check_at_exit) {
     Atexit(__lsan::DoLeakCheck);
   }

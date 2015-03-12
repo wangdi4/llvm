@@ -27,6 +27,16 @@
 
 #include "Utility/StringExtractorGDBRemote.h"
 
+typedef enum
+{
+    eStoppointInvalid = -1,
+    eBreakpointSoftware = 0,
+    eBreakpointHardware,
+    eWatchpointWrite,
+    eWatchpointRead,
+    eWatchpointReadWrite
+} GDBStoppointType;
+
 class ProcessGDBRemote;
 
 class GDBRemoteCommunication : public lldb_private::Communication
@@ -49,12 +59,25 @@ public:
         ErrorDisconnected,  // We were disconnected
         ErrorNoSequenceLock // We couldn't get the sequence lock for a multi-packet request
     };
+
+    // Class to change the timeout for a given scope and restore it to the original value when the
+    // created ScopedTimeout object got out of scope
+    class ScopedTimeout
+    {
+    public:
+        ScopedTimeout (GDBRemoteCommunication& gdb_comm, uint32_t timeout);
+        ~ScopedTimeout ();
+
+    private:
+        GDBRemoteCommunication& m_gdb_comm;
+        uint32_t m_saved_timeout;
+    };
+
     //------------------------------------------------------------------
     // Constructors and Destructors
     //------------------------------------------------------------------
     GDBRemoteCommunication(const char *comm_name, 
-                           const char *listener_name,
-                           bool is_platform);
+                           const char *listener_name);
 
     virtual
     ~GDBRemoteCommunication();
@@ -282,9 +305,8 @@ protected:
     ListenThread (lldb::thread_arg_t arg);
 
 private:
-  lldb_private::HostThread m_listen_thread;
+    lldb_private::HostThread m_listen_thread;
     std::string m_listen_url;
-    
 
     //------------------------------------------------------------------
     // For GDBRemoteCommunication only

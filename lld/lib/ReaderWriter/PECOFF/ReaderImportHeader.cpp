@@ -124,6 +124,7 @@
 #include "lld/Core/SharedLibraryAtom.h"
 #include "lld/ReaderWriter/PECOFFLinkingContext.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/Object/COFF.h"
 #include "llvm/Support/COFF.h"
 #include "llvm/Support/Casting.h"
@@ -141,6 +142,7 @@
 using namespace lld;
 using namespace lld::pecoff;
 using namespace llvm;
+using namespace llvm::support::endian;
 
 #define DEBUG_TYPE "ReaderImportHeader"
 
@@ -245,22 +247,20 @@ public:
     const char *end = _mb->getBufferEnd();
 
     // The size of the string that follows the header.
-    uint32_t dataSize = *reinterpret_cast<const support::ulittle32_t *>(
-        buf + offsetof(COFF::ImportHeader, SizeOfData));
+    uint32_t dataSize
+        = read32le(buf + offsetof(COFF::ImportHeader, SizeOfData));
 
     // Check if the total size is valid.
     if (std::size_t(end - buf) != sizeof(COFF::ImportHeader) + dataSize)
       return make_error_code(NativeReaderError::unknown_file_format);
 
-    uint16_t hint = *reinterpret_cast<const support::ulittle16_t *>(
-        buf + offsetof(COFF::ImportHeader, OrdinalHint));
+    uint16_t hint = read16le(buf + offsetof(COFF::ImportHeader, OrdinalHint));
     StringRef symbolName(buf + sizeof(COFF::ImportHeader));
     StringRef dllName(buf + sizeof(COFF::ImportHeader) + symbolName.size() + 1);
 
     // TypeInfo is a bitfield. The least significant 2 bits are import
     // type, followed by 3 bit import name type.
-    uint16_t typeInfo = *reinterpret_cast<const support::ulittle16_t *>(
-        buf + offsetof(COFF::ImportHeader, TypeInfo));
+    uint16_t typeInfo = read16le(buf + offsetof(COFF::ImportHeader, TypeInfo));
     int type = typeInfo & 0x3;
     int nameType = (typeInfo >> 2) & 0x7;
 

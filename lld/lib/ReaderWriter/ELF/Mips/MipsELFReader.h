@@ -17,15 +17,13 @@
 namespace lld {
 namespace elf {
 
-typedef llvm::object::ELFType<llvm::support::little, 2, false> Mips32ElELFType;
-
 struct MipsELFFileCreateTraits {
   typedef llvm::ErrorOr<std::unique_ptr<lld::File>> result_type;
 
   template <class ELFT>
   static result_type create(std::unique_ptr<llvm::MemoryBuffer> mb,
-                            bool atomizeStrings) {
-    return lld::elf::MipsELFFile<ELFT>::create(std::move(mb), atomizeStrings);
+                            MipsLinkingContext &ctx) {
+    return lld::elf::MipsELFFile<ELFT>::create(std::move(mb), ctx);
   }
 };
 
@@ -34,25 +32,27 @@ struct MipsDynamicFileCreateELFTraits {
 
   template <class ELFT>
   static result_type create(std::unique_ptr<llvm::MemoryBuffer> mb,
-                            bool useUndefines) {
-    return lld::elf::MipsDynamicFile<ELFT>::create(std::move(mb), useUndefines);
+                            MipsLinkingContext &ctx) {
+    return lld::elf::MipsDynamicFile<ELFT>::create(std::move(mb), ctx);
   }
 };
 
+template <class ELFT>
 class MipsELFObjectReader
-    : public ELFObjectReader<Mips32ElELFType, MipsELFFileCreateTraits> {
-  typedef ELFObjectReader<Mips32ElELFType, MipsELFFileCreateTraits>
+    : public ELFObjectReader<ELFT, MipsELFFileCreateTraits,
+                             MipsLinkingContext> {
+  typedef ELFObjectReader<ELFT, MipsELFFileCreateTraits, MipsLinkingContext>
       BaseReaderType;
 
 public:
-  MipsELFObjectReader(MipsLinkingContext &ctx, bool atomizeStrings)
-      : BaseReaderType(atomizeStrings, llvm::ELF::EM_MIPS),
+  MipsELFObjectReader(MipsLinkingContext &ctx)
+      : BaseReaderType(ctx, llvm::ELF::EM_MIPS),
         _flagMerger(ctx.getELFFlagsMerger()) {}
 
   std::error_code
   loadFile(std::unique_ptr<MemoryBuffer> mb, const Registry &registry,
            std::vector<std::unique_ptr<File>> &result) const override {
-    auto &hdr = *elfHeader(*mb);
+    auto &hdr = *this->elfHeader(*mb);
     if (std::error_code ec = _flagMerger.merge(hdr.getFileClass(), hdr.e_flags))
       return ec;
     return BaseReaderType::loadFile(std::move(mb), registry, result);
@@ -62,20 +62,22 @@ private:
   MipsELFFlagsMerger &_flagMerger;
 };
 
+template <class ELFT>
 class MipsELFDSOReader
-    : public ELFDSOReader<Mips32ElELFType, MipsDynamicFileCreateELFTraits> {
-  typedef ELFDSOReader<Mips32ElELFType, MipsDynamicFileCreateELFTraits>
+    : public ELFDSOReader<ELFT, MipsDynamicFileCreateELFTraits,
+                          MipsLinkingContext> {
+  typedef ELFDSOReader<ELFT, MipsDynamicFileCreateELFTraits, MipsLinkingContext>
       BaseReaderType;
 
 public:
-  MipsELFDSOReader(MipsLinkingContext &ctx, bool useUndefines)
-      : BaseReaderType(useUndefines, llvm::ELF::EM_MIPS),
+  MipsELFDSOReader(MipsLinkingContext &ctx)
+      : BaseReaderType(ctx, llvm::ELF::EM_MIPS),
         _flagMerger(ctx.getELFFlagsMerger()) {}
 
   std::error_code
   loadFile(std::unique_ptr<MemoryBuffer> mb, const Registry &registry,
            std::vector<std::unique_ptr<File>> &result) const override {
-    auto &hdr = *elfHeader(*mb);
+    auto &hdr = *this->elfHeader(*mb);
     if (std::error_code ec = _flagMerger.merge(hdr.getFileClass(), hdr.e_flags))
       return ec;
     return BaseReaderType::loadFile(std::move(mb), registry, result);

@@ -7,12 +7,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "lld/ReaderWriter/CoreLinkingContext.h"
+#include "lld/Core/DefinedAtom.h"
+#include "lld/Core/File.h"
 #include "lld/Core/Pass.h"
 #include "lld/Core/PassManager.h"
 #include "lld/Core/Simple.h"
-#include "lld/Passes/LayoutPass.h"
-#include "lld/Passes/RoundTripYAMLPass.h"
+#include "lld/ReaderWriter/CoreLinkingContext.h"
 #include "llvm/ADT/ArrayRef.h"
 
 using namespace lld;
@@ -145,15 +145,12 @@ private:
   uint32_t _ordinal;
 };
 
-class TestingPassFile : public SimpleFile {
+class OrderPass : public Pass {
 public:
-  TestingPassFile(const LinkingContext &ctx) : SimpleFile("Testing pass") {}
-
-  void addAtom(const Atom &atom) override {
-    if (const DefinedAtom *defAtom = dyn_cast<DefinedAtom>(&atom))
-      _definedAtoms._atoms.push_back(defAtom);
-    else
-      llvm_unreachable("atom has unknown definition kind");
+  /// Sorts atoms by position
+  void perform(std::unique_ptr<MutableFile> &file) override {
+    MutableFile::DefinedAtomRange defined = file->definedAtoms();
+    std::sort(defined.begin(), defined.end(), DefinedAtom::compareByPosition);
   }
 };
 
@@ -168,8 +165,8 @@ bool CoreLinkingContext::validateImpl(raw_ostream &) {
 
 void CoreLinkingContext::addPasses(PassManager &pm) {
   for (StringRef name : _passNames) {
-    if (name.equals("layout"))
-      pm.add(std::unique_ptr<Pass>(new LayoutPass(registry())));
+    if (name.equals("order"))
+      pm.add(std::unique_ptr<Pass>(new OrderPass()));
     else
       llvm_unreachable("bad pass name");
   }

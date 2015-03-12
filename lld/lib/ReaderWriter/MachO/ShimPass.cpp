@@ -33,7 +33,7 @@
 #include "lld/Core/Simple.h"
 #include "lld/ReaderWriter/MachOLinkingContext.h"
 #include "llvm/ADT/DenseMap.h"
-
+#include "llvm/ADT/STLExtras.h"
 
 namespace lld {
 namespace mach_o {
@@ -122,7 +122,7 @@ private:
 
 
 void addShimPass(PassManager &pm, const MachOLinkingContext &ctx) {
-  pm.add(std::unique_ptr<Pass>(new ShimPass(ctx)));
+  pm.add(llvm::make_unique<ShimPass>(ctx));
 }
 
 } // end namespace mach_o
