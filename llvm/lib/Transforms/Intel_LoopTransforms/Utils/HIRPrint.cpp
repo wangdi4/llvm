@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file is for Pretty Print HIR.
+// This file is for Pretty Printing HIR.
 //
 //===----------------------------------------------------------------------===//
 
@@ -42,8 +42,8 @@ struct HLNodePrinter {
   void visit(const HLLabel *Label);
   void visit(const HLGoto *Goto);
   void visit(const HLSwitch *Switch);
-  void visit(const HLIf *If){};
-  void postVisit(const HLIf *If){};
+  void visit(const HLIf *If);
+  void postVisit(const HLIf *If);
   bool isDone() const { return false; }
   HLNodePrinter() : Indent(0) {}
 
@@ -66,81 +66,69 @@ struct HLNodePrinter {
     return nullptr;
   }
 
-  void printCanon(CanonExpr *CE, int type);
-  void printCanonExpr(CanonExpr *CE);
+  void printCanonExpr(CanonExpr *CE, int type = BASE);
   void printRegDDRef(RegDDRef *Ref, const HLInst *Inst);
-  void printDDRefInst(DDRef *Ref, const HLInst *Inst);
-  void printDDRef(DDRef *Ref);
+  void printDDRef(DDRef *Ref, const HLInst *Inst = nullptr);
+  // void printDDRef(DDRef *Ref);
 };
 
-void HLNodePrinter::printCanon(CanonExpr *CE, int type) {
+void HLNodePrinter::printCanonExpr(CanonExpr *CE, int type) {
 
   int level = 1;
   bool printed = false;
+  if (CE->hasIV()) {
+    for (auto CurIVPair = CE->iv_cbegin(), E = CE->iv_cend(); CurIVPair != E;
+         CurIVPair++, level++) {
+      if (CurIVPair->Coeff != 0) {
+        if (printed)
+          OS << "+";
+        else
+          printed = true;
 
-  for (auto CurIVPair = CE->iv_cbegin(), E = CE->iv_cend(); CurIVPair != E;
-       CurIVPair++, level++) {
-    if (CurIVPair->Coeff != 0) {
-      if (CurIVPair->Coeff != 1)
-        OS << CurIVPair->Coeff << "*"
-           << "i" << level;
-      else
+        if (CurIVPair->Coeff != 1) {
+          OS << CurIVPair->Coeff << "*";
+        }
         OS << "i" << level;
-
-      if (printed)
-        OS << "+";
-      else
-        printed = true;
+      }
     }
   }
+
+  if (CE->hasBlob()) {
+    for (auto BlobPair = CE->blob_cbegin(), E = CE->blob_cend(); BlobPair != E;
+         BlobPair++) {
+
+      if (BlobPair->Coeff != 0) {
+        if (printed)
+          OS << "+";
+        else
+          printed = true;
+
+        if (BlobPair->Coeff != 1) {
+          OS << BlobPair->Coeff << "*";
+        }
+        OS << getBlobSCEV(BlobPair->Index);
+      }
+    }
+  }
+
   int C0 = CE->getConstant();
-  if (C0 != 0) {
+  if (C0 != 0 || !printed) {
     if (printed)
       OS << "+" << C0;
     else
       OS << C0;
   }
-
-  if (CE->hasBlob()) {
-
-    for (auto BlobPair = CE->blob_cbegin(), E = CE->blob_cend(); BlobPair != E;
-         BlobPair++) {
-
-      if (BlobPair->Coeff != 0) {
-        if (BlobPair->Coeff != 1) {
-          OS << BlobPair->Coeff << "*";
-          OS << getBlobSCEV(BlobPair->Index);
-        }
-        OS << getBlobSCEV(BlobPair->Index);
-        if (printed)
-          OS << "+";
-        else
-          printed = true;
-      }
-    }
-  }
-}
-
-void HLNodePrinter::printCanonExpr(CanonExpr *CE) {
-
-  int64_t x = 0;
-  x = CE->getConstant();
-  OS << x;
 }
 
 void HLNodePrinter::printRegDDRef(RegDDRef *Ref, const HLInst *Inst) {
 
-  Instruction *I = const_cast<Instruction *>(Inst->getLLVMInstruction());
-
-  StoreInst *storeI = dyn_cast<StoreInst>(I);
-
   // TBC: get baseCE, then blobidx to get blob name
+  // Instruction *I =  const_cast<Instruction *>(Inst->getLLVMInstruction());
+  // StoreInst *storeI = dyn_cast<StoreInst>(I);
   // waiting for real Blob table to be created
 
   if (Ref->hasGEPInfo()) {
-
-    printCanon(Ref->getBaseCE(), BASE);
-
+    printCanonExpr(Ref->getBaseCE(), BASE);
     OS << "[";
   }
 
@@ -156,7 +144,7 @@ void HLNodePrinter::printRegDDRef(RegDDRef *Ref, const HLInst *Inst) {
       if (afterFirstSubs) {
         OS << "[";
       }
-      printCanon(*CE, SUBSCRIPT);
+      printCanonExpr(*CE, SUBSCRIPT);
       afterFirstSubs = true;
     }
   }
@@ -166,27 +154,20 @@ void HLNodePrinter::printRegDDRef(RegDDRef *Ref, const HLInst *Inst) {
   }
 }
 
-void HLNodePrinter::printDDRefInst(DDRef *Ref, const HLInst *Inst) {
+void HLNodePrinter::printDDRef(DDRef *Ref, const HLInst *Inst) {
+
+  RegDDRef *RegRef;
 
   if (ConstDDRef *CRef = dyn_cast<ConstDDRef>(Ref)) {
     printCanonExpr(CRef->getCanonExpr());
   } else if (BlobDDRef *BRef = dyn_cast<BlobDDRef>(Ref)) {
     printCanonExpr(BRef->getCanonExpr());
-  } else if (RegDDRef *RegRef = dyn_cast<RegDDRef>(Ref)) {
+  } else if (Inst && (RegRef = dyn_cast<RegDDRef>(Ref))) {
     printRegDDRef(RegRef, Inst);
-  }
-}
-
-void HLNodePrinter::printDDRef(DDRef *Ref) {
-
-  if (ConstDDRef *CRef = dyn_cast<ConstDDRef>(Ref)) {
-    printCanonExpr(CRef->getCanonExpr());
-  } else if (BlobDDRef *BRef = dyn_cast<BlobDDRef>(Ref)) {
-    printCanonExpr(BRef->getCanonExpr());
-  } else if (RegDDRef *RegRef = dyn_cast<RegDDRef>(Ref)) {
+  } else if ((RegRef = dyn_cast<RegDDRef>(Ref))) {
     for (auto CE = RegRef->canon_begin(), E = RegRef->canon_end(); CE != E;
          CE++) {
-      printCanon(*CE, SUBSCRIPT);
+      printCanonExpr(*CE, SUBSCRIPT);
     }
   }
 }
@@ -209,11 +190,20 @@ void HLNodePrinter::postVisit(const HLLoop *Loop) {
   loopLevel -= 1;
 }
 
-void HLNodePrinter::visit(const HLLabel *Label) { OS << "Label?\n"; }
+void HLNodePrinter::visit(const HLLabel *Label) {
+  OS << "Label print not done!\n";
+}
 
-void HLNodePrinter::visit(const HLGoto *Goto) { OS << "goto?\n"; }
+void HLNodePrinter::visit(const HLGoto *Goto) { OS << "goto print not done\n"; }
 
-void HLNodePrinter::visit(const HLSwitch *Switch) { OS << "switch?\n"; }
+void HLNodePrinter::visit(const HLSwitch *Switch) {
+  OS << "switch print not done\n";
+}
+
+void HLNodePrinter::visit(const HLIf *If) { OS << "if  print not done\n"; }
+void HLNodePrinter::postVisit(const HLIf *If) {
+  OS << "postif  print not done\n";
+}
 
 void HLNodePrinter::visit(const HLLoop *Loop) {
 
@@ -252,17 +242,19 @@ void HLNodePrinter::visit(const HLInst *Inst) {
   }
 
   printIndentSpaces();
-  printIndentLoop(false);
+  if (loopLevel > 0)
+    printIndentLoop(false);
+
   OS << "  ";
 
   if (isa<StoreInst>(*I)) {
-    printDDRefInst(ddref[1], Inst);
+    printDDRef(ddref[1], Inst);
     OS << " = ";
-    printDDRefInst(ddref[0], Inst);
+    printDDRef(ddref[0], Inst);
   } else if (isa<LoadInst>(*I)) {
-    printDDRefInst(ddref[0], Inst);
+    printDDRef(ddref[0], Inst);
     OS << " = ";
-    printDDRefInst(ddref[1], Inst);
+    printDDRef(ddref[1], Inst);
   } else {
     i = 0;
     for (auto R = Inst->ddref_begin(), E = Inst->ddref_end(); R != E;
@@ -270,7 +262,7 @@ void HLNodePrinter::visit(const HLInst *Inst) {
       if (i > 1) {
         OS << " , ";
       }
-      printDDRefInst(ddref[i], Inst);
+      printDDRef(ddref[i], Inst);
       if (i == 0) {
         OS << " = " << I->getOpcodeName() << " ";
       }
@@ -283,15 +275,7 @@ void HLNodePrinter::visit(const HLInst *Inst) {
 void HLNode::print() const {
 
   HLNodePrinter HIRP;
+  HIRP.loopLevel = 0;
 
-  if (isa<HLRegion>(this)) {
-    auto Reg = cast<HLRegion>(this);
-    HLNodeUtils::visit<HLNodePrinter>(&HIRP, const_cast<HLRegion *>(Reg));
-  } else if (isa<HLLoop>(this)) {
-    auto L = cast<HLLoop>(this);
-    HLNodeUtils::visit<HLNodePrinter>(&HIRP, const_cast<HLLoop *>(L));
-  } else if (isa<HLInst>(this)) {
-    auto Inst = cast<HLInst>(this);
-    HLNodeUtils::visit<HLNodePrinter>(&HIRP, const_cast<HLInst *>(Inst));
-  }
+  HLNodeUtils::visit<HLNodePrinter>(&HIRP, const_cast<HLNode *>(this));
 }
