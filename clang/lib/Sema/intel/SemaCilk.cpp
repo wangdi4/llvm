@@ -3449,7 +3449,7 @@ ExprResult Sema::ActOnCEANBuiltinExpr(Scope *S, SourceLocation StartLoc,
           }
           ExprResult MemberExpr = ActOnMemberAccessExpr(
               S, Return, ULE->getNameLoc(), tok::period, SS,
-              ULE->getTemplateKeywordLoc(), Name, 0, true);
+              ULE->getTemplateKeywordLoc(), Name, nullptr);
           if (MemberExpr.isInvalid())
             return ExprError();
           CallArgs.clear();
@@ -3555,7 +3555,7 @@ ExprResult Sema::ActOnCEANBuiltinExpr(Scope *S, SourceLocation StartLoc,
         }
         ExprResult MemberExpr = ActOnMemberAccessExpr(
             S, Args[0], ULE->getNameLoc(), tok::period, SS,
-            ULE->getTemplateKeywordLoc(), Name, 0, true);
+            ULE->getTemplateKeywordLoc(), Name, nullptr);
         if (MemberExpr.isInvalid())
           return ExprError();
         CallArgs.clear();

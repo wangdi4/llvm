@@ -50,6 +50,7 @@ CodeGenFunction::CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext)
       LambdaThisCaptureField(nullptr), NormalCleanupDest(nullptr),
       NextCleanupDestIndex(1), FirstBlockInfo(nullptr), EHResumeBlock(nullptr),
       ExceptionSlot(nullptr), EHSelectorSlot(nullptr),
+      AbnormalTerminationSlot(nullptr), SEHPointersDecl(nullptr),
       DebugInfo(CGM.getModuleDebugInfo()), DisableDebugInfo(false),
       DidCallStackSave(false), IndirectBranch(nullptr), PGO(cgm),
       SwitchInsn(nullptr), SwitchWeights(nullptr), CaseRangeBlock(nullptr),
@@ -92,7 +93,7 @@ CodeGenFunction::~CodeGenFunction() {
   delete CurCGCilkImplicitSyncInfo;
 #endif
   if (getLangOpts().OpenMP) {
-    CGM.getOpenMPRuntime().FunctionFinished(*this);
+    CGM.getOpenMPRuntime().functionFinished(*this);
   }
 }
 
@@ -253,8 +254,6 @@ void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
   // edges will be *really* confused.
   bool EmitRetDbgLoc = true;
   if (EHStack.stable_begin() != PrologueCleanupDepth) {
-    PopCleanupBlocks(PrologueCleanupDepth);
-
     // Make sure the line table doesn't jump back into the body for
     // the ret after it's been at EndLoc.
     EmitRetDbgLoc = false;
@@ -262,6 +261,8 @@ void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
     if (CGDebugInfo *DI = getDebugInfo())
       if (OnlySimpleReturnStmts)
         DI->EmitLocation(Builder, EndLoc);
+
+    PopCleanupBlocks(PrologueCleanupDepth);
   }
 
   // Emit function epilog (to return).
@@ -831,6 +832,9 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
                                           const FunctionDecl *UnsizedDealloc) {
   // This is a weak discardable definition of the sized deallocation function.
   CGF.CurFn->setLinkage(llvm::Function::LinkOnceAnyLinkage);
+  if (CGF.CGM.supportsCOMDAT())
+    CGF.CurFn->setComdat(
+        CGF.CGM.getModule().getOrInsertComdat(CGF.CurFn->getName()));
 
   // Call the unsized deallocation function and forward the first argument
   // unchanged.
@@ -916,8 +920,11 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
   } else if (FunctionDecl *UnsizedDealloc =
                  FD->getCorrespondingUnsizedGlobalDeallocationFunction()) {
     // Global sized deallocation functions get an implicit weak definition if
-    // they don't have an explicit definition.
+    // they don't have an explicit definition, if allowed.
+    assert(getLangOpts().DefineSizedDeallocation &&
+           "Can't emit unallowed definition.");
     EmitSizedDeallocationFunction(*this, UnsizedDealloc);
+
   } else
     llvm_unreachable("no definition for emitted function");
 
@@ -1088,8 +1095,11 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
       uint64_t RHSCount = Cnt.getCount();
 
       ConditionalEvaluation eval(*this);
-      EmitBranchOnBoolExpr(CondBOp->getLHS(), LHSTrue, FalseBlock, RHSCount);
-      EmitBlock(LHSTrue);
+      {
+        ApplyDebugLocation DL(*this, Cond);
+        EmitBranchOnBoolExpr(CondBOp->getLHS(), LHSTrue, FalseBlock, RHSCount);
+        EmitBlock(LHSTrue);
+      }
 
       // Any temporaries created here are conditional.
       Cnt.beginRegion(Builder);
@@ -1133,8 +1143,11 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
       uint64_t RHSCount = TrueCount - LHSCount;
 
       ConditionalEvaluation eval(*this);
-      EmitBranchOnBoolExpr(CondBOp->getLHS(), TrueBlock, LHSFalse, LHSCount);
-      EmitBlock(LHSFalse);
+      {
+        ApplyDebugLocation DL(*this, Cond);
+        EmitBranchOnBoolExpr(CondBOp->getLHS(), TrueBlock, LHSFalse, LHSCount);
+        EmitBlock(LHSFalse);
+      }
 
       // Any temporaries created here are conditional.
       Cnt.beginRegion(Builder);
@@ -1181,8 +1194,11 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
     cond.begin(*this);
     EmitBlock(LHSBlock);
     Cnt.beginRegion(Builder);
-    EmitBranchOnBoolExpr(CondOp->getLHS(), TrueBlock, FalseBlock,
-                         LHSScaledTrueCount);
+    {
+      ApplyDebugLocation DL(*this, Cond);
+      EmitBranchOnBoolExpr(CondOp->getLHS(), TrueBlock, FalseBlock,
+                           LHSScaledTrueCount);
+    }
     cond.end(*this);
 
     cond.begin(*this);
@@ -1211,7 +1227,11 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
                                                   CurrentCount - TrueCount);
 
   // Emit the code with the fully general case.
-  llvm::Value *CondV = EvaluateExprAsBool(Cond);
+  llvm::Value *CondV;
+  {
+    ApplyDebugLocation DL(*this, Cond);
+    CondV = EvaluateExprAsBool(Cond);
+  }
   Builder.CreateCondBr(CondV, TrueBlock, FalseBlock, Weights);
 }
 

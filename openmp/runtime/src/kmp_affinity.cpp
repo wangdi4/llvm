@@ -1,7 +1,5 @@
 /*
  * kmp_affinity.cpp -- affinity management
- * $Revision: 43473 $
- * $Date: 2014-09-26 15:02:57 -0500 (Fri, 26 Sep 2014) $
  */
 
 
@@ -85,7 +83,7 @@ __kmp_affinity_entire_machine_mask(kmp_affin_mask_t *mask)
 {
     KMP_CPU_ZERO(mask);
 
-# if KMP_OS_WINDOWS && KMP_ARCH_X86_64
+# if KMP_GROUP_AFFINITY
 
     if (__kmp_num_proc_groups > 1) {
         int group;
@@ -100,7 +98,7 @@ __kmp_affinity_entire_machine_mask(kmp_affin_mask_t *mask)
     }
     else
 
-# endif /* KMP_OS_WINDOWS && KMP_ARCH_X86_64 */
+# endif /* KMP_GROUP_AFFINITY */
 
     {
         int proc;
@@ -352,6 +350,10 @@ public:
     hierarchy_info() : depth(1), uninitialized(true) {}
     void init(AddrUnsPair *adr2os, int num_addrs)
     {
+        /* Added explicit initialization of the depth here to prevent usage of dirty value
+           observed when static library is re-initialized multiple times (e.g. when
+           non-OpenMP thread repeatedly launches/joins thread that uses OpenMP). */
+        depth = 1;
         uninitialized = false;
         for (kmp_uint32 i=0; i<maxLevels; ++i) { // init numPerLevel[*] to 1 item per level
             numPerLevel[i] = 1;
@@ -485,7 +487,10 @@ __kmp_affinity_get_fullMask() { return fullMask; }
 
 
 static int nCoresPerPkg, nPackages;
-int __kmp_nThreadsPerCore;
+static int __kmp_nThreadsPerCore;
+#ifndef KMP_DFLT_NTH_CORES
+static int __kmp_ncores;
+#endif
 
 //
 // __kmp_affinity_uniform_topology() doesn't work when called from
@@ -556,14 +561,13 @@ __kmp_affinity_create_flat_map(AddrUnsPair **address2os,
 
     //
     // Even if __kmp_affinity_type == affinity_none, this routine might still
-    // called to set __kmp_ht_enabled, & __kmp_ncores, as well as
+    // called to set __kmp_ncores, as well as
     // __kmp_nThreadsPerCore, nCoresPerPkg, & nPackages.
     //
     if (! KMP_AFFINITY_CAPABLE()) {
         KMP_ASSERT(__kmp_affinity_type == affinity_none);
         __kmp_ncores = nPackages = __kmp_xproc;
         __kmp_nThreadsPerCore = nCoresPerPkg = 1;
-        __kmp_ht_enabled = FALSE;
         if (__kmp_affinity_verbose) {
             KMP_INFORM(AffFlatTopology, "KMP_AFFINITY");
             KMP_INFORM(AvailableOSProc, "KMP_AFFINITY", __kmp_avail_proc);
@@ -576,13 +580,12 @@ __kmp_affinity_create_flat_map(AddrUnsPair **address2os,
 
     //
     // When affinity is off, this routine will still be called to set
-    // __kmp_ht_enabled, & __kmp_ncores, as well as __kmp_nThreadsPerCore,
+    // __kmp_ncores, as well as __kmp_nThreadsPerCore,
     // nCoresPerPkg, & nPackages.  Make sure all these vars are set
     //  correctly, and return now if affinity is not enabled.
     //
     __kmp_ncores = nPackages = __kmp_avail_proc;
     __kmp_nThreadsPerCore = nCoresPerPkg = 1;
-    __kmp_ht_enabled = FALSE;
     if (__kmp_affinity_verbose) {
         char buf[KMP_AFFIN_MASK_PRINT_LEN];
         __kmp_affinity_print_mask(buf, KMP_AFFIN_MASK_PRINT_LEN, fullMask);
@@ -641,7 +644,7 @@ __kmp_affinity_create_flat_map(AddrUnsPair **address2os,
 }
 
 
-# if KMP_OS_WINDOWS && KMP_ARCH_X86_64
+# if KMP_GROUP_AFFINITY
 
 //
 // If multiple Windows* OS processor groups exist, we can create a 2-level
@@ -723,7 +726,7 @@ __kmp_affinity_create_proc_group_map(AddrUnsPair **address2os,
     return 2;
 }
 
-# endif /* KMP_OS_WINDOWS && KMP_ARCH_X86_64 */
+# endif /* KMP_GROUP_AFFINITY */
 
 
 # if KMP_ARCH_X86 || KMP_ARCH_X86_64
@@ -786,33 +789,27 @@ static int
 __kmp_affinity_create_apicid_map(AddrUnsPair **address2os,
   kmp_i18n_id_t *const msg_id)
 {
+    kmp_cpuid buf;
     int rc;
     *address2os = NULL;
     *msg_id = kmp_i18n_null;
 
-#  if KMP_MIC
-    {
-        // The code below will use cpuid(4).
-        // Check if cpuid(4) is supported.
-        // FIXME? - this really doesn't need to be specific to MIC.
-        kmp_cpuid buf;
+    //
+    // Check if cpuid leaf 4 is supported.
+    //
         __kmp_x86_cpuid(0, 0, &buf);
         if (buf.eax < 4) {
             *msg_id = kmp_i18n_str_NoLeaf4Support;
             return -1;
         }
-    }
-#  endif // KMP_MIC
 
     //
-    // Even if __kmp_affinity_type == affinity_none, this routine is still
-    // called to set __kmp_ht_enabled, & __kmp_ncores, as well as
-    // __kmp_nThreadsPerCore, nCoresPerPkg, & nPackages.
-    //
     // The algorithm used starts by setting the affinity to each available
-    // thread and retreiving info from the cpuid instruction, so if we are not
-    // capable of calling __kmp_affinity_get_map()/__kmp_affinity_get_map(),
-    // then we need to do something else.
+    // thread and retrieving info from the cpuid instruction, so if we are
+    // not capable of calling __kmp_get_system_affinity() and
+    // _kmp_get_system_affinity(), then we need to do something else - use
+    // the defaults that we calculated from issuing cpuid without binding
+    // to each proc.
     //
     if (! KMP_AFFINITY_CAPABLE()) {
         //
@@ -829,7 +826,6 @@ __kmp_affinity_create_apicid_map(AddrUnsPair **address2os,
         // but is disabled, this value will be 2 on a single core chip.
         // Usually, it will be 2 if HT is enabled and 1 if HT is disabled.
         //
-        kmp_cpuid buf;
         __kmp_x86_cpuid(1, 0, &buf);
         int maxThreadsPerPkg = (buf.ebx >> 16) & 0xff;
         if (maxThreadsPerPkg == 0) {
@@ -878,7 +874,6 @@ __kmp_affinity_create_apicid_map(AddrUnsPair **address2os,
         __kmp_ncores = __kmp_xproc;
         nPackages = (__kmp_xproc + nCoresPerPkg - 1) / nCoresPerPkg;
         __kmp_nThreadsPerCore = 1;
-        __kmp_ht_enabled = FALSE;
         if (__kmp_affinity_verbose) {
             KMP_INFORM(AffNotCapableUseLocCpuid, "KMP_AFFINITY");
             KMP_INFORM(AvailableOSProc, "KMP_AFFINITY", __kmp_avail_proc);
@@ -959,7 +954,6 @@ __kmp_affinity_create_apicid_map(AddrUnsPair **address2os,
         //
         // The apic id and max threads per pkg come from cpuid(1).
         //
-        kmp_cpuid buf;
         __kmp_x86_cpuid(1, 0, &buf);
         if (! (buf.edx >> 9) & 1) {
             __kmp_set_system_affinity(oldMask, TRUE);
@@ -1045,7 +1039,6 @@ __kmp_affinity_create_apicid_map(AddrUnsPair **address2os,
     if (nApics == 1) {
         __kmp_ncores = nPackages = 1;
         __kmp_nThreadsPerCore = nCoresPerPkg = 1;
-        __kmp_ht_enabled = FALSE;
         if (__kmp_affinity_verbose) {
             char buf[KMP_AFFIN_MASK_PRINT_LEN];
             __kmp_affinity_print_mask(buf, KMP_AFFIN_MASK_PRINT_LEN, oldMask);
@@ -1182,11 +1175,10 @@ __kmp_affinity_create_apicid_map(AddrUnsPair **address2os,
 
     //
     // When affinity is off, this routine will still be called to set
-    // __kmp_ht_enabled, & __kmp_ncores, as well as __kmp_nThreadsPerCore,
+    // __kmp_ncores, as well as __kmp_nThreadsPerCore,
     // nCoresPerPkg, & nPackages.  Make sure all these vars are set
     // correctly, and return now if affinity is not enabled.
     //
-    __kmp_ht_enabled = (__kmp_nThreadsPerCore > 1);
     __kmp_ncores = nCores;
     if (__kmp_affinity_verbose) {
         char buf[KMP_AFFIN_MASK_PRINT_LEN];
@@ -1402,10 +1394,11 @@ __kmp_affinity_create_x2apicid_map(AddrUnsPair **address2os,
 
     //
     // The algorithm used starts by setting the affinity to each available
-    // thread and retrieving info from the cpuid instruction, so if we are not
-    // capable of calling __kmp_affinity_get_map()/__kmp_affinity_get_map(),
-    // then we need to do something else - use the defaults that we calculated
-    // from issuing cpuid without binding to each proc.
+    // thread and retrieving info from the cpuid instruction, so if we are
+    // not capable of calling __kmp_get_system_affinity() and
+    // _kmp_get_system_affinity(), then we need to do something else - use
+    // the defaults that we calculated from issuing cpuid without binding
+    // to each proc.
     //
     if (! KMP_AFFINITY_CAPABLE())
     {
@@ -1417,7 +1410,6 @@ __kmp_affinity_create_x2apicid_map(AddrUnsPair **address2os,
 
         __kmp_ncores = __kmp_xproc / __kmp_nThreadsPerCore;
         nPackages = (__kmp_xproc + nCoresPerPkg - 1) / nCoresPerPkg;
-        __kmp_ht_enabled = (__kmp_nThreadsPerCore > 1);
         if (__kmp_affinity_verbose) {
             KMP_INFORM(AffNotCapableUseLocCpuidL11, "KMP_AFFINITY");
             KMP_INFORM(AvailableOSProc, "KMP_AFFINITY", __kmp_avail_proc);
@@ -1517,7 +1509,6 @@ __kmp_affinity_create_x2apicid_map(AddrUnsPair **address2os,
     if (nApics == 1) {
         __kmp_ncores = nPackages = 1;
         __kmp_nThreadsPerCore = nCoresPerPkg = 1;
-        __kmp_ht_enabled = FALSE;
         if (__kmp_affinity_verbose) {
             char buf[KMP_AFFIN_MASK_PRINT_LEN];
             __kmp_affinity_print_mask(buf, KMP_AFFIN_MASK_PRINT_LEN, oldMask);
@@ -1625,7 +1616,7 @@ __kmp_affinity_create_x2apicid_map(AddrUnsPair **address2os,
 
     //
     // When affinity is off, this routine will still be called to set
-    // __kmp_ht_enabled, & __kmp_ncores, as well as __kmp_nThreadsPerCore,
+    // __kmp_ncores, as well as __kmp_nThreadsPerCore,
     // nCoresPerPkg, & nPackages.  Make sure all these vars are set
     // correctly, and return if affinity is not enabled.
     //
@@ -1635,8 +1626,6 @@ __kmp_affinity_create_x2apicid_map(AddrUnsPair **address2os,
     else {
         __kmp_nThreadsPerCore = 1;
     }
-    __kmp_ht_enabled = (__kmp_nThreadsPerCore > 1);
-
     nPackages = totals[pkgLevel];
 
     if (coreLevel >= 0) {
@@ -2134,7 +2123,6 @@ __kmp_affinity_create_cpuinfo_map(AddrUnsPair **address2os, int *line,
     if (num_avail == 1) {
         __kmp_ncores = 1;
         __kmp_nThreadsPerCore = nCoresPerPkg = nPackages = 1;
-        __kmp_ht_enabled = FALSE;
         if (__kmp_affinity_verbose) {
             if (! KMP_AFFINITY_CAPABLE()) {
                 KMP_INFORM(AffNotCapableUseCpuinfo, "KMP_AFFINITY");
@@ -2375,11 +2363,10 @@ __kmp_affinity_create_cpuinfo_map(AddrUnsPair **address2os, int *line,
 
     //
     // When affinity is off, this routine will still be called to set
-    // __kmp_ht_enabled, & __kmp_ncores, as well as __kmp_nThreadsPerCore,
+    // __kmp_ncores, as well as __kmp_nThreadsPerCore,
     // nCoresPerPkg, & nPackages.  Make sure all these vars are set
     // correctly, and return now if affinity is not enabled.
     //
-    __kmp_ht_enabled = (maxCt[threadIdIndex] > 1); // threads per core > 1
     __kmp_ncores = totals[coreIdIndex];
 
     if (__kmp_affinity_verbose) {
@@ -3344,9 +3331,6 @@ __kmp_affinity_process_placelist(kmp_affin_mask_t **out_masks,
 #undef ADD_MASK
 #undef ADD_MASK_OSID
 
-
-# if KMP_MIC
-
 static void
 __kmp_apply_thread_places(AddrUnsPair **pAddr, int depth)
 {
@@ -3367,7 +3351,7 @@ __kmp_apply_thread_places(AddrUnsPair **pAddr, int depth)
     if ( __kmp_place_num_threads_per_core == 0 ) {
         __kmp_place_num_threads_per_core = __kmp_nThreadsPerCore;  // use all HW contexts
     }
-    if ( __kmp_place_core_offset + __kmp_place_num_cores > nCoresPerPkg ) {
+    if ( __kmp_place_core_offset + __kmp_place_num_cores > (unsigned int)nCoresPerPkg ) {
         KMP_WARNING( AffThrPlaceManyCores );
         return;
     }
@@ -3377,11 +3361,11 @@ __kmp_apply_thread_places(AddrUnsPair **pAddr, int depth)
     int i, j, k, n_old = 0, n_new = 0;
     for ( i = 0; i < nPackages; ++i ) {
         for ( j = 0; j < nCoresPerPkg; ++j ) {
-            if ( j < __kmp_place_core_offset || j >= __kmp_place_core_offset + __kmp_place_num_cores ) {
+            if ( (unsigned int)j < __kmp_place_core_offset || (unsigned int)j >= __kmp_place_core_offset + __kmp_place_num_cores ) {
                 n_old += __kmp_nThreadsPerCore;   // skip not-requested core
             } else {
                 for ( k = 0; k < __kmp_nThreadsPerCore; ++k ) {
-                    if ( k < __kmp_place_num_threads_per_core ) {
+                    if ( (unsigned int)k < __kmp_place_num_threads_per_core ) {
                         newAddr[n_new] = (*pAddr)[n_old];   // copy requested core' data to new location
                         n_new++;
                     }
@@ -3398,8 +3382,6 @@ __kmp_apply_thread_places(AddrUnsPair **pAddr, int depth)
     __kmp_free( *pAddr );
     *pAddr = newAddr;      // replace old topology with new one
 }
-
-# endif /* KMP_MIC */
 
 
 static AddrUnsPair *address2os = NULL;
@@ -3541,7 +3523,7 @@ __kmp_aux_affinity_initialize(void)
 
 # endif /* KMP_OS_LINUX */
 
-# if KMP_OS_WINDOWS && KMP_ARCH_X86_64
+# if KMP_GROUP_AFFINITY
 
         if ((depth < 0) && (__kmp_num_proc_groups > 1)) {
             if (__kmp_affinity_verbose) {
@@ -3552,7 +3534,7 @@ __kmp_aux_affinity_initialize(void)
             KMP_ASSERT(depth != 0);
         }
 
-# endif /* KMP_OS_WINDOWS && KMP_ARCH_X86_64 */
+# endif /* KMP_GROUP_AFFINITY */
 
         if (depth < 0) {
             if (__kmp_affinity_verbose && (msg_id != kmp_i18n_null)) {
@@ -3678,7 +3660,7 @@ __kmp_aux_affinity_initialize(void)
         }
     }
 
-# if KMP_OS_WINDOWS && KMP_ARCH_X86_64
+# if KMP_GROUP_AFFINITY
 
     else if (__kmp_affinity_top_method == affinity_top_method_group) {
         if (__kmp_affinity_verbose) {
@@ -3693,7 +3675,7 @@ __kmp_aux_affinity_initialize(void)
         }
     }
 
-# endif /* KMP_OS_WINDOWS && KMP_ARCH_X86_64 */
+# endif /* KMP_GROUP_AFFINITY */
 
     else if (__kmp_affinity_top_method == affinity_top_method_flat) {
         if (__kmp_affinity_verbose) {
@@ -3722,9 +3704,7 @@ __kmp_aux_affinity_initialize(void)
         return;
     }
 
-# if KMP_MIC
     __kmp_apply_thread_places(&address2os, depth);
-# endif
 
     //
     // Create the table of masks, indexed by thread Id.
@@ -3820,7 +3800,7 @@ __kmp_aux_affinity_initialize(void)
         goto sortAddresses;
 
         case affinity_balanced:
-        // Balanced works only for the case of a single package
+        // Balanced works only for the case of a single package and uniform topology
         if( nPackages > 1 ) {
             if( __kmp_affinity_verbose || __kmp_affinity_warnings ) {
                 KMP_WARNING( AffBalancedNotAvail, "KMP_AFFINITY" );
@@ -4019,7 +3999,7 @@ __kmp_affinity_set_init_mask(int gtid, int isa_root)
     {
         if ((__kmp_affinity_type == affinity_none) || (__kmp_affinity_type == affinity_balanced)
           ) {
-# if KMP_OS_WINDOWS && KMP_ARCH_X86_64
+# if KMP_GROUP_AFFINITY
             if (__kmp_num_proc_groups > 1) {
                 return;
             }
@@ -4038,7 +4018,7 @@ __kmp_affinity_set_init_mask(int gtid, int isa_root)
     else {
         if ((! isa_root)
           || (__kmp_nested_proc_bind.bind_types[0] == proc_bind_false)) {
-#  if KMP_OS_WINDOWS && KMP_ARCH_X86_64
+#  if KMP_GROUP_AFFINITY
             if (__kmp_num_proc_groups > 1) {
                 return;
             }
@@ -4206,11 +4186,11 @@ __kmp_aux_set_affinity(void **mask)
                 KMP_FATAL(AffinityInvalidMask, "kmp_set_affinity");
             }
 
-# if KMP_OS_WINDOWS && KMP_ARCH_X86_64
+# if KMP_GROUP_AFFINITY
             if (__kmp_get_proc_group((kmp_affin_mask_t *)(*mask)) < 0) {
                 KMP_FATAL(AffinityInvalidMask, "kmp_set_affinity");
             }
-# endif /* KMP_OS_WINDOWS && KMP_ARCH_X86_64 */
+# endif /* KMP_GROUP_AFFINITY */
 
         }
     }
@@ -4378,7 +4358,7 @@ __kmp_aux_get_affinity_mask_proc(int proc, void **mask)
 
     if (__kmp_env_consistency_check) {
         if ((mask == NULL) || (*mask == NULL)) {
-            KMP_FATAL(AffinityInvalidMask, "kmp_set_affinity_mask_proc");
+            KMP_FATAL(AffinityInvalidMask, "kmp_get_affinity_mask_proc");
         }
     }
 

@@ -12,7 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "IRBindings.h"
-
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/Function.h"
@@ -66,8 +65,9 @@ LLVMMetadataRef LLVMMDNode2(LLVMContextRef C, LLVMMetadataRef *MDs,
 
 LLVMMetadataRef LLVMTemporaryMDNode(LLVMContextRef C, LLVMMetadataRef *MDs,
                                     unsigned Count) {
-  return wrap(MDNode::getTemporary(*unwrap(C),
-                                   ArrayRef<Metadata *>(unwrap(MDs), Count)));
+  return wrap(MDTuple::getTemporary(*unwrap(C),
+                                    ArrayRef<Metadata *>(unwrap(MDs), Count))
+                  .release());
 }
 
 void LLVMAddNamedMetadataOperand2(LLVMModuleRef M, const char *name,
@@ -86,7 +86,8 @@ void LLVMSetMetadata2(LLVMValueRef Inst, unsigned KindID, LLVMMetadataRef MD) {
 }
 
 void LLVMMetadataReplaceAllUsesWith(LLVMMetadataRef MD, LLVMMetadataRef New) {
-  auto *Node = unwrap<MDNodeFwdDecl>(MD);
+  auto *Node = unwrap<MDTuple>(MD);
+  assert(Node->isTemporary() && "Expected temporary node");
   Node->replaceAllUsesWith(unwrap<MDNode>(New));
   MDNode::deleteTemporary(Node);
 }

@@ -138,7 +138,7 @@ private:
   static const Registry::KindStrings _sKindStrings[];
   static const StubInfo              _sStubInfoArmPIC;
 
-  enum : Reference::KindValue {
+  enum ArmKind : Reference::KindValue {
     invalid,               /// for error condition
 
     modeThumbCode,         /// Content starting at this offset is thumb.
@@ -176,13 +176,13 @@ private:
   static uint16_t getWordFromThumbMov(uint32_t instruction);
   static uint16_t getWordFromArmMov(uint32_t instruction);
   static uint32_t clearThumbBit(uint32_t value, const Atom *target);
-  static uint32_t setDisplacementInArmBranch(uint32_t instr, int32_t disp, 
+  static uint32_t setDisplacementInArmBranch(uint32_t instr, int32_t disp,
                                              bool targetIsThumb);
   static uint32_t setDisplacementInThumbBranch(uint32_t instr, uint32_t ia,
                                                int32_t disp, bool targetThumb);
   static uint32_t setWordFromThumbMov(uint32_t instruction, uint16_t word);
   static uint32_t setWordFromArmMov(uint32_t instruction, uint16_t word);
-  
+
   StringRef stubName(const DefinedAtom &);
   bool useExternalRelocationTo(const Atom &target);
 
@@ -207,6 +207,7 @@ ArchHandler_arm::ArchHandler_arm() { }
 ArchHandler_arm::~ArchHandler_arm() { }
 
 const Registry::KindStrings ArchHandler_arm::_sKindStrings[] = {
+  LLD_KIND_STRING_ENTRY(invalid),
   LLD_KIND_STRING_ENTRY(modeThumbCode),
   LLD_KIND_STRING_ENTRY(modeArmCode),
   LLD_KIND_STRING_ENTRY(modeData),
@@ -232,25 +233,25 @@ const Registry::KindStrings ArchHandler_arm::_sKindStrings[] = {
 const ArchHandler::StubInfo ArchHandler_arm::_sStubInfoArmPIC = {
   "dyld_stub_binder",
 
-  // References in lazy pointer  
+  // References in lazy pointer
   { Reference::KindArch::ARM, pointer32, 0, 0 },
   { Reference::KindArch::ARM, lazyPointer, 0, 0 },
-  
+
   // GOT pointer to dyld_stub_binder
   { Reference::KindArch::ARM, pointer32, 0, 0 },
 
   // arm code alignment 2^2
-  2, 
-  
+  2,
+
   // Stub size and code
-  16, 
+  16,
   { 0x04, 0xC0, 0x9F, 0xE5,       // 	ldr ip, pc + 12
     0x0C, 0xC0, 0x8F, 0xE0,       //  add ip, pc, ip
     0x00, 0xF0, 0x9C, 0xE5,       // 	ldr pc, [ip]
     0x00, 0x00, 0x00, 0x00 },     // 	.long L_foo$lazy_ptr - (L1$scv + 8)
   { Reference::KindArch::ARM, delta32, 12, 0 },
   { false, 0, 0, 0 },
-  
+
   // Stub Helper size and code
   12,
   { 0x00, 0xC0, 0x9F, 0xE5,       // ldr   ip, [pc, #0]
@@ -258,7 +259,7 @@ const ArchHandler::StubInfo ArchHandler_arm::_sStubInfoArmPIC = {
     0x00, 0x00, 0x00, 0x00 },     // .long  lazy-info-offset
   { Reference::KindArch::ARM, lazyImmediateLocation, 8, 0 },
   { Reference::KindArch::ARM, arm_b24, 4, 0 },
-  
+
   // Stub Helper-Common size and code
   36,
 	{ // push lazy-info-offset
@@ -912,7 +913,7 @@ void ArchHandler_arm::applyFixupFinal(const Reference &ref, uint8_t *loc,
   int32_t displacement;
   uint16_t value16;
   uint32_t value32;
-  switch (ref.kindValue()) {
+  switch (static_cast<ArmKind>(ref.kindValue())) {
   case modeThumbCode:
     thumbMode = true;
     break;
@@ -1068,13 +1069,16 @@ void ArchHandler_arm::applyFixupRelocatable(const Reference &ref, uint8_t *loc,
                                             uint64_t inAtomAddress,
                                             bool &thumbMode,
                                             bool targetIsThumb) {
+  if (ref.kindNamespace() != Reference::KindNamespace::mach_o)
+    return;
+  assert(ref.kindArch() == Reference::KindArch::ARM);
   bool useExternalReloc = useExternalRelocationTo(*ref.target());
   ulittle32_t *loc32 = reinterpret_cast<ulittle32_t *>(loc);
   int32_t displacement;
   uint16_t value16;
   uint32_t value32;
   bool targetIsUndef = isa<UndefinedAtom>(ref.target());
-  switch (ref.kindValue()) {
+  switch (static_cast<ArmKind>(ref.kindValue())) {
   case modeThumbCode:
     thumbMode = true;
     break;
@@ -1168,7 +1172,7 @@ void ArchHandler_arm::applyFixupRelocatable(const Reference &ref, uint8_t *loc,
   case lazyImmediateLocation:
     // do nothing
     break;
-  default:
+  case invalid:
     llvm_unreachable("invalid ARM Reference Kind");
     break;
   }
@@ -1190,11 +1194,10 @@ void ArchHandler_arm::appendSectionRelocations(
   uint32_t targetAtomAddress;
   uint32_t fromAtomAddress;
   uint16_t other16;
-  switch (ref.kindValue()) {
+  switch (static_cast<ArmKind>(ref.kindValue())) {
   case modeThumbCode:
   case modeArmCode:
   case modeData:
-    break;
     // Do nothing.
     break;
   case thumb_b22:
@@ -1382,7 +1385,7 @@ void ArchHandler_arm::appendSectionRelocations(
   case lazyImmediateLocation:
     // do nothing
     break;
-  default:
+  case invalid:
     llvm_unreachable("invalid ARM Reference Kind");
     break;
   }

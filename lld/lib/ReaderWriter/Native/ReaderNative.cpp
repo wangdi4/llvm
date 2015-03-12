@@ -11,8 +11,8 @@
 #include "lld/Core/Atom.h"
 #include "lld/Core/Error.h"
 #include "lld/Core/File.h"
+#include "lld/Core/Reader.h"
 #include "lld/Core/Simple.h"
-#include "lld/ReaderWriter/Reader.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
@@ -45,9 +45,9 @@ public:
 
   StringRef name() const override;
 
-  uint64_t size() const override {
-    return _ivarData->contentSize;
-  }
+  uint64_t size() const override { return _ivarData->contentSize; }
+
+  uint64_t sectionSize() const override { return _ivarData->sectionSize; }
 
   DefinedAtom::Scope scope() const override {
     return (DefinedAtom::Scope)(attributes().scope);

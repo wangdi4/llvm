@@ -30,6 +30,8 @@
 #include "lldb/Core/Communication.h"
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/Timer.h"
+#include "lldb/Core/ValueObject.h"
+#include "lldb/DataFormatters/TypeSummary.h"
 #include "lldb/Host/ConnectionFileDescriptor.h"
 #include "lldb/Host/HostInfo.h"
 #include "lldb/Host/Pipe.h"
@@ -103,13 +105,14 @@ ScriptInterpreterPython::Locker::DoAcquireLock()
     m_GILState = PyGILState_Ensure();
     if (log)
         log->Printf("Ensured PyGILState. Previous state = %slocked\n", m_GILState == PyGILState_UNLOCKED ? "un" : "");
-    
+
     // we need to save the thread state when we first start the command
     // because we might decide to interrupt it while some action is taking
     // place outside of Python (e.g. printing to screen, waiting for the network, ...)
     // in that case, _PyThreadState_Current will be NULL - and we would be unable
     // to set the asynchronous exception - not a desirable situation
     m_python_interpreter->SetThreadState (_PyThreadState_Current);
+    m_python_interpreter->IncrementLockCount();
     return true;
 }
 
@@ -128,6 +131,7 @@ ScriptInterpreterPython::Locker::DoFreeLock()
     if (log)
         log->Printf("Releasing PyGILState. Returning to state = %slocked\n", m_GILState == PyGILState_UNLOCKED ? "un" : "");
     PyGILState_Release(m_GILState);
+    m_python_interpreter->DecrementLockCount();
     return true;
 }
 
@@ -166,6 +170,7 @@ ScriptInterpreterPython::ScriptInterpreterPython (CommandInterpreter &interprete
     m_session_is_active (false),
     m_pty_slave_is_open (false),
     m_valid_session (true),
+    m_lock_count (0),
     m_command_thread_state (nullptr)
 {
 
@@ -192,7 +197,7 @@ ScriptInterpreterPython::ScriptInterpreterPython (CommandInterpreter &interprete
     
     int old_count = Debugger::TestDebuggerRefCount();
     
-    run_string.Printf ("run_one_line (%s, 'import copy, os, re, sys, uuid, lldb')", m_dictionary_name.c_str());
+    run_string.Printf ("run_one_line (%s, 'import copy, keyword, os, re, sys, uuid, lldb')", m_dictionary_name.c_str());
     PyRun_SimpleString (run_string.GetData());
 
     // WARNING: temporary code that loads Cocoa formatters - this should be done on a per-platform basis rather than loading the whole set
@@ -535,7 +540,7 @@ ScriptInterpreterPython::GetSysModuleDictionary ()
 static std::string
 GenerateUniqueName (const char* base_name_wanted,
                     uint32_t& functions_counter,
-                    void* name_token = nullptr)
+                    const void* name_token = nullptr)
 {
     StreamString sstr;
     
@@ -817,24 +822,7 @@ public:
     virtual bool
     Interrupt ()
     {
-        Log *log (lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_SCRIPT));
-
-        PyThreadState* state = _PyThreadState_Current;
-        if (!state)
-            state = m_python->GetThreadState();
-        if (state)
-        {
-            long tid = state->thread_id;
-            _PyThreadState_Current = state;
-            int num_threads = PyThreadState_SetAsyncExc(tid, PyExc_KeyboardInterrupt);
-            if (log)
-                log->Printf("ScriptInterpreterPython::NonInteractiveInputReaderCallback, eInputReaderInterrupt, tid = %ld, num_threads = %d, state = %p",
-                            tid, num_threads, static_cast<void *>(state));
-        }
-        else if (log)
-            log->Printf("ScriptInterpreterPython::NonInteractiveInputReaderCallback, eInputReaderInterrupt, state = NULL");
-
-        return false;
+        return m_python->Interrupt();
     }
     
     virtual void
@@ -869,6 +857,31 @@ ScriptInterpreterPython::ExecuteInterpreterLoop ()
     }
 }
 
+bool
+ScriptInterpreterPython::Interrupt()
+{
+    Log *log (lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_SCRIPT));
+
+    if (IsExecutingPython())
+    {
+        PyThreadState* state = _PyThreadState_Current;
+        if (!state)
+            state = GetThreadState();
+        if (state)
+        {
+            long tid = state->thread_id;
+            _PyThreadState_Current = state;
+            int num_threads = PyThreadState_SetAsyncExc(tid, PyExc_KeyboardInterrupt);
+            if (log)
+                log->Printf("ScriptInterpreterPython::Interrupt() sending PyExc_KeyboardInterrupt (tid = %li, num_threads = %i)...", tid, num_threads);
+            return true;
+        }
+    }
+    if (log)
+        log->Printf("ScriptInterpreterPython::Interrupt() python code not running, can't interrupt");
+    return false;
+
+}
 bool
 ScriptInterpreterPython::ExecuteOneLineWithReturn (const char *in_string,
                                                    ScriptInterpreter::ScriptReturnType return_type,
@@ -1243,7 +1256,7 @@ ScriptInterpreterPython::GenerateFunction(const char *signature, const StringLis
 }
 
 bool
-ScriptInterpreterPython::GenerateTypeScriptFunction (StringList &user_input, std::string& output, void* name_token)
+ScriptInterpreterPython::GenerateTypeScriptFunction (StringList &user_input, std::string& output, const void* name_token)
 {
     static uint32_t num_created_functions = 0;
     user_input.RemoveBlankLines ();
@@ -1292,7 +1305,7 @@ ScriptInterpreterPython::GenerateScriptAliasFunction (StringList &user_input, st
 
 
 bool
-ScriptInterpreterPython::GenerateTypeSynthClass (StringList &user_input, std::string &output, void* name_token)
+ScriptInterpreterPython::GenerateTypeSynthClass (StringList &user_input, std::string &output, const void* name_token)
 {
     static uint32_t num_created_classes = 0;
     user_input.RemoveBlankLines ();
@@ -1795,7 +1808,7 @@ ScriptInterpreterPython::CreateSyntheticScriptedProvider (const char *class_name
 }
 
 bool
-ScriptInterpreterPython::GenerateTypeScriptFunction (const char* oneliner, std::string& output, void* name_token)
+ScriptInterpreterPython::GenerateTypeScriptFunction (const char* oneliner, std::string& output, const void* name_token)
 {
     StringList input;
     input.SplitIntoLines(oneliner, strlen(oneliner));
@@ -1803,7 +1816,7 @@ ScriptInterpreterPython::GenerateTypeScriptFunction (const char* oneliner, std::
 }
 
 bool
-ScriptInterpreterPython::GenerateTypeSynthClass (const char* oneliner, std::string& output, void* name_token)
+ScriptInterpreterPython::GenerateTypeSynthClass (const char* oneliner, std::string& output, const void* name_token)
 {
     StringList input;
     input.SplitIntoLines(oneliner, strlen(oneliner));
@@ -2571,6 +2584,21 @@ ScriptInterpreterPython::LoadScriptingModule (const char* pathname,
     }
 }
 
+bool
+ScriptInterpreterPython::IsReservedWord (const char* word)
+{
+    StreamString command_stream;
+    command_stream.Printf("keyword.iskeyword('%s')", word);
+    bool result;
+    ExecuteScriptOptions options;
+    options.SetEnableIO(false);
+    options.SetMaskoutErrors(true);
+    options.SetSetLLDBGlobals(false);
+    if (ExecuteOneLineWithReturn(command_stream.GetData(), ScriptInterpreter::eScriptReturnTypeBool, &result, options))
+        return result;
+    return false;
+}
+
 lldb::ScriptInterpreterObjectSP
 ScriptInterpreterPython::MakeScriptObject (void* object)
 {
@@ -2814,7 +2842,19 @@ ScriptInterpreterPython::InitializePrivate ()
         }
     }
 
+    // Importing 'lldb' module calls SBDebugger::Initialize, which calls Debugger::Initialize, which increments a
+    // global debugger ref-count; therefore we need to check the ref-count before and after importing lldb, and if the
+    // ref-count increased we need to call Debugger::Terminate here to decrement the ref-count so that when the final 
+    // call to Debugger::Terminate is made, the ref-count has the correct value. 
+    
+    int old_count = Debugger::TestDebuggerRefCount ();
+
     PyRun_SimpleString ("sys.dont_write_bytecode = 1; import lldb.embedded_interpreter; from lldb.embedded_interpreter import run_python_interpreter; from lldb.embedded_interpreter import run_one_line");
+
+    int new_count = Debugger::TestDebuggerRefCount ();
+    
+    if (new_count > old_count)
+        Debugger::Terminate ();
 
     if (threads_already_initialized) {
         if (log)

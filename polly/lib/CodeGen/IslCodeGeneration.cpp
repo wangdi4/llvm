@@ -25,7 +25,7 @@
 #include "polly/CodeGen/IslAst.h"
 #include "polly/CodeGen/LoopGenerators.h"
 #include "polly/CodeGen/Utils.h"
-#include "polly/Dependences.h"
+#include "polly/DependenceInfo.h"
 #include "polly/LinkAllPasses.h"
 #include "polly/ScopInfo.h"
 #include "polly/Support/GICHelper.h"
@@ -41,6 +41,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
@@ -62,12 +63,12 @@ public:
   IslNodeBuilder(PollyIRBuilder &Builder, ScopAnnotator &Annotator, Pass *P,
                  const DataLayout &DL, LoopInfo &LI, ScalarEvolution &SE,
                  DominatorTree &DT, Scop &S)
-      : S(S), Builder(Builder), Annotator(Annotator),
-        Rewriter(new SCEVExpander(SE, "polly")),
-        ExprBuilder(Builder, IDToValue, *Rewriter), P(P), DL(DL), LI(LI),
-        SE(SE), DT(DT) {}
+      : S(S), Builder(Builder), Annotator(Annotator), Rewriter(SE, "polly"),
+        ExprBuilder(Builder, IDToValue, Rewriter, DT, LI),
+        BlockGen(Builder, LI, SE, DT, &ExprBuilder), RegionGen(BlockGen),
+        DL(DL), LI(LI), SE(SE), DT(DT) {}
 
-  ~IslNodeBuilder() { delete Rewriter; }
+  ~IslNodeBuilder() {}
 
   void addParameters(__isl_take isl_set *Context);
   void create(__isl_take isl_ast_node *Node);
@@ -79,9 +80,14 @@ private:
   ScopAnnotator &Annotator;
 
   /// @brief A SCEVExpander to create llvm values from SCEVs.
-  SCEVExpander *Rewriter;
+  SCEVExpander Rewriter;
 
   IslExprBuilder ExprBuilder;
+  BlockGenerator BlockGen;
+
+  /// @brief Generator for region statements.
+  RegionGenerator RegionGen;
+
   Pass *P;
   const DataLayout &DL;
   LoopInfo &LI;
@@ -305,17 +311,9 @@ struct FindValuesUser {
   SetVector<const SCEV *> &SCEVs;
 };
 
-/// Extract the values and SCEVs needed to generate code for a ScopStmt.
-///
-/// This function extracts a ScopStmt from a given isl_set and computes the
-/// Values this statement depends on as well as a set of SCEV expressions that
-/// need to be synthesized when generating code for this statment.
-static int findValuesInStmt(isl_set *Set, void *UserPtr) {
-  isl_id *Id = isl_set_get_tuple_id(Set);
-  struct FindValuesUser &User = *static_cast<struct FindValuesUser *>(UserPtr);
-  const ScopStmt *Stmt = static_cast<const ScopStmt *>(isl_id_get_user(Id));
-  const BasicBlock *BB = Stmt->getBasicBlock();
-
+/// @brief Extract the values and SCEVs needed to generate code for a block.
+static int findValuesInBlock(struct FindValuesUser &User, const ScopStmt *Stmt,
+                             const BasicBlock *BB) {
   // Check all the operands of instructions in the basic block.
   for (const Instruction &Inst : *BB) {
     for (Value *SrcVal : Inst.operands()) {
@@ -333,6 +331,28 @@ static int findValuesInStmt(isl_set *Set, void *UserPtr) {
         User.Values.insert(SrcVal);
     }
   }
+  return 0;
+}
+
+/// Extract the values and SCEVs needed to generate code for a ScopStmt.
+///
+/// This function extracts a ScopStmt from a given isl_set and computes the
+/// Values this statement depends on as well as a set of SCEV expressions that
+/// need to be synthesized when generating code for this statment.
+static int findValuesInStmt(isl_set *Set, void *UserPtr) {
+  isl_id *Id = isl_set_get_tuple_id(Set);
+  struct FindValuesUser &User = *static_cast<struct FindValuesUser *>(UserPtr);
+  const ScopStmt *Stmt = static_cast<const ScopStmt *>(isl_id_get_user(Id));
+
+  if (Stmt->isBlockStmt())
+    findValuesInBlock(User, Stmt, Stmt->getBasicBlock());
+  else {
+    assert(Stmt->isRegionStmt() &&
+           "Stmt was neither block nor region statement");
+    for (const BasicBlock *BB : Stmt->getRegion()->blocks())
+      findValuesInBlock(User, Stmt, BB);
+  }
+
   isl_id_free(Id);
   isl_set_free(Set);
   return 0;
@@ -398,6 +418,7 @@ void IslNodeBuilder::createUserVector(__isl_take isl_ast_node *User,
   isl_id *Id = isl_ast_expr_get_id(StmtExpr);
   isl_ast_expr_free(StmtExpr);
   ScopStmt *Stmt = (ScopStmt *)isl_id_get_user(Id);
+  Stmt->setAstBuild(IslAstInfo::getBuild(User));
   VectorValueMapT VectorMap(IVS.size());
   std::vector<LoopToScevMapT> VLTS(IVS.size());
 
@@ -406,8 +427,7 @@ void IslNodeBuilder::createUserVector(__isl_take isl_ast_node *User,
   isl_map *S = isl_map_from_union_map(Schedule);
 
   createSubstitutionsVector(Expr, Stmt, VectorMap, VLTS, IVS, IteratorID);
-  VectorBlockGenerator::generate(Builder, *Stmt, VectorMap, VLTS, S, P, LI, SE,
-                                 IslAstInfo::getBuild(User), &ExprBuilder);
+  VectorBlockGenerator::generate(BlockGen, *Stmt, VectorMap, VLTS, S);
 
   isl_map_free(S);
   isl_id_free(Id);
@@ -698,9 +718,9 @@ void IslNodeBuilder::createIf(__isl_take isl_ast_node *If) {
   LLVMContext &Context = F->getContext();
 
   BasicBlock *CondBB =
-      SplitBlock(Builder.GetInsertBlock(), Builder.GetInsertPoint(), P);
+      SplitBlock(Builder.GetInsertBlock(), Builder.GetInsertPoint(), &DT, &LI);
   CondBB->setName("polly.cond");
-  BasicBlock *MergeBB = SplitBlock(CondBB, CondBB->begin(), P);
+  BasicBlock *MergeBB = SplitBlock(CondBB, CondBB->begin(), &DT, &LI);
   MergeBB->setName("polly.merge");
   BasicBlock *ThenBB = BasicBlock::Create(Context, "polly.then", F);
   BasicBlock *ElseBB = BasicBlock::Create(Context, "polly.else", F);
@@ -711,8 +731,8 @@ void IslNodeBuilder::createIf(__isl_take isl_ast_node *If) {
 
   Loop *L = LI.getLoopFor(CondBB);
   if (L) {
-    L->addBasicBlockToLoop(ThenBB, LI.getBase());
-    L->addBasicBlockToLoop(ElseBB, LI.getBase());
+    L->addBasicBlockToLoop(ThenBB, LI);
+    L->addBasicBlockToLoop(ElseBB, LI);
   }
 
   CondBB->getTerminator()->eraseFromParent();
@@ -795,10 +815,13 @@ void IslNodeBuilder::createUser(__isl_take isl_ast_node *User) {
   LTS.insert(OutsideLoopIterations.begin(), OutsideLoopIterations.end());
 
   Stmt = (ScopStmt *)isl_id_get_user(Id);
+  Stmt->setAstBuild(IslAstInfo::getBuild(User));
 
   createSubstitutions(Expr, Stmt, VMap, LTS);
-  BlockGenerator::generate(Builder, *Stmt, VMap, LTS, P, LI, SE,
-                           IslAstInfo::getBuild(User), &ExprBuilder);
+  if (Stmt->isBlockStmt())
+    BlockGen.copyStmt(*Stmt, VMap, LTS);
+  else
+    RegionGen.copyStmt(*Stmt, VMap, LTS);
 
   isl_ast_node_free(User);
   isl_id_free(Id);
@@ -872,7 +895,7 @@ void IslNodeBuilder::addParameters(__isl_take isl_set *Context) {
 
 Value *IslNodeBuilder::generateSCEV(const SCEV *Expr) {
   Instruction *InsertLocation = --(Builder.GetInsertBlock()->end());
-  return Rewriter->expandCodeFor(Expr, Expr->getType(), InsertLocation);
+  return Rewriter.expandCodeFor(Expr, Expr->getType(), InsertLocation);
 }
 
 namespace {
@@ -911,12 +934,37 @@ public:
     return RTC;
   }
 
-  bool runOnScop(Scop &S) {
-    LI = &getAnalysis<LoopInfo>();
+  bool verifyGeneratedFunction(Scop &S, Function &F) {
+    if (!verifyFunction(F))
+      return false;
+
+    DEBUG({
+      errs() << "== ISL Codegen created an invalid function ==\n\n== The "
+                "SCoP ==\n";
+      S.print(errs());
+      errs() << "\n== The isl AST ==\n";
+      AI->printScop(errs(), S);
+      errs() << "\n== The invalid function ==\n";
+      F.print(errs());
+      errs() << "\n== The errors ==\n";
+      verifyFunction(F, &errs());
+    });
+
+    return true;
+  }
+
+  bool runOnScop(Scop &S) override {
     AI = &getAnalysis<IslAstInfo>();
+
+    // Check if we created an isl_ast root node, otherwise exit.
+    isl_ast_node *AstRoot = AI->getAst();
+    if (!AstRoot)
+      return false;
+
+    LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     SE = &getAnalysis<ScalarEvolution>();
-    DL = &getAnalysis<DataLayoutPass>().getDataLayout();
+    DL = &S.getRegion().getEntry()->getParent()->getParent()->getDataLayout();
 
     assert(!S.getRegion().isTopLevelRegion() &&
            "Top level regions are not supported");
@@ -935,25 +983,27 @@ public:
     BasicBlock *StartBlock = executeScopConditionally(S, this, RTC);
     Builder.SetInsertPoint(StartBlock->begin());
 
-    NodeBuilder.create(AI->getAst());
+    NodeBuilder.create(AstRoot);
+
+    assert(!verifyGeneratedFunction(S, *EnteringBB->getParent()) &&
+           "Verification of generated function failed");
     return true;
   }
 
-  virtual void printScop(raw_ostream &OS) const {}
+  void printScop(raw_ostream &, Scop &) const override {}
 
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequired<DataLayoutPass>();
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<IslAstInfo>();
     AU.addRequired<RegionInfoPass>();
     AU.addRequired<ScalarEvolution>();
     AU.addRequired<ScopDetection>();
     AU.addRequired<ScopInfo>();
-    AU.addRequired<LoopInfo>();
+    AU.addRequired<LoopInfoWrapperPass>();
 
-    AU.addPreserved<Dependences>();
+    AU.addPreserved<DependenceInfo>();
 
-    AU.addPreserved<LoopInfo>();
+    AU.addPreserved<LoopInfoWrapperPass>();
     AU.addPreserved<DominatorTreeWrapperPass>();
     AU.addPreserved<IslAstInfo>();
     AU.addPreserved<ScopDetection>();
@@ -975,9 +1025,9 @@ Pass *polly::createIslCodeGenerationPass() { return new IslCodeGeneration(); }
 
 INITIALIZE_PASS_BEGIN(IslCodeGeneration, "polly-codegen-isl",
                       "Polly - Create LLVM-IR from SCoPs", false, false);
-INITIALIZE_PASS_DEPENDENCY(Dependences);
+INITIALIZE_PASS_DEPENDENCY(DependenceInfo);
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass);
-INITIALIZE_PASS_DEPENDENCY(LoopInfo);
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass);
 INITIALIZE_PASS_DEPENDENCY(RegionInfoPass);
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolution);
 INITIALIZE_PASS_DEPENDENCY(ScopDetection);

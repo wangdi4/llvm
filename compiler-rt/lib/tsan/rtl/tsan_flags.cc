@@ -62,7 +62,9 @@ void InitializeFlags(Flags *f, const char *env) {
     CommonFlags cf;
     cf.CopyFrom(*common_flags());
     cf.allow_addr2line = true;
+#ifndef SANITIZER_GO
     cf.detect_deadlocks = true;
+#endif
     cf.print_suppressions = false;
     cf.stack_trace_format = "    #%n %f %S %M";
     OverrideCommonFlags(cf);
@@ -80,8 +82,11 @@ void InitializeFlags(Flags *f, const char *env) {
     f->report_signal_unsafe = false;
   }
 
-  if (common_flags()->help)
-    parser.PrintFlagDescriptions();
+  SetVerbosity(common_flags()->verbosity);
+
+  if (Verbosity()) ReportUnrecognizedFlags();
+
+  if (common_flags()->help) parser.PrintFlagDescriptions();
 
   if (f->history_size < 0 || f->history_size > 7) {
     Printf("ThreadSanitizer: incorrect value for history_size"
