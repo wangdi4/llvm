@@ -11,8 +11,8 @@
 #define LLD_READER_WRITER_PECOFF_LINKING_CONTEXT_H
 
 #include "lld/Core/LinkingContext.h"
-#include "lld/ReaderWriter/Reader.h"
-#include "lld/ReaderWriter/Writer.h"
+#include "lld/Core/Reader.h"
+#include "lld/Core/Writer.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/COFF.h"
@@ -29,28 +29,6 @@ using llvm::COFF::WindowsSubsystem;
 static const uint8_t DEFAULT_DOS_STUB[128] = {'M', 'Z'};
 
 namespace lld {
-
-namespace pecoff {
-class ResolvableSymbols {
-public:
-  void add(File *file);
-
-  const std::set<std::string> &defined() {
-    readAllSymbols();
-    return _defined;
-  }
-
-private:
-  // Files are read lazily, so that it has no runtime overhead if
-  // no one accesses this class.
-  void readAllSymbols();
-
-  std::set<std::string> _defined;
-  std::set<File *> _seen;
-  std::set<File *> _queue;
-  std::mutex _mutex;
-};
-} // end namespace pecoff
 
 class PECOFFLinkingContext : public LinkingContext {
 public:
@@ -69,7 +47,8 @@ public:
         _manifestUAC(true), _manifestLevel("'asInvoker'"),
         _manifestUiAccess("'false'"), _isDll(false), _highEntropyVA(true),
         _requireSEH(false), _noSEH(false), _implib(""), _debug(false),
-        _pdbFilePath(""), _dosStub(llvm::makeArrayRef(DEFAULT_DOS_STUB)) {
+        _pdbFilePath(""), _dosStub(llvm::makeArrayRef(DEFAULT_DOS_STUB)),
+        _parseDirectives(nullptr) {
     setDeadStripping(true);
   }
 
@@ -104,8 +83,11 @@ public:
     bool isPrivate;
   };
 
+  typedef bool (*ParseDirectives)(int, const char **, PECOFFLinkingContext &,
+                                  raw_ostream &);
+
   /// \brief Casting support
-  static inline bool classof(const LinkingContext *info) { return true; }
+  static bool classof(const LinkingContext *info) { return true; }
 
   Writer &writer() const override;
   bool validateImpl(raw_ostream &diagnostics) override;
@@ -118,6 +100,9 @@ public:
   bool is64Bit() const {
     return _machineType == llvm::COFF::IMAGE_FILE_MACHINE_AMD64;
   }
+
+  // Returns a set of all defined symbols in input files.
+  const std::set<std::string> &definedSymbols();
 
   /// Page size of x86 processor. Some data needs to be aligned at page boundary
   /// when loaded into memory.
@@ -272,11 +257,13 @@ public:
   bool addSectionRenaming(raw_ostream &diagnostics,
                           StringRef from, StringRef to);
 
-  StringRef getAlternateName(StringRef def) const;
-  const std::map<std::string, std::string> &alternateNames() {
-    return _alternateNames;
+  const std::set<std::string> &getAlternateNames(StringRef name) {
+    return _alternateNames[name];
   }
-  void setAlternateName(StringRef def, StringRef weak);
+
+  void addAlternateName(StringRef weak, StringRef def) {
+    _alternateNames[def].insert(weak);
+  }
 
   void addNoDefaultLib(StringRef path) {
     if (path.endswith_lower(".lib"))
@@ -345,8 +332,12 @@ public:
 
   std::recursive_mutex &getMutex() { return _mutex; }
 
-  pecoff::ResolvableSymbols *getResolvableSymsFile() {
-    return &_resolvableSyms;
+  void setParseDirectives(ParseDirectives parseDirectives) {
+    _parseDirectives = parseDirectives;
+  }
+
+  ParseDirectives getParseDirectives() {
+    return _parseDirectives;
   }
 
 protected:
@@ -434,7 +425,7 @@ private:
   std::unique_ptr<Writer> _writer;
 
   // A map for weak aliases.
-  std::map<std::string, std::string> _alternateNames;
+  std::map<std::string, std::set<std::string>> _alternateNames;
 
   // A map for section renaming. For example, if there is an entry in the map
   // whose value is .rdata -> .text, the section contens of .rdata will be
@@ -461,7 +452,10 @@ private:
   // only.
   std::string _moduleDefinitionFile;
 
-  pecoff::ResolvableSymbols _resolvableSyms;
+  std::set<std::string> _definedSyms;
+  std::set<Node *> _seen;
+
+  ParseDirectives _parseDirectives;
 };
 
 } // end namespace lld

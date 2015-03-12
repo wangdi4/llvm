@@ -10,12 +10,15 @@
 #ifndef LLD_CORE_RESOLVER_H
 #define LLD_CORE_RESOLVER_H
 
+#include "lld/Core/ArchiveLibraryFile.h"
 #include "lld/Core/File.h"
 #include "lld/Core/SharedLibraryFile.h"
+#include "lld/Core/Simple.h"
 #include "lld/Core/SymbolTable.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include <set>
+#include <unordered_set>
 #include <vector>
 
 namespace lld {
@@ -27,8 +30,8 @@ class LinkingContext;
 /// and producing a merged graph.
 class Resolver {
 public:
-  Resolver(LinkingContext &context)
-      : _context(context), _symbolTable(context), _result(new MergedFile()),
+  Resolver(LinkingContext &ctx)
+      : _ctx(ctx), _symbolTable(ctx), _result(new MergedFile()),
         _fileIndex(0) {}
 
   // InputFiles::Handler methods
@@ -39,13 +42,13 @@ public:
 
   // Handle files, this adds atoms from the current file thats
   // being processed by the resolver
-  bool handleFile(const File &);
+  bool handleFile(File &);
 
   // Handle an archive library file.
-  bool handleArchiveFile(const File &);
+  bool handleArchiveFile(File &);
 
   // Handle a shared library file.
-  void handleSharedLibrary(const File &);
+  void handleSharedLibrary(File &);
 
   /// @brief do work of merging and resolving and return list
   bool resolve();
@@ -56,12 +59,13 @@ private:
   typedef std::function<void(StringRef, bool)> UndefCallback;
 
   bool undefinesAdded(int begin, int end);
-  File *getFile(int &index, int &groupLevel);
+  File *getFile(int &index);
 
   /// \brief Add section group/.gnu.linkonce if it does not exist previously.
   void maybeAddSectionGroupOrGnuLinkOnce(const DefinedAtom &atom);
 
   /// \brief The main function that iterates over the files to resolve
+  void updatePreloadArchiveMap();
   bool resolveUndefines();
   void updateReferences();
   void deadStripOptimize();
@@ -72,41 +76,15 @@ private:
 
   void markLive(const Atom *atom);
   void addAtoms(const std::vector<const DefinedAtom *>&);
+  void maybePreloadArchiveMember(StringRef sym);
 
-  class MergedFile : public MutableFile {
+  class MergedFile : public SimpleFile {
   public:
-    MergedFile() : MutableFile("<linker-internal>") {}
-
-    const atom_collection<DefinedAtom> &defined() const override {
-      return _definedAtoms;
-    }
-    const atom_collection<UndefinedAtom>& undefined() const override {
-      return _undefinedAtoms;
-    }
-    const atom_collection<SharedLibraryAtom>& sharedLibrary() const override {
-      return _sharedLibraryAtoms;
-    }
-    const atom_collection<AbsoluteAtom>& absolute() const override {
-      return _absoluteAtoms;
-    }
-
+    MergedFile() : SimpleFile("<linker-internal>") {}
     void addAtoms(std::vector<const Atom*>& atoms);
-
-    void addAtom(const Atom& atom) override;
-
-    DefinedAtomRange definedAtoms() override;
-
-    void removeDefinedAtomsIf(
-        std::function<bool(const DefinedAtom *)> pred) override;
-
-  private:
-    atom_collection_vector<DefinedAtom>         _definedAtoms;
-    atom_collection_vector<UndefinedAtom>       _undefinedAtoms;
-    atom_collection_vector<SharedLibraryAtom>   _sharedLibraryAtoms;
-    atom_collection_vector<AbsoluteAtom>        _absoluteAtoms;
   };
 
-  LinkingContext &_context;
+  LinkingContext &_ctx;
   SymbolTable _symbolTable;
   std::vector<const Atom *>     _atoms;
   std::set<const Atom *>        _deadStripRoots;
@@ -119,6 +97,10 @@ private:
   std::vector<File *> _files;
   std::map<File *, bool> _newUndefinesAdded;
   size_t _fileIndex;
+
+  // Preloading
+  std::map<StringRef, ArchiveLibraryFile *> _archiveMap;
+  std::unordered_set<ArchiveLibraryFile *> _archiveSeen;
 };
 
 } // namespace lld

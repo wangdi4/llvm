@@ -26,7 +26,7 @@
 #include "isl/schedule.h"
 #include "isl/space.h"
 #include "polly/CodeGen/CodeGeneration.h"
-#include "polly/Dependences.h"
+#include "polly/DependenceInfo.h"
 #include "polly/LinkAllPasses.h"
 #include "polly/Options.h"
 #include "polly/ScopInfo.h"
@@ -99,12 +99,20 @@ public:
 
   ~IslScheduleOptimizer() { isl_schedule_free(LastSchedule); }
 
-  virtual bool runOnScop(Scop &S);
-  void printScop(llvm::raw_ostream &OS) const;
-  void getAnalysisUsage(AnalysisUsage &AU) const;
+  bool runOnScop(Scop &S) override;
+  void printScop(raw_ostream &OS, Scop &S) const override;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
 
 private:
   isl_schedule *LastSchedule;
+
+  /// @brief Decide if the @p NewSchedule is profitable for @p S.
+  ///
+  /// @param S           The SCoP we optimize.
+  /// @param NewSchedule The new schedule we computed.
+  ///
+  /// @return True, if we believe @p NewSchedule is an improvement for @p S.
+  bool isProfitableSchedule(Scop &S, __isl_keep isl_union_map *NewSchedule);
 
   static void extendScattering(Scop &S, unsigned NewDimensions);
 
@@ -135,8 +143,7 @@ private:
   ///	  for (j = t_j; j < t_j + 64; j++)        |   Known that M % 64 = 0
   ///	    S(i,j)
   ///
-  static isl_basic_map *getTileMap(isl_ctx *ctx, int scheduleDimensions,
-                                   isl_space *SpaceModel);
+  static isl_basic_map *getTileMap(isl_ctx *ctx, int scheduleDimensions);
 
   /// @brief Get the schedule for this band.
   ///
@@ -197,7 +204,7 @@ private:
 
   using llvm::Pass::doFinalization;
 
-  virtual bool doFinalization() {
+  virtual bool doFinalization() override {
     isl_schedule_free(LastSchedule);
     LastSchedule = nullptr;
     return true;
@@ -229,8 +236,7 @@ void IslScheduleOptimizer::extendScattering(Scop &S, unsigned NewDimensions) {
 }
 
 isl_basic_map *IslScheduleOptimizer::getTileMap(isl_ctx *ctx,
-                                                int scheduleDimensions,
-                                                isl_space *SpaceModel) {
+                                                int scheduleDimensions) {
   // We construct
   //
   // tileMap := [p0] -> {[s0, s1] -> [t0, t1, p0, p1, a0, a1]:
@@ -312,7 +318,7 @@ isl_union_map *IslScheduleOptimizer::getScheduleForBand(isl_band *Band,
   ctx = isl_union_map_get_ctx(PartialSchedule);
   Space = isl_union_map_get_space(PartialSchedule);
 
-  TileMap = getTileMap(ctx, *Dimensions, Space);
+  TileMap = getTileMap(ctx, *Dimensions);
   TileUMap = isl_union_map_from_map(isl_map_from_basic_map(TileMap));
   TileUMap = isl_union_map_align_params(TileUMap, Space);
   *Dimensions = 2 * *Dimensions;
@@ -449,10 +455,35 @@ isl_union_map *IslScheduleOptimizer::getScheduleMap(isl_schedule *Schedule) {
   return ScheduleMap;
 }
 
-bool IslScheduleOptimizer::runOnScop(Scop &S) {
-  Dependences *D = &getAnalysis<Dependences>();
+bool IslScheduleOptimizer::isProfitableSchedule(
+    Scop &S, __isl_keep isl_union_map *NewSchedule) {
+  // To understand if the schedule has been optimized we check if the schedule
+  // has changed at all.
+  // TODO: We can improve this by tracking if any necessarily beneficial
+  // transformations have been performed. This can e.g. be tiling, loop
+  // interchange, or ...) We can track this either at the place where the
+  // transformation has been performed or, in case of automatic ILP based
+  // optimizations, by comparing (yet to be defined) performance metrics
+  // before/after the scheduling optimizer
+  // (e.g., #stride-one accesses)
+  isl_union_map *OldSchedule = S.getSchedule();
+  bool changed = !isl_union_map_is_equal(OldSchedule, NewSchedule);
+  isl_union_map_free(OldSchedule);
+  return changed;
+}
 
-  if (!D->hasValidDependences())
+bool IslScheduleOptimizer::runOnScop(Scop &S) {
+
+  // Skip empty SCoPs but still allow code generation as it will delete the
+  // loops present but not needed.
+  if (S.getSize() == 0) {
+    S.markAsOptimized();
+    return false;
+  }
+
+  const Dependences &D = getAnalysis<DependenceInfo>().getDependences();
+
+  if (!D.hasValidDependences())
     return false;
 
   isl_schedule_free(LastSchedule);
@@ -480,8 +511,8 @@ bool IslScheduleOptimizer::runOnScop(Scop &S) {
   if (!Domain)
     return false;
 
-  isl_union_map *Validity = D->getDependences(ValidityKinds);
-  isl_union_map *Proximity = D->getDependences(ProximityKinds);
+  isl_union_map *Validity = D.getDependences(ValidityKinds);
+  isl_union_map *Proximity = D.getDependences(ProximityKinds);
 
   // Simplify the dependences by removing the constraints introduced by the
   // domains. This can speed up the scheduling time significantly, as large
@@ -556,13 +587,22 @@ bool IslScheduleOptimizer::runOnScop(Scop &S) {
 
   DEBUG(dbgs() << "Schedule := " << stringFromIslObj(Schedule) << ";\n");
 
-  isl_union_map *ScheduleMap = getScheduleMap(Schedule);
+  isl_union_map *NewSchedule = getScheduleMap(Schedule);
+
+  // Check if the optimizations performed were profitable, otherwise exit early.
+  if (!isProfitableSchedule(S, NewSchedule)) {
+    isl_schedule_free(Schedule);
+    isl_union_map_free(NewSchedule);
+    return false;
+  }
+
+  S.markAsOptimized();
 
   for (ScopStmt *Stmt : S) {
     isl_map *StmtSchedule;
     isl_set *Domain = Stmt->getDomain();
     isl_union_map *StmtBand;
-    StmtBand = isl_union_map_intersect_domain(isl_union_map_copy(ScheduleMap),
+    StmtBand = isl_union_map_intersect_domain(isl_union_map_copy(NewSchedule),
                                               isl_union_set_from_set(Domain));
     if (isl_union_map_is_empty(StmtBand)) {
       StmtSchedule = isl_map_from_domain(isl_set_empty(Stmt->getDomainSpace()));
@@ -575,7 +615,7 @@ bool IslScheduleOptimizer::runOnScop(Scop &S) {
     Stmt->setScattering(StmtSchedule);
   }
 
-  isl_union_map_free(ScheduleMap);
+  isl_union_map_free(NewSchedule);
   LastSchedule = Schedule;
 
   unsigned MaxScatDims = 0;
@@ -587,7 +627,7 @@ bool IslScheduleOptimizer::runOnScop(Scop &S) {
   return false;
 }
 
-void IslScheduleOptimizer::printScop(raw_ostream &OS) const {
+void IslScheduleOptimizer::printScop(raw_ostream &OS, Scop &) const {
   isl_printer *p;
   char *ScheduleStr;
 
@@ -608,7 +648,7 @@ void IslScheduleOptimizer::printScop(raw_ostream &OS) const {
 
 void IslScheduleOptimizer::getAnalysisUsage(AnalysisUsage &AU) const {
   ScopPass::getAnalysisUsage(AU);
-  AU.addRequired<Dependences>();
+  AU.addRequired<DependenceInfo>();
 }
 
 Pass *polly::createIslScheduleOptimizerPass() {
@@ -617,7 +657,7 @@ Pass *polly::createIslScheduleOptimizerPass() {
 
 INITIALIZE_PASS_BEGIN(IslScheduleOptimizer, "polly-opt-isl",
                       "Polly - Optimize schedule of SCoP", false, false);
-INITIALIZE_PASS_DEPENDENCY(Dependences);
+INITIALIZE_PASS_DEPENDENCY(DependenceInfo);
 INITIALIZE_PASS_DEPENDENCY(ScopInfo);
 INITIALIZE_PASS_END(IslScheduleOptimizer, "polly-opt-isl",
                     "Polly - Optimize schedule of SCoP", false, false)

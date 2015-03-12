@@ -248,7 +248,6 @@ public:
   /// so that we can use initializer lists for subtarget initialization.
   ARMSubtarget &initializeSubtargetDependencies(StringRef CPU, StringRef FS);
 
-  const DataLayout *getDataLayout() const override { return &DL; }
   const ARMSelectionDAGInfo *getSelectionDAGInfo() const override {
     return &TSInfo;
   }
@@ -266,16 +265,17 @@ public:
   }
 
 private:
-  const DataLayout DL;
   ARMSelectionDAGInfo TSInfo;
+  // Either Thumb1FrameLowering or ARMFrameLowering.
+  std::unique_ptr<ARMFrameLowering> FrameLowering;
   // Either Thumb1InstrInfo or Thumb2InstrInfo.
   std::unique_ptr<ARMBaseInstrInfo> InstrInfo;
   ARMTargetLowering   TLInfo;
-  // Either Thumb1FrameLowering or ARMFrameLowering.
-  std::unique_ptr<ARMFrameLowering> FrameLowering;
 
   void initializeEnvironment();
   void initSubtargetFeatures(StringRef CPU, StringRef FS);
+  ARMFrameLowering *initializeFrameLowering(StringRef CPU, StringRef FS);
+
 public:
   void computeIssueWidth();
 
@@ -310,7 +310,8 @@ public:
   bool hasCRC() const { return HasCRC; }
   bool hasVirtualization() const { return HasVirtualization; }
   bool useNEONForSinglePrecisionFP() const {
-    return hasNEON() && UseNEONForSinglePrecisionFP; }
+    return hasNEON() && UseNEONForSinglePrecisionFP;
+  }
 
   bool hasDivide() const { return HasHardwareDivide; }
   bool hasDivideInARMMode() const { return HasHardwareDivideInARM; }

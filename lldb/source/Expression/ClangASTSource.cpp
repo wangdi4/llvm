@@ -16,9 +16,12 @@
 #include "lldb/Expression/ASTDumper.h"
 #include "lldb/Expression/ClangASTSource.h"
 #include "lldb/Expression/ClangExpression.h"
+#include "lldb/Expression/ClangModulesDeclVendor.h"
+#include "lldb/Symbol/ClangASTContext.h"
 #include "lldb/Symbol/ClangNamespaceDecl.h"
 #include "lldb/Symbol/Function.h"
 #include "lldb/Symbol/SymbolVendor.h"
+#include "lldb/Symbol/TaggedASTType.h"
 #include "lldb/Target/ObjCLanguageRuntime.h"
 #include "lldb/Target/Target.h"
 
@@ -2008,7 +2011,7 @@ NameSearchContext::AddTypeDecl(const ClangASTType &clang_type)
 }
 
 void
-NameSearchContext::AddLookupResult (clang::DeclContextLookupConstResult result)
+NameSearchContext::AddLookupResult (clang::DeclContextLookupResult result)
 {
     for (clang::NamedDecl *decl : result)
         m_decls.push_back (decl);

@@ -9,20 +9,18 @@
 
 #include "Atoms.h"
 #include "EdataPass.h"
-#include "GroupedSectionsPass.h"
 #include "IdataPass.h"
 #include "InferSubsystemPass.h"
 #include "LinkerGeneratedSymbolFile.h"
 #include "LoadConfigPass.h"
+#include "OrderPass.h"
 #include "PDBPass.h"
 #include "lld/Core/PassManager.h"
+#include "lld/Core/Reader.h"
 #include "lld/Core/Simple.h"
-#include "lld/Passes/LayoutPass.h"
-#include "lld/Passes/RoundTripNativePass.h"
-#include "lld/Passes/RoundTripYAMLPass.h"
+#include "lld/Core/Writer.h"
 #include "lld/ReaderWriter/PECOFFLinkingContext.h"
-#include "lld/ReaderWriter/Reader.h"
-#include "lld/ReaderWriter/Writer.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/Path.h"
@@ -54,6 +52,12 @@ bool PECOFFLinkingContext::validateImpl(raw_ostream &diagnostics) {
     return false;
   }
 
+  // Specifing /noentry without /dll is an error.
+  if (!hasEntry() && !isDll()) {
+    diagnostics << "/noentry must be specified with /dll\n";
+    return false;
+  }
+
   // Check for duplicate export ordinals.
   std::set<int> exports;
   for (const PECOFFLinkingContext::ExportDesc &desc : getDllExports()) {
@@ -76,6 +80,29 @@ bool PECOFFLinkingContext::validateImpl(raw_ostream &diagnostics) {
 
   _writer = createWriterPECOFF(*this);
   return true;
+}
+
+const std::set<std::string> &PECOFFLinkingContext::definedSymbols() {
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+  for (std::unique_ptr<Node> &node : getNodes()) {
+    if (_seen.count(node.get()) > 0)
+      continue;
+    FileNode *fnode = dyn_cast<FileNode>(node.get());
+    if (!fnode)
+      continue;
+    File *file = fnode->getFile();
+    if (file->parse())
+      continue;
+    if (auto *archive = dyn_cast<ArchiveLibraryFile>(file)) {
+      for (const std::string &sym : archive->getDefinedSymbols())
+        _definedSyms.insert(sym);
+      continue;
+    }
+    for (const DefinedAtom *atom : file->defined())
+      if (!atom->name().empty())
+        _definedSyms.insert(atom->name());
+  }
+  return _definedSyms;
 }
 
 std::unique_ptr<File> PECOFFLinkingContext::createEntrySymbolFile() const {
@@ -112,12 +139,11 @@ void PECOFFLinkingContext::addLibraryFile(std::unique_ptr<FileNode> file) {
 
 bool PECOFFLinkingContext::createImplicitFiles(
     std::vector<std::unique_ptr<File>> &) {
-  pecoff::ResolvableSymbols* syms = getResolvableSymsFile();
   std::vector<std::unique_ptr<Node>> &members = getNodes();
 
   // Create a file for the entry point function.
   std::unique_ptr<FileNode> entry(new FileNode(
-      llvm::make_unique<pecoff::EntryPointFile>(*this, syms)));
+      llvm::make_unique<pecoff::EntryPointFile>(*this)));
   members.insert(members.begin() + getGroupStartPos(members), std::move(entry));
 
   // Create a file for __ImageBase.
@@ -132,7 +158,7 @@ bool PECOFFLinkingContext::createImplicitFiles(
 
   // Create a file for dllexported symbols.
   std::unique_ptr<FileNode> exportNode(new FileNode(
-      llvm::make_unique<pecoff::ExportedSymbolRenameFile>(*this, syms)));
+      llvm::make_unique<pecoff::ExportedSymbolRenameFile>(*this)));
   addLibraryFile(std::move(exportNode));
 
   return true;
@@ -188,17 +214,6 @@ bool PECOFFLinkingContext::addSectionRenaming(raw_ostream &diagnostics,
     }
   }
   return true;
-}
-
-StringRef PECOFFLinkingContext::getAlternateName(StringRef def) const {
-  auto it = _alternateNames.find(def);
-  if (it == _alternateNames.end())
-    return "";
-  return it->second;
-}
-
-void PECOFFLinkingContext::setAlternateName(StringRef weak, StringRef def) {
-  _alternateNames[def] = weak;
 }
 
 /// Try to find the input library file from the search paths and append it to
@@ -326,38 +341,12 @@ std::string PECOFFLinkingContext::getPDBFilePath() const {
 }
 
 void PECOFFLinkingContext::addPasses(PassManager &pm) {
-  pm.add(std::unique_ptr<Pass>(new pecoff::PDBPass(*this)));
-  pm.add(std::unique_ptr<Pass>(new pecoff::EdataPass(*this)));
-  pm.add(std::unique_ptr<Pass>(new pecoff::IdataPass(*this)));
-  pm.add(std::unique_ptr<Pass>(new LayoutPass(registry())));
-  pm.add(std::unique_ptr<Pass>(new pecoff::LoadConfigPass(*this)));
-  pm.add(std::unique_ptr<Pass>(new pecoff::GroupedSectionsPass()));
-  pm.add(std::unique_ptr<Pass>(new pecoff::InferSubsystemPass(*this)));
-}
-
-void pecoff::ResolvableSymbols::add(File *file) {
-  std::lock_guard<std::mutex> lock(_mutex);
-  if (_seen.count(file) > 0)
-    return;
-  _seen.insert(file);
-  _queue.insert(file);
-}
-
-void pecoff::ResolvableSymbols::readAllSymbols() {
-  std::lock_guard<std::mutex> lock(_mutex);
-  for (File *file : _queue) {
-    if (file->parse())
-      return;
-    if (auto *archive = dyn_cast<ArchiveLibraryFile>(file)) {
-      for (const std::string &sym : archive->getDefinedSymbols())
-	_defined.insert(sym);
-      continue;
-    }
-    for (const DefinedAtom *atom : file->defined())
-      if (!atom->name().empty())
-	_defined.insert(atom->name());
-  }
-  _queue.clear();
+  pm.add(llvm::make_unique<pecoff::PDBPass>(*this));
+  pm.add(llvm::make_unique<pecoff::EdataPass>(*this));
+  pm.add(llvm::make_unique<pecoff::IdataPass>(*this));
+  pm.add(llvm::make_unique<pecoff::OrderPass>());
+  pm.add(llvm::make_unique<pecoff::LoadConfigPass>(*this));
+  pm.add(llvm::make_unique<pecoff::InferSubsystemPass>(*this));
 }
 
 } // end namespace lld

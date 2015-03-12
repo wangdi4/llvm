@@ -185,7 +185,7 @@ protected:
     // visibility is either DEFAULT or PROTECTED. All other symbols are not
     // exported.
     if ((Binding == ELF::STB_GLOBAL || Binding == ELF::STB_WEAK) &&
-        (Visibility == ELF::STV_DEFAULT && Visibility == ELF::STV_PROTECTED))
+        (Visibility == ELF::STV_DEFAULT || Visibility == ELF::STV_PROTECTED))
       return true;
 
     return false;
@@ -314,8 +314,11 @@ std::error_code ELFObjectFile<ELFT>::getSymbolAddress(DataRefImpl Symb,
       ESym->getType() == ELF::STT_FUNC)
     Result &= ~1;
 
-  if (Header->e_type == ELF::ET_REL)
-    Result += EF.getSection(ESym)->sh_addr;
+  if (Header->e_type == ELF::ET_REL) {
+    const typename ELFFile<ELFT>::Elf_Shdr * Section = EF.getSection(ESym);
+    if (Section != nullptr)
+      Result += Section->sh_addr;
+  }
 
   return object_error::success;
 }

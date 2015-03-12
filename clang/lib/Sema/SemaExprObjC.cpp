@@ -218,7 +218,9 @@ static ObjCMethodDecl *getNSNumberFactoryMethod(Sema &S, SourceLocation Loc,
       S.Diag(Loc, diag::err_undeclared_nsnumber);
       return nullptr;
     }
-    
+  }
+
+  if (S.NSNumberPointer.isNull()) {
     // generate the pointer to NSNumber type.
     QualType NSNumberObject = CX.getObjCInterfaceType(S.NSNumberDecl);
     S.NSNumberPointer = CX.getObjCObjectPointerType(NSNumberObject);
@@ -1751,29 +1753,30 @@ ActOnClassPropertyRefExpr(IdentifierInfo &receiverName,
       IsSuper = true;
 
       if (ObjCMethodDecl *CurMethod = tryCaptureObjCSelf(receiverNameLoc)) {
-        if (CurMethod->isInstanceMethod()) {
-          ObjCInterfaceDecl *Super =
-            CurMethod->getClassInterface()->getSuperClass();
-          if (!Super) {
-            // The current class does not have a superclass.
-            Diag(receiverNameLoc, diag::error_root_class_cannot_use_super)
-            << CurMethod->getClassInterface()->getIdentifier();
-            return ExprError();
+        if (ObjCInterfaceDecl *Class = CurMethod->getClassInterface()) {
+          if (CurMethod->isInstanceMethod()) {
+            ObjCInterfaceDecl *Super = Class->getSuperClass();
+            if (!Super) {
+              // The current class does not have a superclass.
+              Diag(receiverNameLoc, diag::error_root_class_cannot_use_super)
+              << Class->getIdentifier();
+              return ExprError();
+            }
+            QualType T = Context.getObjCInterfaceType(Super);
+            T = Context.getObjCObjectPointerType(T);
+
+            return HandleExprPropertyRefExpr(T->getAsObjCInterfacePointerType(),
+                                             /*BaseExpr*/nullptr,
+                                             SourceLocation()/*OpLoc*/,
+                                             &propertyName,
+                                             propertyNameLoc,
+                                             receiverNameLoc, T, true);
           }
-          QualType T = Context.getObjCInterfaceType(Super);
-          T = Context.getObjCObjectPointerType(T);
 
-          return HandleExprPropertyRefExpr(T->getAsObjCInterfacePointerType(),
-                                           /*BaseExpr*/nullptr,
-                                           SourceLocation()/*OpLoc*/, 
-                                           &propertyName,
-                                           propertyNameLoc,
-                                           receiverNameLoc, T, true);
+          // Otherwise, if this is a class method, try dispatching to our
+          // superclass.
+          IFace = Class->getSuperClass();
         }
-
-        // Otherwise, if this is a class method, try dispatching to our
-        // superclass.
-        IFace = CurMethod->getClassInterface()->getSuperClass();
       }
     }
 
@@ -2796,7 +2799,9 @@ ExprResult Sema::BuildInstanceMessage(Expr *Receiver,
       }
     }
   }
-  
+
+  CheckObjCCircularContainer(Result);
+
   return MaybeBindToTemporary(Result);
 }
 
@@ -3028,17 +3033,20 @@ namespace {
 
     /// Some declaration references are okay.
     ACCResult VisitDeclRefExpr(DeclRefExpr *e) {
-      // References to global constants from system headers are okay.
-      // These are things like 'kCFStringTransformToLatin'.  They are
-      // can also be assumed to be immune to retains.
       VarDecl *var = dyn_cast<VarDecl>(e->getDecl());
+      // References to global constants are okay.
       if (isAnyRetainable(TargetClass) &&
           isAnyRetainable(SourceClass) &&
           var &&
           var->getStorageClass() == SC_Extern &&
-          var->getType().isConstQualified() &&
-          Context.getSourceManager().isInSystemHeader(var->getLocation())) {
-        return ACC_bottom;
+          var->getType().isConstQualified()) {
+
+        // In system headers, they can also be assumed to be immune to retains.
+        // These are things like 'kCFStringTransformToLatin'.
+        if (Context.getSourceManager().isInSystemHeader(var->getLocation()))
+          return ACC_bottom;
+
+        return ACC_plusZero;
       }
 
       // Nothing else.

@@ -1,8 +1,6 @@
 #if USE_ITT_BUILD
 /*
  * kmp_itt.h -- ITT Notify interface.
- * $Revision: 43457 $
- * $Date: 2014-09-17 03:57:22 -0500 (Wed, 17 Sep 2014) $
  */
 
 
@@ -86,7 +84,11 @@ __kmp_inline void   __kmp_itt_task_starting( void * object );
 __kmp_inline void   __kmp_itt_task_finished( void * object );
 
 // --- Lock reporting ---
+#if KMP_USE_DYNAMIC_LOCK
+__kmp_inline void   __kmp_itt_lock_creating(  kmp_user_lock_p lock, const ident_t * );
+#else
 __kmp_inline void   __kmp_itt_lock_creating(  kmp_user_lock_p lock );
+#endif
 __kmp_inline void   __kmp_itt_lock_acquiring( kmp_user_lock_p lock );
 __kmp_inline void   __kmp_itt_lock_acquired(  kmp_user_lock_p lock );
 __kmp_inline void   __kmp_itt_lock_releasing( kmp_user_lock_p lock );
@@ -94,7 +96,11 @@ __kmp_inline void   __kmp_itt_lock_cancelled( kmp_user_lock_p lock );
 __kmp_inline void   __kmp_itt_lock_destroyed( kmp_user_lock_p lock );
 
 // --- Critical reporting ---
+#if KMP_USE_DYNAMIC_LOCK
+__kmp_inline void   __kmp_itt_critical_creating(  kmp_user_lock_p lock, const ident_t * );
+#else
 __kmp_inline void   __kmp_itt_critical_creating(  kmp_user_lock_p lock );
+#endif
 __kmp_inline void   __kmp_itt_critical_acquiring( kmp_user_lock_p lock );
 __kmp_inline void   __kmp_itt_critical_acquired(  kmp_user_lock_p lock );
 __kmp_inline void   __kmp_itt_critical_releasing( kmp_user_lock_p lock );

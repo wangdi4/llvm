@@ -10,7 +10,9 @@
 #define LLD_READER_WRITER_ELF_MIPS_MIPS_TARGET_HANDLER_H
 
 #include "DefaultTargetHandler.h"
+#include "MipsDynamicLibraryWriter.h"
 #include "MipsELFReader.h"
+#include "MipsExecutableWriter.h"
 #include "MipsLinkingContext.h"
 #include "MipsRelocationHandler.h"
 #include "MipsSectionChunks.h"
@@ -65,6 +67,16 @@ public:
     return *_gpDispAtom;
   }
 
+  /// \brief Return the section order for a input section
+  Layout::SectionOrder getSectionOrder(StringRef name, int32_t contentType,
+                                       int32_t contentPermissions) override {
+    if ((contentType == DefinedAtom::typeStub) && (name.startswith(".text")))
+      return DefaultLayout<ELFType>::ORDER_TEXT;
+
+    return DefaultLayout<ELFType>::getSectionOrder(name, contentType,
+                                                   contentPermissions);
+  }
+
 private:
   llvm::BumpPtrAllocator _alloc;
   MipsGOTSection<ELFType> *_gotSection;
@@ -77,43 +89,65 @@ private:
 template <class ELFType>
 class MipsRuntimeFile final : public CRuntimeFile<ELFType> {
 public:
-  MipsRuntimeFile(const MipsLinkingContext &ctx)
+  MipsRuntimeFile(MipsLinkingContext &ctx)
       : CRuntimeFile<ELFType>(ctx, "Mips runtime file") {}
 };
 
-/// \brief TargetHandler for Mips
-class MipsTargetHandler final : public DefaultTargetHandler<Mips32ElELFType> {
+/// \brief Auxiliary class holds relocation's names table.
+class MipsRelocationStringTable {
+  static const Registry::KindStrings kindStrings[];
+
 public:
-  MipsTargetHandler(MipsLinkingContext &ctx);
+  static void registerTable(Registry &registry);
+};
 
-  MipsTargetLayout<Mips32ElELFType> &getTargetLayout() override {
-    return *_targetLayout;
+/// \brief TargetHandler for Mips
+template <class ELFT>
+class MipsTargetHandler final : public DefaultTargetHandler<ELFT> {
+public:
+  MipsTargetHandler(MipsLinkingContext &ctx)
+      : _ctx(ctx), _runtimeFile(new MipsRuntimeFile<ELFT>(ctx)),
+        _targetLayout(new MipsTargetLayout<ELFT>(ctx)),
+        _relocationHandler(createMipsRelocationHandler<ELFT>(ctx)) {}
+
+  MipsTargetLayout<ELFT> &getTargetLayout() override { return *_targetLayout; }
+
+  std::unique_ptr<Reader> getObjReader() override {
+    return std::unique_ptr<Reader>(new MipsELFObjectReader<ELFT>(_ctx));
   }
 
-  std::unique_ptr<Reader> getObjReader(bool atomizeStrings) override {
-    return std::unique_ptr<Reader>(
-        new MipsELFObjectReader(_ctx, atomizeStrings));
+  std::unique_ptr<Reader> getDSOReader() override {
+    return std::unique_ptr<Reader>(new MipsELFDSOReader<ELFT>(_ctx));
   }
 
-  std::unique_ptr<Reader> getDSOReader(bool useShlibUndefines) override {
-    return std::unique_ptr<Reader>(
-        new MipsELFDSOReader(_ctx, useShlibUndefines));
-  }
-
-  const MipsTargetRelocationHandler &getRelocationHandler() const override {
+  const TargetRelocationHandler &getRelocationHandler() const override {
     return *_relocationHandler;
   }
 
-  std::unique_ptr<Writer> getWriter() override;
+  std::unique_ptr<Writer> getWriter() override {
+    switch (_ctx.getOutputELFType()) {
+    case llvm::ELF::ET_EXEC:
+      return std::unique_ptr<Writer>(
+          new MipsExecutableWriter<ELFT>(_ctx, *_targetLayout));
+    case llvm::ELF::ET_DYN:
+      return std::unique_ptr<Writer>(
+          new MipsDynamicLibraryWriter<ELFT>(_ctx, *_targetLayout));
+    case llvm::ELF::ET_REL:
+      llvm_unreachable("TODO: support -r mode");
+    default:
+      llvm_unreachable("unsupported output type");
+    }
+  }
 
-  void registerRelocationNames(Registry &registry) override;
+  void registerRelocationNames(Registry &registry) override {
+    MipsRelocationStringTable::registerTable(registry);
+  }
 
 private:
-  static const Registry::KindStrings kindStrings[];
   MipsLinkingContext &_ctx;
-  std::unique_ptr<MipsRuntimeFile<Mips32ElELFType>> _runtimeFile;
-  std::unique_ptr<MipsTargetLayout<Mips32ElELFType>> _targetLayout;
-  std::unique_ptr<MipsTargetRelocationHandler> _relocationHandler;
+  std::unique_ptr<MipsRuntimeFile<ELFT>> _runtimeFile;
+  std::unique_ptr<MipsTargetLayout<ELFT>> _targetLayout;
+  std::unique_ptr<TargetRelocationHandler> _relocationHandler;
 };
 
 template <class ELFT> class MipsSymbolTable : public SymbolTable<ELFT> {

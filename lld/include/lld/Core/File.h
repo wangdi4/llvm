@@ -55,11 +55,24 @@ public:
     return _kind;
   }
 
-  /// \brief For error messages and debugging, this returns the path to the file
-  /// which was used to create this object (e.g. "/tmp/foo.o").
-  StringRef path() const  {
-    return _path;
+  /// This returns the path to the file which was used to create this object
+  /// (e.g. "/tmp/foo.o"). If the file is a member of an archive file, the
+  /// returned string includes the archive file name.
+  StringRef path() const {
+    if (_archivePath.empty())
+      return _path;
+    if (_archiveMemberPath.empty())
+      _archiveMemberPath = (_archivePath + "(" + _path + ")").str();
+    return _archiveMemberPath;
   }
+
+  /// Returns the path of the archive file name if this file is instantiated
+  /// from an archive file. Otherwise returns the empty string.
+  StringRef archivePath() const { return _archivePath; }
+  void setArchivePath(StringRef path) { _archivePath = path; }
+
+  /// Returns the path name of this file. It doesn't include archive file name.
+  StringRef memberPath() const { return _path; }
 
   /// Returns the command line order of the file.
   uint64_t ordinal() const {
@@ -164,6 +177,14 @@ public:
 
   std::error_code parse();
 
+  // This function is called just before the core linker tries to use
+  // a file. Currently the PECOFF reader uses this to trigger the
+  // driver to parse .drectve section (which contains command line options).
+  // If you want to do something having side effects, don't do that in
+  // doParse() because a file could be pre-loaded speculatively.
+  // Use this hook instead.
+  virtual void beforeLink() {}
+
   // Usually each file owns a std::unique_ptr<MemoryBuffer>.
   // However, there's one special case. If a file is an archive file,
   // the archive file and its children all shares the same memory buffer.
@@ -240,6 +261,8 @@ protected:
 
 private:
   StringRef _path;
+  std::string _archivePath;
+  mutable std::string _archiveMemberPath;
   Kind              _kind;
   mutable uint64_t  _ordinal;
   std::shared_ptr<MemoryBuffer> _sharedMemoryBuffer;

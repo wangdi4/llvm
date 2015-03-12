@@ -49,7 +49,7 @@
 
 // Third party headers:
 #include <stdio.h>
-#include <lldb/API/SBHostOS.h>
+#include "lldb/API/SBHostOS.h"
 
 // In house headers:
 #include "MICmnConfig.h"
@@ -81,6 +81,9 @@
 void
 sigwinch_handler(int vSigno)
 {
+#ifdef _WIN32 // Restore handler as it is not persistent on Windows
+    signal(SIGWINCH, sigwinch_handler);
+#endif
     MIunused(vSigno);
 
     struct winsize window_size;
@@ -111,6 +114,9 @@ sigwinch_handler(int vSigno)
 void
 sigint_handler(int vSigno)
 {
+#ifdef _WIN32 // Restore handler as it is not persistent on Windows
+    signal(SIGINT, sigint_handler);
+#endif
     static bool g_interrupt_sent = false;
     CMIDriverMgr &rDriverMgr = CMIDriverMgr::Instance();
     lldb::SBDebugger *pDebugger = rDriverMgr.DriverGetTheDebugger();
@@ -126,9 +132,8 @@ sigint_handler(int vSigno)
 
     CMICmnLog::Instance().WriteLog(CMIUtilString::Format(MIRSRC(IDS_PROCESS_SIGNAL_RECEIVED), "SIGINT", vSigno));
 
-    // CODETAG_DEBUG_SESSION_RUNNING_PROG_RECEIVED_SIGINT_PAUSE_PROGRAM
-    // Signal MI to shutdown or halt a running debug session
-    CMICmnStreamStdin::Instance().SetCtrlCHit();
+    // Send signal to driver so that it can take suitable action
+    rDriverMgr.DeliverSignal (vSigno);
 }
 
 // ToDo: Reevaluate if this function needs to be implemented like the UNIX equivalent
@@ -147,6 +152,9 @@ sigint_handler(int vSigno)
 void
 sigtstp_handler(int vSigno)
 {
+#ifdef _WIN32 // Restore handler as it is not persistent on Windows
+    signal(SIGTSTP, sigtstp_handler);
+#endif
     CMIDriverMgr &rDriverMgr = CMIDriverMgr::Instance();
     lldb::SBDebugger *pDebugger = rDriverMgr.DriverGetTheDebugger();
     if (pDebugger != nullptr)
@@ -156,8 +164,8 @@ sigtstp_handler(int vSigno)
 
     CMICmnLog::Instance().WriteLog(CMIUtilString::Format(MIRSRC(IDS_PROCESS_SIGNAL_RECEIVED), "SIGTSTP", vSigno));
 
-    // Signal MI to shutdown
-    CMICmnStreamStdin::Instance().SetCtrlCHit();
+    // Send signal to driver so that it can take suitable action
+    rDriverMgr.DeliverSignal (vSigno);
 }
 
 // ToDo: Reevaluate if this function needs to be implemented like the UNIX equivalent
@@ -175,6 +183,9 @@ sigtstp_handler(int vSigno)
 void
 sigcont_handler(int vSigno)
 {
+#ifdef _WIN32 // Restore handler as it is not persistent on Windows
+    signal(SIGCONT, sigcont_handler);
+#endif
     CMIDriverMgr &rDriverMgr = CMIDriverMgr::Instance();
     lldb::SBDebugger *pDebugger = rDriverMgr.DriverGetTheDebugger();
     if (pDebugger != nullptr)
@@ -184,8 +195,8 @@ sigcont_handler(int vSigno)
 
     CMICmnLog::Instance().WriteLog(CMIUtilString::Format(MIRSRC(IDS_PROCESS_SIGNAL_RECEIVED), "SIGCONT", vSigno));
 
-    // Signal MI to shutdown
-    CMICmnStreamStdin::Instance().SetCtrlCHit();
+    // Send signal to driver so that it can take suitable action
+    rDriverMgr.DeliverSignal (vSigno);
 }
 
 //++ ------------------------------------------------------------------------------------
