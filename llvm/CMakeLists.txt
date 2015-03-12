@@ -531,6 +531,10 @@ if( ${CMAKE_SYSTEM_NAME} MATCHES SunOS )
    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -include llvm/Support/Solaris.h")
 endif( ${CMAKE_SYSTEM_NAME} MATCHES SunOS )
 
+if(INTEL_CUSTOMIZATION)
+  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_CUSTOMIZATION=1")
+endif()
+
 # Make sure we don't get -rdynamic in every binary. For those that need it,
 # use set_target_properties(target PROPERTIES ENABLE_EXPORTS 1)
 set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
@@ -577,10 +581,6 @@ foreach( binding ${LLVM_BINDINGS_LIST} )
     add_subdirectory(bindings/${binding})
   endif()
 endforeach()
-
-if(INTEL_CUSTOMIZATION)
-  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_CUSTOMIZATION=1")
-endif()
 
 add_subdirectory(projects)
 
