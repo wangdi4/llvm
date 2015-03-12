@@ -635,6 +635,16 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   assert(TI.getCharWidth() == 8 && "Only support 8-bit char so far");
   Builder.defineMacro("__CHAR_BIT__", "8");
 
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#366613 - define macro __LONG_DOUBLE_SIZE__ in IntelCompat mode.
+  if (LangOpts.IntelCompat) {
+    llvm::APFloat Float = llvm::APFloat(TI.getLongDoubleFormat());
+    llvm::APInt Int = Float.bitcastToAPInt();
+    int LongDoubleSize = Int.getBitWidth();
+    Builder.defineMacro("__LONG_DOUBLE_SIZE__", Twine(LongDoubleSize));
+  }
+#endif // INTEL_CUSTOMIZATION
+
   DefineTypeSize("__SCHAR_MAX__", TargetInfo::SignedChar, TI, Builder);
   DefineTypeSize("__SHRT_MAX__", TargetInfo::SignedShort, TI, Builder);
   DefineTypeSize("__INT_MAX__", TargetInfo::SignedInt, TI, Builder);
