@@ -32,6 +32,10 @@ protected:
 
   friend class HLNodeUtils;
 
+  /// \brief Implements getNumOperands() functionality.
+  /// TODO : Implement later
+  unsigned getNumOperandsInternal() const { return 1; }
+
 public:
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
@@ -45,8 +49,7 @@ public:
   HLSwitch *clone() const;
 
   /// \brief Returns the number of operands this node is supposed to have.
-  /// TODO : Implement later
-  unsigned getNumOperands() const override { return 1; }
+  unsigned getNumOperands() const override { return getNumOperandsInternal(); }
 };
 
 } // End namespace loopopt

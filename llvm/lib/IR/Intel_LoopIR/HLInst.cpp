@@ -18,28 +18,28 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-HLInst::HLInst(Instruction *In)
-    : HLDDNode(HLNode::HLInstVal), Inst(In), SafeRednSucc(nullptr) {
-  assert(Inst && "LLVM Instruction for HLInst cannot be null!");
-
+void HLInst::initialize() {
   /// This call is to get around calling virtual functions in the constructor.
   unsigned NumOp = getNumOperandsInternal();
 
   /// Number of operands stays the same over the lifetime of HLInst so make
   /// that the min size.
-  if (NumOp > DDRefs.size()) {
-    DDRefs.resize(getNumOperands(), nullptr);
-  }
+  DDRefs.resize(NumOp, nullptr);
+}
+
+HLInst::HLInst(Instruction *In)
+    : HLDDNode(HLNode::HLInstVal), Inst(In), SafeRednSucc(nullptr) {
+  assert(Inst && "LLVM Instruction for HLInst cannot be null!");
+  initialize();
 }
 
 HLInst::HLInst(const HLInst &HLInstObj)
-    : HLDDNode(HLInstObj), SafeRednSucc(nullptr) {
+    : HLDDNode(HLInstObj), Inst(HLInstObj.Inst), SafeRednSucc(nullptr) {
 
   unsigned NumOp, Count = 0;
 
-  /// Clone the LLVM Instruction
-  Inst = HLInstObj.Inst->clone();
-  NumOp = getNumOperands();
+  initialize();
+  NumOp = getNumOperandsInternal();
 
   /// Clone DDRefs
   for (auto I = HLInstObj.ddref_begin(), E = HLInstObj.ddref_end(); I != E;

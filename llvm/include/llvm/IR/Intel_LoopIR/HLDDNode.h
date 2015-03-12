@@ -67,15 +67,15 @@ protected:
 
 public:
   /// DDRef iterator methods
-  ddref_iterator ddref_begin() { return DDRefs.begin(); }
-  const_ddref_iterator ddref_begin() const { return DDRefs.begin(); }
-  ddref_iterator ddref_end() { return DDRefs.end(); }
-  const_ddref_iterator ddref_end() const { return DDRefs.end(); }
+  ddref_iterator ddref_begin();
+  const_ddref_iterator ddref_begin() const;
+  ddref_iterator ddref_end();
+  const_ddref_iterator ddref_end() const;
 
-  reverse_ddref_iterator ddref_rbegin() { return DDRefs.rbegin(); }
-  const_reverse_ddref_iterator ddref_rbegin() const { return DDRefs.rbegin(); }
-  reverse_ddref_iterator ddref_rend() { return DDRefs.rend(); }
-  const_reverse_ddref_iterator ddref_rend() const { return DDRefs.rend(); }
+  reverse_ddref_iterator ddref_rbegin();
+  const_reverse_ddref_iterator ddref_rbegin() const;
+  reverse_ddref_iterator ddref_rend();
+  const_reverse_ddref_iterator ddref_rend() const;
 
   /// DDRef acess methods
   unsigned getNumDDRefs() const { return DDRefs.size(); }

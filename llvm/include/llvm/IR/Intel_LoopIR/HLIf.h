@@ -72,6 +72,10 @@ protected:
   /// Implements getNumOperands() functionality.
   unsigned getNumOperandsInternal() const;
 
+  /// \brief Initializes some of the members to bring the object in a sane
+  /// state.
+  void initialize();
+
 public:
   /// \brief Returns the underlying type of if.
   Type *getLLVMType() const;

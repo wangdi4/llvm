@@ -18,6 +18,15 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
+void HLIf::initialize() {
+  unsigned NumOp;
+
+  /// This call is to get around calling virtual functions in the constructor.
+  NumOp = getNumOperandsInternal();
+
+  DDRefs.resize(NumOp, nullptr);
+}
+
 HLIf::HLIf(CmpInst::Predicate FirstPred, DDRef *Ref1, DDRef *Ref2)
     : HLDDNode(HLNode::HLIfVal) {
   assert(((FirstPred == CmpInst::Predicate::FCMP_FALSE) ||
@@ -25,17 +34,10 @@ HLIf::HLIf(CmpInst::Predicate FirstPred, DDRef *Ref1, DDRef *Ref2)
          "DDRefs cannot be null!");
   /// TODO: add check for type consistency (integer/float)
 
-  unsigned NumOp;
-
   ElseBegin = Children.end();
   Preds.push_back(FirstPred);
 
-  /// This call is to get around calling virtual functions in the constructor.
-  NumOp = getNumOperandsInternal();
-
-  if (NumOp > DDRefs.size()) {
-    DDRefs.resize(NumOp, nullptr);
-  }
+  initialize();
 
   setOperandDDRef(Ref1, 0);
   setOperandDDRef(Ref2, 1);
@@ -47,6 +49,7 @@ HLIf::HLIf(const HLIf &HLIfObj)
   unsigned Count = 0;
 
   ElseBegin = Children.end();
+  initialize();
 
   /// Clone DDRefs
   for (auto I = HLIfObj.ddref_begin(), E = HLIfObj.ddref_end(); I != E;

@@ -46,8 +46,12 @@ protected:
   /// no-op.
   virtual void resizeDDRefsToNumOperands() override {}
 
-  /// Implements getNumOperands() functionality.
+  /// \brief Implements getNumOperands() functionality.
   unsigned getNumOperandsInternal() const;
+
+  /// \brief Initializes some of the members to bring the object in a sane
+  /// state.
+  void initialize();
 
 public:
   /// \brief Returns the underlying Instruction.

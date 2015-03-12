@@ -19,9 +19,21 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
+void HLLoop::initialize() {
+  unsigned NumOp;
+
+  ChildBegin = Children.end();
+  PostexitBegin = Children.end();
+
+  /// This call is to get around calling virtual functions in the constructor.
+  NumOp = getNumOperandsInternal();
+
+  DDRefs.resize(NumOp, nullptr);
+}
+
 HLLoop::HLLoop(HLIf *ZttIf, DDRef *LowerDDRef, DDRef *TripCountDDRef,
                DDRef *StrideDDRef, bool IsDoWh, unsigned NumEx)
-    : HLDDNode(HLNode::HLLoopVal), Ztt(ZttIf), IsDoWhile(IsDoWh),
+    : HLDDNode(HLNode::HLLoopVal), Ztt(nullptr), IsDoWhile(IsDoWh),
       NestingLevel(0), IsInnermost(true) {
   assert((!ZttIf || !IsDoWh) && "Do while loop cannot have ztt!");
   assert((!IsDoWh || NumEx == 1) && "Do while loop cannot have multiple "
@@ -29,17 +41,8 @@ HLLoop::HLLoop(HLIf *ZttIf, DDRef *LowerDDRef, DDRef *TripCountDDRef,
   assert(((LowerDDRef && TripCountDDRef && StrideDDRef) ||
           (!LowerDDRef && !TripCountDDRef && !StrideDDRef)) &&
          "Inconsistent loop DDRefs");
-  unsigned NumOp;
 
-  ChildBegin = Children.end();
-  PostexitBegin = Children.end();
-
-  // This call is to get around calling virtual functions in the constructor.
-  NumOp = getNumOperandsInternal();
-
-  if (NumOp > DDRefs.size()) {
-    DDRefs.resize(NumOp, nullptr);
-  }
+  initialize();
 
   setNumExits(NumEx);
 
@@ -58,8 +61,7 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
 
   const DDRef *Ref;
 
-  ChildBegin = Children.end();
-  PostexitBegin = Children.end();
+  initialize();
 
   /// Clone the Ztt
   if (HLLoopObj.hasZtt()) {
@@ -221,6 +223,8 @@ void HLLoop::setZtt(HLIf *ZttIf) {
   Ztt = ZttIf;
 
   unsigned NumOp = ZttIf->getNumOperands();
+
+  DDRefs.resize(getNumOperandsInternal(), nullptr);
 
   /// Copy DDRef pointers to avoid unnecessary cloning.
   for (unsigned I = 0; I < NumOp; I++) {

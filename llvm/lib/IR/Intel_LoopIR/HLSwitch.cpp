@@ -19,10 +19,14 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-HLSwitch::HLSwitch() : HLDDNode(HLNode::HLSwitchVal) {}
+HLSwitch::HLSwitch() : HLDDNode(HLNode::HLSwitchVal) {
+  DDRefs.resize(getNumOperandsInternal(), nullptr);
+}
 
 HLSwitch::HLSwitch(const HLSwitch &HLSwitchObj) : HLDDNode(HLSwitchObj) {
   unsigned Count = 0;
+
+  DDRefs.resize(getNumOperandsInternal(), nullptr);
 
   /// Clone DDRefs
   for (auto I = HLSwitchObj.ddref_begin(), E = HLSwitchObj.ddref_end(); I != E;

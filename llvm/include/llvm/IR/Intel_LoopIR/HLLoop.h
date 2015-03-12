@@ -115,6 +115,10 @@ protected:
   /// Implements getNumOperands() functionality.
   unsigned getNumOperandsInternal() const;
 
+  /// \brief Initializes some of the members to bring the object in a sane
+  /// state.
+  void initialize();
+
 public:
   /// \brief Returns true if ztt is present.
   bool hasZtt() const { return Ztt != nullptr; }
