@@ -372,6 +372,12 @@ public:
   /// \brief All the Cilk spawn call expressions in this expression
   /// evaluation context.
   llvm::SmallVector<CallExpr*, 2> CilkSpawnCalls;
+  // FIXME: it's a temporary decision to call static feature
+  //        from another source file
+  void BuildCapturedStmtCaptureList(
+    SmallVectorImpl<CapturedStmt::Capture> &Captures,
+    SmallVectorImpl<Expr *> &CaptureInits,
+    ArrayRef<sema::CapturingScopeInfo::Capture> Candidates);
 #endif  // INTEL_CUSTOMIZATION
   /// \brief Stack containing information about each of the nested
   /// function, block, and method scopes that are currently active.

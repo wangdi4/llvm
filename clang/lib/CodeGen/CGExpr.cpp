@@ -1995,29 +1995,14 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
 
   if (const auto *VD = dyn_cast<VarDecl>(ND)) {
     // Check if this is a global variable.
-#ifdef INTEL_CUSTOMIZATION
-    bool IsCaptured = false;
-    if (CapturedStmtInfo && CapturedStmtInfo->lookup(VD))
-      IsCaptured = true;
-    else
-      IsCaptured = LambdaCaptureFields.lookup(VD);
-#endif  // INTEL_CUSTOMIZATION
-    if ((VD->hasLinkage() || VD->isStaticDataMember())
-#ifdef INTEL_CUSTOMIZATION
-          && !IsCaptured
-#endif  // INTEL_CUSTOMIZATION
-       )
+   if (VD->hasLinkage() || VD->isStaticDataMember())
       return EmitGlobalVarDeclLValue(*this, E, VD);
 
     bool isBlockVariable = VD->hasAttr<BlocksAttr>();
 
     llvm::Value *V = LocalDeclMap.lookup(VD);
 
-    if (!V && VD->isStaticLocal()
-#ifdef INTEL_CUSTOMIZATION
-          && !IsCaptured
-#endif  // INTEL_CUSTOMIZATION
-       )
+    if (!V && VD->isStaticLocal())
       V = CGM.getOrCreateStaticVarDecl(
           *VD, CGM.getLLVMLinkageVarDefinition(VD, /*isConstant=*/false));
 

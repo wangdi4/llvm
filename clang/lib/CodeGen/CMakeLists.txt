@@ -32,6 +32,7 @@ add_clang_library(clangCodeGen
   CGBuiltin.cpp
 #ifdef INTEL_CUSTOMIZATION
   intel/CGCilkPlusRuntime.cpp
+  intel/CGCilkPlusStmt.cpp
   intel/CGElementalFunction.cpp
   intel/CGBuiltin_getBuiltinIntelLibFunction.cpp
 #endif // INTEL_CUSTOMIZATION
