@@ -7170,6 +7170,11 @@ static void DiagnoseNarrowingInInitList(Sema &S,
     // represented exactly as an integer.
     S.Diag(PostInit->getLocStart(),
            (S.getLangOpts().MicrosoftExt || !S.getLangOpts().CPlusPlus11)
+#ifdef INTEL_CUSTOMIZATION
+           // Intel compiler never issues any errors. Follow this in IntelCompat
+           // mode. CQ#366839.
+           || S.getLangOpts().IntelCompat
+#endif // INTEL_CUSTOMIZATION
                ? diag::warn_init_list_type_narrowing
                : diag::ext_init_list_type_narrowing)
       << PostInit->getSourceRange()
@@ -7181,6 +7186,11 @@ static void DiagnoseNarrowingInInitList(Sema &S,
     // A constant value was narrowed.
     S.Diag(PostInit->getLocStart(),
            (S.getLangOpts().MicrosoftExt || !S.getLangOpts().CPlusPlus11)
+#ifdef INTEL_CUSTOMIZATION
+           // Intel compiler never issues any errors. Follow this in IntelCompat
+           // mode. CQ#366839.
+           || S.getLangOpts().IntelCompat
+#endif // INTEL_CUSTOMIZATION
                ? diag::warn_init_list_constant_narrowing
                : diag::ext_init_list_constant_narrowing)
       << PostInit->getSourceRange()
@@ -7192,6 +7202,11 @@ static void DiagnoseNarrowingInInitList(Sema &S,
     // A variable's value may have been narrowed.
     S.Diag(PostInit->getLocStart(),
            (S.getLangOpts().MicrosoftExt || !S.getLangOpts().CPlusPlus11)
+#ifdef INTEL_CUSTOMIZATION
+           // Intel compiler never issues any errors. Follow this in IntelCompat
+           // mode. CQ#366839.
+           || S.getLangOpts().IntelCompat
+#endif // INTEL_CUSTOMIZATION
                ? diag::warn_init_list_variable_narrowing
                : diag::ext_init_list_variable_narrowing)
       << PostInit->getSourceRange()
