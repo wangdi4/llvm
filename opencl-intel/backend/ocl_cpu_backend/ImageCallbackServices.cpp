@@ -260,7 +260,6 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
         break;
       case 3:
         pImageAuxData->dim[2]     = pImageObject->dimensions.dim[2];
-        pImageAuxData->pitch[2]   = pImageObject->pitch[2];
         pImageAuxData->dimSub1[2] = pImageAuxData->dim[2] - 1;
         pImageAuxData->dimf[2]    = pImageAuxData->dim[2];
       case 2:
