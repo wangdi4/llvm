@@ -25,9 +25,11 @@ namespace intel {
 
 class TestVFunction: public VectorizerFunction{
 private:
+  bool m_isBuiltin;
   unsigned m_width;
 public:
-  TestVFunction(const std::string& s) : m_name(s) {
+  TestVFunction(const std::string& s, bool isBuiltin) : m_isBuiltin(isBuiltin),
+                                                        m_name(s) {
     size_t last_underscore = m_name.find_last_of("_v");
     if (last_underscore == string::npos) {
       m_width = FunctionDescriptor::SCALAR;
@@ -68,7 +70,7 @@ public:
   }
 
   virtual bool isNull() const {
-    return false;
+    return !m_isBuiltin;
   }
 private:
   const std::string m_name;
@@ -93,8 +95,11 @@ Function * TestRuntime::findInRuntimeModule(StringRef Name) const {
 
 std::unique_ptr<VectorizerFunction>
 TestRuntime::findBuiltinFunction(StringRef mangledName) const {
-  std::unique_ptr<VectorizerFunction> ret(new TestVFunction(mangledName));
-  return ret;
+  Function* function = findInRuntimeModule(mangledName);
+  bool isBuiltin =
+    function && function->hasFnAttribute(Mangler::vectorizer_builtin_attr);
+  return std::unique_ptr<VectorizerFunction>(new TestVFunction(mangledName,
+							       isBuiltin));
 }
 
 bool TestRuntime::orderedWI() const { return true; }

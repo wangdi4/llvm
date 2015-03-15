@@ -44,7 +44,7 @@ struct FunctionDescriptor{
 
   static llvm::StringRef nullString();
 
-  static const unsigned SCALAR = 0U;
+  static const unsigned SCALAR = 1U;
 };
 
 template <typename T>

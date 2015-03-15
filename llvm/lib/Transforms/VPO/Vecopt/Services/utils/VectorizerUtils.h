@@ -78,10 +78,15 @@ public:
   /// @param name function name
   /// @param retType function return type
   /// @param args list of arguments to call the function with
+  /// @param attrs list of attributes to add to the function
   /// @param insertBefore instruction to insert new callInst before
   /// @return new call instruction
-  static llvm::CallInst *createFunctionCall(llvm::Module *pModule, const std::string &name,
-    llvm::Type *retType, const llvm::SmallVectorImpl<llvm::Value *> &args, const llvm::SmallVectorImpl<llvm::Attribute::AttrKind>& attrs, llvm::Instruction* insertBefore);
+  static llvm::CallInst *createFunctionCall(llvm::Module *pModule,
+					    const std::string &name,
+					    llvm::Type *retType,
+					    const llvm::SmallVectorImpl<llvm::Value *> &args,
+					    llvm::AttributeSet attrs,
+					    llvm::Instruction* insertBefore);
 
   /// @brief Creates a broadcast sequance (InsertElement + Shuffle)
   /// @param pVal value to prodcast

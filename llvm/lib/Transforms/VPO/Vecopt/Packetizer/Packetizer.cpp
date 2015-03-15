@@ -163,6 +163,7 @@ bool PacketizeFunction::runOnFunction(Function &F)
   m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
   V_ASSERT(m_rtServices && "Runtime services were not initialized!");
   m_pDL = &getAnalysis<DataLayoutPass>().getDataLayout();
+  m_DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 
   m_currFunc = &F;
   m_moduleContext = &(m_currFunc->getContext());
@@ -1130,8 +1131,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
 
   std::string name = Mangler::getGatherScatterInternalName(type, MO.Mask->getType(), VecElemTy, IndexTy);
   // Create new gather/scatter/prefetch caller instruction
-  Instruction *newCaller = VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, RetTy, args,
-      SmallVector<Attribute::AttrKind, 4>(), MO.Orig);
+  Instruction *newCaller = VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, RetTy, args, AttributeSet(), MO.Orig);
 
   // In case the vector size cross cache line we need to also prefetch the next cachelines.
   // According to OCL spec the vectors are aligned to the vector size (except for size 3 which is aligned as size 4)
@@ -1141,8 +1141,8 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     Constant *vecVal = ConstantInt::get(indexType, 64/8); // cache line size / scale size
     vecVal = ConstantVector::getSplat(m_packetWidth, vecVal);
     args[2] =  BinaryOperator::CreateNUWAdd(MO.Index, vecVal, "Jump2NextLine", MO.Orig);
-    VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, RetTy, args,
-        SmallVector<Attribute::AttrKind, 4>(), MO.Orig);
+    VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, RetTy,
+					args, AttributeSet(), MO.Orig);
   }
 
   return newCaller;
@@ -1207,8 +1207,9 @@ Instruction* PacketizeFunction::widenConsecutiveUnmaskedMemOp(MemoryOperation &M
     obtainMultiScalarValues(NumOfElements, CI->getArgOperand(1), MO.Orig);
     args.push_back(obtainNumElemsForConsecutivePrefetch(NumOfElements[0], MO.Orig));
     std::string vectorName = Mangler::getVectorizedPrefetchName(CI->getCalledFunction()->getName(), m_packetWidth);
-    return VectorizerUtils::createFunctionCall(m_currFunc->getParent(), vectorName, MO.Orig->getType(), args,
-        SmallVector<Attribute::AttrKind, 4>(), MO.Orig);
+    return VectorizerUtils::createFunctionCall(m_currFunc->getParent(),
+					       vectorName, MO.Orig->getType(),
+					       args, AttributeSet(), MO.Orig);
   }
   default:
     V_ASSERT(false && "unexpected type of memory operation");
@@ -1280,8 +1281,8 @@ Instruction* PacketizeFunction::widenConsecutiveMaskedMemOp(MemoryOperation &MO)
       V_ASSERT(false && "unexpected type of memory operation");
       break;
   }
-  return VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, DT, args,
-      SmallVector<Attribute::AttrKind, 4>(), MO.Orig);
+  return VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, DT,
+					     args, AttributeSet(), MO.Orig);
 }
 
 Instruction *PacketizeFunction::widenConsecutiveMemOp(MemoryOperation &MO) {
@@ -1685,8 +1686,11 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
           args.push_back(CI->getArgOperand(2));
           VCMEntry * newEntry = allocateNewVCMEntry();
           newEntry->isScalarRemoved = false;
-          Instruction* unMaskedPrefetch = VectorizerUtils::createFunctionCall(m_currFunc->getParent(),
-              Mangler::demangle(scalarFuncName), CI->getType(), args, SmallVector<Attribute::AttrKind, 4>(), CI);
+          Instruction* unMaskedPrefetch =
+	    VectorizerUtils::createFunctionCall(m_currFunc->getParent(),
+						Mangler::demangle(scalarFuncName),
+						CI->getType(), args,
+						AttributeSet(),	CI);
           m_VCM.insert(std::pair<Value *, VCMEntry *>(unMaskedPrefetch, newEntry));
           m_removedInsts.insert(CI);
           return;
@@ -1773,7 +1777,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
     }
 
     // Obtain the appropriate vector function.
-    std::string strVfuncName = foundFunction->getVersion(LOG_(m_packetWidth));
+    std::string strVfuncName = foundFunction->getVersion(m_packetWidth);
     vectorFuncName = strVfuncName.c_str();
     V_PRINT(packetizer, "\t\t\tWill convert to: " << vectorFuncName << "\n");
     // Get new decl out of module.

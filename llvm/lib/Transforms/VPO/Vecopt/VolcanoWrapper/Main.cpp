@@ -25,6 +25,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/IR/Verifier.h"
 
 #include <sstream>
 
@@ -149,12 +150,14 @@ void Vectorizer::createVectorizationStubs(Module& M) {
       dyn_cast<Function>(M.getOrInsertFunction(Mangler::name_allOne + version.str(),
 					       funcType));
     V_ASSERT(allOneFunc && "Function type is incorrect, so dyn_cast failed");
+    allOneFunc->addFnAttr(Mangler::vectorizer_builtin_attr);
     allOneFunc->addFnAttr(Attribute::NoUnwind);
     allOneFunc->addFnAttr(Attribute::ReadNone);
     Function* allZeroFunc =
       dyn_cast<Function>(M.getOrInsertFunction(Mangler::name_allZero + version.str(),
 					       funcType));
     V_ASSERT(allZeroFunc && "Function type is incorrect, so dyn_cast failed");
+    allZeroFunc->addFnAttr(Mangler::vectorizer_builtin_attr);
     allZeroFunc->addFnAttr(Attribute::NoUnwind);
     allZeroFunc->addFnAttr(Attribute::ReadNone);
   }
@@ -180,6 +183,7 @@ void Vectorizer::createVectorizationStubs(Module& M) {
       Function* loadFunc =
 	dyn_cast<Function>(M.getOrInsertFunction(loadFuncName, loadFuncType));
       V_ASSERT(loadFunc && "Function type is incorrect, so dyn_cast failed");
+      loadFunc->addFnAttr(Mangler::vectorizer_builtin_attr);
       loadFunc->addFnAttr(Attribute::NoUnwind);
 
       // Create the masked store function
@@ -194,6 +198,7 @@ void Vectorizer::createVectorizationStubs(Module& M) {
       Function* storeFunc =
 	dyn_cast<Function>(M.getOrInsertFunction(storeFuncName, storeFuncType));
       V_ASSERT(storeFunc && "Function type is incorrect, so dyn_cast failed");
+      storeFunc->addFnAttr(Mangler::vectorizer_builtin_attr);
       storeFunc->addFnAttr(Attribute::NoUnwind);
     }
   }
@@ -514,6 +519,8 @@ bool Vectorizer::preVectorizeFunction(Function& F) {
 
   fpm.run(F);
 
+  V_ASSERT(!verifyFunction(F) && "pre-vectorized function failed to verify");
+
   return vecPossiblity->isVectorizable();
 }
 
@@ -561,6 +568,7 @@ void Vectorizer::vectorizeFunction(Function& F, VectorVariant& vectorVariant) {
 
   fpm.doInitialization();
   fpm.run(F);
+  V_ASSERT(!verifyFunction(F) && "vectorized function failed to verify");
 }
 
 // Create a vector signature for a vectorized version.
@@ -665,16 +673,13 @@ Function* Vectorizer::createVectorVersion(Function& vectorizedFunction,
     assert(eei->getNumUses() == 1 &&
 	   "expected exactly 1 use for extract-element");
     User* eeiUser = eei->user_back();
-    InsertElementInst* iei = dyn_cast<InsertElementInst>(eeiUser);
-    assert(iei && "expected user to be an insert-element");
-    assert(iei->getNumUses() == 1 &&
-	   "expected exactly 1 use for insert-element");
-    User* ieiUser = iei->user_back();
-    ShuffleVectorInst* svi = dyn_cast<ShuffleVectorInst>(ieiUser);
-    assert(svi && "expected user to be a shuffle-vector");
-    svi->replaceAllUsesWith(eei->getVectorOperand());
-    removedInstructions.push_back(iei);
-    removedInstructions.push_back(svi);
+    CallInst* ci = dyn_cast<CallInst>(eeiUser);
+    assert(ci && "expected user to be a function call");
+    Function* calledFunction = ci->getCalledFunction();
+    assert(calledFunction &&
+	   calledFunction->hasFnAttribute(Mangler::fake_wide_scalar_attr) &&
+	   "expected called function to be a fake wide scalar stub");
+    ci->replaceAllUsesWith(eei->getVectorOperand());
   }
 
   if (!vectorReturnType->isVoidTy()) {
@@ -742,6 +747,7 @@ void Vectorizer::postVectorizeFunction(Function& F) {
 
   fpm.doInitialization();
   fpm.run(F);
+  V_ASSERT(!verifyFunction(F) && "post-vectorization function failed to verify");
 }
 
 } // Namespace intel

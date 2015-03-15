@@ -27,6 +27,8 @@ const std::string Mangler::prefix_scatter_prefetch = "internal.prefetch.scatter"
 const std::string Mangler::prefetch             = "prefetch";
 const std::string Mangler::name_allOne          = "__intel_allOne";
 const std::string Mangler::name_allZero         = "__intel_allZero";
+const std::string Mangler::vectorizer_builtin_attr = "__intel_vectorizer_builtin";
+const std::string Mangler::fake_wide_scalar_attr = "fake.wide.scalar";
 const std::string Mangler::fake_builtin_prefix  = "_f_v.";
 const std::string Mangler::retbyarray_builtin_prefix  = "__retbyarray_";
 const std::string Mangler::retbyvector_builtin_prefix  = "__retbyvector_";
@@ -148,6 +150,24 @@ std::string Mangler::getFakeInsertName() {
   static unsigned int serial = 0;
   std::string suffix = toString(serial++);
   return fake_prefix_insert+suffix;
+}
+
+std::string Mangler::getFakeWideScalarName(Type* scalarType,
+					   Type* wideType,
+					   unsigned width) {
+  std::stringstream result;
+  assert(!scalarType->isVectorTy() && !scalarType->isAggregateType() &&
+         "expected a scalar type");
+  assert(((wideType->isVectorTy() &&
+	   wideType->getScalarType() == scalarType) ||
+	  (wideType->isArrayTy() &&
+	   wideType->getArrayElementType() == scalarType)) &&
+         "expected either a vector or an array type of the scalar type");
+  result << "internal.scalar.to."
+	 << (wideType->isVectorTy() ? "vector" : "array") << "."
+	 << getGatherScatterTypeName(scalarType)
+	 << "x" << width;
+  return result.str();
 }
 
 std::string Mangler::getVectorizedPrefetchName(const std::string& name, int packetWidth) {

@@ -94,6 +94,8 @@ public:
     AU.addRequired<BuiltinLibInfo>();
     AU.addRequired<DataLayoutPass>();
     AU.addPreserved<DataLayoutPass>();
+    AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addPreserved<DominatorTreeWrapperPass>();
   }
 
 private:
@@ -313,6 +315,24 @@ private:
   /// @param origValue the value that we might want to vectorize.
   bool isInsertNeededToObtainVectorizedValue(Value * origValue);
 
+  /// @brief Provide a wide (vector/array) version of a scalar value
+  ///  by calling a function (only declared, to keep the generated value
+  ///  opaque to any optimizing pass).
+  /// @param origValue Value to expand
+  /// @param wideType Vector/array of origValue's type
+  /// @return an wideType value
+  Instruction* createFakeWideScalar(Value* origValue, Type* wideType);
+
+  /// @brief Hoist definitions to dominate a new user. This is necessary
+  /// when there's a chance we'll be sharing existing values with a new use
+  /// they do not dominated. We use DominatorTree to find the nearest common
+  /// dominator of defs and newUser and move defs to that basic block (unless
+  /// their current basic block is that common dominator).
+  /// @param newUser instruction defs must dominate
+  /// @param defs definitions, assumed to reside in the same basic block
+  void hoistDefToDominateNewUser(Instruction* newUser,
+				 ArrayRef<Instruction*> defs);
+
   /// @brief Provides vectorized values, to be used as inputs to "currently"
   ///  converted instructions. If value requires preparation (found, but not
   ///  vectorized) - prepare it first. If value is not found - it is in a
@@ -321,6 +341,19 @@ private:
   /// @param origValue Value which is searched
   /// @param origInst Instruction which is currently being worked on
   void obtainVectorizedValue(Value **retValue, Value * origValue, Instruction * origInst);
+
+  /// @brief Provides multiple scalar values for arguments to be used as inputs
+  ///  to "currently" converted instruction (as that inst is not vectorizable).
+  ///  Arguments are treated based on their WIAnalysis dependency and their
+  ///  vectorizibility. Random arguments expected to be passed as vectors get
+  ///  a fake wide value which immitates the wide argument and gets broken to
+  ///  scalars.
+  /// @param retValues Array to place multi-scalar values in
+  /// @param origValue Value which is searched
+  /// @param origInst Instruction which is currently being worked on
+  void obtainArgumentMultiScalarValues(Value *retValues[],
+				       Value *origValue,
+				       Instruction *origInst);
 
   /// @brief Provides multiple scalar values to be used as inputs to "currently"
   ///  converted instruction (as that inst is not vectorizable). If value is not
@@ -514,6 +547,9 @@ private:
 
   /// @brief DataLayout of processed module
   const DataLayout *m_pDL;
+
+  /// @brief DominatorTree of processed function
+  DominatorTree* m_DT;
 
   /// @brief counter of cases when packetizing is cancelled because of shufflevector instruction
   int m_shuffleCtr;

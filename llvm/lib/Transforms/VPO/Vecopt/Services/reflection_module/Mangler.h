@@ -174,6 +174,13 @@ public:
   /// @return True if store
   static bool isFakeInsert(const std::string& name);
 
+  /// @brief Get mangled name for a function that produces
+  ///  an opaque wide type (vector or array) from a scalar.
+  /// @return new name
+  static std::string getFakeWideScalarName(Type* scalarType,
+					   Type* wideType,
+					   unsigned width);
+
 private:
   /// @brief mangling delimiter
   static const std::string mask_delim;
@@ -213,6 +220,10 @@ public:
   static const std::string name_allOne;
   /// @brief mangled name of 'allzero function'
   static const std::string name_allZero;
+  /// @brief function attribute of vectorization stub
+  static const std::string vectorizer_builtin_attr;
+  /// @brief function attribute of scalar-to-vector stub
+  static const std::string fake_wide_scalar_attr;
 };
 
 
