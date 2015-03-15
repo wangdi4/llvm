@@ -253,11 +253,26 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
     memset(pImageAuxData->pitch, 0, sizeof(pImageAuxData->pitch));
     memset(pImageAuxData->dimSub1,0,sizeof(pImageAuxData->dimSub1));
     memset(pImageAuxData->dimf,0,sizeof(pImageAuxData->dimf));
-    for (unsigned int i=0;i<pImageAuxData->dim_count;i++){
-        pImageAuxData->dim[i] = pImageObject->dimensions.dim[i];
-        pImageAuxData->pitch[i] = pImageObject->pitch[i];
-        pImageAuxData->dimSub1[i] = pImageAuxData->dim[i]-1;
-        pImageAuxData->dimf[i] = pImageAuxData->dim[i];
+
+    switch (pImageAuxData->dim_count) {
+      default :
+        // Can't be anything except 1, 2 or 3.
+        break;
+      case 3:
+        pImageAuxData->dim[2]     = pImageObject->dimensions.dim[2];
+        pImageAuxData->pitch[2]   = pImageObject->pitch[2];
+        pImageAuxData->dimSub1[2] = pImageAuxData->dim[2] - 1;
+        pImageAuxData->dimf[2]    = pImageAuxData->dim[2];
+      case 2:
+        pImageAuxData->dim[1]     = pImageObject->dimensions.dim[1];
+        pImageAuxData->pitch[1]   = pImageObject->pitch[1];
+        pImageAuxData->dimSub1[1] = pImageAuxData->dim[1] - 1;
+        pImageAuxData->dimf[1]    = pImageAuxData->dim[1];
+      case 1:
+        pImageAuxData->dim[0]     = pImageObject->dimensions.dim[0];
+        pImageAuxData->pitch[0]   = pImageObject->pitch[0];
+        pImageAuxData->dimSub1[0] = pImageAuxData->dim[0] - 1;
+        pImageAuxData->dimf[0]    = pImageAuxData->dim[0];
     }
 
     // Offset represents offset in byte within a dimension used
@@ -399,7 +414,7 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
             for(unsigned int i = 0; i<ARRAY_SIZE(linearSamplers); i++)
                 read_cbk_ptr[linearSamplers[i]] = pImageCallbackFuncs->GetReadingCbk(NO_CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE3D);
             read_cbk_ptr[CLAMP_FALSE_LINEAR] = pImageCallbackFuncs->GetReadingCbk(CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE3D);
-            read_cbk_ptr[CLAMP_TRUE_LINEAR] = pImageCallbackFuncs->GetReadingCbk(CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE3D);
+            read_cbk_ptr[CLAMP_TRUE_LINEAR]  = pImageCallbackFuncs->GetReadingCbk(CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE3D);
         }
     }
     if(IsSOASupported(pImageAuxData->format.image_channel_data_type))
