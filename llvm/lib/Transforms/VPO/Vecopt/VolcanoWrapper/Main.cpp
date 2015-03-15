@@ -694,12 +694,27 @@ Function* Vectorizer::createVectorVersion(Function& vectorizedFunction,
       InsertElementInst* iei = dyn_cast<InsertElementInst>(returnInst->getReturnValue());
       assert(iei && "expected return value to be an insert-element");
       assert(iei->getNumUses() == 1 && "expected exactly 1 use for insert-element");
-      ExtractElementInst* eei = dyn_cast<ExtractElementInst>(iei->getOperand(1));
-      assert(eei && "expected fake scalar return value to be extract-element");
-      Value* actualVectorRetVal = eei->getVectorOperand();
-      iei->replaceAllUsesWith(actualVectorRetVal);
       removedInstructions.push_back(iei);
-      removedInstructions.push_back(eei);
+      Value* actualVectorRetVal = NULL;
+      Value* fakeScalarRetVal = iei->getOperand(1);
+      ExtractElementInst* eei = dyn_cast<ExtractElementInst>(fakeScalarRetVal);
+      if (eei) {
+       actualVectorRetVal = eei->getVectorOperand();
+       removedInstructions.push_back(eei);
+      }
+      else {
+       // If the IEI operand is a scalar - broadcast it.
+       unsigned numElements = iei->getType()->getVectorNumElements();
+       Constant* constant = dyn_cast<Constant>(fakeScalarRetVal);
+       if (constant) {
+         actualVectorRetVal = ConstantVector::getSplat(numElements, constant);
+       } else {
+         VectorizerUtils::createBroadcast(fakeScalarRetVal, numElements,
+                                          iei, false);
+       }
+      }
+      assert(actualVectorRetVal && "unexpected fake scalar return value");
+      iei->replaceAllUsesWith(actualVectorRetVal);
       break; // there can be only one
     }
   }
