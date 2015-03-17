@@ -4075,6 +4075,12 @@ def err_dependent_tag_decl : Error<
 def err_tag_definition_of_typedef : Error<
   "definition of type %0 conflicts with %select{typedef|type alias}1 of the same name">;
 def err_conflicting_types : Error<"conflicting types for %0">;
+// CQ#366612
+// if INTEL_CUSTOMIZATION
+def warn_func_redecl_conflicting_types: Warning<
+  "declaration of %0 is incompatible with previous "
+  "%select{declaration|definition}1">, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_nested_redefinition : Error<"nested redefinition of %0">;
 def err_use_with_wrong_tag : Error<
   "use of %0 with tag type that does not match previous declaration">;
