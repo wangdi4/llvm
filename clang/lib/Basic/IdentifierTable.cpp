@@ -110,7 +110,8 @@ namespace {
 #ifdef INTEL_CUSTOMIZATION
     KEYCILKPLUS = 0x04000,
     KEYFLOAT128 = 0x08000,
-    HALFSUPPORT = 0x10000,
+    KEYRESTRICT = 0x10000,
+    HALFSUPPORT = 0x20000,
 #else
     HALFSUPPORT = 0x04000,
 #endif  // INTEL_CUSTOMIZATION
@@ -138,8 +139,11 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
   if (LangOpts.MicrosoftExt && (Flags & KEYMS)) return KS_Extension;
   if (LangOpts.Borland && (Flags & KEYBORLAND)) return KS_Extension;
 #ifdef INTEL_CUSTOMIZATION
-  else if (LangOpts.CilkPlus && (Flags & KEYCILKPLUS)) return KS_Extension;
-  else if (LangOpts.Float128 && (Flags & KEYFLOAT128)) return KS_Extension;
+  if (LangOpts.CilkPlus && (Flags & KEYCILKPLUS)) return KS_Extension;
+  if (LangOpts.Float128 && (Flags & KEYFLOAT128)) return KS_Extension;
+  // CQ#366963 - enable/disable 'restrict' keyword in IntelCompat mode.
+  if (LangOpts.Restrict && (Flags & KEYRESTRICT))
+    return LangOpts.C99 ? KS_Enabled : KS_Extension;
 #endif  // INTEL_CUSTOMIZATION
   if (LangOpts.Bool && (Flags & BOOLSUPPORT)) return KS_Enabled;
   if (LangOpts.Half && (Flags & HALFSUPPORT)) return KS_Enabled;

@@ -525,6 +525,12 @@ def fallow_half_arguments_and_returns : Flag<["-"], "fallow-half-arguments-and-r
   HelpText<"Allow function arguments and returns of type half">;
 def fintel_compatibility : Flag<["-"], "fintel-compatibility">,
   HelpText<"Enable full Intel C/C++ compatibility">;
+// if INTEL_CUSTOMIZATION
+def restrict : Flag<["-"], "restrict">,
+  HelpText<"Enable the 'restrict' keyword for disambiguating pointers">;
+def no_restrict : Flag<["-"], "no-restrict">,
+  HelpText<"Disable the 'restrict' keyword for disambiguating pointers">;
+// endif INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // Header Search Options

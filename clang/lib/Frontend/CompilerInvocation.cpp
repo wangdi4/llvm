@@ -1375,6 +1375,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.Float128 = Args.hasArg(OPT_extended_float_types);
   if (Opts.CilkPlus && (Opts.ObjC1 || Opts.ObjC2))
     Diags.Report(diag::err_drv_cilk_objc);
+  Opts.Restrict =
+      Args.hasFlag(OPT_restrict, OPT_no_restrict, /*Default=*/Opts.C99);
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   StringRef OptLevel = Args.getLastArgValue(OPT_pragma_optimization_level_EQ, "Intel");
   Opts.PragmaOptimizationLevelIntel = (OptLevel == "Intel") ? 1 : 0;
