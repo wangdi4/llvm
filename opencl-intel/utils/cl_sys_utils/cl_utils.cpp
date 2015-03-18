@@ -224,7 +224,7 @@ bool clTranslateAffinityMask(affinityMask_t* mask, unsigned int* IDs, size_t len
         {
             IDs[set_bits++] = i;
         }
-        if (set_bits > len)
+        if (set_bits >= len)
         {
             break;
         }
