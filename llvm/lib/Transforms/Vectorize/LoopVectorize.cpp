@@ -3414,13 +3414,10 @@ void InnerLoopVectorizer::vectorizeBlockInLoop(BasicBlock *BB, PhiVector *PV) {
           if (VF > 1) {
             // Get the vector type of the function return if not scalar or void,
             // since there are no void vector types.
-            Type *retType;
-            if (CI->getType()->isVoidTy()) {
-              retType = CI->getType()->getScalarType();
-            } else {
-              retType = VectorType::get(CI->getType()->getScalarType(), VF);
+            if (!CI->getType()->isVoidTy()) {
+              Type *retType = VectorType::get(CI->getType()->getScalarType(), VF);
+              Tys.push_back(retType);
             }
-            Tys.push_back(retType);
           }
 
           // We assume a single return register, and the intrinsic type
@@ -3431,18 +3428,25 @@ void InnerLoopVectorizer::vectorizeBlockInLoop(BasicBlock *BB, PhiVector *PV) {
           for (unsigned i = 0, ie = CI->getNumArgOperands(); i != ie; ++i) {
 
             VectorParts Arg;
-            unsigned argNum = descTable[argIdx].getArgumentNumber();
-            Tys.set_size(argNum + 1);
+            Type *argType;
 
             if (hasVectorInstrinsicScalarOpd(ID, i)) {
               // This argument needs to be preserved as a scalar, so don't
               // expand it.
               Args.push_back(CI->getArgOperand(i));
-              Tys[argNum] = CI->getArgOperand(i)->getType();
+              argType = CI->getArgOperand(i)->getType();
             } else {
               Arg = getVectorValue(CI->getArgOperand(i));
               Args.push_back(Arg[Part]);
-              Tys[argNum] = Arg[Part]->getType();
+              argType = Arg[Part]->getType();
+            }
+
+            // non-overloaded types will cause assertion with getArgumentNumber(),
+            // since they will have a different "Kind" value. See Intrinsics.h.
+            if (descTable[argIdx].Kind == Intrinsic::IITDescriptor::Argument) {
+              unsigned argNum = descTable[argIdx].getArgumentNumber();
+              Tys.set_size(argNum + 1);
+              Tys[argNum] = argType;
             }
             argIdx++;
           }
