@@ -36,7 +36,7 @@ set (ADD_C_FLAGS_RELEASE "/Zi /Gy -D NDEBUG /MT")# /Ob0") #/GL") #MT
 add_definitions( -DWIN32 )
 
 if (BUILD_X64)
-add_definitions( -DRESOURCE_X64)
+    add_definitions( -DRESOURCE_X64)
 endif (BUILD_X64)
 
 # ITT/GPA/VTUNE integration
