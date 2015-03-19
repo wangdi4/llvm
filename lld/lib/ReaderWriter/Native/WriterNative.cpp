@@ -7,10 +7,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "lld/ReaderWriter/Writer.h"
 #include "NativeFileFormat.h"
 #include "lld/Core/File.h"
 #include "lld/Core/LinkingContext.h"
+#include "lld/Core/Writer.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
@@ -28,8 +28,6 @@ namespace native {
 ///
 class Writer : public lld::Writer {
 public:
-  Writer(const LinkingContext &context) {}
-
   std::error_code writeFile(const lld::File &file, StringRef outPath) override {
     // reserve first byte for unnamed atoms
     _stringPool.push_back('\0');
@@ -68,7 +66,7 @@ public:
     this->makeHeader();
 
     std::error_code ec;
-    llvm::raw_fd_ostream out(outPath.data(), ec, llvm::sys::fs::F_None);
+    llvm::raw_fd_ostream out(outPath, ec, llvm::sys::fs::F_None);
     if (ec)
       return ec;
 
@@ -128,6 +126,7 @@ private:
     ivar.referencesCount = refsCount;
     ivar.contentOffset = getContentOffset(atom);
     ivar.contentSize = atom.size();
+    ivar.sectionSize = atom.sectionSize();
     _definedAtomIvars.push_back(ivar);
   }
 
@@ -561,7 +560,7 @@ private:
 };
 } // end namespace native
 
-std::unique_ptr<Writer> createWriterNative(const LinkingContext &context) {
-  return std::unique_ptr<Writer>(new native::Writer(context));
+std::unique_ptr<Writer> createWriterNative() {
+  return std::unique_ptr<Writer>(new native::Writer());
 }
 } // end namespace lld

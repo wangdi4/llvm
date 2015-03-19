@@ -25,6 +25,7 @@ set( LLDB_USED_LIBS
   lldbPluginObjectContainerMachOArchive
   lldbPluginProcessGDBRemote
   lldbPluginProcessUtility
+  lldbPluginPlatformAndroid
   lldbPluginPlatformGDB
   lldbPluginPlatformFreeBSD
   lldbPluginPlatformKalimba
@@ -52,15 +53,10 @@ set( LLDB_USED_LIBS
   lldbPluginOSPython
   lldbPluginMemoryHistoryASan
   lldbPluginInstrumentationRuntimeAddressSanitizer
+  lldbPluginSystemRuntimeMacOSX
+  lldbPluginProcessElfCore
+  lldbPluginJITLoaderGDB
   )
-
-# Need to export the API in the liblldb.dll for Windows
-# The lldbAPI source files are added directly in liblldb
-if (NOT CMAKE_SYSTEM_NAME MATCHES "Windows" )
-  list(APPEND LLDB_USED_LIBS
-    lldbAPI
-    )
-endif ()
 
 # Windows-only libraries
 if ( CMAKE_SYSTEM_NAME MATCHES "Windows" )
@@ -69,6 +65,7 @@ if ( CMAKE_SYSTEM_NAME MATCHES "Windows" )
     lldbPluginProcessElfCore
     lldbPluginJITLoaderGDB
     Ws2_32
+    Rpcrt4
     )
 endif ()
 
@@ -107,9 +104,6 @@ if ( CMAKE_SYSTEM_NAME MATCHES "Darwin" )
     lldbPluginProcessMachCore
     lldbPluginProcessMacOSXKernel
     lldbPluginSymbolVendorMacOSX
-    lldbPluginSystemRuntimeMacOSX
-    lldbPluginProcessElfCore
-    lldbPluginJITLoaderGDB
     )
 endif()
 

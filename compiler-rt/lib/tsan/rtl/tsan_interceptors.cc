@@ -39,17 +39,27 @@ using namespace __tsan;  // NOLINT
 #define stderr __stderrp
 #endif
 
+#ifdef __mips__
+const int kSigCount = 129;
+#else
 const int kSigCount = 65;
+#endif
 
 struct my_siginfo_t {
   // The size is determined by looking at sizeof of real siginfo_t on linux.
   u64 opaque[128 / sizeof(u64)];
 };
 
+#ifdef __mips__
+struct ucontext_t {
+  u64 opaque[768 / sizeof(u64) + 1];
+};
+#else
 struct ucontext_t {
   // The size is determined by looking at sizeof of real ucontext_t on linux.
   u64 opaque[936 / sizeof(u64) + 1];
 };
+#endif
 
 extern "C" int pthread_attr_init(void *attr);
 extern "C" int pthread_attr_destroy(void *attr);
@@ -89,8 +99,13 @@ const int SIGFPE = 8;
 const int SIGSEGV = 11;
 const int SIGPIPE = 13;
 const int SIGTERM = 15;
+#ifdef __mips__
+const int SIGBUS = 10;
+const int SIGSYS = 12;
+#else
 const int SIGBUS = 7;
 const int SIGSYS = 31;
+#endif
 void *const MAP_FAILED = (void*)-1;
 const int PTHREAD_BARRIER_SERIAL_THREAD = -1;
 const int MAP_FIXED = 0x10;
@@ -108,6 +123,9 @@ typedef void (*sighandler_t)(int sig);
 typedef void (*sigactionhandler_t)(int sig, my_siginfo_t *siginfo, void *uctx);
 
 struct sigaction_t {
+#ifdef __mips__
+  u32 sa_flags;
+#endif
   union {
     sighandler_t sa_handler;
     sigactionhandler_t sa_sigaction;
@@ -117,7 +135,9 @@ struct sigaction_t {
   __sanitizer_sigset_t sa_mask;
 #else
   __sanitizer_sigset_t sa_mask;
+#ifndef __mips__
   int sa_flags;
+#endif
   void (*sa_restorer)();
 #endif
 };
@@ -125,8 +145,13 @@ struct sigaction_t {
 const sighandler_t SIG_DFL = (sighandler_t)0;
 const sighandler_t SIG_IGN = (sighandler_t)1;
 const sighandler_t SIG_ERR = (sighandler_t)-1;
+#ifdef __mips__
+const int SA_SIGINFO = 8;
+const int SIG_SETMASK = 3;
+#else
 const int SA_SIGINFO = 4;
 const int SIG_SETMASK = 2;
+#endif
 
 namespace std {
 struct nothrow_t {};
@@ -142,7 +167,7 @@ struct SignalDesc {
   ucontext_t ctx;
 };
 
-struct SignalContext {
+struct ThreadSignalContext {
   int int_signal_send;
   atomic_uintptr_t in_blocking_func;
   atomic_uintptr_t have_pending_signals;
@@ -157,16 +182,22 @@ static LibIgnore *libignore() {
 }
 
 void InitializeLibIgnore() {
-  libignore()->Init(*SuppressionContext::Get());
+  const SuppressionContext &supp = *Suppressions();
+  const uptr n = supp.SuppressionCount();
+  for (uptr i = 0; i < n; i++) {
+    const Suppression *s = supp.SuppressionAt(i);
+    if (0 == internal_strcmp(s->type, kSuppressionLib))
+      libignore()->AddIgnoredLibrary(s->templ);
+  }
   libignore()->OnLibraryLoaded(0);
 }
 
 }  // namespace __tsan
 
-static SignalContext *SigCtx(ThreadState *thr) {
-  SignalContext *ctx = (SignalContext*)thr->signal_ctx;
+static ThreadSignalContext *SigCtx(ThreadState *thr) {
+  ThreadSignalContext *ctx = (ThreadSignalContext*)thr->signal_ctx;
   if (ctx == 0 && !thr->is_dead) {
-    ctx = (SignalContext*)MmapOrDie(sizeof(*ctx), "SignalContext");
+    ctx = (ThreadSignalContext*)MmapOrDie(sizeof(*ctx), "ThreadSignalContext");
     MemoryResetRange(thr, (uptr)&SigCtx, (uptr)ctx, sizeof(*ctx));
     thr->signal_ctx = ctx;
   }
@@ -267,7 +298,7 @@ struct BlockingCall {
   }
 
   ThreadState *thr;
-  SignalContext *ctx;
+  ThreadSignalContext *ctx;
 };
 
 TSAN_INTERCEPTOR(unsigned, sleep, unsigned sec) {
@@ -388,7 +419,7 @@ static void SetJmp(ThreadState *thr, uptr sp, uptr mangled_sp) {
   buf->sp = sp;
   buf->mangled_sp = mangled_sp;
   buf->shadow_stack_pos = thr->shadow_stack_pos;
-  SignalContext *sctx = SigCtx(thr);
+  ThreadSignalContext *sctx = SigCtx(thr);
   buf->int_signal_send = sctx ? sctx->int_signal_send : 0;
   buf->in_blocking_func = sctx ?
       atomic_load(&sctx->in_blocking_func, memory_order_relaxed) :
@@ -411,7 +442,7 @@ static void LongJmp(ThreadState *thr, uptr *env) {
       // Unwind the stack.
       while (thr->shadow_stack_pos > buf->shadow_stack_pos)
         FuncExit(thr);
-      SignalContext *sctx = SigCtx(thr);
+      ThreadSignalContext *sctx = SigCtx(thr);
       if (sctx) {
         sctx->int_signal_send = buf->int_signal_send;
         atomic_store(&sctx->in_blocking_func, buf->in_blocking_func,
@@ -847,7 +878,7 @@ static void thread_finalize(void *v) {
   {
     ThreadState *thr = cur_thread();
     ThreadFinish(thr);
-    SignalContext *sctx = thr->signal_ctx;
+    ThreadSignalContext *sctx = thr->signal_ctx;
     if (sctx) {
       thr->signal_ctx = 0;
       UnmapOrDie(sctx, sizeof(*sctx));
@@ -1826,14 +1857,6 @@ TSAN_INTERCEPTOR(int, rmdir, char *path) {
   return res;
 }
 
-TSAN_INTERCEPTOR(void*, opendir, char *path) {
-  SCOPED_TSAN_INTERCEPTOR(opendir, path);
-  void *res = REAL(opendir)(path);
-  if (res != 0)
-    Acquire(thr, pc, Dir2addr(path));
-  return res;
-}
-
 TSAN_INTERCEPTOR(int, closedir, void *dirp) {
   SCOPED_TSAN_INTERCEPTOR(closedir, dirp);
   int fd = dirfd(dirp);
@@ -1903,9 +1926,9 @@ static void CallUserSignalHandler(ThreadState *thr, bool sync, bool acquire,
   // signal; and it looks too fragile to intercept all ways to reraise a signal.
   if (flags()->report_bugs && !sync && sig != SIGTERM && errno != 99) {
     VarSizeStackTrace stack;
-    // Add 1 to pc because return address is expected,
-    // OutputReport() will undo this.
-    ObtainCurrentStack(thr, pc + 1, &stack);
+    // StackTrace::GetNestInstructionPc(pc) is used because return address is
+    // expected, OutputReport() will undo this.
+    ObtainCurrentStack(thr, StackTrace::GetNextInstructionPc(pc), &stack);
     ThreadRegistryLock l(ctx->thread_registry);
     ScopedReport rep(ReportTypeErrnoInSignal);
     if (!IsFiredSuppression(ctx, rep, stack)) {
@@ -1917,7 +1940,7 @@ static void CallUserSignalHandler(ThreadState *thr, bool sync, bool acquire,
 }
 
 void ProcessPendingSignals(ThreadState *thr) {
-  SignalContext *sctx = SigCtx(thr);
+  ThreadSignalContext *sctx = SigCtx(thr);
   if (sctx == 0 ||
       atomic_load(&sctx->have_pending_signals, memory_order_relaxed) == 0)
     return;
@@ -1941,7 +1964,7 @@ void ProcessPendingSignals(ThreadState *thr) {
 
 }  // namespace __tsan
 
-static bool is_sync_signal(SignalContext *sctx, int sig) {
+static bool is_sync_signal(ThreadSignalContext *sctx, int sig) {
   return sig == SIGSEGV || sig == SIGBUS || sig == SIGILL ||
       sig == SIGABRT || sig == SIGFPE || sig == SIGPIPE || sig == SIGSYS ||
       // If we are sending signal to ourselves, we must process it now.
@@ -1951,7 +1974,7 @@ static bool is_sync_signal(SignalContext *sctx, int sig) {
 void ALWAYS_INLINE rtl_generic_sighandler(bool sigact, int sig,
     my_siginfo_t *info, void *ctx) {
   ThreadState *thr = cur_thread();
-  SignalContext *sctx = SigCtx(thr);
+  ThreadSignalContext *sctx = SigCtx(thr);
   if (sig < 0 || sig >= kSigCount) {
     VPrintf(1, "ThreadSanitizer: ignoring signal %d\n", sig);
     return;
@@ -2060,7 +2083,7 @@ TSAN_INTERCEPTOR(int, sigsuspend, const __sanitizer_sigset_t *mask) {
 
 TSAN_INTERCEPTOR(int, raise, int sig) {
   SCOPED_TSAN_INTERCEPTOR(raise, sig);
-  SignalContext *sctx = SigCtx(thr);
+  ThreadSignalContext *sctx = SigCtx(thr);
   CHECK_NE(sctx, 0);
   int prev = sctx->int_signal_send;
   sctx->int_signal_send = sig;
@@ -2072,7 +2095,7 @@ TSAN_INTERCEPTOR(int, raise, int sig) {
 
 TSAN_INTERCEPTOR(int, kill, int pid, int sig) {
   SCOPED_TSAN_INTERCEPTOR(kill, pid, sig);
-  SignalContext *sctx = SigCtx(thr);
+  ThreadSignalContext *sctx = SigCtx(thr);
   CHECK_NE(sctx, 0);
   int prev = sctx->int_signal_send;
   if (pid == (int)internal_getpid()) {
@@ -2088,7 +2111,7 @@ TSAN_INTERCEPTOR(int, kill, int pid, int sig) {
 
 TSAN_INTERCEPTOR(int, pthread_kill, void *tid, int sig) {
   SCOPED_TSAN_INTERCEPTOR(pthread_kill, tid, sig);
-  SignalContext *sctx = SigCtx(thr);
+  ThreadSignalContext *sctx = SigCtx(thr);
   CHECK_NE(sctx, 0);
   int prev = sctx->int_signal_send;
   if (tid == pthread_self()) {
@@ -2240,11 +2263,14 @@ static void HandleRecvmsg(ThreadState *thr, uptr pc,
     if (fd >= 0) FdClose(thr, pc, fd);           \
   }
 
-#define COMMON_INTERCEPTOR_LIBRARY_LOADED(filename, res)  \
+#define COMMON_INTERCEPTOR_LIBRARY_LOADED(filename, handle) \
   libignore()->OnLibraryLoaded(filename)
 
 #define COMMON_INTERCEPTOR_LIBRARY_UNLOADED() \
   libignore()->OnLibraryUnloaded()
+
+#define COMMON_INTERCEPTOR_DIR_ACQUIRE(ctx, path) \
+  Acquire(((TsanInterceptorContext *) ctx)->thr, pc, Dir2addr(path))
 
 #define COMMON_INTERCEPTOR_FD_ACQUIRE(ctx, fd) \
   FdAcquire(((TsanInterceptorContext *) ctx)->thr, pc, fd)
@@ -2561,7 +2587,6 @@ void InitializeInterceptors() {
   TSAN_INTERCEPT(abort);
   TSAN_INTERCEPT(puts);
   TSAN_INTERCEPT(rmdir);
-  TSAN_INTERCEPT(opendir);
   TSAN_INTERCEPT(closedir);
 
   TSAN_MAYBE_INTERCEPT_EPOLL_CTL;

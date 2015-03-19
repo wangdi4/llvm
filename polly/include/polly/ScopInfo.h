@@ -46,6 +46,7 @@ struct isl_set;
 struct isl_union_set;
 struct isl_union_map;
 struct isl_space;
+struct isl_ast_build;
 struct isl_constraint;
 struct isl_pw_multi_aff;
 
@@ -161,8 +162,8 @@ public:
   };
 
 private:
-  MemoryAccess(const MemoryAccess &) LLVM_DELETED_FUNCTION;
-  const MemoryAccess &operator=(const MemoryAccess &) LLVM_DELETED_FUNCTION;
+  MemoryAccess(const MemoryAccess &) = delete;
+  const MemoryAccess &operator=(const MemoryAccess &) = delete;
 
   isl_map *AccessRelation;
   enum AccessType AccType;
@@ -207,6 +208,11 @@ private:
   isl_map *newAccessRelation;
 
   void assumeNoOutOfBound(const IRAccess &Access);
+
+  /// @brief Compute bounds on an over approximated  access relation.
+  ///
+  /// @param ElementSize The size of one element accessed.
+  void computeBoundsOnAccessRelation(unsigned ElementSize);
 
   /// @brief Get the original access function as read from IR.
   isl_map *getOriginalAccessRelation() const;
@@ -354,8 +360,8 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &OS,
 /// At the moment every statement represents a single basic block of LLVM-IR.
 class ScopStmt {
   //===-------------------------------------------------------------------===//
-  ScopStmt(const ScopStmt &) LLVM_DELETED_FUNCTION;
-  const ScopStmt &operator=(const ScopStmt &) LLVM_DELETED_FUNCTION;
+  ScopStmt(const ScopStmt &) = delete;
+  const ScopStmt &operator=(const ScopStmt &) = delete;
 
   /// Polyhedral description
   //@{
@@ -423,8 +429,23 @@ class ScopStmt {
 
   //@}
 
-  /// The BasicBlock represented by this statement.
+  /// @brief A SCoP statement represents either a basic block (affine/precise
+  ///        case) or a whole region (non-affine case). Only one of the
+  ///        following two members will therefore be set and indicate which
+  ///        kind of statement this is.
+  ///
+  ///{
+
+  /// @brief The BasicBlock represented by this statement (in the affine case).
   BasicBlock *BB;
+
+  /// @brief The region represented by this statement (in the non-affine case).
+  Region *R;
+
+  ///}
+
+  /// @brief The isl AST build for the new generated AST.
+  isl_ast_build *Build;
 
   std::vector<Loop *> NestLoops;
 
@@ -440,7 +461,17 @@ class ScopStmt {
                                             TempScop &tempScop);
   __isl_give isl_set *buildDomain(TempScop &tempScop, const Region &CurRegion);
   void buildScattering(SmallVectorImpl<unsigned> &Scatter);
-  void buildAccesses(TempScop &tempScop);
+
+  /// @brief Create the accesses for instructions in @p Block.
+  ///
+  /// @param tempScop       The template SCoP.
+  /// @param Block          The basic block for which accesses should be
+  ///                       created.
+  /// @param isApproximated Flag to indicate blocks that might not be executed,
+  ///                       hence for which write accesses need to be modeled as
+  ///                       may-write accesses.
+  void buildAccesses(TempScop &tempScop, BasicBlock *Block,
+                     bool isApproximated = false);
 
   /// @brief Detect and mark reductions in the ScopStmt
   void checkForReductions();
@@ -480,12 +511,17 @@ class ScopStmt {
   /// or non-optimal run-time checks.
   void deriveAssumptionsFromGEP(GetElementPtrInst *Inst);
 
-  /// @brief Scan the scop and derive assumptions about parameter values.
-  void deriveAssumptions();
+  /// @brief Scan @p Block and derive assumptions about parameter values.
+  void deriveAssumptions(BasicBlock *Block);
 
   /// Create the ScopStmt from a BasicBlock.
   ScopStmt(Scop &parent, TempScop &tempScop, const Region &CurRegion,
            BasicBlock &bb, SmallVectorImpl<Loop *> &NestLoops,
+           SmallVectorImpl<unsigned> &Scatter);
+
+  /// Create an overapproximating ScopStmt for the region @p R.
+  ScopStmt(Scop &parent, TempScop &tempScop, const Region &CurRegion, Region &R,
+           SmallVectorImpl<Loop *> &NestLoops,
            SmallVectorImpl<unsigned> &Scatter);
 
   friend class Scop;
@@ -523,10 +559,23 @@ public:
   /// @brief Get an isl string representing this scattering.
   std::string getScatteringStr() const;
 
-  /// @brief Get the BasicBlock represented by this ScopStmt.
+  /// @brief Get the BasicBlock represented by this ScopStmt (if any).
   ///
-  /// @return The BasicBlock represented by this ScopStmt.
+  /// @return The BasicBlock represented by this ScopStmt, or null if the
+  ///         statement represents a region.
   BasicBlock *getBasicBlock() const { return BB; }
+
+  /// @brief Return true if this statement represents a single basic block.
+  bool isBlockStmt() const { return BB != nullptr; }
+
+  /// @brief Get the region represented by this ScopStmt (if any).
+  ///
+  /// @return The region represented by this ScopStmt, or null if the statement
+  ///         represents a basic block.
+  Region *getRegion() const { return R; }
+
+  /// @brief Return true if this statement represents a whole region.
+  bool isRegionStmt() const { return R != nullptr; }
 
   const MemoryAccess &getAccessFor(const Instruction *Inst) const {
     MemoryAccess *A = lookupAccessFor(Inst);
@@ -540,7 +589,12 @@ public:
     return at == InstructionToAccess.end() ? NULL : at->second;
   }
 
-  void setBasicBlock(BasicBlock *Block) { BB = Block; }
+  void setBasicBlock(BasicBlock *Block) {
+    // TODO: Handle the case where the statement is a region statement, thus
+    //       the entry block was split and needs to be changed in the region R.
+    assert(BB && "Cannot set a block for a region statement");
+    BB = Block;
+  }
 
   typedef MemoryAccessVec::iterator iterator;
   typedef MemoryAccessVec::const_iterator const_iterator;
@@ -558,6 +612,12 @@ public:
   const Scop *getParent() const { return &Parent; }
 
   const char *getBaseName() const;
+
+  /// @brief Set the isl AST build.
+  void setAstBuild(__isl_keep isl_ast_build *B) { Build = B; }
+
+  /// @brief Get the isl AST build.
+  __isl_keep isl_ast_build *getAstBuild() const { return Build; }
 
   /// @brief Restrict the domain of the statement.
   ///
@@ -618,13 +678,16 @@ public:
   using MinMaxVectorVectorTy = SmallVector<MinMaxVectorTy *, 4>;
 
 private:
-  Scop(const Scop &) LLVM_DELETED_FUNCTION;
-  const Scop &operator=(const Scop &) LLVM_DELETED_FUNCTION;
+  Scop(const Scop &) = delete;
+  const Scop &operator=(const Scop &) = delete;
 
   ScalarEvolution *SE;
 
   /// The underlying Region.
   Region &R;
+
+  /// Flag to indicate that the scheduler actually optimized the SCoP.
+  bool IsOptimized;
 
   /// Max loop depth.
   unsigned MaxLoopDepth;
@@ -679,7 +742,8 @@ private:
 
   /// Create the static control part with a region, max loop depth of this
   /// region and parameters used in this region.
-  Scop(TempScop &TempScop, LoopInfo &LI, ScalarEvolution &SE, isl_ctx *ctx);
+  Scop(TempScop &TempScop, LoopInfo &LI, ScalarEvolution &SE, ScopDetection &SD,
+       isl_ctx *ctx);
 
   /// @brief Check if a basic block is trivial.
   ///
@@ -701,12 +765,28 @@ private:
   /// @brief Simplify the assumed context.
   void simplifyAssumedContext();
 
+  /// @brief Create a new SCoP statement for either @p BB or @p R.
+  ///
+  /// Either @p BB or @p R should be non-null. A new statement for the non-null
+  /// argument will be created and added to the statement vector and map.
+  ///
+  /// @param BB         The basic block we build the statement for (or null)
+  /// @param R          The region we build the statement for (or null).
+  /// @param tempScop   The temp SCoP we use as model.
+  /// @param CurRegion  The SCoP region.
+  /// @param NestLoops  A vector of all surrounding loops.
+  /// @param Scatter    The position of the new statement as scattering.
+  void addScopStmt(BasicBlock *BB, Region *R, TempScop &tempScop,
+                   const Region &CurRegion, SmallVectorImpl<Loop *> &NestLoops,
+                   SmallVectorImpl<unsigned> &Scatter);
+
   /// Build the Scop and Statement with precalculated scop information.
   void buildScop(TempScop &TempScop, const Region &CurRegion,
                  // Loops in Scop containing CurRegion
                  SmallVectorImpl<Loop *> &NestLoops,
                  // The scattering numbers
-                 SmallVectorImpl<unsigned> &Scatter, LoopInfo &LI);
+                 SmallVectorImpl<unsigned> &Scatter, LoopInfo &LI,
+                 ScopDetection &SD);
 
   /// @name Helper function for printing the Scop.
   ///
@@ -781,6 +861,12 @@ public:
     return maxScatterDim;
   }
 
+  /// @brief Mark the SCoP as optimized by the scheduler.
+  void markAsOptimized() { IsOptimized = true; }
+
+  /// @brief Check if the SCoP has been optimized by the scheduler.
+  bool isOptimized() const { return IsOptimized; }
+
   /// @brief Get the name of this Scop.
   std::string getNameStr() const;
 
@@ -835,6 +921,9 @@ public:
 
   /// @brief Return the stmt for the given @p BB or nullptr if none.
   ScopStmt *getStmtForBasicBlock(BasicBlock *BB) const;
+
+  /// @brief Return the number of statements in the SCoP.
+  size_t getSize() const { return Stmts.size(); }
 
   /// @name Statements Iterators
   ///
@@ -918,8 +1007,8 @@ static inline raw_ostream &operator<<(raw_ostream &O, const Scop &scop) {
 ///
 class ScopInfo : public RegionPass {
   //===-------------------------------------------------------------------===//
-  ScopInfo(const ScopInfo &) LLVM_DELETED_FUNCTION;
-  const ScopInfo &operator=(const ScopInfo &) LLVM_DELETED_FUNCTION;
+  ScopInfo(const ScopInfo &) = delete;
+  const ScopInfo &operator=(const ScopInfo &) = delete;
 
   // The Scop
   Scop *scop;

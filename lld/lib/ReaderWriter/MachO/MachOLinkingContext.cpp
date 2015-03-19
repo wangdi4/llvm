@@ -14,11 +14,10 @@
 #include "MachOPasses.h"
 #include "lld/Core/ArchiveLibraryFile.h"
 #include "lld/Core/PassManager.h"
+#include "lld/Core/Reader.h"
+#include "lld/Core/Writer.h"
 #include "lld/Driver/Driver.h"
-#include "lld/Passes/LayoutPass.h"
-#include "lld/Passes/RoundTripYAMLPass.h"
-#include "lld/ReaderWriter/Reader.h"
-#include "lld/ReaderWriter/Writer.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Config/config.h"
@@ -583,12 +582,7 @@ bool MachOLinkingContext::validateImpl(raw_ostream &diagnostics) {
 }
 
 void MachOLinkingContext::addPasses(PassManager &pm) {
-  pm.add(std::unique_ptr<Pass>(new LayoutPass(
-      registry(), [&](const DefinedAtom * left, const DefinedAtom * right,
-                      bool & leftBeforeRight)
-                      ->bool {
-    return customAtomOrderer(left, right, leftBeforeRight);
-  })));
+  mach_o::addLayoutPass(pm, *this);
   if (needsStubsPass())
     mach_o::addStubsPass(pm, *this);
   if (needsCompactUnwindPass())
@@ -605,9 +599,27 @@ Writer &MachOLinkingContext::writer() const {
   return *_writer;
 }
 
-MachODylibFile* MachOLinkingContext::loadIndirectDylib(StringRef path) {
+ErrorOr<std::unique_ptr<MemoryBuffer>>
+MachOLinkingContext::getMemoryBuffer(StringRef path) {
+  addInputFileDependency(path);
+
   ErrorOr<std::unique_ptr<MemoryBuffer>> mbOrErr =
-    DarwinLdDriver::getMemoryBuffer(*this, path);
+    MemoryBuffer::getFileOrSTDIN(path);
+  if (std::error_code ec = mbOrErr.getError())
+    return ec;
+  std::unique_ptr<MemoryBuffer> mb = std::move(mbOrErr.get());
+
+  // If buffer contains a fat file, find required arch in fat buffer
+  // and switch buffer to point to just that required slice.
+  uint32_t offset;
+  uint32_t size;
+  if (sliceFromFatFile(*mb, offset, size))
+    return MemoryBuffer::getFileSlice(path, size, offset);
+  return std::move(mb);
+}
+
+MachODylibFile* MachOLinkingContext::loadIndirectDylib(StringRef path) {
+  ErrorOr<std::unique_ptr<MemoryBuffer>> mbOrErr = getMemoryBuffer(path);
   if (mbOrErr.getError())
     return nullptr;
 
@@ -779,7 +791,7 @@ bool MachOLinkingContext::exportSymbolNamed(StringRef sym) const {
 
 std::string MachOLinkingContext::demangle(StringRef symbolName) const {
   // Only try to demangle symbols if -demangle on command line
-  if (!_demangle)
+  if (!demangleSymbols())
     return symbolName;
 
   // Only try to demangle symbols that look like C++ symbols
@@ -890,7 +902,7 @@ MachOLinkingContext::findOrderOrdinal(const std::vector<OrderFileNode> &nodes,
 
 bool MachOLinkingContext::customAtomOrderer(const DefinedAtom *left,
                                             const DefinedAtom *right,
-                                            bool &leftBeforeRight) {
+                                            bool &leftBeforeRight) const {
   // No custom sorting if no order file entries.
   if (!_orderFileEntries)
     return false;

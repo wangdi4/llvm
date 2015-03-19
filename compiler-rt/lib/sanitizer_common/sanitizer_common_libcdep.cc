@@ -44,20 +44,14 @@ void SetSandboxingCallback(void (*f)()) {
 void ReportErrorSummary(const char *error_type, StackTrace *stack) {
   if (!common_flags()->print_summary)
     return;
-#if !SANITIZER_GO
-  if (stack->size > 0 && Symbolizer::GetOrInit()->CanReturnFileLineInfo()) {
-    // Currently, we include the first stack frame into the report summary.
-    // Maybe sometimes we need to choose another frame (e.g. skip memcpy/etc).
-    uptr pc = StackTrace::GetPreviousInstructionPc(stack->trace[0]);
-    SymbolizedStack *frame = Symbolizer::GetOrInit()->SymbolizePC(pc);
-    const AddressInfo &ai = frame->info;
-    ReportErrorSummary(error_type, ai.file, ai.line, ai.function);
-    frame->ClearAll();
-  }
-#else
-  AddressInfo ai;
-  ReportErrorSummary(error_type, ai.file, ai.line, ai.function);
-#endif
+  if (stack->size == 0 || !Symbolizer::GetOrInit()->CanReturnFileLineInfo())
+    return;
+  // Currently, we include the first stack frame into the report summary.
+  // Maybe sometimes we need to choose another frame (e.g. skip memcpy/etc).
+  uptr pc = StackTrace::GetPreviousInstructionPc(stack->trace[0]);
+  SymbolizedStack *frame = Symbolizer::GetOrInit()->SymbolizePC(pc);
+  ReportErrorSummary(error_type, frame->info);
+  frame->ClearAll();
 }
 
 static void (*SoftRssLimitExceededCallback)(bool exceeded);
@@ -75,7 +69,7 @@ void BackgroundThread(void *arg) {
   while (true) {
     SleepForMillis(100);
     uptr current_rss_mb = GetRSS() >> 20;
-    if (common_flags()->verbosity) {
+    if (Verbosity()) {
       // If RSS has grown 10% since last time, print some information.
       if (prev_reported_rss * 11 / 10 < current_rss_mb) {
         Printf("%s: RSS: %zdMb\n", SanitizerToolName, current_rss_mb);
@@ -121,7 +115,7 @@ void MaybeStartBackgroudThread() {
   // Start the background thread if one of the rss limits is given.
   if (!common_flags()->hard_rss_limit_mb &&
       !common_flags()->soft_rss_limit_mb) return;
-  if (!real_pthread_create) return;  // Can't spawn the thread anyway.
+  if (!&real_pthread_create) return;  // Can't spawn the thread anyway.
   internal_start_thread(BackgroundThread, nullptr);
 }
 
