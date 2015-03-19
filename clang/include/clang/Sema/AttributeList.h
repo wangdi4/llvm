@@ -207,10 +207,10 @@ private:
     return *reinterpret_cast<const PropertyData*>(this + 1);
   }
 
-  AttributeList(const AttributeList &) LLVM_DELETED_FUNCTION;
-  void operator=(const AttributeList &) LLVM_DELETED_FUNCTION;
-  void operator delete(void *) LLVM_DELETED_FUNCTION;
-  ~AttributeList() LLVM_DELETED_FUNCTION;
+  AttributeList(const AttributeList &) = delete;
+  void operator=(const AttributeList &) = delete;
+  void operator delete(void *) = delete;
+  ~AttributeList() = delete;
 
   size_t allocated_size() const;
 
@@ -677,7 +677,7 @@ public:
     : pool(factory), list(nullptr) {
   }
 
-  ParsedAttributes(const ParsedAttributes &) LLVM_DELETED_FUNCTION;
+  ParsedAttributes(const ParsedAttributes &) = delete;
 
   AttributePool &getPool() const { return pool; }
 
@@ -850,6 +850,7 @@ enum AttributeDeclKind {
   ExpectedFunctionVariableOrClass,
   ExpectedObjectiveCProtocol,
   ExpectedFunctionGlobalVarMethodOrProperty,
+  ExpectedStructOrUnionOrTypedef,
   ExpectedStructOrTypedef,
   ExpectedObjectiveCInterfaceOrProtocol,
   ExpectedKernelFunction

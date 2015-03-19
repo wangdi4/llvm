@@ -64,11 +64,13 @@ void Token::dump(raw_ostream &os) const {
     CASE(kw_exclude_file)
     CASE(kw_group)
     CASE(kw_hidden)
+    CASE(kw_input)
     CASE(kw_keep)
     CASE(kw_provide)
     CASE(kw_provide_hidden)
     CASE(kw_only_if_ro)
     CASE(kw_only_if_rw)
+    CASE(kw_output)
     CASE(kw_output_arch)
     CASE(kw_output_format)
     CASE(kw_overlay)
@@ -240,66 +242,18 @@ bool Lexer::canStartNumber(char c) const {
 }
 
 bool Lexer::canContinueNumber(char c) const {
-  switch (c) {
-  // Digits
-  case '0': case '1': case '2': case '3': case '4': case '5': case '6':
-  case '7': case '8': case '9':
-  case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
-  case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
-  // Hex marker
-  case 'x': case 'X':
-  // Type suffix
-  case 'h': case 'H': case 'o': case 'O':
-  // Scale suffix
-  case 'M': case 'K':
-    return true;
-  default:
-    return false;
-  }
+  // [xX] = hex marker, [hHoO] = type suffix, [MK] = scale suffix.
+  return strchr("0123456789ABCDEFabcdefxXhHoOMK", c);
 }
 
 bool Lexer::canStartName(char c) const {
-  switch (c) {
-  case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G':
-  case 'H': case 'I': case 'J': case 'K': case 'L': case 'M': case 'N':
-  case 'O': case 'P': case 'Q': case 'R': case 'S': case 'T': case 'U':
-  case 'V': case 'W': case 'X': case 'Y': case 'Z':
-  case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g':
-  case 'h': case 'i': case 'j': case 'k': case 'l': case 'm': case 'n':
-  case 'o': case 'p': case 'q': case 'r': case 's': case 't': case 'u':
-  case 'v': case 'w': case 'x': case 'y': case 'z':
-  case '_': case '.': case '$': case '/': case '\\':
-  case '*':
-    return true;
-  default:
-    return false;
-  }
+  return strchr(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_.$/\\*", c);
 }
 
 bool Lexer::canContinueName(char c) const {
-  switch (c) {
-  case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G':
-  case 'H': case 'I': case 'J': case 'K': case 'L': case 'M': case 'N':
-  case 'O': case 'P': case 'Q': case 'R': case 'S': case 'T': case 'U':
-  case 'V': case 'W': case 'X': case 'Y': case 'Z':
-  case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g':
-  case 'h': case 'i': case 'j': case 'k': case 'l': case 'm': case 'n':
-  case 'o': case 'p': case 'q': case 'r': case 's': case 't': case 'u':
-  case 'v': case 'w': case 'x': case 'y': case 'z':
-  case '0': case '1': case '2': case '3': case '4': case '5': case '6':
-  case '7': case '8': case '9':
-  case '_': case '.': case '$': case '/': case '\\': case '~': case '=':
-  case '+':
-  case '[':
-  case ']':
-  case '*':
-  case '?':
-  case '-':
-  case ':':
-    return true;
-  default:
-    return false;
-  }
+  return strchr("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+                "0123456789_.$/\\~=+[]*?-:", c);
 }
 
 /// Helper function to split a StringRef in two at the nth character.
@@ -512,9 +466,11 @@ void Lexer::lex(Token &tok) {
             .Case("EXCLUDE_FILE", Token::kw_exclude_file)
             .Case("GROUP", Token::kw_group)
             .Case("HIDDEN", Token::kw_hidden)
+            .Case("INPUT", Token::kw_input)
             .Case("KEEP", Token::kw_keep)
             .Case("ONLY_IF_RO", Token::kw_only_if_ro)
             .Case("ONLY_IF_RW", Token::kw_only_if_rw)
+            .Case("OUTPUT", Token::kw_output)
             .Case("OUTPUT_ARCH", Token::kw_output_arch)
             .Case("OUTPUT_FORMAT", Token::kw_output_format)
             .Case("OVERLAY", Token::kw_overlay)
@@ -550,23 +506,22 @@ void Lexer::skipWhitespace() {
       break;
     // Potential comment.
     case '/':
-      if (_buffer.size() >= 2 && _buffer[1] == '*') {
-        // Skip starting /*
-        _buffer = _buffer.drop_front(2);
-        // If the next char is also a /, it's not the end.
-        if (!_buffer.empty() && _buffer[0] == '/')
-          _buffer = _buffer.drop_front();
-
-        // Scan for /'s. We're done if it is preceded by a *.
-        while (true) {
-          if (_buffer.empty())
-            break;
-          _buffer = _buffer.drop_front();
-          if (_buffer.data()[-1] == '/' && _buffer.data()[-2] == '*')
-            break;
-        }
-      } else
+      if (_buffer.size() <= 1 || _buffer[1] != '*')
         return;
+      // Skip starting /*
+      _buffer = _buffer.drop_front(2);
+      // If the next char is also a /, it's not the end.
+      if (!_buffer.empty() && _buffer[0] == '/')
+        _buffer = _buffer.drop_front();
+
+      // Scan for /'s. We're done if it is preceded by a *.
+      while (true) {
+        if (_buffer.empty())
+          break;
+        _buffer = _buffer.drop_front();
+        if (_buffer.data()[-1] == '/' && _buffer.data()[-2] == '*')
+          break;
+      }
       break;
     default:
       return;
@@ -757,7 +712,7 @@ void InputSectionName::dump(raw_ostream &os) const {
 
 // InputSectionSortedGroup functions
 static void dumpInputSections(raw_ostream &os,
-                              const std::vector<const InputSection *> &secs) {
+                              llvm::ArrayRef<const InputSection *> secs) {
   bool excludeFile = false;
   bool first = true;
 
@@ -890,60 +845,74 @@ void Sections::dump(raw_ostream &os) const {
 }
 
 // Parser functions
-LinkerScript *Parser::parse() {
+std::error_code Parser::parse() {
   // Get the first token.
   _lex.lex(_tok);
   // Parse top level commands.
   while (true) {
     switch (_tok._kind) {
     case Token::eof:
-      return &_script;
+      return std::error_code();
     case Token::semicolon:
       consumeToken();
       break;
+    case Token::kw_output: {
+      auto output = parseOutput();
+      if (!output)
+        return LinkerScriptReaderError::parse_error;
+      _script._commands.push_back(output);
+      break;
+    }
     case Token::kw_output_format: {
       auto outputFormat = parseOutputFormat();
       if (!outputFormat)
-        return nullptr;
+        return LinkerScriptReaderError::parse_error;
       _script._commands.push_back(outputFormat);
       break;
     }
     case Token::kw_output_arch: {
       auto outputArch = parseOutputArch();
       if (!outputArch)
-        return nullptr;
+        return LinkerScriptReaderError::parse_error;
       _script._commands.push_back(outputArch);
       break;
     }
+    case Token::kw_input: {
+      Input *input = parsePathList<Input>();
+      if (!input)
+        return LinkerScriptReaderError::parse_error;
+      _script._commands.push_back(input);
+      break;
+    }
     case Token::kw_group: {
-      auto group = parseGroup();
+      Group *group = parsePathList<Group>();
       if (!group)
-        return nullptr;
+        return LinkerScriptReaderError::parse_error;
       _script._commands.push_back(group);
       break;
     }
     case Token::kw_as_needed:
       // Not allowed at top level.
       error(_tok, "AS_NEEDED not allowed at top level.");
-      return nullptr;
+      return LinkerScriptReaderError::parse_error;
     case Token::kw_entry: {
       Entry *entry = parseEntry();
       if (!entry)
-        return nullptr;
+        return LinkerScriptReaderError::parse_error;
       _script._commands.push_back(entry);
       break;
     }
     case Token::kw_search_dir: {
       SearchDir *searchDir = parseSearchDir();
       if (!searchDir)
-        return nullptr;
+        return LinkerScriptReaderError::parse_error;
       _script._commands.push_back(searchDir);
       break;
     }
     case Token::kw_sections: {
       Sections *sections = parseSections();
       if (!sections)
-        return nullptr;
+        return LinkerScriptReaderError::parse_error;
       _script._commands.push_back(sections);
       break;
     }
@@ -953,24 +922,23 @@ LinkerScript *Parser::parse() {
     case Token::kw_provide_hidden: {
       const Command *cmd = parseSymbolAssignment();
       if (!cmd)
-        return nullptr;
+        return LinkerScriptReaderError::parse_error;
       _script._commands.push_back(cmd);
       break;
     }
     default:
       // Unexpected.
       error(_tok, "expected linker script command");
-      return nullptr;
+      return LinkerScriptReaderError::parse_error;
     }
   }
-
-  return nullptr;
+  return LinkerScriptReaderError::parse_error;
 }
 
 const Expression *Parser::parseFunctionCall() {
   assert((_tok._kind == Token::identifier || _tok._kind == Token::kw_align) &&
          "expected function call first tokens");
-  std::vector<const Expression *> params;
+  SmallVector<const Expression *, 8> params;
   StringRef name = _tok._range;
 
   consumeToken();
@@ -979,7 +947,7 @@ const Expression *Parser::parseFunctionCall() {
 
   if (_tok._kind == Token::r_paren) {
     consumeToken();
-    return new (_alloc) FunctionCall(_tok._range, params);
+    return new (_alloc) FunctionCall(*this, _tok._range, params);
   }
 
   if (const Expression *firstParam = parseExpression())
@@ -997,7 +965,7 @@ const Expression *Parser::parseFunctionCall() {
 
   if (!expectAndConsume(Token::r_paren, "expected )"))
     return nullptr;
-  return new (_alloc) FunctionCall(name, params);
+  return new (_alloc) FunctionCall(*this, name, params);
 }
 
 bool Parser::expectExprOperand() {
@@ -1018,7 +986,7 @@ const Expression *Parser::parseExprOperand() {
   case Token::identifier: {
     if (peek()._kind== Token::l_paren)
       return parseFunctionCall();
-    Symbol *sym = new (_alloc) Symbol(_tok._range);
+    Symbol *sym = new (_alloc) Symbol(*this, _tok._range);
     consumeToken();
     return sym;
   }
@@ -1026,17 +994,17 @@ const Expression *Parser::parseExprOperand() {
     return parseFunctionCall();
   case Token::minus:
     consumeToken();
-    return new (_alloc) Unary(Unary::Minus, parseExprOperand());
+    return new (_alloc) Unary(*this, Unary::Minus, parseExprOperand());
   case Token::tilde:
     consumeToken();
-    return new (_alloc) Unary(Unary::Not, parseExprOperand());
+    return new (_alloc) Unary(*this, Unary::Not, parseExprOperand());
   case Token::number: {
     auto val = parseNum(_tok._range);
     if (val.getError()) {
       error(_tok, "Unrecognized number constant");
       return nullptr;
     }
-    Constant *c = new (_alloc) Constant(*val);
+    Constant *c = new (_alloc) Constant(*this, *val);
     consumeToken();
     return c;
   }
@@ -1184,7 +1152,7 @@ const Expression *Parser::parseOperatorOperandLoop(const Expression *lhs,
     const Expression *rhs = parseExpression(precedence - 1);
     if (!rhs)
       return nullptr;
-    binOp = new (_alloc) BinOp(lhs, op, rhs);
+    binOp = new (_alloc) BinOp(*this, lhs, op, rhs);
     lhs = binOp;
   }
 }
@@ -1208,7 +1176,28 @@ const Expression *Parser::parseTernaryCondOp(const Expression *lhs) {
   if (!falseExpr)
     return nullptr;
 
-  return new (_alloc) TernaryConditional(lhs, trueExpr, falseExpr);
+  return new (_alloc) TernaryConditional(*this, lhs, trueExpr, falseExpr);
+}
+
+// Parse OUTPUT(ident)
+Output *Parser::parseOutput() {
+  assert(_tok._kind == Token::kw_output && "Expected OUTPUT");
+  consumeToken();
+  if (!expectAndConsume(Token::l_paren, "expected ("))
+    return nullptr;
+
+  if (_tok._kind != Token::identifier) {
+    error(_tok, "Expected identifier in OUTPUT.");
+    return nullptr;
+  }
+
+  auto ret = new (_alloc) Output(*this, _tok._range);
+  consumeToken();
+
+  if (!expectAndConsume(Token::r_paren, "expected )"))
+    return nullptr;
+
+  return ret;
 }
 
 // Parse OUTPUT_FORMAT(ident)
@@ -1223,7 +1212,9 @@ OutputFormat *Parser::parseOutputFormat() {
     return nullptr;
   }
 
-  auto ret = new (_alloc) OutputFormat(_tok._range);
+  SmallVector<StringRef, 8> formats;
+  formats.push_back(_tok._range);
+
   consumeToken();
 
   do {
@@ -1235,14 +1226,14 @@ OutputFormat *Parser::parseOutputFormat() {
       error(_tok, "Expected identifier in OUTPUT_FORMAT.");
       return nullptr;
     }
-    ret->addOutputFormat(_tok._range);
+    formats.push_back(_tok._range);
     consumeToken();
   } while (isNextToken(Token::comma));
 
   if (!expectAndConsume(Token::r_paren, "expected )"))
     return nullptr;
 
-  return ret;
+  return new (_alloc) OutputFormat(*this, formats);
 }
 
 // Parse OUTPUT_ARCH(ident)
@@ -1257,7 +1248,7 @@ OutputArch *Parser::parseOutputArch() {
     return nullptr;
   }
 
-  auto ret = new (_alloc) OutputArch(_tok._range);
+  auto ret = new (_alloc) OutputArch(*this, _tok._range);
   consumeToken();
 
   if (!expectAndConsume(Token::r_paren, "expected )"))
@@ -1266,15 +1257,13 @@ OutputArch *Parser::parseOutputArch() {
   return ret;
 }
 
-// Parse GROUP(file ...)
-Group *Parser::parseGroup() {
-  assert(_tok._kind == Token::kw_group && "Expected GROUP!");
+// Parse file list for INPUT or GROUP
+template<class T> T *Parser::parsePathList() {
   consumeToken();
   if (!expectAndConsume(Token::l_paren, "expected ("))
     return nullptr;
 
-  std::vector<Path> paths;
-
+  SmallVector<Path, 8> paths;
   while (_tok._kind == Token::identifier || _tok._kind == Token::libname ||
          _tok._kind == Token::kw_as_needed) {
     switch (_tok._kind) {
@@ -1294,17 +1283,13 @@ Group *Parser::parseGroup() {
       llvm_unreachable("Invalid token.");
     }
   }
-
-  auto ret = new (_alloc) Group(paths);
-
   if (!expectAndConsume(Token::r_paren, "expected )"))
     return nullptr;
-
-  return ret;
+  return new (_alloc) T(*this, paths);
 }
 
 // Parse AS_NEEDED(file ...)
-bool Parser::parseAsNeeded(std::vector<Path> &paths) {
+bool Parser::parseAsNeeded(SmallVectorImpl<Path> &paths) {
   assert(_tok._kind == Token::kw_as_needed && "Expected AS_NEEDED!");
   consumeToken();
   if (!expectAndConsume(Token::l_paren, "expected ("))
@@ -1344,7 +1329,7 @@ Entry *Parser::parseEntry() {
   consumeToken();
   if (!expectAndConsume(Token::r_paren, "expected )"))
     return nullptr;
-  return new (_alloc) Entry(entryName);
+  return new (_alloc) Entry(*this, entryName);
 }
 
 // Parse SEARCH_DIR(ident)
@@ -1361,7 +1346,7 @@ SearchDir *Parser::parseSearchDir() {
   consumeToken();
   if (!expectAndConsume(Token::r_paren, "expected )"))
     return nullptr;
-  return new (_alloc) SearchDir(searchPath);
+  return new (_alloc) SearchDir(*this, searchPath);
 }
 
 const SymbolAssignment *Parser::parseSymbolAssignment() {
@@ -1457,7 +1442,7 @@ const SymbolAssignment *Parser::parseSymbolAssignment() {
     if (!expectAndConsume(Token::r_paren, "expected )"))
       return nullptr;
 
-  return new (_alloc) SymbolAssignment(name, expr, kind, visibility);
+  return new (_alloc) SymbolAssignment(*this, name, expr, kind, visibility);
 }
 
 llvm::ErrorOr<InputSectionsCmd::VectorTy> Parser::parseExcludeFile() {
@@ -1470,7 +1455,7 @@ llvm::ErrorOr<InputSectionsCmd::VectorTy> Parser::parseExcludeFile() {
         std::make_error_code(std::errc::io_error));
 
   while (_tok._kind == Token::identifier) {
-    res.push_back(new (_alloc) InputSectionName(_tok._range, true));
+    res.push_back(new (_alloc) InputSectionName(*this, _tok._range, true));
     consumeToken();
   }
 
@@ -1550,10 +1535,11 @@ const InputSection *Parser::parseSortedInputSections() {
   if (numParen == -1)
     return nullptr;
 
-  std::vector<const InputSection *> inputSections;
+  SmallVector<const InputSection *, 8> inputSections;
 
   while (_tok._kind == Token::identifier) {
-    inputSections.push_back(new (_alloc) InputSectionName(_tok._range, false));
+    inputSections.push_back(new (_alloc)
+                                InputSectionName(*this, _tok._range, false));
     consumeToken();
   }
 
@@ -1562,7 +1548,7 @@ const InputSection *Parser::parseSortedInputSections() {
     if (!expectAndConsume(Token::r_paren, "expected )"))
       return nullptr;
 
-  return new (_alloc) InputSectionSortedGroup(sortMode, inputSections);
+  return new (_alloc) InputSectionSortedGroup(*this, sortMode, inputSections);
 }
 
 const InputSectionsCmd *Parser::parseInputSectionsCmd() {
@@ -1619,11 +1605,11 @@ const InputSectionsCmd *Parser::parseInputSectionsCmd() {
     }
   }
 
-  std::vector<const InputSection *> inputSections;
+  SmallVector<const InputSection *, 8> inputSections;
 
   if (_tok._kind != Token::l_paren)
     return new (_alloc)
-        InputSectionsCmd(fileName, archiveName, keep, fileSortMode,
+        InputSectionsCmd(*this, fileName, archiveName, keep, fileSortMode,
                          archiveSortMode, inputSections);
   consumeToken();
 
@@ -1644,7 +1630,7 @@ const InputSectionsCmd *Parser::parseInputSectionsCmd() {
     case Token::star:
     case Token::identifier: {
       inputSections.push_back(new (_alloc)
-                                  InputSectionName(_tok._range, false));
+                                  InputSectionName(*this, _tok._range, false));
       consumeToken();
       break;
     }
@@ -1667,7 +1653,7 @@ const InputSectionsCmd *Parser::parseInputSectionsCmd() {
     if (!expectAndConsume(Token::r_paren, "expected )"))
       return nullptr;
   return new (_alloc)
-      InputSectionsCmd(fileName, archiveName, keep, fileSortMode,
+      InputSectionsCmd(*this, fileName, archiveName, keep, fileSortMode,
                        archiveSortMode, inputSections);
 }
 
@@ -1685,7 +1671,7 @@ const OutputSectionDescription *Parser::parseOutputSectionDescription() {
   bool discard = false;
   OutputSectionDescription::Constraint constraint =
       OutputSectionDescription::C_None;
-  std::vector<const Command *> outputSectionCommands;
+  SmallVector<const Command *, 8> outputSectionCommands;
 
   if (_tok._kind == Token::kw_discard)
     discard = true;
@@ -1822,7 +1808,7 @@ const OutputSectionDescription *Parser::parseOutputSectionDescription() {
   }
 
   return new (_alloc) OutputSectionDescription(
-      sectionName, address, align, subAlign, at, fillExpr, fillStream,
+      *this, sectionName, address, align, subAlign, at, fillExpr, fillStream,
       alignWithInput, discard, constraint, outputSectionCommands);
 }
 
@@ -1837,7 +1823,7 @@ Sections *Parser::parseSections() {
   consumeToken();
   if (!expectAndConsume(Token::l_brace, "expected {"))
     return nullptr;
-  std::vector<const Command *> sectionsCommands;
+  SmallVector<const Command *, 8> sectionsCommands;
 
   bool unrecognizedToken = false;
   // Parse zero or more sections-commands
@@ -1914,7 +1900,7 @@ Sections *Parser::parseSections() {
           "expected symbol assignment, entry, overlay or output section name."))
     return nullptr;
 
-  return new (_alloc) Sections(sectionsCommands);
+  return new (_alloc) Sections(*this, sectionsCommands);
 }
 
 } // end namespace script

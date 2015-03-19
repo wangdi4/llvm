@@ -304,7 +304,7 @@ void CodeGenFunction::EmitCilkForHelperBody(const Stmt *S) {
   EmitBlock(LoopExit.getBlock(), true);
 }
 
-void CodeGenFunction::CGCilkSpawnInfo::EmitBody(CodeGenFunction &CGF, Stmt *S) {
+void CodeGenFunction::CGCilkSpawnInfo::EmitBody(CodeGenFunction &CGF, const Stmt *S) {
   // If there is a receiver, save its address.
   CGCilkSpawnInfo *Info = cast<CGCilkSpawnInfo>(CGF.CapturedStmtInfo);
   if (Info->getReceiverDecl()) {

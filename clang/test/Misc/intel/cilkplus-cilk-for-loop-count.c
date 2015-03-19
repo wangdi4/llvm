@@ -63,7 +63,7 @@ void test_loop_count() {
   // LOOP_COUNT2: call void @__cilkrts_cilk_for_32({{.*}}, i32 6,
 
   char buf[100] = {0};
-  // LOOP_COUNT: getelementptr inbounds [100 x i8]* %buf
+  // LOOP_COUNT: getelementptr inbounds [100 x i8], [100 x i8]* %buf
   _Cilk_for(char *i = &buf[0]; i != &buf[99]; ++i);
   // LOOP_COUNT: call void @__cilkrts_cilk_for_[[BIT_WIDTH:[32|64]+]]({{.*}}, i[[BIT_WIDTH]] 99,
 
@@ -84,11 +84,11 @@ void test_cilk_for_ir() {
   // CHECK-NEXT: [[SPAN_COMP:%[A-Za-z0-9]+]] = icmp slt i32 [[R1]], 0
   // CHECK-NEXT: br i1 [[SPAN_COMP]], label [[SPAN_NEG:%[A-Za-z0-9.]+]], label [[SPAN_POS:%[A-Za-z0-9.]+]]
   // CHECK: [[R1:%[A-Za-z0-9]+]] = call i32 {{.*}} @limit
-  // CHECK-NEXT: [[R2:%[A-Za-z0-9]+]] = load i32* [[FIRST]],
+  // CHECK-NEXT: [[R2:%[A-Za-z0-9]+]] = load i32, i32* [[FIRST]],
   // CHECK-NEXT: [[R3:%[A-Za-z0-9]+]] = sub nsw i32 [[R1]], [[R2]]
   // CHECK-NEXT: [[SPAN1:%[A-Za-z0-9]+]] = sub nsw i32 0, [[R3]]
   // CHECK: [[R1:%[A-Za-z0-9]+]] = call i32 {{.*}} @limit
-  // CHECK-NEXT: [[R2:%[A-Za-z0-9]+]] = load i32* [[FIRST]]
+  // CHECK-NEXT: [[R2:%[A-Za-z0-9]+]] = load i32, i32* [[FIRST]]
   // CHECK-NEXT: [[SPAN2:%[A-Za-z0-9]+]] = sub nsw i32 [[R1]], [[R2]]
   // CHECK: [[SPAN:%[A-Za-z0-9]+]] = phi i32 [ [[SPAN1]], [[SPAN_NEG]] ], [ [[SPAN2]], [[SPAN_POS]] ]
   // CHECK: [[R1:%[A-Za-z0-9]+]] = call i32 {{.*}} @stride

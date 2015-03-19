@@ -685,6 +685,7 @@ CXXABI *ASTContext::createCXXABI(const TargetInfo &T) {
   case TargetCXXABI::iOS:
   case TargetCXXABI::iOS64:
   case TargetCXXABI::GenericAArch64:
+  case TargetCXXABI::GenericMIPS:
   case TargetCXXABI::GenericItanium:
     return CreateItaniumCXXABI(*this);
   case TargetCXXABI::Microsoft:
@@ -740,9 +741,8 @@ ASTContext::ASTContext(LangOptions &LOpts, SourceManager &SM,
       FILEDecl(nullptr), jmp_bufDecl(nullptr), sigjmp_bufDecl(nullptr),
       ucontext_tDecl(nullptr), BlockDescriptorType(nullptr),
       BlockDescriptorExtendedType(nullptr), cudaConfigureCallDecl(nullptr),
-      FirstLocalImport(), LastLocalImport(),
-      SourceMgr(SM), LangOpts(LOpts),
-      SanitizerBL(new SanitizerBlacklist(LangOpts.SanitizerBlacklistFile, SM)),
+      FirstLocalImport(), LastLocalImport(), SourceMgr(SM), LangOpts(LOpts),
+      SanitizerBL(new SanitizerBlacklist(LangOpts.SanitizerBlacklistFiles, SM)),
       AddrSpaceMap(nullptr), Target(nullptr), PrintingPolicy(LOpts),
       Idents(idents), Selectors(sels), BuiltinInfo(builtins),
       DeclarationNames(*this), ExternalSource(nullptr), Listener(nullptr),
@@ -1693,13 +1693,23 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       break;
     }
 
-    if (const EnumType *ET = dyn_cast<EnumType>(TT))
-      return getTypeInfo(ET->getDecl()->getIntegerType());
+    if (const EnumType *ET = dyn_cast<EnumType>(TT)) {
+      const EnumDecl *ED = ET->getDecl();
+      TypeInfo Info =
+          getTypeInfo(ED->getIntegerType()->getUnqualifiedDesugaredType());
+      if (unsigned AttrAlign = ED->getMaxAlignment()) {
+        Info.Align = AttrAlign;
+        Info.AlignIsRequired = true;
+      }
+      return Info;
+    }
 
     const RecordType *RT = cast<RecordType>(TT);
-    const ASTRecordLayout &Layout = getASTRecordLayout(RT->getDecl());
+    const RecordDecl *RD = RT->getDecl();
+    const ASTRecordLayout &Layout = getASTRecordLayout(RD);
     Width = toBits(Layout.getSize());
     Align = toBits(Layout.getAlignment());
+    AlignIsRequired = RD->hasAttr<AlignedAttr>();
     break;
   }
 
@@ -1809,6 +1819,8 @@ unsigned ASTContext::getPreferredTypeAlign(const Type *T) const {
   T = T->getBaseElementTypeUnsafe();
   if (const ComplexType *CT = T->getAs<ComplexType>())
     T = CT->getElementType().getTypePtr();
+  if (const EnumType *ET = T->getAs<EnumType>())
+    T = ET->getDecl()->getIntegerType().getTypePtr();
   if (T->isSpecificBuiltinType(BuiltinType::Double) ||
       T->isSpecificBuiltinType(BuiltinType::LongLong) ||
       T->isSpecificBuiltinType(BuiltinType::ULongLong))
@@ -4346,6 +4358,19 @@ QualType ASTContext::getAdjustedParameterType(QualType T) const {
 QualType ASTContext::getSignatureParameterType(QualType T) const {
   T = getVariableArrayDecayedType(T);
   T = getAdjustedParameterType(T);
+  return T.getUnqualifiedType();
+}
+
+QualType ASTContext::getExceptionObjectType(QualType T) const {
+  // C++ [except.throw]p3:
+  //   A throw-expression initializes a temporary object, called the exception
+  //   object, the type of which is determined by removing any top-level
+  //   cv-qualifiers from the static type of the operand of throw and adjusting
+  //   the type from "array of T" or "function returning T" to "pointer to T"
+  //   or "pointer to function returning T", [...]
+  T = getVariableArrayDecayedType(T);
+  if (T->isArrayType() || T->isFunctionType())
+    T = getDecayedType(T);
   return T.getUnqualifiedType();
 }
 
@@ -8080,7 +8105,9 @@ CallingConv ASTContext::getDefaultCallingConvention(bool IsVariadic,
   if (IsCXXMethod)
     return ABI->getDefaultMethodCallConv(IsVariadic);
 
-  return (LangOpts.MRTD && !IsVariadic) ? CC_X86StdCall : CC_C;
+  if (LangOpts.MRTD && !IsVariadic) return CC_X86StdCall;
+
+  return Target->getDefaultCallingConv(TargetInfo::CCMT_Unknown);
 }
 
 bool ASTContext::isNearlyEmpty(const CXXRecordDecl *RD) const {
@@ -8103,6 +8130,7 @@ MangleContext *ASTContext::createMangleContext() {
   case TargetCXXABI::GenericAArch64:
   case TargetCXXABI::GenericItanium:
   case TargetCXXABI::GenericARM:
+  case TargetCXXABI::GenericMIPS:
   case TargetCXXABI::iOS:
   case TargetCXXABI::iOS64:
     return ItaniumMangleContext::create(*this, getDiagnostics());

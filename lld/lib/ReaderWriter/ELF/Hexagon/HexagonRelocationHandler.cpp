@@ -7,20 +7,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "HexagonTargetHandler.h"
 #include "HexagonLinkingContext.h"
 #include "HexagonRelocationFunctions.h"
+#include "HexagonTargetHandler.h"
 #include "HexagonRelocationHandler.h"
+#include "llvm/Support/Endian.h"
 
 using namespace lld;
-using namespace elf;
-
+using namespace lld::elf;
 using namespace llvm::ELF;
+using namespace llvm::support::endian;
 
 #define APPLY_RELOC(result)                                                    \
-  *reinterpret_cast<llvm::support::ulittle32_t *>(location) =                  \
-      result |                                                                 \
-      (uint32_t) * reinterpret_cast<llvm::support::ulittle32_t *>(location);
+  write32le(location, result | read32le(location));
 
 static int relocBNPCREL(uint8_t *location, uint64_t P, uint64_t S, uint64_t A,
                         int32_t nBits) {
@@ -344,10 +343,8 @@ std::error_code HexagonTargetRelocationHandler::applyRelocation(
     break;
 
   default:
-    unhandledReferenceType(*atom._atom, ref);
+    return make_unhandled_reloc_error();
   }
 
   return std::error_code();
 }
-
-

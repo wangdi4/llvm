@@ -3208,13 +3208,13 @@ void Parser::initializeIntelPragmaHandlers() {
     // #pragma vtordisp
     VtorDispHandler.reset(new PragmaVtorDispHandler());
     PP.AddPragmaHandler(VtorDispHandler.get());
-  
+
     if (getLangOpts().AlignMac68k) {
       Actions.SetMac68kAlignment();
     }
   }
 #endif // INTEL_SPECIFIC_IL0_BACKEND
-}  
+}
 
 void Parser::resetIntelPragmaHandlers() {
   // Remove the pragma handlers we installed.

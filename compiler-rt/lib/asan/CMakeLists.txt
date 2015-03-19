@@ -65,8 +65,8 @@ if(APPLE)
     add_compiler_rt_darwin_object_library(RTAsan ${os}
       ARCH ${ASAN_SUPPORTED_ARCH}
       SOURCES ${ASAN_SOURCES} ${ASAN_CXX_SOURCES}
-      CFLAGS ${ASAN_CFLAGS}
-      DEFS ${ASAN_COMMON_DEFINITIONS})
+      CFLAGS ${ASAN_DYNAMIC_CFLAGS}
+      DEFS ${ASAN_DYNAMIC_DEFINITIONS})
   endforeach()
 else()
   foreach(arch ${ASAN_SUPPORTED_ARCH})
@@ -96,8 +96,8 @@ if(APPLE)
               $<TARGET_OBJECTS:RTInterception.${os}>
               $<TARGET_OBJECTS:RTSanitizerCommon.${os}>
               $<TARGET_OBJECTS:RTLSanCommon.${os}>
-      CFLAGS ${ASAN_CFLAGS}
-      DEFS ${ASAN_COMMON_DEFINITIONS})
+      CFLAGS ${ASAN_DYNAMIC_CFLAGS}
+      DEFS ${ASAN_DYNAMIC_DEFINITIONS})
     add_dependencies(asan clang_rt.asan_${os}_dynamic)
   endforeach()
 else()
@@ -147,7 +147,7 @@ else()
     target_link_libraries(clang_rt.asan-dynamic-${arch} ${ASAN_DYNAMIC_LIBS})
     add_dependencies(asan clang_rt.asan-dynamic-${arch})
 
-    if (UNIX AND NOT ${arch} STREQUAL "i386" AND NOT ${arch} STREQUAL "i686")
+    if (UNIX AND NOT ${arch} MATCHES "i386|i686")
       add_sanitizer_rt_symbols(clang_rt.asan_cxx-${arch})
       add_dependencies(asan clang_rt.asan_cxx-${arch}-symbols)
       add_sanitizer_rt_symbols(clang_rt.asan-${arch} asan.syms.extra)

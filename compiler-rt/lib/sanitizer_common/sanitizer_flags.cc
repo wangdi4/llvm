@@ -51,12 +51,13 @@ class FlagHandlerInclude : public FlagHandlerBase {
 
  public:
   explicit FlagHandlerInclude(FlagParser *parser) : parser_(parser) {}
-  bool Parse(const char *value) {
+  bool Parse(const char *value) final {
     char *data;
     uptr data_mapped_size;
     int err;
     uptr len =
-      ReadFileToBuffer(value, &data, &data_mapped_size, kMaxIncludeSize, &err);
+      ReadFileToBuffer(value, &data, &data_mapped_size,
+                       Max(kMaxIncludeSize, GetPageSizeCached()), &err);
     if (!len) {
       Printf("Failed to read options from '%s': error %d\n", value, err);
       return false;
@@ -67,16 +68,20 @@ class FlagHandlerInclude : public FlagHandlerBase {
   }
 };
 
+void RegisterIncludeFlag(FlagParser *parser, CommonFlags *cf) {
+  FlagHandlerInclude *fh_include =
+      new (FlagParser::Alloc) FlagHandlerInclude(parser);  // NOLINT
+  parser->RegisterHandler("include", fh_include,
+                          "read more options from the given file");
+}
+
 void RegisterCommonFlags(FlagParser *parser, CommonFlags *cf) {
 #define COMMON_FLAG(Type, Name, DefaultValue, Description) \
   RegisterFlag(parser, #Name, Description, &cf->Name);
 #include "sanitizer_flags.inc"
 #undef COMMON_FLAG
 
-  FlagHandlerInclude *fh_include =
-      new (INTERNAL_ALLOC) FlagHandlerInclude(parser);  // NOLINT
-  parser->RegisterHandler("include", fh_include,
-                          "read more options from the given file");
+  RegisterIncludeFlag(parser, cf);
 }
 
 }  // namespace __sanitizer

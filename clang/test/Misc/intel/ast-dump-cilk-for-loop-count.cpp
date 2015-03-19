@@ -27,6 +27,6 @@ void test_loop_count() {
   // CHECK: CapturedStmt
 
   _Cilk_for(int i = Foo(13); i >= 4; i -= 4);
-  // CHECK:      CilkForStmt
+  // CHECK: CilkForStmt
   // CHECK: CapturedStmt
 }

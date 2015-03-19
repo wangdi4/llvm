@@ -458,16 +458,16 @@ SDValue DAGTypeLegalizer::PromoteIntRes_LOAD(LoadSDNode *N) {
 SDValue DAGTypeLegalizer::PromoteIntRes_MLOAD(MaskedLoadSDNode *N) {
   EVT NVT = TLI.getTypeToTransformTo(*DAG.getContext(), N->getValueType(0));
   SDValue ExtSrc0 = GetPromotedInteger(N->getSrc0());
-  SDValue ExtMask = PromoteTargetBoolean(N->getMask(), NVT);
+
+  SDValue Mask = N->getMask();
+  EVT NewMaskVT = getSetCCResultType(NVT);
+  if (NewMaskVT != N->getMask().getValueType())
+    Mask = PromoteTargetBoolean(Mask, NewMaskVT);
   SDLoc dl(N);
 
-  MachineMemOperand *MMO = DAG.getMachineFunction().
-    getMachineMemOperand(N->getPointerInfo(),
-                         MachineMemOperand::MOLoad,  NVT.getStoreSize(),
-                         N->getAlignment(), N->getAAInfo(), N->getRanges());
-
   SDValue Res = DAG.getMaskedLoad(NVT, dl, N->getChain(), N->getBasePtr(),
-                                  ExtMask, ExtSrc0, MMO);
+                                  Mask, ExtSrc0, N->getMemoryVT(),
+                                  N->getMemOperand(), ISD::SEXTLOAD);
   // Legalized the chain result - switch anything that used the old chain to
   // use the new one.
   ReplaceValueWith(SDValue(N, 1), Res.getValue(1));
@@ -1116,17 +1116,19 @@ SDValue DAGTypeLegalizer::PromoteIntOp_STORE(StoreSDNode *N, unsigned OpNo){
 
 SDValue DAGTypeLegalizer::PromoteIntOp_MSTORE(MaskedStoreSDNode *N, unsigned OpNo){
 
-  assert(OpNo == 2 && "Only know how to promote the mask!");
-  SDValue DataOp = N->getData();
+  SDValue DataOp = N->getValue();
   EVT DataVT = DataOp.getValueType();
   SDValue Mask = N->getMask();
   EVT MaskVT = Mask.getValueType();
   SDLoc dl(N);
 
+  bool TruncateStore = false;
   if (!TLI.isTypeLegal(DataVT)) {
     if (getTypeAction(DataVT) == TargetLowering::TypePromoteInteger) {
       DataOp = GetPromotedInteger(DataOp);
-      Mask = PromoteTargetBoolean(Mask, DataOp.getValueType());
+      if (!TLI.isTypeLegal(MaskVT))
+        Mask = PromoteTargetBoolean(Mask, DataOp.getValueType());
+      TruncateStore = true;
     }
     else {
       assert(getTypeAction(DataVT) == TargetLowering::TypeWidenVector &&
@@ -1156,10 +1158,9 @@ SDValue DAGTypeLegalizer::PromoteIntOp_MSTORE(MaskedStoreSDNode *N, unsigned OpN
   }
   else
     Mask = PromoteTargetBoolean(N->getMask(), DataOp.getValueType());
-  SmallVector<SDValue, 4> NewOps(N->op_begin(), N->op_end());
-  NewOps[2] = Mask;
-  NewOps[3] = DataOp;
-  return SDValue(DAG.UpdateNodeOperands(N, NewOps), 0);
+  return DAG.getMaskedStore(N->getChain(), dl, DataOp, N->getBasePtr(), Mask,
+                            N->getMemoryVT(), N->getMemOperand(),
+                            TruncateStore);
 }
 
 SDValue DAGTypeLegalizer::PromoteIntOp_MLOAD(MaskedLoadSDNode *N, unsigned OpNo){
@@ -3016,17 +3017,13 @@ SDValue DAGTypeLegalizer::PromoteIntRes_VECTOR_SHUFFLE(SDNode *N) {
   EVT VT = N->getValueType(0);
   SDLoc dl(N);
 
-  unsigned NumElts = VT.getVectorNumElements();
-  SmallVector<int, 8> NewMask;
-  for (unsigned i = 0; i != NumElts; ++i) {
-    NewMask.push_back(SV->getMaskElt(i));
-  }
+  ArrayRef<int> NewMask = SV->getMask().slice(0, VT.getVectorNumElements());
 
   SDValue V0 = GetPromotedInteger(N->getOperand(0));
   SDValue V1 = GetPromotedInteger(N->getOperand(1));
   EVT OutVT = V0.getValueType();
 
-  return DAG.getVectorShuffle(OutVT, dl, V0, V1, &NewMask[0]);
+  return DAG.getVectorShuffle(OutVT, dl, V0, V1, NewMask);
 }
 
 

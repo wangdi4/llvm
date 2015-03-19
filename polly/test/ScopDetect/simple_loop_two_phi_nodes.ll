@@ -1,4 +1,4 @@
-; RUN: opt %loadPolly -polly-detect  -analyze < %s | FileCheck %s
+; RUN: opt %loadPolly -polly-detect-unprofitable -polly-detect  -analyze < %s | FileCheck %s
 
 ; void f(long A[], long N) {
 ;   long i;
@@ -20,7 +20,7 @@ entry:
 for.i:
   %indvar = phi i64 [ 0, %entry ], [ %indvar.next, %for.i ]
   %indvar_non_canonical = phi i64 [ 1, %entry ], [ %indvar_non_canonical.next, %for.i ]
-  %scevgep = getelementptr i64* %A, i64 %indvar
+  %scevgep = getelementptr i64, i64* %A, i64 %indvar
   store i64 %indvar_non_canonical, i64* %scevgep
   %indvar.next = add nsw i64 %indvar, 1
   %indvar_non_canonical.next = add nsw i64 %indvar_non_canonical, 1

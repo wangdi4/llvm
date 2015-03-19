@@ -1,10 +1,27 @@
 set(LLVM_NO_RTTI 1)
 
-# On Windows, the file list for liblldb is maintained in source\CMakeLists.txt.
-# When adding a file to this list, do not forget to add it to the other list as
-# well (where appropriate).
-add_lldb_library(lldbAPI
+if ( CMAKE_SYSTEM_NAME MATCHES "Windows" )
+  add_definitions( -DEXPORT_LIBLLDB )
+endif()
+
+# An OBJECT library is a special type of CMake library that produces
+# no archive, has no link interface, and no link inputs.  It is like
+# a regular archive, just without the physical output.  To link against
+# an OBJECT library, you reference it in the *source* file list of a
+# library using the special syntax $<TARGET_OBJECTS:lldbAPI>.  This will
+# cause every object file to be passed to the linker independently, as
+# opposed to a single archive being passed to the linker.
+#
+# This is *extremely* important on Windows.  lldbAPI exports all of the
+# SB classes using __declspec(dllexport).  Unfortunately for technical
+# reasons it is not possible (well, extremely difficult) to get the linker
+# to propagate a __declspec(dllexport) attribute from a symbol in an
+# object file in an archive to a DLL that links against that archive.
+# The solution to this is for the DLL to link the object file directly.
+# So lldbAPI must be an OBJECT library.
+add_lldb_library(lldbAPI OBJECT
   SBAddress.cpp
+  SBAttachInfo.cpp
   SBBlock.cpp
   SBBreakpoint.cpp
   SBBreakpointLocation.cpp
@@ -27,6 +44,7 @@ add_lldb_library(lldbAPI
   SBHostOS.cpp
   SBInstruction.cpp
   SBInstructionList.cpp
+  SBLaunchInfo.cpp
   SBLineEntry.cpp
   SBListener.cpp
   SBModule.cpp
@@ -56,6 +74,7 @@ add_lldb_library(lldbAPI
   SBTypeSynthetic.cpp
   SBValue.cpp
   SBValueList.cpp
+  SBVariablesOptions.cpp
   SBWatchpoint.cpp
   SBUnixSignals.cpp
   )
