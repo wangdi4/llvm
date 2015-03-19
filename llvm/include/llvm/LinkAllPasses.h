@@ -38,6 +38,7 @@
 #include "llvm/Transforms/Vectorize.h"
 #include "llvm/Transforms/Intel_LoopTransforms/MockHIR.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRCodeGen.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRCompleteUnroll.h"
 #include <cstdlib>
 
 namespace {
@@ -179,9 +180,11 @@ namespace {
       llvm::AliasSetTracker X(*(llvm::AliasAnalysis*)nullptr);
       X.add(nullptr, 0, llvm::AAMDNodes()); // for -print-alias-sets
 
+      // Intel HIR Passes
       (void) llvm::createMockHIRPass();
       (void) llvm::createRegionIdentificationPass();
       (void) llvm::createHIRCodeGenPass();
+      (void) llvm::createHIRCompleteUnrollPass();
     }
   } ForcePassLinking; // Force link by creating a global definition.
 }

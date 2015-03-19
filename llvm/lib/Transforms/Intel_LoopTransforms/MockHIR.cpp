@@ -127,6 +127,7 @@ void MockHIR::createMockHIRSimpleLoop() {
   // 1 + i_0*1, 0 norm in subscript form(ie not byte addressed)
   CanonExpr *LoadLinearCE = CanonExprUtils::createCanonExpr(Int64Type);
   LoadLinearCE->addIV(1, 1);
+  LoadLinearCE->setConstant(1);
   /// Setting null stride for the first dimension, revisit later
   LoadRef->addDimension(LoadLinearCE, nullptr);
   LoadRef->setBaseCE(LoadBlobCE);
@@ -134,6 +135,7 @@ void MockHIR::createMockHIRSimpleLoop() {
 
   CanonExpr *StoreLinearCE = CanonExprUtils::createCanonExpr(Int64Type);
   StoreLinearCE->addIV(1, 1);
+  StoreLinearCE->setConstant(1);
   CanonExpr *StoreBlobCE =
       CanonExprUtils::createCanonExpr(SrcGEP->getPointerOperandType());
   StoreBlobCE->addBlob(1, 1);
