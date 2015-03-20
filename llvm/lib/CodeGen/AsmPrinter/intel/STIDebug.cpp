@@ -1158,17 +1158,16 @@ void STIDebugImpl::collectClassInfoFromInheritance(ClassInfo &info,
   DICompositeType DDTy = DICompositeType(resolve(inherTy.getTypeDerivedFrom()));
   ClassInfo &inherInfo = collectClassInfo(DDTy);
 
-  ClassInfo::VBaseClassList &vbClasses = inherInfo.vBaseClasses;
-  for (auto &itr = vbClasses.begin(), e = vbClasses.end(); itr != e; ++itr) {
-    if (!info.vBaseClasses.count(itr->first)) {
+  for (auto &itr : inherInfo.vBaseClasses) {
+    if (!info.vBaseClasses.count(itr.first)) {
       int vbIndex = info.vBaseClasses.size() + 1;
-      info.vBaseClasses[itr->first] = ClassInfo::VBaseClassInfo(
-          itr->second.llvmInheritance, vbIndex, true /*indirect*/);
+      info.vBaseClasses[itr.first] = ClassInfo::VBaseClassInfo(
+          itr.second.llvmInheritance, vbIndex, true /*indirect*/);
     }
   }
 
   if (isVirtual) {
-    auto &vbClass = info.vBaseClasses.find(DDTy);
+    auto vbClass = info.vBaseClasses.find(DDTy);
     if (vbClass != info.vBaseClasses.end()) {
       vbClass->second.indirect = false;
     } else {
@@ -1190,13 +1189,12 @@ void STIDebugImpl::collectClassInfoFromInheritance(ClassInfo &info,
   }
 
   // append "inherInfo.vMethods" to "info.vMethods"
-  ClassInfo::VMethodsMap &vMethods = inherInfo.vMethods;
-  for (auto &itr = vMethods.begin(), e = vMethods.end(); itr != e; ++itr) {
-    StringRef methodName = itr->first;
+  for (auto &itr : inherInfo.vMethods) {
+    StringRef methodName = itr.first;
     auto &vMethodsDst = info.vMethods[methodName];
 
-    for (unsigned i = 0, Ni = itr->second.size(); i < Ni; ++i) {
-      DISubroutineType SPTy(itr->second[i]);
+    for (unsigned i = 0, Ni = itr.second.size(); i < Ni; ++i) {
+      DISubroutineType SPTy(itr.second[i]);
       bool found = false;
       for (unsigned j = 0, Nj = vMethodsDst.size(); j < Nj; ++j) {
         if (isEqualVMethodPrototype(DISubroutineType(vMethodsDst[j]), SPTy)) {
@@ -1267,16 +1265,15 @@ ClassInfo &STIDebugImpl::collectClassInfo(const DICompositeType llvmType) {
     }
   }
   bool hasVFuncTab = false;
-  ClassInfo::MethodsMap &methods = info.methods;
-  for (auto &itr = methods.begin(), e = methods.end(); itr != e; ++itr) {
-    StringRef methodName = itr->first;
+  for (auto &itr : info.methods) {
+    StringRef methodName = itr.first;
     if (methodName == destructorName) {
       methodName = "~";
     }
 
     auto &vMethods = info.vMethods[methodName];
-    for (unsigned i = 0, Ni = itr->second.size(); i < Ni; ++i) {
-      auto &methodInfo = itr->second[i];
+    for (unsigned i = 0, Ni = itr.second.size(); i < Ni; ++i) {
+      auto &methodInfo = itr.second[i];
       DISubprogram subprogram(methodInfo.first);
 
       if (subprogram.getVirtuality() == dwarf::DW_VIRTUALITY_none) {
@@ -1366,12 +1363,11 @@ STIType *STIDebugImpl::createTypeStructure(const DICompositeType llvmType,
     }
 
     // Create virtual base classes
-    ClassInfo::VBaseClassList &vbClasses = info.vBaseClasses;
-    for (auto &itr = vbClasses.begin(), e = vbClasses.end(); itr != e; ++itr) {
+    for (auto &itr : info.vBaseClasses) {
       const DIDerivedType inheritance =
-          DIDerivedType(itr->second.llvmInheritance);
-      unsigned vbIndex = itr->second.vbIndex;
-      bool indirect = itr->second.indirect;
+          DIDerivedType(itr.second.llvmInheritance);
+      unsigned vbIndex = itr.second.vbIndex;
+      bool indirect = itr.second.indirect;
 
       STITypeVBaseClass *vbClass = STITypeVBaseClass::create(indirect);
       vbClass->setAttribute(getTypeAttribute(inheritance, llvmType));
@@ -1444,12 +1440,11 @@ STIType *STIDebugImpl::createTypeStructure(const DICompositeType llvmType,
     }
 
     // Create methods
-    ClassInfo::MethodsMap &methods = info.methods;
-    for (auto &itr = methods.begin(), e = methods.end(); itr != e; ++itr) {
-      unsigned overloadedCount = itr->second.size();
+    for (auto &itr : info.methods) {
+      unsigned overloadedCount = itr.second.size();
       assert(overloadedCount > 0 && "Empty methods map entry");
       if (overloadedCount == 1) {
-        auto &methodInfo = itr->second[0];
+        auto &methodInfo = itr.second[0];
         DISubprogram subprogram = DISubprogram(methodInfo.first);
         bool introduced = methodInfo.second;
 
@@ -1473,14 +1468,14 @@ STIType *STIDebugImpl::createTypeStructure(const DICompositeType llvmType,
           method->setVirtuality(virtuality);
           method->setVirtualIndex(virtualIndex);
         }
-        method->setName(itr->first);
+        method->setName(itr.first);
 
         fieldType->getOneMethods().push_back(method);
       } else {
         // Create LF_METHODLIST entry
         STITypeMethodList *methodList = STITypeMethodList::create();
         for (unsigned i = 0; i < overloadedCount; ++i) {
-          auto &methodInfo = itr->second[i];
+          auto &methodInfo = itr.second[i];
           DISubprogram subprogram = DISubprogram(methodInfo.first);
           bool introduced = methodInfo.second;
 
@@ -1515,7 +1510,7 @@ STIType *STIDebugImpl::createTypeStructure(const DICompositeType llvmType,
 
         method->setCount(overloadedCount);
         method->setList(methodList);
-        method->setName(itr->first);
+        method->setName(itr.first);
 
         fieldType->getMethods().push_back(method);
       }
