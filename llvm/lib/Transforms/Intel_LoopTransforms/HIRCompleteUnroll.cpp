@@ -35,6 +35,27 @@
 //
 //===---------------------------------------------------------------------===//
 
+// TODO: Extensions to be added later for general unrolling.
+//  (1) Traversal is top down, but needs not to  store just  innermost loops alone but  for  but candidates for complete unroll for outerloop as  in  do i=1,2; do j=1,3, do k=1,2  We want Unroll and rebuild DDG to happen once in these cases  for the sake of compile time
+//  (2) Some  rebuildDDG  util need to be invoked before and after unroll for the sake of incremental rebuild
+//  (3) Safe reductions chains need to be updated or removed
+//  (4) Linear-at-level need to be adjusted
+//  (5) Linear-in-innermost  may turn   into non-linear  and was-linear as in this case
+//
+//  Do  I  
+//     M =   a(i)
+//       Do j=1,2
+//          B(j) = M + j    // ( M + j) is linear in innermost   canon = i2 + M  (or linear at level eventually)
+//       Enddo
+//  Enddo
+//
+//  After complete unroll
+//   Do  I  
+//      M =   a(i)
+//      B(1) = M + 1    //  (M + j)    becomes non-linear (was linear)  canon =    M + 1  
+//      B(2) = M + 2    //  (M + j)    becomes non-linear (was linear)  canon =    M + 2
+//   Enddo
+
 #include "llvm/Pass.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/LLVMContext.h"
