@@ -17,11 +17,21 @@
 
 namespace llvm {
 
-  class FunctionPass;
+class FunctionPass;
 
-  // createRegionIdentificationPass - This creates a pass that identifies HIR
-  // regions.
-  FunctionPass *createRegionIdentificationPass();
+/// createRegionIdentificationPass - This creates a pass that identifies HIR
+/// regions.
+FunctionPass *createRegionIdentificationPass();
+
+/// createHIRCreationPass - This creates a pass that forms HIR nodes.
+FunctionPass *createHIRCreationPass();
+
+/// createLoopFormationPass - This creates a pass that forms HIR loops.
+FunctionPass *createLoopFormationPass();
+
+/// createHIRParserPass - This creates a pass that maps populates DDRefs by
+/// parsing SCEVs into CanonExprs.
+FunctionPass *createHIRParserPass();
 }
 
 #endif

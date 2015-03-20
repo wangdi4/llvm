@@ -15,7 +15,6 @@
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HLNODEVISITOR_H
 
 #include "llvm/Support/Compiler.h"
-#include "llvm/IR/Intel_LoopIR/HLNode.h"
 #include "llvm/IR/Intel_LoopIR/HLRegion.h"
 #include "llvm/IR/Intel_LoopIR/HLSwitch.h"
 #include "llvm/IR/Intel_LoopIR/HLLabel.h"
@@ -84,9 +83,9 @@ private:
                      bool Recursive);
 
   /// \brief Visits all HLNodes in the HIR in forward direction.
-  void forwardVisitAll();
+  void forwardVisitAll(HIRCreation *HIR);
   /// \brief Visits all HLNodes in the HIR in backward direction.
-  void backwardVisitAll();
+  void backwardVisitAll(HIRCreation *HIR);
 };
 
 template <typename HV>
@@ -126,12 +125,14 @@ bool HLNodeVisitor<HV>::backwardVisit(HLContainerTy::iterator Begin,
   return false;
 }
 
-template <typename HV> void HLNodeVisitor<HV>::forwardVisitAll() {
-  forwardVisit(HLRegions.begin(), HLRegions.end(), true);
+template <typename HV>
+void HLNodeVisitor<HV>::forwardVisitAll(HIRCreation *HIR) {
+  forwardVisit(HIR->begin(), HIR->end(), true);
 }
 
-template <typename HV> void HLNodeVisitor<HV>::backwardVisitAll() {
-  backwardVisit(HLRegions.begin(), HLRegions.end(), true);
+template <typename HV>
+void HLNodeVisitor<HV>::backwardVisitAll(HIRCreation *HIR) {
+  backwardVisit(HIR->begin(), HIR->end(), true);
 }
 
 template <typename HV>

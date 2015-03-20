@@ -114,7 +114,7 @@ public:
   HLDDNode *getHLDDNode() const override { return Node; };
 
   /// TODO implementation
-  Value *getLLVMValue() const override { return nullptr; }
+  /// Value *getLLVMValue() const override { return nullptr; }
 
   /// \brief Returns true if the DDRef has GEP Info.
   bool hasGEPInfo() const { return (GepInfo != nullptr); }

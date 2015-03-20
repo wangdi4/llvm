@@ -17,7 +17,7 @@ using namespace llvm;
 using namespace loopopt;
 
 std::set<CanonExpr *> CanonExpr::Objs;
-CanonExpr::BlobTableTy CanonExpr::BlobTable;
+SmallVector<CanonExpr::BlobTy, 32> CanonExpr::BlobTable;
 
 CanonExpr::BlobOrConstToVal::BlobOrConstToVal(bool IsBlobCoef, int64_t Coef)
     : IsBlobCoeff(IsBlobCoef), Coeff(Coef) {}
@@ -29,10 +29,8 @@ CanonExpr::BlobIndexToCoeff::BlobIndexToCoeff(unsigned Indx, int64_t Coef)
 
 CanonExpr::BlobIndexToCoeff::~BlobIndexToCoeff() {}
 
-CanonExpr::CanonExpr(Type *Typ, bool Gen, int DefLevel, int64_t ConstVal,
-                     int64_t Denom)
-    : Ty(Typ), Generable(Gen), DefinedAtLevel(DefLevel), Const(ConstVal),
-      Denominator(Denom) {
+CanonExpr::CanonExpr(Type *Typ, int DefLevel, int64_t ConstVal, int64_t Denom)
+    : Ty(Typ), DefinedAtLevel(DefLevel), Const(ConstVal), Denominator(Denom) {
 
   Objs.insert(this);
 
@@ -41,9 +39,8 @@ CanonExpr::CanonExpr(Type *Typ, bool Gen, int DefLevel, int64_t ConstVal,
 }
 
 CanonExpr::CanonExpr(const CanonExpr &CE)
-    : Ty(CE.Ty), Generable(CE.Generable), DefinedAtLevel(CE.DefinedAtLevel),
-      IVCoeffs(CE.IVCoeffs), BlobCoeffs(CE.BlobCoeffs), Const(CE.Const),
-      Denominator(CE.Denominator) {
+    : Ty(CE.Ty), DefinedAtLevel(CE.DefinedAtLevel), IVCoeffs(CE.IVCoeffs),
+      BlobCoeffs(CE.BlobCoeffs), Const(CE.Const), Denominator(CE.Denominator) {
 
   Objs.insert(this);
 }
@@ -162,8 +159,7 @@ void CanonExpr::replaceIVByConstant(unsigned Lvl, int64_t Val) {
   int64_t Coeff;
 
   assert(((IVCoeffs.size() >= Lvl) && (IVCoeffs[Lvl - 1].Coeff != 0)) &&
-         "IV "
-         "at this level not found!");
+         "IV at this level not found!");
 
   Coeff = IVCoeffs[Lvl - 1].Coeff;
 

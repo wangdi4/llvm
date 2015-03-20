@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/Debug.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Intel_LoopIR/HLLoop.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
@@ -31,20 +32,30 @@ void HLLoop::initialize() {
   DDRefs.resize(NumOp, nullptr);
 }
 
-HLLoop::HLLoop(HLIf *ZttIf, DDRef *LowerDDRef, DDRef *TripCountDDRef,
-               DDRef *StrideDDRef, bool IsDoWh, unsigned NumEx)
-    : HLDDNode(HLNode::HLLoopVal), Ztt(nullptr), IsDoWhile(IsDoWh),
-      NestingLevel(0), IsInnermost(true) {
-  assert((!ZttIf || !IsDoWh) && "Do while loop cannot have ztt!");
-  assert((!IsDoWh || NumEx == 1) && "Do while loop cannot have multiple "
-                                    "exits!");
-  assert(((LowerDDRef && TripCountDDRef && StrideDDRef) ||
-          (!LowerDDRef && !TripCountDDRef && !StrideDDRef)) &&
-         "Inconsistent loop DDRefs");
+HLLoop::HLLoop(const Loop *LLVMLoop, bool IsDoWh)
+    : HLDDNode(HLNode::HLLoopVal), OrigLoop(LLVMLoop), Ztt(nullptr),
+      IsDoWhile(IsDoWh), NestingLevel(0), IsInnermost(true) {
+  assert(LLVMLoop && "LLVM loop cannot be null!");
+
+  SmallVector<BasicBlock *, 8> Exits;
 
   initialize();
+  OrigLoop->getExitingBlocks(Exits);
+  setNumExits(Exits.size());
+}
 
+HLLoop::HLLoop(HLIf *ZttIf, DDRef *LowerDDRef, DDRef *TripCountDDRef,
+               DDRef *StrideDDRef, bool IsDoWh, unsigned NumEx)
+    : HLDDNode(HLNode::HLLoopVal), OrigLoop(nullptr), Ztt(nullptr),
+      IsDoWhile(IsDoWh), NestingLevel(0), IsInnermost(true) {
+  assert((!ZttIf || !IsDoWh) && "Do while loop cannot have ztt!");
+
+  initialize();
   setNumExits(NumEx);
+
+  assert(((LowerDDRef && TripCountDDRef && StrideDDRef) ||
+          (!LowerDDRef && !TripCountDDRef && !StrideDDRef)) &&
+         "Inconsistent loop DDRefs!");
 
   /// Sets ztt properly, with all the ddref setup.
   setZtt(ZttIf);
@@ -55,9 +66,9 @@ HLLoop::HLLoop(HLIf *ZttIf, DDRef *LowerDDRef, DDRef *TripCountDDRef,
 }
 
 HLLoop::HLLoop(const HLLoop &HLLoopObj)
-    : HLDDNode(HLLoopObj), Ztt(nullptr), IsDoWhile(HLLoopObj.IsDoWhile),
-      NumExits(HLLoopObj.NumExits), NestingLevel(0),
-      IsInnermost(HLLoopObj.IsInnermost) {
+    : HLDDNode(HLLoopObj), OrigLoop(HLLoopObj.OrigLoop), Ztt(nullptr),
+      IsDoWhile(HLLoopObj.IsDoWhile), NumExits(HLLoopObj.NumExits),
+      NestingLevel(0), IsInnermost(HLLoopObj.IsInnermost) {
 
   const DDRef *Ref;
 
@@ -211,14 +222,15 @@ DDRef *HLLoop::removeZttOperandDDRef(unsigned OperandNum) {
 }
 
 void HLLoop::setZtt(HLIf *ZttIf) {
-  assert(!hasZtt() && "Attempt to overwrite ztt!");
+  assert(!hasZtt() && "Attempt to overwrite ztt, use removeZtt instead!");
 
   if (!ZttIf) {
     return;
   }
 
-  assert((ZttIf->isThenEmpty() && ZttIf->isElseEmpty()) && "Ztt cannot have "
-                                                           "any children!");
+  assert((!ZttIf->hasThenChildren() && !ZttIf->hasElseChildren()) &&
+         "Ztt "
+         "cannot have any children!");
 
   Ztt = ZttIf;
 
@@ -238,12 +250,13 @@ HLIf *HLLoop::removeZtt() {
   HLIf *If;
 
   If = Ztt;
+  Ztt = nullptr;
   If->setParent(nullptr);
 
   /// Set Ztt DDRefs' Node back to Ztt.
   for (unsigned I = 0; I < getNumZttOperands(); I++) {
     if (auto TRef = getZttOperandDDRef(I)) {
-      setNode(TRef, Ztt);
+      setNode(TRef, If);
     }
   }
 
@@ -252,7 +265,7 @@ HLIf *HLLoop::removeZtt() {
   return If;
 }
 
-const CanonExpr *HLLoop::getLoopCanonExpr(const DDRef *Ref) const {
+CanonExpr *HLLoop::getLoopCanonExpr(DDRef *Ref) {
   if (!Ref) {
     return nullptr;
   }
@@ -268,16 +281,32 @@ const CanonExpr *HLLoop::getLoopCanonExpr(const DDRef *Ref) const {
   return nullptr;
 }
 
-const CanonExpr *HLLoop::getLowerCanonExpr() const {
+const CanonExpr *HLLoop::getLoopCanonExpr(const DDRef *Ref) const {
+  return const_cast<HLLoop *>(this)->getLoopCanonExpr(Ref);
+}
+
+CanonExpr *HLLoop::getLowerCanonExpr() {
   return getLoopCanonExpr(getLowerDDRef());
 }
 
-const CanonExpr *HLLoop::getTripCountCanonExpr() const {
+const CanonExpr *HLLoop::getLowerCanonExpr() const {
+  return const_cast<HLLoop *>(this)->getLowerCanonExpr();
+}
+
+CanonExpr *HLLoop::getTripCountCanonExpr() {
   return getLoopCanonExpr(getTripCountDDRef());
 }
 
-const CanonExpr *HLLoop::getStrideCanonExpr() const {
+const CanonExpr *HLLoop::getTripCountCanonExpr() const {
+  return const_cast<HLLoop *>(this)->getTripCountCanonExpr();
+}
+
+CanonExpr *HLLoop::getStrideCanonExpr() {
   return getLoopCanonExpr(getStrideDDRef());
+}
+
+const CanonExpr *HLLoop::getStrideCanonExpr() const {
+  return const_cast<HLLoop *>(this)->getStrideCanonExpr();
 }
 
 const CanonExpr *HLLoop::getUpperCanonExpr() const {
@@ -301,4 +330,52 @@ unsigned HLLoop::getNumZttOperands() const {
 
 void HLLoop::resizeToNumLoopDDRefs() {
   DDRefs.resize(getNumLoopDDRefs(), nullptr);
+}
+
+HLNode *HLLoop::getFirstPreheaderNode() {
+  if (hasPreheader()) {
+    return pre_begin();
+  }
+
+  return nullptr;
+}
+
+HLNode *HLLoop::getLastPreheaderNode() {
+  if (hasPreheader()) {
+    return std::prev(pre_end());
+  }
+
+  return nullptr;
+}
+
+HLNode *HLLoop::getFirstPostexitNode() {
+  if (hasPostexit()) {
+    return post_begin();
+  }
+
+  return nullptr;
+}
+
+HLNode *HLLoop::getLastPostexitNode() {
+  if (hasPostexit()) {
+    return std::prev(post_end());
+  }
+
+  return nullptr;
+}
+
+HLNode *HLLoop::getFirstChild() {
+  if (hasChildren()) {
+    return child_begin();
+  }
+
+  return nullptr;
+}
+
+HLNode *HLLoop::getLastChild() {
+  if (hasChildren()) {
+    return std::prev(child_end());
+  }
+
+  return nullptr;
 }

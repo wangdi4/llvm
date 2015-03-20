@@ -77,7 +77,7 @@ public:
   /// Virtual Clone Method
   virtual HLNode *clone() const = 0;
   /// TBD how to do this
-  void dump() const;
+  void dump() const { print(); }
   /// TBD how to do this
   void print() const;
 
@@ -86,6 +86,12 @@ public:
 
   /// \brief Returns the parent loop of this node, if one exists.
   HLLoop *getParentLoop() const;
+
+  /// \brief Returns the strictly lexical parent loop of this node, if one
+  /// exists.
+  /// This is different for HLInsts which are located in loop
+  /// preheader/postexit.
+  HLLoop *getLexicalParentLoop() const;
 
   /// \brief Return an ID for the concrete type of this object.
   ///
@@ -150,6 +156,7 @@ namespace loopopt {
 
 typedef iplist<HLNode> HLContainerTy;
 
+/// TODO: Remove this.
 /// Top level HLNodes (regions)
 extern HLContainerTy HLRegions;
 

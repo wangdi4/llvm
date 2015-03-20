@@ -21,6 +21,7 @@
 namespace llvm {
 
 class Value;
+class Type;
 
 namespace loopopt {
 
@@ -74,7 +75,13 @@ public:
   virtual HLDDNode *getHLDDNode() const = 0;
 
   /// \brief Returns the underlying value this DDRef represents.
-  virtual Value *getLLVMValue() const = 0;
+  /// DDRef doesn't store the value right now and it is tricky to retrieve
+  /// it from the HLDDNode especially for fake DDRefs. We can think about
+  /// storing it, if really needed.
+  /// virtual Value *getLLVMValue() const = 0;
+
+  /// \brief Returns the LLVM type.
+  Type *getLLVMType() const;
 
   /// \brief Returns the symbol number used to disambiguate references.
   int getSymBase() const { return SymBase; };

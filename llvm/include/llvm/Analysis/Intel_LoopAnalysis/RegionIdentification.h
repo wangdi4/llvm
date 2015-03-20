@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 #ifndef LLVM_ANALYSIS_INTEL_LOOPANALYSIS_REGIONIDENTIFICATION_H
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_REGIONIDENTIFICATION_H
 
@@ -30,15 +29,31 @@ class ScalarEvolution;
 
 namespace loopopt {
 
+/// \brief This analysis is the first step in creating HIR. We start by
+/// identiyfing regions as a set of basic blocks in the incoming IR. This
+/// information is then used by HIRCreation pass to create and populate 
+/// HIR regions.
 class RegionIdentification : public FunctionPass {
+public:
+  typedef std::set<const BasicBlock *> RegionBBlocksTy;
 
-  /// RegionBBlocks - Region is defined as a pair of entry BasicBlock and a set
+  /// Region is defined as a pair of entry BasicBlock and a set
   /// of BasicBlocks (including the entry BasicBlock).
-  typedef SmallVector< std::pair< BasicBlock* , std::set<BasicBlock*> >, 16> 
-    RegionBBlocksTy;
+  struct Region {
+    BasicBlock *EntryBB;
+    RegionIdentification::RegionBBlocksTy BasicBlocks;
 
-  RegionBBlocksTy RegionBBlocks;
-  
+    Region(BasicBlock *Entry, RegionIdentification::RegionBBlocksTy BBlocks);
+    Region(const Region &Reg);
+    ~Region();
+  };
+
+  typedef SmallVector<Region *, 16> IRRegionsTy;
+
+private:
+  /// Regions - Vector of Regions.
+  IRRegionsTy Regions;
+
   /// Func - The function we are analyzing.
   Function *Func;
 
@@ -46,7 +61,7 @@ class RegionIdentification : public FunctionPass {
   LoopInfo *LI;
 
   /// DT - The dominator tree.
-  DominatorTree *DT; 
+  DominatorTree *DT;
 
   /// SE - Scalar Evolution analysis for the function.
   ScalarEvolution *SE;
@@ -58,13 +73,13 @@ public:
   bool runOnFunction(Function &F) override;
   void releaseMemory() override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
-  void print(raw_ostream &OS, const Module* = nullptr) const override;
+  void print(raw_ostream &OS, const Module * = nullptr) const override;
   void verifyAnalysis() const override;
 
-  const RegionBBlocksTy& getRegionBBlocks() { return RegionBBlocks; }
+  const IRRegionsTy &getIRRegions() { return Regions; }
 
-   /// \brief Returns true if HIR is able to handle this loop.
-  bool isCandidateLoop(Loop& Lp);
+  /// \brief Returns true if HIR is able to handle this loop.
+  bool isCandidateLoop(Loop &Lp);
 
   /// \brief Identifies regions in the incoming LLVM IR.
   void formRegions();
@@ -75,4 +90,3 @@ public:
 } // End namespace llvm
 
 #endif
-

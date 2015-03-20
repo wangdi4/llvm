@@ -19,4 +19,4 @@
 type = Library
 name = Intel_LoopUtils
 parent = Transforms 
-required_libraries = Intel_LoopIR Intel_LoopAnalysis
+required_libraries = Intel_LoopIR 

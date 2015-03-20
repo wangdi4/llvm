@@ -34,15 +34,35 @@ private:
   /// \brief Do not allow instantiation.
   CanonExprUtils() LLVM_DELETED_FUNCTION;
 
+  /// To allow access to BlobTable utilities.
+  friend class HIRParser;
+  friend class HLNodePrinter;
+
+  /// \brief Destroys all CanonExprs and BlobTable. Called during HIR cleanup.
+  static void destroyAll();
+
+  /// \brief Implements find()/insert() functionality.
+  static unsigned findOrInsertBlobImpl(CanonExpr::BlobTy Blob, bool Insert);
+
+  /// \brief Returns the index of Blob in the blob table. Index range is [1,
+  /// UINT_MAX]. Returns 0
+  /// if the blob is not present in the table.
+  static unsigned findBlob(CanonExpr::BlobTy Blob);
+  /// \brief Returns the index of Blob in the blob table. Blob is first
+  /// inserted, if it isn't
+  /// already present in the blob table. Index range is [1, UINT_MAX].
+  static unsigned findOrInsertBlob(CanonExpr::BlobTy Blob);
+
+  /// \brief Returns blob corresponding to BlobIndex.
+  static CanonExpr::BlobTy getBlob(unsigned BlobIndex);
+
 public:
   /// \brief Returns a new CanonExpr.
-  static CanonExpr *createCanonExpr(Type *Typ, bool Gen = true, int Level = 0,
-                                    int64_t Const = 0, int64_t Denom = 1);
+  static CanonExpr *createCanonExpr(Type *Typ, int Level = 0, int64_t Const = 0,
+                                    int64_t Denom = 1);
 
   /// \brief Destroys the passed in CanonExpr.
   static void destroy(CanonExpr *CE);
-  /// \brief Destroys all CanonExprs. Should only be called after code gen.
-  static void destroyAll();
 
   /// \brief Returns true if passed in canon cxprs are equal to each other.
   static bool areEqual(CanonExpr *CE1, CanonExpr *CE2);
@@ -56,31 +76,6 @@ public:
   /// exprs. Subtracts CE2 from CE1 if CreateNewCE is false.
   static CanonExpr *subtractCanonExprs(CanonExpr *CE1, CanonExpr *CE2,
                                        bool CreateNewCE = false);
-
-  /// \brief Returns a blob which represents (LHS + RHS). Its index is returned
-  /// via NewBlobIndex argument.
-  static BlobTy createAddBlob(BlobTy LHS, BlobTy RHS, unsigned *NewBlobIndex);
-  /// \brief Returns a blob which represents (LHS - RHS). Its index is returned
-  /// via NewBlobIndex argument.
-  static BlobTy createSubBlob(BlobTy LHS, BlobTy RHS, unsigned *NewBlobIndex);
-  /// \brief Returns a blob which represents (LHS * RHS). Its index is returned
-  /// via NewBlobIndex argument.
-  static BlobTy createMulBlob(BlobTy LHS, BlobTy RHS, unsigned *NewBlobIndex);
-  /// \brief Returns a blob which represents (LHS / RHS). Its index is returned
-  /// via NewBlobIndex argument.
-  static BlobTy createUDivBlob(BlobTy LHS, BlobTy RHS, unsigned *NewBlobIndex);
-  /// \brief Returns a blob which represents (trunc Blob to Ty). Its index is
-  /// returned via NewBlobIndex argument.
-  static BlobTy createTruncateBlob(BlobTy Blob, Type *Ty,
-                                   unsigned *NewBlobIndex);
-  /// \brief Returns a blob which represents (zext Blob to Ty). Its index is
-  /// returned via NewBlobIndex argument.
-  static BlobTy createZeroExtendBlob(BlobTy Blob, Type *Ty,
-                                     unsigned *NewBlobIndex);
-  /// \brief Returns a blob which represents (sext Blob to Ty). Its index is
-  /// returned via NewBlobIndex argument.
-  static BlobTy createSignExtendBlob(BlobTy Blob, Type *Ty,
-                                     unsigned *NewBlobIndex);
 };
 
 } // End namespace loopopt

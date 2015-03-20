@@ -34,6 +34,11 @@ private:
   /// \brief Do not allow instantiation.
   DDRefUtils() LLVM_DELETED_FUNCTION;
 
+  friend class HIRParser;
+
+  /// \brief Destroys all DDRefs. Called during HIR cleanup.
+  static void destroyAll();
+
 public:
   /// \brief Returns a new ConstDDRef.
   static ConstDDRef *createConstDDRef(CanonExpr *CE);
@@ -47,8 +52,6 @@ public:
 
   /// \brief Destroys the passed in DDRef.
   static void destroy(DDRef *Ref);
-  /// \brief Destroys all DDRefs. Should only be called after code gen.
-  static void destroyAll();
 };
 
 } // End namespace loopopt

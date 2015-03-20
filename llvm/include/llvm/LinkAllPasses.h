@@ -21,11 +21,11 @@
 #include "llvm/Analysis/IntervalPartition.h"
 #include "llvm/Analysis/Lint.h"
 #include "llvm/Analysis/Passes.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h" //***INTEL - HIR analysis
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/RegionPass.h"
 #include "llvm/Analysis/RegionPrinter.h"
 #include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h" //***INTEL - HIR analysis
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRPrintingPasses.h"
@@ -36,9 +36,8 @@
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/Vectorize.h"
-#include "llvm/Transforms/Intel_LoopTransforms/MockHIR.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRCodeGen.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRCompleteUnroll.h"
+//***INTEL - HIR Transforms
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h" 
 #include <cstdlib>
 
 namespace {
@@ -181,8 +180,10 @@ namespace {
       X.add(nullptr, 0, llvm::AAMDNodes()); // for -print-alias-sets
 
       // Intel HIR Passes
-      (void) llvm::createMockHIRPass();
       (void) llvm::createRegionIdentificationPass();
+      (void) llvm::createHIRCreationPass();
+      (void) llvm::createLoopFormationPass();
+      (void) llvm::createHIRParserPass();
       (void) llvm::createHIRCodeGenPass();
       (void) llvm::createHIRCompleteUnrollPass();
     }

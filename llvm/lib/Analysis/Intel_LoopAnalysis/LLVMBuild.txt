@@ -19,4 +19,4 @@
 type = Library
 name = Intel_LoopAnalysis
 parent = Libraries
-required_libraries = Intel_LoopIR
+required_libraries = Intel_LoopIR Intel_LoopUtils

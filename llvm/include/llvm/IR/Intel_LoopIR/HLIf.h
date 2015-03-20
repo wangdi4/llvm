@@ -60,7 +60,11 @@ private:
 
 protected:
   HLIf(CmpInst::Predicate FirstPred, DDRef *Ref1, DDRef *Ref2);
-  ~HLIf() {}
+
+  /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
+  /// tries to
+  /// access and destroy the nodes if we don't clear them out here.
+  ~HLIf() { Children.clearAndLeakNodesUnsafely(); }
 
   /// \brief Copy constructor used by cloning.
   HLIf(const HLIf &HLIfObj);
@@ -117,14 +121,46 @@ public:
   }
 
   /// Children acess methods
+
+  /// \brief Returns the first then child if it exists, otherwise
+  /// returns null.
+  HLNode *getFirstThenChild();
+  const HLNode *getFirstThenChild() const {
+    return const_cast<HLIf *>(this)->getFirstThenChild();
+  }
+  /// \brief Returns the last then child if it exists, otherwise
+  /// returns null.
+  HLNode *getLastThenChild();
+  const HLNode *getLastThenChild() const {
+    return const_cast<HLIf *>(this)->getLastThenChild();
+  }
+
+  /// \brief Returns the number of then children.
   unsigned getNumThenChildren() const {
     return std::distance(then_begin(), then_end());
   }
-  bool isThenEmpty() const { return (then_begin() != then_end()); }
+  /// \brief Returns true if it has then children.
+  bool hasThenChildren() const { return (then_begin() != then_end()); }
+
+  /// \brief Returns the first else child if it exists, otherwise
+  /// returns null.
+  HLNode *getFirstElseChild();
+  const HLNode *getFirstelseChild() const {
+    return const_cast<HLIf *>(this)->getFirstElseChild();
+  }
+  /// \brief Returns the last else child if it exists, otherwise
+  /// returns null.
+  HLNode *getLastElseChild();
+  const HLNode *getLastElseChild() const {
+    return const_cast<HLIf *>(this)->getLastElseChild();
+  }
+
+  /// \brief Returns the number of else children.
   unsigned getNumElseChildren() const {
     return std::distance(else_begin(), else_end());
   }
-  bool isElseEmpty() const { return (else_begin() != else_end()); }
+  /// \brief Returns true if it has else children.
+  bool hasElseChildren() const { return (else_begin() != else_end()); }
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {

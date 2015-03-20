@@ -17,8 +17,9 @@
 using namespace llvm;
 using namespace loopopt;
 
-HLRegion *HLNodeUtils::createHLRegion(std::set<BasicBlock *> &OrigBBs,
-                                      BasicBlock *EntryBB, BasicBlock *ExitBB) {
+HLRegion *
+HLNodeUtils::createHLRegion(RegionIdentification::RegionBBlocksTy &OrigBBs,
+                            BasicBlock *EntryBB, BasicBlock *ExitBB) {
   return new HLRegion(OrigBBs, EntryBB, ExitBB);
 }
 
@@ -39,10 +40,14 @@ HLIf *HLNodeUtils::createHLIf(CmpInst::Predicate FirstPred, DDRef *Ref1,
   return new HLIf(FirstPred, Ref1, Ref2);
 }
 
+HLLoop *HLNodeUtils::createHLLoop(const Loop *LLVMLoop, bool IsDoWh) {
+  return new HLLoop(LLVMLoop, IsDoWh);
+}
+
 HLLoop *HLNodeUtils::createHLLoop(HLIf *ZttIf, DDRef *LowerDDRef,
                                   DDRef *TripCountDDRef, DDRef *StrideDDRef,
-                                  bool isDoWh, unsigned NumEx) {
-  return new HLLoop(ZttIf, LowerDDRef, TripCountDDRef, StrideDDRef, isDoWh,
+                                  bool IsDoWh, unsigned NumEx) {
+  return new HLLoop(ZttIf, LowerDDRef, TripCountDDRef, StrideDDRef, IsDoWh,
                     NumEx);
 }
 
@@ -272,46 +277,6 @@ void HLNodeUtils::insertAsFirstPostexitNode(HLLoop *Loop, HLNode *Node) {
 void HLNodeUtils::insertAsLastPostexitNode(HLLoop *Loop, HLNode *Node) {
   assert(Node && "Node is null!");
   insertAsPreheaderPostexitImpl(Loop, nullptr, Node, Node, false, false);
-}
-
-bool HLNodeUtils::IsInPreheaderPostexitImpl(const HLLoop *Loop,
-                                            const HLNode *Node,
-                                            bool Preheader) {
-  assert(Loop && "Loop is null!");
-  assert(Node && "Node is null!");
-
-  /// Shouldn't have any other type here
-  if (!isa<HLInst>(Node)) {
-    return false;
-  }
-
-  if (Node->getParent() != Loop) {
-    return false;
-  }
-
-  auto I = Preheader ? Loop->pre_begin() : Loop->post_begin();
-  auto E = Preheader ? Loop->pre_end() : Loop->post_end();
-
-  for (; I != E; I++) {
-    if (cast<HLNode>(I) == Node) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-bool HLNodeUtils::IsInPreheader(const HLLoop *Loop, const HLNode *Node) {
-  return IsInPreheaderPostexitImpl(Loop, Node, true);
-}
-
-bool HLNodeUtils::IsInPostexit(const HLLoop *Loop, const HLNode *Node) {
-  return IsInPreheaderPostexitImpl(Loop, Node, false);
-}
-
-bool HLNodeUtils::IsInPreheaderOrPostexit(const HLLoop *Loop,
-                                          const HLNode *Node) {
-  return (IsInPreheader(Loop, Node) || IsInPostexit(Loop, Node));
 }
 
 bool HLNodeUtils::foundLoopInRange(HLContainerTy::iterator First,

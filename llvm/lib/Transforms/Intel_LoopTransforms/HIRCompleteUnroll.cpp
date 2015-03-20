@@ -50,8 +50,10 @@
 #include "llvm/IR/Intel_LoopIR/HLInst.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRCompleteUnroll.h"
-#include "llvm/Transforms/Intel_LoopTransforms/MockHIR.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRCreation.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
@@ -81,12 +83,13 @@ class HIRCompleteUnroll: public FunctionPass {
 
     void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.setPreservesAll();
-      AU.addRequiredTransitive<MockHIR>();
+      AU.addRequiredTransitive<HIRCreation>();
+      AU.addRequiredTransitive<HIRParser>();
     }
 
   private:
     Function *F;
-    MockHIR *HIR;
+    HIRCreation *HIR;
     unsigned CurrentTripThreshold;
     SmallVector<HLLoop*, 16> InnermostLoops;
 
@@ -126,10 +129,12 @@ bool HIRCompleteUnroll::runOnFunction(Function &F) {
     return false;
 
   this->F = &F;
-  HIR = &getAnalysis<MockHIR>();
+  HIR = &getAnalysis<HIRCreation>();
 
   // Gather the innermost loops
-  visit(HIR->TopRegion);
+  for (auto I = HIR->begin(), E = HIR->end(); I != E; I++) {
+    visit(I);
+  }
   processCompleteUnroll();
 
   return false;
@@ -347,22 +352,25 @@ void HIRCompleteUnroll::processRegDDRef(RegDDRef *RegDD, int64_t TripVal,
 
   // Process Blob DDRef inside RegDDRef
   // TODO: Remove this later as BlobDDRef should not have IV
+  // TODO: Remove BlobDDRef for blobs which get cleared out from CanonExprs.
   for (auto Iter = RegDD->blob_cbegin(), End = RegDD->blob_cend(); Iter != End;
       Iter++) {
     //DEBUG(dbgs() << "   Processing BlobDDRefs inside RegDDRefs \n");
-    processCanonExpr((*Iter)->getCanonExpr(), TripVal, Level);
+    assert(!(*Iter)->getCanonExpr()->hasIV() && "Blob DDRef contains IV!");
   }
 
-  // TODO: Remove this, whenever CanonExpr will contain this
-  // information and will not need to handle GEP explicitly
-  // Process GEP Base
-  processCanonExpr(RegDD->getBaseCE(), TripVal, Level);
+  if (RegDD->hasGEPInfo()) {
+    // TODO: Remove this, whenever CanonExpr will contain this
+    // information and will not need to handle GEP explicitly
+    // Process GEP Base
+    processCanonExpr(RegDD->getBaseCE(), TripVal, Level);
 
-  // Process GEP Strides
-  for (auto Iter = RegDD->stride_begin(), End = RegDD->stride_end();
-      Iter != End; Iter++) {
-    //DEBUG(dbgs() << "   Processing GEP Strides inside RegDDRefs \n");
-    processCanonExpr((*Iter), TripVal, Level);
+    // Process GEP Strides
+    for (auto Iter = RegDD->stride_begin(), End = RegDD->stride_end();
+        Iter != End; Iter++) {
+      //DEBUG(dbgs() << "   Processing GEP Strides inside RegDDRefs \n");
+      processCanonExpr((*Iter), TripVal, Level);
+    }
   }
 }
 
@@ -370,8 +378,9 @@ void HIRCompleteUnroll::processRegDDRef(RegDDRef *RegDD, int64_t TripVal,
 /// This is an internal helper function.
 void HIRCompleteUnroll::processCanonExpr(CanonExpr *CExpr, int64_t TripVal,
     unsigned Level) {
+  bool IsBlobCoeff;
 
-  if (CExpr->hasIV()) {
+  if (CExpr->getIVCoeff(Level, &IsBlobCoeff)) {
     DEBUG(dbgs() << "Replacing CanonExpr IV by tripval :" << TripVal << " \n");
     CExpr->replaceIVByConstant(Level, TripVal);
   }

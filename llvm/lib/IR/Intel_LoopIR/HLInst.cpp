@@ -61,7 +61,11 @@ HLInst *HLInst::clone() const {
 }
 
 bool HLInst::hasLval() const {
-  return (Inst->hasName() || isa<StoreInst>(Inst));
+  /// The following logic is copied from AssemblyWriter::printInstruction().
+  /// TODO: Is there a better way to determine this, probably by checking
+  /// non-zero uses?
+  return (Inst->hasName() || !Inst->getType()->isVoidTy() ||
+          isa<StoreInst>(Inst));
 }
 
 RegDDRef *HLInst::getLvalDDRef() {
@@ -85,9 +89,37 @@ void HLInst::setLvalDDRef(RegDDRef *RDDRef) {
 RegDDRef *HLInst::removeLvalDDRef() {
   auto TRef = getLvalDDRef();
 
-  if (TRef) {
-    setOperandDDRefImpl(nullptr, 0);
+  setLvalDDRef(nullptr);
+
+  return TRef;
+}
+
+bool HLInst::hasRval() const {
+  return (isa<StoreInst>(Inst) || (hasLval() && isa<UnaryInstruction>(Inst)));
+}
+
+DDRef *HLInst::getRvalDDRef() {
+  if (hasRval()) {
+    return getOperandDDRefImpl(1);
   }
+
+  return nullptr;
+}
+
+const DDRef *HLInst::getRvalDDRef() const {
+  return const_cast<HLInst *>(this)->getRvalDDRef();
+}
+
+void HLInst::setRvalDDRef(DDRef *Ref) {
+  assert(hasRval() && "This instruction does not have a rval!");
+
+  setOperandDDRefImpl(Ref, 1);
+}
+
+DDRef *HLInst::removeRvalDDRef() {
+  auto TRef = getRvalDDRef();
+
+  setRvalDDRef(nullptr);
 
   return TRef;
 }
@@ -129,4 +161,31 @@ unsigned HLInst::getNumOperandsInternal() const {
   }
 
   return NumOp;
+}
+
+bool HLInst::isInPreheaderPostexitImpl(bool Preheader) const {
+  auto HLoop = getParentLoop();
+
+  if (!HLoop) {
+    return false;
+  }
+
+  auto I = Preheader ? HLoop->pre_begin() : HLoop->post_begin();
+  auto E = Preheader ? HLoop->pre_end() : HLoop->post_end();
+
+  for (; I != E; I++) {
+    if (cast<HLInst>(I) == this) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool HLInst::isInPreheader() const { return isInPreheaderPostexitImpl(true); }
+
+bool HLInst::isInPostexit() const { return isInPreheaderPostexitImpl(false); }
+
+bool HLInst::isInPreheaderOrPostexit() const {
+  return (isInPreheader() || isInPostexit());
 }

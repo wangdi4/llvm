@@ -29,8 +29,6 @@ class SCEV;
 
 namespace loopopt {
 
-typedef const SCEV *BlobTy;
-
 /// \brief Canonical form in high level IR
 ///
 /// This class represents the closed form as a linear equation in terms of
@@ -53,17 +51,17 @@ public:
   };
 
   struct BlobIndexToCoeff {
+    /// Index range is [1, UINT_MAX].
     unsigned Index;
     int64_t Coeff;
     BlobIndexToCoeff(unsigned Indx, int64_t Coef);
     ~BlobIndexToCoeff();
   };
 
+  typedef const SCEV *BlobTy;
   typedef SmallVector<BlobOrConstToVal, 4> IVCoeffsTy;
   /// Kept sorted by blob index
   typedef SmallVector<BlobIndexToCoeff, 2> BlobCoeffsTy;
-  /// Kept sorted
-  typedef std::vector<BlobTy> BlobTableTy;
 
   /// \brief The maximum loopnest level allowed in HIR.
   static const unsigned MaxLoopNestLevel = 9;
@@ -91,11 +89,15 @@ private:
   static void destroyAll();
   /// Keeps track of objects of this class.
   static std::set<CanonExpr *> Objs;
-  /// \brief Stores blobs for the current function.
-  static BlobTableTy BlobTable;
+
+  /// BlobTable - vector containing blobs for the function.
+  /// TODO: Think about adding another vector sorted by blobs to provide faster
+  /// lookup for Blob -> Index.
+  /// Moved here from HIRParser to allow printer to print blobs without needing
+  /// the parser.
+  static SmallVector<BlobTy, 32> BlobTable;
 
   Type *Ty;
-  bool Generable;
   int DefinedAtLevel;
   IVCoeffsTy IVCoeffs;
   BlobCoeffsTy BlobCoeffs;
@@ -103,7 +105,7 @@ private:
   int64_t Denominator;
 
 protected:
-  CanonExpr(Type *Typ, bool Gen, int DefLevel, int64_t ConstVal, int64_t Denom);
+  CanonExpr(Type *Typ, int DefLevel, int64_t ConstVal, int64_t Denom);
   ~CanonExpr() {}
 
   friend class CanonExprUtils;
@@ -147,11 +149,6 @@ public:
   Type *getLLVMType() const { return Ty; }
   void setLLVMType(Type *Typ) { Ty = Typ; }
 
-  /// \brief Returns true if we can generate code out of the closed form.
-  /// This flag might move to DDRef
-  bool isGenerable() const { return Generable; }
-  void setGenerable(bool Gen = true) { Generable = Gen; }
-
   /// \brief Returns the innermost level at which some blob present
   /// in this canon expr is defined. The canon expr in linear in all
   //  the inner loop levels w.r.t this level.
@@ -159,10 +156,10 @@ public:
   void setDefinedAtLevel(int DefLvl) { DefinedAtLevel = DefLvl; }
 
   /// \brief Returns true if this is linear at all levels.
-  bool isProperLinear() const { return (Generable && (DefinedAtLevel == 0)); }
+  bool isProperLinear() const { return (DefinedAtLevel == 0); }
   /// \brief Returns true if some blob in the canon expr is defined in
   /// the current loop level.
-  bool isNonLinear() const { return (Generable && (DefinedAtLevel == -1)); }
+  bool isNonLinear() const { return (DefinedAtLevel == -1); }
   /// \brief Returns true if this is not non-linear.
   bool isLinearAtLevel() const { return !isNonLinear(); }
 

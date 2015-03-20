@@ -14,8 +14,7 @@
 #include "llvm/Pass.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRCodeGen.h"
-#include "llvm/Transforms/Intel_LoopTransforms/MockHIR.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
@@ -23,6 +22,8 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRCreation.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 
 #include "llvm/Support/Debug.h"
 
@@ -40,14 +41,10 @@ using namespace llvm;
 using namespace llvm::loopopt;
 namespace {
 
-// TODO export type
-typedef std::vector<const SCEV *> BlobTableTy;
-
 class HIRCodeGen : public FunctionPass {
 private:
   ScalarEvolution *SE;
   Function *F;
-  MockHIR *HIR;
 
   // TODO
   // This does the real work of llvm ir cg
@@ -82,8 +79,8 @@ private:
       llvm_unreachable("Unknown HIR type in CG");
     }
 
-    CGVisitor(Function *CurFunc, ScalarEvolution *SE, BlobTableTy &BlobTbl)
-        : F(CurFunc), Blobs(BlobTbl) {
+    CGVisitor(Function *CurFunc, ScalarEvolution *SE, HIRParser *Parser)
+        : F(CurFunc), HIRP(Parser) {
       Builder = new IRBuilder<>(F->getContext());
       // TODO possibly IV conflict if scev blobs contain IV
       Expander = new SCEVExpander(*SE, "i");
@@ -108,7 +105,7 @@ private:
 
     // \brief TODO blobs are reprsented by scev with some caveats
     SCEV *getBlobSCEV(int BlobIdx) {
-      return const_cast<SCEV *>(Blobs[BlobIdx]);
+      return const_cast<SCEV *>(HIRP->getBlob(BlobIdx));
     }
 
     //\brief return value for coeff*iv with IV at level
@@ -126,7 +123,7 @@ private:
     SCEVExpander *Expander;
     // Dont need custom insertion funcs...yet
     IRBuilder<> *Builder;
-    BlobTableTy &Blobs;
+    HIRParser *HIRP;
 
     // keep track of our mem allocs. Only IV atm
     std::map<std::string, AllocaInst *> NamedValues;
@@ -159,12 +156,15 @@ public:
 
     this->F = &F;
     SE = &getAnalysis<ScalarEvolution>();
-    HIR = &getAnalysis<MockHIR>();
+    auto HIR = &getAnalysis<HIRCreation>();
+    auto HIRP = &getAnalysis<HIRParser>();
 
     // generate code
-    CGVisitor CG(&F, SE, HIR->getBlobTable());
+    CGVisitor CG(&F, SE, HIRP);
     // TODO enable region iterator
-    CG.visit(HIR->TopRegion);
+    for (auto I = HIR->begin(), E = HIR->end(); I != E; I++) {
+      CG.visit(I);
+    }
     // reg2mem, instcombine etc
     return false;
   }
@@ -176,7 +176,8 @@ public:
 
     // AU.addRequiredTransitive<ScalarEvolution>();
     AU.addRequired<ScalarEvolution>();
-    AU.addRequired<MockHIR>();
+    AU.addRequired<HIRCreation>();
+    AU.addRequired<HIRParser>();
   }
 };
 }
@@ -362,9 +363,11 @@ Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *L) {
 }
 Value *HIRCodeGen::CGVisitor::visitInst(HLInst *I) {
   // CG the operands
+  // TODO change this to match HLInst->getNumOperands() and skip temp lvals.
   Value *Ops[3];
   int OpIdx;
-  for (auto R = I->ddref_begin(), E = I->ddref_end(); R != E; OpIdx++, R++) {
+  for (auto R = I->op_ddref_begin(), E = I->op_ddref_end(); R != E;
+       OpIdx++, R++) {
     Ops[OpIdx] = visitDDRef(*R);
   }
 

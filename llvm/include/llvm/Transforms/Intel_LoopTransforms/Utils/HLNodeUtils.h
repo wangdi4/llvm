@@ -16,13 +16,10 @@
 
 #include <set>
 #include "llvm/Support/Compiler.h"
-#include "llvm/IR/Intel_LoopIR/HLRegion.h"
-#include "llvm/IR/Intel_LoopIR/HLSwitch.h"
-#include "llvm/IR/Intel_LoopIR/HLLabel.h"
-#include "llvm/IR/Intel_LoopIR/HLGoto.h"
-#include "llvm/IR/Intel_LoopIR/HLInst.h"
-#include "llvm/IR/Intel_LoopIR/HLIf.h"
-#include "llvm/IR/Intel_LoopIR/HLLoop.h"
+
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRCreation.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/RegionIdentification.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
 
 namespace llvm {
@@ -42,7 +39,12 @@ private:
   /// \brief Do not allow instantiation.
   HLNodeUtils() LLVM_DELETED_FUNCTION;
 
+  friend class HIRCreation;
+
   struct LoopFinderUpdater;
+
+  /// \brief Destroys all HLNodes. Called during HIR cleanup.
+  static void destroyAll();
 
   /// Internal helper functions, not to be called directly.
 
@@ -88,10 +90,6 @@ private:
                                             bool IsPreheader,
                                             bool IsFirstChild);
 
-  /// \brief Implements IsInPreheader*()/IsInPostexit*() functionality.
-  static bool IsInPreheaderPostexitImpl(const HLLoop *Loop, const HLNode *Node,
-                                        bool Preheader);
-
   /// \brief Implements remove functionality. Removes [First, last) and destroys
   /// them if Erase is set. If erase isn't set and MoveContainer isn't null they
   /// are moved to MoveContainer. Otherwise, nodes are removed without
@@ -112,8 +110,9 @@ private:
 
 public:
   /// \brief Returns a new HLRegion.
-  static HLRegion *createHLRegion(std::set<BasicBlock *> &OrigBBs,
-                                  BasicBlock *EntryBB, BasicBlock *ExitBB);
+  static HLRegion *
+  createHLRegion(RegionIdentification::RegionBBlocksTy &OrigBBs,
+                 BasicBlock *EntryBB, BasicBlock *ExitBB);
 
   /// \brief Returns a new HLSwitch.
   static HLSwitch *createHLSwitch();
@@ -131,17 +130,18 @@ public:
   static HLIf *createHLIf(CmpInst::Predicate FirstPred, DDRef *Ref1,
                           DDRef *Ref2);
 
+  /// \brief Returns a new HLLoop created from an underlying LLVM loop.
+  static HLLoop *createHLLoop(const Loop *LLVMLoop, bool IsDoWh = false);
+
   /// \brief Returns a new HLLoop.
   static HLLoop *createHLLoop(HLIf *ZttIf = nullptr,
                               DDRef *LowerDDRef = nullptr,
                               DDRef *TripCountDDRef = nullptr,
-                              DDRef *StrideDDRef = nullptr, bool isDoWh = false,
+                              DDRef *StrideDDRef = nullptr, bool IsDoWh = false,
                               unsigned NumEx = 1);
 
   /// \brief Destroys the passed in HLNode.
   static void destroy(HLNode *Node);
-  /// \brief Destroys all HLNodes. Should only be called after code gen.
-  static void destroyAll();
 
   /// \brief Visits the passed in HLNode.
   template <typename HV>
@@ -169,16 +169,16 @@ public:
   /// \brief Visits all HLNodes in the HIR. The direction is specified using
   /// Forward flag.
   template <typename HV>
-  static void visitAll(HV *Visitor, bool Forward = true) {
+  static void visitAll(HV *Visitor, HIRCreation *HIR, bool Forward = true) {
     HLNodeVisitor<HV> V(Visitor);
 
     if (Forward) {
-      V.forwardVisitAll();
+      V.forwardVisitAll(HIR);
     } else {
-      V.backwardVisitAll();
+      V.backwardVisitAll(HIR);
     }
   }
-
+  
   /// \brief Inserts an unlinked Node before Pos in HIR.
   static void insertBefore(HLNode *Pos, HLNode *Node);
   /// \brief Inserts an unlinked Node after Pos in HIR.
@@ -320,13 +320,6 @@ public:
 
   /// \brief Replaces OldNode by an unlinked NewNode.
   static void replace(HLNode *OldNode, HLNode *NewNode);
-
-  /// \brief Returns true if the Node is in Loop's preheader.
-  static bool IsInPreheader(const HLLoop *Loop, const HLNode *Node);
-  /// \brief Returns true if the Node is in Loop's postexit.
-  static bool IsInPostexit(const HLLoop *Loop, const HLNode *Node);
-  /// \brief Returns true if the Node is in Loop's preheader or postexit.
-  static bool IsInPreheaderOrPostexit(const HLLoop *Loop, const HLNode *Node);
 };
 
 } // End namespace loopopt

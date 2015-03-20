@@ -56,7 +56,7 @@ public:
   HLDDNode *getHLDDNode() const override { return Node; }
 
   /// TODO implementation
-  Value *getLLVMValue() const override { return nullptr; }
+  /// Value *getLLVMValue() const override { return nullptr; }
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const DDRef *Ref) {

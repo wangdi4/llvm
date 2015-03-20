@@ -20,6 +20,8 @@
 
 namespace llvm {
 
+class Loop;
+
 namespace loopopt {
 
 class CanonExpr;
@@ -58,6 +60,7 @@ public:
   typedef const_reverse_child_iterator const_reverse_post_iterator;
 
 private:
+  const Loop *OrigLoop;
   HLIf *Ztt;
   /// Contains preheader, child and postexit nodes, in that order.
   /// Having a single container allows for more efficient and cleaner
@@ -74,15 +77,22 @@ private:
   bool IsInnermost;
 
 protected:
+  HLLoop(const Loop *LLVMLoop, bool IsDoWh);
   HLLoop(HLIf *ZttIf, DDRef *LowerDDRef, DDRef *TripCountDDRef,
          DDRef *StrideDDRef, bool IsDoWh, unsigned NumEx);
 
-  ~HLLoop() {}
+  /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
+  /// tries to
+  /// access and destroy the nodes if we don't clear them out here.
+  ~HLLoop() { Children.clearAndLeakNodesUnsafely(); }
 
   /// \brief Copy constructor used by cloning.
   HLLoop(const HLLoop &HLLoopObj);
 
   friend class HLNodeUtils;
+
+  /// \brief Initializes some of the members to bring the loop in a sane state.
+  void initialize();
 
   void setNestingLevel(unsigned Level) { NestingLevel = Level; }
   void setInnermost(bool IsInnermst) { IsInnermost = IsInnermst; }
@@ -110,16 +120,16 @@ protected:
   void resizeToNumLoopDDRefs();
 
   /// \brief Used to implement get*CanonExpr() functionality.
+  CanonExpr *getLoopCanonExpr(DDRef *Ref);
   const CanonExpr *getLoopCanonExpr(const DDRef *Ref) const;
 
   /// Implements getNumOperands() functionality.
   unsigned getNumOperandsInternal() const;
 
-  /// \brief Initializes some of the members to bring the object in a sane
-  /// state.
-  void initialize();
-
 public:
+  /// \brief Returns underlying LLVM loop.
+  const Loop *getLLVMLoop() const { return OrigLoop; }
+
   /// \brief Returns true if ztt is present.
   bool hasZtt() const { return Ztt != nullptr; }
 
@@ -184,12 +194,15 @@ public:
   DDRef *removeZttOperandDDRef(unsigned OperandNum);
 
   /// \brief Returns the CanonExpr associated with loop lower bound.
+  CanonExpr *getLowerCanonExpr();
   const CanonExpr *getLowerCanonExpr() const;
 
   /// \brief Returns the CanonExpr associated with loop trip count.
+  CanonExpr *getTripCountCanonExpr();
   const CanonExpr *getTripCountCanonExpr() const;
 
   /// \brief Returns the CanonExpr associated with loop stride.
+  CanonExpr *getStrideCanonExpr();
   const CanonExpr *getStrideCanonExpr() const;
 
   /// \brief Returns the CanonExpr associated with loop upper bound.
@@ -240,9 +253,25 @@ public:
   const_reverse_pre_iterator pre_rend() const { return Children.rend(); }
 
   /// Preheader acess methods
+
+  /// \brief Returns the first preheader node if it exists, otherwise returns
+  /// null.
+  HLNode *getFirstPreheaderNode();
+  const HLNode *getFirstPreheaderNode() const {
+    return const_cast<HLLoop *>(this)->getFirstPreheaderNode();
+  }
+  /// \brief Returns the last preheader node if it exists, otherwise returns
+  /// null.
+  HLNode *getLastPreheaderNode();
+  const HLNode *getLastPreheaderNode() const {
+    return const_cast<HLLoop *>(this)->getLastPreheaderNode();
+  }
+
+  /// \brief Returns the number of preheader nodes.
   unsigned getNumPreheader() const {
     return std::distance(pre_begin(), pre_end());
   }
+  /// \brief Returns true if preheader is not empty.
   bool hasPreheader() const { return (pre_begin() != pre_end()); }
 
   /// Postexit iterator methods
@@ -261,9 +290,25 @@ public:
   }
 
   /// Postexit acess methods
+
+  /// \brief Returns the first postexit node if it exists, otherwise returns
+  /// null.
+  HLNode *getFirstPostexitNode();
+  const HLNode *getFirstPostexitNode() const {
+    return const_cast<HLLoop *>(this)->getFirstPostexitNode();
+  }
+  /// \brief Returns the last postexit node if it exists, otherwise returns
+  /// null.
+  HLNode *getLastPostexitNode();
+  const HLNode *getLastPostexitNode() const {
+    return const_cast<HLLoop *>(this)->getLastPostexitNode();
+  }
+
+  /// \brief Returns the number of postexit nodes.
   unsigned getNumPostexit() const {
     return std::distance(post_begin(), post_end());
   }
+  /// \brief Returns true if postexit is not empty.
   bool hasPostexit() const { return (post_begin() != post_end()); }
 
   /// Children iterator methods
@@ -278,9 +323,23 @@ public:
   const_reverse_child_iterator child_rend() const { return pre_rbegin(); }
 
   /// Children acess methods
+
+  /// \brief Returns the first child if it exists, otherwise returns null.
+  HLNode *getFirstChild();
+  const HLNode *getFirstChild() const {
+    return const_cast<HLLoop *>(this)->getFirstChild();
+  }
+  /// \brief Returns the last child if it exists, otherwise returns null.
+  HLNode *getLastChild();
+  const HLNode *getLastChild() const {
+    return const_cast<HLLoop *>(this)->getLastChild();
+  }
+
+  /// \brief Returns the number of children.
   unsigned getNumChildren() const {
     return std::distance(child_begin(), child_end());
   }
+  /// \brief Returns true if it has children.
   bool hasChildren() const { return (child_begin() != child_end()); }
 
   /// ZTT DDRef iterator methods

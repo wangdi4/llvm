@@ -49,6 +49,9 @@ protected:
   /// \brief Implements getNumOperands() functionality.
   unsigned getNumOperandsInternal() const;
 
+  /// \brief Implements isInPreheader*()/isInPostexit*() functionality.
+  bool isInPreheaderPostexitImpl(bool Preheader) const;
+
   /// \brief Initializes some of the members to bring the object in a sane
   /// state.
   void initialize();
@@ -65,6 +68,10 @@ public:
 
   /// \brief Returns true if the underlying instruction has an lval.
   bool hasLval() const;
+  /// \brief Returns true if the underlying instruction has a single rval.
+  bool hasRval() const;
+
+  const Value *getOperandValue(unsigned OperandNum);
 
   /// \brief Returns the lval DDRef of this node.
   RegDDRef *getLvalDDRef();
@@ -73,6 +80,14 @@ public:
   void setLvalDDRef(RegDDRef *RDDRef);
   /// \brief Removes and returns the lval DDRef of this node.
   RegDDRef *removeLvalDDRef();
+
+  /// \brief Returns the single rval DDRef of this node.
+  DDRef *getRvalDDRef();
+  const DDRef *getRvalDDRef() const;
+  /// \brief Sets the single rval DDRef of this node.
+  void setRvalDDRef(DDRef *Ref);
+  /// \brief Removes and returns the single rval DDRef of this node.
+  DDRef *removeRvalDDRef();
 
   /// \brief Adds an extra RegDDRef which does not correspond to lval or any
   /// operand. This DDRef is not used for code generation but might be used for
@@ -128,6 +143,13 @@ public:
   /// \brief Returns the number of operands this HLInst is supposed to have.
   /// If lval is present, it becomes the 0th operand.
   unsigned getNumOperands() const override;
+
+  /// \brief Returns true if this is in a loop's preheader.
+  bool isInPreheader() const;
+  /// \brief Returns true if this is in a loop's postexit.
+  bool isInPostexit() const;
+  /// \brief Returns true if this is in a loop's preheader or postexit.
+  bool isInPreheaderOrPostexit() const;
 };
 
 } // End namespace loopopt

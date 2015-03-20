@@ -14,6 +14,7 @@
 
 namespace llvm {
 
+namespace loopopt {
 /// @brief Base class for HIR visitor
 ///
 /// HIR visitors are used when you want to perform different actions
@@ -114,5 +115,6 @@ public:
 
 private:
 };
+}
 }
 #endif

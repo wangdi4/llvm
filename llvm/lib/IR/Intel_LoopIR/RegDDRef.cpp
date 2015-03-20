@@ -18,10 +18,11 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-RegDDRef::RegDDRef(int SB) : DDRef(DDRef::RegDDRefVal, SB), Node(nullptr) {}
+RegDDRef::RegDDRef(int SB)
+    : DDRef(DDRef::RegDDRefVal, SB), GepInfo(nullptr), Node(nullptr) {}
 
 RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
-    : DDRef(RegDDRefObj), Node(nullptr) {
+    : DDRef(RegDDRefObj), GepInfo(nullptr), Node(nullptr) {
 
   /// Copy base canon expr
   if (auto NewCE = RegDDRefObj.getBaseCE()) {

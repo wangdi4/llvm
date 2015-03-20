@@ -15,6 +15,7 @@
 #define LLVM_IR_INTEL_LOOPIR_HLREGION_H
 
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/RegionIdentification.h"
 #include <set>
 #include <iterator>
 
@@ -41,9 +42,13 @@ public:
   typedef ChildNodeTy::const_reverse_iterator const_reverse_child_iterator;
 
 protected:
-  HLRegion(std::set<BasicBlock *> &OrigBB, BasicBlock *EntryBB,
+  HLRegion(RegionIdentification::RegionBBlocksTy &OrigBB, BasicBlock *EntryBB,
            BasicBlock *ExitBB);
-  ~HLRegion() {}
+
+  /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
+  /// tries to
+  /// access and destroy the nodes if we don't clear them out here.
+  ~HLRegion() { Children.clearAndLeakNodesUnsafely(); }
 
   friend class HLNodeUtils;
 
@@ -54,7 +59,7 @@ protected:
   void setExitBBlock(BasicBlock *ExitBB) { ExitBBlock = ExitBB; }
 
 private:
-  std::set<BasicBlock *> &OrigBBlocks;
+  RegionIdentification::RegionBBlocksTy &OrigBBlocks;
   BasicBlock *EntryBBlock;
   BasicBlock *ExitBBlock;
 
@@ -63,7 +68,9 @@ private:
 
 public:
   /// \brief Returns the set of basic blocks which constitute this region.
-  const std::set<BasicBlock *> &getOrigBBlocks() const { return OrigBBlocks; }
+  const RegionIdentification::RegionBBlocksTy &getOrigBBlocks() const {
+    return OrigBBlocks;
+  }
 
   /// \brief Returns the entry(first) bblock of this region.
   BasicBlock *getEntryBBlock() const { return EntryBBlock; }
@@ -93,8 +100,22 @@ public:
   const_reverse_child_iterator child_rend() const { return Children.rend(); }
 
   /// Children acess methods
+
+  /// \brief Returns the first child if it exists, otherwise returns null.
+  HLNode *getFirstChild();
+  const HLNode *getFirstChild() const {
+    return const_cast<HLRegion *>(this)->getFirstChild();
+  }
+  /// \brief Returns the last child if it exists, otherwise returns null.
+  HLNode *getLastChild();
+  const HLNode *getLastChild() const {
+    return const_cast<HLRegion *>(this)->getLastChild();
+  }
+
+  /// \brief Returns the number of children.
   unsigned getNumChildren() const { return Children.size(); }
-  bool empty() const { return Children.empty(); }
+  /// \brief Returns true if it has children.
+  bool hasChildren() const { return !Children.empty(); }
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {

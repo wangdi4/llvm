@@ -82,3 +82,35 @@ HLIf *HLIf::clone() const {
 unsigned HLIf::getNumOperandsInternal() const { return (2 * Preds.size()); }
 
 unsigned HLIf::getNumOperands() const { return getNumOperandsInternal(); }
+
+HLNode *HLIf::getFirstThenChild() {
+  if (hasThenChildren()) {
+    return then_begin();
+  }
+
+  return nullptr;
+}
+
+HLNode *HLIf::getLastThenChild() {
+  if (hasThenChildren()) {
+    return std::prev(then_end());
+  }
+
+  return nullptr;
+}
+
+HLNode *HLIf::getFirstElseChild() {
+  if (hasElseChildren()) {
+    return else_begin();
+  }
+
+  return nullptr;
+}
+
+HLNode *HLIf::getLastElseChild() {
+  if (hasElseChildren()) {
+    return std::prev(else_end());
+  }
+
+  return nullptr;
+}

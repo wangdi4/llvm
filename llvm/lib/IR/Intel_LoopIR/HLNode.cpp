@@ -14,11 +14,11 @@
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
 #include "llvm/IR/Intel_LoopIR/HLRegion.h"
 #include "llvm/IR/Intel_LoopIR/HLLoop.h"
+#include "llvm/IR/Intel_LoopIR/HLInst.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
 
-// using HLRegions() is considered another declaration. very odd
 HLContainerTy llvm::loopopt::HLRegions;
 
 std::set<HLNode *> HLNode::Objs;
@@ -62,4 +62,16 @@ HLLoop *HLNode::getParentLoop() const {
   }
 
   return cast_or_null<HLLoop>(Par);
+}
+
+HLLoop *HLNode::getLexicalParentLoop() const {
+  auto ParLoop = getParentLoop();
+
+  if (auto HInst = dyn_cast<HLInst>(this)) {
+    if (ParLoop && HInst->isInPreheaderOrPostexit()) {
+      ParLoop = ParLoop->getParentLoop();
+    }
+  }
+
+  return ParLoop;
 }

@@ -50,7 +50,7 @@ public:
   HLDDNode *getHLDDNode() const override;
 
   /// TODO implementation
-  Value *getLLVMValue() const override { return nullptr; }
+  /// Value *getLLVMValue() const override { return nullptr; }
 
   /// \brief Returns the canonical form associated with the blob.
   CanonExpr *getCanonExpr() { return CExpr; }
