@@ -61,3 +61,19 @@ int check_sizeof_Quad() {
   // CHECK: ret i32 16
   return sizeof(_Quad);
 }
+
+_Quad foo();
+__float128 foo();  // No error, _Quad and __float128 are the same type.
+
+#if __is_identifier(__float128)
+  void has_no_float128(void);
+#else
+  void has_float128(void);
+#endif
+
+int check_sizeof_float128() {
+  // CHECK: call void @has_float128()
+  has_float128();
+  // CHECK: ret i32 16
+  return sizeof(__float128);
+}

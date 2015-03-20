@@ -380,6 +380,8 @@ KEYWORD(_Cilk_spawn                 , KEYCILKPLUS)
 KEYWORD(_Cilk_sync                  , KEYCILKPLUS)
 KEYWORD(_Cilk_for                   , KEYCILKPLUS)
 KEYWORD(_Quad                       , KEYFLOAT128)
+// CQ#367834 - __float128 should be an alias for _Quad.
+ALIAS("__float128"    , _Quad       , KEYFLOAT128)
 #endif  // INTEL_CUSTOMIZATION
 // MSVC12.0 / VS2013 Type Traits
 TYPE_TRAIT_1(__is_destructible, IsDestructible, KEYMS)
