@@ -30,6 +30,7 @@ class STISymbol;
 class STISymbolModule;
 class STISymbolCompileUnit;
 class STISymbolProcedure;
+class STISymbolFrameProc;
 class STISymbolBlock;
 class STISymbolVariable;
 class STISymbolUserDefined;
@@ -40,9 +41,14 @@ class STITypeArray;
 class STITypeBitfield;
 class STITypeMember;
 class STITypeEnumerator;
+class STITypeBaseClass;
+class STITypeVBaseClass;
+class STITypeVFuncTab;
 class STITypeFieldList;
 class STITypeStructure;
 class STITypeEnumeration;
+class STITypeVShape;
+class STITypeMethodList;
 class STITypeFunctionID;
 class STITypeProcedure;
 class STITypeArgumentList;
@@ -53,7 +59,6 @@ class STIChecksumTable;
 class STILineEntry;
 class STILineBlock;
 class STILineSlice;
-class STILineTable;
 
 typedef uint32_t STISymbolID; // FIXME: Make enum and move to STI.h
 
@@ -71,6 +76,7 @@ enum STIObjectKindEnum {
   STI_OBJECT_KIND_SYMBOL_MODULE,       // STISymbolModule
   STI_OBJECT_KIND_SYMBOL_COMPILE_UNIT, // STISymbolCompileUnit
   STI_OBJECT_KIND_SYMBOL_PROCEDURE,    // STISymbolProcedure
+  STI_OBJECT_KIND_SYMBOL_FRAMEPROC,    // STISymbolFrameProc
   STI_OBJECT_KIND_SYMBOL_BLOCK,        // STISymbolBlock
   STI_OBJECT_KIND_SYMBOL_VARIABLE,     // STISymbolVariable
   STI_OBJECT_KIND_SYMBOL_USER_DEFINED, // STISymbolUserDefined
@@ -80,7 +86,9 @@ enum STIObjectKindEnum {
   STI_OBJECT_KIND_TYPE_ARRAY,          // STITypeArray
   STI_OBJECT_KIND_TYPE_STRUCTURE,      // STITypeStructure
   STI_OBJECT_KIND_TYPE_ENUMERATION,    // STITypeEnumeration
+  STI_OBJECT_KIND_TYPE_VSHAPE,         // STITypeVShape
   STI_OBJECT_KIND_TYPE_BITFIELD,       // STITypeBitfield
+  STI_OBJECT_KIND_TYPE_METHOD_LIST,    // STITypeMethodList
   STI_OBJECT_KIND_TYPE_FIELD_LIST,     // STITypeFieldList
   STI_OBJECT_KIND_TYPE_FUNCTION_ID,    // STITypeFunctionID
   STI_OBJECT_KIND_TYPE_PROCEDURE,      // STITypeProcedure
@@ -349,26 +357,6 @@ public:
 };
 
 //===----------------------------------------------------------------------===//
-// STILineTable
-//===----------------------------------------------------------------------===//
-
-class STILineTable {
-public:
-  typedef std::vector<STILineSlice *> SliceList;
-
-private:
-  SliceList _slices;
-
-public:
-  STILineTable();
-  ~STILineTable();
-
-  SliceList &getSlices();
-  const SliceList &getSlices() const;
-  void appendSlice(STILineSlice *slice);
-};
-
-//===----------------------------------------------------------------------===//
 // STISymbol
 //===----------------------------------------------------------------------===//
 
@@ -439,13 +427,15 @@ public:
 class STISymbolProcedure : public STISymbol {
 private:
   STISymbolID _symbolID;
-  StringRef _name;
+  std::string _name;
   STIType *_type;
   STIScope *_scope;
   MCSymbol *_labelBegin;
   MCSymbol *_labelEnd;
   MCSymbol *_labelPrologEnd;
   STILineSlice *_lineSlice;
+  unsigned _lineNumber;
+  STISymbolFrameProc *_frame;
 
 protected:
   STISymbolProcedure();
@@ -473,7 +463,31 @@ public:
   STILineSlice *getLineSlice();
   const STILineSlice *getLineSlice() const;
 
-  void add(STIObject *object);
+  unsigned getLineNumber() const;
+  void setLineNumber(unsigned line);
+
+  STISymbolFrameProc *getFrame() const;
+  void setFrame(STISymbolFrameProc *frame);
+};
+
+//===----------------------------------------------------------------------===//
+// STISymbolFrameProc
+//===----------------------------------------------------------------------===//
+
+class STISymbolFrameProc : public STISymbol {
+private:
+  STISymbolProcedure *_procedure;
+
+protected:
+  STISymbolFrameProc();
+
+public:
+  static STISymbolFrameProc *create();
+
+  ~STISymbolFrameProc();
+
+  STISymbolProcedure *getProcedure() const;
+  void setProcedure(STISymbolProcedure *procedure);
 };
 
 //===----------------------------------------------------------------------===//
@@ -482,7 +496,7 @@ public:
 
 class STISymbolBlock : public STISymbol {
 private:
-  StringRef _name;
+  std::string _name;
   STIScope *_scope;
   MCSymbol *_labelBegin;
   MCSymbol *_labelEnd;
@@ -506,8 +520,6 @@ public:
   void setLabelEnd(MCSymbol *labelEnd);
   STISymbolProcedure *getProcedure() const;
   void setProcedure(STISymbolProcedure *procedure);
-
-  void add(STIObject *object);
 };
 
 //===----------------------------------------------------------------------===//
@@ -516,7 +528,7 @@ public:
 
 class STISymbolVariable : public STISymbol {
 private:
-  StringRef _name;
+  std::string _name;
   STILocation *_location;
   STIType *_type;
 
@@ -617,8 +629,15 @@ public:
 //===----------------------------------------------------------------------===//
 
 class STITypePointer : public STIType {
+public:
+  enum PTMType { PTM_NONE, PTM_DATA, PTM_METHOD };
+
 private:
   STIType *_pointerTo;
+  STIType *_containingClass;
+  bool _isReference;
+  PTMType _ptrToMemberType;
+  bool _isConstant;
 
 protected:
   STITypePointer();
@@ -630,6 +649,18 @@ public:
 
   STIType *getPointerTo() const;
   void setPointerTo(STIType *pointerTo);
+
+  STIType *getContainingClass() const;
+  void setContainingClass(STIType *classType);
+
+  bool isReference() const;
+  void setIsReference(bool isReference);
+
+  PTMType getPtrToMemberType() const;
+  void setPtrToMemberType(PTMType ptrToMemberType);
+
+  bool isConstant() const;
+  void setIsConstant(bool isConst);
 };
 
 //===----------------------------------------------------------------------===//
@@ -639,7 +670,7 @@ public:
 class STITypeArray : public STIType {
 private:
   STIType *_elementType;
-  StringRef _name;
+  std::string _name;
   uint32_t _length;
 
 protected:
@@ -697,7 +728,8 @@ private:
   uint16_t _attribute;
   STIType *_type;
   uint32_t _offset;
-  StringRef _name;
+  std::string _name;
+  bool _isStatic;
 
 protected:
   STITypeMember();
@@ -718,6 +750,130 @@ public:
 
   StringRef getName() const;
   void setName(StringRef name);
+
+  bool isStatic() const;
+  void setIsStatic(bool isStatic);
+};
+
+//===----------------------------------------------------------------------===//
+// STITypeMethodListEntry
+//===----------------------------------------------------------------------===//
+
+class STITypeMethodListEntry {
+private:
+  uint16_t _attribute;
+  STIType *_type;
+  int _virtuality;
+  int _virtualIndex;
+
+protected:
+  STITypeMethodListEntry();
+
+public:
+  ~STITypeMethodListEntry();
+
+  static STITypeMethodListEntry *create();
+
+  uint16_t getAttribute() const;
+  void setAttribute(uint16_t _attribute);
+
+  STIType *getType() const;
+  void setType(STIType *type);
+
+  int getVirtuality() const;
+  void setVirtuality(int virtuality);
+
+  int getVirtualIndex() const;
+  void setVirtualIndex(int virtualIndex);
+};
+
+//===----------------------------------------------------------------------===//
+// STITypeMethodList
+//===----------------------------------------------------------------------===//
+
+class STITypeMethodList : public STIType {
+public:
+  typedef std::vector<STITypeMethodListEntry *> STIMethodTypeList;
+
+private:
+  STIMethodTypeList _methodList;
+
+protected:
+  STITypeMethodList();
+
+public:
+  ~STITypeMethodList();
+
+  static STITypeMethodList *create();
+
+  uint32_t getMethodsCount() const;
+
+  const STIMethodTypeList &getList() const;
+  STIMethodTypeList &getList();
+};
+
+//===----------------------------------------------------------------------===//
+// STITypeMethod
+//===----------------------------------------------------------------------===//
+
+class STITypeMethod {
+private:
+  int _count;
+  STIType *_methodList;
+  std::string _name;
+
+protected:
+  STITypeMethod();
+
+public:
+  ~STITypeMethod();
+
+  static STITypeMethod *create();
+
+  int getCount() const;
+  void setCount(int count);
+
+  STIType *getList() const;
+  void setList(STIType *methodList);
+
+  StringRef getName() const;
+  void setName(StringRef name);
+};
+
+//===----------------------------------------------------------------------===//
+// STITypeOneMethod
+//===----------------------------------------------------------------------===//
+
+class STITypeOneMethod {
+private:
+  uint16_t _attribute;
+  STIType *_type;
+  int _virtuality;
+  int _virtualIndex;
+  std::string _name;
+
+protected:
+  STITypeOneMethod();
+
+public:
+  ~STITypeOneMethod();
+
+  static STITypeOneMethod *create();
+
+  uint16_t getAttribute() const;
+  void setAttribute(uint16_t attr);
+
+  STIType *getType() const;
+  void setType(STIType *type);
+
+  int getVirtuality() const;
+  void setVirtuality(int virtuality);
+
+  int getVirtualIndex() const;
+  void setVirtualIndex(int virtualIndex);
+
+  StringRef getName() const;
+  void setName(StringRef name);
 };
 
 //===----------------------------------------------------------------------===//
@@ -727,8 +883,8 @@ public:
 class STITypeEnumerator {
 private:
   uint16_t _attribute;
-  uint32_t _value;
-  StringRef _name;
+  int32_t _value;
+  std::string _name;
 
 protected:
   STITypeEnumerator();
@@ -741,11 +897,98 @@ public:
   uint16_t getAttribute() const;
   void setAttribute(uint16_t attr);
 
-  uint32_t getValue() const;
-  void setValue(uint32_t value);
+  int32_t getValue() const;
+  void setValue(int32_t value);
 
   StringRef getName() const;
   void setName(StringRef name);
+};
+
+//===----------------------------------------------------------------------===//
+// STITypeBaseClass
+//===----------------------------------------------------------------------===//
+
+class STITypeBaseClass {
+private:
+  uint16_t _attribute;
+  STIType *_type;
+  int _offset;
+
+protected:
+  STITypeBaseClass();
+
+public:
+  ~STITypeBaseClass();
+
+  static STITypeBaseClass *create();
+
+  uint16_t getAttribute() const;
+  void setAttribute(uint16_t attr);
+
+  STIType *getType() const;
+  void setType(STIType *type);
+
+  int getOffset() const;
+  void setOffset(int offset);
+};
+
+//===----------------------------------------------------------------------===//
+// STITypeVBaseClass
+//===----------------------------------------------------------------------===//
+
+class STITypeVBaseClass {
+private:
+  STISymbolID _symbolID;
+  uint16_t _attribute;
+  STIType *_type;
+  STIType *_vbpType;
+  int _vbpOffset;
+  int _vbIndex;
+
+protected:
+  STITypeVBaseClass(bool indirect);
+
+public:
+  ~STITypeVBaseClass();
+
+  static STITypeVBaseClass *create(bool indirect);
+
+  STISymbolID getSymbolID() const;
+
+  uint16_t getAttribute() const;
+  void setAttribute(uint16_t attr);
+
+  STIType *getType() const;
+  void setType(STIType *type);
+
+  STIType *getVbpType() const;
+  void setVbpType(STIType *type);
+
+  int getVbpOffset() const;
+  void setVbpOffset(int offset);
+
+  int getVbIndex() const;
+  void setVbIndex(int index);
+};
+
+//===----------------------------------------------------------------------===//
+// STITypeVFuncTab
+//===----------------------------------------------------------------------===//
+
+class STITypeVFuncTab {
+private:
+  STIType *_type;
+
+protected:
+  STITypeVFuncTab();
+
+public:
+  ~STITypeVFuncTab();
+
+  static STITypeVFuncTab *create();
+
+  STIType *getType() const;
+  void setType(STIType *type);
 };
 
 //===----------------------------------------------------------------------===//
@@ -754,11 +997,20 @@ public:
 
 class STITypeFieldList : public STIType {
 public:
+  typedef std::vector<STITypeBaseClass *> STITypeBaseClassList;
+  typedef std::vector<STITypeVBaseClass *> STITypeVBaseClassList;
   typedef std::vector<STITypeMember *> STITypeMemberList;
+  typedef std::vector<STITypeMethod *> STITypeMethodsList;
+  typedef std::vector<STITypeOneMethod *> STITypeOneMethodList;
   typedef std::vector<STITypeEnumerator *> STITypeEnumeratorList;
 
 private:
+  STITypeBaseClassList _baseClasses;
+  STITypeVBaseClassList _vBaseClasses;
+  STITypeVFuncTab *_vFuncTab;
   STITypeMemberList _members;
+  STITypeMethodsList _methods;
+  STITypeOneMethodList _oneMethods;
   STITypeEnumeratorList _enumerators;
 
 protected:
@@ -769,8 +1021,23 @@ public:
 
   static STITypeFieldList *create();
 
+  STITypeBaseClassList &getBaseClasses();
+  const STITypeBaseClassList &getBaseClasses() const;
+
+  STITypeVBaseClassList &getVBaseClasses();
+  const STITypeVBaseClassList &getVBaseClasses() const;
+
+  const STITypeVFuncTab *getVFuncTab() const;
+  void setVFuncTab(STITypeVFuncTab *vFuncTab);
+
   STITypeMemberList &getMembers();
   const STITypeMemberList &getMembers() const;
+
+  STITypeMethodsList &getMethods();
+  const STITypeMethodsList &getMethods() const;
+
+  STITypeOneMethodList &getOneMethods();
+  const STITypeOneMethodList &getOneMethods() const;
 
   STITypeEnumeratorList &getEnumerators();
   const STITypeEnumeratorList &getEnumerators() const;
@@ -782,14 +1049,14 @@ public:
 
 class STITypeStructure : public STIType {
 private:
-  uint16_t _leaf;
+  uint16_t _leaf; // FIXME: STISymbolID?
   uint16_t _count;
   uint16_t _property;
   STIType *_fieldType;
   STIType *_derivedType;
   STIType *_vshapeType;
   uint32_t _size;
-  StringRef _name;
+  std::string _name;
 
 protected:
   STITypeStructure();
@@ -830,12 +1097,11 @@ public:
 
 class STITypeEnumeration : public STIType {
 private:
-  uint16_t _leaf;
   uint16_t _count;
   uint16_t _property;
   STIType *_elementType;
   STIType *_fieldType;
-  StringRef _name;
+  std::string _name;
 
 protected:
   STITypeEnumeration();
@@ -862,6 +1128,26 @@ public:
 };
 
 //===----------------------------------------------------------------------===//
+// STITypeVShape
+//===----------------------------------------------------------------------===//
+
+class STITypeVShape : public STIType {
+private:
+  uint16_t _count;
+
+protected:
+  STITypeVShape();
+
+public:
+  ~STITypeVShape();
+
+  static STITypeVShape *create();
+
+  uint16_t getCount() const;
+  void setCount(uint16_t count);
+};
+
+//===----------------------------------------------------------------------===//
 // STITypeFunctionID
 //===----------------------------------------------------------------------===//
 
@@ -869,7 +1155,8 @@ class STITypeFunctionID : public STIType {
 private:
   STIType *_type;
   STIType *_parentScope;
-  StringRef _name;
+  STIType *_parentClassType;
+  std::string _name;
 
 protected:
   STITypeFunctionID();
@@ -885,6 +1172,9 @@ public:
   STIType *getParentScope() const;
   void setParentScope(STIType *parentScope);
 
+  STIType *getParentClassType() const;
+  void setParentClassType(STIType *parentClassType);
+
   StringRef getName() const;
   void setName(StringRef name);
 };
@@ -896,9 +1186,12 @@ public:
 class STITypeProcedure : public STIType {
 private:
   STIType *_returnType;
+  STIType *_classType;
+  STIType *_thisType;
   int _callingConvention;
   uint16_t _paramCount;
   STIType *_argumentList;
+  int _thisAdjust;
 
 protected:
   STITypeProcedure();
@@ -911,6 +1204,12 @@ public:
   STIType *getReturnType() const;
   void setReturnType(STIType *returnType);
 
+  STIType *getClassType() const;
+  void setClassType(STIType *classType);
+
+  STIType *getThisType() const;
+  void setThisType(STIType *thisType);
+
   int getCallingConvention() const;
   void setCallingConvention(int callingConvention);
 
@@ -919,6 +1218,9 @@ public:
 
   STIType *getArgumentList() const;
   void setArgumentList(STIType *argumentList);
+
+  int getThisAdjust() const;
+  void setThisAdjust(int thisAdjust);
 };
 
 //===----------------------------------------------------------------------===//
@@ -953,7 +1255,7 @@ public:
 class STISymbolUserDefined : public STISymbol {
 private:
   STIType *_definedType;
-  StringRef _name;
+  std::string _name;
 
 protected:
   STISymbolUserDefined();
@@ -976,7 +1278,7 @@ public:
 
 class STIScope : public STIObject {
 public:
-  typedef std::vector<STIObject *> ObjectList;
+  typedef std::vector<std::pair<unsigned, STIObject *> > ObjectList;
 
 private:
   STIScope *_parent;
@@ -995,7 +1297,7 @@ public:
   void setSymbol(STISymbol *symbol);
   const ObjectList &getObjects() const;
 
-  void add(STIObject *object);
+  void add(STIObject *object, unsigned ArgNum = 0);
 };
 
 //===----------------------------------------------------------------------===//

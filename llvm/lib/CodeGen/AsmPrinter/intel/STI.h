@@ -114,8 +114,47 @@ typedef enum STISectionSignatureIDEnum STISectionSignatureID;
     X(STI_REGISTER_RSI,                 0x014c)         \
     X(STI_REGISTER_RDI,                 0x014d)         \
     X(STI_REGISTER_RBP,                 0x014e)         \
-    X(STI_REGISTER_RSP,                 0x014f) 
-
+    X(STI_REGISTER_RSP,                 0x014f)         \
+    X(STI_REGISTER_R8,                  0x0150)         \
+    X(STI_REGISTER_R9,                  0x0151)         \
+    X(STI_REGISTER_R10,                 0x0152)         \
+    X(STI_REGISTER_R11,                 0x0153)         \
+    X(STI_REGISTER_R12,                 0x0154)         \
+    X(STI_REGISTER_R13,                 0x0155)         \
+    X(STI_REGISTER_R14,                 0x0156)         \
+    X(STI_REGISTER_R15,                 0x0157)         \
+    X(STI_REGISTER_R8B,                 0x0158)         \
+    X(STI_REGISTER_R9B,                 0x0159)         \
+    X(STI_REGISTER_R10B,                0x015a)         \
+    X(STI_REGISTER_R11B,                0x015b)         \
+    X(STI_REGISTER_R12B,                0x015c)         \
+    X(STI_REGISTER_R13B,                0x015d)         \
+    X(STI_REGISTER_R14B,                0x015e)         \
+    X(STI_REGISTER_R15B,                0x015f)         \
+    X(STI_REGISTER_R8W,                 0x0160)         \
+    X(STI_REGISTER_R9W,                 0x0161)         \
+    X(STI_REGISTER_R10W,                0x0162)         \
+    X(STI_REGISTER_R11W,                0x0163)         \
+    X(STI_REGISTER_R12W,                0x0164)         \
+    X(STI_REGISTER_R13W,                0x0165)         \
+    X(STI_REGISTER_R14W,                0x0166)         \
+    X(STI_REGISTER_R15W,                0x0167)         \
+    X(STI_REGISTER_R8D,                 0x0168)         \
+    X(STI_REGISTER_R9D,                 0x0169)         \
+    X(STI_REGISTER_R10D,                0x016a)         \
+    X(STI_REGISTER_R11D,                0x016b)         \
+    X(STI_REGISTER_R12D,                0x016c)         \
+    X(STI_REGISTER_R13D,                0x016d)         \
+    X(STI_REGISTER_R14D,                0x016e)         \
+    X(STI_REGISTER_R15D,                0x016f)         \
+    X(STI_REGISTER_XMM0,                0x009a)         \
+    X(STI_REGISTER_XMM1,                0x009b)         \
+    X(STI_REGISTER_XMM2,                0x009c)         \
+    X(STI_REGISTER_XMM3,                0x009d)         \
+    X(STI_REGISTER_XMM4,                0x009e)         \
+    X(STI_REGISTER_XMM5,                0x009f)         \
+    X(STI_REGISTER_XMM6,                0x00a0)         \
+    X(STI_REGISTER_XMM7,                0x00a1)
 
 enum STIRegIDEnum {
 #define X(KIND, VALUE) KIND = VALUE,
@@ -237,7 +276,7 @@ typedef enum STIRegIDEnum STIRegID;
 #define S_CEXMODEL32    (IS_CV5 ? INVALID : S_CEXMODEL32_CV7)
 
 #define S_VFTABLE32     0x100c          /* Virtual function table path descriptor 16:32 */
-#define S_FRAMEPROC     (IS_CV5 ? INVALID : S_FRAMEPROC_CV7) 
+#define S_FRAMEPROC     S_FRAMEPROC_CV7 /*(IS_CV5 ? INVALID : S_FRAMEPROC_CV7) */
 #define S_ANNOTATION    (IS_CV5 ? INVALID : S_ANNOTATION_CV7)
 #define S_OBJNAME       (IS_CV5 ? S_OBJNAME_CV5         : S_OBJNAME_CV7)
 #define S_THUNK32       (IS_CV5 ? S_THUNK32_CV5                 : S_THUNK32_CV7)
@@ -313,11 +352,12 @@ typedef enum STIRegIDEnum STIRegID;
 #define STI_C_PLUS_PLUS 0x01
 #define STI_Fortran     0x02
 
-#define STI_FLAGS       0x1000          /* PcodePresent - False
-                                           Float Precision - False
-                                           Float Package - hardware
-                                           Ambient Code and Data - Near
-                                           Mode32 - True */
+/*  PcodePresent - False
+    Float Precision - False
+    Float Package - hardware
+    Ambient Code and Data - Near
+    Mode32 - True */
+#define STI_FLAGS       0x1000
                              
 /* S_COMPILE:flags:second byte */
 #define         STI_Float_Precision 0x0002      /* FP precision */
@@ -600,6 +640,11 @@ typedef enum STIRegIDEnum STIRegID;
 #define STI_MPROP_PURE_VRT      0x0014  /* Pure Virtual method */
 #define STI_MPROP_PURE_INTR_VRT         0x0018  /* Pure Introducing Virtual method */
 
+#define STI_PSEDUO              0x0020 /* Method is never instantiated by the compiler */
+#define STI_NOINHERIT           0x0040 /* The class cannot be inherited */
+#define STI_NOCONSTRUCT         0x0080 /* The class cannot be constructed */
+#define STI_COMPGENX            0x0100 /* The method is instantiated by the compiler */
+
 /* Type modifier values */
 
 #define         STI_MOD_CONST           0x01    /* Const modifier property */
@@ -636,6 +681,21 @@ typedef enum STIPointerTypeEnum STIPointerType;
 #define ATTR_VOLATILE           0x0200  /* TRUE if pointer is volatile */
 #define ATTR_CONST              0x0400  /* TRUE if pointer is const */
 #define ATTR_UNALIGNED          0x0800  /* TRUE if pointer is unaligne */
+
+#define FORMAT_16_DATA_NO_VMETHOD_NO_VBASE   0x0
+#define FORMAT_16_DATA_VMETHOD               0x1
+#define FORMAT_16_DATA_VBASE                 0x2
+#define FORMAT_32_DATA_NO_VBASE              0x3
+#define FORMAT_32_DATA_VBASE                 0x4
+#define FORMAT_16_NEAR_METHOD_NO_VBASE_SADDR 0x5
+#define FORMAT_16_NEAR_METHOD_VMETHOD_MADDR  0x6
+#define FORMAT_16_NEAR_METHOD_VBASE          0x7
+#define FORMAT_16_FAR_METHOD_NO_VBASE_SADDR  0x8
+#define FORMAT_16_FAR_METHOD_NO_VBASE_MADDR  0x9
+#define FORMAT_16_FAR_METHOD_VBASE_MADDR     0xa
+#define FORMAT_32_METHOD_NO_VBASE_SADDR      0xb
+#define FORMAT_32_METHOD_NO_VBASE_MADDR      0xc
+#define FORMAT_32_METHOD_VBASE_MADDR         0xd
 
 /* Calling conventions for procedure */
 
@@ -963,6 +1023,7 @@ typedef enum STIPointerTypeEnum STIPointerType;
 #define LF_INDEX        (IS_CV5 ? LF_INDEX_CV5                  : LF_INDEX_CV7)
 
 #define LF_FUNC_ID 0x1601
+#define LF_MFUNC_ID 0x1602
 /* 
  * Used in DGI for MS debug info generation.
  * The MS CV debug document has not given enumeration for Xscale registers
@@ -972,15 +1033,6 @@ typedef enum STIPointerTypeEnum STIPointerType;
 #define CV_XSCALE_R7       17  /* r11 - using ARM enum CV_ARM_R7 */
 #define CV_XSCALE_R11      21  /* r11 - using ARM enum CV_ARM_R11 */
 #define CV_XSCALE_R13      23  /* r13 - using ARM enum CV_ARM_SP */
-
-/* Attributes in methodlists */
-#define    CV_MTvanilla         0x00
-#define    CV_MTvirtual         0x01
-#define    CV_MTstatic          0x02
-#define    CV_MTfriend          0x03
-#define    CV_MTintro           0x04
-#define    CV_MTpurevirt        0x05
-#define    CV_MTpureintro       0x06
 
 /* Attributes in methodlists */
 #define    CV_MTvanilla         0x00
