@@ -67,7 +67,7 @@ public:
   /// Virtual Clone Method
   virtual DDRef *clone() const = 0;
   /// TBD how to do this
-  void dump() const;
+  void dump() const { print(); }
   /// TBD how to do this
   void print() const;
 

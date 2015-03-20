@@ -66,11 +66,7 @@ CanonExpr *CanonExpr::clone() const {
 }
 
 void CanonExpr::dump() const {
-  // TODO: placeholder, implement later
-}
-
-void CanonExpr::print() const {
-  // TODO: placeholder, implement later
+  print();
 }
 
 bool CanonExpr::hasIV() const {
