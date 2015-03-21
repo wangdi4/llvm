@@ -15,7 +15,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/Pass.h"
 #include "llvm/IR/Function.h"
-#include "llvm/PassManager.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Type.h"
 
 using namespace Intel;
@@ -221,7 +221,7 @@ bool ChooseVectorizationDimension::runOnFunction(Function &F) {
   }
 
   // create function pass manager to run the WIAnalysis for each dimension.
-  FunctionPassManager runWi(F.getParent());
+  legacy::FunctionPassManager runWi(F.getParent());
   runWi.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModule(), ""));
   for (unsigned int dim = 0; dim < MAX_WORK_DIM; dim++) {
     if (dimExist[dim]) {

@@ -162,7 +162,7 @@ bool PacketizeFunction::runOnFunction(Function &F)
 {
   m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
   V_ASSERT(m_rtServices && "Runtime services were not initialized!");
-  m_pDL = &getAnalysis<DataLayoutPass>().getDataLayout();
+  m_pDL = &F.getParent()->getDataLayout();
   m_DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 
   m_currFunc = &F;

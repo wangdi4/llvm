@@ -52,7 +52,7 @@ char Predicator::ID = 0;
 const int MAX_NUMBER_OF_BLOCKS_IN_AN_ALLONES_BYPASS = 6;
 
 OCL_INITIALIZE_PASS_BEGIN(Predicator, "predicate", "Predicate Function", false, false)
-OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominanceFrontier)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
@@ -351,7 +351,7 @@ void Predicator::LinearizeFixPhiNode(BasicBlock* tofix, BasicBlock* src) {
     // since all phis are at the beginning of basic block
     if (!phi) return;
 
-    LoopInfo *LI = &getAnalysis<LoopInfo>();
+    LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     Loop* loop = LI->getLoopFor(tofix);
 
     // For each of the incoming edges to the phi
@@ -447,7 +447,7 @@ void Predicator::linearizeFunction(Function* F,
   // When this scope is destroyed, all sub-scopes will be deleted.
   SchedulingScope main_scope(NULL, true);
 
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   // register the scheduling constraints which are derived from loops
   registerLoopSchedulingScopes(main_scope, LI, F, headers);
 
@@ -542,7 +542,7 @@ Value* Predicator::getPhiCond(PHINode* phi, bool& switchValuesOrder) {
 
 void Predicator::convertPhiToSelect(BasicBlock* BB) {
 
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   V_ASSERT(LI && "Unable to get loop analysis");
   Loop* loop = LI->getLoopFor(BB);
   // We do not touch blocks which are loop headers
@@ -877,7 +877,7 @@ void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
   Value* pred = m_inMask[BB];
 
   /// Get loop header, latch
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   V_ASSERT(LI && "Unable to get loop analysis");
   Loop* loop = LI->getLoopFor(BB);
   V_ASSERT(loop && "Unable to find loop, we only predicate in-loop values");
@@ -971,7 +971,7 @@ void Predicator::predicateSideEffectInstructions() {
 void Predicator::collectInstructionsToPredicate(BasicBlock *BB) {
   // For each BB
   // Obtain loop analysis (are we inside a loop ?)
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   PostDominatorTree* PDT = &getAnalysis<PostDominatorTree>();
 
   V_ASSERT(LI && "Unable to get loop analysis");
@@ -1128,7 +1128,7 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
   V_ASSERT(br && br->isConditional() && "expected conditional branch");
 
   // Get the loop for the basic block.
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   Loop *L = LI->getLoopFor(BB);
   V_ASSERT(L && L->isLoopExiting(BB) && "expected exiting block");
 
@@ -1317,7 +1317,7 @@ void Predicator::collectOptimizedMasks(Function* F,
                                        DominatorTree*  DT) {
 
   // get loop info
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   // For all blocks in function
   for (Function::iterator x = F->begin(), x_e = F->end(); x != x_e ; ++x) {
 
@@ -1658,7 +1658,7 @@ void Predicator::maskOutgoing(BasicBlock *BB) {
 
   /// We will need loop information to know if this BB
   /// has edges leaving the loop
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   V_ASSERT(LI && "Unable to get analysis");
   // Are the predecessor BBs in the same loop as me?
   Loop* L = LI->getLoopFor(BB);
@@ -1791,7 +1791,7 @@ void Predicator::maskIncoming(BasicBlock *BB) {
 
   /// If this is not a simple case,
   /// we will need some loop info.
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   Loop* loop  = LI->getLoopFor(BB);
 
   //
@@ -1832,7 +1832,7 @@ bool Predicator::checkCanonicalForm(Function *F, LoopInfo *LI) {
 
 void Predicator::markLoopsThatBeginsWithFullMaskAsZeroBypassed() {
   PostDominatorTree* PDT = &getAnalysis<PostDominatorTree>();
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
   for (LoopInfo::iterator it = LI->begin(), e = LI->end();
     it != e; ++ it) { // for each loop
@@ -1882,7 +1882,7 @@ void Predicator::predicateFunction(Function *F) {
   PostDominatorTree* PDT = &getAnalysis<PostDominatorTree>();
   DominatorTree* DT      = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   m_DT = DT; // save the dominator tree.
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   m_LI = LI;
   V_ASSERT(LI && "Unable to get loop analysis");
   OCLBranchProbability *OBP = &getAnalysis<OCLBranchProbability>();
@@ -2144,11 +2144,16 @@ void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
   // Split the UCF entry so that all PHI nodes are stay intact. Other instructions go
   // into the second half (which is a brand new BB)
   BasicBlock* allOnesBeginBB = ucfEntryBB;
+  auto *LIWP = getAnalysisIfAvailable<LoopInfoWrapperPass>();
+  auto *LI = LIWP ? &LIWP->getLoopInfo() : nullptr;
+  auto *DTWP = getAnalysisIfAvailable<DominatorTreeWrapperPass>();
+  auto *DT = DTWP ? &DTWP->getDomTree() : nullptr;
+
   // Note that the allOnesBeginBB is actually is UCF entry
-  BasicBlock * postEntryBB = SplitBlock(allOnesBeginBB, firstPredOrTerm, this);
+  BasicBlock * postEntryBB = SplitBlock(allOnesBeginBB, firstPredOrTerm, DT, LI);
   m_ucfInter2Entry[postEntryBB] = ucfEntryBB;
   // Split exit BB at the terminator instruction.
-  BasicBlock* allOnesEndBB = SplitBlock(ucfExitBB, ucfExitBB->getTerminator(), this);
+  BasicBlock* allOnesEndBB = SplitBlock(ucfExitBB, ucfExitBB->getTerminator(), DT, LI);
   m_ucfEntry2Exit[ucfEntryBB] = allOnesEndBB;
   m_ucfExit2Entry[allOnesEndBB] = ucfEntryBB;
 

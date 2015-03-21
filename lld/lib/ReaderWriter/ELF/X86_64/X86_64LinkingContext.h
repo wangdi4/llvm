@@ -10,7 +10,6 @@
 #ifndef LLD_READER_WRITER_ELF_X86_64_X86_64_LINKING_CONTEXT_H
 #define LLD_READER_WRITER_ELF_X86_64_X86_64_LINKING_CONTEXT_H
 
-#include "X86_64TargetHandler.h"
 #include "lld/ReaderWriter/ELFLinkingContext.h"
 #include "llvm/Object/ELF.h"
 #include "llvm/Support/ELF.h"
@@ -25,11 +24,12 @@ enum {
   LLD_R_X86_64_GOTRELINDEX = 1024,
 };
 
-class X86_64LinkingContext final : public ELFLinkingContext {
+class X86_64LinkingContext : public ELFLinkingContext {
+protected:
+  X86_64LinkingContext(llvm::Triple, std::unique_ptr<TargetHandlerBase>);
 public:
-  X86_64LinkingContext(llvm::Triple triple)
-      : ELFLinkingContext(triple, std::unique_ptr<TargetHandlerBase>(
-                                      new X86_64TargetHandler(*this))) {}
+  static std::unique_ptr<ELFLinkingContext> create(llvm::Triple);
+  X86_64LinkingContext(llvm::Triple);
 
   void addPasses(PassManager &) override;
 
@@ -39,8 +39,7 @@ public:
     return _baseAddress;
   }
 
-  bool isDynamicRelocation(const DefinedAtom &,
-                           const Reference &r) const override {
+  bool isDynamicRelocation(const Reference &r) const override {
     if (r.kindNamespace() != Reference::KindNamespace::ELF)
       return false;
     assert(r.kindArch() == Reference::KindArch::x86_64);
@@ -65,8 +64,7 @@ public:
     return false;
   }
 
-  virtual bool isPLTRelocation(const DefinedAtom &,
-                               const Reference &r) const override {
+  virtual bool isPLTRelocation(const Reference &r) const override {
     if (r.kindNamespace() != Reference::KindNamespace::ELF)
       return false;
     assert(r.kindArch() == Reference::KindArch::x86_64);

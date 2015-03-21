@@ -407,7 +407,7 @@ public:
     // We need to canonicalize PHIs
     //AU.addRequired<PhiCanon>();
     // We need loop info
-    AU.addRequired<LoopInfo>();
+    AU.addRequired<LoopInfoWrapperPass>();
     // We need dominance frontier to estimate
     // the dominance for specialization
     AU.addRequired<DominatorTreeWrapperPass>();

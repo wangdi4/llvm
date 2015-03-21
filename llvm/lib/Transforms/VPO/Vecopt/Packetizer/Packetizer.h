@@ -92,8 +92,6 @@ public:
     AU.addRequired<WIAnalysis>();
     AU.addRequired<SoaAllocaAnalysis>();
     AU.addRequired<BuiltinLibInfo>();
-    AU.addRequired<DataLayoutPass>();
-    AU.addPreserved<DataLayoutPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addPreserved<DominatorTreeWrapperPass>();
   }

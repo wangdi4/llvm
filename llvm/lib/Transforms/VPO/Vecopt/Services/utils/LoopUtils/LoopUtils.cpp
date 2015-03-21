@@ -41,7 +41,7 @@ CallInst *getWICall(Module *M, StringRef funcName, Type *retTy, unsigned dim,
 }
 
 Type *getIndTy(Module *M) {
-  const DataLayout* DL = M->getDataLayout();
+  const DataLayout* DL = &(M->getDataLayout());
   assert(DL != NULL && "cannot get pointer size without the data layout");
   unsigned pointerSize = DL->getPointerSize();
   switch (pointerSize) {

@@ -68,6 +68,41 @@ public:
   }
 };
 
+/// \brief An implementation of future. std::future and std::promise in
+/// old libstdc++ have a threading bug; there is a small chance that a
+/// call of future::get throws an exception in the normal use case.
+/// We want to use our own future implementation until we drop support
+/// of old versions of libstdc++.
+/// https://gcc.gnu.org/ml/gcc-patches/2014-05/msg01389.html
+template<typename T> class Future {
+public:
+  Future() : _hasValue(false) {}
+
+  void set(T &&val) {
+    assert(!_hasValue);
+    {
+      std::unique_lock<std::mutex> lock(_mutex);
+      _val = val;
+      _hasValue = true;
+    }
+    _cond.notify_all();
+  }
+
+  T &get() {
+    std::unique_lock<std::mutex> lock(_mutex);
+    if (_hasValue)
+      return _val;
+    _cond.wait(lock, [&] { return _hasValue; });
+    return _val;
+  }
+
+private:
+  T _val;
+  bool _hasValue;
+  std::mutex _mutex;
+  std::condition_variable _cond;
+};
+
 /// \brief An abstract class that takes closures and runs them asynchronously.
 class Executor {
 public:
@@ -221,14 +256,14 @@ void parallel_quick_sort(RandomAccessIterator start, RandomAccessIterator end,
   auto pivot = medianOf3(start, end, comp);
   // Move pivot to end.
   std::swap(*(end - 1), *pivot);
-  pivot = std::partition(start, end - 1, [end](decltype(*start) v) {
-    return v < *(end - 1);
+  pivot = std::partition(start, end - 1, [&comp, end](decltype(*start) v) {
+    return comp(v, *(end - 1));
   });
   // Move pivot to middle of partition.
   std::swap(*pivot, *(end - 1));
 
   // Recurse.
-  tg.spawn([=, &tg] {
+  tg.spawn([=, &comp, &tg] {
     parallel_quick_sort(start, pivot, comp, tg, depth - 1);
   });
   parallel_quick_sort(pivot + 1, end, comp, tg, depth - 1);

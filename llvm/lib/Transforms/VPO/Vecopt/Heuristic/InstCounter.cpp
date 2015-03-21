@@ -17,7 +17,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CompilationUtils.h"
 #include "OclTune.h"
 
-#include "llvm/PassManager.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/IR/Module.h"
@@ -34,7 +34,7 @@ char WeightedInstCounter::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(WeightedInstCounter, "winstcounter", "Weighted Instruction Counter", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
-OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
 OCL_INITIALIZE_PASS_DEPENDENCY(PostDominanceFrontier)
@@ -227,7 +227,7 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
   // Ok, start counting with 0
   m_totalWeight = 0;
 
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   // For each basic block, add up its weight
   for (Function::iterator BB = F.begin(), BBE = F.end(); BB != BBE; ++BB) {
 
@@ -380,7 +380,7 @@ Type* WeightedInstCounter::estimateDominantType(Function &F, DenseMap<Loop*, int
   DenseMap<Type*, float> countMap;
 
   // For each type, count how many times it is the first operand of a binop.
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   for (Function::iterator BB = F.begin(), BBE = F.end(); BB != BBE; ++BB) {
     int TripCount = 1;
     if (Loop* ContainingLoop = LI->getLoopFor(BB))
@@ -688,7 +688,7 @@ void WeightedInstCounter::estimateIterations(Function &F,
   // a good way right now.
 
   std::vector<Loop*> WorkList;
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   ScalarEvolution *SI = &getAnalysis<ScalarEvolution>();
 
   // Add all the top-level loops to the worklist
@@ -963,7 +963,7 @@ void WeightedInstCounter::estimateMemOpCosts(Function &F, DenseMap<Instruction*,
   // so after vectorization they are strided (not good), but before vectorization, if you're accessing
   // several fields of a struct (with different M) this is in fact "cheap", even when not in a loop.
 
-  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
   // First, find all the TID generators.
   for (Function::iterator bbit = F.begin(), bbe=F.end(); bbit != bbe; ++bbit) {

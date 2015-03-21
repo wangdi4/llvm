@@ -16,7 +16,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
-#include "llvm/PassManager.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/ValueSymbolTable.h"
@@ -59,7 +59,8 @@ IRForTarget::FunctionValueCache::~FunctionValueCache()
 {
 }
 
-llvm::Value *IRForTarget::FunctionValueCache::GetValue(llvm::Function *function)
+llvm::Value *
+IRForTarget::FunctionValueCache::GetValue(llvm::Function *function)
 {
     if (!m_values.count(function))
     {
@@ -70,7 +71,8 @@ llvm::Value *IRForTarget::FunctionValueCache::GetValue(llvm::Function *function)
     return m_values[function];
 }
 
-lldb::addr_t IRForTarget::StaticDataAllocator::Allocate()
+lldb::addr_t
+IRForTarget::StaticDataAllocator::Allocate()
 {
     lldb_private::Error err;
 
@@ -85,7 +87,14 @@ lldb::addr_t IRForTarget::StaticDataAllocator::Allocate()
     return m_allocation;
 }
 
-static llvm::Value *FindEntryInstruction (llvm::Function *function)
+lldb::TargetSP
+IRForTarget::StaticDataAllocator::GetTarget()
+{
+    return m_execution_unit.GetTarget();
+}
+
+static llvm::Value *
+FindEntryInstruction (llvm::Function *function)
 {
     if (function->empty())
         return NULL;
@@ -590,7 +599,10 @@ IRForTarget::CreateResultVariable (llvm::Function &llvm_function)
                                                      &result_decl->getASTContext());
     }
 
-    if (m_result_type.GetBitSize() == 0)
+
+    lldb::TargetSP target_sp (m_data_allocator.GetTarget());
+    lldb_private::ExecutionContext exe_ctx (target_sp, true);
+    if (m_result_type.GetBitSize(exe_ctx.GetBestExecutionContextScope()) == 0)
     {
         lldb_private::StreamString type_desc_stream;
         m_result_type.DumpTypeDescription(&type_desc_stream);
@@ -617,7 +629,7 @@ IRForTarget::CreateResultVariable (llvm::Function &llvm_function)
     if (log)
         log->Printf("Creating a new result global: \"%s\" with size 0x%" PRIx64,
                     m_result_name.GetCString(),
-                    m_result_type.GetByteSize());
+                    m_result_type.GetByteSize(nullptr));
 
     // Construct a new result global and set up its metadata
 
@@ -1518,7 +1530,7 @@ IRForTarget::MaybeHandleVariable (Value *llvm_value_ptr)
             value_type = global_variable->getType();
         }
 
-        const uint64_t value_size = clang_type.GetByteSize();
+        const uint64_t value_size = clang_type.GetByteSize(nullptr);
         lldb::offset_t value_alignment = (clang_type.GetTypeBitAlign() + 7ull) / 8ull;
 
         if (log)

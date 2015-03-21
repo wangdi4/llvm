@@ -160,6 +160,7 @@ StringExtractorGDBRemote::GetServerPacketType () const
         case 'M':
             if (PACKET_STARTS_WITH ("qMemoryRegionInfo:"))      return eServerPacketType_qMemoryRegionInfo;
             if (PACKET_MATCHES ("qMemoryRegionInfo"))           return eServerPacketType_qMemoryRegionInfoSupported;
+            if (PACKET_STARTS_WITH ("qModuleInfo:"))             return eServerPacketType_qModuleInfo;
             break;
 
         case 'P':
@@ -264,6 +265,9 @@ StringExtractorGDBRemote::GetServerPacketType () const
 
       case 'H':
         return eServerPacketType_H;
+
+      case 'I':
+        return eServerPacketType_I;
 
       case 'k':
         if (packet_size == 1) return eServerPacketType_k;

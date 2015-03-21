@@ -1,7 +1,5 @@
 /*
  * kmp_os.h -- KPTS runtime header file.
- * $Revision: 43473 $
- * $Date: 2014-09-26 15:02:57 -0500 (Fri, 26 Sep 2014) $
  */
 
 
@@ -75,8 +73,12 @@
 
 #define KMP_ARCH_X86        0
 #define KMP_ARCH_X86_64     0
-#define KMP_ARCH_PPC64      0
 #define KMP_ARCH_AARCH64    0
+#define KMP_ARCH_PPC64_BE   0
+#define KMP_ARCH_PPC64_LE   0
+
+#define KMP_ARCH_PPC64 (KMP_ARCH_PPC64_LE || KMP_ARCH_PPC64_BE)
+
 
 #ifdef _WIN32
 # undef KMP_OS_WINDOWS
@@ -117,12 +119,6 @@
 # define KMP_OS_UNIX 1
 #endif
 
-#if (KMP_OS_LINUX || KMP_OS_WINDOWS) && !KMP_OS_CNK && !KMP_ARCH_PPC64
-# define KMP_AFFINITY_SUPPORTED 1
-#else
-# define KMP_AFFINITY_SUPPORTED 0
-#endif
-
 #if KMP_OS_WINDOWS
 # if defined _M_AMD64
 #  undef KMP_ARCH_X86_64
@@ -141,8 +137,13 @@
 #  undef KMP_ARCH_X86
 #  define KMP_ARCH_X86 1
 # elif defined __powerpc64__
-#  undef KMP_ARCH_PPC64
-#  define KMP_ARCH_PPC64 1
+#  if defined __LITTLE_ENDIAN__
+#   undef KMP_ARCH_PPC64_LE
+#   define KMP_ARCH_PPC64_LE 1
+#  else
+#   undef KMP_ARCH_PPC64_BE
+#   define KMP_ARCH_PPC64_BE 1
+#  endif
 # elif defined __aarch64__           
 #  undef KMP_ARCH_AARCH64          
 #  define KMP_ARCH_AARCH64 1  
@@ -188,6 +189,18 @@
 // TODO: Fixme - This is clever, but really fugly 
 #if (1 != KMP_ARCH_X86 + KMP_ARCH_X86_64 + KMP_ARCH_ARM + KMP_ARCH_PPC64 + KMP_ARCH_AARCH64)
 # error Unknown or unsupported architecture
+#endif
+
+#if (KMP_OS_LINUX || KMP_OS_WINDOWS) && !KMP_OS_CNK && !KMP_ARCH_PPC64
+# define KMP_AFFINITY_SUPPORTED 1
+# if KMP_OS_WINDOWS && KMP_ARCH_X86_64
+#  define KMP_GROUP_AFFINITY    1
+# else
+#  define KMP_GROUP_AFFINITY    0
+# endif
+#else
+# define KMP_AFFINITY_SUPPORTED 0
+# define KMP_GROUP_AFFINITY     0
 #endif
 
 /* Check for quad-precision extension. */
@@ -672,7 +685,7 @@ extern kmp_real64 __kmp_xchg_real64( volatile kmp_real64 *p, kmp_real64 v );
 # endif
 #endif /* KMP_OS_WINDOWS */
 
-#if KMP_ARCH_PPC64
+#if KMP_ARCH_PPC64 || KMP_ARCH_ARM || KMP_ARCH_AARCH64
 # define KMP_MB()       __sync_synchronize()
 #endif
 
@@ -800,6 +813,11 @@ typedef void    (*microtask_t)( int *gtid, int *npr, ... );
 #endif
 #ifndef USE_CMPXCHG_FIX
 # define USE_CMPXCHG_FIX 1
+#endif
+
+// Enable dynamic user lock
+#ifndef KMP_USE_DYNAMIC_LOCK
+# define KMP_USE_DYNAMIC_LOCK 0
 #endif
 
 // Warning levels

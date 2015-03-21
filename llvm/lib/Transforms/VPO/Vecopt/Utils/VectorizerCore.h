@@ -39,7 +39,7 @@ public:
 
     /// @brief Inform about usage/mofication/dependency of this pass
     virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const {
-      AU.addRequired<LoopInfo>();
+      AU.addRequired<LoopInfoWrapperPass>();
       AU.addRequired<BuiltinLibInfo>();
     }
 

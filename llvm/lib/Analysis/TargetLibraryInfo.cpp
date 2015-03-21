@@ -15,424 +15,10 @@
 #include "llvm/ADT/Triple.h"
 using namespace llvm;
 
-const char* TargetLibraryInfo::StandardNames[LibFunc::NumLibFuncs] =
+const char* TargetLibraryInfoImpl::StandardNames[LibFunc::NumLibFuncs] =
   {
-    "_IO_getc",
-    "_IO_putc",
-    "_ZdaPv",
-    "_ZdaPvRKSt9nothrow_t",
-    "_ZdaPvj",
-    "_ZdaPvm",
-    "_ZdlPv",
-    "_ZdlPvRKSt9nothrow_t",
-    "_ZdlPvj",
-    "_ZdlPvm",
-    "_Znaj",
-    "_ZnajRKSt9nothrow_t",
-    "_Znam",
-    "_ZnamRKSt9nothrow_t",
-    "_Znwj",
-    "_ZnwjRKSt9nothrow_t",
-    "_Znwm",
-    "_ZnwmRKSt9nothrow_t",
-    "__acos_finite",
-    "__acosf_finite",
-    "__acosh_finite",
-    "__acoshf_finite",
-    "__asin_finite",
-    "__asinf_finite",
-    "__atan2_finite",
-    "__atan2f_finite",
-    "__atanh_finite",
-    "__atanhf_finite",
-    "__cosh_finite",
-    "__coshf_finite",
-    "__cospi",
-    "__cospif",
-    "__cxa_atexit",
-    "__cxa_guard_abort",
-    "__cxa_guard_acquire",
-    "__cxa_guard_release",
-    "__exp2_finite",
-    "__exp2f_finite",
-    "__exp_finite",
-    "__expf_finite",
-    "__finite",
-    "__finitef",
-    "__fmod_finite",
-    "__fmodf_finite",
-    "__hypot_finite",
-    "__hypotf_finite",
-    "__isinf",
-    "__isinff",
-    "__isnan",
-    "__isnanf",
-    "__isoc99_scanf",
-    "__isoc99_sscanf",
-    "__log10_finite",
-    "__log10f_finite",
-    "__log2_finite",
-    "__log2f_finite",
-    "__log_finite",
-    "__logf_finite",
-    "__memcpy_chk",
-    "__memmove_chk",
-    "__memset_chk",
-    "__remainder_finite",
-    "__remainderf_finite",
-    "__sincospi_stret",
-    "__sincospif_stret",
-    "__sinh_finite",
-    "__sinhf_finite",
-    "__sinpi",
-    "__sinpif",
-    "__sqrt_finite",
-    "__sqrtf_finite",
-    "__sqrtl_finite",
-    "__stpcpy_chk",
-    "__stpncpy_chk",
-    "__strcpy_chk",
-    "__strdup",
-    "__strncpy_chk",
-    "__strndup",
-    "__strtok_r",
-    "_isinf",
-    "_isinff",
-    "_isnan",
-    "_isnanf",
-    "abs",
-    "access",
-    "acos",
-    "acosf",
-    "acosh",
-    "acoshf",
-    "acoshl",
-    "acosl",
-    "asin",
-    "asinf",
-    "asinh",
-    "asinhf",
-    "asinhl",
-    "asinl",
-    "atan",
-    "atan2",
-    "atan2f",
-    "atan2l",
-    "atanf",
-    "atanh",
-    "atanhf",
-    "atanhl",
-    "atanl",
-    "atof",
-    "atoi",
-    "atol",
-    "atoll",
-    "bcmp",
-    "bcopy",
-    "bzero",
-    "calloc",
-    "cbrt",
-    "cbrtf",
-    "cbrtl",
-    "cdfnorm",
-    "cdfnormf",
-    "cdfnorminv",
-    "cdfnorminvf",
-    "ceil",
-    "ceilf",
-    "ceill",
-    "cexp",
-    "chmod",
-    "chown",
-    "clearerr",
-    "closedir",
-    "copysign",
-    "copysignf",
-    "copysignl",
-    "cos",
-    "cosd",
-    "cosdf",
-    "cosf",
-    "cosh",
-    "coshf",
-    "coshl",
-    "cosl",
-    "ctermid",
-    "drand48",
-    "erand48",
-    "erf",
-    "erfc",
-    "erfcf",
-    "erfcinv",
-    "erfcinvf",
-    "erff",
-    "erfinv",
-    "erfinvf",
-    "exp",
-    "exp10",
-    "exp10f",
-    "exp10l",
-    "exp2",
-    "exp2f",
-    "exp2l",
-    "expf",
-    "expl",
-    "expm1",
-    "expm1f",
-    "expm1l",
-    "f_lanint_val",
-    "fabs",
-    "fabsf",
-    "fabsl",
-    "fclose",
-    "fdim",
-    "fdimf",
-    "fdopen",
-    "feof",
-    "ferror",
-    "fflush",
-    "ffs",
-    "ffsl",
-    "ffsll",
-    "fgetc",
-    "fgetpos",
-    "fgets",
-    "fileno",
-    "fiprintf",
-    "flockfile",
-    "floor",
-    "floorf",
-    "floorl",
-    "fmax",
-    "fmaxf",
-    "fmaxl",
-    "fmin",
-    "fminf",
-    "fminl",
-    "fmod",
-    "fmodf",
-    "fmodl",
-    "fopen",
-    "fopen64",
-    "fprintf",
-    "fputc",
-    "fputs",
-    "fread",
-    "free",
-    "frexp",
-    "frexpf",
-    "frexpl",
-    "fscanf",
-    "fseek",
-    "fseeko",
-    "fseeko64",
-    "fsetpos",
-    "fstat",
-    "fstat64",
-    "fstatvfs",
-    "fstatvfs64",
-    "ftell",
-    "ftello",
-    "ftello64",
-    "ftrylockfile",
-    "funlockfile",
-    "fwrite",
-    "getc",
-    "getc_unlocked",
-    "getchar",
-    "getenv",
-    "getitimer",
-    "getlogin_r",
-    "getpwnam",
-    "gets",
-    "gettimeofday",
-    "htonl",
-    "htons",
-    "hypot",
-    "hypotf",
-    "ilogb",
-    "ilogbf",
-    "invsqrt",
-    "invsqrtf",
-    "iprintf",
-    "isascii",
-    "isdigit",
-    "isinf",
-    "isinff",
-    "isnan",
-    "isnanf",
-    "jrand48",
-    "labs",
-    "lchown",
-    "ldexp",
-    "ldexpf",
-    "ldexpl",
-    "llabs",
-    "log",
-    "log10",
-    "log10f",
-    "log10l",
-    "log1p",
-    "log1pf",
-    "log1pl",
-    "log2",
-    "log2f",
-    "log2l",
-    "logb",
-    "logbf",
-    "logbl",
-    "logf",
-    "logl",
-    "lrand48",
-    "lstat",
-    "lstat64",
-    "malloc",
-    "memalign",
-    "memccpy",
-    "memchr",
-    "memcmp",
-    "memcpy",
-    "memmove",
-    "memrchr",
-    "memset",
-    "memset_pattern16",
-    "mkdir",
-    "mktime",
-    "modf",
-    "modff",
-    "modfl",
-    "mrand48",
-    "nearbyint",
-    "nearbyintf",
-    "nearbyintl",
-    "nextafter",
-    "nextafterf",
-    "nrand48",
-    "ntohl",
-    "ntohs",
-    "open",
-    "open64",
-    "opendir",
-    "pclose",
-    "perror",
-    "popen",
-    "posix_memalign",
-    "pow",
-    "powf",
-    "powl",
-    "pread",
-    "printf",
-    "putc",
-    "putchar",
-    "puts",
-    "pwrite",
-    "qsort",
-    "read",
-    "readlink",
-    "realloc",
-    "reallocf",
-    "realpath",
-    "remainder",
-    "remainderf",
-    "remove",
-    "rename",
-    "rewind",
-    "rint",
-    "rintf",
-    "rintl",
-    "rmdir",
-    "round",
-    "roundf",
-    "roundl",
-    "scalbn",
-    "scalbnf",
-    "scanf",
-    "setbuf",
-    "setitimer",
-    "setvbuf",
-    "sin",
-    "sincos",
-    "sincosf",
-    "sind",
-    "sindf",
-    "sinf",
-    "sinh",
-    "sinhf",
-    "sinhl",
-    "sinl",
-    "siprintf",
-    "snprintf",
-    "sprintf",
-    "sqrt",
-    "sqrtf",
-    "sqrtl",
-    "sscanf",
-    "stat",
-    "stat64",
-    "statvfs",
-    "statvfs64",
-    "stpcpy",
-    "stpncpy",
-    "strcasecmp",
-    "strcat",
-    "strchr",
-    "strcmp",
-    "strcoll",
-    "strcpy",
-    "strcspn",
-    "strdup",
-    "strlen",
-    "strncasecmp",
-    "strncat",
-    "strncmp",
-    "strncpy",
-    "strndup",
-    "strnlen",
-    "strpbrk",
-    "strrchr",
-    "strspn",
-    "strstr",
-    "strtod",
-    "strtof",
-    "strtok",
-    "strtok_r",
-    "strtol",
-    "strtold",
-    "strtoll",
-    "strtoul",
-    "strtoull",
-    "strxfrm",
-    "system",
-    "tan",
-    "tand",
-    "tandf",
-    "tanf",
-    "tanh",
-    "tanhf",
-    "tanhl",
-    "tanl",
-    "times",
-    "tmpfile",
-    "tmpfile64",
-    "toascii",
-    "trunc",
-    "truncf",
-    "truncl",
-    "uname",
-    "ungetc",
-    "unlink",
-    "unsetenv",
-    "utime",
-    "utimes",
-    "valloc",
-    "vfprintf",
-    "vfscanf",
-    "vprintf",
-    "vscanf",
-    "vsnprintf",
-    "vsprintf",
-    "vsscanf",
-    "write"
+#define TLI_DEFINE_STRING
+#include "llvm/Analysis/TargetLibraryInfo.def"
   };
 
 static bool hasSinCosPiStret(const Triple &T) {
@@ -456,13 +42,13 @@ static bool hasSinCosPiStret(const Triple &T) {
 /// initialize - Initialize the set of available library functions based on the
 /// specified target triple.  This should be carefully written so that a missing
 /// target triple gets a sane set of defaults.
-static void initialize(TargetLibraryInfo &TLI, const Triple &T,
+static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
                        const char **StandardNames) {
 #ifndef NDEBUG
   // Verify that the StandardNames array is in alphabetical order.
   for (unsigned F = 1; F < LibFunc::NumLibFuncs; ++F) {
     if (strcmp(StandardNames[F-1], StandardNames[F]) >= 0)
-      llvm_unreachable("TargetLibraryInfo function names must be sorted");
+      llvm_unreachable("TargetLibraryInfoImpl function names must be sorted");
   }
 #endif // !NDEBUG
 
@@ -762,78 +348,70 @@ static void initialize(TargetLibraryInfo &TLI, const Triple &T,
   }
 }
 
-TargetLibraryInfo::TargetLibraryInfo() {
+TargetLibraryInfoImpl::TargetLibraryInfoImpl() {
   // Default to everything being available.
   memset(AvailableArray, -1, sizeof(AvailableArray));
 
   initialize(*this, Triple(), StandardNames);
 }
 
-TargetLibraryInfo::TargetLibraryInfo(const Triple &T) {
+TargetLibraryInfoImpl::TargetLibraryInfoImpl(const Triple &T) {
   // Default to everything being available.
   memset(AvailableArray, -1, sizeof(AvailableArray));
 
   initialize(*this, T, StandardNames);
 }
 
-TargetLibraryInfo::TargetLibraryInfo(const TargetLibraryInfo &TLI)
+TargetLibraryInfoImpl::TargetLibraryInfoImpl(const TargetLibraryInfoImpl &TLI)
     : CustomNames(TLI.CustomNames) {
   memcpy(AvailableArray, TLI.AvailableArray, sizeof(AvailableArray));
 }
 
-TargetLibraryInfo::TargetLibraryInfo(TargetLibraryInfo &&TLI)
+TargetLibraryInfoImpl::TargetLibraryInfoImpl(TargetLibraryInfoImpl &&TLI)
     : CustomNames(std::move(TLI.CustomNames)) {
   std::move(std::begin(TLI.AvailableArray), std::end(TLI.AvailableArray),
             AvailableArray);
 }
 
-TargetLibraryInfo &TargetLibraryInfo::operator=(const TargetLibraryInfo &TLI) {
+TargetLibraryInfoImpl &TargetLibraryInfoImpl::operator=(const TargetLibraryInfoImpl &TLI) {
   CustomNames = TLI.CustomNames;
   memcpy(AvailableArray, TLI.AvailableArray, sizeof(AvailableArray));
   return *this;
 }
 
-TargetLibraryInfo &TargetLibraryInfo::operator=(TargetLibraryInfo &&TLI) {
+TargetLibraryInfoImpl &TargetLibraryInfoImpl::operator=(TargetLibraryInfoImpl &&TLI) {
   CustomNames = std::move(TLI.CustomNames);
   std::move(std::begin(TLI.AvailableArray), std::end(TLI.AvailableArray),
             AvailableArray);
   return *this;
 }
 
-namespace {
-struct StringComparator {
-  /// Compare two strings and return true if LHS is lexicographically less than
-  /// RHS. Requires that RHS doesn't contain any zero bytes.
-  bool operator()(const char *LHS, StringRef RHS) const {
-    // Compare prefixes with strncmp. If prefixes match we know that LHS is
-    // greater or equal to RHS as RHS can't contain any '\0'.
-    return std::strncmp(LHS, RHS.data(), RHS.size()) < 0;
-  }
-
-  // Provided for compatibility with MSVC's debug mode.
-  bool operator()(StringRef LHS, const char *RHS) const { return LHS < RHS; }
-  bool operator()(StringRef LHS, StringRef RHS) const { return LHS < RHS; }
-  bool operator()(const char *LHS, const char *RHS) const {
-    return std::strcmp(LHS, RHS) < 0;
-  }
-};
-}
-
-bool TargetLibraryInfo::getLibFunc(StringRef funcName,
-                                   LibFunc::Func &F) const {
-  const char **Start = &StandardNames[0];
-  const char **End = &StandardNames[LibFunc::NumLibFuncs];
-
+static StringRef sanitizeFunctionName(StringRef funcName) {
   // Filter out empty names and names containing null bytes, those can't be in
   // our table.
   if (funcName.empty() || funcName.find('\0') != StringRef::npos)
-    return false;
+    return StringRef();
 
   // Check for \01 prefix that is used to mangle __asm declarations and
   // strip it if present.
   if (funcName.front() == '\01')
     funcName = funcName.substr(1);
-  const char **I = std::lower_bound(Start, End, funcName, StringComparator());
+  return funcName;
+}
+
+bool TargetLibraryInfoImpl::getLibFunc(StringRef funcName,
+                                   LibFunc::Func &F) const {
+  const char **Start = &StandardNames[0];
+  const char **End = &StandardNames[LibFunc::NumLibFuncs];
+
+  funcName = sanitizeFunctionName(funcName);
+  if (funcName.empty())
+    return false;
+
+  const char **I = std::lower_bound(
+      Start, End, funcName, [](const char *LHS, StringRef RHS) {
+        return std::strncmp(LHS, RHS.data(), RHS.size()) < 0;
+      });
   if (I != End && *I == funcName) {
     F = (LibFunc::Func)(I - Start);
     return true;
@@ -841,23 +419,48 @@ bool TargetLibraryInfo::getLibFunc(StringRef funcName,
   return false;
 }
 
-void TargetLibraryInfo::disableAllFunctions() {
+void TargetLibraryInfoImpl::disableAllFunctions() {
   memset(AvailableArray, 0, sizeof(AvailableArray));
 }
 
+TargetLibraryInfo TargetLibraryAnalysis::run(Module &M) {
+  if (PresetInfoImpl)
+    return TargetLibraryInfo(*PresetInfoImpl);
+
+  return TargetLibraryInfo(lookupInfoImpl(Triple(M.getTargetTriple())));
+}
+
+TargetLibraryInfo TargetLibraryAnalysis::run(Function &F) {
+  if (PresetInfoImpl)
+    return TargetLibraryInfo(*PresetInfoImpl);
+
+  return TargetLibraryInfo(
+      lookupInfoImpl(Triple(F.getParent()->getTargetTriple())));
+}
+
+TargetLibraryInfoImpl &TargetLibraryAnalysis::lookupInfoImpl(Triple T) {
+  std::unique_ptr<TargetLibraryInfoImpl> &Impl =
+      Impls[T.normalize()];
+  if (!Impl)
+    Impl.reset(new TargetLibraryInfoImpl(T));
+
+  return *Impl;
+}
+
+
 TargetLibraryInfoWrapperPass::TargetLibraryInfoWrapperPass()
-    : ImmutablePass(ID), TLI() {
+    : ImmutablePass(ID), TLIImpl(), TLI(TLIImpl) {
   initializeTargetLibraryInfoWrapperPassPass(*PassRegistry::getPassRegistry());
 }
 
 TargetLibraryInfoWrapperPass::TargetLibraryInfoWrapperPass(const Triple &T)
-    : ImmutablePass(ID), TLI(T) {
+    : ImmutablePass(ID), TLIImpl(T), TLI(TLIImpl) {
   initializeTargetLibraryInfoWrapperPassPass(*PassRegistry::getPassRegistry());
 }
 
 TargetLibraryInfoWrapperPass::TargetLibraryInfoWrapperPass(
-    const TargetLibraryInfo &TLI)
-    : ImmutablePass(ID), TLI(TLI) {
+    const TargetLibraryInfoImpl &TLIImpl)
+    : ImmutablePass(ID), TLIImpl(TLIImpl), TLI(this->TLIImpl) {
   initializeTargetLibraryInfoWrapperPassPass(*PassRegistry::getPassRegistry());
 }
 

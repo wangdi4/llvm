@@ -13,7 +13,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "ChooseVectorizationDimension.h"
 
 #include "llvm/Pass.h"
-#include "llvm/PassManager.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
@@ -121,9 +121,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
   V_PRINT(VectorizerCore, "\nBefore preparations!\n");
   // Function-wide (preparations)
   {
-    FunctionPassManager fpm1(M);
-    DataLayoutPass *DLP = new DataLayoutPass();
-    fpm1.add(DLP);
+    legacy::FunctionPassManager fpm1(M);
     fpm1.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModule(), ""));
 
     // Register lowerswitch
@@ -213,9 +211,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
   // Function-wide (vectorization)
   V_PRINT(VectorizerCore, "\nBefore vectorization passes!\n");
   {
-    FunctionPassManager fpm2(M);
-    DataLayoutPass *DLP2 = new DataLayoutPass();
-    fpm2.add(DLP2);
+    legacy::FunctionPassManager fpm2(M);
     BuiltinLibInfo* pBuiltinInfoPass = (BuiltinLibInfo*)
       createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModule(), "");
     pBuiltinInfoPass->getRuntimeServices()->setPacketizationWidth(m_packetWidth);

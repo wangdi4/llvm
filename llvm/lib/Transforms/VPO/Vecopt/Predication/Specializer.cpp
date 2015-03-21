@@ -271,7 +271,7 @@ void FunctionSpecializer::addAuxBBForSingleExitEdge(BypassInfo & info) {
     // Add the new block to the loop info analysis
     Loop *loop = m_LI->getLoopFor(info.m_postDom);
     if (loop)
-      loop->addBasicBlockToLoop(new_block, m_LI->getBase());
+      loop->addBasicBlockToLoop(new_block, *m_LI);
 
     TerminatorInst* term = info.m_postDom->getTerminator();
     assert (isa<BranchInst>(term) && "term should be a branch instruction");

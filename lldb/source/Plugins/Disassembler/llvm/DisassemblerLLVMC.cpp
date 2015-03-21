@@ -371,7 +371,7 @@ public:
                 }
             }
 
-            static RegularExpression s_regex("[ \t]*([^ ^\t]+)[ \t]*([^ ^\t].*)?", REG_EXTENDED);
+            static RegularExpression s_regex("[ \t]*([^ ^\t]+)[ \t]*([^ ^\t].*)?");
 
             RegularExpression::Match matches(3);
 
@@ -457,7 +457,7 @@ DisassemblerLLVMC::LLVMCDisassembler::LLVMCDisassembler (const char *triple, uns
         std::unique_ptr<llvm::MCSymbolizer> symbolizer_up(curr_target->createMCSymbolizer(triple, NULL,
                        DisassemblerLLVMC::SymbolLookupCallback,
                        (void *) &owner,
-                       m_context_ap.get(), RelInfo.release()));
+                       m_context_ap.get(), std::move(RelInfo)));
         m_disasm_ap->setSymbolizer(std::move(symbolizer_up));
 
 
@@ -792,25 +792,63 @@ const char *DisassemblerLLVMC::SymbolLookup (uint64_t value,
             //std::string remove_this_prior_to_checkin;
             Target *target = m_exe_ctx ? m_exe_ctx->GetTargetPtr() : NULL;
             Address value_so_addr;
+            Address pc_so_addr;
             if (m_inst->UsingFileAddress())
             {
                 ModuleSP module_sp(m_inst->GetAddress().GetModule());
                 if (module_sp)
+                {
                     module_sp->ResolveFileAddress(value, value_so_addr);
+                    module_sp->ResolveFileAddress(pc, pc_so_addr);
+                }
             }
             else if (target && !target->GetSectionLoadList().IsEmpty())
             {
                 target->GetSectionLoadList().ResolveLoadAddress(value, value_so_addr);
+                target->GetSectionLoadList().ResolveLoadAddress(pc, pc_so_addr);
+            }
+
+            SymbolContext sym_ctx;
+            const uint32_t resolve_scope = eSymbolContextFunction | eSymbolContextSymbol;
+            if (pc_so_addr.IsValid() && pc_so_addr.GetModule())
+            {
+                pc_so_addr.GetModule()->ResolveSymbolContextForAddress (pc_so_addr, resolve_scope, sym_ctx);
             }
 
             if (value_so_addr.IsValid() && value_so_addr.GetSection())
             {
                 StreamString ss;
 
-                value_so_addr.Dump (&ss,
-                                    target,
-                                    Address::DumpStyleResolvedDescriptionNoFunctionArguments,
-                                    Address::DumpStyleSectionNameOffset);
+                bool format_omitting_current_func_name = false;
+                if (sym_ctx.symbol || sym_ctx.function)
+                {
+                    AddressRange range;
+                    if (sym_ctx.GetAddressRange (resolve_scope, 0, false, range) 
+                        && range.GetBaseAddress().IsValid() 
+                        && range.ContainsLoadAddress (value_so_addr, target))
+                    {
+                        format_omitting_current_func_name = true;
+                    }
+                }
+                
+                // If the "value" address (the target address we're symbolicating)
+                // is inside the same SymbolContext as the current instruction pc
+                // (pc_so_addr), don't print the full function name - just print it
+                // with DumpStyleNoFunctionName style, e.g. "<+36>".
+                if (format_omitting_current_func_name)
+                {
+                    value_so_addr.Dump (&ss,
+                                        target,
+                                        Address::DumpStyleNoFunctionName,
+                                        Address::DumpStyleSectionNameOffset);
+                }
+                else
+                {
+                    value_so_addr.Dump (&ss,
+                                        target,
+                                        Address::DumpStyleResolvedDescriptionNoFunctionArguments,
+                                        Address::DumpStyleSectionNameOffset);
+                }
 
                 if (!ss.GetString().empty())
                 {

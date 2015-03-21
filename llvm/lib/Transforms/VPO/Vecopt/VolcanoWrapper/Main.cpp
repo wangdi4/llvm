@@ -19,7 +19,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Pass.h"
-#include "llvm/PassManager.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Transforms/Scalar.h"
@@ -116,7 +116,7 @@ Vectorizer::Vectorizer(const Module * rt, const OptimizerConfig* pConfig) :
   if (m_pConfig == NULL)
     m_pConfig = &defaultOptimizerConfig;
   // init debug prints
-  initializeLoopInfoPass(*PassRegistry::getPassRegistry());
+  initializeLoopInfoWrapperPassPass(*PassRegistry::getPassRegistry());
   //  createBuiltinLibInfoPass(new Module("empty", *new LLVMContext()), "");
 //  initializeVectorizerPass(*PassRegistry::getPassRegistry());
   V_INIT_PRINT;
@@ -476,9 +476,7 @@ bool Vectorizer::preVectorizeFunction(Function& F) {
 
   Module *M = F.getParent();
 
-  FunctionPassManager fpm(M);
-  DataLayoutPass *DLP = new DataLayoutPass();
-  fpm.add(DLP);
+  legacy::FunctionPassManager fpm(M);
   fpm.add(createBuiltinLibInfoPass(M, ""));
 
   // Register lowerswitch
@@ -529,9 +527,7 @@ void Vectorizer::vectorizeFunction(Function& F, VectorVariant& vectorVariant) {
   V_PRINT(VectorizerCore, "\nBefore vectorization passes!\n");
 
   Module *M = F.getParent();
-  FunctionPassManager fpm(M);
-  DataLayoutPass *DLP2 = new DataLayoutPass();
-  fpm.add(DLP2);
+  legacy::FunctionPassManager fpm(M);
   BuiltinLibInfo* pBuiltinInfoPass =
     (BuiltinLibInfo*)createBuiltinLibInfoPass(M, "");
   pBuiltinInfoPass->getRuntimeServices()->setPacketizationWidth(vectorVariant.getVlen());
@@ -732,7 +728,7 @@ Function* Vectorizer::createVectorVersion(Function& vectorizedFunction,
 
 void Vectorizer::postVectorizeFunction(Function& F) {
   Module *M = F.getParent();
-  FunctionPassManager fpm(M);
+  legacy::FunctionPassManager fpm(M);
 
   fpm.add(createBuiltinLibInfoPass(M, ""));
 
