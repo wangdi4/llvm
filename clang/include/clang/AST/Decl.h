@@ -1484,10 +1484,11 @@ private:
   bool IsExplicitlyDefaulted : 1; //sunk from CXXMethodDecl
   bool HasImplicitReturnZero : 1;
   bool IsLateTemplateParsed : 1;
-  bool IsConstexpr : 1;
 #ifdef INTEL_CUSTOMIZATION  
   bool IsSpawning: 1;
 #endif
+  bool IsConstexpr : 1;
+
   /// \brief Indicates if the function uses __try.
   bool UsesSEHTry : 1;
 
@@ -1582,8 +1583,8 @@ protected:
 #ifdef INTEL_CUSTOMIZATION
       IsSpawning(false),
 #endif
-      HasSkippedBody(false), EndRangeLoc(NameInfo.getEndLoc()),
       IsConstexpr(isConstexprSpecified), UsesSEHTry(false),
+      HasSkippedBody(false), EndRangeLoc(NameInfo.getEndLoc()),
       TemplateOrSpecialization(),
       DNLoc(NameInfo.getInfo()) {}
 
