@@ -65,10 +65,6 @@ CanonExpr *CanonExpr::clone() const {
   return CE;
 }
 
-void CanonExpr::dump() const {
-  print();
-}
-
 bool CanonExpr::hasIV() const {
 
   bool ret = false;
