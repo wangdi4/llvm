@@ -1177,6 +1177,14 @@ public:
     DeclRefExprBits.HadMultipleCandidates = V;
   }
 
+#ifdef INTEL_CUSTOMIZATION
+  /// \brief Sets the flag telling whether this expression refers to
+  /// enclosing variable or capture
+  void setRefersToEnclosingVariableOrCapture(bool V = true) {
+    DeclRefExprBits.RefersToEnclosingVariableOrCapture = V;
+  }
+#endif  // INTEL_CUSTOMIZATION
+
   /// \brief Does this DeclRefExpr refer to an enclosing local or a captured
   /// variable?
   bool refersToEnclosingVariableOrCapture() const {

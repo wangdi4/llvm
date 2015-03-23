@@ -2390,33 +2390,6 @@ Decl *TemplateDeclInstantiator::VisitClassScopeFunctionSpecializationDecl(
   return NewFD;
 }
 
-#ifdef INTEL_CUSTOMIZATION
-Decl *TemplateDeclInstantiator::VisitCilkSpawnDecl(CilkSpawnDecl *D) {
-  VarDecl *VD = D->getReceiverDecl();
-  assert(VD && "Cilk spawn receiver expected");
-  Decl *NewDecl = SemaRef.SubstDecl(VD, Owner, TemplateArgs);
-  return SemaRef.BuildCilkSpawnDecl(NewDecl);
-}
-
-Decl *TemplateDeclInstantiator::VisitPragmaDecl(PragmaDecl *D) {
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  PragmaDecl *TD = PragmaDecl::Create(SemaRef.Context, Owner, D->getLocStart());
-  PragmaStmt *S = D->getStmt();
-  if (S) {
-    StmtResult Res  = SemaRef.SubstStmt(S, TemplateArgs);
-    if (Res.isUsable())
-      S = cast<PragmaStmt>(Res.get());
-  }
-  TD->setStmt(S);
-  return TD;
-#else
-  llvm_unreachable(
-      "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
-  return nullptr;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-}
-#endif  // INTEL_CUSTOMIZATION
-
 Decl *TemplateDeclInstantiator::VisitOMPThreadPrivateDecl(
                                      OMPThreadPrivateDecl *D) {
   SmallVector<Expr *, 5> Vars;

@@ -862,19 +862,7 @@ static bool shouldUseLifetimeMarkers(CodeGenFunction &CGF, const VarDecl &D,
 
   return Size > SizeThreshold;
 }
-#ifdef INTEL_CUSTOMIZATION
-/// EmitCaptureReceiverDecl - Emit allocation and cleanup code for
-/// a receiver declaration in a captured statement. The initialization
-/// is emitted in the helper function.
-void CodeGenFunction::EmitCaptureReceiverDecl(const VarDecl &D) {
-#ifndef NDEBUG
-  const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(CurFuncDecl);
-  assert(FD && FD->isSpawning() && "unexpected function declaration");
-#endif
-  AutoVarEmission Emission = EmitAutoVarAlloca(D);
-  EmitAutoVarCleanups(Emission);
-}
-#endif  // INTEL_CUSTOMIZATION
+
 /// EmitAutoVarDecl - Emit code and set up an entry in LocalDeclMap for a
 /// variable declaration with auto, register, or no storage class specifier.
 /// These turn into simple stack objects, or GlobalValues depending on target.

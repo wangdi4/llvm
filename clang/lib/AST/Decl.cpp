@@ -3886,54 +3886,6 @@ CapturedDecl *CapturedDecl::CreateDeserialized(ASTContext &C, unsigned ID,
       CapturedDecl(nullptr, NumParams);
 }
 
-#ifdef INTEL_CUSTOMIZATION
-CilkSpawnDecl::CilkSpawnDecl(DeclContext *DC, CapturedStmt *Spawn) :
-  Decl(CilkSpawn, DC, Spawn->getLocStart()), CapturedSpawn(Spawn) {
-}
-
-CilkSpawnDecl *CilkSpawnDecl::Create(ASTContext &C, DeclContext *DC,
-                                     CapturedStmt *Spawn) {
-  return new (C, DC) CilkSpawnDecl(DC, Spawn);
-}
-
-CilkSpawnDecl *CilkSpawnDecl::CreateDeserialized(ASTContext &C, unsigned ID) {
-  return new (C, ID) CilkSpawnDecl(nullptr, nullptr);
-}
-
-Stmt *CilkSpawnDecl::getSpawnStmt() {
-  return getCapturedStmt()->getCapturedStmt();
-}
-
-bool CilkSpawnDecl::hasReceiver() const {
-  const Stmt *S = getSpawnStmt();
-  assert(S && "null spawn statement");
-  return isa<DeclStmt>(S);
-}
-
-VarDecl *CilkSpawnDecl::getReceiverDecl() const {
-  Stmt *S = const_cast<Stmt *>(getSpawnStmt());
-  assert(S && "null spawn statement");
-  if (DeclStmt *DS = dyn_cast<DeclStmt>(S)) {
-    assert(DS->isSingleDecl() && "single declaration expected");
-    return cast<VarDecl>(DS->getSingleDecl());
-  }
-
-  return 0;
-}
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-void PragmaDecl::anchor() { }
-
-PragmaDecl *PragmaDecl::Create(ASTContext &C, DeclContext *DC,
-                         SourceLocation IdentL) {
-  return new (C, DC) PragmaDecl(DC, IdentL);
-}
-
-PragmaDecl *PragmaDecl::CreateDeserialized(ASTContext &C, unsigned ID) {
-  return new (C, ID) PragmaDecl(nullptr, SourceLocation());
-}
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-#endif  // INTEL_CUSTOMIZATION
-
 EnumConstantDecl *EnumConstantDecl::Create(ASTContext &C, EnumDecl *CD,
                                            SourceLocation L,
                                            IdentifierInfo *Id, QualType T,

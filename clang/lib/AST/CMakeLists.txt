@@ -34,6 +34,10 @@ add_clang_library(clangAST
   InheritViz.cpp
   ItaniumCXXABI.cpp
   ItaniumMangle.cpp
+#ifdef INTEL_CUSTOMIZATION
+  intel/DeclIntel.cpp
+  intel/ExprIntel.cpp
+#endif // INTEL_CUSTOMIZATION
   Mangle.cpp
   MicrosoftCXXABI.cpp
   MicrosoftMangle.cpp

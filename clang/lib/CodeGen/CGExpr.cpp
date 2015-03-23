@@ -1971,6 +1971,13 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
                 assert(Addr && "missing local variable address");
                 return MakeAddrLValue(Addr, T, Alignment);
               }
+          } else if (CapturedStmtInfo->getKind() == CR_CilkSpawn) {
+            CGCilkSpawnInfo *SSI = cast<CGCilkSpawnInfo>(CapturedStmtInfo);
+            if (SSI->isReceiverDecl(ND))
+              if (llvm::Value *Addr = SSI->getReceiverAddr()) {
+                assert(Addr && "missing the receiver address");
+                return MakeAddrLValue(Addr, T, Alignment);
+              }
           }
 // Otherwise load it from the captured struct.
 #endif  // INTEL_CUSTOMIZATION
@@ -1984,6 +1991,18 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
       return MakeAddrLValue(GetAddrOfBlockDecl(VD, VD->hasAttr<BlocksAttr>()),
                             T, Alignment);
     }
+
+#ifdef INTEL_CUSTOMIZATION
+    // special case of receiver declared in advance
+    // int i;
+    // i = Spawn foo();
+    else if (CapturedStmtInfo && (CapturedStmtInfo->getKind() == CR_CilkSpawn)
+              && CapturedStmtInfo->lookup(VD)){
+      return EmitCapturedFieldLValue(*this, CapturedStmtInfo->lookup(VD),
+                                         CapturedStmtInfo->getContextValue());
+    }
+#endif  // INTEL_CUSTOMIZATION
+
   }
 
   // FIXME: We should be able to assert this for FunctionDecls as well!

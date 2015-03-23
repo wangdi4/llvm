@@ -21,6 +21,7 @@
 #include "clang/Sema/Overload.h"
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/SemaInternal.h"
+#include "clang/Sema/Template.h"
 
 using namespace clang;
 using namespace sema;
@@ -4551,4 +4552,72 @@ StmtResult Sema::BuildSIMDForStmt(SourceLocation PragmaLoc,
 
   return Result;
 }
+
+ExprResult
+Sema::ActOnCilkSpawnCall(SourceLocation SpawnLoc, Expr *E) {
+  assert(FunctionScopes.size() > 0 && "FunctionScopes missing TU scope");
+  if (FunctionScopes.size() < 1 ||
+      getCurFunction()->CompoundScopes.size() < 1) {
+    Diag(SpawnLoc, diag::err_spawn_invalid_scope);
+    return ExprError();
+  }
+
+  return BuildCilkSpawnCall(SpawnLoc, E);
+}
+
+ExprResult
+Sema::BuildCilkSpawnCall(SourceLocation SpawnLoc, Expr *E) {
+  assert(E && "null expression");
+
+  CallExpr *Call = dyn_cast<CallExpr>(E->IgnoreImplicitForCilkSpawn());
+
+  if (Call){
+    if (CXXOperatorCallExpr *O = dyn_cast<CXXOperatorCallExpr>(Call))
+      Call = O->getOperator() == OO_Call ? Call : 0;
+    else if (dyn_cast<CXXPseudoDestructorExpr>(Call->getCallee()))
+      return E; // simply discard the spawning of pseudo destructor
+  }
+
+  if (!Call) {
+    Diag(E->getExprLoc(), PDiag(diag::err_not_a_call) << getExprRange(E));
+    return ExprError();
+  }
+
+  if (Call->isCilkSpawnCall()) {
+    Diag(E->getExprLoc(), diag::err_spawn_spawn);
+    return ExprError();
+  }
+
+  Call->setCilkSpawnLoc(SpawnLoc);
+  getCurCompoundScope().setHasCilkSpawn();
+  CilkSpawnCalls.push_back(Call);
+
+  return E;
+}
+
+Decl *TemplateDeclInstantiator::VisitCilkSpawnDecl(CilkSpawnDecl *D) {
+  VarDecl *VD = D->getReceiverDecl();
+  assert(VD && "Cilk spawn receiver expected");
+  Decl *NewDecl = SemaRef.SubstDecl(VD, Owner, TemplateArgs);
+  return SemaRef.BuildCilkSpawnDecl(NewDecl);
+}
+
+Decl *TemplateDeclInstantiator::VisitPragmaDecl(PragmaDecl *D) {
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  PragmaDecl *TD = PragmaDecl::Create(SemaRef.Context, Owner, D->getLocStart());
+  PragmaStmt *S = D->getStmt();
+  if (S) {
+    StmtResult Res  = SemaRef.SubstStmt(S, TemplateArgs);
+    if (Res.isUsable())
+      S = cast<PragmaStmt>(Res.get());
+  }
+  TD->setStmt(S);
+  return TD;
+#else
+  llvm_unreachable(
+      "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
+  return nullptr;
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+}
+
 #endif  // INTEL_CUSTOMIZATION
