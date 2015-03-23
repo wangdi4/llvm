@@ -376,8 +376,8 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *I) {
   // be created before other operands are cg'd
   if (isa<StoreInst>(I->getLLVMInstruction())) {
     // TODO change twine?
-    LoadInst *Load = Builder->CreateLoad(Ops[0], "gepload");
-    Builder->CreateStore(Load, Ops[1]);
+    LoadInst *Load = Builder->CreateLoad(Ops[1], "gepload");
+    Builder->CreateStore(Load, Ops[0]);
   } else {
     llvm_unreachable("Unimpl CG for inst");
   }
