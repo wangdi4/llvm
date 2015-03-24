@@ -1,5 +1,4 @@
 // RUN: %clang_cc1 -std=c++11 -fcxx-exceptions -fexceptions -fcilkplus -emit-llvm %s -o - | FileCheck %s
-// XFAIL: win32
 
 #define BIG_NUM 30
 int global = 0;
@@ -38,8 +37,8 @@ void test1() {
   global = _Cilk_spawn Fib(BIG_NUM);
 
   // Make sure implicit sync is inserted
-  // CHECK: [[Flag:%[0-9]+]] = getelementptr inbounds %__cilkrts_stack_frame* %__cilkrts_sf, i32 0, i32 0
-  // CHECK-NEXT: [[Load:%[0-9]+]] = load i32* [[Flag]]
+  // CHECK: [[Flag:%[0-9]+]] = getelementptr inbounds %__cilkrts_stack_frame, %__cilkrts_stack_frame* %__cilkrts_sf, i32 0, i32 0
+  // CHECK-NEXT: [[Load:%[0-9]+]] = load i32, i32* [[Flag]]
   // CHECK-NEXT: [[Check:%[0-9]+]] = and i32 [[Load]], 2
   // CHECK-NEXT: [[Br:%[0-9]+]] = icmp eq i32 [[Check]], 0
   // CHECK-NEXT: br i1 [[Br]], label %{{.*}}, label %{{.*}}
@@ -75,8 +74,8 @@ void test2() {
   global = _Cilk_spawn Fib(BIG_NUM);
 
   // Make sure explicit call to sync is made
-  // CHECK: [[Flag:%[0-9]+]] = getelementptr inbounds %__cilkrts_stack_frame* %__cilkrts_sf, i32 0, i32 0
-  // CHECK-NEXT: [[Load:%[0-9]+]] = load i32* [[Flag]]
+  // CHECK: [[Flag:%[0-9]+]] = getelementptr inbounds %__cilkrts_stack_frame, %__cilkrts_stack_frame* %__cilkrts_sf, i32 0, i32 0
+  // CHECK-NEXT: [[Load:%[0-9]+]] = load i32, i32* [[Flag]]
   // CHECK-NEXT: [[Check:%[0-9]+]] = and i32 [[Load]], 2
   // CHECK-NEXT: [[Br:%[0-9]+]] = icmp eq i32 [[Check]], 0
   // CHECK-NEXT: br i1 [[Br]], label %{{.*}}, label %{{.*}}
@@ -123,7 +122,7 @@ void test3() {
 int test4() {
   // CHECK: define i32 @_Z5test4v()
 
-  // CHECK: [[Retval:%[0-9]+]] = load i32* %local
+  // CHECK: [[Retval:%[0-9]+]] = load i32, i32* %local
 
   // CHECK: call void @__cilkrts_sync
 

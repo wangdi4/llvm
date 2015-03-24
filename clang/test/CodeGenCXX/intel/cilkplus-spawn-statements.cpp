@@ -31,7 +31,6 @@
 // RUN: FileCheck -check-prefix=CHECK-CILK30 --input-file=%t %s
 // RUN: FileCheck -check-prefix=CHECK-CILK31 --input-file=%t %s
 
-// XFAIL: win32
 
 /*
  *  A _Cilk_spawn can only appear in 3 places
@@ -436,7 +435,7 @@ void test() {
   //
   // CHECK-CILK14: define internal void @[[Helper]]
   // CHECK-CILK14:   call {{.*}}float* @
-  // CHECK-CILK14-NEXT: load float*
+  // CHECK-CILK14-NEXT: load float, float*
   // CHECK-CILK14-NEXT: store float %
 
   rvalue_ref_from_temp<float, 1003>();
