@@ -1551,11 +1551,11 @@ cl_int ContextModule::GetKernelWorkGroupInfo(cl_kernel clKernel,
 cl_mem ContextModule::CreateBuffer(cl_context clContext, 
                                    cl_mem_flags clFlags, 
                                    size_t szSize, 
-                                   void * pHostPtr, 
+                                   void * pHostPtr,
                                    cl_int * pErrcodeRet)
 {
-    LOG_DEBUG(TEXT("Enter CreateBuffer (clContext=%d, clFlags=%d, szSize=%d, pHostPtr=%d, pErrcodeRet=%d)"), 
-        clContext, clFlags, szSize, pHostPtr, pErrcodeRet);
+    LOG_DEBUG(TEXT("Enter CreateBuffer (clContext=%d, clFlags=%llu, szSize=%u, pHostPtr=%d, pErrcodeRet=%d)"),
+        clContext, (unsigned long long) clFlags, szSize, pHostPtr, pErrcodeRet);
 
     SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)clContext).DynamicCast<Context>();    
     if (NULL == pContext)
@@ -1631,6 +1631,9 @@ cl_mem ContextModule::CreateBuffer(cl_context clContext,
     {
         *pErrcodeRet = CL_SUCCESS;
     }
+
+    LOG_DEBUG(TEXT("CreateBuffer return handle %d"), pBuffer->GetHandle());
+
     return pBuffer->GetHandle();
 }
 //////////////////////////////////////////////////////////////////////////
@@ -1642,8 +1645,8 @@ cl_mem ContextModule::CreateSubBuffer(cl_mem                clBuffer,
                                    const void *                buffer_create_info, 
                                    cl_int *                    pErrcodeRet)
 {
-    LOG_INFO(TEXT("Enter CreateSubBuffer (clFlags=%d, cl_buffer_create_type=%d, pErrcodeRet=%d)"), 
-        clFlags, buffer_create_type, pErrcodeRet);
+    LOG_INFO(TEXT("Enter CreateSubBuffer (clBuffer=%d, clFlags=%llu, cl_buffer_create_type=%d, pErrcodeRet=%d)"),
+        clBuffer, (unsigned long long) clFlags, buffer_create_type, pErrcodeRet);
 
     cl_int iNullErr;
     cl_int& iErr = pErrcodeRet ? *pErrcodeRet : iNullErr;
@@ -1711,7 +1714,9 @@ cl_mem ContextModule::CreateSubBuffer(cl_mem                clBuffer,
         iErr = CL_SUCCESS;
     }
 
-    return pBuffer->GetHandle();    
+    LOG_DEBUG(TEXT("CreateSubBuffer returned handle = %d"), pBuffer->GetHandle());
+
+    return pBuffer->GetHandle();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1723,10 +1728,14 @@ cl_mem ContextModule::CreateImage2D(cl_context clContext,
                                     size_t szImageWidth, 
                                     size_t szImageHeight, 
                                     size_t szImageRowPitch, 
-                                    void * pHostPtr, 
+                                    void * pHostPtr,
                                     cl_int * pErrcodeRet)
 {
-    return CreateScalarImage<2, CL_MEM_OBJECT_IMAGE2D>(clContext, clFlags, clImageFormat, szImageWidth, szImageHeight, 0, szImageRowPitch, 0, pHostPtr, pErrcodeRet);
+    const cl_mem image = CreateScalarImage<2, CL_MEM_OBJECT_IMAGE2D>(clContext, clFlags, clImageFormat, szImageWidth, szImageHeight, 0, szImageRowPitch, 0, pHostPtr, pErrcodeRet);
+
+    LOG_DEBUG(TEXT("CreateImage2D returned handle = %d"), image);
+
+    return image;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1743,8 +1752,12 @@ cl_mem ContextModule::CreateImage3D(cl_context clContext,
                                     void * pHostPtr, 
                                     cl_int * pErrcodeRet)
 {
-    return CreateScalarImage<3, CL_MEM_OBJECT_IMAGE3D>(clContext, clFlags, clImageFormat, szImageWidth, szImageHeight, szImageDepth, szImageRowPitch, szImageSlicePitch,
+    const cl_mem image = CreateScalarImage<3, CL_MEM_OBJECT_IMAGE3D>(clContext, clFlags, clImageFormat, szImageWidth, szImageHeight, szImageDepth, szImageRowPitch, szImageSlicePitch,
         pHostPtr, pErrcodeRet);
+
+    LOG_DEBUG(TEXT("CreateImage3D returned handle = %d"), image);
+
+    return image;
 }
 
 /************************************************************************/
@@ -1757,8 +1770,8 @@ cl_mem ContextModule::CreateImage(cl_context context,
                                   void *host_ptr,
                                   cl_int *errcode_ret)
 {
-    LOG_DEBUG(TEXT("Enter CreateImage(context=%p, flags=%d, image_format=%p, image_desc=%p, host_ptr=%p, errcode_ret=%p"),
-        context, flags, image_format, image_desc, host_ptr, errcode_ret);
+    LOG_DEBUG(TEXT("Enter CreateImage(context=%p, flags=%llu, image_format=%p, image_desc=%p, host_ptr=%p, errcode_ret=%p"),
+        context, (unsigned long long) flags, image_format, image_desc, host_ptr, errcode_ret);
 
     cl_mem clMemObj = CL_INVALID_HANDLE;
 
@@ -1823,6 +1836,9 @@ cl_mem ContextModule::CreateImage(cl_context context,
             *errcode_ret = CL_INVALID_IMAGE_DESCRIPTOR;
         }
     }
+
+    LOG_DEBUG(TEXT("CreateImage returned handle = %d"), clMemObj);
+
     return clMemObj;
 }
 

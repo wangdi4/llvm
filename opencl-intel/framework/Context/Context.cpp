@@ -818,8 +818,8 @@ cl_err_code Context::RemoveSampler(cl_sampler clSampler)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pHostPtr, SharedPtr<MemoryObject>* ppBuffer)
 {
-    LOG_DEBUG(TEXT("Enter CreateBuffer (cl_mem_flags=%d, szSize=%d, pHostPtr=%d, ppBuffer=%d)"),
-        clFlags, szSize, pHostPtr, ppBuffer);
+    LOG_DEBUG(TEXT("Enter CreateBuffer (cl_mem_flags=%llu, szSize=%u, pHostPtr=%d, ppBuffer=%d)"),
+        (unsigned long long) clFlags, szSize, pHostPtr, ppBuffer);
 
     assert ( NULL != ppBuffer );
 
@@ -859,7 +859,7 @@ cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pH
 cl_err_code Context::CreateSubBuffer(SharedPtr<MemoryObject> pBuffer, cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
                                      const void * buffer_create_info, SharedPtr<MemoryObject>* ppBuffer)
 {
-    LOG_DEBUG(TEXT("Enter CreateBuffer (cl_mem_flags=%d, buffer_create_type=%d, ppBuffer=%d)"),
+    LOG_DEBUG(TEXT("Enter CreateSubBuffer (cl_mem_flags=%d, buffer_create_type=%d, ppBuffer=%d)"),
         clFlags, buffer_create_type, ppBuffer);
 
     assert ( NULL != ppBuffer );

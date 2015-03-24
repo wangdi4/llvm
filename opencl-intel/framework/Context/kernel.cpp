@@ -796,8 +796,9 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
             {
                 // value is not NULL - get memory object from context
                 cl_mem clMemId = *((cl_mem*)(pValue));
-                clArg.SetSvmObject( NULL ); 
-                if (NULL == clMemId)  
+                LOG_DEBUG(TEXT("SetKernelArg buffer (cl_mem=%d)"), clMemId);
+                clArg.SetSvmObject( NULL );
+                if (NULL == clMemId)
                 {
                     clArg.SetValue(sizeof(cl_mem), NULL);
                 }
@@ -828,6 +829,8 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
         }
 
         cl_mem clMemId = *((cl_mem*)(pValue));
+
+        LOG_DEBUG(TEXT("SetKernelArg image (cl_mem=%d)"), clMemId);
 
         const SharedPtr<MemoryObject>& pMemObj = pContext->GetMemObject(clMemId);
         if (NULL == pMemObj)
