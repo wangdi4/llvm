@@ -1124,7 +1124,7 @@ cl_int CL_API_CALL clGetCommandQueueInfo(
     {
     case CL_QUEUE_REFERENCE_COUNT:
         {
-            pValueSize = sizeof(crtQueue->m_refCount);
+            pValueSize = sizeof( (cl_uint)crtQueue->m_refCount );
             if (param_value && param_value_size >= pValueSize)
             {
                 *((cl_uint*)param_value) = crtQueue->m_refCount;
@@ -2163,21 +2163,24 @@ void * CL_API_CALL clEnqueueMapBuffer(
                 &errCode);
     }
 
-    if (errCode == CL_SUCCESS && event)
+    if (errCode == CL_SUCCESS)
     {
-        _cl_event_crt* event_handle = new _cl_event_crt;
-        if (!event_handle)
+    	if (event)
         {
-            errCode = CL_OUT_OF_HOST_MEMORY;
-            goto FINISH;
+            _cl_event_crt* event_handle = new _cl_event_crt;
+            if (!event_handle)
+            {
+                errCode = CL_OUT_OF_HOST_MEMORY;
+                goto FINISH;
+            }
+            event_handle->object = (void*)crtEvent;
+            *event = event_handle;
         }
-        event_handle->object = (void*)crtEvent;
-        *event = event_handle;
-    }
-    else
-    {
-        crtEvent->Release();
-        crtEvent->DecPendencyCnt();
+        else
+        {
+            crtEvent->Release();
+            crtEvent->DecPendencyCnt();
+        }
     }
 
 FINISH:
@@ -3396,6 +3399,16 @@ CL_API_ENTRY cl_program CL_API_CALL clLinkProgram(
         errCode = CL_OUT_OF_HOST_MEMORY;
         goto FINISH;
     }
+
+    if( options )
+    {
+        crtProg->m_options.assign( options );
+    }
+    else
+    {
+        crtProg->m_options.assign( "" );
+    }
+    
     crtProg->m_program_handle = ( cl_program ) program;
     program->object = (void *) crtProg;
 
@@ -3606,6 +3619,8 @@ CL_API_ENTRY cl_int CL_API_CALL clCompileProgram(
     cl_uint deviceListSize          = 0;
     cl_device_id* outDevices        = NULL;
     CrtProgram* crtProg             = NULL;
+    CrtProgram* headProg            = NULL;
+    cl_program* inHeaders           = NULL;
 
     if( OCLCRT::crt_ocl_module.m_CrtPlatformVersion < OPENCL_1_2 )
     {
@@ -3620,6 +3635,11 @@ CL_API_ENTRY cl_int CL_API_CALL clCompileProgram(
     {
         crtProg->m_options.assign( options );
     }
+    else
+    {
+        crtProg->m_options.assign( "" );
+    }
+ 
     optReflect.assign( crtProg ->m_options );
     if( optReflect.find("-cl-kernel-arg-info") == std::string::npos )
     {
@@ -3695,16 +3715,40 @@ CL_API_ENTRY cl_int CL_API_CALL clCompileProgram(
         crtProg->m_buildContexts.push_back(ctx);
         cl_program prog = crtProg->m_ContextToProgram[ctx];
 
+        if ( num_input_headers > 0 )
+        {
+            inHeaders = new cl_program[ num_input_headers ];
+            if( inHeaders )
+            {
+                for ( cl_uint j=0; j < num_input_headers; j++ )
+                {
+                    headProg = reinterpret_cast<CrtProgram*>((( _cl_program_crt* ) input_headers[j])->object );
+                    inHeaders[j] = headProg->m_ContextToProgram[ctx];
+                }
+            }
+            else
+            {
+                errCode = CL_OUT_OF_RESOURCES;
+                goto FINISH;
+            }
+
+        }
+
         errCode = prog->dispatch->clCompileProgram(
             prog,
             matchDevices,
             outDevices,
             optReflect.c_str(),
             num_input_headers,
-            input_headers,
+            inHeaders,
             header_include_names,
             *buildCompleteFn,
             crtData);
+        
+        if ( inHeaders )
+        {
+            delete[] inHeaders;
+        }
 
         // if ( CL_COMPILE_PROGRAM_FAILURE != errCode ) is True; it means that
         // This is the first call to the underlying platforms, since the previous
@@ -3815,7 +3859,7 @@ cl_int CL_API_CALL clGetProgramBuildInfo( cl_program             program,
 
     if( param_name == CL_PROGRAM_BUILD_OPTIONS )
     {
-        size_t pValueSize = ( pgm->m_options.size() == 0 ) ? 0 : ( pgm->m_options.size() + 1 );
+        size_t pValueSize = ( pgm->m_options.size() == 0 ) ? 1 : ( pgm->m_options.size() + 1 );
         if( param_value != NULL )
         {
             if( param_value_size < pValueSize )
@@ -4013,7 +4057,7 @@ cl_int CL_API_CALL clGetKernelInfo(
     {
         case CL_KERNEL_REFERENCE_COUNT:
             {
-                pValueSize = sizeof(crtKernel->m_refCount);
+                pValueSize = sizeof( (cl_uint)crtKernel->m_refCount );
                 if (param_value && param_value_size >= pValueSize)
                 {
                     *((cl_uint*)param_value) = crtKernel->m_refCount;
@@ -4408,18 +4452,12 @@ cl_int CL_API_CALL updateAddedDevicesInfo(
     for( cl_uint i=0; i< num_devices; i++ )
     {
         cl_device_id dev = out_devices[i];
-        CrtDeviceInfo* devInfo = new CrtDeviceInfo;
+        CrtDeviceInfo* devInfo = parentDevInfo->GetChildObject();
         if( NULL == devInfo )
         {
             errCode = CL_OUT_OF_HOST_MEMORY;
             break;
         }
-        *( devInfo )        = *parentDevInfo;
-        devInfo->m_refCount = 1;
-        devInfo->m_devType  = parentDevInfo->m_devType;
-        // This is a sub-device
-        devInfo->m_isRootDevice = false;
-        devInfo->m_origDispatchTable = parentDevInfo->m_origDispatchTable;
         // Patch new created device IDs. some platforms don't use the same table
         // for all handles (gpu), so we need to call Patch for each new created handle
         OCLCRT::crt_ocl_module.PatchClDeviceID(dev);
@@ -4745,7 +4783,7 @@ cl_int CL_API_CALL clGetProgramInfo(
     {
         case CL_PROGRAM_REFERENCE_COUNT:
             {
-                pValueSize = sizeof(crtProgram->m_refCount);
+                pValueSize = sizeof( (cl_uint)crtProgram->m_refCount );
                 if( param_value != NULL )
                 {
                     if( param_value_size < pValueSize )
@@ -7052,7 +7090,7 @@ cl_int CL_API_CALL clGetSamplerInfo(
     {
         case CL_SAMPLER_REFERENCE_COUNT:
             {
-                pValueSize = sizeof( crtSampler->m_refCount );
+                pValueSize = sizeof( (cl_uint)crtSampler->m_refCount );
                 if( ( param_value ) && ( param_value_size >= pValueSize ) )
                 {
                     *((cl_uint*)param_value) = crtSampler->m_refCount;
@@ -7207,7 +7245,7 @@ cl_int CL_API_CALL clGetMemObjectInfo(
             break;
         case CL_MEM_REFERENCE_COUNT:
             {
-                pValueSize = sizeof(crtMemObj->m_refCount);
+                pValueSize = sizeof( (cl_uint)crtMemObj->m_refCount );
                 if( param_value && ( param_value_size >= pValueSize ) )
                 {
                     *((cl_uint*)param_value) = crtMemObj->m_refCount;
