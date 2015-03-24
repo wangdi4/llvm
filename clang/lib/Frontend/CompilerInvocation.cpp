@@ -1383,6 +1383,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   CompilerInvocation::setLangDefaults(Opts, IK, LangStd);
 #ifdef INTEL_CUSTOMIZATION
   Opts.IntelCompat = Args.hasArg(OPT_fintel_compatibility);
+  Opts.IntelMSCompat = Args.hasArg(OPT_fintel_ms_compatibility);
   Opts.CilkPlus = Args.hasArg(OPT_fcilkplus);
   Opts.Float128 = Args.hasArg(OPT_extended_float_types);
   if (Opts.CilkPlus && (Opts.ObjC1 || Opts.ObjC2))

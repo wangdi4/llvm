@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fms-compatibility -verify -fsyntax-only %s
+// RUN: %clang_cc1 -fintel-ms-compatibility -verify -fsyntax-only %s
 template <class T>
 T foo(T &a, T &b = a, T &c = a) {
   return a + b + c;

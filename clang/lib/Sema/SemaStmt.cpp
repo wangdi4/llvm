@@ -3243,9 +3243,9 @@ StmtResult Sema::BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
 
     unsigned DiagID;
 #ifdef INTEL_CUSTOMIZATION
-    // Issue a warning, not error in MSVCCompat and IntelCompat modes
+    // Issue a warning, not error in IntelMSCompat and IntelCompat modes
     // (CQ#364256).
-    if (getLangOpts().MSVCCompat || getLangOpts().IntelCompat) {
+    if (getLangOpts().IntelMSCompat || getLangOpts().IntelCompat) {
       DiagID = diag::warn_return_missing_expr_no_err;
     } else
 #endif // INTEL_CUSTOMIZATION
