@@ -704,6 +704,14 @@ else (WIN32)
 
 endif (WIN32)
 
+if(ANDROID)
+    if(BUILD_X64)
+        get_filename_component(ABS_DIR ${ANDROID_NDK_SYSROOT}usr/lib64/libgnustl_shared.so REALPATH)
+        install(FILES ${ABS_DIR} DESTINATION bin)
+    else(BUILD_X64)
+    endif(BUILD_X64)
+endif(ANDROID)
+
 install(PROGRAMS setup/Android64/OpenCL_Android_Install DESTINATION ${MISC_INSTALLER_FOLDER}/setup/Android64)
 install(PROGRAMS setup/Android64/OpenCL_Android_Uninstall DESTINATION ${MISC_INSTALLER_FOLDER}/setup/Android64)
 install(PROGRAMS setup/Android64/Android_Setup DESTINATION ${MISC_INSTALLER_FOLDER}/setup/Android64)
