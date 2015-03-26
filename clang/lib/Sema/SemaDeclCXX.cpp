@@ -67,9 +67,9 @@ namespace {
     bool VisitDeclRefExpr(DeclRefExpr *DRE);
     bool VisitCXXThisExpr(CXXThisExpr *ThisE);
     bool VisitLambdaExpr(LambdaExpr *Lambda);
-#ifdef INTEL_CUSTOMIZATION	
+#ifdef INTEL_CUSTOMIZATION
     bool VisitCEANIndexExpr(CEANIndexExpr *Node);
-#endif
+#endif  // INTEL_CUSTOMIZATION
     bool VisitPseudoObjectExpr(PseudoObjectExpr *POE);
   };
 
@@ -95,6 +95,11 @@ namespace {
       //   evaluated. Parameters of a function declared before a default
       //   argument expression are in scope and can hide namespace and
       //   class member names.
+#ifdef INTEL_CUSTOMIZATION
+      // Fix for CQ#364545 - allow use of arguments in references as default
+      // value
+      if (!S->getLangOpts().MSVCCompat || !Param->getType()->isDependentType())
+#endif // INTEL_CUSTOMIZATION
       return S->Diag(DRE->getLocStart(),
                      diag::err_param_default_argument_references_param)
          << Param->getDeclName() << DefaultArg->getSourceRange();
@@ -148,7 +153,7 @@ namespace {
     return S->Diag(Lambda->getLocStart(), 
                    diag::err_lambda_capture_default_arg);
   }
-#ifdef INTEL_CUSTOMIZATION	
+#ifdef INTEL_CUSTOMIZATION
   bool CheckDefaultArgumentVisitor::VisitCEANIndexExpr(CEANIndexExpr *Node) {
     bool IsInvalid = false;
     for (Stmt::child_range I = Node->children(); I; ++I)
@@ -156,7 +161,7 @@ namespace {
         IsInvalid |= Visit(*I);
     return IsInvalid;
   }
-#endif  
+#endif  // INTEL_CUSTOMIZATION
 }
 
 void
@@ -11718,7 +11723,7 @@ bool Sema::CheckLiteralOperatorDeclaration(FunctionDecl *FnDecl) {
         Context.hasSameType(T, Context.LongDoubleTy) ||
 #ifdef INTEL_CUSTOMIZATION
         Context.hasSameType(T, Context.Float128Ty) ||
-#endif
+#endif  // INTEL_CUSTOMIZATION
         Context.hasSameType(T, Context.CharTy) ||
         Context.hasSameType(T, Context.WideCharTy) ||
         Context.hasSameType(T, Context.Char16Ty) ||

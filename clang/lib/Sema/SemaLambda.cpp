@@ -797,7 +797,7 @@ QualType Sema::performLambdaInitCaptureInitialization(SourceLocation Loc,
   Result = ActOnFinishFullExpr(Init, Loc, CilkKind,
 #else
   Result = ActOnFinishFullExpr(Init, Loc,
-#endif
+#endif  // INTEL_CUSTOMIZATION
                                 /*DiscardedValue*/ false,
                                /*IsConstexpr*/ false,
                                /*IsLambdaInitCaptureInitalizer*/ true);

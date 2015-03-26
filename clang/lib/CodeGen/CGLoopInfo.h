@@ -55,10 +55,10 @@ class LoopInfo {
 public:
   /// \brief Construct a new LoopInfo for the loop with entry Header.
   LoopInfo(llvm::BasicBlock *Header, const LoopAttributes &Attrs);
-
-  /// \brief Construct a new LoopInfo with a given loop id metadata.	//***INTEL 
-  LoopInfo(llvm::MDNode *LoopID, const LoopAttributes &Attrs);			//***INTEL 
-
+#ifdef INTEL_CUSTOMIZATION
+  /// \brief Construct a new LoopInfo with a given loop id metadata.
+  LoopInfo(llvm::MDNode *LoopID, const LoopAttributes &Attrs);
+#endif  // INTEL_CUSTOMIZATION
   /// \brief Get the loop id metadata for this loop.
   llvm::MDNode *getLoopID() const { return LoopID; }
 
@@ -90,11 +90,11 @@ public:
   /// \brief Begin a new structured loop. The set of staged attributes will be
   /// applied to the loop and then cleared.
   void push(llvm::BasicBlock *Header);
-
-  /// \brief Extend the code region as part of a parallel loop which might be	//***INTEL
-  /// inside another llvm function.												//***INTEL
-  void push(llvm::MDNode *LoopID, bool IsParallel);								//***INTEL
-
+#ifdef INTEL_CUSTOMIZATION
+  /// \brief Extend the code region as part of a parallel loop which might be
+  /// inside another llvm function.
+  void push(llvm::MDNode *LoopID, bool IsParallel);
+#endif  // INTEL_CUSTOMIZATION
   /// \brief End the current loop.
   void pop();
 

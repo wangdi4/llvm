@@ -567,11 +567,13 @@ def IntToPointerCast : DiagGroup<"int-to-pointer-cast",
                                  [IntToVoidPointerCast]>;
 
 //#ifdef INTEL_CUSTOMIZATION
+// Intel pragma warnings.
+def IntelPragma : DiagGroup<"intel-pragma">;
 // Cilk Plus warnings.
 def SourceUsesCilkPlus : DiagGroup<"source-uses-cilk-plus">;
 def CilkPlusLoopControlVarModification : DiagGroup<"cilk-loop-control-var-modification">;
 def CilkPlusCEAN : DiagGroup<"extended-array-notation">;
-//#endif
+//#endif  // INTEL_CUSTOMIZATION
 def Extra : DiagGroup<"extra", [
     MissingFieldInitializers,
     IgnoredQualifiers,
@@ -608,10 +610,10 @@ def Most : DiagGroup<"most", [
     OverloadedVirtual,
     PrivateExtern,
     SelTypeCast,
-//#ifdef INTEL_CUSTOMIZATION    
+//#ifdef INTEL_CUSTOMIZATION
     CilkPlusLoopControlVarModification,
     CilkPlusCEAN,
-//#endif
+//#endif // INTEL_CUSTOMIZATION
     ExternCCompat
  ]>;
 
@@ -704,6 +706,12 @@ def GccCompat : DiagGroup<"gcc-compat">;
 
 // A warning group for warnings about Microsoft extensions.
 def Microsoft : DiagGroup<"microsoft">;
+
+// CQ#364717
+// if INTEL_CUSTOMIZATION
+// A warning group for warnings about Intel compatibility extensions.
+def IntelCompat : DiagGroup<"intel-compat">;
+// endif INTEL_CUSTOMIZATION
 
 def ObjCNonUnifiedException : DiagGroup<"objc-nonunified-exceptions">;
 

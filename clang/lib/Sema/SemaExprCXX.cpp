@@ -5059,7 +5059,7 @@ Expr *Sema::MaybeCreateExprWithCleanups(Expr *SubExpr) {
     // Keep it clean for the following full expression.
     CilkSpawnCalls.clear();
   }
-#endif
+#endif  // INTEL_CUSTOMIZATION
   unsigned FirstCleanup = ExprEvalContexts.back().NumCleanupObjects;
   assert(ExprCleanupObjects.size() >= FirstCleanup);
   assert(ExprNeedsCleanups || ExprCleanupObjects.size() == FirstCleanup);
@@ -6249,7 +6249,7 @@ ExprResult Sema::CorrectDelayedTyposInExpr(
 ExprResult Sema::ActOnFinishFullExpr(Expr *FE, SourceLocation CC,
 #ifdef INTEL_CUSTOMIZATION
                                      CilkReceiverKind &Kind,
-#endif
+#endif  // INTEL_CUSTOMIZATION
                                      bool DiscardedValue,
                                      bool IsConstexpr, 
                                      bool IsLambdaInitCaptureInitializer) {
@@ -6328,7 +6328,7 @@ ExprResult Sema::ActOnFinishFullExpr(Expr *FE, SourceLocation CC,
     FullExpr = MaybeCreateExprWithCleanups(FullExpr);
     return BuildCilkSpawnExpr(FullExpr.get());
   }
-#endif
+#endif  // INTEL_CUSTOMIZATION
   // At the end of this full expression (which could be a deeply nested 
   // lambda), if there is a potential capture within the nested lambda, 
   // have the outer capture-able lambda try and capture it.

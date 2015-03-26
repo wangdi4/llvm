@@ -722,7 +722,7 @@ public:
   /// \biref Returns true if this is a Cilk spawn call expression, with
   /// possible implicit AST nodes associated.
   bool isCilkSpawn() const;
-#endif
+#endif  // INTEL_CUSTOMIZATION
   /// IgnoreParens - Ignore parentheses.  If this Expr is a ParenExpr, return
   ///  its subexpression.  If that subexpression is also a ParenExpr,
   ///  then this method recursively returns its subexpression, and so forth.
@@ -1176,6 +1176,14 @@ public:
   void setHadMultipleCandidates(bool V = true) {
     DeclRefExprBits.HadMultipleCandidates = V;
   }
+
+#ifdef INTEL_CUSTOMIZATION
+  /// \brief Sets the flag telling whether this expression refers to
+  /// enclosing variable or capture
+  void setRefersToEnclosingVariableOrCapture(bool V = true) {
+    DeclRefExprBits.RefersToEnclosingVariableOrCapture = V;
+  }
+#endif  // INTEL_CUSTOMIZATION
 
   /// \brief Does this DeclRefExpr refer to an enclosing local or a captured
   /// variable?
@@ -2178,10 +2186,10 @@ class CallExpr : public Expr {
   Stmt **SubExprs;
   unsigned NumArgs;
   SourceLocation RParenLoc;
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   // Valid only if it is a Cilk spawn call
   SourceLocation CilkSpawnLoc;
-#endif  
+#endif  // INTEL_CUSTOMIZATION
 protected:
   // These versions of the constructor are for derived classes.
   CallExpr(const ASTContext& C, StmtClass SC, Expr *fn, unsigned NumPreArgs,
@@ -2316,7 +2324,7 @@ public:
   void setCilkSpawnLoc(SourceLocation Loc) { CilkSpawnLoc = Loc; }
   SourceLocation getCilkSpawnLoc() const LLVM_READONLY { return CilkSpawnLoc; }
   bool isCilkSpawnCall() const { return CilkSpawnLoc.isValid(); }
-#endif
+#endif  // INTEL_CUSTOMIZATION
   static bool classof(const Stmt *T) {
     return T->getStmtClass() >= firstCallExprConstant &&
            T->getStmtClass() <= lastCallExprConstant;
@@ -3090,7 +3098,7 @@ public:
   bool isAdditiveAssignOp() const {
     return isAdditiveAssignOp(getOpcode());
   }
-#endif
+#endif  // INTEL_CUSTOMIZATION
   static bool isShiftAssignOp(Opcode Opc) {
     return Opc == BO_ShlAssign || Opc == BO_ShrAssign;
   }
@@ -4629,7 +4637,7 @@ public:
 
   child_range children() { return child_range(); }
 };
-#endif
+#endif  // INTEL_CUSTOMIZATION
 /// AsTypeExpr - Clang builtin function __builtin_astype [OpenCL 6.2.4.2]
 /// This AST node provides support for reinterpreting a type to another
 /// type of the same size.
@@ -5133,7 +5141,7 @@ public:
                        &reinterpret_cast<Stmt **>(this + 1)[3 + 3 * Rank + ArgsSize]);
   }
 };
-#endif
+#endif  // INTEL_CUSTOMIZATION
 }  // end namespace clang
 
 #endif

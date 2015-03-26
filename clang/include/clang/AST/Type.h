@@ -1903,7 +1903,7 @@ public:
     return getKind() >= Half && getKind() <= Float128;
 #else
     return getKind() >= Half && getKind() <= LongDouble;
-#endif
+#endif  // INTEL_CUSTOMIZATION
   }
 
   /// Determines whether the given kind corresponds to a placeholder type.

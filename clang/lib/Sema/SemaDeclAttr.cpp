@@ -2608,7 +2608,7 @@ static void handleCilkLinearAttr(Sema &S, Decl *D, const AttributeList &Attr) {
                                      Attr.getScopeLoc(), 0);
   D->addAttr(LinearAttr);
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 SectionAttr *Sema::mergeSectionAttr(Decl *D, SourceRange Range,
                                     StringRef Name,
@@ -2641,17 +2641,10 @@ static void handleSectionAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str, &LiteralLoc))
     return;
 
+#ifndef INTEL_SPECIFIC_IL0_BACKEND
   if (!S.checkSectionName(LiteralLoc, Str))
     return;
-
-//***INTEL: compatibility fix
-//  // If the target wants to validate the section specifier, make it happen.
-//  std::string Error = S.Context.getTargetInfo().isValidSectionSpecifier(Str);
-//  if (!Error.empty()) {
-//    S.Diag(LiteralLoc, diag::err_attribute_section_invalid_for_target)
-//    << Error;
-//    return;
-//  }
+#endif // INTEL_SPECIFIC_IL0_BACKEND
 
   unsigned Index = Attr.getAttributeSpellingListIndex();
   SectionAttr *NewAttr = S.mergeSectionAttr(D, Attr.getRange(), Str, Index);
@@ -4607,7 +4600,7 @@ static bool handleCommonAttributeFeatures(Sema &S, Scope *scope, Decl *D,
 //===----------------------------------------------------------------------===//
 // Top Level Sema Entry Points
 //===----------------------------------------------------------------------===//
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
 static void handleAvoidFalseShareAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   // Check the attribute arguments.
   if (Attr.getNumArgs() > 1) {
@@ -4687,7 +4680,7 @@ static void handleBNDLegacyAttr(Sema &S, Decl *D, const AttributeList &Attr) {
 static void handleBNDVarSizeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   D->addAttr(::new (S.Context) BNDVarSizeAttr(Attr.getRange(), S.Context, 0));
 }
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 
 /// ProcessDeclAttribute - Apply the specific attribute to the specified decl if
 /// the attribute applies to decls.  If the attribute is a type attribute, just
@@ -5222,6 +5215,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_CilkVecLength:
     handleCilkVecLengthAttr(S, D, Attr);
     break;
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   case AttributeList::AT_AvoidFalseShare:
     handleAvoidFalseShareAttr  (S, D, Attr); break;
   case AttributeList::AT_Allocate:
@@ -5232,7 +5226,8 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleBNDLegacyAttr  (S, D, Attr); break;
   case AttributeList::AT_BNDVarSize:
     handleBNDVarSizeAttr  (S, D, Attr); break;
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   }
 }
 

@@ -152,12 +152,12 @@ void Parser::ParseGNUAttributes(ParsedAttributes &attrs,
       SourceLocation AttrNameLoc = ConsumeToken();
 
       if (Tok.isNot(tok::l_paren)) {
-#ifdef INTEL_CUSTOMIZATION	  
+#ifdef INTEL_CUSTOMIZATION
         if (AttrName->isStr("vector") && !getLangOpts().CilkPlus) {
           Diag(Tok, diag::err_cilkplus_disable);
           SkipUntil(tok::r_paren, StopAtSemi | StopBeforeMatch);
         }
-#endif		
+#endif  // INTEL_CUSTOMIZATION
         attrs.addNew(AttrName, AttrNameLoc, nullptr, AttrNameLoc, nullptr, 0,
                      AttributeList::AS_GNU);
         continue;
@@ -361,7 +361,7 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
                                     Syntax);
     return;
   } else 
-#endif  
+#endif  // INTEL_CUSTOMIZATION
   if (AttrKind == AttributeList::AT_Availability) {
     ParseAvailabilityAttribute(*AttrName, AttrNameLoc, Attrs, EndLoc, ScopeName,
                                ScopeLoc, Syntax);
@@ -525,7 +525,7 @@ bool Parser::ParseMicrosoftDeclSpecArgs(IdentifierInfo *AttrName,
                                AttributeList::AS_Declspec);
     T.skipToEnd();
     return !HasInvalidAccessor;
-#ifdef INTEL_CUSTOMIZATION	
+#ifdef INTEL_CUSTOMIZATION
   } else if (AttrName->isStr("vector")) {
     // The vector declspec may have optional argument clauses. Check for a l-paren
     // to decide wether we should parse argument clauses or not.
@@ -536,7 +536,7 @@ bool Parser::ParseMicrosoftDeclSpecArgs(IdentifierInfo *AttrName,
       Attrs.addNew(AttrName, AttrNameLoc, 0, AttrNameLoc, 0, 0,
                    AttributeList::AS_Declspec);
     return true;
-#endif	
+#endif  // INTEL_CUSTOMIZATION
   }
 
   unsigned NumArgs =
@@ -1452,7 +1452,7 @@ void Parser::ParseFunctionParameterAttribute(IdentifierInfo &AttrName,
   if (EndLoc)
     *EndLoc = T.getCloseLocation();
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 void Parser::ParseTypeTagForDatatypeAttribute(IdentifierInfo &AttrName,
                                               SourceLocation AttrNameLoc,
@@ -1913,9 +1913,9 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
 
         Decl *TheDecl =
           ParseFunctionDefinition(D, ParsedTemplateInfo(), &LateParsedAttrs);
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
         Actions.ActOnVarFunctionDeclForSections(TheDecl);
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
         return Actions.ConvertDeclToDeclGroup(TheDecl);
       }
 
@@ -2149,9 +2149,9 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
   }
 
   bool TypeContainsAuto = D.getDeclSpec().containsPlaceholderType();
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   bool IsCilkSpawnReceiver = false;
-#endif
+#endif  //  INTEL_CUSTOMIZATION
   // Parse declarator '=' initializer.
   // If a '==' or '+=' is found, suggest a fixit to '='.
   if (isTokenEqualOrEqualTypo()) {
@@ -2211,10 +2211,10 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
       } else
         Actions.AddInitializerToDecl(ThisDecl, Init.get(),
                                      /*DirectInit=*/false, TypeContainsAuto
-#ifdef INTEL_CUSTOMIZATION									 
-									 , IsCilkSpawnReceiver
-#endif									 
-									 );
+#ifdef INTEL_CUSTOMIZATION
+                                      , IsCilkSpawnReceiver
+#endif  // INTEL_CUSTOMIZATION
+                                    );
     }
   } else if (Tok.is(tok::l_paren)) {
     // Parse C++ direct initializer: '(' expression-list ')'
@@ -2259,9 +2259,9 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
       Actions.AddInitializerToDecl(ThisDecl, Initializer.get(),
                                    /*DirectInit=*/true, TypeContainsAuto
 #ifdef INTEL_CUSTOMIZATION
-								   , IsCilkSpawnReceiver
-#endif
-								   );
+                                   , IsCilkSpawnReceiver
+#endif  // INTEL_CUSTOMIZATION
+                                  );
     }
   } else if (getLangOpts().CPlusPlus11 && Tok.is(tok::l_brace) &&
              (!CurParsedObjCImpl || !D.isFunctionDeclarator())) {
@@ -2286,22 +2286,24 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
       Actions.AddInitializerToDecl(ThisDecl, Init.get(),
                                    /*DirectInit=*/true, TypeContainsAuto
 #ifdef INTEL_CUSTOMIZATION
-								   , IsCilkSpawnReceiver
-#endif
-								   );
+                                    , IsCilkSpawnReceiver
+#endif  // INTEL_CUSTOMIZATION
+                                  );
 
   } else {
     Actions.ActOnUninitializedDecl(ThisDecl, TypeContainsAuto);
   }
 
   Actions.FinalizeDeclaration(ThisDecl);
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   Actions.DiscardCleanupsInEvaluationContext();
 
   if (getLangOpts().CilkPlus && IsCilkSpawnReceiver && isa<VarDecl>(ThisDecl))
     return Actions.BuildCilkSpawnDecl(ThisDecl);
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   Actions.ActOnVarFunctionDeclForSections(ThisDecl);
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   return ThisDecl;
 }
 
@@ -3417,7 +3419,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_float128, Loc, PrevSpec,
                                      DiagID, Policy);
       break;
-#endif
+#endif  // INTEL_CUSTOMIZATION
     case tok::kw_wchar_t:
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_wchar, Loc, PrevSpec,
                                      DiagID, Policy);
@@ -4184,12 +4186,16 @@ void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl) {
   // C does not allow an empty enumerator-list, C++ does [dcl.enum].
   if (Tok.is(tok::r_brace) && !getLangOpts().CPlusPlus)
 #ifdef INTEL_CUSTOMIZATION
+  {
     // CQ#364426 - emit a warning in IntelCompat mode
     if (getLangOpts().IntelCompat)
       Diag(Tok, diag::warn_empty_enum);
     else
-#endif
+#endif  // INTEL_CUSTOMIZATION
       Diag(Tok, diag::error_empty_enum);
+#ifdef INTEL_CUSTOMIZATION
+  }
+#endif // INTEL_CUSTOMIZATION
 
   SmallVector<Decl *, 32> EnumConstantDecls;
 
@@ -4357,7 +4363,7 @@ bool Parser::isKnownToBeTypeSpecifier(const Token &Tok) const {
   case tok::kw_bool:
 #ifdef INTEL_CUSTOMIZATION
   case tok::kw__Quad:
-#endif
+#endif  // INTEL_CUSTOMIZATION
   case tok::kw__Bool:
   case tok::kw__Decimal32:
   case tok::kw__Decimal64:
@@ -4431,7 +4437,7 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::kw_double:
 #ifdef INTEL_CUSTOMIZATION
   case tok::kw__Quad:
-#endif
+#endif  // INTEL_CUSTOMIZATION
   case tok::kw_bool:
   case tok::kw__Bool:
   case tok::kw__Decimal32:
@@ -4576,7 +4582,7 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw_double:
 #ifdef INTEL_CUSTOMIZATION
   case tok::kw__Quad:
-#endif
+#endif  // INTEL_CUSTOMIZATION
   case tok::kw_bool:
   case tok::kw__Bool:
   case tok::kw__Decimal32:

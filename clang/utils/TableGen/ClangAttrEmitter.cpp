@@ -81,7 +81,7 @@ static std::string ReadPCHRecord(StringRef type) {
     .Case("IdentifierInfo *", "GetIdentifierInfo(F, Record, Idx)")
 #ifdef INTEL_CUSTOMIZATION
     .Case("SourceLocation", "ReadSourceLocation(F, Record, Idx)")
-#endif
+#endif  // INTEL_CUSTOMIZATION
     .Default("Record[Idx++]");
 }
 
@@ -98,7 +98,7 @@ static std::string WritePCHRecord(StringRef type, StringRef name) {
 #ifdef INTEL_CUSTOMIZATION
     .Case("SourceLocation",
           "AddSourceLocation(" + std::string(name) + ", Record);\n")
-#endif
+#endif  // INTEL_CUSTOMIZATION
     .Default("Record.push_back(" + std::string(name) + ");\n");
 }
 
@@ -276,7 +276,7 @@ namespace {
 #ifdef INTEL_CUSTOMIZATION
       } else if (type == "SourceLocation") {
         OS << "\" << get" << getUpperName() << "().getRawEncoding() << \"";
-#endif
+#endif  // INTEL_CUSTOMIZATION
       } else {
         OS << "\" << get" << getUpperName() << "() << \"";
       }
@@ -295,7 +295,7 @@ namespace {
       } else if (type == "SourceLocation") {
         OS << "    OS << \" \";\n";
         OS << "    SA->get" << getUpperName() << "().print(OS, *SM);\n";
-#endif
+#endif  // INTEL_CUSTOMIZATION
       } else if (type == "bool") {
         OS << "    if (SA->get" << getUpperName() << "()) OS << \" "
            << getUpperName() << "\";\n";
@@ -973,9 +973,9 @@ namespace {
       OS << "    dumpStmt(SA->get" << getUpperName() << "());\n";
     }
     void writeHasChildren(raw_ostream &OS) const override{
- 		OS << "true"; }
+      OS << "true"; }
   };
-#endif
+#endif  // INTEL_CUSTOMIZATION
   class VariadicExprArgument : public VariadicArgument {
   public:
     VariadicExprArgument(const Record &Arg, StringRef Attr)
@@ -1099,7 +1099,7 @@ createArgument(const Record &Arg, StringRef Attr,
     Ptr = llvm::make_unique<SimpleArgument>(Arg, Attr, "SourceLocation");
   else if (ArgName == "CheckedExprArgument")
     Ptr = llvm::make_unique<CheckedExprArgument>(Arg, Attr);
-#endif
+#endif  // INTEL_CUSTOMIZATION
   else if (ArgName == "VariadicUnsignedArgument")
     Ptr = llvm::make_unique<VariadicArgument>(Arg, Attr, "unsigned");
   else if (ArgName == "VariadicEnumArgument")
@@ -1202,7 +1202,7 @@ writePrettyPrintFunction(Record &R,
     } else if (Variety == "Keyword"
 #ifdef INTEL_CUSTOMIZATION
                 || Variety == "CilkKeyword"
-#endif
+#endif  // INTEL_CUSTOMIZATION
               ) {
       Prefix = " ";
       Suffix = "";
@@ -2033,9 +2033,9 @@ void EmitClangAttrSpellingListIndex(RecordKeeper &Records, raw_ostream &OS) {
                 .Case("Declspec", 2)
                 .Case("Keyword", 3)
                 .Case("Pragma", 4)
-#ifdef INTEL_CUSTOMIZATION					
+#ifdef INTEL_CUSTOMIZATION
                 .Case("CilkKeyword", 5)
-#endif				
+#endif  // INTEL_CUSTOMIZATION
                 .Default(0)
          << " && Scope == \"" << Spellings[I].nameSpace() << "\")\n"
          << "        return " << I << ";\n";
@@ -2676,10 +2676,10 @@ void EmitClangAttrParsedAttrKinds(RecordKeeper &Records, raw_ostream &OS) {
 
   std::vector<Record *> Attrs = Records.getAllDerivedDefinitions("Attr");
   std::vector<StringMatcher::StringPair> GNU, Declspec, CXX11, Keywords, Pragma
-#ifdef INTEL_CUSTOMIZATION	  
-  		, CilkKeywords
-#endif		
-		;
+#ifdef INTEL_CUSTOMIZATION
+      , CilkKeywords
+#endif  // INTEL_CUSTOMIZATION
+    ;
   std::set<std::string> Seen;
   for (const auto *A : Attrs) {
     const Record &Attr = *A;
@@ -2722,10 +2722,10 @@ void EmitClangAttrParsedAttrKinds(RecordKeeper &Records, raw_ostream &OS) {
           Matches = &Declspec;
         else if (Variety == "Keyword")
           Matches = &Keywords;
-#ifdef INTEL_CUSTOMIZATION			  
+#ifdef INTEL_CUSTOMIZATION
         else if (Variety == "CilkKeyword")
           Matches = &CilkKeywords;
-#endif		  
+#endif  // INTEL_CUSTOMIZATION
         else if (Variety == "Pragma")
           Matches = &Pragma;
 
@@ -2752,10 +2752,10 @@ void EmitClangAttrParsedAttrKinds(RecordKeeper &Records, raw_ostream &OS) {
   StringMatcher("Name", CXX11, OS).Emit();
   OS << "  } else if (AttributeList::AS_Keyword == Syntax) {\n";
   StringMatcher("Name", Keywords, OS).Emit();
-#ifdef INTEL_CUSTOMIZATION	  
+#ifdef INTEL_CUSTOMIZATION
   OS << "  } else if (AttributeList::AS_CilkKeyword == Syntax) {\n";
   StringMatcher("Name", CilkKeywords, OS).Emit();
-#endif  
+#endif  // INTEL_CUSTOMIZATION
   OS << "  } else if (AttributeList::AS_Pragma == Syntax) {\n";
   StringMatcher("Name", Pragma, OS).Emit();
   OS << "  }\n";
@@ -2848,9 +2848,9 @@ enum SpellingKind {
   Declspec = 1 << 2,
   Keyword = 1 << 3,
   Pragma = 1 << 4
-#ifdef INTEL_CUSTOMIZATION	  
+#ifdef INTEL_CUSTOMIZATION
   , CilkKeyword = 1 << 5
-#endif
+#endif  // INTEL_CUSTOMIZATION
 };
 
 static void WriteDocumentation(const DocumentationData &Doc,
@@ -2900,10 +2900,10 @@ static void WriteDocumentation(const DocumentationData &Doc,
                             .Case("Declspec", Declspec)
                             .Case("Keyword", Keyword)
                             .Case("Pragma", Pragma)
-#ifdef INTEL_CUSTOMIZATION								
+#ifdef INTEL_CUSTOMIZATION
                             .Case("CilkKeyword", CilkKeyword)
-#endif							
-							;
+#endif  // INTEL_CUSTOMIZATION
+      ;
 
     // Mask in the supported spelling.
     SupportedSpellings |= Kind;
@@ -2939,9 +2939,9 @@ static void WriteDocumentation(const DocumentationData &Doc,
   // List what spelling syntaxes the attribute supports.
   OS << ".. csv-table:: Supported Syntaxes\n";
   OS << "   :header: \"GNU\", \"C++11\", \"__declspec\", \"Keyword\"";
-#ifdef INTEL_CUSTOMIZATION	  
+#ifdef INTEL_CUSTOMIZATION
   OS <<	", \"CilkKeyword\"";
-#endif
+#endif  // INTEL_CUSTOMIZATION
   OS << " \"Pragma\"\n\n";
   OS << "   \"";
   if (SupportedSpellings & GNU) OS << "X";
@@ -2954,10 +2954,10 @@ static void WriteDocumentation(const DocumentationData &Doc,
   OS << "\", \"";
   if (SupportedSpellings & Pragma) OS << "X";
   OS << "\"\n\n";
-#ifdef INTEL_CUSTOMIZATION	  
+#ifdef INTEL_CUSTOMIZATION
   if (SupportedSpellings & CilkKeyword) OS << "X";
   OS << "\", \"";
-#endif
+#endif  // INTEL_CUSTOMIZATION
   // If the attribute is deprecated, print a message about it, and possibly
   // provide a replacement attribute.
   if (!Doc.Documentation->isValueUnset("Deprecated")) {

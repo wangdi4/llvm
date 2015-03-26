@@ -28,7 +28,7 @@
 #include "llvm/Option/Option.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/ErrorHandling.h"
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
 #include "llvm/Support/raw_ostream.h"
 
 class HelpPragmaPrinter {
@@ -117,7 +117,7 @@ class HelpPragmaPrinter {
       OS << "                          ordered|nowait\n";
     }
 };
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 
 using namespace clang;
 using namespace llvm::opt;
@@ -269,12 +269,12 @@ bool clang::ExecuteCompilerInvocation(CompilerInstance *Clang) {
     llvm::cl::PrintVersionMessage();
     return true;
   }
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   if (Clang->getFrontendOpts().HelpPragma) {
     HelpPragmaPrinter::Print(llvm::outs());
     return 0;
   }
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   // Load any requested plugins.
   for (unsigned i = 0,
          e = Clang->getFrontendOpts().Plugins.size(); i != e; ++i) {

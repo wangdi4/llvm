@@ -78,7 +78,7 @@ namespace CodeGen {
 class CodeGenTypes;
 #ifdef INTEL_CUSTOMIZATION
 class CGCilkImplicitSyncInfo;
-#endif
+#endif  // INTEL_CUSTOMIZATION
 class CGFunctionInfo;
 class CGRecordLayout;
 class CGBlockInfo;
@@ -245,11 +245,12 @@ public:
       // \brief Helper for EmitPragmaSimd - process 'safelen' clause.
       virtual bool emitSafelen(CodeGenFunction *CGF) const = 0;
 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
       // \brief Helper for EmitPragmaSimd - emit Intel intrinsic.
       virtual void emitIntelIntrinsic(CodeGenFunction *CGF,
           CodeGenModule *CGM, llvm::Value *LoopIndex,
           llvm::Value *LoopCount) const = 0;
-
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
       // \brief Emit updates of local variables from clauses
       // and loop counters in the beginning of __simd_helper.
       virtual bool walkLocalVariablesToEmit(
@@ -289,6 +290,7 @@ public:
       /// \brief Extract the loop body from the collapsed loop nest.
       /// Useful for openmp (it is noop for SIMDForStmt).
       virtual Stmt *extractLoopBody(Stmt *S) const = 0;
+      virtual const Stmt *extractLoopBody(const Stmt *S) const = 0;
 
       /// \brief Get the wrapped SIMDForStmt or OMPSimdDirective.
       virtual const Stmt *getStmt() const = 0;
@@ -302,11 +304,12 @@ public:
         : SimdFor(S) {}
 
       virtual bool emitSafelen(CodeGenFunction *CGF) const;
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
       virtual void emitIntelIntrinsic(CodeGenFunction *CGF,
                                       CodeGenModule *CGM,
                                       llvm::Value *LoopIndex,
                                       llvm::Value *LoopCount) const;
-
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
       virtual bool walkLocalVariablesToEmit(
                       CodeGenFunction *CGF,
                       CGSIMDForStmtInfo *Info) const;
@@ -347,6 +350,10 @@ public:
         return S;
       }
 
+      virtual const Stmt *extractLoopBody(const Stmt *S) const {
+        return S;
+      }
+
       virtual const Stmt *getStmt() const { return SimdFor; }
 
       virtual ~CGPragmaSimd() { }
@@ -379,7 +386,7 @@ public:
 
     virtual StringRef getHelperName() const { return "__simd_for_helper"; }
 
-    virtual void EmitBody(CodeGenFunction &CGF, Stmt *S) {
+    virtual void EmitBody(CodeGenFunction &CGF, const Stmt *S) override {
       CGF.EmitSIMDForHelperBody(Wrapper.extractLoopBody(S));
     }
 
@@ -446,7 +453,7 @@ public:
 
     virtual StringRef getHelperName() const { return "__cilk_for_helper"; }
 
-    virtual void EmitBody(CodeGenFunction &CGF, Stmt *S) {
+    virtual void EmitBody(CodeGenFunction &CGF, const Stmt *S) override {
       CGF.EmitCilkForHelperBody(S);
     }
 
@@ -477,7 +484,7 @@ public:
     explicit CGCilkSpawnInfo(const CapturedStmt &S, VarDecl *VD)
       : CGCapturedStmtInfo(S, CR_CilkSpawn), ReceiverDecl(VD) { }
 
-    virtual void EmitBody(CodeGenFunction &CGF, Stmt *S);
+    virtual void EmitBody(CodeGenFunction &CGF, const Stmt *S) override;
     virtual StringRef getHelperName() const { return "__cilk_spawn_helper"; }
 
     VarDecl *getReceiverDecl() const { return ReceiverDecl; }
@@ -508,7 +515,7 @@ public:
 
   /// \brief Information about implicit syncs used during code generation.
   CGCilkImplicitSyncInfo *CurCGCilkImplicitSyncInfo;
-#endif
+#endif  // INTEL_CUSTOMIZATION
   /// BoundsChecking - Emit run-time bounds checks. Higher values mean
   /// potentially higher performance penalties.
   unsigned char BoundsChecking;
@@ -1266,8 +1273,10 @@ private:
   /// The last regular (non-return) debug location (breakpoint) in the function.
   SourceLocation LastStopPoint;
 
-  /// The location for one and only ReturnStmt.		//***INTEL 
-  llvm::DebugLoc ReturnLoc;							//***INTEL 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  /// The location for one and only ReturnStmt.
+  llvm::DebugLoc ReturnLoc;
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 
 public:
 #ifdef INTEL_CUSTOMIZATION
@@ -1290,7 +1299,7 @@ public:
     }
     ~LocalVarsDeclGuard() { CGF.LocalDeclMap.swap(LocalDeclMap); }
   };
-#endif
+#endif  // INTEL_CUSTOMIZATION
   /// A scope within which we are constructing the fields of an object which
   /// might use a CXXDefaultInitExpr. This stashes away a 'this' value to use
   /// if we need to evaluate a CXXDefaultInitExpr within the evaluation.
@@ -1349,10 +1358,10 @@ private:
 
   /// The current lexical scope.
   LexicalScope *CurLexicalScope;
-
-  /// ExceptionsDisabled - Whether exceptions are currently disabled.	//***INTEL 
-  bool ExceptionsDisabled;												//***INTEL 
-
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  /// ExceptionsDisabled - Whether exceptions are currently disabled.
+  bool ExceptionsDisabled;
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   /// The current source location that should be used for exception
   /// handling code.
   SourceLocation CurEHLocation;
@@ -1427,10 +1436,10 @@ public:
     if (!EHStack.requiresLandingPad()) return nullptr;
     return getInvokeDestImpl();
   }
-
-  void disableExceptions() { ExceptionsDisabled = true; }	//***INTEL 
-  void enableExceptions() { ExceptionsDisabled = false; }	//***INTEL 
-
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  void disableExceptions() { ExceptionsDisabled = true; }
+  void enableExceptions() { ExceptionsDisabled = false; }
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   bool currentFunctionUsesSEHTry() const {
     const auto *FD = dyn_cast_or_null<FunctionDecl>(CurCodeDecl);
     return FD && FD->usesSEHTry();
@@ -2099,7 +2108,7 @@ public:
   llvm::Value* EmitCXXUuidofExpr(const CXXUuidofExpr *E);
 #ifdef INTEL_CUSTOMIZATION
   void EmitCEANBuiltinExprBody(const CEANBuiltinExpr *E);
-#endif
+#endif  // INTEL_CUSTOMIZATION
   /// \brief Situations in which we might emit a check for the suitability of a
   ///        pointer or glvalue.
   enum TypeCheckKind {
@@ -2382,7 +2391,7 @@ public:
   void EmitCilkSpawnDecl(const CilkSpawnDecl *D);
 
   void EmitCilkRankedStmt(const CilkRankedStmt &S);
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
   void EmitOMPAggregateAssign(LValue OriginalAddr, llvm::Value *PrivateAddr,
                               const Expr *AssignExpr, QualType Type,
@@ -2679,7 +2688,7 @@ public:
                   llvm::Instruction **callOrInvoke = nullptr
 #ifdef INTEL_CUSTOMIZATION
                   , bool IsCilkSpawnCall = false
-#endif
+#endif  // INTEL_CUSTOMIZATION
                 );
 
   RValue EmitCall(QualType FnType, llvm::Value *Callee, const CallExpr *E,
@@ -3022,7 +3031,7 @@ public:
   /// Only allocation and cleanup will be emitted, and initialization will be
   /// emitted in the helper function.
   void EmitCaptureReceiverDecl(const VarDecl &D);
-#endif
+#endif  // INTEL_CUSTOMIZATION
   //===--------------------------------------------------------------------===//
   //                             Internal Helpers
   //===--------------------------------------------------------------------===//
@@ -3192,14 +3201,14 @@ private:
 
   llvm::Value *GetValueForARMHint(unsigned BuiltinID);
 
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
 public:
   void EmitPragmaDecl(const PragmaDecl &D);
   void EmitIntelAttribute(const Decl &D);
 private:
   void EmitPragmaStmt(const PragmaStmt &S);
   llvm::BasicBlock *CreateIPForInlineEnd(llvm::BasicBlock *InlineBB);
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 };
 
 /// Helper class with most of the code for saving a value for a

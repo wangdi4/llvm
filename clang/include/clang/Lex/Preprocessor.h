@@ -350,6 +350,11 @@ class Preprocessor : public RefCountedBase<Preprocessor> {
   };
   std::vector<IncludeStackInfo> IncludeMacroStack;
 
+#ifdef INTEL_CUSTOMIZATION
+  /// \brief True if the last processed include was quoted.
+  bool LastIncludeWasQuoted;
+#endif // INTEL_CUSTOMIZATION
+
   /// \brief Actions invoked when some preprocessor activity is
   /// encountered (e.g. a file is \#included, etc).
   std::unique_ptr<PPCallbacks> Callbacks;
@@ -501,10 +506,10 @@ public:
   void setDiagnostics(DiagnosticsEngine &D) { Diags = &D; }
 
   const LangOptions &getLangOpts() const { return LangOpts; }
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   LangOptions &getLangOpts() { return LangOpts; }
   void ParseStartMapRegion(SourceLocation HashLoc, Token &FilenameTok);
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   const TargetInfo &getTargetInfo() const { return *Target; }
   FileManager &getFileManager() const { return FileMgr; }
   SourceManager &getSourceManager() const { return SourceMgr; }

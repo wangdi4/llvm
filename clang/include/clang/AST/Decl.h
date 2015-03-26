@@ -1484,11 +1484,10 @@ private:
   bool IsExplicitlyDefaulted : 1; //sunk from CXXMethodDecl
   bool HasImplicitReturnZero : 1;
   bool IsLateTemplateParsed : 1;
-#ifdef INTEL_CUSTOMIZATION  
-  bool IsSpawning: 1;
-#endif
   bool IsConstexpr : 1;
-
+#ifdef INTEL_CUSTOMIZATION
+  bool IsSpawning: 1;
+#endif  // INTEL_CUSTOMIZATION
   /// \brief Indicates if the function uses __try.
   bool UsesSEHTry : 1;
 
@@ -1580,10 +1579,11 @@ protected:
       HasWrittenPrototype(true), IsDeleted(false), IsTrivial(false),
       IsDefaulted(false), IsExplicitlyDefaulted(false),
       HasImplicitReturnZero(false), IsLateTemplateParsed(false),
+      IsConstexpr(isConstexprSpecified),
 #ifdef INTEL_CUSTOMIZATION
       IsSpawning(false),
-#endif
-      IsConstexpr(isConstexprSpecified), UsesSEHTry(false),
+#endif  // INTEL_CUSTOMIZATION
+      UsesSEHTry(false),
       HasSkippedBody(false), EndRangeLoc(NameInfo.getEndLoc()),
       TemplateOrSpecialization(),
       DNLoc(NameInfo.getInfo()) {}
@@ -1767,7 +1767,7 @@ public:
   /// \brief Whether this function is a Cilk spawning function.
   bool isSpawning() const { return IsSpawning; }
   void setSpawning() { IsSpawning = true; }
-#endif
+#endif  // INTEL_CUSTOMIZATION
   /// Whether this is a (C++11) constexpr function or constexpr constructor.
   bool usesSEHTry() const { return UsesSEHTry; }
   void setUsesSEHTry(bool UST) { UsesSEHTry = UST; }
@@ -3543,17 +3543,17 @@ private:
   unsigned ContextParam;
   /// \brief The body of the outlined function.
   llvm::PointerIntPair<Stmt *, 1, bool> BodyAndNothrow;
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   /// \brief Whether this CapturedDecl contains Cilk spawns.
   bool IsSpawning;
-#endif
+#endif  // INTEL_CUSTOMIZATION
   explicit CapturedDecl(DeclContext *DC, unsigned NumParams)
     : Decl(Captured, DC, SourceLocation()), DeclContext(Captured),
       NumParams(NumParams), ContextParam(0), BodyAndNothrow(nullptr, false)
-#ifdef INTEL_CUSTOMIZATION	  
-      , IsSpawning(false) 
-#endif	  
-	  { }
+#ifdef INTEL_CUSTOMIZATION
+      , IsSpawning(false)
+#endif  // INTEL_CUSTOMIZATION
+    { }
 
   ImplicitParamDecl **getParams() const {
     return reinterpret_cast<ImplicitParamDecl **>(
@@ -3571,7 +3571,7 @@ public:
 #ifdef INTEL_CUSTOMIZATION
   void setSpawning() { IsSpawning = true; }
   bool isSpawning() const { return IsSpawning; }
-#endif
+#endif  // INTEL_CUSTOMIZATION
   bool isNothrow() const { return BodyAndNothrow.getInt(); }
   void setNothrow(bool Nothrow = true) { BodyAndNothrow.setInt(Nothrow); }
 
@@ -3657,7 +3657,7 @@ public:
   friend class ASTDeclReader;
   friend class ASTDeclWriter;
 };
-#endif
+#endif  // INTEL_CUSTOMIZATION
 /// \brief Describes a module import declaration, which makes the contents
 /// of the named module visible in the current translation unit.
 ///
@@ -3808,8 +3808,8 @@ inline bool IsEnumDeclScoped(EnumDecl *ED) {
   return ED->isScoped();
 }
 
-#ifdef INTEL_CUSTOMIZATION
-/// PragmaDecl 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+/// PragmaDecl
 class PragmaStmt;
 class PragmaDecl : public Decl {
   virtual void anchor();
@@ -3842,7 +3842,15 @@ public:
   static bool classof(const PragmaDecl *D) { return true; }
   static bool classofKind(Kind K) { return K == Pragma; }
 };
-#endif
+#else
+class PragmaDecl : public Decl {
+public:
+  static bool classof(const Decl *D) { 
+    llvm_unreachable("Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
+    return false;
+  }
+};
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 
 }  // end namespace clang
 

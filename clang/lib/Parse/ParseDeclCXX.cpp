@@ -2799,8 +2799,8 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
         ConsumeExtraSemi(InsideStruct, TagType);
         continue;
       }
-#ifdef INTEL_CUSTOMIZATION
-      if (getLangOpts().Intel) {
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+      if (getLangOpts().IntelCompat) {
         switch (Tok.getKind())
         {
           case (tok::annot_pragma_ivdep):
@@ -2879,7 +2879,7 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
             break;
         }
       }
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
       if (Tok.is(tok::annot_pragma_vis)) {
         HandlePragmaVisibility();
         continue;
@@ -3646,7 +3646,7 @@ void Parser::ParseCXX11AttributeSpecifier(ParsedAttributes &attrs,
 
     // Parse attribute arguments
     if (Tok.is(tok::l_paren)) {
-#ifdef INTEL_CUSTOMIZATION	
+#ifdef INTEL_CUSTOMIZATION
       if ((ScopeName && ScopeName->isStr("gnu")) ||
           (getLangOpts().CilkPlus &&
            (!ScopeName || ScopeName->isStr("cilkplus")) &&
@@ -3655,7 +3655,7 @@ void Parser::ParseCXX11AttributeSpecifier(ParsedAttributes &attrs,
                               ScopeLoc, AttributeList::AS_CXX11, nullptr);
         AttrParsed = true;
       } else
-#endif	  
+#endif  // INTEL_CUSTOMIZATION
         AttrParsed = ParseCXX11AttributeArgs(AttrName, AttrLoc, attrs, endLoc,
                                              ScopeName, ScopeLoc);
     }

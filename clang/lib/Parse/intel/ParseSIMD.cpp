@@ -331,6 +331,7 @@ static void FinishPragmaSIMD(Parser &P, SourceLocation BeginLoc) {
   P.ConsumeToken();
 }
 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
 StmtResult Parser::ParsePragmaInSIMD() {
   StmtResult Res;
   switch (Tok.getKind()) {
@@ -411,6 +412,7 @@ StmtResult Parser::ParsePragmaInSIMD() {
   }
   return Res;
 }
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 
 /// \brief Parse a pragma simd directive.
 ///
@@ -466,8 +468,10 @@ StmtResult Parser::ParseSIMDDirective() {
 
   FinishPragmaSIMD(*this, Loc);
 
-  StmtResult Pragma = ParsePragmaInSIMD();
-
+  StmtResult Pragma;
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  Pragma = ParsePragmaInSIMD();
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   // Parse the following statement.
   if (!Tok.is(tok::kw_for)) {
     PP.Diag(Loc, diag::err_pragma_simd_expected_for_loop);
@@ -649,4 +653,4 @@ StmtResult Parser::ParseSIMDDirective() {
   return Result;
 }
 
-#endif
+#endif  // INTEL_CUSTOMIZATION
