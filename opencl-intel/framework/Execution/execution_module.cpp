@@ -1901,6 +1901,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
 
     cl_err_code errVal = CL_SUCCESS;
 
+    LOG_DEBUG(TEXT("EnqueueNDRangeKernel work dimension = %u"), uiWorkDim);
     if( uiWorkDim < 1 || uiWorkDim > 3)
     {
         return CL_INVALID_WORK_DIMENSION;
@@ -1913,6 +1914,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
 
     for ( cl_uint ui = 0; ui < uiWorkDim; ui++ )
     {
+      LOG_DEBUG(TEXT("EnqueueNDRangeKernel global worksize dim #%u = %u"), ui, cpszGlobalWorkSize[ui]);
       if ( cpszGlobalWorkSize[ui] == 0 )
       {
         return CL_INVALID_GLOBAL_WORK_SIZE;
@@ -1948,6 +1950,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     {
         for( unsigned int ui=0; ui<uiWorkDim; ui++)
         {
+            LOG_DEBUG(TEXT("EnqueueNDRangeKernel local worksize dim #%u = %u"), ui, cpszLocalWorkSize[ui]);
             if ((cpszLocalWorkSize[ui] == 0) || ((OPENCL_VERSION_1_2 == m_opencl_ver) && (0 != (cpszGlobalWorkSize[ui] % cpszLocalWorkSize[ui]))))
             {
                 return CL_INVALID_WORK_GROUP_SIZE;

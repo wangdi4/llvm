@@ -101,8 +101,8 @@ public:
     long IncPendencyCnt();
     long DecPendencyCnt();
 
-    long         m_refCount;
-    long         m_pendencyCount;
+    long m_refCount;
+    long m_pendencyCount;
 };
 
 // CRT handles definition
@@ -138,6 +138,8 @@ struct CrtDeviceInfo
 
     // Vector defining if we need to sync and what and which direction
     unsigned int                    m_syncAttribs;
+
+    CrtDeviceInfo*                  GetChildObject();
 };
 
 struct CrtContextInfo

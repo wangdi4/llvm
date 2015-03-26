@@ -131,6 +131,27 @@ struct MemCpyParams
     size_t          vRegion[3];
 };
 
+CrtDeviceInfo* CrtDeviceInfo::GetChildObject()
+{
+    CrtDeviceInfo* childObj = new CrtDeviceInfo;
+    if ( childObj )
+    {
+        childObj->m_crtPlatform = m_crtPlatform;
+        childObj->m_deviceCapabilities = m_deviceCapabilities;
+        childObj->m_devType = m_devType;
+        childObj->m_isRootDevice = false;
+        childObj->m_origDispatchTable = m_origDispatchTable;
+        childObj->m_refCount = 1;
+        childObj->m_syncAttribs = m_syncAttribs;
+    }
+    else
+    {
+        return NULL;
+    }
+
+    return childObj;
+}
+
 void CopyMemoryObject(MemCpyParams* pCopyCmd)
 {
     // Copy 1D array only

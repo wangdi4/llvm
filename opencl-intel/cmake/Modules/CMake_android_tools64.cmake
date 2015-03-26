@@ -6,18 +6,14 @@
 set( CMAKE_SYSTEM_NAME Linux )
 set( CMAKE_CROSSCOMPILING True )
 set( CMAKE_SYSTEM_VERSION 1 )
+set( ANDROID_NDK /sdk/android-ndk-r10d )
 set( ANDROID_NDK_DEFAULT_SEARCH_PATH ${ANDROID_NDK} )
 set( ANDROID_NDK_SUPPORTED_VERSIONS -r8 "")
+set( ANDROID_NDK_SYSROOT ${ANDROID_NDK}/platforms/android-21/arch-x86_64/ )
+set( ANDROID_NDK_TOOLCHAIN_ROOT ${ANDROID_NDK}/toolchains/x86_64-4.9/prebuilt/linux-x86_64/ )
 set( ANDROID_NDK_TOOLCHAIN_DEFAULT_SEARCH_PATH ${ANDROID_NDK_TOOLCHAIN_ROOT} )
 set( TOOL_OS_SUFFIX "" )
 
-# set Android toolchain directory name
-set ( ANDROID_TOOLCHAIN_DIRECTORY_NAME android-toolchain-x86_64 )
-
-execute_process(COMMAND find "/usr/local" -name ${ANDROID_TOOLCHAIN_DIRECTORY_NAME} -type d OUTPUT_VARIABLE ANDROID_NDK_TOOLCHAIN_ROOT OUTPUT_STRIP_TRAILING_WHITESPACE)
-if (NOT IS_DIRECTORY ${ANDROID_NDK_TOOLCHAIN_ROOT})
-    message(FATAL_ERROR "Can't find Android ToolChain Root ${ANDROID_NDK_TOOLCHAIN_ROOT}")
-endif (NOT IS_DIRECTORY ${ANDROID_NDK_TOOLCHAIN_ROOT})
 
 set(CMAKE_FIND_ROOT_PATH  ${ANDROID_NDK_TOOLCHAIN_ROOT})
 
@@ -100,9 +96,7 @@ if( EXISTS "${ANDROID_NDK}" )
   message( STATUS "  If you prefer to use a different API level, please define the variable: ANDROID_API_LEVEL" )
  endif()
 
- set( ANDROID_NDK_SYSROOT "${ANDROID_NDK_TOOLCHAIN_ROOT}/sysroot" )
-# set( ANDROID_NDK_SYSROOT "${ANDROID_NDK}/platforms/android-${ANDROID_API_LEVEL}/arch-x86" )
- message( STATUS "ANDROID_NDK_SYSROOT is ${ANDROID_NDK_SYSROOT}" )
+  message( STATUS "ANDROID_NDK_SYSROOT is ${ANDROID_NDK_SYSROOT}" )
 
  __TOOLCHAIN_DETECT_API_LEVEL( "${ANDROID_NDK_SYSROOT}/usr/include/android/api-level.h" ${ANDROID_API_LEVEL} )
  
@@ -117,7 +111,7 @@ else()
  endif()
 
  set( ANDROID_NDK_TOOLCHAIN_ROOT "${ANDROID_NDK_TOOLCHAIN_ROOT}" CACHE PATH "root of the Android NDK standalone toolchain" FORCE )
- set( ANDROID_NDK_SYSROOT "${ANDROID_NDK_TOOLCHAIN_ROOT}/sysroot" )
+ set( ANDROID_NDK_SYSROOT "${ANDROID_NDK_TOOLCHAIN_ROOT}/sysroot/" )
 
  if( NOT EXISTS "${ANDROID_NDK_TOOLCHAIN_ROOT}" )
   message( FATAL_ERROR "neither ${ANDROID_NDK} nor ${ANDROID_NDK_TOOLCHAIN_ROOT} does not exist!
@@ -212,7 +206,7 @@ set( CMAKE_FIND_ROOT_PATH_MODE_PROGRAM BOTH )
 set( CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY )
 set( CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY )
 
-set( CMAKE_CXX_FLAGS " -m64 -fPIC -DANDROID -Wno-psabi -fsigned-char" )
+set( CMAKE_CXX_FLAGS " -m64 -fPIC -DANDROID -Wno-psabi -fsigned-char -I${ANDROID_NDK}/sources/cxx-stl/gnu-libstdc++/4.9/include/ -I${ANDROID_NDK}/sources/cxx-stl/gnu-libstdc++/4.9/libs/x86_64/include/" )
 set( CMAKE_C_FLAGS " -m64 -fPIC -DANDROID -Wno-psabi -fsigned-char" )
 
 if( BUILD_WITH_ANDROID_NDK )
@@ -265,7 +259,7 @@ set( CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${ADD_CXX
 # My add Rami - End
 #-------------------------------------------------
       
-set( LINKER_FLAGS "-L${STL_LIBRARIES_PATH} -lstdc++ " )
+set( LINKER_FLAGS "-L${STL_LIBRARIES_PATH} -lstdc++ -lgnustl_shared" )
 
 set( NO_UNDEFINED ON CACHE BOOL "Don't allow undefined symbols" )
 if( NO_UNDEFINED )
