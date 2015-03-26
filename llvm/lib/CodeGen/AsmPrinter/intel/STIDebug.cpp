@@ -292,7 +292,8 @@ struct ClassInfo {
   };
   // llvmClassType -> {llvmInheritance, vbIndex, indirect}
   typedef MapVector<const MDNode *, VBaseClassInfo> VBaseClassList;
-  typedef std::vector<const MDNode *> MemberList;
+  // [<llvmMemberType, baseOffset>]
+  typedef std::vector<std::pair<const MDNode *, unsigned> > MemberList;
   // methodName -> [<llvmSubprogram, introduced>]
   typedef std::map<StringRef, std::vector<std::pair<const MDNode *, bool> > >
       MethodsMap;
@@ -441,6 +442,7 @@ protected:
   void collectClassInfoFromInheritance(ClassInfo &info,
                                        const DIDerivedType inherTy,
                                        bool &finalizedOffset);
+  void collectMemberInfo(ClassInfo &info, const DIDerivedType DDTy);
   bool isEqualVMethodPrototype(DISubroutineType typeA, DISubroutineType typeB);
 
   STISymbolProcedure *getOrCreateSymbolProcedure(const DISubprogram &SP);
@@ -1227,6 +1229,28 @@ void STIDebugImpl::collectClassInfoFromInheritance(ClassInfo &info,
   }
 }
 
+void STIDebugImpl::collectMemberInfo(ClassInfo &info,
+                                     const DIDerivedType DDTy) {
+  if (!DDTy.getName().empty()) {
+    info.members.push_back(std::make_pair(DDTy, 0));
+    return;
+  }
+  // Member with no name, must be nested structure/union, collects its memebers
+  assert((DDTy.getOffsetInBits() % 8) == 0 && "Unnamed bitfield member!");
+  unsigned offset = DDTy.getOffsetInBits() >> 3;
+  const DIType Ty = resolve(DDTy.getTypeDerivedFrom());
+  assert(Ty.isCompositeType() && "Expects structure or union type");
+  const DICompositeType DCTy(Ty);
+  ClassInfo &nestedInfo = collectClassInfo(DCTy);
+  ClassInfo::MemberList &members = nestedInfo.members;
+  for (unsigned i = 0, e = members.size(); i != e; ++i) {
+    auto itr = members[i];
+    info.members.push_back(std::make_pair(itr.first, itr.second + offset));
+  }
+  //TODO: do we need to create the type of the unnamed member?
+  //(void)createType(Ty);
+}
+
 ClassInfo &STIDebugImpl::collectClassInfo(const DICompositeType llvmType) {
   auto *CIM = getClassInfoMap();
   auto itr = CIM->find(llvmType);
@@ -1276,7 +1300,7 @@ ClassInfo &STIDebugImpl::collectClassInfo(const DICompositeType llvmType) {
         } else if (DDTy.getTag() == dwarf::DW_TAG_inheritance) {
           collectClassInfoFromInheritance(info, DDTy, finalizedOffset);
         } else {
-          info.members.push_back(DDTy);
+          collectMemberInfo(info, DDTy);
         }
       }
     }
@@ -1399,7 +1423,8 @@ STIType *STIDebugImpl::createTypeStructure(const DICompositeType llvmType,
     // Create members
     ClassInfo::MemberList &members = info.members;
     for (unsigned i = 0, e = members.size(); i != e; ++i) {
-      const DIDerivedType llvmMember = DIDerivedType(members[i]);
+      auto itr = members[i];
+      const DIDerivedType llvmMember = DIDerivedType(itr.first);
 
       STITypeMember *member = STITypeMember::create();
 
@@ -1419,7 +1444,7 @@ STIType *STIDebugImpl::createTypeStructure(const DICompositeType llvmType,
       // TODO: move the member size calculation to a helper function.
       uint64_t Size = llvmMember.getSizeInBits();
       uint64_t FieldSize = getBaseTypeSize(llvmMember);
-      uint64_t OffsetInBytes;
+      uint64_t OffsetInBytes = itr.second;
 
       if (Size != FieldSize) {
         STITypeBitfield *bitfieldType = STITypeBitfield::create();
@@ -1441,11 +1466,11 @@ STIType *STIDebugImpl::createTypeStructure(const DICompositeType llvmType,
         const_cast<STIDebugImpl *>(this)->getTypeTable()->push_back(
             bitfieldType); // FIXME
 
-        OffsetInBytes = FieldOffset >> 3;
+        OffsetInBytes += FieldOffset >> 3;
         memberBaseType = bitfieldType;
       } else {
         // This is not a bitfield.
-        OffsetInBytes = llvmMember.getOffsetInBits() >> 3;
+        OffsetInBytes += llvmMember.getOffsetInBits() >> 3;
       }
 
       member->setAttribute(getTypeAttribute(llvmMember, llvmType));
