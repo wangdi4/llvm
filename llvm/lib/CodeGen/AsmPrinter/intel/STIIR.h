@@ -241,9 +241,11 @@ public:
 class STIChecksumTable {
 public:
   typedef std::vector<STIChecksumEntry *> EntryList;
+  typedef DenseMap<const STIStringEntry *, STIChecksumEntry *> EntryMap;
 
 private:
   EntryList _entries;
+  EntryMap _map;
 
 public:
   STIChecksumTable();
@@ -252,7 +254,9 @@ public:
   EntryList &getEntries();
   const EntryList &getEntries() const;
 
-  void append(STIChecksumEntry *entry);
+  STIChecksumEntry *findEntry(const STIStringEntry *string) const;
+
+  void append(STIStringEntry *string, STIChecksumEntry *entry);
 };
 
 //===----------------------------------------------------------------------===//

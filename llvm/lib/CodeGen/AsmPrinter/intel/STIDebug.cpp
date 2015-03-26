@@ -50,6 +50,128 @@ static int16_t getPaddedSize(const int16_t num) {
   return (num + paddingInc) & paddingMask;
 }
 
+static void getFullFileName(const DIScope scope, std::string &path) {
+  path = (scope.getDirectory() + Twine("\\") + scope.getFilename()).str();
+  std::replace(path.begin(), path.end(), '/', '\\');
+  size_t index = 0;
+  while ((index = path.find("\\\\", index)) != std::string::npos) {
+    path.erase(index, 1);
+  }
+}
+
+static std::string getRealName(std::string name) {
+  std::string prefix = ".?AV"; //".?AU"
+  std::string sufix = "@";
+  std::string realName = sufix;
+
+  while (std::size_t pos = name.find("::")) {
+    if (pos == std::string::npos) {
+      realName = (Twine(prefix) + Twine(name.substr(0, pos)) + Twine(sufix) +
+                  Twine(realName)).str();
+      break;
+    }
+    realName =
+        (Twine(name.substr(0, pos)) + Twine(sufix) + Twine(realName)).str();
+    name = name.substr(pos + 2);
+  }
+  return realName;
+}
+
+static bool isStaticMethod(StringRef linkageName) {
+  // FIXME: this is a temporary WA to partial demangle gcc linkageName
+  size_t pos = linkageName.find("@@");
+  if (pos != StringRef::npos) {
+    switch (linkageName[pos + 2]) {
+    case 'T':
+    case 'S':
+    case 'K':
+    case 'L':
+    case 'C':
+    case 'D':
+      return true;
+    }
+  }
+  return false;
+}
+
+static unsigned getFunctionAttribute(const DISubprogram SP,
+                                     const DICompositeType llvmParentType,
+                                     bool introduced) {
+  unsigned attribute = 0;
+  unsigned virtuality = SP.getVirtuality();
+
+  if (SP.isProtected())
+    attribute = attribute | STI_ACCESS_PRIVATE;
+  else if (SP.isPrivate())
+    attribute = attribute | STI_ACCESS_PROTECT;
+  else if (SP.isPublic())
+    attribute = attribute | STI_ACCESS_PUBLIC;
+  // Otherwise C++ member and base classes are considered public.
+  else if (llvmParentType.getTag() == dwarf::DW_TAG_class_type)
+    attribute = attribute | STI_ACCESS_PRIVATE;
+  else
+    attribute = attribute | STI_ACCESS_PUBLIC;
+
+  if (SP.isArtificial()) {
+    attribute = attribute | STI_COMPGENX;
+  }
+
+  switch (virtuality) {
+  case dwarf::DW_VIRTUALITY_none:
+    break;
+  case dwarf::DW_VIRTUALITY_virtual:
+    if (introduced) {
+      attribute = attribute | STI_MPROP_INTR_VRT;
+    } else {
+      attribute = attribute | STI_MPROP_VIRTUAL;
+    }
+    break;
+  case dwarf::DW_VIRTUALITY_pure_virtual:
+    if (introduced) {
+      attribute = attribute | STI_MPROP_PURE_INTR_VRT;
+    } else {
+      attribute = attribute | STI_MPROP_PURE_VRT;
+    }
+    break;
+  default:
+    assert(!"unhandled virtuality case");
+    break;
+  }
+
+  if (isStaticMethod(SP.getLinkageName())) {
+    attribute = attribute | STI_MPROP_STATIC;
+  }
+
+  return attribute;
+}
+
+static unsigned getTypeAttribute(const DIDerivedType llvmType,
+                                 const DICompositeType llvmParentType) {
+  unsigned attribute = 0;
+
+  if (llvmType.isProtected())
+    attribute = attribute | STI_ACCESS_PRIVATE;
+  else if (llvmType.isPrivate())
+    attribute = attribute | STI_ACCESS_PROTECT;
+  else if (llvmType.isPublic())
+    attribute = attribute | STI_ACCESS_PUBLIC;
+  // Otherwise C++ member and base classes are considered public.
+  else if (llvmParentType.getTag() == dwarf::DW_TAG_class_type)
+    attribute = attribute | STI_ACCESS_PRIVATE;
+  else
+    attribute = attribute | STI_ACCESS_PUBLIC;
+
+  if (llvmType.isArtificial()) {
+    attribute = attribute | STI_COMPGENX;
+  }
+
+  if (llvmType.isStaticMember()) {
+    attribute = attribute | STI_MPROP_STATIC;
+  }
+
+  return attribute;
+}
+
 //===----------------------------------------------------------------------===//
 // Printing/Debugging Routines
 //===----------------------------------------------------------------------===//
@@ -233,6 +355,7 @@ private:
   LabelMap _labelsBeforeInsn;
   LabelMap _labelsAfterInsn;
   const MachineInstr *_curMI;
+  STISubsection *_currentSubsection;
   unsigned _ptrSizeInBits;
   ClassInfoMap _classInfoMap;
   StringNameMap _stringNameMap;
@@ -322,6 +445,7 @@ protected:
 
   STISymbolProcedure *getOrCreateSymbolProcedure(const DISubprogram &SP);
   STISymbolBlock *createSymbolBlock(const DILexicalBlock &LB);
+  STIChecksumEntry *getOrCreateChecksum(StringRef path);
 
   STIType *createType(const DIType llvmType, STIType *classType = nullptr,
                       bool isStatic = false);
@@ -431,8 +555,8 @@ STIDebugImpl::STIDebugImpl(AsmPrinter *asmPrinter)
       _stringTable(), _checksumTable(), _ScopeMap(), _typeMap(),
       _voidType(nullptr), _vbpType(nullptr), _blockNumber(0), _lexicalScopes(),
       _labelsBeforeInsn(), _labelsAfterInsn(), _curMI(nullptr),
-      _ptrSizeInBits(0), _classInfoMap(), _stringNameMap(),
-      _uniqueNameCounter(0) {
+      _currentSubsection(nullptr), _ptrSizeInBits(0), _classInfoMap(),
+       _stringNameMap(), _uniqueNameCounter(0) {
   // If module doesn't have named metadata anchors or COFF debug section
   // is not available, skip any debug info related stuff.
   if (!MMI()->getModule()->getNamedMetadata("llvm.dbg.cu") ||
@@ -521,7 +645,6 @@ void STIDebugImpl::beginInstruction(const MachineInstr *MI) {
   MCSymbol *label;
   std::string path;
   uint32_t line;
-  STIStringEntry *string;
   STIChecksumEntry *checksum;
   STILineSlice *slice;
   STILineBlock *block;
@@ -546,29 +669,18 @@ void STIDebugImpl::beginInstruction(const MachineInstr *MI) {
 
   procedure = getCurrentProcedure();
   slice = procedure->getLineSlice();
+  line = location.getLine();
 
   node = location.getScope(ASM()->MF->getFunction()->getContext());
   DIScope scope(node);
-  path = (scope.getDirectory() + Twine("\\") + scope.getFilename()).str();
-  line = location.getLine();
-  std::replace(path.begin(), path.end(), '/', '\\');
-  size_t index = 0;
-  while ((index = path.find("\\\\", index)) != std::string::npos) {
-    path.erase(index, 1);
-  }
+  getFullFileName(scope, path);
 
   label = ASM()->MMI->getContext().CreateTempSymbol();
   emitLabel(label);
 
   if (slice->getBlocks().size() == 0 ||
       slice->getBlocks().back()->getFilename() != path) {
-    string = _stringTable.find(strdup(path.c_str())); // FIXME
-
-    checksum = STIChecksumEntry::create();
-    checksum->setStringEntry(string);
-    checksum->setType(STIChecksumEntry::STI_FILECHECKSUM_ENTRY_TYPE_NONE);
-    checksum->setChecksum(nullptr);
-    _checksumTable.append(checksum);
+    checksum = getOrCreateChecksum(path);
 
     block = STILineBlock::create();
     block->setChecksumEntry(checksum);
@@ -1032,101 +1144,6 @@ uint64_t STIDebugImpl::getBaseTypeSize(DIDerivedType Ty) const {
     return getBaseTypeSize(DIDerivedType(BaseType));
 
   return BaseType.getSizeInBits();
-}
-
-static bool isStaticMethod(StringRef linkageName) {
-  // FIXME: this is a temporary WA to partial demangle gcc linkageName
-  size_t pos = linkageName.find("@@");
-  if (pos != StringRef::npos) {
-    switch (linkageName[pos + 2]) {
-    case 'T':
-    case 'S':
-    case 'K':
-    case 'L':
-    case 'C':
-    case 'D':
-      return true;
-    }
-  }
-  return false;
-}
-
-static unsigned getFunctionAttribute(const DISubprogram SP,
-                                     const DICompositeType llvmParentType,
-                                     bool introduced) {
-  unsigned attribute = 0;
-  unsigned virtuality = SP.getVirtuality();
-
-  if (SP.isProtected())
-    attribute = attribute | STI_ACCESS_PRIVATE;
-  else if (SP.isPrivate())
-    attribute = attribute | STI_ACCESS_PROTECT;
-  else if (SP.isPublic())
-    attribute = attribute | STI_ACCESS_PUBLIC;
-  // Otherwise C++ member and base classes are considered public.
-  else if (llvmParentType.getTag() == dwarf::DW_TAG_class_type)
-    attribute = attribute | STI_ACCESS_PRIVATE;
-  else
-    attribute = attribute | STI_ACCESS_PUBLIC;
-
-  if (SP.isArtificial()) {
-    attribute = attribute | STI_COMPGENX;
-  }
-
-  switch (virtuality) {
-  case dwarf::DW_VIRTUALITY_none:
-    break;
-  case dwarf::DW_VIRTUALITY_virtual:
-    if (introduced) {
-      attribute = attribute | STI_MPROP_INTR_VRT;
-    } else {
-      attribute = attribute | STI_MPROP_VIRTUAL;
-    }
-    break;
-  case dwarf::DW_VIRTUALITY_pure_virtual:
-    if (introduced) {
-      attribute = attribute | STI_MPROP_PURE_INTR_VRT;
-    } else {
-      attribute = attribute | STI_MPROP_PURE_VRT;
-    }
-    break;
-  default:
-    assert(!"unhandled virtuality case");
-    break;
-  }
-
-  if (isStaticMethod(SP.getLinkageName())) {
-    attribute = attribute | STI_MPROP_STATIC;
-  }
-
-  return attribute;
-}
-
-static unsigned getTypeAttribute(const DIDerivedType llvmType,
-                                 const DICompositeType llvmParentType) {
-  unsigned attribute = 0;
-
-  if (llvmType.isProtected())
-    attribute = attribute | STI_ACCESS_PRIVATE;
-  else if (llvmType.isPrivate())
-    attribute = attribute | STI_ACCESS_PROTECT;
-  else if (llvmType.isPublic())
-    attribute = attribute | STI_ACCESS_PUBLIC;
-  // Otherwise C++ member and base classes are considered public.
-  else if (llvmParentType.getTag() == dwarf::DW_TAG_class_type)
-    attribute = attribute | STI_ACCESS_PRIVATE;
-  else
-    attribute = attribute | STI_ACCESS_PUBLIC;
-
-  if (llvmType.isArtificial()) {
-    attribute = attribute | STI_COMPGENX;
-  }
-
-  if (llvmType.isStaticMember()) {
-    attribute = attribute | STI_MPROP_STATIC;
-  }
-
-  return attribute;
 }
 
 bool STIDebugImpl::isEqualVMethodPrototype(DISubroutineType typeA,
@@ -2115,6 +2132,20 @@ STISymbolBlock *STIDebugImpl::createSymbolBlock(const DILexicalBlock &LB) {
   return block;
 }
 
+STIChecksumEntry *STIDebugImpl::getOrCreateChecksum(StringRef path) {
+  STIStringEntry *string = _stringTable.find(strdup(path.str().c_str()));
+  STIChecksumEntry *checksum = _checksumTable.findEntry(string);
+
+  if (checksum == nullptr) {
+    checksum = STIChecksumEntry::create();
+    checksum->setStringEntry(string);
+    checksum->setType(STIChecksumEntry::STI_FILECHECKSUM_ENTRY_TYPE_NONE);
+    checksum->setChecksum(nullptr);
+    _checksumTable.append(string, checksum);
+  }
+  return checksum;
+}
+
 void STIDebugImpl::collectModuleInfo() {
   const Module *M = getModule();
   STISymbolModule *module;
@@ -2164,6 +2195,10 @@ void STIDebugImpl::collectModuleInfo() {
       variable->setLocation(location);
 
       getOrCreateScope(GV.getContext())->add(variable);
+
+      std::string path;
+      getFullFileName(context, path);
+      (void)getOrCreateChecksum(path);
     }
 
     DIArray SPs = CU.getSubprograms();
@@ -2254,6 +2289,7 @@ void STIDebugImpl::layout() {
 void STIDebugImpl::emit() {
   emitSymbols();
   emitTypes();
+  closeSubsection();
 }
 
 void STIDebugImpl::emitSymbolID(const STISymbolID symbolID) const {
@@ -2288,26 +2324,24 @@ void STIDebugImpl::emitSubsectionEnd(STISubsection *subsection) const {
   emitLabel(subsection->getEnd());
 }
 
-static STISubsection *currentSubsection = nullptr;
-
 void STIDebugImpl::closeSubsection() const {
-  if (currentSubsection != nullptr) {
-    emitSubsectionEnd(currentSubsection);
-    delete currentSubsection;
-    currentSubsection = nullptr;
+  if (_currentSubsection != nullptr) {
+    emitSubsectionEnd(_currentSubsection);
+    delete _currentSubsection;
+    const_cast<STIDebugImpl *>(this)->_currentSubsection = nullptr;
   }
 }
 
 void STIDebugImpl::emitSubsection(STISubsectionID id) const {
   // If trying to change subsection to same subsection do nothing.
-  if (currentSubsection != nullptr && currentSubsection->getID() == id) {
+  if (_currentSubsection != nullptr && _currentSubsection->getID() == id) {
     return;
   }
 
   closeSubsection();
 
-  currentSubsection = new STISubsection(id);
-  emitSubsectionBegin(currentSubsection);
+  const_cast<STIDebugImpl *>(this)->_currentSubsection = new STISubsection(id);
+  emitSubsectionBegin(_currentSubsection);
 }
 
 MCSymbol *STIDebugImpl::createFuncLabel(const char *name) const {
@@ -2990,24 +3024,6 @@ void STIDebugImpl::emitTypeArray(const STITypeArray *type) const {
   emitInt32(T_ULONG);
   emitNumeric(arrayLength);
   emitString(name);
-}
-
-static std::string getRealName(std::string name) {
-  std::string prefix = ".?AV"; //".?AU"
-  std::string sufix = "@";
-  std::string realName = sufix;
-
-  while (std::size_t pos = name.find("::")) {
-    if (pos == std::string::npos) {
-      realName = (Twine(prefix) + Twine(name.substr(0, pos)) + Twine(sufix) +
-                  Twine(realName)).str();
-      break;
-    }
-    realName =
-        (Twine(name.substr(0, pos)) + Twine(sufix) + Twine(realName)).str();
-    name = name.substr(pos + 2);
-  }
-  return realName;
 }
 
 void STIDebugImpl::emitTypeStructure(const STITypeStructure *type) const {

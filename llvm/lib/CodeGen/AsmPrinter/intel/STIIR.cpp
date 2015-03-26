@@ -207,7 +207,7 @@ size_t STIChecksumEntry::getChecksumSize() const {
 // STIChecksumTable
 //===----------------------------------------------------------------------===//
 
-STIChecksumTable::STIChecksumTable() {}
+STIChecksumTable::STIChecksumTable() : _entries(), _map() {}
 
 STIChecksumTable::~STIChecksumTable() {
   for (STIChecksumEntry *entry : getEntries()) {
@@ -221,8 +221,18 @@ const STIChecksumTable::EntryList &STIChecksumTable::getEntries() const {
   return _entries;
 }
 
-void STIChecksumTable::append(STIChecksumEntry *entry) {
+STIChecksumEntry *
+STIChecksumTable::findEntry(const STIStringEntry *string) const {
+  auto itr = _map.find(string);
+  if (itr != _map.end()) {
+    return itr->second;
+  }
+  return nullptr;
+}
+
+void STIChecksumTable::append(STIStringEntry *string, STIChecksumEntry *entry) {
   _entries.push_back(entry);
+  _map.insert(std::make_pair(string, entry));
 }
 
 //===----------------------------------------------------------------------===//

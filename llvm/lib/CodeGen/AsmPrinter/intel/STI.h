@@ -20,6 +20,7 @@ formats are supported.
 #ifndef LLVM_LIB_CODEGEN_ASMPRINTER_STI_H
 #define LLVM_LIB_CODEGEN_ASMPRINTER_STI_H
 
+#define INVALID 0
 //===----------------------------------------------------------------------===//
 // STIMachineID
 //===----------------------------------------------------------------------===//
@@ -108,9 +109,9 @@ typedef enum STISectionSignatureIDEnum STISectionSignatureID;
     X(STI_REGISTER_ESI,                 0x0017)         \
     X(STI_REGISTER_EDI,                 0x0018)         \
     X(STI_REGISTER_RAX,                 0x0148)         \
-    X(STI_REGISTER_RCX,                 0x0149)         \
-    X(STI_REGISTER_RDX,                 0x014a)         \
-    X(STI_REGISTER_RBX,                 0x014b)         \
+    X(STI_REGISTER_RBX,                 0x0149)         \
+    X(STI_REGISTER_RCX,                 0x014a)         \
+    X(STI_REGISTER_RDX,                 0x014b)         \
     X(STI_REGISTER_RSI,                 0x014c)         \
     X(STI_REGISTER_RDI,                 0x014d)         \
     X(STI_REGISTER_RBP,                 0x014e)         \
@@ -276,7 +277,7 @@ typedef enum STIRegIDEnum STIRegID;
 #define S_CEXMODEL32    (IS_CV5 ? INVALID : S_CEXMODEL32_CV7)
 
 #define S_VFTABLE32     0x100c          /* Virtual function table path descriptor 16:32 */
-#define S_FRAMEPROC     S_FRAMEPROC_CV7 /*(IS_CV5 ? INVALID : S_FRAMEPROC_CV7) */
+#define S_FRAMEPROC     (IS_CV5 ? INVALID : S_FRAMEPROC_CV7)
 #define S_ANNOTATION    (IS_CV5 ? INVALID : S_ANNOTATION_CV7)
 #define S_OBJNAME       (IS_CV5 ? S_OBJNAME_CV5         : S_OBJNAME_CV7)
 #define S_THUNK32       (IS_CV5 ? S_THUNK32_CV5                 : S_THUNK32_CV7)
