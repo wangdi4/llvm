@@ -64,6 +64,8 @@
 
 #if defined(_WIN32)
 #include "lldb/Host/windows/ProcessLauncherWindows.h"
+#elif defined(__ANDROID__) || defined(__ANDROID_NDK__)
+#include "lldb/Host/android/ProcessLauncherAndroid.h"
 #else
 #include "lldb/Host/posix/ProcessLauncherPosix.h"
 #endif
@@ -169,7 +171,7 @@ MonitorChildProcessThreadFunction (void *arg)
     {
         log = lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_PROCESS);
         if (log)
-            log->Printf("%s ::wait_pid (pid = %" PRIi32 ", &status, options = %i)...", function, pid, options);
+            log->Printf("%s ::waitpid (pid = %" PRIi32 ", &status, options = %i)...", function, pid, options);
 
         // Wait for all child processes
 #if !defined(__ANDROID__) && !defined(__ANDROID_NDK__)
@@ -232,9 +234,9 @@ MonitorChildProcessThreadFunction (void *arg)
                 if (log)
                     log->Printf ("%s ::waitpid (pid = %" PRIi32 ", &status, options = %i) => pid = %" PRIi32 ", status = 0x%8.8x (%s), signal = %i, exit_state = %i",
                                  function,
-                                 wait_pid,
-                                 options,
                                  pid,
+                                 options,
+                                 wait_pid,
                                  status,
                                  status_cstr,
                                  signal,
@@ -671,13 +673,13 @@ Host::RunShellCommand (const char *command,
 // systems
 
 #if defined (__APPLE__) || defined (__linux__) || defined (__FreeBSD__) || defined (__GLIBC__) || defined(__NetBSD__)
+#if !defined(__ANDROID__) && !defined(__ANDROID_NDK__)
 // this method needs to be visible to macosx/Host.cpp and
 // common/Host.cpp.
 
 short
 Host::GetPosixspawnFlags(const ProcessLaunchInfo &launch_info)
 {
-#if !defined(__ANDROID__) && !defined(__ANDROID_NDK__)
     short flags = POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK;
 
 #if defined (__APPLE__)
@@ -720,17 +722,12 @@ Host::GetPosixspawnFlags(const ProcessLaunchInfo &launch_info)
 #endif
 #endif // #if defined (__APPLE__)
     return flags;
-#else
-    assert(false && "Host::GetPosixspawnFlags() not supported on Android");
-    return 0;
-#endif
 }
 
 Error
 Host::LaunchProcessPosixSpawn(const char *exe_path, const ProcessLaunchInfo &launch_info, lldb::pid_t &pid)
 {
     Error error;
-#if !defined(__ANDROID__) && !defined(__ANDROID_NDK__)
     Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_HOST | LIBLLDB_LOG_PROCESS));
 
     posix_spawnattr_t attr;
@@ -920,9 +917,6 @@ Host::LaunchProcessPosixSpawn(const char *exe_path, const ProcessLaunchInfo &lau
         }
 #endif
     }
-#else
-    error.SetErrorString("Host::LaunchProcessPosixSpawn() not supported on Android");
-#endif
 
     return error;
 }
@@ -930,7 +924,6 @@ Host::LaunchProcessPosixSpawn(const char *exe_path, const ProcessLaunchInfo &lau
 bool
 Host::AddPosixSpawnFileAction(void *_file_actions, const FileAction *info, Log *log, Error &error)
 {
-#if !defined(__ANDROID__) && !defined(__ANDROID_NDK__)
     if (info == NULL)
         return false;
 
@@ -993,12 +986,9 @@ Host::AddPosixSpawnFileAction(void *_file_actions, const FileAction *info, Log *
             break;
     }
     return error.Success();
-#else
-    error.SetErrorString("Host::AddPosixSpawnFileAction() not supported on Android");
-    return false;
-#endif
 }
-#endif // LaunchProcedssPosixSpawn: Apple, Linux, FreeBSD and other GLIBC systems
+#endif // !defined(__ANDROID__) && !defined(__ANDROID_NDK__)
+#endif // defined (__APPLE__) || defined (__linux__) || defined (__FreeBSD__) || defined (__GLIBC__) || defined(__NetBSD__)
 
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__GLIBC__) || defined(__NetBSD__) || defined(_WIN32)
 // The functions below implement process launching via posix_spawn() for Linux,
@@ -1010,6 +1000,8 @@ Host::LaunchProcess (ProcessLaunchInfo &launch_info)
     std::unique_ptr<ProcessLauncher> delegate_launcher;
 #if defined(_WIN32)
     delegate_launcher.reset(new ProcessLauncherWindows());
+#elif defined(__ANDROID__) || defined(__ANDROID_NDK__)
+    delegate_launcher.reset(new ProcessLauncherAndroid());
 #else
     delegate_launcher.reset(new ProcessLauncherPosix());
 #endif
@@ -1052,15 +1044,9 @@ Host::SetCrashDescription (const char *description)
 {
 }
 
-lldb::pid_t
-Host::LaunchApplication (const FileSpec &app_file_spec)
-{
-    return LLDB_INVALID_PROCESS_ID;
-}
-
 #endif
 
-#if !defined (__linux__) && !defined (__FreeBSD__) && !defined (__NetBSD__)
+#if !defined (__linux__) && !defined (__FreeBSD__) && !defined(__FreeBSD_kernel__) && !defined (__NetBSD__)
 
 const lldb_private::UnixSignalsSP&
 Host::GetUnixSignals ()

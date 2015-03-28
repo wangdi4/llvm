@@ -104,6 +104,9 @@ COMMON_FLAG(uptr, soft_rss_limit_mb, 0,
             " until the RSS goes below the soft limit."
             " This limit does not affect memory allocations other than"
             " malloc/new.")
+COMMON_FLAG(bool, can_use_proc_maps_statm, true,
+            "If false, do not attempt to read /proc/maps/statm."
+            " Mostly useful for testing sanitizers.")
 COMMON_FLAG(
     bool, coverage, false,
     "If set, coverage information will be dumped at program shutdown (if the "
@@ -115,6 +118,9 @@ COMMON_FLAG(bool, coverage_pcs, true,
 COMMON_FLAG(bool, coverage_bitset, false,
             "If set (and if 'coverage' is set too), the coverage information "
             "will also be dumped as a bitset to a separate file.")
+COMMON_FLAG(bool, coverage_counters, false,
+            "If set (and if 'coverage' is set too), the bitmap that corresponds"
+            " to coverage counters will be dumped.")
 COMMON_FLAG(bool, coverage_direct, SANITIZER_ANDROID,
             "If set, coverage information will be dumped directly to a memory "
             "mapped file. This way data is not lost even if the process is "
@@ -125,7 +131,6 @@ COMMON_FLAG(const char *, coverage_dir, ".",
 COMMON_FLAG(bool, full_address_space, false,
             "Sanitize complete address space; "
             "by default kernel area on 32-bit platforms will not be sanitized")
-COMMON_FLAG(const char *, suppressions, "", "Suppressions file name.")
 COMMON_FLAG(bool, print_suppressions, true,
             "Print matched suppressions at exit.")
 COMMON_FLAG(
@@ -133,9 +138,14 @@ COMMON_FLAG(
     "Disable core dumping. By default, disable_core=1 on 64-bit to avoid "
     "dumping a 16T+ core file. Ignored on OSes that don't dump core by"
     "default and for sanitizers that don't reserve lots of virtual memory.")
+COMMON_FLAG(bool, use_madv_dontdump, true,
+          "If set, instructs kernel to not store the (huge) shadow "
+          "in core file.")
 COMMON_FLAG(bool, symbolize_inline_frames, true,
             "Print inlined frames in stacktraces. Defaults to true.")
 COMMON_FLAG(const char *, stack_trace_format, "DEFAULT",
             "Format string used to render stack frames. "
             "See sanitizer_stacktrace_printer.h for the format description. "
             "Use DEFAULT to get default format.")
+COMMON_FLAG(bool, no_huge_pages_for_shadow, true,
+            "If true, the shadow is not allowed to use huge pages. ")

@@ -58,7 +58,7 @@ eh.resume:
   resume { i8*, i32 } %vals
 
 __try.cont:
-  %safe_ret = load i32* %r, align 4
+  %safe_ret = load i32, i32* %r, align 4
   ret i32 %safe_ret
 }
 
@@ -96,8 +96,9 @@ __try.cont:
 ; CHECK: movl $-2, [[rloc]]
 ; CHECK: jmp .LBB0_7
 
-; FIXME: EH preparation should not call _Unwind_Resume.
-; CHECK: callq _Unwind_Resume
+; FIXME: EH preparation should eliminate the 'resume' instr and we should not do
+; the previous 'cmp;jeq'.
+; CHECK-NOT: _Unwind_Resume
 ; CHECK: ud2
 
 ; CHECK: .seh_handlerdata
@@ -116,8 +117,8 @@ __try.cont:
 
 define void @try_body(i32* %r, i32* %n, i32* %d) {
 entry:
-  %0 = load i32* %n, align 4
-  %1 = load i32* %d, align 4
+  %0 = load i32, i32* %n, align 4
+  %1 = load i32, i32* %d, align 4
   %div = sdiv i32 %0, %1
   store i32 %div, i32* %r, align 4
   ret void
@@ -145,8 +146,8 @@ entry:
 
 define i32 @safe_div_filt0(i8* %eh_ptrs, i8* %rbp) {
   %eh_ptrs_c = bitcast i8* %eh_ptrs to i32**
-  %eh_rec = load i32** %eh_ptrs_c
-  %eh_code = load i32* %eh_rec
+  %eh_rec = load i32*, i32** %eh_ptrs_c
+  %eh_code = load i32, i32* %eh_rec
   ; EXCEPTION_ACCESS_VIOLATION = 0xC0000005
   %cmp = icmp eq i32 %eh_code, 3221225477
   %filt.res = zext i1 %cmp to i32
@@ -155,8 +156,8 @@ define i32 @safe_div_filt0(i8* %eh_ptrs, i8* %rbp) {
 
 define i32 @safe_div_filt1(i8* %eh_ptrs, i8* %rbp) {
   %eh_ptrs_c = bitcast i8* %eh_ptrs to i32**
-  %eh_rec = load i32** %eh_ptrs_c
-  %eh_code = load i32* %eh_rec
+  %eh_rec = load i32*, i32** %eh_ptrs_c
+  %eh_code = load i32, i32* %eh_rec
   ; EXCEPTION_INT_DIVIDE_BY_ZERO = 0xC0000094
   %cmp = icmp eq i32 %eh_code, 3221225620
   %filt.res = zext i1 %cmp to i32

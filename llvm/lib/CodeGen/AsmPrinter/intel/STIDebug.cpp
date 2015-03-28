@@ -253,7 +253,7 @@ static STIMachineID toMachineID(Triple::ArchType architecture) {
   case (Triple::ARCH):                                                         \
     machineID = MACHINE;                                                       \
     break
-    MAP(x86, STI_MACHINE_INTEL_PENTIUM_III);
+    MAP(x86,    STI_MACHINE_INTEL_PENTIUM_III);
     MAP(x86_64, STI_MACHINE_INTEL64);
 #undef MAP
   default:
@@ -565,7 +565,7 @@ STIDebugImpl::STIDebugImpl(AsmPrinter *asmPrinter)
       !ASM()->getObjFileLowering().getCOFFDebugSymbolsSection())
     return;
 
-  _ptrSizeInBits = getModule()->getDataLayout()->getPointerSizeInBits();
+  _ptrSizeInBits = getModule()->getDataLayout().getPointerSizeInBits();
 
   beginModule();
 }
@@ -1942,31 +1942,41 @@ STIType *STIDebugImpl::createType(const DIType llvmType, STIType *classType,
 }
 
 STIScope *STIDebugImpl::getOrCreateScope(const DIScope llvmScope) {
-  if (!llvmScope || llvmScope.isFile())
-    return getCompileUnit()->getScope();
-  if (llvmScope.isType()) {
-    return getOrCreateScope(resolve(DIType(llvmScope).getContext()));
-  }
-  if (llvmScope.isNameSpace()) {
-    // return getOrCreateNameSpace(DINameSpace(llvmScope));
-    return getOrCreateScope(DINameSpace(llvmScope).getContext());
-  }
-  if (llvmScope.isSubprogram()) {
+  STIScope* scope = nullptr;
+  if (!llvmScope || llvmScope.isFile() || llvmScope.isCompileUnit()) {
+    scope = getCompileUnit()->getScope();
+  } else if (llvmScope.isType()) {
+    scope = getOrCreateScope(resolve(DIType(llvmScope).getContext()));
+  } else if (llvmScope.isNameSpace()) {
+    // scope = getOrCreateNameSpace(DINameSpace(llvmScope));
+    scope = getOrCreateScope(DINameSpace(llvmScope).getContext());
+  } else if (llvmScope.isSubprogram()) {
     STISymbolProcedure *proc =
       getOrCreateSymbolProcedure(DISubprogram(llvmScope));
-    if (proc == nullptr) {
+    if (proc != nullptr) {
+      scope = proc->getScope();
+    } else {
       //FIXME: WA to prevent build from crashing!
-      return getCompileUnit()->getScope();
+      scope = getCompileUnit()->getScope();
     }
-    return proc->getScope();
+  } else if (hasScope(llvmScope)) {
+    scope = getScope(llvmScope);
+  } else if (llvmScope.isLexicalBlock()) {
+    STISymbolBlock *block = createSymbolBlock(DILexicalBlock(llvmScope));
+    scope = block->getScope();
+    addScope(llvmScope, scope);
+  } else if (llvmScope.isLexicalBlockFile()) {
+    // It appears this is currently only used for DWARF discriminators.
+    // Otherwise it is just another lexical scope.
+    STISymbolBlock* block =
+        createSymbolBlock(DILexicalBlockFile(llvmScope).getScope());
+    scope = block->getScope();
+    addScope(llvmScope, scope);
   }
-  if (hasScope(llvmScope)) {
-    return getScope(llvmScope);
-  }
-  assert(llvmScope.isLexicalBlock() && "Expect Lexical scope");
-  STISymbolBlock *block = createSymbolBlock(DILexicalBlock(llvmScope));
-  addScope(llvmScope, block->getScope());
-  return block->getScope();
+
+  assert(scope != nullptr);  // Callers assume a valid scope is returned.
+
+  return scope;
 }
 
 std::string STIDebugImpl::getScopeFullName(const DIScope llvmScope,
@@ -2016,7 +2026,6 @@ STISymbolVariable *STIDebugImpl::createSymbolVariable(
     const DIVariable DIV, unsigned int frameIndex, const MachineInstr *DVInsn) {
   STISymbolVariable *variable;
   STILocation *location = nullptr;
-  bool indirect = DIV.isIndirect();
 
   variable = STISymbolVariable::create();
   variable->setName(DIV.getName());
@@ -2048,7 +2057,7 @@ STISymbolVariable *STIDebugImpl::createSymbolVariable(
           location = STILocation::createRegisterOffset(
               toSTIRegID(RegOp.getReg()), DVInsn->getOperand(1).getImm());
         }
-      } else if (indirect) {
+      } else if (DVInsn->getOperand(1).isImm()) {
         location =
             STILocation::createRegisterOffset(toSTIRegID(RegOp.getReg()), 0);
       } else if (RegOp.getReg()) {
