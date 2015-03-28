@@ -12,9 +12,8 @@
 
 #if defined(__cplusplus)
 
-#include "lldb/lldb-private.h"
+#include "lldb/lldb-forward.h"
 #include "lldb/Core/ConstString.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Triple.h"
 
 namespace lldb_private {
@@ -277,42 +276,19 @@ public:
     }
 
     //------------------------------------------------------------------
-    /// Sets this ArchSpec according to the given architecture name.
+    /// Merges fields from another ArchSpec into this ArchSpec.
     ///
-    /// The architecture name can be one of the generic system default
-    /// values:
+    /// This will use the supplied ArchSpec to fill in any fields of
+    /// the triple in this ArchSpec which were unspecified.  This can
+    /// be used to refine a generic ArchSpec with a more specific one.
+    /// For example, if this ArchSpec's triple is something like
+    /// i386-unknown-unknown-unknown, and we have a triple which is
+    /// x64-pc-windows-msvc, then merging that triple into this one
+    /// will result in the triple i386-pc-windows-msvc.
     ///
-    /// @li \c LLDB_ARCH_DEFAULT - The arch the current system defaults
-    ///        to when a program is launched without any extra
-    ///        attributes or settings.
-    /// @li \c LLDB_ARCH_DEFAULT_32BIT - The default host architecture
-    ///        for 32 bit (if any).
-    /// @li \c LLDB_ARCH_DEFAULT_64BIT - The default host architecture
-    ///        for 64 bit (if any).
-    ///
-    /// Alternatively, if the object type of this ArchSpec has been
-    /// configured,  a concrete architecture can be specified to set
-    /// the CPU type ("x86_64" for example).
-    ///
-    /// Finally, an encoded object and archetecture format is accepted.
-    /// The format contains an object type (like "macho" or "elf"),
-    /// followed by a platform dependent encoding of CPU type and
-    /// subtype.  For example:
-    ///
-    ///     "macho"        : Specifies an object type of MachO.
-    ///     "macho-16-6"   : MachO specific encoding for ARMv6.
-    ///     "elf-43        : ELF specific encoding for Sparc V9.
-    ///
-    /// @param[in] arch_name The name of an architecture.
-    ///
-    /// @return True if @p arch_name was successfully translated, false
-    ///         otherwise.
     //------------------------------------------------------------------
-//    bool
-//    SetArchitecture (const llvm::StringRef& arch_name);
-//
-//    bool
-//    SetArchitecture (const char *arch_name);
+    void
+    MergeFrom(const ArchSpec &other);
     
     //------------------------------------------------------------------
     /// Change the architecture object type and CPU type.

@@ -21,6 +21,7 @@
 #include "Atoms.h"
 #include "lld/Core/Simple.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/Debug.h"
 
 using namespace lld;
@@ -518,13 +519,12 @@ lld::elf::createAArch64RelocationPass(const AArch64LinkingContext &ctx) {
   switch (ctx.getOutputELFType()) {
   case llvm::ELF::ET_EXEC:
     if (ctx.isDynamic())
-      return std::unique_ptr<Pass>(new AArch64DynamicRelocationPass(ctx));
-    else
-      return std::unique_ptr<Pass>(new AArch64StaticRelocationPass(ctx));
+      return llvm::make_unique<AArch64DynamicRelocationPass>(ctx);
+    return llvm::make_unique<AArch64StaticRelocationPass>(ctx);
   case llvm::ELF::ET_DYN:
-    return std::unique_ptr<Pass>(new AArch64DynamicRelocationPass(ctx));
+    return llvm::make_unique<AArch64DynamicRelocationPass>(ctx);
   case llvm::ELF::ET_REL:
-    return std::unique_ptr<Pass>();
+    return nullptr;
   default:
     llvm_unreachable("Unhandled output file type");
   }

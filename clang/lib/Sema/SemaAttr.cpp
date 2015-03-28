@@ -138,7 +138,7 @@ void Sema::AddMsStructLayoutForRecord(RecordDecl *RD) {
     return;
 #endif
   if (MSStructPragmaOn)
-    RD->addAttr(MsStructAttr::CreateImplicit(Context));
+    RD->addAttr(MSStructAttr::CreateImplicit(Context));
 
   // FIXME: We should merge AddAlignmentAttributesForRecord with
   // AddMsStructLayoutForRecord into AddPragmaAttributesForRecord, which takes
@@ -429,6 +429,9 @@ void Sema::ActOnPragmaMSSeg(SourceLocation PragmaLocation,
   if (Action & PSK_Pop && Stack->Stack.empty())
     Diag(PragmaLocation, diag::warn_pragma_pop_failed) << PragmaName
         << "stack empty";
+  if (SegmentName &&
+      !checkSectionName(SegmentName->getLocStart(), SegmentName->getString()))
+    return;
   Stack->Act(PragmaLocation, Action, StackSlotLabel, SegmentName);
 }
 

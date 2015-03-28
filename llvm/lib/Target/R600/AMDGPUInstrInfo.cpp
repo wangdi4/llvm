@@ -152,26 +152,22 @@ bool AMDGPUInstrInfo::expandPostRAPseudo (MachineBasicBlock::iterator MI) const 
   return true;
 }
 
-
-MachineInstr *
-AMDGPUInstrInfo::foldMemoryOperandImpl(MachineFunction &MF,
-                                      MachineInstr *MI,
-                                      const SmallVectorImpl<unsigned> &Ops,
-                                      int FrameIndex) const {
+MachineInstr *AMDGPUInstrInfo::foldMemoryOperandImpl(MachineFunction &MF,
+                                                     MachineInstr *MI,
+                                                     ArrayRef<unsigned> Ops,
+                                                     int FrameIndex) const {
 // TODO: Implement this function
   return nullptr;
 }
-MachineInstr*
-AMDGPUInstrInfo::foldMemoryOperandImpl(MachineFunction &MF,
-                                      MachineInstr *MI,
-                                      const SmallVectorImpl<unsigned> &Ops,
-                                      MachineInstr *LoadMI) const {
+MachineInstr *
+AMDGPUInstrInfo::foldMemoryOperandImpl(MachineFunction &MF, MachineInstr *MI,
+                                       ArrayRef<unsigned> Ops,
+                                       MachineInstr *LoadMI) const {
   // TODO: Implement this function
   return nullptr;
 }
-bool
-AMDGPUInstrInfo::canFoldMemoryOperand(const MachineInstr *MI,
-                                     const SmallVectorImpl<unsigned> &Ops) const {
+bool AMDGPUInstrInfo::canFoldMemoryOperand(const MachineInstr *MI,
+                                           ArrayRef<unsigned> Ops) const {
   // TODO: Implement this function
   return false;
 }
@@ -319,10 +315,7 @@ int AMDGPUInstrInfo::getIndirectIndexEnd(const MachineFunction &MF) const {
     return -1;
   }
 
-  Offset = MF.getTarget()
-               .getSubtargetImpl()
-               ->getFrameLowering()
-               ->getFrameIndexOffset(MF, -1);
+  Offset = MF.getSubtarget().getFrameLowering()->getFrameIndexOffset(MF, -1);
 
   return getIndirectIndexBegin(MF) + Offset;
 }
@@ -353,7 +346,7 @@ enum SISubtarget {
   VI = 1
 };
 
-enum SISubtarget AMDGPUSubtargetToSISubtarget(unsigned Gen) {
+static enum SISubtarget AMDGPUSubtargetToSISubtarget(unsigned Gen) {
   switch (Gen) {
   default:
     return SI;

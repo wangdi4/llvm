@@ -21,6 +21,7 @@
 // C++ Includes
 // Other libraries and framework includes
 // Project includes
+#include "lldb/Breakpoint/BreakpointSite.h"
 #include "lldb/Core/Error.h"
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/Module.h"
@@ -28,6 +29,7 @@
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Host/HostInfo.h"
+#include "lldb/Target/Process.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -118,6 +120,8 @@ static uint32_t g_initialize_count = 0;
 void
 PlatformFreeBSD::Initialize ()
 {
+    Platform::Initialize ();
+
     if (g_initialize_count++ == 0)
     {
 #if defined (__FreeBSD__)
@@ -137,6 +141,8 @@ PlatformFreeBSD::Terminate ()
 {
     if (g_initialize_count > 0 && --g_initialize_count == 0)
     	PluginManager::UnregisterPlugin (PlatformFreeBSD::CreateInstance);
+
+    Platform::Terminate ();
 }
 
 //------------------------------------------------------------------

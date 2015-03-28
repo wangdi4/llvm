@@ -13,6 +13,7 @@
 #include <algorithm>
 
 #include "lldb/Core/ArchSpec.h"
+#include "lldb/Core/DataBufferHeap.h"
 #include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/Section.h"
@@ -115,7 +116,7 @@ namespace lldb_private {
 
 #define EXTRACT_BITS(value, mask) \
         ( (value >> llvm::countTrailingZeros(static_cast<uint32_t>(mask), llvm::ZB_Width)) & \
-          (((1 << llvm::CountPopulation_32(static_cast<uint32_t>(mask))))-1) )
+          (((1 << llvm::countPopulation(static_cast<uint32_t>(mask))))-1) )
 
 
 
@@ -720,8 +721,9 @@ CompactUnwindInfo::CreateUnwindPlan_x86_64 (Target &target, FunctionInfo &functi
     {
         case UNWIND_X86_64_MODE_RBP_FRAME:
         {
-            row->SetCFARegister (translate_to_eh_frame_regnum_x86_64 (UNWIND_X86_64_REG_RBP));
-            row->SetCFAOffset (2 * wordsize);
+            row->GetCFAValue().SetIsRegisterPlusOffset (
+                    translate_to_eh_frame_regnum_x86_64 (UNWIND_X86_64_REG_RBP),
+                    2 * wordsize);
             row->SetOffset (0);
             row->SetRegisterLocationToAtCFAPlusOffset (x86_64_eh_regnum::rbp, wordsize * -2, true);
             row->SetRegisterLocationToAtCFAPlusOffset (x86_64_eh_regnum::rip, wordsize * -1, true);
@@ -809,8 +811,9 @@ CompactUnwindInfo::CreateUnwindPlan_x86_64 (Target &target, FunctionInfo &functi
                 }
             }
 
-            row->SetCFARegister (x86_64_eh_regnum::rsp);
-            row->SetCFAOffset (stack_size * wordsize);
+            int32_t offset = mode == UNWIND_X86_64_MODE_STACK_IND ? stack_size : stack_size * wordsize;
+            row->GetCFAValue().SetIsRegisterPlusOffset (x86_64_eh_regnum::rsp, offset);
+
             row->SetOffset (0);
             row->SetRegisterLocationToAtCFAPlusOffset (x86_64_eh_regnum::rip, wordsize * -1, true);
             row->SetRegisterLocationToIsCFAPlusOffset (x86_64_eh_regnum::rsp, 0, true);
@@ -919,10 +922,10 @@ CompactUnwindInfo::CreateUnwindPlan_x86_64 (Target &target, FunctionInfo &functi
                         case UNWIND_X86_64_REG_R14:
                         case UNWIND_X86_64_REG_R15:
                         case UNWIND_X86_64_REG_RBP:
-                             row->SetRegisterLocationToAtCFAPlusOffset (translate_to_eh_frame_regnum_x86_64 (registers[i]), wordsize * -saved_registers_offset, true);
+                            row->SetRegisterLocationToAtCFAPlusOffset (translate_to_eh_frame_regnum_x86_64 (registers[i]), wordsize * -saved_registers_offset, true);
+                            saved_registers_offset++;
                         break;
                     }
-                    saved_registers_offset++;
                 }
             }
             unwind_plan.AppendRow (row);
@@ -1001,8 +1004,8 @@ CompactUnwindInfo::CreateUnwindPlan_i386 (Target &target, FunctionInfo &function
     {
         case UNWIND_X86_MODE_EBP_FRAME:
         {
-            row->SetCFARegister (translate_to_eh_frame_regnum_i386 (UNWIND_X86_REG_EBP));
-            row->SetCFAOffset (2 * wordsize);
+            row->GetCFAValue().SetIsRegisterPlusOffset (
+                    translate_to_eh_frame_regnum_i386 (UNWIND_X86_REG_EBP), 2 * wordsize);
             row->SetOffset (0);
             row->SetRegisterLocationToAtCFAPlusOffset (i386_eh_regnum::ebp, wordsize * -2, true);
             row->SetRegisterLocationToAtCFAPlusOffset (i386_eh_regnum::eip, wordsize * -1, true);
@@ -1083,8 +1086,8 @@ CompactUnwindInfo::CreateUnwindPlan_i386 (Target &target, FunctionInfo &function
                 }
             }
 
-            row->SetCFARegister (i386_eh_regnum::esp);
-            row->SetCFAOffset (stack_size * wordsize);
+            int32_t offset = mode == UNWIND_X86_MODE_STACK_IND ? stack_size : stack_size * wordsize;
+            row->GetCFAValue().SetIsRegisterPlusOffset (i386_eh_regnum::esp, offset);
             row->SetOffset (0);
             row->SetRegisterLocationToAtCFAPlusOffset (i386_eh_regnum::eip, wordsize * -1, true);
             row->SetRegisterLocationToIsCFAPlusOffset (i386_eh_regnum::esp, 0, true);
@@ -1193,10 +1196,10 @@ CompactUnwindInfo::CreateUnwindPlan_i386 (Target &target, FunctionInfo &function
                         case UNWIND_X86_REG_EDI:
                         case UNWIND_X86_REG_ESI:
                         case UNWIND_X86_REG_EBP:
-                             row->SetRegisterLocationToAtCFAPlusOffset (translate_to_eh_frame_regnum_i386 (registers[i]), wordsize * -saved_registers_offset, true);
+                            row->SetRegisterLocationToAtCFAPlusOffset (translate_to_eh_frame_regnum_i386 (registers[i]), wordsize * -saved_registers_offset, true);
+                            saved_registers_offset++;
                         break;
                     }
-                    saved_registers_offset++;
                 }
             }
 

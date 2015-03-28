@@ -1,8 +1,6 @@
 /*! \file */
 /*
  * kmp.h -- KPTS runtime header file.
- * $Revision: 43473 $
- * $Date: 2014-09-26 15:02:57 -0500 (Fri, 26 Sep 2014) $
  */
 
 
@@ -394,6 +392,16 @@ enum clock_function_type {
 };
 #endif /* KMP_OS_LINUX */
 
+#if KMP_ARCH_X86_64 && (KMP_OS_LINUX || KMP_OS_WINDOWS)
+enum mic_type {
+    non_mic,
+    mic1,
+    mic2,
+    mic3,
+    dummy
+};
+#endif
+
 /* ------------------------------------------------------------------------ */
 /* -- fast reduction stuff ------------------------------------------------ */
 
@@ -547,7 +555,7 @@ typedef unsigned char kmp_affin_mask_t;
 // Intel(R) 64 it is 8 bytes times the number of processor groups.
 //
 
-#  if KMP_ARCH_X86_64
+#  if KMP_GROUP_AFFINITY
 
 // GROUP_AFFINITY is already defined for _MSC_VER>=1600 (VS2010 and later).
 #   if _MSC_VER < 1600
@@ -644,7 +652,7 @@ typedef DWORD kmp_affin_mask_t; /* for compatibility with older winbase.h */
 #   define KMP_CPU_COMPLEMENT(mask) (*(mask) = ~*(mask))
 #   define KMP_CPU_UNION(dest, src) (*(dest) |= *(src))
 
-#  endif /* KMP_ARCH_X86 */
+#  endif /* KMP_GROUP_AFFINITY */
 
 # endif /* KMP_OS_WINDOWS */
 
@@ -690,13 +698,13 @@ enum affinity_gran {
     affinity_gran_core,
     affinity_gran_package,
     affinity_gran_node,
-#if KMP_OS_WINDOWS && KMP_ARCH_X86_64
+#if KMP_GROUP_AFFINITY
     //
     // The "group" granularity isn't necesssarily coarser than all of the
     // other levels, but we put it last in the enum.
     //
     affinity_gran_group,
-#endif /* KMP_OS_WINDOWS && KMP_ARCH_X86_64 */
+#endif /* KMP_GROUP_AFFINITY */
     affinity_gran_default
 };
 
@@ -707,9 +715,9 @@ enum affinity_top_method {
     affinity_top_method_x2apicid,
 #endif /* KMP_ARCH_X86 || KMP_ARCH_X86_64 */
     affinity_top_method_cpuinfo, // KMP_CPUINFO_FILE is usable on Windows* OS, too
-#if KMP_OS_WINDOWS && KMP_ARCH_X86_64
+#if KMP_GROUP_AFFINITY
     affinity_top_method_group,
-#endif /* KMP_OS_WINDOWS && KMP_ARCH_X86_64 */
+#endif /* KMP_GROUP_AFFINITY */
     affinity_top_method_flat,
     affinity_top_method_default
 };
@@ -784,11 +792,9 @@ typedef enum kmp_cancel_kind_t {
 } kmp_cancel_kind_t;
 #endif // OMP_40_ENABLED
 
-#if KMP_MIC
 extern unsigned int __kmp_place_num_cores;
 extern unsigned int __kmp_place_num_threads_per_core;
 extern unsigned int __kmp_place_core_offset;
-#endif
 
 /* ------------------------------------------------------------------------ */
 /* ------------------------------------------------------------------------ */
@@ -873,7 +879,11 @@ extern unsigned int __kmp_place_core_offset;
 
 #define KMP_MIN_STKOFFSET       (0)
 #define KMP_MAX_STKOFFSET       KMP_MAX_STKSIZE
-#define KMP_DEFAULT_STKOFFSET   KMP_MIN_STKOFFSET
+#if KMP_OS_DARWIN
+# define KMP_DEFAULT_STKOFFSET  KMP_MIN_STKOFFSET
+#else
+# define KMP_DEFAULT_STKOFFSET  CACHE_LINE
+#endif
 
 #define KMP_MIN_STKPADDING      (0)
 #define KMP_MAX_STKPADDING      (2 * 1024 * 1024)
@@ -976,12 +986,12 @@ extern unsigned int __kmp_place_core_offset;
 #endif
 
 #if KMP_ARCH_X86 || KMP_ARCH_X86_64
-struct kmp_cpuid {
+typedef struct kmp_cpuid {
     kmp_uint32  eax;
     kmp_uint32  ebx;
     kmp_uint32  ecx;
     kmp_uint32  edx;
-};
+} kmp_cpuid_t;
 extern void __kmp_x86_cpuid( int mode, int mode2, struct kmp_cpuid *p );
 # if KMP_ARCH_X86
   extern void __kmp_x86_pause( void );
@@ -1856,10 +1866,8 @@ extern kmp_int32 __kmp_task_stealing_constraint;
 
 // The tt_found_tasks flag is a signal to all threads in the team that tasks were spawned and
 // queued since the previous barrier release.
-// State is used to alternate task teams for successive barriers
-#define KMP_TASKING_ENABLED(task_team,state) \
-    ((TCR_SYNC_4((task_team)->tt.tt_found_tasks) == TRUE) && \
-     (TCR_4((task_team)->tt.tt_state)       == (state)))
+#define KMP_TASKING_ENABLED(task_team) \
+    (TCR_SYNC_4((task_team)->tt.tt_found_tasks) == TRUE)
 /*!
 @ingroup BASIC_TYPES
 @{
@@ -2075,8 +2083,6 @@ typedef struct kmp_base_task_team {
 
     volatile kmp_uint32     tt_ref_ct;             /* #threads accessing struct  */
                                                    /* (not incl. master)         */
-    kmp_int32               tt_state;              /* alternating 0/1 for task team identification */
-                                                   /* Note: VERY sensitive to padding! */
 } kmp_base_task_team_t;
 
 union KMP_ALIGN_CACHE kmp_task_team {
@@ -2199,6 +2205,9 @@ typedef struct KMP_ALIGN_CACHE kmp_base_info {
     kmp_task_team_t    * th_task_team;           // Task team struct
     kmp_taskdata_t     * th_current_task;        // Innermost Task being executed
     kmp_uint8            th_task_state;          // alternating 0/1 for task team identification
+    kmp_uint8          * th_task_state_memo_stack;  // Stack holding memos of th_task_state at nested levels
+    kmp_uint32           th_task_state_top;         // Top element of th_task_state_memo_stack
+    kmp_uint32           th_task_state_stack_sz;    // Size of th_task_state_memo_stack
 
     /*
      * More stuff for keeping track of active/sleeping threads
@@ -2298,7 +2307,7 @@ typedef struct KMP_ALIGN_CACHE kmp_base_team {
     kmp_team_p              *t_parent;       // parent team
     kmp_team_p              *t_next_pool;    // next free team in the team pool
     kmp_disp_t              *t_dispatch;     // thread's dispatch data
-    kmp_task_team_t         *t_task_team;    // Task team struct
+    kmp_task_team_t         *t_task_team[2]; // Task team struct; switch between 2
 #if OMP_40_ENABLED
     kmp_proc_bind_t          t_proc_bind;    // bind type for par region
 #endif // OMP_40_ENABLED
@@ -2579,11 +2588,9 @@ extern int        __kmp_bt_intervals;   /* number of monitor timestamp intervals
 #ifdef KMP_ADJUST_BLOCKTIME
 extern int        __kmp_zero_bt;        /* whether blocktime has been forced to zero */
 #endif /* KMP_ADJUST_BLOCKTIME */
-extern int        __kmp_ht_capable;     /* whether CPUs support Intel(R) Hyper-Threading Technology */
-extern int        __kmp_ht_enabled;     /* whether Intel(R) Hyper-Threading Technology is enabled in OS */
-extern int        __kmp_ncores;         /* Number of physical procs in HT machine */
-extern int        __kmp_ht_log_per_phy; /* Maximum possible number of logical processors per package */
-extern int        __kmp_nThreadsPerCore;/* Number of hyperthreads per core in HT machine. */
+#ifdef KMP_DFLT_NTH_CORES
+extern int        __kmp_ncores;         /* Total number of cores for threads placement */
+#endif
 extern int        __kmp_abort_delay;    /* Number of millisecs to delay on abort for VTune */
 
 extern int        __kmp_need_register_atfork_specified;
@@ -2620,6 +2627,10 @@ extern int        __kmp_hot_teams_max_level;
 extern enum clock_function_type __kmp_clock_function;
 extern int __kmp_clock_function_param;
 # endif /* KMP_OS_LINUX */
+
+#if KMP_ARCH_X86_64 && (KMP_OS_LINUX || KMP_OS_WINDOWS)
+extern enum mic_type __kmp_mic_type;
+#endif
 
 # ifdef USE_LOAD_BALANCE
 extern double      __kmp_load_balance_interval;   /* Interval for the load balance algorithm */
@@ -3106,7 +3117,7 @@ int __kmp_execute_tasks_oncore(kmp_info_t *thread, kmp_int32 gtid, kmp_flag_onco
 extern void __kmp_reap_task_teams( void );
 extern void __kmp_unref_task_team( kmp_task_team_t *task_team, kmp_info_t *thread );
 extern void __kmp_wait_to_unref_task_teams( void );
-extern void __kmp_task_team_setup ( kmp_info_t *this_thr, kmp_team_t *team );
+extern void __kmp_task_team_setup ( kmp_info_t *this_thr, kmp_team_t *team, int both );
 extern void __kmp_task_team_sync  ( kmp_info_t *this_thr, kmp_team_t *team );
 extern void __kmp_task_team_wait  ( kmp_info_t *this_thr, kmp_team_t *team
 #if USE_ITT_BUILD
@@ -3165,7 +3176,7 @@ KMP_EXPORT void   __kmpc_fork_call          ( ident_t *, kmp_int32 nargs, kmpc_m
 KMP_EXPORT void   __kmpc_serialized_parallel     ( ident_t *, kmp_int32 global_tid );
 KMP_EXPORT void   __kmpc_end_serialized_parallel ( ident_t *, kmp_int32 global_tid );
 
-KMP_EXPORT void   __kmpc_flush              ( ident_t *, ... );
+KMP_EXPORT void   __kmpc_flush              ( ident_t *);
 KMP_EXPORT void   __kmpc_barrier            ( ident_t *, kmp_int32 global_tid );
 KMP_EXPORT kmp_int32  __kmpc_master         ( ident_t *, kmp_int32 global_tid );
 KMP_EXPORT void   __kmpc_end_master         ( ident_t *, kmp_int32 global_tid );
