@@ -10,6 +10,7 @@
 #include "STIDebug.h"
 #include "STI.h"
 #include "STIIR.h"
+#include "pdbInterface.h"
 #include "../DbgValueHistoryCalculator.h"
 #include "llvm/ADT/PointerUnion.h" // dyn_cast
 #include "llvm/ADT/StringRef.h"
@@ -29,6 +30,7 @@
 
 #include <map>
 #include <vector>
+
 using namespace llvm;
 
 //===----------------------------------------------------------------------===//
@@ -361,6 +363,8 @@ private:
   ClassInfoMap _classInfoMap;
   StringNameMap _stringNameMap;
   unsigned _uniqueNameCounter;
+  std::vector<char> _pdbBuff;
+  bool _usePDB;
 
   // Maps from a type identifier to the actual MDNode.
   DITypeIdentifierMap TypeIdentifierMap;
@@ -461,6 +465,7 @@ protected:
   STIType *createTypeSubroutine(const DISubroutineType llvmType,
                                 STIType *classType = nullptr,
                                 bool isStatic = false);
+  void createTypeServer();
 
   uint64_t getBaseTypeSize(DIDerivedType Ty) const;
 
@@ -492,6 +497,26 @@ protected:
   void emitFill(size_t size, const uint8_t byte) const;
   void emitSecRel32(MCSymbol *symbol) const;
   void emitSectionIndex(MCSymbol *symbol) const;
+  void emitNumeric(const uint32_t num) const;
+
+  // Routines for emitting atomic PDB data.
+  void emitInt8PDB(int value) const;
+  void emitInt16PDB(int value) const;
+  void emitInt32PDB(int value) const;
+  void emitStringPDB(StringRef string) const;
+  void emitNumericPDB(const uint32_t num) const;
+  void emitPaddingPDB(unsigned int padByteCount) const;
+  void finalizePDBBuffer(const STIType* type) const;
+  std::string getPDBFullPath() const;
+  bool usePDB() const;
+
+  // Routines for emitting atomic data (used for Types).
+  void emitInt8Type(int value) const;
+  void emitInt16Type(int value) const;
+  void emitInt32Type(int value) const;
+  void emitStringType(StringRef string) const;
+  void emitNumericType(const uint32_t num) const;
+  void emitPaddingType(unsigned int padByteCount) const;
 
   // Routines for emitting sections.
   void emitSectionBegin(const MCSection *section) const;
@@ -540,8 +565,8 @@ protected:
   void emitTypeFunctionID(const STITypeFunctionID *type) const;
   void emitTypeProcedure(const STITypeProcedure *type) const;
   void emitTypeArgumentList(const STITypeArgumentList *type) const;
+  void emitTypeServer(const STITypeServer *type) const;
 
-  void emitNumeric(const uint32_t num) const;
   // Routines for creating labels.
   MCSymbol *createFuncLabel(const char *name) const;
   MCSymbol *createBlockLabel(const char *name);
@@ -558,7 +583,7 @@ STIDebugImpl::STIDebugImpl(AsmPrinter *asmPrinter)
       _voidType(nullptr), _vbpType(nullptr), _blockNumber(0), _lexicalScopes(),
       _labelsBeforeInsn(), _labelsAfterInsn(), _curMI(nullptr),
       _currentSubsection(nullptr), _ptrSizeInBits(0), _classInfoMap(),
-       _stringNameMap(), _uniqueNameCounter(0) {
+       _stringNameMap(), _uniqueNameCounter(0), _pdbBuff(), _usePDB(false) {
   // If module doesn't have named metadata anchors or COFF debug section
   // is not available, skip any debug info related stuff.
   if (!MMI()->getModule()->getNamedMetadata("llvm.dbg.cu") ||
@@ -582,6 +607,15 @@ STIDebugImpl::~STIDebugImpl() {
 void STIDebugImpl::setSymbolSize(const MCSymbol *Symbol, uint64_t size) {}
 
 void STIDebugImpl::beginModule() {
+  _usePDB = false; //FIXME: initialize _usePDB
+  if (usePDB()) {
+    pdb_set_default_dll_name("mspdb110.dll");
+    if (pdb_open("vc110.pdb") ) {
+      createTypeServer();
+    } else {
+      _usePDB = false;
+    }
+  }
   // Collect all of the initial module information.
   collectModuleInfo();
 
@@ -595,6 +629,10 @@ void STIDebugImpl::endModule() {
 
   layout();
   emit();
+
+  if (usePDB()) {
+    pdb_close();
+  }
 }
 
 void STIDebugImpl::beginFunction(const MachineFunction *MF) {
@@ -1799,6 +1837,15 @@ STIType *STIDebugImpl::createTypeSubroutine(const DISubroutineType llvmType,
   return procedureType;
 }
 
+void STIDebugImpl::createTypeServer() {
+  std::string name = getPDBFullPath();
+
+  STITypeServer *server = STITypeServer::create();
+  server->setPDBFullName(name);
+
+  getTypeTable()->push_back(server);
+}
+
 STIType *STIDebugImpl::getVoidType() const {
   if (_voidType == nullptr) {
     STITypeBasic *voidType = STITypeBasic::create();
@@ -2321,8 +2368,13 @@ void STIDebugImpl::layout() {
 }
 
 void STIDebugImpl::emit() {
-  emitSymbols();
-  emitTypes();
+  if (usePDB()) {
+    emitTypes();
+    emitSymbols();
+  } else {
+    emitSymbols();
+    emitTypes();
+  }
   closeSubsection();
 }
 
@@ -2453,6 +2505,141 @@ void STIDebugImpl::emitSecRel32(MCSymbol *symbol) const {
 
 void STIDebugImpl::emitSectionIndex(MCSymbol *symbol) const {
   ASM()->OutStreamer.EmitCOFFSectionIndex(symbol);
+}
+
+void STIDebugImpl::emitNumeric(const uint32_t num) const {
+  if (num < LF_NUMERIC) {
+    emitInt16(num);
+  } else if (num < (LF_NUMERIC << 1)) {
+    emitInt16(LF_USHORT);
+    emitInt16(num);
+  } else {
+    emitInt16(LF_ULONG);
+    emitInt32(num);
+  }
+}
+
+// Routines for emitting atomic PDB data.
+void STIDebugImpl::emitInt8PDB(int value) const {
+  char *pSrc = (char*)&value;
+  char *pEnd = pSrc+1;
+  auto entry = const_cast<STIDebugImpl *>(this)->_pdbBuff.end();
+  const_cast<STIDebugImpl *>(this)->_pdbBuff.insert(entry, pSrc, pEnd);
+}
+
+void STIDebugImpl::emitInt16PDB(int value) const {
+  char *pSrc = (char*)&value;
+  char *pEnd = pSrc+2;
+  auto entry = const_cast<STIDebugImpl *>(this)->_pdbBuff.end();
+  const_cast<STIDebugImpl *>(this)->_pdbBuff.insert(entry, pSrc, pEnd);
+}
+
+void STIDebugImpl::emitInt32PDB(int value) const {
+  char *pSrc = (char*)&value;
+  char *pEnd = pSrc+4;
+  auto entry = const_cast<STIDebugImpl *>(this)->_pdbBuff.end();
+  const_cast<STIDebugImpl *>(this)->_pdbBuff.insert(entry, pSrc, pEnd);
+}
+
+void STIDebugImpl::emitStringPDB(StringRef string) const {
+  auto entry = const_cast<STIDebugImpl *>(this)->_pdbBuff.end();
+  const_cast<STIDebugImpl *>(this)->_pdbBuff.insert(entry, string.begin(), string.end());
+  const_cast<STIDebugImpl *>(this)->_pdbBuff.push_back('\0');
+}
+
+void STIDebugImpl::emitNumericPDB(const uint32_t num) const {
+  if (num < LF_NUMERIC) {
+    emitInt16PDB(num);
+  } else if (num < (LF_NUMERIC << 1)) {
+    emitInt16PDB(LF_USHORT);
+    emitInt16PDB(num);
+  } else {
+    emitInt16PDB(LF_ULONG);
+    emitInt32PDB(num);
+  }
+}
+
+void STIDebugImpl::emitPaddingPDB(unsigned int padByteCount) const {
+  static const int paddingArray[16] = {LF_PAD0,  LF_PAD1,  LF_PAD2,  LF_PAD3,
+                                       LF_PAD4,  LF_PAD5,  LF_PAD6,  LF_PAD7,
+                                       LF_PAD8,  LF_PAD9,  LF_PAD10, LF_PAD11,
+                                       LF_PAD12, LF_PAD13, LF_PAD14, LF_PAD15};
+
+  for (unsigned int i = padByteCount; i > 0; --i) {
+    emitInt8PDB(paddingArray[i]);
+  }
+}
+
+void STIDebugImpl::finalizePDBBuffer(const STIType* type) const {
+  if (!usePDB()) {
+    return;
+  }
+  unsigned long index;
+  assert(_pdbBuff.size() > 2 && "Buffer must have length on front");
+  pdb_write_type(_pdbBuff.data(), &index);
+
+  const_cast<STIType *>(type)->setIndex(index);
+  const_cast<STIDebugImpl *>(this)->_pdbBuff.clear();
+}
+
+bool STIDebugImpl::usePDB() const {
+  return _usePDB;
+}
+
+std::string STIDebugImpl::getPDBFullPath() const {
+  char *path = pdb_get_path();
+  std::string pdbName = (Twine(path) + Twine("\\vc110.pdb")).str();
+  free(path);
+  return pdbName;
+}
+
+// Routines for emitting atomic data (used for Types).
+void STIDebugImpl::emitInt8Type(int value) const {
+  if (usePDB()) {
+    emitInt8PDB(value);
+  } else {
+    emitInt8(value);
+  }
+}
+
+void STIDebugImpl::emitInt16Type(int value) const {
+  if (usePDB()) {
+    emitInt16PDB(value);
+  } else {
+    emitInt16(value);
+  }
+}
+
+void STIDebugImpl::emitInt32Type(int value) const {
+  if (usePDB()) {
+    emitInt32PDB(value);
+  } else {
+    emitInt32(value);
+  }
+}
+
+void STIDebugImpl::emitStringType(StringRef string) const {
+  if (usePDB()) {
+    emitStringPDB(string);
+  } else {
+    emitString(string);
+  }
+}
+
+void STIDebugImpl::emitNumericType(const uint32_t num) const {
+  if (usePDB()) {
+    emitNumericPDB(num);
+  } else {
+    emitNumeric(num);
+  }
+}
+
+void STIDebugImpl::emitPaddingType(unsigned int padByteCount) const {
+  if (usePDB()) {
+    emitPaddingPDB(padByteCount);
+  } else {
+    emitPadding(padByteCount);
+  }
 }
 
 void STIDebugImpl::emitSymbolModule(const STISymbolModule *module) const {
@@ -2958,10 +3145,11 @@ void STIDebugImpl::emitTypeModifier(const STITypeModifier *type) const {
   const STIType *qualifiedType = type->getQualifiedType();
   const int16_t length = 8;
 
-  emitInt16(length);
-  emitInt16(LF_MODIFIER);
-  emitInt32(qualifiedType->getIndex());
-  emitInt16(attributes);
+  emitInt16Type(length);
+  emitInt16Type(LF_MODIFIER);
+  emitInt32Type(qualifiedType->getIndex());
+  emitInt16Type(attributes);
+  finalizePDBBuffer(type);
 }
 
 class STITypePointerAttributes {
@@ -3035,15 +3223,16 @@ void STIDebugImpl::emitTypePointer(const STITypePointer *type) const {
     break;
   }
 
-  emitInt16(length);
-  emitInt16(LF_POINTER);
-  emitInt32(pointerTo->getIndex());
-  emitInt32(attributes);
+  emitInt16Type(length);
+  emitInt16Type(LF_POINTER);
+  emitInt32Type(pointerTo->getIndex());
+  emitInt32Type(attributes);
   // emit*    (variant);  // emitted based on pointer type
   if (classType) {
-    emitInt32(classType->getIndex());
-    emitInt16(format);
+    emitInt32Type(classType->getIndex());
+    emitInt16Type(format);
   }
+  finalizePDBBuffer(type);
 }
 
 void STIDebugImpl::emitTypeArray(const STITypeArray *type) const {
@@ -3052,12 +3241,13 @@ void STIDebugImpl::emitTypeArray(const STITypeArray *type) const {
   const int32_t arrayLength = type->getLength();
   const int16_t length = 10 + getNumericSize(arrayLength) + name.size() + 1;
 
-  emitInt16(length);
-  emitInt16(LF_ARRAY);
-  emitInt32(elementType->getIndex());
-  emitInt32(T_ULONG);
-  emitNumeric(arrayLength);
-  emitString(name);
+  emitInt16Type(length);
+  emitInt16Type(LF_ARRAY);
+  emitInt32Type(elementType->getIndex());
+  emitInt32Type(T_ULONG);
+  emitNumericType(arrayLength);
+  emitStringType(name);
+  finalizePDBBuffer(type);
 }
 
 void STIDebugImpl::emitTypeStructure(const STITypeStructure *type) const {
@@ -3078,18 +3268,19 @@ void STIDebugImpl::emitTypeStructure(const STITypeStructure *type) const {
   const int16_t length = (isUnion ? 10 : 18) + getNumericSize(size) +
                          name.size() + 1 + realName.size() + 1;
 
-  emitInt16(length);
-  emitInt16(leaf);
-  emitInt16(count);
-  emitInt16(prop | PROP_REALNAME);
-  emitInt32(fieldType ? fieldType->getIndex() : 0);
+  emitInt16Type(length);
+  emitInt16Type(leaf);
+  emitInt16Type(count);
+  emitInt16Type(prop | PROP_REALNAME);
+  emitInt32Type(fieldType ? fieldType->getIndex() : 0);
   if (!isUnion) {
-    emitInt32(derivedType ? derivedType->getIndex() : 0);
-    emitInt32(vshapeType ? vshapeType->getIndex() : 0);
+    emitInt32Type(derivedType ? derivedType->getIndex() : 0);
+    emitInt32Type(vshapeType ? vshapeType->getIndex() : 0);
   }
-  emitNumeric(size);
-  emitString(name);
-  emitString(realName);
+  emitNumericType(size);
+  emitStringType(name);
+  emitStringType(realName);
+  finalizePDBBuffer(type);
 }
 
 void STIDebugImpl::emitTypeEnumeration(const STITypeEnumeration *type) const {
@@ -3100,25 +3291,27 @@ void STIDebugImpl::emitTypeEnumeration(const STITypeEnumeration *type) const {
   StringRef name = type->getName();
   const int16_t length = 14 + name.size() + 1;
 
-  emitInt16(length);
-  emitInt16(LF_ENUM);
-  emitInt16(count);
-  emitInt16(prop);
-  emitInt32(elementType ? elementType->getIndex() : 0);
-  emitInt32(fieldType ? fieldType->getIndex() : 0);
-  emitString(name);
+  emitInt16Type(length);
+  emitInt16Type(LF_ENUM);
+  emitInt16Type(count);
+  emitInt16Type(prop);
+  emitInt32Type(elementType ? elementType->getIndex() : 0);
+  emitInt32Type(fieldType ? fieldType->getIndex() : 0);
+  emitStringType(name);
+  finalizePDBBuffer(type);
 }
 
 void STIDebugImpl::emitTypeVShape(const STITypeVShape *type) const {
   const uint16_t count = type->getCount();
   const int16_t length = 4 + 4 * count;
 
-  emitInt16(length);
-  emitInt16(LF_VTSHAPE);
-  emitInt16(count);
+  emitInt16Type(length);
+  emitInt16Type(LF_VTSHAPE);
+  emitInt16Type(count);
   for (unsigned i = 0; i < count; ++i) {
-    emitInt32(CV_VFTS_NEAR32);
+    emitInt32Type(CV_VFTS_NEAR32);
   }
+  finalizePDBBuffer(type);
 }
 
 void STIDebugImpl::emitTypeBitfield(const STITypeBitfield *type) const {
@@ -3127,12 +3320,13 @@ void STIDebugImpl::emitTypeBitfield(const STITypeBitfield *type) const {
   const STIType *memberType = type->getType();
   const int16_t length = 10;
 
-  emitInt16(length);
-  emitInt16(LF_BITFIELD);
-  emitInt32(memberType ? memberType->getIndex() : 0);
-  emitInt8(size);
-  emitInt8(offset);
-  emitPadding(2);
+  emitInt16Type(length);
+  emitInt16Type(LF_BITFIELD);
+  emitInt32Type(memberType ? memberType->getIndex() : 0);
+  emitInt8Type(size);
+  emitInt8Type(offset);
+  emitPaddingType(2);
+  finalizePDBBuffer(type);
 }
 
 void STIDebugImpl::emitTypeMethodList(const STITypeMethodList *type) const {
@@ -3143,8 +3337,8 @@ void STIDebugImpl::emitTypeMethodList(const STITypeMethodList *type) const {
     length += 8 + (isVirtual ? 4 : 0);
   }
 
-  emitInt16(length);
-  emitInt16(LF_MLIST);
+  emitInt16Type(length);
+  emitInt16Type(LF_MLIST);
 
   for (STITypeMethodListEntry *method : type->getList()) {
     uint16_t attribute = method->getAttribute();
@@ -3152,12 +3346,13 @@ void STIDebugImpl::emitTypeMethodList(const STITypeMethodList *type) const {
     bool isVirtual = method->getVirtuality();
     uint32_t virualIndex = method->getVirtualIndex();
 
-    emitInt16(attribute);
-    emitInt16(0); // 0-Padding
-    emitInt32(methodType ? methodType->getIndex() : 0);
+    emitInt16Type(attribute);
+    emitInt16Type(0); // 0-Padding
+    emitInt32Type(methodType ? methodType->getIndex() : 0);
     if (isVirtual)
-      emitInt32(virualIndex);
+      emitInt32Type(virualIndex);
   }
+  finalizePDBBuffer(type);
 }
 
 void STIDebugImpl::emitTypeFieldList(const STITypeFieldList *type) const {
@@ -3212,22 +3407,22 @@ void STIDebugImpl::emitTypeFieldList(const STITypeFieldList *type) const {
     length += getPaddedSize(enumeratorLength);
   }
 
-  emitInt16(length);
-  emitInt16(LF_FIELDLIST);
+  emitInt16Type(length);
+  emitInt16Type(LF_FIELDLIST);
 
   for (STITypeBaseClass *baseClass : type->getBaseClasses()) {
     uint16_t attribute = baseClass->getAttribute();
     const STIType *baseClassType = baseClass->getType();
     int32_t offset = baseClass->getOffset();
 
-    emitInt16(LF_BCLASS);
-    emitInt16(attribute);
-    emitInt32(baseClassType ? baseClassType->getIndex() : 0);
-    emitNumeric(offset);
+    emitInt16Type(LF_BCLASS);
+    emitInt16Type(attribute);
+    emitInt32Type(baseClassType ? baseClassType->getIndex() : 0);
+    emitNumericType(offset);
 
     int16_t baseClassLength = 8 + getNumericSize(offset);
     int16_t paddedSize = getPaddedSize(baseClassLength);
-    emitPadding(paddedSize - baseClassLength);
+    emitPaddingType(paddedSize - baseClassLength);
   }
 
   for (STITypeVBaseClass *vBaseClass : type->getVBaseClasses()) {
@@ -3238,25 +3433,25 @@ void STIDebugImpl::emitTypeFieldList(const STITypeFieldList *type) const {
     int offset = vBaseClass->getVbpOffset();
     int index = vBaseClass->getVbIndex();
 
-    emitInt16(symbolID);
-    emitInt16(attribute);
-    emitInt32(vBaseClassType ? vBaseClassType->getIndex() : 0);
-    emitInt32(vbpType ? vbpType->getIndex() : 0);
-    emitNumeric(offset);
-    emitNumeric(index);
+    emitInt16Type(symbolID);
+    emitInt16Type(attribute);
+    emitInt32Type(vBaseClassType ? vBaseClassType->getIndex() : 0);
+    emitInt32Type(vbpType ? vbpType->getIndex() : 0);
+    emitNumericType(offset);
+    emitNumericType(index);
 
     int16_t vBaseClassLength =
         12 + getNumericSize(offset) + getNumericSize(index);
     int16_t paddedSize = getPaddedSize(vBaseClassLength);
-    emitPadding(paddedSize - vBaseClassLength);
+    emitPaddingType(paddedSize - vBaseClassLength);
   }
 
   if (vFuncTab) {
     const STIType *vptrType = vFuncTab->getType();
 
-    emitInt16(LF_VFUNCTAB);
-    emitInt16(0); // 0-Padding
-    emitInt32(vptrType ? vptrType->getIndex() : 0);
+    emitInt16Type(LF_VFUNCTAB);
+    emitInt16Type(0); // 0-Padding
+    emitInt32Type(vptrType ? vptrType->getIndex() : 0);
   }
 
   for (STITypeMember *member : type->getMembers()) {
@@ -3266,18 +3461,18 @@ void STIDebugImpl::emitTypeFieldList(const STITypeFieldList *type) const {
     StringRef name = member->getName();
     bool isStatic = member->isStatic();
 
-    emitInt16(isStatic ? LF_STMEMBER : LF_MEMBER);
-    emitInt16(attribute);
-    emitInt32(memberType ? memberType->getIndex() : 0);
+    emitInt16Type(isStatic ? LF_STMEMBER : LF_MEMBER);
+    emitInt16Type(attribute);
+    emitInt32Type(memberType ? memberType->getIndex() : 0);
     if (!isStatic) {
-      emitNumeric(offset);
+      emitNumericType(offset);
     }
-    emitString(name);
+    emitStringType(name);
 
     int16_t memberLength =
         8 + (isStatic ? 0 : getNumericSize(offset)) + name.size() + 1;
     int16_t paddedSize = getPaddedSize(memberLength);
-    emitPadding(paddedSize - memberLength);
+    emitPaddingType(paddedSize - memberLength);
   }
 
   for (STITypeMethod *method : type->getMethods()) {
@@ -3285,14 +3480,14 @@ void STIDebugImpl::emitTypeFieldList(const STITypeFieldList *type) const {
     const STIType *methodListType = method->getList();
     StringRef name = method->getName();
 
-    emitInt16(LF_METHOD);
-    emitInt16(count);
-    emitInt32(methodListType ? methodListType->getIndex() : 0);
-    emitString(name);
+    emitInt16Type(LF_METHOD);
+    emitInt16Type(count);
+    emitInt32Type(methodListType ? methodListType->getIndex() : 0);
+    emitStringType(name);
 
     int16_t methodLength = 8 + name.size() + 1;
     int16_t paddedSize = getPaddedSize(methodLength);
-    emitPadding(paddedSize - methodLength);
+    emitPaddingType(paddedSize - methodLength);
   }
 
   for (STITypeOneMethod *method : type->getOneMethods()) {
@@ -3302,16 +3497,16 @@ void STIDebugImpl::emitTypeFieldList(const STITypeFieldList *type) const {
     uint32_t virualIndex = method->getVirtualIndex();
     StringRef name = method->getName();
 
-    emitInt16(LF_ONEMETHOD);
-    emitInt16(attribute);
-    emitInt32(methodType ? methodType->getIndex() : 0);
+    emitInt16Type(LF_ONEMETHOD);
+    emitInt16Type(attribute);
+    emitInt32Type(methodType ? methodType->getIndex() : 0);
     if (isVirtual)
-      emitInt32(virualIndex);
-    emitString(name);
+      emitInt32Type(virualIndex);
+    emitStringType(name);
 
     int16_t methodLength = 8 + (isVirtual ? 4 : 0) + name.size() + 1;
     int16_t paddedSize = getPaddedSize(methodLength);
-    emitPadding(paddedSize - methodLength);
+    emitPaddingType(paddedSize - methodLength);
   }
 
   for (STITypeEnumerator *enumerator : type->getEnumerators()) {
@@ -3319,15 +3514,16 @@ void STIDebugImpl::emitTypeFieldList(const STITypeFieldList *type) const {
     int32_t value = enumerator->getValue();
     StringRef name = enumerator->getName();
 
-    emitInt16(LF_ENUMERATE);
-    emitInt16(attribute);
-    emitNumeric(value);
-    emitString(name);
+    emitInt16Type(LF_ENUMERATE);
+    emitInt16Type(attribute);
+    emitNumericType(value);
+    emitStringType(name);
 
     int16_t enumeratorLength = 4 + getNumericSize(value) + name.size() + 1;
     int16_t paddedSize = getPaddedSize(enumeratorLength);
-    emitPadding(paddedSize - enumeratorLength);
+    emitPaddingType(paddedSize - enumeratorLength);
   }
+  finalizePDBBuffer(type);
 }
 
 void STIDebugImpl::emitTypeFunctionID(const STITypeFunctionID *type) const {
@@ -3340,12 +3536,13 @@ void STIDebugImpl::emitTypeFunctionID(const STITypeFunctionID *type) const {
   uint16_t length = 10 + name.size() + 1;
   uint16_t paddedLength = getPaddedSize(length);
 
-  emitInt16(paddedLength);
-  emitInt16(symbolID);
-  emitInt32(parentScope ? parentScope->getIndex() : 0);
-  emitInt32(funcType ? funcType->getIndex() : 0);
-  emitString(name);
-  emitPadding(paddedLength - length);
+  emitInt16Type(paddedLength);
+  emitInt16Type(symbolID);
+  emitInt32Type(parentScope ? parentScope->getIndex() : 0);
+  emitInt32Type(funcType ? funcType->getIndex() : 0);
+  emitStringType(name);
+  emitPaddingType(paddedLength - length);
+  finalizePDBBuffer(type);
 }
 
 void STIDebugImpl::emitTypeProcedure(const STITypeProcedure *type) const {
@@ -3359,20 +3556,21 @@ void STIDebugImpl::emitTypeProcedure(const STITypeProcedure *type) const {
   STISymbolID symbolID = classType ? LF_MFUNCTION : LF_PROCEDURE;
   uint16_t length = classType ? 26 : 14;
 
-  emitInt16(length);
-  emitInt16(symbolID);
-  emitInt32(returnType ? returnType->getIndex() : 0);
+  emitInt16Type(length);
+  emitInt16Type(symbolID);
+  emitInt32Type(returnType ? returnType->getIndex() : 0);
   if (classType) {
-    emitInt32(classType ? classType->getIndex() : 0);
-    emitInt32(thisType ? thisType->getIndex() : 0);
+    emitInt32Type(classType ? classType->getIndex() : 0);
+    emitInt32Type(thisType ? thisType->getIndex() : 0);
   }
-  emitInt8(callingConvention);
-  emitInt8(0); // reserved
-  emitInt16(paramCount);
-  emitInt32(argumentList ? argumentList->getIndex() : 0);
+  emitInt8Type(callingConvention);
+  emitInt8Type(0); // reserved
+  emitInt16Type(paramCount);
+  emitInt32Type(argumentList ? argumentList->getIndex() : 0);
   if (classType) {
-    emitInt32(thisAdjust);
+    emitInt32Type(thisAdjust);
   }
+  finalizePDBBuffer(type);
 }
 
 void STIDebugImpl::emitTypeArgumentList(const STITypeArgumentList *type) const {
@@ -3380,24 +3578,39 @@ void STIDebugImpl::emitTypeArgumentList(const STITypeArgumentList *type) const {
   const STITypeTable *argumentList = type->getArgumentList();
   uint16_t length = 6 + 4 * argumentCount;
 
-  emitInt16(length);
-  emitInt16(LF_ARGLIST);
-  emitInt32(argumentCount);
+  emitInt16Type(length);
+  emitInt16Type(LF_ARGLIST);
+  emitInt32Type(argumentCount);
   for (const STIType *argemntType : *argumentList) {
-    emitInt32(argemntType ? argemntType->getIndex() : 0);
+    emitInt32Type(argemntType ? argemntType->getIndex() : 0);
   }
+  finalizePDBBuffer(type);
 }
 
-void STIDebugImpl::emitNumeric(const uint32_t num) const {
-  if (num < LF_NUMERIC) {
-    emitInt16(num);
-  } else if (num < (LF_NUMERIC << 1)) {
-    emitInt16(LF_USHORT);
-    emitInt16(num);
-  } else {
-    emitInt16(LF_ULONG);
-    emitInt32(num);
+void STIDebugImpl::emitTypeServer(const STITypeServer *type) const {
+#define MAX_BUFF_LENGTH 32
+
+  unsigned char signature[MAX_BUFF_LENGTH];
+  unsigned char age[MAX_BUFF_LENGTH];
+  StringRef name = type->getPDBFullName();
+  size_t signatureLen;
+  size_t ageLen;
+  uint16_t length;
+
+  signatureLen = pdb_get_signature(signature, MAX_BUFF_LENGTH);
+  ageLen = pdb_get_age(age, MAX_BUFF_LENGTH);
+
+  length = 2 + signatureLen + ageLen + name.size() + 1;
+
+  emitInt16(length);
+  emitInt16(LF_TYPESERVER2);
+  for (size_t i=0; i < signatureLen; ++i) {
+    emitInt8(signature[i]);
   }
+  for (size_t i=0; i < ageLen; ++i) {
+    emitInt8(age[i]);
+  }
+  emitString(name);
 }
 
 void STIDebugImpl::emitType(const STIType *type) const {
@@ -3427,6 +3640,7 @@ void STIDebugImpl::emitType(const STIType *type) const {
     X(FUNCTION_ID, emitTypeFunctionID, STITypeFunctionID);
     X(PROCEDURE, emitTypeProcedure, STITypeProcedure);
     X(ARGUMENT_LIST, emitTypeArgumentList, STITypeArgumentList);
+    X(SERVER, emitTypeServer, STITypeServer);
 #undef X
   default:
     assert(kind != kind); // invalid type kind

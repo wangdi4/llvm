@@ -1316,6 +1316,21 @@ STITypeArgumentList::STIArgTypeList *STITypeArgumentList::getArgumentList() {
 }
 
 //===----------------------------------------------------------------------===//
+// STITypeServer
+//===----------------------------------------------------------------------===//
+
+STITypeServer::STITypeServer()
+    : STIType(STI_OBJECT_KIND_TYPE_SERVER), _pdbFullName() {}
+
+STITypeServer::~STITypeServer() {}
+
+STITypeServer *STITypeServer::create() { return new STITypeServer(); }
+
+StringRef STITypeServer::getPDBFullName() const { return _pdbFullName; }
+
+void STITypeServer::setPDBFullName(StringRef name) { _pdbFullName = name; }
+
+//===----------------------------------------------------------------------===//
 // STISymbolUserDefined
 //===----------------------------------------------------------------------===//
 

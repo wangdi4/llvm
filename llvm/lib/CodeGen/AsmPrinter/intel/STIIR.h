@@ -93,6 +93,7 @@ enum STIObjectKindEnum {
   STI_OBJECT_KIND_TYPE_FUNCTION_ID,    // STITypeFunctionID
   STI_OBJECT_KIND_TYPE_PROCEDURE,      // STITypeProcedure
   STI_OBJECT_KIND_TYPE_ARGUMENT_LIST,  // STITypeArgumentList
+  STI_OBJECT_KIND_TYPE_SERVER          // STITypeServer
 };
 typedef enum STIObjectKindEnum STIObjectKind;
 
@@ -1250,6 +1251,26 @@ public:
 
   const STIArgTypeList *getArgumentList() const;
   STIArgTypeList *getArgumentList();
+};
+
+//===----------------------------------------------------------------------===//
+// STITypeServer
+//===----------------------------------------------------------------------===//
+
+class STITypeServer : public STIType {
+private:
+  std::string _pdbFullName;
+
+protected:
+  STITypeServer();
+
+public:
+  ~STITypeServer();
+
+  static STITypeServer *create();
+
+  StringRef getPDBFullName() const;
+  void setPDBFullName(StringRef name);
 };
 
 //===----------------------------------------------------------------------===//

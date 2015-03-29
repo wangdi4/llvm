@@ -23,6 +23,7 @@ add_llvm_library(LLVMAsmPrinter
 #***INTEL
   intel/STIDebug.cpp
   intel/STIIR.cpp
+  intel/pdbInterface.cpp
   )
 
 add_dependencies(LLVMAsmPrinter intrinsics_gen)
