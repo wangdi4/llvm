@@ -250,6 +250,18 @@ X86RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
       return CSR_64_Intel_OCL_BI_SaveList;
     break;
   }
+#if INTEL_CUSTOMIZATION
+  case CallingConv::Intel_regcall: {
+    if (HasAVX512)
+        return Is64Bit ? CSR_64_Intel_regcall_AVX512_SaveList:
+                         CSR_32_Intel_regcall_AVX512_SaveList;
+    if (HasAVX)
+        return Is64Bit ? CSR_64_Intel_regcall_AVX_SaveList:
+                         CSR_32_Intel_regcall_AVX_SaveList;
+    return Is64Bit ? CSR_64_Intel_regcall_SaveList:
+                     CSR_32_Intel_regcall_SaveList;
+  }
+#endif // INTEL_CUSTOMIZATION
   case CallingConv::Cold:
     if (Is64Bit)
       return CSR_64_MostRegs_SaveList;
@@ -308,6 +320,18 @@ X86RegisterInfo::getCallPreservedMask(CallingConv::ID CC) const {
       return CSR_64_Intel_OCL_BI_RegMask;
     break;
   }
+#if INTEL_CUSTOMIZATION
+  case CallingConv::Intel_regcall: {
+    if (HasAVX512)
+        return Is64Bit ? CSR_64_Intel_regcall_AVX512_RegMask:
+                         CSR_32_Intel_regcall_AVX512_RegMask;
+    if (HasAVX)
+        return Is64Bit ? CSR_64_Intel_regcall_AVX_RegMask:
+                         CSR_32_Intel_regcall_AVX_RegMask;
+    return Is64Bit ? CSR_64_Intel_regcall_RegMask:
+                     CSR_32_Intel_regcall_RegMask;
+  }
+#endif // INTEL_CUSTOMIZATION
   case CallingConv::Cold:
     if (Is64Bit)
       return CSR_64_MostRegs_RegMask;
