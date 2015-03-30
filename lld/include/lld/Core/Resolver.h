@@ -18,6 +18,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include <set>
+#include <unordered_set>
 #include <vector>
 
 namespace lld {
@@ -29,8 +30,8 @@ class LinkingContext;
 /// and producing a merged graph.
 class Resolver {
 public:
-  Resolver(LinkingContext &context)
-      : _context(context), _symbolTable(context), _result(new MergedFile()),
+  Resolver(LinkingContext &ctx)
+      : _ctx(ctx), _symbolTable(ctx), _result(new MergedFile()),
         _fileIndex(0) {}
 
   // InputFiles::Handler methods
@@ -41,13 +42,13 @@ public:
 
   // Handle files, this adds atoms from the current file thats
   // being processed by the resolver
-  bool handleFile(const File &);
+  bool handleFile(File &);
 
   // Handle an archive library file.
-  bool handleArchiveFile(const File &);
+  bool handleArchiveFile(File &);
 
   // Handle a shared library file.
-  void handleSharedLibrary(const File &);
+  void handleSharedLibrary(File &);
 
   /// @brief do work of merging and resolving and return list
   bool resolve();
@@ -58,13 +59,13 @@ private:
   typedef std::function<void(StringRef, bool)> UndefCallback;
 
   bool undefinesAdded(int begin, int end);
-  File *getFile(int &index, int &groupLevel);
+  File *getFile(int &index);
 
   /// \brief Add section group/.gnu.linkonce if it does not exist previously.
   void maybeAddSectionGroupOrGnuLinkOnce(const DefinedAtom &atom);
 
   /// \brief The main function that iterates over the files to resolve
-  void makePreloadArchiveMap();
+  void updatePreloadArchiveMap();
   bool resolveUndefines();
   void updateReferences();
   void deadStripOptimize();
@@ -83,7 +84,7 @@ private:
     void addAtoms(std::vector<const Atom*>& atoms);
   };
 
-  LinkingContext &_context;
+  LinkingContext &_ctx;
   SymbolTable _symbolTable;
   std::vector<const Atom *>     _atoms;
   std::set<const Atom *>        _deadStripRoots;
@@ -99,6 +100,7 @@ private:
 
   // Preloading
   std::map<StringRef, ArchiveLibraryFile *> _archiveMap;
+  std::unordered_set<ArchiveLibraryFile *> _archiveSeen;
 };
 
 } // namespace lld

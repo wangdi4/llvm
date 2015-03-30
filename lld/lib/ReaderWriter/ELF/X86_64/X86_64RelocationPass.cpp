@@ -24,6 +24,7 @@
 #include "X86_64LinkingContext.h"
 #include "lld/Core/Simple.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/STLExtras.h"
 
 using namespace lld;
 using namespace lld::elf;
@@ -111,9 +112,11 @@ template <class Derived> class RelocationPass : public Pass {
       return;
     assert(ref.kindArch() == Reference::KindArch::x86_64);
     switch (ref.kindValue()) {
+    case R_X86_64_16:
     case R_X86_64_32:
     case R_X86_64_32S:
     case R_X86_64_64:
+    case R_X86_64_PC16:
     case R_X86_64_PC32:
     case R_X86_64_PC64:
       static_cast<Derived *>(this)->handlePlain(ref);
@@ -502,13 +505,12 @@ lld::elf::createX86_64RelocationPass(const X86_64LinkingContext &ctx) {
   switch (ctx.getOutputELFType()) {
   case llvm::ELF::ET_EXEC:
     if (ctx.isDynamic())
-      return std::unique_ptr<Pass>(new DynamicRelocationPass(ctx));
-    else
-      return std::unique_ptr<Pass>(new StaticRelocationPass(ctx));
+      return llvm::make_unique<DynamicRelocationPass>(ctx);
+    return llvm::make_unique<StaticRelocationPass>(ctx);
   case llvm::ELF::ET_DYN:
-    return std::unique_ptr<Pass>(new DynamicRelocationPass(ctx));
+    return llvm::make_unique<DynamicRelocationPass>(ctx);
   case llvm::ELF::ET_REL:
-    return std::unique_ptr<Pass>();
+    return nullptr;
   default:
     llvm_unreachable("Unhandled output file type");
   }

@@ -42,6 +42,7 @@
 #include "MICmdCmdStack.h"
 #include "MICmdCmdSupportInfo.h"
 #include "MICmdCmdSupportList.h"
+#include "MICmdCmdSymbol.h"
 #include "MICmdCmdTarget.h"
 #include "MICmdCmdThread.h"
 #include "MICmdCmdTrace.h"
@@ -98,6 +99,8 @@ MICmnCommands::RegisterAll(void)
     bOk &= Register<CMICmdCmdDataWriteMemory>();
     bOk &= Register<CMICmdCmdEnablePrettyPrinting>();
     bOk &= Register<CMICmdCmdEnvironmentCd>();
+    bOk &= Register<CMICmdCmdExecAbort>();
+    bOk &= Register<CMICmdCmdExecArguments>();
     bOk &= Register<CMICmdCmdExecContinue>();
     bOk &= Register<CMICmdCmdExecInterrupt>();
     bOk &= Register<CMICmdCmdExecFinish>();
@@ -116,10 +119,13 @@ MICmnCommands::RegisterAll(void)
     bOk &= Register<CMICmdCmdListThreadGroups>();
     bOk &= Register<CMICmdCmdSource>();
     bOk &= Register<CMICmdCmdStackInfoDepth>();
+    bOk &= Register<CMICmdCmdStackInfoFrame>();
     bOk &= Register<CMICmdCmdStackListFrames>();
     bOk &= Register<CMICmdCmdStackListArguments>();
     bOk &= Register<CMICmdCmdStackListLocals>();
+    bOk &= Register<CMICmdCmdStackSelectFrame>();
     bOk &= Register<CMICmdCmdSupportListFeatures>();
+    bOk &= Register<CMICmdCmdSymbolListLines>();
     bOk &= Register<CMICmdCmdTargetSelect>();
     bOk &= Register<CMICmdCmdThreadInfo>();
     bOk &= Register<CMICmdCmdVarAssign>();

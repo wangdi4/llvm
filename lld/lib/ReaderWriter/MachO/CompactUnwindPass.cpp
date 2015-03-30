@@ -24,7 +24,6 @@
 #include "lld/Core/Simple.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/Endian.h"
 #include "llvm/Support/Format.h"
 
 #define DEBUG_TYPE "macho-compact-unwind"
@@ -411,6 +410,9 @@ private:
       }
     }
 
+    if (atom->rawContent().size() < 4 * sizeof(uint32_t))
+      return entry;
+
     using normalized::read32;
     entry.rangeLength =
         read32(atom->rawContent().data() + 2 * sizeof(uint32_t), _isBig);
@@ -521,7 +523,7 @@ private:
 
 void addCompactUnwindPass(PassManager &pm, const MachOLinkingContext &ctx) {
   assert(ctx.needsCompactUnwindPass());
-  pm.add(std::unique_ptr<Pass>(new CompactUnwindPass(ctx)));
+  pm.add(llvm::make_unique<CompactUnwindPass>(ctx));
 }
 
 } // end namesapce mach_o

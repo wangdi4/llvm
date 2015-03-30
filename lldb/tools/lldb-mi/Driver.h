@@ -15,17 +15,17 @@
 #define lldb_Driver_h_
 
 //#include "Platform.h" // IOR removed
-#include <lldb/Utility/PseudoTerminal.h>
+#include "lldb/Utility/PseudoTerminal.h"
 
 #include <set>
 #include <bitset>
 #include <string>
 #include <vector>
 
-#include <lldb/API/SBDefines.h>
-#include <lldb/API/SBBroadcaster.h>
-#include <lldb/API/SBDebugger.h>
-#include <lldb/API/SBError.h>
+#include "lldb/API/SBDefines.h"
+#include "lldb/API/SBBroadcaster.h"
+#include "lldb/API/SBDebugger.h"
+#include "lldb/API/SBError.h"
 #include "MIDriverMgr.h"
 #include "MIDriverBase.h"
 
@@ -64,6 +64,7 @@ class Driver : public lldb::SBBroadcaster, public CMIDriverBase, public CMIDrive
     virtual bool SetDriverParent(const CMIDriverBase &vrOtherDriver);
     virtual const CMIUtilString &GetDriverName(void) const;
     virtual const CMIUtilString &GetDriverId(void) const;
+    virtual void DeliverSignal(int signal) {}
 
     // Original code:
   public:

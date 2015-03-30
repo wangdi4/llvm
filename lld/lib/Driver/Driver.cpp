@@ -13,18 +13,18 @@
 #include "lld/Core/LLVM.h"
 #include "lld/Core/Parallel.h"
 #include "lld/Core/PassManager.h"
+#include "lld/Core/Reader.h"
 #include "lld/Core/Resolver.h"
+#include "lld/Core/Writer.h"
 #include "lld/Driver/Driver.h"
-#include "lld/Passes/RoundTripNativePass.h"
-#include "lld/Passes/RoundTripYAMLPass.h"
-#include "lld/ReaderWriter/Reader.h"
-#include "lld/ReaderWriter/Writer.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Option/Arg.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Support/Process.h"
 #include "llvm/Support/raw_ostream.h"
 #include <mutex>
 
@@ -112,14 +112,6 @@ bool Driver::link(LinkingContext &context, raw_ostream &diagnostics) {
   ScopedTask passTask(getDefaultDomain(), "Passes");
   PassManager pm;
   context.addPasses(pm);
-
-#ifndef NDEBUG
-  if (context.runRoundTripPass()) {
-    pm.add(std::unique_ptr<Pass>(new RoundTripYAMLPass(context)));
-    pm.add(std::unique_ptr<Pass>(new RoundTripNativePass(context)));
-  }
-#endif
-
   pm.runOnFile(merged);
   passTask.end();
 

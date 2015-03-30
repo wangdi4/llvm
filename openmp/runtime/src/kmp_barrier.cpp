@@ -1,7 +1,5 @@
 /*
  * kmp_barrier.cpp
- * $Revision: 43473 $
- * $Date: 2014-09-26 15:02:57 -0500 (Fri, 26 Sep 2014) $
  */
 
 
@@ -734,7 +732,11 @@ __kmp_hierarchical_barrier_gather(enum barrier_type bt, kmp_info_t *this_thr,
     register kmp_info_t **other_threads = team->t.t_threads;
     register kmp_uint64 new_state;
 
-    if (this_thr->th.th_team->t.t_level == 1) thr_bar->use_oncore_barrier = 1;
+    int level = team->t.t_level;
+    if (other_threads[0]->th.th_teams_microtask)    // are we inside the teams construct?
+        if (this_thr->th.th_teams_size.nteams > 1)
+            ++level; // level was not increased in teams construct for team_of_masters
+    if (level == 1) thr_bar->use_oncore_barrier = 1;
     else thr_bar->use_oncore_barrier = 0; // Do not use oncore barrier when nested
 
     KA_TRACE(20, ("__kmp_hierarchical_barrier_gather: T#%d(%d:%d) enter for barrier type %d\n",
@@ -834,9 +836,6 @@ __kmp_hierarchical_barrier_gather(enum barrier_type bt, kmp_info_t *this_thr,
         KA_TRACE(20, ("__kmp_hierarchical_barrier_gather: T#%d(%d:%d) set team %d arrived(%p) = %u\n",
                       gtid, team->t.t_id, tid, team->t.t_id, &team->t.t_bar[bt].b_arrived, team->t.t_bar[bt].b_arrived));
     }
-    // If nested, but outer level is top-level, resume use of oncore optimization
-    if (this_thr->th.th_team->t.t_level <=2) thr_bar->use_oncore_barrier = 1;
-    else thr_bar->use_oncore_barrier = 0;
     // Is the team access below unsafe or just technically invalid?
     KA_TRACE(20, ("__kmp_hierarchical_barrier_gather: T#%d(%d:%d) exit for barrier type %d\n",
                   gtid, team->t.t_id, tid, bt));
@@ -899,8 +898,15 @@ __kmp_hierarchical_barrier_release(enum barrier_type bt, kmp_info_t *this_thr, i
         KMP_MB();  // Flush all pending memory write invalidates.
     }
 
-    if (this_thr->th.th_team->t.t_level <= 1) thr_bar->use_oncore_barrier = 1;
-    else thr_bar->use_oncore_barrier = 0;
+    int level = team->t.t_level;
+    if (team->t.t_threads[0]->th.th_teams_microtask ) {    // are we inside the teams construct?
+        if (team->t.t_pkfn != (microtask_t)__kmp_teams_master && this_thr->th.th_teams_level == level)
+            ++level; // level was not increased in teams construct for team_of_workers
+        if( this_thr->th.th_teams_size.nteams > 1 )
+            ++level; // level was not increased in teams construct for team_of_masters
+    }
+    if (level == 1) thr_bar->use_oncore_barrier = 1;
+    else thr_bar->use_oncore_barrier = 0; // Do not use oncore barrier when nested
     nproc = this_thr->th.th_team_nproc;
 
     // If the team size has increased, we still communicate with old leaves via oncore barrier.
@@ -1095,7 +1101,7 @@ __kmp_barrier(enum barrier_type bt, int gtid, int is_split, size_t reduce_size,
             if (__kmp_tasking_mode != tskm_immediate_exec) {
                 __kmp_task_team_wait(this_thr, team
                                      USE_ITT_BUILD_ARG(itt_sync_obj) );
-                __kmp_task_team_setup(this_thr, team);
+                __kmp_task_team_setup(this_thr, team, 0); // use 0 to only setup the current team
             }
 
 
@@ -1183,7 +1189,7 @@ __kmp_barrier(enum barrier_type bt, int gtid, int is_split, size_t reduce_size,
         status = 0;
         if (__kmp_tasking_mode != tskm_immediate_exec) {
             // The task team should be NULL for serialized code (tasks will be executed immediately)
-            KMP_DEBUG_ASSERT(team->t.t_task_team == NULL);
+            KMP_DEBUG_ASSERT(team->t.t_task_team[this_thr->th.th_task_state] == NULL);
             KMP_DEBUG_ASSERT(this_thr->th.th_task_team == NULL);
         }
     }
@@ -1287,9 +1293,9 @@ __kmp_join_barrier(int gtid)
 # ifdef KMP_DEBUG
     if (__kmp_tasking_mode != tskm_immediate_exec) {
         KA_TRACE(20, ( "__kmp_join_barrier: T#%d, old team = %d, old task_team = %p, th_task_team = %p\n",
-                       __kmp_gtid_from_thread(this_thr), team_id, team->t.t_task_team,
+                       __kmp_gtid_from_thread(this_thr), team_id, team->t.t_task_team[this_thr->th.th_task_state],
                        this_thr->th.th_task_team));
-        KMP_DEBUG_ASSERT(this_thr->th.th_task_team == team->t.t_task_team);
+        KMP_DEBUG_ASSERT(this_thr->th.th_task_team == team->t.t_task_team[this_thr->th.th_task_state]);
     }
 # endif /* KMP_DEBUG */
 
@@ -1442,7 +1448,7 @@ __kmp_fork_barrier(int gtid, int tid)
 #endif
 
         if (__kmp_tasking_mode != tskm_immediate_exec) {
-            __kmp_task_team_setup(this_thr, team);
+            __kmp_task_team_setup(this_thr, team, 1);  // 1 indicates setup both task teams
         }
 
         /* The master thread may have changed its blocktime between the join barrier and the

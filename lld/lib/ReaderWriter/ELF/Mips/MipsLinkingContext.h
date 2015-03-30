@@ -33,12 +33,12 @@ enum {
   LLD_R_MICROMIPS_GLOBAL_26_S1 = 1030,
 };
 
-typedef llvm::object::ELFType<llvm::support::little, 2, false> Mips32ElELFType;
-
-template <class ELFType> class MipsTargetLayout;
+typedef llvm::object::ELFType<llvm::support::little, 2, false> Mips32ELType;
+typedef llvm::object::ELFType<llvm::support::little, 2, true> Mips64ELType;
 
 class MipsLinkingContext final : public ELFLinkingContext {
 public:
+  static std::unique_ptr<ELFLinkingContext> create(llvm::Triple);
   MipsLinkingContext(llvm::Triple triple);
 
   uint32_t getMergedELFFlags() const;
@@ -50,10 +50,9 @@ public:
   StringRef getDefaultInterpreter() const override;
   void addPasses(PassManager &pm) override;
   bool isRelaOutputFormat() const override { return false; }
-  bool isDynamicRelocation(const DefinedAtom &,
-                           const Reference &r) const override;
+  bool isDynamicRelocation(const Reference &r) const override;
   bool isCopyRelocation(const Reference &r) const override;
-  bool isPLTRelocation(const DefinedAtom &, const Reference &r) const override;
+  bool isPLTRelocation(const Reference &r) const override;
 
 private:
   MipsELFFlagsMerger _flagsMerger;

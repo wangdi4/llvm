@@ -16,10 +16,13 @@
 #include "sanitizer_flags.h"
 #include "sanitizer_libc.h"
 #include "sanitizer_placement_new.h"
+#include "sanitizer_symbolizer.h"
 
 namespace __sanitizer {
 
 const char *SanitizerToolName = "SanitizerTool";
+
+atomic_uint32_t current_verbosity;
 
 uptr GetPageSizeCached() {
   static uptr PageSize;
@@ -204,12 +207,12 @@ const char *StripPathPrefix(const char *filepath,
                             const char *strip_path_prefix) {
   if (filepath == 0) return 0;
   if (strip_path_prefix == 0) return filepath;
-  const char *pos = internal_strstr(filepath, strip_path_prefix);
-  if (pos == 0) return filepath;
-  pos += internal_strlen(strip_path_prefix);
-  if (pos[0] == '.' && pos[1] == '/')
-    pos += 2;
-  return pos;
+  const char *res = filepath;
+  if (const char *pos = internal_strstr(filepath, strip_path_prefix))
+    res = pos + internal_strlen(strip_path_prefix);
+  if (res[0] == '.' && res[1] == '/')
+    res += 2;
+  return res;
 }
 
 const char *StripModuleName(const char *module) {
@@ -228,15 +231,18 @@ void ReportErrorSummary(const char *error_message) {
   __sanitizer_report_error_summary(buff.data());
 }
 
-void ReportErrorSummary(const char *error_type, const char *file,
-                        int line, const char *function) {
+void ReportErrorSummary(const char *error_type, const AddressInfo &info) {
   if (!common_flags()->print_summary)
     return;
   InternalScopedString buff(kMaxSummaryLength);
-  buff.append("%s %s:%d %s", error_type,
-              file ? StripPathPrefix(file, common_flags()->strip_path_prefix)
-                   : "??",
-              line, function ? function : "??");
+  buff.append(
+      "%s %s:%d", error_type,
+      info.file ? StripPathPrefix(info.file, common_flags()->strip_path_prefix)
+                : "??",
+      info.line);
+  if (info.column > 0)
+    buff.append(":%d", info.column);
+  buff.append(" %s", info.function ? info.function : "??");
   ReportErrorSummary(buff.data());
 }
 
@@ -284,6 +290,48 @@ void IncreaseTotalMmap(uptr size) {
 void DecreaseTotalMmap(uptr size) {
   if (!common_flags()->mmap_limit_mb) return;
   atomic_fetch_sub(&g_total_mmaped, size, memory_order_relaxed);
+}
+
+bool TemplateMatch(const char *templ, const char *str) {
+  if (str == 0 || str[0] == 0)
+    return false;
+  bool start = false;
+  if (templ && templ[0] == '^') {
+    start = true;
+    templ++;
+  }
+  bool asterisk = false;
+  while (templ && templ[0]) {
+    if (templ[0] == '*') {
+      templ++;
+      start = false;
+      asterisk = true;
+      continue;
+    }
+    if (templ[0] == '$')
+      return str[0] == 0 || asterisk;
+    if (str[0] == 0)
+      return false;
+    char *tpos = (char*)internal_strchr(templ, '*');
+    char *tpos1 = (char*)internal_strchr(templ, '$');
+    if (tpos == 0 || (tpos1 && tpos1 < tpos))
+      tpos = tpos1;
+    if (tpos != 0)
+      tpos[0] = 0;
+    const char *str0 = str;
+    const char *spos = internal_strstr(str, templ);
+    str = spos + internal_strlen(templ);
+    templ = tpos;
+    if (tpos)
+      tpos[0] = tpos == tpos1 ? '$' : '*';
+    if (spos == 0)
+      return false;
+    if (start && spos != str0)
+      return false;
+    start = false;
+    asterisk = false;
+  }
+  return true;
 }
 
 }  // namespace __sanitizer

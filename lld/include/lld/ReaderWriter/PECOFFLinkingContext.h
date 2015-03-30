@@ -11,8 +11,8 @@
 #define LLD_READER_WRITER_PECOFF_LINKING_CONTEXT_H
 
 #include "lld/Core/LinkingContext.h"
-#include "lld/ReaderWriter/Reader.h"
-#include "lld/ReaderWriter/Writer.h"
+#include "lld/Core/Reader.h"
+#include "lld/Core/Writer.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/COFF.h"
@@ -47,7 +47,8 @@ public:
         _manifestUAC(true), _manifestLevel("'asInvoker'"),
         _manifestUiAccess("'false'"), _isDll(false), _highEntropyVA(true),
         _requireSEH(false), _noSEH(false), _implib(""), _debug(false),
-        _pdbFilePath(""), _dosStub(llvm::makeArrayRef(DEFAULT_DOS_STUB)) {
+        _pdbFilePath(""), _dosStub(llvm::makeArrayRef(DEFAULT_DOS_STUB)),
+        _parseDirectives(nullptr) {
     setDeadStripping(true);
   }
 
@@ -82,8 +83,11 @@ public:
     bool isPrivate;
   };
 
+  typedef bool (*ParseDirectives)(int, const char **, PECOFFLinkingContext &,
+                                  raw_ostream &);
+
   /// \brief Casting support
-  static inline bool classof(const LinkingContext *info) { return true; }
+  static bool classof(const LinkingContext *info) { return true; }
 
   Writer &writer() const override;
   bool validateImpl(raw_ostream &diagnostics) override;
@@ -253,11 +257,13 @@ public:
   bool addSectionRenaming(raw_ostream &diagnostics,
                           StringRef from, StringRef to);
 
-  StringRef getAlternateName(StringRef def) const;
-  const std::map<std::string, std::string> &alternateNames() {
-    return _alternateNames;
+  const std::set<std::string> &getAlternateNames(StringRef name) {
+    return _alternateNames[name];
   }
-  void setAlternateName(StringRef def, StringRef weak);
+
+  void addAlternateName(StringRef weak, StringRef def) {
+    _alternateNames[def].insert(weak);
+  }
 
   void addNoDefaultLib(StringRef path) {
     if (path.endswith_lower(".lib"))
@@ -325,6 +331,14 @@ public:
   }
 
   std::recursive_mutex &getMutex() { return _mutex; }
+
+  void setParseDirectives(ParseDirectives parseDirectives) {
+    _parseDirectives = parseDirectives;
+  }
+
+  ParseDirectives getParseDirectives() {
+    return _parseDirectives;
+  }
 
 protected:
   /// Method to create a internal file for the entry symbol
@@ -411,7 +425,7 @@ private:
   std::unique_ptr<Writer> _writer;
 
   // A map for weak aliases.
-  std::map<std::string, std::string> _alternateNames;
+  std::map<std::string, std::set<std::string>> _alternateNames;
 
   // A map for section renaming. For example, if there is an entry in the map
   // whose value is .rdata -> .text, the section contens of .rdata will be
@@ -440,6 +454,8 @@ private:
 
   std::set<std::string> _definedSyms;
   std::set<Node *> _seen;
+
+  ParseDirectives _parseDirectives;
 };
 
 } // end namespace lld

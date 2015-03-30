@@ -9,10 +9,13 @@
 
 #include "lldb/Host/windows/PipeWindows.h"
 
+#include "llvm/ADT/SmallString.h"
+#include "llvm/Support/Process.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <fcntl.h>
 #include <io.h>
+#include <rpc.h>
 
 #include <atomic>
 #include <string>
@@ -87,6 +90,33 @@ PipeWindows::CreateNew(llvm::StringRef name, bool child_process_inherit)
     }
 
     return result;
+}
+
+Error
+PipeWindows::CreateWithUniqueName(llvm::StringRef prefix, bool child_process_inherit, llvm::SmallVectorImpl<char>& name)
+{
+    llvm::SmallString<128> pipe_name;
+    Error error;
+    ::UUID unique_id;
+    RPC_CSTR unique_string;
+    RPC_STATUS status = ::UuidCreate(&unique_id);
+    if (status == RPC_S_OK || status == RPC_S_UUID_LOCAL_ONLY)
+        status = ::UuidToStringA(&unique_id, &unique_string);
+    if (status == RPC_S_OK)
+    {
+        pipe_name = prefix;
+        pipe_name += "-";
+        pipe_name += reinterpret_cast<char *>(unique_string);
+        ::RpcStringFreeA(&unique_string);
+        error = CreateNew(pipe_name, child_process_inherit);
+    }
+    else
+    {
+        error.SetError(status, eErrorTypeWin32);
+    }
+    if (error.Success())
+        name = pipe_name;
+    return error;
 }
 
 Error

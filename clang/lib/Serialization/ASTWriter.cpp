@@ -941,10 +941,11 @@ void ASTWriter::WriteBlockInfoBlock() {
 
   // Preprocessor Block.
   BLOCK(PREPROCESSOR_BLOCK);
+  RECORD(PP_MACRO_DIRECTIVE_HISTORY);
   RECORD(PP_MACRO_OBJECT_LIKE);
   RECORD(PP_MACRO_FUNCTION_LIKE);
   RECORD(PP_TOKEN);
-  
+
   // Decls and Types block.
   BLOCK(DECLTYPES_BLOCK);
   RECORD(TYPE_EXT_QUAL);
@@ -1062,7 +1063,8 @@ void ASTWriter::WriteBlockInfoBlock() {
 /// to an absolute path and removing nested './'s.
 ///
 /// \return \c true if the path was changed.
-bool cleanPathForOutput(FileManager &FileMgr, SmallVectorImpl<char> &Path) {
+static bool cleanPathForOutput(FileManager &FileMgr,
+                               SmallVectorImpl<char> &Path) {
   bool Changed = false;
 
   if (!llvm::sys::path::is_absolute(StringRef(Path.data(), Path.size()))) {
@@ -1341,6 +1343,8 @@ void ASTWriter::WriteControlBlock(Preprocessor &PP, ASTContext &Context,
   Record.push_back(HSOpts.UseStandardSystemIncludes);
   Record.push_back(HSOpts.UseStandardCXXIncludes);
   Record.push_back(HSOpts.UseLibcxx);
+  // Write out the specific module cache path that contains the module files.
+  AddString(PP.getHeaderSearchInfo().getModuleCachePath(), Record);
   Stream.EmitRecord(HEADER_SEARCH_OPTIONS, Record);
 
   // Preprocessor options.
@@ -1467,7 +1471,7 @@ void ASTWriter::WriteInputFiles(SourceManager &SourceMgr,
 
   unsigned UserFilesNum = 0;
   // Write out all of the input files.
-  std::vector<uint32_t> InputFileOffsets;
+  std::vector<uint64_t> InputFileOffsets;
   for (std::deque<InputFileEntry>::iterator
          I = SortedFiles.begin(), E = SortedFiles.end(); I != E; ++I) {
     const InputFileEntry &Entry = *I;
@@ -2105,8 +2109,7 @@ void ASTWriter::WritePreprocessor(const Preprocessor &PP, bool IsModule) {
       if (MD->isImported()) {
         auto Overrides = MD->getOverriddenModules();
         Record.push_back(Overrides.size());
-        for (auto Override : Overrides)
-          Record.push_back(Override);
+        Record.append(Overrides.begin(), Overrides.end());
       }
     }
     if (Record.empty())
@@ -3097,6 +3100,37 @@ void ASTWriter::WriteReferencedSelectorsPool(Sema &SemaRef) {
 // Identifier Table Serialization
 //===----------------------------------------------------------------------===//
 
+/// Determine the declaration that should be put into the name lookup table to
+/// represent the given declaration in this module. This is usually D itself,
+/// but if D was imported and merged into a local declaration, we want the most
+/// recent local declaration instead. The chosen declaration will be the most
+/// recent declaration in any module that imports this one.
+static NamedDecl *getDeclForLocalLookup(const LangOptions &LangOpts,
+                                        NamedDecl *D) {
+  if (!LangOpts.Modules || !D->isFromASTFile())
+    return D;
+
+  if (Decl *Redecl = D->getPreviousDecl()) {
+    // For Redeclarable decls, a prior declaration might be local.
+    for (; Redecl; Redecl = Redecl->getPreviousDecl()) {
+      if (!Redecl->isFromASTFile())
+        return cast<NamedDecl>(Redecl);
+      // If we come up a decl from a (chained-)PCH stop since we won't find a
+      // local one.
+      if (D->getOwningModuleID() == 0)
+        break;
+    }
+  } else if (Decl *First = D->getCanonicalDecl()) {
+    // For Mergeable decls, the first decl might be local.
+    if (!First->isFromASTFile())
+      return cast<NamedDecl>(First);
+  }
+
+  // All declarations are imported. Our most recent declaration will also be
+  // the most recent one in anyone who imports us.
+  return D;
+}
+
 namespace {
 class ASTIdentifierTableTrait {
   ASTWriter &Writer;
@@ -3400,36 +3434,15 @@ public:
     // Emit the declaration IDs in reverse order, because the
     // IdentifierResolver provides the declarations as they would be
     // visible (e.g., the function "stat" would come before the struct
-    // "stat"), but the ASTReader adds declarations to the end of the list 
-    // (so we need to see the struct "status" before the function "status").
+    // "stat"), but the ASTReader adds declarations to the end of the list
+    // (so we need to see the struct "stat" before the function "stat").
     // Only emit declarations that aren't from a chained PCH, though.
-    SmallVector<Decl *, 16> Decls(IdResolver.begin(II),
-                                  IdResolver.end());
-    for (SmallVectorImpl<Decl *>::reverse_iterator D = Decls.rbegin(),
-                                                DEnd = Decls.rend();
+    SmallVector<NamedDecl *, 16> Decls(IdResolver.begin(II), IdResolver.end());
+    for (SmallVectorImpl<NamedDecl *>::reverse_iterator D = Decls.rbegin(),
+                                                        DEnd = Decls.rend();
          D != DEnd; ++D)
-      LE.write<uint32_t>(Writer.getDeclID(getMostRecentLocalDecl(*D)));
-  }
-
-  /// \brief Returns the most recent local decl or the given decl if there are
-  /// no local ones. The given decl is assumed to be the most recent one.
-  Decl *getMostRecentLocalDecl(Decl *Orig) {
-    // The only way a "from AST file" decl would be more recent from a local one
-    // is if it came from a module.
-    if (!PP.getLangOpts().Modules)
-      return Orig;
-
-    // Look for a local in the decl chain.
-    for (Decl *D = Orig; D; D = D->getPreviousDecl()) {
-      if (!D->isFromASTFile())
-        return D;
-      // If we come up a decl from a (chained-)PCH stop since we won't find a
-      // local one.
-      if (D->getOwningModuleID() == 0)
-        break;
-    }
-
-    return Orig;
+      LE.write<uint32_t>(
+          Writer.getDeclID(getDeclForLocalLookup(PP.getLangOpts(), *D)));
   }
 };
 } // end anonymous namespace
@@ -3523,31 +3536,6 @@ void ASTWriter::WriteIdentifierTable(Preprocessor &PP,
 //===----------------------------------------------------------------------===//
 // DeclContext's Name Lookup Table Serialization
 //===----------------------------------------------------------------------===//
-
-/// Determine the declaration that should be put into the name lookup table to
-/// represent the given declaration in this module. This is usually D itself,
-/// but if D was imported and merged into a local declaration, we want the most
-/// recent local declaration instead. The chosen declaration will be the most
-/// recent declaration in any module that imports this one.
-static NamedDecl *getDeclForLocalLookup(NamedDecl *D) {
-  if (!D->isFromASTFile())
-    return D;
-
-  if (Decl *Redecl = D->getPreviousDecl()) {
-    // For Redeclarable decls, a prior declaration might be local.
-    for (; Redecl; Redecl = Redecl->getPreviousDecl())
-      if (!Redecl->isFromASTFile())
-        return cast<NamedDecl>(Redecl);
-  } else if (Decl *First = D->getCanonicalDecl()) {
-    // For Mergeable decls, the first decl might be local.
-    if (!First->isFromASTFile())
-      return cast<NamedDecl>(First);
-  }
-
-  // All declarations are imported. Our most recent declaration will also be
-  // the most recent one in anyone who imports us.
-  return D;
-}
 
 namespace {
 // Trait used for the on-disk hash table used in the method pool.
@@ -3666,7 +3654,8 @@ public:
     LE.write<uint16_t>(Lookup.size());
     for (DeclContext::lookup_iterator I = Lookup.begin(), E = Lookup.end();
          I != E; ++I)
-      LE.write<uint32_t>(Writer.GetDeclRef(getDeclForLocalLookup(*I)));
+      LE.write<uint32_t>(
+          Writer.GetDeclRef(getDeclForLocalLookup(Writer.getLangOpts(), *I)));
 
     assert(Out.tell() - Start == DataLen && "Data length is wrong");
   }
@@ -3674,17 +3663,22 @@ public:
 } // end anonymous namespace
 
 template<typename Visitor>
-static void visitLocalLookupResults(const DeclContext *ConstDC,
-                                    bool NeedToReconcileExternalVisibleStorage,
-                                    Visitor AddLookupResult) {
+void ASTWriter::visitLocalLookupResults(const DeclContext *ConstDC,
+                                        Visitor AddLookupResult) {
   // FIXME: We need to build the lookups table, which is logically const.
   DeclContext *DC = const_cast<DeclContext*>(ConstDC);
   assert(DC == DC->getPrimaryContext() && "only primary DC has lookup table");
 
   SmallVector<DeclarationName, 16> ExternalNames;
   for (auto &Lookup : *DC->buildLookup()) {
+    // If there are no local declarations in our lookup result, we don't
+    // need to write an entry for the name at all unless we're rewriting
+    // the decl context.
+    if (!Lookup.second.hasLocalDecls() && !isRewritten(cast<Decl>(DC)))
+      continue;
+
     if (Lookup.second.hasExternalDecls() ||
-        NeedToReconcileExternalVisibleStorage) {
+        DC->NeedToReconcileExternalVisibleStorage) {
       // We don't know for sure what declarations are found by this name,
       // because the external source might have a different set from the set
       // that are in the lookup map, and we can't update it now without
@@ -3708,11 +3702,10 @@ static void visitLocalLookupResults(const DeclContext *ConstDC,
 void ASTWriter::AddUpdatedDeclContext(const DeclContext *DC) {
   if (UpdatedDeclContexts.insert(DC).second && WritingAST) {
     // Ensure we emit all the visible declarations.
-    visitLocalLookupResults(DC, DC->NeedToReconcileExternalVisibleStorage,
-                            [&](DeclarationName Name,
-                                DeclContext::lookup_const_result Result) {
+    visitLocalLookupResults(DC, [&](DeclarationName Name,
+                                    DeclContext::lookup_result Result) {
       for (auto *Decl : Result)
-        GetDeclRef(getDeclForLocalLookup(Decl));
+        GetDeclRef(getDeclForLocalLookup(getLangOpts(), Decl));
     });
   }
 }
@@ -3732,9 +3725,8 @@ ASTWriter::GenerateNameLookupTable(const DeclContext *DC,
   SmallVector<NamedDecl *, 8> ConstructorDecls;
   SmallVector<NamedDecl *, 4> ConversionDecls;
 
-  visitLocalLookupResults(DC, DC->NeedToReconcileExternalVisibleStorage,
-                          [&](DeclarationName Name,
-                              DeclContext::lookup_result Result) {
+  visitLocalLookupResults(DC, [&](DeclarationName Name,
+                                  DeclContext::lookup_result Result) {
     if (Result.empty())
       return;
 
@@ -3767,16 +3759,14 @@ ASTWriter::GenerateNameLookupTable(const DeclContext *DC,
   // Add the constructors.
   if (!ConstructorDecls.empty()) {
     Generator.insert(ConstructorName,
-                     DeclContext::lookup_result(ConstructorDecls.begin(),
-                                                ConstructorDecls.end()),
+                     DeclContext::lookup_result(ConstructorDecls),
                      Trait);
   }
 
   // Add the conversion functions.
   if (!ConversionDecls.empty()) {
     Generator.insert(ConversionName,
-                     DeclContext::lookup_result(ConversionDecls.begin(),
-                                                ConversionDecls.end()),
+                     DeclContext::lookup_result(ConversionDecls),
                      Trait);
   }
 
@@ -4188,6 +4178,11 @@ ASTWriter::~ASTWriter() {
   llvm::DeleteContainerSeconds(FileDeclIDs);
 }
 
+const LangOptions &ASTWriter::getLangOpts() const {
+  assert(WritingAST && "can't determine lang opts when not writing AST");
+  return Context->getLangOpts();
+}
+
 void ASTWriter::WriteAST(Sema &SemaRef,
                          const std::string &OutputFile,
                          Module *WritingModule, StringRef isysroot,
@@ -4274,23 +4269,6 @@ void ASTWriter::WriteASTCore(Sema &SemaRef,
       getIdentifierRef(&Table.get(BuiltinNames[I]));
   }
 
-  // If there are any out-of-date identifiers, bring them up to date.
-  if (ExternalPreprocessorSource *ExtSource = PP.getExternalSource()) {
-    // Find out-of-date identifiers.
-    SmallVector<IdentifierInfo *, 4> OutOfDate;
-    for (IdentifierTable::iterator ID = PP.getIdentifierTable().begin(),
-                                IDEnd = PP.getIdentifierTable().end();
-         ID != IDEnd; ++ID) {
-      if (ID->second->isOutOfDate())
-        OutOfDate.push_back(ID->second);
-    }
-
-    // Update the out-of-date identifiers.
-    for (unsigned I = 0, N = OutOfDate.size(); I != N; ++I) {
-      ExtSource->updateOutOfDateIdentifier(*OutOfDate[I]);
-    }
-  }
-
   // If we saw any DeclContext updates before we started writing the AST file,
   // make sure all visible decls in those DeclContexts are written out.
   if (!UpdatedDeclContexts.empty()) {
@@ -4365,10 +4343,6 @@ void ASTWriter::WriteASTCore(Sema &SemaRef,
   RecordData UnusedLocalTypedefNameCandidates;
   for (const TypedefNameDecl *TD : SemaRef.UnusedLocalTypedefNameCandidates)
     AddDeclRef(TD, UnusedLocalTypedefNameCandidates);
-
-  // Build a record containing all of dynamic classes declarations.
-  RecordData DynamicClasses;
-  AddLazyVectorDecls(*this, SemaRef.DynamicClasses, DynamicClasses);
 
   // Build a record containing all of pending implicit instantiations.
   RecordData PendingInstantiations;
@@ -4649,10 +4623,6 @@ void ASTWriter::WriteASTCore(Sema &SemaRef,
   // Write the record containing VTable uses information.
   if (!VTableUses.empty())
     Stream.EmitRecord(VTABLE_USES, VTableUses);
-
-  // Write the record containing dynamic classes declarations.
-  if (!DynamicClasses.empty())
-    Stream.EmitRecord(DYNAMIC_CLASSES, DynamicClasses);
 
   // Write the record containing potentially unused local typedefs.
   if (!UnusedLocalTypedefNameCandidates.empty())
@@ -5234,13 +5204,10 @@ unsigned ASTWriter::getAnonymousDeclarationNumber(const NamedDecl *D) {
   // already done so.
   auto It = AnonymousDeclarationNumbers.find(D);
   if (It == AnonymousDeclarationNumbers.end()) {
-    unsigned Index = 0;
-    for (Decl *LexicalD : D->getLexicalDeclContext()->decls()) {
-      auto *ND = dyn_cast<NamedDecl>(LexicalD);
-      if (!ND || !needsAnonymousDeclarationNumber(ND))
-        continue;
-      AnonymousDeclarationNumbers[ND] = Index++;
-    }
+    auto *DC = D->getLexicalDeclContext();
+    numberAnonymousDeclsWithin(DC, [&](const NamedDecl *ND, unsigned Number) {
+      AnonymousDeclarationNumbers[ND] = Number;
+    });
 
     It = AnonymousDeclarationNumbers.find(D);
     assert(It != AnonymousDeclarationNumbers.end() &&

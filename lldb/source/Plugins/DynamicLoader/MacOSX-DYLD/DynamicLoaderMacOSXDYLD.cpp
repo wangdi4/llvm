@@ -17,9 +17,11 @@
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/Section.h"
 #include "lldb/Core/State.h"
+#include "lldb/Symbol/ClangASTContext.h"
 #include "lldb/Symbol/Function.h"
 #include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Target/ObjCLanguageRuntime.h"
+#include "lldb/Target/ABI.h"
 #include "lldb/Target/RegisterContext.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
@@ -710,6 +712,7 @@ DynamicLoaderMacOSXDYLD::ReadAllImageInfosStructure ()
         const size_t count_v13 = count_v11 +
                                  addr_size +         // sharedCacheSlide
                                  sizeof (uuid_t);    // sharedCacheUUID
+        (void) count_v13; // Avoid warnings when assertions are off.
         assert (sizeof (buf) >= count_v13);
 
         Error error;
@@ -832,9 +835,6 @@ DynamicLoaderMacOSXDYLD::AddModulesUsingImageInfos (DYLDImageInfo::collection &i
 
         if (image_module_sp)
         {
-            if (image_infos[idx].header.filetype == llvm::MachO::MH_DYLINKER)
-                image_module_sp->SetIsDynamicLinkEditor (true);
-
             ObjectFile *objfile = image_module_sp->GetObjectFile ();
             if (objfile)
             {
