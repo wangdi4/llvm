@@ -612,14 +612,14 @@ def int_bitset_test : Intrinsic<[llvm_i1_ty], [llvm_ptr_ty, llvm_metadata_ty],
 //===----------------------------------------------------------------------===//
 // Target-specific intrinsics
 //===----------------------------------------------------------------------===//
-
-include "llvm/IR/IntrinsicsPowerPC.td"
-include "llvm/IR/IntrinsicsX86.td"
 //#ifdef INTEL_CUSTOMIZATION
 def int_intel_pragma : Intrinsic<[],
                                    [llvm_metadata_ty],
                                    [], "llvm.intel.pragma">;
 //#endif
+
+include "llvm/IR/IntrinsicsPowerPC.td"
+include "llvm/IR/IntrinsicsX86.td"
 include "llvm/IR/IntrinsicsARM.td"
 include "llvm/IR/IntrinsicsAArch64.td"
 include "llvm/IR/IntrinsicsXCore.td"
