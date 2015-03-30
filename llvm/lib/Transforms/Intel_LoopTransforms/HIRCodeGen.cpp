@@ -32,6 +32,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/Local.h"
 
 #include "llvm/IR/Intel_LoopIR/HIRVisitor.h"
 // TODO audit includes
@@ -79,8 +80,9 @@ private:
       llvm_unreachable("Unknown HIR type in CG");
     }
 
-    CGVisitor(Function *CurFunc, ScalarEvolution *SE, HIRParser *Parser)
-        : F(CurFunc), HIRP(Parser) {
+    CGVisitor(Function *CurFunc, ScalarEvolution *SE, HIRParser *Parser,
+              Pass *CurPass)
+        : F(CurFunc), HIRP(Parser), HIRCG(CurPass) {
       Builder = new IRBuilder<>(F->getContext());
       // TODO possibly IV conflict if scev blobs contain IV
       Expander = new SCEVExpander(*SE, "i");
@@ -124,6 +126,7 @@ private:
     // Dont need custom insertion funcs...yet
     IRBuilder<> *Builder;
     HIRParser *HIRP;
+    Pass *HIRCG;
 
     // keep track of our mem allocs. Only IV atm
     std::map<std::string, AllocaInst *> NamedValues;
@@ -160,19 +163,15 @@ public:
     auto HIRP = &getAnalysis<HIRParser>();
 
     // generate code
-    CGVisitor CG(&F, SE, HIRP);
-    // TODO enable region iterator
+    CGVisitor CG(&F, SE, HIRP, this);
     for (auto I = HIR->begin(), E = HIR->end(); I != E; I++) {
       CG.visit(I);
     }
-    // reg2mem, instcombine etc
+
     return false;
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
-    // consider all analysis invalidated, however we lost a req analysis
-    // eithout this..not sure
-    // AU.setPreservesAll();
 
     // AU.addRequiredTransitive<ScalarEvolution>();
     AU.addRequired<ScalarEvolution>();
@@ -271,27 +270,35 @@ Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
     visit(*It);
   }
 
-  // TODO patch up predecessor to region entry bblock
-  // Doing this makes the predecessor's successor unreachable.
-  // this often results in invalid llvm ir, but if we call simplifycfg
-  // the bblocks corresponding to this region are cleanly replaced
-  // by the ones we just created.
-  // Alternate impl is to create a cond br with true branch jumping to
-  // our new region entry and false jumping to old, but cond always being
-  // true. We end on valid IR but must call some form of pred opt to remove
-  // old code
-  BranchInst *RegionBranch = BranchInst::Create(RegionEntry);
-  Instruction *Term = R->getPredBBlock()->getTerminator();
+  // Patch up predecessor(s) to region entry bblock
+  // We do this by splitting the region entry bblock, with first block having
+  // original label, but only a br to the second block, with second bblock
+  // with the original instructions. Then the br to second block is replaced by
+  // a cond br with true branch jumping to our new region'a entry and
+  // false jumping to old code(second bblock), but cond always being true.
+  // We end on valid IR but must call some form of pred opt to remove old code
+
+  // Save entry and succ fields, these get invalidated once block is split
+  BasicBlock *EntryFirstHalf = R->getEntryBBlock();
+  BasicBlock *RegionSuccessor = R->getSuccBBlock();
+
+  BasicBlock *EntrySecondHalf =
+      SplitBlock(EntryFirstHalf, EntryFirstHalf->begin(), HIRCG);
+
+  Instruction *Term = EntryFirstHalf->getTerminator();
   BasicBlock::iterator ii(Term);
+  BranchInst *RegionBranch = BranchInst::Create(
+      RegionEntry, EntrySecondHalf,
+      ConstantInt::get(IntegerType::get(F->getContext(), 1), 1));
   ReplaceInstWithInst(Term->getParent()->getInstList(), ii, RegionBranch);
 
   // current insertion point is at end of region, add jump to successor
   // and we are done
   // TODO can there be no successor?
-  if (!R->getSuccBBlock())
+  if (!RegionSuccessor)
     llvm_unreachable("no successor block to region");
 
-  Builder->CreateBr(R->getSuccBBlock());
+  Builder->CreateBr(RegionSuccessor);
   // DEBUG(F->dump());
   return nullptr;
 }
