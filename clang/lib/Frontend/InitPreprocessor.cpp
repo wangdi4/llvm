@@ -478,7 +478,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
 #undef TOSTR2
 #ifdef INTEL_CUSTOMIZATION
   if (!LangOpts.IntelCompat)
-#endif
+#endif  // INTEL_CUSTOMIZATION
   if (!LangOpts.MSVCCompat) {
     // Currently claim to be compatible with GCC 4.2.1-5621, but only if we're
     // not compiling for MSVC compatibility
@@ -636,6 +636,16 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   // Define type sizing macros based on the target properties.
   assert(TI.getCharWidth() == 8 && "Only support 8-bit char so far");
   Builder.defineMacro("__CHAR_BIT__", "8");
+
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#366613 - define macro __LONG_DOUBLE_SIZE__ in IntelCompat mode.
+  if (LangOpts.IntelCompat) {
+    llvm::APFloat Float = llvm::APFloat(TI.getLongDoubleFormat());
+    llvm::APInt Int = Float.bitcastToAPInt();
+    int LongDoubleSize = Int.getBitWidth();
+    Builder.defineMacro("__LONG_DOUBLE_SIZE__", Twine(LongDoubleSize));
+  }
+#endif // INTEL_CUSTOMIZATION
 
   DefineTypeSize("__SCHAR_MAX__", TargetInfo::SignedChar, TI, Builder);
   DefineTypeSize("__SHRT_MAX__", TargetInfo::SignedShort, TI, Builder);
@@ -881,7 +891,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   Builder.defineMacro("__I__", "1j");
   if (LangOpts.CilkPlus)
     Builder.defineMacro("__cilk", "200");
-#endif
+#endif  // INTEL_CUSTOMIZATION
   // CUDA device path compilaton
   if (LangOpts.CUDAIsDevice) {
     // The CUDA_ARCH value is set for the GPU target specified in the NVPTX

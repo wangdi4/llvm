@@ -497,7 +497,7 @@ llvm::DIType CGDebugInfo::CreateType(const BuiltinType *BT) {
     break;
 #ifdef INTEL_CUSTOMIZATION
   case BuiltinType::Float128:
-#endif
+#endif  // INTEL_CUSTOMIZATION
   case BuiltinType::Half:
   case BuiltinType::Float:
   case BuiltinType::LongDouble:

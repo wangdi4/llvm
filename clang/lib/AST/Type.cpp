@@ -797,11 +797,11 @@ bool Type::hasUnsignedIntegerRepresentation() const {
 bool Type::isFloatingType() const {
   if (const BuiltinType *BT = dyn_cast<BuiltinType>(CanonicalType))
     return BT->getKind() >= BuiltinType::Half &&
-#ifdef INTEL_CUSTOMIZATION	
+#ifdef INTEL_CUSTOMIZATION
            BT->getKind() <= BuiltinType::Float128;
 #else
            BT->getKind() <= BuiltinType::LongDouble;
-#endif
+#endif  // INTEL_CUSTOMIZATION
   if (const ComplexType *CT = dyn_cast<ComplexType>(CanonicalType))
     return CT->getElementType()->isFloatingType();
   return false;
@@ -823,11 +823,11 @@ bool Type::isRealFloatingType() const {
 bool Type::isRealType() const {
   if (const BuiltinType *BT = dyn_cast<BuiltinType>(CanonicalType))
     return BT->getKind() >= BuiltinType::Bool &&
-#ifdef INTEL_CUSTOMIZATION	
+#ifdef INTEL_CUSTOMIZATION
            BT->getKind() <= BuiltinType::Float128;
 #else
            BT->getKind() <= BuiltinType::LongDouble;
-#endif
+#endif  // INTEL_CUSTOMIZATION
   if (const EnumType *ET = dyn_cast<EnumType>(CanonicalType))
       return ET->getDecl()->isComplete() && !ET->getDecl()->isScoped();
   return false;
@@ -840,7 +840,7 @@ bool Type::isArithmeticType() const {
            BT->getKind() <= BuiltinType::Float128;
 #else
            BT->getKind() <= BuiltinType::LongDouble;
-#endif
+#endif  // INTEL_CUSTOMIZATION
   if (const EnumType *ET = dyn_cast<EnumType>(CanonicalType))
     // GCC allows forward declaration of enum types (forbid by C99 6.7.2.3p2).
     // If a body isn't seen by the time we get here, return false.
@@ -1544,7 +1544,7 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
   case LongDouble:        return "long double";
 #ifdef INTEL_CUSTOMIZATION
   case Float128:          return "_Quad";
-#endif
+#endif  // INTEL_CUSTOMIZATION
   case WChar_S:
   case WChar_U:           return Policy.MSWChar ? "__wchar_t" : "wchar_t";
   case Char16:            return "char16_t";

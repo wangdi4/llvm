@@ -66,9 +66,9 @@ struct Info {
 class Context {
   const Info *TSRecords;
   unsigned NumTSRecords;
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   bool IsIntelTBAA;
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 public:
   Context();
 
@@ -125,10 +125,10 @@ public:
   /// with a "__builtin_" prefix (e.g. __builtin_abs).
   bool isLibFunction(unsigned ID) const {
     return strchr(GetRecord(ID).Attributes, 'F') != nullptr
-#ifdef INTEL_CUSTOMIZATION	
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
       || (!IsIntelTBAA && (strchr(GetRecord(ID).Attributes, 'I') != nullptr))
-#endif
-	;
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+      ;
   }
 
   /// \brief Determines whether this builtin is a predefined libc/libm
@@ -136,10 +136,10 @@ public:
   /// priori.
   bool isPredefinedLibFunction(unsigned ID) const {
     return strchr(GetRecord(ID).Attributes, 'f') != nullptr
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
       || (IsIntelTBAA && (strchr(GetRecord(ID).Attributes, 'I') != nullptr))
-#endif
-	;
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+      ;
   }
 
   /// \brief Determines whether this builtin is a predefined compiler-rt/libgcc

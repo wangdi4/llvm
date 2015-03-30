@@ -85,4 +85,4 @@ def Empty : Decl;
 //#ifdef INTEL_CUSTOMIZATION
 def CilkSpawn : Decl;
 def Pragma : Decl;
-//#endif
+//#endif  // INTEL_CUSTOMIZATION

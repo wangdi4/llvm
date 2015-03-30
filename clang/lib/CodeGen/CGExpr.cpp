@@ -16,7 +16,7 @@
 #include "CGCall.h"
 #ifdef INTEL_CUSTOMIZATION
 #include "intel/CGCilkPlusRuntime.h"
-#endif
+#endif  // INTEL_CUSTOMIZATION
 #include "CGDebugInfo.h"
 #include "CGObjCRuntime.h"
 #include "CGOpenMPRuntime.h"
@@ -304,17 +304,18 @@ createReferenceTemporary(CodeGenFunction &CGF,
   switch (M->getStorageDuration()) {
   case SD_FullExpression:
   case SD_Automatic: {
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
     // In a captured statement, don't alloca the receiver temp; it is passed in.
     if (CodeGenFunction::CGCilkSpawnInfo *Info =
-          dyn_cast_or_null<CodeGenFunction::CGCilkSpawnInfo>(CGF.CapturedStmtInfo)) {
+          dyn_cast_or_null<CodeGenFunction::CGCilkSpawnInfo>
+                                                      (CGF.CapturedStmtInfo)) {
       if (Info->isReceiverDecl(M->getExtendingDecl())) {
         assert(Info->getReceiverTmp() &&
                "Expected receiver temporary in captured statement");
         return Info->getReceiverTmp();
       }
     }
-#endif
+#endif  // INTEL_CUSTOMIZATION
     return CGF.CreateMemTemp(Inner->getType(), "ref.tmp");
   }
 
@@ -1970,19 +1971,38 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
                 assert(Addr && "missing local variable address");
                 return MakeAddrLValue(Addr, T, Alignment);
               }
+          } else if (CapturedStmtInfo->getKind() == CR_CilkSpawn) {
+            CGCilkSpawnInfo *SSI = cast<CGCilkSpawnInfo>(CapturedStmtInfo);
+            if (SSI->isReceiverDecl(ND))
+              if (llvm::Value *Addr = SSI->getReceiverAddr()) {
+                assert(Addr && "missing the receiver address");
+                return MakeAddrLValue(Addr, T, Alignment);
+              }
           }
 // Otherwise load it from the captured struct.
-#endif
+#endif  // INTEL_CUSTOMIZATION
           return EmitCapturedFieldLValue(*this, CapturedStmtInfo->lookup(VD),
                                          CapturedStmtInfo->getContextValue());
 #ifdef INTEL_CUSTOMIZATION
         }
-#endif
+#endif  // INTEL_CUSTOMIZATION
       }
       assert(isa<BlockDecl>(CurCodeDecl));
       return MakeAddrLValue(GetAddrOfBlockDecl(VD, VD->hasAttr<BlocksAttr>()),
                             T, Alignment);
     }
+
+#ifdef INTEL_CUSTOMIZATION
+    // special case of receiver declared in advance
+    // int i;
+    // i = Spawn foo();
+    else if (CapturedStmtInfo && (CapturedStmtInfo->getKind() == CR_CilkSpawn)
+              && CapturedStmtInfo->lookup(VD)){
+      return EmitCapturedFieldLValue(*this, CapturedStmtInfo->lookup(VD),
+                                         CapturedStmtInfo->getContextValue());
+    }
+#endif  // INTEL_CUSTOMIZATION
+
   }
 
   // FIXME: We should be able to assert this for FunctionDecls as well!
@@ -3236,7 +3256,7 @@ LValue CodeGenFunction::EmitBinaryOperatorLValue(const BinaryOperator *E) {
 #else
     RValue RV = EmitAnyExpr(E->getRHS());
     LValue LV = EmitCheckedLValue(E->getLHS(), TCK_Store);
-#endif
+#endif  // INTEL_CUSTOMIZATION
     EmitStoreThroughLValue(RV, LV);
     return LV;
   }
@@ -3464,7 +3484,7 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, llvm::Value *Callee,
   return EmitCall(FnInfo, Callee, ReturnValue, Args, TargetDecl
 #ifdef INTEL_CUSTOMIZATION
                   , /*callOrInvoke=*/0, E->isCilkSpawnCall()
-#endif
+#endif  // INTEL_CUSTOMIZATION
   );
 }
 
@@ -3640,4 +3660,4 @@ void CodeGenFunction::EmitCEANBuiltinExprBody(const CEANBuiltinExpr *E) {
     EmitBlock(ExitExpr.getBlock());
   }
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION

@@ -14,16 +14,29 @@
 
 let Component = "Sema" in {
 let CategoryName = "Semantic Issue" in {
-//#ifdef INTEL_CUSTOMIZATION
- def x_warn_intel_pragma_opt_level : Warning<"optimization level must be between 0 and 3">;
- def x_warn_intel_pragma_function_only : Warning<"optimization level applies only to function definitions">;
- def x_warn_intel_pragma_invalid_expr : Warning<"invalid expression in pragma will be ignored">;
- def x_warn_intel_pragma_use_undecl : Warning<"name of variable is expected">;
- def x_warn_intel_pragma_var_local : Warning<"variable %0 has local storage">;
- def x_warn_intel_pragma_not_C : Warning<"%select{variable|function}0 %1 has no \"C\" linkage specification">;
- def x_warn_intel_pragma_identifier_undefined : Warning<"identifier %0 is undefined">;
- def x_warn_intel_pragma_func_alloc_text : Warning<"text segment already specified">;
- def x_warn_intel_pragma_init_seg_defined : Warning<"initialization segment already defined">;
+//#ifdef INTEL_SPECIFIC_IL0_BACKEND
+ def x_warn_intel_pragma_opt_level : Warning<"optimization level must be between 0 and 3">,
+  InGroup<IntelPragma>;
+ def x_warn_intel_pragma_function_only : Warning<"optimization level applies only to function definitions">,
+  InGroup<IntelPragma>;
+ def x_warn_intel_pragma_invalid_expr : Warning<"invalid expression in pragma will be ignored">,
+  InGroup<IntelPragma>;
+ def x_warn_intel_pragma_use_undecl : Warning<"name of variable is expected">,
+  InGroup<IntelPragma>;
+ def x_warn_intel_pragma_var_local : Warning<"variable %0 has local storage">,
+  InGroup<IntelPragma>;
+ def x_warn_intel_pragma_not_C : Warning<"%select{variable|function}0 %1 has no \"C\" linkage specification">,
+  InGroup<IntelPragma>;
+ def x_warn_intel_pragma_identifier_undefined : Warning<"identifier %0 is undefined">,
+  InGroup<IntelPragma>;
+ def x_warn_intel_pragma_func_alloc_text : Warning<"text segment already specified">,
+  InGroup<IntelPragma>;
+ def x_warn_intel_pragma_init_seg_defined : Warning<"initialization segment already defined">,
+  InGroup<IntelPragma>;
+ def x_warn_intel_pragma_ignore_attributes_standard_section : Warning<"attributes for standard section %0 ignored">,
+  InGroup<IntelPragma>;
+ def x_warn_intel_attribute_variable_only : Warning<"attribute %0 can be applied only to non-reference variables">,
+  InGroup<IntelPragma>;
  def x_error_intel_pragma_except_off : Error<"exception semantics must be turned off before turning off this float_control mode">;
  def x_error_intel_pragma_fenv_access_off : Error<"fenv_access must be turned off before turning off this float_control mode">;
  def x_error_intel_pragma_fenv_must_be_precise : Error<"fenv_access cannot be enabled except in precise, source, double and extended modes">;
@@ -31,12 +44,10 @@ let CategoryName = "Semantic Issue" in {
  def x_error_intel_pragma_parallel_pointer_array_is_allowed : Error<"expecting an array or pointer variable">;
  def x_error_intel_pragma_parallel_subscript_out_of_range : Error<"subscript out of range">;
  def x_error_intel_pragma_conflicting_section_attributes : Error<"conflicting section attributes">;
- def x_warn_intel_pragma_ignore_attributes_standard_section : Warning<"attributes for standard section %0 ignored">;
- def x_warn_intel_attribute_variable_only : Warning<"attribute %0 can be applied only to non-reference variables">;
  def x_err_attribute_not_string : Error<"argument to %0 attribute was not a string literal">;
  def err_attribute_section_local_variable : Error<
    "'section' attribute is not valid on local variables">;
-//#endif
+//#endif  // INTEL_SPECIFIC_IL0_BACKEND
 def note_previous_decl : Note<"%0 declared here">;
 def note_entity_declared_at : Note<"%0 declared here">;
 def note_callee_decl : Note<"%0 declared here">;
@@ -3477,6 +3488,15 @@ def err_template_spec_redecl_out_of_scope : Error<
   "variable template partial|function template|member "
   "function|static data member|member class|member enumeration}0 "
   "specialization of %1 not in a namespace enclosing %2">;
+// CQ#365451
+// if INTEL_CUSTOMIZATION
+def ext_template_spec_redecl_out_of_scope: ExtWarn<
+  "%select{class template|class template partial|variable template|"
+  "variable template partial|function template|member "
+  "function|static data member|member class|member enumeration}0 "
+  "specialization of %1 not in a namespace enclosing %2 is a "
+  "Microsoft extension">, InGroup<Microsoft>;
+// endif INTEL_CUSTOMIZATION
 def err_template_spec_redecl_global_scope : Error<
   "%select{class template|class template partial|variable template|"
   "variable template partial|function template|member "
@@ -4078,6 +4098,12 @@ def err_dependent_tag_decl : Error<
 def err_tag_definition_of_typedef : Error<
   "definition of type %0 conflicts with %select{typedef|type alias}1 of the same name">;
 def err_conflicting_types : Error<"conflicting types for %0">;
+// CQ#366612
+// if INTEL_CUSTOMIZATION
+def warn_func_redecl_conflicting_types: Warning<
+  "declaration of %0 is incompatible with previous "
+  "%select{declaration|definition}1">, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_nested_redefinition : Error<"nested redefinition of %0">;
 def err_use_with_wrong_tag : Error<
   "use of %0 with tag type that does not match previous declaration">;
@@ -4098,6 +4124,12 @@ def err_forward_ref_enum : Error<
   "ISO C++ forbids forward references to 'enum' types">;
 def ext_ms_forward_ref_enum : Extension<
   "forward references to 'enum' types are a Microsoft extension">, InGroup<Microsoft>;
+// CQ#365886
+// if INTEL_CUSTOMIZATION
+def ext_intel_forward_ref_enum : ExtWarn<
+  "forward references to 'enum' types are an Intel extension">,
+  InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def ext_forward_ref_enum_def : Extension<
   "redeclaration of already-defined enum %0 is a GNU extension">, InGroup<GNURedeclaredEnum>;
   
@@ -6999,6 +7031,13 @@ def warn_second_parameter_to_va_arg_never_compatible : Warning<
 def warn_return_missing_expr : Warning<
   "non-void %select{function|method}1 %0 should return a value">, DefaultError,
   InGroup<ReturnType>;
+// if INTEL_CUSTOMIZATION
+// Same as warn_return_missing_expr, but a warning, not an error, for
+// IntelCompat mode. CQ#364256
+def warn_return_missing_expr_no_err : Warning<
+  "non-void %select{function|method}1 %0 should return a value">,
+  InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def ext_return_missing_expr : ExtWarn<
   "non-void %select{function|method}1 %0 should return a value">, DefaultError,
   InGroup<ReturnType>;
@@ -7346,7 +7385,7 @@ def err_pragma_simd_vectorlength_multiple : Error<
 def note_pragma_simd_specified_here : Note<
   "vectorlength%select{for|}0 first specified here">;
 def err_invalid_vectorlength_expr : Error<
-  "vectorlength expression must be an integer constant">;
+  "vectorlength expression must be %select{an integer constant|a power of 2}0">;
 def err_pragma_simd_invalid_linear_step : Error<
   "invalid linear step: expected integral constant or variable reference">;
 def warn_pragma_simd_linear_expr_zero : Warning<
@@ -7399,6 +7438,8 @@ def err_multiple_spawns: Error<
   "multiple spawn calls within a full expression">;
 def note_multiple_spawns: Note<
   "another spawn here">;
+def err_cilk_spawn_disable: Error<
+  "_Cilk_spawn disabled in statement expression">;
 
 // cilk_for
 def err_cilk_for_initializer_expected_variable : Error<
@@ -7631,7 +7672,7 @@ def err_cean_type_of_arg : Error<
   "type of expression is %diff{$, but must be $|not the same as type of the first argument}0,1">;
 def err_assume_aligned_not_pointer : Error<"expression is not a pointer">;
 def err_assume_aligned_not_integer : Error<"expression is not a constant integer value or not a power of 2">;
-//#endif
+//#endif  // INTEL_CUSTOMIZATION
 
 def err_opencl_kernel_attr :
   Error<"attribute %0 can only be applied to a kernel function">;

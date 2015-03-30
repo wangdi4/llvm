@@ -3713,10 +3713,11 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasArg(options::OPT_fcilkplus))
     if (getToolChain().getTriple().getOS() != llvm::Triple::Linux &&
         getToolChain().getTriple().getOS() != llvm::Triple::UnknownOS &&
+        getToolChain().getTriple().getOS() != llvm::Triple::Win32 &&
         !getToolChain().getTriple().isMacOSX() &&
         !getToolChain().getTriple().isOSFreeBSD())
       D.Diag(diag::err_drv_cilk_unsupported);
-#endif
+#endif  // INTEL_CUSTOMIZATION
   const SanitizerArgs &Sanitize = getToolChain().getSanitizerArgs();
   Sanitize.addArgs(Args, CmdArgs);
 
@@ -6072,7 +6073,7 @@ void darwin::Link::ConstructJob(Compilation &C, const JobAction &JA,
 #ifdef INTEL_CUSTOMIZATION
   if (Args.hasArg(options::OPT_fcilkplus))
     CmdArgs.push_back("-lcilkrts");
-#endif
+#endif  // INTEL_CUSTOMIZATION
   AddLinkerInputs(getToolChain(), Inputs, Args, CmdArgs);
   // Build the input file for -filelist (list of linker input files) in case we
   // need it later
@@ -7722,7 +7723,7 @@ void gnutools::Link::ConstructJob(Compilation &C, const JobAction &JA,
 #ifdef INTEL_CUSTOMIZATION
   if (Args.hasArg(options::OPT_fcilkplus))
     CmdArgs.push_back("-lcilkrts");
-#endif
+#endif  // INTEL_CUSTOMIZATION
   if (!Args.hasArg(options::OPT_nostdlib)) {
     if (!Args.hasArg(options::OPT_nodefaultlibs)) {
       if (Args.hasArg(options::OPT_static))

@@ -1599,4 +1599,4 @@ CGCilkImplicitSyncInfo *CreateCilkImplicitSyncInfo(CodeGenFunction &CGF) {
 } // namespace CodeGen
 } // namespace clang
 
-#endif
+#endif  // INTEL_CUSTOMIZATION

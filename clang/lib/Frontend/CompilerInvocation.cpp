@@ -879,9 +879,9 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
   Opts.ShowStats = Args.hasArg(OPT_print_stats);
   Opts.ShowTimers = Args.hasArg(OPT_ftime_report);
   Opts.ShowVersion = Args.hasArg(OPT_version);
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   Opts.HelpPragma = Args.hasArg(OPT_help_pragma);
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   Opts.ASTMergeFiles = Args.getAllArgValues(OPT_ast_merge);
   Opts.LLVMArgs = Args.getAllArgValues(OPT_mllvm);
   Opts.FixWhatYouCan = Args.hasArg(OPT_fix_what_you_can);
@@ -1379,12 +1379,17 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
     else
       LangStd = OpenCLLangStd;
   }
-  
+
   CompilerInvocation::setLangDefaults(Opts, IK, LangStd);
 #ifdef INTEL_CUSTOMIZATION
   Opts.IntelCompat = Args.hasArg(OPT_fintel_compatibility);
-  Opts.Intel = Args.hasArg(OPT_intel);
+  Opts.CilkPlus = Args.hasArg(OPT_fcilkplus);
   Opts.Float128 = Args.hasArg(OPT_extended_float_types);
+  if (Opts.CilkPlus && (Opts.ObjC1 || Opts.ObjC2))
+    Diags.Report(diag::err_drv_cilk_objc);
+  Opts.Restrict =
+      Args.hasFlag(OPT_restrict, OPT_no_restrict, /*Default=*/Opts.C99);
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   StringRef OptLevel = Args.getLastArgValue(OPT_pragma_optimization_level_EQ, "Intel");
   Opts.PragmaOptimizationLevelIntel = (OptLevel == "Intel") ? 1 : 0;
   Opts.AlignMac68k = Args.hasArg(OPT_malign_mac68k);
@@ -1421,10 +1426,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       Opts.setFPModel(static_cast<LangOptions::IntelFPModel>(LangOptions::IFP_Source|(Opts.getFPModel() & LangOptions::IFP_FP_Contract)|(Opts.getFPModel() & LangOptions::IFP_ValueSafety)|(Opts.getFPModel() & LangOptions::IFP_FEnv_Access)));
     }
   }
-  Opts.CilkPlus = Args.hasArg(OPT_fcilkplus);
-  if (Opts.CilkPlus && (Opts.ObjC1 || Opts.ObjC2))
-    Diags.Report(diag::err_drv_cilk_objc);
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   // We abuse '-f[no-]gnu-keywords' to force overriding all GNU-extension
   // keywords. This behavior is provided by GCC's poorly named '-fasm' flag,
   // while a subset (the non-C++ GNU keywords) is provided by GCC's

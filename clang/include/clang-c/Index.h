@@ -2230,7 +2230,7 @@ enum CXCursorKind {
   CXCursor_LastStmt                      = CXCursor_CilkRankedStmt,
 #else
   CXCursor_LastStmt                      = CXCursor_OMPTeamsDirective,
-#endif
+#endif  /* INTEL_CUSTOMIZATION */
 
 
   /**
@@ -2826,12 +2826,12 @@ enum CXTypeKind {
   CXType_ObjCClass = 28,
   CXType_ObjCSel = 29,
   CXType_FirstBuiltin = CXType_Void,
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   CXType_Float128 = 30,
   CXType_LastBuiltin  = CXType_Float128,
 #else
   CXType_LastBuiltin  = CXType_ObjCSel,
-#endif
+#endif  /* INTEL_CUSTOMIZATION */
   CXType_Complex = 100,
   CXType_Pointer = 101,
   CXType_BlockPointer = 102,

@@ -662,10 +662,10 @@ llvm::BasicBlock *CodeGenFunction::getInvokeDestImpl() {
   assert(EHStack.requiresLandingPad());
   assert(!EHStack.empty());
 
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   if (ExceptionsDisabled)
     return nullptr;
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_IL0_BACKEND
 
   // If exceptions are disabled, there are usually no landingpads. However, when
   // SEH is enabled, functions using SEH still get landingpads.

@@ -35,7 +35,7 @@
 #include "llvm/ADT/SmallVector.h"
 #ifdef INTEL_CUSTOMIZATION
 #include "clang/Basic/PartialDiagnostic.h"
-#endif
+#endif  // INTEL_CUSTOMIZATION
 using namespace clang;
 using namespace sema;
 
@@ -60,7 +60,7 @@ StmtResult Sema::ActOnExprStmt(ExprResult FE) {
   return StmtResult(Res.get());
 #else
   return StmtResult(FE.getAs<Stmt>());
-#endif
+#endif  // INTEL_CUSTOMIZATION
 }
 
 
@@ -344,10 +344,11 @@ sema::CompoundScopeInfo &Sema::getCurCompoundScopeSkipCilkFor() const {
 
   return getCurFunction()->CompoundScopes.back();
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 StmtResult Sema::ActOnCompoundStmt(SourceLocation L, SourceLocation R,
-                                   ArrayRef<Stmt *> Elts, bool isStmtExpr) {
+                                   ArrayRef<Stmt *> Elts,
+                                   bool isStmtExpr) { //***INTEL
   const unsigned NumElts = Elts.size();
 
   // If we're in C89 mode, check that we don't have any decls after stmts.  If
@@ -389,8 +390,9 @@ StmtResult Sema::ActOnCompoundStmt(SourceLocation L, SourceLocation R,
   // Check whether Cilk spawns in this compound statement are well-formed.
   if (getLangOpts().CilkPlus && getCurCompoundScope().HasCilkSpawn)
     for (unsigned i = 0; i < NumElts; ++i)
-      DiagnoseCilkSpawn(Elts[i]);
+      DiagnoseCilkSpawn(Elts[i], isStmtExpr);
 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   // Analisys for #pragma ivdep, distribute_point before empty statements (i.e. goto, break, continue, declspec)
   SmallVector<SourceLocation, 4> locs;
   SmallVector<unsigned, 4> messages;
@@ -453,7 +455,8 @@ StmtResult Sema::ActOnCompoundStmt(SourceLocation L, SourceLocation R,
   {
     Diag(locs[cnt - 1], messages[cnt - 1]) << locs[cnt - 1];
   }
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   return new (Context) CompoundStmt(Context, Elts, L, R);
 }
 
@@ -614,7 +617,7 @@ Sema::ActOnIfStmt(SourceLocation IfLoc, FullExprArg CondVal, Decl *CondVar,
 #else
   return new (Context) IfStmt(Context, IfLoc, ConditionVar, ConditionExpr,
                               thenStmt, ElseLoc, elseStmt);
-#endif
+#endif  // INTEL_CUSTOMIZATION
 }
 
 namespace {
@@ -1533,21 +1536,22 @@ namespace {
     bool FoundDeclInUse() { return FoundDecl; }
 
   };  // end class DeclMatcher
-}	//***INTEL 
+#ifdef INTEL_CUSTOMIZATION
+}
 
-void Sema::CheckForLoopConditionalStatement(Expr *Second, Expr *Third, 	//***INTEL 
-                                                          Stmt *Body) {	//***INTEL 
+void Sema::CheckForLoopConditionalStatement(Expr *Second, Expr *Third,
+                                                          Stmt *Body) {
   // Condition is empty
   if (!Second) return;
 
-  if (Diags.isIgnored(diag::warn_variables_not_in_loop_body,			//***INTEL 
+  if (Diags.isIgnored(diag::warn_variables_not_in_loop_body,
                           Second->getLocStart()))
       return;
 
-  PartialDiagnostic PD = PDiag(diag::warn_variables_not_in_loop_body);	//***INTEL 
+  PartialDiagnostic PD = PDiag(diag::warn_variables_not_in_loop_body);
   llvm::SmallPtrSet<VarDecl*, 8> Decls;
   SmallVector<SourceRange, 10> Ranges;
-  DeclExtractor DE(*this, Decls, Ranges);								//***INTEL 
+  DeclExtractor DE(*this, Decls, Ranges);
   DE.Visit(Second);
 
   // Don't analyze complex conditionals.
@@ -1563,20 +1567,20 @@ void Sema::CheckForLoopConditionalStatement(Expr *Second, Expr *Third, 	//***INT
     if ((*I)->getType().isVolatileQualified() ||
         (*I)->hasGlobalStorage()) return;
 
-  if (DeclMatcher(*this, Decls, Second).FoundDeclInUse() ||				//***INTEL 
-      DeclMatcher(*this, Decls, Third).FoundDeclInUse() ||				//***INTEL 
-      DeclMatcher(*this, Decls, Body).FoundDeclInUse())					//***INTEL 
+  if (DeclMatcher(*this, Decls, Second).FoundDeclInUse() ||
+      DeclMatcher(*this, Decls, Third).FoundDeclInUse() ||
+      DeclMatcher(*this, Decls, Body).FoundDeclInUse())
     return;
 
   // Load decl names into diagnostic.
   if (Decls.size() > 4)
-    PD << 0;															//***INTEL 
+    PD << 0;
   else {
-    PD << Decls.size();													//***INTEL 
+    PD << Decls.size();
     for (llvm::SmallPtrSetImpl<VarDecl*>::iterator I = Decls.begin(),
                                                    E = Decls.end();
          I != E; ++I)
-      PD << (*I)->getDeclName();										//***INTEL 
+      PD << (*I)->getDeclName();
   }
 
   // Load SourceRanges into diagnostic if there is room.
@@ -1585,14 +1589,72 @@ void Sema::CheckForLoopConditionalStatement(Expr *Second, Expr *Third, 	//***INT
     for (SmallVectorImpl<SourceRange>::iterator I = Ranges.begin(),
                                                 E = Ranges.end();
          I != E; ++I)
-      PD << *I;															//***INTEL 
+      PD << *I;
   else
-    PD << Second->getSourceRange();										//***INTEL 
+    PD << Second->getSourceRange();
 
-  Diag(Ranges.begin()->getBegin(), PD);									//***INTEL 
+  Diag(Ranges.begin()->getBegin(), PD);
 }
 
-namespace {																//***INTEL 
+namespace {
+#else
+  void CheckForLoopConditionalStatement(Sema &S, Expr *Second,
+                                        Expr *Third, Stmt *Body) {
+    // Condition is empty
+    if (!Second) return;
+
+    if (S.Diags.isIgnored(diag::warn_variables_not_in_loop_body,
+                          Second->getLocStart()))
+      return;
+
+    PartialDiagnostic PDiag = S.PDiag(diag::warn_variables_not_in_loop_body);
+    llvm::SmallPtrSet<VarDecl*, 8> Decls;
+    SmallVector<SourceRange, 10> Ranges;
+    DeclExtractor DE(S, Decls, Ranges);
+    DE.Visit(Second);
+
+    // Don't analyze complex conditionals.
+    if (!DE.isSimple()) return;
+
+    // No decls found.
+    if (Decls.size() == 0) return;
+
+    // Don't warn on volatile, static, or global variables.
+    for (llvm::SmallPtrSetImpl<VarDecl*>::iterator I = Decls.begin(),
+                                                   E = Decls.end();
+         I != E; ++I)
+      if ((*I)->getType().isVolatileQualified() ||
+          (*I)->hasGlobalStorage()) return;
+
+    if (DeclMatcher(S, Decls, Second).FoundDeclInUse() ||
+        DeclMatcher(S, Decls, Third).FoundDeclInUse() ||
+        DeclMatcher(S, Decls, Body).FoundDeclInUse())
+      return;
+
+    // Load decl names into diagnostic.
+    if (Decls.size() > 4)
+      PDiag << 0;
+    else {
+      PDiag << Decls.size();
+      for (llvm::SmallPtrSetImpl<VarDecl*>::iterator I = Decls.begin(),
+                                                     E = Decls.end();
+           I != E; ++I)
+        PDiag << (*I)->getDeclName();
+    }
+
+    // Load SourceRanges into diagnostic if there is room.
+    // Otherwise, load the SourceRange of the conditional expression.
+    if (Ranges.size() <= PartialDiagnostic::MaxArguments)
+      for (SmallVectorImpl<SourceRange>::iterator I = Ranges.begin(),
+                                                  E = Ranges.end();
+           I != E; ++I)
+        PDiag << *I;
+    else
+      PDiag << Second->getSourceRange();
+
+    S.Diag(Ranges.begin()->getBegin(), PDiag);
+  }
+#endif // INTEL_CUTOMIZATION
   // If Statement is an incemement or decrement, return true and sets the
   // variables Increment and DRE.
   bool ProcessIterationStmt(Sema &S, Stmt* Statement, bool &Increment,
@@ -1743,8 +1805,11 @@ Sema::ActOnForStmt(SourceLocation ForLoc, SourceLocation LParenLoc,
 
   CheckBreakContinueBinding(second.get());
   CheckBreakContinueBinding(third.get());
-
-  CheckForLoopConditionalStatement(second.get(), third.get(), Body);	//***INTEL 
+#ifdef INTEL_CUSTOMIZATION
+  CheckForLoopConditionalStatement(second.get(), third.get(), Body);
+#else
+  CheckForLoopConditionalStatement(*this, second.get(), third.get(), Body);
+#endif  // INTEL_CUSTOMIZATION
   CheckForRedundantIteration(*this, third.get(), Body);
 
   ExprResult SecondResult(second.release());
@@ -2552,7 +2617,7 @@ StmtResult
 Sema::ActOnBreakStmt(SourceLocation BreakLoc, Scope *CurScope) {
   Scope *S = CurScope->getBreakParent();
   if (!S) {
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
     // Break from a Cilk for loop is not allowed unless the break is
     // inside a nested loop or switch statement.
     if (isa<CilkForScopeInfo>(getCurFunction())) {
@@ -2562,7 +2627,7 @@ Sema::ActOnBreakStmt(SourceLocation BreakLoc, Scope *CurScope) {
       Diag(BreakLoc, diag::err_simd_for_cannot_break);
       return StmtError();
     }
-#endif
+#endif  // INTEL_CUSTOMIZATION
     // C99 6.8.6.3p1: A break shall appear only in or as a switch/loop body.
     return StmtError(Diag(BreakLoc, diag::err_break_not_in_loop_or_switch));
   }
@@ -2577,7 +2642,7 @@ StmtResult
 Sema::ActOnCilkSyncStmt(SourceLocation SyncLoc) {
   return new (Context) CilkSyncStmt(SyncLoc);
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 /// \brief Determine whether the given expression is a candidate for
 /// copy elision in either a return statement or a throw expression.
 ///
@@ -2756,7 +2821,7 @@ Sema::ActOnCapScopeReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
     Diag(ReturnLoc, diag::err_simd_for_cannot_return);
     return StmtError();
   }
-#endif
+#endif  // INTEL_CUSTOMIZATION
   if (CurLambda && hasDeducedReturnType(CurLambda->CallOperator)) {
     // In C++1y, the return type may involve 'auto'.
     // FIXME: Blocks might have a return type of 'auto' explicitly specified.
@@ -3177,6 +3242,13 @@ StmtResult Sema::BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
     FunctionDecl *FD = getCurFunctionDecl();
 
     unsigned DiagID;
+#ifdef INTEL_CUSTOMIZATION
+    // Issue a warning, not error in MSVCCompat and IntelCompat modes
+    // (CQ#364256).
+    if (getLangOpts().MSVCCompat || getLangOpts().IntelCompat) {
+      DiagID = diag::warn_return_missing_expr_no_err;
+    } else
+#endif // INTEL_CUSTOMIZATION
     if (getLangOpts().CPlusPlus11 && FD && FD->isConstexpr()) {
       // C++11 [stmt.return]p2
       DiagID = diag::err_constexpr_return_missing_expr;
@@ -3636,6 +3708,16 @@ static void buildCapturedStmtCaptureList(
   }
 }
 
+#ifdef INTEL_CUSTOMIZATION
+void Sema::BuildCapturedStmtCaptureList(
+    SmallVectorImpl<CapturedStmt::Capture> &Captures,
+    SmallVectorImpl<Expr *> &CaptureInits,
+    ArrayRef<CapturingScopeInfo::Capture> Candidates) {
+
+  buildCapturedStmtCaptureList(Captures, CaptureInits, Candidates);
+    }
+#endif  // INTEL_CUSTOMIZATION
+
 void Sema::ActOnCapturedRegionStart(SourceLocation Loc, Scope *CurScope,
                                     CapturedRegionKind Kind,
                                     unsigned NumParams) {
@@ -3740,16 +3822,16 @@ StmtResult Sema::ActOnCapturedRegionEnd(Stmt *S) {
 
   CapturedDecl *CD = RSI->TheCapturedDecl;
   RecordDecl *RD = RSI->TheRecordDecl;
-
-  // If capturing an expression, then needs to make this expression as a full	//***INTEL 
-  // expression. If it is not parsed after entering the captured region,		//***INTEL 
-  // then check if it has any nontrivial call.									//***INTEL 
-  if (Expr *E = dyn_cast<Expr>(S))												//***INTEL 
-    if (!isa<ExprWithCleanups>(E)) {											//***INTEL 
-      ExprNeedsCleanups |= E->hasNonTrivialCall(Context);						//***INTEL 
-      S = MaybeCreateExprWithCleanups(E);										//***INTEL 
-    }																			//***INTEL 
-
+#ifdef INTEL_CUSTOMIZATION
+  // If capturing an expression, then needs to make this expression as a full
+  // expression. If it is not parsed after entering the captured region,
+  // then check if it has any nontrivial call.
+  if (Expr *E = dyn_cast<Expr>(S))
+    if (!isa<ExprWithCleanups>(E)) {
+      ExprNeedsCleanups |= E->hasNonTrivialCall(Context);
+      S = MaybeCreateExprWithCleanups(E);
+    }
+#endif  // INTEL_CUSTOMIZATION
   CapturedStmt *Res = CapturedStmt::Create(getASTContext(), S,
                                            RSI->CapRegionKind, Captures,
                                            CaptureInits, CD, RD);
@@ -3765,233 +3847,6 @@ StmtResult Sema::ActOnCapturedRegionEnd(Stmt *S) {
 
   return Res;
 }
-#ifdef INTEL_CUSTOMIZATION
-StmtResult Sema::BuildCilkForStmt(SourceLocation CilkForLoc,
-                                  SourceLocation LParenLoc,
-                                  Stmt *Init, Expr *Cond, Expr *Inc,
-                                  SourceLocation RParenLoc, Stmt *Body,
-                                  Expr *LoopCount, Expr *Stride,
-                                  QualType SpanType) {
-  CilkForScopeInfo *FSI = getCurCilkFor();
-  assert(FSI && "CilkForScopeInfo is out of sync");
-  CapturedDecl *CD = FSI->TheCapturedDecl;
-  RecordDecl *RD = FSI->TheRecordDecl;
-  DeclContext *DC = CapturedDecl::castToDeclContext(CD);
-  bool IsDependent = DC->isDependentContext();
-
-  // Handle the special case that the Cilk for body is not a compound statement
-  // and it has a Cilk spawn. In this case, the implicit compound scope should
-  // have this information.
-  if (getCurCompoundScope().HasCilkSpawn && !isa<CompoundStmt>(Body))
-    DiagnoseCilkSpawn(Body);
-
-  SmallVector<CapturedStmt::Capture, 4> Captures;
-  SmallVector<Expr *, 4> CaptureInits;
-  buildCapturedStmtCaptureList(Captures, CaptureInits, FSI->Captures);
-
-  CapturedStmt *CapturedBody = CapturedStmt::Create(getASTContext(), Body,
-                                                    FSI->CapRegionKind,
-                                                    Captures, CaptureInits,
-                                                    CD, RD);
-
-  CD->setBody(CapturedBody->getCapturedStmt());
-  RD->completeDefinition();
-
-  ExprResult AdjustExpr;
-  // Set parameters for the outlined function.
-  // Build the initial value for the inner loop control variable.
-  if (!IsDependent) {
-    assert(LoopCount && "invalid null loop count expression");
-    QualType Ty = LoopCount->getType().getNonReferenceType();
-
-    // In the following, the source location of the loop control variable
-    // will be used for diagnostics.
-    SourceLocation VarLoc = FSI->LoopControlVar->getLocation();
-    assert(VarLoc.isValid() && "invalid source location");
-    assert(CD->getNumParams() == 3 && "bad signature");
-
-    ImplicitParamDecl *Low
-      = ImplicitParamDecl::Create(Context, DC, VarLoc,
-                                  &Context.Idents.get("__low"), Ty);
-    DC->addDecl(Low);
-    CD->setParam(1, Low);
-
-    ImplicitParamDecl *High
-      = ImplicitParamDecl::Create(Context, DC, VarLoc,
-                                  &Context.Idents.get("__high"), Ty);
-    DC->addDecl(High);
-    CD->setParam(2, High);
-
-    // Build a full expression "inner_loop_var += stride * low"
-    {
-      EnterExpressionEvaluationContext EvalScope(*this, PotentiallyEvaluated);
-
-      // Both low and stride experssions are of type integral.
-      ExprResult LowExpr = BuildDeclRefExpr(Low, Ty, VK_LValue, VarLoc);
-      assert(!LowExpr.isInvalid() && "invalid expr");
-
-      assert(Stride && "invalid null stride expression");
-      // Need to keep the orginal stride unmodified, since it has been part
-      // of the LoopCount expression. If Stride is already an implicit cast
-      // expression, then BuildBinOp may replace this cast into another type.
-      // E.g.
-      //
-      // short s = 2;
-      // _Cilk_for (int *p = a; p != b; p += s);
-      //
-      // During the loop count calculation, Stride is an implicit cast
-      // expression of type int. Since LowExpr has type unsigned long,
-      // BuildBinOp will try cast Stride into unsigned long, by replacing
-      // the int implicit cast into unsigned long implicit cast, this
-      // invalidates the loop count expression built.
-      //
-      // The solution is to get the raw Stride expression from the source
-      // and create a new implicit cast expression of desired type,
-      // if necessary.
-      //
-      Stride = Stride->IgnoreImpCastsAsWritten();
-
-      ExprResult StepExpr =
-          BuildBinOp(CurScope, VarLoc, BO_Mul, LowExpr.get(), Stride);
-      assert(!StepExpr.isInvalid() && "invalid expression");
-      Expr *Step = StepExpr.get();
-      Step = ImplicitCastExpr::Create(Context, SpanType, CK_IntegralCast, Step,
-                                      0, VK_LValue);
-      Step = DefaultLvalueConversion(Step).get();
-
-      VarDecl *InnerVar = FSI->InnerLoopControlVar;
-      ExprResult InnerVarExpr
-        = BuildDeclRefExpr(InnerVar, InnerVar->getType(), VK_LValue, VarLoc);
-      assert(!InnerVarExpr.isInvalid() && "invalid expression");
-
-      // The '+=' operation could fail if the loop control variable is of
-      // class type and this may introduce cleanups.
-      AdjustExpr = BuildBinOp(CurScope, VarLoc, BO_AddAssign,
-                              InnerVarExpr.get(), Step);
-      if (!AdjustExpr.isInvalid()) {
-        ExprNeedsCleanups |= Step->hasNonTrivialCall(Context);
-        AdjustExpr = MaybeCreateExprWithCleanups(AdjustExpr);
-      }
-      // FIXME: Should mark the CilkForDecl as invalid?
-      // FIXME: Should install the adjustment expression into the CilkForStmt?
-    }
-  }
-
-  CilkForStmt *Result = new (Context)
-      CilkForStmt(Init, Cond, Inc, CapturedBody, LoopCount,
-                  CilkForLoc, LParenLoc, RParenLoc);
-
-  // TODO: move into constructor?
-  Result->setLoopControlVar(FSI->LoopControlVar);
-  Result->setInnerLoopControlVar(FSI->InnerLoopControlVar);
-  Result->setInnerLoopVarAdjust(AdjustExpr.get());
-
-  ExprNeedsCleanups = FSI->ExprNeedsCleanups;
-
-  PopExpressionEvaluationContext();
-  PopDeclContext();
-  // Pop the compound scope we inserted implicitly.
-  PopCompoundScope();
-  PopFunctionScopeInfo();
-
-  return Result;
-}
-
-StmtResult Sema::BuildSIMDForStmt(SourceLocation PragmaLoc,
-                                  ArrayRef<Attr *> Attrs,
-                                  SourceLocation ForLoc,
-                                  SourceLocation LParenLoc,
-                                  Stmt *Init, Expr *Cond, Expr *Inc,
-                                  SourceLocation RParenLoc, Stmt *Body,
-                                  Expr *LoopCount, Expr *LoopStride,
-                                  VarDecl *LoopControlVar) {
-  SIMDForScopeInfo *FSI = getCurSIMDFor();
-  assert(FSI && "SIMDForScopeInfo is out of sync");
-  CapturedDecl *CD = FSI->TheCapturedDecl;
-  RecordDecl *RD = FSI->TheRecordDecl;
-  DeclContext *DC = CapturedDecl::castToDeclContext(CD);
-  bool IsDependent = DC->isDependentContext();
-
-  if (!IsDependent) {
-    assert(CD->getNumParams() == 3);
-    QualType IndexType = LoopCount->getType();
-    ImplicitParamDecl *Index = 0, *LastIter = 0;
-    Index = ImplicitParamDecl::Create(getASTContext(), DC, SourceLocation(),
-                                      /*IdInfo*/ 0, IndexType);
-    DC->addDecl(Index);
-    CD->setParam(1, Index);
-    LastIter = ImplicitParamDecl::Create(getASTContext(), DC, SourceLocation(),
-                                         /*IdInfo*/ 0, Context.BoolTy);
-    DC->addDecl(LastIter);
-    CD->setParam(2, LastIter);
-  }
-
-  // If there are any references to variables used as linear step, these need to
-  // be captured in the simd loop.
-  for (ArrayRef<Attr *>::iterator I = Attrs.begin(), E = Attrs.end();
-       I != E; ++I) {
-    if (SIMDLinearAttr *A = dyn_cast<SIMDLinearAttr>(*I)) {
-      for (SIMDLinearAttr::linear_iterator S = A->steps_begin(),
-                                           SE = A->steps_end();
-           S != SE; ++S) {
-        Expr *Step = *S;
-        if (DeclRefExpr *DRE = dyn_cast_or_null<DeclRefExpr>(Step)) {
-          ValueDecl *VD = DRE->getDecl();
-          assert(VD && isa<VarDecl>(VD) && "Step must be a VarDecl");
-          MarkVariableReferenced(Step->getLocStart(), cast<VarDecl>(VD));
-        }
-      }
-    }
-  }
-
-  SmallVector<CapturedStmt::Capture, 4> Captures;
-  SmallVector<Expr *, 4> CaptureInits;
-  buildCapturedStmtCaptureList(Captures, CaptureInits, FSI->Captures);
-
-  CapturedStmt *CapturedBody = CapturedStmt::Create(getASTContext(), Body,
-                                                    FSI->CapRegionKind,
-                                                    Captures, CaptureInits,
-                                                    CD, RD);
-
-  CD->setBody(Body);
-  RD->completeDefinition();
-
-  // Process all the data privatization clauses and store necessary
-  // nodes into the AST which are essential for codegen.
-  SmallVector<SIMDForStmt::SIMDVariable, 4> SIMDVars;
-  typedef SmallVectorImpl<SIMDForScopeInfo::SIMDVariable>::const_iterator Iter;
-  for (Iter I = FSI->getSIMDVars().begin(),
-            E = FSI->getSIMDVars().end(); I != E; ++I) {
-    if (!I->IsUsable())
-      continue;
-
-    assert(I->GetLocal() && "null local variable");
-    SIMDVars.push_back(SIMDForStmt::SIMDVariable(I->GetKind(),
-                                                 I->GetOuter(),
-                                                 I->GetLocal(),
-                                                 I->GetUpdateExpr(),
-                                                 I->GetIndexVariables()));
-  }
-
-  if (!IsDependent)
-    assert(LoopCount && "invalid null loop count expression");
-
-  SIMDForStmt *Result = SIMDForStmt::Create(Context, PragmaLoc, Attrs,
-                                            SIMDVars, Init,
-                                            Cond, Inc, CapturedBody, LoopCount,
-                                            LoopStride, LoopControlVar, ForLoc,
-                                            LParenLoc, RParenLoc);
-
-  ExprNeedsCleanups = FSI->ExprNeedsCleanups;
-  PopExpressionEvaluationContext();
-  PopDeclContext();
-  // Pop the compound scope we inserted implicitly.
-  PopCompoundScope();
-  PopFunctionScopeInfo();
-
-  return Result;
-}
-#endif
 
 ExprResult Sema::ActOnCustomIdExpression(Scope *CurScope,
                                          CXXScopeSpec &ScopeSpec,

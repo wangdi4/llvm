@@ -108,9 +108,9 @@ bool Sema::isSimpleTypeSpecifier(tok::TokenKind Kind) const {
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   case tok::kw__Quad:
-#endif
+#endif  // INTEL_CUSTOMIZATION
   case tok::kw_wchar_t:
   case tok::kw_bool:
   case tok::kw___underlying_type:
@@ -1080,7 +1080,7 @@ void Sema::PushDeclContext(Scope *S, DeclContext *DC) {
 void Sema::PopDeclContext() {
   assert(CurContext && "DeclContext imbalance!");
 
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
 SmallVector<PragmaDecl *, 4> optLevelDecls;
 SmallVector<PragmaDecl *, 4> decls;
 SmallVector<StringRef, 4> declsNames;
@@ -1136,7 +1136,7 @@ if (!optLevelDecls.empty()) {
   CommonFunctionOptions.erase(optLevelDeclsNames.back());
   optLevelDecls.clear();
 }
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 
   CurContext = getContainingDC(CurContext);
   assert(CurContext && "Popped translation unit!");
@@ -3089,6 +3089,20 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
     PrevDiag = diag::note_previous_builtin_declaration;
   }
 
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#366612 - consider New a function redeclaration in IntelCompat mode.
+  if (getLangOpts().IntelCompat && !getLangOpts().CPlusPlus &&
+      !getLangOpts().ObjC1 && !getLangOpts().ObjC2) {
+    bool isOldAADefiniton = Old->isThisDeclarationADefinition();
+    Diag(New->getLocation(), diag::warn_func_redecl_conflicting_types)
+        << New->getDeclName() << isOldAADefiniton;
+    Diag(OldLocation, PrevDiag) << Old << Old->getType();
+    if (isOldAADefiniton)
+      New->setInvalidDecl();
+    return false;
+  }
+#endif
+
   Diag(New->getLocation(), diag::err_conflicting_types) << New->getDeclName();
   Diag(OldLocation, PrevDiag) << Old << Old->getType();
   return true;
@@ -3596,14 +3610,16 @@ Decl *Sema::ParsedFreeStandingDeclSpec(Scope *S, AccessSpecifier AS,
 
   // Handle anonymous struct definitions.
   if (RecordDecl *Record = dyn_cast_or_null<RecordDecl>(Tag)) {
-    if (!getLangOpts().MicrosoftExt && !DS.getAttributes().empty()) { //***INTEL 
-      AttributeList* attrs = DS.getAttributes().getList();			  //***INTEL 
-      while (attrs) {												  //***INTEL 
-        if (attrs->isDeclspecAttribute())							  //***INTEL 
-          ProcessDeclAttributeList(S, Record, attrs);				  //***INTEL 
-        attrs = attrs->getNext();									  //***INTEL 
-      }																  //***INTEL 
-    }																  //***INTEL 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+    if (!getLangOpts().MicrosoftExt && !DS.getAttributes().empty()) {
+      AttributeList* attrs = DS.getAttributes().getList();
+      while (attrs) {
+        if (attrs->isDeclspecAttribute())
+          ProcessDeclAttributeList(S, Record, attrs);
+        attrs = attrs->getNext();
+      }
+    }
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
     if (!Record->getDeclName() && Record->isCompleteDefinition() &&
         DS.getStorageClassSpec() != DeclSpec::SCS_typedef) {
       if (getLangOpts().CPlusPlus ||
@@ -3745,14 +3761,14 @@ Decl *Sema::ParsedFreeStandingDeclSpec(Scope *S, AccessSpecifier AS,
         TypeSpecType == DeclSpec::TST_enum) {
       AttributeList* attrs = DS.getAttributes().getList();
       while (attrs) {
-        if (getLangOpts().MicrosoftExt || !attrs->isDeclspecAttribute()) {	//***INTEL 
+        if (getLangOpts().MicrosoftExt || !attrs->isDeclspecAttribute()) {  //***INTEL
           Diag(attrs->getLoc(), diag::warn_declspec_attribute_ignored)
           << attrs->getName()
           << (TypeSpecType == DeclSpec::TST_class ? 0 :
               TypeSpecType == DeclSpec::TST_struct ? 1 :
               TypeSpecType == DeclSpec::TST_union ? 2 :
               TypeSpecType == DeclSpec::TST_interface ? 3 : 4);
-        }																	//***INTEL 
+        }                                                                   //***INTEL
         attrs = attrs->getNext();
       }
     }
@@ -7936,7 +7952,7 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
   if (getLangOpts().CilkPlus && NewFD->hasAttr<CilkElementalAttr>() &&
       !DiagnoseElementalAttributes(NewFD))
     return false;
-#endif
+#endif  // INTEL_CUSTOMIZATION
   bool Redeclaration = false;
   NamedDecl *OldDecl = nullptr;
 
@@ -8233,11 +8249,11 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
     // type, but we should warn about the extension, and we disable the
     // implicit-return-zero rule.
 #else
-  if (getLangOpts().GNUMode && !getLangOpts().CPlusPlus ||
+  if ((getLangOpts().GNUMode && !getLangOpts().CPlusPlus) ||
       getLangOpts().IntelCompat) {
     // The same should be done in IntelCompat mode as well.
     // See CQ#364427 for details.
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
     // GCC in C mode accepts qualified 'int'.
     if (Context.hasSameUnqualifiedType(FT->getReturnType(), Context.IntTy))
@@ -8325,13 +8341,13 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
       if (getLangOpts().IntelCompat) {
         Diag(FD->getLocation(), diag::warn_main_arg_wrong) << i << Expected[i];
       } else {
-#endif      
+#endif  // INTEL_CUSTOMIZATION
       Diag(FD->getLocation(), diag::err_main_arg_wrong) << i << Expected[i];
       // TODO: suggest replacing given type with expected type
       FD->setInvalidDecl(true);
 #ifdef INTEL_CUSTOMIZATION
       }
-#endif
+#endif  // INTEL_CUSTOMIZATION
     }
   }
 
@@ -8722,7 +8738,7 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
                                 bool DirectInit, bool TypeMayContainAuto
 #ifdef INTEL_CUSTOMIZATION
                                 , bool &IsCilkSpawnReceiver
-#endif
+#endif  // INTEL_CUSTOMIZATION
   ) {
   // If there is no declaration, there was an error parsing it.  Just ignore
   // the initializer.
@@ -9045,16 +9061,16 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
   //  int x = _Cilk_spawn func();
   //
   CilkReceiverKind Kind = CRK_MaybeReceiver;
-#endif  
+#endif  // INTEL_CUSTOMIZATION
   ExprResult Result = ActOnFinishFullExpr(Init, VDecl->getLocation(), 
 #ifdef INTEL_CUSTOMIZATION
                                           Kind,
-#endif  
+#endif  // INTEL_CUSTOMIZATION
                                           false, VDecl->isConstexpr());
 #ifdef INTEL_CUSTOMIZATION
   // Confirm if this is initializing a variable with a spawn call.
   IsCilkSpawnReceiver = getLangOpts().CilkPlus && (Kind == CRK_IsReceiver);
-#endif
+#endif  // INTEL_CUSTOMIZATION
   if (Result.isInvalid()) {
     VDecl->setInvalidDecl();
     return;
@@ -10594,7 +10610,7 @@ Decl *Sema::ActOnFinishFunctionBody(Decl *dcl, Stmt *Body,
   sema::AnalysisBasedWarnings::Policy WP = AnalysisWarnings.getDefaultPolicy();
   sema::AnalysisBasedWarnings::Policy *ActivePolicy = nullptr;
 
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   if (Body && !CommonFunctionOptions.empty()) {
     SmallVector<Stmt *, 4> Stmts;
     for (llvm::SmallVectorImpl<Stmt*>::iterator iter = OptionsList.begin(), E = OptionsList.end();
@@ -10624,7 +10640,7 @@ Decl *Sema::ActOnFinishFunctionBody(Decl *dcl, Stmt *Body,
     }
     CommonFunctionOptions.erase("CHECK_STACK");
   }
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   if (FD) {
     FD->setBody(Body);
 
@@ -10794,7 +10810,7 @@ Decl *Sema::ActOnFinishFunctionBody(Decl *dcl, Stmt *Body,
 #ifdef INTEL_CUSTOMIZATION
     if (FD && FD->hasAttr<CilkElementalAttr>())
       DiagnoseCilkElemental(FD, Body);
-#endif	  
+#endif  // INTEL_CUSTOMIZATION
 
     // If any errors have occurred, clear out any temporaries that may have
     // been leftover. This ensures that these temporaries won't be picked up for
@@ -11962,7 +11978,17 @@ CreateNewDecl:
         if (getLangOpts().MSVCCompat)
           DiagID = diag::ext_ms_forward_ref_enum;
         else if (getLangOpts().CPlusPlus)
+#ifdef INTEL_CUSTOMIZATION
+        {
+          // CQ#365886 - emit an extension warning in IntelCompat mode
+          if (getLangOpts().IntelCompat)
+            DiagID = diag::ext_intel_forward_ref_enum;
+          else
+            DiagID = diag::err_forward_ref_enum;
+        }
+#else
           DiagID = diag::err_forward_ref_enum;
+#endif // INTEL_CUSTOMIZATION
         Diag(Loc, DiagID);
         
         // If this is a forward-declared reference to an enumeration, make a 

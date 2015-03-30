@@ -1505,6 +1505,7 @@ void Preprocessor::HandleIncludeDirective(SourceLocation HashLoc,
   StringRef OriginalFilename = Filename;
   bool isAngled =
     GetIncludeFilenameSpelling(FilenameTok.getLocation(), Filename);
+  LastIncludeWasQuoted = !isAngled;
   // If GetIncludeFilenameSpelling set the start ptr to null, there was an
   // error.
   if (Filename.empty()) {
@@ -1797,6 +1798,14 @@ void Preprocessor::HandleIncludeDirective(SourceLocation HashLoc,
 void Preprocessor::HandleIncludeNextDirective(SourceLocation HashLoc,
                                               Token &IncludeNextTok) {
   Diag(IncludeNextTok, diag::ext_pp_include_next_directive);
+
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#366531 - if the last processed include was quoted, behave like #include.
+  if (getLangOpts().IntelCompat && LastIncludeWasQuoted)
+    return HandleIncludeDirective(HashLoc, IncludeNextTok,
+                                  /*LookupFrom=*/nullptr,
+                                  /*LookupFromFile=*/nullptr);
+#endif // INTEL_CUSTOMIZATION
 
   // #include_next is like #include, except that we start searching after
   // the current found directory.  If we can't do this, issue a
@@ -2513,6 +2522,3 @@ void Preprocessor::HandleElifDirective(Token &ElifToken) {
                                /*FoundElse*/CI.FoundElse,
                                ElifToken.getLocation());
 }
-#ifdef INTEL_CUSTOMIZATION
-#include "intel/PPDirectives.cpp"
-#endif

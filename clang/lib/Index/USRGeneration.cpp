@@ -605,7 +605,7 @@ void USRGenerator::VisitType(QualType T) {
 #ifdef INTEL_CUSTOMIZATION
         case BuiltinType::Float128:
           c = 'g'; break;
-#endif
+#endif  // INTEL_CUSTOMIZATION
         case BuiltinType::NullPtr:
           c = 'n'; break;
 #define BUILTIN_TYPE(Id, SingletonId)

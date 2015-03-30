@@ -522,9 +522,9 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
   isUnsigned = false;
   isLongLong = false;
   isFloat = false;
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   isFloat128 = false;
-#endif  
+#endif  // INTEL_CUSTOMIZATION
   isImaginary = false;
   MicrosoftInteger = 0;
   hadError = false;
@@ -588,7 +588,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
       if (isFloat || isLong || isFloat128) break; // FF, LF invalid.
 #else
       if (isFloat || isLong) break; // FF, LF invalid.
-#endif
+#endif  // INTEL_CUSTOMIZATION
       isFloat = true;
       continue;  // Success.
 #ifdef INTEL_CUSTOMIZATION
@@ -599,7 +599,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
       if (isFloat || isLong || isFloat128) break; // FF, LF invalid.
       isFloat128 = true;
       continue;  // Success.
-#endif	  
+#endif  // INTEL_CUSTOMIZATION
     case 'u':
     case 'U':
       if (isFPConstant) break;  // Error for floating constant.
@@ -612,7 +612,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
       if (isLong || isLongLong || isFloat128) break;  // Cannot be repeated.
 #else
       if (isLong || isLongLong) break;  // Cannot be repeated.
-#endif
+#endif  // INTEL_CUSTOMIZATION
       if (isFloat) break;               // LF invalid.
 
       // Check for long long.  The L's need to be adjacent and the same case.
@@ -630,7 +630,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
       if (!isLong && !isLongLong && !isFloat && !isFloat128) {
 #else
       if (PP.getLangOpts().MicrosoftExt) {
-#endif
+#endif  // INTEL_CUSTOMIZATION
         if (isLong || isLongLong || MicrosoftInteger)
           break;
 

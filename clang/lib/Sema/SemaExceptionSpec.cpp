@@ -1098,9 +1098,9 @@ CanThrowResult Sema::canThrow(const Expr *E) {
   case Expr::AsTypeExprClass:
   case Expr::BinaryConditionalOperatorClass:
   case Expr::BlockExprClass:
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   case Expr::CilkSpawnExprClass:
-#endif  
+#endif  // INTEL_CUSTOMIZATION
   case Expr::CUDAKernelCallExprClass:
   case Expr::DeclRefExprClass:
   case Expr::ObjCBridgedCastExprClass:
@@ -1166,7 +1166,7 @@ CanThrowResult Sema::canThrow(const Expr *E) {
       CT = mergeCanThrow(CT, canSubExprsThrow(*this, *I));
     return mergeCanThrow(CT, canSubExprsThrow(*this, cast<CEANBuiltinExpr>(E)->getReturnExpr()));
   }
-#endif
+#endif  // INTEL_CUSTOMIZATION
   case Expr::MSPropertyRefExprClass:
     llvm_unreachable("Invalid class for expression");
 

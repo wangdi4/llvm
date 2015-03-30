@@ -197,7 +197,7 @@ public:
   // Declaration visitors
 #ifdef INTEL_CUSTOMIZATION
   bool VisitPragmaDecl(PragmaDecl *);
-#endif
+#endif  // INTEL_CUSTOMIZATION
   bool VisitTypeAliasDecl(TypeAliasDecl *D);
   bool VisitAttributes(Decl *D);
   bool VisitBlockDecl(BlockDecl *B);

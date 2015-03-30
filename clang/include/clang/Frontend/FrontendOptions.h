@@ -127,9 +127,9 @@ public:
   unsigned ShowTimers : 1;                 ///< Show timers for individual
                                            /// actions.
   unsigned ShowVersion : 1;                ///< Show the -version text.
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   unsigned HelpPragma : 1;                ///< Show the -help-pragma text.
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   unsigned FixWhatYouCan : 1;              ///< Apply fixes even if there are
                                            /// unfixable errors.
   unsigned FixOnlyWarnings : 1;            ///< Apply fixes only for warnings.
@@ -258,9 +258,9 @@ public:
   FrontendOptions() :
     DisableFree(false), RelocatablePCH(false), ShowHelp(false),
     ShowStats(false), ShowTimers(false), ShowVersion(false),
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
     HelpPragma(false),
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
     FixWhatYouCan(false), FixOnlyWarnings(false), FixAndRecompile(false),
     FixToTemporaries(false), ARCMTMigrateEmitARCErrors(false),
     SkipFunctionBodies(false), UseGlobalModuleIndex(true),

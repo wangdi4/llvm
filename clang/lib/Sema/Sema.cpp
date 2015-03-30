@@ -99,23 +99,26 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
     GlobalNewDeleteDeclared(false),
     TUKind(TUKind),
     NumSFINAEErrors(0),
+#ifdef INTEL_CUSTOMIZATION
+    CEANLevelCounter(0),
+#endif  // INTEL_CUSTOMIZATION
     AccessCheckingSFINAE(false), InNonInstantiationSFINAEContext(false),
     NonInstantiationEntries(0), ArgumentPackSubstitutionIndex(-1),
     CurrentInstantiationScope(nullptr), DisableTypoCorrection(false),
     TyposCorrected(0), AnalysisWarnings(*this), ThreadSafetyDeclCache(nullptr),
     VarDataSharingAttributesStack(nullptr), CurScope(nullptr),
     Ident_super(nullptr), Ident___float128(nullptr)
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
     ,CommonFunctionOptions(),
     OptionsList()
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 {
   TUScope = nullptr;
 
   LoadedExternalKnownNamespaces = false;
 #ifdef INTEL_CUSTOMIZATION
   StartCEAN(NoCEANAllowed);
-#endif  
+#endif  // INTEL_CUSTOMIZATION
   for (unsigned I = 0; I != NSAPI::NumNSNumberLiteralMethods; ++I)
     NSNumberLiteralMethods[I] = nullptr;
 
@@ -622,7 +625,7 @@ void Sema::emitAndClearUnusedLocalTypedefWarnings() {
 /// translation unit when EOF is reached and all but the top-level scope is
 /// popped.
 void Sema::ActOnEndOfTranslationUnit() {
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
 SmallVector<PragmaDecl *, 4> optLevelDecls;
 SmallVector<PragmaDecl *, 4> decls;
 SmallVector<StringRef, 4> declsNames;
@@ -678,7 +681,7 @@ if (!optLevelDecls.empty()) {
   CommonFunctionOptions.erase(optLevelDeclsNames.back());
   optLevelDecls.clear();
 }
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   assert(DelayedDiagnostics.getCurrentPool() == nullptr
          && "reached end of translation unit with a pool attached?");
 
@@ -1168,7 +1171,7 @@ void Sema::PushSIMDForScope(Scope *S, CapturedDecl *CD, RecordDecl *RD,
   CSI->ReturnType = Context.VoidTy;
   FunctionScopes.push_back(CSI);
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 LambdaScopeInfo *Sema::PushLambdaScope() {
   LambdaScopeInfo *const LSI = new LambdaScopeInfo(getDiagnostics());
@@ -1246,7 +1249,7 @@ SIMDForScopeInfo *Sema::getCurSIMDFor() {
 
   return dyn_cast<SIMDForScopeInfo>(FunctionScopes.back());
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 LambdaScopeInfo *Sema::getCurLambda() {
   if (FunctionScopes.empty())

@@ -342,7 +342,7 @@ namespace clang {
       P.getActions().EndCEAN();
     }
   };
-#endif
+#endif  // INTEL_CUSTOMIZATION
   class PoisonSEHIdentifiersRAIIObject {
     PoisonIdentifierRAIIObject Ident_AbnormalTermination;
     PoisonIdentifierRAIIObject Ident_GetExceptionCode;
