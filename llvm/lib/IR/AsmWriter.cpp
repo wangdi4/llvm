@@ -303,9 +303,6 @@ static void PrintCallingConv(unsigned cc, raw_ostream &Out) {
   case CallingConv::X86_64_Win64:  Out << "x86_64_win64cc"; break;
   case CallingConv::SPIR_FUNC:     Out << "spir_func"; break;
   case CallingConv::SPIR_KERNEL:   Out << "spir_kernel"; break;
-#if INTEL_CUSTOMIZATION
-  case CallingConv::Intel_regcall: Out << "intel_regcallcc"; break;
-#endif // INTEL_CUSTOMIZATION
   }
 }
 

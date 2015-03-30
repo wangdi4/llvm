@@ -18,14 +18,6 @@ class CCIfSubtarget<string F, CCAction A>
                        "(State.getMachineFunction().getSubtarget()).", F),
            A>;
 
-// if INTEL_CUSTOMIZATION
-/// CCIfSubtarget - Match if the current subtarget has a feature F.
-class CCIfNotSubtarget<string F, CCAction A>
-    : CCIf<!strconcat("!static_cast<const X86Subtarget&>"
-                       "(State.getMachineFunction().getSubtarget()).", F),
-           A>;
-
-// endif INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // Return Value Calling Conventions
 //===----------------------------------------------------------------------===//
@@ -123,36 +115,6 @@ def RetCC_Intel_OCL_BI : CallingConv<[
   CCDelegateTo<RetCC_X86Common>
 ]>;
 
-// if INTEL_CUSTOMIZATION
-// Intel_regcall return-value convention.
-def RetCC_Intel_regcall : CallingConv<[
-  // Vector types are returned in XMM0,XMM1,XMMM2 and XMM3.
-  CCIfType<[f32, f64, v4i32, v2i64, v4f32, v2f64],
-            CCAssignToReg<[XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7]>>,
-  CCIfType<[f32, f64, v4i32, v2i64, v4f32, v2f64],
-           CCIfSubtarget<"is64Bit()",
-                         CCAssignToReg<[XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15]>>>,
-
-  // 256-bit FP vectors
-  // No more than 4 registers
-  CCIfType<[v8f32, v4f64, v8i32, v4i64],
-            CCAssignToReg<[YMM0, YMM1, YMM2, YMM3, YMM4, YMM5, YMM6, YMM7]>>,
-  CCIfType<[v8f32, v4f64, v8i32, v4i64],
-           CCIfSubtarget<"is64Bit()",
-                         CCAssignToReg<[YMM8, YMM9, YMM10, YMM11, YMM12, YMM13, YMM14, YMM15]>>>,
-
-  // 512-bit FP vectors
-  CCIfType<[v16f32, v8f64, v16i32, v8i64],
-            CCAssignToReg<[ZMM0, ZMM1, ZMM2, ZMM3, ZMM4, ZMM5, ZMM6, ZMM7]>>,
-  CCIfType<[v16f32, v8f64, v16i32, v8i64],
-           CCIfSubtarget<"is64Bit()",
-                         CCAssignToReg<[ZMM8, ZMM9, ZMM10, ZMM11, ZMM12, ZMM13, ZMM14, ZMM15]>>>,
-
-  // i32, i64 in the standard way
-  CCDelegateTo<RetCC_X86Common>
-]>;
-
-// endif INTEL_CUSTOMIZATION
 // X86-32 HiPE return-value convention.
 def RetCC_X86_32_HiPE : CallingConv<[
   // Promote all types to i32
@@ -267,11 +229,6 @@ def RetCC_X86 : CallingConv<[
   // Check if this is the Intel OpenCL built-ins calling convention
   CCIfCC<"CallingConv::Intel_OCL_BI", CCDelegateTo<RetCC_Intel_OCL_BI>>,
 
-// if INTEL_CUSTOMIZATION
-  // Check if this is the Intel __regcall calling convention
-  CCIfCC<"CallingConv::Intel_regcall", CCDelegateTo<RetCC_Intel_regcall>>,
-
-// endif INTEL_CUSTOMIZATION
   CCIfSubtarget<"is64Bit()", CCDelegateTo<RetCC_X86_64>>,
   CCDelegateTo<RetCC_X86_32>
 ]>;
@@ -685,51 +642,6 @@ def CC_Intel_OCL_BI : CallingConv<[
   CCDelegateTo<CC_X86_32_C>
 ]>;
 
-// if INTEL_CUSTOMIZATION
-// X86-64 Intel regcall calling convention.
-def CC_Intel_regcall : CallingConv<[
-  // Common to all 64Bit targets
-  CCIfType<[i32], CCIfSubtarget<"is64Bit()", CCAssignToReg<[EAX, ECX, EDX, EDI, ESI]>>>,
-  CCIfType<[i64], CCIfSubtarget<"is64Bit()", CCAssignToReg<[RAX, RCX, RDX, RDI, RSI,
-                                                            R8, R9, R12, R14, R15]>>>,
-
-  // R13 is also available for non-Win64 targets
-  CCIfType<[i64], CCIfSubtarget<"is64Bit()", CCIfNotSubtarget<"isTargetWin64()", CCAssignToReg<[R13]>>>>,
-  // R10,R11 are also available for non-Linux targets
-  CCIfType<[i64], CCIfSubtarget<"is64Bit()", CCIfNotSubtarget<"isTargetLinux()", CCAssignToReg<[R10, R11]>>>>,
-
-  CCIfType<[i32], CCAssignToStack<4, 4>>,
-  CCIfType<[i64], CCAssignToStack<8, 8>>,
-
-  CCIfType<[f80], CCAssignToReg<[ST0]>>,
-
-  // The SSE vector arguments are passed in XMM registers.
-  CCIfType<[f32, f64, v4i32, v2i64, v4f32, v2f64],
-           CCAssignToReg<[XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7]>>,
-  CCIfType<[f32, f64, v4i32, v2i64, v4f32, v2f64],
-           CCIfSubtarget<"is64Bit()",
-                         CCAssignToReg<[XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15]>>>,
-
-  // The 256-bit vector arguments are passed in YMM registers.
-  CCIfType<[v8f32, v4f64, v8i32, v4i64],
-           CCAssignToReg<[YMM0, YMM1, YMM2, YMM3, YMM4, YMM5, YMM6, YMM7]>>,
-  CCIfType<[v8f32, v4f64, v8i32, v4i64],
-           CCIfSubtarget<"is64Bit()",
-                         CCAssignToReg<[YMM8, YMM9, YMM10, YMM11, YMM12, YMM13, YMM14, YMM15]>>>,
-
-  // The 512-bit vector arguments are passed in ZMM registers.
-  CCIfType<[v16f32, v8f64, v16i32, v8i64],
-           CCAssignToReg<[ZMM0, ZMM1, ZMM2, ZMM3, XMM4, ZMM5, ZMM6, ZMM7]>>,
-  CCIfType<[v16f32, v8f64, v16i32, v8i64],
-           CCIfSubtarget<"is64Bit()",
-                         CCAssignToReg<[ZMM8, ZMM9, ZMM10, ZMM11, ZMM12, ZMM13, ZMM14, ZMM15]>>>,
-
-  CCIfSubtarget<"isTargetWin64()", CCDelegateTo<CC_X86_Win64_C>>,
-  CCIfSubtarget<"is64Bit()",       CCDelegateTo<CC_X86_64_C>>,
-  CCDelegateTo<CC_X86_32_C>
-]>;
-
-// endif INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // X86 Root Argument Calling Conventions
 //===----------------------------------------------------------------------===//
@@ -767,9 +679,6 @@ def CC_X86_64 : CallingConv<[
 // This is the argument convention used for the entire X86 backend.
 def CC_X86 : CallingConv<[
   CCIfCC<"CallingConv::Intel_OCL_BI", CCDelegateTo<CC_Intel_OCL_BI>>,
-// if INTEL_CUSTOMIZATION
-  CCIfCC<"CallingConv::Intel_regcall", CCDelegateTo<CC_Intel_regcall>>,
-// endif INTEL_CUSTOMIZATION
   CCIfSubtarget<"is64Bit()", CCDelegateTo<CC_X86_64>>,
   CCDelegateTo<CC_X86_32>
 ]>;
@@ -829,20 +738,3 @@ def CSR_64_Intel_OCL_BI_AVX    : CalleeSavedRegs<(add CSR_64,
 def CSR_64_Intel_OCL_BI_AVX512 : CalleeSavedRegs<(add RBX, RDI, RSI, R14, R15,
                                                   (sequence "ZMM%u", 16, 31),
                                                   K4, K5, K6, K7)>;
-// if INTEL_CUSTOMIZATION
-
-def CSR_32_Intel_regcall       : CalleeSavedRegs<(add ESI, EDI, EBX, EBP, ESP,
-                                                 (sequence "XMM%u", 4, 7))>;
-def CSR_64_Intel_regcall       : CalleeSavedRegs<(add RBX, RBP, RSP, R12, R13, R14, R15,
-                                                 (sequence "XMM%u", 8, 15))>;
-
-def CSR_32_Intel_regcall_AVX    : CalleeSavedRegs<(add CSR_32_Intel_regcall,
-                                                  (sequence "YMM%u", 4, 7))>;
-def CSR_64_Intel_regcall_AVX    : CalleeSavedRegs<(add CSR_64_Intel_regcall,
-                                                  (sequence "YMM%u", 8, 15))>;
-
-def CSR_32_Intel_regcall_AVX512 : CalleeSavedRegs<(add CSR_32_Intel_regcall_AVX,
-                                                  (sequence "ZMM%u", 4, 7))>;
-def CSR_64_Intel_regcall_AVX512 : CalleeSavedRegs<(add CSR_64_Intel_regcall_AVX,
-                                                  (sequence "ZMM%u", 8, 15))>;
-// endif INTEL_CUSTOMIZATION

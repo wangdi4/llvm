@@ -2659,9 +2659,6 @@ X86TargetLowering::LowerFormalArguments(SDValue Chain,
     // FIXME: Only some x86_32 calling conventions support AVX512.
     if (Subtarget->hasAVX512() &&
         (Is64Bit || (CallConv == CallingConv::X86_VectorCall ||
-#if INTEL_CUSTOMIZATION
-                     CallConv == CallingConv::Intel_regcall ||
-#endif // INTEL_CUSTOMIZATION
                      CallConv == CallingConv::Intel_OCL_BI)))
       VecVT = MVT::v16f32;
     else if (Subtarget->hasAVX())

@@ -145,11 +145,6 @@ namespace CallingConv {
     /// \brief MSVC calling convention that passes vectors and vector aggregates
     /// in SSE registers.
     X86_VectorCall = 80
-#if INTEL_CUSTOMIZATION
-
-    /// Intel_regcall - The Intel __regcall Calling convention
-    ,Intel_regcall = 81,
-#endif // INTEL_CUSTOMIZATION
   };
 } // End CallingConv namespace
 
