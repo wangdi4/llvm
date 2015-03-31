@@ -16,7 +16,6 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 using namespace llvm;
 
@@ -34,11 +33,11 @@ namespace {
 
     void getAnalysisUsage(AnalysisUsage &AU) const override {}
 
-    bool doInitialization(Module &M) override {
+    void initializePass() override {
       // Note: NoAA does not call InitializeAliasAnalysis because it's
       // special and does not support chaining.
-      DL = &M.getDataLayout();
-      return true;
+      DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
+      DL = DLP ? &DLP->getDataLayout() : nullptr;
     }
 
     AliasResult alias(const Location &LocA, const Location &LocB) override {

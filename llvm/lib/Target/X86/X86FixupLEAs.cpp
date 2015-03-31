@@ -88,6 +88,7 @@ public:
 
 private:
   MachineFunction *MF;
+  const TargetMachine *TM;
   const X86InstrInfo *TII; // Machine instruction info.
 };
 char FixupLEAPass::ID = 0;
@@ -149,11 +150,13 @@ FunctionPass *llvm::createX86FixupLEAs() { return new FixupLEAPass(); }
 
 bool FixupLEAPass::runOnMachineFunction(MachineFunction &Func) {
   MF = &Func;
-  const X86Subtarget &ST = Func.getSubtarget<X86Subtarget>();
+  TM = &Func.getTarget();
+  const X86Subtarget &ST = TM->getSubtarget<X86Subtarget>();
   if (!ST.LEAusesAG() && !ST.slowLEA())
     return false;
 
-  TII = ST.getInstrInfo();
+  TII =
+      static_cast<const X86InstrInfo *>(TM->getSubtargetImpl()->getInstrInfo());
 
   DEBUG(dbgs() << "Start X86FixupLEAs\n";);
   // Process all basic blocks.
@@ -216,7 +219,7 @@ FixupLEAPass::searchBackwards(MachineOperand &p, MachineBasicBlock::iterator &I,
       return CurInst;
     }
     InstrDistance += TII->getInstrLatency(
-        MF->getSubtarget().getInstrItineraryData(), CurInst);
+        TM->getSubtargetImpl()->getInstrItineraryData(), CurInst);
     Found = getPreviousInstr(CurInst, MFI);
   }
   return nullptr;
@@ -330,7 +333,7 @@ bool FixupLEAPass::processBasicBlock(MachineFunction &MF,
                                      MachineFunction::iterator MFI) {
 
   for (MachineBasicBlock::iterator I = MFI->begin(); I != MFI->end(); ++I) {
-    if (MF.getSubtarget<X86Subtarget>().isSLM())
+    if (TM->getSubtarget<X86Subtarget>().isSLM())
       processInstructionForSLM(I, MFI);
     else
       processInstruction(I, MFI);

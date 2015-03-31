@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 class DSe_vi <bits<8> op> : Enc64 {
+
   bits<8> vdst;
   bits<1> gds;
   bits<8> addr;
@@ -32,6 +33,7 @@ class DSe_vi <bits<8> op> : Enc64 {
 }
 
 class MUBUFe_vi <bits<7> op> : Enc64 {
+
   bits<12> offset;
   bits<1> offen;
   bits<1> idxen;
@@ -60,6 +62,7 @@ class MUBUFe_vi <bits<7> op> : Enc64 {
 }
 
 class MTBUFe_vi <bits<4> op> : Enc64 {
+
   bits<12> offset;
   bits<1>  offen;
   bits<1>  idxen;
@@ -90,6 +93,7 @@ class MTBUFe_vi <bits<4> op> : Enc64 {
 }
 
 class SMEMe_vi <bits<8> op, bit imm> : Enc64 {
+
   bits<7>  sbase;
   bits<7>  sdata;
   bits<1>  glc;
@@ -105,7 +109,8 @@ class SMEMe_vi <bits<8> op, bit imm> : Enc64 {
 }
 
 class VOP3e_vi <bits<10> op> : Enc64 {
-  bits<8> vdst;
+
+  bits<8> dst;
   bits<2> src0_modifiers;
   bits<9> src0;
   bits<2> src1_modifiers;
@@ -115,37 +120,11 @@ class VOP3e_vi <bits<10> op> : Enc64 {
   bits<1> clamp;
   bits<2> omod;
 
-  let Inst{7-0}   = vdst;
+  let Inst{7-0}   = dst;
   let Inst{8}     = src0_modifiers{1};
   let Inst{9}     = src1_modifiers{1};
   let Inst{10}    = src2_modifiers{1};
   let Inst{15}    = clamp;
-  let Inst{25-16} = op;
-  let Inst{31-26} = 0x34; //encoding
-  let Inst{40-32} = src0;
-  let Inst{49-41} = src1;
-  let Inst{58-50} = src2;
-  let Inst{60-59} = omod;
-  let Inst{61} = src0_modifiers{0};
-  let Inst{62} = src1_modifiers{0};
-  let Inst{63} = src2_modifiers{0};
-}
-
-class VOP3be_vi <bits<10> op> : Enc64 {
-  bits<8> vdst;
-  bits<2> src0_modifiers;
-  bits<9> src0;
-  bits<2> src1_modifiers;
-  bits<9> src1;
-  bits<2> src2_modifiers;
-  bits<9> src2;
-  bits<7> sdst;
-  bits<2> omod;
-  bits<1> clamp;
-
-  let Inst{7-0} = vdst;
-  let Inst{14-8} = sdst;
-  let Inst{15} = clamp;
   let Inst{25-16} = op;
   let Inst{31-26} = 0x34; //encoding
   let Inst{40-32} = src0;

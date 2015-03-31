@@ -7,40 +7,6 @@
 target datalayout = "E-m:e-i64:64-n32:64"
 target triple = "powerpc64-unknown-linux-gnu"
 
-; CHECK-LABEL: constantargs:
-; CHECK: {{^}}.L[[constantargs_BEGIN:.*]]:{{$}}
-
-; CHECK-LABEL: osrinline:
-; CHECK: {{^}}.L[[osrinline_BEGIN:.*]]:{{$}}
-
-; CHECK-LABEL: osrcold:
-; CHECK: {{^}}.L[[osrcold_BEGIN:.*]]:{{$}}
-
-; CHECK-LABEL: propertyRead:
-; CHECK: {{^}}.L[[propertyRead_BEGIN:.*]]:{{$}}
-
-; CHECK-LABEL: propertyWrite:
-; CHECK: {{^}}.L[[propertyWrite_BEGIN:.*]]:{{$}}
-
-; CHECK-LABEL: jsVoidCall:
-; CHECK: {{^}}.L[[jsVoidCall_BEGIN:.*]]:{{$}}
-
-; CHECK-LABEL: jsIntCall:
-; CHECK: {{^}}.L[[jsIntCall_BEGIN:.*]]:{{$}}
-
-; CHECK-LABEL: spilledValue:
-; CHECK: {{^}}.L[[spilledValue_BEGIN:.*]]:{{$}}
-
-; CHECK-LABEL: spilledStackMapValue:
-; CHECK: {{^}}.L[[spilledStackMapValue_BEGIN:.*]]:{{$}}
-
-; CHECK-LABEL: liveConstant:
-; CHECK: {{^}}.L[[liveConstant_BEGIN:.*]]:{{$}}
-
-; CHECK-LABEL: clobberLR:
-; CHECK: {{^}}.L[[clobberLR_BEGIN:.*]]:{{$}}
-
-
 ; CHECK-LABEL:  .section  .llvm_stackmaps
 ; CHECK-NEXT:  __LLVM_StackMaps:
 ; Header
@@ -70,7 +36,7 @@ target triple = "powerpc64-unknown-linux-gnu"
 ; CHECK-NEXT:   .quad jsIntCall
 ; CHECK-NEXT:   .quad 128
 ; CHECK-NEXT:   .quad spilledValue
-; CHECK-NEXT:   .quad 304
+; CHECK-NEXT:   .quad 320
 ; CHECK-NEXT:   .quad spilledStackMapValue
 ; CHECK-NEXT:   .quad 224
 ; CHECK-NEXT:   .quad liveConstant
@@ -85,7 +51,7 @@ target triple = "powerpc64-unknown-linux-gnu"
 ; Constant arguments
 ;
 ; CHECK-NEXT:   .quad   1
-; CHECK-NEXT:   .long   .L{{.*}}-.L[[constantargs_BEGIN]]
+; CHECK-NEXT:   .long   .L{{.*}}-.L.constantargs
 ; CHECK-NEXT:   .short  0
 ; CHECK-NEXT:   .short  4
 ; SmallConstant
@@ -118,7 +84,7 @@ entry:
 
 ; Inline OSR Exit
 ;
-; CHECK:  .long   .L{{.*}}-.L[[osrinline_BEGIN]]
+; CHECK-LABEL:  .long   .L{{.*}}-.L.osrinline
 ; CHECK-NEXT:   .short  0
 ; CHECK-NEXT:   .short  2
 ; CHECK-NEXT:   .byte   1
@@ -142,7 +108,7 @@ entry:
 ;
 ; 2 live variables in register.
 ;
-; CHECK:  .long   .L{{.*}}-.L[[osrcold_BEGIN]]
+; CHECK-LABEL:  .long   .L{{.*}}-.L.osrcold
 ; CHECK-NEXT:   .short  0
 ; CHECK-NEXT:   .short  2
 ; CHECK-NEXT:   .byte   1
@@ -167,7 +133,7 @@ ret:
 }
 
 ; Property Read
-; CHECK:  .long   .L{{.*}}-.L[[propertyRead_BEGIN]]
+; CHECK-LABEL:  .long   .L{{.*}}-.L.propertyRead
 ; CHECK-NEXT:   .short  0
 ; CHECK-NEXT:   .short  0
 ;
@@ -182,7 +148,7 @@ entry:
 }
 
 ; Property Write
-; CHECK:  .long   .L{{.*}}-.L[[propertyWrite_BEGIN]]
+; CHECK-LABEL:  .long   .L{{.*}}-.L.propertyWrite
 ; CHECK-NEXT:   .short  0
 ; CHECK-NEXT:   .short  2
 ; CHECK-NEXT:   .byte   1
@@ -204,7 +170,7 @@ entry:
 ;
 ; 2 live variables in registers.
 ;
-; CHECK:  .long   .L{{.*}}-.L[[jsVoidCall_BEGIN]]
+; CHECK-LABEL:  .long   .L{{.*}}-.L.jsVoidCall
 ; CHECK-NEXT:   .short  0
 ; CHECK-NEXT:   .short  2
 ; CHECK-NEXT:   .byte   1
@@ -226,7 +192,7 @@ entry:
 ;
 ; 2 live variables in registers.
 ;
-; CHECK:  .long   .L{{.*}}-.L[[jsIntCall_BEGIN]]
+; CHECK-LABEL:  .long   .L{{.*}}-.L.jsIntCall
 ; CHECK-NEXT:   .short  0
 ; CHECK-NEXT:   .short  2
 ; CHECK-NEXT:   .byte   1
@@ -249,7 +215,7 @@ entry:
 ;
 ; Verify 28 stack map entries.
 ;
-; CHECK:  .long .L{{.*}}-.L[[spilledValue_BEGIN]]
+; CHECK-LABEL:  .long .L{{.*}}-.L.spilledValue
 ; CHECK-NEXT:   .short 0
 ; CHECK-NEXT:   .short 28
 ;
@@ -268,7 +234,7 @@ entry:
 ;
 ; Verify 30 stack map entries.
 ;
-; CHECK:  .long .L{{.*}}-.L[[spilledStackMapValue_BEGIN]]
+; CHECK-LABEL:  .long .L{{.*}}-.L.spilledStackMapValue
 ; CHECK-NEXT:   .short 0
 ; CHECK-NEXT:   .short 30
 ;
@@ -286,7 +252,7 @@ entry:
 
 ; Map a constant value.
 ;
-; CHECK:  .long .L{{.*}}-.L[[liveConstant_BEGIN]]
+; CHECK-LABEL:  .long .L{{.*}}-.L.liveConstant
 ; CHECK-NEXT:   .short 0
 ; 1 location
 ; CHECK-NEXT:   .short 1
@@ -303,7 +269,7 @@ define void @liveConstant() {
 
 ; Map a value when LR is the only free register.
 ;
-; CHECK:  .long .L{{.*}}-.L[[clobberLR_BEGIN]]
+; CHECK-LABEL:  .long .L{{.*}}-.L.clobberLR
 ; CHECK-NEXT:   .short 0
 ; 1 location
 ; CHECK-NEXT:   .short 1

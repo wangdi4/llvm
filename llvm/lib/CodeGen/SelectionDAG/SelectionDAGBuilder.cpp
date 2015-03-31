@@ -26,7 +26,6 @@
 #include "llvm/CodeGen/FastISel.h"
 #include "llvm/CodeGen/FunctionLoweringInfo.h"
 #include "llvm/CodeGen/GCMetadata.h"
-#include "llvm/CodeGen/GCStrategy.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
@@ -41,6 +40,7 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/GCStrategy.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Instructions.h"
@@ -869,7 +869,7 @@ void SelectionDAGBuilder::init(GCFunctionInfo *gfi, AliasAnalysis &aa,
   AA = &aa;
   GFI = gfi;
   LibInfo = li;
-  DL = DAG.getTarget().getDataLayout();
+  DL = DAG.getSubtarget().getDataLayout();
   Context = DAG.getContext();
   LPadToCallSiteMap.clear();
 }
@@ -1956,7 +1956,7 @@ void SelectionDAGBuilder::visitBitTestCase(BitTestBlock &BB,
   SDValue ShiftOp = DAG.getCopyFromReg(getControlRoot(), getCurSDLoc(),
                                        Reg, VT);
   SDValue Cmp;
-  unsigned PopCount = countPopulation(B.Mask);
+  unsigned PopCount = CountPopulation_64(B.Mask);
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
   if (PopCount == 1) {
     // Testing for a single bit; just compare the shift count with what it
@@ -1968,7 +1968,7 @@ void SelectionDAGBuilder::visitBitTestCase(BitTestBlock &BB,
     // There is only one zero bit in the range, test for it directly.
     Cmp = DAG.getSetCC(
         getCurSDLoc(), TLI.getSetCCResultType(*DAG.getContext(), VT), ShiftOp,
-        DAG.getConstant(countTrailingOnes(B.Mask), VT), ISD::SETNE);
+        DAG.getConstant(CountTrailingOnes_64(B.Mask), VT), ISD::SETNE);
   } else {
     // Make desired shift
     SDValue SwitchVal = DAG.getNode(ISD::SHL, getCurSDLoc(), VT,
@@ -2397,8 +2397,17 @@ bool SelectionDAGBuilder::handleBTSplitSwitchCase(CaseRec& CR,
                                                   CaseRecVector& WorkList,
                                                   const Value* SV,
                                                   MachineBasicBlock* SwitchBB) {
+  // Get the MachineFunction which holds the current MBB.  This is used when
+  // inserting any additional MBBs necessary to represent the switch.
+  MachineFunction *CurMF = FuncInfo.MF;
+
+  // Figure out which block is immediately after the current one.
+  MachineFunction::iterator BBI = CR.CaseBB;
+  ++BBI;
+
   Case& FrontCase = *CR.Range.first;
   Case& BackCase  = *(CR.Range.second-1);
+  const BasicBlock *LLVMBB = CR.CaseBB->getBasicBlock();
 
   // Size is the number of Cases represented by this range.
   unsigned Size = CR.Range.second - CR.Range.first;
@@ -2420,7 +2429,6 @@ bool SelectionDAGBuilder::handleBTSplitSwitchCase(CaseRec& CR,
   DEBUG(dbgs() << "Selecting best pivot: \n"
                << "First: " << First << ", Last: " << Last <<'\n'
                << "LSize: " << LSize << ", RSize: " << RSize << '\n');
-  const TargetLowering &TLI = DAG.getTargetLoweringInfo();
   for (CaseItr I = CR.Range.first, J=I+1, E = CR.Range.second;
        J!=E; ++I, ++J) {
     const APInt &LEnd = cast<ConstantInt>(I->High)->getValue();
@@ -2430,17 +2438,13 @@ bool SelectionDAGBuilder::handleBTSplitSwitchCase(CaseRec& CR,
            "Invalid case distance");
     // Use volatile double here to avoid excess precision issues on some hosts,
     // e.g. that use 80-bit X87 registers.
-    // Only consider the density of sub-ranges that actually have sufficient
-    // entries to be lowered as a jump table.
     volatile double LDensity =
-        LSize.ult(TLI.getMinimumJumpTableEntries())
-            ? 0.0
-            : LSize.roundToDouble() / (LEnd - First + 1ULL).roundToDouble();
+       (double)LSize.roundToDouble() /
+                           (LEnd - First + 1ULL).roundToDouble();
     volatile double RDensity =
-        RSize.ult(TLI.getMinimumJumpTableEntries())
-            ? 0.0
-            : RSize.roundToDouble() / (Last - RBegin + 1ULL).roundToDouble();
-    volatile double Metric = Range.logBase2() * (LDensity + RDensity);
+      (double)RSize.roundToDouble() /
+                           (Last - RBegin + 1ULL).roundToDouble();
+    volatile double Metric = Range.logBase2()*(LDensity+RDensity);
     // Should always split in some non-trivial place
     DEBUG(dbgs() <<"=>Step\n"
                  << "LEnd: " << LEnd << ", RBegin: " << RBegin << '\n'
@@ -2457,25 +2461,13 @@ bool SelectionDAGBuilder::handleBTSplitSwitchCase(CaseRec& CR,
     RSize -= J->size();
   }
 
-  if (FMetric == 0 || !areJTsAllowed(TLI))
+  const TargetLowering &TLI = DAG.getTargetLoweringInfo();
+  if (areJTsAllowed(TLI)) {
+    // If our case is dense we *really* should handle it earlier!
+    assert((FMetric > 0) && "Should handle dense range earlier!");
+  } else {
     Pivot = CR.Range.first + Size/2;
-  splitSwitchCase(CR, Pivot, WorkList, SV, SwitchBB);
-  return true;
-}
-
-void SelectionDAGBuilder::splitSwitchCase(CaseRec &CR, CaseItr Pivot,
-                                          CaseRecVector &WorkList,
-                                          const Value *SV,
-                                          MachineBasicBlock *SwitchBB) {
-  // Get the MachineFunction which holds the current MBB.  This is used when
-  // inserting any additional MBBs necessary to represent the switch.
-  MachineFunction *CurMF = FuncInfo.MF;
-
-  // Figure out which block is immediately after the current one.
-  MachineFunction::iterator BBI = CR.CaseBB;
-  ++BBI;
-
-  const BasicBlock *LLVMBB = CR.CaseBB->getBasicBlock();
+  }
 
   CaseRange LHSR(CR.Range.first, Pivot);
   CaseRange RHSR(Pivot, CR.Range.second);
@@ -2488,9 +2480,10 @@ void SelectionDAGBuilder::splitSwitchCase(CaseRec &CR, CaseItr Pivot,
   // LHS's Case Value, and that Case Value is exactly one less than the
   // Pivot's Value, then we can branch directly to the LHS's Target,
   // rather than creating a leaf node for it.
-  if ((LHSR.second - LHSR.first) == 1 && LHSR.first->High == CR.GE &&
+  if ((LHSR.second - LHSR.first) == 1 &&
+      LHSR.first->High == CR.GE &&
       cast<ConstantInt>(C)->getValue() ==
-          (cast<ConstantInt>(CR.GE)->getValue() + 1LL)) {
+      (cast<ConstantInt>(CR.GE)->getValue() + 1LL)) {
     TrueBB = LHSR.first->BB;
   } else {
     TrueBB = CurMF->CreateMachineBasicBlock(LLVMBB);
@@ -2507,12 +2500,12 @@ void SelectionDAGBuilder::splitSwitchCase(CaseRec &CR, CaseItr Pivot,
   // the current Case Value, rather than emitting a RHS leaf node for it.
   if ((RHSR.second - RHSR.first) == 1 && CR.LT &&
       cast<ConstantInt>(RHSR.first->Low)->getValue() ==
-          (cast<ConstantInt>(CR.LT)->getValue() - 1LL)) {
+      (cast<ConstantInt>(CR.LT)->getValue() - 1LL)) {
     FalseBB = RHSR.first->BB;
   } else {
     FalseBB = CurMF->CreateMachineBasicBlock(LLVMBB);
     CurMF->insert(BBI, FalseBB);
-    WorkList.push_back(CaseRec(FalseBB, CR.LT, C, RHSR));
+    WorkList.push_back(CaseRec(FalseBB,CR.LT,C,RHSR));
 
     // Put SV in a virtual register to make it available from the new blocks.
     ExportFromCurrentBlock(SV);
@@ -2527,6 +2520,8 @@ void SelectionDAGBuilder::splitSwitchCase(CaseRec &CR, CaseItr Pivot,
     visitSwitchCase(CB, SwitchBB);
   else
     SwitchCases.push_back(CB);
+
+  return true;
 }
 
 /// handleBitTestsSwitchCase - if current case range has few destination and
@@ -3697,8 +3692,7 @@ void SelectionDAGBuilder::visitMaskedStore(const CallInst &I) {
     getMachineMemOperand(MachinePointerInfo(PtrOperand),
                           MachineMemOperand::MOStore,  VT.getStoreSize(),
                           Alignment, AAInfo);
-  SDValue StoreNode = DAG.getMaskedStore(getRoot(), sdl, Src0, Ptr, Mask, VT,
-                                         MMO, false);
+  SDValue StoreNode = DAG.getMaskedStore(getRoot(), sdl, Src0, Ptr, Mask, MMO);
   DAG.setRoot(StoreNode);
   setValue(&I, StoreNode);
 }
@@ -3737,8 +3731,7 @@ void SelectionDAGBuilder::visitMaskedLoad(const CallInst &I) {
                           MachineMemOperand::MOLoad,  VT.getStoreSize(),
                           Alignment, AAInfo, Ranges);
 
-  SDValue Load = DAG.getMaskedLoad(VT, sdl, InChain, Ptr, Mask, Src0, VT, MMO,
-                                   ISD::NON_EXTLOAD);
+  SDValue Load = DAG.getMaskedLoad(VT, sdl, InChain, Ptr, Mask, Src0, MMO);
   SDValue OutChain = Load.getValue(1);
   DAG.setRoot(OutChain);
   setValue(&I, Load);
@@ -4591,10 +4584,11 @@ static SDValue ExpandPowI(SDLoc DL, SDValue LHS, SDValue RHS,
       return DAG.getConstantFP(1.0, LHS.getValueType());
 
     const Function *F = DAG.getMachineFunction().getFunction();
-    if (!F->hasFnAttribute(Attribute::OptimizeForSize) ||
+    if (!F->getAttributes().hasAttribute(AttributeSet::FunctionIndex,
+                                         Attribute::OptimizeForSize) ||
         // If optimizing for size, don't insert too many multiplies.  This
         // inserts up to 5 multiplies.
-        countPopulation(Val) + Log2_32(Val) < 7) {
+        CountPopulation_32(Val)+Log2_32(Val) < 7) {
       // We use the simple binary decomposition method to generate the multiply
       // sequence.  There are more optimal ways to do this (for example,
       // powi(x,15) generates one more multiply than it should), but this has
@@ -4774,7 +4768,6 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
   case Intrinsic::longjmp:
     return &"_longjmp"[!TLI.usesUnderscoreLongJmp()];
   case Intrinsic::memcpy: {
-    // FIXME: this definition of "user defined address space" is x86-specific
     // Assert for address < 256 since we support only user defined address
     // spaces.
     assert(cast<PointerType>(I.getArgOperand(0)->getType())->getAddressSpace()
@@ -4795,7 +4788,6 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
     return nullptr;
   }
   case Intrinsic::memset: {
-    // FIXME: this definition of "user defined address space" is x86-specific
     // Assert for address < 256 since we support only user defined address
     // spaces.
     assert(cast<PointerType>(I.getArgOperand(0)->getType())->getAddressSpace()
@@ -4813,7 +4805,6 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
     return nullptr;
   }
   case Intrinsic::memmove: {
-    // FIXME: this definition of "user defined address space" is x86-specific
     // Assert for address < 256 since we support only user defined address
     // spaces.
     assert(cast<PointerType>(I.getArgOperand(0)->getType())->getAddressSpace()
@@ -5610,8 +5601,7 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
   }
   case Intrinsic::experimental_gc_result_int:
   case Intrinsic::experimental_gc_result_float:
-  case Intrinsic::experimental_gc_result_ptr:
-  case Intrinsic::experimental_gc_result: {
+  case Intrinsic::experimental_gc_result_ptr: {
     visitGCResult(I);
     return nullptr;
   }
@@ -5622,47 +5612,45 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
   case Intrinsic::instrprof_increment:
     llvm_unreachable("instrprof failed to lower an increment");
 
-  case Intrinsic::frameescape: {
+  case Intrinsic::frameallocate: {
     MachineFunction &MF = DAG.getMachineFunction();
     const TargetInstrInfo *TII = DAG.getSubtarget().getInstrInfo();
 
-    // Directly emit some FRAME_ALLOC machine instrs. Label assignment emission
-    // is the same on all targets.
-    for (unsigned Idx = 0, E = I.getNumArgOperands(); Idx < E; ++Idx) {
-      AllocaInst *Slot =
-          cast<AllocaInst>(I.getArgOperand(Idx)->stripPointerCasts());
-      assert(FuncInfo.StaticAllocaMap.count(Slot) &&
-             "can only escape static allocas");
-      int FI = FuncInfo.StaticAllocaMap[Slot];
-      MCSymbol *FrameAllocSym =
-          MF.getMMI().getContext().getOrCreateFrameAllocSymbol(MF.getName(),
-                                                               Idx);
-      BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, dl,
-              TII->get(TargetOpcode::FRAME_ALLOC))
-          .addSym(FrameAllocSym)
-          .addFrameIndex(FI);
-    }
+    // Do the allocation and map it as a normal value.
+    // FIXME: Maybe we should add this to the alloca map so that we don't have
+    // to register allocate it?
+    uint64_t Size = cast<ConstantInt>(I.getArgOperand(0))->getZExtValue();
+    int Alloc = MF.getFrameInfo()->CreateFrameAllocation(Size);
+    MVT PtrVT = TLI.getPointerTy(0);
+    SDValue FIVal = DAG.getFrameIndex(Alloc, PtrVT);
+    setValue(&I, FIVal);
+
+    // Directly emit a FRAME_ALLOC machine instr. Label assignment emission is
+    // the same on all targets.
+    MCSymbol *FrameAllocSym =
+        MF.getMMI().getContext().getOrCreateFrameAllocSymbol(MF.getName());
+    BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, dl,
+            TII->get(TargetOpcode::FRAME_ALLOC))
+        .addSym(FrameAllocSym)
+        .addFrameIndex(Alloc);
 
     return nullptr;
   }
 
   case Intrinsic::framerecover: {
-    // i8* @llvm.framerecover(i8* %fn, i8* %fp, i32 %idx)
+    // i8* @llvm.framerecover(i8* %fn, i8* %fp)
     MachineFunction &MF = DAG.getMachineFunction();
     MVT PtrVT = TLI.getPointerTy(0);
 
     // Get the symbol that defines the frame offset.
-    auto *Fn = cast<Function>(I.getArgOperand(0)->stripPointerCasts());
-    auto *Idx = cast<ConstantInt>(I.getArgOperand(2));
-    unsigned IdxVal = unsigned(Idx->getLimitedValue(INT_MAX));
+    Function *Fn = cast<Function>(I.getArgOperand(0)->stripPointerCasts());
     MCSymbol *FrameAllocSym =
-        MF.getMMI().getContext().getOrCreateFrameAllocSymbol(Fn->getName(),
-                                                             IdxVal);
+        MF.getMMI().getContext().getOrCreateFrameAllocSymbol(Fn->getName());
 
     // Create a TargetExternalSymbol for the label to avoid any target lowering
     // that would make this PC relative.
     StringRef Name = FrameAllocSym->getName();
-    assert(Name.data()[Name.size()] == '\0' && "not null terminated");
+    assert(Name.size() == strlen(Name.data()) && "not null terminated");
     SDValue OffsetSym = DAG.getTargetExternalSymbol(Name.data(), PtrVT);
     SDValue OffsetVal =
         DAG.getNode(ISD::FRAME_ALLOC_RECOVER, sdl, PtrVT, OffsetSym);
@@ -5675,9 +5663,6 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
 
     return nullptr;
   }
-  case Intrinsic::eh_begincatch:
-  case Intrinsic::eh_endcatch:
-    llvm_unreachable("begin/end catch intrinsics not lowered in codegen");
   }
 }
 
@@ -5710,8 +5695,9 @@ SelectionDAGBuilder::lowerInvokable(TargetLowering::CallLoweringInfo &CLI,
 
     CLI.setChain(getRoot());
   }
-  const TargetLowering &TLI = DAG.getTargetLoweringInfo();
-  std::pair<SDValue, SDValue> Result = TLI.LowerCallTo(CLI);
+
+  const TargetLowering *TLI = TM.getSubtargetImpl()->getTargetLowering();
+  std::pair<SDValue, SDValue> Result = TLI->LowerCallTo(CLI);
 
   assert((CLI.IsTailCall || Result.second.getNode()) &&
          "Non-null chain expected with non-tail call!");
@@ -6409,10 +6395,9 @@ static void GetRegistersForValue(SelectionDAG &DAG,
 
   // If this is a constraint for a single physreg, or a constraint for a
   // register class, find it.
-  std::pair<unsigned, const TargetRegisterClass *> PhysReg =
-      TLI.getRegForInlineAsmConstraint(MF.getSubtarget().getRegisterInfo(),
-                                       OpInfo.ConstraintCode,
-                                       OpInfo.ConstraintVT);
+  std::pair<unsigned, const TargetRegisterClass*> PhysReg =
+    TLI.getRegForInlineAsmConstraint(OpInfo.ConstraintCode,
+                                     OpInfo.ConstraintVT);
 
   unsigned NumRegs = 1;
   if (OpInfo.ConstraintVT != MVT::Other) {
@@ -6508,8 +6493,8 @@ void SelectionDAGBuilder::visitInlineAsm(ImmutableCallSite CS) {
   SDISelAsmOperandInfoVector ConstraintOperands;
 
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
-  TargetLowering::AsmOperandInfoVector TargetConstraints =
-      TLI.ParseConstraints(DAG.getSubtarget().getRegisterInfo(), CS);
+  TargetLowering::AsmOperandInfoVector
+    TargetConstraints = TLI.ParseConstraints(CS);
 
   bool hasMemory = false;
 
@@ -6601,13 +6586,12 @@ void SelectionDAGBuilder::visitInlineAsm(ImmutableCallSite CS) {
       SDISelAsmOperandInfo &Input = ConstraintOperands[OpInfo.MatchingInput];
 
       if (OpInfo.ConstraintVT != Input.ConstraintVT) {
-	const TargetRegisterInfo *TRI = DAG.getSubtarget().getRegisterInfo();
-        std::pair<unsigned, const TargetRegisterClass *> MatchRC =
-            TLI.getRegForInlineAsmConstraint(TRI, OpInfo.ConstraintCode,
-                                             OpInfo.ConstraintVT);
-        std::pair<unsigned, const TargetRegisterClass *> InputRC =
-            TLI.getRegForInlineAsmConstraint(TRI, Input.ConstraintCode,
-                                             Input.ConstraintVT);
+        std::pair<unsigned, const TargetRegisterClass*> MatchRC =
+          TLI.getRegForInlineAsmConstraint(OpInfo.ConstraintCode,
+                                            OpInfo.ConstraintVT);
+        std::pair<unsigned, const TargetRegisterClass*> InputRC =
+          TLI.getRegForInlineAsmConstraint(Input.ConstraintCode,
+                                            Input.ConstraintVT);
         if ((OpInfo.ConstraintVT.isInteger() !=
              Input.ConstraintVT.isInteger()) ||
             (MatchRC.second != InputRC.second)) {
@@ -7272,7 +7256,8 @@ void SelectionDAGBuilder::visitPatchpoint(ImmutableCallSite CS,
 
   // Push the arguments from the call instruction up to the register mask.
   SDNode::op_iterator e = HasGlue ? Call->op_end()-2 : Call->op_end()-1;
-  Ops.append(Call->op_begin() + 2, e);
+  for (SDNode::op_iterator i = Call->op_begin()+2; i != e; ++i)
+    Ops.push_back(*i);
 
   // Push live variables for the stack map.
   addStackMapLiveVars(CS, NumMetaOpers + NumArgs, Ops, *this);
@@ -7471,8 +7456,11 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
       }
       if (Args[i].isNest)
         Flags.setNest();
-      if (NeedsRegBlock)
+      if (NeedsRegBlock) {
         Flags.setInConsecutiveRegs();
+        if (Value == NumValues - 1)
+          Flags.setInConsecutiveRegsLast();
+      }
       Flags.setOrigAlign(OriginalAlignment);
 
       MVT PartVT = getRegisterType(CLI.RetTy->getContext(), VT);
@@ -7521,9 +7509,6 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
         CLI.Outs.push_back(MyFlags);
         CLI.OutVals.push_back(Parts[j]);
       }
-
-      if (NeedsRegBlock && Value == NumValues - 1)
-        CLI.Outs[CLI.Outs.size() - 1].Flags.setInConsecutiveRegsLast();
     }
   }
 
@@ -7680,8 +7665,7 @@ void SelectionDAGISel::LowerArguments(const Function &F) {
     ISD::ArgFlagsTy Flags;
     Flags.setSRet();
     MVT RegisterVT = TLI->getRegisterType(*DAG.getContext(), ValueVTs[0]);
-    ISD::InputArg RetArg(Flags, RegisterVT, ValueVTs[0], true,
-                         ISD::InputArg::NoArgIndex, 0);
+    ISD::InputArg RetArg(Flags, RegisterVT, ValueVTs[0], true, 0, 0);
     Ins.push_back(RetArg);
   }
 
@@ -7739,8 +7723,11 @@ void SelectionDAGISel::LowerArguments(const Function &F) {
       }
       if (F.getAttributes().hasAttribute(Idx, Attribute::Nest))
         Flags.setNest();
-      if (NeedsRegBlock)
+      if (NeedsRegBlock) {
         Flags.setInConsecutiveRegs();
+        if (Value == NumValues - 1)
+          Flags.setInConsecutiveRegsLast();
+      }
       Flags.setOrigAlign(OriginalAlignment);
 
       MVT RegisterVT = TLI->getRegisterType(*CurDAG->getContext(), VT);
@@ -7755,8 +7742,6 @@ void SelectionDAGISel::LowerArguments(const Function &F) {
           MyFlags.Flags.setOrigAlign(1);
         Ins.push_back(MyFlags);
       }
-      if (NeedsRegBlock && Value == NumValues - 1)
-        Ins[Ins.size() - 1].Flags.setInConsecutiveRegsLast();
       PartBase += VT.getStoreSize();
     }
   }
@@ -7891,6 +7876,7 @@ void SelectionDAGISel::LowerArguments(const Function &F) {
   assert(i == InVals.size() && "Argument register count mismatch!");
 
   // Finally, if the target has anything special to do, allow it to do so.
+  // FIXME: this should insert code into the DAG!
   EmitFunctionEntryCode();
 }
 

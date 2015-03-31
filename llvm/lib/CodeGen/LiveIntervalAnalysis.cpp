@@ -67,13 +67,6 @@ static cl::opt<bool> EnableSubRegLiveness(
   "enable-subreg-liveness", cl::Hidden, cl::init(true),
   cl::desc("Enable subregister liveness tracking."));
 
-namespace llvm {
-cl::opt<bool> UseSegmentSetForPhysRegs(
-    "use-segment-set-for-physregs", cl::Hidden, cl::init(true),
-    cl::desc(
-        "Use segment set for the computation of the live ranges of physregs."));
-}
-
 void LiveIntervals::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesCFG();
   AU.addRequired<AliasAnalysis>();
@@ -275,10 +268,6 @@ void LiveIntervals::computeRegUnitRange(LiveRange &LR, unsigned Unit) {
         LRCalc->extendToUses(LR, Reg);
     }
   }
-
-  // Flush the segment set to the segment vector.
-  if (UseSegmentSetForPhysRegs)
-    LR.flushSegmentSet();
 }
 
 
@@ -311,8 +300,7 @@ void LiveIntervals::computeLiveInRegUnits() {
         unsigned Unit = *Units;
         LiveRange *LR = RegUnitRanges[Unit];
         if (!LR) {
-          // Use segment set to speed-up initial computation of the live range.
-          LR = RegUnitRanges[Unit] = new LiveRange(UseSegmentSetForPhysRegs);
+          LR = RegUnitRanges[Unit] = new LiveRange();
           NewRanges.push_back(Unit);
         }
         VNInfo *VNI = LR->createDeadDef(Begin, getVNInfoAllocator());
@@ -460,34 +448,23 @@ bool LiveIntervals::computeDeadValues(LiveInterval &LI,
   for (auto VNI : LI.valnos) {
     if (VNI->isUnused())
       continue;
-    SlotIndex Def = VNI->def;
-    LiveRange::iterator I = LI.FindSegmentContaining(Def);
+    LiveRange::iterator I = LI.FindSegmentContaining(VNI->def);
     assert(I != LI.end() && "Missing segment for VNI");
-
-    // Is the register live before? Otherwise we may have to add a read-undef
-    // flag for subregister defs.
-    if (MRI->tracksSubRegLiveness()) {
-      if ((I == LI.begin() || std::prev(I)->end < Def) && !VNI->isPHIDef()) {
-        MachineInstr *MI = getInstructionFromIndex(Def);
-        MI->addRegisterDefReadUndef(LI.reg);
-      }
-    }
-
-    if (I->end != Def.getDeadSlot())
+    if (I->end != VNI->def.getDeadSlot())
       continue;
     if (VNI->isPHIDef()) {
       // This is a dead PHI. Remove it.
       VNI->markUnused();
       LI.removeSegment(I);
-      DEBUG(dbgs() << "Dead PHI at " << Def << " may separate interval\n");
+      DEBUG(dbgs() << "Dead PHI at " << VNI->def << " may separate interval\n");
       PHIRemoved = true;
     } else {
       // This is a dead def. Make sure the instruction knows.
-      MachineInstr *MI = getInstructionFromIndex(Def);
+      MachineInstr *MI = getInstructionFromIndex(VNI->def);
       assert(MI && "No instruction defining live value");
       MI->addRegisterDead(LI.reg, TRI);
       if (dead && MI->allDefsAreDead()) {
-        DEBUG(dbgs() << "All defs dead: " << Def << '\t' << *MI);
+        DEBUG(dbgs() << "All defs dead: " << VNI->def << '\t' << *MI);
         dead->push_back(MI);
       }
     }
@@ -629,6 +606,15 @@ void LiveIntervals::pruneValue(LiveRange &LR, SlotIndex Kill,
       if (EndPoints) EndPoints->push_back(MBBEnd);
       ++I;
     }
+  }
+}
+
+void LiveIntervals::pruneValue(LiveInterval &LI, SlotIndex Kill,
+                               SmallVectorImpl<SlotIndex> *EndPoints) {
+  pruneValue((LiveRange&)LI, Kill, EndPoints);
+
+  for (LiveInterval::SubRange &SR : LI.subranges()) {
+    pruneValue(SR, Kill, nullptr);
   }
 }
 
@@ -1389,26 +1375,4 @@ LiveIntervals::repairIntervalsInRange(MachineBasicBlock *MBB,
     }
     repairOldRegInRange(Begin, End, endIdx, LI, Reg);
   }
-}
-
-void LiveIntervals::removePhysRegDefAt(unsigned Reg, SlotIndex Pos) {
-  for (MCRegUnitIterator Units(Reg, TRI); Units.isValid(); ++Units) {
-    if (LiveRange *LR = getCachedRegUnit(*Units))
-      if (VNInfo *VNI = LR->getVNInfoAt(Pos))
-        LR->removeValNo(VNI);
-  }
-}
-
-void LiveIntervals::removeVRegDefAt(LiveInterval &LI, SlotIndex Pos) {
-  VNInfo *VNI = LI.getVNInfoAt(Pos);
-  if (VNI == nullptr)
-    return;
-  LI.removeValNo(VNI);
-
-  // Also remove the value in subranges.
-  for (LiveInterval::SubRange &S : LI.subranges()) {
-    if (VNInfo *SVNI = S.getVNInfoAt(Pos))
-      S.removeValNo(SVNI);
-  }
-  LI.removeEmptySubRanges();
 }

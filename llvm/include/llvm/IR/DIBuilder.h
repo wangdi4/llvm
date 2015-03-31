@@ -80,12 +80,12 @@ namespace llvm {
     /// Each subprogram's preserved local variables.
     DenseMap<MDNode *, std::vector<TrackingMDNodeRef>> PreservedVariables;
 
-    DIBuilder(const DIBuilder &) = delete;
-    void operator=(const DIBuilder &) = delete;
+    DIBuilder(const DIBuilder &) LLVM_DELETED_FUNCTION;
+    void operator=(const DIBuilder &) LLVM_DELETED_FUNCTION;
 
     /// \brief Create a temporary.
     ///
-    /// Create an \a temporary node and track it in \a UnresolvedNodes.
+    /// Create an \a MDNodeFwdDecl and track it in \a UnresolvedNodes.
     void trackIfUnresolved(MDNode *N);
 
   public:
@@ -333,8 +333,13 @@ namespace llvm {
     /// @param Scope        Scope in which this type is defined.
     /// @param Name         Type parameter name.
     /// @param Ty           Parameter type.
+    /// @param File         File where this type parameter is defined.
+    /// @param LineNo       Line number.
+    /// @param ColumnNo     Column Number.
     DITemplateTypeParameter
-    createTemplateTypeParameter(DIDescriptor Scope, StringRef Name, DIType Ty);
+    createTemplateTypeParameter(DIDescriptor Scope, StringRef Name, DIType Ty,
+                                MDNode *File = nullptr, unsigned LineNo = 0,
+                                unsigned ColumnNo = 0);
 
     /// createTemplateValueParameter - Create debugging information for template
     /// value parameter.
@@ -342,30 +347,40 @@ namespace llvm {
     /// @param Name         Value parameter name.
     /// @param Ty           Parameter type.
     /// @param Val          Constant parameter value.
-    DITemplateValueParameter createTemplateValueParameter(DIDescriptor Scope,
-                                                          StringRef Name,
-                                                          DIType Ty,
-                                                          Constant *Val);
+    /// @param File         File where this type parameter is defined.
+    /// @param LineNo       Line number.
+    /// @param ColumnNo     Column Number.
+    DITemplateValueParameter
+    createTemplateValueParameter(DIDescriptor Scope, StringRef Name, DIType Ty,
+                                 Constant *Val, MDNode *File = nullptr,
+                                 unsigned LineNo = 0, unsigned ColumnNo = 0);
 
     /// \brief Create debugging information for a template template parameter.
     /// @param Scope        Scope in which this type is defined.
     /// @param Name         Value parameter name.
     /// @param Ty           Parameter type.
     /// @param Val          The fully qualified name of the template.
-    DITemplateValueParameter createTemplateTemplateParameter(DIDescriptor Scope,
-                                                             StringRef Name,
-                                                             DIType Ty,
-                                                             StringRef Val);
+    /// @param File         File where this type parameter is defined.
+    /// @param LineNo       Line number.
+    /// @param ColumnNo     Column Number.
+    DITemplateValueParameter
+    createTemplateTemplateParameter(DIDescriptor Scope, StringRef Name,
+                                    DIType Ty, StringRef Val,
+                                    MDNode *File = nullptr, unsigned LineNo = 0,
+                                    unsigned ColumnNo = 0);
 
     /// \brief Create debugging information for a template parameter pack.
     /// @param Scope        Scope in which this type is defined.
     /// @param Name         Value parameter name.
     /// @param Ty           Parameter type.
     /// @param Val          An array of types in the pack.
-    DITemplateValueParameter createTemplateParameterPack(DIDescriptor Scope,
-                                                         StringRef Name,
-                                                         DIType Ty,
-                                                         DIArray Val);
+    /// @param File         File where this type parameter is defined.
+    /// @param LineNo       Line number.
+    /// @param ColumnNo     Column Number.
+    DITemplateValueParameter
+    createTemplateParameterPack(DIDescriptor Scope, StringRef Name,
+                                DIType Ty, DIArray Val, MDNode *File = nullptr,
+                                unsigned LineNo = 0, unsigned ColumnNo = 0);
 
     /// createArrayType - Create debugging information entry for an array.
     /// @param Size         Array size.
@@ -425,11 +440,10 @@ namespace llvm {
                                       StringRef UniqueIdentifier = StringRef());
 
     /// \brief Create a temporary forward-declared type.
-    DICompositeType createReplaceableCompositeType(
+    DICompositeType createReplaceableForwardDecl(
         unsigned Tag, StringRef Name, DIDescriptor Scope, DIFile F,
         unsigned Line, unsigned RuntimeLang = 0, uint64_t SizeInBits = 0,
-        uint64_t AlignInBits = 0, unsigned Flags = DIDescriptor::FlagFwdDecl,
-        StringRef UniqueIdentifier = StringRef());
+        uint64_t AlignInBits = 0, StringRef UniqueIdentifier = StringRef());
 
     /// retainType - Retain DIType in a module even if it is not referenced
     /// through debug info anchors.
@@ -500,16 +514,15 @@ namespace llvm {
     /// createExpression - Create a new descriptor for the specified
     /// variable which has a complex address expression for its address.
     /// @param Addr        An array of complex address operations.
-    DIExpression createExpression(ArrayRef<uint64_t> Addr = None);
-    DIExpression createExpression(ArrayRef<int64_t> Addr);
+    DIExpression createExpression(ArrayRef<int64_t> Addr = None);
 
-    /// createBitPieceExpression - Create a descriptor to describe one part
+    /// createPieceExpression - Create a descriptor to describe one part
     /// of aggregate variable that is fragmented across multiple Values.
     ///
-    /// @param OffsetInBits Offset of the piece in bits.
-    /// @param SizeInBits   Size of the piece in bits.
-    DIExpression createBitPieceExpression(unsigned OffsetInBits,
-                                          unsigned SizeInBits);
+    /// @param OffsetInBytes Offset of the piece in bytes.
+    /// @param SizeInBytes   Size of the piece in bytes.
+    DIExpression createPieceExpression(unsigned OffsetInBytes,
+                                       unsigned SizeInBytes);
 
     /// createFunction - Create a new descriptor for the specified subprogram.
     /// See comments in DISubprogram for descriptions of these fields.

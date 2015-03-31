@@ -85,8 +85,7 @@ private:
                           const SIProgramInfo &KernelInfo) const;
 
 public:
-  explicit AMDGPUAsmPrinter(TargetMachine &TM,
-                            std::unique_ptr<MCStreamer> Streamer);
+  explicit AMDGPUAsmPrinter(TargetMachine &TM, MCStreamer &Streamer);
 
   bool runOnMachineFunction(MachineFunction &MF) override;
 
@@ -100,6 +99,7 @@ public:
   void EmitEndOfAsmFile(Module &M) override;
 
 protected:
+  bool DisasmEnabled;
   std::vector<std::string> DisasmLines, HexLines;
   size_t DisasmLineMaxLen;
 };

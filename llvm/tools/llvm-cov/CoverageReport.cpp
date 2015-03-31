@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "CoverageReport.h"
+#include "CoverageSummary.h"
 #include "RenderingSupport.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Format.h"
@@ -155,15 +156,14 @@ void CoverageReport::render(const FunctionCoverageSummary &Function,
   OS << "\n";
 }
 
-void CoverageReport::renderFunctionReports(ArrayRef<std::string> Files,
-                                           raw_ostream &OS) {
+void CoverageReport::renderFunctionReports(raw_ostream &OS) {
   bool isFirst = true;
-  for (StringRef Filename : Files) {
+  for (const auto &File : Summary.getFileSummaries()) {
     if (isFirst)
       isFirst = false;
     else
       OS << "\n";
-    OS << "File '" << Filename << "':\n";
+    OS << "File '" << File.Name << "':\n";
     OS << column("Name", FunctionReportColumns[0])
        << column("Regions", FunctionReportColumns[1], Column::RightAlignment)
        << column("Miss", FunctionReportColumns[2], Column::RightAlignment)
@@ -174,19 +174,13 @@ void CoverageReport::renderFunctionReports(ArrayRef<std::string> Files,
     OS << "\n";
     renderDivider(FunctionReportColumns, OS);
     OS << "\n";
-    FunctionCoverageSummary Totals("TOTAL");
-    for (const auto &F : Coverage->getCoveredFunctions(Filename)) {
-      FunctionCoverageSummary Function = FunctionCoverageSummary::get(F);
-      ++Totals.ExecutionCount;
-      Totals.RegionCoverage += Function.RegionCoverage;
-      Totals.LineCoverage += Function.LineCoverage;
+    for (const auto &Function : File.FunctionSummaries)
       render(Function, OS);
-    }
-    if (Totals.ExecutionCount) {
-      renderDivider(FunctionReportColumns, OS);
-      OS << "\n";
-      render(Totals, OS);
-    }
+    renderDivider(FunctionReportColumns, OS);
+    OS << "\n";
+    render(FunctionCoverageSummary("TOTAL", /*ExecutionCount=*/0,
+                                   File.RegionCoverage, File.LineCoverage),
+           OS);
   }
 }
 
@@ -200,17 +194,9 @@ void CoverageReport::renderFileReports(raw_ostream &OS) {
      << "\n";
   renderDivider(FileReportColumns, OS);
   OS << "\n";
-  FileCoverageSummary Totals("TOTAL");
-  for (StringRef Filename : Coverage->getUniqueSourceFiles()) {
-    FileCoverageSummary Summary(Filename);
-    for (const auto &F : Coverage->getCoveredFunctions(Filename)) {
-      FunctionCoverageSummary Function = FunctionCoverageSummary::get(F);
-      Summary.addFunction(Function);
-      Totals.addFunction(Function);
-    }
-    render(Summary, OS);
-  }
+  for (const auto &File : Summary.getFileSummaries())
+    render(File, OS);
   renderDivider(FileReportColumns, OS);
   OS << "\n";
-  render(Totals, OS);
+  render(Summary.getCombinedFileSummaries(), OS);
 }

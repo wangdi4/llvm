@@ -35,9 +35,9 @@ namespace llvm {
   /// functions.  This allows the standard isa/dyncast/cast functionality to
   /// work with calls to intrinsic functions.
   class IntrinsicInst : public CallInst {
-    IntrinsicInst() = delete;
-    IntrinsicInst(const IntrinsicInst&) = delete;
-    void operator=(const IntrinsicInst&) = delete;
+    IntrinsicInst() LLVM_DELETED_FUNCTION;
+    IntrinsicInst(const IntrinsicInst&) LLVM_DELETED_FUNCTION;
+    void operator=(const IntrinsicInst&) LLVM_DELETED_FUNCTION;
   public:
     /// getIntrinsicID - Return the intrinsic ID of this intrinsic.
     ///

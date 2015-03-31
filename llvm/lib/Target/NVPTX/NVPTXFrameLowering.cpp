@@ -26,8 +26,9 @@
 
 using namespace llvm;
 
-NVPTXFrameLowering::NVPTXFrameLowering()
-    : TargetFrameLowering(TargetFrameLowering::StackGrowsUp, 8, 0) {}
+NVPTXFrameLowering::NVPTXFrameLowering(NVPTXSubtarget &STI)
+    : TargetFrameLowering(TargetFrameLowering::StackGrowsUp, 8, 0),
+      is64bit(STI.is64Bit()) {}
 
 bool NVPTXFrameLowering::hasFP(const MachineFunction &MF) const { return true; }
 
@@ -44,7 +45,7 @@ void NVPTXFrameLowering::emitPrologue(MachineFunction &MF) const {
 
     // mov %SPL, %depot;
     // cvta.local %SP, %SPL;
-    if (static_cast<const NVPTXTargetMachine &>(MF.getTarget()).is64Bit()) {
+    if (is64bit) {
       unsigned LocalReg = MRI.createVirtualRegister(&NVPTX::Int64RegsRegClass);
       MachineInstr *MI =
           BuildMI(MBB, MBBI, dl, MF.getSubtarget().getInstrInfo()->get(

@@ -13,7 +13,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/PassManager.h"
 #include "llvm/Support/CommandLine.h"
 #include "gtest/gtest.h"
 
@@ -27,7 +27,7 @@ protected:
   LLVMContext C;
   Module M;
   MDBuilder MD;
-  legacy::PassManager PM;
+  PassManager PM;
 };
 
 TEST_F(MixedTBAATest, MixedTBAA) {

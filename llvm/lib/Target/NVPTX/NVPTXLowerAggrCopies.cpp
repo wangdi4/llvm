@@ -22,9 +22,6 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Support/Debug.h"
-
-#define DEBUG_TYPE "nvptx"
 
 using namespace llvm;
 
@@ -107,7 +104,7 @@ bool NVPTXLowerAggrCopies::runOnFunction(Function &F) {
   SmallVector<MemTransferInst *, 4> aggrMemcpys;
   SmallVector<MemSetInst *, 4> aggrMemsets;
 
-  const DataLayout &DL = F.getParent()->getDataLayout();
+  const DataLayout *DL = &getAnalysis<DataLayoutPass>().getDataLayout();
   LLVMContext &Context = F.getParent()->getContext();
 
   //
@@ -123,7 +120,7 @@ bool NVPTXLowerAggrCopies::runOnFunction(Function &F) {
         if (load->hasOneUse() == false)
           continue;
 
-        if (DL.getTypeStoreSize(load->getType()) < MaxAggrCopySize)
+        if (DL->getTypeStoreSize(load->getType()) < MaxAggrCopySize)
           continue;
 
         User *use = load->user_back();
@@ -169,7 +166,7 @@ bool NVPTXLowerAggrCopies::runOnFunction(Function &F) {
     StoreInst *store = dyn_cast<StoreInst>(*load->user_begin());
     Value *srcAddr = load->getOperand(0);
     Value *dstAddr = store->getOperand(1);
-    unsigned numLoads = DL.getTypeStoreSize(load->getType());
+    unsigned numLoads = DL->getTypeStoreSize(load->getType());
     Value *len = ConstantInt::get(Type::getInt32Ty(Context), numLoads);
 
     convertTransferToLoop(store, srcAddr, dstAddr, len, load->isVolatile(),

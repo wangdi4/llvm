@@ -19,7 +19,7 @@
 #include "HexagonSubtarget.h"
 #include "HexagonTargetMachine.h"
 #include "MCTargetDesc/HexagonInstPrinter.h"
-#include "MCTargetDesc/HexagonMCInstrInfo.h"
+#include "MCTargetDesc/HexagonMCInst.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
@@ -60,10 +60,6 @@ using namespace llvm;
 static cl::opt<bool> AlignCalls(
          "hexagon-align-calls", cl::Hidden, cl::init(true),
           cl::desc("Insert falign after call instruction for Hexagon target"));
-
-HexagonAsmPrinter::HexagonAsmPrinter(TargetMachine &TM,
-                                     std::unique_ptr<MCStreamer> Streamer)
-    : AsmPrinter(TM, std::move(Streamer)), Subtarget(nullptr) {}
 
 void HexagonAsmPrinter::printOperand(const MachineInstr *MI, unsigned OpNo,
                                     raw_ostream &O) {
@@ -199,22 +195,22 @@ void HexagonAsmPrinter::EmitInstruction(const MachineInstr *MI) {
     unsigned Size = BundleMIs.size();
     assert((Size + IgnoreCount) == MI->getBundleSize() && "Corrupt Bundle!");
     for (unsigned Index = 0; Index < Size; Index++) {
-      MCInst MCI;
+      HexagonMCInst MCI;
 
       HexagonLowerToMC(BundleMIs[Index], MCI, *this);
-      HexagonMCInstrInfo::AppendImplicitOperands(MCI);
-      HexagonMCInstrInfo::setPacketBegin(MCI, Index == 0);
-      HexagonMCInstrInfo::setPacketEnd(MCI, Index == (Size - 1));
+      HexagonMCInst::AppendImplicitOperands(MCI);
+      MCI.setPacketBegin(Index == 0);
+      MCI.setPacketEnd(Index == (Size - 1));
       EmitToStreamer(OutStreamer, MCI);
     }
   }
   else {
-    MCInst MCI;
+    HexagonMCInst MCI;
     HexagonLowerToMC(MI, MCI, *this);
-    HexagonMCInstrInfo::AppendImplicitOperands(MCI);
+    HexagonMCInst::AppendImplicitOperands(MCI);
     if (MI->getOpcode() == Hexagon::ENDLOOP0) {
-      HexagonMCInstrInfo::setPacketBegin(MCI, true);
-      HexagonMCInstrInfo::setPacketEnd(MCI, true);
+      MCI.setPacketBegin(true);
+      MCI.setPacketEnd(true);
     }
     EmitToStreamer(OutStreamer, MCI);
   }

@@ -16,7 +16,6 @@
 #include "ARM.h"
 #include "ARMConstantPoolValue.h"
 #include "ARMFPUName.h"
-#include "ARMArchExtName.h"
 #include "ARMMachineFunctionInfo.h"
 #include "ARMTargetMachine.h"
 #include "ARMTargetObjectFile.h"
@@ -58,11 +57,6 @@ using namespace llvm;
 
 #define DEBUG_TYPE "asm-printer"
 
-ARMAsmPrinter::ARMAsmPrinter(TargetMachine &TM,
-                             std::unique_ptr<MCStreamer> Streamer)
-    : AsmPrinter(TM, std::move(Streamer)), AFI(nullptr), MCP(nullptr),
-      InConstantPool(false) {}
-
 void ARMAsmPrinter::EmitFunctionBodyEnd() {
   // Make sure to terminate any constant pools that were at the end
   // of the function.
@@ -82,7 +76,8 @@ void ARMAsmPrinter::EmitFunctionEntryLabel() {
 }
 
 void ARMAsmPrinter::EmitXXStructor(const Constant *CV) {
-  uint64_t Size = TM.getDataLayout()->getTypeAllocSize(CV->getType());
+  uint64_t Size =
+      TM.getSubtargetImpl()->getDataLayout()->getTypeAllocSize(CV->getType());
   assert(Size && "C++ constructor pointer had zero size!");
 
   const GlobalValue *GV = dyn_cast<GlobalValue>(CV->stripPointerCasts());
@@ -104,7 +99,6 @@ void ARMAsmPrinter::EmitXXStructor(const Constant *CV) {
 bool ARMAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
   AFI = MF.getInfo<ARMFunctionInfo>();
   MCP = MF.getConstantPool();
-  Subtarget = &MF.getSubtarget<ARMSubtarget>();
 
   SetupMachineFunction(MF);
 
@@ -206,7 +200,7 @@ void ARMAsmPrinter::printOperand(const MachineInstr *MI, int OpNum,
 
 MCSymbol *ARMAsmPrinter::
 GetARMJTIPICJumpTableLabel2(unsigned uid, unsigned uid2) const {
-  const DataLayout *DL = TM.getDataLayout();
+  const DataLayout *DL = TM.getSubtargetImpl()->getDataLayout();
   SmallString<60> Name;
   raw_svector_ostream(Name) << DL->getPrivateGlobalPrefix() << "JTI"
     << getFunctionNumber() << '_' << uid << '_' << uid2;
@@ -215,7 +209,7 @@ GetARMJTIPICJumpTableLabel2(unsigned uid, unsigned uid2) const {
 
 
 MCSymbol *ARMAsmPrinter::GetARMSJLJEHLabel() const {
-  const DataLayout *DL = TM.getDataLayout();
+  const DataLayout *DL = TM.getSubtargetImpl()->getDataLayout();
   SmallString<60> Name;
   raw_svector_ostream(Name) << DL->getPrivateGlobalPrefix() << "SJLJEH"
     << getFunctionNumber();
@@ -437,8 +431,7 @@ void ARMAsmPrinter::emitInlineAsmEnd(const MCSubtargetInfo &StartInfo,
 }
 
 void ARMAsmPrinter::EmitStartOfAsmFile(Module &M) {
-  Triple TT(TM.getTargetTriple());
-  if (TT.isOSBinFormatMachO()) {
+  if (Subtarget->isTargetMachO()) {
     Reloc::Model RelocM = TM.getRelocationModel();
     if (RelocM == Reloc::PIC_ || RelocM == Reloc::DynamicNoPIC) {
       // Declare all the text sections up front (before the DWARF sections
@@ -501,17 +494,10 @@ void ARMAsmPrinter::EmitStartOfAsmFile(Module &M) {
   OutStreamer.EmitAssemblerFlag(MCAF_SyntaxUnified);
 
   // Emit ARM Build Attributes
-  if (TT.isOSBinFormatELF())
+  if (Subtarget->isTargetELF())
     emitAttributes();
 
-  // Use the triple's architecture and subarchitecture to determine
-  // if we're thumb for the purposes of the top level code16 assembler
-  // flag.
-  bool isThumb = TT.getArch() == Triple::thumb ||
-                 TT.getArch() == Triple::thumbeb ||
-                 TT.getSubArch() == Triple::ARMSubArch_v7m ||
-                 TT.getSubArch() == Triple::ARMSubArch_v6m;
-  if (!M.getModuleInlineAsm().empty() && isThumb)
+  if (!M.getModuleInlineAsm().empty() && Subtarget->isThumb())
     OutStreamer.EmitAssemblerFlag(MCAF_Code16);
 }
 
@@ -540,8 +526,7 @@ emitNonLazySymbolPointer(MCStreamer &OutStreamer, MCSymbol *StubLabel,
 
 
 void ARMAsmPrinter::EmitEndOfAsmFile(Module &M) {
-  Triple TT(TM.getTargetTriple());
-  if (TT.isOSBinFormatMachO()) {
+  if (Subtarget->isTargetMachO()) {
     // All darwin targets use mach-o.
     const TargetLoweringObjectFileMachO &TLOFMacho =
       static_cast<const TargetLoweringObjectFileMachO &>(getObjFileLowering());
@@ -584,7 +569,7 @@ void ARMAsmPrinter::EmitEndOfAsmFile(Module &M) {
   }
 
   // Emit a .data.rel section containing any stubs that were created.
-  if (TT.isOSBinFormatELF()) {
+  if (Subtarget->isTargetELF()) {
     const TargetLoweringObjectFileELF &TLOFELF =
       static_cast<const TargetLoweringObjectFileELF &>(getObjFileLowering());
 
@@ -594,7 +579,7 @@ void ARMAsmPrinter::EmitEndOfAsmFile(Module &M) {
     MachineModuleInfoELF::SymbolListTy Stubs = MMIELF.GetGVStubList();
     if (!Stubs.empty()) {
       OutStreamer.SwitchSection(TLOFELF.getDataRelSection());
-      const DataLayout *TD = TM.getDataLayout();
+      const DataLayout *TD = TM.getSubtargetImpl()->getDataLayout();
 
       for (auto &stub: Stubs) {
         OutStreamer.EmitLabel(stub.first);
@@ -648,92 +633,67 @@ void ARMAsmPrinter::emitAttributes() {
 
   ATS.switchVendor("aeabi");
 
-  // Compute ARM ELF Attributes based on the default subtarget that
-  // we'd have constructed. The existing ARM behavior isn't LTO clean
-  // anyhow.
-  // FIXME: For ifunc related functions we could iterate over and look
-  // for a feature string that doesn't match the default one.
-  StringRef TT = TM.getTargetTriple();
-  StringRef CPU = TM.getTargetCPU();
-  StringRef FS = TM.getTargetFeatureString();
-  std::string ArchFS = ARM_MC::ParseARMTriple(TT, CPU);
-  if (!FS.empty()) {
-    if (!ArchFS.empty())
-      ArchFS = ArchFS + "," + FS.str();
-    else
-      ArchFS = FS;
-  }
-  const ARMBaseTargetMachine &ATM =
-      static_cast<const ARMBaseTargetMachine &>(TM);
-  const ARMSubtarget STI(TT, CPU, ArchFS, ATM, ATM.isLittleEndian());
+  std::string CPUString = Subtarget->getCPUString();
 
-  std::string CPUString = STI.getCPUString();
+  // FIXME: remove krait check when GNU tools support krait cpu
+  if (CPUString != "generic" && CPUString != "krait")
+    ATS.emitTextAttribute(ARMBuildAttrs::CPU_name, CPUString);
 
-  if (CPUString != "generic") {
-    // FIXME: remove krait check when GNU tools support krait cpu
-    if (STI.isKrait()) {
-      ATS.emitTextAttribute(ARMBuildAttrs::CPU_name, "cortex-a9");
-      // We consider krait as a "cortex-a9" + hwdiv CPU
-      // Enable hwdiv through ".arch_extension idiv"
-      if (STI.hasDivide() || STI.hasDivideInARMMode())
-        ATS.emitArchExtension(ARM::HWDIV);
-    } else
-      ATS.emitTextAttribute(ARMBuildAttrs::CPU_name, CPUString);
-  }
-
-  ATS.emitAttribute(ARMBuildAttrs::CPU_arch, getArchForCPU(CPUString, &STI));
+  ATS.emitAttribute(ARMBuildAttrs::CPU_arch,
+                    getArchForCPU(CPUString, Subtarget));
 
   // Tag_CPU_arch_profile must have the default value of 0 when "Architecture
   // profile is not applicable (e.g. pre v7, or cross-profile code)".
-  if (STI.hasV7Ops()) {
-    if (STI.isAClass()) {
+  if (Subtarget->hasV7Ops()) {
+    if (Subtarget->isAClass()) {
       ATS.emitAttribute(ARMBuildAttrs::CPU_arch_profile,
                         ARMBuildAttrs::ApplicationProfile);
-    } else if (STI.isRClass()) {
+    } else if (Subtarget->isRClass()) {
       ATS.emitAttribute(ARMBuildAttrs::CPU_arch_profile,
                         ARMBuildAttrs::RealTimeProfile);
-    } else if (STI.isMClass()) {
+    } else if (Subtarget->isMClass()) {
       ATS.emitAttribute(ARMBuildAttrs::CPU_arch_profile,
                         ARMBuildAttrs::MicroControllerProfile);
     }
   }
 
-  ATS.emitAttribute(ARMBuildAttrs::ARM_ISA_use,
-                    STI.hasARMOps() ? ARMBuildAttrs::Allowed
-                                    : ARMBuildAttrs::Not_Allowed);
-  if (STI.isThumb1Only()) {
-    ATS.emitAttribute(ARMBuildAttrs::THUMB_ISA_use, ARMBuildAttrs::Allowed);
-  } else if (STI.hasThumb2()) {
+  ATS.emitAttribute(ARMBuildAttrs::ARM_ISA_use, Subtarget->hasARMOps() ?
+                      ARMBuildAttrs::Allowed : ARMBuildAttrs::Not_Allowed);
+  if (Subtarget->isThumb1Only()) {
+    ATS.emitAttribute(ARMBuildAttrs::THUMB_ISA_use,
+                      ARMBuildAttrs::Allowed);
+  } else if (Subtarget->hasThumb2()) {
     ATS.emitAttribute(ARMBuildAttrs::THUMB_ISA_use,
                       ARMBuildAttrs::AllowThumb32);
   }
 
-  if (STI.hasNEON()) {
+  if (Subtarget->hasNEON()) {
     /* NEON is not exactly a VFP architecture, but GAS emit one of
      * neon/neon-fp-armv8/neon-vfpv4/vfpv3/vfpv2 for .fpu parameters */
-    if (STI.hasFPARMv8()) {
-      if (STI.hasCrypto())
+    if (Subtarget->hasFPARMv8()) {
+      if (Subtarget->hasCrypto())
         ATS.emitFPU(ARM::CRYPTO_NEON_FP_ARMV8);
       else
         ATS.emitFPU(ARM::NEON_FP_ARMV8);
-    } else if (STI.hasVFP4())
+    }
+    else if (Subtarget->hasVFP4())
       ATS.emitFPU(ARM::NEON_VFPV4);
     else
       ATS.emitFPU(ARM::NEON);
     // Emit Tag_Advanced_SIMD_arch for ARMv8 architecture
-    if (STI.hasV8Ops())
+    if (Subtarget->hasV8Ops())
       ATS.emitAttribute(ARMBuildAttrs::Advanced_SIMD_arch,
                         ARMBuildAttrs::AllowNeonARMv8);
   } else {
-    if (STI.hasFPARMv8())
+    if (Subtarget->hasFPARMv8())
       // FPv5 and FP-ARMv8 have the same instructions, so are modeled as one
       // FPU, but there are two different names for it depending on the CPU.
-      ATS.emitFPU(STI.hasD16() ? ARM::FPV5_D16 : ARM::FP_ARMV8);
-    else if (STI.hasVFP4())
-      ATS.emitFPU(STI.hasD16() ? ARM::VFPV4_D16 : ARM::VFPV4);
-    else if (STI.hasVFP3())
-      ATS.emitFPU(STI.hasD16() ? ARM::VFPV3_D16 : ARM::VFPV3);
-    else if (STI.hasVFP2())
+      ATS.emitFPU(Subtarget->hasD16() ? ARM::FPV5_D16 : ARM::FP_ARMV8);
+    else if (Subtarget->hasVFP4())
+      ATS.emitFPU(Subtarget->hasD16() ? ARM::VFPV4_D16 : ARM::VFPV4);
+    else if (Subtarget->hasVFP3())
+      ATS.emitFPU(Subtarget->hasD16() ? ARM::VFPV3_D16 : ARM::VFPV3);
+    else if (Subtarget->hasVFP2())
       ATS.emitFPU(ARM::VFPV2);
   }
 
@@ -755,24 +715,26 @@ void ARMAsmPrinter::emitAttributes() {
   if (!TM.Options.UnsafeFPMath) {
     ATS.emitAttribute(ARMBuildAttrs::ABI_FP_denormal,
                       ARMBuildAttrs::IEEEDenormals);
-    ATS.emitAttribute(ARMBuildAttrs::ABI_FP_exceptions, ARMBuildAttrs::Allowed);
+    ATS.emitAttribute(ARMBuildAttrs::ABI_FP_exceptions,
+                      ARMBuildAttrs::Allowed);
 
     // If the user has permitted this code to choose the IEEE 754
     // rounding at run-time, emit the rounding attribute.
     if (TM.Options.HonorSignDependentRoundingFPMathOption)
-      ATS.emitAttribute(ARMBuildAttrs::ABI_FP_rounding, ARMBuildAttrs::Allowed);
+      ATS.emitAttribute(ARMBuildAttrs::ABI_FP_rounding,
+                        ARMBuildAttrs::Allowed);
   } else {
-    if (!STI.hasVFP2()) {
+    if (!Subtarget->hasVFP2()) {
       // When the target doesn't have an FPU (by design or
       // intention), the assumptions made on the software support
       // mirror that of the equivalent hardware support *if it
       // existed*. For v7 and better we indicate that denormals are
       // flushed preserving sign, and for V6 we indicate that
       // denormals are flushed to positive zero.
-      if (STI.hasV7Ops())
+      if (Subtarget->hasV7Ops())
         ATS.emitAttribute(ARMBuildAttrs::ABI_FP_denormal,
                           ARMBuildAttrs::PreserveFPSign);
-    } else if (STI.hasVFP3()) {
+    } else if (Subtarget->hasVFP3()) {
       // In VFPv4, VFPv4U, VFPv3, or VFPv3U, it is preserved. That is,
       // the sign bit of the zero matches the sign bit of the input or
       // result that is being flushed to zero.
@@ -796,7 +758,7 @@ void ARMAsmPrinter::emitAttributes() {
     ATS.emitAttribute(ARMBuildAttrs::ABI_FP_number_model,
                       ARMBuildAttrs::AllowIEE754);
 
-  if (STI.allowsUnalignedMem())
+  if (Subtarget->allowsUnalignedMem())
     ATS.emitAttribute(ARMBuildAttrs::CPU_unaligned_access,
                       ARMBuildAttrs::Allowed);
   else
@@ -809,18 +771,18 @@ void ARMAsmPrinter::emitAttributes() {
   ATS.emitAttribute(ARMBuildAttrs::ABI_align_preserved, 1);
 
   // ABI_HardFP_use attribute to indicate single precision FP.
-  if (STI.isFPOnlySP())
+  if (Subtarget->isFPOnlySP())
     ATS.emitAttribute(ARMBuildAttrs::ABI_HardFP_use,
                       ARMBuildAttrs::HardFPSinglePrecision);
 
   // Hard float.  Use both S and D registers and conform to AAPCS-VFP.
-  if (STI.isAAPCS_ABI() && TM.Options.FloatABIType == FloatABI::Hard)
+  if (Subtarget->isAAPCS_ABI() && TM.Options.FloatABIType == FloatABI::Hard)
     ATS.emitAttribute(ARMBuildAttrs::ABI_VFP_args, ARMBuildAttrs::HardFPAAPCS);
 
   // FIXME: Should we signal R9 usage?
 
-  if (STI.hasFP16())
-    ATS.emitAttribute(ARMBuildAttrs::FP_HP_extension, ARMBuildAttrs::AllowHPFP);
+  if (Subtarget->hasFP16())
+      ATS.emitAttribute(ARMBuildAttrs::FP_HP_extension, ARMBuildAttrs::AllowHPFP);
 
   // FIXME: To support emitting this build attribute as GCC does, the
   // -mfp16-format option and associated plumbing must be
@@ -829,8 +791,8 @@ void ARMAsmPrinter::emitAttributes() {
   ATS.emitAttribute(ARMBuildAttrs::ABI_FP_16bit_format,
                     ARMBuildAttrs::FP16FormatIEEE);
 
-  if (STI.hasMPExtension())
-    ATS.emitAttribute(ARMBuildAttrs::MPextension_use, ARMBuildAttrs::AllowMP);
+  if (Subtarget->hasMPExtension())
+      ATS.emitAttribute(ARMBuildAttrs::MPextension_use, ARMBuildAttrs::AllowMP);
 
   // Hardware divide in ARM mode is part of base arch, starting from ARMv8.
   // If only Thumb hwdiv is present, it must also be in base arch (ARMv7-R/M).
@@ -838,8 +800,8 @@ void ARMAsmPrinter::emitAttributes() {
   // arch, supplying -hwdiv downgrades the effective arch, via ClearImpliedBits.
   // AllowDIVExt is only emitted if hwdiv isn't available in the base arch;
   // otherwise, the default value (AllowDIVIfExists) applies.
-  if (STI.hasDivideInARMMode() && !STI.hasV8Ops())
-    ATS.emitAttribute(ARMBuildAttrs::DIV_use, ARMBuildAttrs::AllowDIVExt);
+  if (Subtarget->hasDivideInARMMode() && !Subtarget->hasV8Ops())
+      ATS.emitAttribute(ARMBuildAttrs::DIV_use, ARMBuildAttrs::AllowDIVExt);
 
   if (MMI) {
     if (const Module *SourceModule = MMI->getModule()) {
@@ -871,20 +833,22 @@ void ARMAsmPrinter::emitAttributes() {
   // it as another callee-saved register, but not as SB or a TLS pointer; It
   // would instead be nicer to push this from the frontend as metadata, as we do
   // for the wchar and enum size tags
-  if (STI.isR9Reserved())
-    ATS.emitAttribute(ARMBuildAttrs::ABI_PCS_R9_use, ARMBuildAttrs::R9Reserved);
+  if (Subtarget->isR9Reserved())
+      ATS.emitAttribute(ARMBuildAttrs::ABI_PCS_R9_use,
+                        ARMBuildAttrs::R9Reserved);
   else
-    ATS.emitAttribute(ARMBuildAttrs::ABI_PCS_R9_use, ARMBuildAttrs::R9IsGPR);
+      ATS.emitAttribute(ARMBuildAttrs::ABI_PCS_R9_use,
+                        ARMBuildAttrs::R9IsGPR);
 
-  if (STI.hasTrustZone() && STI.hasVirtualization())
-    ATS.emitAttribute(ARMBuildAttrs::Virtualization_use,
-                      ARMBuildAttrs::AllowTZVirtualization);
-  else if (STI.hasTrustZone())
-    ATS.emitAttribute(ARMBuildAttrs::Virtualization_use,
-                      ARMBuildAttrs::AllowTZ);
-  else if (STI.hasVirtualization())
-    ATS.emitAttribute(ARMBuildAttrs::Virtualization_use,
-                      ARMBuildAttrs::AllowVirtualization);
+  if (Subtarget->hasTrustZone() && Subtarget->hasVirtualization())
+      ATS.emitAttribute(ARMBuildAttrs::Virtualization_use,
+                        ARMBuildAttrs::AllowTZVirtualization);
+  else if (Subtarget->hasTrustZone())
+      ATS.emitAttribute(ARMBuildAttrs::Virtualization_use,
+                        ARMBuildAttrs::AllowTZ);
+  else if (Subtarget->hasVirtualization())
+      ATS.emitAttribute(ARMBuildAttrs::Virtualization_use,
+                        ARMBuildAttrs::AllowVirtualization);
 
   ATS.finishAttributeSection();
 }
@@ -953,8 +917,9 @@ MCSymbol *ARMAsmPrinter::GetARMGVSymbol(const GlobalValue *GV,
 
 void ARMAsmPrinter::
 EmitMachineConstantPoolValue(MachineConstantPoolValue *MCPV) {
-  const DataLayout *DL = TM.getDataLayout();
-  int Size = TM.getDataLayout()->getTypeAllocSize(MCPV->getType());
+  const DataLayout *DL = TM.getSubtargetImpl()->getDataLayout();
+  int Size =
+      TM.getSubtargetImpl()->getDataLayout()->getTypeAllocSize(MCPV->getType());
 
   ARMConstantPoolValue *ACPV = static_cast<ARMConstantPoolValue*>(MCPV);
 
@@ -1270,7 +1235,7 @@ void ARMAsmPrinter::EmitUnwindingInstruction(const MachineInstr *MI) {
 #include "ARMGenMCPseudoLowering.inc"
 
 void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
-  const DataLayout *DL = TM.getDataLayout();
+  const DataLayout *DL = TM.getSubtargetImpl()->getDataLayout();
 
   // If we just ended a constant pool, mark it as such.
   if (InConstantPool && MI->getOpcode() != ARM::CONSTPOOL_ENTRY) {

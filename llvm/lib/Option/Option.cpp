@@ -35,6 +35,9 @@ Option::Option(const OptTable::Info *info, const OptTable *owner)
   }
 }
 
+Option::~Option() {
+}
+
 void Option::dump() const {
   llvm::errs() << "<";
   switch (getKind()) {

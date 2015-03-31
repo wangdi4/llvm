@@ -1,8 +1,5 @@
 ; RUN: opt < %s -analyze -iv-users | FileCheck %s
 
-; Provide legal integer types.
-target datalayout = "n8:16:32:64"
-
 ; The value of %r is dependent on a polynomial iteration expression.
 ;
 ; CHECK-LABEL: IV Users for loop %foo.loop

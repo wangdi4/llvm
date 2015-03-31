@@ -28,7 +28,7 @@
 
 #include "llvm/ADT/SmallSet.h"
 #include "Hexagon.h"
-#include "HexagonSubtarget.h"
+#include "HexagonTargetMachine.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -64,7 +64,9 @@ namespace {
     MachineLoopInfo            *MLI;
     MachineRegisterInfo        *MRI;
     MachineDominatorTree       *MDT;
+    const HexagonTargetMachine *TM;
     const HexagonInstrInfo     *TII;
+    const HexagonRegisterInfo  *TRI;
 #ifndef NDEBUG
     static int Counter;
 #endif
@@ -263,7 +265,9 @@ namespace {
       return Contents.ImmVal;
     }
 
-    void print(raw_ostream &OS, const TargetRegisterInfo *TRI = nullptr) const {
+    void print(raw_ostream &OS, const TargetMachine *TM = nullptr) const {
+      const TargetRegisterInfo *TRI =
+          TM ? TM->getSubtargetImpl()->getRegisterInfo() : nullptr;
       if (isReg()) { OS << PrintReg(Contents.R.Reg, TRI, Contents.R.Sub); }
       if (isImm()) { OS << Contents.ImmVal; }
     }
@@ -298,7 +302,11 @@ bool HexagonHardwareLoops::runOnMachineFunction(MachineFunction &MF) {
   MLI = &getAnalysis<MachineLoopInfo>();
   MRI = &MF.getRegInfo();
   MDT = &getAnalysis<MachineDominatorTree>();
-  TII = MF.getSubtarget<HexagonSubtarget>().getInstrInfo();
+  TM  = static_cast<const HexagonTargetMachine*>(&MF.getTarget());
+  TII = static_cast<const HexagonInstrInfo *>(
+      TM->getSubtargetImpl()->getInstrInfo());
+  TRI = static_cast<const HexagonRegisterInfo *>(
+      TM->getSubtargetImpl()->getRegisterInfo());
 
   for (MachineLoopInfo::iterator I = MLI->begin(), E = MLI->end();
        I != E; ++I) {
@@ -349,7 +357,7 @@ bool HexagonHardwareLoops::findInductionRegister(MachineLoop *L,
       unsigned PhiOpReg = Phi->getOperand(i).getReg();
       MachineInstr *DI = MRI->getVRegDef(PhiOpReg);
       unsigned UpdOpc = DI->getOpcode();
-      bool isAdd = (UpdOpc == Hexagon::A2_addi);
+      bool isAdd = (UpdOpc == Hexagon::ADD_ri);
 
       if (isAdd) {
         // If the register operand to the add is the PHI we're
@@ -774,8 +782,8 @@ CountValue *HexagonHardwareLoops::computeCount(MachineLoop *Loop,
     DistSR = End->getSubReg();
   } else {
     const MCInstrDesc &SubD = RegToReg ? TII->get(Hexagon::A2_sub) :
-                              (RegToImm ? TII->get(Hexagon::A2_subri) :
-                                          TII->get(Hexagon::A2_addi));
+                              (RegToImm ? TII->get(Hexagon::SUB_ri) :
+                                          TII->get(Hexagon::ADD_ri));
     unsigned SubR = MRI->createVirtualRegister(IntRC);
     MachineInstrBuilder SubIB =
       BuildMI(*PH, InsertPos, DL, SubD, SubR);
@@ -803,7 +811,7 @@ CountValue *HexagonHardwareLoops::computeCount(MachineLoop *Loop,
   } else {
     // Generate CountR = ADD DistR, AdjVal
     unsigned AddR = MRI->createVirtualRegister(IntRC);
-    MCInstrDesc const &AddD = TII->get(Hexagon::A2_addi);
+    const MCInstrDesc &AddD = TII->get(Hexagon::ADD_ri);
     BuildMI(*PH, InsertPos, DL, AddD, AddR)
       .addReg(DistR, 0, DistSR)
       .addImm(AdjV);
@@ -1269,7 +1277,7 @@ bool HexagonHardwareLoops::fixupInductionVariable(MachineLoop *L) {
       unsigned PhiReg = Phi->getOperand(i).getReg();
       MachineInstr *DI = MRI->getVRegDef(PhiReg);
       unsigned UpdOpc = DI->getOpcode();
-      bool isAdd = (UpdOpc == Hexagon::A2_addi);
+      bool isAdd = (UpdOpc == Hexagon::ADD_ri);
 
       if (isAdd) {
         // If the register operand to the add/sub is the PHI we are looking

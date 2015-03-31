@@ -1032,7 +1032,8 @@ bool SROA::runOnFunction(Function &F) {
   if (skipOptnoneFunction(F))
     return false;
 
-  DL = &F.getParent()->getDataLayout();
+  DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
+  DL = DLP ? &DLP->getDataLayout() : nullptr;
 
   bool Changed = performPromotion(F);
 

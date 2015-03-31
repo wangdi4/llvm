@@ -124,7 +124,7 @@ void CallingConvEmitter::EmitAction(Record *Action,
         }
         O << "\n" << IndentStr << "};\n";
         O << IndentStr << "if (unsigned Reg = State.AllocateReg(RegList"
-          << Counter << ")) {\n";
+          << Counter << ", " << RegList->getSize() << ")) {\n";
       }
       O << IndentStr << "  State.addLoc(CCValAssign::getReg(ValNo, ValVT, "
         << "Reg, LocVT, LocInfo));\n";
@@ -166,7 +166,7 @@ void CallingConvEmitter::EmitAction(Record *Action,
 
         O << IndentStr << "if (unsigned Reg = State.AllocateReg(RegList"
           << RegListNumber << ", " << "RegList" << ShadowRegListNumber
-          << ")) {\n";
+          << ", " << RegList->getSize() << ")) {\n";
       }
       O << IndentStr << "  State.addLoc(CCValAssign::getReg(ValNo, ValVT, "
         << "Reg, LocVT, LocInfo));\n";
@@ -182,14 +182,14 @@ void CallingConvEmitter::EmitAction(Record *Action,
         O << Size << ", ";
       else
         O << "\n" << IndentStr
-          << "  State.getMachineFunction().getTarget().getDataLayout()"
+          << "  State.getMachineFunction().getSubtarget().getDataLayout()"
              "->getTypeAllocSize(EVT(LocVT).getTypeForEVT(State.getContext())),"
              " ";
       if (Align)
         O << Align;
       else
         O << "\n" << IndentStr
-          << "  State.getMachineFunction().getTarget().getDataLayout()"
+          << "  State.getMachineFunction().getSubtarget().getDataLayout()"
              "->getABITypeAlignment(EVT(LocVT).getTypeForEVT(State.getContext()"
              "))";
       O << ");\n" << IndentStr
@@ -215,7 +215,8 @@ void CallingConvEmitter::EmitAction(Record *Action,
       O << IndentStr << "unsigned Offset" << ++Counter
         << " = State.AllocateStack("
         << Size << ", " << Align << ", "
-        << "ShadowRegList" << ShadowRegListNumber << ");\n";
+        << "ShadowRegList" << ShadowRegListNumber << ", "
+        << ShadowRegList->getSize() << ");\n";
       O << IndentStr << "State.addLoc(CCValAssign::getMem(ValNo, ValVT, Offset"
         << Counter << ", LocVT, LocInfo));\n";
       O << IndentStr << "return false;\n";

@@ -12,7 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "TGParser.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/CommandLine.h"
@@ -386,7 +385,8 @@ static bool isObjectStart(tgtok::TokKind K) {
 /// GetNewAnonymousName - Generate a unique anonymous name that can be used as
 /// an identifier.
 std::string TGParser::GetNewAnonymousName() {
-  return "anonymous_" + utostr(AnonCounter++);
+  unsigned Tmp = AnonCounter++; // MSVC2012 ICEs without this.
+  return "anonymous_" + utostr(Tmp);
 }
 
 /// ParseObjectName - If an object name is specified, return it.  Otherwise,

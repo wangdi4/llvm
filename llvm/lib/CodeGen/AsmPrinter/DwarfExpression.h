@@ -30,14 +30,13 @@ class DIELoc;
 /// entry.
 class DwarfExpression {
 protected:
+  const AsmPrinter &AP;
   // Various convenience accessors that extract things out of AsmPrinter.
-  const TargetRegisterInfo &TRI;
-  unsigned DwarfVersion;
+  const TargetRegisterInfo *getTRI() const;
+  unsigned getDwarfVersion() const;
 
 public:
-  DwarfExpression(const TargetRegisterInfo &TRI,
-                  unsigned DwarfVersion)
-    : TRI(TRI), DwarfVersion(DwarfVersion) {}
+  DwarfExpression(const AsmPrinter &AP) : AP(AP) {}
   virtual ~DwarfExpression() {}
 
   /// Output a dwarf operand and an optional assembler comment.
@@ -94,11 +93,11 @@ public:
   /// \return false if no DWARF register exists for MachineReg.
   bool AddMachineRegExpression(DIExpression Expr, unsigned MachineReg,
                                unsigned PieceOffsetInBits = 0);
-  /// Emit a the operations remaining the DIExpressionIterator I.
+  /// Emit a the operations in a DIExpression, starting from element I.
   /// \param PieceOffsetInBits If this is one piece out of a fragmented
   /// location, this is the offset of the piece inside the entire variable.
-  void AddExpression(DIExpression::iterator I, DIExpression::iterator E,
-                     unsigned PieceOffsetInBits = 0);
+  void AddExpression(DIExpression Expr, unsigned PieceOffsetInBits = 0,
+                     unsigned I = 0);
 };
 
 /// DwarfExpression implementation for .debug_loc entries.
@@ -106,9 +105,8 @@ class DebugLocDwarfExpression : public DwarfExpression {
   ByteStreamer &BS;
 
 public:
-  DebugLocDwarfExpression(const TargetRegisterInfo &TRI,
-                          unsigned DwarfVersion, ByteStreamer &BS)
-    : DwarfExpression(TRI, DwarfVersion), BS(BS) {}
+  DebugLocDwarfExpression(const AsmPrinter &AP, ByteStreamer &BS)
+      : DwarfExpression(AP), BS(BS) {}
 
   void EmitOp(uint8_t Op, const char *Comment = nullptr) override;
   void EmitSigned(int Value) override;
@@ -118,12 +116,13 @@ public:
 
 /// DwarfExpression implementation for singular DW_AT_location.
 class DIEDwarfExpression : public DwarfExpression {
-const AsmPrinter &AP;
   DwarfUnit &DU;
   DIELoc &DIE;
 
 public:
-  DIEDwarfExpression(const AsmPrinter &AP, DwarfUnit &DU, DIELoc &DIE);
+  DIEDwarfExpression(const AsmPrinter &AP, DwarfUnit &DU, DIELoc &DIE)
+      : DwarfExpression(AP), DU(DU), DIE(DIE) {}
+
   void EmitOp(uint8_t Op, const char *Comment = nullptr) override;
   void EmitSigned(int Value) override;
   void EmitUnsigned(unsigned Value) override;

@@ -5,7 +5,7 @@ define void @f() {
 }
 
 @ptr = constant void ()* @f, section ".CRT$XLB", align 8
-; CHECK:  .section  .CRT$XLB,"dr"
+; CHECK:  .section  .CRT$XLB,"rd"
 
 @weak_array = weak_odr unnamed_addr constant [1 x i8*] [i8* bitcast (void ()* @f to i8*)]
-; CHECK:  .section  .rdata,"dr"
+; CHECK:  .section  .rdata,"rd",discard,weak_array

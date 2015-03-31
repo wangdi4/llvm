@@ -14,8 +14,8 @@
 #ifndef LLVM_BINDINGS_GO_LLVM_DIBUILDERBINDINGS_H
 #define LLVM_BINDINGS_GO_LLVM_DIBUILDERBINDINGS_H
 
-#include "IRBindings.h"
 #include "llvm-c/Core.h"
+#include "IRBindings.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -83,11 +83,6 @@ LLVMMetadataRef LLVMDIBuilderCreateStructType(
     LLVMMetadataRef File, unsigned Line, uint64_t SizeInBits,
     uint64_t AlignInBits, unsigned Flags, LLVMMetadataRef DerivedFrom,
     LLVMMetadataRef ElementTypes);
-
-LLVMMetadataRef LLVMDIBuilderCreateReplaceableCompositeType(
-    LLVMDIBuilderRef D, unsigned Tag, const char *Name, LLVMMetadataRef Scope,
-    LLVMMetadataRef File, unsigned Line, unsigned RuntimeLang,
-    uint64_t SizeInBits, uint64_t AlignInBits, unsigned Flags);
 
 LLVMMetadataRef
 LLVMDIBuilderCreateMemberType(LLVMDIBuilderRef D, LLVMMetadataRef Scope,

@@ -30,7 +30,6 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -320,12 +319,13 @@ static void CloneAliasScopeMetadata(CallSite CS, ValueToValueMapTy &VMap) {
 
   // Now we have a complete set of all metadata in the chains used to specify
   // the noalias scopes and the lists of those scopes.
-  SmallVector<TempMDTuple, 16> DummyNodes;
+  SmallVector<MDNode *, 16> DummyNodes;
   DenseMap<const MDNode *, TrackingMDNodeRef> MDMap;
   for (SetVector<const MDNode *>::iterator I = MD.begin(), IE = MD.end();
        I != IE; ++I) {
-    DummyNodes.push_back(MDTuple::getTemporary(CalledFunc->getContext(), None));
-    MDMap[*I].reset(DummyNodes.back().get());
+    MDNode *Dummy = MDNode::getTemporary(CalledFunc->getContext(), None);
+    DummyNodes.push_back(Dummy);
+    MDMap[*I].reset(Dummy);
   }
 
   // Create new metadata nodes to replace the dummy nodes, replacing old
@@ -343,8 +343,7 @@ static void CloneAliasScopeMetadata(CallSite CS, ValueToValueMapTy &VMap) {
     }
 
     MDNode *NewM = MDNode::get(CalledFunc->getContext(), NewOps);
-    MDTuple *TempM = cast<MDTuple>(MDMap[*I]);
-    assert(TempM->isTemporary() && "Expected temporary node");
+    MDNodeFwdDecl *TempM = cast<MDNodeFwdDecl>(MDMap[*I]);
 
     TempM->replaceAllUsesWith(NewM);
   }
@@ -389,6 +388,10 @@ static void CloneAliasScopeMetadata(CallSite CS, ValueToValueMapTy &VMap) {
         NI->setMetadata(LLVMContext::MD_noalias, M);
     }
   }
+
+  // Now that everything has been replaced, delete the dummy nodes.
+  for (unsigned i = 0, ie = DummyNodes.size(); i != ie; ++i)
+    MDNode::deleteTemporary(DummyNodes[i]);
 }
 
 /// AddAliasScopeMetadata - If the inlined function has noalias arguments, then
@@ -622,9 +625,8 @@ static void AddAliasScopeMetadata(CallSite CS, ValueToValueMapTy &VMap,
 /// If the inlined function has non-byval align arguments, then
 /// add @llvm.assume-based alignment assumptions to preserve this information.
 static void AddAlignmentAssumptions(CallSite CS, InlineFunctionInfo &IFI) {
-  if (!PreserveAlignmentAssumptions)
+  if (!PreserveAlignmentAssumptions || !IFI.DL)
     return;
-  auto &DL = CS.getCaller()->getParent()->getDataLayout();
 
   // To avoid inserting redundant assumptions, we should check for assumptions
   // already in the caller. To do this, we might need a DT of the caller.
@@ -646,12 +648,13 @@ static void AddAlignmentAssumptions(CallSite CS, InlineFunctionInfo &IFI) {
       // If we can already prove the asserted alignment in the context of the
       // caller, then don't bother inserting the assumption.
       Value *Arg = CS.getArgument(I->getArgNo());
-      if (getKnownAlignment(Arg, &DL, &IFI.ACT->getAssumptionCache(*CalledFunc),
+      if (getKnownAlignment(Arg, IFI.DL,
+                            &IFI.ACT->getAssumptionCache(*CalledFunc),
                             CS.getInstruction(), &DT) >= Align)
         continue;
 
-      IRBuilder<>(CS.getInstruction())
-          .CreateAlignmentAssumption(DL, Arg, Align);
+      IRBuilder<>(CS.getInstruction()).CreateAlignmentAssumption(*IFI.DL, Arg,
+                                                                 Align);
     }
   }
 }
@@ -726,7 +729,11 @@ static void HandleByValArgumentInit(Value *Dst, Value *Src, Module *M,
   Type *AggTy = cast<PointerType>(Src->getType())->getElementType();
   IRBuilder<> Builder(InsertBlock->begin());
 
-  Value *Size = Builder.getInt64(M->getDataLayout().getTypeStoreSize(AggTy));
+  Value *Size;
+  if (IFI.DL == nullptr)
+    Size = ConstantExpr::getSizeOf(AggTy);
+  else
+    Size = Builder.getInt64(IFI.DL->getTypeStoreSize(AggTy));
 
   // Always generate a memcpy of alignment 1 here because we don't know
   // the alignment of the src pointer.  Other optimizations can infer
@@ -757,8 +764,7 @@ static Value *HandleByValArgument(Value *Arg, Instruction *TheCall,
 
     // If the pointer is already known to be sufficiently aligned, or if we can
     // round it up to a larger alignment, then we don't need a temporary.
-    auto &DL = Caller->getParent()->getDataLayout();
-    if (getOrEnforceKnownAlignment(Arg, ByValAlignment, &DL,
+    if (getOrEnforceKnownAlignment(Arg, ByValAlignment, IFI.DL,
                                    &IFI.ACT->getAssumptionCache(*Caller),
                                    TheCall) >= ByValAlignment)
       return Arg;
@@ -768,9 +774,10 @@ static Value *HandleByValArgument(Value *Arg, Instruction *TheCall,
   }
 
   // Create the alloca.  If we have DataLayout, use nice alignment.
-  unsigned Align =
-      Caller->getParent()->getDataLayout().getPrefTypeAlignment(AggTy);
-
+  unsigned Align = 1;
+  if (IFI.DL)
+    Align = IFI.DL->getPrefTypeAlignment(AggTy);
+  
   // If the byval had an alignment specified, we *must* use at least that
   // alignment, as it is required by the byval argument (and uses of the
   // pointer inside the callee).
@@ -820,42 +827,20 @@ static bool hasLifetimeMarkers(AllocaInst *AI) {
   return false;
 }
 
-/// Rebuild the entire inlined-at chain for this instruction so that the top of
-/// the chain now is inlined-at the new call site.
-static DebugLoc
-updateInlinedAtInfo(DebugLoc DL, MDLocation *InlinedAtNode,
-                    LLVMContext &Ctx,
-                    DenseMap<const MDLocation *, MDLocation *> &IANodes) {
-  SmallVector<MDLocation*, 3> InlinedAtLocations;
-  MDLocation *Last = InlinedAtNode;
-  DebugLoc CurInlinedAt = DL;
-
-  // Gather all the inlined-at nodes
-  while (MDLocation *IA =
-             cast_or_null<MDLocation>(CurInlinedAt.getInlinedAt(Ctx))) {
-    // Skip any we've already built nodes for
-    if (MDLocation *Found = IANodes[IA]) {
-      Last = Found;
-      break;
-    }
-
-    InlinedAtLocations.push_back(IA);
-    CurInlinedAt = DebugLoc::getFromDILocation(IA);
+/// updateInlinedAtInfo - Helper function used by fixupLineNumbers to
+/// recursively update InlinedAtEntry of a DebugLoc.
+static DebugLoc updateInlinedAtInfo(const DebugLoc &DL, 
+                                    const DebugLoc &InlinedAtDL,
+                                    LLVMContext &Ctx) {
+  if (MDNode *IA = DL.getInlinedAt(Ctx)) {
+    DebugLoc NewInlinedAtDL 
+      = updateInlinedAtInfo(DebugLoc::getFromDILocation(IA), InlinedAtDL, Ctx);
+    return DebugLoc::get(DL.getLine(), DL.getCol(), DL.getScope(Ctx),
+                         NewInlinedAtDL.getAsMDNode(Ctx));
   }
 
-  // Starting from the top, rebuild the nodes to point to the new inlined-at
-  // location (then rebuilding the rest of the chain behind it) and update the
-  // map of already-constructed inlined-at nodes.
-  for (auto I = InlinedAtLocations.rbegin(), E = InlinedAtLocations.rend();
-       I != E; ++I) {
-    const MDLocation *MD = *I;
-    Last = IANodes[MD] = MDLocation::getDistinct(
-        Ctx, MD->getLine(), MD->getColumn(), MD->getScope(), Last);
-  }
-
-  // And finally create the normal location for this instruction, referring to
-  // the new inlined-at chain.
-  return DebugLoc::get(DL.getLine(), DL.getCol(), DL.getScope(Ctx), Last);
+  return DebugLoc::get(DL.getLine(), DL.getCol(), DL.getScope(Ctx),
+                       InlinedAtDL.getAsMDNode(Ctx));
 }
 
 /// fixupLineNumbers - Update inlined instructions' line numbers to 
@@ -865,20 +850,6 @@ static void fixupLineNumbers(Function *Fn, Function::iterator FI,
   DebugLoc TheCallDL = TheCall->getDebugLoc();
   if (TheCallDL.isUnknown())
     return;
-
-  auto &Ctx = Fn->getContext();
-  auto *InlinedAtNode = cast<MDLocation>(TheCallDL.getAsMDNode(Ctx));
-
-  // Create a unique call site, not to be confused with any other call from the
-  // same location.
-  InlinedAtNode = MDLocation::getDistinct(
-      Ctx, InlinedAtNode->getLine(), InlinedAtNode->getColumn(),
-      InlinedAtNode->getScope(), InlinedAtNode->getInlinedAt());
-
-  // Cache the inlined-at nodes as they're built so they are reused, without
-  // this every instruction's inlined-at chain would become distinct from each
-  // other.
-  DenseMap<const MDLocation *, MDLocation *> IANodes;
 
   for (; FI != Fn->end(); ++FI) {
     for (BasicBlock::iterator BI = FI->begin(), BE = FI->end();
@@ -897,7 +868,7 @@ static void fixupLineNumbers(Function *Fn, Function::iterator FI,
 
         BI->setDebugLoc(TheCallDL);
       } else {
-        BI->setDebugLoc(updateInlinedAtInfo(DL, InlinedAtNode, BI->getContext(), IANodes));
+        BI->setDebugLoc(updateInlinedAtInfo(DL, TheCallDL, BI->getContext()));
         if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(BI)) {
           LLVMContext &Ctx = BI->getContext();
           MDNode *InlinedAt = BI->getDebugLoc().getInlinedAt(Ctx);
@@ -1004,8 +975,6 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
     // Keep a list of pair (dst, src) to emit byval initializations.
     SmallVector<std::pair<Value*, Value*>, 4> ByValInit;
 
-    auto &DL = Caller->getParent()->getDataLayout();
-
     assert(CalledFunc->arg_size() == CS.arg_size() &&
            "No varargs calls can be inlined!");
 
@@ -1040,9 +1009,9 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
     // have no dead or constant instructions leftover after inlining occurs
     // (which can happen, e.g., because an argument was constant), but we'll be
     // happy with whatever the cloner can do.
-    CloneAndPruneFunctionInto(Caller, CalledFunc, VMap,
+    CloneAndPruneFunctionInto(Caller, CalledFunc, VMap, 
                               /*ModuleLevelChanges=*/false, Returns, ".i",
-                              &InlinedFunctionInfo, &DL, TheCall);
+                              &InlinedFunctionInfo, IFI.DL, TheCall);
 
     // Remember the first block that is newly cloned over.
     FirstNewBlock = LastBlock; ++FirstNewBlock;
@@ -1063,7 +1032,7 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
     CloneAliasScopeMetadata(CS, VMap);
 
     // Add noalias metadata if necessary.
-    AddAliasScopeMetadata(CS, VMap, &DL, IFI.AA);
+    AddAliasScopeMetadata(CS, VMap, IFI.DL, IFI.AA);
 
     // FIXME: We could register any cloned assumptions instead of clearing the
     // whole function's cache.
@@ -1110,10 +1079,6 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
                                                    FirstNewBlock->getInstList(),
                                                    AI, I);
     }
-    // Move any dbg.declares describing the allocas into the entry basic block.
-    DIBuilder DIB(*Caller->getParent());
-    for (auto &AI : IFI.StaticAllocas)
-      replaceDbgDeclareForAlloca(AI, AI, DIB, /*Deref=*/false);
   }
 
   bool InlinedMustTailCalls = false;
@@ -1171,17 +1136,18 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
       ConstantInt *AllocaSize = nullptr;
       if (ConstantInt *AIArraySize =
           dyn_cast<ConstantInt>(AI->getArraySize())) {
-        auto &DL = Caller->getParent()->getDataLayout();
-        Type *AllocaType = AI->getAllocatedType();
-        uint64_t AllocaTypeSize = DL.getTypeAllocSize(AllocaType);
-        uint64_t AllocaArraySize = AIArraySize->getLimitedValue();
-        assert(AllocaArraySize > 0 && "array size of AllocaInst is zero");
-        // Check that array size doesn't saturate uint64_t and doesn't
-        // overflow when it's multiplied by type size.
-        if (AllocaArraySize != ~0ULL &&
-            UINT64_MAX / AllocaArraySize >= AllocaTypeSize) {
-          AllocaSize = ConstantInt::get(Type::getInt64Ty(AI->getContext()),
-                                        AllocaArraySize * AllocaTypeSize);
+        if (IFI.DL) {
+          Type *AllocaType = AI->getAllocatedType();
+          uint64_t AllocaTypeSize = IFI.DL->getTypeAllocSize(AllocaType);
+          uint64_t AllocaArraySize = AIArraySize->getLimitedValue();
+          assert(AllocaArraySize > 0 && "array size of AllocaInst is zero");
+          // Check that array size doesn't saturate uint64_t and doesn't
+          // overflow when it's multiplied by type size.
+          if (AllocaArraySize != ~0ULL &&
+              UINT64_MAX / AllocaArraySize >= AllocaTypeSize) {
+            AllocaSize = ConstantInt::get(Type::getInt64Ty(AI->getContext()),
+                                          AllocaArraySize * AllocaTypeSize);
+          }
         }
       }
 
@@ -1442,8 +1408,7 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
   // the entries are the same or undef).  If so, remove the PHI so it doesn't
   // block other optimizations.
   if (PHI) {
-    auto &DL = Caller->getParent()->getDataLayout();
-    if (Value *V = SimplifyInstruction(PHI, &DL, nullptr, nullptr,
+    if (Value *V = SimplifyInstruction(PHI, IFI.DL, nullptr, nullptr,
                                        &IFI.ACT->getAssumptionCache(*Caller))) {
       PHI->replaceAllUsesWith(V);
       PHI->eraseFromParent();

@@ -20,7 +20,6 @@ add_llvm_target(SystemZCodeGen
   SystemZISelDAGToDAG.cpp
   SystemZISelLowering.cpp
   SystemZInstrInfo.cpp
-  SystemZLDCleanup.cpp
   SystemZLongBranch.cpp
   SystemZMachineFunctionInfo.cpp
   SystemZMCInstLower.cpp

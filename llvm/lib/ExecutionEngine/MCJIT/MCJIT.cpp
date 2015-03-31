@@ -15,16 +15,18 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Mangler.h"
 #include "llvm/IR/Module.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/Object/Archive.h"
 #include "llvm/Object/ObjectFile.h"
+#include "llvm/PassManager.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/MutexGuard.h"
+#include "llvm/Target/TargetLowering.h"
+#include "llvm/Target/TargetSubtargetInfo.h"
 
 using namespace llvm;
 
@@ -75,7 +77,7 @@ MCJIT::MCJIT(std::unique_ptr<Module> M, std::unique_ptr<TargetMachine> tm,
   Modules.clear();
 
   OwnedModules.addModule(std::move(First));
-  setDataLayout(TM->getDataLayout());
+  setDataLayout(TM->getSubtargetImpl()->getDataLayout());
   RegisterJITEventListener(JITEventListener::createGDBRegistrationListener());
 }
 
@@ -135,9 +137,10 @@ std::unique_ptr<MemoryBuffer> MCJIT::emitObject(Module *M) {
   // MCJIT instance, since these conditions are tested by our caller,
   // generateCodeForModule.
 
-  legacy::PassManager PM;
+  PassManager PM;
 
-  M->setDataLayout(*TM->getDataLayout());
+  M->setDataLayout(TM->getSubtargetImpl()->getDataLayout());
+  PM.add(new DataLayoutPass());
 
   // The RuntimeDyld will take ownership of this shortly
   SmallVector<char, 4096> ObjBufferSV;
@@ -254,7 +257,7 @@ void MCJIT::finalizeModule(Module *M) {
 }
 
 uint64_t MCJIT::getExistingSymbolAddress(const std::string &Name) {
-  Mangler Mang(TM->getDataLayout());
+  Mangler Mang(TM->getSubtargetImpl()->getDataLayout());
   SmallString<128> FullName;
   Mang.getNameWithPrefix(FullName, Name);
   return Dyld.getSymbolLoadAddress(FullName);
@@ -354,7 +357,7 @@ uint64_t MCJIT::getFunctionAddress(const std::string &Name) {
 void *MCJIT::getPointerToFunction(Function *F) {
   MutexGuard locked(lock);
 
-  Mangler Mang(TM->getDataLayout());
+  Mangler Mang(TM->getSubtargetImpl()->getDataLayout());
   SmallString<128> Name;
   TM->getNameWithPrefix(Name, F, Mang);
 
@@ -407,8 +410,7 @@ Function *MCJIT::FindFunctionNamedInModulePtrSet(const char *FnName,
                                                  ModulePtrSet::iterator I,
                                                  ModulePtrSet::iterator E) {
   for (; I != E; ++I) {
-    Function *F = (*I)->getFunction(FnName);
-    if (F && !F->isDeclaration())
+    if (Function *F = (*I)->getFunction(FnName))
       return F;
   }
   return nullptr;

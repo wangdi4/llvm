@@ -48,7 +48,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/ExecutionEngine/MCJIT.h"
 #include "llvm/ExecutionEngine/SectionMemoryManager.h"
@@ -57,8 +56,8 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
+#include "llvm/PassManager.h"
 #include "llvm/Support/Dwarf.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetOptions.h"
@@ -1123,11 +1122,14 @@ static llvm::BasicBlock *createCatchBlock(llvm::LLVMContext &context,
 /// @param numExceptionsToCatch length of exceptionTypesToCatch array
 /// @param exceptionTypesToCatch array of type info types to "catch"
 /// @returns generated function
-static llvm::Function *createCatchWrappedInvokeFunction(
-    llvm::Module &module, llvm::IRBuilder<> &builder,
-    llvm::legacy::FunctionPassManager &fpm, llvm::Function &toInvoke,
-    std::string ourId, unsigned numExceptionsToCatch,
-    unsigned exceptionTypesToCatch[]) {
+static
+llvm::Function *createCatchWrappedInvokeFunction(llvm::Module &module,
+                                             llvm::IRBuilder<> &builder,
+                                             llvm::FunctionPassManager &fpm,
+                                             llvm::Function &toInvoke,
+                                             std::string ourId,
+                                             unsigned numExceptionsToCatch,
+                                             unsigned exceptionTypesToCatch[]) {
 
   llvm::LLVMContext &context = module.getContext();
   llvm::Function *toPrint32Int = module.getFunction("print32Int");
@@ -1387,11 +1389,13 @@ static llvm::Function *createCatchWrappedInvokeFunction(
 /// @param nativeThrowFunct function which will throw a foreign exception
 ///        if the above nativeThrowType matches generated function's arg.
 /// @returns generated function
-static llvm::Function *
-createThrowExceptionFunction(llvm::Module &module, llvm::IRBuilder<> &builder,
-                             llvm::legacy::FunctionPassManager &fpm,
-                             std::string ourId, int32_t nativeThrowType,
-                             llvm::Function &nativeThrowFunct) {
+static
+llvm::Function *createThrowExceptionFunction(llvm::Module &module,
+                                             llvm::IRBuilder<> &builder,
+                                             llvm::FunctionPassManager &fpm,
+                                             std::string ourId,
+                                             int32_t nativeThrowType,
+                                             llvm::Function &nativeThrowFunct) {
   llvm::LLVMContext &context = module.getContext();
   namedValues.clear();
   ArgTypes unwindArgTypes;
@@ -1504,10 +1508,10 @@ static void createStandardUtilityFunctions(unsigned numTypeInfos,
 /// @param nativeThrowFunctName name of external function which will throw
 ///        a foreign exception
 /// @returns outermost generated test function.
-llvm::Function *
-createUnwindExceptionTest(llvm::Module &module, llvm::IRBuilder<> &builder,
-                          llvm::legacy::FunctionPassManager &fpm,
-                          std::string nativeThrowFunctName) {
+llvm::Function *createUnwindExceptionTest(llvm::Module &module,
+                                          llvm::IRBuilder<> &builder,
+                                          llvm::FunctionPassManager &fpm,
+                                          std::string nativeThrowFunctName) {
   // Number of type infos to generate
   unsigned numTypeInfos = 6;
 
@@ -1967,12 +1971,13 @@ int main(int argc, char *argv[]) {
   llvm::ExecutionEngine *executionEngine = factory.create();
 
   {
-    llvm::legacy::FunctionPassManager fpm(module);
+    llvm::FunctionPassManager fpm(module);
 
     // Set up the optimizer pipeline.
     // Start with registering info about how the
     // target lays out data structures.
-    module->setDataLayout(*executionEngine->getDataLayout());
+    module->setDataLayout(executionEngine->getDataLayout());
+    fpm.add(new llvm::DataLayoutPass());
 
     // Optimizations turned on
 #ifdef ADD_OPT_PASSES

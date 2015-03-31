@@ -17,8 +17,9 @@
 #include "llvm/Target/TargetLoweringObjectFile.h"
 
 namespace llvm {
-DwarfFile::DwarfFile(AsmPrinter *AP, StringRef Pref, BumpPtrAllocator &DA)
-    : Asm(AP), StrPool(DA, *Asm, Pref) {}
+DwarfFile::DwarfFile(AsmPrinter *AP, DwarfDebug &DD, StringRef Pref,
+                     BumpPtrAllocator &DA)
+    : Asm(AP), DD(DD), StrPool(DA, *Asm, Pref) {}
 
 DwarfFile::~DwarfFile() {}
 
@@ -55,7 +56,7 @@ void DwarfFile::emitUnits(const MCSymbol *ASectionSym) {
 
     TheU->emitHeader(ASectionSym);
 
-    Asm->emitDwarfDIE(Die);
+    DD.emitDIE(Die);
   }
 }
 
@@ -119,13 +120,23 @@ unsigned DwarfFile::computeSizeAndOffset(DIE &Die, unsigned Offset) {
   Die.setSize(Offset - Die.getOffset());
   return Offset;
 }
-
 void DwarfFile::emitAbbrevs(const MCSection *Section) {
   // Check to see if it is worth the effort.
   if (!Abbreviations.empty()) {
     // Start the debug abbrev section.
     Asm->OutStreamer.SwitchSection(Section);
-    Asm->emitDwarfAbbrevs(Abbreviations);
+
+    // For each abbrevation.
+    for (const DIEAbbrev *Abbrev : Abbreviations) {
+      // Emit the abbrevations code (base 1 index.)
+      Asm->EmitULEB128(Abbrev->getNumber(), "Abbreviation Code");
+
+      // Emit the abbreviations data.
+      Abbrev->Emit(Asm);
+    }
+
+    // Mark end of abbreviations.
+    Asm->EmitULEB128(0, "EOM(3)");
   }
 }
 
@@ -135,7 +146,7 @@ void DwarfFile::emitStrings(const MCSection *StrSection,
   StrPool.emit(*Asm, StrSection, OffsetSection);
 }
 
-bool DwarfFile::addScopeVariable(LexicalScope *LS, DbgVariable *Var) {
+void DwarfFile::addScopeVariable(LexicalScope *LS, DbgVariable *Var) {
   SmallVectorImpl<DbgVariable *> &Vars = ScopeVariables[LS];
   DIVariable DV = Var->getVariable();
   // Variables with positive arg numbers are parameters.
@@ -157,17 +168,18 @@ bool DwarfFile::addScopeVariable(LexicalScope *LS, DbgVariable *Var) {
       // A later indexed parameter has been found, insert immediately before it.
       if (CurNum > ArgNum)
         break;
-      if (CurNum == ArgNum) {
-        (*I)->addMMIEntry(*Var);
-        return false;
-      }
+      // FIXME: There are still some cases where two inlined functions are
+      // conflated together (two calls to the same function at the same
+      // location (eg: via a macro, or without column info, etc)) and then
+      // their arguments are conflated as well.
+      assert((LS->getParent() || CurNum != ArgNum) &&
+             "Duplicate argument for top level (non-inlined) function");
       ++I;
     }
     Vars.insert(I, Var);
-    return true;
+    return;
   }
 
   Vars.push_back(Var);
-  return true;
 }
 }

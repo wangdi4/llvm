@@ -229,7 +229,7 @@ static bool isStartChunk(uint64_t Chunk) {
   if (Chunk == 0 || Chunk == UINT64_MAX)
     return false;
 
-  return isMask_64(~Chunk);
+  return (CountLeadingOnes_64(Chunk) + countTrailingZeros(Chunk)) == 64;
 }
 
 /// \brief Check whether this chunk matches the pattern '0...1...' This pattern
@@ -239,7 +239,7 @@ static bool isEndChunk(uint64_t Chunk) {
   if (Chunk == 0 || Chunk == UINT64_MAX)
     return false;
 
-  return isMask_64(Chunk);
+  return (countLeadingZeros(Chunk) + CountTrailingOnes_64(Chunk)) == 64;
 }
 
 /// \brief Clear or set all bits in the chunk at the given index.

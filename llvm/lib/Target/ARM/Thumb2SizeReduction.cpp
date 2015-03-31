@@ -1001,15 +1001,17 @@ bool Thumb2SizeReduce::ReduceMBB(MachineBasicBlock &MBB) {
 }
 
 bool Thumb2SizeReduce::runOnMachineFunction(MachineFunction &MF) {
-  STI = &static_cast<const ARMSubtarget &>(MF.getSubtarget());
-  if (STI->isThumb1Only() || STI->prefers32BitThumb())
-    return false;
-
-  TII = static_cast<const Thumb2InstrInfo *>(STI->getInstrInfo());
+  const TargetMachine &TM = MF.getTarget();
+  TII = static_cast<const Thumb2InstrInfo *>(
+      TM.getSubtargetImpl()->getInstrInfo());
+  STI = &TM.getSubtarget<ARMSubtarget>();
 
   // Optimizing / minimizing size?
-  OptimizeSize = MF.getFunction()->hasFnAttribute(Attribute::OptimizeForSize);
-  MinimizeSize = MF.getFunction()->hasFnAttribute(Attribute::MinSize);
+  AttributeSet FnAttrs = MF.getFunction()->getAttributes();
+  OptimizeSize = FnAttrs.hasAttribute(AttributeSet::FunctionIndex,
+                                      Attribute::OptimizeForSize);
+  MinimizeSize =
+      FnAttrs.hasAttribute(AttributeSet::FunctionIndex, Attribute::MinSize);
 
   BlockInfo.clear();
   BlockInfo.resize(MF.getNumBlockIDs());

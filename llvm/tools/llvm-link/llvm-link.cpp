@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Linker/Linker.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"

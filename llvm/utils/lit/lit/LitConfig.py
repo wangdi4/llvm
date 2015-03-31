@@ -76,6 +76,7 @@ class LitConfig:
             self.bashPath = lit.util.which('bash')
 
         if self.bashPath is None:
+            self.warning("Unable to find 'bash'.")
             self.bashPath = ''
 
         return self.bashPath
@@ -90,6 +91,7 @@ class LitConfig:
         # bash
         self.bashPath = lit.util.which('bash', dir)
         if self.bashPath is None:
+            self.note("Unable to find 'bash.exe'.")
             self.bashPath = ''
 
         return dir

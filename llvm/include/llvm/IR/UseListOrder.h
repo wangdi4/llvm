@@ -45,8 +45,8 @@ struct UseListOrder {
   }
 
 private:
-  UseListOrder(const UseListOrder &X) = delete;
-  UseListOrder &operator=(const UseListOrder &X) = delete;
+  UseListOrder(const UseListOrder &X) LLVM_DELETED_FUNCTION;
+  UseListOrder &operator=(const UseListOrder &X) LLVM_DELETED_FUNCTION;
 };
 
 typedef std::vector<UseListOrder> UseListOrderStack;

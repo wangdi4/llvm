@@ -103,7 +103,8 @@ unsigned ConstantMerge::getAlignment(GlobalVariable *GV) const {
 }
 
 bool ConstantMerge::runOnModule(Module &M) {
-  DL = &M.getDataLayout();
+  DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
+  DL = DLP ? &DLP->getDataLayout() : nullptr;
 
   // Find all the globals that are marked "used".  These cannot be merged.
   SmallPtrSet<const GlobalValue*, 8> UsedGlobals;

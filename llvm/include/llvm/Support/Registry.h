@@ -41,7 +41,7 @@ namespace llvm {
   /// is necessary to define an alternate traits class.
   template <typename T>
   class RegistryTraits {
-    RegistryTraits() = delete;
+    RegistryTraits() LLVM_DELETED_FUNCTION;
 
   public:
     typedef SimpleRegistryEntry<T> entry;
@@ -67,7 +67,7 @@ namespace llvm {
     class iterator;
 
   private:
-    Registry() = delete;
+    Registry() LLVM_DELETED_FUNCTION;
 
     static void Announce(const entry &E) {
       for (listener *Cur = ListenerHead; Cur; Cur = Cur->Next)

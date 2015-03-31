@@ -586,8 +586,8 @@ fdiv ST(1)
 fdivr ST(1)
 
 
-// CHECK: fxsave64 (%rax)
-// CHECK: fxrstor64 (%rax)
+// CHECK: fxsaveq (%rax)
+// CHECK: fxrstorq (%rax)
 fxsave64 opaque ptr [rax]
 fxrstor64 opaque ptr [rax]
 

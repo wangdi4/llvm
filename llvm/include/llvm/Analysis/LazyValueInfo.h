@@ -33,8 +33,8 @@ class LazyValueInfo : public FunctionPass {
   class TargetLibraryInfo *TLI;
   DominatorTree *DT;
   void *PImpl;
-  LazyValueInfo(const LazyValueInfo&) = delete;
-  void operator=(const LazyValueInfo&) = delete;
+  LazyValueInfo(const LazyValueInfo&) LLVM_DELETED_FUNCTION;
+  void operator=(const LazyValueInfo&) LLVM_DELETED_FUNCTION;
 public:
   static char ID;
   LazyValueInfo() : FunctionPass(ID), PImpl(nullptr) {

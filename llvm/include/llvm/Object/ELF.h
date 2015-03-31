@@ -100,6 +100,12 @@ public:
       return Tmp;
     }
 
+    ELFEntityIterator &operator =(const ELFEntityIterator &Other) {
+      EntitySize = Other.EntitySize;
+      Current = Other.Current;
+      return *this;
+    }
+
     difference_type operator -(const ELFEntityIterator &Other) const {
       assert(EntitySize == Other.EntitySize &&
              "Subtracting iterators of different EntitySize!");
@@ -194,6 +200,12 @@ public:
       assert(Current.getPointer() &&
              "Attempted to increment an invalid iterator!");
       Current.setPointer(Current.getPointer() + EntitySize * Dist);
+      return *this;
+    }
+
+    Elf_Sym_Iter &operator=(const Elf_Sym_Iter &Other) {
+      EntitySize = Other.EntitySize;
+      Current = Other.Current;
       return *this;
     }
 

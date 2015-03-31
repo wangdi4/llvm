@@ -19,11 +19,12 @@
 #include "llvm/Analysis/Passes.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Verifier.h"
-#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/PassManager.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetSubtargetInfo.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Vectorize.h"
@@ -117,7 +118,7 @@ void PassManagerBuilder::addExtension(ExtensionPointTy Ty, ExtensionFn Fn) {
 }
 
 void PassManagerBuilder::addExtensionsToPM(ExtensionPointTy ETy,
-                                           legacy::PassManagerBase &PM) const {
+                                           PassManagerBase &PM) const {
   for (unsigned i = 0, e = GlobalExtensions->size(); i != e; ++i)
     if ((*GlobalExtensions)[i].first == ETy)
       (*GlobalExtensions)[i].second(*this, PM);
@@ -126,8 +127,8 @@ void PassManagerBuilder::addExtensionsToPM(ExtensionPointTy ETy,
       Extensions[i].second(*this, PM);
 }
 
-void PassManagerBuilder::addInitialAliasAnalysisPasses(
-    legacy::PassManagerBase &PM) const {
+void
+PassManagerBuilder::addInitialAliasAnalysisPasses(PassManagerBase &PM) const {
   // Add TypeBasedAliasAnalysis before BasicAliasAnalysis so that
   // BasicAliasAnalysis wins if they disagree. This is intended to help
   // support "obvious" type-punning idioms.
@@ -138,8 +139,7 @@ void PassManagerBuilder::addInitialAliasAnalysisPasses(
   PM.add(createBasicAliasAnalysisPass());
 }
 
-void PassManagerBuilder::populateFunctionPassManager(
-    legacy::FunctionPassManager &FPM) {
+void PassManagerBuilder::populateFunctionPassManager(FunctionPassManager &FPM) {
   addExtensionsToPM(EP_EarlyAsPossible, FPM);
 
   // Add LibraryInfo if we have some.
@@ -159,8 +159,7 @@ void PassManagerBuilder::populateFunctionPassManager(
   FPM.add(createLowerExpectIntrinsicPass());
 }
 
-void PassManagerBuilder::populateModulePassManager(
-    legacy::PassManagerBase &MPM) {
+void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
   // If all optimizations are disabled, just run the always-inline pass and,
   // if enabled, the function merging pass.
   if (OptLevel == 0) {
@@ -252,11 +251,6 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createMemCpyOptPass());             // Remove memcpy / form memset
   MPM.add(createSCCPPass());                  // Constant prop with SCCP
 
-  // Delete dead bit computations (instcombine runs after to fold away the dead
-  // computations, and then ADCE will run later to exploit any new DCE
-  // opportunities that creates).
-  MPM.add(createBitTrackingDCEPass());        // Delete dead bit computations
-
   // Run instcombine after redundancy elimination to exploit opportunities
   // opened up by them.
   MPM.add(createInstructionCombiningPass());
@@ -264,7 +258,6 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createJumpThreadingPass());         // Thread jumps
   MPM.add(createCorrelatedValuePropagationPass());
   MPM.add(createDeadStoreEliminationPass());  // Delete dead stores
-  MPM.add(createLICMPass());
 
   addExtensionsToPM(EP_ScalarOptimizerLate, MPM);
 
@@ -383,7 +376,7 @@ void PassManagerBuilder::populateModulePassManager(
   addExtensionsToPM(EP_OptimizerLast, MPM);
 }
 
-void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
+void PassManagerBuilder::addLTOOptimizationPasses(PassManagerBase &PM) {
   // Provide AliasAnalysis services for optimizations.
   addInitialAliasAnalysisPasses(PM);
 
@@ -474,9 +467,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
   PM.add(createJumpThreadingPass());
 
-  // Lower bitset metadata to bitsets.
-  PM.add(createLowerBitSetsPass());
-
   // Delete basic blocks, which optimization passes may have killed.
   PM.add(createCFGSimplificationPass());
 
@@ -489,7 +479,13 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createMergeFunctionsPass());
 }
 
-void PassManagerBuilder::populateLTOPassManager(legacy::PassManagerBase &PM) {
+void PassManagerBuilder::populateLTOPassManager(PassManagerBase &PM,
+                                                TargetMachine *TM) {
+  if (TM) {
+    PM.add(new DataLayoutPass());
+    TM->addAnalysisPasses(PM);
+  }
+
   if (LibraryInfo)
     PM.add(new TargetLibraryInfoWrapperPass(*LibraryInfo));
 
@@ -574,7 +570,7 @@ void
 LLVMPassManagerBuilderPopulateFunctionPassManager(LLVMPassManagerBuilderRef PMB,
                                                   LLVMPassManagerRef PM) {
   PassManagerBuilder *Builder = unwrap(PMB);
-  legacy::FunctionPassManager *FPM = unwrap<legacy::FunctionPassManager>(PM);
+  FunctionPassManager *FPM = unwrap<FunctionPassManager>(PM);
   Builder->populateFunctionPassManager(*FPM);
 }
 
@@ -582,7 +578,7 @@ void
 LLVMPassManagerBuilderPopulateModulePassManager(LLVMPassManagerBuilderRef PMB,
                                                 LLVMPassManagerRef PM) {
   PassManagerBuilder *Builder = unwrap(PMB);
-  legacy::PassManagerBase *MPM = unwrap(PM);
+  PassManagerBase *MPM = unwrap(PM);
   Builder->populateModulePassManager(*MPM);
 }
 
@@ -591,7 +587,7 @@ void LLVMPassManagerBuilderPopulateLTOPassManager(LLVMPassManagerBuilderRef PMB,
                                                   LLVMBool Internalize,
                                                   LLVMBool RunInliner) {
   PassManagerBuilder *Builder = unwrap(PMB);
-  legacy::PassManagerBase *LPM = unwrap(PM);
+  PassManagerBase *LPM = unwrap(PM);
 
   // A small backwards compatibility hack. populateLTOPassManager used to take
   // an RunInliner option.

@@ -46,10 +46,6 @@ SplitAllCriticalEdges("phi-elim-split-all-critical-edges", cl::init(false),
                       cl::Hidden, cl::desc("Split all critical edges during "
                                            "PHI elimination"));
 
-static cl::opt<bool> NoPhiElimLiveOutEarlyExit(
-    "no-phi-elim-live-out-early-exit", cl::init(false), cl::Hidden,
-    cl::desc("Do not use an early exit if isLiveOutPastPHIs returns true."));
-
 namespace {
   class PHIElimination : public MachineFunctionPass {
     MachineRegisterInfo *MRI; // Machine register information
@@ -577,14 +573,12 @@ bool PHIElimination::SplitPHIEdges(MachineFunction &MF,
       // there is a risk it may not be coalesced away.
       //
       // If the copy would be a kill, there is no need to split the edge.
-      bool ShouldSplit = isLiveOutPastPHIs(Reg, PreMBB);
-      if (!ShouldSplit && !NoPhiElimLiveOutEarlyExit)
+      if (!isLiveOutPastPHIs(Reg, PreMBB) && !SplitAllCriticalEdges)
         continue;
-      if (ShouldSplit) {
-        DEBUG(dbgs() << PrintReg(Reg) << " live-out before critical edge BB#"
-                     << PreMBB->getNumber() << " -> BB#" << MBB.getNumber()
-                     << ": " << *BBI);
-      }
+
+      DEBUG(dbgs() << PrintReg(Reg) << " live-out before critical edge BB#"
+                   << PreMBB->getNumber() << " -> BB#" << MBB.getNumber()
+                   << ": " << *BBI);
 
       // If Reg is not live-in to MBB, it means it must be live-in to some
       // other PreMBB successor, and we can avoid the interference by splitting
@@ -594,7 +588,7 @@ bool PHIElimination::SplitPHIEdges(MachineFunction &MF,
       // is likely to be left after coalescing. If we are looking at a loop
       // exiting edge, split it so we won't insert code in the loop, otherwise
       // don't bother.
-      ShouldSplit = ShouldSplit && !isLiveIn(Reg, &MBB);
+      bool ShouldSplit = !isLiveIn(Reg, &MBB) || SplitAllCriticalEdges;
 
       // Check for a loop exiting edge.
       if (!ShouldSplit && CurLoop != PreLoop) {
@@ -609,7 +603,7 @@ bool PHIElimination::SplitPHIEdges(MachineFunction &MF,
         // Split unless this edge is entering CurLoop from an outer loop.
         ShouldSplit = PreLoop && !PreLoop->contains(CurLoop);
       }
-      if (!ShouldSplit && !SplitAllCriticalEdges)
+      if (!ShouldSplit)
         continue;
       if (!PreMBB->SplitCriticalEdge(&MBB, this)) {
         DEBUG(dbgs() << "Failed to split critical edge.\n");

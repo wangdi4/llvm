@@ -70,7 +70,6 @@ static bool compareDIEs(const DwarfAccelTable::HashDataContents *A,
 
 void DwarfAccelTable::FinalizeTable(AsmPrinter *Asm, StringRef Prefix) {
   // Create the individual hash data outputs.
-  Data.reserve(Entries.size());
   for (StringMap<DataArray>::iterator EI = Entries.begin(), EE = Entries.end();
        EI != EE; ++EI) {
 

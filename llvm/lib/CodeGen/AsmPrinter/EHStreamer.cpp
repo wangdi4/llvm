@@ -253,7 +253,7 @@ computeCallSiteTable(SmallVectorImpl<CallSiteEntry> &CallSites,
       // instruction between the previous try-range and this one may throw,
       // create a call-site entry with no landing pad for the region between the
       // try-ranges.
-      if (SawPotentiallyThrowing && Asm->MAI->usesCFIForEH()) {
+      if (SawPotentiallyThrowing && !IsSJLJ) {
         CallSiteEntry Site = { LastLabel, BeginLabel, nullptr, 0 };
         CallSites.push_back(Site);
         PreviousIsInvoke = false;
@@ -552,14 +552,16 @@ void EHStreamer::emitExceptionTable() {
          I = CallSites.begin(), E = CallSites.end(); I != E; ++I) {
       const CallSiteEntry &S = *I;
 
-      MCSymbol *EHFuncBeginSym = Asm->getFunctionBegin();
+      MCSymbol *EHFuncBeginSym =
+        Asm->GetTempSymbol("eh_func_begin", Asm->getFunctionNumber());
 
       MCSymbol *BeginLabel = S.BeginLabel;
       if (!BeginLabel)
         BeginLabel = EHFuncBeginSym;
       MCSymbol *EndLabel = S.EndLabel;
       if (!EndLabel)
-        EndLabel = Asm->getFunctionEnd();
+        EndLabel = Asm->GetTempSymbol("eh_func_end", Asm->getFunctionNumber());
+
 
       // Offset of the call site relative to the previous call site, counted in
       // number of 16-byte bundles. The first call site is counted relative to

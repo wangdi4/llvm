@@ -271,13 +271,15 @@ INITIALIZE_PASS_DEPENDENCY(MachineBranchProbabilityInfo)
 INITIALIZE_PASS_END(IfConverter, "if-converter", "If Converter", false, false)
 
 bool IfConverter::runOnMachineFunction(MachineFunction &MF) {
-  const TargetSubtargetInfo &ST = MF.getSubtarget();
-  TLI = ST.getTargetLowering();
-  TII = ST.getInstrInfo();
-  TRI = ST.getRegisterInfo();
+  TLI = MF.getSubtarget().getTargetLowering();
+  TII = MF.getSubtarget().getInstrInfo();
+  TRI = MF.getSubtarget().getRegisterInfo();
   MBFI = &getAnalysis<MachineBlockFrequencyInfo>();
   MBPI = &getAnalysis<MachineBranchProbabilityInfo>();
   MRI = &MF.getRegInfo();
+
+  const TargetSubtargetInfo &ST =
+    MF.getTarget().getSubtarget<TargetSubtargetInfo>();
   SchedModel.init(ST.getSchedModel(), &ST, TII);
 
   if (!TII) return false;
@@ -288,7 +290,7 @@ bool IfConverter::runOnMachineFunction(MachineFunction &MF) {
   if (!PreRegAlloc) {
     // Tail merge tend to expose more if-conversion opportunities.
     BranchFolder BF(true, false, *MBFI, *MBPI);
-    BFChange = BF.OptimizeFunction(MF, TII, ST.getRegisterInfo(),
+    BFChange = BF.OptimizeFunction(MF, TII, MF.getSubtarget().getRegisterInfo(),
                                    getAnalysisIfAvailable<MachineModuleInfo>());
   }
 
@@ -1555,7 +1557,7 @@ void IfConverter::PredicateBlock(BBInfo &BBI,
     UpdatePredRedefs(I, Redefs);
   }
 
-  BBI.Predicate.append(Cond.begin(), Cond.end());
+  std::copy(Cond.begin(), Cond.end(), std::back_inserter(BBI.Predicate));
 
   BBI.IsAnalyzed = false;
   BBI.NonPredSize = 0;
@@ -1620,8 +1622,9 @@ void IfConverter::CopyAndPredicateBlock(BBInfo &ToBBI, BBInfo &FromBBI,
     }
   }
 
-  ToBBI.Predicate.append(FromBBI.Predicate.begin(), FromBBI.Predicate.end());
-  ToBBI.Predicate.append(Cond.begin(), Cond.end());
+  std::copy(FromBBI.Predicate.begin(), FromBBI.Predicate.end(),
+            std::back_inserter(ToBBI.Predicate));
+  std::copy(Cond.begin(), Cond.end(), std::back_inserter(ToBBI.Predicate));
 
   ToBBI.ClobbersPred |= FromBBI.ClobbersPred;
   ToBBI.IsAnalyzed = false;
@@ -1660,7 +1663,8 @@ void IfConverter::MergeBlocks(BBInfo &ToBBI, BBInfo &FromBBI, bool AddEdges) {
   if (NBB && !FromBBI.BB->isSuccessor(NBB))
     FromBBI.BB->addSuccessor(NBB);
 
-  ToBBI.Predicate.append(FromBBI.Predicate.begin(), FromBBI.Predicate.end());
+  std::copy(FromBBI.Predicate.begin(), FromBBI.Predicate.end(),
+            std::back_inserter(ToBBI.Predicate));
   FromBBI.Predicate.clear();
 
   ToBBI.NonPredSize += FromBBI.NonPredSize;

@@ -29,6 +29,7 @@
 namespace llvm {
 
 class FunctionType;
+class GCStrategy;  
 class LLVMContext;
 
 // Traits for intrusive list of basic blocks...
@@ -113,8 +114,8 @@ private:
   }
   void BuildLazyArguments() const;
 
-  Function(const Function&) = delete;
-  void operator=(const Function&) = delete;
+  Function(const Function&) LLVM_DELETED_FUNCTION;
+  void operator=(const Function&) LLVM_DELETED_FUNCTION;
 
   /// Do the actual lookup of an intrinsic ID when the query could not be
   /// answered from the cache.
@@ -218,17 +219,16 @@ public:
     return AttributeSets.getAttribute(AttributeSet::FunctionIndex, Kind);
   }
 
-  /// \brief Return the stack alignment for the function.
-  unsigned getFnStackAlignment() const {
-    return AttributeSets.getStackAlignment(AttributeSet::FunctionIndex);
-  }
-
   /// hasGC/getGC/setGC/clearGC - The name of the garbage collection algorithm
   ///                             to use during code generation.
   bool hasGC() const;
   const char *getGC() const;
   void setGC(const char *Str);
   void clearGC();
+
+  /// Returns the GCStrategy associated with the specified garbage collector
+  /// algorithm or nullptr if one is not set.
+  GCStrategy *getGCStrategy() const;
 
   /// @brief adds the attribute to the list of attributes.
   void addAttribute(unsigned i, Attribute::AttrKind attr);
@@ -238,9 +238,6 @@ public:
 
   /// @brief removes the attributes from the list of attributes.
   void removeAttributes(unsigned i, AttributeSet attr);
-
-  /// @brief adds the dereferenceable attribute to the list of attributes.
-  void addDereferenceableAttr(unsigned i, uint64_t Bytes);
 
   /// @brief Extract the alignment for a call or parameter (0=unknown).
   unsigned getParamAlignment(unsigned i) const {

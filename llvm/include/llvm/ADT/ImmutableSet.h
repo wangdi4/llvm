@@ -1014,8 +1014,8 @@ public:
     }
 
   private:
-    Factory(const Factory& RHS) = delete;
-    void operator=(const Factory& RHS) = delete;
+    Factory(const Factory& RHS) LLVM_DELETED_FUNCTION;
+    void operator=(const Factory& RHS) LLVM_DELETED_FUNCTION;
   };
 
   friend class Factory;

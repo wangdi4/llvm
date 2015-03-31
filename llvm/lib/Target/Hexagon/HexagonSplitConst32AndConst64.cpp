@@ -48,9 +48,12 @@ using namespace llvm;
 namespace {
 
 class HexagonSplitConst32AndConst64 : public MachineFunctionPass {
+  const HexagonTargetMachine &QTM;
+
  public:
     static char ID;
-    HexagonSplitConst32AndConst64() : MachineFunctionPass(ID) {}
+    HexagonSplitConst32AndConst64(const HexagonTargetMachine &TM)
+        : MachineFunctionPass(ID), QTM(TM) {}
 
     const char *getPassName() const override {
       return "Hexagon Split Const32s and Const64s";
@@ -65,12 +68,13 @@ char HexagonSplitConst32AndConst64::ID = 0;
 bool HexagonSplitConst32AndConst64::runOnMachineFunction(MachineFunction &Fn) {
 
   const HexagonTargetObjectFile &TLOF =
-      *static_cast<const HexagonTargetObjectFile *>(
-          Fn.getTarget().getObjFileLowering());
+      (const HexagonTargetObjectFile &)QTM.getSubtargetImpl()
+          ->getTargetLowering()
+          ->getObjFileLowering();
   if (TLOF.IsSmallDataEnabled())
     return true;
 
-  const TargetInstrInfo *TII = Fn.getSubtarget().getInstrInfo();
+  const TargetInstrInfo *TII = QTM.getSubtargetImpl()->getInstrInfo();
 
   // Loop over all of the basic blocks
   for (MachineFunction::iterator MBBb = Fn.begin(), MBBe = Fn.end();
@@ -113,9 +117,9 @@ bool HexagonSplitConst32AndConst64::runOnMachineFunction(MachineFunction &Fn) {
         MachineOperand &Symbol = MI->getOperand (1);
 
         BuildMI (*MBB, MII, MI->getDebugLoc(),
-                 TII->get(Hexagon::LO_PIC), DestReg).addOperand(Symbol);
+                 TII->get(Hexagon::LO_label), DestReg).addOperand(Symbol);
         BuildMI (*MBB, MII, MI->getDebugLoc(),
-                 TII->get(Hexagon::HI_PIC), DestReg).addOperand(Symbol);
+                 TII->get(Hexagon::HI_label), DestReg).addOperand(Symbol);
         // MBB->erase returns the iterator to the next instruction, which is the
         // one we want to process next
         MII = MBB->erase (MI);
@@ -135,9 +139,9 @@ bool HexagonSplitConst32AndConst64::runOnMachineFunction(MachineFunction &Fn) {
       else if (Opc == Hexagon::CONST64_Int_Real) {
         int DestReg = MI->getOperand(0).getReg();
         int64_t ImmValue = MI->getOperand(1).getImm ();
-        unsigned DestLo = Fn.getSubtarget().getRegisterInfo()->getSubReg(
+        unsigned DestLo = QTM.getSubtargetImpl()->getRegisterInfo()->getSubReg(
             DestReg, Hexagon::subreg_loreg);
-        unsigned DestHi = Fn.getSubtarget().getRegisterInfo()->getSubReg(
+        unsigned DestHi = QTM.getSubtargetImpl()->getRegisterInfo()->getSubReg(
             DestReg, Hexagon::subreg_hireg);
 
         int32_t LowWord = (ImmValue & 0xFFFFFFFF);
@@ -172,6 +176,6 @@ bool HexagonSplitConst32AndConst64::runOnMachineFunction(MachineFunction &Fn) {
 //===----------------------------------------------------------------------===//
 
 FunctionPass *
-llvm::createHexagonSplitConst32AndConst64() {
-  return new HexagonSplitConst32AndConst64();
+llvm::createHexagonSplitConst32AndConst64(const HexagonTargetMachine &TM) {
+  return new HexagonSplitConst32AndConst64(TM);
 }

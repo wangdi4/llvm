@@ -47,8 +47,6 @@ using namespace llvm;
 /// runOnMachineFunction - Emit the function body.
 ///
 bool X86AsmPrinter::runOnMachineFunction(MachineFunction &MF) {
-  Subtarget = &MF.getSubtarget<X86Subtarget>();
-
   SMShadowTracker.startFunction(MF);
 
   SetupMachineFunction(MF);
@@ -507,15 +505,13 @@ bool X86AsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
 }
 
 void X86AsmPrinter::EmitStartOfAsmFile(Module &M) {
-  Triple TT(TM.getTargetTriple());
-
-  if (TT.isOSBinFormatMachO())
+  if (Subtarget->isTargetMachO())
     OutStreamer.SwitchSection(getObjFileLowering().getTextSection());
 
-  if (TT.isOSBinFormatCOFF()) {
+  if (Subtarget->isTargetCOFF()) {
     // Emit an absolute @feat.00 symbol.  This appears to be some kind of
     // compiler features bitfield read by link.exe.
-    if (TT.getArch() == Triple::x86) {
+    if (!Subtarget->is64Bit()) {
       MCSymbol *S = MMI->getContext().GetOrCreateSymbol(StringRef("@feat.00"));
       OutStreamer.BeginCOFFSymbolDef(S);
       OutStreamer.EmitCOFFSymbolStorageClass(COFF::IMAGE_SYM_CLASS_STATIC);
@@ -562,7 +558,8 @@ MCSymbol *X86AsmPrinter::GetCPISymbol(unsigned CPID) const {
     const MachineConstantPoolEntry &CPE =
         MF->getConstantPool()->getConstants()[CPID];
     if (!CPE.isMachineConstantPoolEntry()) {
-      SectionKind Kind = CPE.getSectionKind(TM.getDataLayout());
+      SectionKind Kind =
+          CPE.getSectionKind(TM.getSubtargetImpl()->getDataLayout());
       const Constant *C = CPE.Val.ConstVal;
       if (const MCSectionCOFF *S = dyn_cast<MCSectionCOFF>(
             getObjFileLowering().getSectionForConstant(Kind, C))) {
@@ -582,21 +579,20 @@ void X86AsmPrinter::GenerateExportDirective(const MCSymbol *Sym, bool IsData) {
   SmallString<128> Directive;
   raw_svector_ostream OS(Directive);
   StringRef Name = Sym->getName();
-  Triple TT(TM.getTargetTriple());
 
-  if (TT.isKnownWindowsMSVCEnvironment())
+  if (Subtarget->isTargetKnownWindowsMSVC())
     OS << " /EXPORT:";
   else
     OS << " -export:";
 
-  if ((TT.isWindowsGNUEnvironment() || TT.isWindowsCygwinEnvironment()) &&
+  if ((Subtarget->isTargetWindowsGNU() || Subtarget->isTargetWindowsCygwin()) &&
       (Name[0] == getDataLayout().getGlobalPrefix()))
     Name = Name.drop_front();
 
   OS << Name;
 
   if (IsData) {
-    if (TT.isKnownWindowsMSVCEnvironment())
+    if (Subtarget->isTargetKnownWindowsMSVC())
       OS << ",DATA";
     else
       OS << ",data";
@@ -607,9 +603,7 @@ void X86AsmPrinter::GenerateExportDirective(const MCSymbol *Sym, bool IsData) {
 }
 
 void X86AsmPrinter::EmitEndOfAsmFile(Module &M) {
-  Triple TT(TM.getTargetTriple());
-
-  if (TT.isOSBinFormatMachO()) {
+  if (Subtarget->isTargetMachO()) {
     // All darwin targets use mach-o.
     MachineModuleInfoMachO &MMIMacho =
         MMI->getObjFileInfo<MachineModuleInfoMachO>();
@@ -683,23 +677,22 @@ void X86AsmPrinter::EmitEndOfAsmFile(Module &M) {
     OutStreamer.EmitAssemblerFlag(MCAF_SubsectionsViaSymbols);
   }
 
-  if (TT.isKnownWindowsMSVCEnvironment() && MMI->usesVAFloatArgument()) {
-    StringRef SymbolName =
-        (TT.getArch() == Triple::x86_64) ? "_fltused" : "__fltused";
+  if (Subtarget->isTargetKnownWindowsMSVC() && MMI->usesVAFloatArgument()) {
+    StringRef SymbolName = Subtarget->is64Bit() ? "_fltused" : "__fltused";
     MCSymbol *S = MMI->getContext().GetOrCreateSymbol(SymbolName);
     OutStreamer.EmitSymbolAttribute(S, MCSA_Global);
   }
 
-  if (TT.isOSBinFormatCOFF()) {
+  if (Subtarget->isTargetCOFF()) {
     // Necessary for dllexport support
     std::vector<const MCSymbol*> DLLExportedFns, DLLExportedGlobals;
 
     for (const auto &Function : M)
-      if (Function.hasDLLExportStorageClass() && !Function.isDeclaration())
+      if (Function.hasDLLExportStorageClass())
         DLLExportedFns.push_back(getSymbol(&Function));
 
     for (const auto &Global : M.globals())
-      if (Global.hasDLLExportStorageClass() && !Global.isDeclaration())
+      if (Global.hasDLLExportStorageClass())
         DLLExportedGlobals.push_back(getSymbol(&Global));
 
     for (const auto &Alias : M.aliases()) {
@@ -726,7 +719,7 @@ void X86AsmPrinter::EmitEndOfAsmFile(Module &M) {
     }
   }
 
-  if (TT.isOSBinFormatELF()) {
+  if (Subtarget->isTargetELF()) {
     const TargetLoweringObjectFileELF &TLOFELF =
       static_cast<const TargetLoweringObjectFileELF &>(getObjFileLowering());
 
@@ -736,7 +729,7 @@ void X86AsmPrinter::EmitEndOfAsmFile(Module &M) {
     MachineModuleInfoELF::SymbolListTy Stubs = MMIELF.GetGVStubList();
     if (!Stubs.empty()) {
       OutStreamer.SwitchSection(TLOFELF.getDataRelSection());
-      const DataLayout *TD = TM.getDataLayout();
+      const DataLayout *TD = TM.getSubtargetImpl()->getDataLayout();
 
       for (const auto &Stub : Stubs) {
         OutStreamer.EmitLabel(Stub.first);

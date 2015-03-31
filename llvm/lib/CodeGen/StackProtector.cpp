@@ -88,9 +88,10 @@ bool StackProtector::runOnFunction(Function &Fn) {
   DominatorTreeWrapperPass *DTWP =
       getAnalysisIfAvailable<DominatorTreeWrapperPass>();
   DT = DTWP ? &DTWP->getDomTree() : nullptr;
-  TLI = TM->getSubtargetImpl(Fn)->getTargetLowering();
+  TLI = TM->getSubtargetImpl()->getTargetLowering();
 
-  Attribute Attr = Fn.getFnAttribute("stack-protector-buffer-size");
+  Attribute Attr = Fn.getAttributes().getAttribute(
+      AttributeSet::FunctionIndex, "stack-protector-buffer-size");
   if (Attr.isStringAttribute() &&
       Attr.getValueAsString().getAsInteger(10, SSPBufferSize))
       return false; // Invalid integer string
@@ -200,12 +201,15 @@ bool StackProtector::HasAddressTaken(const Instruction *AI) {
 bool StackProtector::RequiresStackProtector() {
   bool Strong = false;
   bool NeedsProtector = false;
-  if (F->hasFnAttribute(Attribute::StackProtectReq)) {
+  if (F->getAttributes().hasAttribute(AttributeSet::FunctionIndex,
+                                      Attribute::StackProtectReq)) {
     NeedsProtector = true;
     Strong = true; // Use the same heuristic as strong to determine SSPLayout
-  } else if (F->hasFnAttribute(Attribute::StackProtectStrong))
+  } else if (F->getAttributes().hasAttribute(AttributeSet::FunctionIndex,
+                                             Attribute::StackProtectStrong))
     Strong = true;
-  else if (!F->hasFnAttribute(Attribute::StackProtect))
+  else if (!F->getAttributes().hasAttribute(AttributeSet::FunctionIndex,
+                                            Attribute::StackProtect))
     return false;
 
   for (const BasicBlock &BB : *F) {

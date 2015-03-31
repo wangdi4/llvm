@@ -30,8 +30,8 @@ namespace llvm {
   /// virtual stack trace.  This gets dumped out if the program crashes.
   class PrettyStackTraceEntry {
     const PrettyStackTraceEntry *NextEntry;
-    PrettyStackTraceEntry(const PrettyStackTraceEntry &) = delete;
-    void operator=(const PrettyStackTraceEntry&) = delete;
+    PrettyStackTraceEntry(const PrettyStackTraceEntry &) LLVM_DELETED_FUNCTION;
+    void operator=(const PrettyStackTraceEntry&) LLVM_DELETED_FUNCTION;
   public:
     PrettyStackTraceEntry();
     virtual ~PrettyStackTraceEntry();

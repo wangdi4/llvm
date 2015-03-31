@@ -70,6 +70,7 @@ protected:
 
 public:
   Option(const OptTable::Info *Info, const OptTable *Owner);
+  ~Option();
 
   bool isValid() const {
     return Info != nullptr;

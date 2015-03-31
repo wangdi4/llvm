@@ -835,13 +835,6 @@ AttributeSet AttributeSet::removeAttributes(LLVMContext &C, unsigned Index,
   return get(C, AttrSet);
 }
 
-AttributeSet AttributeSet::addDereferenceableAttr(LLVMContext &C, unsigned Index,
-                                                  uint64_t Bytes) const {
-  llvm::AttrBuilder B;
-  B.addDereferenceableAttr(Bytes);
-  return addAttributes(C, Index, AttributeSet::get(C, Index, B));
-}
-
 //===----------------------------------------------------------------------===//
 // AttributeSet Accessor Methods
 //===----------------------------------------------------------------------===//

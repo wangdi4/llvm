@@ -172,7 +172,6 @@ bool SIFoldOperands::runOnMachineFunction(MachineFunction &MF) {
       if (!isSafeToFold(MI.getOpcode()))
         continue;
 
-      unsigned OpSize = TII->getOpSize(MI, 1);
       MachineOperand &OpToFold = MI.getOperand(1);
       bool FoldingImm = OpToFold.isImm();
 
@@ -181,10 +180,10 @@ bool SIFoldOperands::runOnMachineFunction(MachineFunction &MF) {
       if (!FoldingImm && !OpToFold.isReg())
         continue;
 
-      // Folding immediates with more than one use will increase program size.
+      // Folding immediates with more than one use will increase program side.
       // FIXME: This will also reduce register usage, which may be better
       // in some cases.  A better heuristic is needed.
-      if (FoldingImm && !TII->isInlineConstant(OpToFold, OpSize) &&
+      if (FoldingImm && !TII->isInlineConstant(OpToFold) &&
           !MRI.hasOneUse(MI.getOperand(0).getReg()))
         continue;
 
@@ -203,20 +202,14 @@ bool SIFoldOperands::runOnMachineFunction(MachineFunction &MF) {
         const MachineOperand &UseOp = UseMI->getOperand(Use.getOperandNo());
 
         // FIXME: Fold operands with subregs.
-        if (UseOp.isReg() && ((UseOp.getSubReg() && OpToFold.isReg()) ||
-            UseOp.isImplicit())) {
+        if (UseOp.isReg() && UseOp.getSubReg() && OpToFold.isReg()) {
           continue;
         }
 
         APInt Imm;
 
         if (FoldingImm) {
-          unsigned UseReg = UseOp.getReg();
-          const TargetRegisterClass *UseRC
-            = TargetRegisterInfo::isVirtualRegister(UseReg) ?
-            MRI.getRegClass(UseReg) :
-            TRI.getRegClass(UseReg);
-
+          const TargetRegisterClass *UseRC = MRI.getRegClass(UseOp.getReg());
           Imm = APInt(64, OpToFold.getImm());
 
           // Split 64-bit constants into 32-bits for folding.
@@ -235,13 +228,8 @@ bool SIFoldOperands::runOnMachineFunction(MachineFunction &MF) {
           // In order to fold immediates into copies, we need to change the
           // copy to a MOV.
           if (UseMI->getOpcode() == AMDGPU::COPY) {
-            unsigned DestReg = UseMI->getOperand(0).getReg();
-            const TargetRegisterClass *DestRC
-              = TargetRegisterInfo::isVirtualRegister(DestReg) ?
-              MRI.getRegClass(DestReg) :
-              TRI.getRegClass(DestReg);
-
-            unsigned MovOp = TII->getMovOpcode(DestRC);
+            unsigned MovOp = TII->getMovOpcode(
+                MRI.getRegClass(UseMI->getOperand(0).getReg()));
             if (MovOp == AMDGPU::COPY)
               continue;
 

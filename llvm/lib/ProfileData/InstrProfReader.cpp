@@ -14,7 +14,6 @@
 
 #include "llvm/ProfileData/InstrProfReader.h"
 #include "InstrProfIndexed.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ProfileData/InstrProf.h"
 #include <cassert>
 
@@ -26,7 +25,12 @@ setupMemoryBuffer(std::string Path) {
       MemoryBuffer::getFileOrSTDIN(Path);
   if (std::error_code EC = BufferOrErr.getError())
     return EC;
-  return std::move(BufferOrErr.get());
+  auto Buffer = std::move(BufferOrErr.get());
+
+  // Sanity check the file.
+  if (Buffer->getBufferSize() > std::numeric_limits<unsigned>::max())
+    return instrprof_error::too_large;
+  return std::move(Buffer);
 }
 
 static std::error_code initializeReader(InstrProfReader &Reader) {
@@ -39,16 +43,10 @@ InstrProfReader::create(std::string Path) {
   auto BufferOrError = setupMemoryBuffer(Path);
   if (std::error_code EC = BufferOrError.getError())
     return EC;
-  return InstrProfReader::create(std::move(BufferOrError.get()));
-}
 
-ErrorOr<std::unique_ptr<InstrProfReader>>
-InstrProfReader::create(std::unique_ptr<MemoryBuffer> Buffer) {
-  // Sanity check the buffer.
-  if (Buffer->getBufferSize() > std::numeric_limits<unsigned>::max())
-    return instrprof_error::too_large;
-
+  auto Buffer = std::move(BufferOrError.get());
   std::unique_ptr<InstrProfReader> Result;
+
   // Create the reader.
   if (IndexedInstrProfReader::hasFormat(*Buffer))
     Result.reset(new IndexedInstrProfReader(std::move(Buffer)));
@@ -66,32 +64,21 @@ InstrProfReader::create(std::unique_ptr<MemoryBuffer> Buffer) {
   return std::move(Result);
 }
 
-ErrorOr<std::unique_ptr<IndexedInstrProfReader>>
-IndexedInstrProfReader::create(std::string Path) {
+std::error_code IndexedInstrProfReader::create(
+    std::string Path, std::unique_ptr<IndexedInstrProfReader> &Result) {
   // Set up the buffer to read.
   auto BufferOrError = setupMemoryBuffer(Path);
   if (std::error_code EC = BufferOrError.getError())
     return EC;
-  return IndexedInstrProfReader::create(std::move(BufferOrError.get()));
-}
 
-
-ErrorOr<std::unique_ptr<IndexedInstrProfReader>>
-IndexedInstrProfReader::create(std::unique_ptr<MemoryBuffer> Buffer) {
-  // Sanity check the buffer.
-  if (Buffer->getBufferSize() > std::numeric_limits<unsigned>::max())
-    return instrprof_error::too_large;
-
+  auto Buffer = std::move(BufferOrError.get());
   // Create the reader.
   if (!IndexedInstrProfReader::hasFormat(*Buffer))
     return instrprof_error::bad_magic;
-  auto Result = llvm::make_unique<IndexedInstrProfReader>(std::move(Buffer));
+  Result.reset(new IndexedInstrProfReader(std::move(Buffer)));
 
   // Initialize the reader and return the result.
-  if (std::error_code EC = initializeReader(*Result))
-    return EC;
-
-  return std::move(Result);
+  return initializeReader(*Result);
 }
 
 void InstrProfIterator::Increment() {

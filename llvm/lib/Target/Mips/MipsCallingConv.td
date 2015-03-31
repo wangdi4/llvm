@@ -159,10 +159,6 @@ def CC_MipsN : CallingConv<[
 // N32/64 variable arguments.
 // All arguments are passed in integer registers.
 def CC_MipsN_VarArg : CallingConv<[
-  CCIfType<[i8, i16, i32, i64],
-      CCIfSubtargetNot<"isLittle()",
-          CCIfInReg<CCPromoteToUpperBitsInType<i64>>>>,
-
   // All integers are promoted to 64-bit.
   CCIfType<[i8, i16, i32], CCPromoteToType<i64>>,
 

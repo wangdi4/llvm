@@ -19,9 +19,6 @@
 //===          is guaranteed to work on *all* Win32 variants.
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_SUPPORT_WINDOWSSUPPORT_H
-#define LLVM_SUPPORT_WINDOWSSUPPORT_H
-
 // mingw-w64 tends to define it as 0x0502 in its headers.
 #undef _WIN32_WINNT
 #undef _WIN32_IE
@@ -92,7 +89,7 @@ public:
   }
 
   // True if Handle is valid.
-  explicit operator bool() const {
+  LLVM_EXPLICIT operator bool() const {
     return HandleTraits::IsValid(Handle) ? true : false;
   }
 
@@ -181,5 +178,3 @@ std::error_code UTF16ToCurCP(const wchar_t *utf16, size_t utf16_len,
 } // end namespace windows
 } // end namespace sys
 } // end namespace llvm.
-
-#endif

@@ -1484,34 +1484,6 @@ SDValue SelectionDAG::getVectorShuffle(EVT VT, SDLoc dl, SDValue N1,
   if (N1.getOpcode() == ISD::UNDEF)
     commuteShuffle(N1, N2, MaskVec);
 
-  // If shuffling a splat, try to blend the splat instead. We do this here so
-  // that even when this arises during lowering we don't have to re-handle it.
-  auto BlendSplat = [&](BuildVectorSDNode *BV, int Offset) {
-    BitVector UndefElements;
-    SDValue Splat = BV->getSplatValue(&UndefElements);
-    if (!Splat)
-      return;
-
-    for (int i = 0; i < (int)NElts; ++i) {
-      if (MaskVec[i] < Offset || MaskVec[i] >= (Offset + (int)NElts))
-        continue;
-
-      // If this input comes from undef, mark it as such.
-      if (UndefElements[MaskVec[i] - Offset]) {
-        MaskVec[i] = -1;
-        continue;
-      }
-
-      // If we can blend a non-undef lane, use that instead.
-      if (!UndefElements[i])
-        MaskVec[i] = i + Offset;
-    }
-  };
-  if (auto *N1BV = dyn_cast<BuildVectorSDNode>(N1))
-    BlendSplat(N1BV, 0);
-  if (auto *N2BV = dyn_cast<BuildVectorSDNode>(N2))
-    BlendSplat(N2BV, NElts);
-
   // Canonicalize all index into lhs, -> shuffle lhs, undef
   // Canonicalize all index into rhs, -> shuffle rhs, undef
   bool AllLHS = true, AllRHS = true;
@@ -1541,10 +1513,9 @@ SDValue SelectionDAG::getVectorShuffle(EVT VT, SDLoc dl, SDValue N1,
     return getUNDEF(VT);
 
   // If Identity shuffle return that node.
-  bool Identity = true, AllSame = true;
+  bool Identity = true;
   for (unsigned i = 0; i != NElts; ++i) {
     if (MaskVec[i] >= 0 && MaskVec[i] != (int)i) Identity = false;
-    if (MaskVec[i] != MaskVec[0]) AllSame = false;
   }
   if (Identity && NElts)
     return N1;
@@ -1566,34 +1537,17 @@ SDValue SelectionDAG::getVectorShuffle(EVT VT, SDLoc dl, SDValue N1,
       if (Splat && Splat.getOpcode() == ISD::UNDEF)
         return getUNDEF(VT);
 
-      bool SameNumElts =
-          V.getValueType().getVectorNumElements() == VT.getVectorNumElements();
-
       // We only have a splat which can skip shuffles if there is a splatted
       // value and no undef lanes rearranged by the shuffle.
       if (Splat && UndefElements.none()) {
         // Splat of <x, x, ..., x>, return <x, x, ..., x>, provided that the
         // number of elements match or the value splatted is a zero constant.
-        if (SameNumElts)
+        if (V.getValueType().getVectorNumElements() ==
+            VT.getVectorNumElements())
           return N1;
         if (auto *C = dyn_cast<ConstantSDNode>(Splat))
           if (C->isNullValue())
             return N1;
-      }
-
-      // If the shuffle itself creates a splat, build the vector directly.
-      if (AllSame && SameNumElts) {
-        const SDValue &Splatted = BV->getOperand(MaskVec[0]);
-        SmallVector<SDValue, 8> Ops(NElts, Splatted);
-
-        EVT BuildVT = BV->getValueType(0);
-        SDValue NewBV = getNode(ISD::BUILD_VECTOR, dl, BuildVT, Ops);
-
-        // We may have jumped through bitcasts, so the type of the
-        // BUILD_VECTOR may not match the type of the shuffle.
-        if (BuildVT != VT)
-          NewBV = getNode(ISD::BITCAST, dl, VT, NewBV);
-        return NewBV;
       }
     }
   }
@@ -2369,21 +2323,6 @@ void SelectionDAG::computeKnownBits(SDValue Op, APInt &KnownZero,
     KnownZero = APInt::getHighBitsSet(BitWidth, Leaders);
     break;
   }
-  case ISD::EXTRACT_ELEMENT: {
-    computeKnownBits(Op.getOperand(0), KnownZero, KnownOne, Depth+1);
-    const unsigned Index =
-      cast<ConstantSDNode>(Op.getOperand(1))->getZExtValue();
-    const unsigned BitWidth = Op.getValueType().getSizeInBits();
-
-    // Remove low part of known bits mask
-    KnownZero = KnownZero.getHiBits(KnownZero.getBitWidth() - Index * BitWidth);
-    KnownOne = KnownOne.getHiBits(KnownOne.getBitWidth() - Index * BitWidth);
-
-    // Remove high part of known bit mask
-    KnownZero = KnownZero.trunc(BitWidth);
-    KnownOne = KnownOne.trunc(BitWidth);
-    break;
-  }
   case ISD::FrameIndex:
   case ISD::TargetFrameIndex:
     if (unsigned Align = InferPtrAlignment(Op)) {
@@ -2583,21 +2522,6 @@ unsigned SelectionDAG::ComputeNumSignBits(SDValue Op, unsigned Depth) const{
     // FIXME: it's tricky to do anything useful for this, but it is an important
     // case for targets like X86.
     break;
-  case ISD::EXTRACT_ELEMENT: {
-    const int KnownSign = ComputeNumSignBits(Op.getOperand(0), Depth+1);
-    const int BitWidth = Op.getValueType().getSizeInBits();
-    const int Items =
-      Op.getOperand(0).getValueType().getSizeInBits() / BitWidth;
-
-    // Get reverse index (starting from 1), Op1 value indexes elements from
-    // little end. Sign starts at big end.
-    const int rIndex = Items - 1 -
-      cast<ConstantSDNode>(Op.getOperand(1))->getZExtValue();
-
-    // If the sign portion ends in our element the substraction gives correct
-    // result. Otherwise it gives either negative or > bitwidth result
-    return std::max(std::min(KnownSign - rIndex * BitWidth, BitWidth), 0);
-  }
   }
 
   // If we are looking at the loaded value of the SDNode.
@@ -3645,7 +3569,7 @@ SDValue SelectionDAG::getNode(unsigned Opcode, SDLoc DL, EVT VT,
       const APFloat &V3 = N3CFP->getValueAPF();
       APFloat::opStatus s =
         V1.fusedMultiplyAdd(V2, V3, APFloat::rmNearestTiesToEven);
-      if (!TLI->hasFloatingPointExceptions() || s != APFloat::opInvalidOp)
+      if (s != APFloat::opInvalidOp)
         return getConstantFP(V1, VT);
     }
     break;
@@ -3994,7 +3918,9 @@ static SDValue getMemcpyLoadsAndStores(SelectionDAG &DAG, SDLoc dl,
   bool DstAlignCanChange = false;
   MachineFunction &MF = DAG.getMachineFunction();
   MachineFrameInfo *MFI = MF.getFrameInfo();
-  bool OptSize = MF.getFunction()->hasFnAttribute(Attribute::OptimizeForSize);
+  bool OptSize =
+    MF.getFunction()->getAttributes().
+      hasAttribute(AttributeSet::FunctionIndex, Attribute::OptimizeForSize);
   FrameIndexSDNode *FI = dyn_cast<FrameIndexSDNode>(Dst);
   if (FI && !MFI->isFixedObjectIndex(FI->getIndex()))
     DstAlignCanChange = true;
@@ -4107,7 +4033,8 @@ static SDValue getMemmoveLoadsAndStores(SelectionDAG &DAG, SDLoc dl,
   bool DstAlignCanChange = false;
   MachineFunction &MF = DAG.getMachineFunction();
   MachineFrameInfo *MFI = MF.getFrameInfo();
-  bool OptSize = MF.getFunction()->hasFnAttribute(Attribute::OptimizeForSize);
+  bool OptSize = MF.getFunction()->getAttributes().
+    hasAttribute(AttributeSet::FunctionIndex, Attribute::OptimizeForSize);
   FrameIndexSDNode *FI = dyn_cast<FrameIndexSDNode>(Dst);
   if (FI && !MFI->isFixedObjectIndex(FI->getIndex()))
     DstAlignCanChange = true;
@@ -4201,7 +4128,8 @@ static SDValue getMemsetStores(SelectionDAG &DAG, SDLoc dl,
   bool DstAlignCanChange = false;
   MachineFunction &MF = DAG.getMachineFunction();
   MachineFrameInfo *MFI = MF.getFrameInfo();
-  bool OptSize = MF.getFunction()->hasFnAttribute(Attribute::OptimizeForSize);
+  bool OptSize = MF.getFunction()->getAttributes().
+    hasAttribute(AttributeSet::FunctionIndex, Attribute::OptimizeForSize);
   FrameIndexSDNode *FI = dyn_cast<FrameIndexSDNode>(Dst);
   if (FI && !MFI->isFixedObjectIndex(FI->getIndex()))
     DstAlignCanChange = true;
@@ -4291,13 +4219,11 @@ SDValue SelectionDAG::getMemcpy(SDValue Chain, SDLoc dl, SDValue Dst,
 
   // Then check to see if we should lower the memcpy with target-specific
   // code. If the target chooses to do this, this is the next best.
-  if (TSI) {
-    SDValue Result = TSI->EmitTargetCodeForMemcpy(
-        *this, dl, Chain, Dst, Src, Size, Align, isVol, AlwaysInline,
-        DstPtrInfo, SrcPtrInfo);
-    if (Result.getNode())
-      return Result;
-  }
+  SDValue Result =
+      TSI->EmitTargetCodeForMemcpy(*this, dl, Chain, Dst, Src, Size, Align,
+                                   isVol, AlwaysInline, DstPtrInfo, SrcPtrInfo);
+  if (Result.getNode())
+    return Result;
 
   // If we really need inline code and the target declined to provide it,
   // use a (potentially long) sequence of loads and stores.
@@ -4359,12 +4285,10 @@ SDValue SelectionDAG::getMemmove(SDValue Chain, SDLoc dl, SDValue Dst,
 
   // Then check to see if we should lower the memmove with target-specific
   // code. If the target chooses to do this, this is the next best.
-  if (TSI) {
-    SDValue Result = TSI->EmitTargetCodeForMemmove(
-        *this, dl, Chain, Dst, Src, Size, Align, isVol, DstPtrInfo, SrcPtrInfo);
-    if (Result.getNode())
-      return Result;
-  }
+  SDValue Result = TSI->EmitTargetCodeForMemmove(
+      *this, dl, Chain, Dst, Src, Size, Align, isVol, DstPtrInfo, SrcPtrInfo);
+  if (Result.getNode())
+    return Result;
 
   // FIXME: If the memmove is volatile, lowering it to plain libc memmove may
   // not be safe.  See memcpy above for more details.
@@ -4413,12 +4337,10 @@ SDValue SelectionDAG::getMemset(SDValue Chain, SDLoc dl, SDValue Dst,
 
   // Then check to see if we should lower the memset with target-specific
   // code. If the target chooses to do this, this is the next best.
-  if (TSI) {
-    SDValue Result = TSI->EmitTargetCodeForMemset(
-        *this, dl, Chain, Dst, Src, Size, Align, isVol, DstPtrInfo);
-    if (Result.getNode())
-      return Result;
-  }
+  SDValue Result = TSI->EmitTargetCodeForMemset(*this, dl, Chain, Dst, Src,
+                                                Size, Align, isVol, DstPtrInfo);
+  if (Result.getNode())
+    return Result;
 
   // Emit a library call.
   Type *IntPtrTy = TLI->getDataLayout()->getIntPtrType(*getContext());
@@ -4763,10 +4685,10 @@ SelectionDAG::getLoad(ISD::MemIndexedMode AM, ISD::LoadExtType ExtType,
     assert(VT.isInteger() == MemVT.isInteger() &&
            "Cannot convert from FP to Int or Int -> FP!");
     assert(VT.isVector() == MemVT.isVector() &&
-           "Cannot use an ext load to convert to or from a vector!");
+           "Cannot use trunc store to convert to or from a vector!");
     assert((!VT.isVector() ||
             VT.getVectorNumElements() == MemVT.getVectorNumElements()) &&
-           "Cannot use an ext load to change the number of vector elements!");
+           "Cannot use trunc store to change the number of vector elements!");
   }
 
   bool Indexed = AM != ISD::UNINDEXED;
@@ -5002,15 +4924,15 @@ SelectionDAG::getIndexedStore(SDValue OrigStore, SDLoc dl, SDValue Base,
 
 SDValue
 SelectionDAG::getMaskedLoad(EVT VT, SDLoc dl, SDValue Chain,
-                            SDValue Ptr, SDValue Mask, SDValue Src0, EVT MemVT,
-                            MachineMemOperand *MMO, ISD::LoadExtType ExtTy) {
+                            SDValue Ptr, SDValue Mask, SDValue Src0,
+                            MachineMemOperand *MMO) {
 
   SDVTList VTs = getVTList(VT, MVT::Other);
   SDValue Ops[] = { Chain, Ptr, Mask, Src0 };
   FoldingSetNodeID ID;
   AddNodeIDNode(ID, ISD::MLOAD, VTs, Ops);
   ID.AddInteger(VT.getRawBits());
-  ID.AddInteger(encodeMemSDNodeFlags(ExtTy, ISD::UNINDEXED,
+  ID.AddInteger(encodeMemSDNodeFlags(ISD::NON_EXTLOAD, ISD::UNINDEXED,
                                      MMO->isVolatile(),
                                      MMO->isNonTemporal(),
                                      MMO->isInvariant()));
@@ -5022,15 +4944,14 @@ SelectionDAG::getMaskedLoad(EVT VT, SDLoc dl, SDValue Chain,
   }
   SDNode *N = new (NodeAllocator) MaskedLoadSDNode(dl.getIROrder(),
                                              dl.getDebugLoc(), Ops, 4, VTs,
-                                             ExtTy, MemVT, MMO);
+                                             VT, MMO);
   CSEMap.InsertNode(N, IP);
   InsertNode(N);
   return SDValue(N, 0);
 }
 
 SDValue SelectionDAG::getMaskedStore(SDValue Chain, SDLoc dl, SDValue Val,
-                                     SDValue Ptr, SDValue Mask, EVT MemVT,
-                                     MachineMemOperand *MMO, bool isTrunc) {
+                               SDValue Ptr, SDValue Mask, MachineMemOperand *MMO) {
   assert(Chain.getValueType() == MVT::Other &&
         "Invalid chain type");
   EVT VT = Val.getValueType();
@@ -5049,7 +4970,7 @@ SDValue SelectionDAG::getMaskedStore(SDValue Chain, SDLoc dl, SDValue Val,
   }
   SDNode *N = new (NodeAllocator) MaskedStoreSDNode(dl.getIROrder(),
                                                     dl.getDebugLoc(), Ops, 4,
-                                                    VTs, isTrunc, MemVT, MMO);
+                                                    VTs, VT, MMO);
   CSEMap.InsertNode(N, IP);
   InsertNode(N);
   return SDValue(N, 0);
@@ -5418,9 +5339,17 @@ UpdateNodeOperands(SDNode *N, ArrayRef<SDValue> Ops) {
   assert(N->getNumOperands() == NumOps &&
          "Update with wrong number of operands");
 
-  // If no operands changed just return the input node.
-  if (Ops.empty() || std::equal(Ops.begin(), Ops.end(), N->op_begin()))
-    return N;
+  // Check to see if there is no change.
+  bool AnyChange = false;
+  for (unsigned i = 0; i != NumOps; ++i) {
+    if (Ops[i] != N->getOperand(i)) {
+      AnyChange = true;
+      break;
+    }
+  }
+
+  // No operands changed, just return the input node.
+  if (!AnyChange) return N;
 
   // See if the modified node already exists.
   void *InsertPos = nullptr;

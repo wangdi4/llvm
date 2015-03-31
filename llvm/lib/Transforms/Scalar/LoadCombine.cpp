@@ -23,7 +23,6 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
@@ -86,11 +85,12 @@ private:
 bool LoadCombine::doInitialization(Function &F) {
   DEBUG(dbgs() << "LoadCombine function: " << F.getName() << "\n");
   C = &F.getContext();
-  DL = &F.getParent()->getDataLayout();
-  if (!DL) {
+  DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
+  if (!DLP) {
     DEBUG(dbgs() << "  Skipping LoadCombine -- no target data!\n");
     return false;
   }
+  DL = &DLP->getDataLayout();
   return true;
 }
 

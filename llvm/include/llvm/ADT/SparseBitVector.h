@@ -124,15 +124,25 @@ public:
   size_type count() const {
     unsigned NumBits = 0;
     for (unsigned i = 0; i < BITWORDS_PER_ELEMENT; ++i)
-      NumBits += countPopulation(Bits[i]);
+      if (sizeof(BitWord) == 4)
+        NumBits += CountPopulation_32(Bits[i]);
+      else if (sizeof(BitWord) == 8)
+        NumBits += CountPopulation_64(Bits[i]);
+      else
+        llvm_unreachable("Unsupported!");
     return NumBits;
   }
 
   /// find_first - Returns the index of the first set bit.
   int find_first() const {
     for (unsigned i = 0; i < BITWORDS_PER_ELEMENT; ++i)
-      if (Bits[i] != 0)
-        return i * BITWORD_SIZE + countTrailingZeros(Bits[i]);
+      if (Bits[i] != 0) {
+        if (sizeof(BitWord) == 4)
+          return i * BITWORD_SIZE + countTrailingZeros(Bits[i]);
+        if (sizeof(BitWord) == 8)
+          return i * BITWORD_SIZE + countTrailingZeros(Bits[i]);
+        llvm_unreachable("Unsupported!");
+      }
     llvm_unreachable("Illegal empty element");
   }
 
@@ -151,13 +161,23 @@ public:
     // Mask off previous bits.
     Copy &= ~0UL << BitPos;
 
-    if (Copy != 0)
-      return WordPos * BITWORD_SIZE + countTrailingZeros(Copy);
+    if (Copy != 0) {
+      if (sizeof(BitWord) == 4)
+        return WordPos * BITWORD_SIZE + countTrailingZeros(Copy);
+      if (sizeof(BitWord) == 8)
+        return WordPos * BITWORD_SIZE + countTrailingZeros(Copy);
+      llvm_unreachable("Unsupported!");
+    }
 
     // Check subsequent words.
     for (unsigned i = WordPos+1; i < BITWORDS_PER_ELEMENT; ++i)
-      if (Bits[i] != 0)
-        return i * BITWORD_SIZE + countTrailingZeros(Bits[i]);
+      if (Bits[i] != 0) {
+        if (sizeof(BitWord) == 4)
+          return i * BITWORD_SIZE + countTrailingZeros(Bits[i]);
+        if (sizeof(BitWord) == 8)
+          return i * BITWORD_SIZE + countTrailingZeros(Bits[i]);
+        llvm_unreachable("Unsupported!");
+      }
     return -1;
   }
 

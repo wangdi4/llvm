@@ -96,7 +96,7 @@ namespace {
     }
 
     bool runOnModule(Module &M) override {
-      InitializeAliasAnalysis(this, &M.getDataLayout());
+      InitializeAliasAnalysis(this);
 
       // Find non-addr taken globals.
       AnalyzeGlobals(M);

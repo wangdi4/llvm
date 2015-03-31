@@ -495,7 +495,7 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &Fn) {
 
       unsigned Align = MFI->getObjectAlignment(i);
       // Adjust to alignment boundary
-      Offset = RoundUpToAlignment(Offset, Align);
+      Offset = (Offset+Align-1)/Align*Align;
 
       MFI->setObjectOffset(i, -Offset);        // Set the computed offset
     }
@@ -504,7 +504,7 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &Fn) {
     for (int i = MaxCSFI; i >= MinCSFI ; --i) {
       unsigned Align = MFI->getObjectAlignment(i);
       // Adjust to alignment boundary
-      Offset = RoundUpToAlignment(Offset, Align);
+      Offset = (Offset+Align-1)/Align*Align;
 
       MFI->setObjectOffset(i, Offset);
       Offset += MFI->getObjectSize(i);
@@ -537,7 +537,7 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &Fn) {
     unsigned Align = MFI->getLocalFrameMaxAlign();
 
     // Adjust to alignment boundary.
-    Offset = RoundUpToAlignment(Offset, Align);
+    Offset = (Offset + Align - 1) / Align * Align;
 
     DEBUG(dbgs() << "Local frame base offset: " << Offset << "\n");
 
@@ -656,7 +656,8 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &Fn) {
     // If the frame pointer is eliminated, all frame offsets will be relative to
     // SP not FP. Align to MaxAlign so this works.
     StackAlign = std::max(StackAlign, MaxAlign);
-    Offset = RoundUpToAlignment(Offset, StackAlign);
+    unsigned AlignMask = StackAlign - 1;
+    Offset = (Offset + AlignMask) & ~uint64_t(AlignMask);
   }
 
   // Update frame info to pretend that this is part of the stack...
@@ -702,8 +703,7 @@ void PEI::insertPrologEpilogCode(MachineFunction &Fn) {
 /// register references and actual offsets.
 ///
 void PEI::replaceFrameIndices(MachineFunction &Fn) {
-  const TargetFrameLowering &TFI = *Fn.getSubtarget().getFrameLowering();
-  if (!TFI.needsFrameIndexResolution(Fn)) return;
+  if (!Fn.getFrameInfo()->hasStackObjects()) return; // Nothing to do?
 
   // Store SPAdj at exit of a basic block.
   SmallVector<int, 8> SPState;
@@ -769,6 +769,13 @@ void PEI::replaceFrameIndices(MachineBasicBlock *BB, MachineFunction &Fn,
       continue;
     }
 
+    // If we are looking at a call sequence, we need to keep track of
+    // the SP adjustment made by each instruction in the sequence.
+    // This includes both the frame setup/destroy pseudos (handled above),
+    // as well as other instructions that have side effects w.r.t the SP.
+    if (InsideCallSequence)
+      SPAdj += TII.getSPAdjust(I);
+
     MachineInstr *MI = I;
     bool DoIncr = true;
     for (unsigned i = 0, e = MI->getNumOperands(); i != e; ++i) {
@@ -810,6 +817,17 @@ void PEI::replaceFrameIndices(MachineBasicBlock *BB, MachineFunction &Fn,
         continue;
       }
 
+      // Frame allocations are target independent. Simply swap the index with
+      // the offset.
+      if (MI->getOpcode() == TargetOpcode::FRAME_ALLOC) {
+        assert(TFI->hasFP(Fn) && "frame alloc requires FP");
+        MachineOperand &FI = MI->getOperand(i);
+        unsigned Reg;
+        int FrameOffset = TFI->getFrameIndexReference(Fn, FI.getIndex(), Reg);
+        FI.ChangeToImmediate(FrameOffset);
+        continue;
+      }
+
       // Some instructions (e.g. inline asm instructions) can have
       // multiple frame indices and/or cause eliminateFrameIndex
       // to insert more than one instruction. We need the register
@@ -835,16 +853,6 @@ void PEI::replaceFrameIndices(MachineBasicBlock *BB, MachineFunction &Fn,
       MI = nullptr;
       break;
     }
-
-    // If we are looking at a call sequence, we need to keep track of
-    // the SP adjustment made by each instruction in the sequence.
-    // This includes both the frame setup/destroy pseudos (handled above),
-    // as well as other instructions that have side effects w.r.t the SP.
-    // Note that this must come after eliminateFrameIndex, because 
-    // if I itself referred to a frame index, we shouldn't count its own
-    // adjustment.
-    if (MI && InsideCallSequence)
-      SPAdj += TII.getSPAdjust(MI);
 
     if (DoIncr && I != BB->end()) ++I;
 

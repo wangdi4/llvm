@@ -71,10 +71,12 @@ void TargetLoweringObjectFileELF::emitPersonalityValue(MCStreamer &Streamer,
   const MCSection *Sec = getContext().getELFSection(NameData,
                                                     ELF::SHT_PROGBITS,
                                                     Flags,
+                                                    SectionKind::getDataRel(),
                                                     0, Label->getName());
-  unsigned Size = TM.getDataLayout()->getPointerSize();
+  unsigned Size = TM.getSubtargetImpl()->getDataLayout()->getPointerSize();
   Streamer.SwitchSection(Sec);
-  Streamer.EmitValueToAlignment(TM.getDataLayout()->getPointerABIAlignment());
+  Streamer.EmitValueToAlignment(
+      TM.getSubtargetImpl()->getDataLayout()->getPointerABIAlignment());
   Streamer.EmitSymbolAttribute(Label, MCSA_ELF_TypeObject);
   const MCExpr *E = MCConstantExpr::Create(Size, getContext());
   Streamer.EmitELFSize(Label, E);
@@ -164,7 +166,9 @@ static unsigned getELFSectionType(StringRef Name, SectionKind K) {
   return ELF::SHT_PROGBITS;
 }
 
-static unsigned getELFSectionFlags(SectionKind K) {
+
+static unsigned
+getELFSectionFlags(SectionKind K) {
   unsigned Flags = 0;
 
   if (!K.isMetadata())
@@ -179,7 +183,9 @@ static unsigned getELFSectionFlags(SectionKind K) {
   if (K.isThreadLocal())
     Flags |= ELF::SHF_TLS;
 
-  if (K.isMergeableCString() || K.isMergeableConst())
+  // K.isMergeableConst() is left out to honour PR4650
+  if (K.isMergeableCString() || K.isMergeableConst4() ||
+      K.isMergeableConst8() || K.isMergeableConst16())
     Flags |= ELF::SHF_MERGE;
 
   if (K.isMergeableCString())
@@ -216,129 +222,120 @@ const MCSection *TargetLoweringObjectFileELF::getExplicitSectionGlobal(
   }
   return getContext().getELFSection(SectionName,
                                     getELFSectionType(SectionName, Kind), Flags,
-                                    /*EntrySize=*/0, Group);
+                                    Kind, /*EntrySize=*/0, Group);
 }
 
-/// Return the section prefix name used by options FunctionsSections and
-/// DataSections.
+/// getSectionPrefixForGlobal - Return the section prefix name used by options
+/// FunctionsSections and DataSections.
 static StringRef getSectionPrefixForGlobal(SectionKind Kind) {
-  if (Kind.isText())
-    return ".text";
-  if (Kind.isReadOnly())
-    return ".rodata";
-  if (Kind.isBSS())
-    return ".bss";
-  if (Kind.isThreadData())
-    return ".tdata";
-  if (Kind.isThreadBSS())
-    return ".tbss";
-  if (Kind.isDataNoRel())
-    return ".data";
-  if (Kind.isDataRelLocal())
-    return ".data.rel.local";
-  if (Kind.isDataRel())
-    return ".data.rel";
-  if (Kind.isReadOnlyWithRelLocal())
-    return ".data.rel.ro.local";
+  if (Kind.isText())                 return ".text.";
+  if (Kind.isReadOnly())             return ".rodata.";
+  if (Kind.isBSS())                  return ".bss.";
+
+  if (Kind.isThreadData())           return ".tdata.";
+  if (Kind.isThreadBSS())            return ".tbss.";
+
+  if (Kind.isDataNoRel())            return ".data.";
+  if (Kind.isDataRelLocal())         return ".data.rel.local.";
+  if (Kind.isDataRel())              return ".data.rel.";
+  if (Kind.isReadOnlyWithRelLocal()) return ".data.rel.ro.local.";
+
   assert(Kind.isReadOnlyWithRel() && "Unknown section kind");
-  return ".data.rel.ro";
+  return ".data.rel.ro.";
 }
 
-static const MCSectionELF *selectELFSectionForGlobal(
-    MCContext &Ctx, const GlobalValue *GV, SectionKind Kind, Mangler &Mang,
-    const TargetMachine &TM, bool EmitUniqueSection, unsigned Flags) {
-  unsigned EntrySize = 0;
-  if (Kind.isMergeableCString()) {
-    if (Kind.isMergeable2ByteCString()) {
-      EntrySize = 2;
-    } else if (Kind.isMergeable4ByteCString()) {
-      EntrySize = 4;
-    } else {
-      EntrySize = 1;
-      assert(Kind.isMergeable1ByteCString() && "unknown string width");
+const MCSection *TargetLoweringObjectFileELF::
+SelectSectionForGlobal(const GlobalValue *GV, SectionKind Kind,
+                       Mangler &Mang, const TargetMachine &TM) const {
+  // If we have -ffunction-section or -fdata-section then we should emit the
+  // global value to a uniqued section specifically for it.
+  bool EmitUniquedSection;
+  if (Kind.isText())
+    EmitUniquedSection = TM.getFunctionSections();
+  else
+    EmitUniquedSection = TM.getDataSections();
+
+  // If this global is linkonce/weak and the target handles this by emitting it
+  // into a 'uniqued' section name, create and return the section now.
+  if ((GV->isWeakForLinker() || EmitUniquedSection || GV->hasComdat()) &&
+      !Kind.isCommon()) {
+    StringRef Prefix = getSectionPrefixForGlobal(Kind);
+
+    SmallString<128> Name(Prefix);
+    TM.getNameWithPrefix(Name, GV, Mang, true);
+
+    StringRef Group = "";
+    unsigned Flags = getELFSectionFlags(Kind);
+    if (GV->isWeakForLinker() || GV->hasComdat()) {
+      if (const Comdat *C = getELFComdat(GV))
+        Group = C->getName();
+      else
+        Group = Name.substr(Prefix.size());
+      Flags |= ELF::SHF_GROUP;
     }
-  } else if (Kind.isMergeableConst()) {
-    if (Kind.isMergeableConst4()) {
-      EntrySize = 4;
-    } else if (Kind.isMergeableConst8()) {
-      EntrySize = 8;
-    } else {
-      assert(Kind.isMergeableConst16() && "unknown data width");
-      EntrySize = 16;
-    }
+
+    return getContext().getELFSection(Name.str(),
+                                      getELFSectionType(Name.str(), Kind),
+                                      Flags, Kind, 0, Group);
   }
 
-  StringRef Group = "";
-  if (const Comdat *C = getELFComdat(GV)) {
-    Flags |= ELF::SHF_GROUP;
-    Group = C->getName();
-  }
+  if (Kind.isText()) return TextSection;
 
-  bool UniqueSectionNames = TM.getUniqueSectionNames();
-  SmallString<128> Name;
-  if (Kind.isMergeableCString()) {
+  if (Kind.isMergeable1ByteCString() ||
+      Kind.isMergeable2ByteCString() ||
+      Kind.isMergeable4ByteCString()) {
+
     // We also need alignment here.
     // FIXME: this is getting the alignment of the character, not the
     // alignment of the global!
     unsigned Align =
-        TM.getDataLayout()->getPreferredAlignment(cast<GlobalVariable>(GV));
+        TM.getSubtargetImpl()->getDataLayout()->getPreferredAlignment(
+            cast<GlobalVariable>(GV));
 
-    std::string SizeSpec = ".rodata.str" + utostr(EntrySize) + ".";
-    Name = SizeSpec + utostr(Align);
-  } else if (Kind.isMergeableConst()) {
-    Name = ".rodata.cst";
-    Name += utostr(EntrySize);
-  } else {
-    Name = getSectionPrefixForGlobal(Kind);
-  }
-
-  if (EmitUniqueSection && UniqueSectionNames) {
-    Name.push_back('.');
-    TM.getNameWithPrefix(Name, GV, Mang, true);
-  }
-  return Ctx.getELFSection(Name, getELFSectionType(Name, Kind), Flags,
-                           EntrySize, Group,
-                           EmitUniqueSection && !UniqueSectionNames);
-}
-
-const MCSection *TargetLoweringObjectFileELF::SelectSectionForGlobal(
-    const GlobalValue *GV, SectionKind Kind, Mangler &Mang,
-    const TargetMachine &TM) const {
-  unsigned Flags = getELFSectionFlags(Kind);
-
-  // If we have -ffunction-section or -fdata-section then we should emit the
-  // global value to a uniqued section specifically for it.
-  bool EmitUniqueSection = false;
-  if (!(Flags & ELF::SHF_MERGE) && !Kind.isCommon()) {
-    if (Kind.isText())
-      EmitUniqueSection = TM.getFunctionSections();
+    const char *SizeSpec = ".rodata.str1.";
+    if (Kind.isMergeable2ByteCString())
+      SizeSpec = ".rodata.str2.";
+    else if (Kind.isMergeable4ByteCString())
+      SizeSpec = ".rodata.str4.";
     else
-      EmitUniqueSection = TM.getDataSections();
+      assert(Kind.isMergeable1ByteCString() && "unknown string width");
+
+
+    std::string Name = SizeSpec + utostr(Align);
+    return getContext().getELFSection(Name, ELF::SHT_PROGBITS,
+                                      ELF::SHF_ALLOC |
+                                      ELF::SHF_MERGE |
+                                      ELF::SHF_STRINGS,
+                                      Kind);
   }
-  EmitUniqueSection |= GV->hasComdat();
 
-  return selectELFSectionForGlobal(getContext(), GV, Kind, Mang, TM,
-                                   EmitUniqueSection, Flags);
-}
+  if (Kind.isMergeableConst()) {
+    if (Kind.isMergeableConst4() && MergeableConst4Section)
+      return MergeableConst4Section;
+    if (Kind.isMergeableConst8() && MergeableConst8Section)
+      return MergeableConst8Section;
+    if (Kind.isMergeableConst16() && MergeableConst16Section)
+      return MergeableConst16Section;
+    return ReadOnlySection;  // .const
+  }
 
-const MCSection *TargetLoweringObjectFileELF::getSectionForJumpTable(
-    const Function &F, Mangler &Mang, const TargetMachine &TM) const {
-  // If the function can be removed, produce a unique section so that
-  // the table doesn't prevent the removal.
-  const Comdat *C = F.getComdat();
-  bool EmitUniqueSection = TM.getFunctionSections() || C;
-  if (!EmitUniqueSection)
-    return ReadOnlySection;
+  if (Kind.isReadOnly())             return ReadOnlySection;
 
-  return selectELFSectionForGlobal(getContext(), &F, SectionKind::getReadOnly(),
-                                   Mang, TM, EmitUniqueSection, ELF::SHF_ALLOC);
-}
+  if (Kind.isThreadData())           return TLSDataSection;
+  if (Kind.isThreadBSS())            return TLSBSSSection;
 
-bool TargetLoweringObjectFileELF::shouldPutJumpTableInFunctionSection(
-    bool UsesLabelDifference, const Function &F) const {
-  // We can always create relative relocations, so use another section
-  // that can be marked non-executable.
-  return false;
+  // Note: we claim that common symbols are put in BSSSection, but they are
+  // really emitted with the magic .comm directive, which creates a symbol table
+  // entry but not a section.
+  if (Kind.isBSS() || Kind.isCommon()) return BSSSection;
+
+  if (Kind.isDataNoRel())            return DataSection;
+  if (Kind.isDataRelLocal())         return DataRelLocalSection;
+  if (Kind.isDataRel())              return DataRelSection;
+  if (Kind.isReadOnlyWithRelLocal()) return DataRelROLocalSection;
+
+  assert(Kind.isReadOnlyWithRel() && "Unknown section kind");
+  return DataRelROSection;
 }
 
 /// getSectionForConstant - Given a mergeable constant with the
@@ -369,6 +366,7 @@ static const MCSectionELF *getStaticStructorSection(MCContext &Ctx,
   std::string Name;
   unsigned Type;
   unsigned Flags = ELF::SHF_ALLOC | ELF::SHF_WRITE;
+  SectionKind Kind = SectionKind::getDataRel();
   StringRef COMDAT = KeySym ? KeySym->getName() : "";
 
   if (KeySym)
@@ -400,7 +398,7 @@ static const MCSectionELF *getStaticStructorSection(MCContext &Ctx,
     Type = ELF::SHT_PROGBITS;
   }
 
-  return Ctx.getELFSection(Name, Type, Flags, 0, COMDAT);
+  return Ctx.getELFSection(Name, Type, Flags, Kind, 0, COMDAT);
 }
 
 const MCSection *TargetLoweringObjectFileELF::getStaticCtorSection(
@@ -421,10 +419,16 @@ TargetLoweringObjectFileELF::InitializeELF(bool UseInitArray_) {
   if (!UseInitArray)
     return;
 
-  StaticCtorSection = getContext().getELFSection(
-      ".init_array", ELF::SHT_INIT_ARRAY, ELF::SHF_WRITE | ELF::SHF_ALLOC);
-  StaticDtorSection = getContext().getELFSection(
-      ".fini_array", ELF::SHT_FINI_ARRAY, ELF::SHF_WRITE | ELF::SHF_ALLOC);
+  StaticCtorSection =
+    getContext().getELFSection(".init_array", ELF::SHT_INIT_ARRAY,
+                               ELF::SHF_WRITE |
+                               ELF::SHF_ALLOC,
+                               SectionKind::getDataRel());
+  StaticDtorSection =
+    getContext().getELFSection(".fini_array", ELF::SHT_FINI_ARRAY,
+                               ELF::SHF_WRITE |
+                               ELF::SHF_ALLOC,
+                               SectionKind::getDataRel());
 }
 
 //===----------------------------------------------------------------------===//
@@ -591,14 +595,16 @@ SelectSectionForGlobal(const GlobalValue *GV, SectionKind Kind,
 
   // FIXME: Alignment check should be handled by section classifier.
   if (Kind.isMergeable1ByteCString() &&
-      TM.getDataLayout()->getPreferredAlignment(cast<GlobalVariable>(GV)) < 32)
+      TM.getSubtargetImpl()->getDataLayout()->getPreferredAlignment(
+          cast<GlobalVariable>(GV)) < 32)
     return CStringSection;
 
   // Do not put 16-bit arrays in the UString section if they have an
   // externally visible label, this runs into issues with certain linker
   // versions.
   if (Kind.isMergeable2ByteCString() && !GV->hasExternalLinkage() &&
-      TM.getDataLayout()->getPreferredAlignment(cast<GlobalVariable>(GV)) < 32)
+      TM.getSubtargetImpl()->getDataLayout()->getPreferredAlignment(
+          cast<GlobalVariable>(GV)) < 32)
     return UStringSection;
 
   // With MachO only variables whose corresponding symbol starts with 'l' or
@@ -795,7 +801,7 @@ const MCSection *TargetLoweringObjectFileCOFF::getExplicitSectionGlobal(
   unsigned Characteristics = getCOFFSectionFlags(Kind);
   StringRef Name = GV->getSection();
   StringRef COMDATSymName = "";
-  if (GV->hasComdat()) {
+  if ((GV->isWeakForLinker() || GV->hasComdat()) && !Kind.isCommon()) {
     Selection = getSelectionForCOFF(GV);
     const GlobalValue *ComdatGV;
     if (Selection == COFF::IMAGE_COMDAT_SELECT_ASSOCIATIVE)
@@ -842,7 +848,12 @@ SelectSectionForGlobal(const GlobalValue *GV, SectionKind Kind,
   else
     EmitUniquedSection = TM.getDataSections();
 
-  if ((EmitUniquedSection && !Kind.isCommon()) || GV->hasComdat()) {
+  // If this global is linkonce/weak and the target handles this by emitting it
+  // into a 'uniqued' section name, create and return the section now.
+  // Section names depend on the name of the symbol which is not feasible if the
+  // symbol has private linkage.
+  if ((GV->isWeakForLinker() || EmitUniquedSection || GV->hasComdat()) &&
+      !Kind.isCommon()) {
     const char *Name = getCOFFSectionNameForUniqueGlobal(Kind);
     unsigned Characteristics = getCOFFSectionFlags(Kind);
 
@@ -918,10 +929,21 @@ emitModuleFlags(MCStreamer &Streamer,
     MDNode *MDOptions = cast<MDNode>(LinkerOptions->getOperand(i));
     for (unsigned ii = 0, ie = MDOptions->getNumOperands(); ii != ie; ++ii) {
       MDString *MDOption = cast<MDString>(MDOptions->getOperand(ii));
+      StringRef Op = MDOption->getString();
       // Lead with a space for consistency with our dllexport implementation.
-      std::string Directive(" ");
-      Directive.append(MDOption->getString());
-      Streamer.EmitBytes(Directive);
+      std::string Escaped(" ");
+      if (!Op.startswith("\"") && (Op.find(" ") != StringRef::npos)) {
+        // The PE-COFF spec says args with spaces must be quoted.  It doesn't say
+        // how to escape quotes, but it probably uses this algorithm:
+        // http://msdn.microsoft.com/en-us/library/17w5ykft(v=vs.85).aspx
+        // FIXME: Reuse escaping code from Support/Windows/Program.inc
+        Escaped.push_back('\"');
+        Escaped.append(Op);
+        Escaped.push_back('\"');
+      } else {
+        Escaped.append(Op);
+      }
+      Streamer.EmitBytes(Escaped);
     }
   }
 }

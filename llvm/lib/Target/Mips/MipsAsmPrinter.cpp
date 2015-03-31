@@ -19,7 +19,6 @@
 #include "MipsAsmPrinter.h"
 #include "MipsInstrInfo.h"
 #include "MipsMCInstLower.h"
-#include "MipsTargetMachine.h"
 #include "MipsTargetStreamer.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h"
@@ -59,7 +58,7 @@ MipsTargetStreamer &MipsAsmPrinter::getTargetStreamer() const {
 }
 
 bool MipsAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
-  Subtarget = &MF.getSubtarget<MipsSubtarget>();
+  Subtarget = &TM.getSubtarget<MipsSubtarget>();
 
   // Initialize TargetLoweringObjectFile.
   const_cast<TargetLoweringObjectFile &>(getObjFileLowering())
@@ -320,7 +319,7 @@ void MipsAsmPrinter::emitFrameDirective() {
 
 /// Emit Set directives.
 const char *MipsAsmPrinter::getCurrentABIString() const {
-  switch (static_cast<MipsTargetMachine &>(TM).getABI().GetEnumValue()) {
+  switch (Subtarget->getABI().GetEnumValue()) {
   case MipsABIInfo::ABI::O32:  return "abi32";
   case MipsABIInfo::ABI::N32:  return "abiN32";
   case MipsABIInfo::ABI::N64:  return "abi64";
@@ -358,7 +357,10 @@ void MipsAsmPrinter::EmitFunctionBodyStart() {
 
   MCInstLowering.Initialize(&MF->getContext());
 
-  bool IsNakedFunction = MF->getFunction()->hasFnAttribute(Attribute::Naked);
+  bool IsNakedFunction =
+    MF->getFunction()->
+      getAttributes().hasAttribute(AttributeSet::FunctionIndex,
+                                   Attribute::Naked);
   if (!IsNakedFunction)
     emitFrameDirective();
 
@@ -558,7 +560,7 @@ bool MipsAsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
 
 void MipsAsmPrinter::printOperand(const MachineInstr *MI, int opNum,
                                   raw_ostream &O) {
-  const DataLayout *DL = TM.getDataLayout();
+  const DataLayout *DL = TM.getSubtargetImpl()->getDataLayout();
   const MachineOperand &MO = MI->getOperand(opNum);
   bool closeP = false;
 
@@ -687,21 +689,7 @@ printRegisterList(const MachineInstr *MI, int opNum, raw_ostream &O) {
 }
 
 void MipsAsmPrinter::EmitStartOfAsmFile(Module &M) {
-
-  // Compute MIPS architecture attributes based on the default subtarget
-  // that we'd have constructed. Module level directives aren't LTO
-  // clean anyhow.
-  // FIXME: For ifunc related functions we could iterate over and look
-  // for a feature string that doesn't match the default one.
-  StringRef TT = TM.getTargetTriple();
-  StringRef CPU =
-      MIPS_MC::selectMipsCPU(TM.getTargetTriple(), TM.getTargetCPU());
-  StringRef FS = TM.getTargetFeatureString();
-  const MipsTargetMachine &MTM = static_cast<const MipsTargetMachine &>(TM);
-  const MipsSubtarget STI(TT, CPU, FS, MTM.isLittleEndian(), MTM);
-
-  bool IsABICalls = STI.isABICalls();
-  const MipsABIInfo &ABI = MTM.getABI();
+  bool IsABICalls = Subtarget->isABICalls();
   if (IsABICalls) {
     getTargetStreamer().emitDirectiveAbiCalls();
     Reloc::Model RM = TM.getRelocationModel();
@@ -709,49 +697,54 @@ void MipsAsmPrinter::EmitStartOfAsmFile(Module &M) {
     //        Ideally it should test for properties of the ABI and not the ABI
     //        itself.
     //        For the moment, I'm only correcting enough to make MIPS-IV work.
-    if (RM == Reloc::Static && !ABI.IsN64())
+    if (RM == Reloc::Static && !Subtarget->isABI_N64())
       getTargetStreamer().emitDirectiveOptionPic0();
   }
 
   // Tell the assembler which ABI we are using
   std::string SectionName = std::string(".mdebug.") + getCurrentABIString();
-  OutStreamer.SwitchSection(
-      OutContext.getELFSection(SectionName, ELF::SHT_PROGBITS, 0));
+  OutStreamer.SwitchSection(OutContext.getELFSection(
+      SectionName, ELF::SHT_PROGBITS, 0, SectionKind::getDataRel()));
 
   // NaN: At the moment we only support:
   // 1. .nan legacy (default)
   // 2. .nan 2008
-  STI.isNaN2008() ? getTargetStreamer().emitDirectiveNaN2008()
-                  : getTargetStreamer().emitDirectiveNaNLegacy();
+  Subtarget->isNaN2008() ? getTargetStreamer().emitDirectiveNaN2008()
+    : getTargetStreamer().emitDirectiveNaNLegacy();
 
   // TODO: handle O64 ABI
 
-  if (ABI.IsEABI()) {
-    if (STI.isGP32bit())
-      OutStreamer.SwitchSection(OutContext.getELFSection(".gcc_compiled_long32",
-                                                         ELF::SHT_PROGBITS, 0));
+  if (Subtarget->isABI_EABI()) {
+    if (Subtarget->isGP32bit())
+      OutStreamer.SwitchSection(
+          OutContext.getELFSection(".gcc_compiled_long32", ELF::SHT_PROGBITS, 0,
+                                   SectionKind::getDataRel()));
     else
-      OutStreamer.SwitchSection(OutContext.getELFSection(".gcc_compiled_long64",
-                                                         ELF::SHT_PROGBITS, 0));
+      OutStreamer.SwitchSection(
+          OutContext.getELFSection(".gcc_compiled_long64", ELF::SHT_PROGBITS, 0,
+                                   SectionKind::getDataRel()));
   }
 
-  getTargetStreamer().updateABIInfo(STI);
+  getTargetStreamer().updateABIInfo(*Subtarget);
 
   // We should always emit a '.module fp=...' but binutils 2.24 does not accept
   // it. We therefore emit it when it contradicts the ABI defaults (-mfpxx or
   // -mfp64) and omit it otherwise.
-  if (ABI.IsO32() && (STI.isABI_FPXX() || STI.isFP64bit()))
+  if (Subtarget->isABI_O32() && (Subtarget->isABI_FPXX() ||
+                                 Subtarget->isFP64bit()))
     getTargetStreamer().emitDirectiveModuleFP();
 
   // We should always emit a '.module [no]oddspreg' but binutils 2.24 does not
   // accept it. We therefore emit it when it contradicts the default or an
   // option has changed the default (i.e. FPXX) and omit it otherwise.
-  if (ABI.IsO32() && (!STI.useOddSPReg() || STI.isABI_FPXX()))
-    getTargetStreamer().emitDirectiveModuleOddSPReg(STI.useOddSPReg(),
-                                                    ABI.IsO32());
+  if (Subtarget->isABI_O32() && (!Subtarget->useOddSPReg() ||
+                                 Subtarget->isABI_FPXX()))
+    getTargetStreamer().emitDirectiveModuleOddSPReg(Subtarget->useOddSPReg(),
+                                                    Subtarget->isABI_O32());
 }
 
-void MipsAsmPrinter::emitInlineAsmStart() const {
+void MipsAsmPrinter::emitInlineAsmStart(
+    const MCSubtargetInfo &StartInfo) const {
   MipsTargetStreamer &TS = getTargetStreamer();
 
   // GCC's choice of assembler options for inline assembly code ('at', 'macro'
@@ -773,24 +766,22 @@ void MipsAsmPrinter::emitInlineAsmEnd(const MCSubtargetInfo &StartInfo,
   getTargetStreamer().emitDirectiveSetPop();
 }
 
-void MipsAsmPrinter::EmitJal(const MCSubtargetInfo &STI, MCSymbol *Symbol) {
+void MipsAsmPrinter::EmitJal(MCSymbol *Symbol) {
   MCInst I;
   I.setOpcode(Mips::JAL);
   I.addOperand(
       MCOperand::CreateExpr(MCSymbolRefExpr::Create(Symbol, OutContext)));
-  OutStreamer.EmitInstruction(I, STI);
+  OutStreamer.EmitInstruction(I, getSubtargetInfo());
 }
 
-void MipsAsmPrinter::EmitInstrReg(const MCSubtargetInfo &STI, unsigned Opcode,
-                                  unsigned Reg) {
+void MipsAsmPrinter::EmitInstrReg(unsigned Opcode, unsigned Reg) {
   MCInst I;
   I.setOpcode(Opcode);
   I.addOperand(MCOperand::CreateReg(Reg));
-  OutStreamer.EmitInstruction(I, STI);
+  OutStreamer.EmitInstruction(I, getSubtargetInfo());
 }
 
-void MipsAsmPrinter::EmitInstrRegReg(const MCSubtargetInfo &STI,
-                                     unsigned Opcode, unsigned Reg1,
+void MipsAsmPrinter::EmitInstrRegReg(unsigned Opcode, unsigned Reg1,
                                      unsigned Reg2) {
   MCInst I;
   //
@@ -806,22 +797,20 @@ void MipsAsmPrinter::EmitInstrRegReg(const MCSubtargetInfo &STI,
   I.setOpcode(Opcode);
   I.addOperand(MCOperand::CreateReg(Reg1));
   I.addOperand(MCOperand::CreateReg(Reg2));
-  OutStreamer.EmitInstruction(I, STI);
+  OutStreamer.EmitInstruction(I, getSubtargetInfo());
 }
 
-void MipsAsmPrinter::EmitInstrRegRegReg(const MCSubtargetInfo &STI,
-                                        unsigned Opcode, unsigned Reg1,
+void MipsAsmPrinter::EmitInstrRegRegReg(unsigned Opcode, unsigned Reg1,
                                         unsigned Reg2, unsigned Reg3) {
   MCInst I;
   I.setOpcode(Opcode);
   I.addOperand(MCOperand::CreateReg(Reg1));
   I.addOperand(MCOperand::CreateReg(Reg2));
   I.addOperand(MCOperand::CreateReg(Reg3));
-  OutStreamer.EmitInstruction(I, STI);
+  OutStreamer.EmitInstruction(I, getSubtargetInfo());
 }
 
-void MipsAsmPrinter::EmitMovFPIntPair(const MCSubtargetInfo &STI,
-                                      unsigned MovOpc, unsigned Reg1,
+void MipsAsmPrinter::EmitMovFPIntPair(unsigned MovOpc, unsigned Reg1,
                                       unsigned Reg2, unsigned FPReg1,
                                       unsigned FPReg2, bool LE) {
   if (!LE) {
@@ -829,60 +818,59 @@ void MipsAsmPrinter::EmitMovFPIntPair(const MCSubtargetInfo &STI,
     Reg1 = Reg2;
     Reg2 = temp;
   }
-  EmitInstrRegReg(STI, MovOpc, Reg1, FPReg1);
-  EmitInstrRegReg(STI, MovOpc, Reg2, FPReg2);
+  EmitInstrRegReg(MovOpc, Reg1, FPReg1);
+  EmitInstrRegReg(MovOpc, Reg2, FPReg2);
 }
 
-void MipsAsmPrinter::EmitSwapFPIntParams(const MCSubtargetInfo &STI,
-                                         Mips16HardFloatInfo::FPParamVariant PV,
+void MipsAsmPrinter::EmitSwapFPIntParams(Mips16HardFloatInfo::FPParamVariant PV,
                                          bool LE, bool ToFP) {
   using namespace Mips16HardFloatInfo;
   unsigned MovOpc = ToFP ? Mips::MTC1 : Mips::MFC1;
   switch (PV) {
   case FSig:
-    EmitInstrRegReg(STI, MovOpc, Mips::A0, Mips::F12);
+    EmitInstrRegReg(MovOpc, Mips::A0, Mips::F12);
     break;
   case FFSig:
-    EmitMovFPIntPair(STI, MovOpc, Mips::A0, Mips::A1, Mips::F12, Mips::F14, LE);
+    EmitMovFPIntPair(MovOpc, Mips::A0, Mips::A1, Mips::F12, Mips::F14, LE);
     break;
   case FDSig:
-    EmitInstrRegReg(STI, MovOpc, Mips::A0, Mips::F12);
-    EmitMovFPIntPair(STI, MovOpc, Mips::A2, Mips::A3, Mips::F14, Mips::F15, LE);
+    EmitInstrRegReg(MovOpc, Mips::A0, Mips::F12);
+    EmitMovFPIntPair(MovOpc, Mips::A2, Mips::A3, Mips::F14, Mips::F15, LE);
     break;
   case DSig:
-    EmitMovFPIntPair(STI, MovOpc, Mips::A0, Mips::A1, Mips::F12, Mips::F13, LE);
+    EmitMovFPIntPair(MovOpc, Mips::A0, Mips::A1, Mips::F12, Mips::F13, LE);
     break;
   case DDSig:
-    EmitMovFPIntPair(STI, MovOpc, Mips::A0, Mips::A1, Mips::F12, Mips::F13, LE);
-    EmitMovFPIntPair(STI, MovOpc, Mips::A2, Mips::A3, Mips::F14, Mips::F15, LE);
+    EmitMovFPIntPair(MovOpc, Mips::A0, Mips::A1, Mips::F12, Mips::F13, LE);
+    EmitMovFPIntPair(MovOpc, Mips::A2, Mips::A3, Mips::F14, Mips::F15, LE);
     break;
   case DFSig:
-    EmitMovFPIntPair(STI, MovOpc, Mips::A0, Mips::A1, Mips::F12, Mips::F13, LE);
-    EmitInstrRegReg(STI, MovOpc, Mips::A2, Mips::F14);
+    EmitMovFPIntPair(MovOpc, Mips::A0, Mips::A1, Mips::F12, Mips::F13, LE);
+    EmitInstrRegReg(MovOpc, Mips::A2, Mips::F14);
     break;
   case NoSig:
     return;
   }
 }
 
-void MipsAsmPrinter::EmitSwapFPIntRetval(
-    const MCSubtargetInfo &STI, Mips16HardFloatInfo::FPReturnVariant RV,
-    bool LE) {
+void
+MipsAsmPrinter::EmitSwapFPIntRetval(Mips16HardFloatInfo::FPReturnVariant RV,
+                                    bool LE) {
   using namespace Mips16HardFloatInfo;
   unsigned MovOpc = Mips::MFC1;
   switch (RV) {
   case FRet:
-    EmitInstrRegReg(STI, MovOpc, Mips::V0, Mips::F0);
+    EmitInstrRegReg(MovOpc, Mips::V0, Mips::F0);
     break;
   case DRet:
-    EmitMovFPIntPair(STI, MovOpc, Mips::V0, Mips::V1, Mips::F0, Mips::F1, LE);
+    EmitMovFPIntPair(MovOpc, Mips::V0, Mips::V1, Mips::F0, Mips::F1, LE);
     break;
   case CFRet:
-    EmitMovFPIntPair(STI, MovOpc, Mips::V0, Mips::V1, Mips::F0, Mips::F1, LE);
+    EmitMovFPIntPair(MovOpc, Mips::V0, Mips::V1, Mips::F0, Mips::F1, LE);
     break;
   case CDRet:
-    EmitMovFPIntPair(STI, MovOpc, Mips::V0, Mips::V1, Mips::F0, Mips::F1, LE);
-    EmitMovFPIntPair(STI, MovOpc, Mips::A0, Mips::A1, Mips::F2, Mips::F3, LE);
+    EmitMovFPIntPair(MovOpc, Mips::V0, Mips::V1, Mips::F0, Mips::F1, LE);
+    EmitMovFPIntPair(MovOpc, Mips::A0, Mips::A1, Mips::F2, Mips::F3, LE);
     break;
   case NoFPRet:
     break;
@@ -893,14 +881,7 @@ void MipsAsmPrinter::EmitFPCallStub(
     const char *Symbol, const Mips16HardFloatInfo::FuncSignature *Signature) {
   MCSymbol *MSymbol = OutContext.GetOrCreateSymbol(StringRef(Symbol));
   using namespace Mips16HardFloatInfo;
-  bool LE = getDataLayout().isLittleEndian();
-  // Construct a local MCSubtargetInfo here.
-  // This is because the MachineFunction won't exist (but have not yet been
-  // freed) and since we're at the global level we can use the default
-  // constructed subtarget.
-  std::unique_ptr<MCSubtargetInfo> STI(TM.getTarget().createMCSubtargetInfo(
-      TM.getTargetTriple(), TM.getTargetCPU(), TM.getTargetFeatureString()));
-
+  bool LE = Subtarget->isLittle();
   //
   // .global xxxx
   //
@@ -963,7 +944,7 @@ void MipsAsmPrinter::EmitFPCallStub(
   //
   const MCSectionELF *M = OutContext.getELFSection(
       ".mips16.call.fp." + std::string(Symbol), ELF::SHT_PROGBITS,
-      ELF::SHF_ALLOC | ELF::SHF_EXECINSTR);
+      ELF::SHF_ALLOC | ELF::SHF_EXECINSTR, SectionKind::getText());
   OutStreamer.SwitchSection(M, nullptr);
   //
   // .align 2
@@ -988,10 +969,13 @@ void MipsAsmPrinter::EmitFPCallStub(
       OutContext.GetOrCreateSymbol("__call_stub_fp_" + Twine(Symbol));
   OutStreamer.EmitSymbolAttribute(MType, MCSA_ELF_TypeFunction);
   OutStreamer.EmitLabel(Stub);
-
-  // Only handle non-pic for now.
-  assert(TM.getRelocationModel() != Reloc::PIC_ &&
-         "should not be here if we are compiling pic");
+  //
+  // we just handle non pic for now. these function will not be
+  // called otherwise. when the full stub generation is moved here
+  // we need to deal with pic.
+  //
+  if (TM.getRelocationModel() == Reloc::PIC_)
+    llvm_unreachable("should not be here if we are compiling pic");
   TS.emitDirectiveSetReorder();
   //
   // We need to add a MipsMCExpr class to MCTargetDesc to fully implement
@@ -1008,22 +992,22 @@ void MipsAsmPrinter::EmitFPCallStub(
   //
   // Mov $18, $31
 
-  EmitInstrRegRegReg(*STI, Mips::ADDu, Mips::S2, Mips::RA, Mips::ZERO);
+  EmitInstrRegRegReg(Mips::ADDu, Mips::S2, Mips::RA, Mips::ZERO);
 
-  EmitSwapFPIntParams(*STI, Signature->ParamSig, LE, true);
+  EmitSwapFPIntParams(Signature->ParamSig, LE, true);
 
   // Jal xxxx
   //
-  EmitJal(*STI, MSymbol);
+  EmitJal(MSymbol);
 
   // fix return values
-  EmitSwapFPIntRetval(*STI, Signature->RetSig, LE);
+  EmitSwapFPIntRetval(Signature->RetSig, LE);
   //
   // do the return
   // if (Signature->RetSig == NoFPRet)
   //  llvm_unreachable("should not be any stubs here with no return value");
   // else
-  EmitInstrReg(*STI, Mips::JR, Mips::S2);
+  EmitInstrReg(Mips::JR, Mips::S2);
 
   MCSymbol *Tmp = OutContext.CreateTempSymbol();
   OutStreamer.EmitLabel(Tmp);

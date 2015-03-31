@@ -21,7 +21,7 @@
 #define LLVM_CODEGEN_GCMETADATAPRINTER_H
 
 #include "llvm/CodeGen/GCMetadata.h"
-#include "llvm/CodeGen/GCStrategy.h"
+#include "llvm/IR/GCStrategy.h"
 #include "llvm/Support/Registry.h"
 
 namespace llvm {
@@ -44,8 +44,8 @@ protected:
   GCMetadataPrinter();
 
 private:
-  GCMetadataPrinter(const GCMetadataPrinter &) = delete;
-  GCMetadataPrinter &operator=(const GCMetadataPrinter &) = delete;
+  GCMetadataPrinter(const GCMetadataPrinter &) LLVM_DELETED_FUNCTION;
+  GCMetadataPrinter &operator=(const GCMetadataPrinter &) LLVM_DELETED_FUNCTION;
 
 public:
   GCStrategy &getStrategy() { return *S; }

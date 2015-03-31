@@ -248,7 +248,8 @@ bool Scalarizer::doInitialization(Module &M) {
 }
 
 bool Scalarizer::runOnFunction(Function &F) {
-  DL = &F.getParent()->getDataLayout();
+  DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
+  DL = DLP ? &DLP->getDataLayout() : nullptr;
   for (Function::iterator BBI = F.begin(), BBE = F.end(); BBI != BBE; ++BBI) {
     BasicBlock *BB = BBI;
     for (BasicBlock::iterator II = BB->begin(), IE = BB->end(); II != IE;) {

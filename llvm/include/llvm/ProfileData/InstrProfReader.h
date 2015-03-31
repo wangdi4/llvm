@@ -95,9 +95,6 @@ public:
   /// Factory method to create an appropriately typed reader for the given
   /// instrprof file.
   static ErrorOr<std::unique_ptr<InstrProfReader>> create(std::string Path);
-
-  static ErrorOr<std::unique_ptr<InstrProfReader>>
-  create(std::unique_ptr<MemoryBuffer> Buffer);
 };
 
 /// Reader for the simple text based instrprof format.
@@ -117,8 +114,9 @@ private:
   /// The current set of counter values.
   std::vector<uint64_t> Counts;
 
-  TextInstrProfReader(const TextInstrProfReader &) = delete;
-  TextInstrProfReader &operator=(const TextInstrProfReader &) = delete;
+  TextInstrProfReader(const TextInstrProfReader &) LLVM_DELETED_FUNCTION;
+  TextInstrProfReader &operator=(const TextInstrProfReader &)
+    LLVM_DELETED_FUNCTION;
 public:
   TextInstrProfReader(std::unique_ptr<MemoryBuffer> DataBuffer_)
       : DataBuffer(std::move(DataBuffer_)), Line(*DataBuffer, true, '#') {}
@@ -169,8 +167,9 @@ private:
   const char *NamesStart;
   const char *ProfileEnd;
 
-  RawInstrProfReader(const RawInstrProfReader &) = delete;
-  RawInstrProfReader &operator=(const RawInstrProfReader &) = delete;
+  RawInstrProfReader(const RawInstrProfReader &) LLVM_DELETED_FUNCTION;
+  RawInstrProfReader &operator=(const RawInstrProfReader &)
+    LLVM_DELETED_FUNCTION;
 public:
   RawInstrProfReader(std::unique_ptr<MemoryBuffer> DataBuffer)
       : DataBuffer(std::move(DataBuffer)) { }
@@ -274,8 +273,9 @@ private:
   /// The maximal execution count among all functions.
   uint64_t MaxFunctionCount;
 
-  IndexedInstrProfReader(const IndexedInstrProfReader &) = delete;
-  IndexedInstrProfReader &operator=(const IndexedInstrProfReader &) = delete;
+  IndexedInstrProfReader(const IndexedInstrProfReader &) LLVM_DELETED_FUNCTION;
+  IndexedInstrProfReader &operator=(const IndexedInstrProfReader &)
+    LLVM_DELETED_FUNCTION;
 public:
   IndexedInstrProfReader(std::unique_ptr<MemoryBuffer> DataBuffer)
       : DataBuffer(std::move(DataBuffer)), Index(nullptr), CurrentOffset(0) {}
@@ -295,11 +295,8 @@ public:
   uint64_t getMaximumFunctionCount() { return MaxFunctionCount; }
 
   /// Factory method to create an indexed reader.
-  static ErrorOr<std::unique_ptr<IndexedInstrProfReader>>
-  create(std::string Path);
-
-  static ErrorOr<std::unique_ptr<IndexedInstrProfReader>>
-  create(std::unique_ptr<MemoryBuffer> Buffer);
+  static std::error_code
+  create(std::string Path, std::unique_ptr<IndexedInstrProfReader> &Result);
 };
 
 } // end namespace llvm

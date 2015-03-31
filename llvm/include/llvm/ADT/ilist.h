@@ -237,14 +237,14 @@ public:
 // These are to catch errors when people try to use them as random access
 // iterators.
 template<typename T>
-void operator-(int, ilist_iterator<T>) = delete;
+void operator-(int, ilist_iterator<T>) LLVM_DELETED_FUNCTION;
 template<typename T>
-void operator-(ilist_iterator<T>,int) = delete;
+void operator-(ilist_iterator<T>,int) LLVM_DELETED_FUNCTION;
 
 template<typename T>
-void operator+(int, ilist_iterator<T>) = delete;
+void operator+(int, ilist_iterator<T>) LLVM_DELETED_FUNCTION;
 template<typename T>
-void operator+(ilist_iterator<T>,int) = delete;
+void operator+(ilist_iterator<T>,int) LLVM_DELETED_FUNCTION;
 
 // operator!=/operator== - Allow mixed comparisons without dereferencing
 // the iterator, which could very likely be pointing to end().
@@ -332,8 +332,8 @@ class iplist : public Traits {
 
   // No fundamental reason why iplist can't be copyable, but the default
   // copy/copy-assign won't do.
-  iplist(const iplist &) = delete;
-  void operator=(const iplist &) = delete;
+  iplist(const iplist &) LLVM_DELETED_FUNCTION;
+  void operator=(const iplist &) LLVM_DELETED_FUNCTION;
 
 public:
   typedef NodeTy *pointer;

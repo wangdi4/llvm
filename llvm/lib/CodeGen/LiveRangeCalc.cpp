@@ -43,8 +43,11 @@ void LiveRangeCalc::reset(const MachineFunction *mf,
 static void createDeadDef(SlotIndexes &Indexes, VNInfo::Allocator &Alloc,
                           LiveRange &LR, const MachineOperand &MO) {
     const MachineInstr *MI = MO.getParent();
-    SlotIndex DefIdx =
-        Indexes.getInstructionIndex(MI).getRegSlot(MO.isEarlyClobber());
+    SlotIndex DefIdx;
+    if (MI->isPHI())
+      DefIdx = Indexes.getMBBStartIdx(MI->getParent());
+    else
+      DefIdx = Indexes.getInstructionIndex(MI).getRegSlot(MO.isEarlyClobber());
 
     // Create the def in LR. This may find an existing def.
     LR.createDeadDef(DefIdx, Alloc);
@@ -219,23 +222,23 @@ void LiveRangeCalc::updateFromLiveIns() {
 }
 
 
-void LiveRangeCalc::extend(LiveRange &LR, SlotIndex Use, unsigned PhysReg) {
-  assert(Use.isValid() && "Invalid SlotIndex");
+void LiveRangeCalc::extend(LiveRange &LR, SlotIndex Kill, unsigned PhysReg) {
+  assert(Kill.isValid() && "Invalid SlotIndex");
   assert(Indexes && "Missing SlotIndexes");
   assert(DomTree && "Missing dominator tree");
 
-  MachineBasicBlock *UseMBB = Indexes->getMBBFromIndex(Use.getPrevSlot());
-  assert(UseMBB && "No MBB at Use");
+  MachineBasicBlock *KillMBB = Indexes->getMBBFromIndex(Kill.getPrevSlot());
+  assert(KillMBB && "No MBB at Kill");
 
   // Is there a def in the same MBB we can extend?
-  if (LR.extendInBlock(Indexes->getMBBStartIdx(UseMBB), Use))
+  if (LR.extendInBlock(Indexes->getMBBStartIdx(KillMBB), Kill))
     return;
 
-  // Find the single reaching def, or determine if Use is jointly dominated by
+  // Find the single reaching def, or determine if Kill is jointly dominated by
   // multiple values, and we may need to create even more phi-defs to preserve
   // VNInfo SSA form.  Perform a search for all predecessor blocks where we
   // know the dominating VNInfo.
-  if (findReachingDefs(LR, *UseMBB, Use, PhysReg))
+  if (findReachingDefs(LR, *KillMBB, Kill, PhysReg))
     return;
 
   // When there were multiple different values, we may need new PHIs.
@@ -254,12 +257,12 @@ void LiveRangeCalc::calculateValues() {
 }
 
 
-bool LiveRangeCalc::findReachingDefs(LiveRange &LR, MachineBasicBlock &UseMBB,
-                                     SlotIndex Use, unsigned PhysReg) {
-  unsigned UseMBBNum = UseMBB.getNumber();
+bool LiveRangeCalc::findReachingDefs(LiveRange &LR, MachineBasicBlock &KillMBB,
+                                     SlotIndex Kill, unsigned PhysReg) {
+  unsigned KillMBBNum = KillMBB.getNumber();
 
   // Block numbers where LR should be live-in.
-  SmallVector<unsigned, 16> WorkList(1, UseMBBNum);
+  SmallVector<unsigned, 16> WorkList(1, KillMBBNum);
 
   // Remember if we have seen more than one value.
   bool UniqueVNI = true;
@@ -313,11 +316,11 @@ bool LiveRangeCalc::findReachingDefs(LiveRange &LR, MachineBasicBlock &UseMBB,
        }
 
        // No, we need a live-in value for Pred as well
-       if (Pred != &UseMBB)
+       if (Pred != &KillMBB)
           WorkList.push_back(Pred->getNumber());
        else
-          // Loopback to UseMBB, so value is really live through.
-         Use = SlotIndex();
+          // Loopback to KillMBB, so value is really live through.
+         Kill = SlotIndex();
     }
   }
 
@@ -335,9 +338,9 @@ bool LiveRangeCalc::findReachingDefs(LiveRange &LR, MachineBasicBlock &UseMBB,
          E = WorkList.end(); I != E; ++I) {
        SlotIndex Start, End;
        std::tie(Start, End) = Indexes->getMBBRange(*I);
-       // Trim the live range in UseMBB.
-       if (*I == UseMBBNum && Use.isValid())
-         End = Use;
+       // Trim the live range in KillMBB.
+       if (*I == KillMBBNum && Kill.isValid())
+         End = Kill;
        else
          Map[MF->getBlockNumbered(*I)] = LiveOutPair(TheVNI, nullptr);
        Updater.add(Start, End, TheVNI);
@@ -352,8 +355,8 @@ bool LiveRangeCalc::findReachingDefs(LiveRange &LR, MachineBasicBlock &UseMBB,
        I = WorkList.begin(), E = WorkList.end(); I != E; ++I) {
     MachineBasicBlock *MBB = MF->getBlockNumbered(*I);
     addLiveInBlock(LR, DomTree->getNode(MBB));
-    if (MBB == &UseMBB)
-      LiveIn.back().Kill = Use;
+    if (MBB == &KillMBB)
+      LiveIn.back().Kill = Kill;
   }
 
   return false;

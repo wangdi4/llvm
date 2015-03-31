@@ -46,11 +46,6 @@ ImmutablePass *llvm::createObjCARCAliasAnalysisPass() {
   return new ObjCARCAliasAnalysis();
 }
 
-bool ObjCARCAliasAnalysis::doInitialization(Module &M) {
-  InitializeAliasAnalysis(this, &M.getDataLayout());
-  return true;
-}
-
 void
 ObjCARCAliasAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
@@ -64,8 +59,8 @@ ObjCARCAliasAnalysis::alias(const Location &LocA, const Location &LocB) {
 
   // First, strip off no-ops, including ObjC-specific no-ops, and try making a
   // precise alias query.
-  const Value *SA = GetRCIdentityRoot(LocA.Ptr);
-  const Value *SB = GetRCIdentityRoot(LocB.Ptr);
+  const Value *SA = StripPointerCastsAndObjCCalls(LocA.Ptr);
+  const Value *SB = StripPointerCastsAndObjCCalls(LocB.Ptr);
   AliasResult Result =
     AliasAnalysis::alias(Location(SA, LocA.Size, LocA.AATags),
                          Location(SB, LocB.Size, LocB.AATags));
@@ -97,7 +92,7 @@ ObjCARCAliasAnalysis::pointsToConstantMemory(const Location &Loc,
 
   // First, strip off no-ops, including ObjC-specific no-ops, and try making
   // a precise alias query.
-  const Value *S = GetRCIdentityRoot(Loc.Ptr);
+  const Value *S = StripPointerCastsAndObjCCalls(Loc.Ptr);
   if (AliasAnalysis::pointsToConstantMemory(Location(S, Loc.Size, Loc.AATags),
                                             OrLocal))
     return true;
@@ -125,7 +120,7 @@ ObjCARCAliasAnalysis::getModRefBehavior(const Function *F) {
     return AliasAnalysis::getModRefBehavior(F);
 
   switch (GetFunctionClass(F)) {
-  case ARCInstKind::NoopCast:
+  case IC_NoopCast:
     return DoesNotAccessMemory;
   default:
     break;
@@ -139,15 +134,15 @@ ObjCARCAliasAnalysis::getModRefInfo(ImmutableCallSite CS, const Location &Loc) {
   if (!EnableARCOpts)
     return AliasAnalysis::getModRefInfo(CS, Loc);
 
-  switch (GetBasicARCInstKind(CS.getInstruction())) {
-  case ARCInstKind::Retain:
-  case ARCInstKind::RetainRV:
-  case ARCInstKind::Autorelease:
-  case ARCInstKind::AutoreleaseRV:
-  case ARCInstKind::NoopCast:
-  case ARCInstKind::AutoreleasepoolPush:
-  case ARCInstKind::FusedRetainAutorelease:
-  case ARCInstKind::FusedRetainAutoreleaseRV:
+  switch (GetBasicInstructionClass(CS.getInstruction())) {
+  case IC_Retain:
+  case IC_RetainRV:
+  case IC_Autorelease:
+  case IC_AutoreleaseRV:
+  case IC_NoopCast:
+  case IC_AutoreleasepoolPush:
+  case IC_FusedRetainAutorelease:
+  case IC_FusedRetainAutoreleaseRV:
     // These functions don't access any memory visible to the compiler.
     // Note that this doesn't include objc_retainBlock, because it updates
     // pointers when it copies block data.

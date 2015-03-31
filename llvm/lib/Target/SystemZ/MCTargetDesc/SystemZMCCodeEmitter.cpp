@@ -74,36 +74,20 @@ private:
   // Operand OpNum of MI needs a PC-relative fixup of kind Kind at
   // Offset bytes from the start of MI.  Add the fixup to Fixups
   // and return the in-place addend, which since we're a RELA target
-  // is always 0.  If AllowTLS is true and optional operand OpNum + 1
-  // is present, also emit a TLS call fixup for it.
+  // is always 0.
   uint64_t getPCRelEncoding(const MCInst &MI, unsigned OpNum,
                             SmallVectorImpl<MCFixup> &Fixups,
-                            unsigned Kind, int64_t Offset,
-                            bool AllowTLS) const;
+                            unsigned Kind, int64_t Offset) const;
 
   uint64_t getPC16DBLEncoding(const MCInst &MI, unsigned OpNum,
                               SmallVectorImpl<MCFixup> &Fixups,
                               const MCSubtargetInfo &STI) const {
-    return getPCRelEncoding(MI, OpNum, Fixups,
-                            SystemZ::FK_390_PC16DBL, 2, false);
+    return getPCRelEncoding(MI, OpNum, Fixups, SystemZ::FK_390_PC16DBL, 2);
   }
   uint64_t getPC32DBLEncoding(const MCInst &MI, unsigned OpNum,
                               SmallVectorImpl<MCFixup> &Fixups,
                               const MCSubtargetInfo &STI) const {
-    return getPCRelEncoding(MI, OpNum, Fixups,
-                            SystemZ::FK_390_PC32DBL, 2, false);
-  }
-  uint64_t getPC16DBLTLSEncoding(const MCInst &MI, unsigned OpNum,
-                                 SmallVectorImpl<MCFixup> &Fixups,
-                                 const MCSubtargetInfo &STI) const {
-    return getPCRelEncoding(MI, OpNum, Fixups,
-                            SystemZ::FK_390_PC16DBL, 2, true);
-  }
-  uint64_t getPC32DBLTLSEncoding(const MCInst &MI, unsigned OpNum,
-                                 SmallVectorImpl<MCFixup> &Fixups,
-                                 const MCSubtargetInfo &STI) const {
-    return getPCRelEncoding(MI, OpNum, Fixups,
-                            SystemZ::FK_390_PC32DBL, 2, true);
+    return getPCRelEncoding(MI, OpNum, Fixups, SystemZ::FK_390_PC32DBL, 2);
   }
 };
 } // end anonymous namespace
@@ -197,8 +181,7 @@ getBDLAddr12Len8Encoding(const MCInst &MI, unsigned OpNum,
 uint64_t
 SystemZMCCodeEmitter::getPCRelEncoding(const MCInst &MI, unsigned OpNum,
                                        SmallVectorImpl<MCFixup> &Fixups,
-                                       unsigned Kind, int64_t Offset,
-                                       bool AllowTLS) const {
+                                       unsigned Kind, int64_t Offset) const {
   const MCOperand &MO = MI.getOperand(OpNum);
   const MCExpr *Expr;
   if (MO.isImm())
@@ -215,13 +198,6 @@ SystemZMCCodeEmitter::getPCRelEncoding(const MCInst &MI, unsigned OpNum,
     }
   }
   Fixups.push_back(MCFixup::Create(Offset, Expr, (MCFixupKind)Kind));
-
-  // Output the fixup for the TLS marker if present.
-  if (AllowTLS && OpNum + 1 < MI.getNumOperands()) {
-    const MCOperand &MOTLS = MI.getOperand(OpNum + 1);
-    Fixups.push_back(MCFixup::Create(0, MOTLS.getExpr(),
-                                     (MCFixupKind)SystemZ::FK_390_TLS_CALL));
-  }
   return 0;
 }
 

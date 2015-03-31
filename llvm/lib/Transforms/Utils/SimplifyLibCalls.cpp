@@ -1968,12 +1968,8 @@ Value *LibCallSimplifier::optimizeCall(CallInst *CI) {
     // Try to further simplify the result.
     CallInst *SimplifiedCI = dyn_cast<CallInst>(SimplifiedFortifiedCI);
     if (SimplifiedCI && SimplifiedCI->getCalledFunction())
-      if (Value *V = optimizeStringMemoryLibCall(SimplifiedCI, Builder)) {
-        // If we were able to further simplify, remove the now redundant call.
-        SimplifiedCI->replaceAllUsesWith(V);
-        SimplifiedCI->eraseFromParent();
+      if (Value *V = optimizeStringMemoryLibCall(SimplifiedCI, Builder))
         return V;
-      }
     return SimplifiedFortifiedCI;
   }
 
@@ -2088,19 +2084,15 @@ Value *LibCallSimplifier::optimizeCall(CallInst *CI) {
   return nullptr;
 }
 
-LibCallSimplifier::LibCallSimplifier(
-    const DataLayout *DL, const TargetLibraryInfo *TLI,
-    function_ref<void(Instruction *, Value *)> Replacer)
-    : FortifiedSimplifier(DL, TLI), DL(DL), TLI(TLI), UnsafeFPShrink(false),
-      Replacer(Replacer) {}
-
-void LibCallSimplifier::replaceAllUsesWith(Instruction *I, Value *With) {
-  // Indirect through the replacer used in this instance.
-  Replacer(I, With);
+LibCallSimplifier::LibCallSimplifier(const DataLayout *DL,
+                                     const TargetLibraryInfo *TLI) :
+                                     FortifiedSimplifier(DL, TLI),
+                                     DL(DL),
+                                     TLI(TLI),
+                                     UnsafeFPShrink(false) {
 }
 
-/*static*/ void LibCallSimplifier::replaceAllUsesWithDefault(Instruction *I,
-                                                             Value *With) {
+void LibCallSimplifier::replaceAllUsesWith(Instruction *I, Value *With) const {
   I->replaceAllUsesWith(With);
   I->eraseFromParent();
 }
@@ -2226,11 +2218,11 @@ Value *FortifiedLibCallSimplifier::optimizeMemSetChk(CallInst *CI, IRBuilder<> &
   return nullptr;
 }
 
-Value *FortifiedLibCallSimplifier::optimizeStrpCpyChk(CallInst *CI,
-                                                      IRBuilder<> &B,
-                                                      LibFunc::Func Func) {
+Value *FortifiedLibCallSimplifier::optimizeStrCpyChk(CallInst *CI, IRBuilder<> &B) {
   Function *Callee = CI->getCalledFunction();
   StringRef Name = Callee->getName();
+  LibFunc::Func Func =
+      Name.startswith("str") ? LibFunc::strcpy_chk : LibFunc::stpcpy_chk;
 
   if (!checkStringCopyLibFuncSignature(Callee, Func, DL))
     return nullptr;
@@ -2239,7 +2231,7 @@ Value *FortifiedLibCallSimplifier::optimizeStrpCpyChk(CallInst *CI,
         *ObjSize = CI->getArgOperand(2);
 
   // __stpcpy_chk(x,x,...)  -> x+strlen(x)
-  if (Func == LibFunc::stpcpy_chk && !OnlyLowerUnknownSize && Dst == Src) {
+  if (!OnlyLowerUnknownSize && Dst == Src) {
     Value *StrLen = EmitStrLen(Src, B, DL, TLI);
     return StrLen ? B.CreateInBoundsGEP(Dst, StrLen) : nullptr;
   }
@@ -2274,11 +2266,11 @@ Value *FortifiedLibCallSimplifier::optimizeStrpCpyChk(CallInst *CI,
   return nullptr;
 }
 
-Value *FortifiedLibCallSimplifier::optimizeStrpNCpyChk(CallInst *CI,
-                                                       IRBuilder<> &B,
-                                                       LibFunc::Func Func) {
+Value *FortifiedLibCallSimplifier::optimizeStrNCpyChk(CallInst *CI, IRBuilder<> &B) {
   Function *Callee = CI->getCalledFunction();
   StringRef Name = Callee->getName();
+  LibFunc::Func Func =
+      Name.startswith("str") ? LibFunc::strncpy_chk : LibFunc::stpncpy_chk;
 
   if (!checkStringCopyLibFuncSignature(Callee, Func, DL))
     return nullptr;
@@ -2318,10 +2310,10 @@ Value *FortifiedLibCallSimplifier::optimizeCall(CallInst *CI) {
     return optimizeMemSetChk(CI, Builder);
   case LibFunc::stpcpy_chk:
   case LibFunc::strcpy_chk:
-    return optimizeStrpCpyChk(CI, Builder, Func);
+    return optimizeStrCpyChk(CI, Builder);
   case LibFunc::stpncpy_chk:
   case LibFunc::strncpy_chk:
-    return optimizeStrpNCpyChk(CI, Builder, Func);
+    return optimizeStrNCpyChk(CI, Builder);
   default:
     break;
   }

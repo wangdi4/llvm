@@ -91,8 +91,8 @@ public:
   };
 
 private:
-  MCTargetAsmParser(const MCTargetAsmParser &) = delete;
-  void operator=(const MCTargetAsmParser &) = delete;
+  MCTargetAsmParser(const MCTargetAsmParser &) LLVM_DELETED_FUNCTION;
+  void operator=(const MCTargetAsmParser &) LLVM_DELETED_FUNCTION;
 protected: // Can only create subclasses.
   MCTargetAsmParser();
 

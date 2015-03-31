@@ -631,9 +631,6 @@ ifneq ($(HOST_OS), $(filter $(HOST_OS), Cygwin MingW))
 ifneq ($(HOST_OS),Darwin)
 ifneq ($(HOST_ARCH),Mips)
   CXX.Flags += -ffunction-sections -fdata-sections
-  ifeq ($(HOST_OS),SunOS)
-      CXX.Flags += -falign-functions=8
-  endif
 endif
 endif
 endif
@@ -641,12 +638,8 @@ ifndef NO_DEAD_STRIP
   ifeq ($(HOST_OS),Darwin)
     LD.Flags += -Wl,-dead_strip
   else
-    ifeq ($(HOST_OS),SunOS)
-      LD.Flags += -Wl,-z -Wl,discard-unused=sections
-    else
-      ifneq ($(HOST_OS), $(filter $(HOST_OS), Cygwin MingW))
-        LD.Flags += -Wl,--gc-sections
-      endif
+    ifneq ($(HOST_OS), $(filter $(HOST_OS), Cygwin MingW))
+      LD.Flags += -Wl,--gc-sections
     endif
   endif
 endif

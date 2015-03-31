@@ -12,8 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "MCTargetDesc/AArch64AddressingModes.h"
-#include "MCTargetDesc/AArch64MCExpr.h"
 #include "AArch64.h"
 #include "AArch64MCInstLower.h"
 #include "AArch64MachineFunctionInfo.h"
@@ -36,7 +34,6 @@
 #include "llvm/MC/MCInstBuilder.h"
 #include "llvm/MC/MCLinkerOptimizationHint.h"
 #include "llvm/MC/MCStreamer.h"
-#include "llvm/MC/MCSymbol.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/TargetRegistry.h"
 using namespace llvm;
@@ -46,13 +43,19 @@ using namespace llvm;
 namespace {
 
 class AArch64AsmPrinter : public AsmPrinter {
+  /// Subtarget - Keep a pointer to the AArch64Subtarget around so that we can
+  /// make the right decision when printing asm code for different targets.
+  const AArch64Subtarget *Subtarget;
+
   AArch64MCInstLower MCInstLowering;
   StackMaps SM;
 
 public:
-  AArch64AsmPrinter(TargetMachine &TM, std::unique_ptr<MCStreamer> Streamer)
-      : AsmPrinter(TM, std::move(Streamer)), MCInstLowering(OutContext, *this),
-        SM(*this), AArch64FI(nullptr), LOHLabelCounter(0) {}
+  AArch64AsmPrinter(TargetMachine &TM, MCStreamer &Streamer)
+      : AsmPrinter(TM, Streamer),
+        Subtarget(&TM.getSubtarget<AArch64Subtarget>()),
+        MCInstLowering(OutContext, *this), SM(*this), AArch64FI(nullptr),
+        LOHLabelCounter(0) {}
 
   const char *getPassName() const override {
     return "AArch64 Assembly Printer";
@@ -121,8 +124,7 @@ private:
 //===----------------------------------------------------------------------===//
 
 void AArch64AsmPrinter::EmitEndOfAsmFile(Module &M) {
-  Triple TT(TM.getTargetTriple());
-  if (TT.isOSBinFormatMachO()) {
+  if (Subtarget->isTargetMachO()) {
     // Funny Darwin hack: This flag tells the linker that no global symbols
     // contain code that falls through to other global symbols (e.g. the obvious
     // implementation of multiple entry points).  If this doesn't occur, the
@@ -133,7 +135,7 @@ void AArch64AsmPrinter::EmitEndOfAsmFile(Module &M) {
   }
 
   // Emit a .data.rel section containing any stubs that were created.
-  if (TT.isOSBinFormatELF()) {
+  if (Subtarget->isTargetELF()) {
     const TargetLoweringObjectFileELF &TLOFELF =
       static_cast<const TargetLoweringObjectFileELF &>(getObjFileLowering());
 
@@ -143,7 +145,7 @@ void AArch64AsmPrinter::EmitEndOfAsmFile(Module &M) {
     MachineModuleInfoELF::SymbolListTy Stubs = MMIELF.GetGVStubList();
     if (!Stubs.empty()) {
       OutStreamer.SwitchSection(TLOFELF.getDataRelSection());
-      const DataLayout *TD = TM.getDataLayout();
+      const DataLayout *TD = TM.getSubtargetImpl()->getDataLayout();
 
       for (unsigned i = 0, e = Stubs.size(); i != e; ++i) {
         OutStreamer.EmitLabel(Stubs[i].first);
@@ -222,17 +224,6 @@ void AArch64AsmPrinter::printOperand(const MachineInstr *MI, unsigned OpNum,
     O << '#' << Imm;
     break;
   }
-  case MachineOperand::MO_GlobalAddress: {
-    const GlobalValue *GV = MO.getGlobal();
-    MCSymbol *Sym = getSymbol(GV);
-
-    // FIXME: Can we get anything other than a plain symbol here?
-    assert(!MO.getTargetFlags() && "Unknown operand target flag!");
-
-    O << *Sym;
-    printOffset(MO.getOffset(), O);
-    break;
-  }
   }
 }
 
@@ -261,8 +252,8 @@ bool AArch64AsmPrinter::printAsmRegInClass(const MachineOperand &MO,
                                            const TargetRegisterClass *RC,
                                            bool isVector, raw_ostream &O) {
   assert(MO.isReg() && "Should only get here with a register!");
-  const AArch64RegisterInfo *RI =
-      MF->getSubtarget<AArch64Subtarget>().getRegisterInfo();
+  const AArch64RegisterInfo *RI = static_cast<const AArch64RegisterInfo *>(
+      TM.getSubtargetImpl()->getRegisterInfo());
   unsigned Reg = MO.getReg();
   unsigned RegToPrint = RC->getRegister(RI->getEncodingValue(Reg));
   assert(RI->regsOverlap(RegToPrint, Reg));
@@ -503,57 +494,24 @@ void AArch64AsmPrinter::EmitInstruction(const MachineInstr *MI) {
     EmitToStreamer(OutStreamer, TmpInst);
     return;
   }
-  case AArch64::TLSDESC_CALLSEQ: {
-    /// lower this to:
-    ///    adrp  x0, :tlsdesc:var
-    ///    ldr   x1, [x0, #:tlsdesc_lo12:var]
-    ///    add   x0, x0, #:tlsdesc_lo12:var
-    ///    .tlsdesccall var
-    ///    blr   x1
-    ///    (TPIDR_EL0 offset now in x0)
-    const MachineOperand &MO_Sym = MI->getOperand(0);
-    MachineOperand MO_TLSDESC_LO12(MO_Sym), MO_TLSDESC(MO_Sym);
-    MCOperand Sym, SymTLSDescLo12, SymTLSDesc;
-    MO_TLSDESC_LO12.setTargetFlags(AArch64II::MO_TLS | AArch64II::MO_PAGEOFF |
-                                   AArch64II::MO_NC);
-    MO_TLSDESC.setTargetFlags(AArch64II::MO_TLS | AArch64II::MO_PAGE);
-    MCInstLowering.lowerOperand(MO_Sym, Sym);
-    MCInstLowering.lowerOperand(MO_TLSDESC_LO12, SymTLSDescLo12);
-    MCInstLowering.lowerOperand(MO_TLSDESC, SymTLSDesc);
+  case AArch64::TLSDESC_BLR: {
+    MCOperand Callee, Sym;
+    MCInstLowering.lowerOperand(MI->getOperand(0), Callee);
+    MCInstLowering.lowerOperand(MI->getOperand(1), Sym);
 
-    MCInst Adrp;
-    Adrp.setOpcode(AArch64::ADRP);
-    Adrp.addOperand(MCOperand::CreateReg(AArch64::X0));
-    Adrp.addOperand(SymTLSDesc);
-    EmitToStreamer(OutStreamer, Adrp);
-
-    MCInst Ldr;
-    Ldr.setOpcode(AArch64::LDRXui);
-    Ldr.addOperand(MCOperand::CreateReg(AArch64::X1));
-    Ldr.addOperand(MCOperand::CreateReg(AArch64::X0));
-    Ldr.addOperand(SymTLSDescLo12);
-    Ldr.addOperand(MCOperand::CreateImm(0));
-    EmitToStreamer(OutStreamer, Ldr);
-
-    MCInst Add;
-    Add.setOpcode(AArch64::ADDXri);
-    Add.addOperand(MCOperand::CreateReg(AArch64::X0));
-    Add.addOperand(MCOperand::CreateReg(AArch64::X0));
-    Add.addOperand(SymTLSDescLo12);
-    Add.addOperand(MCOperand::CreateImm(AArch64_AM::getShiftValue(0)));
-    EmitToStreamer(OutStreamer, Add);
-
-    // Emit a relocation-annotation. This expands to no code, but requests
+    // First emit a relocation-annotation. This expands to no code, but requests
     // the following instruction gets an R_AARCH64_TLSDESC_CALL.
     MCInst TLSDescCall;
     TLSDescCall.setOpcode(AArch64::TLSDESCCALL);
     TLSDescCall.addOperand(Sym);
     EmitToStreamer(OutStreamer, TLSDescCall);
 
-    MCInst Blr;
-    Blr.setOpcode(AArch64::BLR);
-    Blr.addOperand(MCOperand::CreateReg(AArch64::X1));
-    EmitToStreamer(OutStreamer, Blr);
+    // Other than that it's just a normal indirect call to the function loaded
+    // from the descriptor.
+    MCInst BLR;
+    BLR.setOpcode(AArch64::BLR);
+    BLR.addOperand(Callee);
+    EmitToStreamer(OutStreamer, BLR);
 
     return;
   }

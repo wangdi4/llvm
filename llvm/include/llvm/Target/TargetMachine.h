@@ -34,14 +34,14 @@ class Target;
 class DataLayout;
 class TargetLibraryInfo;
 class TargetFrameLowering;
-class TargetIRAnalysis;
 class TargetIntrinsicInfo;
 class TargetLowering;
 class TargetPassConfig;
 class TargetRegisterInfo;
 class TargetSelectionDAGInfo;
 class TargetSubtargetInfo;
-class TargetTransformInfo;
+class ScalarTargetTransformInfo;
+class VectorTargetTransformInfo;
 class formatted_raw_ostream;
 class raw_ostream;
 class TargetLoweringObjectFile;
@@ -59,8 +59,8 @@ using legacy::PassManagerBase;
 /// through this interface.
 ///
 class TargetMachine {
-  TargetMachine(const TargetMachine &) = delete;
-  void operator=(const TargetMachine &) = delete;
+  TargetMachine(const TargetMachine &) LLVM_DELETED_FUNCTION;
+  void operator=(const TargetMachine &) LLVM_DELETED_FUNCTION;
 protected: // Can only create subclasses.
   TargetMachine(const Target &T, StringRef TargetTriple,
                 StringRef CPU, StringRef FS, const TargetOptions &Options);
@@ -113,14 +113,8 @@ public:
   template<typename STC> const STC &getSubtarget() const {
     return *static_cast<const STC*>(getSubtargetImpl());
   }
-  template <typename STC> const STC &getSubtarget(const Function &) const {
+  template <typename STC> const STC &getSubtarget(const Function *) const {
     return *static_cast<const STC*>(getSubtargetImpl());
-  }
-
-  /// getDataLayout - This method returns a pointer to the DataLayout for
-  /// the target. It should be unchanging for every subtarget.
-  virtual const DataLayout *getDataLayout() const {
-    return nullptr;
   }
 
   /// \brief Reset the target options based on the function's attributes.
@@ -165,32 +159,31 @@ public:
 
   bool shouldPrintMachineCode() const { return Options.PrintMachineCode; }
 
-  /// Returns the default value of asm verbosity.
+  /// getAsmVerbosityDefault - Returns the default value of asm verbosity.
   ///
-  bool getAsmVerbosityDefault() const {
-    return Options.MCOptions.AsmVerbose;
-  }
+  bool getAsmVerbosityDefault() const ;
 
-  bool getUniqueSectionNames() const { return Options.UniqueSectionNames; }
+  /// setAsmVerbosityDefault - Set the default value of asm verbosity. Default
+  /// is false.
+  void setAsmVerbosityDefault(bool);
 
-  /// Return true if data objects should be emitted into their own section,
-  /// corresponds to -fdata-sections.
-  bool getDataSections() const {
-    return Options.DataSections;
-  }
+  /// getDataSections - Return true if data objects should be emitted into their
+  /// own section, corresponds to -fdata-sections.
+  bool getDataSections() const;
 
-  /// Return true if functions should be emitted into their own section,
-  /// corresponding to -ffunction-sections.
-  bool getFunctionSections() const {
-    return Options.FunctionSections;
-  }
+  /// getFunctionSections - Return true if functions should be emitted into
+  /// their own section, corresponding to -ffunction-sections.
+  bool getFunctionSections() const;
 
-  /// \brief Get a \c TargetIRAnalysis appropriate for the target.
-  ///
-  /// This is used to construct the new pass manager's target IR analysis pass,
-  /// set up appropriately for this target machine. Even the old pass manager
-  /// uses this to answer queries about the IR.
-  virtual TargetIRAnalysis getTargetIRAnalysis();
+  /// setDataSections - Set if the data are emit into separate sections.
+  void setDataSections(bool);
+
+  /// setFunctionSections - Set if the functions are emit into separate
+  /// sections.
+  void setFunctionSections(bool);
+
+  /// \brief Register analysis passes for this target with a pass manager.
+  virtual void addAnalysisPasses(PassManagerBase &) {}
 
   /// CodeGenFileType - These enums are meant to be passed into
   /// addPassesToEmitFile to indicate what type of file to emit, and returned by
@@ -243,11 +236,10 @@ protected: // Can only create subclasses.
 
   void initAsmInfo();
 public:
-  /// \brief Get a TargetIRAnalysis implementation for the target.
+  /// \brief Register analysis passes for this target with a pass manager.
   ///
-  /// This analysis will produce a TTI result which uses the common code
-  /// generator to answer queries about the IR.
-  TargetIRAnalysis getTargetIRAnalysis() override;
+  /// This registers target independent analysis passes.
+  void addAnalysisPasses(PassManagerBase &PM) override;
 
   /// createPassConfig - Create a pass configuration object to be used by
   /// addPassToEmitX methods for generating a pipeline of CodeGen passes.

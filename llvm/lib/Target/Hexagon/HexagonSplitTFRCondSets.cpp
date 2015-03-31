@@ -58,9 +58,13 @@ namespace llvm {
 namespace {
 
 class HexagonSplitTFRCondSets : public MachineFunctionPass {
+    const HexagonTargetMachine &QTM;
+    const HexagonSubtarget &QST;
+
  public:
     static char ID;
-    HexagonSplitTFRCondSets() : MachineFunctionPass(ID) {
+    HexagonSplitTFRCondSets(const HexagonTargetMachine& TM) :
+      MachineFunctionPass(ID), QTM(TM), QST(*TM.getSubtargetImpl()) {
       initializeHexagonSplitTFRCondSetsPass(*PassRegistry::getPassRegistry());
     }
 
@@ -76,7 +80,7 @@ char HexagonSplitTFRCondSets::ID = 0;
 
 bool HexagonSplitTFRCondSets::runOnMachineFunction(MachineFunction &Fn) {
 
-  const TargetInstrInfo *TII = Fn.getSubtarget().getInstrInfo();
+  const TargetInstrInfo *TII = QTM.getSubtargetImpl()->getInstrInfo();
 
   // Loop over all of the basic blocks.
   for (MachineFunction::iterator MBBb = Fn.begin(), MBBe = Fn.end();
@@ -167,6 +171,7 @@ void llvm::initializeHexagonSplitTFRCondSetsPass(PassRegistry &Registry) {
   CALL_ONCE_INITIALIZATION(initializePassOnce)
 }
 
-FunctionPass *llvm::createHexagonSplitTFRCondSets() {
-  return new HexagonSplitTFRCondSets();
+FunctionPass*
+llvm::createHexagonSplitTFRCondSets(const HexagonTargetMachine &TM) {
+  return new HexagonSplitTFRCondSets(TM);
 }

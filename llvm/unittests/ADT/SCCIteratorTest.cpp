@@ -39,6 +39,8 @@ public:
     NodeSubset() : Elements(0) {
       assert(N <= sizeof(BitVector)*CHAR_BIT && "Graph too big!");
     }
+    /// NodeSubset - Copy constructor.
+    NodeSubset(const NodeSubset &other) : Elements(other.Elements) {}
 
     /// Comparison operators.
     bool operator==(const NodeSubset &other) const {

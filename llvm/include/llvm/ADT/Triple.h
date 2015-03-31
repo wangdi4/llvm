@@ -50,7 +50,6 @@ public:
     armeb,      // ARM (big endian): armeb
     aarch64,    // AArch64 (little endian): aarch64
     aarch64_be, // AArch64 (big endian): aarch64_be
-    bpf,        // eBPF or extended BPF or 64-bit BPF (little endian)
     hexagon,    // Hexagon: hexagon
     mips,       // MIPS: mips, mipsallegrex
     mipsel,     // MIPSEL: mipsel, mipsallegrexel
@@ -141,8 +140,7 @@ public:
     AIX,
     CUDA,       // NVIDIA CUDA
     NVCL,       // NVIDIA OpenCL
-    AMDHSA,     // AMD HSA Runtime
-    PS4
+    AMDHSA      // AMD HSA Runtime
   };
   enum EnvironmentType {
     UnknownEnvironment,
@@ -202,13 +200,6 @@ public:
   Triple(const Twine &ArchStr, const Twine &VendorStr, const Twine &OSStr,
          const Twine &EnvironmentStr);
 
-  bool operator==(const Triple &Other) const {
-    return Arch == Other.Arch && SubArch == Other.SubArch &&
-           Vendor == Other.Vendor && OS == Other.OS &&
-           Environment == Other.Environment &&
-           ObjectFormat == Other.ObjectFormat;
-  }
-
   /// @}
   /// @name Normalization
   /// @{
@@ -218,9 +209,6 @@ public:
   /// nothing better can reasonably be done).  In particular, it handles the
   /// common case in which otherwise valid components are in the wrong order.
   static std::string normalize(StringRef Str);
-
-  /// \brief Return the normalized form of this triple's string.
-  std::string normalize() const { return normalize(Data); }
 
   /// @}
   /// @name Typed Component Access
@@ -346,12 +334,6 @@ public:
     return false;
   }
 
-  bool isOSVersionLT(const Triple &Other) const {
-    unsigned RHS[3];
-    Other.getOSVersion(RHS[0], RHS[1], RHS[2]);
-    return isOSVersionLT(RHS[0], RHS[1], RHS[2]);
-  }
-
   /// isMacOSXVersionLT - Comparison function for checking OS X version
   /// compatibility, which handles supporting skewed version numbering schemes
   /// used by the "darwin" triples.
@@ -441,7 +423,7 @@ public:
 
   /// \brief Tests whether the OS is Windows.
   bool isOSWindows() const {
-    return getOS() == Triple::Win32;
+    return getOS() == Triple::Win32 || isOSCygMing();
   }
 
   /// \brief Tests whether the OS is NaCl (Native Client)
@@ -467,19 +449,6 @@ public:
   /// \brief Tests whether the environment is MachO.
   bool isOSBinFormatMachO() const {
     return getObjectFormat() == Triple::MachO;
-  }
-
-  /// \brief Tests whether the target is the PS4 CPU
-  bool isPS4CPU() const {
-    return getArch() == Triple::x86_64 &&
-           getVendor() == Triple::SCEI &&
-           getOS() == Triple::PS4;
-  }
-
-  /// \brief Tests whether the target is the PS4 platform
-  bool isPS4() const {
-    return getVendor() == Triple::SCEI &&
-           getOS() == Triple::PS4;
   }
 
   /// @}

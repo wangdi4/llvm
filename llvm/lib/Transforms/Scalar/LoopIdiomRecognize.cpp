@@ -130,6 +130,7 @@ namespace {
 
   class LoopIdiomRecognize : public LoopPass {
     Loop *CurLoop;
+    const DataLayout *DL;
     DominatorTree *DT;
     ScalarEvolution *SE;
     TargetLibraryInfo *TLI;
@@ -138,10 +139,7 @@ namespace {
     static char ID;
     explicit LoopIdiomRecognize() : LoopPass(ID) {
       initializeLoopIdiomRecognizePass(*PassRegistry::getPassRegistry());
-      DT = nullptr;
-      SE = nullptr;
-      TLI = nullptr;
-      TTI = nullptr;
+      DL = nullptr; DT = nullptr; SE = nullptr; TLI = nullptr; TTI = nullptr;
     }
 
     bool runOnLoop(Loop *L, LPPassManager &LPM) override;
@@ -165,8 +163,8 @@ namespace {
     /// loop preheaders be inserted into the CFG.
     ///
     void getAnalysisUsage(AnalysisUsage &AU) const override {
-      AU.addRequired<LoopInfoWrapperPass>();
-      AU.addPreserved<LoopInfoWrapperPass>();
+      AU.addRequired<LoopInfo>();
+      AU.addPreserved<LoopInfo>();
       AU.addRequiredID(LoopSimplifyID);
       AU.addPreservedID(LoopSimplifyID);
       AU.addRequiredID(LCSSAID);
@@ -178,7 +176,15 @@ namespace {
       AU.addPreserved<DominatorTreeWrapperPass>();
       AU.addRequired<DominatorTreeWrapperPass>();
       AU.addRequired<TargetLibraryInfoWrapperPass>();
-      AU.addRequired<TargetTransformInfoWrapperPass>();
+      AU.addRequired<TargetTransformInfo>();
+    }
+
+    const DataLayout *getDataLayout() {
+      if (DL)
+        return DL;
+      DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
+      DL = DLP ? &DLP->getDataLayout() : nullptr;
+      return DL;
     }
 
     DominatorTree *getDominatorTree() {
@@ -198,9 +204,7 @@ namespace {
     }
 
     const TargetTransformInfo *getTargetTransformInfo() {
-      return TTI ? TTI
-                 : (TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(
-                        *CurLoop->getHeader()->getParent()));
+      return TTI ? TTI : (TTI = &getAnalysis<TargetTransformInfo>());
     }
 
     Loop *getLoop() const { return CurLoop; }
@@ -214,14 +218,14 @@ namespace {
 char LoopIdiomRecognize::ID = 0;
 INITIALIZE_PASS_BEGIN(LoopIdiomRecognize, "loop-idiom", "Recognize loop idioms",
                       false, false)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LoopInfo)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
 INITIALIZE_PASS_DEPENDENCY(LCSSA)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_AG_DEPENDENCY(AliasAnalysis)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
+INITIALIZE_AG_DEPENDENCY(TargetTransformInfo)
 INITIALIZE_PASS_END(LoopIdiomRecognize, "loop-idiom", "Recognize loop idioms",
                     false, false)
 
@@ -231,13 +235,44 @@ Pass *llvm::createLoopIdiomPass() { return new LoopIdiomRecognize(); }
 /// and zero out all the operands of this instruction.  If any of them become
 /// dead, delete them and the computation tree that feeds them.
 ///
-static void deleteDeadInstruction(Instruction *I,
+static void deleteDeadInstruction(Instruction *I, ScalarEvolution &SE,
                                   const TargetLibraryInfo *TLI) {
-  SmallVector<Value *, 16> Operands(I->value_op_begin(), I->value_op_end());
-  I->replaceAllUsesWith(UndefValue::get(I->getType()));
-  I->eraseFromParent();
-  for (Value *Op : Operands)
-    RecursivelyDeleteTriviallyDeadInstructions(Op, TLI);
+  SmallVector<Instruction*, 32> NowDeadInsts;
+
+  NowDeadInsts.push_back(I);
+
+  // Before we touch this instruction, remove it from SE!
+  do {
+    Instruction *DeadInst = NowDeadInsts.pop_back_val();
+
+    // This instruction is dead, zap it, in stages.  Start by removing it from
+    // SCEV.
+    SE.forgetValue(DeadInst);
+
+    for (unsigned op = 0, e = DeadInst->getNumOperands(); op != e; ++op) {
+      Value *Op = DeadInst->getOperand(op);
+      DeadInst->setOperand(op, nullptr);
+
+      // If this operand just became dead, add it to the NowDeadInsts list.
+      if (!Op->use_empty()) continue;
+
+      if (Instruction *OpI = dyn_cast<Instruction>(Op))
+        if (isInstructionTriviallyDead(OpI, TLI))
+          NowDeadInsts.push_back(OpI);
+    }
+
+    DeadInst->eraseFromParent();
+
+  } while (!NowDeadInsts.empty());
+}
+
+/// deleteIfDeadInstruction - If the specified value is a dead instruction,
+/// delete it and any recursively used instructions.
+static void deleteIfDeadInstruction(Value *V, ScalarEvolution &SE,
+                                    const TargetLibraryInfo *TLI) {
+  if (Instruction *I = dyn_cast<Instruction>(V))
+    if (isInstructionTriviallyDead(I, TLI))
+      deleteDeadInstruction(I, SE, TLI);
 }
 
 //===----------------------------------------------------------------------===//
@@ -253,7 +288,7 @@ static void deleteDeadInstruction(Instruction *I,
 // the concern of breaking data dependence.
 bool LIRUtil::isAlmostEmpty(BasicBlock *BB) {
   if (BranchInst *Br = getBranch(BB)) {
-    return Br->isUnconditional() && Br == BB->begin();
+    return Br->isUnconditional() && BB->size() == 1;
   }
   return false;
 }
@@ -510,7 +545,7 @@ void NclPopcountRecognize::transform(Instruction *CntInst,
       cast<ICmpInst>(Builder.CreateICmp(PreCond->getPredicate(), Opnd0, Opnd1));
     PreCond->replaceAllUsesWith(NewPreCond);
 
-    RecursivelyDeleteTriviallyDeadInstructions(PreCond, TLI);
+    deleteDeadInstruction(PreCond, *SE, TLI);
   }
 
   // Step 3: Note that the population count is exactly the trip count of the
@@ -560,7 +595,15 @@ void NclPopcountRecognize::transform(Instruction *CntInst,
   // Step 4: All the references to the original population counter outside
   //  the loop are replaced with the NewCount -- the value returned from
   //  __builtin_ctpop().
-  CntInst->replaceUsesOutsideBlock(NewCount, Body);
+  {
+    SmallVector<Value *, 4> CntUses;
+    for (User *U : CntInst->users())
+      if (cast<Instruction>(U)->getParent() != Body)
+        CntUses.push_back(U);
+    for (unsigned Idx = 0; Idx < CntUses.size(); Idx++) {
+      (cast<Instruction>(CntUses[Idx]))->replaceUsesOfWith(CntInst, NewCount);
+    }
+  }
 
   // step 5: Forget the "non-computable" trip-count SCEV associated with the
   //   loop. The loop would otherwise not be deleted even if it becomes empty.
@@ -619,10 +662,14 @@ bool LoopIdiomRecognize::runOnCountableLoop() {
     if (BECst->getValue()->getValue() == 0)
       return false;
 
+  // We require target data for now.
+  if (!getDataLayout())
+    return false;
+
   // set DT
   (void)getDominatorTree();
 
-  LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  LoopInfo &LI = getAnalysis<LoopInfo>();
   TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
 
   // set TLI
@@ -732,8 +779,7 @@ bool LoopIdiomRecognize::processLoopStore(StoreInst *SI, const SCEV *BECount) {
   Value *StorePtr = SI->getPointerOperand();
 
   // Reject stores that are so large that they overflow an unsigned.
-  auto &DL = CurLoop->getHeader()->getModule()->getDataLayout();
-  uint64_t SizeInBits = DL.getTypeSizeInBits(StoredVal->getType());
+  uint64_t SizeInBits = DL->getTypeSizeInBits(StoredVal->getType());
   if ((SizeInBits & 7) || (SizeInBits >> 32) != 0)
     return false;
 
@@ -908,7 +954,7 @@ processLoopStridedStore(Value *DestPtr, unsigned StoreSize,
   // but it can be turned into memset_pattern if the target supports it.
   Value *SplatValue = isBytewiseValue(StoredVal);
   Constant *PatternValue = nullptr;
-  auto &DL = CurLoop->getHeader()->getModule()->getDataLayout();
+
   unsigned DestAS = DestPtr->getType()->getPointerAddressSpace();
 
   // If we're allowed to form a memset, and the stored value would be acceptable
@@ -919,8 +965,9 @@ processLoopStridedStore(Value *DestPtr, unsigned StoreSize,
       CurLoop->isLoopInvariant(SplatValue)) {
     // Keep and use SplatValue.
     PatternValue = nullptr;
-  } else if (DestAS == 0 && TLI->has(LibFunc::memset_pattern16) &&
-             (PatternValue = getMemSetPatternValue(StoredVal, DL))) {
+  } else if (DestAS == 0 &&
+             TLI->has(LibFunc::memset_pattern16) &&
+             (PatternValue = getMemSetPatternValue(StoredVal, *DL))) {
     // Don't create memset_pattern16s with address spaces.
     // It looks like we can use PatternValue!
     SplatValue = nullptr;
@@ -953,7 +1000,7 @@ processLoopStridedStore(Value *DestPtr, unsigned StoreSize,
                             StoreSize, getAnalysis<AliasAnalysis>(), TheStore)) {
     Expander.clear();
     // If we generated new code for the base pointer, clean up.
-    RecursivelyDeleteTriviallyDeadInstructions(BasePtr, TLI);
+    deleteIfDeadInstruction(BasePtr, *SE, TLI);
     return false;
   }
 
@@ -961,7 +1008,7 @@ processLoopStridedStore(Value *DestPtr, unsigned StoreSize,
 
   // The # stored bytes is (BECount+1)*Size.  Expand the trip count out to
   // pointer size if it isn't already.
-  Type *IntPtr = Builder.getIntPtrTy(&DL, DestAS);
+  Type *IntPtr = Builder.getIntPtrTy(DL, DestAS);
   BECount = SE->getTruncateOrZeroExtend(BECount, IntPtr);
 
   const SCEV *NumBytesS = SE->getAddExpr(BECount, SE->getConstant(IntPtr, 1),
@@ -995,7 +1042,7 @@ processLoopStridedStore(Value *DestPtr, unsigned StoreSize,
     // Otherwise we should form a memset_pattern16.  PatternValue is known to be
     // an constant array of 16-bytes.  Plop the value into a mergable global.
     GlobalVariable *GV = new GlobalVariable(*M, PatternValue->getType(), true,
-                                            GlobalValue::PrivateLinkage,
+                                            GlobalValue::InternalLinkage,
                                             PatternValue, ".memset_pattern");
     GV->setUnnamedAddr(true); // Ok to merge these.
     GV->setAlignment(16);
@@ -1009,7 +1056,7 @@ processLoopStridedStore(Value *DestPtr, unsigned StoreSize,
 
   // Okay, the memset has been formed.  Zap the original store and anything that
   // feeds into it.
-  deleteDeadInstruction(TheStore, TLI);
+  deleteDeadInstruction(TheStore, *SE, TLI);
   ++NumMemSet;
   return true;
 }
@@ -1050,7 +1097,7 @@ processLoopStoreOfLoopLoad(StoreInst *SI, unsigned StoreSize,
                             getAnalysis<AliasAnalysis>(), SI)) {
     Expander.clear();
     // If we generated new code for the base pointer, clean up.
-    RecursivelyDeleteTriviallyDeadInstructions(StoreBasePtr, TLI);
+    deleteIfDeadInstruction(StoreBasePtr, *SE, TLI);
     return false;
   }
 
@@ -1065,8 +1112,8 @@ processLoopStoreOfLoopLoad(StoreInst *SI, unsigned StoreSize,
                             StoreSize, getAnalysis<AliasAnalysis>(), SI)) {
     Expander.clear();
     // If we generated new code for the base pointer, clean up.
-    RecursivelyDeleteTriviallyDeadInstructions(LoadBasePtr, TLI);
-    RecursivelyDeleteTriviallyDeadInstructions(StoreBasePtr, TLI);
+    deleteIfDeadInstruction(LoadBasePtr, *SE, TLI);
+    deleteIfDeadInstruction(StoreBasePtr, *SE, TLI);
     return false;
   }
 
@@ -1075,8 +1122,7 @@ processLoopStoreOfLoopLoad(StoreInst *SI, unsigned StoreSize,
 
   // The # stored bytes is (BECount+1)*Size.  Expand the trip count out to
   // pointer size if it isn't already.
-  auto &DL = CurLoop->getHeader()->getModule()->getDataLayout();
-  Type *IntPtrTy = Builder.getIntPtrTy(&DL, SI->getPointerAddressSpace());
+  Type *IntPtrTy = Builder.getIntPtrTy(DL, SI->getPointerAddressSpace());
   BECount = SE->getTruncateOrZeroExtend(BECount, IntPtrTy);
 
   const SCEV *NumBytesS = SE->getAddExpr(BECount, SE->getConstant(IntPtrTy, 1),
@@ -1100,7 +1146,7 @@ processLoopStoreOfLoopLoad(StoreInst *SI, unsigned StoreSize,
 
   // Okay, the memset has been formed.  Zap the original store and anything that
   // feeds into it.
-  deleteDeadInstruction(SI, TLI);
+  deleteDeadInstruction(SI, *SE, TLI);
   ++NumMemCpy;
   return true;
 }

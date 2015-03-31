@@ -1528,10 +1528,12 @@ Stream::~Stream() {}
 bool Stream::failed() { return scanner->failed(); }
 
 void Stream::printError(Node *N, const Twine &Msg) {
+  SmallVector<SMRange, 1> Ranges;
+  Ranges.push_back(N->getSourceRange());
   scanner->printError( N->getSourceRange().Start
                      , SourceMgr::DK_Error
                      , Msg
-                     , N->getSourceRange());
+                     , Ranges);
 }
 
 document_iterator Stream::begin() {
@@ -1568,11 +1570,11 @@ std::string Node::getVerbatimTag() const {
     if (Raw.find_last_of('!') == 0) {
       Ret = Doc->getTagMap().find("!")->second;
       Ret += Raw.substr(1);
-      return Ret;
+      return std::move(Ret);
     } else if (Raw.startswith("!!")) {
       Ret = Doc->getTagMap().find("!!")->second;
       Ret += Raw.substr(2);
-      return Ret;
+      return std::move(Ret);
     } else {
       StringRef TagHandle = Raw.substr(0, Raw.find_last_of('!') + 1);
       std::map<StringRef, StringRef>::const_iterator It =
@@ -1586,7 +1588,7 @@ std::string Node::getVerbatimTag() const {
         setError(Twine("Unknown tag handle ") + TagHandle, T);
       }
       Ret += Raw.substr(Raw.find_last_of('!') + 1);
-      return Ret;
+      return std::move(Ret);
     }
   }
 

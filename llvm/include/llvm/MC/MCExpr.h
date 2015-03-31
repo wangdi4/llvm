@@ -44,8 +44,8 @@ public:
 private:
   ExprKind Kind;
 
-  MCExpr(const MCExpr&) = delete;
-  void operator=(const MCExpr&) = delete;
+  MCExpr(const MCExpr&) LLVM_DELETED_FUNCTION;
+  void operator=(const MCExpr&) LLVM_DELETED_FUNCTION;
 
   bool EvaluateAsAbsolute(int64_t &Res, const MCAssembler *Asm,
                           const MCAsmLayout *Layout,
@@ -188,7 +188,6 @@ public:
     VK_GOTPAGE,
     VK_GOTPAGEOFF,
     VK_SECREL,
-    VK_SIZE,      // symbol@SIZE
     VK_WEAKREF,   // The link between the symbols in .weakref foo, bar
 
     VK_ARM_NONE,

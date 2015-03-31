@@ -32,7 +32,6 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/DataLayout.h"
-#include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 using namespace llvm;
@@ -59,7 +58,7 @@ struct AlignmentFromAssumptions : public FunctionPass {
     AU.addRequired<DominatorTreeWrapperPass>();
 
     AU.setPreservesCFG();
-    AU.addPreserved<LoopInfoWrapperPass>();
+    AU.addPreserved<LoopInfo>();
     AU.addPreserved<DominatorTreeWrapperPass>();
     AU.addPreserved<ScalarEvolution>();
   }
@@ -414,7 +413,8 @@ bool AlignmentFromAssumptions::runOnFunction(Function &F) {
   auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
   SE = &getAnalysis<ScalarEvolution>();
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  DL = &F.getParent()->getDataLayout();
+  DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
+  DL = DLP ? &DLP->getDataLayout() : nullptr;
 
   NewDestAlignments.clear();
   NewSrcAlignments.clear();

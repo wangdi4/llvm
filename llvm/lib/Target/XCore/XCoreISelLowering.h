@@ -93,8 +93,8 @@ namespace llvm {
   class XCoreTargetLowering : public TargetLowering
   {
   public:
-    explicit XCoreTargetLowering(const TargetMachine &TM,
-                                 const XCoreSubtarget &Subtarget);
+
+    explicit XCoreTargetLowering(const TargetMachine &TM);
 
     using TargetLowering::isZExtFree;
     bool isZExtFree(SDValue Val, EVT VT2) const override;
@@ -172,9 +172,8 @@ namespace llvm {
     SDValue LowerATOMIC_STORE(SDValue Op, SelectionDAG &DAG) const;
 
     // Inline asm support
-    std::pair<unsigned, const TargetRegisterClass *>
-    getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
-                                 const std::string &Constraint,
+    std::pair<unsigned, const TargetRegisterClass*>
+    getRegForInlineAsmConstraint(const std::string &Constraint,
                                  MVT VT) const override;
 
     // Expand specifics

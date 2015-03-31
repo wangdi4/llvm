@@ -51,7 +51,8 @@ namespace {
       const DominatorTreeWrapperPass *DTWP =
           getAnalysisIfAvailable<DominatorTreeWrapperPass>();
       const DominatorTree *DT = DTWP ? &DTWP->getDomTree() : nullptr;
-      const DataLayout &DL = F.getParent()->getDataLayout();
+      DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
+      const DataLayout *DL = DLP ? &DLP->getDataLayout() : nullptr;
       const TargetLibraryInfo *TLI =
           &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
       AssumptionCache *AC =
@@ -72,7 +73,7 @@ namespace {
               continue;
             // Don't waste time simplifying unused instructions.
             if (!I->use_empty())
-              if (Value *V = SimplifyInstruction(I, &DL, TLI, DT, AC)) {
+              if (Value *V = SimplifyInstruction(I, DL, TLI, DT, AC)) {
                 // Mark all uses for resimplification next time round the loop.
                 for (User *U : I->users())
                   Next->insert(cast<Instruction>(U));

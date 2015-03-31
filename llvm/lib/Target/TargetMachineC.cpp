@@ -14,10 +14,9 @@
 #include "llvm-c/TargetMachine.h"
 #include "llvm-c/Core.h"
 #include "llvm-c/Target.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/PassManager.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormattedStream.h"
@@ -174,12 +173,12 @@ char* LLVMGetTargetMachineFeatureString(LLVMTargetMachineRef T) {
 }
 
 LLVMTargetDataRef LLVMGetTargetMachineData(LLVMTargetMachineRef T) {
-  return wrap(unwrap(T)->getDataLayout());
+  return wrap(unwrap(T)->getSubtargetImpl()->getDataLayout());
 }
 
 void LLVMSetTargetMachineAsmVerbosity(LLVMTargetMachineRef T,
                                       LLVMBool VerboseAsm) {
-  unwrap(T)->Options.MCOptions.AsmVerbose = VerboseAsm;
+  unwrap(T)->setAsmVerbosityDefault(VerboseAsm);
 }
 
 static LLVMBool LLVMTargetMachineEmit(LLVMTargetMachineRef T, LLVMModuleRef M,
@@ -187,18 +186,19 @@ static LLVMBool LLVMTargetMachineEmit(LLVMTargetMachineRef T, LLVMModuleRef M,
   TargetMachine* TM = unwrap(T);
   Module* Mod = unwrap(M);
 
-  legacy::PassManager pass;
+  PassManager pass;
 
   std::string error;
 
-  const DataLayout *td = TM->getDataLayout();
+  const DataLayout *td = TM->getSubtargetImpl()->getDataLayout();
 
   if (!td) {
     error = "No DataLayout in TargetMachine";
     *ErrorMessage = strdup(error.c_str());
     return true;
   }
-  Mod->setDataLayout(*td);
+  Mod->setDataLayout(td);
+  pass.add(new DataLayoutPass());
 
   TargetMachine::CodeGenFileType ft;
   switch (codegen) {
@@ -255,6 +255,5 @@ char *LLVMGetDefaultTargetTriple(void) {
 }
 
 void LLVMAddAnalysisPasses(LLVMTargetMachineRef T, LLVMPassManagerRef PM) {
-  unwrap(PM)->add(
-      createTargetTransformInfoWrapperPass(unwrap(T)->getTargetIRAnalysis()));
+  unwrap(T)->addAnalysisPasses(*unwrap(PM));
 }

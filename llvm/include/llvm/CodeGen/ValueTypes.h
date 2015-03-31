@@ -34,9 +34,10 @@ namespace llvm {
     Type *LLVMTy;
 
   public:
-    LLVM_CONSTEXPR EVT() : V(MVT::INVALID_SIMPLE_VALUE_TYPE), LLVMTy(nullptr) {}
-    LLVM_CONSTEXPR EVT(MVT::SimpleValueType SVT) : V(SVT), LLVMTy(nullptr) {}
-    LLVM_CONSTEXPR EVT(MVT S) : V(S), LLVMTy(nullptr) {}
+    EVT() : V((MVT::SimpleValueType)(MVT::INVALID_SIMPLE_VALUE_TYPE)),
+            LLVMTy(nullptr) {}
+    EVT(MVT::SimpleValueType SVT) : V(SVT), LLVMTy(nullptr) { }
+    EVT(MVT S) : V(S), LLVMTy(nullptr) {}
 
     bool operator==(EVT VT) const {
       return !(*this != VT);

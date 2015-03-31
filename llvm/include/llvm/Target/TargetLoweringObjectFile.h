@@ -38,17 +38,13 @@ class TargetLoweringObjectFile : public MCObjectFileInfo {
   const DataLayout *DL;
 
   TargetLoweringObjectFile(
-    const TargetLoweringObjectFile&) = delete;
-  void operator=(const TargetLoweringObjectFile&) = delete;
-
-protected:
-  bool SupportIndirectSymViaGOTPCRel;
+    const TargetLoweringObjectFile&) LLVM_DELETED_FUNCTION;
+  void operator=(const TargetLoweringObjectFile&) LLVM_DELETED_FUNCTION;
 
 public:
   MCContext &getContext() const { return *Ctx; }
 
-  TargetLoweringObjectFile() : MCObjectFileInfo(), Ctx(nullptr), DL(nullptr),
-                               SupportIndirectSymViaGOTPCRel(false) {}
+  TargetLoweringObjectFile() : MCObjectFileInfo(), Ctx(nullptr), DL(nullptr) {}
 
   virtual ~TargetLoweringObjectFile();
 
@@ -97,13 +93,6 @@ public:
                                     const TargetMachine &TM) const {
     return SectionForGlobal(GV, getKindForGlobal(GV, TM), Mang, TM);
   }
-
-  virtual const MCSection *
-  getSectionForJumpTable(const Function &F, Mangler &Mang,
-                         const TargetMachine &TM) const;
-
-  virtual bool shouldPutJumpTableInFunctionSection(bool UsesLabelDifference,
-                                                   const Function &F) const;
 
   /// Targets should implement this method to assign a section to globals with
   /// an explicit section specfied. The implementation of this method can
@@ -159,18 +148,6 @@ public:
   virtual const MCExpr *
   getExecutableRelativeSymbol(const ConstantExpr *CE, Mangler &Mang,
                               const TargetMachine &TM) const {
-    return nullptr;
-  }
-
-  /// \brief Target supports replacing a data "PC"-relative access to a symbol
-  /// through another symbol, by accessing the later via a GOT entry instead?
-  bool supportIndirectSymViaGOTPCRel() const {
-    return SupportIndirectSymViaGOTPCRel;
-  }
-
-  /// \brief Get the target specific PC relative GOT entry relocation
-  virtual const MCExpr *getIndirectSymViaGOTPCRel(const MCSymbol *Sym,
-                                                  int64_t Offset) const {
     return nullptr;
   }
 

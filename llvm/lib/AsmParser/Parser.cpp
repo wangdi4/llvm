@@ -13,7 +13,6 @@
 
 #include "llvm/AsmParser/Parser.h"
 #include "LLParser.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SourceMgr.h"
@@ -39,7 +38,7 @@ std::unique_ptr<Module> llvm::parseAssembly(MemoryBufferRef F,
   if (parseAssemblyInto(F, *M, Err))
     return nullptr;
 
-  return M;
+  return std::move(M);
 }
 
 std::unique_ptr<Module> llvm::parseAssemblyFile(StringRef Filename,

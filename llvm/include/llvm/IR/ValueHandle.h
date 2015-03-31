@@ -58,7 +58,7 @@ private:
 
   Value* V;
 
-  ValueHandleBase(const ValueHandleBase&) = delete;
+  ValueHandleBase(const ValueHandleBase&) LLVM_DELETED_FUNCTION;
 public:
   explicit ValueHandleBase(HandleBaseKind Kind)
     : PrevPair(nullptr, Kind), Next(nullptr), V(nullptr) {}

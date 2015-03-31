@@ -195,9 +195,6 @@ public:
   /// then return NULL.
   Pass *findAnalysisPass(AnalysisID AID);
 
-  /// Retrieve the PassInfo for an analysis.
-  const PassInfo *findAnalysisPassInfo(AnalysisID AID) const;
-
   /// Find analysis usage information for the pass P.
   AnalysisUsage *findAnalysisUsage(Pass *P);
 
@@ -254,12 +251,6 @@ private:
   SmallVector<ImmutablePass *, 16> ImmutablePasses;
 
   DenseMap<Pass *, AnalysisUsage *> AnUsageMap;
-
-  /// Collection of PassInfo objects found via analysis IDs and in this top
-  /// level manager. This is used to memoize queries to the pass registry.
-  /// FIXME: This is an egregious hack because querying the pass registry is
-  /// either slow or racy.
-  mutable DenseMap<AnalysisID, const PassInfo *> AnalysisPassInfos;
 };
 
 

@@ -35,8 +35,8 @@ namespace llvm {
     };
 
   private:
-    MCSection(const MCSection&) = delete;
-    void operator=(const MCSection&) = delete;
+    MCSection(const MCSection&) LLVM_DELETED_FUNCTION;
+    void operator=(const MCSection&) LLVM_DELETED_FUNCTION;
   protected:
     MCSection(SectionVariant V, SectionKind K) : Variant(V), Kind(K) {}
     SectionVariant Variant;

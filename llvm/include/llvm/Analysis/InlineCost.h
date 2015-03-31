@@ -23,7 +23,7 @@ class AssumptionCacheTracker;
 class CallSite;
 class DataLayout;
 class Function;
-class TargetTransformInfoWrapperPass;
+class TargetTransformInfo;
 
 namespace InlineConstants {
   // Various magic constants used to adjust heuristics.
@@ -77,7 +77,7 @@ public:
   }
 
   /// \brief Test whether the inline cost is low enough for inlining.
-  explicit operator bool() const {
+  LLVM_EXPLICIT operator bool() const {
     return Cost < Threshold;
   }
 
@@ -100,7 +100,7 @@ public:
 
 /// \brief Cost analyzer used by inliner.
 class InlineCostAnalysis : public CallGraphSCCPass {
-  TargetTransformInfoWrapperPass *TTIWP;
+  const TargetTransformInfo *TTI;
   AssumptionCacheTracker *ACT;
 
 public:

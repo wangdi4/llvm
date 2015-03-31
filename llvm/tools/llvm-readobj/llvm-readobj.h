@@ -36,8 +36,7 @@ namespace opts {
   extern llvm::cl::opt<bool> DynamicSymbols;
   extern llvm::cl::opt<bool> UnwindInfo;
   extern llvm::cl::opt<bool> ExpandRelocs;
-  extern llvm::cl::opt<bool> CodeView;
-  extern llvm::cl::opt<bool> CodeViewSubsectionBytes;
+  extern llvm::cl::opt<bool> CodeViewLineTables;
   extern llvm::cl::opt<bool> ARMAttributes;
   extern llvm::cl::opt<bool> MipsPLTGOT;
 } // namespace opts

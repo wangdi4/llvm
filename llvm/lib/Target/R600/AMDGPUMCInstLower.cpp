@@ -80,24 +80,18 @@ void AMDGPUMCInstLower::lower(const MachineInstr *MI, MCInst &OutMI) const {
       MCOp = MCOperand::CreateExpr(Expr);
       break;
     }
-    case MachineOperand::MO_ExternalSymbol: {
-      MCSymbol *Sym = Ctx.GetOrCreateSymbol(StringRef(MO.getSymbolName()));
-      const MCSymbolRefExpr *Expr = MCSymbolRefExpr::Create(Sym, Ctx);
-      MCOp = MCOperand::CreateExpr(Expr);
-      break;
-    }
     }
     OutMI.addOperand(MCOp);
   }
 }
 
 void AMDGPUAsmPrinter::EmitInstruction(const MachineInstr *MI) {
-  const AMDGPUSubtarget &STI = MF->getSubtarget<AMDGPUSubtarget>();
-  AMDGPUMCInstLower MCInstLowering(OutContext, STI);
+  AMDGPUMCInstLower MCInstLowering(OutContext,
+                               MF->getTarget().getSubtarget<AMDGPUSubtarget>());
 
 #ifdef _DEBUG
   StringRef Err;
-  if (!STI.getInstrInfo()->verifyInstruction(MI, Err)) {
+  if (!TM.getSubtargetImpl()->getInstrInfo()->verifyInstruction(MI, Err)) {
     errs() << "Warning: Illegal instruction detected: " << Err << "\n";
     MI->dump();
   }
@@ -115,15 +109,15 @@ void AMDGPUAsmPrinter::EmitInstruction(const MachineInstr *MI) {
     MCInstLowering.lower(MI, TmpInst);
     EmitToStreamer(OutStreamer, TmpInst);
 
-    if (STI.dumpCode()) {
+    if (DisasmEnabled) {
       // Disassemble instruction/operands to text.
       DisasmLines.resize(DisasmLines.size() + 1);
       std::string &DisasmLine = DisasmLines.back();
       raw_string_ostream DisasmStream(DisasmLine);
 
       AMDGPUInstPrinter InstPrinter(*TM.getMCAsmInfo(),
-                                    *MF->getSubtarget().getInstrInfo(),
-                                    *MF->getSubtarget().getRegisterInfo());
+                                    *TM.getSubtargetImpl()->getInstrInfo(),
+                                    *TM.getSubtargetImpl()->getRegisterInfo());
       InstPrinter.printInst(&TmpInst, DisasmStream, StringRef());
 
       // Disassemble instruction/operands to hex representation.
@@ -134,7 +128,7 @@ void AMDGPUAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       MCObjectStreamer &ObjStreamer = (MCObjectStreamer &)OutStreamer;
       MCCodeEmitter &InstEmitter = ObjStreamer.getAssembler().getEmitter();
       InstEmitter.EncodeInstruction(TmpInst, CodeStream, Fixups,
-                                    MF->getSubtarget<MCSubtargetInfo>());
+                                    TM.getSubtarget<MCSubtargetInfo>());
       CodeStream.flush();
 
       HexLines.resize(HexLines.size() + 1);

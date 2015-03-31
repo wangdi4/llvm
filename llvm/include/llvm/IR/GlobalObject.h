@@ -24,7 +24,7 @@ class Comdat;
 class Module;
 
 class GlobalObject : public GlobalValue {
-  GlobalObject(const GlobalObject &) = delete;
+  GlobalObject(const GlobalObject &) LLVM_DELETED_FUNCTION;
 
 protected:
   GlobalObject(Type *Ty, ValueTy VTy, Use *Ops, unsigned NumOps,

@@ -32,8 +32,8 @@ namespace llvm {
     MCLabel(unsigned instance)
       : Instance(instance) {}
 
-    MCLabel(const MCLabel&) = delete;
-    void operator=(const MCLabel&) = delete;
+    MCLabel(const MCLabel&) LLVM_DELETED_FUNCTION;
+    void operator=(const MCLabel&) LLVM_DELETED_FUNCTION;
   public:
     /// getInstance - Get the current instance of this Directional Local Label.
     unsigned getInstance() const { return Instance; }

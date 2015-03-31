@@ -282,7 +282,9 @@ namespace {
       initializeTypeBasedAliasAnalysisPass(*PassRegistry::getPassRegistry());
     }
 
-    bool doInitialization(Module &M) override;
+    void initializePass() override {
+      InitializeAliasAnalysis(this);
+    }
 
     /// getAdjustedAnalysisPointer - This method is used when a pass implements
     /// an analysis interface through multiple inheritance.  If needed, it
@@ -317,11 +319,6 @@ INITIALIZE_AG_PASS(TypeBasedAliasAnalysis, AliasAnalysis, "tbaa",
 
 ImmutablePass *llvm::createTypeBasedAliasAnalysisPass() {
   return new TypeBasedAliasAnalysis();
-}
-
-bool TypeBasedAliasAnalysis::doInitialization(Module &M) {
-  InitializeAliasAnalysis(this, &M.getDataLayout());
-  return true;
 }
 
 void
@@ -626,8 +623,8 @@ void Instruction::getAAMetadata(AAMDNodes &N, bool Merge) const {
     N.TBAA = getMetadata(LLVMContext::MD_tbaa);
 
   if (Merge)
-    N.Scope = MDNode::getMostGenericAliasScope(
-        N.Scope, getMetadata(LLVMContext::MD_alias_scope));
+    N.Scope =
+        MDNode::intersect(N.Scope, getMetadata(LLVMContext::MD_alias_scope));
   else
     N.Scope = getMetadata(LLVMContext::MD_alias_scope);
 

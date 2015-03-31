@@ -364,7 +364,10 @@ void WinCodeViewLineTables::endFunction(const MachineFunction *MF) {
     FnDebugInfo.erase(GV);
     VisitedFunctions.pop_back();
   } else {
-    CurFn->End = Asm->getFunctionEnd();
+    // Define end label for subprogram.
+    MCSymbol *FunctionEndSym = Asm->OutStreamer.getContext().CreateTempSymbol();
+    Asm->OutStreamer.EmitLabel(FunctionEndSym);
+    CurFn->End = FunctionEndSym;
   }
   CurFn = nullptr;
 }

@@ -31,7 +31,7 @@ class GlobalValue;
 class StringRef;
 class TargetMachine;
 
-/// The X86 backend supports a number of different styles of PIC.
+/// PICStyles - The X86 backend supports a number of different styles of PIC.
 ///
 namespace PICStyles {
 enum Style {
@@ -58,136 +58,145 @@ protected:
     Others, IntelAtom, IntelSLM
   };
 
-  /// X86 processor family: Intel Atom, and others
+  /// X86ProcFamily - X86 processor family: Intel Atom, and others
   X86ProcFamilyEnum X86ProcFamily;
 
-  /// Which PIC style to use
+  /// PICStyle - Which PIC style to use
+  ///
   PICStyles::Style PICStyle;
 
-  /// MMX, SSE1, SSE2, SSE3, SSSE3, SSE41, SSE42, or none supported.
+  /// X86SSELevel - MMX, SSE1, SSE2, SSE3, SSSE3, SSE41, SSE42, or
+  /// none supported.
   X86SSEEnum X86SSELevel;
 
-  /// 3DNow, 3DNow Athlon, or none supported.
+  /// X863DNowLevel - 3DNow or 3DNow Athlon, or none supported.
+  ///
   X863DNowEnum X863DNowLevel;
 
-  /// True if this processor has conditional move instructions
+  /// HasCMov - True if this processor has conditional move instructions
   /// (generally pentium pro+).
   bool HasCMov;
 
-  /// True if the processor supports X86-64 instructions.
+  /// HasX86_64 - True if the processor supports X86-64 instructions.
+  ///
   bool HasX86_64;
 
-  /// True if the processor supports POPCNT.
+  /// HasPOPCNT - True if the processor supports POPCNT.
   bool HasPOPCNT;
 
-  /// True if the processor supports SSE4A instructions.
+  /// HasSSE4A - True if the processor supports SSE4A instructions.
   bool HasSSE4A;
 
-  /// Target has AES instructions
+  /// HasAES - Target has AES instructions
   bool HasAES;
 
-  /// Target has carry-less multiplication
+  /// HasPCLMUL - Target has carry-less multiplication
   bool HasPCLMUL;
 
-  /// Target has 3-operand fused multiply-add
+  /// HasFMA - Target has 3-operand fused multiply-add
   bool HasFMA;
 
-  /// Target has 4-operand fused multiply-add
+  /// HasFMA4 - Target has 4-operand fused multiply-add
   bool HasFMA4;
 
-  /// Target has XOP instructions
+  /// HasXOP - Target has XOP instructions
   bool HasXOP;
 
-  /// Target has TBM instructions.
+  /// HasTBM - Target has TBM instructions.
   bool HasTBM;
 
-  /// True if the processor has the MOVBE instruction.
+  /// HasMOVBE - True if the processor has the MOVBE instruction.
   bool HasMOVBE;
 
-  /// True if the processor has the RDRAND instruction.
+  /// HasRDRAND - True if the processor has the RDRAND instruction.
   bool HasRDRAND;
 
-  /// Processor has 16-bit floating point conversion instructions.
+  /// HasF16C - Processor has 16-bit floating point conversion instructions.
   bool HasF16C;
 
-  /// Processor has FS/GS base insturctions.
+  /// HasFSGSBase - Processor has FS/GS base insturctions.
   bool HasFSGSBase;
 
-  /// Processor has LZCNT instruction.
+  /// HasLZCNT - Processor has LZCNT instruction.
   bool HasLZCNT;
 
-  /// Processor has BMI1 instructions.
+  /// HasBMI - Processor has BMI1 instructions.
   bool HasBMI;
 
-  /// Processor has BMI2 instructions.
+  /// HasBMI2 - Processor has BMI2 instructions.
   bool HasBMI2;
 
-  /// Processor has RTM instructions.
+  /// HasRTM - Processor has RTM instructions.
   bool HasRTM;
 
-  /// Processor has HLE.
+  /// HasHLE - Processor has HLE.
   bool HasHLE;
 
-  /// Processor has ADX instructions.
+  /// HasADX - Processor has ADX instructions.
   bool HasADX;
 
-  /// Processor has SHA instructions.
+  /// HasSHA - Processor has SHA instructions.
   bool HasSHA;
 
-  /// Processor has PRFCHW instructions.
+  /// HasSGX - Processor has SGX instructions.
+  bool HasSGX;
+
+  /// HasPRFCHW - Processor has PRFCHW instructions.
   bool HasPRFCHW;
 
-  /// Processor has RDSEED instructions.
+  /// HasRDSEED - Processor has RDSEED instructions.
   bool HasRDSEED;
 
-  /// True if BT (bit test) of memory instructions are slow.
+  /// HasSMAP - Processor has SMAP instructions.
+  bool HasSMAP;
+
+  /// IsBTMemSlow - True if BT (bit test) of memory instructions are slow.
   bool IsBTMemSlow;
 
-  /// True if SHLD instructions are slow.
+  /// IsSHLDSlow - True if SHLD instructions are slow.
   bool IsSHLDSlow;
 
-  /// True if unaligned memory access is fast.
+  /// IsUAMemFast - True if unaligned memory access is fast.
   bool IsUAMemFast;
 
   /// True if unaligned 32-byte memory accesses are slow.
   bool IsUAMem32Slow;
 
-  /// True if SSE operations can have unaligned memory operands.
-  /// This may require setting a configuration bit in the processor.
-  bool HasSSEUnalignedMem;
+  /// HasVectorUAMem - True if SIMD operations can have unaligned memory
+  /// operands. This may require setting a feature bit in the processor.
+  bool HasVectorUAMem;
 
-  /// True if this processor has the CMPXCHG16B instruction;
+  /// HasCmpxchg16b - True if this processor has the CMPXCHG16B instruction;
   /// this is true for most x86-64 chips, but not the first AMD chips.
   bool HasCmpxchg16b;
 
-  /// True if the LEA instruction should be used for adjusting
+  /// UseLeaForSP - True if the LEA instruction should be used for adjusting
   /// the stack pointer. This is an optimization for Intel Atom processors.
   bool UseLeaForSP;
 
-  /// True if 8-bit divisions are significantly faster than
+  /// HasSlowDivide32 - True if 8-bit divisions are significantly faster than
   /// 32-bit divisions and should be used when possible.
   bool HasSlowDivide32;
 
-  /// True if 16-bit divides are significantly faster than
+  /// HasSlowDivide64 - True if 16-bit divides are significantly faster than
   /// 64-bit divisions and should be used when possible.
   bool HasSlowDivide64;
 
-  /// True if the short functions should be padded to prevent
+  /// PadShortFunctions - True if the short functions should be padded to prevent
   /// a stall when returning too early.
   bool PadShortFunctions;
 
-  /// True if the Calls with memory reference should be converted
+  /// CallRegIndirect - True if the Calls with memory reference should be converted
   /// to a register-based indirect call.
   bool CallRegIndirect;
-
-  /// True if the LEA instruction inputs have to be ready at address generation
-  /// (AG) time.
+  /// LEAUsesAG - True if the LEA instruction inputs have to be ready at
+  ///             address generation (AG) time.
   bool LEAUsesAG;
 
-  /// True if the LEA instruction with certain arguments is slow
+  /// SlowLEA - True if the LEA instruction with certain arguments is slow
   bool SlowLEA;
 
-  /// True if INC and DEC instructions are slow when writing to flags
+  /// SlowIncDec - True if INC and DEC instructions are slow when writing to flags
   bool SlowIncDec;
 
   /// Use the RSQRT* instructions to optimize square root calculations.
@@ -218,7 +227,7 @@ protected:
   /// Processor has AVX-512 Vector Length eXtenstions
   bool HasVLX;
 
-  /// The minimum alignment known to hold of the stack frame on
+  /// stackAlignment - The minimum alignment known to hold of the stack frame on
   /// entry to the function and which must be maintained by every function.
   unsigned stackAlignment;
 
@@ -226,24 +235,26 @@ protected:
   ///
   unsigned MaxInlineSizeThreshold;
 
-  /// What processor and OS we're targeting.
+  /// TargetTriple - What processor and OS we're targeting.
   Triple TargetTriple;
 
   /// Instruction itineraries for scheduling
   InstrItineraryData InstrItins;
 
 private:
+  // Calculates type size & alignment
+  const DataLayout DL;
 
-  /// Override the stack alignment.
+  /// StackAlignOverride - Override the stack alignment.
   unsigned StackAlignOverride;
 
-  /// True if compiling for 64-bit, false for 16-bit or 32-bit.
+  /// In64BitMode - True if compiling for 64-bit, false for 16-bit or 32-bit.
   bool In64BitMode;
 
-  /// True if compiling for 32-bit, false for 16-bit or 64-bit.
+  /// In32BitMode - True if compiling for 32-bit, false for 16-bit or 64-bit.
   bool In32BitMode;
 
-  /// True if compiling for 16-bit, false for 32-bit or 64-bit.
+  /// In16BitMode - True if compiling for 16-bit, false for 32-bit or 64-bit.
   bool In16BitMode;
 
   X86SelectionDAGInfo TSInfo;
@@ -265,6 +276,7 @@ public:
     return &TLInfo;
   }
   const X86InstrInfo *getInstrInfo() const override { return &InstrInfo; }
+  const DataLayout *getDataLayout() const override { return &DL; }
   const X86FrameLowering *getFrameLowering() const override {
     return &FrameLowering;
   }
@@ -275,12 +287,12 @@ public:
     return &getInstrInfo()->getRegisterInfo();
   }
 
-  /// Returns the minimum alignment known to hold of the
+  /// getStackAlignment - Returns the minimum alignment known to hold of the
   /// stack frame on entry to the function and which must be maintained by every
   /// function for this subtarget.
   unsigned getStackAlignment() const { return stackAlignment; }
 
-  /// Returns the maximum memset / memcpy size
+  /// getMaxInlineSizeThreshold - Returns the maximum memset / memcpy size
   /// that still makes it profitable to inline the call.
   unsigned getMaxInlineSizeThreshold() const { return MaxInlineSizeThreshold; }
 
@@ -289,7 +301,7 @@ public:
   void ParseSubtargetFeatures(StringRef CPU, StringRef FS);
 
 private:
-  /// Initialize the full set of dependencies so we can use an initializer
+  /// \brief Initialize the full set of dependencies so we can use an initializer
   /// list for X86Subtarget.
   X86Subtarget &initializeSubtargetDependencies(StringRef CPU, StringRef FS);
   void initializeEnvironment();
@@ -358,13 +370,15 @@ public:
   bool hasHLE() const { return HasHLE; }
   bool hasADX() const { return HasADX; }
   bool hasSHA() const { return HasSHA; }
+  bool hasSGX() const { return HasSGX; }
   bool hasPRFCHW() const { return HasPRFCHW; }
   bool hasRDSEED() const { return HasRDSEED; }
+  bool hasSMAP() const { return HasSMAP; }
   bool isBTMemSlow() const { return IsBTMemSlow; }
   bool isSHLDSlow() const { return IsSHLDSlow; }
   bool isUnalignedMemAccessFast() const { return IsUAMemFast; }
   bool isUnalignedMem32Slow() const { return IsUAMem32Slow; }
-  bool hasSSEUnalignedMem() const { return HasSSEUnalignedMem; }
+  bool hasVectorUAMem() const { return HasVectorUAMem; }
   bool hasCmpxchg16b() const { return HasCmpxchg16b; }
   bool useLeaForSP() const { return UseLeaForSP; }
   bool hasSlowDivide32() const { return HasSlowDivide32; }
@@ -392,7 +406,6 @@ public:
   bool isTargetFreeBSD() const { return TargetTriple.isOSFreeBSD(); }
   bool isTargetDragonFly() const { return TargetTriple.isOSDragonFly(); }
   bool isTargetSolaris() const { return TargetTriple.isOSSolaris(); }
-  bool isTargetPS4() const { return TargetTriple.isPS4(); }
 
   bool isTargetELF() const { return TargetTriple.isOSBinFormatELF(); }
   bool isTargetCOFF() const { return TargetTriple.isOSBinFormatCOFF(); }
@@ -462,11 +475,13 @@ public:
   unsigned char ClassifyGlobalReference(const GlobalValue *GV,
                                         const TargetMachine &TM)const;
 
-  /// Classify a blockaddress reference for the current subtarget according to
-  /// how we should reference it in a non-pcrel context.
+  /// ClassifyBlockAddressReference - Classify a blockaddress reference for the
+  /// current subtarget according to how we should reference it in a non-pcrel
+  /// context.
   unsigned char ClassifyBlockAddressReference() const;
 
-  /// Return true if the subtarget allows calls to immediate address.
+  /// IsLegalToCallImmediateAddr - Return true if the subtarget allows calls
+  /// to immediate address.
   bool IsLegalToCallImmediateAddr(const TargetMachine &TM) const;
 
   /// This function returns the name of a function which has an interface
@@ -485,7 +500,8 @@ public:
 
   bool enableEarlyIfConversion() const override;
 
-  /// Return the instruction itineraries based on the subtarget selection.
+  /// getInstrItins = Return the instruction itineraries based on the
+  /// subtarget selection.
   const InstrItineraryData *getInstrItineraryData() const override {
     return &InstrItins;
   }

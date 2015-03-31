@@ -65,9 +65,6 @@ private:
   bool selectIntAddrMM(SDValue Addr, SDValue &Base,
                        SDValue &Offset) const override;
 
-  bool selectIntAddrLSL2MM(SDValue Addr, SDValue &Base,
-                           SDValue &Offset) const override;
-
   bool selectIntAddrMSA(SDValue Addr, SDValue &Base,
                         SDValue &Offset) const override;
 

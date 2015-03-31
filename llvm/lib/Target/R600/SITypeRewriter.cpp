@@ -61,7 +61,8 @@ bool SITypeRewriter::doInitialization(Module &M) {
 }
 
 bool SITypeRewriter::runOnFunction(Function &F) {
-  Attribute A = F.getFnAttribute("ShaderType");
+  AttributeSet Set = F.getAttributes();
+  Attribute A = Set.getAttribute(AttributeSet::FunctionIndex, "ShaderType");
 
   unsigned ShaderType = ShaderType::COMPUTE;
   if (A.isStringAttribute()) {

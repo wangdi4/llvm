@@ -106,12 +106,17 @@ protected:
 private:
   template <typename UseT> // UseT == 'Use' or 'const Use'
   class use_iterator_impl
-      : public std::iterator<std::forward_iterator_tag, UseT *> {
+      : public std::iterator<std::forward_iterator_tag, UseT *, ptrdiff_t> {
+    typedef std::iterator<std::forward_iterator_tag, UseT *, ptrdiff_t> super;
+
     UseT *U;
     explicit use_iterator_impl(UseT *u) : U(u) {}
     friend class Value;
 
   public:
+    typedef typename super::reference reference;
+    typedef typename super::pointer pointer;
+
     use_iterator_impl() : U() {}
 
     bool operator==(const use_iterator_impl &x) const { return U == x.U; }
@@ -142,12 +147,17 @@ private:
 
   template <typename UserTy> // UserTy == 'User' or 'const User'
   class user_iterator_impl
-      : public std::iterator<std::forward_iterator_tag, UserTy *> {
+      : public std::iterator<std::forward_iterator_tag, UserTy *, ptrdiff_t> {
+    typedef std::iterator<std::forward_iterator_tag, UserTy *, ptrdiff_t> super;
+
     use_iterator_impl<Use> UI;
     explicit user_iterator_impl(Use *U) : UI(U) {}
     friend class Value;
 
   public:
+    typedef typename super::reference reference;
+    typedef typename super::pointer pointer;
+
     user_iterator_impl() {}
 
     bool operator==(const user_iterator_impl &x) const { return UI == x.UI; }
@@ -178,10 +188,15 @@ private:
     }
 
     Use &getUse() const { return *UI; }
+
+    /// \brief Return the operand # of this use in its User.
+    ///
+    /// FIXME: Replace all callers with a direct call to Use::getOperandNo.
+    unsigned getOperandNo() const { return UI->getOperandNo(); }
   };
 
-  void operator=(const Value &) = delete;
-  Value(const Value &) = delete;
+  void operator=(const Value &) LLVM_DELETED_FUNCTION;
+  Value(const Value &) LLVM_DELETED_FUNCTION;
 
 protected:
   Value(Type *Ty, unsigned scid);
@@ -469,8 +484,7 @@ public:
   ///
   /// This is the greatest alignment value supported by load, store, and alloca
   /// instructions, and global values.
-  static const unsigned MaxAlignmentExponent = 29;
-  static const unsigned MaximumAlignment = 1u << MaxAlignmentExponent;
+  static const unsigned MaximumAlignment = 1u << 29;
 
   /// \brief Mutate the type of this Value to be of the specified type.
   ///

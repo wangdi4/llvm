@@ -111,7 +111,6 @@ FunctionPass *createSystemZISelDag(SystemZTargetMachine &TM,
 FunctionPass *createSystemZElimComparePass(SystemZTargetMachine &TM);
 FunctionPass *createSystemZShortenInstPass(SystemZTargetMachine &TM);
 FunctionPass *createSystemZLongBranchPass(SystemZTargetMachine &TM);
-FunctionPass *createSystemZLDCleanupPass(SystemZTargetMachine &TM);
 } // end namespace llvm
 
 #endif

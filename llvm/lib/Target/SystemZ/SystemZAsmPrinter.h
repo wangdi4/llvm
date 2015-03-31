@@ -22,9 +22,14 @@ class Module;
 class raw_ostream;
 
 class LLVM_LIBRARY_VISIBILITY SystemZAsmPrinter : public AsmPrinter {
+private:
+  const SystemZSubtarget *Subtarget;
+
 public:
-  SystemZAsmPrinter(TargetMachine &TM, std::unique_ptr<MCStreamer> Streamer)
-      : AsmPrinter(TM, std::move(Streamer)) {}
+  SystemZAsmPrinter(TargetMachine &TM, MCStreamer &Streamer)
+    : AsmPrinter(TM, Streamer) {
+    Subtarget = &TM.getSubtarget<SystemZSubtarget>();
+  }
 
   // Override AsmPrinter.
   const char *getPassName() const override {

@@ -205,17 +205,20 @@ void ConvergingVLIWScheduler::initialize(ScheduleDAGMI *dag) {
   // Initialize the HazardRecognizers. If itineraries don't exist, are empty, or
   // are disabled, then these HazardRecs will be disabled.
   const InstrItineraryData *Itin = DAG->getSchedModel()->getInstrItineraries();
-  const TargetSubtargetInfo &STI = DAG->MF.getSubtarget();
-  const TargetInstrInfo *TII = STI.getInstrInfo();
+  const TargetMachine &TM = DAG->MF.getTarget();
   delete Top.HazardRec;
   delete Bot.HazardRec;
-  Top.HazardRec = TII->CreateTargetMIHazardRecognizer(Itin, DAG);
-  Bot.HazardRec = TII->CreateTargetMIHazardRecognizer(Itin, DAG);
+  Top.HazardRec =
+      TM.getSubtargetImpl()->getInstrInfo()->CreateTargetMIHazardRecognizer(
+          Itin, DAG);
+  Bot.HazardRec =
+      TM.getSubtargetImpl()->getInstrInfo()->CreateTargetMIHazardRecognizer(
+          Itin, DAG);
 
   delete Top.ResourceModel;
   delete Bot.ResourceModel;
-  Top.ResourceModel = new VLIWResourceModel(STI, DAG->getSchedModel());
-  Bot.ResourceModel = new VLIWResourceModel(STI, DAG->getSchedModel());
+  Top.ResourceModel = new VLIWResourceModel(TM, DAG->getSchedModel());
+  Bot.ResourceModel = new VLIWResourceModel(TM, DAG->getSchedModel());
 
   assert((!llvm::ForceTopDown || !llvm::ForceBottomUp) &&
          "-misched-topdown incompatible with -misched-bottomup");

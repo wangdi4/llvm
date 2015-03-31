@@ -1132,8 +1132,7 @@ bool ARMExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
       // Add the source operands (D subregs).
       unsigned D0 = TRI->getSubReg(SrcReg, ARM::dsub_0);
       unsigned D1 = TRI->getSubReg(SrcReg, ARM::dsub_1);
-      MIB.addReg(D0, SrcIsKill ? RegState::Kill : 0)
-         .addReg(D1, SrcIsKill ? RegState::Kill : 0);
+      MIB.addReg(D0).addReg(D1);
 
       if (SrcIsKill)      // Add an implicit kill for the Q register.
         MIB->addRegisterKilled(SrcReg, TRI, true);
@@ -1346,9 +1345,11 @@ bool ARMExpandPseudo::ExpandMBB(MachineBasicBlock &MBB) {
 }
 
 bool ARMExpandPseudo::runOnMachineFunction(MachineFunction &MF) {
-  STI = &static_cast<const ARMSubtarget &>(MF.getSubtarget());
-  TII = STI->getInstrInfo();
-  TRI = STI->getRegisterInfo();
+  const TargetMachine &TM = MF.getTarget();
+  TII = static_cast<const ARMBaseInstrInfo *>(
+      TM.getSubtargetImpl()->getInstrInfo());
+  TRI = TM.getSubtargetImpl()->getRegisterInfo();
+  STI = &TM.getSubtarget<ARMSubtarget>();
   AFI = MF.getInfo<ARMFunctionInfo>();
 
   bool Modified = false;

@@ -111,8 +111,8 @@ struct ParseStatementInfo {
 
 /// \brief The concrete assembly parser instance.
 class AsmParser : public MCAsmParser {
-  AsmParser(const AsmParser &) = delete;
-  void operator=(const AsmParser &) = delete;
+  AsmParser(const AsmParser &) LLVM_DELETED_FUNCTION;
+  void operator=(const AsmParser &) LLVM_DELETED_FUNCTION;
 private:
   AsmLexer Lexer;
   MCContext &Ctx;
@@ -3636,27 +3636,21 @@ bool AsmParser::parseDirectiveSpace(StringRef IDVal) {
 }
 
 /// parseDirectiveLEB128
-/// ::= (.sleb128 | .uleb128) [ expression (, expression)* ]
+/// ::= (.sleb128 | .uleb128) expression
 bool AsmParser::parseDirectiveLEB128(bool Signed) {
   checkForValidSection();
   const MCExpr *Value;
 
-  for (;;) {
-    if (parseExpression(Value))
-      return true;
+  if (parseExpression(Value))
+    return true;
 
-    if (Signed)
-      getStreamer().EmitSLEB128Value(Value);
-    else
-      getStreamer().EmitULEB128Value(Value);
+  if (getLexer().isNot(AsmToken::EndOfStatement))
+    return TokError("unexpected token in directive");
 
-    if (getLexer().is(AsmToken::EndOfStatement))
-      break;
-
-    if (getLexer().isNot(AsmToken::Comma))
-      return TokError("unexpected token in directive");
-    Lex();
-  }
+  if (Signed)
+    getStreamer().EmitSLEB128Value(Value);
+  else
+    getStreamer().EmitULEB128Value(Value);
 
   return false;
 }

@@ -15,7 +15,6 @@
 #define LLVM_ANALYSIS_LIBCALLALIASANALYSIS_H
 
 #include "llvm/Analysis/AliasAnalysis.h"
-#include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 
 namespace llvm {
@@ -49,8 +48,11 @@ namespace llvm {
 
     void getAnalysisUsage(AnalysisUsage &AU) const override;
 
-    bool runOnFunction(Function &F) override;
-
+    bool runOnFunction(Function &F) override {
+      InitializeAliasAnalysis(this);                 // set up super class
+      return false;
+    }
+    
     /// getAdjustedAnalysisPointer - This method is used when a pass implements
     /// an analysis interface through multiple inheritance.  If needed, it
     /// should override this to adjust the this pointer as needed for the

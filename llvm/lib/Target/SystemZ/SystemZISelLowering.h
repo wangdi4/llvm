@@ -34,11 +34,6 @@ enum {
   CALL,
   SIBCALL,
 
-  // TLS calls.  Like regular calls, except operand 1 is the TLS symbol.
-  // (The call target is implicitly __tls_get_offset.)
-  TLS_GDCALL,
-  TLS_LDCALL,
-
   // Wraps a TargetGlobalAddress that should be loaded using PC-relative
   // accesses (LARL).  Operand 0 is the address.
   PCREL_WRAPPER,
@@ -203,8 +198,7 @@ class SystemZTargetMachine;
 
 class SystemZTargetLowering : public TargetLowering {
 public:
-  explicit SystemZTargetLowering(const TargetMachine &TM,
-                                 const SystemZSubtarget &STI);
+  explicit SystemZTargetLowering(const TargetMachine &TM);
 
   // Override TargetLowering.
   MVT getScalarShiftAmountTy(EVT LHSTy) const override {
@@ -221,9 +215,8 @@ public:
   bool isTruncateFree(EVT, EVT) const override;
   const char *getTargetNodeName(unsigned Opcode) const override;
   std::pair<unsigned, const TargetRegisterClass *>
-  getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
-                               const std::string &Constraint,
-                               MVT VT) const override;
+    getRegForInlineAsmConstraint(const std::string &Constraint,
+                                 MVT VT) const override;
   TargetLowering::ConstraintType
     getConstraintType(const std::string &Constraint) const override;
   TargetLowering::ConstraintWeight
@@ -264,9 +257,6 @@ private:
   SDValue lowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerGlobalAddress(GlobalAddressSDNode *Node,
                              SelectionDAG &DAG) const;
-  SDValue lowerTLSGetOffset(GlobalAddressSDNode *Node,
-                            SelectionDAG &DAG, unsigned Opcode,
-                            SDValue GOTOffset) const;
   SDValue lowerGlobalTLSAddress(GlobalAddressSDNode *Node,
                                 SelectionDAG &DAG) const;
   SDValue lowerBlockAddress(BlockAddressSDNode *Node,

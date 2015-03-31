@@ -26,8 +26,8 @@
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
+#include "llvm/PassManager.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
@@ -563,23 +563,9 @@ LLVMValueRef LLVMGetMetadata(LLVMValueRef Inst, unsigned KindID) {
   return nullptr;
 }
 
-// MetadataAsValue uses a canonical format which strips the actual MDNode for
-// MDNode with just a single constant value, storing just a ConstantAsMetadata
-// This undoes this canonicalization, reconstructing the MDNode.
-static MDNode *extractMDNode(MetadataAsValue *MAV) {
-  Metadata *MD = MAV->getMetadata();
-  assert((isa<MDNode>(MD) || isa<ConstantAsMetadata>(MD)) &&
-      "Expected a metadata node or a canonicalized constant");
-
-  if (MDNode *N = dyn_cast<MDNode>(MD))
-    return N;
-
-  return MDNode::get(MAV->getContext(), MD);
-}
-
-void LLVMSetMetadata(LLVMValueRef Inst, unsigned KindID, LLVMValueRef Val) {
-  MDNode *N = Val ? extractMDNode(unwrap<MetadataAsValue>(Val)) : nullptr;
-
+void LLVMSetMetadata(LLVMValueRef Inst, unsigned KindID, LLVMValueRef MD) {
+  MDNode *N =
+      MD ? cast<MDNode>(unwrap<MetadataAsValue>(MD)->getMetadata()) : nullptr;
   unwrap<Instruction>(Inst)->setMetadata(KindID, N);
 }
 
@@ -809,7 +795,7 @@ void LLVMAddNamedMetadataOperand(LLVMModuleRef M, const char* name,
     return;
   if (!Val)
     return;
-  N->addOperand(extractMDNode(unwrap<MetadataAsValue>(Val)));
+  N->addOperand(cast<MDNode>(unwrap<MetadataAsValue>(Val)->getMetadata()));
 }
 
 /*--.. Operations on scalar constants ......................................--*/
@@ -1630,7 +1616,7 @@ LLVMValueRef LLVMAddAlias(LLVMModuleRef M, LLVMTypeRef Ty, LLVMValueRef Aliasee,
   auto *PTy = cast<PointerType>(unwrap(Ty));
   return wrap(GlobalAlias::create(PTy->getElementType(), PTy->getAddressSpace(),
                                   GlobalValue::ExternalLinkage, Name,
-                                  unwrap<Constant>(Aliasee), unwrap(M)));
+                                  unwrap<GlobalObject>(Aliasee), unwrap(M)));
 }
 
 /*--.. Operations on functions .............................................--*/
@@ -2845,11 +2831,11 @@ LLVMPassRegistryRef LLVMGetGlobalPassRegistry(void) {
 /*===-- Pass Manager ------------------------------------------------------===*/
 
 LLVMPassManagerRef LLVMCreatePassManager() {
-  return wrap(new legacy::PassManager());
+  return wrap(new PassManager());
 }
 
 LLVMPassManagerRef LLVMCreateFunctionPassManagerForModule(LLVMModuleRef M) {
-  return wrap(new legacy::FunctionPassManager(unwrap(M)));
+  return wrap(new FunctionPassManager(unwrap(M)));
 }
 
 LLVMPassManagerRef LLVMCreateFunctionPassManager(LLVMModuleProviderRef P) {
@@ -2858,19 +2844,19 @@ LLVMPassManagerRef LLVMCreateFunctionPassManager(LLVMModuleProviderRef P) {
 }
 
 LLVMBool LLVMRunPassManager(LLVMPassManagerRef PM, LLVMModuleRef M) {
-  return unwrap<legacy::PassManager>(PM)->run(*unwrap(M));
+  return unwrap<PassManager>(PM)->run(*unwrap(M));
 }
 
 LLVMBool LLVMInitializeFunctionPassManager(LLVMPassManagerRef FPM) {
-  return unwrap<legacy::FunctionPassManager>(FPM)->doInitialization();
+  return unwrap<FunctionPassManager>(FPM)->doInitialization();
 }
 
 LLVMBool LLVMRunFunctionPassManager(LLVMPassManagerRef FPM, LLVMValueRef F) {
-  return unwrap<legacy::FunctionPassManager>(FPM)->run(*unwrap<Function>(F));
+  return unwrap<FunctionPassManager>(FPM)->run(*unwrap<Function>(F));
 }
 
 LLVMBool LLVMFinalizeFunctionPassManager(LLVMPassManagerRef FPM) {
-  return unwrap<legacy::FunctionPassManager>(FPM)->doFinalization();
+  return unwrap<FunctionPassManager>(FPM)->doFinalization();
 }
 
 void LLVMDisposePassManager(LLVMPassManagerRef PM) {

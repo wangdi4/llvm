@@ -278,7 +278,7 @@ void Module::eraseNamedMetadata(NamedMDNode *NMD) {
 }
 
 bool Module::isValidModFlagBehavior(Metadata *MD, ModFlagBehavior &MFB) {
-  if (ConstantInt *Behavior = mdconst::dyn_extract_or_null<ConstantInt>(MD)) {
+  if (ConstantInt *Behavior = mdconst::dyn_extract<ConstantInt>(MD)) {
     uint64_t Val = Behavior->getLimitedValue();
     if (Val >= ModFlagBehaviorFirstVal && Val <= ModFlagBehaviorLastVal) {
       MFB = static_cast<ModFlagBehavior>(Val);
@@ -298,7 +298,7 @@ getModuleFlagsMetadata(SmallVectorImpl<ModuleFlagEntry> &Flags) const {
     ModFlagBehavior MFB;
     if (Flag->getNumOperands() >= 3 &&
         isValidModFlagBehavior(Flag->getOperand(0), MFB) &&
-        dyn_cast_or_null<MDString>(Flag->getOperand(1))) {
+        isa<MDString>(Flag->getOperand(1))) {
       // Check the operands of the MDNode before accessing the operands.
       // The verifier will actually catch these failures.
       MDString *Key = cast<MDString>(Flag->getOperand(1));
@@ -365,11 +365,31 @@ void Module::addModuleFlag(MDNode *Node) {
 
 void Module::setDataLayout(StringRef Desc) {
   DL.reset(Desc);
+
+  if (Desc.empty()) {
+    DataLayoutStr = "";
+  } else {
+    DataLayoutStr = DL.getStringRepresentation();
+    // DataLayoutStr is now equivalent to Desc, but since the representation
+    // is not unique, they may not be identical.
+  }
 }
 
-void Module::setDataLayout(const DataLayout &Other) { DL = Other; }
+void Module::setDataLayout(const DataLayout *Other) {
+  if (!Other) {
+    DataLayoutStr = "";
+    DL.reset("");
+  } else {
+    DL = *Other;
+    DataLayoutStr = DL.getStringRepresentation();
+  }
+}
 
-const DataLayout &Module::getDataLayout() const { return DL; }
+const DataLayout *Module::getDataLayout() const {
+  if (DataLayoutStr.empty())
+    return nullptr;
+  return &DL;
+}
 
 //===----------------------------------------------------------------------===//
 // Methods to control the materialization of GlobalValues in the Module.

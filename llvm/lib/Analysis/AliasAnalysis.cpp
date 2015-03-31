@@ -462,8 +462,9 @@ AliasAnalysis::~AliasAnalysis() {}
 /// InitializeAliasAnalysis - Subclasses must call this method to initialize the
 /// AliasAnalysis interface before any other methods are called.
 ///
-void AliasAnalysis::InitializeAliasAnalysis(Pass *P, const DataLayout *NewDL) {
-  DL = NewDL;
+void AliasAnalysis::InitializeAliasAnalysis(Pass *P) {
+  DataLayoutPass *DLP = P->getAnalysisIfAvailable<DataLayoutPass>();
+  DL = DLP ? &DLP->getDataLayout() : nullptr;
   auto *TLIP = P->getAnalysisIfAvailable<TargetLibraryInfoWrapperPass>();
   TLI = TLIP ? &TLIP->getTLI() : nullptr;
   AA = &P->getAnalysis<AliasAnalysis>();

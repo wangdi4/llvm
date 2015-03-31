@@ -260,7 +260,9 @@ private:
                    << "'. Instruction has only "
                    << format("%i", Inst.getNumOperands())
                    << " operands.\nInstruction is:\n  ";
-      Inst.dump_pretty(ErrMsgStream, Checker.InstPrinter);
+      Inst.dump_pretty(ErrMsgStream,
+                       Checker.Disassembler->getContext().getAsmInfo(),
+                       Checker.InstPrinter);
       return std::make_pair(EvalResult(ErrMsgStream.str()), "");
     }
 
@@ -270,7 +272,9 @@ private:
       raw_string_ostream ErrMsgStream(ErrMsg);
       ErrMsgStream << "Operand '" << format("%i", OpIdx) << "' of instruction '"
                    << Symbol << "' is not an immediate.\nInstruction is:\n  ";
-      Inst.dump_pretty(ErrMsgStream, Checker.InstPrinter);
+      Inst.dump_pretty(ErrMsgStream,
+                       Checker.Disassembler->getContext().getAsmInfo(),
+                       Checker.InstPrinter);
 
       return std::make_pair(EvalResult(ErrMsgStream.str()), "");
     }

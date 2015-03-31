@@ -21,7 +21,6 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 using namespace llvm;
@@ -51,9 +50,9 @@ namespace {
       FunctionPass::getAnalysisUsage(AU);
       AU.addRequired<AliasAnalysis>();
       AU.addRequired<DominatorTreeWrapperPass>();
-      AU.addRequired<LoopInfoWrapperPass>();
+      AU.addRequired<LoopInfo>();
       AU.addPreserved<DominatorTreeWrapperPass>();
-      AU.addPreserved<LoopInfoWrapperPass>();
+      AU.addPreserved<LoopInfo>();
     }
   private:
     bool ProcessBlock(BasicBlock &BB);
@@ -65,7 +64,7 @@ namespace {
 
 char Sinking::ID = 0;
 INITIALIZE_PASS_BEGIN(Sinking, "sink", "Code sinking", false, false)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LoopInfo)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_AG_DEPENDENCY(AliasAnalysis)
 INITIALIZE_PASS_END(Sinking, "sink", "Code sinking", false, false)
@@ -99,9 +98,10 @@ bool Sinking::AllUsesDominatedByBlock(Instruction *Inst,
 
 bool Sinking::runOnFunction(Function &F) {
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  LI = &getAnalysis<LoopInfo>();
   AA = &getAnalysis<AliasAnalysis>();
-  DL = &F.getParent()->getDataLayout();
+  DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
+  DL = DLP ? &DLP->getDataLayout() : nullptr;
 
   bool MadeChange, EverMadeChange = false;
 

@@ -17,8 +17,8 @@
 #include "HexagonMachineScheduler.h"
 #include "HexagonTargetObjectFile.h"
 #include "llvm/CodeGen/Passes.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
+#include "llvm/PassManager.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
@@ -71,7 +71,7 @@ HexagonTargetMachine::HexagonTargetMachine(const Target &T, StringRef TT,
                                            CodeGenOpt::Level OL)
     : LLVMTargetMachine(T, TT, CPU, FS, Options, RM, CM, OL),
       TLOF(make_unique<HexagonTargetObjectFile>()),
-      DL("e-m:e-p:32:32-i1:32-i64:64-a:0-n32"), Subtarget(TT, CPU, FS, *this) {
+      Subtarget(TT, CPU, FS, *this) {
     initAsmInfo();
 }
 
@@ -138,29 +138,33 @@ void HexagonPassConfig::addPreRegAlloc() {
 }
 
 void HexagonPassConfig::addPostRegAlloc() {
+  const HexagonTargetMachine &TM = getHexagonTargetMachine();
   if (getOptLevel() != CodeGenOpt::None)
     if (!DisableHexagonCFGOpt)
-      addPass(createHexagonCFGOptimizer(), false);
+      addPass(createHexagonCFGOptimizer(TM), false);
 }
 
 void HexagonPassConfig::addPreSched2() {
+  const HexagonTargetMachine &TM = getHexagonTargetMachine();
+
   addPass(createHexagonCopyToCombine(), false);
   if (getOptLevel() != CodeGenOpt::None)
     addPass(&IfConverterID, false);
-  addPass(createHexagonSplitConst32AndConst64());
+  addPass(createHexagonSplitConst32AndConst64(TM));
 }
 
 void HexagonPassConfig::addPreEmitPass() {
+  const HexagonTargetMachine &TM = getHexagonTargetMachine();
   bool NoOpt = (getOptLevel() == CodeGenOpt::None);
 
   if (!NoOpt)
     addPass(createHexagonNewValueJump(), false);
 
   // Expand Spill code for predicate registers.
-  addPass(createHexagonExpandPredSpillCode(), false);
+  addPass(createHexagonExpandPredSpillCode(TM), false);
 
   // Split up TFRcondsets into conditional transfers.
-  addPass(createHexagonSplitTFRCondSets(), false);
+  addPass(createHexagonSplitTFRCondSets(TM), false);
 
   // Create Packets.
   if (!NoOpt) {

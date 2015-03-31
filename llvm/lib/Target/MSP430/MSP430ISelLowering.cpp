@@ -57,8 +57,7 @@ HWMultMode("msp430-hwmult-mode", cl::Hidden,
                 "Assume hardware multiplier cannot be used inside interrupts"),
              clEnumValEnd));
 
-MSP430TargetLowering::MSP430TargetLowering(const TargetMachine &TM,
-                                           const MSP430Subtarget &STI)
+MSP430TargetLowering::MSP430TargetLowering(const TargetMachine &TM)
     : TargetLowering(TM) {
 
   // Set up the register classes.
@@ -66,7 +65,7 @@ MSP430TargetLowering::MSP430TargetLowering(const TargetMachine &TM,
   addRegisterClass(MVT::i16, &MSP430::GR16RegClass);
 
   // Compute derived properties from the register classes
-  computeRegisterProperties(STI.getRegisterInfo());
+  computeRegisterProperties();
 
   // Provide all sorts of operation actions
 
@@ -225,10 +224,10 @@ MSP430TargetLowering::getConstraintType(const std::string &Constraint) const {
   return TargetLowering::getConstraintType(Constraint);
 }
 
-std::pair<unsigned, const TargetRegisterClass *>
-MSP430TargetLowering::getRegForInlineAsmConstraint(
-    const TargetRegisterInfo *TRI, const std::string &Constraint,
-    MVT VT) const {
+std::pair<unsigned, const TargetRegisterClass*>
+MSP430TargetLowering::
+getRegForInlineAsmConstraint(const std::string &Constraint,
+                             MVT VT) const {
   if (Constraint.size() == 1) {
     // GCC Constraint Letters
     switch (Constraint[0]) {
@@ -241,7 +240,7 @@ MSP430TargetLowering::getRegForInlineAsmConstraint(
     }
   }
 
-  return TargetLowering::getRegForInlineAsmConstraint(TRI, Constraint, VT);
+  return TargetLowering::getRegForInlineAsmConstraint(Constraint, VT);
 }
 
 //===----------------------------------------------------------------------===//
@@ -329,7 +328,7 @@ static void AnalyzeArguments(CCState &State,
     if (!UseStack && Parts <= RegsLeft) {
       unsigned FirstVal = ValNo;
       for (unsigned j = 0; j < Parts; j++) {
-        unsigned Reg = State.AllocateReg(RegList);
+        unsigned Reg = State.AllocateReg(RegList, NbRegs);
         State.addLoc(CCValAssign::getReg(ValNo++, ArgVT, Reg, LocVT, LocInfo));
         RegsLeft--;
       }
@@ -980,7 +979,11 @@ SDValue MSP430TargetLowering::LowerSETCC(SDValue Op, SelectionDAG &DAG) const {
   } else {
     SDValue Zero = DAG.getConstant(0, VT);
     SDVTList VTs = DAG.getVTList(Op.getValueType(), MVT::Glue);
-    SDValue Ops[] = {One, Zero, TargetCC, Flag};
+    SmallVector<SDValue, 4> Ops;
+    Ops.push_back(One);
+    Ops.push_back(Zero);
+    Ops.push_back(TargetCC);
+    Ops.push_back(Flag);
     return DAG.getNode(MSP430ISD::SELECT_CC, dl, VTs, Ops);
   }
 }
@@ -998,7 +1001,11 @@ SDValue MSP430TargetLowering::LowerSELECT_CC(SDValue Op,
   SDValue Flag = EmitCMP(LHS, RHS, TargetCC, CC, dl, DAG);
 
   SDVTList VTs = DAG.getVTList(Op.getValueType(), MVT::Glue);
-  SDValue Ops[] = {TrueV, FalseV, TargetCC, Flag};
+  SmallVector<SDValue, 4> Ops;
+  Ops.push_back(TrueV);
+  Ops.push_back(FalseV);
+  Ops.push_back(TargetCC);
+  Ops.push_back(Flag);
 
   return DAG.getNode(MSP430ISD::SELECT_CC, dl, VTs, Ops);
 }
@@ -1194,7 +1201,8 @@ MSP430TargetLowering::EmitShiftInstr(MachineInstr *MI,
   MachineFunction *F = BB->getParent();
   MachineRegisterInfo &RI = F->getRegInfo();
   DebugLoc dl = MI->getDebugLoc();
-  const TargetInstrInfo &TII = *F->getSubtarget().getInstrInfo();
+  const TargetInstrInfo &TII =
+      *getTargetMachine().getSubtargetImpl()->getInstrInfo();
 
   unsigned Opc;
   const TargetRegisterClass * RC;
@@ -1305,7 +1313,8 @@ MSP430TargetLowering::EmitInstrWithCustomInserter(MachineInstr *MI,
       Opc == MSP430::Srl8 || Opc == MSP430::Srl16)
     return EmitShiftInstr(MI, BB);
 
-  const TargetInstrInfo &TII = *BB->getParent()->getSubtarget().getInstrInfo();
+  const TargetInstrInfo &TII =
+      *getTargetMachine().getSubtargetImpl()->getInstrInfo();
   DebugLoc dl = MI->getDebugLoc();
 
   assert((Opc == MSP430::Select16 || Opc == MSP430::Select8) &&

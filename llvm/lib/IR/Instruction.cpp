@@ -32,6 +32,10 @@ Instruction::Instruction(Type *ty, unsigned it, Use *Ops, unsigned NumOps,
   }
 }
 
+const DataLayout *Instruction::getDataLayout() const {
+  return getParent()->getDataLayout();
+}
+
 Instruction::Instruction(Type *ty, unsigned it, Use *Ops, unsigned NumOps,
                          BasicBlock *InsertAtEnd)
   : User(ty, Value::InstructionVal + it, Ops, NumOps), Parent(nullptr) {
@@ -52,10 +56,6 @@ Instruction::~Instruction() {
 
 void Instruction::setParent(BasicBlock *P) {
   Parent = P;
-}
-
-const Module *Instruction::getModule() const {
-  return getParent()->getModule();
 }
 
 void Instruction::removeFromParent() {

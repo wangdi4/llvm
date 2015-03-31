@@ -80,6 +80,31 @@ namespace llvm {
     }
   };
 
+  /// Structure to represent an optional metadata field.
+  template <class FieldTy> struct MDFieldImpl {
+    typedef MDFieldImpl ImplTy;
+    FieldTy Val;
+    bool Seen;
+
+    void assign(FieldTy Val) {
+      Seen = true;
+      this->Val = Val;
+    }
+
+    explicit MDFieldImpl(FieldTy Default) : Val(Default), Seen(false) {}
+  };
+  template <class NumTy> struct MDUnsignedField : public MDFieldImpl<NumTy> {
+    typedef typename MDUnsignedField::ImplTy ImplTy;
+    NumTy Max;
+
+    MDUnsignedField(NumTy Default = 0,
+                    NumTy Max = std::numeric_limits<NumTy>::max())
+        : ImplTy(Default), Max(Max) {}
+  };
+  struct MDField : public MDFieldImpl<Metadata *> {
+    MDField() : ImplTy(nullptr) {}
+  };
+
   class LLParser {
   public:
     typedef LLLexer::LocTy LocTy;
@@ -108,10 +133,10 @@ namespace llvm {
     // Type resolution handling data structures.  The location is set when we
     // have processed a use of the type but not a definition yet.
     StringMap<std::pair<Type*, LocTy> > NamedTypes;
-    std::map<unsigned, std::pair<Type*, LocTy> > NumberedTypes;
+    std::vector<std::pair<Type*, LocTy> > NumberedTypes;
 
-    std::map<unsigned, TrackingMDNodeRef> NumberedMetadata;
-    std::map<unsigned, std::pair<TempMDTuple, LocTy>> ForwardRefMDNodes;
+    std::vector<TrackingMDNodeRef> NumberedMetadata;
+    std::map<unsigned, std::pair<MDNodeFwdDecl *, LocTy>> ForwardRefMDNodes;
 
     // Global Value reference information.
     std::map<std::string, std::pair<GlobalValue*, LocTy> > ForwardRefVals;
@@ -385,8 +410,7 @@ namespace llvm {
     bool ParseGlobalValueVector(SmallVectorImpl<Constant *> &Elts);
     bool parseOptionalComdat(StringRef GlobalName, Comdat *&C);
     bool ParseMetadataAsValue(Value *&V, PerFunctionState &PFS);
-    bool ParseValueAsMetadata(Metadata *&MD, const Twine &TypeMsg,
-                              PerFunctionState *PFS);
+    bool ParseValueAsMetadata(Metadata *&MD, PerFunctionState *PFS);
     bool ParseMetadata(Metadata *&MD, PerFunctionState *PFS);
     bool ParseMDTuple(MDNode *&MD, bool IsDistinct = false);
     bool ParseMDNode(MDNode *&MD);
@@ -394,18 +418,12 @@ namespace llvm {
     bool ParseMDNodeVector(SmallVectorImpl<Metadata *> &MDs);
     bool ParseInstructionMetadata(Instruction *Inst, PerFunctionState *PFS);
 
-    template <class FieldTy>
-    bool ParseMDField(LocTy Loc, StringRef Name, FieldTy &Result);
-    template <class FieldTy> bool ParseMDField(StringRef Name, FieldTy &Result);
-    template <class ParserTy>
-    bool ParseMDFieldsImplBody(ParserTy parseField);
-    template <class ParserTy>
-    bool ParseMDFieldsImpl(ParserTy parseField, LocTy &ClosingLoc);
+    bool ParseMDField(LocTy Loc, StringRef Name,
+                      MDUnsignedField<uint32_t> &Result);
+    bool ParseMDField(LocTy Loc, StringRef Name, MDField &Result);
+    template <class ParserTy> bool ParseMDFieldsImpl(ParserTy parseField);
     bool ParseSpecializedMDNode(MDNode *&N, bool IsDistinct = false);
-
-#define HANDLE_SPECIALIZED_MDNODE_LEAF(CLASS)                                  \
-  bool Parse##CLASS(MDNode *&Result, bool IsDistinct);
-#include "llvm/IR/Metadata.def"
+    bool ParseMDLocation(MDNode *&Result, bool IsDistinct);
 
     // Function Parsing.
     struct ArgInfo {

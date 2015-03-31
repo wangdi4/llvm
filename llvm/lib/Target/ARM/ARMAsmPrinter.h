@@ -52,8 +52,11 @@ class LLVM_LIBRARY_VISIBILITY ARMAsmPrinter : public AsmPrinter {
   SmallVector<std::pair<unsigned, MCSymbol*>, 4> ThumbIndirectPads;
 
 public:
-  explicit ARMAsmPrinter(TargetMachine &TM,
-                         std::unique_ptr<MCStreamer> Streamer);
+  explicit ARMAsmPrinter(TargetMachine &TM, MCStreamer &Streamer)
+    : AsmPrinter(TM, Streamer), AFI(nullptr), MCP(nullptr),
+      InConstantPool(false) {
+    Subtarget = &TM.getSubtarget<ARMSubtarget>();
+  }
 
   const char *getPassName() const override {
     return "ARM Assembly / Object Emitter";
@@ -103,13 +106,12 @@ private:
                                    const MachineInstr *MI);
 
 public:
-  unsigned getISAEncoding(const Function *F) override {
+  unsigned getISAEncoding() override {
     // ARM/Darwin adds ISA to the DWARF info for each function.
-    Triple TT(TM.getTargetTriple());
-    if (!TT.isOSBinFormatMachO())
+    if (!Subtarget->isTargetMachO())
       return 0;
-    const ARMSubtarget &STI = TM.getSubtarget<ARMSubtarget>(*F);
-    return STI.isThumb() ? ARM::DW_ISA_ARM_thumb : ARM::DW_ISA_ARM_arm;
+    return Subtarget->isThumb() ?
+      ARM::DW_ISA_ARM_thumb : ARM::DW_ISA_ARM_arm;
   }
 
 private:

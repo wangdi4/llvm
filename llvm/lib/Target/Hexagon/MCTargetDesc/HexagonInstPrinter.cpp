@@ -14,7 +14,7 @@
 #include "HexagonAsmPrinter.h"
 #include "Hexagon.h"
 #include "HexagonInstPrinter.h"
-#include "MCTargetDesc/HexagonMCInstrInfo.h"
+#include "MCTargetDesc/HexagonMCInst.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCExpr.h"
@@ -77,41 +77,46 @@ StringRef HexagonInstPrinter::getRegName(unsigned RegNo) const {
   return getRegisterName(RegNo);
 }
 
-void HexagonInstPrinter::printInst(MCInst const *MI, raw_ostream &O,
+void HexagonInstPrinter::printInst(const MCInst *MI, raw_ostream &O,
+                                   StringRef Annot) {
+  printInst((const HexagonMCInst*)(MI), O, Annot);
+}
+
+void HexagonInstPrinter::printInst(const HexagonMCInst *MI, raw_ostream &O,
                                    StringRef Annot) {
   const char startPacket = '{',
              endPacket = '}';
   // TODO: add outer HW loop when it's supported too.
   if (MI->getOpcode() == Hexagon::ENDLOOP0) {
     // Ending a harware loop is different from ending an regular packet.
-    assert(HexagonMCInstrInfo::isPacketEnd(*MI) && "Loop-end must also end the packet");
+    assert(MI->isPacketEnd() && "Loop-end must also end the packet");
 
-    if (HexagonMCInstrInfo::isPacketBegin(*MI)) {
+    if (MI->isPacketBegin()) {
       // There must be a packet to end a loop.
       // FIXME: when shuffling is always run, this shouldn't be needed.
-      MCInst Nop;
+      HexagonMCInst Nop;
       StringRef NoAnnot;
 
       Nop.setOpcode (Hexagon::A2_nop);
-      HexagonMCInstrInfo::setPacketBegin (Nop, HexagonMCInstrInfo::isPacketBegin(*MI));
+      Nop.setPacketBegin (MI->isPacketBegin());
       printInst (&Nop, O, NoAnnot);
     }
 
     // Close the packet.
-    if (HexagonMCInstrInfo::isPacketEnd(*MI))
+    if (MI->isPacketEnd())
       O << PacketPadding << endPacket;
 
     printInstruction(MI, O);
   }
   else {
     // Prefix the insn opening the packet.
-    if (HexagonMCInstrInfo::isPacketBegin(*MI))
+    if (MI->isPacketBegin())
       O << PacketPadding << startPacket << '\n';
 
     printInstruction(MI, O);
 
     // Suffix the insn closing the packet.
-    if (HexagonMCInstrInfo::isPacketEnd(*MI))
+    if (MI->isPacketEnd())
       // Suffix the packet in a new line always, since the GNU assembler has
       // issues with a closing brace on the same line as CONST{32,64}.
       O << '\n' << PacketPadding << endPacket;

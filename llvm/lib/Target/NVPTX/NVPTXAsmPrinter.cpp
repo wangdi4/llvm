@@ -27,7 +27,6 @@
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/CodeGen/Analysis.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/IR/DebugInfo.h"
@@ -46,7 +45,6 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TimeValue.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
-#include "llvm/Transforms/Utils/UnrollLoop.h"
 #include <sstream>
 using namespace llvm;
 
@@ -164,7 +162,7 @@ void NVPTXAsmPrinter::emitLineNumberAsDotLoc(const MachineInstr &MI) {
 void NVPTXAsmPrinter::EmitInstruction(const MachineInstr *MI) {
   SmallString<128> Str;
   raw_svector_ostream OS(Str);
-  if (static_cast<NVPTXTargetMachine &>(TM).getDrvInterface() == NVPTX::CUDA)
+  if (nvptxSubtarget.getDrvInterface() == NVPTX::CUDA)
     emitLineNumberAsDotLoc(*MI);
 
   MCInst Inst;
@@ -237,6 +235,8 @@ void NVPTXAsmPrinter::lowerImageHandleSymbol(unsigned Index, MCOperand &MCOp) {
 
 void NVPTXAsmPrinter::lowerToMCInst(const MachineInstr *MI, MCInst &OutMI) {
   OutMI.setOpcode(MI->getOpcode());
+  const NVPTXSubtarget &ST = TM.getSubtarget<NVPTXSubtarget>();
+
   // Special: Do not mangle symbol operand of CALL_PROTOTYPE
   if (MI->getOpcode() == NVPTX::CALL_PROTOTYPE) {
     const MachineOperand &MO = MI->getOperand(0);
@@ -249,7 +249,7 @@ void NVPTXAsmPrinter::lowerToMCInst(const MachineInstr *MI, MCInst &OutMI) {
     const MachineOperand &MO = MI->getOperand(i);
 
     MCOperand MCOp;
-    if (!nvptxSubtarget->hasImageHandles()) {
+    if (!ST.hasImageHandles()) {
       if (lowerImageHandleOperand(MI, i, MCOp)) {
         OutMI.addOperand(MCOp);
         continue;
@@ -346,12 +346,12 @@ MCOperand NVPTXAsmPrinter::GetSymbolRef(const MCSymbol *Symbol) {
 }
 
 void NVPTXAsmPrinter::printReturnValStr(const Function *F, raw_ostream &O) {
-  const DataLayout *TD = TM.getDataLayout();
-  const TargetLowering *TLI = nvptxSubtarget->getTargetLowering();
+  const DataLayout *TD = TM.getSubtargetImpl()->getDataLayout();
+  const TargetLowering *TLI = TM.getSubtargetImpl()->getTargetLowering();
 
   Type *Ty = F->getReturnType();
 
-  bool isABI = (nvptxSubtarget->getSmVersion() >= 20);
+  bool isABI = (nvptxSubtarget.getSmVersion() >= 20);
 
   if (Ty->getTypeID() == Type::VoidTyID)
     return;
@@ -418,42 +418,6 @@ void NVPTXAsmPrinter::printReturnValStr(const MachineFunction &MF,
   printReturnValStr(F, O);
 }
 
-// Return true if MBB is the header of a loop marked with
-// llvm.loop.unroll.disable.
-// TODO: consider "#pragma unroll 1" which is equivalent to "#pragma nounroll".
-bool NVPTXAsmPrinter::isLoopHeaderOfNoUnroll(
-    const MachineBasicBlock &MBB) const {
-  MachineLoopInfo &LI = getAnalysis<MachineLoopInfo>();
-  // TODO: isLoopHeader() should take "const MachineBasicBlock *".
-  // We insert .pragma "nounroll" only to the loop header.
-  if (!LI.isLoopHeader(const_cast<MachineBasicBlock *>(&MBB)))
-    return false;
-
-  // llvm.loop.unroll.disable is marked on the back edges of a loop. Therefore,
-  // we iterate through each back edge of the loop with header MBB, and check
-  // whether its metadata contains llvm.loop.unroll.disable.
-  for (auto I = MBB.pred_begin(); I != MBB.pred_end(); ++I) {
-    const MachineBasicBlock *PMBB = *I;
-    if (LI.getLoopFor(PMBB) != LI.getLoopFor(&MBB)) {
-      // Edges from other loops to MBB are not back edges.
-      continue;
-    }
-    if (const BasicBlock *PBB = PMBB->getBasicBlock()) {
-      if (MDNode *LoopID = PBB->getTerminator()->getMetadata("llvm.loop")) {
-        if (GetUnrollMetadata(LoopID, "llvm.loop.unroll.disable"))
-          return true;
-      }
-    }
-  }
-  return false;
-}
-
-void NVPTXAsmPrinter::EmitBasicBlockStart(const MachineBasicBlock &MBB) const {
-  AsmPrinter::EmitBasicBlockStart(MBB);
-  if (isLoopHeaderOfNoUnroll(MBB))
-    OutStreamer.EmitRawText(StringRef("\t.pragma \"nounroll\";\n"));
-}
-
 void NVPTXAsmPrinter::EmitFunctionEntryLabel() {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
@@ -504,13 +468,14 @@ void NVPTXAsmPrinter::EmitFunctionBodyEnd() {
 
 void NVPTXAsmPrinter::emitImplicitDef(const MachineInstr *MI) const {
   unsigned RegNo = MI->getOperand(0).getReg();
-  const TargetRegisterInfo *TRI = nvptxSubtarget->getRegisterInfo();
+  const TargetRegisterInfo *TRI = TM.getSubtargetImpl()->getRegisterInfo();
   if (TRI->isVirtualRegister(RegNo)) {
     OutStreamer.AddComment(Twine("implicit-def: ") +
                            getVirtualRegisterName(RegNo));
   } else {
-    OutStreamer.AddComment(Twine("implicit-def: ") +
-                           nvptxSubtarget->getRegisterInfo()->getName(RegNo));
+    OutStreamer.AddComment(
+        Twine("implicit-def: ") +
+        TM.getSubtargetImpl()->getRegisterInfo()->getName(RegNo));
   }
   OutStreamer.AddBlankLine();
 }
@@ -812,14 +777,6 @@ void NVPTXAsmPrinter::recordAndEmitFilenames(Module &M) {
 }
 
 bool NVPTXAsmPrinter::doInitialization(Module &M) {
-  // Construct a default subtarget off of the TargetMachine defaults. The
-  // rest of NVPTX isn't friendly to change subtargets per function and
-  // so the default TargetMachine will have all of the options.
-  StringRef TT = TM.getTargetTriple();
-  StringRef CPU = TM.getTargetCPU();
-  StringRef FS = TM.getTargetFeatureString();
-  const NVPTXTargetMachine &NTM = static_cast<const NVPTXTargetMachine &>(TM);
-  const NVPTXSubtarget STI(TT, CPU, FS, NTM);
 
   SmallString<128> Str1;
   raw_svector_ostream OS1(Str1);
@@ -834,10 +791,10 @@ bool NVPTXAsmPrinter::doInitialization(Module &M) {
   const_cast<TargetLoweringObjectFile &>(getObjFileLowering())
       .Initialize(OutContext, TM);
 
-  Mang = new Mangler(TM.getDataLayout());
+  Mang = new Mangler(TM.getSubtargetImpl()->getDataLayout());
 
   // Emit header before any dwarf directives are emitted below.
-  emitHeader(M, OS1, STI);
+  emitHeader(M, OS1);
   OutStreamer.EmitRawText(OS1.str());
 
   // Already commented out
@@ -853,8 +810,7 @@ bool NVPTXAsmPrinter::doInitialization(Module &M) {
     OutStreamer.AddBlankLine();
   }
 
-  // If we're not NVCL we're CUDA, go ahead and emit filenames.
-  if (Triple(TM.getTargetTriple()).getOS() != Triple::NVCL)
+  if (nvptxSubtarget.getDrvInterface() == NVPTX::CUDA)
     recordAndEmitFilenames(M);
 
   GlobalsEmitted = false;
@@ -895,24 +851,22 @@ void NVPTXAsmPrinter::emitGlobals(const Module &M) {
   OutStreamer.EmitRawText(OS2.str());
 }
 
-void NVPTXAsmPrinter::emitHeader(Module &M, raw_ostream &O,
-                                 const NVPTXSubtarget &STI) {
+void NVPTXAsmPrinter::emitHeader(Module &M, raw_ostream &O) {
   O << "//\n";
   O << "// Generated by LLVM NVPTX Back-End\n";
   O << "//\n";
   O << "\n";
 
-  unsigned PTXVersion = STI.getPTXVersion();
+  unsigned PTXVersion = nvptxSubtarget.getPTXVersion();
   O << ".version " << (PTXVersion / 10) << "." << (PTXVersion % 10) << "\n";
 
   O << ".target ";
-  O << STI.getTargetName();
+  O << nvptxSubtarget.getTargetName();
 
-  const NVPTXTargetMachine &NTM = static_cast<const NVPTXTargetMachine &>(TM);
-  if (NTM.getDrvInterface() == NVPTX::NVCL)
+  if (nvptxSubtarget.getDrvInterface() == NVPTX::NVCL)
     O << ", texmode_independent";
-  else {
-    if (!STI.hasDouble())
+  if (nvptxSubtarget.getDrvInterface() == NVPTX::CUDA) {
+    if (!nvptxSubtarget.hasDouble())
       O << ", map_f64_to_f32";
   }
 
@@ -922,7 +876,7 @@ void NVPTXAsmPrinter::emitHeader(Module &M, raw_ostream &O,
   O << "\n";
 
   O << ".address_size ";
-  if (NTM.is64Bit())
+  if (nvptxSubtarget.is64Bit())
     O << "64";
   else
     O << "32";
@@ -932,6 +886,7 @@ void NVPTXAsmPrinter::emitHeader(Module &M, raw_ostream &O,
 }
 
 bool NVPTXAsmPrinter::doFinalization(Module &M) {
+
   // If we did not emit any functions, then the global declarations have not
   // yet been emitted.
   if (!GlobalsEmitted) {
@@ -993,7 +948,7 @@ bool NVPTXAsmPrinter::doFinalization(Module &M) {
 
 void NVPTXAsmPrinter::emitLinkageDirective(const GlobalValue *V,
                                            raw_ostream &O) {
-  if (static_cast<NVPTXTargetMachine &>(TM).getDrvInterface() == NVPTX::CUDA) {
+  if (nvptxSubtarget.getDrvInterface() == NVPTX::CUDA) {
     if (V->hasExternalLinkage()) {
       if (isa<GlobalVariable>(V)) {
         const GlobalVariable *GVar = cast<GlobalVariable>(V);
@@ -1037,7 +992,7 @@ void NVPTXAsmPrinter::printModuleLevelGV(const GlobalVariable *GVar,
       GVar->getName().startswith("nvvm."))
     return;
 
-  const DataLayout *TD = TM.getDataLayout();
+  const DataLayout *TD = TM.getSubtargetImpl()->getDataLayout();
 
   // GlobalVariables are always constant pointers themselves.
   const PointerType *PTy = GVar->getType();
@@ -1225,7 +1180,7 @@ void NVPTXAsmPrinter::printModuleLevelGV(const GlobalVariable *GVar,
           AggBuffer aggBuffer(ElementSize, O, *this);
           bufferAggregateConstant(Initializer, &aggBuffer);
           if (aggBuffer.numSymbols) {
-            if (static_cast<const NVPTXTargetMachine &>(TM).is64Bit()) {
+            if (nvptxSubtarget.is64Bit()) {
               O << " .u64 " << *getSymbol(GVar) << "[";
               O << ElementSize / 8;
             } else {
@@ -1323,7 +1278,7 @@ NVPTXAsmPrinter::getPTXFundamentalTypeStr(const Type *Ty, bool useB4PTR) const {
   case Type::DoubleTyID:
     return "f64";
   case Type::PointerTyID:
-    if (static_cast<const NVPTXTargetMachine &>(TM).is64Bit())
+    if (nvptxSubtarget.is64Bit())
       if (useB4PTR)
         return "b64";
       else
@@ -1340,7 +1295,7 @@ NVPTXAsmPrinter::getPTXFundamentalTypeStr(const Type *Ty, bool useB4PTR) const {
 void NVPTXAsmPrinter::emitPTXGlobalVariable(const GlobalVariable *GVar,
                                             raw_ostream &O) {
 
-  const DataLayout *TD = TM.getDataLayout();
+  const DataLayout *TD = TM.getSubtargetImpl()->getDataLayout();
 
   // GlobalVariables are always constant pointers themselves.
   const PointerType *PTy = GVar->getType();
@@ -1414,22 +1369,50 @@ static unsigned int getOpenCLAlignment(const DataLayout *TD, Type *Ty) {
 
 void NVPTXAsmPrinter::printParamName(Function::const_arg_iterator I,
                                      int paramIndex, raw_ostream &O) {
-  O << *getSymbol(I->getParent()) << "_param_" << paramIndex;
+  if ((nvptxSubtarget.getDrvInterface() == NVPTX::NVCL) ||
+      (nvptxSubtarget.getDrvInterface() == NVPTX::CUDA))
+    O << *getSymbol(I->getParent()) << "_param_" << paramIndex;
+  else {
+    std::string argName = I->getName();
+    const char *p = argName.c_str();
+    while (*p) {
+      if (*p == '.')
+        O << "_";
+      else
+        O << *p;
+      p++;
+    }
+  }
 }
 
 void NVPTXAsmPrinter::printParamName(int paramIndex, raw_ostream &O) {
-  O << *CurrentFnSym << "_param_" << paramIndex;
+  Function::const_arg_iterator I, E;
+  int i = 0;
+
+  if ((nvptxSubtarget.getDrvInterface() == NVPTX::NVCL) ||
+      (nvptxSubtarget.getDrvInterface() == NVPTX::CUDA)) {
+    O << *CurrentFnSym << "_param_" << paramIndex;
+    return;
+  }
+
+  for (I = F->arg_begin(), E = F->arg_end(); I != E; ++I, i++) {
+    if (i == paramIndex) {
+      printParamName(I, paramIndex, O);
+      return;
+    }
+  }
+  llvm_unreachable("paramIndex out of bound");
 }
 
 void NVPTXAsmPrinter::emitFunctionParamList(const Function *F, raw_ostream &O) {
-  const DataLayout *TD = TM.getDataLayout();
+  const DataLayout *TD = TM.getSubtargetImpl()->getDataLayout();
   const AttributeSet &PAL = F->getAttributes();
-  const TargetLowering *TLI = nvptxSubtarget->getTargetLowering();
+  const TargetLowering *TLI = TM.getSubtargetImpl()->getTargetLowering();
   Function::const_arg_iterator I, E;
   unsigned paramIndex = 0;
   bool first = true;
   bool isKernelFunc = llvm::isKernelFunction(*F);
-  bool isABI = (nvptxSubtarget->getSmVersion() >= 20);
+  bool isABI = (nvptxSubtarget.getSmVersion() >= 20);
   MVT thePointerTy = TLI->getPointerTy();
 
   O << "(\n";
@@ -1448,21 +1431,21 @@ void NVPTXAsmPrinter::emitFunctionParamList(const Function *F, raw_ostream &O) {
         if (isImage(*I)) {
           std::string sname = I->getName();
           if (isImageWriteOnly(*I) || isImageReadWrite(*I)) {
-            if (nvptxSubtarget->hasImageHandles())
+            if (nvptxSubtarget.hasImageHandles())
               O << "\t.param .u64 .ptr .surfref ";
             else
               O << "\t.param .surfref ";
             O << *CurrentFnSym << "_param_" << paramIndex;
           }
           else { // Default image is read_only
-            if (nvptxSubtarget->hasImageHandles())
+            if (nvptxSubtarget.hasImageHandles())
               O << "\t.param .u64 .ptr .texref ";
             else
               O << "\t.param .texref ";
             O << *CurrentFnSym << "_param_" << paramIndex;
           }
         } else {
-          if (nvptxSubtarget->hasImageHandles())
+          if (nvptxSubtarget.hasImageHandles())
             O << "\t.param .u64 .ptr .samplerref ";
           else
             O << "\t.param .samplerref ";
@@ -1495,8 +1478,7 @@ void NVPTXAsmPrinter::emitFunctionParamList(const Function *F, raw_ostream &O) {
           // Special handling for pointer arguments to kernel
           O << "\t.param .u" << thePointerTy.getSizeInBits() << " ";
 
-          if (static_cast<NVPTXTargetMachine &>(TM).getDrvInterface() !=
-              NVPTX::CUDA) {
+          if (nvptxSubtarget.getDrvInterface() != NVPTX::CUDA) {
             Type *ETy = PTy->getElementType();
             int addrSpace = PTy->getAddressSpace();
             switch (addrSpace) {
@@ -1625,7 +1607,7 @@ void NVPTXAsmPrinter::setAndEmitFunctionVirtualRegisters(
   if (NumBytes) {
     O << "\t.local .align " << MFI->getMaxAlignment() << " .b8 \t" << DEPOTNAME
       << getFunctionNumber() << "[" << NumBytes << "];\n";
-    if (static_cast<const NVPTXTargetMachine &>(MF.getTarget()).is64Bit()) {
+    if (nvptxSubtarget.is64Bit()) {
       O << "\t.reg .b64 \t%SP;\n";
       O << "\t.reg .b64 \t%SPL;\n";
     } else {
@@ -1756,7 +1738,7 @@ void NVPTXAsmPrinter::printScalarConstant(const Constant *CPV, raw_ostream &O) {
 void NVPTXAsmPrinter::bufferLEByte(const Constant *CPV, int Bytes,
                                    AggBuffer *aggBuffer) {
 
-  const DataLayout *TD = TM.getDataLayout();
+  const DataLayout *TD = TM.getSubtargetImpl()->getDataLayout();
 
   if (isa<UndefValue>(CPV) || CPV->isNullValue()) {
     int s = TD->getTypeAllocSize(CPV->getType());
@@ -1880,7 +1862,7 @@ void NVPTXAsmPrinter::bufferLEByte(const Constant *CPV, int Bytes,
 
 void NVPTXAsmPrinter::bufferAggregateConstant(const Constant *CPV,
                                               AggBuffer *aggBuffer) {
-  const DataLayout *TD = TM.getDataLayout();
+  const DataLayout *TD = TM.getSubtargetImpl()->getDataLayout();
   int Bytes;
 
   // Old constants

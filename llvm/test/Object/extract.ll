@@ -3,6 +3,8 @@
 ; This test just makes sure that llvm-ar can extract bytecode members
 ; from various style archives.
 
+; REQUIRES: shell
+
 ; RUN: cd %T
 
 ; RUN: rm -f very_long_bytecode_file_name.bc

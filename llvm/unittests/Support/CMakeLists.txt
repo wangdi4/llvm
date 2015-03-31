@@ -13,8 +13,6 @@ add_llvm_unittest(SupportTests
   CompressionTest.cpp
   ConvertUTFTest.cpp
   DataExtractorTest.cpp
-  DwarfTest.cpp
-  EndianStreamTest.cpp
   EndianTest.cpp
   ErrorOrTest.cpp
   FileOutputBufferTest.cpp

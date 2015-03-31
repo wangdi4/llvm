@@ -115,10 +115,12 @@ public:
   }
 
   /// \brief Set location information used by debugging information.
-  void SetCurrentDebugLocation(DebugLoc L) { CurDbgLocation = std::move(L); }
+  void SetCurrentDebugLocation(const DebugLoc &L) {
+    CurDbgLocation = L;
+  }
 
   /// \brief Get location information used by debugging information.
-  const DebugLoc &getCurrentDebugLocation() const { return CurDbgLocation; }
+  DebugLoc getCurrentDebugLocation() const { return CurDbgLocation; }
 
   /// \brief If this builder has a current debug location, set it on the
   /// specified instruction.
@@ -198,8 +200,8 @@ public:
     BasicBlock::iterator Point;
     DebugLoc DbgLoc;
 
-    InsertPointGuard(const InsertPointGuard &) = delete;
-    InsertPointGuard &operator=(const InsertPointGuard &) = delete;
+    InsertPointGuard(const InsertPointGuard &) LLVM_DELETED_FUNCTION;
+    InsertPointGuard &operator=(const InsertPointGuard &) LLVM_DELETED_FUNCTION;
 
   public:
     InsertPointGuard(IRBuilderBase &B)
@@ -219,9 +221,9 @@ public:
     FastMathFlags FMF;
     MDNode *FPMathTag;
 
-    FastMathFlagGuard(const FastMathFlagGuard &) = delete;
+    FastMathFlagGuard(const FastMathFlagGuard &) LLVM_DELETED_FUNCTION;
     FastMathFlagGuard &operator=(
-        const FastMathFlagGuard &) = delete;
+        const FastMathFlagGuard &) LLVM_DELETED_FUNCTION;
 
   public:
     FastMathFlagGuard(IRBuilderBase &B)
@@ -442,17 +444,9 @@ public:
   /// \brief Create a call to the experimental.gc.statepoint intrinsic to
   /// start a new statepoint sequence.
   CallInst *CreateGCStatepoint(Value *ActualCallee,
-                               ArrayRef<Value *> CallArgs,
-                               ArrayRef<Value *> DeoptArgs,
-                               ArrayRef<Value *> GCArgs,
-                               const Twine &Name = "");
-
-  // Conveninence function for the common case when CallArgs are filled in using
-  // makeArrayRef(CS.arg_begin(), .arg_end()); Use needs to be .get()'ed to get
-  // the Value *.
-  CallInst *CreateGCStatepoint(Value *ActualCallee, ArrayRef<Use> CallArgs,
-                               ArrayRef<Value *> DeoptArgs,
-                               ArrayRef<Value *> GCArgs,
+                               ArrayRef<Value*> CallArgs,
+                               ArrayRef<Value*> DeoptArgs,
+                               ArrayRef<Value*> GCArgs,
                                const Twine &Name = "");
 
   /// \brief Create a call to the experimental.gc.result intrinsic to extract
@@ -1303,7 +1297,7 @@ private:
   // \brief Provided to resolve 'CreateIntCast(Ptr, Ptr, "...")', giving a
   // compile time error, instead of converting the string to bool for the
   // isSigned parameter.
-  Value *CreateIntCast(Value *, Type *, const char *) = delete;
+  Value *CreateIntCast(Value *, Type *, const char *) LLVM_DELETED_FUNCTION;
 public:
   Value *CreateFPCast(Value *V, Type *DestTy, const Twine &Name = "") {
     if (V->getType() == DestTy)

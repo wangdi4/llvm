@@ -73,9 +73,6 @@ private:
   virtual bool selectIntAddrMM(SDValue Addr, SDValue &Base,
                                SDValue &Offset) const;
 
-  virtual bool selectIntAddrLSL2MM(SDValue Addr, SDValue &Base,
-                                   SDValue &Offset) const;
-
   /// Match addr+simm10 and addr
   virtual bool selectIntAddrMSA(SDValue Addr, SDValue &Base,
                                 SDValue &Offset) const;
@@ -128,6 +125,11 @@ private:
                                     char ConstraintCode,
                                     std::vector<SDValue> &OutOps) override;
 };
+
+/// createMipsISelDag - This pass converts a legalized DAG into a
+/// MIPS-specific DAG, ready for instruction scheduling.
+FunctionPass *createMipsISelDag(MipsTargetMachine &TM);
+
 }
 
 #endif

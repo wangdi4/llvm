@@ -30,8 +30,8 @@ using namespace llvm;
 namespace {
 
 class R600MCCodeEmitter : public AMDGPUMCCodeEmitter {
-  R600MCCodeEmitter(const R600MCCodeEmitter &) = delete;
-  void operator=(const R600MCCodeEmitter &) = delete;
+  R600MCCodeEmitter(const R600MCCodeEmitter &) LLVM_DELETED_FUNCTION;
+  void operator=(const R600MCCodeEmitter &) LLVM_DELETED_FUNCTION;
   const MCInstrInfo &MCII;
   const MCRegisterInfo &MRI;
 

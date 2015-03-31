@@ -5,7 +5,6 @@ set(LLVM_LINK_COMPONENTS
   IPO
   MC
   MCJIT
-  RuntimeDyld
   ScalarOpts
   Support
   Target

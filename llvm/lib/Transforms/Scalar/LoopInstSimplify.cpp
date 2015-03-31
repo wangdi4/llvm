@@ -18,7 +18,6 @@
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
-#include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instructions.h"
@@ -44,11 +43,11 @@ namespace {
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.setPreservesCFG();
       AU.addRequired<AssumptionCacheTracker>();
-      AU.addRequired<LoopInfoWrapperPass>();
+      AU.addRequired<LoopInfo>();
       AU.addRequiredID(LoopSimplifyID);
       AU.addPreservedID(LoopSimplifyID);
       AU.addPreservedID(LCSSAID);
-      AU.addPreserved<ScalarEvolution>();
+      AU.addPreserved("scalar-evolution");
       AU.addRequired<TargetLibraryInfoWrapperPass>();
     }
   };
@@ -60,7 +59,7 @@ INITIALIZE_PASS_BEGIN(LoopInstSimplify, "loop-instsimplify",
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LoopInfo)
 INITIALIZE_PASS_DEPENDENCY(LCSSA)
 INITIALIZE_PASS_END(LoopInstSimplify, "loop-instsimplify",
                 "Simplify instructions in loops", false, false)
@@ -76,8 +75,9 @@ bool LoopInstSimplify::runOnLoop(Loop *L, LPPassManager &LPM) {
   DominatorTreeWrapperPass *DTWP =
       getAnalysisIfAvailable<DominatorTreeWrapperPass>();
   DominatorTree *DT = DTWP ? &DTWP->getDomTree() : nullptr;
-  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  const DataLayout *DL = &L->getHeader()->getModule()->getDataLayout();
+  LoopInfo *LI = &getAnalysis<LoopInfo>();
+  DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
+  const DataLayout *DL = DLP ? &DLP->getDataLayout() : nullptr;
   const TargetLibraryInfo *TLI =
       &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
   auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(

@@ -104,6 +104,14 @@ void LexicalScopes::extractLexicalScopes(
   }
 }
 
+LexicalScope *LexicalScopes::findInlinedScope(DebugLoc DL) {
+  MDNode *Scope = nullptr;
+  MDNode *IA = nullptr;
+  DL.getScopeAndInlinedAt(Scope, IA, MF->getFunction()->getContext());
+  auto I = InlinedLexicalScopeMap.find(std::make_pair(Scope, IA));
+  return I != InlinedLexicalScopeMap.end() ? &I->second : nullptr;
+}
+
 /// findLexicalScope - Find lexical scope, either regular or inlined, for the
 /// given DebugLoc. Return NULL if not found.
 LexicalScope *LexicalScopes::findLexicalScope(DebugLoc DL) {
@@ -160,10 +168,11 @@ LexicalScope *LexicalScopes::getOrCreateRegularScope(MDNode *Scope) {
   LexicalScope *Parent = nullptr;
   if (D.isLexicalBlock())
     Parent = getOrCreateLexicalScope(DebugLoc::getFromDILexicalBlock(Scope));
-  I = LexicalScopeMap.emplace(std::piecewise_construct,
-                              std::forward_as_tuple(Scope),
-                              std::forward_as_tuple(Parent, DIDescriptor(Scope),
-                                                    nullptr, false)).first;
+  // FIXME: Use forward_as_tuple instead of make_tuple, once MSVC2012
+  // compatibility is no longer required.
+  I = LexicalScopeMap.emplace(std::piecewise_construct, std::make_tuple(Scope),
+                              std::make_tuple(Parent, DIDescriptor(Scope),
+                                              nullptr, false)).first;
 
   if (!Parent) {
     assert(DIDescriptor(Scope).isSubprogram());
@@ -190,11 +199,12 @@ LexicalScope *LexicalScopes::getOrCreateInlinedScope(MDNode *ScopeNode,
   else
     Parent = getOrCreateInlinedScope(Scope.getContext(), InlinedAt);
 
+  // FIXME: Use forward_as_tuple instead of make_tuple, once MSVC2012
+  // compatibility is no longer required.
   I = InlinedLexicalScopeMap.emplace(std::piecewise_construct,
-                                     std::forward_as_tuple(P),
-                                     std::forward_as_tuple(Parent, Scope,
-                                                           InlinedAt, false))
-          .first;
+                                     std::make_tuple(P),
+                                     std::make_tuple(Parent, Scope, InlinedAt,
+                                                     false)).first;
   return &I->second;
 }
 

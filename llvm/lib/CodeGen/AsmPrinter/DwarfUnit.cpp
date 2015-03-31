@@ -17,7 +17,6 @@
 #include "DwarfDebug.h"
 #include "DwarfExpression.h"
 #include "llvm/ADT/APFloat.h"
-#include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/DataLayout.h"
@@ -44,12 +43,6 @@ GenerateDwarfTypeUnits("generate-type-units", cl::Hidden,
                        cl::desc("Generate DWARF4 type units."),
                        cl::init(false));
 
-DIEDwarfExpression::DIEDwarfExpression(const AsmPrinter &AP, DwarfUnit &DU,
-                                       DIELoc &DIE)
-    : DwarfExpression(*AP.MF->getSubtarget().getRegisterInfo(),
-                      AP.getDwarfDebug()->getDwarfVersion()),
-      AP(AP), DU(DU), DIE(DIE) {}
-
 void DIEDwarfExpression::EmitOp(uint8_t Op, const char* Comment) {
   DU.addUInt(DIE, dwarf::DW_FORM_data1, Op);
 }
@@ -60,7 +53,7 @@ void DIEDwarfExpression::EmitUnsigned(unsigned Value) {
   DU.addUInt(DIE, dwarf::DW_FORM_udata, Value);
 }
 bool DIEDwarfExpression::isFrameRegister(unsigned MachineReg) {
-  return MachineReg == TRI.getFrameRegister(*AP.MF);
+  return MachineReg == getTRI()->getFrameRegister(*AP.MF);
 }
 
 
@@ -135,30 +128,6 @@ int64_t DwarfUnit::getDefaultLowerBound() const {
   case dwarf::DW_LANG_Pascal83:
   case dwarf::DW_LANG_PLI:
     if (dwarf::DWARF_VERSION >= 4)
-      return 1;
-    break;
-
-  // The languages below have valid values only if the DWARF version >= 5.
-  case dwarf::DW_LANG_OpenCL:
-  case dwarf::DW_LANG_Go:
-  case dwarf::DW_LANG_Haskell:
-  case dwarf::DW_LANG_C_plus_plus_03:
-  case dwarf::DW_LANG_C_plus_plus_11:
-  case dwarf::DW_LANG_OCaml:
-  case dwarf::DW_LANG_Rust:
-  case dwarf::DW_LANG_C11:
-  case dwarf::DW_LANG_Swift:
-  case dwarf::DW_LANG_Dylan:
-  case dwarf::DW_LANG_C_plus_plus_14:
-    if (dwarf::DWARF_VERSION >= 5)
-      return 0;
-    break;
-
-  case dwarf::DW_LANG_Modula3:
-  case dwarf::DW_LANG_Julia:
-  case dwarf::DW_LANG_Fortran03:
-  case dwarf::DW_LANG_Fortran08:
-    if (dwarf::DWARF_VERSION >= 5)
       return 1;
     break;
   }
@@ -615,8 +584,7 @@ static bool isUnsignedDIType(DwarfDebug *DD, DIType Ty) {
         T == dwarf::DW_TAG_ptr_to_member_type ||
         T == dwarf::DW_TAG_reference_type ||
         T == dwarf::DW_TAG_rvalue_reference_type ||
-        T == dwarf::DW_TAG_structure_type ||
-        T == dwarf::DW_TAG_union_type)
+        T == dwarf::DW_TAG_structure_type)
       return true;
     assert(T == dwarf::DW_TAG_typedef || T == dwarf::DW_TAG_const_type ||
            T == dwarf::DW_TAG_volatile_type ||
@@ -637,7 +605,6 @@ static bool isUnsignedDIType(DwarfDebug *DD, DIType Ty) {
           Encoding == dwarf::DW_ATE_unsigned_char ||
           Encoding == dwarf::DW_ATE_signed ||
           Encoding == dwarf::DW_ATE_signed_char ||
-          Encoding == dwarf::DW_ATE_float ||
           Encoding == dwarf::DW_ATE_UTF || Encoding == dwarf::DW_ATE_boolean ||
           (Ty.getTag() == dwarf::DW_TAG_unspecified_type &&
            Ty.getName() == "decltype(nullptr)")) &&
@@ -659,7 +626,10 @@ static uint64_t getBaseTypeSize(DwarfDebug *DD, DIDerivedType Ty) {
 
   DIType BaseType = DD->resolve(Ty.getTypeDerivedFrom());
 
-  assert(BaseType.isValid() && "Unexpected invalid base type");
+  // If this type is not derived from any type or the type is a declaration then
+  // take conservative approach.
+  if (!BaseType.isValid() || BaseType.isForwardDecl())
+    return Ty.getSizeInBits();
 
   // If this is a derived type, go ahead and get the base type, unless it's a
   // reference then it's just the size of the field. Pointer types have no need
@@ -1351,7 +1321,7 @@ void DwarfUnit::applySubprogramAttributes(DISubprogram SP, DIE &SPDie,
   if (SP.isOptimized())
     addFlag(SPDie, dwarf::DW_AT_APPLE_optimized);
 
-  if (unsigned isa = Asm->getISAEncoding(SP.getFunction())) {
+  if (unsigned isa = Asm->getISAEncoding()) {
     addUInt(SPDie, dwarf::DW_AT_APPLE_isa, dwarf::DW_FORM_flag, isa);
   }
 
@@ -1503,7 +1473,7 @@ void DwarfUnit::constructMemberDIE(DIE &Buffer, DIDerivedType DT) {
     uint64_t FieldSize = getBaseTypeSize(DD, DT);
     uint64_t OffsetInBytes;
 
-    if (FieldSize && Size != FieldSize) {
+    if (Size != FieldSize) {
       // Handle bitfield, assume bytes are 8 bits.
       addUInt(MemberDie, dwarf::DW_AT_byte_size, None, FieldSize/8);
       addUInt(MemberDie, dwarf::DW_AT_bit_size, None, Size);

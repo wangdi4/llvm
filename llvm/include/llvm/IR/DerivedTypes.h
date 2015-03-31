@@ -94,8 +94,8 @@ public:
 /// FunctionType - Class to represent function types
 ///
 class FunctionType : public Type {
-  FunctionType(const FunctionType &) = delete;
-  const FunctionType &operator=(const FunctionType &) = delete;
+  FunctionType(const FunctionType &) LLVM_DELETED_FUNCTION;
+  const FunctionType &operator=(const FunctionType &) LLVM_DELETED_FUNCTION;
   FunctionType(Type *Result, ArrayRef<Type*> Params, bool IsVarArgs);
 
 public:
@@ -188,8 +188,8 @@ public:
 /// generator for a target expects).
 ///
 class StructType : public CompositeType {
-  StructType(const StructType &) = delete;
-  const StructType &operator=(const StructType &) = delete;
+  StructType(const StructType &) LLVM_DELETED_FUNCTION;
+  const StructType &operator=(const StructType &) LLVM_DELETED_FUNCTION;
   StructType(LLVMContext &C)
     : CompositeType(C, StructTyID), SymbolTableEntry(nullptr) {}
   enum {
@@ -308,8 +308,8 @@ public:
 ///
 class SequentialType : public CompositeType {
   Type *ContainedType;               ///< Storage for the single contained type.
-  SequentialType(const SequentialType &) = delete;
-  const SequentialType &operator=(const SequentialType &) = delete;
+  SequentialType(const SequentialType &) LLVM_DELETED_FUNCTION;
+  const SequentialType &operator=(const SequentialType &) LLVM_DELETED_FUNCTION;
 
 protected:
   SequentialType(TypeID TID, Type *ElType)
@@ -335,8 +335,8 @@ public:
 class ArrayType : public SequentialType {
   uint64_t NumElements;
 
-  ArrayType(const ArrayType &) = delete;
-  const ArrayType &operator=(const ArrayType &) = delete;
+  ArrayType(const ArrayType &) LLVM_DELETED_FUNCTION;
+  const ArrayType &operator=(const ArrayType &) LLVM_DELETED_FUNCTION;
   ArrayType(Type *ElType, uint64_t NumEl);
 public:
   /// ArrayType::get - This static method is the primary way to construct an
@@ -361,8 +361,8 @@ public:
 class VectorType : public SequentialType {
   unsigned NumElements;
 
-  VectorType(const VectorType &) = delete;
-  const VectorType &operator=(const VectorType &) = delete;
+  VectorType(const VectorType &) LLVM_DELETED_FUNCTION;
+  const VectorType &operator=(const VectorType &) LLVM_DELETED_FUNCTION;
   VectorType(Type *ElType, unsigned NumEl);
 public:
   /// VectorType::get - This static method is the primary way to construct an
@@ -446,8 +446,8 @@ public:
 /// PointerType - Class to represent pointers.
 ///
 class PointerType : public SequentialType {
-  PointerType(const PointerType &) = delete;
-  const PointerType &operator=(const PointerType &) = delete;
+  PointerType(const PointerType &) LLVM_DELETED_FUNCTION;
+  const PointerType &operator=(const PointerType &) LLVM_DELETED_FUNCTION;
   explicit PointerType(Type *ElType, unsigned AddrSpace);
 public:
   /// PointerType::get - This constructs a pointer to an object of the specified

@@ -82,8 +82,8 @@ private:
   void setParent(Function *parent);
   friend class SymbolTableListTraits<BasicBlock, Function>;
 
-  BasicBlock(const BasicBlock &) = delete;
-  void operator=(const BasicBlock &) = delete;
+  BasicBlock(const BasicBlock &) LLVM_DELETED_FUNCTION;
+  void operator=(const BasicBlock &) LLVM_DELETED_FUNCTION;
 
   /// \brief Constructor.
   ///
@@ -119,11 +119,7 @@ public:
   const Function *getParent() const { return Parent; }
         Function *getParent()       { return Parent; }
 
-  /// \brief Return the module owning the function this basic block belongs to,
-  /// or nullptr it the function does not have a module.
-  ///
-  /// Note: this is undefined behavior if the block does not have a parent.
-  const Module *getModule() const;
+  const DataLayout *getDataLayout() const;
 
   /// \brief Returns the terminator instruction if the block is well formed or
   /// null if the block is not well formed.
@@ -210,14 +206,6 @@ public:
   BasicBlock *getUniquePredecessor();
   const BasicBlock *getUniquePredecessor() const {
     return const_cast<BasicBlock*>(this)->getUniquePredecessor();
-  }
-
-  /// Return the successor of this block if it has a unique successor.
-  /// Otherwise return a null pointer.  This method is analogous to
-  /// getUniquePredeccessor above.
-  BasicBlock *getUniqueSuccessor();
-  const BasicBlock *getUniqueSuccessor() const {
-    return const_cast<BasicBlock*>(this)->getUniqueSuccessor();
   }
 
   //===--------------------------------------------------------------------===//

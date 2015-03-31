@@ -132,9 +132,9 @@ def FeatureFMA4    : SubtargetFeature<"fma4", "HasFMA4", "true",
 def FeatureXOP     : SubtargetFeature<"xop", "HasXOP", "true",
                                       "Enable XOP instructions",
                                       [FeatureFMA4]>;
-def FeatureSSEUnalignedMem : SubtargetFeature<"sse-unaligned-mem",
-                                          "HasSSEUnalignedMem", "true",
-                      "Allow unaligned memory operands with SSE instructions">;
+def FeatureVectorUAMem : SubtargetFeature<"vector-unaligned-mem",
+                                          "HasVectorUAMem", "true",
+                 "Allow unaligned memory operands on vector/SIMD instructions">;
 def FeatureAES     : SubtargetFeature<"aes", "HasAES", "true",
                                       "Enable AES instructions",
                                       [FeatureSSE2]>;
@@ -164,10 +164,14 @@ def FeatureADX     : SubtargetFeature<"adx", "HasADX", "true",
 def FeatureSHA     : SubtargetFeature<"sha", "HasSHA", "true",
                                       "Enable SHA instructions",
                                       [FeatureSSE2]>;
+def FeatureSGX     : SubtargetFeature<"sgx", "HasSGX", "true",
+                                      "Support SGX instructions">;
 def FeaturePRFCHW  : SubtargetFeature<"prfchw", "HasPRFCHW", "true",
                                       "Support PRFCHW instructions">;
 def FeatureRDSEED  : SubtargetFeature<"rdseed", "HasRDSEED", "true",
                                       "Support RDSEED instruction">;
+def FeatureSMAP    : SubtargetFeature<"smap", "HasSMAP", "true",
+                                      "Support SMAP instructions">;
 def FeatureLeaForSP : SubtargetFeature<"lea-sp", "UseLeaForSP", "true",
                                      "Use LEA for adjusting the stack pointer">;
 def FeatureSlowDivide32 : SubtargetFeature<"idivl-to-divb",
@@ -305,6 +309,7 @@ class SandyBridgeProc<string Name> : ProcessorModel<Name, SandyBridgeModel, [
                                        FeatureCMPXCHG16B,
                                        FeatureFastUAMem,
                                        FeatureSlowUAMem32,
+                                       FeatureVectorUAMem,
                                        FeaturePOPCNT,
                                        FeatureAES,
                                        FeaturePCLMUL
@@ -317,6 +322,7 @@ class IvyBridgeProc<string Name> : ProcessorModel<Name, SandyBridgeModel, [
                                      FeatureCMPXCHG16B,
                                      FeatureFastUAMem,
                                      FeatureSlowUAMem32,
+                                     FeatureVectorUAMem,
                                      FeaturePOPCNT,
                                      FeatureAES,
                                      FeaturePCLMUL,
@@ -331,6 +337,7 @@ class HaswellProc<string Name> : ProcessorModel<Name, HaswellModel, [
                                    FeatureAVX2,
                                    FeatureCMPXCHG16B,
                                    FeatureFastUAMem,
+                                   FeatureVectorUAMem,
                                    FeaturePOPCNT,
                                    FeatureAES,
                                    FeaturePCLMUL,
@@ -353,6 +360,7 @@ class BroadwellProc<string Name> : ProcessorModel<Name, HaswellModel, [
                                      FeatureAVX2,
                                      FeatureCMPXCHG16B,
                                      FeatureFastUAMem,
+                                     FeatureVectorUAMem,
                                      FeaturePOPCNT,
                                      FeatureAES,
                                      FeaturePCLMUL,
@@ -368,6 +376,7 @@ class BroadwellProc<string Name> : ProcessorModel<Name, HaswellModel, [
                                      FeatureHLE,
                                      FeatureADX,
                                      FeatureRDSEED,
+                                     FeatureSMAP,
                                      FeatureSlowIncDec
                                    ]>;
 def : BroadwellProc<"broadwell">;
@@ -379,7 +388,7 @@ class KnightsLandingProc<string Name> : ProcessorModel<Name, HaswellModel,
                       FeatureAES, FeaturePCLMUL, FeatureRDRAND, FeatureF16C,
                       FeatureFSGSBase, FeatureMOVBE, FeatureLZCNT, FeatureBMI,
                       FeatureBMI2, FeatureFMA, FeatureRTM, FeatureHLE,
-                      FeatureSlowIncDec]>;
+                      FeatureSlowIncDec, FeatureVectorUAMem]>;
 def : KnightsLandingProc<"knl">;
 
 // FIXME: define SKX model
@@ -390,7 +399,7 @@ class SkylakeProc<string Name> : ProcessorModel<Name, HaswellModel,
                       FeatureAES, FeaturePCLMUL, FeatureRDRAND, FeatureF16C,
                       FeatureFSGSBase, FeatureMOVBE, FeatureLZCNT, FeatureBMI,
                       FeatureBMI2, FeatureFMA, FeatureRTM, FeatureHLE,
-                      FeatureSlowIncDec]>;
+                      FeatureSlowIncDec, FeatureSGX, FeatureVectorUAMem]>;
 def : SkylakeProc<"skylake">;
 def : SkylakeProc<"skx">; // Legacy alias.
 

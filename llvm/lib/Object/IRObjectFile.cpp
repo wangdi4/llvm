@@ -13,7 +13,6 @@
 
 #include "llvm/Object/IRObjectFile.h"
 #include "RecordStreamer.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/GVMaterializer.h"
 #include "llvm/IR/LLVMContext.h"
@@ -36,9 +35,12 @@ using namespace object;
 
 IRObjectFile::IRObjectFile(MemoryBufferRef Object, std::unique_ptr<Module> Mod)
     : SymbolicFile(Binary::ID_IR, Object), M(std::move(Mod)) {
-  // Setup a mangler with the DataLayout.
-  const DataLayout &DL = M->getDataLayout();
-  Mang.reset(new Mangler(&DL));
+  // If we have a DataLayout, setup a mangler.
+  const DataLayout *DL = M->getDataLayout();
+  if (!DL)
+    return;
+
+  Mang.reset(new Mangler(DL));
 
   const std::string &InlineAsm = M->getModuleInlineAsm();
   if (InlineAsm.empty())
@@ -71,7 +73,6 @@ IRObjectFile::IRObjectFile(MemoryBufferRef Object, std::unique_ptr<Module> Mod)
   MCContext MCCtx(MAI.get(), MRI.get(), &MOFI);
   MOFI.InitMCObjectFileInfo(Triple, Reloc::Default, CodeModel::Default, MCCtx);
   std::unique_ptr<RecordStreamer> Streamer(new RecordStreamer(MCCtx));
-  T->createNullTargetStreamer(*Streamer);
 
   std::unique_ptr<MemoryBuffer> Buffer(MemoryBuffer::getMemBuffer(InlineAsm));
   SourceMgr SrcMgr;

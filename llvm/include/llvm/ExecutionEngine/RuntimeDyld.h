@@ -32,8 +32,8 @@ class RuntimeDyldCheckerImpl;
 class RuntimeDyld {
   friend class RuntimeDyldCheckerImpl;
 
-  RuntimeDyld(const RuntimeDyld &) = delete;
-  void operator=(const RuntimeDyld &) = delete;
+  RuntimeDyld(const RuntimeDyld &) LLVM_DELETED_FUNCTION;
+  void operator=(const RuntimeDyld &) LLVM_DELETED_FUNCTION;
 
   // RuntimeDyldImpl is the actual class. RuntimeDyld is just the public
   // interface.

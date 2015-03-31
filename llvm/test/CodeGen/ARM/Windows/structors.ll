@@ -7,6 +7,6 @@ entry:
   ret void
 }
 
-; CHECK: .section .CRT$XCU,"dr"
+; CHECK: .section .CRT$XCU,"rd"
 ; CHECK: .long function
 

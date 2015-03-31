@@ -120,7 +120,7 @@ public:
 class PMDataManager;
 class AnalysisResolver {
 private:
-  AnalysisResolver() = delete;
+  AnalysisResolver() LLVM_DELETED_FUNCTION;
 
 public:
   explicit AnalysisResolver(PMDataManager &P) : PM(P) { }

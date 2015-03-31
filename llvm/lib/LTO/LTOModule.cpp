@@ -229,7 +229,7 @@ LTOModule *LTOModule::makeLTOModule(MemoryBufferRef Buffer,
 
   TargetMachine *target = march->createTargetMachine(TripleStr, CPU, FeatureStr,
                                                      options);
-  M->setDataLayout(*target->getDataLayout());
+  M->setDataLayout(target->getSubtargetImpl()->getDataLayout());
 
   std::unique_ptr<object::IRObjectFile> IRObj(
       new object::IRObjectFile(Buffer, std::move(M)));
@@ -649,8 +649,10 @@ void LTOModule::parseMetadata() {
         // here.
         StringRef Op =
             _linkeropt_strings.insert(MDOption->getString()).first->first();
-        StringRef DepLibName =
-            _target->getObjFileLowering()->getDepLibFromLinkerOpt(Op);
+        StringRef DepLibName = _target->getSubtargetImpl()
+                                   ->getTargetLowering()
+                                   ->getObjFileLowering()
+                                   .getDepLibFromLinkerOpt(Op);
         if (!DepLibName.empty())
           _deplibs.push_back(DepLibName.data());
         else if (!Op.empty())

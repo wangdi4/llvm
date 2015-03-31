@@ -22,7 +22,6 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -34,7 +33,7 @@ using namespace llvm;
 char IVUsers::ID = 0;
 INITIALIZE_PASS_BEGIN(IVUsers, "iv-users",
                       "Induction Variable Users", false, true)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LoopInfo)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
 INITIALIZE_PASS_END(IVUsers, "iv-users",
@@ -242,7 +241,7 @@ IVUsers::IVUsers()
 }
 
 void IVUsers::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<LoopInfoWrapperPass>();
+  AU.addRequired<LoopInfo>();
   AU.addRequired<DominatorTreeWrapperPass>();
   AU.addRequired<ScalarEvolution>();
   AU.setPreservesAll();
@@ -251,10 +250,11 @@ void IVUsers::getAnalysisUsage(AnalysisUsage &AU) const {
 bool IVUsers::runOnLoop(Loop *l, LPPassManager &LPM) {
 
   L = l;
-  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  LI = &getAnalysis<LoopInfo>();
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   SE = &getAnalysis<ScalarEvolution>();
-  DL = &L->getHeader()->getModule()->getDataLayout();
+  DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
+  DL = DLP ? &DLP->getDataLayout() : nullptr;
 
   // Find all uses of induction variables in this loop, and categorize
   // them by stride.  Start by finding all of the PHI nodes in the header for

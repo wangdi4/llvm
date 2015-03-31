@@ -71,7 +71,7 @@ private:
   void printBaseOfDataField(const pe32_header *Hdr);
   void printBaseOfDataField(const pe32plus_header *Hdr);
 
-  void printCodeViewDebugInfo(const SectionRef &Section);
+  void printCodeViewLineTables(const SectionRef &Section);
 
   void printCodeViewSymbolsSubsection(StringRef Subsection,
                                       const SectionRef &Section,
@@ -469,7 +469,7 @@ void COFFDumper::printBaseOfDataField(const pe32_header *Hdr) {
 
 void COFFDumper::printBaseOfDataField(const pe32plus_header *) {}
 
-void COFFDumper::printCodeViewDebugInfo(const SectionRef &Section) {
+void COFFDumper::printCodeViewLineTables(const SectionRef &Section) {
   StringRef Data;
   if (error(Section.getContents(Data)))
     return;
@@ -477,7 +477,7 @@ void COFFDumper::printCodeViewDebugInfo(const SectionRef &Section) {
   SmallVector<StringRef, 10> FunctionNames;
   StringMap<StringRef> FunctionLineTables;
 
-  ListScope D(W, "CodeViewDebugInfo");
+  ListScope D(W, "CodeViewLineTables");
   {
     // FIXME: Add more offset correctness checks.
     DataExtractor DE(Data, true, 4);
@@ -503,17 +503,14 @@ void COFFDumper::printCodeViewDebugInfo(const SectionRef &Section) {
         return;
       }
 
+      // Print the raw contents to simplify debugging if anything goes wrong
+      // afterwards.
       StringRef Contents = Data.substr(Offset, PayloadSize);
-      if (opts::CodeViewSubsectionBytes) {
-        // Print the raw contents to simplify debugging if anything goes wrong
-        // afterwards.
-        W.printBinaryBlock("Contents", Contents);
-      }
+      W.printBinaryBlock("Contents", Contents);
 
       switch (SubSectionType) {
       case COFF::DEBUG_SYMBOL_SUBSECTION:
-        if (opts::SectionSymbols)
-          printCodeViewSymbolsSubsection(Contents, Section, Offset);
+        printCodeViewSymbolsSubsection(Contents, Section, Offset);
         break;
       case COFF::DEBUG_LINE_TABLE_SUBSECTION: {
         // Holds a PC to file:line table.  Some data to parse this subsection is
@@ -698,19 +695,9 @@ void COFFDumper::printCodeViewSymbolsSubsection(StringRef Subsection,
       InFunctionScope = false;
       break;
     }
-    default: {
-      if (opts::CodeViewSubsectionBytes) {
-        ListScope S(W, "Record");
-        W.printHex("Size", Size);
-        W.printHex("Type", Type);
-
-        StringRef Contents = DE.getData().substr(Offset, Size);
-        W.printBinaryBlock("Contents", Contents);
-      }
-
+    default:
       Offset += Size;
       break;
-    }
     }
   }
 
@@ -760,8 +747,8 @@ void COFFDumper::printSections() {
       }
     }
 
-    if (Name == ".debug$S" && opts::CodeView)
-      printCodeViewDebugInfo(Sec);
+    if (Name == ".debug$S" && opts::CodeViewLineTables)
+      printCodeViewLineTables(Sec);
 
     if (opts::SectionData &&
         !(Section->Characteristics & COFF::IMAGE_SCN_CNT_UNINITIALIZED_DATA)) {

@@ -97,17 +97,25 @@ static void AdjustCallerSSPLevel(Function *Caller, Function *Callee) {
   AttributeSet OldSSPAttr = AttributeSet::get(Caller->getContext(),
                                               AttributeSet::FunctionIndex,
                                               B);
+  AttributeSet CallerAttr = Caller->getAttributes(),
+               CalleeAttr = Callee->getAttributes();
 
-  if (Callee->hasFnAttribute(Attribute::StackProtectReq)) {
+  if (CalleeAttr.hasAttribute(AttributeSet::FunctionIndex,
+                              Attribute::StackProtectReq)) {
     Caller->removeAttributes(AttributeSet::FunctionIndex, OldSSPAttr);
     Caller->addFnAttr(Attribute::StackProtectReq);
-  } else if (Callee->hasFnAttribute(Attribute::StackProtectStrong) &&
-             !Caller->hasFnAttribute(Attribute::StackProtectReq)) {
+  } else if (CalleeAttr.hasAttribute(AttributeSet::FunctionIndex,
+                                     Attribute::StackProtectStrong) &&
+             !CallerAttr.hasAttribute(AttributeSet::FunctionIndex,
+                                      Attribute::StackProtectReq)) {
     Caller->removeAttributes(AttributeSet::FunctionIndex, OldSSPAttr);
     Caller->addFnAttr(Attribute::StackProtectStrong);
-  } else if (Callee->hasFnAttribute(Attribute::StackProtect) &&
-             !Caller->hasFnAttribute(Attribute::StackProtectReq) &&
-             !Caller->hasFnAttribute(Attribute::StackProtectStrong))
+  } else if (CalleeAttr.hasAttribute(AttributeSet::FunctionIndex,
+                                     Attribute::StackProtect) &&
+           !CallerAttr.hasAttribute(AttributeSet::FunctionIndex,
+                                    Attribute::StackProtectReq) &&
+           !CallerAttr.hasAttribute(AttributeSet::FunctionIndex,
+                                    Attribute::StackProtectStrong))
     Caller->addFnAttr(Attribute::StackProtect);
 }
 
@@ -121,7 +129,8 @@ static void AdjustCallerSSPLevel(Function *Caller, Function *Callee) {
 /// any new allocas to the set if not possible.
 static bool InlineCallIfPossible(CallSite CS, InlineFunctionInfo &IFI,
                                  InlinedArrayAllocasTy &InlinedArrayAllocas,
-                                 int InlineHistory, bool InsertLifetime) {
+                                 int InlineHistory, bool InsertLifetime,
+                                 const DataLayout *DL) {
   Function *Callee = CS.getCalledFunction();
   Function *Caller = CS.getCaller();
 
@@ -197,6 +206,11 @@ static bool InlineCallIfPossible(CallSite CS, InlineFunctionInfo &IFI,
 
       unsigned Align1 = AI->getAlignment(),
                Align2 = AvailableAlloca->getAlignment();
+      // If we don't have data layout information, and only one alloca is using
+      // the target default, then we can't safely merge them because we can't
+      // pick the greater alignment.
+      if (!DL && (!Align1 || !Align2) && Align1 != Align2)
+        continue;
       
       // The available alloca has to be in the right function, not in some other
       // function in this SCC.
@@ -217,8 +231,8 @@ static bool InlineCallIfPossible(CallSite CS, InlineFunctionInfo &IFI,
 
       if (Align1 != Align2) {
         if (!Align1 || !Align2) {
-          const DataLayout &DL = Caller->getParent()->getDataLayout();
-          unsigned TypeAlign = DL.getABITypeAlignment(AI->getAllocatedType());
+          assert(DL && "DataLayout required to compare default alignments");
+          unsigned TypeAlign = DL->getABITypeAlignment(AI->getAllocatedType());
 
           Align1 = Align1 ? Align1 : TypeAlign;
           Align2 = Align2 ? Align2 : TypeAlign;
@@ -259,7 +273,8 @@ unsigned Inliner::getInlineThreshold(CallSite CS) const {
   // would decrease the threshold.
   Function *Caller = CS.getCaller();
   bool OptSize = Caller && !Caller->isDeclaration() &&
-                 Caller->hasFnAttribute(Attribute::OptimizeForSize);
+    Caller->getAttributes().hasAttribute(AttributeSet::FunctionIndex,
+                                         Attribute::OptimizeForSize);
   if (!(InlineLimit.getNumOccurrences() > 0) && OptSize &&
       OptSizeThreshold < thres)
     thres = OptSizeThreshold;
@@ -268,14 +283,17 @@ unsigned Inliner::getInlineThreshold(CallSite CS) const {
   // and the caller does not need to minimize its size.
   Function *Callee = CS.getCalledFunction();
   bool InlineHint = Callee && !Callee->isDeclaration() &&
-                    Callee->hasFnAttribute(Attribute::InlineHint);
-  if (InlineHint && HintThreshold > thres &&
-      !Caller->hasFnAttribute(Attribute::MinSize))
+    Callee->getAttributes().hasAttribute(AttributeSet::FunctionIndex,
+                                         Attribute::InlineHint);
+  if (InlineHint && HintThreshold > thres
+      && !Caller->getAttributes().hasAttribute(AttributeSet::FunctionIndex,
+                                               Attribute::MinSize))
     thres = HintThreshold;
 
   // Listen to the cold attribute when it would decrease the threshold.
   bool ColdCallee = Callee && !Callee->isDeclaration() &&
-                    Callee->hasFnAttribute(Attribute::Cold);
+    Callee->getAttributes().hasAttribute(AttributeSet::FunctionIndex,
+                                         Attribute::Cold);
   // Command line argument for InlineLimit will override the default
   // ColdThreshold. If we have -inline-threshold but no -inlinecold-threshold,
   // do not use the default cold threshold even if it is smaller.
@@ -426,6 +444,8 @@ static bool InlineHistoryIncludes(Function *F, int InlineHistoryID,
 bool Inliner::runOnSCC(CallGraphSCC &SCC) {
   CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
   AssumptionCacheTracker *ACT = &getAnalysis<AssumptionCacheTracker>();
+  DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
+  const DataLayout *DL = DLP ? &DLP->getDataLayout() : nullptr;
   auto *TLIP = getAnalysisIfAvailable<TargetLibraryInfoWrapperPass>();
   const TargetLibraryInfo *TLI = TLIP ? &TLIP->getTLI() : nullptr;
   AliasAnalysis *AA = &getAnalysis<AliasAnalysis>();
@@ -487,7 +507,7 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
 
   
   InlinedArrayAllocasTy InlinedArrayAllocas;
-  InlineFunctionInfo InlineInfo(&CG, AA, ACT);
+  InlineFunctionInfo InlineInfo(&CG, DL, AA, ACT);
 
   // Now that we have all of the call sites, loop over them and inline them if
   // it looks profitable to do so.
@@ -545,7 +565,7 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
 
         // Attempt to inline the function.
         if (!InlineCallIfPossible(CS, InlineInfo, InlinedArrayAllocas,
-                                  InlineHistoryID, InsertLifetime)) {
+                                  InlineHistoryID, InsertLifetime, DL)) {
           emitOptimizationRemarkMissed(CallerCtx, DEBUG_TYPE, *Caller, DLoc,
                                        Twine(Callee->getName() +
                                              " will not be inlined into " +
@@ -639,7 +659,9 @@ bool Inliner::removeDeadFunctions(CallGraph &CG, bool AlwaysInlineOnly) {
     // Handle the case when this function is called and we only want to care
     // about always-inline functions. This is a bit of a hack to share code
     // between here and the InlineAlways pass.
-    if (AlwaysInlineOnly && !F->hasFnAttribute(Attribute::AlwaysInline))
+    if (AlwaysInlineOnly &&
+        !F->getAttributes().hasAttribute(AttributeSet::FunctionIndex,
+                                         Attribute::AlwaysInline))
       continue;
 
     // If the only remaining users of the function are dead constants, remove

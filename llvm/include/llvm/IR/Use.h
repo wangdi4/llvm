@@ -77,7 +77,7 @@ public:
   typedef PointerIntPair<User *, 1, unsigned> UserRef;
 
 private:
-  Use(const Use &U) = delete;
+  Use(const Use &U) LLVM_DELETED_FUNCTION;
 
   /// Destructor - Only for zap()
   ~Use() {

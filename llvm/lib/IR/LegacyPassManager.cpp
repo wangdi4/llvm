@@ -600,7 +600,8 @@ void PMTopLevelManager::schedulePass(Pass *P) {
   // If P is an analysis pass and it is available then do not
   // generate the analysis again. Stale analysis info should not be
   // available at this point.
-  const PassInfo *PI = findAnalysisPassInfo(P->getPassID());
+  const PassInfo *PI =
+    PassRegistry::getPassRegistry()->getPassInfo(P->getPassID());
   if (PI && PI->isAnalysis() && findAnalysisPass(P->getPassID())) {
     delete P;
     return;
@@ -618,7 +619,7 @@ void PMTopLevelManager::schedulePass(Pass *P) {
 
       Pass *AnalysisPass = findAnalysisPass(*I);
       if (!AnalysisPass) {
-        const PassInfo *PI = findAnalysisPassInfo(*I);
+        const PassInfo *PI = PassRegistry::getPassRegistry()->getPassInfo(*I);
 
         if (!PI) {
           // Pass P is not in the global PassRegistry
@@ -715,7 +716,8 @@ Pass *PMTopLevelManager::findAnalysisPass(AnalysisID AID) {
       return *I;
 
     // If Pass not found then check the interfaces implemented by Immutable Pass
-    const PassInfo *PassInf = findAnalysisPassInfo(PI);
+    const PassInfo *PassInf =
+      PassRegistry::getPassRegistry()->getPassInfo(PI);
     assert(PassInf && "Expected all immutable passes to be initialized");
     const std::vector<const PassInfo*> &ImmPI =
       PassInf->getInterfacesImplemented();
@@ -727,17 +729,6 @@ Pass *PMTopLevelManager::findAnalysisPass(AnalysisID AID) {
   }
 
   return nullptr;
-}
-
-const PassInfo *PMTopLevelManager::findAnalysisPassInfo(AnalysisID AID) const {
-  const PassInfo *&PI = AnalysisPassInfos[AID];
-  if (!PI)
-    PI = PassRegistry::getPassRegistry()->getPassInfo(AID);
-  else
-    assert(PI == PassRegistry::getPassRegistry()->getPassInfo(AID) &&
-           "The pass info pointer changed for an analysis ID!");
-
-  return PI;
 }
 
 // Print passes managed by this top level manager.
@@ -768,7 +759,8 @@ void PMTopLevelManager::dumpArguments() const {
   dbgs() << "Pass Arguments: ";
   for (SmallVectorImpl<ImmutablePass *>::const_iterator I =
        ImmutablePasses.begin(), E = ImmutablePasses.end(); I != E; ++I)
-    if (const PassInfo *PI = findAnalysisPassInfo((*I)->getPassID())) {
+    if (const PassInfo *PI =
+        PassRegistry::getPassRegistry()->getPassInfo((*I)->getPassID())) {
       assert(PI && "Expected all immutable passes to be initialized");
       if (!PI->isAnalysisGroup())
         dbgs() << " -" << PI->getPassArgument();
@@ -832,7 +824,7 @@ void PMDataManager::recordAvailableAnalysis(Pass *P) {
 
   // This pass is the current implementation of all of the interfaces it
   // implements as well.
-  const PassInfo *PInf = TPM->findAnalysisPassInfo(PI);
+  const PassInfo *PInf = PassRegistry::getPassRegistry()->getPassInfo(PI);
   if (!PInf) return;
   const std::vector<const PassInfo*> &II = PInf->getInterfacesImplemented();
   for (unsigned i = 0, e = II.size(); i != e; ++i)
@@ -965,7 +957,7 @@ void PMDataManager::freePass(Pass *P, StringRef Msg,
   }
 
   AnalysisID PI = P->getPassID();
-  if (const PassInfo *PInf = TPM->findAnalysisPassInfo(PI)) {
+  if (const PassInfo *PInf = PassRegistry::getPassRegistry()->getPassInfo(PI)) {
     // Remove the pass itself (if it is not already removed).
     AvailableAnalysis.erase(PI);
 
@@ -1045,7 +1037,7 @@ void PMDataManager::add(Pass *P, bool ProcessAnalysis) {
   for (SmallVectorImpl<AnalysisID>::iterator
          I = ReqAnalysisNotAvailable.begin(),
          E = ReqAnalysisNotAvailable.end() ;I != E; ++I) {
-    const PassInfo *PI = TPM->findAnalysisPassInfo(*I);
+    const PassInfo *PI = PassRegistry::getPassRegistry()->getPassInfo(*I);
     Pass *AnalysisPass = PI->createPass();
     this->addLowerLevelRequiredPass(P, AnalysisPass);
   }
@@ -1150,7 +1142,7 @@ void PMDataManager::dumpPassArguments() const {
       PMD->dumpPassArguments();
     else
       if (const PassInfo *PI =
-            TPM->findAnalysisPassInfo((*I)->getPassID()))
+            PassRegistry::getPassRegistry()->getPassInfo((*I)->getPassID()))
         if (!PI->isAnalysisGroup())
           dbgs() << " -" << PI->getPassArgument();
   }
@@ -1226,7 +1218,7 @@ void PMDataManager::dumpAnalysisUsage(StringRef Msg, const Pass *P,
   dbgs() << (const void*)P << std::string(getDepth()*2+3, ' ') << Msg << " Analyses:";
   for (unsigned i = 0; i != Set.size(); ++i) {
     if (i) dbgs() << ',';
-    const PassInfo *PInf = TPM->findAnalysisPassInfo(Set[i]);
+    const PassInfo *PInf = PassRegistry::getPassRegistry()->getPassInfo(Set[i]);
     if (!PInf) {
       // Some preserved passes, such as AliasAnalysis, may not be initialized by
       // all drivers.
@@ -1666,8 +1658,8 @@ void MPPassManager::addLowerLevelRequiredPass(Pass *P, Pass *RequiredPass) {
 
     OnTheFlyManagers[P] = FPP;
   }
-  const PassInfo *RequiredPassPI =
-      TPM->findAnalysisPassInfo(RequiredPass->getPassID());
+  const PassInfo * RequiredPassPI =
+    PassRegistry::getPassRegistry()->getPassInfo(RequiredPass->getPassID());
 
   Pass *FoundPass = nullptr;
   if (RequiredPassPI && RequiredPassPI->isAnalysis()) {

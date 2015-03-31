@@ -11,7 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "InstCombineInternal.h"
+#include "InstCombine.h"
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/ConstantFolding.h"
@@ -1931,17 +1931,14 @@ Instruction *InstCombiner::visitICmpInstWithCastAndCast(ICmpInst &ICI) {
   if (DL && LHSCI->getOpcode() == Instruction::PtrToInt &&
       DL->getPointerTypeSizeInBits(SrcTy) == DestTy->getIntegerBitWidth()) {
     Value *RHSOp = nullptr;
-    if (PtrToIntOperator *RHSC = dyn_cast<PtrToIntOperator>(ICI.getOperand(1))) {
-      Value *RHSCIOp = RHSC->getOperand(0);
-      if (RHSCIOp->getType()->getPointerAddressSpace() ==
-          LHSCIOp->getType()->getPointerAddressSpace()) {
-        RHSOp = RHSC->getOperand(0);
-        // If the pointer types don't match, insert a bitcast.
-        if (LHSCIOp->getType() != RHSOp->getType())
-          RHSOp = Builder->CreateBitCast(RHSOp, LHSCIOp->getType());
-      }
-    } else if (Constant *RHSC = dyn_cast<Constant>(ICI.getOperand(1)))
+    if (Constant *RHSC = dyn_cast<Constant>(ICI.getOperand(1))) {
       RHSOp = ConstantExpr::getIntToPtr(RHSC, SrcTy);
+    } else if (PtrToIntInst *RHSC = dyn_cast<PtrToIntInst>(ICI.getOperand(1))) {
+      RHSOp = RHSC->getOperand(0);
+      // If the pointer types don't match, insert a bitcast.
+      if (LHSCIOp->getType() != RHSOp->getType())
+        RHSOp = Builder->CreateBitCast(RHSOp, LHSCIOp->getType());
+    }
 
     if (RHSOp)
       return new ICmpInst(ICI.getPredicate(), LHSCIOp, RHSOp);

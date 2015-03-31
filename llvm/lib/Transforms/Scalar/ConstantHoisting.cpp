@@ -131,14 +131,14 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
     AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<TargetTransformInfoWrapperPass>();
+    AU.addRequired<TargetTransformInfo>();
   }
 
 private:
   /// \brief Initialize the pass.
   void setup(Function &Fn) {
     DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-    TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn);
+    TTI = &getAnalysis<TargetTransformInfo>();
     Entry = &Fn.getEntryBlock();
   }
 
@@ -176,7 +176,7 @@ char ConstantHoisting::ID = 0;
 INITIALIZE_PASS_BEGIN(ConstantHoisting, "consthoist", "Constant Hoisting",
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
+INITIALIZE_AG_DEPENDENCY(TargetTransformInfo)
 INITIALIZE_PASS_END(ConstantHoisting, "consthoist", "Constant Hoisting",
                     false, false)
 
@@ -186,9 +186,6 @@ FunctionPass *llvm::createConstantHoistingPass() {
 
 /// \brief Perform the constant hoisting optimization for the given function.
 bool ConstantHoisting::runOnFunction(Function &Fn) {
-  if (skipOptnoneFunction(Fn))
-    return false;
-
   DEBUG(dbgs() << "********** Begin Constant Hoisting **********\n");
   DEBUG(dbgs() << "********** Function: " << Fn.getName() << '\n');
 

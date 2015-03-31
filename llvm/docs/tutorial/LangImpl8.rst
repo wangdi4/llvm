@@ -1,6 +1,6 @@
-======================================
-Kaleidoscope: Adding Debug Information
-======================================
+=======================================================
+Kaleidoscope: Extending the Language: Debug Information
+=======================================================
 
 .. contents::
    :local:

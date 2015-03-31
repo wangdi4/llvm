@@ -57,7 +57,7 @@ static bool CC_Sparc_Assign_f64(unsigned &ValNo, MVT &ValVT,
     SP::I0, SP::I1, SP::I2, SP::I3, SP::I4, SP::I5
   };
   // Try to get first reg.
-  if (unsigned Reg = State.AllocateReg(RegList)) {
+  if (unsigned Reg = State.AllocateReg(RegList, 6)) {
     State.addLoc(CCValAssign::getCustomReg(ValNo, ValVT, Reg, LocVT, LocInfo));
   } else {
     // Assign whole thing in stack.
@@ -68,7 +68,7 @@ static bool CC_Sparc_Assign_f64(unsigned &ValNo, MVT &ValVT,
   }
 
   // Try to get second reg.
-  if (unsigned Reg = State.AllocateReg(RegList))
+  if (unsigned Reg = State.AllocateReg(RegList, 6))
     State.addLoc(CCValAssign::getCustomReg(ValNo, ValVT, Reg, LocVT, LocInfo));
   else
     State.addLoc(CCValAssign::getCustomMem(ValNo, ValVT,
@@ -497,7 +497,7 @@ LowerFormalArguments_32(SDValue Chain,
     static const MCPhysReg ArgRegs[] = {
       SP::I0, SP::I1, SP::I2, SP::I3, SP::I4, SP::I5
     };
-    unsigned NumAllocated = CCInfo.getFirstUnallocated(ArgRegs);
+    unsigned NumAllocated = CCInfo.getFirstUnallocated(ArgRegs, 6);
     const MCPhysReg *CurArgReg = ArgRegs+NumAllocated, *ArgRegEnd = ArgRegs+6;
     unsigned ArgOffset = CCInfo.getNextStackOffset();
     if (NumAllocated == 6)
@@ -914,7 +914,8 @@ SparcTargetLowering::LowerCall_32(TargetLowering::CallLoweringInfo &CLI,
                                   RegsToPass[i].second.getValueType()));
 
   // Add a register mask operand representing the call-preserved registers.
-  const SparcRegisterInfo *TRI = Subtarget->getRegisterInfo();
+  const SparcRegisterInfo *TRI =
+      getTargetMachine().getSubtarget<SparcSubtarget>().getRegisterInfo();
   const uint32_t *Mask = ((hasReturnsTwice)
                           ? TRI->getRTCallPreservedMask(CallConv)
                           : TRI->getCallPreservedMask(CallConv));
@@ -1226,7 +1227,8 @@ SparcTargetLowering::LowerCall_64(TargetLowering::CallLoweringInfo &CLI,
                                   RegsToPass[i].second.getValueType()));
 
   // Add a register mask operand representing the call-preserved registers.
-  const SparcRegisterInfo *TRI = Subtarget->getRegisterInfo();
+  const SparcRegisterInfo *TRI =
+      getTargetMachine().getSubtarget<SparcSubtarget>().getRegisterInfo();
   const uint32_t *Mask =
       ((hasReturnsTwice) ? TRI->getRTCallPreservedMask(CLI.CallConv)
                          : TRI->getCallPreservedMask(CLI.CallConv));
@@ -1363,9 +1365,10 @@ static SPCC::CondCodes FPCondCCodeToFCC(ISD::CondCode CC) {
   }
 }
 
-SparcTargetLowering::SparcTargetLowering(TargetMachine &TM,
-                                         const SparcSubtarget &STI)
-    : TargetLowering(TM), Subtarget(&STI) {
+SparcTargetLowering::SparcTargetLowering(TargetMachine &TM)
+  : TargetLowering(TM) {
+  Subtarget = &TM.getSubtarget<SparcSubtarget>();
+
   // Set up the register classes.
   addRegisterClass(MVT::i32, &SP::IntRegsRegClass);
   addRegisterClass(MVT::f32, &SP::FPRegsRegClass);
@@ -1669,7 +1672,7 @@ SparcTargetLowering::SparcTargetLowering(TargetMachine &TM,
 
   setMinFunctionAlignment(2);
 
-  computeRegisterProperties(Subtarget->getRegisterInfo());
+  computeRegisterProperties();
 }
 
 const char *SparcTargetLowering::getTargetNodeName(unsigned Opcode) const {
@@ -1904,8 +1907,10 @@ SDValue SparcTargetLowering::LowerGlobalTLSAddress(SDValue Op,
     Ops.push_back(Callee);
     Ops.push_back(Symbol);
     Ops.push_back(DAG.getRegister(SP::O0, PtrVT));
-    const uint32_t *Mask =
-        Subtarget->getRegisterInfo()->getCallPreservedMask(CallingConv::C);
+    const uint32_t *Mask = getTargetMachine()
+                               .getSubtargetImpl()
+                               ->getRegisterInfo()
+                               ->getCallPreservedMask(CallingConv::C);
     assert(Mask && "Missing call preserved mask for calling convention");
     Ops.push_back(DAG.getRegisterMask(Mask));
     Ops.push_back(InFlag);
@@ -2901,7 +2906,8 @@ MachineBasicBlock*
 SparcTargetLowering::expandSelectCC(MachineInstr *MI,
                                     MachineBasicBlock *BB,
                                     unsigned BROpcode) const {
-  const TargetInstrInfo &TII = *Subtarget->getInstrInfo();
+  const TargetInstrInfo &TII =
+      *getTargetMachine().getSubtargetImpl()->getInstrInfo();
   DebugLoc dl = MI->getDebugLoc();
   unsigned CC = (SPCC::CondCodes)MI->getOperand(3).getImm();
 
@@ -2962,7 +2968,8 @@ SparcTargetLowering::expandAtomicRMW(MachineInstr *MI,
                                      MachineBasicBlock *MBB,
                                      unsigned Opcode,
                                      unsigned CondCode) const {
-  const TargetInstrInfo &TII = *Subtarget->getInstrInfo();
+  const TargetInstrInfo &TII =
+      *getTargetMachine().getSubtargetImpl()->getInstrInfo();
   MachineRegisterInfo &MRI = MBB->getParent()->getRegInfo();
   DebugLoc DL = MI->getDebugLoc();
 
@@ -3130,9 +3137,8 @@ LowerAsmOperandForConstraint(SDValue Op,
   TargetLowering::LowerAsmOperandForConstraint(Op, Constraint, Ops, DAG);
 }
 
-std::pair<unsigned, const TargetRegisterClass *>
-SparcTargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
-                                                  const std::string &Constraint,
+std::pair<unsigned, const TargetRegisterClass*>
+SparcTargetLowering::getRegForInlineAsmConstraint(const std::string &Constraint,
                                                   MVT VT) const {
   if (Constraint.size() == 1) {
     switch (Constraint[0]) {
@@ -3157,12 +3163,11 @@ SparcTargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
       char regIdx = '0' + (intVal % 8);
       char tmp[] = { '{', regType, regIdx, '}', 0 };
       std::string newConstraint = std::string(tmp);
-      return TargetLowering::getRegForInlineAsmConstraint(TRI, newConstraint,
-                                                          VT);
+      return TargetLowering::getRegForInlineAsmConstraint(newConstraint, VT);
     }
   }
 
-  return TargetLowering::getRegForInlineAsmConstraint(TRI, Constraint, VT);
+  return TargetLowering::getRegForInlineAsmConstraint(Constraint, VT);
 }
 
 bool

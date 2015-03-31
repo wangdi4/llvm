@@ -41,6 +41,7 @@ public:
     DwarfLocSection = nullptr;
     DwarfARangesSection = nullptr;
     DwarfRangesSection = nullptr;
+    DwarfMacroInfoSection = nullptr;
   }
 
   virtual ~NVPTXTargetObjectFile();
@@ -81,6 +82,8 @@ public:
     DwarfARangesSection =
         new NVPTXSection(MCSection::SV_ELF, SectionKind::getMetadata());
     DwarfRangesSection =
+        new NVPTXSection(MCSection::SV_ELF, SectionKind::getMetadata());
+    DwarfMacroInfoSection =
         new NVPTXSection(MCSection::SV_ELF, SectionKind::getMetadata());
   }
 

@@ -2,31 +2,6 @@
 target datalayout = "E-m:e-i64:64-n32:64"
 target triple = "powerpc64-unknown-linux-gnu"
 
-; CHECK-LABEL: test:
-; CHECK: {{^}}.L[[test_BEGIN:.*]]:{{$}}
-
-; CHECK-LABEL: property_access1:
-; CHECK: {{^}}.L[[property_access1_BEGIN:.*]]:{{$}}
-
-; CHECK-LABEL: property_access2:
-; CHECK: {{^}}.L[[property_access2_BEGIN:.*]]:{{$}}
-
-; CHECK-LABEL: property_access3:
-; CHECK: {{^}}.L[[property_access3_BEGIN:.*]]:{{$}}
-
-; CHECK-LABEL: anyreg_test1:
-; CHECK: {{^}}.L[[anyreg_test1_BEGIN:.*]]:{{$}}
-
-; CHECK-LABEL: anyreg_test2:
-; CHECK: {{^}}.L[[anyreg_test2_BEGIN:.*]]:{{$}}
-
-; CHECK-LABEL: patchpoint_spilldef:
-; CHECK: {{^}}.L[[patchpoint_spilldef_BEGIN:.*]]:{{$}}
-
-; CHECK-LABEL: patchpoint_spillargs:
-; CHECK: {{^}}.L[[patchpoint_spillargs_BEGIN:.*]]:{{$}}
-
-
 ; Stackmap Header: no constants - 6 callsites
 ; CHECK-LABEL: .section	.llvm_stackmaps
 ; CHECK-NEXT:  __LLVM_StackMaps:
@@ -51,9 +26,9 @@ target triple = "powerpc64-unknown-linux-gnu"
 ; CHECK-NEXT:   .quad property_access3
 ; CHECK-NEXT:   .quad 128
 ; CHECK-NEXT:   .quad anyreg_test1
-; CHECK-NEXT:   .quad 144
+; CHECK-NEXT:   .quad 160
 ; CHECK-NEXT:   .quad anyreg_test2
-; CHECK-NEXT:   .quad 144
+; CHECK-NEXT:   .quad 160
 ; CHECK-NEXT:   .quad patchpoint_spilldef
 ; CHECK-NEXT:   .quad 256
 ; CHECK-NEXT:   .quad patchpoint_spillargs
@@ -61,7 +36,7 @@ target triple = "powerpc64-unknown-linux-gnu"
 
 
 ; test
-; CHECK:  .long   .L{{.*}}-.L[[test_BEGIN]]
+; CHECK-LABEL:  .long   .L{{.*}}-.L.test
 ; CHECK-NEXT:   .short  0
 ; 3 locations
 ; CHECK-NEXT:   .short  3
@@ -87,7 +62,7 @@ entry:
 }
 
 ; property access 1 - %obj is an anyreg call argument and should therefore be in a register
-; CHECK:  .long   .L{{.*}}-.L[[property_access1_BEGIN]]
+; CHECK-LABEL:  .long   .L{{.*}}-.L.property_access1
 ; CHECK-NEXT:   .short  0
 ; 2 locations
 ; CHECK-NEXT:   .short  2
@@ -109,7 +84,7 @@ entry:
 }
 
 ; property access 2 - %obj is an anyreg call argument and should therefore be in a register
-; CHECK:  .long   .L{{.*}}-.L[[property_access2_BEGIN]]
+; CHECK-LABEL:  .long   .L{{.*}}-.L.property_access2
 ; CHECK-NEXT:   .short  0
 ; 2 locations
 ; CHECK-NEXT:   .short  2
@@ -132,7 +107,7 @@ entry:
 }
 
 ; property access 3 - %obj is a frame index
-; CHECK:  .long   .L{{.*}}-.L[[property_access3_BEGIN]]
+; CHECK-LABEL:  .long   .L{{.*}}-.L.property_access3
 ; CHECK-NEXT:   .short  0
 ; 2 locations
 ; CHECK-NEXT:   .short  2
@@ -155,7 +130,7 @@ entry:
 }
 
 ; anyreg_test1
-; CHECK:  .long   .L{{.*}}-.L[[anyreg_test1_BEGIN]]
+; CHECK-LABEL:  .long   .L{{.*}}-.L.anyreg_test1
 ; CHECK-NEXT:   .short  0
 ; 14 locations
 ; CHECK-NEXT:   .short  14
@@ -237,7 +212,7 @@ entry:
 }
 
 ; anyreg_test2
-; CHECK:  .long   .L{{.*}}-.L[[anyreg_test2_BEGIN]]
+; CHECK-LABEL:  .long   .L{{.*}}-.L.anyreg_test2
 ; CHECK-NEXT:   .short  0
 ; 14 locations
 ; CHECK-NEXT:   .short  14
@@ -322,7 +297,7 @@ entry:
 ;
 ; <rdar://problem/15432754> [JS] Assertion: "Folded a def to a non-store!"
 ;
-; CHECK: .long .L{{.*}}-.L[[patchpoint_spilldef_BEGIN]]
+; CHECK-LABEL: .long .L{{.*}}-.L.patchpoint_spilldef
 ; CHECK-NEXT: .short 0
 ; CHECK-NEXT: .short 3
 ; Loc 0: Register (some register that will be spilled to the stack)
@@ -352,7 +327,7 @@ entry:
 ;
 ; <rdar://problem/15487687> [JS] AnyRegCC argument ends up being spilled
 ;
-; CHECK: .long .L{{.*}}-.L[[patchpoint_spillargs_BEGIN]]
+; CHECK-LABEL: .long .L{{.*}}-.L.patchpoint_spillargs
 ; CHECK-NEXT: .short 0
 ; CHECK-NEXT: .short 5
 ; Loc 0: Return a register

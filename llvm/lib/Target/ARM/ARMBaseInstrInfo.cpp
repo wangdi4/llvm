@@ -1991,7 +1991,8 @@ bool llvm::tryFoldSPUpdateIntoPushPop(const ARMSubtarget &Subtarget,
                                       unsigned NumBytes) {
   // This optimisation potentially adds lots of load and store
   // micro-operations, it's only really a great benefit to code-size.
-  if (!MF.getFunction()->hasFnAttribute(Attribute::MinSize))
+  if (!MF.getFunction()->getAttributes().hasAttribute(
+          AttributeSet::FunctionIndex, Attribute::MinSize))
     return false;
 
   // If only one register is pushed/popped, LLVM can use an LDR/STR
@@ -2399,8 +2400,7 @@ optimizeCompareInstr(MachineInstr *CmpInstr, unsigned SrcReg, unsigned SrcReg2,
   else if (MI->getParent() != CmpInstr->getParent() || CmpValue != 0) {
     // Conservatively refuse to convert an instruction which isn't in the same
     // BB as the comparison.
-    // For CMPri w/ CmpValue != 0, a Sub may still be a candidate.
-    // Thus we cannot return here.
+    // For CMPri, we need to check Sub, thus we can't return here.
     if (CmpInstr->getOpcode() == ARM::CMPri ||
        CmpInstr->getOpcode() == ARM::t2CMPri)
       MI = nullptr;
@@ -2479,8 +2479,8 @@ optimizeCompareInstr(MachineInstr *CmpInstr, unsigned SrcReg, unsigned SrcReg2,
   case ARM::t2EORrr:
   case ARM::t2EORri: {
     // Scan forward for the use of CPSR
-    // When checking against MI: if it's a conditional code that requires
-    // checking of the V bit or C bit, then this is not safe to do.
+    // When checking against MI: if it's a conditional code requires
+    // checking of V bit, then this is not safe to do.
     // It is safe to remove CmpInstr if CPSR is redefined or killed.
     // If we are done with the basic block, we need to check whether CPSR is
     // live-out.
@@ -2547,30 +2547,19 @@ optimizeCompareInstr(MachineInstr *CmpInstr, unsigned SrcReg, unsigned SrcReg2,
             OperandsToUpdate.push_back(
                 std::make_pair(&((*I).getOperand(IO - 1)), NewCC));
           }
-        } else {
-          // No Sub, so this is x = <op> y, z; cmp x, 0.
+        } else
           switch (CC) {
-          case ARMCC::EQ: // Z
-          case ARMCC::NE: // Z
-          case ARMCC::MI: // N
-          case ARMCC::PL: // N
-          case ARMCC::AL: // none
+          default:
             // CPSR can be used multiple times, we should continue.
             break;
-          case ARMCC::HS: // C
-          case ARMCC::LO: // C
-          case ARMCC::VS: // V
-          case ARMCC::VC: // V
-          case ARMCC::HI: // C Z
-          case ARMCC::LS: // C Z
-          case ARMCC::GE: // N V
-          case ARMCC::LT: // N V
-          case ARMCC::GT: // Z N V
-          case ARMCC::LE: // Z N V
-            // The instruction uses the V bit or C bit which is not safe.
+          case ARMCC::VS:
+          case ARMCC::VC:
+          case ARMCC::GE:
+          case ARMCC::LT:
+          case ARMCC::GT:
+          case ARMCC::LE:
             return false;
           }
-        }
       }
     }
 
@@ -3664,7 +3653,9 @@ ARMBaseInstrInfo::getOperandLatency(const InstrItineraryData *ItinData,
     // instructions).
     if (Latency > 0 && Subtarget.isThumb2()) {
       const MachineFunction *MF = DefMI->getParent()->getParent();
-      if (MF->getFunction()->hasFnAttribute(Attribute::OptimizeForSize))
+      if (MF->getFunction()->getAttributes().
+            hasAttribute(AttributeSet::FunctionIndex,
+                         Attribute::OptimizeForSize))
         --Latency;
     }
     return Latency;

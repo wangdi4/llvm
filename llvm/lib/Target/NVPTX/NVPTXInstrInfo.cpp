@@ -28,7 +28,9 @@ using namespace llvm;
 // Pin the vtable to this file.
 void NVPTXInstrInfo::anchor() {}
 
-NVPTXInstrInfo::NVPTXInstrInfo() : NVPTXGenInstrInfo(), RegInfo() {}
+// FIXME: Add the subtarget support on this constructor.
+NVPTXInstrInfo::NVPTXInstrInfo(NVPTXSubtarget &STI)
+    : NVPTXGenInstrInfo(), RegInfo(STI) {}
 
 void NVPTXInstrInfo::copyPhysReg(
     MachineBasicBlock &MBB, MachineBasicBlock::iterator I, DebugLoc DL,

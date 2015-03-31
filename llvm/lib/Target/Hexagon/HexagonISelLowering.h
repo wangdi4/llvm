@@ -77,8 +77,6 @@ bool isPositiveHalfWord(SDNode *N);
     };
   }
 
-  class HexagonSubtarget;
-
   class HexagonTargetLowering : public TargetLowering {
     int VarArgsFrameOffset;   // Frame offset to start of varargs area.
 
@@ -86,9 +84,8 @@ bool isPositiveHalfWord(SDNode *N);
                               unsigned& RetSize) const;
 
   public:
-    const HexagonSubtarget *Subtarget;
-    explicit HexagonTargetLowering(const TargetMachine &TM,
-                                   const HexagonSubtarget &Subtarget);
+    const TargetMachine &TM;
+    explicit HexagonTargetLowering(const TargetMachine &targetmachine);
 
     /// IsEligibleForTailCallOptimization - Check whether the call is eligible
     /// for tail call optimization. Targets which want to do tail call
@@ -165,9 +162,8 @@ bool isPositiveHalfWord(SDNode *N);
                                     ISD::MemIndexedMode &AM,
                                     SelectionDAG &DAG) const override;
 
-    std::pair<unsigned, const TargetRegisterClass *>
-    getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
-                                 const std::string &Constraint,
+    std::pair<unsigned, const TargetRegisterClass*>
+    getRegForInlineAsmConstraint(const std::string &Constraint,
                                  MVT VT) const override;
 
     // Intrinsics

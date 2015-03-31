@@ -66,20 +66,6 @@ static MCInst lowerRIEfLow(const MachineInstr *MI, unsigned Opcode) {
     .addImm(MI->getOperand(5).getImm());
 }
 
-static const MCSymbolRefExpr *getTLSGetOffset(MCContext &Context) {
-  StringRef Name = "__tls_get_offset";
-  return MCSymbolRefExpr::Create(Context.GetOrCreateSymbol(Name),
-                                 MCSymbolRefExpr::VK_PLT,
-                                 Context);
-}
-
-static const MCSymbolRefExpr *getGlobalOffsetTable(MCContext &Context) {
-  StringRef Name = "_GLOBAL_OFFSET_TABLE_";
-  return MCSymbolRefExpr::Create(Context.GetOrCreateSymbol(Name),
-                                 MCSymbolRefExpr::VK_None,
-                                 Context);
-}
-
 void SystemZAsmPrinter::EmitInstruction(const MachineInstr *MI) {
   SystemZMCInstLower Lower(MF->getContext(), *this);
   MCInst LoweredMI;
@@ -107,26 +93,6 @@ void SystemZAsmPrinter::EmitInstruction(const MachineInstr *MI) {
 
   case SystemZ::CallBR:
     LoweredMI = MCInstBuilder(SystemZ::BR).addReg(SystemZ::R1D);
-    break;
-
-  case SystemZ::TLS_GDCALL:
-    LoweredMI = MCInstBuilder(SystemZ::BRASL)
-      .addReg(SystemZ::R14D)
-      .addExpr(getTLSGetOffset(MF->getContext()))
-      .addExpr(Lower.getExpr(MI->getOperand(0), MCSymbolRefExpr::VK_TLSGD));
-    break;
-
-  case SystemZ::TLS_LDCALL:
-    LoweredMI = MCInstBuilder(SystemZ::BRASL)
-      .addReg(SystemZ::R14D)
-      .addExpr(getTLSGetOffset(MF->getContext()))
-      .addExpr(Lower.getExpr(MI->getOperand(0), MCSymbolRefExpr::VK_TLSLDM));
-    break;
-
-  case SystemZ::GOT:
-    LoweredMI = MCInstBuilder(SystemZ::LARL)
-      .addReg(MI->getOperand(0).getReg())
-      .addExpr(getGlobalOffsetTable(MF->getContext()));
     break;
 
   case SystemZ::IILF64:
@@ -186,7 +152,7 @@ void SystemZAsmPrinter::EmitInstruction(const MachineInstr *MI) {
 #undef LOWER_HIGH
 
   case SystemZ::Serialize:
-    if (MF->getSubtarget<SystemZSubtarget>().hasFastSerialization())
+    if (Subtarget->hasFastSerialization())
       LoweredMI = MCInstBuilder(SystemZ::AsmBCR)
         .addImm(14).addReg(SystemZ::R0D);
     else
@@ -206,9 +172,6 @@ void SystemZAsmPrinter::EmitInstruction(const MachineInstr *MI) {
 static MCSymbolRefExpr::VariantKind
 getModifierVariantKind(SystemZCP::SystemZCPModifier Modifier) {
   switch (Modifier) {
-  case SystemZCP::TLSGD: return MCSymbolRefExpr::VK_TLSGD;
-  case SystemZCP::TLSLDM: return MCSymbolRefExpr::VK_TLSLDM;
-  case SystemZCP::DTPOFF: return MCSymbolRefExpr::VK_DTPOFF;
   case SystemZCP::NTPOFF: return MCSymbolRefExpr::VK_NTPOFF;
   }
   llvm_unreachable("Invalid SystemCPModifier!");
@@ -222,7 +185,8 @@ EmitMachineConstantPoolValue(MachineConstantPoolValue *MCPV) {
     MCSymbolRefExpr::Create(getSymbol(ZCPV->getGlobalValue()),
                             getModifierVariantKind(ZCPV->getModifier()),
                             OutContext);
-  uint64_t Size = TM.getDataLayout()->getTypeAllocSize(ZCPV->getType());
+  uint64_t Size =
+      TM.getSubtargetImpl()->getDataLayout()->getTypeAllocSize(ZCPV->getType());
 
   OutStreamer.EmitValue(Expr, Size);
 }
@@ -256,7 +220,7 @@ bool SystemZAsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
 }
 
 void SystemZAsmPrinter::EmitEndOfAsmFile(Module &M) {
-  if (Triple(TM.getTargetTriple()).isOSBinFormatELF()) {
+  if (Subtarget->isTargetELF()) {
     auto &TLOFELF =
       static_cast<const TargetLoweringObjectFileELF &>(getObjFileLowering());
 
@@ -266,7 +230,7 @@ void SystemZAsmPrinter::EmitEndOfAsmFile(Module &M) {
     MachineModuleInfoELF::SymbolListTy Stubs = MMIELF.GetGVStubList();
     if (!Stubs.empty()) {
       OutStreamer.SwitchSection(TLOFELF.getDataRelSection());
-      const DataLayout *TD = TM.getDataLayout();
+      const DataLayout *TD = TM.getSubtargetImpl()->getDataLayout();
 
       for (unsigned i = 0, e = Stubs.size(); i != e; ++i) {
         OutStreamer.EmitLabel(Stubs[i].first);

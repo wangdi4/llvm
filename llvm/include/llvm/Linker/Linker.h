@@ -70,9 +70,6 @@ public:
   /// Returns true on error.
   bool linkInModule(Module *Src);
 
-  /// \brief Set the composite to the passed-in module.
-  void setModule(Module *Dst);
-
   static bool LinkModules(Module *Dest, Module *Src,
                           DiagnosticHandlerFunction DiagnosticHandler);
 

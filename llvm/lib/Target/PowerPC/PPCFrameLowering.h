@@ -23,11 +23,6 @@ class PPCSubtarget;
 
 class PPCFrameLowering: public TargetFrameLowering {
   const PPCSubtarget &Subtarget;
-  const unsigned ReturnSaveOffset;
-  const unsigned TOCSaveOffset;
-  const unsigned FramePointerSaveOffset;
-  const unsigned LinkageSize;
-  const unsigned BasePointerSaveOffset;
 
 public:
   PPCFrameLowering(const PPCSubtarget &STI);
@@ -72,23 +67,56 @@ public:
 
   /// getReturnSaveOffset - Return the previous frame offset to save the
   /// return address.
-  unsigned getReturnSaveOffset() const { return ReturnSaveOffset; }
+  static unsigned getReturnSaveOffset(bool isPPC64, bool isDarwinABI) {
+    if (isDarwinABI)
+      return isPPC64 ? 16 : 8;
+    // SVR4 ABI:
+    return isPPC64 ? 16 : 4;
+  }
 
   /// getTOCSaveOffset - Return the previous frame offset to save the
   /// TOC register -- 64-bit SVR4 ABI only.
-  unsigned getTOCSaveOffset() const { return TOCSaveOffset; }
+  static unsigned getTOCSaveOffset(bool isELFv2ABI) {
+    return isELFv2ABI ? 24 : 40;
+  }
 
   /// getFramePointerSaveOffset - Return the previous frame offset to save the
   /// frame pointer.
-  unsigned getFramePointerSaveOffset() const { return FramePointerSaveOffset; }
+  static unsigned getFramePointerSaveOffset(bool isPPC64, bool isDarwinABI) {
+    // For the Darwin ABI:
+    // We cannot use the TOC save slot (offset +20) in the PowerPC linkage area
+    // for saving the frame pointer (if needed.)  While the published ABI has
+    // not used this slot since at least MacOSX 10.2, there is older code
+    // around that does use it, and that needs to continue to work.
+    if (isDarwinABI)
+      return isPPC64 ? -8U : -4U;
+
+    // SVR4 ABI: First slot in the general register save area.
+    return isPPC64 ? -8U : -4U;
+  }
 
   /// getBasePointerSaveOffset - Return the previous frame offset to save the
   /// base pointer.
-  unsigned getBasePointerSaveOffset() const { return BasePointerSaveOffset; }
+  static unsigned getBasePointerSaveOffset(bool isPPC64,
+                                           bool isDarwinABI,
+                                           bool isPIC) {
+    if (isDarwinABI)
+      return isPPC64 ? -16U : -8U;
+
+    // SVR4 ABI: First slot in the general register save area.
+    return isPPC64 ? -16U : isPIC ? -12U : -8U;
+  }
 
   /// getLinkageSize - Return the size of the PowerPC ABI linkage area.
   ///
-  unsigned getLinkageSize() const { return LinkageSize; }
+  static unsigned getLinkageSize(bool isPPC64, bool isDarwinABI,
+                                 bool isELFv2ABI) {
+    if (isDarwinABI || isPPC64)
+      return (isELFv2ABI ? 4 : 6) * (isPPC64 ? 8 : 4);
+
+    // SVR4 ABI:
+    return 8;
+  }
 
   const SpillSlot *
   getCalleeSavedSpillSlots(unsigned &NumEntries) const override;
