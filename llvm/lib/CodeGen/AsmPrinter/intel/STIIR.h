@@ -439,7 +439,7 @@ private:
   MCSymbol *_labelEnd;
   MCSymbol *_labelPrologEnd;
   STILineSlice *_lineSlice;
-  unsigned _lineNumber;
+  unsigned _scopeLineNumber;
   STISymbolFrameProc *_frame;
 
 protected:
@@ -468,8 +468,8 @@ public:
   STILineSlice *getLineSlice();
   const STILineSlice *getLineSlice() const;
 
-  unsigned getLineNumber() const;
-  void setLineNumber(unsigned line);
+  unsigned getScopeLineNumber() const;
+  void setScopeLineNumber(unsigned line);
 
   STISymbolFrameProc *getFrame() const;
   void setFrame(STISymbolFrameProc *frame);

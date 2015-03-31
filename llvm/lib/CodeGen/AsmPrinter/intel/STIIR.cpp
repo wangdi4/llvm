@@ -434,7 +434,8 @@ STISymbolProcedure::STISymbolProcedure()
     : STISymbol(STI_OBJECT_KIND_SYMBOL_PROCEDURE), _symbolID(S_GPROC32_ID),
       _name(), _type(nullptr), _scope(STIScope::create(this)),
       _labelBegin(nullptr), _labelEnd(nullptr), _labelPrologEnd(nullptr),
-      _lineSlice(STILineSlice::create()), _lineNumber(0), _frame(nullptr) {}
+      _lineSlice(STILineSlice::create()), _scopeLineNumber(0),
+      _frame(nullptr) {}
 
 STISymbolProcedure::~STISymbolProcedure() {
   delete _scope;
@@ -490,9 +491,13 @@ const STILineSlice *STISymbolProcedure::getLineSlice() const {
   return _lineSlice;
 }
 
-unsigned STISymbolProcedure::getLineNumber() const { return _lineNumber; }
+unsigned STISymbolProcedure::getScopeLineNumber() const {
+  return _scopeLineNumber;
+}
 
-void STISymbolProcedure::setLineNumber(unsigned line) { _lineNumber = line; }
+void STISymbolProcedure::setScopeLineNumber(unsigned line) {
+  _scopeLineNumber = line;
+}
 
 STISymbolFrameProc *STISymbolProcedure::getFrame() const { return _frame; }
 

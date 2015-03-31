@@ -174,6 +174,33 @@ static unsigned getTypeAttribute(const DIDerivedType llvmType,
   return attribute;
 }
 
+static bool isIndirectExpression(DIExpression Expr) {
+  if (!Expr || (Expr.getNumElements() == 0)) {
+    return false;
+  }
+
+  if (Expr.getNumElements() != 1) {
+    // Looking for DW_OP_deref expression only.
+    return false;
+  }
+
+  DIExpression::iterator I = Expr.begin();
+  DIExpression::iterator E = Expr.end();
+
+  for (; I != E; ++I) {
+    switch (*I) {
+    case dwarf::DW_OP_bit_piece:
+    case dwarf::DW_OP_plus:
+      return false;
+    case dwarf::DW_OP_deref:
+      return true;
+    default:
+      llvm_unreachable("unhandled opcode found in DIExpression");
+    }
+  }
+  return false;
+}
+
 //===----------------------------------------------------------------------===//
 // Printing/Debugging Routines
 //===----------------------------------------------------------------------===//
@@ -736,7 +763,7 @@ void STIDebugImpl::beginInstruction(const MachineInstr *MI) {
     if (slice->getBlocks().size() == 0) {
       entry = STILineEntry::create();
       entry->setLabel(procedure->getLabelBegin());
-      entry->setLineNumStart(procedure->getLineNumber());
+      entry->setLineNumStart(procedure->getScopeLineNumber());
       block->appendLine(entry);
     }
 
@@ -1116,6 +1143,7 @@ STIType *STIDebugImpl::createSymbolUserDefined(const DIDerivedType llvmType) {
 STIType *STIDebugImpl::createTypeArray(const DICompositeType llvmType) {
   STITypeArray *type = nullptr;
   STIType *elementType;
+  bool undefinedSubrange = false;
 
   elementType = createType(resolve(llvmType.getTypeDerivedFrom()));
 
@@ -1135,6 +1163,12 @@ STIType *STIDebugImpl::createTypeArray(const DICompositeType llvmType) {
 
     assert(LowerBound == DefaultLowerBound && "TODO: fix default bound check");
 
+    if (Count == -1) {
+      // FIXME: this is a WA solution until solving dynamic array boundary.
+      Count = 1;
+      undefinedSubrange = true;
+    }
+
     type = STITypeArray::create();
     type->setElementType(elementType);
     type->setLength((uint32_t)(elementLength * Count));
@@ -1148,7 +1182,8 @@ STIType *STIDebugImpl::createTypeArray(const DICompositeType llvmType) {
     }
   }
 
-  assert(elementLength == (llvmType.getSizeInBits() >> 3) &&
+  assert((undefinedSubrange ||
+         elementLength == (llvmType.getSizeInBits() >> 3)) &&
          "mismatch: bad array subrange sizes");
 
   type->setName(llvmType.getName());
@@ -2008,15 +2043,16 @@ STIScope *STIDebugImpl::getOrCreateScope(const DIScope llvmScope) {
     }
   } else if (hasScope(llvmScope)) {
     scope = getScope(llvmScope);
-  } else if (llvmScope.isLexicalBlock()) {
-    STISymbolBlock *block = createSymbolBlock(DILexicalBlock(llvmScope));
-    scope = block->getScope();
-    addScope(llvmScope, scope);
   } else if (llvmScope.isLexicalBlockFile()) {
+    // Must check "isLexicalBlockFile()" before "isLexicalBlock()"
     // It appears this is currently only used for DWARF discriminators.
     // Otherwise it is just another lexical scope.
     STISymbolBlock* block =
         createSymbolBlock(DILexicalBlockFile(llvmScope).getScope());
+    scope = block->getScope();
+    addScope(llvmScope, scope);
+  } else if (llvmScope.isLexicalBlock()) {
+    STISymbolBlock *block = createSymbolBlock(DILexicalBlock(llvmScope));
     scope = block->getScope();
     addScope(llvmScope, scope);
   }
@@ -2094,6 +2130,7 @@ STISymbolVariable *STIDebugImpl::createSymbolVariable(
     assert(DVInsn && "Unknown location");
     assert(DVInsn->getNumOperands() == 3 || DVInsn->getNumOperands() == 4);
     // TODO: handle the case DVInsn->getNumOperands() == 4
+    bool indirect = isIndirectExpression(DVInsn->getDebugExpression());
     if (DVInsn->getOperand(0).isReg()) {
       const MachineOperand RegOp = DVInsn->getOperand(0);
       // If the second operand is an immediate, this is an indirect value.
@@ -2104,7 +2141,7 @@ STISymbolVariable *STIDebugImpl::createSymbolVariable(
           location = STILocation::createRegisterOffset(
               toSTIRegID(RegOp.getReg()), DVInsn->getOperand(1).getImm());
         }
-      } else if (DVInsn->getOperand(1).isImm()) {
+      } else if (indirect) {
         location =
             STILocation::createRegisterOffset(toSTIRegID(RegOp.getReg()), 0);
       } else if (RegOp.getReg()) {
@@ -2165,7 +2202,7 @@ STIDebugImpl::getOrCreateSymbolProcedure(const DISubprogram &SP) {
   procedure->setSymbolID(SP.isLocalToUnit() ? S_LPROC32_ID : S_GPROC32_ID);
 #endif
   procedure->getLineSlice()->setFunction(SP.getFunction());
-  procedure->setLineNumber(SP.getLineNumber());
+  procedure->setScopeLineNumber(SP.getScopeLineNumber());
   procedure->setFrame(frame);
 
   frame->setProcedure(procedure);
