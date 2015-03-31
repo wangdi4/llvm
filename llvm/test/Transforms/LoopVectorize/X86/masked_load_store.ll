@@ -280,7 +280,9 @@ for.end:                                          ; preds = %for.cond
 ;AVX2: ret void
 
 ;AVX512-LABEL: @foo4
-;AVX512-NOT: llvm.masked
+;AVX512-NOT: llvm.masked.load
+;AVX512: llvm.masked.gather
+;AVX512: llvm.masked.store
 ;AVX512: ret void
 
 ; Function Attrs: nounwind uwtable
@@ -437,9 +439,9 @@ for.end:                                          ; preds = %for.cond
 
 ;AVX512-LABEL: @foo6
 ;AVX512: icmp sgt <8 x i32> %reverse, zeroinitializer
-;AVX512: shufflevector <8 x i1>{{.*}}<8 x i32> <i32 7, i32 6, i32 5, i32 4
 ;AVX512: call <8 x double> @llvm.masked.load.v8f64
 ;AVX512: fadd <8 x double>
+;AVX512: shufflevector <8 x i1>{{.*}}<8 x i32> <i32 7, i32 6, i32 5, i32 4
 ;AVX512: call void @llvm.masked.store.v8f64
 ;AVX512: ret void
 

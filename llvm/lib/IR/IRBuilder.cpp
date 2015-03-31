@@ -230,6 +230,55 @@ CallInst *IRBuilderBase::CreateMaskedIntrinsic(unsigned Id,
   return createCallHelper(TheFn, Ops, this, Name);
 }
 
+CallInst *IRBuilderBase::CreateGather(Value *Ptrs, unsigned Align, Value *Mask,
+                                      Value *PassThru, const Twine& Name) {
+  assert(Ptrs->getType()->isVectorTy() && 
+    (cast<VectorType>(Ptrs->getType())->getElementType()->isPointerTy()) &&
+    "Expected vector of pointers for gather");
+
+  PointerType *PtrTy =
+    cast<PointerType>(cast<VectorType>(Ptrs->getType())->getElementType());
+  unsigned NumElts = cast<VectorType>(Ptrs->getType())->getVectorNumElements();
+  Type *DataTy = VectorType::get(PtrTy->getElementType(), NumElts);
+
+  if (!Mask)
+    Mask = Constant::getAllOnesValue(VectorType::get(Type::getInt1Ty(Context),
+                                     NumElts));
+
+  Value * Ops[] = {Ptrs, getInt32(Align), Mask, UndefValue::get(DataTy)};
+  Module *M = BB->getParent()->getParent();
+  Value *TheFn = Intrinsic::getDeclaration(M, Intrinsic::masked_gather, DataTy);
+  return createCallHelper(TheFn, Ops, this, Name);
+}
+
+CallInst *IRBuilderBase::CreateScatter(Value *Data, Value *Ptrs, unsigned Align,
+                                       Value *Mask) {
+  assert(Ptrs->getType()->isVectorTy() && 
+    (cast<VectorType>(Ptrs->getType())->getElementType()->isPointerTy()) &&
+    "Expected vector of pointers for scatter");
+
+  assert(Data->getType()->isVectorTy() && "Unexpected data type for scatter");
+
+  VectorType *DataTy = cast<VectorType>(Data->getType());
+
+  PointerType *PtrTy =
+    cast<PointerType>(cast<VectorType>(Ptrs->getType())->getElementType());
+  unsigned NumElts = cast<VectorType>(Ptrs->getType())->getVectorNumElements();
+
+  assert(NumElts == DataTy->getVectorNumElements() &&
+         PtrTy->getElementType() ==  DataTy->getElementType() &&
+        "Incopatible pointer and data types");
+
+  if (!Mask)
+    Mask = Constant::getAllOnesValue(VectorType::get(Type::getInt1Ty(Context),
+                                     NumElts));
+  Value * Ops[] = {Data, Ptrs, getInt32(Align), Mask};
+  Module *M = BB->getParent()->getParent();
+  Value *TheFn = Intrinsic::getDeclaration(M, Intrinsic::masked_scatter,
+                                           DataTy);
+  return createCallHelper(TheFn, Ops, this);
+}
+
 CallInst *IRBuilderBase::CreateGCStatepoint(Value *ActualCallee,
                                             ArrayRef<Value *> CallArgs,
                                             ArrayRef<Value *> DeoptArgs,

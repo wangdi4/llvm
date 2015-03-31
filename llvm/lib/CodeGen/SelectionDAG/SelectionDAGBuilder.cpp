@@ -1044,6 +1044,11 @@ SDValue SelectionDAGBuilder::getValue(const Value *V) {
   return Val;
 }
 
+bool SelectionDAGBuilder::findValue(const Value *V) const {
+  return (NodeMap.find(V) != NodeMap.end()) ||
+    (FuncInfo.ValueMap.find(V) != FuncInfo.ValueMap.end());
+}
+
 /// getNonRegisterValue - Return an SDValue for the given Value, but
 /// don't look in FuncInfo.ValueMap for a virtual register.
 SDValue SelectionDAGBuilder::getNonRegisterValue(const Value *V) {
@@ -3676,39 +3681,107 @@ void SelectionDAGBuilder::visitStore(const StoreInst &I) {
   DAG.setRoot(StoreNode);
 }
 
+// Gather/scatter receive a vector of pointers.
+// This vector of pointers may be represented as a base pointer + vector of 
+// indices, it depends on GEP and instruction preceeding GEP
+// that calculate indices
+static bool getSingleBase(Value *& Ptr, SDValue& Base, SDValue& Index,
+                          SelectionDAGBuilder* SDB) {
+
+  assert (Ptr->getType()->isVectorTy() && "Uexpected pointer type");
+  GetElementPtrInst *Gep = dyn_cast<GetElementPtrInst>(Ptr);
+  if (!Gep || Gep->getNumOperands() > 2)
+    return false;
+  ShuffleVectorInst *ShuffleInst = 
+    dyn_cast<ShuffleVectorInst>(Gep->getPointerOperand());
+  if (!ShuffleInst || !ShuffleInst->getMask()->isNullValue() ||
+      cast<Instruction>(ShuffleInst->getOperand(0))->getOpcode() !=
+      Instruction::InsertElement)
+    return false;
+
+  Ptr = cast<InsertElementInst>(ShuffleInst->getOperand(0))->getOperand(1);
+
+  SelectionDAG& DAG = SDB->DAG;
+  const TargetLowering &TLI = DAG.getTargetLoweringInfo();
+  if (SDB->findValue(Ptr))
+    Base = SDB->getValue(Ptr);
+  else if (SDB->findValue(ShuffleInst)) {
+    SDValue ShuffleNode = SDB->getValue(ShuffleInst);
+    Base = DAG.getNode(ISD::EXTRACT_VECTOR_ELT, SDLoc(ShuffleNode),
+                       ShuffleNode.getValueType().getScalarType(), ShuffleNode,
+                       DAG.getConstant(0, TLI.getVectorIdxTy()));
+    SDB->setValue(Ptr, Base);
+  }
+  else
+    return false;
+
+  Value *IndexVal = Gep->getOperand(1);
+  if (SDB->findValue(IndexVal)) {
+    Index = SDB->getValue(IndexVal);
+
+    if (SExtInst* Sext = dyn_cast<SExtInst>(IndexVal)) {
+      IndexVal = Sext->getOperand(0);
+      if (SDB->findValue(IndexVal))
+        Index = SDB->getValue(IndexVal);
+    }
+    return true;
+  }
+  return false;
+}
+
+// Masked scatter and masked store are handled in the same visitor
 void SelectionDAGBuilder::visitMaskedStore(const CallInst &I) {
   SDLoc sdl = getCurSDLoc();
 
   // llvm.masked.store.*(Src0, Ptr, alignemt, Mask)
-  Value  *PtrOperand = I.getArgOperand(1);
-  SDValue Ptr = getValue(PtrOperand);
+  Value  *Ptr = I.getArgOperand(1);
   SDValue Src0 = getValue(I.getArgOperand(0));
   SDValue Mask = getValue(I.getArgOperand(3));
   EVT VT = Src0.getValueType();
   unsigned Alignment = (cast<ConstantInt>(I.getArgOperand(2)))->getZExtValue();
   if (!Alignment)
     Alignment = DAG.getEVTAlignment(VT);
+  const TargetLowering &TLI = DAG.getTargetLoweringInfo();
 
   AAMDNodes AAInfo;
   I.getAAMetadata(AAInfo);
 
-  MachineMemOperand *MMO =
-    DAG.getMachineFunction().
-    getMachineMemOperand(MachinePointerInfo(PtrOperand),
-                          MachineMemOperand::MOStore,  VT.getStoreSize(),
-                          Alignment, AAInfo);
-  SDValue StoreNode = DAG.getMaskedStore(getRoot(), sdl, Src0, Ptr, Mask, VT,
-                                         MMO, false);
-  DAG.setRoot(StoreNode);
-  setValue(&I, StoreNode);
+  // The diff between "store" and "scatter" is in type of base pointer -
+  // "store" has one pointer and "scatter" has a vector of pointers
+  bool isStore = Ptr->getType()->isPointerTy();
+
+  SDValue Base;
+  SDValue Index;
+  Value *BasePtr = Ptr;
+  bool SingleBase = !isStore && getSingleBase(BasePtr, Base, Index, this);
+
+  Value *MemOpBasePtr = (isStore || SingleBase) ? BasePtr : NULL;
+  MachineMemOperand *MMO = DAG.getMachineFunction().
+    getMachineMemOperand(MachinePointerInfo(MemOpBasePtr),
+                         MachineMemOperand::MOStore,  VT.getStoreSize(),
+                         Alignment, AAInfo);
+  SDValue Store;
+  if (isStore) // Store form
+    Store = DAG.getMaskedStore(getRoot(), sdl, Src0, getValue(BasePtr), Mask,
+                               VT, MMO, false);
+  else { // Scatter
+    if (!SingleBase) {
+      Base = DAG.getTargetConstant(0, TLI.getPointerTy());
+      Index = getValue(Ptr);
+    }
+    SDValue Ops[] = { getRoot(), Src0, Mask, Base, Index };
+    Store = DAG.getMaskedScatter(DAG.getVTList(MVT::Other), VT, sdl, Ops, MMO);
+  }
+  DAG.setRoot(Store);
+  setValue(&I, Store);
 }
 
+// Masked Load and masked Gather are handled in the same visitor
 void SelectionDAGBuilder::visitMaskedLoad(const CallInst &I) {
   SDLoc sdl = getCurSDLoc();
 
   // @llvm.masked.load.*(Ptr, alignment, Mask, Src0)
-  Value  *PtrOperand = I.getArgOperand(0);
-  SDValue Ptr = getValue(PtrOperand);
+  Value  *Ptr = I.getArgOperand(0);
   SDValue Src0 = getValue(I.getArgOperand(3));
   SDValue Mask = getValue(I.getArgOperand(2));
 
@@ -3722,25 +3795,48 @@ void SelectionDAGBuilder::visitMaskedLoad(const CallInst &I) {
   I.getAAMetadata(AAInfo);
   const MDNode *Ranges = I.getMetadata(LLVMContext::MD_range);
 
-  SDValue InChain = DAG.getRoot();
-  if (AA->pointsToConstantMemory(
-      AliasAnalysis::Location(PtrOperand,
-                              AA->getTypeStoreSize(I.getType()),
+  SDValue Root = DAG.getRoot();
+  bool isLoad = Ptr->getType()->isPointerTy();
+
+  SDValue Base;
+  SDValue Index;
+  Value *BasePtr = I.getArgOperand(0);
+  bool SingleBase = !isLoad && getSingleBase(BasePtr, Base, Index, this);
+  bool ConstantMemory = false;
+  if ((isLoad || SingleBase) && AA->pointsToConstantMemory(
+      AliasAnalysis::Location(BasePtr,
+	                            AA->getTypeStoreSize(I.getType()),
                               AAInfo))) {
     // Do not serialize (non-volatile) loads of constant memory with anything.
-    InChain = DAG.getEntryNode();
+    Root = DAG.getEntryNode();
+    ConstantMemory = true;
   }
 
+  Value *MemOpBasePtr = (isLoad || SingleBase) ? BasePtr : NULL;
   MachineMemOperand *MMO =
     DAG.getMachineFunction().
-    getMachineMemOperand(MachinePointerInfo(PtrOperand),
+    getMachineMemOperand(MachinePointerInfo(MemOpBasePtr),
                           MachineMemOperand::MOLoad,  VT.getStoreSize(),
                           Alignment, AAInfo, Ranges);
 
-  SDValue Load = DAG.getMaskedLoad(VT, sdl, InChain, Ptr, Mask, Src0, VT, MMO,
-                                   ISD::NON_EXTLOAD);
+  SDValue Load;
+  if (isLoad) // Load form
+    Load = DAG.getMaskedLoad(VT, sdl, Root, getValue(Ptr), Mask, Src0, VT, MMO,
+	                         ISD::NON_EXTLOAD);
+  else {
+    if (!SingleBase) {
+      Base = DAG.getTargetConstant(0, TLI.getPointerTy());
+      Index = getValue(Ptr);
+    }
+
+    SDValue Ops[] = { Root, Src0, Mask, Base, Index };
+    Load = DAG.getMaskedGather(DAG.getVTList(VT, MVT::Other), VT, sdl, Ops,
+                               MMO);
+  }
+
   SDValue OutChain = Load.getValue(1);
-  DAG.setRoot(OutChain);
+  if (!ConstantMemory)
+    PendingLoads.push_back(OutChain);
   setValue(&I, Load);
 }
 
@@ -5049,9 +5145,11 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
     return nullptr;
   }
 
+  case Intrinsic::masked_gather:
   case Intrinsic::masked_load:
     visitMaskedLoad(I);
     return nullptr;
+  case Intrinsic::masked_scatter:
   case Intrinsic::masked_store:
     visitMaskedStore(I);
     return nullptr;

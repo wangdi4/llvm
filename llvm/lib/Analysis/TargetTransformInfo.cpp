@@ -101,14 +101,19 @@ bool TargetTransformInfo::isLegalAddressingMode(Type *Ty, GlobalValue *BaseGV,
                                         Scale);
 }
 
-bool TargetTransformInfo::isLegalMaskedStore(Type *DataType,
-                                             int Consecutive) const {
-  return TTIImpl->isLegalMaskedStore(DataType, Consecutive);
+bool TargetTransformInfo::isLegalMaskedStore(Type *DataType) const {
+  return TTIImpl->isLegalMaskedStore(DataType);
 }
 
-bool TargetTransformInfo::isLegalMaskedLoad(Type *DataType,
-                                            int Consecutive) const {
-  return TTIImpl->isLegalMaskedLoad(DataType, Consecutive);
+bool TargetTransformInfo::isLegalMaskedLoad(Type *DataType) const {
+  return TTIImpl->isLegalMaskedLoad(DataType);
+}
+
+bool TargetTransformInfo::isLegalGather(Type *DataType) const {
+  return TTIImpl->isLegalGather(DataType);
+}
+bool TargetTransformInfo::isLegalScatter(Type *DataType) const {
+  return TTIImpl->isLegalGather(DataType);
 }
 
 int TargetTransformInfo::getScalingFactorCost(Type *Ty, GlobalValue *BaseGV,

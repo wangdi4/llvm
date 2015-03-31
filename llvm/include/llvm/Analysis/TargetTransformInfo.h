@@ -297,8 +297,11 @@ public:
   /// AVX2 allows masks for consecutive load and store for i32 and i64 elements.
   /// AVX-512 architecture will also allow masks for non-consecutive memory
   /// accesses.
-  bool isLegalMaskedStore(Type *DataType, int Consecutive) const;
-  bool isLegalMaskedLoad(Type *DataType, int Consecutive) const;
+  bool isLegalMaskedStore(Type *DataType) const;
+  bool isLegalMaskedLoad(Type *DataType) const;
+
+  virtual bool isLegalGather (Type *DataType) const;
+  virtual bool isLegalScatter(Type *DataType) const;
 
   /// \brief Return the cost of the scaling factor used in the addressing
   /// mode represented by AM for this target, for a load/store
@@ -520,8 +523,10 @@ public:
   virtual bool isLegalAddressingMode(Type *Ty, GlobalValue *BaseGV,
                                      int64_t BaseOffset, bool HasBaseReg,
                                      int64_t Scale) = 0;
-  virtual bool isLegalMaskedStore(Type *DataType, int Consecutive) = 0;
-  virtual bool isLegalMaskedLoad(Type *DataType, int Consecutive) = 0;
+  virtual bool isLegalMaskedStore(Type *DataType) = 0;
+  virtual bool isLegalMaskedLoad(Type *DataType) = 0;
+  virtual bool isLegalGather(Type *DataType) = 0;
+  virtual bool isLegalScatter(Type *DataType) = 0;
   virtual int getScalingFactorCost(Type *Ty, GlobalValue *BaseGV,
                                    int64_t BaseOffset, bool HasBaseReg,
                                    int64_t Scale) = 0;
@@ -626,11 +631,17 @@ public:
     return Impl.isLegalAddressingMode(Ty, BaseGV, BaseOffset, HasBaseReg,
                                       Scale);
   }
-  bool isLegalMaskedStore(Type *DataType, int Consecutive) override {
-    return Impl.isLegalMaskedStore(DataType, Consecutive);
+  bool isLegalMaskedStore(Type *DataType) override {
+    return Impl.isLegalMaskedStore(DataType);
   }
-  bool isLegalMaskedLoad(Type *DataType, int Consecutive) override {
-    return Impl.isLegalMaskedLoad(DataType, Consecutive);
+  bool isLegalMaskedLoad(Type *DataType) override {
+    return Impl.isLegalMaskedLoad(DataType);
+  }
+  bool isLegalGather(Type *DataType) override {
+    return Impl.isLegalGather(DataType);
+  }
+  bool isLegalScatter(Type *DataType) override {
+    return Impl.isLegalScatter(DataType);
   }
   int getScalingFactorCost(Type *Ty, GlobalValue *BaseGV, int64_t BaseOffset,
                            bool HasBaseReg, int64_t Scale) override {

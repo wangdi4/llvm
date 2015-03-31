@@ -515,6 +515,8 @@ unsigned X86TTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src) {
     { ISD::ZERO_EXTEND, MVT::v16i32, MVT::v16i16, 1 },
     { ISD::SIGN_EXTEND, MVT::v8i64,  MVT::v16i32, 3 },
     { ISD::ZERO_EXTEND, MVT::v8i64,  MVT::v16i32, 3 },
+    { ISD::SIGN_EXTEND, MVT::v8i64,  MVT::v8i32,  1 },
+    { ISD::ZERO_EXTEND, MVT::v8i64,  MVT::v8i32,  1 },
 
     { ISD::SINT_TO_FP,  MVT::v16f32, MVT::v16i1,  3 },
     { ISD::SINT_TO_FP,  MVT::v16f32, MVT::v16i8,  2 },
@@ -823,8 +825,8 @@ unsigned X86TTIImpl::getMaskedMemoryOpCost(unsigned Opcode, Type *SrcTy,
   unsigned NumElem = SrcVTy->getVectorNumElements();
   VectorType *MaskTy =
     VectorType::get(Type::getInt8Ty(getGlobalContext()), NumElem);
-  if ((Opcode == Instruction::Load && !isLegalMaskedLoad(SrcVTy, 1)) ||
-      (Opcode == Instruction::Store && !isLegalMaskedStore(SrcVTy, 1)) ||
+  if ((Opcode == Instruction::Load && !isLegalMaskedLoad(SrcVTy)) ||
+      (Opcode == Instruction::Store && !isLegalMaskedStore(SrcVTy)) ||
       !isPowerOf2_32(NumElem)) {
     // Scalarization
     unsigned MaskSplitCost = getScalarizationOverhead(MaskTy, false, true);
@@ -1109,18 +1111,26 @@ unsigned X86TTIImpl::getIntImmCost(Intrinsic::ID IID, unsigned Idx,
   return X86TTIImpl::getIntImmCost(Imm, Ty);
 }
 
-bool X86TTIImpl::isLegalMaskedLoad(Type *DataTy, int Consecutive) {
-  int DataWidth = DataTy->getPrimitiveSizeInBits();
-  
-  // Todo: AVX512 allows gather/scatter, works with strided and random as well
-  if ((DataWidth < 32) || (Consecutive == 0))
+bool X86TTIImpl::isLegalMaskedLoad(Type *ScalarDataTy) {
+  int DataWidth = ScalarDataTy->getPrimitiveSizeInBits();
+  if (!ST->hasAVX2())
     return false;
-  if (ST->hasAVX512() || ST->hasAVX2()) 
+  
+  if (DataWidth >= 32)
     return true;
-  return false;
+
+  return (ST->hasVLX() && ST->hasBWI());
 }
 
-bool X86TTIImpl::isLegalMaskedStore(Type *DataType, int Consecutive) {
-  return isLegalMaskedLoad(DataType, Consecutive);
+bool X86TTIImpl::isLegalMaskedStore(Type *DataType) {
+  return isLegalMaskedLoad(DataType);
+}
+
+bool  X86TTIImpl::isLegalGather(Type *DataTy) {
+  return ST->hasAVX512() && DataTy->getPrimitiveSizeInBits() >= 32;
+}
+
+bool  X86TTIImpl::isLegalScatter(Type *DataTy) {
+  return ST->hasAVX512() && DataTy->getPrimitiveSizeInBits() >= 32;
 }
 

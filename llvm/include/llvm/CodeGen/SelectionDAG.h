@@ -872,6 +872,12 @@ public:
   SDValue getMaskedStore(SDValue Chain, SDLoc dl, SDValue Val,
                          SDValue Ptr, SDValue Mask, EVT MemVT,
                          MachineMemOperand *MMO, bool IsTrunc);
+  // if INTEL_CUSTOMIZATION
+  SDValue getMaskedGather(SDVTList VTs, EVT VT, SDLoc dl,
+                          ArrayRef<SDValue> Ops, MachineMemOperand *MMO);
+  SDValue getMaskedScatter(SDVTList VTs, EVT VT, SDLoc dl,
+                           ArrayRef<SDValue> Ops, MachineMemOperand *MMO);
+  // endif INTEL_CUSTOMIZATION
   /// getSrcValue - Construct a node to track a Value* through the backend.
   SDValue getSrcValue(const Value *v);
 

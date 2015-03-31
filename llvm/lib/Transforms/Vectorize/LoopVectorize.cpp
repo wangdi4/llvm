@@ -737,6 +737,8 @@ public:
   /// -1 - Address is consecutive, and decreasing.
   int isConsecutivePtr(Value *Ptr);
 
+  bool isVectorizableRandomPtr(Value *Ptr);
+
   /// Returns true if the value V is uniform within the loop.
   bool isUniform(Value *V);
 
@@ -768,12 +770,19 @@ public:
   /// Returns true if the target machine supports masked store operation
   /// for the given \p DataType and kind of access to \p Ptr.
   bool isLegalMaskedStore(Type *DataType, Value *Ptr) {
-    return TTI->isLegalMaskedStore(DataType, isConsecutivePtr(Ptr));
+    return TTI->isLegalMaskedStore(DataType) && (isConsecutivePtr(Ptr) != 0);
   }
   /// Returns true if the target machine supports masked load operation
   /// for the given \p DataType and kind of access to \p Ptr.
   bool isLegalMaskedLoad(Type *DataType, Value *Ptr) {
-    return TTI->isLegalMaskedLoad(DataType, isConsecutivePtr(Ptr));
+    return TTI->isLegalMaskedLoad(DataType) && (isConsecutivePtr(Ptr) != 0);
+  }
+
+  bool isLegalGather(Type *DataType, Value *Ptr) {
+    return TTI->isLegalGather(DataType) && isVectorizableRandomPtr(Ptr);
+  }
+  bool isLegalScatter(Type *DataType, Value *Ptr) {
+    return TTI->isLegalScatter(DataType) && isVectorizableRandomPtr(Ptr);
   }
   /// Returns true if vector representation of the instruction \p I
   /// requires mask.
@@ -1586,6 +1595,13 @@ static unsigned getGEPInductionOperand(const DataLayout *DL,
   return LastOperand;
 }
 
+bool 
+LoopVectorizationLegality::isVectorizableRandomPtr(Value *Ptr) {
+  assert(Ptr->getType()->isPointerTy() && "Unexpected non-ptr");
+  GetElementPtrInst *Gep = dyn_cast_or_null<GetElementPtrInst>(Ptr);
+  return (Gep != 0);
+}
+
 int LoopVectorizationLegality::isConsecutivePtr(Value *Ptr) {
   assert(Ptr->getType()->isPointerTy() && "Unexpected non-ptr");
   // Make sure that the pointer does not point to structs.
@@ -1734,58 +1750,84 @@ void InnerLoopVectorizer::vectorizeMemoryInstruction(Instruction *Instr) {
   // scalarize the load.
   int ConsecutiveStride = Legal->isConsecutivePtr(Ptr);
   bool Reverse = ConsecutiveStride < 0;
-  bool UniformLoad = LI && Legal->isUniform(Ptr);
-  if (!ConsecutiveStride || UniformLoad)
+  bool CreateGatherScatter = false;
+  if (!ConsecutiveStride)
+    CreateGatherScatter = (LI && Legal->isLegalGather(ScalarDataTy, Ptr)) ||
+      (SI && Legal->isLegalScatter(ScalarDataTy, Ptr));
+ 
+  if (!ConsecutiveStride && !CreateGatherScatter)
     return scalarizeInstruction(Instr);
 
   Constant *Zero = Builder.getInt32(0);
   VectorParts &Entry = WidenMap.get(Instr);
+  VectorParts VectorGep;
 
   // Handle consecutive loads/stores.
   GetElementPtrInst *Gep = dyn_cast<GetElementPtrInst>(Ptr);
-  if (Gep && Legal->isInductionVariable(Gep->getPointerOperand())) {
+  if (Gep) {
     setDebugLocFromInst(Builder, Gep);
-    Value *PtrOperand = Gep->getPointerOperand();
-    Value *FirstBasePtr = getVectorValue(PtrOperand)[0];
-    FirstBasePtr = Builder.CreateExtractElement(FirstBasePtr, Zero);
+    if (ConsecutiveStride) {
+      if (Legal->isInductionVariable(Gep->getPointerOperand())) {
+        Value *PtrOperand = Gep->getPointerOperand();
+        Value *FirstBasePtr = getVectorValue(PtrOperand)[0];
+        FirstBasePtr = Builder.CreateExtractElement(FirstBasePtr, Zero);
 
-    // Create the new GEP with the new induction variable.
-    GetElementPtrInst *Gep2 = cast<GetElementPtrInst>(Gep->clone());
-    Gep2->setOperand(0, FirstBasePtr);
-    Gep2->setName("gep.indvar.base");
-    Ptr = Builder.Insert(Gep2);
-  } else if (Gep) {
-    setDebugLocFromInst(Builder, Gep);
-    assert(SE->isLoopInvariant(SE->getSCEV(Gep->getPointerOperand()),
-                               OrigLoop) && "Base ptr must be invariant");
+        // Create the new GEP with the new induction variable.
+        GetElementPtrInst *Gep2 = cast<GetElementPtrInst>(Gep->clone());
+        Gep2->setOperand(0, FirstBasePtr);
+        Gep2->setName("gep.indvar.base");
+        Ptr = Builder.Insert(Gep2);
+      }
+      else {
+	     assert(SE->isLoopInvariant(SE->getSCEV(Gep->getPointerOperand()),
+                                   OrigLoop) && "Base ptr must be invariant");
 
-    // The last index does not have to be the induction. It can be
-    // consecutive and be a function of the index. For example A[I+1];
-    unsigned NumOperands = Gep->getNumOperands();
-    unsigned InductionOperand = getGEPInductionOperand(DL, Gep);
-    // Create the new GEP with the new induction variable.
-    GetElementPtrInst *Gep2 = cast<GetElementPtrInst>(Gep->clone());
+        // The last index does not have to be the induction. It can be
+        // consecutive and be a function of the index. For example A[I+1];
+        unsigned NumOperands = Gep->getNumOperands();
+        unsigned InductionOperand = getGEPInductionOperand(DL, Gep);
+        // Create the new GEP with the new induction variable.
+        GetElementPtrInst *Gep2 = cast<GetElementPtrInst>(Gep->clone());
 
-    for (unsigned i = 0; i < NumOperands; ++i) {
-      Value *GepOperand = Gep->getOperand(i);
-      Instruction *GepOperandInst = dyn_cast<Instruction>(GepOperand);
+        for (unsigned i = 0; i < NumOperands; ++i) {
+          Value *GepOperand = Gep->getOperand(i);
+          Instruction *GepOperandInst = dyn_cast<Instruction>(GepOperand);
 
-      // Update last index or loop invariant instruction anchored in loop.
-      if (i == InductionOperand ||
-          (GepOperandInst && OrigLoop->contains(GepOperandInst))) {
-        assert((i == InductionOperand ||
-               SE->isLoopInvariant(SE->getSCEV(GepOperandInst), OrigLoop)) &&
-               "Must be last index or loop invariant");
+          // Update last index or loop invariant instruction anchored in loop.
+          if (i == InductionOperand ||
+              (GepOperandInst && OrigLoop->contains(GepOperandInst))) {
+            assert((i == InductionOperand ||
+                    SE->isLoopInvariant(SE->getSCEV(GepOperandInst), OrigLoop)) &&
+                    "Must be last index or loop invariant");
 
-        VectorParts &GEPParts = getVectorValue(GepOperand);
-        Value *Index = GEPParts[0];
-        Index = Builder.CreateExtractElement(Index, Zero);
-        Gep2->setOperand(i, Index);
-        Gep2->setName("gep.indvar.idx");
+            VectorParts &GEPParts = getVectorValue(GepOperand);
+            Value *Index = GEPParts[0];
+            Index = Builder.CreateExtractElement(Index, Zero);
+            Gep2->setOperand(i, Index);
+            Gep2->setName("gep.indvar.idx");
+          }
+        }
+        Ptr = Builder.Insert(Gep2);
       }
     }
-    Ptr = Builder.Insert(Gep2);
-  } else {
+    else {
+      // Supported random access (gather / scatter)
+      assert(CreateGatherScatter  &&  "The instruction should be scalarized");
+      VectorParts& Op0 = getVectorValue(Gep->getOperand(0));
+      SmallVector<VectorParts, 4> OpsV;
+      for (unsigned i = 1; i < Gep->getNumOperands(); i++) 
+        OpsV.push_back(getVectorValue(Gep->getOperand(i)));
+
+      for (unsigned Part = 0; Part < UF; ++Part) {
+        SmallVector<Value*, 4> Ops;
+        for (unsigned i = 1; i < Gep->getNumOperands(); i++)
+          Ops.push_back(OpsV[i-1][Part]);
+
+        VectorGep.push_back(Builder.CreateGEP(Op0[Part], Ops,
+                            "gep.random_access"));
+      }
+    }
+  } else { // No Gap
     // Use the induction element ptr.
     assert(isa<PHINode>(Ptr) && "Invalid induction ptr");
     setDebugLocFromInst(Builder, Ptr);
@@ -1804,29 +1846,40 @@ void InnerLoopVectorizer::vectorizeMemoryInstruction(Instruction *Instr) {
     VectorParts StoredVal = getVectorValue(SI->getValueOperand());
     
     for (unsigned Part = 0; Part < UF; ++Part) {
-      // Calculate the pointer for the specific unroll-part.
-      Value *PartPtr = Builder.CreateGEP(Ptr, Builder.getInt32(Part * VF));
-
-      if (Reverse) {
-        // If we store to reverse consecutive memory locations then we need
-        // to reverse the order of elements in the stored value.
-        StoredVal[Part] = reverseVector(StoredVal[Part]);
-        // If the address is consecutive but reversed, then the
-        // wide store needs to start at the last vector element.
-        PartPtr = Builder.CreateGEP(Ptr, Builder.getInt32(-Part * VF));
-        PartPtr = Builder.CreateGEP(PartPtr, Builder.getInt32(1 - VF));
-        Mask[Part] = reverseVector(Mask[Part]);
-      }
-
-      Value *VecPtr = Builder.CreateBitCast(PartPtr,
-                                            DataTy->getPointerTo(AddressSpace));
-
       Instruction *NewSI;
-      if (Legal->isMaskRequired(SI))
-        NewSI = Builder.CreateMaskedStore(StoredVal[Part], VecPtr, Alignment,
-                                          Mask[Part]);
-      else 
-        NewSI = Builder.CreateAlignedStore(StoredVal[Part], VecPtr, Alignment);
+      if (CreateGatherScatter) {
+        if (Legal->isMaskRequired(SI))
+          NewSI = Builder.CreateScatter(StoredVal[Part], VectorGep[Part],
+                                        Alignment, Mask[Part]);
+        else
+          NewSI = Builder.CreateScatter(StoredVal[Part], VectorGep[Part],
+                                        Alignment);
+      }
+      else {
+        // Calculate the pointer for the specific unroll-part.
+        Value *PartPtr = Builder.CreateGEP(Ptr, Builder.getInt32(Part * VF));
+
+        if (Reverse) {
+          // If we store to reverse consecutive memory locations then we need
+          // to reverse the order of elements in the stored value.
+          StoredVal[Part] = reverseVector(StoredVal[Part]);
+          Mask[Part] = reverseVector(Mask[Part]);
+          // If the address is consecutive but reversed, then the
+          // wide store needs to start at the last vector element.
+          PartPtr = Builder.CreateGEP(Ptr, Builder.getInt32(-Part * VF));
+          PartPtr = Builder.CreateGEP(PartPtr, Builder.getInt32(1 - VF));
+        }
+
+        Value *VecPtr = Builder.CreateBitCast(PartPtr,
+                                              DataTy->getPointerTo(AddressSpace));
+
+        if (Legal->isMaskRequired(SI))
+          NewSI = Builder.CreateMaskedStore(StoredVal[Part], VecPtr, Alignment,
+                                            Mask[Part]);
+          else 
+            NewSI = Builder.CreateAlignedStore(StoredVal[Part], VecPtr,
+                                               Alignment);
+      }
       propagateMetadata(NewSI, SI);
     }
     return;
@@ -1836,28 +1889,38 @@ void InnerLoopVectorizer::vectorizeMemoryInstruction(Instruction *Instr) {
   assert(LI && "Must have a load instruction");
   setDebugLocFromInst(Builder, LI);
   for (unsigned Part = 0; Part < UF; ++Part) {
-    // Calculate the pointer for the specific unroll-part.
-    Value *PartPtr = Builder.CreateGEP(Ptr, Builder.getInt32(Part * VF));
+    Instruction* NewLI;
+    if (CreateGatherScatter) {
+      if (Legal->isMaskRequired(LI))
+        NewLI = Builder.CreateGather(VectorGep[Part], Alignment, Mask[Part], 0,
+                                     "wide.masked.gather");
+      else
+        NewLI = Builder.CreateGather(VectorGep[Part], Alignment);
+      Entry[Part] = NewLI;
+    }
+    else {
+      // Calculate the pointer for the specific unroll-part.
+      Value *PartPtr = Builder.CreateGEP(Ptr, Builder.getInt32(Part * VF));
 
-    if (Reverse) {
-      // If the address is consecutive but reversed, then the
-      // wide load needs to start at the last vector element.
-      PartPtr = Builder.CreateGEP(Ptr, Builder.getInt32(-Part * VF));
-      PartPtr = Builder.CreateGEP(PartPtr, Builder.getInt32(1 - VF));
+      if (Reverse) {
+        // If the address is consecutive but reversed, then the
+        // wide load needs to start at the last vector element.
+        PartPtr = Builder.CreateGEP(Ptr, Builder.getInt32(-Part * VF));
+        PartPtr = Builder.CreateGEP(PartPtr, Builder.getInt32(1 - VF));
+      }
+
+      Value *VecPtr = Builder.CreateBitCast(PartPtr,
+                                            DataTy->getPointerTo(AddressSpace));
+      if (Legal->isMaskRequired(LI))
+        NewLI = Builder.CreateMaskedLoad(VecPtr, Alignment, Mask[Part],
+                                         UndefValue::get(DataTy),
+                                         "wide.masked.load");
+      else
+        NewLI = Builder.CreateAlignedLoad(VecPtr, Alignment, "wide.load");
+      Entry[Part] = Reverse ? reverseVector(NewLI) :  NewLI;
       Mask[Part] = reverseVector(Mask[Part]);
     }
-
-    Instruction* NewLI;
-    Value *VecPtr = Builder.CreateBitCast(PartPtr,
-                                          DataTy->getPointerTo(AddressSpace));
-    if (Legal->isMaskRequired(LI))
-      NewLI = Builder.CreateMaskedLoad(VecPtr, Alignment, Mask[Part],
-                                       UndefValue::get(DataTy),
-                                       "wide.masked.load");
-    else
-      NewLI = Builder.CreateAlignedLoad(VecPtr, Alignment, "wide.load");
     propagateMetadata(NewLI, LI);
-    Entry[Part] = Reverse ? reverseVector(NewLI) :  NewLI;
   }
 }
 
@@ -4241,7 +4304,8 @@ bool LoopVectorizationLegality::blockCanBePredicated(BasicBlock *BB,
       if (!LI)
         return false;
       if (!SafePtrs.count(LI->getPointerOperand())) {
-        if (isLegalMaskedLoad(LI->getType(), LI->getPointerOperand())) {
+        if (isLegalMaskedLoad(LI->getType(), LI->getPointerOperand()) ||
+            isLegalGather(LI->getType(), LI->getPointerOperand())) {
           MaskedOp.insert(LI);
           continue;
         }
@@ -4266,6 +4330,8 @@ bool LoopVectorizationLegality::blockCanBePredicated(BasicBlock *BB,
         // the block.
         bool isLegalMaskedOp =
           isLegalMaskedStore(SI->getValueOperand()->getType(),
+                             SI->getPointerOperand()) ||
+          isLegalScatter(SI->getValueOperand()->getType(),
                              SI->getPointerOperand());
         if (isLegalMaskedOp) {
           --NumPredStores;
@@ -4937,10 +5003,15 @@ LoopVectorizationCostModel::getInstructionCost(Instruction *I, unsigned VF) {
 
     // Scalarized loads/stores.
     int ConsecutiveStride = Legal->isConsecutivePtr(Ptr);
+    bool UseGatherScatter = !ConsecutiveStride &&
+      ((LI && Legal->isLegalGather(ValTy, Ptr)) ||
+       (SI && Legal->isLegalScatter(ValTy, Ptr)));
     bool Reverse = ConsecutiveStride < 0;
-    unsigned ScalarAllocatedSize = DL->getTypeAllocSize(ValTy);
-    unsigned VectorElementSize = DL->getTypeStoreSize(VectorTy)/VF;
-    if (!ConsecutiveStride || ScalarAllocatedSize != VectorElementSize) {
+    const DataLayout &DL = I->getModule()->getDataLayout();
+    unsigned ScalarAllocatedSize = DL.getTypeAllocSize(ValTy);
+    unsigned VectorElementSize = DL.getTypeStoreSize(VectorTy) / VF;
+    if ((!ConsecutiveStride && !UseGatherScatter) ||
+        ScalarAllocatedSize != VectorElementSize) {
       bool IsComplexComputation =
         isLikelyComplexAddressComputation(Ptr, Legal, SE, TheLoop);
       unsigned Cost = 0;
