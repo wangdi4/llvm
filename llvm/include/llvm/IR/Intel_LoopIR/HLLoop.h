@@ -29,11 +29,21 @@ class CanonExpr;
 /// \brief High level node representing a loop
 class HLLoop : public HLDDNode {
 public:
-  typedef HLIf::PredTy ZttPredTy;
-  typedef HLIf::ConjunctionTy ZttConjunctionTy;
   typedef HLContainerTy ChildNodeTy;
   typedef ChildNodeTy PreheaderTy;
   typedef ChildNodeTy PostexitTy;
+
+  /// Iterators to iterate over ZTT predicates
+  typedef HLIf::pred_iterator ztt_pred_iterator;
+  typedef HLIf::const_pred_iterator const_ztt_pred_iterator;
+  typedef HLIf::reverse_pred_iterator reverse_ztt_pred_iterator;
+  typedef HLIf::const_reverse_pred_iterator const_reverse_ztt_pred_iterator;
+
+  /// Iterators to iterate over ZTT conjunctions
+  typedef HLIf::conj_iterator ztt_conj_iterator;
+  typedef HLIf::const_conj_iterator const_ztt_conj_iterator;
+  typedef HLIf::reverse_conj_iterator reverse_ztt_conj_iterator;
+  typedef HLIf::const_reverse_conj_iterator const_reverse_ztt_conj_iterator;
 
   /// Iterator to iterate over ZTT DDRefs
   typedef HLIf::ddref_iterator ztt_ddref_iterator;
@@ -98,14 +108,14 @@ protected:
   void setInnermost(bool IsInnermst) { IsInnermost = IsInnermst; }
 
   /// \brief Hides HLDDNode's getOperandDDref(). Users are expected to use
-  /// loop specific functions.
+  /// HLLoop specific functions.
   DDRef *getOperandDDref(unsigned OperandNum);
   const DDRef *getOperandDDref(unsigned OperandNum) const;
   /// \brief Hides HLDDNode's setOperandDDref(). Users are expected to use
-  /// loop specific functions.
+  /// HLLoop specific functions.
   void setOperandDDRef(DDRef *, unsigned OperandNum);
   /// \brief Hides HLDDNode's removeOperandDDref(). Users are expected to use
-  /// loop specific functions.
+  /// HLLoop specific functions.
   DDRef *removeOperandDDref(unsigned OperandNum);
 
   /// \brief Returns the number of DDRefs associated with only the loop
@@ -127,6 +137,9 @@ protected:
   unsigned getNumOperandsInternal() const;
 
 public:
+  /// \brief Prints HLLoop.
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth) const override;
+
   /// \brief Returns underlying LLVM loop.
   const Loop *getLLVMLoop() const { return OrigLoop; }
 
@@ -140,20 +153,133 @@ public:
 
   /// \brief Returns the underlying type of ZTT.
   Type *getZttLLVMType() const;
-  /// \brief Returns the vector of predictes associated with this ZTT.
-  /// TODO: make this consistent with HLIf's interface.
-  const ZttPredTy &getZttPredicates() const {
-    assert(hasZtt() && "Ztt is absent");
-    return Ztt->getPredicates();
+
+  /// ZTT Predicate iterator methods
+  ztt_pred_iterator ztt_pred_begin() {
+    assert(hasZtt() && "Ztt is absent!");
+    return Ztt->pred_begin();
+  }
+  const_ztt_pred_iterator ztt_pred_begin() const {
+    assert(hasZtt() && "Ztt is absent!");
+    return Ztt->pred_begin();
+  }
+  ztt_pred_iterator ztt_pred_end() {
+    assert(hasZtt() && "Ztt is absent!");
+    return Ztt->pred_end();
+  }
+  const_ztt_pred_iterator ztt_pred_end() const {
+    assert(hasZtt() && "Ztt is absent!");
+    return Ztt->pred_end();
   }
 
-  /// \brief Returns the vector of conjunctions combining the predicates
-  /// of this ZTT.
-  /// TODO: make this consistent with HLIf's interface.
-  const ZttConjunctionTy &getZttConjunctions() const {
-    assert(hasZtt() && "Ztt is absent");
-    return Ztt->getConjunctions();
+  reverse_ztt_pred_iterator ztt_pred_rbegin() {
+    assert(hasZtt() && "Ztt is absent!");
+    return Ztt->pred_rbegin();
   }
+  const_reverse_ztt_pred_iterator ztt_pred_rbegin() const {
+    assert(hasZtt() && "Ztt is absent!");
+    return Ztt->pred_rbegin();
+  }
+  reverse_ztt_pred_iterator ztt_pred_rend() {
+    assert(hasZtt() && "Ztt is absent!");
+    return Ztt->pred_rend();
+  }
+  const_reverse_ztt_pred_iterator ztt_pred_rend() const {
+    assert(hasZtt() && "Ztt is absent!");
+    return Ztt->pred_rend();
+  }
+
+  /// \brief Returns the number of predicates associated with this ZTT.
+  unsigned getNumZttPredicates() const {
+    assert(hasZtt() && "Ztt is absent!");
+    return Ztt->getNumPredicates();
+  }
+
+  /// ZTT Conjunction iterator methods
+  ztt_conj_iterator ztt_conj_begin() {
+    assert(hasZtt() && "Ztt is absent!");
+    return Ztt->conj_begin();
+  }
+  const_ztt_conj_iterator ztt_conj_begin() const {
+    assert(hasZtt() && "Ztt is absent!");
+    return Ztt->conj_begin();
+  }
+  ztt_conj_iterator ztt_conj_end() {
+    assert(hasZtt() && "Ztt is absent!");
+    return Ztt->conj_end();
+  }
+  const_ztt_conj_iterator ztt_conj_end() const {
+    assert(hasZtt() && "Ztt is absent!");
+    return Ztt->conj_end();
+  }
+
+  reverse_ztt_conj_iterator ztt_conj_rbegin() {
+    assert(hasZtt() && "Ztt is absent!");
+    return Ztt->conj_rbegin();
+  }
+  const_reverse_ztt_conj_iterator ztt_conj_rbegin() const {
+    assert(hasZtt() && "Ztt is absent!");
+    return Ztt->conj_rbegin();
+  }
+  reverse_ztt_conj_iterator ztt_conj_rend() {
+    assert(hasZtt() && "Ztt is absent!");
+    return Ztt->conj_rend();
+  }
+  const_reverse_ztt_conj_iterator ztt_conj_rend() const {
+    assert(hasZtt() && "Ztt is absent!");
+    return Ztt->conj_rend();
+  }
+
+  /// \brief Returns the number of conjunctions associated with this ZTT.
+  unsigned getNumZttConjunctions() const {
+    assert(hasZtt() && "Ztt is absent!");
+    return Ztt->getNumConjunctions();
+  }
+
+  /// \brief Add new conjunction and predicate into ZTT.
+  void addZttConjunction(unsigned Conj, CmpInst::Predicate Pred, DDRef *Ref1,
+                         DDRef *Ref2);
+
+  /// \brief Removes the conjunction, its associated succeeding predicate and
+  /// operand DDRefs(not destroyed).
+  void removeZttConjunction(ztt_conj_iterator ConjI);
+
+  /// \brief Returns the LHS/RHS operand DDRef of the predicate based on the
+  /// IsLHS flag.
+  DDRef *getZttPredicateOperandDDRef(ztt_pred_iterator PredI, bool IsLHS);
+  const DDRef *getZttPredicateOperandDDRef(const_ztt_pred_iterator PredI,
+                                           bool IsLHS) const;
+
+  /// \brief Sets the LHS/RHS operand DDRef of the predicate based on the IsLHS
+  /// flag.
+  void setZttPredicateOperandDDRef(DDRef *Ref, ztt_pred_iterator PredI,
+                                   bool IsLHS);
+
+  /// \brief Removes and returns the LHS/RHS operand DDRef of the predicate
+  /// based on the IsLHS flag.
+  DDRef *removeZttPredicateOperandDDRef(ztt_pred_iterator PredI, bool IsLHS);
+
+  /// \brief Returns the preceding conjunction of this predicate if it exists
+  /// else returns conj_end() iterator.
+  ztt_conj_iterator getZttPrecedingConjunction(ztt_pred_iterator PredI);
+  const_ztt_conj_iterator
+  getZttPrecedingConjunction(const_ztt_pred_iterator PredI) const;
+
+  /// \brief Returns the succeeding conjunction of this predicate if it exists
+  /// else returns conj_end() iterator.
+  ztt_conj_iterator getZttSucceedingConjunction(ztt_pred_iterator PredI);
+  const_ztt_conj_iterator
+  getZttSucceedingConjunction(const_ztt_pred_iterator PredI) const;
+
+  /// \brief Returns the preceding predicate of this conjunction.
+  ztt_pred_iterator getZttPrecedingPredicate(ztt_conj_iterator ConjI);
+  const_ztt_pred_iterator
+  getZttPrecedingPredicate(const_ztt_conj_iterator ConjI) const;
+
+  /// \brief Returns the succeeding predicate of this conjunction.
+  ztt_pred_iterator getZttSucceedingPredicate(ztt_conj_iterator ConjI);
+  const_ztt_pred_iterator
+  getZttSucceedingPredicate(const_ztt_conj_iterator ConjI) const;
 
   /// \brief Returns the DDRef associated with loop lower bound.
   /// The first DDRef is associated with lower bound.
@@ -181,17 +307,6 @@ public:
   void setStrideDDRef(DDRef *Ref);
   /// \brief Removes and returns the DDRef associated with loop stride.
   DDRef *removeStrideDDRef();
-
-  /// \brief Returns the DDRef associated with the Nth ZTT operand (starting
-  /// with 0) of Loop.
-  DDRef *getZttOperandDDRef(unsigned OperandNum);
-  const DDRef *getZttOperandDDRef(unsigned OperandNum) const;
-  /// \brief Sets the DDRef associated with the Nth ZTT operand (starting with
-  /// 0) of Loop.
-  void setZttOperandDDRef(DDRef *Ref, unsigned OperandNum);
-  /// \brief Removes and returns the DDRef associated with the Nth ZTT operand
-  /// (starting with 0) of Loop.
-  DDRef *removeZttOperandDDRef(unsigned OperandNum);
 
   /// \brief Returns the CanonExpr associated with loop lower bound.
   CanonExpr *getLowerCanonExpr();

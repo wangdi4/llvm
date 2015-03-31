@@ -22,7 +22,7 @@ class FunctionPass;
 /// createHIRCodeGenPass - This creates a pass that generates LLVM IR from HIR.
 FunctionPass *createHIRCodeGenPass();
 
-/// createHIRCompleteUnrollPass - This creates a pass that performs complete 
+/// createHIRCompleteUnrollPass - This creates a pass that performs complete
 /// unrolling on small trip count HIR loops.
 FunctionPass *createHIRCompleteUnrollPass(int Threshold = -1);
 }

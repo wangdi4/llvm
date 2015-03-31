@@ -11,7 +11,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/IR/BasicBlock.h"
+
 #include "llvm/IR/Intel_LoopIR/HLGoto.h"
+#include "llvm/IR/Intel_LoopIR/HLLabel.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -29,4 +32,19 @@ HLGoto *HLGoto::clone() const {
   HLGoto *NewHLGoto = new HLGoto(*this);
 
   return NewHLGoto;
+}
+
+void HLGoto::print(formatted_raw_ostream &OS, unsigned Depth) const {
+
+  indent(OS, Depth);
+
+  OS << "goto";
+
+  if (TargetLabel) {
+    OS << TargetLabel->getSrcBBlock()->getName();
+  } else {
+    OS << TargetBBlock->getName();
+  }
+
+  OS << ";\n";
 }

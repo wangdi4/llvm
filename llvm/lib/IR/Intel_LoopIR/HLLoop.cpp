@@ -115,9 +115,155 @@ HLLoop *HLLoop::clone() const {
   return NewHLLoop;
 }
 
+void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth) const {
+  const DDRef *Ref;
+
+  indent(OS, Depth);
+
+  /// Print preheader
+  for (auto I = pre_begin(), E = pre_end(); I != E; I++) {
+    I->print(OS, Depth + 1);
+  }
+
+  /// Print header
+  if (isDoLoop() || isDoWhileLoop() || isDoMultiExitLoop()) {
+    OS << "+ DO i" << NestingLevel << " = ";
+    Ref = getLowerDDRef();
+    Ref ? Ref->print(OS) : (void)(OS << Ref);
+    OS << ", ";
+    Ref = getTripCountDDRef();
+    Ref ? Ref->print(OS) : (void)(OS << Ref);
+    OS << ", ";
+    Ref = getStrideDDRef();
+    Ref ? Ref->print(OS) : (void)(OS << Ref);
+
+    OS.indent(IndentWidth);
+    if (isDoLoop()) {
+      OS << "<DO_LOOP>";
+    } else if (isDoWhileLoop()) {
+      OS << "<DO_WHILE_LOOP>";
+    } else if (isDoMultiExitLoop()) {
+      OS << "<DO_MULTI_EXIT_LOOP>";
+    }
+
+    OS << "\n";
+  } else if (isUnknownLoop()) {
+    OS << "UNKNOWN LOOP i" << NestingLevel << "\n";
+  } else {
+    llvm_unreachable("Unexpected loop type!");
+  }
+
+  /// Print children
+  for (auto I = child_begin(), E = child_end(); I != E; I++) {
+    I->print(OS, Depth + 1);
+  }
+
+  /// Print footer
+  indent(OS, Depth);
+  OS << "+ END LOOP\n";
+
+  /// Print postexit
+  for (auto I = post_begin(), E = post_end(); I != E; I++) {
+    I->print(OS, Depth + 1);
+  }
+}
+
 void HLLoop::setNumExits(unsigned NumEx) {
   assert(NumEx && "Number of exits cannot be zero!");
   NumExits = NumEx;
+}
+
+void HLLoop::addZttConjunction(unsigned Conj, CmpInst::Predicate Pred,
+                               DDRef *Ref1, DDRef *Ref2) {
+  assert(hasZtt() && "Ztt is absent!");
+  Ztt->addConjunction(Conj, Pred, Ref1, Ref2);
+}
+
+void HLLoop::removeZttConjunction(ztt_conj_iterator ConjI) {
+  assert(hasZtt() && "Ztt is absent!");
+  Ztt->removeConjunction(ConjI);
+}
+
+DDRef *HLLoop::getZttPredicateOperandDDRef(ztt_pred_iterator PredI,
+                                           bool IsLHS) {
+  assert(hasZtt() && "Ztt is absent!");
+  return getOperandDDRefImpl(getNumLoopDDRefs() +
+                             Ztt->getPredicateOperandDDRefOffset(PredI, IsLHS));
+}
+
+const DDRef *HLLoop::getZttPredicateOperandDDRef(const_ztt_pred_iterator PredI,
+                                                 bool IsLHS) const {
+  assert(hasZtt() && "Ztt is absent!");
+  return getOperandDDRefImpl(getNumLoopDDRefs() +
+                             Ztt->getPredicateOperandDDRefOffset(PredI, IsLHS));
+}
+
+void HLLoop::setZttPredicateOperandDDRef(DDRef *Ref, ztt_pred_iterator PredI,
+                                         bool IsLHS) {
+  assert(hasZtt() && "Ztt is absent!");
+  setOperandDDRefImpl(Ref,
+                      getNumLoopDDRefs() +
+                          Ztt->getPredicateOperandDDRefOffset(PredI, IsLHS));
+}
+
+DDRef *HLLoop::removeZttPredicateOperandDDRef(ztt_pred_iterator PredI,
+                                              bool IsLHS) {
+  assert(hasZtt() && "Ztt is absent!");
+  auto TRef = getZttPredicateOperandDDRef(PredI, IsLHS);
+
+  if (TRef) {
+    setZttPredicateOperandDDRef(nullptr, PredI, IsLHS);
+  }
+
+  return TRef;
+}
+
+HLLoop::ztt_conj_iterator
+HLLoop::getZttPrecedingConjunction(ztt_pred_iterator PredI) {
+  assert(hasZtt() && "Ztt is absent!");
+  return Ztt->getPrecedingConjunction(PredI);
+}
+
+HLLoop::const_ztt_conj_iterator
+HLLoop::getZttPrecedingConjunction(const_ztt_pred_iterator PredI) const {
+  assert(hasZtt() && "Ztt is absent!");
+  return Ztt->getPrecedingConjunction(PredI);
+}
+
+HLLoop::ztt_conj_iterator
+HLLoop::getZttSucceedingConjunction(ztt_pred_iterator PredI) {
+  assert(hasZtt() && "Ztt is absent!");
+  return Ztt->getSucceedingConjunction(PredI);
+}
+
+HLLoop::const_ztt_conj_iterator
+HLLoop::getZttSucceedingConjunction(const_ztt_pred_iterator PredI) const {
+  assert(hasZtt() && "Ztt is absent!");
+  return Ztt->getSucceedingConjunction(PredI);
+}
+
+HLLoop::ztt_pred_iterator
+HLLoop::getZttPrecedingPredicate(ztt_conj_iterator ConjI) {
+  assert(hasZtt() && "Ztt is absent!");
+  return Ztt->getPrecedingPredicate(ConjI);
+}
+
+HLLoop::const_ztt_pred_iterator
+HLLoop::getZttPrecedingPredicate(const_ztt_conj_iterator ConjI) const {
+  assert(hasZtt() && "Ztt is absent!");
+  return Ztt->getPrecedingPredicate(ConjI);
+}
+
+HLLoop::ztt_pred_iterator
+HLLoop::getZttSucceedingPredicate(ztt_conj_iterator ConjI) {
+  assert(hasZtt() && "Ztt is absent!");
+  return Ztt->getSucceedingPredicate(ConjI);
+}
+
+HLLoop::const_ztt_pred_iterator
+HLLoop::getZttSucceedingPredicate(const_ztt_conj_iterator ConjI) const {
+  assert(hasZtt() && "Ztt is absent!");
+  return Ztt->getSucceedingPredicate(ConjI);
 }
 
 DDRef *HLLoop::getLowerDDRef() { return getOperandDDRefImpl(0); }
@@ -195,32 +341,6 @@ DDRef *HLLoop::removeStrideDDRef() {
   return TRef;
 }
 
-DDRef *HLLoop::getZttOperandDDRef(unsigned OperandNum) {
-  assert(OperandNum < getNumZttOperands() && "Operand is out of range!");
-
-  return getOperandDDRefImpl(OperandNum + getNumLoopDDRefs());
-}
-
-const DDRef *HLLoop::getZttOperandDDRef(unsigned OperandNum) const {
-  return const_cast<HLLoop *>(this)->getZttOperandDDRef(OperandNum);
-}
-
-void HLLoop::setZttOperandDDRef(DDRef *Ref, unsigned OperandNum) {
-  assert(OperandNum < getNumZttOperands() && "Operand is out of range!");
-
-  setOperandDDRefImpl(Ref, OperandNum + getNumLoopDDRefs());
-}
-
-DDRef *HLLoop::removeZttOperandDDRef(unsigned OperandNum) {
-  auto TRef = getZttOperandDDRef(OperandNum);
-
-  if (TRef) {
-    setZttOperandDDRef(nullptr, OperandNum);
-  }
-
-  return TRef;
-}
-
 void HLLoop::setZtt(HLIf *ZttIf) {
   assert(!hasZtt() && "Attempt to overwrite ztt, use removeZtt instead!");
 
@@ -234,31 +354,32 @@ void HLLoop::setZtt(HLIf *ZttIf) {
 
   Ztt = ZttIf;
 
-  unsigned NumOp = ZttIf->getNumOperands();
-
   DDRefs.resize(getNumOperandsInternal(), nullptr);
 
-  /// Copy DDRef pointers to avoid unnecessary cloning.
-  for (unsigned I = 0; I < NumOp; I++) {
-    setZttOperandDDRef(ZttIf->getOperandDDRef(I), I);
+  /// Move DDRef pointers to avoid unnecessary cloning.
+  for (auto I = ztt_pred_begin(), E = ztt_pred_end(); I != E; I++) {
+    setZttPredicateOperandDDRef(Ztt->removePredicateOperandDDRef(I, true), I,
+                                true);
+    setZttPredicateOperandDDRef(Ztt->removePredicateOperandDDRef(I, false), I,
+                                false);
   }
 }
 
 HLIf *HLLoop::removeZtt() {
   assert(hasZtt() && "Loop doesn't have ztt!");
 
-  HLIf *If;
+  HLIf *If = Ztt;
 
-  If = Ztt;
+  /// Move Ztt DDRefs back to If.
+  for (auto I = ztt_pred_begin(), E = ztt_pred_end(); I != E; I++) {
+    If->setPredicateOperandDDRef(removeZttPredicateOperandDDRef(I, true), I,
+                                 true);
+    If->setPredicateOperandDDRef(removeZttPredicateOperandDDRef(I, false), I,
+                                 false);
+  }
+
   Ztt = nullptr;
   If->setParent(nullptr);
-
-  /// Set Ztt DDRefs' Node back to Ztt.
-  for (unsigned I = 0; I < getNumZttOperands(); I++) {
-    if (auto TRef = getZttOperandDDRef(I)) {
-      setNode(TRef, If);
-    }
-  }
 
   resizeToNumLoopDDRefs();
 

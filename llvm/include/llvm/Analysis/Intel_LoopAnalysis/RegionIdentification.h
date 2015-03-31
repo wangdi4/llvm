@@ -31,7 +31,7 @@ namespace loopopt {
 
 /// \brief This analysis is the first step in creating HIR. We start by
 /// identiyfing regions as a set of basic blocks in the incoming IR. This
-/// information is then used by HIRCreation pass to create and populate 
+/// information is then used by HIRCreation pass to create and populate
 /// HIR regions.
 class RegionIdentification : public FunctionPass {
 public:

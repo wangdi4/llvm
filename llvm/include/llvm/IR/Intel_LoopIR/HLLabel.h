@@ -37,6 +37,9 @@ protected:
   friend class HLNodeUtils;
 
 public:
+  /// \brief Prints HLLabel.
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth) const override;
+
   /// \brief Returns the underlying LLVM BBlock.
   BasicBlock *getSrcBBlock() const { return SrcBBlock; }
 

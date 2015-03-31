@@ -16,7 +16,12 @@
 
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/ilist_node.h"
+
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/FormattedStream.h"
+
+#include "llvm/IR/InstrTypes.h"
+
 #include <set>
 
 namespace llvm {
@@ -66,20 +71,30 @@ protected:
 
   friend class HLNodeUtils;
 
+  /// IndentWidth used to print HLNodes.
+  static const unsigned IndentWidth = 3;
+
   /// \brief Sets the lexical parent of this HLNode.
   void setParent(HLNode *Par) { Parent = Par; }
   /// \brief Destroys the object.
   void destroy();
+
+  /// \brief Indents nodes for printing.
+  void indent(formatted_raw_ostream &OS, unsigned Depth) const;
+
+  /// \brief Pretty prints predicates.
+  void printPredicate(formatted_raw_ostream &OS,
+                      const CmpInst::Predicate &Pred) const;
 
 public:
   virtual ~HLNode() {}
 
   /// Virtual Clone Method
   virtual HLNode *clone() const = 0;
-  /// TBD how to do this
-  void dump() const { print(); }
-  /// TBD how to do this
-  void print() const;
+  /// \brief Dumps HLNode.
+  void dump() const;
+  /// \brief Prints HLNode.
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth) const = 0;
 
   /// \brief Returns the immediate lexical parent of the HLNode.
   HLNode *getParent() const { return Parent; }

@@ -57,6 +57,9 @@ protected:
   void initialize();
 
 public:
+  /// \brief Prints HLInst.
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth) const override;
+
   /// \brief Returns the underlying Instruction.
   const Instruction *getLLVMInstruction() const { return Inst; }
   /// \brief Returns true if this node is part of safe reduction chain.

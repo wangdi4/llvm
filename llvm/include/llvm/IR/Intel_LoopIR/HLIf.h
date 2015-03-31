@@ -29,9 +29,21 @@ class HLLoop;
 /// If( (Op1 Pred1 Op2) Conj1 (Op3 Pred2 Op4) )
 class HLIf : public HLDDNode {
 public:
-  typedef std::vector<CmpInst::Predicate> PredTy;
+  typedef std::vector<CmpInst::Predicate> PredicateTy;
   typedef std::vector<unsigned> ConjunctionTy;
   typedef HLContainerTy ChildNodeTy;
+
+  /// Iterators to iterate over predicates
+  typedef PredicateTy::iterator pred_iterator;
+  typedef PredicateTy::const_iterator const_pred_iterator;
+  typedef PredicateTy::reverse_iterator reverse_pred_iterator;
+  typedef PredicateTy::const_reverse_iterator const_reverse_pred_iterator;
+
+  /// Iterators to iterate over conjunctions
+  typedef ConjunctionTy::iterator conj_iterator;
+  typedef ConjunctionTy::const_iterator const_conj_iterator;
+  typedef ConjunctionTy::reverse_iterator reverse_conj_iterator;
+  typedef ConjunctionTy::const_reverse_iterator const_reverse_conj_iterator;
 
   /// Iterators to iterate over then/else children nodes
   typedef ChildNodeTy::iterator then_iterator;
@@ -48,8 +60,11 @@ private:
   /// HLIf should contain two operands(DDRefs) per predicate unless the
   /// predicate is FCMP_TRUE or FCMP_FALSE in which case they can be null.
   /// It should contain at least one predicate.
-  PredTy Preds;
-  /// HLIf should contain two predicates per conjunction.
+  PredicateTy Predicates;
+  /// Joins two predicates. Valid values are AND or OR. HLIf should contain two 
+  /// predicates per conjunction.
+  /// TODO: remove OR if we don't need it to simplify logic and not worry about
+  /// precedence.
   ConjunctionTy Conjunctions;
   /// Contains both then and else children, in that order.
   /// Having a single container allows for more efficient and cleaner
@@ -80,15 +95,62 @@ protected:
   /// state.
   void initialize();
 
+  /// \brief Hides HLDDNode's getOperandDDref(). Users are expected to use HLIf
+  /// specific functions.
+  DDRef *getOperandDDref(unsigned OperandNum);
+  const DDRef *getOperandDDref(unsigned OperandNum) const;
+  /// \brief Hides HLDDNode's setOperandDDref(). Users are expected to use HLIf
+  /// loop specific functions.
+  void setOperandDDRef(DDRef *, unsigned OperandNum);
+  /// \brief Hides HLDDNode's removeOperandDDref(). Users are expected to use
+  /// HLIf specific functions.
+  DDRef *removeOperandDDref(unsigned OperandNum);
+
+  /// \brief Returns the offset of the LHS/RHS DDRef associated with this
+  /// predicate.
+  unsigned getPredicateOperandDDRefOffset(pred_iterator PredI,
+                                          bool IsLHS) const;
+  unsigned getPredicateOperandDDRefOffset(const_pred_iterator PredI,
+                                          bool IsLHS) const;
+
 public:
+  /// \brief Prints HLIf.
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth) const override;
+
   /// \brief Returns the underlying type of if.
   Type *getLLVMType() const;
-  /// \brief Returns the vector of predicates associated with this if.
-  const PredTy &getPredicates() const { return Preds; }
 
-  /// \brief Returns the vector of conjunctions combining the predicates
-  /// of this if.
-  const ConjunctionTy &getConjunctions() const { return Conjunctions; }
+  /// Predicate iterator methods
+  pred_iterator pred_begin() { return Predicates.begin(); }
+  const_pred_iterator pred_begin() const { return Predicates.begin(); }
+  pred_iterator pred_end() { return Predicates.end(); }
+  const_pred_iterator pred_end() const { return Predicates.end(); }
+
+  reverse_pred_iterator pred_rbegin() { return Predicates.rbegin(); }
+  const_reverse_pred_iterator pred_rbegin() const {
+    return Predicates.rbegin();
+  }
+  reverse_pred_iterator pred_rend() { return Predicates.rend(); }
+  const_reverse_pred_iterator pred_rend() const { return Predicates.rend(); }
+
+  /// \brief Returns the number of predicates associated with this if.
+  unsigned getNumPredicates() const { return Predicates.size(); }
+
+  /// Conjunction iterator methods
+  conj_iterator conj_begin() { return Conjunctions.begin(); }
+  const_conj_iterator conj_begin() const { return Conjunctions.begin(); }
+  conj_iterator conj_end() { return Conjunctions.end(); }
+  const_conj_iterator conj_end() const { return Conjunctions.end(); }
+
+  reverse_conj_iterator conj_rbegin() { return Conjunctions.rbegin(); }
+  const_reverse_conj_iterator conj_rbegin() const {
+    return Conjunctions.rbegin();
+  }
+  reverse_conj_iterator conj_rend() { return Conjunctions.rend(); }
+  const_reverse_conj_iterator conj_rend() const { return Conjunctions.rend(); }
+
+  /// \brief Returns the number of conjunctions associated with this if.
+  unsigned getNumConjunctions() const { return Conjunctions.size(); }
 
   /// Children iterator methods
   then_iterator then_begin() { return Children.begin(); }
@@ -175,11 +237,50 @@ public:
   /// \brief Returns the number of operands this HLIf is supposed to have.
   unsigned getNumOperands() const override;
 
-  /// TODO: Complete interface for adding/removing conjunctions. This should
-  /// also resize DDRefs.
-  /// \brief Add new conjunction and predicate into If.
+  /// \brief Adds new conjunction and predicate into If.
   void addConjunction(unsigned Conj, CmpInst::Predicate Pred, DDRef *Ref1,
                       DDRef *Ref2);
+
+  /// \brief Removes the conjunction, its associated succeeding predicate and
+  /// operand DDRefs(not destroyed). Example-
+  /// Before:
+  /// If((Op1 Pred1 Op2) Conj1 (Op3 Pred2 Op4) Conj2 (Op5 Pred3 Op6))
+  ///
+  /// removeConjunction(Conj2Iter);
+  ///
+  /// After:
+  /// If((Op1 Pred1 Op2) Conj1 (Op3 Pred2 Op4))
+  void removeConjunction(conj_iterator ConjI);
+
+  /// \brief Returns the LHS/RHS operand DDRef of the predicate based on the
+  /// IsLHS flag.
+  DDRef *getPredicateOperandDDRef(pred_iterator PredI, bool IsLHS);
+  const DDRef *getPredicateOperandDDRef(const_pred_iterator PredI,
+                                        bool IsLHS) const;
+
+  /// \brief Sets the LHS/RHS operand DDRef of the predicate based on the IsLHS
+  /// flag.
+  void setPredicateOperandDDRef(DDRef *Ref, pred_iterator PredI, bool IsLHS);
+
+  /// \brief Removes and returns the LHS/RHS operand DDRef of the predicate
+  /// based on the IsLHS flag.
+  DDRef *removePredicateOperandDDRef(pred_iterator PredI, bool IsLHS);
+
+  /// \brief Returns the preceding conjunction of this predicate if it exists
+  /// else returns conj_end() iterator.
+  conj_iterator getPrecedingConjunction(pred_iterator PredI);
+  const_conj_iterator getPrecedingConjunction(const_pred_iterator PredI) const;
+  /// \brief Returns the succeeding conjunction of this predicate if it exists
+  /// else returns conj_end() iterator.
+  conj_iterator getSucceedingConjunction(pred_iterator PredI);
+  const_conj_iterator getSucceedingConjunction(const_pred_iterator PredI) const;
+
+  /// \brief Returns the preceding predicate of this conjunction.
+  pred_iterator getPrecedingPredicate(conj_iterator ConjI);
+  const_pred_iterator getPrecedingPredicate(const_conj_iterator ConjI) const;
+  /// \brief Returns the succeeding predicate of this conjunction.
+  pred_iterator getSucceedingPredicate(conj_iterator ConjI);
+  const_pred_iterator getSucceedingPredicate(const_conj_iterator ConjI) const;
 };
 
 } // End namespace loopopt

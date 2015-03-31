@@ -110,6 +110,9 @@ protected:
   StrideTy &getStrides() const { return GepInfo->Strides; }
 
 public:
+  /// \brief Prints RegDDRef.
+  virtual void print(formatted_raw_ostream &OS) const override;
+
   /// \brief Returns HLDDNode this DDRef is attached to.
   HLDDNode *getHLDDNode() const override { return Node; };
 

@@ -48,6 +48,9 @@ protected:
   void setHLDDNode(HLDDNode *HNode) override { Node = HNode; }
 
 public:
+  /// \brief Prints ConstDDRef.
+  virtual void print(formatted_raw_ostream &OS) const override;
+
   /// \brief Returns CanonExpr representing this ref.
   CanonExpr *getCanonExpr() { return CExpr; }
   const CanonExpr *getCanonExpr() const { return CExpr; }

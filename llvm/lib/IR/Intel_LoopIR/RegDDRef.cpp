@@ -70,6 +70,29 @@ RegDDRef *RegDDRef::clone() const {
   return NewRegDDRef;
 }
 
+void RegDDRef::print(formatted_raw_ostream &OS) const {
+  const CanonExpr *CE;
+
+  if (hasGEPInfo()) {
+    OS << "(";
+    CE = getBaseCE();
+    CE ? CE->print(OS) : (void)(OS << CE);
+    OS << ")";
+  }
+
+  for (auto I = canon_rbegin(), E = canon_rend(); I != E; I++) {
+    if (hasGEPInfo()) {
+      OS << "[";
+    }
+
+    *I ? (*I)->print(OS) : (void)(OS << *I);
+
+    if (hasGEPInfo()) {
+      OS << "]";
+    }
+  }
+}
+
 bool RegDDRef::isLval() const {
   auto HNode = getHLDDNode();
 

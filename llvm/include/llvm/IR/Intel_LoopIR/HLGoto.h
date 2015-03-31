@@ -40,6 +40,9 @@ protected:
   friend class HLNodeUtils;
 
 public:
+  /// \brief Prints HLGoto.
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth) const override;
+
   /// \brief Returns the target basic block of this goto.
   BasicBlock *getTargetBBlock() const { return TargetBBlock; }
   /// \brief Returns the target label, if one exists. It is null

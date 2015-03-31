@@ -67,6 +67,9 @@ private:
   ChildNodeTy Children;
 
 public:
+  /// \brief Prints HLRegion.
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth) const override;
+
   /// \brief Returns the set of basic blocks which constitute this region.
   const RegionIdentification::RegionBBlocksTy &getOrigBBlocks() const {
     return OrigBBlocks;

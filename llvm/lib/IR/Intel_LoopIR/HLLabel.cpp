@@ -11,6 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/IR/BasicBlock.h"
+
 #include "llvm/IR/Intel_LoopIR/HLLabel.h"
 
 using namespace llvm;
@@ -28,4 +30,9 @@ HLLabel *HLLabel::clone() const {
   HLLabel *NewHLLabel = new HLLabel(*this);
 
   return NewHLLabel;
+}
+
+void HLLabel::print(formatted_raw_ostream &OS, unsigned Depth) const {
+  indent(OS, Depth);
+  OS << SrcBBlock->getName() << ":\n";
 }

@@ -60,6 +60,39 @@ HLInst *HLInst::clone() const {
   return NewHLInst;
 }
 
+void HLInst::print(formatted_raw_ostream &OS, unsigned Depth) const {
+  unsigned Count = 0;
+
+  indent(OS, Depth);
+
+  /// TODO: Add beautification logic based on instruction types.
+  for (auto I = op_ddref_begin(), E = op_ddref_end(); I != E; I++, Count++) {
+    if ((Count > 1) || (!hasLval() && (Count > 0))) {
+      OS << " , ";
+    }
+
+    if (Count == 0) {
+      if (hasLval()) {
+        *I ? (*I)->print(OS) : (void)(OS << *I);
+
+        OS << " = ";
+
+        if (!isa<LoadInst>(Inst) && !isa<StoreInst>(Inst)) {
+          OS << Inst->getOpcodeName() << " ";
+        }
+      } else {
+        OS << Inst->getOpcodeName() << " ";
+
+        *I ? (*I)->print(OS) : (void)(OS << *I);
+      }
+    } else {
+      *I ? (*I)->print(OS) : (void)(OS << *I);
+    }
+  }
+
+  OS << ";\n";
+}
+
 bool HLInst::hasLval() const {
   /// The following logic is copied from AssemblyWriter::printInstruction().
   /// TODO: Is there a better way to determine this, probably by checking

@@ -150,6 +150,12 @@ void HLNodeUtils::insertImpl(HLNode *Parent, HLContainerTy::iterator Pos,
   if (RemoveContainer) {
     Distance = std::distance(First, Last);
   }
+#ifndef NDEBUG
+  else {
+    assert(!First->getParent() &&
+           "Node is already linked, please remove it first!!");
+  }
+#endif
 
   if (isa<HLRegion>(Parent)) {
     HLRegion *Reg = cast<HLRegion>(Parent);
@@ -301,6 +307,13 @@ void HLNodeUtils::removeInternal(HLContainerTy &Container,
     if (Erase) {
       destroy(Node);
     }
+#ifndef NDEBUG
+    else {
+      /// Used to catch errors where user tries to insert an already linked
+      /// node.
+      Node->setParent(nullptr);
+    }
+#endif
   }
 }
 

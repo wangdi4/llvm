@@ -38,6 +38,12 @@ BlobDDRef *BlobDDRef::clone() const {
   return NewBlobDDRef;
 }
 
+void BlobDDRef::print(formatted_raw_ostream &OS) const {
+  auto CE = getCanonExpr();
+
+  CE ? CE->print(OS) : (void)(OS << CE);
+}
+
 HLDDNode *BlobDDRef::getHLDDNode() const {
 
   if (ParentDDRef) {

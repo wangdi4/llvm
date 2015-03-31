@@ -75,7 +75,7 @@ void HIRCreation::populateRegion(HLRegion *Region, BasicBlock *EntryBB) {
     HLGoto *ThenGoto = HLNodeUtils::createHLGoto(nullptr, Label);
     HLNodeUtils::insertAsFirstIfChild(If, ThenGoto);
 
-    /// TODO: Uncomment this later. This should ideally be cleaned up during 
+    /// TODO: Uncomment this later. This should ideally be cleaned up during
     /// lexlink cleanup.
     ///
     /// HLGoto *ElseGoto = HLNodeUtils::createHLGoto(BI->getSuccessor(1),

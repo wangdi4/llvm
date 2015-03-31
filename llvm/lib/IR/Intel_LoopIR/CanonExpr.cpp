@@ -11,6 +11,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Support/Debug.h"
+
+#include "llvm/Analysis/ScalarEvolution.h"
+
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 
 using namespace llvm;
@@ -63,6 +67,98 @@ CanonExpr *CanonExpr::clone() const {
 
   CanonExpr *CE = new CanonExpr(*this);
   return CE;
+}
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void CanonExpr::dump() const {
+  formatted_raw_ostream OS(dbgs());
+  print(OS);
+}
+#endif
+
+void CanonExpr::print(formatted_raw_ostream &OS) const {
+  auto C0 = getConstant();
+  auto Denom = getDenominator();
+  unsigned Level = 1;
+  bool Printed = false;
+
+  if (Denom != 1) {
+    OS << "(";
+  }
+
+  for (auto I = iv_cbegin(), E = iv_cend(); I != E; I++, Level++) {
+    if (I->Coeff != 0) {
+      if (Printed) {
+        OS << "+";
+      } else {
+        Printed = true;
+      }
+
+      if (I->IsBlobCoeff) {
+        getBlob(I->Coeff)->print(OS);
+        OS << "*";
+      } else if (I->Coeff != 1) {
+        OS << I->Coeff << "*";
+      }
+      OS << "i" << Level;
+    }
+  }
+
+  for (auto I = blob_cbegin(), E = blob_cend(); I != E; I++) {
+    if (I->Coeff != 0) {
+      if (Printed) {
+        OS << "+";
+      } else {
+        Printed = true;
+      }
+
+      if (I->Coeff != 1) {
+        OS << I->Coeff << "*";
+      }
+      getBlob(I->Index)->print(OS);
+    }
+  }
+
+  if (!Printed) {
+    OS << C0;
+  } else if (C0 != 0) {
+    OS << "+" << C0;
+  }
+
+  if (Denom != 1) {
+    OS << ")/" << Denom;
+  }
+}
+
+unsigned CanonExpr::findOrInsertBlobImpl(BlobTy Blob, bool Insert) {
+  assert(Blob && "Blob is null!");
+
+  for (auto I = BlobTable.begin(), E = BlobTable.end(); I != E; I++) {
+    if (*I == Blob) {
+      return (I - BlobTable.begin() + 1);
+    }
+  }
+
+  if (Insert) {
+    BlobTable.push_back(Blob);
+    return BlobTable.size();
+  }
+
+  return 0;
+}
+
+unsigned CanonExpr::findBlob(BlobTy Blob) {
+  return findOrInsertBlobImpl(Blob, false);
+}
+
+unsigned CanonExpr::findOrInsertBlob(BlobTy Blob) {
+  return findOrInsertBlobImpl(Blob, true);
+}
+
+CanonExpr::BlobTy CanonExpr::getBlob(unsigned BlobIndex) {
+  assert((BlobIndex > 0) && (BlobIndex <= BlobTable.size()) &&
+         "BlobIndex is out of range!");
+  return BlobTable[BlobIndex - 1];
 }
 
 bool CanonExpr::hasIV() const {

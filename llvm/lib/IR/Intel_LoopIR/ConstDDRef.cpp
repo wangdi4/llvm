@@ -35,3 +35,9 @@ ConstDDRef *ConstDDRef::clone() const {
 
   return NewConstDDRef;
 }
+
+void ConstDDRef::print(formatted_raw_ostream &OS) const {
+  auto CE = getCanonExpr();
+
+  CE ? CE->print(OS) : (void)(OS << CE);
+}

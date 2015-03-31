@@ -30,6 +30,20 @@ HLRegion *HLRegion::clone() const {
   return nullptr;
 }
 
+void HLRegion::print(formatted_raw_ostream &OS, unsigned Depth) const {
+  indent(OS, Depth);
+
+  OS << "BEGIN REGION\n";
+
+  for (auto I = child_begin(), E = child_end(); I != E; I++) {
+    I->print(OS, Depth + 1);
+  }
+
+  indent(OS, Depth);
+
+  OS << "END REGION\n";
+}
+
 BasicBlock *HLRegion::getPredBBlock() const {
   auto PredI = pred_begin(EntryBBlock);
 

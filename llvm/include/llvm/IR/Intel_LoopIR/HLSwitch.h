@@ -37,6 +37,11 @@ protected:
   unsigned getNumOperandsInternal() const { return 1; }
 
 public:
+  /// \brief Prints HLSwitch.
+  /// TODO: Implement later
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth) const override {
+  }
+
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
     return Node->getHLNodeID() == HLNode::HLSwitchVal;

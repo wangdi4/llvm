@@ -80,8 +80,8 @@ DDRef *HLDDNode::getOperandDDRefImpl(unsigned OperandNum) const {
 
 DDRef *HLDDNode::getOperandDDRef(unsigned OperandNum) {
   assert(OperandNum < getNumOperands() && "Operand is out of range!");
-  assert(!isa<HLLoop>(this) && "Please use loop specific"
-                               " utility!");
+  assert(!isa<HLLoop>(this) && "Please use HLLoop specific utility!");
+  assert(!isa<HLIf>(this) && "Please use HLIf specific utility!");
 
   return getOperandDDRefImpl(OperandNum);
 }
@@ -93,12 +93,13 @@ const DDRef *HLDDNode::getOperandDDRef(unsigned OperandNum) const {
 void HLDDNode::setOperandDDRefImpl(DDRef *Ref, unsigned OperandNum) {
   assert((!Ref || !isa<BlobDDRef>(Ref)) && "Cannot associate blob DDRef with "
                                            "operand!");
+#ifndef NDEBUG
   /// Reset HLDDNode of a previous DDRef, if any. We can catch more errors
   /// this way.
-  /// TODO: Do this only in debug mode to save compile time.
   if (auto TRef = DDRefs[OperandNum]) {
     setNode(TRef, nullptr);
   }
+#endif
 
   if (Ref) {
     assert(!Ref->getHLDDNode() && "DDRef attached to some other node, please "
@@ -111,7 +112,8 @@ void HLDDNode::setOperandDDRefImpl(DDRef *Ref, unsigned OperandNum) {
 
 void HLDDNode::setOperandDDRef(DDRef *Ref, unsigned OperandNum) {
   assert(OperandNum < getNumOperands() && "Operand is out of range!");
-  assert(!isa<HLLoop>(this) && "Please use loop specific utility!");
+  assert(!isa<HLLoop>(this) && "Please use HLLoop specific utility!");
+  assert(!isa<HLIf>(this) && "Please use HLIf specific utility!");
 
   setOperandDDRefImpl(Ref, OperandNum);
 }

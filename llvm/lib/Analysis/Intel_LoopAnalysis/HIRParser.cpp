@@ -37,15 +37,15 @@ char HIRParser::ID = 0;
 FunctionPass *llvm::createHIRParserPass() { return new HIRParser(); }
 
 unsigned HIRParser::findBlob(CanonExpr::BlobTy Blob) {
-  return CanonExprUtils::findBlob(Blob);
+  return CanonExpr::findBlob(Blob);
 }
 
 unsigned HIRParser::findOrInsertBlob(CanonExpr::BlobTy Blob) {
-  return CanonExprUtils::findOrInsertBlob(Blob);
+  return CanonExpr::findOrInsertBlob(Blob);
 }
 
 CanonExpr::BlobTy HIRParser::getBlob(unsigned BlobIndex) {
-  return CanonExprUtils::getBlob(BlobIndex);
+  return CanonExpr::getBlob(BlobIndex);
 }
 
 CanonExpr::BlobTy HIRParser::createAddBlob(CanonExpr::BlobTy LHS,

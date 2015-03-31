@@ -14,8 +14,11 @@
 #ifndef LLVM_IR_INTEL_LOOPIR_CANONEXPR_H
 #define LLVM_IR_INTEL_LOOPIR_CANONEXPR_H
 
-#include "llvm/Support/Compiler.h"
 #include "llvm/ADT/SmallVector.h"
+
+#include "llvm/Support/Compiler.h"
+#include "llvm/Support/FormattedStream.h"
+
 #include <stdint.h>
 #include <utility>
 #include <set>
@@ -109,9 +112,24 @@ protected:
   ~CanonExpr() {}
 
   friend class CanonExprUtils;
+  friend class HIRParser;
 
   /// \brief Destroys the object.
   void destroy();
+
+  /// \brief Implements find()/insert() functionality.
+  static unsigned findOrInsertBlobImpl(BlobTy Blob, bool Insert);
+
+  /// \brief Returns the index of Blob in the blob table. Index range is [1,
+  /// UINT_MAX]. Returns 0 if the blob is not present in the table.
+  static unsigned findBlob(BlobTy Blob);
+  /// \brief Returns the index of Blob in the blob table. Blob is first
+  /// inserted, if it isn't already present in the blob table. Index range is
+  /// [1, UINT_MAX].
+  static unsigned findOrInsertBlob(BlobTy Blob);
+
+  /// \brief Returns blob corresponding to BlobIndex.
+  static BlobTy getBlob(unsigned BlobIndex);
 
   /// \brief Resizes IVCoeffs to max loopnest level if the passed in level goes
   /// beyond the current size. This will avoid future reallocs.
@@ -142,8 +160,10 @@ protected:
 
 public:
   CanonExpr *clone() const;
+  /// \brief Dumps CanonExpr.
   void dump() const;
-  void print() const;
+  /// \brief Prints CanonExpr.
+  void print(formatted_raw_ostream &OS) const;
 
   /// \brief Returns the LLVM type of this canon expr.
   Type *getLLVMType() const { return Ty; }
