@@ -427,6 +427,8 @@ void CodeGenModule::Release() {
 #ifdef INTEL_CUSTOMIZATION
   if (getLangOpts().CilkPlus)
     EmitCilkElementalVariants();
+  if (getLangOpts().IntelMSCompat)
+    EmitMSDebugInfoMetadata();
 #endif  // INTEL_CUSTOMIZATION
   if (getCodeGenOpts().EmitGcovArcs || getCodeGenOpts().EmitGcovNotes)
     EmitCoverageFile();
@@ -3656,6 +3658,21 @@ void CodeGenModule::EmitTargetMetadata() {
     getTargetCodeGenInfo().emitTargetMD(D, GV, *this);
   }
 }
+
+#ifdef INTEL_CUSTOMIZATION
+void CodeGenModule::EmitMSDebugInfoMetadata() {
+  unsigned FileKind = getCodeGenOpts().getMSDebugInfoFile();
+  if (FileKind == CodeGenOptions::MSDebugInfoNoFile)
+    return;
+  std::string FileValue =
+      (FileKind == CodeGenOptions::MSDebugInfoPdbFile) ? "pdb" : "obj";
+  llvm::LLVMContext &Ctx = TheModule.getContext();
+  llvm::Metadata *MSDebugInfoNode[] = { llvm::MDString::get(Ctx, FileValue) };
+  llvm::NamedMDNode *MSDebugInfoMetadata =
+      TheModule.getOrInsertNamedMetadata("llvm.dbg.ms.filetype");
+  MSDebugInfoMetadata->addOperand(llvm::MDNode::get(Ctx, MSDebugInfoNode));
+}
+#endif //INTEL_CUSTOMIZATION
 
 void CodeGenModule::EmitCoverageFile() {
   if (!getCodeGenOpts().CoverageFile.empty()) {

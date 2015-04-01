@@ -76,6 +76,14 @@ public:
     FullDebugInfo         /// Generate complete debug info.
   };
 
+#ifdef INTEL_CUSTOMIZATION
+  enum MSDebugInfoFileKind {
+    MSDebugInfoNoFile,    /// Don't generate MS debug info.
+    MSDebugInfoPdbFile,   /// Generate MS debug info in a separate PDB file.
+    MSDebugInfoObjFile    /// Generate MS debug info in a COFF file.
+  };
+#endif //INTEL_CUSTOMIZATION
+
   enum TLSModel {
     GeneralDynamicTLSModel,
     LocalDynamicTLSModel,

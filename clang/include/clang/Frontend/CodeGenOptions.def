@@ -164,6 +164,12 @@ ENUM_CODEGENOPT(Inlining, InliningMethod, 2, NoInlining)
 /// The default TLS model to use.
 ENUM_CODEGENOPT(DefaultTLSModel, TLSModel, 2, GeneralDynamicTLSModel)
 
+// if INTEL_CUSTOMIZATION
+// CQ#368119
+/// The kind of file to emit MS debug info into.
+ENUM_CODEGENOPT(MSDebugInfoFile, MSDebugInfoFileKind, 2, MSDebugInfoNoFile)
+// endif INTEL_CUSTOMIZATION
+
 #undef CODEGENOPT
 #undef ENUM_CODEGENOPT
 #undef VALUE_CODEGENOPT
