@@ -39,12 +39,6 @@ public:
   typedef HLIf::reverse_pred_iterator reverse_ztt_pred_iterator;
   typedef HLIf::const_reverse_pred_iterator const_reverse_ztt_pred_iterator;
 
-  /// Iterators to iterate over ZTT conjunctions
-  typedef HLIf::conj_iterator ztt_conj_iterator;
-  typedef HLIf::const_conj_iterator const_ztt_conj_iterator;
-  typedef HLIf::reverse_conj_iterator reverse_ztt_conj_iterator;
-  typedef HLIf::const_reverse_conj_iterator const_reverse_ztt_conj_iterator;
-
   /// Iterator to iterate over ZTT DDRefs
   typedef HLIf::ddref_iterator ztt_ddref_iterator;
   typedef HLIf::const_ddref_iterator const_ztt_ddref_iterator;
@@ -85,11 +79,12 @@ private:
   unsigned NumExits;
   unsigned NestingLevel;
   bool IsInnermost;
+  Type *IVType;
 
 protected:
   HLLoop(const Loop *LLVMLoop, bool IsDoWh);
-  HLLoop(HLIf *ZttIf, DDRef *LowerDDRef, DDRef *TripCountDDRef,
-         DDRef *StrideDDRef, bool IsDoWh, unsigned NumEx);
+  HLLoop(HLIf *ZttIf, DDRef *LowerDDRef, DDRef *UpperDDRef, DDRef *StrideDDRef,
+         bool IsDoWh, unsigned NumEx);
 
   /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
   /// tries to
@@ -143,6 +138,11 @@ public:
   /// \brief Returns underlying LLVM loop.
   const Loop *getLLVMLoop() const { return OrigLoop; }
 
+  /// \brief Returns the underlying type of the loop IV.
+  Type *getIVType() const { return IVType; }
+  /// \brief Sets the underlying type of the loop IV.
+  void setIVType(Type *Ty) { IVType = Ty; }
+
   /// \brief Returns true if ztt is present.
   bool hasZtt() const { return Ztt != nullptr; }
 
@@ -195,54 +195,11 @@ public:
     return Ztt->getNumPredicates();
   }
 
-  /// ZTT Conjunction iterator methods
-  ztt_conj_iterator ztt_conj_begin() {
-    assert(hasZtt() && "Ztt is absent!");
-    return Ztt->conj_begin();
-  }
-  const_ztt_conj_iterator ztt_conj_begin() const {
-    assert(hasZtt() && "Ztt is absent!");
-    return Ztt->conj_begin();
-  }
-  ztt_conj_iterator ztt_conj_end() {
-    assert(hasZtt() && "Ztt is absent!");
-    return Ztt->conj_end();
-  }
-  const_ztt_conj_iterator ztt_conj_end() const {
-    assert(hasZtt() && "Ztt is absent!");
-    return Ztt->conj_end();
-  }
+  /// \brief Adds new predicate in ZTT.
+  void addZttPredicate(CmpInst::Predicate Pred, DDRef *Ref1, DDRef *Ref2);
 
-  reverse_ztt_conj_iterator ztt_conj_rbegin() {
-    assert(hasZtt() && "Ztt is absent!");
-    return Ztt->conj_rbegin();
-  }
-  const_reverse_ztt_conj_iterator ztt_conj_rbegin() const {
-    assert(hasZtt() && "Ztt is absent!");
-    return Ztt->conj_rbegin();
-  }
-  reverse_ztt_conj_iterator ztt_conj_rend() {
-    assert(hasZtt() && "Ztt is absent!");
-    return Ztt->conj_rend();
-  }
-  const_reverse_ztt_conj_iterator ztt_conj_rend() const {
-    assert(hasZtt() && "Ztt is absent!");
-    return Ztt->conj_rend();
-  }
-
-  /// \brief Returns the number of conjunctions associated with this ZTT.
-  unsigned getNumZttConjunctions() const {
-    assert(hasZtt() && "Ztt is absent!");
-    return Ztt->getNumConjunctions();
-  }
-
-  /// \brief Add new conjunction and predicate into ZTT.
-  void addZttConjunction(unsigned Conj, CmpInst::Predicate Pred, DDRef *Ref1,
-                         DDRef *Ref2);
-
-  /// \brief Removes the conjunction, its associated succeeding predicate and
-  /// operand DDRefs(not destroyed).
-  void removeZttConjunction(ztt_conj_iterator ConjI);
+  /// \brief Removes the associated predicate and operand DDRefs(not destroyed).
+  void removeZttPredicate(ztt_pred_iterator PredI);
 
   /// \brief Returns the LHS/RHS operand DDRef of the predicate based on the
   /// IsLHS flag.
@@ -259,28 +216,6 @@ public:
   /// based on the IsLHS flag.
   DDRef *removeZttPredicateOperandDDRef(ztt_pred_iterator PredI, bool IsLHS);
 
-  /// \brief Returns the preceding conjunction of this predicate if it exists
-  /// else returns conj_end() iterator.
-  ztt_conj_iterator getZttPrecedingConjunction(ztt_pred_iterator PredI);
-  const_ztt_conj_iterator
-  getZttPrecedingConjunction(const_ztt_pred_iterator PredI) const;
-
-  /// \brief Returns the succeeding conjunction of this predicate if it exists
-  /// else returns conj_end() iterator.
-  ztt_conj_iterator getZttSucceedingConjunction(ztt_pred_iterator PredI);
-  const_ztt_conj_iterator
-  getZttSucceedingConjunction(const_ztt_pred_iterator PredI) const;
-
-  /// \brief Returns the preceding predicate of this conjunction.
-  ztt_pred_iterator getZttPrecedingPredicate(ztt_conj_iterator ConjI);
-  const_ztt_pred_iterator
-  getZttPrecedingPredicate(const_ztt_conj_iterator ConjI) const;
-
-  /// \brief Returns the succeeding predicate of this conjunction.
-  ztt_pred_iterator getZttSucceedingPredicate(ztt_conj_iterator ConjI);
-  const_ztt_pred_iterator
-  getZttSucceedingPredicate(const_ztt_conj_iterator ConjI) const;
-
   /// \brief Returns the DDRef associated with loop lower bound.
   /// The first DDRef is associated with lower bound.
   DDRef *getLowerDDRef();
@@ -290,14 +225,14 @@ public:
   /// \brief Removes and returns the DDRef associated with loop lower bound.
   DDRef *removeLowerDDRef();
 
-  /// \brief Returns the DDRef associated with loop trip count.
-  /// The second DDRef is associated with trip count.
-  DDRef *getTripCountDDRef();
-  const DDRef *getTripCountDDRef() const;
-  /// \brief Sets the DDRef associated with loop trip count.
-  void setTripCountDDRef(DDRef *Ref);
-  /// \brief Removes and returns the DDRef associated with loop trip count.
-  DDRef *removeTripCountDDRef();
+  /// \brief Returns the DDRef associated with loop upper bound.
+  /// The second DDRef is associated with upper bound.
+  DDRef *getUpperDDRef();
+  const DDRef *getUpperDDRef() const;
+  /// \brief Sets the DDRef associated with loop upper bound.
+  void setUpperDDRef(DDRef *Ref);
+  /// \brief Removes and returns the DDRef associated with loop upper bound.
+  DDRef *removeUpperDDRef();
 
   /// \brief Returns the DDRef associated with loop stride.
   /// The third DDRef is associated with stride.
@@ -312,22 +247,22 @@ public:
   CanonExpr *getLowerCanonExpr();
   const CanonExpr *getLowerCanonExpr() const;
 
-  /// \brief Returns the CanonExpr associated with loop trip count.
-  CanonExpr *getTripCountCanonExpr();
-  const CanonExpr *getTripCountCanonExpr() const;
+  /// \brief Returns the CanonExpr associated with loop upper bound.
+  CanonExpr *getUpperCanonExpr();
+  const CanonExpr *getUpperCanonExpr() const;
 
   /// \brief Returns the CanonExpr associated with loop stride.
   CanonExpr *getStrideCanonExpr();
   const CanonExpr *getStrideCanonExpr() const;
 
-  /// \brief Returns the CanonExpr associated with loop upper bound.
+  /// \brief Returns the CanonExpr associated with loop trip count.
   /// Returns a newly allocated CanonExpr as this information is not
   ///  directly stored so use with caution.
-  const CanonExpr *getUpperCanonExpr() const;
+  const CanonExpr *getTripCountCanonExpr() const;
 
   /// \brief Returns true if this is a do loop.
   bool isDoLoop() const {
-    return (!IsDoWhile && (NumExits == 1) && getTripCountDDRef());
+    return (!IsDoWhile && (NumExits == 1) && getUpperDDRef());
   }
 
   /// \brief Returns true if this is a do-while loop.
@@ -335,11 +270,11 @@ public:
 
   /// \brief Returns true if this is a do multi-exit loop.
   bool isDoMultiExitLoop() const {
-    return (!IsDoWhile && (NumExits > 1) && getTripCountDDRef());
+    return (!IsDoWhile && (NumExits > 1) && getUpperDDRef());
   }
 
   /// \brief Returns true if this is an unknown loop.
-  bool isUnknownLoop() const { return !getTripCountDDRef(); }
+  bool isUnknownLoop() const { return !getUpperDDRef(); }
 
   /// \brief Returns the number of exits of the loop.
   unsigned getNumExits() const { return NumExits; }

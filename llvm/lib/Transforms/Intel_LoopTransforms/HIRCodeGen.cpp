@@ -345,14 +345,14 @@ Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *L) {
   }
 
   Value *StepVal = visitDDRef(L->getStrideDDRef());
-  Value *TC = visitDDRef(L->getTripCountDDRef());
+  Value *Upper = visitDDRef(L->getUpperDDRef());
 
   // increment IV
   Value *CurVar = Builder->CreateLoad(Alloca);
   Value *NextVar = Builder->CreateAdd(CurVar, StepVal, "nextvar");
   Builder->CreateStore(NextVar, Alloca);
 
-  Value *EndCond = Builder->CreateICmpSLE(NextVar, TC, "loopcond");
+  Value *EndCond = Builder->CreateICmpSLE(NextVar, Upper, "loopcond");
 
   BasicBlock *AfterBB = BasicBlock::Create(F->getContext(), "afterloop", F);
 

@@ -136,7 +136,7 @@ public:
   /// \brief Returns a new HLLoop.
   static HLLoop *createHLLoop(HLIf *ZttIf = nullptr,
                               DDRef *LowerDDRef = nullptr,
-                              DDRef *TripCountDDRef = nullptr,
+                              DDRef *UpperDDRef = nullptr,
                               DDRef *StrideDDRef = nullptr, bool IsDoWh = false,
                               unsigned NumEx = 1);
 
@@ -178,7 +178,7 @@ public:
       V.backwardVisitAll(HIR);
     }
   }
-  
+
   /// \brief Inserts an unlinked Node before Pos in HIR.
   static void insertBefore(HLNode *Pos, HLNode *Node);
   /// \brief Inserts an unlinked Node after Pos in HIR.

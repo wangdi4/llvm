@@ -11,10 +11,15 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/IR/Instructions.h"
+
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
+
 #include "llvm/Analysis/Intel_LoopAnalysis/LoopFormation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRCreation.h"
-#include "llvm/Analysis/LoopInfo.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 using namespace llvm;
@@ -34,6 +39,7 @@ LoopFormation::LoopFormation() : FunctionPass(ID) {}
 void LoopFormation::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<LoopInfo>();
+  AU.addRequiredTransitive<ScalarEvolution>();
   AU.addRequiredTransitive<HIRCreation>();
 }
 
@@ -89,6 +95,51 @@ HLLoop *LoopFormation::findHLLoop(const Loop *Lp) {
   return findOrInsertHLLoopImpl(Lp, nullptr, false);
 }
 
+const PHINode *LoopFormation::findIVDefInHeader(const Loop *Lp,
+                                                const Instruction *Inst) const {
+
+  if (isa<PHINode>(Inst) && (Inst->getParent() == Lp->getHeader())) {
+    return cast<PHINode>(Inst);
+  }
+
+  for (auto I = Inst->op_begin(), E = Inst->op_end(); I != E; I++) {
+    auto SC = SE->getSCEV(I->get());
+
+    if (isa<SCEVAddRecExpr>(SC) &&
+        (cast<SCEVAddRecExpr>(SC)->getLoop() == Lp)) {
+      return findIVDefInHeader(Lp, cast<Instruction>(I));
+    }
+  }
+
+  llvm_unreachable("Could not find loop IV!");
+}
+
+void LoopFormation::setIVType(HLLoop *HLoop) const {
+  Value *Cond;
+  auto Lp = HLoop->getLLVMLoop();
+  auto Latch = Lp->getLoopLatch();
+
+  assert(Latch && "Loop doesn't have a latch!");
+
+  auto Term = Latch->getTerminator();
+
+  if (auto BottomTest = dyn_cast<BranchInst>(Term)) {
+    assert(BottomTest->isConditional() &&
+           "Loop bottom test is not a conditional branch!");
+    Cond = BottomTest->getCondition();
+  } else if (auto BottomTest = dyn_cast<SwitchInst>(Term)) {
+    Cond = BottomTest->getCondition();
+  } else {
+    assert(false && "Cannot handle loop bottom test!");
+  }
+
+  assert(isa<Instruction>(Cond) &&
+         "Loop exit condition is not an instruction!");
+
+  auto IVNode = findIVDefInHeader(Lp, cast<Instruction>(Cond));
+  HLoop->setIVType(IVNode->getType());
+}
+
 void LoopFormation::formLoops(HLRegion *Reg) {
 
   BasicBlock *HeaderBB;
@@ -109,6 +160,7 @@ void LoopFormation::formLoops(HLRegion *Reg) {
   /// Create a new loop and move region children into loop children.
   /// TODO: Add code to identify ztt and set IsDoWhile flag accordingly.
   HLLoop *HLoop = HLNodeUtils::createHLLoop(Lp);
+  setIVType(HLoop);
   HLNodeUtils::moveAsFirstChildren(HLoop, Reg->child_begin(), Reg->child_end());
 
   /// Insert loop in region.
@@ -121,6 +173,7 @@ bool LoopFormation::runOnFunction(Function &F) {
   this->Func = &F;
 
   LI = &getAnalysis<LoopInfo>();
+  SE = &getAnalysis<ScalarEvolution>();
   auto HIR = &getAnalysis<HIRCreation>();
 
   for (auto I = HIR->begin(), E = HIR->end(); I != E; I++) {

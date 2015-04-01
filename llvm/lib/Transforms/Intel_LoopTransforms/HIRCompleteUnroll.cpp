@@ -295,11 +295,13 @@ bool HIRCompleteUnroll::isProfitable(HLLoop *Loop, int64_t *TripCount) {
   // Check if Loop Trip Count is constant value
   // If not, delete this candidate loop and proceed to next
   // TODO: General unrolling will be extended later
-  ConstDDRef *TripCntRef = dyn_cast<ConstDDRef>(Loop->getTripCountDDRef());
-  if (!TripCntRef)
+  ConstDDRef *UBRef = dyn_cast<ConstDDRef>(Loop->getUpperDDRef());
+  if (!UBRef)
     return false;
 
-  int64_t ConstTripCount = getConstVal(TripCntRef);
+  // TripCount is (Upper + 1).
+  int64_t ConstTripCount = getConstVal(UBRef) + 1;
+
   DEBUG(dbgs() << " Const Trip Count: " << ConstTripCount << "\n");
   if (ConstTripCount > CurrentTripThreshold)
     return false;

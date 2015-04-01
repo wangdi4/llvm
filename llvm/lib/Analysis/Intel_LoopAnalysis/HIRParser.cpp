@@ -326,15 +326,11 @@ void HIRParser::visit(HLLoop *HLoop) {
       auto LowerCE = CanonExprUtils::createCanonExpr(BETC->getType());
       /// Initialize Stride to 1.
       auto StrideCE = CanonExprUtils::createCanonExpr(BETC->getType(), 0, 1);
-      auto TripCountDDRef = parseRecursive(BETC, nullptr, CurLevel, false);
+      auto UpperDDRef = parseRecursive(BETC, nullptr, CurLevel, false);
 
       HLoop->setLowerDDRef(DDRefUtils::createConstDDRef(LowerCE));
       HLoop->setStrideDDRef(DDRefUtils::createConstDDRef(StrideCE));
-      HLoop->setTripCountDDRef(TripCountDDRef);
-
-      /// Add 1 to TripCountCE since BETC = TC - 1.
-      CanonExpr *TripCountCE = HLoop->getTripCountCanonExpr();
-      TripCountCE->setConstant(TripCountCE->getConstant() + 1);
+      HLoop->setUpperDDRef(UpperDDRef);
     }
   } else {
     assert(false && "HLLoop doesn't contain LLVM loop!");

@@ -44,7 +44,7 @@ HLLoop::HLLoop(const Loop *LLVMLoop, bool IsDoWh)
   setNumExits(Exits.size());
 }
 
-HLLoop::HLLoop(HLIf *ZttIf, DDRef *LowerDDRef, DDRef *TripCountDDRef,
+HLLoop::HLLoop(HLIf *ZttIf, DDRef *LowerDDRef, DDRef *UpperDDRef,
                DDRef *StrideDDRef, bool IsDoWh, unsigned NumEx)
     : HLDDNode(HLNode::HLLoopVal), OrigLoop(nullptr), Ztt(nullptr),
       IsDoWhile(IsDoWh), NestingLevel(0), IsInnermost(true) {
@@ -53,15 +53,15 @@ HLLoop::HLLoop(HLIf *ZttIf, DDRef *LowerDDRef, DDRef *TripCountDDRef,
   initialize();
   setNumExits(NumEx);
 
-  assert(((LowerDDRef && TripCountDDRef && StrideDDRef) ||
-          (!LowerDDRef && !TripCountDDRef && !StrideDDRef)) &&
+  assert(((LowerDDRef && UpperDDRef && StrideDDRef) ||
+          (!LowerDDRef && !UpperDDRef && !StrideDDRef)) &&
          "Inconsistent loop DDRefs!");
 
   /// Sets ztt properly, with all the ddref setup.
   setZtt(ZttIf);
 
   setLowerDDRef(LowerDDRef);
-  setTripCountDDRef(TripCountDDRef);
+  setUpperDDRef(UpperDDRef);
   setStrideDDRef(StrideDDRef);
 }
 
@@ -81,8 +81,7 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
 
   /// Clone loop DDRefs
   setLowerDDRef((Ref = HLLoopObj.getLowerDDRef()) ? Ref->clone() : nullptr);
-  setTripCountDDRef((Ref = HLLoopObj.getTripCountDDRef()) ? Ref->clone()
-                                                          : nullptr);
+  setUpperDDRef((Ref = HLLoopObj.getUpperDDRef()) ? Ref->clone() : nullptr);
   setStrideDDRef((Ref = HLLoopObj.getStrideDDRef()) ? Ref->clone() : nullptr);
 
   /// Loop over children, preheader and postexit
@@ -131,7 +130,7 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth) const {
     Ref = getLowerDDRef();
     Ref ? Ref->print(OS) : (void)(OS << Ref);
     OS << ", ";
-    Ref = getTripCountDDRef();
+    Ref = getUpperDDRef();
     Ref ? Ref->print(OS) : (void)(OS << Ref);
     OS << ", ";
     Ref = getStrideDDRef();
@@ -173,15 +172,15 @@ void HLLoop::setNumExits(unsigned NumEx) {
   NumExits = NumEx;
 }
 
-void HLLoop::addZttConjunction(unsigned Conj, CmpInst::Predicate Pred,
-                               DDRef *Ref1, DDRef *Ref2) {
+void HLLoop::addZttPredicate(CmpInst::Predicate Pred, DDRef *Ref1,
+                             DDRef *Ref2) {
   assert(hasZtt() && "Ztt is absent!");
-  Ztt->addConjunction(Conj, Pred, Ref1, Ref2);
+  Ztt->addPredicate(Pred, Ref1, Ref2);
 }
 
-void HLLoop::removeZttConjunction(ztt_conj_iterator ConjI) {
+void HLLoop::removeZttPredicate(ztt_pred_iterator PredI) {
   assert(hasZtt() && "Ztt is absent!");
-  Ztt->removeConjunction(ConjI);
+  Ztt->removePredicate(PredI);
 }
 
 DDRef *HLLoop::getZttPredicateOperandDDRef(ztt_pred_iterator PredI,
@@ -218,54 +217,6 @@ DDRef *HLLoop::removeZttPredicateOperandDDRef(ztt_pred_iterator PredI,
   return TRef;
 }
 
-HLLoop::ztt_conj_iterator
-HLLoop::getZttPrecedingConjunction(ztt_pred_iterator PredI) {
-  assert(hasZtt() && "Ztt is absent!");
-  return Ztt->getPrecedingConjunction(PredI);
-}
-
-HLLoop::const_ztt_conj_iterator
-HLLoop::getZttPrecedingConjunction(const_ztt_pred_iterator PredI) const {
-  assert(hasZtt() && "Ztt is absent!");
-  return Ztt->getPrecedingConjunction(PredI);
-}
-
-HLLoop::ztt_conj_iterator
-HLLoop::getZttSucceedingConjunction(ztt_pred_iterator PredI) {
-  assert(hasZtt() && "Ztt is absent!");
-  return Ztt->getSucceedingConjunction(PredI);
-}
-
-HLLoop::const_ztt_conj_iterator
-HLLoop::getZttSucceedingConjunction(const_ztt_pred_iterator PredI) const {
-  assert(hasZtt() && "Ztt is absent!");
-  return Ztt->getSucceedingConjunction(PredI);
-}
-
-HLLoop::ztt_pred_iterator
-HLLoop::getZttPrecedingPredicate(ztt_conj_iterator ConjI) {
-  assert(hasZtt() && "Ztt is absent!");
-  return Ztt->getPrecedingPredicate(ConjI);
-}
-
-HLLoop::const_ztt_pred_iterator
-HLLoop::getZttPrecedingPredicate(const_ztt_conj_iterator ConjI) const {
-  assert(hasZtt() && "Ztt is absent!");
-  return Ztt->getPrecedingPredicate(ConjI);
-}
-
-HLLoop::ztt_pred_iterator
-HLLoop::getZttSucceedingPredicate(ztt_conj_iterator ConjI) {
-  assert(hasZtt() && "Ztt is absent!");
-  return Ztt->getSucceedingPredicate(ConjI);
-}
-
-HLLoop::const_ztt_pred_iterator
-HLLoop::getZttSucceedingPredicate(const_ztt_conj_iterator ConjI) const {
-  assert(hasZtt() && "Ztt is absent!");
-  return Ztt->getSucceedingPredicate(ConjI);
-}
-
 DDRef *HLLoop::getLowerDDRef() { return getOperandDDRefImpl(0); }
 
 const DDRef *HLLoop::getLowerDDRef() const {
@@ -291,26 +242,26 @@ DDRef *HLLoop::removeLowerDDRef() {
   return TRef;
 }
 
-DDRef *HLLoop::getTripCountDDRef() { return getOperandDDRefImpl(1); }
+DDRef *HLLoop::getUpperDDRef() { return getOperandDDRefImpl(1); }
 
-const DDRef *HLLoop::getTripCountDDRef() const {
-  return const_cast<HLLoop *>(this)->getTripCountDDRef();
+const DDRef *HLLoop::getUpperDDRef() const {
+  return const_cast<HLLoop *>(this)->getUpperDDRef();
 }
 
-void HLLoop::setTripCountDDRef(DDRef *Ref) {
+void HLLoop::setUpperDDRef(DDRef *Ref) {
   assert((!Ref || !isa<RegDDRef>(Ref) ||
           ((cast<RegDDRef>(Ref)->getNumDimensions() == 1) &&
            !cast<RegDDRef>(Ref)->hasGEPInfo())) &&
-         "Invalid TripCountDDRef!");
+         "Invalid UpperDDRef!");
 
   setOperandDDRefImpl(Ref, 1);
 }
 
-DDRef *HLLoop::removeTripCountDDRef() {
-  auto TRef = getTripCountDDRef();
+DDRef *HLLoop::removeUpperDDRef() {
+  auto TRef = getUpperDDRef();
 
   if (TRef) {
-    setTripCountDDRef(nullptr);
+    setUpperDDRef(nullptr);
   }
 
   return TRef;
@@ -414,12 +365,12 @@ const CanonExpr *HLLoop::getLowerCanonExpr() const {
   return const_cast<HLLoop *>(this)->getLowerCanonExpr();
 }
 
-CanonExpr *HLLoop::getTripCountCanonExpr() {
-  return getLoopCanonExpr(getTripCountDDRef());
+CanonExpr *HLLoop::getUpperCanonExpr() {
+  return getLoopCanonExpr(getUpperDDRef());
 }
 
-const CanonExpr *HLLoop::getTripCountCanonExpr() const {
-  return const_cast<HLLoop *>(this)->getTripCountCanonExpr();
+const CanonExpr *HLLoop::getUpperCanonExpr() const {
+  return const_cast<HLLoop *>(this)->getUpperCanonExpr();
 }
 
 CanonExpr *HLLoop::getStrideCanonExpr() {
@@ -430,7 +381,7 @@ const CanonExpr *HLLoop::getStrideCanonExpr() const {
   return const_cast<HLLoop *>(this)->getStrideCanonExpr();
 }
 
-const CanonExpr *HLLoop::getUpperCanonExpr() const {
+const CanonExpr *HLLoop::getTripCountCanonExpr() const {
   /// TODO implement later
   return nullptr;
 }

@@ -23,6 +23,7 @@ namespace llvm {
 class Function;
 class Loop;
 class LoopInfo;
+class ScalarEvolution;
 
 namespace loopopt {
 
@@ -42,6 +43,9 @@ private:
   /// LI - The loop information for the function we are currently analyzing.
   LoopInfo *LI;
 
+  /// SE - Scalar Evolution analysis for the function.
+  ScalarEvolution *SE;
+
   /// Loops - Sorted vector of Loops to HLLoops.
   SmallVector<LoopPairTy, 32> Loops;
 
@@ -53,6 +57,14 @@ private:
 
   /// \brief Implements find()/insert() functionality.
   HLLoop *findOrInsertHLLoopImpl(const Loop *Lp, HLLoop *HLoop, bool Insert);
+
+  /// \brief Traces back to the IV PHINode in the loop header starting from
+  /// Inst.
+  const PHINode *findIVDefInHeader(const Loop *Lp,
+                                   const Instruction *Inst) const;
+
+  /// \brief Sets the IV type for HLoop.
+  void setIVType(HLLoop *HLoop) const;
 
 public:
   static char ID; // Pass identification

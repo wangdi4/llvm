@@ -45,10 +45,9 @@ HLLoop *HLNodeUtils::createHLLoop(const Loop *LLVMLoop, bool IsDoWh) {
 }
 
 HLLoop *HLNodeUtils::createHLLoop(HLIf *ZttIf, DDRef *LowerDDRef,
-                                  DDRef *TripCountDDRef, DDRef *StrideDDRef,
+                                  DDRef *UpperDDRef, DDRef *StrideDDRef,
                                   bool IsDoWh, unsigned NumEx) {
-  return new HLLoop(ZttIf, LowerDDRef, TripCountDDRef, StrideDDRef, IsDoWh,
-                    NumEx);
+  return new HLLoop(ZttIf, LowerDDRef, UpperDDRef, StrideDDRef, IsDoWh, NumEx);
 }
 
 void HLNodeUtils::destroy(HLNode *Node) { Node->destroy(); }

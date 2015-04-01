@@ -52,9 +52,8 @@ HLIf::HLIf(CmpInst::Predicate FirstPred, DDRef *Ref1, DDRef *Ref2)
 }
 
 HLIf::HLIf(const HLIf &HLIfObj)
-    : HLDDNode(HLIfObj), Predicates(HLIfObj.Predicates),
-      Conjunctions(HLIfObj.Conjunctions) {
-  const DDRef* Ref;
+    : HLDDNode(HLIfObj), Predicates(HLIfObj.Predicates) {
+  const DDRef *Ref;
   ElseBegin = Children.end();
   initialize();
 
@@ -91,6 +90,7 @@ HLIf *HLIf::clone() const {
 
 void HLIf::print(formatted_raw_ostream &OS, unsigned Depth) const {
   const DDRef *Ref;
+  bool FirstPred = true;
 
   indent(OS, Depth);
 
@@ -98,6 +98,10 @@ void HLIf::print(formatted_raw_ostream &OS, unsigned Depth) const {
 
   /// Print predicates
   for (auto I = pred_begin(), E = pred_end(); I != E; I++) {
+    if (!FirstPred) {
+      OS << " && ";
+    }
+
     Ref = getPredicateOperandDDRef(I, true);
     Ref ? Ref->print(OS) : (void)(OS << Ref);
     OS << " ";
@@ -108,17 +112,7 @@ void HLIf::print(formatted_raw_ostream &OS, unsigned Depth) const {
     Ref = getPredicateOperandDDRef(I, false);
     Ref ? Ref->print(OS) : (void)(OS << Ref);
 
-    auto ConjI = getSucceedingConjunction(I);
-
-    if (ConjI != conj_end()) {
-      if (*ConjI == Instruction::And) {
-        OS << " && ";
-      } else if (*ConjI == Instruction::Or) {
-        OS << " || ";
-      } else {
-        llvm_unreachable("Unexpected conjunction!");
-      }
-    }
+    FirstPred = false;
   }
 
   OS << ")\n";
@@ -196,10 +190,7 @@ unsigned HLIf::getPredicateOperandDDRefOffset(const_pred_iterator PredI,
   return ((2 * (PredI - Predicates.begin())) + (IsLHS ? 0 : 1));
 }
 
-void HLIf::addConjunction(unsigned Conj, CmpInst::Predicate Pred, DDRef *Ref1,
-                          DDRef *Ref2) {
-  assert((Conj == Instruction::And || Conj == Instruction::Or) &&
-         "Unsupported conjunction!");
+void HLIf::addPredicate(CmpInst::Predicate Pred, DDRef *Ref1, DDRef *Ref2) {
   assert(Ref1 && Ref2 && "DDRef is null!");
   assert((Pred != CmpInst::Predicate::FCMP_FALSE) &&
          (Pred != CmpInst::Predicate::FCMP_TRUE) && "Invalid predicate!");
@@ -217,7 +208,6 @@ void HLIf::addConjunction(unsigned Conj, CmpInst::Predicate Pred, DDRef *Ref1,
       "Predicate/DDRef type mismatch!");
   unsigned NumOp;
 
-  Conjunctions.push_back(Conj);
   Predicates.push_back(Pred);
 
   NumOp = getNumOperandsInternal();
@@ -227,10 +217,8 @@ void HLIf::addConjunction(unsigned Conj, CmpInst::Predicate Pred, DDRef *Ref1,
   setOperandDDRefImpl(Ref2, NumOp - 1);
 }
 
-void HLIf::removeConjunction(conj_iterator ConjI) {
-  assert(!Conjunctions.empty() && "No conjuntions present!");
-
-  auto PredI = getSucceedingPredicate(ConjI);
+void HLIf::removePredicate(pred_iterator PredI) {
+  assert(!Predicates.empty() && "No conjuntions present!");
 
   /// Remove DDRefs associated with the succeeding predicate.
   removePredicateOperandDDRef(PredI, true);
@@ -240,8 +228,7 @@ void HLIf::removeConjunction(conj_iterator ConjI) {
   DDRefs.erase(DDRefs.begin() + getPredicateOperandDDRefOffset(PredI, true));
   DDRefs.erase(DDRefs.begin() + getPredicateOperandDDRefOffset(PredI, true));
 
-  /// Erase the conjunction and predicate.
-  Conjunctions.erase(ConjI);
+  /// Erase the predicate.
   Predicates.erase(PredI);
 }
 
@@ -268,56 +255,4 @@ DDRef *HLIf::removePredicateOperandDDRef(pred_iterator PredI, bool IsLHS) {
   }
 
   return TRef;
-}
-
-HLIf::conj_iterator HLIf::getPrecedingConjunction(pred_iterator PredI) {
-  if (PredI == pred_begin()) {
-    return conj_end();
-  }
-
-  return (conj_begin() + (PredI - pred_begin()) - 1);
-}
-
-HLIf::const_conj_iterator
-HLIf::getPrecedingConjunction(const_pred_iterator PredI) const {
-  if (PredI == pred_begin()) {
-    return conj_end();
-  }
-
-  return (conj_begin() + (PredI - pred_begin()) - 1);
-}
-
-HLIf::conj_iterator HLIf::getSucceedingConjunction(pred_iterator PredI) {
-  if (PredI == (pred_end() - 1)) {
-    return conj_end();
-  }
-
-  return (conj_begin() + (PredI - pred_begin()));
-}
-
-HLIf::const_conj_iterator
-HLIf::getSucceedingConjunction(const_pred_iterator PredI) const {
-  if (PredI == (pred_end() - 1)) {
-    return conj_end();
-  }
-
-  return (conj_begin() + (PredI - pred_begin()));
-}
-
-HLIf::pred_iterator HLIf::getPrecedingPredicate(conj_iterator ConjI) {
-  return (pred_begin() + (ConjI - conj_begin()));
-}
-
-HLIf::const_pred_iterator
-HLIf::getPrecedingPredicate(const_conj_iterator ConjI) const {
-  return (pred_begin() + (ConjI - conj_begin()));
-}
-
-HLIf::pred_iterator HLIf::getSucceedingPredicate(conj_iterator ConjI) {
-  return (pred_begin() + (ConjI - conj_begin()) + 1);
-}
-
-HLIf::const_pred_iterator
-HLIf::getSucceedingPredicate(const_conj_iterator ConjI) const {
-  return (pred_begin() + (ConjI - conj_begin()) + 1);
 }
