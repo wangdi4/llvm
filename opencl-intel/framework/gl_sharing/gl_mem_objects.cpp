@@ -447,6 +447,9 @@ cl_err_code GLTexture::AcquireGLObject()
 
     m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_NOT_READY;
 
+    // block until all GL operations are completed
+    glFinish();
+
     return CL_SUCCESS;
 }
 
@@ -480,6 +483,9 @@ cl_err_code GLTexture::ReleaseGLObject()
         m_pGLContext->glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, pboCurrent);
         glBindTexture(glBaseTarget, currTexture);
     }
+
+    // block until all GL operations are completed
+    glFinish();
 
     return CL_SUCCESS;
 }
