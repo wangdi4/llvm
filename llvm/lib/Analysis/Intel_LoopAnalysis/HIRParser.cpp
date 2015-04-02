@@ -260,7 +260,6 @@ DDRef *HIRParser::parseRecursive(const SCEV *SC, const SCEV *ElementSize,
       return nullptr;
     }
 
-    auto IndexCE = CanonExprUtils::createCanonExpr(RecSCEV->getType());
     CanonExpr *StrideCE = nullptr;
     auto RRef = DDRefUtils::createRegDDRef(0);
 
@@ -297,6 +296,7 @@ DDRef *HIRParser::parseRecursive(const SCEV *SC, const SCEV *ElementSize,
     assert(isa<SCEVConstant>(OffsetSCEV) && isa<SCEVConstant>(StepSCEV) &&
            "Can't handle non-constant base/step in AddRecs!");
 
+    auto IndexCE = CanonExprUtils::createCanonExpr(StepSCEV->getType());
     auto Coeff = getSCEVConstantValue(cast<SCEVConstant>(StepSCEV));
 
     parseConstant(cast<SCEVConstant>(OffsetSCEV), IndexCE);
