@@ -165,6 +165,9 @@ cl_err_code GLArrayBuffer::AcquireGLObject()
 
     m_pGLContext->glBindBuffer(m_glBufferTarget, currBuff);
 
+    // block until all GL operations are completed
+    glFinish();
+
     return CL_SUCCESS;
 }
 
@@ -179,6 +182,10 @@ cl_err_code GLArrayBuffer::ReleaseGLObject()
     assert(GL_TRUE == ret);
     m_pGLContext->glBindBuffer(m_glBufferTarget, currBuff);
     assert(!glGetError());
+
+    // block until all GL operations are completed
+    glFinish();
+
     return CL_SUCCESS;
 }
 
