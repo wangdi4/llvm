@@ -1420,7 +1420,8 @@ AttrResult Sema::ActOnPragmaSIMDLinear(SourceLocation LinearLoc,
                                        ArrayRef<Expr *> Exprs) {
   for (unsigned i = 0, e = Exprs.size(); i < e; i += 2) {
     if (Expr *E = Exprs[i]) {
-      if (!E->isTypeDependent() && !E->getType()->isScalarType()) {
+      if ((!E->isTypeDependent() && !E->getType()->isScalarType()) ||
+          E->getType().isConstQualified()) {
         Diag(E->getExprLoc(), diag::err_pragma_simd_invalid_linear_var);
         return AttrError();
       }

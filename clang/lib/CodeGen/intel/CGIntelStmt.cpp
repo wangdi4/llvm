@@ -42,6 +42,35 @@ CodeGenFunction::EmitCilkForGrainsizeStmt(const CilkForGrainsizeStmt &S) {
   EmitCilkForStmt(*cast<CilkForStmt>(S.getCilkFor()), Grainsize);
 }
 
+/// \brief RAII for emitting code of CapturedStmt without function outlining.
+class InlinedCilkRegion {
+  CodeGenFunction &CGF;
+  CodeGenFunction::CGCapturedStmtInfo *PrevCapturedStmtInfo;
+
+public:
+  InlinedCilkRegion(CodeGenFunction &CGF,
+                    CodeGenFunction::CGCapturedStmtInfo *CSI)
+      : CGF(CGF), PrevCapturedStmtInfo(CGF.CapturedStmtInfo) {
+    CGF.CapturedStmtInfo = CSI;
+  };
+  ~InlinedCilkRegion() { CGF.CapturedStmtInfo = PrevCapturedStmtInfo; };
+};
+
+// We need this function to be sure
+//    that RAII object will be destroyed in proper time
+static llvm::Value *getCapturedValue(CodeGenFunction &CGF,
+                                      const Expr *E,
+                                      CodeGenFunction::CGCapturedStmtInfo *SI) {
+
+  assert ((isa<CodeGenFunction::CGCilkForStmtInfo>(SI) ||
+           isa<CodeGenFunction::CGSIMDForStmtInfo>(SI)) &&
+           "Invalid type of CGCapturedStmtInfo");
+  // create RAII object with required CapturedStmtInfo
+  InlinedCilkRegion CFRegion(CGF, SI);
+  // get LoopCount value
+  return CGF.EmitAnyExpr(E).getScalarVal();
+}
+
 void
 CodeGenFunction::EmitCilkForStmt(const CilkForStmt &S, llvm::Value *Grainsize) {
   // if (cond) {
@@ -73,13 +102,8 @@ CodeGenFunction::EmitCilkForStmt(const CilkForStmt &S, llvm::Value *Grainsize) {
   EmitBlock(ThenBlock);
   {
     RunCleanupsScope Scope(*this);
-
     const Expr *LoopCountExpr = S.getLoopCount();
-    CGCapturedStmtInfo *Tmp = CapturedStmtInfo;
-    CapturedStmtInfo = &CSInfo;
-    llvm::Value *LoopCount = EmitAnyExpr(LoopCountExpr).getScalarVal();
-    CapturedStmtInfo = Tmp;
-
+    llvm::Value *LoopCount = getCapturedValue(*this, LoopCountExpr, &CSInfo);
     // Initialize the captured struct.
     LValue CapStruct = InitCapturedStruct(*S.getBody());
 
@@ -90,7 +114,8 @@ CodeGenFunction::EmitCilkForStmt(const CilkForStmt &S, llvm::Value *Grainsize) {
     llvm::FunctionType *FTy = 0;
     {
       llvm::Module &M = CGM.getModule();
-      uint64_t SizeInBits = getContext().getTypeSize(LoopCountExpr->getType());
+      uint64_t SizeInBits =
+          getContext().getTypeSize(LoopCountExpr->getType());
       if (SizeInBits <= 32u) {
         FTy = llvm::TypeBuilder<void(void(void *, uint32_t, uint32_t),
                                      void *, uint32_t, int), false>::get(Ctx);
@@ -336,7 +361,8 @@ void CodeGenFunction::CGPragmaSimd::emitInit(CodeGenFunction &CGF,
   const VarDecl *LoopControlVar = cast<SIMDForStmt>(
       this->getStmt())->getLoopControlVar();
   assert(LoopControlVar && "invalid loop control variable");
-  DeclRefExpr DRE(const_cast<VarDecl*>(LoopControlVar), false, 
+
+  DeclRefExpr DRE(const_cast<VarDecl*>(LoopControlVar), true,
       LoopControlVar->getType().getNonReferenceType(), VK_LValue, SourceLocation());
   llvm::Value *ControlVarAddr = CGF.EmitDeclRefLValue(&DRE).getAddress();
   assert(ControlVarAddr && "invalid loop control variable address");
