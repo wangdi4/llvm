@@ -1023,7 +1023,19 @@ bool X86FastISel::X86SelectRet(const Instruction *I) {
 
     // Add register to return instruction.
     RetRegs.push_back(VA.getLocReg());
+  } 
+#ifdef INTEL_CUSTOMIZATION
+  // When main() is defined with a void return type, it is
+  // expected to return 0;
+  else if (F.getName() == "main") {
+    bool Ret64 = (Subtarget->is64Bit() && !Subtarget->isTarget64BitILP32());
+    unsigned DstReg = Ret64 ? X86::RAX : X86::EAX;
+    Constant *Zero = Constant::getNullValue(DL.getIntPtrType(F.getContext()));
+    unsigned SrcReg = getRegForValue(Zero);
+    BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc,
+            TII.get(TargetOpcode::COPY), DstReg).addReg(SrcReg);
   }
+#endif
 
   // The x86-64 ABI for returning structs by value requires that we copy
   // the sret argument into %rax for the return. We saved the argument into
