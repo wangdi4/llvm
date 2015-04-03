@@ -79,11 +79,11 @@ namespace intel {
     int SimplifiablePhiNode(PHINode *pPhiNode);
 
 
-    /// @brief Simplify GEP instructions with a single index if it is an
-    ///        addition of uniform and divergent values.
+    /// @brief If a GEP has signel index which is a sum of uniform and random/strided values
+    //         then reassotiate this sum and make two GEPs one of which is uniform.
     /// @param pGEP GEP instruction
-    /// @return True if GEP instruction has been simplified, False otherwise
-    bool SimplifyIndexSumGep(GetElementPtrInst *pGEP);
+    /// @return True if GEP instruction has been transformed, False otherwise
+    bool ReassociateIndexSum(GetElementPtrInst *pGEP);
 
   private:
     /// @brief pointer to work-item analysis performed for this function

@@ -17,7 +17,8 @@ declare i64 @_Z12get_local_idj(i64) nounwind readnone
 
 define void @idxsum.basic(float * %memA, float %factor, i32 %uidx) nounwind {
 entry:
-  %didx = call i32 @_Z13get_global_idj(i32 0)
+  %cidx = call i32 @_Z13get_global_idj(i32 0)
+  %didx = mul i32 %cidx, %uidx
   %sum = add i32 %didx, %uidx
   %arrayidx = getelementptr float * %memA, i32 %sum
   %orig = load float * %arrayidx, align 4
@@ -104,6 +105,26 @@ entry:
   %sext.dsum = sext i32 %dsum to i64
   %sum = add i64 %usum, %sext.dsum
   %arrayidx = getelementptr float * %memA, i64 %sum
+  %orig = load float * %arrayidx, align 4
+  %mod  = fmul float %orig, %factor
+  store float %mod, float * %arrayidx, align 4
+  ret void
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Check what sum of consequtive and unifrom indices is
+;; left as is and no new GEP is created.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; CHECK:      @idxsum.consecutive
+; CHECK:      %sum = add i32 %cidx, %uidx
+; CHECK-NEXT: %arrayidx = getelementptr float* %memA, i32 %sum
+; CHECK-NOT:  uniformGEP
+
+define void @idxsum.consecutive(float * %memA, float %factor, i32 %uidx) nounwind {
+entry:
+  %cidx = call i32 @_Z13get_global_idj(i32 0)
+  %sum = add i32 %cidx, %uidx
+  %arrayidx = getelementptr float * %memA, i32 %sum
   %orig = load float * %arrayidx, align 4
   %mod  = fmul float %orig, %factor
   store float %mod, float * %arrayidx, align 4
