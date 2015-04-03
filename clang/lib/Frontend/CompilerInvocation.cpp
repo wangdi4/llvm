@@ -568,6 +568,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   }
 
 #ifdef INTEL_CUSTOMIZATION
+  // CQ#368119 - support for '/Z7' and '/Zi' options.
   if (Arg *A = Args.getLastArg(OPT_fms_debug_info_file_type)) {
     StringRef Val = A->getValue();
     unsigned FileType = llvm::StringSwitch<unsigned>(Val)
@@ -582,6 +583,9 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
           static_cast<CodeGenOptions::MSDebugInfoFileKind>(FileType));
     }
   }
+  // CQ#368125 - support for '/Fd' and '/Fo' options.
+  Opts.MSOutputObjFile = Args.getLastArgValue(OPT_fms_debug_info_obj_file);
+  Opts.MSOutputPdbFile = Args.getLastArgValue(OPT_fms_debug_info_pdb_file);
 #endif //INTEL_CUSTOMIZATION
 
   if (Arg *A = Args.getLastArg(OPT_ffp_contract)) {
