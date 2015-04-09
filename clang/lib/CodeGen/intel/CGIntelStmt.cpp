@@ -1,4 +1,4 @@
-//===--- CGStmt.cpp - Emit LLVM Code from Statements ----------------------===//
+//===--- CGIntelStmt.cpp - Emit LLVM Code from Statements ----------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -362,7 +362,8 @@ void CodeGenFunction::CGPragmaSimd::emitInit(CodeGenFunction &CGF,
       this->getStmt())->getLoopControlVar();
   assert(LoopControlVar && "invalid loop control variable");
 
-  DeclRefExpr DRE(const_cast<VarDecl*>(LoopControlVar), true,
+  DeclRefExpr DRE(const_cast<VarDecl*>(LoopControlVar),
+      /*RefersToEnclosingVariableOrCapture=*/true,
       LoopControlVar->getType().getNonReferenceType(), VK_LValue, SourceLocation());
   llvm::Value *ControlVarAddr = CGF.EmitDeclRefLValue(&DRE).getAddress();
   assert(ControlVarAddr && "invalid loop control variable address");
@@ -773,7 +774,17 @@ bool CodeGenFunction::CGPragmaSimd::walkLocalVariablesToEmit(
       Expr *StepExpr = GetLinearStep(SS, SIMDVar);
       bool isSigned = isSignedLoopIndex; // by default we use sign of LoopIndex
       if (StepExpr) {
-        Result = CGF->EmitAnyExpr(StepExpr).getScalarVal();
+        DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(StepExpr);
+        VarDecl* VD = DRE ? cast<VarDecl>(DRE->getDecl()) : nullptr;
+        if (VD && Info->lookup(VD)){
+          DeclRefExpr Step (VD,
+                            /*RefersToEnclosingVariableOrCapture=*/true,
+                            VD->getType().getNonReferenceType(),
+                            VK_LValue, SourceLocation());
+          Result = CGF->EmitAnyExpr(&Step).getScalarVal();
+        }
+        else
+          Result = CGF->EmitAnyExpr(StepExpr).getScalarVal();
         isSigned = StepExpr->getType()->hasSignedIntegerRepresentation();
       }
       else
