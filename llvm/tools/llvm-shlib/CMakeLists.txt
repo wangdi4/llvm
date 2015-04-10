@@ -32,7 +32,6 @@ if(NOT DEFINED LLVM_DYLIB_COMPONENTS)
     Target
     TransformUtils
     Vectorize
-    MockHIR
     native
     )
 endif()

@@ -27,14 +27,21 @@ using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "hir-loops"
 
-static RegisterPass<LoopFormation> X("hir-loops", "HIR Loop Formation", false,
-                                     true);
+INITIALIZE_PASS_BEGIN(LoopFormation, "hir-loops", "HIR Loop Formation", false,
+                      true)
+INITIALIZE_PASS_DEPENDENCY(LoopInfo);
+INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
+INITIALIZE_PASS_DEPENDENCY(HIRCreation)
+INITIALIZE_PASS_END(LoopFormation, "hir-loops", "HIR Loop Formation", false,
+                    true)
 
 char LoopFormation::ID = 0;
 
 FunctionPass *llvm::createLoopFormationPass() { return new LoopFormation(); }
 
-LoopFormation::LoopFormation() : FunctionPass(ID) {}
+LoopFormation::LoopFormation() : FunctionPass(ID) {
+  initializeLoopFormationPass(*PassRegistry::getPassRegistry());
+}
 
 void LoopFormation::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();

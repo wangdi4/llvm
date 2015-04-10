@@ -19,6 +19,9 @@ namespace llvm {
 
 class FunctionPass;
 
+/// createHIRPrinterPass - This creates a pass that prints HIR.
+FunctionPass *createHIRPrinterPass(raw_ostream &OS, const std::string &Banner);
+
 /// createHIRCodeGenPass - This creates a pass that generates LLVM IR from HIR.
 FunctionPass *createHIRCodeGenPass();
 

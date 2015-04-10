@@ -23,20 +23,13 @@ using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "hir-region"
 
-/// TODO: look into why this doesn't work as a substitute of using RegisterPass
-/// directly.
-// INITIALIZE_PASS_BEGIN(RegionIdentification, "hir-region",
-//                    "HIR Region Identification", false, true)
-// INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-// INITIALIZE_PASS_DEPENDENCY(LoopInfo)
-// INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
-// INITIALIZE_PASS_DEPENDENCY(LCSSA)
-// INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
-// INITIALIZE_PASS_END(RegionIdentification, "hir-region",
-//                    "HIR Region Identification", false, true)
-
-static RegisterPass<RegionIdentification>
-    X("hir-region", "HIR Region Identification", false, true);
+INITIALIZE_PASS_BEGIN(RegionIdentification, "hir-region",
+                      "HIR Region Identification", false, true)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LoopInfo)
+INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
+INITIALIZE_PASS_END(RegionIdentification, "hir-region",
+                    "HIR Region Identification", false, true)
 
 char RegionIdentification::ID = 0;
 
@@ -54,14 +47,13 @@ RegionIdentification::Region::Region(const Region &Reg)
 RegionIdentification::Region::~Region() {}
 
 RegionIdentification::RegionIdentification() : FunctionPass(ID) {
-  // Required with INITIALIZE_PASS* macros
-  // initializeRegionIdentificationPass(*PassRegistry::getPassRegistry());
+  initializeRegionIdentificationPass(*PassRegistry::getPassRegistry());
 }
 
 void RegionIdentification::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
-  AU.addRequiredTransitive<LoopInfo>();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
+  AU.addRequiredTransitive<LoopInfo>();
   AU.addRequiredTransitive<ScalarEvolution>();
 }
 

@@ -28,6 +28,7 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Vectorize.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h" //***INTEL 
 
 using namespace llvm;
 
@@ -77,6 +78,9 @@ static cl::opt<bool> UseCFLAA("use-cfl-aa",
 static cl::opt<bool>
 EnableMLSM("mlsm", cl::init(true), cl::Hidden,
            cl::desc("Enable motion of merged load and store"));
+
+static cl::opt<bool> RunLoopOpts("loopopt", cl::init(true), cl::Hidden, 
+  cl::desc("Runs loop optimizations passes"));
 
 PassManagerBuilder::PassManagerBuilder() {
     OptLevel = 2;
@@ -236,11 +240,15 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
   MPM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3));
   MPM.add(createInstructionCombiningPass());
   MPM.add(createIndVarSimplifyPass());        // Canonicalize indvars
-  MPM.add(createLoopIdiomPass());             // Recognize idioms like memset.
+  //***INTEL this pass converts loops into memcpy/memset so HIR cannot see them.
+//  MPM.add(createLoopIdiomPass());             // Recognize idioms like memset.
   MPM.add(createLoopDeletionPass());          // Delete dead loops
 
+  //***INTEL This is done in HIR now.
+/*
   if (!DisableUnrollLoops)
     MPM.add(createSimpleLoopUnrollPass());    // Unroll small loops
+*/
   addExtensionsToPM(EP_LoopOptimizerEnd, MPM);
 
   if (OptLevel > 1) {
@@ -298,8 +306,10 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
   // Re-rotate loops in all our loop nests. These may have fallout out of
   // rotated form due to GVN or other transformations, and the vectorizer relies
   // on the rotated form.
-  if (ExtraVectorizerPasses)
+  if (ExtraVectorizerPasses || RunLoopOpts) //***INTEL - ORed with RunLoopOpts
     MPM.add(createLoopRotatePass());
+
+  addLoopOptPasses(MPM); //***INTEL
 
   MPM.add(createLoopVectorizePass(DisableUnrollLoops, LoopVectorize));
   // FIXME: Because of #pragma vectorize enable, the passes below are always
@@ -477,6 +487,25 @@ void PassManagerBuilder::addLTOOptimizationPasses(PassManagerBase &PM) {
   // currently it damages debug info.
   if (MergeFunctions)
     PM.add(createMergeFunctionsPass());
+}
+
+void PassManagerBuilder::addLoopOptCleanupPasses(PassManagerBase &PM) const {
+  PM.add(createCFGSimplificationPass());
+  PM.add(createPromoteMemoryToRegisterPass());
+  PM.add(createGVNPass(DisableGVNLoadPRE));
+}
+
+void PassManagerBuilder::addLoopOptPasses(PassManagerBase &PM) const {
+
+  if (!RunLoopOpts || (OptLevel < 2)) { 
+    return;
+  }
+
+  PM.add(createHIRCompleteUnrollPass()); 
+  
+  PM.add(createHIRCodeGenPass());
+
+  addLoopOptCleanupPasses(PM);
 }
 
 void PassManagerBuilder::populateLTOPassManager(PassManagerBase &PM,

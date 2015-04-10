@@ -30,11 +30,28 @@ using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "hir-parser"
 
-static RegisterPass<HIRParser> X("hir-parser", "HIR Parser", false, true);
+INITIALIZE_PASS_BEGIN(HIRParser, "hir-parser", "HIR Parser", false, true)
+INITIALIZE_PASS_DEPENDENCY(LoopInfo)
+INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
+INITIALIZE_PASS_DEPENDENCY(HIRCreation)
+INITIALIZE_PASS_DEPENDENCY(LoopFormation)
+INITIALIZE_PASS_END(HIRParser, "hir-parser", "HIR Parser", false, true)
 
 char HIRParser::ID = 0;
 
 FunctionPass *llvm::createHIRParserPass() { return new HIRParser(); }
+
+HIRParser::HIRParser() : FunctionPass(ID), CurLevel(0) {
+  initializeHIRParserPass(*PassRegistry::getPassRegistry());
+}
+
+void HIRParser::getAnalysisUsage(AnalysisUsage &AU) const {
+  AU.setPreservesAll();
+  AU.addRequiredTransitive<LoopInfo>();
+  AU.addRequiredTransitive<ScalarEvolution>();
+  AU.addRequiredTransitive<HIRCreation>();
+  AU.addRequiredTransitive<LoopFormation>();
+}
 
 unsigned HIRParser::findBlob(CanonExpr::BlobTy Blob) {
   return CanonExpr::findBlob(Blob);
@@ -313,8 +330,6 @@ DDRef *HIRParser::parseRecursive(const SCEV *SC, const SCEV *ElementSize,
   return nullptr;
 }
 
-HIRParser::HIRParser() : FunctionPass(ID), CurLevel(0) {}
-
 void HIRParser::visit(HLLoop *HLoop) {
 
   if (auto Lp = HLoop->getLLVMLoop()) {
@@ -482,14 +497,6 @@ void HIRParser::eraseUselessNodes() {
   for (auto &I : EraseSet) {
     HLNodeUtils::erase(I);
   }
-}
-
-void HIRParser::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.setPreservesAll();
-  AU.addRequiredTransitive<HIRCreation>();
-  AU.addRequiredTransitive<LoopFormation>();
-  AU.addRequiredTransitive<LoopInfo>();
-  AU.addRequiredTransitive<ScalarEvolution>();
 }
 
 bool HIRParser::runOnFunction(Function &F) {

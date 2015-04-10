@@ -24,13 +24,19 @@ using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "hir-creation"
 
-static RegisterPass<HIRCreation> X("hir-creation", "HIR Creation", false, true);
+INITIALIZE_PASS_BEGIN(HIRCreation, "hir-creation", "HIR Creation", false, true)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
+INITIALIZE_PASS_DEPENDENCY(RegionIdentification)
+INITIALIZE_PASS_END(HIRCreation, "hir-creation", "HIR Creation", false, true)
 
 char HIRCreation::ID = 0;
 
 FunctionPass *llvm::createHIRCreationPass() { return new HIRCreation(); }
 
-HIRCreation::HIRCreation() : FunctionPass(ID) {}
+HIRCreation::HIRCreation() : FunctionPass(ID) {
+  initializeHIRCreationPass(*PassRegistry::getPassRegistry());
+}
 
 void HIRCreation::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
@@ -66,21 +72,21 @@ void HIRCreation::populateRegion(HLRegion *Region, BasicBlock *EntryBB) {
                                        nullptr);
     HLNodeUtils::insertAfter(insertionPos, If);
 
+    /// Ignore the predicate for now. Instruction combining pass inverts it for
+    /// some reason. Worry about this later.
+    ///
     /// Keep it simple for now so we don't have to invert the predicate!
-    assert((Region->getOrigBBlocks().find(BI->getSuccessor(0)) !=
-            Region->getOrigBBlocks().end()) &&
-           "True successor must be a backedge!");
+    /// assert((Region->getOrigBBlocks().find(BI->getSuccessor(0)) !=
+    ///        Region->getOrigBBlocks().end()) &&
+    ///        "True successor must be a backedge!");
 
     /// HLLabel targets should be assigned in a later pass.
-    HLGoto *ThenGoto = HLNodeUtils::createHLGoto(nullptr, Label);
+    HLGoto *ThenGoto = HLNodeUtils::createHLGoto(BI->getSuccessor(0), nullptr);
     HLNodeUtils::insertAsFirstIfChild(If, ThenGoto);
 
-    /// TODO: Uncomment this later. This should ideally be cleaned up during
-    /// lexlink cleanup.
-    ///
-    /// HLGoto *ElseGoto = HLNodeUtils::createHLGoto(BI->getSuccessor(1),
-    /// nullptr);
-    /// insertAsFirstIfChild(If, ElseGoto, false);
+    /// TODO: This should ideally be cleaned up during lexlink cleanup.
+    HLGoto *ElseGoto = HLNodeUtils::createHLGoto(BI->getSuccessor(1), nullptr);
+    HLNodeUtils::insertAsFirstIfChild(If, ElseGoto, false);
 
   } else {
     assert(false && "Terminator is not a branch instruction!");
@@ -120,9 +126,14 @@ void HIRCreation::releaseMemory() {
 }
 
 void HIRCreation::print(raw_ostream &OS, const Module *M) const {
-  /// TODO: implement later
+  formatted_raw_ostream FOS(OS);
+
+  for (auto I = begin(), E = end(); I != E; I++) {
+    FOS << "\n";
+    I->print(FOS, 0);
+  }
 }
 
 void HIRCreation::verifyAnalysis() const {
-  /// TODO: implement later
+  // TODO: Implement later
 }

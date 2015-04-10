@@ -142,6 +142,10 @@ private:
   void addExtensionsToPM(ExtensionPointTy ETy, PassManagerBase &PM) const;
   void addInitialAliasAnalysisPasses(PassManagerBase &PM) const;
   void addLTOOptimizationPasses(PassManagerBase &PM);
+  //***INTEL - loop opt passes.
+  void addLoopOptPasses(PassManagerBase &PM) const;   
+  //***INTEL - loop opt cleanup passes.
+  void addLoopOptCleanupPasses(PassManagerBase &PM) const; 
 
 public:
   /// populateFunctionPassManager - This fills in the function pass manager,

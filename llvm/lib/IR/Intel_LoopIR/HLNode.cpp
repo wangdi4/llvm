@@ -145,7 +145,7 @@ void HLNode::printPredicate(formatted_raw_ostream &OS,
 void HLNode::setNextNumber() { Number = GlobalNum++; }
 
 HLLoop *HLNode::getParentLoop() const {
-  assert(!isa<HLRegion>(this) && "Region cannot have a parent loop");
+  assert(!isa<HLRegion>(this) && "Region cannot have a parent!");
 
   HLNode *Par = getParent();
 
@@ -166,4 +166,16 @@ HLLoop *HLNode::getLexicalParentLoop() const {
   }
 
   return ParLoop;
+}
+
+HLRegion *HLNode::getParentRegion() const {
+  assert(!isa<HLRegion>(this) && "Region cannot not have a parent!");
+
+  HLNode *Par = getParent();
+
+  while (Par && !isa<HLRegion>(Par)) {
+    Par = Par->getParent();
+  }
+
+  return cast_or_null<HLRegion>(Par);
 }

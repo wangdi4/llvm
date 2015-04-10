@@ -40,6 +40,10 @@
 
 using namespace llvm;
 using namespace llvm::loopopt;
+
+static cl::opt<bool> forceHIRCG("force-HIRCG", cl::init(false), cl::Hidden,
+                                cl::desc("forces CodeGen on all HIR regions"));
+
 namespace {
 
 class HIRCodeGen : public FunctionPass {
@@ -150,7 +154,9 @@ private:
 public:
   static char ID;
 
-  HIRCodeGen() : FunctionPass(ID) {}
+  HIRCodeGen() : FunctionPass(ID) {
+    initializeHIRCodeGenPass(*PassRegistry::getPassRegistry());
+  }
 
   bool runOnFunction(Function &F) override {
     DEBUG(errs() << "Starting the code gen for ");
@@ -165,7 +171,9 @@ public:
     // generate code
     CGVisitor CG(&F, SE, HIRP, this);
     for (auto I = HIR->begin(), E = HIR->end(); I != E; I++) {
-      CG.visit(I);
+      if (cast<HLRegion>(I)->shouldGenCode() || forceHIRCG) {
+        CG.visit(I);
+      }
     }
 
     return false;
@@ -184,7 +192,11 @@ public:
 FunctionPass *llvm::createHIRCodeGenPass() { return new HIRCodeGen(); }
 
 char HIRCodeGen::ID = 0;
-static RegisterPass<HIRCodeGen> X("HIRCG", "HIR Code Generation", false, false);
+INITIALIZE_PASS_BEGIN(HIRCodeGen, "HIRCG", "HIR Code Generation", false, false)
+INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
+INITIALIZE_PASS_DEPENDENCY(HIRCreation)
+INITIALIZE_PASS_DEPENDENCY(HIRParser)
+INITIALIZE_PASS_END(HIRCodeGen, "HIRCG", "HIR Code Generation", false, false)
 
 Value *HIRCodeGen::CGVisitor::visitCanonExpr(CanonExpr *CE) {
   Value *BlobSum = nullptr, *IVSum = nullptr, *C0Value = nullptr;
@@ -233,7 +245,7 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
   Value *BaseV = visitCanonExpr(Ref->getBaseCE());
   // Create zero for the first GEP index
   Value *Zero =
-      ConstantInt::getSigned(IntegerType::get(F->getContext(), 64), 0);
+      ConstantInt::getSigned((*(Ref->canon_begin()))->getLLVMType(), 0);
 
   std::vector<Value *> IndexV;
   IndexV.push_back(Zero);

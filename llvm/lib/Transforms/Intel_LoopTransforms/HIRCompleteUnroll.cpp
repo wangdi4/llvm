@@ -83,6 +83,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
@@ -99,11 +100,13 @@ static cl::opt<unsigned> CompleteUnrollTripThreshold(
 
 namespace {
 
-class HIRCompleteUnroll : public FunctionPass {
+class HIRCompleteUnroll : public HIRTransformPass {
 public:
   static char ID;
 
-  HIRCompleteUnroll(int T = -1) : FunctionPass(ID) {
+  HIRCompleteUnroll(int T = -1) : HIRTransformPass(ID) {
+    initializeHIRCompleteUnrollPass(*PassRegistry::getPassRegistry());
+
     CurrentTripThreshold =
         (T == -1) ? CompleteUnrollTripThreshold : unsigned(T);
   }
@@ -118,7 +121,6 @@ public:
 
 private:
   Function *F;
-  HIRCreation *HIR;
   unsigned CurrentTripThreshold;
   SmallVector<HLLoop *, 16> InnermostLoops;
 
@@ -140,8 +142,12 @@ private:
 }
 
 char HIRCompleteUnroll::ID = 0;
-static RegisterPass<HIRCompleteUnroll> X("HIRCompleteUnroll",
-                                         "HIR Complete Unroll", false, false);
+INITIALIZE_PASS_BEGIN(HIRCompleteUnroll, "HIRCompleteUnroll",
+                      "HIR Complete Unroll", false, false)
+INITIALIZE_PASS_DEPENDENCY(HIRCreation)
+INITIALIZE_PASS_DEPENDENCY(HIRParser)
+INITIALIZE_PASS_END(HIRCompleteUnroll, "HIRCompleteUnroll",
+                    "HIR Complete Unroll", false, false)
 
 FunctionPass *llvm::createHIRCompleteUnrollPass(int Threshold) {
   return new HIRCompleteUnroll(Threshold);
@@ -157,6 +163,7 @@ bool HIRCompleteUnroll::runOnFunction(Function &F) {
     return false;
 
   this->F = &F;
+
   HIR = &getAnalysis<HIRCreation>();
 
   // Gather the innermost loops
@@ -330,6 +337,9 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, int64_t TripCount) {
 
   // TODO: Handle innermost flag for multi-level loop nest
   DEBUG(dbgs() << " Delete Loop \n");
+
+  Loop->getParentRegion()->setGenCode();
+
   HLNodeUtils::erase(Loop);
 
   return;
@@ -430,3 +440,4 @@ int64_t HIRCompleteUnroll::getConstVal(ConstDDRef *CDDRef) {
 
   return CExpr->getConstant();
 }
+

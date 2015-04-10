@@ -29,6 +29,7 @@ namespace llvm {
 namespace loopopt {
 
 class HLLoop;
+class HLRegion;
 
 /// \brief High level IR node base class
 ///
@@ -107,6 +108,9 @@ public:
   /// This is different for HLInsts which are located in loop
   /// preheader/postexit.
   HLLoop *getLexicalParentLoop() const;
+
+  /// \brief Returns the parent region of this node, if one exists.
+  HLRegion *getParentRegion() const;
 
   /// \brief Return an ID for the concrete type of this object.
   ///

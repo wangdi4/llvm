@@ -62,6 +62,14 @@ void initializeCodeGen(PassRegistry&);
 /// initializeCodeGen - Initialize all passes linked into the CodeGen library.
 void initializeTarget(PassRegistry&);
 
+/// initializeIntel_LoopAnalysis - Initialize all passes linked into the 
+/// Intel_LoopAnalysis library.
+void initializeIntel_LoopAnalysis(PassRegistry&);
+
+/// initializeIntel_LoopTransforms - Initialize all passes linked into the 
+/// Intel_LoopTransforms library.
+void initializeIntel_LoopTransforms(PassRegistry&);
+
 void initializeAAEvalPass(PassRegistry&);
 void initializeAddDiscriminatorsPass(PassRegistry&);
 void initializeADCEPass(PassRegistry&);
@@ -289,8 +297,14 @@ void initializeMachineCombinerPass(PassRegistry &);
 void initializeLoadCombinePass(PassRegistry&);
 void initializeRewriteSymbolsPass(PassRegistry&);
 
-void initializeMockHIRPass(PassRegistry&);
 void initializeRegionIdentificationPass(PassRegistry&);
+void initializeHIRCreationPass(PassRegistry&);
+void initializeLoopFormationPass(PassRegistry&);
+void initializeHIRParserPass(PassRegistry&);
+
+void initializeHIRPrinterPass(llvm::PassRegistry&);
+void initializeHIRCodeGenPass(PassRegistry&);
+void initializeHIRCompleteUnrollPass(PassRegistry&);
 }
 
 #endif
