@@ -1507,6 +1507,15 @@ def err_lvalue_reference_bind_to_initlist : Error<
 def err_lvalue_reference_bind_to_temporary : Error<
   "%select{non-const|volatile}0 lvalue reference %diff{to type $ cannot bind "
   "to a temporary of type $|cannot bind to incompatible temporary}1,2">;
+//if INTEL_CUSTOMIZATION
+def warn_lvalue_reference_bind_to_initlist : Warning<
+  "non-const lvalue reference to type %0 cannot bind to an "
+  "initializer list temporary">, InGroup<IntelCompat>;
+def warn_lvalue_reference_bind_to_temporary : Warning<
+  "non-const lvalue reference %diff{to type $ cannot bind "
+  "to a temporary of type $|cannot bind to incompatible temporary}0,1">,
+  InGroup<IntelCompat>;
+//endif
 def err_lvalue_reference_bind_to_unrelated : Error<
   "%select{non-const|volatile}0 lvalue reference "
   "%diff{to type $ cannot bind to a value of unrelated type $|"
