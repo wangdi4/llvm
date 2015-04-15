@@ -434,42 +434,61 @@ bool CodeGenFunction::CGPragmaSimd::emitSafelen(CodeGenFunction *CGF) const {
 }
 
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
+/// Helper to build argument list for passing operands list into
+/// backend (as the intel.pragma call arguments).
+class IntelPragmaBuilder {
+  llvm::SmallVector<llvm::Value *, 4> Ops;
+  llvm::LLVMContext &C;
+
+public:
+  IntelPragmaBuilder(llvm::LLVMContext &Context) : C(Context) {}
+  IntelPragmaBuilder &addop(StringRef S) {
+    Ops.push_back(llvm::MetadataAsValue::get(C, llvm::MDString::get(C, S)));
+    return *this;
+  }
+  IntelPragmaBuilder &addop(llvm::Value *V) {
+    Ops.push_back(llvm::MetadataAsValue::get(C, llvm::ValueAsMetadata::get(V)));
+    return *this;
+  }
+  IntelPragmaBuilder &addop(RValue RVal) {
+    if (RVal.isScalar()) {
+      addop("SCALAR").addop(RVal.getScalarVal());
+    } else if (RVal.isComplex()) {
+      addop("COMPLEX").addop(RVal.getComplexVal().first).addop(
+          RVal.getComplexVal().second);
+    } else {
+      addop("AGGREGATE").addop(RVal.getAggregateAddr());
+    }
+    return *this;
+  }
+  ArrayRef<llvm::Value *> getops() { return Ops; }
+};
+
 void CodeGenFunction::CGPragmaSimd::emitIntelIntrinsic(CodeGenFunction *CGF,
     CodeGenModule *CGM, llvm::Value *LoopIndex, llvm::Value *LoopCount) const {
-  llvm::Value *IntelFN = CGM->getIntrinsic(llvm::Intrinsic::intel_pragma);
-  llvm::SmallVector<llvm::Metadata *, 2> Args;
-  Args.push_back(llvm::MDString::get(CGM->getLLVMContext(), "SIMD_LOOP"));
-
+  IntelPragmaBuilder P(CGM->getLLVMContext());
+  P.addop("SIMD_LOOP");
   const ArrayRef<Attr *> &Attrs = SimdFor->getSIMDAttrs();
   for (unsigned i = 0, e = Attrs.size(); i < e; ++i) {
     switch (Attrs[i]->getKind()) {
       case clang::attr::SIMDLength:
         {
-          Args.push_back(
-                  llvm::MDString::get(CGM->getLLVMContext(), "VECTORLENGTH"));
-          const SIMDLengthAttr *SIMDLength = 0;
-          SIMDLength = static_cast<const SIMDLengthAttr*>(Attrs[i]);
+          auto SIMDLength = static_cast<const SIMDLengthAttr*>(Attrs[i]);
           RValue Width = CGF->EmitAnyExpr(SIMDLength->getValueExpr(),
-              AggValueSlot::ignored(), true);
-          llvm::ConstantInt *C =
-                        dyn_cast<llvm::ConstantInt>(Width.getScalarVal());
-          assert(C);
-          Args.push_back(llvm::ValueAsMetadata::get(C));
+                                          AggValueSlot::ignored(), true);
+          auto C = cast<llvm::ConstantInt>(Width.getScalarVal());
+          P.addop("VECTORLENGTH");
+          P.addop(C);
         } break;
       default:
         break;
     }
   }
 
-  Args.push_back(llvm::MDString::get(CGM->getLLVMContext(), "LINEAR"));
-  Args.push_back(llvm::ValueAsMetadata::get(LoopIndex));
-  Args.push_back(llvm::ValueAsMetadata::get(
-                     llvm::ConstantInt::get(LoopCount->getType(), 1)));
-  llvm::MDNode *RealArg = llvm::MDNode::get(CGM->getLLVMContext(), Args);
-  llvm::SmallVector<llvm::Value *, 2> RealArgs;
-  RealArgs.push_back(
-      llvm::MetadataAsValue::get(CGM->getLLVMContext(), RealArg));
-  CGF->EmitRuntimeCall(IntelFN, RealArgs);
+  auto One = llvm::ConstantInt::get(LoopCount->getType(), 1);
+  P.addop("LINEAR").addop(LoopIndex).addop(One);
+  CGF->EmitRuntimeCall(CGM->getIntrinsic(llvm::Intrinsic::intel_pragma),
+                       P.getops());
 }
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
 
@@ -948,18 +967,10 @@ static void EmitRecursiveCilkRankedStmt(CodeGenFunction &CGF,
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
     // Generate intel intrinsic.
     if (Rank == S.getRank() - 1) {
-      llvm::Value *IntelFN =
-                      CGF.CGM.getIntrinsic(llvm::Intrinsic::intel_pragma);
-      llvm::SmallVector<llvm::Metadata*, 1> Args;
-      Args.push_back(llvm::MDString::get(
-                                  CGF.CGM.getLLVMContext(), "CEAN_LOOP"));
-      llvm::Value *RealArg = 
-          llvm::MetadataAsValue::get(
-              CGF.CGM.getLLVMContext(),
-              llvm::MDNode::get(CGF.CGM.getLLVMContext(), Args));
-      llvm::SmallVector<llvm::Value*, 1> RealArgs;
-      RealArgs.push_back(RealArg);
-      CGF.EmitRuntimeCall(IntelFN, RealArgs);
+      IntelPragmaBuilder P(CGF.CGM.getLLVMContext());
+      P.addop("CEAN_LOOP");
+      CGF.EmitRuntimeCall(CGF.CGM.getIntrinsic(llvm::Intrinsic::intel_pragma),
+                          P.getops());
     }
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
     CGF.EmitBranch(CondBlock);
@@ -1062,12 +1073,6 @@ CodeGenFunction::CreateIPForInlineEnd(llvm::BasicBlock *InlineBB) {
 
 static llvm::SmallVector<llvm::BasicBlock *, 4> PreviousInlineBB;
 void CodeGenFunction::EmitPragmaStmt(const PragmaStmt &S) {
-  llvm::SmallVector<llvm::Metadata *, 4> args;
-  llvm::MDNode *Node;
-  llvm::Value *fn;
-//  llvm::CallInst *fakeCall;
-  llvm::Value *res;
-
   switch (S.getPragmaKind()) {
   case (IntelPragma_SPECCALL):
     if (S.getAttribs().size() > 0) {
@@ -1200,113 +1205,43 @@ void CodeGenFunction::EmitPragmaStmt(const PragmaStmt &S) {
     assert(S.getAttribs().size() > 0 && "At least one item must be defined");
     assert(isa<StringLiteral>(S.getAttribs()[0].Value) &&
            "The first must be a string");
-    fn = CGM.getIntrinsic(llvm::Intrinsic::intel_pragma);
-    args.clear();
+    IntelPragmaBuilder P(CGM.getLLVMContext());
     for (size_t i = 0; i < S.getAttribs().size(); ++i) {
       if (S.getAttribs()[i].ExprKind == IntelPragmaExprConst &&
           isa<StringLiteral>(S.getAttribs()[i].Value)) {
-        args.push_back(
-          llvm::MDString::get(CGM.getLLVMContext(),
-            cast<StringLiteral>(S.getAttribs()[i].Value)->getString()));
+        P.addop(cast<StringLiteral>(S.getAttribs()[i].Value)->getString());
       } else if (S.getAttribs()[i].ExprKind == IntelPragmaExprConst) {
-        args.push_back(llvm::MDString::get(CGM.getLLVMContext(), "CONSTANT"));
-        res = CGM.EmitConstantExpr(S.getAttribs()[i].Value,
-                                   S.getAttribs()[i].Value->getType());
-        args.push_back(llvm::ValueAsMetadata::get(res));
+        auto res = CGM.EmitConstantExpr(S.getAttribs()[i].Value,
+                                        S.getAttribs()[i].Value->getType());
+        P.addop("CONSTANT").addop(res);
       } else if (S.getAttribs()[i].ExprKind == IntelPragmaExprRValue) {
         DeclRefExpr *DRE;
         if (isa<DeclRefExpr>(S.getAttribs()[i].Value) &&
             (DRE = cast<DeclRefExpr>(S.getAttribs()[i].Value)) &&
             isa<FunctionDecl>(DRE->getDecl())) {
-          // args.push_back(llvm::MDString::get(CGM.getLLVMContext(),
-          // "FUNCTION_REFERENCE"));
-          args.push_back(
-            llvm::ValueAsMetadata::get(
-              CGM.GetAddrOfGlobal(cast<FunctionDecl>(DRE->getDecl()))));
+          //P.addop("FUNCTION_REFERENCE");
+          P.addop(CGM.GetAddrOfGlobal(cast<FunctionDecl>(DRE->getDecl())));
         } else {
           RValue RVal = EmitAnyExprToTemp(S.getAttribs()[i].Value);
-          args.push_back(llvm::MDString::get(CGM.getLLVMContext(), "RVALUE"));
-          if (RVal.isScalar()) {
-            args.push_back(
-              llvm::MDString::get(CGM.getLLVMContext(), "SCALAR"));
-            res = RVal.getScalarVal();
-            args.push_back(llvm::ValueAsMetadata::get(res));
-          } else if (RVal.isComplex()) {
-            args.push_back(
-              llvm::MDString::get(CGM.getLLVMContext(), "COMPLEX"));
-            res = RVal.getComplexVal().first;
-            args.push_back(llvm::ValueAsMetadata::get(res));
-            res = RVal.getComplexVal().second;
-            args.push_back(llvm::ValueAsMetadata::get(res));
-          } else {
-            args.push_back(
-              llvm::MDString::get(CGM.getLLVMContext(), "AGGREGATE"));
-            res = RVal.getAggregateAddr();
-            args.push_back(llvm::ValueAsMetadata::get(res));
-          }
+          P.addop("RVALUE").addop(RVal);
         }
       } else {
         LValue LVal = EmitLValue(S.getAttribs()[i].Value);
-        args.push_back(llvm::MDString::get(CGM.getLLVMContext(), "LVALUE"));
+        P.addop("LVALUE");
         if (LVal.isSimple()) {
-          args.push_back(llvm::MDString::get(CGM.getLLVMContext(), "SIMPLE"));
-          res = LVal.getAddress();
-          args.push_back(llvm::ValueAsMetadata::get(res));
+          P.addop("SIMPLE").addop(LVal.getAddress());
         } else if (LVal.isVectorElt()) {
-          args.push_back(
-            llvm::MDString::get(CGM.getLLVMContext(), "VECTOR_ELT"));
-          res = LVal.getVectorAddr();
-          args.push_back(llvm::ValueAsMetadata::get(res));
-          res = LVal.getVectorIdx();
-          args.push_back(llvm::ValueAsMetadata::get(res));
+          P.addop("VECTOR_ELT").addop(LVal.getVectorAddr()).addop(
+              LVal.getVectorIdx());
         } else if (LVal.isExtVectorElt()) {
           RValue RVal = EmitLoadOfExtVectorElementLValue(LVal);
-          args.push_back(
-            llvm::MDString::get(CGM.getLLVMContext(), "EXT_VECTOR_ELT"));
-          if (RVal.isScalar()) {
-            args.push_back(
-              llvm::MDString::get(CGM.getLLVMContext(), "SCALAR"));
-            res = RVal.getScalarVal();
-            args.push_back(llvm::ValueAsMetadata::get(res));
-          } else if (RVal.isComplex()) {
-            args.push_back(
-              llvm::MDString::get(CGM.getLLVMContext(), "COMPLEX"));
-            res = RVal.getComplexVal().first;
-            args.push_back(llvm::ValueAsMetadata::get(res));
-            res = RVal.getComplexVal().second;
-            args.push_back(llvm::ValueAsMetadata::get(res));
-          } else {
-            args.push_back(
-              llvm::MDString::get(CGM.getLLVMContext(), "AGGREGATE"));
-            res = RVal.getAggregateAddr();
-            args.push_back(llvm::ValueAsMetadata::get(res));
-          }
+          P.addop("EXT_VECTOR_ELT").addop(RVal);
         } else {
           RValue RVal = EmitLoadOfBitfieldLValue(LVal);
-          args.push_back(
-            llvm::MDString::get(CGM.getLLVMContext(), "BITFIELD"));
-          if (RVal.isScalar()) {
-            args.push_back(
-              llvm::MDString::get(CGM.getLLVMContext(), "SCALAR"));
-            res = RVal.getScalarVal();
-            args.push_back(llvm::ValueAsMetadata::get(res));
-          } else if (RVal.isComplex()) {
-            args.push_back(
-              llvm::MDString::get(CGM.getLLVMContext(), "COMPLEX"));
-            res = RVal.getComplexVal().first;
-            args.push_back(llvm::ValueAsMetadata::get(res));
-            res = RVal.getComplexVal().second;
-            args.push_back(llvm::ValueAsMetadata::get(res));
-          } else {
-            args.push_back(
-              llvm::MDString::get(CGM.getLLVMContext(), "AGGREGATE"));
-            res = RVal.getAggregateAddr();
-            args.push_back(llvm::ValueAsMetadata::get(res));
-          }
+          P.addop("BITFIELD").addop(RVal);
         }
       }
     }
-    Node = llvm::MDNode::get(CGM.getLLVMContext(), args);
     assert(!(S.getPragmaKind() == IntelPragmaInlineEnd &&
              PreviousInlineBB.empty()) &&
            "No previous INLINE for INLINEEND is found!");
@@ -1322,8 +1257,8 @@ void CodeGenFunction::EmitPragmaStmt(const PragmaStmt &S) {
       VisitedBB.clear();
       SpecBasicBlock = this->CreateIPForInlineEnd(PreviousInlineBB.back());
     }
-    /*fakeCall =*/ Builder.CreateCall(fn,
-                     llvm::MetadataAsValue::get(CGM.getLLVMContext(), Node));
+    Builder.CreateCall(CGM.getIntrinsic(llvm::Intrinsic::intel_pragma),
+                       P.getops());
     // Special processing for pragma inline
     if (S.getPragmaKind() == IntelPragmaInline) {
       PreviousInlineBB.push_back(Builder.GetInsertBlock());
@@ -1336,7 +1271,6 @@ void CodeGenFunction::EmitPragmaStmt(const PragmaStmt &S) {
         Builder.restoreIP(SaveIP);
       }
     }
-    // fakeCall->setMetadata("PRAGMA", Node);
   } break;
   default:
     break;

@@ -3554,6 +3554,10 @@ static void EmitGlobalDeclMetadata(CodeGenModule &CGM,
                                    llvm::NamedMDNode *&GlobalMetadata,
                                    GlobalDecl D,
                                    llvm::GlobalValue *Addr) {
+#ifdef INTEL_CUSTOMIZATION
+  if (!Addr)
+    return;
+#endif // INTEL_CUSTOMIZATION
   if (!GlobalMetadata)
     GlobalMetadata =
       CGM.getModule().getOrInsertNamedMetadata("clang.global.decl.ptrs");

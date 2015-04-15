@@ -477,7 +477,10 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
 #undef TOSTR
 #undef TOSTR2
 #ifdef INTEL_CUSTOMIZATION
+// CQ#368488 - skip the check and define GCC_* macros for iclang.
+#ifndef INTEL_SPECIFIC_IL0_BACKEND
   if (!LangOpts.IntelCompat)
+#endif  // not INTEL_SPECIFIC_IL0_BACKEND
 #endif  // INTEL_CUSTOMIZATION
   if (!LangOpts.MSVCCompat) {
     // Currently claim to be compatible with GCC 4.2.1-5621, but only if we're

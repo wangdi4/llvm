@@ -3671,6 +3671,27 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back(Args.MakeArgString(Twine(N)));
   }
 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  // CQ#368488 - properly pass iclang-specific options by clang driver.
+  if (Args.hasArg(options::OPT_pragma_optimization_level_EQ)) {
+    StringRef OptLevel =
+        Args.getLastArgValue(options::OPT_pragma_optimization_level_EQ);
+    CmdArgs.push_back(
+        Args.MakeArgString("-pragma-optimization-level=" + OptLevel));
+  }
+  if (Args.hasArg(options::OPT_vd)) {
+    StringRef VD = Args.getLastArgValue(options::OPT_vd);
+    CmdArgs.push_back(Args.MakeArgString("-vd" + VD));
+  }
+  if (Args.hasArg(options::OPT_malign_mac68k)) {
+    CmdArgs.push_back("-malign-mac68k");
+  }
+  if (Args.hasArg(options::OPT_help_pragma)) {
+    CmdArgs.push_back("-help-pragma");
+  }
+  Args.AddAllArgs(CmdArgs, options::OPT_fp_model);
+#endif //INTEL_SPECIFIC_IL0_BACKEND
+
   // -fvisibility= and -fvisibility-ms-compat are of a piece.
   if (const Arg *A = Args.getLastArg(options::OPT_fvisibility_EQ,
                                      options::OPT_fvisibility_ms_compat)) {

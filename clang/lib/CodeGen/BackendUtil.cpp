@@ -349,9 +349,21 @@ void EmitAssemblyHelper::CreatePasses() {
     // Respect always_inline.
     if (OptLevel == 0)
       // Do not insert lifetime intrinsics at -O0.
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+      // CQ#368488 - respect only INTEL_ALWAYS_INLINE (used for __cilk_sync).
+      PMBuilder.Inliner =
+          createAlwaysInlinerPass(false, CodeGenOpts.IntelAlwaysInline);
+#else // INTEL_SPECIFIC_IL0_BACKEND
       PMBuilder.Inliner = createAlwaysInlinerPass(false);
+#endif // INTEL_SPECIFIC_IL0_BACKEND
     else
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+      // CQ#368488 - respect only INTEL_ALWAYS_INLINE (used for __cilk_sync).
+      PMBuilder.Inliner =
+          createAlwaysInlinerPass(true, CodeGenOpts.IntelAlwaysInline);
+#else // INTEL_SPECIFIC_IL0_BACKEND
       PMBuilder.Inliner = createAlwaysInlinerPass();
+#endif // INTEL_SPECIFIC_IL0_BACKEND
     break;
   }
 
