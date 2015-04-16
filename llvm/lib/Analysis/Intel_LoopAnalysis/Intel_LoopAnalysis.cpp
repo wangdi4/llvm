@@ -17,4 +17,6 @@ void llvm::initializeIntel_LoopAnalysis(PassRegistry &Registry) {
   initializeHIRCreationPass(Registry);
   initializeLoopFormationPass(Registry);
   initializeHIRParserPass(Registry);
+  initializeSymbaseAssignmentPass(Registry);
+  initializeDDAnalysisPass(Registry);
 }

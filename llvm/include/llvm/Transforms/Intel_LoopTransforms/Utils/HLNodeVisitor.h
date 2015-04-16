@@ -53,7 +53,7 @@ namespace loopopt {
 ///   void postVisit(HLLoop* Loop) { }
 ///   void visit(HLIf* If) { errs() << "visited if!\n" }
 ///   void postVisit(HLIf* If) { }
-///   void visit(HlSwitch* Switch) { errs() << "visited switch!\n" }
+///   void visit(HLSwitch* Switch) { errs() << "visited switch!\n" }
 ///   void visit(HLLabel* Label) { errs() << "visited label!\n" }
 ///   void visit(HLGoto* Goto) { errs() << "visited goto!\n" }
 ///   void visit(HLInst* Inst) { errs() << "visited instruction!\n" }

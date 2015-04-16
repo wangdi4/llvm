@@ -183,6 +183,8 @@ namespace {
       (void) llvm::createRegionIdentificationPass();
       (void) llvm::createHIRCreationPass();
       (void) llvm::createLoopFormationPass();
+      (void) llvm::createDDAnalysisPass();
+      (void) llvm::createSymbaseAssignmentPass();
       (void) llvm::createHIRParserPass();
       (void) llvm::createHIRCodeGenPass();
       (void) llvm::createHIRCompleteUnrollPass();

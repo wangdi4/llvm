@@ -45,7 +45,7 @@ private:
   static std::set<DDRef *> Objs;
 
   const unsigned char SubClassID;
-  int SymBase;
+  unsigned int SymBase;
 
 protected:
   DDRef(unsigned SCID, int SB);
@@ -84,8 +84,8 @@ public:
   Type *getLLVMType() const;
 
   /// \brief Returns the symbol number used to disambiguate references.
-  int getSymBase() const { return SymBase; };
-  void setSymBase(int Sbase) { SymBase = Sbase; }
+  unsigned int getSymBase() const { return SymBase; };
+  void setSymBase(unsigned int Sbase) { SymBase = Sbase; }
 
   /// \brief Return an ID for the concrete type of this object.
   ///

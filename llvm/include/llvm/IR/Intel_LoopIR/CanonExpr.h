@@ -32,6 +32,9 @@ class SCEV;
 
 namespace loopopt {
 
+  /// \brief The maximum loopnest level allowed in HIR.
+  const unsigned MaxLoopNestLevel = 9;
+
 /// \brief Canonical form in high level IR
 ///
 /// This class represents the closed form as a linear equation in terms of
@@ -66,8 +69,6 @@ public:
   /// Kept sorted by blob index
   typedef SmallVector<BlobIndexToCoeff, 2> BlobCoeffsTy;
 
-  /// \brief The maximum loopnest level allowed in HIR.
-  static const unsigned MaxLoopNestLevel = 9;
 
   /// Iterators to iterate over induction variables
   typedef IVCoeffsTy::iterator iv_iterator;

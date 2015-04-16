@@ -32,6 +32,13 @@ FunctionPass *createLoopFormationPass();
 /// createHIRParserPass - This creates a pass that maps populates DDRefs by
 /// parsing SCEVs into CanonExprs.
 FunctionPass *createHIRParserPass();
+
+/// Creates analysis which can provide a data dependence graph of an HLNode
+FunctionPass *createDDAnalysisPass();
+
+/// Assigns a symbase to all ddrefs, which groups dd refs into sets that
+/// never alias
+FunctionPass *createSymbaseAssignmentPass();
 }
 
 #endif

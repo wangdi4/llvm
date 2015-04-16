@@ -301,6 +301,8 @@ void initializeRegionIdentificationPass(PassRegistry&);
 void initializeHIRCreationPass(PassRegistry&);
 void initializeLoopFormationPass(PassRegistry&);
 void initializeHIRParserPass(PassRegistry&);
+void initializeSymbaseAssignmentPass(PassRegistry&);
+void initializeDDAnalysisPass(PassRegistry&);
 
 void initializeHIRPrinterPass(llvm::PassRegistry&);
 void initializeHIRCodeGenPass(PassRegistry&);
