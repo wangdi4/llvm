@@ -2121,6 +2121,19 @@ X86TargetLowering::LowerReturn(SDValue Chain,
     RetOps.push_back(DAG.getRegister(RetValReg, getPointerTy()));
   }
 
+#ifdef INTEL_CUSTOMIZATION
+  // When main() is defined with a void return type, it is 
+  // expected to return 0;
+  if (RVLocs.empty() && MF.getName() == "main") {
+    bool Ret64 = (Subtarget->is64Bit() && !Subtarget->isTarget64BitILP32());
+    unsigned RetValReg = Ret64 ? X86::RAX : X86::EAX;
+    Chain = DAG.getCopyToReg(Chain, dl, RetValReg,
+      DAG.getConstant(0, getPointerTy()), Flag);
+    Flag = Chain.getValue(1);
+    RetOps.push_back(DAG.getRegister(RetValReg, getPointerTy()));
+  }
+#endif
+
   RetOps[0] = Chain;  // Update chain.
 
   // Add the flag if we have it.
@@ -3380,6 +3393,13 @@ X86TargetLowering::IsEligibleForTailCallOptimization(SDValue Callee,
   // perform a tailcall optimization here.
   if (CallerF->getReturnType()->isX86_FP80Ty() && !RetTy->isX86_FP80Ty())
     return false;
+
+#ifdef INTEL_CUSTOMIZATION
+  // void main() actually returns an int, so it should not participate
+  // in tail call optimization.
+  if (CallerF->getReturnType()->isVoidTy() && CallerF->getName() == "main")
+    return false;
+#endif
 
   CallingConv::ID CallerCC = CallerF->getCallingConv();
   bool CCMatch = CallerCC == CalleeCC;
