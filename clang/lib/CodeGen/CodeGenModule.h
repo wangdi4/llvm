@@ -1316,6 +1316,11 @@ private:
   /// .gcda files in a way that persists in .bc files.
   void EmitCoverageFile();
 
+#ifdef INTEL_CUSTOMIZATION
+  /// \brief Emit MS debug file information as llvm.dbg.ms.filetype metadata.
+  void EmitMSDebugInfoMetadata();
+#endif // INTEL_CUSTOMIZATION
+
   /// Emits the initializer for a uuidof string.
   llvm::Constant *EmitUuidofInitializer(StringRef uuidstr);
 

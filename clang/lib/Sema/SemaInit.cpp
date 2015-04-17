@@ -3463,7 +3463,14 @@ static void TryReferenceListInitialization(Sema &S,
   TryListInitialization(S, TempEntity, Kind, InitList, Sequence);
   if (Sequence) {
     if (DestType->isRValueReferenceType() ||
+#ifdef INTEL_CUSTOMIZATION
+        // CQ#364712 - allow non-const non-volatile lvalue reference bind to
+        // temporary in IntelMSCompat mode.
+        ((S.getLangOpts().IntelMSCompat || T1Quals.hasConst()) &&
+         !T1Quals.hasVolatile()))
+#else
         (T1Quals.hasConst() && !T1Quals.hasVolatile()))
+#endif // INTEL_CUSTOMIZATION
       Sequence.AddReferenceBindingStep(cv1T1, /*bindingTemporary=*/true);
     else
       Sequence.SetFailed(
@@ -3975,11 +3982,21 @@ static void TryReferenceInitializationCore(Sema &S,
                         InitializationSequence::FK_ReferenceInitOverloadFailed,
                                   ConvOvlResult);
     else
+#ifdef INTEL_CUSTOMIZATION
+      // CQ#364712 - allow non-const lvalue reference bind to temporary in
+      // IntelMsCompat mode. Don't change behaviour for volatile lvalues.
+      if (!S.getLangOpts().IntelMSCompat || T1Quals.hasVolatile() ||
+          InitCategory.isLValue())
+#endif // INTEL_CUSTOMIZATION
       Sequence.SetFailed(InitCategory.isLValue()
         ? (RefRelationship == Sema::Ref_Related
              ? InitializationSequence::FK_ReferenceInitDropsQualifiers
              : InitializationSequence::FK_NonConstLValueReferenceBindingToUnrelated)
         : InitializationSequence::FK_NonConstLValueReferenceBindingToTemporary);
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#364712. Return only if an error was emitted.
+    if (Sequence.Failed())
+#endif // INTEL_CUSTOMIZATION
 
     return;
   }
@@ -5981,6 +5998,30 @@ InitializationSequence::Perform(Sema &S,
     case SK_BindReferenceToTemporary: {
       // Make sure the "temporary" is actually an rvalue.
       assert(CurInit.get()->isRValue() && "not a temporary");
+
+#ifdef INTEL_CUSTOMIZATION
+      // CQ#364712 - allow non-const lvalue reference bind to temporary in
+      // IntelMSCompat mode.
+      QualType DeclType = Entity.getType();
+      Qualifiers DeclTypeQuals = DeclType.getNonReferenceType().getQualifiers();
+
+      if (DeclType->isLValueReferenceType() && !DeclTypeQuals.hasConst() &&
+          !DeclTypeQuals.hasVolatile()) {
+        // If it is non-const non-volatile lvalue reference and FailureKind was
+        // not set, we should emit a warning.
+        if (isa<InitListExpr>(Args[0]))
+          S.Diag(Kind.getLocation(),
+                 diag::warn_lvalue_reference_bind_to_initlist)
+            << DeclType.getNonReferenceType()
+            << Args[0]->getSourceRange();
+        else
+          S.Diag(Kind.getLocation(),
+                 diag::warn_lvalue_reference_bind_to_temporary)
+            << DeclType.getNonReferenceType()
+            << Args[0]->getType()
+            << Args[0]->getSourceRange();
+      }
+#endif // INTEL_CUSTOMIZATION
 
       // Check exception specifications
       if (S.CheckExceptionSpecCompatibility(CurInit.get(), DestType))

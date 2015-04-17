@@ -881,8 +881,14 @@ BUILTIN(__builtin_rindex, "c*cC*i", "Fn")
 
 // Microsoft builtins.  These are only active with -fms-extensions.
 LANGBUILTIN(_alloca,          "v*z", "n", ALL_MS_LANGUAGES)
+#if INTEL_SPECIFIC_IL0_BACKEND
+// CQ#368488 - builtins fixes for iclang.
+BUILTIN(__assume,     "vb",  "n")
+BUILTIN(__debugbreak, "v",   "n")
+#else
 LANGBUILTIN(__assume,         "vb",  "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(__debugbreak,     "v",   "n", ALL_MS_LANGUAGES)
+#endif // INTEL_SPECIFIC_IL0_BACKEND
 LANGBUILTIN(__exception_code, "ULi", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_exception_code,  "ULi", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(__exception_info, "v*",  "n", ALL_MS_LANGUAGES)
@@ -896,7 +902,12 @@ LANGBUILTIN(_InterlockedExchangeAdd,     "LiLiD*Li",   "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedExchange,        "LiLiD*Li",   "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedExchangePointer, "v*v*D*v*",   "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedIncrement,       "LiLiD*",     "n", ALL_MS_LANGUAGES)
+#if INTEL_SPECIFIC_IL0_BACKEND
+// CQ#368488 - builtins fixes for iclang.
+BUILTIN(__noop,       "i.",  "n")
+#else
 LANGBUILTIN(__noop,           "i.",  "n", ALL_MS_LANGUAGES)
+#endif // INTEL_SPECIFIC_IL0_BACKEND
 LANGBUILTIN(__readfsdword,    "ULiULi", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(__va_start,       "vc**.", "nt", ALL_MS_LANGUAGES)
 

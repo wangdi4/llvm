@@ -533,6 +533,8 @@ def fallow_half_arguments_and_returns : Flag<["-"], "fallow-half-arguments-and-r
 def fintel_compatibility : Flag<["-"], "fintel-compatibility">,
   HelpText<"Enable full Intel C/C++ compatibility">;
 // if INTEL_CUSTOMIZATION
+def fintel_ms_compatibility : Flag<["-"], "fintel-ms-compatibility">,
+  HelpText<"Enable Microsoft compatibility features that are not planned for clang/llvm trunk">;
 def restrict : Flag<["-"], "restrict">,
   HelpText<"Enable the 'restrict' keyword for disambiguating pointers">;
 def no_restrict : Flag<["-"], "no-restrict">,

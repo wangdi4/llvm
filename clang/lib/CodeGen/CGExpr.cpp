@@ -1987,9 +1987,15 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
         }
 #endif  // INTEL_CUSTOMIZATION
       }
+#ifdef INTEL_CUSTOMIZATION
+      if (!LocalDeclMap.lookup(VD)) {
+#endif  // INTEL_CUSTOMIZATION
       assert(isa<BlockDecl>(CurCodeDecl));
       return MakeAddrLValue(GetAddrOfBlockDecl(VD, VD->hasAttr<BlocksAttr>()),
                             T, Alignment);
+#ifdef INTEL_CUSTOMIZATION
+      }
+#endif  // INTEL_CUSTOMIZATION
     }
 
 #ifdef INTEL_CUSTOMIZATION
@@ -1999,7 +2005,7 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
     else if (CapturedStmtInfo && (CapturedStmtInfo->getKind() == CR_CilkSpawn)
               && CapturedStmtInfo->lookup(VD)){
       return EmitCapturedFieldLValue(*this, CapturedStmtInfo->lookup(VD),
-                                         CapturedStmtInfo->getContextValue());
+                                     CapturedStmtInfo->getContextValue());
     }
 #endif  // INTEL_CUSTOMIZATION
 
