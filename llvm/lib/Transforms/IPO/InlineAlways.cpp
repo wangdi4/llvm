@@ -37,17 +37,38 @@ namespace {
 class AlwaysInliner : public Inliner {
   InlineCostAnalysis *ICA;
 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  // This is used to enable/disable standard inliner pass for
+  // AlwaysInline attribute and perform it only for inline functions
+  // specifically marked with "INTEL_ALWAYS_INLINE".
+  bool Il0BackendMode;
+#endif // INTEL_SPECIFIC_IL0_BACKEND
+
 public:
   // Use extremely low threshold.
   AlwaysInliner() : Inliner(ID, -2000000000, /*InsertLifetime*/ true),
                     ICA(nullptr) {
     initializeAlwaysInlinerPass(*PassRegistry::getPassRegistry());
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+    Il0BackendMode = false;
+#endif // INTEL_SPECIFIC_IL0_BACKEND
   }
 
   AlwaysInliner(bool InsertLifetime)
       : Inliner(ID, -2000000000, InsertLifetime), ICA(nullptr) {
     initializeAlwaysInlinerPass(*PassRegistry::getPassRegistry());
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+    Il0BackendMode = false;
+#endif // INTEL_SPECIFIC_IL0_BACKEND
   }
+
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  AlwaysInliner(bool InsertLifetime, bool Il0BackendMode)
+      : Inliner(ID, -2000000000, InsertLifetime), ICA(nullptr) {
+    initializeAlwaysInlinerPass(*PassRegistry::getPassRegistry());
+    this->Il0BackendMode = Il0BackendMode;
+  }
+#endif // INTEL_SPECIFIC_IL0_BACKEND
 
   static char ID; // Pass identification, replacement for typeid
 
@@ -80,6 +101,12 @@ Pass *llvm::createAlwaysInlinerPass(bool InsertLifetime) {
   return new AlwaysInliner(InsertLifetime);
 }
 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+Pass *llvm::createAlwaysInlinerPass(bool InsertLifetime, bool Il0BackendMode) {
+  return new AlwaysInliner(InsertLifetime, Il0BackendMode);
+}
+#endif // INTEL_SPECIFIC_IL0_BACKEND
+
 /// \brief Get the inline cost for the always-inliner.
 ///
 /// The always inliner *only* handles functions which are marked with the
@@ -94,6 +121,22 @@ Pass *llvm::createAlwaysInlinerPass(bool InsertLifetime) {
 /// likely not worth it in practice.
 InlineCost AlwaysInliner::getInlineCost(CallSite CS) {
   Function *Callee = CS.getCalledFunction();
+
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  // Only specially marked functions are inlined here.
+  // The rest always_inline functions are processed by the IL0 backend.
+  // This is necessary due to current CilkPlus implementation, where front-end
+  // emits some code outlined, but it has to be inlined to have valid
+  // debug info in IL0 and also IL0 backend does not inline back functions
+  // with call to Cilk's setjmp.
+  if (Il0BackendMode) {
+    if (Callee && !Callee->isDeclaration() &&
+        Callee->hasFnAttribute("INTEL_ALWAYS_INLINE") &&
+        ICA->isInlineViable(*Callee))
+      return InlineCost::getAlways();
+    return InlineCost::getNever();
+  }
+#endif // INTEL_SPECIFIC_IL0_BACKEND
 
   // Only inline direct calls to functions with always-inline attributes
   // that are viable for inlining. FIXME: We shouldn't even get here for
