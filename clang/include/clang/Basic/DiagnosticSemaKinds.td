@@ -1348,6 +1348,13 @@ def err_illegal_union_or_anon_struct_member : Error<
   "%select{anonymous struct|union}0 member %1 has a non-trivial "
   "%select{constructor|copy constructor|move constructor|copy assignment "
   "operator|move assignment operator|destructor}2">;
+// if INTEL_CUSTOMIZATION
+def warn_intel_nontrivial_union_or_anon_struct_member : Warning<
+  "%select{anonymous struct|union}0 member %1 has a non-trivial "
+  "%select{constructor|copy constructor|move constructor|copy assignment "
+  "operator|move assignment operator|destructor}2">,
+  InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def warn_cxx98_compat_nontrivial_union_or_anon_struct_member : Warning<
   "%select{anonymous struct|union}0 member %1 with a non-trivial "
   "%select{constructor|copy constructor|move constructor|copy assignment "
