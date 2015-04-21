@@ -12242,7 +12242,8 @@ static void buildSIMDLocalVariable(Sema &S, SIMDForScopeInfo *FSI,
     // recursion calling buildSIMDLocalVariable(), since Var is captured.
     DeclRefExpr *VarDRE = DeclRefExpr::Create(
         S.Context, /*QualifierLoc*/ NestedNameSpecifierLoc(),
-        /*TemplateKWLoc*/ SourceLocation(), Var, /*IsEnclosingLocal*/ false,
+        /*TemplateKWLoc*/ SourceLocation(), Var,
+        /*IsEnclosingLocalOrCapture*/ true,
         Loc, VarType, VK_LValue);
 
     // Initializer

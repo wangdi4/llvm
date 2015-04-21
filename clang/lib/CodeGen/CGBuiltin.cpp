@@ -950,8 +950,10 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     return emitLibraryCall(*this, FD, E,
                            CGM.getBuiltinIntelLibFunction(FD, BuiltinID));
   case Builtin::BI__assume_aligned: {
-    llvm::SmallVector<llvm::Metadata*, 4> Args;
-    Args.push_back(llvm::MDString::get(CGM.getLLVMContext(), "ASSUME_ALIGNED"));
+    llvm::SmallVector<llvm::Value *, 4> Args;
+    auto &C = CGM.getLLVMContext();
+    Args.push_back(llvm::MetadataAsValue::get(
+        C, llvm::MDString::get(C, "ASSUME_ALIGNED")));
     llvm::Value *Arg1 = EmitScalarExpr(E->getArg(0));
     llvm::Value *Arg2 = EmitScalarExpr(E->getArg(1));
     llvm::Type *UIntTy = ConvertTypeForMem(getContext().UnsignedIntTy);
@@ -959,15 +961,11 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     llvm::Value *Sub = Builder.CreateIntCast(Arg2, UIntTy, false);
     Sub = Builder.CreateSub(Sub, llvm::ConstantInt::get(UIntTy, 1));
     Res = Builder.CreateAnd(Res, Sub);
-    Args.push_back(
-      llvm::ValueAsMetadata::get(Builder.CreateIsNull(Res)));
-    llvm::MDNode *Node = llvm::MDNode::get(CGM.getLLVMContext(), Args);
+    Args.push_back(llvm::MetadataAsValue::get(
+        C, llvm::ValueAsMetadata::get(Builder.CreateIsNull(Res))));
     llvm::Value *Fn = CGM.getIntrinsic(llvm::Intrinsic::intel_pragma);
-    return RValue::get(
-             Builder.CreateCall(Fn,
-               llvm::MetadataAsValue::get(CGM.getLLVMContext(), Node)));
-    }
-    break;
+    return RValue::get(Builder.CreateCall(Fn, Args));
+  }
   case Builtin::BI__atomic_store_explicit_1:
   case Builtin::BI__atomic_store_explicit_2:
   case Builtin::BI__atomic_store_explicit_4:

@@ -384,7 +384,9 @@ public:
         Wrapper(Wr), LoopID(LoopID), LoopParallel(LoopParallel),
         ShouldReplaceWithLocal(true) { }
 
-    virtual StringRef getHelperName() const { return "__simd_for_helper"; }
+    virtual StringRef getHelperName() const override {
+      return "__simd_for_helper";
+    }
 
     virtual void EmitBody(CodeGenFunction &CGF, const Stmt *S) override {
       CGF.EmitSIMDForHelperBody(Wrapper.extractLoopBody(S));
@@ -451,7 +453,9 @@ public:
       : CGCapturedStmtInfo(*S.getBody(), CR_CilkFor), TheCilkFor(S),
         InnerLoopControlVarAddr(0) { }
 
-    virtual StringRef getHelperName() const { return "__cilk_for_helper"; }
+    virtual StringRef getHelperName() const override {
+      return "__cilk_for_helper";
+    }
 
     virtual void EmitBody(CodeGenFunction &CGF, const Stmt *S) override {
       CGF.EmitCilkForHelperBody(S);
@@ -485,7 +489,9 @@ public:
       : CGCapturedStmtInfo(S, CR_CilkSpawn), ReceiverDecl(VD) { }
 
     virtual void EmitBody(CodeGenFunction &CGF, const Stmt *S) override;
-    virtual StringRef getHelperName() const { return "__cilk_spawn_helper"; }
+    virtual StringRef getHelperName() const override {
+      return "__cilk_spawn_helper";
+    }
 
     VarDecl *getReceiverDecl() const { return ReceiverDecl; }
     bool isReceiverDecl(const NamedDecl *V) const {

@@ -427,6 +427,8 @@ void CodeGenModule::Release() {
 #ifdef INTEL_CUSTOMIZATION
   if (getLangOpts().CilkPlus)
     EmitCilkElementalVariants();
+  if (getLangOpts().IntelMSCompat)
+    EmitMSDebugInfoMetadata();
 #endif  // INTEL_CUSTOMIZATION
   if (getCodeGenOpts().EmitGcovArcs || getCodeGenOpts().EmitGcovNotes)
     EmitCoverageFile();
@@ -3552,6 +3554,10 @@ static void EmitGlobalDeclMetadata(CodeGenModule &CGM,
                                    llvm::NamedMDNode *&GlobalMetadata,
                                    GlobalDecl D,
                                    llvm::GlobalValue *Addr) {
+#ifdef INTEL_CUSTOMIZATION
+  if (!Addr)
+    return;
+#endif // INTEL_CUSTOMIZATION
   if (!GlobalMetadata)
     GlobalMetadata =
       CGM.getModule().getOrInsertNamedMetadata("clang.global.decl.ptrs");
@@ -3656,6 +3662,33 @@ void CodeGenModule::EmitTargetMetadata() {
     getTargetCodeGenInfo().emitTargetMD(D, GV, *this);
   }
 }
+
+#ifdef INTEL_CUSTOMIZATION
+void CodeGenModule::EmitMSDebugInfoMetadata() {
+  unsigned FileKind = getCodeGenOpts().getMSDebugInfoFile();
+  if (FileKind == CodeGenOptions::MSDebugInfoNoFile)
+    return;
+  // CQ#368119 - support for '/Z7' and '/Zi' options.
+  std::string FileType =
+      (FileKind == CodeGenOptions::MSDebugInfoPdbFile) ? "pdb" : "obj";
+  llvm::LLVMContext &Ctx = TheModule.getContext();
+  llvm::Metadata *MSFileTypeNode[] = { llvm::MDString::get(Ctx, FileType) };
+  llvm::NamedMDNode *MSFileTypeMetadata =
+      TheModule.getOrInsertNamedMetadata("llvm.dbg.ms.filetype");
+  MSFileTypeMetadata->addOperand(llvm::MDNode::get(Ctx, MSFileTypeNode));
+  // CQ#368125 - support for '/Fd' and '/Fo' options.
+  std::string FileName = getCodeGenOpts().MSOutputObjFile;
+  if (FileKind == CodeGenOptions::MSDebugInfoPdbFile)
+    FileName = getCodeGenOpts().MSOutputPdbFile;
+  // Return if desired option is not set.
+  if (FileName == "")
+    return;
+  llvm::Metadata *MSFileNameNode[] = { llvm::MDString::get(Ctx, FileName) };
+  llvm::NamedMDNode *MSFileNameMetadata =
+      TheModule.getOrInsertNamedMetadata("llvm.dbg.ms." + FileType);
+  MSFileNameMetadata->addOperand(llvm::MDNode::get(Ctx, MSFileNameNode));
+}
+#endif //INTEL_CUSTOMIZATION
 
 void CodeGenModule::EmitCoverageFile() {
   if (!getCodeGenOpts().CoverageFile.empty()) {
