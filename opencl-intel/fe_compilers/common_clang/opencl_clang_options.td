@@ -43,3 +43,5 @@ def target_triple : Separate<["-"], "target-triple">,  HelpText<"Specify target 
 def spir_std_1_0: Flag<["-"], "spir-std=1.0">;
 def spir_std_1_2: Flag<["-"], "spir-std=1.2">;
 def x : Separate<["-"], "x">;
+def pch_cpu: Flag<["-"], "pch-cpu">;
+def pch_gpu: Flag<["-"], "pch-gpu">;

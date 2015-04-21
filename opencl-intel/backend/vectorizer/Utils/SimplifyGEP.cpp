@@ -201,7 +201,7 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
       V_ASSERT(pGEP->getPointerOperandIndex() == 0 && "assume Ptr operand is the first operand!");
 
       if(pGEP->getNumIndices() == 1) {
-        if(SimplifyIndexSumGep(pGEP)) ++simplifiedGEPs;
+        if(ReassociateIndexSum(pGEP)) ++simplifiedGEPs;
       }
       else if(SimplifyUniformGep(pGEP) || SimplifyIndexTypeGep(pGEP)) {
         ++simplifiedGEPs;
@@ -214,7 +214,7 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
 
 
   namespace {
-    // Helper function of SimplifyGEP::SimplifyIndexSumGep
+    // Helper function of SimplifyGEP::ReassociateIndexSum
     inline Value * makeIndexSum(SmallVector<Value *, 8> & pIndices, GetElementPtrInst * pGEP,
                                 char const* prefix) {
       typedef SmallVector<Value *, 8>::size_type size_type;
@@ -254,10 +254,10 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
        else if(pInst->getOpcode() == Instruction::SExt) {
          // The behaviour of signed overflow of integers that are smaller than sizeof(int)
          // is defined by C99. They are to be promoted to int and the result is to be truncated.
-         // It means what it is not safe to split such sum.
+         // It means what it is not safe to reassociate such sum.
          Type * pValType = pInst->getOperand(0)->getType();
          if(pValType->getScalarSizeInBits() < 32) return NULL;
-         // Otherwise the signed overflow behaviour is undefined and this sum can be split further.
+         // Otherwise the signed overflow behaviour is undefined and this sum can be safely reassociated.
          BinaryOperator * pBOp = dyn_cast<BinaryOperator>(pInst->getOperand(0));
          return pBOp && pBOp->getOpcode() == Instruction::Add ? pBOp : NULL;
        }
@@ -269,11 +269,14 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
     if(!pGEP) return false;
 
     if(pGEP->getNumIndices() == 1) {
-       // Support GEP instructions with a single index which is a sum of uniform and divergent
-       // values or a SExt from such sum.
+       // Support GEP instructions with a single index which is not uniform/consecutive.
        BinaryOperator * pAddInst = getNextAdd(pGEP->getOperand(1));
-       if(pAddInst && WIAnalysis::UNIFORM != m_depAnalysis->whichDepend(pAddInst)) return true;
-       return false;
+       if(pAddInst &&
+          WIAnalysis::UNIFORM != m_depAnalysis->whichDepend(pAddInst) &&
+          WIAnalysis::CONSECUTIVE != m_depAnalysis->whichDepend(pAddInst))
+         return true;
+       else
+         return false;
     }
     // Support GEP instructions with
     // pointer operand of type that contains no structures!
@@ -292,20 +295,22 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
     return false;
   }
 
-  bool SimplifyGEP::SimplifyIndexSumGep(GetElementPtrInst *pGEP) {
-    // Check this is a GEP with a sum of indices and some of them are
-    // uniform. If yes make two GEPs where one is a GEP with uniform indices and
-    // another one is a GEP with divergent indices.
+  bool SimplifyGEP::ReassociateIndexSum(GetElementPtrInst *pGEP) {
+    // Check this is a GEP with a sum of indices which is not uniform or consecutive.
+    // If not make two GEPs where one is a GEP with uniform indices (making this GEP uniform)
+    // and another one is a GEP with random/strided indices which is turned into gather/scatter
+    // by Packetizer.
 
     // Check preconditions of this transformation
     // 1. The index is the ADD instruction
     // 2. The base pointer is uniform
-    // 3. The sum of indices is divergent
+    // 3. The sum of indices is neither uniform nor consecutive
     Value * pBasePtrVal = pGEP->getOperand(0);
     BinaryOperator * pAddInst = getNextAdd(pGEP->getOperand(1));
     if(pAddInst &&
        WIAnalysis::UNIFORM == m_depAnalysis->whichDepend(pBasePtrVal) &&
-       WIAnalysis::UNIFORM != m_depAnalysis->whichDepend(pAddInst)) {
+       WIAnalysis::UNIFORM != m_depAnalysis->whichDepend(pAddInst) &&
+       WIAnalysis::CONSECUTIVE != m_depAnalysis->whichDepend(pAddInst)) {
 
       // Collect uniform and divergent indices
       SmallVector<Value *, 8>        uniformVals, divergentVals;
@@ -457,7 +462,9 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
     pGEP->replaceAllUsesWith(pNewGEP);
     pGEP->eraseFromParent();
 
-    SimplifyIndexSumGep(pNewGEP);
+    // Note that the pNewGEP has only one index which is a sum. So it might be beneficcial to try to
+    // reassociate this sum and split this GEP into two GEPs.
+    ReassociateIndexSum(pNewGEP);
     return true;
   }
 

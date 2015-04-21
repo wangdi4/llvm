@@ -182,23 +182,26 @@ namespace intel {
     // Weights for different types of instructions
     // This is the baseline
     static const int DEFAULT_WEIGHT = 1;
+    static const int NOOP_WEIGHT = 0;
     // Binary operations weigh the same
     static const int BINARY_OP_WEIGHT = DEFAULT_WEIGHT;
     // TODO: Calls have uniform (heavy) weight, which is nonsense.
     // Replace with something that actually makes sense.
-    static const int CALL_WEIGHT = 20;
+    static const int CALL_WEIGHT = 25;
     static const int CALL_MASK_WEIGHT = 5;
+    // Broadcasts are effective and fast
+    static const int BROADCAST_WEIGHT = DEFAULT_WEIGHT;
     // Shuffles/Extracts/Inserts may be more expensive.
     static const int EXPENSIVE_SHUFFLE_WEIGHT = 5;
     static const int CHEAP_SHUFFLE_WEIGHT = 2;
     static const int EXPENSIVE_EXTRACT_WEIGHT = 2;
     static const int CHEAP_EXTRACT_WEIGHT = DEFAULT_WEIGHT;
-    static const int INSERT_WEIGHT = DEFAULT_WEIGHT;
+    static const int INSERT_WEIGHT = 3;
 
     // Memops are complicated.
-    static const int MEM_OP_WEIGHT = 4;
-    static const int CHEAP_MEMOP_WEIGHT = DEFAULT_WEIGHT;
-    static const int EXPENSIVE_MEMOP_WEIGHT = 16;
+    static const int MEM_OP_WEIGHT = 6;
+    static const int CHEAP_MEMOP_WEIGHT = 2;
+    static const int EXPENSIVE_MEMOP_WEIGHT = 30;
     // Conditional branches are potentially expensive...
     // misprediction penalty.
     static const int COND_BRANCH_WEIGHT = 4;

@@ -1665,6 +1665,7 @@ unsigned int ReadBinaryFileContents(const string& filePath, char** bufferPtr, un
         *bufferPtr = buffer;
         return size;
     }
+
     return 0;
 }
 

@@ -9,7 +9,7 @@ find_package(LLVM REQUIRED)
 
 set(TARGET_NAME ocl-tblgen)
 set(CLANG_BIN_PATH "${LLVM_BINARY_DIR}/clang")
-set(CLANG_INCLUDE_PATH "${BACKEND_ROOT_DIR}/clang_headers/")
+set(CLANG_INCLUDE_PATH "${CMAKE_SOURCE_DIR}/fe_compilers/common_clang/cl_headers/")
 
 add_definitions(
   -D CLANG_INCLUDE_PATH=${CLANG_INCLUDE_PATH}

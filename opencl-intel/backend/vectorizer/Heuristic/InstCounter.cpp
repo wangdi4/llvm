@@ -502,7 +502,7 @@ int WeightedInstCounter::estimateCall(CallInst *Call)
       return DEFAULT_WEIGHT;
 
     if (Mangler::isAllOne(Name))
-      return 0;
+      return NOOP_WEIGHT;
 
     // See if we can find the function in the function cost table
     return getFuncCost(Name);
@@ -580,8 +580,9 @@ int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instructi
     return estimateCall(called);
 
   // GEP and PHI nodes are free
+  // NOTE: In the GEP case this is it not entirelly true because it may result in LEA
   if (isa<GetElementPtrInst>(I) || isa<PHINode>(I) || isa<AllocaInst>(I) || isa<BitCastInst>(I))
-    return 0;
+    return NOOP_WEIGHT;
 
   // Shuffles/extracts/inserts are mostly representative
   // of transposes.
@@ -598,7 +599,7 @@ int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instructi
     // Check whether this shuffle is a part of a broadcast sequence.
     // If it is, the price is 0, since we already paid for the insert.
     if (isa<ConstantAggregateZero>(Mask))
-      return DEFAULT_WEIGHT;
+      return BROADCAST_WEIGHT;
 
     // A shuffle between different types won't be cheap, even if
     // the types are sensible. This should, amongst other things,
@@ -632,8 +633,24 @@ int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instructi
     return EXPENSIVE_EXTRACT_WEIGHT;
   }
 
-  if (isa<InsertElementInst>(I))
+  if (InsertElementInst * insertInst = dyn_cast<InsertElementInst>(I)) {
+    // Broadcast is a compound of two instructions and is way cheaper
+    // than an insert by itself.
+    // Example:
+    //   %ins = insertelement <8 x i32> undef, float %val, i32 0
+    //   %bro = shufflevector <8 x i32> %ins, <8 x i32> undef, <8 x i32> zeroinitializer
+    // So if this insert is a part of a broadcast then simply don't count it.
+    // The broadcast weight will be counted at ShuffleVectorInst.
+    if (insertInst->hasOneUse()) {
+      User * userInst = insertInst->use_back();
+      if(ShuffleVectorInst * shuffleInst = dyn_cast<ShuffleVectorInst>(userInst)) {
+        if (isa<ConstantAggregateZero>(shuffleInst->getMask()))
+           return NOOP_WEIGHT;
+      }
+    }
+
     return INSERT_WEIGHT;
+  }
 
 
   // We can't take spilling into account at this point, so counting loads
@@ -662,7 +679,7 @@ int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instructi
       if (CondCall && CondCall->getCalledFunction()) {
         StringRef Name = CondCall->getCalledFunction()->getName();
         if (Mangler::isAllOne(Name))
-          return 0;
+          return NOOP_WEIGHT;
       }
 
       return COND_BRANCH_WEIGHT;

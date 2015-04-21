@@ -308,9 +308,10 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
 OPENCL_VERSION Intel::OpenCL::Utils::GetOpenclVerByCpuModel()
 {
     const string sKmdDevId = GetRegistryKeyValue<string>("SOFTWARE\\Intel\\KMD", "DevId", std::string());
-    if ("BDW GT1 MOBILE ULT" == sKmdDevId)
+    if ("BDW GT1 MOBILE ULT" == sKmdDevId || "SKL GT1_5 ULT MOBILE F0" == sKmdDevId
+        || "SKL GT1_5 ULX MOBILE F0" == sKmdDevId || "SKL GT1_5 DESKTOP F0" == sKmdDevId)
     {
-        return OPENCL_VERSION_1_2;  // Broadwell GPU SKU GT1 supports OpenCL 1.2, so we have to be aligned with it
+        return OPENCL_VERSION_1_2;  // GPU SKUs Broadwell GT1 and Skylake GT1.5 support OpenCL 1.2, so we have to be aligned with it
     }
 
     int cpuInfo[4] = {-1};
