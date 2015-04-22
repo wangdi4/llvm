@@ -552,6 +552,9 @@ endif( ${CMAKE_SYSTEM_NAME} MATCHES SunOS )
 
 if(INTEL_CUSTOMIZATION)
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_CUSTOMIZATION=1")
+  if(INTEL_SPECIFIC_IL0_BACKEND)
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_IL0_BACKEND=1")
+  endif()
 endif()
 
 # Make sure we don't get -rdynamic in every binary. For those that need it,
@@ -600,13 +603,6 @@ foreach( binding ${LLVM_BINDINGS_LIST} )
     add_subdirectory(bindings/${binding})
   endif()
 endforeach()
-
-if(INTEL_CUSTOMIZATION)
-  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_CUSTOMIZATION=1")
-  if(INTEL_SPECIFIC_IL0_BACKEND)
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_IL0_BACKEND=1")
-  endif()
-endif()
 
 add_subdirectory(projects)
 
