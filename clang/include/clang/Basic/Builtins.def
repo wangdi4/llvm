@@ -676,7 +676,7 @@ BUILTIN(__atomic_signal_fence, "vi", "n")
 BUILTIN(__atomic_always_lock_free, "izvCD*", "n")
 BUILTIN(__atomic_is_lock_free, "izvCD*", "n")
 
-//#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_CUSTOMIZATION
 BUILTIN(__builtin_atand2l, "LdLdLd"  , "Fnc")
 BUILTIN(__builtin_atand2, "ddd"  , "Fnc")
 BUILTIN(__builtin_atand2f, "fff"  , "Fnc")
@@ -731,11 +731,11 @@ BUILTIN(__atomic_store_explicit_8, "vLLiD*LLii", "tn")
 BUILTIN(__atomic_store_explicit_16, "vLLLiD*LLLii", "tn")
 
 BUILTIN(__atomic_load_explicit, "v.", "t")
-BUILTIN(__atomic_load_explicit_1, "ccD*i", "tn")
-BUILTIN(__atomic_load_explicit_2, "ssD*i", "tn")
-BUILTIN(__atomic_load_explicit_4, "iiD*i", "tn")
-BUILTIN(__atomic_load_explicit_8, "LLiLLiD*i", "tn")
-BUILTIN(__atomic_load_explicit_16, "LLLiLLLiD*i", "tn")
+BUILTIN(__atomic_load_explicit_1, "ccCD*i", "tn")
+BUILTIN(__atomic_load_explicit_2, "ssCD*i", "tn")
+BUILTIN(__atomic_load_explicit_4, "iiCD*i", "tn")
+BUILTIN(__atomic_load_explicit_8, "LLiLLiCD*i", "tn")
+BUILTIN(__atomic_load_explicit_16, "LLLiLLLiCD*i", "tn")
 
 BUILTIN(__atomic_exchange_explicit, "v.", "t")
 BUILTIN(__atomic_exchange_explicit_1, "ccD*ci", "tn")
@@ -862,7 +862,7 @@ BUILTIN(__sec_reduce_mutating, "vi&iv*", "t")
 BUILTIN(__sec_implicit_index, "ii", "t")
 
 BUILTIN(__assume_aligned, "v.", "tn")
-//#endif  // INTEL_CUSTOMIZATION
+#endif  // INTEL_CUSTOMIZATION
 
 #undef ATOMIC_BUILTIN
 
@@ -881,7 +881,7 @@ BUILTIN(__builtin_rindex, "c*cC*i", "Fn")
 
 // Microsoft builtins.  These are only active with -fms-extensions.
 LANGBUILTIN(_alloca,          "v*z", "n", ALL_MS_LANGUAGES)
-#if INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
 // CQ#368488 - builtins fixes for iclang.
 BUILTIN(__assume,     "vb",  "n")
 BUILTIN(__debugbreak, "v",   "n")
@@ -902,7 +902,7 @@ LANGBUILTIN(_InterlockedExchangeAdd,     "LiLiD*Li",   "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedExchange,        "LiLiD*Li",   "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedExchangePointer, "v*v*D*v*",   "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedIncrement,       "LiLiD*",     "n", ALL_MS_LANGUAGES)
-#if INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
 // CQ#368488 - builtins fixes for iclang.
 BUILTIN(__noop,       "i.",  "n")
 #else

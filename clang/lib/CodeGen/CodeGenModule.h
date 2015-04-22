@@ -935,12 +935,12 @@ public:
                        llvm::FunctionType *FnType = nullptr,
                        bool DontDefer = false);
 
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   /// getBuiltinIntelLibFunction - Given a builtin id for a function like
   /// "__apply_args", return a Function* for "__apply_args".
   llvm::Value *getBuiltinIntelLibFunction(const FunctionDecl *FD,
                                           unsigned BuiltinID);
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   /// Given a builtin id for a function like "__builtin_fabsf", return a
   /// Function* for "fabsf".
   llvm::Value *getBuiltinLibFunction(const FunctionDecl *FD,
