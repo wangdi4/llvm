@@ -8921,6 +8921,29 @@ static bool CheckForModifiableLvalue(Expr *E, SourceLocation Loc, Sema &S) {
     NeedType = true;
     break;
   case Expr::MLV_LValueCast:
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#366312 - enable an extension that allows casts of lvalues to be used
+    // as lvalues, as long as the size of the object is not lengthened through
+    // the cast.
+    if (S.getLangOpts().IntelCompat)
+      if (auto *CE = dyn_cast<ExplicitCastExpr>(E->IgnoreParens()))
+        if (auto *SubExpr = CE->getSubExpr()->IgnoreParenCasts()) {
+          QualType FromType = SubExpr->getType();
+          QualType ToType = CE->getTypeAsWritten();
+          uint64_t SizeBefore = S.Context.getTypeSize(FromType);
+          uint64_t SizeAfter = S.Context.getTypeSize(ToType);
+          // Emit an extension warning only if the size of the object is not
+          // lengthened through the cast. Emit a default error otherwise.
+          if (SizeAfter <= SizeBefore) {
+            SourceRange AssignSourceRange = SourceRange(OrigLoc, OrigLoc);
+            S.Diag(Loc, diag::ext_intel_lvalue_cast_not_lengthened)
+                << E->getSourceRange() << AssignSourceRange;
+            // Set ValueKind of this lvalue cast to its SubExpr's ValueKind.
+            E->setValueKind(SubExpr->getValueKind());
+            return false;
+          }
+        }
+#endif // INTEL_CUSTOMIZATION
     DiagID = diag::err_typecheck_lvalue_casts_not_supported;
     break;
   case Expr::MLV_Valid:

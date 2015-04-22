@@ -6035,6 +6035,12 @@ def err_typecheck_incomplete_type_not_modifiable_lvalue : Error<
   "incomplete type %0 is not assignable">;
 def err_typecheck_lvalue_casts_not_supported : Error<
   "assignment to cast is illegal, lvalue casts are not supported">;
+// CQ#366312
+// if INTEL_CUSTOMIZATION
+def ext_intel_lvalue_cast_not_lengthened: ExtWarn<
+  "assignment to lvalue cast that does not lengthen the size of "
+  "an object is an Intel Extension">, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 
 def err_typecheck_duplicate_vector_components_not_mlvalue : Error<
   "vector is not assignable (contains duplicate components)">;

@@ -3018,6 +3018,27 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
   case CK_ARCExtendBlockObject:
   case CK_CopyAndAutoreleaseBlockObject:
   case CK_AddressSpaceConversion:
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#366312 - enable an extension that allows casts of lvalues to
+    // be used as lvalues, as long as the size of the object is not lengthened
+    // through the cast.
+    if (getLangOpts().IntelCompat)
+      if (auto *SubExpr = E->getSubExpr()->IgnoreParenCasts()) {
+        QualType FromType = SubExpr->getType();
+        QualType ToType = E->getType();
+        if (auto *CE = dyn_cast<ExplicitCastExpr>(E->IgnoreParens()))
+          ToType = CE->getTypeAsWritten();
+        uint64_t SizeBefore = getContext().getTypeSize(FromType);
+        uint64_t SizeAfter = getContext().getTypeSize(ToType);
+        // Mimic ICC's behaviour by pointer cast from *FromType to *ToType.
+        if (SizeAfter <= SizeBefore) {
+          LValue LV = EmitLValue(SubExpr);
+          llvm::Type *DesTy = ConvertType(ToType)->getPointerTo();
+          llvm::Value *V = Builder.CreatePointerCast(LV.getAddress(), DesTy);
+          return MakeNaturalAlignAddrLValue(V, E->getType());
+        }
+      }
+#endif // INTEL_CUSTOMIZATION
     return EmitUnsupportedLValue(E, "unexpected cast lvalue");
 
   case CK_Dependent:
