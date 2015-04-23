@@ -229,60 +229,80 @@ static unsigned ComputeSpeculationCost(const User *I, const DataLayout *DL,
          "Instruction is not safe to speculatively execute!");
   return TTI.getUserCost(I);
 }
-/// DominatesMergePoint - If we have a merge point of an "if condition" as
-/// accepted above, return true if the specified value dominates the block.  We
-/// don't handle the true generality of domination here, just a special case
-/// which works well enough for us.
+
+#if INTEL_CUSTOMIZATION
+/// CanDominateConditionalBranch is an Intel customized routine that
+/// replaces the LLVM open source routine called DominatesMergePoint.
+/// There are no functionality changes.  The only changes are the name
+/// of the routine and small changes in the comments. We changed the
+/// name because the original name (DominatesMergePoint) did not make
+/// sense since here we are checking whether a value dominates a
+/// conditional branch not a conditional merge point.
+/// To keep xmain as clean as possible we got rid of the original
+/// routine(DominatesMergePoint()). Any changes made by the LLVM community
+/// to DominatesMergePoint needs to be incorporated into this routine
+/// (CanDominateConditionalBranch). There might be conflicts during code
+/// merge and if resolving these conflicts becomes too cumbersome, we can
+/// try something different.
+
+/// CanDominateConditionalBranch - If we have a merge point of an
+/// "if condition" as accepted by GetIfConditon(), return true if the
+/// specified value dominates or can dominate the conditional branch.
 ///
-/// If AggressiveInsts is non-null, and if V does not dominate BB, we check to
-/// see if V (which must be an instruction) and its recursive operands
-/// that do not dominate BB have a combined cost lower than CostRemaining and
-/// are non-trapping.  If both are true, the instruction is inserted into the
+/// If AggressiveInsts is non-null, and if V does not dominate conditional
+/// branch (which means they are defined in the conditional part),
+/// we check to see if V (which must be an instruction) and its recursive
+/// operands have a combined cost lower than CostRemaining and are
+/// non-trapping.  If both are true, the instruction is inserted into the
 /// set and true is returned.
 ///
 /// The cost for most non-trapping instructions is defined as 1 except for
 /// Select whose cost is 2.
 ///
 /// After this function returns, CostRemaining is decreased by the cost of
-/// V plus its non-dominating operands.  If that cost is greater than
+/// V plus its unavailable operands.  If that cost is greater than
 /// CostRemaining, false is returned and CostRemaining is undefined.
-static bool DominatesMergePoint(Value *V, BasicBlock *BB,
-                                SmallPtrSetImpl<Instruction*> *AggressiveInsts,
-                                unsigned &CostRemaining,
-                                const DataLayout *DL,
-                                const TargetTransformInfo &TTI) {
+static bool
+CanDominateConditionalBranch(Value *V, BasicBlock *BB,
+                             SmallPtrSetImpl<Instruction *> *AggressiveInsts,
+                             unsigned &CostRemaining, const DataLayout *DL,
+                             const TargetTransformInfo &TTI) {
   Instruction *I = dyn_cast<Instruction>(V);
   if (!I) {
-    // Non-instructions all dominate instructions, but not all constantexprs
+    // Non-instructions dominate all instructions , but not all constantexprs
     // can be executed unconditionally.
     if (ConstantExpr *C = dyn_cast<ConstantExpr>(V))
       if (C->canTrap())
         return false;
     return true;
   }
-  BasicBlock *PBB = I->getParent();
 
+  BasicBlock *PBB = I->getParent();
   // We don't want to allow weird loops that might have the "if condition" in
   // the bottom of this block.
-  if (PBB == BB) return false;
+  if (PBB == BB)
+    return false;
 
   // If this instruction is defined in a block that contains an unconditional
   // branch to BB, then it must be in the 'conditional' part of the "if
-  // statement".  If not, it definitely dominates the region.
+  // statement".  If not, it is definitely available in the conditional block.
   BranchInst *BI = dyn_cast<BranchInst>(PBB->getTerminator());
   if (!BI || BI->isConditional() || BI->getSuccessor(0) != BB)
     return true;
 
   // If we aren't allowing aggressive promotion anymore, then don't consider
   // instructions in the 'if region'.
-  if (!AggressiveInsts) return false;
+  if (!AggressiveInsts)
+    return false;
 
   // If we have seen this instruction before, don't count it again.
-  if (AggressiveInsts->count(I)) return true;
+  if (AggressiveInsts->count(I))
+    return true;
 
   // Okay, it looks like the instruction IS in the "condition".  Check to
-  // see if it's a cheap instruction to unconditionally compute, and if it
-  // only uses stuff defined outside of the condition.  If so, hoist it out.
+  // see if it's a cheap and safe instruction to unconditionally compute, and
+  // if it only uses stuff defined outside of the condition.  If so, hoist it
+  // out.
   if (!isSafeToSpeculativelyExecute(I, DL))
     return false;
 
@@ -296,12 +316,15 @@ static bool DominatesMergePoint(Value *V, BasicBlock *BB,
   // Okay, we can only really hoist these out if their operands do
   // not take us over the cost threshold.
   for (User::op_iterator i = I->op_begin(), e = I->op_end(); i != e; ++i)
-    if (!DominatesMergePoint(*i, BB, AggressiveInsts, CostRemaining, DL, TTI))
+    if (!CanDominateConditionalBranch(*i, BB,
+                                      AggressiveInsts, CostRemaining, DL, TTI)) {
       return false;
+    }
   // Okay, it's safe to do this!  Remember this instruction.
   AggressiveInsts->insert(I);
   return true;
 }
+#endif //INTEL_CUSTOMIZATION
 
 /// GetConstantInt - Extract ConstantInt from value, looking through IntToPtr
 /// and PointerNullValue. Return NULL if value is not a constant int.
@@ -1784,144 +1807,226 @@ static bool FoldCondBranchOnPHI(BranchInst *BI, const DataLayout *DL) {
   return false;
 }
 
-/// FoldTwoEntryPHINode - Given a BB that starts with the specified two-entry
-/// PHI node, see if we can eliminate it.
-static bool FoldTwoEntryPHINode(PHINode *PN, const DataLayout *DL,
-                                const TargetTransformInfo &TTI) {
-  // Ok, this is a two entry PHI node.  Check to see if this is a simple "if
-  // statement", which has a very simple dominance structure.  Basically, we
-  // are trying to find the condition that is being branched on, which
-  // subsequently causes this merge to happen.  We really want control
-  // dependence information for this check, but simplifycfg can't keep it up
-  // to date, and this catches most of the cases we care about anyway.
+#if INTEL_CUSTOMIZATION
+/// FoldPHIEntries is a generalized replacement (by Intel) for the
+/// LLVM open source routine called FoldTwoEntryPHINode(that folds
+/// a two-entry phinode into "select") which is capable of handling
+/// any number of phi entries. It iteratively transforms each
+/// conditional into "select".
+/// To keep xmain as clean as possible, we got rid of the
+/// FoldTwoEntryPHINode. Any changes (one such change could be to the
+/// cost model) made by the LLVM community to FoldTwoEntryPHINode will
+/// need to be incorporated into this routine (FoldPHIEntries). There
+/// might be conflicts during code merge, and if resolving conflicts
+/// becomes too cumbersome, we can try something different.
+
+/// FoldPHIEntries - Given a BB that starts with the specified PHI node,
+/// see if we can fold the phi node or some of its entries.
+static bool FoldPHIEntries(PHINode *PN, const DataLayout *DL,
+                           const TargetTransformInfo &TTI) {
   BasicBlock *BB = PN->getParent();
-  BasicBlock *IfTrue, *IfFalse;
-  Value *IfCond = GetIfCondition(BB, IfTrue, IfFalse);
-  if (!IfCond ||
-      // Don't bother if the branch will be constant folded trivially.
-      isa<ConstantInt>(IfCond))
-    return false;
+  bool Changed = false;
 
-  // Okay, we found that we can merge this two-entry phi node into a select.
-  // Doing so would require us to fold *all* two entry phi nodes in this block.
-  // At some point this becomes non-profitable (particularly if the target
-  // doesn't support cmov's).  Only do this transformation if there are two or
-  // fewer PHI nodes in this block.
-  unsigned NumPhis = 0;
-  for (BasicBlock::iterator I = BB->begin(); isa<PHINode>(I); ++NumPhis, ++I)
-    if (NumPhis > 2)
-      return false;
+  // This could be a multiple entry PHI node. Try to fold each pair of entries
+  // that leads to an "if condition".  Traverse through the predecessor list of
+  // BB (where each predecessor corresponds to an entry in the PN) to look for
+  // each if-condition.
+  SmallVector<BasicBlock *, 16> BBPreds(pred_begin(BB), pred_end(BB));
+  for (unsigned i = 0, e = BBPreds.size(); i != e; ++i) {
+    BasicBlock *Pred = BBPreds[i];
 
-  // Loop over the PHI's seeing if we can promote them all to select
-  // instructions.  While we are at it, keep track of the instructions
-  // that need to be moved to the dominating block.
-  SmallPtrSet<Instruction*, 4> AggressiveInsts;
-  unsigned MaxCostVal0 = PHINodeFoldingThreshold,
-           MaxCostVal1 = PHINodeFoldingThreshold;
-  MaxCostVal0 *= TargetTransformInfo::TCC_Basic;
-  MaxCostVal1 *= TargetTransformInfo::TCC_Basic;
+    BasicBlock *IfTrue = nullptr, *IfFalse = nullptr;
+    Value *IfCond = GetIfCondition(BB, Pred, IfTrue, IfFalse);
 
-  for (BasicBlock::iterator II = BB->begin(); isa<PHINode>(II);) {
-    PHINode *PN = cast<PHINode>(II++);
-    if (Value *V = SimplifyInstruction(PN, DL)) {
-      PN->replaceAllUsesWith(V);
-      PN->eraseFromParent();
+    if (!IfCond ||
+        // Don't bother if the branch will be constant folded trivially.
+        isa<ConstantInt>(IfCond)) {
+      // continue to look for next "if condition".
       continue;
     }
 
-    if (!DominatesMergePoint(PN->getIncomingValue(0), BB, &AggressiveInsts,
-                             MaxCostVal0, DL, TTI) ||
-        !DominatesMergePoint(PN->getIncomingValue(1), BB, &AggressiveInsts,
-                             MaxCostVal1, DL, TTI))
-      return false;
-  }
+    // Loop over the PHI's seeing if we can promote them all to select
+    // instructions.  While we are at it, keep track of the instructions
+    // that need to be moved to the conditional block.
+    SmallPtrSet<Instruction *, 4> AggressiveInsts;
+    unsigned MaxCostVal0 = PHINodeFoldingThreshold,
+             MaxCostVal1 = PHINodeFoldingThreshold;
+    MaxCostVal0 *= TargetTransformInfo::TCC_Basic;
+    MaxCostVal1 *= TargetTransformInfo::TCC_Basic;
 
-  // If we folded the first phi, PN dangles at this point.  Refresh it.  If
-  // we ran out of PHIs then we simplified them all.
-  PN = dyn_cast<PHINode>(BB->begin());
-  if (!PN) return true;
+    bool CanBeSimplified = true;
+    unsigned NumPhis = 0;
 
-  // Don't fold i1 branches on PHIs which contain binary operators.  These can
-  // often be turned into switches and other things.
-  if (PN->getType()->isIntegerTy(1) &&
-      (isa<BinaryOperator>(PN->getIncomingValue(0)) ||
-       isa<BinaryOperator>(PN->getIncomingValue(1)) ||
-       isa<BinaryOperator>(IfCond)))
-    return false;
-
-  // If we all PHI nodes are promotable, check to make sure that all
-  // instructions in the predecessor blocks can be promoted as well.  If
-  // not, we won't be able to get rid of the control flow, so it's not
-  // worth promoting to select instructions.
-  BasicBlock *DomBlock = nullptr;
-  BasicBlock *IfBlock1 = PN->getIncomingBlock(0);
-  BasicBlock *IfBlock2 = PN->getIncomingBlock(1);
-  if (cast<BranchInst>(IfBlock1->getTerminator())->isConditional()) {
-    IfBlock1 = nullptr;
-  } else {
-    DomBlock = *pred_begin(IfBlock1);
-    for (BasicBlock::iterator I = IfBlock1->begin();!isa<TerminatorInst>(I);++I)
-      if (!AggressiveInsts.count(I) && !isa<DbgInfoIntrinsic>(I)) {
-        // This is not an aggressive instruction that we can promote.
-        // Because of this, we won't be able to get rid of the control
-        // flow, so the xform is not worth it.
-        return false;
+    for (BasicBlock::iterator II = BB->begin(); isa<PHINode>(II);) {
+      PHINode *PN = cast<PHINode>(II++);
+      if (Value *V = SimplifyInstruction(PN, DL)) {
+        PN->replaceAllUsesWith(V);
+        PN->eraseFromParent();
+        continue;
       }
-  }
 
-  if (cast<BranchInst>(IfBlock2->getTerminator())->isConditional()) {
-    IfBlock2 = nullptr;
-  } else {
-    DomBlock = *pred_begin(IfBlock2);
-    for (BasicBlock::iterator I = IfBlock2->begin();!isa<TerminatorInst>(I);++I)
-      if (!AggressiveInsts.count(I) && !isa<DbgInfoIntrinsic>(I)) {
-        // This is not an aggressive instruction that we can promote.
-        // Because of this, we won't be able to get rid of the control
-        // flow, so the xform is not worth it.
-        return false;
+      Value *TrueVal = PN->getIncomingValueForBlock(IfTrue);
+      Value *FalseVal = PN->getIncomingValueForBlock(IfFalse);
+
+      if (TrueVal != FalseVal) {
+        if (!CanDominateConditionalBranch(TrueVal, BB, &AggressiveInsts,
+                                          MaxCostVal0, DL, TTI) ||
+            !CanDominateConditionalBranch(FalseVal, BB, &AggressiveInsts,
+                                          MaxCostVal1, DL, TTI)) {
+          CanBeSimplified = false;
+          break;
+        }
+        NumPhis++;
       }
+    }
+
+    if (!CanBeSimplified) {
+      // Continue to look for next "if condition".
+      continue;
+    }
+
+    // If we fold these two entries of the phi node into a select,
+    // doing so would require us to fold *all* correspondent entries in other
+    // phi nodes in this block.  At some point this becomes non-profitable
+    // (particularly if the target doesn't support cmov's). Only do this
+    // transformation if there are two or fewer PHI nodes in this block.
+    if (NumPhis > 2) {
+      continue;
+    }
+
+    // If we folded the first phi, PN dangles at this point.  Refresh it.  If
+    // we ran out of PHIs then we simplified them all.
+    PN = dyn_cast<PHINode>(BB->begin());
+    if (!PN) {
+      return true;
+    }
+
+    Value *TrueVal = PN->getIncomingValueForBlock(IfTrue);
+    Value *FalseVal = PN->getIncomingValueForBlock(IfFalse);
+
+    // Don't fold i1 branches on PHIs which contain binary operators. These
+    // can often be turned into switches and other things.
+    if (PN->getType()->isIntegerTy(1) &&
+        (isa<BinaryOperator>(TrueVal) || isa<BinaryOperator>(FalseVal) ||
+         isa<BinaryOperator>(IfCond))) {
+      // Continue to look for next "if condition".
+      continue;
+    }
+
+    // If all PHI nodes are promotable, check to make sure that all
+    // instructions in the selected predecessor blocks can be promoted as well.
+    // If not, we won't be able to get rid of the control flow, so it's not
+    // worth promoting to select instructions.
+    BasicBlock *CondBlock = nullptr;
+    BasicBlock *IfBlock1 = IfTrue;
+    BasicBlock *IfBlock2 = IfFalse;
+
+    if (cast<BranchInst>(IfBlock1->getTerminator())->isConditional()) {
+      IfBlock1 = nullptr;
+    } else {
+      CondBlock = *pred_begin(IfBlock1);
+      for (BasicBlock::iterator I = IfBlock1->begin(); !isa<TerminatorInst>(I);
+           ++I) {
+        if (!AggressiveInsts.count(I) && !isa<DbgInfoIntrinsic>(I)) {
+          // This is not an aggressive instruction that we can promote.
+          // Because of this, we won't be able to get rid of the control
+          // flow, so the xform is not worth it.
+          CanBeSimplified = false;
+          break;
+        }
+      }
+    }
+    if (!CanBeSimplified) {
+      // Continue to look for next "if condition".
+      continue;
+    }
+
+    if (cast<BranchInst>(IfBlock2->getTerminator())->isConditional()) {
+      IfBlock2 = nullptr;
+    } else {
+      CondBlock = *pred_begin(IfBlock2);
+      for (BasicBlock::iterator I = IfBlock2->begin(); !isa<TerminatorInst>(I);
+           ++I) {
+        if (!AggressiveInsts.count(I) && !isa<DbgInfoIntrinsic>(I)) {
+          // This is not an aggressive instruction that we can promote.
+          // Because of this, we won't be able to get rid of the control
+          // flow, so the xform is not worth it.
+          CanBeSimplified = false;
+          break;
+        }
+      }
+    }
+
+    if (!CanBeSimplified) {
+      // Continue to look for next "if condition".
+      continue;
+    }
+
+    DEBUG(dbgs() << "FOUND IF CONDITION!  " << *IfCond << "  T: "
+                 << IfTrue->getName() << "  F: " << IfFalse->getName() << "\n");
+
+    // If we can still promote the PHI nodes after this gauntlet of tests,
+    // do all of the PHI's now.
+    Instruction *InsertPt = CondBlock->getTerminator();
+    IRBuilder<true, NoFolder> Builder(InsertPt);
+
+    // Move all 'aggressive' instructions, which are defined in the
+    // conditional parts of the if's to the conditional block.
+    if (IfBlock1) {
+      CondBlock->getInstList().splice(InsertPt, IfBlock1->getInstList(),
+                                      IfBlock1->begin(),
+                                      IfBlock1->getTerminator());
+    }
+    if (IfBlock2) {
+      CondBlock->getInstList().splice(InsertPt, IfBlock2->getInstList(),
+                                      IfBlock2->begin(),
+                                      IfBlock2->getTerminator());
+    }
+
+    for (BasicBlock::iterator II = BB->begin(); isa<PHINode>(II);) {
+      PHINode *PN = cast<PHINode>(II++);
+
+      Value *TrueVal = PN->getIncomingValueForBlock(IfTrue);
+      Value *FalseVal = PN->getIncomingValueForBlock(IfFalse);
+
+      if (TrueVal != FalseVal) {
+        SelectInst *NV =
+          cast<SelectInst>(Builder.CreateSelect(IfCond, TrueVal, FalseVal, ""));
+
+        for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i) {
+          if (PN->getIncomingBlock(i) == IfTrue ||
+            PN->getIncomingBlock(i) == IfFalse) {
+            PN->setIncomingValue(i, NV);
+          }
+        }
+      
+        // If we added a branch from CondBlock to BB after inserting the "select"
+        // into CondBlock add an entry for CondBlock.
+        if (IfTrue != CondBlock && IfFalse != CondBlock) {
+          PN->addIncoming(NV, CondBlock);
+        }
+      }
+      else {
+        if (IfTrue != CondBlock && IfFalse != CondBlock) {
+          PN->addIncoming(TrueVal, CondBlock);
+        }
+      }
+    }
+
+    // At this point, IfBlock1 and IfBlock2 are both empty, so our if
+    // statement has been flattened.  Change CondBlock to jump directly to BB
+    // to avoid other simplifycfg's kicking in on the diamond.
+    TerminatorInst *OldTI = CondBlock->getTerminator();
+    Builder.SetInsertPoint(OldTI);
+    Builder.CreateBr(BB);
+    OldTI->eraseFromParent();
+
+    Changed = true;
   }
 
-  DEBUG(dbgs() << "FOUND IF CONDITION!  " << *IfCond << "  T: "
-               << IfTrue->getName() << "  F: " << IfFalse->getName() << "\n");
-
-  // If we can still promote the PHI nodes after this gauntlet of tests,
-  // do all of the PHI's now.
-  Instruction *InsertPt = DomBlock->getTerminator();
-  IRBuilder<true, NoFolder> Builder(InsertPt);
-
-  // Move all 'aggressive' instructions, which are defined in the
-  // conditional parts of the if's up to the dominating block.
-  if (IfBlock1)
-    DomBlock->getInstList().splice(InsertPt,
-                                   IfBlock1->getInstList(), IfBlock1->begin(),
-                                   IfBlock1->getTerminator());
-  if (IfBlock2)
-    DomBlock->getInstList().splice(InsertPt,
-                                   IfBlock2->getInstList(), IfBlock2->begin(),
-                                   IfBlock2->getTerminator());
-
-  while (PHINode *PN = dyn_cast<PHINode>(BB->begin())) {
-    // Change the PHI node into a select instruction.
-    Value *TrueVal  = PN->getIncomingValue(PN->getIncomingBlock(0) == IfFalse);
-    Value *FalseVal = PN->getIncomingValue(PN->getIncomingBlock(0) == IfTrue);
-
-    SelectInst *NV =
-      cast<SelectInst>(Builder.CreateSelect(IfCond, TrueVal, FalseVal, ""));
-    PN->replaceAllUsesWith(NV);
-    NV->takeName(PN);
-    PN->eraseFromParent();
-  }
-
-  // At this point, IfBlock1 and IfBlock2 are both empty, so our if statement
-  // has been flattened.  Change DomBlock to jump directly to our new block to
-  // avoid other simplifycfg's kicking in on the diamond.
-  TerminatorInst *OldTI = DomBlock->getTerminator();
-  Builder.SetInsertPoint(OldTI);
-  Builder.CreateBr(BB);
-  OldTI->eraseFromParent();
-  return true;
+  return Changed;
 }
+#endif //INTEL_CUSTOMIZATION
 
 /// SimplifyCondBranchToTwoReturns - If we found a conditional branch that goes
 /// to two returning blocks, try to merge them together into one return,
@@ -4587,11 +4692,23 @@ bool SimplifyCFGOpt::run(BasicBlock *BB) {
 
   IRBuilder<> Builder(BB);
 
-  // If there is a trivial two-entry PHI node in this basic block, and we can
-  // eliminate it, do so now.
-  if (PHINode *PN = dyn_cast<PHINode>(BB->begin()))
-    if (PN->getNumIncomingValues() == 2)
-      Changed |= FoldTwoEntryPHINode(PN, DL, TTI);
+  // If there is a PHI node in this basic block, and we can
+  // eliminate some of its entries, do so now.
+  if (PHINode *PN = dyn_cast<PHINode>(BB->begin())) {
+#if INTEL_CUSTOMIZATION
+    // FoldPHIEntries is an Intel customized generalized version of the LLVM open source
+    // routine called FoldTwoEntryPHINode(that folds a two-entry
+    // phinode into "select") which is capable of handling any number
+    // of phi entries. It iteratively transforms each conditional into
+    // "select". Any changes (one such change could be regarding cost model)
+    // made by the LLVM community to FoldTwoEntryPHINode will need to be
+    // incorporated to this routine (FoldPHIEntries).
+    // To keep xmain as clean as possible we got rid of the FoldTwoEntryPHINode,
+    // therefore, there might be conflicts during code merge. If resolving
+    // conflicts becomes too cumbersome, we can try something different.
+    Changed |= FoldPHIEntries(PN, DL, TTI);
+#endif
+  }
 
   Builder.SetInsertPoint(BB->getTerminator());
   if (BranchInst *BI = dyn_cast<BranchInst>(BB->getTerminator())) {

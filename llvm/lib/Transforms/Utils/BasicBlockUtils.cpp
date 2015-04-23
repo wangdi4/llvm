@@ -768,6 +768,21 @@ void llvm::SplitBlockAndInsertIfThenElse(Value *Cond, Instruction *SplitBefore,
   ReplaceInstWithInst(HeadOldTerm, HeadNewTerm);
 }
 
+#if INTEL_CUSTOMIZATION
+/// GetIfCondition(BasicBlock *, BasicBlock *&, BasicBlock *&, BasicBlock *)
+/// is an Intel customized routine that overloads the more limited
+/// GetIfCondition(BasicBlock *, BasicBlock *&, BasicBlock *&) LLVM
+/// open-source routine. This function has been more generalized so that the
+/// BB can have more than two predecessors. In addition,
+/// GetIfCondition(BasicBlock *, BasicBlock *&, BasicBlock *&) has been replaced
+/// with an Intel customized version.  This version has the same prototype but
+/// internally uses the more generalized
+/// GetIfCondition(BasicBlock *, BasicBlock *&, BasicBlock *&, BasicBlock *)
+/// Any changes made by the LLVM community to
+/// GetIfCondition(BasicBlock *, BasicBlock *&, BasicBlock *&) will need to be
+/// incorporated into these two routines. There might be conflicts
+/// during code merge and if resolving conflicts becomes too cumbersome,
+/// we can try something different.
 
 /// GetIfCondition - Given a basic block (BB) with two predecessors,
 /// check to see if the merge at this block is due
@@ -776,19 +791,18 @@ void llvm::SplitBlockAndInsertIfThenElse(Value *Cond, Instruction *SplitBefore,
 /// that will be entered from if the condition is true, and the block that will
 /// be entered if the condition is false.
 ///
-/// This does no checking to see if the true/false blocks have large or unsavory
-/// instructions in them.
+/// This does no checking to see if the true/false blocks have large or
+/// unsavory instructions in them.
 Value *llvm::GetIfCondition(BasicBlock *BB, BasicBlock *&IfTrue,
-                             BasicBlock *&IfFalse) {
+                            BasicBlock *&IfFalse) {
   PHINode *SomePHI = dyn_cast<PHINode>(BB->begin());
   BasicBlock *Pred1 = nullptr;
-  BasicBlock *Pred2 = nullptr;
 
   if (SomePHI) {
-    if (SomePHI->getNumIncomingValues() != 2)
+    if (SomePHI->getNumIncomingValues() != 2) {
       return nullptr;
+    }
     Pred1 = SomePHI->getIncomingBlock(0);
-    Pred2 = SomePHI->getIncomingBlock(1);
   } else {
     pred_iterator PI = pred_begin(BB), PE = pred_end(BB);
     if (PI == PE) // No predecessor
@@ -796,76 +810,105 @@ Value *llvm::GetIfCondition(BasicBlock *BB, BasicBlock *&IfTrue,
     Pred1 = *PI++;
     if (PI == PE) // Only one predecessor
       return nullptr;
-    Pred2 = *PI++;
+    *PI++;
     if (PI != PE) // More than two predecessors
       return nullptr;
   }
 
+  // Call the general version of GetIfCondition(..) here that
+  // does not limit basicblock to have only two predecessors.
+  return GetIfCondition(BB, Pred1, IfTrue, IfFalse);
+}
+
+/// GetIfCondition - Given a basic block (BB) and its predecessor (Pred),
+/// (does not have to be an immediate predecessor) check to see if the merge at
+/// BB is due to an "if condition" that is post-dominated by BB and Pred is
+/// either the conditional block or the block that is taken if the condition is
+/// true or false.  If so, return the boolean condition that determines which
+/// entry into BB will be taken.  Also, return by references the block that
+/// will be entered from if the condition is true, and the block that will be
+/// entered from if the condition is false.
+///
+/// This does no checking to see if the true/false blocks have large or
+/// unsavory instructions in them.
+Value *llvm::GetIfCondition(BasicBlock *BB, BasicBlock *Pred,
+                            BasicBlock *&IfTrue, BasicBlock *&IfFalse) {
+  BranchInst *PredBr = dyn_cast<BranchInst>(Pred->getTerminator());
+  BasicBlock *CommonPred = nullptr;
+  BranchInst *CommonPredBr = nullptr;
+
   // We can only handle branches.  Other control flow will be lowered to
   // branches if possible anyway.
-  BranchInst *Pred1Br = dyn_cast<BranchInst>(Pred1->getTerminator());
-  BranchInst *Pred2Br = dyn_cast<BranchInst>(Pred2->getTerminator());
-  if (!Pred1Br || !Pred2Br)
+  if (!PredBr) {
     return nullptr;
-
-  // Eliminate code duplication by ensuring that Pred1Br is conditional if
-  // either are.
-  if (Pred2Br->isConditional()) {
-    // If both branches are conditional, we don't have an "if statement".  In
-    // reality, we could transform this case, but since the condition will be
-    // required anyway, we stand no chance of eliminating it, so the xform is
-    // probably not profitable.
-    if (Pred1Br->isConditional())
-      return nullptr;
-
-    std::swap(Pred1, Pred2);
-    std::swap(Pred1Br, Pred2Br);
   }
 
-  if (Pred1Br->isConditional()) {
-    // The only thing we have to watch out for here is to make sure that Pred2
-    // doesn't have incoming edges from other blocks.  If it does, the condition
-    // doesn't dominate BB.
-    if (!Pred2->getSinglePredecessor())
-      return nullptr;
-
-    // If we found a conditional branch predecessor, make sure that it branches
-    // to BB and Pred2Br.  If it doesn't, this isn't an "if statement".
-    if (Pred1Br->getSuccessor(0) == BB &&
-        Pred1Br->getSuccessor(1) == Pred2) {
-      IfTrue = Pred1;
-      IfFalse = Pred2;
-    } else if (Pred1Br->getSuccessor(0) == Pred2 &&
-               Pred1Br->getSuccessor(1) == BB) {
-      IfTrue = Pred2;
-      IfFalse = Pred1;
-    } else {
-      // We know that one arm of the conditional goes to BB, so the other must
-      // go somewhere unrelated, and this must not be an "if statement".
+  if (PredBr->isUnconditional()) {
+    // The branch from this predecessor is unconditional. Let's look for
+    // its predecessor which could be our conditional block.
+    CommonPred = Pred->getSinglePredecessor();
+    if (!CommonPred) {
       return nullptr;
     }
 
-    return Pred1Br->getCondition();
-  }
-
-  // Ok, if we got here, both predecessors end with an unconditional branch to
-  // BB.  Don't panic!  If both blocks only have a single (identical)
-  // predecessor, and THAT is a conditional branch, then we're all ok!
-  BasicBlock *CommonPred = Pred1->getSinglePredecessor();
-  if (CommonPred == nullptr || CommonPred != Pred2->getSinglePredecessor())
-    return nullptr;
-
-  // Otherwise, if this is a conditional branch, then we can use it!
-  BranchInst *BI = dyn_cast<BranchInst>(CommonPred->getTerminator());
-  if (!BI) return nullptr;
-
-  assert(BI->isConditional() && "Two successors but not conditional?");
-  if (BI->getSuccessor(0) == Pred1) {
-    IfTrue = Pred1;
-    IfFalse = Pred2;
+    CommonPredBr = dyn_cast<BranchInst>(CommonPred->getTerminator());
+    // If CommonPred does not have conditional branches, we don't have
+    // an "if statement".
+    if (!CommonPredBr || CommonPredBr->isUnconditional()) {
+      return nullptr;
+    }
   } else {
-    IfTrue = Pred2;
-    IfFalse = Pred1;
+    CommonPred = Pred;
+    CommonPredBr = PredBr;
   }
-  return BI->getCondition();
+
+  BasicBlock *Succ1 = CommonPredBr->getSuccessor(0);
+  BasicBlock *Succ2 = CommonPredBr->getSuccessor(1);
+  BranchInst *Succ1Br = dyn_cast<BranchInst>(Succ1->getTerminator());
+  BranchInst *Succ2Br = dyn_cast<BranchInst>(Succ2->getTerminator());
+
+  if (Succ1 != BB && Succ2 != BB) {
+    if (!Succ1Br || !Succ2Br) {
+       return nullptr;
+    }
+    // Ok, if we got here, none of the branches from the conditional block
+    // goes to BB.
+    // Don't panic!  If both successors only have a single (identical)
+    // predecessor, and only branch to BB, then we're all ok!
+    if (!Succ1->getSinglePredecessor() || Succ1Br->isConditional() ||
+        Succ1Br->getSuccessor(0) != BB) {
+      return nullptr;
+    }
+    if (!Succ2->getSinglePredecessor() || Succ2Br->isConditional() ||
+        Succ2Br->getSuccessor(0) != BB) {
+      return nullptr;
+    }
+    IfTrue = Succ1;
+    IfFalse = Succ2;
+  } else {
+    // Make sure one of the successors branches to BB. Otherwise, BB is not the
+    // merge point of this if statement.
+    // We could not prevent code duplication here since one of the Successors
+    // might not have a branch terminator, rather a "ret" terminator. 
+    if (Succ1 != BB) {
+      if (!Succ1Br || !Succ1->getSinglePredecessor() || Succ1Br->isConditional() ||
+          Succ1Br->getSuccessor(0) != BB) {
+        return nullptr;
+      }
+
+      IfTrue = CommonPredBr->getSuccessor(0);
+      IfFalse = CommonPred;
+    } else {
+      if (!Succ2Br || !Succ2->getSinglePredecessor() || Succ2Br->isConditional() ||
+          Succ2Br->getSuccessor(0) != BB) {
+        return nullptr;
+      }
+
+      IfTrue = CommonPred;
+      IfFalse = CommonPredBr->getSuccessor(1);
+    }
+  }
+
+  return CommonPredBr->getCondition();
 }
+#endif //INTEL_CUSTOMIZATION
