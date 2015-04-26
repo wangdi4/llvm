@@ -160,7 +160,7 @@ public:
   static char encodeISAClass(ISAClass isa_class) {
     switch(isa_class) {
       case XMM:
-	return 'z';
+	return 'x';
       case YMM1:
 	return 'y';
       case YMM2:
