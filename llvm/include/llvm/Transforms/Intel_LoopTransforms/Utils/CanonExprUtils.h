@@ -57,16 +57,16 @@ public:
   static void destroy(CanonExpr *CE);
 
   /// \brief Returns true if the type of both Canon Expr matches
-  static bool isTypeEqual(CanonExpr *CE1, CanonExpr *CE2);
+  static bool isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2);
 
   /// \brief Returns true if passed in canon cxprs are equal to each other.
-  static bool areEqual(CanonExpr *CE1, CanonExpr *CE2);
+  static bool areEqual(const CanonExpr *CE1, const CanonExpr *CE2);
 
   /// \brief Returns a canon expr which represents the sum of these canon
   /// exprs. Result = CE1+CE2
   /// If CreateNewCE is true, results in a new canon expr.
   /// If CreateNewCE is false, it updates the input canon expr.
-  static CanonExpr *add(CanonExpr *CE1, CanonExpr *CE2,
+  static CanonExpr *add(CanonExpr *CE1, const CanonExpr *CE2,
                         bool CreateNewCE = false);
 
   /// \brief Multiplies constant by Canon Expr and returns result pointer
@@ -86,7 +86,7 @@ public:
   /// canon exprs. Result = CE1 - CE2
   /// If CreateNewCE is true, results in a new canon expr.
   /// If CreateNewCE is false, it updates the input canon expr.
-  static CanonExpr *subtract(CanonExpr *CE1, CanonExpr *CE2,
+  static CanonExpr *subtract(CanonExpr *CE1, const CanonExpr *CE2,
                              bool CreateNewCE = false);
 };
 

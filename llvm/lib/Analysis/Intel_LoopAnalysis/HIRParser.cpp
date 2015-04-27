@@ -77,7 +77,8 @@ bool HIRParser::isConstIntBlob(CanonExpr::BlobTy Blob, int64_t *Val) {
   if (!SConst)
     return false;
 
-  *Val = getSCEVConstantValue(SConst);
+  if (Val)
+    *Val = getSCEVConstantValue(SConst);
 
   return true;
 }

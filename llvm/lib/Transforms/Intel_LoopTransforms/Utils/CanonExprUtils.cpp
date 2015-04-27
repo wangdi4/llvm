@@ -52,9 +52,12 @@ int64_t CanonExprUtils::lcm(int64_t a, int64_t b) {
   if (a == b)
     return a;
 
-  // Either input is 1
-  if ((a == 1) || (b == 1))
-    return ((a == 1) ? b : a);
+  // Either input is 1, return the other one
+  if(a==1)
+    return b;
+  if(b==1)
+    return a;
+
 
   int64_t mulVal = a * b;
 
@@ -72,11 +75,11 @@ int64_t CanonExprUtils::lcm(int64_t a, int64_t b) {
   return (mulVal / gcd);
 }
 
-bool CanonExprUtils::isTypeEqual(CanonExpr *CE1, CanonExpr *CE2) {
-  return (CE1->Ty->getTypeID() == CE2->Ty->getTypeID());
+bool CanonExprUtils::isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2) {
+  return (CE1->getLLVMType() == CE2->getLLVMType());
 }
 
-bool CanonExprUtils::areEqual(CanonExpr *CE1, CanonExpr *CE2) {
+bool CanonExprUtils::areEqual(const CanonExpr *CE1, const CanonExpr *CE2) {
 
   assert((CE1 && CE2) && " Canon Expr parameters are null");
 
@@ -116,7 +119,7 @@ bool CanonExprUtils::areEqual(CanonExpr *CE1, CanonExpr *CE2) {
   return true;
 }
 
-CanonExpr *CanonExprUtils::add(CanonExpr *CE1, CanonExpr *CE2,
+CanonExpr *CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
                                bool CreateNewCE) {
 
   assert((CE1 && CE2) && " Canon Expr parameters are null.");
@@ -133,8 +136,8 @@ CanonExpr *CanonExprUtils::add(CanonExpr *CE1, CanonExpr *CE2,
   }
   if (NewDenom != denom2) {
     // Cannot avoid cloning CE2 here
-    CE2 = CE2->clone();
-    multiplyByConstant(CE2, NewDenom / denom2, false);
+    CanonExpr *NewCE2 = CE2->clone();
+    multiplyByConstant(NewCE2, NewDenom / denom2, false);
   }
   Result->setDenominator(NewDenom);
 
@@ -160,7 +163,7 @@ CanonExpr *CanonExprUtils::add(CanonExpr *CE1, CanonExpr *CE2,
       Result->addIV(Level, I->Coeff);
     } else {
       // Handle cases when either of them is a blob
-      HIRParser *HIRP = HLUtils::getHIRParserPtr();
+      HIRParser *HIRP = getHIRParserPtr();
       CanonExpr::BlobTy Blob1 = isResultIVBlobCoeff
                                     ? Result->getBlob(ResultIVBlobCoeff)
                                     : HIRP->createBlob(ResultIVBlobCoeff);
@@ -223,10 +226,10 @@ CanonExpr *CanonExprUtils::multiplyByConstant(CanonExpr *CE1, int64_t Val,
     }
 
     // IV is a blob coeff
-    CanonExpr::BlobTy ValBlob = HLUtils::getHIRParserPtr()->createBlob(Val);
+    CanonExpr::BlobTy ValBlob = getHIRParserPtr()->createBlob(Val);
     unsigned ResultBIndex;
-    HLUtils::getHIRParserPtr()->createMulBlob(Result->getBlob(I->Coeff),
-                                              ValBlob, true, &ResultBIndex);
+    getHIRParserPtr()->createMulBlob(Result->getBlob(I->Coeff),
+                                     ValBlob, true, &ResultBIndex);
     Result->setIVCoeff(Level, ResultBIndex, true);
   }
 
@@ -244,7 +247,7 @@ CanonExpr *CanonExprUtils::negate(CanonExpr *CE1, bool CreateNewCE) {
   return multiplyByConstant(CE1, -1, CreateNewCE);
 }
 
-CanonExpr *CanonExprUtils::subtract(CanonExpr *CE1, CanonExpr *CE2,
+CanonExpr *CanonExprUtils::subtract(CanonExpr *CE1, const CanonExpr *CE2,
                                     bool CreateNewCE) {
 
   assert((CE1 && CE2) && " Canon Expr parameters are null");
@@ -257,7 +260,8 @@ CanonExpr *CanonExprUtils::subtract(CanonExpr *CE1, CanonExpr *CE2,
 
   if (CreateNewCE || BlobExist) {
     // -CE2 , Result = -CE2 + CE1
-    Result = negate(CE2, true);
+    CanonExpr *NewCE2 = CE2->clone();
+    Result = negate(NewCE2, false);
     Result = add(Result, CE1, false);
   } else {
     // -(-CE1+CE2) => CE1-CE2

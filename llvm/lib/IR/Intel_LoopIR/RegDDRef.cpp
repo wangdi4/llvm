@@ -139,7 +139,7 @@ bool RegDDRef::isIntConstant(int64_t *Val) const {
     return false;
 
   const CanonExpr *CE = getSingleCanonExpr();
-  if (CE->hasIV() || CE->hasBlob() || (CE->getDenominator()!=1))
+  if(CE->isConstant())
     return false;
 
   if(Val)

@@ -243,7 +243,7 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
          "Cannot handle multiple dimensions!");
 
   if (!Ref->hasGEPInfo()) {
-    return visitCanonExpr(*(Ref->canon_begin()));
+    return visitCanonExpr(Ref->getSingleCanonExpr());
   }
 
   Value *BaseV = visitCanonExpr(Ref->getBaseCE());

@@ -153,6 +153,8 @@ public:
   /// of this RegDDRef
   bool isIntConstant(int64_t *Val = nullptr) const;
 
+  /// \brief Returns true if this RegDDRef is constant
+  /// TODO: Add support for other types like float
   bool isConstant() const { return isIntConstant(nullptr); }
 
   /// \brief Returns the number of dimensions of the DDRef.

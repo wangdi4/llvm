@@ -188,6 +188,10 @@ public:
   bool isNonLinear() const { return (DefinedAtLevel == -1); }
   /// \brief Returns true if this is not non-linear.
   bool isLinearAtLevel() const { return !isNonLinear(); }
+  /// \brief Returns true if this Canon Expr only contains a constant
+  bool isConstant() const {
+    return (!hasIV() && !hasBlob() && (getDenominator()==1));
+  }
 
   /// \brief Returns the constant additive of the canon expr.
   int64_t getConstant() const { return Const; }
