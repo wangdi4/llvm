@@ -1141,6 +1141,16 @@ CGDebugInfo::CreateCXXMemberFunction(const CXXMethodDecl *Method,
     if (!isa<CXXDestructorDecl>(Method) &&
         !CGM.getTarget().getCXXABI().isMicrosoft())
       VIndex = CGM.getItaniumVTableContext().getMethodVTableIndex(Method);
+#ifdef INTEL_CUSTOMIZATION
+    // Fix for CQ#367037 - Virtual function table index is not set in
+    // DISubprogram for MS ABI
+    else if (CGM.getLangOpts().IntelMSCompat &&
+             !isa<CXXDestructorDecl>(Method) &&
+             CGM.getTarget().getCXXABI().isMicrosoft())
+      VIndex = CGM.getMicrosoftVTableContext()
+                   .getMethodVFTableLocation(Method)
+                   .Index;
+#endif
     ContainingType = RecordTy;
   }
 
