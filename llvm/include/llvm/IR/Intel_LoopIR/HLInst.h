@@ -85,12 +85,12 @@ public:
   RegDDRef *removeLvalDDRef();
 
   /// \brief Returns the single rval DDRef of this node.
-  DDRef *getRvalDDRef();
-  const DDRef *getRvalDDRef() const;
+  RegDDRef *getRvalDDRef();
+  const RegDDRef *getRvalDDRef() const;
   /// \brief Sets the single rval DDRef of this node.
-  void setRvalDDRef(DDRef *Ref);
+  void setRvalDDRef(RegDDRef *Ref);
   /// \brief Removes and returns the single rval DDRef of this node.
-  DDRef *removeRvalDDRef();
+  RegDDRef *removeRvalDDRef();
 
   /// \brief Adds an extra RegDDRef which does not correspond to lval or any
   /// operand. This DDRef is not used for code generation but might be used for
@@ -101,31 +101,33 @@ public:
   void removeFakeDDRef(RegDDRef *RDDRef);
 
   /// Operand DDRef iterator methods
-  ddref_iterator op_ddref_begin() { return DDRefs.begin(); }
-  const_ddref_iterator op_ddref_begin() const { return DDRefs.begin(); }
-  ddref_iterator op_ddref_end() { return DDRefs.begin() + getNumOperands(); }
+  ddref_iterator op_ddref_begin() { return RegDDRefs.begin(); }
+  const_ddref_iterator op_ddref_begin() const { return RegDDRefs.begin(); }
+  ddref_iterator op_ddref_end() { return RegDDRefs.begin() + getNumOperands(); }
   const_ddref_iterator op_ddref_end() const {
-    return DDRefs.begin() + getNumOperands();
+    return RegDDRefs.begin() + getNumOperands();
   }
 
   reverse_ddref_iterator op_ddref_rbegin() {
-    return DDRefs.rend() - getNumOperands();
+    return RegDDRefs.rend() - getNumOperands();
   }
   const_reverse_ddref_iterator op_ddref_rbegin() const {
-    return DDRefs.rend() - getNumOperands();
+    return RegDDRefs.rend() - getNumOperands();
   }
-  reverse_ddref_iterator op_ddref_rend() { return DDRefs.rend(); }
-  const_reverse_ddref_iterator op_ddref_rend() const { return DDRefs.rend(); }
+  reverse_ddref_iterator op_ddref_rend() { return RegDDRefs.rend(); }
+  const_reverse_ddref_iterator op_ddref_rend() const {
+    return RegDDRefs.rend();
+  }
 
   /// Fake DDRef iterator methods
   ddref_iterator fake_ddref_begin() { return op_ddref_end(); }
   const_ddref_iterator fake_ddref_begin() const { return op_ddref_end(); }
-  ddref_iterator fake_ddref_end() { return DDRefs.end(); }
-  const_ddref_iterator fake_ddref_end() const { return DDRefs.end(); }
+  ddref_iterator fake_ddref_end() { return RegDDRefs.end(); }
+  const_ddref_iterator fake_ddref_end() const { return RegDDRefs.end(); }
 
-  reverse_ddref_iterator fake_ddref_rbegin() { return DDRefs.rbegin(); }
+  reverse_ddref_iterator fake_ddref_rbegin() { return RegDDRefs.rbegin(); }
   const_reverse_ddref_iterator fake_ddref_rbegin() const {
-    return DDRefs.rbegin();
+    return RegDDRefs.rbegin();
   }
   reverse_ddref_iterator fake_ddref_rend() { return op_ddref_rbegin(); }
   const_reverse_ddref_iterator fake_ddref_rend() const {

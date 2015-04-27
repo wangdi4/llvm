@@ -125,6 +125,29 @@ bool RegDDRef::isFake() const {
   return false;
 }
 
+bool RegDDRef::isSimpleRef() const {
+
+  // Check GEP and Single CanonExpr
+  if (!hasGEPInfo())
+    return isSingleCanonExpr();
+
+  return false;
+}
+
+bool RegDDRef::isIntConstant(int64_t *Val) const {
+  if (!isSimpleRef())
+    return false;
+
+  const CanonExpr *CE = getSingleCanonExpr();
+  if (CE->hasIV() || CE->hasBlob() || (CE->getDenominator()!=1))
+    return false;
+
+  if(Val)
+    *Val = CE->getConstant();
+
+  return true;
+}
+
 void RegDDRef::addDimension(CanonExpr *Canon, CanonExpr *Stride) {
   assert(Canon && "Canon is null!");
   assert((CanonExprs.empty() || Stride) && "Stride is null!");

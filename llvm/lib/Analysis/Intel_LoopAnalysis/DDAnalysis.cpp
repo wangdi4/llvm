@@ -110,7 +110,7 @@ void DDRefGatherer::visit(HLDDNode* Node) {
     // DEBUG((*I)->dump());
     // DEBUG(dbgs() << "\n");
     // Everyone goes into the same symbase...except constants
-    if (isa<ConstDDRef>(*I)) {
+    if((*I)->isConstant()) {
       // dont even bother gathering consts
     } else {
       unsigned int SymBase = (*I)->getSymBase();

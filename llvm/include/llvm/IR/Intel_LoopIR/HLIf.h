@@ -64,7 +64,7 @@ private:
   ChildNodeTy::iterator ElseBegin;
 
 protected:
-  HLIf(CmpInst::Predicate FirstPred, DDRef *Ref1, DDRef *Ref2);
+  HLIf(CmpInst::Predicate FirstPred, RegDDRef *Ref1, RegDDRef *Ref2);
 
   /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
   /// tries to
@@ -87,14 +87,14 @@ protected:
 
   /// \brief Hides HLDDNode's getOperandDDref(). Users are expected to use HLIf
   /// specific functions.
-  DDRef *getOperandDDref(unsigned OperandNum);
-  const DDRef *getOperandDDref(unsigned OperandNum) const;
+  RegDDRef *getOperandDDref(unsigned OperandNum);
+  const RegDDRef *getOperandDDref(unsigned OperandNum) const;
   /// \brief Hides HLDDNode's setOperandDDref(). Users are expected to use HLIf
   /// loop specific functions.
-  void setOperandDDRef(DDRef *, unsigned OperandNum);
+  void setOperandDDRef(RegDDRef *, unsigned OperandNum);
   /// \brief Hides HLDDNode's removeOperandDDref(). Users are expected to use
   /// HLIf specific functions.
-  DDRef *removeOperandDDref(unsigned OperandNum);
+  RegDDRef *removeOperandDDref(unsigned OperandNum);
 
   /// \brief Returns the offset of the LHS/RHS DDRef associated with this
   /// predicate.
@@ -212,7 +212,7 @@ public:
   unsigned getNumOperands() const override;
 
   /// \brief Adds new predicate in HLIf.
-  void addPredicate(CmpInst::Predicate Pred, DDRef *Ref1, DDRef *Ref2);
+  void addPredicate(CmpInst::Predicate Pred, RegDDRef *Ref1, RegDDRef *Ref2);
 
   /// \brief Removes the associated predicate and operand DDRefs(not destroyed).
   /// Example-
@@ -227,17 +227,17 @@ public:
 
   /// \brief Returns the LHS/RHS operand DDRef of the predicate based on the
   /// IsLHS flag.
-  DDRef *getPredicateOperandDDRef(pred_iterator PredI, bool IsLHS);
-  const DDRef *getPredicateOperandDDRef(const_pred_iterator PredI,
-                                        bool IsLHS) const;
+  RegDDRef *getPredicateOperandDDRef(pred_iterator PredI, bool IsLHS);
+  const RegDDRef *getPredicateOperandDDRef(const_pred_iterator PredI,
+                                           bool IsLHS) const;
 
   /// \brief Sets the LHS/RHS operand DDRef of the predicate based on the IsLHS
   /// flag.
-  void setPredicateOperandDDRef(DDRef *Ref, pred_iterator PredI, bool IsLHS);
+  void setPredicateOperandDDRef(RegDDRef *Ref, pred_iterator PredI, bool IsLHS);
 
   /// \brief Removes and returns the LHS/RHS operand DDRef of the predicate
   /// based on the IsLHS flag.
-  DDRef *removePredicateOperandDDRef(pred_iterator PredI, bool IsLHS);
+  RegDDRef *removePredicateOperandDDRef(pred_iterator PredI, bool IsLHS);
 };
 
 } // End namespace loopopt

@@ -24,7 +24,7 @@ class BasicBlock;
 
 namespace loopopt {
 
-class DDRef;
+class RegDDRef;
 
 /// \brief Base class for high level nodes which can contain DDRefs.
 class HLDDNode : public HLNode {
@@ -33,13 +33,13 @@ public:
   /// HLLoop usually requires 5 ddrefs(lower, tripcount, stride, 2 ztt ddrefs).
   /// Most instructions are covered except some vector instructions which are
   /// a minority.
-  typedef SmallVector<DDRef *, 5> DDRefTy;
+  typedef SmallVector<RegDDRef *, 5> RegDDRefTy;
 
-  /// Iterators to iterate over DDRefs
-  typedef DDRefTy::iterator ddref_iterator;
-  typedef DDRefTy::const_iterator const_ddref_iterator;
-  typedef DDRefTy::reverse_iterator reverse_ddref_iterator;
-  typedef DDRefTy::const_reverse_iterator const_reverse_ddref_iterator;
+  /// Iterators to iterate over RegDDRefs
+  typedef RegDDRefTy::iterator ddref_iterator;
+  typedef RegDDRefTy::const_iterator const_ddref_iterator;
+  typedef RegDDRefTy::reverse_iterator reverse_ddref_iterator;
+  typedef RegDDRefTy::const_reverse_iterator const_reverse_ddref_iterator;
 
 protected:
   HLDDNode(unsigned SCID);
@@ -52,18 +52,18 @@ protected:
 
   /// The DDRef indices correspond to the operand number in the instruction
   /// with the first DDRef being for lval, if applicable.
-  DDRefTy DDRefs;
+  RegDDRefTy RegDDRefs;
 
   /// \brief Resize DDRefs to match number of operands in the Node.
   virtual void resizeDDRefsToNumOperands();
 
   /// \brief Sets HLDDNode for Ref.
-  static void setNode(DDRef *Ref, HLDDNode *HNode);
+  static void setNode(RegDDRef *Ref, HLDDNode *HNode);
 
   /// \brief Implements get*OperandDDRef() functionality.
-  DDRef *getOperandDDRefImpl(unsigned OperandNum) const;
+  RegDDRef *getOperandDDRefImpl(unsigned OperandNum) const;
   /// \brief Implements set*OperandDDRef() functionality.
-  void setOperandDDRefImpl(DDRef *Ref, unsigned OperandNum);
+  void setOperandDDRefImpl(RegDDRef *Ref, unsigned OperandNum);
 
 public:
   /// DDRef iterator methods
@@ -78,20 +78,20 @@ public:
   const_reverse_ddref_iterator ddref_rend() const;
 
   /// DDRef acess methods
-  unsigned getNumDDRefs() const { return DDRefs.size(); }
+  unsigned getNumDDRefs() const { return RegDDRefs.size(); }
 
   /// Virtual Clone method
   virtual HLDDNode *clone() const = 0;
 
   /// \brief Returns the DDRef associated with the Nth operand (starting with
   /// 0).
-  DDRef *getOperandDDRef(unsigned OperandNum);
-  const DDRef *getOperandDDRef(unsigned OperandNum) const;
+  RegDDRef *getOperandDDRef(unsigned OperandNum);
+  const RegDDRef *getOperandDDRef(unsigned OperandNum) const;
   /// \brief Sets the DDRef associated with the Nth operand (starting with 0).
-  void setOperandDDRef(DDRef *Ref, unsigned OperandNum);
+  void setOperandDDRef(RegDDRef *Ref, unsigned OperandNum);
   /// \brief Removes and returns the DDRef associated with the Nth operand
   /// (starting with 0).
-  DDRef *removeOperandDDRef(unsigned OperandNum);
+  RegDDRef *removeOperandDDRef(unsigned OperandNum);
 
   /// \brief Returns the number of operands (and lval if applicable) this node
   /// is supposed to have.

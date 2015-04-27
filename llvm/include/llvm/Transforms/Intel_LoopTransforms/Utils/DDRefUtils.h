@@ -15,7 +15,7 @@
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_DDREFUTILS_H
 
 #include "llvm/Support/Compiler.h"
-#include "llvm/IR/Intel_LoopIR/ConstDDRef.h"
+
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
@@ -39,19 +39,18 @@ private:
   /// \brief Destroys all DDRefs. Called during HIR cleanup.
   static void destroyAll();
 
-public:
-  /// \brief Returns a new ConstDDRef.
-  static ConstDDRef *createConstDDRef(CanonExpr *CE);
-
-  /// \brief Returns a new RegDDRef.
-  static RegDDRef *createRegDDRef(int SB);
-
+protected:
   /// \brief Returns a new BlobDDRef.
   static BlobDDRef *createBlobDDRef(int SB, CanonExpr *CE,
                                     RegDDRef *Parent = nullptr);
 
+public:
+  /// \brief Returns a new RegDDRef.
+  static RegDDRef *createRegDDRef(int SB);
+
   /// \brief Destroys the passed in DDRef.
   static void destroy(DDRef *Ref);
+
 };
 
 } // End namespace loopopt

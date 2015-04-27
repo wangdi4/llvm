@@ -25,6 +25,7 @@ class Loop;
 namespace loopopt {
 
 class CanonExpr;
+class RegDDRef;
 
 /// \brief High level node representing a loop
 class HLLoop : public HLDDNode {
@@ -83,8 +84,8 @@ private:
 
 protected:
   HLLoop(const Loop *LLVMLoop, bool IsDoWh);
-  HLLoop(HLIf *ZttIf, DDRef *LowerDDRef, DDRef *UpperDDRef, DDRef *StrideDDRef,
-         bool IsDoWh, unsigned NumEx);
+  HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
+         RegDDRef *StrideDDRef, bool IsDoWh, unsigned NumEx);
 
   /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
   /// tries to
@@ -104,14 +105,14 @@ protected:
 
   /// \brief Hides HLDDNode's getOperandDDref(). Users are expected to use
   /// HLLoop specific functions.
-  DDRef *getOperandDDref(unsigned OperandNum);
-  const DDRef *getOperandDDref(unsigned OperandNum) const;
+  RegDDRef *getOperandDDref(unsigned OperandNum);
+  const RegDDRef *getOperandDDref(unsigned OperandNum) const;
   /// \brief Hides HLDDNode's setOperandDDref(). Users are expected to use
   /// HLLoop specific functions.
-  void setOperandDDRef(DDRef *, unsigned OperandNum);
+  void setOperandDDRef(RegDDRef *, unsigned OperandNum);
   /// \brief Hides HLDDNode's removeOperandDDref(). Users are expected to use
   /// HLLoop specific functions.
-  DDRef *removeOperandDDref(unsigned OperandNum);
+  RegDDRef *removeOperandDDref(unsigned OperandNum);
 
   /// \brief Returns the number of DDRefs associated with only the loop
   /// without the ztt.
@@ -125,8 +126,8 @@ protected:
   void resizeToNumLoopDDRefs();
 
   /// \brief Used to implement get*CanonExpr() functionality.
-  CanonExpr *getLoopCanonExpr(DDRef *Ref);
-  const CanonExpr *getLoopCanonExpr(const DDRef *Ref) const;
+  CanonExpr *getLoopCanonExpr(RegDDRef *Ref);
+  const CanonExpr *getLoopCanonExpr(const RegDDRef *Ref) const;
 
   /// Implements getNumOperands() functionality.
   unsigned getNumOperandsInternal() const;
@@ -196,52 +197,52 @@ public:
   }
 
   /// \brief Adds new predicate in ZTT.
-  void addZttPredicate(CmpInst::Predicate Pred, DDRef *Ref1, DDRef *Ref2);
+  void addZttPredicate(CmpInst::Predicate Pred, RegDDRef *Ref1, RegDDRef *Ref2);
 
   /// \brief Removes the associated predicate and operand DDRefs(not destroyed).
   void removeZttPredicate(ztt_pred_iterator PredI);
 
   /// \brief Returns the LHS/RHS operand DDRef of the predicate based on the
   /// IsLHS flag.
-  DDRef *getZttPredicateOperandDDRef(ztt_pred_iterator PredI, bool IsLHS);
-  const DDRef *getZttPredicateOperandDDRef(const_ztt_pred_iterator PredI,
-                                           bool IsLHS) const;
+  RegDDRef *getZttPredicateOperandDDRef(ztt_pred_iterator PredI, bool IsLHS);
+  const RegDDRef *getZttPredicateOperandDDRef(const_ztt_pred_iterator PredI,
+                                              bool IsLHS) const;
 
   /// \brief Sets the LHS/RHS operand DDRef of the predicate based on the IsLHS
   /// flag.
-  void setZttPredicateOperandDDRef(DDRef *Ref, ztt_pred_iterator PredI,
+  void setZttPredicateOperandDDRef(RegDDRef *Ref, ztt_pred_iterator PredI,
                                    bool IsLHS);
 
   /// \brief Removes and returns the LHS/RHS operand DDRef of the predicate
   /// based on the IsLHS flag.
-  DDRef *removeZttPredicateOperandDDRef(ztt_pred_iterator PredI, bool IsLHS);
+  RegDDRef *removeZttPredicateOperandDDRef(ztt_pred_iterator PredI, bool IsLHS);
 
   /// \brief Returns the DDRef associated with loop lower bound.
   /// The first DDRef is associated with lower bound.
-  DDRef *getLowerDDRef();
-  const DDRef *getLowerDDRef() const;
+  RegDDRef *getLowerDDRef();
+  const RegDDRef *getLowerDDRef() const;
   /// \brief Sets the DDRef associated with loop lower bound.
-  void setLowerDDRef(DDRef *Ref);
+  void setLowerDDRef(RegDDRef *Ref);
   /// \brief Removes and returns the DDRef associated with loop lower bound.
-  DDRef *removeLowerDDRef();
+  RegDDRef *removeLowerDDRef();
 
   /// \brief Returns the DDRef associated with loop upper bound.
   /// The second DDRef is associated with upper bound.
-  DDRef *getUpperDDRef();
-  const DDRef *getUpperDDRef() const;
+  RegDDRef *getUpperDDRef();
+  const RegDDRef *getUpperDDRef() const;
   /// \brief Sets the DDRef associated with loop upper bound.
-  void setUpperDDRef(DDRef *Ref);
+  void setUpperDDRef(RegDDRef *Ref);
   /// \brief Removes and returns the DDRef associated with loop upper bound.
-  DDRef *removeUpperDDRef();
+  RegDDRef *removeUpperDDRef();
 
   /// \brief Returns the DDRef associated with loop stride.
   /// The third DDRef is associated with stride.
-  DDRef *getStrideDDRef();
-  const DDRef *getStrideDDRef() const;
+  RegDDRef *getStrideDDRef();
+  const RegDDRef *getStrideDDRef() const;
   /// \brief Sets the DDRef associated with loop stride.
-  void setStrideDDRef(DDRef *Ref);
+  void setStrideDDRef(RegDDRef *Ref);
   /// \brief Removes and returns the DDRef associated with loop stride.
-  DDRef *removeStrideDDRef();
+  RegDDRef *removeStrideDDRef();
 
   /// \brief Returns the CanonExpr associated with loop lower bound.
   CanonExpr *getLowerCanonExpr();

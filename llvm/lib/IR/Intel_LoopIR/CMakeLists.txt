@@ -1,7 +1,6 @@
 add_llvm_library(LLVMIntel_LoopIR
   BlobDDRef.cpp
   CanonExpr.cpp
-  ConstDDRef.cpp
   DDRef.cpp
   HLDDNode.cpp  
   HLGoto.cpp  

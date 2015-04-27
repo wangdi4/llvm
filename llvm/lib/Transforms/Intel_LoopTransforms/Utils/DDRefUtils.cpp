@@ -16,11 +16,6 @@
 using namespace llvm;
 using namespace loopopt;
 
-ConstDDRef *DDRefUtils::createConstDDRef(CanonExpr *CE) {
-
-  return new ConstDDRef(CE);
-}
-
 RegDDRef *DDRefUtils::createRegDDRef(int SB) { return new RegDDRef(SB); }
 
 BlobDDRef *DDRefUtils::createBlobDDRef(int SB, CanonExpr *CE,

@@ -57,9 +57,6 @@ protected:
   /// \brief Virtual set HLDDNode
   virtual void setHLDDNode(HLDDNode *HNode) = 0;
 
-  /// \brief Required to access setHLDDNode().
-  friend class HLDDNode;
-
   /// \brief Destroys the object.
   void destroy();
 

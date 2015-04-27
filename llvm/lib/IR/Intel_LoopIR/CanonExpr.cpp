@@ -155,9 +155,16 @@ unsigned CanonExpr::findOrInsertBlob(BlobTy Blob) {
   return findOrInsertBlobImpl(Blob, true);
 }
 
+bool CanonExpr::isBlobIndexValid(unsigned Index) {
+  return ((Index > 0) && (Index <= BlobTable.size()));
+}
+
+bool CanonExpr::isLevelValid(unsigned Level) {
+  return ((Level > 0) && (Level <= MaxLoopNestLevel));
+}
+
 CanonExpr::BlobTy CanonExpr::getBlob(unsigned BlobIndex) {
-  assert((BlobIndex > 0) && (BlobIndex <= BlobTable.size()) &&
-         "BlobIndex is out of range!");
+  assert(isBlobIndexValid(BlobIndex) && "BlobIndex is out of bounds.");
   return BlobTable[BlobIndex - 1];
 }
 
@@ -175,10 +182,26 @@ bool CanonExpr::hasIV() const {
   return ret;
 }
 
+bool CanonExpr::hasBlobIVCoeffs() const {
+
+  bool ret = false;
+
+  for (auto &I : IVCoeffs) {
+    if (I.Coeff != 0) {
+      if (I.IsBlobCoeff) {
+        ret = true;
+        break;
+      }
+    }
+  }
+
+  return ret;
+}
+
 int64_t CanonExpr::getIVCoeff(unsigned Lvl, bool *IsBlobCoeff) const {
 
   assert(IsBlobCoeff && "Non-null IsBlobCoeff ptr expected!");
-  assert((Lvl <= MaxLoopNestLevel) && "Level is out of bounds!");
+  assert(isLevelValid(Lvl) && "Level is out of bounds.");
 
   if (IVCoeffs.size() < Lvl) {
     return 0;
@@ -191,7 +214,7 @@ int64_t CanonExpr::getIVCoeff(unsigned Lvl, bool *IsBlobCoeff) const {
 
 bool CanonExpr::resizeIVCoeffsToMax(unsigned Lvl) {
 
-  assert((Lvl <= MaxLoopNestLevel) && "Level is out of bounds!");
+  assert(isLevelValid(Lvl) && "Level is out of bounds.");
 
   if (IVCoeffs.size() < Lvl) {
     IVCoeffs.resize(MaxLoopNestLevel, BlobOrConstToVal(false, 0));
@@ -203,6 +226,10 @@ bool CanonExpr::resizeIVCoeffsToMax(unsigned Lvl) {
 
 void CanonExpr::addIVInternal(unsigned Lvl, int64_t Coeff, bool IsBlobCoeff,
                               bool overwrite) {
+
+  assert(isLevelValid(Lvl) && " Level is out of bounds.");
+  assert((!IsBlobCoeff || isBlobIndexValid(Coeff)) &&
+         " Blob Index is invalid.");
 
   bool resized;
 
@@ -231,7 +258,7 @@ void CanonExpr::addIV(unsigned Lvl, int64_t Coeff) {
 
 void CanonExpr::removeIV(unsigned Lvl) {
 
-  assert((Lvl <= MaxLoopNestLevel) && "Level is out of bounds!");
+  assert(isLevelValid(Lvl) && "Level is out of bounds.");
 
   /// Nothing to do as the IV is not present.
   /// Should we assert on this?
@@ -240,6 +267,7 @@ void CanonExpr::removeIV(unsigned Lvl) {
   }
 
   IVCoeffs[Lvl - 1].Coeff = 0;
+  IVCoeffs[Lvl - 1].IsBlobCoeff = false;
 }
 
 void CanonExpr::replaceIVByConstant(unsigned Lvl, int64_t Val) {
@@ -296,6 +324,9 @@ int64_t CanonExpr::getBlobCoeff(unsigned BlobIndex) const {
 void CanonExpr::addBlobInternal(unsigned BlobIndex, int64_t BlobCoeff,
                                 bool overwrite) {
 
+  assert((BlobCoeff != 0) && " Blob Coeffs cannot be zero.");
+  assert(isBlobIndexValid(BlobIndex) && " Blob Index is out of bounds.");
+
   BlobIndexToCoeff Blob(BlobIndex, BlobCoeff);
 
   /// No blobs present, add this one
@@ -313,6 +344,10 @@ void CanonExpr::addBlobInternal(unsigned BlobIndex, int64_t BlobCoeff,
       I->Coeff = BlobCoeff;
     } else {
       I->Coeff += BlobCoeff;
+      if (I->Coeff == 0) {
+        // Blobs cancel out
+        removeBlob(BlobIndex);
+      }
     }
   }
   /// We need to insert new blob at this (sorted) position

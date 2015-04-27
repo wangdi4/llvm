@@ -71,7 +71,6 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
-#include "llvm/IR/Intel_LoopIR/ConstDDRef.h"
 #include "llvm/IR/Intel_LoopIR/HLSwitch.h"
 #include "llvm/IR/Intel_LoopIR/HLLoop.h"
 #include "llvm/IR/Intel_LoopIR/HLRegion.h"
@@ -130,7 +129,6 @@ private:
   void processLoopChild(HLNode *ChildNode, int64_t TripVal, HLLoop *Loop);
   void processRegDDRef(RegDDRef *RegDD, int64_t TripVal, unsigned Level);
   void processCanonExpr(CanonExpr *CExpr, int64_t TripVal, unsigned Level);
-  int64_t getConstVal(ConstDDRef *CDDRef);
 
   // Visitor methods for gathering innermost loops
   void visit(HLNode *Node);
@@ -302,12 +300,17 @@ bool HIRCompleteUnroll::isProfitable(HLLoop *Loop, int64_t *TripCount) {
   // Check if Loop Trip Count is constant value
   // If not, delete this candidate loop and proceed to next
   // TODO: General unrolling will be extended later
-  ConstDDRef *UBRef = dyn_cast<ConstDDRef>(Loop->getUpperDDRef());
+  RegDDRef *UBRef = Loop->getUpperDDRef();
   if (!UBRef)
     return false;
 
+  // Check if UB is Constant or not
+  int64_t UBConst;
+  if (!UBRef->isIntConstant(&UBConst))
+    return false;
+
   // TripCount is (Upper + 1).
-  int64_t ConstTripCount = getConstVal(UBRef) + 1;
+  int64_t ConstTripCount = UBConst + 1;
 
   DEBUG(dbgs() << " Const Trip Count: " << ConstTripCount << "\n");
   if (ConstTripCount > CurrentTripThreshold)
@@ -360,9 +363,6 @@ void HIRCompleteUnroll::processLoopChild(HLNode *ChildNode, int64_t TripVal,
 
   for (auto Iter = ClonedInst->ddref_begin(), End = ClonedInst->ddref_end();
        Iter != End; Iter++) {
-
-    if (isa<ConstDDRef>(*Iter))
-      continue;
 
     assert(!isa<BlobDDRef>(*Iter) && "BlobDDRef should not be present here");
 
@@ -424,20 +424,3 @@ void HIRCompleteUnroll::processCanonExpr(CanonExpr *CExpr, int64_t TripVal,
     CExpr->replaceIVByConstant(Level, TripVal);
   }
 }
-
-/// getConstVal - Returns the constant int value for a ConstDDRef.
-/// This is an internal helper function.
-int64_t HIRCompleteUnroll::getConstVal(ConstDDRef *CDDRef) {
-
-  CanonExpr *CExpr = CDDRef->getCanonExpr();
-  assert(CExpr && " Canon Expr for Trip Count is null");
-
-  // TODO: Add more checks like hasIV, etc, even for lower bound
-  // Think about to check only if it is a constant
-  // This has to be in the legality checks, assuming everything is proper now
-  assert(!(CExpr->hasBlob() || CExpr->hasIV()) &&
-         " ConstDDRef's CanonExpr should not contain Blob or IV");
-
-  return CExpr->getConstant();
-}
-

@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Operator.h"
+#include "llvm/IR/LLVMContext.h"
 
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -24,6 +25,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -38,6 +40,9 @@ INITIALIZE_PASS_DEPENDENCY(LoopFormation)
 INITIALIZE_PASS_END(HIRParser, "hir-parser", "HIR Parser", false, true)
 
 char HIRParser::ID = 0;
+
+// define the static pointer
+HIRParser *HLUtils::HIRParPtr = nullptr;
 
 FunctionPass *llvm::createHIRParserPass() { return new HIRParser(); }
 
@@ -63,6 +68,34 @@ unsigned HIRParser::findOrInsertBlob(CanonExpr::BlobTy Blob) {
 
 CanonExpr::BlobTy HIRParser::getBlob(unsigned BlobIndex) {
   return CanonExpr::getBlob(BlobIndex);
+}
+
+bool HIRParser::isConstIntBlob(CanonExpr::BlobTy Blob, int64_t *Val) {
+
+  // Check if this Blob is of Constant Type
+  const SCEVConstant *SConst = dyn_cast<SCEVConstant>(Blob);
+  if (!SConst)
+    return false;
+
+  *Val = getSCEVConstantValue(SConst);
+
+  return true;
+}
+
+CanonExpr::BlobTy HIRParser::createBlob(int64_t Val, bool Insert,
+                                        unsigned *NewBlobIndex) {
+  Type *Int64Type = IntegerType::get(getGlobalContext(), 64);
+  auto Blob = SE->getConstant(Int64Type, Val, false);
+
+  if (Insert) {
+    unsigned BlobIndex = findOrInsertBlob(Blob);
+
+    if (NewBlobIndex) {
+      *NewBlobIndex = BlobIndex;
+    }
+  }
+
+  return Blob;
 }
 
 CanonExpr::BlobTy HIRParser::createAddBlob(CanonExpr::BlobTy LHS,
@@ -244,15 +277,18 @@ void HIRParser::parseBlob(const SCEV *BlobSCEV, CanonExpr *CE, unsigned Level) {
 }
 
 /// TODO: Make it recursive
-DDRef *HIRParser::parseRecursive(const SCEV *SC, const SCEV *ElementSize,
-                                 unsigned Level, bool IsErasable, bool IsTop) {
+RegDDRef *HIRParser::parseRecursive(const SCEV *SC, const SCEV *ElementSize,
+                                    unsigned Level, bool IsErasable,
+                                    bool IsTop) {
 
   if (auto ConstSCEV = dyn_cast<SCEVConstant>(SC)) {
     assert(IsTop && "Can't handle constant embedded in the SCEV tree!");
 
     auto CE = CanonExprUtils::createCanonExpr(ConstSCEV->getType());
-    auto Ref = DDRefUtils::createConstDDRef(CE);
+    auto Ref = DDRefUtils::createRegDDRef(0);
+
     parseConstant(ConstSCEV, CE);
+    Ref->addDimension(CE, nullptr);
 
     return Ref;
   } else if (isa<SCEVUnknown>(SC)) {
@@ -337,14 +373,23 @@ void HIRParser::visit(HLLoop *HLoop) {
     auto BETC = SE->getBackedgeTakenCount(Lp);
 
     if (!isa<SCEVCouldNotCompute>(BETC)) {
-      /// Initialize Lower to 0.
-      auto LowerCE = CanonExprUtils::createCanonExpr(BETC->getType());
-      /// Initialize Stride to 1.
-      auto StrideCE = CanonExprUtils::createCanonExpr(BETC->getType(), 0, 1);
-      auto UpperDDRef = parseRecursive(BETC, nullptr, CurLevel, false);
 
-      HLoop->setLowerDDRef(DDRefUtils::createConstDDRef(LowerCE));
-      HLoop->setStrideDDRef(DDRefUtils::createConstDDRef(StrideCE));
+      // Set the lower bound
+      // Initialize Lower to 0.
+      auto LowerCE = CanonExprUtils::createCanonExpr(BETC->getType());
+      auto LowerRef = DDRefUtils::createRegDDRef(0);
+      LowerRef->addDimension(LowerCE, nullptr);
+      HLoop->setLowerDDRef(LowerRef);
+
+      // Set the stride
+      // Initialize Stride to 1.
+      auto StrideCE = CanonExprUtils::createCanonExpr(BETC->getType(), 0, 1);
+      auto StrideRef = DDRefUtils::createRegDDRef(0);
+      StrideRef->addDimension(StrideCE, nullptr);
+      HLoop->setStrideDDRef(StrideRef);
+
+      // Set the upper bound
+      auto UpperDDRef = parseRecursive(BETC, nullptr, CurLevel, false);
       HLoop->setUpperDDRef(UpperDDRef);
     }
   } else {
@@ -360,7 +405,7 @@ RegDDRef *HIRParser::createGEPRegDDRef(const SCEV *SC, const SCEV *ElementSize,
   assert(!isa<SCEVConstant>(SC) && "Lval is a constant!");
   assert(!isa<SCEVCouldNotCompute>(SC) && "Unexpected condition!");
 
-  DDRef *Ref;
+  RegDDRef *Ref;
 
   if (isa<SCEVAddRecExpr>(SC)) {
     Ref = parseRecursive(SC, ElementSize, Level, IsErasable);
@@ -368,18 +413,18 @@ RegDDRef *HIRParser::createGEPRegDDRef(const SCEV *SC, const SCEV *ElementSize,
     if (!Ref) {
       return nullptr;
     }
-    assert(isa<RegDDRef>(Ref) && "Unexpected DDRef type!");
-    cast<RegDDRef>(Ref)->setInBounds(GEPOp->isInBounds());
+
+    Ref->setInBounds(GEPOp->isInBounds());
   } else {
     /// handle SCEVAddExpr later
     assert(false && "Non AddRec GEPs not handled!");
   }
 
-  return cast<RegDDRef>(Ref);
+  return Ref;
 }
 
-DDRef *HIRParser::createRvalDDRef(const Value *Val, unsigned Level) {
-  DDRef *Ref;
+RegDDRef *HIRParser::createRvalDDRef(const Value *Val, unsigned Level) {
+  RegDDRef *Ref;
 
   if (auto LInst = dyn_cast<LoadInst>(Val)) {
     Val = LInst->getPointerOperand();
@@ -424,7 +469,7 @@ bool HIRParser::isRegionLiveOut(const Value *Val, bool IsCompare) {
 
 void HIRParser::visit(HLInst *HInst) {
   const Value *Val;
-  DDRef *Ref;
+  RegDDRef *Ref;
   const SCEV *ElementSize = nullptr;
   bool IsErasable = true, HasLval = false;
   auto Inst = HInst->getLLVMInstruction();
@@ -480,14 +525,14 @@ void HIRParser::visit(HLInst *HInst) {
 
     assert(!isa<LoadInst>(Inst) && "Non-linear load not handled!");
 
-    HInst->setLvalDDRef(cast<RegDDRef>(Ref));
+    HInst->setLvalDDRef(Ref);
   }
 
   /// Process rvals
   for (unsigned I = 0; I < NumRvalOp; I++) {
     Val = Inst->getOperand(I);
     Ref = createRvalDDRef(Val, Level);
-    assert(Ref && "DDRef is null!");
+    assert(Ref && "Ref is null!");
 
     HInst->setOperandDDRef(Ref, HasLval ? I + 1 : I);
   }
@@ -509,6 +554,8 @@ bool HIRParser::runOnFunction(Function &F) {
   HLNodeUtils::visitAll<HIRParser>(this, HIR);
 
   eraseUselessNodes();
+
+  HLUtils::setHIRParserPtr(this);
 
   return false;
 }

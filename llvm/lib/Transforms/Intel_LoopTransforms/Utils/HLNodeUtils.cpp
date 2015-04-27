@@ -35,8 +35,8 @@ HLGoto *HLNodeUtils::createHLGoto(BasicBlock *TargetBB, HLLabel *TargetL) {
 
 HLInst *HLNodeUtils::createHLInst(Instruction *In) { return new HLInst(In); }
 
-HLIf *HLNodeUtils::createHLIf(CmpInst::Predicate FirstPred, DDRef *Ref1,
-                              DDRef *Ref2) {
+HLIf *HLNodeUtils::createHLIf(CmpInst::Predicate FirstPred, RegDDRef *Ref1,
+                              RegDDRef *Ref2) {
   return new HLIf(FirstPred, Ref1, Ref2);
 }
 
@@ -44,8 +44,8 @@ HLLoop *HLNodeUtils::createHLLoop(const Loop *LLVMLoop, bool IsDoWh) {
   return new HLLoop(LLVMLoop, IsDoWh);
 }
 
-HLLoop *HLNodeUtils::createHLLoop(HLIf *ZttIf, DDRef *LowerDDRef,
-                                  DDRef *UpperDDRef, DDRef *StrideDDRef,
+HLLoop *HLNodeUtils::createHLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef,
+                                  RegDDRef *UpperDDRef, RegDDRef *StrideDDRef,
                                   bool IsDoWh, unsigned NumEx) {
   return new HLLoop(ZttIf, LowerDDRef, UpperDDRef, StrideDDRef, IsDoWh, NumEx);
 }

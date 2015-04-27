@@ -29,7 +29,7 @@ void HLLoop::initialize() {
   /// This call is to get around calling virtual functions in the constructor.
   NumOp = getNumOperandsInternal();
 
-  DDRefs.resize(NumOp, nullptr);
+  RegDDRefs.resize(NumOp, nullptr);
 }
 
 HLLoop::HLLoop(const Loop *LLVMLoop, bool IsDoWh)
@@ -44,8 +44,8 @@ HLLoop::HLLoop(const Loop *LLVMLoop, bool IsDoWh)
   setNumExits(Exits.size());
 }
 
-HLLoop::HLLoop(HLIf *ZttIf, DDRef *LowerDDRef, DDRef *UpperDDRef,
-               DDRef *StrideDDRef, bool IsDoWh, unsigned NumEx)
+HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
+               RegDDRef *StrideDDRef, bool IsDoWh, unsigned NumEx)
     : HLDDNode(HLNode::HLLoopVal), OrigLoop(nullptr), Ztt(nullptr),
       IsDoWhile(IsDoWh), NestingLevel(0), IsInnermost(true) {
   assert((!ZttIf || !IsDoWh) && "Do while loop cannot have ztt!");
@@ -70,7 +70,7 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
       IsDoWhile(HLLoopObj.IsDoWhile), NumExits(HLLoopObj.NumExits),
       NestingLevel(0), IsInnermost(HLLoopObj.IsInnermost) {
 
-  const DDRef *Ref;
+  const RegDDRef *Ref;
 
   initialize();
 
@@ -115,7 +115,7 @@ HLLoop *HLLoop::clone() const {
 }
 
 void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth) const {
-  const DDRef *Ref;
+  const RegDDRef *Ref;
 
   indent(OS, Depth);
 
@@ -172,8 +172,8 @@ void HLLoop::setNumExits(unsigned NumEx) {
   NumExits = NumEx;
 }
 
-void HLLoop::addZttPredicate(CmpInst::Predicate Pred, DDRef *Ref1,
-                             DDRef *Ref2) {
+void HLLoop::addZttPredicate(CmpInst::Predicate Pred, RegDDRef *Ref1,
+                             RegDDRef *Ref2) {
   assert(hasZtt() && "Ztt is absent!");
   Ztt->addPredicate(Pred, Ref1, Ref2);
 }
@@ -183,21 +183,22 @@ void HLLoop::removeZttPredicate(ztt_pred_iterator PredI) {
   Ztt->removePredicate(PredI);
 }
 
-DDRef *HLLoop::getZttPredicateOperandDDRef(ztt_pred_iterator PredI,
-                                           bool IsLHS) {
+RegDDRef *HLLoop::getZttPredicateOperandDDRef(ztt_pred_iterator PredI,
+                                              bool IsLHS) {
   assert(hasZtt() && "Ztt is absent!");
   return getOperandDDRefImpl(getNumLoopDDRefs() +
                              Ztt->getPredicateOperandDDRefOffset(PredI, IsLHS));
 }
 
-const DDRef *HLLoop::getZttPredicateOperandDDRef(const_ztt_pred_iterator PredI,
-                                                 bool IsLHS) const {
+const RegDDRef *
+HLLoop::getZttPredicateOperandDDRef(const_ztt_pred_iterator PredI,
+                                    bool IsLHS) const {
   assert(hasZtt() && "Ztt is absent!");
   return getOperandDDRefImpl(getNumLoopDDRefs() +
                              Ztt->getPredicateOperandDDRefOffset(PredI, IsLHS));
 }
 
-void HLLoop::setZttPredicateOperandDDRef(DDRef *Ref, ztt_pred_iterator PredI,
+void HLLoop::setZttPredicateOperandDDRef(RegDDRef *Ref, ztt_pred_iterator PredI,
                                          bool IsLHS) {
   assert(hasZtt() && "Ztt is absent!");
   setOperandDDRefImpl(Ref,
@@ -205,8 +206,8 @@ void HLLoop::setZttPredicateOperandDDRef(DDRef *Ref, ztt_pred_iterator PredI,
                           Ztt->getPredicateOperandDDRefOffset(PredI, IsLHS));
 }
 
-DDRef *HLLoop::removeZttPredicateOperandDDRef(ztt_pred_iterator PredI,
-                                              bool IsLHS) {
+RegDDRef *HLLoop::removeZttPredicateOperandDDRef(ztt_pred_iterator PredI,
+                                                 bool IsLHS) {
   assert(hasZtt() && "Ztt is absent!");
   auto TRef = getZttPredicateOperandDDRef(PredI, IsLHS);
 
@@ -217,22 +218,19 @@ DDRef *HLLoop::removeZttPredicateOperandDDRef(ztt_pred_iterator PredI,
   return TRef;
 }
 
-DDRef *HLLoop::getLowerDDRef() { return getOperandDDRefImpl(0); }
+RegDDRef *HLLoop::getLowerDDRef() { return getOperandDDRefImpl(0); }
 
-const DDRef *HLLoop::getLowerDDRef() const {
+const RegDDRef *HLLoop::getLowerDDRef() const {
   return const_cast<HLLoop *>(this)->getLowerDDRef();
 }
 
-void HLLoop::setLowerDDRef(DDRef *Ref) {
-  assert((!Ref || !isa<RegDDRef>(Ref) ||
-          ((cast<RegDDRef>(Ref)->getNumDimensions() == 1) &&
-           !cast<RegDDRef>(Ref)->hasGEPInfo())) &&
-         "Invalid LowerDDRef!");
+void HLLoop::setLowerDDRef(RegDDRef *Ref) {
+  assert((!Ref || Ref->isSimpleRef()) && "Invalid LowerDDRef!");
 
   setOperandDDRefImpl(Ref, 0);
 }
 
-DDRef *HLLoop::removeLowerDDRef() {
+RegDDRef *HLLoop::removeLowerDDRef() {
   auto TRef = getLowerDDRef();
 
   if (TRef) {
@@ -242,22 +240,19 @@ DDRef *HLLoop::removeLowerDDRef() {
   return TRef;
 }
 
-DDRef *HLLoop::getUpperDDRef() { return getOperandDDRefImpl(1); }
+RegDDRef *HLLoop::getUpperDDRef() { return getOperandDDRefImpl(1); }
 
-const DDRef *HLLoop::getUpperDDRef() const {
+const RegDDRef *HLLoop::getUpperDDRef() const {
   return const_cast<HLLoop *>(this)->getUpperDDRef();
 }
 
-void HLLoop::setUpperDDRef(DDRef *Ref) {
-  assert((!Ref || !isa<RegDDRef>(Ref) ||
-          ((cast<RegDDRef>(Ref)->getNumDimensions() == 1) &&
-           !cast<RegDDRef>(Ref)->hasGEPInfo())) &&
-         "Invalid UpperDDRef!");
+void HLLoop::setUpperDDRef(RegDDRef *Ref) {
+  assert((!Ref || Ref->isSimpleRef()) && "Invalid UpperDDRef!");
 
   setOperandDDRefImpl(Ref, 1);
 }
 
-DDRef *HLLoop::removeUpperDDRef() {
+RegDDRef *HLLoop::removeUpperDDRef() {
   auto TRef = getUpperDDRef();
 
   if (TRef) {
@@ -267,22 +262,19 @@ DDRef *HLLoop::removeUpperDDRef() {
   return TRef;
 }
 
-DDRef *HLLoop::getStrideDDRef() { return getOperandDDRefImpl(2); }
+RegDDRef *HLLoop::getStrideDDRef() { return getOperandDDRefImpl(2); }
 
-const DDRef *HLLoop::getStrideDDRef() const {
+const RegDDRef *HLLoop::getStrideDDRef() const {
   return const_cast<HLLoop *>(this)->getStrideDDRef();
 }
 
-void HLLoop::setStrideDDRef(DDRef *Ref) {
-  assert((!Ref || !isa<RegDDRef>(Ref) ||
-          ((cast<RegDDRef>(Ref)->getNumDimensions() == 1) &&
-           !cast<RegDDRef>(Ref)->hasGEPInfo())) &&
-         "Invalid StrideDDRef!");
+void HLLoop::setStrideDDRef(RegDDRef *Ref) {
+  assert((!Ref || Ref->isSimpleRef()) && "Invalid StrideDDRef!");
 
   setOperandDDRefImpl(Ref, 2);
 }
 
-DDRef *HLLoop::removeStrideDDRef() {
+RegDDRef *HLLoop::removeStrideDDRef() {
   auto TRef = getStrideDDRef();
 
   if (TRef) {
@@ -305,7 +297,7 @@ void HLLoop::setZtt(HLIf *ZttIf) {
 
   Ztt = ZttIf;
 
-  DDRefs.resize(getNumOperandsInternal(), nullptr);
+  RegDDRefs.resize(getNumOperandsInternal(), nullptr);
 
   /// Move DDRef pointers to avoid unnecessary cloning.
   for (auto I = ztt_pred_begin(), E = ztt_pred_end(); I != E; I++) {
@@ -337,23 +329,15 @@ HLIf *HLLoop::removeZtt() {
   return If;
 }
 
-CanonExpr *HLLoop::getLoopCanonExpr(DDRef *Ref) {
+CanonExpr *HLLoop::getLoopCanonExpr(RegDDRef *Ref) {
   if (!Ref) {
     return nullptr;
   }
 
-  if (auto CRef = dyn_cast<ConstDDRef>(Ref)) {
-    return CRef->getCanonExpr();
-  } else if (auto RRef = dyn_cast<RegDDRef>(Ref)) {
-    return RRef->getSingleCanonExpr();
-  } else {
-    llvm_unreachable("Unexpected condition!");
-  }
-
-  return nullptr;
+  return Ref->getSingleCanonExpr();
 }
 
-const CanonExpr *HLLoop::getLoopCanonExpr(const DDRef *Ref) const {
+const CanonExpr *HLLoop::getLoopCanonExpr(const RegDDRef *Ref) const {
   return const_cast<HLLoop *>(this)->getLoopCanonExpr(Ref);
 }
 
@@ -401,7 +385,7 @@ unsigned HLLoop::getNumZttOperands() const {
 }
 
 void HLLoop::resizeToNumLoopDDRefs() {
-  DDRefs.resize(getNumLoopDDRefs(), nullptr);
+  RegDDRefs.resize(getNumLoopDDRefs(), nullptr);
 }
 
 HLNode *HLLoop::getFirstPreheaderNode() {

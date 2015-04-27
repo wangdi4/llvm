@@ -16,11 +16,14 @@
 
 #include <stdint.h>
 #include "llvm/Support/Compiler.h"
+
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLUtils.h"
 
 namespace llvm {
 
 class Type;
+class APInt;
 
 namespace loopopt {
 
@@ -29,7 +32,7 @@ namespace loopopt {
 /// It contains a bunch of static member functions which manipulate CanonExprs.
 /// It does not store any state.
 ///
-class CanonExprUtils {
+class CanonExprUtils : public HLUtils {
 private:
   /// \brief Do not allow instantiation.
   CanonExprUtils() LLVM_DELETED_FUNCTION;
@@ -39,26 +42,52 @@ private:
   /// \brief Destroys all CanonExprs and BlobTable. Called during HIR cleanup.
   static void destroyAll();
 
+  /// \brief Calculates the lcm of two positive inputs.
+  static int64_t lcm(int64_t a, int64_t b);
+
 public:
   /// \brief Returns a new CanonExpr.
   static CanonExpr *createCanonExpr(Type *Typ, int Level = 0, int64_t Const = 0,
                                     int64_t Denom = 1);
 
+  /// \brief Returns a new CanonExpr created from APInt Value
+  static CanonExpr *createCanonExpr(const APInt &APVal, int Level = 0);
+
   /// \brief Destroys the passed in CanonExpr.
   static void destroy(CanonExpr *CE);
+
+  /// \brief Returns true if the type of both Canon Expr matches
+  static bool isTypeEqual(CanonExpr *CE1, CanonExpr *CE2);
 
   /// \brief Returns true if passed in canon cxprs are equal to each other.
   static bool areEqual(CanonExpr *CE1, CanonExpr *CE2);
 
-  /// \brief Returns a canon expr which represents the sum of these canon exprs.
-  /// Adds CE2 to CE1 if CreateNewCE is false.
-  static CanonExpr *addCanonExprs(CanonExpr *CE1, CanonExpr *CE2,
-                                  bool CreateNewCE = false);
+  /// \brief Returns a canon expr which represents the sum of these canon
+  /// exprs. Result = CE1+CE2
+  /// If CreateNewCE is true, results in a new canon expr.
+  /// If CreateNewCE is false, it updates the input canon expr.
+  static CanonExpr *add(CanonExpr *CE1, CanonExpr *CE2,
+                        bool CreateNewCE = false);
 
-  /// \brief Returns a canon expr which represents the difference of these canon
-  /// exprs. Subtracts CE2 from CE1 if CreateNewCE is false.
-  static CanonExpr *subtractCanonExprs(CanonExpr *CE1, CanonExpr *CE2,
+  /// \brief Multiplies constant by Canon Expr and returns result pointer
+  /// Result = CE1*Const
+  /// If CreateNewCE is true, results in a new canon expr.
+  /// If CreateNewCE is false, it updates the input canon expr.
+  static CanonExpr *multiplyByConstant(CanonExpr *CE1, int64_t Val,
                                        bool CreateNewCE = false);
+
+  /// \brief Returns a canon expr which represents the negation of given
+  /// canon expr. Result = -CE1
+  /// If CreateNewCE is true, results in a new canon expr.
+  /// If CreateNewCE is false, it updates the input canon expr.
+  static CanonExpr *negate(CanonExpr *CE1, bool CreateNewCE = false);
+
+  /// \brief Returns a canon expr which represents the difference of these
+  /// canon exprs. Result = CE1 - CE2
+  /// If CreateNewCE is true, results in a new canon expr.
+  /// If CreateNewCE is false, it updates the input canon expr.
+  static CanonExpr *subtract(CanonExpr *CE1, CanonExpr *CE2,
+                             bool CreateNewCE = false);
 };
 
 } // End namespace loopopt

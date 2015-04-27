@@ -55,8 +55,8 @@ void SymbaseAssignmentVisitor::visit(HLDDNode *Node) {
     // TODO implement a less conservative assignment algorithm
     DEBUG((*I)->dump());
     DEBUG(dbgs() << "\n");
-    // Everyone goes into the same symbase...except constants
-    if (isa<ConstDDRef>(*I))
+    // Everyone goes into the same symbase... except for constants
+    if((*I)->isConstant())
       (*I)->setSymBase(SA->getSymbaseForConstants());
     else
       (*I)->setSymBase(SA->getSymbaseForConstants() + 1);
@@ -72,6 +72,7 @@ INITIALIZE_PASS_DEPENDENCY(HIRCreation)
 INITIALIZE_PASS_DEPENDENCY(HIRParser)
 INITIALIZE_PASS_END(SymbaseAssignment,"symbase", "Symbase Assigment", false,
                                          true)
+
 void SymbaseAssignment::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.setPreservesAll();
@@ -79,6 +80,7 @@ void SymbaseAssignment::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<HIRParser>();
   AU.addRequired<AliasAnalysis>();
 }
+
 bool SymbaseAssignment::runOnFunction(Function &F) {
 
   this->F = &F;

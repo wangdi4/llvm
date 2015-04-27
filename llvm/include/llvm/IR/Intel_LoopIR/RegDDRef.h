@@ -90,6 +90,9 @@ protected:
 
   friend class DDRefUtils;
 
+  /// \brief Required to access setHLDDNode().
+  friend class HLDDNode;
+
   /// \brief Sets the HLDDNode of this RegDDRef
   void setHLDDNode(HLDDNode *HNode) override { Node = HNode; }
 
@@ -145,8 +148,15 @@ public:
     GepInfo->InBounds = IsInBounds;
   }
 
+  /// \brief Returns true if this RegDDRef is a constant
+  /// Val parameter is the value associated inside the CanonExpr
+  /// of this RegDDRef
+  bool isIntConstant(int64_t *Val = nullptr) const;
+
+  bool isConstant() const { return isIntConstant(nullptr); }
+
   /// \brief Returns the number of dimensions of the DDRef.
-  unsigned getNumDimensions() { return CanonExprs.size(); }
+  unsigned getNumDimensions() const { return CanonExprs.size(); }
 
   /// \brief Returns the only canon expr of this DDRef.
   CanonExpr *getSingleCanonExpr() {
@@ -155,6 +165,17 @@ public:
   }
   const CanonExpr *getSingleCanonExpr() const {
     return const_cast<RegDDRef *>(this)->getSingleCanonExpr();
+  }
+
+  /// \brief Returns true if this DDRef has only one canon expr.
+  bool isSingleCanonExpr() const { return (getNumDimensions() == 1); }
+
+  /// \brief Updates the only Canon Expr of this RegDDRef
+  void setSingleCanonExpr(CanonExpr *CE) {
+    assert((getNumDimensions()==0) && " RegDDRef already has one or more "
+                                      "CanonExprs");
+    // TODO: Add replace dimension when available
+    addDimension(CE, nullptr);
   }
 
   /// CanonExpr iterator methods
@@ -237,6 +258,14 @@ public:
   /// \brief Returns true if this DDRef is a fake DDRef. This function
   /// assumes that the DDRef is connected to a HLDDNode.
   bool isFake() const;
+
+  /// \brief This method checks if the DDRef is
+  /// not a memory reference or a pointer reference
+  /// Returns false for:
+  ///      RegDDRef is Memory Reference - A[i]
+  ///      RegDDRef is a Pointer Reference - *p
+  /// Else returns true for cases like DDRef - 2*i and M+N.
+  bool isSimpleRef() const;
 
   /// \brief Adds a dimension to the DDRef. Stride can be null for a scalar.
   void addDimension(CanonExpr *Canon, CanonExpr *Stride);

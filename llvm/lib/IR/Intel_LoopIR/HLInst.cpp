@@ -24,7 +24,7 @@ void HLInst::initialize() {
 
   /// Number of operands stays the same over the lifetime of HLInst so make
   /// that the min size.
-  DDRefs.resize(NumOp, nullptr);
+  RegDDRefs.resize(NumOp, nullptr);
 }
 
 HLInst::HLInst(Instruction *In)
@@ -47,7 +47,7 @@ HLInst::HLInst(const HLInst &HLInstObj)
     if (Count < NumOp) {
       setOperandDDRef((*I)->clone(), Count);
     } else {
-      addFakeDDRef(cast<RegDDRef>((*I)->clone()));
+      addFakeDDRef((*I)->clone());
     }
   }
 }
@@ -131,7 +131,7 @@ bool HLInst::hasRval() const {
   return (isa<StoreInst>(Inst) || (hasLval() && isa<UnaryInstruction>(Inst)));
 }
 
-DDRef *HLInst::getRvalDDRef() {
+RegDDRef *HLInst::getRvalDDRef() {
   if (hasRval()) {
     return getOperandDDRefImpl(1);
   }
@@ -139,17 +139,17 @@ DDRef *HLInst::getRvalDDRef() {
   return nullptr;
 }
 
-const DDRef *HLInst::getRvalDDRef() const {
+const RegDDRef *HLInst::getRvalDDRef() const {
   return const_cast<HLInst *>(this)->getRvalDDRef();
 }
 
-void HLInst::setRvalDDRef(DDRef *Ref) {
+void HLInst::setRvalDDRef(RegDDRef *Ref) {
   assert(hasRval() && "This instruction does not have a rval!");
 
   setOperandDDRefImpl(Ref, 1);
 }
 
-DDRef *HLInst::removeRvalDDRef() {
+RegDDRef *HLInst::removeRvalDDRef() {
   auto TRef = getRvalDDRef();
 
   setRvalDDRef(nullptr);
@@ -160,7 +160,7 @@ DDRef *HLInst::removeRvalDDRef() {
 void HLInst::addFakeDDRef(RegDDRef *RDDRef) {
   assert(RDDRef && "Cannot add null fake DDRef!");
 
-  DDRefs.push_back(RDDRef);
+  RegDDRefs.push_back(RDDRef);
   setNode(RDDRef, this);
 }
 
@@ -176,7 +176,7 @@ void HLInst::removeFakeDDRef(RegDDRef *RDDRef) {
   for (auto I = fake_ddref_begin(), E = fake_ddref_end(); I != E; I++) {
     if ((*I) == RDDRef) {
       setNode(RDDRef, nullptr);
-      DDRefs.erase(I);
+      RegDDRefs.erase(I);
       return;
     }
   }

@@ -108,6 +108,12 @@ private:
   int64_t Const;
   int64_t Denominator;
 
+  /// \brief Internal method to check blob index range.
+  static bool isBlobIndexValid(unsigned Index);
+
+  /// \brief Internal method to check level range.
+  static bool isLevelValid(unsigned Level);
+
 protected:
   CanonExpr(Type *Typ, int DefLevel, int64_t ConstVal, int64_t Denom);
   ~CanonExpr() {}
@@ -134,7 +140,6 @@ protected:
 
   /// \brief Resizes IVCoeffs to max loopnest level if the passed in level goes
   /// beyond the current size. This will avoid future reallocs.
-  ///
   /// Returns true if we did resize.
   bool resizeIVCoeffsToMax(unsigned Lvl);
 
@@ -194,6 +199,9 @@ public:
 
   /// \brief Returns true if this contains any IV.
   bool hasIV() const;
+  /// \brief Returns true if this contains any Blob IV Coeffs.
+  /// Examples: -M*i, N*j
+  bool hasBlobIVCoeffs() const;
   /// \brief Returns true if this contains any blobs.
   bool hasBlob() const { return !BlobCoeffs.empty(); }
 
@@ -228,8 +236,6 @@ public:
   /// level.
   void shift(unsigned Lvl, int64_t Val);
 
-  /// \brief Multiplies this canon expr by a contant.
-  void multiplyByConstant(int64_t Const);
   /// \brief Multiplies this canon expr by a blob.
   void multiplyByBlob(unsigned BlobIndex);
 

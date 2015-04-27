@@ -80,8 +80,9 @@ private:
   void parseBlob(const SCEV *BlobSCEV, CanonExpr *CE, unsigned CurLevel);
 
   /// \brief Parses the passed in SCEV into the CanonExpr CE.
-  DDRef *parseRecursive(const SCEV *SC, const SCEV *ElementSize,
-                        unsigned CurLevel, bool IsErasable, bool IsTop = true);
+  RegDDRef *parseRecursive(const SCEV *SC, const SCEV *ElementSize,
+                           unsigned CurLevel, bool IsErasable,
+                           bool IsTop = true);
 
   /// \brief Returns a RegDDRef containing GEPInfo.
   RegDDRef *createGEPRegDDRef(const SCEV *SC, const SCEV *ElementSize,
@@ -89,7 +90,7 @@ private:
                               bool IsErasable);
 
   /// \brief Returns an rval DDRef created from Val.
-  DDRef *createRvalDDRef(const Value *Val, unsigned Level);
+  RegDDRef *createRvalDDRef(const Value *Val, unsigned Level);
 
   /// \brief Returns true if the Value is region live out.
   bool isRegionLiveOut(const Value *Val, bool IsCompare = false);
@@ -136,12 +137,21 @@ public:
   /// \brief Returns blob corresponding to BlobIndex.
   CanonExpr::BlobTy getBlob(unsigned BlobIndex);
 
+  /// \brief Checks if the blob is constant or not
+  /// If blob is constant, sets the return value in Val
+  bool isConstIntBlob(CanonExpr::BlobTy Blob, int64_t *Val);
+
+  /// \brief Returns a new blob created from a constant value.
+  CanonExpr::BlobTy createBlob(int64_t Val, bool Insert = true,
+                               unsigned *NewBlobIndex = nullptr);
+
   /// \brief Returns a blob which represents (LHS + RHS). If Insert is true its
   /// index is returned
   /// via NewBlobIndex argument.
   CanonExpr::BlobTy createAddBlob(CanonExpr::BlobTy LHS, CanonExpr::BlobTy RHS,
                                   bool Insert = true,
                                   unsigned *NewBlobIndex = nullptr);
+
   /// \brief Returns a blob which represents (LHS - RHS). If Insert is true its
   /// index is returned
   /// via NewBlobIndex argument.

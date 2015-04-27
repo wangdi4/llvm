@@ -15,7 +15,6 @@
 #include "llvm/Support/Debug.h"
 
 #include "llvm/IR/Intel_LoopIR/DDRef.h"
-#include "llvm/IR/Intel_LoopIR/ConstDDRef.h"
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
@@ -60,11 +59,7 @@ void DDRef::dump() const {
 Type *DDRef::getLLVMType() const {
   const CanonExpr *CE;
 
-  if (auto CRef = dyn_cast<ConstDDRef>(this)) {
-    CE = CRef->getCanonExpr();
-    assert(CE && "DDRef is empty!");
-    return CE->getLLVMType();
-  } else if (auto BRef = dyn_cast<BlobDDRef>(this)) {
+  if (auto BRef = dyn_cast<BlobDDRef>(this)) {
     CE = BRef->getCanonExpr();
     assert(CE && "DDRef is empty!");
     return CE->getLLVMType();

@@ -15,6 +15,7 @@
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/IR/Intel_LoopIR/DDRef.h"
+#include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
 
 using namespace llvm;
@@ -27,26 +28,28 @@ HLDDNode::HLDDNode(unsigned SCID) : HLNode(SCID) {}
 HLDDNode::HLDDNode(const HLDDNode &HLDDNodeObj) : HLNode(HLDDNodeObj) {}
 
 void HLDDNode::resizeDDRefsToNumOperands() {
-  DDRefs.resize(getNumOperands(), nullptr);
+  RegDDRefs.resize(getNumOperands(), nullptr);
 }
 
-void HLDDNode::setNode(DDRef *Ref, HLDDNode *HNode) { Ref->setHLDDNode(HNode); }
+void HLDDNode::setNode(RegDDRef *Ref, HLDDNode *HNode) {
+  Ref->setHLDDNode(HNode);
+}
 
 HLDDNode::ddref_iterator HLDDNode::ddref_begin() {
   HLLoop *HLoop;
 
   /// Skip null DDRefs for unknown loops
   if ((HLoop = dyn_cast<HLLoop>(this)) && HLoop->isUnknownLoop()) {
-    return DDRefs.end();
+    return RegDDRefs.end();
   }
-  return DDRefs.begin();
+  return RegDDRefs.begin();
 }
 
 HLDDNode::const_ddref_iterator HLDDNode::ddref_begin() const {
   return const_cast<HLDDNode *>(this)->ddref_begin();
 }
 
-HLDDNode::ddref_iterator HLDDNode::ddref_end() { return DDRefs.end(); }
+HLDDNode::ddref_iterator HLDDNode::ddref_end() { return RegDDRefs.end(); }
 
 HLDDNode::const_ddref_iterator HLDDNode::ddref_end() const {
   return const_cast<HLDDNode *>(this)->ddref_end();
@@ -57,9 +60,9 @@ HLDDNode::reverse_ddref_iterator HLDDNode::ddref_rbegin() {
 
   /// Skip null DDRefs for unknown loops
   if ((HLoop = dyn_cast<HLLoop>(this)) && HLoop->isUnknownLoop()) {
-    return DDRefs.rend();
+    return RegDDRefs.rend();
   }
-  return DDRefs.rbegin();
+  return RegDDRefs.rbegin();
 }
 
 HLDDNode::const_reverse_ddref_iterator HLDDNode::ddref_rbegin() const {
@@ -67,18 +70,18 @@ HLDDNode::const_reverse_ddref_iterator HLDDNode::ddref_rbegin() const {
 }
 
 HLDDNode::reverse_ddref_iterator HLDDNode::ddref_rend() {
-  return DDRefs.rend();
+  return RegDDRefs.rend();
 }
 
 HLDDNode::const_reverse_ddref_iterator HLDDNode::ddref_rend() const {
   return const_cast<HLDDNode *>(this)->ddref_rend();
 }
 
-DDRef *HLDDNode::getOperandDDRefImpl(unsigned OperandNum) const {
-  return DDRefs[OperandNum];
+RegDDRef *HLDDNode::getOperandDDRefImpl(unsigned OperandNum) const {
+  return RegDDRefs[OperandNum];
 }
 
-DDRef *HLDDNode::getOperandDDRef(unsigned OperandNum) {
+RegDDRef *HLDDNode::getOperandDDRef(unsigned OperandNum) {
   assert(OperandNum < getNumOperands() && "Operand is out of range!");
   assert(!isa<HLLoop>(this) && "Please use HLLoop specific utility!");
   assert(!isa<HLIf>(this) && "Please use HLIf specific utility!");
@@ -86,17 +89,16 @@ DDRef *HLDDNode::getOperandDDRef(unsigned OperandNum) {
   return getOperandDDRefImpl(OperandNum);
 }
 
-const DDRef *HLDDNode::getOperandDDRef(unsigned OperandNum) const {
+const RegDDRef *HLDDNode::getOperandDDRef(unsigned OperandNum) const {
   return const_cast<HLDDNode *>(this)->getOperandDDRef(OperandNum);
 }
 
-void HLDDNode::setOperandDDRefImpl(DDRef *Ref, unsigned OperandNum) {
-  assert((!Ref || !isa<BlobDDRef>(Ref)) && "Cannot associate blob DDRef with "
-                                           "operand!");
+void HLDDNode::setOperandDDRefImpl(RegDDRef *Ref, unsigned OperandNum) {
+
 #ifndef NDEBUG
   /// Reset HLDDNode of a previous DDRef, if any. We can catch more errors
   /// this way.
-  if (auto TRef = DDRefs[OperandNum]) {
+  if (auto TRef = RegDDRefs[OperandNum]) {
     setNode(TRef, nullptr);
   }
 #endif
@@ -107,10 +109,10 @@ void HLDDNode::setOperandDDRefImpl(DDRef *Ref, unsigned OperandNum) {
     setNode(Ref, this);
   }
 
-  DDRefs[OperandNum] = Ref;
+  RegDDRefs[OperandNum] = Ref;
 }
 
-void HLDDNode::setOperandDDRef(DDRef *Ref, unsigned OperandNum) {
+void HLDDNode::setOperandDDRef(RegDDRef *Ref, unsigned OperandNum) {
   assert(OperandNum < getNumOperands() && "Operand is out of range!");
   assert(!isa<HLLoop>(this) && "Please use HLLoop specific utility!");
   assert(!isa<HLIf>(this) && "Please use HLIf specific utility!");
@@ -118,7 +120,7 @@ void HLDDNode::setOperandDDRef(DDRef *Ref, unsigned OperandNum) {
   setOperandDDRefImpl(Ref, OperandNum);
 }
 
-DDRef *HLDDNode::removeOperandDDRef(unsigned OperandNum) {
+RegDDRef *HLDDNode::removeOperandDDRef(unsigned OperandNum) {
   auto TRef = getOperandDDRef(OperandNum);
 
   if (TRef) {

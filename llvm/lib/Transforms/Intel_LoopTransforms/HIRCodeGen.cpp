@@ -62,7 +62,6 @@ private:
     // which is returned
     Value *visitCanonExpr(CanonExpr *CE);
     Value *visitRegDDRef(RegDDRef *Ref);
-    Value *visitDDRef(DDRef *Ref);
 
     Value *visitRegion(HLRegion *R);
     Value *visitLoop(HLLoop *L);
@@ -239,10 +238,16 @@ Value *HIRCodeGen::CGVisitor::visitCanonExpr(CanonExpr *CE) {
 
 /// Only works for single dimension arrays right now.
 Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
+  assert(Ref && " Reference is null.");
   assert((Ref->getNumDimensions() == 1) &&
          "Cannot handle multiple dimensions!");
 
+  if (!Ref->hasGEPInfo()) {
+    return visitCanonExpr(*(Ref->canon_begin()));
+  }
+
   Value *BaseV = visitCanonExpr(Ref->getBaseCE());
+
   // Create zero for the first GEP index
   Value *Zero =
       ConstantInt::getSigned((*(Ref->canon_begin()))->getLLVMType(), 0);
@@ -256,17 +261,6 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
   } else {
     return Builder->CreateGEP(BaseV, IndexV, "arrayIdx");
   }
-}
-
-Value *HIRCodeGen::CGVisitor::visitDDRef(DDRef *Ref) {
-  if (ConstDDRef *CRef = dyn_cast<ConstDDRef>(Ref)) {
-    return visitCanonExpr(CRef->getCanonExpr());
-  } else if (BlobDDRef *BRef = dyn_cast<BlobDDRef>(Ref)) {
-    return visitCanonExpr(BRef->getCanonExpr());
-  } else if (RegDDRef *RegRef = dyn_cast<RegDDRef>(Ref)) {
-    return visitRegDDRef(RegRef);
-  }
-  llvm_unreachable("Unimpl CG for unknown ddref type");
 }
 
 Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
@@ -338,7 +332,7 @@ Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *L) {
     Alloca = NamedValues[IVName];
   }
 
-  Value *StartVal = visitDDRef(L->getLowerDDRef());
+  Value *StartVal = visitRegDDRef(L->getLowerDDRef());
 
   if (!StartVal || !Alloca)
     llvm_unreachable("Failed to CG IV");
@@ -356,8 +350,8 @@ Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *L) {
     visit(*It);
   }
 
-  Value *StepVal = visitDDRef(L->getStrideDDRef());
-  Value *Upper = visitDDRef(L->getUpperDDRef());
+  Value *StepVal = visitRegDDRef(L->getStrideDDRef());
+  Value *Upper = visitRegDDRef(L->getUpperDDRef());
 
   // increment IV
   Value *CurVar = Builder->CreateLoad(Alloca);
@@ -384,10 +378,10 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *I) {
   // CG the operands
   // TODO change this to match HLInst->getNumOperands() and skip temp lvals.
   Value *Ops[3];
-  int OpIdx;
+  int OpIdx = 0;
   for (auto R = I->op_ddref_begin(), E = I->op_ddref_end(); R != E;
        OpIdx++, R++) {
-    Ops[OpIdx] = visitDDRef(*R);
+    Ops[OpIdx] = visitRegDDRef(*R);
   }
 
   // create the inst

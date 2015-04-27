@@ -127,18 +127,18 @@ public:
   static HLInst *createHLInst(Instruction *In);
 
   /// \brief Returns a new HLIf.
-  static HLIf *createHLIf(CmpInst::Predicate FirstPred, DDRef *Ref1,
-                          DDRef *Ref2);
+  static HLIf *createHLIf(CmpInst::Predicate FirstPred, RegDDRef *Ref1,
+                          RegDDRef *Ref2);
 
   /// \brief Returns a new HLLoop created from an underlying LLVM loop.
   static HLLoop *createHLLoop(const Loop *LLVMLoop, bool IsDoWh = false);
 
   /// \brief Returns a new HLLoop.
   static HLLoop *createHLLoop(HLIf *ZttIf = nullptr,
-                              DDRef *LowerDDRef = nullptr,
-                              DDRef *UpperDDRef = nullptr,
-                              DDRef *StrideDDRef = nullptr, bool IsDoWh = false,
-                              unsigned NumEx = 1);
+                              RegDDRef *LowerDDRef = nullptr,
+                              RegDDRef *UpperDDRef = nullptr,
+                              RegDDRef *StrideDDRef = nullptr,
+                              bool IsDoWh = false, unsigned NumEx = 1);
 
   /// \brief Destroys the passed in HLNode.
   static void destroy(HLNode *Node);

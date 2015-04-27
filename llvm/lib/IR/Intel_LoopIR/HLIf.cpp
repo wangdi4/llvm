@@ -24,10 +24,10 @@ void HLIf::initialize() {
   /// This call is to get around calling virtual functions in the constructor.
   NumOp = getNumOperandsInternal();
 
-  DDRefs.resize(NumOp, nullptr);
+  RegDDRefs.resize(NumOp, nullptr);
 }
 
-HLIf::HLIf(CmpInst::Predicate FirstPred, DDRef *Ref1, DDRef *Ref2)
+HLIf::HLIf(CmpInst::Predicate FirstPred, RegDDRef *Ref1, RegDDRef *Ref2)
     : HLDDNode(HLNode::HLIfVal) {
   assert(((FirstPred == CmpInst::Predicate::FCMP_FALSE) ||
           (FirstPred == CmpInst::Predicate::FCMP_TRUE) || (Ref1 && Ref2)) &&
@@ -53,7 +53,7 @@ HLIf::HLIf(CmpInst::Predicate FirstPred, DDRef *Ref1, DDRef *Ref2)
 
 HLIf::HLIf(const HLIf &HLIfObj)
     : HLDDNode(HLIfObj), Predicates(HLIfObj.Predicates) {
-  const DDRef *Ref;
+  const RegDDRef *Ref;
   ElseBegin = Children.end();
   initialize();
 
@@ -89,7 +89,7 @@ HLIf *HLIf::clone() const {
 }
 
 void HLIf::print(formatted_raw_ostream &OS, unsigned Depth) const {
-  const DDRef *Ref;
+  const RegDDRef *Ref;
   bool FirstPred = true;
 
   indent(OS, Depth);
@@ -190,7 +190,8 @@ unsigned HLIf::getPredicateOperandDDRefOffset(const_pred_iterator PredI,
   return ((2 * (PredI - Predicates.begin())) + (IsLHS ? 0 : 1));
 }
 
-void HLIf::addPredicate(CmpInst::Predicate Pred, DDRef *Ref1, DDRef *Ref2) {
+void HLIf::addPredicate(CmpInst::Predicate Pred, RegDDRef *Ref1,
+                        RegDDRef *Ref2) {
   assert(Ref1 && Ref2 && "DDRef is null!");
   assert((Pred != CmpInst::Predicate::FCMP_FALSE) &&
          (Pred != CmpInst::Predicate::FCMP_TRUE) && "Invalid predicate!");
@@ -211,7 +212,7 @@ void HLIf::addPredicate(CmpInst::Predicate Pred, DDRef *Ref1, DDRef *Ref2) {
   Predicates.push_back(Pred);
 
   NumOp = getNumOperandsInternal();
-  DDRefs.resize(NumOp, nullptr);
+  RegDDRefs.resize(NumOp, nullptr);
 
   setOperandDDRefImpl(Ref1, NumOp - 2);
   setOperandDDRefImpl(Ref2, NumOp - 1);
@@ -225,29 +226,31 @@ void HLIf::removePredicate(pred_iterator PredI) {
   removePredicateOperandDDRef(PredI, false);
 
   /// Erase the iterators themselves.
-  DDRefs.erase(DDRefs.begin() + getPredicateOperandDDRefOffset(PredI, true));
-  DDRefs.erase(DDRefs.begin() + getPredicateOperandDDRefOffset(PredI, true));
+  RegDDRefs.erase(RegDDRefs.begin() +
+                  getPredicateOperandDDRefOffset(PredI, true));
+  RegDDRefs.erase(RegDDRefs.begin() +
+                  getPredicateOperandDDRefOffset(PredI, true));
 
   /// Erase the predicate.
   Predicates.erase(PredI);
 }
 
-DDRef *HLIf::getPredicateOperandDDRef(pred_iterator PredI, bool IsLHS) {
+RegDDRef *HLIf::getPredicateOperandDDRef(pred_iterator PredI, bool IsLHS) {
   const_pred_iterator CPredI(PredI);
-  return const_cast<DDRef *>(getPredicateOperandDDRef(CPredI, IsLHS));
+  return const_cast<RegDDRef *>(getPredicateOperandDDRef(CPredI, IsLHS));
 }
 
-const DDRef *HLIf::getPredicateOperandDDRef(const_pred_iterator PredI,
-                                            bool IsLHS) const {
+const RegDDRef *HLIf::getPredicateOperandDDRef(const_pred_iterator PredI,
+                                               bool IsLHS) const {
   return getOperandDDRefImpl(getPredicateOperandDDRefOffset(PredI, IsLHS));
 }
 
-void HLIf::setPredicateOperandDDRef(DDRef *Ref, pred_iterator PredI,
+void HLIf::setPredicateOperandDDRef(RegDDRef *Ref, pred_iterator PredI,
                                     bool IsLHS) {
   setOperandDDRefImpl(Ref, getPredicateOperandDDRefOffset(PredI, IsLHS));
 }
 
-DDRef *HLIf::removePredicateOperandDDRef(pred_iterator PredI, bool IsLHS) {
+RegDDRef *HLIf::removePredicateOperandDDRef(pred_iterator PredI, bool IsLHS) {
   auto TRef = getPredicateOperandDDRef(PredI, IsLHS);
 
   if (TRef) {
