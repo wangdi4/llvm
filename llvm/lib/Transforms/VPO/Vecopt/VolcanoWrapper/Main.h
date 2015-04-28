@@ -60,7 +60,7 @@ private:
     void vectorizeFunction(Function& F, VectorVariant& vectorVariant);
     Function* createVectorVersion(Function& vectorizedFunction,
 				  VectorVariant& vectorVariant,
-				  std::string scalarFuncName);
+				  StringRef scalarFuncName);
     void postVectorizeFunction(Function& F);
 
     void createVectorizationStubs(Module& M);

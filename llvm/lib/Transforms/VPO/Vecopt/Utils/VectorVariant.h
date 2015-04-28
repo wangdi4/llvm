@@ -119,6 +119,15 @@ public:
     return sst.str();
   }
 
+  std::string generateFunctionName(llvm::StringRef scalarFuncName) {
+    static llvm::StringRef MANGLING_PREFIX("_Z");
+    std::string name = encode();
+    if (scalarFuncName.startswith(MANGLING_PREFIX))
+      return name + scalarFuncName.drop_front(MANGLING_PREFIX.size()).str();
+    else
+      return name + scalarFuncName.str();
+  }
+
   llvm::Type* promoteToSupportedType(llvm::Type* type) {
     return promoteToSupportedType(type, getISA());
   }

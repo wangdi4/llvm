@@ -439,7 +439,7 @@ bool Vectorizer::runOnModule(Module &M)
       // and delete the vectorized clone.
       Function* vectFunc = createVectorVersion(*clone,
 					       vectorVariant,
-					       F.getName().str());
+					       F.getName());
       // copy stats from the original function to the new one
       intel::Statistic::copyFunctionStats(*clone, *vectFunc);
       intel::Statistic::removeFunctionStats(*clone);
@@ -577,7 +577,7 @@ void Vectorizer::vectorizeFunction(Function& F, VectorVariant& vectorVariant) {
 // are replaced with the real vector values.
 Function* Vectorizer::createVectorVersion(Function& vectorizedFunction,
 					  VectorVariant& vectorVariant,
-					  std::string scalarFuncName) {
+					  StringRef scalarFuncName) {
   // Create a new function type with vector types for the RANDOM parameters
   FunctionType* originalFunctionType = vectorizedFunction.getFunctionType();
   Type* originalReturnType = originalFunctionType->getReturnType();
@@ -601,7 +601,7 @@ Function* Vectorizer::createVectorVersion(Function& vectorizedFunction,
   FunctionType* vectorFunctionType = FunctionType::get(vectorReturnType,
 						       parameterTypes,
 						       false);
-  std::string name = vectorVariant.encode() + scalarFuncName;
+  std::string name = vectorVariant.generateFunctionName(scalarFuncName);
   Function* wrapperFunc = Function::Create(vectorFunctionType,
 					   vectorizedFunction.getLinkage(),
 					   name,
