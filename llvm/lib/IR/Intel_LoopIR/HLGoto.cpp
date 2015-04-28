@@ -38,7 +38,7 @@ void HLGoto::print(formatted_raw_ostream &OS, unsigned Depth) const {
 
   indent(OS, Depth);
 
-  OS << "goto";
+  OS << "goto ";
 
   if (TargetLabel) {
     OS << TargetLabel->getSrcBBlock()->getName();

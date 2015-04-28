@@ -22,7 +22,6 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRCreation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 
 #include "llvm/Support/Debug.h"
@@ -164,12 +163,11 @@ public:
 
     this->F = &F;
     SE = &getAnalysis<ScalarEvolution>();
-    auto HIR = &getAnalysis<HIRCreation>();
     auto HIRP = &getAnalysis<HIRParser>();
 
     // generate code
     CGVisitor CG(&F, SE, HIRP, this);
-    for (auto I = HIR->begin(), E = HIR->end(); I != E; I++) {
+    for (auto I = HIRP->hir_begin(), E = HIRP->hir_end(); I != E; I++) {
       if (cast<HLRegion>(I)->shouldGenCode() || forceHIRCG) {
         CG.visit(I);
       }
@@ -182,7 +180,6 @@ public:
 
     // AU.addRequiredTransitive<ScalarEvolution>();
     AU.addRequired<ScalarEvolution>();
-    AU.addRequired<HIRCreation>();
     AU.addRequired<HIRParser>();
   }
 };
@@ -193,7 +190,6 @@ FunctionPass *llvm::createHIRCodeGenPass() { return new HIRCodeGen(); }
 char HIRCodeGen::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRCodeGen, "HIRCG", "HIR Code Generation", false, false)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
-INITIALIZE_PASS_DEPENDENCY(HIRCreation)
 INITIALIZE_PASS_DEPENDENCY(HIRParser)
 INITIALIZE_PASS_END(HIRCodeGen, "HIRCG", "HIR Code Generation", false, false)
 

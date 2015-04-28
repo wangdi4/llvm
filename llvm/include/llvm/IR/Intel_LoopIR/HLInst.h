@@ -41,11 +41,6 @@ protected:
 
   friend class HLNodeUtils;
 
-  /// \brief Resize DDRefs to match number of operands in the Node.
-  /// Since the resizing is done in the constructor itself, this becomes a
-  /// no-op.
-  virtual void resizeDDRefsToNumOperands() override {}
-
   /// \brief Implements getNumOperands() functionality.
   unsigned getNumOperandsInternal() const;
 
@@ -75,6 +70,16 @@ public:
   bool hasRval() const;
 
   const Value *getOperandValue(unsigned OperandNum);
+
+  /// \brief Returns the DDRef associated with the Nth operand (starting with
+  /// 0).
+  RegDDRef *getOperandDDRef(unsigned OperandNum);
+  const RegDDRef *getOperandDDRef(unsigned OperandNum) const;
+  /// \brief Sets the DDRef associated with the Nth operand (starting with 0).
+  void setOperandDDRef(RegDDRef *Ref, unsigned OperandNum);
+  /// \brief Removes and returns the DDRef associated with the Nth operand
+  /// (starting with 0).
+  RegDDRef *removeOperandDDRef(unsigned OperandNum);
 
   /// \brief Returns the lval DDRef of this node.
   RegDDRef *getLvalDDRef();

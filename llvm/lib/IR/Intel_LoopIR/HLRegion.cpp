@@ -49,11 +49,11 @@ BasicBlock *HLRegion::getPredBBlock() const {
 
   /// In some cases the entry bblock is also the loop header, so the predecessor
   /// can be the loop latch. We need to skip it, if that is the case.
-  if (OrigBBlocks.find(*PredI) != OrigBBlocks.end()) {
+  if (OrigBBlocks.count(*PredI)) {
     PredI++;
     auto TempPredI = PredI;
 
-    assert((OrigBBlocks.find(*PredI) == OrigBBlocks.end()) &&
+    assert(!OrigBBlocks.count(*PredI) &&
            "Both region predecessors lie inside the reigon!");
     assert((++TempPredI == pred_end(EntryBBlock)) &&
            "Region has more than two predecessors!");
@@ -67,11 +67,11 @@ BasicBlock *HLRegion::getSuccBBlock() const {
 
   /// In some cases the exit bblock is also the loop latch, so the successor
   /// can be the loop header. We need to skip it, if that is the case.
-  if (OrigBBlocks.find(*SuccI) != OrigBBlocks.end()) {
+  if (OrigBBlocks.count(*SuccI)) {
     SuccI++;
     auto TempSuccI = SuccI;
 
-    assert((OrigBBlocks.find(*SuccI) == OrigBBlocks.end()) &&
+    assert(!OrigBBlocks.count(*SuccI) &&
            "Both region successors lie inside the reigon!");
     assert((++TempSuccI == succ_end(ExitBBlock)) &&
            "Region has more than two successors!");

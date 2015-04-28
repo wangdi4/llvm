@@ -70,13 +70,13 @@ HLIf::HLIf(const HLIf &HLIfObj)
   for (auto ThenIter = HLIfObj.then_begin(), ThenIterEnd = HLIfObj.then_end();
        ThenIter != ThenIterEnd; ++ThenIter) {
     HLNode *NewHLNode = ThenIter->clone();
-    HLNodeUtils::insertAsLastIfChild(this, NewHLNode);
+    HLNodeUtils::insertAsLastChild(this, NewHLNode, true);
   }
 
   for (auto ElseIter = HLIfObj.else_begin(), ElseIterEnd = HLIfObj.else_end();
        ElseIter != ElseIterEnd; ++ElseIter) {
     HLNode *NewHLNode = ElseIter->clone();
-    HLNodeUtils::insertAsLastIfChild(this, NewHLNode, false);
+    HLNodeUtils::insertAsLastChild(this, NewHLNode, false);
   }
 }
 
@@ -128,7 +128,7 @@ void HLIf::print(formatted_raw_ostream &OS, unsigned Depth) const {
   indent(OS, Depth);
   OS << "}\n";
   indent(OS, Depth);
-  OS << "else";
+  OS << "else\n";
   indent(OS, Depth);
   OS << "{\n";
 
@@ -221,11 +221,11 @@ void HLIf::addPredicate(CmpInst::Predicate Pred, RegDDRef *Ref1,
 void HLIf::removePredicate(pred_iterator PredI) {
   assert(!Predicates.empty() && "No conjuntions present!");
 
-  /// Remove DDRefs associated with the succeeding predicate.
+  /// Remove DDRefs associated with the predicate.
   removePredicateOperandDDRef(PredI, true);
   removePredicateOperandDDRef(PredI, false);
 
-  /// Erase the iterators themselves.
+  /// Erase the DDRef slots.
   RegDDRefs.erase(RegDDRefs.begin() +
                   getPredicateOperandDDRefOffset(PredI, true));
   RegDDRefs.erase(RegDDRefs.begin() +

@@ -27,10 +27,6 @@ HLDDNode::HLDDNode(unsigned SCID) : HLNode(SCID) {}
 /// DDRefs are taken care of in the derived classes.
 HLDDNode::HLDDNode(const HLDDNode &HLDDNodeObj) : HLNode(HLDDNodeObj) {}
 
-void HLDDNode::resizeDDRefsToNumOperands() {
-  RegDDRefs.resize(getNumOperands(), nullptr);
-}
-
 void HLDDNode::setNode(RegDDRef *Ref, HLDDNode *HNode) {
   Ref->setHLDDNode(HNode);
 }
@@ -81,18 +77,6 @@ RegDDRef *HLDDNode::getOperandDDRefImpl(unsigned OperandNum) const {
   return RegDDRefs[OperandNum];
 }
 
-RegDDRef *HLDDNode::getOperandDDRef(unsigned OperandNum) {
-  assert(OperandNum < getNumOperands() && "Operand is out of range!");
-  assert(!isa<HLLoop>(this) && "Please use HLLoop specific utility!");
-  assert(!isa<HLIf>(this) && "Please use HLIf specific utility!");
-
-  return getOperandDDRefImpl(OperandNum);
-}
-
-const RegDDRef *HLDDNode::getOperandDDRef(unsigned OperandNum) const {
-  return const_cast<HLDDNode *>(this)->getOperandDDRef(OperandNum);
-}
-
 void HLDDNode::setOperandDDRefImpl(RegDDRef *Ref, unsigned OperandNum) {
 
 #ifndef NDEBUG
@@ -112,20 +96,3 @@ void HLDDNode::setOperandDDRefImpl(RegDDRef *Ref, unsigned OperandNum) {
   RegDDRefs[OperandNum] = Ref;
 }
 
-void HLDDNode::setOperandDDRef(RegDDRef *Ref, unsigned OperandNum) {
-  assert(OperandNum < getNumOperands() && "Operand is out of range!");
-  assert(!isa<HLLoop>(this) && "Please use HLLoop specific utility!");
-  assert(!isa<HLIf>(this) && "Please use HLIf specific utility!");
-
-  setOperandDDRefImpl(Ref, OperandNum);
-}
-
-RegDDRef *HLDDNode::removeOperandDDRef(unsigned OperandNum) {
-  auto TRef = getOperandDDRef(OperandNum);
-
-  if (TRef) {
-    setOperandDDRef(nullptr, OperandNum);
-  }
-
-  return TRef;
-}

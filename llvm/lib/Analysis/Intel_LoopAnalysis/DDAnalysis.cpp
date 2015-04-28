@@ -16,7 +16,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRCreation.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
 #include "llvm/Support/Debug.h"
 
@@ -36,16 +36,15 @@ FunctionPass *llvm::createDDAnalysisPass() { return new DDAnalysis(); }
 
 char DDAnalysis::ID = 0;
 INITIALIZE_PASS_BEGIN(DDAnalysis, "dda", "Data Dependence Analysis", false,
-                                      true)
+                      true)
 INITIALIZE_PASS_DEPENDENCY(SymbaseAssignment)
-INITIALIZE_PASS_DEPENDENCY(HIRCreation)
-INITIALIZE_PASS_END(DDAnalysis, "dda", "Data Dependence Analysis", false,
-                                      true)
+INITIALIZE_PASS_DEPENDENCY(HIRParser)
+INITIALIZE_PASS_END(DDAnalysis, "dda", "Data Dependence Analysis", false, true)
 
 void DDAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.setPreservesAll();
-  AU.addRequired<HIRCreation>();
+  AU.addRequired<HIRParser>();
   AU.addRequired<SymbaseAssignment>();
 
   // scev
@@ -56,7 +55,7 @@ void DDAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 // do any analysis
 bool DDAnalysis::runOnFunction(Function &F) {
 
-  HIR = &getAnalysis<HIRCreation>();
+  HIRP = &getAnalysis<HIRParser>();
   SA = &getAnalysis<SymbaseAssignment>();
 
   return false;
@@ -74,7 +73,7 @@ void DDAnalysis::markTopLvlNonLoopNodeModified(HLRegion *R) {
 
 DDGraph DDAnalysis::getGraph(HLNode *Node, bool InputEdgesReq) {
   // conservatively assume input edges are always invalid
-  if (InputEdgesReq || !graphForNodeValid(Node) ) {
+  if (InputEdgesReq || !graphForNodeValid(Node)) {
     rebuildGraph(Node, InputEdgesReq);
   }
   return DDGraph(Node, &FunctionDDGraph);
@@ -97,14 +96,14 @@ private:
 public:
   DDRefGatherer(SymToRefs *CurRefs) : RefMap(CurRefs) {}
 
-  void postVisit(HLNode* Node) {}
-  void postVisit(HLDDNode* Node) {}
-  void visit(HLNode* Node) {}
-  void visit(HLDDNode* Node);
+  void postVisit(HLNode *Node) {}
+  void postVisit(HLDDNode *Node) {}
+  void visit(HLNode *Node) {}
+  void visit(HLDDNode *Node);
   bool isDone() { return false; }
 };
 
-void DDRefGatherer::visit(HLDDNode* Node) {
+void DDRefGatherer::visit(HLDDNode *Node) {
   for (auto I = Node->ddref_begin(), E = Node->ddref_end(); I != E; I++) {
     // TODO implement a less conservative assignment algorithm
     // DEBUG((*I)->dump());
@@ -136,8 +135,7 @@ bool DDAnalysis::edgeNeeded(DDRef *Ref1, DDRef *Ref2, bool InputEdgesReq) {
 
 // returns a direction vector used to test from Node's loop nesting level
 // to the deepest of ref1 and ref2s level
-DirectionVector DDAnalysis::getInputDV(HLNode *Node, DDRef *Ref1,
-                                           DDRef *Ref2) {
+DirectionVector DDAnalysis::getInputDV(HLNode *Node, DDRef *Ref1, DDRef *Ref2) {
   HLLoop *Parent1 = dyn_cast<HLLoop>(Ref1->getHLDDNode());
   HLLoop *Parent2 = dyn_cast<HLLoop>(Ref2->getHLDDNode());
   Parent1 = Parent1 ? Parent1 : Ref1->getHLDDNode()->getLexicalParentLoop();

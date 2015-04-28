@@ -16,8 +16,8 @@
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_REGIONIDENTIFICATION_H
 
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Pass.h"
-#include <set>
 
 namespace llvm {
 
@@ -35,24 +35,28 @@ namespace loopopt {
 /// HIR regions.
 class RegionIdentification : public FunctionPass {
 public:
-  typedef std::set<const BasicBlock *> RegionBBlocksTy;
+  typedef SmallPtrSet<const BasicBlock *, 32> RegionBBlocksTy;
 
-  /// Region is defined as a pair of entry BasicBlock and a set
+  /// IRRegion is defined as a pair of entry BasicBlock and a set
   /// of BasicBlocks (including the entry BasicBlock).
-  struct Region {
+  struct IRRegion {
     BasicBlock *EntryBB;
     RegionIdentification::RegionBBlocksTy BasicBlocks;
 
-    Region(BasicBlock *Entry, RegionIdentification::RegionBBlocksTy BBlocks);
-    Region(const Region &Reg);
-    ~Region();
+    IRRegion(BasicBlock *Entry, RegionIdentification::RegionBBlocksTy BBlocks);
+    IRRegion(const IRRegion &Reg);
+    ~IRRegion();
   };
 
-  typedef SmallVector<Region *, 16> IRRegionsTy;
+  typedef SmallVector<IRRegion *, 16> IRRegionsTy;
+
+  /// Iterators to iterate over regions
+  typedef IRRegionsTy::const_iterator const_iterator;
+  typedef IRRegionsTy::const_reverse_iterator const_reverse_iterator;
 
 private:
-  /// Regions - Vector of Regions.
-  IRRegionsTy Regions;
+  /// IRRegions - Vector of IRRegion.
+  IRRegionsTy IRRegions;
 
   /// Func - The function we are analyzing.
   Function *Func;
@@ -66,6 +70,19 @@ private:
   /// SE - Scalar Evolution analysis for the function.
   ScalarEvolution *SE;
 
+  /// \brief Returns true if Lp appears to be generable without looking at the
+  /// sub loops.
+  bool isSelfGenerable(const Loop &Lp) const;
+
+  /// \brief Creates a Region out of Lp's basic blocks.
+  void createRegion(const Loop &Lp);
+
+  /// \brief Returns true if we can form a region around this loop.
+  bool formRegionForLoop(const Loop &Lp);
+
+  /// \brief Identifies regions in the incoming LLVM IR.
+  void formRegions();
+
 public:
   static char ID; // Pass identification
   RegionIdentification();
@@ -76,13 +93,12 @@ public:
   void print(raw_ostream &OS, const Module * = nullptr) const override;
   void verifyAnalysis() const override;
 
-  const IRRegionsTy &getIRRegions() { return Regions; }
+  /// IRRegion iterator methods
+  const_iterator begin() const { return IRRegions.begin(); }
+  const_iterator end() const { return IRRegions.end(); }
 
-  /// \brief Returns true if HIR is able to handle this loop.
-  bool isCandidateLoop(Loop &Lp);
-
-  /// \brief Identifies regions in the incoming LLVM IR.
-  void formRegions();
+  const_reverse_iterator rbegin() const { return IRRegions.rbegin(); }
+  const_reverse_iterator rend() const { return IRRegions.rend(); }
 };
 
 } // End namespace loopopt

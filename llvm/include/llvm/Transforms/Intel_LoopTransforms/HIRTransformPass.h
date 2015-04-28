@@ -21,8 +21,6 @@ namespace llvm {
 
 namespace loopopt {
 
-class HIRCreation;
-
 /// \brief - All HIR transformation passes should derive from this class.
 ///
 /// HIR pass setup requirements (see HIRCompleteUnroll.cpp for ref)-
@@ -37,15 +35,10 @@ class HIRCreation;
 ///   pipeline).
 /// - Declare a boolean option to enable/disable the transformation.
 /// - Define pass under anonymous(preferred) or loopopt namespace.
-/// - Declare HIRCreation analysis as a required pass to access HIR. Use base
-///   class's 'HIR' data member to store it.
-/// - Declare HIRParser analysis as a required pass to access blob utilities
-///   like findBlob() etc.
+/// - Declare HIRParser analysis as a required pass to access HIR and blob
+///   utilities  like findBlob() etc.
 /// - Always call setPreservesAll() in getAnalysisUsage().
 class HIRTransformPass : public FunctionPass {
-protected:
-  HIRCreation *HIR;
-
 public:
   HIRTransformPass(char &ID) : FunctionPass(ID) {}
 

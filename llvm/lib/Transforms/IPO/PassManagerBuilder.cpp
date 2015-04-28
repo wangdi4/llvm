@@ -493,6 +493,12 @@ void PassManagerBuilder::addLoopOptCleanupPasses(PassManagerBase &PM) const {
   PM.add(createCFGSimplificationPass());
   PM.add(createPromoteMemoryToRegisterPass());
   PM.add(createGVNPass(DisableGVNLoadPRE));
+
+  /// This pass is used to set wrap (nuw/nsw) flags on instructions after HIR.
+  /// We will need to propagate these flags in HIR if either HIR 
+  /// transformations require them or running this pass turns out to be compile
+  /// time expensive.
+  PM.add(createIndVarSimplifyPass());
 }
 
 void PassManagerBuilder::addLoopOptPasses(PassManagerBase &PM) const {
@@ -500,6 +506,8 @@ void PassManagerBuilder::addLoopOptPasses(PassManagerBase &PM) const {
   if (!RunLoopOpts || (OptLevel < 2)) { 
     return;
   }
+
+  PM.add(createLoopSimplifyPass());
 
   PM.add(createHIRCompleteUnrollPass()); 
   

@@ -19,7 +19,7 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-BlobDDRef::BlobDDRef(int SB, CanonExpr *CE, RegDDRef *Parent)
+BlobDDRef::BlobDDRef(int SB, const CanonExpr *CE, RegDDRef *Parent)
     : DDRef(DDRef::BlobDDRefVal, SB), CExpr(CE), ParentDDRef(Parent) {}
 
 BlobDDRef::BlobDDRef(const BlobDDRef &BlobDDRefObj)

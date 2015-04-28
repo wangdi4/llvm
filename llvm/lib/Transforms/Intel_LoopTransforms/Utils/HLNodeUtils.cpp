@@ -23,7 +23,9 @@ HLNodeUtils::createHLRegion(RegionIdentification::RegionBBlocksTy &OrigBBs,
   return new HLRegion(OrigBBs, EntryBB, ExitBB);
 }
 
-HLSwitch *HLNodeUtils::createHLSwitch() { return new HLSwitch(); }
+HLSwitch *HLNodeUtils::createHLSwitch(RegDDRef *ConditionRef) {
+  return new HLSwitch(ConditionRef);
+}
 
 HLLabel *HLNodeUtils::createHLLabel(BasicBlock *SrcBB) {
   return new HLLabel(SrcBB);
@@ -71,13 +73,6 @@ struct HLNodeUtils::LoopFinderUpdater {
 
   bool foundLoop() { return FoundLoop; }
 
-  void visit(HLRegion *Reg) {
-    llvm_unreachable("Found a region inside another!");
-  }
-  void postVisit(HLRegion *Reg) {
-    llvm_unreachable("Found a region inside another!");
-  }
-
   void visit(HLLoop *Loop) {
     if (FinderMode) {
       FoundLoop = true;
@@ -85,15 +80,10 @@ struct HLNodeUtils::LoopFinderUpdater {
       HLNodeUtils::updateLoopInfo(Loop);
     }
   }
-  void postVisit(HLLoop *Loop) {}
 
-  void visit(HLIf *If) {}
-  void postVisit(HLIf *If) {}
-
-  void visit(HLInst *Inst) {}
-  void visit(HLLabel *Label) {}
-  void visit(HLGoto *Goto) {}
-  void visit(HLSwitch *Switch) {}
+  /// Catch-all visit functions
+  void visit(HLNode *Node) {}
+  void postVisit(HLNode *Node) {}
 
   bool isDone() {
     if (FinderMode && FoundLoop) {
@@ -138,7 +128,7 @@ void HLNodeUtils::insertImpl(HLNode *Parent, HLContainerTy::iterator Pos,
                              HLContainerTy *RemoveContainer,
                              HLContainerTy::iterator First,
                              HLContainerTy::iterator Last, bool UpdateSeparator,
-                             bool PostExitSeparator) {
+                             bool PostExitSeparator, int CaseNum) {
 
   assert(!isa<HLRegion>(First) && "Transformations should not add/reorder "
                                   "regions!");
@@ -179,6 +169,21 @@ void HLNodeUtils::insertImpl(HLNode *Parent, HLContainerTy::iterator Pos,
     if (UpdateSeparator && (Pos == If->ElseBegin)) {
       If->ElseBegin = std::prev(Pos, Distance);
     }
+
+  } else if (isa<HLSwitch>(Parent)) {
+    HLSwitch *Switch = cast<HLSwitch>(Parent);
+    insertInternal(Switch->Children, Pos, RemoveContainer, First, Last);
+
+    /// Update all the empty cases which are lexically before this one.
+    if (UpdateSeparator) {
+      unsigned E = (CaseNum == -1) ? Switch->getNumCases() : CaseNum;
+      for (unsigned I = 0; I < E; I++) {
+        if (Pos == Switch->CaseBegin[I]) {
+          Switch->CaseBegin[I] = std::prev(Pos, Distance);
+        }
+      }
+    }
+
   } else {
     llvm_unreachable("Unknown parent type!");
   }
@@ -196,30 +201,15 @@ void HLNodeUtils::insertBefore(HLNode *Pos, HLNode *Node) {
   insertImpl(Pos->getParent(), Pos, nullptr, Node, Node, true, true);
 }
 
+/// This function doesn't require updating separators as they point to the
+/// beginning of a lexical scope and hence will remain unaffected by this
+/// operation.
 void HLNodeUtils::insertAfter(HLNode *Pos, HLNode *Node) {
   assert(Pos && "Pos is null!");
   assert(Node && "Node is null!");
   HLContainerTy::iterator It(Pos);
 
   insertImpl(Pos->getParent(), std::next(It), nullptr, Node, Node, false);
-}
-
-void HLNodeUtils::insertAsFirstIfChild(HLIf *If, HLNode *Node,
-                                       bool IsThenChild) {
-  assert(If && "If is null!");
-  assert(Node && "Node is null!");
-
-  insertImpl(If, IsThenChild ? If->then_begin() : If->else_begin(), nullptr,
-             Node, Node, !IsThenChild);
-}
-
-void HLNodeUtils::insertAsLastIfChild(HLIf *If, HLNode *Node,
-                                      bool IsThenChild) {
-  assert(If && "If is null!");
-  assert(Node && "Node is null!");
-
-  insertImpl(If, IsThenChild ? If->then_end() : If->else_end(), nullptr, Node,
-             Node, !IsThenChild);
 }
 
 void HLNodeUtils::insertAsChildImpl(HLNode *Parent,
@@ -249,6 +239,58 @@ void HLNodeUtils::insertAsFirstChild(HLNode *Parent, HLNode *Node) {
 void HLNodeUtils::insertAsLastChild(HLNode *Parent, HLNode *Node) {
   assert(Node && "Node is null!");
   insertAsChildImpl(Parent, nullptr, Node, Node, false);
+}
+
+void HLNodeUtils::insertAsFirstChild(HLIf *If, HLNode *Node, bool IsThenChild) {
+  assert(If && "If is null!");
+  assert(Node && "Node is null!");
+
+  insertImpl(If, IsThenChild ? If->then_begin() : If->else_begin(), nullptr,
+             Node, Node, !IsThenChild);
+}
+
+void HLNodeUtils::insertAsLastChild(HLIf *If, HLNode *Node, bool IsThenChild) {
+  assert(If && "If is null!");
+  assert(Node && "Node is null!");
+
+  insertImpl(If, IsThenChild ? If->then_end() : If->else_end(), nullptr, Node,
+             Node, !IsThenChild);
+}
+
+void HLNodeUtils::insertAsChildImpl(HLSwitch *Switch,
+                                    HLContainerTy *RemoveContainer,
+                                    HLContainerTy::iterator First,
+                                    HLContainerTy::iterator Last,
+                                    unsigned CaseNum, bool isFirstChild) {
+  insertImpl(Switch, isFirstChild ? Switch->case_child_begin_internal(CaseNum)
+                                  : Switch->case_child_end_internal(CaseNum),
+             RemoveContainer, First, Last, (CaseNum != 0), false, CaseNum);
+}
+
+void HLNodeUtils::insertAsFirstDefaultChild(HLSwitch *Switch, HLNode *Node) {
+  assert(Node && "Node is null!");
+  insertAsChildImpl(Switch, nullptr, Node, Node, 0, true);
+}
+
+void HLNodeUtils::insertAsLastDefaultChild(HLSwitch *Switch, HLNode *Node) {
+  assert(Node && "Node is null!");
+  insertAsChildImpl(Switch, nullptr, Node, Node, 0, false);
+}
+
+void HLNodeUtils::insertAsFirstChild(HLSwitch *Switch, HLNode *Node,
+                                     unsigned CaseNum) {
+  assert(Node && "Node is null!");
+  assert((CaseNum > 0) && (CaseNum <= Switch->getNumCases()) &&
+         "CaseNum is out of range!");
+  insertAsChildImpl(Switch, nullptr, Node, Node, CaseNum, true);
+}
+
+void HLNodeUtils::insertAsLastChild(HLSwitch *Switch, HLNode *Node,
+                                    unsigned CaseNum) {
+  assert(Node && "Node is null!");
+  assert((CaseNum > 0) && (CaseNum <= Switch->getNumCases()) &&
+         "CaseNum is out of range!");
+  insertAsChildImpl(Switch, nullptr, Node, Node, CaseNum, false);
 }
 
 void HLNodeUtils::insertAsPreheaderPostexitImpl(
@@ -320,6 +362,10 @@ void HLNodeUtils::removeImpl(HLContainerTy::iterator First,
                              HLContainerTy::iterator Last,
                              HLContainerTy *MoveContainer, bool Erase) {
 
+  /// Even if the region becomes empty, we should not remove it. Instead, HIRCG
+  /// should short-circult entry/exit bblocks to remove the dead basic blocks.
+  assert(!isa<HLRegion>(First) && "Regions cannot be removed!");
+
   HLNode *Parent;
   HLLoop *ParentLoop;
   HLContainerTy *RemoveContainer;
@@ -329,8 +375,6 @@ void HLNodeUtils::removeImpl(HLContainerTy::iterator First,
   /// needs updating is when there is at least one loop in [First, last) and no
   /// loop outside the range and inside ParentLoop.
   bool UpdateInnermostFlag;
-
-  assert(!isa<HLRegion>(First) && "Use removeRegion() for removing regions!");
 
   Parent = First->getParent();
   assert(Parent && "Parent is missing!");
@@ -347,7 +391,8 @@ void HLNodeUtils::removeImpl(HLContainerTy::iterator First,
 
     if (First == Loop->ChildBegin) {
       Loop->ChildBegin = Last;
-    } else if (First == Loop->PostexitBegin) {
+    }
+    if (First == Loop->PostexitBegin) {
       Loop->PostexitBegin = Last;
     }
   } else if (isa<HLIf>(Parent)) {
@@ -357,6 +402,16 @@ void HLNodeUtils::removeImpl(HLContainerTy::iterator First,
     if (First == If->ElseBegin) {
       If->ElseBegin = Last;
     }
+  } else if (isa<HLSwitch>(Parent)) {
+    HLSwitch *Switch = cast<HLSwitch>(Parent);
+    RemoveContainer = &Switch->Children;
+
+    for (unsigned I = 0, E = Switch->getNumCases(); I < E; I++) {
+      if (First == Switch->CaseBegin[I]) {
+        Switch->CaseBegin[I] = Last;
+      }
+    }
+
   } else {
     llvm_unreachable("Unknown parent type!");
   }
@@ -431,16 +486,6 @@ void HLNodeUtils::moveAfter(HLNode *Pos, HLNode *Node) {
   moveAfter(Pos, It, std::next(It));
 }
 
-void HLNodeUtils::moveAsFirstIfChild(HLIf *If, HLNode *Node, bool IsThenChild) {
-  remove(Node);
-  insertAsFirstIfChild(If, Node, IsThenChild);
-}
-
-void HLNodeUtils::moveAsLastIfChild(HLIf *If, HLNode *Node, bool IsThenChild) {
-  remove(Node);
-  insertAsLastIfChild(If, Node, IsThenChild);
-}
-
 void HLNodeUtils::moveAsFirstChild(HLNode *Parent, HLNode *Node) {
   remove(Node);
   insertAsFirstChild(Parent, Node);
@@ -449,6 +494,38 @@ void HLNodeUtils::moveAsFirstChild(HLNode *Parent, HLNode *Node) {
 void HLNodeUtils::moveAsLastChild(HLNode *Parent, HLNode *Node) {
   remove(Node);
   insertAsLastChild(Parent, Node);
+}
+
+void HLNodeUtils::moveAsFirstChild(HLIf *If, HLNode *Node, bool IsThenChild) {
+  remove(Node);
+  insertAsFirstChild(If, Node, IsThenChild);
+}
+
+void HLNodeUtils::moveAsLastChild(HLIf *If, HLNode *Node, bool IsThenChild) {
+  remove(Node);
+  insertAsLastChild(If, Node, IsThenChild);
+}
+
+void HLNodeUtils::moveAsFirstDefaultChild(HLSwitch *Switch, HLNode *Node) {
+  remove(Node);
+  insertAsFirstDefaultChild(Switch, Node);
+}
+
+void HLNodeUtils::moveAsLastDefaultChild(HLSwitch *Switch, HLNode *Node) {
+  remove(Node);
+  insertAsLastDefaultChild(Switch, Node);
+}
+
+void HLNodeUtils::moveAsFirstChild(HLSwitch *Switch, HLNode *Node,
+                                   unsigned CaseNum) {
+  remove(Node);
+  insertAsFirstChild(Switch, Node, CaseNum);
+}
+
+void HLNodeUtils::moveAsLastChild(HLSwitch *Switch, HLNode *Node,
+                                  unsigned CaseNum) {
+  remove(Node);
+  insertAsLastChild(Switch, Node, CaseNum);
 }
 
 void HLNodeUtils::moveAsFirstPreheaderNode(HLLoop *Loop, HLNode *Node) {
@@ -471,27 +548,6 @@ void HLNodeUtils::moveAsLastPostexitNode(HLLoop *Loop, HLNode *Node) {
   insertAsLastPostexitNode(Loop, Node);
 }
 
-void HLNodeUtils::moveAsFirstIfChildren(HLIf *If, HLContainerTy::iterator First,
-                                        HLContainerTy::iterator Last,
-                                        bool IsThenChild) {
-  HLContainerTy TempContainer;
-
-  removeImpl(First, Last, &TempContainer);
-  insertImpl(If, IsThenChild ? If->then_begin() : If->else_begin(),
-             &TempContainer, TempContainer.begin(), TempContainer.end(),
-             !IsThenChild);
-}
-
-void HLNodeUtils::moveAsLastIfChildren(HLIf *If, HLContainerTy::iterator First,
-                                       HLContainerTy::iterator Last,
-                                       bool IsThenChild) {
-  HLContainerTy TempContainer;
-
-  removeImpl(First, Last, &TempContainer);
-  insertImpl(If, IsThenChild ? If->then_end() : If->else_end(), &TempContainer,
-             TempContainer.begin(), TempContainer.end(), !IsThenChild);
-}
-
 void HLNodeUtils::moveAsFirstChildren(HLNode *Parent,
                                       HLContainerTy::iterator First,
                                       HLContainerTy::iterator Last) {
@@ -510,6 +566,73 @@ void HLNodeUtils::moveAsLastChildren(HLNode *Parent,
   removeImpl(First, Last, &TempContainer);
   insertAsChildImpl(Parent, &TempContainer, TempContainer.begin(),
                     TempContainer.end(), false);
+}
+
+void HLNodeUtils::moveAsFirstChildren(HLIf *If, HLContainerTy::iterator First,
+                                      HLContainerTy::iterator Last,
+                                      bool IsThenChild) {
+  HLContainerTy TempContainer;
+
+  removeImpl(First, Last, &TempContainer);
+  insertImpl(If, IsThenChild ? If->then_begin() : If->else_begin(),
+             &TempContainer, TempContainer.begin(), TempContainer.end(),
+             !IsThenChild);
+}
+
+void HLNodeUtils::moveAsLastChildren(HLIf *If, HLContainerTy::iterator First,
+                                     HLContainerTy::iterator Last,
+                                     bool IsThenChild) {
+  HLContainerTy TempContainer;
+
+  removeImpl(First, Last, &TempContainer);
+  insertImpl(If, IsThenChild ? If->then_end() : If->else_end(), &TempContainer,
+             TempContainer.begin(), TempContainer.end(), !IsThenChild);
+}
+
+void HLNodeUtils::moveAsFirstDefaultChildren(HLSwitch *Switch,
+                                             HLContainerTy::iterator First,
+                                             HLContainerTy::iterator Last) {
+  HLContainerTy TempContainer;
+
+  removeImpl(First, Last, &TempContainer);
+  insertAsChildImpl(Switch, &TempContainer, TempContainer.begin(),
+                    TempContainer.end(), 0, true);
+}
+
+void HLNodeUtils::moveAsLastDefaultChildren(HLSwitch *Switch,
+                                            HLContainerTy::iterator First,
+                                            HLContainerTy::iterator Last) {
+  HLContainerTy TempContainer;
+
+  removeImpl(First, Last, &TempContainer);
+  insertAsChildImpl(Switch, &TempContainer, TempContainer.begin(),
+                    TempContainer.end(), 0, false);
+}
+
+void HLNodeUtils::moveAsFirstChildren(HLSwitch *Switch,
+                                      HLContainerTy::iterator First,
+                                      HLContainerTy::iterator Last,
+                                      unsigned CaseNum) {
+  assert((CaseNum > 0) && (CaseNum <= Switch->getNumCases()) &&
+         "CaseNum is out of range!");
+  HLContainerTy TempContainer;
+
+  removeImpl(First, Last, &TempContainer);
+  insertAsChildImpl(Switch, &TempContainer, TempContainer.begin(),
+                    TempContainer.end(), CaseNum, true);
+}
+
+void HLNodeUtils::moveAsLastChildren(HLSwitch *Switch,
+                                     HLContainerTy::iterator First,
+                                     HLContainerTy::iterator Last,
+                                     unsigned CaseNum) {
+  assert((CaseNum > 0) && (CaseNum <= Switch->getNumCases()) &&
+         "CaseNum is out of range!");
+  HLContainerTy TempContainer;
+
+  removeImpl(First, Last, &TempContainer);
+  insertAsChildImpl(Switch, &TempContainer, TempContainer.begin(),
+                    TempContainer.end(), CaseNum, false);
 }
 
 void HLNodeUtils::moveAsFirstPreheaderNodes(HLLoop *Loop,

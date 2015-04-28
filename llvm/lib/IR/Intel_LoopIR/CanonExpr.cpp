@@ -33,7 +33,8 @@ CanonExpr::BlobIndexToCoeff::BlobIndexToCoeff(unsigned Indx, int64_t Coef)
 
 CanonExpr::BlobIndexToCoeff::~BlobIndexToCoeff() {}
 
-CanonExpr::CanonExpr(Type *Typ, int DefLevel, int64_t ConstVal, int64_t Denom)
+CanonExpr::CanonExpr(Type *Typ, unsigned DefLevel, int64_t ConstVal,
+                     int64_t Denom)
     : Ty(Typ), DefinedAtLevel(DefLevel), Const(ConstVal), Denominator(Denom) {
 
   Objs.insert(this);

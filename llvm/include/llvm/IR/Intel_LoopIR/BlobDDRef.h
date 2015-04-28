@@ -30,11 +30,11 @@ class HLDDNode;
 /// present due to blobs.
 class BlobDDRef : public DDRef {
 private:
-  CanonExpr *CExpr;
+  const CanonExpr *CExpr;
   RegDDRef *ParentDDRef;
 
 protected:
-  explicit BlobDDRef(int SB, CanonExpr *CE, RegDDRef *Parent);
+  explicit BlobDDRef(int SB, const CanonExpr *CE, RegDDRef *Parent);
   ~BlobDDRef() {}
 
   /// \brief Copy constructor used by cloning.
@@ -56,7 +56,6 @@ public:
   /// Value *getLLVMValue() const override { return nullptr; }
 
   /// \brief Returns the canonical form associated with the blob.
-  CanonExpr *getCanonExpr() { return CExpr; }
   const CanonExpr *getCanonExpr() const { return CExpr; }
 
   /// \brief Returns the RegDDRef this is attached to.

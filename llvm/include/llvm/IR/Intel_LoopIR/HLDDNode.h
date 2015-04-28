@@ -54,9 +54,6 @@ protected:
   /// with the first DDRef being for lval, if applicable.
   RegDDRefTy RegDDRefs;
 
-  /// \brief Resize DDRefs to match number of operands in the Node.
-  virtual void resizeDDRefsToNumOperands();
-
   /// \brief Sets HLDDNode for Ref.
   static void setNode(RegDDRef *Ref, HLDDNode *HNode);
 
@@ -83,17 +80,7 @@ public:
   /// Virtual Clone method
   virtual HLDDNode *clone() const = 0;
 
-  /// \brief Returns the DDRef associated with the Nth operand (starting with
-  /// 0).
-  RegDDRef *getOperandDDRef(unsigned OperandNum);
-  const RegDDRef *getOperandDDRef(unsigned OperandNum) const;
-  /// \brief Sets the DDRef associated with the Nth operand (starting with 0).
-  void setOperandDDRef(RegDDRef *Ref, unsigned OperandNum);
-  /// \brief Removes and returns the DDRef associated with the Nth operand
-  /// (starting with 0).
-  RegDDRef *removeOperandDDRef(unsigned OperandNum);
-
-  /// \brief Returns the number of operands (and lval if applicable) this node
+  /// \brief Returns the number of operands (and lval, if applicable) this node
   /// is supposed to have.
   virtual unsigned getNumOperands() const = 0;
 };

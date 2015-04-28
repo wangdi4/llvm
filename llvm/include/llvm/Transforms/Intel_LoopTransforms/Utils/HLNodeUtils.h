@@ -17,7 +17,6 @@
 #include <set>
 #include "llvm/Support/Compiler.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRCreation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/RegionIdentification.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
@@ -28,6 +27,9 @@ class BasicBlock;
 class Instruction;
 
 namespace loopopt {
+
+class HIRCreation;
+class HIRParser;
 
 /// \brief Defines utilities for HLNode class
 ///
@@ -48,16 +50,16 @@ private:
 
   /// Internal helper functions, not to be called directly.
 
-  /// \brief Implements insert functionality. Moves [First, last) from
-  /// RemoveContainer to Parent's container. If RemoveContainer is null
-  /// it assumes a range of 1(node). UpdateSeparator indicates whether
-  /// separators used in containers should be updated. Additional
-  /// flag for updating postexit separator is required.
+  /// \brief Implements insert(before) functionality. Moves [First, last) from
+  /// RemoveContainer to Parent's container. If RemoveContainer is null it
+  /// assumes a range of 1(node). UpdateSeparator indicates whether separators
+  /// used in containers should be updated. Additional arguments for updating
+  /// postexit separator and switch's case number is required.
   static void insertImpl(HLNode *Parent, HLContainerTy::iterator Pos,
                          HLContainerTy *RemoveContainer,
                          HLContainerTy::iterator First,
                          HLContainerTy::iterator Last, bool UpdateSeparator,
-                         bool PostExitSeparator = false);
+                         bool PostExitSeparator = false, int CaseNum = -1);
 
   /// \brief Moves [First, last) from RemoveContainer to InsertContainer.
   /// If RemoveContainer is null it assumes a range of 1(node) and inserts
@@ -76,13 +78,21 @@ private:
   static void updateLoopInfoRecursively(HLContainerTy::iterator First,
                                         HLContainerTy::iterator Last);
 
-  /// \brief Implements insertAsChild*() functionality.
+  /// \brief Implements insertAs*Child() functionality.
   static void insertAsChildImpl(HLNode *Parent, HLContainerTy *RemoveContainer,
                                 HLContainerTy::iterator First,
                                 HLContainerTy::iterator Last,
                                 bool IsFirstChild);
 
-  /// \brief Implements insertAsPreheader*()/insertAsPostexit*() functionality.
+  /// \brief Implements insertAs*Child() functionality for switch.
+  static void insertAsChildImpl(HLSwitch *Switch,
+                                HLContainerTy *RemoveContainer,
+                                HLContainerTy::iterator First,
+                                HLContainerTy::iterator Last, unsigned CaseNum,
+                                bool isFirstChild);
+
+  /// \brief Implements insertAs*Preheader*()/insertAs*Postexit*()
+  /// functionality.
   static void insertAsPreheaderPostexitImpl(HLLoop *Loop,
                                             HLContainerTy *RemoveContainer,
                                             HLContainerTy::iterator First,
@@ -115,7 +125,7 @@ public:
                  BasicBlock *EntryBB, BasicBlock *ExitBB);
 
   /// \brief Returns a new HLSwitch.
-  static HLSwitch *createHLSwitch();
+  static HLSwitch *createHLSwitch(RegDDRef *ConditionRef);
 
   /// \brief Returns a new HLLabel.
   static HLLabel *createHLLabel(BasicBlock *SrcBB);
@@ -169,13 +179,13 @@ public:
   /// \brief Visits all HLNodes in the HIR. The direction is specified using
   /// Forward flag.
   template <typename HV>
-  static void visitAll(HV *Visitor, HIRCreation *HIR, bool Forward = true) {
+  static void visitAll(HV *Visitor, HIRParser *HIRP, bool Forward = true) {
     HLNodeVisitor<HV> V(Visitor);
 
     if (Forward) {
-      V.forwardVisitAll(HIR);
+      V.forwardVisitAll(HIRP);
     } else {
-      V.backwardVisitAll(HIR);
+      V.backwardVisitAll(HIRP);
     }
   }
 
@@ -183,17 +193,6 @@ public:
   static void insertBefore(HLNode *Pos, HLNode *Node);
   /// \brief Inserts an unlinked Node after Pos in HIR.
   static void insertAfter(HLNode *Pos, HLNode *Node);
-
-  /// \brief Inserts an unlinked Node as first child of this If. The flag
-  /// IsThenChild indicates whether this is to be inserted as then or else
-  /// child.
-  static void insertAsFirstIfChild(HLIf *If, HLNode *Node,
-                                   bool IsThenChild = true);
-  /// \brief Inserts an unlinked Node as last child of this If. The flag
-  /// IsThenChild indicates whether this is to be inserted as then or else
-  /// child.
-  static void insertAsLastIfChild(HLIf *If, HLNode *Node,
-                                  bool IsThenChild = true);
 
   /// \brief Inserts an unlinked Node as first child of parent loop/region.
   /// Use specialized version of insert if extra info is required to insert
@@ -203,6 +202,29 @@ public:
   /// Use specialized version of insert if extra info is required to insert
   /// children.
   static void insertAsLastChild(HLNode *Parent, HLNode *Node);
+
+  /// \brief Inserts an unlinked Node as first child of this If. The flag
+  /// IsThenChild indicates whether this is to be inserted as then or else
+  /// child.
+  static void insertAsFirstChild(HLIf *If, HLNode *Node, bool IsThenChild);
+  /// \brief Inserts an unlinked Node as last child of this If. The flag
+  /// IsThenChild indicates whether this is to be inserted as then or else
+  /// child.
+  static void insertAsLastChild(HLIf *If, HLNode *Node, bool IsThenChild);
+
+  /// \brief Inserts an unlinked Node as first default case child of switch.
+  static void insertAsFirstDefaultChild(HLSwitch *Switch, HLNode *Node);
+  /// \brief Inserts an unlinked Node as last default case child of switch.
+  static void insertAsLastDefaultChild(HLSwitch *Switch, HLNode *Node);
+
+  /// \brief Inserts an unlinked Node as first CaseNum case child of switch.
+  /// Range of CaseNum is [1, getNumCases()].
+  static void insertAsFirstChild(HLSwitch *Switch, HLNode *Node,
+                                 unsigned CaseNum);
+  /// \brief Inserts an unlinked Node as last CaseNum case child of switch.
+  /// Range of CaseNum is [1, getNumCases()].
+  static void insertAsLastChild(HLSwitch *Switch, HLNode *Node,
+                                unsigned CaseNum);
 
   /// \brief Inserts an unlinked Node as first preheader node of Loop.
   static void insertAsFirstPreheaderNode(HLLoop *Loop, HLNode *Node);
@@ -222,17 +244,6 @@ public:
   static void moveAfter(HLNode *Pos, HLNode *Node);
 
   /// \brief Unlinks Node from its current position and inserts as first child
-  /// of this If. The flag IsThenChild indicates whether this is to be moved
-  /// as then or else child.
-  static void moveAsFirstIfChild(HLIf *If, HLNode *Node,
-                                 bool IsThenChild = true);
-  /// \brief Unlinks Node from its current position and inserts as last child
-  /// of this If. The flag IsThenChild indicates whether this is to be moved
-  /// as then or else child.
-  static void moveAsLastIfChild(HLIf *If, HLNode *Node,
-                                bool IsThenChild = true);
-
-  /// \brief Unlinks Node from its current position and inserts as first child
   /// of parent loop/region. Use specialized version of move if extra info is
   /// required to insert children.
   static void moveAsFirstChild(HLNode *Parent, HLNode *Node);
@@ -240,6 +251,32 @@ public:
   /// of parent loop/region. Use specialized version of move if extra info is
   /// required to insert children.
   static void moveAsLastChild(HLNode *Parent, HLNode *Node);
+
+  /// \brief Unlinks Node from its current position and inserts as first child
+  /// of this If. The flag IsThenChild indicates whether this is to be moved
+  /// as then or else child.
+  static void moveAsFirstChild(HLIf *If, HLNode *Node, bool IsThenChild = true);
+  /// \brief Unlinks Node from its current position and inserts as last child
+  /// of this If. The flag IsThenChild indicates whether this is to be moved
+  /// as then or else child.
+  static void moveAsLastChild(HLIf *If, HLNode *Node, bool IsThenChild = true);
+
+  /// \brief Unlinks Node from its current position and inserts as first default
+  /// case child of switch.
+  static void moveAsFirstDefaultChild(HLSwitch *Switch, HLNode *Node);
+  /// \brief Unlinks Node from its current position and inserts as last default
+  /// case child of switch.
+  static void moveAsLastDefaultChild(HLSwitch *Switch, HLNode *Node);
+
+  /// \brief Unlinks Node from its current position and inserts as first CaseNum
+  /// case child of switch.
+  /// Range of CaseNum is [1, getNumCases()].
+  static void moveAsFirstChild(HLSwitch *Switch, HLNode *Node,
+                               unsigned CaseNum);
+  /// \brief Unlinks Node from its current position and inserts as last CaseNum
+  /// case child of switch.
+  /// Range of CaseNum is [1, getNumCases()].
+  static void moveAsLastChild(HLSwitch *Switch, HLNode *Node, unsigned CaseNum);
 
   /// \brief Unlinks Node from its current position and inserts as first
   /// preheader node of Loop.
@@ -265,19 +302,6 @@ public:
                         HLContainerTy::iterator Last);
 
   /// \brief Unlinks [First, Last) from their current position and inserts them
-  /// at the begining of this If. The flag IsThenChild indicates whether they
-  /// are to be moved as then or else children.
-  static void moveAsFirstIfChildren(HLIf *If, HLContainerTy::iterator First,
-                                    HLContainerTy::iterator Last,
-                                    bool IsThenChild = true);
-  /// \brief Unlinks [First, Last) from their current position and inserts them
-  /// at the end of this If. The flag IsThenChild indicates whether they are to
-  /// be moved as then or else children.
-  static void moveAsLastIfChildren(HLIf *If, HLContainerTy::iterator First,
-                                   HLContainerTy::iterator Last,
-                                   bool IsThenChild = true);
-
-  /// \brief Unlinks [First, Last) from their current position and inserts them
   /// at the begining of the parent loop/region's children. Use specialized
   /// version of move if extra info is required.
   static void moveAsFirstChildren(HLNode *Parent, HLContainerTy::iterator First,
@@ -287,6 +311,45 @@ public:
   /// of move if extra info is required.
   static void moveAsLastChildren(HLNode *Parent, HLContainerTy::iterator First,
                                  HLContainerTy::iterator Last);
+
+  /// \brief Unlinks [First, Last) from their current position and inserts them
+  /// at the begining of this If. The flag IsThenChild indicates whether they
+  /// are to be moved as then or else children.
+  static void moveAsFirstChildren(HLIf *If, HLContainerTy::iterator First,
+                                  HLContainerTy::iterator Last,
+                                  bool IsThenChild = true);
+  /// \brief Unlinks [First, Last) from their current position and inserts them
+  /// at the end of this If. The flag IsThenChild indicates whether they are to
+  /// be moved as then or else children.
+  static void moveAsLastChildren(HLIf *If, HLContainerTy::iterator First,
+                                 HLContainerTy::iterator Last,
+                                 bool IsThenChild = true);
+
+  /// \brief Unlinks [First, Last) from their current position and inserts them
+  /// at the beginning of default case child of switch.
+  static void moveAsFirstDefaultChildren(HLSwitch *Switch,
+                                         HLContainerTy::iterator First,
+                                         HLContainerTy::iterator Last);
+  /// \brief Unlinks [First, Last) from their current position and inserts them
+  /// at the end of default case child of switch.
+  static void moveAsLastDefaultChildren(HLSwitch *Switch,
+                                        HLContainerTy::iterator First,
+                                        HLContainerTy::iterator Last);
+
+  /// \brief Unlinks [First, Last) from their current position and inserts them
+  /// at the beginning of CasNum case child of switch.
+  /// Range of CaseNum is [1, getNumCases()].
+  static void moveAsFirstChildren(HLSwitch *Switch,
+                                  HLContainerTy::iterator First,
+                                  HLContainerTy::iterator Last,
+                                  unsigned CaseNum);
+  /// \brief Unlinks [First, Last) from their current position and inserts them
+  /// at the end of CasNum case child of switch.
+  /// Range of CaseNum is [1, getNumCases()].
+  static void moveAsLastChildren(HLSwitch *Switch,
+                                 HLContainerTy::iterator First,
+                                 HLContainerTy::iterator Last,
+                                 unsigned CaseNum);
 
   /// \brief Unlinks [First, Last) from their current position and inserts them
   /// at the beginning of Loop's preheader.

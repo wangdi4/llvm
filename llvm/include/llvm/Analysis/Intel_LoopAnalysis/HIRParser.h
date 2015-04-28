@@ -18,6 +18,8 @@
 #include "llvm/Pass.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRCreation.h"
+
 namespace llvm {
 
 class Type;
@@ -52,6 +54,9 @@ private:
   /// Func - The function we are analyzing.
   Function *Func;
 
+  /// HIR - HIR for the function.
+  HIRCreation *HIR;
+
   /// LI - The loop information for the function we are currently analyzing.
   LoopInfo *LI;
 
@@ -69,6 +74,48 @@ private:
 
   /// EraseSet - Contains HLNodes to be erased.
   SmallVector<HLNode *, 32> EraseSet;
+
+  /// \brief Visits HIR and calls HIRParser utilities.
+  struct Visitor {
+    HIRParser *HIRP;
+
+    Visitor(HIRParser *Parser) : HIRP(Parser) {}
+
+    void visit(HLRegion *Reg) { HIRP->parse(Reg); }
+    void postVisit(HLRegion *Reg) { HIRP->postParse(Reg); }
+
+    void visit(HLLoop *HLoop) { HIRP->parse(HLoop); }
+    void postVisit(HLLoop *HLoop) { HIRP->postParse(HLoop); }
+
+    void visit(HLIf *If) { HIRP->parse(If); }
+    void postVisit(HLIf *If) { HIRP->postParse(If); }
+
+    void visit(HLSwitch *Switch) { HIRP->parse(Switch); }
+    void postVisit(HLSwitch *Switch) { HIRP->postParse(Switch); }
+
+    void visit(HLInst *HInst) { HIRP->parse(HInst); }
+    void visit(HLLabel *Label) { HIRP->parse(Label); }
+    void visit(HLGoto *Goto) { HIRP->parse(Goto); }
+
+    bool isDone() { return false; }
+  };
+
+  /// Main parser functions
+  void parse(HLRegion *Reg) { CurRegion = Reg; }
+  void postParse(HLRegion *Reg) {}
+
+  void parse(HLLoop *HLoop);
+  void postParse(HLLoop *HLoop) { CurLevel--; }
+
+  void parse(HLIf *If) { assert(false && "If not handled yet!"); }
+  void postParse(HLIf *If) {}
+
+  void parse(HLSwitch *Switch) { assert(false && "Switch not handled yet!"); }
+  void postParse(HLSwitch *Switch) {}
+
+  void parse(HLInst *HInst);
+  void parse(HLLabel *Label) {}
+  void parse(HLGoto *Goto) {}
 
   /// \brief Returns the integer constant contained in ConstSCEV.
   int64_t getSCEVConstantValue(const SCEVConstant *ConstSCEV) const;
@@ -108,22 +155,18 @@ public:
   void print(raw_ostream &OS, const Module * = nullptr) const override;
   void verifyAnalysis() const override;
 
-  /// Visitor functions, not to be called externally
-  void visit(HLRegion *Reg) { CurRegion = Reg; }
-  void postVisit(HLRegion *Reg) {}
+  /// Region iterator methods
+  HIRCreation::iterator hir_begin() { return HIR->begin(); }
+  HIRCreation::const_iterator hir_begin() const { return HIR->begin(); }
+  HIRCreation::iterator hir_end() { return HIR->end(); }
+  HIRCreation::const_iterator hir_end() const { return HIR->end(); }
 
-  void visit(HLLoop *HLoop);
-  void postVisit(HLLoop *HLoop) { CurLevel--; }
-
-  void visit(HLIf *If) { assert(false && "If not handled yet!"); }
-  void postVisit(HLIf *If) {}
-
-  void visit(HLInst *HInst);
-  void visit(HLLabel *Label) {}
-  void visit(HLGoto *Goto) {}
-  void visit(HLSwitch *Switch) { assert(false && "Switch not handled yet!"); }
-
-  bool isDone() { return false; }
+  HIRCreation::reverse_iterator hir_rbegin() { return HIR->rbegin(); }
+  HIRCreation::const_reverse_iterator hir_rbegin() const {
+    return HIR->rbegin();
+  }
+  HIRCreation::reverse_iterator hir_rend() { return HIR->rend(); }
+  HIRCreation::const_reverse_iterator hir_rend() const { return HIR->rend(); }
 
   /// \brief Returns the index of Blob in the blob table. Index range is [1,
   /// UINT_MAX]. Returns 0

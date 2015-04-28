@@ -16,7 +16,6 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Support/Debug.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRCreation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
@@ -42,10 +41,10 @@ private:
 
 public:
   SymbaseAssignmentVisitor(SymbaseAssignment *CurSA) : SA(CurSA) {}
-  void visit(HLNode* Node) {}
-  void visit(HLDDNode* Node); 
-  void postVisit(HLNode*) {}
-  void postVisit(HLDDNode*) {}
+  void visit(HLNode *Node) {}
+  void visit(HLDDNode *Node);
+  void postVisit(HLNode *) {}
+  void postVisit(HLDDNode *) {}
   bool isDone() { return false; }
 };
 }
@@ -65,18 +64,16 @@ void SymbaseAssignmentVisitor::visit(HLDDNode *Node) {
 
 char SymbaseAssignment::ID = 0;
 
-INITIALIZE_PASS_BEGIN(SymbaseAssignment,"symbase", "Symbase Assigment", false,
-                                         true)
+INITIALIZE_PASS_BEGIN(SymbaseAssignment, "symbase", "Symbase Assigment", false,
+                      true)
 INITIALIZE_AG_DEPENDENCY(AliasAnalysis)
-INITIALIZE_PASS_DEPENDENCY(HIRCreation)
 INITIALIZE_PASS_DEPENDENCY(HIRParser)
-INITIALIZE_PASS_END(SymbaseAssignment,"symbase", "Symbase Assigment", false,
-                                         true)
+INITIALIZE_PASS_END(SymbaseAssignment, "symbase", "Symbase Assigment", false,
+                    true)
 
 void SymbaseAssignment::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.setPreservesAll();
-  AU.addRequired<HIRCreation>();
   AU.addRequired<HIRParser>();
   AU.addRequired<AliasAnalysis>();
 }
@@ -85,10 +82,10 @@ bool SymbaseAssignment::runOnFunction(Function &F) {
 
   this->F = &F;
   AA = &getAnalysis<AliasAnalysis>();
-  auto HIR = &getAnalysis<HIRCreation>();
+  auto HIRP = &getAnalysis<HIRParser>();
   SymbaseAssignmentVisitor SV(this);
 
-  HLNodeUtils::visitAll(&SV, HIR);
+  HLNodeUtils::visitAll(&SV, HIRP);
 
   // create a visitor for each region?
   //  for (auto I = HIR->begin(), E = HIR->end(); I != E; I++) {

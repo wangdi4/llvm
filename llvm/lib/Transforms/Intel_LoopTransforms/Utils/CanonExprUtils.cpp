@@ -22,8 +22,8 @@
 using namespace llvm;
 using namespace loopopt;
 
-CanonExpr *CanonExprUtils::createCanonExpr(Type *Typ, int Level, int64_t Const,
-                                           int64_t Denom) {
+CanonExpr *CanonExprUtils::createCanonExpr(Type *Typ, unsigned Level,
+                                           int64_t Const, int64_t Denom) {
 
   return new CanonExpr(Typ, Level, Const, Denom);
 }

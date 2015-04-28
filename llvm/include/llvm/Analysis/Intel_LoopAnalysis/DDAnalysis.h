@@ -29,7 +29,7 @@ class DDRef;
 class HLNode;
 class HLRegion;
 class HLLoop;
-class HIRCreation;
+class HIRParser;
 class SymbaseAssignment;
 class DirectionVector;
 class DDGraph;
@@ -45,7 +45,7 @@ public:
 
   // \brief Marks a loop body as modified, causing DD to rebuild the graph
   // for this loop and its children. This should be done when modifying the
-  // canon expr of a ddref in the loop, or adding/removing a ddref. This 
+  // canon expr of a ddref in the loop, or adding/removing a ddref. This
   // invalidates the graph for this loop, and any children loops.
   // If modifying loop bounds, call markLoopBoundsModified instead.
   void markLoopBodyModified(HLLoop *L);
@@ -68,7 +68,7 @@ public:
   // been modified. Ie a ref outside any loop nest has been modified.
   // Logically indicates that any graph for a loop nest is still ok,
   // but the region graph is now invalid
-  // For example, PRE hoists out a ref from loop nest. That loop nest is 
+  // For example, PRE hoists out a ref from loop nest. That loop nest is
   // invalid and whole region graph must be rebuilt for out of loop edges.
   // However the other loop nest's graph is still valid
   // TODO better name
@@ -111,7 +111,7 @@ public:
   // init_incremental_rebuild(HLNode*)
 private:
   Function *F;
-  HIRCreation *HIR;
+  HIRParser *HIRP;
   SymbaseAssignment *SA;
 
   DenseMap<HLNode *, bool> GraphValidityMap;

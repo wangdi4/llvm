@@ -101,6 +101,30 @@ bool HLInst::hasLval() const {
           isa<StoreInst>(Inst));
 }
 
+RegDDRef *HLInst::getOperandDDRef(unsigned OperandNum) {
+  assert(OperandNum < getNumOperands() && "Operand is out of range!");
+  return getOperandDDRefImpl(OperandNum);
+}
+
+const RegDDRef *HLInst::getOperandDDRef(unsigned OperandNum) const {
+  return const_cast<HLInst *>(this)->getOperandDDRef(OperandNum);
+}
+
+void HLInst::setOperandDDRef(RegDDRef *Ref, unsigned OperandNum) {
+  assert(OperandNum < getNumOperands() && "Operand is out of range!");
+  setOperandDDRefImpl(Ref, OperandNum);
+}
+
+RegDDRef *HLInst::removeOperandDDRef(unsigned OperandNum) {
+  auto TRef = getOperandDDRef(OperandNum);
+
+  if (TRef) {
+    setOperandDDRef(nullptr, OperandNum);
+  }
+
+  return TRef;
+}
+
 RegDDRef *HLInst::getLvalDDRef() {
   if (hasLval()) {
     return cast<RegDDRef>(getOperandDDRefImpl(0));

@@ -15,7 +15,13 @@
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_HIRCREATION_H
 
 #include "llvm/Pass.h"
+
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallVector.h"
+
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
+
+#include "llvm/Analysis/Intel_LoopAnalysis/RegionIdentification.h"
 
 namespace llvm {
 
@@ -25,8 +31,11 @@ struct PostDominatorTree;
 
 namespace loopopt {
 
-class RegionIdentification;
 class HLRegion;
+class HLLabel;
+class HLGoto;
+class HLIf;
+class HLSwitch;
 
 /// \brief This analysis creates and populates HIR regions with HLNodes using
 /// the information provided by RegionIdentification pass. The overall sequence
@@ -60,17 +69,36 @@ private:
   /// PDT - The post-dominator tree.
   PostDominatorTree *PDT;
 
-  /// Labels - TODO: Insert HLLabels to be used by later passes.
-  /// SmallVector< pair<BasicBlock*, HLLabel*>, 32> Labels;
+  /// LastRegionBB - Points to the (lexically) last bblock of the region.
+  BasicBlock *LastRegionBB;
 
-  /// Gotos - TODO: Insert HLGotos to be used by later passes.
-  /// SmallVector< pair<BasicBlock*, HLGoto*>, 32> Gotos;
+  /// Labels - HLLabel map to be used by later passes.
+  SmallDenseMap<BasicBlock *, HLLabel *, 64> Labels;
 
-  /// Ifs - TODO: Insert HLIfs to be used by later passes.
-  /// SmallVector< pair<HLIf*, BasicBlock*>, 32> Ifs;
+  /// Gotos - HLGotos vector to be used by later passes.
+  SmallVector<HLGoto *, 64> Gotos;
 
-  /// \brief Populates Region with HLNodes.
-  void populateRegion(HLRegion *Region, BasicBlock *EntryBB);
+  /// Ifs - HLIfs map to be used by later passes.
+  SmallDenseMap<HLIf *, BasicBlock *, 32> Ifs;
+
+  /// Switches - HLSwitches map to be used by later passes.
+  SmallDenseMap<HLSwitch *, BasicBlock *, 8> Switches;
+
+  /// \brief Creates HLNodes corresponding to the terminator of the basic block.
+  HLNode *populateTerminator(BasicBlock *BB, HLNode *InsertionPos);
+
+  /// \brief Creates HLNodes for the instructions in the basic block.
+  HLNode *populateInstSequence(BasicBlock *BB, HLNode *InsertionPos);
+
+  /// \brief Performs lexical (preorder) walk of the dominator tree for the
+  /// region.
+  /// Returns the last HLNode for the current sub-tree.
+  HLNode *
+  doPreOrderRegionWalk(BasicBlock *BB, HLNode *InsertionPos,
+                       RegionIdentification::RegionBBlocksTy &RegionBBlocks);
+
+  /// \brief Creates HLRegions out of IRRegions.
+  void create(RegionIdentification *RI);
 
 public:
   static char ID; // Pass identification
@@ -81,8 +109,6 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   void print(raw_ostream &OS, const Module * = nullptr) const override;
   void verifyAnalysis() const override;
-
-  void create(RegionIdentification *RI);
 
   /// Region iterator methods
   iterator begin() { return Regions.begin(); }

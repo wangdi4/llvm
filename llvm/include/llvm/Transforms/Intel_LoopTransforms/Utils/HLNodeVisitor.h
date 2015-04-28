@@ -15,6 +15,7 @@
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HLNODEVISITOR_H
 
 #include "llvm/Support/Compiler.h"
+
 #include "llvm/IR/Intel_LoopIR/HLRegion.h"
 #include "llvm/IR/Intel_LoopIR/HLSwitch.h"
 #include "llvm/IR/Intel_LoopIR/HLLabel.h"
@@ -22,6 +23,8 @@
 #include "llvm/IR/Intel_LoopIR/HLInst.h"
 #include "llvm/IR/Intel_LoopIR/HLIf.h"
 #include "llvm/IR/Intel_LoopIR/HLLoop.h"
+
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 
 namespace llvm {
 
@@ -54,10 +57,24 @@ namespace loopopt {
 ///   void visit(HLIf* If) { errs() << "visited if!\n" }
 ///   void postVisit(HLIf* If) { }
 ///   void visit(HLSwitch* Switch) { errs() << "visited switch!\n" }
+///   void postVisit(HLSwitch* Switch) { }
 ///   void visit(HLLabel* Label) { errs() << "visited label!\n" }
 ///   void visit(HLGoto* Goto) { errs() << "visited goto!\n" }
 ///   void visit(HLInst* Inst) { errs() << "visited instruction!\n" }
 ///   bool isDone() { return false; }
+/// };
+///
+/// It is also possible to implement generic(catch-all) visit() functions for
+/// HLNodes and specialize them for specific type, if desired. For example, if
+/// an optimization only cares about loops, it can implement the visitor class
+/// as follows:
+///
+/// struct Visitor {
+///   void visit(HLLoop* Loop) { // implementation here }
+///   void postVisit(HLLoop* Loop) { // implementation here }
+///
+///   void visit(HLNode* Node) { } // Empty catch-all function for others
+///   void postVisit(HLNode* Node) { } // Empty catch-all function for others
 /// };
 ///
 template <typename HV> class HLNodeVisitor {
@@ -83,9 +100,9 @@ private:
                      bool Recursive);
 
   /// \brief Visits all HLNodes in the HIR in forward direction.
-  void forwardVisitAll(HIRCreation *HIR);
+  void forwardVisitAll(HIRParser *HIRP);
   /// \brief Visits all HLNodes in the HIR in backward direction.
-  void backwardVisitAll(HIRCreation *HIR);
+  void backwardVisitAll(HIRParser *HIRP);
 };
 
 template <typename HV>
@@ -126,13 +143,13 @@ bool HLNodeVisitor<HV>::backwardVisit(HLContainerTy::iterator Begin,
 }
 
 template <typename HV>
-void HLNodeVisitor<HV>::forwardVisitAll(HIRCreation *HIR) {
-  forwardVisit(HIR->begin(), HIR->end(), true);
+void HLNodeVisitor<HV>::forwardVisitAll(HIRParser *HIRP) {
+  forwardVisit(HIRP->hir_begin(), HIRP->hir_end(), true);
 }
 
 template <typename HV>
-void HLNodeVisitor<HV>::backwardVisitAll(HIRCreation *HIR) {
-  backwardVisit(HIR->begin(), HIR->end(), true);
+void HLNodeVisitor<HV>::backwardVisitAll(HIRParser *HIRP) {
+  backwardVisit(HIRP->hir_begin(), HIRP->hir_end(), true);
 }
 
 template <typename HV>
@@ -155,14 +172,6 @@ bool HLNodeVisitor<HV>::visit(HLNode *Node, bool Recursive, bool Forward) {
 
       Visitor->postVisit(Reg);
     }
-  } else if (isa<HLSwitch>(Node)) {
-    Visitor->visit(cast<HLSwitch>(Node));
-  } else if (isa<HLLabel>(Node)) {
-    Visitor->visit(cast<HLLabel>(Node));
-  } else if (isa<HLGoto>(Node)) {
-    Visitor->visit(cast<HLGoto>(Node));
-  } else if (isa<HLInst>(Node)) {
-    Visitor->visit(cast<HLInst>(Node));
   } else if (isa<HLIf>(Node)) {
     HLIf *If = cast<HLIf>(Node);
 
@@ -215,6 +224,49 @@ bool HLNodeVisitor<HV>::visit(HLNode *Node, bool Recursive, bool Forward) {
 
       Visitor->postVisit(Loop);
     }
+  } else if (isa<HLSwitch>(Node)) {
+    HLSwitch *Switch = cast<HLSwitch>(Node);
+
+    Visitor->visit(Switch);
+
+    if (Recursive && !Visitor->isDone()) {
+
+      if (Forward) {
+        for (unsigned I = I, E = Switch->getNumCases(); I <= E; I++) {
+          if (forwardVisit(Switch->case_child_begin(I),
+                           Switch->case_child_end(I), true)) {
+            return true;
+          }
+        }
+
+        if (forwardVisit(Switch->default_case_child_begin(),
+                         Switch->default_case_child_end(), true)) {
+          return true;
+        }
+
+      } else {
+
+        if (backwardVisit(Switch->default_case_child_begin(),
+                          Switch->default_case_child_end(), true)) {
+          return true;
+        }
+
+        for (unsigned I = Switch->getNumCases(), E = 0; I > E; I--) {
+          if (backwardVisit(Switch->case_child_begin(I),
+                            Switch->case_child_end(I), true)) {
+            return true;
+          }
+        }
+      }
+
+      Visitor->postVisit(Switch);
+    }
+  } else if (isa<HLLabel>(Node)) {
+    Visitor->visit(cast<HLLabel>(Node));
+  } else if (isa<HLGoto>(Node)) {
+    Visitor->visit(cast<HLGoto>(Node));
+  } else if (isa<HLInst>(Node)) {
+    Visitor->visit(cast<HLInst>(Node));
   } else {
     llvm_unreachable("Unknown HLNode type!");
   }

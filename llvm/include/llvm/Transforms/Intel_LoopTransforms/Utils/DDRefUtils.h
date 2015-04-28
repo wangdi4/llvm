@@ -41,7 +41,7 @@ private:
 
 protected:
   /// \brief Returns a new BlobDDRef.
-  static BlobDDRef *createBlobDDRef(int SB, CanonExpr *CE,
+  static BlobDDRef *createBlobDDRef(int SB, const CanonExpr *CE,
                                     RegDDRef *Parent = nullptr);
 
 public:

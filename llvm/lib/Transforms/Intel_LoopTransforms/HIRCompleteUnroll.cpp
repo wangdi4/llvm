@@ -78,7 +78,6 @@
 #include "llvm/IR/Intel_LoopIR/HLInst.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRCreation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
@@ -114,7 +113,6 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRCreation>();
     AU.addRequiredTransitive<HIRParser>();
   }
 
@@ -142,7 +140,6 @@ private:
 char HIRCompleteUnroll::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRCompleteUnroll, "HIRCompleteUnroll",
                       "HIR Complete Unroll", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRCreation)
 INITIALIZE_PASS_DEPENDENCY(HIRParser)
 INITIALIZE_PASS_END(HIRCompleteUnroll, "HIRCompleteUnroll",
                     "HIR Complete Unroll", false, false)
@@ -162,10 +159,10 @@ bool HIRCompleteUnroll::runOnFunction(Function &F) {
 
   this->F = &F;
 
-  HIR = &getAnalysis<HIRCreation>();
+  auto HIRP = &getAnalysis<HIRParser>();
 
   // Gather the innermost loops
-  for (auto I = HIR->begin(), E = HIR->end(); I != E; I++) {
+  for (auto I = HIRP->hir_begin(), E = HIRP->hir_end(); I != E; I++) {
     visit(I);
   }
   processCompleteUnroll();
@@ -424,3 +421,4 @@ void HIRCompleteUnroll::processCanonExpr(CanonExpr *CExpr, int64_t TripVal,
     CExpr->replaceIVByConstant(Level, TripVal);
   }
 }
+

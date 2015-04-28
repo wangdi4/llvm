@@ -32,8 +32,8 @@ class SCEV;
 
 namespace loopopt {
 
-  /// \brief The maximum loopnest level allowed in HIR.
-  const unsigned MaxLoopNestLevel = 9;
+/// \brief The maximum loopnest level allowed in HIR.
+const unsigned MaxLoopNestLevel = 9;
 
 /// \brief Canonical form in high level IR
 ///
@@ -68,7 +68,6 @@ public:
   typedef SmallVector<BlobOrConstToVal, 4> IVCoeffsTy;
   /// Kept sorted by blob index
   typedef SmallVector<BlobIndexToCoeff, 2> BlobCoeffsTy;
-
 
   /// Iterators to iterate over induction variables
   typedef IVCoeffsTy::iterator iv_iterator;
@@ -115,7 +114,7 @@ private:
   static bool isLevelValid(unsigned Level);
 
 protected:
-  CanonExpr(Type *Typ, int DefLevel, int64_t ConstVal, int64_t Denom);
+  CanonExpr(Type *Typ, unsigned DefLevel, int64_t ConstVal, int64_t Denom);
   ~CanonExpr() {}
 
   friend class CanonExprUtils;
@@ -177,17 +176,27 @@ public:
 
   /// \brief Returns the innermost level at which some blob present
   /// in this canon expr is defined. The canon expr in linear in all
-  //  the inner loop levels w.r.t this level.
-  int getDefinedAtLevel() const { return DefinedAtLevel; }
-  void setDefinedAtLevel(int DefLvl) { DefinedAtLevel = DefLvl; }
+  /// the inner loop levels w.r.t this level.
+  unsigned getDefinedAtLevel() const {
+    assert(isLinearAtLevel() &&
+           "DefinedAtLevel is meaningless for non-linear types!");
+    return DefinedAtLevel;
+  }
+  /// \brief Sets the defined at level.
+  void setDefinedAtLevel(unsigned DefLvl) {
+    assert((DefLvl <= MaxLoopNestLevel) && "DefLvl exceeds max level!");
+    DefinedAtLevel = DefLvl;
+  }
 
   /// \brief Returns true if this is linear at all levels.
   bool isProperLinear() const { return (DefinedAtLevel == 0); }
+  /// \brief Returns true if this is not non-linear.
+  bool isLinearAtLevel() const { return (DefinedAtLevel >= 0); }
   /// \brief Returns true if some blob in the canon expr is defined in
   /// the current loop level.
   bool isNonLinear() const { return (DefinedAtLevel == -1); }
-  /// \brief Returns true if this is not non-linear.
-  bool isLinearAtLevel() const { return !isNonLinear(); }
+  /// \brief Mark this canon expr as non-linear.
+  void setNonLinear() { DefinedAtLevel = -1; }
   /// \brief Returns true if this Canon Expr only contains a constant
   bool isConstant() const {
     return !(hasIV() || hasBlob() || (getDenominator()!=1));
@@ -209,9 +218,11 @@ public:
   /// \brief Returns true if this contains any blobs.
   bool hasBlob() const { return !BlobCoeffs.empty(); }
 
-  /// \brief Returns the IV coefficient at a particular loop level.
+  /// \brief Returns the IV coefficient at a particular loop level. Lvl's
+  /// range is [1, MaxLoopNestLevel].
   int64_t getIVCoeff(unsigned Lvl, bool *IsBlobCoeff) const;
-  /// \brief Sets the IV coefficient at a particular loop level.
+  /// \brief Sets the IV coefficient at a particular loop level. Lvl's range
+  /// is [1, MaxLoopNestLevel].
   void setIVCoeff(unsigned Lvl, int64_t Coeff, bool IsBlobCoeff);
 
   /// \brief Adds to the existing constant IV coefficient at a particular loop

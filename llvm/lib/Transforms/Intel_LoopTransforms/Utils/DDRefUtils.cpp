@@ -18,7 +18,7 @@ using namespace loopopt;
 
 RegDDRef *DDRefUtils::createRegDDRef(int SB) { return new RegDDRef(SB); }
 
-BlobDDRef *DDRefUtils::createBlobDDRef(int SB, CanonExpr *CE,
+BlobDDRef *DDRefUtils::createBlobDDRef(int SB, const CanonExpr *CE,
                                        RegDDRef *Parent) {
 
   return new BlobDDRef(SB, CE, Parent);

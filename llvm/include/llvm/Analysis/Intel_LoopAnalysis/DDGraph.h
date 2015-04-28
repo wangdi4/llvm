@@ -82,7 +82,8 @@ struct DirectionVector {
     dbgs() << "]"
            << "\n";
   }
-  private:
+
+private:
   Direction Elements[MaxLoopNestLevel];
 };
 
@@ -159,9 +160,9 @@ public:
   DDEdge(DDRef *SrcRef, DDRef *SinkRef, DirectionVector DirV)
       : Src(SrcRef), Sink(SinkRef), DV(DirV) {}
 
-  DepType getEdgeType() { 
-    //TODO based only on src sink or cache type?
-    return DepType::FLOW; 
+  DepType getEdgeType() {
+    // TODO based only on src sink or cache type?
+    return DepType::FLOW;
   }
   DDRef *getSrc() { return Src; }
   DDRef *getSink() { return Sink; }
@@ -180,4 +181,3 @@ typedef HIRGraph<DDRef, DDEdge> DDGraphTy;
 }
 
 #endif
-

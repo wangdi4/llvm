@@ -52,4 +52,3 @@ bool sillyTest(DDRef *Ref1, DDRef *Ref2, DirectionVector InputDV) {
   return true;
 }
 }
-

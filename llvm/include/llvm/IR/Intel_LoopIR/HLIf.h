@@ -85,17 +85,6 @@ protected:
   /// state.
   void initialize();
 
-  /// \brief Hides HLDDNode's getOperandDDref(). Users are expected to use HLIf
-  /// specific functions.
-  RegDDRef *getOperandDDref(unsigned OperandNum);
-  const RegDDRef *getOperandDDref(unsigned OperandNum) const;
-  /// \brief Hides HLDDNode's setOperandDDref(). Users are expected to use HLIf
-  /// loop specific functions.
-  void setOperandDDRef(RegDDRef *, unsigned OperandNum);
-  /// \brief Hides HLDDNode's removeOperandDDref(). Users are expected to use
-  /// HLIf specific functions.
-  RegDDRef *removeOperandDDref(unsigned OperandNum);
-
   /// \brief Returns the offset of the LHS/RHS DDRef associated with this
   /// predicate.
   unsigned getPredicateOperandDDRefOffset(pred_iterator PredI,
@@ -178,14 +167,12 @@ public:
   /// \brief Returns true if it has then children.
   bool hasThenChildren() const { return (then_begin() != then_end()); }
 
-  /// \brief Returns the first else child if it exists, otherwise
-  /// returns null.
+  /// \brief Returns the first else child if it exists, otherwise returns null.
   HLNode *getFirstElseChild();
-  const HLNode *getFirstelseChild() const {
+  const HLNode *getFirstElseChild() const {
     return const_cast<HLIf *>(this)->getFirstElseChild();
   }
-  /// \brief Returns the last else child if it exists, otherwise
-  /// returns null.
+  /// \brief Returns the last else child if it exists, otherwise returns null.
   HLNode *getLastElseChild();
   const HLNode *getLastElseChild() const {
     return const_cast<HLIf *>(this)->getLastElseChild();

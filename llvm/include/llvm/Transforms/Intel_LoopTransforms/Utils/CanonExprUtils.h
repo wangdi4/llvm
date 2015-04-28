@@ -46,9 +46,9 @@ private:
   static int64_t lcm(int64_t a, int64_t b);
 
 public:
-  /// \brief Returns a new CanonExpr.
-  static CanonExpr *createCanonExpr(Type *Typ, int Level = 0, int64_t Const = 0,
-                                    int64_t Denom = 1);
+  /// \brief Returns a new CanonExpr. All canon exprs are created linear.
+  static CanonExpr *createCanonExpr(Type *Typ, unsigned Level = 0,
+                                    int64_t Const = 0, int64_t Denom = 1);
 
   /// \brief Returns a new CanonExpr created from APInt Value
   static CanonExpr *createCanonExpr(const APInt &APVal, int Level = 0);

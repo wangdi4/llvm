@@ -31,8 +31,8 @@ class HIRPrinter : public FunctionPass {
 public:
   static char ID;
   HIRPrinter() : FunctionPass(ID), OS(dbgs()) {}
-  HIRPrinter(raw_ostream &OS, const std::string &Banner) : FunctionPass(ID), 
-            OS(OS), Banner(Banner) {}
+  HIRPrinter(raw_ostream &OS, const std::string &Banner)
+      : FunctionPass(ID), OS(OS), Banner(Banner) {}
 
   bool runOnFunction(Function &F) override {
     auto HIR = getAnalysisIfAvailable<HIRCreation>();
@@ -46,19 +46,14 @@ public:
     return false;
   }
 
-  void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.setPreservesAll();
-  }
-
+  void getAnalysisUsage(AnalysisUsage &AU) const { AU.setPreservesAll(); }
 };
-
 }
 
 INITIALIZE_PASS(HIRPrinter, "hir-printer", "HIR Print", false, false)
 char HIRPrinter::ID = 0;
 
-FunctionPass *llvm::createHIRPrinterPass(raw_ostream &OS, 
-                                         const std::string &Banner) { 
-  return new HIRPrinter(OS, Banner); 
+FunctionPass *llvm::createHIRPrinterPass(raw_ostream &OS,
+                                         const std::string &Banner) {
+  return new HIRPrinter(OS, Banner);
 }
-

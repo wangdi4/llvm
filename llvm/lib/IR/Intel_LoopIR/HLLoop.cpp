@@ -79,7 +79,7 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
     setZtt(HLLoopObj.Ztt->clone());
   }
 
-  /// Clone loop DDRefs
+  /// Clone loop RegDDRefs
   setLowerDDRef((Ref = HLLoopObj.getLowerDDRef()) ? Ref->clone() : nullptr);
   setUpperDDRef((Ref = HLLoopObj.getUpperDDRef()) ? Ref->clone() : nullptr);
   setStrideDDRef((Ref = HLLoopObj.getStrideDDRef()) ? Ref->clone() : nullptr);
@@ -176,10 +176,30 @@ void HLLoop::addZttPredicate(CmpInst::Predicate Pred, RegDDRef *Ref1,
                              RegDDRef *Ref2) {
   assert(hasZtt() && "Ztt is absent!");
   Ztt->addPredicate(Pred, Ref1, Ref2);
+
+  ztt_pred_iterator LastIt = std::prev(ztt_pred_end());
+
+  /// Move the RegDDRefs to loop.
+  setZttPredicateOperandDDRef(Ztt->removePredicateOperandDDRef(LastIt, true),
+                              LastIt, true);
+  setZttPredicateOperandDDRef(Ztt->removePredicateOperandDDRef(LastIt, false),
+                              LastIt, false);
 }
 
 void HLLoop::removeZttPredicate(ztt_pred_iterator PredI) {
   assert(hasZtt() && "Ztt is absent!");
+
+  /// Remove RegDDRefs from loop.
+  removeZttPredicateOperandDDRef(PredI, true);
+  removeZttPredicateOperandDDRef(PredI, false);
+
+  /// Erase the DDRef slots from loop.
+  RegDDRefs.erase(RegDDRefs.begin() + getNumLoopDDRefs() +
+               Ztt->getPredicateOperandDDRefOffset(PredI, true));
+  RegDDRefs.erase(RegDDRefs.begin() + getNumLoopDDRefs() +
+               Ztt->getPredicateOperandDDRefOffset(PredI, true));
+
+  /// Remove predicate from ztt.
   Ztt->removePredicate(PredI);
 }
 

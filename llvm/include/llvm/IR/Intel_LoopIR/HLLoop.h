@@ -103,17 +103,6 @@ protected:
   void setNestingLevel(unsigned Level) { NestingLevel = Level; }
   void setInnermost(bool IsInnermst) { IsInnermost = IsInnermst; }
 
-  /// \brief Hides HLDDNode's getOperandDDref(). Users are expected to use
-  /// HLLoop specific functions.
-  RegDDRef *getOperandDDref(unsigned OperandNum);
-  const RegDDRef *getOperandDDref(unsigned OperandNum) const;
-  /// \brief Hides HLDDNode's setOperandDDref(). Users are expected to use
-  /// HLLoop specific functions.
-  void setOperandDDRef(RegDDRef *, unsigned OperandNum);
-  /// \brief Hides HLDDNode's removeOperandDDref(). Users are expected to use
-  /// HLLoop specific functions.
-  RegDDRef *removeOperandDDref(unsigned OperandNum);
-
   /// \brief Returns the number of DDRefs associated with only the loop
   /// without the ztt.
   /// Comes down to DDRefs for lower, tripcount and stride.

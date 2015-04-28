@@ -51,6 +51,7 @@ protected:
   ~HLRegion() { Children.clearAndLeakNodesUnsafely(); }
 
   friend class HLNodeUtils;
+  friend class HIRCreation;
 
   /// \brief Sets the entry(first) bblock of this region.
   void setEntryBBlock(BasicBlock *EntryBB) { EntryBBlock = EntryBB; }

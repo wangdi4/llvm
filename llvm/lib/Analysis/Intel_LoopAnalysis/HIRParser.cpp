@@ -18,7 +18,6 @@
 #include "llvm/Analysis/LoopInfo.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRCreation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/LoopFormation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 
@@ -367,7 +366,7 @@ RegDDRef *HIRParser::parseRecursive(const SCEV *SC, const SCEV *ElementSize,
   return nullptr;
 }
 
-void HIRParser::visit(HLLoop *HLoop) {
+void HIRParser::parse(HLLoop *HLoop) {
 
   if (auto Lp = HLoop->getLLVMLoop()) {
 
@@ -456,8 +455,7 @@ bool HIRParser::isRegionLiveOut(const Value *Val, bool IsCompare) {
           return true;
         }
       }
-      if (CurRegion->getOrigBBlocks().find(UseInst->getParent()) ==
-          CurRegion->getOrigBBlocks().end()) {
+      if (!CurRegion->getOrigBBlocks().count(UseInst->getParent())) {
         return true;
       }
     } else {
@@ -468,7 +466,7 @@ bool HIRParser::isRegionLiveOut(const Value *Val, bool IsCompare) {
   return false;
 }
 
-void HIRParser::visit(HLInst *HInst) {
+void HIRParser::parse(HLInst *HInst) {
   const Value *Val;
   RegDDRef *Ref;
   const SCEV *ElementSize = nullptr;
@@ -547,12 +545,13 @@ void HIRParser::eraseUselessNodes() {
 
 bool HIRParser::runOnFunction(Function &F) {
   this->Func = &F;
-  auto HIR = &getAnalysis<HIRCreation>();
+  HIR = &getAnalysis<HIRCreation>();
   LF = &getAnalysis<LoopFormation>();
   SE = &getAnalysis<ScalarEvolution>();
   LI = &getAnalysis<LoopInfo>();
 
-  HLNodeUtils::visitAll<HIRParser>(this, HIR);
+  Visitor PV(this);
+  HLNodeUtils::visitAll(&PV, this);
 
   eraseUselessNodes();
 
