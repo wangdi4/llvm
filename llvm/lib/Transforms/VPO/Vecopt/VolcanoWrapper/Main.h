@@ -51,6 +51,9 @@ public:
       //      AU.addRequired<BuiltinLibInfo>(); /* xmain */
     }
 
+    // Eric: Temporary Function to Test AVR node generation
+    static bool buildVectorizerAVR(Function &F, Module &M);
+
 private:
 
     Function* createFunctionToVectorize(Function& originalFunction,

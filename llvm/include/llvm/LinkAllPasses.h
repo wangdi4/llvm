@@ -25,6 +25,7 @@
 #include "llvm/Analysis/RegionPass.h"
 #include "llvm/Analysis/RegionPrinter.h"
 #include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/VPO/Vecopt/AVR/VPOPasses.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRPrintingPasses.h"
@@ -176,6 +177,9 @@ namespace {
       ((llvm::RegionPass*)nullptr)->runOnRegion((llvm::Region*)nullptr, RGM);
       llvm::AliasSetTracker X(*(llvm::AliasAnalysis*)nullptr);
       X.add(nullptr, 0, llvm::AAMDNodes()); // for -print-alias-sets
+
+      (void) llvm::createAVRGeneratePass();
+
     }
   } ForcePassLinking; // Force link by creating a global definition.
 }

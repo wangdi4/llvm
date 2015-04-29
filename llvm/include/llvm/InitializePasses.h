@@ -294,6 +294,7 @@ void initializeWinEHPreparePass(PassRegistry&);
 void initializePlaceBackedgeSafepointsImplPass(PassRegistry&);
 void initializePlaceSafepointsPass(PassRegistry&);
 void initializeDwarfEHPreparePass(PassRegistry&);
+void initializeAvrGeneratePass(PassRegistry&);
 }
 
 #endif
