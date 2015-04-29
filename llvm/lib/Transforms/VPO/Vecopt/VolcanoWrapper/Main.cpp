@@ -382,6 +382,7 @@ Function* Vectorizer::createFunctionToVectorize(Function& originalFunction,
   return functionToVectorize;
 }
 
+#if 0
 // Eric: Temporary Implementation To Test AVR Generation.
 bool Vectorizer::buildVectorizerAVR(Function& F, Module& M) 
 {
@@ -395,7 +396,7 @@ bool Vectorizer::buildVectorizerAVR(Function& F, Module& M)
 
   return true;
 }
-
+#endif
 
 bool Vectorizer::runOnModule(Module &M)
 {

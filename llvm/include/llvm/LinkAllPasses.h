@@ -178,7 +178,9 @@ namespace {
       llvm::AliasSetTracker X(*(llvm::AliasAnalysis*)nullptr);
       X.add(nullptr, 0, llvm::AAMDNodes()); // for -print-alias-sets
 
+#if 0
       (void) llvm::createAVRGeneratePass();
+#endif
 
     }
   } ForcePassLinking; // Force link by creating a global definition.
