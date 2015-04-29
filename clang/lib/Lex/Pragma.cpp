@@ -1177,6 +1177,12 @@ public:
       // We have a GCC style pragma message, and we just read the string.
       break;
     default:
+#ifdef INTEL_CUSTOMIZATION
+      // CQ#367740 - emit a warning and ignore this pragma in IntelCompat mode.
+      if (PP.getLangOpts().IntelCompat)
+        PP.Diag(MessageLoc, diag::warn_pragma_message_malformed) << Kind;
+      else
+#endif // INTEL_CUSTOMIZATION
       PP.Diag(MessageLoc, diag::err_pragma_message_malformed) << Kind;
       return;
     }

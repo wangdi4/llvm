@@ -444,6 +444,12 @@ def err__Pragma_malformed : Error<
   "_Pragma takes a parenthesized string literal">;
 def err_pragma_message_malformed : Error<
   "pragma %select{message|warning|error}0 requires parenthesized string">;
+// CQ#367740
+// if INTEL_CUSTOMIZATION
+def warn_pragma_message_malformed : Warning<
+  "pragma %select{message|warning|error}0 requires parenthesized string">,
+  InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_pragma_push_pop_macro_malformed : Error<
    "pragma %0 requires a parenthesized string">;
 def warn_pragma_pop_macro_no_push : Warning<
