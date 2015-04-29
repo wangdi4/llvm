@@ -172,7 +172,7 @@ bool PacketizeFunction::runOnFunction(Function &F)
   // Force command line packetization size
   if (CLIPacketSize) m_packetWidth = CLIPacketSize;
 
-  V_ASSERT(4 <= m_packetWidth && MAX_PACKET_WIDTH >= m_packetWidth &&
+  V_ASSERT(1 <= m_packetWidth && MAX_PACKET_WIDTH >= m_packetWidth &&
     "Requested packetization width out of range!");
 
   V_PRINT(packetizer, "\nStarting packetization of: " << m_currFunc->getName());

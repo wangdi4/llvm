@@ -247,6 +247,13 @@ static Type* calcCharacteristicType(Function& F, VectorVariant& vectorVariant) {
 
   characteristicDataType =
     VectorVariant::promoteToSupportedType(characteristicDataType, isa);
+
+  if (characteristicDataType->isPointerTy()) {
+    const DataLayout& dataLayout = F.getParent()->getDataLayout();
+    unsigned pointerSize = dataLayout.getPointerSizeInBits();
+    characteristicDataType = Type::getIntNTy(F.getContext(), pointerSize);
+  }
+
   return characteristicDataType;
 }
 
