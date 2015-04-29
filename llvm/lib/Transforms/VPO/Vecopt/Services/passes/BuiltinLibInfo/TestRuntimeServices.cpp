@@ -30,7 +30,7 @@ private:
 public:
   TestVFunction(const std::string& s, bool isBuiltin) : m_isBuiltin(isBuiltin),
                                                         m_name(s) {
-    size_t last_underscore = m_name.find_last_of("_v");
+    size_t last_underscore = m_name.rfind("_v");
     if (last_underscore == string::npos) {
       m_width = FunctionDescriptor::SCALAR;
       return;
