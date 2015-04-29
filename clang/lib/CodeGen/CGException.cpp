@@ -543,7 +543,7 @@ void CodeGenFunction::EmitEndEHSpec(const Decl *D) {
 
 void CodeGenFunction::EmitCXXTryStmt(const CXXTryStmt &S) {
   EnterCXXTryStmt(S);
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   {
     if (getLangOpts().CilkPlus && CurCGCilkImplicitSyncInfo) {
       // The following implicit sync is not required by the Cilk Plus
@@ -560,9 +560,11 @@ void CodeGenFunction::EmitCXXTryStmt(const CXXTryStmt &S) {
     if (CurCGCilkImplicitSyncInfo &&
         CurCGCilkImplicitSyncInfo->needsImplicitSync(&S))
       CGM.getCilkPlusRuntime().pushCilkImplicitSyncCleanup(*this);
+    EmitStmt(S.getTryBlock());
   }
-#endif  
+#else
   EmitStmt(S.getTryBlock());
+#endif // INTEL_CUSTOMIZATION
   ExitCXXTryStmt(S);
 }
 
