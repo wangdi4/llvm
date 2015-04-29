@@ -585,6 +585,10 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     Builder.defineMacro("__DEPRECATED");
 
   if (!LangOpts.MSVCCompat && LangOpts.CPlusPlus) {
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#369662 - Intel driver already sets __GNUG__ into appropriate value.
+    if (!LangOpts.IntelCompat)
+#endif // INTEL_CUSTOMIZATION
     Builder.defineMacro("__GNUG__", "4");
     Builder.defineMacro("__GXX_WEAK__");
     Builder.defineMacro("__private_extern__", "extern");
