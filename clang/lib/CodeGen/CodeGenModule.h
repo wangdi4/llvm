@@ -1317,7 +1317,10 @@ private:
   void EmitCoverageFile();
 
 #ifdef INTEL_CUSTOMIZATION
-  /// \brief Emit MS debug file information as llvm.dbg.ms.filetype metadata.
+  /// \brief Emit Intel-specific debug info as llvm.dbg.intel.* metadata nodes.
+  void EmitIntelDebugInfoMetadata();
+
+  /// \brief Emit MS-specific debug info as llvm.dbg.ms.* metadata nodes.
   void EmitMSDebugInfoMetadata();
 #endif // INTEL_CUSTOMIZATION
 

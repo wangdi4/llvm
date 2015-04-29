@@ -427,6 +427,8 @@ void CodeGenModule::Release() {
 #ifdef INTEL_CUSTOMIZATION
   if (getLangOpts().CilkPlus)
     EmitCilkElementalVariants();
+  if (getLangOpts().IntelCompat)
+    EmitIntelDebugInfoMetadata();
   if (getLangOpts().IntelMSCompat)
     EmitMSDebugInfoMetadata();
 #endif  // INTEL_CUSTOMIZATION
@@ -3664,6 +3666,20 @@ void CodeGenModule::EmitTargetMetadata() {
 }
 
 #ifdef INTEL_CUSTOMIZATION
+void CodeGenModule::EmitIntelDebugInfoMetadata() {
+  llvm::LLVMContext &Ctx = TheModule.getContext();
+  // CQ#368123 - support '--[no-]emit-unused-member-decls' options.
+  std::string EmitUnusedMemberDeclsStr =
+      getCodeGenOpts().EmitUnusedMemberDecls ? "true" : "false";
+  llvm::Metadata *EmitUnusedMemberDeclsNode[] = { llvm::MDString::get(
+      Ctx, EmitUnusedMemberDeclsStr) };
+  llvm::NamedMDNode *EmitUnusedMemberDeclsMetadata =
+      TheModule.getOrInsertNamedMetadata(
+          "llvm.dbg.intel.emit_unused_member_decls");
+  EmitUnusedMemberDeclsMetadata->addOperand(
+      llvm::MDNode::get(Ctx, EmitUnusedMemberDeclsNode));
+}
+
 void CodeGenModule::EmitMSDebugInfoMetadata() {
   unsigned FileKind = getCodeGenOpts().getMSDebugInfoFile();
   if (FileKind == CodeGenOptions::MSDebugInfoNoFile)

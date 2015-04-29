@@ -151,6 +151,12 @@ VALUE_CODEGENOPT(StackProbeSize    , 32, 4096) ///< Overrides default stack
 CODEGENOPT(DebugColumnInfo, 1, 0) ///< Whether or not to use column information
                                   ///< in debug info.
 
+// if INTEL_CUSTOMIZATION
+// CQ#368123
+CODEGENOPT(EmitUnusedMemberDecls, 1, 1) ///< Whether or not to emit unused
+                                        ///< member declarations.
+// endif INTEL_CUSTOMIZATION
+
 /// The user specified number of registers to be used for integral arguments,
 /// or 0 if unspecified.
 VALUE_CODEGENOPT(NumRegisterParameters, 32, 0)
