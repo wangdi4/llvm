@@ -3339,6 +3339,13 @@ static void handleModeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
     case 'X': DestWidth = 96; break;
     case 'T': DestWidth = 128; break;
     }
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#369184 - decimal types are not supported, so handle this gracefully.
+    if (S.getLangOpts().IntelCompat && Str[1] == 'D') {
+      S.Diag(Attr.getLoc(), diag::err_decimal_unsupported);
+      return;
+    }
+#endif // INTEL_CUSTOMIZATION
     if (Str[1] == 'F') {
       IntegerMode = false;
     } else if (Str[1] == 'C') {

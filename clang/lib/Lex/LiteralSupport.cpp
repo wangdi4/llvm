@@ -691,6 +691,24 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
       ImaginarySuffixLoc = s;
       continue;  // Success.
     }
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#369184 - decimal types are not supported, so handle this gracefully.
+    if (PP.getLangOpts().IntelCompat)
+      if ((*s == 'd' || *s == 'D') && s + 1 != ThisTokEnd)
+        switch (s[1]) {
+        case 'd':
+        case 'D':
+        case 'f':
+        case 'F':
+        case 'l':
+        case 'L':
+          SourceLocation SuffixLoc =
+              PP.AdvanceToTokenCharacter(TokLoc, SuffixBegin - ThisTokBegin);
+          PP.Diag(SuffixLoc, diag::err_decimal_ext_unsupported);
+          hadError = true;
+          return;
+        }
+#endif // INTEL_CUSTOMIZATION
     // If we reached here, there was an error or a ud-suffix.
     break;
   }

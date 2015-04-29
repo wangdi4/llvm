@@ -160,6 +160,11 @@ def err_invalid_suffix_integer_constant : Error<
   "invalid suffix '%0' on integer constant">;
 def err_invalid_suffix_float_constant : Error<
   "invalid suffix '%0' on floating constant">;
+// CQ#369184
+// if INTEL_CUSTOMIZATION
+def err_decimal_ext_unsupported : Error<
+  "GNU decimal type extension not supported">;
+// endif INTEL_CUSTOMIZATION
 def warn_cxx11_compat_digit_separator : Warning<
   "digit separators are incompatible with C++ standards before C++14">,
   InGroup<CXXPre14Compat>, DefaultIgnore;
