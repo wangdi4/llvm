@@ -1,0 +1,41 @@
+// RUN: %clang_cc1 -IntelCompat -triple=x86_64-apple-darwin -emit-llvm -verify -o - %s | FileCheck %s  
+//***INTEL: pragma init_seg test
+
+// CHECK: target
+void www();
+
+// CHECK-NOT: define private void @.DIRECTIVE.
+#pragma init_seg ; // expected-warning {{'compiler', 'lib', 'user' or section name is expected}}
+#pragma init_seg ( // expected-warning {{'compiler', 'lib', 'user' or section name is expected}}
+#pragma init_seg "" // expected-warning {{invalid use of null string; pragma ignored}}
+
+int a, wed;
+// CHECK: define i32 
+int www1() 
+{
+  return (0);
+}
+struct S {
+  int a;
+} d;
+
+// CHECK: define private void @.DIRECTIVE.() #1 {
+// CHECK: call void @llvm.intel.pragma(metadata !1)
+// CHECK-NEXT: ret void
+// CHECK-NEXT: }
+#pragma init_seg "user") 
+class C {
+  int a;
+  public:
+  int b;
+} e;
+
+// CHECK: define i32 @main(
+int main(int argc, char **argv)
+{
+  int i, lll;
+  static int localS;
+  return (0);
+}
+
+// CHECK: !1 = metadata !{metadata !"INIT_SEG", metadata !"__DATA, user, mod_init_funcs"}

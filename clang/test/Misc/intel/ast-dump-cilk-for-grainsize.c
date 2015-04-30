@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -fcilkplus -ast-dump -ast-dump-filter test_grainsize %s | FileCheck %s
+// XFAIL: win
 
 void test_grainsize() {
   #pragma cilk grainsize = 2

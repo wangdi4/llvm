@@ -31,6 +31,7 @@
 // RUN: FileCheck -check-prefix=CHECK-CILK30 --input-file=%t %s
 // RUN: FileCheck -check-prefix=CHECK-CILK31 --input-file=%t %s
 
+// XFAIL: win
 
 /*
  *  A _Cilk_spawn can only appear in 3 places
