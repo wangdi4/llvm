@@ -516,6 +516,12 @@ typedef enum STIRegIDEnum STIRegID;
 #define LF_recOEM_F090_HOST_PDATA 0x0004 /* Intel extension for post indexed data */
 #define LF_recOEM_MSF90_DESCRIPTOR 0x0005 // Intel's new generic descriptor type
 
+// LF_INTEL_NONE
+//
+// Defined for internal use only, not emitted.
+//
+#define LF_INTEL_NONE   0x0000
+
 
 #define PROP_PACKED     0x0001          /* Packed structure or union */
 #define PROP_CTOR       0x0002          /* Has constructuctors and/or desctructors */

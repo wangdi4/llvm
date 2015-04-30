@@ -26,9 +26,11 @@ class Module;
 
 class STILocation;
 class STIScope;
+class STINumeric;
 class STISymbol;
 class STISymbolModule;
 class STISymbolCompileUnit;
+class STISymbolConstant;
 class STISymbolProcedure;
 class STISymbolFrameProc;
 class STISymbolBlock;
@@ -75,6 +77,7 @@ enum STIObjectKindEnum {
   STI_OBJECT_KIND_SCOPE,               // STIScope
   STI_OBJECT_KIND_SYMBOL_MODULE,       // STISymbolModule
   STI_OBJECT_KIND_SYMBOL_COMPILE_UNIT, // STISymbolCompileUnit
+  STI_OBJECT_KIND_SYMBOL_CONSTANT,     // STISymbolConstant
   STI_OBJECT_KIND_SYMBOL_PROCEDURE,    // STISymbolProcedure
   STI_OBJECT_KIND_SYMBOL_FRAMEPROC,    // STISymbolFrameProc
   STI_OBJECT_KIND_SYMBOL_BLOCK,        // STISymbolBlock
@@ -362,6 +365,31 @@ public:
 };
 
 //===----------------------------------------------------------------------===//
+// STINumeric
+//===----------------------------------------------------------------------===//
+
+class STINumeric {
+public:
+  typedef uint16_t LeafID;
+
+  static STINumeric* create(LeafID leafID, size_t size, const char* data);
+
+  ~STINumeric();
+
+  LeafID        getLeafID () const;
+  size_t        getSize   () const;
+  const char*   getData   () const;
+
+protected:
+  STINumeric(LeafID leafID, size_t size, const char* data);
+
+private:
+  LeafID    _leafID;
+  size_t    _size;
+  char*     _data;
+};
+
+//===----------------------------------------------------------------------===//
 // STISymbol
 //===----------------------------------------------------------------------===//
 
@@ -423,6 +451,37 @@ public:
   StringRef getProducer() const;
   void setProducer(StringRef producer);
   STIScope *getScope() const;
+};
+
+//===----------------------------------------------------------------------===//
+// STISymbolConstant
+//
+// Represents the following debug information symbols:
+//   * S_CONSTANT
+//   * S_MANCONSTANT
+//
+//===----------------------------------------------------------------------===//
+
+class STISymbolConstant : public STISymbol {
+public:
+  static STISymbolConstant *create();
+
+  ~STISymbolConstant();
+
+  StringRef getName() const;
+  void setName(StringRef name);
+  const STINumeric *getValue() const;
+  void setValue(const STINumeric *value);
+  STIType *getType() const;
+  void setType(STIType *type);
+
+protected:
+  STISymbolConstant();
+
+private:
+  std::string           _name;
+  STIType*              _type;
+  const STINumeric*     _value;
 };
 
 //===----------------------------------------------------------------------===//
@@ -674,9 +733,9 @@ public:
 
 class STITypeArray : public STIType {
 private:
-  STIType *_elementType;
-  std::string _name;
-  uint32_t _length;
+  STIType*          _elementType;
+  std::string       _name;
+  const STINumeric* _length;
 
 protected:
   STITypeArray();
@@ -692,8 +751,8 @@ public:
   StringRef getName() const;
   void setName(StringRef name);
 
-  uint32_t getLength() const;
-  void setLength(uint32_t length);
+  const STINumeric* getLength() const;
+  void setLength(const STINumeric* length);
 };
 
 //===----------------------------------------------------------------------===//
@@ -732,7 +791,7 @@ class STITypeMember {
 private:
   uint16_t _attribute;
   STIType *_type;
-  uint32_t _offset;
+  const STINumeric *_offset;
   std::string _name;
   bool _isStatic;
 
@@ -750,8 +809,8 @@ public:
   STIType *getType() const;
   void setType(STIType *type);
 
-  uint32_t getOffset() const;
-  void setOffset(uint32_t offset);
+  const STINumeric* getOffset() const;
+  void setOffset(const STINumeric *offset);
 
   StringRef getName() const;
   void setName(StringRef name);
@@ -888,7 +947,7 @@ public:
 class STITypeEnumerator {
 private:
   uint16_t _attribute;
-  int32_t _value;
+  const STINumeric *_value;
   std::string _name;
 
 protected:
@@ -902,8 +961,8 @@ public:
   uint16_t getAttribute() const;
   void setAttribute(uint16_t attr);
 
-  int32_t getValue() const;
-  void setValue(int32_t value);
+  const STINumeric* getValue() const;
+  void setValue(const STINumeric *value);
 
   StringRef getName() const;
   void setName(StringRef name);
@@ -917,7 +976,7 @@ class STITypeBaseClass {
 private:
   uint16_t _attribute;
   STIType *_type;
-  int _offset;
+  const STINumeric *_offset;
 
 protected:
   STITypeBaseClass();
@@ -933,8 +992,8 @@ public:
   STIType *getType() const;
   void setType(STIType *type);
 
-  int getOffset() const;
-  void setOffset(int offset);
+  const STINumeric* getOffset() const;
+  void setOffset(const STINumeric *offset);
 };
 
 //===----------------------------------------------------------------------===//
@@ -947,8 +1006,8 @@ private:
   uint16_t _attribute;
   STIType *_type;
   STIType *_vbpType;
-  int _vbpOffset;
-  int _vbIndex;
+  const STINumeric *_vbpOffset;
+  const STINumeric *_vbIndex;
 
 protected:
   STITypeVBaseClass(bool indirect);
@@ -969,11 +1028,11 @@ public:
   STIType *getVbpType() const;
   void setVbpType(STIType *type);
 
-  int getVbpOffset() const;
-  void setVbpOffset(int offset);
+  const STINumeric* getVbpOffset() const;
+  void setVbpOffset(const STINumeric* offset);
 
-  int getVbIndex() const;
-  void setVbIndex(int index);
+  const STINumeric* getVbIndex() const;
+  void setVbIndex(const STINumeric* index);
 };
 
 //===----------------------------------------------------------------------===//
@@ -1060,7 +1119,7 @@ private:
   STIType *_fieldType;
   STIType *_derivedType;
   STIType *_vshapeType;
-  uint32_t _size;
+  const STINumeric *_size;
   std::string _name;
 
 protected:
@@ -1089,8 +1148,8 @@ public:
   STIType *getVShapeType() const;
   void setVShapeType(STIType *vshapeType);
 
-  uint32_t getSize() const;
-  void setSize(uint32_t size);
+  const STINumeric* getSize() const;
+  void setSize(const STINumeric* size);
 
   StringRef getName() const;
   void setName(StringRef name);

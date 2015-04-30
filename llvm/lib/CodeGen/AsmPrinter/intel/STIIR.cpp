@@ -344,6 +344,51 @@ void STILineSlice::appendBlock(STILineBlock *block) {
 }
 
 //===----------------------------------------------------------------------===//
+// STINumeric
+//===----------------------------------------------------------------------===//
+
+STINumeric* STINumeric::create(LeafID leafID, size_t size, const char* data) {
+  return new STINumeric(leafID, size, data);
+}
+
+STINumeric::STINumeric(LeafID leafID, size_t size, const char* data)
+  : _leafID     (leafID),
+    _size       (size),
+    _data       () {
+  char* dest;
+  if (size > sizeof(_data)) {
+    dest = _data = new char [size];
+  } else {
+    dest = reinterpret_cast<char*>(&_data);
+  }
+  std::copy_n(data, size, dest);
+}
+
+STINumeric::~STINumeric() {
+  if (_size > sizeof(_data)) {
+    delete [] _data;
+  }
+}
+
+STINumeric::LeafID STINumeric::getLeafID() const {
+  return _leafID;
+}
+
+size_t STINumeric::getSize() const {
+  return _size;
+}
+
+const char* STINumeric::getData() const {
+  const char* data;
+  if (_size > sizeof(_data)) {
+    data = _data;
+  } else {
+    data = reinterpret_cast<const char*>(&_data);
+  }
+  return data;
+}
+
+//===----------------------------------------------------------------------===//
 // STISymbol
 //===----------------------------------------------------------------------===//
 
@@ -562,6 +607,49 @@ void STISymbolBlock::setProcedure(STISymbolProcedure *procedure) {
 }
 
 //===----------------------------------------------------------------------===//
+// STISymbolConstant
+//===----------------------------------------------------------------------===//
+
+STISymbolConstant *STISymbolConstant::create() {
+  return new STISymbolConstant();
+}
+
+STISymbolConstant::STISymbolConstant()
+    : STISymbol(STI_OBJECT_KIND_SYMBOL_CONSTANT),
+      _name     (),
+      _type     (nullptr),
+      _value    (nullptr) {
+}
+
+STISymbolConstant::~STISymbolConstant() {
+  delete _value;
+}
+
+StringRef STISymbolConstant::getName() const {
+  return _name;
+}
+
+void STISymbolConstant::setName(StringRef name) {
+  _name = name;
+}
+
+const STINumeric* STISymbolConstant::getValue() const {
+  return _value;
+}
+
+void STISymbolConstant::setValue(const STINumeric* value) {
+  _value = value;
+}
+
+STIType *STISymbolConstant::getType() const {
+  return _type;
+}
+
+void STISymbolConstant::setType(STIType *type) {
+    _type = type;
+}
+
+//===----------------------------------------------------------------------===//
 // STISymbolVariable
 //===----------------------------------------------------------------------===//
 
@@ -706,10 +794,15 @@ void STITypePointer::setIsConstant(bool isConst) { _isConstant = isConst; }
 // STITypeArray
 //===----------------------------------------------------------------------===//
 
-STITypeArray::STITypeArray()
-    : STIType(STI_OBJECT_KIND_TYPE_ARRAY), _elementType(nullptr), _length(0) {}
+STITypeArray::STITypeArray() :
+    STIType     (STI_OBJECT_KIND_TYPE_ARRAY),
+    _elementType(nullptr),
+    _length     (nullptr) {
+}
 
-STITypeArray::~STITypeArray() {}
+STITypeArray::~STITypeArray() {
+  delete _length;
+}
 
 STITypeArray *STITypeArray::create() { return new STITypeArray(); }
 
@@ -719,12 +812,21 @@ void STITypeArray::setElementType(STIType *elementType) {
   _elementType = elementType;
 }
 
-StringRef STITypeArray::getName() const { return _name; }
+StringRef STITypeArray::getName() const {
+  return _name;
+}
 
-void STITypeArray::setName(StringRef name) { _name = name; }
+void STITypeArray::setName(StringRef name) {
+  _name = name;
+}
 
-uint32_t STITypeArray::getLength() const { return _length; }
-void STITypeArray::setLength(uint32_t length) { _length = length; }
+const STINumeric* STITypeArray::getLength() const {
+  return _length;
+}
+
+void STITypeArray::setLength(const STINumeric* length) {
+  _length = length;
+}
 
 //===----------------------------------------------------------------------===//
 // STITypeBitfield
@@ -754,10 +856,16 @@ void STITypeBitfield::setSize(uint32_t size) { _size = size; }
 // STITypeMember
 //===----------------------------------------------------------------------===//
 
-STITypeMember::STITypeMember()
-    : _attribute(0), _type(nullptr), _offset(~0), _isStatic(false) {}
+STITypeMember::STITypeMember() :
+    _attribute  (0),
+    _type       (nullptr),
+    _offset     (nullptr),
+    _isStatic   (false) {
+}
 
-STITypeMember::~STITypeMember() {}
+STITypeMember::~STITypeMember() {
+  delete _offset;
+}
 
 STITypeMember *STITypeMember::create() { return new STITypeMember(); }
 
@@ -769,9 +877,13 @@ STIType *STITypeMember::getType() const { return _type; }
 
 void STITypeMember::setType(STIType *type) { _type = type; }
 
-uint32_t STITypeMember::getOffset() const { return _offset; }
+const STINumeric *STITypeMember::getOffset() const {
+  return _offset;
+}
 
-void STITypeMember::setOffset(uint32_t offset) { _offset = offset; }
+void STITypeMember::setOffset(const STINumeric *offset) {
+  _offset = offset;
+}
 
 StringRef STITypeMember::getName() const { return _name; }
 
@@ -904,9 +1016,14 @@ void STITypeOneMethod::setName(StringRef name) { _name = name; }
 // STITypeEnumerator
 //===----------------------------------------------------------------------===//
 
-STITypeEnumerator::STITypeEnumerator() : _attribute(0), _value(~0) {}
+STITypeEnumerator::STITypeEnumerator() :
+    _attribute  (0),
+    _value      (nullptr) {
+}
 
-STITypeEnumerator::~STITypeEnumerator() {}
+STITypeEnumerator::~STITypeEnumerator() {
+  delete _value;
+}
 
 STITypeEnumerator *STITypeEnumerator::create() {
   return new STITypeEnumerator();
@@ -916,9 +1033,13 @@ uint16_t STITypeEnumerator::getAttribute() const { return _attribute; }
 
 void STITypeEnumerator::setAttribute(uint16_t attr) { _attribute = attr; }
 
-int32_t STITypeEnumerator::getValue() const { return _value; }
+const STINumeric *STITypeEnumerator::getValue() const {
+  return _value;
+}
 
-void STITypeEnumerator::setValue(int32_t value) { _value = value; }
+void STITypeEnumerator::setValue(const STINumeric *value) {
+  _value = value;
+}
 
 StringRef STITypeEnumerator::getName() const { return _name; }
 
@@ -928,10 +1049,15 @@ void STITypeEnumerator::setName(StringRef name) { _name = name; }
 // STITypeBaseClass
 //===----------------------------------------------------------------------===//
 
-STITypeBaseClass::STITypeBaseClass()
-    : _attribute(0), _type(nullptr), _offset(~0) {}
+STITypeBaseClass::STITypeBaseClass() :
+    _attribute  (0),
+    _type       (nullptr),
+    _offset     (nullptr) {
+}
 
-STITypeBaseClass::~STITypeBaseClass() {}
+STITypeBaseClass::~STITypeBaseClass() {
+  delete _offset;
+}
 
 STITypeBaseClass *STITypeBaseClass::create() { return new STITypeBaseClass(); }
 
@@ -943,21 +1069,31 @@ STIType *STITypeBaseClass::getType() const { return _type; }
 
 void STITypeBaseClass::setType(STIType *type) { _type = type; }
 
-int STITypeBaseClass::getOffset() const { return _offset; }
+const STINumeric *STITypeBaseClass::getOffset() const {
+  return _offset;
+}
 
-void STITypeBaseClass::setOffset(int offset) { _offset = offset; }
+void STITypeBaseClass::setOffset(const STINumeric *offset) {
+  _offset = offset;
+}
 
 //===----------------------------------------------------------------------===//
 // STITypeVBaseClass
 //===----------------------------------------------------------------------===//
 
-STITypeVBaseClass::STITypeVBaseClass(bool indirect)
-    : _attribute(0), _type(nullptr), _vbpType(nullptr), _vbpOffset(~0),
-      _vbIndex(0) {
+STITypeVBaseClass::STITypeVBaseClass(bool indirect) :
+    _attribute  (0),
+    _type       (nullptr),
+    _vbpType    (nullptr),
+    _vbpOffset  (nullptr),
+    _vbIndex    (nullptr) {
   _symbolID = indirect ? LF_IVBCLASS : LF_VBCLASS;
 }
 
-STITypeVBaseClass::~STITypeVBaseClass() {}
+STITypeVBaseClass::~STITypeVBaseClass() {
+  delete _vbpOffset;
+  delete _vbIndex;
+}
 
 STITypeVBaseClass *STITypeVBaseClass::create(bool indirect) {
   return new STITypeVBaseClass(indirect);
@@ -977,13 +1113,21 @@ STIType *STITypeVBaseClass::getVbpType() const { return _vbpType; }
 
 void STITypeVBaseClass::setVbpType(STIType *type) { _vbpType = type; }
 
-int STITypeVBaseClass::getVbpOffset() const { return _vbpOffset; }
+const STINumeric * STITypeVBaseClass::getVbpOffset() const {
+  return _vbpOffset;
+}
 
-void STITypeVBaseClass::setVbpOffset(int offset) { _vbpOffset = offset; }
+void STITypeVBaseClass::setVbpOffset(const STINumeric *offset) {
+  _vbpOffset = offset;
+}
 
-int STITypeVBaseClass::getVbIndex() const { return _vbIndex; }
+const STINumeric * STITypeVBaseClass::getVbIndex() const {
+  return _vbIndex;
+}
 
-void STITypeVBaseClass::setVbIndex(int index) { _vbIndex = index; }
+void STITypeVBaseClass::setVbIndex(const STINumeric *index) {
+  _vbIndex = index;
+}
 
 //===----------------------------------------------------------------------===//
 // STITypeVFuncTab
@@ -1103,12 +1247,20 @@ STITypeFieldList::getEnumerators() const {
 // STITypeStructure
 //===----------------------------------------------------------------------===//
 
-STITypeStructure::STITypeStructure()
-    : STIType(STI_OBJECT_KIND_TYPE_STRUCTURE), _leaf(0), _count(0),
-      _property(0), _fieldType(nullptr), _derivedType(nullptr),
-      _vshapeType(nullptr), _size(0) {}
+STITypeStructure::STITypeStructure() :
+    STIType     (STI_OBJECT_KIND_TYPE_STRUCTURE),
+    _leaf       (0),
+    _count      (0),
+    _property   (0),
+    _fieldType  (nullptr),
+    _derivedType(nullptr),
+    _vshapeType (nullptr),
+    _size       (nullptr) {
+}
 
-STITypeStructure::~STITypeStructure() {}
+STITypeStructure::~STITypeStructure() {
+  delete _size;
+}
 
 STITypeStructure *STITypeStructure::create() { return new STITypeStructure(); }
 
@@ -1142,9 +1294,13 @@ void STITypeStructure::setVShapeType(STIType *vshapeType) {
   _vshapeType = vshapeType;
 }
 
-uint32_t STITypeStructure::getSize() const { return _size; }
+const STINumeric *STITypeStructure::getSize() const {
+  return _size;
+}
 
-void STITypeStructure::setSize(uint32_t size) { _size = size; }
+void STITypeStructure::setSize(const STINumeric *size) {
+  _size = size;
+}
 
 StringRef STITypeStructure::getName() const { return _name; }
 
