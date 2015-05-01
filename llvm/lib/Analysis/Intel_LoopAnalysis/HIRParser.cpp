@@ -443,7 +443,7 @@ RegDDRef *HIRParser::createRvalDDRef(const Value *Val, unsigned Level) {
 /// TODO: Move to an earlier pass
 bool HIRParser::isRegionLiveOut(const Value *Val, bool IsCompare) {
 
-  for (auto I = Val->user_begin(), E = Val->user_end(); I != E; I++) {
+  for (auto I = Val->user_begin(), E = Val->user_end(); I != E; ++I) {
     if (auto UseInst = dyn_cast<Instruction>(*I)) {
 
       /// TODO: Remove temporary workaround to get rid of compares.
@@ -528,7 +528,7 @@ void HIRParser::parse(HLInst *HInst) {
   }
 
   /// Process rvals
-  for (unsigned I = 0; I < NumRvalOp; I++) {
+  for (unsigned I = 0; I < NumRvalOp; ++I) {
     Val = Inst->getOperand(I);
     Ref = createRvalDDRef(Val, Level);
     assert(Ref && "Ref is null!");

@@ -139,10 +139,10 @@ bool RegDDRef::isIntConstant(int64_t *Val) const {
     return false;
 
   const CanonExpr *CE = getSingleCanonExpr();
-  if(!CE->isConstant())
+  if (!CE->isConstant())
     return false;
 
-  if(Val)
+  if (Val)
     *Val = CE->getConstant();
 
   return true;

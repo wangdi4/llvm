@@ -16,7 +16,6 @@
 
 #include "llvm/Pass.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/Intel_LoopIR/HLNode.h"
 
 namespace llvm {
 
@@ -29,6 +28,8 @@ namespace loopopt {
 
 class HLRegion;
 class HLLoop;
+class HIRCreation;
+class HIRCleanup;
 
 /// \brief This analysis forms HIR loops within HIR regions created by the
 /// HIRCreation pass.
@@ -46,11 +47,17 @@ private:
   /// SE - Scalar Evolution analysis for the function.
   ScalarEvolution *SE;
 
+  /// HIR - Pointer to HIRCreation pass.
+  HIRCreation *HIR;
+
+  /// HIRC - Pointer to HIRCleanup pass.
+  HIRCleanup *HIRC;
+
   /// Loops - Sorted vector of Loops to HLLoops.
   SmallVector<LoopPairTy, 32> Loops;
 
-  /// \brief Forms loops inside Reg.
-  void formLoops(HLRegion *Reg);
+  /// \brief Forms loops in HIR.
+  void formLoops();
 
   /// \brief Inserts (Lp, HLoop) pair in the map.
   void insertHLLoop(const Loop *Lp, HLLoop *HLoop);

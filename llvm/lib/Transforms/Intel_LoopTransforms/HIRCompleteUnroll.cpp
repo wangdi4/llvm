@@ -421,4 +421,3 @@ void HIRCompleteUnroll::processCanonExpr(CanonExpr *CExpr, int64_t TripVal,
     CExpr->replaceIVByConstant(Level, TripVal);
   }
 }
-

@@ -15,6 +15,7 @@ using namespace llvm;
 void llvm::initializeIntel_LoopAnalysis(PassRegistry &Registry) {
   initializeRegionIdentificationPass(Registry);
   initializeHIRCreationPass(Registry);
+  initializeHIRCleanupPass(Registry);
   initializeLoopFormationPass(Registry);
   initializeHIRParserPass(Registry);
   initializeSymbaseAssignmentPass(Registry);

@@ -50,7 +50,6 @@ public:
 
   /// \brief Destroys the passed in DDRef.
   static void destroy(DDRef *Ref);
-
 };
 
 } // End namespace loopopt

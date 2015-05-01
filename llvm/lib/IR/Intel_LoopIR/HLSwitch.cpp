@@ -39,7 +39,7 @@ HLSwitch::HLSwitch(const HLSwitch &HLSwitchObj) : HLDDNode(HLSwitchObj) {
 
   /// Clone switch condition DDRef
   setConditionDDRef((TRef = HLSwitchObj.getConditionDDRef()) ? TRef->clone()
-                                                            : nullptr);
+                                                             : nullptr);
 
   /// Clone case value RegDDRefs
   for (unsigned I = 1, E = getNumCases(); I <= E; I++) {
@@ -81,6 +81,7 @@ void HLSwitch::print_break(formatted_raw_ostream &OS, unsigned Depth,
 
   if (!LastChild || !isa<HLGoto>(LastChild)) {
     indent(OS, Depth);
+    OS.indent(IndentWidth);
     OS << "break;\n";
   }
 }
@@ -112,7 +113,7 @@ void HLSwitch::print(formatted_raw_ostream &OS, unsigned Depth) const {
       It->print(OS, Depth + 1);
     }
 
-    print_break(OS, Depth + 1, I);
+    print_break(OS, Depth, I);
   }
 
   /// Print default case
@@ -124,7 +125,7 @@ void HLSwitch::print(formatted_raw_ostream &OS, unsigned Depth) const {
     It->print(OS, Depth + 1);
   }
 
-  print_break(OS, Depth + 1, 0);
+  print_break(OS, Depth, 0);
 
   indent(OS, Depth);
   OS << "}\n";
@@ -202,9 +203,7 @@ HLNode *HLSwitch::getLastCaseChildInternal(unsigned CaseNum) {
   return nullptr;
 }
 
-RegDDRef *HLSwitch::getConditionDDRef() {
-  return getOperandDDRefImpl(0);
-}
+RegDDRef *HLSwitch::getConditionDDRef() { return getOperandDDRefImpl(0); }
 
 const RegDDRef *HLSwitch::getConditionDDRef() const {
   return const_cast<HLSwitch *>(this)->getConditionDDRef();

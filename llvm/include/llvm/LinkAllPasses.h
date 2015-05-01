@@ -182,6 +182,7 @@ namespace {
       // Intel HIR Passes
       (void) llvm::createRegionIdentificationPass();
       (void) llvm::createHIRCreationPass();
+      (void) llvm::createHIRCleanupPass();
       (void) llvm::createLoopFormationPass();
       (void) llvm::createDDAnalysisPass();
       (void) llvm::createSymbaseAssignmentPass();

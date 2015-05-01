@@ -299,6 +299,7 @@ void initializeRewriteSymbolsPass(PassRegistry&);
 
 void initializeRegionIdentificationPass(PassRegistry&);
 void initializeHIRCreationPass(PassRegistry&);
+void initializeHIRCleanupPass(PassRegistry&);
 void initializeLoopFormationPass(PassRegistry&);
 void initializeHIRParserPass(PassRegistry&);
 void initializeSymbaseAssignmentPass(PassRegistry&);

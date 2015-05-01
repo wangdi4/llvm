@@ -80,7 +80,7 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp) const {
     return false;
   }
 
-  for (auto I = Lp.block_begin(), E = Lp.block_end(); I != E; I++) {
+  for (auto I = Lp.block_begin(), E = Lp.block_end(); I != E; ++I) {
 
     /// Skip this bblock as it has been checked by an inner loop.
     if (!Lp.empty() && LI->getLoopFor(*I) != (&Lp)) {
@@ -114,7 +114,7 @@ bool RegionIdentification::formRegionForLoop(const Loop &Lp) {
   bool Generable = true;
 
   /// Check which sub loops are generable.
-  for (auto I = Lp.begin(), E = Lp.end(); I != E; I++) {
+  for (auto I = Lp.begin(), E = Lp.end(); I != E; ++I) {
     if (formRegionForLoop(**I)) {
       GenerableLoops.push_back(*I);
     } else {
@@ -133,7 +133,7 @@ bool RegionIdentification::formRegionForLoop(const Loop &Lp) {
     /// recognition of ztt and splitting basic blocks which needs to be done
     /// in a transformation pass.
     for (auto I = GenerableLoops.begin(), E = GenerableLoops.end(); I != E;
-         I++) {
+         ++I) {
       createRegion(**I);
     }
   }
@@ -171,13 +171,13 @@ void RegionIdentification::releaseMemory() {
 }
 
 void RegionIdentification::print(raw_ostream &OS, const Module *M) const {
-  for (auto I = IRRegions.begin(), E = IRRegions.end(); I != E; I++) {
+  for (auto I = IRRegions.begin(), E = IRRegions.end(); I != E; ++I) {
     OS << "\nRegion " << I - IRRegions.begin() + 1;
     OS << "\n  Entry BBlock: " << (*I)->EntryBB->getName();
     OS << "\n  Member BBlocks: ";
 
     for (auto II = (*I)->BasicBlocks.begin(), EE = (*I)->BasicBlocks.end();
-         II != EE; II++) {
+         II != EE; ++II) {
       if (II != (*I)->BasicBlocks.begin()) {
         OS << ", ";
       }

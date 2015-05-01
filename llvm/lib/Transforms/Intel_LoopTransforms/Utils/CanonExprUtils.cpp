@@ -53,11 +53,10 @@ int64_t CanonExprUtils::lcm(int64_t a, int64_t b) {
     return a;
 
   // Either input is 1, return the other one
-  if(a==1)
+  if (a == 1)
     return b;
-  if(b==1)
+  if (b == 1)
     return a;
-
 
   int64_t mulVal = a * b;
 
@@ -228,8 +227,8 @@ CanonExpr *CanonExprUtils::multiplyByConstant(CanonExpr *CE1, int64_t Val,
     // IV is a blob coeff
     CanonExpr::BlobTy ValBlob = getHIRParserPtr()->createBlob(Val);
     unsigned ResultBIndex;
-    getHIRParserPtr()->createMulBlob(Result->getBlob(I->Coeff),
-                                     ValBlob, true, &ResultBIndex);
+    getHIRParserPtr()->createMulBlob(Result->getBlob(I->Coeff), ValBlob, true,
+                                     &ResultBIndex);
     Result->setIVCoeff(Level, ResultBIndex, true);
   }
 

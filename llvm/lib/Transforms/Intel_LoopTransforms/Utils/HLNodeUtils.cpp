@@ -146,11 +146,9 @@ void HLNodeUtils::insertImpl(HLNode *Parent, HLContainerTy::iterator Pos,
   }
 #endif
 
-  if (isa<HLRegion>(Parent)) {
-    HLRegion *Reg = cast<HLRegion>(Parent);
+  if (auto Reg = dyn_cast<HLRegion>(Parent)) {
     insertInternal(Reg->Children, Pos, RemoveContainer, First, Last);
-  } else if (isa<HLLoop>(Parent)) {
-    HLLoop *Loop = cast<HLLoop>(Parent);
+  } else if (auto Loop = dyn_cast<HLLoop>(Parent)) {
     insertInternal(Loop->Children, Pos, RemoveContainer, First, Last);
 
     if (UpdateSeparator) {
@@ -162,22 +160,20 @@ void HLNodeUtils::insertImpl(HLNode *Parent, HLContainerTy::iterator Pos,
       }
     }
 
-  } else if (isa<HLIf>(Parent)) {
-    HLIf *If = cast<HLIf>(Parent);
+  } else if (auto If = dyn_cast<HLIf>(Parent)) {
     insertInternal(If->Children, Pos, RemoveContainer, First, Last);
 
     if (UpdateSeparator && (Pos == If->ElseBegin)) {
       If->ElseBegin = std::prev(Pos, Distance);
     }
 
-  } else if (isa<HLSwitch>(Parent)) {
-    HLSwitch *Switch = cast<HLSwitch>(Parent);
+  } else if (auto Switch = dyn_cast<HLSwitch>(Parent)) {
     insertInternal(Switch->Children, Pos, RemoveContainer, First, Last);
 
     /// Update all the empty cases which are lexically before this one.
     if (UpdateSeparator) {
       unsigned E = (CaseNum == -1) ? Switch->getNumCases() : CaseNum;
-      for (unsigned I = 0; I < E; I++) {
+      for (unsigned I = 0; I < E; ++I) {
         if (Pos == Switch->CaseBegin[I]) {
           Switch->CaseBegin[I] = std::prev(Pos, Distance);
         }
@@ -188,7 +184,7 @@ void HLNodeUtils::insertImpl(HLNode *Parent, HLContainerTy::iterator Pos,
     llvm_unreachable("Unknown parent type!");
   }
 
-  for (auto It = Pos; I < Distance; I++, It--) {
+  for (auto It = Pos; I < Distance; ++I, It--) {
     std::prev(It)->setParent(Parent);
   }
 
@@ -218,12 +214,10 @@ void HLNodeUtils::insertAsChildImpl(HLNode *Parent,
                                     HLContainerTy::iterator Last,
                                     bool IsFirstChild) {
 
-  if (isa<HLRegion>(Parent)) {
-    HLRegion *Reg = cast<HLRegion>(Parent);
+  if (auto Reg = dyn_cast<HLRegion>(Parent)) {
     insertImpl(Reg, IsFirstChild ? Reg->child_begin() : Reg->child_end(),
                RemoveContainer, First, Last, false);
-  } else if (isa<HLLoop>(Parent)) {
-    HLLoop *Loop = cast<HLLoop>(Parent);
+  } else if (auto Loop = dyn_cast<HLLoop>(Parent)) {
     insertImpl(Loop, IsFirstChild ? Loop->child_begin() : Loop->child_end(),
                RemoveContainer, First, Last, true, false);
   } else {
@@ -382,11 +376,9 @@ void HLNodeUtils::removeImpl(HLContainerTy::iterator First,
   ParentLoop = First->getParentLoop();
   UpdateInnermostFlag = (ParentLoop && foundLoopInRange(First, Last));
 
-  if (isa<HLRegion>(Parent)) {
-    HLRegion *Reg = cast<HLRegion>(Parent);
+  if (auto Reg = dyn_cast<HLRegion>(Parent)) {
     RemoveContainer = &Reg->Children;
-  } else if (isa<HLLoop>(Parent)) {
-    HLLoop *Loop = cast<HLLoop>(Parent);
+  } else if (auto Loop = dyn_cast<HLLoop>(Parent)) {
     RemoveContainer = &Loop->Children;
 
     if (First == Loop->ChildBegin) {
@@ -395,18 +387,16 @@ void HLNodeUtils::removeImpl(HLContainerTy::iterator First,
     if (First == Loop->PostexitBegin) {
       Loop->PostexitBegin = Last;
     }
-  } else if (isa<HLIf>(Parent)) {
-    HLIf *If = cast<HLIf>(Parent);
+  } else if (auto If = dyn_cast<HLIf>(Parent)) {
     RemoveContainer = &If->Children;
 
     if (First == If->ElseBegin) {
       If->ElseBegin = Last;
     }
-  } else if (isa<HLSwitch>(Parent)) {
-    HLSwitch *Switch = cast<HLSwitch>(Parent);
+  } else if (auto Switch = dyn_cast<HLSwitch>(Parent)) {
     RemoveContainer = &Switch->Children;
 
-    for (unsigned I = 0, E = Switch->getNumCases(); I < E; I++) {
+    for (unsigned I = 0, E = Switch->getNumCases(); I < E; ++I) {
       if (First == Switch->CaseBegin[I]) {
         Switch->CaseBegin[I] = Last;
       }
@@ -678,4 +668,61 @@ void HLNodeUtils::moveAsLastPostexitNodes(HLLoop *Loop,
 void HLNodeUtils::replace(HLNode *OldNode, HLNode *NewNode) {
   insertBefore(OldNode, NewNode);
   remove(OldNode);
+}
+
+HLNode *HLNodeUtils::getLexicalControlFlowSuccessor(HLNode *Node) {
+  assert(Node && "Node is null!");
+  assert(!isa<HLRegion>(Node) && "Regions don't have control flow successors!");
+
+  HLNode *Succ = nullptr, *TempSucc = nullptr, *Parent = Node->getParent();
+  HLContainerTy::iterator Iter(Node);
+
+  // Keep moving up the parent chain till we find a successor.
+  while (Parent) {
+    if (auto Reg = dyn_cast<HLRegion>(Parent)) {
+      if (std::next(Iter) != Reg->Children.end()) {
+        Succ = std::next(Iter);
+        break;
+      }
+
+    } else if (auto If = dyn_cast<HLIf>(Parent)) {
+      if (std::next(Iter) != If->Children.end()) {
+        TempSucc = std::next(Iter);
+
+        /// Check whether we are crossing separators.
+        if ((TempSucc != If->ElseBegin)) {
+          Succ = TempSucc;
+          break;
+        }
+      }
+
+    } else if (auto Switch = dyn_cast<HLSwitch>(Parent)) {
+
+      if (std::next(Iter) != Switch->Children.end()) {
+        TempSucc = std::next(Iter);
+
+        bool IsSeparator = false;
+        /// Check whether we are crossing separators.
+        for (unsigned I = 0, E = Switch->getNumCases(); I < E; ++I) {
+          if ((TempSucc == Switch->CaseBegin[I])) {
+            IsSeparator = true;
+            break;
+          }
+        }
+
+        if (!IsSeparator) {
+          Succ = TempSucc;
+          break;
+        }
+      }
+
+    } else {
+      llvm_unreachable("Unexpected node parent type!");
+    }
+
+    Iter = Parent;
+    Parent = Parent->getParent();
+  }
+
+  return Succ;
 }

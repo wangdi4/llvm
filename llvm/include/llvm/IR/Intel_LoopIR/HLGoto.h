@@ -48,6 +48,11 @@ public:
   /// \brief Returns the target label, if one exists. It is null
   /// for external gotos.
   HLLabel *getTargetLabel() const { return TargetLabel; }
+  /// \brief Sets the target label.
+  void setTargetLabel(HLLabel *Label) {
+    TargetLabel = Label;
+    TargetBBlock = nullptr;
+  }
 
   /// \brief Returns true if this goto jumps outside the region.
   bool isExternal() const { return (TargetLabel == nullptr); }

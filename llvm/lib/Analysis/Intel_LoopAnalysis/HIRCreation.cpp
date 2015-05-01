@@ -86,7 +86,7 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
     Switches[Switch] = BB;
 
     /// Add dummy cases so they can be populated during the walk.
-    for (unsigned I = 0, E = SI->getNumCases(); I < E; I++) {
+    for (unsigned I = 0, E = SI->getNumCases(); I < E; ++I) {
       Switch->addCase(nullptr);
     }
 
@@ -98,7 +98,7 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
 
     unsigned Count = 1;
 
-    for (auto I = SI->case_begin(), E = SI->case_end(); I != E; I++, Count++) {
+    for (auto I = SI->case_begin(), E = SI->case_end(); I != E; ++I, Count++) {
       auto CaseGoto = HLNodeUtils::createHLGoto(I.getCaseSuccessor(), nullptr);
       HLNodeUtils::insertAsFirstChild(Switch, CaseGoto, Count);
       Gotos.push_back(CaseGoto);
@@ -117,7 +117,8 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
   return InsertionPos;
 }
 
-HLNode *HIRCreation::populateInstSequence(BasicBlock *BB, HLNode *InsertionPos) {
+HLNode *HIRCreation::populateInstSequence(BasicBlock *BB,
+                                          HLNode *InsertionPos) {
   auto Label = HLNodeUtils::createHLLabel(BB);
 
   Labels[BB] = Label;
@@ -131,7 +132,7 @@ HLNode *HIRCreation::populateInstSequence(BasicBlock *BB, HLNode *InsertionPos) 
   InsertionPos = Label;
 
   for (auto I = BB->getFirstInsertionPt(), E = std::prev(BB->end()); I != E;
-       I++) {
+       ++I) {
     auto Inst = HLNodeUtils::createHLInst(I);
     HLNodeUtils::insertAfter(InsertionPos, Inst);
     InsertionPos = Inst;
@@ -160,7 +161,7 @@ HLNode *HIRCreation::doPreOrderRegionWalk(
   auto LastBBNode = InsertionPos;
 
   /// Walk over dominator children.
-  for (auto I = Root->begin(), E = Root->end(); I != E; I++) {
+  for (auto I = Root->begin(), E = Root->end(); I != E; ++I) {
     auto DomChildBB = (*I)->getBlock();
 
     /// Link if's then/else children.
@@ -195,7 +196,7 @@ HLNode *HIRCreation::doPreOrderRegionWalk(
       bool isCaseChild = false;
 
       for (auto I = SI->case_begin(), E = SI->case_end(); I != E;
-           I++, Count++) {
+           ++I, Count++) {
         if (DomChildBB == I.getCaseSuccessor()) {
           doPreOrderRegionWalk(DomChildBB, SwitchTerm->getLastCaseChild(Count),
                                RegionBBlocks);
@@ -249,16 +250,23 @@ bool HIRCreation::runOnFunction(Function &F) {
 }
 
 void HIRCreation::releaseMemory() {
+  // Clear HIR regions
   Regions.clear();
 
-  /// Destroy all HLNodes.
+  // Clear framework data structures.
+  Labels.clear();
+  Gotos.clear();
+  Ifs.clear();
+  Switches.clear();
+
+  // Destroy all HLNodes.
   HLNodeUtils::destroyAll();
 }
 
 void HIRCreation::print(raw_ostream &OS, const Module *M) const {
   formatted_raw_ostream FOS(OS);
 
-  for (auto I = begin(), E = end(); I != E; I++) {
+  for (auto I = begin(), E = end(); I != E; ++I) {
     FOS << "\n";
     I->print(FOS, 0);
   }

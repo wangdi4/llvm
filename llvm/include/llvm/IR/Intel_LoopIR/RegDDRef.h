@@ -174,8 +174,8 @@ public:
 
   /// \brief Updates the only Canon Expr of this RegDDRef
   void setSingleCanonExpr(CanonExpr *CE) {
-    assert((getNumDimensions()==0) && " RegDDRef already has one or more "
-                                      "CanonExprs");
+    assert((getNumDimensions() == 0) && " RegDDRef already has one or more "
+                                        "CanonExprs");
     // TODO: Add replace dimension when available
     addDimension(CE, nullptr);
   }

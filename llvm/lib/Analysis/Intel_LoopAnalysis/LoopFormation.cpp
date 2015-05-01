@@ -19,6 +19,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/LoopFormation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRCreation.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRCleanup.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
@@ -32,6 +33,7 @@ INITIALIZE_PASS_BEGIN(LoopFormation, "hir-loops", "HIR Loop Formation", false,
 INITIALIZE_PASS_DEPENDENCY(LoopInfo);
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
 INITIALIZE_PASS_DEPENDENCY(HIRCreation)
+INITIALIZE_PASS_DEPENDENCY(HIRCleanup)
 INITIALIZE_PASS_END(LoopFormation, "hir-loops", "HIR Loop Formation", false,
                     true)
 
@@ -48,6 +50,7 @@ void LoopFormation::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<LoopInfo>();
   AU.addRequiredTransitive<ScalarEvolution>();
   AU.addRequiredTransitive<HIRCreation>();
+  AU.addRequiredTransitive<HIRCleanup>();
 }
 
 namespace {
@@ -109,7 +112,7 @@ const PHINode *LoopFormation::findIVDefInHeader(const Loop *Lp,
     return cast<PHINode>(Inst);
   }
 
-  for (auto I = Inst->op_begin(), E = Inst->op_end(); I != E; I++) {
+  for (auto I = Inst->op_begin(), E = Inst->op_end(); I != E; ++I) {
     auto SC = SE->getSCEV(I->get());
 
     if (isa<SCEVAddRecExpr>(SC) &&
@@ -147,33 +150,60 @@ void LoopFormation::setIVType(HLLoop *HLoop) const {
   HLoop->setIVType(IVNode->getType());
 }
 
-void LoopFormation::formLoops(HLRegion *Reg) {
+void LoopFormation::formLoops() {
 
-  BasicBlock *HeaderBB;
-  Loop *Lp;
-  assert(Reg->hasChildren() && "Empty region encountered!");
-  assert(isa<HLLabel>(Reg->getFirstChild()) && "First child is not a label!");
+  // Traverse RequiredLabels set computed by HIRCleanup phase to form loops.
+  for (auto I = HIRC->getRequiredLabels().begin(),
+            E = HIRC->getRequiredLabels().end();
+       I != E; ++I) {
+    BasicBlock *HeaderBB = (*I)->getSrcBBlock();
 
-  HeaderBB = cast<HLLabel>(Reg->getFirstChild())->getSrcBBlock();
+    if (!LI->isLoopHeader(HeaderBB)) {
+      continue;
+    }
 
-  assert(LI->isLoopHeader(HeaderBB) && "First child is not a loop header!");
-  assert(isa<HLIf>(Reg->getLastChild()) && "Last child is not an if!");
+    // Found a loop
+    Loop *Lp = LI->getLoopFor(HeaderBB);
 
-  /// Remove label and bottom test
-  HLNodeUtils::erase(Reg->getFirstChild());
-  HLNodeUtils::erase(Reg->getLastChild());
+    // Find HIR hook for the loop latch.
+    auto LatchHook = HIRC->findHLNode(Lp->getLoopLatch());
 
-  Lp = LI->getLoopFor(HeaderBB);
-  /// Create a new loop and move region children into loop children.
-  /// TODO: Add code to identify ztt and set IsDoWhile flag accordingly.
-  HLLoop *HLoop = HLNodeUtils::createHLLoop(Lp);
-  setIVType(HLoop);
-  HLNodeUtils::moveAsFirstChildren(HLoop, Reg->child_begin(), Reg->child_end());
+    assert(((*I)->getParent() == LatchHook->getParent()) &&
+           "Wrong lexical links built!");
 
-  /// Insert loop in region.
-  HLNodeUtils::insertAsFirstChild(Reg, HLoop);
+    HLContainerTy::iterator LabelIter(*I);
+    HLContainerTy::iterator BottomTestIter(LatchHook);
 
-  insertHLLoop(Lp, HLoop);
+    // Look for the bottom test.
+    while (!isa<HLIf>(BottomTestIter)) {
+      BottomTestIter = std::next(BottomTestIter);
+    }
+
+    // Create a new loop and move its children inside.
+    // TODO: Add code to identify ztt, set IsDoWhile flag and populate
+    // preheader/postexit.
+    // Notes:
+    // - Do while loops have SCEV trip count of the form (-C + (C umax/smax n))
+    // which can be used to identify them.
+    // - Ztt predicate inversion is required if the loop is in else case.
+    // - It is possible that some inner loop's ztt has been hoisted outside the
+    // loopnest.
+    // - It is possible that ztt contains other nodes.
+    HLLoop *HLoop = HLNodeUtils::createHLLoop(Lp);
+    setIVType(HLoop);
+    HLNodeUtils::moveAsFirstChildren(HLoop, std::next(LabelIter),
+                                     BottomTestIter);
+
+    // Hook loop into HIR.
+    HLNodeUtils::insertBefore(LabelIter, HLoop);
+
+    // Remove label and bottom test.
+    // Can bottom test contain anything else??? Should probably assert on it.
+    HLNodeUtils::erase(LabelIter);
+    HLNodeUtils::erase(BottomTestIter);
+
+    insertHLLoop(Lp, HLoop);
+  }
 }
 
 bool LoopFormation::runOnFunction(Function &F) {
@@ -181,11 +211,10 @@ bool LoopFormation::runOnFunction(Function &F) {
 
   LI = &getAnalysis<LoopInfo>();
   SE = &getAnalysis<ScalarEvolution>();
-  auto HIR = &getAnalysis<HIRCreation>();
+  HIR = &getAnalysis<HIRCreation>();
+  HIRC = &getAnalysis<HIRCleanup>();
 
-  for (auto I = HIR->begin(), E = HIR->end(); I != E; I++) {
-    formLoops(cast<HLRegion>(I));
-  }
+  formLoops();
 
   return false;
 }
@@ -193,7 +222,12 @@ bool LoopFormation::runOnFunction(Function &F) {
 void LoopFormation::releaseMemory() { Loops.clear(); }
 
 void LoopFormation::print(raw_ostream &OS, const Module *M) const {
-  /// TODO: implement later
+  formatted_raw_ostream FOS(OS);
+
+  for (auto I = HIR->begin(), E = HIR->end(); I != E; ++I) {
+    FOS << "\n";
+    I->print(FOS, 0);
+  }
 }
 
 void LoopFormation::verifyAnalysis() const {

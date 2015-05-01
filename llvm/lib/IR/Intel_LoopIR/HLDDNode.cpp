@@ -95,4 +95,3 @@ void HLDDNode::setOperandDDRefImpl(RegDDRef *Ref, unsigned OperandNum) {
 
   RegDDRefs[OperandNum] = Ref;
 }
-

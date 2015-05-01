@@ -147,7 +147,7 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth) const {
 
     OS << "\n";
   } else if (isUnknownLoop()) {
-    OS << "UNKNOWN LOOP i" << NestingLevel << "\n";
+    OS << "+ UNKNOWN LOOP i" << NestingLevel << "\n";
   } else {
     llvm_unreachable("Unexpected loop type!");
   }
@@ -195,9 +195,9 @@ void HLLoop::removeZttPredicate(ztt_pred_iterator PredI) {
 
   /// Erase the DDRef slots from loop.
   RegDDRefs.erase(RegDDRefs.begin() + getNumLoopDDRefs() +
-               Ztt->getPredicateOperandDDRefOffset(PredI, true));
+                  Ztt->getPredicateOperandDDRefOffset(PredI, true));
   RegDDRefs.erase(RegDDRefs.begin() + getNumLoopDDRefs() +
-               Ztt->getPredicateOperandDDRefOffset(PredI, true));
+                  Ztt->getPredicateOperandDDRefOffset(PredI, true));
 
   /// Remove predicate from ztt.
   Ztt->removePredicate(PredI);

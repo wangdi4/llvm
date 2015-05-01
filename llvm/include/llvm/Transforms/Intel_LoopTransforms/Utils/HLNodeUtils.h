@@ -42,11 +42,17 @@ private:
   HLNodeUtils() LLVM_DELETED_FUNCTION;
 
   friend class HIRCreation;
+  friend class HIRCleanup;
 
   struct LoopFinderUpdater;
 
-  /// \brief Destroys all HLNodes. Called during HIR cleanup.
+  /// \brief Destroys all HLNodes, called during framework cleanup.
   static void destroyAll();
+
+  /// \brief Returns successor of Node assuming control flows in strict lexical
+  /// order (by ignoring jumps(gotos)).
+  /// This should only be called from HIRCleanup pass.
+  static HLNode *getLexicalControlFlowSuccessor(HLNode *Node);
 
   /// Internal helper functions, not to be called directly.
 

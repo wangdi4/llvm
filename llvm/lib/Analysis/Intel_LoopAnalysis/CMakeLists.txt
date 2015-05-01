@@ -4,6 +4,7 @@ add_llvm_library(LLVMIntel_LoopAnalysis
   DDAnalysis.cpp
   SymbaseAssignment.cpp
   HIRCreation.cpp
+  HIRCleanup.cpp
   LoopFormation.cpp
   HIRParser.cpp
   DDTests.cpp

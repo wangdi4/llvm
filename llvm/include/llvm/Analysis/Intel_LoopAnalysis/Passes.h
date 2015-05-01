@@ -26,6 +26,10 @@ FunctionPass *createRegionIdentificationPass();
 /// createHIRCreationPass - This creates a pass that forms HIR nodes.
 FunctionPass *createHIRCreationPass();
 
+/// createHIRCleanupPass - This creates a pass that cleans up redundant HIR
+/// nodes.
+FunctionPass *createHIRCleanupPass();
+
 /// createLoopFormationPass - This creates a pass that forms HIR loops.
 FunctionPass *createLoopFormationPass();
 

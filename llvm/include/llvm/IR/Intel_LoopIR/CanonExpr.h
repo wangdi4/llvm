@@ -199,7 +199,7 @@ public:
   void setNonLinear() { DefinedAtLevel = -1; }
   /// \brief Returns true if this Canon Expr only contains a constant
   bool isConstant() const {
-    return !(hasIV() || hasBlob() || (getDenominator()!=1));
+    return !(hasIV() || hasBlob() || (getDenominator() != 1));
   }
 
   /// \brief Returns the constant additive of the canon expr.

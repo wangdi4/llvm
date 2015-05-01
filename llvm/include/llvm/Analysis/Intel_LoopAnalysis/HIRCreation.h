@@ -44,9 +44,10 @@ class HLSwitch;
 /// 1) RegionIdentification - identifies regions in IR.
 /// 2) HIRCreation - populates HIR regions with a sequence of HLNodes (without
 ///    HIR loops).
-/// 3) LoopFormation - Forms HIR loops within HIR regions.
-/// 4) HIRParser - Creates DDRefs and parses SCEVs into CanonExprs.
-/// 5) TODO: Add more steps.
+/// 3) HIRCleanup - removes redundant gotos/labels from HIR.
+/// 4) LoopFormation - Forms HIR loops within HIR regions.
+/// 5) HIRParser - Creates DDRefs and parses SCEVs into CanonExprs.
+/// 6) TODO: Add more steps.
 ///
 class HIRCreation : public FunctionPass {
 public:
@@ -57,6 +58,8 @@ public:
   typedef HLContainerTy::const_reverse_iterator const_reverse_iterator;
 
 private:
+  friend class HIRCleanup;
+
   /// Regions - HLRegions formed out of incoming LLVM IR.
   HLContainerTy Regions;
 
