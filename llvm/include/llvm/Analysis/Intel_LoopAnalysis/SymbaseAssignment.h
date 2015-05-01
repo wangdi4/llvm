@@ -5,11 +5,23 @@
 // TODO LICENSE
 //===----------------------------------------------------------------------===//
 // This pass is responsible for initial assignment of symbases to ddrefs
-// DDRefs sharing a symbase may alias with any other ddref with the same symbase
-// but are guaranteed not to alias with a DDref with another symbase. Similar
-// in many respects to LLVM's alias sets concept. Will probably use it for
-// implementation in some form or fashion
+// DDRefs sharing a symbase may alias with any other ddref with the same
+// symbase but are guaranteed not to alias with a DDref with another
+// symbase. Similar in many respects to LLVM's alias sets concept.
+// Will probably use it for implementation in some form or fashion
+// Temps and blobs should have their symbases assigned by parsing
 //
+// Current implementation operates by using AliasSetTracker to classify ld/sts
+// into disjoint sets of memory accesses. This is still possible in HIR
+// because this pass is run prior to any HIR optimization. We can still
+// reliably map HIR to LLVM IR, and so should be able
+// to find a representative ptr for each RegDDRef to use in
+// AliasAnalysis.
+//
+// The usual caveats for AliasAnalysis apply here, namely that the
+// effectiveness and repeatability of this pass depends on the specific
+// AA implementation(s) used and their chain order. Also, AliasSetTracker
+// is known to be non deterministic.
 //===----------------------------------------------------------------------===//
 
 #ifndef INTEL_LOOPANALYSIS_SYMBASE
@@ -31,16 +43,17 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const;
 
   // Returns a new unused symbase ID
-  unsigned int getNewSymbase() { return ++MaxSymbase; }
+  unsigned int getNewSymBase() { return MaxSymBase++; }
 
-  unsigned int getSymbaseForConstants() { return CONSTANT_SYMBASE; }
+  unsigned int getSymBaseForConstants() { return CONSTANT_SYMBASE; }
 
 private:
-  unsigned int MaxSymbase = CONSTANT_SYMBASE + 1;
-  AliasAnalysis *AA;
-
-  // this symbase is reserved for ConstantDDRefs which require no dd testing
+  // this symbase is reserved for DDRefs representing constnts which require 
+  // no dd testing
   const unsigned int CONSTANT_SYMBASE = 1;
+
+  unsigned int MaxSymBase = CONSTANT_SYMBASE + 1;
+
   Function *F;
 };
 }

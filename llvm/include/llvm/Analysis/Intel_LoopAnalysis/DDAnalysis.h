@@ -34,6 +34,8 @@ class SymbaseAssignment;
 class DirectionVector;
 class DDGraph;
 
+typedef std::map<unsigned int, std::vector<llvm::loopopt::DDRef *>> SymToRefs;
+
 /// \brief TODO
 class DDAnalysis : public FunctionPass {
 public:
@@ -102,7 +104,8 @@ public:
   //  DirectionVector* input_dv, DirectionVector* output_dv);
 
   // \brief Returns a new unused symbase ID.
-  unsigned int getNewSymbase();
+  unsigned int getNewSymBase();
+  void releaseMemory() override;
   // TODO
   // void print(raw_stream &OS, const Module* = nullptr) const override;
   // void verifyAnalysis() const override;
@@ -125,6 +128,7 @@ private:
 
   bool edgeNeeded(DDRef *Ref1, DDRef *Ref2, bool InputEdgesReq);
   DirectionVector getInputDV(HLNode *Node, DDRef *Ref1, DDRef *Ref2);
+  void dumpSymBaseMap(SymToRefs &RefMap);
 };
 
 // DDAnalysis returns instances of this to ensure clients can access graph,

@@ -79,9 +79,6 @@ DDGraph DDAnalysis::getGraph(HLNode *Node, bool InputEdgesReq) {
   return DDGraph(Node, &FunctionDDGraph);
 }
 
-// not using namespace?
-typedef std::map<unsigned int, std::vector<llvm::loopopt::DDRef *>> SymToRefs;
-
 // Visits all dd refs in Node and fills in the symbase to ref vector
 // map based on symbase field of encountered dd refs. Does not assign
 // symbase, assumes symbase of ddrefs is valid
@@ -101,21 +98,32 @@ public:
   void visit(HLNode *Node) {}
   void visit(HLDDNode *Node);
   bool isDone() { return false; }
+  void addRef(DDRef *Ref);
 };
 
+void DDRefGatherer::addRef(DDRef *Ref) {
+  unsigned int SymBase = (Ref)->getSymBase();
+  (*RefMap)[SymBase].push_back(Ref);
+}
+
 void DDRefGatherer::visit(HLDDNode *Node) {
-  for (auto I = Node->ddref_begin(), E = Node->ddref_end(); I != E; I++) {
-    // TODO implement a less conservative assignment algorithm
-    // DEBUG((*I)->dump());
-    // DEBUG(dbgs() << "\n");
-    // Everyone goes into the same symbase...except constants
-    if((*I)->isConstant()) {
+  for (auto I = Node->ddref_begin(), E = Node->ddref_end(); I != E; ++I) {
+    if ((*I)->isConstant()) {
       // dont even bother gathering consts
     } else {
-      unsigned int SymBase = (*I)->getSymBase();
-      (*RefMap)[SymBase].push_back(*I);
+      // add ref and blobs to map
+      addRef(*I);
+      for (auto BRefI = (*I)->blob_cbegin(), BRefE = (*I)->blob_cend();
+           BRefI != BRefE; ++BRefI) {
+        addRef(*BRefI);
+      }
     }
   }
+}
+
+void DDAnalysis::releaseMemory() {
+  GraphValidityMap.clear();
+  FunctionDDGraph.clear();
 }
 
 // Returns true if we must do dd testing between ref1 and ref2. We generally
@@ -159,15 +167,28 @@ DirectionVector DDAnalysis::getInputDV(HLNode *Node, DDRef *Ref1, DDRef *Ref2) {
   assert(ShallowestLevel <= DeepestLevel && "Incorrect Input DV calculation");
 
   DirectionVector InputDV;
-  for (int i = 1; i < ShallowestLevel; i++) {
+  for (int i = 1; i < ShallowestLevel; ++i) {
     InputDV.setDVAtLevel(DirectionVector::Direction::EQ, i);
   }
 
-  for (int i = ShallowestLevel; i <= DeepestLevel; i++) {
+  for (int i = ShallowestLevel; i <= DeepestLevel; ++i) {
     InputDV.setDVAtLevel(DirectionVector::Direction::ALL, i);
   }
 
   return InputDV;
+}
+
+void DDAnalysis::dumpSymBaseMap(SymToRefs &RefMap) {
+  for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
+       SymVecPair != Last; ++SymVecPair) {
+    std::vector<DDRef *> &RefVec = SymVecPair->second;
+    dbgs() << "Symbase " << SymVecPair->first << " contains: \n";
+    for (auto Ref = RefVec.begin(), E = RefVec.end(); Ref != E; ++Ref) {
+      dbgs() << "\t";
+      (*Ref)->dump();
+      dbgs() << "\n";
+    }
+  }
 }
 
 void DDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
@@ -177,15 +198,16 @@ void DDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
 
   HLNodeUtils::visit(&Gatherer, Node, true, true);
 
+  DEBUG(dumpSymBaseMap(RefMap));
   // pairwise testing among all refs sharing a symbase
-  for (auto SymVecPair = RefMap.begin(), E = RefMap.end(); SymVecPair != E;
-       SymVecPair++) {
+  for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
+       SymVecPair != Last; ++SymVecPair) {
     std::vector<DDRef *> &RefVec = SymVecPair->second;
     if (RefVec.size() < 2)
       continue;
 
-    for (auto Ref1 = RefVec.begin(), E = RefVec.end(); Ref1 != E; Ref1++) {
-      for (auto Ref2 = Ref1; Ref2 != E; Ref2++) {
+    for (auto Ref1 = RefVec.begin(), E = RefVec.end(); Ref1 != E; ++Ref1) {
+      for (auto Ref2 = Ref1; Ref2 != E; ++Ref2) {
         if (edgeNeeded(*Ref1, *Ref2, BuildInputEdges)) {
           DirectionVector InputDV = getInputDV(Node, *Ref1, *Ref2);
           DirectionVector ForwardDV, BackwardsDV;
@@ -202,4 +224,4 @@ bool DDAnalysis::graphForNodeValid(HLNode *Node) {
   return false;
 }
 
-unsigned int DDAnalysis::getNewSymbase() { return SA->getNewSymbase(); }
+unsigned int DDAnalysis::getNewSymBase() { return SA->getNewSymBase(); }

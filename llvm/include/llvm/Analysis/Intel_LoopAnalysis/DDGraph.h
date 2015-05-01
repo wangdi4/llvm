@@ -42,7 +42,7 @@ struct DirectionVector {
   };
   Direction getDVAtLevel(int Level) { return Elements[Level - 1]; }
   DirectionVector() {
-    for (unsigned int i = 0; i < MaxLoopNestLevel; i++)
+    for (unsigned int i = 0; i < MaxLoopNestLevel; ++i)
       Elements[i] = Direction::UNINIT;
   }
   void setDVAtLevel(Direction NewDirection, int Level) {
@@ -74,7 +74,7 @@ struct DirectionVector {
 
   void dump() {
     dbgs() << "[ ";
-    for (unsigned int i = 0; i < MaxLoopNestLevel; i++) {
+    for (unsigned int i = 0; i < MaxLoopNestLevel; ++i) {
       if (i > 0 && Elements[i] == Direction::UNINIT)
         break;
       dbgs() << elementAsChar(Elements[i]) << " ";
@@ -124,13 +124,18 @@ public:
   }
 
   void dump() {
-    for (auto I = outEdges.begin(), E = outEdges.end(); I != E; I++) {
+    for (auto I = outEdges.begin(), E = outEdges.end(); I != E; ++I) {
       std::vector<GraphEdge> edges = I->second;
       for (auto EIt = edges.begin(), EdgesEnd = edges.end(); EIt != EdgesEnd;
-           EIt++) {
+           ++EIt) {
         EIt->dump();
       }
     }
+  }
+
+  void clear() {
+    inEdges.clear();
+    outEdges.clear();
   }
 
 private:
