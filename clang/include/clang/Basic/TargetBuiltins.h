@@ -82,6 +82,16 @@ namespace clang {
   };
   }
 
+  /// \brief LPU builtins
+  namespace LPU {
+  enum {
+    LastTIBuiltin = clang::Builtin::FirstTSBuiltin - 1,
+  #define BUILTIN(ID, TYPE, ATTRS) BI##ID,
+  #include "clang/Basic/BuiltinsLPU.def"
+    LastTSBuiltin
+  };
+  }
+
   /// \brief X86 builtins
   namespace X86 {
     enum {

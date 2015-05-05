@@ -480,6 +480,68 @@ public:
   }
 };
 
+// LPU Target
+namespace {
+class LPUTargetInfo : public TargetInfo {
+    static const Builtin::Info BuiltinInfo[];
+public:
+  LPUTargetInfo(const llvm::Triple &Triple) : TargetInfo(Triple) {
+    LongWidth = LongAlign = PointerWidth = PointerAlign = 64;
+    LongDoubleWidth = 128;
+    LongDoubleAlign = 128;
+    LargeArrayMinWidth = 128;
+    LargeArrayAlign = 128;
+    SuitableAlign = 128;
+    SizeType    = UnsignedLong;
+    PtrDiffType = SignedLong;
+    IntPtrType  = SignedLong;
+    IntMaxType  = SignedLong;
+    Int64Type   = SignedLong;
+
+    // Match x86-64 (something wrong - causes fail?
+    DescriptionString = "e-m:e-i64:64-f80:128-n8:16:32:64-S128";
+  }
+  void getTargetBuiltins(const Builtin::Info *&Records,
+                         unsigned &NumRecords) const override {
+    Records = BuiltinInfo;
+    NumRecords = clang::LPU::LastTSBuiltin-Builtin::FirstTSBuiltin;
+  }
+  BuiltinVaListKind getBuiltinVaListKind() const override {
+    return TargetInfo::VoidPtrBuiltinVaList;
+  }
+  void getTargetDefines(const LangOptions &Opts,
+                        MacroBuilder &Builder) const override {
+    Builder.defineMacro("__LPU__");
+  }
+  const char *getClobbers() const override {
+    return "";
+  }
+  void getGCCRegNames(const char * const *&Names,
+                      unsigned &NumNames) const override {
+    static const char * const GCCRegNames[] = { "dummy" };
+    Names = GCCRegNames;
+    NumNames = llvm::array_lengthof(GCCRegNames);
+  }
+  void getGCCRegAliases(const GCCRegAlias *&Aliases,
+                        unsigned &NumAliases) const override {
+    Aliases = nullptr;
+    NumAliases = 0;
+  }
+  bool validateAsmConstraint(const char *&Name,
+                             TargetInfo::ConstraintInfo &Info) const override {
+    return false;
+  }
+};
+
+const Builtin::Info LPUTargetInfo::BuiltinInfo[] = {
+#define BUILTIN(ID, TYPE, ATTRS) { #ID, TYPE, ATTRS, 0, ALL_LANGUAGES },
+#define LIBBUILTIN(ID, TYPE, ATTRS, HEADER) { #ID, TYPE, ATTRS, HEADER,\
+                                              ALL_LANGUAGES },
+#include "clang/Basic/BuiltinsLPU.def"
+};
+
+} // end anonymous namespace.
+
 // PSP Target
 template<typename Target>
 class PSPTargetInfo : public OSTargetInfo<Target> {
