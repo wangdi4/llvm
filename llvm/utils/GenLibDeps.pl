@@ -96,6 +96,8 @@ if ($PEROBJ) {
     $libpath =~ s/^AsmPrinter/CodeGen\/AsmPrinter/;
     $libpath =~ s/^BitReader/Bitcode\/Reader/;
     $libpath =~ s/^BitWriter/Bitcode\/Writer/;
+    $libpath =~ s/^CBackend/Target\/CBackend/;
+    $libpath =~ s/^LPU/Target\/LPU/;
     $libpath =~ s/^CppBackend/Target\/CppBackend/;
     $libpath =~ s/^MSIL/Target\/MSIL/;
     $libpath =~ s/^Core/IR/;
@@ -137,6 +139,8 @@ if ($PEROBJ) {
     $libpath =~ s/^AsmPrinter/CodeGen\/AsmPrinter/;
     $libpath =~ s/^BitReader/Bitcode\/Reader/;
     $libpath =~ s/^BitWriter/Bitcode\/Writer/;
+    $libpath =~ s/^CBackend/Target\/CBackend/;
+    $libpath =~ s/^LPU/Target\/LPU/;
     $libpath =~ s/^CppBackend/Target\/CppBackend/;
     $libpath =~ s/^MSIL/Target\/MSIL/;
     $libpath =~ s/^Core/VMCore/;
