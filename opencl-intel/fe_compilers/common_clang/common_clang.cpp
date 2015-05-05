@@ -23,6 +23,9 @@
 //
 #include "stdafx.h"
 #include "common_clang.h"
+#include "pch_mgr.h"
+#include "resource.h"
+#include "exceptions.h"
 #include "binary_result.h"
 #include "options.h"
 #include "llvm/ADT/OwningPtr.h"
@@ -35,6 +38,7 @@
 #include "llvm/Support/Threading.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/Mutex.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/LLVMContext.h"
@@ -52,6 +56,7 @@
 #include "clang/Driver/Arg.h"
 #include "clang/Driver/DriverDiagnostic.h"
 #include "CL/cl.h"
+#include "assert.h"
 #include <list>
 #include <iosfwd>
 #include <sstream>
@@ -63,13 +68,26 @@
 
 using namespace Intel::OpenCL::ClangFE;
 
+static volatile bool lazyCCInit = true; // the flag must be 'volatile' to prevent caching in a CPU register
+static llvm::sys::Mutex lazyCCInitMutex;
+
+// This function mustn't be invoked from a static object constructor,
+// from a DllMain function (Windows specific), or from a function
+// w\ __attribute__ ((constructor)) (Linux specific).
 void CommonClangInitialize()
 {
-    llvm::llvm_start_multithreaded();
-    llvm::InitializeAllTargets();
-    llvm::InitializeAllAsmPrinters();
-    llvm::InitializeAllAsmParsers();
-    llvm::InitializeAllTargetMCs();
+    if(lazyCCInit) {
+      llvm::sys::ScopedLock lock(lazyCCInitMutex);
+
+        if(lazyCCInit) {
+            llvm::llvm_start_multithreaded();
+            llvm::InitializeAllTargets();
+            llvm::InitializeAllAsmPrinters();
+            llvm::InitializeAllAsmParsers();
+            llvm::InitializeAllTargetMCs();
+            lazyCCInit = false;
+        }
+    }
 }
 
 void CommonClangTerminate()
@@ -112,6 +130,38 @@ private:
     std::vector<llvm::MemoryBuffer*> m_cache;
 };
 
+
+static void GetCpuHeaders(
+                           std::vector< ResourceProp >& vPCHBuffers,
+                           std::vector< ResourceProp >& vHeaderWithDefs,
+                           const char*               pszOptions)
+{
+    bool clStd20 = std::string(pszOptions).find("-cl-std=CL2.0") != std::string::npos;
+
+    unsigned int uiNumPCHBuffers      = 3;
+    unsigned int uiNumHeadersWithDefs = 1;
+
+    vPCHBuffers.resize(uiNumPCHBuffers);
+    vHeaderWithDefs.resize(uiNumHeadersWithDefs);
+
+    const char* OCLVer = clStd20 ? IDR_CPU_SPEC_20 : IDR_CPU_SPEC_12;
+    const char* resource_library = "libcommon_clang.so"; // Library name use Linux and Android only.
+
+    // Get pointer to PCHs.
+    vPCHBuffers[0].m_data = ResourceManager::instance().get_resource(IDR_COMMON          , "PCH", false, vPCHBuffers[0].m_size, resource_library);
+    vPCHBuffers[1].m_data = ResourceManager::instance().get_resource(IDR_CPU             , "PCH", false, vPCHBuffers[1].m_size, resource_library);
+    vPCHBuffers[2].m_data = ResourceManager::instance().get_resource(OCLVer              , "PCH", false, vPCHBuffers[2].m_size, resource_library);
+    //Get pointer to header with OpenCL defines.
+    vHeaderWithDefs[0].m_data = ResourceManager::instance().get_resource(IDR_HEADER_WITH_DEFS_CPU    , "PCH", true, vHeaderWithDefs[0].m_size, resource_library);
+    // Name headers and PCHs.
+
+    vPCHBuffers[0].m_name  = "opencl_common.h.pch";
+    vPCHBuffers[1].m_name  = "cpu_opencl_.h.pch";
+    vPCHBuffers[2].m_name  = "PCH_CPU.pch";
+    vHeaderWithDefs[0].m_name = "header_with_defs_cpu.h";
+    vHeaderWithDefs[0].m_size -= 1; //String length without null terminator.
+}
+
 extern "C" CC_DLL_EXPORT int Compile(const char*   pszProgramSource,
                                      const char**  pInputHeaders,
                                      unsigned int  uiNumInputHeaders,
@@ -124,8 +174,13 @@ extern "C" CC_DLL_EXPORT int Compile(const char*   pszProgramSource,
                                      const char*   pszOpenCLVer,
                                      IOCLFEBinaryResult** pBinaryResult)
 {
+    // Lazy initialization
+    CommonClangInitialize();
+
     try
-    {   // create a new scope to make sure the mutex will be released last
+    {
+        // create a new scope to make sure the mutex will be released last
+
         MemoryBufferCache bufferCache;
         llvm::OwningPtr<OCLFEBinaryResult> pResult ( new OCLFEBinaryResult() );
 
@@ -167,6 +222,25 @@ extern "C" CC_DLL_EXPORT int Compile(const char*   pszProgramSource,
         // We'll manage the remapped files buffers
         ppOptions.RetainRemappedFileBuffers = true;
 
+        std::vector< ResourceProp > vPCHBuffers;
+        std::vector< ResourceProp > vHeaderWithDefs;
+
+        if(0 != pPCHBuffer)
+        {
+            vPCHBuffers.push_back( ResourceProp( pPCHBuffer, uiPCHBufferSize, std::string("PCHHeader.pch")));
+            ppOptions.ImplicitPCHInclude = vPCHBuffers[0].m_name;
+        }
+        else
+        {
+            for(const char* const* I = optionsParser.beginArgs(); I != optionsParser.endArgs(); I++)
+            {
+                if( !strcmp( "PCH_CPU.pch", *I) )
+                {
+                    GetCpuHeaders(vPCHBuffers, vHeaderWithDefs, pszOptions);
+                    break;
+                }
+            }
+        }
         // Set an error handler, so that any LLVM backend diagnostics go through our error handler.
         // (currently commented out since setting the llvm error handling in multi-threaded environment is unsupported)
         //llvm::remove_fatal_error_handler();
@@ -179,12 +253,18 @@ extern "C" CC_DLL_EXPORT int Compile(const char*   pszProgramSource,
             compiler->AddInMemoryHeader(header, pInputHeadersNames[i]);
         }
 
-        // PCH buffer
-        if( pPCHBuffer && uiPCHBufferSize > 0)
+        // Input header with OpenCL defines.
+        for(unsigned int i = 0; i < vHeaderWithDefs.size(); ++i)
         {
-            llvm::MemoryBuffer *pchBuffer = bufferCache.getMemBuffer(llvm::StringRef(pPCHBuffer,uiPCHBufferSize), "", false);
-            ppOptions.addRemappedFile("PCHeader.pch", pchBuffer);
-            ppOptions.ImplicitPCHInclude = "PCHeader.pch";
+            llvm::MemoryBuffer *header = bufferCache.getMemBuffer(llvm::StringRef( vHeaderWithDefs[i].m_data, vHeaderWithDefs[i].m_size), "", true);
+            compiler->AddInMemoryHeader(header, vHeaderWithDefs[i].m_name);
+        }
+
+        // PCH buffers.
+        for(unsigned int i = 0; i < vPCHBuffers.size(); ++i)
+        {
+            llvm::MemoryBuffer *pchBuffer = bufferCache.getMemBuffer(llvm::StringRef( vPCHBuffers[i].m_data, vPCHBuffers[i].m_size), "", false);
+            ppOptions.addRemappedFile( vPCHBuffers[i].m_name, pchBuffer);
         }
 
         // Execute the frontend actions.
@@ -222,5 +302,14 @@ extern "C" CC_DLL_EXPORT int Compile(const char*   pszProgramSource,
             *pBinaryResult = NULL;
         }
         return CL_OUT_OF_HOST_MEMORY;
+    }
+    catch(internal_error& a)
+    {
+        if( pBinaryResult )
+        {
+            *pBinaryResult = NULL;
+        }
+        assert( false && " Common_clang. Something wrong with PCHs." );
+        return CL_COMPILE_PROGRAM_FAILURE;
     }
 }

@@ -9,7 +9,8 @@ void CommonClangTerminate();
 
 void dll_init(void)
 {
-    CommonClangInitialize();
+    // The order this function is called among ctors of static objects instantiated in
+    // another translation units (aka modules) is undefined so it mustn't relay that.
 }
 
 void dll_fini(void)

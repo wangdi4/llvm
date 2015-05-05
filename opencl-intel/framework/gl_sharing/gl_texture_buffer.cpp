@@ -175,6 +175,7 @@ cl_err_code GLTextureBuffer::AcquireGLObject()
 
     m_pGLContext->glBindBuffer(GL_ARRAY_BUFFER, curArrayBuf);
 
+    // block until all GL operations are completed
     glFinish();
 
     return CL_SUCCESS;
@@ -201,6 +202,7 @@ cl_err_code GLTextureBuffer::ReleaseGLObject()
         return CL_OUT_OF_RESOURCES;
     }
 
+    // block until all GL operations are completed
     glFinish();
 
     return CL_SUCCESS;

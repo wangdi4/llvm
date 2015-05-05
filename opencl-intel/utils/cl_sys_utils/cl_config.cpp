@@ -305,12 +305,58 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
 }
 
 #ifdef _WIN32
+
+static bool GetDisplayPrimaryDeviceIds(string& vendorId, string& devId)
+{
+    DISPLAY_DEVICE dd;
+    dd.cb = sizeof(DISPLAY_DEVICE);
+    DWORD devNum = 0;
+    string id;
+        
+    while (EnumDisplayDevices(NULL, devNum++, &dd, 0))
+    {
+        if (dd.StateFlags & DISPLAY_DEVICE_PRIMARY_DEVICE)
+        {
+            id = dd.DeviceID;
+            break;
+        }        
+    }
+    if (id.empty())
+    {
+        return false;
+    }
+    vendorId = id.substr(8, 4);
+    devId = id.substr(17, 4);
+    return true;
+}
+
 OPENCL_VERSION Intel::OpenCL::Utils::GetOpenclVerByCpuModel()
 {
-    const string sKmdDevId = GetRegistryKeyValue<string>("SOFTWARE\\Intel\\KMD", "DevId", std::string());
-    if ("BDW GT1 MOBILE ULT" == sKmdDevId)
+    // the OpenCL 2.0 support has been dropped from the following Skylake GPU SKUs
+    string vendorId, devId;
+    // by using EnumDisplayDevices we don't need the GPU driver to be installed (this doesn't work in remote desktop)
+    if (GetDisplayPrimaryDeviceIds(vendorId, devId))
     {
-        return OPENCL_VERSION_1_2;  // Broadwell GPU SKU GT1 supports OpenCL 1.2, so we have to be aligned with it
+        if (vendorId == "8086")
+        {
+            const char* opencl12skus[] = {"190E", "1915", "1921", "190B", "192B", "190A", "191A", "192A"};
+
+            for (size_t i = 0; i < sizeof(opencl12skus) / sizeof(opencl12skus[0]); ++i)
+            {
+                if (devId == opencl12skus[i])
+                {
+                    return OPENCL_VERSION_1_2;
+                }
+            }
+        }
+    }
+    // TODO: replace querying the registry with the above method for all SKUs
+
+    const string sKmdDevId = GetRegistryKeyValue<string>("SOFTWARE\\Intel\\KMD", "DevId", std::string());
+    if ("BDW GT1 MOBILE ULT" == sKmdDevId || "SKL GT1_5 ULT MOBILE F0" == sKmdDevId
+        || "SKL GT1_5 ULX MOBILE F0" == sKmdDevId || "SKL GT1_5 DESKTOP F0" == sKmdDevId)
+    {
+        return OPENCL_VERSION_1_2;  // GPU SKUs Broadwell GT1 and Skylake GT1.5 support OpenCL 1.2, so we have to be aligned with it
     }
 
     int cpuInfo[4] = {-1};

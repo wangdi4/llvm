@@ -126,7 +126,7 @@ else()
  endif()
 
  set( ANDROID_NDK_TOOLCHAIN_ROOT "${ANDROID_NDK_TOOLCHAIN_ROOT}" CACHE PATH "root of the Android NDK standalone toolchain" FORCE )
- set( ANDROID_NDK_SYSROOT "${ANDROID_NDK_TOOLCHAIN_ROOT}/sysroot" )
+ set( ANDROID_NDK_SYSROOT "${ANDROID_NDK_TOOLCHAIN_ROOT}/sysroot/" )
 
  if( NOT EXISTS "${ANDROID_NDK_TOOLCHAIN_ROOT}" )
   message( FATAL_ERROR "neither ${ANDROID_NDK} nor ${ANDROID_NDK_TOOLCHAIN_ROOT} does not exist!
@@ -193,7 +193,7 @@ if( BUILD_WITH_ANDROID_NDK )
  set( STL_LIBRARIES_PATH "${STL_PATH}/libs/${ARMEABI_NDK_NAME}" )
  include_directories(SYSTEM "${STL_PATH}/include" "${STL_LIBRARIES_PATH}/include" )
  if ( NOT ARMEABI AND NOT FORCE_ARM )
-  set( STL_LIBRARIES_PATH "${ANDROID_NDK_TOOLCHAIN_ROOT}/x86_64-linux-android/lib/${CMAKE_SYSTEM_PROCESSOR}" )
+  set( STL_LIBRARIES_PATH "${ANDROID_NDK_TOOLCHAIN_ROOT}/x86_64-linux-android/lib64/${CMAKE_SYSTEM_PROCESSOR}" )
  endif()
  #ARK: Had to add this to find STL headers
  include_directories(SYSTEM "${ANDROID_NDK_TOOLCHAIN_ROOT}/lib/gcc/x86_64-linux-android/${GCC_VERSION}/include/" )
@@ -202,7 +202,7 @@ if( BUILD_WITH_ANDROID_NDK )
 endif()
 
 if( BUILD_WITH_ANDROID_NDK_TOOLCHAIN )
- set( STL_LIBRARIES_PATH "${ANDROID_NDK_TOOLCHAIN_ROOT}/x86_64-linux-android/lib" )
+ set( STL_LIBRARIES_PATH "${ANDROID_NDK_TOOLCHAIN_ROOT}/x86_64-linux-android/lib64" )
  if( NOT ARMEABI )
   set( STL_LIBRARIES_PATH "${STL_LIBRARIES_PATH}/${CMAKE_SYSTEM_PROCESSOR}" )
  endif()
@@ -274,7 +274,7 @@ set( CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${ADD_CXX
 # My add Rami - End
 #-------------------------------------------------
       
-set( LINKER_FLAGS "-L${STL_LIBRARIES_PATH} -lstdc++ " )
+set( LINKER_FLAGS "-L${STL_LIBRARIES_PATH} -lstdc++ -lgnustl_shared" )
 
 set( NO_UNDEFINED ON CACHE BOOL "Don't allow undefined symbols" )
 if( NO_UNDEFINED )

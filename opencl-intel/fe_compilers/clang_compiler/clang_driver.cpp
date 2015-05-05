@@ -29,8 +29,6 @@
 #include "mic_dev_limits.h"
 #include "common_clang.h"
 #include "os_inc.h"
-#include "pch_mgr.h"
-#include "resource.h"
 
 #include <Logger.h>
 #include <cl_sys_info.h>
@@ -129,14 +127,9 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult* *pBinaryResult)
 {
     LOG_INFO(TEXT("%s"), TEXT("enter"));
 
-    bool clStd20    = std::string(m_pProgDesc->pszOptions).find("-cl-std=CL2.0") != std::string::npos;
-    bool bProfiling = std::string(m_pProgDesc->pszOptions).find("-profiling") != std::string::npos;
+    bool bProfiling   = std::string(m_pProgDesc->pszOptions).find("-profiling")            != std::string::npos;
     bool bRelaxedMath = std::string(m_pProgDesc->pszOptions).find("-cl-fast-relaxed-math") != std::string::npos;
 
-    size_t uiPCHSize = 0;
-
-    int rcid = clStd20 ? IDR_PCH2 : IDR_PCH1;
-    const char* pPCHBuff = ResourceManager::instance().get_resource(rcid, "PCH", false, uiPCHSize, "libclang_compiler.so");
     // Force the -profiling option if such was not supplied by user
     std::stringstream options;
     options << m_pProgDesc->pszOptions;
@@ -154,10 +147,8 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult* *pBinaryResult)
         options << " -cl-fast-relaxed-math";
     }
 
+    options << " -pch-cpu";
     std::stringstream optionsEx;
-    // Add standard OpenCL options
-    optionsEx << " -fno-validate-pch";
-
     // Add current directory
     optionsEx << " -I" << GetCurrentDir();
 
@@ -172,8 +163,8 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult* *pBinaryResult)
                     m_pProgDesc->pInputHeaders,
                     m_pProgDesc->uiNumInputHeaders,
                     m_pProgDesc->pszInputHeadersNames,
-                    pPCHBuff,
-                    uiPCHSize,
+                    0,
+                    0,
                     options.str().c_str(),   // pszOptions
                     optionsEx.str().c_str(), // pszOptionsEx
                     m_sDeviceInfo.sExtensionStrings,

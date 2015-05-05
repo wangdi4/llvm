@@ -503,6 +503,9 @@ void NotifierCollection::profileCommand(
     }
     else
     {
+        // Set the command as submitted by default
+        CommandCallBack(profiledEvent, CL_SUBMITTED, commandData);
+
         commandData->queue = commandQueue;
         commandData->refCounter = 3;
         err = _clSetEventCallbackINTERNAL(profiledEvent, CL_SUBMITTED, &commandCallBack, (void*) commandData);

@@ -122,6 +122,9 @@ cl_err_code GLTexture3D::AcquireGLObject()
 
     m_itCurrentAcquriedObject->second = pChild;
 
+    // block until all GL operations are completed
+    glFinish();
+
     return CL_SUCCESS;
 }
 
@@ -144,6 +147,9 @@ cl_err_code GLTexture3D::ReleaseGLObject()
 	}
 
 	m_pMemObjData = NULL;
+
+    // block until all GL operations are completed
+    glFinish();
 
 	return CL_SUCCESS;
 }

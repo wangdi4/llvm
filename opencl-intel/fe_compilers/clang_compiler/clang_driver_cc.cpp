@@ -32,7 +32,6 @@
 #include "translation_controller.h"
 #include "clang_driver_cc.h"
 #include "cache_binary_handler.h"
-#include "pch_mgr.h"
 #include "resource.h"
 #include "options.h"
 

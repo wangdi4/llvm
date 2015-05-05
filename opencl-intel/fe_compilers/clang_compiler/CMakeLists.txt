@@ -14,18 +14,14 @@ set( TARGET_NAME clang_compiler${BUILD_PLATFORM} )
 set(TARGET_INCLUDE_FILES
     clang_compiler.h
     clang_device_info.h
-    pch_mgr.h
     resource.h
-    exceptions.h
     stdafx.h
     targetver.h
 )
 
 set(TARGET_SOURCE_FILES
-    pch_mgr.cpp
     stdafx.cpp
     clang_compiler.rc
-    OpenCL.rc
 )
 
 if (WIN32)
@@ -35,8 +31,6 @@ if (WIN32)
 else()
     list( APPEND TARGET_SOURCE_FILES
             dllmain_linux.cpp
-            ${CMAKE_BINARY_DIR}/bin/opencl_pch.cpp
-            ${CMAKE_BINARY_DIR}/bin/opencl20_pch.cpp
         )
 endif()
 
@@ -187,123 +181,11 @@ else()
 target_link_libraries( ${TARGET_NAME}
                         common_clang${BUILD_PLATFORM}
 )
-endif()    
+endif()
 
 if (NOT ANDROID AND NOT WIN32)
     list(APPEND LINK_LIBS pthread)
 endif ()
-
-set( OPENCL_PCH_OUT_DIR ${CMAKE_CURRENT_SOURCE_DIR} )
-
-if (BUILD_X64)
-  set( TRIPLE -triple spir64-unknown-unknown )
-else()
-  set( TRIPLE -triple spir-unknown-unknown )
-endif()
-
-set( CLANG_OPTIONS -cc1
-                   -x cl
-                   -O0
-                   -emit-pch
-                   -I ${OCL_CLANG_HEADERS}
-                   -D __IMAGE2D_DEPTH__
-                   -D __WRITE_IMAGE3D__
-                   )
-
-set( CLANG_OPTIONS_OPENCL_12
-                    ${CLANG_OPTIONS}
-                      )
-
-set( CLANG_OPTIONS_OPENCL_20
-                    ${CLANG_OPTIONS}
-                    -cl-std=CL2.0
-                    -D__OPENCL_C_VERSION__=200
-                      )
-
-set( REDIRECTION_OPTION < ${OCL_CLANG_HEADERS}/opencl_.h
-)
-
-if( USE_COMMON_CLANG )
-    string(REPLACE "\${CMAKE_CFG_INTDIR}" "\$<CONFIGURATION>" TOOL_BINARY_DIR ${COMMON_CLANG_PATH})
-else()
-    if( CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE OR ANDROID )
-        set(TOOL_BINARY_DIR "${LLVM_BINARY_DIR}/../native/bin")
-    else()
-        set(TOOL_BINARY_DIR "${LLVM_BINARY_DIR}" )
-    endif()
-endif()
-
-set( CLANG ${TOOL_BINARY_DIR}/clang )
-
-if (WIN32)
-    # The custom actions for generating the opencl_.pch/opencl20_.pch for windows and linux are almost equal
-    # but using only the latter currently breaks the USE_COMMON_CLANG option (which is soon to be deprecated).
-    # TODO: unify the following 2 sets of custom commands and put them outside of the if(WIN32) once 
-    # USE_COMMON_CLANG is deprecated.
-    add_custom_command( TARGET ${TARGET_NAME}
-                        PRE_BUILD
-                        COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_12}  ${TRIPLE} -o ${OPENCL_PCH_OUT_DIR}/opencl_.pch ${REDIRECTION_OPTION}
-                        COMMENT "Generate non-optimized Intel OpenCL precompiled headers"
-                        DEPENDS ${CLANG} ${OCL_CLANG_HEADERS}/opencl_.h
-                        VERBATIM
-    )
-
-    add_custom_command( TARGET ${TARGET_NAME}
-                        PRE_BUILD
-                        COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_20} ${TRIPLE} -o ${OPENCL_PCH_OUT_DIR}/opencl20_.pch ${REDIRECTION_OPTION}
-                        COMMENT "Generate non-optimized Intel OpenCL20 precompiled headers"
-                        DEPENDS ${CLANG} ${OCL_CLANG_HEADERS}/opencl_.h
-                        VERBATIM
-    )
-else()
-    add_custom_command( OUTPUT ${OPENCL_PCH_OUT_DIR}/opencl_.pch
-                        COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_12}  ${TRIPLE} -o ${OPENCL_PCH_OUT_DIR}/opencl_.pch ${REDIRECTION_OPTION}
-                        COMMENT "Generate non-optimized Intel OpenCL precompiled headers"
-                        DEPENDS ${CLANG} ${OCL_CLANG_HEADERS}/opencl_.h
-                        VERBATIM
-    )
-
-    add_custom_command( OUTPUT ${OPENCL_PCH_OUT_DIR}/opencl20_.pch
-                        COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_20} ${TRIPLE} -o ${OPENCL_PCH_OUT_DIR}/opencl20_.pch ${REDIRECTION_OPTION}
-                        COMMENT "Generate non-optimized Intel OpenCL20 precompiled headers"
-                        DEPENDS ${CLANG} ${OCL_CLANG_HEADERS}/opencl_.h
-                        VERBATIM
-    )
-
-    if(CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE OR ANDROID)
-        set (LINUX_RESOURCE_LINKER_EXE "${CMAKE_BINARY_DIR}/native/bin/linux_resource_linker")
-    else()
-        set (LINUX_RESOURCE_LINKER_EXE "${CMAKE_BINARY_DIR}/bin/linux_resource_linker")
-    endif()
-
-    add_custom_command (
-        OUTPUT ${CMAKE_BINARY_DIR}/bin/opencl_pch.cpp
-        DEPENDS ConfigureNativeTargets ${CLANG} ${OPENCL_PCH_OUT_DIR}/opencl_.pch
-        COMMAND ${LINUX_RESOURCE_LINKER_EXE} ${OPENCL_PCH_OUT_DIR}/opencl_.pch ${CMAKE_BINARY_DIR}/bin/opencl_pch.cpp PCH_101
-    )
-
-    add_custom_command (
-        OUTPUT ${CMAKE_BINARY_DIR}/bin/opencl20_pch.cpp
-        DEPENDS ConfigureNativeTargets ${CLANG} ${OPENCL_PCH_OUT_DIR}/opencl20_.pch
-        COMMAND ${LINUX_RESOURCE_LINKER_EXE} ${OPENCL_PCH_OUT_DIR}/opencl20_.pch ${CMAKE_BINARY_DIR}/bin/opencl20_pch.cpp PCH_102
-    )
-endif()
-
-add_custom_command( TARGET ${TARGET_NAME}
-                    PRE_BUILD
-                    COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_12} -triple i686-pc-linux -o ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch ${REDIRECTION_OPTION}
-                    COMMENT "Generate non-optimized Intel OpenCL precompiled headers"
-                    DEPENDS ${CLANG} ${OCL_CLANG_HEADERS}/opencl_.h
-                    VERBATIM
-)
-
-add_custom_command( TARGET ${TARGET_NAME}
-                    PRE_BUILD
-                    COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_20} -triple i686-pc-linux -o ${OPENCL_PCH_OUT_DIR}/opencl20_android_.pch ${REDIRECTION_OPTION}
-                    COMMENT "Generate non-optimized Intel OpenCL20 precompiled headers"
-                    DEPENDS ${CLANG} ${OCL_CLANG_HEADERS}/opencl_.h
-                    VERBATIM
-)
 
 install(DIRECTORY ${OCL_CLANG_HEADERS}/ DESTINATION include/fe_include PATTERN *.h EXCLUDE )
 if( USE_COMMON_CLANG )

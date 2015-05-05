@@ -202,6 +202,9 @@ cl_err_code GLRenderBuffer::AcquireGLObject()
 
     m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_NOT_READY;
 
+    // block until all GL operations are completed
+    glFinish();
+
     return CL_SUCCESS;
 }
 
@@ -296,5 +299,9 @@ cl_err_code GLRenderBuffer::ReleaseGLObject()
 		glDeleteTextures(1, &texture);
 		glBindTexture( GL_TEXTURE_RECTANGLE_ARB, currTex );
 	}
+
+    // block until all GL operations are completed
+    glFinish();
+
 	return CL_SUCCESS;
 }

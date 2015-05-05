@@ -61,6 +61,7 @@ add_executable( ${TARGET} ${TARGET_SOURCES} )
 if (NOT WIN32)
 	if( ANDROID )
   		target_link_libraries( ${TARGET} gnustl_shared )
+        set_property(TARGET ${TARGET} APPEND_STRING PROPERTY LINK_FLAGS " -pie")
 	endif( ANDROID )
 	target_link_libraries( ${TARGET} intelocl${BUILD_PLATFORM} googletest ${PTHREAD_LIB})
 else (NOT WIN32)
@@ -87,7 +88,7 @@ install(TARGETS ${TARGET} DESTINATION ${CREATE_DIR_NAME})
 install(FILES cfg_win.xml cfg_linux.xml DESTINATION ${CREATE_DIR_NAME}/framework_test)
 install(FILES framework_test_type.pm DESTINATION ${CREATE_DIR_NAME})
 
-set( INCLUDE_HEADERS_PATH ${OCL_CLANG_HEADERS})
+set( INCLUDE_HEADERS_PATH ${OCL_SOURCE_DIR}/fe_compilers/common_clang/cl_headers)
 
 set( INPUT_FILE test.cl )
 set( OUTPUT_FILE test.bc )
@@ -128,7 +129,7 @@ endif ( INCLUDE_MIC_DEVICE )
 add_custom_command( TARGET ${TARGET}
   POST_BUILD
   COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE} 
-  -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc
+  -I ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang/cl_headers -emit-llvm-bc
   ${SPIR_OPT}
   -include opencl_.h -O0 -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE}
   MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}

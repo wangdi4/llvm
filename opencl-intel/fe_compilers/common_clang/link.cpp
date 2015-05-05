@@ -32,6 +32,8 @@
 
 using namespace Intel::OpenCL::ClangFE;
 
+void CommonClangInitialize();
+
 ///
 // Options parser for the Link function
 //
@@ -301,6 +303,9 @@ OCLFEBinaryResult* LinkInternal(const void**    pInputBinaries,
                                 const size_t*   puiBinariesSizes,
                                 const char*     pszOptions)
 {
+    // Lazy initialization
+    CommonClangInitialize();
+
     llvm::OwningPtr<OCLFEBinaryResult> pResult;
 
     try

@@ -254,7 +254,7 @@ typedef unsigned long long        affinityMask_t;
 #ifdef CPU_ISSET
 #undef CPU_ISSET
 #endif
-#define CPU_ISSET(cpu, mask)    (*(mask) |   (1 << (cpu)))
+#define CPU_ISSET(cpu, mask)    (*(mask) & (1 << (cpu)))
 #ifdef CPU_EQUAL
 #undef CPU_EQUAL
 #endif

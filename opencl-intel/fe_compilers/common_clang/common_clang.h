@@ -20,6 +20,7 @@
 
 #pragma once
 #include "CL/cl.h"
+#include "assert.h"
 
 #if defined (_WIN32)
 #if defined (COMMON_CLANG_EXPORTS)
