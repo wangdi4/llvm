@@ -174,10 +174,7 @@ IcdDispatchMgr::IcdDispatchMgr()
     REGISTER_DISPATCH_ENTRYPOINT( clCreateSamplerWithProperties , clCreateSamplerWithProperties )
     REGISTER_DISPATCH_ENTRYPOINT( clCreateCommandQueueWithProperties , clCreateCommandQueueWithProperties)
 
-    //disabling this now as there is no CPU nor GPU support
-    //when reenabling GPU support a check must be added in clGetKernelSubGroupInfoKHR implementation
-    //so that CPU version is never called as this would cause a crash
-    //REGISTER_DISPATCH_ENTRYPOINT( clGetKernelSubGroupInfoKHR , clGetKernelSubGroupInfoKHR )
+    REGISTER_DISPATCH_ENTRYPOINT( clGetKernelSubGroupInfoKHR , clGetKernelSubGroupInfoKHR )
 
     // clEnqueueAcquireDX9MediaSurfacesKHR
     // clEnqueueReleaseDX9MediaSurfacesKHR
@@ -538,6 +535,7 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
 
     cl_bool cl_context_platform_set         = CL_FALSE;
     cl_bool cl_ctx_interop_user_sync_set    = CL_FALSE;
+    cl_bool cl_show_perf_hints_set          = CL_FALSE;
     cl_bool cl_gl_context_khr_set           = CL_FALSE;
     cl_bool cl_wgl_hdc_khr_set              = CL_FALSE;
 #ifdef _WIN32
@@ -578,6 +576,13 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
                     return CL_INVALID_PROPERTY;
                 }
                 cl_ctx_interop_user_sync_set = CL_TRUE;
+                break;
+            case CL_CONTEXT_SHOW_PERFORMANCE_HINTS_INTEL:
+                if( cl_show_perf_hints_set != CL_FALSE )
+                {
+                    return CL_INVALID_PROPERTY;
+                }
+                cl_show_perf_hints_set = CL_TRUE;
                 break;
             case CL_GL_CONTEXT_KHR:
                 if( cl_gl_context_khr_set == CL_TRUE )

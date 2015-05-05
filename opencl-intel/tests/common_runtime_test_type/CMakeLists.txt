@@ -32,7 +32,7 @@ if (NOT WIN32 AND NOT ANDROID)
     target_link_libraries( ${TARGET} pthread)
 endif (NOT WIN32 AND NOT ANDROID)
 
-set( CREATE_DIR_NAME bin/validation/common_runtime_test_type )
+set( CREATE_DIR_NAME tests/common_runtime_test_type )
 
 file(GLOB_RECURSE CP_FILES RELATIVE  ${CMAKE_CURRENT_SOURCE_DIR} *.py *.xml *.xsd )
 # Copy *.py *.xml and *.xsd from current directory to appropriate test directory in 'Release' area.
@@ -44,5 +44,6 @@ install(TARGETS ${TARGET} DESTINATION ${CREATE_DIR_NAME})
 
 set_target_properties( ${TARGET} PROPERTIES FOLDER "validation/workloads" )
 
-install(FILES ${CRT_KERNELS} DESTINATION bin/validation/common_runtime_test_type)
+install(FILES ${CRT_KERNELS} DESTINATION tests/common_runtime_test_type)
+install(FILES common_runtime_test_type.pm DESTINATION tests/common_runtime_test_type)
 

@@ -28,8 +28,8 @@ if(WIN32)
     endif(BUILD_X64)
 endif(WIN32)
 
-set( CREATE_DIR_NAME bin/validation/analyze_package_test_type)
-set( TARGET_DIR_NAME bin/validation/analyze_package_test_type)
+set( CREATE_DIR_NAME tests/analyze_package_test_type)
+set( TARGET_DIR_NAME tests/analyze_package_test_type)
 
 # Copy generated executable to appropriate test directory in 'Release' area.
 install( TARGETS ${TARGET_NAME} DESTINATION ${CREATE_DIR_NAME} )

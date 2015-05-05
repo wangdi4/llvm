@@ -48,9 +48,10 @@ set( CMAKE_CXX_FLAGS_DEBUG "-DOCL_DEV_BACKEND_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
 add_dependencies( ${TARGET_NAME} cl_sys_utils)
 
 # install the bitcode files that the project loads
-install(FILES Bitcode/bitcodeNoise.bc Bitcode/bitcodeNoKernels.bc Bitcode/bitcodeWithKernels.bc DESTINATION bin)
+install(FILES Bitcode/bitcodeNoise.bc Bitcode/bitcodeNoKernels.bc Bitcode/bitcodeWithKernels.bc DESTINATION tests/BackEndTests)
+install(FILES BackEndTests.pm DESTINATION tests/BackEndTests)
 
 install( TARGETS ${TARGET_NAME}
-    RUNTIME DESTINATION bin
+    RUNTIME DESTINATION tests/BackEndTests
     ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION bin)
+    LIBRARY DESTINATION tests/BackEndTests)

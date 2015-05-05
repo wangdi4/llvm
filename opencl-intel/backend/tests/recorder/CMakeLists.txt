@@ -65,6 +65,7 @@ set( CMAKE_CXX_FLAGS_DEBUG "-D OCLFRONTEND_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}" )
 add_dependencies(${TARGET_NAME} OclRecorder)
 
 #install the executable
-install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
+install(FILES OclRecorderTest.pm DESTINATION tests/recorder)
+install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION tests/recorder)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER "Backend" )

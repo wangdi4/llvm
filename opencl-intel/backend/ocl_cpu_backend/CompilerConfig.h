@@ -59,6 +59,7 @@ class CompilerConfig: public virtual ICompilerConfig
 {
 public:
     CompilerConfig():m_transposeSize(TRANSPOSE_SIZE_AUTO),
+                     m_rtLoopUnrollFactor(1),
                      m_useVTune(false),
                      m_loadBuiltins(true),
                      m_DumpIROptionAfter(NULL),
@@ -74,6 +75,7 @@ public:
     std::string GetCpuArch() const     { return m_cpuArch; }
     std::string GetCpuFeatures() const { return m_cpuFeatures; }
     ETransposeSize GetTransposeSize() const   { return m_transposeSize; }
+    int GetRTLoopUnrollFactor() const         { return m_rtLoopUnrollFactor; }
     bool  GetUseVTune() const                 { return m_useVTune; }
     bool  GetLoadBuiltins() const             { return m_loadBuiltins; }
     std::vector<int> GetIRDumpOptionsAfter() const
@@ -108,6 +110,7 @@ protected:
     std::string m_cpuArch;
     std::string m_cpuFeatures;
     ETransposeSize m_transposeSize;
+    int         m_rtLoopUnrollFactor;
     bool        m_useVTune;
     bool        m_loadBuiltins;
     const std::vector<IRDumpOptions>* m_DumpIROptionAfter;

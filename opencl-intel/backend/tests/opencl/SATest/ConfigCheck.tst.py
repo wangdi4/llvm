@@ -18,7 +18,7 @@ parser.add_option("-c", dest="config",    default=None)
 
 (options, args) = parser.parse_args()
 
-execstr = os.path.join(os.path.abspath(os.getcwd()),"SATest")
+execstr = "SATest"
 
 # check for config file does'nt exist
 confstr = "-config=" + options.config

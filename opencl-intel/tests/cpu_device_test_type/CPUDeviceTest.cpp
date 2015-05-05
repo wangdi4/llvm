@@ -605,7 +605,7 @@ bool ExecuteNativeKernel_Test(bool profiling)
 
 // The following tests replace the old "main" function of framework_test_type.
 //
-TEST(CpuDeviceTestType, Test_InitLogge)
+TEST(CpuDeviceTestType, Test_InitLogger)
 {
 	EXPECT_TRUE(InitLoggerTest());
 }
@@ -667,7 +667,9 @@ TEST(CpuDeviceTestType, Test_ExecuteNativeKernel)
 
 TEST(CpuDeviceTestType, Test_BuildFromBinary)
 {
-	EXPECT_TRUE(BuildFromBinary_test("validation/cpu_device_test_type/test.bc", 2, "dot_product", 3));
+	// [QA]: correct hardcoded path
+	// EXPECT_TRUE(BuildFromBinary_test("validation/cpu_device_test_type/test.bc", 2, "dot_product", 3));
+	EXPECT_TRUE(BuildFromBinary_test("test.bc", 2, "dot_product", 3));
 }
 
 TEST(CpuDeviceTestType, Test_memoryTest)
@@ -677,7 +679,9 @@ TEST(CpuDeviceTestType, Test_memoryTest)
 
 TEST(CpuDeviceTestType, Test_KernelExecute_Math)
 {
-	EXPECT_TRUE(KernelExecute_Math_Test("validation/cpu_device_test_type/test.bc"));
+	// [QA]: correct hardcoded path
+	// EXPECT_TRUE(KernelExecute_Math_Test("validation/cpu_device_test_type/test.bc"));
+	EXPECT_TRUE(KernelExecute_Math_Test("test.bc"));
 }
 
 #ifndef _WIN32
@@ -743,6 +747,7 @@ int CPUDeviceTest_Main()
 	EXPECT_TRUE(CL_DEV_SUCCEEDED(iRes));
 	if (0 == deviceIdsListSizeRet)
 	{
+		printf("\nTest failed (no available devices returned)\n");
 		return -1;
 	}
 
@@ -866,12 +871,14 @@ int main(int argc, char* argv[])
 #endif
     int rc = CPUDeviceTest_Main();
 
+	/* [QA]: move result checking to CPUDeviceTest_Main to avoid additional output in case if running with --gtest_list_tests option
 	if (rc == 0) {
 		printf("\n==============\nTEST SUCCEDDED\n==============\n");
 	}
 	else {
 		printf("\n==============\nTEST FAILED\n==============\n");		
 	}
-
+	*/
+	
 	return rc;
 }

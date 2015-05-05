@@ -18,8 +18,8 @@ template<typename T > struct deleter {
   }
 };
 
-SchedulingScope::SchedulingScope(BasicBlock* leader):
-  m_blocks(), m_subscope(), m_leader(leader) {}
+SchedulingScope::SchedulingScope(BasicBlock* leader, bool isUCFScope):
+  m_blocks(), m_subscope(), m_leader(leader), m_isUCFScope(isUCFScope) {}
 
   SchedulingScope::~SchedulingScope() {
     // delete all sub-scopes
@@ -86,8 +86,8 @@ void SchedulingScope::verify() {
   }
 }
 
-bool
-SchedulingScope::hasUnscheduledPreds(const BBVector& schedule, BasicBlock* bb) {
+bool SchedulingScope::hasUnscheduledPreds(const BBVector& schedule,
+                                          const BBVector& thisScopeOnly, BasicBlock* bb) {
   V_ASSERT(bb && "invalid bb");
 
   // This branch guarantees that the linearizer will not get into an infinite loop in case there is a constraint
@@ -98,8 +98,13 @@ SchedulingScope::hasUnscheduledPreds(const BBVector& schedule, BasicBlock* bb) {
   pred_iterator pred = pred_begin(bb);
   pred_iterator pred_e = pred_end(bb);
   for( ; pred != pred_e ; ++pred) {
+    // Ignore unscheduled predecessors which are inside the same UCF scope
+    if(m_isUCFScope && std::find(thisScopeOnly.begin(), thisScopeOnly.end(), *pred) != thisScopeOnly.end()) {
+      continue;
+    }
+
     if (std::find(schedule.begin(), schedule.end(), *pred) == schedule.end()) {
-     return true;
+      return true;
     }
   }
   return false;
@@ -109,7 +114,7 @@ bool SchedulingScope::hasUnscheduledPreds(const BBVector& schedule) {
 
   // This branch guarantees that the linearizer will not get into an infinite loop in case there is a constraint
   // containing a loop header without its latch node.
-  if (std::find(schedule.begin(), schedule.end(), *(m_blocks.begin())) != schedule.end())
+  if (std::find(schedule.begin(), schedule.end(), m_blocks.front()) != schedule.end())
     return false;
 
   // For each of our instructions
@@ -140,8 +145,8 @@ void SchedulingScope::schedule(BBVector& schedule) {
 
   // schedule all BBs which are free and are not a part of any
   // other scheduling constraint scope.
-  BBVector unscoped;
-  getNonSchedulingScopedInstructions(unscoped);
+  BBVector thisScopeOnly;
+  getNonSchedulingScopedInstructions(thisScopeOnly);
 
   // first we need to schedule the leader of each scope
   // the leader is used to prevent cycles (in loops).
@@ -155,21 +160,21 @@ void SchedulingScope::schedule(BBVector& schedule) {
   }
 
   // as long as we have unscented instructions
-  while (unscheduled.size() || unscoped.size()) {
+  while (unscheduled.size() || thisScopeOnly.size()) {
     // schedule free basic blocks
-    if (unscoped.size()) {
-      // for each BB in the unscoped
+    if (thisScopeOnly.size()) {
+      // for each BB in the thisScopeOnly
       BasicBlock* toSched = NULL;
-      for(BBVectorIter it = unscoped.begin(),
-          ite=unscoped.end(); it != ite; ++it) {
-        if (!SchedulingScope::hasUnscheduledPreds(schedule, *it)) {
+      for(BBVectorIter it = thisScopeOnly.begin(),
+          ite=thisScopeOnly.end(); it != ite; ++it) {
+        if (!hasUnscheduledPreds(schedule, thisScopeOnly, *it)) {
           toSched = *it;
           break;
         }
       }
       if (toSched) {
         // schedule this instruction
-        unscoped.erase(std::find(unscoped.begin(), unscoped.end(), toSched));
+        thisScopeOnly.erase(std::find(thisScopeOnly.begin(), thisScopeOnly.end(), toSched));
         if (std::find(schedule.begin(), schedule.end(), toSched) == schedule.end()) {
           schedule.push_back(toSched);
         }
@@ -179,11 +184,11 @@ void SchedulingScope::schedule(BBVector& schedule) {
     // schedule ready scopes
     if (unscheduled.size()) {
       SchedulingScope* ready = NULL;
-      for (SchedulingScopeSetIter it = unscheduled.begin(),
-           e = unscheduled.end(); it != e; ++it) {
+      for (SchedulingScopeSetIter scopeIt = unscheduled.begin(),
+           e = unscheduled.end(); scopeIt != e; ++scopeIt) {
         // if found candidate for scheduling
-        if (!(*it)->hasUnscheduledPreds(schedule)) {
-          ready = *it;
+        if (!(*scopeIt)->hasUnscheduledPreds(schedule)) {
+          ready = *scopeIt;
           break;
         }
       }
@@ -244,7 +249,7 @@ void SchedulingScope::compress() {
 
 
 void SchedulingScope::getNonSchedulingScopedInstructions(
-  SchedulingScope::BBVector &unscoped) {
+  SchedulingScope::BBVector &thisScopeOnly) {
 
   // for each instruction we have
   for (BBVectorIter BB = m_blocks.begin(),
@@ -259,7 +264,7 @@ void SchedulingScope::getNonSchedulingScopedInstructions(
         break;
       }
     }
-    if (!scoped) unscoped.push_back(*BB);
+    if (!scoped) thisScopeOnly.push_back(*BB);
   }
 }
 

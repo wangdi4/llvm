@@ -26,14 +26,16 @@ int main(int argc, char** argv)
 	{
 		if(0==strcmp("ACC",argv[i]))
 		{
-			std::cout << "SECOND DEVICE: ACC" << std::endl;
+			// [QA]: remove additional output
+			// std::cout << "SECOND DEVICE: ACC" << std::endl;
 			setSecondDeviceType(CL_DEVICE_TYPE_ACCELERATOR);	
 			break;
 		}
 	}
 	if(CL_DEVICE_TYPE_GPU==getSecondDeviceType())
 	{
-		std::cout << "SECOND DEVICE: GPU" << std::endl;
+		// [QA]: remove additional output
+		// std::cout << "SECOND DEVICE: GPU" << std::endl;
 	}
 	::testing::AddGlobalTestEnvironment(new EnvironemntCommonRuntimeTestType());
 	::testing::InitGoogleTest(&argc, argv);

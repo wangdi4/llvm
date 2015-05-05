@@ -555,7 +555,8 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
          */        
         OPENCL_VERSION GetOpenCLVersion() const;
         bool DisableStackDump() const { return m_pConfigFile->Read<bool>("CL_DISABLE_STACK_TRACE", false ); }
-        bool UseRelaxedMath() const { return m_pConfigFile->Read<bool>("CL_CONFIG_USE_RELAXED_MATH", false); }
+        bool UseRelaxedMath() const { return m_pConfigFile->Read<bool>("CL_CONFIG_USE_FAST_RELAXED_MATH", false); }
+        int  RTLoopUnrollFactor() const { return m_pConfigFile->Read<int>("CL_CONFIG_CPU_RT_LOOP_UNROLL_FACTOR", 1); }
 	
 	private:
 		BasicCLConfigWrapper(const BasicCLConfigWrapper&);

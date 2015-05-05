@@ -212,15 +212,27 @@ void out_of_order_command_list::WaitForIdle()
     m_device->Execute(waiter);
 }
 
-ITaskList* out_of_order_command_list::GetDebugInOrderDeviceQueue()
+ITaskList* base_command_list::GetDebugInOrderDeviceQueue()
 { 
     return m_pTBBExecutor.GetDebugInOrderDeviceQueue();
 }
 
-void base_command_list::Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, IThreadLibTaskGroup& taskGroup)
+void out_of_order_command_list::Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, IThreadLibTaskGroup& taskGroup)
 {
     ExecuteContainerBody functor(pTask, *this);
     static_cast<TbbTaskGroup&>(taskGroup).Run(functor);
+}
+
+void in_order_command_list::Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, IThreadLibTaskGroup& taskGroup)
+{
+    ExecuteContainerBody functor(pTask, *this);
+    functor();
+}
+
+void immediate_command_list::Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, IThreadLibTaskGroup& taskGroup)
+{
+    ExecuteContainerBody functor(pTask, *this);
+    functor();
 }
 
 unsigned int immediate_command_list::Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask)

@@ -74,11 +74,10 @@ void KernelCommand::WaitForChildrenCompletion()
         delete m_waitingChildrenForKernelGlobal;
         m_waitingChildrenForKernelGlobal = pNextCommand;
     }
-
 #ifdef _DEBUG
     IThreadLibTaskGroup::TaskGroupStatus status = 
 #endif
-        m_childrenTaskGroup->Wait();
+    m_childrenTaskGroup->Wait();
 #ifdef _DEBUG
     assert(IThreadLibTaskGroup::COMPLETE == status && "IThreadLibTaskGroup::COMPLETE != status");
 #endif
@@ -144,20 +143,22 @@ int KernelCommand::EnqueueKernel(queue_t queue, kernel_enqueue_flags_t flags, cl
       }
     }
     // debug mode: make sure all child kernels start after the parent ends its execution and then run in-order    
-    const bool bIsDebugMode = pKernel->GetKernelProporties()->HasDebugInfo();
-    if (bIsDebugMode)
+    ITaskList* const pDebugList = pList->GetDebugInOrderDeviceQueue();
+    assert(pDebugList != NULL);
+    m_bIsDebugMode = pKernel->GetKernelProporties()->HasDebugInfo();
+    if (m_bIsDebugMode)
     {
         // indeed BE is supposed to force this flag, but we force it ourselves just to make sure
         flags = CLK_ENQUEUE_FLAGS_WAIT_KERNEL;
+        m_childrenTaskGroup = pDebugList->GetNDRangeChildrenTaskGroup();
     }
-    ITaskList* const pDebugList = pList->GetDebugInOrderDeviceQueue();
-    assert(pDebugList != NULL);
+    
     SharedPtr<KernelCommand> pChild;
 #if __USE_TBB_ALLOCATOR__
         DeviceNDRange* const pChildAddress = m_deviceNDRangeAllocator.allocate(sizeof(DeviceNDRange));    // currently we ignore bad_alloc
         pChild = ::new(pChildAddress) DeviceNDRange(m_pTaskDispatcher, pList, pParent, pKernel, pContext, szContextSize, pNdrange, m_deviceNDRangeAllocator, m_deviceNDRangeContextAllocator);
 #else
-        pChild = AllocateChildCommand(bIsDebugMode ? pDebugList : pList, pKernel, pBlockLiteral, stBlockSize, pLocalSizes, stLocalSizeCount, pNDRange);
+        pChild = AllocateChildCommand(m_bIsDebugMode ? pDebugList : pList, pKernel, pBlockLiteral, stBlockSize, pLocalSizes, stLocalSizeCount, pNDRange);
 #endif
     const bool bAllEventsCompleted = pChild->AddWaitListDependencies(pEventWaitList, uiNumEventsInWaitList);    
 

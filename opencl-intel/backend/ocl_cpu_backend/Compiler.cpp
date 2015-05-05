@@ -20,6 +20,7 @@ File Name:  Compiler.cpp
 #include <vector>
 #include <string>
 #include "cl_types.h"
+#include "cl_config.h"
 #include "cpu_dev_limits.h"
 #include "Compiler.h"
 #include "Optimizer.h"
@@ -301,6 +302,7 @@ void Compiler::Terminate()
 Compiler::Compiler(const ICompilerConfig& config):
     m_pLLVMContext( new llvm::LLVMContext ),
     m_transposeSize(config.GetTransposeSize()),
+    m_rtLoopUnrollFactor(config.GetRTLoopUnrollFactor()),
     m_IRDumpAfter(config.GetIRDumpOptionsAfter()),
     m_IRDumpBefore(config.GetIRDumpOptionsBefore()),
     m_IRDumpDir(config.GetDumpIRDir()),
@@ -350,7 +352,8 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
                                             buildOptions.GetRelaxedMath(),
                                             buildOptions.GetlibraryModule(),
                                             m_dumpHeuristicIR,
-                                            buildOptions.GetAPFLevel());
+                                            buildOptions.GetAPFLevel(),
+                                            m_rtLoopUnrollFactor);
     Optimizer optimizer( pModule, GetRtlModule(), &optimizerConfig);
     optimizer.Optimize();
 

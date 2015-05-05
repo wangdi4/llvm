@@ -14,6 +14,7 @@ enum cl_dev_backend_options                     // Description                  
     CL_DEV_BACKEND_OPTION_SUBDEVICE,            //!< Sub-device selection                |string       | "corei7","sandybride" for cpu or "knc" for mic
     CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES,   //!< Enable/Disable specific CPU features|string       | "+avx,-avx256"
     CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE,       //!< Transpose size use in vectorizer    |ETranposeSize|
+    CL_DEV_BACKEND_OPTION_RT_LOOP_UNROLL_FACTOR,//!< Loop Unroll Factor                  |int          |
     CL_DEV_BACKEND_OPTION_USE_VTUNE,            //!< VTune support                       |boolean      |
     CL_DEV_BACKEND_OPTION_LOGGER_CALLBACK,      //!< Pointer to the logger callback      |pointer      |
     CL_DEV_BACKEND_OPTION_JIT_ALLOCATOR,        //!< Pointer to the JIT mem. allocator   |pointer      | (Used in serialization)

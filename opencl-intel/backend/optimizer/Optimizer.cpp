@@ -102,6 +102,7 @@ createStandardLLVMPasses(llvm::PassManagerBase *PM,
                          unsigned OptLevel,
                          bool UnitAtATime,
                          bool UnrollLoops,
+                         int rtLoopUnrollFactor,
                          bool SimplifyLibCalls,
                          bool allowAllocaModificationOpt,
                          bool isDBG,
@@ -154,6 +155,12 @@ createStandardLLVMPasses(llvm::PassManagerBase *PM,
   PM->add(llvm::createLoopDeletionPass());   // Delete dead loops
   if (UnrollLoops) {
     PM->add(llvm::createLoopUnrollPass(512, 0, 0)); // Unroll small loops
+    // unroll loops with non-constant trip count
+    const int thresholdBase = 16;
+    if (rtLoopUnrollFactor > 1) {
+      const int threshold = thresholdBase * rtLoopUnrollFactor;
+      PM->add(llvm::createLoopUnrollPass(threshold, rtLoopUnrollFactor, 0, 1));
+    }
   }
   if (!isDBG) {
     PM->add(llvm::createFunctionInliningPass(4096)); // Inline (not only small)
@@ -283,9 +290,12 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
   // pass on modules which contain barriers. This pass is illegal for
   // barriers.
   bool UnitAtATime = true;
+
+  int rtLoopUnrollFactor = pConfig->GetRTLoopUnrollFactor();
+
   createStandardLLVMPasses(
       &PM, OptLevel,
-      UnitAtATime, UnrollLoops, false, allowAllocaModificationOpt,
+      UnitAtATime, UnrollLoops, rtLoopUnrollFactor, false, allowAllocaModificationOpt,
       debugType != intel::None, HasGatherScatter);
   // check function pointers calls are gone after standard optimizations
   // if not compilation will fail

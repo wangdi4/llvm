@@ -66,13 +66,15 @@ CALCULATE_TARGET_SOURCES()
 
 add_executable( ${TARGET} ${TARGET_SOURCES} )
 
-if( ANDROID )
+if (NOT WIN32)
+  if( ANDROID )
     target_link_libraries( ${TARGET} gnustl_shared )
-endif( ANDROID )
-
-target_link_libraries( ${TARGET}  cl_sys_utils cpu_device${BUILD_PLATFORM} task_executor${BUILD_PLATFORM} googletest)
-
-set( CREATE_DIR_NAME bin/validation/cpu_device_test_type)
+  endif( ANDROID )
+  target_link_libraries( ${TARGET}  cl_sys_utils cpu_device${BUILD_PLATFORM} task_executor${BUILD_PLATFORM} googletest ${PTHREAD_LIB})
+else (NOT WIN32)
+  target_link_libraries( ${TARGET}  cl_sys_utils cpu_device${BUILD_PLATFORM} task_executor${BUILD_PLATFORM} googletest)
+endif (NOT WIN32)
+set( CREATE_DIR_NAME tests/cpu_device_test_type)
 
 file(GLOB_RECURSE CP_FILES RELATIVE  ${CMAKE_CURRENT_SOURCE_DIR} *.py *.xml *.xsd )
 # Copy *.py *.xml and *.xsd from current directory to appropriate test directory in 'Release' area.
@@ -101,6 +103,7 @@ add_custom_command( TARGET ${TARGET}
 
 set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE} PROPERTIES GENERATED TRUE)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE} DESTINATION ${CREATE_DIR_NAME})
+install(FILES cpu_device_test_type.pm DESTINATION ${CREATE_DIR_NAME})
 
 set_target_properties( ${TARGET} PROPERTIES FOLDER "validation/workloads" )
 

@@ -91,5 +91,5 @@ add_dependencies( ${TARGET_NAME}
     ProgramConfiguration
 )
 
-install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
+install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION tests/SATestGUI)
 

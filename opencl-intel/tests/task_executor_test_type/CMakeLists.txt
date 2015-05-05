@@ -34,12 +34,17 @@ CALCULATE_TARGET_SOURCES()
 
 add_executable( ${TARGET} ${TARGET_SOURCES} )
 
-if( ANDROID )
-  target_link_libraries( ${TARGET} gnustl_shared )
-endif( ANDROID )
+if (NOT WIN32)
+  if( ANDROID )
+    target_link_libraries( ${TARGET} gnustl_shared )
+  endif( ANDROID )
+  target_link_libraries( ${TARGET}  cl_sys_utils task_executor${BUILD_PLATFORM} googletest ${PTHREAD_LIB})
+else (NOT WIN32)
+  target_link_libraries( ${TARGET}  cl_sys_utils task_executor${BUILD_PLATFORM} googletest)
+endif(NOT WIN32)
 target_link_libraries( ${TARGET}  cl_sys_utils task_executor${BUILD_PLATFORM} googletest)
 
-set( CREATE_DIR_NAME bin/validation/task_executor_test_type )
+set( CREATE_DIR_NAME tests/task_executor_test_type )
 
 file(GLOB_RECURSE CP_FILES RELATIVE  ${CMAKE_CURRENT_SOURCE_DIR} *.py *.xml *.xsd )
 # Copy *.py *.xml and *.xsd from current directory to appropriate test directory in 'Release' area.
@@ -49,6 +54,7 @@ install(FILES ../GeneralScripts/cmk_test_type_runner.py ../GeneralScripts/cmk_xm
 # Copy generated executable to appropriate test directory in 'Release' area.
 
 install(TARGETS ${TARGET} DESTINATION ${CREATE_DIR_NAME})
+install(FILES task_executor_test_type.pm DESTINATION ${CREATE_DIR_NAME})
 
 
 set( INCLUDE_HEADERS_PATH ${OCL_CLANG_HEADERS})

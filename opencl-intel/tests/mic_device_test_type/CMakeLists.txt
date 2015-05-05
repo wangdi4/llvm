@@ -67,7 +67,7 @@ endif (NOT WIN32)
 
 target_link_libraries( ${TARGET}  cl_sys_utils mic_device ${COI_HOST_LIB} googletest)
 
-set( CREATE_DIR_NAME bin/validation/mic_device_test_type)
+set( CREATE_DIR_NAME tests/mic_device_test_type)
 
 file(GLOB_RECURSE CP_FILES RELATIVE  ${CMAKE_CURRENT_SOURCE_DIR} *.py *.xml *.xsd )
 # Copy *.py *.xml and *.xsd from current directory to appropriate test directory in 'Release' area.

@@ -859,8 +859,8 @@ cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pH
 cl_err_code Context::CreateSubBuffer(SharedPtr<MemoryObject> pBuffer, cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
                                      const void * buffer_create_info, SharedPtr<MemoryObject>* ppBuffer)
 {
-    LOG_DEBUG(TEXT("Enter CreateBuffer (cl_mem_flags=%d, buffer_create_type=%d, ppBuffer=%d)"),
-        clFlags, buffer_create_type, ppBuffer);
+    LOG_DEBUG(TEXT("Enter CreateBuffer (cl_mem_flags=%llu, buffer_create_type=%d, ppBuffer=%d)"),
+        (unsigned long long) clFlags, buffer_create_type, ppBuffer);
 
     assert ( NULL != ppBuffer );
 
@@ -926,6 +926,9 @@ cl_err_code Context::CreateSubBuffer(SharedPtr<MemoryObject> pBuffer, cl_mem_fla
 cl_err_code Context::CreateImageArray(cl_mem_flags clFlags, const cl_image_format* pclImageFormat, void* pHostPtr, const cl_image_desc* pClImageDesc,
                                       SharedPtr<MemoryObject>* ppImageArr)
 {
+    LOG_DEBUG(TEXT("Enter CreateImageArray (cl_mem_flags=%llu, cl_image_format=%d, pHostPtr=%d, cl_image_desc=%d)"),
+        (unsigned long long) clFlags, pclImageFormat, pHostPtr, pClImageDesc);
+
     assert(NULL != ppImageArr);
     assert(CL_MEM_OBJECT_IMAGE1D_ARRAY == pClImageDesc->image_type || CL_MEM_OBJECT_IMAGE2D_ARRAY == pClImageDesc->image_type);
     
@@ -998,8 +1001,8 @@ cl_err_code Context::GetSupportedImageFormats(cl_mem_flags clFlags,
                                               cl_image_format * pclImageFormats,
                                               cl_uint * puiNumImageFormats)
 {
-    LOG_DEBUG(TEXT("Enter GetSupportedImageFormats(clFlags=%d, clType=%d, uiNumEntries=%d, pclImageFormats=%d, puiNumImageFormats=%d"),
-        clFlags, clType, uiNumEntries, pclImageFormats, puiNumImageFormats);
+    LOG_DEBUG(TEXT("Enter GetSupportedImageFormats(clFlags=%llu, clType=%d, uiNumEntries=%d, pclImageFormats=%d, puiNumImageFormats=%d"),
+        (unsigned long long) clFlags, clType, uiNumEntries, pclImageFormats, puiNumImageFormats);
 
     if ( (uiNumEntries == 0 && pclImageFormats != NULL) )
     {

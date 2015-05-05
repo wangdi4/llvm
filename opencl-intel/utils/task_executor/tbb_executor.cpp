@@ -357,7 +357,7 @@ TBBTaskExecutor::CreateRootDevice( const RootDeviceCreationParam& device_desc, v
 void TBBTaskExecutor::CreateDebugDeviceQueue(const SharedPtr<ITEDevice>& rootDevice)
 {
     const CommandListCreationParam param(TE_CMD_LIST_IN_ORDER);
-    m_pDebugInOrderDeviceQueue = in_order_command_list::Allocate(*this, rootDevice.StaticCast<TEDevice>(), param);
+    m_pDebugInOrderDeviceQueue = in_order_command_list::Allocate(*this, rootDevice.StaticCast<TEDevice>(), param, true);
 }
 
 void TBBTaskExecutor::DestroyDebugDeviceQueue()

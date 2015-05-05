@@ -397,14 +397,14 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clSetKernelExecInfo)(
     const void *         /* param_value */) CL_API_SUFFIX__VERSION_2_0;
 
 typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clGetKernelSubGroupInfoKHR)(
-    cl_kernel                kernel,
-    cl_device_id             device,
-    cl_kernel_sub_group_info param_name,
-    size_t                   input_value_size,
-    const void *             input_value,
-    size_t                   param_value_size,
-    void *                   param_value,
-    size_t *                 param_value_size_ret) CL_API_SUFFIX__VERSION_2_0;
+    cl_kernel                /* in_kernel */,
+    cl_device_id             /*in_device*/,
+    cl_kernel_sub_group_info /* param_name */,
+    size_t                   /*input_value_size*/,
+    const void *             /*input_value*/,
+    size_t                   /*param_value_size*/,
+    void*                    /*param_value*/,
+    size_t*                  /*param_value_size_ret*/) CL_EXT_SUFFIX__VERSION_2_0;
 
 // Event Object APIs
 typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clWaitForEvents)(
@@ -1403,6 +1403,7 @@ struct KHRicdVendorDispatchRec
     KHRpfn_clSetKernelArgSVMPointer                 clSetKernelArgSVMPointer;
     KHRpfn_clSetKernelExecInfo                      clSetKernelExecInfo;
 	
+    /* cl_khr_sub_groups */
     KHRpfn_clGetKernelSubGroupInfoKHR               clGetKernelSubGroupInfoKHR;
 };
 

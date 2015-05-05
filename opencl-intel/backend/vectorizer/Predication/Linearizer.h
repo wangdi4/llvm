@@ -29,7 +29,8 @@ private:
 public:
   /// @brief C'tor
   /// @param leader Leader of scope
-  SchedulingScope(BasicBlock* leader);
+  /// @param ucfScope true if this a scope with original control flow
+  SchedulingScope(BasicBlock* leader, bool ucfScope = false);
   /// @brief D'tor
   /// @note the destructor deletes and frees the memory of all
   ///  sub-scopes
@@ -59,12 +60,13 @@ public:
   /// @param schedule Already scheduled basic blocks
   /// @return True if has unscueduled preds
   bool hasUnscheduledPreds(const BBVector& schedule);
-  /// @brief Static utility function to check if a basic block has
-  ///  unscueduled preds
+  /// @brief Utility function to check if a basic block has unsceduled preds
   /// @param schedule Scheduled basic blocks
+  /// @param schedule Unscheduled basic blocks whcih are not in any of nested scopes
   /// @param bb Basic Block to check
   /// @return True if not ready for scheduling
-  static bool hasUnscheduledPreds(const BBVector& schedule, BasicBlock* bb);
+  bool hasUnscheduledPreds(const BBVector& schedule,
+                                  const BBVector& thisScopeOnly, BasicBlock* bb);
   /// @brief Schedule the content of this scope
   /// @param schedule Saves the calculated schedule
   void schedule(BBVector& schedule);
@@ -81,8 +83,8 @@ private:
   void compress();
   /// @brief Collect a list of all basic blocks which do not belong to
   ///  sub scopes.
-  /// @param unscoped Set of un-scoped blocks
-  void getNonSchedulingScopedInstructions(SchedulingScope::BBVector &unscoped);
+  /// @param thisScopeOnly Set of un-scoped blocks
+  void getNonSchedulingScopedInstructions(SchedulingScope::BBVector &thisScopeOnly);
 private:
   /// the contained blocks
   BBVector m_blocks;
@@ -90,8 +92,10 @@ private:
   SchedulingScopeSet m_subscope;
   /// @brief Block Leader is the block
   /// which is scheduled first in case there are no dependencies
-  /// outside the scope. This is used when we have loops )
+  /// outside the scope. This is used when we have loops or UCF scope
   BasicBlock* m_leader;
+  /// @brief Identify UCF scheduling scope
+  bool const m_isUCFScope;
 };
 
 

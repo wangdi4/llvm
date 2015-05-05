@@ -146,7 +146,9 @@ if(CMAKE_CROSSCOMPILING)
 
     add_custom_target(ConfigureNativeTargets DEPENDS ${CX_NATIVE_TG_DIR}/bin/ocloptimg ${CX_NATIVE_TG_DIR}/bin/ocl-tblgen ${CX_NATIVE_TG_DIR}/bin/linux_resource_linker)
     set_directory_properties(PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES ${CX_NATIVE_TG_DIR})
-endif()
+else(CMAKE_CROSSCOMPILING)
+    add_custom_target(ConfigureNativeTargets DEPENDS ${CMAKE_BINARY_DIR}/bin/ocloptimg ${CMAKE_BINARY_DIR}/bin/ocl-tblgen ${CMAKE_BINARY_DIR}/bin/linux_resource_linker)
+endif(CMAKE_CROSSCOMPILING)
 
 if(INCLUDE_TOOLS)
     if(WIN32)
@@ -157,7 +159,11 @@ if(INCLUDE_TOOLS)
         endif(BUILD_X64)
     else(WIN32)
         if(ANDROID)
-            set(BOOST_LIB_DIR_SUFFIX android32)
+             if(BUILD_X64)
+                 set(BOOST_LIB_DIR_SUFFIX android64)
+             else(BUILD_X64)
+                 set(BOOST_LIB_DIR_SUFFIX android32)
+             endif(BUILD_X64)
         else(ANDROID)
             set(BOOST_LIB_DIR_SUFFIX x64)
         endif(ANDROID)
@@ -177,8 +183,8 @@ if(INCLUDE_TOOLS)
     else(NOT ANDROID)
         set (CMAKE_FIND_LIBRARY_SUFFIXES ".a")
         set (CMAKE_FIND_LIBRARY_PREFIXES "lib")
-        find_host_package(Boost 1.52.0 REQUIRED COMPONENTS ${BOOST_COMPONENTS})
         set (BOOST_LIBRARYDIR ${BOOST_ROOT}/lib/${BOOST_LIB_DIR_SUFFIX})
+        find_host_package(Boost 1.52.0 REQUIRED COMPONENTS ${BOOST_COMPONENTS})
         set(Boost_USE_STATIC_RUNTIME ON)
         set(BOOST_ALL_DYN_LINK OFF)
     endif(NOT ANDROID)
@@ -319,52 +325,58 @@ endif ()
 #
 # Project defs
 #
-project(OCL)
+project(OCL C CXX)
 
-# GIT
-set( BUILDVER_WC_REVISION 0)
-set( GIT_REVISION 0)
-if (GIT_REVISIONS)
-    find_package(Git REQUIRED)
-    execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --long --match=trunk
-                    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-                    OUTPUT_VARIABLE GIT_DESCRIPTION)
-    STRING(REGEX MATCH ".+-([0-9]*)-[0-9a-zA-Z]+" GIT_VERSION ${GIT_DESCRIPTION})
-    math(EXPR BUILDVER_WC_REVISION "0 + ${CMAKE_MATCH_1}")
+FIND_PACKAGE ( Threads REQUIRED )
+if(NOT CMAKE_THREAD_LIBS_INIT)
+  if(PTHREAD_LIB STREQUAL "")
+    set(PTHREAD_LIB "$ENV{PTHREAD_LIB}")
+  endif()
+  if(PTHREAD_LIB STREQUAL "")
+    message(FATAL_ERROR "No pthread library found!\nRun the cmake with option -D PTHREAD_LIB=/path/to/library or set the enviroment variable PTHREAD_LIB")
+  endif()
+else(NOT CMAKE_THREAD_LIBS_INIT)
+  set(PTHREAD_LIB ${CMAKE_THREAD_LIBS_INIT})
+endif()
 
-    execute_process(COMMAND ${GIT_EXECUTABLE} log -1 --format=%H
-                    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-                    OUTPUT_VARIABLE GIT_REVISION)
+message(STATUS "Pthread library: ${PTHREAD_LIB}")
+message(STATUS "Pthread include: ${PTHREAD_INC}")
 
-    if ("${LLVM_PATH_BE}" STREQUAL "")
-        set(LLVM_PATH_BE_STRING 0)
-    else()
-        set(LLVM_PATH_BE_STRING ${LLVM_PATH_BE})
-    endif()
+set( REVISION_ID $ENV{REVISION_ID} )
+set( GIT_VERSION $ENV{REVISION} )
+set( GIT_REVISION $ENV{RELEASE_BRANCH} )
 
-    if ("${LLVM_PATH_FE}" STREQUAL "")
-        set(LLVM_PATH_FE_STRING 0)
-    else()
-        set(LLVM_PATH_FE_STRING ${LLVM_PATH_FE})
-    endif()
-    
-    if ("${LLVM_PATH_SPIR12}" STREQUAL "")
-        set(LLVM_PATH_SPIR12_STRING 0)
-    else()
-        set(LLVM_PATH_SPIR12_STRING ${LLVM_PATH_SPIR12})
-    endif()
+if(NOT REVISION_ID)
+  message(STATUS "Build type: Development")
+  set(BUILDVER_WC_REVISION "0")
+  set( GIT_VERSION "DEV" )
+  set( GIT_REVISION "development" )
+elseif ( REVISION_ID MATCHES "\\.[0-9]*" ) # Revision ID
+  message(STATUS "Build type: Release")
+  STRING(REGEX MATCH ".([0-9]*)" REV_ID ${REVISION_ID} )
+  math( EXPR BUILDVER_WC_REVISION "10000 + ${CMAKE_MATCH_1}" )
+  set( GIT_VERSION $ENV{REVISION} )
+  set( GIT_REVISION $ENV{RELEASE_BRANCH} )
+elseif ( REVISION_ID MATCHES "-r[0-9]*" ) # Review ID
+  message(STATUS "Build type: Review")
+  set( BUILDVER_WC_REVISION "0" )
+  set( GIT_VERSION $ENV{REVISION} )
+  set( GIT_REVISION $ENV{RELEASE_BRANCH} )
+endif()
 
-    file(WRITE ${OCL_BINARY_DIR}/revision.txt "REVISION=${GIT_REVISION}\nDESCRIBE=${GIT_DESCRIPTION}\nLLVM_PATH_BE=${LLVM_PATH_BE_STRING}\nLLVM_PATH_FE=${LLVM_PATH_FE_STRING}\nLLVM_PATH_SPIR12=${LLVM_PATH_SPIR12_STRING}")
-    install(FILES ${OCL_BINARY_DIR}/revision.txt DESTINATION ./)
-endif (GIT_REVISIONS)
-message(STATUS "Current build version is ${BUILDVER_WC_REVISION}")
+set( PRODUCTVER_MAJOR 10 )
+set( PRODUCTVER_MINOR  0 )
 
-set(PRODUCTVER_MAJOR 10)
-set(PRODUCTVER_MINOR 0)
 math(EXPR BUILDVER_16_BIT_MAJOR "${BUILDVER_WC_REVISION} / 65536")
 math(EXPR BUILDVER_16_BIT_MINOR "${BUILDVER_WC_REVISION} % 65536")
 
-# write a file with the BUILDVERSION define
+message(STATUS "Current build version is ${BUILDVER_WC_REVISION}")
+message(STATUS "GIT Version: ${GIT_VERSION}")
+message(STATUS "GIT Revision: ${GIT_REVISION}")
+message(STATUS "PRODUCTVER_MAJOR: ${PRODUCTVER_MAJOR}")                    
+
+# --------------
+#  write a file with the BUILDVERSION define
 file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt
 "#define BUILDVERSION ${BUILDVER_WC_REVISION}\n
 #ifndef\ _DEBUG\n
@@ -377,14 +389,17 @@ file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt
 #define BUILDVERSION16BIT_MAJOR ${BUILDVER_16_BIT_MAJOR}\n
 #define BUILDVERSION16BIT_MINOR ${BUILDVER_16_BIT_MINOR}\n
 #define VERSIONSTRING \"${PRODUCTVER_MAJOR}.${PRODUCTVER_MINOR}.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n
-#define IOCVERSIONSTRING \"1.5.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n
-#define KBVERSIONSTRING \"1.3.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n")
+#define IOCVERSIONSTRING \"1.6.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n
+#define KBVERSIONSTRING \"1.4.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n")
+# --------------
 
 if(WIN32)
-    file(WRITE ${OCL_BINARY_DIR}/version.ini "[Version]\nPackVer=${PRODUCTVER_MAJOR}.${PRODUCTVER_MINOR}.${BUILDVER_WC_REVISION}")
+    file(WRITE ${OCL_BINARY_DIR}/version.ini "[Version]\nPackVer=${PRODUCTVER_MAJOR}.${PRODUCTVER_MINOR}.${BUILDVER_WC_REVISION}\n")
     install(FILES ${OCL_BINARY_DIR}/version.ini DESTINATION ./)
 endif()
-file(WRITE ${OCL_BINARY_DIR}/version.txt "Version=${PRODUCTVER_MAJOR}.${PRODUCTVER_MINOR}.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\nInternalVersion=${GIT_REVISION}")
+file(WRITE ${OCL_BINARY_DIR}/version.txt "Version=${PRODUCTVER_MAJOR}.${PRODUCTVER_MINOR}.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\nInternalVersion=${GIT_REVISION}\n")
+file(WRITE ${OCL_BINARY_DIR}/revision.txt "BUILD=${GIT_VERSION}\nREVISION=${GIT_REVISION}\nLLVM_PATH_BE=${LLVM_PATH_BE}\nLLVM_PATH_FE=${LLVM_PATH_FE}\nLLVM_PATH_SPIR12=${LLVM_PATH_SPIR12}\n")
+install(FILES ${OCL_BINARY_DIR}/revision.txt DESTINATION ./)
 
 #copy the version file to install folder
 install(FILES ${OCL_BINARY_DIR}/version.txt DESTINATION ./)

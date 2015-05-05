@@ -29,4 +29,4 @@ if(NOT WIN32)
     add_dependencies(${TARGET_NAME} ImathLibd_wrapper)
 endif(NOT WIN32)
 
-install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
+install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION tests/LITTests)

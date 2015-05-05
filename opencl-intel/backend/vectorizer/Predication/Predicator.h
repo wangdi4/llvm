@@ -25,6 +25,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 using namespace llvm;
 
@@ -95,6 +96,17 @@ public:
       SINGLE_BLOCK_LOOP_EXIT = 10
   };
 
+  /// @brief Return true if this is an entry BB to UCF region.
+  bool isUCFEntry(BasicBlock* BB) const;
+  /// @brief Return true if this is an interior UCF region BB.
+  bool isUCFInter(BasicBlock* BB) const;
+  /// @brierf Return true if this is an exit BB from UCF region.
+  bool isUCFExit(BasicBlock* BB) const;
+  /// @brierf Return exit BB of UCF region or NULL.
+  BasicBlock * getUCFExit(BasicBlock* entryBB);
+  /// @brierf Return entry BB of UCF region or NULL.
+  BasicBlock * getUCFEntry(BasicBlock* entryBB);
+
 private:
   /// Declare the type of our small instruction vector
   typedef SmallVector<Instruction*, 8> SmallInstVector;
@@ -146,6 +158,9 @@ private:
   /// @brief add scheduling constraints for divergent regions
   /// @param main_scope - the scope that we should add the constraints to
   void addDivergentBranchesSchedConstraints(SchedulingScope& main_scope);
+  /// @brief register Uniform Control Flow scheduling contraints
+  /// @param main_scope - the scope that we should add the constraints to
+  void registerUCFSchedulingScopes(SchedulingScope& main_scope);
   /// @brief Perform Linearization phase on a function
   /// @param F function to flatten
   /// @param specializer Function specializer for scheduling constraints
@@ -160,10 +175,11 @@ private:
   ///  latches, etc.
   /// @param block Block to organize.
   /// @param next If we are in a streight sequence, go to next
+  /// @param loop Loop this BB is inside
   /// @param next_after_loop If we are in a loop, this BB comes after
   ///  loop (exit block)
   void LinearizeBlock(BasicBlock* block, BasicBlock* next,
-                      BasicBlock* next_after_loop);
+                      Loop* loop, BasicBlock* next_after_loop);
   /*! \} */
 
   /*! \name Information helpers
@@ -235,6 +251,22 @@ private:
   void collectOptimizedMasks(Function* F,
                              PostDominatorTree* PDT,
                              DominatorTree*  DT);
+  /// @brief Test if a given region do not have divergent control flow inside
+  /// @param entryBB entry basic block
+  /// @param exitBB exit basic block
+  /// @return true if this is UCF region and false overwise
+  bool isUCFRegion(BasicBlock * const entryBB, BasicBlock * const exitBB, LoopInfo * LI);
+  /// @brief Uniform Control Flow subregion is a part of control flow graph inside
+  /// divergent control flow region with uniform branches only in a whole SESE region.
+  /// This property allows to preserve the control flow inside these regions instead of
+  /// linearazing the entire divergent region.
+  /// @param F Function to process
+  /// @param LI Loop info about F
+  /// @param PDT Post dominator info
+  /// @param DT Dominator info
+  void collectUCFRegions(Function* F, LoopInfo * LI,
+                         PostDominatorTree * PDT,
+                         DominatorTree *  DT);
   /// @brief for each block that ends with a divergent branch,
   /// saves the branchInfo into m_branchesInfo
   /// @param F Function to process
@@ -339,6 +371,9 @@ private:
   /// @brief inserts allones bypasses into the code, in places where the heuristics
   /// suggested to do so.
   void insertAllOnesBypasses();
+  /// @brief Create allOnes bypass for an entrire UCF region
+  /// @param ucfEntryBB - UCF entry BB
+  void insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB);
   /// @brief In case that the block we want to test for allones is
   /// a loop consists of a single block, then we treat it differently
   /// (in order to be more efficient).
@@ -362,7 +397,7 @@ private:
   /// @brief Checks if the input function is in canonical form
   /// @param F function to manipulate
   bool checkCanonicalForm(Function *F, LoopInfo *LI);
-  
+
 public:
   /*! \name LLVM Interface
    * \{ */
@@ -491,6 +526,14 @@ private:
   /// For each basic block that ends with a divergent branch,
   /// hold the original branch info (before changes by the predicator).
   std::map<BasicBlock*, BranchInfo> m_branchesInfo;
+  /// Entry basic blocks to UCF regions
+  std::map<BasicBlock*, BasicBlock*> m_ucfEntry2Exit;
+  /// Interior UCF BB with relation to the entry BBs.
+  std::map<BasicBlock*, BasicBlock*> m_ucfInter2Entry;
+  /// Exit basic blocks out of UCF regions with relation to the entry BBs
+  std::map<BasicBlock*, BasicBlock*> m_ucfExit2Entry;
+  /// UCF region scheduling constraints
+  SchdConstMap m_ucfSchedulingConstraints;
 
   // Statistics:
   Statistic::ActiveStatsT m_kernelStats;
@@ -501,6 +544,7 @@ private:
   Statistic Unpredicated_Uniform_Store_Load;
   Statistic Unpredicated_Cosecutive_Local_Memory_Load;
   Statistic Predicated_Consecutive_Local_Memory_Load;
+  Statistic Preserved_Uniform_Conrol_Flow_Regions;
   public: Statistic Edge_Not_Being_Specialized_Because_EdgeHot;
   public: Statistic Edge_Not_Being_Specialized_Because_EdgeHot_At_Least_50Insts;
   public: Statistic Edge_Not_Being_Specialized_Because_Should_Not_Specialize;

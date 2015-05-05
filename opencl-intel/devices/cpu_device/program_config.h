@@ -31,6 +31,7 @@
 #include "cl_user_logger.h"
 #include "cpu_logger.h"
 #include <string>
+#include <algorithm>
 
 using Intel::OpenCL::Utils::g_pUserLogger;
 
@@ -66,7 +67,10 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
                 // CL_CONFIG_USE_VECTORIZER is false.
                 return m_useVectorizer ? m_vectorizerMode : TRANSPOSE_SIZE_1;
               }
-
+              case CL_DEV_BACKEND_OPTION_RT_LOOP_UNROLL_FACTOR:
+              {
+                return std::max(1, std::min(16, m_rtLoopUnrollFactor));
+              }
               default:
                 return defaultValue;
             }
@@ -85,6 +89,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
     private:
         bool m_useVectorizer;
         int  m_vectorizerMode;
+        int  m_rtLoopUnrollFactor;
         bool m_useVTune;
 
     };

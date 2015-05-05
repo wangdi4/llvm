@@ -278,13 +278,13 @@ else()
 
     add_custom_command (
         OUTPUT ${CMAKE_BINARY_DIR}/bin/opencl_pch.cpp
-        DEPENDS ${LINUX_RESOURCE_LINKER_EXE} ${CLANG} ${OPENCL_PCH_OUT_DIR}/opencl_.pch
+        DEPENDS ConfigureNativeTargets ${CLANG} ${OPENCL_PCH_OUT_DIR}/opencl_.pch
         COMMAND ${LINUX_RESOURCE_LINKER_EXE} ${OPENCL_PCH_OUT_DIR}/opencl_.pch ${CMAKE_BINARY_DIR}/bin/opencl_pch.cpp PCH_101
     )
 
     add_custom_command (
         OUTPUT ${CMAKE_BINARY_DIR}/bin/opencl20_pch.cpp
-        DEPENDS ${LINUX_RESOURCE_LINKER_EXE} ${CLANG} ${OPENCL_PCH_OUT_DIR}/opencl20_.pch
+        DEPENDS ConfigureNativeTargets ${CLANG} ${OPENCL_PCH_OUT_DIR}/opencl20_.pch
         COMMAND ${LINUX_RESOURCE_LINKER_EXE} ${OPENCL_PCH_OUT_DIR}/opencl20_.pch ${CMAKE_BINARY_DIR}/bin/opencl20_pch.cpp PCH_102
     )
 endif()
@@ -305,10 +305,6 @@ add_custom_command( TARGET ${TARGET_NAME}
                     VERBATIM
 )
 
-install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_.pch DESTINATION bin)
-install(FILES ${OPENCL_PCH_OUT_DIR}/opencl20_.pch DESTINATION bin)
-install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch DESTINATION bin)
-install(FILES ${OPENCL_PCH_OUT_DIR}/opencl20_android_.pch DESTINATION bin)
 install(DIRECTORY ${OCL_CLANG_HEADERS}/ DESTINATION include/fe_include PATTERN *.h EXCLUDE )
 if( USE_COMMON_CLANG )
     string(REPLACE "\${CMAKE_CFG_INTDIR}" "\${BUILD_TYPE}" COMMON_CLANG_INSTALL_PATH ${COMMON_CLANG_PATH})

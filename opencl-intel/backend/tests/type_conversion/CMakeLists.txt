@@ -21,4 +21,5 @@ target_link_libraries(
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_TESTS_FOLDER_NAME} )
 
-install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
+install(FILES TestTypeConversion.pm DESTINATION tests/type_conversion)
+install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION tests/type_conversion)

@@ -74,7 +74,7 @@ endif (NOT WIN32)
 
 
 
-set( CREATE_DIR_NAME bin/validation/framework_test_type)
+set( CREATE_DIR_NAME tests/framework_test_type)
 
 file(GLOB_RECURSE CP_FILES RELATIVE  ${CMAKE_CURRENT_SOURCE_DIR} *.py *.xml *.xsd )
 # Copy *.py *.xml and *.xsd from current directory to appropriate test directory in 'Release' area.
@@ -85,6 +85,7 @@ install(FILES ../GeneralScripts/cmk_test_type_runner.py ../GeneralScripts/cmk_xm
 install(TARGETS ${TARGET} DESTINATION ${CREATE_DIR_NAME})
 # Copy *.xml cfg files which defines the options of the test to appropriate test directory in 'Release' area.
 install(FILES cfg_win.xml cfg_linux.xml DESTINATION ${CREATE_DIR_NAME}/framework_test)
+install(FILES framework_test_type.pm DESTINATION ${CREATE_DIR_NAME})
 
 set( INCLUDE_HEADERS_PATH ${OCL_CLANG_HEADERS})
 
