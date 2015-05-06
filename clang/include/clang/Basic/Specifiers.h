@@ -215,6 +215,9 @@ namespace clang {
     CC_IntelOclBicc, // __attribute__((intel_ocl_bicc))
     CC_SpirFunction, // default for OpenCL functions on SPIR target
     CC_SpirKernel    // inferred for OpenCL kernels on SPIR target
+#if INTEL_CUSTOMIZATION
+    ,CC_IntelRegCallcc, // __attribute__((regcall))
+#endif // INTEL_CUSTOMIZATION
   };
 
   /// \brief Checks whether the given calling convention supports variadic

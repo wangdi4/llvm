@@ -1158,6 +1158,13 @@ def IntelOclBicc : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+//if INTEL_CUSTOMIZATION
+def IntelRegCallcc : InheritableAttr {
+  let Spellings = [GNU<"regcall">];
+  let Documentation = [Undocumented];
+}
+
+//endif INTEL_CUSTOMIZATION
 def Pcs : InheritableAttr {
   let Spellings = [GCC<"pcs">];
   let Args = [EnumArgument<"PCS", "PCSType",

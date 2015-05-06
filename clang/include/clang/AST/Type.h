@@ -3483,6 +3483,9 @@ public:
     attr_ptr64,
     attr_sptr,
     attr_uptr
+#if INTEL_CUSTOMIZATION
+    ,attr_intelregcallcc,
+#endif // INTEL_CUSTOMIZATION
   };
 
 private:

@@ -112,6 +112,7 @@ static void diagnoseBadTypeAttribute(Sema &S, const AttributeList &attr,
     case AttributeList::AT_SysVABI: \
     case AttributeList::AT_Regparm: \
     case AttributeList::AT_Pcs: \
+    case AttributeList::AT_IntelRegCallcc: /* INTEL_CUSTOMIZATION */ \
     case AttributeList::AT_IntelOclBicc
 
 // Microsoft-specific type qualifiers.
@@ -3448,6 +3449,10 @@ static AttributeList::Kind getAttrListKind(AttributedType::Kind kind) {
     return AttributeList::AT_Pcs;
   case AttributedType::attr_inteloclbicc:
     return AttributeList::AT_IntelOclBicc;
+#if INTEL_CUSTOMIZATION
+  case AttributedType::attr_intelregcallcc:
+    return AttributeList::AT_IntelRegCallcc;
+#endif // INTEL_CUSTOMIZATION
   case AttributedType::attr_ms_abi:
     return AttributeList::AT_MSABI;
   case AttributedType::attr_sysv_abi:
@@ -4476,6 +4481,10 @@ static AttributedType::Kind getCCTypeAttrKind(AttributeList &Attr) {
   }
   case AttributeList::AT_IntelOclBicc:
     return AttributedType::attr_inteloclbicc;
+#if INTEL_CUSTOMIZATION
+  case AttributeList::AT_IntelRegCallcc:
+    return AttributedType::attr_intelregcallcc;
+#endif // INTEL_CUSTOMIZATION
   case AttributeList::AT_MSABI:
     return AttributedType::attr_ms_abi;
   case AttributeList::AT_SysVABI:

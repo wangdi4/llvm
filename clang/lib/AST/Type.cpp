@@ -1604,6 +1604,9 @@ StringRef FunctionType::getNameForCallConv(CallingConv CC) {
   case CC_IntelOclBicc: return "intel_ocl_bicc";
   case CC_SpirFunction: return "spir_function";
   case CC_SpirKernel: return "spir_kernel";
+#if INTEL_CUSTOMIZATION
+  case CC_IntelRegCallcc: return "regcall";
+#endif // INTEL_CUSTOMIZATION
   }
 
   llvm_unreachable("Invalid calling convention.");
@@ -1953,6 +1956,9 @@ bool AttributedType::isCallingConv() const {
   case attr_ms_abi:
   case attr_sysv_abi:
   case attr_inteloclbicc:
+#if INTEL_CUSTOMIZATION
+  case attr_intelregcallcc:
+#endif // INTEL_CUSTOMIZATION
     return true;
   }
   llvm_unreachable("invalid attr kind");

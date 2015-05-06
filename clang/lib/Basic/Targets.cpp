@@ -2236,6 +2236,9 @@ public:
             CC == CC_X86VectorCall ||
             CC == CC_C ||
             CC == CC_X86Pascal ||
+#if INTEL_CUSTOMIZATION
+            CC == CC_IntelRegCallcc ||
+#endif // INTEL_CUSTOMIZATION
             CC == CC_IntelOclBicc) ? CCCR_OK : CCCR_Warning;
   }
 
@@ -3634,6 +3637,9 @@ public:
     return (CC == CC_C ||
             CC == CC_X86VectorCall ||
             CC == CC_IntelOclBicc ||
+#if INTEL_CUSTOMIZATION
+            CC == CC_IntelRegCallcc ||
+#endif // INTEL_CUSTOMIZATION
             CC == CC_X86_64Win64) ? CCCR_OK : CCCR_Warning;
   }
 
@@ -3683,6 +3689,9 @@ public:
     case CC_X86VectorCall:
     case CC_IntelOclBicc:
     case CC_X86_64SysV:
+#if INTEL_CUSTOMIZATION
+    case CC_IntelRegCallcc:
+#endif // INTEL_CUSTOMIZATION
       return CCCR_OK;
     default:
       return CCCR_Warning;

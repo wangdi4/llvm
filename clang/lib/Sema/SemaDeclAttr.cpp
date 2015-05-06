@@ -3631,6 +3631,13 @@ static void handleCallConvAttr(Sema &S, Decl *D, const AttributeList &Attr) {
                IntelOclBiccAttr(Attr.getRange(), S.Context,
                                 Attr.getAttributeSpellingListIndex()));
     return;
+#if INTEL_CUSTOMIZATION
+  case AttributeList::AT_IntelRegCallcc:
+    D->addAttr(::new (S.Context)
+               IntelRegCallccAttr(Attr.getRange(), S.Context,
+                                Attr.getAttributeSpellingListIndex()));
+    return;
+#endif // INTEL_CUSTOMIZATION
 
   default:
     llvm_unreachable("unexpected attribute kind");
@@ -3683,6 +3690,9 @@ bool Sema::CheckCallingConvAttr(const AttributeList &attr, CallingConv &CC,
     return true;
   }
   case AttributeList::AT_IntelOclBicc: CC = CC_IntelOclBicc; break;
+#if INTEL_CUSTOMIZATION
+  case AttributeList::AT_IntelRegCallcc: CC = CC_IntelRegCallcc; break;
+#endif // INTEL_CUSTOMIZATION
   default: llvm_unreachable("unexpected attribute kind");
   }
 
@@ -5066,6 +5076,11 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_IntelOclBicc:
     handleCallConvAttr(S, D, Attr);
     break;
+#if INTEL_CUSTOMIZATION
+  case AttributeList::AT_IntelRegCallcc:
+    handleCallConvAttr(S, D, Attr);
+    break;
+#endif // INTEL_CUSTOMIZATION
   case AttributeList::AT_OpenCLKernel:
     handleSimpleAttribute<OpenCLKernelAttr>(S, D, Attr);
     break;

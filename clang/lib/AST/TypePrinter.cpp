@@ -692,6 +692,11 @@ void TypePrinter::printFunctionProtoAfter(const FunctionProtoType *T,
     case CC_IntelOclBicc:
       OS << " __attribute__((intel_ocl_bicc))";
       break;
+#if INTEL_CUSTOMIZATION
+    case CC_IntelRegCallcc:
+      OS << " __attribute__((regcall))";
+      break;
+#endif // INTEL_CUSTOMIZATION
     case CC_X86_64Win64:
       OS << " __attribute__((ms_abi))";
       break;
@@ -1259,6 +1264,9 @@ void TypePrinter::printAttributedAfter(const AttributedType *T,
    break;
   }
   case AttributedType::attr_inteloclbicc: OS << "inteloclbicc"; break;
+#if INTEL_CUSTOMIZATION
+  case AttributedType::attr_intelregcallcc: OS << "intelregcallcc"; break;
+#endif // INTEL_CUSTOMIZATION
   }
   OS << "))";
 }
