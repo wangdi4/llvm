@@ -605,12 +605,8 @@ else(APPLE)
     
 endif(APPLE)
 
-#if(ANDROID)
-#    if(BUILD_X64)
-#        get_filename_component(ABS_DIR ${ANDROID_NDK_SYSROOT}usr/lib64/libgnustl_shared.so REALPATH)
-#        install(FILES ${ABS_DIR} DESTINATION bin)
-#    else(BUILD_X64)
-#    endif(BUILD_X64)
-#endif(ANDROID)
+if(ANDROID)
+  install(FILES ${STL_LIBRARIES_PATH}/libgnustl_shared.so DESTINATION bin)
+endif(ANDROID)
 
 
