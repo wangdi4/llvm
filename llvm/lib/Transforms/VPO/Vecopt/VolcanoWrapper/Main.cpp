@@ -646,6 +646,7 @@ Function* Vectorizer::createVectorVersion(Function& vectorizedFunction,
 					   name,
 					   vectorizedFunction.getParent());
   wrapperFunc->copyAttributesFrom(&vectorizedFunction);
+  wrapperFunc->setCallingConv(CallingConv::Intel_regcall);
   BasicBlock* entryBB = BasicBlock::Create(wrapperFunc->getContext(),
 					   "wrapper.entry",
 					   wrapperFunc);
