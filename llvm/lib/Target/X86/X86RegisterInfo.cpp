@@ -262,8 +262,19 @@ X86RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
     return CSR_64_SaveList;
   default:
     break;
-  }
 
+#if INTEL_CUSTOMIZATION
+  case CallingConv::SVML:
+    if (!Is64Bit)
+      return CSR_32_SVML_SaveList;
+    if (IsWin64)
+      return CSR_Win64_SVML_SaveList;
+    if (HasAVX512)
+      return CSR_Lin64_SVML_AVX512_SaveList;
+    return CSR_Lin64_SVML_SaveList;
+
+#endif
+  }
   if (Is64Bit) {
     if (IsWin64)
       return CSR_Win64_SaveList;
@@ -318,6 +329,19 @@ X86RegisterInfo::getCallPreservedMask(CallingConv::ID CC) const {
     return CSR_Win64_RegMask;
   case CallingConv::X86_64_SysV:
     return CSR_64_RegMask;
+
+#if INTEL_CUSTOMIZATION
+  case CallingConv::SVML:
+    if (!Is64Bit)
+      return CSR_32_SVML_RegMask;
+    if (IsWin64)
+      return CSR_Win64_SVML_RegMask;
+    if (HasAVX512)
+      return CSR_Lin64_SVML_AVX512_RegMask;
+    return CSR_Lin64_SVML_RegMask;
+
+#endif
+
   }
 
   // Unlike getCalleeSavedRegs(), we don't have MMI so we can't check

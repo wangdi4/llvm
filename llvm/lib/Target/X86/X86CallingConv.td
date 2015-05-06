@@ -223,12 +223,24 @@ def RetCC_X86_64 : CallingConv<[
   CCDelegateTo<RetCC_X86_64_C>
 ]>;
 
+def RetCC_SVML : CallingConv<[
+
+  CCIfType<[f32, f64, v4i32, v2i64, v4f32, v2f64],
+           CCAssignToReg<[XMM0, XMM1]>>,
+  
+  CCIfType<[v8f32, v4f64, v8i32, v4i64],
+           CCAssignToReg<[YMM0, YMM1]>>,
+
+  CCIfType<[v16f32, v8f64, v16i32, v8i64],
+           CCAssignToReg<[ZMM0, ZMM1]>>
+]>;
+
 // This is the return-value convention used for the entire X86 backend.
 def RetCC_X86 : CallingConv<[
 
   // Check if this is the Intel OpenCL built-ins calling convention
   CCIfCC<"CallingConv::Intel_OCL_BI", CCDelegateTo<RetCC_Intel_OCL_BI>>,
-
+  CCIfCC<"CallingConv::SVML", CCDelegateTo<RetCC_SVML>>,
   CCIfSubtarget<"is64Bit()", CCDelegateTo<RetCC_X86_64>>,
   CCDelegateTo<RetCC_X86_32>
 ]>;
@@ -452,6 +464,16 @@ def CC_X86_32_Common : CallingConv<[
   // Long doubles get slots whose size depends on the subtarget.
   CCIfType<[f80], CCAssignToStack<0, 4>>,
 
+  // Boolean vectors of AVX-512 are passed in SIMD registers.
+  // The call from AVX to AVX-512 function should work,
+  // since the boolean types in AVX/AVX2 are promoted by default.
+  CCIfType<[v2i1],  CCPromoteToType<v2i64>>,
+  CCIfType<[v4i1],  CCPromoteToType<v4i32>>,
+  CCIfType<[v8i1],  CCPromoteToType<v8i16>>,
+  CCIfType<[v16i1], CCPromoteToType<v16i8>>,
+  CCIfType<[v32i1], CCPromoteToType<v32i8>>,
+  CCIfType<[v64i1], CCPromoteToType<v64i8>>,
+
   // The first 4 SSE vector arguments are passed in XMM registers.
   CCIfNotVarArg<CCIfType<[v16i8, v8i16, v4i32, v2i64, v4f32, v2f64],
                 CCAssignToReg<[XMM0, XMM1, XMM2, XMM3]>>>,
@@ -611,6 +633,21 @@ def CC_X86_32_HiPE : CallingConv<[
   CCIfType<[i32, f32], CCAssignToStack<4, 4>>
 ]>;
 
+def CC_SVML : CallingConv<[
+
+  CCIfType<[f32, f64, v4i32, v2i64, v4f32, v2f64],
+           CCAssignToReg<[XMM0, XMM1, XMM2]>>,
+  
+  CCIfType<[v8f32, v4f64, v8i32, v4i64],
+           CCAssignToReg<[YMM0, YMM1, YMM2]>>,
+
+  CCIfType<[v16f32, v8f64, v16i32, v8i64],
+           CCAssignToReg<[ZMM0, ZMM1, ZMM2]>>,
+
+  CCIfType<[v8i1, v16i1],
+           CCAssignToReg<[K1]>>
+]>;
+
 // X86-64 Intel OpenCL built-ins calling convention.
 def CC_Intel_OCL_BI : CallingConv<[
 
@@ -679,6 +716,7 @@ def CC_X86_64 : CallingConv<[
 // This is the argument convention used for the entire X86 backend.
 def CC_X86 : CallingConv<[
   CCIfCC<"CallingConv::Intel_OCL_BI", CCDelegateTo<CC_Intel_OCL_BI>>,
+  CCIfCC<"CallingConv::SVML", CCDelegateTo<CC_SVML>>,
   CCIfSubtarget<"is64Bit()", CCDelegateTo<CC_X86_64>>,
   CCDelegateTo<CC_X86_32>
 ]>;
@@ -738,3 +776,29 @@ def CSR_64_Intel_OCL_BI_AVX    : CalleeSavedRegs<(add CSR_64,
 def CSR_64_Intel_OCL_BI_AVX512 : CalleeSavedRegs<(add RBX, RDI, RSI, R14, R15,
                                                   (sequence "ZMM%u", 16, 31),
                                                   K4, K5, K6, K7)>;
+// Intel SVML
+def CSR_32_Intel_SVML : CalleeSavedRegs<(add EBX, EDI, ESI, EBP, ESP,
+                                         K4, K5, K6, K7)>;
+
+// if INTEL_CUSTOMIZATION
+def CSR_32_SVML : CalleeSavedRegs<(add EBX, EDI, ESI, EBP,
+                                       K4, K5, K6, K7)>;
+def CSR_Win64_SVML : CalleeSavedRegs<(add RBX, RDI, RSI, RBP, R12, R13, R14, R15,
+                                     (sequence "XMM%u", 6, 21),
+                                     (sequence "YMM%u", 6, 21),
+                                     (sequence "ZMM%u", 6, 21),
+                                     K4, K5, K6, K7)>;
+def CSR_Lin64_SVML : CalleeSavedRegs<(add RBX, RDI, RSI, RBP, R12, R13, R14, R15,
+                                     (sequence "XMM%u", 8, 31),
+                                     (sequence "YMM%u", 8, 31),
+                                     (sequence "ZMM%u", 8, 31),
+                                     K4, K5, K6, K7)>;
+
+def CSR_Lin64_SVML_AVX512 : CalleeSavedRegs<(add RBX, RDI, RSI, RBP, R12, R13,
+                                             R14, R15,
+                                             (sequence "XMM%u", 16, 31),
+                                             (sequence "YMM%u", 16, 31),
+                                             (sequence "ZMM%u", 16, 31),
+                                             K4, K5, K6, K7)>;
+// endif INTEL_CUSTOMIZATION
+
