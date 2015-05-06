@@ -581,7 +581,8 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(intel_ocl_bicc);
 #if INTEL_CUSTOMIZATION
   KEYWORD(svml_cc);
-#endif
+  KEYWORD(__regcall);
+#endif // INTEL_CUSTOMIZATION
   KEYWORD(x86_64_sysvcc);
   KEYWORD(x86_64_win64cc);
   KEYWORD(webkit_jscc);
