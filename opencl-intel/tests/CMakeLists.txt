@@ -13,17 +13,6 @@ if (MSVC)
   add_subdirectory( analyze_package_test_type )
 endif (MSVC)
 
-add_subdirectory( SWTBot_test_type )
-
-if(INCLUDE_TOOLS AND NOT ANDROID)
-  add_subdirectory( tools_test_type)
-  add_subdirectory( KFC_test_type )
-  add_subdirectory( analyzer_test_type )
-  if(BUILD_QTGUI)
-    add_subdirectory( KBAPI_test_type)
-  endif(BUILD_QTGUI)
-endif(INCLUDE_TOOLS AND NOT ANDROID)
-
 add_subdirectory( task_executor_test_type )
 
 if ( INCLUDE_MIC_DEVICE )
@@ -46,3 +35,4 @@ option(INCLUDE_SMPLS "Include Samples into Build"  OFF)
 if (INCLUDE_SMPLS)
   add_subdirectory( samples )
 endif(INCLUDE_SMPLS)
+

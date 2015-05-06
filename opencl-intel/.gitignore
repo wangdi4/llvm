@@ -1,2 +1,4 @@
-externals/
+/externals/
+/icd/
 *~
+*.pch

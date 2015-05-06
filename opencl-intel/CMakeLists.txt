@@ -594,7 +594,7 @@ else(APPLE)
     endif( INCLUDE_TOOLS )
 
     #workloads
-    add_subdirectory( workloads )
+    #add_subdirectory( workloads )
     
     #Linux samples
     option(INCLUDE_SMPLS "Include Linux Samples into Build"  OFF)
