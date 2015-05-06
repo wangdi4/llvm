@@ -8,11 +8,6 @@ add_subdirectory( tbb_native_test_type )
 add_subdirectory( cpu_device_test_type )
 add_subdirectory( framework_test_type )
 
-if (MSVC)
-  add_subdirectory( vs_test_type )
-  add_subdirectory( analyze_package_test_type )
-endif (MSVC)
-
 add_subdirectory( task_executor_test_type )
 
 if ( INCLUDE_MIC_DEVICE )
