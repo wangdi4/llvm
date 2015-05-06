@@ -45,6 +45,10 @@ TargetInfo::TargetInfo(const llvm::Triple &T) : TargetOpts(), Triple(T) {
   DoubleAlign = 64;
   LongDoubleWidth = 64;
   LongDoubleAlign = 64;
+#ifdef INTEL_CUSTOMIZATION
+  // __float128 type is disabled by default.
+  IsFloat128Enabled = false;
+#endif // INTEL_CUSTOMIZATION
   LargeArrayMinWidth = 0;
   LargeArrayAlign = 0;
   MaxAtomicPromoteWidth = MaxAtomicInlineWidth = 0;
@@ -220,6 +224,11 @@ TargetInfo::RealType TargetInfo::getRealTypeByWidth(unsigned BitWidth) const {
     if (&getLongDoubleFormat() == &llvm::APFloat::PPCDoubleDouble ||
         &getLongDoubleFormat() == &llvm::APFloat::IEEEquad)
       return LongDouble;
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#369183 - return proper value if __float128 is enabled.
+    if (IsFloat128Enabled)
+      return Float128;
+#endif // INTEL_CUSTOMIZATION
     break;
   }
 
@@ -306,6 +315,11 @@ void TargetInfo::adjust(const LangOptions &Opts) {
     FloatFormat = &llvm::APFloat::IEEEsingle;
     LongDoubleFormat = &llvm::APFloat::IEEEquad;
   }
+
+#ifdef INTEL_CUSTOMIZATION
+  // Enable __float128 in IntelCompat modes only.
+  IsFloat128Enabled = (Opts.IntelCompat || Opts.IntelMSCompat) && Opts.Float128;
+#endif // INTEL_CUSTOMIZATION
 }
 
 //===----------------------------------------------------------------------===//
