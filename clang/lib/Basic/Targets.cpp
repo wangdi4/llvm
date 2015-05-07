@@ -6600,6 +6600,9 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
       return new ARMbeTargetInfo(Triple);
     }
 
+  case llvm::Triple::lpu:
+    return new LPUTargetInfo(Triple);
+
   case llvm::Triple::msp430:
     return new MSP430TargetInfo(Triple);
 

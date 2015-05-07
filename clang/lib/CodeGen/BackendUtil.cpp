@@ -646,7 +646,8 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
 
   // If an optional clang TargetInfo description string was passed in, use it to
   // verify the LLVM TargetMachine's DataLayout.
-  if (AsmHelper.TM && !TDesc.empty()) {
+  if (AsmHelper.TM && AsmHelper.TM->getSubtargetImpl()->getDataLayout() &&
+      !TDesc.empty()) {
     std::string DLDesc = AsmHelper.TM->getSubtargetImpl()
                              ->getDataLayout()
                              ->getStringRepresentation();
