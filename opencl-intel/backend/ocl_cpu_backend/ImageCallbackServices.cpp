@@ -79,7 +79,6 @@ const cl_image_format supportedRWImageFormats2D[] = { READ_WRITE_FORMATS, ONLY_2
 const cl_image_format supportedROImageFormats1D3D[] = { READ_WRITE_FORMATS, READ_ONLY_FORMATS };
 const cl_image_format supportedROImageFormats2D[] = { READ_WRITE_FORMATS, READ_ONLY_FORMATS, ONLY_2D_FORMATS };
 
-
 ImageCallbackService::ImageCallbackService(const CompilerConfig& config, bool isCpu)
 {
   ImageCallbackManager::GetInstance()->InitLibrary(config, isCpu, m_CpuId);
@@ -89,7 +88,7 @@ const cl_image_format* ImageCallbackService::GetSupportedImageFormats(unsigned i
 
     cl_image_format const* ret = NULL;
     // leave only memory access flags
-    flags &= (CL_MEM_READ_ONLY | CL_MEM_READ_ONLY | CL_MEM_READ_WRITE);
+    flags &= (CL_MEM_WRITE_ONLY | CL_MEM_READ_ONLY | CL_MEM_READ_WRITE | CL_MEM_KERNEL_READ_AND_WRITE);
     // If value specified for flags is 0, the default is used which
     // is CL_MEM_READ_WRITE.
     flags = flags ? flags : CL_MEM_READ_WRITE;
@@ -97,6 +96,7 @@ const cl_image_format* ImageCallbackService::GetSupportedImageFormats(unsigned i
     switch(flags) {
       case CL_MEM_WRITE_ONLY:
       case CL_MEM_READ_WRITE:
+      case CL_MEM_KERNEL_READ_AND_WRITE:
       {
         if(imageType == CL_MEM_OBJECT_IMAGE2D ||
            imageType == CL_MEM_OBJECT_IMAGE2D_ARRAY) {
