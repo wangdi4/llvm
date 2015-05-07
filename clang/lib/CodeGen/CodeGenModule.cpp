@@ -3666,43 +3666,37 @@ void CodeGenModule::EmitTargetMetadata() {
 }
 
 #ifdef INTEL_CUSTOMIZATION
-void CodeGenModule::EmitIntelDebugInfoMetadata() {
+/// \brief Emits metadata in TheModule with the given Name and Value.
+static void AddLLVMDbgMetadata(llvm::Module &TheModule, StringRef Name,
+                               StringRef Value) {
+  if (Name.empty() || Value.empty())
+    return;
   llvm::LLVMContext &Ctx = TheModule.getContext();
+  llvm::Metadata *Node[] = { llvm::MDString::get(Ctx, Value) };
+  llvm::NamedMDNode *Metadata = TheModule.getOrInsertNamedMetadata(Name);
+  Metadata->addOperand(llvm::MDNode::get(Ctx, Node));
+}
+
+void CodeGenModule::EmitIntelDebugInfoMetadata() {
   // CQ#368123 - support '--[no-]emit-unused-member-decls' options.
-  std::string EmitUnusedMemberDeclsStr =
+  StringRef EmitUnusedMemberDecls =
       getCodeGenOpts().EmitUnusedMemberDecls ? "true" : "false";
-  llvm::Metadata *EmitUnusedMemberDeclsNode[] = { llvm::MDString::get(
-      Ctx, EmitUnusedMemberDeclsStr) };
-  llvm::NamedMDNode *EmitUnusedMemberDeclsMetadata =
-      TheModule.getOrInsertNamedMetadata(
-          "llvm.dbg.intel.emit_unused_member_decls");
-  EmitUnusedMemberDeclsMetadata->addOperand(
-      llvm::MDNode::get(Ctx, EmitUnusedMemberDeclsNode));
+  AddLLVMDbgMetadata(TheModule, "llvm.dbg.intel.emit_unused_member_decls",
+                     EmitUnusedMemberDecls);
 }
 
 void CodeGenModule::EmitMSDebugInfoMetadata() {
-  unsigned FileKind = getCodeGenOpts().getMSDebugInfoFile();
-  if (FileKind == CodeGenOptions::MSDebugInfoNoFile)
-    return;
   // CQ#368119 - support for '/Z7' and '/Zi' options.
-  std::string FileType =
-      (FileKind == CodeGenOptions::MSDebugInfoPdbFile) ? "pdb" : "obj";
-  llvm::LLVMContext &Ctx = TheModule.getContext();
-  llvm::Metadata *MSFileTypeNode[] = { llvm::MDString::get(Ctx, FileType) };
-  llvm::NamedMDNode *MSFileTypeMetadata =
-      TheModule.getOrInsertNamedMetadata("llvm.dbg.ms.filetype");
-  MSFileTypeMetadata->addOperand(llvm::MDNode::get(Ctx, MSFileTypeNode));
+  unsigned Kind = getCodeGenOpts().getMSDebugInfoFile();
+  StringRef FileType = Kind == CodeGenOptions::MSDebugInfoObjFile ? "obj" :
+                       Kind == CodeGenOptions::MSDebugInfoPdbFile ? "pdb" :
+                       "";
+  AddLLVMDbgMetadata(TheModule, "llvm.dbg.ms.filetype", FileType);
   // CQ#368125 - support for '/Fd' and '/Fo' options.
-  std::string FileName = getCodeGenOpts().MSOutputObjFile;
-  if (FileKind == CodeGenOptions::MSDebugInfoPdbFile)
-    FileName = getCodeGenOpts().MSOutputPdbFile;
-  // Return if desired option is not set.
-  if (FileName == "")
-    return;
-  llvm::Metadata *MSFileNameNode[] = { llvm::MDString::get(Ctx, FileName) };
-  llvm::NamedMDNode *MSFileNameMetadata =
-      TheModule.getOrInsertNamedMetadata("llvm.dbg.ms." + FileType);
-  MSFileNameMetadata->addOperand(llvm::MDNode::get(Ctx, MSFileNameNode));
+  AddLLVMDbgMetadata(TheModule, "llvm.dbg.ms.obj",
+                     getCodeGenOpts().MSOutputObjFile);
+  AddLLVMDbgMetadata(TheModule, "llvm.dbg.ms.pdb",
+                     getCodeGenOpts().MSOutputPdbFile);
 }
 #endif //INTEL_CUSTOMIZATION
 
