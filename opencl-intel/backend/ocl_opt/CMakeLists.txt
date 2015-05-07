@@ -70,4 +70,4 @@ target_link_libraries(${TARGET_NAME}
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME})
 
-install( TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
+install( TARGETS ${TARGET_NAME} RUNTIME DESTINATION tests/LITTests )

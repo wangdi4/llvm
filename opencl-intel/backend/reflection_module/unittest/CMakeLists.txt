@@ -33,5 +33,6 @@ target_link_libraries(
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_TESTS_FOLDER_NAME} )
 
-install(FILES mybi.ll DESTINATION bin)
-install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
+install(FILES mybi.ll DESTINATION tests/reflection_module)
+install(FILES ReflectionModuleTest.pm DESTINATION tests/reflection_module)
+install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION tests/reflection_module)

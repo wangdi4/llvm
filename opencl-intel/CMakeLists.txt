@@ -146,7 +146,9 @@ if(CMAKE_CROSSCOMPILING)
 
     add_custom_target(ConfigureNativeTargets DEPENDS ${CX_NATIVE_TG_DIR}/bin/ocloptimg ${CX_NATIVE_TG_DIR}/bin/ocl-tblgen ${CX_NATIVE_TG_DIR}/bin/linux_resource_linker)
     set_directory_properties(PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES ${CX_NATIVE_TG_DIR})
-endif()
+else(CMAKE_CROSSCOMPILING)
+    add_custom_target(ConfigureNativeTargets DEPENDS ${CMAKE_BINARY_DIR}/bin/ocloptimg ${CMAKE_BINARY_DIR}/bin/ocl-tblgen ${CMAKE_BINARY_DIR}/bin/linux_resource_linker)
+endif(CMAKE_CROSSCOMPILING)
 
 if(INCLUDE_TOOLS)
     if(WIN32)
@@ -323,52 +325,58 @@ endif ()
 #
 # Project defs
 #
-project(OCL)
+project(OCL C CXX)
 
-# GIT
-set( BUILDVER_WC_REVISION 0)
-set( GIT_REVISION 0)
-if (GIT_REVISIONS)
-    find_package(Git REQUIRED)
-    execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --long --match=trunk
-                    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-                    OUTPUT_VARIABLE GIT_DESCRIPTION)
-    STRING(REGEX MATCH ".+-([0-9]*)-[0-9a-zA-Z]+" GIT_VERSION ${GIT_DESCRIPTION})
-    math(EXPR BUILDVER_WC_REVISION "0 + ${CMAKE_MATCH_1}")
+FIND_PACKAGE ( Threads REQUIRED )
+if(NOT CMAKE_THREAD_LIBS_INIT)
+  if(PTHREAD_LIB STREQUAL "")
+    set(PTHREAD_LIB "$ENV{PTHREAD_LIB}")
+  endif()
+  if(PTHREAD_LIB STREQUAL "")
+    message(FATAL_ERROR "No pthread library found!\nRun the cmake with option -D PTHREAD_LIB=/path/to/library or set the enviroment variable PTHREAD_LIB")
+  endif()
+else(NOT CMAKE_THREAD_LIBS_INIT)
+  set(PTHREAD_LIB ${CMAKE_THREAD_LIBS_INIT})
+endif()
 
-    execute_process(COMMAND ${GIT_EXECUTABLE} log -1 --format=%H
-                    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-                    OUTPUT_VARIABLE GIT_REVISION)
+message(STATUS "Pthread library: ${PTHREAD_LIB}")
+message(STATUS "Pthread include: ${PTHREAD_INC}")
 
-    if ("${LLVM_PATH_BE}" STREQUAL "")
-        set(LLVM_PATH_BE_STRING 0)
-    else()
-        set(LLVM_PATH_BE_STRING ${LLVM_PATH_BE})
-    endif()
+set( REVISION_ID $ENV{REVISION_ID} )
+set( GIT_VERSION $ENV{REVISION} )
+set( GIT_REVISION $ENV{RELEASE_BRANCH} )
 
-    if ("${LLVM_PATH_FE}" STREQUAL "")
-        set(LLVM_PATH_FE_STRING 0)
-    else()
-        set(LLVM_PATH_FE_STRING ${LLVM_PATH_FE})
-    endif()
-    
-    if ("${LLVM_PATH_SPIR12}" STREQUAL "")
-        set(LLVM_PATH_SPIR12_STRING 0)
-    else()
-        set(LLVM_PATH_SPIR12_STRING ${LLVM_PATH_SPIR12})
-    endif()
+if(NOT REVISION_ID)
+  message(STATUS "Build type: Development")
+  set(BUILDVER_WC_REVISION "0")
+  set( GIT_VERSION "DEV" )
+  set( GIT_REVISION "development" )
+elseif ( REVISION_ID MATCHES "\\.[0-9]*" ) # Revision ID
+  message(STATUS "Build type: Release")
+  STRING(REGEX MATCH ".([0-9]*)" REV_ID ${REVISION_ID} )
+  math( EXPR BUILDVER_WC_REVISION "10000 + ${CMAKE_MATCH_1}" )
+  set( GIT_VERSION $ENV{REVISION} )
+  set( GIT_REVISION $ENV{RELEASE_BRANCH} )
+elseif ( REVISION_ID MATCHES "-r[0-9]*" ) # Review ID
+  message(STATUS "Build type: Review")
+  set( BUILDVER_WC_REVISION "0" )
+  set( GIT_VERSION $ENV{REVISION} )
+  set( GIT_REVISION $ENV{RELEASE_BRANCH} )
+endif()
 
-    file(WRITE ${OCL_BINARY_DIR}/revision.txt "REVISION=${GIT_REVISION}\nDESCRIBE=${GIT_DESCRIPTION}\nLLVM_PATH_BE=${LLVM_PATH_BE_STRING}\nLLVM_PATH_FE=${LLVM_PATH_FE_STRING}\nLLVM_PATH_SPIR12=${LLVM_PATH_SPIR12_STRING}")
-    install(FILES ${OCL_BINARY_DIR}/revision.txt DESTINATION ./)
-endif (GIT_REVISIONS)
-message(STATUS "Current build version is ${BUILDVER_WC_REVISION}")
+set( PRODUCTVER_MAJOR 10 )
+set( PRODUCTVER_MINOR  0 )
 
-set(PRODUCTVER_MAJOR 10)
-set(PRODUCTVER_MINOR 0)
 math(EXPR BUILDVER_16_BIT_MAJOR "${BUILDVER_WC_REVISION} / 65536")
 math(EXPR BUILDVER_16_BIT_MINOR "${BUILDVER_WC_REVISION} % 65536")
 
-# write a file with the BUILDVERSION define
+message(STATUS "Current build version is ${BUILDVER_WC_REVISION}")
+message(STATUS "GIT Version: ${GIT_VERSION}")
+message(STATUS "GIT Revision: ${GIT_REVISION}")
+message(STATUS "PRODUCTVER_MAJOR: ${PRODUCTVER_MAJOR}")                    
+
+# --------------
+#  write a file with the BUILDVERSION define
 file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt
 "#define BUILDVERSION ${BUILDVER_WC_REVISION}\n
 #ifndef\ _DEBUG\n
@@ -383,12 +391,15 @@ file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt
 #define VERSIONSTRING \"${PRODUCTVER_MAJOR}.${PRODUCTVER_MINOR}.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n
 #define IOCVERSIONSTRING \"1.6.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n
 #define KBVERSIONSTRING \"1.4.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n")
+# --------------
 
 if(WIN32)
-    file(WRITE ${OCL_BINARY_DIR}/version.ini "[Version]\nPackVer=${PRODUCTVER_MAJOR}.${PRODUCTVER_MINOR}.${BUILDVER_WC_REVISION}")
+    file(WRITE ${OCL_BINARY_DIR}/version.ini "[Version]\nPackVer=${PRODUCTVER_MAJOR}.${PRODUCTVER_MINOR}.${BUILDVER_WC_REVISION}\n")
     install(FILES ${OCL_BINARY_DIR}/version.ini DESTINATION ./)
 endif()
-file(WRITE ${OCL_BINARY_DIR}/version.txt "Version=${PRODUCTVER_MAJOR}.${PRODUCTVER_MINOR}.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\nInternalVersion=${GIT_REVISION}")
+file(WRITE ${OCL_BINARY_DIR}/version.txt "Version=${PRODUCTVER_MAJOR}.${PRODUCTVER_MINOR}.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\nInternalVersion=${GIT_REVISION}\n")
+file(WRITE ${OCL_BINARY_DIR}/revision.txt "BUILD=${GIT_VERSION}\nREVISION=${GIT_REVISION}\nLLVM_PATH_BE=${LLVM_PATH_BE}\nLLVM_PATH_FE=${LLVM_PATH_FE}\nLLVM_PATH_SPIR12=${LLVM_PATH_SPIR12}\n")
+install(FILES ${OCL_BINARY_DIR}/revision.txt DESTINATION ./)
 
 #copy the version file to install folder
 install(FILES ${OCL_BINARY_DIR}/version.txt DESTINATION ./)
@@ -583,7 +594,7 @@ else(APPLE)
     endif( INCLUDE_TOOLS )
 
     #workloads
-    add_subdirectory( workloads )
+    #add_subdirectory( workloads )
     
     #Linux samples
     option(INCLUDE_SMPLS "Include Linux Samples into Build"  OFF)
@@ -594,142 +605,6 @@ else(APPLE)
     
 endif(APPLE)
 
-# install additional files required by the installer
-set(MISC_INSTALLER_FOLDER "bin/sdk")
-if (WIN32)
-
-    install(DIRECTORY tools/ocl_dev/OpenCL_Tools/Sources DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration)
-    install(DIRECTORY tools/ocl_dev/OpenCL_Extension/bin/Release DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OpenCL_Extension)
-    install(DIRECTORY tools/ocl_dev/OpenCL_Extension2013/bin/Release DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OpenCL_Extension2013)
-    install(DIRECTORY tools/ocl_dev/OCLConverter/bin DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OCLConverter)
-    install(DIRECTORY tools/ocl_dev/OCLConverter2012/bin DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OCLConverter2012)
-    install(DIRECTORY tools/ocl_dev/OCLConverter2013/bin DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OCLConverter2013)
-
-    install(DIRECTORY tools/OfflineCompiler/OpenCLWizard/Installer/VS2010    DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartInstaller)
-    install(DIRECTORY tools/OfflineCompiler/OpenCLWizard/Installer/VS2012    DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartInstaller)
-    install(DIRECTORY tools/OfflineCompiler/OpenCLWizard/Installer/VS2013    DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartInstaller)
-    install(DIRECTORY tools/OfflineCompiler/OpenCLWizard/Installer/VS2015    DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartInstaller)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartTemplate               DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration                 )
-    install(DIRECTORY tools/OpenCLWizard/JumpStartTemplate/AndroidProject DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartTemplate)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartTemplate/AndroidProject/jni DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartTemplate/AndroidProject)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartTemplate/AndroidProject/res/drawable-hdpi DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartTemplate/AndroidProject/res)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartTemplate/AndroidProject/res/drawable-mdpi DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartTemplate/AndroidProject/res)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartTemplate/AndroidProject/res/drawable-xhdpi DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartTemplate/AndroidProject/res)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartTemplate/AndroidProject/res/drawable-xxhdpi DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartTemplate/AndroidProject/res)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartTemplate/AndroidProject/res/layout DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartTemplate/AndroidProject/res)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartTemplate/AndroidProject/res/menu DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartTemplate/AndroidProject/res)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartTemplate/AndroidProject/res/values DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartTemplate/AndroidProject/res)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartTemplate/AndroidProject/res/values-v11 DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartTemplate/AndroidProject/res)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartTemplate/AndroidProject/res/values-v14 DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartTemplate/AndroidProject/res)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartTemplate/AndroidProject/src DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartTemplate/AndroidProject)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartTemplate/AndroidTemplateProject DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartTemplate)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartTemplate/AndroidTemplateProject/jni DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartTemplate/AndroidTemplateProject)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartTemplate/AndroidTemplateProject/res/layout DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartTemplate/AndroidTemplateProject/res)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartTemplate/AndroidTemplateProject/res/values DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartTemplate/AndroidTemplateProject/res)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartTemplate/AndroidTemplateProject/src DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartTemplate/AndroidTemplateProject)
-    install(DIRECTORY tools/OpenCLWizard/VCProjects_2010  DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OpenCL_Wizard)
-    install(DIRECTORY tools/OpenCLWizard/VCProjects_2012  DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OpenCL_Wizard)
-    install(DIRECTORY tools/OpenCLWizard/VCProjects_2013  DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OpenCL_Wizard)
-    install(DIRECTORY tools/OpenCLWizard/VCProjects_2015  DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OpenCL_Wizard)
-    install(DIRECTORY tools/OpenCLWizard/VCWizards_2010   DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OpenCL_Wizard)
-    install(DIRECTORY tools/OpenCLWizard/VCWizards_2012   DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OpenCL_Wizard)
-    install(DIRECTORY tools/OpenCLWizard/VCWizards_2013   DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OpenCL_Wizard)
-    install(DIRECTORY tools/OpenCLWizard/VCWizards_2015   DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OpenCL_Wizard)
-
-    install(DIRECTORY samples DESTINATION ${MISC_INSTALLER_FOLDER}/samples)
-
-    install(FILES setup/bom_files/installer_content_windows.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)
-    install(FILES setup/bom_files/installer_content_windows_mic.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)
-
-    install(DIRECTORY setup/AddFiles/PTAC_Tool DESTINATION ${MISC_INSTALLER_FOLDER}/PTAC_Tool)
-
-    install(FILES setup/LicenseAgreement.rtf DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-    install(FILES setup/llvm_release_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
-    install(FILES setup/CPOL.txt DESTINATION ${MISC_INSTALLER_FOLDER})
-    install(FILES setup/readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
-    install(FILES "setup/docs/Intel(R)_SDK_for_OpenCL_Applications_Documentation.htm" DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-    install(FILES "setup/docs/Code_builder_MSS_release_notes.pdf" DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-	install(FILES "setup/docs/Code_builder_MSS_user_manual.pdf" DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-    install(FILES "setup/docs/gs_code_builder_win.htm" DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-    install(DIRECTORY "setup/docs/get_started_files_win" DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-    install(FILES "setup/docs/get_started_files_win/analysis_capabilities.png" DESTINATION ${MISC_INSTALLER_FOLDER}/setup/get_started_files_win)
-    install(FILES "setup/docs/get_started_files_win/application_analysis.png" DESTINATION ${MISC_INSTALLER_FOLDER}/setup/get_started_files_win)
-    install(FILES "setup/docs/get_started_files_win/build_capabilities.png" DESTINATION ${MISC_INSTALLER_FOLDER}/setup/get_started_files_win)
-    install(FILES "setup/docs/get_started_files_win/build_success.png" DESTINATION ${MISC_INSTALLER_FOLDER}/setup/get_started_files_win)
-    install(FILES "setup/docs/get_started_files_win/debug_application.png" DESTINATION ${MISC_INSTALLER_FOLDER}/setup/get_started_files_win)
-    install(FILES "setup/docs/get_started_files_win/debug_capabilities.png" DESTINATION ${MISC_INSTALLER_FOLDER}/setup/get_started_files_win)
-    install(FILES "setup/docs/get_started_files_win/intel_gsp_styles.css" DESTINATION ${MISC_INSTALLER_FOLDER}/setup/get_started_files_win)
-    install(FILES "setup/docs/get_started_files_win/intel_logo.gif" DESTINATION ${MISC_INSTALLER_FOLDER}/setup/get_started_files_win)
-    install(FILES "setup/docs/get_started_files_win/intel_logo.png" DESTINATION ${MISC_INSTALLER_FOLDER}/setup/get_started_files_win)
-    install(FILES "setup/docs/get_started_files_win/platform_info.png" DESTINATION ${MISC_INSTALLER_FOLDER}/setup/get_started_files_win)
-    install(FILES setup/Android/OpenCL_Android_Install.bat DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-    install(FILES setup/Android/Android_Setup.bat DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-
-    install(FILES externals/crt/x86/msvcp100.dll DESTINATION ${MISC_INSTALLER_FOLDER}/externals/crt/x86)
-    install(FILES externals/crt/x86/msvcr100.dll DESTINATION ${MISC_INSTALLER_FOLDER}/externals/crt/x86)
-    install(FILES externals/crt/x64/msvcp100.dll DESTINATION ${MISC_INSTALLER_FOLDER}/externals/crt/x64)
-    install(FILES externals/crt/x64/msvcr100.dll DESTINATION ${MISC_INSTALLER_FOLDER}/externals/crt/x64)
-
-    # maybe can delete below
-    install(FILES tools/OfflineCompiler/KernelBuilder/kernelbuilder.ico DESTINATION ${MISC_INSTALLER_FOLDER})
-
-    install(DIRECTORY cl_api DESTINATION ${MISC_INSTALLER_FOLDER}/cl_api)
-    install(DIRECTORY utils/cl_sys_utils/export DESTINATION ${MISC_INSTALLER_FOLDER}/cl_sys_utils/export)
-
-    install(FILES backend/libraries/ocl_builtins/bin/svml/Win64/__ocl_svml_h8.pdb DESTINATION ${MISC_INSTALLER_FOLDER})
-    install(FILES backend/libraries/ocl_builtins/bin/svml/Win64/__ocl_svml_e9.pdb DESTINATION ${MISC_INSTALLER_FOLDER})
-    install(FILES backend/libraries/ocl_builtins/bin/svml/Win64/__ocl_svml_l9.pdb DESTINATION ${MISC_INSTALLER_FOLDER})
-
-    install(FILES backend/libraries/ocl_builtins/bin/svml/Win32/__ocl_svml_n8.pdb DESTINATION ${MISC_INSTALLER_FOLDER})
-    install(FILES backend/libraries/ocl_builtins/bin/svml/Win32/__ocl_svml_g9.pdb DESTINATION ${MISC_INSTALLER_FOLDER})
-    install(FILES backend/libraries/ocl_builtins/bin/svml/Win32/__ocl_svml_s9.pdb DESTINATION ${MISC_INSTALLER_FOLDER})
-
-else (WIN32)
-
-    install(FILES setup/llvm_release_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
-    install(FILES setup/apache_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
-    install(FILES setup/boost_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
-    install(FILES setup/readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
-    install(FILES setup/kernel_builder_readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
-	install(FILES setup/docs/Code_builder_MSS_release_notes.pdf DESTINATION ${MISC_INSTALLER_FOLDER})
-	install(FILES setup/docs/Code_builder_MSS_user_manual.pdf DESTINATION ${MISC_INSTALLER_FOLDER})
-    install(FILES setup/LicenseAgreement_Linux.txt DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-    install(FILES "../utils/RPM_BUILDER/intelocl64.icd" DESTINATION ${MISC_INSTALLER_FOLDER})
-    install(FILES "setup/docs/gs_code_builder_lin.htm" DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-    install(DIRECTORY "setup/docs/get_started_files_lin" DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-    install(FILES "setup/docs/get_started_files_lin/build_success.png" DESTINATION ${MISC_INSTALLER_FOLDER}/setup/get_started_files_lin)
-    install(FILES "setup/docs/get_started_files_lin/intel_gsp_styles.css" DESTINATION ${MISC_INSTALLER_FOLDER}/setup/get_started_files_lin)
-    install(FILES "setup/docs/get_started_files_lin/intel_logo.gif" DESTINATION ${MISC_INSTALLER_FOLDER}/setup/get_started_files_lin)
-    install(FILES "setup/docs/get_started_files_lin/intel_logo.png" DESTINATION ${MISC_INSTALLER_FOLDER}/setup/get_started_files_lin)
-
-endif (WIN32)
-
 if(ANDROID)
-    if(BUILD_X64)
-        get_filename_component(ABS_DIR ${ANDROID_NDK_SYSROOT}usr/lib64/libgnustl_shared.so REALPATH)
-        install(FILES ${ABS_DIR} DESTINATION bin)
-    else(BUILD_X64)
-    endif(BUILD_X64)
+  install(FILES ${STL_LIBRARIES_PATH}/libgnustl_shared.so DESTINATION bin)
 endif(ANDROID)
-
-install(PROGRAMS setup/Android64/OpenCL_Android_Install DESTINATION ${MISC_INSTALLER_FOLDER}/setup/Android64)
-install(PROGRAMS setup/Android64/OpenCL_Android_Uninstall DESTINATION ${MISC_INSTALLER_FOLDER}/setup/Android64)
-install(PROGRAMS setup/Android64/Android_Setup DESTINATION ${MISC_INSTALLER_FOLDER}/setup/Android64)
-install(PROGRAMS setup/Android/OpenCL_Android_Install DESTINATION ${MISC_INSTALLER_FOLDER}/setup/Android32)
-install(PROGRAMS setup/Android/OpenCL_Android_Uninstall DESTINATION ${MISC_INSTALLER_FOLDER}/setup/Android32)
-install(PROGRAMS setup/Android/Android_Setup DESTINATION ${MISC_INSTALLER_FOLDER}/setup/Android32)
-
-install(PROGRAMS setup/Android64/OpenCL_Android_Install.bat DESTINATION ${MISC_INSTALLER_FOLDER}/setup/Android64)
-install(PROGRAMS setup/Android64/OpenCL_Android_Uninstall.bat DESTINATION ${MISC_INSTALLER_FOLDER}/setup/Android64)
-install(PROGRAMS setup/Android64/Android_Setup.bat DESTINATION ${MISC_INSTALLER_FOLDER}/setup/Android64)
-install(PROGRAMS setup/Android/OpenCL_Android_Install.bat DESTINATION ${MISC_INSTALLER_FOLDER}/setup/Android32)
-install(PROGRAMS setup/Android/OpenCL_Android_Uninstall.bat DESTINATION ${MISC_INSTALLER_FOLDER}/setup/Android32)
-install(PROGRAMS setup/Android/Android_Setup.bat DESTINATION ${MISC_INSTALLER_FOLDER}/setup/Android32)
-
-install(FILES setup/redist.txt DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-install(FILES setup/LICENSE.txt DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-install(FILES setup/third_party_programs.txt DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-install(FILES setup/bom_files/installer_content_windows.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)
-install(FILES setup/bom_files/installer_content_windows_mic.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)
-install(FILES setup/bom_files/installer_content_linux.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)
-install(FILES ${CMAKE_SOURCE_DIR}/framework/cl_gl_dx_sharing.cfg  DESTINATION bin)

@@ -38,7 +38,7 @@ set (ADD_C_FLAGS_RELWITHDEBINFO "-O2 -ggdb3 -U _DEBUG")
 
 set (ADD_CXX_FLAGS              "${ADD_COMMON_C_FLAGS}" )
 if (DEFINED UBUNTU64_BUILD)
-  set (ADD_CXX_FLAGS            "${ADD_COMMON_C_FLAGS}  -Wno-conversion-null -Wno-unused-result")
+  set (ADD_CXX_FLAGS            "${ADD_COMMON_C_FLAGS}  -Wno-conversion-null -Wno-unused-result -Wno-unused-local-typedefs")
 endif()
 
 # Linker switches

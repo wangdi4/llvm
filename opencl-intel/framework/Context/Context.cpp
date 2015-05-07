@@ -860,7 +860,7 @@ cl_err_code Context::CreateSubBuffer(SharedPtr<MemoryObject> pBuffer, cl_mem_fla
                                      const void * buffer_create_info, SharedPtr<MemoryObject>* ppBuffer)
 {
     LOG_DEBUG(TEXT("Enter CreateSubBuffer (cl_mem_flags=%d, buffer_create_type=%d, ppBuffer=%d)"),
-        clFlags, buffer_create_type, ppBuffer);
+        (unsigned long long) clFlags, buffer_create_type, ppBuffer);
 
     assert ( NULL != ppBuffer );
 

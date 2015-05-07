@@ -101,6 +101,7 @@ add_dependencies( ${TARGET_NAME} cl_sys_utils)
 
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Tests")
 
-install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
+install(FILES ValidationTests.pm DESTINATION tests/LITTests)
+install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION tests/LITTests)
 
 add_subdirectory(fe_plugin_mock)

@@ -1,3 +1,6 @@
+// Copyright (c) 2008-2012 Intel Corporation
+// All rights reserved.
+// 
 // WARRANTY DISCLAIMER
 // 
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
@@ -14,30 +17,35 @@
 // 
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
-
-#include <stdio.h>
-#include "common_runtime_tests.h"
-#include "global_environment.h"
-
-int main(int argc, char** argv)
+#pragma once
+class ApiExecutionTime
 {
-	setSecondDeviceType(CL_DEVICE_TYPE_GPU);	
-	for(int i=0; i<argc; ++i)
+private:
+	cl_ulong m_startTime;
+	cl_ulong m_endTime;
+	cl_ulong m_freq;
+
+
+public:
+	ApiExecutionTime(cl_ulong start, cl_ulong end, cl_ulong freq): m_startTime(start), m_endTime(end), m_freq(freq)
 	{
-		if(0==strcmp("ACC",argv[i]))
-		{
-			// [QA]: remove additional output
-			// std::cout << "SECOND DEVICE: ACC" << std::endl;
-			setSecondDeviceType(CL_DEVICE_TYPE_ACCELERATOR);	
-			break;
-		}
+
 	}
-	if(CL_DEVICE_TYPE_GPU==getSecondDeviceType())
+
+	cl_ulong getStartTime()
 	{
-		// [QA]: remove additional output
-		// std::cout << "SECOND DEVICE: GPU" << std::endl;
+		return m_startTime;
 	}
-	::testing::AddGlobalTestEnvironment(new EnvironemntCommonRuntimeTestType());
-	::testing::InitGoogleTest(&argc, argv);
-   return RUN_ALL_TESTS();
-}
+
+	cl_ulong getEndTime()
+	{
+		return m_endTime;
+	}
+
+	cl_ulong getFreq()
+	{
+		return m_freq;
+	}
+
+};
+

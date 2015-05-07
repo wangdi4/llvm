@@ -18,11 +18,15 @@ FrameworkUserLogger* g_pUserLogger = NULL;
 
 //BC open functions:
 void cpuBCOpen(FILE*& pIRFile){
-  FOPEN(pIRFile, "validation/framework_test_type/test.bc", "rb");
+  // [QA]: correct hardcoded path
+  // FOPEN(pIRFile, "validation/framework_test_type/test.bc", "rb");
+  FOPEN(pIRFile, "test.bc", "rb");
 }
 
 void micBCOpen(FILE*& pIRFile){
-  FOPEN(pIRFile, "validation/framework_test_type/mic_test.bc", "rb");
+  // [QA]: remove hardcoded path
+  // FOPEN(pIRFile, "validation/framework_test_type/mic_test.bc", "rb");
+  FOPEN(pIRFile, "mic_test.bc", "rb");
 }
 
 // CL_DEVICE_TYPE_CPU is the default device.
@@ -145,6 +149,8 @@ TEST(FrameworkTestType, Test_clCheckJITSaveTest)
 
 TEST(FrameworkTestType, Test_clJITLoadTest)
 {
+	// [QA]: save JIT file before loading
+	EXPECT_TRUE(clCheckJITSaveTest());
     EXPECT_TRUE(clCheckJITLoadTest());
 }
 

@@ -52,7 +52,7 @@ endif (NOT WIN32)
 
 # This is where things will be copied to
 #
-set(DTT_DIR_NAME bin/validation/debugger_test_type)
+set(DTT_DIR_NAME tests/debugger_test_type)
 
 
 # Copy generated executable to DTT_DIR_NAME

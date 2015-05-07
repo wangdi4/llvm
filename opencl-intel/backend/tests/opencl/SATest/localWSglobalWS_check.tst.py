@@ -17,7 +17,7 @@ parser = OptionParser()
 parser.add_option("-c", dest="config",    default=None)
 
 (options, args) = parser.parse_args()
-execstr = os.path.join(os.path.abspath(os.getcwd()),"SATest")
+execstr = "SATest"
 confstr = "-config=" + options.config
 
 try:

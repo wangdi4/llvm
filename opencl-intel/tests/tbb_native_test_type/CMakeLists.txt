@@ -48,7 +48,7 @@ link_directories( ${TBB_LIB_DIR} )
 # Additional link libraries
 target_link_libraries( ${TARGET} ${LINK_LIBS} )
 
-set( CREATE_DIR_NAME bin/validation/tbb_native_test_type)
+set( CREATE_DIR_NAME tests/tbb_native_test_type)
 
 # Copy generated executable to appropriate test directory in 'Release' area.
 install(TARGETS ${TARGET} DESTINATION ${CREATE_DIR_NAME})

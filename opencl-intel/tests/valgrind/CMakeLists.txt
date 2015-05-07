@@ -3,7 +3,7 @@ include (../../cmake_utils/CMakeFuncs.txt)
 
 set(TARGET valgrind )
 
-set(VALTEST_DIR_NAME bin/validation/valgrind)
+set(VALTEST_DIR_NAME tests/valgrind)
 set(VALTEST_FULL_DIR "${CMAKE_INSTALL_PREFIX}/${VALTEST_DIR_NAME}")
 set(VALTEST_JENKINS_DIR "${VALTEST_FULL_DIR}/.offline_jenkins")
 

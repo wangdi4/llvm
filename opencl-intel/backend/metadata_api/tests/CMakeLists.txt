@@ -20,5 +20,5 @@ target_link_libraries(
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_TESTS_FOLDER_NAME} )
 
-install(FILES metadatatest.ll DESTINATION bin)
-install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
+install(FILES metadatatest.ll DESTINATION tests/metadataapi)
+install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION tests/metadataapi)

@@ -111,7 +111,7 @@ endif(WIN32)
 
 option(LLVM_BUILD_APPLE_BACKEND "Build OpenCL CPU Apple backend plugin." OFF)
 
-project(Backend)
+project(Backend C CXX)
 
 add_definitions(${LLVM_DEFINITIONS})
 use_rtti(FALSE)
@@ -200,7 +200,7 @@ else(LLVM_BUILD_APPLE_BACKEND)
 
         # copying MICRegression suite tests to install directory
         install(DIRECTORY ${BACKEND_ROOT_DIR}/tests/MIC/satest/mic/
-                DESTINATION bin/validation/MICRegression/)
+                DESTINATION tests/MICRegression/)
 
         set_target_properties( DataVersion PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
         set_target_properties( Comparator PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
@@ -224,7 +224,7 @@ else(LLVM_BUILD_APPLE_BACKEND)
 
     # copy the Clang conformance tests to the validation directory
     install(FILES ${BACKEND_ROOT_DIR}/tests/Conformance.7z
-            DESTINATION bin/validation)
+            DESTINATION tests)
 
 endif(LLVM_BUILD_APPLE_BACKEND)
 

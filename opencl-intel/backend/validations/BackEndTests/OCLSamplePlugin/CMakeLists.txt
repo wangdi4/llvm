@@ -23,9 +23,9 @@ add_library (${TARGET_NAME} SHARED
 target_link_libraries(${TARGET_NAME} OclBackendUtils)
 
 install( TARGETS ${TARGET_NAME}
-    RUNTIME DESTINATION bin
+    RUNTIME DESTINATION tests/BackEndTests
     ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION bin)
+    LIBRARY DESTINATION tests/BackEndTests)
     
     
     
