@@ -62,27 +62,30 @@ void RegionIdentification::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<ScalarEvolution>();
 }
 
-bool RegionIdentification::isSelfGenerable(const Loop &Lp) const {
+bool RegionIdentification::isSelfGenerable(const Loop &Lp,
+                                           unsigned LoopnestDepth) const {
 
-  /// Loop is not in a handleable form.
+  // Loop is not in a handleable form.
   if (!Lp.isLoopSimplifyForm()) {
     return false;
   }
 
-  if (Lp.getLoopDepth() > MaxLoopNestLevel) {
+  // At least one of this loop's subloops reach MaxLoopNestLevel so we cannot
+  // generate this loop.
+  if (LoopnestDepth > MaxLoopNestLevel) {
     return false;
   }
 
   const SCEV *BETC = SE->getBackedgeTakenCount(&Lp);
 
-  /// Don't handle unknown loops for now.
+  // Don't handle unknown loops for now.
   if (isa<SCEVCouldNotCompute>(BETC)) {
     return false;
   }
 
   for (auto I = Lp.block_begin(), E = Lp.block_end(); I != E; ++I) {
 
-    /// Skip this bblock as it has been checked by an inner loop.
+    // Skip this bblock as it has been checked by an inner loop.
     if (!Lp.empty() && LI->getLoopFor(*I) != (&Lp)) {
       continue;
     }
@@ -109,29 +112,37 @@ void RegionIdentification::createRegion(const Loop &Lp) {
   IRRegions.push_back(Reg);
 }
 
-bool RegionIdentification::formRegionForLoop(const Loop &Lp) {
+bool RegionIdentification::formRegionForLoop(const Loop &Lp,
+                                             unsigned *LoopnestDepth) {
   SmallVector<Loop *, 8> GenerableLoops;
   bool Generable = true;
 
-  /// Check which sub loops are generable.
+  *LoopnestDepth = 0;
+
+  // Check which sub loops are generable.
   for (auto I = Lp.begin(), E = Lp.end(); I != E; ++I) {
-    if (formRegionForLoop(**I)) {
+    unsigned SubLoopnestDepth;
+
+    if (formRegionForLoop(**I, &SubLoopnestDepth)) {
       GenerableLoops.push_back(*I);
+
+      // Set maximum sub-loopnest depth
+      *LoopnestDepth = std::max(*LoopnestDepth, SubLoopnestDepth);
     } else {
       Generable = false;
     }
   }
 
-  /// Check whether Lp is generable.
-  if (Generable && !isSelfGenerable(Lp)) {
+  // Check whether Lp is generable.
+  if (Generable && !isSelfGenerable(Lp, ++(*LoopnestDepth))) {
     Generable = false;
   }
 
-  /// Lp itself is not generable so create regions for generable sub loops.
+  // Lp itself is not generable so create regions for generable sub loops.
   if (!Generable) {
-    /// TODO: add logic to merge fuseable loops. This might also require
-    /// recognition of ztt and splitting basic blocks which needs to be done
-    /// in a transformation pass.
+    // TODO: add logic to merge fuseable loops. This might also require
+    // recognition of ztt and splitting basic blocks which needs to be done
+    // in a transformation pass.
     for (auto I = GenerableLoops.begin(), E = GenerableLoops.end(); I != E;
          ++I) {
       createRegion(**I);
@@ -143,7 +154,8 @@ bool RegionIdentification::formRegionForLoop(const Loop &Lp) {
 
 void RegionIdentification::formRegions() {
   for (LoopInfo::iterator I = LI->begin(), E = LI->end(); I != E; ++I) {
-    if (formRegionForLoop(**I)) {
+    unsigned Depth;
+    if (formRegionForLoop(**I, &Depth)) {
       createRegion(**I);
     }
   }

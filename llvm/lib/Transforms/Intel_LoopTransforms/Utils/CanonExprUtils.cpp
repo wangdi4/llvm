@@ -42,36 +42,38 @@ void CanonExprUtils::destroyAll() {
   CanonExpr::BlobTable.clear();
 }
 
-// Internal Method that calculates the lcm of two positive integers
-int64_t CanonExprUtils::lcm(int64_t a, int64_t b) {
+// Internal Method that calculates the gcd of two positive integers
+int64_t CanonExprUtils::gcd(int64_t A, int64_t B) {
+  assert((A > 0) && (B > 0) && "Integers must be positive!");
 
-  assert((a > 0) && " Denominators must be positive.");
-  assert((b > 0) && " Denominators must be positive.");
+  // Both inputs are same.
+  if (A == B) {
+    return A;
+  }
 
-  // Both inputs are same
-  if (a == b)
-    return a;
+  // If either input is 1, return 1.
+  if ((A == 1) || (B == 1)) {
+    return 1;
+  }
 
-  // Either input is 1, return the other one
-  if (a == 1)
-    return b;
-  if (b == 1)
-    return a;
+  // Calculate the GCD.
+  // Works only for positive inputs.
+  int64_t GCD = A;
 
-  int64_t mulVal = a * b;
-
-  // Calculate the GCD
-  // Works only for positive inputs
-  int64_t gcd = a;
-  while (gcd != b) {
-    if (gcd > b) {
-      gcd = gcd - b;
+  while (GCD != B) {
+    if (GCD > B) {
+      GCD = GCD - B;
     } else {
-      b = b - gcd;
+      B = B - GCD;
     }
   }
 
-  return (mulVal / gcd);
+  return GCD;
+}
+
+// Internal Method that calculates the lcm of two positive integers
+int64_t CanonExprUtils::lcm(int64_t A, int64_t B) {
+  return ((A * B) / gcd(A, B));
 }
 
 bool CanonExprUtils::isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2) {
@@ -121,29 +123,34 @@ bool CanonExprUtils::areEqual(const CanonExpr *CE1, const CanonExpr *CE2) {
 CanonExpr *CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
                                bool CreateNewCE) {
 
-  assert((CE1 && CE2) && " Canon Expr parameters are null.");
-  assert(isTypeEqual(CE1, CE2) && " Canon Expr type mismatch.");
+  assert((CE1 && CE2) && " Canon Expr parameters are null!");
+  assert(isTypeEqual(CE1, CE2) && " Canon Expr type mismatch!");
 
   CanonExpr *Result = CreateNewCE ? CE1->clone() : CE1;
+  CanonExpr *NewCE2 = const_cast<CanonExpr *>(CE2);
 
   // Process the denoms
-  int64_t denom1 = Result->getDenominator();
-  int64_t denom2 = CE2->getDenominator();
-  int NewDenom = lcm(denom1, denom2);
-  if (NewDenom != denom1) {
-    multiplyByConstant(Result, NewDenom / denom1, false);
+  int64_t Denom1 = Result->getDenominator();
+  int64_t Denom2 = CE2->getDenominator();
+  int NewDenom = lcm(Denom1, Denom2);
+
+  if (NewDenom != Denom1) {
+    // Do not simplify while multipying as this is intermediate result of add.
+    multiplyByConstantImpl(Result, NewDenom / Denom1, false, false);
   }
-  if (NewDenom != denom2) {
+  if (NewDenom != Denom2) {
     // Cannot avoid cloning CE2 here
-    CanonExpr *NewCE2 = CE2->clone();
-    multiplyByConstant(NewCE2, NewDenom / denom2, false);
+    NewCE2 = CE2->clone();
+    // Do not simplify while multipying as this is intermediate result of add.
+    multiplyByConstantImpl(NewCE2, NewDenom / Denom2, false, false);
   }
+
   Result->setDenominator(NewDenom);
 
   // Add the IV's
-  // We process the CE2 IV's as Result gets updated
+  // We process the NewCE2 IV's as Result gets updated
   int64_t Level = 1;
-  for (auto I = CE2->iv_cbegin(), End = CE2->iv_cend(); I != End;
+  for (auto I = NewCE2->iv_cbegin(), End = NewCE2->iv_cend(); I != End;
        ++I, ++Level) {
     if (I->Coeff == 0)
       continue;
@@ -158,7 +165,7 @@ CanonExpr *CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
     }
 
     if ((!I->IsBlobCoeff) && (!isResultIVBlobCoeff)) {
-      // Result and CE2 have constant Coeff
+      // Result and NewCE2 have constant Coeff
       Result->addIV(Level, I->Coeff);
     } else {
       // Handle cases when either of them is a blob
@@ -167,8 +174,8 @@ CanonExpr *CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
                                     ? Result->getBlob(ResultIVBlobCoeff)
                                     : HIRP->createBlob(ResultIVBlobCoeff);
 
-      CanonExpr::BlobTy Blob2 =
-          I->IsBlobCoeff ? CE2->getBlob(I->Coeff) : HIRP->createBlob(I->Coeff);
+      CanonExpr::BlobTy Blob2 = I->IsBlobCoeff ? NewCE2->getBlob(I->Coeff)
+                                               : HIRP->createBlob(I->Coeff);
       CanonExpr::BlobTy ResultBlob = HIRP->createAddBlob(Blob1, Blob2, false);
       int64_t BlobConst;
       if (HIRP->isConstIntBlob(ResultBlob, &BlobConst)) {
@@ -181,7 +188,8 @@ CanonExpr *CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
   }
 
   // Process the Blobs
-  for (auto I = CE2->blob_cbegin(), End = CE2->blob_cend(); I != End; ++I) {
+  for (auto I = NewCE2->blob_cbegin(), End = NewCE2->blob_cend(); I != End;
+       ++I) {
 
     if (I->Coeff == 0)
       continue;
@@ -192,20 +200,38 @@ CanonExpr *CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
   }
 
   // Add the constant
-  Result->Const += CE2->Const;
+  Result->setConstant(Result->getConstant() + NewCE2->getConstant());
+
+  // Simplify resulting canon expr before returning.
+  simplify(Result);
 
   return Result;
 }
 
-CanonExpr *CanonExprUtils::multiplyByConstant(CanonExpr *CE1, int64_t Val,
-                                              bool CreateNewCE) {
+CanonExpr *CanonExprUtils::multiplyByConstantImpl(CanonExpr *CE1, int64_t Val,
+                                                  bool CreateNewCE,
+                                                  bool Simplify) {
 
-  assert(CE1 && " Canon Expr parameter is null");
-
-  // TODO: Multiply by 0
-  // This should be taken care by a clear out method call for CanonExpr
+  assert(CE1 && " Canon Expr parameter is null!");
 
   CanonExpr *Result = CreateNewCE ? CE1->clone() : CE1;
+
+  // Multiplying by constant is equivalent to clearing the canon expr.
+  if (Val == 0) {
+    Result->clear();
+    return Result;
+  }
+
+  // Simplify instead of multiplying, if possible.
+  if (Simplify) {
+    int64_t Denom = Result->getDenominator();
+    int64_t GCD = gcd(llabs(Val), Denom);
+
+    if (GCD != 1) {
+      Result->setDenominator(Denom / GCD);
+      Val = Val / GCD;
+    }
+  }
 
   // Result will be the same for multiply by 1
   if (Val == 1)
@@ -220,7 +246,7 @@ CanonExpr *CanonExprUtils::multiplyByConstant(CanonExpr *CE1, int64_t Val,
 
     if (!I->IsBlobCoeff) {
       // IV doesn't have Blob Coeff
-      I->Coeff *= Val;
+      Result->setIVCoeff(Level, I->Coeff * Val, false);
       continue;
     }
 
@@ -233,12 +259,18 @@ CanonExpr *CanonExprUtils::multiplyByConstant(CanonExpr *CE1, int64_t Val,
   }
 
   for (auto I = Result->blob_begin(), End = Result->blob_end(); I != End; ++I) {
-    I->Coeff *= Val;
+    Result->setBlobCoeff(I->Index, (I->Coeff * Val));
   }
 
-  Result->Const *= Val;
+  Result->setConstant(Result->getConstant() * Val);
 
   return Result;
+}
+
+CanonExpr *CanonExprUtils::multiplyByConstant(CanonExpr *CE1, int64_t Val,
+                                              bool CreateNewCE) {
+
+  return multiplyByConstantImpl(CE1, Val, CreateNewCE, true);
 }
 
 CanonExpr *CanonExprUtils::negate(CanonExpr *CE1, bool CreateNewCE) {
@@ -249,7 +281,7 @@ CanonExpr *CanonExprUtils::negate(CanonExpr *CE1, bool CreateNewCE) {
 CanonExpr *CanonExprUtils::subtract(CanonExpr *CE1, const CanonExpr *CE2,
                                     bool CreateNewCE) {
 
-  assert((CE1 && CE2) && " Canon Expr parameters are null");
+  assert((CE1 && CE2) && " Canon Expr parameters are null!");
 
   CanonExpr *Result;
 
@@ -272,4 +304,77 @@ CanonExpr *CanonExprUtils::subtract(CanonExpr *CE1, const CanonExpr *CE2,
   }
 
   return Result;
+}
+
+int64_t CanonExprUtils::simplifyGCDHelper(int64_t CurrentGCD, int64_t Num) {
+  if (CurrentGCD == -1) {
+    CurrentGCD = llabs(Num);
+  } else {
+    CurrentGCD = gcd(CurrentGCD, llabs(Num));
+  }
+
+  return CurrentGCD;
+}
+
+void CanonExprUtils::simplify(CanonExpr *CE) {
+  int64_t Denom, C0, NumeratorGCD = -1, CommonGCD;
+
+  // Don't handle blob coeffs for now.
+  if (CE->hasBlobIVCoeffs()) {
+    return;
+  }
+
+  // Nothing to simplify...
+  if ((Denom = CE->getDenominator()) == 1) {
+    return;
+  }
+
+  // Cannot simplify any further.
+  if ((C0 = CE->getConstant()) == 1) {
+    return;
+  } else if (C0) {
+    NumeratorGCD = simplifyGCDHelper(NumeratorGCD, C0);
+  }
+
+  // Calculate gcd of all the iv and blob coefficients.
+  for (auto I = CE->iv_cbegin(), E = CE->iv_cend(); I != E; ++I) {
+    if (!I->Coeff) {
+      continue;
+    }
+    NumeratorGCD = simplifyGCDHelper(NumeratorGCD, I->Coeff);
+  }
+  for (auto I = CE->blob_cbegin(), E = CE->blob_cend(); I != E; ++I) {
+    NumeratorGCD = simplifyGCDHelper(NumeratorGCD, I->Coeff);
+  }
+
+  // Numerator is zero, nothing to simplify...
+  if (NumeratorGCD == -1) {
+    return;
+  }
+
+  // Get common gcd of numerator and denominator.
+  CommonGCD = gcd(NumeratorGCD, Denom);
+
+  // Cannot simplify any further.
+  if (CommonGCD == 1) {
+    return;
+  }
+
+  // Divide numerator and denominator by common gcd.
+  CE->setDenominator(Denom / CommonGCD);
+  CE->setConstant(C0 / CommonGCD);
+
+  unsigned Level = 1;
+
+  for (auto I = CE->iv_cbegin(), E = CE->iv_cend(); I != E; ++I, ++Level) {
+    if (!I->Coeff) {
+      continue;
+    }
+
+    CE->setIVCoeff(Level, (I->Coeff / CommonGCD), false);
+  }
+
+  for (auto I = CE->blob_cbegin(), E = CE->blob_cend(); I != E; ++I) {
+    CE->setBlobCoeff(I->Index, (I->Coeff / CommonGCD));
+  }
 }

@@ -72,13 +72,14 @@ private:
 
   /// \brief Returns true if Lp appears to be generable without looking at the
   /// sub loops.
-  bool isSelfGenerable(const Loop &Lp) const;
+  bool isSelfGenerable(const Loop &Lp, unsigned LoopnestDepth) const;
 
   /// \brief Creates a Region out of Lp's basic blocks.
   void createRegion(const Loop &Lp);
 
-  /// \brief Returns true if we can form a region around this loop.
-  bool formRegionForLoop(const Loop &Lp);
+  /// \brief Returns true if we can form a region around this loop. Returns the
+  /// max loopnest depth in LoopnestDepth.
+  bool formRegionForLoop(const Loop &Lp, unsigned *LoopnestDepth);
 
   /// \brief Identifies regions in the incoming LLVM IR.
   void formRegions();

@@ -314,6 +314,7 @@ RegDDRef *HIRParser::parseRecursive(const SCEV *SC, const SCEV *ElementSize,
     }
 
     CanonExpr *StrideCE = nullptr;
+    int64_t Denom = 1;
     auto RRef = DDRefUtils::createRegDDRef(0);
 
     auto Lp = RecSCEV->getLoop();
@@ -330,20 +331,18 @@ RegDDRef *HIRParser::parseRecursive(const SCEV *SC, const SCEV *ElementSize,
 
       StrideCE = CanonExprUtils::createCanonExpr(ElementSize->getType());
       parseConstant(cast<SCEVConstant>(ElementSize), StrideCE);
+      Denom = StrideCE->getConstant();
 
       auto BaseSCEV = SE->getPointerBase(SC);
       assert(BaseSCEV && "Could not find pointer base!");
       assert(isa<SCEVUnknown>(BaseSCEV) && "Unexpected Pointer base type!");
+
       auto BaseCE = CanonExprUtils::createCanonExpr(BaseSCEV->getType());
 
       parseBlob(BaseSCEV, BaseCE, Level);
       RRef->setBaseCE(BaseCE);
 
       OffsetSCEV = SE->getMinusSCEV(OffsetSCEV, BaseSCEV);
-
-      /// Normalize w.r.t element size.
-      OffsetSCEV = SE->getUDivExpr(OffsetSCEV, ElementSize);
-      StepSCEV = SE->getUDivExpr(StepSCEV, ElementSize);
     }
 
     assert(isa<SCEVConstant>(OffsetSCEV) && isa<SCEVConstant>(StepSCEV) &&
@@ -354,6 +353,10 @@ RegDDRef *HIRParser::parseRecursive(const SCEV *SC, const SCEV *ElementSize,
 
     parseConstant(cast<SCEVConstant>(OffsetSCEV), IndexCE);
     IndexCE->addIV(HLoop->getNestingLevel(), Coeff);
+
+    /// Normalize w.r.t element size.
+    IndexCE->setDenominator(Denom);
+    CanonExprUtils::simplify(IndexCE);
 
     RRef->addDimension(IndexCE, StrideCE);
     return RRef;

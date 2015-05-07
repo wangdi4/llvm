@@ -50,6 +50,9 @@ void HLNode::destroyAll() {
   }
 
   Objs.clear();
+
+  // Reset HLNode numbering.
+  GlobalNum = 0;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

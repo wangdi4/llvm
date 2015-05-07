@@ -40,9 +40,22 @@ const unsigned MaxLoopNestLevel = 9;
 /// This class represents the closed form as a linear equation in terms of
 /// induction variables and blobs. It is essentially an array of coefficients
 /// of induction variables and blobs. A blob is usually a non-inductive,
-/// loop invariant variable in the equestion but is allowed to vary under
-/// some cases where a more generic representation is required. Blob exprs
-/// are represented using SCEVs and mapped to blob indexes.
+/// loop invariant variable but is allowed to vary under some cases where a more
+/// generic representation is required. Blob exprs are represented using SCEVs
+/// and mapped to blob indexes.
+/// The denominator is always stored as a positive value. If a client sets a
+/// negative denominator value, the numerator is negated instead.
+///
+/// CanonExpr representation-
+/// (C1 * i1 + C2 * i2 + ... + BC1 * b1 + BC2 * b2 + ... + C0) / D
+///
+/// Where:
+/// - i1, i2 etc are induction variables of loop at level 1, 2 etc.
+/// - C1, C2 etc are coefficients of i1, i2 etc.
+/// - b1, b2 etc are blobs.
+/// - BC1, BC2 etc are coefficients of b1, b2 etc.
+/// - C0 is the constant additive.
+/// - D is the denominator.
 ///
 /// This class disallows creating objects on stack.
 /// Objects are created/destroyed using CanonExprUtils friend class.
@@ -208,7 +221,8 @@ public:
 
   /// \brief Returns the denominator of the canon expr.
   int64_t getDenominator() const { return Denominator; }
-  void setDenominator(int64_t Val) { Denominator = Val; }
+  // \brief Sets canon expr's denominator. Negates it for negative denominators.
+  void setDenominator(int64_t Val);
 
   /// \brief Returns true if this contains any IV.
   bool hasIV() const;
@@ -246,6 +260,10 @@ public:
 
   /// \brief Replaces an old blob with a new one.
   void replaceBlob(unsigned OldBlobIndex, unsigned NewBlobIndex);
+
+  /// \brief Clears everything from the CanonExpr except Type. Denominator is
+  /// set to 1.
+  void clear();
 
   /// \brief Shifts the canon expr by a constant offset at a particular loop
   /// level.

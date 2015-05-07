@@ -42,8 +42,20 @@ private:
   /// \brief Destroys all CanonExprs and BlobTable. Called during HIR cleanup.
   static void destroyAll();
 
+  /// \brief Calculates the gcd of two positive inputs.
+  static int64_t gcd(int64_t A, int64_t B);
+
   /// \brief Calculates the lcm of two positive inputs.
-  static int64_t lcm(int64_t a, int64_t b);
+  static int64_t lcm(int64_t A, int64_t B);
+
+  /// \brief Helper to calculate gcd for simplify(). Handles negative integers
+  /// as well.
+  static int64_t simplifyGCDHelper(int64_t CurrentGCD, int64_t Num);
+
+  /// \brief Implements multiplyByConstant() functionality.
+  static CanonExpr *multiplyByConstantImpl(CanonExpr *CE1, int64_t Val,
+                                           bool CreateNewCE = false,
+                                           bool Simplify = true);
 
 public:
   /// \brief Returns a new CanonExpr. All canon exprs are created linear.
@@ -88,6 +100,10 @@ public:
   /// If CreateNewCE is false, it updates the input canon expr.
   static CanonExpr *subtract(CanonExpr *CE1, const CanonExpr *CE2,
                              bool CreateNewCE = false);
+
+  /// \brief Simplifies canon expr by dividing numerator and denominator by
+  /// common gcd.
+  static void simplify(CanonExpr *CE);
 };
 
 } // End namespace loopopt

@@ -17,6 +17,8 @@
 
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
+
 using namespace llvm;
 using namespace loopopt;
 
@@ -35,9 +37,11 @@ CanonExpr::BlobIndexToCoeff::~BlobIndexToCoeff() {}
 
 CanonExpr::CanonExpr(Type *Typ, unsigned DefLevel, int64_t ConstVal,
                      int64_t Denom)
-    : Ty(Typ), DefinedAtLevel(DefLevel), Const(ConstVal), Denominator(Denom) {
+    : Ty(Typ), DefinedAtLevel(DefLevel), Const(ConstVal) {
 
   Objs.insert(this);
+
+  setDenominator(Denom);
 
   /// Start with size = capcity
   IVCoeffs.resize(IVCoeffs.capacity(), BlobOrConstToVal(false, 0));
@@ -90,16 +94,16 @@ void CanonExpr::print(formatted_raw_ostream &OS) const {
   for (auto I = iv_cbegin(), E = iv_cend(); I != E; I++, Level++) {
     if (I->Coeff != 0) {
       if (Printed) {
-        OS << "+";
+        OS << " + ";
       } else {
         Printed = true;
       }
 
       if (I->IsBlobCoeff) {
         getBlob(I->Coeff)->print(OS);
-        OS << "*";
+        OS << " * ";
       } else if (I->Coeff != 1) {
-        OS << I->Coeff << "*";
+        OS << I->Coeff << " * ";
       }
       OS << "i" << Level;
     }
@@ -108,13 +112,13 @@ void CanonExpr::print(formatted_raw_ostream &OS) const {
   for (auto I = blob_cbegin(), E = blob_cend(); I != E; I++) {
     if (I->Coeff != 0) {
       if (Printed) {
-        OS << "+";
+        OS << " + ";
       } else {
         Printed = true;
       }
 
       if (I->Coeff != 1) {
-        OS << I->Coeff << "*";
+        OS << I->Coeff << " * ";
       }
       getBlob(I->Index)->print(OS);
     }
@@ -123,7 +127,7 @@ void CanonExpr::print(formatted_raw_ostream &OS) const {
   if (!Printed) {
     OS << C0;
   } else if (C0 != 0) {
-    OS << "+" << C0;
+    OS << " + " << C0;
   }
 
   if (Denom != 1) {
@@ -167,6 +171,18 @@ bool CanonExpr::isLevelValid(unsigned Level) {
 CanonExpr::BlobTy CanonExpr::getBlob(unsigned BlobIndex) {
   assert(isBlobIndexValid(BlobIndex) && "BlobIndex is out of bounds.");
   return BlobTable[BlobIndex - 1];
+}
+
+void CanonExpr::setDenominator(int64_t Val) {
+  assert((Val != 0) && "Denominator cannot be zero!");
+
+  // Negate the canon expr instead of storing negative denominators.
+  if (Val < 0) {
+    CanonExprUtils::negate(this);
+    Denominator = -Val;
+  } else {
+    Denominator = Val;
+  }
 }
 
 bool CanonExpr::hasIV() const {
@@ -409,6 +425,16 @@ void CanonExpr::replaceBlob(unsigned OldBlobIndex, unsigned NewBlobIndex) {
   if (!found) {
     assert("Old blob index not found!");
   }
+}
+
+void CanonExpr::clear() {
+  IVCoeffs.clear();
+  BlobCoeffs.clear();
+
+  Const = 0;
+  Denominator = 1;
+
+  DefinedAtLevel = 0;
 }
 
 void CanonExpr::shift(unsigned Lvl, int64_t Val) {
