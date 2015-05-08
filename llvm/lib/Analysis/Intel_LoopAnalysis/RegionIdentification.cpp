@@ -31,7 +31,7 @@ using namespace llvm::loopopt;
 INITIALIZE_PASS_BEGIN(RegionIdentification, "hir-region",
                       "HIR Region Identification", false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(LoopInfo)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
 INITIALIZE_PASS_END(RegionIdentification, "hir-region",
                     "HIR Region Identification", false, true)
@@ -58,7 +58,7 @@ RegionIdentification::RegionIdentification() : FunctionPass(ID) {
 void RegionIdentification::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
-  AU.addRequiredTransitive<LoopInfo>();
+  AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<ScalarEvolution>();
 }
 
@@ -164,7 +164,7 @@ void RegionIdentification::formRegions() {
 bool RegionIdentification::runOnFunction(Function &F) {
   this->Func = &F;
 
-  LI = &getAnalysis<LoopInfo>();
+  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   SE = &getAnalysis<ScalarEvolution>();
 

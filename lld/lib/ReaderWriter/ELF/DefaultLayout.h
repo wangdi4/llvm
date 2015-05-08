@@ -91,24 +91,26 @@ public:
   // The sections are created using
   // SectionName, contentPermissions
   struct SectionKey {
-    SectionKey(StringRef name, DefinedAtom::ContentPermissions perm)
-        : _name(name), _perm(perm) {
-    }
+    SectionKey(StringRef name, DefinedAtom::ContentPermissions perm,
+               StringRef path)
+        : _name(name), _perm(perm), _path(path) {}
 
     // Data members
     StringRef _name;
     DefinedAtom::ContentPermissions _perm;
+    StringRef _path;
   };
 
   struct SectionKeyHash {
     int64_t operator()(const SectionKey &k) const {
-      return llvm::hash_combine(k._name, k._perm);
+      return llvm::hash_combine(k._name, k._perm, k._path);
     }
   };
 
   struct SectionKeyEq {
     bool operator()(const SectionKey &lhs, const SectionKey &rhs) const {
-      return ((lhs._name == rhs._name) && (lhs._perm == rhs._perm));
+      return ((lhs._name == rhs._name) && (lhs._perm == rhs._perm) &&
+              (lhs._path == rhs._path));
     }
   };
 
@@ -146,7 +148,7 @@ public:
 
   // Output Sections contain the map of Sectionnames to a vector of sections,
   // that have been merged to form a single section
-  typedef std::map<StringRef, OutputSection<ELFT> *> OutputSectionMapT;
+  typedef llvm::StringMap<OutputSection<ELFT> *> OutputSectionMapT;
   typedef
       typename std::vector<OutputSection<ELFT> *>::iterator OutputSectionIter;
 
@@ -181,9 +183,10 @@ public:
   virtual StringRef getOutputSectionName(StringRef inputSectionName) const;
 
   /// \brief Gets or creates a section.
-  AtomSection<ELFT> *getSection(
-      StringRef name, int32_t contentType,
-      DefinedAtom::ContentPermissions contentPermissions);
+  AtomSection<ELFT> *
+  getSection(StringRef name, int32_t contentType,
+             DefinedAtom::ContentPermissions contentPermissions,
+             StringRef path);
 
   /// \brief Gets the segment for a output section
   virtual Layout::SegmentType getSegmentType(Section<ELFT> *section) const;
@@ -193,7 +196,7 @@ public:
   static bool hasOutputSegment(Section<ELFT> *section);
 
   // Adds an atom to the section
-  ErrorOr<const lld::AtomLayout &> addAtom(const Atom *atom) override;
+  ErrorOr<const lld::AtomLayout *> addAtom(const Atom *atom) override;
 
   /// \brief Find an output Section given a section name.
   OutputSection<ELFT> *findOutputSection(StringRef name) {
@@ -218,25 +221,22 @@ public:
 
   void assignFileOffsetsForMiscSections();
 
-  /// Inline functions
-  inline range<AbsoluteAtomIterT> absoluteAtoms() { return _absoluteAtoms; }
+  range<AbsoluteAtomIterT> absoluteAtoms() { return _absoluteAtoms; }
 
-  inline void addSection(Chunk<ELFT> *c) {
-    _sections.push_back(c);
-  }
+  void addSection(Chunk<ELFT> *c) { _sections.push_back(c); }
 
-  inline void finalize() {
+  void finalize() {
     ScopedTask task(getDefaultDomain(), "Finalize layout");
     for (auto &si : _sections)
       si->finalize();
   }
 
-  inline void doPreFlight() {
+  void doPreFlight() {
     for (auto &si : _sections)
       si->doPreFlight();
   }
 
-  inline const AtomLayout *findAtomLayoutByName(StringRef name) const override {
+  const AtomLayout *findAtomLayoutByName(StringRef name) const override {
     for (auto sec : _sections)
       if (auto section = dyn_cast<Section<ELFT>>(sec))
         if (auto *al = section->findAtomLayoutByName(name))
@@ -244,23 +244,19 @@ public:
     return nullptr;
   }
 
-  inline void setHeader(ELFHeader<ELFT> *elfHeader) { _elfHeader = elfHeader; }
+  void setHeader(ELFHeader<ELFT> *elfHeader) { _elfHeader = elfHeader; }
 
-  inline void setProgramHeader(ProgramHeader<ELFT> *p) {
+  void setProgramHeader(ProgramHeader<ELFT> *p) {
     _programHeader = p;
   }
 
-  inline range<OutputSectionIter> outputSections() { return _outputSections; }
+  range<OutputSectionIter> outputSections() { return _outputSections; }
 
-  inline range<ChunkIter> sections() { return _sections; }
+  range<ChunkIter> sections() { return _sections; }
 
-  inline range<SegmentIter> segments() { return _segments; }
+  range<SegmentIter> segments() { return _segments; }
 
-  inline ELFHeader<ELFT> *getHeader() { return _elfHeader; }
-
-  inline ProgramHeader<ELFT> *getProgramHeader() {
-    return _programHeader;
-  }
+  ELFHeader<ELFT> *getHeader() { return _elfHeader; }
 
   bool hasDynamicRelocationTable() const { return !!_dynamicRelocationTable; }
 
@@ -330,16 +326,6 @@ protected:
   const ELFLinkingContext &_context;
 };
 
-/// \brief Handle linker scripts. TargetLayouts would derive
-/// from this class to override some of the functionalities.
-template<class ELFT>
-class ScriptLayout: public DefaultLayout<ELFT> {
-public:
-  ScriptLayout(const ELFLinkingContext &context)
-    : DefaultLayout<ELFT>(context)
-  {}
-};
-
 template <class ELFT>
 Layout::SectionOrder DefaultLayout<ELFT>::getSectionOrder(
     StringRef name, int32_t contentType, int32_t contentPermissions) {
@@ -363,8 +349,8 @@ Layout::SectionOrder DefaultLayout<ELFT>::getSectionOrder(
         .StartsWith(".init_array", ORDER_INIT_ARRAY)
         .StartsWith(".fini_array", ORDER_FINI_ARRAY)
         .StartsWith(".dynamic", ORDER_DYNAMIC)
-        .StartsWith(".got.plt", ORDER_GOT_PLT)
-        .StartsWith(".got", ORDER_GOT)
+        .StartsWith(".ctors", ORDER_CTORS)
+        .StartsWith(".dtors", ORDER_DTORS)
         .Default(ORDER_DATA);
 
   case DefinedAtom::typeZeroFill:
@@ -544,22 +530,19 @@ AtomSection<ELFT> *DefaultLayout<ELFT>::createSection(
 }
 
 template <class ELFT>
-AtomSection<ELFT> *DefaultLayout<ELFT>::getSection(
-    StringRef sectionName, int32_t contentType,
-    DefinedAtom::ContentPermissions permissions) {
-  // FIXME: We really need the file path here in the SectionKey, when that
-  // is available, replace the sectionKey that has outputSectionName to the
-  // inputSectionName.
-  StringRef outputSectionName = getOutputSectionName(sectionName);
-  const SectionKey sectionKey(outputSectionName, permissions);
+AtomSection<ELFT> *
+DefaultLayout<ELFT>::getSection(StringRef sectionName, int32_t contentType,
+                                DefinedAtom::ContentPermissions permissions,
+                                StringRef path) {
+  const SectionKey sectionKey(sectionName, permissions, path);
+  SectionOrder sectionOrder =
+      getSectionOrder(sectionName, contentType, permissions);
   auto sec = _sectionMap.find(sectionKey);
   if (sec != _sectionMap.end())
     return sec->second;
-  SectionOrder sectionOrder =
-      getSectionOrder(sectionName, contentType, permissions);
   AtomSection<ELFT> *newSec =
       createSection(sectionName, contentType, permissions, sectionOrder);
-  newSec->setOutputSectionName(outputSectionName);
+  newSec->setOutputSectionName(getOutputSectionName(sectionName));
   newSec->setOrder(sectionOrder);
   _sections.push_back(newSec);
   _sectionMap.insert(std::make_pair(sectionKey, newSec));
@@ -567,7 +550,8 @@ AtomSection<ELFT> *DefaultLayout<ELFT>::getSection(
 }
 
 template <class ELFT>
-ErrorOr<const lld::AtomLayout &> DefaultLayout<ELFT>::addAtom(const Atom *atom) {
+ErrorOr<const lld::AtomLayout *>
+DefaultLayout<ELFT>::addAtom(const Atom *atom) {
   if (const DefinedAtom *definedAtom = dyn_cast<DefinedAtom>(atom)) {
     // HACK: Ignore undefined atoms. We need to adjust the interface so that
     // undefined atoms can still be included in the output symbol table for
@@ -579,16 +563,16 @@ ErrorOr<const lld::AtomLayout &> DefaultLayout<ELFT>::addAtom(const Atom *atom) 
     const DefinedAtom::ContentType contentType = definedAtom->contentType();
 
     StringRef sectionName = getInputSectionName(definedAtom);
-    AtomSection<ELFT> *section =
-        getSection(sectionName, contentType, permissions);
+    AtomSection<ELFT> *section = getSection(
+        sectionName, contentType, permissions, definedAtom->file().path());
 
     // Add runtime relocations to the .rela section.
     for (const auto &reloc : *definedAtom) {
       bool isLocalReloc = true;
-      if (_context.isDynamicRelocation(*definedAtom, *reloc)) {
+      if (_context.isDynamicRelocation(*reloc)) {
         getDynamicRelocationTable()->addRelocation(*definedAtom, *reloc);
         isLocalReloc = false;
-      } else if (_context.isPLTRelocation(*definedAtom, *reloc)) {
+      } else if (_context.isPLTRelocation(*reloc)) {
         getPLTRelocationTable()->addRelocation(*definedAtom, *reloc);
         isLocalReloc = false;
       }
@@ -614,7 +598,7 @@ ErrorOr<const lld::AtomLayout &> DefaultLayout<ELFT>::addAtom(const Atom *atom) 
     // link
     _absoluteAtoms.push_back(new (_allocator)
         lld::AtomLayout(absoluteAtom, 0, absoluteAtom->value()));
-    return *_absoluteAtoms.back();
+    return _absoluteAtoms.back();
   } else {
     llvm_unreachable("Only absolute / defined atoms can be added here");
   }
@@ -755,7 +739,7 @@ DefaultLayout<ELFT>::assignVirtualAddress() {
 
   std::sort(_segments.begin(), _segments.end(), Segment<ELFT>::compareSegments);
 
-  uint64_t virtualAddress = _context.getBaseAddress();
+  uint64_t baseAddress = _context.getBaseAddress();
 
   // HACK: This is a super dirty hack. The elf header and program header are
   // not part of a section, but we need them to be loaded at the base address
@@ -774,6 +758,7 @@ DefaultLayout<ELFT>::assignVirtualAddress() {
   firstLoadSegment->prepend(_elfHeader);
   bool newSegmentHeaderAdded = true;
   bool virtualAddressAssigned = false;
+  bool fileOffsetAssigned = false;
   while (true) {
     for (auto si : _segments) {
       si->finalize();
@@ -783,8 +768,7 @@ DefaultLayout<ELFT>::assignVirtualAddress() {
     }
     if (!newSegmentHeaderAdded && virtualAddressAssigned)
       break;
-    virtualAddressAssigned = true;
-    uint64_t address = virtualAddress;
+    uint64_t address = baseAddress;
     // start assigning virtual addresses
     for (auto &si : _segments) {
       if ((si->segmentType() != llvm::ELF::PT_LOAD) &&
@@ -794,18 +778,27 @@ DefaultLayout<ELFT>::assignVirtualAddress() {
       if (si->segmentType() == llvm::ELF::PT_NULL) {
         si->assignVirtualAddress(0 /*non loadable*/);
       } else {
+        if (virtualAddressAssigned && (address != baseAddress) &&
+            (address == si->virtualAddr()))
+          break;
         si->assignVirtualAddress(address);
       }
       address = si->virtualAddr() + si->memSize();
     }
-    uint64_t fileoffset = 0;
+    uint64_t baseFileOffset = 0;
+    uint64_t fileoffset = baseFileOffset;
     for (auto &si : _segments) {
       if ((si->segmentType() != llvm::ELF::PT_LOAD) &&
           (si->segmentType() != llvm::ELF::PT_NULL))
         continue;
+      if (fileOffsetAssigned && (fileoffset != baseFileOffset) &&
+          (fileoffset == si->fileOffset()))
+        break;
       si->assignFileOffsets(fileoffset);
       fileoffset = si->fileOffset() + si->fileSize();
     }
+    virtualAddressAssigned = true;
+    fileOffsetAssigned = true;
     _programHeader->resetProgramHeaders();
   }
   Section<ELFT> *section;

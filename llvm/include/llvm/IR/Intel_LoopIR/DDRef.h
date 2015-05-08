@@ -36,7 +36,7 @@ class CanonExpr;
 class DDRef {
 private:
   /// \brief Make class uncopyable.
-  void operator=(const DDRef &) LLVM_DELETED_FUNCTION;
+  void operator=(const DDRef &) = delete;
 
   /// \brief Destroys all objects of this class. Should only be
   /// called after code gen.

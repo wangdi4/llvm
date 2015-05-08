@@ -31,7 +31,7 @@ class HIRParser;
 class HLUtils {
 private:
   /// \brief Make class uncopyable.
-  void operator=(const HLUtils &) LLVM_DELETED_FUNCTION;
+  void operator=(const HLUtils &) = delete;
 
   friend class HIRParser;
 

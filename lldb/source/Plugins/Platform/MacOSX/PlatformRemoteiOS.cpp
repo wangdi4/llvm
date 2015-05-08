@@ -63,6 +63,8 @@ static uint32_t g_initialize_count = 0;
 void
 PlatformRemoteiOS::Initialize ()
 {
+    PlatformDarwin::Initialize ();
+
     if (g_initialize_count++ == 0)
     {
         PluginManager::RegisterPlugin (PlatformRemoteiOS::GetPluginNameStatic(),
@@ -81,6 +83,8 @@ PlatformRemoteiOS::Terminate ()
             PluginManager::UnregisterPlugin (PlatformRemoteiOS::CreateInstance);
         }
     }
+
+    PlatformDarwin::Terminate ();
 }
 
 PlatformSP
@@ -296,7 +300,7 @@ PlatformRemoteiOS::GetContainedFilesIntoVectorOfStringsCallback (void *baton,
 }
 
 bool
-PlatformRemoteiOS::UpdateSDKDirectoryInfosInNeeded()
+PlatformRemoteiOS::UpdateSDKDirectoryInfosIfNeeded()
 {
     if (m_sdk_directory_infos.empty())
     {
@@ -358,7 +362,7 @@ const PlatformRemoteiOS::SDKDirectoryInfo *
 PlatformRemoteiOS::GetSDKDirectoryForCurrentOSVersion ()
 {
     uint32_t i;
-    if (UpdateSDKDirectoryInfosInNeeded())
+    if (UpdateSDKDirectoryInfosIfNeeded())
     {
         const uint32_t num_sdk_infos = m_sdk_directory_infos.size();
 
@@ -377,7 +381,7 @@ PlatformRemoteiOS::GetSDKDirectoryForCurrentOSVersion ()
         uint32_t major, minor, update;
         if (GetOSVersion(major, minor, update))
         {
-            if (UpdateSDKDirectoryInfosInNeeded())
+            if (UpdateSDKDirectoryInfosIfNeeded())
             {
                 // First try for an exact match of major, minor and update
                 for (i=0; i<num_sdk_infos; ++i)
@@ -432,7 +436,7 @@ const PlatformRemoteiOS::SDKDirectoryInfo *
 PlatformRemoteiOS::GetSDKDirectoryForLatestOSVersion ()
 {
     const PlatformRemoteiOS::SDKDirectoryInfo *result = NULL;
-    if (UpdateSDKDirectoryInfosInNeeded())
+    if (UpdateSDKDirectoryInfosIfNeeded())
     {
         const uint32_t num_sdk_infos = m_sdk_directory_infos.size();
         // First try for an exact match of major, minor and update
@@ -533,7 +537,7 @@ uint32_t
 PlatformRemoteiOS::FindFileInAllSDKs (const char *platform_file_path,
                                       FileSpecList &file_list)
 {
-    if (platform_file_path && platform_file_path[0] && UpdateSDKDirectoryInfosInNeeded())
+    if (platform_file_path && platform_file_path[0] && UpdateSDKDirectoryInfosIfNeeded())
     {
         const uint32_t num_sdk_infos = m_sdk_directory_infos.size();
         lldb_private::FileSpec local_file;
@@ -698,9 +702,8 @@ PlatformRemoteiOS::GetSharedModule (const ModuleSpec &module_spec,
     if (platform_file.GetPath(platform_file_path, sizeof(platform_file_path)))
     {
         ModuleSpec platform_module_spec(module_spec);
-        UpdateSDKDirectoryInfosInNeeded();
 
-        UpdateSDKDirectoryInfosInNeeded();
+        UpdateSDKDirectoryInfosIfNeeded();
 
         const uint32_t num_sdk_infos = m_sdk_directory_infos.size();
 

@@ -20,10 +20,10 @@
 //--
 
 // Third party headers:
-#include <lldb/API/SBTarget.h>
-#include <lldb/API/SBThread.h>
-#include <lldb/API/SBProcess.h>
-#include <lldb/API/SBCommandInterpreter.h>
+#include "lldb/API/SBTarget.h"
+#include "lldb/API/SBThread.h"
+#include "lldb/API/SBProcess.h"
+#include "lldb/API/SBCommandInterpreter.h"
 
 // In-house headers:
 #include "MICmnLLDBDebugger.h"
@@ -148,7 +148,8 @@ CMICmnLLDBDebugger::Shutdown(void)
 
     // Explicitly delete the remote target in case MI needs to exit prematurely otherwise
     // LLDB debugger may hang in its Destroy() fn waiting on events
-    m_lldbDebugger.DeleteTarget(CMICmnLLDBDebugSessionInfo::Instance().m_lldbTarget);
+    lldb::SBTarget sbTarget = CMICmnLLDBDebugSessionInfo::Instance().GetTarget();
+    m_lldbDebugger.DeleteTarget(sbTarget);
 
     // Debug: May need this but does seem to work without it so commented out the fudge 19/06/2014
     // It appears we need to wait as hang does not occur when hitting a debug breakpoint here
@@ -662,8 +663,13 @@ CMICmnLLDBDebugger::MonitorSBListenerEvents(bool &vrbIsAlive)
     m_pLog->WriteLog(CMIUtilString::Format("##### An event occurred: %s", event.GetBroadcasterClass()));
 
     bool bHandledEvent = false;
-    bool bExitAppEvent = false;
-    const bool bOk = CMICmnLLDBDebuggerHandleEvents::Instance().HandleEvent(event, bHandledEvent, bExitAppEvent);
+
+    bool bOk = false;
+    {
+        // Lock Mutex before handling events so that we don't disturb a running cmd
+        CMIUtilThreadLock lock(CMICmnLLDBDebugSessionInfo::Instance().GetSessionMutex());
+        bOk = CMICmnLLDBDebuggerHandleEvents::Instance().HandleEvent(event, bHandledEvent);
+    }
     if (!bHandledEvent)
     {
         const CMIUtilString msg(CMIUtilString::Format(MIRSRC(IDS_LLDBDEBUGGER_WRN_UNKNOWN_EVENT), event.GetBroadcasterClass()));
@@ -672,15 +678,6 @@ CMICmnLLDBDebugger::MonitorSBListenerEvents(bool &vrbIsAlive)
     if (!bOk)
     {
         m_pLog->WriteLog(CMICmnLLDBDebuggerHandleEvents::Instance().GetErrorDescription());
-    }
-
-    if (bExitAppEvent)
-    {
-        // Set the application to shutdown
-        m_pClientDriver->SetExitApplicationFlag(true);
-
-        // Kill *this thread
-        vrbIsAlive = false;
     }
 
     return bOk;

@@ -30,7 +30,7 @@ using namespace llvm::loopopt;
 
 INITIALIZE_PASS_BEGIN(LoopFormation, "hir-loops", "HIR Loop Formation", false,
                       true)
-INITIALIZE_PASS_DEPENDENCY(LoopInfo);
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass);
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
 INITIALIZE_PASS_DEPENDENCY(HIRCreation)
 INITIALIZE_PASS_DEPENDENCY(HIRCleanup)
@@ -47,7 +47,7 @@ LoopFormation::LoopFormation() : FunctionPass(ID) {
 
 void LoopFormation::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
-  AU.addRequiredTransitive<LoopInfo>();
+  AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<ScalarEvolution>();
   AU.addRequiredTransitive<HIRCreation>();
   AU.addRequiredTransitive<HIRCleanup>();
@@ -209,7 +209,7 @@ void LoopFormation::formLoops() {
 bool LoopFormation::runOnFunction(Function &F) {
   this->Func = &F;
 
-  LI = &getAnalysis<LoopInfo>();
+  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   SE = &getAnalysis<ScalarEvolution>();
   HIR = &getAnalysis<HIRCreation>();
   HIRC = &getAnalysis<HIRCleanup>();

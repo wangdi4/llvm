@@ -28,6 +28,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileOutputBuffer.h"
 #include <memory>
+#include <mutex>
 
 namespace lld {
 namespace elf {
@@ -217,7 +218,7 @@ public:
   // \brief Append an atom to a Section. The atom gets pushed into a vector
   // contains the atom, the atom file offset, the atom virtual address
   // the atom file offset is aligned appropriately as set by the Reader
-  virtual const lld::AtomLayout &appendAtom(const Atom *atom);
+  virtual const lld::AtomLayout *appendAtom(const Atom *atom);
 
   /// \brief Set the virtual address of each Atom in the Section. This
   /// routine gets called after the linker fixes up the virtual address
@@ -247,9 +248,7 @@ public:
   }
 
   /// \brief Return the raw flags, we need this to sort segments
-  inline int64_t atomflags() const {
-    return _contentPermissions;
-  }
+  int64_t atomflags() const { return _contentPermissions; }
 
   /// Atom Iterators
   typedef typename std::vector<lld::AtomLayout *>::iterator atom_iter;
@@ -269,6 +268,31 @@ protected:
   int32_t _contentPermissions;
   bool _isLoadedInMemory;
   std::vector<lld::AtomLayout *> _atoms;
+  mutable std::mutex _outputMutex;
+
+  void printError(const std::string &errorStr, const AtomLayout &atom,
+                  const Reference &ref) const {
+    StringRef kindValStr;
+    if (!this->_context.registry().referenceKindToString(ref.kindNamespace(),
+                                                         ref.kindArch(),
+                                                         ref.kindValue(),
+                                                         kindValStr)) {
+      kindValStr = "unknown";
+    }
+
+    std::string errStr = (Twine(errorStr) + " in file " +
+                          atom._atom->file().path() +
+                          ": reference from " + atom._atom->name() +
+                          "+" + Twine(ref.offsetInAtom()) +
+                          " to " + ref.target()->name() +
+                          "+" + Twine(ref.addend()) +
+                          " of type " + Twine(ref.kindValue()) +
+                          " (" + kindValStr + ")\n").str();
+
+    // Take the lock to prevent output getting interleaved between threads
+    std::lock_guard<std::mutex> lock(_outputMutex);
+    llvm::errs() << errStr;
+  }
 };
 
 /// Align the offset to the required modulus defined by the atom alignment
@@ -292,7 +316,7 @@ uint64_t AtomSection<ELFT>::alignOffset(uint64_t offset,
 // contains the atom, the atom file offset, the atom virtual address
 // the atom file offset is aligned appropriately as set by the Reader
 template <class ELFT>
-const lld::AtomLayout &AtomSection<ELFT>::appendAtom(const Atom *atom) {
+const lld::AtomLayout *AtomSection<ELFT>::appendAtom(const Atom *atom) {
   const DefinedAtom *definedAtom = cast<DefinedAtom>(atom);
 
   DefinedAtom::Alignment atomAlign = definedAtom->alignment();
@@ -344,7 +368,9 @@ const lld::AtomLayout &AtomSection<ELFT>::appendAtom(const Atom *atom) {
   if (this->_alignment < alignment)
     this->_alignment = alignment;
 
-  return *_atoms.back();
+  if (_atoms.size())
+    return _atoms.back();
+  return nullptr;
 }
 
 /// \brief convert the segment type to a String for diagnostics
@@ -377,6 +403,7 @@ template <class ELFT>
 void AtomSection<ELFT>::write(ELFWriter *writer, TargetLayout<ELFT> &layout,
                               llvm::FileOutputBuffer &buffer) {
   uint8_t *chunkBuffer = buffer.getBufferStart();
+  bool success = true;
   parallel_for_each(_atoms.begin(), _atoms.end(), [&](lld::AtomLayout * ai) {
     DEBUG_WITH_TYPE("Section",
                     llvm::dbgs() << "Writing atom: " << ai->_atom->name()
@@ -393,9 +420,16 @@ void AtomSection<ELFT>::write(ELFWriter *writer, TargetLayout<ELFT> &layout,
     std::memcpy(atomContent, content.data(), contentSize);
     const TargetRelocationHandler &relHandler =
         this->_context.template getTargetHandler<ELFT>().getRelocationHandler();
-    for (const auto ref : *definedAtom)
-      relHandler.applyRelocation(*writer, buffer, *ai, *ref);
+    for (const auto ref : *definedAtom) {
+      if (std::error_code ec = relHandler.applyRelocation(*writer, buffer,
+                                                          *ai, *ref)) {
+        printError(ec.message(), *ai, *ref);
+        success = false;
+      }
+    }
   });
+  if (!success)
+    llvm::report_fatal_error("relocating output");
 }
 
 /// \brief A OutputSection represents a set of sections grouped by the same
@@ -413,39 +447,29 @@ public:
   void appendSection(Chunk<ELFT> *c);
 
   // Set the OutputSection is associated with a segment
-  inline void setHasSegment() { _hasSegment = true; }
+  void setHasSegment() { _hasSegment = true; }
 
   /// Sets the ordinal
-  inline void setOrdinal(uint64_t ordinal) {
-    _ordinal = ordinal;
-  }
+  void setOrdinal(uint64_t ordinal) { _ordinal = ordinal; }
 
   /// Sets the Memory size
-  inline void setMemSize(uint64_t memsz) {
-    _memSize = memsz;
-  }
+  void setMemSize(uint64_t memsz) { _memSize = memsz; }
 
   /// Sets the size fo the output Section.
-  inline void setSize(uint64_t fsiz) {
-    _size = fsiz;
-  }
+  void setSize(uint64_t fsiz) { _size = fsiz; }
 
   // The offset of the first section contained in the output section is
   // contained here.
-  inline void setFileOffset(uint64_t foffset) {
-    _fileOffset = foffset;
-  }
+  void setFileOffset(uint64_t foffset) { _fileOffset = foffset; }
 
   // Sets the starting address of the section
-  inline void setAddr(uint64_t addr) {
-    _virtualAddr = addr;
-  }
+  void setAddr(uint64_t addr) { _virtualAddr = addr; }
 
   // Is the section loadable?
-  inline bool isLoadableSection() const { return _isLoadableSection; }
+  bool isLoadableSection() const { return _isLoadableSection; }
 
   // Set section Loadable
-  inline void setLoadableSection(bool isLoadable) {
+  void setLoadableSection(bool isLoadable) {
     _isLoadableSection = isLoadable;
   }
 
@@ -457,36 +481,36 @@ public:
 
   void setType(int16_t type) { _type = type; }
 
-  inline range<ChunkIter> sections() { return _sections; }
+  range<ChunkIter> sections() { return _sections; }
 
   // The below functions returns the properties of the OutputSection.
-  inline bool hasSegment() const { return _hasSegment; }
+  bool hasSegment() const { return _hasSegment; }
 
-  inline StringRef name() const { return _name; }
+  StringRef name() const { return _name; }
 
-  inline int64_t shinfo() const { return _shInfo; }
+  int64_t shinfo() const { return _shInfo; }
 
-  inline uint64_t alignment() const { return _alignment; }
+  uint64_t alignment() const { return _alignment; }
 
-  inline int64_t link() const { return _link; }
+  int64_t link() const { return _link; }
 
-  inline int64_t type() const { return _type; }
+  int64_t type() const { return _type; }
 
-  inline uint64_t virtualAddr() const { return _virtualAddr; }
+  uint64_t virtualAddr() const { return _virtualAddr; }
 
-  inline int64_t ordinal() const { return _ordinal; }
+  int64_t ordinal() const { return _ordinal; }
 
-  inline int64_t kind() const { return _kind; }
+  int64_t kind() const { return _kind; }
 
-  inline uint64_t fileSize() const { return _size; }
+  uint64_t fileSize() const { return _size; }
 
-  inline int64_t entsize() const { return _entSize; }
+  int64_t entsize() const { return _entSize; }
 
-  inline uint64_t fileOffset() const { return _fileOffset; }
+  uint64_t fileOffset() const { return _fileOffset; }
 
-  inline int64_t flags() const { return _flags; }
+  int64_t flags() const { return _flags; }
 
-  inline uint64_t memSize() { return _memSize; }
+  uint64_t memSize() { return _memSize; }
 
 private:
   StringRef _name;
@@ -543,9 +567,7 @@ public:
   virtual void write(ELFWriter *writer, TargetLayout<ELFT> &layout,
                      llvm::FileOutputBuffer &buffer);
 
-  inline void setNumEntries(int64_t numEntries) {
-    _stringMap.resize(numEntries);
-  }
+  void setNumEntries(int64_t numEntries) { _stringMap.resize(numEntries); }
 
 private:
   std::vector<StringRef> _strings;
@@ -1005,7 +1027,7 @@ private:
     uint32_t index =
         _symbolTable ? _symbolTable->getSymbolTableIndex(ref.target())
                      : (uint32_t)STN_UNDEF;
-    r.setSymbolAndType(index, ref.kindValue());
+    r.setSymbolAndType(index, ref.kindValue(), false);
     r.r_offset = writer->addressOfAtom(&atom) + ref.offsetInAtom();
     r.r_addend = 0;
     // The addend is used only by relative relocations
@@ -1023,7 +1045,7 @@ private:
     uint32_t index =
         _symbolTable ? _symbolTable->getSymbolTableIndex(ref.target())
                      : (uint32_t)STN_UNDEF;
-    r.setSymbolAndType(index, ref.kindValue());
+    r.setSymbolAndType(index, ref.kindValue(), false);
     r.r_offset = writer->addressOfAtom(&atom) + ref.offsetInAtom();
     DEBUG_WITH_TYPE("ELFRelocationTable",
                     llvm::dbgs() << ref.kindValue() << " relocation at "

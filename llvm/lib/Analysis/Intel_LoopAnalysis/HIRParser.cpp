@@ -32,7 +32,7 @@ using namespace llvm::loopopt;
 #define DEBUG_TYPE "hir-parser"
 
 INITIALIZE_PASS_BEGIN(HIRParser, "hir-parser", "HIR Parser", false, true)
-INITIALIZE_PASS_DEPENDENCY(LoopInfo)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
 INITIALIZE_PASS_DEPENDENCY(HIRCreation)
 INITIALIZE_PASS_DEPENDENCY(LoopFormation)
@@ -51,7 +51,7 @@ HIRParser::HIRParser() : FunctionPass(ID), CurLevel(0) {
 
 void HIRParser::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
-  AU.addRequiredTransitive<LoopInfo>();
+  AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<ScalarEvolution>();
   AU.addRequiredTransitive<HIRCreation>();
   AU.addRequiredTransitive<LoopFormation>();
@@ -551,7 +551,7 @@ bool HIRParser::runOnFunction(Function &F) {
   HIR = &getAnalysis<HIRCreation>();
   LF = &getAnalysis<LoopFormation>();
   SE = &getAnalysis<ScalarEvolution>();
-  LI = &getAnalysis<LoopInfo>();
+  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
   Visitor PV(this);
   HLNodeUtils::visitAll(&PV, this);

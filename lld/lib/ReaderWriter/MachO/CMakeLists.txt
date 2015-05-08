@@ -1,6 +1,4 @@
-set(LLVM_LINK_COMPONENTS support)
-
-add_lld_library(lldMachO
+add_llvm_library(lldMachO
   ArchHandler.cpp
   ArchHandler_arm.cpp
   ArchHandler_arm64.cpp
@@ -8,6 +6,7 @@ add_lld_library(lldMachO
   ArchHandler_x86_64.cpp
   CompactUnwindPass.cpp
   GOTPass.cpp
+  LayoutPass.cpp
   MachOLinkingContext.cpp
   MachONormalizedFileBinaryReader.cpp
   MachONormalizedFileBinaryWriter.cpp
@@ -17,11 +16,11 @@ add_lld_library(lldMachO
   ShimPass.cpp
   StubsPass.cpp
   WriterMachO.cpp
-  )
-
-target_link_libraries(lldMachO ${cmake_2_8_12_INTERFACE}
-  lldReaderWriter
-  lldPasses
+  LINK_LIBS
+    lldCore
+    lldYAML
+    LLVMObject
+    LLVMSupport
   )
 
 include_directories(.)

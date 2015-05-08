@@ -32,7 +32,7 @@ namespace loopopt {
 class DDRefUtils {
 private:
   /// \brief Do not allow instantiation.
-  DDRefUtils() LLVM_DELETED_FUNCTION;
+  DDRefUtils() = delete;
 
   friend class HIRParser;
 

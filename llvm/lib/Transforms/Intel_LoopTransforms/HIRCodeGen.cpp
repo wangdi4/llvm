@@ -285,7 +285,7 @@ Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
   BasicBlock *RegionSuccessor = R->getSuccBBlock();
 
   BasicBlock *EntrySecondHalf =
-      SplitBlock(EntryFirstHalf, EntryFirstHalf->begin(), HIRCG);
+      SplitBlock(EntryFirstHalf, EntryFirstHalf->begin());
 
   Instruction *Term = EntryFirstHalf->getTerminator();
   BasicBlock::iterator ii(Term);

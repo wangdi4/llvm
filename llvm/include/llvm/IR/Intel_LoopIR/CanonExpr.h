@@ -98,7 +98,7 @@ private:
   /// \brief Copy constructor; only used for cloning.
   CanonExpr(const CanonExpr &);
   /// \brief Make class unassignable.
-  void operator=(const CanonExpr &) LLVM_DELETED_FUNCTION;
+  void operator=(const CanonExpr &) = delete;
 
   /// \brief Destroys all objects of this class. Should only be
   /// called after code gen.

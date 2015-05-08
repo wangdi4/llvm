@@ -5,10 +5,12 @@ set(LLVM_LINK_COMPONENTS
   IPO
   MC
   MCJIT
+  RuntimeDyld
   ScalarOpts
   Support
   Target
   nativecodegen
+  Intel_LoopTransforms
   )
 
 set(MCJITTestsSources

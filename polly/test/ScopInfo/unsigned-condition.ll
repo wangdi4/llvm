@@ -1,4 +1,4 @@
-; RUN: opt %loadPolly -polly-scops -analyze -polly-allow-unsigned < %s | FileCheck %s
+; RUN: opt %loadPolly -polly-detect-unprofitable -polly-scops -analyze -polly-allow-unsigned < %s | FileCheck %s
 
 ; void f(int a[], int N, unsigned P) {
 ;   int i;
@@ -20,7 +20,7 @@ bb:
   br i1 %brcond, label %store, label %bb.backedge
 
 store:
-  %scevgep = getelementptr i64* %a, i64 %i
+  %scevgep = getelementptr i64, i64* %a, i64 %i
   store i64 %i, i64* %scevgep
   br label %bb.backedge
 
@@ -42,6 +42,6 @@ return:
 ; CHECK:              i0 >= 0 and i0 <= -1 + N and P >= 42
 ; CHECK:                   };
 ; CHECK:        Scattering :=
-; CHECK:            [N, P] -> { Stmt_store[i0] -> scattering[i0] };
+; CHECK:            [N, P] -> { Stmt_store[i0] -> [i0] };
 ; CHECK:        MustWriteAccess := [Reduction Type: NONE]
 ; CHECK:            [N, P] -> { Stmt_store[i0] -> MemRef_a[i0] };

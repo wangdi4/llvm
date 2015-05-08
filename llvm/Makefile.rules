@@ -450,7 +450,12 @@ ifeq ($(HOST_OS),MingW)
 endif
 
 CPP.BaseFlags += $(CPP.Defines)
-AR.Flags      := cru
+
+ifeq ($(HOST_OS),FreeBSD)
+  AR.Flags := cru -D
+else
+  AR.Flags := cru
+endif
 
 # Make Floating point IEEE compliant on Alpha.
 ifeq ($(ARCH),Alpha)
@@ -631,6 +636,9 @@ ifneq ($(HOST_OS), $(filter $(HOST_OS), Cygwin MingW))
 ifneq ($(HOST_OS),Darwin)
 ifneq ($(HOST_ARCH),Mips)
   CXX.Flags += -ffunction-sections -fdata-sections
+  ifeq ($(HOST_OS),SunOS)
+      CXX.Flags += -falign-functions=8
+  endif
 endif
 endif
 endif
@@ -638,8 +646,12 @@ ifndef NO_DEAD_STRIP
   ifeq ($(HOST_OS),Darwin)
     LD.Flags += -Wl,-dead_strip
   else
-    ifneq ($(HOST_OS), $(filter $(HOST_OS), Cygwin MingW))
-      LD.Flags += -Wl,--gc-sections
+    ifeq ($(HOST_OS),SunOS)
+      LD.Flags += -Wl,-z -Wl,discard-unused=sections
+    else
+      ifneq ($(HOST_OS), $(filter $(HOST_OS), Cygwin MingW))
+        LD.Flags += -Wl,--gc-sections
+      endif
     endif
   endif
 endif
@@ -802,6 +814,15 @@ ifndef SOURCES
 else
   Sources := $(SOURCES)
 endif
+
+#if INTEL_CUSTOMIZATION
+# CQ#367072 - fix for iclang makefile-based build.
+ifeq ($(INTEL_CUSTOMIZATION),1)
+PROJ_INTEL_SRC_DIR := $(PROJ_SRC_DIR)/intel
+Sources += $(wildcard $(PROJ_INTEL_SRC_DIR)/*.cpp \
+	   $(PROJ_INTEL_SRC_DIR)/*.cc $(PROJ_INTEL_SRC_DIR)/*.c)
+endif
+#endif // INTEL_CUSTOMIZATION
 
 ifdef BUILT_SOURCES
 Sources += $(filter %.cpp %.c %.cc,$(BUILT_SOURCES))

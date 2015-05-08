@@ -25,7 +25,7 @@ using namespace llvm::loopopt;
 #define DEBUG_TYPE "hir-cleanup"
 
 INITIALIZE_PASS_BEGIN(HIRCleanup, "hir-cleanup", "HIR Cleanup", false, true)
-INITIALIZE_PASS_DEPENDENCY(LoopInfo)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRCreation)
 INITIALIZE_PASS_END(HIRCleanup, "hir-cleanup", "HIR Cleanup", false, true)
 
@@ -39,7 +39,7 @@ HIRCleanup::HIRCleanup() : FunctionPass(ID) {
 
 void HIRCleanup::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
-  AU.addRequiredTransitive<LoopInfo>();
+  AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<HIRCreation>();
 }
 
@@ -112,7 +112,7 @@ void HIRCleanup::eliminateRedundantLabels() {
 }
 
 bool HIRCleanup::runOnFunction(Function &F) {
-  LI = &getAnalysis<LoopInfo>();
+  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   HIR = &getAnalysis<HIRCreation>();
 
   eliminateRedundantGotos();

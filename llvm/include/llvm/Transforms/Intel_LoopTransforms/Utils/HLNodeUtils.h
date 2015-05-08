@@ -39,7 +39,7 @@ class HIRParser;
 class HLNodeUtils {
 private:
   /// \brief Do not allow instantiation.
-  HLNodeUtils() LLVM_DELETED_FUNCTION;
+  HLNodeUtils() = delete;
 
   friend class HIRCreation;
   friend class HIRCleanup;

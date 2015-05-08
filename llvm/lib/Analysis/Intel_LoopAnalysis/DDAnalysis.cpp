@@ -14,7 +14,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/SymbaseAssignment.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
-#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"

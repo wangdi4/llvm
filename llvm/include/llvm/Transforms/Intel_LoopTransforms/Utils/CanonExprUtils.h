@@ -35,7 +35,7 @@ namespace loopopt {
 class CanonExprUtils : public HLUtils {
 private:
   /// \brief Do not allow instantiation.
-  CanonExprUtils() LLVM_DELETED_FUNCTION;
+  CanonExprUtils() = delete;
 
   friend class HIRParser;
 

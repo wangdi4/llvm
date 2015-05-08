@@ -16,7 +16,7 @@
 #include "lld/Core/Parallel.h"
 #include "lld/Core/Reference.h"
 #include "lld/Core/range.h"
-#include "lld/ReaderWriter/Reader.h"
+#include "lld/Core/Reader.h"
 #include "llvm/Support/ErrorOr.h"
 #include "llvm/Support/raw_ostream.h"
 #include <string>
@@ -219,11 +219,6 @@ public:
   std::vector<std::unique_ptr<Node>> &getNodes() { return _nodes; }
   const std::vector<std::unique_ptr<Node>> &getNodes() const { return _nodes; }
 
-  /// Notify the LinkingContext when an atom is added to the symbol table.
-  /// This is an opportunity for flavor specific work to be done.
-  virtual void notifySymbolTableAdd(const Atom *atom) const {
-  }
-
   /// Notify the LinkingContext when the symbol table found a name collision.
   /// The useNew parameter specifies which the symbol table plans to keep,
   /// but that can be changed by the LinkingContext.  This is also an
@@ -316,10 +311,6 @@ public:
   /// Return the next ordinal and Increment it.
   virtual uint64_t getNextOrdinalAndIncrement() const { return _nextOrdinal++; }
 
-#ifndef NDEBUG
-  bool runRoundTripPass() const { return _runRoundTripPasses; }
-#endif
-
   // This function is called just before the Resolver kicks in.
   // Derived classes may use that chance to rearrange the input files.
   virtual void maybeSortInputFiles() {}
@@ -357,9 +348,6 @@ protected:
   bool _allowRemainingUndefines;
   bool _logInputFiles;
   bool _allowShlibUndefines;
-#ifndef NDEBUG
-  bool _runRoundTripPasses;
-#endif
   OutputFileType _outputFileType;
   std::vector<StringRef> _deadStripRoots;
   std::map<std::string, std::string> _aliasSymbols;

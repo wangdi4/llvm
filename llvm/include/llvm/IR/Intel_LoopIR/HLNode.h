@@ -41,7 +41,7 @@ class HLRegion;
 class HLNode : public ilist_node<HLNode> {
 private:
   /// \brief Make class uncopyable.
-  void operator=(const HLNode &) LLVM_DELETED_FUNCTION;
+  void operator=(const HLNode &) = delete;
 
   /// \brief Destroys all objects of this class. Should only be
   /// called after code gen.

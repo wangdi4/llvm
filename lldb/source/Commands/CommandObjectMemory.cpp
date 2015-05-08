@@ -16,6 +16,7 @@
 
 // C++ Includes
 // Other libraries and framework includes
+#include "clang/AST/Decl.h"
 // Project includes
 #include "lldb/Core/DataBufferHeap.h"
 #include "lldb/Core/DataExtractor.h"
@@ -24,6 +25,7 @@
 #include "lldb/Core/StreamString.h"
 #include "lldb/Core/ValueObjectMemory.h"
 #include "lldb/DataFormatters/ValueObjectPrinter.h"
+#include "lldb/Expression/ClangPersistentVariables.h"
 #include "lldb/Host/StringConvert.h"
 #include "lldb/Interpreter/Args.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
@@ -95,7 +97,7 @@ public:
         switch (short_option)
         {
             case 'l':
-                error = m_num_per_line.SetValueFromCString (option_arg);
+                error = m_num_per_line.SetValueFromString (option_arg);
                 if (m_num_per_line.GetCurrentValue() == 0)
                     error.SetErrorStringWithFormat("invalid value for --num-per-line option '%s'", option_arg);
                 break;
@@ -105,7 +107,7 @@ public:
                 break;
                 
             case 't':
-                error = m_view_as_type.SetValueFromCString (option_arg);
+                error = m_view_as_type.SetValueFromString (option_arg);
                 break;
             
             case 'r':
@@ -567,7 +569,7 @@ protected:
                 --pointer_count;
             }
 
-            m_format_options.GetByteSizeValue() = clang_ast_type.GetByteSize();
+            m_format_options.GetByteSizeValue() = clang_ast_type.GetByteSize(nullptr);
             
             if (m_format_options.GetByteSizeValue() == 0)
             {
@@ -690,7 +692,7 @@ protected:
             if (m_format_options.GetFormatValue().OptionWasSet() == false)
                 m_format_options.GetFormatValue().SetCurrentValue(eFormatDefault);
 
-            bytes_read = clang_ast_type.GetByteSize() * m_format_options.GetCountValue().GetCurrentValue();
+            bytes_read = clang_ast_type.GetByteSize(nullptr) * m_format_options.GetCountValue().GetCurrentValue();
         }
         else if (m_format_options.GetFormatValue().GetCurrentValue() != eFormatCString)
         {
@@ -981,20 +983,20 @@ public:
         switch (short_option)
         {
         case 'e':
-              m_expr.SetValueFromCString(option_arg);
+              m_expr.SetValueFromString(option_arg);
               break;
           
         case 's':
-              m_string.SetValueFromCString(option_arg);
+              m_string.SetValueFromString(option_arg);
               break;
           
         case 'c':
-              if (m_count.SetValueFromCString(option_arg).Fail())
+              if (m_count.SetValueFromString(option_arg).Fail())
                   error.SetErrorString("unrecognized value for count");
               break;
                 
         case 'o':
-               if (m_offset.SetValueFromCString(option_arg).Fail())
+               if (m_offset.SetValueFromString(option_arg).Fail())
                    error.SetErrorString("unrecognized value for dump-offset");
                 break;
 
@@ -1114,7 +1116,7 @@ protected:
           if (process->GetTarget().EvaluateExpression(m_memory_options.m_expr.GetStringValue(), frame, result_sp) && result_sp.get())
           {
               uint64_t value = result_sp->GetValueAsUnsigned(0);
-              switch (result_sp->GetClangType().GetByteSize())
+              switch (result_sp->GetClangType().GetByteSize(nullptr))
               {
                   case 1: {
                       uint8_t byte = (uint8_t)value;
@@ -1447,7 +1449,7 @@ protected:
         if (m_memory_options.m_infile)
         {
             size_t length = SIZE_MAX;
-            if (item_byte_size > 0)
+            if (item_byte_size > 1)
                 length = item_byte_size;
             lldb::DataBufferSP data_sp (m_memory_options.m_infile.ReadFileContents (m_memory_options.m_infile_offset, length));
             if (data_sp)
