@@ -13,55 +13,107 @@
 #include "ARMLinkingContext.h"
 #include "ARMTargetHandler.h"
 #include "ARMSymbolTable.h"
+#include "llvm/Support/ELF.h"
+
+namespace {
+const char *gotSymbol = "_GLOBAL_OFFSET_TABLE_";
+}
 
 namespace lld {
 namespace elf {
 
-template <class ELFT>
-class ARMExecutableWriter : public ExecutableWriter<ELFT> {
+class ARMExecutableWriter : public ExecutableWriter<ELF32LE> {
 public:
-  ARMExecutableWriter(ARMLinkingContext &context,
-                      ARMTargetLayout<ELFT> &layout);
+  ARMExecutableWriter(ARMLinkingContext &ctx, ARMTargetLayout &layout);
 
 protected:
   // Add any runtime files and their atoms to the output
-  bool createImplicitFiles(std::vector<std::unique_ptr<File>> &) override;
+  void createImplicitFiles(std::vector<std::unique_ptr<File>> &) override;
 
-  void finalizeDefaultAtomValues() override {
-    // Finalize the atom values that are part of the parent.
-    ExecutableWriter<ELFT>::finalizeDefaultAtomValues();
-  }
-
-  void addDefaultAtoms() override {
-    ExecutableWriter<ELFT>::addDefaultAtoms();
-  }
+  void finalizeDefaultAtomValues() override;
 
   /// \brief Create symbol table.
-  LLD_UNIQUE_BUMP_PTR(SymbolTable<ELFT>) createSymbolTable() override;
+  unique_bump_ptr<SymbolTable<ELF32LE>> createSymbolTable() override;
+
+  void processUndefinedSymbol(StringRef symName,
+                              RuntimeFile<ELF32LE> &file) const override;
+
+  // Setup the ELF header.
+  std::error_code setELFHeader() override;
 
 private:
-  ARMLinkingContext &_context;
-  ARMTargetLayout<ELFT> &_armLayout;
+  ARMLinkingContext &_ctx;
+  ARMTargetLayout &_armLayout;
 };
 
-template <class ELFT>
-ARMExecutableWriter<ELFT>::ARMExecutableWriter(ARMLinkingContext &context,
-                                               ARMTargetLayout<ELFT> &layout)
-    : ExecutableWriter<ELFT>(context, layout), _context(context),
-      _armLayout(layout) {}
+ARMExecutableWriter::ARMExecutableWriter(ARMLinkingContext &ctx,
+                                         ARMTargetLayout &layout)
+    : ExecutableWriter(ctx, layout), _ctx(ctx), _armLayout(layout) {}
 
-template <class ELFT>
-bool ARMExecutableWriter<ELFT>::createImplicitFiles(
+void ARMExecutableWriter::createImplicitFiles(
     std::vector<std::unique_ptr<File>> &result) {
-  ExecutableWriter<ELFT>::createImplicitFiles(result);
-  return true;
+  ExecutableWriter::createImplicitFiles(result);
 }
 
-template <class ELFT>
-LLD_UNIQUE_BUMP_PTR(SymbolTable<ELFT>)
-    ARMExecutableWriter<ELFT>::createSymbolTable() {
-  return LLD_UNIQUE_BUMP_PTR(SymbolTable<ELFT>)(
-      new (this->_alloc) ARMSymbolTable<ELFT>(this->_context));
+void ARMExecutableWriter::finalizeDefaultAtomValues() {
+  // Finalize the atom values that are part of the parent.
+  ExecutableWriter::finalizeDefaultAtomValues();
+  AtomLayout *gotAtom = _armLayout.findAbsoluteAtom(gotSymbol);
+  if (gotAtom) {
+    if (auto gotpltSection = _armLayout.findOutputSection(".got.plt"))
+      gotAtom->_virtualAddr = gotpltSection->virtualAddr();
+    else if (auto gotSection = _armLayout.findOutputSection(".got"))
+      gotAtom->_virtualAddr = gotSection->virtualAddr();
+    else
+      gotAtom->_virtualAddr = 0;
+  }
+  // TODO: resolve addresses of __exidx_start/_end atoms
+}
+
+unique_bump_ptr<SymbolTable<ELF32LE>> ARMExecutableWriter::createSymbolTable() {
+  return unique_bump_ptr<SymbolTable<ELF32LE>>(new (_alloc)
+                                                   ARMSymbolTable(_ctx));
+}
+
+void ARMExecutableWriter::processUndefinedSymbol(
+    StringRef symName, RuntimeFile<ELF32LE> &file) const {
+  if (symName == gotSymbol) {
+    file.addAbsoluteAtom(gotSymbol);
+  } else if (symName.startswith("__exidx")) {
+    file.addAbsoluteAtom("__exidx_start");
+    file.addAbsoluteAtom("__exidx_end");
+  }
+}
+
+std::error_code ARMExecutableWriter::setELFHeader() {
+  if (std::error_code ec = ExecutableWriter::setELFHeader())
+    return ec;
+
+  // Set ARM-specific flags.
+  _elfHeader->e_flags(llvm::ELF::EF_ARM_EABI_VER5 |
+                      llvm::ELF::EF_ARM_VFP_FLOAT);
+
+  StringRef entryName = _ctx.entrySymbolName();
+  if (const AtomLayout *al = _armLayout.findAtomLayoutByName(entryName)) {
+    if (const auto *ea = dyn_cast<DefinedAtom>(al->_atom)) {
+      switch (ea->codeModel()) {
+      case DefinedAtom::codeNA:
+        if (al->_virtualAddr & 0x3) {
+          llvm::report_fatal_error(
+              "Two least bits must be zero for ARM entry point");
+        }
+        break;
+      case DefinedAtom::codeARMThumb:
+        // Fixup entry point for Thumb code.
+        _elfHeader->e_entry(al->_virtualAddr | 0x1);
+        break;
+      default:
+        llvm_unreachable("Wrong code model of entry point atom");
+      }
+    }
+  }
+
+  return std::error_code();
 }
 
 } // namespace elf

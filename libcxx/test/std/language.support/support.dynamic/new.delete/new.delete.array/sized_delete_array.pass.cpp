@@ -9,7 +9,7 @@
 
 // test sized operator delete[] by replacing unsized operator delete[].
 
-// UNSUPPORTED: asan, msan
+// UNSUPPORTED: sanitizer-new-delete
 
 #include <new>
 #include <cstddef>
@@ -23,7 +23,6 @@ int delete_nothrow_called = 0;
 void operator delete[](void* p) throw()
 {
     ++delete_called;
-    delete_nothrow_called;
     std::free(p);
 }
 

@@ -64,7 +64,6 @@ using namespace lldb;
 using namespace lldb_private;
 
 
-static uint32_t g_shared_debugger_refcount = 0;
 static lldb::user_id_t g_unique_id = 1;
 static size_t g_debugger_event_thread_stack_bytes = 8 * 1024 * 1024;
 
@@ -185,7 +184,7 @@ enum
     ePropertyEscapeNonPrintables
 };
 
-Debugger::LoadPluginCallbackType Debugger::g_load_plugin_callback = NULL;
+LoadPluginCallbackType Debugger::g_load_plugin_callback = NULL;
 
 Error
 Debugger::SetPropertyValue (const ExecutionContext *exe_ctx,
@@ -406,36 +405,24 @@ Debugger::GetEscapeNonPrintables () const
 //}
 //
 
-int
-Debugger::TestDebuggerRefCount ()
-{
-    return g_shared_debugger_refcount;
-}
-
+static bool lldb_initialized = false;
 void
-Debugger::Initialize (LoadPluginCallbackType load_plugin_callback)
+Debugger::Initialize(LoadPluginCallbackType load_plugin_callback)
 {
+    assert(!lldb_initialized && "Debugger::Initialize called more than once!");
+
+    lldb_initialized = true;
     g_load_plugin_callback = load_plugin_callback;
-    if (g_shared_debugger_refcount++ == 0)
-        lldb_private::Initialize();
 }
 
 void
 Debugger::Terminate ()
 {
-    if (g_shared_debugger_refcount > 0)
-    {
-        g_shared_debugger_refcount--;
-        if (g_shared_debugger_refcount == 0)
-        {
-            lldb_private::WillTerminate();
-            lldb_private::Terminate();
+    assert(lldb_initialized && "Debugger::Terminate called without a matching Debugger::Initialize!");
 
-            // Clear our master list of debugger objects
-            Mutex::Locker locker (GetDebuggerListMutex ());
-            GetDebuggerList().clear();
-        }
-    }
+    // Clear our master list of debugger objects
+    Mutex::Locker locker (GetDebuggerListMutex ());
+    GetDebuggerList().clear();
 }
 
 void
@@ -568,7 +555,7 @@ DebuggerSP
 Debugger::CreateInstance (lldb::LogOutputCallback log_callback, void *baton)
 {
     DebuggerSP debugger_sp (new Debugger(log_callback, baton));
-    if (g_shared_debugger_refcount > 0)
+    if (lldb_initialized)
     {
         Mutex::Locker locker (GetDebuggerListMutex ());
         GetDebuggerList().push_back(debugger_sp);
@@ -585,7 +572,7 @@ Debugger::Destroy (DebuggerSP &debugger_sp)
         
     debugger_sp->Clear();
 
-    if (g_shared_debugger_refcount > 0)
+    if (lldb_initialized)
     {
         Mutex::Locker locker (GetDebuggerListMutex ());
         DebuggerList &debugger_list = GetDebuggerList ();
@@ -605,7 +592,7 @@ DebuggerSP
 Debugger::FindDebuggerWithInstanceName (const ConstString &instance_name)
 {
     DebuggerSP debugger_sp;
-    if (g_shared_debugger_refcount > 0)
+    if (lldb_initialized)
     {
         Mutex::Locker locker (GetDebuggerListMutex ());
         DebuggerList &debugger_list = GetDebuggerList();
@@ -627,7 +614,7 @@ TargetSP
 Debugger::FindTargetWithProcessID (lldb::pid_t pid)
 {
     TargetSP target_sp;
-    if (g_shared_debugger_refcount > 0)
+    if (lldb_initialized)
     {
         Mutex::Locker locker (GetDebuggerListMutex ());
         DebuggerList &debugger_list = GetDebuggerList();
@@ -646,7 +633,7 @@ TargetSP
 Debugger::FindTargetWithProcess (Process *process)
 {
     TargetSP target_sp;
-    if (g_shared_debugger_refcount > 0)
+    if (lldb_initialized)
     {
         Mutex::Locker locker (GetDebuggerListMutex ());
         DebuggerList &debugger_list = GetDebuggerList();
@@ -697,6 +684,10 @@ Debugger::Debugger(lldb::LogOutputCallback log_callback, void *baton) :
                                      ConstString("Settings specify to debugging targets."),
                                      true,
                                      Target::GetGlobalProperties()->GetValueProperties());
+    m_collection_sp->AppendProperty (ConstString("platform"),
+                                     ConstString("Platform settings."),
+                                     true,
+                                     Platform::GetGlobalPlatformProperties()->GetValueProperties());
     if (m_command_interpreter_ap.get())
     {
         m_collection_sp->AppendProperty (ConstString("interpreter"),
@@ -1125,7 +1116,7 @@ Debugger::GetAsyncErrorStream ()
 size_t
 Debugger::GetNumDebuggers()
 {
-    if (g_shared_debugger_refcount > 0)
+    if (lldb_initialized)
     {
         Mutex::Locker locker (GetDebuggerListMutex ());
         return GetDebuggerList().size();
@@ -1138,7 +1129,7 @@ Debugger::GetDebuggerAtIndex (size_t index)
 {
     DebuggerSP debugger_sp;
     
-    if (g_shared_debugger_refcount > 0)
+    if (lldb_initialized)
     {
         Mutex::Locker locker (GetDebuggerListMutex ());
         DebuggerList &debugger_list = GetDebuggerList();
@@ -1155,7 +1146,7 @@ Debugger::FindDebuggerWithID (lldb::user_id_t id)
 {
     DebuggerSP debugger_sp;
 
-    if (g_shared_debugger_refcount > 0)
+    if (lldb_initialized)
     {
         Mutex::Locker locker (GetDebuggerListMutex ());
         DebuggerList &debugger_list = GetDebuggerList();
@@ -1327,7 +1318,12 @@ Debugger::EnableLog (const char *channel, const char **categories, const char *l
             log_stream_sp = pos->second.lock();
         if (!log_stream_sp)
         {
-            log_stream_sp.reset (new StreamFile (log_file));
+            uint32_t options = File::eOpenOptionWrite | File::eOpenOptionCanCreate
+                                | File::eOpenOptionCloseOnExec | File::eOpenOptionAppend;
+            if (! (log_options & LLDB_LOG_OPTION_APPEND))
+                options |= File::eOpenOptionTruncate;
+
+            log_stream_sp.reset (new StreamFile (log_file, options));
             m_log_streams[log_file] = log_stream_sp;
         }
     }
@@ -1523,7 +1519,7 @@ Debugger::HandleProcessEvent (const EventSP &event_sp)
             StreamFileSP error_stream_sp (GetOutputFile());
             bool top_io_handler_hid = false;
 
-            if (process_sp->ProcessIOHandlerIsActive() == false)
+            if (process_sp->ProcessIOHandlerExists() && process_sp->ProcessIOHandlerIsActive() == false)
                 top_io_handler_hid = HideTopIOHandler();
 
             if (output_stream.GetSize())

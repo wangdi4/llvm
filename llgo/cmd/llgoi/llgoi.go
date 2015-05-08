@@ -76,8 +76,8 @@ type interp struct {
 	imports []*types.Package
 	scope   map[string]types.Object
 
-	pkgmap, inputPkgmap map[string]*types.Package
-	pkgnum              int
+	pkgmap map[string]*types.Package
+	pkgnum int
 }
 
 func (in *interp) makeCompilerOptions() error {
@@ -91,6 +91,7 @@ func (in *interp) makeCompilerOptions() error {
 		TargetTriple:  llvm.DefaultTargetTriple(),
 		ImportPaths:   importPaths,
 		GenerateDebug: true,
+		Packages:      in.pkgmap,
 	}
 	err = in.copts.MakeImporter()
 	if err != nil {
@@ -99,7 +100,7 @@ func (in *interp) makeCompilerOptions() error {
 
 	origImporter := in.copts.Importer
 	in.copts.Importer = func(pkgmap map[string]*types.Package, pkgpath string) (*types.Package, error) {
-		if pkg, ok := in.inputPkgmap[pkgpath]; ok {
+		if pkg, ok := pkgmap[pkgpath]; ok && pkg.Complete() {
 			return pkg, nil
 		}
 		return origImporter(pkgmap, pkgpath)
@@ -110,7 +111,6 @@ func (in *interp) makeCompilerOptions() error {
 func (in *interp) init() error {
 	in.scope = make(map[string]types.Object)
 	in.pkgmap = make(map[string]*types.Package)
-	in.inputPkgmap = make(map[string]*types.Package)
 
 	err := in.makeCompilerOptions()
 	if err != nil {
@@ -171,7 +171,7 @@ func (in *interp) loadSourcePackage(fset *token.FileSet, files []*ast.File, pkgp
 		}
 	}()
 	importfunc()
-	in.inputPkgmap[pkgpath] = pkg
+	in.pkgmap[pkgpath] = pkg
 	return
 }
 

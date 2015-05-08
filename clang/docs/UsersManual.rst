@@ -968,7 +968,15 @@ are listed below.
       ``true`` nor ``false``.
    -  ``-fsanitize=bounds``: Out of bounds array indexing, in cases
       where the array bound can be statically determined.
-   -  ``-fsanitize=cfi-vptr``: Use of an object whose vptr is of the
+   -  ``-fsanitize=cfi-cast-strict``: Enables :ref:`strict cast checks
+      <cfi-strictness>`.
+   -  ``-fsanitize=cfi-derived-cast``: Base-to-derived cast to the wrong
+      dynamic type. Implies ``-flto``.
+   -  ``-fsanitize=cfi-unrelated-cast``: Cast from ``void*`` or another
+      unrelated type to the wrong dynamic type. Implies ``-flto``.
+   -  ``-fsanitize=cfi-nvcall``: Non-virtual call via an object whose vptr is of
+      the wrong dynamic type. Implies ``-flto``.
+   -  ``-fsanitize=cfi-vcall``: Virtual call via an object whose vptr is of the
       wrong dynamic type. Implies ``-flto``.
    -  ``-fsanitize=enum``: Load of a value of an enumerated type which
       is not in the range of representable values for that enumerated
@@ -1056,8 +1064,8 @@ are listed below.
 
    It is not possible to combine more than one of the ``-fsanitize=address``,
    ``-fsanitize=thread``, and ``-fsanitize=memory`` checkers in the same
-   program. The ``-fsanitize=undefined`` checks can be combined with other
-   sanitizers.
+   program. The ``-fsanitize=undefined`` checks can only be combined with
+   ``-fsanitize=address``.
 
 **-f[no-]sanitize-recover=check1,check2,...**
 

@@ -851,6 +851,7 @@ DynamicLoaderMacOSXDYLD::AddModulesUsingImageInfos (DYLDImageInfo::collection &i
                         if (!commpage_image_module_sp)
                         {
                             module_spec.SetObjectOffset (objfile->GetFileOffset() + commpage_section->GetFileOffset());
+                            module_spec.SetObjectSize (objfile->GetByteSize());
                             commpage_image_module_sp  = target.GetSharedModule (module_spec);
                             if (!commpage_image_module_sp || commpage_image_module_sp->GetObjectFile() == NULL)
                             {
@@ -889,24 +890,6 @@ DynamicLoaderMacOSXDYLD::AddModulesUsingImageInfos (DYLDImageInfo::collection &i
     
     if (loaded_module_list.GetSize() > 0)
     {
-        // FIXME: This should really be in the Runtime handlers class, which should get
-        // called by the target's ModulesDidLoad, but we're doing it all locally for now 
-        // to save time.
-        // Also, I'm assuming there can be only one libobjc dylib loaded...
-        
-        ObjCLanguageRuntime *objc_runtime = m_process->GetObjCLanguageRuntime(true);
-        if (objc_runtime != NULL && !objc_runtime->HasReadObjCLibrary())
-        {
-            size_t num_modules = loaded_module_list.GetSize();
-            for (size_t i = 0; i < num_modules; i++)
-            {
-                if (objc_runtime->IsModuleObjCLibrary (loaded_module_list.GetModuleAtIndex (i)))
-                {
-                    objc_runtime->ReadObjCLibrary (loaded_module_list.GetModuleAtIndex (i));
-                    break;
-                }
-            }
-        }
         if (log)
             loaded_module_list.LogUUIDAndPaths (log, "DynamicLoaderMacOSXDYLD::ModulesDidLoad");
         m_process->GetTarget().ModulesDidLoad (loaded_module_list);
@@ -1283,7 +1266,7 @@ DynamicLoaderMacOSXDYLD::ParseLoadCommands (const DataExtractor& data, DYLDImage
         // Iterate through the object file sections to find the
         // first section that starts of file offset zero and that
         // has bytes in the file...
-        if (dylib_info.segments[i].fileoff == 0 && dylib_info.segments[i].filesize > 0)
+        if ((dylib_info.segments[i].fileoff == 0 && dylib_info.segments[i].filesize > 0) || (dylib_info.segments[i].name == ConstString("__TEXT")))
         {
             dylib_info.slide = dylib_info.address - dylib_info.segments[i].vmaddr;
             // We have found the slide amount, so we can exit

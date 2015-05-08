@@ -51,6 +51,7 @@ DWARFCompileUnit::DWARFCompileUnit(SymbolFileDWARF* dwarf2Data) :
     m_producer_version_major (0),
     m_producer_version_minor (0),
     m_producer_version_update (0),
+    m_language_type (eLanguageTypeUnknown),
     m_is_dwarf64    (false)
 {
 }
@@ -68,6 +69,7 @@ DWARFCompileUnit::Clear()
     m_func_aranges_ap.reset();
     m_user_data     = NULL;
     m_producer      = eProducerInvalid;
+    m_language_type = eLanguageTypeUnknown;
     m_is_dwarf64    = false;
 }
 
@@ -441,6 +443,31 @@ DWARFCompileUnit::BuildAddressRangeTable (SymbolFileDWARF* dwarf2Data,
             }
             else
                 debug_map_sym_file->AddOSOARanges(dwarf2Data,debug_aranges);
+        }
+    }
+    
+    if (debug_aranges->IsEmpty())
+    {
+        // We got nothing from the functions, maybe we have a line tables only
+        // situation. Check the line tables and build the arange table from this.
+        SymbolContext sc;
+        sc.comp_unit = dwarf2Data->GetCompUnitForDWARFCompUnit(this);
+        if (sc.comp_unit)
+        {
+            LineTable *line_table = sc.comp_unit->GetLineTable();
+
+            if (line_table)
+            {
+                LineTable::FileAddressRanges file_ranges;
+                const bool append = true;
+                const size_t num_ranges = line_table->GetContiguousFileAddressRanges (file_ranges, append);
+                for (uint32_t idx=0; idx<num_ranges; ++idx)
+                {
+                    const LineTable::FileAddressRanges::Entry &range = file_ranges.GetEntryRef(idx);
+                    debug_aranges->AppendRange(GetOffset(), range.GetRangeBase(), range.GetRangeEnd());
+                    printf ("0x%8.8x: [0x%16.16lx - 0x%16.16lx)\n", GetOffset(), range.GetRangeBase(), range.GetRangeEnd());
+                }
+            }
         }
     }
     
@@ -1040,6 +1067,19 @@ DWARFCompileUnit::GetProducerVersionUpdate()
     if (m_producer_version_update == 0)
         ParseProducerInfo ();
     return m_producer_version_update;
+}
+
+LanguageType
+DWARFCompileUnit::GetLanguageType()
+{
+    if (m_language_type != eLanguageTypeUnknown)
+        return m_language_type;
+
+    const DWARFDebugInfoEntry *die = GetCompileUnitDIEOnly();
+    if (die)
+        m_language_type = static_cast<LanguageType>(
+            die->GetAttributeValueAsUnsigned(m_dwarf2Data, this, DW_AT_language, eLanguageTypeUnknown));
+    return m_language_type;
 }
 
 bool

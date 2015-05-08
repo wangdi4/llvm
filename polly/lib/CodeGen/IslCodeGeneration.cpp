@@ -15,7 +15,7 @@
 // in the Scop. ISL is used to generate an abstract syntax tree that reflects
 // the updated execution order. This clast is used to create new LLVM-IR that is
 // computationally equivalent to the original control flow region, but executes
-// its code in the new execution order defined by the changed scattering.
+// its code in the new execution order defined by the changed schedule.
 //
 //===----------------------------------------------------------------------===//
 #include "polly/Config/config.h"
@@ -63,9 +63,9 @@ public:
   IslNodeBuilder(PollyIRBuilder &Builder, ScopAnnotator &Annotator, Pass *P,
                  const DataLayout &DL, LoopInfo &LI, ScalarEvolution &SE,
                  DominatorTree &DT, Scop &S)
-      : S(S), Builder(Builder), Annotator(Annotator), Rewriter(SE, "polly"),
+      : S(S), Builder(Builder), Annotator(Annotator), Rewriter(SE, DL, "polly"),
         ExprBuilder(Builder, IDToValue, Rewriter, DT, LI),
-        BlockGen(Builder, LI, SE, DT, &ExprBuilder), RegionGen(BlockGen),
+        BlockGen(Builder, LI, SE, DT, &ExprBuilder), RegionGen(BlockGen), P(P),
         DL(DL), LI(LI), SE(SE), DT(DT) {}
 
   ~IslNodeBuilder() {}
@@ -88,7 +88,7 @@ private:
   /// @brief Generator for region statements.
   RegionGenerator RegionGen;
 
-  Pass *P;
+  Pass *const P;
   const DataLayout &DL;
   LoopInfo &LI;
   ScalarEvolution &SE;
@@ -693,7 +693,7 @@ void IslNodeBuilder::createForParallel(__isl_take isl_ast_node *For) {
 }
 
 void IslNodeBuilder::createFor(__isl_take isl_ast_node *For) {
-  bool Vector = PollyVectorizerChoice != VECTORIZER_NONE;
+  bool Vector = PollyVectorizerChoice == VECTORIZER_POLLY;
 
   if (Vector && IslAstInfo::isInnermostParallel(For) &&
       !IslAstInfo::isReductionParallel(For)) {
@@ -840,7 +840,9 @@ void IslNodeBuilder::createBlock(__isl_take isl_ast_node *Block) {
 void IslNodeBuilder::create(__isl_take isl_ast_node *Node) {
   switch (isl_ast_node_get_type(Node)) {
   case isl_ast_node_error:
-    llvm_unreachable("code  generation error");
+    llvm_unreachable("code generation error");
+  case isl_ast_node_mark:
+    llvm_unreachable("Mark node unexpected");
   case isl_ast_node_for:
     createFor(Node);
     return;
@@ -977,10 +979,20 @@ public:
     PollyIRBuilder Builder = createPollyIRBuilder(EnteringBB, Annotator);
 
     IslNodeBuilder NodeBuilder(Builder, Annotator, this, *DL, *LI, *SE, *DT, S);
-    NodeBuilder.addParameters(S.getContext());
 
+    // Only build the run-time condition and parameters _after_ having
+    // introduced the conditional branch. This is important as the conditional
+    // branch will guard the original scop from new induction variables that
+    // the SCEVExpander may introduce while code generating the parameters and
+    // which may introduce scalar dependences that prevent us from correctly
+    // code generating this scop.
+    BasicBlock *StartBlock =
+        executeScopConditionally(S, this, Builder.getTrue());
+    auto SplitBlock = StartBlock->getSinglePredecessor();
+    Builder.SetInsertPoint(SplitBlock->getTerminator());
+    NodeBuilder.addParameters(S.getContext());
     Value *RTC = buildRTC(Builder, NodeBuilder.getExprBuilder());
-    BasicBlock *StartBlock = executeScopConditionally(S, this, RTC);
+    SplitBlock->getTerminator()->setOperand(0, RTC);
     Builder.SetInsertPoint(StartBlock->begin());
 
     NodeBuilder.create(AstRoot);

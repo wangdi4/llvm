@@ -18,55 +18,56 @@
 #include <stdint.h>
 #include <unistd.h>
 
-#if defined (__arm64__) || defined (__aarch64__)
-// NT_PRSTATUS and NT_FPREGSET definition
-#include <elf.h>
-#endif
-
 // C++ Includes
 #include <fstream>
 #include <string>
 
 // Other libraries and framework includes
 #include "lldb/Core/Debugger.h"
+#include "lldb/Core/EmulateInstruction.h"
 #include "lldb/Core/Error.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/RegisterValue.h"
 #include "lldb/Core/Scalar.h"
 #include "lldb/Core/State.h"
+#include "lldb/Host/common/NativeBreakpoint.h"
+#include "lldb/Host/common/NativeRegisterContext.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Host/HostInfo.h"
+#include "lldb/Host/HostNativeThread.h"
 #include "lldb/Host/ThreadLauncher.h"
 #include "lldb/Symbol/ObjectFile.h"
-#include "lldb/Host/common/NativeRegisterContext.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Target/ProcessLaunchInfo.h"
+#include "lldb/Utility/LLDBAssert.h"
 #include "lldb/Utility/PseudoTerminal.h"
 
-#include "lldb/Host/common/NativeBreakpoint.h"
-#include "Utility/StringExtractor.h"
-
+#include "Plugins/Process/POSIX/ProcessPOSIXLog.h"
 #include "Plugins/Process/Utility/LinuxSignals.h"
+#include "Utility/StringExtractor.h"
 #include "NativeThreadLinux.h"
 #include "ProcFileReader.h"
+#include "Procfs.h"
 #include "ThreadStateCoordinator.h"
-#include "Plugins/Process/POSIX/ProcessPOSIXLog.h"
 
 // System includes - They have to be included after framework includes because they define some
 // macros which collide with variable names in other modules
 #include <linux/unistd.h>
-#ifndef __ANDROID__
-#include <sys/procfs.h>
-#endif
 #include <sys/personality.h>
 #include <sys/ptrace.h>
 #include <sys/socket.h>
+#include <sys/signalfd.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <sys/user.h>
 #include <sys/wait.h>
+
+#if defined (__arm64__) || defined (__aarch64__)
+// NT_PRSTATUS and NT_FPREGSET definition
+#include <elf.h>
+#endif
 
 #ifdef __ANDROID__
 #define __ptrace_request int
@@ -137,14 +138,14 @@
     PtraceWrapper((req), (pid), (addr), (data), (data_size), (error))
 #endif
 
+using namespace lldb;
+using namespace lldb_private;
+using namespace lldb_private::process_linux;
+using namespace llvm;
+
 // Private bits we only need internally.
 namespace
 {
-    using namespace lldb;
-    using namespace lldb_private;
-
-    static void * const EXIT_OPERATION = nullptr;
-
     const UnixSignals&
     GetUnixSignals ()
     {
@@ -178,7 +179,7 @@ namespace
         // Grab process info for the running process.
         ProcessInstanceInfo process_info;
         if (!platform.GetProcessInfo (pid, process_info))
-            return lldb_private::Error("failed to get process info");
+            return Error("failed to get process info");
 
         // Resolve the executable module.
         ModuleSP exe_module_sp;
@@ -201,7 +202,7 @@ namespace
     }
 
     void
-    DisplayBytes (lldb_private::StreamString &s, void *bytes, uint32_t count)
+    DisplayBytes (StreamString &s, void *bytes, uint32_t count)
     {
         uint8_t *ptr = (uint8_t *)bytes;
         const uint32_t loop_count = std::min<uint32_t>(DEBUG_PTRACE_MAXBYTES, count);
@@ -444,7 +445,7 @@ namespace
                                 (log->GetMask().Test(POSIX_LOG_MEMORY_DATA_SHORT) &&
                                         size <= POSIX_LOG_MEMORY_SHORT_BYTES)))
                     log->Printf ("NativeProcessLinux::%s() [%p]:0x%lx (0x%lx)", __FUNCTION__,
-                            (void*)vm_addr, *(unsigned long*)src, data);
+                            (void*)vm_addr, *(const unsigned long*)src, data);
 
                 if (PTRACE(PTRACE_POKEDATA, pid, (void*)vm_addr, (void*)data, 0, error))
                 {
@@ -479,7 +480,7 @@ namespace
                                 (log->GetMask().Test(POSIX_LOG_MEMORY_DATA_SHORT) &&
                                         size <= POSIX_LOG_MEMORY_SHORT_BYTES)))
                     log->Printf ("NativeProcessLinux::%s() [%p]:0x%lx (0x%lx)", __FUNCTION__,
-                            (void*)vm_addr, *(unsigned long*)src, *(unsigned long*)buff);
+                            (void*)vm_addr, *(const unsigned long*)src, *(unsigned long*)buff);
             }
 
             vm_addr += word_size;
@@ -601,7 +602,7 @@ namespace
               m_value(value)
             { }
 
-        void Execute(NativeProcessLinux *monitor);
+        void Execute(NativeProcessLinux *monitor) override;
 
     private:
         lldb::tid_t m_tid;
@@ -631,7 +632,7 @@ namespace
             PTRACE(PTRACE_GETREGSET, m_tid, &regset, &ioVec, sizeof regs, m_error);
             if (m_error.Success())
             {
-                lldb_private::ArchSpec arch;
+                ArchSpec arch;
                 if (monitor->GetArchitecture(arch))
                     m_value.SetBytes((void *)(((unsigned char *)(&regs)) + offset), 16, arch.GetByteOrder());
                 else
@@ -649,17 +650,28 @@ namespace
             PTRACE(PTRACE_GETREGSET, m_tid, &regset, &ioVec, sizeof regs, m_error);
             if (m_error.Success())
             {
-                lldb_private::ArchSpec arch;
+                ArchSpec arch;
                 if (monitor->GetArchitecture(arch))
                     m_value.SetBytes((void *)(((unsigned char *)(regs)) + m_offset), 8, arch.GetByteOrder());
                 else
                     m_error.SetErrorString("failed to get architecture");
             }
         }
+#elif defined (__mips__)
+        elf_gregset_t regs;
+        PTRACE(PTRACE_GETREGS, m_tid, NULL, &regs, sizeof regs, m_error);
+        if (m_error.Success())
+        {
+            lldb_private::ArchSpec arch;
+            if (monitor->GetArchitecture(arch))
+                m_value.SetBytes((void *)(((unsigned char *)(regs)) + m_offset), 8, arch.GetByteOrder());
+            else
+                m_error.SetErrorString("failed to get architecture");
+        }
 #else
         Log *log (ProcessPOSIXLog::GetLogIfAllCategoriesSet (POSIX_LOG_REGISTERS));
 
-        lldb::addr_t data = PTRACE(PTRACE_PEEKUSER, m_tid, (void*)m_offset, nullptr, 0, m_error);
+        lldb::addr_t data = static_cast<unsigned long>(PTRACE(PTRACE_PEEKUSER, m_tid, (void*)m_offset, nullptr, 0, m_error));
         if (m_error.Success())
             m_value = data;
 
@@ -683,7 +695,7 @@ namespace
               m_value(value)
             { }
 
-        void Execute(NativeProcessLinux *monitor);
+        void Execute(NativeProcessLinux *monitor) override;
 
     private:
         lldb::tid_t m_tid;
@@ -711,7 +723,7 @@ namespace
             ioVec.iov_base = &regs;
             ioVec.iov_len = sizeof regs;
             PTRACE(PTRACE_GETREGSET, m_tid, &regset, &ioVec, sizeof regs, m_error);
-            if (m_error.Sucess())
+            if (m_error.Success())
             {
                 ::memcpy((void *)(((unsigned char *)(&regs)) + offset), m_value.GetBytes(), 16);
                 PTRACE(PTRACE_SETREGSET, m_tid, &regset, &ioVec, sizeof regs, m_error);
@@ -726,11 +738,19 @@ namespace
             ioVec.iov_base = &regs;
             ioVec.iov_len = sizeof regs;
             PTRACE(PTRACE_GETREGSET, m_tid, &regset, &ioVec, sizeof regs, m_error);
-            if (m_error.Sucess())
+            if (m_error.Success())
             {
                 ::memcpy((void *)(((unsigned char *)(&regs)) + m_offset), m_value.GetBytes(), 8);
                 PTRACE(PTRACE_SETREGSET, m_tid, &regset, &ioVec, sizeof regs, m_error);
             }
+        }
+#elif defined (__mips__)
+        elf_gregset_t regs;
+        PTRACE(PTRACE_GETREGS, m_tid, NULL, &regs, sizeof regs, m_error);
+        if (m_error.Success())
+        {
+            ::memcpy((void *)(((unsigned char *)(&regs)) + m_offset), m_value.GetBytes(), 8);
+            PTRACE(PTRACE_SETREGS, m_tid, NULL, &regs, sizeof regs, m_error);
         }
 #else
         void* buf;
@@ -754,7 +774,7 @@ namespace
             : m_tid(tid), m_buf(buf), m_buf_size(buf_size)
             { }
 
-        void Execute(NativeProcessLinux *monitor);
+        void Execute(NativeProcessLinux *monitor) override;
 
     private:
         lldb::tid_t m_tid;
@@ -789,7 +809,7 @@ namespace
               m_buf_size(buf_size)
             { }
 
-        void Execute(NativeProcessLinux *monitor);
+        void Execute(NativeProcessLinux *monitor) override;
 
     private:
         lldb::tid_t m_tid;
@@ -806,10 +826,7 @@ namespace
 
         ioVec.iov_base = m_buf;
         ioVec.iov_len = m_buf_size;
-        if (PTRACE(PTRACE_GETREGSET, m_tid, &regset, &ioVec, m_buf_size) < 0)
-            m_result = false;
-        else
-            m_result = true;
+        PTRACE(PTRACE_GETREGSET, m_tid, &regset, &ioVec, m_buf_size, m_error);
 #else
         PTRACE(PTRACE_GETFPREGS, m_tid, nullptr, m_buf, m_buf_size, m_error);
 #endif
@@ -825,7 +842,7 @@ namespace
             : m_tid(tid), m_buf(buf), m_buf_size(buf_size), m_regset(regset)
             { }
 
-        void Execute(NativeProcessLinux *monitor);
+        void Execute(NativeProcessLinux *monitor) override;
 
     private:
         lldb::tid_t m_tid;
@@ -850,7 +867,7 @@ namespace
             : m_tid(tid), m_buf(buf), m_buf_size(buf_size)
             { }
 
-        void Execute(NativeProcessLinux *monitor);
+        void Execute(NativeProcessLinux *monitor) override;
 
     private:
         lldb::tid_t m_tid;
@@ -883,7 +900,7 @@ namespace
             : m_tid(tid), m_buf(buf), m_buf_size(buf_size)
             { }
 
-        void Execute(NativeProcessLinux *monitor);
+        void Execute(NativeProcessLinux *monitor) override;
 
     private:
         lldb::tid_t m_tid;
@@ -916,7 +933,7 @@ namespace
             : m_tid(tid), m_buf(buf), m_buf_size(buf_size), m_regset(regset)
             { }
 
-        void Execute(NativeProcessLinux *monitor);
+        void Execute(NativeProcessLinux *monitor) override;
 
     private:
         lldb::tid_t m_tid;
@@ -940,7 +957,7 @@ namespace
         ResumeOperation(lldb::tid_t tid, uint32_t signo) :
             m_tid(tid), m_signo(signo) { }
 
-        void Execute(NativeProcessLinux *monitor);
+        void Execute(NativeProcessLinux *monitor) override;
 
     private:
         lldb::tid_t m_tid;
@@ -974,7 +991,7 @@ namespace
         SingleStepOperation(lldb::tid_t tid, uint32_t signo)
             : m_tid(tid), m_signo(signo) { }
 
-        void Execute(NativeProcessLinux *monitor);
+        void Execute(NativeProcessLinux *monitor) override;
 
     private:
         lldb::tid_t m_tid;
@@ -1001,7 +1018,7 @@ namespace
         SiginfoOperation(lldb::tid_t tid, void *info)
             : m_tid(tid), m_info(info) { }
 
-        void Execute(NativeProcessLinux *monitor);
+        void Execute(NativeProcessLinux *monitor) override;
 
     private:
         lldb::tid_t m_tid;
@@ -1023,7 +1040,7 @@ namespace
         EventMessageOperation(lldb::tid_t tid, unsigned long *message)
             : m_tid(tid), m_message(message) { }
 
-        void Execute(NativeProcessLinux *monitor);
+        void Execute(NativeProcessLinux *monitor) override;
 
     private:
         lldb::tid_t m_tid;
@@ -1041,7 +1058,7 @@ namespace
     public:
         DetachOperation(lldb::tid_t tid) : m_tid(tid) { }
 
-        void Execute(NativeProcessLinux *monitor);
+        void Execute(NativeProcessLinux *monitor) override;
 
     private:
         lldb::tid_t m_tid;
@@ -1053,54 +1070,384 @@ namespace
         PTRACE(PTRACE_DETACH, m_tid, nullptr, 0, 0, m_error);
     }
 
-}
-
-using namespace lldb_private;
+} // end of anonymous namespace
 
 // Simple helper function to ensure flags are enabled on the given file
 // descriptor.
-static bool
-EnsureFDFlags(int fd, int flags, Error &error)
+static Error
+EnsureFDFlags(int fd, int flags)
 {
-    int status;
+    Error error;
 
-    if ((status = fcntl(fd, F_GETFL)) == -1)
+    int status = fcntl(fd, F_GETFL);
+    if (status == -1)
     {
         error.SetErrorToErrno();
-        return false;
+        return error;
     }
 
     if (fcntl(fd, F_SETFL, status | flags) == -1)
     {
         error.SetErrorToErrno();
-        return false;
+        return error;
     }
 
-    return true;
+    return error;
 }
 
-NativeProcessLinux::OperationArgs::OperationArgs(NativeProcessLinux *monitor)
-    : m_monitor(monitor)
+// This class encapsulates the privileged thread which performs all ptrace and wait operations on
+// the inferior. The thread consists of a main loop which waits for events and processes them
+//   - SIGCHLD (delivered over a signalfd file descriptor): These signals notify us of events in
+//     the inferior process. Upon receiving this signal we do a waitpid to get more information
+//     and dispatch to NativeProcessLinux::MonitorCallback.
+//   - requests for ptrace operations: These initiated via the DoOperation method, which funnels
+//     them to the Monitor thread via m_operation member. The Monitor thread is signaled over a
+//     pipe, and the completion of the operation is signalled over the semaphore.
+//   - thread exit event: this is signaled from the Monitor destructor by closing the write end
+//     of the command pipe.
+class NativeProcessLinux::Monitor {
+private:
+    // The initial monitor operation (launch or attach). It returns a inferior process id.
+    std::unique_ptr<InitialOperation> m_initial_operation_up;
+
+    ::pid_t                           m_child_pid = -1;
+    NativeProcessLinux              * m_native_process;
+
+    enum { READ, WRITE };
+    int        m_pipefd[2] = {-1, -1};
+    int        m_signal_fd = -1;
+    HostThread m_thread;
+
+    // current operation which must be executed on the priviliged thread
+    Mutex      m_operation_mutex;
+    Operation *m_operation = nullptr;
+    sem_t      m_operation_sem;
+    Error      m_operation_error;
+
+    static constexpr char operation_command = 'o';
+
+    void
+    HandleSignals();
+
+    void
+    HandleWait();
+
+    // Returns true if the thread should exit.
+    bool
+    HandleCommands();
+
+    void
+    MainLoop();
+
+    static void *
+    RunMonitor(void *arg);
+
+    Error
+    WaitForOperation();
+public:
+    Monitor(const InitialOperation &initial_operation,
+            NativeProcessLinux *native_process)
+        : m_initial_operation_up(new InitialOperation(initial_operation)),
+          m_native_process(native_process)
+    {
+        sem_init(&m_operation_sem, 0, 0);
+    }
+
+    ~Monitor();
+
+    Error
+    Initialize();
+
+    void
+    DoOperation(Operation *op);
+};
+constexpr char NativeProcessLinux::Monitor::operation_command;
+
+Error
+NativeProcessLinux::Monitor::Initialize()
 {
-    sem_init(&m_semaphore, 0, 0);
+    Error error;
+
+    // We get a SIGCHLD every time something interesting happens with the inferior. We shall be
+    // listening for these signals over a signalfd file descriptors. This allows us to wait for
+    // multiple kinds of events with select.
+    sigset_t signals;
+    sigemptyset(&signals);
+    sigaddset(&signals, SIGCHLD);
+    m_signal_fd = signalfd(-1, &signals, SFD_NONBLOCK | SFD_CLOEXEC);
+    if (m_signal_fd < 0)
+    {
+        return Error("NativeProcessLinux::Monitor::%s failed due to signalfd failure. Monitoring the inferior will be impossible: %s",
+                    __FUNCTION__, strerror(errno));
+
+    }
+
+    if (pipe2(m_pipefd, O_CLOEXEC) == -1)
+    {
+        error.SetErrorToErrno();
+        return error;
+    }
+
+    if ((error = EnsureFDFlags(m_pipefd[READ], O_NONBLOCK)).Fail()) {
+        return error;
+    }
+
+    static const char g_thread_name[] = "lldb.process.nativelinux.monitor";
+    m_thread = ThreadLauncher::LaunchThread(g_thread_name, Monitor::RunMonitor, this, nullptr);
+    if (!m_thread.IsJoinable())
+        return Error("Failed to create monitor thread for NativeProcessLinux.");
+
+    // Wait for initial operation to complete.
+    return WaitForOperation();
 }
 
-NativeProcessLinux::OperationArgs::~OperationArgs()
+void
+NativeProcessLinux::Monitor::DoOperation(Operation *op)
 {
-    sem_destroy(&m_semaphore);
+    if (m_thread.EqualsThread(pthread_self())) {
+        // If we're on the Monitor thread, we can simply execute the operation.
+        op->Execute(m_native_process);
+        return;
+    }
+
+    // Otherwise we need to pass the operation to the Monitor thread so it can handle it.
+    Mutex::Locker lock(m_operation_mutex);
+
+    m_operation = op;
+
+    // notify the thread that an operation is ready to be processed
+    write(m_pipefd[WRITE], &operation_command, sizeof operation_command);
+
+    WaitForOperation();
 }
 
-NativeProcessLinux::LaunchArgs::LaunchArgs(NativeProcessLinux *monitor,
-                                       lldb_private::Module *module,
+NativeProcessLinux::Monitor::~Monitor()
+{
+    if (m_pipefd[WRITE] >= 0)
+        close(m_pipefd[WRITE]);
+    if (m_thread.IsJoinable())
+        m_thread.Join(nullptr);
+    if (m_pipefd[READ] >= 0)
+        close(m_pipefd[READ]);
+    if (m_signal_fd >= 0)
+        close(m_signal_fd);
+    sem_destroy(&m_operation_sem);
+}
+
+void
+NativeProcessLinux::Monitor::HandleSignals()
+{
+    Log *log(GetLogIfAllCategoriesSet(LIBLLDB_LOG_PROCESS));
+
+    // We don't really care about the content of the SIGCHLD siginfo structure, as we will get
+    // all the information from waitpid(). We just need to read all the signals so that we can
+    // sleep next time we reach select().
+    while (true)
+    {
+        signalfd_siginfo info;
+        ssize_t size = read(m_signal_fd, &info, sizeof info);
+        if (size == -1)
+        {
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+                break; // We are done.
+            if (errno == EINTR)
+                continue;
+            if (log)
+                log->Printf("NativeProcessLinux::Monitor::%s reading from signalfd file descriptor failed: %s",
+                        __FUNCTION__, strerror(errno));
+            break;
+        }
+        if (size != sizeof info)
+        {
+            // We got incomplete information structure. This should not happen, let's just log
+            // that.
+            if (log)
+                log->Printf("NativeProcessLinux::Monitor::%s reading from signalfd file descriptor returned incomplete data: "
+                        "structure size is %zd, read returned %zd bytes",
+                        __FUNCTION__, sizeof info, size);
+            break;
+        }
+        if (log)
+            log->Printf("NativeProcessLinux::Monitor::%s received signal %s(%d).", __FUNCTION__,
+                Host::GetSignalAsCString(info.ssi_signo), info.ssi_signo);
+    }
+}
+
+void
+NativeProcessLinux::Monitor::HandleWait()
+{
+    Log *log(GetLogIfAllCategoriesSet(LIBLLDB_LOG_PROCESS));
+    // Process all pending waitpid notifications.
+    while (true)
+    {
+        int status = -1;
+        ::pid_t wait_pid = waitpid(m_child_pid, &status, __WALL | WNOHANG);
+
+        if (wait_pid == 0)
+            break; // We are done.
+
+        if (wait_pid == -1)
+        {
+            if (errno == EINTR)
+                continue;
+
+            if (log)
+              log->Printf("NativeProcessLinux::Monitor::%s waitpid (pid = %" PRIi32 ", &status, __WALL | WNOHANG) failed: %s",
+                      __FUNCTION__, m_child_pid, strerror(errno));
+            break;
+        }
+
+        bool exited = false;
+        int signal = 0;
+        int exit_status = 0;
+        const char *status_cstr = NULL;
+        if (WIFSTOPPED(status))
+        {
+            signal = WSTOPSIG(status);
+            status_cstr = "STOPPED";
+        }
+        else if (WIFEXITED(status))
+        {
+            exit_status = WEXITSTATUS(status);
+            status_cstr = "EXITED";
+            exited = true;
+        }
+        else if (WIFSIGNALED(status))
+        {
+            signal = WTERMSIG(status);
+            status_cstr = "SIGNALED";
+            if (wait_pid == abs(m_child_pid)) {
+                exited = true;
+                exit_status = -1;
+            }
+        }
+        else
+            status_cstr = "(\?\?\?)";
+
+        if (log)
+            log->Printf("NativeProcessLinux::Monitor::%s: waitpid (pid = %" PRIi32 ", &status, __WALL | WNOHANG)"
+                "=> pid = %" PRIi32 ", status = 0x%8.8x (%s), signal = %i, exit_state = %i",
+                __FUNCTION__, m_child_pid, wait_pid, status, status_cstr, signal, exit_status);
+
+        m_native_process->MonitorCallback (wait_pid, exited, signal, exit_status);
+    }
+}
+
+bool
+NativeProcessLinux::Monitor::HandleCommands()
+{
+    Log *log(GetLogIfAllCategoriesSet(LIBLLDB_LOG_PROCESS));
+
+    while (true)
+    {
+        char command = 0;
+        ssize_t size = read(m_pipefd[READ], &command, sizeof command);
+        if (size == -1)
+        {
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+                return false;
+            if (errno == EINTR)
+                continue;
+            if (log)
+                log->Printf("NativeProcessLinux::Monitor::%s exiting because read from command file descriptor failed: %s", __FUNCTION__, strerror(errno));
+            return true;
+        }
+        if (size == 0) // end of file - write end closed
+        {
+            if (log)
+                log->Printf("NativeProcessLinux::Monitor::%s exit command received, exiting...", __FUNCTION__);
+            return true; // We are done.
+        }
+
+        switch (command)
+        {
+        case operation_command:
+            m_operation->Execute(m_native_process);
+
+            // notify calling thread that operation is complete
+            sem_post(&m_operation_sem);
+            break;
+        default:
+            if (log)
+                log->Printf("NativeProcessLinux::Monitor::%s received unknown command '%c'",
+                        __FUNCTION__, command);
+        }
+    }
+}
+
+void
+NativeProcessLinux::Monitor::MainLoop()
+{
+    ::pid_t child_pid = (*m_initial_operation_up)(m_operation_error);
+    m_initial_operation_up.reset();
+    m_child_pid = -getpgid(child_pid),
+    sem_post(&m_operation_sem);
+
+    while (true)
+    {
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(m_signal_fd, &fds);
+        FD_SET(m_pipefd[READ], &fds);
+
+        int max_fd = std::max(m_signal_fd, m_pipefd[READ]) + 1;
+        int r = select(max_fd, &fds, nullptr, nullptr, nullptr);
+        if (r < 0)
+        {
+            Log *log(GetLogIfAllCategoriesSet(LIBLLDB_LOG_PROCESS));
+            if (log)
+                log->Printf("NativeProcessLinux::Monitor::%s exiting because select failed: %s",
+                        __FUNCTION__, strerror(errno));
+            return;
+        }
+
+        if (FD_ISSET(m_pipefd[READ], &fds))
+        {
+            if (HandleCommands())
+                return;
+        }
+
+        if (FD_ISSET(m_signal_fd, &fds))
+        {
+            HandleSignals();
+            HandleWait();
+        }
+    }
+}
+
+Error
+NativeProcessLinux::Monitor::WaitForOperation()
+{
+    Error error;
+    while (sem_wait(&m_operation_sem) != 0)
+    {
+        if (errno == EINTR)
+            continue;
+
+        error.SetErrorToErrno();
+        return error;
+    }
+
+    return m_operation_error;
+}
+
+void *
+NativeProcessLinux::Monitor::RunMonitor(void *arg)
+{
+    static_cast<Monitor *>(arg)->MainLoop();
+    return nullptr;
+}
+
+
+NativeProcessLinux::LaunchArgs::LaunchArgs(Module *module,
                                        char const **argv,
                                        char const **envp,
                                        const std::string &stdin_path,
                                        const std::string &stdout_path,
                                        const std::string &stderr_path,
                                        const char *working_dir,
-                                       const lldb_private::ProcessLaunchInfo &launch_info)
-    : OperationArgs(monitor),
-      m_module(module),
+                                       const ProcessLaunchInfo &launch_info)
+    : m_module(module),
       m_argv(argv),
       m_envp(envp),
       m_stdin_path(stdin_path),
@@ -1114,22 +1461,15 @@ NativeProcessLinux::LaunchArgs::LaunchArgs(NativeProcessLinux *monitor,
 NativeProcessLinux::LaunchArgs::~LaunchArgs()
 { }
 
-NativeProcessLinux::AttachArgs::AttachArgs(NativeProcessLinux *monitor,
-                                       lldb::pid_t pid)
-    : OperationArgs(monitor), m_pid(pid) { }
-
-NativeProcessLinux::AttachArgs::~AttachArgs()
-{ }
-
 // -----------------------------------------------------------------------------
 // Public Static Methods
 // -----------------------------------------------------------------------------
 
-lldb_private::Error
+Error
 NativeProcessLinux::LaunchProcess (
-    lldb_private::Module *exe_module,
-    lldb_private::ProcessLaunchInfo &launch_info,
-    lldb_private::NativeProcessProtocol::NativeDelegate &native_delegate,
+    Module *exe_module,
+    ProcessLaunchInfo &launch_info,
+    NativeProcessProtocol::NativeDelegate &native_delegate,
     NativeProcessProtocolSP &native_process_sp)
 {
     Log *log (GetLogIfAllCategoriesSet (LIBLLDB_LOG_PROCESS));
@@ -1148,7 +1488,7 @@ NativeProcessLinux::LaunchProcess (
       }
     }
 
-    const lldb_private::FileAction *file_action;
+    const FileAction *file_action;
 
     // Default of NULL will mean to use existing open file descriptors.
     std::string stdin_path;
@@ -1205,7 +1545,7 @@ NativeProcessLinux::LaunchProcess (
         return error;
     }
 
-    reinterpret_cast<NativeProcessLinux*> (native_process_sp.get ())->LaunchInferior (
+    std::static_pointer_cast<NativeProcessLinux> (native_process_sp)->LaunchInferior (
             exe_module,
             launch_info.GetArguments ().GetConstArgumentVector (),
             launch_info.GetEnvironmentEntries ().GetConstArgumentVector (),
@@ -1229,10 +1569,10 @@ NativeProcessLinux::LaunchProcess (
     return error;
 }
 
-lldb_private::Error
+Error
 NativeProcessLinux::AttachToProcess (
     lldb::pid_t pid,
-    lldb_private::NativeProcessProtocol::NativeDelegate &native_delegate,
+    NativeProcessProtocol::NativeDelegate &native_delegate,
     NativeProcessProtocolSP &native_process_sp)
 {
     Log *log (GetLogIfAllCategoriesSet (LIBLLDB_LOG_PROCESS));
@@ -1274,12 +1614,6 @@ NativeProcessLinux::AttachToProcess (
 NativeProcessLinux::NativeProcessLinux () :
     NativeProcessProtocol (LLDB_INVALID_PROCESS_ID),
     m_arch (),
-    m_operation_thread (),
-    m_monitor_thread (),
-    m_operation (nullptr),
-    m_operation_mutex (),
-    m_operation_pending (),
-    m_operation_done (),
     m_supports_mem_region (eLazyBoolCalculate),
     m_mem_region_cache (),
     m_mem_region_cache_mutex (),
@@ -1289,17 +1623,9 @@ NativeProcessLinux::NativeProcessLinux () :
 }
 
 //------------------------------------------------------------------------------
-/// The basic design of the NativeProcessLinux is built around two threads.
-///
-/// One thread (@see SignalThread) simply blocks on a call to waitpid() looking
-/// for changes in the debugee state.  When a change is detected a
-/// ProcessMessage is sent to the associated ProcessLinux instance.  This thread
-/// "drives" state changes in the debugger.
-///
-/// The second thread (@see OperationThread) is responsible for two things 1)
-/// launching or attaching to the inferior process, and then 2) servicing
-/// operations such as register reads/writes, stepping, etc.  See the comments
-/// on the Operation class for more info as to why this is needed.
+// NativeProcessLinux spawns a new thread which performs all operations on the inferior process.
+// Refer to Monitor and Operation classes to see why this is necessary.
+//------------------------------------------------------------------------------
 void
 NativeProcessLinux::LaunchInferior (
     Module *module,
@@ -1309,8 +1635,8 @@ NativeProcessLinux::LaunchInferior (
     const std::string &stdout_path,
     const std::string &stderr_path,
     const char *working_dir,
-    const lldb_private::ProcessLaunchInfo &launch_info,
-    lldb_private::Error &error)
+    const ProcessLaunchInfo &launch_info,
+    Error &error)
 {
     if (module)
         m_arch = module->GetArchitecture ();
@@ -1319,56 +1645,21 @@ NativeProcessLinux::LaunchInferior (
 
     std::unique_ptr<LaunchArgs> args(
         new LaunchArgs(
-            this, module, argv, envp,
+            module, argv, envp,
             stdin_path, stdout_path, stderr_path,
             working_dir, launch_info));
 
-    sem_init (&m_operation_pending, 0, 0);
-    sem_init (&m_operation_done, 0, 0);
-
-    StartLaunchOpThread (args.get(), error);
+    StartMonitorThread ([&] (Error &e) { return Launch(args.get(), e); }, error);
     if (!error.Success ())
         return;
 
     error = StartCoordinatorThread ();
     if (!error.Success ())
         return;
-
-WAIT_AGAIN:
-    // Wait for the operation thread to initialize.
-    if (sem_wait(&args->m_semaphore))
-    {
-        if (errno == EINTR)
-            goto WAIT_AGAIN;
-        else
-        {
-            error.SetErrorToErrno();
-            return;
-        }
-    }
-
-    // Check that the launch was a success.
-    if (!args->m_error.Success())
-    {
-        StopOpThread();
-        StopCoordinatorThread ();
-        error = args->m_error;
-        return;
-    }
-
-    // Finally, start monitoring the child process for change in state.
-    m_monitor_thread = Host::StartMonitoringChildProcess(
-        NativeProcessLinux::MonitorCallback, this, GetID(), true);
-    if (!m_monitor_thread.IsJoinable())
-    {
-        error.SetErrorToGenericError();
-        error.SetErrorString ("Process attach failed to create monitor thread for NativeProcessLinux::MonitorCallback.");
-        return;
-    }
 }
 
 void
-NativeProcessLinux::AttachToInferior (lldb::pid_t pid, lldb_private::Error &error)
+NativeProcessLinux::AttachToInferior (lldb::pid_t pid, Error &error)
 {
     Log *log (GetLogIfAllCategoriesSet (LIBLLDB_LOG_PROCESS));
     if (log)
@@ -1411,50 +1702,13 @@ NativeProcessLinux::AttachToInferior (lldb::pid_t pid, lldb_private::Error &erro
     m_pid = pid;
     SetState(eStateAttaching);
 
-    sem_init (&m_operation_pending, 0, 0);
-    sem_init (&m_operation_done, 0, 0);
-
-    std::unique_ptr<AttachArgs> args (new AttachArgs (this, pid));
-
-    StartAttachOpThread(args.get (), error);
+    StartMonitorThread ([=] (Error &e) { return Attach(pid, e); }, error);
     if (!error.Success ())
         return;
 
     error = StartCoordinatorThread ();
     if (!error.Success ())
         return;
-
-WAIT_AGAIN:
-    // Wait for the operation thread to initialize.
-    if (sem_wait (&args->m_semaphore))
-    {
-        if (errno == EINTR)
-            goto WAIT_AGAIN;
-        else
-        {
-            error.SetErrorToErrno ();
-            return;
-        }
-    }
-
-    // Check that the attach was a success.
-    if (!args->m_error.Success ())
-    {
-        StopOpThread ();
-        StopCoordinatorThread ();
-        error = args->m_error;
-        return;
-    }
-
-    // Finally, start monitoring the child process for change in state.
-    m_monitor_thread = Host::StartMonitoringChildProcess (
-        NativeProcessLinux::MonitorCallback, this, GetID (), true);
-    if (!m_monitor_thread.IsJoinable())
-    {
-        error.SetErrorToGenericError ();
-        error.SetErrorString ("Process attach failed to create monitor thread for NativeProcessLinux::MonitorCallback.");
-        return;
-    }
 }
 
 void
@@ -1463,43 +1717,10 @@ NativeProcessLinux::Terminate ()
     StopMonitor();
 }
 
-//------------------------------------------------------------------------------
-// Thread setup and tear down.
-
-void
-NativeProcessLinux::StartLaunchOpThread(LaunchArgs *args, Error &error)
-{
-    static const char *g_thread_name = "lldb.process.nativelinux.operation";
-
-    if (m_operation_thread.IsJoinable())
-        return;
-
-    m_operation_thread = ThreadLauncher::LaunchThread(g_thread_name, LaunchOpThread, args, &error);
-}
-
-void *
-NativeProcessLinux::LaunchOpThread(void *arg)
-{
-    LaunchArgs *args = static_cast<LaunchArgs*>(arg);
-
-    if (!Launch(args)) {
-        sem_post(&args->m_semaphore);
-        return NULL;
-    }
-
-    ServeOperation(args);
-    return NULL;
-}
-
-bool
-NativeProcessLinux::Launch(LaunchArgs *args)
+::pid_t
+NativeProcessLinux::Launch(LaunchArgs *args, Error &error)
 {
     assert (args && "null args");
-    if (!args)
-        return false;
-
-    NativeProcessLinux *monitor = args->m_monitor;
-    assert (monitor && "monitor is NULL");
 
     const char **argv = args->m_argv;
     const char **envp = args->m_envp;
@@ -1519,9 +1740,9 @@ NativeProcessLinux::Launch(LaunchArgs *args)
 
     if ((pid = terminal.Fork(err_str, err_len)) == static_cast<lldb::pid_t> (-1))
     {
-        args->m_error.SetErrorToGenericError();
-        args->m_error.SetErrorString("Process fork failed.");
-        return false;
+        error.SetErrorToGenericError();
+        error.SetErrorStringWithFormat("Process fork failed: %s", err_str);
+        return -1;
     }
 
     // Recognized child exit status codes.
@@ -1542,8 +1763,8 @@ NativeProcessLinux::Launch(LaunchArgs *args)
         // send log info to parent re: launch status, in place of the log lines removed here.
 
         // Start tracing this child that is about to exec.
-        PTRACE(PTRACE_TRACEME, 0, nullptr, nullptr, 0, args->m_error);
-        if (args->m_error.Fail())
+        PTRACE(PTRACE_TRACEME, 0, nullptr, nullptr, 0, error);
+        if (error.Fail())
             exit(ePtraceFailed);
 
         // terminal has already dupped the tty descriptors to stdin/out/err.
@@ -1574,6 +1795,12 @@ NativeProcessLinux::Launch(LaunchArgs *args)
         if (!args->m_stderr_path.empty ())
             if (!DupDescriptor(args->m_stderr_path.c_str (), STDERR_FILENO, O_WRONLY | O_CREAT | O_TRUNC))
                 exit(eDupStderrFailed);
+
+        // Close everything besides stdin, stdout, and stderr that has no file
+        // action to avoid leaking
+        for (int fd = 3; fd < sysconf(_SC_OPEN_MAX); ++fd)
+            if (!args->m_launch_info.GetFileActionForFD(fd))
+                close(fd);
 
         // Change working directory
         if (working_dir != NULL && working_dir[0])
@@ -1621,46 +1848,46 @@ NativeProcessLinux::Launch(LaunchArgs *args)
     int status;
     if ((wpid = waitpid(pid, &status, 0)) < 0)
     {
-        args->m_error.SetErrorToErrno();
-
+        error.SetErrorToErrno();
         if (log)
-            log->Printf ("NativeProcessLinux::%s waitpid for inferior failed with %s", __FUNCTION__, args->m_error.AsCString ());
+            log->Printf ("NativeProcessLinux::%s waitpid for inferior failed with %s",
+                    __FUNCTION__, error.AsCString ());
 
         // Mark the inferior as invalid.
         // FIXME this could really use a new state - eStateLaunchFailure.  For now, using eStateInvalid.
-        monitor->SetState (StateType::eStateInvalid);
+        SetState (StateType::eStateInvalid);
 
-        return false;
+        return -1;
     }
     else if (WIFEXITED(status))
     {
         // open, dup or execve likely failed for some reason.
-        args->m_error.SetErrorToGenericError();
+        error.SetErrorToGenericError();
         switch (WEXITSTATUS(status))
         {
             case ePtraceFailed:
-                args->m_error.SetErrorString("Child ptrace failed.");
+                error.SetErrorString("Child ptrace failed.");
                 break;
             case eDupStdinFailed:
-                args->m_error.SetErrorString("Child open stdin failed.");
+                error.SetErrorString("Child open stdin failed.");
                 break;
             case eDupStdoutFailed:
-                args->m_error.SetErrorString("Child open stdout failed.");
+                error.SetErrorString("Child open stdout failed.");
                 break;
             case eDupStderrFailed:
-                args->m_error.SetErrorString("Child open stderr failed.");
+                error.SetErrorString("Child open stderr failed.");
                 break;
             case eChdirFailed:
-                args->m_error.SetErrorString("Child failed to set working directory.");
+                error.SetErrorString("Child failed to set working directory.");
                 break;
             case eExecFailed:
-                args->m_error.SetErrorString("Child exec failed.");
+                error.SetErrorString("Child exec failed.");
                 break;
             case eSetGidFailed:
-                args->m_error.SetErrorString("Child setgid failed.");
+                error.SetErrorString("Child setgid failed.");
                 break;
             default:
-                args->m_error.SetErrorString("Child returned unknown exit status.");
+                error.SetErrorString("Child returned unknown exit status.");
                 break;
         }
 
@@ -1673,9 +1900,9 @@ NativeProcessLinux::Launch(LaunchArgs *args)
 
         // Mark the inferior as invalid.
         // FIXME this could really use a new state - eStateLaunchFailure.  For now, using eStateInvalid.
-        monitor->SetState (StateType::eStateInvalid);
+        SetState (StateType::eStateInvalid);
 
-        return false;
+        return -1;
     }
     assert(WIFSTOPPED(status) && (wpid == static_cast< ::pid_t> (pid)) &&
            "Could not sync with inferior process.");
@@ -1683,102 +1910,73 @@ NativeProcessLinux::Launch(LaunchArgs *args)
     if (log)
         log->Printf ("NativeProcessLinux::%s inferior started, now in stopped state", __FUNCTION__);
 
-    args->m_error = SetDefaultPtraceOpts(pid);
-    if (args->m_error.Fail())
+    error = SetDefaultPtraceOpts(pid);
+    if (error.Fail())
     {
         if (log)
             log->Printf ("NativeProcessLinux::%s inferior failed to set default ptrace options: %s",
-                    __FUNCTION__,
-                    args->m_error.AsCString ());
+                    __FUNCTION__, error.AsCString ());
 
         // Mark the inferior as invalid.
         // FIXME this could really use a new state - eStateLaunchFailure.  For now, using eStateInvalid.
-        monitor->SetState (StateType::eStateInvalid);
+        SetState (StateType::eStateInvalid);
 
-        return false;
+        return -1;
     }
 
     // Release the master terminal descriptor and pass it off to the
     // NativeProcessLinux instance.  Similarly stash the inferior pid.
-    monitor->m_terminal_fd = terminal.ReleaseMasterFileDescriptor();
-    monitor->m_pid = pid;
+    m_terminal_fd = terminal.ReleaseMasterFileDescriptor();
+    m_pid = pid;
 
     // Set the terminal fd to be in non blocking mode (it simplifies the
     // implementation of ProcessLinux::GetSTDOUT to have a non-blocking
     // descriptor to read from).
-    if (!EnsureFDFlags(monitor->m_terminal_fd, O_NONBLOCK, args->m_error))
+    error = EnsureFDFlags(m_terminal_fd, O_NONBLOCK);
+    if (error.Fail())
     {
         if (log)
             log->Printf ("NativeProcessLinux::%s inferior EnsureFDFlags failed for ensuring terminal O_NONBLOCK setting: %s",
-                    __FUNCTION__,
-                    args->m_error.AsCString ());
+                    __FUNCTION__, error.AsCString ());
 
         // Mark the inferior as invalid.
         // FIXME this could really use a new state - eStateLaunchFailure.  For now, using eStateInvalid.
-        monitor->SetState (StateType::eStateInvalid);
+        SetState (StateType::eStateInvalid);
 
-        return false;
+        return -1;
     }
 
     if (log)
         log->Printf ("NativeProcessLinux::%s() adding pid = %" PRIu64, __FUNCTION__, pid);
 
-    thread_sp = monitor->AddThread (pid);
+    thread_sp = AddThread (pid);
     assert (thread_sp && "AddThread() returned a nullptr thread");
-    monitor->NotifyThreadCreateStopped (pid);
-    reinterpret_cast<NativeThreadLinux*> (thread_sp.get ())->SetStoppedBySignal (SIGSTOP);
+    NotifyThreadCreateStopped (pid);
+    std::static_pointer_cast<NativeThreadLinux> (thread_sp)->SetStoppedBySignal (SIGSTOP);
 
     // Let our process instance know the thread has stopped.
-    monitor->SetCurrentThreadID (thread_sp->GetID ());
-    monitor->SetState (StateType::eStateStopped);
+    SetCurrentThreadID (thread_sp->GetID ());
+    SetState (StateType::eStateStopped);
 
     if (log)
     {
-        if (args->m_error.Success ())
+        if (error.Success ())
         {
             log->Printf ("NativeProcessLinux::%s inferior launching succeeded", __FUNCTION__);
         }
         else
         {
             log->Printf ("NativeProcessLinux::%s inferior launching failed: %s",
-                __FUNCTION__,
-                args->m_error.AsCString ());
+                __FUNCTION__, error.AsCString ());
+            return -1;
         }
     }
-    return args->m_error.Success();
+    return pid;
 }
 
-void
-NativeProcessLinux::StartAttachOpThread(AttachArgs *args, lldb_private::Error &error)
+::pid_t
+NativeProcessLinux::Attach(lldb::pid_t pid, Error &error)
 {
-    static const char *g_thread_name = "lldb.process.linux.operation";
-
-    if (m_operation_thread.IsJoinable())
-        return;
-
-    m_operation_thread = ThreadLauncher::LaunchThread(g_thread_name, AttachOpThread, args, &error);
-}
-
-void *
-NativeProcessLinux::AttachOpThread(void *arg)
-{
-    AttachArgs *args = static_cast<AttachArgs*>(arg);
-
-    if (!Attach(args)) {
-        sem_post(&args->m_semaphore);
-        return nullptr;
-    }
-
-    ServeOperation(args);
-    return nullptr;
-}
-
-bool
-NativeProcessLinux::Attach(AttachArgs *args)
-{
-    lldb::pid_t pid = args->m_pid;
-
-    NativeProcessLinux *monitor = args->m_monitor;
     lldb::ThreadSP inferior;
     Log *log (GetLogIfAllCategoriesSet (LIBLLDB_LOG_PROCESS));
 
@@ -1786,9 +1984,9 @@ NativeProcessLinux::Attach(AttachArgs *args)
     Host::TidMap tids_to_attach;
     if (pid <= 1)
     {
-        args->m_error.SetErrorToGenericError();
-        args->m_error.SetErrorString("Attaching to process 1 is not allowed.");
-        goto FINISH;
+        error.SetErrorToGenericError();
+        error.SetErrorString("Attaching to process 1 is not allowed.");
+        return -1;
     }
 
     while (Host::FindProcessThreads(pid, tids_to_attach))
@@ -1802,18 +2000,18 @@ NativeProcessLinux::Attach(AttachArgs *args)
 
                 // Attach to the requested process.
                 // An attach will cause the thread to stop with a SIGSTOP.
-                PTRACE(PTRACE_ATTACH, tid, nullptr, nullptr, 0, args->m_error);
-                if (args->m_error.Fail())
+                PTRACE(PTRACE_ATTACH, tid, nullptr, nullptr, 0, error);
+                if (error.Fail())
                 {
                     // No such thread. The thread may have exited.
                     // More error handling may be needed.
-                    if (args->m_error.GetError() == ESRCH)
+                    if (error.GetError() == ESRCH)
                     {
                         it = tids_to_attach.erase(it);
                         continue;
                     }
                     else
-                        goto FINISH;
+                        return -1;
                 }
 
                 int status;
@@ -1830,15 +2028,14 @@ NativeProcessLinux::Attach(AttachArgs *args)
                     }
                     else
                     {
-                        args->m_error.SetErrorToErrno();
-                        goto FINISH;
+                        error.SetErrorToErrno();
+                        return -1;
                     }
                 }
 
-                args->m_error = SetDefaultPtraceOpts(tid);
-                if (args->m_error.Fail())
-                    goto FINISH;
-
+                error = SetDefaultPtraceOpts(tid);
+                if (error.Fail())
+                    return -1;
 
                 if (log)
                     log->Printf ("NativeProcessLinux::%s() adding tid = %" PRIu64, __FUNCTION__, tid);
@@ -1846,13 +2043,13 @@ NativeProcessLinux::Attach(AttachArgs *args)
                 it->second = true;
 
                 // Create the thread, mark it as stopped.
-                NativeThreadProtocolSP thread_sp (monitor->AddThread (static_cast<lldb::tid_t> (tid)));
+                NativeThreadProtocolSP thread_sp (AddThread (static_cast<lldb::tid_t> (tid)));
                 assert (thread_sp && "AddThread() returned a nullptr");
 
                 // This will notify this is a new thread and tell the system it is stopped.
-                monitor->NotifyThreadCreateStopped (tid);
-                reinterpret_cast<NativeThreadLinux*> (thread_sp.get ())->SetStoppedBySignal (SIGSTOP);
-                monitor->SetCurrentThreadID (thread_sp->GetID ());
+                NotifyThreadCreateStopped (tid);
+                std::static_pointer_cast<NativeThreadLinux> (thread_sp)->SetStoppedBySignal (SIGSTOP);
+                SetCurrentThreadID (thread_sp->GetID ());
             }
 
             // move the loop forward
@@ -1862,18 +2059,18 @@ NativeProcessLinux::Attach(AttachArgs *args)
 
     if (tids_to_attach.size() > 0)
     {
-        monitor->m_pid = pid;
+        m_pid = pid;
         // Let our process instance know the thread has stopped.
-        monitor->SetState (StateType::eStateStopped);
+        SetState (StateType::eStateStopped);
     }
     else
     {
-        args->m_error.SetErrorToGenericError();
-        args->m_error.SetErrorString("No such process.");
+        error.SetErrorToGenericError();
+        error.SetErrorString("No such process.");
+        return -1;
     }
 
- FINISH:
-    return args->m_error.Success();
+    return pid;
 }
 
 Error
@@ -1929,30 +2126,17 @@ static int convert_pid_status_to_return_code (int status)
     }
 }
 
-// Main process monitoring waitpid-loop handler.
-bool
-NativeProcessLinux::MonitorCallback(void *callback_baton,
-                                lldb::pid_t pid,
-                                bool exited,
-                                int signal,
-                                int status)
+// Handles all waitpid events from the inferior process.
+void
+NativeProcessLinux::MonitorCallback(lldb::pid_t pid,
+                                    bool exited,
+                                    int signal,
+                                    int status)
 {
     Log *log (GetLogIfAnyCategoriesSet (LIBLLDB_LOG_PROCESS));
 
-    NativeProcessLinux *const process = static_cast<NativeProcessLinux*>(callback_baton);
-    assert (process && "process is null");
-    if (!process)
-    {
-        if (log)
-            log->Printf ("NativeProcessLinux::%s pid %" PRIu64 " callback_baton was null, can't determine process to use", __FUNCTION__, pid);
-        return true;
-    }
-
     // Certain activities differ based on whether the pid is the tid of the main thread.
-    const bool is_main_thread = (pid == process->GetID ());
-
-    // Assume we keep monitoring by default.
-    bool stop_monitoring = false;
+    const bool is_main_thread = (pid == GetID ());
 
     // Handle when the thread exits.
     if (exited)
@@ -1961,33 +2145,32 @@ NativeProcessLinux::MonitorCallback(void *callback_baton,
             log->Printf ("NativeProcessLinux::%s() got exit signal(%d) , tid = %"  PRIu64 " (%s main thread)", __FUNCTION__, signal, pid, is_main_thread ? "is" : "is not");
 
         // This is a thread that exited.  Ensure we're not tracking it anymore.
-        const bool thread_found = process->StopTrackingThread (pid);
+        const bool thread_found = StopTrackingThread (pid);
 
         // Make sure the thread state coordinator knows about this.
-        process->NotifyThreadDeath (pid);
+        NotifyThreadDeath (pid);
 
         if (is_main_thread)
         {
             // We only set the exit status and notify the delegate if we haven't already set the process
             // state to an exited state.  We normally should have received a SIGTRAP | (PTRACE_EVENT_EXIT << 8)
             // for the main thread.
-            const bool already_notified = (process->GetState() == StateType::eStateExited) || (process->GetState () == StateType::eStateCrashed);
+            const bool already_notified = (GetState() == StateType::eStateExited) || (GetState () == StateType::eStateCrashed);
             if (!already_notified)
             {
                 if (log)
-                    log->Printf ("NativeProcessLinux::%s() tid = %"  PRIu64 " handling main thread exit (%s), expected exit state already set but state was %s instead, setting exit state now", __FUNCTION__, pid, thread_found ? "stopped tracking thread metadata" : "thread metadata not found", StateAsCString (process->GetState ()));
+                    log->Printf ("NativeProcessLinux::%s() tid = %"  PRIu64 " handling main thread exit (%s), expected exit state already set but state was %s instead, setting exit state now", __FUNCTION__, pid, thread_found ? "stopped tracking thread metadata" : "thread metadata not found", StateAsCString (GetState ()));
                 // The main thread exited.  We're done monitoring.  Report to delegate.
-                process->SetExitStatus (convert_pid_status_to_exit_type (status), convert_pid_status_to_return_code (status), nullptr, true);
+                SetExitStatus (convert_pid_status_to_exit_type (status), convert_pid_status_to_return_code (status), nullptr, true);
 
                 // Notify delegate that our process has exited.
-                process->SetState (StateType::eStateExited, true);
+                SetState (StateType::eStateExited, true);
             }
             else
             {
                 if (log)
                     log->Printf ("NativeProcessLinux::%s() tid = %"  PRIu64 " main thread now exited (%s)", __FUNCTION__, pid, thread_found ? "stopped tracking thread metadata" : "thread metadata not found");
             }
-            return true;
         }
         else
         {
@@ -1996,24 +2179,20 @@ NativeProcessLinux::MonitorCallback(void *callback_baton,
             // and we would have done an all-stop then.
             if (log)
                 log->Printf ("NativeProcessLinux::%s() tid = %"  PRIu64 " handling non-main thread exit (%s)", __FUNCTION__, pid, thread_found ? "stopped tracking thread metadata" : "thread metadata not found");
-
-            // Not the main thread, we keep going.
-            return false;
         }
+        return;
     }
 
     // Get details on the signal raised.
     siginfo_t info;
-    const auto err = process->GetSignalInfo(pid, &info);
+    const auto err = GetSignalInfo(pid, &info);
     if (err.Success())
     {
         // We have retrieved the signal info.  Dispatch appropriately.
         if (info.si_signo == SIGTRAP)
-            process->MonitorSIGTRAP(&info, pid);
+            MonitorSIGTRAP(&info, pid);
         else
-            process->MonitorSignal(&info, pid, exited);
-
-        stop_monitoring = false;
+            MonitorSignal(&info, pid, exited);
     }
     else
     {
@@ -2021,8 +2200,8 @@ NativeProcessLinux::MonitorCallback(void *callback_baton,
         {
             // This is a group stop reception for this tid.
             if (log)
-                log->Printf ("NativeThreadLinux::%s received a group stop for pid %" PRIu64 " tid %" PRIu64, __FUNCTION__, process->GetID (), pid);
-            process->NotifyThreadStop (pid);
+                log->Printf ("NativeThreadLinux::%s received a group stop for pid %" PRIu64 " tid %" PRIu64, __FUNCTION__, GetID (), pid);
+            NotifyThreadStop (pid);
         }
         else
         {
@@ -2032,14 +2211,11 @@ NativeProcessLinux::MonitorCallback(void *callback_baton,
             // so it was killed somehow outside of our control.  Either way, we can't do anything
             // with it anymore.
 
-            // We stop monitoring if it was the main thread.
-            stop_monitoring = is_main_thread;
-
             // Stop tracking the metadata for the thread since it's entirely off the system now.
-            const bool thread_found = process->StopTrackingThread (pid);
+            const bool thread_found = StopTrackingThread (pid);
 
             // Make sure the thread state coordinator knows about this.
-            process->NotifyThreadDeath (pid);
+            NotifyThreadDeath (pid);
 
             if (log)
                 log->Printf ("NativeProcessLinux::%s GetSignalInfo failed: %s, tid = %" PRIu64 ", signal = %d, status = %d (%s, %s, %s)",
@@ -2049,19 +2225,17 @@ NativeProcessLinux::MonitorCallback(void *callback_baton,
             {
                 // Notify the delegate - our process is not available but appears to have been killed outside
                 // our control.  Is eStateExited the right exit state in this case?
-                process->SetExitStatus (convert_pid_status_to_exit_type (status), convert_pid_status_to_return_code (status), nullptr, true);
-                process->SetState (StateType::eStateExited, true);
+                SetExitStatus (convert_pid_status_to_exit_type (status), convert_pid_status_to_return_code (status), nullptr, true);
+                SetState (StateType::eStateExited, true);
             }
             else
             {
                 // This thread was pulled out from underneath us.  Anything to do here? Do we want to do an all stop?
                 if (log)
-                    log->Printf ("NativeProcessLinux::%s pid %" PRIu64 " tid %" PRIu64 " non-main thread exit occurred, didn't tell delegate anything since thread disappeared out from underneath us", __FUNCTION__, process->GetID (), pid);
+                    log->Printf ("NativeProcessLinux::%s pid %" PRIu64 " tid %" PRIu64 " non-main thread exit occurred, didn't tell delegate anything since thread disappeared out from underneath us", __FUNCTION__, GetID (), pid);
             }
         }
     }
-
-    return stop_monitoring;
 }
 
 void
@@ -2092,62 +2266,25 @@ NativeProcessLinux::MonitorSIGTRAP(const siginfo_t *info, lldb::pid_t pid)
 
     case (SIGTRAP | (PTRACE_EVENT_CLONE << 8)):
     {
-        lldb::tid_t tid = LLDB_INVALID_THREAD_ID;
+        // This is the notification on the parent thread which informs us of new thread
+        // creation. We are not interested in these events at this point (an interesting use
+        // case would be to stop the process upon thread creation), so we just resume the thread.
+        // We will pickup the new thread when we get its SIGSTOP notification.
 
-        // The main thread is stopped here.
-        if (thread_sp)
-            reinterpret_cast<NativeThreadLinux*> (thread_sp.get ())->SetStoppedBySignal (SIGTRAP);
-        NotifyThreadStop (pid);
-
-        unsigned long event_message = 0;
-        if (GetEventMessage (pid, &event_message).Success())
+        if (log)
         {
-            tid = static_cast<lldb::tid_t> (event_message);
-            if (log)
+            unsigned long event_message = 0;
+            if (GetEventMessage (pid, &event_message).Success())
+            {
+                lldb::tid_t tid = static_cast<lldb::tid_t> (event_message);
                 log->Printf ("NativeProcessLinux::%s() pid %" PRIu64 " received thread creation event for tid %" PRIu64, __FUNCTION__, pid, tid);
 
-            // If we don't track the thread yet: create it, mark as stopped.
-            // If we do track it, this is the wait we needed.  Now resume the new thread.
-            // In all cases, resume the current (i.e. main process) thread.
-            bool created_now = false;
-            NativeThreadProtocolSP new_thread_sp = GetOrCreateThread (tid, created_now);
-            assert (new_thread_sp.get() && "failed to get or create the tracking data for newly created inferior thread");
-
-            // If the thread was already tracked, it means the created thread already received its SI_USER notification of creation.
-            if (!created_now)
-            {
-                // We can now resume the newly created thread since it is fully created.
-                NotifyThreadCreateStopped (tid);
-                m_coordinator_up->RequestThreadResume (tid,
-                                                       [=](lldb::tid_t tid_to_resume, bool supress_signal)
-                                                       {
-                                                           reinterpret_cast<NativeThreadLinux*> (new_thread_sp.get ())->SetRunning ();
-                                                           return Resume (tid_to_resume, LLDB_INVALID_SIGNAL_NUMBER);
-                                                       },
-                                                       CoordinatorErrorHandler);
             }
             else
-            {
-                // Mark the thread as currently launching.  Need to wait for SIGTRAP clone on the main thread before
-                // this thread is ready to go.
-                reinterpret_cast<NativeThreadLinux*> (new_thread_sp.get ())->SetLaunching ();
-            }
-        }
-        else
-        {
-            if (log)
                 log->Printf ("NativeProcessLinux::%s() pid %" PRIu64 " received thread creation event but GetEventMessage failed so we don't know the new tid", __FUNCTION__, pid);
         }
 
-        // In all cases, we can resume the main thread here.
-        m_coordinator_up->RequestThreadResume (pid,
-                                               [=](lldb::tid_t tid_to_resume, bool supress_signal)
-                                               {
-                                                   reinterpret_cast<NativeThreadLinux*> (thread_sp.get ())->SetRunning ();
-                                                   return Resume (tid_to_resume, LLDB_INVALID_SIGNAL_NUMBER);
-                                               },
-                                               CoordinatorErrorHandler);
-
+        Resume (pid, LLDB_INVALID_SIGNAL_NUMBER);
         break;
     }
 
@@ -2187,7 +2324,7 @@ NativeProcessLinux::MonitorSIGTRAP(const siginfo_t *info, lldb::pid_t pid)
         {
             m_threads.push_back (main_thread_sp);
             SetCurrentThreadID (main_thread_sp->GetID ());
-            reinterpret_cast<NativeThreadLinux*>(main_thread_sp.get())->SetStoppedByExec ();
+            std::static_pointer_cast<NativeThreadLinux> (main_thread_sp)->SetStoppedByExec ();
         }
         else
         {
@@ -2247,7 +2384,7 @@ NativeProcessLinux::MonitorSIGTRAP(const siginfo_t *info, lldb::pid_t pid)
         m_coordinator_up->RequestThreadResume (pid,
                                                [=](lldb::tid_t tid_to_resume, bool supress_signal)
                                                {
-                                                   reinterpret_cast<NativeThreadLinux*> (thread_sp.get ())->SetRunning ();
+                                                   std::static_pointer_cast<NativeThreadLinux> (thread_sp)->SetRunning ();
                                                    return Resume (tid_to_resume, (supress_signal) ? LLDB_INVALID_SIGNAL_NUMBER : signo);
                                                },
                                                CoordinatorErrorHandler);
@@ -2256,93 +2393,31 @@ NativeProcessLinux::MonitorSIGTRAP(const siginfo_t *info, lldb::pid_t pid)
     }
 
     case 0:
-    case TRAP_TRACE:
-        // We receive this on single stepping.
-        if (log)
-            log->Printf ("NativeProcessLinux::%s() received trace event, pid = %" PRIu64 " (single stepping)", __FUNCTION__, pid);
-
+    case TRAP_TRACE:  // We receive this on single stepping.
+    case TRAP_HWBKPT: // We receive this on watchpoint hit
         if (thread_sp)
         {
-            reinterpret_cast<NativeThreadLinux*> (thread_sp.get ())->SetStoppedByTrace ();
+            // If a watchpoint was hit, report it
+            uint32_t wp_index;
+            Error error = thread_sp->GetRegisterContext()->GetWatchpointHitIndex(wp_index);
+            if (error.Fail() && log)
+                log->Printf("NativeProcessLinux::%s() "
+                            "received error while checking for watchpoint hits, "
+                            "pid = %" PRIu64 " error = %s",
+                            __FUNCTION__, pid, error.AsCString());
+            if (wp_index != LLDB_INVALID_INDEX32)
+            {
+                MonitorWatchpoint(pid, thread_sp, wp_index);
+                break;
+            }
         }
-
-        // This thread is currently stopped.
-        NotifyThreadStop (pid);
-
-        // Here we don't have to request the rest of the threads to stop or request a deferred stop.
-        // This would have already happened at the time the Resume() with step operation was signaled.
-        // At this point, we just need to say we stopped, and the deferred notifcation will fire off
-        // once all running threads have checked in as stopped.
-        SetCurrentThreadID (pid);
-        // Tell the process we have a stop (from software breakpoint).
-        CallAfterRunningThreadsStop (pid,
-                                     [=] (lldb::tid_t signaling_tid)
-                                     {
-                                         SetState (StateType::eStateStopped, true);
-                                     });
+        // Otherwise, report step over
+        MonitorTrace(pid, thread_sp);
         break;
 
     case SI_KERNEL:
     case TRAP_BRKPT:
-        if (log)
-            log->Printf ("NativeProcessLinux::%s() received breakpoint event, pid = %" PRIu64, __FUNCTION__, pid);
-
-        // This thread is currently stopped.
-        NotifyThreadStop (pid);
-
-        // Mark the thread as stopped at breakpoint.
-        if (thread_sp)
-        {
-            reinterpret_cast<NativeThreadLinux*> (thread_sp.get ())->SetStoppedByBreakpoint ();
-            Error error = FixupBreakpointPCAsNeeded (thread_sp);
-            if (error.Fail ())
-            {
-                if (log)
-                    log->Printf ("NativeProcessLinux::%s() pid = %" PRIu64 " fixup: %s", __FUNCTION__, pid, error.AsCString ());
-            }
-        }
-        else
-        {
-            if (log)
-                log->Printf ("NativeProcessLinux::%s()  pid = %" PRIu64 ": warning, cannot process software breakpoint since no thread metadata", __FUNCTION__, pid);
-        }
-
-
-        // We need to tell all other running threads before we notify the delegate about this stop.
-        CallAfterRunningThreadsStop (pid,
-                                     [=](lldb::tid_t deferred_notification_tid)
-                                     {
-                                         SetCurrentThreadID (deferred_notification_tid);
-                                         // Tell the process we have a stop (from software breakpoint).
-                                         SetState (StateType::eStateStopped, true);
-                                     });
-        break;
-
-    case TRAP_HWBKPT:
-        if (log)
-            log->Printf ("NativeProcessLinux::%s() received watchpoint event, pid = %" PRIu64, __FUNCTION__, pid);
-
-        // This thread is currently stopped.
-        NotifyThreadStop (pid);
-
-        // Mark the thread as stopped at watchpoint.
-        // The address is at (lldb::addr_t)info->si_addr if we need it.
-        if (thread_sp)
-            reinterpret_cast<NativeThreadLinux*> (thread_sp.get ())->SetStoppedByWatchpoint ();
-        else
-        {
-            if (log)
-                log->Printf ("NativeProcessLinux::%s() pid %" PRIu64 " tid %" PRIu64 ": warning, cannot process hardware breakpoint since no thread metadata", __FUNCTION__, GetID (), pid);
-        }
-
-        // We need to tell all other running threads before we notify the delegate about this stop.
-        CallAfterRunningThreadsStop (pid,
-                                     [=](lldb::tid_t deferred_notification_tid)
-                                     {
-                                         SetCurrentThreadID (deferred_notification_tid);
-                                         // Tell the process we have a stop (from hardware breakpoint).
-                                         SetState (StateType::eStateStopped, true);
-                                     });
+        MonitorBreakpoint(pid, thread_sp);
         break;
 
     case SIGTRAP:
@@ -2353,14 +2428,14 @@ NativeProcessLinux::MonitorSIGTRAP(const siginfo_t *info, lldb::pid_t pid)
         // This thread is currently stopped.
         NotifyThreadStop (pid);
         if (thread_sp)
-            reinterpret_cast<NativeThreadLinux*> (thread_sp.get ())->SetStoppedBySignal (SIGTRAP);
+            std::static_pointer_cast<NativeThreadLinux> (thread_sp)->SetStoppedBySignal (SIGTRAP);
 
             
         // Ignore these signals until we know more about them.
         m_coordinator_up->RequestThreadResume (pid,
                                                [=](lldb::tid_t tid_to_resume, bool supress_signal)
                                                {
-                                                   reinterpret_cast<NativeThreadLinux*> (thread_sp.get ())->SetRunning ();
+                                                   std::static_pointer_cast<NativeThreadLinux> (thread_sp)->SetRunning ();
                                                    return Resume (tid_to_resume, LLDB_INVALID_SIGNAL_NUMBER);
                                                },
                                                CoordinatorErrorHandler);
@@ -2373,6 +2448,111 @@ NativeProcessLinux::MonitorSIGTRAP(const siginfo_t *info, lldb::pid_t pid)
         break;
         
     }
+}
+
+void
+NativeProcessLinux::MonitorTrace(lldb::pid_t pid, NativeThreadProtocolSP thread_sp)
+{
+    Log *log(GetLogIfAllCategoriesSet(LIBLLDB_LOG_PROCESS));
+    if (log)
+        log->Printf("NativeProcessLinux::%s() received trace event, pid = %" PRIu64 " (single stepping)",
+                __FUNCTION__, pid);
+
+    if (thread_sp)
+        std::static_pointer_cast<NativeThreadLinux>(thread_sp)->SetStoppedByTrace();
+
+    // This thread is currently stopped.
+    NotifyThreadStop(pid);
+
+    // Here we don't have to request the rest of the threads to stop or request a deferred stop.
+    // This would have already happened at the time the Resume() with step operation was signaled.
+    // At this point, we just need to say we stopped, and the deferred notifcation will fire off
+    // once all running threads have checked in as stopped.
+    SetCurrentThreadID(pid);
+    // Tell the process we have a stop (from software breakpoint).
+    CallAfterRunningThreadsStop(pid,
+                                [=](lldb::tid_t signaling_tid)
+                                {
+                                   SetState(StateType::eStateStopped, true);
+                                });
+}
+
+void
+NativeProcessLinux::MonitorBreakpoint(lldb::pid_t pid, NativeThreadProtocolSP thread_sp)
+{
+    Log *log(GetLogIfAnyCategoriesSet(LIBLLDB_LOG_PROCESS | LIBLLDB_LOG_BREAKPOINTS));
+    if (log)
+        log->Printf("NativeProcessLinux::%s() received breakpoint event, pid = %" PRIu64,
+                __FUNCTION__, pid);
+
+    // This thread is currently stopped.
+    NotifyThreadStop(pid);
+
+    // Mark the thread as stopped at breakpoint.
+    if (thread_sp)
+    {
+        std::static_pointer_cast<NativeThreadLinux>(thread_sp)->SetStoppedByBreakpoint();
+        Error error = FixupBreakpointPCAsNeeded(thread_sp);
+        if (error.Fail())
+            if (log)
+                log->Printf("NativeProcessLinux::%s() pid = %" PRIu64 " fixup: %s",
+                        __FUNCTION__, pid, error.AsCString());
+
+        auto it = m_threads_stepping_with_breakpoint.find(pid);
+        if (it != m_threads_stepping_with_breakpoint.end())
+        {
+            Error error = RemoveBreakpoint (it->second);
+            if (error.Fail())
+                if (log)
+                    log->Printf("NativeProcessLinux::%s() pid = %" PRIu64 " remove stepping breakpoint: %s",
+                            __FUNCTION__, pid, error.AsCString());
+
+            m_threads_stepping_with_breakpoint.erase(it);
+            std::static_pointer_cast<NativeThreadLinux>(thread_sp)->SetStoppedByTrace();
+        }
+    }
+    else
+        if (log)
+            log->Printf("NativeProcessLinux::%s()  pid = %" PRIu64 ": "
+                    "warning, cannot process software breakpoint since no thread metadata",
+                    __FUNCTION__, pid);
+
+
+    // We need to tell all other running threads before we notify the delegate about this stop.
+    CallAfterRunningThreadsStop(pid,
+                                [=](lldb::tid_t deferred_notification_tid)
+                                {
+                                    SetCurrentThreadID(deferred_notification_tid);
+                                    // Tell the process we have a stop (from software breakpoint).
+                                    SetState(StateType::eStateStopped, true);
+                                });
+}
+
+void
+NativeProcessLinux::MonitorWatchpoint(lldb::pid_t pid, NativeThreadProtocolSP thread_sp, uint32_t wp_index)
+{
+    Log *log(GetLogIfAnyCategoriesSet(LIBLLDB_LOG_PROCESS | LIBLLDB_LOG_WATCHPOINTS));
+    if (log)
+        log->Printf("NativeProcessLinux::%s() received watchpoint event, "
+                    "pid = %" PRIu64 ", wp_index = %" PRIu32,
+                    __FUNCTION__, pid, wp_index);
+
+    // This thread is currently stopped.
+    NotifyThreadStop(pid);
+
+    // Mark the thread as stopped at watchpoint.
+    // The address is at (lldb::addr_t)info->si_addr if we need it.
+    lldbassert(thread_sp && "thread_sp cannot be NULL");
+    std::static_pointer_cast<NativeThreadLinux>(thread_sp)->SetStoppedByWatchpoint(wp_index);
+
+    // We need to tell all other running threads before we notify the delegate about this stop.
+    CallAfterRunningThreadsStop(pid,
+                                [=](lldb::tid_t deferred_notification_tid)
+                                {
+                                    SetCurrentThreadID(deferred_notification_tid);
+                                    // Tell the process we have a stop (from watchpoint).
+                                    SetState(StateType::eStateStopped, true);
+                                });
 }
 
 void
@@ -2429,31 +2609,12 @@ NativeProcessLinux::MonitorSignal(const siginfo_t *info, lldb::pid_t pid, bool e
             log->Printf ("NativeProcessLinux::%s() pid = %" PRIu64 " tid %" PRIu64 ": new thread notification",
                      __FUNCTION__, GetID (), pid);
 
-        // Did we already create the thread?
-        bool created_now = false;
-        thread_sp = GetOrCreateThread (pid, created_now);
-        assert (thread_sp.get() && "failed to get or create the tracking data for newly created inferior thread");
-
-        // If the thread was already tracked, it means the main thread already received its SIGTRAP for the create.
-        if (!created_now)
-        {
-            // We can now resume the newly created thread since it is fully created.
-            NotifyThreadCreateStopped (pid);
-            m_coordinator_up->RequestThreadResume (pid,
-                                                   [=](lldb::tid_t tid_to_resume, bool supress_signal)
-                                                   {
-                                                       reinterpret_cast<NativeThreadLinux*> (thread_sp.get ())->SetRunning ();
-                                                       return Resume (tid_to_resume, LLDB_INVALID_SIGNAL_NUMBER);
-                                                   },
-                                                   CoordinatorErrorHandler);
-        }
-        else
-        {
-            // Mark the thread as currently launching.  Need to wait for SIGTRAP clone on the main thread before
-            // this thread is ready to go.
-            reinterpret_cast<NativeThreadLinux*> (thread_sp.get ())->SetLaunching ();
-        }
-
+        thread_sp = AddThread(pid);
+        assert (thread_sp.get() && "failed to create the tracking data for newly created inferior thread");
+        // We can now resume the newly created thread.
+        std::static_pointer_cast<NativeThreadLinux> (thread_sp)->SetRunning ();
+        Resume (pid, LLDB_INVALID_SIGNAL_NUMBER);
+        m_coordinator_up->NotifyThreadCreate (pid, false, CoordinatorErrorHandler);
         // Done handling.
         return;
     }
@@ -2476,16 +2637,16 @@ NativeProcessLinux::MonitorSignal(const siginfo_t *info, lldb::pid_t pid, bool e
             // and that, without an intervening resume, we received another stop.  It is more likely
             // that we are missing the marking of a run state somewhere if we find that the thread was
             // marked as stopped.
-            NativeThreadLinux *const linux_thread_p = reinterpret_cast<NativeThreadLinux*> (thread_sp.get ());
-            assert (linux_thread_p && "linux_thread_p is null!");
+            std::shared_ptr<NativeThreadLinux> linux_thread_sp = std::static_pointer_cast<NativeThreadLinux> (thread_sp);
+            assert (linux_thread_sp && "linux_thread_sp is null!");
 
-            const StateType thread_state = linux_thread_p->GetState ();
+            const StateType thread_state = linux_thread_sp->GetState ();
             if (!StateIsStoppedState (thread_state, false))
             {
                 // An inferior thread just stopped, but was not the primary cause of the process stop.
                 // Instead, something else (like a breakpoint or step) caused the stop.  Mark the
                 // stop signal as 0 to let lldb know this isn't the important stop.
-                linux_thread_p->SetStoppedBySignal (0);
+                linux_thread_sp->SetStoppedBySignal (0);
                 SetCurrentThreadID (thread_sp->GetID ());
                 m_coordinator_up->NotifyThreadStop (thread_sp->GetID (), true, CoordinatorErrorHandler);
             }
@@ -2495,7 +2656,7 @@ NativeProcessLinux::MonitorSignal(const siginfo_t *info, lldb::pid_t pid, bool e
                 {
                     // Retrieve the signal name if the thread was stopped by a signal.
                     int stop_signo = 0;
-                    const bool stopped_by_signal = linux_thread_p->IsStopped (&stop_signo);
+                    const bool stopped_by_signal = linux_thread_sp->IsStopped (&stop_signo);
                     const char *signal_name = stopped_by_signal ? GetUnixSignals ().GetSignalAsCString (stop_signo) : "<not stopped by signal>";
                     if (!signal_name)
                         signal_name = "<no-signal-name>";
@@ -2503,7 +2664,7 @@ NativeProcessLinux::MonitorSignal(const siginfo_t *info, lldb::pid_t pid, bool e
                     log->Printf ("NativeProcessLinux::%s() pid %" PRIu64 " tid %" PRIu64 ", thread was already marked as a stopped state (state=%s, signal=%d (%s)), leaving stop signal as is",
                                  __FUNCTION__,
                                  GetID (),
-                                 linux_thread_p->GetID (),
+                                 linux_thread_sp->GetID (),
                                  StateAsCString (thread_state),
                                  stop_signo,
                                  signal_name);
@@ -2540,7 +2701,7 @@ NativeProcessLinux::MonitorSignal(const siginfo_t *info, lldb::pid_t pid, bool e
             m_coordinator_up->RequestThreadResume (pid,
                                                    [=](lldb::tid_t tid_to_resume, bool supress_signal)
                                                    {
-                                                       reinterpret_cast<NativeThreadLinux*> (thread_sp.get ())->SetRunning ();
+                                                       std::static_pointer_cast<NativeThreadLinux> (thread_sp)->SetRunning ();
                                                        // Pass this signal number on to the inferior to handle.
                                                        return Resume (tid_to_resume, (supress_signal) ? LLDB_INVALID_SIGNAL_NUMBER : signo);
                                                    },
@@ -2552,12 +2713,12 @@ NativeProcessLinux::MonitorSignal(const siginfo_t *info, lldb::pid_t pid, bool e
     case SIGFPE:
     case SIGBUS:
         if (thread_sp)
-            reinterpret_cast<NativeThreadLinux*> (thread_sp.get ())->SetCrashedWithException (*info);
+            std::static_pointer_cast<NativeThreadLinux> (thread_sp)->SetCrashedWithException (*info);
         break;
     default:
         // This is just a pre-signal-delivery notification of the incoming signal.
         if (thread_sp)
-            reinterpret_cast<NativeThreadLinux*> (thread_sp.get ())->SetStoppedBySignal (signo);
+            std::static_pointer_cast<NativeThreadLinux> (thread_sp)->SetStoppedBySignal (signo);
 
         break;
     }
@@ -2569,6 +2730,178 @@ NativeProcessLinux::MonitorSignal(const siginfo_t *info, lldb::pid_t pid, bool e
                                      SetCurrentThreadID (signaling_tid);
                                      SetState (StateType::eStateStopped, true);
                                  });
+}
+
+namespace {
+
+struct EmulatorBaton
+{
+    NativeProcessLinux* m_process;
+    NativeRegisterContext* m_reg_context;
+    RegisterValue m_pc;
+    RegisterValue m_flags;
+
+    EmulatorBaton(NativeProcessLinux* process, NativeRegisterContext* reg_context) : 
+            m_process(process), m_reg_context(reg_context) {}
+};
+
+} // anonymous namespace
+
+static size_t
+ReadMemoryCallback (EmulateInstruction *instruction,
+                    void *baton,
+                    const EmulateInstruction::Context &context, 
+                    lldb::addr_t addr, 
+                    void *dst,
+                    size_t length)
+{
+    EmulatorBaton* emulator_baton = static_cast<EmulatorBaton*>(baton);
+
+    lldb::addr_t bytes_read;
+    emulator_baton->m_process->ReadMemory(addr, dst, length, bytes_read);
+    return bytes_read;
+}
+
+static bool
+ReadRegisterCallback (EmulateInstruction *instruction,
+                      void *baton,
+                      const RegisterInfo *reg_info,
+                      RegisterValue &reg_value)
+{
+    EmulatorBaton* emulator_baton = static_cast<EmulatorBaton*>(baton);
+
+    // The emulator only fill in the dwarf regsiter numbers (and in some case
+    // the generic register numbers). Get the full register info from the
+    // register context based on the dwarf register numbers.
+    const RegisterInfo* full_reg_info = emulator_baton->m_reg_context->GetRegisterInfo(
+            eRegisterKindDWARF, reg_info->kinds[eRegisterKindDWARF]);
+
+    Error error = emulator_baton->m_reg_context->ReadRegister(full_reg_info, reg_value);
+    return error.Success();
+}
+
+static bool
+WriteRegisterCallback (EmulateInstruction *instruction,
+                       void *baton,
+                       const EmulateInstruction::Context &context,
+                       const RegisterInfo *reg_info,
+                       const RegisterValue &reg_value)
+{
+    EmulatorBaton* emulator_baton = static_cast<EmulatorBaton*>(baton);
+
+    switch (reg_info->kinds[eRegisterKindGeneric])
+    {
+    case LLDB_REGNUM_GENERIC_PC:
+        emulator_baton->m_pc = reg_value;
+        break;
+    case LLDB_REGNUM_GENERIC_FLAGS:
+        emulator_baton->m_flags = reg_value;
+        break;
+    }
+
+    return true;
+}
+
+static size_t
+WriteMemoryCallback (EmulateInstruction *instruction,
+                     void *baton,
+                     const EmulateInstruction::Context &context, 
+                     lldb::addr_t addr, 
+                     const void *dst,
+                     size_t length)
+{
+    return length;
+}
+
+static lldb::addr_t
+ReadFlags (NativeRegisterContext* regsiter_context)
+{
+    const RegisterInfo* flags_info = regsiter_context->GetRegisterInfo(
+            eRegisterKindGeneric, LLDB_REGNUM_GENERIC_FLAGS);
+    return regsiter_context->ReadRegisterAsUnsigned(flags_info, LLDB_INVALID_ADDRESS);
+}
+
+Error
+NativeProcessLinux::SetupSoftwareSingleStepping(NativeThreadProtocolSP thread_sp)
+{
+    Error error;
+    NativeRegisterContextSP register_context_sp = thread_sp->GetRegisterContext();
+
+    std::unique_ptr<EmulateInstruction> emulator_ap(
+        EmulateInstruction::FindPlugin(m_arch, eInstructionTypePCModifying, nullptr));
+
+    if (emulator_ap == nullptr)
+        return Error("Instruction emulator not found!");
+
+    EmulatorBaton baton(this, register_context_sp.get());
+    emulator_ap->SetBaton(&baton);
+    emulator_ap->SetReadMemCallback(&ReadMemoryCallback);
+    emulator_ap->SetReadRegCallback(&ReadRegisterCallback);
+    emulator_ap->SetWriteMemCallback(&WriteMemoryCallback);
+    emulator_ap->SetWriteRegCallback(&WriteRegisterCallback);
+
+    if (!emulator_ap->ReadInstruction())
+        return Error("Read instruction failed!");
+
+    lldb::addr_t next_pc;
+    lldb::addr_t next_flags;
+    if (emulator_ap->EvaluateInstruction(eEmulateInstructionOptionAutoAdvancePC))
+    {
+        next_pc = baton.m_pc.GetAsUInt64();
+        if (baton.m_flags.GetType() != RegisterValue::eTypeInvalid)
+            next_flags = baton.m_flags.GetAsUInt32();
+        else
+            next_flags = ReadFlags (register_context_sp.get());
+    }
+    else if (baton.m_pc.GetType() == RegisterValue::eTypeInvalid)
+    {
+        // Emulate instruction failed and it haven't changed PC. Advance PC
+        // with the size of the current opcode because the emulation of all
+        // PC modifying instruction should be successful. The failure most
+        // likely caused by a not supported instruction which don't modify PC.
+        next_pc = register_context_sp->GetPC() + emulator_ap->GetOpcode().GetByteSize();
+        next_flags = ReadFlags (register_context_sp.get());
+    }
+    else
+    {
+        // The instruction emulation failed after it modified the PC. It is an
+        // unknown error where we can't continue because the next instruction is
+        // modifying the PC but we don't  know how.
+        return Error ("Instruction emulation failed unexpectedly.");
+    }
+
+    if (m_arch.GetMachine() == llvm::Triple::arm)
+    {
+        if (next_flags & 0x20)
+        {
+            // Thumb mode
+            error = SetSoftwareBreakpoint(next_pc, 2);
+        }
+        else
+        {
+            // Arm mode
+            error = SetSoftwareBreakpoint(next_pc, 4);
+        }
+    }
+    else
+    {
+        // No size hint is given for the next breakpoint
+        error = SetSoftwareBreakpoint(next_pc, 0);
+    }
+
+
+    if (error.Fail())
+        return error;
+
+    m_threads_stepping_with_breakpoint.insert({thread_sp->GetID(), next_pc});
+
+    return Error();
+}
+
+bool
+NativeProcessLinux::SupportHardwareSingleStepping() const
+{
+    return m_arch.GetMachine() != llvm::Triple::arm;
 }
 
 Error
@@ -2583,8 +2916,28 @@ NativeProcessLinux::Resume (const ResumeActionList &resume_actions)
     int deferred_signo = 0;
     NativeThreadProtocolSP deferred_signal_thread_sp;
     bool stepping = false;
+    bool software_single_step = !SupportHardwareSingleStepping();
 
     Mutex::Locker locker (m_threads_mutex);
+
+    if (software_single_step)
+    {
+        for (auto thread_sp : m_threads)
+        {
+            assert (thread_sp && "thread list should not contain NULL threads");
+
+            const ResumeAction *const action = resume_actions.GetActionForThread (thread_sp->GetID (), true);
+            if (action == nullptr)
+                continue;
+
+            if (action->state == eStateStepping)
+            {
+                Error error = SetupSoftwareSingleStepping(thread_sp);
+                if (error.Fail())
+                    return error;
+            }
+        }
+    }
 
     for (auto thread_sp : m_threads)
     {
@@ -2615,7 +2968,7 @@ NativeProcessLinux::Resume (const ResumeActionList &resume_actions)
             m_coordinator_up->RequestThreadResumeAsNeeded (thread_sp->GetID (),
                                                            [=](lldb::tid_t tid_to_resume, bool supress_signal)
                                                            {
-                                                               reinterpret_cast<NativeThreadLinux*> (thread_sp.get ())->SetRunning ();
+                                                               std::static_pointer_cast<NativeThreadLinux> (thread_sp)->SetRunning ();
                                                                // Pass this signal number on to the inferior to handle.
                                                                const auto resume_result = Resume (tid_to_resume, (signo > 0 && !supress_signal) ? signo : LLDB_INVALID_SIGNAL_NUMBER);
                                                                if (resume_result.Success())
@@ -2633,8 +2986,14 @@ NativeProcessLinux::Resume (const ResumeActionList &resume_actions)
             m_coordinator_up->RequestThreadResume (thread_sp->GetID (),
                                                    [=](lldb::tid_t tid_to_step, bool supress_signal)
                                                    {
-                                                       reinterpret_cast<NativeThreadLinux*> (thread_sp.get ())->SetStepping ();
-                                                       const auto step_result = SingleStep (tid_to_step,(signo > 0 && !supress_signal) ? signo : LLDB_INVALID_SIGNAL_NUMBER);
+                                                       std::static_pointer_cast<NativeThreadLinux> (thread_sp)->SetStepping ();
+
+                                                       Error step_result;
+                                                       if (software_single_step)
+                                                           step_result = Resume (tid_to_step, (signo > 0 && !supress_signal) ? signo : LLDB_INVALID_SIGNAL_NUMBER);
+                                                       else
+                                                           step_result = SingleStep (tid_to_step,(signo > 0 && !supress_signal) ? signo : LLDB_INVALID_SIGNAL_NUMBER);
+
                                                        assert (step_result.Success() && "SingleStep() failed");
                                                        if (step_result.Success())
                                                            SetState(eStateStepping, true);
@@ -2675,7 +3034,7 @@ NativeProcessLinux::Resume (const ResumeActionList &resume_actions)
                                          SetCurrentThreadID (deferred_notification_tid);
 
                                          // Set the thread state as stopped by the deferred signo.
-                                         reinterpret_cast<NativeThreadLinux*> (deferred_signal_thread_sp.get ())->SetStoppedBySignal (deferred_signo);
+                                         std::static_pointer_cast<NativeThreadLinux> (deferred_signal_thread_sp)->SetStoppedBySignal (deferred_signo);
 
                                          // Tell the process delegate that the process is in a stopped state.
                                          SetState (StateType::eStateStopped, true);
@@ -2790,7 +3149,7 @@ NativeProcessLinux::Interrupt ()
                                      SetCurrentThreadID (deferred_notification_tid);
 
                                      // Set the thread state as stopped by the deferred signo.
-                                     reinterpret_cast<NativeThreadLinux*> (deferred_signal_thread_sp.get ())->SetStoppedBySignal (SIGSTOP);
+                                     std::static_pointer_cast<NativeThreadLinux> (deferred_signal_thread_sp)->SetStoppedBySignal (SIGSTOP);
 
                                      // Tell the process delegate that the process is in a stopped state.
                                      SetState (StateType::eStateStopped, true);
@@ -3144,12 +3503,13 @@ NativeProcessLinux::GetArchitecture (ArchSpec &arch) const
 }
 
 Error
-NativeProcessLinux::GetSoftwareBreakpointSize (NativeRegisterContextSP context_sp, uint32_t &actual_opcode_size)
+NativeProcessLinux::GetSoftwareBreakpointPCOffset (NativeRegisterContextSP context_sp, uint32_t &actual_opcode_size)
 {
     // FIXME put this behind a breakpoint protocol class that can be
     // set per architecture.  Need ARM, MIPS support here.
     static const uint8_t g_aarch64_opcode[] = { 0x00, 0x00, 0x20, 0xd4 };
     static const uint8_t g_i386_opcode [] = { 0xCC };
+    static const uint8_t g_mips64_opcode[] = { 0x00, 0x00, 0x00, 0x0d };
 
     switch (m_arch.GetMachine ())
     {
@@ -3157,11 +3517,20 @@ NativeProcessLinux::GetSoftwareBreakpointSize (NativeRegisterContextSP context_s
             actual_opcode_size = static_cast<uint32_t> (sizeof(g_aarch64_opcode));
             return Error ();
 
+        case llvm::Triple::arm:
+            actual_opcode_size = 0; // On arm the PC don't get updated for breakpoint hits
+            return Error ();
+
         case llvm::Triple::x86:
         case llvm::Triple::x86_64:
             actual_opcode_size = static_cast<uint32_t> (sizeof(g_i386_opcode));
             return Error ();
 
+        case llvm::Triple::mips64:
+        case llvm::Triple::mips64el:
+            actual_opcode_size = static_cast<uint32_t> (sizeof(g_mips64_opcode));
+            return Error ();
+        
         default:
             assert(false && "CPU type not supported!");
             return Error ("CPU type not supported");
@@ -3178,12 +3547,20 @@ NativeProcessLinux::SetBreakpoint (lldb::addr_t addr, uint32_t size, bool hardwa
 }
 
 Error
-NativeProcessLinux::GetSoftwareBreakpointTrapOpcode (size_t trap_opcode_size_hint, size_t &actual_opcode_size, const uint8_t *&trap_opcode_bytes)
+NativeProcessLinux::GetSoftwareBreakpointTrapOpcode (size_t trap_opcode_size_hint,
+                                                     size_t &actual_opcode_size,
+                                                     const uint8_t *&trap_opcode_bytes)
 {
-    // FIXME put this behind a breakpoint protocol class that can be
-    // set per architecture.  Need ARM, MIPS support here.
+    // FIXME put this behind a breakpoint protocol class that can be set per
+    // architecture.  Need MIPS support here.
     static const uint8_t g_aarch64_opcode[] = { 0x00, 0x00, 0x20, 0xd4 };
+    // The ARM reference recommends the use of 0xe7fddefe and 0xdefe but the
+    // linux kernel does otherwise.
+    static const uint8_t g_arm_breakpoint_opcode[] = { 0xf0, 0x01, 0xf0, 0xe7 };
     static const uint8_t g_i386_opcode [] = { 0xCC };
+    static const uint8_t g_mips64_opcode[] = { 0x00, 0x00, 0x00, 0x0d };
+    static const uint8_t g_mips64el_opcode[] = { 0x0d, 0x00, 0x00, 0x00 };
+    static const uint8_t g_thumb_breakpoint_opcode[] = { 0x01, 0xde };
 
     switch (m_arch.GetMachine ())
     {
@@ -3192,10 +3569,36 @@ NativeProcessLinux::GetSoftwareBreakpointTrapOpcode (size_t trap_opcode_size_hin
         actual_opcode_size = sizeof(g_aarch64_opcode);
         return Error ();
 
+    case llvm::Triple::arm:
+        switch (trap_opcode_size_hint)
+        {
+        case 2:
+            trap_opcode_bytes = g_thumb_breakpoint_opcode;
+            actual_opcode_size = sizeof(g_thumb_breakpoint_opcode);
+            return Error ();
+        case 4:
+            trap_opcode_bytes = g_arm_breakpoint_opcode;
+            actual_opcode_size = sizeof(g_arm_breakpoint_opcode);
+            return Error ();
+        default:
+            assert(false && "Unrecognised trap opcode size hint!");
+            return Error ("Unrecognised trap opcode size hint!");
+        }
+
     case llvm::Triple::x86:
     case llvm::Triple::x86_64:
         trap_opcode_bytes = g_i386_opcode;
         actual_opcode_size = sizeof(g_i386_opcode);
+        return Error ();
+
+    case llvm::Triple::mips64:
+        trap_opcode_bytes = g_mips64_opcode;
+        actual_opcode_size = sizeof(g_mips64_opcode);
+        return Error ();
+
+    case llvm::Triple::mips64el:
+        trap_opcode_bytes = g_mips64el_opcode;
+        actual_opcode_size = sizeof(g_mips64el_opcode);
         return Error ();
 
     default:
@@ -3354,67 +3757,11 @@ NativeProcessLinux::GetCrashReasonForSIGBUS(const siginfo_t *info)
 }
 #endif
 
-void
-NativeProcessLinux::ServeOperation(OperationArgs *args)
-{
-    NativeProcessLinux *monitor = args->m_monitor;
-
-    // We are finised with the arguments and are ready to go.  Sync with the
-    // parent thread and start serving operations on the inferior.
-    sem_post(&args->m_semaphore);
-
-    for(;;)
-    {
-        // wait for next pending operation
-        if (sem_wait(&monitor->m_operation_pending))
-        {
-            if (errno == EINTR)
-                continue;
-            assert(false && "Unexpected errno from sem_wait");
-        }
-
-        // EXIT_OPERATION used to stop the operation thread because Cancel() isn't supported on
-        // android. We don't have to send a post to the m_operation_done semaphore because in this
-        // case the synchronization is achieved by a Join() call
-        if (monitor->m_operation == EXIT_OPERATION)
-            break;
-
-        reinterpret_cast<Operation*>(monitor->m_operation)->Execute(monitor);
-
-        // notify calling thread that operation is complete
-        sem_post(&monitor->m_operation_done);
-    }
-}
-
-void
-NativeProcessLinux::DoOperation(void *op)
-{
-    Mutex::Locker lock(m_operation_mutex);
-
-    m_operation = op;
-
-    // notify operation thread that an operation is ready to be processed
-    sem_post(&m_operation_pending);
-
-    // Don't wait for the operation to complete in case of an exit operation. The operation thread
-    // will exit without posting to the semaphore
-    if (m_operation == EXIT_OPERATION)
-        return;
-
-    // wait for operation to complete
-    while (sem_wait(&m_operation_done))
-    {
-        if (errno == EINTR)
-            continue;
-        assert(false && "Unexpected errno from sem_wait");
-    }
-}
-
 Error
 NativeProcessLinux::ReadMemory (lldb::addr_t addr, void *buf, lldb::addr_t size, lldb::addr_t &bytes_read)
 {
     ReadOperation op(addr, buf, size, bytes_read);
-    DoOperation(&op);
+    m_monitor_up->DoOperation(&op);
     return op.GetError ();
 }
 
@@ -3422,16 +3769,16 @@ Error
 NativeProcessLinux::WriteMemory (lldb::addr_t addr, const void *buf, lldb::addr_t size, lldb::addr_t &bytes_written)
 {
     WriteOperation op(addr, buf, size, bytes_written);
-    DoOperation(&op);
+    m_monitor_up->DoOperation(&op);
     return op.GetError ();
 }
 
 Error
 NativeProcessLinux::ReadRegisterValue(lldb::tid_t tid, uint32_t offset, const char* reg_name,
-                                  uint32_t size, RegisterValue &value)
+                                      uint32_t size, RegisterValue &value)
 {
     ReadRegOperation op(tid, offset, reg_name, value);
-    DoOperation(&op);
+    m_monitor_up->DoOperation(&op);
     return op.GetError();
 }
 
@@ -3440,7 +3787,7 @@ NativeProcessLinux::WriteRegisterValue(lldb::tid_t tid, unsigned offset,
                                    const char* reg_name, const RegisterValue &value)
 {
     WriteRegOperation op(tid, offset, reg_name, value);
-    DoOperation(&op);
+    m_monitor_up->DoOperation(&op);
     return op.GetError();
 }
 
@@ -3448,7 +3795,7 @@ Error
 NativeProcessLinux::ReadGPR(lldb::tid_t tid, void *buf, size_t buf_size)
 {
     ReadGPROperation op(tid, buf, buf_size);
-    DoOperation(&op);
+    m_monitor_up->DoOperation(&op);
     return op.GetError();
 }
 
@@ -3456,7 +3803,7 @@ Error
 NativeProcessLinux::ReadFPR(lldb::tid_t tid, void *buf, size_t buf_size)
 {
     ReadFPROperation op(tid, buf, buf_size);
-    DoOperation(&op);
+    m_monitor_up->DoOperation(&op);
     return op.GetError();
 }
 
@@ -3464,7 +3811,7 @@ Error
 NativeProcessLinux::ReadRegisterSet(lldb::tid_t tid, void *buf, size_t buf_size, unsigned int regset)
 {
     ReadRegisterSetOperation op(tid, buf, buf_size, regset);
-    DoOperation(&op);
+    m_monitor_up->DoOperation(&op);
     return op.GetError();
 }
 
@@ -3472,7 +3819,7 @@ Error
 NativeProcessLinux::WriteGPR(lldb::tid_t tid, void *buf, size_t buf_size)
 {
     WriteGPROperation op(tid, buf, buf_size);
-    DoOperation(&op);
+    m_monitor_up->DoOperation(&op);
     return op.GetError();
 }
 
@@ -3480,7 +3827,7 @@ Error
 NativeProcessLinux::WriteFPR(lldb::tid_t tid, void *buf, size_t buf_size)
 {
     WriteFPROperation op(tid, buf, buf_size);
-    DoOperation(&op);
+    m_monitor_up->DoOperation(&op);
     return op.GetError();
 }
 
@@ -3488,7 +3835,7 @@ Error
 NativeProcessLinux::WriteRegisterSet(lldb::tid_t tid, void *buf, size_t buf_size, unsigned int regset)
 {
     WriteRegisterSetOperation op(tid, buf, buf_size, regset);
-    DoOperation(&op);
+    m_monitor_up->DoOperation(&op);
     return op.GetError();
 }
 
@@ -3501,7 +3848,7 @@ NativeProcessLinux::Resume (lldb::tid_t tid, uint32_t signo)
         log->Printf ("NativeProcessLinux::%s() resuming thread = %"  PRIu64 " with signal %s", __FUNCTION__, tid,
                                  GetUnixSignals().GetSignalAsCString (signo));
     ResumeOperation op (tid, signo);
-    DoOperation (&op);
+    m_monitor_up->DoOperation (&op);
     if (log)
         log->Printf ("NativeProcessLinux::%s() resuming thread = %"  PRIu64 " result = %s", __FUNCTION__, tid, op.GetError().Success() ? "true" : "false");
     return op.GetError();
@@ -3511,7 +3858,7 @@ Error
 NativeProcessLinux::SingleStep(lldb::tid_t tid, uint32_t signo)
 {
     SingleStepOperation op(tid, signo);
-    DoOperation(&op);
+    m_monitor_up->DoOperation(&op);
     return op.GetError();
 }
 
@@ -3519,7 +3866,7 @@ Error
 NativeProcessLinux::GetSignalInfo(lldb::tid_t tid, void *siginfo)
 {
     SiginfoOperation op(tid, siginfo);
-    DoOperation(&op);
+    m_monitor_up->DoOperation(&op);
     return op.GetError();
 }
 
@@ -3527,18 +3874,18 @@ Error
 NativeProcessLinux::GetEventMessage(lldb::tid_t tid, unsigned long *message)
 {
     EventMessageOperation op(tid, message);
-    DoOperation(&op);
+    m_monitor_up->DoOperation(&op);
     return op.GetError();
 }
 
-lldb_private::Error
+Error
 NativeProcessLinux::Detach(lldb::tid_t tid)
 {
     if (tid == LLDB_INVALID_THREAD_ID)
         return Error();
 
     DetachOperation op(tid);
-    DoOperation(&op);
+    m_monitor_up->DoOperation(&op);
     return op.GetError();
 }
 
@@ -3557,39 +3904,20 @@ NativeProcessLinux::DupDescriptor(const char *path, int fd, int flags)
 }
 
 void
-NativeProcessLinux::StopMonitoringChildProcess()
+NativeProcessLinux::StartMonitorThread(const InitialOperation &initial_operation, Error &error)
 {
-    if (m_monitor_thread.IsJoinable())
-    {
-        m_monitor_thread.Cancel();
-        m_monitor_thread.Join(nullptr);
+    m_monitor_up.reset(new Monitor(initial_operation, this));
+    error = m_monitor_up->Initialize();
+    if (error.Fail()) {
+        m_monitor_up.reset();
     }
 }
 
 void
 NativeProcessLinux::StopMonitor()
 {
-    StopMonitoringChildProcess();
     StopCoordinatorThread ();
-    StopOpThread();
-    sem_destroy(&m_operation_pending);
-    sem_destroy(&m_operation_done);
-
-    // TODO: validate whether this still holds, fix up comment.
-    // Note: ProcessPOSIX passes the m_terminal_fd file descriptor to
-    // Process::SetSTDIOFileDescriptor, which in turn transfers ownership of
-    // the descriptor to a ConnectionFileDescriptor object.  Consequently
-    // even though still has the file descriptor, we shouldn't close it here.
-}
-
-void
-NativeProcessLinux::StopOpThread()
-{
-    if (!m_operation_thread.IsJoinable())
-        return;
-
-    DoOperation(EXIT_OPERATION);
-    m_operation_thread.Join(nullptr);
+    m_monitor_up.reset();
 }
 
 Error
@@ -3731,48 +4059,6 @@ NativeProcessLinux::AddThread (lldb::tid_t thread_id)
     return thread_sp;
 }
 
-NativeThreadProtocolSP
-NativeProcessLinux::GetOrCreateThread (lldb::tid_t thread_id, bool &created)
-{
-    Log *log (GetLogIfAllCategoriesSet (LIBLLDB_LOG_THREAD));
-
-    Mutex::Locker locker (m_threads_mutex);
-    if (log)
-    {
-        log->Printf ("NativeProcessLinux::%s pid %" PRIu64 " get/create thread with tid %" PRIu64,
-                     __FUNCTION__,
-                     GetID (),
-                     thread_id);
-    }
-
-    // Retrieve the thread if it is already getting tracked.
-    NativeThreadProtocolSP thread_sp = MaybeGetThreadNoLock (thread_id);
-    if (thread_sp)
-    {
-        if (log)
-            log->Printf ("NativeProcessLinux::%s pid %" PRIu64 " tid %" PRIu64 ": thread already tracked, returning",
-                         __FUNCTION__,
-                         GetID (),
-                         thread_id);
-        created = false;
-        return thread_sp;
-
-    }
-
-    // Create the thread metadata since it isn't being tracked.
-    if (log)
-        log->Printf ("NativeProcessLinux::%s pid %" PRIu64 " tid %" PRIu64 ": thread didn't exist, tracking now",
-                     __FUNCTION__,
-                     GetID (),
-                     thread_id);
-
-    thread_sp.reset (new NativeThreadLinux (this, thread_id));
-    m_threads.push_back (thread_sp);
-    created = true;
-    
-    return thread_sp;
-}
-
 Error
 NativeProcessLinux::FixupBreakpointPCAsNeeded (NativeThreadProtocolSP &thread_sp)
 {
@@ -3788,10 +4074,10 @@ NativeProcessLinux::FixupBreakpointPCAsNeeded (NativeThreadProtocolSP &thread_sp
             log->Printf ("NativeProcessLinux::%s failed: %s", __FUNCTION__, error.AsCString ());
         return error;
     }
-    NativeThreadLinux *const linux_thread_p = reinterpret_cast<NativeThreadLinux*> (thread_sp.get());
+    std::shared_ptr<NativeThreadLinux> linux_thread_sp = std::static_pointer_cast<NativeThreadLinux> (thread_sp);
 
     // Find out the size of a breakpoint (might depend on where we are in the code).
-    NativeRegisterContextSP context_sp = linux_thread_p->GetRegisterContext ();
+    NativeRegisterContextSP context_sp = linux_thread_sp->GetRegisterContext ();
     if (!context_sp)
     {
         error.SetErrorString ("cannot get a NativeRegisterContext for the thread");
@@ -3801,7 +4087,7 @@ NativeProcessLinux::FixupBreakpointPCAsNeeded (NativeThreadProtocolSP &thread_sp
     }
 
     uint32_t breakpoint_size = 0;
-    error = GetSoftwareBreakpointSize (context_sp, breakpoint_size);
+    error = GetSoftwareBreakpointPCOffset (context_sp, breakpoint_size);
     if (error.Fail ())
     {
         if (log)
@@ -3858,13 +4144,13 @@ NativeProcessLinux::FixupBreakpointPCAsNeeded (NativeThreadProtocolSP &thread_sp
 
     // Change the program counter.
     if (log)
-        log->Printf ("NativeProcessLinux::%s pid %" PRIu64 " tid %" PRIu64 ": changing PC from 0x%" PRIx64 " to 0x%" PRIx64, __FUNCTION__, GetID (), linux_thread_p->GetID (), initial_pc_addr, breakpoint_addr);
+        log->Printf ("NativeProcessLinux::%s pid %" PRIu64 " tid %" PRIu64 ": changing PC from 0x%" PRIx64 " to 0x%" PRIx64, __FUNCTION__, GetID (), linux_thread_sp->GetID (), initial_pc_addr, breakpoint_addr);
 
     error = context_sp->SetPC (breakpoint_addr);
     if (error.Fail ())
     {
         if (log)
-            log->Printf ("NativeProcessLinux::%s pid %" PRIu64 " tid %" PRIu64 ": failed to set PC: %s", __FUNCTION__, GetID (), linux_thread_p->GetID (), error.AsCString ());
+            log->Printf ("NativeProcessLinux::%s pid %" PRIu64 " tid %" PRIu64 ": failed to set PC: %s", __FUNCTION__, GetID (), linux_thread_sp->GetID (), error.AsCString ());
         return error;
     }
 
@@ -3928,7 +4214,7 @@ NativeProcessLinux::CallAfterRunningThreadsStopWithSkipTID (lldb::tid_t deferred
                                                                CoordinatorErrorHandler);
 }
 
-lldb_private::Error
+Error
 NativeProcessLinux::RequestThreadStop (const lldb::pid_t pid, const lldb::tid_t tid)
 {
     Log* log (GetLogIfAllCategoriesSet (LIBLLDB_LOG_THREAD));
@@ -3945,4 +4231,43 @@ NativeProcessLinux::RequestThreadStop (const lldb::pid_t pid, const lldb::tid_t 
     }
 
     return err;
+}
+
+Error
+NativeProcessLinux::GetLoadedModuleFileSpec(const char* module_path, FileSpec& file_spec)
+{
+    char maps_file_name[32];
+    snprintf(maps_file_name, sizeof(maps_file_name), "/proc/%" PRIu64 "/maps", GetID());
+
+    FileSpec maps_file_spec(maps_file_name, false);
+    if (!maps_file_spec.Exists()) {
+        file_spec.Clear();
+        return Error("/proc/%" PRIu64 "/maps file doesn't exists!", GetID());
+    }
+
+    FileSpec module_file_spec(module_path, true);
+
+    std::ifstream maps_file(maps_file_name);
+    std::string maps_data_str((std::istreambuf_iterator<char>(maps_file)), std::istreambuf_iterator<char>());
+    StringRef maps_data(maps_data_str.c_str());
+
+    while (!maps_data.empty())
+    {
+        StringRef maps_row;
+        std::tie(maps_row, maps_data) = maps_data.split('\n');
+
+        SmallVector<StringRef, 16> maps_columns;
+        maps_row.split(maps_columns, StringRef(" "), -1, false);
+
+        if (maps_columns.size() >= 6)
+        {
+            file_spec.SetFile(maps_columns[5].str().c_str(), false);
+            if (file_spec.GetFilename() == module_file_spec.GetFilename())
+                return Error();
+        }
+    }
+
+    file_spec.Clear();
+    return Error("Module file (%s) not found in /proc/%" PRIu64 "/maps file!",
+                 module_file_spec.GetFilename().AsCString(), GetID());
 }

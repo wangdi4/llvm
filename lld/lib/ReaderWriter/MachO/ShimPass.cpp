@@ -41,14 +41,10 @@ namespace mach_o {
 class ShimPass : public Pass {
 public:
   ShimPass(const MachOLinkingContext &context)
-    : _context(context)
-    , _archHandler(_context.archHandler())
-    , _stubInfo(_archHandler.stubInfo())
-    , _file("<mach-o shim pass>") {
-  }
+      : _ctx(context), _archHandler(_ctx.archHandler()),
+        _stubInfo(_archHandler.stubInfo()), _file("<mach-o shim pass>") {}
 
-
-  void perform(std::unique_ptr<MutableFile> &mergedFile) override {
+  void perform(std::unique_ptr<SimpleFile> &mergedFile) override {
     // Scan all references in all atoms.
     for (const DefinedAtom *atom : mergedFile->defined()) {
       for (const Reference *ref : *atom) {
@@ -112,7 +108,7 @@ private:
     }
   }
 
-  const MachOLinkingContext                      &_context;
+  const MachOLinkingContext &_ctx;
   mach_o::ArchHandler                            &_archHandler;
   const ArchHandler::StubInfo                    &_stubInfo;
   MachOFile                                       _file;

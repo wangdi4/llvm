@@ -1,25 +1,41 @@
-; RUN: opt %loadPolly -polly-detect-unprofitable -pass-remarks-missed="polly-detect" -polly-detect-track-failures -polly-detect -analyze < %s 2>&1| FileCheck %s
+; RUN: opt %loadPolly -polly-detect-unprofitable -pass-remarks-missed="polly-detect" -polly-detect-track-failures -polly-allow-nonaffine-loops=false -polly-detect -analyze < %s 2>&1| FileCheck %s --check-prefix=REJECTNONAFFINELOOPS
+; RUN: opt %loadPolly -polly-detect-unprofitable -pass-remarks-missed="polly-detect" -polly-detect-track-failures -polly-allow-nonaffine-loops=true -polly-detect -analyze < %s 2>&1| FileCheck %s --check-prefix=ALLOWNONAFFINELOOPS
+; RUN: opt %loadPolly -polly-detect-unprofitable -pass-remarks-missed="polly-detect" -polly-detect-track-failures -polly-allow-nonaffine-loops=true -polly-allow-nonaffine -polly-detect -analyze < %s 2>&1| FileCheck %s --check-prefix=ALLOWNONAFFINEALL
 
 ; void f(int A[], int n) {
 ;   for (int i = 0; i < A[n]; i++)
 ;     A[i] = 0;
 ; }
 
-; CHECK: remark: ReportLoopBound-01.c:2:8: The following errors keep this region from being a Scop.
-; CHECK: remark: ReportLoopBound-01.c:2:8: Failed to derive an affine function from the loop bounds.
-; CHECK: remark: ReportLoopBound-01.c:3:5: Invalid Scop candidate ends here.
+; If we reject non-affine loops the non-affine loop bound will be reported:
+;
+; REJECTNONAFFINELOOPS: remark: ReportLoopBound-01.c:2:8: The following errors keep this region from being a Scop.
+; REJECTNONAFFINELOOPS: remark: ReportLoopBound-01.c:2:8: Failed to derive an affine function from the loop bounds.
+; REJECTNONAFFINELOOPS: remark: ReportLoopBound-01.c:3:5: Invalid Scop candidate ends here.
+
+; If we allow non-affine loops the non-affine access will be reported:
+;
+; ALLOWNONAFFINELOOPS: remark: ReportLoopBound-01.c:2:8: The following errors keep this region from being a Scop.
+; ALLOWNONAFFINELOOPS: remark: ReportLoopBound-01.c:3:5: The array subscript of "A" is not affine
+; ALLOWNONAFFINELOOPS: remark: ReportLoopBound-01.c:3:5: Invalid Scop candidate ends here.
+
+; If we allow non-affine loops and non-affine accesses the region will be reported as not profitable:
+;
+; ALLOWNONAFFINEALL: remark: ReportLoopBound-01.c:2:8: The following errors keep this region from being a Scop.
+; ALLOWNONAFFINEALL: remark: ReportLoopBound-01.c:3:5: No profitable polyhedral optimization found
+; ALLOWNONAFFINEALL: remark: ReportLoopBound-01.c:3:5: Invalid Scop candidate ends here.
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
 
 define void @f(i32* %A, i32 %n) {
 entry:
   br label %entry.split
 
 entry.split:                                      ; preds = %entry
-  tail call void @llvm.dbg.value(metadata i32* %A, i64 0, metadata !13), !dbg !14
-  tail call void @llvm.dbg.value(metadata i32 %n, i64 0, metadata !15), !dbg !16
-  tail call void @llvm.dbg.value(metadata i32 0, i64 0, metadata !18), !dbg !20
+  tail call void @llvm.dbg.value(metadata i32* %A, i64 0, metadata !13, metadata !MDExpression()), !dbg !14
+  tail call void @llvm.dbg.value(metadata i32* %A, i64 0, metadata !13, metadata !MDExpression()), !dbg !14
+  tail call void @llvm.dbg.value(metadata i32 %n, i64 0, metadata !15, metadata !MDExpression()), !dbg !16
+  tail call void @llvm.dbg.value(metadata i32 0, i64 0, metadata !18, metadata !MDExpression()), !dbg !20
   %idxprom = sext i32 %n to i64, !dbg !21
   %arrayidx = getelementptr inbounds i32, i32* %A, i64 %idxprom, !dbg !21
   %0 = load i32, i32* %arrayidx, align 4, !dbg !21
@@ -35,7 +51,7 @@ for.body:                                         ; preds = %for.body.lr.ph, %fo
   %1 = add i64 %indvar, 1, !dbg !24
   %inc = trunc i64 %1 to i32, !dbg !21
   store i32 0, i32* %arrayidx2, align 4, !dbg !24
-  tail call void @llvm.dbg.value(metadata !{null}, i64 0, metadata !18), !dbg !20
+  tail call void @llvm.dbg.value(metadata !{null}, i64 0, metadata !18, metadata !MDExpression()), !dbg !20
   %2 = load i32, i32* %arrayidx, align 4, !dbg !21
   %cmp = icmp slt i32 %inc, %2, !dbg !21
   %indvar.next = add i64 %indvar, 1, !dbg !21
@@ -48,9 +64,9 @@ for.end:                                          ; preds = %for.cond.for.end_cr
   ret void, !dbg !27
 }
 
-declare void @llvm.dbg.declare(metadata, metadata)
+declare void @llvm.dbg.declare(metadata, metadata, metadata)
 
-declare void @llvm.dbg.value(metadata, i64, metadata)
+declare void @llvm.dbg.value(metadata, i64, metadata, metadata)
 
 attributes #0 = { nounwind uwtable "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind readnone }

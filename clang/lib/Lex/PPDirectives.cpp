@@ -62,32 +62,29 @@ MacroInfo *Preprocessor::AllocateDeserializedMacroInfo(SourceLocation L,
   return MI;
 }
 
-DefMacroDirective *
-Preprocessor::AllocateDefMacroDirective(MacroInfo *MI, SourceLocation Loc,
-                                        unsigned ImportedFromModuleID,
-                                        ArrayRef<unsigned> Overrides) {
-  unsigned NumExtra = (ImportedFromModuleID ? 1 : 0) + Overrides.size();
-  return new (BP.Allocate(sizeof(DefMacroDirective) +
-                              sizeof(unsigned) * NumExtra,
-                          llvm::alignOf<DefMacroDirective>()))
-      DefMacroDirective(MI, Loc, ImportedFromModuleID, Overrides);
+DefMacroDirective *Preprocessor::AllocateDefMacroDirective(MacroInfo *MI,
+                                                           SourceLocation Loc) {
+  return new (BP) DefMacroDirective(MI, Loc);
 }
 
 UndefMacroDirective *
-Preprocessor::AllocateUndefMacroDirective(SourceLocation UndefLoc,
-                                          unsigned ImportedFromModuleID,
-                                          ArrayRef<unsigned> Overrides) {
-  unsigned NumExtra = (ImportedFromModuleID ? 1 : 0) + Overrides.size();
-  return new (BP.Allocate(sizeof(UndefMacroDirective) +
-                              sizeof(unsigned) * NumExtra,
-                          llvm::alignOf<UndefMacroDirective>()))
-      UndefMacroDirective(UndefLoc, ImportedFromModuleID, Overrides);
+Preprocessor::AllocateUndefMacroDirective(SourceLocation UndefLoc) {
+  return new (BP) UndefMacroDirective(UndefLoc);
 }
 
 VisibilityMacroDirective *
 Preprocessor::AllocateVisibilityMacroDirective(SourceLocation Loc,
                                                bool isPublic) {
   return new (BP) VisibilityMacroDirective(Loc, isPublic);
+}
+
+MacroDirective *
+Preprocessor::AllocateImportedMacroDirective(ModuleMacro *MM,
+                                             SourceLocation Loc) {
+  if (auto *MI = MM->getMacroInfo())
+    return DefMacroDirective::createImported(*this, MI, Loc, MM);
+  else
+    return UndefMacroDirective::createImported(*this, Loc, MM);
 }
 
 /// \brief Read and discard all tokens remaining on the current line until
@@ -585,16 +582,16 @@ void Preprocessor::PTHSkipExcludedConditionalBlock() {
   }
 }
 
-Module *Preprocessor::getModuleForLocation(SourceLocation FilenameLoc) {
+Module *Preprocessor::getModuleForLocation(SourceLocation Loc) {
   ModuleMap &ModMap = HeaderInfo.getModuleMap();
-  if (SourceMgr.isInMainFile(FilenameLoc)) {
+  if (SourceMgr.isInMainFile(Loc)) {
     if (Module *CurMod = getCurrentModule())
       return CurMod;                               // Compiling a module.
     return HeaderInfo.getModuleMap().SourceModule; // Compiling a source.
   }
   // Try to determine the module of the include directive.
   // FIXME: Look into directly passing the FileEntry from LookupFile instead.
-  FileID IDOfIncl = SourceMgr.getFileID(SourceMgr.getExpansionLoc(FilenameLoc));
+  FileID IDOfIncl = SourceMgr.getFileID(SourceMgr.getExpansionLoc(Loc));
   if (const FileEntry *EntryOfIncl = SourceMgr.getFileEntryForID(IDOfIncl)) {
     // The include comes from a file.
     return ModMap.findModuleForHeader(EntryOfIncl).getModule();
@@ -603,6 +600,11 @@ Module *Preprocessor::getModuleForLocation(SourceLocation FilenameLoc) {
     // so it is probably a module compilation.
     return getCurrentModule();
   }
+}
+
+Module *Preprocessor::getModuleContainingLocation(SourceLocation Loc) {
+  return HeaderInfo.getModuleMap().inferModuleFromLocation(
+      FullSourceLoc(Loc, SourceMgr));
 }
 
 const FileEntry *Preprocessor::LookupFile(
@@ -1233,7 +1235,7 @@ void Preprocessor::HandleUserDiagnosticDirective(Token &Tok,
 
   // Find the first non-whitespace character, so that we can make the
   // diagnostic more succinct.
-  StringRef Msg = Message.str().ltrim(" ");
+  StringRef Msg = StringRef(Message).ltrim(" ");
 
   if (isWarning)
     Diag(Tok, diag::pp_hash_warning) << Msg;
@@ -1491,7 +1493,7 @@ void Preprocessor::HandleIncludeDirective(SourceLocation HashLoc,
     FilenameBuffer.push_back('<');
     if (ConcatenateIncludeName(FilenameBuffer, End))
       return;   // Found <eod> but no ">"?  Diagnostic already emitted.
-    Filename = FilenameBuffer.str();
+    Filename = FilenameBuffer;
     CharEnd = End.getLocWithOffset(1);
     break;
   default:
@@ -1680,9 +1682,9 @@ void Preprocessor::HandleIncludeDirective(SourceLocation HashLoc,
       CharSourceRange ReplaceRange(SourceRange(HashLoc, CharEnd), 
                                    /*IsTokenRange=*/false);
       Diag(HashLoc, diag::warn_auto_module_import)
-        << IncludeKind << PathString 
-        << FixItHint::CreateReplacement(ReplaceRange,
-             "@import " + PathString.str().str() + ";");
+          << IncludeKind << PathString
+          << FixItHint::CreateReplacement(
+                 ReplaceRange, ("@import " + PathString + ";").str());
     }
     
     // Load the module. Only make macros visible. We'll make the declarations
@@ -1786,6 +1788,8 @@ void Preprocessor::HandleIncludeDirective(SourceLocation HashLoc,
   if (BuildingModule) {
     assert(!CurSubmodule && "should not have marked this as a module yet");
     CurSubmodule = BuildingModule.getModule();
+
+    EnterSubmodule(CurSubmodule, HashLoc);
 
     EnterAnnotationToken(*this, HashLoc, End, tok::annot_module_begin,
                          CurSubmodule);

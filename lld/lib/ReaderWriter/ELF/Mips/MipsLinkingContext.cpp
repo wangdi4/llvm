@@ -17,22 +17,20 @@ using namespace lld;
 using namespace lld::elf;
 
 std::unique_ptr<ELFLinkingContext>
-MipsLinkingContext::create(llvm::Triple triple) {
+elf::createMipsLinkingContext(llvm::Triple triple) {
   if (triple.getArch() == llvm::Triple::mipsel ||
       triple.getArch() == llvm::Triple::mips64el)
-    return std::unique_ptr<ELFLinkingContext>(new MipsLinkingContext(triple));
+    return llvm::make_unique<MipsLinkingContext>(triple);
   return nullptr;
 }
 
-typedef std::unique_ptr<TargetHandlerBase> TargetHandlerBasePtr;
-
-static TargetHandlerBasePtr createTarget(llvm::Triple triple,
-                                         MipsLinkingContext &ctx) {
+static std::unique_ptr<TargetHandler> createTarget(llvm::Triple triple,
+                                                   MipsLinkingContext &ctx) {
   switch (triple.getArch()) {
   case llvm::Triple::mipsel:
-    return TargetHandlerBasePtr(new MipsTargetHandler<Mips32ELType>(ctx));
+    return createMips32ELTargetHandler(ctx);
   case llvm::Triple::mips64el:
-    return TargetHandlerBasePtr(new MipsTargetHandler<Mips64ELType>(ctx));
+    return createMips64ELTargetHandler(ctx);
   default:
     llvm_unreachable("Unhandled arch");
   }
@@ -42,12 +40,26 @@ MipsLinkingContext::MipsLinkingContext(llvm::Triple triple)
     : ELFLinkingContext(triple, createTarget(triple, *this)),
       _flagsMerger(triple.isArch64Bit()) {}
 
+std::error_code MipsLinkingContext::mergeHeaderFlags(uint8_t fileClass,
+                                                     uint64_t flags) {
+  return _flagsMerger.mergeHeaderFlags(fileClass, flags);
+}
+
+void MipsLinkingContext::mergeReginfoMask(const MipsReginfo &info) {
+  std::lock_guard<std::mutex> lock(_maskMutex);
+  if (_reginfoMask.hasValue())
+    _reginfoMask->merge(info);
+  else
+    _reginfoMask = info;
+}
+
 uint32_t MipsLinkingContext::getMergedELFFlags() const {
   return _flagsMerger.getMergedELFFlags();
 }
 
-MipsELFFlagsMerger &MipsLinkingContext::getELFFlagsMerger() {
-  return _flagsMerger;
+const llvm::Optional<MipsReginfo> &
+MipsLinkingContext::getMergedReginfoMask() const {
+  return _reginfoMask;
 }
 
 uint64_t MipsLinkingContext::getBaseAddress() const {
@@ -84,6 +96,9 @@ bool MipsLinkingContext::isDynamicRelocation(const Reference &r) const {
   case llvm::ELF::R_MIPS_TLS_DTPMOD32:
   case llvm::ELF::R_MIPS_TLS_DTPREL32:
   case llvm::ELF::R_MIPS_TLS_TPREL32:
+  case llvm::ELF::R_MIPS_TLS_DTPMOD64:
+  case llvm::ELF::R_MIPS_TLS_DTPREL64:
+  case llvm::ELF::R_MIPS_TLS_TPREL64:
     return true;
   default:
     return false;
@@ -109,4 +124,38 @@ bool MipsLinkingContext::isPLTRelocation(const Reference &r) const {
   default:
     return false;
   }
+}
+
+bool MipsLinkingContext::isRelativeReloc(const Reference &r) const {
+  if (r.kindNamespace() != Reference::KindNamespace::ELF)
+    return false;
+  assert(r.kindArch() == Reference::KindArch::Mips);
+  switch (r.kindValue()) {
+  case llvm::ELF::R_MIPS_REL32:
+  case llvm::ELF::R_MIPS_GPREL16:
+  case llvm::ELF::R_MIPS_GPREL32:
+    return true;
+  default:
+    return false;
+  }
+}
+
+const Registry::KindStrings kindStrings[] = {
+#define ELF_RELOC(name, value) LLD_KIND_STRING_ENTRY(name),
+#include "llvm/Support/ELFRelocs/Mips.def"
+#undef ELF_RELOC
+  LLD_KIND_STRING_ENTRY(LLD_R_MIPS_GLOBAL_GOT),
+  LLD_KIND_STRING_ENTRY(LLD_R_MIPS_32_HI16),
+  LLD_KIND_STRING_ENTRY(LLD_R_MIPS_64_HI16),
+  LLD_KIND_STRING_ENTRY(LLD_R_MIPS_GLOBAL_26),
+  LLD_KIND_STRING_ENTRY(LLD_R_MIPS_HI16),
+  LLD_KIND_STRING_ENTRY(LLD_R_MIPS_LO16),
+  LLD_KIND_STRING_ENTRY(LLD_R_MIPS_STO_PLT),
+  LLD_KIND_STRING_ENTRY(LLD_R_MICROMIPS_GLOBAL_26_S1),
+  LLD_KIND_STRING_END
+};
+
+void MipsLinkingContext::registerRelocationNames(Registry &registry) {
+  registry.addKindTable(Reference::KindNamespace::ELF,
+                        Reference::KindArch::Mips, kindStrings);
 }

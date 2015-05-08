@@ -558,17 +558,17 @@ std::error_code convertRelocs(const Section &section,
         *result = target;
         return std::error_code();
       }
-      return make_dynamic_error_code(Twine("no atom found for defined symbol"));
+      return make_dynamic_error_code("no atom found for defined symbol");
     } else if ((sym->type & N_TYPE) == N_UNDF) {
       const lld::Atom *target = file.findUndefAtom(sym->name);
       if (target) {
         *result = target;
         return std::error_code();
       }
-      return make_dynamic_error_code(Twine("no undefined atom found for sym"));
+      return make_dynamic_error_code("no undefined atom found for sym");
     } else {
       // Search undefs
-      return make_dynamic_error_code(Twine("no atom found for symbol"));
+      return make_dynamic_error_code("no atom found for symbol");
     }
   };
 
@@ -759,7 +759,8 @@ normalizedObjectToAtoms(MachOFile *file,
       file->addUndefinedAtom(sym.name, copyRefs);
     } else {
       file->addTentativeDefAtom(sym.name, atomScope(sym.scope), sym.value,
-                               DefinedAtom::Alignment(sym.desc >> 8), copyRefs);
+                                DefinedAtom::Alignment(1 << (sym.desc >> 8)),
+                                copyRefs);
     }
   }
 

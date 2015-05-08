@@ -7,17 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-//++
-// File:        MICmdCmdThread.cpp
-//
 // Overview:    CMICmdCmdThreadInfo     implementation.
-//
-// Environment: Compilers:  Visual C++ 12.
-//                          gcc (Ubuntu/Linaro 4.8.1-10ubuntu9) 4.8.1
-//              Libraries:  See MIReadmetxt.
-//
-// Copyright:   None.
-//--
 
 // Third Party Headers:
 #include "lldb/API/SBBreakpointLocation.h"
@@ -110,7 +100,7 @@ CMICmdCmdThreadInfo::Execute(void)
             return MIstatus::success;
 
         CMICmnMIValueTuple miTuple;
-        if (!rSessionInfo.MIResponseFormThreadInfo3(m_cmdData, thread, miTuple))
+        if (!rSessionInfo.MIResponseFormThreadInfo(m_cmdData, thread, CMICmnLLDBDebugSessionInfo::eThreadInfoFormat_AllFrames, miTuple))
             return MIstatus::failure;
 
         m_miValueTupleThread = miTuple;
@@ -127,7 +117,7 @@ CMICmdCmdThreadInfo::Execute(void)
         if (thread.IsValid())
         {
             CMICmnMIValueTuple miTuple;
-            if (!rSessionInfo.MIResponseFormThreadInfo3(m_cmdData, thread, miTuple))
+            if (!rSessionInfo.MIResponseFormThreadInfo(m_cmdData, thread, CMICmnLLDBDebugSessionInfo::eThreadInfoFormat_AllFrames, miTuple))
                 return MIstatus::failure;
 
             m_vecMIValueTuple.push_back(miTuple);
