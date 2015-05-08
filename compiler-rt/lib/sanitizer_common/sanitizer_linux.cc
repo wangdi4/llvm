@@ -57,6 +57,7 @@
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <ucontext.h>
 #include <unistd.h>
 
 #if SANITIZER_FREEBSD
@@ -126,6 +127,10 @@ uptr internal_munmap(void *addr, uptr length) {
   return internal_syscall(SYSCALL(munmap), (uptr)addr, length);
 }
 
+int internal_mprotect(void *addr, uptr length, int prot) {
+  return internal_syscall(SYSCALL(mprotect), (uptr)addr, length, prot);
+}
+
 uptr internal_close(fd_t fd) {
   return internal_syscall(SYSCALL(close), fd);
 }
@@ -147,11 +152,6 @@ uptr internal_open(const char *filename, int flags, u32 mode) {
 #endif
 }
 
-uptr OpenFile(const char *filename, bool write) {
-  return internal_open(filename,
-      write ? O_RDWR | O_CREAT /*| O_CLOEXEC*/ : O_RDONLY, 0660);
-}
-
 uptr internal_read(fd_t fd, void *buf, uptr count) {
   sptr res;
   HANDLE_EINTR(res, (sptr)internal_syscall(SYSCALL(read), fd, (uptr)buf,
@@ -168,7 +168,8 @@ uptr internal_write(fd_t fd, const void *buf, uptr count) {
 
 uptr internal_ftruncate(fd_t fd, uptr size) {
   sptr res;
-  HANDLE_EINTR(res, (sptr)internal_syscall(SYSCALL(ftruncate), fd, size));
+  HANDLE_EINTR(res, (sptr)internal_syscall(SYSCALL(ftruncate), fd,
+               (OFF_T)size));
   return res;
 }
 
@@ -914,6 +915,11 @@ void *internal_start_thread(void(*func)(void *arg), void *arg) {
   // Start the thread with signals blocked, otherwise it can steal user signals.
   __sanitizer_sigset_t set, old;
   internal_sigfillset(&set);
+#if SANITIZER_LINUX
+  // Glibc uses SIGSETXID signal during setuid call. If this signal is blocked
+  // on any thread, setuid call hangs (see test/tsan/setuid.c).
+  internal_sigdelset(&set, 33);
+#endif
   internal_sigprocmask(SIG_SETMASK, &set, &old);
   void *th;
   real_pthread_create(&th, 0, (void*(*)(void *arg))func, arg);

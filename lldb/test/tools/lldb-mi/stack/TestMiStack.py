@@ -2,10 +2,6 @@
 Test lldb-mi -stack-xxx commands.
 """
 
-# adjust path for lldbmi_testcase.py
-import sys, os.path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 import lldbmi_testcase
 from lldbtest import *
 import unittest2
@@ -33,23 +29,50 @@ class MiStackTestCase(lldbmi_testcase.MiTestCaseBase):
         self.expect("\^running")
         self.expect("\*stopped,reason=\"breakpoint-hit\"")
 
-        # Test -stack-list-arguments: use 0 or --no-values
+        # Test that -stack-list-arguments lists empty stack arguments if range is empty
+        self.runCmd("-stack-list-arguments 0 1 0")
+        self.expect("\^done,stack-args=\[\]")
+
+        # Test that -stack-list-arguments lists stack arguments without values
+        # (and that low-frame and high-frame are optional)
         self.runCmd("-stack-list-arguments 0")
         self.expect("\^done,stack-args=\[frame={level=\"0\",args=\[name=\"argc\",name=\"argv\"\]}")
         self.runCmd("-stack-list-arguments --no-values")
         self.expect("\^done,stack-args=\[frame={level=\"0\",args=\[name=\"argc\",name=\"argv\"\]}")
 
-        # Test -stack-list-arguments: use 1 or --all-values
-        self.runCmd("-stack-list-arguments 1")
-        self.expect("\^done,stack-args=\[frame={level=\"0\",args=\[{name=\"argc\",value=\"1\"},{name=\"argv\",value=\".*\"}\]}")
-        self.runCmd("-stack-list-arguments --all-values")
-        self.expect("\^done,stack-args=\[frame={level=\"0\",args=\[{name=\"argc\",value=\"1\"},{name=\"argv\",value=\".*\"}\]}")
+        # Test that -stack-list-arguments lists stack arguments with all values
+        self.runCmd("-stack-list-arguments 1 0 0")
+        self.expect("\^done,stack-args=\[frame={level=\"0\",args=\[{name=\"argc\",value=\"1\"},{name=\"argv\",value=\".*\"}\]}\]")
+        # FIXME: first 0 is treated as --no-values
+        self.runCmd("-stack-list-arguments --all-values 0 0")
+        #self.expect("\^done,stack-args=\[frame={level=\"0\",args=\[{name=\"argc\",value=\"1\"},{name=\"argv\",value=\".*\"}\]}\]")
 
-        # Test -stack-list-arguments: use 2 or --simple-values
-        self.runCmd("-stack-list-arguments 2")
+        # Test that -stack-list-arguments lists stack arguments with simple values
+        self.runCmd("-stack-list-arguments 2 0 1")
         self.expect("\^done,stack-args=\[frame={level=\"0\",args=\[{name=\"argc\",value=\"1\"},{name=\"argv\",value=\".*\"}\]}")
-        self.runCmd("-stack-list-arguments --simple-values")
-        self.expect("\^done,stack-args=\[frame={level=\"0\",args=\[{name=\"argc\",value=\"1\"},{name=\"argv\",value=\".*\"}\]}")
+        # FIXME: first 0 is treated as --no-values
+        self.runCmd("-stack-list-arguments --simple-values 0 1")
+        #self.expect("\^done,stack-args=\[frame={level=\"0\",args=\[{name=\"argc\",value=\"1\"},{name=\"argv\",value=\".*\"}\]}")
+
+        # Test that an invalid low-frame is handled 
+        # FIXME: -1 is treated as unsigned int
+        self.runCmd("-stack-list-arguments 0 -1 0")
+        #self.expect("\^error")
+        self.runCmd("-stack-list-arguments 0 0")
+        self.expect("\^error,msg=\"Command 'stack-list-arguments'\. Thread frame range invalid\"")
+
+        # Test that an invalid high-frame is handled
+        # FIXME: -1 is treated as unsigned int
+        self.runCmd("-stack-list-arguments 0 0 -1")
+        #self.expect("\^error")
+
+        # Test that a missing low-frame or high-frame is handled
+        self.runCmd("-stack-list-arguments 0 0")
+        self.expect("\^error,msg=\"Command 'stack-list-arguments'\. Thread frame range invalid\"")
+
+        # Test that an invalid low-frame is handled 
+        self.runCmd("-stack-list-arguments 0 0")
+        self.expect("\^error,msg=\"Command 'stack-list-arguments'\. Thread frame range invalid\"")
 
     @lldbmi_test
     @expectedFailureWindows("llvm.org/pr22274: need a pexpect replacement for windows")
@@ -114,9 +137,9 @@ class MiStackTestCase(lldbmi_testcase.MiTestCaseBase):
 
         # Test -stack-list-locals: use 1 or --all-values
         self.runCmd("-stack-list-locals 1")
-        self.expect("\^done,locals=\[{name=\"var_c\",value=\"{var_a = 10,var_b = 97 'a',inner_ = { var_d = 30 }}\"}\]")
+        self.expect("\^done,locals=\[{name=\"var_c\",value=\"{var_a = 10, var_b = 97 'a', inner_ = {var_d = 30}}\"}\]")
         self.runCmd("-stack-list-locals --all-values")
-        self.expect("\^done,locals=\[{name=\"var_c\",value=\"{var_a = 10,var_b = 97 'a',inner_ = { var_d = 30 }}\"}\]")
+        self.expect("\^done,locals=\[{name=\"var_c\",value=\"{var_a = 10, var_b = 97 'a', inner_ = {var_d = 30}}\"}\]")
 
         # Test -stack-list-locals: use 2 or --simple-values
         self.runCmd("-stack-list-locals 2")
@@ -141,9 +164,9 @@ class MiStackTestCase(lldbmi_testcase.MiTestCaseBase):
 
         # Test -stack-list-locals: use 1 or --all-values
         self.runCmd("-stack-list-locals 1")
-        self.expect("\^done,locals=\[{name=\"array\",value=\"{\[0\] = 100,\[1\] = 200,\[2\] = 300}\"}\]")
+        self.expect("\^done,locals=\[{name=\"array\",value=\"{\[0\] = 100, \[1\] = 200, \[2\] = 300}\"}\]")
         self.runCmd("-stack-list-locals --all-values")
-        self.expect("\^done,locals=\[{name=\"array\",value=\"{\[0\] = 100,\[1\] = 200,\[2\] = 300}\"}\]")
+        self.expect("\^done,locals=\[{name=\"array\",value=\"{\[0\] = 100, \[1\] = 200, \[2\] = 300}\"}\]")
 
         # Test -stack-list-locals: use 2 or --simple-values
         self.runCmd("-stack-list-locals 2")
@@ -168,15 +191,15 @@ class MiStackTestCase(lldbmi_testcase.MiTestCaseBase):
 
         # Test -stack-list-locals: use 1 or --all-values
         self.runCmd("-stack-list-locals 1")
-        self.expect("\^done,locals=\[{name=\"test_str\",value=\".*Rakaposhi.*\"},{name=\"var_e\",value=\"24\"},{name=\"ptr\",value=\".*\"}\]")
+        self.expect("\^done,locals=\[{name=\"test_str\",value=\".*?Rakaposhi.*?\"},{name=\"var_e\",value=\"24\"},{name=\"ptr\",value=\".*?\"}\]")
         self.runCmd("-stack-list-locals --all-values")
-        self.expect("\^done,locals=\[{name=\"test_str\",value=\".*Rakaposhi.*\"},{name=\"var_e\",value=\"24\"},{name=\"ptr\",value=\".*\"}\]")
+        self.expect("\^done,locals=\[{name=\"test_str\",value=\".*?Rakaposhi.*?\"},{name=\"var_e\",value=\"24\"},{name=\"ptr\",value=\".*?\"}\]")
 
         # Test -stack-list-locals: use 2 or --simple-values
         self.runCmd("-stack-list-locals 2")
-        self.expect("\^done,locals=\[{name=\"test_str\",value=\".*Rakaposhi.*\"},{name=\"var_e\",value=\"24\"},{name=\"ptr\",value=\".*\"}\]")
+        self.expect("\^done,locals=\[{name=\"test_str\",value=\".*?Rakaposhi.*?\"},{name=\"var_e\",value=\"24\"},{name=\"ptr\",value=\".*?\"}\]")
         self.runCmd("-stack-list-locals --simple-values")
-        self.expect("\^done,locals=\[{name=\"test_str\",value=\".*Rakaposhi.*\"},{name=\"var_e\",value=\"24\"},{name=\"ptr\",value=\".*\"}\]")
+        self.expect("\^done,locals=\[{name=\"test_str\",value=\".*?Rakaposhi.*?\"},{name=\"var_e\",value=\"24\"},{name=\"ptr\",value=\".*?\"}\]")
 
     @lldbmi_test
     @expectedFailureWindows("llvm.org/pr22274: need a pexpect replacement for windows")
@@ -215,7 +238,7 @@ class MiStackTestCase(lldbmi_testcase.MiTestCaseBase):
     @lldbmi_test
     @expectedFailureWindows("llvm.org/pr22274: need a pexpect replacement for windows")
     @skipIfFreeBSD # llvm.org/pr22411: Failure presumably due to known thread races
-    @unittest2.skipUnless(sys.platform.startswith("darwin"), "requires Darwin")
+    @skipUnlessDarwin
     def test_lldbmi_stack_info_frame(self):
         """Test that 'lldb-mi --interpreter' can show information about current frame."""
 
@@ -223,7 +246,7 @@ class MiStackTestCase(lldbmi_testcase.MiTestCaseBase):
 
         # Test that -stack-info-frame fails when program isn't running
         self.runCmd("-stack-info-frame")
-        self.expect("\^error,msg=\"Command 'stack-info-frame'. Invalid process during debug session\"")
+        self.expect("\^error,msg=\"Command 'stack-info-frame'\. Invalid process during debug session\"")
 
         # Load executable
         self.runCmd("-file-exec-and-symbols %s" % self.myexe)
@@ -238,7 +261,7 @@ class MiStackTestCase(lldbmi_testcase.MiTestCaseBase):
 
         # Test that -stack-info-frame works when program was stopped on BP
         self.runCmd("-stack-info-frame")
-        self.expect("\^done,frame=\{level=\"0\",addr=\".+\",func=\"main\",file=\"main\.cpp\",fullname=\".*main\.cpp\",line=\"\d+\"\}")
+        self.expect("\^done,frame=\{level=\"0\",addr=\"0x[0-9a-f]+\",func=\"main\",file=\"main\.cpp\",fullname=\".+?main\.cpp\",line=\"\d+\"\}")
 
         # Select frame #1
         self.runCmd("-stack-select-frame 1")
@@ -246,7 +269,7 @@ class MiStackTestCase(lldbmi_testcase.MiTestCaseBase):
 
         # Test that -stack-info-frame works when specified frame was selected
         self.runCmd("-stack-info-frame")
-        self.expect("\^done,frame=\{level=\"1\",addr=\".+\",func=\".+\",file=\"\?\?\",fullname=\"\?\?\",line=\"-1\"\}")
+        self.expect("\^done,frame=\{level=\"1\",addr=\"0x[0-9a-f]+\",func=\".+?\",file=\"\?\?\",fullname=\"\?\?\",line=\"-1\"\}")
 
         # Test that -stack-info-frame fails when an argument is specified
         #FIXME: unknown argument is ignored
@@ -274,7 +297,7 @@ class MiStackTestCase(lldbmi_testcase.MiTestCaseBase):
 
         # Test stack frame: get frame #0 info
         self.runCmd("-stack-list-frames 0 0")
-        self.expect("\^done,stack=\[frame=\{level=\"0\",addr=\".+\",func=\"main\",file=\"main\.cpp\",fullname=\".*main\.cpp\",line=\".+\"\}\]")
+        self.expect("\^done,stack=\[frame=\{level=\"0\",addr=\"0x[0-9a-f]+\",func=\"main\",file=\"main\.cpp\",fullname=\".+?main\.cpp\",line=\"\d+\"\}\]")
 
     @lldbmi_test
     @expectedFailureWindows("llvm.org/pr22274: need a pexpect replacement for windows")
@@ -297,15 +320,15 @@ class MiStackTestCase(lldbmi_testcase.MiTestCaseBase):
 
         # Test that -stack-select-frame requires 1 mandatory argument
         self.runCmd("-stack-select-frame")
-        self.expect("\^error,msg=\"Command 'stack-select-frame'. Command Args. Missing options, 1 or more required\"")
+        self.expect("\^error,msg=\"Command 'stack-select-frame'\. Command Args\. Missing options, 1 or more required\"")
 
         # Test that -stack-select-frame fails on invalid frame number
         self.runCmd("-stack-select-frame 99")
-        self.expect("\^error,msg=\"Command 'stack-select-frame'. Frame ID invalid\"")
+        self.expect("\^error,msg=\"Command 'stack-select-frame'\. Frame ID invalid\"")
 
         # Test that current frame is #0
         self.runCmd("-stack-info-frame")
-        self.expect("\^done,frame=\{level=\"0\",addr=\".+\",func=\"main\",file=\"main\.cpp\",fullname=\".*main\.cpp\",line=\"\d+\"\}")
+        self.expect("\^done,frame=\{level=\"0\",addr=\"0x[0-9a-f]+\",func=\"main\",file=\"main\.cpp\",fullname=\".+?main\.cpp\",line=\"\d+\"\}")
 
         # Test that -stack-select-frame can select the selected frame
         self.runCmd("-stack-select-frame 0")
@@ -313,7 +336,7 @@ class MiStackTestCase(lldbmi_testcase.MiTestCaseBase):
 
         # Test that current frame is still #0
         self.runCmd("-stack-info-frame")
-        self.expect("\^done,frame=\{level=\"0\",addr=\".+\",func=\"main\",file=\"main\.cpp\",fullname=\".*main\.cpp\",line=\"\d+\"\}")
+        self.expect("\^done,frame=\{level=\"0\",addr=\"0x[0-9a-f]+\",func=\"main\",file=\"main\.cpp\",fullname=\".+?main\.cpp\",line=\"\d+\"\}")
 
         # Test that -stack-select-frame can select frame #1 (parent frame)
         self.runCmd("-stack-select-frame 1")
@@ -324,7 +347,7 @@ class MiStackTestCase(lldbmi_testcase.MiTestCaseBase):
         # Darwin: "^done,frame={level=\"1\",addr=\"0x[0-9a-f]+\",func=\"start\",file=\"??\",fullname=\"??\",line=\"-1\"}"
         # Linux:  "^done,frame={level=\"1\",addr=\"0x[0-9a-f]+\",func=\".+\",file=\".+\",fullname=\".+\",line=\"\d+\"}"
         self.runCmd("-stack-info-frame")
-        self.expect("\^done,frame=\{level=\"1\",addr=\".+\",func=\".+\",file=\".+\",fullname=\".+\",line=\"(-1|\d+)\"\}")
+        self.expect("\^done,frame=\{level=\"1\",addr=\"0x[0-9a-f]+\",func=\".+?\",file=\".+?\",fullname=\".+?\",line=\"(-1|\d+)\"\}")
 
         # Test that -stack-select-frame can select frame #0 (child frame)
         self.runCmd("-stack-select-frame 0")
@@ -332,7 +355,7 @@ class MiStackTestCase(lldbmi_testcase.MiTestCaseBase):
 
         # Test that current frame is #0 and it has the same information
         self.runCmd("-stack-info-frame")
-        self.expect("\^done,frame=\{level=\"0\",addr=\".+\",func=\"main\",file=\"main\.cpp\",fullname=\".*main\.cpp\",line=\"\d+\"\}")
+        self.expect("\^done,frame=\{level=\"0\",addr=\"0x[0-9a-f]+\",func=\"main\",file=\"main\.cpp\",fullname=\".+?main\.cpp\",line=\"\d+\"\}")
 
 if __name__ == '__main__':
     unittest2.main()

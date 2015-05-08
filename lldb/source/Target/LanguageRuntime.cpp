@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "lldb/Target/LanguageRuntime.h"
+#include "lldb/Target/ObjCLanguageRuntime.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/SearchFilter.h"
@@ -277,6 +278,23 @@ LanguageRuntime::~LanguageRuntime()
 {
 }
 
+Breakpoint::BreakpointPreconditionSP
+LanguageRuntime::CreateExceptionPrecondition (lldb::LanguageType language,
+                                              bool catch_bp,
+                                              bool throw_bp)
+{
+    switch (language)
+    {
+    case eLanguageTypeObjC:
+        if (throw_bp)
+            return Breakpoint::BreakpointPreconditionSP(new ObjCLanguageRuntime::ObjCExceptionPrecondition ());
+        break;
+    default:
+        break;
+    }
+    return Breakpoint::BreakpointPreconditionSP();
+}
+
 BreakpointSP
 LanguageRuntime::CreateExceptionBreakpoint (Target &target,
                                             lldb::LanguageType language,
@@ -289,8 +307,15 @@ LanguageRuntime::CreateExceptionBreakpoint (Target &target,
     bool hardware = false;
     bool resolve_indirect_functions = false;
     BreakpointSP exc_breakpt_sp (target.CreateBreakpoint (filter_sp, resolver_sp, is_internal, hardware, resolve_indirect_functions));
-    if (is_internal)
-        exc_breakpt_sp->SetBreakpointKind("exception");
+    if (exc_breakpt_sp)
+    {
+        Breakpoint::BreakpointPreconditionSP precondition_sp = CreateExceptionPrecondition(language, catch_bp, throw_bp);
+        if (precondition_sp)
+            exc_breakpt_sp->SetPrecondition(precondition_sp);
+
+        if (is_internal)
+            exc_breakpt_sp->SetBreakpointKind("exception");
+    }
     
     return exc_breakpt_sp;
 }
@@ -340,6 +365,8 @@ struct language_name_pair language_names[] =
     {   "c++14",            eLanguageTypeC_plus_plus_14 },
     {   "fortran03",        eLanguageTypeFortran03      },
     {   "fortran08",        eLanguageTypeFortran08      },
+    // Vendor Extensions
+    {   "renderscript",     eLanguageTypeExtRenderScript},
     // Now synonyms, in arbitrary order
     {   "objc",             eLanguageTypeObjC           },
     {   "objc++",           eLanguageTypeObjC_plus_plus }
@@ -365,6 +392,30 @@ LanguageRuntime::GetNameForLanguageType (LanguageType language)
         return language_names[language].name;
     else
         return language_names[eLanguageTypeUnknown].name;
+}
+
+void
+LanguageRuntime::PrintAllLanguages (Stream &s, const char *prefix, const char *suffix)
+{
+    for (uint32_t i = 1; i < num_languages; i++)
+    {
+        s.Printf("%s%s%s", prefix, language_names[i].name, suffix);
+    }
+}
+
+bool
+LanguageRuntime::LanguageIsCPlusPlus (LanguageType language)
+{
+    switch (language)
+    {
+        case eLanguageTypeC_plus_plus:
+        case eLanguageTypeC_plus_plus_03:
+        case eLanguageTypeC_plus_plus_11:
+        case eLanguageTypeC_plus_plus_14:
+            return true;
+        default:
+            return false;
+    }
 }
 
 lldb::SearchFilterSP

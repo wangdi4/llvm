@@ -600,11 +600,9 @@ void Preprocessor::HandlePragmaPopMacro(Token &PopMacroTok) {
     // Get the MacroInfo we want to reinstall.
     MacroInfo *MacroToReInstall = iter->second.back();
 
-    if (MacroToReInstall) {
+    if (MacroToReInstall)
       // Reinstall the previously pushed macro.
-      appendDefMacroDirective(IdentInfo, MacroToReInstall, MessageLoc,
-                              /*isImported=*/false, /*Overrides*/None);
-    }
+      appendDefMacroDirective(IdentInfo, MacroToReInstall, MessageLoc);
 
     // Pop PragmaPushMacroInfo stack.
     iter->second.pop_back();
@@ -648,7 +646,7 @@ void Preprocessor::HandlePragmaIncludeAlias(Token &Tok) {
     SourceLocation End;
     if (ConcatenateIncludeName(FileNameBuffer, End))
       return; // Diagnostic already emitted
-    SourceFileName = FileNameBuffer.str();
+    SourceFileName = FileNameBuffer;
   } else {
     Diag(Tok, diag::warn_pragma_include_alias_expected_filename);
     return;
@@ -679,7 +677,7 @@ void Preprocessor::HandlePragmaIncludeAlias(Token &Tok) {
     SourceLocation End;
     if (ConcatenateIncludeName(FileNameBuffer, End))
       return; // Diagnostic already emitted
-    ReplaceFileName = FileNameBuffer.str();
+    ReplaceFileName = FileNameBuffer;
   } else {
     Diag(Tok, diag::warn_pragma_include_alias_expected_filename);
     return;
@@ -870,7 +868,9 @@ struct PragmaDebugHandler : public PragmaHandler {
       LLVM_BUILTIN_TRAP;
     } else if (II->isStr("parser_crash")) {
       Token Crasher;
+      Crasher.startToken();
       Crasher.setKind(tok::annot_pragma_parser_crash);
+      Crasher.setAnnotationRange(SourceRange(Tok.getLocation()));
       PP.EnterToken(Crasher);
     } else if (II->isStr("llvm_fatal_error")) {
       llvm::report_fatal_error("#pragma clang __debug llvm_fatal_error");

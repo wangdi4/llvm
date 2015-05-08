@@ -105,17 +105,15 @@ namespace {
     KEYOPENCL = 0x200,
     KEYC11 = 0x400,
     KEYARC = 0x800,
-    KEYNOMS = 0x01000,
-    WCHARSUPPORT = 0x02000,
-#ifdef INTEL_CUSTOMIZATION
-    KEYCILKPLUS = 0x04000,
-    KEYFLOAT128 = 0x08000,
-    KEYRESTRICT = 0x10000,
-    HALFSUPPORT = 0x20000,
-#else
-    HALFSUPPORT = 0x04000,
-#endif  // INTEL_CUSTOMIZATION
-    KEYALL = (0xffff & ~KEYNOMS) // Because KEYNOMS is used to exclude.
+    KEYNOMS18 = 0x01000,
+    KEYNOOPENCL = 0x02000,
+    WCHARSUPPORT = 0x04000,
+    HALFSUPPORT = 0x08000,
+    KEYCILKPLUS = 0x010000,       // INTEL_CUSTOMIZATION
+    KEYFLOAT128 = 0x020000,       // INTEL_CUSTOMIZATION
+    KEYRESTRICT = 0x040000,       // INTEL_CUSTOMIZATION
+    KEYALL = (0x7ffff & ~KEYNOMS18 &  // INTEL_CUSTOMIZATION 0x7ffff vs 0xffff
+              ~KEYNOOPENCL) // KEYNOMS18 and KEYNOOPENCL are used to exclude.
   };
 
   /// \brief How a keyword is treated in the selected standard.
@@ -168,8 +166,14 @@ static void AddKeyword(StringRef Keyword,
   KeywordStatus AddResult = getKeywordStatus(LangOpts, Flags);
 
   // Don't add this keyword under MSVCCompat.
-  if (LangOpts.MSVCCompat && (Flags & KEYNOMS))
-     return;
+  if (LangOpts.MSVCCompat && (Flags & KEYNOMS18) &&
+      !LangOpts.isCompatibleWithMSVC(19))
+    return;
+
+  // Don't add this keyword under OpenCL.
+  if (LangOpts.OpenCL && (Flags & KEYNOOPENCL))
+    return;
+
   // Don't add this keyword if disabled in this language.
   if (AddResult == KS_Disabled) return;
 

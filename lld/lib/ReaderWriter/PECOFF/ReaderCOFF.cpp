@@ -14,6 +14,7 @@
 #include "lld/Driver/Driver.h"
 #include "lld/ReaderWriter/PECOFFLinkingContext.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Object/COFF.h"
 #include "llvm/Support/Casting.h"
@@ -38,11 +39,9 @@
 
 #define DEBUG_TYPE "ReaderCOFF"
 
-using lld::pecoff::COFFAbsoluteAtom;
 using lld::pecoff::COFFBSSAtom;
 using lld::pecoff::COFFDefinedAtom;
 using lld::pecoff::COFFDefinedFileAtom;
-using lld::pecoff::COFFReference;
 using lld::pecoff::COFFUndefinedAtom;
 using llvm::object::coff_aux_section_definition;
 using llvm::object::coff_aux_weak_external;
@@ -74,13 +73,8 @@ class FileCOFF : public File {
 private:
   typedef std::vector<llvm::object::COFFSymbolRef> SymbolVectorT;
   typedef std::map<const coff_section *, SymbolVectorT> SectionToSymbolsT;
-  typedef std::map<const StringRef, Atom *> SymbolNameToAtomT;
-  typedef std::map<const coff_section *, std::vector<COFFDefinedFileAtom *>>
-  SectionToAtomsT;
 
 public:
-  typedef const std::map<std::string, std::string> StringMap;
-
   FileCOFF(std::unique_ptr<MemoryBuffer> mb, PECOFFLinkingContext &ctx)
     : File(mb->getBufferIdentifier(), kindObject), _mb(std::move(mb)),
       _compatibleWithSEH(false), _ordinal(1),
@@ -90,26 +84,26 @@ public:
   bool isCompatibleWithSEH() const { return _compatibleWithSEH; }
   llvm::COFF::MachineTypes getMachineType() { return _machineType; }
 
-  const atom_collection<DefinedAtom> &defined() const override {
+  const AtomVector<DefinedAtom> &defined() const override {
     return _definedAtoms;
   }
 
-  const atom_collection<UndefinedAtom> &undefined() const override {
+  const AtomVector<UndefinedAtom> &undefined() const override {
     return _undefinedAtoms;
   }
 
-  const atom_collection<SharedLibraryAtom> &sharedLibrary() const override {
+  const AtomVector<SharedLibraryAtom> &sharedLibrary() const override {
     return _sharedLibraryAtoms;
   }
 
-  const atom_collection<AbsoluteAtom> &absolute() const override {
+  const AtomVector<AbsoluteAtom> &absolute() const override {
     return _absoluteAtoms;
   }
 
   void beforeLink() override;
 
   void addUndefinedSymbol(StringRef sym) {
-    _undefinedAtoms._atoms.push_back(new (_alloc) COFFUndefinedAtom(*this, sym));
+    _undefinedAtoms.push_back(new (_alloc) COFFUndefinedAtom(*this, sym));
   }
 
   AliasAtom *createAlias(StringRef name, const DefinedAtom *target, int cnt);
@@ -153,8 +147,7 @@ private:
 
   std::error_code
   addRelocationReference(const coff_relocation *rel,
-                         const coff_section *section,
-                         const std::vector<COFFDefinedFileAtom *> &atoms);
+                         const coff_section *section);
 
   std::error_code getSectionContents(StringRef sectionName,
                                      ArrayRef<uint8_t> &result);
@@ -166,10 +159,10 @@ private:
 
   std::unique_ptr<const llvm::object::COFFObjectFile> _obj;
   std::unique_ptr<MemoryBuffer> _mb;
-  atom_collection_vector<DefinedAtom> _definedAtoms;
-  atom_collection_vector<UndefinedAtom> _undefinedAtoms;
-  atom_collection_vector<SharedLibraryAtom> _sharedLibraryAtoms;
-  atom_collection_vector<AbsoluteAtom> _absoluteAtoms;
+  AtomVector<DefinedAtom> _definedAtoms;
+  AtomVector<UndefinedAtom> _undefinedAtoms;
+  AtomVector<SharedLibraryAtom> _sharedLibraryAtoms;
+  AtomVector<AbsoluteAtom> _absoluteAtoms;
 
   // The target type of the object.
   Reference::KindArch _referenceArch;
@@ -198,13 +191,12 @@ private:
   std::map<const coff_section *, DefinedAtom::Merge> _merge;
 
   // COMDAT associative sections
-  std::map<const coff_section *, std::set<const coff_section *>> _association;
+  std::multimap<const coff_section *, const coff_section *> _association;
 
   // A sorted map to find an atom from a section and an offset within
   // the section.
-  std::map<const coff_section *,
-           std::map<uint32_t, std::vector<COFFDefinedAtom *>>>
-  _definedAtomLocations;
+  std::map<const coff_section *, std::multimap<uint32_t, COFFDefinedAtom *>>
+      _definedAtomLocations;
 
   uint64_t _ordinal;
   llvm::COFF::MachineTypes _machineType;
@@ -250,7 +242,7 @@ DefinedAtom::ContentPermissions getPermissions(const coff_section *section) {
 /// aligned by this value in the resulting executable/DLL.
 DefinedAtom::Alignment getAlignment(const coff_section *section) {
   if (section->Characteristics & llvm::COFF::IMAGE_SCN_TYPE_NO_PAD)
-    return DefinedAtom::Alignment(0);
+    return 1;
 
   // Bit [20:24] contains section alignment information. We need to decrease
   // the value stored by 1 in order to get the real exponent (e.g, ALIGN_1BYTE
@@ -262,10 +254,10 @@ DefinedAtom::Alignment getAlignment(const coff_section *section) {
   // in characteristics[20:24], and its output is intended to be copied to .rsrc
   // section with no padding, so I think doing this is the right thing.
   if (characteristics == 0)
-    return DefinedAtom::Alignment(0);
+    return 1;
 
   uint32_t powerOf2 = characteristics - 1;
-  return DefinedAtom::Alignment(powerOf2);
+  return 1 << powerOf2;
 }
 
 DefinedAtom::Merge getMerge(const coff_aux_section_definition *auxsym) {
@@ -320,11 +312,10 @@ std::error_code FileCOFF::doParse() {
 
   if (getMachineType() != llvm::COFF::IMAGE_FILE_MACHINE_UNKNOWN &&
       getMachineType() != _ctx.getMachineType()) {
-    llvm::errs() << "module machine type '"
-                 << getMachineName(getMachineType())
-                 << "' conflicts with target machine type '"
-                 << getMachineName(_ctx.getMachineType()) << "'\n";
-    return NativeReaderError::conflicting_target_machine;
+    return make_dynamic_error_code(Twine("module machine type '") +
+                                   getMachineName(getMachineType()) +
+                                   "' conflicts with target machine type '" +
+                                   getMachineName(_ctx.getMachineType()) + "'");
   }
 
   if (std::error_code ec = getReferenceArch(_referenceArch))
@@ -337,11 +328,11 @@ std::error_code FileCOFF::doParse() {
   if (std::error_code ec = readSymbolTable(symbols))
     return ec;
 
-  createAbsoluteAtoms(symbols, _absoluteAtoms._atoms);
+  createAbsoluteAtoms(symbols, _absoluteAtoms);
   if (std::error_code ec =
-      createUndefinedAtoms(symbols, _undefinedAtoms._atoms))
+      createUndefinedAtoms(symbols, _undefinedAtoms))
     return ec;
-  if (std::error_code ec = createDefinedSymbols(symbols, _definedAtoms._atoms))
+  if (std::error_code ec = createDefinedSymbols(symbols, _definedAtoms))
     return ec;
   if (std::error_code ec = addRelocationReferenceToAtoms())
     return ec;
@@ -380,8 +371,10 @@ void FileCOFF::beforeLink() {
 
   // Add /INCLUDE'ed symbols to the file as if they existed in the
   // file as undefined symbols.
-  for (StringRef sym : undefSyms)
+  for (StringRef sym : undefSyms) {
     addUndefinedSymbol(sym);
+    _ctx.addDeadStripRoot(sym);
+  }
 
   // One can define alias symbols using /alternatename:<sym>=<sym> option.
   // The mapping for /alternatename is in the context object. This helper
@@ -392,10 +385,6 @@ void FileCOFF::beforeLink() {
   // SEH. Disable SEH if the file being read is not compatible.
   if (!isCompatibleWithSEH())
     _ctx.setSafeSEH(false);
-
-  if (_ctx.deadStrip())
-    for (const UndefinedAtom *undef : undefined())
-      _ctx.addDeadStripRoot(undef->name());
 }
 
 /// Iterate over the symbol table to retrieve all symbols.
@@ -447,9 +436,8 @@ void FileCOFF::createAbsoluteAtoms(const SymbolVectorT &symbols,
   for (llvm::object::COFFSymbolRef sym : symbols) {
     if (sym.getSectionNumber() != llvm::COFF::IMAGE_SYM_ABSOLUTE)
       continue;
-    auto *atom = new (_alloc) COFFAbsoluteAtom(*this, _symbolName[sym],
-                                               getScope(sym), sym.getValue());
-
+    auto *atom = new (_alloc) SimpleAbsoluteAtom(*this, _symbolName[sym],
+                                                 getScope(sym), sym.getValue());
     result.push_back(atom);
     _symbolAtom[sym] = atom;
   }
@@ -465,15 +453,12 @@ void FileCOFF::createAbsoluteAtoms(const SymbolVectorT &symbols,
 std::error_code
 FileCOFF::createUndefinedAtoms(const SymbolVectorT &symbols,
                                std::vector<const UndefinedAtom *> &result) {
-  // Sort out undefined symbols from all symbols.
-  std::set<llvm::object::COFFSymbolRef> undefines;
   std::map<llvm::object::COFFSymbolRef, llvm::object::COFFSymbolRef>
       weakExternal;
+  std::set<llvm::object::COFFSymbolRef> fallback;
   for (llvm::object::COFFSymbolRef sym : symbols) {
     if (sym.getSectionNumber() != llvm::COFF::IMAGE_SYM_UNDEFINED)
       continue;
-    undefines.insert(sym);
-
     // Create a mapping from sym1 to sym2, if the undefined symbol has
     // auxiliary data.
     auto iter = _auxSymbol.find(sym);
@@ -486,16 +471,16 @@ FileCOFF::createUndefinedAtoms(const SymbolVectorT &symbols,
     if (std::error_code ec = sym2.getError())
       return ec;
     weakExternal[sym] = *sym2;
+    fallback.insert(*sym2);
   }
 
-  // Sort out sym1s from sym2s. Sym2s shouldn't be added to the undefined atom
-  // list because they shouldn't be resolved unless sym1 is failed to
-  // be resolved.
-  for (auto i : weakExternal)
-    undefines.erase(i.second);
-
   // Create atoms for the undefined symbols.
-  for (llvm::object::COFFSymbolRef sym : undefines) {
+  for (llvm::object::COFFSymbolRef sym : symbols) {
+    if (sym.getSectionNumber() != llvm::COFF::IMAGE_SYM_UNDEFINED)
+      continue;
+    if (fallback.count(sym) > 0)
+      continue;
+
     // If the symbol has sym2, create an undefiend atom for sym2, so that we
     // can pass it as a fallback atom.
     UndefinedAtom *fallback = nullptr;
@@ -557,9 +542,7 @@ FileCOFF::createDefinedSymbols(const SymbolVectorT &symbols,
       // Common symbols should be aligned on natural boundaries with the maximum
       // of 32 byte. It's not documented anywhere, but it's what MSVC link.exe
       // seems to be doing.
-      uint64_t alignment = std::min((uint64_t)32, llvm::NextPowerOf2(size));
-      atom->setAlignment(
-          DefinedAtom::Alignment(llvm::countTrailingZeros(alignment)));
+      atom->setAlignment(std::min((uint64_t)32, llvm::NextPowerOf2(size)));
       result.push_back(atom);
       continue;
     }
@@ -628,7 +611,7 @@ std::error_code FileCOFF::cacheSectionAttributes() {
       if (std::error_code ec =
               _obj->getSection(aux->getNumber(sym.isBigObj()), parent))
         return ec;
-      _association[parent].insert(sec);
+      _association.insert(std::make_pair(parent, sec));
     }
   }
 
@@ -704,7 +687,7 @@ std::error_code FileCOFF::AtomizeDefinedSymbolsInSection(
         *this, "", sectionName, sectionSize, Atom::scopeTranslationUnit,
         type, isComdat, perms, _merge[section], data, getNextOrdinal());
     atoms.push_back(atom);
-    _definedAtomLocations[section][0].push_back(atom);
+    _definedAtomLocations[section].insert(std::make_pair(0, atom));
     return std::error_code();
   }
 
@@ -717,7 +700,7 @@ std::error_code FileCOFF::AtomizeDefinedSymbolsInSection(
         *this, "", sectionName, sectionSize, Atom::scopeTranslationUnit,
         type, isComdat, perms, _merge[section], data, getNextOrdinal());
     atoms.push_back(atom);
-    _definedAtomLocations[section][0].push_back(atom);
+    _definedAtomLocations[section].insert(std::make_pair(0, atom));
   }
 
   for (auto si = symbols.begin(), se = symbols.end(); si != se; ++si) {
@@ -731,7 +714,7 @@ std::error_code FileCOFF::AtomizeDefinedSymbolsInSection(
         type, isComdat, perms, _merge[section], data, getNextOrdinal());
     atoms.push_back(atom);
     _symbolAtom[*si] = atom;
-    _definedAtomLocations[section][si->getValue()].push_back(atom);
+    _definedAtomLocations[section].insert(std::make_pair(si->getValue(), atom));
   }
   return std::error_code();
 }
@@ -754,14 +737,14 @@ std::error_code FileCOFF::AtomizeDefinedSymbols(
     if (atoms.size() > 0)
       atoms[0]->setAlignment(getAlignment(section));
 
-    // Connect atoms with layout-before edges. It prevents atoms
+    // Connect atoms with layout-after edges. It prevents atoms
     // from being GC'ed if there is a reference to one of the atoms
-    // in the same layout-before chain. In such case we want to emit
+    // in the same layout-after chain. In such case we want to emit
     // all the atoms appeared in the same chain, because the "live"
     // atom may reference other atoms in the same chain.
     if (atoms.size() >= 2)
       for (auto it = atoms.begin(), e = atoms.end(); it + 1 != e; ++it)
-        addLayoutEdge(*(it + 1), *it, lld::Reference::kindLayoutBefore);
+        addLayoutEdge(*it, *(it + 1), lld::Reference::kindLayoutAfter);
 
     for (COFFDefinedFileAtom *atom : atoms) {
       _sectionAtoms[section].push_back(atom);
@@ -779,15 +762,10 @@ std::error_code FileCOFF::AtomizeDefinedSymbols(
   // associate list, so that Resolver takes care of them.
   for (auto i : _association) {
     const coff_section *parent = i.first;
-    const std::set<const coff_section *> &childSections = i.second;
-    assert(_sectionAtoms[parent].size() > 0);
-
-    COFFDefinedFileAtom *p = _sectionAtoms[parent][0];
-    for (const coff_section *sec : childSections) {
-      if (_sectionAtoms.count(sec)) {
-        assert(_sectionAtoms[sec].size() > 0);
-        p->addAssociate(_sectionAtoms[sec][0]);
-      }
+    const coff_section *child = i.second;
+    if (_sectionAtoms.count(child)) {
+      COFFDefinedFileAtom *p = _sectionAtoms[parent][0];
+      p->addAssociate(_sectionAtoms[child][0]);
     }
   }
 
@@ -799,19 +777,19 @@ std::error_code FileCOFF::findAtomAt(const coff_section *section,
                                      uint32_t targetAddress,
                                      COFFDefinedFileAtom *&result,
                                      uint32_t &offsetInAtom) {
-  for (auto i : _definedAtomLocations[section]) {
-    uint32_t atomAddress = i.first;
-    std::vector<COFFDefinedAtom *> &atomsAtSameLocation = i.second;
-    COFFDefinedAtom *atom = atomsAtSameLocation.back();
-    if (atomAddress <= targetAddress &&
-        targetAddress < atomAddress + atom->size()) {
-      result = atom;
-      offsetInAtom = targetAddress - atomAddress;
-      return std::error_code();
-    }
-  }
-  // Relocation target is out of range
-  return llvm::object::object_error::parse_failed;
+  auto loc = _definedAtomLocations.find(section);
+  if (loc == _definedAtomLocations.end())
+    return llvm::object::object_error::parse_failed;
+  std::multimap<uint32_t, COFFDefinedAtom *> &map = loc->second;
+
+  auto it = map.upper_bound(targetAddress);
+  if (it == map.begin())
+    return llvm::object::object_error::parse_failed;
+  --it;
+  uint32_t atomAddress = it->first;
+  result = it->second;
+  offsetInAtom = targetAddress - atomAddress;
+  return std::error_code();
 }
 
 /// Find the atom for the symbol that was at the \p index in the symbol
@@ -829,9 +807,7 @@ std::error_code FileCOFF::getAtomBySymbolIndex(uint32_t index, Atom *&ret) {
 /// relocation entry for the \p section, and \p atoms are all the atoms
 /// defined in the \p section.
 std::error_code FileCOFF::addRelocationReference(
-    const coff_relocation *rel, const coff_section *section,
-    const std::vector<COFFDefinedFileAtom *> &atoms) {
-  assert(atoms.size() > 0);
+    const coff_relocation *rel, const coff_section *section) {
   // The address of the item which relocation is applied. Section's
   // VirtualAddress needs to be added for historical reasons, but the value
   // is usually just zero, so adding it is usually no-op.
@@ -846,8 +822,9 @@ std::error_code FileCOFF::addRelocationReference(
   uint32_t offsetInAtom;
   if (std::error_code ec = findAtomAt(section, itemAddress, atom, offsetInAtom))
     return ec;
-  atom->addReference(std::unique_ptr<COFFReference>(
-      new COFFReference(targetAtom, offsetInAtom, rel->Type, _referenceArch)));
+  atom->addReference(llvm::make_unique<SimpleReference>(
+      Reference::KindNamespace::COFF, _referenceArch, rel->Type, offsetInAtom,
+      targetAtom, 0));
   return std::error_code();
 }
 
@@ -884,7 +861,7 @@ void FileCOFF::createAlternateNameAtoms() {
       aliases.push_back(createAlias(alias, atom, cnt++));
   }
   for (AliasAtom *alias : aliases)
-    _definedAtoms._atoms.push_back(alias);
+    _definedAtoms.push_back(alias);
 }
 
 // Interpret the contents of .drectve section. If exists, the section contains
@@ -960,8 +937,7 @@ std::error_code FileCOFF::addRelocationReferenceToAtoms() {
 
     for (const auto &reloc : sec.relocations()) {
       const coff_relocation *rel = _obj->getCOFFRelocation(reloc);
-      if (auto ec =
-              addRelocationReference(rel, section, _sectionAtoms[section]))
+      if (auto ec = addRelocationReference(rel, section))
         return ec;
     }
   }
@@ -1015,11 +991,12 @@ std::error_code FileCOFF::maybeCreateSXDataAtoms() {
       llvm_unreachable("unsupported machine type");
     }
 
-    atom->addReference(std::unique_ptr<COFFReference>(new COFFReference(
-        handlerFunc, offsetInAtom, rtype, _referenceArch)));
+    atom->addReference(llvm::make_unique<SimpleReference>(
+      Reference::KindNamespace::COFF, _referenceArch, rtype, offsetInAtom,
+      handlerFunc, 0));
   }
 
-  _definedAtoms._atoms.push_back(atom);
+  _definedAtoms.push_back(atom);
   return std::error_code();
 }
 
@@ -1071,8 +1048,7 @@ class COFFObjectReader : public Reader {
 public:
   COFFObjectReader(PECOFFLinkingContext &ctx) : _ctx(ctx) {}
 
-  bool canParse(file_magic magic, StringRef ext,
-                const MemoryBuffer &) const override {
+  bool canParse(file_magic magic, const MemoryBuffer &) const override {
     return magic == llvm::sys::fs::file_magic::coff_object;
   }
 

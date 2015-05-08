@@ -642,11 +642,12 @@ private:
       if (tryMergeTemplateString())
         return;
 
-      static tok::TokenKind JSIdentity[] = {tok::equalequal, tok::equal};
-      static tok::TokenKind JSNotIdentity[] = {tok::exclaimequal, tok::equal};
-      static tok::TokenKind JSShiftEqual[] = {tok::greater, tok::greater,
-                                              tok::greaterequal};
-      static tok::TokenKind JSRightArrow[] = {tok::equal, tok::greater};
+      static const tok::TokenKind JSIdentity[] = {tok::equalequal, tok::equal};
+      static const tok::TokenKind JSNotIdentity[] = {tok::exclaimequal,
+                                                     tok::equal};
+      static const tok::TokenKind JSShiftEqual[] = {tok::greater, tok::greater,
+                                                    tok::greaterequal};
+      static const tok::TokenKind JSRightArrow[] = {tok::equal, tok::greater};
       // FIXME: We probably need to change token type to mimic operator with the
       // correct priority.
       if (tryMergeTokens(JSIdentity))
@@ -779,7 +780,15 @@ private:
       return false;
 
     FormatToken *EndBacktick = Tokens.back();
-    if (!(EndBacktick->is(tok::unknown) && EndBacktick->TokenText == "`"))
+    // Backticks get lexed as tok:unknown tokens. If a template string contains
+    // a comment start, it gets lexed as a tok::comment, or tok::unknown if
+    // unterminated.
+    if (!EndBacktick->isOneOf(tok::comment, tok::unknown))
+      return false;
+    size_t CommentBacktickPos = EndBacktick->TokenText.find('`');
+    // Unknown token that's not actually a backtick, or a comment that doesn't
+    // contain a backtick.
+    if (CommentBacktickPos == StringRef::npos)
       return false;
 
     unsigned TokenCount = 0;
@@ -811,7 +820,14 @@ private:
 
       Tokens.resize(Tokens.size() - TokenCount);
       Tokens.back()->Type = TT_TemplateString;
-      const char *EndOffset = EndBacktick->TokenText.data() + 1;
+      const char *EndOffset =
+          EndBacktick->TokenText.data() + 1 + CommentBacktickPos;
+      if (CommentBacktickPos != 0) {
+        // If the backtick was not the first character (e.g. in a comment),
+        // re-lex after the backtick position.
+        SourceLocation Loc = EndBacktick->Tok.getLocation();
+        resetLexer(SourceMgr.getFileOffset(Loc) + CommentBacktickPos + 1);
+      }
       Tokens.back()->TokenText =
           StringRef(Tokens.back()->TokenText.data(),
                     EndOffset - Tokens.back()->TokenText.data());
@@ -861,6 +877,8 @@ private:
     String->OriginalColumn = Macro->OriginalColumn;
     String->ColumnWidth = encoding::columnWidthWithTabs(
         String->TokenText, String->OriginalColumn, Style.TabWidth, Encoding);
+    String->NewlinesBefore = Macro->NewlinesBefore;
+    String->HasUnescapedNewline = Macro->HasUnescapedNewline;
 
     Tokens.pop_back();
     Tokens.pop_back();
@@ -1503,8 +1521,7 @@ LangOptions getFormattingLangOpts(const FormatStyle &Style) {
   LangOpts.CPlusPlus11 = Style.Standard == FormatStyle::LS_Cpp03 ? 0 : 1;
   LangOpts.CPlusPlus14 = Style.Standard == FormatStyle::LS_Cpp03 ? 0 : 1;
   LangOpts.LineComment = 1;
-  bool AlternativeOperators = Style.Language != FormatStyle::LK_JavaScript &&
-                              Style.Language != FormatStyle::LK_Java;
+  bool AlternativeOperators = Style.Language == FormatStyle::LK_Cpp;
   LangOpts.CXXOperatorNames = AlternativeOperators ? 1 : 0;
   LangOpts.Bool = 1;
   LangOpts.ObjC1 = 1;
@@ -1527,7 +1544,8 @@ const char *StyleOptionHelpDescription =
 static FormatStyle::LanguageKind getLanguageByFileName(StringRef FileName) {
   if (FileName.endswith(".java")) {
     return FormatStyle::LK_Java;
-  } else if (FileName.endswith_lower(".js")) {
+  } else if (FileName.endswith_lower(".js") || FileName.endswith_lower(".ts")) {
+    // JavaScript or TypeScript.
     return FormatStyle::LK_JavaScript;
   } else if (FileName.endswith_lower(".proto") ||
              FileName.endswith_lower(".protodevel")) {

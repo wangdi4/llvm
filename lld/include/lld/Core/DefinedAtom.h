@@ -173,13 +173,6 @@ public:
     sectionCustomRequired   // linker must place in specific section
   };
 
-  enum SectionPosition {
-    sectionPositionStart,   // atom must be at start of section (and zero size)
-    sectionPositionEarly,   // atom should be near start of section
-    sectionPositionAny,     // atom can be anywhere in section
-    sectionPositionEnd      // atom must be at end of section (and zero size)
-  };
-
   enum DeadStripKind {
     deadStripNormal,        // linker may dead strip this atom
     deadStripNever,         // linker must never dead strip this atom
@@ -197,23 +190,26 @@ public:
   // Attributes describe a code model used by the atom.
   enum CodeModel {
     codeNA,           // no specific code model
+    // MIPS code models
     codeMipsPIC,      // PIC function in a PIC / non-PIC mixed file
     codeMipsMicro,    // microMIPS instruction encoding
     codeMipsMicroPIC, // microMIPS instruction encoding + PIC
     codeMips16,       // MIPS-16 instruction encoding
+    // ARM code models
     codeARMThumb,     // ARM Thumb instruction set
+    codeARM_a,        // $a-like mapping symbol (for ARM code)
+    codeARM_d,        // $d-like mapping symbol (for data)
+    codeARM_t,        // $t-like mapping symbol (for Thumb code)
   };
 
   struct Alignment {
-    Alignment(int p2, int m = 0)
-      : powerOf2(p2)
-      , modulus(m) {}
+    Alignment(int v, int m = 0) : value(v), modulus(m) {}
 
-    uint16_t powerOf2;
+    uint16_t value;
     uint16_t modulus;
 
     bool operator==(const Alignment &rhs) const {
-      return (powerOf2 == rhs.powerOf2) && (modulus == rhs.modulus);
+      return (value == rhs.value) && (modulus == rhs.modulus);
     }
   };
 
@@ -271,9 +267,6 @@ public:
   /// \brief If sectionChoice() != sectionBasedOnContent, then this return the
   /// name of the section the atom should be placed into.
   virtual StringRef customSectionName() const = 0;
-
-  /// \brief constraints on whether the linker may dead strip away this atom.
-  virtual SectionPosition sectionPosition() const = 0;
 
   /// \brief constraints on whether the linker may dead strip away this atom.
   virtual DeadStripKind deadStrip() const = 0;
@@ -364,12 +357,6 @@ protected:
   // DefinedAtom is an abstract base class. Only subclasses can access
   // constructor.
   DefinedAtom() : Atom(definitionRegular) { }
-
-  // The memory for DefinedAtom objects is always managed by the owning File
-  // object.  Therefore, no one but the owning File object should call delete on
-  // an Atom.  In fact, some File objects may bulk allocate an array of Atoms,
-  // so they cannot be individually deleted by anyone.
-  virtual ~DefinedAtom() {}
 
   /// \brief Returns a pointer to the Reference object that the abstract
   /// iterator "points" to.

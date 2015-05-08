@@ -255,9 +255,6 @@
 
 namespace Modularize {
 
-// Forwards.
-class PreprocessorTrackerImpl;
-
 // Some handle types
 typedef llvm::PooledStringPtr StringHandle;
 
@@ -303,7 +300,8 @@ static void getSourceLocationLineAndColumn(clang::Preprocessor &PP,
 }
 
 // Retrieve source snippet from file image.
-std::string getSourceString(clang::Preprocessor &PP, clang::SourceRange Range) {
+static std::string getSourceString(clang::Preprocessor &PP,
+                                   clang::SourceRange Range) {
   clang::SourceLocation BeginLoc = Range.getBegin();
   clang::SourceLocation EndLoc = Range.getEnd();
   const char *BeginPtr = PP.getSourceManager().getCharacterData(BeginLoc);
@@ -313,7 +311,8 @@ std::string getSourceString(clang::Preprocessor &PP, clang::SourceRange Range) {
 }
 
 // Retrieve source line from file image given a location.
-std::string getSourceLine(clang::Preprocessor &PP, clang::SourceLocation Loc) {
+static std::string getSourceLine(clang::Preprocessor &PP,
+                                 clang::SourceLocation Loc) {
   const llvm::MemoryBuffer *MemBuffer =
       PP.getSourceManager().getBuffer(PP.getSourceManager().getFileID(Loc));
   const char *Buffer = MemBuffer->getBufferStart();
@@ -338,8 +337,8 @@ std::string getSourceLine(clang::Preprocessor &PP, clang::SourceLocation Loc) {
 }
 
 // Retrieve source line from file image given a file ID and line number.
-std::string getSourceLine(clang::Preprocessor &PP, clang::FileID FileID,
-                          int Line) {
+static std::string getSourceLine(clang::Preprocessor &PP, clang::FileID FileID,
+                                 int Line) {
   const llvm::MemoryBuffer *MemBuffer = PP.getSourceManager().getBuffer(FileID);
   const char *Buffer = MemBuffer->getBufferStart();
   const char *BufferEnd = MemBuffer->getBufferEnd();
@@ -375,10 +374,10 @@ std::string getSourceLine(clang::Preprocessor &PP, clang::FileID FileID,
 // for the macro instance, which in the case of a function-style
 // macro will be a ')', but for an object-style macro, it
 // will be the macro name itself.
-std::string getMacroUnexpandedString(clang::SourceRange Range,
-                                     clang::Preprocessor &PP,
-                                     llvm::StringRef MacroName,
-                                     const clang::MacroInfo *MI) {
+static std::string getMacroUnexpandedString(clang::SourceRange Range,
+                                            clang::Preprocessor &PP,
+                                            llvm::StringRef MacroName,
+                                            const clang::MacroInfo *MI) {
   clang::SourceLocation BeginLoc(Range.getBegin());
   const char *BeginPtr = PP.getSourceManager().getCharacterData(BeginLoc);
   size_t Length;
@@ -400,10 +399,10 @@ std::string getMacroUnexpandedString(clang::SourceRange Range,
 // allows modularize to effectively work with respect to macro
 // consistency checking, although it displays the incorrect
 // expansion in error messages.
-std::string getMacroExpandedString(clang::Preprocessor &PP,
-                                   llvm::StringRef MacroName,
-                                   const clang::MacroInfo *MI,
-                                   const clang::MacroArgs *Args) {
+static std::string getMacroExpandedString(clang::Preprocessor &PP,
+                                          llvm::StringRef MacroName,
+                                          const clang::MacroInfo *MI,
+                                          const clang::MacroArgs *Args) {
   std::string Expanded;
   // Walk over the macro Tokens.
   typedef clang::MacroInfo::tokens_iterator Iter;
@@ -458,77 +457,7 @@ std::string getMacroExpandedString(clang::Preprocessor &PP,
   return Expanded;
 }
 
-// Get the string representing a vector of Tokens.
-std::string
-getTokensSpellingString(clang::Preprocessor &PP,
-                        llvm::SmallVectorImpl<clang::Token> &Tokens) {
-  std::string Expanded;
-  // Walk over the macro Tokens.
-  typedef llvm::SmallVectorImpl<clang::Token>::iterator Iter;
-  for (Iter I = Tokens.begin(), E = Tokens.end(); I != E; ++I)
-    Expanded += PP.getSpelling(*I); // Not an identifier.
-  return llvm::StringRef(Expanded).trim().str();
-}
-
-// Get the expansion for a macro instance, given the information
-// provided by PPCallbacks.
-std::string getExpandedString(clang::Preprocessor &PP,
-                              llvm::StringRef MacroName,
-                              const clang::MacroInfo *MI,
-                              const clang::MacroArgs *Args) {
-  std::string Expanded;
-  // Walk over the macro Tokens.
-  typedef clang::MacroInfo::tokens_iterator Iter;
-  for (Iter I = MI->tokens_begin(), E = MI->tokens_end(); I != E; ++I) {
-    clang::IdentifierInfo *II = I->getIdentifierInfo();
-    int ArgNo = (II && Args ? MI->getArgumentNum(II) : -1);
-    if (ArgNo == -1) {
-      // This isn't an argument, just add it.
-      if (II == nullptr)
-        Expanded += PP.getSpelling((*I)); // Not an identifier.
-      else {
-        // Token is for an identifier.
-        std::string Name = II->getName().str();
-        // Check for nexted macro references.
-        clang::MacroInfo *MacroInfo = PP.getMacroInfo(II);
-        if (MacroInfo)
-          Expanded += getMacroExpandedString(PP, Name, MacroInfo, nullptr);
-        else
-          Expanded += Name;
-      }
-      continue;
-    }
-    // We get here if it's a function-style macro with arguments.
-    const clang::Token *ResultArgToks;
-    const clang::Token *ArgTok = Args->getUnexpArgument(ArgNo);
-    if (Args->ArgNeedsPreexpansion(ArgTok, PP))
-      ResultArgToks = &(const_cast<clang::MacroArgs *>(Args))
-          ->getPreExpArgument(ArgNo, MI, PP)[0];
-    else
-      ResultArgToks = ArgTok; // Use non-preexpanded Tokens.
-    // If the arg token didn't expand into anything, ignore it.
-    if (ResultArgToks->is(clang::tok::eof))
-      continue;
-    unsigned NumToks = clang::MacroArgs::getArgLength(ResultArgToks);
-    // Append the resulting argument expansions.
-    for (unsigned ArgumentIndex = 0; ArgumentIndex < NumToks; ++ArgumentIndex) {
-      const clang::Token &AT = ResultArgToks[ArgumentIndex];
-      clang::IdentifierInfo *II = AT.getIdentifierInfo();
-      if (II == nullptr)
-        Expanded += PP.getSpelling(AT); // Not an identifier.
-      else {
-        // It's an identifier.  Check for further expansion.
-        std::string Name = II->getName().str();
-        clang::MacroInfo *MacroInfo = PP.getMacroInfo(II);
-        if (MacroInfo)
-          Expanded += getMacroExpandedString(PP, Name, MacroInfo, nullptr);
-        else
-          Expanded += Name;
-      }
-    }
-  }
-  return Expanded;
-}
+namespace {
 
 // ConditionValueKind strings.
 const char *
@@ -805,6 +734,8 @@ public:
   std::vector<ConditionalExpansionInstance> ConditionalExpansionInstances;
 };
 
+class PreprocessorTrackerImpl;
+
 // Preprocessor callbacks for modularize.
 //
 // This class derives from the Clang PPCallbacks class to track preprocessor
@@ -816,7 +747,7 @@ public:
   PreprocessorCallbacks(PreprocessorTrackerImpl &ppTracker,
                         clang::Preprocessor &PP, llvm::StringRef rootHeaderFile)
       : PPTracker(ppTracker), PP(PP), RootHeaderFile(rootHeaderFile) {}
-  ~PreprocessorCallbacks() {}
+  ~PreprocessorCallbacks() override {}
 
   // Overridden handlers.
   void InclusionDirective(clang::SourceLocation HashLoc,
@@ -826,24 +757,26 @@ public:
                           const clang::FileEntry *File,
                           llvm::StringRef SearchPath,
                           llvm::StringRef RelativePath,
-                          const clang::Module *Imported);
+                          const clang::Module *Imported) override;
   void FileChanged(clang::SourceLocation Loc,
                    clang::PPCallbacks::FileChangeReason Reason,
                    clang::SrcMgr::CharacteristicKind FileType,
-                   clang::FileID PrevFID = clang::FileID());
+                   clang::FileID PrevFID = clang::FileID()) override;
   void MacroExpands(const clang::Token &MacroNameTok,
                     const clang::MacroDirective *MD, clang::SourceRange Range,
-                    const clang::MacroArgs *Args);
+                    const clang::MacroArgs *Args) override;
   void Defined(const clang::Token &MacroNameTok,
-               const clang::MacroDirective *MD, clang::SourceRange Range);
+               const clang::MacroDirective *MD,
+               clang::SourceRange Range) override;
   void If(clang::SourceLocation Loc, clang::SourceRange ConditionRange,
-          clang::PPCallbacks::ConditionValueKind ConditionResult);
+          clang::PPCallbacks::ConditionValueKind ConditionResult) override;
   void Elif(clang::SourceLocation Loc, clang::SourceRange ConditionRange,
-            clang::PPCallbacks::ConditionValueKind ConditionResult, clang::SourceLocation IfLoc);
+            clang::PPCallbacks::ConditionValueKind ConditionResult,
+            clang::SourceLocation IfLoc) override;
   void Ifdef(clang::SourceLocation Loc, const clang::Token &MacroNameTok,
-             const clang::MacroDirective *MD);
+             const clang::MacroDirective *MD) override;
   void Ifndef(clang::SourceLocation Loc, const clang::Token &MacroNameTok,
-              const clang::MacroDirective *MD);
+              const clang::MacroDirective *MD) override;
 
 private:
   PreprocessorTrackerImpl &PPTracker;
@@ -880,11 +813,11 @@ public:
     }
   }
 
-  ~PreprocessorTrackerImpl() {}
+  ~PreprocessorTrackerImpl() override {}
 
   // Handle entering a preprocessing session.
   void handlePreprocessorEntry(clang::Preprocessor &PP,
-                               llvm::StringRef rootHeaderFile) {
+                               llvm::StringRef rootHeaderFile) override {
     HeadersInThisCompile.clear();
     assert((HeaderStack.size() == 0) && "Header stack should be empty.");
     pushHeaderHandle(addHeader(rootHeaderFile));
@@ -892,14 +825,15 @@ public:
                                                                rootHeaderFile));
   }
   // Handle exiting a preprocessing session.
-  void handlePreprocessorExit() { HeaderStack.clear(); }
+  void handlePreprocessorExit() override { HeaderStack.clear(); }
 
   // Handle include directive.
   // This function is called every time an include directive is seen by the
   // preprocessor, for the purpose of later checking for 'extern "" {}' or
   // "namespace {}" blocks containing #include directives.
   void handleIncludeDirective(llvm::StringRef DirectivePath, int DirectiveLine,
-                              int DirectiveColumn, llvm::StringRef TargetPath) {
+                              int DirectiveColumn,
+                              llvm::StringRef TargetPath) override {
     // If it's not a header in the header list, ignore it with respect to
     // the check.
     if (BlockCheckHeaderListOnly && !isHeaderListHeader(TargetPath))
@@ -924,7 +858,7 @@ public:
   bool checkForIncludesInBlock(clang::Preprocessor &PP,
                                clang::SourceRange BlockSourceRange,
                                const char *BlockIdentifierMessage,
-                               llvm::raw_ostream &OS) {
+                               llvm::raw_ostream &OS) override {
     clang::SourceLocation BlockStartLoc = BlockSourceRange.getBegin();
     clang::SourceLocation BlockEndLoc = BlockSourceRange.getEnd();
     // Use block location to get FileID of both the include directive
@@ -1208,7 +1142,7 @@ public:
 
   // Report on inconsistent macro instances.
   // Returns true if any mismatches.
-  bool reportInconsistentMacros(llvm::raw_ostream &OS) {
+  bool reportInconsistentMacros(llvm::raw_ostream &OS) override {
     bool ReturnValue = false;
     // Walk all the macro expansion trackers in the map.
     for (MacroExpansionMapIter I = MacroExpansions.begin(),
@@ -1269,7 +1203,7 @@ public:
 
   // Report on inconsistent conditional instances.
   // Returns true if any mismatches.
-  bool reportInconsistentConditionals(llvm::raw_ostream &OS) {
+  bool reportInconsistentConditionals(llvm::raw_ostream &OS) override {
     bool ReturnValue = false;
     // Walk all the conditional trackers in the map.
     for (ConditionalExpansionMapIter I = ConditionalExpansions.begin(),
@@ -1349,6 +1283,8 @@ private:
   ConditionalExpansionMap ConditionalExpansions;
   bool InNestedHeader;
 };
+
+} // namespace
 
 // PreprocessorTracker functions.
 
