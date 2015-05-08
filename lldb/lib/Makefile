@@ -29,6 +29,7 @@ USEDLIBS = lldbAPI.a \
 	lldbDataFormatters.a \
 	lldbExpression.a \
 	lldbHostCommon.a \
+	lldbInitialize.a \
 	lldbInitAndLog.a \
 	lldbInterpreter.a \
 	lldbPluginABIMacOSX_arm.a \
@@ -45,9 +46,11 @@ USEDLIBS = lldbAPI.a \
 	lldbPluginDynamicLoaderMacOSX.a \
 	lldbPluginEmulateInstructionARM.a \
 	lldbPluginEmulateInstructionARM64.a \
+        lldbPluginEmulateInstructionMIPS64.a \
 	lldbPluginInstrumentationRuntimeAddressSanitizer.a \
 	lldbPluginLanguageRuntimeCPlusPlusItaniumABI.a \
 	lldbPluginLanguageRuntimeObjCAppleObjCRuntime.a \
+	lldbPluginLanguageRuntimeRenderScriptRuntime.a \
 	lldbPluginMemoryHistoryASan.a \
 	lldbPluginObjectContainerBSDArchive.a \
 	lldbPluginObjectContainerUniversalMachO.a \

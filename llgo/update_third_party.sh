@@ -1,13 +1,13 @@
 #!/bin/sh -e
 
 gofrontendrepo=https://code.google.com/p/gofrontend
-gofrontendrev=0fde0b6a7eb2
+gofrontendrev=15a24202fa42
 
 gccrepo=svn://gcc.gnu.org/svn/gcc/trunk
-gccrev=216268
+gccrev=219477
 
 gotoolsrepo=https://go.googlesource.com/tools
-gotoolsrev=47f2109c640e97025f36c98610bd9782e815012e
+gotoolsrev=d4e70101500b43ffe705d4c45e50dd4f1c8e3b2e
 
 tempdir=$(mktemp -d /tmp/update_third_party.XXXXXX)
 gofrontenddir=$tempdir/gofrontend
@@ -25,6 +25,8 @@ cp -r $gofrontenddir/LICENSE $gofrontenddir/libgo third_party/gofrontend
 # Apply a diff that eliminates use of the unnamed struct extension beyond what
 # -fms-extensions supports.
 (cd third_party/gofrontend && patch -p1) < libgo-noext.diff
+# Apply a diff that disables testing of packages known to fail.
+(cd third_party/gofrontend && patch -p1) < libgo-check-failures.diff
 find third_party/gofrontend -name '*.orig' -exec rm \{\} \;
 
 # Remove GPL licensed files.
@@ -61,10 +63,14 @@ rm \
   third_party/gofrontend/libffi/ChangeLog \
   third_party/gofrontend/libffi/doc/libffi.texi \
   third_party/gofrontend/libffi/msvcc.sh \
-  third_party/gofrontend/libffi/testsuite/lib/libffi.exp \
+  third_party/gofrontend/libffi/testsuite/config/default.exp \
   third_party/gofrontend/libffi/testsuite/libffi.call/call.exp \
+  third_party/gofrontend/libffi/testsuite/libffi.complex/complex.exp \
+  third_party/gofrontend/libffi/testsuite/libffi.go/go.exp \
   third_party/gofrontend/libffi/testsuite/libffi.special/special.exp \
-  third_party/gofrontend/libffi/testsuite/config/default.exp
+  third_party/gofrontend/libffi/testsuite/lib/libffi.exp \
+  third_party/gofrontend/libffi/testsuite/lib/target-libpath.exp \
+  third_party/gofrontend/libffi/testsuite/lib/wrapper.exp
 
 # The build requires these files to exist.
 touch \
@@ -81,11 +87,6 @@ cp -r $gotoolsdir/LICENSE $gotoolsdir/go third_party/gotools
 # Vendor the go.tools repository.
 find third_party/gotools -name '*.go' | xargs sed -i -e \
   's,"golang.org/x/tools/,"llvm.org/llgo/third_party/gotools/,g'
-
-# Until the version skew between the "go" tool and the compiler is resolved,
-# we patch out Go 1.4 specific code in go.tools.
-sed -i -e '/go1\.4/ d' third_party/gotools/go/exact/go13.go
-rm third_party/gotools/go/exact/go14.go
 
 # --------------------- license check ---------------------
 

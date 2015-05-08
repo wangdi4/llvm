@@ -19,7 +19,6 @@
 // Other libraries and framework includes
 #include "llvm/ADT/Triple.h"
 #include "lldb/Core/Log.h"
-#include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/StreamGDBRemote.h"
 #include "lldb/Core/StreamString.h"
@@ -40,8 +39,13 @@
 #include "ProcessGDBRemoteLog.h"
 #include "Utility/StringExtractorGDBRemote.h"
 
+#ifdef __ANDROID__
+#include "lldb/Host/android/HostInfoAndroid.h"
+#endif
+
 using namespace lldb;
 using namespace lldb_private;
+using namespace lldb_private::process_gdb_remote;
 
 #ifdef __ANDROID__
     const static uint32_t g_default_packet_timeout_sec = 20; // seconds
@@ -67,6 +71,8 @@ GDBRemoteCommunicationServerCommon::GDBRemoteCommunicationServerCommon(const cha
                                   &GDBRemoteCommunicationServerCommon::Handle_A);
     RegisterMemberFunctionHandler(StringExtractorGDBRemote::eServerPacketType_QEnvironment,
                                   &GDBRemoteCommunicationServerCommon::Handle_QEnvironment);
+    RegisterMemberFunctionHandler(StringExtractorGDBRemote::eServerPacketType_QEnvironmentHexEncoded,
+                                  &GDBRemoteCommunicationServerCommon::Handle_QEnvironmentHexEncoded);
     RegisterMemberFunctionHandler(StringExtractorGDBRemote::eServerPacketType_qfProcessInfo,
                                   &GDBRemoteCommunicationServerCommon::Handle_qfProcessInfo);
     RegisterMemberFunctionHandler(StringExtractorGDBRemote::eServerPacketType_qGroupName,
@@ -564,12 +570,14 @@ GDBRemoteCommunicationServerCommon::Handle_vFile_Open (StringExtractorGDBRemote 
     {
         if (packet.GetChar() == ',')
         {
-            uint32_t flags = packet.GetHexMaxU32(false, 0);
+            uint32_t flags = File::ConvertOpenOptionsForPOSIXOpen(
+                packet.GetHexMaxU32(false, 0));
             if (packet.GetChar() == ',')
             {
                 mode_t mode = packet.GetHexMaxU32(false, 0600);
                 Error error;
-                int fd = ::open (path.c_str(), flags, mode);
+                const FileSpec path_spec(path.c_str(), true);
+                int fd = ::open (path_spec.GetPath().c_str(), flags, mode);
                 const int save_errno = fd == -1 ? errno : 0;
                 StreamString response;
                 response.PutChar('F');
@@ -1018,6 +1026,21 @@ GDBRemoteCommunicationServerCommon::Handle_QEnvironment (StringExtractorGDBRemot
 }
 
 GDBRemoteCommunication::PacketResult
+GDBRemoteCommunicationServerCommon::Handle_QEnvironmentHexEncoded (StringExtractorGDBRemote &packet)
+{
+    packet.SetFilePos(::strlen("QEnvironmentHexEncoded:"));
+    const uint32_t bytes_left = packet.GetBytesLeft();
+    if (bytes_left > 0)
+    {
+        std::string str;
+        packet.GetHexByteString(str);
+        m_process_launch_info.GetEnvironmentEntries().AppendArgument(str.c_str());
+        return SendOKResponse();
+    }
+    return SendErrorResponse(12);
+}
+
+GDBRemoteCommunication::PacketResult
 GDBRemoteCommunicationServerCommon::Handle_QLaunchArch (StringExtractorGDBRemote &packet)
 {
     packet.SetFilePos(::strlen ("QLaunchArch:"));
@@ -1132,14 +1155,17 @@ GDBRemoteCommunicationServerCommon::Handle_qModuleInfo (StringExtractorGDBRemote
     packet.GetHexByteStringTerminatedBy(module_path, ';');
     if (module_path.empty())
         return SendErrorResponse (1);
-    const FileSpec module_path_spec(module_path.c_str(), true);
 
     if (packet.GetChar() != ';')
         return SendErrorResponse (2);
 
     std::string triple;
     packet.GetHexByteString(triple);
-    const ModuleSpec module_spec(module_path_spec, ArchSpec(triple.c_str()));
+    ArchSpec arch(triple.c_str());
+
+    const FileSpec req_module_path_spec(module_path.c_str(), true);
+    const FileSpec module_path_spec = FindModuleFile(req_module_path_spec.GetPath(), arch);
+    const ModuleSpec module_spec(module_path_spec, arch);
 
     ModuleSpecList module_specs;
     if (!ObjectFile::GetModuleSpecifications(module_path_spec, 0, 0, module_specs))
@@ -1149,19 +1175,16 @@ GDBRemoteCommunicationServerCommon::Handle_qModuleInfo (StringExtractorGDBRemote
     if (!module_specs.FindMatchingModuleSpec(module_spec, matched_module_spec))
         return SendErrorResponse (4);
 
-    const ModuleSP module(new Module(matched_module_spec));
-
-    const auto obj_file(module->GetObjectFile());
-    const auto file_offset = obj_file->GetFileOffset();
-    const auto file_size = obj_file->GetByteSize();
+    const auto file_offset = matched_module_spec.GetObjectOffset();
+    const auto file_size = matched_module_spec.GetObjectSize();
+    const auto uuid_str = matched_module_spec.GetUUID().GetAsString("");
 
     StreamGDBRemote response;
 
-    const auto uuid_str = module->GetUUID().GetAsString();
     if (uuid_str.empty())
     {
         std::string md5_hash;
-        if (!FileSystem::CalculateMD5AsString(module_path_spec, file_offset, file_size, md5_hash))
+        if (!FileSystem::CalculateMD5AsString(matched_module_spec.GetFileSpec(), file_offset, file_size, md5_hash))
             return SendErrorResponse (5);
         response.PutCString ("md5:");
         response.PutCStringAsRawHex8(md5_hash.c_str());
@@ -1177,6 +1200,9 @@ GDBRemoteCommunicationServerCommon::Handle_qModuleInfo (StringExtractorGDBRemote
     response.PutCStringAsRawHex8( module_arch.GetTriple().getTriple().c_str());
     response.PutChar(';');
 
+    response.PutCString("file_path:");
+    response.PutCStringAsRawHex8(module_path_spec.GetPath().c_str());
+    response.PutChar(';');
     response.PutCString("file_offset:");
     response.PutHex64(file_offset);
     response.PutChar(';');
@@ -1199,7 +1225,7 @@ GDBRemoteCommunicationServerCommon::CreateProcessInfoResponse (const ProcessInst
                      proc_info.GetEffectiveUserID(),
                      proc_info.GetEffectiveGroupID());
     response.PutCString ("name:");
-    response.PutCStringAsRawHex8(proc_info.GetName());
+    response.PutCStringAsRawHex8(proc_info.GetExecutableFile().GetPath().c_str());
     response.PutChar(';');
     const ArchSpec &proc_arch = proc_info.GetArchitecture();
     if (proc_arch.IsValid())
@@ -1281,4 +1307,15 @@ GDBRemoteCommunicationServerCommon::CreateProcessInfoResponse_DebugServerStyle (
         else if (proc_triple.isArch16Bit ())
             response.PutCString ("ptrsize:2;");
     }
+}
+
+FileSpec
+GDBRemoteCommunicationServerCommon::FindModuleFile(const std::string& module_path,
+                                                   const ArchSpec& arch)
+{
+#ifdef __ANDROID__
+    return HostInfoAndroid::ResolveLibraryPath(module_path, arch);
+#else
+    return FileSpec(module_path.c_str(), true);
+#endif
 }

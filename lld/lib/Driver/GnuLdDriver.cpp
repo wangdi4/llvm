@@ -15,7 +15,6 @@
 
 #include "lld/Driver/Driver.h"
 #include "lld/ReaderWriter/ELFLinkingContext.h"
-#include "lld/ReaderWriter/ELFTargets.h"
 #include "lld/ReaderWriter/LinkerScript.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Optional.h"
@@ -125,7 +124,7 @@ getFileMagic(StringRef path, llvm::sys::fs::file_magic &magic) {
   case llvm::sys::fs::file_magic::unknown:
     return std::error_code();
   default:
-    return make_dynamic_error_code(StringRef("unknown type of object file"));
+    return make_dynamic_error_code("unknown type of object file");
   }
 }
 
@@ -308,9 +307,14 @@ std::error_code GnuLdDriver::evalLinkerScript(ELFLinkingContext &ctx,
       ctx.setEntrySymbolName(entry->getEntryName());
     if (auto *output = dyn_cast<script::Output>(c))
       ctx.setOutputPath(output->getOutputFileName());
+    if (auto *externs = dyn_cast<script::Extern>(c)) {
+      for (auto symbol : *externs) {
+        ctx.addInitialUndefinedSymbol(symbol);
+      }
+    }
   }
   // Transfer ownership of the script to the linking context
-  ctx.addLinkerScript(std::move(parser));
+  ctx.linkerScriptSema().addLinkerScript(std::move(parser));
   return std::error_code();
 }
 
@@ -345,17 +349,13 @@ void GnuLdDriver::addPlatformSearchDirs(ELFLinkingContext &ctx,
 std::unique_ptr<ELFLinkingContext>
 GnuLdDriver::createELFLinkingContext(llvm::Triple triple) {
   std::unique_ptr<ELFLinkingContext> p;
-  // FIXME: #include "llvm/Config/Targets.def"
-#define LLVM_TARGET(targetName) \
-  if ((p = elf::targetName##LinkingContext::create(triple))) return p;
-  LLVM_TARGET(AArch64)
-  LLVM_TARGET(ARM)
-  LLVM_TARGET(Hexagon)
-  LLVM_TARGET(Mips)
-  LLVM_TARGET(X86)
-  LLVM_TARGET(Example)
-  LLVM_TARGET(X86_64)
-#undef LLVM_TARGET
+  if ((p = elf::createAArch64LinkingContext(triple))) return p;
+  if ((p = elf::createARMLinkingContext(triple))) return p;
+  if ((p = elf::createExampleLinkingContext(triple))) return p;
+  if ((p = elf::createHexagonLinkingContext(triple))) return p;
+  if ((p = elf::createMipsLinkingContext(triple))) return p;
+  if ((p = elf::createX86LinkingContext(triple))) return p;
+  if ((p = elf::createX86_64LinkingContext(triple))) return p;
   return nullptr;
 }
 
@@ -475,6 +475,12 @@ bool GnuLdDriver::parse(int argc, const char *argv[],
     }
   }
 
+  if (parsedArgs->hasArg(OPT_discard_loc))
+    ctx->setDiscardLocals(true);
+
+  if (parsedArgs->hasArg(OPT_discard_temp_loc))
+    ctx->setDiscardTempLocals(true);
+
   if (parsedArgs->hasArg(OPT_strip_all))
     ctx->setStripSymbols(true);
 
@@ -537,6 +543,37 @@ bool GnuLdDriver::parse(int argc, const char *argv[],
 
   if (auto *arg = parsedArgs->getLastArg(OPT_output_filetype))
     ctx->setOutputFileType(arg->getValue());
+
+  // Process ELF/ARM specific options
+  bool hasArmTarget1Rel = parsedArgs->hasArg(OPT_target1_rel);
+  bool hasArmTarget1Abs = parsedArgs->hasArg(OPT_target1_abs);
+  if (triple.getArch() == llvm::Triple::arm) {
+    if (hasArmTarget1Rel && hasArmTarget1Abs) {
+      diag << "error: options --target1-rel and --target1-abs"
+              " can't be used together.\n";
+      return false;
+    } else if (hasArmTarget1Rel || hasArmTarget1Abs) {
+      ctx->setArmTarget1Rel(hasArmTarget1Rel && !hasArmTarget1Abs);
+    }
+  } else {
+    for (const auto *arg : parsedArgs->filtered(OPT_grp_arm_targetopts)) {
+      diag << "warning: ignoring unsupported ARM/ELF specific argument: "
+           << arg->getSpelling() << "\n";
+    }
+  }
+
+  // Process MIPS specific options.
+  if (triple.getArch() == llvm::Triple::mips ||
+      triple.getArch() == llvm::Triple::mipsel ||
+      triple.getArch() == llvm::Triple::mips64 ||
+      triple.getArch() == llvm::Triple::mips64el)
+    ctx->setMipsPcRelEhRel(parsedArgs->hasArg(OPT_pcrel_eh_reloc));
+  else {
+    for (const auto *arg : parsedArgs->filtered(OPT_grp_mips_targetopts)) {
+      diag << "warning: ignoring unsupported MIPS specific argument: "
+           << arg->getSpelling() << "\n";
+    }
+  }
 
   for (auto *arg : parsedArgs->filtered(OPT_L))
     ctx->addSearchPath(arg->getValue());
@@ -601,6 +638,10 @@ bool GnuLdDriver::parse(int argc, const char *argv[],
       ctx->addRpathLink(path);
   }
 
+  // Enable new dynamic tags.
+  if (parsedArgs->hasArg(OPT_enable_newdtags))
+    ctx->setEnableNewDtags(true);
+
   // Support --wrap option.
   for (auto *arg : parsedArgs->filtered(OPT_wrap))
     ctx->addWrapForSymbol(arg->getValue());
@@ -609,7 +650,6 @@ bool GnuLdDriver::parse(int argc, const char *argv[],
   ctx->registry().addSupportELFObjects(*ctx);
   ctx->registry().addSupportArchives(ctx->logInputFiles());
   ctx->registry().addSupportYamlFiles();
-  ctx->registry().addSupportNativeObjects();
   if (ctx->allowLinkWithDynamicLibraries())
     ctx->registry().addSupportELFDynamicSharedObjects(*ctx);
 
@@ -654,7 +694,8 @@ bool GnuLdDriver::parse(int argc, const char *argv[],
     }
 
     case OPT_INPUT:
-    case OPT_l: {
+    case OPT_l:
+    case OPT_T: {
       bool dashL = (arg->getOption().getID() == OPT_l);
       StringRef path = arg->getValue();
 
@@ -715,9 +756,6 @@ bool GnuLdDriver::parse(int argc, const char *argv[],
     case LinkingContext::OutputFileType::YAML:
       ctx->setOutputPath("-");
       break;
-    case LinkingContext::OutputFileType::Native:
-      ctx->setOutputPath("a.native");
-      break;
     default:
       ctx->setOutputPath("a.out");
       break;
@@ -727,6 +765,9 @@ bool GnuLdDriver::parse(int argc, const char *argv[],
   // Validate the combination of options used.
   if (!ctx->validate(diag))
     return false;
+
+  // Perform linker script semantic actions
+  ctx->linkerScriptSema().perform();
 
   context.swap(ctx);
   return true;

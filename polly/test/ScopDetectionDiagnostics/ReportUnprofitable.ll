@@ -1,6 +1,5 @@
 ; RUN: opt %loadPolly -pass-remarks-missed="polly-detect" -polly-detect-track-failures -polly-detect -analyze < %s 2>&1| FileCheck %s
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
 
 ; void onlyWrite(float *A) {
 ;   for (long i = 0; i < 100; i++)
@@ -13,9 +12,11 @@ target triple = "x86_64-unknown-linux-gnu"
 ; }
 
 ; CHECK: remark: /tmp/test.c:2:3: The following errors keep this region from being a Scop.
+; CHECK: remark: /tmp/test.c:2:3: No profitable polyhedral optimization found
 ; CHECK: remark: /tmp/test.c:3:10: Invalid Scop candidate ends here.
 
 ; CHECK: remark: /tmp/test.c:7:3: The following errors keep this region from being a Scop.
+; CHECK: remark: /tmp/test.c:7:3: No profitable polyhedral optimization found
 ; CHECK: remark: /tmp/test.c:8:10: Invalid Scop candidate ends here.
 
 

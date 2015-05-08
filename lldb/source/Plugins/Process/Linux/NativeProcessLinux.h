@@ -27,12 +27,13 @@
 
 #include "lldb/Host/common/NativeProcessProtocol.h"
 
-namespace lldb_private
-{
+namespace lldb_private {
     class Error;
     class Module;
-    class ThreadStateCoordinator;
     class Scalar;
+
+namespace process_linux {
+    class ThreadStateCoordinator;
 
     /// @class NativeProcessLinux
     /// @brief Manages communication with the inferior (debugee) process.
@@ -45,20 +46,17 @@ namespace lldb_private
     {
     public:
 
-        // ---------------------------------------------------------------------
-        // Public Static Methods
-        // ---------------------------------------------------------------------
-        static lldb_private::Error
+        static Error
         LaunchProcess (
             Module *exe_module,
             ProcessLaunchInfo &launch_info,
-            lldb_private::NativeProcessProtocol::NativeDelegate &native_delegate,
+            NativeProcessProtocol::NativeDelegate &native_delegate,
             NativeProcessProtocolSP &native_process_sp);
 
-        static lldb_private::Error
+        static Error
         AttachToProcess (
             lldb::pid_t pid,
-            lldb_private::NativeProcessProtocol::NativeDelegate &native_delegate,
+            NativeProcessProtocol::NativeDelegate &native_delegate,
             NativeProcessProtocolSP &native_process_sp);
 
         // ---------------------------------------------------------------------
@@ -125,7 +123,7 @@ namespace lldb_private
         /// This method is provided for use by RegisterContextLinux derivatives.
         Error
         ReadRegisterValue(lldb::tid_t tid, unsigned offset, const char *reg_name,
-                          unsigned size, lldb_private::RegisterValue &value);
+                          unsigned size, RegisterValue &value);
 
         /// Writes the given value to the register identified by the given
         /// (architecture dependent) offset.
@@ -133,7 +131,7 @@ namespace lldb_private
         /// This method is provided for use by RegisterContextLinux derivatives.
         Error
         WriteRegisterValue(lldb::tid_t tid, unsigned offset, const char *reg_name,
-                           const lldb_private::RegisterValue &value);
+                           const RegisterValue &value);
 
         /// Reads all general purpose registers into the specified buffer.
         Error
@@ -160,7 +158,10 @@ namespace lldb_private
         /// For instance, the extended floating-point register set.
         Error
         WriteRegisterSet(lldb::tid_t tid, void *buf, size_t buf_size, unsigned int regset);
-        
+
+        Error
+        GetLoadedModuleFileSpec(const char* module_path, FileSpec& file_spec) override;
+
     protected:
         // ---------------------------------------------------------------------
         // NativeProcessProtocol protected interface
@@ -170,75 +171,51 @@ namespace lldb_private
 
     private:
 
-        lldb_private::ArchSpec m_arch;
+        class Monitor;
 
-        HostThread m_operation_thread;
-        HostThread m_monitor_thread;
+        ArchSpec m_arch;
 
-        // current operation which must be executed on the priviliged thread
-        void *m_operation;
-        lldb_private::Mutex m_operation_mutex;
+        std::unique_ptr<Monitor> m_monitor_up;
 
-        // semaphores notified when Operation is ready to be processed and when
-        // the operation is complete.
-        sem_t m_operation_pending;
-        sem_t m_operation_done;
-
-        lldb_private::LazyBool m_supports_mem_region;
+        LazyBool m_supports_mem_region;
         std::vector<MemoryRegionInfo> m_mem_region_cache;
-        lldb_private::Mutex m_mem_region_cache_mutex;
+        Mutex m_mem_region_cache_mutex;
 
         std::unique_ptr<ThreadStateCoordinator> m_coordinator_up;
         HostThread m_coordinator_thread;
 
-        struct OperationArgs
-        {
-            OperationArgs(NativeProcessLinux *monitor);
-
-            ~OperationArgs();
-
-            NativeProcessLinux *m_monitor;      // The monitor performing the attach.
-            sem_t m_semaphore;              // Posted to once operation complete.
-            lldb_private::Error m_error;    // Set if process operation failed.
-        };
+        // List of thread ids stepping with a breakpoint with the address of
+        // the relevan breakpoint
+        std::map<lldb::tid_t, lldb::addr_t> m_threads_stepping_with_breakpoint;
 
         /// @class LauchArgs
         ///
         /// @brief Simple structure to pass data to the thread responsible for
         /// launching a child process.
-        struct LaunchArgs : OperationArgs
+        struct LaunchArgs
         {
-            LaunchArgs(NativeProcessLinux *monitor,
-                    lldb_private::Module *module,
+            LaunchArgs(Module *module,
                     char const **argv,
                     char const **envp,
                     const std::string &stdin_path,
                     const std::string &stdout_path,
                     const std::string &stderr_path,
                     const char *working_dir,
-                    const lldb_private::ProcessLaunchInfo &launch_info);
+                    const ProcessLaunchInfo &launch_info);
 
             ~LaunchArgs();
 
-            lldb_private::Module *m_module; // The executable image to launch.
-            char const **m_argv;            // Process arguments.
-            char const **m_envp;            // Process environment.
+            Module *m_module;                 // The executable image to launch.
+            char const **m_argv;              // Process arguments.
+            char const **m_envp;              // Process environment.
             const std::string &m_stdin_path;  // Redirect stdin if not empty.
             const std::string &m_stdout_path; // Redirect stdout if not empty.
             const std::string &m_stderr_path; // Redirect stderr if not empty.
-            const char *m_working_dir;      // Working directory or NULL.
-            const lldb_private::ProcessLaunchInfo &m_launch_info;
+            const char *m_working_dir;        // Working directory or NULL.
+            const ProcessLaunchInfo &m_launch_info;
         };
 
-        struct AttachArgs : OperationArgs
-        {
-            AttachArgs(NativeProcessLinux *monitor,
-                       lldb::pid_t pid);
-
-            ~AttachArgs();
-
-            lldb::pid_t m_pid;              // pid of the process to be attached.
-        };
+        typedef std::function<::pid_t(Error &)> InitialOperation;
 
         // ---------------------------------------------------------------------
         // Private Instance Methods
@@ -256,50 +233,55 @@ namespace lldb_private
             const std::string &stdout_path,
             const std::string &stderr_path,
             const char *working_dir,
-            const lldb_private::ProcessLaunchInfo &launch_info,
+            const ProcessLaunchInfo &launch_info,
             Error &error);
 
         /// Attaches to an existing process.  Forms the
-        /// implementation of Process::DoLaunch.
+        /// implementation of Process::DoAttach
         void
         AttachToInferior (lldb::pid_t pid, Error &error);
 
         void
-        StartLaunchOpThread(LaunchArgs *args, lldb_private::Error &error);
+        StartMonitorThread(const InitialOperation &operation, Error &error);
 
-        static void *
-        LaunchOpThread(void *arg);
+        ::pid_t
+        Launch(LaunchArgs *args, Error &error);
 
-        static bool
-        Launch(LaunchArgs *args);
-
-        void
-        StartAttachOpThread(AttachArgs *args, lldb_private::Error &error);
-
-        static void *
-        AttachOpThread(void *args);
-
-        static bool
-        Attach(AttachArgs *args);
+        ::pid_t
+        Attach(lldb::pid_t pid, Error &error);
 
         static Error
         SetDefaultPtraceOpts(const lldb::pid_t);
 
-        static void
-        ServeOperation(OperationArgs *args);
-
         static bool
         DupDescriptor(const char *path, int fd, int flags);
 
-        static bool
-        MonitorCallback(void *callback_baton,
-                lldb::pid_t pid, bool exited, int signal, int status);
+        static void *
+        MonitorThread(void *baton);
+
+        void
+        MonitorCallback(lldb::pid_t pid, bool exited, int signal, int status);
 
         void
         MonitorSIGTRAP(const siginfo_t *info, lldb::pid_t pid);
 
         void
+        MonitorTrace(lldb::pid_t pid, NativeThreadProtocolSP thread_sp);
+
+        void
+        MonitorBreakpoint(lldb::pid_t pid, NativeThreadProtocolSP thread_sp);
+
+        void
+        MonitorWatchpoint(lldb::pid_t pid, NativeThreadProtocolSP thread_sp, uint32_t wp_index);
+
+        void
         MonitorSignal(const siginfo_t *info, lldb::pid_t pid, bool exited);
+
+        bool
+        SupportHardwareSingleStepping() const;
+
+        Error
+        SetupSoftwareSingleStepping(NativeThreadProtocolSP thread_sp);
 
 #if 0
         static ::ProcessMessage::CrashReason
@@ -314,17 +296,6 @@ namespace lldb_private
         static ::ProcessMessage::CrashReason
         GetCrashReasonForSIGBUS(const siginfo_t *info);
 #endif
-
-        void
-        DoOperation(void *op);
-
-        /// Stops the child monitor thread.
-        void
-        StopMonitoringChildProcess();
-
-        /// Stops the operation thread used to attach/launch a process.
-        void
-        StopOpThread();
 
         Error
         StartCoordinatorThread ();
@@ -351,11 +322,8 @@ namespace lldb_private
         NativeThreadProtocolSP
         AddThread (lldb::tid_t thread_id);
 
-        NativeThreadProtocolSP
-        GetOrCreateThread (lldb::tid_t thread_id, bool &created);
-
         Error
-        GetSoftwareBreakpointSize (NativeRegisterContextSP context_sp, uint32_t &actual_opcode_size);
+        GetSoftwareBreakpointPCOffset (NativeRegisterContextSP context_sp, uint32_t &actual_opcode_size);
 
         Error
         FixupBreakpointPCAsNeeded (NativeThreadProtocolSP &thread_sp);
@@ -403,12 +371,14 @@ namespace lldb_private
                                                 lldb::tid_t skip_stop_request_tid,
                                                 const std::function<void (lldb::tid_t tid)> &call_after_function);
 
-        lldb_private::Error
+        Error
         Detach(lldb::tid_t tid);
 
-        lldb_private::Error
+        Error
         RequestThreadStop (const lldb::pid_t pid, const lldb::tid_t tid);
     };
-} // End lldb_private namespace.
+
+} // namespace process_linux
+} // namespace lldb_private
 
 #endif // #ifndef liblldb_NativeProcessLinux_H_

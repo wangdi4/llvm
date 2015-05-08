@@ -15,11 +15,13 @@
 #include "lldb/Host/HostInfo.h"
 
 // Project includes
+#include "AdbClient.h"
 #include "PlatformAndroid.h"
 #include "PlatformAndroidRemoteGDBServer.h"
 
 using namespace lldb;
 using namespace lldb_private;
+using namespace lldb_private::platform_android;
 
 static uint32_t g_initialize_count = 0;
 
@@ -58,7 +60,7 @@ PlatformAndroid::Terminate ()
 PlatformSP
 PlatformAndroid::CreateInstance (bool force, const ArchSpec *arch)
 {
-    Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_PLATFORM));
+    Log *log(GetLogIfAllCategoriesSet (LIBLLDB_LOG_PLATFORM));
     if (log)
     {
         const char *arch_name;
@@ -138,7 +140,7 @@ PlatformAndroid::~PlatformAndroid()
 {
 }
 
-lldb_private::ConstString
+ConstString
 PlatformAndroid::GetPluginNameStatic (bool is_host)
 {
     if (is_host)
@@ -162,7 +164,7 @@ PlatformAndroid::GetPluginDescriptionStatic (bool is_host)
         return "Remote Android user platform plug-in.";
 }
 
-lldb_private::ConstString
+ConstString
 PlatformAndroid::GetPluginName()
 {
     return GetPluginNameStatic(IsHost());
@@ -171,6 +173,8 @@ PlatformAndroid::GetPluginName()
 Error
 PlatformAndroid::ConnectRemote (Args& args)
 {
+    m_device_id.clear ();
+
     if (IsHost())
     {
         return Error ("can't connect to the host platform '%s', always connected", GetPluginName().GetCString());
@@ -178,5 +182,24 @@ PlatformAndroid::ConnectRemote (Args& args)
 
     if (!m_remote_platform_sp)
         m_remote_platform_sp = PlatformSP(new PlatformAndroidRemoteGDBServer());
-    return PlatformLinux::ConnectRemote (args);
+
+    auto error = PlatformLinux::ConnectRemote (args);
+    if (error.Success ())
+    {
+        // Fetch the device list from ADB and if only 1 device found then use that device
+        // TODO: Handle the case when more device is available
+        AdbClient adb;
+        error = AdbClient::CreateByDeviceID (nullptr, adb);
+        if (error.Fail ())
+            return error;
+
+        m_device_id = adb.GetDeviceID ();
+    }
+    return error;
+}
+
+const char *
+PlatformAndroid::GetCacheHostname ()
+{
+    return m_device_id.c_str ();
 }
