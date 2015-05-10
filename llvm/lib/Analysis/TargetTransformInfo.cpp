@@ -267,6 +267,12 @@ Value *TargetTransformInfo::getOrCreateResultFromMemIntrinsic(
   return TTIImpl->getOrCreateResultFromMemIntrinsic(Inst, ExpectedType);
 }
 
+#if INTEL_CUSTOMIZATION
+bool TargetTransformInfo::adjustCallArgs(CallInst *CI) const {
+  return TTIImpl->adjustCallArgs(CI);
+}
+#endif
+
 TargetTransformInfo::Concept::~Concept() {}
 
 TargetIRAnalysis::TargetIRAnalysis() : TTICallback(&getDefaultTTI) {}

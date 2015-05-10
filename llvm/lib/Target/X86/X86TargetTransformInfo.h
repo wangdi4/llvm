@@ -105,7 +105,9 @@ public:
   bool isLegalMaskedStore(Type *DataType);
   bool isLegalGather(Type *DataType);
   bool isLegalScatter(Type *DataType);
-
+#if INTEL_CUSTOMIZATION
+  bool adjustCallArgs(CallInst* CI);
+#endif
   /// @}
 };
 

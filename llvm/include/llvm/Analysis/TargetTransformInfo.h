@@ -484,7 +484,9 @@ public:
   /// from the given intrinsic.
   Value *getOrCreateResultFromMemIntrinsic(IntrinsicInst *Inst,
                                            Type *ExpectedType) const;
-
+#if INTEL_CUSTOMIZATION
+  bool adjustCallArgs(CallInst *) const;
+#endif
   /// @}
 
 private:
@@ -577,6 +579,7 @@ public:
                                   MemIntrinsicInfo &Info) = 0;
   virtual Value *getOrCreateResultFromMemIntrinsic(IntrinsicInst *Inst,
                                                    Type *ExpectedType) = 0;
+  virtual bool adjustCallArgs(CallInst *) = 0;
 };
 
 template <typename T>
@@ -746,6 +749,9 @@ public:
   Value *getOrCreateResultFromMemIntrinsic(IntrinsicInst *Inst,
                                            Type *ExpectedType) override {
     return Impl.getOrCreateResultFromMemIntrinsic(Inst, ExpectedType);
+  }
+  bool adjustCallArgs(CallInst *CI) override {
+    return Impl.adjustCallArgs(CI);
   }
 };
 

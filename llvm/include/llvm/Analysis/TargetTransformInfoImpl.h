@@ -321,6 +321,9 @@ public:
                                            Type *ExpectedType) {
     return nullptr;
   }
+#if INTEL_CUSTOMIZATION
+  bool adjustCallArgs(CallInst *CI) { return false; }
+#endif
 };
 
 /// \brief CRTP base class for use as a mix-in that aids implementing

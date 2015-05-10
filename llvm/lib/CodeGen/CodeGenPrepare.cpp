@@ -1228,6 +1228,11 @@ bool CodeGenPrepare::OptimizeCallInst(CallInst *CI, bool& ModifiedDT) {
       return true;
   }
 
+#if INTEL_CUSTOMIZATION
+  if (TTI->adjustCallArgs(CI))
+    return true;
+#endif
+
   IntrinsicInst *II = dyn_cast<IntrinsicInst>(CI);
   if (II) {
     switch (II->getIntrinsicID()) {
