@@ -64,7 +64,7 @@ private:
 
     Value *visitRegion(HLRegion *R);
     Value *visitLoop(HLLoop *L);
-    Value *visitIf(HLIf *I) { llvm_unreachable("Unimpl CG for If"); }
+    Value *visitIf(HLIf *I);
 
     Value *visitSwitch(HLSwitch *S);
 
@@ -97,6 +97,13 @@ private:
     // c_i
     // is a constant and i_n is an induction variable
     Value *sumIV(CanonExpr *CE);
+
+    /// \brief Generates a bool value* representing truth value of HLIf's
+    /// predicate(s)
+    Value *generateAllPredicates(HLIf *HIf);
+
+    /// \brief Generates a bool value for prediacte in HLIf
+    Value *generatePredicate(HLIf *HIf, HLIf::pred_iterator P);
 
     // \brief Return a value for blob corresponding to BlobIdx
     Value *getBlobValue(int BlobIdx, Type *Ty) {
@@ -300,6 +307,88 @@ Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
 
   Builder->CreateBr(RegionSuccessor);
   // DEBUG(F->dump());
+  return nullptr;
+}
+
+Value *HIRCodeGen::CGVisitor::generatePredicate(HLIf *HIf,
+                                                HLIf::pred_iterator P) {
+  Value *CurPred = nullptr;
+  Value *LHSVal, *RHSVal;
+  RegDDRef *LHSRef = HIf->getPredicateOperandDDRef(P, true);
+  RegDDRef *RHSRef = HIf->getPredicateOperandDDRef(P, false);
+
+  if (!LHSRef || !RHSRef) {
+    // FCMP_TRUE predicates have no refs but we still need some operands
+    assert(!RHSRef && !LHSRef && "Pred ref missing");
+    LHSVal = ConstantFP::get(F->getContext(), APFloat(1.0));
+    if (*P == CmpInst::FCMP_TRUE) {
+      RHSVal = ConstantFP::get(F->getContext(), APFloat(1.0));
+    } else if (*P == CmpInst::FCMP_FALSE) {
+      RHSVal = ConstantFP::get(F->getContext(), APFloat(0.0));
+    } else {
+      llvm_unreachable("unexpected predicate");
+    }
+  } else {
+    LHSVal = visitRegDDRef(LHSRef);
+    RHSVal = visitRegDDRef(RHSRef);
+  }
+  assert(LHSVal->getType() == RHSVal->getType() &&
+         "HLIf predicate type mismatch");
+
+  if (LHSVal->getType()->isIntegerTy()) {
+    CurPred = Builder->CreateICmp(*P, LHSVal, RHSVal, "hir.cmp");
+  } else if (LHSVal->getType()->isFloatTy()) {
+    CurPred = Builder->CreateFCmp(*P, LHSVal, RHSVal, "hir.cmp");
+  } else {
+    llvm_unreachable("unknown predicate type in HIRCG");
+  }
+
+  return CurPred;
+}
+
+Value *HIRCodeGen::CGVisitor::generateAllPredicates(HLIf *HIf) {
+
+  auto FirstPred = HIf->pred_begin();
+  Value *CurPred = generatePredicate(HIf, FirstPred);
+
+  for (auto It = HIf->pred_begin() + 1, E = HIf->pred_end(); It != E; ++It) {
+    // conjunctions are implicitly AND atm.
+    CurPred = Builder->CreateAnd(CurPred, generatePredicate(HIf, It));
+  }
+
+  return CurPred;
+}
+
+Value *HIRCodeGen::CGVisitor::visitIf(HLIf *HIf) {
+
+  llvm_unreachable("Untested CG for HLIf");
+  Value *CondV = generateAllPredicates(HIf);
+
+  BasicBlock *ThenBB = BasicBlock::Create(F->getContext(), "then", F);
+  BasicBlock *ElseBB = BasicBlock::Create(F->getContext(), "else");
+  BasicBlock *MergeBB = BasicBlock::Create(F->getContext(), "ifcont");
+
+  Builder->CreateCondBr(CondV, ThenBB, ElseBB);
+
+  // generate then block
+  Builder->SetInsertPoint(ThenBB);
+  for (auto It = HIf->then_begin(), E = HIf->then_end(); It != E; ++It) {
+    visit(*It);
+  }
+  Builder->CreateBr(MergeBB);
+
+  // generate else block
+  F->getBasicBlockList().push_back(ElseBB);
+  Builder->SetInsertPoint(ElseBB);
+  for (auto It = HIf->else_begin(), E = HIf->else_end(); It != E; ++It) {
+    visit(*It);
+  }
+  Builder->CreateBr(MergeBB);
+
+  // CG resumes at merge block
+  F->getBasicBlockList().push_back(MergeBB);
+  Builder->SetInsertPoint(MergeBB);
+
   return nullptr;
 }
 
