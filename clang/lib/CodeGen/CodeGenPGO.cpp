@@ -58,12 +58,16 @@ void CodeGenPGO::setFuncName(llvm::Function *Fn) {
 }
 
 void CodeGenPGO::createFuncNameVar(llvm::GlobalValue::LinkageTypes Linkage) {
-  // Usually, we want to match the function's linkage, but
-  // available_externally and extern_weak both have the wrong semantics.
+  // We generally want to match the function's linkage, but available_externally
+  // and extern_weak both have the wrong semantics, and anything that doesn't
+  // need to link across compilation units doesn't need to be visible at all.
   if (Linkage == llvm::GlobalValue::ExternalWeakLinkage)
     Linkage = llvm::GlobalValue::LinkOnceAnyLinkage;
   else if (Linkage == llvm::GlobalValue::AvailableExternallyLinkage)
     Linkage = llvm::GlobalValue::LinkOnceODRLinkage;
+  else if (Linkage == llvm::GlobalValue::InternalLinkage ||
+           Linkage == llvm::GlobalValue::ExternalLinkage)
+    Linkage = llvm::GlobalValue::PrivateLinkage;
 
   auto *Value =
       llvm::ConstantDataArray::getString(CGM.getLLVMContext(), FuncName, false);
@@ -725,7 +729,7 @@ void CodeGenPGO::emitCounterRegionMapping(const Decl *D) {
 }
 
 void
-CodeGenPGO::emitEmptyCounterMapping(const Decl *D, StringRef FuncName,
+CodeGenPGO::emitEmptyCounterMapping(const Decl *D, StringRef Name,
                                     llvm::GlobalValue::LinkageTypes Linkage) {
   if (SkipCoverageMapping)
     return;
@@ -745,7 +749,7 @@ CodeGenPGO::emitEmptyCounterMapping(const Decl *D, StringRef FuncName,
   if (CoverageMapping.empty())
     return;
 
-  setFuncName(FuncName, Linkage);
+  setFuncName(Name, Linkage);
   CGM.getCoverageMapping()->addFunctionMappingRecord(
       FuncNameVar, FuncName, FunctionHash, CoverageMapping);
 }
@@ -781,11 +785,13 @@ CodeGenPGO::applyFunctionAttributes(llvm::IndexedInstrProfReader *PGOReader,
     Fn->addFnAttr(llvm::Attribute::Cold);
 }
 
-void CodeGenPGO::emitCounterIncrement(CGBuilderTy &Builder, unsigned Counter) {
+void CodeGenPGO::emitCounterIncrement(CGBuilderTy &Builder, const Stmt *S) {
   if (!CGM.getCodeGenOpts().ProfileInstrGenerate || !RegionCounterMap)
     return;
   if (!Builder.GetInsertPoint())
     return;
+
+  unsigned Counter = (*RegionCounterMap)[S];
   auto *I8PtrTy = llvm::Type::getInt8PtrTy(CGM.getLLVMContext());
   Builder.CreateCall4(CGM.getIntrinsic(llvm::Intrinsic::instrprof_increment),
                       llvm::ConstantExpr::getBitCast(FuncNameVar, I8PtrTy),
@@ -872,16 +878,13 @@ llvm::MDNode *CodeGenPGO::createBranchWeights(ArrayRef<uint64_t> Weights) {
 }
 
 llvm::MDNode *CodeGenPGO::createLoopWeights(const Stmt *Cond,
-                                            RegionCounter &Cnt) {
+                                            uint64_t LoopCount) {
   if (!haveRegionCounts())
     return nullptr;
-  uint64_t LoopCount = Cnt.getCount();
-  uint64_t CondCount = 0;
-  bool Found = getStmtCount(Cond, CondCount);
-  assert(Found && "missing expected loop condition count");
-  (void)Found;
-  if (CondCount == 0)
+  Optional<uint64_t> CondCount = getStmtCount(Cond);
+  assert(CondCount.hasValue() && "missing expected loop condition count");
+  if (*CondCount == 0)
     return nullptr;
   return createBranchWeights(LoopCount,
-                             std::max(CondCount, LoopCount) - LoopCount);
+                             std::max(*CondCount, LoopCount) - LoopCount);
 }

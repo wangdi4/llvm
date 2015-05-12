@@ -16,7 +16,7 @@
 #include "sanitizer_internal_defs.h"
 #include "sanitizer_libc.h"
 #include "sanitizer_placement_new.h"
-#include "sanitizer_symbolizer.h"
+#include "sanitizer_symbolizer_internal.h"
 
 namespace __sanitizer {
 
@@ -68,13 +68,6 @@ Symbolizer *Symbolizer::symbolizer_;
 StaticSpinMutex Symbolizer::init_mu_;
 LowLevelAllocator Symbolizer::symbolizer_allocator_;
 
-Symbolizer *Symbolizer::Disable() {
-  CHECK_EQ(0, symbolizer_);
-  // Initialize a dummy symbolizer.
-  symbolizer_ = new(symbolizer_allocator_) Symbolizer;
-  return symbolizer_;
-}
-
 void Symbolizer::AddHooks(Symbolizer::StartSymbolizationHook start_hook,
                           Symbolizer::EndSymbolizationHook end_hook) {
   CHECK(start_hook_ == 0 && end_hook_ == 0);
@@ -82,7 +75,29 @@ void Symbolizer::AddHooks(Symbolizer::StartSymbolizationHook start_hook,
   end_hook_ = end_hook;
 }
 
-Symbolizer::Symbolizer() : start_hook_(0), end_hook_(0) {}
+const char *Symbolizer::ModuleNameOwner::GetOwnedCopy(const char *str) {
+  mu_->CheckLocked();
+
+  // 'str' will be the same string multiple times in a row, optimize this case.
+  if (last_match_ && !internal_strcmp(last_match_, str))
+    return last_match_;
+
+  // FIXME: this is linear search.
+  // We should optimize this further if this turns out to be a bottleneck later.
+  for (uptr i = 0; i < storage_.size(); ++i) {
+    if (!internal_strcmp(storage_[i], str)) {
+      last_match_ = storage_[i];
+      return last_match_;
+    }
+  }
+  last_match_ = internal_strdup(str);
+  storage_.push_back(last_match_);
+  return last_match_;
+}
+
+Symbolizer::Symbolizer(IntrusiveList<SymbolizerTool> tools)
+    : module_names_(&mu_), n_modules_(0), modules_fresh_(false), tools_(tools),
+      start_hook_(0), end_hook_(0) {}
 
 Symbolizer::SymbolizerScope::SymbolizerScope(const Symbolizer *sym)
     : sym_(sym) {

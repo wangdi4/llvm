@@ -1,6 +1,5 @@
 ; RUN: opt %loadPolly -polly-detect-unprofitable -polly-detect -polly-report -disable-output < %s  2>&1 | FileCheck %s
 target datalayout = "e-i64:64-f80:128-s:64-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define void @foo(float* %A) #0 {
@@ -62,11 +61,11 @@ attributes #0 = { nounwind uwtable "less-precise-fpmad"="false" "no-frame-pointe
 
 !0 = !MDCompileUnit(language: DW_LANG_C99, producer: "clang version 3.5 ", isOptimized: false, emissionKind: 0, file: !1, enums: !2, retainedTypes: !2, subprograms: !3, globals: !2, imports: !2)
 !1 = !MDFile(filename: "test.c", directory: "/home/grosser/Projects/polly/git/tools/polly")
-!2 = !{i32 0}
+!2 = !{}
 !3 = !{!4, !7}
 !4 = !MDSubprogram(name: "foo", line: 1, isLocal: false, isDefinition: true, virtualIndex: 6, flags: DIFlagPrototyped, isOptimized: false, scopeLine: 1, file: !1, scope: !5, type: !6, function: void (float*)* @foo, variables: !2)
 !5 = !MDFile(filename: "test.c", directory: "/home/grosser/Projects/polly/git/tools/polly")
-!6 = !MDSubroutineType(types: !2)
+!6 = !MDSubroutineType(types: !{null})
 !7 = !MDSubprogram(name: "bar", line: 6, isLocal: false, isDefinition: true, virtualIndex: 6, flags: DIFlagPrototyped, isOptimized: false, scopeLine: 6, file: !1, scope: !5, type: !6, function: void (float*)* @bar, variables: !2)
 !8 = !{i32 2, !"Dwarf Version", i32 4}
 !9 = !{i32 1, !"Debug Info Version", i32 3}

@@ -127,11 +127,19 @@ Value *IslExprBuilder::createAccessAddress(isl_ast_expr *Expr) {
     assert(NextIndex->getType()->isIntegerTy() &&
            "Access index should be an integer");
 
-    if (!IndexOp)
+    if (!IndexOp) {
       IndexOp = NextIndex;
-    else
+    } else {
+      Type *Ty = getWidestType(NextIndex->getType(), IndexOp->getType());
+
+      if (Ty != NextIndex->getType())
+        NextIndex = Builder.CreateIntCast(NextIndex, Ty, true);
+      if (Ty != IndexOp->getType())
+        IndexOp = Builder.CreateIntCast(IndexOp, Ty, true);
+
       IndexOp =
           Builder.CreateAdd(IndexOp, NextIndex, "polly.access.add." + BaseName);
+    }
 
     // For every but the last dimension multiply the size, for the last
     // dimension we can exit the loop.
@@ -147,7 +155,9 @@ Value *IslExprBuilder::createAccessAddress(isl_ast_expr *Expr) {
     if (Ty != IndexOp->getType())
       IndexOp = Builder.CreateSExtOrTrunc(IndexOp, Ty,
                                           "polly.access.sext." + BaseName);
-
+    if (Ty != DimSize->getType())
+      DimSize = Builder.CreateSExtOrTrunc(DimSize, Ty,
+                                          "polly.access.sext." + BaseName);
     IndexOp =
         Builder.CreateMul(IndexOp, DimSize, "polly.access.mul." + BaseName);
   }
@@ -580,6 +590,8 @@ Value *IslExprBuilder::createId(__isl_take isl_ast_expr *Expr) {
   assert(IDToValue.count(Id) && "Identifier not found");
 
   V = IDToValue[Id];
+
+  assert(V && "Unknown parameter id found");
 
   isl_id_free(Id);
   isl_ast_expr_free(Expr);

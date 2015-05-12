@@ -96,6 +96,9 @@ Pass *createFunctionInliningPass(unsigned OptLevel, unsigned SizeOptLevel);
 /// functions that are marked as "always_inline".
 Pass *createAlwaysInlinerPass();
 Pass *createAlwaysInlinerPass(bool InsertLifetime);
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+Pass *createAlwaysInlinerPass(bool InsertLifetime, bool Il0BackendMode);
+#endif // INTEL_SPECIFIC_IL0_BACKEND
 
 //===----------------------------------------------------------------------===//
 /// createPruneEHPass - Return a new pass object which transforms invoke

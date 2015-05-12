@@ -33,6 +33,7 @@
 #include <isl/map.h>
 #include <isl/options.h>
 #include <isl/set.h>
+#include <isl/schedule.h>
 
 using namespace polly;
 using namespace llvm;
@@ -42,7 +43,7 @@ using namespace llvm;
 static cl::opt<int> OptComputeOut(
     "polly-dependences-computeout",
     cl::desc("Bound the dependence analysis by a maximal amount of "
-             "computational steps"),
+             "computational steps (0 means no bound)"),
     cl::Hidden, cl::init(250000), cl::ZeroOrMore, cl::cat(PollyCategory));
 
 static cl::opt<bool> LegalityCheckDisabled(
@@ -90,23 +91,24 @@ static void collectInfo(Scop &S, isl_union_map **Read, isl_union_map **Write,
       accdom = isl_map_intersect_domain(accdom, domcp);
 
       if (ReductionBaseValues.count(MA->getBaseAddr())) {
-        // Wrap the access domain and adjust the scattering accordingly.
+        // Wrap the access domain and adjust the schedule accordingly.
         //
         // An access domain like
         //   Stmt[i0, i1] -> MemAcc_A[i0 + i1]
         // will be transformed into
         //   [Stmt[i0, i1] -> MemAcc_A[i0 + i1]] -> MemAcc_A[i0 + i1]
         //
-        // The original scattering looks like
+        // The original schedule looks like
         //   Stmt[i0, i1] -> [0, i0, 2, i1, 0]
-        // but as we transformed the access domain we need the scattering
+        // but as we transformed the access domain we need the schedule
         // to match the new access domains, thus we need
         //   [Stmt[i0, i1] -> MemAcc_A[i0 + i1]] -> [0, i0, 2, i1, 0]
-        isl_map *Scatter = Stmt->getScattering();
-        Scatter = isl_map_apply_domain(
-            Scatter, isl_map_reverse(isl_map_domain_map(isl_map_copy(accdom))));
+        isl_map *Schedule = Stmt->getSchedule();
+        Schedule = isl_map_apply_domain(
+            Schedule,
+            isl_map_reverse(isl_map_domain_map(isl_map_copy(accdom))));
         accdom = isl_map_range_map(accdom);
-        *AccessSchedule = isl_union_map_add_map(*AccessSchedule, Scatter);
+        *AccessSchedule = isl_union_map_add_map(*AccessSchedule, Schedule);
       }
 
       if (MA->isRead())
@@ -114,7 +116,7 @@ static void collectInfo(Scop &S, isl_union_map **Read, isl_union_map **Write,
       else
         *Write = isl_union_map_add_map(*Write, accdom);
     }
-    *StmtSchedule = isl_union_map_add_map(*StmtSchedule, Stmt->getScattering());
+    *StmtSchedule = isl_union_map_add_map(*StmtSchedule, Stmt->getSchedule());
   }
 
   *StmtSchedule =
@@ -218,13 +220,13 @@ void Dependences::addPrivatizationDependences() {
 
 void Dependences::calculateDependences(Scop &S) {
   isl_union_map *Read, *Write, *MayWrite, *AccessSchedule, *StmtSchedule,
-      *Schedule;
+      *ScheduleMap;
 
   DEBUG(dbgs() << "Scop: \n" << S << "\n");
 
   collectInfo(S, &Read, &Write, &MayWrite, &AccessSchedule, &StmtSchedule);
 
-  Schedule =
+  ScheduleMap =
       isl_union_map_union(AccessSchedule, isl_union_map_copy(StmtSchedule));
 
   Read = isl_union_map_coalesce(Read);
@@ -232,55 +234,85 @@ void Dependences::calculateDependences(Scop &S) {
   MayWrite = isl_union_map_coalesce(MayWrite);
 
   long MaxOpsOld = isl_ctx_get_max_operations(S.getIslCtx());
-  isl_ctx_set_max_operations(S.getIslCtx(), OptComputeOut);
+  if (OptComputeOut)
+    isl_ctx_set_max_operations(S.getIslCtx(), OptComputeOut);
   isl_options_set_on_error(S.getIslCtx(), ISL_ON_ERROR_CONTINUE);
 
   DEBUG(dbgs() << "Read: " << Read << "\n";
         dbgs() << "Write: " << Write << "\n";
         dbgs() << "MayWrite: " << MayWrite << "\n";
-        dbgs() << "Schedule: " << Schedule << "\n");
+        dbgs() << "Schedule: " << ScheduleMap << "\n");
 
-  // The pointers below will be set by the subsequent calls to
-  // isl_union_map_compute_flow.
   RAW = WAW = WAR = RED = nullptr;
 
+  auto *Schedule = isl_schedule_from_domain(
+      isl_union_map_domain(isl_union_map_copy(ScheduleMap)));
+  Schedule = isl_schedule_insert_partial_schedule(
+      Schedule, isl_multi_union_pw_aff_from_union_map(ScheduleMap));
+
   if (OptAnalysisType == VALUE_BASED_ANALYSIS) {
-    isl_union_map_compute_flow(
-        isl_union_map_copy(Read), isl_union_map_copy(Write),
-        isl_union_map_copy(MayWrite), isl_union_map_copy(Schedule), &RAW,
-        nullptr, nullptr, nullptr);
+    isl_union_access_info *AI;
+    isl_union_flow *Flow;
 
-    isl_union_map_compute_flow(
-        isl_union_map_copy(Write), isl_union_map_copy(Write),
-        isl_union_map_copy(Read), isl_union_map_copy(Schedule), &WAW, &WAR,
-        nullptr, nullptr);
+    AI = isl_union_access_info_from_sink(isl_union_map_copy(Read));
+    AI = isl_union_access_info_set_must_source(AI, isl_union_map_copy(Write));
+    AI = isl_union_access_info_set_may_source(AI, isl_union_map_copy(MayWrite));
+    AI = isl_union_access_info_set_schedule(AI, isl_schedule_copy(Schedule));
+    Flow = isl_union_access_info_compute_flow(AI);
+
+    RAW = isl_union_flow_get_must_dependence(Flow);
+    isl_union_flow_free(Flow);
+
+    AI = isl_union_access_info_from_sink(isl_union_map_copy(Write));
+    AI = isl_union_access_info_set_must_source(AI, isl_union_map_copy(Write));
+    AI = isl_union_access_info_set_may_source(AI, isl_union_map_copy(Read));
+    AI = isl_union_access_info_set_schedule(AI, Schedule);
+    Flow = isl_union_access_info_compute_flow(AI);
+
+    WAW = isl_union_flow_get_must_dependence(Flow);
+    WAR = isl_union_flow_get_may_dependence(Flow);
+
+    // This subtraction is needed to obtain the same results as were given by
+    // isl_union_map_compute_flow. For large sets this may add some compile-time
+    // cost. As there does not seem to be a need to distinguish between WAW and
+    // WAR, refactoring Polly to only track general non-flow dependences may
+    // improve performance.
+    WAR = isl_union_map_subtract(WAR, isl_union_map_copy(WAW));
+    isl_union_flow_free(Flow);
   } else {
-    isl_union_map *Empty;
+    isl_union_access_info *AI;
+    isl_union_flow *Flow;
 
-    Empty = isl_union_map_empty(isl_union_map_get_space(Write));
     Write = isl_union_map_union(Write, isl_union_map_copy(MayWrite));
 
-    isl_union_map_compute_flow(
-        isl_union_map_copy(Read), isl_union_map_copy(Empty),
-        isl_union_map_copy(Write), isl_union_map_copy(Schedule), nullptr, &RAW,
-        nullptr, nullptr);
+    AI = isl_union_access_info_from_sink(isl_union_map_copy(Read));
+    AI = isl_union_access_info_set_may_source(AI, isl_union_map_copy(Write));
+    AI = isl_union_access_info_set_schedule(AI, isl_schedule_copy(Schedule));
+    Flow = isl_union_access_info_compute_flow(AI);
 
-    isl_union_map_compute_flow(
-        isl_union_map_copy(Write), isl_union_map_copy(Empty),
-        isl_union_map_copy(Read), isl_union_map_copy(Schedule), nullptr, &WAR,
-        nullptr, nullptr);
+    RAW = isl_union_flow_get_may_dependence(Flow);
+    isl_union_flow_free(Flow);
 
-    isl_union_map_compute_flow(
-        isl_union_map_copy(Write), isl_union_map_copy(Empty),
-        isl_union_map_copy(Write), isl_union_map_copy(Schedule), nullptr, &WAW,
-        nullptr, nullptr);
-    isl_union_map_free(Empty);
+    AI = isl_union_access_info_from_sink(isl_union_map_copy(Write));
+    AI = isl_union_access_info_set_may_source(AI, isl_union_map_copy(Read));
+    AI = isl_union_access_info_set_schedule(AI, isl_schedule_copy(Schedule));
+    Flow = isl_union_access_info_compute_flow(AI);
+
+    WAR = isl_union_flow_get_may_dependence(Flow);
+    isl_union_flow_free(Flow);
+
+    AI = isl_union_access_info_from_sink(isl_union_map_copy(Write));
+    AI = isl_union_access_info_set_may_source(AI, isl_union_map_copy(Write));
+    AI = isl_union_access_info_set_schedule(AI, Schedule);
+    Flow = isl_union_access_info_compute_flow(AI);
+
+    WAW = isl_union_flow_get_may_dependence(Flow);
+    isl_union_flow_free(Flow);
   }
 
   isl_union_map_free(MayWrite);
   isl_union_map_free(Write);
   isl_union_map_free(Read);
-  isl_union_map_free(Schedule);
 
   RAW = isl_union_map_coalesce(RAW);
   WAW = isl_union_map_coalesce(WAW);
@@ -432,41 +464,41 @@ void Dependences::calculateDependences(Scop &S) {
   DEBUG(dump());
 }
 
-bool Dependences::isValidScattering(Scop &S,
-                                    StatementToIslMapTy *NewScattering) const {
+bool Dependences::isValidSchedule(Scop &S,
+                                  StatementToIslMapTy *NewSchedule) const {
   if (LegalityCheckDisabled)
     return true;
 
   isl_union_map *Dependences = getDependences(TYPE_RAW | TYPE_WAW | TYPE_WAR);
   isl_space *Space = S.getParamSpace();
-  isl_union_map *Scattering = isl_union_map_empty(Space);
+  isl_union_map *Schedule = isl_union_map_empty(Space);
 
-  isl_space *ScatteringSpace = nullptr;
+  isl_space *ScheduleSpace = nullptr;
 
   for (ScopStmt *Stmt : S) {
     isl_map *StmtScat;
 
-    if (NewScattering->find(Stmt) == NewScattering->end())
-      StmtScat = Stmt->getScattering();
+    if (NewSchedule->find(Stmt) == NewSchedule->end())
+      StmtScat = Stmt->getSchedule();
     else
-      StmtScat = isl_map_copy((*NewScattering)[Stmt]);
+      StmtScat = isl_map_copy((*NewSchedule)[Stmt]);
 
-    if (!ScatteringSpace)
-      ScatteringSpace = isl_space_range(isl_map_get_space(StmtScat));
+    if (!ScheduleSpace)
+      ScheduleSpace = isl_space_range(isl_map_get_space(StmtScat));
 
-    Scattering = isl_union_map_add_map(Scattering, StmtScat);
+    Schedule = isl_union_map_add_map(Schedule, StmtScat);
   }
 
   Dependences =
-      isl_union_map_apply_domain(Dependences, isl_union_map_copy(Scattering));
-  Dependences = isl_union_map_apply_range(Dependences, Scattering);
+      isl_union_map_apply_domain(Dependences, isl_union_map_copy(Schedule));
+  Dependences = isl_union_map_apply_range(Dependences, Schedule);
 
-  isl_set *Zero = isl_set_universe(isl_space_copy(ScatteringSpace));
+  isl_set *Zero = isl_set_universe(isl_space_copy(ScheduleSpace));
   for (unsigned i = 0; i < isl_set_dim(Zero, isl_dim_set); i++)
     Zero = isl_set_fix_si(Zero, isl_dim_set, i, 0);
 
   isl_union_set *UDeltas = isl_union_map_deltas(Dependences);
-  isl_set *Deltas = isl_union_set_extract_set(UDeltas, ScatteringSpace);
+  isl_set *Deltas = isl_union_set_extract_set(UDeltas, ScheduleSpace);
   isl_union_set_free(UDeltas);
 
   isl_map *NonPositive = isl_set_lex_le_set(Deltas, Zero);

@@ -55,10 +55,6 @@ friend class SourceManager;  // For GetSourceFileCache.
 
 public:
 
-    typedef llvm::sys::DynamicLibrary (*LoadPluginCallbackType) (const lldb::DebuggerSP &debugger_sp,
-                                                                 const FileSpec& spec,
-                                                                 Error& error);
-
     static lldb::DebuggerSP
     CreateInstance (lldb::LogOutputCallback log_callback = NULL, void *baton = NULL);
 
@@ -69,10 +65,10 @@ public:
     FindTargetWithProcess (Process *process);
 
     static void
-    Initialize (LoadPluginCallbackType load_plugin_callback);
+    Initialize(LoadPluginCallbackType load_plugin_callback);
     
-    static void 
-    Terminate ();
+    static void
+    Terminate();
     
     static void
     SettingsInitialize ();
@@ -251,9 +247,6 @@ public:
 
     void
     ClearIOHandlers ();
-
-    static int
-    TestDebuggerRefCount ();
 
     bool
     GetCloseInputOnEOF () const;

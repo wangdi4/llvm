@@ -386,3 +386,34 @@ entry:
   ret i1 %obit
 }
 
+; CHECK-LABEL: @overflow_mod_mul(
+; CHECK: ret i1 false
+define i1 @overflow_mod_mul(i32 %v1, i32 %v2) nounwind {
+entry:
+  %rem = srem i32 %v1, 1000
+  %t = call %ov.result.32 @llvm.smul.with.overflow.i32(i32 %rem, i32 %rem)
+  %obit = extractvalue %ov.result.32 %t, 1
+  ret i1 %obit
+}
+
+; CHECK-LABEL: @overflow_mod_overflow_mul(
+; CHECK-NOT: ret i1 false
+define i1 @overflow_mod_overflow_mul(i32 %v1, i32 %v2) nounwind {
+entry:
+  %rem = srem i32 %v1, 65537
+  ; This may overflow because the result of the mul operands may be greater than 16bits
+  ; and the result greater than 32.
+  %t = call %ov.result.32 @llvm.smul.with.overflow.i32(i32 %rem, i32 %rem)
+  %obit = extractvalue %ov.result.32 %t, 1
+  ret i1 %obit
+}
+
+define %ov.result.32 @ssubtest_reorder(i8 %a) {
+  %A = sext i8 %a to i32
+  %x = call %ov.result.32 @llvm.ssub.with.overflow.i32(i32 0, i32 %A)
+  ret %ov.result.32 %x
+; CHECK-LABEL: @ssubtest_reorder
+; CHECK: %x = sub nsw i32 0, %A
+; CHECK-NEXT: %1 = insertvalue %ov.result.32 { i32 undef, i1 false }, i32 %x, 0
+; CHECK-NEXT:  ret %ov.result.32 %1
+}
