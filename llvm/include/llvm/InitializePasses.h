@@ -106,11 +106,11 @@ void initializeDAEPass(PassRegistry&);
 void initializeDAHPass(PassRegistry&);
 void initializeDCEPass(PassRegistry&);
 void initializeDSEPass(PassRegistry&);
-void initializeDebugInfoVerifierLegacyPassPass(PassRegistry &);
 void initializeDeadInstEliminationPass(PassRegistry&);
 void initializeDeadMachineInstructionElimPass(PassRegistry&);
 void initializeDelinearizationPass(PassRegistry &);
 void initializeDependenceAnalysisPass(PassRegistry&);
+void initializeDivergenceAnalysisPass(PassRegistry&);
 void initializeDomOnlyPrinterPass(PassRegistry&);
 void initializeDomOnlyViewerPass(PassRegistry&);
 void initializeDomPrinterPass(PassRegistry&);
@@ -166,6 +166,7 @@ void initializeLocalStackSlotPassPass(PassRegistry&);
 void initializeLoopDeletionPass(PassRegistry&);
 void initializeLoopExtractorPass(PassRegistry&);
 void initializeLoopInfoWrapperPassPass(PassRegistry&);
+void initializeLoopInterchangePass(PassRegistry &);
 void initializeLoopInstSimplifyPass(PassRegistry&);
 void initializeLoopRotatePass(PassRegistry&);
 void initializeLoopSimplifyPass(PassRegistry&);
@@ -205,6 +206,7 @@ void initializeMergedLoadStoreMotionPass(PassRegistry &);
 void initializeMetaRenamerPass(PassRegistry&);
 void initializeMergeFunctionsPass(PassRegistry&);
 void initializeModuleDebugInfoPrinterPass(PassRegistry&);
+void initializeNaryReassociatePass(PassRegistry&);
 void initializeNoAAPass(PassRegistry&);
 void initializeObjCARCAliasAnalysisPass(PassRegistry&);
 void initializeObjCARCAPElimPass(PassRegistry&);
@@ -294,6 +296,7 @@ void initializeWinEHPreparePass(PassRegistry&);
 void initializePlaceBackedgeSafepointsImplPass(PassRegistry&);
 void initializePlaceSafepointsPass(PassRegistry&);
 void initializeDwarfEHPreparePass(PassRegistry&);
+void initializeFloat2IntPass(PassRegistry&);
 }
 
 #endif

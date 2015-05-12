@@ -451,7 +451,8 @@ def fcaret_diagnostics : Flag<["-"], "fcaret-diagnostics">, Group<f_Group>;
 def fclasspath_EQ : Joined<["-"], "fclasspath=">, Group<f_Group>;
 def fcolor_diagnostics : Flag<["-"], "fcolor-diagnostics">, Group<f_Group>,
   Flags<[CoreOption, CC1Option]>, HelpText<"Use colors in diagnostics">;
-def fdiagnostics_color : Flag<["-"], "fdiagnostics-color">, Group<f_Group>;
+def fdiagnostics_color : Flag<["-"], "fdiagnostics-color">, Group<f_Group>,
+  Flags<[CoreOption, DriverOption]>;
 def fdiagnostics_color_EQ : Joined<["-"], "fdiagnostics-color=">, Group<f_Group>;
 def fansi_escape_codes : Flag<["-"], "fansi-escape-codes">, Group<f_Group>,
   Flags<[CoreOption, CC1Option]>, HelpText<"Use ANSI escape codes for diagnostics">;
@@ -477,7 +478,7 @@ def fdebug_pass_arguments : Flag<["-"], "fdebug-pass-arguments">, Group<f_Group>
 def fdebug_pass_structure : Flag<["-"], "fdebug-pass-structure">, Group<f_Group>;
 def fdiagnostics_fixit_info : Flag<["-"], "fdiagnostics-fixit-info">, Group<f_clang_Group>;
 def fdiagnostics_parseable_fixits : Flag<["-"], "fdiagnostics-parseable-fixits">, Group<f_clang_Group>,
-    Flags<[CC1Option]>, HelpText<"Print fix-its in machine parseable form">;
+    Flags<[CoreOption, CC1Option]>, HelpText<"Print fix-its in machine parseable form">;
 def fdiagnostics_print_source_range_info : Flag<["-"], "fdiagnostics-print-source-range-info">,
     Group<f_clang_Group>,  Flags<[CC1Option]>,
     HelpText<"Print source range spans in numeric form">;
@@ -540,7 +541,7 @@ def fno_sanitize_blacklist : Flag<["-"], "fno-sanitize-blacklist">,
                              Group<f_clang_Group>,
                              HelpText<"Don't use blacklist file for sanitizers">;
 def fsanitize_coverage : Joined<["-"], "fsanitize-coverage=">,
-                                        Group<f_clang_Group>, Flags<[CC1Option]>,
+                                        Group<f_clang_Group>, Flags<[CC1Option, CoreOption]>,
                                         HelpText<"Enable coverage instrumentation for Sanitizers">;
 def fsanitize_memory_track_origins_EQ : Joined<["-"], "fsanitize-memory-track-origins=">,
                                         Group<f_clang_Group>, Flags<[CC1Option]>,
@@ -577,7 +578,9 @@ def fno_unsafe_math_optimizations : Flag<["-"], "fno-unsafe-math-optimizations">
   Group<f_Group>;
 def fassociative_math : Flag<["-"], "fassociative-math">, Group<f_Group>;
 def fno_associative_math : Flag<["-"], "fno-associative-math">, Group<f_Group>;
-def freciprocal_math : Flag<["-"], "freciprocal-math">, Group<f_Group>;
+def freciprocal_math :
+  Flag<["-"], "freciprocal-math">, Group<f_Group>, Flags<[CC1Option]>,
+  HelpText<"Allow division operations to be reassociated">;
 def fno_reciprocal_math : Flag<["-"], "fno-reciprocal-math">, Group<f_Group>;
 def ffinite_math_only : Flag<["-"], "ffinite-math-only">, Group<f_Group>, Flags<[CC1Option]>;
 def fno_finite_math_only : Flag<["-"], "fno-finite-math-only">, Group<f_Group>;
@@ -641,13 +644,23 @@ def flto_EQ : Joined<["-"], "flto=">, Group<clang_ignored_gcc_optimization_f_Gro
 def flto : Flag<["-"], "flto">, Group<f_Group>;
 def fno_lto : Flag<["-"], "fno-lto">, Group<f_Group>;
 def fmacro_backtrace_limit_EQ : Joined<["-"], "fmacro-backtrace-limit=">,
-                                Group<f_Group>;
+                                Group<f_Group>, Flags<[DriverOption, CoreOption]>;
 def fmerge_all_constants : Flag<["-"], "fmerge-all-constants">, Group<f_Group>;
 def fmessage_length_EQ : Joined<["-"], "fmessage-length=">, Group<f_Group>;
 def fms_extensions : Flag<["-"], "fms-extensions">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Accept some non-standard constructs supported by the Microsoft compiler">;
 def fms_compatibility : Flag<["-"], "fms-compatibility">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Enable full Microsoft Visual C++ compatibility">;
+// if INTEL_CUSTOMIZATION
+// CQ#368119 - support for '/Z7' and '/Zi' options.
+def fms_debug_info_file_type: Joined<["-"], "fms-debug-info-file-type=">,
+  Group<f_Group>, Flags<[CC1Option]>;
+// CQ#368125 - support for '/Fd' and '/Fo' options.
+def fms_debug_info_pdb_file: Joined<["-"], "fms-debug-info-pdb-file=">,
+  Group<f_Group>, Flags<[CC1Option]>, MetaVarName<"<file>">;
+def fms_debug_info_obj_file: Joined<["-"], "fms-debug-info-obj-file=">,
+  Group<f_Group>, Flags<[CC1Option]>, MetaVarName<"<file>">;
+// endif INTEL_CUSTOMIZATION
 def fms_volatile : Joined<["-"], "fms-volatile">, Group<f_Group>, Flags<[CC1Option]>;
 def fmsc_version : Joined<["-"], "fmsc-version=">, Group<f_Group>, Flags<[DriverOption, CoreOption]>,
   HelpText<"Microsoft compiler version number to report in _MSC_VER (0 = don't define it (default))">;
@@ -748,8 +761,10 @@ def fno_math_builtin : Flag<["-"], "fno-math-builtin">, Group<f_Group>, Flags<[C
   HelpText<"Disable implicit builtin knowledge of math functions">;
 def fno_caret_diagnostics : Flag<["-"], "fno-caret-diagnostics">, Group<f_Group>,
  Flags<[CC1Option]>;
-def fno_color_diagnostics : Flag<["-"], "fno-color-diagnostics">, Group<f_Group>;
-def fno_diagnostics_color : Flag<["-"], "fno-diagnostics-color">, Group<f_Group>;
+def fno_color_diagnostics : Flag<["-"], "fno-color-diagnostics">, Group<f_Group>,
+  Flags<[CoreOption, CC1Option]>;
+def fno_diagnostics_color : Flag<["-"], "fno-diagnostics-color">, Group<f_Group>,
+  Flags<[CoreOption, DriverOption]>;
 def fno_common : Flag<["-"], "fno-common">, Group<f_Group>, Flags<[CC1Option]>,
     HelpText<"Compile common globals like normal definitions">;
 def fno_constant_cfstrings : Flag<["-"], "fno-constant-cfstrings">, Group<f_Group>,
@@ -772,6 +787,8 @@ def fno_exceptions : Flag<["-"], "fno-exceptions">, Group<f_Group>;
 def fno_gnu_keywords : Flag<["-"], "fno-gnu-keywords">, Group<f_Group>, Flags<[CC1Option]>;
 def fno_inline_functions : Flag<["-"], "fno-inline-functions">, Group<f_clang_Group>, Flags<[CC1Option]>;
 def fno_inline : Flag<["-"], "fno-inline">, Group<f_clang_Group>, Flags<[CC1Option]>;
+def fveclib : Joined<["-"], "fveclib=">, Group<f_Group>, Flags<[CC1Option]>,
+    HelpText<"Use the given vector functions library">;
 def fno_lax_vector_conversions : Flag<["-"], "fno-lax-vector-conversions">, Group<f_Group>,
   HelpText<"Disallow implicit conversions between vectors with a different number of elements or different element types">, Flags<[CC1Option]>;
 def fno_merge_all_constants : Flag<["-"], "fno-merge-all-constants">, Group<f_Group>,
@@ -785,6 +802,10 @@ def fno_modules_decluse : Flag <["-"], "fno-modules-decluse">, Group<f_Group>,
 def fno_modules_strict_decluse : Flag <["-"], "fno-strict-modules-decluse">, Group<f_Group>,
   Flags<[DriverOption]>;
 def fimplicit_modules : Flag <["-"], "fimplicit-modules">, Group<f_Group>,
+  Flags<[DriverOption]>;
+def fmodule_file_deps : Flag <["-"], "fmodule-file-deps">, Group<f_Group>,
+  Flags<[DriverOption]>;
+def fno_module_file_deps : Flag <["-"], "fno-module-file-deps">, Group<f_Group>,
   Flags<[DriverOption]>;
 def fno_ms_extensions : Flag<["-"], "fno-ms-extensions">, Group<f_Group>;
 def fno_ms_compatibility : Flag<["-"], "fno-ms-compatibility">, Group<f_Group>;
@@ -840,6 +861,9 @@ def fapplication_extension : Flag<["-"], "fapplication-extension">,
   HelpText<"Restrict code to those available for App Extensions">;
 def fno_application_extension : Flag<["-"], "fno-application-extension">,
   Group<f_Group>;
+def fsized_deallocation : Flag<["-"], "fsized-deallocation">, Flags<[CC1Option]>,
+  HelpText<"Enable C++14 sized global deallocation functions">, Group<f_Group>;
+def fno_sized_deallocation: Flag<["-"], "fno-sized-deallocation">, Group<f_Group>;
 
 def fobjc_gc_only : Flag<["-"], "fobjc-gc-only">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Use GC exclusively for Objective-C related memory management">;
@@ -936,7 +960,8 @@ def fstrict_enums : Flag<["-"], "fstrict-enums">, Group<f_Group>, Flags<[CC1Opti
   HelpText<"Enable optimizations based on the strict definition of an enum's "
            "value range">;
 def fstrict_overflow : Flag<["-"], "fstrict-overflow">, Group<f_Group>;
-def fsyntax_only : Flag<["-"], "fsyntax-only">, Flags<[DriverOption,CC1Option]>, Group<Action_Group>;
+def fsyntax_only : Flag<["-"], "fsyntax-only">,
+  Flags<[DriverOption,CoreOption,CC1Option]>, Group<Action_Group>;
 def ftabstop_EQ : Joined<["-"], "ftabstop=">, Group<f_Group>;
 def ftemplate_depth_EQ : Joined<["-"], "ftemplate-depth=">, Group<f_Group>;
 def ftemplate_depth_ : Joined<["-"], "ftemplate-depth-">, Group<f_Group>;
@@ -1151,7 +1176,8 @@ def mfloat_abi_EQ : Joined<["-"], "mfloat-abi=">, Group<m_Group>;
 def mfpmath_EQ : Joined<["-"], "mfpmath=">, Group<m_Group>;
 def mfpu_EQ : Joined<["-"], "mfpu=">, Group<m_Group>;
 def mhwdiv_EQ : Joined<["-"], "mhwdiv=">, Group<m_Group>;
-def mglobal_merge : Flag<["-"], "mglobal-merge">, Group<m_Group>;
+def mglobal_merge : Flag<["-"], "mglobal-merge">, Group<m_Group>, Flags<[CC1Option]>,
+  HelpText<"Enable merging of globals">;
 def mhard_float : Flag<["-"], "mhard-float">, Group<m_Group>;
 def miphoneos_version_min_EQ : Joined<["-"], "miphoneos-version-min=">, Group<m_Group>;
 def mios_version_min_EQ : Joined<["-"], "mios-version-min=">,
@@ -1192,9 +1218,12 @@ def mno_stackrealign : Flag<["-"], "mno-stackrealign">, Group<m_Group>;
 def mno_sse2 : Flag<["-"], "mno-sse2">, Group<m_x86_Features_Group>;
 def mno_sse3 : Flag<["-"], "mno-sse3">, Group<m_x86_Features_Group>;
 def mno_sse4a : Flag<["-"], "mno-sse4a">, Group<m_x86_Features_Group>;
-def mno_sse4 : Flag<["-"], "mno-sse4">, Group<m_x86_Features_Group>;
 def mno_sse4_1 : Flag<["-"], "mno-sse4.1">, Group<m_x86_Features_Group>;
 def mno_sse4_2 : Flag<["-"], "mno-sse4.2">, Group<m_x86_Features_Group>;
+// -mno-sse4 turns off sse4.1 which has the effect of turning off everything
+// later than 4.1. -msse4 turns on 4.2 which has the effect of turning on
+// everything earlier than 4.2.
+def mno_sse4 : Flag<["-"], "mno-sse4">, Alias<mno_sse4_1>;
 def mno_sse : Flag<["-"], "mno-sse">, Group<m_x86_Features_Group>;
 def mno_ssse3 : Flag<["-"], "mno-ssse3">, Group<m_x86_Features_Group>;
 def mno_aes : Flag<["-"], "mno-aes">, Group<m_x86_Features_Group>;
@@ -1270,10 +1299,18 @@ def mpower8_crypto : Flag<["-"], "mcrypto">,
     Group<m_ppc_Features_Group>;
 def mnopower8_crypto : Flag<["-"], "mno-crypto">,
     Group<m_ppc_Features_Group>;
+def mdirect_move : Flag<["-"], "mdirect-move">,
+    Group<m_ppc_Features_Group>;
+def mnodirect_move : Flag<["-"], "mno-direct-move">,
+    Group<m_ppc_Features_Group>;
+def mhtm : Flag<["-"], "mhtm">, Group<m_ppc_Features_Group>;
+def mno_htm : Flag<["-"], "mno-htm">, Group<m_ppc_Features_Group>;
 def mfprnd : Flag<["-"], "mfprnd">, Group<m_ppc_Features_Group>;
 def mno_fprnd : Flag<["-"], "mno-fprnd">, Group<m_ppc_Features_Group>;
 def mcmpb : Flag<["-"], "mcmpb">, Group<m_ppc_Features_Group>;
 def mno_cmpb : Flag<["-"], "mno-cmpb">, Group<m_ppc_Features_Group>;
+def misel : Flag<["-"], "misel">, Group<m_ppc_Features_Group>;
+def mno_isel : Flag<["-"], "mno-isel">, Group<m_ppc_Features_Group>;
 def mmfcrf : Flag<["-"], "mmfcrf">, Group<m_ppc_Features_Group>;
 def mno_mfcrf : Flag<["-"], "mno-mfcrf">, Group<m_ppc_Features_Group>;
 def mpopcntd : Flag<["-"], "mpopcntd">, Group<m_ppc_Features_Group>;
@@ -1315,9 +1352,9 @@ def mimplicit_float : Flag<["-"], "mimplicit-float">, Group<m_Group>;
 def msse2 : Flag<["-"], "msse2">, Group<m_x86_Features_Group>;
 def msse3 : Flag<["-"], "msse3">, Group<m_x86_Features_Group>;
 def msse4a : Flag<["-"], "msse4a">, Group<m_x86_Features_Group>;
-def msse4 : Flag<["-"], "msse4">, Group<m_x86_Features_Group>;
 def msse4_1 : Flag<["-"], "msse4.1">, Group<m_x86_Features_Group>;
 def msse4_2 : Flag<["-"], "msse4.2">, Group<m_x86_Features_Group>;
+def msse4 : Flag<["-"], "msse4">, Alias<msse4_2>;
 def msse : Flag<["-"], "msse">, Group<m_x86_Features_Group>;
 def mssse3 : Flag<["-"], "mssse3">, Group<m_x86_Features_Group>;
 def maes : Flag<["-"], "maes">, Group<m_x86_Features_Group>;
@@ -1556,7 +1593,7 @@ def no_system_header_prefix : Joined<["--"], "no-system-header-prefix=">,
            "system header.">;
 def : Separate<["--"], "no-system-header-prefix">, Alias<no_system_header_prefix>;
 def s : Flag<["-"], "s">;
-def target : Joined<["--"], "target=">, Flags<[DriverOption, CoreOption]>,
+def target : Joined<["-", "--"], "target=">, Flags<[DriverOption, CoreOption]>,
   HelpText<"Generate code for the given target">;
 def gcc_toolchain : Joined<["--"], "gcc-toolchain=">, Flags<[DriverOption]>,
   HelpText<"Use the gcc toolchain at the given directory">;
@@ -1729,7 +1766,7 @@ def mv5 : Flag<["-"], "mv5">, Group<m_hexagon_Features_Group>, Alias<march_EQ>,
 // aliases for options that are spelled using the more common Unix / GNU flag
 // style of double-dash and equals-joined flags.
 def gcc_toolchain_legacy_spelling : Separate<["-"], "gcc-toolchain">, Alias<gcc_toolchain>;
-def target_legacy_spelling : Separate<["-"], "target">, Alias<target>;
+def target_legacy_spelling : Separate<["-", "--"], "target">, Alias<target>;
 
 // Special internal option to handle -Xlinker --no-demangle.
 def Z_Xlinker__no_demangle : Flag<["-"], "Z-Xlinker-no-demangle">,

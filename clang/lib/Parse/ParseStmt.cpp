@@ -652,7 +652,7 @@ StmtResult Parser::ParseSEHExceptBlock(SourceLocation ExceptLoc) {
   {
     ParseScopeFlags FilterScope(this, getCurScope()->getFlags() |
                                           Scope::SEHFilterScope);
-    FilterExpr = ParseExpression();
+    FilterExpr = Actions.CorrectDelayedTyposInExpr(ParseExpression());
   }
 
   if (getLangOpts().Borland) {
@@ -683,7 +683,7 @@ StmtResult Parser::ParseSEHExceptBlock(SourceLocation ExceptLoc) {
 /// seh-finally-block:
 ///   '__finally' compound-statement
 ///
-StmtResult Parser::ParseSEHFinallyBlock(SourceLocation FinallyBlock) {
+StmtResult Parser::ParseSEHFinallyBlock(SourceLocation FinallyLoc) {
   PoisonIdentifierRAIIObject raii(Ident__abnormal_termination, false),
     raii2(Ident___abnormal_termination, false),
     raii3(Ident_AbnormalTermination, false);
@@ -691,11 +691,16 @@ StmtResult Parser::ParseSEHFinallyBlock(SourceLocation FinallyBlock) {
   if (Tok.isNot(tok::l_brace))
     return StmtError(Diag(Tok, diag::err_expected) << tok::l_brace);
 
-  StmtResult Block(ParseCompoundStatement());
-  if(Block.isInvalid())
-    return Block;
+  ParseScope FinallyScope(this, 0);
+  Actions.ActOnStartSEHFinallyBlock();
 
-  return Actions.ActOnSEHFinallyBlock(FinallyBlock,Block.get());
+  StmtResult Block(ParseCompoundStatement());
+  if(Block.isInvalid()) {
+    Actions.ActOnAbortSEHFinallyBlock();
+    return Block;
+  }
+
+  return Actions.ActOnFinishSEHFinallyBlock(FinallyLoc, Block.get());
 }
 
 /// Handle __leave
@@ -1456,7 +1461,7 @@ StmtResult Parser::ParseSwitchStatement(SourceLocation *TrailingElseLoc) {
   // We have incremented the mangling number for the SwitchScope and the
   // InnerScope, which is one too many.
   if (C99orCXX)
-    getCurScope()->decrementMSLocalManglingNumber();
+    getCurScope()->decrementMSManglingNumber();
 
   // Read the body statement.
   StmtResult Body(ParseStatement(TrailingElseLoc));
@@ -1902,7 +1907,7 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
   // It will only be incremented if the body contains other things that would
   // normally increment the mangling number (like a compound statement).
   if (C99orCXXorObjC)
-    getCurScope()->decrementMSLocalManglingNumber();
+    getCurScope()->decrementMSManglingNumber();
 
   // Read the body statement.
   StmtResult Body(ParseStatement(TrailingElseLoc));

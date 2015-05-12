@@ -489,6 +489,8 @@ typedef int PACKED_REDUCTION_METHOD_T;
 
 extern size_t __kmp_affin_mask_size;
 # define KMP_AFFINITY_CAPABLE() (__kmp_affin_mask_size > 0)
+# define KMP_AFFINITY_DISABLE() (__kmp_affin_mask_size = 0)
+# define KMP_AFFINITY_ENABLE(mask_size) (__kmp_affin_mask_size = mask_size)
 # define KMP_CPU_SETSIZE        (__kmp_affin_mask_size * CHAR_BIT)
 
 # if KMP_OS_LINUX
@@ -759,7 +761,6 @@ typedef enum kmp_proc_bind_t {
     proc_bind_master,
     proc_bind_close,
     proc_bind_spread,
-    proc_bind_disabled,
     proc_bind_intel,    // use KMP_AFFINITY interface
     proc_bind_default
 } kmp_proc_bind_t;
@@ -792,9 +793,9 @@ typedef enum kmp_cancel_kind_t {
 } kmp_cancel_kind_t;
 #endif // OMP_40_ENABLED
 
-extern unsigned int __kmp_place_num_cores;
-extern unsigned int __kmp_place_num_threads_per_core;
-extern unsigned int __kmp_place_core_offset;
+extern int __kmp_place_num_cores;
+extern int __kmp_place_num_threads_per_core;
+extern int __kmp_place_core_offset;
 
 /* ------------------------------------------------------------------------ */
 /* ------------------------------------------------------------------------ */
@@ -2935,8 +2936,6 @@ extern void __kmp_affinity_set_init_mask(int gtid, int isa_root); /* set affinit
 #if OMP_40_ENABLED
 extern void __kmp_affinity_set_place(int gtid);
 #endif
-extern void __kmp_change_thread_affinity_mask( int gtid, kmp_affin_mask_t *new_mask,
-                                               kmp_affin_mask_t *old_mask );
 extern void __kmp_affinity_determine_capable( const char *env_var );
 extern int __kmp_aux_set_affinity(void **mask);
 extern int __kmp_aux_get_affinity(void **mask);

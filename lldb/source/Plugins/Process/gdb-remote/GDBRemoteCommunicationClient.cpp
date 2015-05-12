@@ -21,6 +21,7 @@
 #include "llvm/ADT/Triple.h"
 #include "lldb/Interpreter/Args.h"
 #include "lldb/Core/Log.h"
+#include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/State.h"
 #include "lldb/Core/StreamGDBRemote.h"
 #include "lldb/Core/StreamString.h"
@@ -41,6 +42,7 @@
 
 using namespace lldb;
 using namespace lldb_private;
+using namespace lldb_private::process_gdb_remote;
 
 #if defined(LLDB_DISABLE_POSIX) && !defined(SIGSTOP)
 #define SIGSTOP 17
@@ -78,6 +80,7 @@ GDBRemoteCommunicationClient::GDBRemoteCommunicationClient() :
     m_supports_qXfer_auxv_read (eLazyBoolCalculate),
     m_supports_qXfer_libraries_read (eLazyBoolCalculate),
     m_supports_qXfer_libraries_svr4_read (eLazyBoolCalculate),
+    m_supports_qXfer_features_read (eLazyBoolCalculate),
     m_supports_augmented_libraries_svr4_read (eLazyBoolCalculate),
     m_supports_jThreadExtendedInfo (eLazyBoolCalculate),
     m_supports_qProcessInfoPID (true),
@@ -212,6 +215,16 @@ GDBRemoteCommunicationClient::GetQXferAuxvReadSupported ()
     return (m_supports_qXfer_auxv_read == eLazyBoolYes);
 }
 
+bool
+GDBRemoteCommunicationClient::GetQXferFeaturesReadSupported ()
+{
+    if (m_supports_qXfer_features_read == eLazyBoolCalculate)
+    {
+        GetRemoteQSupported();
+    }
+    return (m_supports_qXfer_features_read == eLazyBoolYes);
+}
+
 uint64_t
 GDBRemoteCommunicationClient::GetRemoteMaxPacketSize()
 {
@@ -333,6 +346,7 @@ GDBRemoteCommunicationClient::ResetDiscoverableSettings()
     m_supports_qXfer_auxv_read = eLazyBoolCalculate;
     m_supports_qXfer_libraries_read = eLazyBoolCalculate;
     m_supports_qXfer_libraries_svr4_read = eLazyBoolCalculate;
+    m_supports_qXfer_features_read = eLazyBoolCalculate;
     m_supports_augmented_libraries_svr4_read = eLazyBoolCalculate;
 
     m_supports_qProcessInfoPID = true;
@@ -371,10 +385,21 @@ GDBRemoteCommunicationClient::GetRemoteQSupported ()
     m_supports_qXfer_libraries_read = eLazyBoolNo;
     m_supports_qXfer_libraries_svr4_read = eLazyBoolNo;
     m_supports_augmented_libraries_svr4_read = eLazyBoolNo;
+    m_supports_qXfer_features_read = eLazyBoolNo;
     m_max_packet_size = UINT64_MAX;  // It's supposed to always be there, but if not, we assume no limit
 
+    // build the qSupported packet
+    std::vector<std::string> features = {"xmlRegisters=i386,arm,mips"};
+    StreamString packet;
+    packet.PutCString( "qSupported" );
+    for ( uint32_t i = 0; i < features.size( ); ++i )
+    {
+        packet.PutCString( i==0 ? ":" : ";");
+        packet.PutCString( features[i].c_str( ) );
+    }
+
     StringExtractorGDBRemote response;
-    if (SendPacketAndWaitForResponse("qSupported",
+    if (SendPacketAndWaitForResponse(packet.GetData(),
                                      response,
                                      /*send_async=*/false) == PacketResult::Success)
     {
@@ -390,6 +415,8 @@ GDBRemoteCommunicationClient::GetRemoteQSupported ()
         }
         if (::strstr (response_cstr, "qXfer:libraries:read+"))
             m_supports_qXfer_libraries_read = eLazyBoolYes;
+        if (::strstr (response_cstr, "qXfer:features:read+"))
+            m_supports_qXfer_features_read = eLazyBoolYes;
 
         const char *packet_size_str = ::strstr (response_cstr, "PacketSize=");
         if (packet_size_str)
@@ -3228,13 +3255,12 @@ GDBRemoteCommunicationClient::OpenFile (const lldb_private::FileSpec& file_spec,
 {
     lldb_private::StreamString stream;
     stream.PutCString("vFile:open:");
-    std::string path (file_spec.GetPath());
+    std::string path (file_spec.GetPath(false));
     if (path.empty())
         return UINT64_MAX;
     stream.PutCStringAsRawHex8(path.c_str());
     stream.PutChar(',');
-    const uint32_t posix_open_flags = File::ConvertOpenOptionsForPOSIXOpen(flags);
-    stream.PutHex32(posix_open_flags);
+    stream.PutHex32(flags);
     stream.PutChar(',');
     stream.PutHex32(mode);
     const char* packet = stream.GetData();
@@ -3706,19 +3732,143 @@ GDBRemoteCommunicationClient::RestoreRegisterState (lldb::tid_t tid, uint32_t sa
 }
 
 bool
-GDBRemoteCommunicationClient::GetModuleInfo (const char* module_path,
+GDBRemoteCommunicationClient::GetModuleInfo (const FileSpec& module_file_spec,
                                              const lldb_private::ArchSpec& arch_spec,
-                                             StringExtractorGDBRemote &response)
+                                             ModuleSpec &module_spec)
 {
-    if (!(module_path && module_path[0]))
+    std::string module_path = module_file_spec.GetPath (false);
+    if (module_path.empty ())
         return false;
 
     StreamString packet;
     packet.PutCString("qModuleInfo:");
-    packet.PutBytesAsRawHex8(module_path, strlen(module_path));
+    packet.PutCStringAsRawHex8(module_path.c_str());
     packet.PutCString(";");
     const auto& tripple = arch_spec.GetTriple().getTriple();
     packet.PutBytesAsRawHex8(tripple.c_str(), tripple.size());
 
-    return SendPacketAndWaitForResponse (packet.GetData(), packet.GetSize(), response, false) == PacketResult::Success;
+    StringExtractorGDBRemote response;
+    if (SendPacketAndWaitForResponse (packet.GetData(), packet.GetSize(), response, false) != PacketResult::Success)
+        return false;
+
+    if (response.IsErrorResponse ())
+        return false;
+
+    std::string name;
+    std::string value;
+    bool success;
+    StringExtractor extractor;
+
+    module_spec.Clear ();
+    module_spec.GetFileSpec () = module_file_spec;
+
+    while (response.GetNameColonValue (name, value))
+    {
+        if (name == "uuid" || name == "md5")
+        {
+            extractor.GetStringRef ().swap (value);
+            extractor.SetFilePos (0);
+            extractor.GetHexByteString (value);
+            module_spec.GetUUID().SetFromCString (value.c_str(), value.size() / 2);
+        }
+        else if (name == "triple")
+        {
+            extractor.GetStringRef ().swap (value);
+            extractor.SetFilePos (0);
+            extractor.GetHexByteString (value);
+            module_spec.GetArchitecture().SetTriple (value.c_str ());
+        }
+        else if (name == "file_offset")
+        {
+            const auto ival = StringConvert::ToUInt64 (value.c_str (), 0, 16, &success);
+            if (success)
+                module_spec.SetObjectOffset (ival);
+        }
+        else if (name == "file_size")
+        {
+            const auto ival = StringConvert::ToUInt64 (value.c_str (), 0, 16, &success);
+            if (success)
+                module_spec.SetObjectSize (ival);
+        }
+        else if (name == "file_path")
+        {
+            extractor.GetStringRef ().swap (value);
+            extractor.SetFilePos (0);
+            extractor.GetHexByteString (value);
+            module_spec.GetFileSpec () = FileSpec (value.c_str(), false);
+        }
+    }
+
+    return true;
+}
+
+// query the target remote for extended information using the qXfer packet
+//
+// example: object='features', annex='target.xml', out=<xml output>
+// return:  'true'  on success
+//          'false' on failure (err set)
+bool
+GDBRemoteCommunicationClient::ReadExtFeature (const lldb_private::ConstString object,
+                                              const lldb_private::ConstString annex,
+                                              std::string & out,
+                                              lldb_private::Error & err) {
+
+    std::stringstream output;
+    StringExtractorGDBRemote chunk;
+
+    const int size   = 0xfff;
+    int       offset = 0;
+    bool      active = true;
+
+    // loop until all data has been read
+    while ( active ) {
+
+        // send query extended feature packet
+        std::stringstream packet;
+        packet << "qXfer:" 
+               << object.AsCString( ) << ":read:" 
+               << annex.AsCString( )  << ":" 
+               << std::hex << offset  << "," 
+               << std::hex << size;
+
+        GDBRemoteCommunication::PacketResult res =
+            SendPacketAndWaitForResponse( packet.str().c_str(),
+                                          chunk,
+                                          false );
+
+        if ( res != GDBRemoteCommunication::PacketResult::Success ) {
+            err.SetErrorString( "Error sending $qXfer packet" );
+            return false;
+        }
+
+        const std::string & str = chunk.GetStringRef( );
+        if ( str.length() == 0 ) {
+            // should have some data in chunk
+            err.SetErrorString( "Empty response from $qXfer packet" );
+            return false;
+        }
+
+        // check packet code
+        switch ( str[0] ) {
+            // last chunk
+        case ( 'l' ):
+            active = false;
+            // fall through intensional
+
+            // more chunks
+        case ( 'm' ) :
+            if ( str.length() > 1 )
+                output << &str[1];
+            break;
+
+            // unknown chunk
+        default:
+            err.SetErrorString( "Invalid continuation code from $qXfer packet" );
+            return false;
+        }
+    }
+
+    out = output.str( );
+    err.Success( );
+    return true;
 }

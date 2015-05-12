@@ -8,21 +8,20 @@
 //===----------------------------------------------------------------------===//
 
 #include "ExampleLinkingContext.h"
-
 #include "ExampleTargetHandler.h"
 
 using namespace lld;
 using namespace elf;
 
 std::unique_ptr<ELFLinkingContext>
-ExampleLinkingContext::create(llvm::Triple triple) {
+elf::createExampleLinkingContext(llvm::Triple triple) {
   if (triple.getVendorName() == "example")
     return llvm::make_unique<ExampleLinkingContext>(triple);
   return nullptr;
 }
 
 ExampleLinkingContext::ExampleLinkingContext(llvm::Triple triple)
-    : X86_64LinkingContext(triple, std::unique_ptr<TargetHandlerBase>(
+    : X86_64LinkingContext(triple, std::unique_ptr<TargetHandler>(
                                        new ExampleTargetHandler(*this))) {
   _outputELFType = llvm::ELF::ET_LOPROC;
 }

@@ -10,7 +10,7 @@
 #ifndef LLD_READER_WRITER_ELF_X86_64_EXAMPLE_TARGET_EXAMPLE_TARGET_HANDLER_H
 #define LLD_READER_WRITER_ELF_X86_64_EXAMPLE_TARGET_EXAMPLE_TARGET_HANDLER_H
 
-#include "../X86_64TargetHandler.h"
+#include "X86_64TargetHandler.h"
 
 namespace lld {
 namespace elf {
@@ -23,7 +23,7 @@ public:
   std::unique_ptr<Writer> getWriter() override;
 
 private:
-  ExampleLinkingContext &_exampleContext;
+  ExampleLinkingContext &_ctx;
 };
 } // end namespace elf
 } // end namespace lld

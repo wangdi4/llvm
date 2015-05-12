@@ -33,13 +33,20 @@
 
 /* 6.11.2 Math Functions */
 #include <clc/math/acos.h>
+#include <clc/math/acosh.h>
+#include <clc/math/acospi.h>
 #include <clc/math/asin.h>
+#include <clc/math/asinh.h>
+#include <clc/math/asinpi.h>
 #include <clc/math/atan.h>
 #include <clc/math/atan2.h>
+#include <clc/math/atanh.h>
+#include <clc/math/atanpi.h>
 #include <clc/math/copysign.h>
 #include <clc/math/cos.h>
 #include <clc/math/cospi.h>
 #include <clc/math/ceil.h>
+#include <clc/math/erfc.h>
 #include <clc/math/exp.h>
 #include <clc/math/exp10.h>
 #include <clc/math/exp2.h>
@@ -49,6 +56,8 @@
 #include <clc/math/fmax.h>
 #include <clc/math/fmin.h>
 #include <clc/math/fmod.h>
+#include <clc/math/fract.h>
+#include <clc/math/half_sqrt.h>
 #include <clc/math/hypot.h>
 #include <clc/math/log.h>
 #include <clc/math/log10.h>
@@ -116,7 +125,10 @@
 
 /* 6.11.5 Geometric Functions */
 #include <clc/geometric/cross.h>
+#include <clc/geometric/distance.h>
 #include <clc/geometric/dot.h>
+#include <clc/geometric/fast_distance.h>
+#include <clc/geometric/fast_length.h>
 #include <clc/geometric/length.h>
 #include <clc/geometric/normalize.h>
 

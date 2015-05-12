@@ -44,7 +44,6 @@
 #include "lldb/Interpreter/OptionGroupWatchpoint.h"
 #include "lldb/Interpreter/OptionValues.h"
 #include "lldb/Interpreter/Property.h"
-#include "lldb/lldb-private-log.h"
 #include "lldb/Symbol/ClangASTContext.h"
 #include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Target/LanguageRuntime.h"
@@ -58,76 +57,6 @@
 
 using namespace lldb;
 using namespace lldb_private;
-
-namespace {
-// This event data class is for use by the TargetList to broadcast new target notifications.
-class TargetEventData : public EventData
-{
-public:
-    TargetEventData(const lldb::TargetSP &new_target_sp)
-        : EventData()
-        , m_target_sp(new_target_sp)
-    {
-    }
-        
-    virtual ~TargetEventData()
-    {
-    }
-
-    static const ConstString &
-    GetFlavorString()
-    {
-        static ConstString g_flavor("Target::TargetEventData");
-        return g_flavor;
-    }
-
-    virtual const ConstString &
-    GetFlavor() const
-    {
-        return GetFlavorString();
-    }
-
-    lldb::TargetSP &
-    GetTarget()
-    {
-        return m_target_sp;
-    }
-
-    virtual void
-    Dump(Stream *s) const
-    {
-    }
-
-    static const lldb::TargetSP
-    GetTargetFromEvent(const lldb::EventSP &event_sp)
-    {
-        TargetSP target_sp;
-
-        const TargetEventData *data = GetEventDataFromEvent (event_sp.get());
-        if (data)
-            target_sp = data->m_target_sp;
-
-        return target_sp;
-    }
-        
-    static const TargetEventData *
-    GetEventDataFromEvent(const Event *event_ptr)
-    {
-        if (event_ptr)
-        {
-            const EventData *event_data = event_ptr->GetData();
-            if (event_data && event_data->GetFlavor() == TargetEventData::GetFlavorString())
-                return static_cast <const TargetEventData *> (event_ptr->GetData());
-        }
-        return nullptr;
-    }
-
-private:
-    lldb::TargetSP m_target_sp;
-
-    DISALLOW_COPY_AND_ASSIGN (TargetEventData);
-};
-}
 
 ConstString &
 Target::GetStaticBroadcasterClass ()
@@ -260,7 +189,7 @@ Target::DeleteCurrentProcess ()
     {
         m_section_load_history.Clear();
         if (m_process_sp->IsAlive())
-            m_process_sp->Destroy();
+            m_process_sp->Destroy(false);
         
         m_process_sp->Finalize();
 
@@ -594,11 +523,23 @@ Target::CreateFuncRegexBreakpoint (const FileSpecList *containingModules,
 }
 
 lldb::BreakpointSP
-Target::CreateExceptionBreakpoint (enum lldb::LanguageType language, bool catch_bp, bool throw_bp, bool internal)
+Target::CreateExceptionBreakpoint (enum lldb::LanguageType language, bool catch_bp, bool throw_bp, bool internal, Args *additional_args, Error *error)
 {
-    return LanguageRuntime::CreateExceptionBreakpoint (*this, language, catch_bp, throw_bp, internal);
+    BreakpointSP exc_bkpt_sp = LanguageRuntime::CreateExceptionBreakpoint (*this, language, catch_bp, throw_bp, internal);
+    if (exc_bkpt_sp && additional_args)
+    {
+        Breakpoint::BreakpointPreconditionSP precondition_sp = exc_bkpt_sp->GetPrecondition();
+        if (precondition_sp && additional_args)
+        {
+            if (error)
+                *error = precondition_sp->ConfigurePrecondition(*additional_args);
+            else
+                precondition_sp->ConfigurePrecondition(*additional_args);
+        }
+    }
+    return exc_bkpt_sp;
 }
-    
+
 BreakpointSP
 Target::CreateBreakpoint (SearchFilterSP &filter_sp, BreakpointResolverSP &resolver_sp, bool internal, bool request_hardware, bool resolve_indirect_symbols)
 {
@@ -1259,6 +1200,30 @@ Target::SetArchitecture (const ArchSpec &arch_spec)
     return false;
 }
 
+bool
+Target::MergeArchitecture (const ArchSpec &arch_spec)
+{
+    if (arch_spec.IsValid())
+    {
+        if (m_arch.IsCompatibleMatch(arch_spec))
+        {
+            // The current target arch is compatible with "arch_spec", see if we
+            // can improve our current architecture using bits from "arch_spec"
+
+            // Merge bits from arch_spec into "merged_arch" and set our architecture
+            ArchSpec merged_arch (m_arch);
+            merged_arch.MergeFrom (arch_spec);
+            return SetArchitecture(merged_arch);
+        }
+        else
+        {
+            // The new architecture is different, we just need to replace it
+            return SetArchitecture(arch_spec);
+        }
+    }
+    return false;
+}
+
 void
 Target::WillClearList (const ModuleList& module_list)
 {
@@ -1307,8 +1272,7 @@ Target::ModulesDidLoad (ModuleList &module_list)
         {
             m_process_sp->ModulesDidLoad (module_list);
         }
-        // TODO: make event data that packages up the module_list
-        BroadcastEvent (eBroadcastBitModulesLoaded, NULL);
+        BroadcastEvent (eBroadcastBitModulesLoaded, new TargetEventData (this->shared_from_this(), module_list));
     }
 }
 
@@ -1328,7 +1292,7 @@ Target::SymbolsDidLoad (ModuleList &module_list)
         }
         
         m_breakpoint_list.UpdateBreakpoints (module_list, true, false);
-        BroadcastEvent(eBroadcastBitSymbolsLoaded, NULL);
+        BroadcastEvent (eBroadcastBitSymbolsLoaded, new TargetEventData (this->shared_from_this(), module_list));
     }
 }
 
@@ -1339,8 +1303,7 @@ Target::ModulesDidUnload (ModuleList &module_list, bool delete_locations)
     {
         UnloadModuleSections (module_list);
         m_breakpoint_list.UpdateBreakpoints (module_list, false, delete_locations);
-        // TODO: make event data that packages up the module_list
-        BroadcastEvent (eBroadcastBitModulesUnloaded, NULL);
+        BroadcastEvent (eBroadcastBitModulesUnloaded, new TargetEventData (this->shared_from_this(), module_list));
     }
 }
 
@@ -1758,9 +1721,9 @@ Target::GetSharedModule (const ModuleSpec &module_spec, Error *error_ptr)
                 // module in the shared module cache.
                 if (m_platform_sp)
                 {
-                    FileSpec platform_file_spec;        
-                    error = m_platform_sp->GetSharedModule (module_spec, 
-                                                            module_sp, 
+                    error = m_platform_sp->GetSharedModule (module_spec,
+                                                            m_process_sp.get(),
+                                                            module_sp,
                                                             &GetExecutableSearchPaths(),
                                                             &old_module_sp,
                                                             &did_create_module);
@@ -1949,6 +1912,15 @@ Target::GetDefaultDebugFileSearchPaths ()
     TargetPropertiesSP properties_sp(Target::GetGlobalProperties());
     if (properties_sp)
         return properties_sp->GetDebugFileSearchPaths();
+    return FileSpecList();
+}
+
+FileSpecList
+Target::GetDefaultClangModuleSearchPaths ()
+{
+    TargetPropertiesSP properties_sp(Target::GetGlobalProperties());
+    if (properties_sp)
+        return properties_sp->GetClangModuleSearchPaths();
     return FileSpecList();
 }
 
@@ -2623,41 +2595,67 @@ Target::Launch (ProcessLaunchInfo &launch_info, Stream *stream)
 
     if (error.Success())
     {
-        if (launch_info.GetFlags().Test(eLaunchFlagStopAtEntry) == false)
+        if (synchronous_execution || launch_info.GetFlags().Test(eLaunchFlagStopAtEntry) == false)
         {
+            EventSP event_sp;
             ListenerSP hijack_listener_sp (launch_info.GetHijackListener());
+            if (!hijack_listener_sp)
+            {
+                hijack_listener_sp.reset(new Listener("lldb.Target.Launch.hijack"));
+                launch_info.SetHijackListener(hijack_listener_sp);
+                m_process_sp->HijackProcessEvents(hijack_listener_sp.get());
+            }
 
-            StateType state = m_process_sp->WaitForProcessToStop (NULL, NULL, false, hijack_listener_sp.get(), NULL);
+            StateType state = m_process_sp->WaitForProcessToStop (NULL, &event_sp, false, hijack_listener_sp.get(), NULL);
             
             if (state == eStateStopped)
             {
-                if (!synchronous_execution)
-                    m_process_sp->RestoreProcessEvents ();
-
-                error = m_process_sp->PrivateResume();
-
-                if (error.Success())
+                if (!launch_info.GetFlags().Test(eLaunchFlagStopAtEntry))
                 {
-                    // there is a race condition where this thread will return up the call stack to the main command
-                    // handler and show an (lldb) prompt before HandlePrivateEvent (from PrivateStateThread) has
-                    // a chance to call PushProcessIOHandler()
-                    m_process_sp->SyncIOHandler(2000);
-
                     if (synchronous_execution)
                     {
-                        state = m_process_sp->WaitForProcessToStop (NULL, NULL, true, hijack_listener_sp.get(), stream);
-                        const bool must_be_alive = false; // eStateExited is ok, so this must be false
-                        if (!StateIsStoppedState(state, must_be_alive))
+                        error = m_process_sp->PrivateResume();
+                        if (error.Success())
                         {
-                            error.SetErrorStringWithFormat("process isn't stopped: %s", StateAsCString(state));
+                            state = m_process_sp->WaitForProcessToStop (NULL, NULL, true, hijack_listener_sp.get(), stream);
+                            const bool must_be_alive = false; // eStateExited is ok, so this must be false
+                            if (!StateIsStoppedState(state, must_be_alive))
+                            {
+                                error.SetErrorStringWithFormat("process isn't stopped: %s", StateAsCString(state));
+                            }
                         }
+                    }
+                    else
+                    {
+                        m_process_sp->RestoreProcessEvents();
+                        error = m_process_sp->PrivateResume();
+                        if (error.Success())
+                        {
+                            // there is a race condition where this thread will return up the call stack to the main command
+                            // handler and show an (lldb) prompt before HandlePrivateEvent (from PrivateStateThread) has
+                            // a chance to call PushProcessIOHandler()
+                            m_process_sp->SyncIOHandler(2000);
+                        }
+                    }
+                    if (!error.Success())
+                    {
+                        Error error2;
+                        error2.SetErrorStringWithFormat("process resume at entry point failed: %s", error.AsCString());
+                        error = error2;
                     }
                 }
                 else
                 {
-                    Error error2;
-                    error2.SetErrorStringWithFormat("process resume at entry point failed: %s", error.AsCString());
-                    error = error2;
+                    assert(synchronous_execution && launch_info.GetFlags().Test(eLaunchFlagStopAtEntry));
+
+                    // Target was stopped at entry as was intended. Need to notify the listeners about it.
+                    m_process_sp->RestoreProcessEvents();
+                    m_process_sp->HandlePrivateEvent(event_sp);
+
+                    // there is a race condition where this thread will return up the call stack to the main command
+                    // handler and show an (lldb) prompt before HandlePrivateEvent (from PrivateStateThread) has
+                    // a chance to call PushProcessIOHandler()
+                    m_process_sp->SyncIOHandler(2000);
                 }
             }
             else if (state == eStateExited)
@@ -2767,7 +2765,7 @@ Target::Attach (ProcessAttachInfo &attach_info, Stream *stream)
                 error.SetErrorStringWithFormat ("attach failed: %s", exit_desc);
             else
                 error.SetErrorString ("attach failed: process did not stop (no such process or permission problem?)");
-            process_sp->Destroy ();
+            process_sp->Destroy (false);
         }
     }
     return error;
@@ -2940,6 +2938,8 @@ g_properties[] =
       "Each element of the array is checked in order and the first one that results in a match wins." },
     { "exec-search-paths"                  , OptionValue::eTypeFileSpecList, false, 0                       , NULL, NULL, "Executable search paths to use when locating executable files whose paths don't match the local file system." },
     { "debug-file-search-paths"            , OptionValue::eTypeFileSpecList, false, 0                       , NULL, NULL, "List of directories to be searched when locating debug symbol files." },
+    { "clang-module-search-paths"          , OptionValue::eTypeFileSpecList, false, 0                       , NULL, NULL, "List of directories to be searched when locating modules for Clang." },
+    { "auto-import-clang-modules"          , OptionValue::eTypeBoolean   , false, false                     , NULL, NULL, "Automatically load Clang modules referred to by the program." },
     { "max-children-count"                 , OptionValue::eTypeSInt64    , false, 256                       , NULL, NULL, "Maximum number of children to expand in any level of depth." },
     { "max-string-summary-length"          , OptionValue::eTypeSInt64    , false, 1024                      , NULL, NULL, "Maximum number of characters to show when using %s in summary strings." },
     { "max-memory-read-size"               , OptionValue::eTypeSInt64    , false, 1024                      , NULL, NULL, "Maximum number of bytes that 'memory read' will fetch before --force must be specified." },
@@ -2990,6 +2990,8 @@ enum
     ePropertySourceMap,
     ePropertyExecutableSearchPaths,
     ePropertyDebugFileSearchPaths,
+    ePropertyClangModuleSearchPaths,
+    ePropertyAutoImportClangModules,
     ePropertyMaxChildrenCount,
     ePropertyMaxSummaryLength,
     ePropertyMaxMemReadSize,
@@ -3267,6 +3269,7 @@ TargetProperties::SetArg0 (const char *arg)
 {
     const uint32_t idx = ePropertyArg0;
     m_collection_sp->SetPropertyAtIndexAsString (NULL, idx, arg);
+    m_launch_info.SetArg0(arg);
 }
 
 bool
@@ -3281,6 +3284,7 @@ TargetProperties::SetRunArguments (const Args &args)
 {
     const uint32_t idx = ePropertyRunArgs;
     m_collection_sp->SetPropertyAtIndexFromArgs (NULL, idx, args);
+    m_launch_info.GetArguments() = args;
 }
 
 size_t
@@ -3295,6 +3299,7 @@ TargetProperties::SetEnvironmentFromArgs (const Args &env)
 {
     const uint32_t idx = ePropertyEnvVars;
     m_collection_sp->SetPropertyAtIndexFromArgs (NULL, idx, env);
+    m_launch_info.GetEnvironmentEntries() = env;
 }
 
 bool
@@ -3329,6 +3334,22 @@ TargetProperties::GetDebugFileSearchPaths ()
     OptionValueFileSpecList *option_value = m_collection_sp->GetPropertyAtIndexAsOptionValueFileSpecList (NULL, false, idx);
     assert(option_value);
     return option_value->GetCurrentValue();
+}
+
+FileSpecList &
+TargetProperties::GetClangModuleSearchPaths ()
+{
+    const uint32_t idx = ePropertyClangModuleSearchPaths;
+    OptionValueFileSpecList *option_value = m_collection_sp->GetPropertyAtIndexAsOptionValueFileSpecList (NULL, false, idx);
+    assert(option_value);
+    return option_value->GetCurrentValue();
+}
+
+bool
+TargetProperties::GetEnableAutoImportClangModules() const
+{
+    const uint32_t idx = ePropertyAutoImportClangModules;
+    return m_collection_sp->GetPropertyAtIndexAsBoolean (NULL, idx, g_properties[idx].default_uint_value != 0);
 }
 
 bool
@@ -3607,4 +3628,70 @@ TargetProperties::DisableSTDIOValueChangedCallback(void *target_property_ptr, Op
         this_->m_launch_info.GetFlags().Set(lldb::eLaunchFlagDisableSTDIO);
     else
         this_->m_launch_info.GetFlags().Clear(lldb::eLaunchFlagDisableSTDIO);
+}
+
+//----------------------------------------------------------------------
+// Target::TargetEventData
+//----------------------------------------------------------------------
+
+Target::TargetEventData::TargetEventData (const lldb::TargetSP &target_sp) :
+    EventData (),
+    m_target_sp (target_sp),
+    m_module_list ()
+{
+}
+
+Target::TargetEventData::TargetEventData (const lldb::TargetSP &target_sp, const ModuleList &module_list) :
+    EventData (),
+    m_target_sp (target_sp),
+    m_module_list (module_list)
+{
+}
+
+Target::TargetEventData::~TargetEventData()
+{
+}
+
+const ConstString &
+Target::TargetEventData::GetFlavorString ()
+{
+    static ConstString g_flavor ("Target::TargetEventData");
+    return g_flavor;
+}
+
+void
+Target::TargetEventData::Dump (Stream *s) const
+{
+}
+
+const Target::TargetEventData *
+Target::TargetEventData::GetEventDataFromEvent (const Event *event_ptr)
+{
+    if (event_ptr)
+    {
+        const EventData *event_data = event_ptr->GetData();
+        if (event_data && event_data->GetFlavor() == TargetEventData::GetFlavorString())
+            return static_cast <const TargetEventData *> (event_ptr->GetData());
+    }
+    return NULL;
+}
+
+TargetSP
+Target::TargetEventData::GetTargetFromEvent (const Event *event_ptr)
+{
+    TargetSP target_sp;
+    const TargetEventData *event_data = GetEventDataFromEvent (event_ptr);
+    if (event_data)
+        target_sp = event_data->m_target_sp;
+    return target_sp;
+}
+
+ModuleList
+Target::TargetEventData::GetModuleListFromEvent (const Event *event_ptr)
+{
+    ModuleList module_list;
+    const TargetEventData *event_data = GetEventDataFromEvent (event_ptr);
+    if (event_data)
+        module_list = event_data->m_module_list;
+    return module_list;
 }

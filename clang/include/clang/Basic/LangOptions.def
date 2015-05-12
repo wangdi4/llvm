@@ -71,6 +71,8 @@ LANGOPT(C11               , 1, 0, "C11")
 #ifdef INTEL_CUSTOMIZATION
 LANGOPT(IntelCompat       , 1, 0,
         "Enables or disables Intel Compiler compatibility mode")
+LANGOPT(IntelMSCompat     , 1, 0,
+        "Enables or disables Microsoft compatibility features that are not planned for clang/llvm trunk")
 LANGOPT(Zc_forScope      , 1, 1, "Supports Microsoft C++ behavior for the For loops")
 LANGOPT(CilkPlus, 1, 0, "Intel Cilk Plus extensions to C/C++")
 LANGOPT(Float128, 1, 0, "128 bit float support")
@@ -182,10 +184,10 @@ LANGOPT(CUDA              , 1, 0, "CUDA")
 LANGOPT(OpenMP            , 1, 0, "OpenMP support")
 LANGOPT(CUDAIsDevice      , 1, 0, "Compiling for CUDA device")
 LANGOPT(CUDAAllowHostCallsFromHostDevice, 1, 0, "Allow host device functions to call host functions")
+LANGOPT(CUDADisableTargetCallChecks, 1, 0, "Disable checks for call targets (host, device, etc.)")
 
 LANGOPT(AssumeSaneOperatorNew , 1, 1, "implicit __attribute__((malloc)) for C++'s new operators")
 LANGOPT(SizedDeallocation , 1, 0, "enable sized deallocation functions")
-LANGOPT(DefineSizedDeallocation , 1, 0, "generate weak definitions of sized delete")
 BENIGN_LANGOPT(ElideConstructors , 1, 1, "C++ copy constructor elision")
 BENIGN_LANGOPT(DumpRecordLayouts , 1, 0, "dumping the layout of IRgen'd records")
 BENIGN_LANGOPT(DumpRecordLayoutsSimple , 1, 0, "dumping the layout of IRgen'd records in a simple form")

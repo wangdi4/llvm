@@ -99,7 +99,9 @@ public:
   void pop();
 
   /// \brief Return the top loop id metadata.
-  llvm::MDNode *getCurLoopID() const { return getInfo().getLoopID(); }
+  llvm::MDNode *getCurLoopID() const {
+    return hasInfo() ? getInfo().getLoopID() : 0;
+  }
 
   /// \brief Return true if the top loop is parallel.
   bool getCurLoopParallel() const {

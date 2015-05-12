@@ -102,6 +102,9 @@ type CompilerOptions struct {
 	// DisableUnusedImportCheck disables the unused import check performed
 	// by go/types if set to true.
 	DisableUnusedImportCheck bool
+
+	// Packages is used by go/types as the imported package map if non-nil.
+	Packages map[string]*types.Package
 }
 
 type Compiler struct {
@@ -208,12 +211,14 @@ func (compiler *compiler) compile(fset *token.FileSet, astFiles []*ast.File, imp
 	impcfg := &loader.Config{
 		Fset: fset,
 		TypeChecker: types.Config{
-			Import: compiler.Importer,
-			Sizes:  compiler.llvmtypes,
+			Packages: compiler.Packages,
+			Import:   compiler.Importer,
+			Sizes:    compiler.llvmtypes,
 			DisableUnusedImportCheck: compiler.DisableUnusedImportCheck,
 		},
-		Build:          &buildctx.Context,
-		PackageCreated: compiler.PackageCreated,
+		ImportFromBinary: true,
+		Build:            &buildctx.Context,
+		PackageCreated:   compiler.PackageCreated,
 	}
 	// If no import path is specified, then set the import
 	// path to be the same as the package's name.
@@ -336,7 +341,8 @@ func (c *compiler) buildPackageInitData(mainPkg *ssa.Package) gccgoimporter.Init
 }
 
 func (c *compiler) createInitMainFunction(mainPkg *ssa.Package) {
-	ftyp := llvm.FunctionType(llvm.VoidType(), nil, false)
+	int8ptr := llvm.PointerType(c.types.ctx.Int8Type(), 0)
+	ftyp := llvm.FunctionType(llvm.VoidType(), []llvm.Type{int8ptr}, false)
 	initMain := llvm.AddFunction(c.module.Module, "__go_init_main", ftyp)
 	c.addCommonFunctionAttrs(initMain)
 	entry := llvm.AddBasicBlock(initMain, "entry")
@@ -345,10 +351,12 @@ func (c *compiler) createInitMainFunction(mainPkg *ssa.Package) {
 	defer builder.Dispose()
 	builder.SetInsertPointAtEnd(entry)
 
+	args := []llvm.Value{llvm.Undef(int8ptr)}
+
 	if !c.GccgoABI {
 		initfn := c.module.Module.NamedFunction("main..import")
 		if !initfn.IsNil() {
-			builder.CreateCall(initfn, nil, "")
+			builder.CreateCall(initfn, args, "")
 		}
 		builder.CreateRetVoid()
 		return
@@ -361,7 +369,7 @@ func (c *compiler) createInitMainFunction(mainPkg *ssa.Package) {
 		if initfn.IsNil() {
 			initfn = llvm.AddFunction(c.module.Module, init.InitFunc, ftyp)
 		}
-		builder.CreateCall(initfn, nil, "")
+		builder.CreateCall(initfn, args, "")
 	}
 
 	builder.CreateRetVoid()

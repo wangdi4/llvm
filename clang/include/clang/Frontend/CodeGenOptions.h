@@ -46,6 +46,11 @@ public:
     OnlyAlwaysInlining  // Only run the always inlining pass.
   };
 
+  enum VectorLibrary {
+    NoLibrary, // Don't use any vector library.
+    Accelerate // Use the Accelerate framework.
+  };
+
   enum ObjCDispatchMethodKind {
     Legacy = 0,
     NonLegacy = 1,
@@ -75,6 +80,15 @@ public:
 
     FullDebugInfo         /// Generate complete debug info.
   };
+
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#368119 - support for '/Z7' and '/Zi' options.
+  enum MSDebugInfoFileKind {
+    MSDebugInfoNoFile,    /// Don't generate MS debug info.
+    MSDebugInfoPdbFile,   /// Generate MS debug info in a separate PDB file.
+    MSDebugInfoObjFile    /// Generate MS debug info in a COFF file.
+  };
+#endif //INTEL_CUSTOMIZATION
 
   enum TLSModel {
     GeneralDynamicTLSModel,
@@ -114,6 +128,14 @@ public:
   /// The string to embed in the debug information for the compile unit, if
   /// non-empty.
   std::string DwarfDebugFlags;
+
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#368125 - support for '/Fd' and '/Fo' options.
+  /// The name of object file to emit MS debug info into.
+  std::string MSOutputObjFile;
+  /// The name of PDB file to emit MS debug info into.
+  std::string MSOutputPdbFile;
+#endif //INTEL_CUSTOMIZATION
 
   /// The ABI to use for passing floating point arguments.
   std::string FloatABI;

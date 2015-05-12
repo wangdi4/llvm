@@ -2,7 +2,7 @@
 // RUN: %clang_cc1 -fsyntax-only -verify %s -DTEST1
 // RUN: %clang_cc1 -fsyntax-only -fms-compatibility -verify %s -DTEST2
 // RUN: %clang_cc1 -fsyntax-only -fintel-compatibility -verify %s -DTEST1
-// RUN: %clang_cc1 -fsyntax-only -fms-compatibility -fintel-compatibility -verify %s -DTEST1
+// RUN: %clang_cc1 -fsyntax-only -fms-compatibility -fintel-compatibility -verify %s -DTEST2
 
 #if TEST1
 
@@ -21,7 +21,7 @@ template <typename T> class X; // expected-note {{explicitly specialized declara
 }
 
 namespace B {
-template <> class A::X<int>; // expected-warning {{class template specialization of 'X' not in a namespace enclosing 'A' is a Microsoft extension}}
+template <> class A::X<int>; // expected-warning {{class template specialization of 'X' outside namespace enclosing 'A' is a Microsoft extension}}
 }
 
 #else

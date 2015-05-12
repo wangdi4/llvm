@@ -1343,11 +1343,19 @@ public:
     /// This function is not meant to be overridden by Process
     /// subclasses.
     ///
+    /// @param[in] force_kill
+    ///     Whether lldb should force a kill (instead of a detach) from
+    ///     the inferior process.  Normally if lldb launched a binary and
+    ///     Destory is called, lldb kills it.  If lldb attached to a 
+    ///     running process and Destory is called, lldb detaches.  If 
+    ///     this behavior needs to be over-ridden, this is the bool that
+    ///     can be used.
+    ///
     /// @return
     ///     Returns an error object.
     //------------------------------------------------------------------
     Error
-    Destroy();
+    Destroy(bool force_kill);
 
     //------------------------------------------------------------------
     /// Sends a process a UNIX signal \a signal.
@@ -2970,7 +2978,6 @@ public:
     ProcessRunLock &
     GetRunLock ();
 
-public:
     virtual Error
     SendEventData(const char *data)
     {
@@ -2983,6 +2990,29 @@ public:
 
     lldb::InstrumentationRuntimeSP
     GetInstrumentationRuntime(lldb::InstrumentationRuntimeType type);
+
+    //------------------------------------------------------------------
+    /// Try to fetch the module specification for a module with the
+    /// given file name and architecture. Process sub-classes have to
+    /// override this method if they support platforms where the
+    /// Platform object can't get the module spec for all module.
+    ///
+    /// @param[in] module_file_spec
+    ///     The file name of the module to get specification for.
+    ///
+    /// @param[in] arch
+    ///     The architecture of the module to get specification for.
+    ///
+    /// @param[out] module_spec
+    ///     The fetched module specification if the return value is
+    ///     \b true, unchanged otherwise.
+    ///
+    /// @return
+    ///     Returns \b true if the module spec fetched successfully,
+    ///     \b false otherwise.
+    //------------------------------------------------------------------
+    virtual bool
+    GetModuleSpec(const FileSpec& module_file_spec, const ArchSpec& arch, ModuleSpec &module_spec);
 
 protected:
 
@@ -3149,7 +3179,8 @@ protected:
     ArchSpec::StopInfoOverrideCallbackType m_stop_info_override_callback;
     bool                        m_currently_handling_do_on_removals;
     bool                        m_resume_requested;         // If m_currently_handling_event or m_currently_handling_do_on_removals are true, Resume will only request a resume, using this flag to check.
-    bool                        m_finalize_called;
+    bool                        m_finalizing; // This is set at the beginning of Process::Finalize() to stop functions from looking up or creating things during a finalize call
+    bool                        m_finalize_called; // This is set at the end of Process::Finalize()
     bool                        m_clear_thread_plans_on_stop;
     bool                        m_force_next_event_delivery;
     lldb::StateType             m_last_broadcast_state;   /// This helps with the Public event coalescing in ShouldBroadcastEvent.
@@ -3235,6 +3266,12 @@ protected:
     
     bool
     ProcessIOHandlerIsActive ();
+
+    bool
+    ProcessIOHandlerExists () const
+    {
+        return static_cast<bool>(m_process_input_reader);
+    }
     
     Error
     HaltForDestroyOrDetach(lldb::EventSP &exit_event_sp);

@@ -3101,6 +3101,28 @@ void InitializationSequence::SetOverloadFailure(FailureKind Failure,
 // Attempt initialization
 //===----------------------------------------------------------------------===//
 
+/// Tries to add a zero initializer. Returns true if that worked.
+static bool
+maybeRecoverWithZeroInitialization(Sema &S, InitializationSequence &Sequence,
+                                   const InitializedEntity &Entity) {
+  if (Entity.getKind() != InitializedEntity::EK_Variable)
+    return false;
+
+  VarDecl *VD = cast<VarDecl>(Entity.getDecl());
+  if (VD->getInit() || VD->getLocEnd().isMacroID())
+    return false;
+
+  QualType VariableTy = VD->getType().getCanonicalType();
+  SourceLocation Loc = S.getLocForEndOfToken(VD->getLocEnd());
+  std::string Init = S.getFixItZeroInitializerForType(VariableTy, Loc);
+  if (!Init.empty()) {
+    Sequence.AddZeroInitializationStep(Entity.getType());
+    Sequence.SetZeroInitializationFixit(Init, Loc);
+    return true;
+  }
+  return false;
+}
+
 static void MaybeProduceObjCObject(Sema &S,
                                    InitializationSequence &Sequence,
                                    const InitializedEntity &Entity) {
@@ -3339,7 +3361,8 @@ static void TryConstructorInitialization(Sema &S,
   if (Kind.getKind() == InitializationKind::IK_Default &&
       Entity.getType().isConstQualified() &&
       !cast<CXXConstructorDecl>(Best->Function)->isUserProvided()) {
-    Sequence.SetFailed(InitializationSequence::FK_DefaultInitOfConst);
+    if (!maybeRecoverWithZeroInitialization(S, Sequence, Entity))
+      Sequence.SetFailed(InitializationSequence::FK_DefaultInitOfConst);
     return;
   }
 
@@ -3463,7 +3486,14 @@ static void TryReferenceListInitialization(Sema &S,
   TryListInitialization(S, TempEntity, Kind, InitList, Sequence);
   if (Sequence) {
     if (DestType->isRValueReferenceType() ||
+#ifdef INTEL_CUSTOMIZATION
+        // CQ#364712 - allow non-const non-volatile lvalue reference bind to
+        // temporary in IntelMSCompat mode.
+        ((S.getLangOpts().IntelMSCompat || T1Quals.hasConst()) &&
+         !T1Quals.hasVolatile()))
+#else
         (T1Quals.hasConst() && !T1Quals.hasVolatile()))
+#endif // INTEL_CUSTOMIZATION
       Sequence.AddReferenceBindingStep(cv1T1, /*bindingTemporary=*/true);
     else
       Sequence.SetFailed(
@@ -3975,11 +4005,21 @@ static void TryReferenceInitializationCore(Sema &S,
                         InitializationSequence::FK_ReferenceInitOverloadFailed,
                                   ConvOvlResult);
     else
+#ifdef INTEL_CUSTOMIZATION
+      // CQ#364712 - allow non-const lvalue reference bind to temporary in
+      // IntelMsCompat mode. Don't change behaviour for volatile lvalues.
+      if (!S.getLangOpts().IntelMSCompat || T1Quals.hasVolatile() ||
+          InitCategory.isLValue())
+#endif // INTEL_CUSTOMIZATION
       Sequence.SetFailed(InitCategory.isLValue()
         ? (RefRelationship == Sema::Ref_Related
              ? InitializationSequence::FK_ReferenceInitDropsQualifiers
              : InitializationSequence::FK_NonConstLValueReferenceBindingToUnrelated)
         : InitializationSequence::FK_NonConstLValueReferenceBindingToTemporary);
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#364712. Return only if an error was emitted.
+    if (Sequence.Failed())
+#endif // INTEL_CUSTOMIZATION
 
     return;
   }
@@ -4231,7 +4271,8 @@ static void TryDefaultInitialization(Sema &S,
   //   a const-qualified type T, T shall be a class type with a user-provided
   //   default constructor.
   if (DestType.isConstQualified() && S.getLangOpts().CPlusPlus) {
-    Sequence.SetFailed(InitializationSequence::FK_DefaultInitOfConst);
+    if (!maybeRecoverWithZeroInitialization(S, Sequence, Entity))
+      Sequence.SetFailed(InitializationSequence::FK_DefaultInitOfConst);
     return;
   }
 
@@ -5749,6 +5790,21 @@ InitializationSequence::Perform(Sema &S,
     Diagnose(S, Entity, Kind, Args);
     return ExprError();
   }
+  if (!ZeroInitializationFixit.empty()) {
+    unsigned DiagID = diag::err_default_init_const;
+    if (Decl *D = Entity.getDecl())
+      if (S.getLangOpts().MSVCCompat && D->hasAttr<SelectAnyAttr>())
+        DiagID = diag::ext_default_init_const;
+
+    // The initialization would have succeeded with this fixit. Since the fixit
+    // is on the error, we need to build a valid AST in this case, so this isn't
+    // handled in the Failed() branch above.
+    QualType DestType = Entity.getType();
+    S.Diag(Kind.getLocation(), DiagID)
+        << DestType << (bool)DestType->getAs<RecordType>()
+        << FixItHint::CreateInsertion(ZeroInitializationFixitLoc,
+                                      ZeroInitializationFixit);
+  }
 
   if (getKind() == DependentSequence) {
     // If the declaration is a non-dependent, incomplete array type
@@ -5981,6 +6037,30 @@ InitializationSequence::Perform(Sema &S,
     case SK_BindReferenceToTemporary: {
       // Make sure the "temporary" is actually an rvalue.
       assert(CurInit.get()->isRValue() && "not a temporary");
+
+#ifdef INTEL_CUSTOMIZATION
+      // CQ#364712 - allow non-const lvalue reference bind to temporary in
+      // IntelMSCompat mode.
+      QualType DeclType = Entity.getType();
+      Qualifiers DeclTypeQuals = DeclType.getNonReferenceType().getQualifiers();
+
+      if (DeclType->isLValueReferenceType() && !DeclTypeQuals.hasConst() &&
+          !DeclTypeQuals.hasVolatile()) {
+        // If it is non-const non-volatile lvalue reference and FailureKind was
+        // not set, we should emit a warning.
+        if (isa<InitListExpr>(Args[0]))
+          S.Diag(Kind.getLocation(),
+                 diag::warn_lvalue_reference_bind_to_initlist)
+            << DeclType.getNonReferenceType()
+            << Args[0]->getSourceRange();
+        else
+          S.Diag(Kind.getLocation(),
+                 diag::warn_lvalue_reference_bind_to_temporary)
+            << DeclType.getNonReferenceType()
+            << Args[0]->getType()
+            << Args[0]->getSourceRange();
+      }
+#endif // INTEL_CUSTOMIZATION
 
       // Check exception specifications
       if (S.CheckExceptionSpecCompatibility(CurInit.get(), DestType))
@@ -6549,26 +6629,6 @@ static void diagnoseListInit(Sema &S, const InitializedEntity &Entity,
          "Inconsistent init list check result.");
 }
 
-/// Prints a fixit for adding a null initializer for |Entity|. Call this only
-/// right after emitting a diagnostic.
-static void maybeEmitZeroInitializationFixit(Sema &S,
-                                             InitializationSequence &Sequence,
-                                             const InitializedEntity &Entity) {
-  if (Entity.getKind() != InitializedEntity::EK_Variable)
-    return;
-
-  VarDecl *VD = cast<VarDecl>(Entity.getDecl());
-  if (VD->getInit() || VD->getLocEnd().isMacroID())
-    return;
-
-  QualType VariableTy = VD->getType().getCanonicalType();
-  SourceLocation Loc = S.getLocForEndOfToken(VD->getLocEnd());
-  std::string Init = S.getFixItZeroInitializerForType(VariableTy, Loc);
-
-  S.Diag(Loc, diag::note_add_initializer)
-      << VD << FixItHint::CreateInsertion(Loc, Init);
-}
-
 bool InitializationSequence::Diagnose(Sema &S,
                                       const InitializedEntity &Entity,
                                       const InitializationKind &Kind,
@@ -6753,9 +6813,9 @@ bool InitializationSequence::Diagnose(Sema &S,
   case FK_TooManyInitsForScalar: {
     SourceRange R;
 
-    if (InitListExpr *InitList = dyn_cast<InitListExpr>(Args[0]))
-      R = SourceRange(InitList->getInit(0)->getLocEnd(),
-                      InitList->getLocEnd());
+    auto *InitList = dyn_cast<InitListExpr>(Args[0]);
+    if (InitList && InitList->getNumInits() == 1)
+      R = SourceRange(InitList->getInit(0)->getLocEnd(), InitList->getLocEnd());
     else
       R = SourceRange(Args.front()->getLocEnd(), Args.back()->getLocEnd());
 
@@ -6900,7 +6960,6 @@ bool InitializationSequence::Diagnose(Sema &S,
     } else {
       S.Diag(Kind.getLocation(), diag::err_default_init_const)
           << DestType << (bool)DestType->getAs<RecordType>();
-      maybeEmitZeroInitializationFixit(S, *this, Entity);
     }
     break;
 
@@ -7371,7 +7430,6 @@ Sema::PerformCopyInitialization(const InitializedEntity &Entity,
                                                            EqualLoc,
                                                            AllowExplicit);
   InitializationSequence Seq(*this, Entity, Kind, InitE, TopLevelOfInitList);
-  Init.get();
 
   ExprResult Result = Seq.Perform(*this, Entity, Kind, InitE);
 

@@ -157,8 +157,8 @@ CodeGenModule::CodeGenModule(ASTContext &C, const CodeGenOptions &CGO,
       unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
                                               "Could not read profile: %0");
       getDiags().Report(DiagID) << EC.message();
-    }
-    PGOReader = std::move(ReaderOrErr.get());
+    } else
+      PGOReader = std::move(ReaderOrErr.get());
   }
 
   // If coverage mapping generation is enabled, create the
@@ -339,6 +339,8 @@ void CodeGenModule::checkAliases() {
 
 void CodeGenModule::clear() {
   DeferredDeclsToEmit.clear();
+  if (OpenMPRuntime)
+    OpenMPRuntime->clear();
 }
 
 void InstrProfStats::reportDiagnostics(DiagnosticsEngine &Diags,
@@ -427,6 +429,8 @@ void CodeGenModule::Release() {
 #ifdef INTEL_CUSTOMIZATION
   if (getLangOpts().CilkPlus)
     EmitCilkElementalVariants();
+  if (getLangOpts().IntelMSCompat)
+    EmitMSDebugInfoMetadata();
 #endif  // INTEL_CUSTOMIZATION
   if (getCodeGenOpts().EmitGcovArcs || getCodeGenOpts().EmitGcovNotes)
     EmitCoverageFile();
@@ -1367,7 +1371,7 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
 
   // If this is CUDA, be selective about which declarations we emit.
   if (LangOpts.CUDA) {
-    if (CodeGenOpts.CUDAIsDevice) {
+    if (LangOpts.CUDAIsDevice) {
       if (!Global->hasAttr<CUDADeviceAttr>() &&
           !Global->hasAttr<CUDAGlobalAttr>() &&
           !Global->hasAttr<CUDAConstantAttr>() &&
@@ -1647,16 +1651,6 @@ CodeGenModule::GetOrCreateLLVMFunction(StringRef MangledName,
       // don't need it anymore).
       addDeferredDeclToEmit(F, DDI->second);
       DeferredDecls.erase(DDI);
-      
-      // Otherwise, if this is a sized deallocation function, emit a weak
-      // definition for it at the end of the translation unit (if allowed),
-      // unless the sized deallocation function is aliased.
-    } else if (D &&
-               cast<FunctionDecl>(D)
-                  ->getCorrespondingUnsizedGlobalDeallocationFunction() &&
-               getLangOpts().DefineSizedDeallocation &&
-               !D->hasAttr<AliasAttr>()) {
-      addDeferredDeclToEmit(F, GD);
 
       // Otherwise, there are cases we have to worry about where we're
       // using a declaration for which we must emit a definition but where
@@ -1814,6 +1808,8 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName,
     // handling.
     GV->setConstant(isTypeConstant(D->getType(), false));
 
+    GV->setAlignment(getContext().getDeclAlign(D).getQuantity());
+
     setLinkageAndVisibilityForGV(GV, D);
 
     if (D->getTLSKind()) {
@@ -1878,7 +1874,8 @@ CodeGenModule::CreateOrReplaceCXXRuntimeVariable(StringRef Name,
     OldGV->eraseFromParent();
   }
 
-  if (supportsCOMDAT() && GV->isWeakForLinker())
+  if (supportsCOMDAT() && GV->isWeakForLinker() &&
+      !GV->hasAvailableExternallyLinkage())
     GV->setComdat(TheModule.getOrInsertComdat(GV->getName()));
 
   return GV;
@@ -1935,7 +1932,7 @@ CharUnits CodeGenModule::GetTargetTypeStoreSize(llvm::Type *Ty) const {
 
 unsigned CodeGenModule::GetGlobalVarAddressSpace(const VarDecl *D,
                                                  unsigned AddrSpace) {
-  if (LangOpts.CUDA && CodeGenOpts.CUDAIsDevice) {
+  if (LangOpts.CUDA && LangOpts.CUDAIsDevice) {
     if (D->hasAttr<CUDAConstantAttr>())
       AddrSpace = getContext().getTargetAddressSpace(LangAS::cuda_constant);
     else if (D->hasAttr<CUDASharedAttr>())
@@ -2181,7 +2178,8 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
 }
 
 static bool isVarDeclStrongDefinition(const ASTContext &Context,
-                                      const VarDecl *D, bool NoCommon) {
+                                      CodeGenModule &CGM, const VarDecl *D,
+                                      bool NoCommon) {
   // Don't give variables common linkage if -fno-common was specified unless it
   // was overridden by a NoCommon attribute.
   if ((NoCommon || D->hasAttr<NoCommonAttr>()) && !D->hasAttr<CommonAttr>())
@@ -2204,6 +2202,10 @@ static bool isVarDeclStrongDefinition(const ASTContext &Context,
 
   // Tentative definitions marked with WeakImportAttr are true definitions.
   if (D->hasAttr<WeakImportAttr>())
+    return true;
+
+  // A variable cannot be both common and exist in a comdat.
+  if (shouldBeInCOMDAT(CGM, *D))
     return true;
 
   // Declarations with a required alignment do not have common linakge in MSVC
@@ -2274,7 +2276,7 @@ llvm::GlobalValue::LinkageTypes CodeGenModule::getLLVMLinkageForDeclarator(
   // C++ doesn't have tentative definitions and thus cannot have common
   // linkage.
   if (!getLangOpts().CPlusPlus && isa<VarDecl>(D) &&
-      !isVarDeclStrongDefinition(Context, cast<VarDecl>(D),
+      !isVarDeclStrongDefinition(Context, *this, cast<VarDecl>(D),
                                  CodeGenOpts.NoCommon))
     return llvm::GlobalVariable::CommonLinkage;
 
@@ -2397,7 +2399,7 @@ static void replaceUsesOfNonProtoConstant(llvm::Constant *old,
       callSite->replaceAllUsesWith(newCall.getInstruction());
 
     // Copy debug location attached to CI.
-    if (!callSite->getDebugLoc().isUnknown())
+    if (callSite->getDebugLoc())
       newCall->setDebugLoc(callSite->getDebugLoc());
     callSite->eraseFromParent();
   }
@@ -2611,12 +2613,10 @@ llvm::Function *CodeGenModule::getIntrinsic(unsigned IID,
                                          Tys);
 }
 
-static llvm::StringMapEntry<llvm::Constant*> &
-GetConstantCFStringEntry(llvm::StringMap<llvm::Constant*> &Map,
-                         const StringLiteral *Literal,
-                         bool TargetIsLSB,
-                         bool &IsUTF16,
-                         unsigned &StringLength) {
+static llvm::StringMapEntry<llvm::GlobalVariable *> &
+GetConstantCFStringEntry(llvm::StringMap<llvm::GlobalVariable *> &Map,
+                         const StringLiteral *Literal, bool TargetIsLSB,
+                         bool &IsUTF16, unsigned &StringLength) {
   StringRef String = Literal->getString();
   unsigned NumBytes = String.size();
 
@@ -2648,10 +2648,9 @@ GetConstantCFStringEntry(llvm::StringMap<llvm::Constant*> &Map,
                          nullptr)).first;
 }
 
-static llvm::StringMapEntry<llvm::Constant*> &
-GetConstantStringEntry(llvm::StringMap<llvm::Constant*> &Map,
-                       const StringLiteral *Literal,
-                       unsigned &StringLength) {
+static llvm::StringMapEntry<llvm::GlobalVariable *> &
+GetConstantStringEntry(llvm::StringMap<llvm::GlobalVariable *> &Map,
+                       const StringLiteral *Literal, unsigned &StringLength) {
   StringRef String = Literal->getString();
   StringLength = String.size();
   return *Map.insert(std::make_pair(String, nullptr)).first;
@@ -2661,10 +2660,10 @@ llvm::Constant *
 CodeGenModule::GetAddrOfConstantCFString(const StringLiteral *Literal) {
   unsigned StringLength = 0;
   bool isUTF16 = false;
-  llvm::StringMapEntry<llvm::Constant*> &Entry =
-    GetConstantCFStringEntry(CFConstantStringMap, Literal,
-                             getDataLayout().isLittleEndian(),
-                             isUTF16, StringLength);
+  llvm::StringMapEntry<llvm::GlobalVariable *> &Entry =
+      GetConstantCFStringEntry(CFConstantStringMap, Literal,
+                               getDataLayout().isLittleEndian(), isUTF16,
+                               StringLength);
 
   if (auto *C = Entry.second)
     return C;
@@ -2680,7 +2679,7 @@ CodeGenModule::GetAddrOfConstantCFString(const StringLiteral *Literal) {
     llvm::Constant *GV = CreateRuntimeVariable(Ty,
                                            "__CFConstantStringClassReference");
     // Decay array -> ptr
-    V = llvm::ConstantExpr::getGetElementPtr(GV, Zeros);
+    V = llvm::ConstantExpr::getGetElementPtr(Ty, GV, Zeros);
     CFConstantStringClassRef = V;
   }
   else
@@ -2733,7 +2732,7 @@ CodeGenModule::GetAddrOfConstantCFString(const StringLiteral *Literal) {
   }
 
   // String.
-  Fields[2] = llvm::ConstantExpr::getGetElementPtr(GV, Zeros);
+  Fields[2] = llvm::ConstantExpr::getGetElementPtr(GV->getType(), GV, Zeros);
 
   if (isUTF16)
     // Cast the UTF16 string to the correct type.
@@ -2754,11 +2753,11 @@ CodeGenModule::GetAddrOfConstantCFString(const StringLiteral *Literal) {
   return GV;
 }
 
-llvm::Constant *
+llvm::GlobalVariable *
 CodeGenModule::GetAddrOfConstantString(const StringLiteral *Literal) {
   unsigned StringLength = 0;
-  llvm::StringMapEntry<llvm::Constant*> &Entry =
-    GetConstantStringEntry(CFConstantStringMap, Literal, StringLength);
+  llvm::StringMapEntry<llvm::GlobalVariable *> &Entry =
+      GetConstantStringEntry(CFConstantStringMap, Literal, StringLength);
 
   if (auto *C = Entry.second)
     return C;
@@ -2787,11 +2786,10 @@ CodeGenModule::GetAddrOfConstantString(const StringLiteral *Literal) {
       llvm::Type *PTy = llvm::ArrayType::get(Ty, 0);
       GV = CreateRuntimeVariable(PTy, str);
       // Decay array -> ptr
-      V = llvm::ConstantExpr::getGetElementPtr(GV, Zeros);
+      V = llvm::ConstantExpr::getGetElementPtr(PTy, GV, Zeros);
       ConstantStringClassRef = V;
     }
-  }
-  else
+  } else
     V = ConstantStringClassRef;
 
   if (!NSConstantStringType) {
@@ -2847,8 +2845,9 @@ CodeGenModule::GetAddrOfConstantString(const StringLiteral *Literal) {
   // of the string is via this class initializer.
   CharUnits Align = getContext().getTypeAlignInChars(getContext().CharTy);
   GV->setAlignment(Align.getQuantity());
-  Fields[1] = llvm::ConstantExpr::getGetElementPtr(GV, Zeros);
-  
+  Fields[1] =
+      llvm::ConstantExpr::getGetElementPtr(GV->getValueType(), GV, Zeros);
+
   // String length.
   llvm::Type *Ty = getTypes().ConvertType(getContext().UnsignedIntTy);
   Fields[2] = llvm::ConstantInt::get(Ty, StringLength);
@@ -3400,15 +3399,7 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
 
   case Decl::FileScopeAsm: {
     auto *AD = cast<FileScopeAsmDecl>(D);
-    StringRef AsmString = AD->getAsmString()->getString();
-
-    const std::string &S = getModule().getModuleInlineAsm();
-    if (S.empty())
-      getModule().setModuleInlineAsm(AsmString);
-    else if (S.end()[-1] == '\n')
-      getModule().setModuleInlineAsm(S + AsmString.str());
-    else
-      getModule().setModuleInlineAsm(S + '\n' + AsmString.str());
+    getModule().appendModuleInlineAsm(AD->getAsmString()->getString());
     break;
   }
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
@@ -3496,7 +3487,7 @@ void CodeGenModule::ClearUnusedCoverageMapping(const Decl *D) {
 
 void CodeGenModule::EmitDeferredUnusedCoverageMappings() {
   std::vector<const Decl *> DeferredDecls;
-  for (const auto I : DeferredEmptyCoverageMappingDecls) {
+  for (const auto &I : DeferredEmptyCoverageMappingDecls) {
     if (!I.second)
       continue;
     DeferredDecls.push_back(I.first);
@@ -3552,6 +3543,10 @@ static void EmitGlobalDeclMetadata(CodeGenModule &CGM,
                                    llvm::NamedMDNode *&GlobalMetadata,
                                    GlobalDecl D,
                                    llvm::GlobalValue *Addr) {
+#ifdef INTEL_CUSTOMIZATION
+  if (!Addr)
+    return;
+#endif // INTEL_CUSTOMIZATION
   if (!GlobalMetadata)
     GlobalMetadata =
       CGM.getModule().getOrInsertNamedMetadata("clang.global.decl.ptrs");
@@ -3657,6 +3652,33 @@ void CodeGenModule::EmitTargetMetadata() {
   }
 }
 
+#ifdef INTEL_CUSTOMIZATION
+void CodeGenModule::EmitMSDebugInfoMetadata() {
+  unsigned FileKind = getCodeGenOpts().getMSDebugInfoFile();
+  if (FileKind == CodeGenOptions::MSDebugInfoNoFile)
+    return;
+  // CQ#368119 - support for '/Z7' and '/Zi' options.
+  std::string FileType =
+      (FileKind == CodeGenOptions::MSDebugInfoPdbFile) ? "pdb" : "obj";
+  llvm::LLVMContext &Ctx = TheModule.getContext();
+  llvm::Metadata *MSFileTypeNode[] = { llvm::MDString::get(Ctx, FileType) };
+  llvm::NamedMDNode *MSFileTypeMetadata =
+      TheModule.getOrInsertNamedMetadata("llvm.dbg.ms.filetype");
+  MSFileTypeMetadata->addOperand(llvm::MDNode::get(Ctx, MSFileTypeNode));
+  // CQ#368125 - support for '/Fd' and '/Fo' options.
+  std::string FileName = getCodeGenOpts().MSOutputObjFile;
+  if (FileKind == CodeGenOptions::MSDebugInfoPdbFile)
+    FileName = getCodeGenOpts().MSOutputPdbFile;
+  // Return if desired option is not set.
+  if (FileName == "")
+    return;
+  llvm::Metadata *MSFileNameNode[] = { llvm::MDString::get(Ctx, FileName) };
+  llvm::NamedMDNode *MSFileNameMetadata =
+      TheModule.getOrInsertNamedMetadata("llvm.dbg.ms." + FileType);
+  MSFileNameMetadata->addOperand(llvm::MDNode::get(Ctx, MSFileNameNode));
+}
+#endif //INTEL_CUSTOMIZATION
+
 void CodeGenModule::EmitCoverageFile() {
   if (!getCodeGenOpts().CoverageFile.empty()) {
     if (llvm::NamedMDNode *CUNode = TheModule.getNamedMetadata("llvm.dbg.cu")) {
@@ -3698,6 +3720,12 @@ llvm::Constant *CodeGenModule::EmitUuidofInitializer(StringRef Uuid) {
   };
 
   return llvm::ConstantStruct::getAnon(Fields);
+}
+
+llvm::Constant *
+CodeGenModule::getAddrOfCXXCatchHandlerType(QualType Ty,
+                                            QualType CatchHandlerType) {
+  return getCXXABI().getAddrOfCXXCatchHandlerType(Ty, CatchHandlerType);
 }
 
 llvm::Constant *CodeGenModule::GetAddrOfRTTIDescriptor(QualType Ty,

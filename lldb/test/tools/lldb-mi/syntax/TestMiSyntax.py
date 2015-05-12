@@ -2,10 +2,6 @@
 Test that the lldb-mi driver understands MI command syntax.
 """
 
-# adjust path for lldbmi_testcase.py
-import sys, os.path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 import lldbmi_testcase
 from lldbtest import *
 import unittest2
@@ -40,32 +36,27 @@ class MiSyntaxTestCase(lldbmi_testcase.MiTestCaseBase):
 
     @lldbmi_test
     @expectedFailureWindows("llvm.org/pr22274: need a pexpect replacement for windows")
+    @skipIfFreeBSD # llvm.org/pr22411: Failure presumably due to known thread races
     def test_lldbmi_specialchars(self):
         """Test that 'lldb-mi --interpreter' handles complicated strings."""
 
-        self.spawnLldbMi(args = None)
-
-        # Create alias for myexe
+        # Create an alias for myexe
         complicated_myexe = "C--mpl-x file's`s @#$%^&*()_+-={}[]| name"
-        if os.path.exists(complicated_myexe):
-            os.unlink(complicated_myexe)
         os.symlink(self.myexe, complicated_myexe)
+        self.addTearDownHook(lambda: os.unlink(complicated_myexe))
 
-        try:
-            # Try to load executable with complicated filename
-            self.runCmd("-file-exec-and-symbols \"%s\"" % complicated_myexe)
-            self.expect("\^done")
+        self.spawnLldbMi(args = "\"%s\"" % complicated_myexe)
 
-            # Check that it was loaded correctly
-            self.runCmd("-break-insert -f main")
-            self.expect("\^done,bkpt={number=\"1\"")
-            self.runCmd("-exec-run")
-            self.expect("\^running")
-            self.expect("\*stopped,reason=\"breakpoint-hit\"")
+        # Test that the executable was loaded
+        self.expect("-file-exec-and-symbols \"%s\"" % complicated_myexe, exactly = True)
+        self.expect("\^done")
 
-        finally:
-            # Clean up
-            os.unlink(complicated_myexe)
+        # Check that it was loaded correctly
+        self.runCmd("-break-insert -f main")
+        self.expect("\^done,bkpt={number=\"1\"")
+        self.runCmd("-exec-run")
+        self.expect("\^running")
+        self.expect("\*stopped,reason=\"breakpoint-hit\"")
 
     @lldbmi_test
     @expectedFailureWindows("llvm.org/pr22274: need a pexpect replacement for windows")

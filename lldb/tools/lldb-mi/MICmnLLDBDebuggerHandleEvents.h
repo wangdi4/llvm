@@ -7,22 +7,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-//++
-// File:        MICmnLLDBDebuggerHandleEvents.h
-//
-// Overview:    CMICmnLLDBDebuggerHandleEvents interface.
-//
-// Environment: Compilers:  Visual C++ 12.
-//                          gcc (Ubuntu/Linaro 4.8.1-10ubuntu9) 4.8.1
-//              Libraries:  See MIReadmetxt.
-//
-// Copyright:   None.
-//--
-
 #pragma once
 
 // In-house headers:
 #include "MICmnBase.h"
+#include "MICmnMIValueList.h"
 #include "MICmnMIValueTuple.h"
 #include "MIUtilSingletonBase.h"
 
@@ -66,6 +55,7 @@ class CMICmnLLDBDebuggerHandleEvents : public CMICmnBase, public MI::ISingleton<
     bool HandleEventSBBreakpointAdded(const lldb::SBEvent &vEvent);
     bool HandleEventSBBreakpointLocationsAdded(const lldb::SBEvent &vEvent);
     bool HandleEventSBProcess(const lldb::SBEvent &vEvent);
+    bool HandleEventSBTarget(const lldb::SBEvent &vEvent);
     bool HandleEventSBThread(const lldb::SBEvent &vEvent);
     bool HandleEventSBThreadBitStackChanged(const lldb::SBEvent &vEvent);
     bool HandleEventSBThreadSuspended(const lldb::SBEvent &vEvent);
@@ -79,6 +69,10 @@ class CMICmnLLDBDebuggerHandleEvents : public CMICmnBase, public MI::ISingleton<
     bool HandleProcessEventStopSignal(bool &vwrbShouldBrk);
     bool HandleProcessEventStopException(void);
     bool HandleProcessEventStateSuspended(const lldb::SBEvent &vEvent);
+    bool HandleTargetEventBroadcastBitModulesLoaded(const lldb::SBEvent &vEvent);
+    bool HandleTargetEventBroadcastBitModulesUnloaded(const lldb::SBEvent &vEvent);
+    bool MiHelpGetModuleInfo(const lldb::SBModule &vModule, const MIuint nModuleNum,
+                             CMICmnMIValueList &vwrMiValueList);
     bool MiHelpGetCurrentThreadFrame(CMICmnMIValueTuple &vwrMiValueTuple);
     bool MiResultRecordToStdout(const CMICmnMIResultRecord &vrMiResultRecord);
     bool MiOutOfBandRecordToStdout(const CMICmnMIOutOfBandRecord &vrMiResultRecord);
