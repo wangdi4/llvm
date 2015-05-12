@@ -1528,10 +1528,10 @@ void STIDebugImpl::collectClassInfoFromInheritance(ClassInfo &info,
     if (!finalizedOffset) {
       if (inherInfo.vBaseClasses.size()) {
         finalizedOffset = true;
-        info.vbpOffset = (DDTy.getOffsetInBits() >> 3) + inherInfo.vbpOffset;
+        info.vbpOffset = (inherTy.getOffsetInBits() >> 3) + inherInfo.vbpOffset;
         info.vMethodsCount = inherInfo.vMethodsCount;
       } else {
-        info.vbpOffset = (DDTy.getOffsetInBits() + DDTy.getSizeInBits()) >> 3;
+        info.vbpOffset = (inherTy.getOffsetInBits() + DDTy.getSizeInBits()) >> 3;
       }
     }
     info.baseClasses.push_back(inherTy);
@@ -2590,7 +2590,7 @@ STINumeric* STIDebugImpl::createNumericSignedInt(const int64_t value)
 
   // Non-negative signed values are encoded as unsigned values.
   //
-  if (value > 0) {
+  if (value >= 0) {
     return createNumericUnsignedInt(static_cast<uint64_t>(value));
   }
 
@@ -3922,15 +3922,22 @@ void STIDebugImpl::emitTypeEnumeration(const STITypeEnumeration *type) const {
 
 void STIDebugImpl::emitTypeVShape(const STITypeVShape *type) const {
   const uint16_t count = type->getCount();
-  const int16_t length = 4 + 4 * count;
+  const uint16_t byteCount = count / 2;
+  const uint16_t tailCount = count % 2;
+  const int16_t length = 4 + byteCount + tailCount;
+  const int16_t paddedLength = getPaddedSize(2 + length) - 2;
 
   typeBegin     (type);
-  emitInt16     (length);
+  emitInt16     (paddedLength);
   emitInt16     (LF_VTSHAPE);
   emitInt16     (count);
-  for (unsigned i = 0; i < count; ++i) {
-    emitInt32   (CV_VFTS_NEAR32);
+  for (unsigned i = 0; i < byteCount; ++i) {
+    emitInt8    ((CV_VFTS_NEAR32 << 4) | CV_VFTS_NEAR32);
   }
+  if (tailCount != 0) {
+    emitInt8    (CV_VFTS_NEAR32);
+  }
+  emitPadding   (paddedLength - length);
   typeEnd       (type);
 }
 
@@ -3966,13 +3973,13 @@ void STIDebugImpl::emitTypeMethodList(const STITypeMethodList *type) const {
     uint16_t attribute = method->getAttribute();
     const STIType *methodType = method->getType();
     bool isVirtual = method->getVirtuality();
-    uint32_t virualIndex = method->getVirtualIndex();
+    uint32_t virtualIndex = method->getVirtualIndex();
 
     emitInt16   (attribute);
     emitInt16   (0); // 0-Padding
     emitInt32   (methodType ? methodType->getIndex() : 0);
     if (isVirtual)
-      emitInt32 (virualIndex);
+      emitInt32 (virtualIndex * (getPointerSizeInBits() >> 3));
   }
   typeEnd       (type);
 }
@@ -3982,18 +3989,18 @@ void STIDebugImpl::emitTypeFieldList(const STITypeFieldList *type) const {
 
   const STITypeVFuncTab *vFuncTab = type->getVFuncTab();
 
-  for (STITypeBaseClass *baseClass : type->getBaseClasses()) {
-    const STINumeric *offset = baseClass->getOffset();
-    int16_t baseClassLength = 8 + numericLength(offset);
-    length += getPaddedSize(baseClassLength);
-  }
-
   for (STITypeVBaseClass *vBaseClass : type->getVBaseClasses()) {
     const STINumeric *offset = vBaseClass->getVbpOffset();
     const STINumeric *index  = vBaseClass->getVbIndex();
     int16_t vBaseClassLength =
         12 + numericLength(offset) + numericLength(index);
     length += getPaddedSize(vBaseClassLength);
+  }
+
+  for (STITypeBaseClass *baseClass : type->getBaseClasses()) {
+    const STINumeric *offset = baseClass->getOffset();
+    int16_t baseClassLength = 8 + numericLength(offset);
+    length += getPaddedSize(baseClassLength);
   }
 
   if (vFuncTab) {
@@ -4033,20 +4040,6 @@ void STIDebugImpl::emitTypeFieldList(const STITypeFieldList *type) const {
   emitInt16     (length);
   emitInt16     (LF_FIELDLIST);
 
-  for (STITypeBaseClass *baseClass : type->getBaseClasses()) {
-    uint16_t attribute = baseClass->getAttribute();
-    const STIType *baseClassType = baseClass->getType();
-    const STINumeric *offset = baseClass->getOffset();
-    int16_t baseClassLength = 8 + numericLength(offset);
-    int16_t paddedSize = getPaddedSize(baseClassLength);
-
-    emitInt16   (LF_BCLASS);
-    emitInt16   (attribute);
-    emitInt32   (baseClassType ? baseClassType->getIndex() : 0);
-    emitNumeric (offset);
-    emitPadding (paddedSize - baseClassLength);
-  }
-
   for (STITypeVBaseClass *vBaseClass : type->getVBaseClasses()) {
     STISymbolID symbolID = vBaseClass->getSymbolID();
     uint16_t attribute = vBaseClass->getAttribute();
@@ -4065,6 +4058,20 @@ void STIDebugImpl::emitTypeFieldList(const STITypeFieldList *type) const {
     emitNumeric (offset);
     emitNumeric (index);
     emitPadding (paddedSize - vBaseClassLength);
+  }
+
+  for (STITypeBaseClass *baseClass : type->getBaseClasses()) {
+    uint16_t attribute = baseClass->getAttribute();
+    const STIType *baseClassType = baseClass->getType();
+    const STINumeric *offset = baseClass->getOffset();
+    int16_t baseClassLength = 8 + numericLength(offset);
+    int16_t paddedSize = getPaddedSize(baseClassLength);
+
+    emitInt16   (LF_BCLASS);
+    emitInt16   (attribute);
+    emitInt32   (baseClassType ? baseClassType->getIndex() : 0);
+    emitNumeric (offset);
+    emitPadding (paddedSize - baseClassLength);
   }
 
   if (vFuncTab) {
@@ -4113,7 +4120,7 @@ void STIDebugImpl::emitTypeFieldList(const STITypeFieldList *type) const {
     uint16_t attribute = method->getAttribute();
     const STIType *methodType = method->getType();
     bool isVirtual = method->getVirtuality();
-    uint32_t virualIndex = method->getVirtualIndex();
+    uint32_t virtualIndex = method->getVirtualIndex();
     StringRef name = method->getName();
     int16_t methodLength = 8 + (isVirtual ? 4 : 0) + name.size() + 1;
     int16_t paddedSize = getPaddedSize(methodLength);
@@ -4122,7 +4129,7 @@ void STIDebugImpl::emitTypeFieldList(const STITypeFieldList *type) const {
     emitInt16   (attribute);
     emitInt32   (methodType ? methodType->getIndex() : 0);
     if (isVirtual)
-      emitInt32 (virualIndex);
+      emitInt32 (virtualIndex * (getPointerSizeInBits() >> 3));
     emitString  (name);
     emitPadding (paddedSize - methodLength);
   }
