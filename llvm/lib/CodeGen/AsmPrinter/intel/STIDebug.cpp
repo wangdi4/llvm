@@ -34,6 +34,8 @@
 
 using namespace llvm;
 
+#define PDB_DEFAULT_FILE_NAME "vc110.pdb"
+#define PDB_DEFAULT_DLL_NAME "mspdb110.dll"
 //===----------------------------------------------------------------------===//
 // Helper Routines
 //===----------------------------------------------------------------------===//
@@ -600,6 +602,8 @@ private:
   StringNameMap _stringNameMap;
   unsigned _uniqueNameCounter;
   std::vector<char> _pdbBuff;
+  StringRef _pdbFileName;
+  StringRef _objFileName;
   bool _usePDB;
   STIWriter* _writer;
 
@@ -622,7 +626,7 @@ protected:
   AsmPrinter *ASM();
   const AsmPrinter *ASM() const;
   MachineModuleInfo *MMI() const;
-  const Module *getModule();
+  const Module *getModule() const;
   const TargetRegisterInfo *getTargetRegisterInfo();
   STISymbolTable *getSymbolTable();
   const STISymbolTable *getSymbolTable() const;
@@ -751,6 +755,8 @@ protected:
   void typeBegin(const STIType* type) const;
   void typeEnd(const STIType* type) const;
   std::string getPDBFullPath() const;
+  std::string getOBJFullPath() const;
+  StringRef getMDStringValue(StringRef MDName) const;
   bool usePDB() const;
 
   // Routines for emitting sections.
@@ -842,6 +848,8 @@ STIDebugImpl::STIDebugImpl(AsmPrinter *asmPrinter) :
     _stringNameMap      (),
     _uniqueNameCounter  (0),
     _pdbBuff            (),
+    _pdbFileName        (),
+    _objFileName        (),
     _usePDB             (false),
     _writer             (STIAsmWriter::create(asmPrinter)) {
   // If module doesn't have named metadata anchors or COFF debug section
@@ -868,10 +876,18 @@ STIDebugImpl::~STIDebugImpl() {
 void STIDebugImpl::setSymbolSize(const MCSymbol *Symbol, uint64_t size) {}
 
 void STIDebugImpl::beginModule() {
-  _usePDB = false; //FIXME: initialize _usePDB
+  _objFileName = getMDStringValue("llvm.dbg.ms.obj");
+
+  // Unless pdb file type is present, we should not use PDB.
+  _usePDB = getMDStringValue("llvm.dbg.ms.filetype") == "pdb";
+    
   if (usePDB()) {
-    pdb_set_default_dll_name("mspdb110.dll");
-    if (!pdb_open("vc110.pdb") ) {
+    _pdbFileName = getMDStringValue("llvm.dbg.ms.pdb");
+    if (_pdbFileName.empty()) {
+      _pdbFileName = PDB_DEFAULT_FILE_NAME;
+    }
+    pdb_set_default_dll_name(PDB_DEFAULT_DLL_NAME);
+    if (!pdb_open(_pdbFileName.data())) {
       _usePDB = false;
     }
   }
@@ -1053,7 +1069,7 @@ const AsmPrinter *STIDebugImpl::ASM() const { return _asmPrinter; }
 
 MachineModuleInfo *STIDebugImpl::MMI() const { return ASM()->MMI; }
 
-const Module *STIDebugImpl::getModule() { return MMI()->getModule(); }
+const Module *STIDebugImpl::getModule() const { return MMI()->getModule(); }
 
 const TargetRegisterInfo *STIDebugImpl::getTargetRegisterInfo() {
   return ASM()->TM.getSubtargetImpl()->getRegisterInfo();
@@ -2820,8 +2836,11 @@ void STIDebugImpl::collectGlobalVariableInfo(DICompileUnit CU) {
 void STIDebugImpl::collectModuleInfo() {
   const Module *M = getModule();
   STISymbolModule *module;
+  std::string OBJPath = getOBJFullPath();
 
   module = STISymbolModule::create(M);
+  module->setPath(OBJPath);
+
   getSymbolTable()->setRoot(module);
 
   NamedMDNode *CU_Nodes = M->getNamedMetadata("llvm.dbg.cu");
@@ -3101,9 +3120,32 @@ bool STIDebugImpl::usePDB() const {
 
 std::string STIDebugImpl::getPDBFullPath() const {
   char *path = pdb_get_path();
-  std::string pdbName = (Twine(path) + Twine("\\vc110.pdb")).str();
+  std::string pdbName = (Twine(path) + Twine("\\") + Twine(_pdbFileName)).str();
   free(path);
   return pdbName;
+}
+
+std::string STIDebugImpl::getOBJFullPath() const {
+  char *path = pdb_get_path();
+  std::string objName = (Twine(path) + Twine("\\") + Twine(_objFileName)).str();
+  free(path);
+  return objName;
+}
+
+StringRef STIDebugImpl::getMDStringValue(StringRef MDName) const {
+  StringRef StrVal = "";
+  NamedMDNode *MD = getModule()->getNamedMetadata(MDName);
+  if (MD) {
+    assert(MD->getNumOperands() == 1 && "Expect exactly one operand");
+    assert(MD->getOperand(0) &&
+      MD->getOperand(0)->getNumOperands() == 1 && "Expect MDNode operand");
+    MDString *MDStr = dyn_cast<MDString>(MD->getOperand(0)->getOperand(0));
+    assert(MDStr && "Expect MDString operand value");
+    if (MDStr) {
+      StrVal = MDStr->getString();
+    }
+  }
+  return StrVal;
 }
 
 void STIDebugImpl::emitSymbolModule(const STISymbolModule *module) const {

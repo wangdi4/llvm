@@ -409,7 +409,7 @@ public:
 
 private:
   STISignatureID _signatureID;
-  StringRef _path;
+  std::string _path;
   CompileUnitList _compileUnits;
 
 protected:
@@ -435,7 +435,7 @@ public:
 class STISymbolCompileUnit : public STISymbol {
 private:
   STIMachineID _machineID;
-  StringRef _producer;
+  std::string _producer;
   STIScope *_scope;
 
 protected:

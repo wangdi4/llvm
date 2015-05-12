@@ -404,8 +404,6 @@ STISymbolModule *STISymbolModule::create(const Module *module) {
   STISymbolModule *symbol = new STISymbolModule();
 
   symbol->setSignatureID(STI_SIGNATURE_LATEST);
-  // FIXME: set correct path
-  symbol->setPath("C:\\Users\\bwyma\\project\\xmain\\helloworld.o");
 
   return symbol;
 }
