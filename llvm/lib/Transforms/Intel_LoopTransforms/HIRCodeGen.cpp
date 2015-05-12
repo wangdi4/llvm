@@ -32,6 +32,7 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
+#include "llvm/ADT/DenseMap.h"
 
 #include "llvm/IR/Intel_LoopIR/HIRVisitor.h"
 // TODO audit includes
@@ -141,7 +142,7 @@ private:
 
     // maps internal labels to bblocks. Needed if we encounter "goto Label"
     // before the label itself
-    std::map<HLLabel *, BasicBlock *> InternalLabels;
+    SmallDenseMap<HLLabel *, BasicBlock *> InternalLabels;
 
     // \brief: Creates a stack allocation of size with name at entry of
     // current func. used for allocs that we expect to regisiterize
@@ -526,8 +527,8 @@ Value *HIRCodeGen::CGVisitor::visitSwitch(HLSwitch *S) {
   Builder->CreateBr(EndBlock);
 
   // generate case blocks
-  for (unsigned int i = 1; i <= S->getNumCases(); ++i) {
-    Value *CaseV = visitRegDDRef(S->getCaseValueDDRef(i));
+  for (unsigned int I = 1; I <= S->getNumCases(); ++I) {
+    Value *CaseV = visitRegDDRef(S->getCaseValueDDRef(I));
     // assert its a constant or rely on verifier?
     ConstantInt *CaseInt = cast<ConstantInt>(CaseV);
 
@@ -535,7 +536,7 @@ Value *HIRCodeGen::CGVisitor::visitSwitch(HLSwitch *S) {
     F->getBasicBlockList().push_back(CaseBlock);
     Builder->SetInsertPoint(CaseBlock);
 
-    for (auto HNode = S->case_child_begin(i), E = S->case_child_end(i);
+    for (auto HNode = S->case_child_begin(I), E = S->case_child_end(I);
          HNode != E; ++HNode) {
       visit(*HNode);
     }
