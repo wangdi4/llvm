@@ -66,9 +66,7 @@ private:
     Value *visitLoop(HLLoop *L);
     Value *visitIf(HLIf *I) { llvm_unreachable("Unimpl CG for If"); }
 
-    Value *visitSwitch(HLSwitch *S) {
-      llvm_unreachable("Unimpl CG for Switch");
-    }
+    Value *visitSwitch(HLSwitch *S);
 
     Value *visitInst(HLInst *I);
 
@@ -370,6 +368,51 @@ Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *L) {
 
   return nullptr;
 }
+
+Value *HIRCodeGen::CGVisitor::visitSwitch(HLSwitch *S) {
+  llvm_unreachable("untested hircg for switch");
+
+  Value *CondV = visitRegDDRef(S->getConditionDDRef());
+  BasicBlock *DefaultBlock = BasicBlock::Create(F->getContext(), "default");
+  BasicBlock *EndBlock = BasicBlock::Create(F->getContext(), "switch.end");
+
+  SwitchInst *LLVMSwitch =
+      Builder->CreateSwitch(CondV, DefaultBlock, S->getNumCases());
+
+  // generate default block
+  F->getBasicBlockList().push_back(DefaultBlock);
+  Builder->SetInsertPoint(DefaultBlock);
+  for (auto I = S->default_case_child_begin(), E = S->default_case_child_end();
+       I != E; ++I) {
+    visit(*I);
+  }
+
+  Builder->CreateBr(EndBlock);
+
+  // generate case blocks
+  for (unsigned int i = 1; i <= S->getNumCases(); ++i) {
+    Value *CaseV = visitRegDDRef(S->getCaseValueDDRef(i));
+    // assert its a constant or rely on verifier?
+    ConstantInt *CaseInt = cast<ConstantInt>(CaseV);
+
+    BasicBlock *CaseBlock = BasicBlock::Create(F->getContext(), "switch.case");
+    F->getBasicBlockList().push_back(CaseBlock);
+    Builder->SetInsertPoint(CaseBlock);
+
+    for (auto HNode = S->case_child_begin(i), E = S->case_child_end(i);
+         HNode != E; ++HNode) {
+      visit(*HNode);
+    }
+
+    Builder->CreateBr(EndBlock);
+    LLVMSwitch->addCase(CaseInt, CaseBlock);
+  }
+
+  F->getBasicBlockList().push_back(EndBlock);
+  Builder->SetInsertPoint(EndBlock);
+  return nullptr;
+}
+
 Value *HIRCodeGen::CGVisitor::visitInst(HLInst *I) {
   // CG the operands
   // TODO change this to match HLInst->getNumOperands() and skip temp lvals.
