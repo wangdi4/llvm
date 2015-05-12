@@ -70,8 +70,9 @@ private:
 
     Value *visitInst(HLInst *I);
 
-    Value *visitGoto(HLGoto *G) { llvm_unreachable("Unimpl CG for GOTO"); }
-    Value *visitLabel(HLLabel *L) { llvm_unreachable("Unimpl CG for Label"); }
+    Value *visitGoto(HLGoto *G);
+    Value *visitLabel(HLLabel *L);
+    BasicBlock *getBBlockForLabel(HLLabel *L);
 
     // any client shouldhave used visit(node), this function is used as a
     // fallback
@@ -137,6 +138,10 @@ private:
 
     // keep track of our mem allocs. Only IV atm
     std::map<std::string, AllocaInst *> NamedValues;
+
+    // maps internal labels to bblocks. Needed if we encounter "goto Label"
+    // before the label itself
+    std::map<HLLabel *, BasicBlock *> InternalLabels;
 
     // \brief: Creates a stack allocation of size with name at entry of
     // current func. used for allocs that we expect to regisiterize
@@ -455,6 +460,48 @@ Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *L) {
   if (L->hasPostexit())
     llvm_unreachable("Unimpl CG for postexit");
 
+  return nullptr;
+}
+
+BasicBlock *HIRCodeGen::CGVisitor::getBBlockForLabel(HLLabel *L) {
+  if (InternalLabels.count(L))
+    return InternalLabels[L];
+
+  BasicBlock *LabelBB = BasicBlock::Create(F->getContext(), "hir.label", F);
+  InternalLabels[L] = LabelBB;
+  return LabelBB;
+}
+
+Value *HIRCodeGen::CGVisitor::visitLabel(HLLabel *L) {
+  llvm_unreachable("untested cg for hllabel");
+  // if we see label it must be internal, and it must be unique
+  BasicBlock *LabelBBlock = getBBlockForLabel(L);
+  assert(LabelBBlock->empty() && "label already in use");
+
+  // create a br to L's block. ending current block
+  Builder->CreateBr(LabelBBlock);
+  Builder->SetInsertPoint(LabelBBlock);
+  return nullptr;
+}
+
+Value *HIRCodeGen::CGVisitor::visitGoto(HLGoto *G) {
+  llvm_unreachable("untested cg for hlgoto");
+  // get basic block for G's target
+  BasicBlock *TargetBBlock = G->getTargetBBlock();
+
+  // if bblock is null, it must be internal.
+  if (!TargetBBlock)
+    TargetBBlock = getBBlockForLabel(G->getTargetLabel());
+
+  assert(TargetBBlock && "No bblock target for goto");
+  // create a br to target, ending this block
+  Builder->CreateBr(TargetBBlock);
+
+  BasicBlock *ContBB = BasicBlock::Create(F->getContext(), "goto.cont", F);
+
+  // set insertion point there, but nodes visited are dead code,
+  // until a label is reached.
+  Builder->SetInsertPoint(ContBB);
   return nullptr;
 }
 
