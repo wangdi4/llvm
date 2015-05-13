@@ -157,8 +157,10 @@ set(LLVM_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/include)
 set(LLVM_ALL_TARGETS
   AArch64
   ARM
+  CBackend
   CppBackend
   Hexagon
+  LPU
   Mips
   MSP430
   NVPTX
