@@ -15,6 +15,7 @@ set( LLVM_LINK_COMPONENTS
   Support
   TransformUtils
   Vectorize
+  VPOVectorizer #***INTEL
   )
 
 option(CLANG_PLUGIN_SUPPORT "Build clang with plugin support" ON)
