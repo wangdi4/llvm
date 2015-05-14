@@ -18,6 +18,9 @@ set( LLVM_LINK_COMPONENTS
   VPOVectorizer #***INTEL
   )
 
+#  VPOAnalysis
+#  WRegionInfoAnalysis
+
 option(CLANG_PLUGIN_SUPPORT "Build clang with plugin support" ON)
 
 # Support plugins. This must be before add_clang_executable as it reads
