@@ -19,6 +19,10 @@ namespace llvm {
 
 class PassRegistry;
 
+#if INTEL_CUSTOMIZATION
+void initializeVPOVectorizer(PassRegistry&);
+#endif // INTEL_CUSTOMIZATION
+
 /// initializeCore - Initialize all passes linked into the
 /// TransformUtils library.
 void initializeCore(PassRegistry&);

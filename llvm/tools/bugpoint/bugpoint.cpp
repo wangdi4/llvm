@@ -136,6 +136,10 @@ int main(int argc, char **argv) {
   polly::initializePollyPasses(Registry);
 #endif
 
+#if INTEL_CUSTOMIZATION
+  initializeVPOVectorizer(Registry);
+#endif // INTEL_CUSTOMIZATION
+
   cl::ParseCommandLineOptions(argc, argv,
                               "LLVM automatic testcase reducer. See\nhttp://"
                               "llvm.org/cmds/bugpoint.html"

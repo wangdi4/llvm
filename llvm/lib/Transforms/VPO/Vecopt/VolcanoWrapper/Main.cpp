@@ -807,11 +807,16 @@ namespace llvm {
 void initializeVPOVectorizer(PassRegistry &Registry) {
   initializeVectorizerPass(Registry);
 }
+
+ModulePass *createVPOVectorizerPass() {
+  return new intel::Vectorizer();
+}
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Interface functions for vectorizer
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+
 extern "C"
   Pass *createVectorizerPass(const Module *runtimeModule, const intel::OptimizerConfig* pConfig)
 {

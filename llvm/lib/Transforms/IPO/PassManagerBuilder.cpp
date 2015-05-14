@@ -27,6 +27,9 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Vectorize.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/VPO/Vecopt/VecoptPasses.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -180,6 +183,9 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createBarrierNoopPass());
 
     addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
+#if INTEL_CUSTOMIZATION
+    MPM.add(createVPOVectorizerPass());
+#endif // INTEL_CUSTOMIZATION
     return;
   }
 
@@ -381,6 +387,9 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createMergeFunctionsPass());
 
   addExtensionsToPM(EP_OptimizerLast, MPM);
+#if INTEL_CUSTOMIZATION
+  MPM.add(createVPOVectorizerPass());
+#endif // INTEL_CUSTOMIZATION
 }
 
 void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {

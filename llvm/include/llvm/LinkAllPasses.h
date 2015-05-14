@@ -36,6 +36,9 @@
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/Vectorize.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/VPO/Vecopt/VecoptPasses.h"
+#endif // INTEL_CUSTOMIZATION
 #include <cstdlib>
 
 namespace {
@@ -181,6 +184,9 @@ namespace {
 #if 0
       (void) llvm::createAVRGeneratePass();
 #endif
+#if INTEL_CUSTOMIZATION
+      (void) llvm::createVPOVectorizerPass();
+#endif // INTEL_CUSTOMIZATION
 
     }
   } ForcePassLinking; // Force link by creating a global definition.

@@ -1,0 +1,8 @@
+[common]
+subdirectories = Vecopt
+
+[component_0]
+type = Group
+name = VPO
+parent = Transforms
+

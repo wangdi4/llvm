@@ -33,6 +33,7 @@ if(NOT DEFINED LLVM_DYLIB_COMPONENTS)
     TransformUtils
     Vectorize
     native
+    VPOVectorizer #***INTEL
     )
 endif()
 

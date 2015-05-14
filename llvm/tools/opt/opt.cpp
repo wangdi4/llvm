@@ -289,12 +289,6 @@ void initializePollyPasses(llvm::PassRegistry &Registry);
 }
 #endif
 
-#if INTEL_CUSTOMIZATION
-namespace llvm {
-void initializeVPOVectorizer(PassRegistry &Registry);
-}
-#endif
-
 //===----------------------------------------------------------------------===//
 // main for opt
 //
@@ -339,7 +333,7 @@ int main(int argc, char **argv) {
 
 #if INTEL_CUSTOMIZATION
   initializeVPOVectorizer(Registry);
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   cl::ParseCommandLineOptions(argc, argv,
     "llvm .bc -> .bc modular optimizer and analysis printer\n");
