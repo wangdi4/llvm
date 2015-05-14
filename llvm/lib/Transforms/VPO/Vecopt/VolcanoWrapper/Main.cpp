@@ -28,6 +28,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Verifier.h"
 
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrGenerate.h"
+#include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 
 #include <sstream>
 
@@ -383,6 +384,18 @@ Function* Vectorizer::createFunctionToVectorize(Function& originalFunction,
 }
 
 #if 0
+// xtian: Temporary Implementation To Test WRegionInfo Generation.
+bool Vectorizer::generateWRegionInfo(Function& F, Module& M)
+{
+  legacy::FunctionPassManager fpm(&M);
+
+  vpo::WRegionInfo* WrnInfo = new vpo::WRegionInfo();
+  fpm.add(WrnInfo);
+  fpm.run(F);
+
+  return true;
+}
+
 // Eric: Temporary Implementation To Test AVR Generation.
 bool Vectorizer::buildVectorizerAVR(Function& F, Module& M) 
 {
@@ -401,7 +414,10 @@ bool Vectorizer::buildVectorizerAVR(Function& F, Module& M)
 bool Vectorizer::runOnModule(Module &M)
 {
   V_PRINT(wrapper, "\nEntered Vectorizer Wrapper!\n");
-  // set isVectorized and proper number of kernels to zero, in case vectorization fails
+
+  // set isVectorized and proper number of kernels to zero, 
+  // in case vectorization fails
+
   m_numOfKernels = 0;
   m_isModuleVectorized = true;
 
@@ -413,8 +429,12 @@ bool Vectorizer::runOnModule(Module &M)
   for (auto it = M.begin(), end = M.end(); it != end; it++) {
     Function& F = *it;
 
+    // Call Build WRegionInfo Graph On-Demand
+    generateWRegionInfo(F, M);
+
     // Call Analysis Pass On-Demand
     buildVectorizerAVR(F, M);
+
   }
 #endif
 

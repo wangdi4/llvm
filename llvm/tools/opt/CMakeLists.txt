@@ -18,6 +18,11 @@ set(LLVM_LINK_COMPONENTS
   Vectorize
   VPOVectorizer #***INTEL
   )
+#
+#  --- Need to add these two 
+#  VPOAnalysis
+#  WRegionInfoAnalysis
+#
 
 # Support plugins.
 set(LLVM_NO_DEAD_STRIP 1)

@@ -299,6 +299,9 @@ void initializePlaceBackedgeSafepointsImplPass(PassRegistry&);
 void initializePlaceSafepointsPass(PassRegistry&);
 void initializeDwarfEHPreparePass(PassRegistry&);
 void initializeAvrGeneratePass(PassRegistry&);
+void initializeWRegionCollectionPass(PassRegistry&);
+void initializeWRegionInfoPass(PassRegistry&);
+void initializeWRegionInfoAnalysisPass(PassRegistry&);
 }
 
 #endif

@@ -26,6 +26,7 @@
 #include "llvm/Analysis/RegionPrinter.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOPasses.h"
+#include "llvm/Analysis/VPO/WRegionInfo/WRegionPasses.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRPrintingPasses.h"
@@ -183,6 +184,8 @@ namespace {
 
 #if 0
       (void) llvm::createAVRGeneratePass();
+      (void) llvm::createWRegionCollectionPass();
+      (void) llvm::createWRegionInfoPass();
 #endif
 #if INTEL_CUSTOMIZATION
       (void) llvm::createVPOVectorizerPass();
