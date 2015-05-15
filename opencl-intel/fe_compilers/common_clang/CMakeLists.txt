@@ -224,8 +224,6 @@ set( CLANG_OPTIONS -cc1
 
 set( CLANG_OPTIONS_OPENCL_12
                     ${CLANG_OPTIONS}
-                    -cl-std=CL1.2
-                    -D __OPENCL_C_VERSION__=120
                     )
 
 set( CLANG_OPTIONS_OPENCL_20
