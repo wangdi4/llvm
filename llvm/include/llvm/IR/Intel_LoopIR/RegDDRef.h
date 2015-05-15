@@ -1,4 +1,4 @@
-//===-------- RegDDRef.h - Data dependency node in HIR ----------*- C++ -*-===//
+//===----- RegDDRef.h - Regular data dependency node in HIR -----*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //

@@ -1,4 +1,4 @@
-; RUN: opt < %s -analyze -hir-creation | FileCheck %s
+; RUN: opt < %s -loop-simplify | opt -analyze -hir-creation | FileCheck %s
 
 ; Check sequence of gotos/labels in output of hir-creation
 ; CHECK: switch
@@ -28,14 +28,10 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @foo(i32 %c, i32 %n) #0 {
 entry:
   %cmp5 = icmp sgt i32 %n, 0
-  br i1 %cmp5, label %for.body.lr.ph, label %for.end
+  br i1 %cmp5, label %for.body, label %for.end
 
-for.body.lr.ph:                                   ; preds = %entry
-  %0 = add i32 %n, -1
-  br label %for.body
-
-for.body:                                         ; preds = %for.inc, %for.body.lr.ph
-  %i.06 = phi i32 [ 0, %for.body.lr.ph ], [ %inc, %for.inc ]
+for.body:                                         ; preds = %entry, %for.inc
+  %i.06 = phi i32 [ %inc, %for.inc ], [ 0, %entry ]
   switch i32 %c, label %sw.default [
     i32 0, label %sw.bb
     i32 1, label %sw.bb1
@@ -55,13 +51,10 @@ sw.default:                                       ; preds = %for.body
 
 for.inc:                                          ; preds = %sw.bb1, %sw.default
   %inc = add nuw nsw i32 %i.06, 1
-  %exitcond = icmp eq i32 %i.06, %0
-  br i1 %exitcond, label %for.end.loopexit, label %for.body
+  %exitcond = icmp eq i32 %inc, %n
+  br i1 %exitcond, label %for.end, label %for.body
 
-for.end.loopexit:                                 ; preds = %for.inc
-  br label %for.end
-
-for.end:                                          ; preds = %for.end.loopexit, %entry
+for.end:                                          ; preds = %for.inc, %entry
   ret void
 }
 
@@ -74,5 +67,5 @@ attributes #2 = { nounwind }
 
 !llvm.ident = !{!0}
 
-!0 = !{!"clang version 3.7.0 (trunk 315) (llvm/branches/loopopt 538)"}
+!0 = !{!"clang version 3.7.0 (trunk 637) (llvm/branches/loopopt 657)"}
 

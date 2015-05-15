@@ -128,7 +128,7 @@ bool SymbaseAssignment::runOnFunction(Function &F) {
   auto HIRP = &getAnalysis<HIRParser>();
   SymbaseAssignmentVisitor SV(this, AA, HIRP);
 
-  HLNodeUtils::visitAll(&SV, HIRP);
+  HLNodeUtils::visitAll(&SV);
   AliasSetTracker &AST = SV.AST;
 
   // Each ref in a set gets the same symbase

@@ -11,5 +11,6 @@ add_llvm_library(LLVMIntel_LoopIR
   HLNode.cpp
   HLRegion.cpp
   HLSwitch.cpp
+  IRRegion.cpp
   RegDDRef.cpp
   )

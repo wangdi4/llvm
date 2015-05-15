@@ -1,4 +1,4 @@
-//===----------- HLSwitch.h - High level IR node ----------------*- C++ -*-===//
+//===-------- HLSwitch.h - High level IR switch node ------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //

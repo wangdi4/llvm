@@ -78,6 +78,7 @@ public:
   };
 
   typedef const SCEV *BlobTy;
+  typedef SmallVector<BlobTy, 64> BlobTableTy;
   typedef SmallVector<BlobOrConstToVal, 4> IVCoeffsTy;
   /// Kept sorted by blob index
   typedef SmallVector<BlobIndexToCoeff, 2> BlobCoeffsTy;
@@ -111,7 +112,7 @@ private:
   /// lookup for Blob -> Index.
   /// Moved here from HIRParser to allow printer to print blobs without needing
   /// the parser.
-  static SmallVector<BlobTy, 32> BlobTable;
+  static BlobTableTy BlobTable;
 
   Type *Ty;
   int DefinedAtLevel;

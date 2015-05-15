@@ -300,6 +300,7 @@ void initializeLoadCombinePass(PassRegistry&);
 void initializeRewriteSymbolsPass(PassRegistry&);
 
 void initializeRegionIdentificationPass(PassRegistry&);
+void initializeSCCFormationPass(PassRegistry&);
 void initializeHIRCreationPass(PassRegistry&);
 void initializeHIRCleanupPass(PassRegistry&);
 void initializeLoopFormationPass(PassRegistry&);
@@ -307,9 +308,10 @@ void initializeHIRParserPass(PassRegistry&);
 void initializeSymbaseAssignmentPass(PassRegistry&);
 void initializeDDAnalysisPass(PassRegistry&);
 
+void initializeSSADeconstructionPass(PassRegistry&);
 void initializeHIRPrinterPass(llvm::PassRegistry&);
-void initializeHIRCodeGenPass(PassRegistry&);
 void initializeHIRCompleteUnrollPass(PassRegistry&);
+void initializeHIRCodeGenPass(PassRegistry&);
 void initializeWinEHPreparePass(PassRegistry&);
 void initializePlaceBackedgeSafepointsImplPass(PassRegistry&);
 void initializePlaceSafepointsPass(PassRegistry&);

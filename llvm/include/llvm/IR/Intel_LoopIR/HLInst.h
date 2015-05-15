@@ -1,4 +1,4 @@
-//===------------- HLInst.h - High level IR node ----------------*- C++ -*-===//
+//===------- HLInst.h - High level IR instruction node ----------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //

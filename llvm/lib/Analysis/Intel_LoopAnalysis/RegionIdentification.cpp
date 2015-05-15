@@ -18,6 +18,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
+#include "llvm/IR/Intel_LoopIR/IRRegion.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/RegionIdentification.h"
@@ -26,14 +27,14 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-#define DEBUG_TYPE "hir-region"
+#define DEBUG_TYPE "hir-regions"
 
-INITIALIZE_PASS_BEGIN(RegionIdentification, "hir-region",
+INITIALIZE_PASS_BEGIN(RegionIdentification, "hir-regions",
                       "HIR Region Identification", false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
-INITIALIZE_PASS_END(RegionIdentification, "hir-region",
+INITIALIZE_PASS_END(RegionIdentification, "hir-regions",
                     "HIR Region Identification", false, true)
 
 char RegionIdentification::ID = 0;
@@ -42,17 +43,42 @@ FunctionPass *llvm::createRegionIdentificationPass() {
   return new RegionIdentification();
 }
 
-RegionIdentification::IRRegion::IRRegion(
-    BasicBlock *Entry, RegionIdentification::RegionBBlocksTy BBlocks)
-    : EntryBB(Entry), BasicBlocks(BBlocks) {}
-
-RegionIdentification::IRRegion::IRRegion(const IRRegion &Reg)
-    : EntryBB(Reg.EntryBB), BasicBlocks(Reg.BasicBlocks) {}
-
-RegionIdentification::IRRegion::~IRRegion() {}
-
 RegionIdentification::RegionIdentification() : FunctionPass(ID) {
   initializeRegionIdentificationPass(*PassRegistry::getPassRegistry());
+}
+
+unsigned RegionIdentification::insertBaseTemp(const Value *Temp) {
+  BaseTemps.push_back(Temp);
+  // Offset of 1 for "constant" symbase.
+  return BaseTemps.size() + 1;
+}
+
+const Value *RegionIdentification::getBaseTemp(unsigned Symbase) const {
+  assert((Symbase > 0 && Symbase <= (BaseTemps.size() + 1)) &&
+         "Symbase is out of range!");
+
+  return BaseTemps[Symbase - 2];
+}
+
+void RegionIdentification::insertTempSymbase(const Value *Temp,
+                                             unsigned Symbase) {
+  assert((Symbase > 0 && Symbase <= (BaseTemps.size() + 1)) &&
+         "Symbase is out of range!");
+
+  auto Ret = TempSymbaseMap.insert(std::make_pair(Temp, Symbase));
+
+  assert(Ret.second && "Attempt to overwrite Temp symbase!");
+}
+
+unsigned RegionIdentification::findTempSymbase(const Value *Temp) const {
+
+  auto Iter = TempSymbaseMap.find(Temp);
+
+  if (Iter != TempSymbaseMap.end()) {
+    return Iter->second;
+  }
+
+  return 0;
 }
 
 void RegionIdentification::getAnalysisUsage(AnalysisUsage &AU) const {
@@ -106,9 +132,10 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
 }
 
 void RegionIdentification::createRegion(const Loop &Lp) {
-  IRRegion *Reg =
-      new IRRegion(Lp.getHeader(), RegionBBlocksTy(Lp.getBlocks().begin(),
-                                                   Lp.getBlocks().end()));
+  IRRegion *Reg = new IRRegion(
+      Lp.getHeader(),
+      IRRegion::RegionBBlocksTy(Lp.getBlocks().begin(), Lp.getBlocks().end()));
+
   IRRegions.push_back(Reg);
 }
 
@@ -153,7 +180,10 @@ bool RegionIdentification::formRegionForLoop(const Loop &Lp,
 }
 
 void RegionIdentification::formRegions() {
-  for (LoopInfo::iterator I = LI->begin(), E = LI->end(); I != E; ++I) {
+  // LoopInfo::iterator visits loops in reverse program order so we need to use
+  // reverse_iterator here.
+  for (LoopInfo::reverse_iterator I = LI->rbegin(), E = LI->rend(); I != E;
+       ++I) {
     unsigned Depth;
     if (formRegionForLoop(**I, &Depth)) {
       createRegion(**I);
@@ -175,27 +205,18 @@ bool RegionIdentification::runOnFunction(Function &F) {
 
 void RegionIdentification::releaseMemory() {
 
-  for (auto &I : IRRegions) {
-    delete I;
-  }
+  IRRegion::destroyAll();
 
   IRRegions.clear();
+
+  BaseTemps.clear();
+  TempSymbaseMap.clear();
 }
 
 void RegionIdentification::print(raw_ostream &OS, const Module *M) const {
   for (auto I = IRRegions.begin(), E = IRRegions.end(); I != E; ++I) {
-    OS << "\nRegion " << I - IRRegions.begin() + 1;
-    OS << "\n  Entry BBlock: " << (*I)->EntryBB->getName();
-    OS << "\n  Member BBlocks: ";
-
-    for (auto II = (*I)->BasicBlocks.begin(), EE = (*I)->BasicBlocks.end();
-         II != EE; ++II) {
-      if (II != (*I)->BasicBlocks.begin()) {
-        OS << ", ";
-      }
-      OS << (*II)->getName();
-    }
-
+    OS << "\nRegion " << I - IRRegions.begin() + 1 << "\n";
+    (*I)->print(OS, 3);
     OS << "\n";
   }
 }

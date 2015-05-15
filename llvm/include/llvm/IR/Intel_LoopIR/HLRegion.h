@@ -1,4 +1,4 @@
-//===----------- HLRegion.h - High level IR node ----------------*- C++ -*-===//
+//===-------- HLRegion.h - High level IR region node ------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -15,6 +15,7 @@
 #define LLVM_IR_INTEL_LOOPIR_HLREGION_H
 
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
+#include "llvm/IR/Intel_LoopIR/IRRegion.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/RegionIdentification.h"
 #include <set>
 #include <iterator>
@@ -35,6 +36,11 @@ public:
   /// List of children nodes inside region
   typedef HLContainerTy ChildNodeTy;
 
+  /// Iterators to iterate over bblocks and live-in/live-out sets.
+  typedef IRRegion::const_bb_iterator const_bb_iterator;
+  typedef IRRegion::const_live_in_iterator const_live_in_iterator;
+  typedef IRRegion::const_live_out_iterator const_live_out_iterator;
+
   /// Iterators to iterate over children nodes
   typedef ChildNodeTy::iterator child_iterator;
   typedef ChildNodeTy::const_iterator const_child_iterator;
@@ -42,8 +48,7 @@ public:
   typedef ChildNodeTy::const_reverse_iterator const_reverse_child_iterator;
 
 protected:
-  HLRegion(RegionIdentification::RegionBBlocksTy &OrigBB, BasicBlock *EntryBB,
-           BasicBlock *ExitBB);
+  HLRegion(IRRegion *IReg);
 
   /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
   /// tries to
@@ -54,37 +59,61 @@ protected:
   friend class HIRCreation;
 
   /// \brief Sets the entry(first) bblock of this region.
-  void setEntryBBlock(BasicBlock *EntryBB) { EntryBBlock = EntryBB; }
+  void setEntryBBlock(BasicBlock *EntryBB) { IRReg->setEntryBBlock(EntryBB); }
 
   /// \brief Sets the exit(last) bblock of this region.
-  void setExitBBlock(BasicBlock *ExitBB) { ExitBBlock = ExitBB; }
+  void setExitBBlock(BasicBlock *ExitBB) { IRReg->setExitBBlock(ExitBB); }
 
 private:
-  RegionIdentification::RegionBBlocksTy &OrigBBlocks;
-  BasicBlock *EntryBBlock;
-  BasicBlock *ExitBBlock;
-
   bool GenCode;
+  IRRegion *IRReg;
   ChildNodeTy Children;
 
 public:
   /// \brief Prints HLRegion.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth) const override;
 
-  /// \brief Returns the set of basic blocks which constitute this region.
-  const RegionIdentification::RegionBBlocksTy &getOrigBBlocks() const {
-    return OrigBBlocks;
-  }
-
   /// \brief Returns the entry(first) bblock of this region.
-  BasicBlock *getEntryBBlock() const { return EntryBBlock; }
+  BasicBlock *getEntryBBlock() const { return IRReg->getEntryBBlock(); }
   /// \brief Returns the exit(last) bblock of this region.
-  BasicBlock *getExitBBlock() const { return ExitBBlock; }
+  BasicBlock *getExitBBlock() const { return IRReg->getExitBBlock(); }
 
   /// \brief Returns the predecessor bblock of this region.
-  BasicBlock *getPredBBlock() const;
+  BasicBlock *getPredBBlock() const { return IRReg->getPredBBlock(); }
   /// \brief Returns the successor bblock of this region.
-  BasicBlock *getSuccBBlock() const;
+  BasicBlock *getSuccBBlock() const { return IRReg->getSuccBBlock(); }
+
+  /// \brief Returns true if this region contains BB.
+  bool containsBBlock(const BasicBlock *BB) const {
+    return IRReg->containsBBlock(BB);
+  }
+
+  /// \brief Adds a live-in temp to the region.
+  void addLiveInTemp(unsigned Symbase, const Value *Temp) {
+    IRReg->addLiveInTemp(Symbase, Temp);
+  }
+
+  /// \brief Adds a live-out temp to the region.
+  void addLiveOutTemp(const Value *Temp) { IRReg->addLiveOutTemp(Temp); }
+
+  /// \brief Returns true if this value is live out of this region.
+  bool isLiveOut(const Value *Temp) const { return IRReg->isLiveOut(Temp); }
+
+  /// BBlock iterator methods
+  const_bb_iterator bb_begin() const { return IRReg->bb_begin(); }
+  const_bb_iterator bb_end() const { return IRReg->bb_end(); }
+
+  /// Live-in iterator methods
+  const_live_in_iterator live_in_begin() const {
+    return IRReg->live_in_begin();
+  }
+  const_live_in_iterator live_in_end() const { return IRReg->live_in_end(); }
+
+  /// Live-out iterator methods
+  const_live_out_iterator live_out_begin() const {
+    return IRReg->live_out_begin();
+  }
+  const_live_out_iterator live_out_end() const { return IRReg->live_out_end(); }
 
   /// \brief Returns true if we need to generate code for this region.
   bool shouldGenCode() const { return GenCode; }

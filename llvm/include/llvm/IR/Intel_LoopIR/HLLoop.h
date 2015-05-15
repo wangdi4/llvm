@@ -1,4 +1,4 @@
-//===------------- HLLoop.h - High level IR node ----------------*- C++ -*-===//
+//===----------- HLLoop.h - High level IR loop node -------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //

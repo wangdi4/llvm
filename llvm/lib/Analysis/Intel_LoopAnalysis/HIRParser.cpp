@@ -458,7 +458,7 @@ bool HIRParser::isRegionLiveOut(const Value *Val, bool IsCompare) {
           return true;
         }
       }
-      if (!CurRegion->getOrigBBlocks().count(UseInst->getParent())) {
+      if (!CurRegion->containsBBlock(UseInst->getParent())) {
         return true;
       }
     } else {
@@ -553,12 +553,12 @@ bool HIRParser::runOnFunction(Function &F) {
   SE = &getAnalysis<ScalarEvolution>();
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
+  HLUtils::setHIRParserPtr(this);
+
   Visitor PV(this);
-  HLNodeUtils::visitAll(&PV, this);
+  HLNodeUtils::visitAll(&PV);
 
   eraseUselessNodes();
-
-  HLUtils::setHIRParserPtr(this);
 
   return false;
 }

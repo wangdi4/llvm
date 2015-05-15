@@ -48,7 +48,7 @@ public:
   unsigned int getSymBaseForConstants() { return CONSTANT_SYMBASE; }
 
 private:
-  // this symbase is reserved for DDRefs representing constnts which require 
+  // this symbase is reserved for DDRefs representing constnts which require
   // no dd testing
   const unsigned int CONSTANT_SYMBASE = 1;
 

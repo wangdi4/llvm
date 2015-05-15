@@ -12,16 +12,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/IR/CFG.h"
 #include "llvm/IR/Intel_LoopIR/HLRegion.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
 
-HLRegion::HLRegion(RegionIdentification::RegionBBlocksTy &OrigBBs,
-                   BasicBlock *EntryBB, BasicBlock *ExitBB)
-    : HLNode(HLNode::HLRegionVal), OrigBBlocks(OrigBBs), EntryBBlock(EntryBB),
-      ExitBBlock(ExitBB) {}
+HLRegion::HLRegion(IRRegion *IReg) : HLNode(HLNode::HLRegionVal), IRReg(IReg) {}
 
 HLRegion *HLRegion::clone() const {
 
@@ -42,42 +38,6 @@ void HLRegion::print(formatted_raw_ostream &OS, unsigned Depth) const {
   indent(OS, Depth);
 
   OS << "END REGION\n";
-}
-
-BasicBlock *HLRegion::getPredBBlock() const {
-  auto PredI = pred_begin(EntryBBlock);
-
-  /// In some cases the entry bblock is also the loop header, so the predecessor
-  /// can be the loop latch. We need to skip it, if that is the case.
-  if (OrigBBlocks.count(*PredI)) {
-    PredI++;
-    auto TempPredI = PredI;
-
-    assert(!OrigBBlocks.count(*PredI) &&
-           "Both region predecessors lie inside the reigon!");
-    assert((++TempPredI == pred_end(EntryBBlock)) &&
-           "Region has more than two predecessors!");
-  }
-
-  return *PredI;
-}
-
-BasicBlock *HLRegion::getSuccBBlock() const {
-  auto SuccI = succ_begin(ExitBBlock);
-
-  /// In some cases the exit bblock is also the loop latch, so the successor
-  /// can be the loop header. We need to skip it, if that is the case.
-  if (OrigBBlocks.count(*SuccI)) {
-    SuccI++;
-    auto TempSuccI = SuccI;
-
-    assert(!OrigBBlocks.count(*SuccI) &&
-           "Both region successors lie inside the reigon!");
-    assert((++TempSuccI == succ_end(ExitBBlock)) &&
-           "Region has more than two successors!");
-  }
-
-  return *SuccI;
 }
 
 HLNode *HLRegion::getFirstChild() {

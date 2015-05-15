@@ -1,4 +1,4 @@
-//===--------------- HLIf.h - High level IR node ----------------*- C++ -*-===//
+//===--------------- HLIf.h - High level IR if node -------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //

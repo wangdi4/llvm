@@ -503,6 +503,7 @@ void PassManagerBuilder::addLoopOptCleanupPasses(legacy::PassManagerBase &PM) co
   PM.add(createCFGSimplificationPass());
   PM.add(createPromoteMemoryToRegisterPass());
   PM.add(createGVNPass(DisableGVNLoadPRE));
+  PM.add(createInstructionCombiningPass());
 
   /// This pass is used to set wrap (nuw/nsw) flags on instructions after HIR.
   /// We will need to propagate these flags in HIR if either HIR 
@@ -517,7 +518,10 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     return;
   }
 
+  // This pass "canonicalizes" loops and makes analysis easier.
   PM.add(createLoopSimplifyPass());
+
+  PM.add(createSSADeconstructionPass());
 
   PM.add(createHIRCompleteUnrollPass()); 
   

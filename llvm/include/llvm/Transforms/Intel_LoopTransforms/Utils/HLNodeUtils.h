@@ -17,8 +17,7 @@
 #include <set>
 #include "llvm/Support/Compiler.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/RegionIdentification.h"
-
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
 
 namespace llvm {
@@ -36,7 +35,7 @@ class HIRParser;
 /// It contains a bunch of static member functions which manipulate HLNodes.
 /// It does not store any state.
 ///
-class HLNodeUtils {
+class HLNodeUtils : public HLUtils {
 private:
   /// \brief Do not allow instantiation.
   HLNodeUtils() = delete;
@@ -126,9 +125,7 @@ private:
 
 public:
   /// \brief Returns a new HLRegion.
-  static HLRegion *
-  createHLRegion(RegionIdentification::RegionBBlocksTy &OrigBBs,
-                 BasicBlock *EntryBB, BasicBlock *ExitBB);
+  static HLRegion *createHLRegion(IRRegion *IRReg);
 
   /// \brief Returns a new HLSwitch.
   static HLSwitch *createHLSwitch(RegDDRef *ConditionRef);
@@ -185,13 +182,13 @@ public:
   /// \brief Visits all HLNodes in the HIR. The direction is specified using
   /// Forward flag.
   template <typename HV>
-  static void visitAll(HV *Visitor, HIRParser *HIRP, bool Forward = true) {
+  static void visitAll(HV *Visitor, bool Forward = true) {
     HLNodeVisitor<HV> V(Visitor);
 
     if (Forward) {
-      V.forwardVisitAll(HIRP);
+      V.forwardVisitAll(getHIRParserPtr());
     } else {
-      V.backwardVisitAll(HIRP);
+      V.backwardVisitAll(getHIRParserPtr());
     }
   }
 
@@ -200,14 +197,15 @@ public:
   /// \brief Inserts an unlinked Node after Pos in HIR.
   static void insertAfter(HLNode *Pos, HLNode *Node);
 
-  /// \brief Inserts an unlinked Node as first child of parent loop/region.
-  /// Use specialized version of insert if extra info is required to insert
-  /// children.
-  static void insertAsFirstChild(HLNode *Parent, HLNode *Node);
-  /// \brief Inserts an unlinked Node as last child of parent loop/region.
-  /// Use specialized version of insert if extra info is required to insert
-  /// children.
-  static void insertAsLastChild(HLNode *Parent, HLNode *Node);
+  /// \brief Inserts an unlinked Node as first child of parent region.
+  static void insertAsFirstChild(HLRegion *Reg, HLNode *Node);
+  /// \brief Inserts an unlinked Node as last child of parent region.
+  static void insertAsLastChild(HLRegion *Reg, HLNode *Node);
+
+  /// \brief Inserts an unlinked Node as first child of parent loop.
+  static void insertAsFirstChild(HLLoop *Loop, HLNode *Node);
+  /// \brief Inserts an unlinked Node as last child of parent loop.
+  static void insertAsLastChild(HLLoop *Loop, HLNode *Node);
 
   /// \brief Inserts an unlinked Node as first child of this If. The flag
   /// IsThenChild indicates whether this is to be inserted as then or else
@@ -250,13 +248,18 @@ public:
   static void moveAfter(HLNode *Pos, HLNode *Node);
 
   /// \brief Unlinks Node from its current position and inserts as first child
-  /// of parent loop/region. Use specialized version of move if extra info is
-  /// required to insert children.
-  static void moveAsFirstChild(HLNode *Parent, HLNode *Node);
+  /// of parent region. 
+  static void moveAsFirstChild(HLRegion *Reg, HLNode *Node);
   /// \brief Unlinks Node from its current position and inserts as last child
-  /// of parent loop/region. Use specialized version of move if extra info is
-  /// required to insert children.
-  static void moveAsLastChild(HLNode *Parent, HLNode *Node);
+  /// of parent region. 
+  static void moveAsLastChild(HLRegion *Reg, HLNode *Node);
+
+  /// \brief Unlinks Node from its current position and inserts as first child
+  /// of parent loop. 
+  static void moveAsFirstChild(HLLoop *Loop, HLNode *Node);
+  /// \brief Unlinks Node from its current position and inserts as last child
+  /// of parent loop. 
+  static void moveAsLastChild(HLLoop *Loop, HLNode *Node);
 
   /// \brief Unlinks Node from its current position and inserts as first child
   /// of this If. The flag IsThenChild indicates whether this is to be moved
@@ -308,14 +311,21 @@ public:
                         HLContainerTy::iterator Last);
 
   /// \brief Unlinks [First, Last) from their current position and inserts them
-  /// at the begining of the parent loop/region's children. Use specialized
-  /// version of move if extra info is required.
-  static void moveAsFirstChildren(HLNode *Parent, HLContainerTy::iterator First,
+  /// at the begining of the parent region's children. 
+  static void moveAsFirstChildren(HLRegion *Reg, HLContainerTy::iterator First,
                                   HLContainerTy::iterator Last);
   /// \brief Unlinks [First, Last) from their current position and inserts them
-  /// at the end of the parent loop/region's children. Use specialized version
-  /// of move if extra info is required.
-  static void moveAsLastChildren(HLNode *Parent, HLContainerTy::iterator First,
+  /// at the end of the parent region's children. 
+  static void moveAsLastChildren(HLRegion *Reg, HLContainerTy::iterator First,
+                                 HLContainerTy::iterator Last);
+
+  /// \brief Unlinks [First, Last) from their current position and inserts them
+  /// at the begining of the parent loop's children. 
+  static void moveAsFirstChildren(HLLoop *Loop, HLContainerTy::iterator First,
+                                  HLContainerTy::iterator Last);
+  /// \brief Unlinks [First, Last) from their current position and inserts them
+  /// at the end of the parent loop's children. 
+  static void moveAsLastChildren(HLLoop *Loop, HLContainerTy::iterator First,
                                  HLContainerTy::iterator Last);
 
   /// \brief Unlinks [First, Last) from their current position and inserts them

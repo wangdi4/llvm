@@ -21,8 +21,6 @@
 
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/RegionIdentification.h"
-
 namespace llvm {
 
 class Function;
@@ -36,18 +34,22 @@ class HLLabel;
 class HLGoto;
 class HLIf;
 class HLSwitch;
+class RegionIdentification;
 
 /// \brief This analysis creates and populates HIR regions with HLNodes using
 /// the information provided by RegionIdentification pass. The overall sequence
 /// of building the HIR is as follows-
 ///
 /// 1) RegionIdentification - identifies regions in IR.
-/// 2) HIRCreation - populates HIR regions with a sequence of HLNodes (without
+/// 2) SCCFormation - identifies SCCs in regions.
+/// 3) SSADeconstruction - deconstructs SSA for HIR.
+/// 3) HIRCreation - populates HIR regions with a sequence of HLNodes (without
 ///    HIR loops).
-/// 3) HIRCleanup - removes redundant gotos/labels from HIR.
-/// 4) LoopFormation - Forms HIR loops within HIR regions.
-/// 5) HIRParser - Creates DDRefs and parses SCEVs into CanonExprs.
-/// 6) TODO: Add more steps.
+/// 4) HIRCleanup - removes redundant gotos/labels from HIR.
+/// 5) LoopFormation - Forms HIR loops within HIR regions.
+/// 6) HIRParser - Creates DDRefs and parses SCEVs into CanonExprs.
+/// 7) SymbaseAssignment - Assigns symbases to DDRefs..
+/// 8) DDAnalysis - Builds DD edges between DDRefs.
 ///
 class HIRCreation : public FunctionPass {
 public:
@@ -71,6 +73,12 @@ private:
 
   /// PDT - The post-dominator tree.
   PostDominatorTree *PDT;
+
+  /// RI - The region identification pass.
+  const RegionIdentification *RI;
+
+  /// CurRegion - Points to the region being processed.
+  HLRegion *CurRegion;
 
   /// LastRegionBB - Points to the (lexically) last bblock of the region.
   BasicBlock *LastRegionBB;
@@ -96,12 +104,10 @@ private:
   /// \brief Performs lexical (preorder) walk of the dominator tree for the
   /// region.
   /// Returns the last HLNode for the current sub-tree.
-  HLNode *
-  doPreOrderRegionWalk(BasicBlock *BB, HLNode *InsertionPos,
-                       RegionIdentification::RegionBBlocksTy &RegionBBlocks);
+  HLNode *doPreOrderRegionWalk(BasicBlock *BB, HLNode *InsertionPos);
 
   /// \brief Creates HLRegions out of IRRegions.
-  void create(RegionIdentification *RI);
+  void create();
 
 public:
   static char ID; // Pass identification

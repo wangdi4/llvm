@@ -23,6 +23,10 @@ class FunctionPass;
 /// regions.
 FunctionPass *createRegionIdentificationPass();
 
+/// createSCCFormationPass - This creates a pass that identifies SCCs in the
+/// regions.
+FunctionPass *createSCCFormationPass();
+
 /// createHIRCreationPass - This creates a pass that forms HIR nodes.
 FunctionPass *createHIRCreationPass();
 

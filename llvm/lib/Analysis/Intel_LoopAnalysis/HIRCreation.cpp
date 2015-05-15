@@ -98,7 +98,7 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
 
     unsigned Count = 1;
 
-    for (auto I = SI->case_begin(), E = SI->case_end(); I != E; ++I, Count++) {
+    for (auto I = SI->case_begin(), E = SI->case_end(); I != E; ++I, ++Count) {
       auto CaseGoto = HLNodeUtils::createHLGoto(I.getCaseSuccessor(), nullptr);
       HLNodeUtils::insertAsFirstChild(Switch, CaseGoto, Count);
       Gotos.push_back(CaseGoto);
@@ -143,11 +143,10 @@ HLNode *HIRCreation::populateInstSequence(BasicBlock *BB,
   return InsertionPos;
 }
 
-HLNode *HIRCreation::doPreOrderRegionWalk(
-    BasicBlock *BB, HLNode *InsertionPos,
-    RegionIdentification::RegionBBlocksTy &RegionBBlocks) {
+HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
+                                          HLNode *InsertionPos) {
 
-  if (!RegionBBlocks.count(BB)) {
+  if (!CurRegion->containsBBlock(BB)) {
     return InsertionPos;
   }
 
@@ -172,13 +171,11 @@ HLNode *HIRCreation::doPreOrderRegionWalk(
           /// If one of the 'if' successors post-dominates the other, it is
           /// better to link it after the 'if' instead of linking it as a child.
           !PDT->dominates(DomChildBB, BI->getSuccessor(1))) {
-        doPreOrderRegionWalk(DomChildBB, IfTerm->getLastThenChild(),
-                             RegionBBlocks);
+        doPreOrderRegionWalk(DomChildBB, IfTerm->getLastThenChild());
         continue;
       } else if (DomChildBB == BI->getSuccessor(1) &&
                  !PDT->dominates(DomChildBB, BI->getSuccessor(0))) {
-        doPreOrderRegionWalk(DomChildBB, IfTerm->getLastElseChild(),
-                             RegionBBlocks);
+        doPreOrderRegionWalk(DomChildBB, IfTerm->getLastElseChild());
         continue;
       }
     }
@@ -187,8 +184,7 @@ HLNode *HIRCreation::doPreOrderRegionWalk(
       auto SI = cast<SwitchInst>(BB->getTerminator());
 
       if (DomChildBB == SI->getDefaultDest()) {
-        doPreOrderRegionWalk(DomChildBB, SwitchTerm->getLastDefaultCaseChild(),
-                             RegionBBlocks);
+        doPreOrderRegionWalk(DomChildBB, SwitchTerm->getLastDefaultCaseChild());
         continue;
       }
 
@@ -196,10 +192,9 @@ HLNode *HIRCreation::doPreOrderRegionWalk(
       bool isCaseChild = false;
 
       for (auto I = SI->case_begin(), E = SI->case_end(); I != E;
-           ++I, Count++) {
+           ++I, ++Count) {
         if (DomChildBB == I.getCaseSuccessor()) {
-          doPreOrderRegionWalk(DomChildBB, SwitchTerm->getLastCaseChild(Count),
-                               RegionBBlocks);
+          doPreOrderRegionWalk(DomChildBB, SwitchTerm->getLastCaseChild(Count));
           isCaseChild = true;
           break;
         }
@@ -211,29 +206,28 @@ HLNode *HIRCreation::doPreOrderRegionWalk(
     }
 
     /// Keep linking dominator children.
-    InsertionPos =
-        doPreOrderRegionWalk(DomChildBB, InsertionPos, RegionBBlocks);
+    InsertionPos = doPreOrderRegionWalk(DomChildBB, InsertionPos);
   }
 
   return InsertionPos;
 }
 
-void HIRCreation::create(RegionIdentification *RI) {
+void HIRCreation::create() {
 
   for (auto &I : *RI) {
 
-    HLRegion *Region =
-        HLNodeUtils::createHLRegion(I->BasicBlocks, I->EntryBB, I->EntryBB);
+    CurRegion = HLNodeUtils::createHLRegion(I);
 
     LastRegionBB = nullptr;
-    auto LastNode = doPreOrderRegionWalk(I->EntryBB, Region, I->BasicBlocks);
+    auto LastNode =
+        doPreOrderRegionWalk(CurRegion->getEntryBBlock(), CurRegion);
 
     assert(isa<HLRegion>(LastNode->getParent()) && "Invalid last region node!");
     assert(LastRegionBB && "Last region bblock is null!");
 
-    Region->setExitBBlock(LastRegionBB);
+    CurRegion->setExitBBlock(LastRegionBB);
 
-    Regions.push_back(Region);
+    Regions.push_back(CurRegion);
   }
 }
 
@@ -242,9 +236,9 @@ bool HIRCreation::runOnFunction(Function &F) {
 
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   PDT = &getAnalysis<PostDominatorTree>();
-  auto RI = &getAnalysis<RegionIdentification>();
+  RI = &getAnalysis<RegionIdentification>();
 
-  create(RI);
+  create();
 
   return false;
 }

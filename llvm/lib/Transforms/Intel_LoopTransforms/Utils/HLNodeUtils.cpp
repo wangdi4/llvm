@@ -17,10 +17,8 @@
 using namespace llvm;
 using namespace loopopt;
 
-HLRegion *
-HLNodeUtils::createHLRegion(RegionIdentification::RegionBBlocksTy &OrigBBs,
-                            BasicBlock *EntryBB, BasicBlock *ExitBB) {
-  return new HLRegion(OrigBBs, EntryBB, ExitBB);
+HLRegion *HLNodeUtils::createHLRegion(IRRegion *IRReg) {
+  return new HLRegion(IRReg);
 }
 
 HLSwitch *HLNodeUtils::createHLSwitch(RegDDRef *ConditionRef) {
@@ -225,14 +223,24 @@ void HLNodeUtils::insertAsChildImpl(HLNode *Parent,
   }
 }
 
-void HLNodeUtils::insertAsFirstChild(HLNode *Parent, HLNode *Node) {
+void HLNodeUtils::insertAsFirstChild(HLRegion *Reg, HLNode *Node) {
   assert(Node && "Node is null!");
-  insertAsChildImpl(Parent, nullptr, Node, Node, true);
+  insertAsChildImpl(Reg, nullptr, Node, Node, true);
 }
 
-void HLNodeUtils::insertAsLastChild(HLNode *Parent, HLNode *Node) {
+void HLNodeUtils::insertAsLastChild(HLRegion *Reg, HLNode *Node) {
   assert(Node && "Node is null!");
-  insertAsChildImpl(Parent, nullptr, Node, Node, false);
+  insertAsChildImpl(Reg, nullptr, Node, Node, false);
+}
+
+void HLNodeUtils::insertAsFirstChild(HLLoop *Loop, HLNode *Node) {
+  assert(Node && "Node is null!");
+  insertAsChildImpl(Loop, nullptr, Node, Node, true);
+}
+
+void HLNodeUtils::insertAsLastChild(HLLoop *Loop, HLNode *Node) {
+  assert(Node && "Node is null!");
+  insertAsChildImpl(Loop, nullptr, Node, Node, false);
 }
 
 void HLNodeUtils::insertAsFirstChild(HLIf *If, HLNode *Node, bool IsThenChild) {
@@ -476,14 +484,24 @@ void HLNodeUtils::moveAfter(HLNode *Pos, HLNode *Node) {
   moveAfter(Pos, It, std::next(It));
 }
 
-void HLNodeUtils::moveAsFirstChild(HLNode *Parent, HLNode *Node) {
+void HLNodeUtils::moveAsFirstChild(HLRegion *Reg, HLNode *Node) {
   remove(Node);
-  insertAsFirstChild(Parent, Node);
+  insertAsFirstChild(Reg, Node);
 }
 
-void HLNodeUtils::moveAsLastChild(HLNode *Parent, HLNode *Node) {
+void HLNodeUtils::moveAsLastChild(HLRegion *Reg, HLNode *Node) {
   remove(Node);
-  insertAsLastChild(Parent, Node);
+  insertAsLastChild(Reg, Node);
+}
+
+void HLNodeUtils::moveAsFirstChild(HLLoop *Loop, HLNode *Node) {
+  remove(Node);
+  insertAsFirstChild(Loop, Node);
+}
+
+void HLNodeUtils::moveAsLastChild(HLLoop *Loop, HLNode *Node) {
+  remove(Node);
+  insertAsLastChild(Loop, Node);
 }
 
 void HLNodeUtils::moveAsFirstChild(HLIf *If, HLNode *Node, bool IsThenChild) {
@@ -538,23 +556,43 @@ void HLNodeUtils::moveAsLastPostexitNode(HLLoop *Loop, HLNode *Node) {
   insertAsLastPostexitNode(Loop, Node);
 }
 
-void HLNodeUtils::moveAsFirstChildren(HLNode *Parent,
+void HLNodeUtils::moveAsFirstChildren(HLRegion *Reg,
                                       HLContainerTy::iterator First,
                                       HLContainerTy::iterator Last) {
   HLContainerTy TempContainer;
 
   removeImpl(First, Last, &TempContainer);
-  insertAsChildImpl(Parent, &TempContainer, TempContainer.begin(),
+  insertAsChildImpl(Reg, &TempContainer, TempContainer.begin(),
                     TempContainer.end(), true);
 }
 
-void HLNodeUtils::moveAsLastChildren(HLNode *Parent,
+void HLNodeUtils::moveAsLastChildren(HLRegion *Reg,
                                      HLContainerTy::iterator First,
                                      HLContainerTy::iterator Last) {
   HLContainerTy TempContainer;
 
   removeImpl(First, Last, &TempContainer);
-  insertAsChildImpl(Parent, &TempContainer, TempContainer.begin(),
+  insertAsChildImpl(Reg, &TempContainer, TempContainer.begin(),
+                    TempContainer.end(), false);
+}
+
+void HLNodeUtils::moveAsFirstChildren(HLLoop *Loop,
+                                      HLContainerTy::iterator First,
+                                      HLContainerTy::iterator Last) {
+  HLContainerTy TempContainer;
+
+  removeImpl(First, Last, &TempContainer);
+  insertAsChildImpl(Loop, &TempContainer, TempContainer.begin(),
+                    TempContainer.end(), true);
+}
+
+void HLNodeUtils::moveAsLastChildren(HLLoop *Loop,
+                                     HLContainerTy::iterator First,
+                                     HLContainerTy::iterator Last) {
+  HLContainerTy TempContainer;
+
+  removeImpl(First, Last, &TempContainer);
+  insertAsChildImpl(Loop, &TempContainer, TempContainer.begin(),
                     TempContainer.end(), false);
 }
 

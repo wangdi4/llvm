@@ -1,4 +1,4 @@
-//===------------- HLGoto.h - High level IR node ----------------*- C++ -*-===//
+//===----------- HLGoto.h - High level IR goto node -------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //

@@ -39,7 +39,6 @@ void CanonExprUtils::destroy(CanonExpr *CE) { CE->destroy(); }
 
 void CanonExprUtils::destroyAll() {
   CanonExpr::destroyAll();
-  CanonExpr::BlobTable.clear();
 }
 
 // Internal Method that calculates the gcd of two positive integers

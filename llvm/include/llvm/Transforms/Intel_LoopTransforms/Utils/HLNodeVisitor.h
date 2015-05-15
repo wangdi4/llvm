@@ -112,7 +112,7 @@ bool HLNodeVisitor<HV>::forwardVisit(HLContainerTy::iterator Begin,
 
   for (auto I = Begin, Next = I, E = End; I != E; I = Next) {
 
-    Next++;
+    ++Next;
 
     if (visit(I, Recursive, true)) {
       return true;
@@ -132,7 +132,7 @@ bool HLNodeVisitor<HV>::backwardVisit(HLContainerTy::iterator Begin,
   /// Change direction and iterate backwards
   for (auto RNext = RI; RI != RE; RI = RNext) {
 
-    RNext++;
+    ++RNext;
 
     if (visit(&(*(RI)), Recursive, false)) {
       return true;
@@ -157,8 +157,7 @@ bool HLNodeVisitor<HV>::visit(HLNode *Node, bool Recursive, bool Forward) {
 
   bool Ret;
 
-  if (isa<HLRegion>(Node)) {
-    HLRegion *Reg = cast<HLRegion>(Node);
+  if (auto Reg = dyn_cast<HLRegion>(Node)) {
 
     Visitor->visit(Reg);
 
@@ -172,8 +171,7 @@ bool HLNodeVisitor<HV>::visit(HLNode *Node, bool Recursive, bool Forward) {
 
       Visitor->postVisit(Reg);
     }
-  } else if (isa<HLIf>(Node)) {
-    HLIf *If = cast<HLIf>(Node);
+  } else if (auto If = dyn_cast<HLIf>(Node)) {
 
     Visitor->visit(If);
 
@@ -194,8 +192,7 @@ bool HLNodeVisitor<HV>::visit(HLNode *Node, bool Recursive, bool Forward) {
 
       Visitor->postVisit(If);
     }
-  } else if (isa<HLLoop>(Node)) {
-    HLLoop *Loop = cast<HLLoop>(Node);
+  } else if (auto Loop = dyn_cast<HLLoop>(Node)) {
 
     Visitor->visit(Loop);
 
@@ -224,15 +221,14 @@ bool HLNodeVisitor<HV>::visit(HLNode *Node, bool Recursive, bool Forward) {
 
       Visitor->postVisit(Loop);
     }
-  } else if (isa<HLSwitch>(Node)) {
-    HLSwitch *Switch = cast<HLSwitch>(Node);
+  } else if (auto Switch = dyn_cast<HLSwitch>(Node)) {
 
     Visitor->visit(Switch);
 
     if (Recursive && !Visitor->isDone()) {
 
       if (Forward) {
-        for (unsigned I = I, E = Switch->getNumCases(); I <= E; I++) {
+        for (unsigned I = 1, E = Switch->getNumCases(); I <= E; ++I) {
           if (forwardVisit(Switch->case_child_begin(I),
                            Switch->case_child_end(I), true)) {
             return true;
@@ -251,7 +247,7 @@ bool HLNodeVisitor<HV>::visit(HLNode *Node, bool Recursive, bool Forward) {
           return true;
         }
 
-        for (unsigned I = Switch->getNumCases(), E = 0; I > E; I--) {
+        for (unsigned I = Switch->getNumCases(), E = 0; I > E; --I) {
           if (backwardVisit(Switch->case_child_begin(I),
                             Switch->case_child_end(I), true)) {
             return true;
@@ -261,12 +257,12 @@ bool HLNodeVisitor<HV>::visit(HLNode *Node, bool Recursive, bool Forward) {
 
       Visitor->postVisit(Switch);
     }
-  } else if (isa<HLLabel>(Node)) {
-    Visitor->visit(cast<HLLabel>(Node));
-  } else if (isa<HLGoto>(Node)) {
-    Visitor->visit(cast<HLGoto>(Node));
-  } else if (isa<HLInst>(Node)) {
-    Visitor->visit(cast<HLInst>(Node));
+  } else if (auto Label = dyn_cast<HLLabel>(Node)) {
+    Visitor->visit(Label);
+  } else if (auto Goto = dyn_cast<HLGoto>(Node)) {
+    Visitor->visit(Goto);
+  } else if (auto Inst = dyn_cast<HLInst>(Node)) {
+    Visitor->visit(Inst);
   } else {
     llvm_unreachable("Unknown HLNode type!");
   }

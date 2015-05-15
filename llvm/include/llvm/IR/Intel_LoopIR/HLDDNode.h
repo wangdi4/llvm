@@ -1,4 +1,4 @@
-//===----------- HLDDNode.h - High level IR node ----------------*- C++ -*-===//
+//===----------- HLDDNode.h - High level IR DD node -------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //

@@ -1,4 +1,4 @@
-//===------- BlobDDRef.h - Data dependency node in HIR ----------*- C++ -*-===//
+//===--- BlobDDRef.h - Data dependency node for blobs in HIR ----*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //

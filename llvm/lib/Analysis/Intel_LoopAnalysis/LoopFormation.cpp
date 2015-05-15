@@ -50,7 +50,7 @@ void LoopFormation::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<ScalarEvolution>();
   AU.addRequiredTransitive<HIRCreation>();
-  AU.addRequiredTransitive<HIRCleanup>();
+  AU.addRequired<HIRCleanup>();
 }
 
 namespace {

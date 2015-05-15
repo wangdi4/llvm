@@ -23,7 +23,7 @@ using namespace llvm;
 using namespace loopopt;
 
 std::set<CanonExpr *> CanonExpr::Objs;
-SmallVector<CanonExpr::BlobTy, 32> CanonExpr::BlobTable;
+CanonExpr::BlobTableTy CanonExpr::BlobTable;
 
 CanonExpr::BlobOrConstToVal::BlobOrConstToVal(bool IsBlobCoef, int64_t Coef)
     : IsBlobCoeff(IsBlobCoef), Coeff(Coef) {}
@@ -66,6 +66,7 @@ void CanonExpr::destroyAll() {
   }
 
   Objs.clear();
+  BlobTable.clear();
 }
 
 CanonExpr *CanonExpr::clone() const {

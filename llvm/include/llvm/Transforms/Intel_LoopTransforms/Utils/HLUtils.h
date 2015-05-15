@@ -13,6 +13,8 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HLUTILS_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HLUTILS_H
 
+#include <assert.h>
+
 #include "llvm/Support/Compiler.h"
 
 namespace llvm {

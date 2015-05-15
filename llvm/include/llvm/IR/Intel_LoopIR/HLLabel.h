@@ -1,4 +1,4 @@
-//===------------ HLLabel.h - High level IR node ----------------*- C++ -*-===//
+//===--------- HLLabel.h - High level IR label node -------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //

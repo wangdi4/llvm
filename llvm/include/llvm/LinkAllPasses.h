@@ -182,14 +182,17 @@ namespace {
 
       // Intel HIR Passes
       (void) llvm::createRegionIdentificationPass();
+      (void) llvm::createSCCFormationPass();
       (void) llvm::createHIRCreationPass();
       (void) llvm::createHIRCleanupPass();
       (void) llvm::createLoopFormationPass();
-      (void) llvm::createDDAnalysisPass();
-      (void) llvm::createSymbaseAssignmentPass();
       (void) llvm::createHIRParserPass();
-      (void) llvm::createHIRCodeGenPass();
+      (void) llvm::createSymbaseAssignmentPass();
+      (void) llvm::createDDAnalysisPass();
+
+      (void) llvm::createSSADeconstructionPass();
       (void) llvm::createHIRCompleteUnrollPass();
+      (void) llvm::createHIRCodeGenPass();
     }
   } ForcePassLinking; // Force link by creating a global definition.
 }
