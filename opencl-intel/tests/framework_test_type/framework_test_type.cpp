@@ -460,6 +460,11 @@ TEST(FrameworkTestType, Test_cl_uniteWG_VectorizeOnDiffentDim)
     EXPECT_TRUE(clCheckVectorizingOnAllDimAndCantUniteWG(4,false,true));
 }
 
+TEST(FrameworkTestType, Test_CL11_Option)
+{
+    EXPECT_TRUE(clBuildWithCL11option());
+}
+
 CommandLineOption<std::string> deviceOption("--device_type");
 
 #ifdef INCLUDE_MIC_DEVICE

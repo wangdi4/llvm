@@ -58,6 +58,7 @@ bool clCheckJITLoadTest();
 bool clBuildProgramWithBinaryTest(openBcFunc pFunc);
 bool clBuildProgramTwiceTest();
 bool clBuildEmptyProgramTest();
+bool clBuildWithCL11option();
 bool clLinkProgramTest();
 bool clCreateKernelTest(openBcFunc pFunc);
 bool clExecutionTest();
