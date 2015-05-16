@@ -211,11 +211,78 @@ public:
   bool isNonLinear() const { return (DefinedAtLevel == -1); }
   /// \brief Mark this canon expr as non-linear.
   void setNonLinear() { DefinedAtLevel = -1; }
-  /// \brief Returns true if this Canon Expr only contains a constant
-  bool isConstant() const {
-    return !(hasIV() || hasBlob() || (getDenominator() != 1));
+
+  /// \brief Returns true if constant integer and its value, otherwise false
+  bool isConstant(int64_t *konst = nullptr) const {
+
+    bool result = !(hasIV() || hasBlob() || (getDenominator() != 1));
+
+    if (result && konst != nullptr) {
+      *konst = getConstant();
+    }
+
+    return result;
   }
 
+  /// \brief return true if the CanonExpr is zero
+  bool isZero() const {
+    int64_t konst;
+    if (isConstant(&konst) && konst == 0) {
+      return true;
+    }
+    return false;
+  }
+  /// \brief return true if the CanonExpr is one
+  bool isOne() const {
+    int64_t konst;
+    if (isConstant(&konst) && konst == 1) {
+      return true;
+    }
+    return false;
+  }
+
+  // TODO:
+  // Extend later for non-constant, e.g. based on UpperBound canon
+  /// \brief return true if non-zero
+  bool isKnownNonZERO() const {
+    int64_t konst;
+    if (isConstant(&konst) && konst != 0) {
+      return true;
+    }
+    return false;
+  }
+  /// \brief return true if non-positive
+  bool isKnownNonPositive() const {
+    int64_t konst;
+    if (isConstant(&konst) && konst < 1) {
+      return true;
+    }
+    return false;
+  }
+  /// \brief return true if non-negative
+  bool isKnownNonNegative() const {
+    int64_t konst;
+    if (isConstant(&konst) && konst >= 0) {
+      return true;
+    }
+    return false;
+  }
+  /// \brief return true if negative
+  bool isKnownNegative() const {
+    int64_t konst;
+    if (isConstant(&konst) && konst < 0) {
+      return true;
+    }
+    return false;
+  }
+  /// \brief return true if positive
+  bool isKnownPositive() const {
+    int64_t konst;
+    if (isConstant(&konst) && konst > 0) {
+      return true;
+    }
+    return false;
+  }
   /// \brief Returns the constant additive of the canon expr.
   int64_t getConstant() const { return Const; }
   void setConstant(int64_t Val) { Const = Val; }
