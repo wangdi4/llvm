@@ -24,10 +24,6 @@
 #ifndef __TMMINTRIN_H
 #define __TMMINTRIN_H
 
-#ifndef __SSSE3__
-#error "SSSE3 instruction set not enabled"
-#else
-
 #include <pmmintrin.h>
 
 static __inline__ __m64 __attribute__((__always_inline__, __nodebug__))
@@ -219,7 +215,5 @@ _mm_sign_pi32(__m64 __a, __m64 __b)
 {
     return (__m64)__builtin_ia32_psignd((__v2si)__a, (__v2si)__b);
 }
-
-#endif /* __SSSE3__ */
 
 #endif /* __TMMINTRIN_H */

@@ -24,10 +24,6 @@
 #ifndef __EMMINTRIN_H
 #define __EMMINTRIN_H
 
-#ifndef __SSE2__
-#error "SSE2 instruction set not enabled"
-#else
-
 #include <xmmintrin.h>
 
 typedef double __m128d __attribute__((__vector_size__(16)));
@@ -1469,7 +1465,5 @@ _mm_pause(void)
 }
 
 #define _MM_SHUFFLE2(x, y) (((x) << 1) | (y))
-
-#endif /* __SSE2__ */
 
 #endif /* __EMMINTRIN_H */

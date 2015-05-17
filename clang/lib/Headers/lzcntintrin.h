@@ -25,10 +25,6 @@
 #error "Never use <lzcntintrin.h> directly; include <x86intrin.h> instead."
 #endif
 
-#ifndef __LZCNT__
-# error "LZCNT instruction is not enabled"
-#endif /* __LZCNT__ */
-
 #ifndef __LZCNTINTRIN_H
 #define __LZCNTINTRIN_H
 

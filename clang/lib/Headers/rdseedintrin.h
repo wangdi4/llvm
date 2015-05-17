@@ -28,7 +28,6 @@
 #ifndef __RDSEEDINTRIN_H
 #define __RDSEEDINTRIN_H
 
-#ifdef __RDSEED__
 static __inline__ int __attribute__((__always_inline__, __nodebug__))
 _rdseed16_step(unsigned short *__p)
 {
@@ -48,5 +47,4 @@ _rdseed64_step(unsigned long long *__p)
   return __builtin_ia32_rdseed64_step(__p);
 }
 #endif
-#endif /* __RDSEED__ */
 #endif /* __RDSEEDINTRIN_H */

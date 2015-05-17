@@ -25,10 +25,6 @@
 #error "Never use <f16cintrin.h> directly; include <x86intrin.h> instead."
 #endif
 
-#ifndef __F16C__
-# error "F16C instruction is not enabled"
-#endif /* __F16C__ */
-
 #ifndef __F16CINTRIN_H
 #define __F16CINTRIN_H
 

@@ -60,6 +60,7 @@ set(files
   x86intrin.h
   xmmintrin.h
   xopintrin.h
+  __x86intrin_features.h # INTEL_CUSTOMIZATION
   )
 
 set(output_dir ${LLVM_LIBRARY_OUTPUT_INTDIR}/clang/${CLANG_VERSION}/include)
@@ -87,6 +88,13 @@ list(APPEND out_files ${output_dir}/arm_neon.h)
 
 add_custom_target(clang-headers ALL DEPENDS ${out_files})
 set_target_properties(clang-headers PROPERTIES FOLDER "Misc")
+
+# INTEL_CUSTOMIZATION
+add_custom_command(TARGET clang-headers
+  POST_BUILD
+  COMMAND ${PYTHON_EXECUTABLE} ${LLVM_MAIN_SRC_DIR}/tools/clang/utils/Intel/gen_assume.py ${LLVM_MAIN_SRC_DIR}/tools/clang/utils/Intel/x86_intrin.xml ${output_dir}
+  COMMENT "Adding intrinsic assume() builtins")
+# END OF INTEL_CUSTOMIZATION
 
 install(
   FILES ${files} ${CMAKE_CURRENT_BINARY_DIR}/arm_neon.h

@@ -24,10 +24,6 @@
 #ifndef __XMMINTRIN_H
 #define __XMMINTRIN_H
  
-#ifndef __SSE__
-#error "SSE instruction set not enabled"
-#else
-
 #include <mmintrin.h>
 
 typedef int __v4si __attribute__((__vector_size__(16)));
@@ -994,10 +990,6 @@ do { \
 #define _m_ _mm_
 
 /* Ugly hack for backwards-compatibility (compatible with gcc) */
-#ifdef __SSE2__
 #include <emmintrin.h>
-#endif
-
-#endif /* __SSE__ */
 
 #endif /* __XMMINTRIN_H */

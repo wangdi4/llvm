@@ -21,12 +21,10 @@
  *===-----------------------------------------------------------------------===
  */
 
-#ifndef __X86INTRIN_H
-#error "Never use <ia32intrin.h> directly; include <x86intrin.h> instead."
-#endif
-
 #ifndef __IA32INTRIN_H
 #define __IA32INTRIN_H
+
+#include <immintrin.h>
 
 #ifdef __x86_64__
 static __inline__ unsigned long long __attribute__((__always_inline__, __nodebug__))
