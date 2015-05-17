@@ -188,6 +188,11 @@ public:
   void addPreRegAlloc() override;
   void addPostRegAlloc() override;
   void addPreEmitPass() override;
+
+#ifdef INTEL_CUSTOMIZATION
+  void addCodeGenPrepare() override;
+#endif  //INTEL_CUSTOMIZATION
+
 };
 } // namespace
 
@@ -240,3 +245,10 @@ void X86PassConfig::addPreEmitPass() {
     addPass(createX86FixupLEAs());
   }
 }
+
+#ifdef INTEL_CUSTOMIZATION
+void X86PassConfig::addCodeGenPrepare() {
+  addPass(createFeatureOutlinerPass(TM));
+  TargetPassConfig::addCodeGenPrepare();
+}
+#endif  //INTEL_CUSTOMIZATION
