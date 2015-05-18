@@ -171,8 +171,9 @@ public:
 
         if(pNode->getNumOperands() != size() + _Mybase::getStartIndex() )
         {
-            pNode->replaceAllUsesWith(generateNode(context));
+            //pNode->replaceAllUsesWith(generateNode(context));
             llvm::MDNode::deleteTemporary(pNode);
+            assert(false && "FIXME");
             return;
         }
 
@@ -189,13 +190,13 @@ public:
         }
     }
 
-    virtual llvm::Value* generateNode(llvm::LLVMContext &context) const
+    virtual llvm::Metadata* generateNode(llvm::LLVMContext &context) const
     {
         lazyLoad();
 
-        llvm::SmallVector< llvm::Value*, 5> args;
+        llvm::SmallVector< llvm::Metadata*, 5> args;
 
-        llvm::Value* pIDNode = _Mybase::generateNode(context);
+        llvm::Metadata* pIDNode = _Mybase::generateNode(context);
 
         if( NULL != pIDNode )
         {
@@ -415,7 +416,7 @@ private:
     mutable bool m_isLoaded;
 };
 
-bool isNamedNode(const llvm::Value* pNode, const char* name);
+bool isNamedNode(const llvm::Metadata* pNode, const char* name);
 
 template<class K, class T,
         class KeyTraits = MDValueTraits<K>,
@@ -544,7 +545,7 @@ public:
         while( i != e || mi != me )
         {
             assert( i != e && mi == me );
-            llvm::SmallVector< llvm::Value*, 2> args;
+            llvm::SmallVector< llvm::Metadata*, 2> args;
             args.push_back(KeyTraits::generateValue(context, (*i).first));
             args.push_back(ValTraits::generateValue(context, (*i).second));
             pNode->addOperand(llvm::MDNode::get(context,args));

@@ -18,9 +18,24 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 namespace Intel
 {
+// [LLVM 3.6 UPGRADE] FIXME: MetaDataApi relied on RAUW ability of llvm::Value before,
+// but after the Metadata/Value split see commit 
+//      From dad20b2ae2544708d6a33abdb9bddd0a329f50e0 Mon Sep 17 00:00:00 2001
+//      From: "Duncan P. N. Exon Smith" <dexonsmith@apple.com>
+//      Date: Tue, 9 Dec 2014 18:38:53 +0000
+//      Subject: [PATCH] IR: Split Metadata from Value
+// This ability of the Metadata was lost.
+// It is not clear if it was really used before by OCL BE so the code below was instrumented
+// with assert(false && "[LLVM 3.6 UPGRADE] FIXME) in each place where the Metadata/Value
+// split had an impact.
+// If Metadata's RAUW will turn out to be used (and useful) by the OCL BE then it seems
+// feasible to store a mapping from used values to it's users during loading/saving the
+// 'IMetaDataObject's iniside the MetaDataUtils instance. Otherwise the better way is to
+// cut the RAUW.
+
 ///
 // Generic template for the traits types.
-// Assumes the the T type is inherited from the llvm::Value
+// Assumes the the T type is inherited from the llvm::Metadata
 // (in CPP0X we solve this problem - below )
 template< class T, typename C = void >
 struct MDValueTraits
@@ -30,16 +45,18 @@ struct MDValueTraits
 
     ///
     // Loads the given value_type from the given node
-    static value_type load(llvm::Value* pNode)
+    static value_type load(llvm::Metadata* pNode)
     {
-        if( NULL == pNode || !pNode->hasValueHandle())
+        // [LLVM 3.6 UPGRADE] FIXME: why was !pNode->hasValueHandle() below?
+        if( nullptr == pNode) // || !pNode->hasValueHandle())
         {
             // it is ok to pass NULL nodes - part of support for optional values
-            return NULL;
+            assert(false && "[LLVM 3.6 UPGRADE] FIXME");
+            return nullptr;
         }
 
         value_type pT = llvm::dyn_cast<T>(pNode);
-        if( NULL == pT )
+        if( nullptr == pT )
         {
             throw "can't load value, wrong node type";
         }
@@ -49,7 +66,7 @@ struct MDValueTraits
 
     ///
     // Creates the new metadata node from the given value_type
-    static llvm::Value* generateValue(llvm::LLVMContext& context, const value_type& val)
+    static llvm::Metadata* generateValue(llvm::LLVMContext& context, const value_type& val)
     {
         return const_cast<value_type>(val);
     }
@@ -69,11 +86,12 @@ struct MDValueTraits
 
     ///
     // Save the given value to the target node
-    static void save(llvm::LLVMContext& context, llvm::Value* trgt, const value_type& val)
+    static void save(llvm::LLVMContext& context, llvm::Metadata* trgt, const value_type& val)
     {
         if( load(trgt) != val )
         {
-            trgt->replaceAllUsesWith( generateValue(context, val) );
+//            trgt->replaceAllUsesWith( generateValue(context, val) );
+           assert(false && "[LLVM 3.6 UPGRADE] FIXME");
         }
     }
 };
@@ -86,9 +104,11 @@ struct MDValueTraits<std::string, void>
 {
     typedef std::string value_type;
 
-    static  value_type load(llvm::Value* pNode)
+    static  value_type load(llvm::Metadata* pNode)
     {
-        if( NULL == pNode || !pNode->hasValueHandle())
+        // [LLVM 3.6 UPGRADE] FIXME: why was !pNode->hasValueHandle() below?
+        //if( nullptr == pNode || !pNode->hasValueHandle())
+        if( nullptr == pNode )
         {
             return std::string();
         }
@@ -101,7 +121,7 @@ struct MDValueTraits<std::string, void>
         return mdStr->getString();
     }
 
-    static llvm::Value* generateValue(llvm::LLVMContext& context, const value_type& val)
+    static llvm::Metadata* generateValue(llvm::LLVMContext& context, const value_type& val)
     {
         return llvm::MDString::get(context, val);
     }
@@ -115,11 +135,12 @@ struct MDValueTraits<std::string, void>
     {
     }
 
-    static void save(llvm::LLVMContext& context, llvm::Value* trgt, const value_type& val)
+    static void save(llvm::LLVMContext& context, llvm::Metadata* trgt, const value_type& val)
     {
         if( load(trgt) != val )
         {
-            trgt->replaceAllUsesWith( generateValue(context, val) );
+            //trgt->replaceAllUsesWith( generateValue(context, val) );
+            assert(false && "[LLVM 3.6 UPGRADE] FIXME");
         }
     }
 };
@@ -129,15 +150,18 @@ struct MDValueTraits<bool, void>
 {
     typedef bool value_type;
 
-    static value_type load( llvm::Value* pNode)
+    static value_type load( llvm::Metadata* pNode)
     {
+        using namespace llvm;
         //we allow for NULL value loads
-        if(NULL == pNode || !pNode->hasValueHandle())
+        // [LLVM 3.6 UPGRADE] FIXME: why was !pNode->hasValueHandle() below?
+        if(nullptr == pNode)// || !pNode->hasValueHandle())
         {
+            assert(false && "[LLVM 3.6 UPGRADE] FIXME");
             return value_type();
         }
 
-        llvm::ConstantInt* pval = llvm::dyn_cast<llvm::ConstantInt>(pNode);
+        ConstantInt* pval = mdconst::dyn_extract<ConstantInt>(pNode);
         if( !pval )
         {
             throw "can't load bool value, wrong node type";
@@ -145,9 +169,10 @@ struct MDValueTraits<bool, void>
         return pval->isOne();
     }
 
-    static llvm::Value* generateValue(llvm::LLVMContext& context, const value_type& val)
+    static llvm::Metadata* generateValue(llvm::LLVMContext& context, const value_type& val)
     {
-        return val ? llvm::ConstantInt::getTrue(context) : llvm::ConstantInt::getFalse(context);
+        return llvm::ConstantAsMetadata::get(
+          val ? llvm::ConstantInt::getTrue(context) : llvm::ConstantInt::getFalse(context));
     }
 
     static bool dirty(const value_type& val )
@@ -159,11 +184,12 @@ struct MDValueTraits<bool, void>
     {
     }
 
-    static void save( llvm::LLVMContext& context, llvm::Value* trgt, const value_type& val)
+    static void save( llvm::LLVMContext& context, llvm::Metadata* trgt, const value_type& val)
     {
         if( load(trgt) != val )
         {
-            trgt->replaceAllUsesWith( generateValue(context, val) );
+//            trgt->replaceAllUsesWith( generateValue(context, val) );
+            assert(false && "[LLVM 3.6 UPGRADE] FIXME");
         }
     }
 };
@@ -173,15 +199,18 @@ struct MDValueTraits<int64_t, void>
 {
     typedef int64_t value_type;
 
-    static value_type load( llvm::Value* pNode)
+    static value_type load( llvm::Metadata* pNode)
     {
         //we allow for NULL value loads
-        if( NULL == pNode || !pNode->hasValueHandle())
+        // [LLVM 3.6 UPGRADE] FIXME: why was !pNode->hasValueHandle() below?
+        if( nullptr == pNode )//|| !pNode->hasValueHandle())
         {
+            assert(false && "[LLVM 3.6 UPGRADE] FIXME");
             return value_type();
         }
 
-        llvm::ConstantInt* pval = llvm::dyn_cast<llvm::ConstantInt>(pNode);
+        using namespace llvm;
+        ConstantInt* pval = mdconst::dyn_extract<ConstantInt>(pNode);
         if( !pval )
         {
             throw "can't load bool value, wrong node type";
@@ -189,9 +218,10 @@ struct MDValueTraits<int64_t, void>
         return pval->getValue().getSExtValue();
     }
 
-    static llvm::Value* generateValue(llvm::LLVMContext& context, const value_type& val)
+    static llvm::Metadata* generateValue(llvm::LLVMContext& context, const value_type& val)
     {
-        return llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), val);
+        return llvm::ConstantAsMetadata::get(
+          llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), val));
     }
 
     static bool dirty(const value_type& val )
@@ -203,11 +233,12 @@ struct MDValueTraits<int64_t, void>
     {
     }
 
-    static void save( llvm::LLVMContext& context, llvm::Value* trgt, const value_type& val)
+    static void save( llvm::LLVMContext& context, llvm::Metadata* trgt, const value_type& val)
     {
         if( load(trgt) != val )
         {
-            trgt->replaceAllUsesWith( generateValue(context, val) );
+//            trgt->replaceAllUsesWith( generateValue(context, val) );
+           assert(false && "[LLVM 3.6 UPGRADE] FIXME");
         }
     }
 };
@@ -217,15 +248,17 @@ struct MDValueTraits<int32_t, void>
 {
     typedef int32_t value_type;
 
-    static value_type load( llvm::Value* pNode)
+    static value_type load( llvm::Metadata* pNode)
     {
         //we allow for NULL value loads
-        if( NULL == pNode || !pNode->hasValueHandle())
+        // [LLVM 3.6 UPGRADE] FIXME: why was !pNode->hasValueHandle() below?
+        if( nullptr == pNode )//|| !pNode->hasValueHandle())
         {
             return value_type();
         }
 
-        llvm::ConstantInt* pval = llvm::dyn_cast<llvm::ConstantInt>(pNode);
+        using namespace llvm;
+        ConstantInt* pval = mdconst::dyn_extract<ConstantInt>(pNode);
         if( !pval )
         {
             throw "can't load bool value, wrong node type";
@@ -233,9 +266,10 @@ struct MDValueTraits<int32_t, void>
         return (int32_t)pval->getValue().getSExtValue();
     }
 
-    static llvm::Value* generateValue(llvm::LLVMContext& context, const value_type& val)
+    static llvm::Metadata* generateValue(llvm::LLVMContext& context, const value_type& val)
     {
-        return llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), val);
+        return llvm::ConstantAsMetadata::get(
+          llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), val));
     }
 
     static bool dirty(const value_type& val )
@@ -247,11 +281,12 @@ struct MDValueTraits<int32_t, void>
     {
     }
 
-    static void save( llvm::LLVMContext& context, llvm::Value* trgt, const value_type& val)
+    static void save( llvm::LLVMContext& context, llvm::Metadata* trgt, const value_type& val)
     {
         if( load(trgt) != val )
         {
-            trgt->replaceAllUsesWith( generateValue(context, val) );
+//            trgt->replaceAllUsesWith( generateValue(context, val) );
+           assert(false && "[LLVM 3.6 UPGRADE] FIXME");
         }
     }
 };
@@ -259,26 +294,28 @@ struct MDValueTraits<int32_t, void>
 
 #if _HAS_CPP0X
 template<class T>
-struct MDValueTraits< T,  typename std::enable_if<std::is_base_of<llvm::Value, T >::value>::type >
+struct MDValueTraits< T,  typename std::enable_if<std::is_base_of<llvm::Metadata, T >::value>::type >
 {
     typedef T* value_type;
 
-    static value_type load(llvm::Value* pNode)
+    static value_type load(llvm::Metadata* pNode)
     {
-        if(NULL == pNode || !pNode->hasValueHandle())
+        // [LLVM 3.6 UPGRADE] FIXME: why was !pNode->hasValueHandle() below?
+        if(nullptr == pNode )//|| !pNode->hasValueHandle())
         {
-            return NULL;
+            assert(false && "[LLVM 3.6 UPGRADE] FIXME");
+            return nullptr;
         }
 
         value_type pT = llvm::dyn_cast<T>(pNode);
-        if( NULL == pT)
+        if( nullptr == pT)
         {
             throw "can't local value , wrong node type";
         }
         return pT;
     }
 
-    static llvm::Value* generateValue( llvm::LLVMContext& context, const value_type& val )
+    static llvm::Metadata* generateValue( llvm::LLVMContext& context, const value_type& val )
     {
         return const_cast<value_type>(val);
     }
@@ -292,11 +329,12 @@ struct MDValueTraits< T,  typename std::enable_if<std::is_base_of<llvm::Value, T
     {
     }
 
-    static void save( llvm::LLVMContext& context, llvm::Value* trgt, const value_type& val)
+    static void save( llvm::LLVMContext& context, llvm::Metadata* trgt, const value_type& val)
     {
         if( load(trgt) != val )
         {
-            trgt->replaceAllUsesWith( generateValue(context, val) );
+//            trgt->replaceAllUsesWith( generateValue(context, val) );
+           assert(false && "[LLVM 3.6 UPGRADE] FIXME");
             //llvm::MDNode::deleteTemporary(trgt);
         }
     }
@@ -308,16 +346,21 @@ struct MDValueTraits<llvm::Function, void>
 {
     typedef llvm::Function* value_type;
 
-    static value_type load( llvm::Value* pNode)
+    static value_type load( llvm::Metadata* pNode)
     {
-        if(NULL == pNode || !pNode->hasValueHandle())
+        using namespace llvm;
+        // [LLVM 3.6 UPGRADE] FIXME: why was !pNode->hasValueHandle() below?
+        if(nullptr == pNode )//|| !pNode->hasValueHandle())
         {
             // it is ok to pass NULL nodes - part of support for optional values
-            return NULL;
+            assert(false && "[LLVM 3.6 UPGRADE] FIXME");
+            return nullptr;
         }
 
-        value_type pT = llvm::dyn_cast<llvm::Function>(pNode->stripPointerCasts());
-        if( NULL == pT )
+        ValueAsMetadata * vAsM = dyn_cast<ValueAsMetadata>(pNode);
+        assert(vAsM && "VauseAsMetadata is expected");
+        value_type pT = dyn_cast<Function>(vAsM->getValue()->stripPointerCasts());
+        if( nullptr == pT )
         {
             throw "can't load value, wrong node type";
         }
@@ -325,14 +368,14 @@ struct MDValueTraits<llvm::Function, void>
         return pT;
     }
 
-    static llvm::Value* generateValue(llvm::LLVMContext& context, const value_type& val)
+    static llvm::Metadata* generateValue(llvm::LLVMContext& context, const value_type& val)
     {
-        return static_cast<llvm::Value*>(const_cast<value_type>(val));
+        return llvm::ValueAsMetadata::get(const_cast<value_type>(val));
     }
 
-    static llvm::Value* generateValue(llvm::LLVMContext& context, const llvm::Value*& val)
+    static llvm::Metadata* generateValue(llvm::LLVMContext& context, const llvm::Metadata*& val)
     {
-        return const_cast<llvm::Value*>(val);
+        return const_cast<llvm::Metadata*>(val);
     }
 
     static bool dirty(const value_type& val)
@@ -344,11 +387,12 @@ struct MDValueTraits<llvm::Function, void>
     {
     }
 
-    static void save( llvm::LLVMContext& context, llvm::Value* trgt, const value_type& val)
+    static void save( llvm::LLVMContext& context, llvm::Metadata* trgt, const value_type& val)
     {
         if( load(trgt) != val )
         {
-            trgt->replaceAllUsesWith( generateValue(context, val) );
+//            trgt->replaceAllUsesWith( generateValue(context, val) );
+           assert(false && "[LLVM 3.6 UPGRADE] FIXME");
         }
     }
 };

@@ -51,7 +51,7 @@ public:
     }
 
 
-    llvm::Value* operator *()
+    llvm::Metadata* operator *()
     {
         if( isNil() )
             throw std::exception();

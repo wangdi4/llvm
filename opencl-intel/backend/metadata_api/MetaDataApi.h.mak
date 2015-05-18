@@ -179,7 +179,7 @@ public:
 
     ///
     // Generates the new MDNode hierarchy for the given structure
-    llvm::Value* generateNode(llvm::LLVMContext& context) const;
+    llvm::Metadata* generateNode(llvm::LLVMContext& context) const;
 
     ///
     // Saves the structure changes to the given MDNode
@@ -194,11 +194,11 @@ private:
     }
 
 private:
-    typedef MetaDataIterator<llvm::Value> NodeIterator;
+    typedef MetaDataIterator<llvm::Metadata> NodeIterator;
 
     <%utils:iterate_struct_elements parent="${type}" args="element">
     %if schema[element['metatype']]['is_container'] == False:
-    llvm::Value* get${element['name']}Node( const llvm::MDNode* pParentNode) const;
+    llvm::Metadata* get${element['name']}Node( const llvm::MDNode* pParentNode) const;
     %else:
     llvm::MDNode* get${element['name']}Node( const llvm::MDNode* pParentNode) const;
     %endif

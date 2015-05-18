@@ -22,7 +22,7 @@ class MetaDataValue
 public:
     typedef typename Traits::value_type value_type;
 
-    MetaDataValue(llvm::Value* pNode):
+    MetaDataValue(llvm::Metadata* pNode):
         m_pNode(pNode),
         m_value(Traits::load(pNode)),
         m_isDirty(false)
@@ -74,7 +74,7 @@ public:
         m_isDirty = false;
     }
 
-    void save(llvm::LLVMContext &context, llvm::Value* pNode) const
+    void save(llvm::LLVMContext &context, llvm::Metadata* pNode) const
     {
         if( m_pNode == pNode && !dirty() )
         {
@@ -87,10 +87,11 @@ public:
             return;
         }
 
-        pNode->replaceAllUsesWith(generateNode(context));
+//        pNode->replaceAllUsesWith(generateNode(context));
+            assert(false && "FIXME");
     }
 
-    llvm::Value* generateNode(llvm::LLVMContext &context) const
+    llvm::Metadata* generateNode(llvm::LLVMContext &context) const
     {
         if( !hasValue() )
         {
@@ -101,7 +102,7 @@ public:
     }
 
 private:
-    llvm::Value* m_pNode;
+    llvm::Metadata* m_pNode;
     value_type m_value;
     bool m_isDirty;
 };
@@ -118,7 +119,7 @@ class NamedMetaDataValue
 public:
     typedef typename Traits::value_type value_type;
 
-    NamedMetaDataValue( llvm::Value* pNode):
+    NamedMetaDataValue( llvm::Metadata* pNode):
         m_pNode(pNode),
         m_id(getIdNode(pNode)),
         m_value(getValueNode(pNode))
@@ -168,7 +169,7 @@ public:
         m_value.discardChanges();
     }
 
-    void save(llvm::LLVMContext &context, llvm::Value* pNode) const
+    void save(llvm::LLVMContext &context, llvm::Metadata* pNode) const
     {
         if( m_pNode == pNode && !dirty() )
         {
@@ -188,7 +189,8 @@ public:
 
         if(pMDNode->getNumOperands() != 2)
         {
-            pMDNode->replaceAllUsesWith(generateNode(context));
+//            pMDNode->replaceAllUsesWith(generateNode(context));
+            assert(false && "FIXME");
             return;
         }
 
@@ -196,9 +198,9 @@ public:
         m_value.save(context, pMDNode->getOperand(1));
     }
 
-    llvm::Value* generateNode(llvm::LLVMContext &context) const
+    llvm::Metadata* generateNode(llvm::LLVMContext &context) const
     {
-        llvm::SmallVector< llvm::Value*, 2> args;
+        llvm::SmallVector< llvm::Metadata*, 2> args;
 
         args.push_back( m_id.generateNode(context));
         args.push_back( m_value.generateNode(context));
@@ -206,7 +208,7 @@ public:
         return llvm::MDNode::get(context,args);
     }
 private:
-    llvm::Value* getIdNode(const llvm::Value* pNode)
+    llvm::Metadata* getIdNode(const llvm::Metadata* pNode)
     {
         if( NULL == pNode)
         {
@@ -234,7 +236,7 @@ private:
         return pIdNode;
     }
 
-    llvm::Value* getValueNode(const llvm::Value* pNode)
+    llvm::Metadata* getValueNode(const llvm::Metadata* pNode)
     {
         if( NULL == pNode)
         {
@@ -256,7 +258,7 @@ private:
     }
 
 private:
-    llvm::Value* m_pNode; // root node initialized during the load
+    llvm::Metadata* m_pNode; // root node initialized during the load
     MetaDataValue<std::string>  m_id;
     MetaDataValue<T,Traits> m_value;
 };
