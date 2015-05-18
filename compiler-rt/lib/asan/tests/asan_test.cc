@@ -569,17 +569,6 @@ TEST(AddressSanitizer, LongJmpTest) {
 }
 
 #if !defined(_WIN32)  // Only basic longjmp is available on Windows.
-NOINLINE void BuiltinLongJmpFunc1(jmp_buf buf) {
-  // create three red zones for these two stack objects.
-  int a;
-  int b;
-
-  int *A = Ident(&a);
-  int *B = Ident(&b);
-  *A = *B;
-  __builtin_longjmp((void**)buf, 1);
-}
-
 NOINLINE void UnderscopeLongJmpFunc1(jmp_buf buf) {
   // create three red zones for these two stack objects.
   int a;
@@ -604,7 +593,19 @@ NOINLINE void SigLongJmpFunc1(sigjmp_buf buf) {
 
 #if !defined(__ANDROID__) && !defined(__arm__) && \
     !defined(__powerpc64__) && !defined(__powerpc__) && \
-    !defined(__aarch64__)
+    !defined(__aarch64__) && !defined(__mips__) && \
+    !defined(__mips64)
+NOINLINE void BuiltinLongJmpFunc1(jmp_buf buf) {
+  // create three red zones for these two stack objects.
+  int a;
+  int b;
+
+  int *A = Ident(&a);
+  int *B = Ident(&b);
+  *A = *B;
+  __builtin_longjmp((void**)buf, 1);
+}
+
 // Does not work on Power and ARM:
 // https://code.google.com/p/address-sanitizer/issues/detail?id=185
 TEST(AddressSanitizer, BuiltinLongJmpTest) {
@@ -616,7 +617,8 @@ TEST(AddressSanitizer, BuiltinLongJmpTest) {
   }
 }
 #endif  // !defined(__ANDROID__) && !defined(__powerpc64__) &&
-        // !defined(__powerpc__) && !defined(__arm__)
+        // !defined(__powerpc__) && !defined(__arm__) &&
+        // !defined(__mips__) && !defined(__mips64)
 
 TEST(AddressSanitizer, UnderscopeLongJmpTest) {
   static jmp_buf buf;

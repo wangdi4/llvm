@@ -248,7 +248,7 @@ C::C() {
   // CHECK-NEXT: %[[this_i8:.*]] = bitcast %"struct.constructors::C"* %{{.*}} to i8*
   // CHECK-NEXT: %[[vbptr_off:.*]] = getelementptr inbounds i8, i8* %[[this_i8]], i64 0
   // CHECK-NEXT: %[[vbptr:.*]] = bitcast i8* %[[vbptr_off]] to i32**
-  // CHECK-NEXT: store i32* getelementptr inbounds ([2 x i32]* @"\01??_8C@constructors@@7B@", i32 0, i32 0), i32** %[[vbptr]]
+  // CHECK-NEXT: store i32* getelementptr inbounds ([2 x i32], [2 x i32]* @"\01??_8C@constructors@@7B@", i32 0, i32 0), i32** %[[vbptr]]
   // CHECK-NEXT: bitcast %"struct.constructors::C"* %{{.*}} to i8*
   // CHECK-NEXT: getelementptr inbounds i8, i8* %{{.*}}, i64 4
   // CHECK-NEXT: bitcast i8* %{{.*}} to %"struct.constructors::A"*
@@ -283,7 +283,7 @@ D::D() {
   // CHECK-NEXT: %[[this_i8:.*]] = bitcast %"struct.constructors::D"* %{{.*}} to i8*
   // CHECK-NEXT: %[[vbptr_off:.*]] = getelementptr inbounds i8, i8* %[[this_i8]], i64 0
   // CHECK-NEXT: %[[vbptr:.*]] = bitcast i8* %[[vbptr_off]] to i32**
-  // CHECK-NEXT: store i32* getelementptr inbounds ([2 x i32]* @"\01??_8D@constructors@@7B@", i32 0, i32 0), i32** %[[vbptr]]
+  // CHECK-NEXT: store i32* getelementptr inbounds ([2 x i32], [2 x i32]* @"\01??_8D@constructors@@7B@", i32 0, i32 0), i32** %[[vbptr]]
   // CHECK-NEXT: bitcast %"struct.constructors::D"* %{{.*}} to i8*
   // CHECK-NEXT: getelementptr inbounds i8, i8* %{{.*}}, i64 4
   // CHECK-NEXT: bitcast i8* %{{.*}} to %"struct.constructors::A"*
@@ -310,10 +310,10 @@ E::E() {
   // CHECK-NEXT: %[[this_i8:.*]] = bitcast %"struct.constructors::E"* %{{.*}} to i8*
   // CHECK-NEXT: %[[offs:.*]] = getelementptr inbounds i8, i8* %[[this_i8]], i64 0
   // CHECK-NEXT: %[[vbptr_E:.*]] = bitcast i8* %[[offs]] to i32**
-  // CHECK-NEXT: store i32* getelementptr inbounds ([3 x i32]* @"\01??_8E@constructors@@7B01@@", i32 0, i32 0), i32** %[[vbptr_E]]
+  // CHECK-NEXT: store i32* getelementptr inbounds ([3 x i32], [3 x i32]* @"\01??_8E@constructors@@7B01@@", i32 0, i32 0), i32** %[[vbptr_E]]
   // CHECK-NEXT: %[[offs:.*]] = getelementptr inbounds i8, i8* %[[this_i8]], i64 4
   // CHECK-NEXT: %[[vbptr_C:.*]] = bitcast i8* %[[offs]] to i32**
-  // CHECK-NEXT: store i32* getelementptr inbounds ([2 x i32]* @"\01??_8E@constructors@@7BC@1@@", i32 0, i32 0), i32** %[[vbptr_C]]
+  // CHECK-NEXT: store i32* getelementptr inbounds ([2 x i32], [2 x i32]* @"\01??_8E@constructors@@7BC@1@@", i32 0, i32 0), i32** %[[vbptr_C]]
   // CHECK-NEXT: bitcast %"struct.constructors::E"* %{{.*}} to i8*
   // CHECK-NEXT: getelementptr inbounds i8, i8* %{{.*}}, i64 4
   // CHECK-NEXT: bitcast i8* %{{.*}} to %"struct.constructors::A"*
@@ -420,7 +420,7 @@ void construct_b() {
 // CHECK-LABEL: define void @"\01?construct_b@test1@@YAXXZ"()
 // CHECK: call x86_thiscallcc %"struct.test1::B"* @"\01??0B@test1@@QAE@PAH@Z"
 // CHECK:               (%"struct.test1::B"* {{.*}}, i32* {{.*}}, i32 1)
-// CHECK: call %"struct.test1::B"* (%"struct.test1::B"*, i32, i8*, ...)* @"\01??0B@test1@@QAA@PBDZZ"
+// CHECK: call %"struct.test1::B"* (%"struct.test1::B"*, i32, i8*, ...) @"\01??0B@test1@@QAA@PBDZZ"
 // CHECK:               (%"struct.test1::B"* {{.*}}, i32 1, i8* {{.*}}, i32 1, i32 2)
 }
 

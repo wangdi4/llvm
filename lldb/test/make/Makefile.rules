@@ -17,6 +17,7 @@
 # CFLAGS_EXTRAS :=
 # LD_EXTRAS :=
 # SPLIT_DEBUG_SYMBOLS := YES
+# CROSS_COMPILE :=
 #
 # And test/functionalities/archives/Makefile:
 # MAKE_DSYM := NO
@@ -30,8 +31,22 @@ THIS_FILE_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))/
 LLDB_BASE_DIR := $(THIS_FILE_DIR)../../
 
 #----------------------------------------------------------------------
-# If ARCH is not defined, default to x86_64.
 # If OS is not defined, use 'uname -s' to determine the OS name.
+#
+# uname on Windows gives "windows32", but most environments standardize
+# on "Windows_NT", so we'll make it consistent here.  When running
+# tests from Visual Studio, the environment variable isn't inherited
+# all the way down to the process spawned for make.
+#----------------------------------------------------------------------
+ifeq "$(OS)" ""
+	OS = $(shell uname -s)
+endif
+ifeq "$(OS)" "windows32"
+	OS = Windows_NT
+endif
+
+#----------------------------------------------------------------------
+# If ARCH is not defined, default to x86_64.
 #----------------------------------------------------------------------
 ifeq "$(ARCH)" ""
 ifeq "$(OS)" "Windows_NT"
@@ -39,10 +54,6 @@ ifeq "$(OS)" "Windows_NT"
 else
 	ARCH = x86_64
 endif
-endif
-
-ifeq "$(OS)" ""
-	OS = $(shell uname -s)
 endif
 
 #----------------------------------------------------------------------
@@ -65,7 +76,7 @@ endif
 # ARCHFLAG is the flag used to tell the compiler which architecture
 # to compile for. The default is the flag that clang accepts.
 #----------------------------------------------------------------------
-ARCHFLAG ?= -arch 
+ARCHFLAG ?= -arch
 
 #----------------------------------------------------------------------
 # Change any build/tool options needed
@@ -74,9 +85,10 @@ ifeq "$(OS)" "Darwin"
 	DS := $(shell xcrun -find -toolchain default dsymutil)
 	DSFLAGS =
 	DSYM = $(EXE).dSYM
-	AR := libtool
+	AR := $(CROSS_COMPILE)libtool
 	ARFLAGS := -static -o
 else
+	AR := $(CROSS_COMPILE)ar
 	# On non-Apple platforms, -arch becomes -m
 	ARCHFLAG := -m
 
@@ -106,6 +118,10 @@ else
 	ifeq "$(ARCH)" "powerpc64"
 		override ARCH := $(subst powerpc64,64,$(ARCH))
 	endif
+	ifeq "$(ARCH)" "aarch64"
+		override ARCH :=
+		override ARCHFLAG :=
+	endif
 
 	ifeq "$(SPLIT_DEBUG_SYMBOLS)" "YES"
 		DSYM = $(EXE).debug
@@ -113,10 +129,19 @@ else
 endif
 
 CFLAGS ?= -g -O0
-CFLAGS += $(ARCHFLAG)$(ARCH) $(FRAMEWORK_INCLUDES) $(CFLAGS_EXTRAS) -I$(LLDB_BASE_DIR)include
+ifeq "$(OS)" "Darwin"
+	CFLAGS += $(ARCHFLAG) $(ARCH) $(FRAMEWORK_INCLUDES) $(CFLAGS_EXTRAS) -I$(LLDB_BASE_DIR)include
+else
+	CFLAGS += $(ARCHFLAG)$(ARCH) $(FRAMEWORK_INCLUDES) $(CFLAGS_EXTRAS) -I$(LLDB_BASE_DIR)include
+endif
+CFLAGS += -include $(THIS_FILE_DIR)test_common.h
 
 # Use this one if you want to build one part of the result without debug information:
-CFLAGS_NO_DEBUG = -O0 $(ARCHFLAG)$(ARCH) $(FRAMEWORK_INCLUDES) $(CFLAGS_EXTRAS)
+ifeq "$(OS)" "Darwin"
+	CFLAGS_NO_DEBUG = -O0 $(ARCHFLAG) $(ARCH) $(FRAMEWORK_INCLUDES) $(CFLAGS_EXTRAS)
+else
+	CFLAGS_NO_DEBUG = -O0 $(ARCHFLAG)$(ARCH) $(FRAMEWORK_INCLUDES) $(CFLAGS_EXTRAS)
+endif
 
 CXXFLAGS += -std=c++11
 CXXFLAGS += $(CFLAGS)
@@ -124,23 +149,9 @@ LD = $(CC)
 LDFLAGS ?= $(CFLAGS)
 LDFLAGS += $(LD_EXTRAS)
 ifeq (,$(filter $(OS), Windows_NT Android))
-    ifeq "$(ENABLE_THREADS)" "YES"
-        LDFLAGS += -lpthread
-    else
-        ifeq "$(ENABLE_STD_THREADS)" "YES"
-            # with the specific combination of Linux, g++, std=c++11, adding the 
-            # linker flag -lpthread, will cause a program to hang when a std::conditional_variable
-            # is used in a program that links lldb (see bugzilla 21553)
-            ifeq "$(OS)" "Linux"
-                ifeq (,$(findstring gcc,$(CC))) 
-                    # Linux, but not gcc
-                    LDFLAGS += -lpthread
-                endif
-            else
-                LDFLAGS += -lpthread
-            endif
-        endif
-    endif
+	ifneq (,$(filter YES,$(ENABLE_THREADS) $(ENABLE_STD_THREADS)))
+		LDFLAGS += -lpthread
+	endif
 endif
 OBJECTS =
 EXE ?= a.out
@@ -148,6 +159,8 @@ EXE ?= a.out
 ifneq "$(DYLIB_NAME)" ""
 	ifeq "$(OS)" "Darwin"
 		DYLIB_FILENAME = lib$(DYLIB_NAME).dylib
+	else ifeq "$(OS)" "Windows_NT"
+		DYLIB_FILENAME = $(DYLIB_NAME).dll
 	else
 		DYLIB_FILENAME = lib$(DYLIB_NAME).so
 	endif
@@ -177,6 +190,8 @@ cxx_linker_notdir = $(if $(findstring clang,$(1)), \
                                         $(subst cc,c++,$(1))))))
 cxx_linker = $(if $(findstring /,$(1)),$(join $(dir $(1)), $(call cxx_linker_notdir,$(notdir $(1)))),$(call cxx_linker_notdir,$(1)))
 
+OBJCOPY := $(CROSS_COMPILE)objcopy
+
 #----------------------------------------------------------------------
 # Windows specific options
 #----------------------------------------------------------------------
@@ -184,7 +199,6 @@ ifeq "$(OS)" "Windows_NT"
 	ifneq (,$(findstring clang,$(CC)))
 		# Clang for Windows doesn't support C++ Exceptions
 		CXXFLAGS += -fno-exceptions
-		CXXFLAGS += -include $(THIS_FILE_DIR)uncaught_exception.h
 		CXXFLAGS += -D_HAS_EXCEPTIONS=0
 		# The MSVC linker doesn't understand long section names
 		# generated by the clang compiler.
@@ -196,7 +210,15 @@ endif
 # Android specific options
 #----------------------------------------------------------------------
 ifeq "$(OS)" "Android"
-	LDFLAGS += -pie
+    objcopy_notdir = $(if $(findstring clang,$(1)), \
+                          $(subst clang,objcopy,$(1)), \
+                               $(if $(findstring gcc,$(1)), \
+                                    $(subst gcc,objcopy,$(1)), \
+                                    $(subst cc,objcopy,$(1))))))
+    objcopy = $(if $(findstring /,$(1)),$(join $(dir $(1)), $(call objcopy_notdir,$(notdir $(1)))),$(call objcopy_notdir,$(1)))
+
+    LDFLAGS += -pie
+    OBJCOPY = $(call objcopy $(CC))
 endif
 
 #----------------------------------------------------------------------
@@ -336,8 +358,8 @@ ifneq "$(MAKE_DSYM)" "NO"
 endif
 else
 ifeq "$(SPLIT_DEBUG_SYMBOLS)" "YES"
-	objcopy --only-keep-debug "$(EXE)" "$(DSYM)"
-	objcopy --strip-debug --add-gnu-debuglink="$(DSYM)" "$(EXE)" "$(EXE)"
+	$(OBJCOPY) --only-keep-debug "$(EXE)" "$(DSYM)"
+	$(OBJCOPY) --strip-debug --add-gnu-debuglink="$(DSYM)" "$(EXE)" "$(EXE)"
 endif
 endif
 endif
@@ -373,25 +395,27 @@ endif
 #----------------------------------------------------------------------
 # Make the dylib
 #----------------------------------------------------------------------
+$(DYLIB_OBJECTS) : CFLAGS += -DCOMPILING_LLDB_TEST_DLL
+
 $(DYLIB_FILENAME) : $(DYLIB_OBJECTS)
 ifeq "$(OS)" "Darwin"
-	$(LD) $(LDFLAGS) $(DYLIB_OBJECTS) -install_name "@executable_path/$(DYLIB_FILENAME)" -dynamiclib -o "$(DYLIB_FILENAME)"
+	$(LD) $(DYLIB_OBJECTS) $(LDFLAGS) -install_name "@executable_path/$(DYLIB_FILENAME)" -dynamiclib -o "$(DYLIB_FILENAME)"
 ifneq "$(MAKE_DSYM)" "NO"
 ifneq "$(DS)" ""
 	"$(DS)" $(DSFLAGS) "$(DYLIB_FILENAME)"
 endif
 endif
 else
-	$(LD) $(LDFLAGS) $(DYLIB_OBJECTS) -shared -o "$(DYLIB_FILENAME)"
+	$(LD) $(DYLIB_OBJECTS) $(LDFLAGS) -shared -o "$(DYLIB_FILENAME)"
 ifeq "$(SPLIT_DEBUG_SYMBOLS)" "YES"
-	objcopy --only-keep-debug "$(DYLIB_FILENAME)" "$(DYLIB_FILENAME).debug"
-	objcopy --strip-debug --add-gnu-debuglink="$(DYLIB_FILENAME).debug" "$(DYLIB_FILENAME)" "$(DYLIB_FILENAME)"
+	$(OBJCOPY) --only-keep-debug "$(DYLIB_FILENAME)" "$(DYLIB_FILENAME).debug"
+	$(OBJCOPY) --strip-debug --add-gnu-debuglink="$(DYLIB_FILENAME).debug" "$(DYLIB_FILENAME)" "$(DYLIB_FILENAME)"
 endif
 endif
 
 #----------------------------------------------------------------------
 # Automatic variables based on items already entered. Below we create
-# an objects lists from the list of sources by replacing all entries
+# an object's lists from the list of sources by replacing all entries
 # that end with .c with .o, and we also create a list of prerequisite
 # files by replacing all .c files with .d.
 #----------------------------------------------------------------------
@@ -405,28 +429,36 @@ endif
 # the compiler -MM option. The -M option will list all system headers,
 # and the -MM option will list all non-system dependencies.
 #----------------------------------------------------------------------
+ifeq "$(OS)" "Windows_NT"
+	JOIN_CMD = &
+	QUOTE = "
+else
+	JOIN_CMD = ;
+	QUOTE = '
+endif
+
 %.d: %.c
-	@rm -f $@; \
+	@rm -f $@ $(JOIN_CMD) \
 	$(CC) -M $(CFLAGS) $< > $@.tmp && \
-	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.tmp > $@; \
+	sed $(QUOTE)s,\($*\)\.o[ :]*,\1.o $@ : ,g$(QUOTE) < $@.tmp > $@ $(JOIN_CMD) \
 	rm -f $@.tmp
 
 %.d: %.cpp
-	@rm -f $@; \
+	@rm -f $@ $(JOIN_CMD) \
 	$(CXX) -M $(CXXFLAGS) $< > $@.tmp && \
-	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.tmp > $@; \
+	sed $(QUOTE)s,\($*\)\.o[ :]*,\1.o $@ : ,g$(QUOTE) < $@.tmp > $@ $(JOIN_CMD) \
 	rm -f $@.tmp
 
 %.d: %.m
-	@rm -f $@; \
+	@rm -f $@ $(JOIN_CMD) \
 	$(CC) -M $(CFLAGS) $< > $@.tmp && \
-	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.tmp > $@; \
+	sed $(QUOTE)s,\($*\)\.o[ :]*,\1.o $@ : ,g$(QUOTE) < $@.tmp > $@ $(JOIN_CMD) \
 	rm -f $@.tmp
 
 %.d: %.mm
-	@rm -f $@; \
+	@rm -f $@ $(JOIN_CMD) \
 	$(CXX) -M $(CXXFLAGS) $< > $@.tmp && \
-	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.tmp > $@; \
+	sed $(QUOTE)s,\($*\)\.o[ :]*,\1.o $@ : ,g$(QUOTE) < $@.tmp > $@ $(JOIN_CMD) \
 	rm -f $@.tmp
 
 #----------------------------------------------------------------------
@@ -456,7 +488,10 @@ ifneq "$(DSYM)" ""
 	$(RM) -r "$(DSYM)"
 endif
 ifeq "$(OS)" "Windows_NT"
-	$(RM) "$(EXE).manifest" $(wildcard *.pdb *.ilk)
+	$(RM) $(wildcard *.manifest *.pdb *.ilk)
+  ifneq "$(DYLIB_NAME)" ""
+	$(RM) $(DYLIB_NAME).lib $(DYLIB_NAME).exp
+  endif
 endif
 
 #----------------------------------------------------------------------
@@ -470,7 +505,6 @@ print-%:
 	@echo '  flavor = $(flavor $*)'
 	@echo '   value = $(value  $*)'
 
-
 ### Local Variables: ###
 ### mode:makefile ###
 ### End: ###

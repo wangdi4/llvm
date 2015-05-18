@@ -271,9 +271,9 @@ class PPCAsmParser : public MCTargetAsmParser {
 
 
 public:
-  PPCAsmParser(MCSubtargetInfo &_STI, MCAsmParser &_Parser,
-               const MCInstrInfo &_MII, const MCTargetOptions &Options)
-      : MCTargetAsmParser(), STI(_STI), MII(_MII) {
+  PPCAsmParser(MCSubtargetInfo &STI, MCAsmParser &, const MCInstrInfo &MII,
+               const MCTargetOptions &Options)
+      : MCTargetAsmParser(), STI(STI), MII(MII) {
     // Check for 64-bit vs. 32-bit pointer mode.
     Triple TheTriple(STI.getTargetTriple());
     IsPPC64 = (TheTriple.getArch() == Triple::ppc64 ||
@@ -427,6 +427,7 @@ public:
   bool isImm() const override { return Kind == Immediate || Kind == Expression; }
   bool isU1Imm() const { return Kind == Immediate && isUInt<1>(getImm()); }
   bool isU2Imm() const { return Kind == Immediate && isUInt<2>(getImm()); }
+  bool isU3Imm() const { return Kind == Immediate && isUInt<3>(getImm()); }
   bool isU4Imm() const { return Kind == Immediate && isUInt<4>(getImm()); }
   bool isU5Imm() const { return Kind == Immediate && isUInt<5>(getImm()); }
   bool isS5Imm() const { return Kind == Immediate && isInt<5>(getImm()); }
@@ -800,6 +801,40 @@ void PPCAsmParser::ProcessInstruction(MCInst &Inst,
                                       const OperandVector &Operands) {
   int Opcode = Inst.getOpcode();
   switch (Opcode) {
+  case PPC::DCBTx:
+  case PPC::DCBTT:
+  case PPC::DCBTSTx:
+  case PPC::DCBTSTT: {
+    MCInst TmpInst;
+    TmpInst.setOpcode((Opcode == PPC::DCBTx || Opcode == PPC::DCBTT) ?
+                      PPC::DCBT : PPC::DCBTST);
+    TmpInst.addOperand(MCOperand::CreateImm(
+      (Opcode == PPC::DCBTx || Opcode == PPC::DCBTSTx) ? 0 : 16));
+    TmpInst.addOperand(Inst.getOperand(0));
+    TmpInst.addOperand(Inst.getOperand(1));
+    Inst = TmpInst;
+    break;
+  }
+  case PPC::DCBTCT:
+  case PPC::DCBTDS: {
+    MCInst TmpInst;
+    TmpInst.setOpcode(PPC::DCBT);
+    TmpInst.addOperand(Inst.getOperand(2));
+    TmpInst.addOperand(Inst.getOperand(0));
+    TmpInst.addOperand(Inst.getOperand(1));
+    Inst = TmpInst;
+    break;
+  }
+  case PPC::DCBTSTCT:
+  case PPC::DCBTSTDS: {
+    MCInst TmpInst;
+    TmpInst.setOpcode(PPC::DCBTST);
+    TmpInst.addOperand(Inst.getOperand(2));
+    TmpInst.addOperand(Inst.getOperand(0));
+    TmpInst.addOperand(Inst.getOperand(1));
+    Inst = TmpInst;
+    break;
+  }
   case PPC::LAx: {
     MCInst TmpInst;
     TmpInst.setOpcode(PPC::LA);
@@ -1070,6 +1105,58 @@ void PPCAsmParser::ProcessInstruction(MCInst &Inst,
     Inst = TmpInst;
     break;
   }
+  case PPC::RLWINMbm:
+  case PPC::RLWINMobm: {
+    unsigned MB, ME;
+    int64_t BM = Inst.getOperand(3).getImm();
+    if (!isRunOfOnes(BM, MB, ME))
+      break;
+
+    MCInst TmpInst;
+    TmpInst.setOpcode(Opcode == PPC::RLWINMbm ? PPC::RLWINM : PPC::RLWINMo);
+    TmpInst.addOperand(Inst.getOperand(0));
+    TmpInst.addOperand(Inst.getOperand(1));
+    TmpInst.addOperand(Inst.getOperand(2));
+    TmpInst.addOperand(MCOperand::CreateImm(MB));
+    TmpInst.addOperand(MCOperand::CreateImm(ME));
+    Inst = TmpInst;
+    break;
+  }
+  case PPC::RLWIMIbm:
+  case PPC::RLWIMIobm: {
+    unsigned MB, ME;
+    int64_t BM = Inst.getOperand(3).getImm();
+    if (!isRunOfOnes(BM, MB, ME))
+      break;
+
+    MCInst TmpInst;
+    TmpInst.setOpcode(Opcode == PPC::RLWIMIbm ? PPC::RLWIMI : PPC::RLWIMIo);
+    TmpInst.addOperand(Inst.getOperand(0));
+    TmpInst.addOperand(Inst.getOperand(0)); // The tied operand.
+    TmpInst.addOperand(Inst.getOperand(1));
+    TmpInst.addOperand(Inst.getOperand(2));
+    TmpInst.addOperand(MCOperand::CreateImm(MB));
+    TmpInst.addOperand(MCOperand::CreateImm(ME));
+    Inst = TmpInst;
+    break;
+  }
+  case PPC::RLWNMbm:
+  case PPC::RLWNMobm: {
+    unsigned MB, ME;
+    int64_t BM = Inst.getOperand(3).getImm();
+    if (!isRunOfOnes(BM, MB, ME))
+      break;
+
+    MCInst TmpInst;
+    TmpInst.setOpcode(Opcode == PPC::RLWNMbm ? PPC::RLWNM : PPC::RLWNMo);
+    TmpInst.addOperand(Inst.getOperand(0));
+    TmpInst.addOperand(Inst.getOperand(1));
+    TmpInst.addOperand(Inst.getOperand(2));
+    TmpInst.addOperand(MCOperand::CreateImm(MB));
+    TmpInst.addOperand(MCOperand::CreateImm(ME));
+    Inst = TmpInst;
+    break;
+  }
   }
 }
 
@@ -1132,9 +1219,17 @@ MatchRegisterName(const AsmToken &Tok, unsigned &RegNo, int64_t &IntVal) {
                !Name.substr(1).getAsInteger(10, IntVal) && IntVal < 32) {
       RegNo = FRegs[IntVal];
       return false;
+    } else if (Name.startswith_lower("vs") &&
+               !Name.substr(2).getAsInteger(10, IntVal) && IntVal < 64) {
+      RegNo = VSRegs[IntVal];
+      return false;
     } else if (Name.startswith_lower("v") &&
                !Name.substr(1).getAsInteger(10, IntVal) && IntVal < 32) {
       RegNo = VRegs[IntVal];
+      return false;
+    } else if (Name.startswith_lower("q") &&
+               !Name.substr(1).getAsInteger(10, IntVal) && IntVal < 32) {
+      RegNo = QFRegs[IntVal];
       return false;
     } else if (Name.startswith_lower("cr") &&
                !Name.substr(2).getAsInteger(10, IntVal) && IntVal < 8) {
@@ -1551,6 +1646,21 @@ bool PPCAsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
     // Parse the next operand
     if (ParseOperand(Operands))
       return true;
+  }
+
+  // We'll now deal with an unfortunate special case: the syntax for the dcbt
+  // and dcbtst instructions differs for server vs. embedded cores.
+  //  The syntax for dcbt is:
+  //    dcbt ra, rb, th [server]
+  //    dcbt th, ra, rb [embedded]
+  //  where th can be omitted when it is 0. dcbtst is the same. We take the
+  //  server form to be the default, so swap the operands if we're parsing for
+  //  an embedded core (they'll be swapped again upon printing).
+  if ((STI.getFeatureBits() & PPC::FeatureBookE) != 0 &&
+      Operands.size() == 4 &&
+      (Name == "dcbt" || Name == "dcbtst")) {
+    std::swap(Operands[1], Operands[3]);
+    std::swap(Operands[2], Operands[1]);
   }
 
   return false;

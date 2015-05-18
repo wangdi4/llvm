@@ -26,12 +26,15 @@ enum {
 
 class X86_64LinkingContext : public ELFLinkingContext {
 protected:
-  X86_64LinkingContext(llvm::Triple, std::unique_ptr<TargetHandlerBase>);
+  X86_64LinkingContext(llvm::Triple, std::unique_ptr<TargetHandler>);
+
 public:
   static std::unique_ptr<ELFLinkingContext> create(llvm::Triple);
+  int getMachineType() const override { return llvm::ELF::EM_X86_64; }
   X86_64LinkingContext(llvm::Triple);
 
   void addPasses(PassManager &) override;
+  void registerRelocationNames(Registry &r) override;
 
   uint64_t getBaseAddress() const override {
     if (_baseAddress == 0)
@@ -49,6 +52,7 @@ public:
     case llvm::ELF::R_X86_64_COPY:
     case llvm::ELF::R_X86_64_DTPMOD64:
     case llvm::ELF::R_X86_64_DTPOFF64:
+    case llvm::ELF::R_X86_64_TPOFF64:
       return true;
     default:
       return false;
@@ -64,7 +68,7 @@ public:
     return false;
   }
 
-  virtual bool isPLTRelocation(const Reference &r) const override {
+  bool isPLTRelocation(const Reference &r) const override {
     if (r.kindNamespace() != Reference::KindNamespace::ELF)
       return false;
     assert(r.kindArch() == Reference::KindArch::x86_64);

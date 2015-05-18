@@ -300,6 +300,36 @@ void SplitBlockAndInsertIfThenElse(Value *Cond, Instruction *SplitBefore,
                                    TerminatorInst **ElseTerm,
                                    MDNode *BranchWeights = nullptr);
 
+#if INTEL_CUSTOMIZATION
+/// GetIfCondition(BasicBlock *, BasicBlock *&, BasicBlock *&, BasicBlock *)
+/// is an Intel customized routine that overloads the more limited
+/// GetIfCondition(BasicBlock *, BasicBlock *&, BasicBlock *&) LLVM
+/// open-source routine. This function has been more generalized so that the
+/// BB can have more than two predecessors. In addition,
+/// GetIfCondition(BasicBlock *, BasicBlock *&, BasicBlock *&) has been replaced
+/// with an Intel customized version.  This version has the same prototype but
+/// internally uses the more generalized
+/// GetIfCondition(BasicBlock *, BasicBlock *&, BasicBlock *&, BasicBlock *)
+/// Any changes made by the LLVM community to
+/// GetIfCondition(BasicBlock *, BasicBlock *&, BasicBlock *&) will need to be
+/// incorporated into these two routines. There might be conflicts
+/// during code merge and if resolving conflicts becomes too cumbersome,
+/// we can try something different.
+
+///
+/// GetIfCondition - Given a basic block (BB) and its predecessor (Pred),
+/// (does not have be an immediate predecessor) check to see if the merge at
+/// BB is due to an "if condition" that is post-dominated by BB and Pred is
+/// either the conditional block or the block that is taken if the condition is
+/// true or false.  If so, return the boolean condition that determines which
+/// entry into BB will be taken.  Also, return by references the block that
+/// will be entered from if the condition is true, and the block that will be
+/// entered from if the condition is false.
+Value *GetIfCondition(BasicBlock *BB,
+                      BasicBlock *Pred,
+                      BasicBlock *&IfTrue,
+                      BasicBlock *&IfFalse);
+
 ///
 /// GetIfCondition - Check whether BB is the merge point of a if-region.
 /// If so, return the boolean condition that determines which entry into
@@ -309,5 +339,6 @@ void SplitBlockAndInsertIfThenElse(Value *Cond, Instruction *SplitBefore,
 Value *GetIfCondition(BasicBlock *BB, BasicBlock *&IfTrue,
                       BasicBlock *&IfFalse);
 } // End llvm namespace
+#endif //INTEL_CUSTOMIZATION
 
 #endif

@@ -10,7 +10,9 @@
 #define LLD_READER_WRITER_ELF_MIPS_MIPS_LINKING_CONTEXT_H
 
 #include "MipsELFFlagsMerger.h"
+#include "MipsReginfo.h"
 #include "lld/ReaderWriter/ELFLinkingContext.h"
+#include <mutex>
 
 namespace lld {
 namespace elf {
@@ -31,18 +33,22 @@ enum {
   LLD_R_MIPS_STO_PLT = 1029,
   /// \brief The same as R_MICROMIPS_26_S1 but for global symbols.
   LLD_R_MICROMIPS_GLOBAL_26_S1 = 1030,
+  /// \brief Apply high 32+16 bits of symbol + addend.
+  LLD_R_MIPS_64_HI16 = 1031,
 };
-
-typedef llvm::object::ELFType<llvm::support::little, 2, false> Mips32ELType;
-typedef llvm::object::ELFType<llvm::support::little, 2, true> Mips64ELType;
 
 class MipsLinkingContext final : public ELFLinkingContext {
 public:
-  static std::unique_ptr<ELFLinkingContext> create(llvm::Triple);
+  int getMachineType() const override { return llvm::ELF::EM_MIPS; }
   MipsLinkingContext(llvm::Triple triple);
 
+  std::error_code mergeHeaderFlags(uint8_t fileClass, uint64_t flags) override;
+  void mergeReginfoMask(const MipsReginfo &info);
+
   uint32_t getMergedELFFlags() const;
-  MipsELFFlagsMerger &getELFFlagsMerger();
+  const llvm::Optional<MipsReginfo> &getMergedReginfoMask() const;
+
+  void registerRelocationNames(Registry &r) override;
 
   // ELFLinkingContext
   uint64_t getBaseAddress() const override;
@@ -53,9 +59,12 @@ public:
   bool isDynamicRelocation(const Reference &r) const override;
   bool isCopyRelocation(const Reference &r) const override;
   bool isPLTRelocation(const Reference &r) const override;
+  bool isRelativeReloc(const Reference &r) const override;
 
 private:
   MipsELFFlagsMerger _flagsMerger;
+  std::mutex _maskMutex;
+  llvm::Optional<MipsReginfo> _reginfoMask;
 };
 
 } // elf
