@@ -11,55 +11,75 @@
 #define LLD_READER_WRITER_ELF_ARM_ARM_TARGET_HANDLER_H
 
 #include "ARMELFFile.h"
-#include "ARMELFReader.h"
 #include "ARMRelocationHandler.h"
-#include "DefaultTargetHandler.h"
+#include "ELFReader.h"
 #include "TargetLayout.h"
 
-#include "lld/Core/Simple.h"
-#include "llvm/ADT/Optional.h"
-#include <map>
-
 namespace lld {
+class ELFLinkingContext;
+
 namespace elf {
-typedef llvm::object::ELFType<llvm::support::little, 2, false> ARMELFType;
-class ARMLinkingContext;
 
-template <class ELFT> class ARMTargetLayout : public TargetLayout<ELFT> {
+class ARMTargetLayout : public TargetLayout<ELF32LE> {
 public:
-  ARMTargetLayout(ARMLinkingContext &context)
-      : TargetLayout<ELFT>(context) {}
-};
+  ARMTargetLayout(ELFLinkingContext &ctx) : TargetLayout(ctx) {}
 
-class ARMTargetHandler final : public DefaultTargetHandler<ARMELFType> {
-public:
-  ARMTargetHandler(ARMLinkingContext &context);
-
-  ARMTargetLayout<ARMELFType> &getTargetLayout() override {
-    return *(_armTargetLayout.get());
+  uint64_t getGOTSymAddr() {
+    std::call_once(_gotSymOnce, [this]() {
+      if (AtomLayout *gotAtom = findAbsoluteAtom("_GLOBAL_OFFSET_TABLE_"))
+        _gotSymAddr = gotAtom->_virtualAddr;
+    });
+    return _gotSymAddr;
   }
 
-  void registerRelocationNames(Registry &registry) override;
+  uint64_t getTPOffset() {
+    std::call_once(_tpOffOnce, [this]() {
+      for (const auto &phdr : *_programHeader) {
+        if (phdr->p_type == llvm::ELF::PT_TLS) {
+          _tpOff = llvm::RoundUpToAlignment(TCB_SIZE, phdr->p_align);
+          break;
+        }
+      }
+      assert(_tpOff != 0 && "TLS segment not found");
+    });
+    return _tpOff;
+  }
 
-  const ARMTargetRelocationHandler &getRelocationHandler() const override {
-    return *(_armRelocationHandler.get());
+  bool target1Rel() const { return _ctx.armTarget1Rel(); }
+
+private:
+  // TCB block size of the TLS.
+  enum { TCB_SIZE = 0x8 };
+
+private:
+  uint64_t _gotSymAddr = 0;
+  uint64_t _tpOff = 0;
+  std::once_flag _gotSymOnce;
+  std::once_flag _tpOffOnce;
+};
+
+class ARMTargetHandler final : public TargetHandler {
+public:
+  ARMTargetHandler(ARMLinkingContext &ctx);
+
+  const TargetRelocationHandler &getRelocationHandler() const override {
+    return *_relocationHandler;
   }
 
   std::unique_ptr<Reader> getObjReader() override {
-    return std::unique_ptr<Reader>(new ARMELFObjectReader(_context));
+    return llvm::make_unique<ELFReader<ARMELFFile>>(_ctx);
   }
 
   std::unique_ptr<Reader> getDSOReader() override {
-    return std::unique_ptr<Reader>(new ARMELFDSOReader(_context));
+    return llvm::make_unique<ELFReader<DynamicFile<ELF32LE>>>(_ctx);
   }
 
   std::unique_ptr<Writer> getWriter() override;
 
 private:
-  static const Registry::KindStrings kindStrings[];
-  ARMLinkingContext &_context;
-  std::unique_ptr<ARMTargetLayout<ARMELFType>> _armTargetLayout;
-  std::unique_ptr<ARMTargetRelocationHandler> _armRelocationHandler;
+  ARMLinkingContext &_ctx;
+  std::unique_ptr<ARMTargetLayout> _targetLayout;
+  std::unique_ptr<ARMTargetRelocationHandler> _relocationHandler;
 };
 
 } // end namespace elf

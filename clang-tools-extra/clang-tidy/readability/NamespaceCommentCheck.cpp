@@ -37,13 +37,14 @@ void NamespaceCommentCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(namespaceDecl().bind("namespace"), this);
 }
 
-bool locationsInSameFile(const SourceManager &Sources, SourceLocation Loc1,
-                         SourceLocation Loc2) {
+static bool locationsInSameFile(const SourceManager &Sources,
+                                SourceLocation Loc1, SourceLocation Loc2) {
   return Loc1.isFileID() && Loc2.isFileID() &&
          Sources.getFileID(Loc1) == Sources.getFileID(Loc2);
 }
 
-std::string getNamespaceComment(const NamespaceDecl *ND, bool InsertLineBreak) {
+static std::string getNamespaceComment(const NamespaceDecl *ND,
+                                       bool InsertLineBreak) {
   std::string Fix = "// namespace";
   if (!ND->isAnonymousNamespace())
     Fix.append(" ").append(ND->getNameAsString());
@@ -83,7 +84,7 @@ void NamespaceCommentCheck::check(const MatchFinder::MatchResult &Result) {
   bool NeedLineBreak = NextTokenIsOnSameLine && Tok.isNot(tok::eof);
 
   SourceRange OldCommentRange(AfterRBrace, AfterRBrace);
-  StringRef Message = "%0 not terminated with a closing comment";
+  std::string Message = "%0 not terminated with a closing comment";
 
   // Try to find existing namespace closing comment on the same line.
   if (Tok.is(tok::comment) && NextTokenIsOnSameLine) {
@@ -128,9 +129,9 @@ void NamespaceCommentCheck::check(const MatchFinder::MatchResult &Result) {
           : ("namespace '" + ND->getNameAsString() + "'");
 
   diag(AfterRBrace, Message)
-      << NamespaceName
-      << FixItHint::CreateReplacement(
-             OldCommentRange, std::string(SpacesBeforeComments, ' ') +
+      << NamespaceName << FixItHint::CreateReplacement(
+                              CharSourceRange::getCharRange(OldCommentRange),
+                              std::string(SpacesBeforeComments, ' ') +
                                   getNamespaceComment(ND, NeedLineBreak));
   diag(ND->getLocation(), "%0 starts here", DiagnosticIDs::Note)
       << NamespaceName;

@@ -894,13 +894,13 @@ static LinkageInfo getLVForClassMember(const NamedDecl *D,
   if (const CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(D)) {
     // If the type of the function uses a type with unique-external
     // linkage, it's not legally usable from outside this translation unit.
-    // But only look at the type-as-written. If this function has an auto-deduced
-    // return type, we can't compute the linkage of that type because it could
-    // require looking at the linkage of this function, and we don't need this
-    // for correctness because the type is not part of the function's
-    // signature.
-    // FIXME: This is a hack. We should be able to solve this circularity and the
-    // one in getLVForNamespaceScopeDecl for Functions some other way.
+    // But only look at the type-as-written. If this function has an
+    // auto-deduced return type, we can't compute the linkage of that type
+    // because it could require looking at the linkage of this function, and we
+    // don't need this for correctness because the type is not part of the
+    // function's signature.
+    // FIXME: This is a hack. We should be able to solve this circularity and
+    // the one in getLVForNamespaceScopeDecl for Functions some other way.
     {
       QualType TypeAsWritten = MD->getType();
       if (TypeSourceInfo *TSI = MD->getTypeSourceInfo())
@@ -1489,6 +1489,11 @@ static bool isRedeclarable(Decl::Kind K) {
 bool NamedDecl::declarationReplaces(NamedDecl *OldD, bool IsKnownNewer) const {
   assert(getDeclName() == OldD->getDeclName() && "Declaration name mismatch");
 
+  // Never replace one imported declaration with another; we need both results
+  // when re-exporting.
+  if (OldD->isFromASTFile() && isFromASTFile())
+    return false;
+
   if (!isKindReplaceableBy(OldD->getKind(), getKind()))
     return false;
 
@@ -1732,8 +1737,7 @@ QualifierInfo::setTemplateParameterListsInfo(ASTContext &Context,
   if (NumTPLists > 0) {
     TemplParamLists = new (Context) TemplateParameterList*[NumTPLists];
     NumTemplParamLists = NumTPLists;
-    for (unsigned i = NumTPLists; i-- > 0; )
-      TemplParamLists[i] = TPLists[i];
+    std::copy(TPLists, TPLists + NumTPLists, TemplParamLists);
   }
 }
 
@@ -1873,9 +1877,8 @@ bool VarDecl::isInExternCXXContext() const {
 
 VarDecl *VarDecl::getCanonicalDecl() { return getFirstDecl(); }
 
-VarDecl::DefinitionKind VarDecl::isThisDeclarationADefinition(
-  ASTContext &C) const
-{
+VarDecl::DefinitionKind
+VarDecl::isThisDeclarationADefinition(ASTContext &C) const {
   // C++ [basic.def]p2:
   //   A declaration is a definition unless [...] it contains the 'extern'
   //   specifier or a linkage-specification and neither an initializer [...],
@@ -1912,7 +1915,8 @@ VarDecl::DefinitionKind VarDecl::isThisDeclarationADefinition(
   if (hasInit())
     return Definition;
 
-  if (hasAttr<AliasAttr>())
+  if (hasAttr<AliasAttr>() ||
+      (hasAttr<SelectAnyAttr>() && !getAttr<SelectAnyAttr>()->isInherited()))
     return Definition;
 
   // A variable template specialization (other than a static data member
@@ -2508,39 +2512,6 @@ bool FunctionDecl::isReplaceableGlobalAllocationFunction() const {
   return RD && isNamed(RD, "nothrow_t") && RD->isInStdNamespace();
 }
 
-FunctionDecl *
-FunctionDecl::getCorrespondingUnsizedGlobalDeallocationFunction() const {
-  ASTContext &Ctx = getASTContext();
-  if (!Ctx.getLangOpts().SizedDeallocation)
-    return nullptr;
-
-  if (getDeclName().getNameKind() != DeclarationName::CXXOperatorName)
-    return nullptr;
-  if (getDeclName().getCXXOverloadedOperator() != OO_Delete &&
-      getDeclName().getCXXOverloadedOperator() != OO_Array_Delete)
-    return nullptr;
-  if (isa<CXXRecordDecl>(getDeclContext()))
-    return nullptr;
-
-  if (!getDeclContext()->getRedeclContext()->isTranslationUnit())
-    return nullptr;
-
-  if (getNumParams() != 2 || isVariadic() ||
-      !Ctx.hasSameType(getType()->castAs<FunctionProtoType>()->getParamType(1),
-                       Ctx.getSizeType()))
-    return nullptr;
-
-  // This is a sized deallocation function. Find the corresponding unsized
-  // deallocation function.
-  lookup_result R = getDeclContext()->lookup(getDeclName());
-  for (lookup_result::iterator RI = R.begin(), RE = R.end(); RI != RE;
-       ++RI)
-    if (FunctionDecl *FD = dyn_cast<FunctionDecl>(*RI))
-      if (FD->getNumParams() == 1 && !FD->isVariadic())
-        return FD;
-  return nullptr;
-}
-
 LanguageLinkage FunctionDecl::getLanguageLinkage() const {
   return getDeclLanguageLinkage(*this);
 }
@@ -2629,7 +2600,14 @@ unsigned FunctionDecl::getBuiltinID() const {
     // extern "C".
     // FIXME: A recognised library function may not be directly in an extern "C"
     // declaration, for instance "extern "C" { namespace std { decl } }".
-    if (!LinkageDecl || LinkageDecl->getLanguage() != LinkageSpecDecl::lang_c)
+    if (!LinkageDecl) {
+      if (BuiltinID == Builtin::BI__GetExceptionInfo &&
+          Context.getTargetInfo().getCXXABI().isMicrosoft() &&
+          isInStdNamespace())
+        return Builtin::BI__GetExceptionInfo;
+      return 0;
+    }
+    if (LinkageDecl->getLanguage() != LinkageSpecDecl::lang_c)
       return 0;
   }
 
@@ -2722,7 +2700,8 @@ bool FunctionDecl::isMSExternInline() const {
   if (!Context.getLangOpts().MSVCCompat && !hasAttr<DLLExportAttr>())
     return false;
 
-  for (const FunctionDecl *FD = this; FD; FD = FD->getPreviousDecl())
+  for (const FunctionDecl *FD = getMostRecentDecl(); FD;
+       FD = FD->getPreviousDecl())
     if (FD->getStorageClass() == SC_Extern)
       return true;
 
@@ -2841,6 +2820,18 @@ SourceRange FunctionDecl::getReturnTypeSourceRange() const {
     return SourceRange();
 
   return RTRange;
+}
+
+bool FunctionDecl::hasUnusedResultAttr() const {
+  QualType RetType = getReturnType();
+  if (RetType->isRecordType()) {
+    const CXXRecordDecl *Ret = RetType->getAsCXXRecordDecl();
+    const CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(this);
+    if (Ret && Ret->hasAttr<WarnUnusedResultAttr>() &&
+        !(MD && MD->getCorrespondingMethodInClass(Ret, true)))
+      return true;
+  }
+  return hasAttr<WarnUnusedResultAttr>();
 }
 
 /// \brief For an inline function definition in C, or for a gnu_inline function
@@ -3124,6 +3115,8 @@ DependentFunctionTemplateSpecializationInfo::
 DependentFunctionTemplateSpecializationInfo(const UnresolvedSetImpl &Ts,
                                       const TemplateArgumentListInfo &TArgs)
   : AngleLocs(TArgs.getLAngleLoc(), TArgs.getRAngleLoc()) {
+  static_assert(sizeof(*this) % llvm::AlignOf<void *>::Alignment == 0,
+                "Trailing data is unaligned!");
 
   d.NumTemplates = Ts.size();
   d.NumArgs = TArgs.size();
@@ -3794,6 +3787,13 @@ TranslationUnitDecl *TranslationUnitDecl::Create(ASTContext &C) {
   return new (C, (DeclContext *)nullptr) TranslationUnitDecl(C);
 }
 
+void ExternCContextDecl::anchor() { }
+
+ExternCContextDecl *ExternCContextDecl::Create(const ASTContext &C,
+                                               TranslationUnitDecl *DC) {
+  return new (C, DC) ExternCContextDecl(DC);
+}
+
 void LabelDecl::anchor() { }
 
 LabelDecl *LabelDecl::Create(ASTContext &C, DeclContext *DC,
@@ -3931,6 +3931,14 @@ TypedefDecl *TypedefDecl::Create(ASTContext &C, DeclContext *DC,
 }
 
 void TypedefNameDecl::anchor() { }
+
+TagDecl *TypedefNameDecl::getAnonDeclWithTypedefName() const {
+  if (auto *TT = getTypeSourceInfo()->getType()->getAs<TagType>())
+    if (TT->getDecl()->getTypedefNameForAnonDecl() == this)
+      return TT->getDecl();
+
+  return nullptr;
+}
 
 TypedefDecl *TypedefDecl::CreateDeserialized(ASTContext &C, unsigned ID) {
   return new (C, ID) TypedefDecl(C, nullptr, SourceLocation(), SourceLocation(),
