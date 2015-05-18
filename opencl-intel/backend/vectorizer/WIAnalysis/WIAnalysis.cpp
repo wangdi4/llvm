@@ -130,8 +130,8 @@ bool WIAnalysis::runOnFunction(Function &F) {
   m_soaAllocaAnalysis = &getAnalysis<SoaAllocaAnalysis>();
   V_ASSERT(m_soaAllocaAnalysis && "Unable to get pass");
 
-  m_DT = &getAnalysis<DominatorTree>();
-  assert(m_DT && "Unable to get DominatorTree pass");
+  m_DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  assert(m_DT && "Unable to get DominatorTreeWrapperPass pass");
   m_PDT = &getAnalysis<PostDominatorTree>();
   assert(m_PDT && "Unable to get PostDominatorTree pass");
   m_LI = &getAnalysis<LoopInfo>();

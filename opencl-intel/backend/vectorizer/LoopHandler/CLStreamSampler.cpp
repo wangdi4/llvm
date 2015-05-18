@@ -35,7 +35,7 @@ char intel::CLStreamSampler::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(CLStreamSampler, "cl-stream-sampler", "replace read,write image built-ins in loops with stream samplers if possible", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(LoopWIAnalysis)
-OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(CLStreamSampler, "cl-stream-sampler", "replace read,write image built-ins in loops with stream samplers if possible", false, false)
 
@@ -54,7 +54,7 @@ bool CLStreamSampler::runOnLoop(Loop *L, LPPassManager &LPM) {
   m_header = m_curLoop->getHeader();
   m_context = &m_header->getContext();
   m_M = m_header->getParent()->getParent();
-  m_DT = &getAnalysis<DominatorTree>();
+  m_DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   m_WIAnalysis = &getAnalysis<LoopWIAnalysis>();
   m_preHeader = m_curLoop->getLoopPreheader();
   m_latch = m_curLoop->getLoopLatch();

@@ -15,7 +15,7 @@ namespace intel {
 char intel::PhiCanon::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(PhiCanon, "phicanon", "Phi Canonicalizer path (Two-based Phi)", false, false)
-OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
 OCL_INITIALIZE_PASS_END(PhiCanon, "phicanon", "Phi Canonicalizer path (Two-based Phi)", false, false)
 
@@ -55,7 +55,7 @@ bool PhiCanon::runOnFunction(Function &F) {
 
 void PhiCanon::fixBlock(BasicBlock* toFix) {
 
-  DominatorTree     *DT  = &getAnalysis<DominatorTree>();
+  DominatorTree     *DT  = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   PostDominatorTree *PDT = &getAnalysis<PostDominatorTree>();
 
   // Look for pair of BBs which comply with the following rules:

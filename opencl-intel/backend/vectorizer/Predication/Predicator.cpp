@@ -55,7 +55,7 @@ const int MAX_NUMBER_OF_BLOCKS_IN_AN_ALLONES_BYPASS = 6;
 OCL_INITIALIZE_PASS_BEGIN(Predicator, "predicate", "Predicate Function", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfo)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominanceFrontier)
-OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
 OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
 OCL_INITIALIZE_PASS_DEPENDENCY(OCLBranchProbability)
@@ -1894,7 +1894,7 @@ void Predicator::predicateFunction(Function *F) {
 
   // Get Dominator and Post-Dominator analysis passes
   PostDominatorTree* PDT = &getAnalysis<PostDominatorTree>();
-  DominatorTree* DT      = &getAnalysis<DominatorTree>();
+  DominatorTree* DT      = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   m_DT = DT; // save the dominator tree.
   LoopInfo *LI = &getAnalysis<LoopInfo>();
   m_LI = LI;

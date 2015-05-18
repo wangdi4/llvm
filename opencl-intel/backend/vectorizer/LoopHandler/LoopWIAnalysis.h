@@ -10,6 +10,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Pass.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Dominators.h"
 using namespace llvm;
 namespace intel {
 class LoopWIAnalysis : public LoopPass {
@@ -32,7 +33,7 @@ public:
   /// @brief LLVM interface.
   /// @param AU - usage of analysis.
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequired<DominatorTree>();
+    AU.addRequired<DominatorTreeWrapperPass>();
     AU.setPreservesAll();
   };
 

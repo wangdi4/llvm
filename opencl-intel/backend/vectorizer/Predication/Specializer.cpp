@@ -13,7 +13,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Analysis/Verifier.h"
-#include "llvm/Analysis/Dominators.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/RegionIterator.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/InlineCost.h"

@@ -17,7 +17,7 @@ namespace intel {
 char intel::LoopWIAnalysis::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(LoopWIAnalysis, "LoopWIAnalysis", "LoopWIAnalysis provides work item dependency info for loops", false, false)
-OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_END(LoopWIAnalysis, "LoopWIAnalysis", "LoopWIAnalysis provides work item dependency info for loops", false, false)
 
 const unsigned int LoopWIAnalysis::MinIndexBitwidthToPreserve = 16;
@@ -87,7 +87,7 @@ LoopWIAnalysis::ValDependancy LoopWIAnalysis::getDependency(Value *val) {
 bool LoopWIAnalysis::runOnLoop(Loop *L, LPPassManager &LPM) {
   //errs() << "LoopWIAnalysis on " << L->getHeader()->getNameStr() << "\n";
   if (!L->isLoopSimplifyForm()) return false;
-  m_DT = &getAnalysis<DominatorTree>();
+  m_DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   m_curLoop = L;
   m_header = m_curLoop->getHeader();
   m_preHeader = m_curLoop->getLoopPreheader();

@@ -13,7 +13,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
-#include "llvm/Analysis/Dominators.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/Module.h"
 
@@ -65,7 +65,7 @@ public:
                              BasicBlock* new_target);
   // Need Dominator Tree and PostDominator tree prior to Phi Canonization
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-        AU.addRequired<DominatorTree>();
+        AU.addRequired<DominatorTreeWrapperPass>();
         AU.addRequired<PostDominatorTree>();
   }
 

@@ -34,7 +34,7 @@ char WeightedInstCounter::ID = 0;
 OCL_INITIALIZE_PASS_BEGIN(WeightedInstCounter, "winstcounter", "Weighted Instruction Counter", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
 OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfo)
-OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
 OCL_INITIALIZE_PASS_DEPENDENCY(PostDominanceFrontier)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
@@ -43,7 +43,7 @@ OCL_INITIALIZE_PASS_END(WeightedInstCounter, "winstcounter", "Weighted Instructi
 char VectorizationPossibilityPass::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(VectorizationPossibilityPass, "vectorpossible", "Check whether vectorization is possible", false, false)
-OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(VectorizationPossibilityPass, "vectorpossible", "Check whether vectorization is possible", false, false)
 
@@ -1172,7 +1172,7 @@ void WeightedInstCounter::countPerBlockHeuristics(std::map<BasicBlock*, int>* pr
 
 bool VectorizationPossibilityPass::runOnFunction(Function & F)
 {
-  DominatorTree &DT = getAnalysis<DominatorTree>();
+  DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   RuntimeServices* services = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
   m_canVectorize = CanVectorizeImpl::canVectorize(F, DT, services);
   return false;

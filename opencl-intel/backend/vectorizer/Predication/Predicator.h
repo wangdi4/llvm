@@ -21,7 +21,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
-#include "llvm/Analysis/Dominators.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/SetVector.h"
@@ -414,7 +414,7 @@ public:
     AU.addRequired<LoopInfo>();
     // We need dominance frontier to estimate
     // the dominance for specialization
-    AU.addRequired<DominatorTree>();
+    AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<PostDominatorTree>();
     // we preserve nothing. really.
     AU.addRequired<WIAnalysis>();
