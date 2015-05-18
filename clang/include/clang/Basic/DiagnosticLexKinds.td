@@ -513,6 +513,14 @@ def note_init_list_at_beginning_of_macro_argument : Note<
   "cannot use initializer list at the beginning of a macro argument">;
 def err_too_few_args_in_macro_invoc : Error<
   "too few arguments provided to function-like macro invocation">;
+// if INTEL_CUSTOMIZATION
+def warn_too_few_args_in_macro_invoc : Warning<
+  "too few arguments provided to function-like macro invocation">,
+  InGroup<IntelCompat>;
+def warn_missing_fnmacro_args_replaced_by_empty : Warning<
+  "%0 missing macro argument%s0 treated as empty string%s0">,
+  InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_pp_bad_paste : Error<
   "pasting formed '%0', an invalid preprocessing token">;
 def ext_pp_bad_paste_ms : ExtWarn<
