@@ -43,7 +43,7 @@ namespace intel {
     m_zero = ConstantInt::get(Type::getInt32Ty(F.getParent()->getContext()), 0);
     m_one  = ConstantInt::get(Type::getInt32Ty(F.getParent()->getContext()), 1);
     m_two  = ConstantInt::get(Type::getInt32Ty(F.getParent()->getContext()), 2);
-    m_ret = IntegerType::get(M->getContext(), DataLayout(M).getPointerSizeInBits());
+    m_ret = IntegerType::get(M->getContext(), M.getDataLayout()->getPointerSizeInBits(0));
 
     // looking for get_{global,local}_linear_id()
     for (inst_iterator itr = inst_begin(F);

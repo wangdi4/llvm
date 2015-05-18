@@ -379,8 +379,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             curArg.size_in_bytes |= (uiElemSize << 16);
             break;
           }
-          // pModule->getPointerSize() returns 1 for x32 and 2 for x64
-          curArg.size_in_bytes = pModule->getPointerSize()*4;
+          curArg.size_in_bytes = pModule->getDataLayout()->getPointerSize(0);
           // Detect pointer qualifier
           // Test for opaque types: images, queue_t, pipe_t
           StructType *ST = dyn_cast<StructType>(PTy->getElementType());

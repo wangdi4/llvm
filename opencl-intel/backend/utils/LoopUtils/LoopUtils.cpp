@@ -42,16 +42,10 @@ CallInst *getWICall(Module *M, StringRef funcName, Type *retTy, unsigned dim,
 }
 
 Type *getIndTy(Module *M) {
-  switch (M->getPointerSize()) {
-  case Module::Pointer32:
-    return IntegerType::get(M->getContext(), 32);
-  case Module::Pointer64:
-    return IntegerType::get(M->getContext(), 64);
-    break;
-  default:
-    assert(0 && "pointer size != 32 , 64");
-    return NULL;
-  }
+  unsigned pointerSizeInBits = M->getDataLayout()->getPointerSizeInBits(0);
+  assert((32 == pointerSizeInBits  || 64 == pointerSizeInBits) &&
+         "Unsopported pointer size");
+  return IntegerType::get(M->getContext(), pointerSizeInBits);
 }
 
 void getAllCallInFunc(StringRef funcName, Function *funcToSearch,

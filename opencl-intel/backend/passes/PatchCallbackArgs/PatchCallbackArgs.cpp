@@ -50,7 +50,7 @@ ImplicitArgAccessorFunc ImplicitArgAccessorFuncList[] = {
 
 bool PatchCallbackArgs::runOnModule(Module &M) {
   ImplicitArgsAnalysis &IAA = getAnalysis<ImplicitArgsAnalysis>();
-  unsigned PointerSize = getAnalysis<DataLayout>().getPointerSizeInBits();
+  unsigned PointerSize = M.getDataLayout()->getPointerSizeInBits(0);
   IAA.initDuringRun(PointerSize);
   bool Changed = false;
   SmallVector<CallInst*, 16> ToErase;

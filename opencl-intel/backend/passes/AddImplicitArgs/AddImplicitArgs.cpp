@@ -47,7 +47,7 @@ namespace intel{
     m_pLLVMContext = &M.getContext();
     m_localBuffersAnalysis = &getAnalysis<LocalBuffAnalysis>();
     m_IAA = &getAnalysis<ImplicitArgsAnalysis>();
-    m_IAA->initDuringRun(M.getPointerSize() * 32);
+    m_IAA->initDuringRun(M.getDataLayout()->getPointerSizeInBits(0));
 
     // Clear call instruction to fix container
     m_fixupCalls.clear();

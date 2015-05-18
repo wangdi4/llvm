@@ -278,7 +278,7 @@ void CLStreamSampler::CollectReadImgAttributes(CallInst *readImgCall) {
 
 void CLStreamSampler::hoistReadImgCalls() {
   // Obtain the stream read from the runtime module.
-  bool isPointer64 = (m_M->getPointerSize() == Module::Pointer64);
+  bool isPointer64 = m_M->getDataLayout()->getPointerSizeInBits(0) == 64;
   Function *LibReadSteamFunc = m_rtServices->getReadStream(isPointer64);
   if (!LibReadSteamFunc) return;
   Function * readStreamFunc = getLibraryFunc(LibReadSteamFunc);
@@ -407,7 +407,7 @@ Value *CLStreamSampler::getStreamSize(unsigned width) {
 
 void CLStreamSampler::sinkWriteImgCalls() {
   // Obtain the stream write from the runtime module.
-  bool isPointer64 = (m_M->getPointerSize() == Module::Pointer64);
+  bool isPointer64 = m_M->getDataLayout()->getPointerSizeInBits(0) == 64;
   Function *LibWriteStreamFunc = m_rtServices->getWriteStream(isPointer64);
   if (!LibWriteStreamFunc) return;
   Function * writeStreamFunc = getLibraryFunc(LibWriteStreamFunc);

@@ -50,7 +50,7 @@ namespace intel{
     Intel::MetaDataUtils mdUtils(&M);
     m_mdUtils = &mdUtils;
     m_IAA = &getAnalysis<ImplicitArgsAnalysis>();
-    m_PtrSizeInBytes = M.getPointerSize() * 4;
+    m_PtrSizeInBytes = M.getDataLayout()->getPointerSize(0);
     m_IAA->initDuringRun(m_PtrSizeInBytes * 8);
     m_SizetTy = IntegerType::get(*m_pLLVMContext, m_PtrSizeInBytes*8);
     m_I32Ty = Type::getInt32Ty(*m_pLLVMContext);

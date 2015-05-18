@@ -131,7 +131,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
     return 0;
   }
   // Create the DataLayout structure from the Module's arch info.
-  DataLayout DL(M);
+  DataLayout & DL = *M->getDataLayout();
 
   Intel::MetaDataUtils::KernelsList::const_iterator iter = mdUtils.begin_Kernels(), end = mdUtils.end_Kernels();
   for(unsigned int i=0; iter != end; ++iter, ++i) {
@@ -515,7 +515,7 @@ Function *cld_genwrapper(Module *M, DataLayout &DL, Function *kf,
                          bool debug, bool vector) {
   LLVMContext &CTX = M->getContext();
   Type *I32Ty = Type::getInt32Ty(CTX);
-  Type *SizeTy = IntegerType::get(CTX, DL.getPointerSizeInBits());
+  Type *SizeTy = IntegerType::get(CTX, DL.getPointerSizeInBits(0));
 
   // Create a wrapper function which will loop over the kernel in the
   // x-dimension, with the following prototype:

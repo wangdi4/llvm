@@ -523,7 +523,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
 
     // Kernel should keep size of pointer specified inside module
     // to allow cross-platform compilation
-    unsigned int ptrSizeInBytes = pModule->getPointerSize()*4;
+    unsigned int ptrSizeInBytes = pModule->getDataLayout()->getPointerSize(0);
     pProps->SetPointerSize(ptrSizeInBytes);
 
     pProps->SetHasDebugInfo(buildOptions.GetDebugInfoFlag());

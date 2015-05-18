@@ -53,7 +53,7 @@ namespace intel {
       m_pModule = &M;
       m_pLLVMContext = &M.getContext();
       m_IAA = &getAnalysis<ImplicitArgsAnalysis>();
-      unsigned PointerSize = getAnalysis<DataLayout>().getPointerSizeInBits();
+      unsigned PointerSize = M.getDataLayout()->getPointerSizeInBits(0);
       m_IAA->initDuringRun(PointerSize);
       m_sizeTTy = IntegerType::get(*m_pLLVMContext, PointerSize);
 
@@ -412,7 +412,7 @@ namespace intel {
 
     DataLayout DL(m_pModule);
 
-    unsigned int uiSizeT = m_pModule->getPointerSize()*32;
+    unsigned int uiSizeT = m_pModule->getDataLayout()->getPointerSizeInBits(0);
 
     // Create new call instruction with extended parameters
     SmallVector<Value*, 4> params;
@@ -456,7 +456,7 @@ namespace intel {
       return;
     }
 
-    unsigned int uiSizeT = m_pModule->getPointerSize()*32;
+    unsigned int uiSizeT = m_pModule->getDataLayout()->getPointerSizeInBits(0);
 
     std::vector<Type*> params;
     // Source Pointer
@@ -778,10 +778,9 @@ Value *ResolveWICall::getOrCreateRuntimeInterface() {
     m_ExtExecDecls.insert(type);
   }
   unsigned ResolveWICall::getPointerSize() const {
-    switch (m_pModule->getPointerSize()) {
-    default: assert(false && "unknown pointer size"); return 0;
-    case Module::Pointer32: return 32;
-    case Module::Pointer64: return 64;
-    }
+    unsigned pointerSizeInBits = M->getDataLayout()->getPointerSizeInBits(0);
+    assert((32 == pointerSizeInBits  || 64 == pointerSizeInBits) &&
+           "Unsopported pointer size");
+    return pointerSizeInBits;
   }
 } // namespace intel

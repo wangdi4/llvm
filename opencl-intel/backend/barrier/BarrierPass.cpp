@@ -48,7 +48,7 @@ namespace intel {
 
     m_pContext = &M.getContext();
     //Initialize the side of size_t
-    m_uiSizeT = M.getPointerSize()*32;
+    m_uiSizeT = M.getDataLayout()->getPointerSizeInBits(0);
     m_sizeTType = IntegerType::get(*m_pContext, m_uiSizeT);
     m_I32Type = IntegerType::get(*m_pContext, 32);
     m_LocalIdAllocTy = PointerType::get(ArrayType::get(m_sizeTType, MaxNumDims), 0);

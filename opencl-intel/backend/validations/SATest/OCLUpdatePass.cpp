@@ -758,7 +758,7 @@ namespace Validation {
     void OCLReferenceKernelUpdate::UpdatePrefetch(llvm::CallInst* pCall)
     {
 
-        unsigned int uiSizeT = m_pModule->getPointerSize()*32;
+        unsigned int uiSizeT = m_pModule->getDataLayout()->getPointerSizeInBits(0);
 
         // Create new call instruction with extended parameters
         SmallVector<Value*, 4> params;
@@ -982,7 +982,7 @@ namespace Validation {
             argIt++;
         }
 
-        unsigned int uiSizeT = m_pModule->getPointerSize()*32;
+        unsigned int uiSizeT = m_pModule->getDataLayout()->getPointerSizeInBits(0);
 
         newArgsVec.push_back(PointerType::get(m_struct_WorkDim, 0));
 //        newArgsVec.push_back(PointerType::get(m_pModule->getTypeByName("struct.WorkDim"), 0));
@@ -1204,7 +1204,7 @@ namespace Validation {
     void OCLReferenceKernelUpdate::AddWIInfoDeclarations()
     {
         // Detect size_t size
-        unsigned int uiSizeT = m_pModule->getPointerSize()*32;
+        unsigned int uiSizeT = m_pModule->getDataLayout()->getPointerSizeInBits(0);
         /*
         struct sLocalId 
         {
@@ -1246,7 +1246,7 @@ namespace Validation {
         if ( m_bAsyncCopyDecl )
             return;
 
-        unsigned int uiSizeT = m_pModule->getPointerSize()*32;
+        unsigned int uiSizeT = m_pModule->getDataLayout()->getPointerSizeInBits(0);
 
         //event_t async_work_group_copy(void* pDst, void* pSrc, size_t numElem, event_t event,
         //							   size_t elemSize, LLVMExecMultipleWIWithBarrier* *ppExec);
@@ -1311,7 +1311,7 @@ namespace Validation {
         if ( m_bPrefetchDecl )
             return;
 
-        unsigned int uiSizeT = m_pModule->getPointerSize()*32;
+        unsigned int uiSizeT = m_pModule->getDataLayout()->getPointerSizeInBits(0);
 
         std::vector<Type*> params;
         // Source Pointer
