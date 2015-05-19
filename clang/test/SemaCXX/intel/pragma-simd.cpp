@@ -287,7 +287,7 @@ void test_simd_private2() {
 
 template <typename T>
 void test_simd_private3() {
-  const T x;     // expected-note{{add an explicit initializer to initialize 'x'}}
+  const T x;
   #pragma simd private(x)
   for (int i = 0; i < 10; i++) {}
 }

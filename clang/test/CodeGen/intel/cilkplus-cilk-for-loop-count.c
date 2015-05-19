@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fcilkplus -emit-llvm -O1 %s -o %t-loop_count
+// RUN: %clang_cc1 -fcilkplus -emit-llvm -O2 %s -o %t-loop_count
 // RUN: FileCheck -input-file=%t-loop_count -check-prefix=LOOP_COUNT %s
 // RUN: %clang_cc1 -fcilkplus -emit-llvm -O2 %s -o %t-loop_count2
 // RUN: FileCheck -input-file=%t-loop_count2 -check-prefix=LOOP_COUNT2 %s
@@ -78,25 +78,25 @@ void test_cilk_for_ir() {
 
   _Cilk_for(int i = init(); i != limit(); i += stride());
   // CHECK: [[FIRST:%[A-Za-z0-9]+]] = alloca i32,
-  // CHECK: [[R1:%[A-Za-z0-9]+]] = call i32 {{.*}}(...)* @init
+  // CHECK: [[R1:%[A-Za-z0-9]+]] = call i32 (...) @init()
   // CHECK-NEXT: store i32 [[R1]], i32* [[FIRST]],
-  // CHECK: [[R1:%[A-Za-z0-9]+]] = call i32 {{.*}}(...)* @stride
+  // CHECK: [[R1:%[A-Za-z0-9]+]] = call i32 (...) @stride()
   // CHECK-NEXT: [[SPAN_COMP:%[A-Za-z0-9]+]] = icmp slt i32 [[R1]], 0
   // CHECK-NEXT: br i1 [[SPAN_COMP]], label [[SPAN_NEG:%[A-Za-z0-9.]+]], label [[SPAN_POS:%[A-Za-z0-9.]+]]
-  // CHECK: [[R1:%[A-Za-z0-9]+]] = call i32 {{.*}}(...)* @limit
+  // CHECK: [[R1:%[A-Za-z0-9]+]] = call i32 (...) @limit()
   // CHECK-NEXT: [[R2:%[A-Za-z0-9]+]] = load i32, i32* [[FIRST]],
   // CHECK-NEXT: [[R3:%[A-Za-z0-9]+]] = sub nsw i32 [[R1]], [[R2]]
   // CHECK-NEXT: [[SPAN1:%[A-Za-z0-9]+]] = sub nsw i32 0, [[R3]]
-  // CHECK: [[R1:%[A-Za-z0-9]+]] = call i32 {{.*}}(...)* @limit
+  // CHECK: [[R1:%[A-Za-z0-9]+]] = call i32 (...) @limit()
   // CHECK-NEXT: [[R2:%[A-Za-z0-9]+]] = load i32, i32* [[FIRST]]
   // CHECK-NEXT: [[SPAN2:%[A-Za-z0-9]+]] = sub nsw i32 [[R1]], [[R2]]
   // CHECK: [[SPAN:%[A-Za-z0-9]+]] = phi i32 [ [[SPAN1]], [[SPAN_NEG]] ], [ [[SPAN2]], [[SPAN_POS]] ]
-  // CHECK: [[R1:%[A-Za-z0-9]+]] = call i32 {{.*}}(...)* @stride
+  // CHECK: [[R1:%[A-Za-z0-9]+]] = call i32 (...) @stride()
   // CHECK-NEXT: [[STRIDE_COMP:%[A-Za-z0-9]+]] = icmp slt i32 [[R1]], 0
   // CHECK-NEXT: br i1 [[STRIDE_COMP]], label [[STRIDE_NEG:%[A-Za-z0-9.]+]], label [[STRIDE_POS:%[A-Za-z0-9.]+]]
-  // CHECK: [[R1:%[A-Za-z0-9]+]] = call i32 {{.*}}(...)* @stride
+  // CHECK: [[R1:%[A-Za-z0-9]+]] = call i32 (...) @stride()
   // CHECK-NEXT: [[STRIDE1:%[A-Za-z0-9]+]] = sub nsw i32 0, [[R1]]
-  // CHECK: [[STRIDE2:%[A-Za-z0-9]+]] = call i32 {{.*}}(...)* @stride
+  // CHECK: [[STRIDE2:%[A-Za-z0-9]+]] = call i32 (...) @stride()
   // CHECK: [[STRIDE:%[A-Za-z0-9]+]] = phi i32 [ [[STRIDE1]], [[STRIDE_NEG]] ], [ [[STRIDE2]], [[STRIDE_POS]] ]
   // CHECK: [[LOOP_LIMIT:%[A-Za-z0-9]+]] = sdiv i32 [[SPAN]], [[STRIDE]]
   // CHECK: call void @__cilkrts_cilk_for_32({{.*}}, i32 [[LOOP_LIMIT]],
