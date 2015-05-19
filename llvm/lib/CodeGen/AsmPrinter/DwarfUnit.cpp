@@ -1391,10 +1391,16 @@ void DwarfUnit::constructSubrangeDIE(DIE &Buffer, DISubrange SR, DIE *IndexTy) {
   if (DefaultLowerBound == -1 || LowerBound != DefaultLowerBound)
     addUInt(DW_Subrange, dwarf::DW_AT_lower_bound, None, LowerBound);
 
-  if (Count != -1)
+  if (Count != -1) {
     // FIXME: An unbounded array should reference the expression that defines
     // the array.
-    addUInt(DW_Subrange, dwarf::DW_AT_count, None, Count);
+//***INTEL
+    if (Count == 0)
+      addUInt(DW_Subrange, dwarf::DW_AT_count, None, Count);
+    else
+      addUInt(DW_Subrange, dwarf::DW_AT_upper_bound, None,
+              LowerBound + Count - 1);
+  }
 }
 
 DIE *DwarfUnit::getIndexTyDie() {
