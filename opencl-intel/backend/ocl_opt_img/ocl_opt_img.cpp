@@ -59,13 +59,13 @@ void InitOCLPasses( llvm::LLVMContext& context, llvm::PassManager& passMgr )
           }
           else {
               llvm::SMDiagnostic Err;
-              llvm::Module* runtimeModule = llvm::getLazyIRFileModule(RuntimeLib[i], Err, context);
-              if (runtimeModule == NULL) {
+              std::unique_ptr<llvm::Module> runtimeModule = llvm::getLazyIRFileModule(RuntimeLib[i], Err, context);
+              if (!runtimeModule) {
                     errs() << "Runtime error reading IR from \"" << RuntimeLib[i] << "\":\n";
                     Err.print("Error: ", errs());
                     exit(1);
               }
-              runtimeModuleList.push_back(runtimeModule);
+              runtimeModuleList.push_back(runtimeModule.release());
           }
       }
   }

@@ -4,7 +4,7 @@
 #include "VectorizerUtils.h"
 #include "Logger.h"
 
-#include "llvm/Support/InstIterator.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/IR/Constants.h"
 

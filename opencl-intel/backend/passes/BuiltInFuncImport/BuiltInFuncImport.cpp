@@ -12,7 +12,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 #include <llvm/IR/Instruction.h>
-#include <llvm/Support/InstIterator.h>
+#include "llvm/IR/InstIterator.h"
 #include <llvm/IR/Instructions.h>
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/raw_ostream.h>
@@ -317,8 +317,7 @@ namespace intel {
     pSrcFunc = FindFunctionBodyInModules(pSrcFunc->getName());
     if(pSrcFunc && pDstFunc->isDeclaration()) {
       // Materialize source function
-      std::string error;
-      pSrcFunc->Materialize(&error);
+      (void)pSrcFunc->materialize();
       return true;
     }
     return false;

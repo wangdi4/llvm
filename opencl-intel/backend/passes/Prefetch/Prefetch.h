@@ -103,7 +103,7 @@ namespace intel{
         AU.addRequired<ScalarEvolution>();
         AU.addRequired<BranchProbabilityInfo>();
         AU.addPreserved<BranchProbabilityInfo>();
-        AU.addRequired<DominatorTree>();
+        AU.addRequired<DominatorTreeWrapperPass>();
         AU.setPreservesCFG();
       }
 

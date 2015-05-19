@@ -43,8 +43,8 @@ ptrdiff_t OclDynamicLib::GetFuntionPtrByNameFromHandle(void* hLibrary, const cha
     dlerror();
     void* func = dlsym(hLibrary, szFuncName);
     const char * error;
-    if ((error = dlerror()) != NULL)  {
-        return NULL;
+    if ((error = dlerror()) != nullptr)  {
+        return 0;
     }
 
     return (ptrdiff_t)func;
@@ -155,9 +155,9 @@ const void* OclDynamicLib::GetFunctionPtr(unsigned int uiFuncId) const
 // Returns a function pointer
 ptrdiff_t OclDynamicLib::GetFunctionPtrByName(const char* szFuncName) const
 {
-    if ( NULL == m_hLibrary )
+    if ( nullptr == m_hLibrary )
     {
-        return NULL;
+        return 0;
     }
 
     void* func;
@@ -166,8 +166,8 @@ ptrdiff_t OclDynamicLib::GetFunctionPtrByName(const char* szFuncName) const
     //clear errors
     dlerror();
     func = dlsym(m_hLibrary, szFuncName);
-        if ((error = dlerror()) != NULL)  {
-            return NULL;
+        if ((error = dlerror()) != nullptr)  {
+            return 0;
       }
 
     return (ptrdiff_t)func;

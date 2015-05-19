@@ -9,11 +9,11 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "ResolveBlockToStaticCall.h"
 #include "OCLPassSupport.h"
 
-#include "llvm/Support/InstIterator.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/Support/CallSite.h"
+#include "llvm/IR/CallSite.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/ADT/SmallSet.h"
@@ -142,7 +142,7 @@ namespace intel {
     {
       DEBUG(dbgs() << "Processing: " << *I << "\n");
 
-      if(!value_visited.insert(I)){
+      if(!value_visited.insert(I).second){
         assert(0 && "Should not be here."
           "Visited the same value more than once");
         break;

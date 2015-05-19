@@ -7,6 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "IRPrinter.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/FileSystem.h"
 
 namespace intel {
 
@@ -18,6 +19,7 @@ namespace intel {
 
   bool IRPrinter::runOnFunction(llvm::Function &F) {
     // Create the output file.
+    using namespace llvm;
     std::stringstream fileName;
     if (m_dumpDir.length() == 0) {
       return false;
@@ -28,13 +30,13 @@ namespace intel {
       << "_"
       << m_dumpName.c_str()
       << ".ll" << std::ends;
-    std::string ErrorInfo;
-    llvm::raw_fd_ostream FDTemp(fileName.str().c_str(), ErrorInfo,
-                llvm::raw_fd_ostream::F_Binary);
-    if (!ErrorInfo.empty()) {
+    std::error_code ErrorInfo;
+    llvm::raw_fd_ostream FDTemp(fileName.str(), ErrorInfo,
+                                sys::fs::F_RW);
+    if (ErrorInfo) {
       return false;
     }
-    F.print(FDTemp, 0);
+    F.print(FDTemp);
     return false;
   }
 

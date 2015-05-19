@@ -79,11 +79,15 @@ private:
   
   AppleOpenclRuntime(); // Do not implement
 
-  Module *m_innerRTModule;
+  // [LLVM 3.6 UPGRADE] No resource to maintain outdated AppleRuntime but to the
+  // best of my knoweledge it is OK to own this module in case if AppleOpenclRuntime
+  // is destructed before even if an LLVM::Context owns this module too because the
+  // module will be removed from the context during desctruction.
+  std::unique_ptr<Module> m_innerRTModule;
 
-  std::auto_ptr<VectorizerFunction> m_readImageEntry;
+  std::unique_ptr<VectorizerFunction> m_readImageEntry;
 
-  std::auto_ptr<VectorizerFunction> m_writeImageEntry;
+  std::unique_ptr<VectorizerFunction> m_writeImageEntry;
 };
 
 

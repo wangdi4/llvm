@@ -9,7 +9,7 @@
 
 #include "../common.h"
 #include "../specialCaseFuncs.h"
-#include "llvm/Support/CFG.h"
+#include "llvm/IR/CFG.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 // Define a nesting level limit, so as not to drown in a loop, thinking it is a nested if-then-else structure...

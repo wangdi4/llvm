@@ -8,7 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "PhiCanon.h"
 #include "Logger.h"
 #include "OCLPassSupport.h"
-#include "llvm/Analysis/Verifier.h"
+#include "llvm/IR/Verifier.h"
 
 namespace intel {
 
@@ -55,7 +55,8 @@ bool PhiCanon::runOnFunction(Function &F) {
 
 void PhiCanon::fixBlock(BasicBlock* toFix) {
 
-  DominatorTree     *DT  = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  DominatorTreeWrapperPass & DTPass = getAnalysis<DominatorTreeWrapperPass>();
+  DominatorTree     *DT  = &DTPass.getDomTree();
   PostDominatorTree *PDT = &getAnalysis<PostDominatorTree>();
 
   // Look for pair of BBs which comply with the following rules:
@@ -113,8 +114,8 @@ void PhiCanon::fixBlock(BasicBlock* toFix) {
         // all conditions are met - create new PHI block
         BasicBlock* new_bb = makeNewPhiBB(toFix, current_bb, scan_bb);
         // also - add new block to the dominator and postdominator trees
-        DT->runOnFunction(*(new_bb->getParent()));
-        PDT->runOnFunction(*(new_bb->getParent()));
+        DTPass.runOnFunction(*(new_bb->getParent()));
+        DT = &DTPass.getDomTree();
         pair_found = true;
         break;
       }
@@ -159,7 +160,8 @@ void PhiCanon::fixBlock(BasicBlock* toFix) {
 
       BasicBlock* new_bb = makeNewPhiBB(toFix, current_bb, scan_bb);
       // also - add new block to the dominator and postdominator trees
-      DT->runOnFunction(*(new_bb->getParent()));
+      DTPass.runOnFunction(*(new_bb->getParent()));
+      DT = &DTPass.getDomTree();
       PDT->runOnFunction(*(new_bb->getParent()));
       pair_found = true;
       break;

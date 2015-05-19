@@ -15,9 +15,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <llvm/IR/Intrinsics.h>
 #include <llvm/IR/IntrinsicInst.h>
 #include <llvm/IR/GlobalValue.h>
-#include <llvm/Support/InstIterator.h>
+#include <llvm/IR/InstIterator.h>
 #include <llvm/Support/raw_ostream.h>
-#include <llvm/ADT/ValueMap.h>
+#include <llvm/IR/ValueMap.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 #include <llvm/Transforms/Utils/ValueMapper.h>
 #include <assert.h>
@@ -263,8 +263,8 @@ namespace intel {
       case Instruction::AtomicCmpXchg : {
         AtomicCmpXchgInst *pCmpXchg = cast<AtomicCmpXchgInst>(pInstr);
         AtomicCmpXchgInst *pNewCmpXchg = new AtomicCmpXchgInst(
-                                          pNewValue, pCmpXchg->getCompareOperand(), 
-                                          pCmpXchg->getNewValOperand(), pCmpXchg->getOrdering(),
+                                          pNewValue, pCmpXchg->getCompareOperand(), pCmpXchg->getNewValOperand(),
+                                          pCmpXchg->getSuccessOrdering(), pCmpXchg->getFailureOrdering(),
                                           pCmpXchg->getSynchScope(), pCmpXchg);
         pNewCmpXchg->setVolatile(pCmpXchg->isVolatile());
         pNewInstr = pNewCmpXchg;

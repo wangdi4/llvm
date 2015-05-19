@@ -27,7 +27,7 @@
 #include "debugservermessages.pb.h"
 #include <cl_utils.h>
 
-#include "llvm/DebugInfo.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/Support/Dwarf.h"
 #include "llvm/IR/Metadata.h"
 

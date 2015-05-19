@@ -122,7 +122,10 @@ bool Vectorizer::runOnModule(Module &M)
     if (*fi) {
       // Clone the kernel
       ValueToValueMapTy vmap;
-      Function *clone = CloneFunction(*fi, vmap, true, NULL, "__Vectorized_." + (*fi)->getName());
+      // [LLVM 3.6 UPGRADE] FIXME: the fix w\ reseting of the linkage name in the metadata isn't ported
+      // Need to make sure it is needed and port it or redo it at CodeGen level so that the linkage name is
+      // set on the basis of the function name if the linkage namein DISubroutine descrtiptor differs from it
+      Function *clone = CloneFunction(*fi, vmap, true, NULL/*, "__Vectorized_." + (*fi)->getName()*/);
       M.getFunctionList().push_back(clone);
 
       // Todo: due to a bug in the metadata we can't save changes more than once

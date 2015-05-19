@@ -84,7 +84,7 @@ OCLAliasAnalysis::ResolveResult OCLAliasAnalysis::resolveAddressSpace(const Valu
       }
     }
 
-    if (!visitedPointerValues.insert(pointerValue))
+    if (!visitedPointerValues.insert(pointerValue).second)
       continue;
 
     Type* type = pointerValue->getType();

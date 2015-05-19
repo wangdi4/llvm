@@ -18,6 +18,7 @@ File Name:  PrintIRPass.cpp
 
 #include "PrintIRPass.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -59,17 +60,18 @@ bool PrintIRPass::runOnModule(llvm::Module &M)
     if(m_doNotDumpIR)
         return false;
 
+    using namespace llvm;
     // Create the output file.
     std::stringstream fileName;
     fileName << m_IRDumpFolder.c_str() << "/dump." << m_IRDumpOption.c_str() 
                                        << ".ll" << std::ends;
-    std::string ErrorInfo;
-    llvm::raw_fd_ostream FDTemp(fileName.str().c_str(), ErrorInfo,
-                llvm::raw_fd_ostream::F_Binary);
-    if (!ErrorInfo.empty()) {
-        return false;
-    }
-    M.print(FDTemp, 0);
+    std::error_code ErrorInfo;
+    llvm::raw_fd_ostream FDTemp(fileName.str(), ErrorInfo,
+                sys::fs::F_RW);
+    if (ErrorInfo) {
+       return false;
+     }
+    M.print(FDTemp, nullptr);
     return true;
 }
 

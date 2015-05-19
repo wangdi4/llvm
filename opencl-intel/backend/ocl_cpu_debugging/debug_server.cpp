@@ -42,7 +42,7 @@
 #endif
 
 #include "llvm/Support/MutexGuard.h"
-#include "llvm/DebugInfo.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/Support/Dwarf.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Metadata.h"

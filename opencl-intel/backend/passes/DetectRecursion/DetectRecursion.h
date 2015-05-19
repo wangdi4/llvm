@@ -36,7 +36,7 @@ namespace intel{
 		/// @param AU Analysis
 		virtual void getAnalysisUsage(AnalysisUsage &AU) const {
 		  // Depends on CallGraph for SCC
-		  AU.addRequired<CallGraph>();
+		  AU.addRequired<CallGraphWrapperPass>();
 		}
 
     bool hasRecursion() { return m_recursionExists; }

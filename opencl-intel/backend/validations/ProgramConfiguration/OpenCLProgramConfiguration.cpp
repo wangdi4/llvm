@@ -40,19 +40,21 @@ namespace Utils
 {
     string GetDataFilePath(const string& fileName, const string& baseDirectory)
     {
-        if( !llvm::sys::path::is_absolute(fileName) && !baseDirectory.empty())
+        using namespace llvm;
+        if( !sys::path::is_absolute(fileName) && !baseDirectory.empty())
         {
-            llvm::sys::Path absFilePath(baseDirectory.c_str(), baseDirectory.size());
-            if(false == absFilePath.appendComponent(fileName))
+            SmallString<128> absFilePath(baseDirectory);
+            sys::path::append(absFilePath, fileName);
+            if(!sys::fs::exists(absFilePath.str()))
                 throw Exception::IOError("GetDataFilePath::nonexistent path created with \
                                          fileName=" + fileName +
                                          " and baseDirectory=" +  baseDirectory);
-            
+            sys::path::native(absFilePath);
             return absFilePath.str();
         }
 
-        llvm::SmallString<128> fName(fileName);
-        llvm::sys::fs::make_absolute(fName);
+        SmallString<128> fName(fileName);
+        sys::fs::make_absolute(fName);
         return fileName;
     }
 }
@@ -181,29 +183,21 @@ OpenCLProgramConfiguration::OpenCLProgramConfiguration(const string& configFile,
         m_includeDirs(NULL),
         m_format(UNKNOWN)
 {
-    llvm::sys::Path configFilePath(configFile.c_str(), configFile.size());
-
-    if(!configFilePath.isValid())
-    {
-        throw Exception::IOError("Configuration file name : " + std::string(configFilePath.c_str()) + " is invalid");
-    }
-
     llvm::SmallString<128> configPath(configFile);
     if( !llvm::sys::path::is_absolute(configFile) )
     {
         llvm::sys::fs::make_absolute(configPath);
-        //llvm::Path::makeAbsolute bug workaround - forces to llvm::Path to flip backslashes
-        configFilePath = llvm::sys::Path(configPath.c_str(), configPath.size());
+        if(!llvm::sys::fs::exists(configPath.str())) {
+            throw Exception::IOError("Configuration file " + m_configFile + " doesn't exist");
+        }
+        llvm::sys::path::native(configPath);
     }
 
     m_programName   = llvm::sys::path::stem(llvm::StringRef(configPath));
-    m_configFile    = configFilePath.c_str();
+    m_configFile    = configPath.c_str();
     m_baseDirectory = baseDir.empty() ? llvm::sys::path::parent_path(llvm::StringRef(configPath)).str()
                                       : baseDir;
 
-    if(!configFilePath.exists()) {
-        throw Exception::IOError("Configuration file " + m_configFile + " doesn't exist");
-    }
 
     TiXmlDocument config(m_configFile);
     if (config.LoadFile())

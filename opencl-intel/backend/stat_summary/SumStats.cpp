@@ -78,12 +78,12 @@ bool readStatFiles (vector<string> &flist, ExperimentInfo & expr)
   for (unsigned i = 0; i < flist.size(); i++) {
     SMDiagnostic err;
     // parse the IR
-    Module *M = llvm::ParseIRFile(flist[i], err, C);
-    if (M == NULL)
+    std::unique_ptr<Module> M = llvm::parseIRFile(flist[i], err, C);
+    if (!M)
       continue;
 
     // get handle to module stat info metadata
-    MetaDataUtils mdUtils(M);
+    MetaDataUtils mdUtils(M.release());
     if (mdUtils.size_ModuleStatInfoC() == 0) {
       cout << "IR file " << flist[i] << " contains no stats\n";
       continue;

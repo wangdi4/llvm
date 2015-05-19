@@ -18,11 +18,11 @@ File Name:  Prefetch.cpp
 
 #define DEBUG_TYPE "AutoPrefetcher"
 
-#include "llvm/Support/InstIterator.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/BranchProbability.h"
-#include "llvm/Support/CFG.h"
+#include "llvm/IR/CFG.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Type.h"
@@ -145,7 +145,7 @@ OCL_INITIALIZE_PASS_BEGIN(Prefetch, "prefetch", "Auto Prefetch in Function", fal
 OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfo)
 OCL_INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
 OCL_INITIALIZE_PASS_DEPENDENCY(BranchProbabilityInfo)
-OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_END(Prefetch, "prefetch", "Auto Prefetch in Function", false, false)
 
 Prefetch::Prefetch(int level) : FunctionPass(ID), m_level(level),
@@ -574,7 +574,7 @@ static int getSize(Type *Ty) {
 /// accesses that deserve prefetching.
 /// If a prefetch intrinsic is detected the process is stopped.
 bool Prefetch::detectReferencesForPrefetch(Function &F) {
-  DominatorTree *DT = &getAnalysis<DominatorTree>();
+  DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   assert(DT && "Unable to get Dominators in Prefetch");
 
   unsigned NTSKind = F.getParent()->getMDKindID("nontemporal");

@@ -145,12 +145,12 @@ AppleOpenclRuntime::AppleOpenclRuntime(llvm::SmallVector<Module*, 2> runtimeModu
     ++preVecPtr;
   }
 
-  MemoryBuffer *MB = MemoryBuffer::getMemBuffer(RTModuleStr);
+  auto MB = MemoryBuffer::getMemBuffer(RTModuleStr);
   SMDiagnostic Err1;
   assert(!m_runtimeModulesList.empty() && "Builtin module list is empty!");
   const Module* runtimeModule = m_runtimeModulesList.front(); 
   LLVMContext &Context1 = runtimeModule->getContext();
-  m_innerRTModule = ParseIR(MB, Err1, Context1);
+  m_innerRTModule = parseIR(MB->getMemBufferRef(), Err1, Context1);
 
   std::string fakeReadImgName = Mangler::getFakeBuiltinName(APPLE_READ_IMG_NAME);
   m_readImageEntry = findBuiltinFunction(fakeReadImgName);

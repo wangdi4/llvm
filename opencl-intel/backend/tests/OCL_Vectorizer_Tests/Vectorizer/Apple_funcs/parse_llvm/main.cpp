@@ -9,7 +9,7 @@
 #include "llvm/LLVMContext.h"
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Support/InstIterator.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/DerivedTypes.h"
 #include <iostream>
 #include <fstream>

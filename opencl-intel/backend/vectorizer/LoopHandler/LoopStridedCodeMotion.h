@@ -34,7 +34,7 @@ public:
   /// @brief LLVM interface.
   /// @param AU - usage of analysis.
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequired<DominatorTree>();
+    AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<LoopWIAnalysis>();
     AU.setPreservesCFG();
     AU.addPreserved<LoopWIAnalysis>();

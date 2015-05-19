@@ -45,7 +45,6 @@ namespace intel {
     }
 
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-      AU.addRequired<DataLayout>();
       AU.setPreservesAll();
     }
 

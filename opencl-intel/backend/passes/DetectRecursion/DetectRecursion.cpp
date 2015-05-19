@@ -18,7 +18,7 @@ namespace intel{
   char DetectRecursion::ID = 0;
 
   OCL_INITIALIZE_PASS_BEGIN(DetectRecursion, "detect-recursion", "detects whether there are recursions", false, false)
-  OCL_INITIALIZE_AG_DEPENDENCY(CallGraph)
+  OCL_INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
   OCL_INITIALIZE_PASS_END(DetectRecursion, "detect-recursion", "detects whether there are recursions", false, false)
 
   DetectRecursion::DetectRecursion() : ModulePass(ID), m_recursionExists(false) {
@@ -46,7 +46,7 @@ namespace intel{
 
   bool DetectRecursion::DetectRecursionInFunction(Function* fn){
 
-    CallGraph& cg = getAnalysis<CallGraph>();
+    CallGraph& cg = getAnalysis<CallGraphWrapperPass>().getCallGraph();
 
     CallGraphNode * node = cg[&(*fn)];
 

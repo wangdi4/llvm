@@ -10,10 +10,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "BarrierUtils.h"
 
 #include "llvm/PassManager.h"
-#include "llvm/PassManagers.h"
+//#include "llvm/PassManagers.h"
 #include "llvm/Transforms/Scalar.h"
-#include "llvm/Analysis/Verifier.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Verifier.h"
 
 using namespace llvm;
 
@@ -47,7 +47,7 @@ namespace intel {
     PassManager barrierModulePM;
 
     //Register DataLayout to the pass manager
-    barrierModulePM.add(new llvm::DataLayout(&M));
+    barrierModulePM.add(new llvm::DataLayoutPass);
     barrierModulePM.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), ""));
 
     if( m_debugType == None ) {

@@ -7,7 +7,7 @@
 #include "PrintfAdder.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/InstIterator.h"
+#include "llvm/IR/InstIterator.h"
 
 namespace intel {
 
