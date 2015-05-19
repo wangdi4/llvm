@@ -767,7 +767,6 @@ void WeightedInstCounter::
   // frontier.
 
   PostDominanceFrontier* PDF = &getAnalysis<PostDominanceFrontier>();
-  PostDominanceFrontier::DomSetMapType ControlDepMap;
 
   //Debug output
   if (enableDebugPrints)
