@@ -262,10 +262,10 @@ void FuncResolver::CFInstruction(std::vector<Instruction*> insts, Value* pred) {
     PHINode* phi = PHINode::Create(insts[i]->getType(), 2, "phi", footer->getFirstNonPHI());
 
     // replace all users which are not skipped (this will create a broken module)
-    std::vector<Value*> users(insts[i]->use_begin(), insts[i]->use_end());
-    for (std::vector<Value*>::iterator it = users.begin(), e = users.end(); it != e; ++it) {
+    std::vector<Value*> users(insts[i]->user_begin(), insts[i]->user_end());
+    for (Value * val : users) {
       // If the user is an instruction
-      Instruction* user = dyn_cast<Instruction>(*it);
+      Instruction* user = dyn_cast<Instruction>(val);
       V_ASSERT(user && "a non-instruction user");
       // If the user is in this block, don't change it.
       if (user->getParent() != body) {

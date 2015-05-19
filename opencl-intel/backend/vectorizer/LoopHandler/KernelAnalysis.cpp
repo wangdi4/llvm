@@ -70,7 +70,7 @@ void KernelAnalysis::fillUnsupportedTIDFuncs(const char *name,
                                              FSet &directTIDUsers) {
   Function *F = m_M->getFunction(name);
   if (!F) return;
-  for (Function::use_iterator ui = F->use_begin(), ue = F->use_end();
+  for (Function::user_iterator ui = F->user_begin(), ue = F->user_end();
        ui != ue; ++ui ) {
     CallInst *CI = dyn_cast<CallInst> (*ui);
     if (!CI) continue;

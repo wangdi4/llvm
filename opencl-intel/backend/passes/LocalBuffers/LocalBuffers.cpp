@@ -203,13 +203,12 @@ namespace intel{
     assert(pInst && InstInsert.size());
 
     // Change all non-constant references recursively
-    std::vector<User*> users(pCE->use_begin(), pCE->use_end());
-    for ( std::vector<User*>::iterator it = users.begin(); it != users.end(); ++it ) {
-      if ( dyn_cast<Constant>(*it) ) {
-        ChangeConstant(pUser, *it, pInst, Where);
+    for (User * user : pCE->users()) {
+      if (isa<Constant>(user)) {
+        ChangeConstant(pUser, user, pInst, Where);
       }
       // Check if user is an instruction that belongs to the same function
-      else if (Instruction *Inst = dyn_cast<Instruction>(*it)) {
+      else if (Instruction *Inst = dyn_cast<Instruction>(user)) {
           if (Inst->getParent()->getParent() == Where->getParent()->getParent()) {
               Inst->replaceUsesOfWith(pUser, pInst);
           }
@@ -222,17 +221,17 @@ namespace intel{
 
     // Check if the instruction was not used
     if ( pInst->use_empty() ) {
-       for (std::vector<Instruction*>::iterator it = InstInsert.begin(), e = InstInsert.end(); it != e; ++it) {
-         if (!(*it)->getType()->isVoidTy())
-          (*it)->replaceAllUsesWith(UndefValue::get((*it)->getType()));
-        delete *it;
+       for (Instruction * inst : InstInsert) {
+         if (!inst->getType()->isVoidTy())
+          inst->replaceAllUsesWith(UndefValue::get(inst->getType()));
+        delete inst;
       }
     }
     // Add instruction to the block, only the first time and only if it has uses
     else if ( !pInst->getParent() ) {
-      for (std::vector<Instruction*>::iterator it = InstInsert.begin(), e = InstInsert.end(); it != e; ++it) {
-        (*it)->insertAfter(Where);
-        Where = *it;
+      for (Instruction * inst : InstInsert) {
+        inst->insertAfter(Where);
+        Where = inst;
       }
     }
 
@@ -276,14 +275,13 @@ namespace intel{
         // Advance total implicit size
         currLocalOffset += ADJUST_SIZE_TO_MAXIMUM_ALIGN(uiArraySize);
 
-        std::vector<User*> users(pLclBuff->use_begin(), pLclBuff->use_end());
-        for ( std::vector<User*>::iterator it = users.begin(); it != users.end(); ++it ) {
-          if (ConstantExpr *pCE = dyn_cast<ConstantExpr>(*it))  {
+        for (User * user : pLclBuff->users())  {
+          if (ConstantExpr *pCE = dyn_cast<ConstantExpr>(user))  {
             ChangeConstant(pLclBuff, pCE, pBitCast, pBitCast);
           }
            // Check if user is an instruction that belongs to the same function
-          else if ( Instruction *Inst = dyn_cast<Instruction>(*it) ) {
-            if ( Inst->getParent()->getParent() == pFunc ) {
+          else if (Instruction *Inst = dyn_cast<Instruction>(user)) {
+            if (Inst->getParent()->getParent() == pFunc) {
               // pBitCast was already added to a basic block during it's creation
               Inst->replaceUsesOfWith(pLclBuff, pBitCast);
               // Only if debugging, copy from local memory buffer to thread

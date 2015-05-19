@@ -79,13 +79,13 @@ namespace intel{
           GVar->getName() != "soa8_coord_translate_i_callback") continue;
       // WORKAROUND: Even when image callback is inlined the use list for the callback table is not empty.
       // The check here should be like this:
-      // if (!GVar->use_empty()) continue;
+      // if (!GVar->user_empty()) continue;
       // TODO: Check why not all uses were dropped when all calls were inlined.
       // Meanwhile we check that all functions that uses our global variable are used by some kernel.
       bool isNeeded = false;
-      for (Value::use_iterator U = GVar->use_begin(), UE = GVar->use_end(); U != UE; ++U) {
+      for (Value::user_iterator U = GVar->user_begin(), UE = GVar->user_end(); U != UE; ++U) {
         if (ConstantExpr* CE = dyn_cast<ConstantExpr>(*U)) {
-          if (CE->use_empty()) {
+          if (CE->user_empty()) {
             continue;
           }
         }
@@ -111,7 +111,7 @@ namespace intel{
     // Getting here, this function is not a kernel. list its users..
     std::set<Function*> funcUsers;
     std::set<Function*>::iterator it, ie;
-    SmallVector<Value*, 8> workList(func->use_begin(), func->use_end());
+    SmallVector<Value*, 8> workList(func->users());
 
     while (workList.size()) {
       Value *user = workList.back();
@@ -124,7 +124,7 @@ namespace intel{
         funcUsers.insert(pI->getParent()->getParent());
       } else {
         // This is not an instruction. Add it's users to the scanning list
-        workList.append(user->use_begin(), user->use_end());
+        workList.append(user->user_begin(), user->user_end());
       }
     }
 

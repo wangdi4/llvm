@@ -49,7 +49,7 @@ namespace intel{
     if (CompilationUtils::getCLVersionFromModuleOrDefault(*F.getParent()) ==
         OclVersion::CL_VER_2_0)
       return true;
-    for (Function::const_use_iterator U = F.use_begin(), UE = F.use_end();
+    for (Function::const_user_iterator U = F.user_begin(), UE = F.user_end();
          U != UE; ++U)
       if (isa<CallInst>(*U))
         return true;

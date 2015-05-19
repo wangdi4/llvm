@@ -128,11 +128,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
         Function *pFunc = *func_it;
         bool isRoot = true;
         // Looking for callers to the function
-        for (Value::use_iterator use_it = pFunc->use_begin(),
-                                 use_end = pFunc->use_end();
-                                 use_it != use_end; use_it++) {
+        for (Value::user_iterator user_it = pFunc->user_begin(),
+                                  user_end = pFunc->user_end();
+                                  user_it != user_end; user_it++) {
 
-          CallInst *pInstr = dyn_cast<CallInst>(*use_it);
+          CallInst *pInstr = dyn_cast<CallInst>(*user_it);
           if (pInstr) {
             // Only direct Call to the function matters for ordering
             // (because only that call is to be resolved later)

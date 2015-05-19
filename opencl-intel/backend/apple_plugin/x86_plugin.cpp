@@ -450,7 +450,7 @@ static void cld_replace_uses(Value* From, Value* To, Instruction* AfterPos) {
   // the __local storage.
   // ConstantExpr *CE = dyn_cast<ConstantExpr>(From);
 
-  for (Value::use_iterator ui = From->use_begin(), ue = From->use_end();
+  for (Value::user_iterator ui = From->user_begin(), ue = From->user_end();
        ui != ue; ) {
     User* UserOp = *ui++;
 
@@ -654,7 +654,7 @@ Function *cld_genwrapper(Module *M, DataLayout &DL, Function *kf,
   Function *F = M->getFunction("get_global_id");
   if (F)
   {
-    for (Value::use_iterator ui = F->use_begin(), ue = F->use_end();
+    for (Value::user_iterator ui = F->user_begin(), ue = F->user_end();
          ui != ue; ) {
       User* UserOp = *ui++;
       if (!isa<CallInst>(UserOp))

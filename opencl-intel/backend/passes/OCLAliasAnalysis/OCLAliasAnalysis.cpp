@@ -103,7 +103,7 @@ OCLAliasAnalysis::ResolveResult OCLAliasAnalysis::resolveAddressSpace(const Valu
       isEscaping = true;
 
     // Mark this value's users to be visited.
-    for (Value::const_use_iterator it = pointerValue->use_begin(), end = pointerValue->use_end(); it != end; ++it)
+    for (Value::const_user_iterator it = pointerValue->user_begin(), end = pointerValue->user_end(); it != end; ++it)
       if (isa<BitCastInst>(*it) || isa<GetElementPtrInst>(*it))
 	nextPointerValues.push(*it);
 

@@ -57,12 +57,12 @@ namespace intel {
   void GenericAddressStaticResolution::fixUpPointerUsages(Instruction *pNewInstr, Instruction *pOldInstr) {
     SmallVector<Instruction*,16> uses;
     // Iterate through usages of original instruction
-    for (Value::use_iterator use_it = pOldInstr->use_begin(), 
-                             use_end = pOldInstr->use_end();
-                             use_it != use_end; use_it++) {
-      Instruction *pUse = dyn_cast<Instruction>(*use_it);
-      assert(pUse && "All uses of instruction should be instructions!");
-      uses.push_back(pUse);
+    for (Value::user_iterator user_it = pOldInstr->user_begin(), 
+                              user_end = pOldInstr->user_end();
+                              user_it != user_end; user_it++) {
+      Instruction *pUserInst = dyn_cast<Instruction>(*user_it);
+      assert(pUserInst && "All uses of instruction should be instructions!");
+      uses.push_back(pUserInst);
     }
     for (unsigned useIdx = 0; useIdx < uses.size(); useIdx++) {
       Instruction *pUse = uses[useIdx];
@@ -599,12 +599,12 @@ namespace intel {
                                                    pNewFunc->getEntryBlock().begin());
         // Replace usages of the argument with those of bitcast
         SmallVector<Instruction*,16> uses;
-        for (Value::use_iterator use_it = new_arg_it->use_begin(), 
-                                 use_end = new_arg_it->use_end();
-                                 use_it != use_end; use_it++) {
-          Instruction *pUse = dyn_cast<Instruction>(*use_it);
-          if (pUse && pUse != pNewBitCast) {
-            uses.push_back(pUse);
+        for (Value::user_iterator user_it = new_arg_it->user_begin(), 
+                                  user_end = new_arg_it->user_end();
+                                  user_it != user_end; user_it++) {
+          Instruction *pUserInst = dyn_cast<Instruction>(*user_it);
+          if (pUserInst && pUserInst != pNewBitCast) {
+            uses.push_back(pUserInst);
           }
         }
         for (unsigned idx = 0; idx < uses.size(); idx++) {

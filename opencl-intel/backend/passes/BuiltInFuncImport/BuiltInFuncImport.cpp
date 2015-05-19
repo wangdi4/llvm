@@ -380,7 +380,7 @@ namespace intel {
     // Given value is assumed to be part of destination module
     assert(pVal && "Given value pointer is a NULL");
     // Iterate over function usages and check (recursively) if any is an instruction
-    for (Value::use_iterator it = pVal->use_begin(), e = pVal->use_end(); it != e; ++it) {
+    for (Value::user_iterator it = pVal->user_begin(), e = pVal->user_end(); it != e; ++it) {
       User* user = *it;
       if(isa<Instruction>(user)) {
         assert(cast<Instruction>(user)->getParent()->getParent()->getParent()
@@ -399,7 +399,7 @@ namespace intel {
     // Given value is assumed to be part of source module
     assert(pVal && "Given vlaue pointer is a NULL");
     // Iterate over value usages and check if any is part "needed to import" function
-    for (Value::use_iterator it = pVal->use_begin(), e = pVal->use_end(); it != e; ++it) {
+    for (Value::user_iterator it = pVal->user_begin(), e = pVal->user_end(); it != e; ++it) {
       User* user = *it;
       if (isa<Instruction>(user)) {
         Function* pFunc = cast<Instruction>(user)->getParent()->getParent();

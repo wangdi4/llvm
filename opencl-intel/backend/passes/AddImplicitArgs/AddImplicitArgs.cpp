@@ -14,10 +14,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "ImplicitArgsUtils.h"
 #include "ImplicitArgsAnalysis/ImplicitArgsAnalysis.h"
 
-#include "llvm/Support/InstIterator.h"
-#include "llvm/ADT/ValueMap.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Attributes.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/IR/ValueMap.h"
 
 extern "C"{
   /// @brief Creates new AddImplicitArgs module pass
@@ -187,14 +187,14 @@ namespace intel{
       }
     }
 
-    std::vector<Value*> uses(pFunc->use_begin(), pFunc->use_end());
-    for (std::vector<Value*>::const_iterator it = uses.begin(), e = uses.end(); it != e; ++it) {
+    // [C++ 11] TODO: use range based 'for' in other 'use_iterator' places as well in scope of THIS commit
+    for (User *user : pFunc->users()) {
       // handle constant expression with bitcast of function pointer
       // it handles cases like block_literal global variable definitions
       // Example of case:
       // @__block_literal_global = internal constant { ..., i8*, ... }
       //    { ..., i8* bitcast (i32 (i8*, i32)* @globalBlock_block_invoke to i8*), ... }
-      if(ConstantExpr *CE = dyn_cast<ConstantExpr>(*it)){
+      if(ConstantExpr *CE = dyn_cast<ConstantExpr>(user)){
         if(CE->getOpcode() == Instruction::BitCast &&
           CE->getType()->isPointerTy()){
             // this case happens when global block variable is used
@@ -204,13 +204,16 @@ namespace intel{
         }
       }
       // handle call instruction
-      else if (CallInst *CI = dyn_cast<CallInst>(*it)){
+      else if (CallInst *CI = dyn_cast<CallInst>(user)){
         replaceCallInst(CI, NewTypes, pNewF);
       }
-      // handle metadata
-      else if (isa<MDNode>(*it)){
-        // do nothing
-      }
+//      [LLVM 3.6 UPGRADE] TODO: MDNode does not derive from Value anymore while User does
+//                               so it should be safe to remove the commented code below
+//                               along with this comment.
+//      // handle metadata
+//      else if (isa<MDNode>(*it)){
+//        // do nothing
+//      }
       else{
         // we should not be here
         // unhandled case
@@ -218,8 +221,8 @@ namespace intel{
       }
     }
 
-    for (Value::use_iterator UI = pNewF->use_begin(), UE = pNewF->use_end(); UI != UE; ++UI) {
-      if (CallInst *I = dyn_cast<CallInst>(*UI)) {
+    for (User *user : pNewF->users()) {
+      if (CallInst *I = dyn_cast<CallInst>(user)) {
         // Change the calling convention of the call site to match the
         // calling convention of the called function.
         I->setCallingConv(pNewF->getCallingConv());

@@ -161,7 +161,7 @@ bool VectorizeFunction::vectorizeReadSample(CallInst * CI, bool is2D)
 	
 	// Vectorize breakdowns of the scalar sampler
 	V_ASSERT(CI->getNumUses() <= 4); // Sanity: make sure only the "planted" extractElement instructions really decend from this inst
-	for (Value::use_iterator ui = CI->use_begin(), ue = CI->use_end(); ui != ue; ++ui)
+	for (Value::user_iterator ui = CI->user_begin(), ue = CI->user_end(); ui != ue; ++ui)
 	{
 		// Extract the accessed index
 		Instruction * useInst = dyn_cast<Instruction>(*ui);
@@ -420,7 +420,7 @@ bool VectorizeFunction::vectorizeGeometricFunc(CallInst * CI, unsigned numArgs, 
 	{
 		// Vectorize breakdowns of the scalar func
 		V_ASSERT(CI->getNumUses() <= vecWidth); // Sanity: make sure only the "planted" extractElement instructions really decend from this inst
-		for (Value::use_iterator ui = CI->use_begin(), ue = CI->use_end(); ui != ue; ++ui)
+		for (Value::user_iterator ui = CI->user_begin(), ue = CI->user_end(); ui != ue; ++ui)
 		{
 			// Extract the accessed index
 			Instruction * useInst = dyn_cast<Instruction>(*ui);
@@ -613,7 +613,7 @@ bool VectorizeFunction::vectorizeCiGamma(CallInst * CI)
 	
 	// Vectorize breakdowns of the scalar gamma
 	V_ASSERT(CI->getNumUses() <= 3); // Sanity: make sure only the "planted" extractElement instructions really decend from this inst
-	for (Value::use_iterator ui = CI->use_begin(), ue = CI->use_end(); ui != ue; ++ui)
+	for (Value::user_iterator ui = CI->user_begin(), ue = CI->user_end(); ui != ue; ++ui)
 	{
 		// Extract the accessed index
 		Instruction * useInst = dyn_cast<Instruction>(*ui);

@@ -298,7 +298,7 @@ void CLWGLoopBoundaries::recoverInstructions (VMap &valueMap, VVec &roots,
 bool CLWGLoopBoundaries::handleBuiltinBoundMinMax(Instruction *tidInst) {
   // The tid only user should be min\max builtin.
   if (!tidInst->hasOneUse()) return false;
-  CallInst *CI = dyn_cast<CallInst>(*(tidInst->use_begin()));
+  CallInst *CI = dyn_cast<CallInst>(*(tidInst->user_begin()));
   if (!CI) return false;
 
   // Currently uniformity information is available only for the first block.
@@ -337,8 +337,8 @@ bool CLWGLoopBoundaries::handleCmpSelectBoundary(Instruction *tidInst) {
   // The tidInst users should be cmp, select with the same operands.
   // First find the select user.
   if (tidInst->getNumUses() != 2) return false;
-  Value *user1 = *(tidInst->use_begin());
-  Value *user2 = *(++(tidInst->use_begin()));
+  Value *user1 = *(tidInst->user_begin());
+  Value *user2 = *(++(tidInst->user_begin()));
   SelectInst *SI = dyn_cast<SelectInst>(user1);
   if (!SI) {
     SI = dyn_cast<SelectInst>(user2);
@@ -432,7 +432,7 @@ bool CLWGLoopBoundaries::findAndHandleTIDMinMaxBound() {
     // Allow truncation for 64 bit systems.
     Instruction *tidInst = CI;
     if (CI->hasOneUse()) {
-      if(TruncInst *TI = dyn_cast<TruncInst>(*(CI->use_begin()))) {
+      if(TruncInst *TI = dyn_cast<TruncInst>(*(CI->user_begin()))) {
         tidInst = TI;
       }
     }

@@ -201,7 +201,7 @@ namespace intel {
     SPECIAL_VALUE_TYPE retType = SPECIAL_VALUE_TYPE_NONE;
 
     //Run over all usages of pVal and check if one crosses a barrier
-    for ( Value::use_iterator ui = pVal->use_begin(), ue = pVal->use_end(); ui != ue; ++ui ) {
+    for ( Value::user_iterator ui = pVal->user_begin(), ue = pVal->user_end(); ui != ue; ++ui ) {
       Instruction *pInstUsage = dyn_cast<Instruction>(*ui);
       assert( pInstUsage && "usage of pVal is non-instruction!" );
       BasicBlock *pValUsageBB = pInstUsage->getParent();
@@ -420,8 +420,8 @@ namespace intel {
         //pFunc has no entry number yet, give it the current entry number
         m_functionToEntryMap[pFunc] = currEntry;
       }
-      for ( Value::use_iterator ui = pFunc->use_begin(),
-        ue = pFunc->use_end(); ui != ue; ++ui ) {
+      for ( Value::user_iterator ui = pFunc->user_begin(),
+        ue = pFunc->user_end(); ui != ue; ++ui ) {
           CallInst *pCallInst = dyn_cast<CallInst>(*ui);
           // usage of pFunc can be a global variable!
           if ( !pCallInst ) continue;
@@ -473,8 +473,8 @@ namespace intel {
     std::vector<bool> argsFunction;
     argsFunction.assign(numOfArgsWithReturnValue, false);
     //Check each call to F function searching parameters stored in special buffer
-    for ( Value::use_iterator ui = F.use_begin(),
-      ue = F.use_end(); ui != ue; ++ui ) {
+    for ( Value::user_iterator ui = F.user_begin(),
+      ue = F.user_end(); ui != ue; ++ui ) {
         CallInst *pCallInst = dyn_cast<CallInst>(*ui);
         // usage of pFunc can be a global variable!
         if ( !pCallInst ) continue;

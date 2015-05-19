@@ -65,9 +65,8 @@ namespace intel{
       // Add pLocalVal to the set of local values used by pFunc
       m_localUsageMap[pFunc].insert(pLocalVal);
     } else if ( isa<Constant>(user) ) {
-      Value::use_iterator it;
       // Recursievly locate all users of the constant value
-      for ( it = user->use_begin(); it != user->use_end(); ++it ) {
+      for ( Value::user_iterator it = user->user_begin(); it != user->user_end(); ++it ) {
         updateLocalsMap(pLocalVal, *it);
       }
     }  else {
@@ -91,7 +90,7 @@ namespace intel{
       }
 
       // If we reached here, then pVal is a global value that was originally a local value
-      for ( GlobalValue::use_iterator ui = pVal->use_begin(), ue = pVal->use_end(); ui != ue; ++ui ) {
+      for ( GlobalValue::user_iterator ui = pVal->user_begin(), ue = pVal->user_end(); ui != ue; ++ui ) {
         updateLocalsMap(pVal, *ui);
       }
     } // Find globals done

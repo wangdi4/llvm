@@ -261,7 +261,7 @@ private:
       for (Function::arg_iterator J = F->arg_begin(), I = newF->arg_begin();
           J != F->arg_end(); ++I, ++J, ++argInd){
         if (I->getType() != J->getType()) {
-          std::vector<User *> argUsers (J->use_begin(), J->use_end());
+          std::vector<User *> argUsers (J->users());
           if (argUsers.size()) {
             Value *cast = new BitCastInst(J, I->getType(), "arg_cast", F->getEntryBlock().begin());
             for (unsigned i=0; i<argUsers.size(); ++i) {
@@ -269,7 +269,7 @@ private:
             }
           }
 
-          std::vector<User *> funcUsers (F->use_begin(), F->use_end());
+          std::vector<User *> funcUsers (F->users());
           for (unsigned i=0; i<funcUsers.size(); ++i) {
             if (CallInst *CI = dyn_cast<CallInst>(funcUsers[i])) {
               if (CI->getCalledFunction() == F) {

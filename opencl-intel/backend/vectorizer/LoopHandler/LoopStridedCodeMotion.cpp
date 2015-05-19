@@ -278,7 +278,7 @@ Value *LoopStridedCodeMotion::getVectorStrideIfNeeded(Instruction *I,
 
 
 bool hasUserInSet(Value *v, SmallPtrSet<Value *, 16>& s) {
-  for (Value::use_iterator useIt = v->use_begin(), useE = v->use_end();
+  for (Value::user_iterator useIt = v->user_begin(), useE = v->user_end();
       useIt != useE; ++useIt) {
     if (s.count(*useIt)) return true;
   }
@@ -288,7 +288,7 @@ bool hasUserInSet(Value *v, SmallPtrSet<Value *, 16>& s) {
 
 void LoopStridedCodeMotion::ObtainNonHoistedUsers(Value *v,
                                                 SmallVectorImpl<User *> &vec) {
-  for (Value::use_iterator useIt = v->use_begin(), useE = v->use_end();
+  for (Value::user_iterator useIt = v->user_begin(), useE = v->user_end();
       useIt != useE; ++useIt) {
     if (!m_instToMoveSet.count(*useIt)) vec.push_back(*useIt);
   }

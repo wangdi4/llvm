@@ -537,17 +537,17 @@ void WIAnalysis::updateCfDependency(const TerminatorInst *inst) {
         continue;
       }
 
-      // look at the uses
-      for (Value::use_iterator useItr = defInst->use_begin();
-          useItr != defInst->use_end();
+      // look at the users
+      for (Value::user_iterator useItr = defInst->user_begin();
+          useItr != defInst->user_end();
           ++useItr) {
 
-        Instruction *useInst = dyn_cast<Instruction>(*useItr);
-        if (!useInst) {
+        Instruction *userInst = dyn_cast<Instruction>(*useItr);
+        if (!userInst) {
           continue;
         }
 
-        BasicBlock *useBlk = useInst->getParent();
+        BasicBlock *useBlk = userInst->getParent();
         if (useBlk == defBlk) {
           // local def-use, not related to control-dependence
           continue; // check the next use
@@ -562,13 +562,13 @@ void WIAnalysis::updateCfDependency(const TerminatorInst *inst) {
           // For now we'll mark a usage in every join/partial join as random
           // We might change it in the future.
 
-          updateDepMap(useInst, WIAnalysis::RANDOM);
+          updateDepMap(userInst, WIAnalysis::RANDOM);
 
         }
         else {
           // Mark each usage not in the influence region as random
           if (! m_influenceRegion.count(useBlk)){
-            updateDepMap(useInst, WIAnalysis::RANDOM);
+            updateDepMap(userInst, WIAnalysis::RANDOM);
           }
         }
       }
@@ -590,8 +590,8 @@ void WIAnalysis::updateDepMap(const Instruction *inst, WIAnalysis::WIDependancy 
     m_deps[inst] = dep;
     // Register for update all of the dependent values of this updated
     // instruction.
-    Value::const_use_iterator useItr = inst->use_begin();
-    Value::const_use_iterator useEnd  = inst->use_end();
+    Value::const_user_iterator useItr = inst->user_begin();
+    Value::const_user_iterator useEnd  = inst->user_end();
     for (; useItr != useEnd; ++useItr) {
       m_pChangedNew->insert(*useItr);
     }

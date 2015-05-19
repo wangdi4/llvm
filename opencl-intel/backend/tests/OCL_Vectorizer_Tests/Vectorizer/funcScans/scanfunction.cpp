@@ -304,7 +304,7 @@ Value * ScanFunction::RootInputArgument(Value * argument, const Type * rootType,
 		if (allocator->getAllocatedType() != rootType) return NULL; // the alloca was done for the wrong type
 		if (!allocator->hasNUses(2)) return NULL; // alloca has more (or less?) than 2 uses. Unexpected.
 		
-		for (Value::use_iterator i = allocator->use_begin(), e = allocator->use_end(); i != e; ++i)
+		for (Value::user_iterator i = allocator->user_begin(), e = allocator->user_end(); i != e; ++i)
 		{
 			if (Instruction *inst = dyn_cast<Instruction>(*i)) 
 			{
@@ -435,7 +435,7 @@ Value * ScanFunction::RootReturnValue(Value * retVal, const Type * rootType, Ins
 		if (allocator->getAllocatedType() != rootType) return NULL; // the alloca was done for the wrong type
 		if (!allocator->hasNUses(2)) return NULL; // alloca has more (or less?) than 2 uses. Unexpected.
 		
-		for (Value::use_iterator i = allocator->use_begin(), e = allocator->use_end(); i != e; ++i)
+		for (Value::user_iterator i = allocator->user_begin(), e = allocator->user_end(); i != e; ++i)
 		{
 			if (Instruction *inst = dyn_cast<Instruction>(*i)) 
 			{
@@ -485,7 +485,7 @@ Value * ScanFunction::RootReturnValue(Value * retVal, const Type * rootType, Ins
 		
 			// Add all the convert decendents to interimList. Decide if inst is an edge convert (has non-convert decendents)
 			bool isEdge = false;
-			for (Value::use_iterator i = interimToTest->use_begin(), e = interimToTest->use_end(); i != e; ++i)
+			for (Value::user_iterator i = interimToTest->user_begin(), e = interimToTest->user_end(); i != e; ++i)
 			{
 				Instruction * userInst = dyn_cast<Instruction>(i);
 				if (userInst == NULL) return NULL; // unexpected user - not an instruction
@@ -625,7 +625,7 @@ bool ScanFunction::markTIDUsers(Instruction * TIDInst)
 		// For all instructions and basicblock, find and add their decendents (if unmarked)		
 		if (isa<Instruction>(current))
 		{
-			for (Value::use_iterator ui = current->use_begin(), ue = current->use_end(); ui != ue; ++ui)
+			for (Value::user_iterator ui = current->user_begin(), ue = current->user_end(); ui != ue; ++ui)
 			{
 				if (Instruction * useInst = dyn_cast<Instruction>(*ui))
 				{
@@ -653,7 +653,7 @@ bool ScanFunction::markTIDUsers(Instruction * TIDInst)
 		}
 		else if (isa<BasicBlock>(current))
 		{
-			for (Value::use_iterator ui = current->use_begin(), ue = current->use_end(); ui != ue; ++ui)
+			for (Value::user_iterator ui = current->user_begin(), ue = current->user_end(); ui != ue; ++ui)
 			{
 				// For basic blocks, only descending PHI nodes are to be marked as TID-dependent
 				if (PHINode * useInst = dyn_cast<PHINode>(*ui))
@@ -718,7 +718,7 @@ bool ScanFunction::markDistancesFromTID(Instruction * TIDInst)
 					 (is_consecutive && !funcProperties->getProperty(localRoot, PR_TID_VALS_EQUAL_DIST)));
 			
 			// Iterate over all users. Mark qualified users and add them to nextLevelInsts list
-			for (Value::use_iterator ui = localRoot->use_begin(), ue = localRoot->use_end(); ui != ue; ++ui)
+			for (Value::user_iterator ui = localRoot->user_begin(), ue = localRoot->user_end(); ui != ue; ++ui)
 			{
 				Instruction * useInst = dyn_cast<Instruction>(*ui);
 				V_ASSERT(funcProperties->getProperty(useInst, PR_TID_DEPEND)); // sanity check. Is definately TID dependent...
@@ -948,13 +948,13 @@ bool ScanFunction::preemptiveScanForSettingThreadID(CallInst * callingInst)
 	BasicBlock * callerBlock = callingInst->getParent();
 	while (instToMark->hasOneUse())
 	{
-		V_ASSERT(isa<Instruction>(instToMark->use_begin()));
-		if (cast<Instruction>(instToMark->use_begin())->isCast() &&
-			!isa<BitCastInst>(instToMark->use_begin()) && 
-			cast<Instruction>(instToMark->use_begin())->getParent() == callerBlock)
+		V_ASSERT(isa<Instruction>(instToMark->user_begin()));
+		if (cast<Instruction>(instToMark->user_begin())->isCast() &&
+			!isa<BitCastInst>(instToMark->user_begin()) && 
+			cast<Instruction>(instToMark->user_begin())->getParent() == callerBlock)
 		{
 			// single user who is cast instruction. follow down to it, to be marked as TID setter
-			instToMark = cast<Instruction>(instToMark->use_begin());
+			instToMark = cast<Instruction>(instToMark->user_begin());
 		}
 		else
 		{

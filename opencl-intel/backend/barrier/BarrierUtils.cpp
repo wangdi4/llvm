@@ -162,8 +162,8 @@ namespace intel {
       if((CALL_BI_TYPE_WG == type && CompilationUtils::isWorkGroupBuiltin(funcName)) ||
          (CALL_BI_TYPE_WG_ASYNC_OR_PIPE == type && CompilationUtils::isWorkGroupAsyncOrPipeBuiltin(funcName, m_pModule))) {
         //Module contains declaration of a WG function built-in, fix its usages.
-        Function::use_iterator ui = pFunc->use_begin();
-        Function::use_iterator ue = pFunc->use_end();
+        Function::user_iterator ui = pFunc->user_begin();
+        Function::user_iterator ue = pFunc->user_end();
         for ( ; ui != ue; ++ui ) {
           CallInst *pCallInst = dyn_cast<CallInst>(*ui);
           if( !pCallInst ) {
@@ -343,8 +343,8 @@ namespace intel {
       m_getLIDInstructions.clear();
       Function *pFunc = m_pModule->getFunction(CompilationUtils::mangledGetLID());
       if ( pFunc ) {
-        for ( Value::use_iterator ui = pFunc->use_begin(),
-          ue = pFunc->use_end(); ui != ue; ++ui ) {
+        for ( Value::user_iterator ui = pFunc->user_begin(),
+          ue = pFunc->user_end(); ui != ue; ++ui ) {
             CallInst *pInstCall = dyn_cast<CallInst>(*ui);
             assert( pInstCall &&
               "Something other than CallInst is using get_local_id function!" );
@@ -361,8 +361,8 @@ namespace intel {
       m_getGIDInstructions.clear();
       Function *pFunc = m_pModule->getFunction(CompilationUtils::mangledGetGID());
       if ( pFunc ) {
-        for ( Value::use_iterator ui = pFunc->use_begin(),
-          ue = pFunc->use_end(); ui != ue; ++ui ) {
+        for ( Value::user_iterator ui = pFunc->user_begin(),
+          ue = pFunc->user_end(); ui != ue; ++ui ) {
             CallInst *pInstCall = dyn_cast<CallInst>(*ui);
             assert( pInstCall &&
               "Something other than CallInst is using get_globalal_id function!" );
@@ -425,8 +425,8 @@ namespace intel {
             //It is not an internal function, only delaration
             continue;
           }
-          for ( Value::use_iterator ui = pCalledFunc->use_begin(),
-            ue = pCalledFunc->use_end(); ui != ue; ++ui ) {
+          for ( Value::user_iterator ui = pCalledFunc->user_begin(),
+            ue = pCalledFunc->user_end(); ui != ue; ++ui ) {
               CallInst *pCallInst = dyn_cast<CallInst>(*ui);
               // usage of pFunc can be a global variable!
               if( !pCallInst ) {
@@ -478,8 +478,8 @@ namespace intel {
       return;
     }
     //Find all calls to given function name
-    for ( Value::use_iterator ui = pFunc->use_begin(),
-      ue = pFunc->use_end() ; ui != ue; ++ui ) {
+    for ( Value::user_iterator ui = pFunc->user_begin(),
+      ue = pFunc->user_end() ; ui != ue; ++ui ) {
         CallInst *pCall = dyn_cast<CallInst>(*ui);
         assert(pCall && "Something other than CallInst is using function!");
         //Add the call instruction into uses set

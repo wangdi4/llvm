@@ -803,8 +803,8 @@ void FunctionSpecializer::findValuesToPhi(
       // for each user
       if (inst->getType()->isVoidTy()) continue;
       // for each of the users of this inst
-      for (Value::use_iterator us = inst->use_begin(),
-           us_e = inst->use_end(); us != us_e ; ++us) {
+      for (Value::user_iterator us = inst->user_begin(),
+           us_e = inst->user_end(); us != us_e ; ++us) {
         if (Instruction* iii = dyn_cast<Instruction>(*us)) {
           // if this is a latch and the user is the loop header,
           // no need for a new phi-node.

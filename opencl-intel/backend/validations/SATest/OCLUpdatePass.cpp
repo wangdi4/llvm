@@ -323,7 +323,7 @@ namespace Validation {
         ConstantExpr::use_iterator itCE = pCE->use_begin();
         while( itCE != pCE->use_end() )
         {
-            Use &W = itCE.getUse();
+            Use &W = *itCE;
             User* pLclUser = W.getUser();
 
             ConstantExpr* pLclCE = dyn_cast<ConstantExpr>(pLclUser);
@@ -412,7 +412,7 @@ namespace Validation {
             // Now we need to check all uses
             while ( itVal != pLclBuff->use_end() )
             {
-                Use &U = itVal.getUse();
+                Use &U = *itVal;
                 if (ConstantExpr *pCE = dyn_cast<ConstantExpr>(U.getUser()))
                 {
                     if ( ChangeConstantExpression(pLclBuff, pCE, pBitCast, pBitCast)  )
@@ -1138,7 +1138,7 @@ namespace Validation {
         }
 
 
-        for (Value::use_iterator it = pFunc->use_begin(), e = pFunc->use_end();
+        for (Value::user_iterator it = pFunc->user_begin(), e = pFunc->user_end();
             it != e; ++it)
         {
             CallInst *CI = dyn_cast<CallInst>(*it);

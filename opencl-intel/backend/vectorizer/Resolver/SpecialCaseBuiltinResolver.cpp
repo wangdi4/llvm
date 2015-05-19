@@ -221,7 +221,7 @@ void SpecialCaseBuiltinResolver::fillWrapper(Function *F, std::string& funcName)
   ReturnInst::Create(F->getContext(), retVal, entry);
 
   // update chenged kernels
-  for (Function::use_iterator it = F->use_begin(), e = F->use_end(); it!=e; ++it) {
+  for (Function::user_iterator it = F->user_begin(), e = F->user_end(); it!=e; ++it) {
     CallInst *CI = dyn_cast<CallInst> (*it);
     V_ASSERT(CI && "unexpected use - expect only call uses of wrappers");
     if (!CI) return;

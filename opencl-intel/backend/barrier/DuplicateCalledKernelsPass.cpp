@@ -42,8 +42,8 @@ namespace intel {
       Function* pFunc = *fi;
 
       bool isCalledKernel = false;
-      for ( Value::use_iterator ui = pFunc->use_begin(),
-          ue = pFunc->use_end(); ui != ue; ++ui ) {
+      for ( Value::user_iterator ui = pFunc->user_begin(),
+          ue = pFunc->user_end(); ui != ue; ++ui ) {
         if ( isa<CallInst>(*ui) ) {
           isCalledKernel = true;
           break;
@@ -58,8 +58,8 @@ namespace intel {
       M.getFunctionList().push_back(pNewFunc);
 
       //Run over old uses of pFuncToFix and replace with call to pNewFunc
-      for ( Value::use_iterator ui = pFunc->use_begin(),
-          ue = pFunc->use_end(); ui != ue; ++ui ) {
+      for ( Value::user_iterator ui = pFunc->user_begin(),
+          ue = pFunc->user_end(); ui != ue; ++ui ) {
         CallInst *pCallInst = dyn_cast<CallInst>(*ui);
         if ( !pCallInst ) continue;
         //Replace call to kernel function with call to new function.

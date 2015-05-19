@@ -145,7 +145,7 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
       // Now remove old iterValue, as we assure that its only usage was the old PhiNode.
       pIterValue->eraseFromParent();
 
-      std::vector<Value*> phiNodeUsages(pPhiNode->use_begin(), pPhiNode->use_end());
+      std::vector<Value*> phiNodeUsages(pPhiNode->user_begin(), pPhiNode->user_end());
       for (std::vector<Value*>::iterator ui = phiNodeUsages.begin(), ue = phiNodeUsages.end(); ui != ue; ++ui) {
         GetElementPtrInst *pOldGep = dyn_cast<GetElementPtrInst>(*ui);
         if (pOldGep) {

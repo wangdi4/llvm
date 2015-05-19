@@ -118,7 +118,7 @@ Value *VectorizerUtils::RootInputArgument(Value *arg, Type *rootType, CallInst *
 
     // Check the 2 users are really a store and the function call.
     Value *retVal = NULL;
-    for (Value::use_iterator i = allocator->use_begin(), e = allocator->use_end(); i != e; ++i) {
+    for (Value::user_iterator i = allocator->user_begin(), e = allocator->user_end(); i != e; ++i) {
       // Check for store instruction
       if (StoreInst *storeInst = dyn_cast<StoreInst>(*i)) {
         // Only a single store is expected...
@@ -136,7 +136,7 @@ Value *VectorizerUtils::RootInputArgument(Value *arg, Type *rootType, CallInst *
         BitCastInst* bitCastInst = cast<BitCastInst>(*i);
         // The bitcast must have one user, which is a store
         if (!bitCastInst->hasOneUse()) return NULL;
-        StoreInst *storeInst = dyn_cast<StoreInst>(bitCastInst->use_back());
+        StoreInst *storeInst = dyn_cast<StoreInst>(bitCastInst->user_back());
         if (!storeInst) return NULL;
 
         // The store value must be the result of a shuffle
@@ -276,7 +276,7 @@ Value *VectorizerUtils::RootReturnValue(Value *retVal, Type *rootType, CallInst 
 
     // Check the 2 users are really a load and the function call.
     Value *rootRetVal = NULL;
-    for (Value::use_iterator i = allocator->use_begin(), e = allocator->use_end(); i != e; ++i)
+    for (Value::user_iterator i = allocator->user_begin(), e = allocator->user_end(); i != e; ++i)
     {
       if (LoadInst *loadInst = dyn_cast<LoadInst>(*i))
       {
@@ -318,8 +318,8 @@ Value *VectorizerUtils::RootReturnValue(Value *retVal, Type *rootType, CallInst 
     instructionsToCrawl.erase(instToTest);
 
     // Scan all descendants, looking for retval users
-    Value::use_iterator ui, ue;
-    for (ui = instToTest->use_begin(), ue = instToTest->use_end(); ui != ue; ++ui)
+    Value::user_iterator ui, ue;
+    for (ui = instToTest->user_begin(), ue = instToTest->user_end(); ui != ue; ++ui)
     {
       Instruction *userInst = dyn_cast<Instruction>(*ui);
       assert(NULL != userInst && "Instruction's user is not an instruction. Unexpected");

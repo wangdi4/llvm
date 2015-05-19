@@ -226,7 +226,7 @@ bool LoopGen::moveMarkedInstsOutOfLoop(BasicBlock * loopHead, BasicBlock * loopT
 				!isa<AllocaInst>(currInst) &&
 				!funcProperties->getProperty(currInst, PR_SC_STREAM_READ_SAMPLER))
 			{
-				for (Value::use_iterator uI = currInst->use_begin(), uE = currInst->use_end(); uI != uE; ++uI)
+				for (Value::user_iterator uI = currInst->user_begin(), uE = currInst->user_end(); uI != uE; ++uI)
 				{
 					Instruction *decendInst = dyn_cast<Instruction>(*uI);
 					if (decendInst && !funcProperties->getProperty(decendInst, PR_MOVE_TO_LOOP_HEAD)) 
@@ -278,7 +278,7 @@ bool LoopGen::createPivotPHINodesAndIncrementors(BasicBlock * loopHead, BasicBlo
 
 		// First check if the Pivot is really needed. After moving stuff to the head and tail of the loop, maybe somethinh is no longer useful?
 		bool pivotNeeded = false;
-		for (Value::use_iterator uI = currPivot->use_begin(), uE = currPivot->use_end(); uI != uE; ++uI)
+		for (Value::user_iterator uI = currPivot->user_begin(), uE = currPivot->user_end(); uI != uE; ++uI)
 		{
 			Instruction *decendInst = dyn_cast<Instruction>(*uI);
 			if (decendInst && decendInst->getParent() != loopHead && decendInst->getParent() != loopTail)
@@ -437,8 +437,8 @@ void LoopGen::replaceUsersWithPHI(Instruction * pivotInst, Instruction * phiNode
 	SmallVector<Instruction*, 16> instsList;
 	
 	// Iterate over users list. Replace every user which is not in the loop header by itself
-	Value::use_iterator iter = pivotInst->use_begin();
-	Value::use_iterator endIter = pivotInst->use_end();
+	Value::user_iterator iter = pivotInst->user_begin();
+	Value::user_iterator endIter = pivotInst->user_end();
 	while (iter != endIter)
 	{
 		Instruction *inst = dyn_cast<Instruction>(*iter);

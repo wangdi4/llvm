@@ -61,8 +61,8 @@ bool PatchCallbackArgs::runOnModule(Module &M) {
     if (!CalledF)
       continue;
     assert(CalledF->isDeclaration() && "extern callback must be a declaration");
-    for (Function::use_iterator UI = CalledF->use_begin(),
-                                UE = CalledF->use_end();
+    for (Function::user_iterator UI = CalledF->user_begin(),
+                                 UE = CalledF->user_end();
          UI != UE; ++UI) {
       CallInst *CI = dyn_cast<CallInst>(*UI);
       if (!CI)

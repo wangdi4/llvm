@@ -50,8 +50,8 @@ namespace intel {
       AddBarrierCallsToFunctionBody(pFuncToHandle);
 
       // Fix all calls to pFunc
-      Function::use_iterator ui = pFuncToHandle->use_begin();
-      Function::use_iterator ue = pFuncToHandle->use_end();
+      Function::user_iterator ui = pFuncToHandle->user_begin();
+      Function::user_iterator ue = pFuncToHandle->user_end();
       for ( ; ui != ue; ui++ ) {
         CallInst *pCallInst = dyn_cast<CallInst>(*ui);
         // usage of pFunc can be a global variable!
@@ -123,8 +123,8 @@ namespace intel {
       // Module contains no fiber instruction
       return;
     }
-    Value::use_iterator ui = pFiber->use_begin();
-    Value::use_iterator ue = pFiber->use_end();
+    Value::user_iterator ui = pFiber->user_begin();
+    Value::user_iterator ue = pFiber->user_end();
     for ( ; ui != ue; ++ui ) {
       CallInst *pCall = dyn_cast<CallInst>(*ui);
       assert( pCall && "Something other than CallInst is using fiber function!" );

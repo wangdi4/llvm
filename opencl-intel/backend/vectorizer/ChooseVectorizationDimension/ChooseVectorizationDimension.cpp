@@ -130,8 +130,8 @@ bool ChooseVectorizationDimension::hasDim(Function* F, unsigned int dim) {
   if (!gid)
     return false;
 
-  for ( Value::use_iterator ui = gid->use_begin(),
-    ue = gid->use_end(); ui != ue; ++ui ) {
+  for ( Value::user_iterator ui = gid->user_begin(),
+    ue = gid->user_end(); ui != ue; ++ui ) {
     CallInst *pInstCall = dyn_cast<CallInst>(*ui);
     assert( pInstCall &&
       "Something other than CallInst is using get_global_id function!" );

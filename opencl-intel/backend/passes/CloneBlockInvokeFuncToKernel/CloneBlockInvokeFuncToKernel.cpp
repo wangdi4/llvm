@@ -237,8 +237,8 @@ size_t CloneBlockInvokeFuncToKernel::computeBlockLiteralSize(Function *F)
 
   // search for specific bitcast
   // example bitcast i8* %.block_descriptor to <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i64, i32 addrspace(1)*, i32 }>*
-  for(Argument::use_iterator AI = blockLiteralPtr->use_begin(),
-    E = blockLiteralPtr->use_end(); AI != E; ++AI){
+  for(Argument::user_iterator AI = blockLiteralPtr->user_begin(),
+    E = blockLiteralPtr->user_end(); AI != E; ++AI){
 
       BitCastInst *pBC = dyn_cast<BitCastInst>(*AI);
       if(!pBC)

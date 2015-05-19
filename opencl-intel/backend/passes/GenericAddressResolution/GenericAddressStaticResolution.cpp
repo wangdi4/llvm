@@ -250,12 +250,12 @@ namespace intel {
         break;
     }
     if (toPropagate) {
-      for (Value::use_iterator use_it = pInstr->use_begin(), 
-                               use_end = pInstr->use_end();
-                               use_it != use_end; use_it++) {
-        Instruction *pUse = dyn_cast<Instruction>(*use_it);
-        assert(pUse && "All uses of instruction should be instructions!");
-        addGASInstr(pUse, space);
+      for (Value::user_iterator user_it = pInstr->user_begin(), 
+                                user_end = pInstr->user_end();
+                                user_it != user_end; user_it++) {
+        Instruction *pUserInst = dyn_cast<Instruction>(*user_it);
+        assert(pUserInst && "All uses of instruction should be instructions!");
+        addGASInstr(pUserInst, space);
       }
     }
   }

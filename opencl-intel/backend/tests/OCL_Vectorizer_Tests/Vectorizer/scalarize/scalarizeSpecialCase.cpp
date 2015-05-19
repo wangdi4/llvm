@@ -167,12 +167,12 @@ bool ScalarizeFunction::markSpecialCaseReadSample(CallInst * caller, bool is2D)
 		{
 			// iterate over all the users of the original return value, until we find the "proper" return value. mark all others for removal		
 			V_ASSERT(caller->hasOneUse());
-			Value * currentVal = *(caller->use_begin());
+			Value * currentVal = *(caller->user_begin());
 			while (currentVal != retVal)
 			{
 				V_ASSERT(currentVal->hasOneUse());
 				funcProperties->setProperty(currentVal, PR_FUNC_PREP_TO_REMOVE);
-				currentVal = *(currentVal->use_begin());
+				currentVal = *(currentVal->user_begin());
 			}
 		}
 		// mark the actual "proper" return value as removal candidate
@@ -430,12 +430,12 @@ bool ScalarizeFunction::markSpecialCaseSelect(CallInst * caller)
 		{
 			// iterate over all the users of the original return value, until we find the "proper" return value. mark all others for removal		
 			V_ASSERT(caller->hasOneUse());
-			Value * currentVal = *(caller->use_begin());
+			Value * currentVal = *(caller->user_begin());
 			while (currentVal != retVal)
 			{
 				V_ASSERT(currentVal->hasOneUse());
 				funcProperties->setProperty(currentVal, PR_FUNC_PREP_TO_REMOVE);
-				currentVal = *(currentVal->use_begin());
+				currentVal = *(currentVal->user_begin());
 			}
 		}
 		// mark the actual "proper" return value as removal candidate
@@ -568,12 +568,12 @@ bool ScalarizeFunction::markSpecialCaseGeometricFunc(CallInst * caller, const ch
 			{
 				// iterate over all the users of the original return value, until we find the "proper" return value. mark all others for removal		
 				V_ASSERT(caller->hasOneUse());
-				Value * currentVal = *(caller->use_begin());
+				Value * currentVal = *(caller->user_begin());
 				while (currentVal != retVal)
 				{
 					V_ASSERT(currentVal->hasOneUse());
 					funcProperties->setProperty(currentVal, PR_FUNC_PREP_TO_REMOVE);
-					currentVal = *(currentVal->use_begin());
+					currentVal = *(currentVal->user_begin());
 				}
 			}
 			// mark the actual "proper" return value as removal candidate
@@ -622,17 +622,17 @@ bool ScalarizeFunction::MarkSpecialCaseFract(CallInst * caller)
 	}
 	bool validationSuccess = true;
 	
-	// Check if all uses of the pointer, are only fract functions...
-	for (Value::use_iterator ui = pointerVal->use_begin(), ue = pointerVal->use_end(); ui != ue; ++ui)
+	// Check if all userss of the pointer, are only fract functions...
+	for (Value::user_iterator ui = pointerVal->user_begin(), ue = pointerVal->user_end(); ui != ue; ++ui)
 	{
-		Instruction * useInst = dyn_cast<Instruction>(*ui);
-		if (!useInst)
+		Instruction * userInst = dyn_cast<Instruction>(*ui);
+		if (!userInst)
 		{
 			V_UNEXPECTED("User is not an instruction");
 			validationSuccess = false;
 			break;
 		}
-		if (!funcProperties->getProperty(useInst, PR_SC_FRACT))
+		if (!funcProperties->getProperty(userInst, PR_SC_FRACT))
 		{
 			validationSuccess = false;
 			break;
@@ -784,12 +784,12 @@ bool ScalarizeFunction::markSpecialCaseCIGamma(CallInst * caller)
 		{
 			// iterate over all the users of the original return value, until we find the "proper" return value. mark all others for removal		
 			V_ASSERT(caller->hasOneUse());
-			Value * currentVal = *(caller->use_begin());
+			Value * currentVal = *(caller->user_begin());
 			while (currentVal != retVal)
 			{
 				V_ASSERT(currentVal->hasOneUse());
 				funcProperties->setProperty(currentVal, PR_FUNC_PREP_TO_REMOVE);
-				currentVal = *(currentVal->use_begin());
+				currentVal = *(currentVal->user_begin());
 			}
 		}
 		// mark the actual "proper" return value as removal candidate

@@ -600,12 +600,12 @@ bool ScalarizeFunction::scalarizeCallInst(Instruction * I)
 			{
 				// iterate over all the users of the original return value, until we find the "proper" return value. mark all others for removal		
 				V_ASSERT(I->hasOneUse());
-				Value * currentVal = *(I->use_begin());
+				Value * currentVal = *(I->user_begin());
 				while (currentVal != (*rootValues)[0])
 				{
 					V_ASSERT(currentVal->hasOneUse());
 					funcProperties->setProperty(currentVal, PR_FUNC_PREP_TO_REMOVE);
-					currentVal = *(currentVal->use_begin());
+					currentVal = *(currentVal->user_begin());
 				}
 			}
 			// mark the actual "proper" return value as removal candidate

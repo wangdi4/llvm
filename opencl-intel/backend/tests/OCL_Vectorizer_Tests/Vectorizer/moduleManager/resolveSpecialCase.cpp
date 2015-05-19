@@ -69,7 +69,7 @@ bool VectModuleManager::dispatchSpecialCaseFunc(Function * specialCaseFunc, Func
 	{
 		bool retval;
 		// Pick one of the function's users and dispatch the correct handler
-		Instruction * callerInst = dyn_cast<Instruction>(*(specialCaseFunc->use_begin()));
+		Instruction * callerInst = dyn_cast<Instruction>(*(specialCaseFunc->user_begin()));
 		V_ASSERT(callerInst);		
 		instProperty specialCaseType = funcProperties->getPropertyGroup(callerInst, PR_ALL_SPECIAL_CASE_FUNCS);
 		switch (specialCaseType) {
@@ -269,8 +269,8 @@ bool VectModuleManager::resolveReadSamplerCalls(Function * specialCaseFunc, Func
 	Constant * transposedSamplerConst = NULL; // Declare (or find) the function later on in this function
 	
 	// loop over all users
-	Value::use_iterator ui = specialCaseFunc->use_begin();
-	Value::use_iterator ue = specialCaseFunc->use_end();
+	Value::user_iterator ui = specialCaseFunc->user_begin();
+	Value::user_iterator ue = specialCaseFunc->user_end();
 	while (ui != ue)
 	{
 		Instruction * callingInst = dyn_cast<Instruction>(*ui);
@@ -360,8 +360,8 @@ bool VectModuleManager::resolveReadSamplerCalls(Function * specialCaseFunc, Func
 		
 		// Vectorize breakdowns of the original sampler
 		V_ASSERT(callingInst->getNumUses() == 4); // sanity: only the specially prepared shuffleVector insts may directly inherit from the fake sampler
-		Value::use_iterator outputIter = callingInst->use_begin();
-		Value::use_iterator outputIterEnd = callingInst->use_end();
+		Value::user_iterator outputIter = callingInst->user_begin();
+		Value::user_iterator outputIterEnd = callingInst->user_end();
 		while (outputIter != outputIterEnd)
 		{
 			ShuffleVectorInst * shuffleInst = dyn_cast<ShuffleVectorInst>(*outputIter);
@@ -417,8 +417,8 @@ bool VectModuleManager::resolveStreamReadSamplerCalls(Function * specialCaseFunc
 	Value * constIndex1 = ConstantInt::get(getInt32Ty, 1);
 	
 	// loop over all users
-	Value::use_iterator ui = specialCaseFunc->use_begin();
-	Value::use_iterator ue = specialCaseFunc->use_end();
+	Value::user_iterator ui = specialCaseFunc->user_begin();
+	Value::user_iterator ue = specialCaseFunc->user_end();
 	while (ui != ue)
 	{
 		Instruction * callingInst = dyn_cast<Instruction>(*ui);
@@ -521,8 +521,8 @@ bool VectModuleManager::resolveStreamReadSamplerCalls(Function * specialCaseFunc
 		CallInst::Create(streamSamplerConst, newArgs.begin(), newArgs.end(), "", callingInst);
 		
 		// Vectorize breakdowns of the original sampler
-		Value::use_iterator outputIter = callingInst->use_begin();
-		Value::use_iterator outputIterEnd = callingInst->use_end();
+		Value::user_iterator outputIter = callingInst->user_begin();
+		Value::user_iterator outputIterEnd = callingInst->user_end();
 		while (outputIter != outputIterEnd)
 		{
 			ShuffleVectorInst * shuffleInst = dyn_cast<ShuffleVectorInst>(*outputIter);
@@ -592,8 +592,8 @@ bool VectModuleManager::resolveWriteSamplerCalls(Function * specialCaseFunc, Fun
 	Constant * transposedSamplerConst = NULL; // Declare (or find) the function later on in this function
 	
 	// loop over all users
-	Value::use_iterator ui = specialCaseFunc->use_begin();
-	Value::use_iterator ue = specialCaseFunc->use_end();
+	Value::user_iterator ui = specialCaseFunc->user_begin();
+	Value::user_iterator ue = specialCaseFunc->user_end();
 	while (ui != ue)
 	{
 		Instruction * callingInst = dyn_cast<Instruction>(*ui);
@@ -692,8 +692,8 @@ bool VectModuleManager::resolveStreamWriteSamplerCalls(Function * specialCaseFun
 	Value * constIndex0 = ConstantInt::get(getInt32Ty, 0);
 
 	// loop over all users
-	Value::use_iterator ui = specialCaseFunc->use_begin();
-	Value::use_iterator ue = specialCaseFunc->use_end();
+	Value::user_iterator ui = specialCaseFunc->user_begin();
+	Value::user_iterator ue = specialCaseFunc->user_end();
 	while (ui != ue)
 	{
 		Instruction * callingInst = dyn_cast<Instruction>(*ui);
@@ -919,8 +919,8 @@ bool VectModuleManager::resolveSelectCalls(Function * specialCaseFunc, Function 
 	}
 	
 	// loop over all users
-	Value::use_iterator ui = specialCaseFunc->use_begin();
-	Value::use_iterator ue = specialCaseFunc->use_end();
+	Value::user_iterator ui = specialCaseFunc->user_begin();
+	Value::user_iterator ue = specialCaseFunc->user_end();
 	while (ui != ue)
 	{
 		Instruction * callingInst = dyn_cast<Instruction>(*ui);
@@ -1004,8 +1004,8 @@ bool VectModuleManager::resolveGeometricFuncCalls(Function * specialCaseFunc, Fu
 	}
 	
 	// loop over all users
-	Value::use_iterator ui = specialCaseFunc->use_begin();
-	Value::use_iterator ue = specialCaseFunc->use_end();
+	Value::user_iterator ui = specialCaseFunc->user_begin();
+	Value::user_iterator ue = specialCaseFunc->user_end();
 	while (ui != ue)
 	{
 		Instruction * callingInst = dyn_cast<Instruction>(*ui);
@@ -1042,8 +1042,8 @@ bool VectModuleManager::resolveGeometricFuncCalls(Function * specialCaseFunc, Fu
 		{
 			// Vectorize breakdowns of the original function
 			V_ASSERT(callingInst->getNumUses() <= vecWidth); // sanity: only the specially prepared shuffleVector insts may directly inherit from the fake func
-			Value::use_iterator outputIter = callingInst->use_begin();
-			Value::use_iterator outputIterEnd = callingInst->use_end();
+			Value::user_iterator outputIter = callingInst->user_begin();
+			Value::user_iterator outputIterEnd = callingInst->user_end();
 			while (outputIter != outputIterEnd)
 			{
 				ShuffleVectorInst * shuffleInst = dyn_cast<ShuffleVectorInst>(*outputIter);
@@ -1124,8 +1124,8 @@ bool VectModuleManager::resolveCIGammaCalls(Function * specialCaseFunc, Function
 	}
 	
 	// loop over all users
-	Value::use_iterator ui = specialCaseFunc->use_begin();
-	Value::use_iterator ue = specialCaseFunc->use_end();
+	Value::user_iterator ui = specialCaseFunc->user_begin();
+	Value::user_iterator ue = specialCaseFunc->user_end();
 	while (ui != ue)
 	{
 		Instruction * callingInst = dyn_cast<Instruction>(*ui);
@@ -1210,8 +1210,8 @@ bool VectModuleManager::resolveCIGammaCalls(Function * specialCaseFunc, Function
 		
 		// Connect breakdowns of the functions retVal
 		V_ASSERT(callingInst->getNumUses() == 3); // sanity: only the specially prepared shuffleVector insts may directly inherit from the fake sampler
-		Value::use_iterator outputIter = callingInst->use_begin();
-		Value::use_iterator outputIterEnd = callingInst->use_end();
+		Value::user_iterator outputIter = callingInst->user_begin();
+		Value::user_iterator outputIterEnd = callingInst->user_end();
 		while (outputIter != outputIterEnd)
 		{
 			ShuffleVectorInst * shuffleInst = dyn_cast<ShuffleVectorInst>(*outputIter);
@@ -1258,8 +1258,8 @@ bool VectModuleManager::resolveEarlyExitCalls(Function * specialCaseFunc, Functi
 	V_PRINT("\t\tExitOnTrue? " << (exitOnTrue ? "Yes" : "No") << " prdication:" << predicationChar << " width:" << (int)(fakeName.at(EARLY_EXIT_FAKE_NAME_PREFIX.length() + 4)) << "\n");
 	
 	// loop over all users
-	Value::use_iterator ui = specialCaseFunc->use_begin();
-	Value::use_iterator ue = specialCaseFunc->use_end();
+	Value::user_iterator ui = specialCaseFunc->user_begin();
+	Value::user_iterator ue = specialCaseFunc->user_end();
 	while (ui != ue)
 	{
 		Instruction * callingInst = dyn_cast<Instruction>(*ui);

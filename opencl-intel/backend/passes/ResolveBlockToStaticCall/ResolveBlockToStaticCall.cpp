@@ -78,9 +78,9 @@ static bool IsGEPBlockInvokeAccess(const GetElementPtrInst *GEP){
 static Value *findSingleUsedInst(Instruction* inst, const unsigned opcode) {
   Value * res = 0;
   int32_t cnt = 0;
-  for(Value::use_iterator use = inst->use_begin(), E = inst->use_end();
-    use != E; ++use) {
-      Instruction * inst = cast<Instruction>(*use);
+  for(Value::user_iterator user = inst->user_begin(), E = inst->user_end();
+    user != E; ++user) {
+      Instruction * inst = cast<Instruction>(*user);
       if(inst->getOpcode() == opcode){
         res = inst;
         if(++cnt > 1)
@@ -96,9 +96,9 @@ static GetElementPtrInst *findSingleGEPBlockInvokeAccess(Instruction* inst) {
   GetElementPtrInst * res = 0;
   int32_t cnt = 0;
 
-  for(Value::use_iterator use = inst->use_begin(), E = inst->use_end();
-    use != E; ++use) {
-      GetElementPtrInst * GEP = dyn_cast<GetElementPtrInst>(*use);
+  for(Value::user_iterator user = inst->user_begin(), E = inst->user_end();
+    user != E; ++user) {
+      GetElementPtrInst * GEP = dyn_cast<GetElementPtrInst>(*user);
       if(GEP && IsGEPBlockInvokeAccess(GEP)) {
         res = GEP;
         if(++cnt > 1)
