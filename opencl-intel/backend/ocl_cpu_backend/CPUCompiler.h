@@ -36,7 +36,7 @@ namespace llvm {
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 class BuiltinLibrary;
-class BuiltinModule;
+class BuiltinModules;
 
 //*****************************************************************************************
 // Provides the module optimization and code generation functionality.
@@ -67,11 +67,8 @@ public:
 
 protected:
 
-    /**
-     * Returns pointer to the RTL library module
-     */
-    llvm::Module* GetRtlModule() const;
-
+    // Returns a list of pointers to the RTL library modules
+    llvm::SmallVector<llvm::Module*, 2> GetBuiltinModuleList() const;
 
 private:
     // Disable the copy ctor and assignment operator
@@ -82,7 +79,7 @@ private:
 
     llvm::ExecutionEngine* CreateCPUExecutionEngine( llvm::Module* pModule ) const;
 
-    BuiltinModule*         m_pBuiltinModule;
+    BuiltinModules*         m_pBuiltinModule;
     llvm::ExecutionEngine* m_pExecEngine;
 
     llvm::JITEventListener* m_pVTuneListener;

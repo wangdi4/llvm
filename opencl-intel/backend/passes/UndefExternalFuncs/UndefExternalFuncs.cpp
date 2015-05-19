@@ -18,10 +18,13 @@ namespace intel {
 
     m_RuntimeModules.clear();
     intel::BuiltinLibInfo &BLI = getAnalysis<intel::BuiltinLibInfo>();
-    llvm::Module *Builtins = BLI.getBuiltinModule();
-    assert(Builtins && "No builtin module");
-    if (!Builtins) return false;
-    m_RuntimeModules.push_back(Builtins);
+    SmallVector<Module*, 2> Builtins = BLI.getBuiltinModules();
+    assert(!Builtins.empty() && "No builtin module");
+
+    for (SmallVector<Module*, 2>::iterator it = Builtins.begin(); it != Builtins.end(); ++it) {
+        assert(*it != NULL && "UndefExternalFuncs::runOnModule has null ptr in Bltns");
+        m_RuntimeModules.push_back(*it);
+    }
 
     // Run on all defined function in the module
     for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi ) {
@@ -49,7 +52,13 @@ namespace intel {
         ,fi = m_RuntimeModules.end(); it != fi; ++it) {
       // look for the required function in all the runtime modules
       Function *pFunc = (*it)->getFunction(name);
-      if(pFunc && !pFunc->isDeclaration()){
+
+      // Note that due to the lazy parsing of built-in modules the function
+      // body might not be materialized yet and is reported
+      // as declaration in that case. (This behaviour was fixed in LLVM 3.6)
+      // We report a function as found iff it is already materialized or is materialazible.
+      if(pFunc != NULL &&
+        (pFunc->isMaterializable() || !pFunc->isDeclaration())) {
         return true;
       }
     }

@@ -32,7 +32,7 @@ char intel::RenderscriptVectorizer::ID = 0;
 
 extern "C" Pass* createSpecialCaseBuiltinResolverPass();
 extern "C" FunctionPass* createVectorizerCorePass(const intel::OptimizerConfig*);
-extern "C" Pass* createBuiltinLibInfoPass(llvm::Module* pRTModule, std::string type);
+extern "C" Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2> pRtlModuleList, std::string type);
 /// -- DBG Utilities
 // These functions used for debugging
 #ifdef __DEBUG
@@ -72,7 +72,6 @@ RenderscriptVectorizer::RenderscriptVectorizer(const OptimizerConfig* pConfig,
   SmallVectorImpl<Function*> &optimizerFunctions,
   SmallVectorImpl<int> &optimizerWidths) :
   ModulePass(ID),
-  m_runtimeModule(NULL),
   m_numOfKernels(0),
   m_isModuleVectorized(false),
   m_pConfig(pConfig),
@@ -87,7 +86,6 @@ RenderscriptVectorizer::RenderscriptVectorizer(const OptimizerConfig* pConfig,
 
 RenderscriptVectorizer::RenderscriptVectorizer() :
   ModulePass(ID),
-  m_runtimeModule(NULL),
   m_numOfKernels(0),
   m_isModuleVectorized(false),
   m_pConfig(NULL),
@@ -148,9 +146,8 @@ bool RenderscriptVectorizer::runOnModule(Module &M)
     V_PRINT(wrapper, "Num of kernels is 0. Aborting!\n");
     return false;
   }
-  m_runtimeModule = getAnalysis<BuiltinLibInfo>().getBuiltinModule();
-  V_ASSERT(m_runtimeModule && "Runtime services were not initialized!");
-  if (!m_runtimeModule)
+  m_runtimeModuleList = getAnalysis<BuiltinLibInfo>().getBuiltinModules();
+  if (m_runtimeModuleList.size() == 0)
   {
     V_PRINT(wrapper, "Failed to find runtime module. Aborting!\n");
     return false;
@@ -170,7 +167,7 @@ bool RenderscriptVectorizer::runOnModule(Module &M)
   // Create the vectorizer core pass that will do the vectotrization work.
   VectorizerCore *vectCore = (VectorizerCore *)createVectorizerCorePass(m_pConfig);
   FunctionPassManager vectPM(&M);
-  vectPM.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModule(), "rs"));
+  vectPM.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), "rs"));
   vectPM.add(vectCore);
 
 
@@ -211,7 +208,7 @@ bool RenderscriptVectorizer::runOnModule(Module &M)
 
   {
     PassManager mpm;
-    mpm.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModule(), "rs"));
+    mpm.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), "rs"));
     mpm.add(createSpecialCaseBuiltinResolverPass());
     mpm.run(M);
   }

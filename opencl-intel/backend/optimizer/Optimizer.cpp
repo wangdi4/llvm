@@ -36,7 +36,7 @@ extern "C"{
 
 void* createInstToFuncCallPass(bool);
 
-llvm::Pass *createVectorizerPass(const llvm::Module *runtimeModule,
+llvm::Pass *createVectorizerPass(SmallVector<Module*, 2> builtinModules,
                                  const intel::OptimizerConfig* pConfig);
 llvm::Pass *createBarrierMainPass(intel::DebuggingServiceType debugType);
 
@@ -62,7 +62,7 @@ llvm::ModulePass *createModuleCleanupPass(bool SpareOnlyWrappers);
 llvm::ModulePass *createGenericAddressStaticResolutionPass();
 llvm::ModulePass *createGenericAddressDynamicResolutionPass();
 llvm::ModulePass *createPrepareKernelArgsPass();
-llvm::Pass *createBuiltinLibInfoPass(llvm::Module* pRTModule, std::string type);
+llvm::Pass *createBuiltinLibInfoPass(SmallVector<Module*, 2> pRtlModuleList, std::string type);
 llvm::ModulePass *createUndifinedExternalFunctionsPass(std::vector<std::string> &undefinedExternalFunctions);
 llvm::ModulePass *createKernelInfoWrapperPass();
 llvm::ModulePass *createDuplicateCalledKernelsPass();
@@ -306,7 +306,7 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
 
 static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
                                         llvm::Module *M,
-                                        llvm::Module *pRtlModule,
+                                        SmallVector<Module*, 2> pRtlModuleList,
                                         unsigned OptLevel,
                                         const intel::OptimizerConfig *pConfig,
                                         std::vector<std::string> &UndefinedExternals,
@@ -324,7 +324,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(pConfig->GetIRDumpOptionsBefore());
 #endif
   PM.add(new llvm::DataLayout(M));
-  PM.add(createBuiltinLibInfoPass(pRtlModule, ""));
+  PM.add(createBuiltinLibInfoPass(pRtlModuleList, ""));
   PM.add(createImplicitArgsAnalysisPass(&M->getContext()));
 
   if (isOcl20) {
@@ -373,8 +373,8 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
     }
     PM.add(createSinCosFoldPass());
 #endif //#ifndef __APPLE__
-    if(pRtlModule != NULL) {
-        PM.add(createVectorizerPass(pRtlModule, pConfig));
+    if (!pRtlModuleList.empty()) {
+        PM.add(createVectorizerPass(pRtlModuleList, pConfig));
     }
 #ifndef __APPLE__
     if (dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)) {
@@ -430,7 +430,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
 
   // Get Some info about the kernel
   // should be called before BarrierPass and createPrepareKernelArgsPass
-  if(pRtlModule != NULL) {
+  if (!pRtlModuleList.empty()) {
     PM.add(createKernelInfoWrapperPass());
   }
 
@@ -487,7 +487,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   // assumption: should run after WI function resolving
   PM.add(createUndifinedExternalFunctionsPass(UndefinedExternals));
 
-  if(pRtlModule != NULL) {
+  if (!pRtlModuleList.empty()) {
     PM.add(createBuiltInImportPass(pConfig->GetCpuId().GetCPUPrefix())); // Inline BI function
     //Need to convert shuffle calls to shuffle IR before running inline pass on built-ins
     PM.add(createBuiltinCallToInstPass());
@@ -589,8 +589,8 @@ Optimizer::~Optimizer()
 }
 
 Optimizer::Optimizer( llvm::Module* pModule,
-                      llvm::Module* pRtlModule,
-                      const intel::OptimizerConfig* pConfig):
+                      SmallVector<llvm::Module*, 2> pRtlModuleList,
+                      const intel::OptimizerConfig* pConfig) :
     m_pModule(pModule)
 {
 
@@ -616,7 +616,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
   // Add passes which will be run only if hasFunctionPtrCalls() and hasRecursion()
   // will return false
-  populatePassesPostFailCheck(m_PostFailCheckPM, pModule, pRtlModule, OptLevel,
+  populatePassesPostFailCheck(m_PostFailCheckPM, pModule, pRtlModuleList, OptLevel,
                               pConfig, m_undefinedExternalFunctions, isOcl20,
                               UnrollLoops);
 }

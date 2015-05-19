@@ -30,7 +30,7 @@ extern "C" {
   //void* createWIRelatedValuePass();
   //void* createDataPerValuePass();
   void* createBarrierPass(bool isNativeDebug);
-  Pass* createBuiltinLibInfoPass(llvm::Module* pRTModule, std::string type);
+  Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2> builtinsList, std::string type);
 
   void getBarrierPassStrideSize(Pass *pPass, std::map<std::string, unsigned int>& bufferStrideMap);
 }
@@ -48,7 +48,7 @@ namespace intel {
 
     //Register DataLayout to the pass manager
     barrierModulePM.add(new llvm::DataLayout(&M));
-    barrierModulePM.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModule(), ""));
+    barrierModulePM.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), ""));
 
     if( m_debugType == None ) {
       //In DBG mode do not run extra llvm optimizations

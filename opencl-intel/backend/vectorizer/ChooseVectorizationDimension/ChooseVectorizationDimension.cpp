@@ -27,7 +27,7 @@ namespace intel {
 /// Support for dynamic loading of modules under Linux
 char ChooseVectorizationDimension::ID = 0;
 
-extern "C" Pass* createBuiltinLibInfoPass(llvm::Module* pRTModule, std::string type);
+extern "C" Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2> pRtlModuleList, std::string type);
 
 OCL_INITIALIZE_PASS_BEGIN(ChooseVectorizationDimension, "ChooseVectorizationDimension", "Predicate Function", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
@@ -278,7 +278,7 @@ bool ChooseVectorizationDimension::runOnFunction(Function &F) {
 
   // create function pass manager to run the WIAnalysis for each dimension.
   FunctionPassManager runWi(F.getParent());
-  runWi.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModule(), ""));
+  runWi.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), ""));
   for (unsigned int dim = 0; dim < MAX_WORK_DIM; dim++) {
     if (dimExist[dim]) {
       wi[dim] = new WIAnalysis(dim); // construct WI and tell it on which dimension to run.

@@ -13,11 +13,7 @@ class DXRuntime : public RuntimeServices {
 public:
 
   /// @brief Constructor
-  DXRuntime(const Module *runtimeModule,
-            unsigned packetWidth):
-    m_runtimeModule(runtimeModule),
-    m_packetizationWidth(packetWidth),
-    m_vfh(DXEntryDB) {}
+  DXRuntime(SmallVector<Module*, 2> runtimeModuleList, unsigned packetWidth);
 
   /// @brief Destructor
   ~DXRuntime() {}
@@ -88,9 +84,9 @@ private:
   /// @param s VFH storage
   void initDB(hashEntry* entry);
 
-  /// @brief Pointer to runtime module
+  /// @brief Pointer to runtime modules list
   /// (module with implementation of built-in functions)
-  const Module *m_runtimeModule;
+  SmallVector<Module*, 2> m_runtimeModulesList;
 
   /// @brief Hold the requested packetization width
   /// (currently same one for all funcs)

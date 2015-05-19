@@ -14,8 +14,23 @@
 
 namespace intel {
 
+DXRuntime::DXRuntime(
+  SmallVector<Module*, 2> runtimeModuleList,
+  unsigned packetWidth) :
+  m_packetizationWidth(packetWidth),
+  m_vfh(DXEntryDB) {
+    m_runtimeModulesList = runtimeModuleList;
+}
+
 Function* DXRuntime::findInRuntimeModule(StringRef Name) const {
-   return m_runtimeModule->getFunction(Name);
+  for (SmallVector<Module*, 2>::const_iterator it = m_runtimeModulesList.begin();
+    it != m_runtimeModulesList.end(); ++it)
+  {
+    Function* ret_function = (*it)->getFunction(Name);
+    if (ret_function != NULL)
+        return ret_function;
+  }
+  return NULL;
 }
 
 std::auto_ptr<VectorizerFunction>
@@ -65,7 +80,7 @@ bool DXRuntime::isMaskedFunctionCall(const std::string &func_name) const {
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  intel::RuntimeServices* createDXRuntimeSupport(const Module *runtimeModule) {
-    return new intel::DXRuntime(runtimeModule, 4);
+  intel::RuntimeServices* createDXRuntimeSupport(SmallVector<Module*, 2> runtimeModuleList) {
+    return new intel::DXRuntime(runtimeModuleList, 4);
   }
 }

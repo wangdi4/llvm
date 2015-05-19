@@ -24,8 +24,13 @@ File Name:  Program.h
 #include "ICLDevBackendProgram.h"
 #include "RuntimeService.h"
 #include "Serializer.h"
+#include "llvm/ADT/SmallVector.h"
 #include <string>
 #include <memory>
+
+namespace llvm {
+    class Module;
+}
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class KernelSet;
@@ -180,7 +185,7 @@ public:
      * Note: will take ownership on passed module
      */
     void SetModule( void* pModule);
-    virtual void SetBuiltinModule(void* pModule) {}
+    virtual void SetBuiltinModule(llvm::SmallVector<llvm::Module*, 2> bltnFuncList) {}
 
     virtual void SetExecutionEngine(void *eE) {}
 

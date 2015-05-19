@@ -136,8 +136,8 @@ const char *APPLE_STREAM_WRITE_IMG_NAME_32 = "_Z34__async_work_group_stream_to_i
 const char *APPLE_STREAM_WRITE_IMG_NAME_64 = "_Z34__async_work_group_stream_to_imagePU3AS110_image2d_tmmmPKDv4_fS2_S2_S2_";
 
 
-AppleOpenclRuntime::AppleOpenclRuntime(const Module *runtimeModule):
-    OpenclRuntime(runtimeModule, appleScalarSelect)    
+AppleOpenclRuntime::AppleOpenclRuntime(llvm::SmallVector<Module*, 2> runtimeModuleList) :
+  OpenclRuntime(runtimeModuleList, appleScalarSelect)
 {
   const char **preVecPtr = appleNeedPreVectorization;
   while (*preVecPtr) {
@@ -147,6 +147,8 @@ AppleOpenclRuntime::AppleOpenclRuntime(const Module *runtimeModule):
 
   MemoryBuffer *MB = MemoryBuffer::getMemBuffer(RTModuleStr);
   SMDiagnostic Err1;
+  assert(!m_runtimeModulesList.empty() && "Builtin module list is empty!");
+  const Module* runtimeModule = m_runtimeModulesList.front(); 
   LLVMContext &Context1 = runtimeModule->getContext();
   m_innerRTModule = ParseIR(MB, Err1, Context1);
 
@@ -199,9 +201,9 @@ bool AppleOpenclRuntime::isTransposedReadImg(const std::string &func_name) const
 
 Function *AppleOpenclRuntime::getWriteStream(bool isPointer64Bit) const {
   if(isPointer64Bit) {
-    return m_runtimeModule->getFunction(APPLE_STREAM_WRITE_IMG_NAME_64);
+    return OpenclRuntime::findInRuntimeModule(APPLE_STREAM_WRITE_IMG_NAME_64);
   } else {
-    return m_runtimeModule->getFunction(APPLE_STREAM_WRITE_IMG_NAME_32);
+    return OpenclRuntime::findInRuntimeModule(APPLE_STREAM_WRITE_IMG_NAME_32);
   }
 }
 
@@ -215,9 +217,9 @@ bool AppleOpenclRuntime::isTransposedWriteImg(const std::string &func_name) cons
 
 Function *AppleOpenclRuntime::getReadStream(bool isPointer64Bit) const {
   if(isPointer64Bit) {
-    return m_runtimeModule->getFunction(APPLE_STREAM_READ_IMG_NAME_64);
+    return OpenclRuntime::findInRuntimeModule(APPLE_STREAM_READ_IMG_NAME_64);
   } else {
-    return m_runtimeModule->getFunction(APPLE_STREAM_READ_IMG_NAME_32);
+    return OpenclRuntime::findInRuntimeModule(APPLE_STREAM_READ_IMG_NAME_32);
   }
 }
 
@@ -227,7 +229,7 @@ Function *AppleOpenclRuntime::getReadStream(bool isPointer64Bit) const {
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  intel::RuntimeServices* createAppleOpenclRuntimeSupport(const Module *runtimeModule) {
-    return new intel::AppleOpenclRuntime(runtimeModule);
+  intel::RuntimeServices* createAppleOpenclRuntimeSupport(SmallVector<Module*, 2> runtimeModuleList) {
+    return new intel::AppleOpenclRuntime(runtimeModuleList);
   }
 }

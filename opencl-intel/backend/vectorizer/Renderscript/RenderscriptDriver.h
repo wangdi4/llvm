@@ -71,7 +71,7 @@ private:
     funcsVector m_scalarFuncsList;
 
     /// @brief Pointer to runtime module
-    const Module *m_runtimeModule;
+    SmallVector<Module*, 2> m_runtimeModuleList;
 
     /// @brief Number of kernels in current module
     unsigned m_numOfKernels;

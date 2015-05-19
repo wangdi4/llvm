@@ -12,7 +12,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 using namespace llvm;
 
 extern "C" {
-  llvm::Pass* createBuiltinLibInfoPass(Module *Builtins, std::string type) {
+    llvm::Pass* createBuiltinLibInfoPass(llvm::SmallVector<llvm::Module*, 2> builtinsList, std::string type) {
     intel::BuiltinLibInfo::RuntimeServicesTypes rtType = intel::BuiltinLibInfo::RTS_OCL;
     if(type == "ocl") {
       rtType = intel::BuiltinLibInfo::RTS_OCL;
@@ -31,14 +31,13 @@ extern "C" {
       rtType = intel::BuiltinLibInfo::RTS_OSX;
 #endif
     }
-    return new intel::BuiltinLibInfo(Builtins, rtType);
+    return new intel::BuiltinLibInfo(builtinsList, rtType);
   }
 
-  intel::RuntimeServices* createVolcanoOpenclRuntimeSupport(const Module *runtimeModule);
-  intel::RuntimeServices* createDXRuntimeSupport(const Module *runtimeModule);
-  intel::RuntimeServices* createAppleOpenclRuntimeSupport(const Module *runtimeModule);
-  intel::RuntimeServices* createRenderscriptRuntimeSupport(const Module *runtimeModule);
-
+  intel::RuntimeServices* createVolcanoOpenclRuntimeSupport(SmallVector<Module*, 2> runtimeModuleList);
+  intel::RuntimeServices* createDXRuntimeSupport(SmallVector<Module*, 2> runtimeModuleList);
+  intel::RuntimeServices* createAppleOpenclRuntimeSupport(SmallVector<Module*, 2> runtimeModuleList);
+  intel::RuntimeServices* createRenderscriptRuntimeSupport(SmallVector<Module*, 2> runtimeModuleList);
 }
 
 namespace intel{
@@ -47,8 +46,10 @@ namespace intel{
 
   OCL_INITIALIZE_PASS(BuiltinLibInfo, "builtin-lib-info", "Builtin Library Info", false, false)
 
-  BuiltinLibInfo::BuiltinLibInfo(Module *builtins, RuntimeServicesTypes type) :
-    ImmutablePass(ID), m_pBIModule(builtins) {
+  BuiltinLibInfo::BuiltinLibInfo(SmallVector<Module*, 2> builtinsList, RuntimeServicesTypes type) :
+    ImmutablePass(ID) {
+
+    m_BIModuleList = builtinsList;
 
     initializeBuiltinLibInfoPass(*PassRegistry::getPassRegistry());
 
@@ -58,16 +59,16 @@ namespace intel{
 #else
     switch(type) {
     case RTS_OCL:
-      m_pRuntimeServices = createVolcanoOpenclRuntimeSupport(m_pBIModule);
+      m_pRuntimeServices = createVolcanoOpenclRuntimeSupport(m_BIModuleList);
       break;
     case RTS_OSX:
-      m_pRuntimeServices = createAppleOpenclRuntimeSupport(m_pBIModule);
+      m_pRuntimeServices = createAppleOpenclRuntimeSupport(m_BIModuleList);
       break;
     case RTS_DX:
-      m_pRuntimeServices = createDXRuntimeSupport(m_pBIModule);
+      m_pRuntimeServices = createDXRuntimeSupport(m_BIModuleList);
       break;
     case RTS_RS:
-      m_pRuntimeServices = createRenderscriptRuntimeSupport(m_pBIModule);
+      m_pRuntimeServices = createRenderscriptRuntimeSupport(m_BIModuleList);
       break;
     default:
       assert(false && "Unknown runtime services type.");

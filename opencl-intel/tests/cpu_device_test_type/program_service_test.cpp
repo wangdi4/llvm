@@ -48,6 +48,11 @@
 bool BuildProgram(const char* szFileName, cl_dev_program* prog)
 {
     std::ifstream testFile(szFileName, std::ios::binary);
+    if (!testFile.is_open())
+    {
+        printf(">>>>>>> Opening a test program failed <%s>\n", szFileName);
+        return false;
+    }
     std::vector<char> buffer;
 
     buffer.assign(std::istreambuf_iterator<char>(testFile), std::istreambuf_iterator<char>());

@@ -30,7 +30,7 @@ class RenderscriptRuntime : public RuntimeServices {
 public:
 
   /// @brief Constructor
-  RenderscriptRuntime(const Module *runtimeModule);
+  RenderscriptRuntime(SmallVector<Module*, 2> runtimeModulesList);
 
   /// @brief Destructor
   virtual ~RenderscriptRuntime() {}
@@ -193,9 +193,9 @@ protected:
   /// @brief hold names of scalar select builtins
   std::set<std::string> m_scalarSelectSet;
 
-  /// @brief Pointer to runtime module
-  /// (module with implementation of built-in functions)
-  const Module *m_runtimeModule;
+  /// @brief Pointer to runtime modules list
+  // (module with implementation of built-in functions)
+  SmallVector<Module*, 2> m_runtimeModulesList;
 
   /// @brief Hold the requested packetization width
   //(currently same one for all funcs)

@@ -237,6 +237,17 @@ namespace intel {
     return pRetVal;
   }
 
+  Function* GroupBuiltin::FindFunctionInModule(const std::string& funcName) {
+    for (SmallVector<Module*, 2>::iterator it = m_builtinModuleList.begin();
+        it != m_builtinModuleList.end(); ++it) {
+      assert(*it != NULL && "Encountered NULL ptr in m_builtinModuleList");
+      Function* pRetFunction = (*it)->getFunction(funcName);
+      if (pRetFunction)
+        return pRetFunction;
+    }
+    return NULL;
+  }
+
   bool GroupBuiltin::runOnModule(Module &M) {
 
     m_pModule = &M;
@@ -244,8 +255,8 @@ namespace intel {
     m_pSizeT = (m_pModule->getPointerSize() == Module::Pointer64)? 
                                           Type::getInt64Ty(*m_pLLVMContext): 
                                           Type::getInt32Ty(*m_pLLVMContext);
-    Module* builtinModule = getAnalysis<BuiltinLibInfo>().getBuiltinModule();
-    assert(builtinModule && "Builtin module were not initialized!");
+    m_builtinModuleList = getAnalysis<BuiltinLibInfo>().getBuiltinModules();
+    assert(!m_builtinModuleList.empty() && "Builtin module were not initialized!");
 
     //Initialize barrier utils class with current module
     m_util.init(&M);
@@ -351,8 +362,8 @@ namespace intel {
       std::string newFuncName = mangle(fd);
 
       //   c. Create function declaration object (unless the module contains it already)
-      //      --- get the new function declaration out of built-in module.
-      Function *LibFunc = builtinModule->getFunction(newFuncName);
+      //      --- get the new function declaration out of built-in module list.
+      Function *LibFunc = FindFunctionInModule(newFuncName);
       assert(LibFunc && "WG builtin is not supported in built-in module");
       Function *pNewFunc = dyn_cast<Function>(m_pModule->getOrInsertFunction(
         LibFunc->getName(), LibFunc->getFunctionType(), LibFunc->getAttributes()));
@@ -387,8 +398,8 @@ namespace intel {
         //        [Note that the signature is as of original WG function]
         std::string finalizeFuncName = CompilationUtils::appendWorkGroupFinalizePrefix(funcName);
         //    --- create function
-        //    --- get the new function declaration out of built-in module.
-        Function *LibFunc = builtinModule->getFunction(finalizeFuncName);
+        //    --- get the new function declaration out of built-in modules list.
+        Function *LibFunc = FindFunctionInModule(finalizeFuncName);
         assert(LibFunc && "WG builtin is not supported in built-in module");
         Function *pFinalizeFunc = dyn_cast<Function>(m_pModule->getOrInsertFunction(
           LibFunc->getName(), LibFunc->getFunctionType(), LibFunc->getAttributes()));

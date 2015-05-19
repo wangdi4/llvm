@@ -42,7 +42,7 @@ namespace llvm {
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-class BuiltinModule;
+class BuiltinModules;
 class Program;
 class Kernel;
 class KernelProperties;

@@ -33,9 +33,9 @@ namespace intel {
 
   bool BIImport::runOnModule(Module &M) {
     BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
-    m_pSourceModule = BLI.getBuiltinModule();
-    if (m_pSourceModule == NULL) {
-      // If there is no source module, then nothing can be imported.
+    m_runtimeModuleList = BLI.getBuiltinModules();
+    if (m_runtimeModuleList.empty()) {
+      // If there are no source modules, then nothing can be imported.
       return false;
     }
 
@@ -65,6 +65,24 @@ namespace intel {
     return !m_valueMap.empty();
   }
 
+  Function* BIImport::FindFunctionBodyInModules(const std::string& funcName) {
+    SmallVector<Module*, 2>::iterator it = m_runtimeModuleList.begin(),
+                                 itEnd = m_runtimeModuleList.end();
+    for (; it != itEnd; ++it) {
+      assert(*it != NULL && "NULL pointer detected in BIImport::FindFunctionInModules");
+
+      Function* pRetFunction = (*it)->getFunction(funcName);
+
+      // Test if the function body is contained in this module. Note that due to the lazy
+      // parsing of built-in modules the function body might not be materialized yet and is reported
+      // as declaration in that case. (This behaviour was fixed in LLVM 3.6)
+      if (pRetFunction != NULL &&
+        (pRetFunction->isMaterializable() || !pRetFunction->isDeclaration()) )
+        return pRetFunction;
+    }
+    return NULL;
+  }
+
   void BIImport::CollectRootFunctionsToImport() {
     assert(m_functionsToImport.empty() && "Starting to fill a non-empty list of all functions.");
 
@@ -73,9 +91,9 @@ namespace intel {
     // Find all "root" functions.
     for (Module::iterator it = m_pModule->begin(), e = m_pModule->end(); it != e; ++it) {
       Function *pDstFunc = it;
-      std::string pFuncName = pDstFunc->getName().str();
+      std::string funcName = pDstFunc->getName().str();
       if (pDstFunc->isDeclaration()) {
-        Function* pSrcFunc = m_pSourceModule->getFunction(pFuncName);
+        Function* pSrcFunc = FindFunctionBodyInModules(funcName);
         if (!pSrcFunc) continue;
         if (MapAndImportFunctionDclIfNeeded(pSrcFunc, pDstFunc)) {
           rootFunctionsToImport.push_back(pSrcFunc);
@@ -87,20 +105,30 @@ namespace intel {
   }
 
   void BIImport::CollectGlobalsToImport() {
-    Module::GlobalListType &lstGlobals = m_pSourceModule->getGlobalList();
-    // Iterate over all globals in source module and check if any needs to be imported
-    for (Module::GlobalListType::iterator it = lstGlobals.begin(), e = lstGlobals.end(); it != e; ++it) {
-      GlobalVariable* pGlobalVal = it;
-      if (m_valueMap.count(pGlobalVal)) {
-        // Global variable is already mapped to destination module
-        continue;
-      }
-      if (IsSrcValUsedInModule(pGlobalVal)) {
-        // Global value is used in module import it without initialization
-        ImportGlobalVariableDeclaration(pGlobalVal);
-        if (pGlobalVal->hasInitializer()) {
-          // Global value has initializer add it to globals list to import
-          m_globalsToImport.push_back(pGlobalVal);
+    for (SmallVector<Module*, 2>::iterator pSourceModuleIter = m_runtimeModuleList.begin();
+         pSourceModuleIter != m_runtimeModuleList.end();
+         pSourceModuleIter++) {
+      Module::GlobalListType &lstGlobals = (*pSourceModuleIter)->getGlobalList();
+      // Iterate over all globals in source module and check if any needs to be imported
+      for (Module::GlobalListType::iterator it = lstGlobals.begin(), e = lstGlobals.end(); it != e; ++it) {
+        GlobalVariable* pGlobalVal = it;
+        if (m_valueMap.count(pGlobalVal)) {
+          // Global variable is already mapped to destination module
+          continue;
+        }
+        if (IsSrcValUsedInModule(pGlobalVal)) {
+          // Global value is used in module import it without initialization
+          GlobalVariable* pGlobalValDecl = ImportGlobalVariableDeclaration(pGlobalVal);
+          // Iterate over builtin modules and map Global Values with the name of pGlobalVal
+          for (SmallVector<Module*, 2>::iterator pSourceModuleIter = m_runtimeModuleList.begin();
+            pSourceModuleIter != m_runtimeModuleList.end();
+            pSourceModuleIter++) {
+              GlobalVariable* bltnGlobalVariable = (*pSourceModuleIter)->getGlobalVariable(pGlobalVal->getName());
+              if (bltnGlobalVariable && bltnGlobalVariable->hasInitializer()) {
+                  m_globalsToImport.push_back(bltnGlobalVariable);
+              }
+              m_valueMap[bltnGlobalVariable] = pGlobalValDecl;
+          }
         }
       }
     }
@@ -108,13 +136,22 @@ namespace intel {
 
   bool BIImport::CollectSourceFunctionsToImport() {
     TFunctionsVec tmpFunctionsToImport;
-    // Iterate over all functions in source module and check if any needs to be imported
-    for (Module::iterator it = m_pSourceModule->begin(), e = m_pSourceModule->end(); it != e; ++it) {
-      Function *pSrcFunc = it;
-      if (MapAndImportFunctionDclIfNeeded(pSrcFunc, NULL)) {
-        tmpFunctionsToImport.push_back(pSrcFunc);
+    for (SmallVector<Module*, 2>::iterator pSourceModuleIter = m_runtimeModuleList.begin();
+         pSourceModuleIter != m_runtimeModuleList.end();
+         pSourceModuleIter++) {
+      // Iterate over all functions in source module and check if any needs to be imported
+      for (Module::iterator it = (*pSourceModuleIter)->begin(), e = (*pSourceModuleIter)->end(); it != e; ++it) {
+        Function *pSrcFunc = it;
+        // iterating only by function definitions or materialazible functions
+        if ((!pSrcFunc->isDeclaration() || pSrcFunc->isMaterializable())) {
+          Function* pDstFunction = m_pModule->getFunction(pSrcFunc->getName());
+          if((!pDstFunction || pDstFunction->isDeclaration()) &&
+             MapAndImportFunctionDclIfNeeded(pSrcFunc, pDstFunction))
+            tmpFunctionsToImport.push_back(pSrcFunc);
+        }
       }
     }
+
     if(tmpFunctionsToImport.empty()) {
       // No new functions to import
       return false;
@@ -136,6 +173,10 @@ namespace intel {
       GlobalVariable *pDstGlobal = dyn_cast<GlobalVariable>(m_valueMap[pSrcGlobal]);
       assert(pDstGlobal != NULL && "global variable must be mapped to global variable");
       assert(!pDstGlobal->hasInitializer() && "global variable already has initialization");
+      // Propagate alignment, visibility and section info.
+      pDstGlobal->copyAttributesFrom(pSrcGlobal);
+      pDstGlobal->setAlignment(pSrcGlobal->getAlignment());
+
       // Figure out what the initializer looks like in the dest module.
       pDstGlobal->setInitializer(MapValue(pSrcGlobal->getInitializer(), m_valueMap));
     }
@@ -196,6 +237,10 @@ namespace intel {
     while (!rootFunctionsToImport.empty()) {
       // Move source function from root list to functions to import list.
       Function* pSrcFunc = rootFunctionsToImport.back();
+      // assert that a function body was materialized (and thus is not a declaration)
+      // or can be materialized.
+      assert((!pSrcFunc->isDeclaration() || pSrcFunc->isMaterializable())
+        && "A function without a body was detected");
       rootFunctionsToImport.pop_back();
       m_functionsToImport.push_back(pSrcFunc);
 
@@ -208,7 +253,18 @@ namespace intel {
       TFunctionsVec::iterator calledFuncE = calledFuncs.end();
       for (; calledFuncIt != calledFuncE; ++calledFuncIt) {
         Function* pCalledFunc = *calledFuncIt;
-        if (MapAndImportFunctionDclIfNeeded(pCalledFunc, NULL)) {
+
+        // Check if a function with the same name is defined in the destination
+        // module (for example if a user has defined a function w\ the same name as
+        // a helper function in built-in modules).
+        // In this case a new function must be created and added to the mapping.
+        // NOTE: this may create redundant declarations of the same function
+        //       but only the latest one will be used in ImportFunctionDefinitions
+        Function* pDstFunction = m_pModule->getFunction(pCalledFunc->getName());
+        if(pDstFunction && !pDstFunction->isDeclaration()) {
+          pDstFunction = NULL;
+        }
+        if (MapAndImportFunctionDclIfNeeded(pCalledFunc, pDstFunction)) {
           // In this case we have a new function that need to be import and
           // was not handled yet, added it to the functions-to-imprt list
           rootFunctionsToImport.push_back(pCalledFunc);
@@ -217,24 +273,28 @@ namespace intel {
     }
   }
 
-  bool BIImport::MapAndImportFunctionDclIfNeeded(Function *pSrcFunc, Function *pDstFunc) {
+  bool BIImport::MapAndImportFunctionDclIfNeeded(Function* &pSrcFunc, Function *pDstFunc) {
     assert(pSrcFunc && "Function to import is a NULL");
     if (m_valueMap.count(pSrcFunc)) {
       // Source function declaration is already mapped to destination module
       return false;
     }
+    // It is crucial to check first if the source function is needed because the destination
+    // function declaration could be created on a previous iteration and not yet used by a
+    // destination module.
     bool isNeededByModule =
-      (pDstFunc != NULL && IsDestValUsedInModule(pDstFunc)) ||
-      (pDstFunc == NULL && IsSrcValUsedInModule(pSrcFunc));
+      IsSrcValUsedInModule(pSrcFunc) || (pDstFunc != NULL && IsDestValUsedInModule(pDstFunc));
     if (!isNeededByModule) {
       // No need to import source function, it is not needed by destination module
       return false;
     }
+    // Find function with body for pSrcFunc.
     if (pDstFunc) {
       // Remember the mapping of struct types.
       m_structTypeRemapper.insert(pSrcFunc, pDstFunc);
     } else {
-      // Create a new funciton in the destination module.
+      // Create a new function decalaration in the destination module
+      // only if there is no declaration for that name already created.
       // At this point m_structTypeRemapper must contain correct mapping
       // based on the set of the root functions.
       pDstFunc = Function::Create(m_structTypeRemapper.remapFunctionType(pSrcFunc),
@@ -242,17 +302,29 @@ namespace intel {
       pDstFunc->setAttributes(pSrcFunc->getAttributes());
     }
 
-    if(pSrcFunc->isDeclaration() && pSrcFunc->isMaterializable()) {
-      // Materialize function source function
-      m_pSourceModule->Materialize(pSrcFunc);
+    // Map source function and its declaration in the builtin modules
+    // to its declaration in destination (user) module.
+    for (SmallVector<Module*, 2>::iterator pSourceModuleIter = m_runtimeModuleList.begin();
+       pSourceModuleIter != m_runtimeModuleList.end();
+       pSourceModuleIter++) {
+      Function* bltFunction = (*pSourceModuleIter)->getFunction(pSrcFunc->getName());
+      if (bltFunction) {
+        m_valueMap[bltFunction] = pDstFunc;
+      }
     }
-    // Map source function to its declaration in destination module.
-    m_valueMap[pSrcFunc] = pDstFunc;
+
     // Return true only if source function is a definition that need to be imported
-    return !pSrcFunc->isDeclaration();
+    pSrcFunc = FindFunctionBodyInModules(pSrcFunc->getName());
+    if(pSrcFunc && pDstFunc->isDeclaration()) {
+      // Materialize source function
+      std::string error;
+      pSrcFunc->Materialize(&error);
+      return true;
+    }
+    return false;
   }
 
-  void BIImport::ImportGlobalVariableDeclaration(GlobalVariable* pSrcGlobal) {
+  GlobalVariable* BIImport::ImportGlobalVariableDeclaration(GlobalVariable* pSrcGlobal) {
     GlobalVariable *pDstGlobal =
         new GlobalVariable(*m_pModule,
             pSrcGlobal->getType()->getElementType(),
@@ -264,11 +336,7 @@ namespace intel {
             pSrcGlobal->getThreadLocalMode(),
             pSrcGlobal->getType()->getAddressSpace());
 
-    // Propagate alignment, visibility and section info.
-    pDstGlobal->copyAttributesFrom(pSrcGlobal);
-    pDstGlobal->setAlignment(pSrcGlobal->getAlignment());
-
-    m_valueMap[pSrcGlobal] = pDstGlobal;
+    return pDstGlobal;
   }
 
 
@@ -296,6 +364,7 @@ namespace intel {
         // Thus, no need to handle this case - function casting is not allowed (and not expected!)
         continue;
       }
+
       if(visitedSet.count(pCalledFunc)) continue;
 
       assert(!m_cpuPrefix.empty() && "m_cpuPrefix is empty");
@@ -335,8 +404,9 @@ namespace intel {
       if (isa<Instruction>(user)) {
         Function* pFunc = cast<Instruction>(user)->getParent()->getParent();
         if (m_valueMap.count(pFunc)) {
-          assert(cast<Instruction>(user)->getParent()->getParent()->getParent()
-            == m_pSourceModule && "value is assumed to be part of source module");
+            assert(std::find( m_runtimeModuleList.begin(), m_runtimeModuleList.end(),
+                cast<Instruction>(user)->getParent()->getParent()->getParent() )
+                != m_runtimeModuleList.end() && "value is assumed to be part of source modules list");
           // found a function using this value that is needed to be import to destination module.
           return true;
         }

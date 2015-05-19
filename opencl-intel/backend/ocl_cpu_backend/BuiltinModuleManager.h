@@ -26,7 +26,7 @@ class LLVMContext;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-class BuiltinModule;
+class BuiltinModules;
 class BuiltinLibrary;
 
 //*****************************************************************************************
@@ -66,7 +66,7 @@ public:
     /**
      * Creates the builtins module for the given cpu using the given LLVMContext
      */
-    BuiltinModule*  CreateBuiltinModule(int cpuId, llvm::LLVMContext* pContext);
+    BuiltinModules*  CreateBuiltinModule(int cpuId, llvm::LLVMContext* pContext);
 
 private:
     typedef std::pair<int, CPUId> DevIdCpuId;

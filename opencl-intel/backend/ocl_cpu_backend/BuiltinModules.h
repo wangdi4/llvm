@@ -12,12 +12,13 @@ Copyright (c) Intel Corporation (2010).
     use of the code. No license, express or implied, by estoppels or otherwise,
     to any intellectual property rights is granted herein.
 
-File Name:  BuiltinModule.h
+File Name:  BuiltinModules.h
 
 \*****************************************************************************/
 #pragma once // <--- TODO: Add proper INCLUDE_GUARD
 
 #include "llvm/ADT/OwningPtr.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Errno.h"
 #include "llvm/Support/system_error.h"
 #include <assert.h>
@@ -35,17 +36,18 @@ class LLVMContext;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-class BuiltinModule
+class BuiltinModules
 {
 public:
-    BuiltinModule(llvm::Module* pRtlModule);
-    ~BuiltinModule();
+    BuiltinModules(llvm::SmallVector<llvm::Module*, 2> builtinsModules);
+    ~BuiltinModules();
 
-    llvm::Module* GetRtlModule() { return m_pModule; }
+    llvm::SmallVector<llvm::Module*, 2> GetBuiltinModuleList() { return m_BuiltinsModules; }
 
 private:
     int m_cpuId;
-    llvm::Module* m_pModule;
+
+    llvm::SmallVector<llvm::Module*, 2> m_BuiltinsModules;
 };
 
 class BuiltinLibrary : public IDynamicFunctionsResolver
@@ -54,8 +56,8 @@ public:
     BuiltinLibrary(const Intel::CPUId&);
     virtual ~BuiltinLibrary();
 
-    llvm::MemoryBuffer* GetRtlBuffer() const { return m_pRtlBuffer.get(); }
-    llvm::MemoryBuffer* GetRtlBufferSvmlShared() const { return m_pRtlBufferSvmlShared.get(); }
+    llvm::MemoryBuffer* GetRtlBuffer() const { return m_pRtlBuffer; }
+    llvm::MemoryBuffer* GetRtlBufferSvmlShared() const { return m_pRtlBufferSvmlShared; }
 
     ECPU GetCPU() const { return m_cpuId.GetCPU();}
 
@@ -73,8 +75,8 @@ public:
 
 protected:
     const Intel::CPUId   m_cpuId;
-    llvm::OwningPtr<llvm::MemoryBuffer> m_pRtlBuffer;
-    llvm::OwningPtr<llvm::MemoryBuffer> m_pRtlBufferSvmlShared;
+    llvm::MemoryBuffer* m_pRtlBuffer;
+    llvm::MemoryBuffer* m_pRtlBufferSvmlShared;
 };
 
 

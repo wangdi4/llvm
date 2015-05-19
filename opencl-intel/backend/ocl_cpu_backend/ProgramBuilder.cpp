@@ -27,7 +27,7 @@ File Name:  ProgramBuilder.cpp
 #include "Kernel.h"
 #include "KernelProperties.h"
 #include "CPUDetect.h"
-#include "BuiltinModule.h"
+#include "BuiltinModules.h"
 #include "exceptions.h"
 #include "BuiltinModuleManager.h"
 #include "MetaDataApi.h"
@@ -254,7 +254,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
         pCompiler->SetObjectCache(pObjectCodeCache.get());
 
         pProgram->SetExecutionEngine(pCompiler->GetExecutionEngine());
-        pProgram->SetBuiltinModule(pCompiler->GetRtlModule());
+        pProgram->SetBuiltinModule(pCompiler->GetBuiltinModuleList());
 
         // init refcounted runtime service shared storage between program and kernels
         RuntimeServiceSharedPtr lRuntimeService =

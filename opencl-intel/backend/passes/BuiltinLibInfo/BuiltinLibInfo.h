@@ -28,13 +28,13 @@ public:
   } RuntimeServicesTypes;
 
   /// @brief Constructor
-  /// @param Builtins Built-in module
-  /// @param Builtins Built-in module
-  BuiltinLibInfo(Module *Builtins, RuntimeServicesTypes type);
+  /// @param BuiltinsList List of builtin modules
+  /// @param type Runtime service type
+  BuiltinLibInfo(SmallVector<Module*, 2> builtinsList, RuntimeServicesTypes type);
 
   /// @brief Empty Constructor
   ///   Should not be called, exists only to be able to register it to opt.
-  BuiltinLibInfo() : ImmutablePass(ID), m_pBIModule(NULL), m_pRuntimeServices(NULL) {
+  BuiltinLibInfo() : ImmutablePass(ID), m_pRuntimeServices(NULL) {
     assert(false && "Default constructor is not supported");
   }
 
@@ -46,8 +46,7 @@ public:
 
   /// @brief returns built-ins module
   /// @return the builtin library module
-  const Module* getBuiltinModule() const { return m_pBIModule; }
-  Module* getBuiltinModule() { return m_pBIModule; }
+  SmallVector<Module*, 2> getBuiltinModules() const { return m_BIModuleList; }
 
   /// @brief returns runtime services
   /// @return the runtime services
@@ -55,8 +54,10 @@ public:
   RuntimeServices* getRuntimeServices() { return m_pRuntimeServices; }
 
 private:
-  /// This member holds Built-in Module (is not owned by this pass)
-  Module *m_pBIModule;
+  /// This list holds the Builtin modules
+  /// (pointers are not owned by this pass)
+  SmallVector<Module*, 2> m_BIModuleList;
+
   /// This member holds Runtime Services instance.
   /// (is owned by this pass and should be deleted at destructor)
   RuntimeServices *m_pRuntimeServices;

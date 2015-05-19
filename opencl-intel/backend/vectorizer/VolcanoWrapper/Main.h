@@ -31,7 +31,7 @@ public:
     static char ID;
     /// @brief C'tor
     /// @param rt Runtime module (contains declarations of all builtin funcs)
-    Vectorizer(const Module * rt, const OptimizerConfig* pConfig);
+    Vectorizer(llvm::SmallVector<llvm::Module*, 2> rtList, const OptimizerConfig* pConfig);
     /// @brief D'tor
     ~Vectorizer();
     /// @brief Provides name of pass
@@ -54,8 +54,8 @@ private:
     /// @brief holds all the "original" (scalar) functions
     funcsVector m_scalarFuncsList; 
 
-    /// @brief Pointer to runtime module
-    const Module * m_runtimeModule;
+    /// @brief List of pointers to runtime modules
+    llvm::SmallVector<llvm::Module*, 2> m_runtimeModuleList;
 
     /// @brief Number of kernels in current module
     unsigned m_numOfKernels;

@@ -21,6 +21,7 @@ File Name:  Compiler.h
 #include "CPUDetect.h"
 #include "ICompilerConfig.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/ADT/SmallVector.h"
 
 #include <string>
 
@@ -37,7 +38,7 @@ extern bool s_ignore_termination;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class BuiltinLibrary;
-class BuiltinModule;
+class BuiltinModules;
 class ProgramBuildResult;
 class ObjectCodeCache;
 
@@ -176,18 +177,20 @@ public:
     // Get Function Address Resolver
     virtual void *GetFunctionAddressResolver() { return NULL; }
 
-    /**
-     * Returns pointer to the RTL library module
-     */
-    virtual llvm::Module* GetRtlModule() const = 0;
+    // Returns a list of pointers to the RTL libraries
+    virtual llvm::SmallVector<llvm::Module*, 2> GetBuiltinModuleList() const = 0;
+
+    // Get function definition from a Module by its name
+    bool FindFunctionBodyInModules(std::string &FName,
+                               llvm::Module const *bifModule,
+                               llvm::Function* &pFunction) const;
 
     llvm::Module* ParseModuleIR(llvm::MemoryBuffer* pIRBuffer);
 
     virtual void SetObjectCache(ObjectCodeCache* pCache) = 0;
 
 protected:
-
-    llvm::Module* CreateRTLModule(BuiltinLibrary* pLibrary) const;
+    void LoadBuiltinModules(BuiltinLibrary* pLibrary, llvm::SmallVector<llvm::Module*, 2>& builtinsModules) const;
 
 protected:
     llvm::LLVMContext*       m_pLLVMContext;

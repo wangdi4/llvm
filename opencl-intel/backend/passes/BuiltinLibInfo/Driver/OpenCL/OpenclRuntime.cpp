@@ -62,10 +62,10 @@ const size_t BuiltinReturnByPtrLength = sizeof(BuiltinReturnByPtr) / sizeof(Buil
 
 
 /// @brief Constructor which get arbitraty table as input
-OpenclRuntime::OpenclRuntime(const Module *runtimeModule,
-                             const char  **scalarSelects):
-m_runtimeModule(runtimeModule),
+OpenclRuntime::OpenclRuntime(SmallVector<Module*, 2> runtimeModuleList,
+                             const char  **scalarSelects) :
 m_packetizationWidth(0) {
+  m_runtimeModulesList = runtimeModuleList;
   initScalarSelectSet(scalarSelects);
   initDotMap();
 }
@@ -86,7 +86,16 @@ void OpenclRuntime::initScalarSelectSet(const char **scalarSelects) {
 }
 
 Function * OpenclRuntime::findInRuntimeModule(StringRef Name) const {
-   return m_runtimeModule->getFunction(Name);
+  for (SmallVector<Module*, 2>::const_iterator it = m_runtimeModulesList.begin();
+      it != m_runtimeModulesList.end();
+      ++it)
+  {
+    assert(*it != NULL && "OpenclRuntime::findInRuntimeModule Encountered NULL ptr in m_runtimeModulesList");
+    Function* ret_function = (*it)->getFunction(Name);
+    if (ret_function != NULL)
+       return ret_function;
+  }
+  return NULL;
 }
 
 std::auto_ptr<VectorizerFunction>

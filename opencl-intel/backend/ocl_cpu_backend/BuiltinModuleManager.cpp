@@ -20,7 +20,7 @@ File Name:  BuiltinModuleManager.cpp
 #include <string>
 #include <memory>
 #include "BuiltinModuleManager.h"
-#include "BuiltinModule.h"
+#include "BuiltinModules.h"
 #if defined(INCLUDE_MIC_DEVICE)
 #include "MICBuiltinLibrary.h"
 #endif

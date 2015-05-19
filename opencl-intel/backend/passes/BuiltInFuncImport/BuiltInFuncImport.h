@@ -134,12 +134,13 @@ namespace intel {
     /// @param [IN] pSrcFunc The given source function.
     /// @param [IN] pDstFunc The given destination function declaration (can be NULL).
     /// @return true if given source function needed to be mapped, false otherwise.
-    bool MapAndImportFunctionDclIfNeeded(Function *pSrcFunc, Function *pDstFunc);
+    bool MapAndImportFunctionDclIfNeeded(Function* &pSrcFunc, Function *pDstFunc);
 
     /// @brief Import given source global variable from source module into
     ///        destination module, without its initialization.
     /// @param [IN] pSrcGlobal The given source global variable.
-    void ImportGlobalVariableDeclaration(GlobalVariable* pSrcGlobal);
+    /// @return declaration the method creates
+    GlobalVariable* ImportGlobalVariableDeclaration(GlobalVariable* pSrcGlobal);
 
     /// @brief Get all the functions called by given function.
     /// @param [IN] pFunc The given function.
@@ -158,10 +159,17 @@ namespace intel {
     /// @return true if given value is used by any function that need to be imported, false otherwise.
     bool IsSrcValUsedInModule(Value *pVal);
 
+    /// @brief Find functions in the list of RTL builtin modules
+    /// @param [IN] funcName name of the function to find
+    /// @return found function, it is either materialized or materialazible, or null otherwise
+    Function* FindFunctionBodyInModules(const std::string& funcName);
+
   protected:
     const std::string m_cpuPrefix;
-    /// Source module - contains the source function definition to import
-    Module* m_pSourceModule;
+
+    /// Source module list - contains the source functions to import
+    SmallVector<Module*, 2> m_runtimeModuleList;
+
     /// Destination module - contains function declarations to resolve from RT module
     Module* m_pModule;
 

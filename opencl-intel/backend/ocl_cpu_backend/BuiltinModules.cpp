@@ -12,21 +12,21 @@ Copyright (c) Intel Corporation (2010).
     use of the code. No license, express or implied, by estoppels or otherwise,
     to any intellectual property rights is granted herein.
 
-File Name:  BuiltinModule.cpp
+File Name:  BuiltinModules.cpp
 
 \*****************************************************************************/
 
-#include "BuiltinModule.h"
+#include "BuiltinModules.h"
 #include "llvm/Support/MemoryBuffer.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-BuiltinModule::BuiltinModule(llvm::Module* pRtlModule):
-    m_pModule(pRtlModule)
+BuiltinModules::BuiltinModules(llvm::SmallVector<llvm::Module*, 2> builtinsModules):
+    m_BuiltinsModules(builtinsModules)
 {
 }
 
-BuiltinModule::~BuiltinModule() { }
+BuiltinModules::~BuiltinModules() { }
 
 BuiltinLibrary::BuiltinLibrary(const Intel::CPUId &cpuId):
     m_cpuId(cpuId),
@@ -35,6 +35,7 @@ BuiltinLibrary::BuiltinLibrary(const Intel::CPUId &cpuId):
 {
 }
 
-BuiltinLibrary::~BuiltinLibrary() {}
+BuiltinLibrary::~BuiltinLibrary()
+{ }
 
 }}}
