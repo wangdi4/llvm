@@ -1,4 +1,3 @@
-
 #include "llvm/IR/Module.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/PassManager.h"
@@ -11,15 +10,14 @@
 #include "InitializePasses.h"
 #include "CPUDetect.h"
 
-
 int mainImp(int argc, char **argv);
 
 using namespace llvm;
 
-static cl::opt<std::string>
-RuntimeLib("runtimelib",
-                  cl::desc("Runtime declarations (bitCode) library"),
-                  cl::value_desc("filename"), cl::init(""));
+static cl::list<std::string>
+RuntimeLib(cl::CommaSeparated, "runtimelib",
+                  cl::desc("Runtime declarations (bitCode) libraries (comma separated)"),
+                  cl::value_desc("filename1,filename2"));
 
 static cl::opt<std::string>
 RuntimeServices("runtime",
@@ -31,7 +29,7 @@ MicPasses("mic-passes",
                  cl::desc("Include optimization passes specific for MIC achitecture."));
 
 
-extern "C" Pass* createBuiltinLibInfoPass(Module* pRTModule, std::string type);
+extern "C" Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2> builtinsList, std::string type);
 extern "C" Pass* createBuiltInImportPass(const char* CPUName);
 
 void initializeOCLPasses(PassRegistry &Registry)
@@ -111,26 +109,34 @@ extern "C" llvm::ImmutablePass * createImplicitArgsAnalysisPass(LLVMContext *C);
 void InitOCLPasses( llvm::LLVMContext& context, llvm::PassManager& passMgr )
 {
   //---=== Post Command Line Initialization ===---
-  llvm::SMDiagnostic Err;
   // *** Vectorizer initializations
-  // Obtain the runtime module (either from input, or generate empty ones)
-  std::auto_ptr<llvm::Module> runtimeModule;
+  // Obtain the runtime modules (either from input, or generate empty ones)
+  llvm::SmallVector<llvm::Module*, 2> runtimeModuleList;
 
-  if (RuntimeLib != "") {
-
-    runtimeModule.reset(llvm::ParseIRFile(RuntimeLib, Err, context));
-
-    if (runtimeModule.get() == 0) {
-      errs() << "Runtime file error!\n";
-      return;
-    }
+  if (RuntimeLib.size() != 0) {
+      for (unsigned i = 0; i != RuntimeLib.size(); ++i)
+      {
+          if (RuntimeLib[i] == "") {
+              runtimeModuleList.push_back(new Module("empty", context));
+          }
+          else {
+              llvm::SMDiagnostic Err;
+              llvm::Module* runtimeModule = llvm::getLazyIRFileModule(RuntimeLib[i], Err, context);
+              if (runtimeModule == NULL) {
+                    errs() << "Runtime error reading IR from \"" << RuntimeLib[i] << "\":\n";
+                    Err.print("Error: ", errs());
+                    exit(1);
+              }
+              runtimeModuleList.push_back(runtimeModule);
+          }
+      }
   }
   else {
-    runtimeModule.reset(new Module("empty", context));
+      runtimeModuleList.push_back(new Module("empty", context));
   }
 
   //Always add the BuiltinLibInfo Pass to the Pass Manager
-  passMgr.add(createBuiltinLibInfoPass(runtimeModule.release(), RuntimeServices));
+  passMgr.add(createBuiltinLibInfoPass(runtimeModuleList, RuntimeServices));
   passMgr.add(createImplicitArgsAnalysisPass(&context));
 
   Intel::CPUId cpuId = Intel::OpenCL::DeviceBackend::Utils::CPUDetect::GetInstance()->GetCPUId();

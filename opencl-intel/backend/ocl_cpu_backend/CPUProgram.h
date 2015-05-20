@@ -34,10 +34,10 @@ class CPUProgram : public Program
 {
 public:
     CPUProgram()
-      :m_pExecutionEngine(NULL), m_pBIModule(NULL) {}
+      :m_pExecutionEngine(NULL) {}
     virtual ~CPUProgram();
     
-    virtual void SetBuiltinModule(void* pModule) { m_pBIModule = pModule; }
+    virtual void SetBuiltinModule(llvm::SmallVector<llvm::Module*, 2> bltnFuncList) { m_bltnFuncList = bltnFuncList; }
 
     virtual void SetExecutionEngine(void* ee) { m_pExecutionEngine = (llvm::ExecutionEngine*)ee;}
 
@@ -56,7 +56,7 @@ public:
 
 private:
     llvm::ExecutionEngine*  m_pExecutionEngine;
-    void *                  m_pBIModule;
+    llvm::SmallVector<llvm::Module*, 2> m_bltnFuncList;
     std::auto_ptr<ObjectCodeCache> m_ObjectCodeCache;
 
 private:

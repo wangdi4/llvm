@@ -31,8 +31,8 @@ namespace intel {
     return false;
   }
   
-  VolcanoOpenclRuntime::VolcanoOpenclRuntime(const Module *runtimeModule):
-  OpenclRuntime(runtimeModule, volacanoScalarSelect)
+  VolcanoOpenclRuntime::VolcanoOpenclRuntime(SmallVector<Module*, 2> runtimeModuleList) :
+  OpenclRuntime(runtimeModuleList, volacanoScalarSelect)
   {
     
   }
@@ -63,7 +63,7 @@ namespace intel {
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  intel::RuntimeServices* createVolcanoOpenclRuntimeSupport(const Module *runtimeModule) {
-    return new intel::VolcanoOpenclRuntime(runtimeModule);
+  intel::RuntimeServices* createVolcanoOpenclRuntimeSupport(SmallVector<Module*, 2> runtimeModuleList) {
+    return new intel::VolcanoOpenclRuntime(runtimeModuleList);
   }
 }

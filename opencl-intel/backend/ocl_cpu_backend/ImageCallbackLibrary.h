@@ -17,7 +17,7 @@ File Name:  ImageCallbackLibrary.h
 \*****************************************************************************/
 #pragma once
 
-#include "BuiltinModule.h"
+#include "BuiltinModules.h"
 #include "CompiledModule.h"
 #include "CPUDetect.h"
 #include "CPUCompiler.h"

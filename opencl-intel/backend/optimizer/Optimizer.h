@@ -33,7 +33,7 @@ class Optimizer
 {
 public:
     Optimizer( llvm::Module* pModule,
-               llvm::Module* pRtlModule,
+               llvm::SmallVector<llvm::Module*, 2> pRtlModuleList,
                const intel::OptimizerConfig* pConfig);
 
     ~Optimizer();

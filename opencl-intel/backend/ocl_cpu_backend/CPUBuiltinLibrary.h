@@ -17,7 +17,7 @@ File Name:  CPUBuiltinLibrary.h
 \*****************************************************************************/
 #pragma once
 
-#include "BuiltinModule.h"
+#include "BuiltinModules.h"
 #include "cl_dev_backend_api.h"
 #include "CPUDetect.h"
 

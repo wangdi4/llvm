@@ -51,6 +51,9 @@ namespace intel {
     /// This module
     Module *m_pModule;
 
+    /// This is a list of built-in modules
+    SmallVector<Module*, 2> m_builtinModuleList;
+
     /// This context
     LLVMContext *m_pLLVMContext;
 
@@ -72,6 +75,9 @@ namespace intel {
     /// Helper for WI function call generation.
     /// Generates a call to WI function upon its name and dimension index
     CallInst *getWICall(Instruction *pBefore, std::string funcName, unsigned dimIdx);
+
+    /// Find a builtin function in builtin module list
+    Function* FindFunctionInModule(const std::string& funcName);
 
   };
 

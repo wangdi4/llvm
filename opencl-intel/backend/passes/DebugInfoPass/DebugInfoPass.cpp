@@ -45,7 +45,7 @@ class DebugInfoPass : public ModulePass
 {
 public:
     DebugInfoPass()
-        : ModulePass(ID), m_llvm_context(0), m_pRTModule(0)
+        : ModulePass(ID), m_llvm_context(0)
     {
     }
 
@@ -122,6 +122,9 @@ private:
     //
     unsigned getCLinenoFromDbgMetadata(Instruction* instr);
 
+    // Find function in the list of RTL modules
+    Function* findFunctionsInModule(StringRef funcName) const;
+
 private:
 
     // Convenience object passed around between methods of this pass.
@@ -140,7 +143,7 @@ private:
     Module* m_pModule;
 
     LLVMContext* m_llvm_context;
-    const Module* m_pRTModule;
+    SmallVector<Module*, 2> m_RtlModuleList;
 
     DebugInfoFinder m_DbgInfoFinder;
 
@@ -162,13 +165,22 @@ const char* DebugInfoPass::BUILTIN_DBG_EXIT_FUNCTION_NAME = "__opencl_dbg_exit_f
 const char* DebugInfoPass::BUILTIN_DBG_STOPPOINT_NAME = "__opencl_dbg_stoppoint";
 
 
-
+Function* DebugInfoPass::findFunctionsInModule(StringRef funcName) const {
+    for (SmallVector<Module*, 2>::const_iterator it = m_RtlModuleList.begin();
+        it != m_RtlModuleList.end();
+        ++it) {
+        Function* pRetFunction = (*it)->getFunction(funcName);
+        if (pRetFunction != NULL)
+            return pRetFunction;
+    }
+    return NULL;
+}
 
 bool DebugInfoPass::runOnModule(Module& M)
 {
     m_llvm_context = &M.getContext();
-    m_pRTModule = getAnalysis<intel::BuiltinLibInfo>().getBuiltinModule();
-    assert(m_pRTModule && "Null module");
+    m_RtlModuleList = getAnalysis<intel::BuiltinLibInfo>().getBuiltinModules();
+    assert(m_RtlModuleList.size() != 0 && "Empty module list in DebugInfoPass::runOnModule");
     m_pModule = &M;
 
     // Prime a DebugInfoFinder that can be queried about various bits of
@@ -185,7 +197,7 @@ bool DebugInfoPass::runOnModule(Module& M)
     for (; func_iter != m_pModule->end(); ++func_iter) {
         // Ignore declarations and builtins placed from the RT module.
         //
-        if (func_iter->isDeclaration() || m_pRTModule->getFunction(func_iter->getName()))
+        if (func_iter->isDeclaration() || findFunctionsInModule(func_iter->getName()))
             continue;
 
         runOnUserFunction(&(*func_iter));
@@ -198,7 +210,7 @@ void DebugInfoPass::addGlobalIdDeclaration()
 {
     std::string gid =
       Intel::OpenCL::DeviceBackend::CompilationUtils::mangledGetGID();
-    if (m_pRTModule->getFunction(gid))
+    if (findFunctionsInModule(gid))
         return;
 
     // No such declaration; let's add it

@@ -26,7 +26,7 @@ File Name:  Compiler.cpp
 #include "Optimizer.h"
 #include "VecConfig.h"
 #include "CPUDetect.h"
-#include "BuiltinModule.h"
+#include "BuiltinModules.h"
 #include "exceptions.h"
 #include "BuiltinModuleManager.h"
 #include "CompilationUtils.h"
@@ -51,6 +51,7 @@ File Name:  Compiler.cpp
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/CodeGen/CommandFlags.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Linker.h"
 using std::string;
 
@@ -354,7 +355,7 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
                                             m_dumpHeuristicIR,
                                             buildOptions.GetAPFLevel(),
                                             m_rtLoopUnrollFactor);
-    Optimizer optimizer( pModule, GetRtlModule(), &optimizerConfig);
+    Optimizer optimizer(pModule, GetBuiltinModuleList(), &optimizerConfig);
     optimizer.Optimize();
 
     if( optimizer.hasUndefinedExternals() && !buildOptions.GetlibraryModule())
@@ -395,6 +396,24 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
     return pModule;
 }
 
+bool Compiler::FindFunctionBodyInModules(std::string &FName,
+                               llvm::Module const *bifModule,
+                               llvm::Function* &pFunction) const
+{
+    pFunction = bifModule->getFunction(FName);
+
+    // Note that due to the lazy Module parsing of built-in modules the function
+    // body might not be materialized yet and is reported as declaration in that case.
+    // (This behaiour was fixed in LLVM 3.6)
+    if (pFunction != NULL &&
+        (pFunction->isMaterializable() || !pFunction->isDeclaration())) {
+      return true;
+    }
+
+    pFunction = NULL;
+    return false;
+}
+
 llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
 {
     //
@@ -409,13 +428,13 @@ llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
     return pModule;
 }
 
-// for CPU implementation RTL module consists of two libraries: shared (common for all CPU architectures)
-// and particular (optimized for one architecture), they should be linked,
-// for KNC we have the particular RTL only
-llvm::Module* Compiler::CreateRTLModule(BuiltinLibrary* pLibrary) const
+// RTL builtin modules consist of two libraries. The first is shared across all HW architectures and the second one is optimized for a specific HW architecture.
+// NOTE: There is no shared library for KNC so it has the optimized one only.
+void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary, llvm::SmallVector<llvm::Module*, 2>& builtinsModules) const
 {
-    llvm::MemoryBuffer* pRtlBuffer = pLibrary->GetRtlBuffer();
-    std::auto_ptr<llvm::Module> spModule(llvm::ParseBitcodeFile(pRtlBuffer, *m_pLLVMContext));
+    llvm::MemoryBuffer* pRtlBuffer(pLibrary->GetRtlBuffer());
+    assert(pRtlBuffer && "pRtlBuffer is NULL pointer");
+    std::auto_ptr<llvm::Module> spModule(llvm::getLazyBitcodeModule(pRtlBuffer, *m_pLLVMContext));
 
     if ( NULL == spModule.get())
     {
@@ -431,11 +450,13 @@ llvm::Module* Compiler::CreateRTLModule(BuiltinLibrary* pLibrary) const
         spModule->setModuleIdentifier("RTLibrary");
     }
 
+    builtinsModules.push_back(spModule.get());
+
     // on KNC we don't have shared (common) library, so skip loading
     if (pLibrary->GetCPU() != MIC_KNC) {
         // the shared RTL is loaded here
-        llvm::MemoryBuffer* pRtlBufferSvmlShared = pLibrary->GetRtlBufferSvmlShared();
-        std::auto_ptr<llvm::Module> spModuleSvmlShared(llvm::ParseBitcodeFile(pRtlBufferSvmlShared, *m_pLLVMContext));
+        llvm::MemoryBuffer* pRtlBufferSvmlShared(pLibrary->GetRtlBufferSvmlShared());
+        std::auto_ptr<llvm::Module> spModuleSvmlShared(llvm::getLazyBitcodeModule(pRtlBufferSvmlShared, *m_pLLVMContext));
 
         if ( NULL == spModuleSvmlShared.get()) {
             throw Exceptions::CompilerException("Failed to allocate/parse buitin module");
@@ -446,19 +467,12 @@ llvm::Module* Compiler::CreateRTLModule(BuiltinLibrary* pLibrary) const
         spModuleSvmlShared.get()->setTargetTriple(spModule.get()->getTargetTriple());
         spModuleSvmlShared.get()->setDataLayout(spModule.get()->getDataLayout());
 
-        std::string ErrorMessage;
-        // we need to link particular and shared RTLs together
-        if (llvm::Linker::LinkModules(spModule.get(), spModuleSvmlShared.get(), Linker::DestroySource, &ErrorMessage) ) {
-            std::string ErrStr("Failed to link shared builtins module.");
-            if ( !ErrorMessage.empty() ) {
-                ErrStr.append(ErrorMessage);
-            }
-            throw Exceptions::CompilerException(ErrStr);
-        }
+        builtinsModules.push_back(spModuleSvmlShared.release());
     }
 
     UpdateTargetTriple(spModule.get());
-    return spModule.release();
+
+    spModule.release();
 }
 
 bool Compiler::isProgramValid(llvm::Module* pModule, ProgramBuildResult* pResult) const

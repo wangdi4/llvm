@@ -17,7 +17,7 @@ File Name:  CPUCompiler.cpp
 \*****************************************************************************/
 #define NOMINMAX
 
-#include "BuiltinModule.h"
+#include "BuiltinModules.h"
 #include "BuiltinModuleManager.h"
 #include "CPUCompiler.h"
 #include "CPUDetect.h"
@@ -227,12 +227,14 @@ CPUCompiler::CPUCompiler(const ICompilerConfig& config):
 {
     SelectCpu( config.GetCpuArch(), config.GetCpuFeatures());
 
-    // Initialize the BuiltinModule
+    // Initialize the BuiltinModules
     if(config.GetLoadBuiltins())
     {
         BuiltinLibrary* pLibrary = BuiltinModuleManager::GetInstance()->GetOrLoadCPULibrary(m_CpuId);
-        llvm::Module *pModule = CreateRTLModule(pLibrary);
-        m_pBuiltinModule = new BuiltinModule( pModule);
+
+        llvm::SmallVector<llvm::Module*, 2> bltnFuncList;
+        LoadBuiltinModules(pLibrary, bltnFuncList);
+        m_pBuiltinModule = new BuiltinModules(bltnFuncList);
     }
 
     // Create the listener that allows Amplifier to profile OpenCL kernels
@@ -363,14 +365,9 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
     return pExecEngine;
 }
 
-llvm::Module* CPUCompiler::GetRtlModule() const
+llvm::SmallVector<llvm::Module*, 2> CPUCompiler::GetBuiltinModuleList() const
 {
-    if(m_pBuiltinModule == NULL)
-    {
-        return NULL;
-    }
-    else
-        return m_pBuiltinModule->GetRtlModule();
+    return m_pBuiltinModule->GetBuiltinModuleList();
 }
 
 void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) const

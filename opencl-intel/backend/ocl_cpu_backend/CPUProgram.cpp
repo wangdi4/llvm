@@ -29,12 +29,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 void CPUProgram::ReleaseExecutionEngine()
 {
     // We have to remove the built-ins module from execEngine
-    // since this module is owned by compiler
+    // since this module is owned by compiler.
     if (m_pExecutionEngine)
     {
-        if (m_pBIModule) 
+        for (llvm::SmallVector<llvm::Module*, 2>::iterator it = m_bltnFuncList.begin(); it != m_bltnFuncList.end(); ++it)
         {
-            m_pExecutionEngine->removeModule(static_cast<llvm::Module*>(m_pBIModule));
+            m_pExecutionEngine->removeModule(*it);
         }
 
         if (m_pIRCodeContainer->GetModule())
@@ -69,4 +69,5 @@ void CPUProgram::Deserialize(IInputStream& ist, SerializationStatus* stats)
 void CPUProgram::SetObjectCache(ObjectCodeCache *oc) {
   m_ObjectCodeCache.reset(oc);
 }
-}}}
+
+}}} // namespace

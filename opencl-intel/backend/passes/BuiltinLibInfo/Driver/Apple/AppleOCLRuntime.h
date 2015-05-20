@@ -21,7 +21,8 @@ class AppleOpenclRuntime : public OpenclRuntime {
 public:
   
   /// @brief Constructor
-  AppleOpenclRuntime(const Module *runtimeModule);
+  // AppleOpenclRuntime(const Module *runtimeModule);
+  AppleOpenclRuntime(SmallVector<Module*, 2> runtimeModuleList);
   
   /// @brief Destructor
   virtual ~AppleOpenclRuntime();

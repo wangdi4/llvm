@@ -142,7 +142,7 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     BackendConfiguration.h
     BitCodeContainer.h
     BlockLiteral.h
-    BuiltinModule.h
+    BuiltinModules.h
     BuiltinModuleManager.h
     CPUBlockToKernelMapper.h
     CPUBuiltinLibrary.h
@@ -188,7 +188,7 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
 set (OCL_CPU_BACKEND_SOURCE_FILES
     BackendConfiguration.cpp
     BitCodeContainer.cpp
-    BuiltinModule.cpp
+    BuiltinModules.cpp
     BuiltinModuleManager.cpp
     CPUBlockToKernelMapper.cpp
     CPUBuiltinLibrary.cpp

@@ -25,17 +25,17 @@ char intel::Vectorizer::ID = 0;
 
 extern "C" Pass* createSpecialCaseBuiltinResolverPass();
 extern "C" FunctionPass* createVectorizerCorePass(const intel::OptimizerConfig*);
-extern "C" Pass* createBuiltinLibInfoPass(llvm::Module* pRTModule, std::string type);
+extern "C" Pass* createBuiltinLibInfoPass(llvm::SmallVector<llvm::Module*, 2> pRtlModuleList, std::string type);
 
 namespace intel {
 
-Vectorizer::Vectorizer(const Module * rt, const OptimizerConfig* pConfig) :
+  Vectorizer::Vectorizer(llvm::SmallVector<llvm::Module*, 2> rtList, const OptimizerConfig* pConfig) :
   ModulePass(ID),
-  m_runtimeModule(rt),
   m_numOfKernels(0),
   m_isModuleVectorized(false),
   m_pConfig(pConfig)
 {
+  m_runtimeModuleList = rtList;
   // init debug prints
   initializeLoopInfoPass(*PassRegistry::getPassRegistry());
   V_INIT_PRINT;
@@ -69,7 +69,7 @@ bool Vectorizer::runOnModule(Module &M)
     V_PRINT(wrapper, "Num of kernels is 0. Aborting!\n");
     return false;
   }
-  if (!m_runtimeModule)
+  if (m_runtimeModuleList.size() == 0)
   {
     V_PRINT(wrapper, "Failed to find runtime module. Aborting!\n");
     return false;
@@ -105,7 +105,7 @@ bool Vectorizer::runOnModule(Module &M)
   // Create the vectorizer core pass that will do the vectotrization work.
   VectorizerCore *vectCore = (VectorizerCore *)createVectorizerCorePass(m_pConfig);
   FunctionPassManager vectPM(&M);
-  vectPM.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModule(), ""));
+  vectPM.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), ""));
   vectPM.add(vectCore);
 
 
@@ -181,7 +181,7 @@ bool Vectorizer::runOnModule(Module &M)
 
   {
     PassManager mpm;
-    mpm.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModule(), ""));
+    mpm.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), ""));
     mpm.add(createSpecialCaseBuiltinResolverPass());
     mpm.run(M);
   }
@@ -201,8 +201,8 @@ bool Vectorizer::runOnModule(Module &M)
 // Interface functions for vectorizer
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 extern "C"
-  Pass *createVectorizerPass(const Module *runtimeModule, const intel::OptimizerConfig* pConfig)
+  Pass *createVectorizerPass(llvm::SmallVector<llvm::Module*, 2> runtimeModuleList, const intel::OptimizerConfig* pConfig)
 {
-  return new intel::Vectorizer(runtimeModule, pConfig);
+  return new intel::Vectorizer(runtimeModuleList, pConfig);
 }
 

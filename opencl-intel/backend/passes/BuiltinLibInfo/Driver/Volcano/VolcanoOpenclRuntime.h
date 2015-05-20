@@ -17,7 +17,7 @@ namespace intel {
   class VolcanoOpenclRuntime : public OpenclRuntime {
   public:
     /// @brief Constructor
-    VolcanoOpenclRuntime(const Module *runtimeModule);
+    VolcanoOpenclRuntime(SmallVector<Module*, 2> runtimeModuleList);
     
     /// @brief Destructor
     ~VolcanoOpenclRuntime() {}

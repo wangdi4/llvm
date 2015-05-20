@@ -31,7 +31,7 @@ extern "C" FunctionPass* createPredicator();
 extern "C" FunctionPass* createSimplifyGEPPass();
 extern "C" FunctionPass* createPacketizerPass(bool, unsigned int);
 extern "C" intel::ChooseVectorizationDimension* createChooseVectorizationDimension();
-extern "C" Pass* createBuiltinLibInfoPass(llvm::Module* pRTModule, std::string type);
+extern "C" Pass* createBuiltinLibInfoPass(llvm::SmallVector<llvm::Module*, 2> pRtlModuleList, std::string type);
 
 extern "C" FunctionPass* createAppleWIDepPrePacketizationPass();
 #ifndef __APPLE__
@@ -125,7 +125,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
     FunctionPassManager fpm1(M);
     DataLayout *DL = new DataLayout(M);
     fpm1.add(DL);
-    fpm1.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModule(), ""));
+    fpm1.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), ""));
 
     // Register lowerswitch
     fpm1.add(createLowerSwitchPass());
@@ -219,7 +219,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
     DataLayout *DL2 = new DataLayout(M);
     fpm2.add(DL2);
     BuiltinLibInfo* pBuiltinInfoPass = (BuiltinLibInfo*)
-      createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModule(), "");
+      createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), "");
     pBuiltinInfoPass->getRuntimeServices()->setPacketizationWidth(m_packetWidth);
     fpm2.add(pBuiltinInfoPass);
 

@@ -25,7 +25,7 @@ class OpenclRuntime : public RuntimeServices {
 public:
 
   /// @brief Constructor which get arbitraty table as input
-  OpenclRuntime(const Module *runtimeModule,
+  OpenclRuntime(SmallVector<Module*, 2> runtimeModuleList,
                 const char **scalarSelects);
 
   /// @brief Destructor
@@ -196,12 +196,12 @@ protected:
   /// @brief hold names of scalar select builtins
   std::set<std::string> m_scalarSelectSet;
 
-  /// @brief Pointer to runtime module
+  /// @brief Pointer to runtime modules list
   /// (module with implementation of built-in functions)
-  const Module *m_runtimeModule;
+  SmallVector<Module*, 2> m_runtimeModulesList;
 
   /// @brief Hold the requested packetization width
-  //(currently same one for all funcs)
+  /// (currently same one for all funcs)
   unsigned m_packetizationWidth;
 
 private:

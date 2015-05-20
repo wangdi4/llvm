@@ -21,6 +21,7 @@ Copyright(c) 2011 - 2013 Intel Corporation. All Rights Reserved.
 #include "llvm/IR/Module.h"
 
 using namespace reflection;
+
 namespace intel {
 //
 //VectorizerFunctionBridge
@@ -63,9 +64,9 @@ const char *g_rs_scalarSelects[] = {
 };
 
 /// @brief Constructor which get arbitraty table as input
-RenderscriptRuntime::RenderscriptRuntime(const Module *runtimeModule):
-m_runtimeModule(runtimeModule),
+RenderscriptRuntime::RenderscriptRuntime(SmallVector<Module*, 2> runtimeModulesList) :
 m_packetizationWidth(0) {
+  m_runtimeModulesList = runtimeModulesList;
   initScalarSelectSet(g_rs_scalarSelects);
   initDotMap();
 }
@@ -86,7 +87,15 @@ void RenderscriptRuntime::initDotMap() {
 }
 
 Function * RenderscriptRuntime::findInRuntimeModule(StringRef Name) const {
-   return m_runtimeModule->getFunction(Name);
+  for (SmallVector<Module*, 2>::const_iterator it = m_runtimeModulesList.begin();
+      it != m_runtimeModulesList.end();
+      ++it)
+  {
+    Function* ret_function = (*it)->getFunction(Name);
+    if (ret_function != NULL)
+      return ret_function;
+  }
+  return NULL;
 }
 
 bool RenderscriptRuntime::needPreVectorizationFakeFunction(const std::string &funcName) const{
@@ -313,8 +322,8 @@ bool RenderscriptRuntime::isScalarMinMaxBuiltin(StringRef funcName, bool &isMin,
 
 /// Support for static linking of modules
 extern "C" {
-  intel::RuntimeServices* createRenderscriptRuntimeSupport(const Module *runtimeModule) {
-    return new intel::RenderscriptRuntime(runtimeModule);
+  intel::RuntimeServices* createRenderscriptRuntimeSupport(SmallVector<Module*, 2> runtimeModuleList) {
+    return new intel::RenderscriptRuntime(runtimeModuleList);
   }
 }
 

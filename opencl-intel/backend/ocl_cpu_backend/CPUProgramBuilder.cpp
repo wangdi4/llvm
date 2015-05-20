@@ -183,7 +183,7 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
     pProgram->SetBitCodeContainer(bcc);
 
     // update the builtin module
-    pProgram->SetBuiltinModule(GetCompiler()->GetRtlModule());
+    pProgram->SetBuiltinModule(GetCompiler()->GetBuiltinModuleList());
 
     // parse the optimized module
     llvm::StringRef data = llvm::StringRef(optModuleBuffer, optModuleSize);
