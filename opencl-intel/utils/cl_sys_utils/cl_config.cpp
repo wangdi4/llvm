@@ -339,7 +339,7 @@ OPENCL_VERSION Intel::OpenCL::Utils::GetOpenclVerByCpuModel()
     {
         if (vendorId == "8086")
         {
-            const char* opencl12skus[] = {"190E", "1915", "1921", "190B", "192B", "190A", "191A", "192A", "1606", "160E"};
+            const char* opencl12skus[] = {"190E", "1915", "1921", "190B", "192B", "190A", "191A", "192A", "1906", "1913", "1902", "1917", "1606", "160E"};
 
             for (size_t i = 0; i < sizeof(opencl12skus) / sizeof(opencl12skus[0]); ++i)
             {
