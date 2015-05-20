@@ -720,12 +720,18 @@ FunctionDecl *Sema::GenerateWrapperDestructor(SourceLocation Loc, CXXDestructorD
         SourceLocation(), params[0]->getType(), VK_RValue);
   PragmaStmt *PS = new (Context) PragmaStmt(SourceLocation());
   PS->setPragmaKind(IntelPragma_SPECCALL);
-  (PS->getAttribs()).push_back(IntelPragmaAttrib(
-    new (Context) CXXMemberCallExpr(Context, 
-      MemberExpr::Create(Context, This, true, NestedNameSpecifierLoc(), SourceLocation(), ElemFun, 
-        DeclAccessPair::make(ElemFun, AS_public), ElemFun->getNameInfo(), 0, ElemFun->getType(), VK_LValue, OK_Ordinary),
-    llvm::ArrayRef<Expr *>(), Context.VoidTy, VK_RValue, SourceLocation()),
-    IntelPragmaExprRValue));
+  (PS->getAttribs())
+      .push_back(IntelPragmaAttrib(
+          new (Context) CXXMemberCallExpr(
+              Context, MemberExpr::Create(
+                           Context, This, true, SourceLocation(),
+                           NestedNameSpecifierLoc(), SourceLocation(), ElemFun,
+                           DeclAccessPair::make(ElemFun, AS_public),
+                           ElemFun->getNameInfo(), 0, ElemFun->getType(),
+                           VK_LValue, OK_Ordinary),
+              llvm::ArrayRef<Expr *>(), Context.VoidTy, VK_RValue,
+              SourceLocation()),
+          IntelPragmaExprRValue));
   (PS->getAttribs()).push_back(IntelPragmaAttrib(
     This,
     IntelPragmaExprRValue));
@@ -1104,10 +1110,14 @@ FunctionDecl *Sema::GenerateArrayDestructor(SourceLocation Loc, CXXDestructorDec
   ExprResult cntDec = ImpCastExprToType(BuildUnaryOp(0, SourceLocation(), UO_PreDec, cnt).get(),
     Context.VoidTy, CK_ToVoid);
   // ~Class(this);
-  Expr *destr = new (Context) CXXMemberCallExpr(Context, 
-      MemberExpr::Create(Context, This, true, NestedNameSpecifierLoc(), SourceLocation(), ElemFun, 
-        DeclAccessPair::make(ElemFun, AS_public), ElemFun->getNameInfo(), 0, ElemFun->getType(), VK_LValue, OK_Ordinary),
-    llvm::ArrayRef<Expr *>(), Context.VoidTy, VK_RValue, SourceLocation());
+  Expr *destr = new (Context) CXXMemberCallExpr(
+      Context,
+      MemberExpr::Create(Context, This, true, SourceLocation(),
+                         NestedNameSpecifierLoc(), SourceLocation(), ElemFun,
+                         DeclAccessPair::make(ElemFun, AS_public),
+                         ElemFun->getNameInfo(), 0, ElemFun->getType(),
+                         VK_LValue, OK_Ordinary),
+      llvm::ArrayRef<Expr *>(), Context.VoidTy, VK_RValue, SourceLocation());
   // ++this;
   ExprResult array_ptr1Inc = ImpCastExprToType(BuildUnaryOp(0, SourceLocation(), UO_PreInc, This).get(),
     Context.VoidTy, CK_ToVoid);

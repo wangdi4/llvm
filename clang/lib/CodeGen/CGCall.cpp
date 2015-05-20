@@ -2287,7 +2287,7 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
   if (!ReturnValue) {
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
     llvm::Instruction *Ret = Builder.CreateRetVoid();
-    if (EmitRetDbgLoc && !ReturnLoc.isUnknown())
+    if (EmitRetDbgLoc && ReturnLoc)
       Ret->setDebugLoc(ReturnLoc);
 #else
     Builder.CreateRetVoid();
@@ -2424,7 +2424,7 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
   if (RetDbgLoc)
     Ret->setDebugLoc(std::move(RetDbgLoc));
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
-  else if (EmitRetDbgLoc && !ReturnLoc.isUnknown())
+  else if (EmitRetDbgLoc && ReturnLoc)
     Ret->setDebugLoc(ReturnLoc);
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
 }
