@@ -92,16 +92,25 @@ set( INCLUDE_HEADERS_PATH ${OCL_SOURCE_DIR}/fe_compilers/common_clang/cl_headers
 
 set( INPUT_FILE test.cl )
 set( OUTPUT_FILE test.bc )
+set( INV_OUTPUT_FILE inv_test.bc )
 
 if (BUILD_X64)
 set (
   SPIR_OPT 
   -triple spir64-unkown-unkown -cl-kernel-arg-info -D __x86_64__
 )
+set (
+  INV_SPIR_OPT
+  -triple spir-unkown-unkown -cl-kernel-arg-info -D __i386__
+)
 else (BUILD_X64)
 set (
   SPIR_OPT
   -triple spir-unkown-unkown -cl-kernel-arg-info -D __i386__
+)
+set (
+  INV_SPIR_OPT
+  -triple spir64-unkown-unkown -cl-kernel-arg-info -D __x86_64__
 )
 endif(BUILD_X64)
 
@@ -131,10 +140,14 @@ add_custom_command( TARGET ${TARGET}
   COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE} 
   -I ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang/cl_headers -emit-llvm-bc
   ${SPIR_OPT}
+  -include opencl_.h -O0 -o ${CMAKE_CURRENT_BINARY_DIR}/${INV_OUTPUT_FILE}
+  COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE} 
+  -I ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang/cl_headers -emit-llvm-bc
+  ${INV_SPIR_OPT}
   -include opencl_.h -O0 -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE}
   MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
   DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-  COMMENT "Generate spir binary:  ${OUTPUT_FILE}"
+  COMMENT "Generate spir binary files:  ${OUTPUT_FILE}, ${INV_OUTPUT_FILE}"
   VERBATIM
 )
 
@@ -143,6 +156,7 @@ if ( INCLUDE_MIC_DEVICE )
   set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/${MIC_OUTPUT_FILE} PROPERTIES GENERATED TRUE)
 endif ( INCLUDE_MIC_DEVICE )
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE} DESTINATION ${CREATE_DIR_NAME})
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${INV_OUTPUT_FILE} DESTINATION ${CREATE_DIR_NAME})
 if ( INCLUDE_MIC_DEVICE )
   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${MIC_OUTPUT_FILE} DESTINATION ${CREATE_DIR_NAME})
 endif ( INCLUDE_MIC_DEVICE )
