@@ -313,9 +313,7 @@ bool clGetDeviceInfo_VendorIdTest()
 			return false;
 		}
 		printf("Vendor id is %u\n", uVendorId);
-
-		printf("Intentionally failing this test. Will fix it in next commit.\n");
-		return false;
+		return true;
 	}
 
 }
