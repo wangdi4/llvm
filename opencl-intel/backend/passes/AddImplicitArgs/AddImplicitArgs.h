@@ -51,7 +51,7 @@ namespace intel {
 
   protected:
     /// @brief Replaces the given function with a copy function that receives
-    ///        the implicit arguemnts, maps call instructions that appear in
+    ///        the implicit arguments, maps call instructions that appear in
     ///        the given funciton and need to add implicit arguments to its
     ///        original arguments, i.e. calls to functions define in module.
     /// @param pFunc The function to create a copy of

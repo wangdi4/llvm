@@ -59,7 +59,7 @@ namespace intel{
     std::vector<Function*> toHandleFunctions;
     for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi ) {
       Function *pFunc = dyn_cast<Function>(&*fi);
-      if ( !pFunc || pFunc->isDeclaration () ) {
+      if ( !pFunc || pFunc->isDeclaration() ) {
         // Function is not defined inside module
         continue;
       }
@@ -235,40 +235,41 @@ namespace intel{
     m_pFunc = pFunc;
     m_pNewF = pNewF;
 
+    // FIXME:
+    // This is suboptimal since the loop iterates over all named metadata again and
+    // again per each patched function in the module while it can be only done once
+    // after all the functions are patched w\ the implicit arguments.
     for(; MDIter != EndMDIter; MDIter++) {
       for(int ui = 0, ue = MDIter->getNumOperands(); ui < ue; ui++) {
         // Replace metadata with metada containing information about the wrapper
-        MDNode* pMetadata = MDIter->getOperand(ui);
+        MDNode* pMDNode = MDIter->getOperand(ui);
         std::set<MDNode *> visited;
-        iterateMDTree(pMetadata, visited);
+        iterateMDTree(pMDNode, visited);
       }
     }
 
     return pNewF;
   }
 
-  void AddImplicitArgs::iterateMDTree(MDNode* pMetadata, std::set<MDNode*> &visited) {
-    // exit condition, avoid inifinte loops due to cyclic metadata
-    if (visited.count(pMetadata)) return;
-    visited.insert(pMetadata);
+  void AddImplicitArgs::iterateMDTree(MDNode* pMDNode, std::set<MDNode*> &visited) {
+    // Avoid inifinite loops due to possible cycles in metadata
+    if (visited.count(pMDNode)) return;
+    visited.insert(pMDNode);
 
-    SmallVector<Value *, 16> values;
-    for (int i = 0, e = pMetadata->getNumOperands(); i < e; ++i) {
-      Value *elem = pMetadata->getOperand(i);
-      if (elem) {
-        if (MDNode *Node = dyn_cast<MDNode>(elem))
-          iterateMDTree(Node, visited);
-        // Elem needs to be set again otherwise changes will be undone.
-        elem = pMetadata->getOperand(i);
-        if (m_pFunc == dyn_cast<Function>(elem))
-          elem = m_pNewF;
+    for (int i = 0, e = pMDNode->getNumOperands(); i < e; ++i) {
+      Metadata * mdOp = pMDNode->getOperand(i);
+      if (mdOp) {
+        if (MDNode * mdOpNode = dyn_cast<MDNode>(mdOp)) {
+          iterateMDTree(mdOpNode, visited);
+        }
+        else if(ConstantAsMetadata * funcAsMet = dyn_cast<ConstantAsMetadata>(mdOp)) {
+          if (m_pFunc == mdconst::dyn_extract<Function>(funcAsMet))
+            ValueAsMetadata::handleRAUW(m_pFunc, m_pNewF);
+          // TODO: Check if the old metadata has to bee deleted manually to avoid
+          //       memory leaks.
+        }
       }
-      values.push_back(elem);
     }
-    MDNode* pNewMetadata = MDNode::get(*m_pLLVMContext, ArrayRef<Value*>(values));
-    // TODO: Why may pMetadata and pNewMetadata be the same value ?
-    if (pMetadata != pNewMetadata)
-      pMetadata->replaceAllUsesWith(pNewMetadata);
   }
 
   void AddImplicitArgs::replaceCallInst(CallInst *CI, ArrayRef<Type *> implicitArgsTypes, Function * pNewF) {
