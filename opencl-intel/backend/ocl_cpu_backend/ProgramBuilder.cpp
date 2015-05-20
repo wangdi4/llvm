@@ -223,6 +223,13 @@ void ProgramBuilder::ParseProgram(Program* pProgram)
     {
         throw Exceptions::DeviceBackendExceptionBase(e.what());
     }
+#if defined _M_X64 || defined _M_AMD64 || defined __x86_64__
+	if (static_cast<Module*>(pProgram->GetModule())->getTargetTriple() != "spir64-unknown-unknown")
+		throw Exceptions::DeviceBackendExceptionBase("32-bit SPIR on 64-bit device", CL_DEV_INVALID_BINARY);
+#else
+	if (static_cast<Module*>(pProgram->GetModule())->getTargetTriple() != "spir-unknown-unknown")
+		throw Exceptions::DeviceBackendExceptionBase("64-bit SPIR on 32-bit device", CL_DEV_INVALID_BINARY);
+#endif
 }
 
 cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBackendOptions* pOptions)
@@ -241,7 +248,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
         }
         Compiler* pCompiler = GetCompiler();
         llvm::Module* pModule = (llvm::Module*)pProgram->GetModule();
-
+		
         if(!pModule)
         {
             ParseProgram(pProgram);
