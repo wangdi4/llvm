@@ -601,9 +601,9 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   // CQ#368125 - support for '/Fd' and '/Fo' options.
   Opts.MSOutputObjFile = Args.getLastArgValue(OPT_fms_debug_info_obj_file);
   Opts.MSOutputPdbFile = Args.getLastArgValue(OPT_fms_debug_info_pdb_file);
-  // CQ#368123 - support '--[no-]emit-unused-member-decls' options.
-  Opts.EmitUnusedMemberDecls = Args.hasFlag(
-      OPT_emit_unused_member_decls, OPT_no_emit_unused_member_decls, true);
+  // CQ#368123 - support '-f[no-]emit-class-debug-always' options.
+  Opts.EmitClassDebugAlways = Args.hasFlag(
+      OPT_femit_class_debug_always, OPT_fno_emit_class_debug_always, true);
 #endif //INTEL_CUSTOMIZATION
 
   if (Arg *A = Args.getLastArg(OPT_ffp_contract)) {

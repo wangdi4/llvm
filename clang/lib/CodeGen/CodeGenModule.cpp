@@ -3667,11 +3667,11 @@ static void AddLLVMDbgMetadata(llvm::Module &TheModule, StringRef Name,
 }
 
 void CodeGenModule::EmitIntelDebugInfoMetadata() {
-  // CQ#368123 - support '--[no-]emit-unused-member-decls' options.
-  StringRef EmitUnusedMemberDecls =
-      getCodeGenOpts().EmitUnusedMemberDecls ? "true" : "false";
-  AddLLVMDbgMetadata(TheModule, "llvm.dbg.intel.emit_unused_member_decls",
-                     EmitUnusedMemberDecls);
+  // CQ#368123 - support '-f[no-]emit-class-debug-always' options.
+  StringRef EmitClassDebugAlways =
+      getCodeGenOpts().EmitClassDebugAlways ? "true" : "false";
+  AddLLVMDbgMetadata(TheModule, "llvm.dbg.intel.emit_class_debug_always",
+                     EmitClassDebugAlways);
 }
 
 void CodeGenModule::EmitMSDebugInfoMetadata() {
