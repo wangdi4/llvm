@@ -21,7 +21,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/DebugInfo.h"
+#include "llvm/IR/DebugInfo.h"
 
 #include "llvm/IR/DataLayout.h"
 #include "llvm/ADT/SetVector.h"
@@ -599,7 +599,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       return StringRef();
 
     for (uint32_t k = 0, e = metadata->getNumOperands(); k != e; ++k) {
-      Value * pSubNode = metadata->getOperand(k);
+      Metadata * pSubNode = metadata->getOperand(k);
       if (!isa<MDString>(pSubNode))
         continue;
       StringRef value = cast<MDString>(pSubNode)->getString();
@@ -610,12 +610,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   static const MDNode *findSubprogram(const DebugInfoFinder &finder,
                                       const Function *pFunc) {
-    for (DebugInfoFinder::iterator iter = finder.subprogram_begin(),
-                                   end = finder.subprogram_end();
-         iter != end; iter++) {
-      const MDNode *node = *iter;
-      if (DISubprogram(node).describes(pFunc))
-        return node;
+    for (DISubprogram const& subprog : finder.subprograms()) {
+      if (subprog.describes(pFunc))
+        return subprog;
     }
     return NULL;
   }

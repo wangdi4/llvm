@@ -18,7 +18,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Module.h"
-#include "llvm/DebugInfo.h"
+#include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/DIBuilder.h"
 
 #include <sstream>
 #include <set>
@@ -472,17 +473,22 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
 }
 */
 
-static void dropSubprogramMDNode (DebugInfoFinder const& diFinder, const Value * subprog) {
-  for (DebugInfoFinder::iterator CUIter = diFinder.compile_unit_begin(),
-                                 E = diFinder.compile_unit_end(); CUIter != E; ++CUIter) {
+static void dropSubprogramDI (Function * func) {
+  DebugInfoFinder diFinder;
+  diFinder.processModule(*func->getParent());
+  std::unique_ptr<DIBuilder> diBuilder;
+
+  for (DICompileUnit compileUnit : diFinder.compile_units()) {
     bool found = false;
     // Prepare operands for a new subprogram list excluding the specified subprogram
-    DICompileUnit compileUnit(*CUIter);
-    SmallVector<Value*, 16> operands;
+    SmallVector<Metadata*, 16> operands;
     DIArray oldSubprogList(compileUnit.getSubprograms());
 
     for (unsigned i = 0; i < oldSubprogList.getNumElements(); i++) {
-      if (oldSubprogList.getElement(i) == subprog) {
+      assert(oldSubprogList.getElement(i).isSubprogram() && "Must be a DISuprogram descriptor");
+      DISubprogram diSubprog(oldSubprogList.getElement(i).get());
+      assert(diSubprog.Verify() && "FIXME: This is not a correct way to extract a DISubprogram!");
+      if (diSubprog.describes(func)) {
         found = true;
       } else {
         operands.push_back(oldSubprogList.getElement(i));
@@ -491,8 +497,8 @@ static void dropSubprogramMDNode (DebugInfoFinder const& diFinder, const Value *
 
     if (found) {
       // Replace the old subprogram list MD node w\ the new one
-      MDNode *newSubprogList = MDNode::get(oldSubprogList->getContext(), operands);
-      oldSubprogList->replaceAllUsesWith(newSubprogList);
+      if(!diBuilder) diBuilder.reset(new DIBuilder(*func->getParent()));
+      compileUnit.replaceSubprograms(diBuilder->getOrCreateArray(operands));
     }
   }
 }
@@ -506,31 +512,11 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
   Function::arg_iterator argIt = m_F->arg_begin();
   Function::arg_iterator argE = m_F->arg_end();
   for (; argIt != argE; ++argIt, ++VArgIt) {
-  valueMap[VArgIt] = argIt;
+    valueMap[VArgIt] = argIt;
   }
-
-  // Find the vector and scalar subprogram DIEs and map the vector DIE
-  // to the scalar DIE.
-  Value *scaSubprog = NULL; // scalar subprogram DIE
-  Value *vecSubprog = NULL; // vector subprogram DIE
-  DebugInfoFinder diFinder;
-  diFinder.processModule(*m_F->getParent());
-  for (DebugInfoFinder::iterator I = diFinder.subprogram_begin(),
-                                 E = diFinder.subprogram_end(); I != E; ++I) {
-    DISubprogram subprog(*I);
-    if (subprog.describes(m_F)) {
-      assert(scaSubprog == NULL && "there must be only one scalar subprogram DIE");
-      scaSubprog = subprog;
-
-    } else if(subprog.describes(m_vectorFunc)) {
-      assert(vecSubprog == NULL && "there must be only one vector subprogram DIE");
-      vecSubprog = subprog;
-    }
-  }
-  assert(((vecSubprog != NULL && scaSubprog != NULL) || (vecSubprog == NULL && scaSubprog == NULL)) &&
-         "scalar and vector subprogram DIEs must always go togeter");
-  if(vecSubprog && scaSubprog)
-    valueMap[vecSubprog] = scaSubprog;
+  // [LLVM 3.6 UPGRADE] Assuming the following maping will update references
+  // in metadata from vector to scalar part correctly.
+  valueMap[m_vectorFunc] = m_F;
 
   // create a list for return values
   SmallVector<ReturnInst*, 2> returns;
@@ -567,10 +553,7 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
     intel::Statistic::removeFunctionStats(*m_vectorFunc);
     m_vectorFunc->eraseFromParent();
     // remove the DISubprogram metadata from the module
-    if(vecSubprog) {
-      assert(scaSubprog && "scalar DISubprogram must be present as well");
-      dropSubprogramMDNode(diFinder, vecSubprog);
-    }
+    dropSubprogramDI(m_vectorFunc);
   }
   return vectorEntryBlock;
 }

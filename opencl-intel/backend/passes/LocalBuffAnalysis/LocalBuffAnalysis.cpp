@@ -55,7 +55,7 @@ namespace intel{
 
       // declaring variables for debugging purposes shouldn't affect local buffers.
       if (MDNode *mdn = inst->getMetadata("dbg_declare_inst")) {
-        if (cast<ConstantInt>(mdn->getOperand(0))->isAllOnesValue()) {
+        if (mdconst::extract<ConstantInt>(mdn->getOperand(0))->isAllOnesValue()) {
             return;
         }
       }

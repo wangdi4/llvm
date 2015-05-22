@@ -29,6 +29,8 @@ File Name:  DebugInfoPass.cpp
 
 #include "CompilationUtils.h"
 
+#include "CompilationUtils.h"
+
 #include <list>
 #include <vector>
 

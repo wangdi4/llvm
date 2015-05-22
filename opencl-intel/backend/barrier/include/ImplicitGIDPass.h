@@ -68,7 +68,7 @@ namespace intel {
 
     /// @brief Gets or create unsigned long debug info tyoe
     /// returns DIType unsigned long DIType
-    DIType getOrCreateUlongDIType();
+    DIType const& getOrCreateUlongDIType() const;
 
     /// @brief Iterates instructions in a basic block and tries to find the first
     ///  instruction with scope and loc information and return these.
