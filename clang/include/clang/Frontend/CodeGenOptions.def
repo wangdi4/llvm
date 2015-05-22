@@ -187,6 +187,12 @@ ENUM_CODEGENOPT(DefaultTLSModel, TLSModel, 2, GeneralDynamicTLSModel)
 ENUM_CODEGENOPT(MSDebugInfoFile, MSDebugInfoFileKind, 2, MSDebugInfoNoFile)
 #endif // INTEL_CUSTOMIZATION
 
+#ifdef INTEL_CUSTOMIZATION
+// CQ#369692
+/// No aliasing for all pointer arguments
+CODEGENOPT(NoAliasForPtrArgs, 1, 0)
+#endif // INTEL_CUSTOMIZATION
+
 #undef CODEGENOPT
 #undef ENUM_CODEGENOPT
 #undef VALUE_CODEGENOPT

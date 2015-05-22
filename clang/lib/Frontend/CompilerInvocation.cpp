@@ -604,7 +604,9 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   // CQ#368123 - support '-f[no-]emit-class-debug-always' options.
   Opts.EmitClassDebugAlways = Args.hasFlag(
       OPT_femit_class_debug_always, OPT_fno_emit_class_debug_always, true);
-#endif //INTEL_CUSTOMIZATION
+  // CQ#369692 - support for '-fargument-noalias' option.
+  Opts.NoAliasForPtrArgs = Args.hasArg(OPT_fargument_noalias);
+#endif // INTEL_CUSTOMIZATION
 
   if (Arg *A = Args.getLastArg(OPT_ffp_contract)) {
     StringRef Val = A->getValue();

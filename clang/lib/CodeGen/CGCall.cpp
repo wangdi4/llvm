@@ -1588,6 +1588,13 @@ void CodeGenModule::ConstructAttributeList(const CGFunctionInfo &FI,
             llvm::Attribute::InReg));
     }
 
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#369692 - support for '-fargument-noalias' option.
+    if (ParamType->isPointerType() && getLangOpts().IntelCompat &&
+        CodeGenOpts.NoAliasForPtrArgs)
+      Attrs.addAttribute(llvm::Attribute::NoAlias);
+#endif // INTEL_CUSTOMIZATION
+
     // 'restrict' -> 'noalias' is done in EmitFunctionProlog when we
     // have the corresponding parameter variable.  It doesn't make
     // sense to do it here because parameters are so messed up.
