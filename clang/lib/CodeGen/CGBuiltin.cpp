@@ -967,9 +967,9 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   case Builtin::BI__atomic_nand_fetch_explicit:
   case Builtin::BI__atomic_or_fetch_explicit:
   case Builtin::BI__atomic_xor_fetch_explicit:
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
     llvm_unreachable("Shouldn't make it through sema");
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_return:
   case Builtin::BI__builtin_apply:
   case Builtin::BI__builtin_apply_args:
@@ -1079,7 +1079,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   case Builtin::BI__atomic_xor_fetch_explicit_16:
     return emitLibraryCall(*this, FD, E,
                            CGM.getBuiltinIntelLibFunction(FD, BuiltinID));
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   case Builtin::BI__sync_fetch_and_add_1:
   case Builtin::BI__sync_fetch_and_add_2:
   case Builtin::BI__sync_fetch_and_add_4:

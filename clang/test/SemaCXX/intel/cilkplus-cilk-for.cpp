@@ -10,7 +10,8 @@ void f1() {
 
   _Cilk_for (decltype(j) i = 0; i < 10; ++i); // OK
 
-  _Cilk_for (decltype(k) i = 0; i < 10; i++); // expected-error {{read-only variable is not assignable}}
+  _Cilk_for (decltype(k) i = 0; i < 10; i++); // expected-error {{cannot assign to variable 'i' with const-qualified type}} \
+                                              // expected-note {{variable 'i' declared const here}}
 
   _Cilk_for (int &i = j; i < 10; ++i); // expected-error {{loop control variable must have an integral, pointer, or class type in '_Cilk_for'}}
 

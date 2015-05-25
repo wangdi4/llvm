@@ -1580,18 +1580,13 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
                                              LHS.get())) {
               (void)Actions.CorrectDelayedTyposInExpr(LHS);
               LHS = ExprError();
+            } else if (LHS.isInvalid()) {
+              for (auto &E : ArgExprs)
+                Actions.CorrectDelayedTyposInExpr(E);
             }
             break;
           default:
-            if (ParseExpressionList(ArgExprs, CommaLocs, [&] {
-                  Actions.CodeCompleteCall(getCurScope(), LHS.get(), ArgExprs);
-               })) {
-              (void)Actions.CorrectDelayedTyposInExpr(LHS);
-              LHS = ExprError();
-            }
-            break;
-          }
-#else
+#endif  // INTEL_CUSTOMIZATION
           if (ParseExpressionList(ArgExprs, CommaLocs, [&] {
                 Actions.CodeCompleteCall(getCurScope(), LHS.get(), ArgExprs);
              })) {
@@ -1600,6 +1595,9 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
           } else if (LHS.isInvalid()) {
             for (auto &E : ArgExprs)
               Actions.CorrectDelayedTyposInExpr(E);
+          }
+#ifdef INTEL_CUSTOMIZATION
+            break;
           }
 #endif  // INTEL_CUSTOMIZATION
         }

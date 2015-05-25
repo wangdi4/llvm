@@ -34,7 +34,8 @@ void init() {
 
   _Cilk_for (volatile int i = 0; i < 10; ++i); // expected-error {{loop control variable cannot be 'volatile' in '_Cilk_for'}}
 
-  _Cilk_for (const int i = 0; i < 10; i++); // expected-error {{read-only variable is not assignable}}
+  _Cilk_for (const int i = 0; i < 10; i++); // expected-error {{cannot assign to variable 'i' with const-qualified type}} \
+                                            // expected-note {{variable 'i' declared const here}}
 
   _Cilk_for (*&i = 0; *&i < 10; (*&i)++); // expected-error {{expected a variable for control variable in '_Cilk_for'}}
   _Cilk_for (*get_intptr() = 0; *&i < 10; (*&i)++); // expected-error {{expected a variable for control variable in '_Cilk_for'}}

@@ -9197,6 +9197,29 @@ static bool CheckForModifiableLvalue(Expr *E, SourceLocation Loc, Sema &S) {
     NeedType = true;
     break;
   case Expr::MLV_LValueCast:
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#366312 - enable an extension that allows casts of lvalues to be used
+    // as lvalues, as long as the size of the object is not lengthened through
+    // the cast.
+    if (S.getLangOpts().IntelCompat)
+      if (auto *CE = dyn_cast<ExplicitCastExpr>(E->IgnoreParens()))
+        if (auto *SubExpr = CE->getSubExpr()->IgnoreParenCasts()) {
+          QualType FromType = SubExpr->getType();
+          QualType ToType = CE->getTypeAsWritten();
+          uint64_t SizeBefore = S.Context.getTypeSize(FromType);
+          uint64_t SizeAfter = S.Context.getTypeSize(ToType);
+          // Emit an extension warning only if the size of the object is not
+          // lengthened through the cast. Emit a default error otherwise.
+          if (SizeAfter <= SizeBefore) {
+            SourceRange AssignSourceRange = SourceRange(OrigLoc, OrigLoc);
+            S.Diag(Loc, diag::ext_intel_lvalue_cast_not_lengthened)
+                << E->getSourceRange() << AssignSourceRange;
+            // Set ValueKind of this lvalue cast to its SubExpr's ValueKind.
+            E->setValueKind(SubExpr->getValueKind());
+            return false;
+          }
+        }
+#endif // INTEL_CUSTOMIZATION
     DiagID = diag::err_typecheck_lvalue_casts_not_supported;
     break;
   case Expr::MLV_Valid:
@@ -13074,12 +13097,15 @@ bool Sema::tryCaptureVariable(VarDecl *Var, SourceLocation ExprLoc,
   // init-capture), there is no need to capture it.
   if (!Nested && Var->getDeclContext() == DC) return true;
 
+  // Capture global variables if it is required to use private copy of this
+  // variable
+  bool IsGlobal = !Var->hasLocalStorage();
 #ifdef INTEL_CUSTOMIZATION
   // If this is nested in a simd loop. This is used to make sure that globals
   // can be captured and used in lambdas which are nested in a SIMD for loop.
   // If SIMDIndex is larger than 0, this variable is nested in a SIMD for loop.
   unsigned SIMDIndex = 0;
-  if (!Var->hasLocalStorage()) {
+  if (IsGlobal) {
     for (unsigned I = 1, E = FunctionScopes.size(); I < E; ++I)
       if (SIMDForScopeInfo *FSI =
               dyn_cast<SIMDForScopeInfo>(FunctionScopes[I])) {
@@ -13088,16 +13114,12 @@ bool Sema::tryCaptureVariable(VarDecl *Var, SourceLocation ExprLoc,
         break;
       }
     if (SIMDIndex == 0)
-      // This global or static is not inside a SIMD For loop.
-      return true;
-  }
 #endif  // INTEL_CUSTOMIZATION
-
-  // Capture global variables if it is required to use private copy of this
-  // variable
-  bool IsGlobal = !Var->hasLocalStorage();
   if (IsGlobal && !(LangOpts.OpenMP && IsOpenMPCapturedVar(Var)))
     return true;
+#ifdef INTEL_CUSTOMIZATION
+  }
+#endif  // INTEL_CUSTOMIZATION
 
   // Walk up the stack to determine whether we can capture the variable,
   // performing the "simple" checks that don't depend on type. We stop when

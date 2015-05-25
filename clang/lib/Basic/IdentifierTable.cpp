@@ -109,9 +109,12 @@ namespace {
     KEYNOOPENCL = 0x02000,
     WCHARSUPPORT = 0x04000,
     HALFSUPPORT = 0x08000,
-    KEYCILKPLUS = 0x010000,       // INTEL_CUSTOMIZATION
-    KEYFLOAT128 = 0x020000,       // INTEL_CUSTOMIZATION
-    KEYRESTRICT = 0x040000,       // INTEL_CUSTOMIZATION
+#ifdef INTEL_CUSTOMIZATION
+    KEYCILKPLUS = 0x10000,
+    KEYFLOAT128 = 0x20000,
+    KEYRESTRICT = 0x40000,
+    KEYMSASM = 0x80000,
+#endif  // INTEL_CUSTOMIZATION
     KEYALL = (0x7ffff & ~KEYNOMS18 &  // INTEL_CUSTOMIZATION 0x7ffff vs 0xffff
               ~KEYNOOPENCL) // KEYNOMS18 and KEYNOOPENCL are used to exclude.
   };
@@ -142,6 +145,9 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
   // CQ#366963 - enable/disable 'restrict' keyword in IntelCompat mode.
   if (LangOpts.Restrict && (Flags & KEYRESTRICT))
     return LangOpts.C99 ? KS_Enabled : KS_Extension;
+  // CQ#369368 - allow '_asm' keyword if MS-style inline assembly is enabled.
+  if (LangOpts.IntelCompat && LangOpts.AsmBlocks && (Flags & KEYMSASM))
+    return KS_Extension;
 #endif  // INTEL_CUSTOMIZATION
   if (LangOpts.Bool && (Flags & BOOLSUPPORT)) return KS_Enabled;
   if (LangOpts.Half && (Flags & HALFSUPPORT)) return KS_Enabled;

@@ -98,7 +98,7 @@ int main() {
 
 #elif TEST6
 
-// CHECK6-NOT: call i8* (i32*, float, ...) @foo(i32* null, float 0, {{.+}} 0, {{.+}} 0, {{.+}} 0)
+// CHECK6-NOT: call i8* (i32*, float, ...)*@foo(i32* null, float 0, {{.+}} 0, {{.+}} 0, {{.+}} 0)
 // CHECK6: call i64 (double, i64, i8*, ...) @foo(double 0.000000e+00, i64 0, i8* null, {{.+}} 0, {{.+}} 0)
 // CHECK6-NOT: declare i8* @foo(i32*, float, ...)
 // CHECK6: declare i64 @foo(double, i64, i8*, ...)

@@ -1,4 +1,4 @@
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
 #include "CodeGenFunction.h"
 #include "CGObjCRuntime.h"
 #include "CodeGenModule.h"
@@ -27,4 +27,4 @@ llvm::Value *CodeGenModule::getBuiltinIntelLibFunction(const FunctionDecl *FD,
 
   return GetOrCreateLLVMFunction(Name, Ty, D, /*ForVTable=*/false);
 }
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
