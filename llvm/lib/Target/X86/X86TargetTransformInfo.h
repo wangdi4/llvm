@@ -101,10 +101,8 @@ public:
                          Type *Ty);
   unsigned getIntImmCost(Intrinsic::ID IID, unsigned Idx, const APInt &Imm,
                          Type *Ty);
-  bool isLegalMaskedLoad(Type *DataType);
-  bool isLegalMaskedStore(Type *DataType);
-  bool isLegalGather(Type *DataType);
-  bool isLegalScatter(Type *DataType);
+  bool isLegalMaskedLoad(Type *DataType, int Consecutive);
+  bool isLegalMaskedStore(Type *DataType, int Consecutive);
 #if INTEL_CUSTOMIZATION
   bool adjustCallArgs(CallInst* CI);
 #endif

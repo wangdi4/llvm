@@ -1262,7 +1262,7 @@ bool CodeGenPrepare::OptimizeCallInst(CallInst *CI, bool& ModifiedDT) {
     }
     case Intrinsic::masked_load: {
       // Scalarize unsupported vector masked load
-      if (!TTI->isLegalMaskedLoad(CI->getType())) {
+      if (!TTI->isLegalMaskedLoad(CI->getType(), 1)) {
         ScalarizeMaskedLoad(CI);
         ModifiedDT = true;
         return true;
@@ -1270,7 +1270,7 @@ bool CodeGenPrepare::OptimizeCallInst(CallInst *CI, bool& ModifiedDT) {
       return false;
     }
     case Intrinsic::masked_store: {
-      if (!TTI->isLegalMaskedStore(CI->getArgOperand(0)->getType())) {
+      if (!TTI->isLegalMaskedStore(CI->getArgOperand(0)->getType(), 1)) {
         ScalarizeMaskedStore(CI);
         ModifiedDT = true;
         return true;
