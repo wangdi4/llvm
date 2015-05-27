@@ -1,3 +1,18 @@
+class PragmaSIMDHandler : public PragmaHandler {
+  public:
+    explicit PragmaSIMDHandler() : PragmaHandler("simd") {}
+
+    virtual void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
+                                Token &FirstToken);
+};
+class PragmaCilkGrainsizeHandler : public PragmaHandler {
+  public:
+    PragmaCilkGrainsizeHandler() : PragmaHandler("cilk") {}
+    virtual void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
+                              Token &FirstToken);
+};
+
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
 // #pragma ivdep
 class PragmaIvdepHandler: public PragmaHandler {
   public:
@@ -260,17 +275,4 @@ class PragmaVtorDispHandler: public PragmaHandler {
     explicit PragmaVtorDispHandler() : PragmaHandler("vtordisp") {}
     virtual void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok);
 };
-class PragmaSIMDHandler : public PragmaHandler {
-  public:
-    explicit PragmaSIMDHandler() : PragmaHandler("simd") {}
-  
-    virtual void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
-                                Token &FirstToken);
-};
-class PragmaCilkGrainsizeHandler : public PragmaHandler {
-  public:
-    PragmaCilkGrainsizeHandler() : PragmaHandler("cilk") {}
-    virtual void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
-                              Token &FirstToken);
-};
-                                                                
+#endif  // INTEL_SPECIFIC_IL0_BACKEND

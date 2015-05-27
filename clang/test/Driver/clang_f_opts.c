@@ -66,7 +66,7 @@
 // CHECK-OPTIONS6: -fcilkplus
 
 // RUN: %clang -fcilkplus -target x86_64-pc-win32 %s -### 2>&1 | FileCheck -check-prefix=CHECK-OPTIONS7 %s
-// CHECK-OPTIONS7: error: Cilk Plus not yet supported for this target
+// CHECK-OPTIONS7: -fcilkplus
 
 // RUN: %clang -### -S -fauto-profile=%S/Inputs/file.prof %s 2>&1 | FileCheck -check-prefix=CHECK-AUTO-PROFILE %s
 // CHECK-AUTO-PROFILE: "-fprofile-sample-use={{.*}}/file.prof"

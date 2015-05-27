@@ -1752,18 +1752,20 @@ bool Sema::IsIntegralPromotion(Expr *From, QualType FromType, QualType ToType) {
       return false;
 
     // We can perform an integral promotion to the underlying type of the enum,
-    // even if that's not the promoted type.
+    // even if that's not the promoted type. Note that the check for promoting
+    // the underlying type is based on the type alone, and does not consider
+    // the bitfield-ness of the actual source expression.
     if (FromEnumType->getDecl()->isFixed()) {
       QualType Underlying = FromEnumType->getDecl()->getIntegerType();
       return Context.hasSameUnqualifiedType(Underlying, ToType) ||
-             IsIntegralPromotion(From, Underlying, ToType);
+             IsIntegralPromotion(nullptr, Underlying, ToType);
     }
 
     // We have already pre-calculated the promotion type, so this is trivial.
     if (ToType->isIntegerType() &&
         !RequireCompleteType(From->getLocStart(), FromType, 0))
-      return Context.hasSameUnqualifiedType(ToType,
-                                FromEnumType->getDecl()->getPromotionType());
+      return Context.hasSameUnqualifiedType(
+          ToType, FromEnumType->getDecl()->getPromotionType());
   }
 
   // C++0x [conv.prom]p2:
@@ -1811,13 +1813,12 @@ bool Sema::IsIntegralPromotion(Expr *From, QualType FromType, QualType ToType) {
   // other value of that type for promotion purposes (C++ 4.5p3).
   // FIXME: We should delay checking of bit-fields until we actually perform the
   // conversion.
-  using llvm::APSInt;
-  if (From)
+  if (From) {
     if (FieldDecl *MemberDecl = From->getSourceBitField()) {
-      APSInt BitWidth;
+      llvm::APSInt BitWidth;
       if (FromType->isIntegralType(Context) &&
           MemberDecl->getBitWidth()->isIntegerConstantExpr(BitWidth, Context)) {
-        APSInt ToSize(BitWidth.getBitWidth(), BitWidth.isUnsigned());
+        llvm::APSInt ToSize(BitWidth.getBitWidth(), BitWidth.isUnsigned());
         ToSize = Context.getTypeSize(ToType);
 
         // Are we promoting to an int from a bitfield that fits in an int?
@@ -1835,6 +1836,7 @@ bool Sema::IsIntegralPromotion(Expr *From, QualType FromType, QualType ToType) {
         return false;
       }
     }
+  }
 
   // An rvalue of type bool can be converted to an rvalue of type int,
   // with false becoming zero and true becoming one (C++ 4.5p4).
@@ -1872,8 +1874,11 @@ bool Sema::IsFloatingPointPromotion(QualType FromType, QualType ToType) {
       if (!getLangOpts().CPlusPlus &&
           (FromBuiltin->getKind() == BuiltinType::Float ||
            FromBuiltin->getKind() == BuiltinType::Double ||
-           FromBuiltin->getKind() == BuiltinType::LongDouble) &&
-          (ToBuiltin->getKind() == BuiltinType::Float128))
+           FromBuiltin->getKind() == BuiltinType::LongDouble)
+#ifdef INTEL_CUSTOMIZATION
+           && (ToBuiltin->getKind() == BuiltinType::Float128)
+#endif  // INTEL_CUSTOMIZATION
+         )
         return true;
 
       // Half can be promoted to float.
@@ -2962,7 +2967,10 @@ IsInitializerListConstructorConversion(Sema &S, Expr *From, QualType ToType,
   bool HadMultipleCandidates = (CandidateSet.size() > 1);
 
   OverloadCandidateSet::iterator Best;
-  switch (CandidateSet.BestViableFunction(S, From->getLocStart(), Best, true)) {
+  switch (auto Result = 
+            CandidateSet.BestViableFunction(S, From->getLocStart(), 
+                                            Best, true)) {
+  case OR_Deleted:
   case OR_Success: {
     // Record the standard conversion we used and the conversion function.
     CXXConstructorDecl *Constructor = cast<CXXConstructorDecl>(Best->Function);
@@ -2975,13 +2983,11 @@ IsInitializerListConstructorConversion(Sema &S, Expr *From, QualType ToType,
     User.After.setAsIdentityConversion();
     User.After.setFromType(ThisType->getAs<PointerType>()->getPointeeType());
     User.After.setAllToTypes(ToType);
-    return OR_Success;
+    return Result;
   }
 
   case OR_No_Viable_Function:
     return OR_No_Viable_Function;
-  case OR_Deleted:
-    return OR_Deleted;
   case OR_Ambiguous:
     return OR_Ambiguous;
   }
@@ -7064,16 +7070,24 @@ class BuiltinOperatorOverloadBuilder {
   // provided via the getArithmeticType() method below.
   // The "promoted arithmetic types" are the arithmetic
   // types are that preserved by promotion (C++ [over.built]p2).
-  static const unsigned FirstIntegralType = 4;				//***INTEL
-  static const unsigned LastIntegralType = 21;				//***INTEL
-  static const unsigned FirstPromotedIntegralType = 4,		//***INTEL
-                        LastPromotedIntegralType = 12;		//***INTEL
-  static const unsigned FirstPromotedArithmeticType = 0,	//***INTEL
-                        LastPromotedArithmeticType = 12;	//***INTEL
-  static const unsigned NumArithmeticTypes = 21;			//***INTEL
 #ifdef INTEL_CUSTOMIZATION
+  static const unsigned FirstIntegralType = 4;
+  static const unsigned LastIntegralType = 21;
+  static const unsigned FirstPromotedIntegralType = 4,
+                        LastPromotedIntegralType = 12;
+  static const unsigned FirstPromotedArithmeticType = 0,
+                        LastPromotedArithmeticType = 12;
+  static const unsigned NumArithmeticTypes = 21;
   static const unsigned Float128Type = 3;
-#endif
+#else
+  static const unsigned FirstIntegralType = 3;
+  static const unsigned LastIntegralType = 20;
+  static const unsigned FirstPromotedIntegralType = 3,
+                        LastPromotedIntegralType = 11;
+  static const unsigned FirstPromotedArithmeticType = 0,
+                        LastPromotedArithmeticType = 11;
+  static const unsigned NumArithmeticTypes = 20;
+#endif  // INTEL_CUSTOMIZATION
 
   /// \brief Get the canonical type for a given arithmetic type index.
   CanQualType getArithmeticType(unsigned index) {
@@ -7086,7 +7100,7 @@ class BuiltinOperatorOverloadBuilder {
       &ASTContext::LongDoubleTy,
 #ifdef INTEL_CUSTOMIZATION
       &ASTContext::Float128Ty,
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
       // Start of integral types.
       &ASTContext::IntTy,
@@ -7129,27 +7143,61 @@ class BuiltinOperatorOverloadBuilder {
     // (we could precompute SLL x UI for all known platforms, but it's
     // better not to make any assumptions).
     // We assume that int128 has a higher rank than long long on all platforms.
-	//FIXME: #ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+
     enum PromotedType {
             Dep=-1,
-            Flt,  Dbl, LDbl, Flt128,  SI,   SL,  SLL, S128,   UI,   UL,  ULL, U128
+            Flt,  Dbl, LDbl, Flt128,  SI,   SL,  SLL, S128,   UI,
+            UL,  ULL, U128
     };
     static const PromotedType ConversionsTable[LastPromotedArithmeticType]
                                         [LastPromotedArithmeticType] = {
-/* Flt*/ {  Flt,  Dbl, LDbl,  Flt128, Flt,  Flt,  Flt,  Flt,  Flt,  Flt,  Flt,  Flt },
-/* Dbl*/ {  Dbl,  Dbl, LDbl,  Flt128, Dbl,  Dbl,  Dbl,  Dbl,  Dbl,  Dbl,  Dbl,  Dbl },
-/*LDbl*/ { LDbl, LDbl, LDbl, Flt128, LDbl, LDbl, LDbl, LDbl, LDbl, LDbl, LDbl, LDbl },
-/*Flt128*/{ Flt128, Flt128, Flt128, Flt128, Flt128, Flt128, Flt128, Flt128, Flt128, Flt128, Flt128, Flt128 },
-/*  SI*/ {  Flt,  Dbl, LDbl,   Flt128, SI,   SL,  SLL, S128,   UI,   UL,  ULL, U128 },
-/*  SL*/ {  Flt,  Dbl, LDbl,   Flt128, SL,   SL,  SLL, S128,  Dep,   UL,  ULL, U128 },
-/* SLL*/ {  Flt,  Dbl, LDbl,  Flt128, SLL,  SLL,  SLL, S128,  Dep,  Dep,  ULL, U128 },
-/*S128*/ {  Flt,  Dbl, LDbl, Flt128, S128, S128, S128, S128, S128, S128, S128, U128 },
-/*  UI*/ {  Flt,  Dbl, LDbl, Flt128,   UI,  Dep,  Dep, S128,   UI,   UL,  ULL, U128 },
-/*  UL*/ {  Flt,  Dbl, LDbl, Flt128,   UL,   UL,  Dep, S128,   UL,   UL,  ULL, U128 },
-/* ULL*/ {  Flt,  Dbl, LDbl, Flt128,  ULL,  ULL,  ULL, S128,  ULL,  ULL,  ULL, U128 },
-/*U128*/ {  Flt,  Dbl, LDbl, Flt128, U128, U128, U128, U128, U128, U128, U128, U128 },
+/* Flt*/ {  Flt,  Dbl, LDbl,  Flt128, Flt,  Flt,  Flt,  Flt,  Flt,
+            Flt,  Flt,  Flt },
+/* Dbl*/ {  Dbl,  Dbl, LDbl,  Flt128, Dbl,  Dbl,  Dbl,  Dbl,  Dbl,
+            Dbl,  Dbl,  Dbl },
+/*LDbl*/ { LDbl, LDbl, LDbl, Flt128, LDbl, LDbl, LDbl, LDbl, LDbl,
+            LDbl, LDbl, LDbl },
+/*Flt128*/{ Flt128, Flt128, Flt128, Flt128, Flt128, Flt128, Flt128,
+            Flt128, Flt128, Flt128, Flt128, Flt128 },
+/*  SI*/ {  Flt,  Dbl, LDbl,   Flt128, SI,   SL,  SLL, S128,   UI,
+            UL,  ULL, U128 },
+/*  SL*/ {  Flt,  Dbl, LDbl,   Flt128, SL,   SL,  SLL, S128,  Dep,
+            UL,  ULL, U128 },
+/* SLL*/ {  Flt,  Dbl, LDbl,  Flt128, SLL,  SLL,  SLL, S128,  Dep,
+            Dep,  ULL, U128 },
+/*S128*/ {  Flt,  Dbl, LDbl, Flt128, S128, S128, S128, S128, S128,
+            S128, S128, U128 },
+/*  UI*/ {  Flt,  Dbl, LDbl, Flt128,   UI,  Dep,  Dep, S128,   UI,
+            UL,  ULL, U128 },
+/*  UL*/ {  Flt,  Dbl, LDbl, Flt128,   UL,   UL,  Dep, S128,   UL,
+            UL,  ULL, U128 },
+/* ULL*/ {  Flt,  Dbl, LDbl, Flt128,  ULL,  ULL,  ULL, S128,  ULL,
+            ULL,  ULL, U128 },
+/*U128*/ {  Flt,  Dbl, LDbl, Flt128, U128, U128, U128, U128, U128,
+            U128, U128, U128 },
+    };
+#else
+    enum PromotedType {
+            Dep=-1,
+            Flt,  Dbl, LDbl,   SI,   SL,  SLL, S128,   UI,   UL,  ULL, U128
+    };
+    static const PromotedType ConversionsTable[LastPromotedArithmeticType]
+                                        [LastPromotedArithmeticType] = {
+/* Flt*/ {  Flt,  Dbl, LDbl,  Flt,  Flt,  Flt,  Flt,  Flt,  Flt,  Flt,  Flt },
+/* Dbl*/ {  Dbl,  Dbl, LDbl,  Dbl,  Dbl,  Dbl,  Dbl,  Dbl,  Dbl,  Dbl,  Dbl },
+/*LDbl*/ { LDbl, LDbl, LDbl, LDbl, LDbl, LDbl, LDbl, LDbl, LDbl, LDbl, LDbl },
+/*  SI*/ {  Flt,  Dbl, LDbl,   SI,   SL,  SLL, S128,   UI,   UL,  ULL, U128 },
+/*  SL*/ {  Flt,  Dbl, LDbl,   SL,   SL,  SLL, S128,  Dep,   UL,  ULL, U128 },
+/* SLL*/ {  Flt,  Dbl, LDbl,  SLL,  SLL,  SLL, S128,  Dep,  Dep,  ULL, U128 },
+/*S128*/ {  Flt,  Dbl, LDbl, S128, S128, S128, S128, S128, S128, S128, U128 },
+/*  UI*/ {  Flt,  Dbl, LDbl,   UI,  Dep,  Dep, S128,   UI,   UL,  ULL, U128 },
+/*  UL*/ {  Flt,  Dbl, LDbl,   UL,   UL,  Dep, S128,   UL,   UL,  ULL, U128 },
+/* ULL*/ {  Flt,  Dbl, LDbl,  ULL,  ULL,  ULL, S128,  ULL,  ULL,  ULL, U128 },
+/*U128*/ {  Flt,  Dbl, LDbl, U128, U128, U128, U128, U128, U128, U128, U128 },
     };
 
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
     assert(L < LastPromotedArithmeticType);
     assert(R < LastPromotedArithmeticType);
     int Idx = ConversionsTable[L][R];
@@ -7629,7 +7677,7 @@ public:
 #ifdef INTEL_CUSTOMIZATION
         if (!S.getLangOpts().Float128 &&
             (Left == Float128Type || Right == Float128Type)) continue;
-#endif
+#endif  // INTEL_CUSTOMIZATION
         QualType LandR[2] = { getArithmeticType(Left),
                               getArithmeticType(Right) };
         QualType Result =
@@ -7688,7 +7736,7 @@ public:
 #ifdef INTEL_CUSTOMIZATION
         if (!S.getLangOpts().Float128 &&
             (Left == Float128Type || Right == Float128Type)) continue;
-#endif
+#endif  // INTEL_CUSTOMIZATION
         QualType LandR[2] = { getArithmeticType(Left),
                               getArithmeticType(Right) };
         QualType Result = (Op == OO_LessLess || Op == OO_GreaterGreater)
@@ -9523,10 +9571,7 @@ struct CompareOverloadCandidatesForDisplay {
         numLFixes = (numLFixes == 0) ? UINT_MAX : numLFixes;
         numRFixes = (numRFixes == 0) ? UINT_MAX : numRFixes;
         if (numLFixes != numRFixes) {
-          if (numLFixes < numRFixes)
-            return true;
-          else
-            return false;
+          return numLFixes < numRFixes;
         }
 
         // If there's any ordering between the defined conversions...
@@ -12517,15 +12562,11 @@ Expr *Sema::FixOverloadedFunctionReference(Expr *E, DeclAccessPair Found,
       type = Context.BoundMemberTy;
     }
 
-    MemberExpr *ME = MemberExpr::Create(Context, Base,
-                                        MemExpr->isArrow(),
-                                        MemExpr->getQualifierLoc(),
-                                        MemExpr->getTemplateKeywordLoc(),
-                                        Fn,
-                                        Found,
-                                        MemExpr->getMemberNameInfo(),
-                                        TemplateArgs,
-                                        type, valueKind, OK_Ordinary);
+    MemberExpr *ME = MemberExpr::Create(
+        Context, Base, MemExpr->isArrow(), MemExpr->getOperatorLoc(),
+        MemExpr->getQualifierLoc(), MemExpr->getTemplateKeywordLoc(), Fn, Found,
+        MemExpr->getMemberNameInfo(), TemplateArgs, type, valueKind,
+        OK_Ordinary);
     ME->setHadMultipleCandidates(true);
     MarkMemberReferenced(ME);
     return ME;

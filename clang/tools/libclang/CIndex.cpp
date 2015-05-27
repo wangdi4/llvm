@@ -169,11 +169,16 @@ static SourceRange getFullCursorExtent(CXCursor C, SourceManager &SrcMgr);
 
 #ifdef INTEL_CUSTOMIZATION
 bool CursorVisitor::VisitPragmaDecl(PragmaDecl *D) {
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   if (Stmt *PS = D->getStmt())
     return Visit(MakeCXCursor(PS, StmtParent, TU, RegionOfInterest));
   return false;
+#else
+  llvm_unreachable("Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
+  return false;
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 RangeComparisonResult CursorVisitor::CompareRegionOfInterest(SourceRange R) {
   return RangeCompare(AU->getSourceManager(), R, RegionOfInterest);
@@ -1725,7 +1730,7 @@ public:
     return VJ->getKind() == DeclVisitKind;
   }
   const Decl *get() const { return static_cast<const Decl *>(data[0]); }
-  bool isFirst() const { return data[1] ? true : false; }
+  bool isFirst() const { return data[1] != nullptr; }
 };
 class TypeLocVisit : public VisitorJob {
 public:
@@ -2029,16 +2034,47 @@ void OMPClauseEnqueue::VisitOMPFirstprivateClause(
 void OMPClauseEnqueue::VisitOMPLastprivateClause(
                                         const OMPLastprivateClause *C) {
   VisitOMPClauseList(C);
+  for (auto *E : C->private_copies()) {
+    Visitor->AddStmt(E);
+  }
+  for (auto *E : C->source_exprs()) {
+    Visitor->AddStmt(E);
+  }
+  for (auto *E : C->destination_exprs()) {
+    Visitor->AddStmt(E);
+  }
+  for (auto *E : C->assignment_ops()) {
+    Visitor->AddStmt(E);
+  }
 }
 void OMPClauseEnqueue::VisitOMPSharedClause(const OMPSharedClause *C) {
   VisitOMPClauseList(C);
 }
 void OMPClauseEnqueue::VisitOMPReductionClause(const OMPReductionClause *C) {
   VisitOMPClauseList(C);
+  for (auto *E : C->lhs_exprs()) {
+    Visitor->AddStmt(E);
+  }
+  for (auto *E : C->rhs_exprs()) {
+    Visitor->AddStmt(E);
+  }
+  for (auto *E : C->reduction_ops()) {
+    Visitor->AddStmt(E);
+  }
 }
 void OMPClauseEnqueue::VisitOMPLinearClause(const OMPLinearClause *C) {
   VisitOMPClauseList(C);
+  for (const auto *E : C->inits()) {
+    Visitor->AddStmt(E);
+  }
+  for (const auto *E : C->updates()) {
+    Visitor->AddStmt(E);
+  }
+  for (const auto *E : C->finals()) {
+    Visitor->AddStmt(E);
+  }
   Visitor->AddStmt(C->getStep());
+  Visitor->AddStmt(C->getCalcStep());
 }
 void OMPClauseEnqueue::VisitOMPAlignedClause(const OMPAlignedClause *C) {
   VisitOMPClauseList(C);
@@ -2046,10 +2082,28 @@ void OMPClauseEnqueue::VisitOMPAlignedClause(const OMPAlignedClause *C) {
 }
 void OMPClauseEnqueue::VisitOMPCopyinClause(const OMPCopyinClause *C) {
   VisitOMPClauseList(C);
+  for (auto *E : C->source_exprs()) {
+    Visitor->AddStmt(E);
+  }
+  for (auto *E : C->destination_exprs()) {
+    Visitor->AddStmt(E);
+  }
+  for (auto *E : C->assignment_ops()) {
+    Visitor->AddStmt(E);
+  }
 }
 void
 OMPClauseEnqueue::VisitOMPCopyprivateClause(const OMPCopyprivateClause *C) {
   VisitOMPClauseList(C);
+  for (auto *E : C->source_exprs()) {
+    Visitor->AddStmt(E);
+  }
+  for (auto *E : C->destination_exprs()) {
+    Visitor->AddStmt(E);
+  }
+  for (auto *E : C->assignment_ops()) {
+    Visitor->AddStmt(E);
+  }
 }
 void OMPClauseEnqueue::VisitOMPFlushClause(const OMPFlushClause *C) {
   VisitOMPClauseList(C);
@@ -2245,8 +2299,21 @@ void EnqueueVisitor::VisitMemberExpr(const MemberExpr *M) {
   // visit it.
   // FIXME: If we ever want to show these implicit accesses, this will be
   // unfortunate. However, clang_getCursor() relies on this behavior.
-  if (!M->isImplicitAccess())
-    AddStmt(M->getBase());
+  if (M->isImplicitAccess())
+    return;
+
+  // Ignore base anonymous struct/union fields, otherwise they will shadow the
+  // real field that that we are interested in.
+  if (auto *SubME = dyn_cast<MemberExpr>(M->getBase())) {
+    if (auto *FD = dyn_cast_or_null<FieldDecl>(SubME->getMemberDecl())) {
+      if (FD->isAnonymousStructOrUnion()) {
+        AddStmt(SubME->getBase());
+        return;
+      }
+    }
+  }
+
+  AddStmt(M->getBase());
 }
 void EnqueueVisitor::VisitObjCEncodeExpr(const ObjCEncodeExpr *E) {
   AddTypeLoc(E->getEncodedTypeSourceInfo());
@@ -4175,7 +4242,7 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
 #ifdef INTEL_CUSTOMIZATION
   case CXCursor_CilkRankedStmt:
     return cxstring::createRef("CilkRankedStmt");
-#endif  
+#endif  // INTEL_CUSTOMIZATION
   case CXCursor_OMPParallelDirective:
     return cxstring::createRef("OMPParallelDirective");
   case CXCursor_OMPSimdDirective:
@@ -4928,8 +4995,12 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
   switch (D->getKind()) {
 #ifdef INTEL_CUSTOMIZATION
   case Decl::Pragma:
+#ifndef INTEL_SPECIFIC_IL0_BACKEND
+    llvm_unreachable(
+      "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
     break;
-#endif
+#endif  // INTEL_CUSTOMIZATION
   // Declaration kinds that don't really separate the notions of
   // declaration and definition.
   case Decl::Namespace:
@@ -4956,9 +5027,9 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
   case Decl::StaticAssert:
   case Decl::Block:
   case Decl::Captured:
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   case Decl::CilkSpawn:
-#endif  
+#endif  // INTEL_CUSTOMIZATION
   case Decl::Label:  // FIXME: Is this right??
   case Decl::ClassScopeFunctionSpecialization:
   case Decl::Import:
@@ -4969,6 +5040,7 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
   // nonetheless harmless.
   case Decl::Empty:
   case Decl::TranslationUnit:
+  case Decl::ExternCContext:
     break;
 
   // Declaration kinds for which the definition is not resolvable.
@@ -7285,7 +7357,7 @@ cxindex::Logger::~Logger() {
 
   llvm::TimeRecord TR = llvm::TimeRecord::getCurrentTime();
   OS << llvm::format("%7.4f] ", TR.getWallTime() - sBeginTR.getWallTime());
-  OS << Msg.str() << '\n';
+  OS << Msg << '\n';
 
   if (Trace) {
     llvm::sys::PrintStackTrace(OS);

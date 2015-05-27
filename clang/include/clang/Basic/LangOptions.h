@@ -57,7 +57,7 @@ public:
     SOB_Defined,    // -fwrapv
     SOB_Trapping    // -ftrapv
   };
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   enum IntelFPModel {
     IFP_Fast = 1<<0,
     IFP_Precise = 1<<1,
@@ -72,7 +72,7 @@ public:
     IFP_ValueSafety = 1<<10,
     IFP_Fast2 = 1<<11
   };
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   enum PragmaMSPointersToMembersKind {
     PPTMK_BestCase,
     PPTMK_FullGeneralitySingleInheritance,
@@ -131,6 +131,10 @@ public:
   bool isSubscriptPointerArithmetic() const {
     return ObjCRuntime.isSubscriptPointerArithmetic() &&
            !ObjCSubscriptingLegacyRuntime;
+  }
+
+  bool isCompatibleWithMSVC(unsigned MajorVersion) const {
+    return MSCompatibilityVersion >= MajorVersion * 10000000U;
   }
 
   /// \brief Reset all of the options that are not considered when building a

@@ -111,10 +111,12 @@ COMMON_FLAG(
     bool, coverage, false,
     "If set, coverage information will be dumped at program shutdown (if the "
     "coverage instrumentation was enabled at compile time).")
-// On by default, but works only if coverage == true.
 COMMON_FLAG(bool, coverage_pcs, true,
             "If set (and if 'coverage' is set too), the coverage information "
             "will be dumped as a set of PC offsets for every module.")
+COMMON_FLAG(bool, coverage_order_pcs, false,
+             "If true, the PCs will be dumped in the order they've"
+             " appeared during the execution.")
 COMMON_FLAG(bool, coverage_bitset, false,
             "If set (and if 'coverage' is set too), the coverage information "
             "will also be dumped as a bitset to a separate file.")
@@ -149,3 +151,5 @@ COMMON_FLAG(const char *, stack_trace_format, "DEFAULT",
             "Use DEFAULT to get default format.")
 COMMON_FLAG(bool, no_huge_pages_for_shadow, true,
             "If true, the shadow is not allowed to use huge pages. ")
+COMMON_FLAG(bool, strict_string_checks, false,
+            "If set check that string arguments are properly null-terminated")

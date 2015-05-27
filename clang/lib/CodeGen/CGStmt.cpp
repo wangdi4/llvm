@@ -29,7 +29,7 @@
 #include "intel/CGCilkPlusRuntime.h"
 #include "clang/Basic/CapturedStmt.h"
 #include "llvm/IR/TypeBuilder.h"
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 using namespace clang;
 using namespace CodeGen;
@@ -81,7 +81,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
 #ifdef INTEL_CUSTOMIZATION
   case Stmt::PragmaStmtClass:
     llvm_unreachable("should have emitted this statement as simple");
-#endif
+#endif  // INTEL_CUSTOMIZATION
   case Stmt::NoStmtClass:
   case Stmt::CXXCatchStmtClass:
   case Stmt::SEHExceptStmtClass:
@@ -90,7 +90,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
     llvm_unreachable("invalid statement class to emit generically");
 #ifdef INTEL_CUSTOMIZATION
   case Stmt::CilkSyncStmtClass:
-#endif
+#endif  // INTEL_CUSTOMIZATION
   case Stmt::NullStmtClass:
   case Stmt::CompoundStmtClass:
   case Stmt::DeclStmtClass:
@@ -200,7 +200,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
   case Stmt::CilkRankedStmtClass:
     EmitCilkRankedStmt(cast<CilkRankedStmt>(*S));
     break;
-#endif  
+#endif  // INTEL_CUSTOMIZATION
   case Stmt::OMPParallelDirectiveClass:
     EmitOMPParallelDirective(cast<OMPParallelDirective>(*S));
     break;
@@ -270,11 +270,13 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
 bool CodeGenFunction::EmitSimpleStmt(const Stmt *S) {
   switch (S->getStmtClass()) {
   default: return false;
-#ifdef INTEL_CUSTOMIZATION  
-  case Stmt::CilkSyncStmtClass: 
-  	CGM.getCilkPlusRuntime().EmitCilkSync(*this); break;
-  case Stmt::PragmaStmtClass: EmitPragmaStmt(cast<PragmaStmt>(*S));     break;
-#endif
+#ifdef INTEL_CUSTOMIZATION
+  case Stmt::CilkSyncStmtClass:
+    CGM.getCilkPlusRuntime().EmitCilkSync(*this); break;
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  case Stmt::PragmaStmtClass:   EmitPragmaStmt(cast<PragmaStmt>(*S));     break;
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   case Stmt::NullStmtClass: break;
   case Stmt::CompoundStmtClass: EmitCompoundStmt(cast<CompoundStmt>(*S)); break;
   case Stmt::DeclStmtClass:     EmitDeclStmt(cast<DeclStmt>(*S));         break;
@@ -455,9 +457,8 @@ void CodeGenFunction::EmitLabel(const LabelDecl *D) {
     ResolveBranchFixups(Dest.getBlock());
   }
 
-  RegionCounter Cnt = getPGORegionCounter(D->getStmt());
   EmitBlock(Dest.getBlock());
-  Cnt.beginRegion(Builder);
+  incrementProfileCounter(D->getStmt());
 }
 
 /// Change the cleanup scope of the labels in this lexical scope to
@@ -545,7 +546,6 @@ void CodeGenFunction::EmitIfStmt(const IfStmt &S) {
   // C99 6.8.4.1: The first substatement is executed if the expression compares
   // unequal to 0.  The condition must be a scalar type.
   LexicalScope ConditionScope(*this, S.getCond()->getSourceRange());
-  RegionCounter Cnt = getPGORegionCounter(&S);
 
   if (S.getConditionVariable())
     EmitAutoVarDecl(*S.getConditionVariable());
@@ -564,7 +564,7 @@ void CodeGenFunction::EmitIfStmt(const IfStmt &S) {
     // This avoids emitting dead code and simplifies the CFG substantially.
     if (!ContainsLabel(Skipped)) {
       if (CondConstant)
-        Cnt.beginRegion(Builder);
+        incrementProfileCounter(&S);
       if (Executed) {
         RunCleanupsScope ExecutedScope(*this);
         EmitStmt(Executed);
@@ -581,11 +581,12 @@ void CodeGenFunction::EmitIfStmt(const IfStmt &S) {
   if (S.getElse())
     ElseBlock = createBasicBlock("if.else");
 
-  EmitBranchOnBoolExpr(S.getCond(), ThenBlock, ElseBlock, Cnt.getCount());
+  EmitBranchOnBoolExpr(S.getCond(), ThenBlock, ElseBlock,
+                       getProfileCount(S.getThen()));
 
   // Emit the 'then' code.
   EmitBlock(ThenBlock);
-  Cnt.beginRegion(Builder);
+  incrementProfileCounter(&S);
   {
     RunCleanupsScope ThenScope(*this);
     EmitStmt(S.getThen());
@@ -710,8 +711,6 @@ void CodeGenFunction::EmitCondBrHints(llvm::LLVMContext &Context,
 
 void CodeGenFunction::EmitWhileStmt(const WhileStmt &S,
                                     ArrayRef<const Attr *> WhileAttrs) {
-  RegionCounter Cnt = getPGORegionCounter(&S);
-
   // Emit the header for the loop, which will also become
   // the continue target.
   JumpDest LoopHeader = getJumpDestInCurrentScope("while.cond");
@@ -756,9 +755,9 @@ void CodeGenFunction::EmitWhileStmt(const WhileStmt &S,
     llvm::BasicBlock *ExitBlock = LoopExit.getBlock();
     if (ConditionScope.requiresCleanups())
       ExitBlock = createBasicBlock("while.exit");
-    llvm::BranchInst *CondBr =
-        Builder.CreateCondBr(BoolCondVal, LoopBody, ExitBlock,
-                             PGO.createLoopWeights(S.getCond(), Cnt));
+    llvm::BranchInst *CondBr = Builder.CreateCondBr(
+        BoolCondVal, LoopBody, ExitBlock,
+        PGO.createLoopWeights(S.getCond(), getProfileCount(S.getBody())));
 
     if (ExitBlock != LoopExit.getBlock()) {
       EmitBlock(ExitBlock);
@@ -774,7 +773,7 @@ void CodeGenFunction::EmitWhileStmt(const WhileStmt &S,
   {
     RunCleanupsScope BodyScope(*this);
     EmitBlock(LoopBody);
-    Cnt.beginRegion(Builder);
+    incrementProfileCounter(&S);
     EmitStmt(S.getBody());
   }
 
@@ -803,7 +802,7 @@ void CodeGenFunction::EmitDoStmt(const DoStmt &S,
   JumpDest LoopExit = getJumpDestInCurrentScope("do.end");
   JumpDest LoopCond = getJumpDestInCurrentScope("do.cond");
 
-  RegionCounter Cnt = getPGORegionCounter(&S);
+  uint64_t ParentCount = getCurrentProfileCount();
 
   // Store the blocks to use for break and continue.
   BreakContinueStack.push_back(BreakContinue(LoopExit, LoopCond));
@@ -813,7 +812,7 @@ void CodeGenFunction::EmitDoStmt(const DoStmt &S,
 
   LoopStack.push(LoopBody);
 
-  EmitBlockWithFallThrough(LoopBody, Cnt);
+  EmitBlockWithFallThrough(LoopBody, &S);
   {
     RunCleanupsScope BodyScope(*this);
     EmitStmt(S.getBody());
@@ -840,9 +839,10 @@ void CodeGenFunction::EmitDoStmt(const DoStmt &S,
 
   // As long as the condition is true, iterate the loop.
   if (EmitBoolCondBranch) {
+    uint64_t BackedgeCount = getProfileCount(S.getBody()) - ParentCount;
     llvm::BranchInst *CondBr =
         Builder.CreateCondBr(BoolCondVal, LoopBody, LoopExit.getBlock(),
-                             PGO.createLoopWeights(S.getCond(), Cnt));
+                             PGO.createLoopWeights(S.getCond(), BackedgeCount));
 
     // Attach metadata to loop body conditional branch.
     EmitCondBrHints(LoopBody->getContext(), CondBr, DoAttrs);
@@ -868,8 +868,6 @@ void CodeGenFunction::EmitForStmt(const ForStmt &S,
   // Evaluate the first part before the loop.
   if (S.getInit())
     EmitStmt(S.getInit());
-
-  RegionCounter Cnt = getPGORegionCounter(&S);
 
   // Start the loop with a block that tests the condition.
   // If there's an increment, the continue scope will be overwritten
@@ -912,9 +910,9 @@ void CodeGenFunction::EmitForStmt(const ForStmt &S,
     // C99 6.8.5p2/p4: The first substatement is executed if the expression
     // compares unequal to 0.  The condition must be a scalar type.
     llvm::Value *BoolCondVal = EvaluateExprAsBool(S.getCond());
-    llvm::BranchInst *CondBr =
-        Builder.CreateCondBr(BoolCondVal, ForBody, ExitBlock,
-                             PGO.createLoopWeights(S.getCond(), Cnt));
+    llvm::BranchInst *CondBr = Builder.CreateCondBr(
+        BoolCondVal, ForBody, ExitBlock,
+        PGO.createLoopWeights(S.getCond(), getProfileCount(S.getBody())));
 
     // Attach metadata to loop body conditional branch.
     EmitCondBrHints(ForBody->getContext(), CondBr, ForAttrs);
@@ -929,7 +927,7 @@ void CodeGenFunction::EmitForStmt(const ForStmt &S,
     // Treat it as a non-zero constant.  Don't even create a new block for the
     // body, just fall into it.
   }
-  Cnt.beginRegion(Builder);
+  incrementProfileCounter(&S);
 
   {
     // Create a separate cleanup scope for the body, in case it is not
@@ -970,8 +968,6 @@ CodeGenFunction::EmitCXXForRangeStmt(const CXXForRangeStmt &S,
   EmitStmt(S.getRangeStmt());
   EmitStmt(S.getBeginEndStmt());
 
-  RegionCounter Cnt = getPGORegionCounter(&S);
-
   // Start the loop with a block that tests the condition.
   // If there's an increment, the continue scope will be overwritten
   // later.
@@ -993,7 +989,8 @@ CodeGenFunction::EmitCXXForRangeStmt(const CXXForRangeStmt &S,
   // to bool, is true.
   llvm::Value *BoolCondVal = EvaluateExprAsBool(S.getCond());
   llvm::BranchInst *CondBr = Builder.CreateCondBr(
-      BoolCondVal, ForBody, ExitBlock, PGO.createLoopWeights(S.getCond(), Cnt));
+      BoolCondVal, ForBody, ExitBlock,
+      PGO.createLoopWeights(S.getCond(), getProfileCount(S.getBody())));
 
   // Attach metadata to loop body conditional branch.
   EmitCondBrHints(ForBody->getContext(), CondBr, ForAttrs);
@@ -1004,7 +1001,7 @@ CodeGenFunction::EmitCXXForRangeStmt(const CXXForRangeStmt &S,
   }
 
   EmitBlock(ForBody);
-  Cnt.beginRegion(Builder);
+  incrementProfileCounter(&S);
 
   // Create a block for the increment. In case of a 'continue', we jump there.
   JumpDest Continue = getJumpDestInCurrentScope("for.inc");
@@ -1053,6 +1050,12 @@ void CodeGenFunction::EmitReturnOfRValue(RValue RV, QualType Ty) {
 /// if the function returns void, or may be missing one if the function returns
 /// non-void.  Fun stuff :).
 void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
+  // Returning from an outlined SEH helper is UB, and we already warn on it.
+  if (IsOutlinedSEHHelper) {
+    Builder.CreateUnreachable();
+    Builder.ClearInsertionPoint();
+  }
+
   // Emit the result value, even if unused, to evalute the side effects.
   const Expr *RV = S.getRetValue();
 
@@ -1129,10 +1132,10 @@ void CodeGenFunction::EmitDeclStmt(const DeclStmt &S) {
 
   for (const auto *I : S.decls()) {
     EmitDecl(*I);
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
     if (I->hasAttr<AvoidFalseShareAttr>())
       EmitIntelAttribute(*I);
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   }
 }
 
@@ -1169,13 +1172,11 @@ void CodeGenFunction::EmitCaseStmtRange(const CaseStmt &S) {
   llvm::APSInt LHS = S.getLHS()->EvaluateKnownConstInt(getContext());
   llvm::APSInt RHS = S.getRHS()->EvaluateKnownConstInt(getContext());
 
-  RegionCounter CaseCnt = getPGORegionCounter(&S);
-
   // Emit the code for this case. We do this first to make sure it is
   // properly chained from our predecessor before generating the
   // switch machinery to enter this block.
   llvm::BasicBlock *CaseDest = createBasicBlock("sw.bb");
-  EmitBlockWithFallThrough(CaseDest, CaseCnt);
+  EmitBlockWithFallThrough(CaseDest, &S);
   EmitStmt(S.getSubStmt());
 
   // If range is empty, do nothing.
@@ -1186,7 +1187,7 @@ void CodeGenFunction::EmitCaseStmtRange(const CaseStmt &S) {
   // FIXME: parameters such as this should not be hardcoded.
   if (Range.ult(llvm::APInt(Range.getBitWidth(), 64))) {
     // Range is small enough to add multiple switch instruction cases.
-    uint64_t Total = CaseCnt.getCount();
+    uint64_t Total = getProfileCount(&S);
     unsigned NCases = Range.getZExtValue() + 1;
     // We only have one region counter for the entire set of cases here, so we
     // need to divide the weights evenly between the generated cases, ensuring
@@ -1225,7 +1226,7 @@ void CodeGenFunction::EmitCaseStmtRange(const CaseStmt &S) {
 
   llvm::MDNode *Weights = nullptr;
   if (SwitchWeights) {
-    uint64_t ThisCount = CaseCnt.getCount();
+    uint64_t ThisCount = getProfileCount(&S);
     uint64_t DefaultCount = (*SwitchWeights)[0];
     Weights = PGO.createBranchWeights(ThisCount, DefaultCount);
 
@@ -1260,7 +1261,6 @@ void CodeGenFunction::EmitCaseStmt(const CaseStmt &S) {
     return;
   }
 
-  RegionCounter CaseCnt = getPGORegionCounter(&S);
   llvm::ConstantInt *CaseVal =
     Builder.getInt(S.getLHS()->EvaluateKnownConstInt(getContext()));
 
@@ -1275,7 +1275,7 @@ void CodeGenFunction::EmitCaseStmt(const CaseStmt &S) {
     // Only do this optimization if there are no cleanups that need emitting.
     if (isObviouslyBranchWithoutCleanups(Block)) {
       if (SwitchWeights)
-        SwitchWeights->push_back(CaseCnt.getCount());
+        SwitchWeights->push_back(getProfileCount(&S));
       SwitchInsn->addCase(CaseVal, Block.getBlock());
 
       // If there was a fallthrough into this case, make sure to redirect it to
@@ -1289,9 +1289,9 @@ void CodeGenFunction::EmitCaseStmt(const CaseStmt &S) {
   }
 
   llvm::BasicBlock *CaseDest = createBasicBlock("sw.bb");
-  EmitBlockWithFallThrough(CaseDest, CaseCnt);
+  EmitBlockWithFallThrough(CaseDest, &S);
   if (SwitchWeights)
-    SwitchWeights->push_back(CaseCnt.getCount());
+    SwitchWeights->push_back(getProfileCount(&S));
   SwitchInsn->addCase(CaseVal, CaseDest);
 
   // Recursively emitting the statement is acceptable, but is not wonderful for
@@ -1312,12 +1312,11 @@ void CodeGenFunction::EmitCaseStmt(const CaseStmt &S) {
     llvm::ConstantInt *CaseVal =
       Builder.getInt(CurCase->getLHS()->EvaluateKnownConstInt(getContext()));
 
-    CaseCnt = getPGORegionCounter(NextCase);
     if (SwitchWeights)
-      SwitchWeights->push_back(CaseCnt.getCount());
+      SwitchWeights->push_back(getProfileCount(NextCase));
     if (CGM.getCodeGenOpts().ProfileInstrGenerate) {
       CaseDest = createBasicBlock("sw.bb");
-      EmitBlockWithFallThrough(CaseDest, CaseCnt);
+      EmitBlockWithFallThrough(CaseDest, &S);
     }
 
     SwitchInsn->addCase(CaseVal, CaseDest);
@@ -1333,8 +1332,7 @@ void CodeGenFunction::EmitDefaultStmt(const DefaultStmt &S) {
   assert(DefaultBlock->empty() &&
          "EmitDefaultStmt: Default block already defined?");
 
-  RegionCounter Cnt = getPGORegionCounter(&S);
-  EmitBlockWithFallThrough(DefaultBlock, Cnt);
+  EmitBlockWithFallThrough(DefaultBlock, &S);
 
   EmitStmt(S.getSubStmt());
 }
@@ -1556,10 +1554,8 @@ void CodeGenFunction::EmitSwitchStmt(const SwitchStmt &S) {
     const SwitchCase *Case = nullptr;
     if (FindCaseStatementsForValue(S, ConstantCondValue, CaseStmts,
                                    getContext(), Case)) {
-      if (Case) {
-        RegionCounter CaseCnt = getPGORegionCounter(Case);
-        CaseCnt.beginRegion(Builder);
-      }
+      if (Case)
+        incrementProfileCounter(Case);
       RunCleanupsScope ExecutedScope(*this);
 
       // Emit the condition variable if needed inside the entire cleanup scope
@@ -1576,8 +1572,7 @@ void CodeGenFunction::EmitSwitchStmt(const SwitchStmt &S) {
       // specified series of statements and we're good.
       for (unsigned i = 0, e = CaseStmts.size(); i != e; ++i)
         EmitStmt(CaseStmts[i]);
-      RegionCounter ExitCnt = getPGORegionCounter(&S);
-      ExitCnt.beginRegion(Builder);
+      incrementProfileCounter(&S);
 
       // Now we want to restore the saved switch instance so that nested
       // switches continue to function properly
@@ -1608,7 +1603,7 @@ void CodeGenFunction::EmitSwitchStmt(const SwitchStmt &S) {
          Case;
          Case = Case->getNextSwitchCase()) {
       if (isa<DefaultStmt>(Case))
-        DefaultCount = getPGORegionCounter(Case).getCount();
+        DefaultCount = getProfileCount(Case);
       NumCases += 1;
     }
     SwitchWeights = new SmallVector<uint64_t, 16>();
@@ -1657,8 +1652,7 @@ void CodeGenFunction::EmitSwitchStmt(const SwitchStmt &S) {
 
   // Emit continuation.
   EmitBlock(SwitchExit.getBlock(), true);
-  RegionCounter ExitCnt = getPGORegionCounter(&S);
-  ExitCnt.beginRegion(Builder);
+  incrementProfileCounter(&S);
 
   if (SwitchWeights) {
     assert(SwitchWeights->size() == 1 + SwitchInsn->getNumCases() &&
@@ -2222,8 +2216,12 @@ CodeGenFunction::GenerateCapturedStmtFunction(const CapturedStmt &S) {
   llvm::Function *F =
     llvm::Function::Create(FuncLLVMTy, llvm::GlobalValue::InternalLinkage,
                            CapturedStmtInfo->getHelperName(), &CGM.getModule());
-  CGM.registerAsMangled(F->getName(), CD);				//***INTEL 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  CGM.registerAsMangled(F->getName(), CD);
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   CGM.SetInternalFunctionAttributes(CD, F, FuncInfo);
+  if (CD->isNothrow())
+    F->addFnAttr(llvm::Attribute::NoUnwind);
 
   // Generate the function.
   StartFunction(CD, Ctx.VoidTy, F, FuncInfo, Args,
@@ -2259,1336 +2257,3 @@ CodeGenFunction::GenerateCapturedStmtFunction(const CapturedStmt &S) {
 
   return F;
 }
-#ifdef INTEL_CUSTOMIZATION
-void
-CodeGenFunction::EmitCilkForGrainsizeStmt(const CilkForGrainsizeStmt &S) {
-  const Expr *E = S.getGrainsize();
-  assert(!E->getType()->isReferenceType() && "invalid type");
-  llvm::Value *Grainsize = EmitAnyExpr(E).getScalarVal();
-  EmitCilkForStmt(*cast<CilkForStmt>(S.getCilkFor()), Grainsize);
-}
-
-void
-CodeGenFunction::EmitCilkForStmt(const CilkForStmt &S, llvm::Value *Grainsize) {
-  // if (cond) {
-  //   count = loop_count;
-  //   grainsize = gs;
-  //   initialize context
-  //   __cilkrts_cilk_for_32(helper, captures, count, gs);
-  // }
-  RunCleanupsScope CilkForScope(*this);
-
-  CGDebugInfo *DI = getDebugInfo();
-  if (DI)
-    DI->EmitLexicalBlockStart(Builder, S.getSourceRange().getBegin());
-
-  // Evaluate the first part before the loop.
-  EmitStmt(S.getInit());
-
-  // Emit the helper function
-  CGCilkForStmtInfo CSInfo(S);
-  CodeGenFunction CGF(CGM, true);
-  CGF.CapturedStmtInfo = &CSInfo;
-
-  llvm::Function *Helper = CGF.GenerateCapturedStmtFunction(*S.getBody());
-
-  llvm::BasicBlock *ThenBlock = createBasicBlock("if.then");
-  llvm::BasicBlock *ContBlock = createBasicBlock("if.end");
-  EmitBranchOnBoolExpr(S.getCond(), ThenBlock, ContBlock, 0);
-
-  EmitBlock(ThenBlock);
-  {
-    RunCleanupsScope Scope(*this);
-
-    const Expr *LoopCountExpr = S.getLoopCount();
-    llvm::Value *LoopCount = EmitAnyExpr(LoopCountExpr).getScalarVal();
-
-    // Initialize the captured struct.
-    LValue CapStruct = InitCapturedStruct(*S.getBody());
-
-    llvm::LLVMContext &Ctx = CGM.getLLVMContext();
-
-    // Get or insert the cilk_for abi function.
-    llvm::Constant *CilkForABI = 0;
-    llvm::FunctionType *FTy = 0;
-    {
-      llvm::Module &M = CGM.getModule();
-      uint64_t SizeInBits = getContext().getTypeSize(LoopCountExpr->getType());
-      if (SizeInBits <= 32u) {
-        FTy = llvm::TypeBuilder<void(void(void *, uint32_t, uint32_t),
-                                     void *, uint32_t, int), false>::get(Ctx);
-        CilkForABI = M.getOrInsertFunction("__cilkrts_cilk_for_32", FTy);
-      } else if (SizeInBits <= 64u) {
-        FTy = llvm::TypeBuilder<void(void(void *, uint64_t, uint64_t),
-                                     void *, uint64_t, int), false>::get(Ctx);
-        CilkForABI = M.getOrInsertFunction("__cilkrts_cilk_for_64", FTy);
-      } else
-        llvm_unreachable("unexpected loop count type size");
-    }
-
-    // Call __cilkrts_cilk_for_*(helper, captures, count, grainsize);
-    SmallVector<llvm::Value *, 4> Args(4);
-    Args[0] = Builder.CreateBitCast(Helper, FTy->getParamType(0));
-    Args[1] =
-        Builder.CreatePointerCast(CapStruct.getAddress(), FTy->getParamType(1));
-    Args[2] = LoopCount;
-    Args[3] = Grainsize ? Grainsize
-                        : llvm::Constant::getNullValue(FTy->getParamType(3));
-
-    EmitCallOrInvoke(CilkForABI, Args);
-
-    // Update the Loop Control Variable
-    if (!isa<DeclStmt>(S.getInit())) {
-      llvm::Value *LCVAddr = LocalDeclMap.lookup(S.getLoopControlVar());
-      llvm::Value *LCVValue = Builder.CreateLoad(LCVAddr);
-
-      bool IsAdd = true;
-      llvm::Value *Delta = 0;
-      const Expr *IncExpr = S.getInc();
-      if (const UnaryOperator *Inc = dyn_cast<UnaryOperator>(IncExpr)) {
-        Delta = LoopCount;
-        IsAdd = Inc->isIncrementOp();
-      } else if (const BinaryOperator *Inc = dyn_cast<BinaryOperator>(IncExpr)) {
-        llvm::Value *RHS = EmitScalarExpr(Inc->getRHS());
-        assert(RHS->getType()->isIntegerTy() && "increment not integer type");
-        RHS = Builder.CreateSExtOrTrunc(RHS, LoopCount->getType());
-        Delta = Builder.CreateMul(RHS, LoopCount);
-        IsAdd = (Inc->getOpcode() == BO_AddAssign);
-      } else
-        llvm_unreachable("unexpected increment expression");
-
-      llvm::Value *Update = 0;
-      if (LCVValue->getType()->isPointerTy()) {
-        if (!IsAdd) Delta = Builder.CreateNeg(Delta);
-        Update = Builder.CreateGEP(LCVValue, Delta);
-      } else {
-        Delta = Builder.CreateSExtOrTrunc(Delta, LCVValue->getType());
-        llvm::Instruction::BinaryOps Op = (IsAdd) ? llvm::Instruction::Add
-                                                  : llvm::Instruction::Sub;
-        Update = Builder.CreateBinOp(Op, LCVValue, Delta);
-      }
-      Builder.CreateStore(Update, LCVAddr);
-    }
-
-    EmitBranch(ContBlock);
-  }
-
-  EmitBlock(ContBlock, true);
-}
-
-void CodeGenFunction::EmitCilkForHelperBody(const Stmt *S) {
-  // The outlined function for a Cilk for statement looks like
-  //
-  // void helper(context, low, high) {
-  //   for (index = low /*, other-initialization/;
-  //        index < high;
-  //        ++index /*, loop-increment*/) {
-  //     /* loop-body */
-  //   }
-  // }
-  //
-  // This function is a simplified version of EmitForStmt with the partial
-  // knowledge of the loop head structure. For example, the loop condition
-  // always exists and there is no loop condition variable declaration.
-
-  assert(CapturedStmtInfo && CapturedStmtInfo->getKind() == CR_CilkFor &&
-           "codegen info expected");
-  CGCilkForStmtInfo *CilkForInfo =
-      reinterpret_cast<CGCilkForStmtInfo*>(CapturedStmtInfo);
-  const CilkForStmt &CilkFor = CilkForInfo->getCilkForStmt();
-  const CapturedDecl *CD = CilkFor.getBody()->getCapturedDecl();
-  llvm::Value *Low = LocalDeclMap.lookup(CD->getParam(1));
-  llvm::Value *High = LocalDeclMap.lookup(CD->getParam(2));
-
-  // Find the type for the index variable.
-  llvm::Type *VarType = Low->getType();
-  assert(VarType->isPointerTy() && "pointer type expected");
-  VarType = cast<llvm::PointerType>(VarType)->getElementType();
-  assert((VarType->isIntegerTy(32) || VarType->isIntegerTy(64))
-         && "unexpected type size");
-
-  llvm::Value *Index = CreateTempAlloca(VarType, "__index.addr");
-  High = Builder.CreatePointerCast(High, Index->getType());
-
-  JumpDest LoopExit = getJumpDestInCurrentScope("loop.end");
-  RunCleanupsScope LoopScope(*this);
-
-  // Emit the loop initialization.
-  {
-    // Initialize Low.
-    Builder.CreateStore(Builder.CreateLoad(Low), Index);
-
-    // Initialize the inner loop control variable.
-    const VarDecl *D = CilkFor.getInnerLoopControlVar();
-    AutoVarEmission Emission = EmitAutoVarAlloca(*D);
-    EmitAutoVarInit(Emission);
-    EmitAutoVarCleanups(Emission);
-
-    // Keep track of the loop control variable and the address of its
-    // corresponding inner copy so that any reference to the loop control
-    // variable will reference its inner adjusted copy instead and this
-    // correction allows nested _Cilk_for statements.
-    llvm::Value *Addr = Emission.getAllocatedAddress();
-    CilkForInfo->setInnerLoopControlVarAddr(Addr);
-
-    // Emit the adjustment on the inner loop control variable.
-    EmitStmt(CilkFor.getInnerLoopVarAdjust());
-  }
-
-  // Emit the loop condition.
-  llvm::BasicBlock *CondBlock = createBasicBlock("loop.cond");
-  {
-    EmitBlock(CondBlock);
-    llvm::BasicBlock *ExitBlock = LoopExit.getBlock();
-
-    LoopStack.setParallel();
-    LoopStack.push(CondBlock);
-
-    // If there are any cleanups between here and the loop-exit scope,
-    // create a block to stage a loop exit along.
-    if (LoopScope.requiresCleanups())
-      ExitBlock = createBasicBlock("loop.cond.cleanup");
-
-    // As long as the condition is true, iterate the loop.
-    llvm::BasicBlock *LoopBody = createBasicBlock("loop.body");
-
-    QualType CmpTy1 = CD->getParam(1)->getType();
-    llvm::Value *CondVal = 0;
-    if (CmpTy1->hasSignedIntegerRepresentation()) {
-      CondVal = Builder.CreateICmpSLT(Builder.CreateLoad(Index),
-                                      Builder.CreateLoad(High));
-    } else {
-      CondVal = Builder.CreateICmpULT(Builder.CreateLoad(Index),
-                                      Builder.CreateLoad(High));
-    }
-    Builder.CreateCondBr(CondVal, LoopBody, ExitBlock);
-
-    if (ExitBlock != LoopExit.getBlock()) {
-      EmitBlock(ExitBlock);
-      EmitBranchThroughCleanup(LoopExit);
-    }
-
-    EmitBlock(LoopBody);
-  }
-
-  JumpDest Continue = getJumpDestInCurrentScope("loop.inc");
-
-  // Store the blocks to use for break and continue.
-  BreakContinueStack.push_back(BreakContinue(LoopExit, Continue));
-
-  // Emit the loop body.
-  {
-    // Create a separate cleanup scope for the body, in case it is not
-    // a compound statement.
-    RunCleanupsScope BodyScope(*this);
-    EmitStmt(S);
-  }
-
-  // Emit the loop increment.
-  {
-    EmitBlock(Continue.getBlock());
-    EmitStmt(CilkFor.getInc());
-
-    // Increment the loop variable and branch back the loop condition.
-    llvm::Value *Inc = Builder.CreateAdd(Builder.CreateLoad(Index),
-                                         llvm::ConstantInt::get(VarType, 1));
-    Builder.CreateStore(Inc, Index);
-  }
-
-  BreakContinueStack.pop_back();
-
-  EmitBranch(CondBlock);
-
-  LoopScope.ForceCleanup();
-
-  LoopStack.pop();
-
-  // Emit the fall-through block.
-  EmitBlock(LoopExit.getBlock(), true);
-}
-
-void
-CodeGenFunction::CGCilkSpawnInfo::EmitBody(CodeGenFunction &CGF, Stmt *S) {
-  // If there is a receiver, save its address.
-  CGCilkSpawnInfo *Info = cast<CGCilkSpawnInfo>(CGF.CapturedStmtInfo);
-  if (Info->getReceiverDecl()) {
-    assert(CGF.CurFn->arg_size() >= 2);
-    llvm::Function::arg_iterator A = CGF.CurFn->arg_begin();
-    Info->setReceiverAddr(++A);
-
-    // Similarly, save the receiver temporary address if it exists.
-    if (++A != CGF.CurFn->arg_end())
-      Info->setReceiverTmp(A);
-  }
-
-  CGF.CGM.getCilkPlusRuntime().EmitCilkHelperStackFrame(CGF);
-  CGCapturedStmtInfo::EmitBody(CGF, S);
-}
-
-void CodeGenFunction::EmitSIMDForHelperCall(llvm::Function *BodyFunc,
-                                            LValue CapStruct,
-                                            llvm::Value *LoopIndex,
-                                            bool IsLastIter) {
-  // Emit call to the helper function.
-  SmallVector<llvm::Value *, 3> HelperArgs;
-  HelperArgs.push_back(CapStruct.getAddress());
-  HelperArgs.push_back(Builder.CreateLoad(LoopIndex));
-
-  llvm::Value *LastIter = 0;
-  if (IsLastIter)
-    LastIter = llvm::ConstantInt::getTrue(BodyFunc->getContext());
-  else
-    LastIter = llvm::ConstantInt::getFalse(BodyFunc->getContext());
-  HelperArgs.push_back(LastIter);
-
-  disableExceptions();
-  EmitCallOrInvoke(BodyFunc, HelperArgs);
-  enableExceptions();
-}
-
-void CodeGenFunction::CGPragmaSimd::emitInit(CodeGenFunction &CGF,
-    llvm::Value *&LoopIndex, llvm::Value *&LoopCount) {
-  // Emit the initialization.
-  CGF.EmitStmt(this->getInit());
-
-  // Load the current value as the initial value and cache the stride value.
-  const VarDecl *LoopControlVar = cast<SIMDForStmt>(
-      this->getStmt())->getLoopControlVar();
-  assert(LoopControlVar && "invalid loop control variable");
-  DeclRefExpr DRE(const_cast<VarDecl*>(LoopControlVar), false, 
-      LoopControlVar->getType().getNonReferenceType(), VK_LValue, SourceLocation());
-  llvm::Value *ControlVarAddr = CGF.EmitDeclRefLValue(&DRE).getAddress();
-  assert(ControlVarAddr && "invalid loop control variable address");
-
-  LCVAddr = ControlVarAddr;
-  LCVInitVal = CGF.Builder.CreateLoad(ControlVarAddr, "__init");
-
-  LCVStrideVal = CGF.EmitAnyExpr(
-      cast<SIMDForStmt>(this->getStmt())->getLoopStride()).getScalarVal();
-  assert(LCVStrideVal->getType()->isIntegerTy() && "invalid stride type");
-
-  LoopCount = CGF.EmitAnyExpr(getLoopCount()).getScalarVal();
-  LoopIndex = CGF.CreateTempAlloca(LoopCount->getType(), "__index.addr");
-}
-
-void CodeGenFunction::CGPragmaSimd::emitIncrement(CodeGenFunction &CGF,
-                                     llvm::Value *IndexVar) const {
-  llvm::Value *Index = CGF.Builder.CreateLoad(IndexVar, "__index");
-  llvm::Value *Stride
-    = CGF.Builder.CreateSExtOrTrunc(LCVStrideVal, Index->getType());
-  llvm::Value *Delta = CGF.Builder.CreateMul(Index, Stride, "__delta");
-
-  //  lcv = init + index * stride;
-  llvm::Value *NewIndex = 0;
-  if (LCVInitVal->getType()->isPointerTy())
-    NewIndex = CGF.Builder.CreateGEP(LCVInitVal, Delta, "__index.new");
-  else {
-    Delta = CGF.Builder.CreateSExtOrTrunc(Delta, LCVInitVal->getType());
-    NewIndex = CGF.Builder.CreateAdd(LCVInitVal, Delta, "__index.new");
-  }
-  CGF.Builder.CreateStore(NewIndex, LCVAddr);
-}
-
-// Simd wrappers implementation for '#pragma simd'.
-bool CodeGenFunction::CGPragmaSimd::emitSafelen(CodeGenFunction *CGF) const {
-  bool SeparateLastIter = false;
-  const ArrayRef<Attr *> &Attrs = SimdFor->getSIMDAttrs();
-  for (unsigned i = 0, e = Attrs.size(); i < e; ++i) {
-    switch (Attrs[i]->getKind()) {
-      case clang::attr::SIMD:
-        CGF->LoopStack.setParallel();
-        CGF->LoopStack.setVectorizerEnable(true);
-        break;
-      case clang::attr::SIMDLength:
-        {
-          const SIMDLengthAttr *SIMDLength = 0;
-          SIMDLength = static_cast<const SIMDLengthAttr*>(Attrs[i]);
-          RValue Width = CGF->EmitAnyExpr(SIMDLength->getValueExpr(),
-              AggValueSlot::ignored(), true);
-          llvm::ConstantInt *C = dyn_cast<llvm::ConstantInt>(Width.getScalarVal());
-          assert(C);
-          CGF->LoopStack.setVectorizerWidth(C->getZExtValue());
-          // In presence of finite 'safelen', it may be unsafe to mark all
-          // the memory instructions parallel, because loop-carried
-          // dependences of 'safelen' iterations are possible.
-          CGF->LoopStack.setParallel(false);
-        } break;
-      case clang::attr::SIMDLastPrivate:
-      case clang::attr::SIMDLinear:
-        SeparateLastIter = true;
-        break;
-      default:
-        // Not yet handled
-        ;
-    }
-  }
-  return SeparateLastIter;
-}
-
-void CodeGenFunction::CGPragmaSimd::emitIntelIntrinsic(CodeGenFunction *CGF,
-    CodeGenModule *CGM, llvm::Value *LoopIndex, llvm::Value *LoopCount) const {
-  llvm::Value *IntelFN = CGM->getIntrinsic(llvm::Intrinsic::intel_pragma);
-  llvm::SmallVector<llvm::Metadata *, 2> Args;
-  Args.push_back(llvm::MDString::get(CGM->getLLVMContext(), "SIMD_LOOP"));
-
-  const ArrayRef<Attr *> &Attrs = SimdFor->getSIMDAttrs();
-  for (unsigned i = 0, e = Attrs.size(); i < e; ++i) {
-    switch (Attrs[i]->getKind()) {
-      case clang::attr::SIMDLength:
-        {
-          Args.push_back(llvm::MDString::get(CGM->getLLVMContext(), "VECTORLENGTH"));
-          const SIMDLengthAttr *SIMDLength = 0;
-          SIMDLength = static_cast<const SIMDLengthAttr*>(Attrs[i]);
-          RValue Width = CGF->EmitAnyExpr(SIMDLength->getValueExpr(),
-              AggValueSlot::ignored(), true);
-          llvm::ConstantInt *C = dyn_cast<llvm::ConstantInt>(Width.getScalarVal());
-          assert(C);
-          Args.push_back(llvm::ValueAsMetadata::get(C));
-        } break;
-      default:
-        break;
-    }
-  }
-
-  Args.push_back(llvm::MDString::get(CGM->getLLVMContext(), "LINEAR"));
-  Args.push_back(llvm::ValueAsMetadata::get(LoopIndex));
-  Args.push_back(llvm::ValueAsMetadata::get(
-                     llvm::ConstantInt::get(LoopCount->getType(), 1)));
-  llvm::MDNode *RealArg = llvm::MDNode::get(CGM->getLLVMContext(), Args);
-  llvm::SmallVector<llvm::Value *, 2> RealArgs;
-  RealArgs.push_back(
-      llvm::MetadataAsValue::get(CGM->getLLVMContext(), RealArg));
-  CGF->EmitRuntimeCall(IntelFN, RealArgs);
-}
-
-llvm::Function *CodeGenFunction::EmitSimdFunction(CGPragmaSimdWrapper &W) {
-  const CapturedStmt &CS = *W.getAssociatedStmt();
-
-  CGSIMDForStmtInfo CSInfo(W, LoopStack.getCurLoopID(),
-                              LoopStack.getCurLoopParallel());
-  CodeGenFunction CGF(CGM, true);
-  CGF.CapturedStmtInfo = &CSInfo;
-
-  CGF.disableExceptions();
-  llvm::Function *BodyFunction = CGF.GenerateCapturedStmtFunction(CS);
-  CGF.enableExceptions();
-
-  // Always inline this function back to the call site.
-  BodyFunction->addFnAttr(llvm::Attribute::AlwaysInline);
-  return BodyFunction;
-}
-
-void CodeGenFunction::EmitPragmaSimd(CodeGenFunction::CGPragmaSimdWrapper &W) {
-  RunCleanupsScope SIMDForScope(*this);
-
-  // Emit 'safelen' clause and decide if we want to separate last iteration.
-  bool SeparateLastIter = W.emitSafelen(this);
-
-  // Update debug info.
-  CGDebugInfo *DI = getDebugInfo();
-  if (DI)
-    DI->EmitLexicalBlockStart(Builder, W.getForLoc());
-
-  // Emit the for-loop.
-  llvm::Value *LoopIndex = 0;
-  llvm::Value *LoopCount = 0;
-
-  // Emit the loop control variable and cache its initial value and the
-  // stride value.
-  // Also emit loop index and loop count, depending on stmt.
-
-  W.emitInit(*this, LoopIndex, LoopCount);
-
-  // Only run the SIMD loop if the loop condition is true
-  llvm::BasicBlock *ContBlock = createBasicBlock("if.end");
-  llvm::BasicBlock *ThenBlock = createBasicBlock("if.then");
-
-  // The following condition is zero trip test to skip last iteration if
-  // the loopcount is zero.
-  // In the 'omp simd' we may have more than one loop counter due to
-  // 'collapse', so we check loopcount instead of loop counter.
-  EmitBranchOnBoolExpr(W.getCond(), ThenBlock, ContBlock, 0);
-  EmitBlock(ThenBlock);
-
-  // Initialize the captured struct.
-  LValue CapStruct = InitCapturedStruct(*W.getAssociatedStmt());
-
-  // Call intel_pragma intrinsic
-  W.emitIntelIntrinsic(this, &CGM, LoopIndex, LoopCount);
-
-  {
-    JumpDest LoopExit = getJumpDestInCurrentScope("for.end");
-    RunCleanupsScope ForScope(*this);
-
-    Builder.CreateStore(llvm::ConstantInt::get(LoopCount->getType(), 0),
-                        LoopIndex);
-
-    if (SeparateLastIter)
-      // Lastprivate or linear variable present, remove last iteration.
-      LoopCount = Builder.CreateSub(
-          LoopCount, llvm::ConstantInt::get(LoopCount->getType(), 1));
-
-    // Start the loop with a block that tests the condition.
-    // If there's an increment, the continue scope will be overwritten
-    // later.
-    JumpDest Continue = getJumpDestInCurrentScope("for.cond");
-    llvm::BasicBlock *CondBlock = Continue.getBlock();
-    LoopStack.push(CondBlock);
-
-    EmitBlock(CondBlock);
-
-    llvm::Value *BoolCondVal = 0;
-    {
-      // If the for statement has a condition scope, emit the local variable
-      // declaration.
-      llvm::BasicBlock *ExitBlock = LoopExit.getBlock();
-
-      // If there are any cleanups between here and the loop-exit scope,
-      // create a block to stage a loop exit along.
-      if (ForScope.requiresCleanups())
-        ExitBlock = createBasicBlock("for.cond.cleanup");
-
-      // As long as the condition is true, iterate the loop.
-      llvm::BasicBlock *ForBody = createBasicBlock("for.body");
-
-      // Use LoopCount and LoopIndex for iteration.
-      BoolCondVal = Builder.CreateICmpULT(Builder.CreateLoad(LoopIndex),
-                                          LoopCount);
-
-      // C99 6.8.5p2/p4: The first substatement is executed if the expression
-      // compares unequal to 0.  The condition must be a scalar type.
-      Builder.CreateCondBr(BoolCondVal, ForBody, ExitBlock);
-
-      if (ExitBlock != LoopExit.getBlock()) {
-        EmitBlock(ExitBlock);
-        EmitBranchThroughCleanup(LoopExit);
-      }
-
-      EmitBlock(ForBody);
-    }
-
-    Continue = getJumpDestInCurrentScope("for.inc");
-
-    // Store the blocks to use for break and continue.
-    BreakContinueStack.push_back(BreakContinue(LoopExit, Continue));
-
-    W.emitIncrement(*this, LoopIndex);
-
-    // Emit the call to the loop body.
-    llvm::Function *BodyFunction = EmitSimdFunction(W);
-    EmitSIMDForHelperCall(BodyFunction, CapStruct, LoopIndex, false);
-
-    // Emit the increment block.
-    EmitBlock(Continue.getBlock());
-
-    {
-      llvm::Value *NewLoopIndex =
-        Builder.CreateAdd(Builder.CreateLoad(LoopIndex),
-                          llvm::ConstantInt::get(LoopCount->getType(), 1));
-      Builder.CreateStore(NewLoopIndex, LoopIndex);
-    }
-
-    BreakContinueStack.pop_back();
-
-    EmitBranch(CondBlock);
-
-    ForScope.ForceCleanup();
-
-    if (DI)
-      DI->EmitLexicalBlockEnd(Builder, W.getSourceRange().getEnd());
-
-    LoopStack.pop();
-
-    // Emit the fall-through block.
-    EmitBlock(LoopExit.getBlock(), true);
-
-    // Increment again, for last iteration.
-    W.emitIncrement(*this, LoopIndex);
-
-    if (SeparateLastIter) {
-      // This helper call makes updates to linear or lastprivate variables.
-      // In the case of openmp, only for lastprivate ones.
-      EmitSIMDForHelperCall(BodyFunction, CapStruct, LoopIndex, true);
-    }
-
-    W.emitLinearFinal(*this);
-  }
-
-  EmitBlock(ContBlock, true);
-}
-
-void CodeGenFunction::EmitSIMDForStmt(const SIMDForStmt &S) {
-  RunCleanupsScope ExecutedScope(*this);
-  CGPragmaSimd Wrapper(&S);
-  EmitPragmaSimd(Wrapper);
-}
-
-static Expr *GetLinearStep(const SIMDForStmt &SS, VarDecl *SIMDVar) {
-  // Get the linear step from the SIMD Attributes list
-  ArrayRef<Attr *> Attrs = SS.getSIMDAttrs();
-  for (ArrayRef<Attr *>::iterator I = Attrs.begin(), E = Attrs.end();
-       I != E; ++I) {
-    Attr *A = *I;
-    if (SIMDLinearAttr *LA = dyn_cast<SIMDLinearAttr>(A))
-      // This is a Linear clause, iterate over its variables and steps.
-      for (SIMDLinearAttr::linear_iterator V = LA->vars_begin(),
-                                           S = LA->steps_begin(),
-                                           SE = LA->steps_end();
-           S != SE; ++S, ++V) {
-        assert(isa<DeclRefExpr>(*V) && "Linear variable must be a DeclRefExpr");
-        if (VarDecl *VD = cast<VarDecl>(cast<DeclRefExpr>(*V)->getDecl()))
-          if (VD == SIMDVar)
-            return *S;
-      }
-  }
-  return 0;
-}
-
-static void EmitUpdateExpr(CodeGenFunction &CGF, const Expr *UpdateExpr,
-                           QualType T, ArrayRef<VarDecl *> ArrayIndexes,
-                           unsigned Index) {
-  // Allocate (uninitialized) index variables for the first level.
-  if (Index == 0)
-    for (unsigned I = 0, N = ArrayIndexes.size(); I < N; ++I)
-      CGF.EmitAutoVarDecl(*ArrayIndexes[I]);
-
-  // Emit the update expression for the inner most level. If no loop is needed
-  // then the update expression is emitted in the following block.
-  if (Index == ArrayIndexes.size()) {
-    CodeGenFunction::RunCleanupsScope Scope(CGF);
-    CGF.EmitIgnoredExpr(UpdateExpr);
-    return;
-  }
-
-  // Emit a loop for the current level of the array.
-  const ConstantArrayType *Array = CGF.getContext().getAsConstantArrayType(T);
-  assert(Array && "array update without the array type");
-  llvm::Value *IndexVar = CGF.GetAddrOfLocalVar(ArrayIndexes[Index]);
-  assert(IndexVar && "Array index variable not loaded");
-
-  // Initialize this index variable to zero.
-  llvm::Type *SizeType = CGF.ConvertType(CGF.getContext().getSizeType());
-  llvm::Value *Zero = llvm::Constant::getNullValue(SizeType);
-  CGF.Builder.CreateStore(Zero, IndexVar);
-
-  llvm::BasicBlock *ForCond = CGF.createBasicBlock("for.cond");
-  llvm::BasicBlock *ForBody = CGF.createBasicBlock("for.body");
-  llvm::BasicBlock *ForInc = CGF.createBasicBlock("for.inc");
-  llvm::BasicBlock *ForEnd = CGF.createBasicBlock("for.end");
-
-  // Emit the condition.
-  llvm::Value *Counter = 0;
-  {
-    CGF.EmitBlock(ForCond);
-
-    Counter = CGF.Builder.CreateLoad(IndexVar);
-    uint64_t NumElements = Array->getSize().getZExtValue();
-    llvm::Value *NumElementsPtr = llvm::ConstantInt::get(Counter->getType(),
-                                                         NumElements);
-    llvm::Value *LessThan = CGF.Builder.CreateICmpULT(Counter, NumElementsPtr);
-    CGF.Builder.CreateCondBr(LessThan, ForBody, ForEnd);
-  }
-
-  // Emit the body.
-  CGF.EmitBlock(ForBody);
-  {
-    CodeGenFunction::RunCleanupsScope Cleanups(CGF);
-
-    // Recurse to emit the inner loop.
-    EmitUpdateExpr(CGF, UpdateExpr, Array->getElementType(), ArrayIndexes,
-                   Index + 1);
-  }
-
-  // Emit the increment.
-  {
-    CGF.EmitBlock(ForInc);
-
-    llvm::Value *NextVal = llvm::ConstantInt::get(Counter->getType(), 1);
-    Counter = CGF.Builder.CreateLoad(IndexVar);
-    NextVal = CGF.Builder.CreateAdd(Counter, NextVal, "inc");
-    CGF.Builder.CreateStore(NextVal, IndexVar);
-
-    // Branch back up to the next iteration.
-    CGF.EmitBranch(ForCond);
-  }
-
-  // Emit the fall-through block.
-  CGF.EmitBlock(ForEnd, true);
-}
-
-// Walker for '#pragma simd'
-bool CodeGenFunction::CGPragmaSimd::walkLocalVariablesToEmit(
-                        CodeGenFunction *CGF, 
-                        CGSIMDForStmtInfo *Info) const {
-  const SIMDForStmt &SS = *(cast<SIMDForStmt>(Info->getStmt()));
-  const CapturedDecl *CD = SS.getBody()->getCapturedDecl();
-  ImplicitParamDecl *IPD =  CD->getParam(1);
-  bool isSignedLoopIndex = IPD->getType()->hasSignedIntegerRepresentation();
-  llvm::Value *LoopIndex = CGF->LocalDeclMap.lookup(IPD);
-  bool RequiresUpdate = false;
-
-  // Emit all SIMD local variables and update the codegen info.
-  for (SIMDForStmt::simd_var_iterator I = SS.simd_var_begin(),
-      E = SS.simd_var_end(); I != E; ++I) {
-    if (!I->isPrivate() && !I->isFirstPrivate() && !I->isLastPrivate() &&
-        !I->isLinear())
-      continue;
-
-    VarDecl *SIMDVar = I->getSIMDVar();
-    VarDecl *LocalVar = I->getLocalVar();
-
-    CGF->LocalDeclMap[LocalVar] = 0;
-    CGF->EmitAutoVarDecl(*LocalVar);
-
-    llvm::Value *Addr = CGF->GetAddrOfLocalVar(LocalVar);
-    assert(Addr && "null address");
-    Info->updateLocalAddr(SIMDVar, Addr);
-
-    if (I->isLinear()) {
-      const FieldDecl *FD = Info->lookup(SIMDVar);
-      assert(FD && "must have been captured");
-      QualType TagType = CGF->getContext().getTagDeclType(FD->getParent());
-      LValue LV = CGF->MakeNaturalAlignAddrLValue(
-                          Info->getContextValue(), TagType);
-      LV = CGF->EmitLValueForField(LV, FD);
-
-      llvm::Value *Start = CGF->Builder.CreateLoad(LV.getAddress());
-      llvm::Value *Index = CGF->Builder.CreateLoad(LoopIndex);
-      llvm::Value *Result = 0;
-      Expr *StepExpr = GetLinearStep(SS, SIMDVar);
-      bool isSigned = isSignedLoopIndex; // by default we use sign of LoopIndex
-      if (StepExpr) {
-        Result = CGF->EmitAnyExpr(StepExpr).getScalarVal();
-        isSigned = StepExpr->getType()->hasSignedIntegerRepresentation();
-      }
-      else
-        Result = llvm::ConstantInt::get(Index->getType(), 1);
-      // We could have different size of operands (Index*Result) here
-      Result = CGF->Builder.CreateIntCast(Result, Index->getType(), isSigned);
-      Result = CGF->Builder.CreateMul(Index, Result);
-      if (LocalVar->getType()->isPointerType())
-        Result = CGF->Builder.CreateGEP(Start, Result);
-      else if (LocalVar->getType()->isRealFloatingType()) {
-        if(isSigned)
-          Result = CGF->Builder.CreateSIToFP(Result, Start->getType());
-        else
-          Result = CGF->Builder.CreateUIToFP(Result, Start->getType());
-        Result = CGF->Builder.CreateFAdd(Start, Result);
-      } else {
-        Result = CGF->Builder.CreateIntCast(Result, Start->getType(), isSignedLoopIndex);
-        Result = CGF->Builder.CreateAdd(Start, Result);
-      }
-      CGF->Builder.CreateStore(Result, Addr);
-    }
-    RequiresUpdate |= I->isLinear() || I->isLastPrivate();
-  }
-
-  return RequiresUpdate;
-}
-
-void CodeGenFunction::EmitSIMDForHelperBody(const Stmt *S) {
-  assert(CapturedStmtInfo && "Should be only called inside a CapturedStmt");
-  CGSIMDForStmtInfo *Info = cast<CGSIMDForStmtInfo>(CapturedStmtInfo);
-
-  // Mark the loop body as an extended region of this SIMD loop.
-  LoopStack.push(Info->getLoopID(), Info->getLoopParallel());
-  {
-    RunCleanupsScope Scope(*this);
-
-    // Emit all SIMD local variables and update the codegen info.
-    bool RequiresUpdate = Info->walkLocalVariablesToEmit(this);
-
-    // Emit the SIMD for loop body.
-    {
-      RunCleanupsScope BodyScope(*this);
-      // It is not allowed to have return or break in a SIMD loop body.
-      // Continue statements are allowed and updates to the data
-      // privatization variables will be emitted in a unified continue block.
-      JumpDest LoopContinue = getJumpDestInCurrentScope("for.continue");
-      BreakContinueStack.push_back(BreakContinue(JumpDest(), LoopContinue));
-
-      EmitStmt(S);
-
-      EmitBlock(LoopContinue.getBlock());
-
-      // If an update is required, emit those update expressions to be run on
-      // the last iteration of the loop.
-      //
-      // if (IsLastIter) {
-      //   [[ Update Expressions ]]
-      // }
-      //
-      // IsLastIter will only be true if this is a second output of the helper
-      // body, after the intial for-loop.
-      // Since IsLastIter is constant, it will be optimized out, and the if
-      // statement will not be a part of the SIMD For loop, thus allowing
-      // vectorization.
-      if (RequiresUpdate) {
-        const SIMDForStmt *SimdFor = cast<SIMDForStmt>(Info->getStmt());
-        const CapturedDecl *CD = SimdFor->getBody()->getCapturedDecl();
-        llvm::Value *IsLastIter = LocalDeclMap.lookup(CD->getParam(2));
-        RunCleanupsScope UpdateScope(*this);
-        llvm::BasicBlock *UpdateBody = createBasicBlock("update.body");
-        llvm::BasicBlock *UpdateExit = createBasicBlock("update.exit");
-
-        IsLastIter = Builder.CreateIsNotNull(Builder.CreateLoad(IsLastIter));
-        Builder.CreateCondBr(IsLastIter, UpdateBody, UpdateExit);
-
-        EmitBlock(UpdateBody);
-        // Update expressions update a SIMD variable, do not replace those uses
-        // with the local copy's address.
-        //
-        Info->setShouldReplaceWithLocal(false);
-        for (SIMDForStmt::simd_var_iterator I = SimdFor->simd_var_begin(),
-            E = SimdFor->simd_var_end(); I != E; ++I) {
-          // Emit the update for this variable. For lastprivate variables,
-          // loops may be needed to complete the update.
-          if (I->isLinear() || I->isLastPrivate()) {
-            EmitUpdateExpr(*this, I->getUpdateExpr(),
-                I->getLocalVar()->getType(),
-                I->getArrayIndexVars(), 0);
-          }
-        }
-        Info->setShouldReplaceWithLocal(true);
-        EmitBlock(UpdateExit);
-      }
-      BreakContinueStack.pop_back();
-    }
-  }
-
-  // Leave the loop body.
-  LoopStack.pop();
-}
-
-namespace {
-class NonCEANExprEmitter : public StmtVisitor<NonCEANExprEmitter, void> {
-  CodeGenFunction &CGF;
-  llvm::DenseMap<Expr *, llvm::AllocaInst *> ExprTemps;
-public:
-  void VisitCEANIndexExpr(CEANIndexExpr *E) { }
-  void VisitDeclRefExpr(DeclRefExpr *E) { }
-  void VisitExpr(Expr *E) {
-    QualType OrigTy = E->getType();
-    QualType RefTy = E->isGLValue() ?
-                            CGF.getContext().getLValueReferenceType(OrigTy) :
-                            CGF.getContext().getRValueReferenceType(OrigTy);
-    llvm::AllocaInst *Temp = CGF.CreateMemTemp(RefTy);
-    RValue RVal = CGF.EmitReferenceBindingToExpr(E);
-    LValue LVal = CGF.MakeNaturalAlignAddrLValue(Temp, RefTy);
-    CGF.EmitStoreThroughLValue(RVal, LVal, false);
-    ExprTemps[E] = Temp;
-  }
-  void VisitStmt(Stmt *S) {
-    for (Stmt::child_iterator I = S->child_begin(), E = S->child_end();
-         I != E; ++I) {
-      if (*I) Visit(*I);
-    }
-  }
-  NonCEANExprEmitter(CodeGenFunction &CGF) : CGF(CGF) { }
-};
-}
-
-static void EmitRecursiveCilkRankedStmt(CodeGenFunction &CGF,
-                                        const CilkRankedStmt &S,
-                                        unsigned Rank) {
-  if (Rank < S.getRank()) {
-    const DeclStmt *DS = cast<DeclStmt>(S.getVars()[Rank]);
-    CGF.EmitStmt(DS);
-    // Generate code for loop.
-    const Expr *Length = S.getLengths()[Rank];
-    bool isSigned = !Length->getType()->hasUnsignedIntegerRepresentation();
-    llvm::Value *ValLength = CGF.EmitScalarExpr(Length);
-    llvm::BasicBlock *CondBlock = CGF.createBasicBlock("cean.loop.cond");
-    llvm::BasicBlock *MainLoop = CGF.createBasicBlock("cean.loop.body");
-    llvm::BasicBlock *ExitLoop = CGF.createBasicBlock("cean.loop.exit");
-    if (llvm::ConstantInt *Val = dyn_cast<llvm::ConstantInt>(ValLength)) {
-      isSigned = Val->isZero() || Val->isNegative();
-    }
-    if (isSigned) {
-      llvm::BasicBlock *EnterLoop = CGF.createBasicBlock("cean.loop.enter");
-      CGF.Builder.CreateCondBr(
-         CGF.Builder.CreateICmpSGT(
-                         ValLength,
-                         llvm::ConstantInt::getSigned(ValLength->getType(), 0)),
-         EnterLoop, ExitLoop);
-      CGF.EmitBlock(EnterLoop);
-    }
-    if (Rank == S.getRank() - 1) {
-      for (Stmt::const_child_range ChRange = S.getInits()->children();
-           ChRange; ++ChRange) {
-        CGF.EmitStmt(*ChRange);
-      }
-    }
-    // Generate intel intrinsic.
-    if (Rank == S.getRank() - 1) {
-      llvm::Value *IntelFN = CGF.CGM.getIntrinsic(llvm::Intrinsic::intel_pragma);
-      llvm::SmallVector<llvm::Metadata*, 1> Args;
-      Args.push_back(llvm::MDString::get(CGF.CGM.getLLVMContext(), "CEAN_LOOP"));
-      llvm::Value *RealArg = 
-          llvm::MetadataAsValue::get(
-              CGF.CGM.getLLVMContext(),
-              llvm::MDNode::get(CGF.CGM.getLLVMContext(), Args));
-      llvm::SmallVector<llvm::Value*, 1> RealArgs;
-      RealArgs.push_back(RealArg);
-      CGF.EmitRuntimeCall(IntelFN, RealArgs);
-    }
-    CGF.EmitBranch(CondBlock);
-    CGF.EmitBlock(CondBlock);
-    CGF.LoopStack.setParallel();
-    CGF.LoopStack.setVectorizerEnable(true);
-    CGF.LoopStack.push(CondBlock);
-    const VarDecl *VD = cast<VarDecl>(DS->getSingleDecl());
-    CGF.Builder.CreateCondBr(
-     CGF.Builder.CreateICmpNE(
-                 CGF.Builder.CreateLoad(CGF.GetAddrOfLocalVar(VD)),
-                 ValLength),
-     MainLoop, ExitLoop);
-    CGF.EmitBlock(MainLoop);
-    EmitRecursiveCilkRankedStmt(CGF, S, Rank + 1);
-    CGF.EmitStmt(S.getIncrements()[Rank]);
-    CGF.EmitBranch(CondBlock);
-    CGF.LoopStack.pop();
-    CGF.EmitBlock(ExitLoop, true);
-  } else {
-    CodeGenFunction::RunCleanupsScope BodyScope(CGF);
-    CGF.EmitStmt(S.getAssociatedStmt());
-  }
-}
-
-void CodeGenFunction::EmitCilkRankedStmt(const CilkRankedStmt &S) {
-  CodeGenFunction::LocalVarsDeclGuard Guard(*this);
-  EmitRecursiveCilkRankedStmt(*this, S, 0);
-}
-static StringRef CreateStringRef(const char *Str) {
-  char *Data = new char[ ::strlen(Str) + 1];
-  ::strcpy(Data, Str);
-  return StringRef(Data);
-}
-
-static Expr *CreateStringExpr(const char *Str, ASTContext &Context,
-                              SourceLocation Loc = SourceLocation()) {
-  StringRef Par = CreateStringRef(Str);
-  QualType Type = Context.getConstantArrayType(
-      Context.CharTy, llvm::APInt(32, Par.size() + 1), ArrayType::Normal, 0);
-  return (StringLiteral::Create(Context, Par, StringLiteral::Ascii, false, Type,
-                                Loc));
-}
-
-static Expr *CreateDeclRefExpr(ValueDecl *Val, ASTContext &Context,
-                               bool RefToEnclosing,
-                               SourceLocation Loc = SourceLocation()) {
-  return (DeclRefExpr::Create(Context, NestedNameSpecifierLoc(),
-                              SourceLocation(), Val, RefToEnclosing,
-                              SourceLocation(), Val->getType(), VK_LValue));
-}
-
-#include "llvm/ADT/DenseSet.h"
-static llvm::DenseSet<llvm::BasicBlock *> VisitedBB;
-static bool IsBBPredecessorForBB(llvm::BasicBlock *Pred,
-                                 llvm::BasicBlock *Succ) {
-  if (VisitedBB.find(Pred) != VisitedBB.end())
-    return (false);
-  VisitedBB.insert(Pred);
-  if (Pred == Succ)
-    return (true);
-  llvm::TerminatorInst *TI = Pred->getTerminator();
-  if (!TI)
-    return (false);
-  for (unsigned i = 0; i < TI->getNumSuccessors(); ++i) {
-    if (IsBBPredecessorForBB(TI->getSuccessor(i), Succ))
-      return (true);
-  }
-  return (false);
-}
-
-llvm::BasicBlock *
-CodeGenFunction::CreateIPForInlineEnd(llvm::BasicBlock *InlineBB) {
-  VisitedBB.insert(InlineBB);
-  llvm::TerminatorInst *TI = InlineBB->getTerminator();
-  if (!TI) {
-    // Correct insertion point is set already
-    return (NULL);
-  }
-  if (TI->getNumSuccessors() == 0) {
-    // Set insertion point before TerminatorInst
-    Builder.SetInsertPoint(TI);
-    return (NULL);
-  }
-  llvm::BasicBlock *SuccBB = TI->getSuccessor(0);
-  if (!SuccBB->getTerminator() || !SuccBB->getSinglePredecessor() ||
-      VisitedBB.find(SuccBB) != VisitedBB.end()) {
-    // Next BasicBlock does not have terminator or have several predecessors -
-    // insert the new one and return address of the previous
-    Builder.SetInsertPoint(InlineBB);
-    llvm::BasicBlock *BB = createBasicBlock("intel.pragma.block");
-    EmitBlock(BB);
-    TI->setSuccessor(0, BB);
-    return (SuccBB);
-  }
-  return (this->CreateIPForInlineEnd(SuccBB));
-}
-
-static llvm::SmallVector<llvm::BasicBlock *, 4> PreviousInlineBB;
-void CodeGenFunction::EmitPragmaStmt(const PragmaStmt &S) {
-  llvm::SmallVector<llvm::Metadata *, 4> args;
-  llvm::MDNode *Node;
-  llvm::Value *fn;
-//  llvm::CallInst *fakeCall;
-  llvm::Value *res;
-
-  switch (S.getPragmaKind()) {
-  case (IntelPragma_SPECCALL):
-    if (S.getAttribs().size() > 0) {
-      if (isa<CXXConstructExpr>(S.getAttribs()[0].Value)) {
-        const CXXConstructExpr *CCE =
-            cast<CXXConstructExpr>(S.getAttribs()[0].Value);
-        const CXXConstructorDecl *CCD = CCE->getConstructor();
-        RValue This = EmitAnyExprToTemp(S.getAttribs()[1].Value);
-        EmitCXXConstructorCall(CCD, Ctor_Complete, false, false,
-                               This.getScalarVal(), CCE);
-      } else if (isa<CXXMemberCallExpr>(S.getAttribs()[0].Value)) {
-        const CXXMemberCallExpr *CMCE =
-            cast<CXXMemberCallExpr>(S.getAttribs()[0].Value);
-        if (isa<CXXDestructorDecl>(CMCE->getMethodDecl())) {
-          const CXXDestructorDecl *CDD =
-              cast<CXXDestructorDecl>(CMCE->getMethodDecl());
-          RValue This = EmitAnyExprToTemp(S.getAttribs()[1].Value);
-          EmitCXXDestructorCall(CDD, Dtor_Complete, false, false,
-                                This.getScalarVal());
-        } else {
-          ReturnValueSlot RVS;
-          EmitCXXMemberCallExpr(
-              cast<CXXMemberCallExpr>(S.getAttribs()[0].Value), RVS);
-        }
-      } else {
-        assert("Only destructor or constructor is allowed");
-      }
-    }
-    break;
-  case (IntelPragma_SPECCALLAGG):
-    if (S.getAttribs().size() > 0) {
-      DeclRefExpr *DRE;
-      if (isa<CXXConstructExpr>(S.getAttribs()[0].Value)) {
-        const CXXConstructExpr *CCE =
-            cast<CXXConstructExpr>(S.getAttribs()[0].Value);
-        const CXXConstructorDecl *CCD = CCE->getConstructor();
-        RValue NumElements = EmitAnyExprToTemp(S.getAttribs()[2].Value);
-        RValue ArrayPtr = EmitAnyExprToTemp(S.getAttribs()[1].Value);
-        EmitCXXAggrConstructorCall(CCD, NumElements.getScalarVal(),
-                                   ArrayPtr.getScalarVal(), CCE);
-      } else if (isa<DeclRefExpr>(S.getAttribs()[0].Value)) {
-        DRE = cast<DeclRefExpr>(S.getAttribs()[0].Value);
-        if (isa<CXXDestructorDecl>(DRE->getDecl())) {
-          LValue LV = EmitLValue(S.getAttribs()[1].Value);
-          EmitCXXDestructorCall(cast<CXXDestructorDecl>(DRE->getDecl()),
-                                Dtor_Complete, false, false, LV.getAddress());
-        } else {
-          assert("Only destructor or constructor is allowed");
-        }
-      } else {
-        assert("Only destructor or constructor is allowed");
-      }
-    }
-    break;
-  case (IntelPragmaFloatControl):
-    if (CurFn) {
-      std::string Res;
-      // if (S.getAttribs()[0].ExprKind == IntelPragmaExprConst &&
-      // isa<StringLiteral>(S.getAttribs()[0].Value)) {
-      //  Res +=
-      //  cast<StringLiteral>(S.getAttribs()[0].Value)->getString().str();
-      //}
-      for (size_t i = 1; i < S.getAttribs().size(); ++i) {
-        if (S.getAttribs()[i].ExprKind == IntelPragmaExprConst &&
-            isa<StringLiteral>(S.getAttribs()[i].Value)) {
-          Res = "INTEL:" +
-                cast<StringLiteral>(S.getAttribs()[i].Value)->getString().str();
-          ++i;
-          if (S.getAttribs()[i].ExprKind == IntelPragmaExprConst &&
-              isa<StringLiteral>(S.getAttribs()[i].Value)) {
-            Res +=
-                "-" +
-                cast<StringLiteral>(S.getAttribs()[i].Value)->getString().str();
-            CurFn->addFnAttr(CreateStringRef(Res.data()));
-          }
-        }
-      }
-    }
-    break;
-  case (IntelPragmaKindCommonOnOff):
-    if (CurFn) {
-      std::string Res;
-      if (S.getAttribs()[0].ExprKind == IntelPragmaExprConst &&
-          isa<StringLiteral>(S.getAttribs()[0].Value)) {
-        Res = cast<StringLiteral>(S.getAttribs()[0].Value)->getString().str();
-        if (Res == "FP_CONTRACT" || Res == "FENV_ACCESS") {
-          Res = "INTEL:" + Res;
-          for (size_t i = 1; i < S.getAttribs().size(); ++i) {
-            if (S.getAttribs()[i].ExprKind == IntelPragmaExprConst &&
-                isa<StringLiteral>(S.getAttribs()[i].Value)) {
-              Res += "-" +
-                     cast<StringLiteral>(S.getAttribs()[i].Value)
-                         ->getString()
-                         .str();
-            }
-          }
-          CurFn->addFnAttr(CreateStringRef(Res.data()));
-          break;
-        }
-      }
-    }
-  case (IntelAssumeAligned):
-  case (IntelCommonAttribute):
-  case (IntelPragmaIvdep):
-  case (IntelPragmaNoVector):
-  case (IntelPragmaDistribute):
-  case (IntelPragmaInline):
-  case (IntelPragmaInlineEnd):
-  case (IntelPragmaLoopCount):
-  case (IntelPragmaOptimize):
-  case (IntelPragmaOptimizationLevel):
-  case (IntelPragmaOptimizationLevelGCC):
-  case (IntelPragmaNoParallel):
-  case (IntelPragmaUnroll):
-  case (IntelPragmaUnrollAndJam):
-  case (IntelPragmaNoFusion):
-  case (IntelPragmaVector):
-  case (IntelPragmaOptimizationParameter):
-  case (IntelPragmaParallel):
-  case (IntelPragmaAllocSection):
-  // alloc_text and code_seg, bss)seg, data_seg and const_seg does not require
-  // codegen actions
-  // They are generated as attributes on objects
-  // case (IntelPragmaAllocText):
-  // case (IntelPragmaBCCDSeg):
-  case (IntelPragmaSection):
-  case (IntelPragmaAutoInline):
-  case (IntelPragmaCheckStack):
-  case (IntelPragmaInitSeg): {
-    assert(S.getAttribs().size() > 0 && "At least one item must be defined");
-    assert(isa<StringLiteral>(S.getAttribs()[0].Value) &&
-           "The first must be a string");
-    fn = CGM.getIntrinsic(llvm::Intrinsic::intel_pragma);
-    args.clear();
-    for (size_t i = 0; i < S.getAttribs().size(); ++i) {
-      if (S.getAttribs()[i].ExprKind == IntelPragmaExprConst &&
-          isa<StringLiteral>(S.getAttribs()[i].Value)) {
-        args.push_back(
-          llvm::MDString::get(CGM.getLLVMContext(),
-            cast<StringLiteral>(S.getAttribs()[i].Value)->getString()));
-      } else if (S.getAttribs()[i].ExprKind == IntelPragmaExprConst) {
-        args.push_back(llvm::MDString::get(CGM.getLLVMContext(), "CONSTANT"));
-        res = CGM.EmitConstantExpr(S.getAttribs()[i].Value,
-                                   S.getAttribs()[i].Value->getType());
-        args.push_back(llvm::ValueAsMetadata::get(res));
-      } else if (S.getAttribs()[i].ExprKind == IntelPragmaExprRValue) {
-        DeclRefExpr *DRE;
-        if (isa<DeclRefExpr>(S.getAttribs()[i].Value) &&
-            (DRE = cast<DeclRefExpr>(S.getAttribs()[i].Value)) &&
-            isa<FunctionDecl>(DRE->getDecl())) {
-          // args.push_back(llvm::MDString::get(CGM.getLLVMContext(),
-          // "FUNCTION_REFERENCE"));
-          args.push_back(
-            llvm::ValueAsMetadata::get(
-              CGM.GetAddrOfGlobal(cast<FunctionDecl>(DRE->getDecl()))));
-        } else {
-          RValue RVal = EmitAnyExprToTemp(S.getAttribs()[i].Value);
-          args.push_back(llvm::MDString::get(CGM.getLLVMContext(), "RVALUE"));
-          if (RVal.isScalar()) {
-            args.push_back(
-              llvm::MDString::get(CGM.getLLVMContext(), "SCALAR"));
-            res = RVal.getScalarVal();
-            args.push_back(llvm::ValueAsMetadata::get(res));
-          } else if (RVal.isComplex()) {
-            args.push_back(
-              llvm::MDString::get(CGM.getLLVMContext(), "COMPLEX"));
-            res = RVal.getComplexVal().first;
-            args.push_back(llvm::ValueAsMetadata::get(res));
-            res = RVal.getComplexVal().second;
-            args.push_back(llvm::ValueAsMetadata::get(res));
-          } else {
-            args.push_back(
-              llvm::MDString::get(CGM.getLLVMContext(), "AGGREGATE"));
-            res = RVal.getAggregateAddr();
-            args.push_back(llvm::ValueAsMetadata::get(res));
-          }
-        }
-      } else {
-        LValue LVal = EmitLValue(S.getAttribs()[i].Value);
-        args.push_back(llvm::MDString::get(CGM.getLLVMContext(), "LVALUE"));
-        if (LVal.isSimple()) {
-          args.push_back(llvm::MDString::get(CGM.getLLVMContext(), "SIMPLE"));
-          res = LVal.getAddress();
-          args.push_back(llvm::ValueAsMetadata::get(res));
-        } else if (LVal.isVectorElt()) {
-          args.push_back(
-            llvm::MDString::get(CGM.getLLVMContext(), "VECTOR_ELT"));
-          res = LVal.getVectorAddr();
-          args.push_back(llvm::ValueAsMetadata::get(res));
-          res = LVal.getVectorIdx();
-          args.push_back(llvm::ValueAsMetadata::get(res));
-        } else if (LVal.isExtVectorElt()) {
-          RValue RVal = EmitLoadOfExtVectorElementLValue(LVal);
-          args.push_back(
-            llvm::MDString::get(CGM.getLLVMContext(), "EXT_VECTOR_ELT"));
-          if (RVal.isScalar()) {
-            args.push_back(
-              llvm::MDString::get(CGM.getLLVMContext(), "SCALAR"));
-            res = RVal.getScalarVal();
-            args.push_back(llvm::ValueAsMetadata::get(res));
-          } else if (RVal.isComplex()) {
-            args.push_back(
-              llvm::MDString::get(CGM.getLLVMContext(), "COMPLEX"));
-            res = RVal.getComplexVal().first;
-            args.push_back(llvm::ValueAsMetadata::get(res));
-            res = RVal.getComplexVal().second;
-            args.push_back(llvm::ValueAsMetadata::get(res));
-          } else {
-            args.push_back(
-              llvm::MDString::get(CGM.getLLVMContext(), "AGGREGATE"));
-            res = RVal.getAggregateAddr();
-            args.push_back(llvm::ValueAsMetadata::get(res));
-          }
-        } else {
-          RValue RVal = EmitLoadOfBitfieldLValue(LVal);
-          args.push_back(
-            llvm::MDString::get(CGM.getLLVMContext(), "BITFIELD"));
-          if (RVal.isScalar()) {
-            args.push_back(
-              llvm::MDString::get(CGM.getLLVMContext(), "SCALAR"));
-            res = RVal.getScalarVal();
-            args.push_back(llvm::ValueAsMetadata::get(res));
-          } else if (RVal.isComplex()) {
-            args.push_back(
-              llvm::MDString::get(CGM.getLLVMContext(), "COMPLEX"));
-            res = RVal.getComplexVal().first;
-            args.push_back(llvm::ValueAsMetadata::get(res));
-            res = RVal.getComplexVal().second;
-            args.push_back(llvm::ValueAsMetadata::get(res));
-          } else {
-            args.push_back(
-              llvm::MDString::get(CGM.getLLVMContext(), "AGGREGATE"));
-            res = RVal.getAggregateAddr();
-            args.push_back(llvm::ValueAsMetadata::get(res));
-          }
-        }
-      }
-    }
-    Node = llvm::MDNode::get(CGM.getLLVMContext(), args);
-    assert(!(S.getPragmaKind() == IntelPragmaInlineEnd &&
-             PreviousInlineBB.empty()) &&
-           "No previous INLINE for INLINEEND is found!");
-    CGBuilderTy::InsertPoint SaveIP;
-    llvm::BasicBlock *SpecBasicBlock = NULL;
-    bool NeedToFindIP = false;
-    // Special processing for pragma inline
-    VisitedBB.clear();
-    if (S.getPragmaKind() == IntelPragmaInlineEnd && PreviousInlineBB.back() &&
-        (NeedToFindIP = !IsBBPredecessorForBB(PreviousInlineBB.back(),
-                                              Builder.GetInsertBlock()))) {
-      SaveIP = Builder.saveIP();
-      VisitedBB.clear();
-      SpecBasicBlock = this->CreateIPForInlineEnd(PreviousInlineBB.back());
-    }
-    /*fakeCall =*/ Builder.CreateCall(fn,
-                     llvm::MetadataAsValue::get(CGM.getLLVMContext(), Node));
-    // Special processing for pragma inline
-    if (S.getPragmaKind() == IntelPragmaInline) {
-      PreviousInlineBB.push_back(Builder.GetInsertBlock());
-    } else if (S.getPragmaKind() == IntelPragmaInlineEnd) {
-      PreviousInlineBB.pop_back();
-      if (NeedToFindIP) {
-        if (SpecBasicBlock) {
-          EmitBranch(SpecBasicBlock);
-        }
-        Builder.restoreIP(SaveIP);
-      }
-    }
-    // fakeCall->setMetadata("PRAGMA", Node);
-  } break;
-  default:
-    break;
-  }
-}
-
-void CodeGenFunction::EmitPragmaDecl(const PragmaDecl &D) {
-  switch (D.getStmt()->getPragmaKind()) {
-  // case (IntelPragmaOptimize):
-  // case (IntelPragmaOptimizationLevel):
-  // case (IntelPragmaOptimizationLevelGCC):
-  // case (IntelPragmaOptimizationParameter):
-  case (IntelPragmaAllocSection):
-  case (IntelPragmaSection):
-  // case (IntelPragmaAutoInline):
-  // alloc_text and code_seg, bss_seg, data_seg and const_seg does not require
-  // codegen actions
-  // They are generated as attributes on objects
-  // case (IntelPragmaAllocText):
-  // case (IntelPragmaBCCDSeg):
-  // case (IntelPragmaCheckStack):
-  case (IntelPragmaInitSeg):
-  // case (IntelPragmaFloatControl):
-  // case (IntelPragmaKindCommonOnOff):
-  case (IntelCommonAttribute): {
-    const CGFunctionInfo &FuncInfo = CGM.getTypes().arrangeNullaryFunction();
-    llvm::FunctionType *FNType = CGM.getTypes().GetFunctionType(FuncInfo);
-    llvm::Function *FN = llvm::Function::Create(
-        FNType, llvm::GlobalValue::PrivateLinkage,
-        CreateStringRef(".DIRECTIVE."), &CGM.getModule());
-    FN->setDoesNotAccessMemory();
-    FN->setDoesNotReturn();
-    FN->setDoesNotThrow();
-    FunctionArgList Args;
-    StartFunction(GlobalDecl(), getContext().VoidTy, FN, FuncInfo, Args);
-    EmitPragmaStmt(cast<PragmaStmt>(*D.getStmt()));
-    FinishFunction();
-  } break;
-  default:
-    break;
-  }
-}
-
-void CodeGenFunction::EmitIntelAttribute(const Decl &D) {
-  if (D.hasAttr<AvoidFalseShareAttr>()) {
-    ASTContext &Context = CGM.getContext();
-    PragmaStmt *stmt = new (Context) PragmaStmt(SourceLocation());
-    (stmt->getAttribs())
-        .push_back(IntelPragmaAttrib(
-            CreateStringExpr("AVOID_FALSE_SHARE", Context, SourceLocation()),
-            IntelPragmaExprConst));
-    bool refersToEnclosingScope = D.getDeclContext()->isFunctionOrMethod();
-    (stmt->getAttribs())
-        .push_back(IntelPragmaAttrib(
-            CreateDeclRefExpr(cast<ValueDecl>(const_cast<Decl *>(&D)), Context,
-                              refersToEnclosingScope),
-            IntelPragmaExprLValue));
-    AvoidFalseShareAttr *AFSA = D.getAttr<AvoidFalseShareAttr>();
-    StringRef Str = AFSA->getExceptionId();
-    if (!Str.empty()) {
-      (stmt->getAttribs())
-          .push_back(IntelPragmaAttrib(
-              CreateStringExpr("EXCEPTION_ID", Context, SourceLocation()),
-              IntelPragmaExprConst));
-      (stmt->getAttribs())
-          .push_back(IntelPragmaAttrib(
-              CreateStringExpr(Str.data(), Context, SourceLocation()),
-              IntelPragmaExprConst));
-    }
-    stmt->setPragmaKind(IntelCommonAttribute);
-
-    if (D.getDeclContext()->isFunctionOrMethod()) {
-      EmitPragmaStmt(*stmt);
-    } else {
-      PragmaDecl *decl =
-          PragmaDecl::Create(Context, const_cast<Decl *>(&D)->getDeclContext(),
-                             stmt->getSemiLoc());
-
-      stmt->setDecl();
-      decl->setStmt(stmt);
-
-      // D->getDeclContext()->addDecl(decl);
-      EmitPragmaDecl(*decl);
-    }
-  }
-}
-#endif

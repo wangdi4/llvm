@@ -28,6 +28,7 @@
 
 using namespace llvm;
 
+namespace {
 class FlattenedSpelling {
   std::string V, N, NS;
   bool K;
@@ -53,8 +54,10 @@ public:
   const std::string &nameSpace() const { return NS; }
   bool knownToGCC() const { return K; }
 };
+} // namespace
 
-std::vector<FlattenedSpelling> GetFlattenedSpellings(const Record &Attr) {
+static std::vector<FlattenedSpelling>
+GetFlattenedSpellings(const Record &Attr) {
   std::vector<Record *> Spellings = Attr.getValueAsListOfDefs("Spellings");
   std::vector<FlattenedSpelling> Ret;
 
@@ -81,7 +84,7 @@ static std::string ReadPCHRecord(StringRef type) {
     .Case("IdentifierInfo *", "GetIdentifierInfo(F, Record, Idx)")
 #ifdef INTEL_CUSTOMIZATION
     .Case("SourceLocation", "ReadSourceLocation(F, Record, Idx)")
-#endif
+#endif  // INTEL_CUSTOMIZATION
     .Default("Record[Idx++]");
 }
 
@@ -98,7 +101,7 @@ static std::string WritePCHRecord(StringRef type, StringRef name) {
 #ifdef INTEL_CUSTOMIZATION
     .Case("SourceLocation",
           "AddSourceLocation(" + std::string(name) + ", Record);\n")
-#endif
+#endif  // INTEL_CUSTOMIZATION
     .Default("Record.push_back(" + std::string(name) + ");\n");
 }
 
@@ -119,11 +122,7 @@ static StringRef NormalizeAttrName(StringRef AttrName) {
 // This is different from NormalizeAttrName in that it also handles names like
 // _pascal and __pascal.
 static StringRef NormalizeNameForSpellingComparison(StringRef Name) {
-  while (Name.startswith("_"))
-    Name = Name.substr(1, Name.size());
-  while (Name.endswith("_"))
-    Name = Name.substr(0, Name.size() - 1);
-  return Name;
+  return Name.trim("_");
 }
 
 // Normalize attribute spelling only if the spelling has both leading
@@ -276,7 +275,7 @@ namespace {
 #ifdef INTEL_CUSTOMIZATION
       } else if (type == "SourceLocation") {
         OS << "\" << get" << getUpperName() << "().getRawEncoding() << \"";
-#endif
+#endif  // INTEL_CUSTOMIZATION
       } else {
         OS << "\" << get" << getUpperName() << "() << \"";
       }
@@ -295,7 +294,7 @@ namespace {
       } else if (type == "SourceLocation") {
         OS << "    OS << \" \";\n";
         OS << "    SA->get" << getUpperName() << "().print(OS, *SM);\n";
-#endif
+#endif  // INTEL_CUSTOMIZATION
       } else if (type == "bool") {
         OS << "    if (SA->get" << getUpperName() << "()) OS << \" "
            << getUpperName() << "\";\n";
@@ -430,15 +429,14 @@ namespace {
       // FIXME: Do not do the calculation here
       // FIXME: Handle types correctly
       // A null pointer means maximum alignment
-      // FIXME: Load the platform-specific maximum alignment, rather than
-      //        16, the x86 max.
       OS << "unsigned " << getAttrName() << "Attr::get" << getUpperName()
          << "(ASTContext &Ctx) const {\n";
       OS << "  assert(!is" << getUpperName() << "Dependent());\n";
       OS << "  if (is" << getLowerName() << "Expr)\n";
-      OS << "    return (" << getLowerName() << "Expr ? " << getLowerName()
-         << "Expr->EvaluateKnownConstInt(Ctx).getZExtValue() : 16)"
-         << "* Ctx.getCharWidth();\n";
+      OS << "    return " << getLowerName() << "Expr ? " << getLowerName()
+         << "Expr->EvaluateKnownConstInt(Ctx).getZExtValue()"
+         << " * Ctx.getCharWidth() : "
+         << "Ctx.getTargetDefaultAlignForAttributeAligned();\n";
       OS << "  else\n";
       OS << "    return 0; // FIXME\n";
       OS << "}\n";
@@ -973,9 +971,9 @@ namespace {
       OS << "    dumpStmt(SA->get" << getUpperName() << "());\n";
     }
     void writeHasChildren(raw_ostream &OS) const override{
- 		OS << "true"; }
+      OS << "true"; }
   };
-#endif
+#endif  // INTEL_CUSTOMIZATION
   class VariadicExprArgument : public VariadicArgument {
   public:
     VariadicExprArgument(const Record &Arg, StringRef Attr)
@@ -1099,7 +1097,7 @@ createArgument(const Record &Arg, StringRef Attr,
     Ptr = llvm::make_unique<SimpleArgument>(Arg, Attr, "SourceLocation");
   else if (ArgName == "CheckedExprArgument")
     Ptr = llvm::make_unique<CheckedExprArgument>(Arg, Attr);
-#endif
+#endif  // INTEL_CUSTOMIZATION
   else if (ArgName == "VariadicUnsignedArgument")
     Ptr = llvm::make_unique<VariadicArgument>(Arg, Attr, "unsigned");
   else if (ArgName == "VariadicEnumArgument")
@@ -1202,7 +1200,7 @@ writePrettyPrintFunction(Record &R,
     } else if (Variety == "Keyword"
 #ifdef INTEL_CUSTOMIZATION
                 || Variety == "CilkKeyword"
-#endif
+#endif  // INTEL_CUSTOMIZATION
               ) {
       Prefix = " ";
       Suffix = "";
@@ -1222,7 +1220,7 @@ writePrettyPrintFunction(Record &R,
 
     OS <<
       "  case " << I << " : {\n"
-      "    OS << \"" + Prefix.str() + Spelling.str();
+      "    OS << \"" << Prefix << Spelling;
 
     if (Variety == "Pragma") {
       OS << " \";\n";
@@ -1250,7 +1248,7 @@ writePrettyPrintFunction(Record &R,
 
     if (!Args.empty())
       OS << ")";
-    OS << Suffix.str() + "\";\n";
+    OS << Suffix + "\";\n";
 
     OS <<
       "    break;\n"
@@ -1357,7 +1355,11 @@ CreateSemanticSpellings(const std::vector<FlattenedSpelling> &Spellings,
     Uniques.insert(EnumName);
     if (I != Spellings.begin())
       Ret += ",\n";
-    Ret += "    " + EnumName;
+    // Duplicate spellings are not considered part of the semantic spelling
+    // enumeration, but the spelling index and semantic spelling values are
+    // meant to be equivalent, so we must specify a concrete value for each
+    // enumerator.
+    Ret += "    " + EnumName + " = " + llvm::utostr(Idx);
   }
   Ret += "\n  };\n\n";
   return Ret;
@@ -1573,7 +1575,9 @@ void EmitClangAttrClass(RecordKeeper &Records, raw_ostream &OS) {
     OS << "unsigned SI\n";
 
     OS << "             )\n";
-    OS << "    : " << SuperName << "(attr::" << R.getName() << ", R, SI)\n";
+    OS << "    : " << SuperName << "(attr::" << R.getName() << ", R, SI, "
+       << R.getValueAsBit("LateParsed") << ", "
+       << R.getValueAsBit("DuplicatesAllowedWhileMerging") << ")\n";
 
     for (auto const &ai : Args) {
       OS << "              , ";
@@ -1605,7 +1609,9 @@ void EmitClangAttrClass(RecordKeeper &Records, raw_ostream &OS) {
       OS << "unsigned SI\n";
 
       OS << "             )\n";
-      OS << "    : " << SuperName << "(attr::" << R.getName() << ", R, SI)\n";
+      OS << "    : " << SuperName << "(attr::" << R.getName() << ", R, SI, "
+         << R.getValueAsBit("LateParsed") << ", "
+         << R.getValueAsBit("DuplicatesAllowedWhileMerging") << ")\n";
 
       for (auto const &ai : Args) {
         OS << "              , ";
@@ -1624,10 +1630,10 @@ void EmitClangAttrClass(RecordKeeper &Records, raw_ostream &OS) {
       OS << "  }\n\n";
     }
 
-    OS << "  " << R.getName() << "Attr *clone(ASTContext &C) const override;\n";
+    OS << "  " << R.getName() << "Attr *clone(ASTContext &C) const;\n";
     OS << "  void printPretty(raw_ostream &OS,\n"
-       << "                   const PrintingPolicy &Policy) const override;\n";
-    OS << "  const char *getSpelling() const override;\n";
+       << "                   const PrintingPolicy &Policy) const;\n";
+    OS << "  const char *getSpelling() const;\n";
     
     if (!ElideSpelling) {
       assert(!SemanticToSyntacticMap.empty() && "Empty semantic mapping list");
@@ -1655,13 +1661,6 @@ void EmitClangAttrClass(RecordKeeper &Records, raw_ostream &OS) {
 
     OS << "  static bool classof(const Attr *A) { return A->getKind() == "
        << "attr::" << R.getName() << "; }\n";
-
-    bool LateParsed = R.getValueAsBit("LateParsed");
-    OS << "  bool isLateParsed() const override { return "
-       << LateParsed << "; }\n";
-
-    if (R.getValueAsBit("DuplicatesAllowedWhileMerging"))
-      OS << "  bool duplicatesAllowed() const override { return true; }\n\n";
 
     OS << "};\n\n";
   }
@@ -1705,6 +1704,36 @@ void EmitClangAttrImpl(RecordKeeper &Records, raw_ostream &OS) {
     writePrettyPrintFunction(R, Args, OS);
     writeGetSpellingFunction(R, OS);
   }
+
+  // Instead of relying on virtual dispatch we just create a huge dispatch
+  // switch. This is both smaller and faster than virtual functions.
+  auto EmitFunc = [&](const char *Method) {
+    OS << "  switch (getKind()) {\n";
+    for (const auto *Attr : Attrs) {
+      const Record &R = *Attr;
+      if (!R.getValueAsBit("ASTNode"))
+        continue;
+
+      OS << "  case attr::" << R.getName() << ":\n";
+      OS << "    return cast<" << R.getName() << "Attr>(this)->" << Method
+         << ";\n";
+    }
+    OS << "  case attr::NUM_ATTRS:\n";
+    OS << "    break;\n";
+    OS << "  }\n";
+    OS << "  llvm_unreachable(\"Unexpected attribute kind!\");\n";
+    OS << "}\n\n";
+  };
+
+  OS << "const char *Attr::getSpelling() const {\n";
+  EmitFunc("getSpelling()");
+
+  OS << "Attr *Attr::clone(ASTContext &C) const {\n";
+  EmitFunc("clone(C)");
+
+  OS << "void Attr::printPretty(raw_ostream &OS, "
+        "const PrintingPolicy &Policy) const {\n";
+  EmitFunc("printPretty(OS, Policy)");
 }
 
 } // end namespace clang
@@ -2033,9 +2062,9 @@ void EmitClangAttrSpellingListIndex(RecordKeeper &Records, raw_ostream &OS) {
                 .Case("Declspec", 2)
                 .Case("Keyword", 3)
                 .Case("Pragma", 4)
-#ifdef INTEL_CUSTOMIZATION					
+#ifdef INTEL_CUSTOMIZATION
                 .Case("CilkKeyword", 5)
-#endif				
+#endif  // INTEL_CUSTOMIZATION
                 .Default(0)
          << " && Scope == \"" << Spellings[I].nameSpace() << "\")\n"
          << "        return " << I << ";\n";
@@ -2676,10 +2705,10 @@ void EmitClangAttrParsedAttrKinds(RecordKeeper &Records, raw_ostream &OS) {
 
   std::vector<Record *> Attrs = Records.getAllDerivedDefinitions("Attr");
   std::vector<StringMatcher::StringPair> GNU, Declspec, CXX11, Keywords, Pragma
-#ifdef INTEL_CUSTOMIZATION	  
-  		, CilkKeywords
-#endif		
-		;
+#ifdef INTEL_CUSTOMIZATION
+      , CilkKeywords
+#endif  // INTEL_CUSTOMIZATION
+    ;
   std::set<std::string> Seen;
   for (const auto *A : Attrs) {
     const Record &Attr = *A;
@@ -2722,10 +2751,10 @@ void EmitClangAttrParsedAttrKinds(RecordKeeper &Records, raw_ostream &OS) {
           Matches = &Declspec;
         else if (Variety == "Keyword")
           Matches = &Keywords;
-#ifdef INTEL_CUSTOMIZATION			  
+#ifdef INTEL_CUSTOMIZATION
         else if (Variety == "CilkKeyword")
           Matches = &CilkKeywords;
-#endif		  
+#endif  // INTEL_CUSTOMIZATION
         else if (Variety == "Pragma")
           Matches = &Pragma;
 
@@ -2752,10 +2781,10 @@ void EmitClangAttrParsedAttrKinds(RecordKeeper &Records, raw_ostream &OS) {
   StringMatcher("Name", CXX11, OS).Emit();
   OS << "  } else if (AttributeList::AS_Keyword == Syntax) {\n";
   StringMatcher("Name", Keywords, OS).Emit();
-#ifdef INTEL_CUSTOMIZATION	  
+#ifdef INTEL_CUSTOMIZATION
   OS << "  } else if (AttributeList::AS_CilkKeyword == Syntax) {\n";
   StringMatcher("Name", CilkKeywords, OS).Emit();
-#endif  
+#endif  // INTEL_CUSTOMIZATION
   OS << "  } else if (AttributeList::AS_Pragma == Syntax) {\n";
   StringMatcher("Name", Pragma, OS).Emit();
   OS << "  }\n";
@@ -2828,17 +2857,9 @@ static void WriteCategoryHeader(const Record *DocCategory,
 
   // If there is content, print that as well.
   std::string ContentStr = DocCategory->getValueAsString("Content");
-  if (!ContentStr.empty()) {
-    // Trim leading and trailing newlines and spaces.
-    StringRef Content(ContentStr);
-    while (Content.startswith("\r") || Content.startswith("\n") ||
-           Content.startswith(" ") || Content.startswith("\t"))
-           Content = Content.substr(1);
-    while (Content.endswith("\r") || Content.endswith("\n") ||
-           Content.endswith(" ") || Content.endswith("\t"))
-           Content = Content.substr(0, Content.size() - 1);
-    OS << Content;
-  }
+  // Trim leading and trailing newlines and spaces.
+  OS << StringRef(ContentStr).trim();
+
   OS << "\n\n";
 }
 
@@ -2848,9 +2869,9 @@ enum SpellingKind {
   Declspec = 1 << 2,
   Keyword = 1 << 3,
   Pragma = 1 << 4
-#ifdef INTEL_CUSTOMIZATION	  
+#ifdef INTEL_CUSTOMIZATION
   , CilkKeyword = 1 << 5
-#endif
+#endif  // INTEL_CUSTOMIZATION
 };
 
 static void WriteDocumentation(const DocumentationData &Doc,
@@ -2900,10 +2921,10 @@ static void WriteDocumentation(const DocumentationData &Doc,
                             .Case("Declspec", Declspec)
                             .Case("Keyword", Keyword)
                             .Case("Pragma", Pragma)
-#ifdef INTEL_CUSTOMIZATION								
+#ifdef INTEL_CUSTOMIZATION
                             .Case("CilkKeyword", CilkKeyword)
-#endif							
-							;
+#endif  // INTEL_CUSTOMIZATION
+      ;
 
     // Mask in the supported spelling.
     SupportedSpellings |= Kind;
@@ -2939,9 +2960,9 @@ static void WriteDocumentation(const DocumentationData &Doc,
   // List what spelling syntaxes the attribute supports.
   OS << ".. csv-table:: Supported Syntaxes\n";
   OS << "   :header: \"GNU\", \"C++11\", \"__declspec\", \"Keyword\"";
-#ifdef INTEL_CUSTOMIZATION	  
+#ifdef INTEL_CUSTOMIZATION
   OS <<	", \"CilkKeyword\"";
-#endif
+#endif  // INTEL_CUSTOMIZATION
   OS << " \"Pragma\"\n\n";
   OS << "   \"";
   if (SupportedSpellings & GNU) OS << "X";
@@ -2954,10 +2975,10 @@ static void WriteDocumentation(const DocumentationData &Doc,
   OS << "\", \"";
   if (SupportedSpellings & Pragma) OS << "X";
   OS << "\"\n\n";
-#ifdef INTEL_CUSTOMIZATION	  
+#ifdef INTEL_CUSTOMIZATION
   if (SupportedSpellings & CilkKeyword) OS << "X";
   OS << "\", \"";
-#endif
+#endif  // INTEL_CUSTOMIZATION
   // If the attribute is deprecated, print a message about it, and possibly
   // provide a replacement attribute.
   if (!Doc.Documentation->isValueUnset("Deprecated")) {
@@ -2973,14 +2994,7 @@ static void WriteDocumentation(const DocumentationData &Doc,
 
   std::string ContentStr = Doc.Documentation->getValueAsString("Content");
   // Trim leading and trailing newlines and spaces.
-  StringRef Content(ContentStr);
-  while (Content.startswith("\r") || Content.startswith("\n") ||
-         Content.startswith(" ") || Content.startswith("\t"))
-    Content = Content.substr(1);
-  while (Content.endswith("\r") || Content.endswith("\n") ||
-         Content.endswith(" ") || Content.endswith("\t"))
-    Content = Content.substr(0, Content.size() - 1);
-  OS << Content;
+  OS << StringRef(ContentStr).trim();
 
   OS << "\n\n\n";
 }

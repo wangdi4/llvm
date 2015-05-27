@@ -202,6 +202,31 @@ static void instantiateDependentEnableIfAttr(
   New->addAttr(EIA);
 }
 
+// Constructs and adds to New a new instance of CUDALaunchBoundsAttr using
+// template A as the base and arguments from TemplateArgs.
+static void instantiateDependentCUDALaunchBoundsAttr(
+    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
+    const CUDALaunchBoundsAttr &Attr, Decl *New) {
+  // The alignment expression is a constant expression.
+  EnterExpressionEvaluationContext Unevaluated(S, Sema::ConstantEvaluated);
+
+  ExprResult Result = S.SubstExpr(Attr.getMaxThreads(), TemplateArgs);
+  if (Result.isInvalid())
+    return;
+  Expr *MaxThreads = Result.getAs<Expr>();
+
+  Expr *MinBlocks = nullptr;
+  if (Attr.getMinBlocks()) {
+    Result = S.SubstExpr(Attr.getMinBlocks(), TemplateArgs);
+    if (Result.isInvalid())
+      return;
+    MinBlocks = Result.getAs<Expr>();
+  }
+
+  S.AddLaunchBoundsAttr(Attr.getLocation(), New, MaxThreads, MinBlocks,
+                        Attr.getSpellingListIndex());
+}
+
 void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
                             const Decl *Tmpl, Decl *New,
                             LateInstantiatedAttrVec *LateAttrs,
@@ -230,6 +255,13 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
     if (EnableIf && EnableIf->getCond()->isValueDependent()) {
       instantiateDependentEnableIfAttr(*this, TemplateArgs, EnableIf, Tmpl,
                                        New);
+      continue;
+    }
+
+    if (const CUDALaunchBoundsAttr *CUDALaunchBounds =
+            dyn_cast<CUDALaunchBoundsAttr>(TmplAttr)) {
+      instantiateDependentCUDALaunchBoundsAttr(*this, TemplateArgs,
+                                               *CUDALaunchBounds, New);
       continue;
     }
 
@@ -286,6 +318,11 @@ static DeclT *getPreviousDeclForInstantiation(DeclT *D) {
 Decl *
 TemplateDeclInstantiator::VisitTranslationUnitDecl(TranslationUnitDecl *D) {
   llvm_unreachable("Translation units cannot be instantiated");
+}
+
+Decl *
+TemplateDeclInstantiator::VisitExternCContextDecl(ExternCContextDecl *D) {
+  llvm_unreachable("extern \"C\" context cannot be instantiated");
 }
 
 Decl *
@@ -2389,27 +2426,6 @@ Decl *TemplateDeclInstantiator::VisitClassScopeFunctionSpecializationDecl(
 
   return NewFD;
 }
-
-#ifdef INTEL_CUSTOMIZATION
-Decl *TemplateDeclInstantiator::VisitCilkSpawnDecl(CilkSpawnDecl *D) {
-  VarDecl *VD = D->getReceiverDecl();
-  assert(VD && "Cilk spawn receiver expected");
-  Decl *NewDecl = SemaRef.SubstDecl(VD, Owner, TemplateArgs);
-  return SemaRef.BuildCilkSpawnDecl(NewDecl);
-}
-
-Decl *TemplateDeclInstantiator::VisitPragmaDecl(PragmaDecl *D) {
-  PragmaDecl *TD = PragmaDecl::Create(SemaRef.Context, Owner, D->getLocStart());
-  PragmaStmt *S = D->getStmt();
-  if (S) {
-    StmtResult Res  = SemaRef.SubstStmt(S, TemplateArgs);
-    if (Res.isUsable())
-      S = cast<PragmaStmt>(Res.get());
-  }
-  TD->setStmt(S);
-  return TD;
-}
-#endif
 
 Decl *TemplateDeclInstantiator::VisitOMPThreadPrivateDecl(
                                      OMPThreadPrivateDecl *D) {

@@ -147,7 +147,7 @@ class VariadicExprArgument<string name> : Argument<name, 1>;
 //#ifdef INTEL_CUSTOMIZATION
 class SourceLocArgument<string name, bit opt = 0> : Argument<name, opt>;
 class CheckedExprArgument<string name> : Argument<name, 1>;
-//#endif
+//#endif  // INTEL_CUSTOMIZATION
 // A version of the form major.minor[.subminor].
 class VersionArgument<string name, bit opt = 0> : Argument<name, opt>;
 
@@ -211,7 +211,7 @@ class GCC<string name> : Spelling<name, "GCC"> {
 
 //#ifdef INTEL_CUSTOMIZATION
 class CilkKeyword<string name> : Spelling<name, "CilkKeyword">;
-//#endif
+//#endif  //INTEL_CUSTOMIZATION
 
 class Accessor<string name, list<Spelling> spellings> {
   string Name = name;
@@ -588,7 +588,7 @@ def CUDAInvalidTarget : InheritableAttr {
 
 def CUDALaunchBounds : InheritableAttr {
   let Spellings = [GNU<"launch_bounds">];
-  let Args = [IntArgument<"MaxThreads">, DefaultIntArgument<"MinBlocks", 0>];
+  let Args = [ExprArgument<"MaxThreads">, ExprArgument<"MinBlocks", 1>];
   let LangOpts = [CUDA];
   let Subjects = SubjectList<[ObjCMethod, FunctionLike], WarnDiag,
                              "ExpectedFunctionOrMethod">;
@@ -1062,6 +1062,11 @@ def ObjCMethodFamily : InheritableAttr {
 
 def ObjCNSObject : InheritableAttr {
   let Spellings = [GNU<"NSObject">];
+  let Documentation = [Undocumented];
+}
+
+def ObjCIndependentClass : InheritableAttr {
+  let Spellings = [GNU<"objc_independent_class">];
   let Documentation = [Undocumented];
 }
 
@@ -2149,7 +2154,7 @@ def CilkNoMask : InheritableAttr {
 def CilkElemental : InheritableAttr {
   let Spellings = [Declspec<"vector">,
                    GNU<"vector">,
-                   CXX11<"_Cilk_elemental", "vector">];
+                   CXX11<"", "vector", 200809>];
   let Args = [SourceLocArgument<"Group">];
   let Subjects = SubjectList<[Function]>;
   let TemplateDependent = 1;
@@ -2157,6 +2162,7 @@ def CilkElemental : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+//#ifdef INTEL_SPECIFIC_IL0_BACKEND
 def AvoidFalseShare : InheritableAttr {
   let Spellings = [Declspec<"avoid_false_share">];
   let Args = [StringArgument<"ExceptionId">];
@@ -2186,7 +2192,8 @@ def BNDVarSize : InheritableAttr {
                              "ExpectedFieldOrGlobalVar">;
   let Documentation = [Undocumented];
 }
-//#endif
+//#endif  // INTEL_SPECIFIC_IL0_BACKEND
+//#endif  // INTEL_CUSTOMIZATION
 
 def LoopHint : Attr {
   /// #pragma clang loop <option> directive

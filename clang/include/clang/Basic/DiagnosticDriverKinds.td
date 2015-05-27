@@ -117,7 +117,7 @@ def err_drv_cilk_objc : Error<
   "Cilk Plus does not support Objective-C">;
 def err_drv_cilk_unsupported: Error<
   "Cilk Plus not yet supported for this target">;
-//#endif
+//#endif  // INTEL_CUSTOMIZATION
 def err_drv_emit_llvm_link : Error<
    "-emit-llvm cannot be used when linking">;
 def err_drv_optimization_remark_pattern : Error<
@@ -148,6 +148,8 @@ def warn_drv_empty_joined_argument : Warning<
   InGroup<UnusedCommandLineArgument>;
 def warn_drv_clang_unsupported : Warning<
   "the clang compiler does not support '%0'">;
+def warn_drv_deprecated_arg : Warning<
+  "argument '%0' is deprecated, use '%1' instead">, InGroup<Deprecated>;
 def warn_drv_assuming_mfloat_abi_is : Warning<
   "unknown platform, assuming -mfloat-abi=%0">;
 def warn_ignoring_ftabstop_value : Warning<
@@ -191,4 +193,11 @@ def err_drv_modules_validate_once_requires_timestamp : Error<
 
 def warn_drv_invoking_fallback : Warning<"falling back to %0">,
   InGroup<Fallback>;
+
+def warn_target_unsupported_nan2008 : Warning<
+  "ignoring '-mnan=2008' option because the '%0' architecture does not support it">,
+  InGroup<UnsupportedNan>;
+def warn_target_unsupported_nanlegacy : Warning<
+  "ignoring '-mnan=legacy' option because the '%0' architecture does not support it">,
+  InGroup<UnsupportedNan>;
 }

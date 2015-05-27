@@ -44,7 +44,7 @@ public:
   void VisitCXXNoexceptExpr(CXXNoexceptExpr *E) { }
 #ifdef INTEL_CUSTOMIZATION
   void VisitCEANBuiltinExpr(CEANBuiltinExpr *E) { }
-#endif  
+#endif  // INTEL_CUSTOMIZATION
   void VisitMemberExpr(MemberExpr *E) {
     // Only the base matters.
     return this->Visit(E->getBase());

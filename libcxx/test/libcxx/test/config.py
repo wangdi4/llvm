@@ -52,6 +52,7 @@ class Configuration(object):
         self.libcxx_src_root = None
         self.libcxx_obj_root = None
         self.cxx_library_root = None
+        self.abi_library_root = None
         self.env = {}
         self.use_target = False
         self.use_system_cxx_lib = False
@@ -90,13 +91,14 @@ class Configuration(object):
         self.configure_use_clang_verify()
         self.configure_execute_external()
         self.configure_ccache()
-        self.configure_env()
         self.configure_compile_flags()
         self.configure_link_flags()
+        self.configure_env()
         self.configure_color_diagnostics()
         self.configure_debug_mode()
         self.configure_warnings()
         self.configure_sanitizer()
+        self.configure_coverage()
         self.configure_substitutions()
         self.configure_features()
 
@@ -221,7 +223,8 @@ class Configuration(object):
         self.execute_external = not use_lit_shell
 
     def configure_ccache(self):
-        use_ccache = self.get_lit_bool('use_ccache', False)
+        use_ccache_default = os.environ.get('LIBCXX_USE_CCACHE') is not None
+        use_ccache = self.get_lit_bool('use_ccache', use_ccache_default)
         if use_ccache:
             self.cxx.use_ccache = True
             self.lit_config.note('enabling ccache')
@@ -347,6 +350,9 @@ class Configuration(object):
         # Configure feature flags.
         self.configure_compile_flags_exceptions()
         self.configure_compile_flags_rtti()
+        self.configure_compile_flags_no_global_filesystem_namespace()
+        self.configure_compile_flags_no_stdin()
+        self.configure_compile_flags_no_stdout()
         enable_32bit = self.get_lit_bool('enable_32bit', False)
         if enable_32bit:
             self.cxx.flags += ['-m32']
@@ -395,6 +401,27 @@ class Configuration(object):
             self.config.available_features.add('libcpp-no-rtti')
             self.cxx.compile_flags += ['-fno-rtti', '-D_LIBCPP_NO_RTTI']
 
+    def configure_compile_flags_no_global_filesystem_namespace(self):
+        enable_global_filesystem_namespace = self.get_lit_bool(
+            'enable_global_filesystem_namespace', True)
+        if not enable_global_filesystem_namespace:
+            self.config.available_features.add(
+                'libcpp-has-no-global-filesystem-namespace')
+            self.cxx.compile_flags += [
+                '-D_LIBCPP_HAS_NO_GLOBAL_FILESYSTEM_NAMESPACE']
+
+    def configure_compile_flags_no_stdin(self):
+        enable_stdin = self.get_lit_bool('enable_stdin', True)
+        if not enable_stdin:
+            self.config.available_features.add('libcpp-has-no-stdin')
+            self.cxx.compile_flags += ['-D_LIBCPP_HAS_NO_STDIN']
+
+    def configure_compile_flags_no_stdout(self):
+        enable_stdout = self.get_lit_bool('enable_stdout', True)
+        if not enable_stdout:
+            self.config.available_features.add('libcpp-has-no-stdout')
+            self.cxx.compile_flags += ['-D_LIBCPP_HAS_NO_STDOUT']
+
     def configure_compile_flags_no_threads(self):
         self.cxx.compile_flags += ['-D_LIBCPP_HAS_NO_THREADS']
         self.config.available_features.add('libcpp-has-no-threads')
@@ -441,10 +468,10 @@ class Configuration(object):
 
     def configure_link_flags_abi_library_path(self):
         # Configure ABI library paths.
-        abi_library_path = self.get_lit_conf('abi_library_path', '')
-        if abi_library_path:
-            self.cxx.link_flags += ['-L' + abi_library_path,
-                                    '-Wl,-rpath,' + abi_library_path]
+        self.abi_library_root = self.get_lit_conf('abi_library_path')
+        if self.abi_library_root:
+            self.cxx.link_flags += ['-L' + self.abi_library_root,
+                                    '-Wl,-rpath,' + self.abi_library_root]
 
     def configure_link_flags_cxx_library(self):
         libcxx_library = self.get_lit_conf('libcxx_library')
@@ -544,6 +571,7 @@ class Configuration(object):
                 if llvm_symbolizer is not None:
                     self.env['ASAN_SYMBOLIZER_PATH'] = llvm_symbolizer
                 self.config.available_features.add('asan')
+                self.config.available_features.add('sanitizer-new-delete')
             elif san == 'Memory' or san == 'MemoryWithOrigins':
                 self.cxx.flags += ['-fsanitize=memory']
                 if san == 'MemoryWithOrigins':
@@ -552,6 +580,7 @@ class Configuration(object):
                 if llvm_symbolizer is not None:
                     self.env['MSAN_SYMBOLIZER_PATH'] = llvm_symbolizer
                 self.config.available_features.add('msan')
+                self.config.available_features.add('sanitizer-new-delete')
             elif san == 'Undefined':
                 self.cxx.flags += ['-fsanitize=undefined',
                                    '-fno-sanitize=vptr,function',
@@ -561,9 +590,16 @@ class Configuration(object):
             elif san == 'Thread':
                 self.cxx.flags += ['-fsanitize=thread']
                 self.config.available_features.add('tsan')
+                self.config.available_features.add('sanitizer-new-delete')
             else:
                 self.lit_config.fatal('unsupported value for '
                                       'use_sanitizer: {0}'.format(san))
+
+    def configure_coverage(self):
+        self.generate_coverage = self.get_lit_bool('generate_coverage', False)
+        if self.generate_coverage:
+            self.cxx.flags += ['-g', '--coverage']
+            self.cxx.compile_flags += ['-O0']
 
     def configure_substitutions(self):
         sub = self.config.substitutions
@@ -630,12 +666,18 @@ class Configuration(object):
                 "inferred target_triple as: %r" % self.config.target_triple)
 
     def configure_env(self):
-        if (self.target_info.platform() == 'darwin' and
-            not self.use_system_cxx_lib):
+        if self.target_info.platform() == 'darwin':
+            library_paths = []
+            # Configure the library path for libc++
             libcxx_library = self.get_lit_conf('libcxx_library')
-            if libcxx_library:
-                cxx_library_root = os.path.dirname(libcxx_library)
-            else:
-                cxx_library_root = self.cxx_library_root
-            if cxx_library_root:
-                self.env['DYLD_LIBRARY_PATH'] = cxx_library_root
+            if self.use_system_cxx_lib:
+                pass
+            elif libcxx_library:
+                library_paths += [os.path.dirname(libcxx_library)]
+            elif self.cxx_library_root:
+                library_paths += [self.cxx_library_root]
+            # Configure the abi library path
+            if self.abi_library_root:
+                library_paths += [self.abi_library_root]
+            if library_paths:
+                self.env['DYLD_LIBRARY_PATH'] = ':'.join(library_paths)

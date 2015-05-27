@@ -319,6 +319,15 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     if (SemaBuiltinLongjmp(TheCall))
       return ExprError();
     break;
+  case Builtin::BI__builtin_setjmp:
+    if (SemaBuiltinSetjmp(TheCall))
+      return ExprError();
+    break;
+  case Builtin::BI_setjmp:
+  case Builtin::BI_setjmpex:
+    if (checkArgCount(*this, TheCall, 1))
+      return true;
+    break;
 
   case Builtin::BI__builtin_classify_type:
     if (checkArgCount(*this, TheCall, 1)) return true;
@@ -431,8 +440,107 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
   case Builtin::BI__sync_swap_8:
   case Builtin::BI__sync_swap_16:
 #ifdef INTEL_CUSTOMIZATION
-#include "intel/SemaChecking_CheckBuiltinFunctionCall.cpp"
-#endif
+  case Builtin::BI__atomic_store_explicit:
+  case Builtin::BI__atomic_store_explicit_1:
+  case Builtin::BI__atomic_store_explicit_2:
+  case Builtin::BI__atomic_store_explicit_4:
+  case Builtin::BI__atomic_store_explicit_8:
+  case Builtin::BI__atomic_store_explicit_16:
+  case Builtin::BI__atomic_load_explicit:
+  case Builtin::BI__atomic_load_explicit_1:
+  case Builtin::BI__atomic_load_explicit_2:
+  case Builtin::BI__atomic_load_explicit_4:
+  case Builtin::BI__atomic_load_explicit_8:
+  case Builtin::BI__atomic_load_explicit_16:
+  case Builtin::BI__atomic_exchange_explicit:
+  case Builtin::BI__atomic_exchange_explicit_1:
+  case Builtin::BI__atomic_exchange_explicit_2:
+  case Builtin::BI__atomic_exchange_explicit_4:
+  case Builtin::BI__atomic_exchange_explicit_8:
+  case Builtin::BI__atomic_exchange_explicit_16:
+  case Builtin::BI__atomic_compare_exchange_weak_explicit:
+  case Builtin::BI__atomic_compare_exchange_weak_explicit_1:
+  case Builtin::BI__atomic_compare_exchange_weak_explicit_2:
+  case Builtin::BI__atomic_compare_exchange_weak_explicit_4:
+  case Builtin::BI__atomic_compare_exchange_weak_explicit_8:
+  case Builtin::BI__atomic_compare_exchange_strong_explicit:
+  case Builtin::BI__atomic_compare_exchange_strong_explicit_1:
+  case Builtin::BI__atomic_compare_exchange_strong_explicit_2:
+  case Builtin::BI__atomic_compare_exchange_strong_explicit_4:
+  case Builtin::BI__atomic_compare_exchange_strong_explicit_8:
+  case Builtin::BI__atomic_fetch_add_explicit:
+  case Builtin::BI__atomic_fetch_add_explicit_1:
+  case Builtin::BI__atomic_fetch_add_explicit_2:
+  case Builtin::BI__atomic_fetch_add_explicit_4:
+  case Builtin::BI__atomic_fetch_add_explicit_8:
+  case Builtin::BI__atomic_fetch_add_explicit_16:
+  case Builtin::BI__atomic_fetch_sub_explicit:
+  case Builtin::BI__atomic_fetch_sub_explicit_1:
+  case Builtin::BI__atomic_fetch_sub_explicit_2:
+  case Builtin::BI__atomic_fetch_sub_explicit_4:
+  case Builtin::BI__atomic_fetch_sub_explicit_8:
+  case Builtin::BI__atomic_fetch_sub_explicit_16:
+  case Builtin::BI__atomic_fetch_and_explicit:
+  case Builtin::BI__atomic_fetch_and_explicit_1:
+  case Builtin::BI__atomic_fetch_and_explicit_2:
+  case Builtin::BI__atomic_fetch_and_explicit_4:
+  case Builtin::BI__atomic_fetch_and_explicit_8:
+  case Builtin::BI__atomic_fetch_and_explicit_16:
+  case Builtin::BI__atomic_fetch_nand_explicit:
+  case Builtin::BI__atomic_fetch_nand_explicit_1:
+  case Builtin::BI__atomic_fetch_nand_explicit_2:
+  case Builtin::BI__atomic_fetch_nand_explicit_4:
+  case Builtin::BI__atomic_fetch_nand_explicit_8:
+  case Builtin::BI__atomic_fetch_nand_explicit_16:
+  case Builtin::BI__atomic_fetch_or_explicit:
+  case Builtin::BI__atomic_fetch_or_explicit_1:
+  case Builtin::BI__atomic_fetch_or_explicit_2:
+  case Builtin::BI__atomic_fetch_or_explicit_4:
+  case Builtin::BI__atomic_fetch_or_explicit_8:
+  case Builtin::BI__atomic_fetch_or_explicit_16:
+  case Builtin::BI__atomic_fetch_xor_explicit:
+  case Builtin::BI__atomic_fetch_xor_explicit_1:
+  case Builtin::BI__atomic_fetch_xor_explicit_2:
+  case Builtin::BI__atomic_fetch_xor_explicit_4:
+  case Builtin::BI__atomic_fetch_xor_explicit_8:
+  case Builtin::BI__atomic_fetch_xor_explicit_16:
+  case Builtin::BI__atomic_add_fetch_explicit:
+  case Builtin::BI__atomic_add_fetch_explicit_1:
+  case Builtin::BI__atomic_add_fetch_explicit_2:
+  case Builtin::BI__atomic_add_fetch_explicit_4:
+  case Builtin::BI__atomic_add_fetch_explicit_8:
+  case Builtin::BI__atomic_add_fetch_explicit_16:
+  case Builtin::BI__atomic_sub_fetch_explicit:
+  case Builtin::BI__atomic_sub_fetch_explicit_1:
+  case Builtin::BI__atomic_sub_fetch_explicit_2:
+  case Builtin::BI__atomic_sub_fetch_explicit_4:
+  case Builtin::BI__atomic_sub_fetch_explicit_8:
+  case Builtin::BI__atomic_sub_fetch_explicit_16:
+  case Builtin::BI__atomic_and_fetch_explicit:
+  case Builtin::BI__atomic_and_fetch_explicit_1:
+  case Builtin::BI__atomic_and_fetch_explicit_2:
+  case Builtin::BI__atomic_and_fetch_explicit_4:
+  case Builtin::BI__atomic_and_fetch_explicit_8:
+  case Builtin::BI__atomic_and_fetch_explicit_16:
+  case Builtin::BI__atomic_nand_fetch_explicit:
+  case Builtin::BI__atomic_nand_fetch_explicit_1:
+  case Builtin::BI__atomic_nand_fetch_explicit_2:
+  case Builtin::BI__atomic_nand_fetch_explicit_4:
+  case Builtin::BI__atomic_nand_fetch_explicit_8:
+  case Builtin::BI__atomic_nand_fetch_explicit_16:
+  case Builtin::BI__atomic_or_fetch_explicit:
+  case Builtin::BI__atomic_or_fetch_explicit_1:
+  case Builtin::BI__atomic_or_fetch_explicit_2:
+  case Builtin::BI__atomic_or_fetch_explicit_4:
+  case Builtin::BI__atomic_or_fetch_explicit_8:
+  case Builtin::BI__atomic_or_fetch_explicit_16:
+  case Builtin::BI__atomic_xor_fetch_explicit:
+  case Builtin::BI__atomic_xor_fetch_explicit_1:
+  case Builtin::BI__atomic_xor_fetch_explicit_2:
+  case Builtin::BI__atomic_xor_fetch_explicit_4:
+  case Builtin::BI__atomic_xor_fetch_explicit_8:
+  case Builtin::BI__atomic_xor_fetch_explicit_16:
+#endif  // INTEL_CUSTOMIZATION
     return SemaBuiltinAtomicOverloaded(TheCallResult);
 #define BUILTIN(ID, TYPE, ATTRS)
 #define ATOMIC_BUILTIN(ID, TYPE, ATTRS) \
@@ -443,7 +551,7 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     if (SemaBuiltinAnnotation(*this, TheCall))
       return ExprError();
     break;
-#ifdef INTEL_CUSTOMIZATION	
+#ifdef INTEL_CUSTOMIZATION
   case Builtin::BI__sec_reduce_add:
   case Builtin::BI__sec_reduce_mul:
   case Builtin::BI__sec_reduce_max:
@@ -506,6 +614,7 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
                                 TheCall->getRParenLoc());
     }
     break;
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   case Builtin::BI__assume_aligned: {
     if (checkArgCount(*this, TheCall, 2)) return ExprError();
     Expr *Arg1 = TheCall->getArg(0);
@@ -530,7 +639,8 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     }
     }
     break;
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_addressof:
     if (SemaBuiltinAddressof(*this, TheCall))
       return ExprError();
@@ -590,6 +700,19 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     break;
   }
 
+  case Builtin::BI__GetExceptionInfo:
+    if (checkArgCount(*this, TheCall, 1))
+      return ExprError();
+
+    if (CheckCXXThrowOperand(
+            TheCall->getLocStart(),
+            Context.getExceptionObjectType(FDecl->getParamDecl(0)->getType()),
+            TheCall))
+      return ExprError();
+
+    TheCall->setType(Context.VoidPtrTy);
+    break;
+
   }
 
   // Since the target specific builtins for each arch overlap, only check those
@@ -615,9 +738,19 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
         if (CheckMipsBuiltinFunctionCall(BuiltinID, TheCall))
           return ExprError();
         break;
+      case llvm::Triple::systemz:
+        if (CheckSystemZBuiltinFunctionCall(BuiltinID, TheCall))
+          return ExprError();
+        break;
       case llvm::Triple::x86:
       case llvm::Triple::x86_64:
         if (CheckX86BuiltinFunctionCall(BuiltinID, TheCall))
+          return ExprError();
+        break;
+      case llvm::Triple::ppc:
+      case llvm::Triple::ppc64:
+      case llvm::Triple::ppc64le:
+        if (CheckPPCBuiltinFunctionCall(BuiltinID, TheCall))
           return ExprError();
         break;
       default:
@@ -964,19 +1097,68 @@ bool Sema::CheckMipsBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   return SemaBuiltinConstantArgRange(TheCall, i, l, u);
 }
 
+bool Sema::CheckPPCBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
+  unsigned i = 0, l = 0, u = 0;
+  bool Is64BitBltin = BuiltinID == PPC::BI__builtin_divde ||
+                      BuiltinID == PPC::BI__builtin_divdeu ||
+                      BuiltinID == PPC::BI__builtin_bpermd;
+  bool IsTarget64Bit = Context.getTargetInfo()
+                              .getTypeWidth(Context
+                                            .getTargetInfo()
+                                            .getIntPtrType()) == 64;
+  bool IsBltinExtDiv = BuiltinID == PPC::BI__builtin_divwe ||
+                       BuiltinID == PPC::BI__builtin_divweu ||
+                       BuiltinID == PPC::BI__builtin_divde ||
+                       BuiltinID == PPC::BI__builtin_divdeu;
+
+  if (Is64BitBltin && !IsTarget64Bit)
+      return Diag(TheCall->getLocStart(), diag::err_64_bit_builtin_32_bit_tgt)
+             << TheCall->getSourceRange();
+
+  if ((IsBltinExtDiv && !Context.getTargetInfo().hasFeature("extdiv")) ||
+      (BuiltinID == PPC::BI__builtin_bpermd &&
+       !Context.getTargetInfo().hasFeature("bpermd")))
+    return Diag(TheCall->getLocStart(), diag::err_ppc_builtin_only_on_pwr7)
+           << TheCall->getSourceRange();
+
+  switch (BuiltinID) {
+  default: return false;
+  case PPC::BI__builtin_altivec_crypto_vshasigmaw:
+  case PPC::BI__builtin_altivec_crypto_vshasigmad:
+    return SemaBuiltinConstantArgRange(TheCall, 1, 0, 1) ||
+           SemaBuiltinConstantArgRange(TheCall, 2, 0, 15);
+  case PPC::BI__builtin_tbegin:
+  case PPC::BI__builtin_tend: i = 0; l = 0; u = 1; break;
+  case PPC::BI__builtin_tsr: i = 0; l = 0; u = 7; break;
+  case PPC::BI__builtin_tabortwc:
+  case PPC::BI__builtin_tabortdc: i = 0; l = 0; u = 31; break;
+  case PPC::BI__builtin_tabortwci:
+  case PPC::BI__builtin_tabortdci:
+    return SemaBuiltinConstantArgRange(TheCall, 0, 0, 31) ||
+           SemaBuiltinConstantArgRange(TheCall, 2, 0, 31);
+  }
+  return SemaBuiltinConstantArgRange(TheCall, i, l, u);
+}
+
+bool Sema::CheckSystemZBuiltinFunctionCall(unsigned BuiltinID,
+                                           CallExpr *TheCall) {
+  if (BuiltinID == SystemZ::BI__builtin_tabort) {
+    Expr *Arg = TheCall->getArg(0);
+    llvm::APSInt AbortCode(32);
+    if (Arg->isIntegerConstantExpr(AbortCode, Context) &&
+        AbortCode.getSExtValue() >= 0 && AbortCode.getSExtValue() < 256)
+      return Diag(Arg->getLocStart(), diag::err_systemz_invalid_tabort_code)
+             << Arg->getSourceRange();
+  }
+
+  return false;
+}
+
 bool Sema::CheckX86BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   unsigned i = 0, l = 0, u = 0;
   switch (BuiltinID) {
   default: return false;
   case X86::BI_mm_prefetch: i = 1; l = 0; u = 3; break;
-  case X86::BI__builtin_ia32_vextractf128_pd256:
-  case X86::BI__builtin_ia32_vextractf128_ps256:
-  case X86::BI__builtin_ia32_vextractf128_si256:
-  case X86::BI__builtin_ia32_extract128i256: i = 1, l = 0, u = 1; break;
-  case X86::BI__builtin_ia32_vinsertf128_pd256:
-  case X86::BI__builtin_ia32_vinsertf128_ps256:
-  case X86::BI__builtin_ia32_vinsertf128_si256:
-  case X86::BI__builtin_ia32_insert128i256: i = 2, l = 0; u = 1; break;
   case X86::BI__builtin_ia32_sha1rnds4: i = 2, l = 0; u = 3; break;
   case X86::BI__builtin_ia32_vpermil2pd:
   case X86::BI__builtin_ia32_vpermil2pd256:
@@ -1299,11 +1481,14 @@ bool Sema::CheckObjCMethodCall(ObjCMethodDecl *Method, SourceLocation lbrac,
 
 bool Sema::CheckPointerCall(NamedDecl *NDecl, CallExpr *TheCall,
                             const FunctionProtoType *Proto) {
-  const VarDecl *V = dyn_cast<VarDecl>(NDecl);
-  if (!V)
+  QualType Ty;
+  if (const auto *V = dyn_cast<VarDecl>(NDecl))
+    Ty = V->getType();
+  else if (const auto *F = dyn_cast<FieldDecl>(NDecl))
+    Ty = F->getType();
+  else
     return false;
 
-  QualType Ty = V->getType();
   if (!Ty->isBlockPointerType() && !Ty->isFunctionPointerType())
     return false;
 
@@ -1400,9 +1585,10 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
   //   M is C if C is an integer, and ptrdiff_t if C is a pointer, and
   //   the int parameters are for orderings.
 
-  assert(AtomicExpr::AO__c11_atomic_init == 0 &&
-         AtomicExpr::AO__c11_atomic_fetch_xor + 1 == AtomicExpr::AO__atomic_load
-         && "need to update code for modified C11 atomics");
+  static_assert(AtomicExpr::AO__c11_atomic_init == 0 &&
+                    AtomicExpr::AO__c11_atomic_fetch_xor + 1 ==
+                        AtomicExpr::AO__atomic_load,
+                "need to update code for modified C11 atomics");
   bool IsC11 = Op >= AtomicExpr::AO__c11_atomic_init &&
                Op <= AtomicExpr::AO__c11_atomic_fetch_xor;
   bool IsN = Op == AtomicExpr::AO__atomic_load_n ||
@@ -1823,7 +2009,7 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
     BUILTIN_ROW(__atomic_nand_fetch_explicit),
     BUILTIN_ROW(__atomic_or_fetch_explicit),
     BUILTIN_ROW(__atomic_xor_fetch_explicit)
-#endif
+#endif  // INTEL_CUSTOMIZATION
   };
 #undef BUILTIN_ROW
 
@@ -2168,7 +2354,7 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
     NumFixed = 2;
     BuiltinIndex = 33;
     break;
-#endif
+#endif  // INTEL_CUSTOMIZATION
   }
 
   // Now that we know how many fixed arguments we expect, first check that we
@@ -2292,12 +2478,8 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
     // the remaining arguments, converting them to the deduced value type.
     for (unsigned i = 0, e = NewBuiltinDecl->getNumParams(); i < e; ++i) {
       ExprResult Arg = TheCall->getArg(i);
-      ValType = NewBuiltinDecl->getParamDecl(i)->getType().getUnqualifiedType();
-      Arg = PerformImplicitConversion(Arg.get(), ValType, AA_Passing);
-      //CastKind CK = PrepareScalarCast(Arg, ValType);
-      //if (CK != CK_NoOp)
-      //  Arg = ImpCastExprToType(DefaultLvalueConversion(Arg.get()).get(),
-      //                          ValType, CK);
+      ValType = NewBuiltinDecl->getParamDecl(i)->getType();
+      Arg = PerformImplicitConversion(Arg.get(), ValType, AA_Casting);
       if (Arg.isInvalid())
         return ExprError();
 
@@ -2346,7 +2528,7 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
   default:
     break;
   }
-#endif
+#endif  // INTEL_CUSTOMIZATION
   // The first argument --- the pointer --- has a fixed type; we
   // deduce the types of the rest of the arguments accordingly.  Walk
   // the remaining arguments, converting them to the deduced value type.
@@ -2874,8 +3056,13 @@ bool Sema::SemaBuiltinConstantArgRange(CallExpr *TheCall, int ArgNum,
 }
 
 /// SemaBuiltinLongjmp - Handle __builtin_longjmp(void *env[5], int val).
-/// This checks that val is a constant 1.
+/// This checks that the target supports __builtin_longjmp and
+/// that val is a constant 1.
 bool Sema::SemaBuiltinLongjmp(CallExpr *TheCall) {
+  if (!Context.getTargetInfo().hasSjLjLowering())
+    return Diag(TheCall->getLocStart(), diag::err_builtin_longjmp_unsupported)
+             << SourceRange(TheCall->getLocStart(), TheCall->getLocEnd());
+
   Expr *Arg = TheCall->getArg(1);
   llvm::APSInt Result;
 
@@ -2887,6 +3074,16 @@ bool Sema::SemaBuiltinLongjmp(CallExpr *TheCall) {
     return Diag(TheCall->getLocStart(), diag::err_builtin_longjmp_invalid_val)
              << SourceRange(Arg->getLocStart(), Arg->getLocEnd());
 
+  return false;
+}
+
+
+/// SemaBuiltinSetjmp - Handle __builtin_setjmp(void *env[5]).
+/// This checks that the target supports __builtin_setjmp.
+bool Sema::SemaBuiltinSetjmp(CallExpr *TheCall) {
+  if (!Context.getTargetInfo().hasSjLjLowering())
+    return Diag(TheCall->getLocStart(), diag::err_builtin_setjmp_unsupported)
+             << SourceRange(TheCall->getLocStart(), TheCall->getLocEnd());
   return false;
 }
 
@@ -5034,7 +5231,7 @@ static const CXXRecordDecl *getContainedDynamicClass(QualType T,
 
 /// \brief If E is a sizeof expression, returns its argument expression,
 /// otherwise returns NULL.
-static const Expr *getSizeOfExprArg(const Expr* E) {
+static const Expr *getSizeOfExprArg(const Expr *E) {
   if (const UnaryExprOrTypeTraitExpr *SizeOf =
       dyn_cast<UnaryExprOrTypeTraitExpr>(E))
     if (SizeOf->getKind() == clang::UETT_SizeOf && !SizeOf->isArgumentType())
@@ -5044,7 +5241,7 @@ static const Expr *getSizeOfExprArg(const Expr* E) {
 }
 
 /// \brief If E is a sizeof expression, returns its argument type.
-static QualType getSizeOfArgType(const Expr* E) {
+static QualType getSizeOfArgType(const Expr *E) {
   if (const UnaryExprOrTypeTraitExpr *SizeOf =
       dyn_cast<UnaryExprOrTypeTraitExpr>(E))
     if (SizeOf->getKind() == clang::UETT_SizeOf)
@@ -5090,8 +5287,9 @@ void Sema::CheckMemaccessArguments(const CallExpr *Call,
     SourceRange ArgRange = Call->getArg(ArgIdx)->getSourceRange();
 
     QualType DestTy = Dest->getType();
+    QualType PointeeTy;
     if (const PointerType *DestPtrTy = DestTy->getAs<PointerType>()) {
-      QualType PointeeTy = DestPtrTy->getPointeeType();
+      PointeeTy = DestPtrTy->getPointeeType();
 
       // Never warn about void type pointers. This can be used to suppress
       // false positives.
@@ -5171,47 +5369,53 @@ void Sema::CheckMemaccessArguments(const CallExpr *Call,
           break;
         }
       }
+    } else if (DestTy->isArrayType()) {
+      PointeeTy = DestTy;
+    }
 
-      // Always complain about dynamic classes.
-      bool IsContained;
-      if (const CXXRecordDecl *ContainedRD =
-              getContainedDynamicClass(PointeeTy, IsContained)) {
+    if (PointeeTy == QualType())
+      continue;
 
-        unsigned OperationType = 0;
-        // "overwritten" if we're warning about the destination for any call
-        // but memcmp; otherwise a verb appropriate to the call.
-        if (ArgIdx != 0 || BId == Builtin::BImemcmp) {
-          if (BId == Builtin::BImemcpy)
-            OperationType = 1;
-          else if(BId == Builtin::BImemmove)
-            OperationType = 2;
-          else if (BId == Builtin::BImemcmp)
-            OperationType = 3;
-        }
-          
-        DiagRuntimeBehavior(
-          Dest->getExprLoc(), Dest,
-          PDiag(diag::warn_dyn_class_memaccess)
-            << (BId == Builtin::BImemcmp ? ArgIdx + 2 : ArgIdx)
-            << FnName << IsContained << ContainedRD << OperationType
-            << Call->getCallee()->getSourceRange());
-      } else if (PointeeTy.hasNonTrivialObjCLifetime() &&
-               BId != Builtin::BImemset)
-        DiagRuntimeBehavior(
-          Dest->getExprLoc(), Dest,
-          PDiag(diag::warn_arc_object_memaccess)
-            << ArgIdx << FnName << PointeeTy
-            << Call->getCallee()->getSourceRange());
-      else
-        continue;
+    // Always complain about dynamic classes.
+    bool IsContained;
+    if (const CXXRecordDecl *ContainedRD =
+            getContainedDynamicClass(PointeeTy, IsContained)) {
 
+      unsigned OperationType = 0;
+      // "overwritten" if we're warning about the destination for any call
+      // but memcmp; otherwise a verb appropriate to the call.
+      if (ArgIdx != 0 || BId == Builtin::BImemcmp) {
+        if (BId == Builtin::BImemcpy)
+          OperationType = 1;
+        else if(BId == Builtin::BImemmove)
+          OperationType = 2;
+        else if (BId == Builtin::BImemcmp)
+          OperationType = 3;
+      }
+        
       DiagRuntimeBehavior(
         Dest->getExprLoc(), Dest,
-        PDiag(diag::note_bad_memaccess_silence)
-          << FixItHint::CreateInsertion(ArgRange.getBegin(), "(void*)"));
-      break;
-    }
+        PDiag(diag::warn_dyn_class_memaccess)
+          << (BId == Builtin::BImemcmp ? ArgIdx + 2 : ArgIdx)
+          << FnName << IsContained << ContainedRD << OperationType
+          << Call->getCallee()->getSourceRange());
+    } else if (PointeeTy.hasNonTrivialObjCLifetime() &&
+             BId != Builtin::BImemset)
+      DiagRuntimeBehavior(
+        Dest->getExprLoc(), Dest,
+        PDiag(diag::warn_arc_object_memaccess)
+          << ArgIdx << FnName << PointeeTy
+          << Call->getCallee()->getSourceRange());
+    else
+      continue;
+
+    DiagRuntimeBehavior(
+      Dest->getExprLoc(), Dest,
+      PDiag(diag::note_bad_memaccess_silence)
+        << FixItHint::CreateInsertion(ArgRange.getBegin(), "(void*)"));
+    break;
   }
+
 }
 
 // A little helper routine: ignore addition and subtraction of integer literals.
@@ -8037,6 +8241,35 @@ void Sema::CheckBitFieldInitialization(SourceLocation InitLoc,
   (void) AnalyzeBitFieldAssignment(*this, BitField, Init, InitLoc);
 }
 
+static void diagnoseArrayStarInParamType(Sema &S, QualType PType,
+                                         SourceLocation Loc) {
+  if (!PType->isVariablyModifiedType())
+    return;
+  if (const auto *PointerTy = dyn_cast<PointerType>(PType)) {
+    diagnoseArrayStarInParamType(S, PointerTy->getPointeeType(), Loc);
+    return;
+  }
+  if (const auto *ReferenceTy = dyn_cast<ReferenceType>(PType)) {
+    diagnoseArrayStarInParamType(S, ReferenceTy->getPointeeType(), Loc);
+    return;
+  }
+  if (const auto *ParenTy = dyn_cast<ParenType>(PType)) {
+    diagnoseArrayStarInParamType(S, ParenTy->getInnerType(), Loc);
+    return;
+  }
+
+  const ArrayType *AT = S.Context.getAsArrayType(PType);
+  if (!AT)
+    return;
+
+  if (AT->getSizeModifier() != ArrayType::Star) {
+    diagnoseArrayStarInParamType(S, AT->getElementType(), Loc);
+    return;
+  }
+
+  S.Diag(Loc, diag::err_array_star_in_function_definition);
+}
+
 /// CheckParmsForFunctionDef - Check that the parameters of the given
 /// function are appropriate for the definition of a function. This
 /// takes care of any checks that cannot be performed on the
@@ -8075,15 +8308,9 @@ bool Sema::CheckParmsForFunctionDef(ParmVarDecl *const *P,
     //   notation in their sequences of declarator specifiers to specify
     //   variable length array types.
     QualType PType = Param->getOriginalType();
-    while (const ArrayType *AT = Context.getAsArrayType(PType)) {
-      if (AT->getSizeModifier() == ArrayType::Star) {
-        // FIXME: This diagnostic should point the '[*]' if source-location
-        // information is added for it.
-        Diag(Param->getLocation(), diag::err_array_star_in_function_definition);
-        break;
-      }
-      PType= AT->getElementType();
-    }
+    // FIXME: This diagnostic should point the '[*]' if source-location
+    // information is added for it.
+    diagnoseArrayStarInParamType(*this, PType, Param->getLocation());
 
     // MSVC destroys objects passed by value in the callee.  Therefore a
     // function definition which takes such a parameter must be able to call the
@@ -8601,8 +8828,8 @@ static bool isSetterLikeSelector(Selector sel) {
   return !isLowercase(str.front());
 }
 
-Optional<int> GetNSMutableArrayArgumentIndex(Sema &S, ObjCMessageExpr *Message) {
-
+static Optional<int> GetNSMutableArrayArgumentIndex(Sema &S,
+                                                    ObjCMessageExpr *Message) {
   if (S.NSMutableArrayPointer.isNull()) {
     IdentifierInfo *NSMutableArrayId =
       S.NSAPIObj->getNSClassId(NSAPI::ClassId_NSMutableArray);
@@ -9015,7 +9242,7 @@ bool ShouldDiagnoseEmptyStmtBody(const SourceManager &SourceMgr,
 
   // Get line numbers of statement and body.
   bool StmtLineInvalid;
-  unsigned StmtLine = SourceMgr.getSpellingLineNumber(StmtLoc,
+  unsigned StmtLine = SourceMgr.getPresumedLineNumber(StmtLoc,
                                                       &StmtLineInvalid);
   if (StmtLineInvalid)
     return false;
@@ -9079,7 +9306,7 @@ void Sema::DiagnoseEmptyLoopBody(const Stmt *S,
     StmtLoc = FS->getForLoc();
     Body = FS->getBody()->getCapturedStmt();
     DiagID = diag::warn_empty_simd_for_body;
-#endif
+#endif  // INTEL_CUSTOMIZATION
   } else
     return; // Neither `for' nor `while'.
 

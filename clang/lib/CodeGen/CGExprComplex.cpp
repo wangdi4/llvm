@@ -153,7 +153,7 @@ public:
                                               EmitLoadOfLValue(E->getReturnExpr());
     return ComplexPairTy();
   }
-#endif
+#endif  // INTEL_CUSTOMIZATION
   // FIXME: CompoundLiteralExpr
 
   ComplexPairTy EmitCast(CastKind CK, Expr *Op, QualType DestTy);
@@ -326,14 +326,14 @@ ComplexPairTy ComplexExprEmitter::EmitLoadOfLValue(LValue lvalue,
   llvm::Value *Real=nullptr, *Imag=nullptr;
 
   if (!IgnoreReal || isVolatile) {
-    llvm::Value *RealP = Builder.CreateStructGEP(SrcPtr, 0,
+    llvm::Value *RealP = Builder.CreateStructGEP(nullptr, SrcPtr, 0,
                                                  SrcPtr->getName() + ".realp");
     Real = Builder.CreateAlignedLoad(RealP, AlignR, isVolatile,
                                      SrcPtr->getName() + ".real");
   }
 
   if (!IgnoreImag || isVolatile) {
-    llvm::Value *ImagP = Builder.CreateStructGEP(SrcPtr, 1,
+    llvm::Value *ImagP = Builder.CreateStructGEP(nullptr, SrcPtr, 1,
                                                  SrcPtr->getName() + ".imagp");
     Imag = Builder.CreateAlignedLoad(ImagP, AlignI, isVolatile,
                                      SrcPtr->getName() + ".imag");
@@ -350,8 +350,8 @@ void ComplexExprEmitter::EmitStoreOfComplex(ComplexPairTy Val, LValue lvalue,
     return CGF.EmitAtomicStore(RValue::getComplex(Val), lvalue, isInit);
 
   llvm::Value *Ptr = lvalue.getAddress();
-  llvm::Value *RealPtr = Builder.CreateStructGEP(Ptr, 0, "real");
-  llvm::Value *ImagPtr = Builder.CreateStructGEP(Ptr, 1, "imag");
+  llvm::Value *RealPtr = Builder.CreateStructGEP(nullptr, Ptr, 0, "real");
+  llvm::Value *ImagPtr = Builder.CreateStructGEP(nullptr, Ptr, 1, "imag");
   unsigned AlignR = lvalue.getAlignment().getQuantity();
   ASTContext &C = CGF.getContext();
   QualType ComplexTy = lvalue.getType();
@@ -772,18 +772,11 @@ ComplexPairTy ComplexExprEmitter::EmitBinDiv(const BinOpInfo &Op) {
       }
     }
     assert(LHSi && "Can have at most one non-complex operand!");
-#ifdef INTEL_CUSTOMIZATION
-//#include "intel/CGExprComplex_DivFloat.cpp"
-#endif
-
     DSTr = Builder.CreateFDiv(LHSr, RHSr);
     DSTi = Builder.CreateFDiv(LHSi, RHSr);
   } else {
     assert(Op.LHS.second && Op.RHS.second &&
            "Both operands of integer complex operators must be complex!");
-#ifdef INTEL_CUSTOMIZATION
-//#include "intel/CGExprComplex_DivInt.cpp"
-#endif
     // (a+ib) / (c+id) = ((ac+bd)/(cc+dd)) + i((bc-ad)/(cc+dd))
     llvm::Value *Tmp1 = Builder.CreateMul(LHSr, RHSr); // a*c
     llvm::Value *Tmp2 = Builder.CreateMul(LHSi, RHSi); // b*d
@@ -855,7 +848,7 @@ EmitCompoundAssignLValue(const CompoundAssignOperator *E,
   // spawn Objective C block calls.
   if (CGF.getLangOpts().CilkPlus &&  E->getRHS()->isCilkSpawn())
     LHS = CGF.EmitLValue(E->getLHS());
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
   // The RHS should have been converted to the computation type.
   if (E->getRHS()->getType()->isRealFloatingType()) {
@@ -874,7 +867,7 @@ EmitCompoundAssignLValue(const CompoundAssignOperator *E,
     LHS = CGF.EmitLValue(E->getLHS());
 #else
   LValue LHS = CGF.EmitLValue(E->getLHS());
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
   // Load from the l-value and convert it.
   if (LHSTy->isAnyComplexType()) {
@@ -956,7 +949,7 @@ LValue ComplexExprEmitter::EmitBinAssignLValue(const BinaryOperator *E,
   Val = Visit(E->getRHS());
   // Compute the address to store into.
   LValue LHS = CGF.EmitLValue(E->getLHS());
-#endif
+#endif  // INTEL_CUSTOMIZATION
   // Store the result value into the LHS lvalue.
   EmitStoreOfComplex(Val, LHS, /*isInit*/ false);
 
@@ -994,13 +987,14 @@ VisitAbstractConditionalOperator(const AbstractConditionalOperator *E) {
   // Bind the common expression if necessary.
   CodeGenFunction::OpaqueValueMapping binding(CGF, E);
 
-  RegionCounter Cnt = CGF.getPGORegionCounter(E);
+
   CodeGenFunction::ConditionalEvaluation eval(CGF);
-  CGF.EmitBranchOnBoolExpr(E->getCond(), LHSBlock, RHSBlock, Cnt.getCount());
+  CGF.EmitBranchOnBoolExpr(E->getCond(), LHSBlock, RHSBlock,
+                           CGF.getProfileCount(E));
 
   eval.begin(CGF);
   CGF.EmitBlock(LHSBlock);
-  Cnt.beginRegion(Builder);
+  CGF.incrementProfileCounter(E);
   ComplexPairTy LHS = Visit(E->getTrueExpr());
   LHSBlock = Builder.GetInsertBlock();
   CGF.EmitBranch(ContBlock);

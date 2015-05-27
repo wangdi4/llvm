@@ -73,6 +73,9 @@ Preprocessor::Preprocessor(IntrusiveRefCntPtr<PreprocessorOptions> PPOpts,
       ModuleImportExpectsIdentifier(false), CodeCompletionReached(0),
       MainFileDir(nullptr), SkipMainFilePreamble(0, true), CurPPLexer(nullptr),
       CurDirLookup(nullptr), CurLexerKind(CLK_Lexer), CurSubmodule(nullptr),
+#ifdef INTEL_CUSTOMIZATION
+      LastIncludeWasQuoted(false),
+#endif //INTEL_CUSTOMIZATION
       Callbacks(nullptr), MacroArgCache(nullptr), Record(nullptr),
       MIChainHead(nullptr), DeserialMIChainHead(nullptr) {
   OwnsHeaderSearch = OwnsHeaders;
@@ -322,7 +325,7 @@ StringRef Preprocessor::getLastMacroWithSpelling(
   for (Preprocessor::macro_iterator I = macro_begin(), E = macro_end();
        I != E; ++I) {
     const MacroDirective::DefInfo
-      Def = I->second->findDirectiveAtLoc(Loc, SourceMgr);
+      Def = I->second.findDirectiveAtLoc(Loc, SourceMgr);
     if (!Def || !Def.getMacroInfo())
       continue;
     if (!Def.getMacroInfo()->isObjectLike())

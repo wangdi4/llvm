@@ -1,10 +1,14 @@
-// RUN: %clang_cc1 -verify -fopenmp=libiomp5 -x c++ -emit-llvm %s -fexceptions -fcxx-exceptions -o - | FileCheck %s
+// RUN: %clang_cc1 -verify -fopenmp=libiomp5 -x c++ -triple x86_64-unknown-unknown -emit-llvm %s -fexceptions -fcxx-exceptions -o - | FileCheck %s
 // RUN: %clang_cc1 -fopenmp=libiomp5 -x c++ -std=c++11 -triple x86_64-unknown-unknown -fexceptions -fcxx-exceptions -emit-pch -o %t %s
 // RUN: %clang_cc1 -fopenmp=libiomp5 -x c++ -triple x86_64-unknown-unknown -fexceptions -fcxx-exceptions -g -std=c++11 -include-pch %t -verify %s -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -verify -triple x86_64-apple-darwin10 -fopenmp=libiomp5 -fexceptions -fcxx-exceptions -gline-tables-only -x c++ -emit-llvm %s -o - | FileCheck %s --check-prefix=TERM_DEBUG
 //
 // expected-no-diagnostics
 #ifndef HEADER
 #define HEADER
+
+long long get_val() { return 0; }
+double *g_ptr;
 
 // CHECK-LABEL: define {{.*void}} @{{.*}}simple{{.*}}(float* {{.+}}, float* {{.+}}, float* {{.+}}, float* {{.+}})
 void simple(float *a, float *b, float *c, float *d) {
@@ -32,7 +36,13 @@ void simple(float *a, float *b, float *c, float *d) {
   }
 // CHECK: [[SIMPLE_LOOP1_END]]
 
-  #pragma omp simd
+  long long k = get_val();
+
+  #pragma omp simd linear(k : 3)
+// CHECK: [[K0:%.+]] = call {{.*}}i64 @{{.*}}get_val
+// CHECK-NEXT: store i64 [[K0]], i64* [[K_VAR:%[^,]+]]
+// CHECK: [[K0LOAD:%.+]] = load i64, i64* [[K_VAR]]
+// CHECK-NEXT: store i64 [[K0LOAD]], i64* [[LIN0:%[^,]+]]
 // CHECK: store i32 0, i32* [[OMP_IV2:%[^,]+]]
 
 // CHECK: [[IV2:%.+]] = load i32, i32* [[OMP_IV2]]{{.*}}!llvm.mem.parallel_loop_access ![[SIMPLE_LOOP2_ID:[0-9]+]]
@@ -46,16 +56,44 @@ void simple(float *a, float *b, float *c, float *d) {
 // CHECK-NEXT: [[IV2_1:%.+]] = mul nsw i32 [[IV2_0]], 1
 // CHECK-NEXT: [[LC_I_1:%.+]] = sub nsw i32 10, [[IV2_1]]
 // CHECK-NEXT: store i32 [[LC_I_1]], i32* {{.+}}, !llvm.mem.parallel_loop_access ![[SIMPLE_LOOP2_ID]]
-    a[i]++;
+//
+// CHECK-NEXT: [[LIN0_1:%.+]] = load i64, i64* [[LIN0]]{{.*}}!llvm.mem.parallel_loop_access ![[SIMPLE_LOOP2_ID]]
+// CHECK-NEXT: [[IV2_2:%.+]] = load i32, i32* [[OMP_IV2]]{{.*}}!llvm.mem.parallel_loop_access ![[SIMPLE_LOOP2_ID]]
+// CHECK-NEXT: [[LIN_MUL1:%.+]] = mul nsw i32 [[IV2_2]], 3
+// CHECK-NEXT: [[LIN_EXT1:%.+]] = sext i32 [[LIN_MUL1]] to i64
+// CHECK-NEXT: [[LIN_ADD1:%.+]] = add nsw i64 [[LIN0_1]], [[LIN_EXT1]]
+// Update of the privatized version of linear variable!
+// CHECK-NEXT: store i64 [[LIN_ADD1]], i64* [[K_PRIVATIZED:%[^,]+]]
+    a[k]++;
+    k = k + 3;
 // CHECK: [[IV2_2:%.+]] = load i32, i32* [[OMP_IV2]]{{.*}}!llvm.mem.parallel_loop_access ![[SIMPLE_LOOP2_ID]]
 // CHECK-NEXT: [[ADD2_2:%.+]] = add nsw i32 [[IV2_2]], 1
 // CHECK-NEXT: store i32 [[ADD2_2]], i32* [[OMP_IV2]]{{.*}}!llvm.mem.parallel_loop_access ![[SIMPLE_LOOP2_ID]]
 // br label {{.+}}, !llvm.loop ![[SIMPLE_LOOP2_ID]]
   }
 // CHECK: [[SIMPLE_LOOP2_END]]
+//
+// Update linear vars after loop, as the loop was operating on a private version.
+// CHECK: [[LIN0_2:%.+]] = load i64, i64* [[LIN0]]
+// CHECK-NEXT: [[LIN_ADD2:%.+]] = add nsw i64 [[LIN0_2]], 27
+// CHECK-NEXT: store i64 [[LIN_ADD2]], i64* [[K_VAR]]
+//
 
-  #pragma omp simd
+  int lin = 12;
+  #pragma omp simd linear(lin : get_val()), linear(g_ptr)
+
+// Init linear private var.
+// CHECK: store i32 12, i32* [[LIN_VAR:%[^,]+]]
+// CHECK: [[LIN_LOAD:%.+]] = load i32, i32* [[LIN_VAR]]
+// CHECK-NEXT: store i32 [[LIN_LOAD]], i32* [[LIN_START:%[^,]+]]
+// CHECK: [[GLIN_LOAD:%.+]] = load double*, double** [[GLIN_VAR:@[^,]+]]
+// CHECK-NEXT: store double* [[GLIN_LOAD]], double** [[GLIN_START:%[^,]+]]
+
 // CHECK: store i64 0, i64* [[OMP_IV3:%[^,]+]]
+
+// Remember linear step.
+// CHECK: [[CALL_VAL:%.+]] = invoke
+// CHECK: store i64 [[CALL_VAL]], i64* [[LIN_STEP:%[^,]+]]
 
 // CHECK: [[IV3:%.+]] = load i64, i64* [[OMP_IV3]]{{.*}}!llvm.mem.parallel_loop_access ![[SIMPLE_LOOP3_ID:[0-9]+]]
 // CHECK-NEXT: [[CMP3:%.+]] = icmp ult i64 [[IV3]], 4
@@ -67,12 +105,34 @@ void simple(float *a, float *b, float *c, float *d) {
 // CHECK-NEXT: [[LC_IT_1:%.+]] = mul i64 [[IV3_0]], 400
 // CHECK-NEXT: [[LC_IT_2:%.+]] = sub i64 2000, [[LC_IT_1]]
 // CHECK-NEXT: store i64 [[LC_IT_2]], i64* {{.+}}, !llvm.mem.parallel_loop_access ![[SIMPLE_LOOP3_ID]]
-    a[it]++;
+//
+// Linear start and step are used to calculate current value of the linear variable.
+// CHECK: [[LINSTART:.+]] = load i32, i32* [[LIN_START]]{{.*}}!llvm.mem.parallel_loop_access ![[SIMPLE_LOOP3_ID]]
+// CHECK: [[LINSTEP:.+]] = load i64, i64* [[LIN_STEP]]{{.*}}!llvm.mem.parallel_loop_access ![[SIMPLE_LOOP3_ID]]
+// CHECK-NOT: store i32 {{.+}}, i32* [[LIN_VAR]],{{.*}}!llvm.mem.parallel_loop_access ![[SIMPLE_LOOP3_ID]]
+// CHECK: [[GLINSTART:.+]] = load double*, double** [[GLIN_START]]{{.*}}!llvm.mem.parallel_loop_access ![[SIMPLE_LOOP3_ID]]
+// CHECK-NEXT: [[IV3_1:%.+]] = load i64, i64* [[OMP_IV3]]{{.*}}!llvm.mem.parallel_loop_access ![[SIMPLE_LOOP3_ID]]
+// CHECK-NEXT: [[MUL:%.+]] = mul i64 [[IV3_1]], 1
+// CHECK: [[GEP:%.+]] = getelementptr{{.*}}[[GLINSTART]]
+// CHECK-NEXT: store double* [[GEP]], double** [[G_PTR_CUR:%[^,]+]]{{.*}}!llvm.mem.parallel_loop_access ![[SIMPLE_LOOP3_ID]]
+    *g_ptr++ = 0.0;
+// CHECK: [[GEP_VAL:%.+]] = load double{{.*}}[[G_PTR_CUR]]{{.*}}!llvm.mem.parallel_loop_access ![[SIMPLE_LOOP3_ID]]
+// CHECK: store double{{.*}}[[GEP_VAL]]{{.*}}!llvm.mem.parallel_loop_access ![[SIMPLE_LOOP3_ID]]
+    a[it + lin]++;
+// CHECK: [[FLT_INC:%.+]] = fadd float
+// CHECK-NEXT: store float [[FLT_INC]],{{.*}}!llvm.mem.parallel_loop_access ![[SIMPLE_LOOP3_ID]]
 // CHECK: [[IV3_2:%.+]] = load i64, i64* [[OMP_IV3]]{{.*}}!llvm.mem.parallel_loop_access ![[SIMPLE_LOOP3_ID]]
 // CHECK-NEXT: [[ADD3_2:%.+]] = add i64 [[IV3_2]], 1
 // CHECK-NEXT: store i64 [[ADD3_2]], i64* [[OMP_IV3]]{{.*}}!llvm.mem.parallel_loop_access ![[SIMPLE_LOOP3_ID]]
   }
 // CHECK: [[SIMPLE_LOOP3_END]]
+//
+// Linear start and step are used to calculate final value of the linear variables.
+// CHECK: [[LINSTART:.+]] = load i32, i32* [[LIN_START]]
+// CHECK: [[LINSTEP:.+]] = load i64, i64* [[LIN_STEP]]
+// CHECK: store i32 {{.+}}, i32* [[LIN_VAR]],
+// CHECK: [[GLINSTART:.+]] = load double*, double** [[GLIN_START]]
+// CHECK: store double* {{.*}}[[GLIN_VAR]]
 
   #pragma omp simd
 // CHECK: store i32 0, i32* [[OMP_IV4:%[^,]+]]
@@ -116,28 +176,10 @@ void simple(float *a, float *b, float *c, float *d) {
   }
 // CHECK: [[SIMPLE_LOOP5_END]]
 
+// CHECK-NOT: mul i32 %{{.+}}, 10
   #pragma omp simd
-// FIXME: I think we would get wrong result using 'unsigned' in the loop below.
-// So we'll need to add zero trip test for 'unsigned' counters.
-//
-// CHECK: store i32 0, i32* [[OMP_IV6:%[^,]+]]
-
-// CHECK: [[IV6:%.+]] = load i32, i32* [[OMP_IV6]]{{.*}}!llvm.mem.parallel_loop_access ![[SIMPLE_LOOP6_ID:[0-9]+]]
-// CHECK-NEXT: [[CMP6:%.+]] = icmp slt i32 [[IV6]], -8
-// CHECK-NEXT: br i1 [[CMP6]], label %[[SIMPLE_LOOP6_BODY:.+]], label %[[SIMPLE_LOOP6_END:[^,]+]]
-  for (int i=100; i<10; i+=10) {
-// CHECK: [[SIMPLE_LOOP6_BODY]]
-// Start of body: calculate i from IV:
-// CHECK: [[IV6_0:%.+]] = load i32, i32* [[OMP_IV6]]{{.*}}!llvm.mem.parallel_loop_access ![[SIMPLE_LOOP6_ID]]
-// CHECK-NEXT: [[LC_IT_1:%.+]] = mul nsw i32 [[IV6_0]], 10
-// CHECK-NEXT: [[LC_IT_2:%.+]] = add nsw i32 100, [[LC_IT_1]]
-// CHECK-NEXT: store i32 [[LC_IT_2]], i32* {{.+}}, !llvm.mem.parallel_loop_access ![[SIMPLE_LOOP6_ID]]
-
-// CHECK: [[IV6_2:%.+]] = load i32, i32* [[OMP_IV6]]{{.*}}!llvm.mem.parallel_loop_access ![[SIMPLE_LOOP6_ID]]
-// CHECK-NEXT: [[ADD6_2:%.+]] = add nsw i32 [[IV6_2]], 1
-// CHECK-NEXT: store i32 [[ADD6_2]], i32* [[OMP_IV6]]{{.*}}!llvm.mem.parallel_loop_access ![[SIMPLE_LOOP6_ID]]
+  for (unsigned i=100; i<10; i+=10) {
   }
-// CHECK: [[SIMPLE_LOOP6_END]]
 
   int A;
   #pragma omp simd lastprivate(A)
@@ -145,8 +187,6 @@ void simple(float *a, float *b, float *c, float *d) {
 // Test checks that one iteration is separated in presence of lastprivate.
 //
 // CHECK: store i64 0, i64* [[OMP_IV7:%[^,]+]]
-// CHECK: br i1 true, label %[[SIMPLE_IF7_THEN:.+]], label %[[SIMPLE_IF7_END:[^,]+]]
-// CHECK: [[SIMPLE_IF7_THEN]]
 // CHECK: br label %[[SIMD_LOOP7_COND:[^,]+]]
 // CHECK: [[SIMD_LOOP7_COND]]
 // CHECK-NEXT: [[IV7:%.+]] = load i64, i64* [[OMP_IV7]]{{.*}}!llvm.mem.parallel_loop_access ![[SIMPLE_LOOP7_ID:[0-9]+]]
@@ -172,9 +212,6 @@ void simple(float *a, float *b, float *c, float *d) {
 // CHECK-NEXT: store i64 [[LC_FIN_2]], i64* [[ADDR_I:%[^,]+]]
 // CHECK: [[LOAD_I:%.+]] = load i64, i64* [[ADDR_I]]
 // CHECK-NEXT: [[CONV_I:%.+]] = trunc i64 [[LOAD_I]] to i32
-//
-// CHECK: br label %[[SIMPLE_IF7_END]]
-// CHECK: [[SIMPLE_IF7_END]]
 //
 
 // CHECK: ret void
@@ -261,8 +298,8 @@ void iter_simple(IterDouble ia, IterDouble ib, IterDouble ic) {
 //
 // CHECK: store i32 0, i32* [[IT_OMP_IV:%[^,]+]]
 // Calculate number of iterations before the loop body.
-// CHECK: [[DIFF1:%.+]] = call {{.*}}i32 @{{.*}}IterDouble{{.*}}
-// CHECK-NEXT: [[DIFF2:%.+]] = sub nsw i32 [[DIFF1]], 1
+// CHECK: [[DIFF1:%.+]] = invoke {{.*}}i32 @{{.*}}IterDouble{{.*}}
+// CHECK: [[DIFF2:%.+]] = sub nsw i32 [[DIFF1]], 1
 // CHECK-NEXT: [[DIFF3:%.+]] = add nsw i32 [[DIFF2]], 1
 // CHECK-NEXT: [[DIFF4:%.+]] = sdiv i32 [[DIFF3]], 1
 // CHECK-NEXT: [[DIFF5:%.+]] = sub nsw i32 [[DIFF4]], 1
@@ -279,12 +316,12 @@ void iter_simple(IterDouble ia, IterDouble ib, IterDouble ic) {
 // Start of body: calculate i from index:
 // CHECK: [[IV1:%.+]] = load i32, i32* [[IT_OMP_IV]]{{.+}}!llvm.mem.parallel_loop_access ![[ITER_LOOP_ID]]
 // Call of operator+ (i, IV).
-// CHECK: {{%.+}} = call {{.+}} @{{.*}}IterDouble{{.*}}!llvm.mem.parallel_loop_access ![[ITER_LOOP_ID]]
+// CHECK: {{%.+}} = invoke {{.+}} @{{.*}}IterDouble{{.*}}
 // ... loop body ...
    *i = *ic * 0.5;
 // Float multiply and save result.
 // CHECK: [[MULR:%.+]] = fmul double {{%.+}}, 5.000000e-01
-// CHECK-NEXT: call {{.+}} @{{.*}}IterDouble{{.*}}
+// CHECK-NEXT: invoke {{.+}} @{{.*}}IterDouble{{.*}}
 // CHECK: store double [[MULR:%.+]], double* [[RESULT_ADDR:%.+]], !llvm.mem.parallel_loop_access ![[ITER_LOOP_ID]]
    ++ic;
 //
@@ -361,15 +398,19 @@ void collapsed(float *a, float *b, float *c, float *d) {
 }
 
 extern char foo();
+extern double globalfloat;
 
 // CHECK-LABEL: define {{.*void}} @{{.*}}widened{{.*}}
 void widened(float *a, float *b, float *c, float *d) {
   int i; // outer loop counter
   short j; // inner loop counter
+  globalfloat = 1.0;
+  int localint = 1;
+// CHECK: store double {{.+}}, double* [[GLOBALFLOAT:@.+]]
 // Counter is widened to 64 bits.
 // CHECK: store i64 0, i64* [[OMP_IV:[^,]+]]
 //
-  #pragma omp simd collapse(2)
+  #pragma omp simd collapse(2) private(globalfloat, localint)
 
 // CHECK: [[IV:%.+]] = load i64, i64* [[OMP_IV]]{{.+}}!llvm.mem.parallel_loop_access ![[WIDE1_LOOP_ID:[0-9]+]]
 // CHECK-NEXT: [[LI:%.+]] = load i64, i64* [[OMP_LI:%[^,]+]]{{.+}}!llvm.mem.parallel_loop_access ![[WIDE1_LOOP_ID]]
@@ -387,29 +428,51 @@ void widened(float *a, float *b, float *c, float *d) {
 // CHECK: [[IV1_2:%.+]] = load i64, i64* [[OMP_IV]]{{.+}}!llvm.mem.parallel_loop_access ![[WIDE1_LOOP_ID]]
 // CHECK: store i16 {{[^,]+}}, i16* [[LC_J:.+]]
 // ... loop body ...
-// End of body: store into a[i]:
-// CHECK: store float [[RESULT:%.+]], float* [[RESULT_ADDR:%.+]]{{.+}}!llvm.mem.parallel_loop_access ![[WIDE1_LOOP_ID]]
+//
+// Here we expect store into private double var, not global
+// CHECK-NOT: store double {{.+}}, double* [[GLOBALFLOAT]]
+    globalfloat = (float)j/i;
     float res = b[j] * c[j];
+// Store into a[i]:
+// CHECK: store float [[RESULT:%.+]], float* [[RESULT_ADDR:%.+]]{{.+}}!llvm.mem.parallel_loop_access ![[WIDE1_LOOP_ID]]
     a[i] = res * d[i];
+// Then there's a store into private var localint:
+// CHECK: store i32 {{.+}}, i32* [[LOCALINT:%[^,]+]]{{.+}}!llvm.mem.parallel_loop_access ![[WIDE1_LOOP_ID]]
+    localint = (int)j;
 // CHECK: [[IV2:%.+]] = load i64, i64* [[OMP_IV]]{{.*}}!llvm.mem.parallel_loop_access ![[WIDE1_LOOP_ID]]
 // CHECK-NEXT: [[ADD2:%.+]] = add nsw i64 [[IV2]], 1
 // CHECK-NEXT: store i64 [[ADD2]], i64* [[OMP_IV]]{{.*}}!llvm.mem.parallel_loop_access ![[WIDE1_LOOP_ID]]
+//
 // br label %{{[^,]+}}, !llvm.loop ![[WIDE1_LOOP_ID]]
 // CHECK: [[WIDE1_END]]
   }
 // i,j are updated.
 // CHECK: store i32 3, i32* [[I:%[^,]+]]
 // CHECK: store i16
+//
+// Here we expect store into original localint, not its privatized version.
+// CHECK-NOT: store i32 {{.+}}, i32* [[LOCALINT]]
+  localint = (int)j;
 // CHECK: ret void
 }
 
+// TERM_DEBUG-LABEL: bar
+int bar() {return 0;};
+
+// TERM_DEBUG-LABEL: parallel_simd
 void parallel_simd(float *a) {
 #pragma omp parallel
 #pragma omp simd
-  // CHECK-NOT: __kmpc_global_thread_num
+  // TERM_DEBUG-NOT: __kmpc_global_thread_num
+  // TERM_DEBUG:     invoke i32 {{.*}}bar{{.*}}()
+  // TERM_DEBUG:     unwind label %[[TERM_LPAD:.+]],
+  // TERM_DEBUG-NOT: __kmpc_global_thread_num
+  // TERM_DEBUG:     [[TERM_LPAD]]
+  // TERM_DEBUG:     call void @__clang_call_terminate
+  // TERM_DEBUG:     unreachable
   for (unsigned i = 131071; i <= 2147483647; i += 127)
-    a[i] += i;
+    a[i] += bar();
 }
-
+// TERM_DEBUG: !{{[0-9]+}} = !MDLocation(line: [[@LINE-11]],
 #endif // HEADER
 

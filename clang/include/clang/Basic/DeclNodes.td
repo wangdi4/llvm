@@ -11,6 +11,7 @@ class DDecl<Decl base, bit abstract = 0> : Decl<abstract> {
 class DeclContext { }
 
 def TranslationUnit : Decl, DeclContext;
+def ExternCContext : Decl, DeclContext;
 def Named : Decl<1>;
   def Namespace : DDecl<Named>, DeclContext;
   def UsingDirective : DDecl<Named>;
@@ -85,4 +86,4 @@ def Empty : Decl;
 //#ifdef INTEL_CUSTOMIZATION
 def CilkSpawn : Decl;
 def Pragma : Decl;
-//#endif
+//#endif  // INTEL_CUSTOMIZATION

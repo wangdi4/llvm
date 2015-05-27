@@ -21,7 +21,7 @@
 #include "clang/Basic/PartialDiagnostic.h"
 #ifdef INTEL_CUSTOMIZATION
 #include "clang/Basic/intel/PragmaSIMD.h"
-#endif
+#endif  // INTEL_CUSTOMIZATION
 #include "clang/Sema/Ownership.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallSet.h"
@@ -59,7 +59,7 @@ public:
     : HasEmptyLoopBodies(false) 
 #ifdef INTEL_CUSTOMIZATION
       , HasCilkSpawn(false)
-#endif
+#endif  // INTEL_CUSTOMIZATION
   { }
 
   /// \brief Whether this compound stamement contains `for' or `while' loops
@@ -75,7 +75,7 @@ public:
   void setHasCilkSpawn() {
     HasCilkSpawn = true;
   }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 };
 
 class PossiblyUnreachableDiag {
@@ -99,10 +99,9 @@ protected:
     SK_Lambda,
     SK_CapturedRegion
 #ifdef INTEL_CUSTOMIZATION
-	,
-    SK_CilkFor,
-    SK_SIMDFor	
-#endif
+    , SK_CilkFor,
+    SK_SIMDFor
+#endif  // INTEL_CUSTOMIZATION
   };
   
 public:
@@ -565,10 +564,10 @@ public:
     return FSI->Kind == SK_Block || FSI->Kind == SK_Lambda
                                  || FSI->Kind == SK_CapturedRegion
 #ifdef INTEL_CUSTOMIZATION
-								 || FSI->Kind == SK_CilkFor
-                                 || FSI->Kind == SK_SIMDFor						 
-#endif								 
-						;
+                                 || FSI->Kind == SK_CilkFor
+                                 || FSI->Kind == SK_SIMDFor
+#endif  // INTEL_CUSTOMIZATION
+      ;
   }
 };
 
@@ -592,7 +591,7 @@ public:
     Kind = SK_Block;
   }
 
-  virtual ~BlockScopeInfo();
+  ~BlockScopeInfo() override;
 
   static bool classof(const FunctionScopeInfo *FSI) { 
     return FSI->Kind == SK_Block; 
@@ -615,35 +614,35 @@ public:
 #ifdef INTEL_CUSTOMIZATION
   /// \brief Whether any of the capture expressions require cleanups.
   bool ExprNeedsCleanups;
-#endif
+#endif  // INTEL_CUSTOMIZATION
   CapturedRegionScopeInfo(DiagnosticsEngine &Diag, Scope *S, CapturedDecl *CD,
                           RecordDecl *RD, ImplicitParamDecl *Context,
                           CapturedRegionKind K)
     : CapturingScopeInfo(Diag, ImpCap_CapturedRegion),
       TheCapturedDecl(CD), TheRecordDecl(RD), TheScope(S),
       ContextParam(Context), CapRegionKind(K)
-#ifdef INTEL_CUSTOMIZATION	  
-	  , ExprNeedsCleanups(false)
-#endif	  
+#ifdef INTEL_CUSTOMIZATION
+      , ExprNeedsCleanups(false)
+#endif  // INTEL_CUSTOMIZATION
   {
     Kind = SK_CapturedRegion;
   }
 
-  virtual ~CapturedRegionScopeInfo();
+  ~CapturedRegionScopeInfo() override;
 
   /// \brief A descriptive name for the kind of captured region this is.
   StringRef getRegionName() const {
     switch (CapRegionKind) {
     case CR_Default:
       return "default captured statement";
-#ifdef INTEL_CUSTOMIZATION	  
+#ifdef INTEL_CUSTOMIZATION
     case CR_CilkSpawn:
       return "_Cilk_spawn";
     case CR_CilkFor:
       return "_Cilk_for";
     case CR_SIMDFor:
       return "simd for";
-#endif
+#endif  // INTEL_CUSTOMIZATION
     case CR_OpenMP:
       return "OpenMP region";
     }
@@ -653,10 +652,10 @@ public:
   static bool classof(const FunctionScopeInfo *FSI) {
     return FSI->Kind == SK_CapturedRegion 
 #ifdef INTEL_CUSTOMIZATION
-							|| FSI->Kind == SK_CilkFor
-                            || FSI->Kind == SK_SIMDFor
-#endif
-							 ;
+          || FSI->Kind == SK_CilkFor
+          || FSI->Kind == SK_SIMDFor
+#endif  // INTEL_CUSTOMIZATION
+        ;
 
   }
 };
@@ -875,7 +874,7 @@ public:
     return FSI->Kind == SK_SIMDFor;
   }
 };
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 class LambdaScopeInfo : public CapturingScopeInfo {
 public:
@@ -958,13 +957,13 @@ public:
   LambdaScopeInfo(DiagnosticsEngine &Diag)
     : CapturingScopeInfo(Diag, ImpCap_None), Lambda(nullptr),
       CallOperator(nullptr), NumExplicitCaptures(0), Mutable(false),
-      ExprNeedsCleanups(false), ContainsUnexpandedParameterPack(false),
-      AutoTemplateParameterDepth(0), GLTemplateParameterList(nullptr)
-  {
+      ExplicitParams(false), ExprNeedsCleanups(false),
+      ContainsUnexpandedParameterPack(false), AutoTemplateParameterDepth(0),
+      GLTemplateParameterList(nullptr) {
     Kind = SK_Lambda;
   }
 
-  virtual ~LambdaScopeInfo();
+  ~LambdaScopeInfo() override;
 
   /// \brief Note when all explicit captures have been added.
   void finishedExplicitCaptures() {

@@ -188,7 +188,7 @@ def CilkRankedStmt : Stmt;
 def CEANIndexExpr : DStmt<Expr>;
 def CEANBuiltinExpr : DStmt<Expr>;
 def PragmaStmt : Stmt;
-//#endif
+//#endif  // INTEL_CUSTOMIZATION
 // OpenMP Directives.
 def OMPExecutableDirective : Stmt<1>;
 def OMPLoopDirective : DStmt<OMPExecutableDirective, 1>;

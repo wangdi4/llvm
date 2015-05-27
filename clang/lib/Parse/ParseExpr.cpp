@@ -245,7 +245,7 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
           return ExprError();
         }
       }
-#endif
+#endif  // INTEL_CUSTOMIZATION
       return LHS;
     }
 
@@ -268,7 +268,7 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
           return ExprError();
         }
       }
-#endif
+#endif  // INTEL_CUSTOMIZATION
       return LHS;
     }
 
@@ -946,7 +946,8 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
     Res = Actions.ActOnIdExpression(
         getCurScope(), ScopeSpec, TemplateKWLoc, Name, Tok.is(tok::l_paren),
         isAddressOfOperand, std::move(Validator),
-        /*IsInlineAsmIdentifier=*/false, &Replacement);
+        /*IsInlineAsmIdentifier=*/false,
+        Tok.is(tok::r_paren) ? nullptr : &Replacement);
     if (!Res.isInvalid() && !Res.get()) {
       UnconsumeToken(Replacement);
       return ParseCastExpression(isUnaryExpression, isAddressOfOperand,
@@ -1055,7 +1056,7 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
     Actions.ActOnEndCEANExpr(ExprRes.get());
     return ExprRes;
   }
-#endif  
+#endif  // INTEL_CUSTOMIZATION
   case tok::kw_vec_step:   // unary-expression: OpenCL 'vec_step' expression
     return ParseUnaryExprOrTypeTraitExpression();
   case tok::ampamp: {      // unary-expression: '&&' identifier
@@ -1134,7 +1135,7 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
   case tok::kw_double:
 #ifdef INTEL_CUSTOMIZATION
   case tok::kw__Quad:
-#endif
+#endif  // INTEL_CUSTOMIZATION
   case tok::kw_void:
   case tok::kw_typename:
   case tok::kw_typeof:
@@ -1310,7 +1311,7 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
     if (Res.isInvalid()) return ExprError();
     return Actions.ActOnCilkSpawnCall(SpawnLoc, Res.get());
   }
-#endif
+#endif  // INTEL_CUSTOMIZATION
   case tok::l_square:
     if (getLangOpts().CPlusPlus11) {
       if (getLangOpts().ObjC1) {
@@ -1411,7 +1412,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
       T.consumeOpen();
       Loc = T.getOpenLocation();
       ExprResult Idx;
-#ifdef INTEL_CUSTOMIZATION	  
+#ifdef INTEL_CUSTOMIZATION
       ExprResult CEANLength, CEANStride;
       bool IsCEAN = false;
       SourceLocation ColonLoc1, ColonLoc2;
@@ -1457,7 +1458,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
         Idx = ParseBraceInitializer();
       } else
         Idx = ParseExpression();
-#endif
+#endif  // INTEL_CUSTOMIZATION
       SourceLocation RLoc = Tok.getLocation();
 
       if (!LHS.isInvalid() && !Idx.isInvalid() && Tok.is(tok::r_square)) {
@@ -1539,15 +1540,15 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
       }
 #ifdef INTEL_CUSTOMIZATION
       unsigned BuiltinId = 0;
-#endif	  
+#endif  // INTEL_CUSTOMIZATION
       if (OpKind == tok::l_paren || !LHS.isInvalid()) {
         if (Tok.isNot(tok::r_paren)) {
 #ifdef INTEL_CUSTOMIZATION
           if (LHS.isUsable()) {
             Expr *Fn = LHS.get()->IgnoreParens();
             if (isa<DeclRefExpr>(Fn)) {
-              FunctionDecl *FnDecl =
-                dyn_cast_or_null<FunctionDecl>(cast<DeclRefExpr>(Fn)->getDecl());
+              FunctionDecl *FnDecl = dyn_cast_or_null<FunctionDecl>
+                                            (cast<DeclRefExpr>(Fn)->getDecl());
               BuiltinId = (FnDecl ? FnDecl->getBuiltinID() : 0);
             }
           }
@@ -1573,30 +1574,32 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
           case Builtin::BI__sec_reduce:
           case Builtin::BI__sec_reduce_mutating:
             if (ParseSecReduceExpressionList(ArgExprs, CommaLocs,
-                                             BuiltinId == Builtin::BI__sec_reduce,
+                                             BuiltinId ==
+                                                      Builtin::BI__sec_reduce,
                                              &Sema::CodeCompleteCall,
                                              LHS.get())) {
               (void)Actions.CorrectDelayedTyposInExpr(LHS);
               LHS = ExprError();
+            } else if (LHS.isInvalid()) {
+              for (auto &E : ArgExprs)
+                Actions.CorrectDelayedTyposInExpr(E);
             }
             break;
           default:
-            if (ParseExpressionList(ArgExprs, CommaLocs, [&] {
-                  Actions.CodeCompleteCall(getCurScope(), LHS.get(), ArgExprs);
-               })) {
-              (void)Actions.CorrectDelayedTyposInExpr(LHS);
-              LHS = ExprError();
-            }
-            break;
-          }
-#else
+#endif  // INTEL_CUSTOMIZATION
           if (ParseExpressionList(ArgExprs, CommaLocs, [&] {
                 Actions.CodeCompleteCall(getCurScope(), LHS.get(), ArgExprs);
              })) {
             (void)Actions.CorrectDelayedTyposInExpr(LHS);
             LHS = ExprError();
+          } else if (LHS.isInvalid()) {
+            for (auto &E : ArgExprs)
+              Actions.CorrectDelayedTyposInExpr(E);
           }
-#endif
+#ifdef INTEL_CUSTOMIZATION
+            break;
+          }
+#endif  // INTEL_CUSTOMIZATION
         }
       }
 
@@ -1613,7 +1616,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
         LHS = Actions.ActOnCallExpr(getCurScope(), LHS.get(), Loc,
                                     ArgExprs, Tok.getLocation(),
                                     ExecConfig);
-#ifdef INTEL_CUSTOMIZATION									
+#ifdef INTEL_CUSTOMIZATION
         switch (BuiltinId) {
         case Builtin::BI__sec_reduce_add:
         case Builtin::BI__sec_reduce_mul:
@@ -1632,7 +1635,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
         default:
           break;
         }
-#endif		
+#endif  // INTEL_CUSTOMIZATION
         PT.consumeClose();
       }
 
@@ -2259,6 +2262,17 @@ Parser::ParseParenExpression(ParenParseOption &ExprType, bool stopIfCastExpr,
     if (!getCurScope()->getFnParent() && !getCurScope()->getBlockParent()) {
       Result = ExprError(Diag(OpenLoc, diag::err_stmtexpr_file_scope));
     } else {
+      // Find the nearest non-record decl context. Variables declared in a
+      // statement expression behave as if they were declared in the enclosing
+      // function, block, or other code construct.
+      DeclContext *CodeDC = Actions.CurContext;
+      while (CodeDC->isRecord() || isa<EnumDecl>(CodeDC)) {
+        CodeDC = CodeDC->getParent();
+        assert(CodeDC && !CodeDC->isFileContext() &&
+               "statement expr not in code context");
+      }
+      Sema::ContextRAII SavedContext(Actions, CodeDC, /*NewThisContext=*/false);
+
       Actions.ActOnStartStmtExpr();
 
       StmtResult Stmt(ParseCompoundStatement(true));
@@ -2525,7 +2539,8 @@ ExprResult Parser::ParseGenericSelectionExpression() {
     // C11 6.5.1.1p3 "The controlling expression of a generic selection is
     // not evaluated."
     EnterExpressionEvaluationContext Unevaluated(Actions, Sema::Unevaluated);
-    ControllingExpr = ParseAssignmentExpression();
+    ControllingExpr =
+        Actions.CorrectDelayedTyposInExpr(ParseAssignmentExpression());
     if (ControllingExpr.isInvalid()) {
       SkipUntil(tok::r_paren, StopAtSemi);
       return ExprError();
@@ -2571,7 +2586,8 @@ ExprResult Parser::ParseGenericSelectionExpression() {
 
     // FIXME: These expressions should be parsed in a potentially potentially
     // evaluated context.
-    ExprResult ER(ParseAssignmentExpression());
+    ExprResult ER(
+        Actions.CorrectDelayedTyposInExpr(ParseAssignmentExpression()));
     if (ER.isInvalid()) {
       SkipUntil(tok::r_paren, StopAtSemi);
       return ExprError();
@@ -2772,7 +2788,8 @@ Parser::ParseSecReduceExpressionList(SmallVectorImpl<Expr*> &Exprs,
       SourceLocation TemplateKWLoc;
       UnqualifiedId Name;
       //TentativeParsingAction PA(*this);
-      if (ParseUnqualifiedId(SS, false, false, false, ParsedType(), TemplateKWLoc, Name)) {
+      if (ParseUnqualifiedId(SS, false, false, false,
+                             ParsedType(), TemplateKWLoc, Name)) {
         PA.Commit();
         return true;
       }
@@ -2790,14 +2807,16 @@ Parser::ParseSecReduceExpressionList(SmallVectorImpl<Expr*> &Exprs,
                 !CXXMD->isDeleted() && !CXXMD->getPrimaryTemplate() &&
                 !CXXMD->getDescribedFunctionTemplate() &&
                 CXXMD->getNumParams() == 1 &&
-                Actions.CheckMemberAccess(Tok.getLocation(), CXXRD, I.getPair()) ==
-                                                              Sema::AR_accessible) {
+                Actions.CheckMemberAccess(Tok.getLocation(), CXXRD,
+                                         I.getPair()) == Sema::AR_accessible) {
               QualType ParamType =
                 CXXMD->getParamDecl(0)->getType().getCanonicalType();
               QualType ResType = CXXMD->getReturnType().getCanonicalType();
-              if (Actions.getASTContext().hasSameUnqualifiedType(ClassType, ParamType) &&
+              if (Actions.getASTContext().
+                                hasSameUnqualifiedType(ClassType, ParamType) &&
                   (!CheckReturnType ||
-                   Actions.getASTContext().hasSameUnqualifiedType(ClassType, ResType)))
+                   Actions.getASTContext().
+                                hasSameUnqualifiedType(ClassType, ResType)))
                 FoundDecls.push_back(D);
             }
           }
@@ -2805,9 +2824,11 @@ Parser::ParseSecReduceExpressionList(SmallVectorImpl<Expr*> &Exprs,
         if (FoundDecls.size() > 0) {
           PA.Commit();
           SS.Extend(Actions.getASTContext(), SourceLocation(),
-                    Actions.getASTContext().getTrivialTypeSourceInfo(ClassType)->getTypeLoc(),
+                    Actions.getASTContext().
+                            getTrivialTypeSourceInfo(ClassType)->getTypeLoc(),
                     SourceLocation());
-          Expr = Actions.ActOnIdExpression(getCurScope(), SS, TemplateKWLoc, Name, false, true);
+          Expr = Actions.ActOnIdExpression(getCurScope(), SS, TemplateKWLoc,
+                                           Name, false, true);
           if (Expr.isInvalid())
             return true;
         } else
@@ -2838,7 +2859,7 @@ Parser::ParseSecReduceExpressionList(SmallVectorImpl<Expr*> &Exprs,
     ++ArgCounter;
   }
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 /// ParseSimpleExpressionList - A simple comma-separated list of expressions,
 /// used for misc language extensions.
 ///

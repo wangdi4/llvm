@@ -486,7 +486,7 @@ void ASTStmtReader::VisitStringLiteral(StringLiteral *E) {
 
   // Read string data
   SmallString<16> Str(&Record[Idx], &Record[Idx] + Len);
-  E->setString(Reader.getContext(), Str.str(), kind, isPascal);
+  E->setString(Reader.getContext(), Str, kind, isPascal);
   Idx += Len;
 
   // Read source locations
@@ -587,10 +587,10 @@ void ASTStmtReader::VisitArraySubscriptExpr(ArraySubscriptExpr *E) {
   E->setLHS(Reader.ReadSubExpr());
   E->setRHS(Reader.ReadSubExpr());
   E->setRBracketLoc(ReadSourceLocation(Record, Idx));
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   if (CEANIndexExpr *CIE = dyn_cast_or_null<CEANIndexExpr>(E->getIdx()))
     CIE->setBase(E->getBase());
-#endif	
+#endif  // INTEL_CUSTOMIZATION
 }
 
 #ifdef INTEL_CUSTOMIZATION
@@ -681,7 +681,7 @@ void ASTStmtReader::VisitCilkRankedStmt(CilkRankedStmt *S) {
   S->setInits(Reader.ReadSubStmt());
 }
 
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 void ASTStmtReader::VisitCallExpr(CallExpr *E) {
   VisitExpr(E);
@@ -1277,11 +1277,11 @@ void ASTStmtReader::VisitCXXOperatorCallExpr(CXXOperatorCallExpr *E) {
   E->Operator = (OverloadedOperatorKind)Record[Idx++];
   E->Range = Reader.ReadSourceRange(F, Record, Idx);
   E->setFPContractable((bool)Record[Idx++]);
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   if (E->Operator == OO_Subscript)
     if (CEANIndexExpr *CIE = dyn_cast_or_null<CEANIndexExpr>(E->getArg(0)))
       CIE->setBase(E->getCallee());
-#endif
+#endif  // INTEL_CUSTOMIZATION
 }
 
 void ASTStmtReader::VisitCXXConstructExpr(CXXConstructExpr *E) {
@@ -1988,6 +1988,22 @@ void OMPClauseReader::VisitOMPLastprivateClause(OMPLastprivateClause *C) {
   for (unsigned i = 0; i != NumVars; ++i)
     Vars.push_back(Reader->Reader.ReadSubExpr());
   C->setVarRefs(Vars);
+  Vars.clear();
+  for (unsigned i = 0; i != NumVars; ++i)
+    Vars.push_back(Reader->Reader.ReadSubExpr());
+  C->setPrivateCopies(Vars);
+  Vars.clear();
+  for (unsigned i = 0; i != NumVars; ++i)
+    Vars.push_back(Reader->Reader.ReadSubExpr());
+  C->setSourceExprs(Vars);
+  Vars.clear();
+  for (unsigned i = 0; i != NumVars; ++i)
+    Vars.push_back(Reader->Reader.ReadSubExpr());
+  C->setDestinationExprs(Vars);
+  Vars.clear();
+  for (unsigned i = 0; i != NumVars; ++i)
+    Vars.push_back(Reader->Reader.ReadSubExpr());
+  C->setAssignmentOps(Vars);
 }
 
 void OMPClauseReader::VisitOMPSharedClause(OMPSharedClause *C) {
@@ -2016,6 +2032,18 @@ void OMPClauseReader::VisitOMPReductionClause(OMPReductionClause *C) {
   for (unsigned i = 0; i != NumVars; ++i)
     Vars.push_back(Reader->Reader.ReadSubExpr());
   C->setVarRefs(Vars);
+  Vars.clear();
+  for (unsigned i = 0; i != NumVars; ++i)
+    Vars.push_back(Reader->Reader.ReadSubExpr());
+  C->setLHSExprs(Vars);
+  Vars.clear();
+  for (unsigned i = 0; i != NumVars; ++i)
+    Vars.push_back(Reader->Reader.ReadSubExpr());
+  C->setRHSExprs(Vars);
+  Vars.clear();
+  for (unsigned i = 0; i != NumVars; ++i)
+    Vars.push_back(Reader->Reader.ReadSubExpr());
+  C->setReductionOps(Vars);
 }
 
 void OMPClauseReader::VisitOMPLinearClause(OMPLinearClause *C) {
@@ -2027,7 +2055,20 @@ void OMPClauseReader::VisitOMPLinearClause(OMPLinearClause *C) {
   for (unsigned i = 0; i != NumVars; ++i)
     Vars.push_back(Reader->Reader.ReadSubExpr());
   C->setVarRefs(Vars);
+  Vars.clear();
+  for (unsigned i = 0; i != NumVars; ++i)
+    Vars.push_back(Reader->Reader.ReadSubExpr());
+  C->setInits(Vars);
+  Vars.clear();
+  for (unsigned i = 0; i != NumVars; ++i)
+    Vars.push_back(Reader->Reader.ReadSubExpr());
+  C->setUpdates(Vars);
+  Vars.clear();
+  for (unsigned i = 0; i != NumVars; ++i)
+    Vars.push_back(Reader->Reader.ReadSubExpr());
+  C->setFinals(Vars);
   C->setStep(Reader->Reader.ReadSubExpr());
+  C->setCalcStep(Reader->Reader.ReadSubExpr());
 }
 
 void OMPClauseReader::VisitOMPAlignedClause(OMPAlignedClause *C) {
@@ -2045,21 +2086,45 @@ void OMPClauseReader::VisitOMPAlignedClause(OMPAlignedClause *C) {
 void OMPClauseReader::VisitOMPCopyinClause(OMPCopyinClause *C) {
   C->setLParenLoc(Reader->ReadSourceLocation(Record, Idx));
   unsigned NumVars = C->varlist_size();
-  SmallVector<Expr *, 16> Vars;
-  Vars.reserve(NumVars);
+  SmallVector<Expr *, 16> Exprs;
+  Exprs.reserve(NumVars);
   for (unsigned i = 0; i != NumVars; ++i)
-    Vars.push_back(Reader->Reader.ReadSubExpr());
-  C->setVarRefs(Vars);
+    Exprs.push_back(Reader->Reader.ReadSubExpr());
+  C->setVarRefs(Exprs);
+  Exprs.clear();
+  for (unsigned i = 0; i != NumVars; ++i)
+    Exprs.push_back(Reader->Reader.ReadSubExpr());
+  C->setSourceExprs(Exprs);
+  Exprs.clear();
+  for (unsigned i = 0; i != NumVars; ++i)
+    Exprs.push_back(Reader->Reader.ReadSubExpr());
+  C->setDestinationExprs(Exprs);
+  Exprs.clear();
+  for (unsigned i = 0; i != NumVars; ++i)
+    Exprs.push_back(Reader->Reader.ReadSubExpr());
+  C->setAssignmentOps(Exprs);
 }
 
 void OMPClauseReader::VisitOMPCopyprivateClause(OMPCopyprivateClause *C) {
   C->setLParenLoc(Reader->ReadSourceLocation(Record, Idx));
   unsigned NumVars = C->varlist_size();
-  SmallVector<Expr *, 16> Vars;
-  Vars.reserve(NumVars);
+  SmallVector<Expr *, 16> Exprs;
+  Exprs.reserve(NumVars);
   for (unsigned i = 0; i != NumVars; ++i)
-    Vars.push_back(Reader->Reader.ReadSubExpr());
-  C->setVarRefs(Vars);
+    Exprs.push_back(Reader->Reader.ReadSubExpr());
+  C->setVarRefs(Exprs);
+  Exprs.clear();
+  for (unsigned i = 0; i != NumVars; ++i)
+    Exprs.push_back(Reader->Reader.ReadSubExpr());
+  C->setSourceExprs(Exprs);
+  Exprs.clear();
+  for (unsigned i = 0; i != NumVars; ++i)
+    Exprs.push_back(Reader->Reader.ReadSubExpr());
+  C->setDestinationExprs(Exprs);
+  Exprs.clear();
+  for (unsigned i = 0; i != NumVars; ++i)
+    Exprs.push_back(Reader->Reader.ReadSubExpr());
+  C->setAssignmentOps(Exprs);
 }
 
 void OMPClauseReader::VisitOMPFlushClause(OMPFlushClause *C) {
@@ -2234,6 +2299,9 @@ void ASTStmtReader::VisitOMPAtomicDirective(OMPAtomicDirective *D) {
   D->setX(Reader.ReadSubExpr());
   D->setV(Reader.ReadSubExpr());
   D->setExpr(Reader.ReadSubExpr());
+  D->setUpdateExpr(Reader.ReadSubExpr());
+  D->IsXLHSInRHSPart = Record[Idx++] != 0;
+  D->IsPostfixUpdate = Record[Idx++] != 0;
 }
 
 void ASTStmtReader::VisitOMPTargetDirective(OMPTargetDirective *D) {
@@ -2406,11 +2474,11 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
     case STMT_DECL:
       S = new (Context) DeclStmt(Empty);
       break;
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
     case STMT_PRAGMA:
       S = new (Context) PragmaStmt(Empty);
       break;
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
     case STMT_GCCASM:
       S = new (Context) GCCAsmStmt(Empty);
       break;
@@ -2493,7 +2561,7 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       S = CEANBuiltinExpr::CreateEmpty(Context, Record[ASTStmtReader::NumExprFields],
                                        Record[ASTStmtReader::NumExprFields + 1]);
       break;
-#endif
+#endif  // INTEL_CUSTOMIZATION
     case EXPR_CALL:
       S = new (Context) CallExpr(Context, Stmt::CallExprClass, Empty);
       break;
@@ -2535,11 +2603,12 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       SourceLocation MemberLoc = ReadSourceLocation(F, Record, Idx);
       DeclarationNameInfo MemberNameInfo(MemberD->getDeclName(), MemberLoc);
       bool IsArrow = Record[Idx++];
+      SourceLocation OperatorLoc = ReadSourceLocation(F, Record, Idx);
 
-      S = MemberExpr::Create(Context, Base, IsArrow, QualifierLoc,
+      S = MemberExpr::Create(Context, Base, IsArrow, OperatorLoc, QualifierLoc,
                              TemplateKWLoc, MemberD, FoundDecl, MemberNameInfo,
-                             HasTemplateKWAndArgsInfo ? &ArgInfo : nullptr,
-                             T, VK, OK);
+                             HasTemplateKWAndArgsInfo ? &ArgInfo : nullptr, T,
+                             VK, OK);
       ReadDeclarationNameLoc(F, cast<MemberExpr>(S)->MemberDNLoc,
                              MemberD->getDeclName(), Record, Idx);
       if (HadMultipleCandidates)
@@ -3098,7 +3167,7 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
     case STMT_SIMD_FOR:
       llvm_unreachable("not implemented yet");
       break;
-#endif
+#endif  // INTEL_CUSTOMIZATION
     }
     
     // We hit a STMT_STOP, so we're done with this expression.
@@ -3124,13 +3193,15 @@ Done:
 
 #ifdef INTEL_CUSTOMIZATION
 void ASTStmtReader::VisitPragmaStmt(PragmaStmt *S) {
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   size_t Attribs;
   VisitStmt(S);
   S->setSemiLoc(ReadSourceLocation(Record, Idx));
   Attribs = Record[Idx++];
   for(size_t i = 0; i < Attribs; ++i) {
     S->getAttribs().push_back(
-      IntelPragmaAttrib(Reader.ReadSubExpr(), (IntelPragmaExprKind)Record[Idx++]));
+      IntelPragmaAttrib(Reader.ReadSubExpr(),
+                        (IntelPragmaExprKind)Record[Idx++]));
   }
   Attribs = Record[Idx++];
   for(size_t i = 0; i < Attribs; ++i) {
@@ -3139,5 +3210,9 @@ void ASTStmtReader::VisitPragmaStmt(PragmaStmt *S) {
   S->setPragmaKind((IntelPragmaKindType)Record[Idx++]);
   if (Record[Idx++] > 0)
     S->setDecl();
+#else
+  llvm_unreachable(
+    "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
+#endif // INTEL_SPECIFIC_IL0_BACKEND
 }
-#endif
+#endif // INTEL_CUSTOMIZATION

@@ -99,23 +99,26 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
     GlobalNewDeleteDeclared(false),
     TUKind(TUKind),
     NumSFINAEErrors(0),
+#ifdef INTEL_CUSTOMIZATION
+    CEANLevelCounter(0),
+#endif  // INTEL_CUSTOMIZATION
     AccessCheckingSFINAE(false), InNonInstantiationSFINAEContext(false),
     NonInstantiationEntries(0), ArgumentPackSubstitutionIndex(-1),
     CurrentInstantiationScope(nullptr), DisableTypoCorrection(false),
     TyposCorrected(0), AnalysisWarnings(*this), ThreadSafetyDeclCache(nullptr),
     VarDataSharingAttributesStack(nullptr), CurScope(nullptr),
     Ident_super(nullptr), Ident___float128(nullptr)
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
     ,CommonFunctionOptions(),
     OptionsList()
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 {
   TUScope = nullptr;
 
   LoadedExternalKnownNamespaces = false;
 #ifdef INTEL_CUSTOMIZATION
   StartCEAN(NoCEANAllowed);
-#endif  
+#endif  // INTEL_CUSTOMIZATION
   for (unsigned I = 0; I != NSAPI::NumNSNumberLiteralMethods; ++I)
     NSNumberLiteralMethods[I] = nullptr;
 
@@ -219,6 +222,29 @@ void Sema::Initialize() {
     addImplicitTypedef("image3d_t", Context.OCLImage3dTy);
     addImplicitTypedef("sampler_t", Context.OCLSamplerTy);
     addImplicitTypedef("event_t", Context.OCLEventTy);
+    if (getLangOpts().OpenCLVersion >= 200) {
+      addImplicitTypedef("atomic_int", Context.getAtomicType(Context.IntTy));
+      addImplicitTypedef("atomic_uint",
+                         Context.getAtomicType(Context.UnsignedIntTy));
+      addImplicitTypedef("atomic_long", Context.getAtomicType(Context.LongTy));
+      addImplicitTypedef("atomic_ulong",
+                         Context.getAtomicType(Context.UnsignedLongTy));
+      addImplicitTypedef("atomic_float",
+                         Context.getAtomicType(Context.FloatTy));
+      addImplicitTypedef("atomic_double",
+                         Context.getAtomicType(Context.DoubleTy));
+      // OpenCLC v2.0, s6.13.11.6 requires that atomic_flag is implemented as
+      // 32-bit integer and OpenCLC v2.0, s6.1.1 int is always 32-bit wide.
+      addImplicitTypedef("atomic_flag", Context.getAtomicType(Context.IntTy));
+      addImplicitTypedef("atomic_intptr_t",
+                         Context.getAtomicType(Context.getIntPtrType()));
+      addImplicitTypedef("atomic_uintptr_t",
+                         Context.getAtomicType(Context.getUIntPtrType()));
+      addImplicitTypedef("atomic_size_t",
+                         Context.getAtomicType(Context.getSizeType()));
+      addImplicitTypedef("atomic_ptrdiff_t",
+                         Context.getAtomicType(Context.getPointerDiffType()));
+    }
   }
 
   DeclarationName BuiltinVaList = &Context.Idents.get("__builtin_va_list");
@@ -515,14 +541,8 @@ void Sema::LoadExternalWeakUndeclaredIdentifiers() {
 
   SmallVector<std::pair<IdentifierInfo *, WeakInfo>, 4> WeakIDs;
   ExternalSource->ReadWeakUndeclaredIdentifiers(WeakIDs);
-  for (unsigned I = 0, N = WeakIDs.size(); I != N; ++I) {
-    llvm::DenseMap<IdentifierInfo*,WeakInfo>::iterator Pos
-      = WeakUndeclaredIdentifiers.find(WeakIDs[I].first);
-    if (Pos != WeakUndeclaredIdentifiers.end())
-      continue;
-
-    WeakUndeclaredIdentifiers.insert(WeakIDs[I]);
-  }
+  for (auto &WeakID : WeakIDs)
+    WeakUndeclaredIdentifiers.insert(WeakID);
 }
 
 
@@ -622,7 +642,7 @@ void Sema::emitAndClearUnusedLocalTypedefWarnings() {
 /// translation unit when EOF is reached and all but the top-level scope is
 /// popped.
 void Sema::ActOnEndOfTranslationUnit() {
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
 SmallVector<PragmaDecl *, 4> optLevelDecls;
 SmallVector<PragmaDecl *, 4> decls;
 SmallVector<StringRef, 4> declsNames;
@@ -678,7 +698,7 @@ if (!optLevelDecls.empty()) {
   CommonFunctionOptions.erase(optLevelDeclsNames.back());
   optLevelDecls.clear();
 }
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
   assert(DelayedDiagnostics.getCurrentPool() == nullptr
          && "reached end of translation unit with a pool attached?");
 
@@ -742,16 +762,13 @@ if (!optLevelDecls.empty()) {
   }
 
   // Check for #pragma weak identifiers that were never declared
-  // FIXME: This will cause diagnostics to be emitted in a non-determinstic
-  // order!  Iterating over a densemap like this is bad.
   LoadExternalWeakUndeclaredIdentifiers();
-  for (llvm::DenseMap<IdentifierInfo*,WeakInfo>::iterator
-       I = WeakUndeclaredIdentifiers.begin(),
-       E = WeakUndeclaredIdentifiers.end(); I != E; ++I) {
-    if (I->second.getUsed()) continue;
+  for (auto WeakID : WeakUndeclaredIdentifiers) {
+    if (WeakID.second.getUsed())
+      continue;
 
-    Diag(I->second.getLocation(), diag::warn_weak_identifier_undeclared)
-      << I->first;
+    Diag(WeakID.second.getLocation(), diag::warn_weak_identifier_undeclared)
+        << WeakID.first;
   }
 
   if (LangOpts.CPlusPlus11 &&
@@ -1168,7 +1185,7 @@ void Sema::PushSIMDForScope(Scope *S, CapturedDecl *CD, RecordDecl *RD,
   CSI->ReturnType = Context.VoidTy;
   FunctionScopes.push_back(CSI);
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 LambdaScopeInfo *Sema::PushLambdaScope() {
   LambdaScopeInfo *const LSI = new LambdaScopeInfo(getDiagnostics());
@@ -1246,7 +1263,7 @@ SIMDForScopeInfo *Sema::getCurSIMDFor() {
 
   return dyn_cast<SIMDForScopeInfo>(FunctionScopes.back());
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
 LambdaScopeInfo *Sema::getCurLambda() {
   if (FunctionScopes.empty())

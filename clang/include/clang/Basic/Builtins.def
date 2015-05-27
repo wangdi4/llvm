@@ -56,7 +56,8 @@
 //  I   -> Required to constant fold to an integer constant expression.
 //
 // Types may be postfixed with the following modifiers:
-// * -> pointer (optionally followed by an address space number)
+// * -> pointer (optionally followed by an address space number, if no address
+//               space is specified than any address space will be accepted)
 // & -> reference (optionally followed by an address space number)
 // C -> const
 // D -> volatile
@@ -676,7 +677,7 @@ BUILTIN(__atomic_signal_fence, "vi", "n")
 BUILTIN(__atomic_always_lock_free, "izvCD*", "n")
 BUILTIN(__atomic_is_lock_free, "izvCD*", "n")
 
-//#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_CUSTOMIZATION
 BUILTIN(__builtin_atand2l, "LdLdLd"  , "Fnc")
 BUILTIN(__builtin_atand2, "ddd"  , "Fnc")
 BUILTIN(__builtin_atand2f, "fff"  , "Fnc")
@@ -731,11 +732,11 @@ BUILTIN(__atomic_store_explicit_8, "vLLiD*LLii", "tn")
 BUILTIN(__atomic_store_explicit_16, "vLLLiD*LLLii", "tn")
 
 BUILTIN(__atomic_load_explicit, "v.", "t")
-BUILTIN(__atomic_load_explicit_1, "ccD*i", "tn")
-BUILTIN(__atomic_load_explicit_2, "ssD*i", "tn")
-BUILTIN(__atomic_load_explicit_4, "iiD*i", "tn")
-BUILTIN(__atomic_load_explicit_8, "LLiLLiD*i", "tn")
-BUILTIN(__atomic_load_explicit_16, "LLLiLLLiD*i", "tn")
+BUILTIN(__atomic_load_explicit_1, "ccCD*i", "tn")
+BUILTIN(__atomic_load_explicit_2, "ssCD*i", "tn")
+BUILTIN(__atomic_load_explicit_4, "iiCD*i", "tn")
+BUILTIN(__atomic_load_explicit_8, "LLiLLiCD*i", "tn")
+BUILTIN(__atomic_load_explicit_16, "LLLiLLLiCD*i", "tn")
 
 BUILTIN(__atomic_exchange_explicit, "v.", "t")
 BUILTIN(__atomic_exchange_explicit_1, "ccD*ci", "tn")
@@ -857,12 +858,12 @@ BUILTIN(__sec_reduce_all_zero, "ii", "t")
 BUILTIN(__sec_reduce_all_nonzero, "ii", "t")
 BUILTIN(__sec_reduce_any_zero, "ii", "t")
 BUILTIN(__sec_reduce_any_nonzero, "ii", "t")
-BUILTIN(__sec_reduce, "iiiv*", "t")
-BUILTIN(__sec_reduce_mutating, "vi&iv*", "t")
+BUILTIN(__sec_reduce, "iiiv*.", "t")
+BUILTIN(__sec_reduce_mutating, "vi&iv*.", "t")
 BUILTIN(__sec_implicit_index, "ii", "t")
 
 BUILTIN(__assume_aligned, "v.", "tn")
-//#endif
+#endif  // INTEL_CUSTOMIZATION
 
 #undef ATOMIC_BUILTIN
 
@@ -881,14 +882,21 @@ BUILTIN(__builtin_rindex, "c*cC*i", "Fn")
 
 // Microsoft builtins.  These are only active with -fms-extensions.
 LANGBUILTIN(_alloca,          "v*z", "n", ALL_MS_LANGUAGES)
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+// CQ#368488 - builtins fixes for iclang.
+BUILTIN(__assume,     "vb",  "n")
+BUILTIN(__debugbreak, "v",   "n")
+#else
 LANGBUILTIN(__assume,         "vb",  "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(__debugbreak,     "v",   "n", ALL_MS_LANGUAGES)
+#endif // INTEL_SPECIFIC_IL0_BACKEND
 LANGBUILTIN(__exception_code, "ULi", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_exception_code,  "ULi", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(__exception_info, "v*",  "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_exception_info,  "v*",  "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(__abnormal_termination, "i", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_abnormal_termination,  "i", "n", ALL_MS_LANGUAGES)
+LANGBUILTIN(__GetExceptionInfo, "v*.", "ntu", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedCompareExchange, "LiLiD*LiLi", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedCompareExchangePointer, "v*v*D*v*v*", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedDecrement,       "LiLiD*",     "n", ALL_MS_LANGUAGES)
@@ -896,7 +904,12 @@ LANGBUILTIN(_InterlockedExchangeAdd,     "LiLiD*Li",   "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedExchange,        "LiLiD*Li",   "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedExchangePointer, "v*v*D*v*",   "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedIncrement,       "LiLiD*",     "n", ALL_MS_LANGUAGES)
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+// CQ#368488 - builtins fixes for iclang.
+BUILTIN(__noop,       "i.",  "n")
+#else
 LANGBUILTIN(__noop,           "i.",  "n", ALL_MS_LANGUAGES)
+#endif // INTEL_SPECIFIC_IL0_BACKEND
 LANGBUILTIN(__readfsdword,    "ULiULi", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(__va_start,       "vc**.", "nt", ALL_MS_LANGUAGES)
 

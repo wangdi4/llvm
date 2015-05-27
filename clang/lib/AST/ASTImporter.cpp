@@ -67,6 +67,7 @@ namespace clang {
     // FIXME: DependentDecltypeType
     QualType VisitRecordType(const RecordType *T);
     QualType VisitEnumType(const EnumType *T);
+    QualType VisitAttributedType(const AttributedType *T);
     // FIXME: TemplateTypeParmType
     // FIXME: SubstTemplateTypeParmType
     QualType VisitTemplateSpecializationType(const TemplateSpecializationType *T);
@@ -183,7 +184,7 @@ namespace clang {
     Expr *VisitCStyleCastExpr(CStyleCastExpr *E);
 #ifdef INTEL_CUSTOMIZATION
     Decl *VisitPragmaDecl(PragmaDecl *D);
-#endif
+#endif  // INTEL_CUSTOMIZATION
   };
 }
 using namespace clang;
@@ -1725,6 +1726,27 @@ QualType ASTNodeImporter::VisitEnumType(const EnumType *T) {
     return QualType();
 
   return Importer.getToContext().getTagDeclType(ToDecl);
+}
+
+QualType ASTNodeImporter::VisitAttributedType(const AttributedType *T) {
+  QualType FromModifiedType = T->getModifiedType();
+  QualType FromEquivalentType = T->getEquivalentType();
+  QualType ToModifiedType;
+  QualType ToEquivalentType;
+
+  if (!FromModifiedType.isNull()) {
+    ToModifiedType = Importer.Import(FromModifiedType);
+    if (ToModifiedType.isNull())
+      return QualType();
+  }
+  if (!FromEquivalentType.isNull()) {
+    ToEquivalentType = Importer.Import(FromEquivalentType);
+    if (ToEquivalentType.isNull())
+      return QualType();
+  }
+
+  return Importer.getToContext().getAttributedType(T->getAttrKind(),
+    ToModifiedType, ToEquivalentType);
 }
 
 QualType ASTNodeImporter::VisitTemplateSpecializationType(
@@ -5162,6 +5184,12 @@ bool ASTImporter::IsStructurallyEquivalent(QualType From, QualType To,
 
 #ifdef INTEL_CUSTOMIZATION
 Decl *ASTNodeImporter::VisitPragmaDecl(PragmaDecl *D) {
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   return VisitDecl(D);
+#else
+  llvm_unreachable(
+      "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
+  return 0;
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 }
-#endif
+#endif  // INTEL_CUSTOMIZATION

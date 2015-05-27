@@ -1141,40 +1141,13 @@ CallExpr::CallExpr(const ASTContext& C, StmtClass SC, Expr *fn,
   RParenLoc = rparenloc;
 }
 
-CallExpr::CallExpr(const ASTContext& C, Expr *fn, ArrayRef<Expr*> args,
+CallExpr::CallExpr(const ASTContext &C, Expr *fn, ArrayRef<Expr *> args,
                    QualType t, ExprValueKind VK, SourceLocation rparenloc)
-  : Expr(CallExprClass, t, VK, OK_Ordinary,
-         fn->isTypeDependent(),
-         fn->isValueDependent(),
-         fn->isInstantiationDependent(),
-         fn->containsUnexpandedParameterPack()),
-    NumArgs(args.size()) {
-
-  SubExprs = new (C) Stmt*[args.size()+PREARGS_START];
-  SubExprs[FN] = fn;
-  for (unsigned i = 0; i != args.size(); ++i) {
-    if (args[i]->isTypeDependent())
-      ExprBits.TypeDependent = true;
-    if (args[i]->isValueDependent())
-      ExprBits.ValueDependent = true;
-    if (args[i]->isInstantiationDependent())
-      ExprBits.InstantiationDependent = true;
-    if (args[i]->containsUnexpandedParameterPack())
-      ExprBits.ContainsUnexpandedParameterPack = true;
-
-    SubExprs[i+PREARGS_START] = args[i];
-  }
-
-  CallExprBits.NumPreArgs = 0;
-  RParenLoc = rparenloc;
+    : CallExpr(C, CallExprClass, fn, /*NumPreArgs=*/0, args, t, VK, rparenloc) {
 }
 
 CallExpr::CallExpr(const ASTContext &C, StmtClass SC, EmptyShell Empty)
-  : Expr(SC, Empty), SubExprs(nullptr), NumArgs(0) {
-  // FIXME: Why do we allocate this?
-  SubExprs = new (C) Stmt*[PREARGS_START];
-  CallExprBits.NumPreArgs = 0;
-}
+    : CallExpr(C, SC, /*NumPreArgs=*/0, Empty) {}
 
 CallExpr::CallExpr(const ASTContext &C, StmtClass SC, unsigned NumPreArgs,
                    EmptyShell Empty)
@@ -1403,16 +1376,12 @@ UnaryExprOrTypeTraitExpr::UnaryExprOrTypeTraitExpr(
   }
 }
 
-MemberExpr *MemberExpr::Create(const ASTContext &C, Expr *base, bool isarrow,
-                               NestedNameSpecifierLoc QualifierLoc,
-                               SourceLocation TemplateKWLoc,
-                               ValueDecl *memberdecl,
-                               DeclAccessPair founddecl,
-                               DeclarationNameInfo nameinfo,
-                               const TemplateArgumentListInfo *targs,
-                               QualType ty,
-                               ExprValueKind vk,
-                               ExprObjectKind ok) {
+MemberExpr *MemberExpr::Create(
+    const ASTContext &C, Expr *base, bool isarrow, SourceLocation OperatorLoc,
+    NestedNameSpecifierLoc QualifierLoc, SourceLocation TemplateKWLoc,
+    ValueDecl *memberdecl, DeclAccessPair founddecl,
+    DeclarationNameInfo nameinfo, const TemplateArgumentListInfo *targs,
+    QualType ty, ExprValueKind vk, ExprObjectKind ok) {
   std::size_t Size = sizeof(MemberExpr);
 
   bool hasQualOrFound = (QualifierLoc ||
@@ -1427,8 +1396,8 @@ MemberExpr *MemberExpr::Create(const ASTContext &C, Expr *base, bool isarrow,
     Size += ASTTemplateKWAndArgsInfo::sizeFor(0);
 
   void *Mem = C.Allocate(Size, llvm::alignOf<MemberExpr>());
-  MemberExpr *E = new (Mem) MemberExpr(base, isarrow, memberdecl, nameinfo,
-                                       ty, vk, ok);
+  MemberExpr *E = new (Mem)
+      MemberExpr(base, isarrow, OperatorLoc, memberdecl, nameinfo, ty, vk, ok);
 
   if (hasQualOrFound) {
     // FIXME: Wrong. We should be looking at the member declaration we found.
@@ -2030,15 +1999,7 @@ const Stmt *BlockExpr::getBody() const {
 Stmt *BlockExpr::getBody() {
   return TheBlock->getBody();
 }
-#ifdef INTEL_CUSTOMIZATION
-SourceLocation CilkSpawnExpr::getLocStart() const {
-  return TheSpawn->getSpawnStmt()->getLocStart();
-}
 
-SourceLocation CilkSpawnExpr::getLocEnd() const {
-  return TheSpawn->getSpawnStmt()->getLocEnd();
-}
-#endif
 //===----------------------------------------------------------------------===//
 // Generic Expression Routines
 //===----------------------------------------------------------------------===//
@@ -2153,7 +2114,7 @@ bool Expr::isUnusedResultAWarning(const Expr *&WarnE, SourceLocation &Loc,
     return false;
   }  
   case CEANIndexExprClass:
-#endif
+#endif  // INTEL_CUSTOMIZATION
   case CompoundAssignOperatorClass:
   case VAArgExprClass:
   case AtomicExprClass:
@@ -2219,12 +2180,16 @@ bool Expr::isUnusedResultAWarning(const Expr *&WarnE, SourceLocation &Loc,
     // If this is a direct call, get the callee.
     const CallExpr *CE = cast<CallExpr>(this);
     if (const Decl *FD = CE->getCalleeDecl()) {
+      const FunctionDecl *Func = dyn_cast<FunctionDecl>(FD);
+      bool HasWarnUnusedResultAttr = Func ? Func->hasUnusedResultAttr()
+                                          : FD->hasAttr<WarnUnusedResultAttr>();
+
       // If the callee has attribute pure, const, or warn_unused_result, warn
       // about it. void foo() { strlen("bar"); } should warn.
       //
       // Note: If new cases are added here, DiagnoseUnusedExprResult should be
       // updated to match for QoI.
-      if (FD->hasAttr<WarnUnusedResultAttr>() ||
+      if (HasWarnUnusedResultAttr ||
           FD->hasAttr<PureAttr>() || FD->hasAttr<ConstAttr>()) {
         WarnE = this;
         Loc = CE->getCallee()->getLocStart();
@@ -2645,70 +2610,6 @@ Expr *Expr::IgnoreParenNoopCasts(ASTContext &Ctx) {
   }
 }
 
-#ifdef INTEL_CUSTOMIZATION
-Expr *Expr::IgnoreImpCastsAsWritten() {
-  Expr *E = this;
-  while (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(E))
-    E = ICE->getSubExprAsWritten();
-  return E;
-}
-
-Expr *Expr::getSubExprAsWritten() {
-  Expr *E = this;
-  while (true) {
-    if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(E))
-      E = ICE->getSubExprAsWritten();
-    else if (MaterializeTemporaryExpr *MTE
-                                        = dyn_cast<MaterializeTemporaryExpr>(E))
-      E = MTE->GetTemporaryExpr();
-    else if (CXXBindTemporaryExpr *BTE = dyn_cast<CXXBindTemporaryExpr>(E))
-      E = BTE->getSubExpr();
-    else if (ExprWithCleanups *EWC = dyn_cast<ExprWithCleanups>(E))
-      E = EWC->getSubExpr();
-    else
-      break;
-  }
-
-  return E;
-}
-
-Expr *Expr::IgnoreImplicitForCilkSpawn() {
-  Expr *E = this;
-  while (E) {
-    if (ImplicitCastExpr *CE = dyn_cast<ImplicitCastExpr>(E))
-      E = CE->getSubExprAsWritten();
-    else if (ExprWithCleanups *EWC = dyn_cast<ExprWithCleanups>(E))
-      E = EWC->getSubExpr();
-    else if (MaterializeTemporaryExpr *MTE
-        = dyn_cast<MaterializeTemporaryExpr>(E))
-      E = MTE->GetTemporaryExpr();
-    else if (CXXBindTemporaryExpr *BTE = dyn_cast<CXXBindTemporaryExpr>(E))
-      E = BTE->getSubExpr();
-    else if (CXXConstructExpr *CE = dyn_cast<CXXConstructExpr>(E)) {
-      // CXXTempoaryObjectExpr represents a functional cast with != 1 arguments
-      // so handle it the same way as CXXFunctionalCastExpr
-      if (isa<CXXTemporaryObjectExpr>(CE))
-        break;
-      if (CE->getNumArgs() >= 1)
-        E = CE->getArg(0);
-      else
-        break;
-    } else
-      break;
-  }
-
-  return E;
-}
-
-bool Expr::isCilkSpawn() const {
-  const Expr *E = IgnoreImplicitForCilkSpawn();
-  if (const CallExpr *CE = dyn_cast_or_null<CallExpr>(E))
-    return CE->isCilkSpawnCall();
-
-  return false;
-}
-#endif
-
 bool Expr::isDefaultArgument() const {
   const Expr *E = this;
   if (const MaterializeTemporaryExpr *M = dyn_cast<MaterializeTemporaryExpr>(E))
@@ -3064,11 +2965,19 @@ bool Expr::HasSideEffects(const ASTContext &Ctx,
   case CXXOperatorCallExprClass:
   case CXXMemberCallExprClass:
   case CUDAKernelCallExprClass:
+  case UserDefinedLiteralClass: {
+    // We don't know a call definitely has side effects, except for calls
+    // to pure/const functions that definitely don't.
+    // If the call itself is considered side-effect free, check the operands.
+    const Decl *FD = cast<CallExpr>(this)->getCalleeDecl();
+    bool IsPure = FD && (FD->hasAttr<ConstAttr>() || FD->hasAttr<PureAttr>());
+    if (IsPure || !IncludePossibleEffects)
+      break;
+    return true;
+  }
+
   case BlockExprClass:
   case CXXBindTemporaryExprClass:
-  case UserDefinedLiteralClass:
-    // We don't know a call definitely has side effects, but we can check the
-    // call's operands.
     if (!IncludePossibleEffects)
       break;
     return true;
@@ -3086,7 +2995,7 @@ bool Expr::HasSideEffects(const ASTContext &Ctx,
   case CilkSpawnExprClass:
   case CEANIndexExprClass:
   case CEANBuiltinExprClass:
-#endif  
+#endif  // INTEL_CUSTOMIZATION
     // These always have a side-effect.
     return true;
 
@@ -4423,80 +4332,3 @@ unsigned AtomicExpr::getNumSubExprs(AtomicOp Op) {
   }
   llvm_unreachable("unknown atomic op");
 }
-
-#ifdef INTEL_CUSTOMIZATION
-CEANBuiltinExpr *CEANBuiltinExpr::Create(ASTContext &C,
-                                         SourceLocation StartLoc,
-                                         SourceLocation EndLoc,
-                                         unsigned Rank,
-                                         CEANKindType Kind,
-                                         ArrayRef<Expr *> Args,
-                                         ArrayRef<Expr *> Lengths,
-                                         ArrayRef<Stmt *> Vars,
-                                         ArrayRef<Stmt *> Increments,
-                                         Stmt *Init, Stmt *Body, Expr *Return,
-                                         QualType QTy) {
-  void *Mem = C.Allocate(sizeof(CEANBuiltinExpr) + 2 * sizeof(Stmt *) +
-                         sizeof(Expr *) +
-                         sizeof(Expr *) * Args.size() +
-                         sizeof(Expr *) * Lengths.size() +
-                         sizeof(Stmt *) * Vars.size() +
-                         sizeof(Stmt *) * Increments.size(),
-                         llvm::alignOf<CEANBuiltinExpr>());
-  CEANBuiltinExpr *E = new (Mem) CEANBuiltinExpr(StartLoc, Rank, Args.size(),
-                                                 Kind, QTy, EndLoc);
-  E->setInit(Init);
-  E->setBody(Body);
-  E->setReturnExpr(Return);
-  E->setArgs(Args);
-  E->setLengths(Lengths);
-  E->setVars(Vars);
-  E->setIncrements(Increments);
-  for (ArrayRef<Expr *>::iterator I = Args.begin(), End = Args.end();
-       I != End; ++I) {
-    if ((*I)->isValueDependent())
-      E->setValueDependent(true);
-    if ((*I)->isTypeDependent())
-      E->setTypeDependent(true);
-    if ((*I)->isInstantiationDependent())
-      E->setInstantiationDependent(true);
-    if ((*I)->containsUnexpandedParameterPack())
-      E->setContainsUnexpandedParameterPack();
-  }
-  return E;
-}
-
-CEANBuiltinExpr *CEANBuiltinExpr::CreateEmpty(ASTContext &C, unsigned Rank, unsigned ArgsSize) {
-  void *Mem = C.Allocate(sizeof(CEANBuiltinExpr) + 2 * sizeof(Stmt *) +
-                         sizeof(Expr *) +
-                         sizeof(Expr *) * ArgsSize +
-                         sizeof(Expr *) * Rank +
-                         sizeof(Stmt *) * 2 * Rank,
-                         llvm::alignOf<CEANBuiltinExpr>());
-  return new (Mem) CEANBuiltinExpr(Rank, ArgsSize);
-}
-
-void CEANBuiltinExpr::setArgs(ArrayRef<Expr *> Args) {
-  assert(Args.size() == ArgsSize &&
-         "Number of args is not the same as the preallocated buffer");
-  std::copy(Args.begin(), Args.end(), &reinterpret_cast<Expr **>(this + 1)[3]);
-}
-
-void CEANBuiltinExpr::setLengths(ArrayRef<Expr *> Lengths) {
-  assert(Lengths.size() == Rank &&
-         "Number of lengths is not the same as the preallocated buffer");
-  std::copy(Lengths.begin(), Lengths.end(), &reinterpret_cast<Expr **>(this + 1)[3 + ArgsSize]);
-}
-
-void CEANBuiltinExpr::setVars(ArrayRef<Stmt *> Vars) {
-  assert(Vars.size() == Rank &&
-         "Number of vars is not the same as the preallocated buffer");
-  std::copy(Vars.begin(), Vars.end(), &reinterpret_cast<Stmt **>(this + 1)[3 + Rank + ArgsSize]);
-}
-
-void CEANBuiltinExpr::setIncrements(ArrayRef<Stmt *> Increments) {
-  assert(Increments.size() == Rank &&
-         "Number of increments is not the same as the preallocated buffer");
-  std::copy(Increments.begin(), Increments.end(), &reinterpret_cast<Stmt **>(this + 1)[3 + 2 * Rank + ArgsSize]);
-}
-#endif

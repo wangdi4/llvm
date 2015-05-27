@@ -722,7 +722,7 @@ public:
   /// \biref Returns true if this is a Cilk spawn call expression, with
   /// possible implicit AST nodes associated.
   bool isCilkSpawn() const;
-#endif
+#endif  // INTEL_CUSTOMIZATION
   /// IgnoreParens - Ignore parentheses.  If this Expr is a ParenExpr, return
   ///  its subexpression.  If that subexpression is also a ParenExpr,
   ///  then this method recursively returns its subexpression, and so forth.
@@ -1176,6 +1176,14 @@ public:
   void setHadMultipleCandidates(bool V = true) {
     DeclRefExprBits.HadMultipleCandidates = V;
   }
+
+#ifdef INTEL_CUSTOMIZATION
+  /// \brief Sets the flag telling whether this expression refers to
+  /// enclosing variable or capture
+  void setRefersToEnclosingVariableOrCapture(bool V = true) {
+    DeclRefExprBits.RefersToEnclosingVariableOrCapture = V;
+  }
+#endif  // INTEL_CUSTOMIZATION
 
   /// \brief Does this DeclRefExpr refer to an enclosing local or a captured
   /// variable?
@@ -2178,10 +2186,10 @@ class CallExpr : public Expr {
   Stmt **SubExprs;
   unsigned NumArgs;
   SourceLocation RParenLoc;
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   // Valid only if it is a Cilk spawn call
   SourceLocation CilkSpawnLoc;
-#endif  
+#endif  // INTEL_CUSTOMIZATION
 protected:
   // These versions of the constructor are for derived classes.
   CallExpr(const ASTContext& C, StmtClass SC, Expr *fn, unsigned NumPreArgs,
@@ -2316,7 +2324,7 @@ public:
   void setCilkSpawnLoc(SourceLocation Loc) { CilkSpawnLoc = Loc; }
   SourceLocation getCilkSpawnLoc() const LLVM_READONLY { return CilkSpawnLoc; }
   bool isCilkSpawnCall() const { return CilkSpawnLoc.isValid(); }
-#endif
+#endif  // INTEL_CUSTOMIZATION
   static bool classof(const Stmt *T) {
     return T->getStmtClass() >= firstCallExprConstant &&
            T->getStmtClass() <= lastCallExprConstant;
@@ -2358,6 +2366,9 @@ class MemberExpr : public Expr {
   /// MemberLoc - This is the location of the member name.
   SourceLocation MemberLoc;
 
+  /// This is the location of the -> or . in the expression.
+  SourceLocation OperatorLoc;
+
   /// IsArrow - True if this is "X->F", false if this is "X.F".
   bool IsArrow : 1;
 
@@ -2392,18 +2403,16 @@ class MemberExpr : public Expr {
   }
 
 public:
-  MemberExpr(Expr *base, bool isarrow, ValueDecl *memberdecl,
-             const DeclarationNameInfo &NameInfo, QualType ty,
-             ExprValueKind VK, ExprObjectKind OK)
-    : Expr(MemberExprClass, ty, VK, OK,
-           base->isTypeDependent(),
-           base->isValueDependent(),
-           base->isInstantiationDependent(),
-           base->containsUnexpandedParameterPack()),
-      Base(base), MemberDecl(memberdecl), MemberDNLoc(NameInfo.getInfo()),
-      MemberLoc(NameInfo.getLoc()), IsArrow(isarrow),
-      HasQualifierOrFoundDecl(false), HasTemplateKWAndArgsInfo(false),
-      HadMultipleCandidates(false) {
+  MemberExpr(Expr *base, bool isarrow, SourceLocation operatorloc,
+             ValueDecl *memberdecl, const DeclarationNameInfo &NameInfo,
+             QualType ty, ExprValueKind VK, ExprObjectKind OK)
+      : Expr(MemberExprClass, ty, VK, OK, base->isTypeDependent(),
+             base->isValueDependent(), base->isInstantiationDependent(),
+             base->containsUnexpandedParameterPack()),
+        Base(base), MemberDecl(memberdecl), MemberDNLoc(NameInfo.getInfo()),
+        MemberLoc(NameInfo.getLoc()), OperatorLoc(operatorloc),
+        IsArrow(isarrow), HasQualifierOrFoundDecl(false),
+        HasTemplateKWAndArgsInfo(false), HadMultipleCandidates(false) {
     assert(memberdecl->getDeclName() == NameInfo.getName());
   }
 
@@ -2411,25 +2420,25 @@ public:
   // the member name can not provide additional syntactic info
   // (i.e., source locations for C++ operator names or type source info
   // for constructors, destructors and conversion operators).
-  MemberExpr(Expr *base, bool isarrow, ValueDecl *memberdecl,
-             SourceLocation l, QualType ty,
+  MemberExpr(Expr *base, bool isarrow, SourceLocation operatorloc,
+             ValueDecl *memberdecl, SourceLocation l, QualType ty,
              ExprValueKind VK, ExprObjectKind OK)
-    : Expr(MemberExprClass, ty, VK, OK,
-           base->isTypeDependent(), base->isValueDependent(),
-           base->isInstantiationDependent(),
-           base->containsUnexpandedParameterPack()),
-      Base(base), MemberDecl(memberdecl), MemberDNLoc(), MemberLoc(l),
-      IsArrow(isarrow),
-      HasQualifierOrFoundDecl(false), HasTemplateKWAndArgsInfo(false),
-      HadMultipleCandidates(false) {}
+      : Expr(MemberExprClass, ty, VK, OK, base->isTypeDependent(),
+             base->isValueDependent(), base->isInstantiationDependent(),
+             base->containsUnexpandedParameterPack()),
+        Base(base), MemberDecl(memberdecl), MemberDNLoc(), MemberLoc(l),
+        OperatorLoc(operatorloc), IsArrow(isarrow),
+        HasQualifierOrFoundDecl(false), HasTemplateKWAndArgsInfo(false),
+        HadMultipleCandidates(false) {}
 
   static MemberExpr *Create(const ASTContext &C, Expr *base, bool isarrow,
+                            SourceLocation OperatorLoc,
                             NestedNameSpecifierLoc QualifierLoc,
-                            SourceLocation TemplateKWLoc,
-                            ValueDecl *memberdecl, DeclAccessPair founddecl,
+                            SourceLocation TemplateKWLoc, ValueDecl *memberdecl,
+                            DeclAccessPair founddecl,
                             DeclarationNameInfo MemberNameInfo,
-                            const TemplateArgumentListInfo *targs,
-                            QualType ty, ExprValueKind VK, ExprObjectKind OK);
+                            const TemplateArgumentListInfo *targs, QualType ty,
+                            ExprValueKind VK, ExprObjectKind OK);
 
   void setBase(Expr *E) { Base = E; }
   Expr *getBase() const { return cast<Expr>(Base); }
@@ -2572,6 +2581,8 @@ public:
     return DeclarationNameInfo(MemberDecl->getDeclName(),
                                MemberLoc, MemberDNLoc);
   }
+
+  SourceLocation getOperatorLoc() const LLVM_READONLY { return OperatorLoc; }
 
   bool isArrow() const { return IsArrow; }
   void setArrow(bool A) { IsArrow = A; }
@@ -3090,7 +3101,7 @@ public:
   bool isAdditiveAssignOp() const {
     return isAdditiveAssignOp(getOpcode());
   }
-#endif
+#endif  // INTEL_CUSTOMIZATION
   static bool isShiftAssignOp(Opcode Opc) {
     return Opc == BO_ShlAssign || Opc == BO_ShrAssign;
   }
@@ -4629,7 +4640,7 @@ public:
 
   child_range children() { return child_range(); }
 };
-#endif
+#endif  // INTEL_CUSTOMIZATION
 /// AsTypeExpr - Clang builtin function __builtin_astype [OpenCL 6.2.4.2]
 /// This AST node provides support for reinterpreting a type to another
 /// type of the same size.
@@ -5133,7 +5144,7 @@ public:
                        &reinterpret_cast<Stmt **>(this + 1)[3 + 3 * Rank + ArgsSize]);
   }
 };
-#endif
+#endif  // INTEL_CUSTOMIZATION
 }  // end namespace clang
 
 #endif

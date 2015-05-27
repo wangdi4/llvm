@@ -458,14 +458,14 @@ NSAPI::getNSNumberFactoryMethodKind(QualType T) const {
   case BuiltinType::UnknownAny:
   case BuiltinType::ARCUnbridgedCast:
   case BuiltinType::Half:
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   case BuiltinType::Float128:
-#endif  
+#endif  // INTEL_CUSTOMIZATION
   case BuiltinType::PseudoObject:
   case BuiltinType::BuiltinFn:
     break;
   }
-  
+
   return None;
 }
 

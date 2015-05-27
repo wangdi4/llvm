@@ -10,14 +10,18 @@
 #define LLD_READER_WRITER_ELF_MIPS_MIPS_ELF_WRITERS_H
 
 #include "MipsLinkingContext.h"
-#include "OutputELFWriter.h"
 
 namespace lld {
 namespace elf {
 
-template <class ELFT> class MipsRuntimeFile;
-
 template <class ELFT> class MipsTargetLayout;
+
+class MipsDynamicAtom : public DynamicAtom {
+public:
+  MipsDynamicAtom(const File &f) : DynamicAtom(f) {}
+
+  ContentPermissions permissions() const override { return permR__; }
+};
 
 template <typename ELFT> class MipsELFWriter {
 public:
@@ -44,23 +48,18 @@ public:
     auto got = gotSection ? gotSection->virtualAddr() : 0;
     auto gp = gotSection ? got + _targetLayout.getGPOffset() : 0;
 
-    setAtomValue("_GLOBAL_OFFSET_TABLE_", got);
     setAtomValue("_gp", gp);
     setAtomValue("_gp_disp", gp);
     setAtomValue("__gnu_local_gp", gp);
   }
 
-  bool hasGlobalGOTEntry(const Atom *a) const {
-    return _targetLayout.getGOTSection().hasGlobalGOTEntry(a);
-  }
-
-  std::unique_ptr<MipsRuntimeFile<ELFT>> createRuntimeFile() {
-    auto file = llvm::make_unique<MipsRuntimeFile<ELFT>>(_ctx);
+  std::unique_ptr<RuntimeFile<ELFT>> createRuntimeFile() {
+    auto file = llvm::make_unique<RuntimeFile<ELFT>>(_ctx, "Mips runtime file");
     if (_ctx.isDynamic()) {
-      file->addAbsoluteAtom("_GLOBAL_OFFSET_TABLE_");
       file->addAbsoluteAtom("_gp");
       file->addAbsoluteAtom("_gp_disp");
       file->addAbsoluteAtom("__gnu_local_gp");
+      file->addAtom(*new (file->allocator()) MipsDynamicAtom(*file));
     }
     return file;
   }
@@ -70,9 +69,9 @@ private:
   MipsTargetLayout<ELFT> &_targetLayout;
 
   void setAtomValue(StringRef name, uint64_t value) {
-    auto atom = _targetLayout.findAbsoluteAtom(name);
-    assert(atom != _targetLayout.absoluteAtoms().end());
-    (*atom)->_virtualAddr = value;
+    AtomLayout *atom = _targetLayout.findAbsoluteAtom(name);
+    assert(atom);
+    atom->_virtualAddr = value;
   }
 };
 

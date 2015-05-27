@@ -14,7 +14,8 @@
 #include "CodeGenFunction.h"
 #ifdef INTEL_CUSTOMIZATION
 #include "intel/CGCilkPlusRuntime.h"
-#endif
+#endif  // INTEL_CUSTOMIZATION
+#include "CGCleanup.h"
 #include "CGCUDARuntime.h"
 #include "CGCXXABI.h"
 #include "CGDebugInfo.h"
@@ -41,12 +42,12 @@ CodeGenFunction::CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext)
       Builder(cgm.getModule().getContext(), llvm::ConstantFolder(),
               CGBuilderInserterTy(this)),
       CurFn(nullptr), CapturedStmtInfo(nullptr),
-#ifdef INTEL_CUSTOMIZATION	  
-	  CurCGCilkImplicitSyncInfo(nullptr),
-#endif
+#ifdef INTEL_CUSTOMIZATION
+      CurCGCilkImplicitSyncInfo(nullptr),
+#endif  // INTEL_CUSTOMIZATION
       SanOpts(CGM.getLangOpts().Sanitize), IsSanitizerScope(false),
       CurFuncIsThunk(false), AutoreleaseResult(false), SawAsmBlock(false),
-      BlockInfo(nullptr), BlockPointer(nullptr),
+      IsOutlinedSEHHelper(false), BlockInfo(nullptr), BlockPointer(nullptr),
       LambdaThisCaptureField(nullptr), NormalCleanupDest(nullptr),
       NextCleanupDestIndex(1), FirstBlockInfo(nullptr), EHResumeBlock(nullptr),
       ExceptionSlot(nullptr), EHSelectorSlot(nullptr),
@@ -59,9 +60,11 @@ CodeGenFunction::CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext)
       CXXDefaultInitExprThis(nullptr), CXXStructorImplicitParamDecl(nullptr),
       CXXStructorImplicitParamValue(nullptr), OutermostConditional(nullptr),
       CurLexicalScope(nullptr),
-	  ExceptionsDisabled(false),	//***INTEL 
-      TerminateLandingPad(nullptr), 
-	  TerminateHandler(nullptr), TrapBB(nullptr) {
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+      ExceptionsDisabled(false),
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+      TerminateLandingPad(nullptr),
+      TerminateHandler(nullptr), TrapBB(nullptr) {
   if (!suppressNewContext)
     CGM.getCXXABI().getMangleContext().startNewFunction();
 
@@ -78,6 +81,9 @@ CodeGenFunction::CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext)
   if (CGM.getCodeGenOpts().NoSignedZeros) {
     FMF.setNoSignedZeros();
   }
+  if (CGM.getCodeGenOpts().ReciprocalMath) {
+    FMF.setAllowReciprocal();
+  }
   Builder.SetFastMathFlags(FMF);
 }
 
@@ -91,7 +97,7 @@ CodeGenFunction::~CodeGenFunction() {
     destroyBlockInfos(FirstBlockInfo);
 #ifdef INTEL_CUSTOMIZATION
   delete CurCGCilkImplicitSyncInfo;
-#endif
+#endif  // INTEL_CUSTOMIZATION
   if (getLangOpts().OpenMP) {
     CGM.getOpenMPRuntime().functionFinished(*this);
   }
@@ -199,7 +205,9 @@ llvm::DebugLoc CodeGenFunction::EmitReturnBlock() {
       // Record/return the DebugLoc of the simple 'return' expression to be used
       // later by the actual 'ret' instruction.
       llvm::DebugLoc Loc = BI->getDebugLoc();
-      ReturnLoc = Loc;                                     //***INTEL 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+      ReturnLoc = Loc;
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
       Builder.SetInsertPoint(BI->getParent());
       BI->eraseFromParent();
       delete ReturnBlock.getBlock();
@@ -252,12 +260,13 @@ void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
   // parameters.  Do this in whatever block we're currently in; it's
   // important to do this before we enter the return block or return
   // edges will be *really* confused.
-  bool EmitRetDbgLoc = true;
-  if (EHStack.stable_begin() != PrologueCleanupDepth) {
+  bool HasCleanups = EHStack.stable_begin() != PrologueCleanupDepth;
+  bool HasOnlyLifetimeMarkers =
+      HasCleanups && EHStack.containsOnlyLifetimeMarkers(PrologueCleanupDepth);
+  bool EmitRetDbgLoc = !HasCleanups || HasOnlyLifetimeMarkers;
+  if (HasCleanups) {
     // Make sure the line table doesn't jump back into the body for
     // the ret after it's been at EndLoc.
-    EmitRetDbgLoc = false;
-
     if (CGDebugInfo *DI = getDebugInfo())
       if (OnlySimpleReturnStmts)
         DI->EmitLocation(Builder, EndLoc);
@@ -289,6 +298,20 @@ void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
   if (IndirectBranch) {
     EmitBlock(IndirectBranch->getParent());
     Builder.ClearInsertionPoint();
+  }
+
+  // If some of our locals escaped, insert a call to llvm.frameescape in the
+  // entry block.
+  if (!EscapedLocals.empty()) {
+    // Invert the map from local to index into a simple vector. There should be
+    // no holes.
+    SmallVector<llvm::Value *, 4> EscapeArgs;
+    EscapeArgs.resize(EscapedLocals.size());
+    for (auto &Pair : EscapedLocals)
+      EscapeArgs[Pair.second] = Pair.first;
+    llvm::Function *FrameEscapeFn = llvm::Intrinsic::getDeclaration(
+        &CGM.getModule(), llvm::Intrinsic::frameescape);
+    CGBuilderTy(AllocaInsertPt).CreateCall(FrameEscapeFn, EscapeArgs);
   }
 
   // Remove the AllocaInsertPt instruction, which is just a convenience for us.
@@ -692,7 +715,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
     unsigned Idx = CurFnInfo->getReturnInfo().getInAllocaFieldIndex();
     llvm::Function::arg_iterator EI = CurFn->arg_end();
     --EI;
-    llvm::Value *Addr = Builder.CreateStructGEP(EI, Idx);
+    llvm::Value *Addr = Builder.CreateStructGEP(nullptr, EI, Idx);
     ReturnValue = Builder.CreateLoad(Addr, "agg.result");
   } else {
     ReturnValue = CreateIRTemp(RetTy, "retval");
@@ -722,7 +745,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
     if (CurCGCilkImplicitSyncInfo->needsImplicitSync())
       CGM.getCilkPlusRuntime().pushCilkImplicitSyncCleanup(*this);
   }
-#endif
+#endif  // INTEL_CUSTOMIZATION
   EmitFunctionProlog(*CurFnInfo, CurFn, Args);
 
   if (D && isa<CXXMethodDecl>(D) && cast<CXXMethodDecl>(D)->isInstance()) {
@@ -780,8 +803,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
 
 void CodeGenFunction::EmitFunctionBody(FunctionArgList &Args,
                                        const Stmt *Body) {
-  RegionCounter Cnt = getPGORegionCounter(Body);
-  Cnt.beginRegion(Builder);
+  incrementProfileCounter(Body);
   if (const CompoundStmt *S = dyn_cast<CompoundStmt>(Body))
     EmitCompoundStmtWithoutScope(*S);
   else
@@ -793,7 +815,7 @@ void CodeGenFunction::EmitFunctionBody(FunctionArgList &Args,
 /// emit a branch around the instrumentation code. When not instrumenting,
 /// this just calls EmitBlock().
 void CodeGenFunction::EmitBlockWithFallThrough(llvm::BasicBlock *BB,
-                                               RegionCounter &Cnt) {
+                                               const Stmt *S) {
   llvm::BasicBlock *SkipCountBB = nullptr;
   if (HaveInsertPoint() && CGM.getCodeGenOpts().ProfileInstrGenerate) {
     // When instrumenting for profiling, the fallthrough to certain
@@ -803,7 +825,9 @@ void CodeGenFunction::EmitBlockWithFallThrough(llvm::BasicBlock *BB,
     EmitBranch(SkipCountBB);
   }
   EmitBlock(BB);
-  Cnt.beginRegion(Builder, /*AddIncomingFallThrough=*/true);
+  uint64_t CurrentCount = getCurrentProfileCount();
+  incrementProfileCounter(S);
+  setCurrentProfileCount(getCurrentProfileCount() + CurrentCount);
   if (SkipCountBB)
     EmitBlock(SkipCountBB);
 }
@@ -828,20 +852,6 @@ static void TryMarkNoThrow(llvm::Function *F) {
   F->setDoesNotThrow();
 }
 
-static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
-                                          const FunctionDecl *UnsizedDealloc) {
-  // This is a weak discardable definition of the sized deallocation function.
-  CGF.CurFn->setLinkage(llvm::Function::LinkOnceAnyLinkage);
-  if (CGF.CGM.supportsCOMDAT())
-    CGF.CurFn->setComdat(
-        CGF.CGM.getModule().getOrInsertComdat(CGF.CurFn->getName()));
-
-  // Call the unsized deallocation function and forward the first argument
-  // unchanged.
-  llvm::Constant *Unsized = CGF.CGM.GetAddrOfFunction(UnsizedDealloc);
-  CGF.Builder.CreateCall(Unsized, &*CGF.CurFn->arg_begin());
-}
-
 void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                    const CGFunctionInfo &FnInfo) {
   const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
@@ -862,7 +872,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
       ResTy = CGM.getContext().VoidPtrTy;
     CGM.getCXXABI().buildThisParam(*this, Args);
   }
-  
+
   Args.append(FD->param_begin(), FD->param_end());
 
   if (MD && (isa<CXXConstructorDecl>(MD) || isa<CXXDestructorDecl>(MD)))
@@ -896,7 +906,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
   else if (isa<CXXConstructorDecl>(FD))
     EmitConstructorBody(Args);
   else if (getLangOpts().CUDA &&
-           !CGM.getCodeGenOpts().CUDAIsDevice &&
+           !getLangOpts().CUDAIsDevice &&
            FD->hasAttr<CUDAGlobalAttr>())
     CGM.getCUDARuntime().EmitDeviceStubBody(*this, Args);
   else if (isa<CXXConversionDecl>(FD) &&
@@ -917,14 +927,6 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
     emitImplicitAssignmentOperatorBody(Args);
   } else if (Stmt *Body = FD->getBody()) {
     EmitFunctionBody(Args, Body);
-  } else if (FunctionDecl *UnsizedDealloc =
-                 FD->getCorrespondingUnsizedGlobalDeallocationFunction()) {
-    // Global sized deallocation functions get an implicit weak definition if
-    // they don't have an explicit definition, if allowed.
-    assert(getLangOpts().DefineSizedDeallocation &&
-           "Can't emit unallowed definition.");
-    EmitSizedDeallocationFunction(*this, UnsizedDealloc);
-
   } else
     llvm_unreachable("no definition for emitted function");
 
@@ -971,10 +973,10 @@ bool CodeGenFunction::ContainsLabel(const Stmt *S, bool IgnoreCaseStmts) {
   // can't jump to one from outside their declared region.
   if (isa<LabelStmt>(S))
     return true;
-#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
   if (isa<PragmaStmt>(S))
     return true;
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 
   // If this is a case/default statement, and we haven't seen a switch, we have
   // to emit the code.
@@ -1065,15 +1067,13 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
 
     // Handle X && Y in a condition.
     if (CondBOp->getOpcode() == BO_LAnd) {
-      RegionCounter Cnt = getPGORegionCounter(CondBOp);
-
       // If we have "1 && X", simplify the code.  "0 && X" would have constant
       // folded if the case was simple enough.
       bool ConstantBool = false;
       if (ConstantFoldsToSimpleInteger(CondBOp->getLHS(), ConstantBool) &&
           ConstantBool) {
         // br(1 && X) -> br(X).
-        Cnt.beginRegion(Builder);
+        incrementProfileCounter(CondBOp);
         return EmitBranchOnBoolExpr(CondBOp->getRHS(), TrueBlock, FalseBlock,
                                     TrueCount);
       }
@@ -1092,7 +1092,7 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
       llvm::BasicBlock *LHSTrue = createBasicBlock("land.lhs.true");
       // The counter tells us how often we evaluate RHS, and all of TrueCount
       // can be propagated to that branch.
-      uint64_t RHSCount = Cnt.getCount();
+      uint64_t RHSCount = getProfileCount(CondBOp->getRHS());
 
       ConditionalEvaluation eval(*this);
       {
@@ -1101,8 +1101,10 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
         EmitBlock(LHSTrue);
       }
 
+      incrementProfileCounter(CondBOp);
+      setCurrentProfileCount(getProfileCount(CondBOp->getRHS()));
+
       // Any temporaries created here are conditional.
-      Cnt.beginRegion(Builder);
       eval.begin(*this);
       EmitBranchOnBoolExpr(CondBOp->getRHS(), TrueBlock, FalseBlock, TrueCount);
       eval.end(*this);
@@ -1111,15 +1113,13 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
     }
 
     if (CondBOp->getOpcode() == BO_LOr) {
-      RegionCounter Cnt = getPGORegionCounter(CondBOp);
-
       // If we have "0 || X", simplify the code.  "1 || X" would have constant
       // folded if the case was simple enough.
       bool ConstantBool = false;
       if (ConstantFoldsToSimpleInteger(CondBOp->getLHS(), ConstantBool) &&
           !ConstantBool) {
         // br(0 || X) -> br(X).
-        Cnt.beginRegion(Builder);
+        incrementProfileCounter(CondBOp);
         return EmitBranchOnBoolExpr(CondBOp->getRHS(), TrueBlock, FalseBlock,
                                     TrueCount);
       }
@@ -1139,7 +1139,8 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
       // We have the count for entry to the RHS and for the whole expression
       // being true, so we can divy up True count between the short circuit and
       // the RHS.
-      uint64_t LHSCount = Cnt.getParentCount() - Cnt.getCount();
+      uint64_t LHSCount =
+          getCurrentProfileCount() - getProfileCount(CondBOp->getRHS());
       uint64_t RHSCount = TrueCount - LHSCount;
 
       ConditionalEvaluation eval(*this);
@@ -1149,8 +1150,10 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
         EmitBlock(LHSFalse);
       }
 
+      incrementProfileCounter(CondBOp);
+      setCurrentProfileCount(getProfileCount(CondBOp->getRHS()));
+
       // Any temporaries created here are conditional.
-      Cnt.beginRegion(Builder);
       eval.begin(*this);
       EmitBranchOnBoolExpr(CondBOp->getRHS(), TrueBlock, FalseBlock, RHSCount);
 
@@ -1164,7 +1167,7 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
     // br(!x, t, f) -> br(x, f, t)
     if (CondUOp->getOpcode() == UO_LNot) {
       // Negate the count.
-      uint64_t FalseCount = PGO.getCurrentRegionCount() - TrueCount;
+      uint64_t FalseCount = getCurrentProfileCount() - TrueCount;
       // Negate the condition and swap the destination blocks.
       return EmitBranchOnBoolExpr(CondUOp->getSubExpr(), FalseBlock, TrueBlock,
                                   FalseCount);
@@ -1176,9 +1179,9 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
     llvm::BasicBlock *LHSBlock = createBasicBlock("cond.true");
     llvm::BasicBlock *RHSBlock = createBasicBlock("cond.false");
 
-    RegionCounter Cnt = getPGORegionCounter(CondOp);
     ConditionalEvaluation cond(*this);
-    EmitBranchOnBoolExpr(CondOp->getCond(), LHSBlock, RHSBlock, Cnt.getCount());
+    EmitBranchOnBoolExpr(CondOp->getCond(), LHSBlock, RHSBlock,
+                         getProfileCount(CondOp));
 
     // When computing PGO branch weights, we only know the overall count for
     // the true block. This code is essentially doing tail duplication of the
@@ -1187,13 +1190,14 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
     // the conditional operator.
     uint64_t LHSScaledTrueCount = 0;
     if (TrueCount) {
-      double LHSRatio = Cnt.getCount() / (double) Cnt.getParentCount();
+      double LHSRatio =
+          getProfileCount(CondOp) / (double)getCurrentProfileCount();
       LHSScaledTrueCount = TrueCount * LHSRatio;
     }
 
     cond.begin(*this);
     EmitBlock(LHSBlock);
-    Cnt.beginRegion(Builder);
+    incrementProfileCounter(CondOp);
     {
       ApplyDebugLocation DL(*this, Cond);
       EmitBranchOnBoolExpr(CondOp->getLHS(), TrueBlock, FalseBlock,
@@ -1222,7 +1226,7 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
 
   // Create branch weights based on the number of times we get here and the
   // number of times the condition should be true.
-  uint64_t CurrentCount = std::max(PGO.getCurrentRegionCount(), TrueCount);
+  uint64_t CurrentCount = std::max(getCurrentProfileCount(), TrueCount);
   llvm::MDNode *Weights = PGO.createBranchWeights(TrueCount,
                                                   CurrentCount - TrueCount);
 
@@ -1281,7 +1285,8 @@ static void emitNonZeroVLAInit(CodeGenFunction &CGF, QualType baseType,
                        /*volatile*/ false);
 
   // Go to the next element.
-  llvm::Value *next = Builder.CreateConstInBoundsGEP1_32(cur, 1, "vla.next");
+  llvm::Value *next = Builder.CreateConstInBoundsGEP1_32(Builder.getInt8Ty(),
+                                                         cur, 1, "vla.next");
 
   // Leave if that's the end of the VLA.
   llvm::Value *done = Builder.CreateICmpEQ(next, end, "vla-init.isdone");

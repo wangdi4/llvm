@@ -13,13 +13,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "MCTargetDesc/AArch64AddressingModes.h"
-#include "MCTargetDesc/AArch64MCExpr.h"
 #include "AArch64.h"
 #include "AArch64MCInstLower.h"
 #include "AArch64MachineFunctionInfo.h"
 #include "AArch64RegisterInfo.h"
 #include "AArch64Subtarget.h"
 #include "InstPrinter/AArch64InstPrinter.h"
+#include "MCTargetDesc/AArch64MCExpr.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Twine.h"
@@ -36,8 +36,10 @@
 #include "llvm/MC/MCInstBuilder.h"
 #include "llvm/MC/MCLinkerOptimizationHint.h"
 #include "llvm/MC/MCStreamer.h"
+#include "llvm/MC/MCSymbol.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "asm-printer"
@@ -51,7 +53,7 @@ class AArch64AsmPrinter : public AsmPrinter {
 public:
   AArch64AsmPrinter(TargetMachine &TM, std::unique_ptr<MCStreamer> Streamer)
       : AsmPrinter(TM, std::move(Streamer)), MCInstLowering(OutContext, *this),
-        SM(*this), AArch64FI(nullptr), LOHLabelCounter(0) {}
+        SM(*this), AArch64FI(nullptr) {}
 
   const char *getPassName() const override {
     return "AArch64 Assembly Printer";
@@ -112,7 +114,6 @@ private:
 
   typedef std::map<const MachineInstr *, MCSymbol *> MInstToMCSymbol;
   MInstToMCSymbol LOHInstToLabel;
-  unsigned LOHLabelCounter;
 };
 
 } // end of anonymous namespace
@@ -130,29 +131,6 @@ void AArch64AsmPrinter::EmitEndOfAsmFile(Module &M) {
     OutStreamer.EmitAssemblerFlag(MCAF_SubsectionsViaSymbols);
     SM.serializeToStackMapSection();
   }
-
-  // Emit a .data.rel section containing any stubs that were created.
-  if (TT.isOSBinFormatELF()) {
-    const TargetLoweringObjectFileELF &TLOFELF =
-      static_cast<const TargetLoweringObjectFileELF &>(getObjFileLowering());
-
-    MachineModuleInfoELF &MMIELF = MMI->getObjFileInfo<MachineModuleInfoELF>();
-
-    // Output stubs for external and common global variables.
-    MachineModuleInfoELF::SymbolListTy Stubs = MMIELF.GetGVStubList();
-    if (!Stubs.empty()) {
-      OutStreamer.SwitchSection(TLOFELF.getDataRelSection());
-      const DataLayout *TD = TM.getDataLayout();
-
-      for (unsigned i = 0, e = Stubs.size(); i != e; ++i) {
-        OutStreamer.EmitLabel(Stubs[i].first);
-        OutStreamer.EmitSymbolValue(Stubs[i].second.getPointer(),
-                                    TD->getPointerSize(0));
-      }
-      Stubs.clear();
-    }
-  }
-
 }
 
 MachineLocation
@@ -219,6 +197,17 @@ void AArch64AsmPrinter::printOperand(const MachineInstr *MI, unsigned OpNum,
   case MachineOperand::MO_Immediate: {
     int64_t Imm = MO.getImm();
     O << '#' << Imm;
+    break;
+  }
+  case MachineOperand::MO_GlobalAddress: {
+    const GlobalValue *GV = MO.getGlobal();
+    MCSymbol *Sym = getSymbol(GV);
+
+    // FIXME: Can we get anything other than a plain symbol here?
+    assert(!MO.getTargetFlags() && "Unknown operand target flag!");
+
+    O << *Sym;
+    printOffset(MO.getOffset(), O);
     break;
   }
   }
@@ -359,8 +348,8 @@ void AArch64AsmPrinter::PrintDebugValueComment(const MachineInstr *MI,
   assert(NOps == 4);
   OS << '\t' << MAI->getCommentString() << "DEBUG_VALUE: ";
   // cast away const; DIetc do not take const operands for some reason.
-  DIVariable V(const_cast<MDNode *>(MI->getOperand(NOps - 1).getMetadata()));
-  OS << V.getName();
+  OS << cast<MDLocalVariable>(MI->getOperand(NOps - 2).getMetadata())
+            ->getName();
   OS << " <- ";
   // Frame address.  Currently handles register +- offset only.
   assert(MI->getOperand(0).isReg() && MI->getOperand(1).isImm());
@@ -452,7 +441,7 @@ void AArch64AsmPrinter::EmitInstruction(const MachineInstr *MI) {
 
   if (AArch64FI->getLOHRelated().count(MI)) {
     // Generate a label for LOH related instruction
-    MCSymbol *LOHLabel = GetTempSymbol("loh", LOHLabelCounter++);
+    MCSymbol *LOHLabel = createTempSymbol("loh");
     // Associate the instruction with the label
     LOHInstToLabel[MI] = LOHLabel;
     OutStreamer.EmitLabel(LOHLabel);

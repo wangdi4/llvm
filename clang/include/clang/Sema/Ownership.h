@@ -25,7 +25,7 @@
 namespace clang {
   class CXXCtorInitializer;
   class CXXBaseSpecifier;
-  class Attr;	//***INTEL
+  class Attr;                 //***INTEL
   class Decl;
   class Expr;
   class ParsedTemplateArgument;
@@ -279,7 +279,7 @@ namespace clang {
   inline AttrResult AttrError() { return AttrResult(true); }
   inline AttrResult AttrError(const DiagnosticBuilder&) { return AttrError(); }
   inline AttrResult AttrEmpty() { return AttrResult(false); }
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
   inline Expr *AssertSuccess(ExprResult R) {
     assert(!R.isInvalid() && "operation was asserted to never fail!");

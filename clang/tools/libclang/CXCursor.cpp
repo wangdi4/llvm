@@ -108,9 +108,15 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
   switch (S->getStmtClass()) {
 #ifdef INTEL_CUSTOMIZATION
   case Stmt::PragmaStmtClass:
+#ifndef INTEL_SPECIFIC_IL0_BACKEND
+    llvm_unreachable(
+      "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
+#else
     K = CXCursor_UnexposedStmt;
     break;
-#endif
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
+
   case Stmt::NoStmtClass:
     break;
   
@@ -258,10 +264,10 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
   case Stmt::ObjCDictionaryLiteralClass:
   case Stmt::ObjCBoxedExprClass:
   case Stmt::ObjCSubscriptRefExprClass:
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   case Stmt::CEANIndexExprClass:
   case Stmt::CEANBuiltinExprClass:
-#endif  
+#endif  // INTEL_CUSTOMIZATION
     K = CXCursor_UnexposedExpr;
     break;
 
@@ -540,7 +546,7 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
   case Stmt::CilkRankedStmtClass:
     K = CXCursor_CilkRankedStmt;
     break;
-#endif	
+#endif  // INTEL_CUSTOMIZATION
   case Stmt::OMPParallelDirectiveClass:
     K = CXCursor_OMPParallelDirective;
     break;

@@ -235,7 +235,7 @@ typedef llvm::TypeBuilder<__cilkrts_worker, false> WorkerBuilder;
 typedef llvm::TypeBuilder<__cilkrts_pedigree, false> PedigreeBuilder;
 
 static Value *GEP(CGBuilderTy &B, Value *Base, int field) {
-  return B.CreateConstInBoundsGEP2_32(Base, 0, field);
+  return B.CreateConstInBoundsGEP2_32(nullptr, Base, 0, field);
 }
 
 static void StoreField(CGBuilderTy &B, Value *Val, Value *Dst, int field) {
@@ -1599,4 +1599,4 @@ CGCilkImplicitSyncInfo *CreateCilkImplicitSyncInfo(CodeGenFunction &CGF) {
 } // namespace CodeGen
 } // namespace clang
 
-#endif
+#endif  // INTEL_CUSTOMIZATION

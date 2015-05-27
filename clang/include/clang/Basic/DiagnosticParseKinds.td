@@ -68,7 +68,7 @@ def ext_keyword_as_ident : ExtWarn<
 def error_empty_enum : Error<"use of empty enum">;
 // CQ#364426
 // if INTEL_CUSTOMIZATION
-def warn_empty_enum : Warning<"use of empty enum">, InGroup<Microsoft>;
+def warn_empty_enum : Warning<"use of empty enum">, InGroup<IntelCompat>;
 // endif INTEL_CUSTOMIZATION
 def err_invalid_sign_spec : Error<"'%0' cannot be signed or unsigned">;
 def err_invalid_short_spec : Error<"'short %0' is invalid">;
@@ -187,6 +187,8 @@ def warn_attribute_no_decl : Warning<
   "attribute %0 ignored, because it is not attached to a declaration">, 
   InGroup<IgnoredAttributes>;
 def err_expected_method_body : Error<"expected method body">;
+def err_declspec_after_virtspec : Error<
+  "'%0' qualifier may not appear after the virtual specifier '%1'">;
 def err_invalid_token_after_toplevel_declarator : Error<
   "expected ';' after top level declarator">;
 def err_invalid_token_after_declarator_suggest_equal : Error<
@@ -356,10 +358,12 @@ def err_invalid_pixel_decl_spec_combination : Error<
 def err_invalid_vector_bool_decl_spec : Error<
   "cannot use '%0' with '__vector bool'">;
 def err_invalid_vector_double_decl_spec : Error <
-  "use of 'double' with '__vector' requires VSX support to be enabled (available on the POWER7 or later)">;
+  "use of 'double' with '__vector' requires VSX support to be enabled "
+  "(available on POWER7 or later)">;
 def err_invalid_vector_long_long_decl_spec : Error <
-  "use of 'long long' with '__vector bool' requires VSX support to be enabled "
-  "(available on the POWER7 or later)">;
+  "use of 'long long' with '__vector bool' requires VSX support (available on "
+  "POWER7 or later) or extended Altivec support (available on POWER8 or later) " 
+  "to be enabled">;
 def err_invalid_vector_long_double_decl_spec : Error<
   "cannot use 'long double' with '__vector'">;
 def warn_vector_long_decl_spec_combination : Warning<
@@ -933,6 +937,9 @@ def err_pragma_fp_contract_scope : Error<
 def err_pragma_comment_malformed : Error<
   "pragma comment requires parenthesized identifier and optional string">;
 def err_pragma_comment_unknown_kind : Error<"unknown kind of pragma comment">;
+// PS4 recognizes only #pragma comment(lib)
+def warn_pragma_comment_ignored : Warning<"'#pragma comment %0' ignored">,
+  InGroup<Microsoft>;
 // - #pragma detect_mismatch
 def err_pragma_detect_mismatch_malformed : Error<
   "pragma detect_mismatch is malformed; it requires two comma-separated "
@@ -1006,32 +1013,47 @@ def err_simd_invalid_clause: Error<
 def err_simd_expected_reduction_operator: Error<
   "expected reduction operator">;
 
-def x_warn_intel_pragma_malformed : Warning<"unknown pragma qualifier">;
-def x_warn_intel_pragma_extra_text : Warning<"extra text after expected end of preprocessing directive">;
-def x_warn_intel_pragma_statement_precede : Warning<"this pragma must immediately precede a statement">;
-def x_warn_intel_pragma_declaration_precede : Warning<"this pragma must immediately precede a declaration">;
-def x_warn_intel_pragma_statement_declaration_precede : Warning<"this pragma must immediately precede a declaration or statement">;
+//#ifdef INTEL_SPECIFIC_IL0_BACKEND
+def x_warn_intel_pragma_malformed : Warning<"unknown pragma qualifier">,
+  InGroup<IntelPragma>;
+def x_warn_intel_pragma_extra_text : Warning<"extra text after expected end of preprocessing directive">,
+  InGroup<IntelPragma>;
+def x_warn_intel_pragma_statement_precede : Warning<"this pragma must immediately precede a statement">,
+  InGroup<IntelPragma>;
+def x_warn_intel_pragma_declaration_precede : Warning<"this pragma must immediately precede a declaration">,
+  InGroup<IntelPragma>;
+def x_warn_intel_pragma_statement_declaration_precede : Warning<"this pragma must immediately precede a declaration or statement">,
+  InGroup<IntelPragma>;
+def x_warn_intel_pragma_expected_string : Warning<"expected a string">,
+  InGroup<IntelPragma>;
+def x_warn_intel_pragma_on_off_expected : Warning<"'on' or 'off' expected">,
+  InGroup<IntelPragma>;
+def x_warn_intel_pragma_integer_const : Warning<"expected an integer constant">,
+  InGroup<IntelPragma>;
+def x_warn_intel_pragma_reset_integer_const : Warning<"expected reset or an integer constant">,
+  InGroup<IntelPragma>;
+def x_warn_intel_pragma_no_null_string : Warning<"invalid use of null string; pragma ignored">,
+  InGroup<IntelPragma>;
+def x_warn_intel_pragma_unexpected_section : Warning<"Unexpected section '%0'">,
+  InGroup<IntelPragma>;
+def x_warn_intel_pragma_conform_value : Warning<"forScope behavior is %select{non-standard|standard}0">,
+  InGroup<IntelPragma>;
+def x_warn_intel_pragma_missing_region : Warning<"the #pragma region for this #pragma endregion is missing">,
+  InGroup<IntelPragma>;
+def x_warn_intel_pragma_missing_endregion : Warning<"the #pragma region unclosed at end of file">,
+  InGroup<IntelPragma>;
+def x_warn_intel_pragma_missing_start_map_region : Warning<"no #pragma start_map_region is currently active: pragma ignored">,
+  InGroup<IntelPragma>;
+def x_warn_intel_pragma_missing_stop_map_region : Warning<"#pragma start_map_region already active: pragma ignored">,
+  InGroup<IntelPragma>;
+def x_warn_intel_pragma_assert_before_always : Warning<"always must precede assert qualifier, ignored">,
+  InGroup<IntelPragma>;
+def x_warn_intel_pragma_qualifier_conflict : Warning<"invalid combination of pragma qualifiers">,
+  InGroup<IntelPragma>;
 def x_error_intel_pragma_statement_precede : Error<"this pragma must immediately precede a statement">;
-def x_warn_intel_pragma_expected_string : Warning<"expected a string">;
-def x_warn_intel_pragma_on_off_expected : Warning<"'on' or 'off' expected">;
-def x_warn_intel_pragma_integer_const : Warning<"expected an integer constant">;
-def x_warn_intel_pragma_reset_integer_const : Warning<"expected reset or an integer constant">;
 def x_error_intel_pragma_no_section : Error<"no section is specified in #pragma %0">;
 def x_error_intel_pragma_no_variables : Error<"no variables are specified in #pragma %0">;
-def x_warn_intel_pragma_no_null_string : Warning<"invalid use of null string; pragma ignored">;
-def x_warn_intel_pragma_unexpected_section : Warning<"Unexpected section '%0'">;
-def x_warn_intel_pragma_conform_value : Warning<"forScope behavior is %select{non-standard|standard}0">;
-def x_warn_intel_pragma_missing_region : Warning<"the #pragma region for this #pragma endregion is missing">;
-def x_warn_intel_pragma_missing_endregion : Warning<"the #pragma region unclosed at end of file">;
-def x_warn_intel_pragma_missing_start_map_region : Warning<"no #pragma start_map_region is currently active: pragma ignored">;
-def x_warn_intel_pragma_missing_stop_map_region : Warning<"#pragma start_map_region already active: pragma ignored">;
-//def x_error_intel_omp_clause_syntax : Error<"syntax error in omp clause">;
-//def x_error_intel_omp_two_if : Error<"directive cannot contain more than one if clause">;
-//def x_error_intel_omp_two_num_threads : Error<"directive cannot contain more than one num_threads clause">;
-//def x_error_intel_omp_two_default : Error<"directive cannot contain more than one default clause">;
-def x_warn_intel_pragma_assert_before_always : Warning<"always must precede assert qualifier, ignored">;
-def x_warn_intel_pragma_qualifier_conflict : Warning<"invalid combination of pragma qualifiers">;
-
+//#endif  // INTEL_SPECIFIC_IL0_BACKEND
 // Cilk elemental functions
 def err_elemental_parameter_pack_unsupported: Error<
   "template parameter pack is not supported in '%0' attribute">;
@@ -1046,7 +1068,7 @@ def err_expected_comma : Error<"expected ','">;
 def err_expected_lparen : Error<"expected '('">;
 def err_expected_rparen : Error<"expected ')'">;
 def err_expected_colon : Error<"expected ':'">;
-//#endif
+//#endif  // INTEL_CUSTOMIZATION
 
 // OpenMP support.
 def warn_pragma_omp_ignored : Warning<

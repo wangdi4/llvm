@@ -145,7 +145,7 @@ static Cl::Kinds ClassifyInternal(ASTContext &Ctx, const Expr *E) {
                                        : Cl::CL_LValue;
 
     // Expressions that are prvalues.
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   case Expr::CilkSpawnExprClass:
   case Expr::CEANIndexExprClass:
   case Expr::CEANBuiltinExprClass:

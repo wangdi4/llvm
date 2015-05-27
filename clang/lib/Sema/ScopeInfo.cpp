@@ -239,4 +239,4 @@ CapturedRegionScopeInfo::~CapturedRegionScopeInfo() { }
 #ifdef INTEL_CUSTOMIZATION
 CilkForScopeInfo::~CilkForScopeInfo() { }
 SIMDForScopeInfo::~SIMDForScopeInfo() { }
-#endif
+#endif  // INTEL_CUSTOMIZATION

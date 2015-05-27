@@ -88,7 +88,7 @@ class CGOpenMPRuntime;
 class CGCUDARuntime;
 #ifdef INTEL_CUSTOMIZATION
 class CGCilkPlusRuntime;
-#endif
+#endif  // INTEL_CUSTOMIZATION
 class BlockFieldFlags;
 class FunctionArgList;
 class CoverageMappingModuleGen;
@@ -305,9 +305,9 @@ private:
   CGOpenCLRuntime* OpenCLRuntime;
   CGOpenMPRuntime* OpenMPRuntime;
   CGCUDARuntime* CUDARuntime;
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   CGCilkPlusRuntime *CilkPlusRuntime;
-#endif
+#endif  // INTEL_CUSTOMIZATION
   CGDebugInfo* DebugInfo;
   ARCEntrypoints *ARCData;
   llvm::MDNode *NoObjCARCExceptionsMetadata;
@@ -333,7 +333,7 @@ private:
   /// ElementalVariantToEmit - This contains all Cilk Plus elemental function
   /// variants to be emitted.
   llvm::SmallVector<ElementalVariantInfo, 8> ElementalVariantToEmit;
-#endif
+#endif  // INTEL_CUSTOMIZATION
   // A set of references that have only been seen via a weakref so far. This is
   // used to remove the weak of the reference if we ever see a direct reference
   // or a definition.
@@ -391,7 +391,7 @@ private:
   /// Map used to get unique annotation strings.
   llvm::StringMap<llvm::Constant*> AnnotationStrings;
 
-  llvm::StringMap<llvm::Constant*> CFConstantStringMap;
+  llvm::StringMap<llvm::GlobalVariable *> CFConstantStringMap;
 
   llvm::DenseMap<llvm::Constant *, llvm::GlobalVariable *> ConstantStringMap;
   llvm::DenseMap<const Decl*, llvm::Constant *> StaticLocalDeclMap;
@@ -425,7 +425,8 @@ private:
   /// When a C++ decl with an initializer is deferred, null is
   /// appended to CXXGlobalInits, and the index of that null is placed
   /// here so that the initializer will be performed in the correct
-  /// order.
+  /// order. Once the decl is emitted, the index is replaced with ~0U to ensure
+  /// that we don't re-emit the initializer.
   llvm::DenseMap<const Decl*, unsigned> DelayedCXXInitPosition;
   
   typedef std::pair<OrderGlobalInits, llvm::Function*> GlobalInitData;
@@ -476,9 +477,9 @@ private:
   void createOpenCLRuntime();
   void createOpenMPRuntime();
   void createCUDARuntime();
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   void createCilkPlusRuntime();
-#endif
+#endif  // INTEL_CUSTOMIZATION
   bool isTriviallyRecursive(const FunctionDecl *F);
   bool shouldEmitFunction(GlobalDecl GD);
 
@@ -627,7 +628,7 @@ public:
 
   /// Emit all elemental function vector variants in this module.
   void EmitCilkElementalVariants();
-#endif
+#endif  // INTEL_CUSTOMIZATION
   ARCEntrypoints &getARCEntrypoints() const {
     assert(getLangOpts().ObjCAutoRefCount && ARCData != nullptr);
     return *ARCData;
@@ -821,6 +822,9 @@ public:
   /// Get the address of the RTTI descriptor for the given type.
   llvm::Constant *GetAddrOfRTTIDescriptor(QualType Ty, bool ForEH = false);
 
+  llvm::Constant *getAddrOfCXXCatchHandlerType(QualType Ty,
+                                               QualType CatchHandlerType);
+
   /// Get the address of a uuid descriptor .
   llvm::Constant *GetAddrOfUuidDescriptor(const CXXUuidofExpr* E);
 
@@ -885,7 +889,7 @@ public:
   /// Return a pointer to a constant NSString object for the given string. Or a
   /// user defined String object as defined via
   /// -fconstant-string-class=class_name option.
-  llvm::Constant *GetAddrOfConstantString(const StringLiteral *Literal);
+  llvm::GlobalVariable *GetAddrOfConstantString(const StringLiteral *Literal);
 
   /// Return a constant array for the given string.
   llvm::Constant *GetConstantArrayFromStringLiteral(const StringLiteral *E);
@@ -940,7 +944,7 @@ public:
   /// "__apply_args", return a Function* for "__apply_args".
   llvm::Value *getBuiltinIntelLibFunction(const FunctionDecl *FD,
                                           unsigned BuiltinID);
-#endif
+#endif  // INTEL_CUSTOMIZATION
   /// Given a builtin id for a function like "__builtin_fabsf", return a
   /// Function* for "fabsf".
   llvm::Value *getBuiltinLibFunction(const FunctionDecl *FD,
@@ -1099,8 +1103,9 @@ public:
 
   StringRef getMangledName(GlobalDecl GD);
   StringRef getBlockMangledName(GlobalDecl GD, const BlockDecl *BD);
-  void registerAsMangled(StringRef Name, GlobalDecl GD);  //***INTEL 
-
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  void registerAsMangled(StringRef Name, GlobalDecl GD);
+#endif // INTEL_SPECIFIC_IL0_BACKEND
   void EmitTentativeDefinition(const VarDecl *D);
 
   void EmitVTable(CXXRecordDecl *Class);
@@ -1314,6 +1319,14 @@ private:
   /// Emit the llvm.gcov metadata used to tell LLVM where to emit the .gcno and
   /// .gcda files in a way that persists in .bc files.
   void EmitCoverageFile();
+
+#ifdef INTEL_CUSTOMIZATION
+  /// \brief Emit Intel-specific debug info as llvm.dbg.intel.* metadata nodes.
+  void EmitIntelDebugInfoMetadata();
+
+  /// \brief Emit MS-specific debug info as llvm.dbg.ms.* metadata nodes.
+  void EmitMSDebugInfoMetadata();
+#endif // INTEL_CUSTOMIZATION
 
   /// Emits the initializer for a uuidof string.
   llvm::Constant *EmitUuidofInitializer(StringRef uuidstr);

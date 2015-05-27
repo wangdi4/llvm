@@ -45,6 +45,7 @@ def IntConversion : DiagGroup<"int-conversion">;
 def EnumConversion : DiagGroup<"enum-conversion">;
 def FloatConversion : DiagGroup<"float-conversion">;
 def EnumTooLarge : DiagGroup<"enum-too-large">;
+def UnsupportedNan : DiagGroup<"unsupported-nan">;
 def NonLiteralNullConversion : DiagGroup<"non-literal-null-conversion">;
 def NullConversion : DiagGroup<"null-conversion">;
 def ImplicitConversionFloatingPointToBool :
@@ -80,6 +81,7 @@ def CXX11CompatDeprecatedWritableStr :
 
 def DeprecatedDeclarations : DiagGroup<"deprecated-declarations">;
 def UnavailableDeclarations : DiagGroup<"unavailable-declarations">;
+def PartialAvailability : DiagGroup<"partial-availability">;
 def DeprecatedImplementations :DiagGroup<"deprecated-implementations">;
 def DeprecatedIncrementBool : DiagGroup<"deprecated-increment-bool">;
 def DeprecatedRegister : DiagGroup<"deprecated-register">;
@@ -106,6 +108,8 @@ def Documentation : DiagGroup<"documentation",
                                DocumentationDeprecatedSync]>;
 
 def EmptyBody : DiagGroup<"empty-body">;
+def Exceptions : DiagGroup<"exceptions">;
+
 def GNUEmptyInitializer : DiagGroup<"gnu-empty-initializer">;
 def GNUEmptyStruct : DiagGroup<"gnu-empty-struct">;
 def ExtraTokens : DiagGroup<"extra-tokens">;
@@ -219,7 +223,10 @@ def GNULabelsAsValue : DiagGroup<"gnu-label-as-value">;
 def LiteralRange : DiagGroup<"literal-range">;
 def LocalTypeTemplateArgs : DiagGroup<"local-type-template-args",
                                       [CXX98CompatLocalTypeTemplateArgs]>;
-def LoopAnalysis : DiagGroup<"loop-analysis">;
+def RangeLoopAnalysis : DiagGroup<"range-loop-analysis">;
+def ForLoopAnalysis : DiagGroup<"for-loop-analysis">;
+def LoopAnalysis : DiagGroup<"loop-analysis", [ForLoopAnalysis,
+                                               RangeLoopAnalysis]>;
 def MalformedWarningCheck : DiagGroup<"malformed-warning-check">;
 def Main : DiagGroup<"main">;
 def MainReturnType : DiagGroup<"main-return-type">;
@@ -387,6 +394,7 @@ def IgnoredPragmas : DiagGroup<"ignored-pragmas">;
 def Pragmas : DiagGroup<"pragmas", [UnknownPragmas, IgnoredPragmas]>;
 def UnknownWarningOption : DiagGroup<"unknown-warning-option">;
 def NSobjectAttribute : DiagGroup<"NSObject-attribute">;
+def IndependentClassAttribute : DiagGroup<"IndependentClass-attribute">;
 def UnknownAttributes : DiagGroup<"unknown-attributes">;
 def IgnoredAttributes : DiagGroup<"ignored-attributes">;
 def Attributes : DiagGroup<"attributes", [UnknownAttributes,
@@ -567,11 +575,13 @@ def IntToPointerCast : DiagGroup<"int-to-pointer-cast",
                                  [IntToVoidPointerCast]>;
 
 //#ifdef INTEL_CUSTOMIZATION
+// Intel pragma warnings.
+def IntelPragma : DiagGroup<"intel-pragma">;
 // Cilk Plus warnings.
 def SourceUsesCilkPlus : DiagGroup<"source-uses-cilk-plus">;
 def CilkPlusLoopControlVarModification : DiagGroup<"cilk-loop-control-var-modification">;
 def CilkPlusCEAN : DiagGroup<"extended-array-notation">;
-//#endif
+//#endif  // INTEL_CUSTOMIZATION
 def Extra : DiagGroup<"extra", [
     MissingFieldInitializers,
     IgnoredQualifiers,
@@ -608,10 +618,10 @@ def Most : DiagGroup<"most", [
     OverloadedVirtual,
     PrivateExtern,
     SelTypeCast,
-//#ifdef INTEL_CUSTOMIZATION    
+//#ifdef INTEL_CUSTOMIZATION
     CilkPlusLoopControlVarModification,
     CilkPlusCEAN,
-//#endif
+//#endif // INTEL_CUSTOMIZATION
     ExternCCompat
  ]>;
 
@@ -704,6 +714,16 @@ def GccCompat : DiagGroup<"gcc-compat">;
 
 // A warning group for warnings about Microsoft extensions.
 def Microsoft : DiagGroup<"microsoft">;
+
+// if INTEL_CUSTOMIZATION
+// CQ#364717
+// A warning group for warnings about Intel compatibility extensions.
+def IntelCompat : DiagGroup<"intel-compat">;
+
+// A warning group for warnings about Intel MS compatibility extensions that are
+// not planned for clang/llvm trunk. CQ#367312.
+def IntelMSCompat : DiagGroup<"intel-ms-compat">;
+// endif INTEL_CUSTOMIZATION
 
 def ObjCNonUnifiedException : DiagGroup<"objc-nonunified-exceptions">;
 

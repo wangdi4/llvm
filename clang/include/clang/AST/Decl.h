@@ -105,6 +105,43 @@ public:
   }
 };
 
+/// \brief Declaration context for names declared as extern "C" in C++. This
+/// is neither the semantic nor lexical context for such declarations, but is
+/// used to check for conflicts with other extern "C" declarations. Example:
+///
+/// \code
+///   namespace N { extern "C" void f(); } // #1
+///   void N::f() {}                       // #2
+///   namespace M { extern "C" void f(); } // #3
+/// \endcode
+///
+/// The semantic context of #1 is namespace N and its lexical context is the
+/// LinkageSpecDecl; the semantic context of #2 is namespace N and its lexical
+/// context is the TU. However, both declarations are also visible in the
+/// extern "C" context.
+///
+/// The declaration at #3 finds it is a redeclaration of \c N::f through
+/// lookup in the extern "C" context.
+class ExternCContextDecl : public Decl, public DeclContext {
+  virtual void anchor();
+
+  explicit ExternCContextDecl(TranslationUnitDecl *TU)
+    : Decl(ExternCContext, TU, SourceLocation()),
+      DeclContext(ExternCContext) {}
+public:
+  static ExternCContextDecl *Create(const ASTContext &C,
+                                    TranslationUnitDecl *TU);
+  // Implement isa/cast/dyncast/etc.
+  static bool classof(const Decl *D) { return classofKind(D->getKind()); }
+  static bool classofKind(Kind K) { return K == ExternCContext; }
+  static DeclContext *castToDeclContext(const ExternCContextDecl *D) {
+    return static_cast<DeclContext *>(const_cast<ExternCContextDecl*>(D));
+  }
+  static ExternCContextDecl *castFromDeclContext(const DeclContext *DC) {
+    return static_cast<ExternCContextDecl *>(const_cast<DeclContext*>(DC));
+  }
+};
+
 /// NamedDecl - This represents a decl with a name.  Many decls have names such
 /// as ObjCMethodDecl, but not \@class, etc.
 class NamedDecl : public Decl {
@@ -1484,11 +1521,10 @@ private:
   bool IsExplicitlyDefaulted : 1; //sunk from CXXMethodDecl
   bool HasImplicitReturnZero : 1;
   bool IsLateTemplateParsed : 1;
-#ifdef INTEL_CUSTOMIZATION  
-  bool IsSpawning: 1;
-#endif
   bool IsConstexpr : 1;
-
+#ifdef INTEL_CUSTOMIZATION
+  bool IsSpawning: 1;
+#endif  // INTEL_CUSTOMIZATION
   /// \brief Indicates if the function uses __try.
   bool UsesSEHTry : 1;
 
@@ -1580,10 +1616,11 @@ protected:
       HasWrittenPrototype(true), IsDeleted(false), IsTrivial(false),
       IsDefaulted(false), IsExplicitlyDefaulted(false),
       HasImplicitReturnZero(false), IsLateTemplateParsed(false),
+      IsConstexpr(isConstexprSpecified),
 #ifdef INTEL_CUSTOMIZATION
       IsSpawning(false),
-#endif
-      IsConstexpr(isConstexprSpecified), UsesSEHTry(false),
+#endif  // INTEL_CUSTOMIZATION
+      UsesSEHTry(false),
       HasSkippedBody(false), EndRangeLoc(NameInfo.getEndLoc()),
       TemplateOrSpecialization(),
       DNLoc(NameInfo.getInfo()) {}
@@ -1767,7 +1804,7 @@ public:
   /// \brief Whether this function is a Cilk spawning function.
   bool isSpawning() const { return IsSpawning; }
   void setSpawning() { IsSpawning = true; }
-#endif
+#endif  // INTEL_CUSTOMIZATION
   /// Whether this is a (C++11) constexpr function or constexpr constructor.
   bool usesSEHTry() const { return UsesSEHTry; }
   void setUsesSEHTry(bool UST) { UsesSEHTry = UST; }
@@ -1834,11 +1871,6 @@ public:
   ///    An implementation is allowed to omit a call to a replaceable global
   ///    allocation function. [...]
   bool isReplaceableGlobalAllocationFunction() const;
-
-  /// \brief Determine whether this function is a sized global deallocation
-  /// function in C++1y. If so, find and return the corresponding unsized
-  /// deallocation function.
-  FunctionDecl *getCorrespondingUnsizedGlobalDeallocationFunction() const;
 
   /// Compute the language linkage.
   LanguageLinkage getLanguageLinkage() const;
@@ -1943,6 +1975,13 @@ public:
   QualType getCallResultType() const {
     return getType()->getAs<FunctionType>()->getCallResultType(getASTContext());
   }
+
+  /// \brief Returns true if this function or its return type has the
+  /// warn_unused_result attribute. If the return type has the attribute and
+  /// this function is a method of the return type's class, then false will be
+  /// returned to avoid spurious warnings on member methods such as assignment
+  /// operators.
+  bool hasUnusedResultAttr() const;
 
   /// \brief Returns the storage class as written in the source. For the
   /// computed linkage of symbol, see getLinkage.
@@ -2557,6 +2596,10 @@ public:
   /// Retrieves the canonical declaration of this typedef-name.
   TypedefNameDecl *getCanonicalDecl() override { return getFirstDecl(); }
   const TypedefNameDecl *getCanonicalDecl() const { return getFirstDecl(); }
+
+  /// Retrieves the tag declaration for which this is the typedef name for
+  /// linkage purposes, if any.
+  TagDecl *getAnonDeclWithTypedefName() const;
 
   // Implement isa/cast/dyncast/etc.
   static bool classof(const Decl *D) { return classofKind(D->getKind()); }
@@ -3543,17 +3586,17 @@ private:
   unsigned ContextParam;
   /// \brief The body of the outlined function.
   llvm::PointerIntPair<Stmt *, 1, bool> BodyAndNothrow;
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   /// \brief Whether this CapturedDecl contains Cilk spawns.
   bool IsSpawning;
-#endif
+#endif  // INTEL_CUSTOMIZATION
   explicit CapturedDecl(DeclContext *DC, unsigned NumParams)
     : Decl(Captured, DC, SourceLocation()), DeclContext(Captured),
       NumParams(NumParams), ContextParam(0), BodyAndNothrow(nullptr, false)
-#ifdef INTEL_CUSTOMIZATION	  
-      , IsSpawning(false) 
-#endif	  
-	  { }
+#ifdef INTEL_CUSTOMIZATION
+      , IsSpawning(false)
+#endif  // INTEL_CUSTOMIZATION
+    { }
 
   ImplicitParamDecl **getParams() const {
     return reinterpret_cast<ImplicitParamDecl **>(
@@ -3571,7 +3614,7 @@ public:
 #ifdef INTEL_CUSTOMIZATION
   void setSpawning() { IsSpawning = true; }
   bool isSpawning() const { return IsSpawning; }
-#endif
+#endif  // INTEL_CUSTOMIZATION
   bool isNothrow() const { return BodyAndNothrow.getInt(); }
   void setNothrow(bool Nothrow = true) { BodyAndNothrow.setInt(Nothrow); }
 
@@ -3657,7 +3700,7 @@ public:
   friend class ASTDeclReader;
   friend class ASTDeclWriter;
 };
-#endif
+#endif  // INTEL_CUSTOMIZATION
 /// \brief Describes a module import declaration, which makes the contents
 /// of the named module visible in the current translation unit.
 ///
@@ -3762,8 +3805,6 @@ void Redeclarable<decl_type>::setPreviousDecl(decl_type *PrevDecl) {
   assert(RedeclLink.NextIsLatest() &&
          "setPreviousDecl on a decl already in a redeclaration chain");
 
-  decl_type *First;
-
   if (PrevDecl) {
     // Point to previous. Make sure that this is actually the most recent
     // redeclaration, or we can build invalid chains. If the most recent
@@ -3808,8 +3849,8 @@ inline bool IsEnumDeclScoped(EnumDecl *ED) {
   return ED->isScoped();
 }
 
-#ifdef INTEL_CUSTOMIZATION
-/// PragmaDecl 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+/// PragmaDecl
 class PragmaStmt;
 class PragmaDecl : public Decl {
   virtual void anchor();
@@ -3842,7 +3883,15 @@ public:
   static bool classof(const PragmaDecl *D) { return true; }
   static bool classofKind(Kind K) { return K == Pragma; }
 };
-#endif
+#else
+class PragmaDecl : public Decl {
+public:
+  static bool classof(const Decl *D) { 
+    llvm_unreachable("Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
+    return false;
+  }
+};
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
 
 }  // end namespace clang
 

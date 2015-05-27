@@ -27,7 +27,6 @@
 #include "lldb/Symbol/SymbolContext.h"
 #include "lldb/Target/SectionLoadList.h"
 #include "lldb/Target/Target.h"
-#include "lldb/Host/HostInfo.h"
 
 #include "llvm/ADT/PointerUnion.h"
 #include "llvm/ADT/StringRef.h"
@@ -48,6 +47,7 @@ const char *const LLDB_NT_OWNER_FREEBSD = "FreeBSD";
 const char *const LLDB_NT_OWNER_GNU     = "GNU";
 const char *const LLDB_NT_OWNER_NETBSD  = "NetBSD";
 const char *const LLDB_NT_OWNER_CSR     = "csr";
+const char *const LLDB_NT_OWNER_ANDROID = "Android";
 
 // ELF note type definitions
 const elf_word LLDB_NT_FREEBSD_ABI_TAG  = 0x01;
@@ -283,8 +283,39 @@ kalimbaVariantFromElfFlags(const elf::elf_word e_flags)
 }
 
 static uint32_t
+mipsVariantFromElfFlags(const elf::elf_word e_flags, uint32_t endian)
+{
+    const uint32_t mips_arch = e_flags & llvm::ELF::EF_MIPS_ARCH;
+    uint32_t arch_variant = ArchSpec::eMIPSSubType_unknown;
+
+    switch (mips_arch)
+    {
+        case llvm::ELF::EF_MIPS_ARCH_32:
+            return (endian == ELFDATA2LSB) ? ArchSpec::eMIPSSubType_mips32el : ArchSpec::eMIPSSubType_mips32;
+        case llvm::ELF::EF_MIPS_ARCH_32R2:
+            return (endian == ELFDATA2LSB) ? ArchSpec::eMIPSSubType_mips32r2el : ArchSpec::eMIPSSubType_mips32r2;
+        case llvm::ELF::EF_MIPS_ARCH_32R6:
+            return (endian == ELFDATA2LSB) ? ArchSpec::eMIPSSubType_mips32r6el : ArchSpec::eMIPSSubType_mips32r6;
+        case llvm::ELF::EF_MIPS_ARCH_64:
+            return (endian == ELFDATA2LSB) ? ArchSpec::eMIPSSubType_mips64el : ArchSpec::eMIPSSubType_mips64;
+        case llvm::ELF::EF_MIPS_ARCH_64R2:
+            return (endian == ELFDATA2LSB) ? ArchSpec::eMIPSSubType_mips64r2el : ArchSpec::eMIPSSubType_mips64r2;
+        case llvm::ELF::EF_MIPS_ARCH_64R6:
+            return (endian == ELFDATA2LSB) ? ArchSpec::eMIPSSubType_mips64r6el : ArchSpec::eMIPSSubType_mips64r6;
+        default:
+            break;
+    }
+
+    return arch_variant;
+}
+
+static uint32_t
 subTypeFromElfHeader(const elf::ELFHeader& header)
 {
+    if (header.e_machine == llvm::ELF::EM_MIPS)
+        return mipsVariantFromElfFlags (header.e_flags,
+            header.e_ident[EI_DATA]);
+
     return
         llvm::ELF::EM_CSR_KALIMBA == header.e_machine ?
         kalimbaVariantFromElfFlags(header.e_flags) :
@@ -604,8 +635,7 @@ ObjectFileELF::GetModuleSpecifications (const lldb_private::FileSpec& file,
         {
             if (data_sp)
             {
-                ModuleSpec spec;
-                spec.GetFileSpec() = file;
+                ModuleSpec spec (file);
 
                 const uint32_t sub_type = subTypeFromElfHeader(header);
                 spec.GetArchitecture().SetArchitecture(eArchTypeELF,
@@ -647,14 +677,7 @@ ObjectFileELF::GetModuleSpecifications (const lldb_private::FileSpec& file,
 
                     GetSectionHeaderInfo(section_headers, data, header, uuid, gnu_debuglink_file, gnu_debuglink_crc, spec.GetArchitecture ());
 
-                    // If the module vendor is not set and the module OS matches this host OS, set the module vendor to the host vendor.
                     llvm::Triple &spec_triple = spec.GetArchitecture ().GetTriple ();
-                    if (spec_triple.getVendor () == llvm::Triple::VendorType::UnknownVendor)
-                    {
-                        const llvm::Triple &host_triple = HostInfo::GetArchitecture().GetTriple();
-                        if (spec_triple.getOS () == host_triple.getOS ())
-                            spec_triple.setVendor (host_triple.getVendor ());
-                    }
 
                     if (log)
                         log->Printf ("ObjectFileELF::%s file '%s' module set to triple: %s (architecture %s)", __FUNCTION__, file.GetPath ().c_str (), spec_triple.getTriple ().c_str (), spec.GetArchitecture ().GetArchitectureName ());
@@ -869,25 +892,18 @@ ObjectFileELF::GetAddressClass (addr_t file_addr)
     if (res != eAddressClassCode)
         return res;
 
-    ArchSpec arch_spec;
-    GetArchitecture(arch_spec);
-    if (arch_spec.GetMachine() != llvm::Triple::arm)
-        return res;
+    auto ub = m_address_class_map.upper_bound(file_addr);
+    if (ub == m_address_class_map.begin())
+    {
+        // No entry in the address class map before the address. Return
+        // default address class for an address in a code section.
+        return eAddressClassCode;
+    }
 
-    auto symtab = GetSymtab();
-    if (symtab == nullptr)
-        return res;
+    // Move iterator to the address class entry preceding address
+    --ub;
 
-    auto symbol = symtab->FindSymbolContainingFileAddress(file_addr);
-    if (symbol == nullptr)
-        return res;
-
-    // Thumb symbols have the lower bit set in the flags field so we just check
-    // for that.
-    if (symbol->GetFlags() & ARM_ELF_SYM_IS_THUMB)
-        res = eAddressClassCodeAlternateISA;
-
-    return res;
+    return ub->second;
 }
 
 size_t
@@ -1337,6 +1353,11 @@ ObjectFileELF::RefineModuleDetailsFromNote (lldb_private::DataExtractor &data, l
                 (void)cstr;
             }
         }
+        else if (note.n_name == LLDB_NT_OWNER_ANDROID)
+        {
+            arch_spec.GetTriple().setOS(llvm::Triple::OSType::Linux);
+            arch_spec.GetTriple().setEnvironment(llvm::Triple::EnvironmentType::Android);
+        }
 
         if (!processed)
             offset += llvm::RoundUpToAlignment(note.n_descsz, 4);
@@ -1368,30 +1389,6 @@ ObjectFileELF::GetSectionHeaderInfo(SectionHeaderColl &section_headers,
     {
         const uint32_t sub_type = subTypeFromElfHeader(header);
         arch_spec.SetArchitecture (eArchTypeELF, header.e_machine, sub_type);
-
-        switch (arch_spec.GetAddressByteSize())
-        {
-        case 4:
-            {
-                const ArchSpec host_arch32 = HostInfo::GetArchitecture(HostInfo::eArchKind32);
-                if (host_arch32.GetCore() == arch_spec.GetCore())
-                {
-                    arch_spec.GetTriple().setOSName(HostInfo::GetOSString().data());
-                    arch_spec.GetTriple().setVendorName(HostInfo::GetVendorString().data());
-                }
-            }
-            break;
-        case 8:
-            {
-                const ArchSpec host_arch64 = HostInfo::GetArchitecture(HostInfo::eArchKind64);
-                if (host_arch64.GetCore() == arch_spec.GetCore())
-                {
-                    arch_spec.GetTriple().setOSName(HostInfo::GetOSString().data());
-                    arch_spec.GetTriple().setVendorName(HostInfo::GetVendorString().data());
-                }
-            }
-            break;
-        }
     }
 
     // If there are no section headers we are done.
@@ -1453,7 +1450,15 @@ ObjectFileELF::GetSectionHeaderInfo(SectionHeaderColl &section_headers,
                 }
 
                 // Process ELF note section entries.
-                if (header.sh_type == SHT_NOTE)
+                bool is_note_header = (header.sh_type == SHT_NOTE);
+
+                // The section header ".note.android.ident" is stored as a
+                // PROGBITS type header but it is actually a note header.
+                static ConstString g_sect_name_android_ident (".note.android.ident");
+                if (!is_note_header && name == g_sect_name_android_ident)
+                    is_note_header = true;
+
+                if (is_note_header)
                 {
                     // Allow notes to refine module info.
                     DataExtractor data;
@@ -1833,45 +1838,85 @@ ObjectFileELF::ParseSymbols (Symtab *symtab,
             }
         }
 
-        ArchSpec arch;
         int64_t symbol_value_offset = 0;
         uint32_t additional_flags = 0;
 
-        if (GetArchitecture(arch) &&
-            arch.GetMachine() == llvm::Triple::arm)
+        ArchSpec arch;
+        if (GetArchitecture(arch))
         {
-            // ELF symbol tables may contain some mapping symbols. They provide
-            // information about the underlying data. There are three of them
-            // currently defined:
-            //   $a[.<any>]* - marks an ARM instruction sequence
-            //   $t[.<any>]* - marks a THUMB instruction sequence
-            //   $d[.<any>]* - marks a data item sequence (e.g. lit pool)
-            // These symbols interfere with normal debugger operations and we
-            // don't need them. We can drop them here.
-
-            static const llvm::StringRef g_armelf_arm_marker("$a");
-            static const llvm::StringRef g_armelf_thumb_marker("$t");
-            static const llvm::StringRef g_armelf_data_marker("$d");
-            llvm::StringRef symbol_name_ref(symbol_name);
-
-            if (symbol_name &&
-                (symbol_name_ref.startswith(g_armelf_arm_marker) ||
-                 symbol_name_ref.startswith(g_armelf_thumb_marker) ||
-                 symbol_name_ref.startswith(g_armelf_data_marker)))
-                continue;
-
-            // THUMB functions have the lower bit of their address set. Fixup
-            // the actual address and mark the symbol as THUMB.
-            if (symbol_type == eSymbolTypeCode && symbol.st_value & 1)
+            if (arch.GetMachine() == llvm::Triple::arm)
             {
-                // Substracting 1 from the address effectively unsets
-                // the low order bit, which results in the address
-                // actually pointing to the beginning of the symbol.
-                // This delta will be used below in conjuction with
-                // symbol.st_value to produce the final symbol_value
-                // that we store in the symtab.
-                symbol_value_offset = -1;
-                additional_flags = ARM_ELF_SYM_IS_THUMB;
+                if (symbol.getBinding() == STB_LOCAL && symbol_name && symbol_name[0] == '$')
+                {
+                    // These are reserved for the specification (e.g.: mapping
+                    // symbols). We don't want to add them to the symbol table.
+
+                    if (symbol_type == eSymbolTypeCode)
+                    {
+                        llvm::StringRef symbol_name_ref(symbol_name);
+                        if (symbol_name_ref == "$a" || symbol_name_ref.startswith("$a."))
+                        {
+                            // $a[.<any>]* - marks an ARM instruction sequence
+                            m_address_class_map[symbol.st_value] = eAddressClassCode;
+                        }
+                        else if (symbol_name_ref == "$b" || symbol_name_ref.startswith("$b.") ||
+                                 symbol_name_ref == "$t" || symbol_name_ref.startswith("$t."))
+                        {
+                            // $b[.<any>]* - marks a THUMB BL instruction sequence
+                            // $t[.<any>]* - marks a THUMB instruction sequence
+                            m_address_class_map[symbol.st_value] = eAddressClassCodeAlternateISA;
+                        }
+                        else if (symbol_name_ref == "$d" || symbol_name_ref.startswith("$d."))
+                        {
+                            // $d[.<any>]* - marks a data item sequence (e.g. lit pool)
+                            m_address_class_map[symbol.st_value] = eAddressClassData;
+                        }
+                    }
+
+                    continue;
+                }
+            }
+            else if (arch.GetMachine() == llvm::Triple::aarch64)
+            {
+                if (symbol.getBinding() == STB_LOCAL && symbol_name && symbol_name[0] == '$')
+                {
+                    // These are reserved for the specification (e.g.: mapping
+                    // symbols). We don't want to add them to the symbol table.
+
+                    if (symbol_type == eSymbolTypeCode)
+                    {
+                        llvm::StringRef symbol_name_ref(symbol_name);
+                        if (symbol_name_ref == "$x" || symbol_name_ref.startswith("$x."))
+                        {
+                            // $x[.<any>]* - marks an A64 instruction sequence
+                            m_address_class_map[symbol.st_value] = eAddressClassCode;
+                        }
+                        else if (symbol_name_ref == "$d" || symbol_name_ref.startswith("$d."))
+                        {
+                            // $d[.<any>]* - marks a data item sequence (e.g. lit pool)
+                            m_address_class_map[symbol.st_value] = eAddressClassData;
+                        }
+                    }
+
+                    continue;
+                }
+            }
+
+            if (arch.GetMachine() == llvm::Triple::arm)
+            {
+                // THUMB functions have the lower bit of their address set. Fixup
+                // the actual address and mark the symbol as THUMB.
+                if (symbol_type == eSymbolTypeCode && symbol.st_value & 1)
+                {
+                    // Substracting 1 from the address effectively unsets
+                    // the low order bit, which results in the address
+                    // actually pointing to the beginning of the symbol.
+                    // This delta will be used below in conjuction with
+                    // symbol.st_value to produce the final symbol_value
+                    // that we store in the symtab.
+                    symbol_value_offset = -1;
+                    additional_flags = ARM_ELF_SYM_IS_THUMB;
+                }
             }
         }
 
@@ -1897,7 +1942,7 @@ ObjectFileELF::ParseSymbols (Symtab *symtab,
 
         // symbol_value_offset may contain 0 for ARM symbols or -1 for
         // THUMB symbols. See above for more details.
-        uint64_t symbol_value = symbol.st_value | symbol_value_offset;
+        uint64_t symbol_value = symbol.st_value + symbol_value_offset;
         if (symbol_section_sp && CalculateType() != ObjectFile::Type::eTypeObjectFile)
             symbol_value -= symbol_section_sp->GetFileAddress();
         bool is_global = symbol.getBinding() == STB_GLOBAL;

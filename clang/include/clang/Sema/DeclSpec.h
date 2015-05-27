@@ -284,9 +284,9 @@ public:
   static const TST TST_half = clang::TST_half;
   static const TST TST_float = clang::TST_float;
   static const TST TST_double = clang::TST_double;
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
   static const TST TST_float128 = clang::TST_float128;
-#endif
+#endif  // INTEL_CUSTOMIZATION
   static const TST TST_bool = clang::TST_bool;
   static const TST TST_decimal32 = clang::TST_decimal32;
   static const TST TST_decimal64 = clang::TST_decimal64;
@@ -1418,7 +1418,8 @@ struct DeclaratorChunk {
   static DeclaratorChunk getPointer(unsigned TypeQuals, SourceLocation Loc,
                                     SourceLocation ConstQualLoc,
                                     SourceLocation VolatileQualLoc,
-                                    SourceLocation RestrictQualLoc) {
+                                    SourceLocation RestrictQualLoc,
+                                    SourceLocation AtomicQualLoc) {
     DeclaratorChunk I;
     I.Kind                = Pointer;
     I.Loc                 = Loc;
@@ -1426,6 +1427,7 @@ struct DeclaratorChunk {
     I.Ptr.ConstQualLoc    = ConstQualLoc.getRawEncoding();
     I.Ptr.VolatileQualLoc = VolatileQualLoc.getRawEncoding();
     I.Ptr.RestrictQualLoc = RestrictQualLoc.getRawEncoding();
+    I.Ptr.AtomicQualLoc   = AtomicQualLoc.getRawEncoding();
     I.Ptr.AttrList        = nullptr;
     return I;
   }
@@ -2183,7 +2185,7 @@ public:
     VS_Sealed = 4
   };
 
-  VirtSpecifiers() : Specifiers(0) { }
+  VirtSpecifiers() : Specifiers(0), LastSpecifier(VS_None) { }
 
   bool SetSpecifier(Specifier VS, SourceLocation Loc,
                     const char *&PrevSpec);
@@ -2201,12 +2203,16 @@ public:
 
   static const char *getSpecifierName(Specifier VS);
 
+  SourceLocation getFirstLocation() const { return FirstLocation; }
   SourceLocation getLastLocation() const { return LastLocation; }
+  Specifier getLastSpecifier() const { return LastSpecifier; }
   
 private:
   unsigned Specifiers;
+  Specifier LastSpecifier;
 
   SourceLocation VS_overrideLoc, VS_finalLoc;
+  SourceLocation FirstLocation;
   SourceLocation LastLocation;
 };
 

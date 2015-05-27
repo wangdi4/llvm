@@ -477,8 +477,11 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
 #undef TOSTR
 #undef TOSTR2
 #ifdef INTEL_CUSTOMIZATION
+// CQ#368488 - skip the check and define GCC_* macros for iclang.
+#ifndef INTEL_SPECIFIC_IL0_BACKEND
   if (!LangOpts.IntelCompat)
-#endif
+#endif  // not INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   if (!LangOpts.MSVCCompat) {
     // Currently claim to be compatible with GCC 4.2.1-5621, but only if we're
     // not compiling for MSVC compatibility
@@ -582,6 +585,10 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     Builder.defineMacro("__DEPRECATED");
 
   if (!LangOpts.MSVCCompat && LangOpts.CPlusPlus) {
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#369662 - Intel driver already sets __GNUG__ into appropriate value.
+    if (!LangOpts.IntelCompat)
+#endif // INTEL_CUSTOMIZATION
     Builder.defineMacro("__GNUG__", "4");
     Builder.defineMacro("__GXX_WEAK__");
     Builder.defineMacro("__private_extern__", "extern");
@@ -636,6 +643,16 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   // Define type sizing macros based on the target properties.
   assert(TI.getCharWidth() == 8 && "Only support 8-bit char so far");
   Builder.defineMacro("__CHAR_BIT__", "8");
+
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#366613 - define macro __LONG_DOUBLE_SIZE__ in IntelCompat mode.
+  if (LangOpts.IntelCompat) {
+    llvm::APFloat Float = llvm::APFloat(TI.getLongDoubleFormat());
+    llvm::APInt Int = Float.bitcastToAPInt();
+    int LongDoubleSize = Int.getBitWidth();
+    Builder.defineMacro("__LONG_DOUBLE_SIZE__", Twine(LongDoubleSize));
+  }
+#endif // INTEL_CUSTOMIZATION
 
   DefineTypeSize("__SCHAR_MAX__", TargetInfo::SignedChar, TI, Builder);
   DefineTypeSize("__SHRT_MAX__", TargetInfo::SignedShort, TI, Builder);
@@ -881,7 +898,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   Builder.defineMacro("__I__", "1j");
   if (LangOpts.CilkPlus)
     Builder.defineMacro("__cilk", "200");
-#endif
+#endif  // INTEL_CUSTOMIZATION
   // CUDA device path compilaton
   if (LangOpts.CUDAIsDevice) {
     // The CUDA_ARCH value is set for the GPU target specified in the NVPTX
