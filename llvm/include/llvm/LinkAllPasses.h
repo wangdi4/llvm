@@ -15,6 +15,7 @@
 #ifndef LLVM_LINKALLPASSES_H
 #define LLVM_LINKALLPASSES_H
 
+#include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasSetTracker.h"
 #include "llvm/Analysis/CallPrinter.h"
 #include "llvm/Analysis/DomPrinter.h"
@@ -40,6 +41,7 @@
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/VPO/Vecopt/VecoptPasses.h"
 #endif // INTEL_CUSTOMIZATION
+#include "llvm/Support/Valgrind.h"
 #include <cstdlib>
 
 namespace {
@@ -79,6 +81,7 @@ namespace {
       (void) llvm::createDeadInstEliminationPass();
       (void) llvm::createDeadStoreEliminationPass();
       (void) llvm::createDependenceAnalysisPass();
+      (void) llvm::createDivergenceAnalysisPass();
       (void) llvm::createDomOnlyPrinterPass();
       (void) llvm::createDomPrinterPass();
       (void) llvm::createDomOnlyViewerPass();
@@ -100,6 +103,7 @@ namespace {
       (void) llvm::createLICMPass();
       (void) llvm::createLazyValueInfoPass();
       (void) llvm::createLoopExtractorPass();
+      (void)llvm::createLoopInterchangePass();
       (void) llvm::createLoopSimplifyPass();
       (void) llvm::createLoopStrengthReducePass();
       (void) llvm::createLoopRerollPass();
@@ -110,6 +114,7 @@ namespace {
       (void) llvm::createLowerExpectIntrinsicPass();
       (void) llvm::createLowerInvokePass();
       (void) llvm::createLowerSwitchPass();
+      (void) llvm::createNaryReassociatePass();
       (void) llvm::createNoAAPass();
       (void) llvm::createObjCARCAliasAnalysisPass();
       (void) llvm::createObjCARCAPElimPass();
@@ -173,6 +178,7 @@ namespace {
       (void) llvm::createRewriteSymbolsPass();
       (void) llvm::createStraightLineStrengthReducePass();
       (void) llvm::createMemDerefPrinter();
+      (void) llvm::createFloat2IntPass();
 
       (void)new llvm::IntervalPartition();
       (void)new llvm::ScalarEvolution();
@@ -191,6 +197,8 @@ namespace {
       (void) llvm::createVPOVectorizerPass();
 #endif // INTEL_CUSTOMIZATION
 
+      (void) llvm::AreStatisticsEnabled();
+      (void) llvm::sys::RunningOnValgrind();
     }
   } ForcePassLinking; // Force link by creating a global definition.
 }

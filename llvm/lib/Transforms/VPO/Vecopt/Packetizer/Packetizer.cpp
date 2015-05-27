@@ -785,7 +785,7 @@ void PacketizeFunction::cloneNonPacketizableInst(Instruction *I, Instruction **d
         }
       }
       for (unsigned i = 0; i < m_packetWidth; i++) {
-        duplicateInsts[i] = GetElementPtrInst::Create(multiPtrOperand[i], makeArrayRef(Idx), pGEP->getName());
+        duplicateInsts[i] = GetElementPtrInst::Create(nullptr, multiPtrOperand[i], makeArrayRef(Idx), pGEP->getName());
       }
     }
     else if (BitCastInst *pBC = dyn_cast<BitCastInst>(I)) {
@@ -838,7 +838,7 @@ void PacketizeFunction::fixSoaAllocaLoadStoreOperands(Instruction *I, unsigned i
       // Then increase the address with lane-id (using GEP instruction)
       multiOperands[i] = BitCastInst::CreatePointerCast(multiOperands[i], vecType->getScalarType()->getPointerTo(), "bitcast2Scalar", I);
       Constant *laneVal = ConstantInt::get(Type::getInt32Ty(I->getContext()), i);
-      multiOperands[i] = GetElementPtrInst::Create(multiOperands[i], laneVal, "GEP[Lane]", I);
+      multiOperands[i] = GetElementPtrInst::Create(nullptr, multiOperands[i], laneVal, "GEP[Lane]", I);
     }
   }
 }

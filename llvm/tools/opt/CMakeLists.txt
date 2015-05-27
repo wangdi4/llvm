@@ -17,6 +17,7 @@ set(LLVM_LINK_COMPONENTS
   TransformUtils
   Vectorize
   VPOVectorizer #***INTEL
+  Passes
   )
 #
 #  --- Need to add these two 
@@ -32,12 +33,11 @@ add_llvm_tool(opt
   BreakpointPrinter.cpp
   GraphPrinters.cpp
   NewPMDriver.cpp
-  Passes.cpp
   PassPrinters.cpp
   PrintSCC.cpp
   opt.cpp
   )
-set_target_properties(opt PROPERTIES ENABLE_EXPORTS 1)
+export_executable_symbols(opt)
 
 if(WITH_POLLY AND LINK_POLLY_INTO_TOOLS)
   target_link_libraries(opt Polly)

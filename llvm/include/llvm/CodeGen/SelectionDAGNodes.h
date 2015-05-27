@@ -50,23 +50,6 @@ template <typename T> struct DenseMapInfo;
 template <typename T> struct simplify_type;
 template <typename T> struct ilist_traits;
 
-/// Returns true if the opcode is a binary operation with flags.
-static bool isBinOpWithFlags(unsigned Opcode) {
-  switch (Opcode) {
-  case ISD::SDIV:
-  case ISD::UDIV:
-  case ISD::SRA:
-  case ISD::SRL:
-  case ISD::MUL:
-  case ISD::ADD:
-  case ISD::SUB:
-  case ISD::SHL:
-    return true;
-  default:
-    return false;
-  }
-}
-
 void checkForCycles(const SDNode *N, const SelectionDAG *DAG = nullptr,
                     bool force = false);
 
@@ -93,6 +76,10 @@ namespace ISD {
   /// \brief Return true if the specified node is a BUILD_VECTOR node of
   /// all ConstantSDNode or undef.
   bool isBuildVectorOfConstantSDNodes(const SDNode *N);
+
+  /// \brief Return true if the specified node is a BUILD_VECTOR node of
+  /// all ConstantFPSDNode or undef.
+  bool isBuildVectorOfConstantFPSDNodes(const SDNode *N);
 
   /// Return true if the specified node is a
   /// ISD::SCALAR_TO_VECTOR node or a BUILD_VECTOR node where only the low
@@ -963,6 +950,23 @@ public:
   }
 };
 
+/// Returns true if the opcode is a binary operation with flags.
+static bool isBinOpWithFlags(unsigned Opcode) {
+  switch (Opcode) {
+  case ISD::SDIV:
+  case ISD::UDIV:
+  case ISD::SRA:
+  case ISD::SRL:
+  case ISD::MUL:
+  case ISD::ADD:
+  case ISD::SUB:
+  case ISD::SHL:
+    return true;
+  default:
+    return false;
+  }
+}
+
 /// This class is an extension of BinarySDNode
 /// used from those opcodes that have associated extra flags.
 class BinaryWithFlagsSDNode : public BinarySDNode {
@@ -1331,6 +1335,21 @@ public:
     llvm_unreachable("Splat with all undef indices?");
   }
   static bool isSplatMask(const int *Mask, EVT VT);
+
+  /// Change values in a shuffle permute mask assuming
+  /// the two vector operands have swapped position.
+  static void commuteMask(SmallVectorImpl<int> &Mask) {
+    unsigned NumElems = Mask.size();
+    for (unsigned i = 0; i != NumElems; ++i) {
+      int idx = Mask[i];
+      if (idx < 0)
+        continue;
+      else if (idx < (int)NumElems)
+        Mask[i] = idx + NumElems;
+      else
+        Mask[i] = idx - NumElems;
+    }
+  }
 
   static bool classof(const SDNode *N) {
     return N->getOpcode() == ISD::VECTOR_SHUFFLE;

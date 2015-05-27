@@ -362,7 +362,8 @@ void PacketizeFunction::obtainArgumentMultiScalarValues(Value *retValues[],
 	for (unsigned index = 0; index < m_packetWidth; ++index)
         {
 	  Value * constIndex = ConstantInt::get(i32Type, index);
-	  Instruction* newGEP = GetElementPtrInst::Create(origValue,
+	  Instruction* newGEP = GetElementPtrInst::Create(nullptr,
+                                                          origValue,
 							  constIndex,
 							  "consec.ptr",
 							  origInst);

@@ -10,13 +10,19 @@
 #include "lldb/Target/Platform.h"
 
 // C Includes
+
 // C++ Includes
+#include <algorithm>
+#include <fstream>
+#include <vector>
+
 // Other libraries and framework includes
 // Project includes
 #include "lldb/Breakpoint/BreakpointIDList.h"
 #include "lldb/Core/DataBufferHeap.h"
 #include "lldb/Core/Error.h"
 #include "lldb/Core/Log.h"
+#include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/StructuredData.h"
@@ -24,9 +30,15 @@
 #include "lldb/Host/FileSystem.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Host/HostInfo.h"
+#include "lldb/Interpreter/OptionValueProperties.h"
+#include "lldb/Interpreter/Property.h"
+#include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Utility/Utils.h"
+#include "llvm/Support/FileSystem.h"
+
+#include "Utility/ModuleCache.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -46,6 +58,73 @@ const char *
 Platform::GetHostPlatformName ()
 {
     return "host";
+}
+
+namespace {
+
+    PropertyDefinition
+    g_properties[] =
+    {
+        { "use-module-cache"      , OptionValue::eTypeBoolean , true,  true, nullptr, nullptr, "Use module cache." },
+        { "module-cache-directory", OptionValue::eTypeFileSpec, true,  0 ,   nullptr, nullptr, "Root directory for cached modules." },
+        {  nullptr                , OptionValue::eTypeInvalid , false, 0,    nullptr, nullptr, nullptr }
+    };
+
+    enum
+    {
+        ePropertyUseModuleCache,
+        ePropertyModuleCacheDirectory
+    };
+
+}  // namespace
+
+
+ConstString
+PlatformProperties::GetSettingName ()
+{
+    static ConstString g_setting_name("platform");
+    return g_setting_name;
+}
+
+PlatformProperties::PlatformProperties ()
+{
+    m_collection_sp.reset (new OptionValueProperties (GetSettingName ()));
+    m_collection_sp->Initialize (g_properties);
+
+    auto module_cache_dir = GetModuleCacheDirectory ();
+    if (!module_cache_dir)
+    {
+        if (!HostInfo::GetLLDBPath (ePathTypeGlobalLLDBTempSystemDir, module_cache_dir))
+            module_cache_dir = FileSpec ("/tmp/lldb", false);
+        module_cache_dir.AppendPathComponent ("module_cache");
+        SetModuleCacheDirectory (module_cache_dir);
+    }
+}
+
+bool
+PlatformProperties::GetUseModuleCache () const
+{
+    const auto idx = ePropertyUseModuleCache;
+    return m_collection_sp->GetPropertyAtIndexAsBoolean (
+        nullptr, idx, g_properties[idx].default_uint_value != 0);
+}
+
+bool
+PlatformProperties::SetUseModuleCache (bool use_module_cache)
+{
+    return m_collection_sp->SetPropertyAtIndexAsBoolean (nullptr, ePropertyUseModuleCache, use_module_cache);
+}
+
+FileSpec
+PlatformProperties::GetModuleCacheDirectory () const
+{
+    return m_collection_sp->GetPropertyAtIndexAsFileSpec (nullptr, ePropertyModuleCacheDirectory);
+}
+
+bool
+PlatformProperties::SetModuleCacheDirectory (const FileSpec& dir_spec)
+{
+    return m_collection_sp->SetPropertyAtIndexAsFileSpec (nullptr, ePropertyModuleCacheDirectory, dir_spec);
 }
 
 //------------------------------------------------------------------
@@ -95,6 +174,13 @@ Platform::Terminate ()
             GetPlatformList().clear();
         }
     }
+}
+
+const PlatformPropertiesSP &
+Platform::GetGlobalPlatformProperties ()
+{
+    static const auto g_settings_sp (std::make_shared<PlatformProperties> ());
+    return g_settings_sp;
 }
 
 void
@@ -160,25 +246,43 @@ Platform::LocateExecutableScriptingResources (Target *target, Module &module, St
 
 Error
 Platform::GetSharedModule (const ModuleSpec &module_spec,
+                           Process* process,
                            ModuleSP &module_sp,
                            const FileSpecList *module_search_paths_ptr,
                            ModuleSP *old_module_sp_ptr,
                            bool *did_create_ptr)
 {
-    // Don't do any path remapping for the default implementation
-    // of the platform GetSharedModule function, just call through
-    // to our static ModuleList function. Platform subclasses that
-    // implement remote debugging, might have a developer kits
-    // installed that have cached versions of the files for the
-    // remote target, or might implement a download and cache 
-    // locally implementation.
-    const bool always_create = false;
-    return ModuleList::GetSharedModule (module_spec, 
-                                        module_sp,
-                                        module_search_paths_ptr,
-                                        old_module_sp_ptr,
-                                        did_create_ptr,
-                                        always_create);
+    if (IsHost ())
+        return ModuleList::GetSharedModule (module_spec,
+                                            module_sp,
+                                            module_search_paths_ptr,
+                                            old_module_sp_ptr,
+                                            did_create_ptr,
+                                            false);
+
+    return GetRemoteSharedModule (module_spec,
+                                  process,
+                                  module_sp,
+                                  [&](const ModuleSpec &spec)
+                                  {
+                                      return ModuleList::GetSharedModule (
+                                          spec, module_sp, module_search_paths_ptr, old_module_sp_ptr, did_create_ptr, false);
+                                  },
+                                  did_create_ptr);
+}
+
+bool
+Platform::GetModuleSpec (const FileSpec& module_file_spec,
+                         const ArchSpec& arch,
+                         ModuleSpec &module_spec)
+{
+    ModuleSpecList module_specs;
+    if (ObjectFile::GetModuleSpecifications (module_file_spec, 0, 0, module_specs) == 0)
+        return false;
+
+    ModuleSpec matched_module_spec;
+    return module_specs.FindMatchingModuleSpec (ModuleSpec (module_file_spec, arch),
+                                                module_spec);
 }
 
 PlatformSP
@@ -321,7 +425,8 @@ Platform::Platform (bool is_host) :
     m_ssh_opts (),
     m_ignores_remote_hostname (false),
     m_trap_handlers(),
-    m_calculated_trap_handlers (false)
+    m_calculated_trap_handlers (false),
+    m_module_cache (llvm::make_unique<ModuleCache> ())
 {
     Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_OBJECT));
     if (log)
@@ -1647,3 +1752,182 @@ Platform::GetTrapHandlerSymbolNames ()
     return m_trap_handlers;
 }
 
+Error
+Platform::GetCachedExecutable (ModuleSpec &module_spec,
+                               lldb::ModuleSP &module_sp,
+                               const FileSpecList *module_search_paths_ptr,
+                               Platform &remote_platform)
+{
+    const auto platform_spec = module_spec.GetFileSpec ();
+    const auto error = LoadCachedExecutable (module_spec,
+                                             module_sp,
+                                             module_search_paths_ptr,
+                                             remote_platform);
+    if (error.Success ())
+    {
+        module_spec.GetFileSpec () = module_sp->GetFileSpec ();
+        module_spec.GetPlatformFileSpec () = platform_spec;
+    }
+
+    return error;
+}
+
+Error
+Platform::LoadCachedExecutable (const ModuleSpec &module_spec,
+                                lldb::ModuleSP &module_sp,
+                                const FileSpecList *module_search_paths_ptr,
+                                Platform &remote_platform)
+{
+    return GetRemoteSharedModule (module_spec,
+                                  nullptr,
+                                  module_sp,
+                                  [&](const ModuleSpec &spec)
+                                  {
+                                      return remote_platform.ResolveExecutable (
+                                          spec, module_sp, module_search_paths_ptr);
+                                  },
+                                  nullptr);
+}
+
+Error
+Platform::GetRemoteSharedModule (const ModuleSpec &module_spec,
+                                 Process* process,
+                                 lldb::ModuleSP &module_sp,
+                                 const ModuleResolver &module_resolver,
+                                 bool *did_create_ptr)
+{
+    // Get module information from a target.
+    ModuleSpec resolved_module_spec;
+    bool got_module_spec = false;
+    if (process)
+    {
+        // Try to get module information from the process
+        if (process->GetModuleSpec (module_spec.GetFileSpec (), module_spec.GetArchitecture (), resolved_module_spec))
+          got_module_spec = true;
+    }
+
+    if (!got_module_spec)
+    {
+        // Get module information from a target.
+        if (!GetModuleSpec (module_spec.GetFileSpec (), module_spec.GetArchitecture (), resolved_module_spec))
+            return module_resolver (module_spec);
+    }
+
+    // Trying to find a module by UUID on local file system.
+    const auto error = module_resolver (resolved_module_spec);
+    if (error.Fail ())
+     {
+          if (GetCachedSharedModule (resolved_module_spec, module_sp, did_create_ptr))
+              return Error ();
+     }
+
+    return error;
+}
+
+bool
+Platform::GetCachedSharedModule (const ModuleSpec &module_spec,
+                                 lldb::ModuleSP &module_sp,
+                                 bool *did_create_ptr)
+{
+    if (IsHost() ||
+        !GetGlobalPlatformProperties ()->GetUseModuleCache ())
+        return false;
+
+    Log *log = GetLogIfAnyCategoriesSet (LIBLLDB_LOG_PLATFORM);
+
+    // Check local cache for a module.
+    auto error = m_module_cache->GetAndPut (
+        GetModuleCacheRoot (),
+        GetCacheHostname (),
+        module_spec,
+        [=](const ModuleSpec &module_spec, FileSpec &tmp_download_file_spec)
+        {
+            // Get temporary file name for a downloaded module.
+            llvm::SmallString<PATH_MAX> tmp_download_file_path;
+            const auto err_code = llvm::sys::fs::createTemporaryFile (
+                "lldb", module_spec.GetUUID ().GetAsString ().c_str (), tmp_download_file_path);
+            if (err_code)
+                return Error ("Failed to create temp file: %s", err_code.message ().c_str ());
+
+            tmp_download_file_spec.SetFile (tmp_download_file_path.c_str (), true);
+            return DownloadModuleSlice (module_spec.GetFileSpec (),
+                                        module_spec.GetObjectOffset (),
+                                        module_spec.GetObjectSize (),
+                                        tmp_download_file_spec);
+
+        },
+        module_sp,
+        did_create_ptr);
+    if (error.Success ())
+        return true;
+
+    if (log)
+        log->Printf("Platform::%s - module %s not found in local cache: %s",
+                    __FUNCTION__, module_spec.GetUUID ().GetAsString ().c_str (), error.AsCString ());
+    return false;
+}
+
+Error
+Platform::DownloadModuleSlice (const FileSpec& src_file_spec,
+                               const uint64_t src_offset,
+                               const uint64_t src_size,
+                               const FileSpec& dst_file_spec)
+{
+    Error error;
+
+    std::ofstream dst (dst_file_spec.GetPath(), std::ios::out | std::ios::binary);
+    if (!dst.is_open())
+    {
+        error.SetErrorStringWithFormat ("unable to open destination file: %s", dst_file_spec.GetPath ().c_str ());
+        return error;
+    }
+
+    auto src_fd = OpenFile (src_file_spec,
+                            File::eOpenOptionRead,
+                            lldb::eFilePermissionsFileDefault,
+                            error);
+
+   if (error.Fail ())
+   {
+       error.SetErrorStringWithFormat ("unable to open source file: %s", error.AsCString ());
+       return error;
+   }
+
+    std::vector<char> buffer (1024);
+    auto offset = src_offset;
+    uint64_t total_bytes_read = 0;
+    while (total_bytes_read < src_size)
+    {
+        const auto to_read = std::min (static_cast<uint64_t>(buffer.size ()), src_size - total_bytes_read);
+        const uint64_t n_read = ReadFile (src_fd, offset, &buffer[0], to_read, error);
+        if (error.Fail ())
+            break;
+        if (n_read == 0)
+        {
+            error.SetErrorString ("read 0 bytes");
+            break;
+        }
+        offset += n_read;
+        total_bytes_read += n_read;
+        dst.write (&buffer[0], n_read);
+    }
+
+    Error close_error;
+    CloseFile (src_fd, close_error);  // Ignoring close error.
+
+    return error;
+}
+
+FileSpec
+Platform::GetModuleCacheRoot ()
+{
+    auto dir_spec = GetGlobalPlatformProperties ()->GetModuleCacheDirectory ();
+    dir_spec.AppendPathComponent (GetName ().AsCString ());
+    return dir_spec;
+}
+
+const char *
+Platform::GetCacheHostname ()
+{
+    return GetHostname ();
+}

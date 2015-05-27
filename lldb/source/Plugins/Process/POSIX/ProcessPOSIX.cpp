@@ -14,6 +14,7 @@
 
 // C++ Includes
 // Other libraries and framework includes
+#include "lldb/Breakpoint/BreakpointLocation.h"
 #include "lldb/Breakpoint/Watchpoint.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
@@ -34,39 +35,6 @@
 
 using namespace lldb;
 using namespace lldb_private;
-
-//------------------------------------------------------------------------------
-// Static functions.
-#if 0
-Process*
-ProcessPOSIX::CreateInstance(Target& target, Listener &listener)
-{
-    return new ProcessPOSIX(target, listener);
-}
-
-
-void
-ProcessPOSIX::Initialize()
-{
-    static bool g_initialized = false;
-
-    if (!g_initialized)
-    {
-        g_initialized = true;
-        PluginManager::RegisterPlugin(GetPluginNameStatic(),
-                                      GetPluginDescriptionStatic(),
-                                      CreateInstance);
-
-        Log::Callbacks log_callbacks = {
-            ProcessPOSIXLog::DisableLog,
-            ProcessPOSIXLog::EnableLog,
-            ProcessPOSIXLog::ListLogCategories
-        };
-        
-        Log::RegisterLogChannel (ProcessPOSIX::GetPluginNameStatic(), log_callbacks);
-    }
-}
-#endif
 
 //------------------------------------------------------------------------------
 // Constructors and destructors.
@@ -671,6 +639,33 @@ ProcessPOSIX::GetSoftwareBreakpointTrapOpcode(BreakpointSite* bp_site)
         assert(false && "CPU type not supported!");
         break;
 
+    case llvm::Triple::arm:
+        {
+            // The ARM reference recommends the use of 0xe7fddefe and 0xdefe
+            // but the linux kernel does otherwise.
+            static const uint8_t g_arm_breakpoint_opcode[] = { 0xf0, 0x01, 0xf0, 0xe7 };
+            static const uint8_t g_thumb_breakpoint_opcode[] = { 0x01, 0xde };
+
+            lldb::BreakpointLocationSP bp_loc_sp (bp_site->GetOwnerAtIndex (0));
+            AddressClass addr_class = eAddressClassUnknown;
+
+            if (bp_loc_sp)
+                addr_class = bp_loc_sp->GetAddress ().GetAddressClass ();
+
+            if (addr_class == eAddressClassCodeAlternateISA
+                || (addr_class == eAddressClassUnknown
+                    && bp_loc_sp->GetAddress().GetOffset() & 1))
+            {
+                opcode = g_thumb_breakpoint_opcode;
+                opcode_size = sizeof(g_thumb_breakpoint_opcode);
+            }
+            else
+            {
+                opcode = g_arm_breakpoint_opcode;
+                opcode_size = sizeof(g_arm_breakpoint_opcode);
+            }
+        }
+        break;
     case llvm::Triple::aarch64:
         opcode = g_aarch64_opcode;
         opcode_size = sizeof(g_aarch64_opcode);

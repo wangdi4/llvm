@@ -256,7 +256,7 @@ void MICResolver::FixBaseAndIndexIfNeeded(
       SmallVector<Constant*, 16> VecNegMax32BitIntConst(IndexType->getNumElements(), NegMax32BitIntConst);
       Value *NegMax32BitInt = ConstantVector::get(ArrayRef<Constant*>(VecNegMax32BitIntConst));
 
-      Ptr = GetElementPtrInst::Create(Ptr, PosMax32BitInt, "Base+safeNumFix", caller);
+      Ptr = GetElementPtrInst::Create(nullptr, Ptr, PosMax32BitInt, "Base+safeNumFix", caller);
       Index = BinaryOperator::CreateAdd(Index, NegMax32BitInt, "Index-safeNumFix", caller);
       V_PRINT(gather_scatter_stat, "RESOLVER: Base+safeNumFix " << *Ptr <<
         "\t|\t RESOLVER: Index-safeNumFix " << *Index << "\n");
@@ -312,7 +312,7 @@ void MICResolver::FixBaseAndIndexIfNeeded(
   }
   // Ptr' = Ptr + Index[idx]
   Value *Index0 = ExtractElementInst::Create(Index, Idx, "ExtractIndex0", caller);
-  Ptr = GetElementPtrInst::Create(Ptr, Index0, "Ptr+Index[0]", caller);
+  Ptr = GetElementPtrInst::Create(nullptr, Ptr, Index0, "Ptr+Index[0]", caller);
 
 #if 0
   // Index' = truncate(Index - broadcast(Index[idx]), <16x32>)
