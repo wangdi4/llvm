@@ -1,4 +1,4 @@
-//===-- LPUTargetInfo.cpp - LPU Target Implementation -----------===//
+//===----------- LPUTargetInfo.cpp - LPU Target Implementation ------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -18,5 +18,3 @@ extern "C" void LLVMInitializeLPUTargetInfo() {
   RegisterTarget<Triple::lpu, /*HasJIT=*/ false>
     X(TheLPUTarget, "lpu", "LPU");
 }
-
-extern "C" void LLVMInitializeLPUTargetMC() {}

@@ -1,4 +1,4 @@
-##===- lib/Target/LPU/Makefile ------------------------*- Makefile -*-===##
+##===- lib/Target/LPU/Makefile -----------------------------*- Makefile -*-===##
 #
 #                     The LLVM Compiler Infrastructure
 #
@@ -9,8 +9,13 @@
 
 LEVEL = ../../..
 LIBRARYNAME = LLVMLPUCodeGen
-DIRS = TargetInfo
+TARGET = LPU
+
+BUILT_SOURCES = LPUGenRegisterInfo.inc LPUGenInstrInfo.inc \
+                LPUGenAsmWriter.inc \
+                LPUGenDAGISel.inc LPUGenCallingConv.inc \
+                LPUGenSubtargetInfo.inc
+
+DIRS = InstPrinter TargetInfo MCTargetDesc
 
 include $(LEVEL)/Makefile.common
-
-CompileCommonOpts += -Wno-format

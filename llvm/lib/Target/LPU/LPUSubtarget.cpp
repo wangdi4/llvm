@@ -1,0 +1,39 @@
+//===-- LPUSubtarget.cpp - LPU Subtarget Information ----------------------===//
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the LPU specific subclass of TargetSubtargetInfo.
+//
+//===----------------------------------------------------------------------===//
+
+#include "LPUSubtarget.h"
+#include "LPU.h"
+#include "llvm/Support/TargetRegistry.h"
+
+using namespace llvm;
+
+#define DEBUG_TYPE "lpu-subtarget"
+
+#define GET_SUBTARGETINFO_TARGET_DESC
+#define GET_SUBTARGETINFO_CTOR
+#include "LPUGenSubtargetInfo.inc"
+
+void LPUSubtarget::anchor() { }
+
+LPUSubtarget &LPUSubtarget::initializeSubtargetDependencies(StringRef CPU, StringRef FS) {
+  ParseSubtargetFeatures("generic", FS);
+  return *this;
+}
+
+LPUSubtarget::LPUSubtarget(const std::string &TT, const std::string &CPU,
+                                 const std::string &FS, const TargetMachine &TM)
+    : LPUGenSubtargetInfo(TT, CPU, FS),
+      DL("e-m:e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-n64"),
+      FrameLowering(),
+      InstrInfo(initializeSubtargetDependencies(CPU, FS)), TLInfo(TM),
+      TSInfo(DL) {}

@@ -14,25 +14,32 @@
 #ifndef LPUTARGETMACHINE_H
 #define LPUTARGETMACHINE_H
 
+#include "LPUSubtarget.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/IR/DataLayout.h"
 
 namespace llvm {
 
-struct LPUTargetMachine : public TargetMachine {
+class LPUTargetMachine : public LLVMTargetMachine {
+  std::unique_ptr<TargetLoweringObjectFile> TLOF;
+  LPUSubtarget Subtarget;
+public:
   LPUTargetMachine(const Target &T, StringRef TT,
                  StringRef CPU, StringRef FS, const TargetOptions &Options,
                  Reloc::Model RM, CodeModel::Model CM,
-                 CodeGenOpt::Level OL)
-    : TargetMachine(T, TT, CPU, FS, Options) { }
+		   CodeGenOpt::Level OL);
+  ~LPUTargetMachine() override;
 
-  virtual bool addPassesToEmitFile(PassManagerBase &PM,
-                                   formatted_raw_ostream &Out,
-                                   CodeGenFileType FileType,
-                                   bool DisableVerify,
-				   AnalysisID StartAfter,
-				   AnalysisID StartBefore
-				   );
+  const LPUSubtarget *getSubtargetImpl() const override {
+    return &Subtarget;
+  }
+
+  TargetPassConfig *createPassConfig(PassManagerBase &PM) override;
+
+  TargetLoweringObjectFile *getObjFileLowering() const override {
+    return TLOF.get();
+  }
+
 };
 
 extern Target TheLPUTarget;
