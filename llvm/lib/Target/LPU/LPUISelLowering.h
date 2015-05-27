@@ -83,8 +83,9 @@ namespace llvm {
                                                    MachineBasicBlock *BB) const override;
     MachineBasicBlock* EmitShiftInstr(MachineInstr *MI,
                                       MachineBasicBlock *BB) const;
-
+    */
   private:
+    /*
     SDValue LowerCCCCallTo(SDValue Chain, SDValue Callee,
                            CallingConv::ID CallConv, bool isVarArg,
                            bool isTailCall,
@@ -93,7 +94,7 @@ namespace llvm {
                            const SmallVectorImpl<ISD::InputArg> &Ins,
                            SDLoc dl, SelectionDAG &DAG,
                            SmallVectorImpl<SDValue> &InVals) const;
-
+    */
     SDValue LowerCCCArguments(SDValue Chain,
                               CallingConv::ID CallConv,
                               bool isVarArg,
@@ -101,19 +102,20 @@ namespace llvm {
                               SDLoc dl,
                               SelectionDAG &DAG,
                               SmallVectorImpl<SDValue> &InVals) const;
-
+    /*
     SDValue LowerCallResult(SDValue Chain, SDValue InFlag,
                             CallingConv::ID CallConv, bool isVarArg,
                             const SmallVectorImpl<ISD::InputArg> &Ins,
                             SDLoc dl, SelectionDAG &DAG,
                             SmallVectorImpl<SDValue> &InVals) const;
-
+    */
     SDValue
       LowerFormalArguments(SDValue Chain,
                            CallingConv::ID CallConv, bool isVarArg,
                            const SmallVectorImpl<ISD::InputArg> &Ins,
                            SDLoc dl, SelectionDAG &DAG,
                            SmallVectorImpl<SDValue> &InVals) const override;
+    /*
     SDValue
       LowerCall(TargetLowering::CallLoweringInfo &CLI,
                 SmallVectorImpl<SDValue> &InVals) const override;

@@ -367,7 +367,7 @@ static void AnalyzeReturnValues(CCState &State,
   // to agree with the calling convention ABI.
   std::reverse(RVLocs.begin(), RVLocs.end());
 }
-
+*/
 SDValue
 LPUTargetLowering::LowerFormalArguments(SDValue Chain,
                                            CallingConv::ID CallConv,
@@ -385,13 +385,9 @@ LPUTargetLowering::LowerFormalArguments(SDValue Chain,
   case CallingConv::C:
   case CallingConv::Fast:
     return LowerCCCArguments(Chain, CallConv, isVarArg, Ins, dl, DAG, InVals);
-  case CallingConv::LPU_INTR:
-    if (Ins.empty())
-      return Chain;
-    report_fatal_error("ISRs cannot have arguments");
   }
 }
-
+/*
 SDValue
 LPUTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
                                 SmallVectorImpl<SDValue> &InVals) const {
@@ -420,7 +416,7 @@ LPUTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     report_fatal_error("ISRs cannot be called directly");
   }
 }
-
+*/
 /// LowerCCCArguments - transform physical registers into virtual registers and
 /// generate load operations for arguments places on the stack.
 // FIXME: struct return stuff
@@ -434,6 +430,7 @@ LPUTargetLowering::LowerCCCArguments(SDValue Chain,
                                         SelectionDAG &DAG,
                                         SmallVectorImpl<SDValue> &InVals)
                                           const {
+  /****
   MachineFunction &MF = DAG.getMachineFunction();
   MachineFrameInfo *MFI = MF.getFrameInfo();
   MachineRegisterInfo &RegInfo = MF.getRegInfo();
@@ -518,10 +515,10 @@ LPUTargetLowering::LowerCCCArguments(SDValue Chain,
       InVals.push_back(InVal);
     }
   }
-
+  */
   return Chain;
 }
-
+/*
 SDValue
 LPUTargetLowering::LowerReturn(SDValue Chain,
                                   CallingConv::ID CallConv, bool isVarArg,
