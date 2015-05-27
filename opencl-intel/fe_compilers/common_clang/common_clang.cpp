@@ -162,6 +162,26 @@ static void GetCpuHeaders(
     vHeaderWithDefs[0].m_size -= 1; //String length without null terminator.
 }
 
+#ifdef _WIN32
+class SE_Exception
+{
+private:
+  unsigned int nSE;
+public:
+  SE_Exception( unsigned int n ) : nSE( n )
+  {}
+  unsigned int getSeNumber()
+  {
+      return nSE;
+  }
+};
+
+void trans_func( unsigned int u, EXCEPTION_POINTERS* pExp )
+{
+    throw SE_Exception(u);
+}
+#endif
+
 extern "C" CC_DLL_EXPORT int Compile(const char*   pszProgramSource,
                                      const char**  pInputHeaders,
                                      unsigned int  uiNumInputHeaders,
@@ -176,7 +196,9 @@ extern "C" CC_DLL_EXPORT int Compile(const char*   pszProgramSource,
 {
     // Lazy initialization
     CommonClangInitialize();
-
+#ifdef _WIN32
+    _set_se_translator( trans_func );
+#endif
     try
     {
         // create a new scope to make sure the mutex will be released last
@@ -277,7 +299,19 @@ extern "C" CC_DLL_EXPORT int Compile(const char*   pszProgramSource,
         {
             //LOG_ERROR(TEXT("CompileTask::Execute() - caught an exception during compilation"), "");
         }
-
+#ifdef _WIN32
+        catch(SE_Exception& seException)
+        {
+          if(seException.getSeNumber() == EXCEPTION_STACK_OVERFLOW)
+          {
+            pResult->setLog("Error! Stack overflow during compilation of the program. "
+                            "Size of the stack should be increased\n"
+                            "Note! Further execution can be unstable. Memory leak is possible.\n");
+          }
+          pResult->setResult(CL_COMPILE_PROGRAM_FAILURE);
+          success = false;
+        }
+#endif
         pResult->setIRType(IR_TYPE_COMPILED_OBJECT);
         pResult->setIRName(optionsParser.getSourceName());
         // Our error handler depends on the Diagnostics object, which we're
@@ -312,4 +346,10 @@ extern "C" CC_DLL_EXPORT int Compile(const char*   pszProgramSource,
         assert( false && " Common_clang. Something wrong with PCHs." );
         return CL_COMPILE_PROGRAM_FAILURE;
     }
+#ifdef _WIN32
+    catch(SE_Exception&)
+    {
+      return CL_COMPILE_PROGRAM_FAILURE;
+    }
+#endif
 }
