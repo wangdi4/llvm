@@ -339,33 +339,39 @@ namespace Validation
 
     const std::string RecorderContext::getPath( const std::string& suffix ) const
     {
-        llvm::sys::Path path( m_logsPath );
-        path.appendComponent( m_baseName);
-        path.appendSuffix(suffix);
+        llvm::SmallString<128> path(m_logsPath);
+        llvm::sys::path::append(path, m_baseName);
+        if(path.back() != '.') path += ".";
+        path += suffix;
         return path.str();
     }
 
     const std::string RecorderContext::getPath( const std::string& kernelName,  const std::string& suffix ) const
     {
-        llvm::sys::Path path( m_logsPath );
-        path.appendComponent( m_baseName);
-        path.appendSuffix(kernelName);
-        path.appendSuffix(suffix);
+        llvm::SmallString<128> path(m_logsPath);
+        llvm::sys::path::append(path, m_baseName);
+        if(path.back() != '.') path += ".";
+        path += kernelName;
+        path += ".";
+        path += suffix;
         return path.str();
     }
 
     const std::string RecorderContext::getFileName( const std::string& suffix ) const
     {
-        llvm::sys::Path path( m_baseName);
-        path.appendSuffix(suffix);
-        return path.str();
+        if(m_baseName.back() != '.') {
+          return m_baseName + "." + suffix;
+        }
+        return m_baseName + suffix;
     }
 
     const std::string RecorderContext::getFileName( const std::string& kernelName, const std::string& suffix  ) const
     {
-        llvm::sys::Path path( m_baseName);
-        path.appendSuffix(kernelName);
-        path.appendSuffix(suffix);
+        llvm::SmallString<128> path(m_baseName);
+        if(path.back() != '.') path += ".";
+        path += kernelName;
+        path += ".";
+        path += suffix;
         return path.str();
     }
 
@@ -563,17 +569,17 @@ namespace Validation
         std::auto_ptr<RecorderContext> spContext(new RecorderContext(m_logsDir, m_prefix));
         // Create target data object.
         llvm::StringRef bitCodeStr((const char*)pBinary, uiBinarySize);
-        llvm::MemoryBuffer* pMemBuff = llvm::MemoryBuffer::getMemBufferCopy(bitCodeStr);
+        std::unique_ptr<llvm::MemoryBuffer> pMemBuff = llvm::MemoryBuffer::getMemBufferCopy(bitCodeStr);
         if ( NULL == pMemBuff )
         {
             throw Exception::ValidationExceptionBase("Can't create memory buffer from IR.");
         }
-        std::string strLastError;
-        llvm::Module *pModule = ParseBitcodeFile(pMemBuff, context, &strLastError);
-        if ( NULL == pModule )
+        auto pModuleOrError = parseBitcodeFile(pMemBuff->getMemBufferRef(), context);
+        if ( !pModuleOrError )
         {
             throw Exception::ValidationExceptionBase("Failed to parse IR");
         }
+        llvm::Module* pModule = *pModuleOrError;
         spContext->m_DL = new llvm::DataLayout(pModule);
         //checking whehter we need source or byte-level recording
         MD5 md5((unsigned char*)const_cast<void*>(pBinary), uiBinarySize);
@@ -634,7 +640,7 @@ namespace Validation
     void OCLRecorder::RecordSourceCode(RecorderContext& context,
       const Frontend::SourceFile& sourceFile){
         assert (m_pSourceRecorder && "NULL source recorder!");
-        std::string error;
+        std::error_code error;
         std::string strName = sourceFile.getName();
         //we append a serial number to name of the file, so it would be unique
         std::string suf = dupNameSuffix(m_recordedFiles, strName);
@@ -642,9 +648,9 @@ namespace Validation
           strName.insert(strName.find_first_of('.'), suf);
         AddRecordedFile(strName);
         strName.insert(0, (context.getBaseName() + "."));
-        llvm::sys::Path path(m_logsDir.c_str(), m_logsDir.size());
-        path.appendComponent (strName.c_str());
-        llvm::raw_fd_ostream clStream(path.c_str(), error);
+        llvm::SmallString<128> path(m_logsDir);
+        llvm::sys::path::append(path, strName);
+        llvm::raw_fd_ostream clStream(path.c_str(), error, llvm::sys::fs::F_RW);
         clStream << sourceFile.getContents();
         clStream.close();
         TiXmlElement* pSourceNode = AddChildTextNode(
@@ -889,10 +895,10 @@ namespace Validation
 
     void OCLRecorder::RecordByteCode(const void* pBinary, size_t uiBinarySize, const RecorderContext& context)
     {
-        std::string error;
-        llvm::raw_fd_ostream binStream( context.getByteCodeFilePath().c_str(), error, llvm::raw_fd_ostream::F_Binary);
+        std::error_code error;
+        llvm::raw_fd_ostream binStream( context.getByteCodeFilePath().c_str(), error, llvm::sys::fs::F_RW);
 
-        if( !error.empty() )
+        if( error )
         {
             throw Exception::ValidationExceptionBase("Can't open the file for output");
         }
@@ -924,14 +930,14 @@ namespace Validation
                     return pOclRecorder;
                 char* sz_logdir = getenv("OCLRECORDER_LOGDIR");
                 char* sz_dumpprefix = getenv("OCLRECORDER_DUMPPREFIX");
-                llvm::SmallString<MAX_LOG_PATH> logpath = (NULL == sz_logdir) ?
-                  llvm::StringRef(llvm::sys::Path::GetCurrentDirectory().c_str()):
-                  llvm::StringRef(llvm::sys::Path(sz_logdir).c_str());
+
+                llvm::SmallString<MAX_LOG_PATH> logpath(sz_logdir);
+                if (nullptr == sz_logdir) llvm::sys::fs::current_path(logpath);
 
                 char argv0[MAX_LOG_PATH];
                 size_t addr = 0;
                 llvm::SmallString<MAX_LOG_PATH> fileName;
-                fileName = llvm::sys::path::stem(llvm::sys::Path::GetMainExecutable(argv0, &addr).str());
+                fileName = llvm::sys::path::stem(llvm::sys::fs::getMainExecutable(argv0, &addr));
 
                 std::string prefix = (NULL == sz_dumpprefix) ? std::string(Validation::FILE_PREFIX): sz_dumpprefix;
 

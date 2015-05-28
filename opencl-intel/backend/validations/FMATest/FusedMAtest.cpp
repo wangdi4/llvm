@@ -69,7 +69,7 @@ bool opencl_mul_add_calc( T * a, T * b, T * c, T * results, std::string *program
   cl_mem a_mem, b_mem, c_mem, r_mem;
 
   //Context
-  cl_context_properties properties[3] = { CL_CONTEXT_PLATFORM, ( cl_context_properties )platform, NULL };
+  cl_context_properties properties[3] = { CL_CONTEXT_PLATFORM, ( cl_context_properties )platform, 0 };
   context = clCreateContextFromType( properties, CL_DEVICE_TYPE_CPU, NULL, NULL, &err );
   if ( err ) return false;
 

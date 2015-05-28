@@ -68,13 +68,14 @@ extern "C" void LLVMLinkInInterpreterPluggable() {
 
 /// create - Create a new interpreter object.  This can never fail.
 ///
-ExecutionEngine *InterpreterPluggable::create(Module *M, std::string* ErrStr) {
+ExecutionEngine *InterpreterPluggable::create(std::unique_ptr<Module> M, std::string* ErrStr) {
     // Tell this Module to materialize everything and release the GVMaterializer.
-    if (M->MaterializeAllPermanently(ErrStr))
+    if (std::error_code err = M->materializeAllPermanently()) {
         // We got an error, just return 0
-        return 0;
+        return nullptr;
+    }
 
-    return new InterpreterPluggable(M);
+    return new InterpreterPluggable(std::move(M));
 }
 
 
@@ -167,6 +168,7 @@ static bool IsLoweringPossible(Instruction& I)
     }
     return false;
 }
+
 InterpreterPluggable::RETCODE InterpreterPluggable::runWithPlugins()
 {
   while (!ECStack.empty()) {

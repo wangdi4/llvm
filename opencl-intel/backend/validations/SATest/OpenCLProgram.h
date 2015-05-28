@@ -23,7 +23,6 @@ File Name: OpenCLProgram.h
 #include "cl_dev_backend_api.h"
 #include "OpenCLProgramConfiguration.h"
 #include "llvm/IR/Module.h"
-#include "llvm/ADT/OwningPtr.h"
 
 #include <string>
 
@@ -71,7 +70,7 @@ private:
     std::vector<char> m_buffer;
 
     // LLVM Context used for creation of LLVM state
-    const llvm::OwningPtr<llvm::LLVMContext> C;
+    const std::unique_ptr<llvm::LLVMContext> C;
 };
 
 class ProgramHolder

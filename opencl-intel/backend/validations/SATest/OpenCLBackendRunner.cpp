@@ -34,7 +34,6 @@ File Name:  OpenCLBackendRunner.cpp
 #include "OCLKernelDataGenerator.h"
 #include "OpenCLKernelArgumentsParser.h"
 
-#include <llvm/ADT/OwningPtr.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/FileSystem.h>
 
@@ -107,16 +106,17 @@ void OpenCLBackendRunner::BuildProgram(ICLDevBackendProgram_* pProgram,
     std::string injectedObjectPath = runConfig->GetValue<std::string>(RC_BR_OBJECT_FILE, "");
     if (injectedObjectPath == "")
       injectedObjectPath = static_cast<const OpenCLProgramConfiguration*>(pProgramConfig)->GetInjectedObjectPath();
-    llvm::OwningPtr<llvm::MemoryBuffer> injectedObject;
 
+    std::unique_ptr<llvm::MemoryBuffer> injectedObject;
     // Try to load the injected object file if specified
     if (injectedObjectPath != "")
     {
-        llvm::MemoryBuffer::getFile(injectedObjectPath, injectedObject);
-        if (!injectedObject)
+        auto errorOrBuffer = llvm::MemoryBuffer::getFile(injectedObjectPath);
+        if (!errorOrBuffer)
         {
             throw Exception::TestRunnerException("Loading the specified object file \"" + injectedObjectPath + "\" has failed.\n");
         }
+        injectedObject = std::move(*errorOrBuffer);
         buildProgramOptions.SetInjectedObject(injectedObject->getBufferStart(), injectedObject->getBufferSize());
     }
 

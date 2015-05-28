@@ -180,8 +180,8 @@ static void  testFindSamplers(std::string sourceIn, std::vector<unsigned int >& 
     llvm::LLVMContext  ctxt;
     //retrieving the name of the kernel
     llvm::StringRef inData((const char*)binaryBuff, binaryBuffsize);
-    llvm::MemoryBuffer* pBuffer = llvm::MemoryBuffer::getMemBuffer(inData, "", false);
-    std::auto_ptr<llvm::Module> pModule(llvm::ParseIR(pBuffer, err, ctxt));
+    std::unique_ptr<llvm::MemoryBuffer> pBuffer = llvm::MemoryBuffer::getMemBuffer(inData, "", false);
+    std::unique_ptr<llvm::Module> pModule(llvm::parseIR(pBuffer->getMemBufferRef(), err, ctxt));
 
     pBinary->Release();
 
@@ -356,8 +356,8 @@ TEST(DataVersionTest, DISABLED_ConvertData) /* CSSD100018373 */ {
     llvm::LLVMContext  ctxt;
     //retrieving the name of the kernel
     llvm::StringRef inData((const char*)binaryBuff, binaryBuffsize);
-    llvm::MemoryBuffer* pBuffer = llvm::MemoryBuffer::getMemBuffer(inData, "", false);
-    std::auto_ptr<llvm::Module> pModule(llvm::ParseIR(pBuffer, err, ctxt));
+    std::unique_ptr<llvm::MemoryBuffer> pBuffer = llvm::MemoryBuffer::getMemBuffer(inData, "", false);
+    std::unique_ptr<llvm::Module> pModule(llvm::parseIR(pBuffer->getMemBufferRef(), err, ctxt));
     pBinary->Release();
 
     llvm::NamedMDNode* metadata = pModule.get()->getNamedMetadata("opencl.kernels");

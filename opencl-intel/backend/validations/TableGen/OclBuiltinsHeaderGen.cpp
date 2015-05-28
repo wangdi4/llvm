@@ -23,6 +23,7 @@ File Name: OclBuiltinsHeaderGen.cpp
 #include "cl_device_api.h"
 #include "llvm/TableGen/Record.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/PathV1.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/IR/LLVMContext.h"

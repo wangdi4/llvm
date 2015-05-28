@@ -27,7 +27,7 @@ File Name: OCLKernelDataGeneratorTest.cpp
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Assembly/Parser.h"
+#include "llvm/AsmParser/Parser.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
@@ -43,18 +43,6 @@ File Name: OCLKernelDataGeneratorTest.cpp
 using namespace Validation;
 
 namespace{
-
-    bool LoadAssemblyInto(llvm::Module *M, const char *assembly)
-    {
-        llvm::SMDiagnostic Error;
-        bool success =
-            NULL != ParseAssemblyString(assembly, M, Error, M->getContext());
-        std::string errMsg;
-        llvm::raw_string_ostream os(errMsg);
-        Error.print("", os);
-        EXPECT_TRUE(success) << os.str();
-        return success;
-    }
 
     std::string stringForParser(std::string input)
     {
@@ -81,14 +69,20 @@ namespace{
 
     void createModule(llvm::LLVMContext &Context, llvm::Module *&M, std::string kernelName, std::string params)
     {
-        M = new llvm::Module("test1", Context);
         std::string program = std::string("%opencl.image2d_t.0 = type opaque\n") + std::string("define void @") + kernelName + std::string("(") + params + std::string(") { "
             "  ret void "
             "} "
             "!opencl.kernels = !{!0}"
             "!0 = metadata !{void (") + stringForParser(params) + std::string(")* @") + kernelName + std::string("}");
         std::cerr << program << std::endl;
-        LoadAssemblyInto(M, program.c_str());
+
+        llvm::SMDiagnostic Error;
+        auto pM = parseAssemblyString(program, Error, Context);
+        std::string errMsg;
+        llvm::raw_string_ostream os(errMsg);
+        Error.print("", os);
+        EXPECT_TRUE(pM != nullptr) << os.str();
+        M = pM.release();
     }
 
 

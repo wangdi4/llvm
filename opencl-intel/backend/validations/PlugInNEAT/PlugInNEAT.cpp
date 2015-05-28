@@ -80,6 +80,19 @@ const NEATStructLayout * NEATDataLayout ::getStructLayout( const StructType *Ty 
   return L;
 }
 
+
+// [LLVM 3.6 UPGRADE] The implementation of the following function template is
+//                    taken from LLVM 3.4 as is.
+/// RoundUpAlignment - Round the specified value up to the next alignment
+/// boundary specified by Alignment.  For example, 7 rounded up to an
+/// alignment boundary of 4 is 8.  8 rounded up to the alignment boundary of 4
+/// is 8 because it is already aligned.
+template <typename UIntTy>
+static UIntTy RoundUpAlignment(UIntTy Val, unsigned Alignment) {
+  assert((Alignment & (Alignment-1)) == 0 && "Alignment must be power of 2!");
+  return (Val + (Alignment-1)) & ~UIntTy(Alignment-1);
+}
+
 NEATStructLayout::NEATStructLayout( const StructType *ST, const NEATDataLayout  &DL )
 {
   StructAlignment = 0;
@@ -93,7 +106,7 @@ NEATStructLayout::NEATStructLayout( const StructType *ST, const NEATDataLayout  
 
     // Add padding if necessary to align the data element properly.
     if ((StructSize & (TyAlign-1)) != 0)
-      StructSize = DataLayout::RoundUpAlignment(StructSize, TyAlign);
+      StructSize = RoundUpAlignment(StructSize, TyAlign);
 
     // Keep track of maximum alignment constraint.
     StructAlignment = std::max(TyAlign, StructAlignment);
@@ -108,7 +121,7 @@ NEATStructLayout::NEATStructLayout( const StructType *ST, const NEATDataLayout  
   // Add padding to the end of the struct so that it could be put in an array
   // and all array elements would be aligned correctly.
   if ((StructSize & (StructAlignment-1)) != 0)
-    StructSize = DataLayout::RoundUpAlignment(StructSize, StructAlignment);
+    StructSize = RoundUpAlignment(StructSize, StructAlignment);
 }
 
 unsigned NEATDataLayout ::getABITypeAlignment(const Type *Ty) const {
@@ -1056,7 +1069,9 @@ void NEATPlugIn::SwitchToNewBasicBlock(BasicBlock *Dest, ExecutionContext &inSF,
 
   if (!isa<PHINode>(inSF.CurBB->begin())) return;  // Nothing fancy to do
 
-  ExecutionContext SF = inSF;
+  // [LLVM 3.6 UPGRADE] FIXME: Is the copy of the execution context really needed?
+  //ExecutionContext SF = inSF;
+  ExecutionContext &SF = inSF;
   BasicBlock *PrevBB = SF.CurBB;      // Remember where we came from...
   SF.CurBB   = Dest;                  // Update CurBB to branch destination
   SF.CurInst = SF.CurBB->begin();     // Update new instruction ptr...

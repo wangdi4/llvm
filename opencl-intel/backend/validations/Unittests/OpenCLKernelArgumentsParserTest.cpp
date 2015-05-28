@@ -18,7 +18,7 @@ File Name:  OpenCLKernelArgumentsParserTest.cpp
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Assembly/Parser.h"
+#include "llvm/AsmParser/Parser.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
@@ -32,18 +32,6 @@ using namespace llvm;
 using namespace Validation;
 
 namespace {
-
-    bool LoadAssemblyInto(Module *M, const char *assembly)
-    {
-        SMDiagnostic Error;
-        bool success =
-            NULL != ParseAssemblyString(assembly, M, Error, M->getContext());
-        std::string errMsg;
-        raw_string_ostream os(errMsg);
-        Error.print("", os);
-        EXPECT_TRUE(success) << os.str();
-        return success;
-    }
 
     std::string stringForParser(std::string input)
     {
@@ -69,14 +57,20 @@ namespace {
 
     void createModule(LLVMContext &Context, Module *&M, std::string kernelName, std::string params)
     {
-        M = new Module("test1", Context);
         std::string program = std::string("define void @") + kernelName + std::string("(") + params + std::string(") { "
             "  ret void "
             "} "
             "!opencl.kernels = !{!0}"
             "!0 = metadata !{void (") + stringForParser(params) + std::string(")* @") + kernelName + std::string("}");
         std::cerr << program << std::endl;
-        LoadAssemblyInto(M, program.c_str());
+
+        SMDiagnostic Error;
+        auto pM = parseAssemblyString(program, Error, Context);
+        std::string errMsg;
+        raw_string_ostream os(errMsg);
+        Error.print("", os);
+        EXPECT_TRUE(pM != nullptr) << os.str();
+        M = pM.release();
     }
 
 

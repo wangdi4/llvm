@@ -90,7 +90,7 @@ using namespace llvm;
 
 static const size_t MAX_LOCAL_MEMORY_SIZE = 30000;
 // mutex for RunKernel to be thread-safe
-static ManagedStatic<sys::Mutex> InterpreterLock;
+static ManagedStatic<sys::Mutex> g_interpreterLock;
 
 extern "C" void initOCLBuiltinsAsync();
 extern "C" void initOCLBuiltinsAtomic();
@@ -163,6 +163,16 @@ void OpenCLReferenceRunner::Run(IRunResult* runResult,
     const ReferenceRunOptions *pRunConfig = static_cast<const ReferenceRunOptions *>(runConfig);
 
     m_pModule = static_cast<const OpenCLProgram*>(program)->ParseToModule();
+    // use interpreterPluggable instead of interpreter
+    // this should be called prior to creating EngineBuilder
+    LLVMLinkInInterpreterPluggable();
+    // GCC 4.7.3 denies to compile temporary (i.e. rvalue) std::unique_ptr<Module) passed
+    // to the EngineBuilder ctor. So, create an lvalue std::unique_ptr and pass it to the
+    // std::move instead
+    std::unique_ptr<Module> pModule(m_pModule);
+    EngineBuilder builder(std::move(pModule));
+    builder.setEngineKind(EngineKind::Interpreter);
+
 
     // if FP_CONTRACT is on, use fma in NEAT
     m_bUseFmaNEAT = m_pModule->getNamedMetadata("opencl.enable.FP_CONTRACT");
@@ -172,7 +182,7 @@ void OpenCLReferenceRunner::Run(IRunResult* runResult,
         ++it )
     {
         std::string kernelName = (*it)->GetKernelName();
-        RunKernel( runResult, *it, pRunConfig );
+        RunKernel( runResult, *it, pRunConfig, builder );
     }
 }
 
@@ -447,7 +457,8 @@ void OpenCLReferenceRunner::ReadKernelArgs(
         // Obtain kernel function from annotation
         MDNode *elt = metadata->getOperand(k);
 
-        m_pKernel = dyn_cast<Function>(elt->getOperand(0)->stripPointerCasts());
+        Constant * globVal = mdconst::extract<Function>(elt->getOperand(0));
+        m_pKernel = cast<Function>(globVal->stripPointerCasts());
         if ( NULL == m_pKernel )
         {
             continue;   // Not a function pointer
@@ -858,12 +869,12 @@ static bool isWGSizeMustBeUniform(llvm::Module *module)
 
 void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
                                        OpenCLKernelConfiguration * pKernelConfig,
-                                       const ReferenceRunOptions* runConfig )
+                                       const ReferenceRunOptions* runConfig,
+                                       EngineBuilder &builder )
 {
     assert(pKernelConfig != NULL && "There is no kernel to run!");
 
-    // acquire lock this method is not thread safe
-    InterpreterLock->acquire();
+    sys::ScopedLock scopedLock(*g_interpreterLock);
 
     BufferContainerList input;
     ReadInputBuffer(pKernelConfig, &input,
@@ -970,13 +981,6 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
     typedef std::vector< std::vector<GenericValue> > KernelArgsVector;
     // storage of kernel arguments. each per local work item
     KernelArgsVector localKernelArgVector(totalLocalWIs);
-
-    // use interpreterPluggable instead of interpreter
-    // this should be called prior to creating EngineBuilder
-    LLVMLinkInInterpreterPluggable();
-
-    EngineBuilder builder(m_pModule);
-    builder.setEngineKind(EngineKind::Interpreter);
 
     // initialize interpreters
     for(uint64_t idx = 0; idx < totalLocalWIs; ++idx)
@@ -1142,8 +1146,7 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
     {
         delete [] (int8_t*)(*I).second;
     }
-
-    // release lock
-    InterpreterLock->release();
+    
+    (void)scopedLock;
 }
 

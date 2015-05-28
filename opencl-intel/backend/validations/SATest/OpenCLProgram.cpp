@@ -26,7 +26,7 @@ File Name:  OpenCLProgram.cpp
 #include "llvm/IR/Module.h"
 #include "llvm/Bitcode/BitstreamWriter.h"
 #include "llvm/Bitcode/ReaderWriter.h"
-#include "llvm/Assembly/Parser.h"
+#include "llvm/AsmParser/Parser.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/raw_ostream.h"
@@ -129,7 +129,7 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration * oclProgramConfig,
             {
                 llvm::SMDiagnostic err;
                 llvm::LLVMContext context;
-                std::auto_ptr<llvm::Module> M(llvm::ParseAssemblyFile(programFile,
+                std::unique_ptr<llvm::Module> M(llvm::parseAssemblyFile(programFile,
                                                 err, context));
                 llvm::SmallVector<char, 8> buffer;
                 llvm::raw_svector_ostream outStream(buffer);
@@ -183,20 +183,20 @@ llvm::Module* OpenCLProgram::ParseToModule(void) const{
 
     // Create Memory buffer to store IR data
     llvm::StringRef bitCodeStr(pIR, stIRsize);
-    llvm::MemoryBuffer* pMemBuffer = llvm::MemoryBuffer::getMemBuffer(bitCodeStr, "", false);
-    if (0 == pMemBuffer)
+    std::unique_ptr<llvm::MemoryBuffer> pMemBuffer = llvm::MemoryBuffer::getMemBuffer(bitCodeStr, "", false);
+    if (nullptr == pMemBuffer)
     {
         throw Exception::TestReferenceRunnerException("Can't create LLVM memory buffer from\
                                            program bytecode.");
     }
 
-    std::string strLastError;
-    llvm::Module* ret = ParseBitcodeFile(pMemBuffer, *C, &strLastError);
-    if (!ret)
+    llvm::ErrorOr<llvm::Module*> pModuleOrErr = parseBitcodeFile(pMemBuffer->getMemBufferRef(), *C);
+    if (!pModuleOrErr)
     {
         throw Exception::TestReferenceRunnerException("Unable to parse bytecode into\
                                            LLVM module");
     }
-    DEBUG(llvm::dbgs() << "Module LLVM code: " << *ret << "\n");
-    return ret;
+    DEBUG(llvm::dbgs() << "Module LLVM error: " << pModuleOrErr.getError().value() << "\n"
+                       << "            message: " << pModuleOrErr.getError().message() << "\n");
+    return pModuleOrErr.get();
 }
