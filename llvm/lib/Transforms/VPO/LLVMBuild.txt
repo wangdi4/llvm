@@ -1,5 +1,5 @@
 [common]
-subdirectories = Vecopt
+subdirectories = Vecopt Utils
 
 [component_0]
 type = Group

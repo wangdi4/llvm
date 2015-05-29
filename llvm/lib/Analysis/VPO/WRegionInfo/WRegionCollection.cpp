@@ -25,6 +25,7 @@
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionUtils.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionCollection.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionPasses.h"
+#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -239,6 +240,10 @@ bool WRegionCollection::runOnFunction(Function &F) {
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   SE = &getAnalysis<ScalarEvolution>();
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+
+  // CFG Restructuring, which puts directives into standalone basic blocks.
+  // It maintains DominatorTree and LoopInfo.
+  VPOUtils::CFGRestructuring(F, DT, LI);
 
   DEBUG(dbgs() << "W-Region Graph Construction Start\n");
   doBuildWRegionGraph(F);

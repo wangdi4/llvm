@@ -16,6 +16,7 @@ set(LLVM_LINK_COMPONENTS
   TransformUtils
   Vectorize
   VPOVectorizer #***INTEL
+  TransformVPOUtils
   )
 
 #  VPOAnalysis
