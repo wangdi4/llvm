@@ -12,11 +12,11 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OCLPassSupport.h"
 #include "CallbackDesc.h"
 
-#include "llvm/Support/InstIterator.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/IR/IRBuilder.h"
 
 #include <algorithm>
 
@@ -310,7 +310,7 @@ namespace intel {
   Value* ResolveWICall::updatePrintf(CallInst *pCall) {
 
     assert( m_pRuntimeHandle && "Context pointer m_pRuntimeHandle created as expected" );
-    DataLayout DL(m_pModule);
+    DataLayout const &DL = *m_pModule->getDataLayout();
 
     // Find out the buffer size required to store all the arguments.
     // Note: CallInst->getNumOperands() returns the number of operands in
@@ -410,7 +410,7 @@ namespace intel {
 
   void ResolveWICall::updatePrefetch(llvm::CallInst *pCall) {
 
-    DataLayout DL(m_pModule);
+    DataLayout const& DL = *m_pModule->getDataLayout();
 
     unsigned int uiSizeT = m_pModule->getDataLayout()->getPointerSizeInBits(0);
 
@@ -778,7 +778,7 @@ Value *ResolveWICall::getOrCreateRuntimeInterface() {
     m_ExtExecDecls.insert(type);
   }
   unsigned ResolveWICall::getPointerSize() const {
-    unsigned pointerSizeInBits = M->getDataLayout()->getPointerSizeInBits(0);
+    unsigned pointerSizeInBits = m_pModule->getDataLayout()->getPointerSizeInBits(0);
     assert((32 == pointerSizeInBits  || 64 == pointerSizeInBits) &&
            "Unsopported pointer size");
     return pointerSizeInBits;

@@ -37,7 +37,7 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
 
   bool SimplifyGEP::runOnFunction(Function &F) {
     // obtain TagetData of the module
-    m_pDL = getAnalysisIfAvailable<DataLayout>();
+    m_pDL = &getAnalysisIfAvailable<DataLayoutPass>()->getDataLayout();
 
     // Obtain WIAnalysis of the function
     m_depAnalysis = &getAnalysis<WIAnalysis>();

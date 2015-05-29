@@ -96,7 +96,7 @@ namespace intel {
     /// @brief The llvm module this pass needs to update
     Module                *m_pModule;
 
-    DataLayout            *m_DL;
+    DataLayout const      *m_DL;
 
     /// @brief The llvm context
     LLVMContext           *m_pLLVMContext;

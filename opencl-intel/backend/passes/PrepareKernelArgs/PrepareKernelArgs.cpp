@@ -14,7 +14,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OclTune.h"
 
 #include "llvm/IR/Attributes.h"
-#include "llvm/Support/ValueHandle.h"
+#include "llvm/IR/ValueHandle.h"
 #include "llvm/ADT/SetVector.h"
 
 #include <sstream>
@@ -44,7 +44,7 @@ namespace intel{
   }
 
   bool PrepareKernelArgs::runOnModule(Module &M) {
-    m_DL = getAnalysisIfAvailable<DataLayout>();
+    m_DL = M.getDataLayout();
     m_pModule = &M;
     m_pLLVMContext = &M.getContext();
     Intel::MetaDataUtils mdUtils(&M);

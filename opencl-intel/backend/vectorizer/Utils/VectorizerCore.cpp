@@ -123,7 +123,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
   // Function-wide (preparations)
   {
     FunctionPassManager fpm1(M);
-    DataLayout *DL = new DataLayout(M);
+    DataLayoutPass *DL = new DataLayoutPass();
     fpm1.add(DL);
     fpm1.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), ""));
 
@@ -216,7 +216,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
   V_PRINT(VectorizerCore, "\nBefore vectorization passes!\n");
   {
     FunctionPassManager fpm2(M);
-    DataLayout *DL2 = new DataLayout(M);
+    DataLayoutPass *DL2 = new DataLayoutPass;
     fpm2.add(DL2);
     BuiltinLibInfo* pBuiltinInfoPass = (BuiltinLibInfo*)
       createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), "");

@@ -172,7 +172,7 @@ void  materializeSpirDataLayout(llvm::Module& M) {
            "Unsupported Triple in cross compilation");
     NativeSuffix = intel::Lin32Natives;
   }
-  std::string strDataLayout = M.getDataLayout();
+  std::string strDataLayout = M.getDataLayoutStr();
   strDataLayout.append(NativeSuffix);
   M.setDataLayout(llvm::StringRef(strDataLayout));
 }

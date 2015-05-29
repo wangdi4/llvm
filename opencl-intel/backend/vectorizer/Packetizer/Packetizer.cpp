@@ -14,7 +14,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 
-#include "llvm/Support/InstIterator.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h"
@@ -159,7 +159,7 @@ bool PacketizeFunction::runOnFunction(Function &F)
 {
   m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
   V_ASSERT(m_rtServices && "Runtime services were not initialized!");
-  m_pDL = &getAnalysis<DataLayout>();
+  m_pDL = &getAnalysis<DataLayoutPass>().getDataLayout();
 
   m_currFunc = &F;
   m_moduleContext = &(m_currFunc->getContext());

@@ -261,7 +261,7 @@ private:
   bool UseScatterGather;
 
   /// @brief This holds DataLayout of processed module
-  DataLayout *m_pDL;
+  DataLayout const* m_pDL;
 
 };
 

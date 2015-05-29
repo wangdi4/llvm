@@ -9,7 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CompilationUtils.h"
 #include "OCLAddressSpace.h"
 #include "MetaDataApi.h"
-#include "llvm/Support/InstIterator.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/PassManager.h"
 #include <string>
@@ -112,7 +112,7 @@ namespace intel {
     // if there is no global variables - return 0
     if (M.global_empty()) return 0;
     size_t totalSize = 0;
-    const DataLayout &TD = getAnalysis<DataLayout>();
+    const DataLayout &TD = *M.getDataLayout();
     for (Module::const_global_iterator it = M.global_begin(); it != M.global_end(); ++it) {
       PointerType* ptr = cast<PointerType>(it->getType());
       assert(ptr && "Global variable is always a pointer.");

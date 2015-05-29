@@ -101,7 +101,7 @@ bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
 {
   m_pModule = &M;
   m_pContext = &M.getContext();
-  m_pTD = getAnalysisIfAvailable<DataLayout>();
+  m_pTD = M.getDataLayout();
   if(!m_pTD)
     return false;
   Intel::MetaDataUtils MDU(&M);

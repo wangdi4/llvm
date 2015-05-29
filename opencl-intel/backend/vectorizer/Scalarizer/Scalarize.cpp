@@ -73,7 +73,7 @@ bool ScalarizeFunction::runOnFunction(Function &F)
   V_ASSERT(m_soaAllocaAnalysis && "Unable to get pass");
 
   // obtain TagetData of the module
-  m_pDL = getAnalysisIfAvailable<DataLayout>();
+  m_pDL = &getAnalysisIfAvailable<DataLayoutPass>()->getDataLayout();
 
   // Prepare data structures for scalarizing a new function
   m_scalarizableRootsMap.clear();
