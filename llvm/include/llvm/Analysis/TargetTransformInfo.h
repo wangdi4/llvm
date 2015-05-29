@@ -312,6 +312,20 @@ public:
   bool isLegalMaskedStore(Type *DataType, int Consecutive) const;
   bool isLegalMaskedLoad(Type *DataType, int Consecutive) const;
 
+#if INTEL_CUSTOMIZATION
+  /// \brief Return true if the target supports the specified saturating
+  /// downconvert. Includes the target check for further clipping to
+  /// the narrower range if needed.
+  bool isLegalSatDcnv(Intrinsic::ID IID, Type *From, Type *To,
+                       Constant *LoClip, Constant *HiClip) const;
+
+  /// \brief Return true if the target supports the specified saturating
+  /// add/subtract. Includes the target check for further clipping to
+  /// the narrower range if needed.
+  bool isLegalSatAddSub(Intrinsic::ID IID, Type *Ty,
+                        Constant *LoClip, Constant *HiClip) const;
+#endif // INTEL_CUSTOMIZATION
+
   /// \brief Return the cost of the scaling factor used in the addressing
   /// mode represented by AM for this target, for a load/store
   /// of the specified type.
@@ -544,6 +558,12 @@ public:
                                      int64_t Scale) = 0;
   virtual bool isLegalMaskedStore(Type *DataType, int Consecutive) = 0;
   virtual bool isLegalMaskedLoad(Type *DataType, int Consecutive) = 0;
+#if INTEL_CUSTOMIZATION
+  virtual bool isLegalSatDcnv(Intrinsic::ID IID, Type *From, Type *To,
+                               Constant *LoClip, Constant *HiClip) = 0;
+  virtual bool isLegalSatAddSub(Intrinsic::ID IID, Type *Ty,
+                                Constant *LoClip, Constant *HiClip) = 0;
+#endif // INTEL_CUSTOMIZATION
   virtual int getScalingFactorCost(Type *Ty, GlobalValue *BaseGV,
                                    int64_t BaseOffset, bool HasBaseReg,
                                    int64_t Scale) = 0;
@@ -661,6 +681,16 @@ public:
   bool isLegalMaskedLoad(Type *DataType, int Consecutive) override {
     return Impl.isLegalMaskedLoad(DataType, Consecutive);
   }
+#if INTEL_CUSTOMIZATION
+  bool isLegalSatDcnv(Intrinsic::ID IID, Type *From, Type *To,
+                       Constant *LoClip, Constant *HiClip) override {
+    return Impl.isLegalSatDcnv(IID, From, To, LoClip, HiClip);
+  }
+  bool isLegalSatAddSub(Intrinsic::ID IID, Type *Ty,
+                        Constant *LoClip, Constant *HiClip) override {
+    return Impl.isLegalSatAddSub(IID, Ty, LoClip, HiClip);
+  }
+#endif // INTEL_CUSTOMIZATION
   int getScalingFactorCost(Type *Ty, GlobalValue *BaseGV, int64_t BaseOffset,
                            bool HasBaseReg, int64_t Scale) override {
     return Impl.getScalingFactorCost(Ty, BaseGV, BaseOffset, HasBaseReg, Scale);

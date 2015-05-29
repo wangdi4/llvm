@@ -217,6 +217,14 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
   case ISD::UMULO:                      return "umulo";
   case ISD::SUBC:                       return "subc";
   case ISD::SUBE:                       return "sube";
+#if INTEL_CUSTOMIZATION
+  case ISD::SSATDCNV:                   return "ssatdcnv";
+  case ISD::USATDCNV:                   return "usatdcnv";
+  case ISD::ADDS:                       return "adds";
+  case ISD::ADDUS:                      return "addus";
+  case ISD::SUBS:                       return "subs";
+  case ISD::SUBUS:                      return "subus";
+#endif // INTEL_CUSTOMIZATION
   case ISD::SHL_PARTS:                  return "shl_parts";
   case ISD::SRA_PARTS:                  return "sra_parts";
   case ISD::SRL_PARTS:                  return "srl_parts";

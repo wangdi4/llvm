@@ -9530,6 +9530,351 @@ Examples:
 
       %r2 = call float @llvm.fmuladd.f32(float %a, float %b, float %c) ; yields float:r2 = (a * b) + c
 
+Saturating Downconvert/Add/Sub Intrinsics
+-----------------------------------------
+
+'``llvm.ssat.dconv.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+
+::
+
+      declare i8  @llvm.ssat.dconv.i8(i16 %a, i8 %b, i8 %c)
+      declare i16 @llvm.ssat.dconv.i16(i32 %a, i16 %b, i16 %c)
+      declare <16 x i8> @llvm.ssat.dconv.v16i8(<16 x i16> %a,
+                                               <16 x i8> %b,
+                                               <16 x i8> %c)
+
+Overview:
+"""""""""
+
+The '``llvm.ssat.dconv.*``' intrinsic functions represent signed saturation
+to an integer of half the bitwidth. If [%b, %c] does not represent the full
+range of the signed return type, the result is further saturated into that
+range. If %a (signed value) is greater than %c, the return value is %c.
+If %a is less than %b, the return value is %b. Otherwise, the value of %a
+truncated to half the bitwidth is returned.
+
+Arguments:
+""""""""""
+
+The '``llvm.ssat.dconv.*``' intrinsics each take three arguments: the input
+integer a, the lower bound b, and the upper bound c. The lower and the upper
+bounds must be compile time constant signed integers.
+
+Semantics:
+""""""""""
+
+The expression:
+
+.. code-block::llvm
+
+      %0 = call i8 @llvm.ssat.dconv.i8(%a, %b, %c)
+
+is equivalent to the expression
+   truncate_to_i8(max(sign_extend_to_i16(b),
+                  min(sign_extend_to_i16(c), a)))
+except for the unspecified behavior if the lower bound value b is greater
+than the upper bound value c.
+
+Examples:
+"""""""""
+
+.. code-block:: llvm
+
+      %r2 = call i8 @llvm.ssat.dconv.i8(i16 10, i8 0, i8 127)   ; yields i8:10
+      %r2 = call i8 @llvm.ssat.dconv.i8(i16 -9, i8 0, i8 127)   ; yields i8:0
+      %r2 = call i8 @llvm.ssat.dconv.i8(i16 1250, i8 0, i8 127) ; yields i8:127
+
+'``llvm.usat.dconv.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+
+::
+
+      declare i8  @llvm.usat.dconv.i8(i16 %a, i8 %b, i8 %c)
+      declare i16 @llvm.usat.dconv.i16(i32 %a, i16 %b, i16 %c)
+      declare <16 x i8> @llvm.usat.dconv.v16i8(<16 x i16> %a,
+                                               <16 x i8> %b,
+                                               <16 x i8> %c)
+
+Overview:
+"""""""""
+
+The '``llvm.usat.dconv.*``' intrinsic functions represent unsigned saturation
+to an integer of half the bitwidth. If [%b, %c] does not represent the full
+range of the unsigned return type, the result is further saturated into that
+range. If %a (signed value) is greater than %c, the return value is %c.
+If %a is less than %b, the return value is %b. Otherwise, the value of %a
+truncated to half the bitwidth is returned.
+
+Arguments:
+""""""""""
+
+The '``llvm.usat.dconv.*``' intrinsics each take three arguments: the input
+integer a, the lower bound b, and the upper bound c. The lower and the upper
+bounds must be compile time constant unsigned integers.
+
+Semantics:
+""""""""""
+
+The expression:
+
+.. code-block::llvm
+
+      %0 = call i8 @llvm.usat.dconv.i8(%a, %b, %c)
+
+is equivalent to the expression
+   truncate_to_i8(max(zero_extend_to_i16(b),
+                  min(zero_extend_to_i16(c), a)))
+except for the unspecified behavior if the lower bound value b is greater
+than the upper bound value c.
+
+Examples:
+"""""""""
+
+.. code-block:: llvm
+
+      %r2 = call i8 @llvm.usat.dconv.i8(i16 10, i8 0, i8 127)   ; yields i8:10
+      %r2 = call i8 @llvm.usat.dconv.i8(i16 -9, i8 0, i8 127)   ; yields i8:0
+      %r2 = call i8 @llvm.usat.dconv.i8(i16 1250, i8 0, i8 127) ; yields i8:127
+
+'``llvm.ssat.add.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+
+::
+
+      declare i8  @llvm.ssat.add.i8(i8 %a, i8 %b, i8 %c, i8 %d)
+      declare i16 @llvm.ssat.add.i16(i16 %a, i16 %b, i16 %c, i16 %d)
+      declare <16 x i8> @llvm.ssat.add.v16i8(<16 x i8> %a,
+                                             <16 x i8> %b,
+                                             <16 x i8> %c,
+                                             <16 x i8> %d)
+
+Overview:
+"""""""""
+
+The '``llvm.ssat.add.*``' intrinsic functions represent signed saturation
+to an integer after input values %a and %b are added (hence one extra bit
+of precision is needed in the intermediate computation). If [%c, %d] does
+not represent the full range of the signed return type, the result is further
+saturated into that range. If %a+%b (signed value) is greater than %d, the
+return value is %d. If %a+%b is less than %c, the return value is %c.
+Otherwise, the value of %a+%b is returned.
+
+Arguments:
+""""""""""
+
+The '``llvm.ssat.add.*``' intrinsics each take four arguments: the input
+integers a and b for the addition, the lower bound c, and the upper bound d.
+The lower and the upper bounds must be compile time constant signed integers.
+
+Semantics:
+""""""""""
+
+The expression:
+
+.. code-block::llvm
+
+      %0 = call i8 @llvm.ssat.add.i8(%a, %b, %c, %d)
+
+is equivalent to the expression
+   truncate_to_i8(max(sign_extend_to_i16(c),
+                  min(sign_extend_to_i16(d),
+                      (sign_extend_to_i16(a) + sign_extend_to_i16(b)))))
+except for the unspecified behavior if the lower bound value c is greater
+than the upper bound value d.
+
+Examples:
+"""""""""
+
+.. code-block:: llvm
+
+      %r2 = call i8 @llvm.ssat.add.i8(i8 10, i8 1, i8 0, i8 127)   ; yields i8:11
+      %r2 = call i8 @llvm.ssat.add.i8(i8 -9, i8 1, i8 0, i8 127)   ; yields i8:0
+      %r2 = call i8 @llvm.ssat.add.i8(i8 125, i8 1, i8 0, i8 125) ; yields i8:125
+
+'``llvm.usat.add.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+
+::
+
+      declare i8  @llvm.usat.add.i8(i8 %a, i8 %b, i8 %c, i8 %d)
+      declare i16 @llvm.usat.add.i16(i16 %a, i16 %b, i16 %c, i16 %d)
+      declare <16 x i8> @llvm.usat.add.v16i8(<16 x i8> %a,
+                                             <16 x i8> %b,
+                                             <16 x i8> %c,
+                                             <16 x i8> %d)
+
+Overview:
+"""""""""
+
+The '``llvm.usat.add.*``' intrinsic functions represent unsigned saturation
+to an integer after input values %a and %b are added (hence one extra bit
+of precision is needed in the intermediate computation). If [%c, %d] does
+not represent the full range of the unsigned return type, the result is further
+saturated into that range. If %a+%b (unsigned value) is greater than %d, the
+return value is %d. If %a+%b is less than %c, the return value is %c.
+Otherwise, the value of %a+%b is returned.
+
+Arguments:
+""""""""""
+
+The '``llvm.usat.add.*``' intrinsics each take four arguments: the input
+integers a and b for the addition, the lower bound c, and the upper bound d.
+The lower and the upper bounds must be compile time constant unsigned integers.
+
+Semantics:
+""""""""""
+
+The expression:
+
+.. code-block::llvm
+
+      %0 = call i8 @llvm.usat.add.i8(%a, %b, %c, %d)
+
+is equivalent to the expression
+   truncate_to_i8(max(zero_extend_to_i16(c),
+                  min(zero_extend_to_i16(d),
+                      (zero_extend_to_i16(a) + zero_extend_to_i16(b)))))
+except for the unspecified behavior if the lower bound value c is greater
+than the upper bound value d.
+
+Examples:
+"""""""""
+
+.. code-block:: llvm
+
+      %r2 = call i8 @llvm.usat.add.i8(i8 10, i8 1, i8 0, i8 127)   ; yields i8:11
+      %r2 = call i8 @llvm.usat.add.i8(i8 1, i8 1, i8 3, i8 127)   ; yields i8:3
+      %r2 = call i8 @llvm.usat.add.i8(i8 128, i8 1, i8 0, i8 127) ; yields i8:127
+
+'``llvm.ssat.sub.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+
+::
+
+      declare i8  @llvm.ssat.sub.i8(i8 %a, i8 %b, i8 %c, i8 %d)
+      declare i16 @llvm.ssat.sub.i16(i16 %a, i16 %b, i16 %c, i16 %d)
+      declare <16 x i8> @llvm.ssat.sub.v16i8(<16 x i8> %a,
+                                             <16 x i8> %b,
+                                             <16 x i8> %c,
+                                             <16 x i8> %d)
+
+Overview:
+"""""""""
+
+The '``llvm.ssat.sub.*``' intrinsic functions represent signed saturation
+to an integer after input value %b is subtracted from %a (hence one extra bit
+of precision is needed in the intermediate computation). If [%c, %d] does
+not represent the full range of the signed return type, the result is further
+saturated into that range. If %a-%b (signed value) is greater than %d, the
+return value is %d. If %a-%b is less than %c, the return value is %c.
+Otherwise, the value of %a-%b is returned.
+
+Arguments:
+""""""""""
+
+The '``llvm.ssat.sub.*``' intrinsics each take four arguments: the input
+integers a and b for the subtraction, the lower bound c, and the upper bound d.
+The lower and the upper bounds must be compile time constant signed integers.
+
+Semantics:
+""""""""""
+
+The expression:
+
+.. code-block::llvm
+
+      %0 = call i8 @llvm.ssat.sub.i8(%a, %b, %c, %d)
+
+is equivalent to the expression
+   truncate_to_i8(max(sign_extend_to_i16(c),
+                  min(sign_extend_to_i16(d),
+                      (sign_extend_to_i16(a) - sign_extend_to_i16(b)))))
+except for the unspecified behavior if the lower bound value c is greater
+than the upper bound value d.
+
+Examples:
+"""""""""
+
+.. code-block:: llvm
+
+      %r2 = call i8 @llvm.ssat.sub.i8(i8 10, i8 1, i8 0, i8 127)   ; yields i8:9
+      %r2 = call i8 @llvm.ssat.sub.i8(i8 -9, i8 1, i8 0, i8 127)   ; yields i8:0
+      %r2 = call i8 @llvm.ssat.sub.i8(i8 127, i8 1, i8 0, i8 125) ; yields i8:125
+
+'``llvm.usat.sub.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+
+::
+
+      declare i8  @llvm.usat.sub.i8(i8 %a, i8 %b, i8 %c, i8 %d)
+      declare i16 @llvm.usat.sub.i16(i16 %a, i16 %b, i16 %c, i16 %d)
+      declare <16 x i8> @llvm.usat.sub.v16i8(<16 x i8> %a,
+                                             <16 x i8> %b,
+                                             <16 x i8> %c,
+                                             <16 x i8> %d)
+
+Overview:
+"""""""""
+
+The '``llvm.usat.sub.*``' intrinsic functions represent unsigned saturation
+to an integer after input value %b is subtracted from %a (hence one extra bit
+of precision is needed in the intermediate computation). If [%c, %d] does
+not represent the full range of the unsigned return type, the result is further
+saturated into that range. If %a-%b (unsigned value) is greater than %d, the
+return value is %d. If %a-%b is less than %c, the return value is %c.
+Otherwise, the value of %a-%b is returned.
+
+Arguments:
+""""""""""
+
+The '``llvm.usat.sub.*``' intrinsics each take four arguments: the input
+integers a and b for the subtraction, the lower bound c, and the upper bound d.
+The lower and the upper bounds must be compile time constant unsigned integers.
+
+Semantics:
+""""""""""
+
+The expression:
+
+.. code-block::llvm
+
+      %0 = call i8 @llvm.usat.sub.i8(%a, %b, %c, %d)
+
+is equivalent to the expression
+   truncate_to_i8(max(zero_extend_to_i16(c),
+                  min(zero_extend_to_i16(d),
+                      (zero_extend_to_i16(a) - zero_extend_to_i16(b)))))
+except for the unspecified behavior if the lower bound value c is greater
+than the upper bound value d.
+
+Examples:
+"""""""""
+
+.. code-block:: llvm
+
+      %r2 = call i8 @llvm.usat.sub.i8(i8 10, i8 1, i8 0, i8 127)   ; yields i8:9
+      %r2 = call i8 @llvm.usat.sub.i8(i8 1, i8 1, i8 3, i8 127)   ; yields i8:3
+      %r2 = call i8 @llvm.usat.sub.i8(i8 128, i8 1, i8 0, i8 125) ; yields i8:125
+
 Half Precision Floating Point Intrinsics
 ----------------------------------------
 

@@ -734,6 +734,18 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     setOperationAction(ISD::ANY_EXTEND, VT, Expand);
     setOperationAction(ISD::VSELECT, VT, Expand);
     setOperationAction(ISD::SELECT_CC, VT, Expand);
+#if 0
+#if INTEL_CUSTOMIZATION
+    // Currently, we do not have scalarlization code for these.
+    // Intrinsic verification rejects those.
+    setOperationAction(ISD::SSATDCNV,           VT, Expand);
+    setOperationAction(ISD::USATDCNV,           VT, Expand);
+    setOperationAction(ISD::ADDS,               VT, Expand);
+    setOperationAction(ISD::ADDUS,              VT, Expand);
+    setOperationAction(ISD::SUBS,               VT, Expand);
+    setOperationAction(ISD::SUBUS,              VT, Expand);
+#endif // INTEL_CUSTOMIZATION
+#endif
     for (MVT InnerVT : MVT::vector_valuetypes()) {
       setTruncStoreAction(InnerVT, VT, Expand);
 
@@ -831,6 +843,21 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     setOperationAction(ISD::INSERT_VECTOR_ELT,  MVT::v8i16, Custom);
     setOperationAction(ISD::INSERT_VECTOR_ELT,  MVT::v4i32, Custom);
     setOperationAction(ISD::INSERT_VECTOR_ELT,  MVT::v4f32, Custom);
+
+#if INTEL_CUSTOMIZATION
+    setOperationAction(ISD::SSATDCNV,           MVT::v16i8, Custom);
+    setOperationAction(ISD::SSATDCNV,           MVT::v8i16, Custom);
+    setOperationAction(ISD::USATDCNV,           MVT::v16i8, Custom);
+    // setOperationAction(ISD::USATDCNV,        MVT::v8i16, Custom); SSE4.1!
+    setOperationAction(ISD::ADDS,               MVT::v16i8, Custom);
+    setOperationAction(ISD::ADDS,               MVT::v8i16, Custom);
+    setOperationAction(ISD::ADDUS,              MVT::v16i8, Custom);
+    setOperationAction(ISD::ADDUS,              MVT::v8i16, Custom);
+    setOperationAction(ISD::SUBS,               MVT::v16i8, Custom);
+    setOperationAction(ISD::SUBS,               MVT::v8i16, Custom);
+    setOperationAction(ISD::SUBUS,              MVT::v16i8, Custom);
+    setOperationAction(ISD::SUBUS,              MVT::v8i16, Custom);
+#endif // INTEL_CUSTOMIZATION
 
     // Only provide customized ctpop vector bit twiddling for vector types we
     // know to perform better than using the popcnt instructions on each vector
@@ -991,6 +1018,11 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationAction(ISD::INSERT_VECTOR_ELT,  MVT::v2i64, Custom);
       setOperationAction(ISD::EXTRACT_VECTOR_ELT, MVT::v2i64, Custom);
     }
+
+#if INTEL_CUSTOMIZATION
+    // Others are SSE2.
+    setOperationAction(ISD::USATDCNV,           MVT::v8i16, Custom);
+#endif // INTEL_CUSTOMIZATION
   }
 
   if (Subtarget->hasSSE2()) {
@@ -1207,6 +1239,15 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationAction(ISD::SCALAR_TO_VECTOR,   VT, Custom);
       setOperationAction(ISD::INSERT_SUBVECTOR,   VT, Custom);
       setOperationAction(ISD::CONCAT_VECTORS,     VT, Custom);
+
+#if INTEL_CUSTOMIZATION
+      setOperationAction(ISD::SSATDCNV,           VT, Custom);
+      setOperationAction(ISD::USATDCNV,           VT, Custom);
+      setOperationAction(ISD::ADDS,               VT, Custom);
+      setOperationAction(ISD::ADDUS,              VT, Custom);
+      setOperationAction(ISD::SUBS,               VT, Custom);
+      setOperationAction(ISD::SUBUS,              VT, Custom);
+#endif // INTEL_CUSTOMIZATION
     }
 
     if (Subtarget->hasInt256())
@@ -17211,6 +17252,135 @@ static SDValue LowerFSINCOS(SDValue Op, const X86Subtarget *Subtarget,
   return DAG.getNode(ISD::MERGE_VALUES, dl, Tys, SinVal, CosVal);
 }
 
+#if INTEL_CUSTOMIZATION
+static bool IsVectorOfMinMaxSignedIntegers(const SDValue &Val, bool Min) {
+  BuildVectorSDNode *SDN = dyn_cast<BuildVectorSDNode>(Val.getNode());
+  if (!SDN) return false;
+  ConstantSDNode *CSDN = SDN->getConstantSplatNode();
+  if (!CSDN) return false;
+  const ConstantInt *CI = CSDN->getConstantIntValue();
+  if (!CI) return false;
+  if (Min) return CI->isMinSignedValue();
+  return CI->isMaxValue(true);
+}
+
+static bool SatNeedMax(SDValue &Val, X86ISD::NodeType MAX) {
+  if (MAX == X86ISD::SMAX) return !IsVectorOfMinMaxSignedIntegers(Val, true);
+  return !ISD::isBuildVectorAllZeros(Val.getNode());
+}
+
+static bool SatNeedMin(SDValue &Val, X86ISD::NodeType MIN) {
+  if (MIN == X86ISD::SMIN) return !IsVectorOfMinMaxSignedIntegers(Val, false);
+  return !ISD::isBuildVectorAllOnes(Val.getNode());
+}
+
+/// LowerSatAddSubDcnv - Customized lowering for Saturating
+/// Add/Sub/Downconvert operations.
+///
+static SDValue LowerSatAddSubDcnv(SDValue Op, const X86Subtarget *Subtarget,
+                                  SelectionDAG &DAG) {
+  SDNode *Node = Op.getNode();
+  SDLoc dl(Node);
+  SDValue A = Node->getOperand(0);
+  SDValue B = Node->getOperand(1);
+  SDValue C = Node->getOperand(2);
+  SDValue D = Node->getOperand(3);
+  MVT VT = Node->getSimpleValueType(0);
+  unsigned NumElems = VT.getVectorNumElements();
+  MVT VTA = A.getNode()->getSimpleValueType(0);
+  unsigned NumElemsA = VTA.getVectorNumElements();
+
+  X86ISD::NodeType Oper;
+  X86ISD::NodeType MAX;
+  X86ISD::NodeType MIN;
+  switch (Node->getOpcode()) {
+  default:
+    llvm_unreachable("Unknown saturating add/sub operation");
+  case ISD::ADDS:
+    Oper = X86ISD::ADDS;
+    MAX  = X86ISD::SMAX;
+    MIN  = X86ISD::SMIN;
+    break;
+  case ISD::SUBS:
+    Oper = X86ISD::SUBS;
+    MAX  = X86ISD::SMAX;
+    MIN  = X86ISD::SMIN;
+    break;
+  case ISD::ADDUS:
+    Oper = X86ISD::ADDUS;
+    MAX  = X86ISD::UMAX;
+    MIN  = X86ISD::UMIN;
+    break;
+  case ISD::SUBUS:
+    Oper = X86ISD::SUBUS;
+    MAX  = X86ISD::UMAX;
+    MIN  = X86ISD::UMIN;
+    break;
+  case ISD::SSATDCNV:
+    Oper = X86ISD::PACKSS;
+    MAX  = X86ISD::SMAX;
+    MIN  = X86ISD::SMIN;
+    break;
+  case ISD::USATDCNV:
+    Oper = X86ISD::PACKUS;
+    MAX  = X86ISD::UMAX;
+    MIN  = X86ISD::UMIN;
+    break;
+  }
+
+  bool NeedMax = SatNeedMax(C, MAX);
+  bool NeedMin = SatNeedMin(D, MIN);
+
+  if (VT.is256BitVector() && !Subtarget->hasInt256()) {
+    MVT EltVT = VT.getVectorElementType();
+    MVT NewVT = MVT::getVectorVT(EltVT, NumElems/2);
+
+    SDValue A1 = Extract128BitVector(A, 0, DAG, dl);
+    SDValue A2 = Extract128BitVector(A, NumElemsA/2, DAG, dl);
+    SDValue B1 = Extract128BitVector(B, 0, DAG, dl);
+    SDValue B2 = Extract128BitVector(B, NumElemsA/2, DAG, dl);
+    SDValue Res1 = DAG.getNode(Oper, dl, NewVT, A1, A2);
+    SDValue Res2 = DAG.getNode(Oper, dl, NewVT, B1, B2);
+    if (NeedMax) {
+      SDValue C1 = Extract128BitVector(C, 0, DAG, dl);
+      SDValue C2 = Extract128BitVector(C, NumElems/2, DAG, dl);
+      Res1 = DAG.getNode(MAX, dl, NewVT, Res1, C1);
+      Res2 = DAG.getNode(MAX, dl, NewVT, Res2, C2);
+    }
+    if (NeedMin) {
+      SDValue D1 = Extract128BitVector(D, 0, DAG, dl);
+      SDValue D2 = Extract128BitVector(D, NumElems/2, DAG, dl);
+      Res1 = DAG.getNode(MIN, dl, NewVT, Res1, D1);
+      Res2 = DAG.getNode(MIN, dl, NewVT, Res2, D2);
+    }
+    return DAG.getNode(ISD::CONCAT_VECTORS, dl, VT, Res1, Res2);
+  }
+
+  if (VT.is128BitVector() && VTA.is256BitVector()) {
+    // YMM operand and producing XMM result. Split YMM operand in A into
+    // two XMM operands and replace A/B.
+    // Oper should be PACKUS or PACKSS.
+    B = Extract128BitVector(A, VTA.getVectorNumElements()/2, DAG, dl);
+    A = Extract128BitVector(A, 0, DAG, dl);
+  }
+  SDValue Res = DAG.getNode(Oper, dl, VT, A, B);
+  if (VT.is256BitVector() &&
+      (Oper == X86ISD::PACKUS || Oper == X86ISD::PACKSS)) {
+    // YMM PACK is inlane operation. This shuffle fixes
+    // the result into the cross lane mode.
+    SDValue ShufMask;
+    ShufMask = DAG.getConstant(216, MVT::i8); // 11011000b
+    MVT VT1 = MVT::v4i64;
+    Res = DAG.getNode(ISD::BITCAST, dl, VT1, Res);
+    Res = DAG.getNode(X86ISD::VPERMI, dl, VT1, Res, ShufMask);
+    Res = DAG.getNode(ISD::BITCAST, dl, VT, Res);
+  }
+  if (NeedMax) Res = DAG.getNode(MAX, dl, VT, Res, C);
+  if (NeedMin) Res = DAG.getNode(MIN, dl, VT, Res, D);
+  return Res;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// LowerOperation - Provide custom lowering hooks for some operations.
 ///
 SDValue X86TargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
@@ -17298,6 +17468,14 @@ SDValue X86TargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   case ISD::ADD:                return LowerADD(Op, DAG);
   case ISD::SUB:                return LowerSUB(Op, DAG);
   case ISD::FSINCOS:            return LowerFSINCOS(Op, Subtarget, DAG);
+#if INTEL_CUSTOMIZATION
+  case ISD::ADDS:
+  case ISD::ADDUS:
+  case ISD::SUBS:
+  case ISD::SUBUS:
+  case ISD::SSATDCNV:
+  case ISD::USATDCNV:           return LowerSatAddSubDcnv(Op, Subtarget, DAG);
+#endif // INTEL_CUSTOMIZATION
   }
 }
 
@@ -17563,6 +17741,11 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   case X86ISD::PSIGN:              return "X86ISD::PSIGN";
   case X86ISD::BLENDI:             return "X86ISD::BLENDI";
   case X86ISD::SHRUNKBLEND:        return "X86ISD::SHRUNKBLEND";
+#if INTEL_CUSTOMIZATION
+  case X86ISD::ADDS:               return "X86ISD::ADDS";
+  case X86ISD::ADDUS:              return "X86ISD::ADDUS";
+  case X86ISD::SUBS:               return "X86ISD::SUBS";
+#endif // INTEL_CUSTOMIZATION
   case X86ISD::SUBUS:              return "X86ISD::SUBUS";
   case X86ISD::HADD:               return "X86ISD::HADD";
   case X86ISD::HSUB:               return "X86ISD::HSUB";

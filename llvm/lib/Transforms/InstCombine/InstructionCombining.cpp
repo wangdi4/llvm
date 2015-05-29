@@ -47,6 +47,9 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/TargetTransformInfo.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/DataLayout.h"
@@ -2942,6 +2945,9 @@ static bool prepareICWorklistFromFunction(Function &F, const DataLayout &DL,
 static bool
 combineInstructionsOverFunction(Function &F, InstCombineWorklist &Worklist,
                                 AssumptionCache &AC, TargetLibraryInfo &TLI,
+#if INTEL_CUSTOMIZATION
+                                TargetTransformInfo &TTI,
+#endif // INTEL_CUSTOMIZATION
                                 DominatorTree &DT, LoopInfo *LI = nullptr) {
   // Minimizing size?
   bool MinimizeSize = F.hasFnAttribute(Attribute::MinSize);
@@ -2967,7 +2973,11 @@ combineInstructionsOverFunction(Function &F, InstCombineWorklist &Worklist,
     if (prepareICWorklistFromFunction(F, DL, &TLI, Worklist))
       Changed = true;
 
-    InstCombiner IC(Worklist, &Builder, MinimizeSize, &AC, &TLI, &DT, DL, LI);
+    InstCombiner IC(Worklist, &Builder, MinimizeSize, &AC, &TLI,
+#if INTEL_CUSTOMIZATION
+                    &TTI,
+#endif // INTEL_CUSTOMIZATION
+                    &DT, DL, LI);
     if (IC.run())
       Changed = true;
 
@@ -2983,10 +2993,17 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   auto &AC = AM->getResult<AssumptionAnalysis>(F);
   auto &DT = AM->getResult<DominatorTreeAnalysis>(F);
   auto &TLI = AM->getResult<TargetLibraryAnalysis>(F);
+#if INTEL_CUSTOMIZATION
+  auto &TTI = AM->getResult<TargetIRAnalysis>(F);
+#endif // INTEL_CUSTOMIZATION
 
   auto *LI = AM->getCachedResult<LoopAnalysis>(F);
 
-  if (!combineInstructionsOverFunction(F, Worklist, AC, TLI, DT, LI))
+  if (!combineInstructionsOverFunction(F, Worklist, AC, TLI,
+#if INTEL_CUSTOMIZATION
+                                       TTI,
+#endif // INTEL_CUSTOMIZATION
+                                       DT, LI))
     // No changes, all analyses are preserved.
     return PreservedAnalyses::all();
 
@@ -3021,6 +3038,9 @@ void InstructionCombiningPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesCFG();
   AU.addRequired<AssumptionCacheTracker>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
+#if INTEL_CUSTOMIZATION
+  AU.addRequired<TargetTransformInfoWrapperPass>();
+#endif // INTEL_CUSTOMIZATION
   AU.addRequired<DominatorTreeWrapperPass>();
   AU.addPreserved<DominatorTreeWrapperPass>();
 }
@@ -3032,13 +3052,20 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
   // Required analyses.
   auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
   auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+#if INTEL_CUSTOMIZATION
+  auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
+#endif // INTEL_CUSTOMIZATION
   auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 
   // Optional analyses.
   auto *LIWP = getAnalysisIfAvailable<LoopInfoWrapperPass>();
   auto *LI = LIWP ? &LIWP->getLoopInfo() : nullptr;
 
-  return combineInstructionsOverFunction(F, Worklist, AC, TLI, DT, LI);
+  return combineInstructionsOverFunction(F, Worklist, AC, TLI,
+#if INTEL_CUSTOMIZATION
+                                         TTI,
+#endif // INTEL_CUSTOMIZATION
+                                         DT, LI);
 }
 
 char InstructionCombiningPass::ID = 0;
@@ -3046,6 +3073,9 @@ INITIALIZE_PASS_BEGIN(InstructionCombiningPass, "instcombine",
                       "Combine redundant instructions", false, false)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+#if INTEL_CUSTOMIZATION
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
+#endif // INTEL_CUSTOMIZATION
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_END(InstructionCombiningPass, "instcombine",
                     "Combine redundant instructions", false, false)

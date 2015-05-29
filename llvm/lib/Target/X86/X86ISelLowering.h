@@ -206,7 +206,15 @@ namespace llvm {
       FMUL_RND,
       FDIV_RND,
       
-      // Integer sub with unsigned saturation.
+#if INTEL_CUSTOMIZATION
+      /// Integer add with signed saturation
+      ADDS,
+      /// Integer add with unsigned saturation
+      ADDUS,
+      /// Integer sub with signed saturation
+      SUBS,
+#endif // INTEL_CUSTOMIZATION
+      /// Integer sub with unsigned saturation
       SUBUS,
 
       /// Integer horizontal add.

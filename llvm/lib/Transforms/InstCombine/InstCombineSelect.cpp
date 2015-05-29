@@ -14,11 +14,32 @@
 #include "InstCombineInternal.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/TargetTransformInfo.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/IR/PatternMatch.h"
 using namespace llvm;
 using namespace PatternMatch;
 
 #define DEBUG_TYPE "instcombine"
+
+/// GetMinMaxSPF - classifies [SU]MIN/[SU]MAX/UNKNOWN for
+///     (icmp X, Y) ? X : Y  (Flip == false case)
+///     (icmp X, Y) ? Y : X  (Flip == true  case)
+static SelectPatternFlavor
+getMinMaxSPF(ICmpInst::Predicate Pred, bool Flip) {
+    switch (Pred) {
+    default: return SPF_UNKNOWN; // Equality.
+    case ICmpInst::ICMP_UGT:
+    case ICmpInst::ICMP_UGE: return Flip ? SPF_UMIN : SPF_UMAX;
+    case ICmpInst::ICMP_SGT:
+    case ICmpInst::ICMP_SGE: return Flip ? SPF_SMIN : SPF_SMAX;
+    case ICmpInst::ICMP_ULT:
+    case ICmpInst::ICMP_ULE: return Flip ? SPF_UMAX : SPF_UMIN;
+    case ICmpInst::ICMP_SLT:
+    case ICmpInst::ICMP_SLE: return Flip ? SPF_SMAX : SPF_SMIN;
+    }
+}
 
 /// MatchSelectPattern - Pattern match integer [SU]MIN, [SU]MAX, and ABS idioms,
 /// returning the kind and providing the out parameter results if we
@@ -42,32 +63,12 @@ MatchSelectPattern(Value *V, Value *&LHS, Value *&RHS) {
 
   // (icmp X, Y) ? X : Y
   if (TrueVal == CmpLHS && FalseVal == CmpRHS) {
-    switch (Pred) {
-    default: return SPF_UNKNOWN; // Equality.
-    case ICmpInst::ICMP_UGT:
-    case ICmpInst::ICMP_UGE: return SPF_UMAX;
-    case ICmpInst::ICMP_SGT:
-    case ICmpInst::ICMP_SGE: return SPF_SMAX;
-    case ICmpInst::ICMP_ULT:
-    case ICmpInst::ICMP_ULE: return SPF_UMIN;
-    case ICmpInst::ICMP_SLT:
-    case ICmpInst::ICMP_SLE: return SPF_SMIN;
-    }
+    return getMinMaxSPF(Pred, false);
   }
 
   // (icmp X, Y) ? Y : X
   if (TrueVal == CmpRHS && FalseVal == CmpLHS) {
-    switch (Pred) {
-    default: return SPF_UNKNOWN; // Equality.
-    case ICmpInst::ICMP_UGT:
-    case ICmpInst::ICMP_UGE: return SPF_UMIN;
-    case ICmpInst::ICMP_SGT:
-    case ICmpInst::ICMP_SGE: return SPF_SMIN;
-    case ICmpInst::ICMP_ULT:
-    case ICmpInst::ICMP_ULE: return SPF_UMAX;
-    case ICmpInst::ICMP_SLT:
-    case ICmpInst::ICMP_SLE: return SPF_SMAX;
-    }
+    return getMinMaxSPF(Pred, true);
   }
 
   if (ConstantInt *C1 = dyn_cast<ConstantInt>(CmpRHS)) {
@@ -93,6 +94,73 @@ MatchSelectPattern(Value *V, Value *&LHS, Value *&RHS) {
   return SPF_UNKNOWN;
 }
 
+#if INTEL_CUSTOMIZATION
+/// MatchSelectDcnvPattern - Pattern match integer downconverting [SU]MIN
+/// and [SU]MAX idioms, returning the kind and providing the out parameter
+/// results if we successfully match. More specifically, we are looking for
+///    cmp    value, constant
+///    trunc  value
+///    select truncated_value, truncated_constant
+static SelectPatternFlavor
+matchSelectDcnvPattern(SelectInst &SI, Value *&LHS, Value *&RHS) {
+  ICmpInst *ICI = dyn_cast<ICmpInst>(SI.getCondition());
+  if (!ICI) return SPF_UNKNOWN;
+
+  ICmpInst::Predicate Pred = ICI->getPredicate();
+  Value *CmpLHS = ICI->getOperand(0);
+  Value *CmpRHS = ICI->getOperand(1);
+  Value *TrueVal = SI.getTrueValue();
+  Value *FalseVal = SI.getFalseValue();
+
+  LHS = CmpLHS;
+  RHS = CmpRHS;
+
+  Value *TruncVal = nullptr;
+  TruncInst *TI = dyn_cast<TruncInst>(TrueVal);
+  Constant *C1 = nullptr;  // Truncated constant from Select
+  if (TI) {
+    TrueVal = TruncVal = TI->getOperand(0);
+    C1 = dyn_cast<Constant>(FalseVal);
+  }
+  else if ((TI = dyn_cast<TruncInst>(FalseVal))) {
+    FalseVal = TruncVal = TI->getOperand(0);
+    C1 = dyn_cast<Constant>(TrueVal);
+  }
+  if (!C1) return SPF_UNKNOWN;
+
+  Constant *C2 = nullptr;  // Untruncated constant from CMP
+  // Make sure trunc and cmp uses the same operand.
+  if ((C2 = dyn_cast<Constant>(CmpLHS))) {
+    if (CmpRHS != TruncVal) return SPF_UNKNOWN;
+  }
+  else if ((C2 = dyn_cast<Constant>(CmpRHS))) {
+    if (CmpLHS != TruncVal) return SPF_UNKNOWN;
+  }
+  if (!C2) return SPF_UNKNOWN;
+
+  // C2 constant value is before truncation. Need to compare
+  // at the size of C2, not at the size of C1 since upper
+  // bits of C2 may not be all-ones/all-zeros.
+  // Can't use the compare type to determine this since input
+  // value is signed anyway.
+  if (ConstantExpr::getSExt(C1, C2->getType()) != C2 &&
+      ConstantExpr::getZExt(C1, C2->getType()) != C2) return SPF_UNKNOWN;
+
+  // (icmp X, Y) ? X : Y
+  if ((TrueVal == CmpLHS && !isa<Constant>(TrueVal)) ||
+      (FalseVal == CmpRHS && !isa<Constant>(FalseVal))) {
+    return getMinMaxSPF(Pred, false);
+  }
+
+  // (icmp X, Y) ? Y : X
+  if ((TrueVal == CmpRHS && !isa<Constant>(TrueVal)) ||
+      (FalseVal == CmpLHS && !isa<Constant>(FalseVal))) {
+    return getMinMaxSPF(Pred, true);
+  }
+
+  return SPF_UNKNOWN;
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// GetSelectFoldableOperands - We want to turn code that looks like this:
 ///   %C = or %A, %B
@@ -907,6 +975,375 @@ static Value *foldSelectICmpAnd(const SelectInst &SI, ConstantInt *TrueVal,
   return V;
 }
 
+#if INTEL_CUSTOMIZATION
+/// Given a constant C and a type Ty, check whether 
+/// the original value C can be recovered from truncated C
+/// (into Ty) via Sign/Zero-extension. Return the truncated C
+/// and also in SExt/ZExt for each extend type.
+static Constant *
+getLegalExtFromType(Constant *C, Type *Ty, bool &SExt, bool &ZExt) {
+  SExt = ZExt = false;
+  Constant *TruncC = ConstantExpr::getTrunc(C, Ty);
+  if (C == ConstantExpr::getSExt(TruncC, C->getType())) {
+    SExt = true;
+  }
+  if (C == ConstantExpr::getZExt(TruncC, C->getType())) {
+    ZExt = true;
+  }
+  return TruncC;
+}
+
+/// Given a pair of constants C1/C2 and a type Ty, check
+/// whether the original values C1/C2 can be recovered from
+/// truncated C1/C2 (into Ty) via same Sign/Zero-extension. 
+/// Returns true if yes and also in SExt/ZExt for each extend
+/// type.
+static bool
+getPairedLegalExtFromType(Constant *&C1, Constant *&C2, Type *Ty,
+                          bool &SExt, bool &ZExt) {
+  bool SExt1, ZExt1;
+  C1 = getLegalExtFromType(C1, Ty, SExt1, ZExt1      );
+  C2 = getLegalExtFromType(C2, Ty, SExt,  ZExt);
+  SExt &= SExt1;
+  ZExt &= ZExt1;
+  return (SExt || ZExt);
+} 
+
+/// Returns true if the instruction sequence up to select
+/// is a saturate downconvert idiom pattern shown below.
+/// Also returns lower/upper Clip values and whether
+/// signed or unsigned saturation accomplishes the task.
+/// If the Clips are between zero and signed_max, both
+/// signed and unsigned saturation are okay to use.
+static bool
+findSaturateDownConvertAltPattern(SelectInst &SI, Value *&Val,
+                                  Constant *&Clip1, Constant *&Clip2,
+                                  bool &SignedSat, bool &UnsignedSat) {
+  // See if we are performing saturating downconvert (alternative pattern).
+  //   cmp
+  //   cmp
+  //   xor
+  //   and
+  //   trunc
+  //   select
+  //   select
+  Type *SITy = SI.getType();
+  if (!SITy->isIntOrIntVectorTy()) return false;
+  unsigned SizeOfInBits = SITy->getScalarSizeInBits();
+  if (SizeOfInBits != 8 && SizeOfInBits != 16) return false;
+  Value *LHS1 = nullptr, *RHS1 = nullptr, *LHS2 = nullptr, *RHS2 = nullptr;
+
+  Value *TrueVal = SI.getTrueValue();
+  Value *FalseVal = SI.getFalseValue();
+
+  SelectPatternFlavor SPF2 = SPF_UNKNOWN;
+  SelectInst *SI2 = dyn_cast<SelectInst>(TrueVal);
+  Constant *C = nullptr;
+  if (SI2) {
+    SPF2 = matchSelectDcnvPattern(*SI2, LHS2, RHS2);
+    C = dyn_cast<Constant>(FalseVal);
+  }
+  else if ((SI2 = dyn_cast<SelectInst>(FalseVal))) {
+    SPF2 = matchSelectDcnvPattern(*SI2, LHS2, RHS2);
+    C = dyn_cast<Constant>(TrueVal);
+  }
+  if ((C == nullptr) ||
+      (SPF2 != SPF_SMAX && SPF2 != SPF_SMIN)) return false;
+  SelectPatternFlavor SPF1 = SPF_UNKNOWN;
+  if ((Clip2 = dyn_cast<Constant>(LHS2))) {
+    Val = RHS2;
+  }
+  else if ((Clip2 = dyn_cast<Constant>(RHS2))) {
+    Val = LHS2;
+  }
+  assert(Clip2 && "MatchSelectDcnvPattern returned non-Constant");
+  // matched select-select-trunc-cmp
+
+  Instruction *IAI = dyn_cast<Instruction>(SI.getCondition());
+  if (!IAI || IAI->getOpcode() != Instruction::And) return false;
+
+  Instruction *IXI = dyn_cast<Instruction>(IAI->getOperand(1));
+  ICmpInst *ICI = nullptr;
+  if (IXI && IXI->getOpcode() == Instruction::Xor) {
+    ICI = dyn_cast<ICmpInst>(IAI->getOperand(0));
+  }
+  else if ((IXI = dyn_cast<Instruction>(IAI->getOperand(0))) &&
+           IXI->getOpcode() == Instruction::Xor) {
+    ICI = dyn_cast<ICmpInst>(IAI->getOperand(1));
+  }
+  if (!IXI || !ICI) return false;
+
+  ICmpInst *ICI2 = dyn_cast<ICmpInst>(IXI->getOperand(0));
+  Constant *LiteralTrue;
+  if (ICI2) {
+    LiteralTrue = dyn_cast<Constant>(IXI->getOperand(1));
+  }
+  else if ((ICI2 = dyn_cast<ICmpInst>(IXI->getOperand(1)))) {
+    LiteralTrue = dyn_cast<Constant>(IXI->getOperand(1));
+  }
+  if (!ICI2        || ICI2 != SI2->getCondition() ||
+      !LiteralTrue || !LiteralTrue->isOneValue()) return false;
+
+  if (ICI->getOperand(0) == Val) {
+    Clip1 = dyn_cast<Constant>(ICI->getOperand(1));
+  }
+  else if (ICI->getOperand(1) == Val) {
+    Clip1 = dyn_cast<Constant>(ICI->getOperand(0));
+  }
+  if (!Clip1) return false;
+
+  // (icmp X, Y) ? X : Y
+  if (dyn_cast<Constant>(ICI->getOperand(0)) == dyn_cast<Constant>(TrueVal)) {
+    SPF1 = getMinMaxSPF(ICI->getPredicate(), false);
+  }
+  // (icmp X, Y) ? Y : X
+  if (dyn_cast<Constant>(ICI->getOperand(0)) == dyn_cast<Constant>(FalseVal)) {
+    SPF1 = getMinMaxSPF(ICI->getPredicate(), true);
+  }
+  if (SPF1 != SPF_SMAX && SPF1 != SPF_SMIN) return false;
+
+  if (!getPairedLegalExtFromType(Clip1, Clip2, SITy,
+                                 SignedSat, UnsignedSat)) {
+    return false;
+  }
+  if (Clip1 != C) return false;
+
+  if (SPF1 == SPF_SMIN) {
+    if (SPF2 != SPF_SMAX) return false;
+    // MIN(C1, MAX(C2, Val))
+    Constant *CSwap = Clip1;
+    Clip1 = Clip2;
+    Clip2 = CSwap;
+  }
+  else if (SPF2 != SPF_SMIN) return false;
+
+  return true;
+}
+
+/// Returns true if the instruction sequence up to select
+/// is a saturate downconvert idiom pattern.
+/// Also returns lower/upper Clip values and whether
+/// signed or unsigned saturation accomplishes the task.
+/// If the Clips are between zero and signed_max, both
+/// signed and unsigned saturation are okay to use.
+static bool
+findSaturateDownConvertPattern(SelectInst &SI, Value *&Val,
+                               Constant *&Clip1, Constant *&Clip2,
+                               bool &SignedSat, bool &UnsignedSat) {
+  if (findSaturateDownConvertAltPattern(SI, Val, Clip1, Clip2,
+                                        SignedSat, UnsignedSat)) {
+    return true;
+  }
+  // See if we are performing saturating downconvert.
+  //   cmp
+  //   select
+  //   cmp
+  //   trunc
+  //   select
+  Type *SITy = SI.getType();
+  if (!SITy->isIntOrIntVectorTy()) return false;
+  unsigned SizeOfInBits = SITy->getScalarSizeInBits();
+  if (SizeOfInBits != 8 && SizeOfInBits != 16) return false;
+  Value *LHS1 = nullptr, *RHS1 = nullptr, *LHS2 = nullptr, *RHS2 = nullptr;
+  SelectPatternFlavor SPF1 = matchSelectDcnvPattern(SI, LHS1, RHS1);
+  if (SPF1 != SPF_SMAX && SPF1 != SPF_SMIN) return false;
+  // matched select-trunc-cmp
+  if ((LHS1->getType()->getScalarSizeInBits() != 2*SizeOfInBits) &&
+      !(SizeOfInBits == 8 && LHS1->getType()->getScalarSizeInBits() == 32)) {
+    // Supports 32bit->16bit, 32bit->8bit, 16bit->8bit
+    return false;
+  }
+  SelectPatternFlavor SPF2 = SPF_UNKNOWN;
+  if ((Clip1 = dyn_cast<Constant>(LHS1))) {
+    SPF2 = MatchSelectPattern(RHS1, LHS2, RHS2);
+    if (SPF2 != SPF_SMAX && SPF2 != SPF_SMIN) return false;
+  }
+  else if ((Clip1 = dyn_cast<Constant>(RHS1))) {
+    SPF2 = MatchSelectPattern(LHS1, LHS2, RHS2);
+    if (SPF2 != SPF_SMAX && SPF2 != SPF_SMIN) return false;
+  }
+  assert(Clip1 && "MatchSelectDcnvPattern returned non-Constant");
+  // matched select-cmp
+
+  if ((Clip2 = dyn_cast<Constant>(LHS2))) {
+    Val = RHS2;
+  }
+  else if ((Clip2 = dyn_cast<Constant>(RHS2))) {
+    Val = LHS2;
+  }
+  else return false;
+
+  if (!getPairedLegalExtFromType(Clip1, Clip2, SITy,
+                                 SignedSat, UnsignedSat)) {
+    return false;
+  }
+
+  if (SPF1 == SPF_SMIN) {
+    if (SPF2 != SPF_SMAX) return false;
+    // MIN(C1, MAX(C2, Val))
+    Constant *CSwap = Clip1;
+    Clip1 = Clip2;
+    Clip2 = CSwap;
+  }
+  else if (SPF2 != SPF_SMIN) return false;
+
+  return true;
+}
+
+/// Given a saturate downconvert into [Clip1,Clip2] range,
+/// generate saturate add/sub intrinsic call instruction
+/// if the operand computation and the saturate downconvert
+/// behavior meets saturate add/sub idiom. 
+static CallInst *
+getSaturateAddSub(SelectInst &SI, Value *Val, Constant *Clip1, Constant *Clip2,
+                  TargetTransformInfo *TTI,
+                  bool SignedSat, bool UnsignedSat, bool &Found) {
+  Instruction *ValI = dyn_cast<Instruction>(Val);
+  if (!ValI ||
+      (ValI->getOpcode() != Instruction::Add &&
+       ValI->getOpcode() != Instruction::Sub)) return nullptr;
+  Instruction *IOp1 = dyn_cast<Instruction>(ValI->getOperand(0));
+  Instruction *IOp2 = dyn_cast<Instruction>(ValI->getOperand(1));
+  if (!IOp1 || !IOp2) return nullptr;
+  Value *Op1 = nullptr, *Op2 = nullptr;
+  Type *SITy = SI.getType();
+  bool GenCall = SITy->isVectorTy();
+
+  if (UnsignedSat                 &&
+      dyn_cast<ZExtInst>(IOp1)    && dyn_cast<ZExtInst>(IOp2)    &&
+      (Op1 = IOp1->getOperand(0)) && (Op2 = IOp2->getOperand(0)) &&
+      Op1->getType() == SITy      && Op2->getType() == SITy) {
+    Found = true;
+  }
+  else if (SignedSat                   &&
+           dyn_cast<SExtInst>(IOp1)    && dyn_cast<SExtInst>(IOp2)    &&
+           (Op1 = IOp1->getOperand(0)) && (Op2 = IOp2->getOperand(0)) &&
+           Op1->getType() == SITy      && Op2->getType() == SITy) {
+    Found = true;
+  }
+  else return nullptr;
+
+  Intrinsic::ID IID =
+    (ValI->getOpcode() == Instruction::Add)
+       ? UnsignedSat ? Intrinsic::usat_add : Intrinsic::ssat_add 
+       : UnsignedSat ? Intrinsic::usat_sub : Intrinsic::ssat_sub;
+
+  GenCall = GenCall &&
+            TTI->isLegalSatAddSub(IID, SITy, Clip1, Clip2);
+  DEBUG(dbgs() << "IC: Found Saturating Add/Sub:\t["
+        << *Clip1 << ", " << *Clip2 << "], Signed=" << SignedSat
+        << " Unsigned=" << UnsignedSat
+        << (GenCall ? " replacing\n" : "not replacing\n"));
+  
+  if (GenCall) {
+    Module *M = SI.getParent()->getParent()->getParent();
+    Type  *Tys[] = { SITy };
+    Function *Fn = Intrinsic::getDeclaration(M, IID, Tys);
+    Value *Args4[4] = { Op1, Op2, Clip1, Clip2 };
+    return CallInst::Create(Fn, Args4);
+  }
+  return nullptr;
+}
+
+/// Find an unsigned saturate add/sub pattern and generate saturate
+/// add/sub intrinsic call instruction
+static CallInst *
+getSaturateUnsignedAddSub(SelectInst &SI, TargetTransformInfo *TTI) {
+  // See if we are performing saturating unsigned add/sub.
+  // where saturation lowerbound is implicitly zero.
+  //   zext
+  //   zext
+  //   add/sub
+  //   cmp
+  //   trunc
+  //   select
+  Type *SITy = SI.getType();
+  if (!SITy->isIntOrIntVectorTy()) return nullptr;
+  unsigned SizeOfInBits = SITy->getScalarSizeInBits();
+  if (SizeOfInBits != 8 && SizeOfInBits != 16) return nullptr;
+  Value *LHS1 = nullptr, *RHS1 = nullptr, *Val = nullptr;
+  SelectPatternFlavor SPF1 = matchSelectDcnvPattern(SI, LHS1, RHS1);
+  if (SPF1 != SPF_SMIN) return nullptr;
+  // This pattern has implicit MAX with 0.
+  if ((LHS1->getType()->getScalarSizeInBits() != 2*SizeOfInBits) &&
+      !(SizeOfInBits == 8 && LHS1->getType()->getScalarSizeInBits() == 32)) {
+    // Supports 32bit->16bit, 32bit->8bit, 16bit->8bit
+    return nullptr;
+  }
+  // Clip is known to fit in truncated unsigned SITy range.
+  Constant *Clip = nullptr;
+  if ((Clip = dyn_cast<Constant>(LHS1))) {
+    Val = RHS1;
+  }
+  else if ((Clip = dyn_cast<Constant>(RHS1))) {
+    Val = LHS1;
+  }
+  assert(Clip && "matchSelectDcnvPattern() returned non-Constant");
+  Clip = ConstantExpr::getTrunc(Clip, SITy, true);
+
+  bool Found = false;
+  Constant *Zero = Constant::getNullValue(SITy);
+  return getSaturateAddSub(SI, Val, Zero, Clip, TTI, false, true, Found);
+}
+
+/// Find a saturate add/sub/downconvert pattern and generate saturate
+/// add/sub/downconvert intrinsic call instruction
+static CallInst *
+getSaturateAddSubDownConvert(SelectInst &SI, TargetTransformInfo *TTI) {
+  // See if we are performing saturating downconvert
+  // or saturating Add/Sub.
+  //    packsswb, packssdw, packuswb: sse2
+  //    packusdw: sse4.1
+  //    paddsb, paddsw, paddusb, paddusw:  sse2
+  //    psubsb, psubsw, psubusb, psubusw:  sse2
+  // If not full range,
+  //    pmaxsb, pminsb:   sse4.1
+  //    pmaxsw, pminsw:   sse2
+  //    pmaxub, pminub:   sse2
+  //    pmaxuw, pminuw:   sse4.1
+  Value *Val = nullptr;
+  Constant *CC1 = nullptr, *CC2 = nullptr;
+  bool SignedSat = false, UnsignedSat = false;
+
+  if (findSaturateDownConvertPattern(SI, Val, CC1, CC2,
+                                     SignedSat, UnsignedSat)) {
+    Module *M = SI.getParent()->getParent()->getParent();
+    Type *SITy = SI.getType();
+    bool GenCall = SITy->isVectorTy();
+    Type  *Tys[] = { SITy };
+    Intrinsic::ID IID;
+    bool Found = false;
+    CallInst *CallI = getSaturateAddSub(SI, Val, CC1, CC2, TTI,
+                                        SignedSat, UnsignedSat, Found); 
+    if (CallI) return CallI;
+
+    // Favor unsigned for dcnv to byte  (packuswb/pminub/pmaxub are sse2).
+    // Favor signed   for dcnv to short (packssdw/pminsw/pmaxsw are sse2).
+    IID = SITy->getScalarSizeInBits() == 8
+            ? UnsignedSat ? Intrinsic::usat_dcnv : Intrinsic::ssat_dcnv
+            : SignedSat   ? Intrinsic::ssat_dcnv : Intrinsic::usat_dcnv;
+    GenCall = GenCall &&
+              TTI->isLegalSatDcnv(IID, Val->getType(), SITy, CC1, CC2);
+
+    if (!Found) {
+      DEBUG(dbgs() << "IC: Found Saturating Downconvert:\t["
+            << *CC1 << ", " << *CC2 << "], Signed=" << SignedSat
+            << " Unsigned=" << UnsignedSat
+            << (GenCall ? " replacing\n" : " not replacing\n"));
+      if (GenCall) {
+        Value *Args3[3] = { Val, CC1, CC2 };
+        Function *Fn = Intrinsic::getDeclaration(M, IID, Tys);
+        return CallInst::Create(Fn, Args3);
+      }
+    }
+  }
+  else {
+    CallInst *CallI = getSaturateUnsignedAddSub(SI, TTI);
+    if (CallI) return CallI;
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 Instruction *InstCombiner::visitSelectInst(SelectInst &SI) {
   Value *CondVal = SI.getCondition();
   Value *TrueVal = SI.getTrueValue();
@@ -1065,6 +1502,10 @@ Instruction *InstCombiner::visitSelectInst(SelectInst &SI) {
     }
     // NOTE: if we wanted to, this is where to detect ABS
   }
+
+#if INTEL_CUSTOMIZATION
+  if (CallInst *CallI = getSaturateAddSubDownConvert(SI, TTI)) return CallI;
+#endif // INTEL_CUSTOMIZATION
 
   // See if we are selecting two values based on a comparison of the two values.
   if (ICmpInst *ICI = dyn_cast<ICmpInst>(CondVal))

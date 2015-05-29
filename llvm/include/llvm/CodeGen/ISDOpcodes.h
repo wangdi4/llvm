@@ -228,6 +228,14 @@ namespace ISD {
     /// Same for multiplication.
     SMULO, UMULO,
 
+#if INTEL_CUSTOMIZATION
+    /// Signed/Unsigned Saturating Downconvert.
+    SSATDCNV, USATDCNV,
+
+    /// Saturating signed/unsigned add/sub.
+    ADDS, ADDUS, SUBS, SUBUS,
+#endif // INTEL_CUSTOMIZATION
+
     /// Simple binary floating point operators.
     FADD, FSUB, FMUL, FDIV, FREM,
 

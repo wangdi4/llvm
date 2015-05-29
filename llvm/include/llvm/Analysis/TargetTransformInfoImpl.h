@@ -220,6 +220,18 @@ public:
 
   bool isLegalMaskedLoad(Type *DataType, int Consecutive) { return false; }
 
+#if INTEL_CUSTOMIZATION
+  bool isLegalSatDcnv(Intrinsic::ID IID, Type *From, Type *To,
+                       Constant *LoClip, Constant *HiClip) {
+    return false;
+  }
+
+  bool isLegalSatAddSub(Intrinsic::ID IID, Type *Ty,
+                        Constant *LoClip, Constant *HiCLip) {
+    return false;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   int getScalingFactorCost(Type *Ty, GlobalValue *BaseGV, int64_t BaseOffset,
                            bool HasBaseReg, int64_t Scale) {
     // Guess that all legal addressing mode are free.

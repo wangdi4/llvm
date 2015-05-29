@@ -1179,4 +1179,80 @@ bool X86TTIImpl::adjustCallArgs(CallInst* CI) {
 }
 #endif
 
+#if INTEL_CUSTOMIZATION
+static bool IsLegalClip(Constant *C, Type *Ty, bool Min, bool Signed,
+                        bool HasSSE41) {
+  if (Ty->isVectorTy()) C = C->getSplatValue();
+  ConstantInt *Splat = dyn_cast_or_null<ConstantInt>(C);
+
+  // Return true if explicit clipping with min/max not needed.
+  if (Splat) {
+    if (Min) {
+      if (Splat->isMaxValue(Signed)) return true;
+    }
+    else {
+      if (Splat->isMinValue(Signed)) return true;
+    }
+  }
+
+  // Check SSE4.1 for signed byte and unsigned short.
+  unsigned SizeOfInBits = Ty->getScalarSizeInBits();
+  assert((SizeOfInBits == 8 || SizeOfInBits == 16) &&
+         "Expecting 8bit or 16bit");
+  if ((SizeOfInBits == 8  && Signed) ||
+      (SizeOfInBits == 16 && !Signed)) {
+    return HasSSE41;
+  }
+  return true;
+}
+
+bool X86TTIImpl::isLegalSatDcnv(Intrinsic::ID IID, Type *From, Type *To,
+                                Constant *LoClip, Constant *HiClip) {
+  // Requires SSE2 or above.
+  if (!ST->hasSSE2()) return false;
+
+  bool Signed = IID == Intrinsic::ssat_dcnv;
+  bool SSE41  = ST->hasSSE41();
+  unsigned Elems = To->getVectorNumElements();
+
+  // Some Hi/Lo clippling require SSE4.1 or above.
+  if (!IsLegalClip(LoClip, To, false, Signed, SSE41) ||
+      !IsLegalClip(HiClip, To, true,  Signed, SSE41)) {
+    return false;
+  }
+
+  // less than full vector support hasn't been implemented.
+  if (To->getScalarSizeInBits() == 16 && Elems < 8)  return false;
+  if (To->getScalarSizeInBits() == 8  && Elems < 16) return false;
+
+  // packusdw is SSE4.1 or above.
+  if (!SSE41 && !Signed &&
+      From->getScalarSizeInBits() == 32 &&
+      To->getScalarSizeInBits() == 16) { return false; }
+  return true;
+}
+
+bool X86TTIImpl::isLegalSatAddSub(Intrinsic::ID IID, Type *Ty,
+                                  Constant *LoClip, Constant *HiClip) {
+  // Requires SSE2 or above.
+  if (!ST->hasSSE2()) return false;
+
+  bool Signed = (IID == Intrinsic::ssat_add) ||
+                (IID == Intrinsic::ssat_sub);
+  bool SSE41  = ST->hasSSE41();
+  unsigned Elems = Ty->getVectorNumElements();
+
+  // less than full vector support hasn't been implemented.
+  if (Ty->getScalarSizeInBits() == 16 && Elems < 8)  return false;
+  if (Ty->getScalarSizeInBits() == 8  && Elems < 16) return false;
+
+  // Some Hi/Lo clippling require SSE4.1 or above.
+  if (!IsLegalClip(LoClip, Ty, false, Signed, SSE41) ||
+      !IsLegalClip(HiClip, Ty, true,  Signed, SSE41)) {
+    return false;
+  }
+
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
 

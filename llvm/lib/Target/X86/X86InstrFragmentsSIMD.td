@@ -173,6 +173,11 @@ def X86vsrai   : SDNode<"X86ISD::VSRAI", SDTIntShiftOp>;
 def SDTX86CmpPTest : SDTypeProfile<1, 2, [SDTCisVT<0, i32>,
                                           SDTCisVec<1>,
                                           SDTCisSameAs<2, 1>]>;
+// if INTEL_CUSTOMIZATION
+def X86adds    : SDNode<"X86ISD::ADDS",  SDTIntBinOp>;
+def X86addus   : SDNode<"X86ISD::ADDUS", SDTIntBinOp>;
+def X86subs    : SDNode<"X86ISD::SUBS",  SDTIntBinOp>;
+// endif INTEL_CUSTOMIZATION
 def X86subus   : SDNode<"X86ISD::SUBUS", SDTIntBinOp>;
 def X86ptest   : SDNode<"X86ISD::PTEST", SDTX86CmpPTest>;
 def X86testp   : SDNode<"X86ISD::TESTP", SDTX86CmpPTest>;

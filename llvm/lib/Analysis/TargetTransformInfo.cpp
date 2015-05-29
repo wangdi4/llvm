@@ -115,6 +115,20 @@ bool TargetTransformInfo::isLegalMaskedLoad(Type *DataType,
   return TTIImpl->isLegalMaskedLoad(DataType, Consecutive);
 }
 
+#if INTEL_CUSTOMIZATION
+bool TargetTransformInfo::isLegalSatDcnv(Intrinsic::ID IID, Type *From,
+                                         Type *To, Constant *LoClip,
+                                         Constant *HiClip) const {
+  return TTIImpl->isLegalSatDcnv(IID, From, To, LoClip, HiClip);
+}
+
+bool TargetTransformInfo::isLegalSatAddSub(Intrinsic::ID IID, Type *Ty,
+                                           Constant *LoClip, Constant *HiClip)
+                                           const {
+  return TTIImpl->isLegalSatAddSub(IID, Ty, LoClip, HiClip);
+}
+#endif // INTEL_CUSTOMIZATION
+
 int TargetTransformInfo::getScalingFactorCost(Type *Ty, GlobalValue *BaseGV,
                                               int64_t BaseOffset,
                                               bool HasBaseReg,

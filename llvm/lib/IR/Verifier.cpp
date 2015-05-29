@@ -3137,6 +3137,38 @@ void Verifier::visitIntrinsicFunctionCall(Intrinsic::ID ID, CallInst &CI) {
            "constant int",
            &CI);
     break;
+#if INTEL_CUSTOMIZATION
+  case Intrinsic::ssat_dcnv: // llvm.ssat_dcnv
+  case Intrinsic::usat_dcnv: // llvm.usat_dcnv
+  case Intrinsic::ssat_add:   // llvm.ssat_add
+  case Intrinsic::usat_add:   // llvm.usat_add
+  case Intrinsic::ssat_sub:   // llvm.ssat_sub
+  case Intrinsic::usat_sub:   // llvm.usat_sub
+    {
+      Type *CITy = CI.getType();
+      Assert(CITy->isIntOrIntVectorTy(),
+             "must be integer type", &CI);
+      Assert(CITy->isVectorTy(),
+             "scalar type not yet supported", &CI);
+      unsigned Elems = CITy->getVectorNumElements();
+      unsigned NumBits = CITy->getScalarSizeInBits();
+      Assert(NumBits==8 || NumBits==16,
+             "must produce 8bit or 16bit results", &CI);
+      Assert((Elems & (Elems-1)) == 0,
+             "must have power-of-2 vector elements", &CI);
+      Assert(((NumBits==8  && Elems>=16) || 
+              (NumBits==16 && Elems>=8)),
+             "less than full vector not yet supported", &CI);
+      Assert(isa<Constant>(CI.getArgOperand(2)),
+             "bound must be constant argument", &CI);
+      int Pos = (ID == Intrinsic::ssat_dcnv ||
+                 ID == Intrinsic::usat_dcnv) ? 1 : 3;
+      Assert(isa<Constant>(CI.getArgOperand(Pos)),
+             "bound must be constant argument", &CI);
+      break;
+    }
+    break;
+#endif // INTEL_CUSTOMIZATION
   case Intrinsic::dbg_declare: // llvm.dbg.declare
     Assert(isa<MetadataAsValue>(CI.getArgOperand(0)),
            "invalid llvm.dbg.declare intrinsic call 1", &CI);

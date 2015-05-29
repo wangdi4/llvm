@@ -814,6 +814,10 @@ private:
   void visitStore(const StoreInst &I);
   void visitMaskedLoad(const CallInst &I);
   void visitMaskedStore(const CallInst &I);
+#if INTEL_CUSTOMIZATION
+  void visitSatAddSub(const CallInst &I, unsigned Intrinsic);
+  void visitSatDcnv(const CallInst &I, unsigned Intrinsic);
+#endif // INTEL_CUSTOMIZATION
   void visitAtomicCmpXchg(const AtomicCmpXchgInst &I);
   void visitAtomicRMW(const AtomicRMWInst &I);
   void visitFence(const FenceInst &I);

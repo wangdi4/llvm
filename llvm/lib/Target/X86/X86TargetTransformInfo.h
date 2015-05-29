@@ -103,9 +103,16 @@ public:
                          Type *Ty);
   bool isLegalMaskedLoad(Type *DataType, int Consecutive);
   bool isLegalMaskedStore(Type *DataType, int Consecutive);
+  bool isLegalGather(Type *DataType);
+  bool isLegalScatter(Type *DataType);
 #if INTEL_CUSTOMIZATION
+  bool isLegalSatDcnv(Intrinsic::ID IID, Type *From, Type *To,
+                      Constant *LoClip, Constant *HiClip);
+  bool isLegalSatAddSub(Intrinsic::ID IID, Type *Ty, Constant *LoClip,
+                        Constant *HiClip);
   bool adjustCallArgs(CallInst* CI);
-#endif
+#endif // INTEL_CUSTOMIZATION
+
   /// @}
 };
 

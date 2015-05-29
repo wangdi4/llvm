@@ -673,6 +673,16 @@ void DAGTypeLegalizer::SplitVectorResult(SDNode *N, unsigned ResNo) {
   case ISD::FMA:
     SplitVecRes_TernaryOp(N, Lo, Hi);
     break;
+#if INTEL_CUSTOMIZATION
+  case ISD::SSATDCNV:
+  case ISD::USATDCNV:
+  case ISD::ADDS:
+  case ISD::SUBS:
+  case ISD::ADDUS:
+  case ISD::SUBUS:
+    SplitVecRes_QuaternaryOp(N, Lo, Hi);
+    break;
+#endif // INTEL_CUSTOMIZATION
   }
 
   // If Lo/Hi is null, the sub-method took care of registering results etc.
@@ -707,6 +717,26 @@ void DAGTypeLegalizer::SplitVecRes_TernaryOp(SDNode *N, SDValue &Lo,
   Hi = DAG.getNode(N->getOpcode(), dl, Op0Hi.getValueType(),
                    Op0Hi, Op1Hi, Op2Hi);
 }
+
+#if INTEL_CUSTOMIZATION
+void DAGTypeLegalizer::SplitVecRes_QuaternaryOp(SDNode *N, SDValue &Lo,
+                                                SDValue &Hi) {
+  EVT LoVT, HiVT;
+  std::tie(LoVT, HiVT) = DAG.GetSplitDestVTs(N->getValueType(0));
+  SDValue Op0Lo, Op0Hi;
+  GetSplitVector(N->getOperand(0), Op0Lo, Op0Hi);
+  SDValue Op1Lo, Op1Hi;
+  GetSplitVector(N->getOperand(1), Op1Lo, Op1Hi);
+  SDValue Op2Lo, Op2Hi;
+  GetSplitVector(N->getOperand(2), Op2Lo, Op2Hi);
+  SDValue Op3Lo, Op3Hi;
+  GetSplitVector(N->getOperand(3), Op3Lo, Op3Hi);
+  SDLoc dl(N);
+
+  Lo = DAG.getNode(N->getOpcode(), dl, LoVT, Op0Lo, Op1Lo, Op2Lo, Op3Lo);
+  Hi = DAG.getNode(N->getOpcode(), dl, HiVT, Op0Hi, Op1Hi, Op2Hi, Op3Hi);
+}
+#endif // INTEL_CUSTOMIZATION
 
 void DAGTypeLegalizer::SplitVecRes_BITCAST(SDNode *N, SDValue &Lo,
                                            SDValue &Hi) {
@@ -1307,6 +1337,12 @@ bool DAGTypeLegalizer::SplitVectorOperand(SDNode *N, unsigned OpNo) {
     case ISD::VSELECT:
       Res = SplitVecOp_VSELECT(N, OpNo);
       break;
+#if INTEL_CUSTOMIZATION
+    case ISD::SSATDCNV:
+    case ISD::USATDCNV:
+      Res = SplitVecOp_SATDCNV(N, OpNo);
+      break;
+#endif // INTEL_CUSTOMIZATION
     case ISD::FP_TO_SINT:
     case ISD::FP_TO_UINT:
       if (N->getValueType(0).bitsLT(N->getOperand(0)->getValueType(0)))
@@ -1382,6 +1418,25 @@ SDValue DAGTypeLegalizer::SplitVecOp_VSELECT(SDNode *N, unsigned OpNo) {
 
   return DAG.getNode(ISD::CONCAT_VECTORS, DL, Src0VT, LoSelect, HiSelect);
 }
+
+#if INTEL_CUSTOMIZATION
+SDValue DAGTypeLegalizer::SplitVecOp_SATDCNV(SDNode *N, unsigned OpNo) {
+  // The only possibility for an illegal operand is two full vector
+  // producing one full vector result, since result type
+  // legalization would have handled this node already otherwise.
+  assert(OpNo == 0 && "Illegal operand must be the first operand");
+
+  // Dest doesn't need splitting, but Source0 needs splitting.
+  // Get rid of the dummy operand in Source1 and split Source0
+  // into NewSource0/NewSource1 (each of them half the number
+  // of elems of dest, 2x wider per element).
+  SDLoc DL(N);
+  SDValue Src0Lo, Src0Hi;
+  std::tie(Src0Lo, Src0Hi) = DAG.SplitVector(N->getOperand(0), DL);
+  return DAG.getNode(N->getOpcode(), DL, N->getValueType(0), Src0Lo, Src0Hi,
+                     N->getOperand(2), N->getOperand(3));
+}
+#endif // INTEL_CUSTOMIZATION
 
 SDValue DAGTypeLegalizer::SplitVecOp_UnaryOp(SDNode *N) {
   // The result has a legal vector type, but the input needs splitting.
@@ -1755,6 +1810,15 @@ void DAGTypeLegalizer::WidenVectorResult(SDNode *N, unsigned ResNo) {
     Res = WidenVecRes_Binary(N);
     break;
 
+#if INTEL_CUSTOMIZATION
+  case ISD::ADDS:
+  case ISD::SUBS:
+  case ISD::ADDUS:
+  case ISD::SUBUS:
+    Res = WidenVecRes_Quaternary(N);
+    break;
+#endif // INTEL_CUSTOMIZATION
+
   case ISD::FADD:
   case ISD::FCOPYSIGN:
   case ISD::FMUL:
@@ -1823,6 +1887,20 @@ void DAGTypeLegalizer::WidenVectorResult(SDNode *N, unsigned ResNo) {
   if (Res.getNode())
     SetWidenedVector(SDValue(N, ResNo), Res);
 }
+
+#if INTEL_CUSTOMIZATION
+SDValue DAGTypeLegalizer::WidenVecRes_Quaternary(SDNode *N) {
+  // Ternary op widening.
+  SDLoc dl(N);
+  EVT WidenVT = TLI.getTypeToTransformTo(*DAG.getContext(), N->getValueType(0));
+  SDValue InOp1 = GetWidenedVector(N->getOperand(0));
+  SDValue InOp2 = GetWidenedVector(N->getOperand(1));
+  SDValue InOp3 = GetWidenedVector(N->getOperand(2));
+  SDValue InOp4 = GetWidenedVector(N->getOperand(3));
+  return DAG.getNode(N->getOpcode(), dl, WidenVT,
+                     InOp1, InOp2, InOp3, InOp4);
+}
+#endif // INTEL_CUSTOMIZATION
 
 SDValue DAGTypeLegalizer::WidenVecRes_Ternary(SDNode *N) {
   // Ternary op widening.

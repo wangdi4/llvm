@@ -611,6 +611,9 @@ private:
   void SplitVectorResult(SDNode *N, unsigned OpNo);
   void SplitVecRes_BinOp(SDNode *N, SDValue &Lo, SDValue &Hi);
   void SplitVecRes_TernaryOp(SDNode *N, SDValue &Lo, SDValue &Hi);
+#if INTEL_CUSTOMIZATION
+  void SplitVecRes_QuaternaryOp(SDNode *N, SDValue &Lo, SDValue &Hi);
+#endif // INTEL_CUSTOMIZATION
   void SplitVecRes_UnaryOp(SDNode *N, SDValue &Lo, SDValue &Hi);
   void SplitVecRes_ExtendOp(SDNode *N, SDValue &Lo, SDValue &Hi);
   void SplitVecRes_InregOp(SDNode *N, SDValue &Lo, SDValue &Hi);
@@ -635,6 +638,9 @@ private:
   // Vector Operand Splitting: <128 x ty> -> 2 x <64 x ty>.
   bool SplitVectorOperand(SDNode *N, unsigned OpNo);
   SDValue SplitVecOp_VSELECT(SDNode *N, unsigned OpNo);
+#if INTEL_CUSTOMIZATION
+  SDValue SplitVecOp_SATDCNV(SDNode *N, unsigned OpNo);
+#endif // INTEL_CUSTOMIZATION
   SDValue SplitVecOp_UnaryOp(SDNode *N);
   SDValue SplitVecOp_TruncateHelper(SDNode *N);
 
@@ -685,6 +691,9 @@ private:
   SDValue WidenVecRes_VECTOR_SHUFFLE(ShuffleVectorSDNode *N);
   SDValue WidenVecRes_VSETCC(SDNode* N);
 
+#if INTEL_CUSTOMIZATION
+  SDValue WidenVecRes_Quaternary(SDNode *N);
+#endif // INTEL_CUSTOMIZATION
   SDValue WidenVecRes_Ternary(SDNode *N);
   SDValue WidenVecRes_Binary(SDNode *N);
   SDValue WidenVecRes_BinaryCanTrap(SDNode *N);
