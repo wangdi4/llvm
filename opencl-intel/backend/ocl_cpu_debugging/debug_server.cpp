@@ -178,28 +178,34 @@ struct FunctionStackFrame
 {
     struct VarDeclInfo
     {
-        VarDeclInfo(void* addr_, const MDNode* description_, bool is_global_ = false)
-            : addr(addr_), description(description_), is_global(is_global_)
+        VarDeclInfo(void* addr_, const MDNode* description_, const MDNode* expression_)
+            : addr(addr_), description(description_), expression(expression_)
         {
-            DIVariable di_var(description);
-            if (!is_global && di_var.hasComplexAddress()) {
-              unsigned N = di_var.getNumAddrElements();
+            if (expression) {
+              DIExpression di_expr(expression);
+              assert(di_expr.Verify() && "DIExpression is expected");
+              unsigned N = di_expr.getNumElements();
               for (unsigned i = 0; i < N; ++i) {
-                uint64_t Element = di_var.getAddrElement(i);
-                if (Element == 1) { // +
+                uint64_t Element = di_expr.getElement(i);
+                if (Element == dwarf::DW_OP_plus) {
                   uint64_t a = reinterpret_cast<uint64_t>(addr);
-                  a += di_var.getAddrElement(++i);
+                  a += di_expr.getElement(++i);
                   addr = reinterpret_cast<void*>(a);
-                } else if (Element == 2) { // deref
+                } else if (Element == dwarf::DW_OP_deref) {
                   addr = *(reinterpret_cast<void**>(addr));
-                } else llvm_unreachable("unknown complex address opcode");
+                } else {
+                  // [LLVM 3.6 UPGRADE] FIXME: What about DW_OP_bit_piece?
+                  // See http://llvm.org/docs/LangRef.html#diexpression for more details
+                  // Note that 3.6.0 already has DIExpression but this is not described in the release related pages
+                  llvm_unreachable("unknown complex address opcode");
+                }
               }
             }
         }
 
         void* addr;
         const MDNode* description;
-        bool is_global;
+        const MDNode* expression;
     };
 
     // Vars declared so far in the frame. Not all are visible at the execution
@@ -365,6 +371,8 @@ struct DebugServer::DebugServerImpl
     // was executed. 
     //
     const MDNode* m_prev_stoppoint_line;
+
+    DITypeIdentifierMap m_typeIdentifierMap;
 };
 
 
@@ -597,7 +605,7 @@ void DebugServer::DebugServerImpl::DumpFunctionVars()
     for (   vector<FunctionStackFrame::VarDeclInfo>::iterator i = m_stack.front().vars.begin();
             i != m_stack.front().vars.end(); ++i)
     {
-        if (!i->is_global)
+        if (i->expression)
             i->description->dump();
     }
 
@@ -605,7 +613,7 @@ void DebugServer::DebugServerImpl::DumpFunctionVars()
     for (   vector<FunctionStackFrame::VarDeclInfo>::iterator i = m_stack.front().vars.begin();
             i != m_stack.front().vars.end(); ++i)
     {
-        if (i->is_global)
+        if (!i->expression)
             i->description->dump();
     }
 }
@@ -689,7 +697,7 @@ VarsMapping DebugServer::DebugServerImpl::CollectVarsInScope(
     //
     vector<FunctionStackFrame::VarDeclInfo>::const_iterator i = stackframe.vars.begin();
     for (; i != stackframe.vars.end(); ++i) {
-        if (i->is_global)
+        if (!i->expression) // if this is a global variable declaration
             continue;
 
         DIVariable var_di(i->description);
@@ -719,7 +727,7 @@ VarsMapping DebugServer::DebugServerImpl::CollectGlobalVars(
 
     vector<FunctionStackFrame::VarDeclInfo>::const_iterator i = stackframe.vars.begin();
     for (; i != stackframe.vars.end(); ++i) {
-        if (i->is_global) {
+        if (!i->expression) { // if this is a global variable declaration
             VarDescription var_description = CreateVarDescription(*i);
             globalvars[var_description.name] = var_description;
         }
@@ -732,21 +740,23 @@ VarsMapping DebugServer::DebugServerImpl::CollectGlobalVars(
 VarDescription DebugServer::DebugServerImpl::CreateVarDescription(const FunctionStackFrame::VarDeclInfo& var_info)
 {
     string var_name_str;
+    // [LLVM 3.6 UPGRADE] FIXME: Initialize m_typeIdentifierMap from a llvm::Module
+    // See DebugInfoFinder::InitializeTypeMap for a reference
     DIType di_type;
 
-    if (var_info.is_global) {
+    if (!var_info.expression) { // if this is a global variable declaration
         DIGlobalVariable di_global_type(var_info.description);
         var_name_str = di_global_type.getName().str();
-        di_type = di_global_type.getType();
+        di_type = di_global_type.getType().resolve(m_typeIdentifierMap);
     }
     else {
         DIVariable di_local_type(var_info.description);
         var_name_str = di_local_type.getName().str();
-        di_type = di_local_type.getType();
+        di_type = di_local_type.getType().resolve(m_typeIdentifierMap);
     }
 
-    string var_type_str = DescribeVarType(di_type);
-    string var_value_str = DescribeVarValue(di_type, var_info.addr, var_type_str);
+    string var_type_str = DescribeVarType(di_type, m_typeIdentifierMap);
+    string var_value_str = DescribeVarValue(di_type, var_info.addr, m_typeIdentifierMap, var_type_str);
     VarTypeDescriptor var_type_descriptor = GenerateVarTypeDescriptor(di_type);
     
     return VarDescription(
@@ -1031,9 +1041,9 @@ void DebugServer::ExitFunction(const llvm::MDNode* subprogram_mdn)
 }
 
 
-void DebugServer::DeclareLocal(void* addr, const llvm::MDNode* description)
+void DebugServer::DeclareLocal(void* addr, const llvm::MDNode* description, const llvm::MDNode* expression)
 {
-    FunctionStackFrame::VarDeclInfo varinfo(addr, description, false);
+    FunctionStackFrame::VarDeclInfo varinfo(addr, description, expression);
     assert(d->m_stack.size() > 0);
     llvm::MutexGuard lock(m_Lock);
     d->m_stack.front().vars.push_back(varinfo);
@@ -1042,7 +1052,7 @@ void DebugServer::DeclareLocal(void* addr, const llvm::MDNode* description)
 
 void DebugServer::DeclareGlobal(void* addr, const llvm::MDNode* description)
 {
-    FunctionStackFrame::VarDeclInfo varinfo(addr, description, true);
+    FunctionStackFrame::VarDeclInfo varinfo(addr, description, nullptr);
     assert(d->m_stack.size() > 0);
     llvm::MutexGuard lock(m_Lock);
     d->m_stack.front().vars.push_back(varinfo);

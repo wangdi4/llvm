@@ -78,7 +78,7 @@ public:
     void Stoppoint(const llvm::MDNode* line_metadata);
     void EnterFunction(const llvm::MDNode* subprogram_mdn);
     void ExitFunction(const llvm::MDNode* subprogram_mdn);
-    void DeclareLocal(void* addr, const llvm::MDNode* description);
+    void DeclareLocal(void* addr, const llvm::MDNode* description, const llvm::MDNode* expression);
     void DeclareGlobal(void* addr, const llvm::MDNode* description);
 
     // Check if the global id passed in as a triple of numbers matches the
@@ -99,8 +99,9 @@ private:
     // No copying
     DebugServer(const DebugServer&);
     DebugServer& operator=(const DebugServer&);
+
 protected:
-     mutable llvm::sys::Mutex       m_Lock;
+    mutable llvm::sys::Mutex       m_Lock;
 };
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

@@ -20,7 +20,7 @@ File Name:  ocl_debug_builtins.cpp
 #include "icldebuggingservice.h"
 #include "cl_dev_backend_api.h"
 
-#include "llvm/DebugInfo.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/raw_ostream.h"
@@ -51,26 +51,26 @@ static inline ICLDebuggingService* TheDebuggingService()
 
 
 extern "C" LLVM_BACKEND_API void __opencl_dbg_declare_local(
-    void* addr, uint64_t metadata_addr, uint64_t gid0, uint64_t gid1, uint64_t gid2)
+    void* addr, uint64_t var_metadata_addr, uint64_t expr_metadata_addr, uint64_t gid0, uint64_t gid1, uint64_t gid2)
 {
     ICLDebuggingService* debuggingService = TheDebuggingService();
     if (debuggingService) {
         if (debuggingService->DebuggedGlobalIdMatch(gid0, gid1, gid2)) {
           MDNode* metadata_ptr = objptr_from_addr<MDNode>(metadata_addr);
-          debuggingService->DeclareLocal(addr, metadata_ptr);
+          debuggingService->DeclareLocal(addr, var_metadata_addr, expr_metadata_addr);
         }
     }
 }
 
 
 extern "C" LLVM_BACKEND_API void __opencl_dbg_declare_global(
-    void* addr, uint64_t metadata_addr, uint64_t gid0, uint64_t gid1, uint64_t gid2)
+    void* addr, uint64_t var_metadata_addr, uint64_t gid0, uint64_t gid1, uint64_t gid2)
 {
     ICLDebuggingService* debuggingService = TheDebuggingService(); 
     if (debuggingService) {
         if (debuggingService->DebuggedGlobalIdMatch(gid0, gid1, gid2)) {
             MDNode* metadata_ptr = objptr_from_addr<MDNode>(metadata_addr);
-            debuggingService->DeclareGlobal(addr, metadata_ptr);
+            debuggingService->DeclareGlobal(addr, var_metadata_addr);
         }
     }
 }

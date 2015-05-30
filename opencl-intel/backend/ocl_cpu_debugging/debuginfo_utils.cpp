@@ -120,12 +120,13 @@ static string describe_vector_value(const DIType& di_type, void* addr, string ty
 }
 
 
-static string DescribeArrayType(const DICompositeType& di_type)
+static string DescribeArrayType(const DICompositeType& di_type,
+                                const llvm::DITypeIdentifierMap & typeIdentifierMap)
 {
-    DIType derived_from_type = di_type.getTypeDerivedFrom();
-    string type_str = DescribeVarType(derived_from_type);
+    DIType derived_from_type = di_type.getTypeDerivedFrom().resolve(typeIdentifierMap);
+    string type_str = DescribeVarType(derived_from_type, typeIdentifierMap);
     
-    DIArray ranges_array = di_type.getTypeArray();
+    DIArray ranges_array = di_type.getElements();
     for (unsigned i = 0; i < ranges_array.getNumElements(); ++i) {
         DIDescriptor elem = ranges_array.getElement(i);
         assert(elem.isSubrange());
@@ -139,7 +140,8 @@ static string DescribeArrayType(const DICompositeType& di_type)
 }
 
 
-string DescribeVarType(const DIType& di_type)
+string DescribeVarType(const DIType& di_type,
+                       const llvm::DITypeIdentifierMap & typeIdentifierMap)
 {
     if (di_type.isBasicType()) {
         DIBasicType basic_type_descriptor(static_cast<MDNode*>(di_type));
@@ -148,15 +150,15 @@ string DescribeVarType(const DIType& di_type)
     else if (di_type.isCompositeType()) {
         if (di_type.getTag() == dwarf::DW_TAG_array_type) {
             DICompositeType composite(static_cast<MDNode*>(di_type));
-            return DescribeArrayType(composite);
+            return DescribeArrayType(composite, typeIdentifierMap);
         }
     }
     else if (di_type.isDerivedType()) {
         DIDerivedType derived_type_descriptor(static_cast<MDNode*>(di_type));
-        DIType derived_from = derived_type_descriptor.getTypeDerivedFrom();
+        DIType derived_from = derived_type_descriptor.getTypeDerivedFrom().resolve(typeIdentifierMap);
 
         if (di_type.getTag() == dwarf::DW_TAG_pointer_type) {
-            string derived_from_str = DescribeVarType(derived_from);
+            string derived_from_str = DescribeVarType(derived_from, typeIdentifierMap);
             return derived_from_str + "*";
         }
         else if (di_type.getTag() == dwarf::DW_TAG_typedef) {
@@ -167,7 +169,8 @@ string DescribeVarType(const DIType& di_type)
 }
 
 
-string DescribeVarValue(const DIType& di_type, void* addr, string type_name)
+string DescribeVarValue(const DIType& di_type, void* addr,
+                        const DITypeIdentifierMap & typeIdentifierMap, string type_name)
 {
     if (di_type.isBasicType()) {
         DIBasicType basic_type_descriptor(static_cast<MDNode*>(di_type));
@@ -245,7 +248,7 @@ string DescribeVarValue(const DIType& di_type, void* addr, string type_name)
     }
     else if (di_type.isDerivedType()) {
         DIDerivedType derived_type_descriptor(static_cast<MDNode*>(di_type));
-        DIType derived_from = derived_type_descriptor.getTypeDerivedFrom();
+        DIType derived_from = derived_type_descriptor.getTypeDerivedFrom().resolve(typeIdentifierMap);
 
         switch (di_type.getTag()) {
             case dwarf::DW_TAG_typedef:
@@ -253,11 +256,11 @@ string DescribeVarValue(const DIType& di_type, void* addr, string type_name)
                     return describe_vector_value(di_type, addr, type_name);
                 }
                 else {
-                    return DescribeVarValue(derived_from, addr);
+                    return DescribeVarValue(derived_from, addr, typeIdentifierMap);
                 }
             case dwarf::DW_TAG_const_type:
             case dwarf::DW_TAG_volatile_type:
-                return DescribeVarValue(derived_from, addr);
+                return DescribeVarValue(derived_from, addr, typeIdentifierMap);
             case dwarf::DW_TAG_pointer_type:
                 {
                     // addr is the address where the pointer is stored. Take
@@ -343,6 +346,7 @@ class Generator {
     // pointer chasing depth
     unsigned m_pointerDepth;
     const DIType& m_type;
+    const DITypeIdentifierMap & m_typeIdentifierMap;
     VarTypeDescriptor GenerateVarTypeTypedef(const DIDerivedType& di_type, const DIType& di_derived_from);
     VarTypeDescriptor GenerateVarTypePointer(const DIType& di_pointee);
     VarTypeDescriptor GenerateVarTypeArray(const DICompositeType& di_array);
@@ -350,8 +354,8 @@ class Generator {
     VarTypeDescriptor GenerateVarTypeDescriptor(const DIType& di_type);
 
 public:
-    Generator(const DIType& type)
-        :m_type(type)
+    Generator(const DIType& type, const DITypeIdentifierMap & typeIdentifierMap)
+        : m_type(type), m_typeIdentifierMap(typeIdentifierMap)
     {}
     VarTypeDescriptor run() {
         m_pointerDepth = 0;
@@ -429,7 +433,7 @@ static VarTypeDescriptor GenerateVarTypeEnum(const DICompositeType& di_enum)
     VarTypeEnum enum_descriptor;
     enum_descriptor.set_name(di_enum.getName());
 
-    DIArray di_enum_members = di_enum.getTypeArray();
+    DIArray di_enum_members = di_enum.getElements();
     for (unsigned i = 0; i < di_enum_members.getNumElements(); ++i) {
         DIDescriptor di_member_i = di_enum_members.getElement(i);
         assert(di_member_i.isEnumerator());
@@ -449,7 +453,7 @@ static VarTypeDescriptor GenerateVarTypeEnum(const DICompositeType& di_enum)
 
 VarTypeDescriptor Generator::GenerateVarTypeArray(const DICompositeType& di_array)
 {
-    DIType di_element = di_array.getTypeDerivedFrom();
+    DIType di_element = di_array.getTypeDerivedFrom().resolve(m_typeIdentifierMap);
 
     VarTypeDescriptor element_descriptor = 
         GenerateVarTypeDescriptor(di_element);
@@ -458,7 +462,7 @@ VarTypeDescriptor Generator::GenerateVarTypeArray(const DICompositeType& di_arra
 
     // For a multi-dimensional array there may be multiple ranges
     //
-    DIArray di_ranges = di_array.getTypeArray();
+    DIArray di_ranges = di_array.getElements();
     for (unsigned i = 0; i < di_ranges.getNumElements(); ++i) {
         DIDescriptor di_range_i = di_ranges.getElement(i);
         assert(di_range_i.isSubrange());
@@ -479,7 +483,7 @@ VarTypeDescriptor Generator::GenerateVarTypeStruct(const DICompositeType& di_str
     VarTypeStruct struct_descriptor;
     struct_descriptor.set_name(di_struct.getName());
 
-    DIArray di_struct_members = di_struct.getTypeArray();
+    DIArray di_struct_members = di_struct.getElements();
     for (unsigned i = 0; i < di_struct_members.getNumElements(); ++i) {
         // Each element in this type array is a DW_TAG_member, which is a 
         // derived type.
@@ -494,7 +498,7 @@ VarTypeDescriptor Generator::GenerateVarTypeStruct(const DICompositeType& di_str
         member->set_align_nbits(di_member_derived.getAlignInBits());
         member->set_size_nbits(di_member_derived.getSizeInBits());
         member->set_offset_nbits(di_member_derived.getOffsetInBits());
-        DIType member_type = di_member_derived.getTypeDerivedFrom();
+        DIType member_type = di_member_derived.getTypeDerivedFrom().resolve(m_typeIdentifierMap);
         member->mutable_type()->CopyFrom(GenerateVarTypeDescriptor(member_type));
     }
 
@@ -529,7 +533,7 @@ VarTypeDescriptor Generator::GenerateVarTypeDescriptor(const DIType& di_type)
     }
     else if (di_type.isDerivedType()) {
         DIDerivedType di_derived(static_cast<MDNode*>(di_type));
-        DIType di_derived_from = di_derived.getTypeDerivedFrom();
+        DIType di_derived_from = di_derived.getTypeDerivedFrom().resolve(m_typeIdentifierMap);
 
         if (di_type.getTag() == dwarf::DW_TAG_pointer_type) {
             return GenerateVarTypePointer(di_derived_from);
@@ -554,7 +558,7 @@ VarTypeDescriptor Generator::GenerateVarTypeDescriptor(const DIType& di_type)
 
 } // namespace
 
-VarTypeDescriptor GenerateVarTypeDescriptor(const DIType& di_type)
+VarTypeDescriptor GenerateVarTypeDescriptor(const DIType& di_type, const DITypeIdentifierMap & typeIdentifierMap)
 {
-    return Generator(di_type).run();
+    return Generator(di_type, typeIdentifierMap).run();
 }

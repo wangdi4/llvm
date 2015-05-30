@@ -49,7 +49,7 @@ public:
     virtual void Stoppoint(const llvm::MDNode* line_metadata) = 0;
     virtual void EnterFunction(const llvm::MDNode* subprogram_mdn) = 0;
     virtual void ExitFunction(const llvm::MDNode* subprogram_mdn) = 0;
-    virtual void DeclareLocal(void* addr, const llvm::MDNode* description) = 0;
+    virtual void DeclareLocal(void* addr, const llvm::MDNode* description, const llvm::MDNode* expression) = 0;
     virtual void DeclareGlobal(void* addr, const llvm::MDNode* description) = 0;
     virtual bool DebuggedGlobalIdMatch(unsigned x, unsigned y, unsigned z) = 0;
 };
