@@ -601,7 +601,12 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   // CQ#368125 - support for '/Fd' and '/Fo' options.
   Opts.MSOutputObjFile = Args.getLastArgValue(OPT_fms_debug_info_obj_file);
   Opts.MSOutputPdbFile = Args.getLastArgValue(OPT_fms_debug_info_pdb_file);
-#endif //INTEL_CUSTOMIZATION
+  // CQ#368123 - support '-f[no-]emit-class-debug-always' options.
+  Opts.EmitClassDebugAlways = Args.hasFlag(
+      OPT_femit_class_debug_always, OPT_fno_emit_class_debug_always, true);
+  // CQ#369692 - support for '-fargument-noalias' option.
+  Opts.NoAliasForPtrArgs = Args.hasArg(OPT_fargument_noalias);
+#endif // INTEL_CUSTOMIZATION
 
   if (Arg *A = Args.getLastArg(OPT_ffp_contract)) {
     StringRef Val = A->getValue();
@@ -1383,6 +1388,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   CompilerInvocation::setLangDefaults(Opts, IK, LangStd);
 #ifdef INTEL_CUSTOMIZATION
   Opts.IntelCompat = Args.hasArg(OPT_fintel_compatibility);
+  Opts.IntelMSCompat = Args.hasArg(OPT_fintel_ms_compatibility);
   Opts.CilkPlus = Args.hasArg(OPT_fcilkplus);
   Opts.Float128 = Args.hasArg(OPT_extended_float_types);
   if (Opts.CilkPlus && (Opts.ObjC1 || Opts.ObjC2))

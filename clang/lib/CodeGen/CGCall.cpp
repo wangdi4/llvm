@@ -1588,6 +1588,13 @@ void CodeGenModule::ConstructAttributeList(const CGFunctionInfo &FI,
             llvm::Attribute::InReg));
     }
 
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#369692 - support for '-fargument-noalias' option.
+    if (ParamType->isPointerType() && getLangOpts().IntelCompat &&
+        CodeGenOpts.NoAliasForPtrArgs)
+      Attrs.addAttribute(llvm::Attribute::NoAlias);
+#endif // INTEL_CUSTOMIZATION
+
     // 'restrict' -> 'noalias' is done in EmitFunctionProlog when we
     // have the corresponding parameter variable.  It doesn't make
     // sense to do it here because parameters are so messed up.
@@ -2287,7 +2294,7 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
   if (!ReturnValue) {
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
     llvm::Instruction *Ret = Builder.CreateRetVoid();
-    if (EmitRetDbgLoc && !ReturnLoc.isUnknown())
+    if (EmitRetDbgLoc && ReturnLoc)
       Ret->setDebugLoc(ReturnLoc);
 #else
     Builder.CreateRetVoid();
@@ -2424,7 +2431,7 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
   if (RetDbgLoc)
     Ret->setDebugLoc(std::move(RetDbgLoc));
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
-  else if (EmitRetDbgLoc && !ReturnLoc.isUnknown())
+  else if (EmitRetDbgLoc && ReturnLoc)
     Ret->setDebugLoc(ReturnLoc);
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
 }

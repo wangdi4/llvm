@@ -540,6 +540,14 @@ def restrict : Flag<["-"], "restrict">,
   HelpText<"Enable the 'restrict' keyword for disambiguating pointers">;
 def no_restrict : Flag<["-"], "no-restrict">,
   HelpText<"Disable the 'restrict' keyword for disambiguating pointers">;
+// CQ#368123 - support '-f[no-]emit-class-debug-always' options.
+def femit_class_debug_always : Flag<["-"], "femit-class-debug-always">,
+  HelpText<"Enable emitting debug info for all class methods">;
+def fno_emit_class_debug_always : Flag<["-"], "fno-emit-class-debug-always">,
+  HelpText<"Disable emitting debug info for all class methods">;
+// CQ#369692 - support for '-fargument-noalias' option.
+def fargument_noalias : Flag<["-"], "fargument-noalias">,
+  HelpText<"Enables 'noalias' attribute for all pointer-type arguments">;
 // endif INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

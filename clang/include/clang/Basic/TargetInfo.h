@@ -54,6 +54,9 @@ protected:
   // values are specified by the TargetInfo constructor.
   bool BigEndian;
   bool TLSSupported;
+#ifdef INTEL_CUSTOMIZATION
+  bool IsFloat128Enabled;
+#endif // INTEL_CUSTOMIZATION
   bool NoAsmVariants;  // True if {|} are normal characters.
   unsigned char PointerWidth, PointerAlign;
   unsigned char BoolWidth, BoolAlign;

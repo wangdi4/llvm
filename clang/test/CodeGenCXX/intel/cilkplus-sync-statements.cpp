@@ -29,7 +29,7 @@ unsigned int ThrowingFib(unsigned int n) throw (int) {
 
 // Should have an implicit sync at the end of the function
 void test1() {
-  // CHECK: define void @_Z5test1v()
+  // CHECK: define void @{{.*}}test1
 
   // CHECK: %__cilkrts_sf = alloca %__cilkrts_stack_frame
   // CHECK: call void @__cilk_parent_prologue(%__cilkrts_stack_frame* %__cilkrts_sf)
@@ -66,7 +66,7 @@ void test1() {
 // Note: the compiler may elide a sync if it can statically
 // determine that the sync will have no observable efect
 void test2() {
-  // CHECK: define void @_Z5test2v()
+  // CHECK: define void @{{.*}}test2
 
   // CHECK: %__cilkrts_sf = alloca %__cilkrts_stack_frame
   // CHECK: call void @__cilk_parent_prologue(%__cilkrts_stack_frame* %__cilkrts_sf)
@@ -105,10 +105,10 @@ void test2() {
 // Should have an implicit sync at the end of the function
 // Automatic variables should be destructed before the sync
 void test3() {
-  // CHECK: define void @_Z5test3v()
+  // CHECK: define void @{{.*}}test3
 
-  // CHECK: invoke void @_ZN3FooC1Ev(
-  // CHECK: call void @_ZN3FooD1Ev
+  // CHECK: invoke {{.*}} @{{.*}}Foo
+  // CHECK: call void @{{.*}}Foo
   // CHECK: call void @__cilkrts_sync
 
   Foo x;
@@ -120,7 +120,7 @@ void test3() {
 // Return values should be assigned before the sync
 // Automatic variables should be destructed before the sync
 int test4() {
-  // CHECK: define i32 @_Z5test4v()
+  // CHECK: define i32 @{{.*}}test4
 
   // CHECK: [[Retval:%[0-9]+]] = load i32, i32* %local
 
@@ -135,9 +135,9 @@ int test4() {
 // Should elide unnecessary syncs
 void test5() {
   global = Fib(BIG_NUM);
-  // CHECK: define void @_Z5test5v()
+  // CHECK: define void @{{.*}}test5
   // CHECK-NOT: alloca %__cilkrts_stack_frame
-  // CHECK: call i32 @_Z3Fibj(
+  // CHECK: call i32 @{{.*}}Fib
   // CHECK-NEXT: store i32
   // CHECK-NOT:  call void @__cilkrts_sync
   // CHECK-NEXT: ret void
@@ -148,7 +148,7 @@ void test6_anchor() throw ();
 
 // Should have implicit sync at end of try block
 void test6() {
-  // CHECK: define void @_Z5test6v()
+  // CHECK: define void @{{.*}}test6
   //
   try {
     global = _Cilk_spawn ThrowingFib(BIG_NUM * BIG_NUM);
@@ -163,7 +163,7 @@ void test6() {
   test6_anchor();
   // Elide the function implicit sync
   //
-  // CHECK: call void @_Z12test6_anchorv()
+  // CHECK: call void @{{.*}}test6_anchor
   // CHECK-NOT:  void @__cilkrts_sync
   // CHECK: ret
 }

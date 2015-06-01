@@ -580,7 +580,12 @@ ALIAS("__int32"          , int        , KEYALL) //***INTEL: sized int support
 ALIAS("_int32"           , int        , KEYMS)
 ALIAS("_int64"           , __int64    , KEYMS)
 ALIAS("__wchar_t"        , wchar_t    , KEYMS)
+#ifdef INTEL_CUSTOMIZATION
+// CQ#369368 - allow '_asm' keyword if MS-style inline assembly is enabled.
+ALIAS("_asm"             , asm        , KEYMS | KEYMSASM)
+#else
 ALIAS("_asm"             , asm        , KEYMS)
+#endif // INTEL_CUSTOMIZATION
 ALIAS("_alignof"         , __alignof  , KEYMS)
 ALIAS("__builtin_alignof", __alignof  , KEYMS)
 ALIAS("_cdecl"           , __cdecl    , KEYMS | KEYBORLAND)

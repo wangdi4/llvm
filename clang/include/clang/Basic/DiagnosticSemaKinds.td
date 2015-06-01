@@ -1365,6 +1365,13 @@ def err_illegal_union_or_anon_struct_member : Error<
   "%select{anonymous struct|union}0 member %1 has a non-trivial "
   "%select{constructor|copy constructor|move constructor|copy assignment "
   "operator|move assignment operator|destructor}2">;
+// if INTEL_CUSTOMIZATION
+def warn_intel_nontrivial_union_or_anon_struct_member : Warning<
+  "%select{anonymous struct|union}0 member %1 has a non-trivial "
+  "%select{constructor|copy constructor|move constructor|copy assignment "
+  "operator|move assignment operator|destructor}2">,
+  InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def warn_cxx98_compat_nontrivial_union_or_anon_struct_member : Warning<
   "%select{anonymous struct|union}0 member %1 with a non-trivial "
   "%select{constructor|copy constructor|move constructor|copy assignment "
@@ -6069,6 +6076,12 @@ def err_typecheck_incomplete_type_not_modifiable_lvalue : Error<
   "incomplete type %0 is not assignable">;
 def err_typecheck_lvalue_casts_not_supported : Error<
   "assignment to cast is illegal, lvalue casts are not supported">;
+// CQ#366312
+// if INTEL_CUSTOMIZATION
+def ext_intel_lvalue_cast_not_lengthened: ExtWarn<
+  "assignment to lvalue cast that does not lengthen the size of "
+  "an object is an Intel Extension">, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 
 def err_typecheck_duplicate_vector_components_not_mlvalue : Error<
   "vector is not assignable (contains duplicate components)">;

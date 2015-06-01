@@ -98,7 +98,8 @@ namespace {
 #ifdef INTEL_CUSTOMIZATION
       // Fix for CQ#364545 - allow use of arguments in references as default
       // value
-      if (!S->getLangOpts().MSVCCompat || !Param->getType()->isDependentType())
+      if (!S->getLangOpts().IntelMSCompat ||
+          !Param->getType()->isDependentType())
 #endif // INTEL_CUSTOMIZATION
       return S->Diag(DRE->getLocStart(),
                      diag::err_param_default_argument_references_param)

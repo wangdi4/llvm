@@ -160,6 +160,11 @@ def err_invalid_suffix_integer_constant : Error<
   "invalid suffix '%0' on integer constant">;
 def err_invalid_suffix_float_constant : Error<
   "invalid suffix '%0' on floating constant">;
+// CQ#369184
+// if INTEL_CUSTOMIZATION
+def err_decimal_ext_unsupported : Error<
+  "GNU decimal type extension not supported">;
+// endif INTEL_CUSTOMIZATION
 def warn_cxx11_compat_digit_separator : Warning<
   "digit separators are incompatible with C++ standards before C++14">,
   InGroup<CXXPre14Compat>, DefaultIgnore;
@@ -444,6 +449,12 @@ def err__Pragma_malformed : Error<
   "_Pragma takes a parenthesized string literal">;
 def err_pragma_message_malformed : Error<
   "pragma %select{message|warning|error}0 requires parenthesized string">;
+// CQ#367740
+// if INTEL_CUSTOMIZATION
+def warn_pragma_message_malformed : Warning<
+  "pragma %select{message|warning|error}0 requires parenthesized string">,
+  InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_pragma_push_pop_macro_malformed : Error<
    "pragma %0 requires a parenthesized string">;
 def warn_pragma_pop_macro_no_push : Warning<
@@ -502,6 +513,14 @@ def note_init_list_at_beginning_of_macro_argument : Note<
   "cannot use initializer list at the beginning of a macro argument">;
 def err_too_few_args_in_macro_invoc : Error<
   "too few arguments provided to function-like macro invocation">;
+// if INTEL_CUSTOMIZATION
+def warn_too_few_args_in_macro_invoc : Warning<
+  "too few arguments provided to function-like macro invocation">,
+  InGroup<IntelCompat>;
+def warn_missing_fnmacro_args_replaced_by_empty : Warning<
+  "%0 missing macro argument%s0 treated as empty string%s0">,
+  InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_pp_bad_paste : Error<
   "pasting formed '%0', an invalid preprocessing token">;
 def ext_pp_bad_paste_ms : ExtWarn<

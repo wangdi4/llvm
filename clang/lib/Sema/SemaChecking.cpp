@@ -439,7 +439,7 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
   case Builtin::BI__sync_swap_4:
   case Builtin::BI__sync_swap_8:
   case Builtin::BI__sync_swap_16:
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   case Builtin::BI__atomic_store_explicit:
   case Builtin::BI__atomic_store_explicit_1:
   case Builtin::BI__atomic_store_explicit_2:
@@ -540,7 +540,7 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
   case Builtin::BI__atomic_xor_fetch_explicit_4:
   case Builtin::BI__atomic_xor_fetch_explicit_8:
   case Builtin::BI__atomic_xor_fetch_explicit_16:
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
     return SemaBuiltinAtomicOverloaded(TheCallResult);
 #define BUILTIN(ID, TYPE, ATTRS)
 #define ATOMIC_BUILTIN(ID, TYPE, ATTRS) \
@@ -1991,7 +1991,7 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
     BUILTIN_ROW(__sync_lock_test_and_set),
     BUILTIN_ROW(__sync_lock_release),
     BUILTIN_ROW(__sync_swap)
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
     , BUILTIN_ROW(__atomic_store_explicit),
     BUILTIN_ROW(__atomic_load_explicit),
     BUILTIN_ROW(__atomic_exchange_explicit),
@@ -2009,7 +2009,7 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
     BUILTIN_ROW(__atomic_nand_fetch_explicit),
     BUILTIN_ROW(__atomic_or_fetch_explicit),
     BUILTIN_ROW(__atomic_xor_fetch_explicit)
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   };
 #undef BUILTIN_ROW
 
@@ -2195,7 +2195,7 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
   case Builtin::BI__sync_swap_16:
     BuiltinIndex = 16; 
     break;
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   case Builtin::BI__atomic_store_explicit:
   case Builtin::BI__atomic_store_explicit_1:
   case Builtin::BI__atomic_store_explicit_2:
@@ -2354,7 +2354,7 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
     NumFixed = 2;
     BuiltinIndex = 33;
     break;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   }
 
   // Now that we know how many fixed arguments we expect, first check that we
@@ -2388,7 +2388,7 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
     if (!NewBuiltinDecl)
       return ExprError();
   }
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   switch (NewBuiltinID) {
   case Builtin::BI__atomic_store_explicit_1:
   case Builtin::BI__atomic_store_explicit_2:
@@ -2478,12 +2478,8 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
     // the remaining arguments, converting them to the deduced value type.
     for (unsigned i = 0, e = NewBuiltinDecl->getNumParams(); i < e; ++i) {
       ExprResult Arg = TheCall->getArg(i);
-      ValType = NewBuiltinDecl->getParamDecl(i)->getType().getUnqualifiedType();
-      Arg = PerformImplicitConversion(Arg.get(), ValType, AA_Passing);
-      //CastKind CK = PrepareScalarCast(Arg, ValType);
-      //if (CK != CK_NoOp)
-      //  Arg = ImpCastExprToType(DefaultLvalueConversion(Arg.get()).get(),
-      //                          ValType, CK);
+      ValType = NewBuiltinDecl->getParamDecl(i)->getType();
+      Arg = PerformImplicitConversion(Arg.get(), ValType, AA_Casting);
       if (Arg.isInvalid())
         return ExprError();
 
@@ -2532,7 +2528,7 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
   default:
     break;
   }
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   // The first argument --- the pointer --- has a fixed type; we
   // deduce the types of the rest of the arguments accordingly.  Walk
   // the remaining arguments, converting them to the deduced value type.

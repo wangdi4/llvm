@@ -939,12 +939,12 @@ public:
                        llvm::FunctionType *FnType = nullptr,
                        bool DontDefer = false);
 
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   /// getBuiltinIntelLibFunction - Given a builtin id for a function like
   /// "__apply_args", return a Function* for "__apply_args".
   llvm::Value *getBuiltinIntelLibFunction(const FunctionDecl *FD,
                                           unsigned BuiltinID);
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   /// Given a builtin id for a function like "__builtin_fabsf", return a
   /// Function* for "fabsf".
   llvm::Value *getBuiltinLibFunction(const FunctionDecl *FD,
@@ -1321,7 +1321,10 @@ private:
   void EmitCoverageFile();
 
 #ifdef INTEL_CUSTOMIZATION
-  /// \brief Emit MS debug file information as llvm.dbg.ms.filetype metadata.
+  /// \brief Emit Intel-specific debug info as llvm.dbg.intel.* metadata nodes.
+  void EmitIntelDebugInfoMetadata();
+
+  /// \brief Emit MS-specific debug info as llvm.dbg.ms.* metadata nodes.
   void EmitMSDebugInfoMetadata();
 #endif // INTEL_CUSTOMIZATION
 
