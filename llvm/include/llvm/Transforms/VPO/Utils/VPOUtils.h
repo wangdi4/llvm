@@ -20,6 +20,8 @@ namespace llvm {
 class Function;
 class LoopInfo;
 class DominatorTree;
+class StringRef;
+class CallInst;
 
 namespace vpo {
 
@@ -43,6 +45,9 @@ public:
     static void CFGRestructuring(Function &F, DominatorTree *DT = nullptr,
                      LoopInfo *LI = nullptr);
 
+    /// \brief Return the string representation of the metadata argument used
+    /// within a call to the llvm.intel.directive intrinsic.
+    static StringRef getDirectiveMetadataString(CallInst *Call);
 };
 
 } // End vpo namespace
