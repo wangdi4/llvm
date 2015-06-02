@@ -42,8 +42,7 @@ include "LPURegisterInfo.td"
 // Calling convention description
 //===----------------------------------------------------------------------===//
 
-// N/A
-//include "LPUCallingConv.td"
+include "LPUCallingConv.td"
 
 //===----------------------------------------------------------------------===//
 // Instruction descriptions

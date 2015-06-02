@@ -11,37 +11,50 @@
 //  Declarations that describe the LPU register file 
 //===----------------------------------------------------------------------===//
 
-// The LPU has no standard registers.  This is mainly to satisfy code that
-// expects there to be registers...
+// The LPU has no standard registers.  This is temporary to satisfy code that
+// expects there to be registers.  Eventually, everything will likely be
+// LICs, though it is possible this will be used for local register alloc.
 
 
 // Registers are identified with 3-bit ID numbers.
-class LPUReg<bits<3> num, string n> : Register<n> {
-  field bits<3> Num;
+class LPUReg<bits<4> num, string n> : Register<n> {
+  field bits<4> Num;
   let Namespace = "LPU";
   let Num = num;
 }
 
-// These are TEMPORARY to get things going.
+// These are TEMPORARY "Global" registers to get things going.
 // ALU registers
 // Note that there would be a copy for each ALU for various ALU kinds
-def R0 : LPUReg< 0, "r0">;
-def R1 : LPUReg< 1, "r1">;
-def R2 : LPUReg< 2, "r2">;
-def R3 : LPUReg< 3, "r3">;
-def R4 : LPUReg< 4, "r4">;
-def R5 : LPUReg< 5, "r5">;
-def R6 : LPUReg< 6, "r6">;
-def R7 : LPUReg< 7, "r7">;
+def R0  : LPUReg< 0, "r0">;  // arg 0, return 0
+def R1  : LPUReg< 1, "r1">;  // arg 1, return 1
+def R2  : LPUReg< 2, "r2">;  // arg 2, return 2
+def R3  : LPUReg< 3, "r3">;  // arg 3, return 3
+def R4  : LPUReg< 4, "r4">;
+def R5  : LPUReg< 5, "r5">;
+def R6  : LPUReg< 6, "r6">;
+def R7  : LPUReg< 7, "r7">;
+def R8  : LPUReg< 8, "r8">;  // preserved
+def R9  : LPUReg< 9, "r9">;  // preserved
+def R10 : LPUReg<10, "r10">; // preserved
+def R11 : LPUReg<11, "r11">; // preserved
+def R12 : LPUReg<12, "r12">; // preserved
+def FP  : LPUReg<13, "fp">;  // preserved (conventional FP)
+def SP  : LPUReg<14, "sp">;  // stack pointer
+def RA  : LPUReg<15, "ra">;  // return addr
+
 
 // The generic "REG" class can take any value
-def REG : RegisterClass<"LPU",
-    [i64,i32,i16,i8,f64,f32,f16,v2i32,v2f32,v4i16,v4f16,v8i8], 64,
-    (add R0, R1, R2, R3, R4, R5, R6, R7)>;
+def REG : RegisterClass<"LPU", [i64,i32,f64,f32], 64,
+    (add R0, R1, R2, R3, R4, R5, R6, R7,
+         R8, R9, R10, R11, R12, FP, SP, RA)>;
+//  [i64,i32,i16,i8,i1,f64,f32,f16,v2i32,v2f32,v4i16,v4f16,v8i8], 64,
 
 // Specific sized/type register classes for operand constraints
 def RCI32 : RegisterClass<"LPU", [i32], 64, (add REG)>;
+
 def RCI64 : RegisterClass<"LPU", [i64], 64, (add REG)>;
 
 def RCF32 : RegisterClass<"LPU", [f32], 64, (add REG)>;
+
 def RCF64 : RegisterClass<"LPU", [f64], 64, (add REG)>;

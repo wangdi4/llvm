@@ -22,9 +22,11 @@
 namespace llvm {
   namespace LPUISD {
     enum {
-      FIRST_NUMBER = ISD::BUILTIN_OP_END
-      // OPS TBS
-
+      FIRST_NUMBER = ISD::BUILTIN_OP_END,
+      Call,
+      TailCall,
+      Ret,
+      ThreadPointer
     };
   }
 
@@ -36,11 +38,11 @@ namespace llvm {
 
     /// LowerOperation - Provide custom lowering hooks for some operations.
     SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const override;
-
+    */
     /// getTargetNodeName - This method returns the name of a target specific
     /// DAG node.
     const char *getTargetNodeName(unsigned Opcode) const override;
-
+    /*
     SDValue LowerShifts(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerBlockAddress(SDValue Op, SelectionDAG &DAG) const;
@@ -119,13 +121,13 @@ namespace llvm {
     SDValue
       LowerCall(TargetLowering::CallLoweringInfo &CLI,
                 SmallVectorImpl<SDValue> &InVals) const override;
-
+    */
     SDValue LowerReturn(SDValue Chain,
                         CallingConv::ID CallConv, bool isVarArg,
                         const SmallVectorImpl<ISD::OutputArg> &Outs,
                         const SmallVectorImpl<SDValue> &OutVals,
                         SDLoc dl, SelectionDAG &DAG) const override;
-
+    /*
     bool getPostIndexedAddressParts(SDNode *N, SDNode *Op,
                                     SDValue &Base,
                                     SDValue &Offset,

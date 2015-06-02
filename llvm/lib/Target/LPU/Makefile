@@ -11,9 +11,11 @@ LEVEL = ../../..
 LIBRARYNAME = LLVMLPUCodeGen
 TARGET = LPU
 
-BUILT_SOURCES = LPUGenRegisterInfo.inc LPUGenInstrInfo.inc \
+BUILT_SOURCES = LPUGenRegisterInfo.inc \
+                LPUGenInstrInfo.inc \
                 LPUGenAsmWriter.inc \
-                LPUGenDAGISel.inc LPUGenCallingConv.inc \
+                LPUGenDAGISel.inc \
+                LPUGenCallingConv.inc \
                 LPUGenSubtargetInfo.inc
 
 DIRS = InstPrinter TargetInfo MCTargetDesc

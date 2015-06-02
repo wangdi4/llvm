@@ -33,7 +33,7 @@ LPUSubtarget &LPUSubtarget::initializeSubtargetDependencies(StringRef CPU, Strin
 LPUSubtarget::LPUSubtarget(const std::string &TT, const std::string &CPU,
                                  const std::string &FS, const TargetMachine &TM)
     : LPUGenSubtargetInfo(TT, CPU, FS),
-      DL("e-m:e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-n64"),
+      DL("e-m:e-i64:64-n32:64"),
       FrameLowering(),
       InstrInfo(initializeSubtargetDependencies(CPU, FS)), TLInfo(TM),
       TSInfo(DL) {}

@@ -61,12 +61,16 @@ def callseq_end   : SDNode<"ISD::CALLSEQ_END",   SDT_LPUCallSeqEnd,
 
 
 def ADJCALLSTACKDOWN : PseudoInstLPU<(outs), (ins i32imm:$amt),
-                               "# ADJCALLSTACKDOWN $amt",
+                               "// ADJCALLSTACKDOWN $amt",
                                [(callseq_start timm:$amt)]>;
 def ADJCALLSTACKUP : PseudoInstLPU<(outs), (ins i32imm:$amt1, i32imm:$amt2),
-                            "# ADJCALLSTACKUP $amt1",
+                            "// ADJCALLSTACKUP $amt1",
                             [(callseq_end timm:$amt1, timm:$amt2)]>;
 
+def SDT_LPURet : SDTypeProfile<0, 0, []>;
+
+def LPURet : SDNode<"LPUISD::Ret", SDT_LPURet,
+    	   [SDNPHasChain, SDNPOptInGlue]>;
 
 // TODO: What do we want in place of RegisterClass?  PatFrag?
 
@@ -76,6 +80,12 @@ class BINOP<bits<8> opc, string opName, SDNode opNode, RegisterClass RC> :
 	    [(set RC:$dst, (opNode RC:$op1, RC:$op2))]>;
 
 def ADD32 : BINOP<0b00000000, "add", add, RCI32>;
+
+let isReturn=1, isTerminator=1, isBarrier=1 in
+def RET  : FMTGEN<0b00000000,
+           (outs), (ins),
+           "// return",
+           [(LPURet)]>;
 
 
 // Eventually

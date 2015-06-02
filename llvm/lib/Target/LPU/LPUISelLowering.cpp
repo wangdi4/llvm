@@ -244,13 +244,13 @@ getRegForInlineAsmConstraint(const std::string &Constraint,
 
   return TargetLowering::getRegForInlineAsmConstraint(Constraint, VT);
 }
-
+*/
 //===----------------------------------------------------------------------===//
 //                      Calling Convention Implementation
 //===----------------------------------------------------------------------===//
 
 #include "LPUGenCallingConv.inc"
-
+/*
 /// For each argument in a function store the number of pieces it is composed
 /// of.
 template<typename ArgT>
@@ -346,7 +346,7 @@ static void AnalyzeArguments(CCState &State,
     }
   }
 }
-
+*/
 static void AnalyzeRetResult(CCState &State,
                              const SmallVectorImpl<ISD::InputArg> &Ins) {
   State.AnalyzeCallResult(Ins, RetCC_LPU);
@@ -367,7 +367,7 @@ static void AnalyzeReturnValues(CCState &State,
   // to agree with the calling convention ABI.
   std::reverse(RVLocs.begin(), RVLocs.end());
 }
-*/
+
 SDValue
 LPUTargetLowering::LowerFormalArguments(SDValue Chain,
                                            CallingConv::ID CallConv,
@@ -518,7 +518,7 @@ LPUTargetLowering::LowerCCCArguments(SDValue Chain,
   */
   return Chain;
 }
-/*
+
 SDValue
 LPUTargetLowering::LowerReturn(SDValue Chain,
                                   CallingConv::ID CallConv, bool isVarArg,
@@ -528,10 +528,6 @@ LPUTargetLowering::LowerReturn(SDValue Chain,
 
   // CCValAssign - represent the assignment of the return value to a location
   SmallVector<CCValAssign, 16> RVLocs;
-
-  // ISRs cannot return any value.
-  if (CallConv == CallingConv::LPU_INTR && !Outs.empty())
-    report_fatal_error("ISRs cannot return any value");
 
   // CCState - Info about the registers and stack slot.
   CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(), RVLocs,
@@ -557,18 +553,15 @@ LPUTargetLowering::LowerReturn(SDValue Chain,
     RetOps.push_back(DAG.getRegister(VA.getLocReg(), VA.getLocVT()));
   }
 
-  unsigned Opc = (CallConv == CallingConv::LPU_INTR ?
-                  LPUISD::RETI_FLAG : LPUISD::RET_FLAG);
-
   RetOps[0] = Chain;  // Update chain.
 
   // Add the flag if we have it.
   if (Flag.getNode())
     RetOps.push_back(Flag);
 
-  return DAG.getNode(Opc, dl, MVT::Other, RetOps);
+  return DAG.getNode(LPUISD::Ret, dl, MVT::Other, RetOps);
 }
-
+/*
 /// LowerCCCCallTo - functions arguments are copied from virtual regs to
 /// (physical regs)/(stack frame), CALLSEQ_START and CALLSEQ_END are emitted.
 // TODO: sret.
@@ -1141,26 +1134,18 @@ bool LPUTargetLowering::getPostIndexedAddressParts(SDNode *N, SDNode *Op,
 
   return false;
 }
-
+*/
 
 const char *LPUTargetLowering::getTargetNodeName(unsigned Opcode) const {
   switch (Opcode) {
   default: return nullptr;
-  case LPUISD::RET_FLAG:           return "LPUISD::RET_FLAG";
-  case LPUISD::RETI_FLAG:          return "LPUISD::RETI_FLAG";
-  case LPUISD::RRA:                return "LPUISD::RRA";
-  case LPUISD::RLA:                return "LPUISD::RLA";
-  case LPUISD::RRC:                return "LPUISD::RRC";
-  case LPUISD::CALL:               return "LPUISD::CALL";
-  case LPUISD::Wrapper:            return "LPUISD::Wrapper";
-  case LPUISD::BR_CC:              return "LPUISD::BR_CC";
-  case LPUISD::CMP:                return "LPUISD::CMP";
-  case LPUISD::SELECT_CC:          return "LPUISD::SELECT_CC";
-  case LPUISD::SHL:                return "LPUISD::SHL";
-  case LPUISD::SRA:                return "LPUISD::SRA";
+  case LPUISD::Call:               return "LPUISD::Call";
+  case LPUISD::TailCall:           return "LPUISD::TailCall";
+  case LPUISD::Ret:                return "LPUISD::Ret";
+  case LPUISD::ThreadPointer:      return "LPUISD::ThreadPointer";
   }
 }
-
+/*
 bool LPUTargetLowering::isTruncateFree(Type *Ty1,
                                           Type *Ty2) const {
   if (!Ty1->isIntegerTy() || !Ty2->isIntegerTy())

@@ -33,68 +33,37 @@ using namespace llvm;
 
 // FIXME: Provide proper call frame setup / destroy opcodes.
 LPURegisterInfo::LPURegisterInfo()
-  : LPUGenRegisterInfo(LPU::R0) {}
+  : LPUGenRegisterInfo(LPU::RA) {}
 
 
 const MCPhysReg*
 LPURegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
-/*
-  const TargetFrameLowering *TFI = MF->getSubtarget().getFrameLowering();
-  const Function* F = MF->getFunction();
   static const MCPhysReg CalleeSavedRegs[] = {
-    LPU::FP, LPU::R5, LPU::R6, LPU::R7,
-    LPU::R8, LPU::R9, LPU::R10, LPU::R11,
+    LPU::R8, LPU::R9, LPU::R10, LPU::R11, LPU::R12,
     0
   };
   static const MCPhysReg CalleeSavedRegsFP[] = {
-    LPU::R5, LPU::R6, LPU::R7,
-    LPU::R8, LPU::R9, LPU::R10, LPU::R11,
-    0
-  };
-  static const MCPhysReg CalleeSavedRegsIntr[] = {
-    LPU::FP,  LPU::R5,  LPU::R6,  LPU::R7,
-    LPU::R8,  LPU::R9,  LPU::R10, LPU::R11,
-    LPU::R12, LPU::R13, LPU::R14, LPU::R15,
-    0
-  };
-  static const MCPhysReg CalleeSavedRegsIntrFP[] = {
-    LPU::R5,  LPU::R6,  LPU::R7,
-    LPU::R8,  LPU::R9,  LPU::R10, LPU::R11,
-    LPU::R12, LPU::R13, LPU::R14, LPU::R15,
+    LPU::R8, LPU::R9, LPU::R10, LPU::R11, LPU::R12, LPU::FP,
     0
   };
 
-  if (TFI->hasFP(*MF))
-    return (F->getCallingConv() == CallingConv::LPU_INTR ?
-            CalleeSavedRegsIntrFP : CalleeSavedRegsFP);
-  else
-    return (F->getCallingConv() == CallingConv::LPU_INTR ?
-            CalleeSavedRegsIntr : CalleeSavedRegs);
-*/
-  return NULL;
+  const TargetFrameLowering *TFI = MF->getSubtarget().getFrameLowering();
+  const Function* F = MF->getFunction();
+  return (TFI->hasFP(*MF)) ? CalleeSavedRegsFP : CalleeSavedRegs;
 }
 
 BitVector LPURegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   BitVector Reserved(getNumRegs());
-  /*
+
   const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
 
-  // Mark 4 special registers with subregisters as reserved.
-  Reserved.set(LPU::PCB);
-  Reserved.set(LPU::SPB);
-  Reserved.set(LPU::SRB);
-  Reserved.set(LPU::CGB);
-  Reserved.set(LPU::PC);
   Reserved.set(LPU::SP);
-  Reserved.set(LPU::SR);
-  Reserved.set(LPU::CG);
 
   // Mark frame pointer as reserved if needed.
   if (TFI->hasFP(MF)) {
-    Reserved.set(LPU::FPB);
     Reserved.set(LPU::FP);
   }
-  */
+
   return Reserved;
 }
 /*
@@ -162,11 +131,7 @@ LPURegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
 }
 
 unsigned LPURegisterInfo::getFrameRegister(const MachineFunction &MF) const {
-  /*
   const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
-
   return TFI->hasFP(MF) ? LPU::FP : LPU::SP;
-  */
-  return LPU::R0;
 }
 
