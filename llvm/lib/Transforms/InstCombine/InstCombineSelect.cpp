@@ -1341,6 +1341,7 @@ getSaturateAddSubDownConvert(SelectInst &SI, TargetTransformInfo *TTI) {
     CallInst *CallI = getSaturateUnsignedAddSub(SI, TTI);
     if (CallI) return CallI;
   }
+  return nullptr;
 }
 #endif // INTEL_CUSTOMIZATION
 
