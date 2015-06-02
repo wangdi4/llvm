@@ -57,6 +57,9 @@ bool DDAnalysis::runOnFunction(Function &F) {
   HIRP = &getAnalysis<HIRParser>();
   SA = &getAnalysis<SymbaseAssignment>();
 
+  // Compute TopSortNum - which is needed to determine forward or backward edges
+  HLNodeUtils::resetTopSortNum();
+
   return false;
 }
 
@@ -208,10 +211,21 @@ void DDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
     for (auto Ref1 = RefVec.begin(), E = RefVec.end(); Ref1 != E; ++Ref1) {
       for (auto Ref2 = Ref1; Ref2 != E; ++Ref2) {
         if (edgeNeeded(*Ref1, *Ref2, BuildInputEdges)) {
-          DirectionVector InputDV = getInputDV(Node, *Ref1, *Ref2);
-          DirectionVector ForwardDV, BackwardsDV;
-          findDependences(*Ref1, *Ref2, InputDV, ForwardDV, BackwardsDV);
-          // TODO add edge to graph
+          DDtest DA;
+          DVectorTy inputDV;
+          DVectorTy outputDVforward;
+          DVectorTy outputDVbackward;
+          DA.setInputDV(inputDV, 1, 9);
+
+          bool IsDependent = DA.findDependences(
+              *Ref1, *Ref2, inputDV, outputDVforward, outputDVbackward);
+          //  Sample code to check output:
+          //  first check IsDependent
+          //  else  check outputDVforward[0] != Dependences::DVEntry::NONE;
+          //  etc
+          if (IsDependent) {
+            DEBUG(dbgs() << " Found Dependence!\n");
+          }
         }
       }
     }

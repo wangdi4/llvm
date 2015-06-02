@@ -47,6 +47,7 @@ private:
   struct CloneVisitor;
 
   struct LoopFinderUpdater;
+  struct TopSorter;
 
   /// \brief Implementation of cloneSequence() which clones from Node1
   /// to Node2 and inserts into the CloneContainer.
@@ -423,6 +424,14 @@ public:
 
   /// \brief Replaces OldNode by an unlinked NewNode.
   static void replace(HLNode *OldNode, HLNode *NewNode);
+
+  /// \brief Reset TopSortNum
+  static void resetTopSortNum();
+
+  /// \brief get parent loop for certain level, nullptr could be returned
+  /// if input is invalid
+  static const HLLoop *getParentLoopwithLevel(unsigned level,
+                                              const HLLoop *innermostLoop);
 };
 
 } // End namespace loopopt

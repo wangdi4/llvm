@@ -1,5 +1,4 @@
-//===------- HLNodeUtils.cpp - Implements HLNodeUtils class ------*- C++
-//-*-===//
+//===------- HLNodeUtils.cpp - Implements HLNodeUtils class ------*- C++==-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -845,4 +844,39 @@ HLNode *HLNodeUtils::getLexicalControlFlowSuccessor(HLNode *Node) {
   }
 
   return Succ;
+}
+
+struct HLNodeUtils::TopSorter {
+  unsigned TopSortNum;
+  void visit(HLNode *Node) {
+    if (isa<HLRegion>(Node)) {
+      TopSortNum = 0;
+    }
+    TopSortNum += 50;
+    Node->setTopSortNum(TopSortNum);
+  }
+
+  void postVisit(HLNode *) {}
+  bool isDone() { return false; }
+  TopSorter() : TopSortNum(0) {}
+};
+
+void HLNodeUtils::resetTopSortNum() {
+  HLNodeUtils::TopSorter TS;
+  HLNodeUtils::visitAll(&TS);
+}
+
+const HLLoop *HLNodeUtils::getParentLoopwithLevel(unsigned level,
+                                                  const HLLoop *innermostLoop) {
+  // level is at least 1
+  // parentLoop is immediate parent
+  // return nullptr for invalid inputs
+  HLLoop *Loop;
+  for (Loop = const_cast<HLLoop *>(innermostLoop); Loop != nullptr;
+       Loop = Loop->getParentLoop()) {
+    if (level == Loop->getNestingLevel()) {
+      return Loop;
+    }
+  }
+  return nullptr;
 }
