@@ -3,3 +3,4 @@ add_llvm_library(LLVMTransformVPOUtils
   IntrinsicUtils.cpp
 )
 
+add_dependencies(LLVMTransformVPOUtils intrinsics_gen)
