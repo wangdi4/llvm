@@ -26,7 +26,6 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
 #include "llvm/Analysis/AliasSetTracker.h"
 #include <map>
-#include <vector>
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -49,7 +48,7 @@ private:
 public:
   AliasSetTracker AST;
   HIRParser *HIRP;
-  std::map<Value *, std::vector<DDRef *>> PtrToRefs;
+  std::map<Value *, SmallVector<DDRef *, 16>> PtrToRefs;
 
   SymbaseAssignmentVisitor(SymbaseAssignment *CurSA, AliasAnalysis *AA,
                            HIRParser *CurHIRP)
@@ -59,6 +58,35 @@ public:
   void postVisit(HLNode *) {}
   void postVisit(HLDDNode *) {}
   bool isDone() { return false; }
+};
+
+// TODO shared with dda. move?
+
+class DDRefGatherer {
+private:
+  void addRef(DDRef *Ref) {
+    unsigned int SymBase = (Ref)->getSymBase();
+    SymToRefs[SymBase].push_back(Ref);
+  }
+
+public:
+  DDRefGatherer() {}
+  void visit(HLNode *Node) {}
+  void visit(HLDDNode *Node) {
+    for (auto I = Node->ddref_begin(), E = Node->ddref_end(); I != E; ++I) {
+      if (!(*I)->isConstant()) {
+        addRef(*I);
+        for (auto BRefI = (*I)->blob_cbegin(), BRefE = (*I)->blob_cend();
+             BRefI != BRefE; ++BRefI) {
+          addRef(*BRefI);
+        }
+      }
+    }
+  }
+  void postVisit(HLNode *) {}
+  void postVisit(HLDDNode *) {}
+  bool isDone() { return false; }
+  std::map<unsigned, SmallVector<DDRef *, 16>> SymToRefs;
 };
 }
 
@@ -125,7 +153,7 @@ bool SymbaseAssignment::runOnFunction(Function &F) {
 
   this->F = &F;
   auto AA = &getAnalysis<AliasAnalysis>();
-  auto HIRP = &getAnalysis<HIRParser>();
+  HIRP = &getAnalysis<HIRParser>();
   SymbaseAssignmentVisitor SV(this, AA, HIRP);
 
   HLNodeUtils::visitAll(&SV);
@@ -149,4 +177,24 @@ bool SymbaseAssignment::runOnFunction(Function &F) {
   }
 
   return false;
+}
+
+void SymbaseAssignment::print(raw_ostream &OS, const Module *M) const {
+  DDRefGatherer G;
+  HLNodeUtils::visitAll(&G, HIRP);
+  formatted_raw_ostream FOS(OS);
+  FOS << "Symbase Reference Vector:";
+  FOS << "\n";
+
+  for (auto SymVecPair = G.SymToRefs.begin(), Last = G.SymToRefs.end();
+       SymVecPair != Last; ++SymVecPair) {
+    SmallVector<DDRef *, 16> &RefVec = SymVecPair->second;
+    FOS << "Symbase ";
+    FOS << SymVecPair->first;
+    FOS << ":\n";
+    for (auto Ref = RefVec.begin(), E = RefVec.end(); Ref != E; ++Ref) {
+      (*Ref)->detailedPrint(FOS);
+      FOS << "\n";
+    }
+  }
 }

@@ -46,8 +46,11 @@ protected:
   void setHLDDNode(HLDDNode *HNode) override;
 
 public:
-  /// \brief Prints BlobDDRef.
+  /// \brief Prints BlobDDRef in a simple format.
   virtual void print(formatted_raw_ostream &OS) const override;
+
+  /// \brief Prints BlobDDRef with much more information.
+  virtual void detailedPrint(formatted_raw_ostream &OS) const override;
 
   /// \brief Returns HLDDNode this DDRef is attached to.
   HLDDNode *getHLDDNode() const override;

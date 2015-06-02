@@ -44,6 +44,12 @@ void BlobDDRef::print(formatted_raw_ostream &OS) const {
   CE ? CE->print(OS) : (void)(OS << CE);
 }
 
+void BlobDDRef::detailedPrint(formatted_raw_ostream &OS) const {
+  print(OS);
+
+  OS << " Symbase: " << getSymBase();
+}
+
 HLDDNode *BlobDDRef::getHLDDNode() const {
 
   if (ParentDDRef) {

@@ -54,6 +54,11 @@ void DDRef::dump() const {
   formatted_raw_ostream OS(dbgs());
   print(OS);
 }
+
+void DDRef::detailedDump() const {
+  formatted_raw_ostream OS(dbgs());
+  detailedPrint(OS);
+}
 #endif
 
 Type *DDRef::getLLVMType() const {

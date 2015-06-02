@@ -93,6 +93,12 @@ void RegDDRef::print(formatted_raw_ostream &OS) const {
   }
 }
 
+void RegDDRef::detailedPrint(formatted_raw_ostream &OS) const {
+  print(OS);
+
+  OS << " Symbase: " << getSymBase();
+}
+
 bool RegDDRef::isLval() const {
   auto HNode = getHLDDNode();
 

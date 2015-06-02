@@ -34,13 +34,14 @@ class AliasAnalysis;
 class Function;
 namespace loopopt {
 
-/// \brief TODO
+class HIRParser;
 class SymbaseAssignment : public FunctionPass {
 public:
   SymbaseAssignment() : FunctionPass(ID) {}
   static char ID;
   bool runOnFunction(Function &F) override;
   void getAnalysisUsage(AnalysisUsage &AU) const;
+  void print(raw_ostream &OS, const Module * = nullptr) const override;
 
   // Returns a new unused symbase ID
   unsigned int getNewSymBase() { return MaxSymBase++; }
@@ -48,7 +49,8 @@ public:
   unsigned int getSymBaseForConstants() { return CONSTANT_SYMBASE; }
 
 private:
-  // this symbase is reserved for DDRefs representing constnts which require
+  HIRParser* HIRP;
+  // this symbase is reserved for DDRefs representing constants which require
   // no dd testing
   const unsigned int CONSTANT_SYMBASE = 1;
 
