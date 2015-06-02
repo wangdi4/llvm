@@ -498,8 +498,10 @@ public:
     IntMaxType  = SignedLong;
     Int64Type   = SignedLong;
 
-    // Match x86-64 (something wrong - causes fail?
-    DescriptionString = "e-m:e-i64:64-f80:128-n8:16:32:64-S128";
+    // Match lib/Target/LPU/LPUSubtarget.cpp
+    // Issue - does it need to match x86-64?
+    DescriptionString =
+      "e-m:e-i64:64-n32:64";
   }
   void getTargetBuiltins(const Builtin::Info *&Records,
                          unsigned &NumRecords) const override {
