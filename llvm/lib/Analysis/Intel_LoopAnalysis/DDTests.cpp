@@ -2527,6 +2527,7 @@ bool DDtest::testMIV(const CanonExpr *Src, const CanonExpr *Dst,
          banerjeeMIVtest(Src, Dst, Loops, Result, SrcParentLoop, DstParentLoop);
 }
 
+#if 0
 // Given a product, e.g., 10*X*Y, returns the first constant operand,
 // in this case 10. If there is no constant part, returns NULL.
 static const CanonExpr *getConstantPart(const CanonExpr *Product) {
@@ -2540,6 +2541,7 @@ static const CanonExpr *getConstantPart(const CanonExpr *Product) {
   }
   return nullptr;
 }
+#endif
 
 //===----------------------------------------------------------------------===//
 // gcdMIVtest -
