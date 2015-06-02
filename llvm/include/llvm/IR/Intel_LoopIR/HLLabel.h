@@ -36,6 +36,13 @@ protected:
 
   friend class HLNodeUtils;
 
+  /// \brief Clone Implementation
+  /// This function populates the LabelMap with the old Label (Before cloning)
+  /// and new Label (After cloning).
+  /// GotoList is ignored for this implementation. Returns the cloned Label.
+  HLLabel *cloneImpl(GotoContainerTy *GotoList,
+                     LabelMapTy *LabelMap) const override;
+
 public:
   /// \brief Prints HLLabel.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth) const override;

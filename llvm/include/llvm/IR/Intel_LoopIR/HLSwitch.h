@@ -45,7 +45,8 @@ protected:
   ~HLSwitch() {}
 
   /// \brief Copy constructor used by cloning.
-  HLSwitch(const HLSwitch &HLSwitchObj);
+  HLSwitch(const HLSwitch &HLSwitchObj, GotoContainerTy *GotoList,
+           LabelMapTy *LabelMap);
 
   friend class HLNodeUtils;
 
@@ -87,6 +88,12 @@ protected:
   void print_break(formatted_raw_ostream &OS, unsigned Depth,
                    unsigned CaseNum) const;
 
+  /// \brief Clone Implementation
+  /// This function populates the GotoList with Goto branching within the
+  /// cloned Switch and LabelMap with Old and New Labels. Returns cloned Switch.
+  HLSwitch *cloneImpl(GotoContainerTy *GotoList,
+                      LabelMapTy *LabelMap) const override;
+
 public:
   /// \brief Prints HLSwitch.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth) const override;
@@ -99,6 +106,8 @@ public:
   /// clone() - Create a copy of 'this' switch that is identical in all
   /// ways except the following:
   ///   * The Switch has no parent
+  /// This method will automatically update the goto branches with new labels
+  /// inside the cloned Switch.
   HLSwitch *clone() const;
 
   /// \brief Returns the number of operands this node is supposed to have.

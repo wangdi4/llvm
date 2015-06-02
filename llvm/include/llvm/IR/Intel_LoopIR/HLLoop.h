@@ -93,14 +93,17 @@ protected:
   ~HLLoop() { Children.clearAndLeakNodesUnsafely(); }
 
   /// \brief Copy constructor used by cloning.
-  HLLoop(const HLLoop &HLLoopObj);
+  HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
+         LabelMapTy *LabelMap);
 
   friend class HLNodeUtils;
 
   /// \brief Initializes some of the members to bring the loop in a sane state.
   void initialize();
 
+  /// \brief Sets the nesting level of the loop.
   void setNestingLevel(unsigned Level) { NestingLevel = Level; }
+  /// \brief Sets the Innermost flag to indicate if it is innermost loop.
   void setInnermost(bool IsInnermst) { IsInnermost = IsInnermst; }
 
   /// \brief Returns the number of DDRefs associated with only the loop
@@ -118,8 +121,14 @@ protected:
   CanonExpr *getLoopCanonExpr(RegDDRef *Ref);
   const CanonExpr *getLoopCanonExpr(const RegDDRef *Ref) const;
 
-  /// Implements getNumOperands() functionality.
+  /// \brief Implements getNumOperands() functionality.
   unsigned getNumOperandsInternal() const;
+
+  /// \brief Clone Implementation
+  /// This function populates the GotoList with Goto branches within the
+  /// cloned loop and LabelMap with Old and New Labels. Returns a cloned loop.
+  HLLoop *cloneImpl(GotoContainerTy *GotoList,
+                    LabelMapTy *LabelMap) const override;
 
 public:
   /// \brief Prints HLLoop.
@@ -425,6 +434,8 @@ public:
   ///   * Data members that depend on where the cloned loop lives in HIR (like
   ///     parent, nesting level) are not copied. They will be updated by HLNode
   ///     insertion/removal utilities.
+  /// This method will automatically update the goto branches with new labels
+  /// inside the cloned loop.
   HLLoop *clone() const override;
 
   /// \brief Returns the number of operands associated with the loop ztt.

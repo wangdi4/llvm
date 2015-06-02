@@ -43,7 +43,15 @@ private:
   friend class HIRCreation;
   friend class HIRCleanup;
 
+  /// \brief Visitor for clone sequence
+  struct CloneVisitor;
+
   struct LoopFinderUpdater;
+
+  /// \brief Implementation of cloneSequence() which clones from Node1
+  /// to Node2 and inserts into the CloneContainer.
+  static void cloneSequenceImpl(HLContainerTy *CloneContainer,
+                                const HLNode *Node1, const HLNode *Node2);
 
   /// \brief Destroys all HLNodes, called during framework cleanup.
   static void destroyAll();
@@ -123,6 +131,9 @@ private:
   static bool foundLoopInRange(HLContainerTy::iterator First,
                                HLContainerTy::iterator Last);
 
+  /// \brief Update the goto branches with new labels.
+  static void updateGotos(GotoContainerTy *GotoList, LabelMapTy *LabelMap);
+
 public:
   /// \brief Returns a new HLRegion.
   static HLRegion *createHLRegion(IRRegion *IRReg);
@@ -152,6 +163,13 @@ public:
                               RegDDRef *UpperDDRef = nullptr,
                               RegDDRef *StrideDDRef = nullptr,
                               bool IsDoWh = false, unsigned NumEx = 1);
+
+  /// \brief Creates a clones sequence from Node1 to Node2, including both
+  /// the nodes and all the nodes in between them. If Node2 is null or Node1
+  /// equals Node2, then the utility just clones Node1 and inserts into the
+  /// CloneContainer. This utility does not support Region cloning.
+  static void cloneSequence(HLContainerTy *CloneContainer, const HLNode *Node1,
+                            const HLNode *Node2 = nullptr);
 
   /// \brief Destroys the passed in HLNode.
   static void destroy(HLNode *Node);
@@ -194,8 +212,14 @@ public:
 
   /// \brief Inserts an unlinked Node before Pos in HIR.
   static void insertBefore(HLNode *Pos, HLNode *Node);
+  /// \brief Inserts unlinked Nodes in NodeContainer before Pos in HIR.
+  /// The contents of NodeContainer will be empty after insertion.
+  static void insertBefore(HLNode *Pos, HLContainerTy *NodeContainer);
   /// \brief Inserts an unlinked Node after Pos in HIR.
   static void insertAfter(HLNode *Pos, HLNode *Node);
+  /// \brief Inserts an unlinked Nodes in NodeContainer after Pos in HIR.
+  /// The contents of NodeContainer will be empty after insertion.
+  static void insertAfter(HLNode *Pos, HLContainerTy *NodeContainer);
 
   /// \brief Inserts an unlinked Node as first child of parent region.
   static void insertAsFirstChild(HLRegion *Reg, HLNode *Node);
@@ -248,17 +272,17 @@ public:
   static void moveAfter(HLNode *Pos, HLNode *Node);
 
   /// \brief Unlinks Node from its current position and inserts as first child
-  /// of parent region. 
+  /// of parent region.
   static void moveAsFirstChild(HLRegion *Reg, HLNode *Node);
   /// \brief Unlinks Node from its current position and inserts as last child
-  /// of parent region. 
+  /// of parent region.
   static void moveAsLastChild(HLRegion *Reg, HLNode *Node);
 
   /// \brief Unlinks Node from its current position and inserts as first child
-  /// of parent loop. 
+  /// of parent loop.
   static void moveAsFirstChild(HLLoop *Loop, HLNode *Node);
   /// \brief Unlinks Node from its current position and inserts as last child
-  /// of parent loop. 
+  /// of parent loop.
   static void moveAsLastChild(HLLoop *Loop, HLNode *Node);
 
   /// \brief Unlinks Node from its current position and inserts as first child
@@ -311,20 +335,20 @@ public:
                         HLContainerTy::iterator Last);
 
   /// \brief Unlinks [First, Last) from their current position and inserts them
-  /// at the begining of the parent region's children. 
+  /// at the begining of the parent region's children.
   static void moveAsFirstChildren(HLRegion *Reg, HLContainerTy::iterator First,
                                   HLContainerTy::iterator Last);
   /// \brief Unlinks [First, Last) from their current position and inserts them
-  /// at the end of the parent region's children. 
+  /// at the end of the parent region's children.
   static void moveAsLastChildren(HLRegion *Reg, HLContainerTy::iterator First,
                                  HLContainerTy::iterator Last);
 
   /// \brief Unlinks [First, Last) from their current position and inserts them
-  /// at the begining of the parent loop's children. 
+  /// at the begining of the parent loop's children.
   static void moveAsFirstChildren(HLLoop *Loop, HLContainerTy::iterator First,
                                   HLContainerTy::iterator Last);
   /// \brief Unlinks [First, Last) from their current position and inserts them
-  /// at the end of the parent loop's children. 
+  /// at the end of the parent loop's children.
   static void moveAsLastChildren(HLLoop *Loop, HLContainerTy::iterator First,
                                  HLContainerTy::iterator Last);
 

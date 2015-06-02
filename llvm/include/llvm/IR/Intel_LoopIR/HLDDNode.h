@@ -62,6 +62,12 @@ protected:
   /// \brief Implements set*OperandDDRef() functionality.
   void setOperandDDRefImpl(RegDDRef *Ref, unsigned OperandNum);
 
+  /// \brief Virtual Clone Implementation
+  /// This function populates the GotoList with Goto branches
+  /// and LabelMap with Old and New Labels.
+  virtual HLDDNode *cloneImpl(GotoContainerTy *GotoList,
+                              LabelMapTy *LabelMap) const = 0;
+
 public:
   /// DDRef iterator methods
   ddref_iterator ddref_begin();
@@ -77,7 +83,7 @@ public:
   /// DDRef acess methods
   unsigned getNumDDRefs() const { return RegDDRefs.size(); }
 
-  /// Virtual Clone method
+  /// \brief Virtual Clone method
   virtual HLDDNode *clone() const = 0;
 
   /// \brief Returns the number of operands (and lval, if applicable) this node

@@ -37,9 +37,7 @@ CanonExpr *CanonExprUtils::createCanonExpr(const APInt &APVal, int Level) {
 
 void CanonExprUtils::destroy(CanonExpr *CE) { CE->destroy(); }
 
-void CanonExprUtils::destroyAll() {
-  CanonExpr::destroyAll();
-}
+void CanonExprUtils::destroyAll() { CanonExpr::destroyAll(); }
 
 // Internal Method that calculates the gcd of two positive integers
 int64_t CanonExprUtils::gcd(int64_t A, int64_t B) {
@@ -207,6 +205,41 @@ CanonExpr *CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
   return Result;
 }
 
+void CanonExprUtils::multiplyIVByConstant(CanonExpr *CE, unsigned Level,
+                                          int64_t Val) {
+  assert(CE && " CanonExpr is null ");
+
+  // Identity multiplication
+  if (Val == 1)
+    return;
+
+  // Remove the IV for multp. by 0
+  if (Val == 0) {
+    CE->removeIV(Level);
+    return;
+  }
+
+  bool IsBlobCoeff;
+  int64_t Coeff = CE->getIVCoeff(Level, &IsBlobCoeff);
+
+  // Zero coefficient
+  if (Coeff == 0)
+    return;
+
+  if (!IsBlobCoeff) {
+    // IV doesn't have Blob Coeff
+    CE->setIVCoeff(Level, Coeff * Val, false);
+    return;
+  }
+
+  // IV is a blob coeff
+  CanonExpr::BlobTy ValBlob = getHIRParserPtr()->createBlob(Val);
+  unsigned CEBIndex;
+  getHIRParserPtr()->createMulBlob(CE->getBlob(Coeff), ValBlob, true,
+                                   &CEBIndex);
+  CE->setIVCoeff(Level, CEBIndex, true);
+}
+
 CanonExpr *CanonExprUtils::multiplyByConstantImpl(CanonExpr *CE1, int64_t Val,
                                                   bool CreateNewCE,
                                                   bool Simplify) {
@@ -240,21 +273,7 @@ CanonExpr *CanonExprUtils::multiplyByConstantImpl(CanonExpr *CE1, int64_t Val,
   int64_t Level = 1;
   for (auto I = Result->iv_begin(), End = Result->iv_end(); I != End;
        ++I, ++Level) {
-    if (I->Coeff == 0)
-      continue;
-
-    if (!I->IsBlobCoeff) {
-      // IV doesn't have Blob Coeff
-      Result->setIVCoeff(Level, I->Coeff * Val, false);
-      continue;
-    }
-
-    // IV is a blob coeff
-    CanonExpr::BlobTy ValBlob = getHIRParserPtr()->createBlob(Val);
-    unsigned ResultBIndex;
-    getHIRParserPtr()->createMulBlob(Result->getBlob(I->Coeff), ValBlob, true,
-                                     &ResultBIndex);
-    Result->setIVCoeff(Level, ResultBIndex, true);
+    multiplyIVByConstant(Result, Level, Val);
   }
 
   for (auto I = Result->blob_begin(), End = Result->blob_end(); I != End; ++I) {

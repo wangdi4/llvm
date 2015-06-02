@@ -26,13 +26,20 @@ HLGoto::HLGoto(const HLGoto &HLGotoObj)
     : HLNode(HLGotoObj), TargetBBlock(HLGotoObj.TargetBBlock),
       TargetLabel(HLGotoObj.TargetLabel) {}
 
-HLGoto *HLGoto::clone() const {
+HLGoto *HLGoto::cloneImpl(GotoContainerTy *GotoList,
+                          LabelMapTy *LabelMap) const {
 
-  /// Call Copy constructor
+  // Call Copy constructor
   HLGoto *NewHLGoto = new HLGoto(*this);
+
+  // Add the new goto into the list
+  if (GotoList && !NewHLGoto->isExternal())
+    GotoList->push_back(NewHLGoto);
 
   return NewHLGoto;
 }
+
+HLGoto *HLGoto::clone() const { return cloneImpl(nullptr, nullptr); }
 
 void HLGoto::print(formatted_raw_ostream &OS, unsigned Depth) const {
 

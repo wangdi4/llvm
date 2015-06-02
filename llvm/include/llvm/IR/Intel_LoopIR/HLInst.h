@@ -51,6 +51,12 @@ protected:
   /// state.
   void initialize();
 
+  /// \brief Clone Implementation
+  /// This function ignores the GotoList and LabelMap parameter.
+  /// Returns cloned Inst.
+  HLInst *cloneImpl(GotoContainerTy *GotoList,
+                    LabelMapTy *LabelMap) const override;
+
 public:
   /// \brief Prints HLInst.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth) const override;

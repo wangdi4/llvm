@@ -42,10 +42,12 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
   }
 
   /// Loop over Strides
-  for (auto I = RegDDRefObj.stride_begin(), E = RegDDRefObj.stride_end();
-       I != E; ++I) {
-    CanonExpr *NewCE = (*I)->clone();
-    getStrides().push_back(NewCE);
+  if (RegDDRefObj.hasGEPInfo()) {
+    for (auto I = RegDDRefObj.stride_begin(), E = RegDDRefObj.stride_end();
+         I != E; ++I) {
+      CanonExpr *NewCE = (*I)->clone();
+      getStrides().push_back(NewCE);
+    }
   }
 
   /// Loop over BlobDDRefs

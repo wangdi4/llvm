@@ -72,7 +72,7 @@ protected:
   ~HLIf() { Children.clearAndLeakNodesUnsafely(); }
 
   /// \brief Copy constructor used by cloning.
-  HLIf(const HLIf &HLIfObj);
+  HLIf(const HLIf &HLIfObj, GotoContainerTy *GotoList, LabelMapTy *LabelMap);
 
   friend class HLNodeUtils;
   /// Required to access setParent() for loop's ztt.
@@ -91,6 +91,12 @@ protected:
                                           bool IsLHS) const;
   unsigned getPredicateOperandDDRefOffset(const_pred_iterator PredI,
                                           bool IsLHS) const;
+
+  /// \brief Clone Implementation
+  /// This function populates the GotoList with Goto branching within the
+  /// cloned If and LabelMap with Old and New Labels. Returns a cloned If.
+  HLIf *cloneImpl(GotoContainerTy *GotoList,
+                  LabelMapTy *LabelMap) const override;
 
 public:
   /// \brief Prints HLIf.
@@ -193,6 +199,8 @@ public:
   /// clone() - Create a copy of 'this' HLIf that is identical in all
   /// ways except the following:
   ///   * The HLIf has no parent
+  /// This method will automatically update the goto branches with new labels
+  /// inside the cloned If.
   HLIf *clone() const override;
 
   /// \brief Returns the number of operands this HLIf is supposed to have.

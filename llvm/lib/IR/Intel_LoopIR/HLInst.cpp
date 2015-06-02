@@ -52,12 +52,18 @@ HLInst::HLInst(const HLInst &HLInstObj)
   }
 }
 
-HLInst *HLInst::clone() const {
-
-  /// Call the Copy Constructor
+HLInst *HLInst::cloneImpl(GotoContainerTy *GotoList,
+                          LabelMapTy *LabelMap) const {
+  // Call the Copy Constructor
   HLInst *NewHLInst = new HLInst(*this);
 
   return NewHLInst;
+}
+
+HLInst *HLInst::clone() const {
+
+  // Call the clone implementation.
+  return cloneImpl(nullptr, nullptr);
 }
 
 void HLInst::print(formatted_raw_ostream &OS, unsigned Depth) const {

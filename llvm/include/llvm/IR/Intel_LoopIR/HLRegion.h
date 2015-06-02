@@ -64,6 +64,11 @@ protected:
   /// \brief Sets the exit(last) bblock of this region.
   void setExitBBlock(BasicBlock *ExitBB) { IRReg->setExitBBlock(ExitBB); }
 
+  /// \brief Clone Implementation
+  /// Do not support Region cloning.
+  HLRegion *cloneImpl(GotoContainerTy *GotoList,
+                      LabelMapTy *LabelMap) const override;
+
 private:
   bool GenCode;
   IRRegion *IRReg;

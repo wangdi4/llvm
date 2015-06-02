@@ -24,7 +24,7 @@ namespace loopopt {
 
 class HLLabel;
 
-/// \brief High level node represening an unconditional jump
+/// \brief High level node representing an unconditional jump
 class HLGoto : public HLNode {
 private:
   BasicBlock *TargetBBlock;
@@ -38,6 +38,13 @@ protected:
   HLGoto(const HLGoto &HLGotoObj);
 
   friend class HLNodeUtils;
+
+  /// \brief Clone Implementation
+  /// This function populates the GotoList with the cloned Goto only if
+  /// the target label is internal. LabelMap is ignored for this
+  /// implementation. Returns the cloned Goto.
+  HLGoto *cloneImpl(GotoContainerTy *GotoList,
+                    LabelMapTy *LabelMap) const override;
 
 public:
   /// \brief Prints HLGoto.

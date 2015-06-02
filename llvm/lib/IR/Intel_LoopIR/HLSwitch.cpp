@@ -30,7 +30,9 @@ HLSwitch::HLSwitch(RegDDRef *ConditionRef) : HLDDNode(HLNode::HLSwitchVal) {
   setConditionDDRef(ConditionRef);
 }
 
-HLSwitch::HLSwitch(const HLSwitch &HLSwitchObj) : HLDDNode(HLSwitchObj) {
+HLSwitch::HLSwitch(const HLSwitch &HLSwitchObj, GotoContainerTy *GotoList,
+                   LabelMapTy *LabelMap)
+    : HLDDNode(HLSwitchObj) {
   const RegDDRef *TRef;
   RegDDRef *Ref;
 
@@ -51,7 +53,7 @@ HLSwitch::HLSwitch(const HLSwitch &HLSwitchObj) : HLDDNode(HLSwitchObj) {
   for (auto It = HLSwitchObj.default_case_child_begin(),
             EndIt = HLSwitchObj.default_case_child_end();
        It != EndIt; It++) {
-    HLNode *NewHLNode = It->clone();
+    HLNode *NewHLNode = cloneBaseImpl(It, GotoList, LabelMap);
     HLNodeUtils::insertAsLastDefaultChild(this, NewHLNode);
   }
 
@@ -60,18 +62,25 @@ HLSwitch::HLSwitch(const HLSwitch &HLSwitchObj) : HLDDNode(HLSwitchObj) {
     for (auto It = HLSwitchObj.case_child_begin(I),
               EndIt = HLSwitchObj.case_child_end(I);
          It != EndIt; It++) {
-      HLNode *NewHLNode = It->clone();
+      HLNode *NewHLNode = cloneBaseImpl(It, GotoList, LabelMap);
       HLNodeUtils::insertAsLastChild(this, NewHLNode, I);
     }
   }
 }
 
-HLSwitch *HLSwitch::clone() const {
-
-  /// Call the Copy Constructor
-  HLSwitch *NewHLSwitch = new HLSwitch(*this);
+HLSwitch *HLSwitch::cloneImpl(GotoContainerTy *GotoList,
+                              LabelMapTy *LabelMap) const {
+  // Call the Copy Constructor
+  HLSwitch *NewHLSwitch = new HLSwitch(*this, GotoList, LabelMap);
 
   return NewHLSwitch;
+}
+
+HLSwitch *HLSwitch::clone() const {
+  HLContainerTy NContainer;
+  HLNodeUtils::cloneSequence(&NContainer, this);
+  HLSwitch *NewSwitch = cast<HLSwitch>(NContainer.remove(NContainer.begin()));
+  return NewSwitch;
 }
 
 void HLSwitch::print_break(formatted_raw_ostream &OS, unsigned Depth,

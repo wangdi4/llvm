@@ -16,6 +16,7 @@
 
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/ilist_node.h"
+#include "llvm/ADT/DenseMap.h"
 
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormattedStream.h"
@@ -28,8 +29,16 @@ namespace llvm {
 
 namespace loopopt {
 
+class HLGoto;
+class HLLabel;
 class HLLoop;
 class HLRegion;
+
+// Container for Goto's
+typedef SmallVector<HLGoto *, 16> GotoContainerTy;
+
+// Map for Old Label and New Label
+typedef SmallDenseMap<const HLLabel *, HLLabel *, 16> LabelMapTy;
 
 /// \brief High level IR node base class
 ///
@@ -87,6 +96,21 @@ protected:
   void printPredicate(formatted_raw_ostream &OS,
                       const CmpInst::Predicate &Pred) const;
 
+  /// \brief Virtual Clone Implementation
+  /// This function populates the GotoList with Goto branching within the
+  /// region and LabelMap with Old and New Labels.
+  virtual HLNode *cloneImpl(GotoContainerTy *GotoList,
+                            LabelMapTy *LabelMap) const = 0;
+
+  /// \brief Base Clone Implementation
+  /// This is the protected base clone implementation as the subclasses cannot
+  /// directly call the cloneImpl of other subclasses.
+  /// For e.g. Loop->cloneBaseImpl(child, GL, LM) will return child clone.
+  HLNode *cloneBaseImpl(const HLNode *Node, GotoContainerTy *GotoList,
+                        LabelMapTy *LabelMap) const {
+    return Node->cloneImpl(GotoList, LabelMap);
+  }
+
 public:
   virtual ~HLNode() {}
 
@@ -134,8 +158,6 @@ public:
     HLGotoVal,
     HLSwitchVal
   };
-
-  //
 };
 
 } // End loopopt namespace

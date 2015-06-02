@@ -68,6 +68,9 @@ public:
   /// \brief Destroys the passed in CanonExpr.
   static void destroy(CanonExpr *CE);
 
+  /// \brief Multiplies IV of CanonExpr by a constant based on level.
+  static void multiplyIVByConstant(CanonExpr *CE, unsigned Level, int64_t Val);
+
   /// \brief Returns true if the type of both Canon Expr matches
   static bool isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2);
 

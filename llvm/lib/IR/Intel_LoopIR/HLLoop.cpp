@@ -65,10 +65,14 @@ HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
   setStrideDDRef(StrideDDRef);
 }
 
-HLLoop::HLLoop(const HLLoop &HLLoopObj)
+HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
+               LabelMapTy *LabelMap)
     : HLDDNode(HLLoopObj), OrigLoop(HLLoopObj.OrigLoop), Ztt(nullptr),
       IsDoWhile(HLLoopObj.IsDoWhile), NumExits(HLLoopObj.NumExits),
       NestingLevel(0), IsInnermost(HLLoopObj.IsInnermost) {
+
+  assert(GotoList && " GotoList is null.");
+  assert(LabelMap && " LabelMap is null.");
 
   const RegDDRef *Ref;
 
@@ -91,10 +95,12 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
     HLNodeUtils::insertAsLastPreheaderNode(this, NewHLNode);
   }
 
+  // Clone the children.
+  // The goto target label's will not be updated and would be done by caller.
   for (auto ChildIter = HLLoopObj.child_begin(),
             ChildIterEnd = HLLoopObj.child_end();
        ChildIter != ChildIterEnd; ++ChildIter) {
-    HLNode *NewHLNode = ChildIter->clone();
+    HLNode *NewHLNode = cloneBaseImpl(ChildIter, GotoList, LabelMap);
     HLNodeUtils::insertAsLastChild(this, NewHLNode);
   }
 
@@ -106,12 +112,24 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
   }
 }
 
-HLLoop *HLLoop::clone() const {
+// HLLoop::HLLoop(const HLLoop &HLLoopObj) :
+//    HLLoop(HLLoopObj, nullptr, nullptr) {}
 
-  /// Call the Copy Constructor
-  HLLoop *NewHLLoop = new HLLoop(*this);
+HLLoop *HLLoop::cloneImpl(GotoContainerTy *GotoList,
+                          LabelMapTy *LabelMap) const {
+
+  // Call the Copy Constructor
+  HLLoop *NewHLLoop = new HLLoop(*this, GotoList, LabelMap);
 
   return NewHLLoop;
+}
+
+HLLoop *HLLoop::clone() const {
+
+  HLContainerTy NContainer;
+  HLNodeUtils::cloneSequence(&NContainer, this);
+  HLLoop *NewLoop = cast<HLLoop>(NContainer.remove(NContainer.begin()));
+  return NewLoop;
 }
 
 void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth) const {

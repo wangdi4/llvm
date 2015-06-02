@@ -24,13 +24,18 @@ HLLabel::HLLabel(BasicBlock *SrcBB)
 HLLabel::HLLabel(const HLLabel &LabelObj)
     : HLNode(LabelObj), SrcBBlock(LabelObj.SrcBBlock) {}
 
-HLLabel *HLLabel::clone() const {
-
-  /// Call Copy constructor
+HLLabel *HLLabel::cloneImpl(GotoContainerTy *GotoList,
+                            LabelMapTy *LabelMap) const {
+  // Call Copy constructor
   HLLabel *NewHLLabel = new HLLabel(*this);
+
+  if (LabelMap)
+    LabelMap->insert(std::pair<const HLLabel *, HLLabel *>(this, NewHLLabel));
 
   return NewHLLabel;
 }
+
+HLLabel *HLLabel::clone() const { return cloneImpl(nullptr, nullptr); }
 
 void HLLabel::print(formatted_raw_ostream &OS, unsigned Depth) const {
   indent(OS, Depth);

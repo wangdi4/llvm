@@ -50,6 +50,71 @@ HLLoop *HLNodeUtils::createHLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef,
   return new HLLoop(ZttIf, LowerDDRef, UpperDDRef, StrideDDRef, IsDoWh, NumEx);
 }
 
+struct HLNodeUtils::CloneVisitor {
+
+  HLContainerTy *CloneContainer;
+  GotoContainerTy *GotoList;
+  LabelMapTy *LabelMap;
+
+  CloneVisitor(HLContainerTy *Container, GotoContainerTy *GList,
+               LabelMapTy *LMap)
+      : CloneContainer(Container), GotoList(GList), LabelMap(LMap) {}
+
+  void visit(HLNode *Node) {
+    CloneContainer->push_back(Node->cloneImpl(GotoList, LabelMap));
+  }
+
+  void postVisit(HLNode *Node) {}
+  bool isDone() { return false; }
+
+  void postVisitUpdate() { updateGotos(GotoList, LabelMap); }
+};
+
+void HLNodeUtils::updateGotos(GotoContainerTy *GotoList, LabelMapTy *LabelMap) {
+
+  for (auto Iter = GotoList->begin(), End = GotoList->end(); Iter != End;
+       ++Iter) {
+    HLGoto *Goto = *Iter;
+    auto LabelIt = LabelMap->find(Goto->getTargetLabel());
+    if (LabelIt != LabelMap->end()) {
+      // Update the Goto branch to new label
+      Goto->setTargetLabel(LabelIt->second);
+    }
+  }
+}
+
+void HLNodeUtils::cloneSequenceImpl(HLContainerTy *CloneContainer,
+                                    const HLNode *Node1, const HLNode *Node2) {
+
+  GotoContainerTy GotoList;
+  LabelMapTy LabelMap;
+
+  // Check for Node2 as nullptr or a single node
+  if (!Node2 || (Node1 == Node2)) {
+    CloneContainer->push_back(Node1->cloneImpl(&GotoList, &LabelMap));
+    updateGotos(&GotoList, &LabelMap);
+    return;
+  }
+
+  HLContainerTy::iterator It1(const_cast<HLNode *>(Node1));
+  HLContainerTy::iterator It2(const_cast<HLNode *>(Node2));
+
+  HLNodeUtils::CloneVisitor CloneVisit(CloneContainer, &GotoList, &LabelMap);
+  visit<HLNodeUtils::CloneVisitor>(&CloneVisit, It1, std::next(It2), false,
+                                   true);
+  CloneVisit.postVisitUpdate();
+}
+
+void HLNodeUtils::cloneSequence(HLContainerTy *CloneContainer,
+                                const HLNode *Node1, const HLNode *Node2) {
+  assert(Node1 && !isa<HLRegion>(Node1) &&
+         " Node1 - Region Cloning is not allowed.");
+  assert((!Node2 || !isa<HLRegion>(Node2)) &&
+         " Node 2 - Region Cloning is not allowed.");
+  assert(CloneContainer && " Clone Container is null.");
+  cloneSequenceImpl(CloneContainer, Node1, Node2);
+}
+
 void HLNodeUtils::destroy(HLNode *Node) { Node->destroy(); }
 
 void HLNodeUtils::destroyAll() { HLNode::destroyAll(); }
@@ -195,6 +260,14 @@ void HLNodeUtils::insertBefore(HLNode *Pos, HLNode *Node) {
   insertImpl(Pos->getParent(), Pos, nullptr, Node, Node, true, true);
 }
 
+void HLNodeUtils::insertBefore(HLNode *Pos, HLContainerTy *NodeContainer) {
+  assert(Pos && "Pos is null!");
+  assert(NodeContainer && "NodeContainer is null!");
+
+  insertImpl(Pos->getParent(), Pos, NodeContainer, NodeContainer->begin(),
+             NodeContainer->end(), true, true);
+}
+
 /// This function doesn't require updating separators as they point to the
 /// beginning of a lexical scope and hence will remain unaffected by this
 /// operation.
@@ -204,6 +277,15 @@ void HLNodeUtils::insertAfter(HLNode *Pos, HLNode *Node) {
   HLContainerTy::iterator It(Pos);
 
   insertImpl(Pos->getParent(), std::next(It), nullptr, Node, Node, false);
+}
+
+void HLNodeUtils::insertAfter(HLNode *Pos, HLContainerTy *NodeContainer) {
+  assert(Pos && "Pos is null!");
+  assert(NodeContainer && "NodeContainer is null!");
+  HLContainerTy::iterator It(Pos);
+
+  insertImpl(Pos->getParent(), std::next(It), NodeContainer,
+             NodeContainer->begin(), NodeContainer->end(), false);
 }
 
 void HLNodeUtils::insertAsChildImpl(HLNode *Parent,

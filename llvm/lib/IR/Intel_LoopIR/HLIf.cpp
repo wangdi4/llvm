@@ -51,7 +51,7 @@ HLIf::HLIf(CmpInst::Predicate FirstPred, RegDDRef *Ref1, RegDDRef *Ref2)
   setPredicateOperandDDRef(Ref2, pred_begin(), false);
 }
 
-HLIf::HLIf(const HLIf &HLIfObj)
+HLIf::HLIf(const HLIf &HLIfObj, GotoContainerTy *GotoList, LabelMapTy *LabelMap)
     : HLDDNode(HLIfObj), Predicates(HLIfObj.Predicates) {
   const RegDDRef *Ref;
   ElseBegin = Children.end();
@@ -69,23 +69,30 @@ HLIf::HLIf(const HLIf &HLIfObj)
   /// Loop over Then children and Else children
   for (auto ThenIter = HLIfObj.then_begin(), ThenIterEnd = HLIfObj.then_end();
        ThenIter != ThenIterEnd; ++ThenIter) {
-    HLNode *NewHLNode = ThenIter->clone();
+    HLNode *NewHLNode = cloneBaseImpl(ThenIter, GotoList, LabelMap);
     HLNodeUtils::insertAsLastChild(this, NewHLNode, true);
   }
 
   for (auto ElseIter = HLIfObj.else_begin(), ElseIterEnd = HLIfObj.else_end();
        ElseIter != ElseIterEnd; ++ElseIter) {
-    HLNode *NewHLNode = ElseIter->clone();
+    HLNode *NewHLNode = cloneBaseImpl(ElseIter, GotoList, LabelMap);
     HLNodeUtils::insertAsLastChild(this, NewHLNode, false);
   }
 }
 
-HLIf *HLIf::clone() const {
-
-  /// Call the Copy Constructor
-  HLIf *NewHLIf = new HLIf(*this);
+HLIf *HLIf::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap) const {
+  // Call the Copy Constructor
+  HLIf *NewHLIf = new HLIf(*this, GotoList, LabelMap);
 
   return NewHLIf;
+}
+
+HLIf *HLIf::clone() const {
+
+  HLContainerTy NContainer;
+  HLNodeUtils::cloneSequence(&NContainer, this);
+  HLIf *NewIf = cast<HLIf>(NContainer.remove(NContainer.begin()));
+  return NewIf;
 }
 
 void HLIf::print(formatted_raw_ostream &OS, unsigned Depth) const {
