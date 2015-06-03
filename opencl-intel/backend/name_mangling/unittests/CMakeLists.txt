@@ -35,14 +35,17 @@ add_executable(
   TestRefCount.cpp
 )
 
+if( ANDROID ) 
+  target_link_libraries( ${TARGET_NAME} gnustl_shared )
+  set_property(TARGET ${TARGET_NAME} APPEND_STRING PROPERTY LINK_FLAGS " -pie") endif( ANDROID ) 
+endif( ANDROID )
+
 target_link_libraries(
   ${TARGET_NAME}
   name_mangle
   googletest
   ${LLVM_MODULE_LIBS}
 )
-
-
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_TESTS_FOLDER_NAME} )
 
