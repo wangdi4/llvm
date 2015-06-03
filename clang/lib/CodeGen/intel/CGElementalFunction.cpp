@@ -333,7 +333,7 @@ static bool writeMangledName(std::string ProcessorName, bool IsMasked,
     return false;
   MangledName << "_ZGV" // Magic prefix
               << encodeISAClass(ISA) << (IsMasked ? 'M' : 'N') << VLen
-              << MangledParams.str() << "_" << Func->getName();
+              << MangledParams.str() << "_";
   DEBUG(llvm::dbgs() << "Dealing with elemental function " << MangledName.str()
                      << "\n");
   return true;
@@ -870,7 +870,6 @@ static void createVectorVariantWrapper(llvm::Function *ScalarFunc,
 
   Builder.SetInsertPoint(LoopStep);
   {
-    // Index = Index + 1
     VecIndex = Builder.CreateAdd(VecIndex, llvm::ConstantInt::get(IndexTy, 1));
     Builder.CreateStore(VecIndex, Index);
     Builder.CreateBr(LoopCond);

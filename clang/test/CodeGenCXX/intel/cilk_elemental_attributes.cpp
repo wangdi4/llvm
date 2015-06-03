@@ -61,21 +61,21 @@ extern unsigned int setArray7(struct S *a, const int x, int k) {
   return a[k].data;
 }
 
-// CHECK: attributes #0 = { {{.*}} "_ZGVxM4_setArray0" "_ZGVxN4_setArray0"
+// CHECK: attributes #0 = { {{.*}} "_ZGVxM4_" "_ZGVxN4_"
 
-// CHECK: attributes #1 = { {{.*}} "_ZGVxM4u_setArray1" "_ZGVxN4u_setArray1"
+// CHECK: attributes #1 = { {{.*}} "_ZGVxM4u_" "_ZGVxN4u_"
 
-// CHECK: attributes #2 = { {{.*}} "_ZGVxM4ul4_setArray2" "_ZGVxN4ul4_setArray2"
+// CHECK: attributes #2 = { {{.*}} "_ZGVxM4ul4_" "_ZGVxN4ul4_"
 
-// CHECK: attributes #3 = { {{.*}} "_ZGVxM16vl2l8_setArray3" "_ZGVxN16vl2l8_setArray3"
+// CHECK: attributes #3 = { {{.*}} "_ZGVxM16vl2l8_" "_ZGVxN16vl2l8_"
 
-// CHECK: attributes #4 = { {{.*}} "_ZGVxM4uuu_setArray4" "_ZGVxN4uuu_setArray4"
+// CHECK: attributes #4 = { {{.*}} "_ZGVxM4uuu_" "_ZGVxN4uuu_"
 
-// CHECK: attributes #5 = { {{.*}} "_ZGVyM8vvv_setArray5"
-// CHECK-NOT: attributes #5 = { {{.*}} "_ZGVyN8vvv_setArray5"
+// CHECK: attributes #5 = { {{.*}} "_ZGVyM8vvv_"
+// CHECK-NOT: attributes #5 = { {{.*}} "_ZGVyN8vvv_"
 
-// CHECK: attributes #6 = { {{.*}} "_ZGVYN4uvul16_setArray6"
-// CHECK-NOT: attributes #6 = { {{.*}} "_ZGVYM4uvul16_setArray6"
+// CHECK: attributes #6 = { {{.*}} "_ZGVYN4uvul16_"
+// CHECK-NOT: attributes #6 = { {{.*}} "_ZGVYM4uvul16_"
 
-// CHECK: attributes #7 = { {{.*}} "_ZGVxM4vuv_setArray7" "_ZGVxN4vuv_setArray7"
+// CHECK: attributes #7 = { {{.*}} "_ZGVxM4vuv_" "_ZGVxN4vuv_"
 
