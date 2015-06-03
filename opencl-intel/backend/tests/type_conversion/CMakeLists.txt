@@ -21,7 +21,7 @@ target_link_libraries(
 
 if( ANDROID ) 
   target_link_libraries( ${TARGET_NAME} gnustl_shared )
-  set_property(TARGET ${TARGET_NAME} APPEND_STRING PROPERTY LINK_FLAGS " -pie") endif( ANDROID ) 
+  set_property(TARGET ${TARGET_NAME} APPEND_STRING PROPERTY LINK_FLAGS " -pie")
 endif( ANDROID )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_TESTS_FOLDER_NAME} )
