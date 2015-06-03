@@ -885,7 +885,15 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
     ConsumeToken(); // Consume the constant expression eof terminator.
 
     if (R.isInvalid() ||
+#ifdef INTEL_CUSTOMIZATION
+        // CQ#366562 - allow pragma unroll value in IntelCompat mode be out of
+        // strictly positive 32-bit integer range.
+        Actions.CheckLoopHintExpr(R.get(), Toks[0].getLocation(),
+                                  /*IsCheckRange=*/
+                                  !getLangOpts().IntelCompat || !PragmaUnroll))
+#else
         Actions.CheckLoopHintExpr(R.get(), Toks[0].getLocation()))
+#endif // INTEL_CUSTOMIZATION
       return false;
 
     // Argument is a constant expression with an integer type.
