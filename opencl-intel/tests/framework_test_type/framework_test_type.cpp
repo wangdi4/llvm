@@ -134,7 +134,7 @@ TEST(FrameworkTestType, Test_clBuildProgramWithBinaryTest)
 
 TEST(FrameworkTestType, Test_clBuildInvalidSpirProgramWithBinaryTest)
 {
-	EXPECT_TRUE(clBuildInvalidSpirProgramWithBinaryTest());
+    EXPECT_TRUE(clBuildInvalidSpirProgramWithBinaryTest());
 }
 
 TEST(FrameworkTestType, Test_clBuildProgramWithSourceTest)
