@@ -42,35 +42,6 @@ CodeGenFunction::EmitCilkForGrainsizeStmt(const CilkForGrainsizeStmt &S) {
   EmitCilkForStmt(*cast<CilkForStmt>(S.getCilkFor()), Grainsize);
 }
 
-/// \brief RAII for emitting code of CapturedStmt without function outlining.
-class InlinedCilkRegion {
-  CodeGenFunction &CGF;
-  CodeGenFunction::CGCapturedStmtInfo *PrevCapturedStmtInfo;
-
-public:
-  InlinedCilkRegion(CodeGenFunction &CGF,
-                    CodeGenFunction::CGCapturedStmtInfo *CSI)
-      : CGF(CGF), PrevCapturedStmtInfo(CGF.CapturedStmtInfo) {
-    CGF.CapturedStmtInfo = CSI;
-  };
-  ~InlinedCilkRegion() { CGF.CapturedStmtInfo = PrevCapturedStmtInfo; };
-};
-
-// We need this function to be sure
-//    that RAII object will be destroyed in proper time
-static llvm::Value *getCapturedValue(CodeGenFunction &CGF,
-                                      const Expr *E,
-                                      CodeGenFunction::CGCapturedStmtInfo *SI) {
-
-  assert ((isa<CodeGenFunction::CGCilkForStmtInfo>(SI) ||
-           isa<CodeGenFunction::CGSIMDForStmtInfo>(SI)) &&
-           "Invalid type of CGCapturedStmtInfo");
-  // create RAII object with required CapturedStmtInfo
-  InlinedCilkRegion CFRegion(CGF, SI);
-  // get LoopCount value
-  return CGF.EmitAnyExpr(E).getScalarVal();
-}
-
 void
 CodeGenFunction::EmitCilkForStmt(const CilkForStmt &S, llvm::Value *Grainsize) {
   // if (cond) {
@@ -87,12 +58,10 @@ CodeGenFunction::EmitCilkForStmt(const CilkForStmt &S, llvm::Value *Grainsize) {
 
   // Evaluate the first part before the loop.
   EmitStmt(S.getInit());
-
   // Emit the helper function
   CGCilkForStmtInfo CSInfo(S);
   CodeGenFunction CGF(CGM, true);
   CGF.CapturedStmtInfo = &CSInfo;
-
   llvm::Function *Helper = CGF.GenerateCapturedStmtFunction(*S.getBody());
 
   llvm::BasicBlock *ThenBlock = createBasicBlock("if.then");
@@ -103,12 +72,12 @@ CodeGenFunction::EmitCilkForStmt(const CilkForStmt &S, llvm::Value *Grainsize) {
   {
     RunCleanupsScope Scope(*this);
     const Expr *LoopCountExpr = S.getLoopCount();
-    llvm::Value *LoopCount = getCapturedValue(*this, LoopCountExpr, &CSInfo);
+    if(!CapturedStmtInfo)
+      CapturedStmtInfo = &CSInfo;
+    llvm::Value *LoopCount = EmitAnyExpr(LoopCountExpr).getScalarVal();
     // Initialize the captured struct.
     LValue CapStruct = InitCapturedStruct(*S.getBody());
-
     llvm::LLVMContext &Ctx = CGM.getLLVMContext();
-
     // Get or insert the cilk_for abi function.
     llvm::Constant *CilkForABI = 0;
     llvm::FunctionType *FTy = 0;
