@@ -1,4 +1,4 @@
-;===- ./lib/Analysis/LLVMBuild.txt -----------------------------*- Conf -*--===;
+;===- ./lib/Analysis/VPO/WRegionInfo/LLVMBuild.txt -------------*- Conf -*--===;
 ;
 ;                     The LLVM Compiler Infrastructure
 ;
@@ -15,11 +15,9 @@
 ;
 ;===------------------------------------------------------------------------===;
 
-[common]
-subdirectories = IPA VPO
 
 [component_0]
 type = Library
-name = Analysis
-parent = Libraries
-required_libraries = Core Support
+name = WRegionInfoAnalysis
+parent = Analysis
+required_libraries: TransformVPOUtils

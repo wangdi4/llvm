@@ -3,4 +3,5 @@ type = Library
 name = Vecopt
 parent = VPO
 library_name = VPOVectorizer
-required_libraries = Analysis Core Scalar Support TransformUtils
+required_libraries = Analysis Core Scalar Support TransformUtils Vecopt_AvrAnalysis WRegionInfoAnalysis
+ 

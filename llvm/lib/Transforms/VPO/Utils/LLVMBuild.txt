@@ -1,6 +1,5 @@
 [component_0]
 type = Library
-name = Utils 
+name = TransformVPOUtils
 parent = VPO
-library_name = TransformVPOUtils
 required_libraries = Analysis Core Scalar Support TransformUtils

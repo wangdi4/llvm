@@ -17,14 +17,8 @@ set(LLVM_LINK_COMPONENTS
   TransformUtils
   Vectorize
   VPOVectorizer #***INTEL
-  TransformVPOUtils
   Passes
   )
-#
-#  --- Need to add these two 
-#  VPOAnalysis
-#  WRegionInfoAnalysis
-#
 
 # Support plugins.
 set(LLVM_NO_DEAD_STRIP 1)

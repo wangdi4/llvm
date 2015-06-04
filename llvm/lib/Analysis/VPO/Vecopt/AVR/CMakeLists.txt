@@ -1,4 +1,4 @@
-add_llvm_library(LLVMVPOAnalysis
+add_llvm_library(LLVMVecopt_AvrAnalysis
   VPOAvrGenerate.cpp
   VPOAvr.cpp
   VPOAvrFunction.cpp
@@ -7,3 +7,4 @@ add_llvm_library(LLVMVPOAnalysis
   VPOAvrUtils.cpp
 )
 
+add_dependencies(LLVMVecopt_AvrAnalysis intrinsics_gen)

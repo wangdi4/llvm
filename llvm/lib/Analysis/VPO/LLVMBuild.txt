@@ -1,4 +1,4 @@
-;===- ./lib/Analysis/LLVMBuild.txt -----------------------------*- Conf -*--===;
+;===- ./lib/Analysis/VPO/LLVMBuild.txt -------------------------*- Conf -*--===;
 ;
 ;                     The LLVM Compiler Infrastructure
 ;
@@ -16,10 +16,9 @@
 ;===------------------------------------------------------------------------===;
 
 [common]
-subdirectories = IPA VPO
+subdirectories = Vecopt WRegionInfo ;Paropt
 
-[component_0]
-type = Library
-name = Analysis
-parent = Libraries
-required_libraries = Core Support
+;[component_0]
+;type = Library
+;name = VPO_Analysis
+;parent = Analysis
