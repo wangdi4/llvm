@@ -406,6 +406,12 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clGetKernelSubGroupInfoKHR)(
     void*                    /*param_value*/,
     size_t*                  /*param_value_size_ret*/) CL_EXT_SUFFIX__VERSION_2_0;
 
+typedef CL_API_ENTRY cl_program (CL_API_CALL *KHRpfn_clCreateProgramWithIL)(
+     cl_context             /* context */,
+     const void *           /* il */,
+     size_t                 /* lengths */,
+     cl_int *               /* errcode_ret */) CL_EXT_SUFFIX__VERSION_2_1;
+
 // Event Object APIs
 typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clWaitForEvents)(
     cl_uint             num_events,
@@ -1405,6 +1411,8 @@ struct KHRicdVendorDispatchRec
 	
     /* cl_khr_sub_groups */
     KHRpfn_clGetKernelSubGroupInfoKHR               clGetKernelSubGroupInfoKHR;
+    /* OpenCL 2.1 */
+    KHRpfn_clCreateProgramWithIL                    clCreateProgramWithIL;
 };
 
 /*
