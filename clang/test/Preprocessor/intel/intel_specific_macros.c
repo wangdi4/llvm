@@ -22,3 +22,11 @@
 // X86_CYGWIN: #define __LONG_DOUBLE_SIZE__ 80
 // RUN: %clang_cc1 -E -dM -fintel-compatibility -triple x86_64-none-cygwin < %s | FileCheck -check-prefix X86_64_CYGWIN %s
 // X86_64_CYGWIN: #define __LONG_DOUBLE_SIZE__ 80
+
+
+// CQ#369662
+// RUN: %clang_cc1 -x c++ -E -dM < %s | FileCheck -check-prefix CHECK_GNUG_1 %s
+// CHECK_GNUG_1: #define __GNUG__ 4
+
+// RUN: %clang_cc1 -x c++ -E -dM -fintel-compatibility < %s | FileCheck -check-prefix CHECK_GNUG_2 %s
+// CHECK_GNUG_2-NOT: #define __GNUG__

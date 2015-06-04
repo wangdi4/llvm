@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "CodeGenFunction.h"
+#include "CGCleanup.h"
 #include "CGDebugInfo.h"
 #include "CGOpenCLRuntime.h"
 #include "CodeGenModule.h"
@@ -44,6 +45,7 @@ void CodeGenFunction::EmitDecl(const Decl &D) {
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
 #endif  // INTEL_CUSTOMIZATION
   case Decl::TranslationUnit:
+  case Decl::ExternCContext:
   case Decl::Namespace:
   case Decl::UnresolvedUsingTypename:
   case Decl::ClassTemplateSpecialization:
@@ -528,10 +530,7 @@ namespace {
       : Addr(addr), Size(size) {}
 
     void Emit(CodeGenFunction &CGF, Flags flags) override {
-      llvm::Value *castAddr = CGF.Builder.CreateBitCast(Addr, CGF.Int8PtrTy);
-      CGF.Builder.CreateCall2(CGF.CGM.getLLVMLifetimeEndFn(),
-                              Size, castAddr)
-        ->setDoesNotThrow();
+      CGF.EmitLifetimeEnd(Size, Addr);
     }
   };
 }
@@ -647,8 +646,9 @@ void CodeGenFunction::EmitScalarInit(const Expr *init, const ValueDecl *D,
     if (capturedByInit) {
       // We can use a simple GEP for this because it can't have been
       // moved yet.
-      tempLV.setAddress(Builder.CreateStructGEP(tempLV.getAddress(),
-                                   getByRefValueLLVMField(cast<VarDecl>(D))));
+      tempLV.setAddress(Builder.CreateStructGEP(
+          nullptr, tempLV.getAddress(),
+          getByRefValueLLVMField(cast<VarDecl>(D)).second));
     }
 
     llvm::PointerType *ty
@@ -809,8 +809,9 @@ static void emitStoresForInitAfterMemset(llvm::Constant *Init, llvm::Value *Loc,
 
       // If necessary, get a pointer to the element and emit it.
       if (!Elt->isNullValue() && !isa<llvm::UndefValue>(Elt))
-        emitStoresForInitAfterMemset(Elt, Builder.CreateConstGEP2_32(Loc, 0, i),
-                                     isVolatile, Builder);
+        emitStoresForInitAfterMemset(
+            Elt, Builder.CreateConstGEP2_32(Init->getType(), Loc, 0, i),
+            isVolatile, Builder);
     }
     return;
   }
@@ -823,8 +824,9 @@ static void emitStoresForInitAfterMemset(llvm::Constant *Init, llvm::Value *Loc,
 
     // If necessary, get a pointer to the element and emit it.
     if (!Elt->isNullValue() && !isa<llvm::UndefValue>(Elt))
-      emitStoresForInitAfterMemset(Elt, Builder.CreateConstGEP2_32(Loc, 0, i),
-                                   isVolatile, Builder);
+      emitStoresForInitAfterMemset(
+          Elt, Builder.CreateConstGEP2_32(Init->getType(), Loc, 0, i),
+          isVolatile, Builder);
   }
 }
 
@@ -849,20 +851,6 @@ static bool shouldUseMemSetPlusStoresToInitialize(llvm::Constant *Init,
          canEmitInitWithFewStoresAfterMemset(Init, StoreBudget);
 }
 
-/// Should we use the LLVM lifetime intrinsics for the given local variable?
-static bool shouldUseLifetimeMarkers(CodeGenFunction &CGF, const VarDecl &D,
-                                     unsigned Size) {
-  // For now, only in optimized builds.
-  if (CGF.CGM.getCodeGenOpts().OptimizationLevel == 0)
-    return false;
-
-  // Limit the size of marked objects to 32 bytes. We don't want to increase
-  // compile time by marking tiny objects.
-  unsigned SizeThreshold = 32;
-
-  return Size > SizeThreshold;
-}
-
 /// EmitAutoVarDecl - Emit code and set up an entry in LocalDeclMap for a
 /// variable declaration with auto, register, or no storage class specifier.
 /// These turn into simple stack objects, or GlobalValues depending on target.
@@ -883,6 +871,38 @@ void CodeGenFunction::EmitAutoVarDecl(const VarDecl &D) {
   AutoVarEmission emission = EmitAutoVarAlloca(D);
   EmitAutoVarInit(emission);
   EmitAutoVarCleanups(emission);
+}
+
+/// Emit a lifetime.begin marker if some criteria are satisfied.
+/// \return a pointer to the temporary size Value if a marker was emitted, null
+/// otherwise
+llvm::Value *CodeGenFunction::EmitLifetimeStart(uint64_t Size,
+                                                llvm::Value *Addr) {
+  // For now, only in optimized builds.
+  if (CGM.getCodeGenOpts().OptimizationLevel == 0)
+    return nullptr;
+
+  // Disable lifetime markers in msan builds.
+  // FIXME: Remove this when msan works with lifetime markers.
+  if (getLangOpts().Sanitize.has(SanitizerKind::Memory))
+    return nullptr;
+
+  llvm::Value *SizeV = llvm::ConstantInt::get(Int64Ty, Size);
+  llvm::Value *Args[] = {
+      SizeV,
+      new llvm::BitCastInst(Addr, Int8PtrTy, "", Builder.GetInsertBlock())};
+  llvm::CallInst *C = llvm::CallInst::Create(CGM.getLLVMLifetimeStartFn(), Args,
+                                             "", Builder.GetInsertBlock());
+  C->setDoesNotThrow();
+  return SizeV;
+}
+
+void CodeGenFunction::EmitLifetimeEnd(llvm::Value *Size, llvm::Value *Addr) {
+  llvm::Value *Args[] = {Size, new llvm::BitCastInst(Addr, Int8PtrTy, "",
+                                                     Builder.GetInsertBlock())};
+  llvm::CallInst *C = llvm::CallInst::Create(CGM.getLLVMLifetimeEndFn(), Args,
+                                             "", Builder.GetInsertBlock());
+  C->setDoesNotThrow();
 }
 
 /// EmitAutoVarAlloca - Emit the alloca and debug information for a
@@ -980,13 +1000,8 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
       // Emit a lifetime intrinsic if meaningful.  There's no point
       // in doing this if we don't have a valid insertion point (?).
       uint64_t size = CGM.getDataLayout().getTypeAllocSize(LTy);
-      if (HaveInsertPoint() && shouldUseLifetimeMarkers(*this, D, size)) {
-        llvm::Value *sizeV = llvm::ConstantInt::get(Int64Ty, size);
-
-        emission.SizeForLifetimeMarkers = sizeV;
-        llvm::Value *castAddr = Builder.CreateBitCast(Alloc, Int8PtrTy);
-        Builder.CreateCall2(CGM.getLLVMLifetimeStartFn(), sizeV, castAddr)
-          ->setDoesNotThrow();
+      if (HaveInsertPoint()) {
+        emission.SizeForLifetimeMarkers = EmitLifetimeStart(size, Alloc);
       } else {
         assert(!emission.useLifetimeMarkers());
       }
@@ -1332,6 +1347,8 @@ void CodeGenFunction::EmitAutoVarCleanups(const AutoVarEmission &emission) {
     EHStack.pushCleanup<CallLifetimeEnd>(NormalCleanup,
                                          emission.getAllocatedAddress(),
                                          emission.getSizeForLifetimeMarkers());
+    EHCleanupScope &cleanup = cast<EHCleanupScope>(*EHStack.begin());
+    cleanup.setLifetimeMarker();
   }
 
   // Check the type for a cleanup.

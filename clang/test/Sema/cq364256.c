@@ -1,7 +1,7 @@
 // RUN: %clang_cc1 %s -fsyntax-only -fintel-compatibility -verify -DTEST1
-// RUN: %clang_cc1 %s -fsyntax-only -fms-compatibility -verify -DTEST2
+// RUN: %clang_cc1 %s -fsyntax-only -fintel-ms-compatibility -verify -DTEST2
 // RUN: %clang_cc1 %s -fsyntax-only -verify -DTEST3
-// RUN: %clang_cc1 %s -fsyntax-only -fintel-compatibility -fms-compatibility -verify -DTEST4
+// RUN: %clang_cc1 %s -fsyntax-only -fintel-compatibility -fintel-ms-compatibility -verify -DTEST4
 
 // In "-fintel-compatiblity" and "-fms-compatibility" modes intel-clang emits a
 // warning, not an error, in case of non-void function not returning a value.

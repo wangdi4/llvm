@@ -642,6 +642,9 @@ void Driver::generateCompilationDiagnostics(Compilation &C,
     Diag(clang::diag::note_drv_command_failed_diag_msg)
         << "Error generating run script: " + Script + " " + EC.message();
   } else {
+    ScriptOS << "# Crash reproducer for " << getClangFullVersion() << "\n"
+             << "# Original command: ";
+    Cmd.Print(ScriptOS, "\n", /*Quote=*/true);
     Cmd.Print(ScriptOS, "\n", /*Quote=*/true, &CrashInfo);
     Diag(clang::diag::note_drv_command_failed_diag_msg) << Script;
   }
@@ -1077,7 +1080,7 @@ static bool DiagnoseInputExistence(const Driver &D, const DerivedArgList &Args,
 
   SmallString<64> Path(Value);
   if (Arg *WorkDir = Args.getLastArg(options::OPT_working_directory)) {
-    if (!llvm::sys::path::is_absolute(Path.str())) {
+    if (!llvm::sys::path::is_absolute(Path)) {
       SmallString<64> Directory(WorkDir->getValue());
       llvm::sys::path::append(Directory, Value);
       Path.assign(Directory);
@@ -1090,7 +1093,7 @@ static bool DiagnoseInputExistence(const Driver &D, const DerivedArgList &Args,
   if (D.IsCLMode() && llvm::sys::Process::FindInEnvPath("LIB", Value))
     return true;
 
-  D.Diag(clang::diag::err_drv_no_such_file) << Path.str();
+  D.Diag(clang::diag::err_drv_no_such_file) << Path;
   return false;
 }
 
@@ -2128,6 +2131,9 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
   ToolChain *&TC = ToolChains[Target.str()];
   if (!TC) {
     switch (Target.getOS()) {
+    case llvm::Triple::CloudABI:
+      TC = new toolchains::CloudABI(*this, Target, Args);
+      break;
     case llvm::Triple::Darwin:
     case llvm::Triple::MacOSX:
     case llvm::Triple::IOS:
@@ -2156,6 +2162,9 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
         TC = new toolchains::Hexagon_TC(*this, Target, Args);
       else
         TC = new toolchains::Linux(*this, Target, Args);
+      break;
+    case llvm::Triple::NaCl:
+      TC = new toolchains::NaCl_TC(*this, Target, Args);
       break;
     case llvm::Triple::Solaris:
       TC = new toolchains::Solaris(*this, Target, Args);
@@ -2244,7 +2253,7 @@ bool Driver::GetReleaseVersion(const char *Str, unsigned &Major,
 
   Major = Minor = Micro = 0;
   if (*Str == '\0')
-    return true;
+    return false;
 
   char *End;
   Major = (unsigned) strtol(Str, &End, 10);
