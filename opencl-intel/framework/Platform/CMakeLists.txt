@@ -15,7 +15,7 @@ set(TARGET_SOURCE_FILES
 )
 
 include_directories( 
-            ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang 
+            ${LLVM_INCLUDE_DIRS}/cclang
             )
 
 add_library (${TARGET_NAME} STATIC 

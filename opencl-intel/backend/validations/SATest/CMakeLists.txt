@@ -40,6 +40,7 @@ link_directories(${LLVM_LIBRARY_DIRS})
 
 include_directories(
   ${LLVM_INCLUDE_DIRS}
+  ${LLVM_INCLUDE_DIRS}/cclang
   ${VALIDATIONS_ROOT}/SATest
   ${VALIDATIONS_ROOT}/DataVersion
   ${VALIDATIONS_ROOT}/DataManager
@@ -63,7 +64,6 @@ include_directories(
   ${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser
   ${VALIDATIONS_ROOT}/OCLKernelDataGenerator
   ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
-  ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang
   ${VALIDATIONS_ROOT}/ProgramConfiguration
 )
 

@@ -18,7 +18,7 @@ endif ( BUILD_2_0_RT )
 include_directories( AFTER
             ../cl_hw_utils/export
             ${CMAKE_SOURCE_DIR}/fe_compilers/clang_compiler
-            ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang
+            ${LLVM_INCLUDE_DIRS}/cclang
             ${CMAKE_SOURCE_DIR}/tools/OCLProfiler/Inc
             )
 
