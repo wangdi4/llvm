@@ -113,7 +113,7 @@ Host::StartMonitoringChildProcess(Host::MonitorChildProcessCallback callback, vo
     return ThreadLauncher::LaunchThread(thread_name, MonitorChildProcessThreadFunction, info_ptr, NULL);
 }
 
-#if !defined(__ANDROID__) && !defined(__ANDROID_NDK__)
+#ifndef __linux__
 //------------------------------------------------------------------
 // Scoped class that will disable thread canceling when it is
 // constructed, and exception safely restore the previous value it
@@ -140,7 +140,32 @@ public:
 private:
     int m_old_state;    // Save the old cancelability state.
 };
-#endif // __ANDROID_NDK__
+#endif // __linux__
+
+#ifdef __linux__
+static thread_local volatile sig_atomic_t g_usr1_called;
+
+static void
+SigUsr1Handler (int)
+{
+    g_usr1_called = 1;
+}
+#endif // __linux__
+
+static bool
+CheckForMonitorCancellation()
+{
+#ifdef __linux__
+    if (g_usr1_called)
+    {
+        g_usr1_called = 0;
+        return true;
+    }
+#else
+    ::pthread_testcancel ();
+#endif
+    return false;
+}
 
 static thread_result_t
 MonitorChildProcessThreadFunction (void *arg)
@@ -167,21 +192,29 @@ MonitorChildProcessThreadFunction (void *arg)
 #endif
     const int options = __WALL;
 
+#ifdef __linux__
+    // This signal is only used to interrupt the thread from waitpid
+    struct sigaction sigUsr1Action;
+    memset(&sigUsr1Action, 0, sizeof(sigUsr1Action));
+    sigUsr1Action.sa_handler = SigUsr1Handler;
+    ::sigaction(SIGUSR1, &sigUsr1Action, nullptr);
+#endif // __linux__    
+
     while (1)
     {
         log = lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_PROCESS);
         if (log)
             log->Printf("%s ::waitpid (pid = %" PRIi32 ", &status, options = %i)...", function, pid, options);
 
-        // Wait for all child processes
-#if !defined(__ANDROID__) && !defined(__ANDROID_NDK__)
-        ::pthread_testcancel ();
-#endif
+        if (CheckForMonitorCancellation ())
+            break;
+
         // Get signals from all children with same process group of pid
         const ::pid_t wait_pid = ::waitpid (pid, &status, options);
-#if !defined(__ANDROID__) && !defined(__ANDROID_NDK__)
-        ::pthread_testcancel ();
-#endif
+
+        if (CheckForMonitorCancellation ())
+            break;
+
         if (wait_pid == -1)
         {
             if (errno == EINTR)
@@ -226,7 +259,7 @@ MonitorChildProcessThreadFunction (void *arg)
 
             // Scope for pthread_cancel_disabler
             {
-#if !defined(__ANDROID__) && !defined(__ANDROID_NDK__)
+#ifndef __linux__
                 ScopedPThreadCancelDisabler pthread_cancel_disabler;
 #endif
 
@@ -390,18 +423,7 @@ Host::GetSignalAsCString (int signo)
 
 #endif
 
-void
-Host::WillTerminate ()
-{
-}
-
 #if !defined (__APPLE__) && !defined (__FreeBSD__) && !defined (__FreeBSD_kernel__) && !defined (__linux__) // see macosx/Host.mm
-
-void
-Host::Backtrace (Stream &strm, uint32_t max_frames)
-{
-    // TODO: Is there a way to backtrace the current process on other systems?
-}
 
 size_t
 Host::GetEnvironment (StringList &env)
@@ -465,8 +487,6 @@ Host::GetModuleFileSpecForHostAddress (const void *host_addr)
         if (info.dli_fname)
             module_filespec.SetFile(info.dli_fname, true);
     }
-#else
-    assert(false && "dladdr() not supported on Android");
 #endif
     return module_filespec;
 }
@@ -532,6 +552,18 @@ Host::RunShellCommand (const char *command,
                        uint32_t timeout_sec,
                        bool run_in_default_shell)
 {
+    return RunShellCommand(Args(command), working_dir, status_ptr, signo_ptr, command_output_ptr, timeout_sec, run_in_default_shell);
+}
+
+Error
+Host::RunShellCommand (const Args &args,
+                       const char *working_dir,
+                       int *status_ptr,
+                       int *signo_ptr,
+                       std::string *command_output_ptr,
+                       uint32_t timeout_sec,
+                       bool run_in_default_shell)
+{
     Error error;
     ProcessLaunchInfo launch_info;
     launch_info.SetArchitecture(HostInfo::GetArchitecture());
@@ -539,10 +571,10 @@ Host::RunShellCommand (const char *command,
     {
         // Run the command in a shell
         launch_info.SetShell(HostInfo::GetDefaultShell());
-        launch_info.GetArguments().AppendArgument(command);
+        launch_info.GetArguments().AppendArguments(args);
         const bool localhost = true;
         const bool will_debug = false;
-        const bool first_arg_is_full_shell_command = true;
+        const bool first_arg_is_full_shell_command = false;
         launch_info.ConvertArgumentsForLaunchingInShell (error,
                                                          localhost,
                                                          will_debug,
@@ -552,7 +584,6 @@ Host::RunShellCommand (const char *command,
     else
     {
         // No shell, just run it
-        Args args (command);
         const bool first_arg_is_executable = true;
         launch_info.SetArguments(args, first_arg_is_executable);
     }
@@ -560,7 +591,7 @@ Host::RunShellCommand (const char *command,
     if (working_dir)
         launch_info.SetWorkingDirectory(working_dir);
     llvm::SmallString<PATH_MAX> output_file_path;
-
+    
     if (command_output_ptr)
     {
         // Create a temporary file to get the stdout/stderr and redirect the
@@ -598,10 +629,10 @@ Host::RunShellCommand (const char *command,
     
     error = LaunchProcess (launch_info);
     const lldb::pid_t pid = launch_info.GetProcessID();
-
+    
     if (error.Success() && pid == LLDB_INVALID_PROCESS_ID)
         error.SetErrorString("failed to get process ID");
-
+    
     if (error.Success())
     {
         // The process successfully launched, so we can defer ownership of
@@ -620,7 +651,7 @@ Host::RunShellCommand (const char *command,
         if (timed_out)
         {
             error.SetErrorString("timed out waiting for shell command to complete");
-
+            
             // Kill the process since it didn't complete within the timeout specified
             Kill (pid, SIGKILL);
             // Wait for the monitor callback to get the message
@@ -633,10 +664,10 @@ Host::RunShellCommand (const char *command,
         {
             if (status_ptr)
                 *status_ptr = shell_info->status;
-
+            
             if (signo_ptr)
                 *signo_ptr = shell_info->signo;
-
+            
             if (command_output_ptr)
             {
                 command_output_ptr->clear();
@@ -658,7 +689,7 @@ Host::RunShellCommand (const char *command,
         }
         shell_info->can_delete.SetValue(true, eBroadcastAlways);
     }
-
+    
     FileSpec output_file_spec(output_file_path.c_str(), false);
     if (FileSystem::GetFileExists(output_file_spec))
         FileSystem::Unlink(output_file_path.c_str());
@@ -667,7 +698,6 @@ Host::RunShellCommand (const char *command,
     // the process...
     return error;
 }
-
 
 // LaunchProcessPosixSpawn for Apple, Linux, FreeBSD and other GLIBC
 // systems

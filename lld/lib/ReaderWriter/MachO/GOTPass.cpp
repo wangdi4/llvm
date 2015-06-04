@@ -60,7 +60,7 @@ public:
   }
 
   Alignment alignment() const override {
-    return Alignment(_is64 ? 3 : 2);
+    return _is64 ? 8 : 4;
   }
 
   uint64_t size() const override {
@@ -92,12 +92,11 @@ private:
 class GOTPass : public Pass {
 public:
   GOTPass(const MachOLinkingContext &context)
-    : _context(context), _archHandler(_context.archHandler()),
-      _file("<mach-o GOT Pass>") { }
+      : _ctx(context), _archHandler(_ctx.archHandler()),
+        _file("<mach-o GOT Pass>") {}
 
 private:
-
-  void perform(std::unique_ptr<MutableFile> &mergedFile) override {
+  void perform(std::unique_ptr<SimpleFile> &mergedFile) override {
     // Scan all references in all atoms.
     for (const DefinedAtom *atom : mergedFile->defined()) {
       for (const Reference *ref : *atom) {
@@ -155,7 +154,7 @@ private:
     auto pos = _targetToGOT.find(target);
     if (pos == _targetToGOT.end()) {
       GOTEntryAtom *gotEntry = new (_file.allocator())
-          GOTEntryAtom(_file, _context.is64Bit(), target->name());
+          GOTEntryAtom(_file, _ctx.is64Bit(), target->name());
       _targetToGOT[target] = gotEntry;
       const ArchHandler::ReferenceInfo &nlInfo = _archHandler.stubInfo().
                                                 nonLazyPointerReferenceToBinder;
@@ -166,8 +165,7 @@ private:
     return pos->second;
   }
 
-
-  const MachOLinkingContext                       &_context;
+  const MachOLinkingContext &_ctx;
   mach_o::ArchHandler                             &_archHandler;
   MachOFile                                        _file;
   llvm::DenseMap<const Atom*, const GOTEntryAtom*> _targetToGOT;

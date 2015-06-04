@@ -440,8 +440,7 @@ STISymbolModule::getCompileUnits() const {
 // STISymbolCompileUnit
 //===----------------------------------------------------------------------===//
 
-STISymbolCompileUnit *
-STISymbolCompileUnit::create(const DICompileUnit compileUnit) {
+STISymbolCompileUnit * STISymbolCompileUnit::create() {
   STISymbolCompileUnit *symbol;
 
   symbol = new STISymbolCompileUnit();

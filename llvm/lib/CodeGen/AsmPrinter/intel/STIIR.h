@@ -442,7 +442,7 @@ protected:
   STISymbolCompileUnit();
 
 public:
-  static STISymbolCompileUnit *create(const DICompileUnit compileUnit);
+  static STISymbolCompileUnit *create();
 
   ~STISymbolCompileUnit();
 
@@ -665,8 +665,8 @@ public:
 class STITypeModifier : public STIType {
 private:
   STIType *_qualifiedType;
-  bool _isConstant : 1;
-  bool _isVolatile : 1;
+  bool _isConstant  : 1;
+  bool _isVolatile  : 1;
   bool _isUnaligned : 1;
 
 protected:

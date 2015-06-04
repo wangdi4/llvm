@@ -8,17 +8,15 @@
 //===----------------------------------------------------------------------===//
 
 #include "ExampleTargetHandler.h"
-
+#include "X86_64ExecutableWriter.h"
 #include "ExampleLinkingContext.h"
-#include "../X86_64ExecutableWriter.h"
 
 using namespace lld;
 using namespace elf;
 
 ExampleTargetHandler::ExampleTargetHandler(ExampleLinkingContext &c)
-    : X86_64TargetHandler(c), _exampleContext(c) {}
+    : X86_64TargetHandler(c), _ctx(c) {}
 
 std::unique_ptr<Writer> ExampleTargetHandler::getWriter() {
-  return std::unique_ptr<Writer>(
-      new X86_64ExecutableWriter(_exampleContext, *_x86_64TargetLayout));
+  return llvm::make_unique<X86_64ExecutableWriter>(_ctx, *_targetLayout);
 }

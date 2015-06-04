@@ -100,6 +100,22 @@ typedef enum STISectionSignatureIDEnum STISectionSignatureID;
 
 #define STI_REGISTER_KINDS                              \
     X(STI_REGISTER_NONE,                0x0000)         \
+    X(STI_REGISTER_AL,                  0x0001)         \
+    X(STI_REGISTER_CL,                  0x0002)         \
+    X(STI_REGISTER_DL,                  0x0003)         \
+    X(STI_REGISTER_BL,                  0x0004)         \
+    X(STI_REGISTER_AH,                  0x0005)         \
+    X(STI_REGISTER_CH,                  0x0006)         \
+    X(STI_REGISTER_DH,                  0x0007)         \
+    X(STI_REGISTER_BH,                  0x0008)         \
+    X(STI_REGISTER_AX,                  0x0009)         \
+    X(STI_REGISTER_CX,                  0x000a)         \
+    X(STI_REGISTER_DX,                  0x000b)         \
+    X(STI_REGISTER_BX,                  0x000c)         \
+    X(STI_REGISTER_SP,                  0x000d)         \
+    X(STI_REGISTER_BP,                  0x000e)         \
+    X(STI_REGISTER_SI,                  0x000f)         \
+    X(STI_REGISTER_DI,                  0x0010)         \
     X(STI_REGISTER_EAX,                 0x0011)         \
     X(STI_REGISTER_ECX,                 0x0012)         \
     X(STI_REGISTER_EDX,                 0x0013)         \
@@ -108,6 +124,81 @@ typedef enum STISectionSignatureIDEnum STISectionSignatureID;
     X(STI_REGISTER_EBP,                 0x0016)         \
     X(STI_REGISTER_ESI,                 0x0017)         \
     X(STI_REGISTER_EDI,                 0x0018)         \
+    X(STI_REGISTER_ES,                  0x0019)         \
+    X(STI_REGISTER_CS,                  0x001a)         \
+    X(STI_REGISTER_SS,                  0x001b)         \
+    X(STI_REGISTER_DS,                  0x001c)         \
+    X(STI_REGISTER_FS,                  0x001d)         \
+    X(STI_REGISTER_GS,                  0x001e)         \
+                                                        \
+    X(STI_REGISTER_FLAGS,               0x0020)         \
+    X(STI_REGISTER_RIP,                 0x0021)         \
+    X(STI_REGISTER_EFLAGS,              0x0022)         \
+                                                        \
+    X(STI_REGISTER_CR0,                 0x0050)         \
+    X(STI_REGISTER_CR1,                 0x0051)         \
+    X(STI_REGISTER_CR2,                 0x0052)         \
+    X(STI_REGISTER_CR3,                 0x0053)         \
+    X(STI_REGISTER_CR4,                 0x0054)         \
+    X(STI_REGISTER_CR8,                 0x0058)         \
+                                                        \
+    X(STI_REGISTER_DR0,                 0x005a)         \
+    X(STI_REGISTER_DR1,                 0x005b)         \
+    X(STI_REGISTER_DR2,                 0x005c)         \
+    X(STI_REGISTER_DR3,                 0x005d)         \
+    X(STI_REGISTER_DR4,                 0x005e)         \
+    X(STI_REGISTER_DR5,                 0x005f)         \
+    X(STI_REGISTER_DR6,                 0x0060)         \
+    X(STI_REGISTER_DR7,                 0x0061)         \
+    X(STI_REGISTER_DR8,                 0x0062)         \
+    X(STI_REGISTER_DR9,                 0x0063)         \
+    X(STI_REGISTER_DR10,                0x0064)         \
+    X(STI_REGISTER_DR11,                0x0065)         \
+    X(STI_REGISTER_DR12,                0x0066)         \
+    X(STI_REGISTER_DR13,                0x0067)         \
+    X(STI_REGISTER_DR14,                0x0068)         \
+    X(STI_REGISTER_DR15,                0x0069)         \
+                                                        \
+    X(STI_REGISTER_ST0,                 0x0080)         \
+    X(STI_REGISTER_ST1,                 0x0081)         \
+    X(STI_REGISTER_ST2,                 0x0082)         \
+    X(STI_REGISTER_ST3,                 0x0083)         \
+    X(STI_REGISTER_ST4,                 0x0084)         \
+    X(STI_REGISTER_ST5,                 0x0085)         \
+    X(STI_REGISTER_ST6,                 0x0086)         \
+    X(STI_REGISTER_ST7,                 0x0087)         \
+                                                        \
+    X(STI_REGISTER_MM0,                 0x0092)         \
+    X(STI_REGISTER_MM1,                 0x0093)         \
+    X(STI_REGISTER_MM2,                 0x0094)         \
+    X(STI_REGISTER_MM3,                 0x0095)         \
+    X(STI_REGISTER_MM4,                 0x0096)         \
+    X(STI_REGISTER_MM5,                 0x0097)         \
+    X(STI_REGISTER_MM6,                 0x0098)         \
+    X(STI_REGISTER_MM7,                 0x0099)         \
+    X(STI_REGISTER_XMM0,                0x009a)         \
+    X(STI_REGISTER_XMM1,                0x009b)         \
+    X(STI_REGISTER_XMM2,                0x009c)         \
+    X(STI_REGISTER_XMM3,                0x009d)         \
+    X(STI_REGISTER_XMM4,                0x009e)         \
+    X(STI_REGISTER_XMM5,                0x009f)         \
+    X(STI_REGISTER_XMM6,                0x00a0)         \
+    X(STI_REGISTER_XMM7,                0x00a1)         \
+                                                        \
+    X(STI_REGISTER_XMM8,                0x00fc)         \
+    X(STI_REGISTER_XMM9,                0x00fd)         \
+    X(STI_REGISTER_XMM10,               0x00fe)         \
+    X(STI_REGISTER_XMM11,               0x00ff)         \
+    X(STI_REGISTER_XMM12,               0x0100)         \
+    X(STI_REGISTER_XMM13,               0x0101)         \
+    X(STI_REGISTER_XMM14,               0x0102)         \
+    X(STI_REGISTER_XMM15,               0x0103)         \
+                                                        \
+    X(STI_REGISTER_SIL,                 0x0148)         \
+    X(STI_REGISTER_DIL,                 0x0149)         \
+    X(STI_REGISTER_BPL,                 0x014a)         \
+    X(STI_REGISTER_SPL,                 0x014b)         \
+                                                        \
     X(STI_REGISTER_RAX,                 0x0148)         \
     X(STI_REGISTER_RBX,                 0x0149)         \
     X(STI_REGISTER_RCX,                 0x014a)         \
@@ -148,14 +239,6 @@ typedef enum STISectionSignatureIDEnum STISectionSignatureID;
     X(STI_REGISTER_R13D,                0x016d)         \
     X(STI_REGISTER_R14D,                0x016e)         \
     X(STI_REGISTER_R15D,                0x016f)         \
-    X(STI_REGISTER_XMM0,                0x009a)         \
-    X(STI_REGISTER_XMM1,                0x009b)         \
-    X(STI_REGISTER_XMM2,                0x009c)         \
-    X(STI_REGISTER_XMM3,                0x009d)         \
-    X(STI_REGISTER_XMM4,                0x009e)         \
-    X(STI_REGISTER_XMM5,                0x009f)         \
-    X(STI_REGISTER_XMM6,                0x00a0)         \
-    X(STI_REGISTER_XMM7,                0x00a1)
 
 enum STIRegIDEnum {
 #define X(KIND, VALUE) KIND = VALUE,
