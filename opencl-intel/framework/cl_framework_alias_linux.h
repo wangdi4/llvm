@@ -140,4 +140,5 @@ DECLARE_ALIAS(clCreatePipe);
 DECLARE_ALIAS(clCreatePipeINTEL);
 DECLARE_ALIAS(clGetPipeInfo);
 DECLARE_ALIAS(clCreateCommandQueueWithProperties);
+DECLARE_ALIAS(clCreateProgramWithIL);
 }}}
