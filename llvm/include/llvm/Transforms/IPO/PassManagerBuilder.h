@@ -120,12 +120,11 @@ public:
   bool DisableGVNLoadPRE;
   bool VerifyInput;
   bool VerifyOutput;
-  bool StripDebug;
   bool MergeFunctions;
 
 private:
   /// ExtensionList - This is list of all of the extensions that are registered.
-  std::vector<std::pair<ExtensionPointTy, ExtensionFn> > Extensions;
+  std::vector<std::pair<ExtensionPointTy, ExtensionFn>> Extensions;
 
 public:
   PassManagerBuilder();
@@ -141,10 +140,11 @@ private:
                          legacy::PassManagerBase &PM) const;
   void addInitialAliasAnalysisPasses(legacy::PassManagerBase &PM) const;
   void addLTOOptimizationPasses(legacy::PassManagerBase &PM);
+  void addLateLTOOptimizationPasses(legacy::PassManagerBase &PM);
   //***INTEL - loop opt passes.
-  void addLoopOptPasses(legacy::PassManagerBase &PM) const;   
+  void addLoopOptPasses(legacy::PassManagerBase &PM) const;
   //***INTEL - loop opt cleanup passes.
-  void addLoopOptCleanupPasses(legacy::PassManagerBase &PM) const; 
+  void addLoopOptCleanupPasses(legacy::PassManagerBase &PM) const;
 
 public:
   /// populateFunctionPassManager - This fills in the function pass manager,

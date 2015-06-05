@@ -35,9 +35,17 @@ public:
   tryFitMultipleLinesInOne(unsigned Indent,
                            SmallVectorImpl<AnnotatedLine *>::const_iterator I,
                            SmallVectorImpl<AnnotatedLine *>::const_iterator E) {
+    // Can't join the last line with anything.
+    if (I + 1 == E)
+      return 0;
     // We can never merge stuff if there are trailing line comments.
     const AnnotatedLine *TheLine = *I;
     if (TheLine->Last->is(TT_LineComment))
+      return 0;
+    if (I[1]->Type == LT_Invalid || I[1]->First->MustBreakBefore)
+      return 0;
+    if (TheLine->InPPDirective &&
+        (!I[1]->InPPDirective || I[1]->First->HasUnescapedNewline))
       return 0;
 
     if (Style.ColumnLimit > 0 && Indent > Style.ColumnLimit)
@@ -50,9 +58,6 @@ public:
     Limit = TheLine->Last->TotalLength > Limit
                 ? 0
                 : Limit - TheLine->Last->TotalLength;
-
-    if (I + 1 == E || I[1]->Type == LT_Invalid || I[1]->First->MustBreakBefore)
-      return 0;
 
     // FIXME: TheLine->Level != 0 might or might not be the right check to do.
     // If necessary, change to something smarter.
@@ -120,8 +125,6 @@ private:
                             SmallVectorImpl<AnnotatedLine *>::const_iterator E,
                             unsigned Limit) {
     if (Limit == 0)
-      return 0;
-    if (!I[1]->InPPDirective || I[1]->First->HasUnescapedNewline)
       return 0;
     if (I + 2 != E && I[2]->InPPDirective && !I[2]->First->HasUnescapedNewline)
       return 0;
@@ -300,7 +303,9 @@ private:
 
 class NoColumnLimitFormatter {
 public:
-  NoColumnLimitFormatter(ContinuationIndenter *Indenter) : Indenter(Indenter) {}
+  NoColumnLimitFormatter(ContinuationIndenter *Indenter,
+                         UnwrappedLineFormatter *Formatter)
+      : Indenter(Indenter), Formatter(Formatter) {}
 
   /// \brief Formats the line starting at \p State, simply keeping all of the
   /// input's line breaking decisions.
@@ -311,12 +316,15 @@ public:
       bool Newline =
           Indenter->mustBreak(State) ||
           (Indenter->canBreak(State) && State.NextToken->NewlinesBefore > 0);
+      unsigned Penalty = 0;
+      Formatter->formatChildren(State, Newline, /*DryRun=*/false, Penalty);
       Indenter->addTokenToState(State, Newline, /*DryRun=*/false);
     }
   }
 
 private:
   ContinuationIndenter *Indenter;
+  UnwrappedLineFormatter *Formatter;
 };
 
 
@@ -423,8 +431,7 @@ UnwrappedLineFormatter::format(const SmallVectorImpl<AnnotatedLine *> &Lines,
           Indenter->addTokenToState(State, /*Newline=*/false, DryRun);
         }
       } else if (Style.ColumnLimit == 0) {
-        // FIXME: Implement nested blocks for ColumnLimit = 0.
-        NoColumnLimitFormatter Formatter(Indenter);
+        NoColumnLimitFormatter Formatter(Indenter, this);
         if (!DryRun)
           Formatter.format(Indent, &TheLine);
       } else {
@@ -512,7 +519,8 @@ void UnwrappedLineFormatter::formatFirstToken(FormatToken &RootToken,
     ++Newlines;
 
   // Remove empty lines after access specifiers.
-  if (PreviousLine && PreviousLine->First->isAccessSpecifier())
+  if (PreviousLine && PreviousLine->First->isAccessSpecifier() &&
+      (!PreviousLine->InPPDirective || !RootToken.HasUnescapedNewline))
     Newlines = std::min(1u, Newlines);
 
   Whitespaces->replaceWhitespace(RootToken, Newlines, IndentLevel, Indent,

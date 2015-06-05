@@ -13,6 +13,7 @@
 
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Intel_LoopIR/IRRegion.h"

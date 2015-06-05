@@ -38,15 +38,15 @@ for.body:                                         ; preds = %entry, %for.inc
   ]
 
 sw.bb:                                            ; preds = %for.body
-  %call = tail call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([5 x i8]* @.str, i64 0, i64 0)) #2
+  %call = tail call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([5 x i8], [5 x i8]* @.str, i64 0, i64 0)) #2
   br label %sw.bb1
 
 sw.bb1:                                           ; preds = %for.body, %sw.bb
-  %call2 = tail call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([4 x i8]* @.str1, i64 0, i64 0)) #2
+  %call2 = tail call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str1, i64 0, i64 0)) #2
   br label %for.inc
 
 sw.default:                                       ; preds = %for.body
-  %call3 = tail call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([8 x i8]* @.str2, i64 0, i64 0)) #2
+  %call3 = tail call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([8 x i8], [8 x i8]* @.str2, i64 0, i64 0)) #2
   br label %for.inc
 
 for.inc:                                          ; preds = %sw.bb1, %sw.default

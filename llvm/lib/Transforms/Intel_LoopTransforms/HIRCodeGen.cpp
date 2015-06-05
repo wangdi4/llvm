@@ -87,7 +87,9 @@ private:
         : F(CurFunc), HIRP(Parser), HIRCG(CurPass) {
       Builder = new IRBuilder<>(F->getContext());
       // TODO possibly IV conflict if scev blobs contain IV
-      Expander = new SCEVExpander(*SE, "i");
+      const DataLayout &DL =
+          CurFunc->getEntryBlock().getModule()->getDataLayout();
+      Expander = new SCEVExpander(*SE, DL, "i");
     }
 
   private:

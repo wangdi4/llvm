@@ -27,6 +27,7 @@ set(SANITIZER_SOURCES
   sanitizer_suppressions.cc
   sanitizer_symbolizer.cc
   sanitizer_symbolizer_libbacktrace.cc
+  sanitizer_symbolizer_mac.cc
   sanitizer_symbolizer_win.cc
   sanitizer_tls_get_addr.cc
   sanitizer_thread_registry.cc
@@ -82,6 +83,7 @@ set(SANITIZER_HEADERS
   sanitizer_platform.h
   sanitizer_platform_interceptors.h
   sanitizer_platform_limits_posix.h
+  sanitizer_posix.h
   sanitizer_procmaps.h
   sanitizer_quarantine.h
   sanitizer_report_decorator.h
@@ -94,6 +96,8 @@ set(SANITIZER_HEADERS
   sanitizer_symbolizer.h
   sanitizer_symbolizer_internal.h
   sanitizer_symbolizer_libbacktrace.h
+  sanitizer_symbolizer_mac.h
+  sanitizer_symbolizer_win.h
   sanitizer_syscall_generic.inc
   sanitizer_syscall_linux_x86_64.inc
   sanitizer_thread_registry.h)
@@ -107,6 +111,10 @@ else()
   list(APPEND SANITIZER_COMMON_DEFINITIONS
     SANITIZER_NEEDS_SEGV=1)
 endif()
+
+include(CheckIncludeFile)
+append_have_file_definition(rpc/xdr.h HAVE_RPC_XDR_H SANITIZER_COMMON_DEFINITIONS)
+append_have_file_definition(tirpc/rpc/xdr.h HAVE_TIRPC_RPC_XDR_H SANITIZER_COMMON_DEFINITIONS)
 
 set(SANITIZER_CFLAGS ${SANITIZER_COMMON_CFLAGS})
 append_no_rtti_flag(SANITIZER_CFLAGS)
@@ -139,12 +147,6 @@ else()
       DEFS ${SANITIZER_COMMON_DEFINITIONS})
     list(APPEND SANITIZER_RUNTIME_LIBRARIES RTSanitizerCommon.${arch}
                                             RTSanitizerCommonLibc.${arch})
-    add_compiler_rt_runtime(clang_rt.san-${arch} ${arch} STATIC
-      SOURCES $<TARGET_OBJECTS:RTSanitizerCommon.${arch}>
-              $<TARGET_OBJECTS:RTSanitizerCommonLibc.${arch}>
-      CFLAGS ${SANITIZER_CFLAGS}
-      DEFS ${SANITIZER_COMMON_DEFINITIONS})
-    add_dependencies(sanitizer_common clang_rt.san-${arch})
   endforeach()
 endif()
 

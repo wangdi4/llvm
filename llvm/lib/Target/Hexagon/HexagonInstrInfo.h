@@ -26,7 +26,7 @@
 namespace llvm {
 
 struct EVT;
-
+class HexagonSubtarget;
 class HexagonInstrInfo : public HexagonGenInstrInfo {
   virtual void anchor();
   const HexagonRegisterInfo RI;
@@ -102,6 +102,14 @@ public:
                        const TargetRegisterClass *RC,
                        SmallVectorImpl<MachineInstr*> &NewMIs) const;
 
+  /// expandPostRAPseudo - This function is called for all pseudo instructions
+  /// that remain after register allocation. Many pseudo instructions are
+  /// created to help register allocation. This is the place to convert them
+  /// into real instructions. The target can edit MI in place, or it can insert
+  /// new instructions and erase MI. The function should return true if
+  /// anything was changed.
+  bool expandPostRAPseudo(MachineBasicBlock::iterator MI) const override;
+
   MachineInstr *foldMemoryOperandImpl(MachineFunction &MF, MachineInstr *MI,
                                       ArrayRef<unsigned> Ops,
                                       int FrameIndex) const override;
@@ -152,7 +160,7 @@ public:
   bool isSchedulingBoundary(const MachineInstr *MI,
                             const MachineBasicBlock *MBB,
                             const MachineFunction &MF) const override;
-  bool isValidOffset(const int Opcode, const int Offset) const;
+  bool isValidOffset(unsigned Opcode, int Offset, bool Extend = true) const;
   bool isValidAutoIncImm(const EVT VT, const int Offset) const;
   bool isMemOp(const MachineInstr *MI) const;
   bool isSpillPredRegOp(const MachineInstr *MI) const;
@@ -208,9 +216,7 @@ public:
   short getNonExtOpcode(const MachineInstr *MI) const;
   bool PredOpcodeHasJMP_c(Opcode_t Opcode) const;
   bool PredOpcodeHasNot(Opcode_t Opcode) const;
-
-private:
-  int getMatchingCondBranchOpcode(int Opc, bool sense) const;
+  int getCondOpcode(int Opc, bool sense) const;
 
 };
 

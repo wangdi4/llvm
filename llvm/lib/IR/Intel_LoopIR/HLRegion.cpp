@@ -17,7 +17,8 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-HLRegion::HLRegion(IRRegion *IReg) : HLNode(HLNode::HLRegionVal), IRReg(IReg) {}
+HLRegion::HLRegion(IRRegion *IReg)
+    : HLNode(HLNode::HLRegionVal), GenCode(false), IRReg(IReg) {}
 
 HLRegion *HLRegion::cloneImpl(GotoContainerTy *GotoList,
                               LabelMapTy *LabelMap) const {

@@ -24,6 +24,7 @@ namespace llvm {
 
 class Value;
 class BasicBlock;
+class raw_ostream;
 
 namespace loopopt {
 
@@ -48,10 +49,10 @@ protected:
   ~IRRegion() {}
 
   /// \brief Make class uncopyable.
-  IRRegion(const IRRegion &)  = delete;
+  IRRegion(const IRRegion &) = delete;
 
   /// \brief Make class unassignable.
-  void operator=(const IRRegion &)  = delete;
+  void operator=(const IRRegion &) = delete;
 
   // Required to call destroyAll().
   friend class RegionIdentification;

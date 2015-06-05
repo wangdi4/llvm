@@ -44,7 +44,7 @@ for.body:                                         ; preds = %for.body, %entry
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
-  %1 = load i32, i32* getelementptr inbounds ([10 x i32]* @A, i64 0, i64 2), align 8, !tbaa !1
+  %1 = load i32, i32* getelementptr inbounds ([10 x i32], [10 x i32]* @A, i64 0, i64 2), align 8, !tbaa !1
   ret i32 %1
 }
 

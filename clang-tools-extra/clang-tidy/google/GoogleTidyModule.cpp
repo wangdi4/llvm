@@ -11,16 +11,15 @@
 #include "../ClangTidyModule.h"
 #include "../ClangTidyModuleRegistry.h"
 #include "../readability/BracesAroundStatementsCheck.h"
-#include "../readability/FunctionSize.h"
+#include "../readability/FunctionSizeCheck.h"
 #include "../readability/NamespaceCommentCheck.h"
-#include "../readability/RedundantSmartptrGet.h"
+#include "../readability/RedundantSmartptrGetCheck.h"
 #include "AvoidCStyleCastsCheck.h"
 #include "ExplicitConstructorCheck.h"
 #include "ExplicitMakePairCheck.h"
 #include "GlobalNamesInHeadersCheck.h"
 #include "IntegerTypesCheck.h"
 #include "MemsetZeroLengthCheck.h"
-#include "NamedParameterCheck.h"
 #include "OverloadedUnaryAndCheck.h"
 #include "StringReferenceMemberCheck.h"
 #include "TodoCommentCheck.h"
@@ -54,8 +53,6 @@ public:
         "google-runtime-memset");
     CheckFactories.registerCheck<readability::AvoidCStyleCastsCheck>(
         "google-readability-casting");
-    CheckFactories.registerCheck<readability::NamedParameterCheck>(
-        "google-readability-function");
     CheckFactories.registerCheck<readability::TodoCommentCheck>(
         "google-readability-todo");
     CheckFactories
@@ -69,7 +66,7 @@ public:
         .registerCheck<clang::tidy::readability::NamespaceCommentCheck>(
             "google-readability-namespace-comments");
     CheckFactories
-        .registerCheck<clang::tidy::readability::RedundantSmartptrGet>(
+        .registerCheck<clang::tidy::readability::RedundantSmartptrGetCheck>(
             "google-readability-redundant-smartptr-get");
   }
 

@@ -16,37 +16,19 @@
 using namespace lld;
 using namespace elf;
 
-AArch64TargetHandler::AArch64TargetHandler(AArch64LinkingContext &context)
-    : _context(context),
-      _AArch64TargetLayout(new AArch64TargetLayout<AArch64ELFType>(context)),
-      _AArch64RelocationHandler(new AArch64TargetRelocationHandler()) {}
-
-void AArch64TargetHandler::registerRelocationNames(Registry &registry) {
-  registry.addKindTable(Reference::KindNamespace::ELF,
-                        Reference::KindArch::AArch64, kindStrings);
-}
+AArch64TargetHandler::AArch64TargetHandler(AArch64LinkingContext &ctx)
+    : _ctx(ctx), _targetLayout(new TargetLayout<ELF64LE>(ctx)),
+      _relocationHandler(new AArch64TargetRelocationHandler()) {}
 
 std::unique_ptr<Writer> AArch64TargetHandler::getWriter() {
-  switch (this->_context.getOutputELFType()) {
+  switch (this->_ctx.getOutputELFType()) {
   case llvm::ELF::ET_EXEC:
-    return std::unique_ptr<Writer>(new AArch64ExecutableWriter<AArch64ELFType>(
-        _context, *_AArch64TargetLayout.get()));
+    return llvm::make_unique<AArch64ExecutableWriter>(_ctx, *_targetLayout);
   case llvm::ELF::ET_DYN:
-    return std::unique_ptr<Writer>(
-        new AArch64DynamicLibraryWriter<AArch64ELFType>(
-            _context, *_AArch64TargetLayout.get()));
+    return llvm::make_unique<AArch64DynamicLibraryWriter>(_ctx, *_targetLayout);
   case llvm::ELF::ET_REL:
     llvm_unreachable("TODO: support -r mode");
   default:
     llvm_unreachable("unsupported output type");
   }
 }
-
-#define ELF_RELOC(name, value) LLD_KIND_STRING_ENTRY(name),
-
-const Registry::KindStrings AArch64TargetHandler::kindStrings[] = {
-#include "llvm/Support/ELFRelocs/AArch64.def"
-    LLD_KIND_STRING_END
-};
-
-#undef ELF_RELOC

@@ -297,7 +297,7 @@ readBinary(std::unique_ptr<MemoryBuffer> &mb,
           section.type = (SectionType)(read32(&sect->flags, isBig) &
                                        SECTION_TYPE);
           section.attributes  = read32(&sect->flags, isBig) & SECTION_ATTRIBUTES;
-          section.alignment   = read32(&sect->align, isBig);
+          section.alignment   = 1 << read32(&sect->align, isBig);
           section.address     = read64(&sect->addr, isBig);
           const uint8_t *content =
             (const uint8_t *)start + read32(&sect->offset, isBig);
@@ -341,7 +341,7 @@ readBinary(std::unique_ptr<MemoryBuffer> &mb,
                                        SECTION_TYPE);
           section.attributes =
               read32((const uint8_t *)&sect->flags, isBig) & SECTION_ATTRIBUTES;
-          section.alignment   = read32(&sect->align, isBig);
+          section.alignment   = 1 << read32(&sect->align, isBig);
           section.address     = read32(&sect->addr, isBig);
           const uint8_t *content =
             (const uint8_t *)start + read32(&sect->offset, isBig);
@@ -516,14 +516,9 @@ class MachOObjectReader : public Reader {
 public:
   MachOObjectReader(MachOLinkingContext &ctx) : _ctx(ctx) {}
 
-  bool canParse(file_magic magic, StringRef ext,
-                const MemoryBuffer &mb) const override {
-    switch (magic) {
-    case llvm::sys::fs::file_magic::macho_object:
-      return (mb.getBufferSize() > 32);
-    default:
-      return false;
-    }
+  bool canParse(file_magic magic, const MemoryBuffer &mb) const override {
+    return (magic == llvm::sys::fs::file_magic::macho_object &&
+            mb.getBufferSize() > 32);
   }
 
   std::error_code
@@ -542,12 +537,11 @@ class MachODylibReader : public Reader {
 public:
   MachODylibReader(MachOLinkingContext &ctx) : _ctx(ctx) {}
 
-  bool canParse(file_magic magic, StringRef ext,
-                const MemoryBuffer &mb) const override {
+  bool canParse(file_magic magic, const MemoryBuffer &mb) const override {
     switch (magic) {
     case llvm::sys::fs::file_magic::macho_dynamically_linked_shared_lib:
     case llvm::sys::fs::file_magic::macho_dynamically_linked_shared_lib_stub:
-      return (mb.getBufferSize() > 32);
+      return mb.getBufferSize() > 32;
     default:
       return false;
     }
