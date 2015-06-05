@@ -42,6 +42,25 @@ CodeGenFunction::EmitCilkForGrainsizeStmt(const CilkForGrainsizeStmt &S) {
   EmitCilkForStmt(*cast<CilkForStmt>(S.getCilkFor()), Grainsize);
 }
 
+/// A simple RAII object to deal with CapturedStmtInfo of the given CGF
+class CilkForRAII {
+  CodeGenFunction::CGCapturedStmtInfo *OldCapturedStmtInfo;
+  CodeGenFunction *CGF;
+
+public:
+  CilkForRAII() : CGF(nullptr){};
+  void capture(CodeGenFunction *_CGF,
+               CodeGenFunction::CGCapturedStmtInfo *CSI) {
+    CGF = _CGF;
+    OldCapturedStmtInfo = CGF->CapturedStmtInfo;
+    CGF->CapturedStmtInfo = CSI;
+  }
+  ~CilkForRAII() {
+    if (CGF)
+      CGF->CapturedStmtInfo = OldCapturedStmtInfo;
+  }
+};
+
 void
 CodeGenFunction::EmitCilkForStmt(const CilkForStmt &S, llvm::Value *Grainsize) {
   // if (cond) {
@@ -70,10 +89,11 @@ CodeGenFunction::EmitCilkForStmt(const CilkForStmt &S, llvm::Value *Grainsize) {
 
   EmitBlock(ThenBlock);
   {
+    CilkForRAII cfRAII;
     RunCleanupsScope Scope(*this);
     const Expr *LoopCountExpr = S.getLoopCount();
     if(!CapturedStmtInfo)
-      CapturedStmtInfo = &CSInfo;
+      cfRAII.capture(this, &CSInfo); // use the proper captured info
     llvm::Value *LoopCount = EmitAnyExpr(LoopCountExpr).getScalarVal();
     // Initialize the captured struct.
     LValue CapStruct = InitCapturedStruct(*S.getBody());
