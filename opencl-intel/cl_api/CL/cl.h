@@ -496,7 +496,7 @@ typedef struct _cl_buffer_region {
 #define CL_SAMPLER_MIP_FILTER_MODE                  0x1155
 #define CL_SAMPLER_LOD_MIN                          0x1156
 #define CL_SAMPLER_LOD_MAX                          0x1157
-
+#define CL_SAMPLER_BORDER_COLOR_MODE_INTEL          0x10000
 /* cl_map_flags - bitfield */
 #define CL_MAP_READ                                 (1 << 0)
 #define CL_MAP_WRITE                                (1 << 1)
@@ -512,6 +512,7 @@ typedef struct _cl_buffer_region {
 #define CL_PROGRAM_BINARIES                         0x1166
 #define CL_PROGRAM_NUM_KERNELS                      0x1167
 #define CL_PROGRAM_KERNEL_NAMES                     0x1168
+#define CL_PROGRAM_IL                               0x1169
 
 /* cl_program_build_info */
 #define CL_PROGRAM_BUILD_STATUS                     0x1181
@@ -843,6 +844,12 @@ clCreateProgramWithBinary(cl_context                     /* context */,
                           const unsigned char **         /* binaries */,
                           cl_int *                       /* binary_status */,
                           cl_int *                       /* errcode_ret */) CL_API_SUFFIX__VERSION_1_0;
+
+extern CL_API_ENTRY cl_program CL_API_CALL
+clCreateProgramWithIL(cl_context                        /* context */,
+                      const void *                      /* il */,
+                      size_t                            /* lengths */,
+                      cl_int *                          /* errcode_ret */) CL_API_SUFFIX__VERSION_2_1;
 
 extern CL_API_ENTRY cl_program CL_API_CALL
 clCreateProgramWithBuiltInKernels(cl_context            /* context */,

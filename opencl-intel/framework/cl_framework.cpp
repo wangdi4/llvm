@@ -3106,3 +3106,12 @@ cl_command_queue CL_API_CALL clCreateCommandQueueWithProperties(cl_context conte
     }
 }
 SET_ALIAS(clCreateCommandQueueWithProperties);
+
+cl_program CL_API_CALL clCreateProgramWithIL(cl_context context,
+                                             const void* il,
+                                             size_t lengths,
+                                             cl_int* errcode_ret)
+{
+	return CL_INVALID_HANDLE;
+}
+SET_ALIAS(clCreateProgramWithIL);
