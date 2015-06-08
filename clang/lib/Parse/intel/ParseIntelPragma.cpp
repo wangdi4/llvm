@@ -192,7 +192,6 @@ void Parser::HandlePragmaNoVectorDecl() {
 }
 
 void PragmaNoVectorHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok) {
-  Token Tok;
   SourceLocation NoVectorLoc = FirstTok.getLocation();
   
   // ignore everything till the end of line
@@ -223,7 +222,6 @@ void Parser::HandlePragmaDistributeDecl() {
 }
 
 void PragmaDistributeHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok) {
-  Token Tok;
   SourceLocation DistributeLoc = FirstTok.getLocation();
   
   // ignore everything till the end of line
@@ -751,7 +749,6 @@ void Parser::HandlePragmaNoParallelDecl() {
 }
 
 void PragmaNoParallelHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok) {
-  Token Tok;
   SourceLocation NoParallelLoc = FirstTok.getLocation();
   
   // ignore everything till the end of line
@@ -1004,7 +1001,6 @@ void Parser::HandlePragmaNoFusionDecl() {
 }
 
 void PragmaNoFusionHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok) {
-  Token Tok;
   SourceLocation NoFusionLoc = FirstTok.getLocation();
   
   // ignore everything till the end of line
@@ -3359,4 +3355,4 @@ void Parser::resetIntelPragmaHandlers() {
   }
 #endif // INTEL_SPECIFIC_IL0_BACKEND
 }
-#endif  // INTEL_CUSTOMIZATION                                                                                                                                      
+#endif  // INTEL_CUSTOMIZATION
