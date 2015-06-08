@@ -740,7 +740,7 @@ Process::Process(Target &target, Listener &listener, const UnixSignalsSP &unix_s
     m_stderr_data (),
     m_profile_data_comm_mutex (Mutex::eMutexTypeRecursive),
     m_profile_data (),
-    m_iohandler_sync (false),
+    m_iohandler_sync (0),
     m_memory_cache (*this),
     m_allocated_memory_cache (*this),
     m_should_detach (false),
@@ -949,33 +949,21 @@ Process::GetNextEvent (EventSP &event_sp)
     return state;
 }
 
-bool
-Process::SyncIOHandler (uint64_t timeout_msec)
+void
+Process::SyncIOHandler (uint32_t iohandler_id, uint64_t timeout_msec)
 {
-    bool timed_out = false;
-
     // don't sync (potentially context switch) in case where there is no process IO
-    if (m_process_input_reader)
-    {
-        TimeValue timeout = TimeValue::Now();
-        timeout.OffsetWithMicroSeconds(timeout_msec*1000);
+    if (! m_process_input_reader)
+        return;
 
-        m_iohandler_sync.WaitForValueEqualTo(true, &timeout, &timed_out);
+    TimeValue timeout = TimeValue::Now();
+    timeout.OffsetWithMicroSeconds(timeout_msec*1000);
+    uint32_t new_iohandler_id = 0;
+    m_iohandler_sync.WaitForValueNotEqualTo(iohandler_id, new_iohandler_id, &timeout);
 
-        Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_PROCESS));
-        if(log)
-        {
-            if(timed_out)
-                log->Printf ("Process::%s pid %" PRIu64 " (timeout=%" PRIu64 "ms): FAIL", __FUNCTION__, GetID (), timeout_msec);
-            else
-                log->Printf ("Process::%s pid %" PRIu64 ": SUCCESS", __FUNCTION__, GetID ());
-        }
-
-        // reset sync one-shot so it will be ready for next launch
-        m_iohandler_sync.SetValue(false, eBroadcastNever);
-    }
-
-    return !timed_out;
+    Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_PROCESS));
+    if (log)
+        log->Printf("Process::%s waited for m_iohandler_sync to change from %u, new value is %u", __FUNCTION__, iohandler_id, new_iohandler_id);
 }
 
 StateType
@@ -1466,9 +1454,24 @@ Process::SetExitStatus (int status, const char *cstr)
             m_exit_string.clear();
     }
 
-    DidExit ();
+    // When we exit, we no longer need to the communication channel
+    m_stdio_communication.StopReadThread();
+    m_stdio_communication.Disconnect();
+    m_stdin_forward = false;
+
+    // And we don't need the input reader anymore as well
+    if (m_process_input_reader)
+    {
+        m_process_input_reader->SetIsDone(true);
+        m_process_input_reader->Cancel();
+        m_process_input_reader.reset();
+    }
 
     SetPrivateState (eStateExited);
+
+    // Allow subclasses to do some cleanup
+    DidExit ();
+
     return true;
 }
 
@@ -1548,10 +1551,24 @@ Process::UpdateThreadListIfNeeded ()
                         for (size_t i=0; i<num_old_threads; ++i)
                             old_thread_list.GetThreadAtIndex(i, false)->ClearBackingThread();
 
+                        // Turn off dynamic types to ensure we don't run any expressions. Objective C
+                        // can run an expression to determine if a SBValue is a dynamic type or not
+                        // and we need to avoid this. OperatingSystem plug-ins can't run expressions
+                        // that require running code...
+
+                        Target &target = GetTarget();
+                        const lldb::DynamicValueType saved_prefer_dynamic = target.GetPreferDynamicValue ();
+                        if (saved_prefer_dynamic != lldb::eNoDynamicValues)
+                            target.SetPreferDynamicValue(lldb::eNoDynamicValues);
+
                         // Now let the OperatingSystem plug-in update the thread list
+
                         os->UpdateThreadList (old_thread_list,  // Old list full of threads created by OS plug-in
                                               real_thread_list, // The actual thread list full of threads created by each lldb_private::Process subclass
                                               new_thread_list); // The new thread list that we will show to the user that gets filled in
+
+                        if (saved_prefer_dynamic != lldb::eNoDynamicValues)
+                            target.SetPreferDynamicValue(saved_prefer_dynamic);
                     }
                     else
                     {
@@ -1731,14 +1748,16 @@ Process::ResumeSynchronous (Stream *stream)
     HijackProcessEvents(listener_sp.get());
 
     Error error = PrivateResume();
-
-    StateType state = WaitForProcessToStop (NULL, NULL, true, listener_sp.get(), stream);
+    if (error.Success())
+    {
+        StateType state = WaitForProcessToStop (NULL, NULL, true, listener_sp.get(), stream);
+        const bool must_be_alive = false; // eStateExited is ok, so this must be false
+        if (!StateIsStoppedState(state, must_be_alive))
+            error.SetErrorStringWithFormat("process not in stopped state after synchronous resume: %s", StateAsCString(state));
+    }
 
     // Undo the hijacking of process events...
     RestoreProcessEvents();
-
-    if (error.Success() && !StateIsStoppedState(state, false))
-        error.SetErrorStringWithFormat("process not in stopped state after synchronous resume: %s", StateAsCString(state));
 
     return error;
 }
@@ -1780,6 +1799,7 @@ Process::SetPrivateState (StateType new_state)
     if (state_changed)
     {
         m_private_state.SetValueNoLock (new_state);
+        EventSP event_sp (new Event (eBroadcastBitStateChanged, new ProcessEventData (shared_from_this(), new_state)));
         if (StateIsStoppedState(new_state, false))
         {
             // Note, this currently assumes that all threads in the list
@@ -1796,15 +1816,18 @@ Process::SetPrivateState (StateType new_state)
             m_thread_list.DidStop();
 
             m_mod_id.BumpStopID();
+            if (!m_mod_id.IsLastResumeForUserExpression())
+                m_mod_id.SetStopEventForLastNaturalStopID(event_sp);
             m_memory_cache.Clear();
             if (log)
                 log->Printf("Process::SetPrivateState (%s) stop_id = %u", StateAsCString(new_state), m_mod_id.GetStopID());
         }
+
         // Use our target to get a shared pointer to ourselves...
         if (m_finalize_called && PrivateStateThreadIsValid() == false)
-            BroadcastEvent (eBroadcastBitStateChanged, new ProcessEventData (shared_from_this(), new_state));
+            BroadcastEvent (event_sp);
         else
-            m_private_state_broadcaster.BroadcastEvent (eBroadcastBitStateChanged, new ProcessEventData (shared_from_this(), new_state));
+            m_private_state_broadcaster.BroadcastEvent (event_sp);
     }
     else
     {
@@ -3316,6 +3339,9 @@ Process::AttachCompletionHandler::PerformAction (lldb::EventSP &event_sp)
 
     switch (state)
     {
+        case eStateAttaching:
+            return eEventActionSuccess;
+
         case eStateRunning:
         case eStateConnected:
             return eEventActionRetry;
@@ -4437,13 +4463,17 @@ Process::HandlePrivateEvent (EventSP &event_sp)
             // Only push the input handler if we aren't fowarding events,
             // as this means the curses GUI is in use...
             // Or don't push it if we are launching since it will come up stopped.
-            if (!GetTarget().GetDebugger().IsForwardingEvents() && new_state != eStateLaunching)
+            if (!GetTarget().GetDebugger().IsForwardingEvents() && new_state != eStateLaunching &&
+                new_state != eStateAttaching)
+            {
                 PushProcessIOHandler ();
-            m_iohandler_sync.SetValue(true, eBroadcastAlways);
+                m_iohandler_sync.SetValue(m_iohandler_sync.GetValue()+1, eBroadcastAlways);
+                if (log)
+                    log->Printf("Process::%s updated m_iohandler_sync to %d", __FUNCTION__, m_iohandler_sync.GetValue());
+            }
         }
         else if (StateIsStoppedState(new_state, false))
         {
-            m_iohandler_sync.SetValue(false, eBroadcastNever);
             if (!Process::ProcessEventData::GetRestartedFromEvent(event_sp.get()))
             {
                 // If the lldb_private::Debugger is handling the events, we don't
@@ -5086,8 +5116,8 @@ public:
     // Each IOHandler gets to run until it is done. It should read data
     // from the "in" and place output into "out" and "err and return
     // when done.
-    virtual void
-    Run ()
+    void
+    Run () override
     {
         if (m_read_file.IsValid() && m_write_file.IsValid())
         {
@@ -5165,33 +5195,16 @@ public:
             SetIsDone(true);
     }
     
-    // Hide any characters that have been displayed so far so async
-    // output can be displayed. Refresh() will be called after the
-    // output has been displayed.
-    virtual void
-    Hide ()
-    {
-        
-    }
-    // Called when the async output has been received in order to update
-    // the input reader (refresh the prompt and redisplay any current
-    // line(s) that are being edited
-    virtual void
-    Refresh ()
-    {
-        
-    }
-    
-    virtual void
-    Cancel ()
+    void
+    Cancel () override
     {
         char ch = 'q';  // Send 'q' for quit
         size_t bytes_written = 0;
         m_pipe.Write(&ch, 1, bytes_written);
     }
 
-    virtual bool
-    Interrupt ()
+    bool
+    Interrupt () override
     {
         // Do only things that are safe to do in an interrupt context (like in
         // a SIGINT handler), like write 1 byte to a file descriptor. This will
@@ -5224,8 +5237,8 @@ public:
         return false;
     }
     
-    virtual void
-    GotEOF()
+    void
+    GotEOF() override
     {
         
     }
@@ -5274,6 +5287,10 @@ Process::PushProcessIOHandler ()
     IOHandlerSP io_handler_sp (m_process_input_reader);
     if (io_handler_sp)
     {
+        Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_PROCESS));
+        if (log)
+            log->Printf("Process::%s pushing IO handler", __FUNCTION__);
+
         io_handler_sp->SetIsDone(false);
         m_target.GetDebugger().PushIOHandler (io_handler_sp);
         return true;

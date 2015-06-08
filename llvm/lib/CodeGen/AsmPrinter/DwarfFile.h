@@ -32,6 +32,7 @@ class LexicalScope;
 class StringRef;
 class DwarfDebug;
 class MCSection;
+class MDNode;
 class DwarfFile {
   // Target of Dwarf emission, used for sizing of abbreviations.
   AsmPrinter *Asm;
@@ -56,7 +57,7 @@ class DwarfFile {
   /// Maps MDNodes for type system with the corresponding DIEs. These DIEs can
   /// be shared across CUs, that is why we keep the map here instead
   /// of in DwarfCompileUnit.
-  DenseMap<const MDNode *, DIE *> MDTypeNodeToDieMap;
+  DenseMap<const MDNode *, DIE *> DITypeNodeToDieMap;
 
 public:
   DwarfFile(AsmPrinter *AP, StringRef Pref, BumpPtrAllocator &DA);
@@ -82,11 +83,10 @@ public:
   void emitUnits(bool UseOffsets);
 
   /// \brief Emit a set of abbreviations to the specific section.
-  void emitAbbrevs(const MCSection *);
+  void emitAbbrevs(MCSection *);
 
   /// \brief Emit all of the strings to the section given.
-  void emitStrings(const MCSection *StrSection,
-                   const MCSection *OffsetSection = nullptr);
+  void emitStrings(MCSection *StrSection, MCSection *OffsetSection = nullptr);
 
   /// \brief Returns the string pool.
   DwarfStringPool &getStringPool() { return StrPool; }
@@ -103,10 +103,10 @@ public:
   }
 
   void insertDIE(const MDNode *TypeMD, DIE *Die) {
-    MDTypeNodeToDieMap.insert(std::make_pair(TypeMD, Die));
+    DITypeNodeToDieMap.insert(std::make_pair(TypeMD, Die));
   }
   DIE *getDIE(const MDNode *TypeMD) {
-    return MDTypeNodeToDieMap.lookup(TypeMD);
+    return DITypeNodeToDieMap.lookup(TypeMD);
   }
 };
 }

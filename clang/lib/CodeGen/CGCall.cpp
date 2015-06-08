@@ -1490,15 +1490,15 @@ void CodeGenModule::ConstructAttributeList(const CGFunctionInfo &FI,
 
     // Add target-cpu and target-features work if they differ from the defaults.
     std::string &CPU = getTarget().getTargetOpts().CPU;
-    if (CPU != "" && CPU != getTarget().getTriple().getArchName())
-      FuncAttrs.addAttribute("target-cpu", getTarget().getTargetOpts().CPU);
+    if (CPU != "")
+      FuncAttrs.addAttribute("target-cpu", CPU);
 
-    // TODO: FeaturesAsWritten gets us the features on the command line,
-    // for canonicalization purposes we might want to avoid putting features
-    // in the target-features set if we know it'll be one of the default
-    // features in the backend, e.g. corei7-avx and +avx.
-    std::vector<std::string> &Features =
-        getTarget().getTargetOpts().FeaturesAsWritten;
+    // TODO: Features gets us the features on the command line including
+    // feature dependencies. For canonicalization purposes we might want to
+    // avoid putting features in the target-features set if we know it'll be one
+    // of the default features in the backend, e.g. corei7-avx and +avx or figure
+    // out non-explicit dependencies.
+    std::vector<std::string> &Features = getTarget().getTargetOpts().Features;
     if (!Features.empty()) {
       std::stringstream S;
       std::copy(Features.begin(), Features.end(),
@@ -1602,8 +1602,12 @@ void CodeGenModule::ConstructAttributeList(const CGFunctionInfo &FI,
     case ABIArgInfo::Extend:
       if (ParamType->isSignedIntegerOrEnumerationType())
         Attrs.addAttribute(llvm::Attribute::SExt);
-      else if (ParamType->isUnsignedIntegerOrEnumerationType())
-        Attrs.addAttribute(llvm::Attribute::ZExt);
+      else if (ParamType->isUnsignedIntegerOrEnumerationType()) {
+        if (getTypes().getABIInfo().shouldSignExtUnsignedType(ParamType))
+          Attrs.addAttribute(llvm::Attribute::SExt);
+        else
+          Attrs.addAttribute(llvm::Attribute::ZExt);
+      }
       // FALL THROUGH
     case ABIArgInfo::Direct:
       if (ArgNo == 0 && FI.isChainCall())
@@ -2716,7 +2720,7 @@ void CallArgList::allocateArgumentMemory(CodeGenFunction &CGF) {
 
   // Save the stack.
   llvm::Function *F = CGF.CGM.getIntrinsic(llvm::Intrinsic::stacksave);
-  StackBase = CGF.Builder.CreateCall(F, "inalloca.save");
+  StackBase = CGF.Builder.CreateCall(F, {}, "inalloca.save");
 
   // Control gets really tied up in landing pads, so we have to spill the
   // stacksave to an alloca to avoid violating SSA form.
@@ -2995,7 +2999,6 @@ void CodeGenFunction::EmitNoreturnRuntimeCallOrInvoke(llvm::Value *callee,
     call->setCallingConv(getRuntimeCC());
     Builder.CreateUnreachable();
   }
-  PGO.setCurrentRegionUnreachable();
 }
 
 /// Emits a call or invoke instruction to the given nullary runtime
