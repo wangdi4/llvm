@@ -69,7 +69,13 @@ endif
 #----------------------------------------------------------------------
 CC ?= clang
 ifeq "$(CC)" "cc"
-	CC = clang
+	ifneq "$(shell which clang)" ""
+		CC = clang
+	else ifneq "$(shell which clang-3.5)" ""
+		CC = clang-3.5
+	else ifneq "$(shell which gcc)" ""
+		CC = gcc
+	endif
 endif
 
 #----------------------------------------------------------------------
@@ -128,7 +134,7 @@ else
 	endif
 endif
 
-CFLAGS ?= -g -O0
+CFLAGS ?= -g -O0 -fno-builtin
 ifeq "$(OS)" "Darwin"
 	CFLAGS += $(ARCHFLAG) $(ARCH) $(FRAMEWORK_INCLUDES) $(CFLAGS_EXTRAS) -I$(LLDB_BASE_DIR)include
 else
@@ -150,7 +156,7 @@ LDFLAGS ?= $(CFLAGS)
 LDFLAGS += $(LD_EXTRAS)
 ifeq (,$(filter $(OS), Windows_NT Android))
 	ifneq (,$(filter YES,$(ENABLE_THREADS) $(ENABLE_STD_THREADS)))
-		LDFLAGS += -lpthread
+		LDFLAGS += -pthread
 	endif
 endif
 OBJECTS =
@@ -237,6 +243,10 @@ ifeq (1,$(USE_LIBCPP))
 	ifneq (,$(findstring clang,$(CC)))
 		CXXFLAGS += -stdlib=libc++
 		LDFLAGS += -stdlib=libc++
+		ifeq "$(OS)" "Linux"
+			# This is the default install location on Ubuntu 14.04
+			CXXFLAGS += -I/usr/include/c++/v1
+        	endif
 	endif
 endif
 

@@ -60,14 +60,14 @@ using namespace clang;
 using namespace clang::serialization;
 
 template <typename T, typename Allocator>
-static StringRef data(const std::vector<T, Allocator> &v) {
+static StringRef bytes(const std::vector<T, Allocator> &v) {
   if (v.empty()) return StringRef();
   return StringRef(reinterpret_cast<const char*>(&v[0]),
                          sizeof(T) * v.size());
 }
 
 template <typename T>
-static StringRef data(const SmallVectorImpl<T> &v) {
+static StringRef bytes(const SmallVectorImpl<T> &v) {
   return StringRef(reinterpret_cast<const char*>(v.data()),
                          sizeof(T) * v.size());
 }
@@ -1530,7 +1530,7 @@ void ASTWriter::WriteInputFiles(SourceManager &SourceMgr,
   Record.push_back(INPUT_FILE_OFFSETS);
   Record.push_back(InputFileOffsets.size());
   Record.push_back(UserFilesNum);
-  Stream.EmitRecordWithBlob(OffsetsAbbrevCode, Record, data(InputFileOffsets));
+  Stream.EmitRecordWithBlob(OffsetsAbbrevCode, Record, bytes(InputFileOffsets));
 }
 
 //===----------------------------------------------------------------------===//
@@ -1925,7 +1925,7 @@ void ASTWriter::WriteSourceManagerBlock(SourceManager &SourceMgr,
   Record.push_back(SOURCE_LOCATION_OFFSETS);
   Record.push_back(SLocEntryOffsets.size());
   Record.push_back(SourceMgr.getNextLocalOffset() - 1); // skip dummy
-  Stream.EmitRecordWithBlob(SLocOffsetsAbbrev, Record, data(SLocEntryOffsets));
+  Stream.EmitRecordWithBlob(SLocOffsetsAbbrev, Record, bytes(SLocEntryOffsets));
 
   // Write the source location entry preloads array, telling the AST
   // reader which source locations entries it should load eagerly.
@@ -1979,10 +1979,6 @@ static bool shouldIgnoreMacro(MacroDirective *MD, bool IsModule,
       return true;
 
   if (IsModule) {
-    // Re-export any imported directives.
-    if (MD->isImported())
-      return false;
-
     SourceLocation Loc = MD->getLocation();
     if (Loc.isInvalid())
       return true;
@@ -2023,37 +2019,23 @@ void ASTWriter::WritePreprocessor(const Preprocessor &PP, bool IsModule) {
   // Loop over all the macro directives that are live at the end of the file,
   // emitting each to the PP section.
 
-  // Construct the list of macro directives that need to be serialized.
-  typedef std::pair<const IdentifierInfo *, MacroDirective *> MacroChain;
-  SmallVector<MacroChain, 2> MacroDirectives;
-  for (Preprocessor::macro_iterator
-         I = PP.macro_begin(/*IncludeExternalMacros=*/false),
-         E = PP.macro_end(/*IncludeExternalMacros=*/false);
-       I != E; ++I) {
-    MacroDirectives.push_back(std::make_pair(I->first, I->second.getLatest()));
-  }
-
+  // Construct the list of identifiers with macro directives that need to be
+  // serialized.
+  SmallVector<const IdentifierInfo *, 128> MacroIdentifiers;
+  for (auto &Id : PP.getIdentifierTable())
+    if (Id.second->hadMacroDefinition() &&
+        (!Id.second->isFromAST() ||
+         Id.second->hasChangedSinceDeserialization()))
+      MacroIdentifiers.push_back(Id.second);
   // Sort the set of macro definitions that need to be serialized by the
   // name of the macro, to provide a stable ordering.
-  int (*Cmp)(const MacroChain*, const MacroChain*) =
-    [](const MacroChain *A, const MacroChain *B) -> int {
-      return A->first->getName().compare(B->first->getName());
-    };
-  llvm::array_pod_sort(MacroDirectives.begin(), MacroDirectives.end(), Cmp);
+  std::sort(MacroIdentifiers.begin(), MacroIdentifiers.end(),
+            llvm::less_ptr<IdentifierInfo>());
 
   // Emit the macro directives as a list and associate the offset with the
   // identifier they belong to.
-  for (auto &Chain : MacroDirectives) {
-    const IdentifierInfo *Name = Chain.first;
-    MacroDirective *MD = Chain.second;
-
-    // If the macro or identifier need no updates, don't write the macro history
-    // for this one.
-    // FIXME: Chain the macro history instead of re-writing it.
-    if (MD->isFromPCH() &&
-        Name->isFromAST() && !Name->hasChangedSinceDeserialization())
-      continue;
-
+  for (const IdentifierInfo *Name : MacroIdentifiers) {
+    MacroDirective *MD = PP.getLocalMacroDirectiveHistory(Name);
     auto StartOffset = Stream.GetCurrentBitNo();
 
     // Emit the macro directives in reverse source order.
@@ -2066,22 +2048,14 @@ void ASTWriter::WritePreprocessor(const Preprocessor &PP, bool IsModule) {
       AddSourceLocation(MD->getLocation(), Record);
       Record.push_back(MD->getKind());
       if (auto *DefMD = dyn_cast<DefMacroDirective>(MD)) {
-        MacroID InfoID = getMacroRef(DefMD->getInfo(), Name);
-        Record.push_back(InfoID);
-        Record.push_back(DefMD->isAmbiguous());
+        Record.push_back(getMacroRef(DefMD->getInfo(), Name));
       } else if (auto *VisMD = dyn_cast<VisibilityMacroDirective>(MD)) {
         Record.push_back(VisMD->isPublic());
-        // No owning module macro.
-        continue;
       }
-
-      if (auto *MM = MD->getOwningModuleMacro())
-        Record.push_back(getSubmoduleID(MM->getOwningModule()));
-      else
-        Record.push_back(0);
     }
 
     // Write out any exported module macros.
+    bool EmittedModuleMacros = false;
     if (IsModule) {
       auto Leafs = PP.getLeafModuleMacros(Name);
       SmallVector<ModuleMacro*, 8> Worklist(Leafs.begin(), Leafs.end());
@@ -2092,7 +2066,7 @@ void ASTWriter::WritePreprocessor(const Preprocessor &PP, bool IsModule) {
         // Emit a record indicating this submodule exports this macro.
         ModuleMacroRecord.push_back(
             getSubmoduleID(Macro->getOwningModule()));
-        ModuleMacroRecord.push_back(getMacroID(Macro->getMacroInfo()));
+        ModuleMacroRecord.push_back(getMacroRef(Macro->getMacroInfo(), Name));
         for (auto *M : Macro->overrides())
           ModuleMacroRecord.push_back(getSubmoduleID(M->getOwningModule()));
 
@@ -2103,10 +2077,12 @@ void ASTWriter::WritePreprocessor(const Preprocessor &PP, bool IsModule) {
         for (auto *M : Macro->overrides())
           if (++Visits[M] == M->getNumOverridingMacros())
             Worklist.push_back(M);
+
+        EmittedModuleMacros = true;
       }
     }
 
-    if (Record.empty())
+    if (Record.empty() && !EmittedModuleMacros)
       continue;
 
     IdentMacroDirectivesOffsetMap[Name] = StartOffset;
@@ -2201,7 +2177,7 @@ void ASTWriter::WritePreprocessor(const Preprocessor &PP, bool IsModule) {
   Record.push_back(MacroOffsets.size());
   Record.push_back(FirstMacroID - NUM_PREDEF_MACRO_IDS);
   Stream.EmitRecordWithBlob(MacroOffsetAbbrev, Record,
-                            data(MacroOffsets));
+                            bytes(MacroOffsets));
 }
 
 void ASTWriter::WritePreprocessorDetail(PreprocessingRecord &PPRec) {
@@ -2241,13 +2217,13 @@ void ASTWriter::WritePreprocessorDetail(PreprocessingRecord &PPRec) {
        (void)++E, ++NumPreprocessingRecords, ++NextPreprocessorEntityID) {
     Record.clear();
 
-    PreprocessedEntityOffsets.push_back(PPEntityOffset((*E)->getSourceRange(),
-                                                     Stream.GetCurrentBitNo()));
+    PreprocessedEntityOffsets.push_back(
+        PPEntityOffset((*E)->getSourceRange(), Stream.GetCurrentBitNo()));
 
-    if (MacroDefinition *MD = dyn_cast<MacroDefinition>(*E)) {
+    if (MacroDefinitionRecord *MD = dyn_cast<MacroDefinitionRecord>(*E)) {
       // Record this macro definition's ID.
       MacroDefinitions[MD] = NextPreprocessorEntityID;
-      
+
       AddIdentifierRef(MD->getName(), Record);
       Stream.EmitRecord(PPD_MACRO_DEFINITION, Record);
       continue;
@@ -2299,7 +2275,7 @@ void ASTWriter::WritePreprocessorDetail(PreprocessingRecord &PPRec) {
     Record.push_back(PPD_ENTITIES_OFFSETS);
     Record.push_back(FirstPreprocessorEntityID - NUM_PREDEF_PP_ENTITY_IDS);
     Stream.EmitRecordWithBlob(PPEOffsetAbbrev, Record,
-                              data(PreprocessedEntityOffsets));
+                              bytes(PreprocessedEntityOffsets));
   }
 }
 
@@ -2336,19 +2312,6 @@ static unsigned getNumberOfModules(Module *Mod) {
 }
 
 void ASTWriter::WriteSubmodules(Module *WritingModule) {
-  // Determine the dependencies of our module and each of it's submodules.
-  // FIXME: This feels like it belongs somewhere else, but there are no
-  // other consumers of this information.
-  SourceManager &SrcMgr = PP->getSourceManager();
-  ModuleMap &ModMap = PP->getHeaderSearchInfo().getModuleMap();
-  for (const auto *I : Context->local_imports()) {
-    if (Module *ImportedFrom
-          = ModMap.inferModuleFromLocation(FullSourceLoc(I->getLocation(), 
-                                                         SrcMgr))) {
-      ImportedFrom->Imports.push_back(I->getImportedModule());
-    }
-  }
-  
   // Enter the submodule description block.
   Stream.EnterSubblock(SUBMODULE_BLOCK_ID, /*bits for abbreviations*/5);
   
@@ -2476,16 +2439,16 @@ void ASTWriter::WriteSubmodules(Module *WritingModule) {
     }
 
     // Emit the umbrella header, if there is one.
-    if (const FileEntry *UmbrellaHeader = Mod->getUmbrellaHeader()) {
+    if (auto UmbrellaHeader = Mod->getUmbrellaHeader()) {
       Record.clear();
       Record.push_back(SUBMODULE_UMBRELLA_HEADER);
-      Stream.EmitRecordWithBlob(UmbrellaAbbrev, Record, 
-                                UmbrellaHeader->getName());
-    } else if (const DirectoryEntry *UmbrellaDir = Mod->getUmbrellaDir()) {
+      Stream.EmitRecordWithBlob(UmbrellaAbbrev, Record,
+                                UmbrellaHeader.NameAsWritten);
+    } else if (auto UmbrellaDir = Mod->getUmbrellaDir()) {
       Record.clear();
       Record.push_back(SUBMODULE_UMBRELLA_DIR);
       Stream.EmitRecordWithBlob(UmbrellaDirAbbrev, Record, 
-                                UmbrellaDir->getName());      
+                                UmbrellaDir.NameAsWritten);
     }
 
     // Emit the headers.
@@ -2533,8 +2496,7 @@ void ASTWriter::WriteSubmodules(Module *WritingModule) {
       Record.clear();
       for (unsigned I = 0, N = Mod->Exports.size(); I != N; ++I) {
         if (Module *Exported = Mod->Exports[I].getPointer()) {
-          unsigned ExportedID = SubmoduleIDs[Exported];
-          assert(ExportedID > 0 && "Unknown submodule ID?");
+          unsigned ExportedID = getSubmoduleID(Exported);
           Record.push_back(ExportedID);
         } else {
           Record.push_back(0);
@@ -2585,9 +2547,14 @@ void ASTWriter::WriteSubmodules(Module *WritingModule) {
   }
   
   Stream.ExitBlock();
-  
-  assert((NextSubmoduleID - FirstSubmoduleID
-            == getNumberOfModules(WritingModule)) && "Wrong # of submodules");
+
+  // FIXME: This can easily happen, if we have a reference to a submodule that
+  // did not result in us loading a module file for that submodule. For
+  // instance, a cross-top-level-module 'conflict' declaration will hit this.
+  assert((NextSubmoduleID - FirstSubmoduleID ==
+          getNumberOfModules(WritingModule)) &&
+         "Wrong # of submodules; found a reference to a non-local, "
+         "non-imported submodule?");
 }
 
 serialization::SubmoduleID 
@@ -2671,7 +2638,7 @@ void ASTWriter::WriteCXXCtorInitializersOffsets() {
   Record.push_back(CXX_CTOR_INITIALIZERS_OFFSETS);
   Record.push_back(CXXCtorInitializersOffsets.size());
   Stream.EmitRecordWithBlob(CtorInitializersOffsetAbbrev, Record,
-                            data(CXXCtorInitializersOffsets));
+                            bytes(CXXCtorInitializersOffsets));
 }
 
 void ASTWriter::WriteCXXBaseSpecifiersOffsets() {
@@ -2694,7 +2661,7 @@ void ASTWriter::WriteCXXBaseSpecifiersOffsets() {
   Record.push_back(CXX_BASE_SPECIFIER_OFFSETS);
   Record.push_back(CXXBaseSpecifiersOffsets.size());
   Stream.EmitRecordWithBlob(BaseSpecifierOffsetAbbrev, Record,
-                            data(CXXBaseSpecifiersOffsets));
+                            bytes(CXXBaseSpecifiersOffsets));
 }
 
 //===----------------------------------------------------------------------===//
@@ -2770,7 +2737,7 @@ uint64_t ASTWriter::WriteDeclContextLexicalBlock(ASTContext &Context,
     Decls.push_back(std::make_pair(D->getKind(), GetDeclRef(D)));
 
   ++NumLexicalDeclContexts;
-  Stream.EmitRecordWithBlob(DeclContextLexicalAbbrev, Record, data(Decls));
+  Stream.EmitRecordWithBlob(DeclContextLexicalAbbrev, Record, bytes(Decls));
   return Offset;
 }
 
@@ -2789,7 +2756,7 @@ void ASTWriter::WriteTypeDeclOffsets() {
   Record.push_back(TYPE_OFFSET);
   Record.push_back(TypeOffsets.size());
   Record.push_back(FirstTypeID - NUM_PREDEF_TYPE_IDS);
-  Stream.EmitRecordWithBlob(TypeOffsetAbbrev, Record, data(TypeOffsets));
+  Stream.EmitRecordWithBlob(TypeOffsetAbbrev, Record, bytes(TypeOffsets));
 
   // Write the declaration offsets array
   Abbrev = new BitCodeAbbrev();
@@ -2802,7 +2769,7 @@ void ASTWriter::WriteTypeDeclOffsets() {
   Record.push_back(DECL_OFFSET);
   Record.push_back(DeclOffsets.size());
   Record.push_back(FirstDeclID - NUM_PREDEF_DECL_IDS);
-  Stream.EmitRecordWithBlob(DeclOffsetAbbrev, Record, data(DeclOffsets));
+  Stream.EmitRecordWithBlob(DeclOffsetAbbrev, Record, bytes(DeclOffsets));
 }
 
 void ASTWriter::WriteFileDeclIDsMap() {
@@ -2830,7 +2797,7 @@ void ASTWriter::WriteFileDeclIDsMap() {
   unsigned AbbrevCode = Stream.EmitAbbrev(Abbrev);
   Record.push_back(FILE_SORTED_DECLS);
   Record.push_back(FileGroupedDeclIDs.size());
-  Stream.EmitRecordWithBlob(AbbrevCode, Record, data(FileGroupedDeclIDs));
+  Stream.EmitRecordWithBlob(AbbrevCode, Record, bytes(FileGroupedDeclIDs));
 }
 
 void ASTWriter::WriteComments() {
@@ -3059,7 +3026,7 @@ void ASTWriter::WriteSelectors(Sema &SemaRef) {
     Record.push_back(SelectorOffsets.size());
     Record.push_back(FirstSelectorID - NUM_PREDEF_SELECTOR_IDS);
     Stream.EmitRecordWithBlob(SelectorOffsetAbbrev, Record,
-                              data(SelectorOffsets));
+                              bytes(SelectorOffsets));
   }
 }
 
@@ -3323,7 +3290,7 @@ void ASTWriter::WriteIdentifierTable(Preprocessor &PP,
   Record.push_back(IdentifierOffsets.size());
   Record.push_back(FirstIdentID - NUM_PREDEF_IDENT_IDS);
   Stream.EmitRecordWithBlob(IdentifierOffsetAbbrev, Record,
-                            data(IdentifierOffsets));
+                            bytes(IdentifierOffsets));
 }
 
 //===----------------------------------------------------------------------===//
@@ -4188,6 +4155,20 @@ void ASTWriter::WriteASTCore(Sema &SemaRef,
     AddSourceLocation(I->second, UndefinedButUsed);
   }
 
+  // Build a record containing all delete-expressions that we would like to
+  // analyze later in AST.
+  RecordData DeleteExprsToAnalyze;
+
+  for (const auto &DeleteExprsInfo :
+       SemaRef.getMismatchingDeleteExpressions()) {
+    AddDeclRef(DeleteExprsInfo.first, DeleteExprsToAnalyze);
+    DeleteExprsToAnalyze.push_back(DeleteExprsInfo.second.size());
+    for (const auto &DeleteLoc : DeleteExprsInfo.second) {
+      AddSourceLocation(DeleteLoc.first, DeleteExprsToAnalyze);
+      DeleteExprsToAnalyze.push_back(DeleteLoc.second);
+    }
+  }
+
   // Write the control block
   WriteControlBlock(PP, Context, isysroot, OutputFile);
 
@@ -4217,7 +4198,7 @@ void ASTWriter::WriteASTCore(Sema &SemaRef,
   Record.clear();
   Record.push_back(TU_UPDATE_LEXICAL);
   Stream.EmitRecordWithBlob(TuUpdateLexicalAbbrev, Record,
-                            data(NewGlobalDecls));
+                            bytes(NewGlobalDecls));
   
   // And a visible updates block for the translation unit.
   Abv = new llvm::BitCodeAbbrev();
@@ -4457,7 +4438,10 @@ void ASTWriter::WriteASTCore(Sema &SemaRef,
   // Write the undefined internal functions and variables, and inline functions.
   if (!UndefinedButUsed.empty())
     Stream.EmitRecord(UNDEFINED_BUT_USED, UndefinedButUsed);
-  
+
+  if (!DeleteExprsToAnalyze.empty())
+    Stream.EmitRecord(DELETE_EXPRS_TO_ANALYZE, DeleteExprsToAnalyze);
+
   // Write the visible updates to DeclContexts.
   for (auto *DC : UpdatedDeclContexts)
     WriteDeclContextVisibleUpdate(DC);
@@ -4495,7 +4479,7 @@ void ASTWriter::WriteASTCore(Sema &SemaRef,
         // FIXME: If the module has macros imported then later has declarations
         // imported, this location won't be the right one as a location for the
         // declaration imports.
-        AddSourceLocation(Import.M->MacroVisibilityLoc, ImportedModules);
+        AddSourceLocation(PP.getModuleImportLoc(Import.M), ImportedModules);
       }
 
       Stream.EmitRecord(IMPORTED_MODULES, ImportedModules);
@@ -4631,7 +4615,7 @@ void ASTWriter::WriteDeclUpdatesBlocks(RecordDataImpl &OffsetsRecord) {
         break;
 
       case UPD_DECL_EXPORTED:
-        Record.push_back(inferSubmoduleIDFromLocation(Update.getLoc()));
+        Record.push_back(getSubmoduleID(Update.getModule()));
         break;
       }
     }
@@ -5582,7 +5566,7 @@ void ASTWriter::SelectorRead(SelectorID ID, Selector S) {
 }
 
 void ASTWriter::MacroDefinitionRead(serialization::PreprocessedEntityID ID,
-                                    MacroDefinition *MD) {
+                                    MacroDefinitionRecord *MD) {
   assert(MacroDefinitions.find(MD) == MacroDefinitions.end());
   MacroDefinitions[MD] = ID;
 }
@@ -5776,10 +5760,11 @@ void ASTWriter::DeclarationMarkedOpenMPThreadPrivate(const Decl *D) {
   DeclUpdates[D].push_back(DeclUpdate(UPD_DECL_MARKED_OPENMP_THREADPRIVATE));
 }
 
-void ASTWriter::RedefinedHiddenDefinition(const NamedDecl *D,
-                                          SourceLocation Loc) {
+void ASTWriter::RedefinedHiddenDefinition(const NamedDecl *D, Module *M) {
   assert(!WritingAST && "Already writing the AST!");
   assert(D->isHidden() && "expected a hidden declaration");
-  assert(D->isFromASTFile() && "hidden decl not from AST file");
-  DeclUpdates[D].push_back(DeclUpdate(UPD_DECL_EXPORTED, Loc));
+  if (!D->isFromASTFile())
+    return;
+
+  DeclUpdates[D].push_back(DeclUpdate(UPD_DECL_EXPORTED, M));
 }
