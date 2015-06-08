@@ -3112,6 +3112,10 @@ cl_program CL_API_CALL clCreateProgramWithIL(cl_context context,
                                              size_t lengths,
                                              cl_int* errcode_ret)
 {
+	if (errcode_ret != NULL)
+	{
+		*errcode_ret = CL_INVALID_OPERATION;
+	}
 	return CL_INVALID_HANDLE;
 }
 SET_ALIAS(clCreateProgramWithIL);
