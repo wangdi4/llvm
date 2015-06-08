@@ -50,8 +50,8 @@ void DwarfFile::addUnit(std::unique_ptr<DwarfUnit> U) {
 void DwarfFile::emitUnits(bool UseOffsets) {
   for (const auto &TheU : CUs) {
     DIE &Die = TheU->getUnitDie();
-    const MCSection *USection = TheU->getSection();
-    Asm->OutStreamer.SwitchSection(USection);
+    MCSection *USection = TheU->getSection();
+    Asm->OutStreamer->SwitchSection(USection);
 
     TheU->emitHeader(UseOffsets);
 
@@ -120,24 +120,23 @@ unsigned DwarfFile::computeSizeAndOffset(DIE &Die, unsigned Offset) {
   return Offset;
 }
 
-void DwarfFile::emitAbbrevs(const MCSection *Section) {
+void DwarfFile::emitAbbrevs(MCSection *Section) {
   // Check to see if it is worth the effort.
   if (!Abbreviations.empty()) {
     // Start the debug abbrev section.
-    Asm->OutStreamer.SwitchSection(Section);
+    Asm->OutStreamer->SwitchSection(Section);
     Asm->emitDwarfAbbrevs(Abbreviations);
   }
 }
 
 // Emit strings into a string section.
-void DwarfFile::emitStrings(const MCSection *StrSection,
-                            const MCSection *OffsetSection) {
+void DwarfFile::emitStrings(MCSection *StrSection, MCSection *OffsetSection) {
   StrPool.emit(*Asm, StrSection, OffsetSection);
 }
 
 bool DwarfFile::addScopeVariable(LexicalScope *LS, DbgVariable *Var) {
   SmallVectorImpl<DbgVariable *> &Vars = ScopeVariables[LS];
-  const MDLocalVariable *DV = Var->getVariable();
+  const DILocalVariable *DV = Var->getVariable();
   // Variables with positive arg numbers are parameters.
   if (unsigned ArgNum = DV->getArg()) {
     // Keep all parameters in order at the start of the variable list to ensure
