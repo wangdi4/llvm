@@ -110,7 +110,7 @@ LowerSymbolOperand(const MachineOperand &MO, MCSymbol *Sym) const {
                                    Ctx);
   return MCOperand::CreateExpr(Expr);
 }
-
+*/
 void LPUMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
   OutMI.setOpcode(MI->getOpcode());
 
@@ -130,6 +130,7 @@ void LPUMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
     case MachineOperand::MO_Immediate:
       MCOp = MCOperand::CreateImm(MO.getImm());
       break;
+      /*
     case MachineOperand::MO_MachineBasicBlock:
       MCOp = MCOperand::CreateExpr(MCSymbolRefExpr::Create(
                          MO.getMBB()->getSymbol(), Ctx));
@@ -151,9 +152,10 @@ void LPUMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
       break;
     case MachineOperand::MO_RegisterMask:
       continue;
+      */
     }
 
     OutMI.addOperand(MCOp);
   }
 }
-*/
+

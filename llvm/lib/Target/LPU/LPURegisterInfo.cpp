@@ -39,16 +39,15 @@ LPURegisterInfo::LPURegisterInfo()
 const MCPhysReg*
 LPURegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
   static const MCPhysReg CalleeSavedRegs[] = {
-    LPU::R8, LPU::R9, LPU::R10, LPU::R11, LPU::R12,
+    LPU::R12,
     0
   };
   static const MCPhysReg CalleeSavedRegsFP[] = {
-    LPU::R8, LPU::R9, LPU::R10, LPU::R11, LPU::R12, LPU::FP,
+    LPU::R12, LPU::FP,
     0
   };
 
   const TargetFrameLowering *TFI = MF->getSubtarget().getFrameLowering();
-  const Function* F = MF->getFunction();
   return (TFI->hasFP(*MF)) ? CalleeSavedRegsFP : CalleeSavedRegs;
 }
 

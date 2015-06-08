@@ -31,9 +31,9 @@ class LLVM_LIBRARY_VISIBILITY LPUMCInstLower {
 public:
   LPUMCInstLower(MCContext &ctx, AsmPrinter &printer)
     : Ctx(ctx), Printer(printer) {}
-  /*
-  void Lower(const MachineInstr *MI, MCInst &OutMI) const;
 
+  void Lower(const MachineInstr *MI, MCInst &OutMI) const;
+  /*
   MCOperand LowerSymbolOperand(const MachineOperand &MO, MCSymbol *Sym) const;
 
   MCSymbol *GetGlobalAddressSymbol(const MachineOperand &MO) const;

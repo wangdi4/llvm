@@ -1,4 +1,4 @@
-//===-- LPUISelLowering.cpp - LPU DAG Lowering Implementation  ------===//
+//===-- LPUISelLowering.cpp - LPU DAG Lowering Implementation  ------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -38,31 +38,24 @@ using namespace llvm;
 
 #define DEBUG_TYPE "lpu-lower"
 
-typedef enum {
-  NoHWMult,
-  HWMultIntr,
-  HWMultNoIntr
-} HWMultUseMode;
-
-static cl::opt<HWMultUseMode>
-HWMultMode("lpu-hwmult-mode", cl::Hidden,
-           cl::desc("Hardware multiplier use mode"),
-           cl::init(HWMultNoIntr),
-           cl::values(
-             clEnumValN(NoHWMult, "no",
-                "Do not use hardware multiplier"),
-             clEnumValN(HWMultIntr, "interrupts",
-                "Assume hardware multiplier can be used inside interrupts"),
-             clEnumValN(HWMultNoIntr, "use",
-                "Assume hardware multiplier cannot be used inside interrupts"),
-             clEnumValEnd));
+const char *LPUTargetLowering::getTargetNodeName(unsigned Opcode) const {
+  switch (Opcode) {
+  default: return nullptr;
+  case LPUISD::Call:               return "LPUISD::Call";
+  case LPUISD::TailCall:           return "LPUISD::TailCall";
+  case LPUISD::Ret:                return "LPUISD::Ret";
+  case LPUISD::ThreadPointer:      return "LPUISD::ThreadPointer";
+  }
+}
 
 LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
     : TargetLowering(TM) {
-  /*
+
   // Set up the register classes.
-  addRegisterClass(MVT::i8,  &LPU::GR8RegClass);
-  addRegisterClass(MVT::i16, &LPU::GR16RegClass);
+  addRegisterClass(MVT::i32,  &LPU::RCI32RegClass);
+  addRegisterClass(MVT::i64,  &LPU::RCI64RegClass);
+  addRegisterClass(MVT::f32,  &LPU::RCF32RegClass);
+  addRegisterClass(MVT::f64,  &LPU::RCF64RegClass);
 
   // Compute derived properties from the register classes
   computeRegisterProperties();
@@ -72,115 +65,81 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
   // Division is expensive
   setIntDivIsCheap(false);
 
-  setStackPointerRegisterToSaveRestore(LPU::SP);
+//  setStackPointerRegisterToSaveRestore(LPU::SP);
   setBooleanContents(ZeroOrOneBooleanContent);
   setBooleanVectorContents(ZeroOrOneBooleanContent); // FIXME: Is this correct?
 
-  // We have post-incremented loads / stores.
-  setIndexedLoadAction(ISD::POST_INC, MVT::i8, Legal);
-  setIndexedLoadAction(ISD::POST_INC, MVT::i16, Legal);
+  // Operations we want expanded for all types
+  for (MVT VT : MVT::integer_valuetypes()) {
+    setOperationAction(ISD::BR_CC,            VT,    Expand);
+    setOperationAction(ISD::SELECT,           VT,    Expand);
+    setOperationAction(ISD::SELECT_CC,        VT,    Expand);
 
+    setOperationAction(ISD::SIGN_EXTEND,      VT,    Expand);
+
+    // Arithmetic
+    setOperationAction(ISD::ADDC,             VT,    Expand);
+    setOperationAction(ISD::ADDE,             VT,    Expand);
+    setOperationAction(ISD::SUBC,             VT,    Expand);
+    setOperationAction(ISD::SUBE,             VT,    Expand);
+    setOperationAction(ISD::SMUL_LOHI,        VT,    Expand);
+    setOperationAction(ISD::UMUL_LOHI,        VT,    Expand);
+    setOperationAction(ISD::MULHS,            VT,    Expand);
+    setOperationAction(ISD::MULHU,            VT,    Expand);
+    setOperationAction(ISD::UDIVREM,          VT,    Expand);
+    setOperationAction(ISD::SDIVREM,          VT,    Expand);
+
+    setOperationAction(ISD::SHL_PARTS,        VT,    Expand);
+    setOperationAction(ISD::SRL_PARTS,        VT,    Expand);
+    setOperationAction(ISD::SRA_PARTS,        VT,    Expand);
+
+    // Bit manipulation
+    setOperationAction(ISD::CTPOP,            VT,    Expand);
+    setOperationAction(ISD::ROTL,             VT,    Expand);
+    setOperationAction(ISD::ROTR,             VT,    Expand);
+    setOperationAction(ISD::CTTZ,             VT,    Expand);
+    setOperationAction(ISD::CTTZ_ZERO_UNDEF,  VT,    Expand);
+    setOperationAction(ISD::CTLZ,             VT,    Expand);
+    setOperationAction(ISD::CTLZ_ZERO_UNDEF,  VT,    Expand);
+
+    setOperationAction(ISD::DYNAMIC_STACKALLOC,VT,   Expand);
+  }
+
+  // Loads
   for (MVT VT : MVT::integer_valuetypes()) {
     setLoadExtAction(ISD::EXTLOAD,  VT, MVT::i1,  Promote);
     setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i1,  Promote);
     setLoadExtAction(ISD::ZEXTLOAD, VT, MVT::i1,  Promote);
+
+    // for now (likely revisit)
+    setLoadExtAction(ISD::ZEXTLOAD, VT, MVT::i8,  Expand);
     setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i8,  Expand);
+    setLoadExtAction(ISD::ZEXTLOAD, VT, MVT::i16, Expand);
     setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i16, Expand);
+    setLoadExtAction(ISD::ZEXTLOAD, VT, MVT::i32, Expand);
+    setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i32, Expand);
   }
 
   // We don't have any truncstores
-  setTruncStoreAction(MVT::i16, MVT::i8, Expand);
+  //  setTruncStoreAction(MVT::i16, MVT::i8, Expand);
 
-  setOperationAction(ISD::SRA,              MVT::i8,    Custom);
-  setOperationAction(ISD::SHL,              MVT::i8,    Custom);
-  setOperationAction(ISD::SRL,              MVT::i8,    Custom);
-  setOperationAction(ISD::SRA,              MVT::i16,   Custom);
-  setOperationAction(ISD::SHL,              MVT::i16,   Custom);
-  setOperationAction(ISD::SRL,              MVT::i16,   Custom);
-  setOperationAction(ISD::ROTL,             MVT::i8,    Expand);
-  setOperationAction(ISD::ROTR,             MVT::i8,    Expand);
-  setOperationAction(ISD::ROTL,             MVT::i16,   Expand);
-  setOperationAction(ISD::ROTR,             MVT::i16,   Expand);
-  setOperationAction(ISD::GlobalAddress,    MVT::i16,   Custom);
-  setOperationAction(ISD::ExternalSymbol,   MVT::i16,   Custom);
-  setOperationAction(ISD::BlockAddress,     MVT::i16,   Custom);
-  setOperationAction(ISD::BR_JT,            MVT::Other, Expand);
-  setOperationAction(ISD::BR_CC,            MVT::i8,    Custom);
-  setOperationAction(ISD::BR_CC,            MVT::i16,   Custom);
-  setOperationAction(ISD::BRCOND,           MVT::Other, Expand);
-  setOperationAction(ISD::SETCC,            MVT::i8,    Custom);
-  setOperationAction(ISD::SETCC,            MVT::i16,   Custom);
-  setOperationAction(ISD::SELECT,           MVT::i8,    Expand);
-  setOperationAction(ISD::SELECT,           MVT::i16,   Expand);
-  setOperationAction(ISD::SELECT_CC,        MVT::i8,    Custom);
-  setOperationAction(ISD::SELECT_CC,        MVT::i16,   Custom);
-  setOperationAction(ISD::SIGN_EXTEND,      MVT::i16,   Custom);
-  setOperationAction(ISD::DYNAMIC_STACKALLOC, MVT::i8, Expand);
-  setOperationAction(ISD::DYNAMIC_STACKALLOC, MVT::i16, Expand);
+  //  setOperationAction(ISD::GlobalAddress,    MVT::i16,   Custom);
+  //  setOperationAction(ISD::ExternalSymbol,   MVT::i16,   Custom);
+  //  setOperationAction(ISD::BlockAddress,     MVT::i16,   Custom);
+  //  setOperationAction(ISD::BR_JT,            MVT::Other, Expand);
+  //  setOperationAction(ISD::BR_CC,            MVT::i8,    Custom);
+  //  setOperationAction(ISD::BR_CC,            MVT::i16,   Custom);
+  // setOperationAction(ISD::BRCOND,           MVT::Other, Expand);
 
-  setOperationAction(ISD::CTTZ,             MVT::i8,    Expand);
-  setOperationAction(ISD::CTTZ,             MVT::i16,   Expand);
-  setOperationAction(ISD::CTTZ_ZERO_UNDEF,  MVT::i8,    Expand);
-  setOperationAction(ISD::CTTZ_ZERO_UNDEF,  MVT::i16,   Expand);
-  setOperationAction(ISD::CTLZ,             MVT::i8,    Expand);
-  setOperationAction(ISD::CTLZ,             MVT::i16,   Expand);
-  setOperationAction(ISD::CTLZ_ZERO_UNDEF,  MVT::i8,    Expand);
-  setOperationAction(ISD::CTLZ_ZERO_UNDEF,  MVT::i16,   Expand);
-  setOperationAction(ISD::CTPOP,            MVT::i8,    Expand);
-  setOperationAction(ISD::CTPOP,            MVT::i16,   Expand);
+  //  setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i1,   Expand);
 
-  setOperationAction(ISD::SHL_PARTS,        MVT::i8,    Expand);
-  setOperationAction(ISD::SHL_PARTS,        MVT::i16,   Expand);
-  setOperationAction(ISD::SRL_PARTS,        MVT::i8,    Expand);
-  setOperationAction(ISD::SRL_PARTS,        MVT::i16,   Expand);
-  setOperationAction(ISD::SRA_PARTS,        MVT::i8,    Expand);
-  setOperationAction(ISD::SRA_PARTS,        MVT::i16,   Expand);
-
-  setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i1,   Expand);
-
-  // FIXME: Implement efficiently multiplication by a constant
-  setOperationAction(ISD::MUL,              MVT::i8,    Expand);
-  setOperationAction(ISD::MULHS,            MVT::i8,    Expand);
-  setOperationAction(ISD::MULHU,            MVT::i8,    Expand);
-  setOperationAction(ISD::SMUL_LOHI,        MVT::i8,    Expand);
-  setOperationAction(ISD::UMUL_LOHI,        MVT::i8,    Expand);
-  setOperationAction(ISD::MUL,              MVT::i16,   Expand);
-  setOperationAction(ISD::MULHS,            MVT::i16,   Expand);
-  setOperationAction(ISD::MULHU,            MVT::i16,   Expand);
-  setOperationAction(ISD::SMUL_LOHI,        MVT::i16,   Expand);
-  setOperationAction(ISD::UMUL_LOHI,        MVT::i16,   Expand);
-
-  setOperationAction(ISD::UDIV,             MVT::i8,    Expand);
-  setOperationAction(ISD::UDIVREM,          MVT::i8,    Expand);
-  setOperationAction(ISD::UREM,             MVT::i8,    Expand);
-  setOperationAction(ISD::SDIV,             MVT::i8,    Expand);
-  setOperationAction(ISD::SDIVREM,          MVT::i8,    Expand);
-  setOperationAction(ISD::SREM,             MVT::i8,    Expand);
-  setOperationAction(ISD::UDIV,             MVT::i16,   Expand);
-  setOperationAction(ISD::UDIVREM,          MVT::i16,   Expand);
-  setOperationAction(ISD::UREM,             MVT::i16,   Expand);
-  setOperationAction(ISD::SDIV,             MVT::i16,   Expand);
-  setOperationAction(ISD::SDIVREM,          MVT::i16,   Expand);
-  setOperationAction(ISD::SREM,             MVT::i16,   Expand);
-
+  /*
   // varargs support
-  setOperationAction(ISD::VASTART,          MVT::Other, Custom);
+  setOperationAction(ISD::VASTART,          MVT::Other, Expand);
   setOperationAction(ISD::VAARG,            MVT::Other, Expand);
   setOperationAction(ISD::VAEND,            MVT::Other, Expand);
   setOperationAction(ISD::VACOPY,           MVT::Other, Expand);
-  setOperationAction(ISD::JumpTable,        MVT::i16,   Custom);
-
-  // Libcalls names.
-  if (HWMultMode == HWMultIntr) {
-    setLibcallName(RTLIB::MUL_I8,  "__mulqi3hw");
-    setLibcallName(RTLIB::MUL_I16, "__mulhi3hw");
-  } else if (HWMultMode == HWMultNoIntr) {
-    setLibcallName(RTLIB::MUL_I8,  "__mulqi3hw_noint");
-    setLibcallName(RTLIB::MUL_I16, "__mulhi3hw_noint");
-  }
-
-  setMinFunctionAlignment(1);
-  setPrefFunctionAlignment(2);
+  //  setOperationAction(ISD::JumpTable,        MVT::i16,   Expand);
   */
 }
 
@@ -347,26 +306,6 @@ static void AnalyzeArguments(CCState &State,
   }
 }
 */
-static void AnalyzeRetResult(CCState &State,
-                             const SmallVectorImpl<ISD::InputArg> &Ins) {
-  State.AnalyzeCallResult(Ins, RetCC_LPU);
-}
-
-static void AnalyzeRetResult(CCState &State,
-                             const SmallVectorImpl<ISD::OutputArg> &Outs) {
-  State.AnalyzeReturn(Outs, RetCC_LPU);
-}
-
-template<typename ArgT>
-static void AnalyzeReturnValues(CCState &State,
-                                SmallVectorImpl<CCValAssign> &RVLocs,
-                                const SmallVectorImpl<ArgT> &Args) {
-  AnalyzeRetResult(State, Args);
-
-  // Reverse splitted return values to get the "big endian" format required
-  // to agree with the calling convention ABI.
-  std::reverse(RVLocs.begin(), RVLocs.end());
-}
 
 SDValue
 LPUTargetLowering::LowerFormalArguments(SDValue Chain,
@@ -430,58 +369,25 @@ LPUTargetLowering::LowerCCCArguments(SDValue Chain,
                                         SelectionDAG &DAG,
                                         SmallVectorImpl<SDValue> &InVals)
                                           const {
-  /****
   MachineFunction &MF = DAG.getMachineFunction();
   MachineFrameInfo *MFI = MF.getFrameInfo();
-  MachineRegisterInfo &RegInfo = MF.getRegInfo();
-  LPUMachineFunctionInfo *FuncInfo = MF.getInfo<LPUMachineFunctionInfo>();
+  //  LPUMachineFunctionInfo *FuncInfo = MF.getInfo<LPUMachineFunctionInfo>();
 
   // Assign locations to all of the incoming arguments.
   SmallVector<CCValAssign, 16> ArgLocs;
   CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(), ArgLocs,
                  *DAG.getContext());
-  AnalyzeArguments(CCInfo, ArgLocs, Ins);
 
-  // Create frame index for the start of the first vararg value
-  if (isVarArg) {
-    unsigned Offset = CCInfo.getNextStackOffset();
-    FuncInfo->setVarArgsFrameIndex(MFI->CreateFixedObject(1, Offset, true));
-  }
+  CCInfo.AnalyzeFormalArguments(Ins, CC_LPU);
 
   for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i) {
     CCValAssign &VA = ArgLocs[i];
     if (VA.isRegLoc()) {
       // Arguments passed in registers
-      EVT RegVT = VA.getLocVT();
-      switch (RegVT.getSimpleVT().SimpleTy) {
-      default:
-        {
-#ifndef NDEBUG
-          errs() << "LowerFormalArguments Unhandled argument type: "
-               << RegVT.getSimpleVT().SimpleTy << "\n";
-#endif
-          llvm_unreachable(nullptr);
-        }
-      case MVT::i16:
-        unsigned VReg = RegInfo.createVirtualRegister(&LPU::GR16RegClass);
-        RegInfo.addLiveIn(VA.getLocReg(), VReg);
-        SDValue ArgValue = DAG.getCopyFromReg(Chain, dl, VReg, RegVT);
+      unsigned Reg = MF.addLiveIn(VA.getLocReg(), &LPU::RCI64RegClass);
+      SDValue ArgValue = DAG.getCopyFromReg(Chain, dl, Reg, VA.getLocVT());
+      InVals.push_back(ArgValue);
 
-        // If this is an 8-bit value, it is really passed promoted to 16
-        // bits. Insert an assert[sz]ext to capture this, then truncate to the
-        // right size.
-        if (VA.getLocInfo() == CCValAssign::SExt)
-          ArgValue = DAG.getNode(ISD::AssertSext, dl, RegVT, ArgValue,
-                                 DAG.getValueType(VA.getValVT()));
-        else if (VA.getLocInfo() == CCValAssign::ZExt)
-          ArgValue = DAG.getNode(ISD::AssertZext, dl, RegVT, ArgValue,
-                                 DAG.getValueType(VA.getValVT()));
-
-        if (VA.getLocInfo() != CCValAssign::Full)
-          ArgValue = DAG.getNode(ISD::TRUNCATE, dl, VA.getValVT(), ArgValue);
-
-        InVals.push_back(ArgValue);
-      }
     } else {
       // Sanity check
       assert(VA.isMemLoc());
@@ -515,7 +421,7 @@ LPUTargetLowering::LowerCCCArguments(SDValue Chain,
       InVals.push_back(InVal);
     }
   }
-  */
+
   return Chain;
 }
 
@@ -534,7 +440,7 @@ LPUTargetLowering::LowerReturn(SDValue Chain,
                  *DAG.getContext());
 
   // Analize return values.
-  AnalyzeReturnValues(CCInfo, RVLocs, Outs);
+  CCInfo.AnalyzeReturn(Outs,RetCC_LPU);
 
   SDValue Flag;
   SmallVector<SDValue, 4> RetOps(1, Chain);
@@ -716,7 +622,7 @@ LPUTargetLowering::LowerCallResult(SDValue Chain, SDValue InFlag,
   CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(), RVLocs,
                  *DAG.getContext());
 
-  AnalyzeReturnValues(CCInfo, RVLocs, Ins);
+  CCInfo.AnalyzeCallResult(Ins,RetCC_LPU);
 
   // Copy all of the result registers out of their specified physreg.
   for (unsigned i = 0; i != RVLocs.size(); ++i) {
@@ -1136,15 +1042,6 @@ bool LPUTargetLowering::getPostIndexedAddressParts(SDNode *N, SDNode *Op,
 }
 */
 
-const char *LPUTargetLowering::getTargetNodeName(unsigned Opcode) const {
-  switch (Opcode) {
-  default: return nullptr;
-  case LPUISD::Call:               return "LPUISD::Call";
-  case LPUISD::TailCall:           return "LPUISD::TailCall";
-  case LPUISD::Ret:                return "LPUISD::Ret";
-  case LPUISD::ThreadPointer:      return "LPUISD::ThreadPointer";
-  }
-}
 /*
 bool LPUTargetLowering::isTruncateFree(Type *Ty1,
                                           Type *Ty2) const {

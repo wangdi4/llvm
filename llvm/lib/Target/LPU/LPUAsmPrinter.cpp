@@ -48,14 +48,6 @@ namespace {
 
     void printOperand(const MachineInstr *MI, int OpNum,
                       raw_ostream &O, const char* Modifier = nullptr);
-    void printSrcMemOperand(const MachineInstr *MI, int OpNum,
-                            raw_ostream &O);
-    bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
-                         unsigned AsmVariant, const char *ExtraCode,
-                         raw_ostream &O) override;
-    bool PrintAsmMemoryOperand(const MachineInstr *MI,
-                               unsigned OpNo, unsigned AsmVariant,
-                               const char *ExtraCode, raw_ostream &O) override;
     void EmitInstruction(const MachineInstr *MI) override;
   };
 } // end of anonymous namespace
@@ -69,12 +61,10 @@ void LPUAsmPrinter::printOperand(const MachineInstr *MI, int OpNum,
   case MachineOperand::MO_Register:
     O << LPUInstPrinter::getRegisterName(MO.getReg());
     return;
-  /*
   case MachineOperand::MO_Immediate:
-    if (!Modifier || strcmp(Modifier, "nohash"))
-      O << '#';
     O << MO.getImm();
     return;
+  /*
   case MachineOperand::MO_MachineBasicBlock:
     O << *MO.getMBB()->getSymbol();
     return;
@@ -104,65 +94,13 @@ void LPUAsmPrinter::printOperand(const MachineInstr *MI, int OpNum,
   }
 }
 
-void LPUAsmPrinter::printSrcMemOperand(const MachineInstr *MI, int OpNum,
-                                          raw_ostream &O) {
-  /*
-  const MachineOperand &Base = MI->getOperand(OpNum);
-  const MachineOperand &Disp = MI->getOperand(OpNum+1);
-
-  // Print displacement first
-
-  // Imm here is in fact global address - print extra modifier.
-  if (Disp.isImm() && !Base.getReg())
-    O << '&';
-  printOperand(MI, OpNum+1, O, "nohash");
-
-  // Print register base field
-  if (Base.getReg()) {
-    O << '(';
-    printOperand(MI, OpNum, O);
-    O << ')';
-  }
-  */
-}
-
-/// PrintAsmOperand - Print out an operand for an inline asm expression.
-///
-bool LPUAsmPrinter::PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
-                                       unsigned AsmVariant,
-                                       const char *ExtraCode, raw_ostream &O) {
-  /*
-  // Does this asm operand have a single letter operand modifier?
-  if (ExtraCode && ExtraCode[0])
-    return true; // Unknown modifier.
-
-  printOperand(MI, OpNo, O);
-  */
-  return false;
-}
-
-bool LPUAsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
-                                             unsigned OpNo, unsigned AsmVariant,
-                                             const char *ExtraCode,
-                                             raw_ostream &O) {
-  /*
-  if (ExtraCode && ExtraCode[0]) {
-    return true; // Unknown modifier.
-  }
-  printSrcMemOperand(MI, OpNo, O);
-  */
-  return false;
-}
-
 //===----------------------------------------------------------------------===//
 void LPUAsmPrinter::EmitInstruction(const MachineInstr *MI) {
-  /*
   LPUMCInstLower MCInstLowering(OutContext, *this);
 
   MCInst TmpInst;
   MCInstLowering.Lower(MI, TmpInst);
   EmitToStreamer(OutStreamer, TmpInst);
-  */
 }
 
 // Force static initialization.

@@ -41,18 +41,16 @@ void LPUInstPrinter::printInst(const MCInst *MI, raw_ostream &O,
 
 void LPUInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
                                      raw_ostream &O, const char *Modifier) {
-  /*
   assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported");
   const MCOperand &Op = MI->getOperand(OpNo);
   if (Op.isReg()) {
     O << getRegisterName(Op.getReg());
   } else if (Op.isImm()) {
-    O << '#' << Op.getImm();
+    O << Op.getImm();
   } else {
     assert(Op.isExpr() && "unknown operand kind in printOperand");
     O << '#' << *Op.getExpr();
   }
-  */
 }
 
   /*

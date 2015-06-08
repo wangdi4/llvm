@@ -33,6 +33,8 @@ LPUTargetMachine::LPUTargetMachine(const Target &T, StringRef TT,
     : LLVMTargetMachine(T, TT, CPU, FS, Options, RM, CM, OL),
       TLOF(make_unique<TargetLoweringObjectFileELF>()),
       Subtarget(TT, CPU, FS, *this) {
+  // Not sure this is needed
+  setRequiresStructuredCFG(true);
   initAsmInfo();
 }
 
@@ -51,6 +53,17 @@ public:
 
   bool addInstSelector() override;
   //void addPreEmitPass() override;
+
+  /* These are used by the AMD (R600) target.  May be interesting....
+     See AMDGPUTargetMachine.cpp
+  void addIRPasses() override;      // particularly this one
+  void addCodeGenPrepare() override;
+  bool addPreISel() override;
+  void addPreRegAlloc() override;
+  void addPostRegAlloc() override;
+  void addPreSched2() override;
+  void addPreEmitPass() override;
+  */
 };
 } // namespace
 

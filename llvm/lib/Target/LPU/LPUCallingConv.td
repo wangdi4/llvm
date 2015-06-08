@@ -17,7 +17,7 @@
 
 // LPU 64-bit C return-value convention.
 def RetCC_LPU : CallingConv<[
-  CCIfType<[i32,i64,f32,f64], CCAssignToReg<[R0, R1, R2, R3]>>,
+  CCIfType<[i32,i64,f32,f64], CCAssignToReg<[R4, R5, R6, R7]>>,
 
   // Alternatively, they are assigned to the stack in 8-byte aligned units.
   CCAssignToStack<8, 8>

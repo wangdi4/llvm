@@ -31,8 +31,7 @@ class PseudoInstLPU<dag outs, dag ins, string asmstr, list<dag> pattern>
 
 
 // Generic format for now
-class FMTGEN< bits<8> opc, dag outs, dag ins, string asmstr, list<dag> pattern>
+class FMTGEN<dag outs, dag ins, string asmstr, list<dag> pattern>
     : InstLPU<outs,ins,asmstr,pattern> {
-  let Inst{0-7} = opc;
 //let DecoderMethod = "DecodeFGENInstruction";
 }

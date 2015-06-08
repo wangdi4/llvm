@@ -118,6 +118,10 @@ namespace {
 
   private:
     SDNode *Select(SDNode *N) override;
+
+    // Complex patterns
+    bool SelectAddrReg(SDNode *Parent, SDValue Addr, SDValue &Base);
+
     /*
     SDNode *SelectIndexedLoad(SDNode *Op);
     SDNode *SelectIndexedBinOp(SDNode *Op, SDValue N1, SDValue N2,
@@ -498,3 +502,13 @@ SDNode *LPUDAGToDAGISel::Select(SDNode *Node) {
   return ResNode;
 }
 
+bool LPUDAGToDAGISel::SelectAddrReg(SDNode *Parent, SDValue Addr,
+                                      SDValue &Base)
+{
+
+  if(dyn_cast<MemSDNode>(Parent)) {
+    Base = Addr;
+    return true;
+  }
+  return false;
+}
