@@ -132,6 +132,11 @@ TEST(FrameworkTestType, Test_clBuildProgramWithBinaryTest)
     EXPECT_TRUE(clBuildProgramWithBinaryTest(iter->second));
 }
 
+TEST(FrameworkTestType, Test_clBuildInvalidSpirProgramWithBinaryTest)
+{
+    EXPECT_TRUE(clBuildInvalidSpirProgramWithBinaryTest());
+}
+
 TEST(FrameworkTestType, Test_clBuildProgramWithSourceTest)
 {
     EXPECT_TRUE(clBuildProgramWithSourceTest());

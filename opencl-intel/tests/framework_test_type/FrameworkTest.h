@@ -56,6 +56,7 @@ bool clCheckJITSaveLoadTest();
 bool clCheckJITSaveTest();
 bool clCheckJITLoadTest();
 bool clBuildProgramWithBinaryTest(openBcFunc pFunc);
+bool clBuildInvalidSpirProgramWithBinaryTest();
 bool clBuildProgramTwiceTest();
 bool clBuildEmptyProgramTest();
 bool clBuildWithCL11option();
