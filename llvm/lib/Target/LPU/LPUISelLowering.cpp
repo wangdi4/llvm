@@ -52,6 +52,9 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
     : TargetLowering(TM) {
 
   // Set up the register classes.
+  addRegisterClass(MVT::i1,   &LPU::RCI1RegClass);
+  addRegisterClass(MVT::i8,   &LPU::RCI8RegClass);
+  addRegisterClass(MVT::i16,  &LPU::RCI16RegClass);
   addRegisterClass(MVT::i32,  &LPU::RCI32RegClass);
   addRegisterClass(MVT::i64,  &LPU::RCI64RegClass);
   addRegisterClass(MVT::f32,  &LPU::RCF32RegClass);

@@ -44,11 +44,17 @@ def SP  : LPUReg<14, "sp">;  // stack pointer
 def RA  : LPUReg<15, "ra">;  // return addr
 
 
-def RCI32 : RegisterClass<"LPU", [i32], 64,
+def RCI64 : RegisterClass<"LPU", [i64], 64,
     (add R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12, FP, SP, RA)>;
 
-def RCI64 : RegisterClass<"LPU", [i64], 64, (add RCI32)>;
+def RCI32 : RegisterClass<"LPU", [i32], 64, (add RCI64)>;
 
-def RCF32 : RegisterClass<"LPU", [f32], 64, (add RCI32)>;
+def RCI16 : RegisterClass<"LPU", [i16], 64, (add RCI64)>;
 
-def RCF64 : RegisterClass<"LPU", [f64], 64, (add RCI32)>;
+def RCI8  : RegisterClass<"LPU",  [i8], 64, (add RCI64)>;
+
+def RCI1  : RegisterClass<"LPU",  [i1], 64, (add RCI64)>;
+
+def RCF64 : RegisterClass<"LPU", [f64], 64, (add RCI64)>;
+
+def RCF32 : RegisterClass<"LPU", [f32], 64, (add RCI64)>;
