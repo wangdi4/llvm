@@ -37,6 +37,14 @@ add_subdirectory( common/builtin_kernels)
 add_subdirectory( cpu_device )
 add_subdirectory( device_commands )
 
+# [LLVM 3.6 UPGRADE] Disable Linux warning about unused function
+# this warning occur when processing externals/itt/include/ittnotify.h
+# since it contain __itt_id __itt_id_make(void*, long long unsigned int)
+# function that not use in every build target.
+if (NOT WIN32)
+     add_definitions( "-Wno-unused-function" )
+endif(NOT Win32)
+
 if ( INCLUDE_MIC_DEVICE )
     add_subdirectory( mic_device )
 endif ( INCLUDE_MIC_DEVICE )

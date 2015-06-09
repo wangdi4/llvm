@@ -224,7 +224,7 @@ cl_err_code Device::CreateAndInitAllDevicesOfDeviceType(const char * psDeviceAge
     {
         // create new device object
         SharedPtr<Device> pDevice = Device::Allocate(pClPlatformId);
-        if (NULL == pDevice)
+        if (0 == pDevice)
         {
             pOutDevices->clear();
             clErrRet = CL_OUT_OF_HOST_MEMORY;
@@ -457,7 +457,7 @@ void Device::InitFECompiler() const
     string strModule = pFEConfig->clDevFEModuleName();
     m_pFrontEndCompiler = FrontEndCompiler::Allocate();
 
-    if (NULL == m_pFrontEndCompiler)
+    if (0 == m_pFrontEndCompiler)
     {
         assert( false && "Cannot allocate wrapper class for FrontEndCompiler" );
         return;

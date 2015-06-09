@@ -1857,7 +1857,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
     {
         cl_dev_internal_subdevice_id& subdevId = *(cl_dev_internal_subdevice_id*)subdevice_ids[i];
         subdevId.pSubDevice = m_pTaskDispatcher->GetRootDevice()->CreateSubDevice(subdevId.num_compute_units, &subdevId);
-        if (NULL == subdevId.pSubDevice)
+        if (0 == subdevId.pSubDevice)
         {
             for (size_t j = 0; j < i; j++)
             {
@@ -2128,7 +2128,7 @@ cl_dev_err_code CPUDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN lis
     te_wait_result res = pList->pCmd_list->WaitForCompletion(pTaskToWait);
 
     cl_dev_err_code retVal;
-    if ( NULL != pTaskToWait )
+    if ( 0 != pTaskToWait )
     {
         // Try to wait for command
         if ( (!pTaskToWait->IsCompleted() && (TE_WAIT_COMPLETED == res)) || TE_WAIT_NOT_SUPPORTED == res)

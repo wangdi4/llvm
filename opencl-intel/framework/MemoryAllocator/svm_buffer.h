@@ -118,7 +118,7 @@ protected:
      * @param pArgValue    pointer to the SVM memory inside pSvmBuf or system pointer
      */
     SVMPointerArg(const SharedPtr<SVMBuffer>& pSvmBuf) :
-       MemoryObject(pSvmBuf != NULL ? pSvmBuf->GetContext() : SharedPtr<Context>(NULL)) { }    
+       MemoryObject(pSvmBuf != 0 ? pSvmBuf->GetContext() : SharedPtr<Context>(NULL)) { }    
 
     /**
      * This class implements IOCLDevMemoryObject for SVM buffers as an arguments to a kernel

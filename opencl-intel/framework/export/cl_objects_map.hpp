@@ -37,7 +37,7 @@ OCLObjectsMap<HandleType, ParentHandleType>::~OCLObjectsMap()
 template <class HandleType, class ParentHandleType>
 HandleType* OCLObjectsMap<HandleType, ParentHandleType>::AddObject(const SharedPtr<OCLObject<HandleType, ParentHandleType> >& pObject)
 {
-    assert ( NULL != pObject );
+    assert ( 0 != pObject );
     HandleType* hObjectHandle = pObject->GetHandle();
     assert(hObjectHandle);
     cl_int iObjectId = m_iNextGenKey++;

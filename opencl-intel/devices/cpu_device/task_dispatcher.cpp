@@ -236,7 +236,7 @@ TaskDispatcher::~TaskDispatcher()
     if (m_bTEActivated)
     {
         CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "m_pTaskExecutor->Deactivate();");
-        if ((NULL != m_pTaskExecutor) && (NULL != m_pRootDevice ))
+        if ((0 != m_pTaskExecutor) && (0 != m_pRootDevice ))
         {
             m_pRootDevice->ShutDown();
             m_pRootDevice->ResetObserver();
@@ -263,7 +263,7 @@ cl_dev_err_code TaskDispatcher::init()
                     RootDeviceCreationParam(TE_AUTO_THREADS, TE_ENABLE_MASTERS_JOIN, numMasters), 
                     NULL, this );
 
-    m_bTEActivated = (NULL != m_pRootDevice);
+    m_bTEActivated = (0 != m_pRootDevice);
     if ( !m_bTEActivated )
     {
         return CL_DEV_ERROR_FAIL;
@@ -297,7 +297,7 @@ cl_dev_err_code TaskDispatcher::init()
 
     //Pin threads
     SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase> pAffinitizeThreads = AffinitizeThreads::Allocate(m_uiNumThreads, 0, m_pObserver);
-    if (NULL == pAffinitizeThreads)
+    if (0 == pAffinitizeThreads)
     {
         //Todo
         assert(0);
@@ -305,7 +305,7 @@ cl_dev_err_code TaskDispatcher::init()
     }
 
     SharedPtr<Intel::OpenCL::TaskExecutor::ITaskList> pTaskList = m_pRootDevice->CreateTaskList( CommandListCreationParam(TE_CMD_LIST_IN_ORDER, TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC) );
-    if (NULL == pTaskList)
+    if (0 == pTaskList)
     {
         //Todo
         assert(0);
@@ -378,7 +378,7 @@ cl_dev_err_code TaskDispatcher::createCommandList( cl_dev_cmd_list_props IN prop
         //Todo: handle non-immediate lists
         *list = InPlaceTaskList::Allocate(GetTaskExecutor()->CreateTaskGroup(pDevice));
     }
-    if ( NULL == *list )
+    if ( 0 == *list )
     {
         CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("TaskList creation failed"), list->GetPtr());
         return CL_DEV_OUT_OF_MEMORY;
@@ -454,7 +454,7 @@ cl_dev_err_code TaskDispatcher::NotifyFailure(ITaskList* pList, cl_dev_cmd_desc*
     CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Failed to submit command[id:%d,type:%d] to execution, Err:<%d>"), pCmd->id, pCmd->type, iRetCode);
 
     SharedPtr<ITaskBase> pTask = TaskFailureNotification::Allocate(this, pCmd, iRetCode);
-    if ( NULL == pTask )
+    if ( 0 == pTask )
     {
         return CL_DEV_OUT_OF_MEMORY;
     }

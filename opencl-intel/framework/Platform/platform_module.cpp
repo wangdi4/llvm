@@ -138,7 +138,7 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
         // assign device in the objects map
         m_mapDevices.AddObject(devicesList[ui]);
         
-        if ((NULL == m_pDefaultDevice) && (defaultDevice != "") && (defaultDevice == devices[ui]))
+        if ((0 == m_pDefaultDevice) && (defaultDevice != "") && (defaultDevice == devices[ui]))
         {
             m_pDefaultDevice = devicesList[ui];
         }
@@ -399,7 +399,7 @@ cl_int    PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
     {
         return CL_DEVICE_NOT_FOUND;
     }
-    if (clDeviceType == CL_DEVICE_TYPE_DEFAULT && m_pDefaultDevice == NULL)
+    if (clDeviceType == CL_DEVICE_TYPE_DEFAULT && m_pDefaultDevice == 0)
     {
         return CL_DEVICE_NOT_FOUND;
     }
@@ -425,7 +425,7 @@ cl_int    PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
 
     for (cl_uint ui=0; ui<uiNumDevices; ++ui)
     {
-        if (NULL != ppDevices[ui])
+        if (0 != ppDevices[ui])
         {
             if ((clDeviceType & CL_DEVICE_TYPE_DEFAULT) &&
                 ppDevices[ui]->GetId() == m_pDefaultDevice->GetId())
@@ -520,7 +520,7 @@ cl_int    PlatformModule::GetDeviceInfo(cl_device_id clDevice,
 
     default:
         pDevice = m_mapDevices.GetOCLObject((_cl_device_id_int*)clDevice).DynamicCast<FissionableDevice>();
-        if (NULL == pDevice)
+        if (0 == pDevice)
         {
             return CL_INVALID_DEVICE;
         }
@@ -577,7 +577,7 @@ cl_int PlatformModule::UnloadCompiler(void)
     for (cl_uint ui=0; ui<m_mapDevices.Count(); ++ui)
     {
         SharedPtr<FissionableDevice> pDevice = m_mapDevices.GetObjectByIndex(ui).DynamicCast<FissionableDevice>();
-        if (NULL != pDevice)
+        if (0 != pDevice)
         {
             pDevice->GetDeviceAgent()->clDevUnloadCompiler();
         }
@@ -698,7 +698,7 @@ public:
 
     cl_err_code CreateRootDevice()
     {
-        m_bNeedToCreateDevice = ((NULL != m_pParentDevice) && (NULL == m_pParentDevice->GetDeviceAgent()));
+        m_bNeedToCreateDevice = ((0 != m_pParentDevice) && (NULL == m_pParentDevice->GetDeviceAgent()));
         return (m_bNeedToCreateDevice ? m_pParentDevice->GetRootDevice()->CreateInstance() : CL_SUCCESS);
     }
 
@@ -723,7 +723,7 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     tNumDevices = 0;
     SharedPtr<OCLObject<_cl_device_id_int, _cl_platform_id_int> > pParent_obj = m_mapDevices.GetOCLObject((_cl_device_id_int*)device);
     
-    if (NULL == pParent_obj)
+    if (0 == pParent_obj)
     {
         return CL_INVALID_DEVICE;
     }
@@ -816,7 +816,7 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     for (cl_uint i = 0; i < numSubdevicesToCreate; ++i)
     {
         pNewDevices[i] = SubDevice::Allocate(pParentDevice, sizes[i], subdevice_ids[i], properties);
-        if (NULL == pNewDevices[i])
+        if (0 == pNewDevices[i])
         {
             for (cl_uint j = 0; j < i; ++j)
             {
@@ -858,7 +858,7 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
 cl_err_code PlatformModule::clReleaseDevice(cl_device_id device)
 {
     SharedPtr<FissionableDevice> pDevice = m_mapDevices.GetOCLObject((_cl_device_id_int *)device).DynamicCast<FissionableDevice>();
-    if (NULL == pDevice)
+    if (0 == pDevice)
     {
         return CL_INVALID_DEVICE;
     }
@@ -890,7 +890,7 @@ void PlatformModule::RemoveAllDevices(bool preserve_user_handles)
 cl_err_code PlatformModule::clRetainDevice(cl_device_id device)
 {
     SharedPtr<FissionableDevice> pDevice = m_mapDevices.GetOCLObject((_cl_device_id_int *)device).DynamicCast<FissionableDevice>();
-    if (NULL == pDevice)
+    if (0 == pDevice)
     {
         return CL_INVALID_DEVICE;
     }

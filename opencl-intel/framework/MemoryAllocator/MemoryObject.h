@@ -330,7 +330,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         ******************************************************************************************/
         void SetParent(const SharedPtr<MemoryObject>& pParentObject)
         {
-            assert(NULL == m_pParentObject);
+            assert(0 == m_pParentObject);
             m_pParentObject = pParentObject;
         }
 

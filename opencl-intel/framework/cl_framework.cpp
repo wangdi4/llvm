@@ -480,7 +480,7 @@ cl_command_queue CL_API_CALL clCreateCommandQueue(cl_context                  co
 									  cl_command_queue_properties properties, 
 									  cl_int *                    errcode_ret)
 {
-    const cl_command_queue_properties propertiesArr[] = { CL_QUEUE_PROPERTIES, properties, NULL };
+    const cl_command_queue_properties propertiesArr[] = { CL_QUEUE_PROPERTIES, properties, 0 };
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCreateCommandQueue);

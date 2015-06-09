@@ -9,6 +9,12 @@ set( TARGET_NAME builtin_kernels )
 if (NOT WIN32)
     set(HW_UTILS_HEADERS ../../utils/cl_hw_utils/export)
     set(HW_UTILS_PROJ_NAME cl_hw_utils)
+
+    # [LLVM 3.6 UPGRADE] Disable Linux warning about unused function
+    # this warning occur when processing externals/itt/include/ittnotify.h
+    # since it contain __itt_id __itt_id_make(void*, long long unsigned int)
+    # function that not use in every build target.
+    add_definitions( "-Wno-unused-function" )
 endif (NOT WIN32)
 
 include_directories( BEFORE ${HW_UTILS_HEADERS} 

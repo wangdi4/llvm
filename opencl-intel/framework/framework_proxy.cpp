@@ -81,7 +81,7 @@ FrameworkProxy::FrameworkProxy()
     m_pLoggerClient = NULL;
 	m_pTaskExecutor = NULL;
 	m_pTaskList     = NULL;
-	m_uiTEActivationCount = NULL;
+	m_uiTEActivationCount = 0;
     
     RegisterGlobalAtExitNotification        ( this );
 #ifndef _WIN32
@@ -661,12 +661,12 @@ bool FrameworkProxy::ActivateTaskExecutor() const
 
         SharedPtr<ITaskList> pTaskList;
 
-        if (NULL != pTERootDevice)
+        if (0 != pTERootDevice)
         {
             pTaskList = pTERootDevice->CreateTaskList( TE_CMD_LIST_IN_ORDER );
         }
 
-        if (NULL != pTaskList)
+        if (0 != pTaskList)
         {
             m_pTaskList = pTaskList.GetPtr();
             m_pTaskList->IncRefCnt();
@@ -734,7 +734,7 @@ void  FrameworkProxy::CancelAllTasks(bool wait_for_finish) const
     SharedPtr<ITaskList> tmpTaskList = m_pTaskList;
     m_initializationMutex.Unlock();
 
-    if (NULL != tmpTaskList)
+    if (0 != tmpTaskList)
     {
         tmpTaskList->Cancel();
         if (wait_for_finish)

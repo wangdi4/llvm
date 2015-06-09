@@ -1085,7 +1085,7 @@ queue_t NDRange::GetDefaultQueueForDevice() const
 {
     if ( NULL == m_pTaskDispatcher )
     {
-        return NULL != m_parent ? m_parent->GetDefaultQueueForDevice() : NULL;
+        return 0 != m_parent ? m_parent->GetDefaultQueueForDevice() : NULL;
     }
     return m_pTaskDispatcher->GetDefaultQueue();
 }

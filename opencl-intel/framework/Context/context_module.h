@@ -355,7 +355,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
             (void*)clContext, clFlags, clImageFormat->image_channel_data_type, clImageFormat->image_channel_order, szImageWidth, szImageHeight, szImageDepth, szImageRowPitch, szImageSlicePitch, pHostPtr, pErrcodeRet);
 
         SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)clContext).DynamicCast<Context>();
-        if (NULL == pContext)
+        if (0 == pContext)
         {
             LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d) = NULL"), clContext);
             if (NULL != pErrcodeRet)
@@ -538,7 +538,7 @@ cl_mem ContextModule::CreateImageBuffer(cl_context context, cl_mem_flags clFlags
 
     SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)context).DynamicCast<Context>();
 
-    if (NULL == pContext)
+    if (0 == pContext)
     {
         LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d) = NULL"), context);
         if (NULL != pErrcodeRet)
@@ -549,7 +549,7 @@ cl_mem ContextModule::CreateImageBuffer(cl_context context, cl_mem_flags clFlags
     }
 
     SharedPtr<GenericMemObject> pBuffer = m_mapMemObjects.GetOCLObject((_cl_mem_int*)buffer).DynamicCast<GenericMemObject>();
-    if (CL_FAILED(clErr) || NULL == pBuffer)
+    if (CL_FAILED(clErr) || 0 == pBuffer)
     {
         LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), buffer, &pBuffer, ClErrTxt(clErr));
         if (pErrcodeRet)

@@ -126,7 +126,7 @@ cl_err_code OutOfOrderCommandQueue::Enqueue(Command* cmd)
     
     SharedPtr<OclEvent> cmdEvent = cmd->GetEvent();
     m_depOnAll->GetEvent()->AddDependentOn(cmdEvent);
-    if (NULL != m_lastBarrier)
+    if (0 != m_lastBarrier)
     {
         cmdEvent->AddDependentOn( m_lastBarrier );
     }
@@ -167,7 +167,7 @@ cl_err_code OutOfOrderCommandQueue::EnqueueWaitForEvents(Command* cmd)
 
     SharedPtr<OclEvent> cmdEvent = cmd->GetEvent();
     m_depOnAll->GetEvent()->AddDependentOn(cmdEvent);
-    if (NULL != m_lastBarrier)
+    if (0 != m_lastBarrier)
     {
         cmdEvent->AddDependentOn( m_lastBarrier );
     }

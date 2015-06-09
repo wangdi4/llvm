@@ -53,7 +53,7 @@ public:
      */
     SharedPtr<Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup> GetParentTaskGroup()
     {
-      if (m_parent != NULL)
+      if (m_parent != 0)
       {
         return m_parent->m_childrenTaskGroup;
       }

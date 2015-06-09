@@ -192,7 +192,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         bool                IsValid()     const { return m_bValid; }
 
-        bool                IsSvmPtr()    const { return (NULL != m_pSvmPtrArg); }
+        bool                IsSvmPtr()    const { return (0 != m_pSvmPtrArg); }
 
         bool                IsQueueId()   const { return CL_KRNL_ARG_PTR_QUEUE_T == m_clKernelArgType.type; }
 

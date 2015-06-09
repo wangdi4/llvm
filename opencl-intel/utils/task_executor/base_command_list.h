@@ -223,7 +223,7 @@ public:
     // This is an optimization: since only one NDRange command can Simultaneously run, all NDRange commands can share the same TaskGroup, without the need to allocate a new one for each of them.
     virtual SharedPtr<IThreadLibTaskGroup> GetNDRangeChildrenTaskGroup()
     {
-        if (NULL != m_ndrangeChildrenTaskGroup)
+        if (0 != m_ndrangeChildrenTaskGroup)
         {
             return m_ndrangeChildrenTaskGroup;
         }

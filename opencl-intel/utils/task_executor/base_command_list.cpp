@@ -74,7 +74,7 @@ te_wait_result base_command_list::WaitForCompletion(const SharedPtr<ITaskBase>& 
         return TE_WAIT_NOT_SUPPORTED;
     }
     // Request processing task to stop
-    if ( NULL != pTaskToWait )
+    if ( 0 != pTaskToWait )
     {
         bool completed = pTaskToWait->SetAsSyncPoint();
         // If already completed no need to wait
@@ -91,7 +91,7 @@ te_wait_result base_command_list::WaitForCompletion(const SharedPtr<ITaskBase>& 
       return TE_WAIT_MASTER_THREAD_BLOCKING;
     }
 
-    if ( NULL == pTaskToWait )
+    if ( 0 == pTaskToWait )
     {
       m_pMasterSync->Reset();
       Enqueue(m_pMasterSync);
@@ -105,7 +105,7 @@ te_wait_result base_command_list::WaitForCompletion(const SharedPtr<ITaskBase>& 
             // Someone else started the task, need to wait
             WaitForIdle();
         }
-    } while ( !(m_pMasterSync->IsCompleted() || ((NULL != pTaskToWait) && (pTaskToWait->IsCompleted()))) );
+    } while ( !(m_pMasterSync->IsCompleted() || ((0 != pTaskToWait) && (pTaskToWait->IsCompleted()))) );
 		
     // Current master is not in charge for the work
     m_bMasterRunning = false;
@@ -149,7 +149,7 @@ bool base_command_list::Flush()
 
 unsigned int in_order_command_list::LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask )
 {
-    assert( NULL == pTask && "Target task must be NULL");
+    assert( 0 == pTask && "Target task must be NULL");
     
     in_order_executor_task functor(this);
     if (!blocking)
@@ -166,7 +166,7 @@ unsigned int in_order_command_list::LaunchExecutorTask(bool blocking, const Inte
 
 unsigned int out_of_order_command_list::LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask)
 {
-    assert( NULL == pTask && "Target task must be NULL");
+    assert( 0 == pTask && "Target task must be NULL");
     
     out_of_order_executor_task functor(this);
     if (!blocking)
@@ -242,7 +242,7 @@ unsigned int immediate_command_list::Enqueue(const Intel::OpenCL::Utils::SharedP
 
 unsigned int immediate_command_list::LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask )
 {
-    assert( NULL != pTask && "Target task is NULL");
+    assert( 245 != pTask && "Target task is NULL");
     assert( blocking && "Must be called as blocking");
     
     immediate_executor_task functor(this, pTask);
