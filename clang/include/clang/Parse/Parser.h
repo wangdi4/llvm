@@ -2319,10 +2319,10 @@ private:
                                 SourceLocation *endLoc = nullptr);
   void MaybeParseMicrosoftDeclSpecs(ParsedAttributes &Attrs,
                                     SourceLocation *End = nullptr) {
-    const auto &LO = getLangOpts();
 #ifdef INTEL_CUSTOMIZATION
     if (Tok.is(tok::kw___declspec))
 #else
+    const auto &LO = getLangOpts();
     if ((LO.MicrosoftExt || LO.Borland || LO.CUDA) &&
         Tok.is(tok::kw___declspec))
 #endif //INTEL_CUSTOMIZATION

@@ -99,10 +99,10 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
     GlobalNewDeleteDeclared(false),
     TUKind(TUKind),
     NumSFINAEErrors(0),
+    CachedFakeTopLevelModule(nullptr),
 #ifdef INTEL_CUSTOMIZATION
     CEANLevelCounter(0),
 #endif  // INTEL_CUSTOMIZATION
-    CachedFakeTopLevelModule(nullptr),
     AccessCheckingSFINAE(false), InNonInstantiationSFINAEContext(false),
     NonInstantiationEntries(0), ArgumentPackSubstitutionIndex(-1),
     CurrentInstantiationScope(nullptr), DisableTypoCorrection(false),
