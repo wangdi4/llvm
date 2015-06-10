@@ -39,11 +39,11 @@ LPURegisterInfo::LPURegisterInfo()
 const MCPhysReg*
 LPURegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
   static const MCPhysReg CalleeSavedRegs[] = {
-    LPU::R12,
+    LPU::R4,
     0
   };
   static const MCPhysReg CalleeSavedRegsFP[] = {
-    LPU::R12, LPU::FP,
+    LPU::R4, LPU::FP,
     0
   };
 

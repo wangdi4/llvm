@@ -33,6 +33,25 @@ void LPUInstrInfo::anchor() {}
 LPUInstrInfo::LPUInstrInfo(LPUSubtarget &STI)
   : LPUGenInstrInfo(LPU::ADJCALLSTACKDOWN, LPU::ADJCALLSTACKUP),
     RI() {}
+
+void LPUInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
+                                  MachineBasicBlock::iterator I, DebugLoc DL,
+                                  unsigned DestReg, unsigned SrcReg,
+                                  bool KillSrc) const {
+  // This could determine the opcode based on the minimum size of the source and destination
+  // For now, just use MOV64
+  unsigned Opc = LPU::MOV64;
+  if (LPU::CCI1RegClass.contains(DestReg,SrcReg)) Opc = LPU::MOV1;
+  if (LPU::CCI8RegClass.contains(DestReg,SrcReg)) Opc = LPU::MOV8;
+  if (LPU::CCI16RegClass.contains(DestReg,SrcReg)) Opc = LPU::MOV16;
+  if (LPU::CCI32RegClass.contains(DestReg,SrcReg)) Opc = LPU::MOV32;
+  if (LPU::CCF32RegClass.contains(DestReg,SrcReg)) Opc = LPU::MOV32;
+
+  BuildMI(MBB, I, DL, get(Opc), DestReg)
+    .addReg(SrcReg, getKillRegState(KillSrc));
+}
+
+
 /*
 void LPUInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
                                           MachineBasicBlock::iterator MI,
@@ -86,22 +105,6 @@ void LPUInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
       .addReg(DestReg).addFrameIndex(FrameIdx).addImm(0).addMemOperand(MMO);
   else
     llvm_unreachable("Cannot store this register to stack slot!");
-}
-
-void LPUInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
-                                  MachineBasicBlock::iterator I, DebugLoc DL,
-                                  unsigned DestReg, unsigned SrcReg,
-                                  bool KillSrc) const {
-  unsigned Opc;
-  if (LPU::GR16RegClass.contains(DestReg, SrcReg))
-    Opc = LPU::MOV16rr;
-  else if (LPU::GR8RegClass.contains(DestReg, SrcReg))
-    Opc = LPU::MOV8rr;
-  else
-    llvm_unreachable("Impossible reg-to-reg copy");
-
-  BuildMI(MBB, I, DL, get(Opc), DestReg)
-    .addReg(SrcReg, getKillRegState(KillSrc));
 }
 
 unsigned LPUInstrInfo::RemoveBranch(MachineBasicBlock &MBB) const {

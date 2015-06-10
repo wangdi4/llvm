@@ -52,6 +52,7 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
     : TargetLowering(TM) {
 
   // Set up the register classes.
+  /*
   addRegisterClass(MVT::i1,   &LPU::RCI1RegClass);
   addRegisterClass(MVT::i8,   &LPU::RCI8RegClass);
   addRegisterClass(MVT::i16,  &LPU::RCI16RegClass);
@@ -59,6 +60,30 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
   addRegisterClass(MVT::i64,  &LPU::RCI64RegClass);
   addRegisterClass(MVT::f32,  &LPU::RCF32RegClass);
   addRegisterClass(MVT::f64,  &LPU::RCF64RegClass);
+
+  addRegisterClass(MVT::i1,   &LPU::CCRESRegClass);
+  addRegisterClass(MVT::i8,   &LPU::CCRESRegClass);
+  addRegisterClass(MVT::i16,  &LPU::CCRESRegClass);
+  addRegisterClass(MVT::i32,  &LPU::CCRESRegClass);
+  addRegisterClass(MVT::i64,  &LPU::CCRESRegClass);
+  addRegisterClass(MVT::f32,  &LPU::CCRESRegClass);
+  addRegisterClass(MVT::f64,  &LPU::CCRESRegClass);
+
+  addRegisterClass(MVT::i1,   &LPU::C1RegClass);
+  addRegisterClass(MVT::i8,   &LPU::C8RegClass);
+  addRegisterClass(MVT::i16,  &LPU::C16RegClass);
+  addRegisterClass(MVT::i32,  &LPU::C32RegClass);
+  addRegisterClass(MVT::i64,  &LPU::C64RegClass);
+  addRegisterClass(MVT::f32,  &LPU::C32RegClass);
+  addRegisterClass(MVT::f64,  &LPU::C64RegClass);
+  */
+  addRegisterClass(MVT::i1,   &LPU::CCI1RegClass);
+  addRegisterClass(MVT::i8,   &LPU::CCI8RegClass);
+  addRegisterClass(MVT::i16,  &LPU::CCI16RegClass);
+  addRegisterClass(MVT::i32,  &LPU::CCI32RegClass);
+  addRegisterClass(MVT::i64,  &LPU::CCI64RegClass);
+  addRegisterClass(MVT::f32,  &LPU::CCF32RegClass);
+  addRegisterClass(MVT::f64,  &LPU::CCF64RegClass);
 
   // Compute derived properties from the register classes
   computeRegisterProperties();
@@ -75,7 +100,7 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
   // Operations we want expanded for all types
   for (MVT VT : MVT::integer_valuetypes()) {
     setOperationAction(ISD::BR_CC,            VT,    Expand);
-    setOperationAction(ISD::SELECT,           VT,    Expand);
+    //    setOperationAction(ISD::SELECT,           VT,    Expand);
     setOperationAction(ISD::SELECT_CC,        VT,    Expand);
 
     setOperationAction(ISD::SIGN_EXTEND,      VT,    Expand);
@@ -115,10 +140,13 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
     setLoadExtAction(ISD::ZEXTLOAD, VT, MVT::i1,  Promote);
 
     // for now (likely revisit)
+    setLoadExtAction(ISD::EXTLOAD, VT, MVT::i8,  Expand);
     setLoadExtAction(ISD::ZEXTLOAD, VT, MVT::i8,  Expand);
     setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i8,  Expand);
+    setLoadExtAction(ISD::EXTLOAD, VT, MVT::i16, Expand);
     setLoadExtAction(ISD::ZEXTLOAD, VT, MVT::i16, Expand);
     setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i16, Expand);
+    setLoadExtAction(ISD::EXTLOAD, VT, MVT::i32, Expand);
     setLoadExtAction(ISD::ZEXTLOAD, VT, MVT::i32, Expand);
     setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i32, Expand);
   }
@@ -387,7 +415,7 @@ LPUTargetLowering::LowerCCCArguments(SDValue Chain,
     CCValAssign &VA = ArgLocs[i];
     if (VA.isRegLoc()) {
       // Arguments passed in registers
-      unsigned Reg = MF.addLiveIn(VA.getLocReg(), &LPU::RCI64RegClass);
+      unsigned Reg = MF.addLiveIn(VA.getLocReg(), &LPU::CCARGRegClass);
       SDValue ArgValue = DAG.getCopyFromReg(Chain, dl, Reg, VA.getLocVT());
       InVals.push_back(ArgValue);
 
