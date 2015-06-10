@@ -17,26 +17,33 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 namespace intel{
 using namespace llvm;
+ 
+std::vector<Attribute> VectorizerUtils::getVectorVariantAttributes(Function& F) {
+  std::vector<Attribute> retVal;
+  AttributeSet attributes = F.getAttributes().getFnAttributes();
+  AttributeSet::iterator itA = attributes.begin(0);
+  AttributeSet::iterator endA = attributes.end(0);
+  for (;itA != endA; ++itA) {
+    if (!itA->isStringAttribute())
+      continue;
+    StringRef attributeKind = itA->getKindAsString();
+    if (VectorVariant::isVectorVariant(attributeKind))
+      retVal.push_back(*itA);
+  }
+  return retVal;
+}
 
 void VectorizerUtils::getFunctionsToVectorize(llvm::Module &M,
 					      FunctionVariants& funcVars) {
   for (auto it = M.begin(), end = M.end(); it != end; it++) {
     Function& F = *it;
+    auto vectorVariantAttributes = getVectorVariantAttributes(F);
+    if (vectorVariantAttributes.empty())
+      continue;
     funcVars[&F] = DeclaredVariants();
     DeclaredVariants& declaredVariants = funcVars[&F];
-    AttributeSet attributes = F.getAttributes().getFnAttributes();
-    AttributeSet::iterator itA = attributes.begin(0);
-    AttributeSet::iterator endA = attributes.end(0);
-    for (;itA != endA; ++itA) {
-      if (!itA->isStringAttribute())
-	continue;
-      StringRef attributeKind = itA->getKindAsString();
-      if (!VectorVariant::isVectorVariant(attributeKind))
-	continue;
-      declaredVariants.push_back(attributeKind);
-    }
-    if (declaredVariants.empty())
-      funcVars.erase(&F);
+    for (auto attribute : vectorVariantAttributes)
+      declaredVariants.push_back(attribute.getKindAsString());
   }
 }
 

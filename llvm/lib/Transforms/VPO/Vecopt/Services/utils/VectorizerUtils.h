@@ -19,6 +19,11 @@ public:
 
   typedef std::vector<std::string> DeclaredVariants;
   typedef std::map<llvm::Function*, DeclaredVariants> FunctionVariants;
+ 
+  /// @brief Get all function attributes that specify a vector variant
+  /// @param F Function to inspect
+  /// @return A vector of all matching attributes
+  static std::vector<llvm::Attribute> getVectorVariantAttributes(llvm::Function& F);
 
   /// @brief Get all functions marked for vectorization in module.
   /// @param M Module to query

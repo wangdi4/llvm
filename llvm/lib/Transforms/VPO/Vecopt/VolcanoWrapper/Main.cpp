@@ -665,7 +665,18 @@ Function* Vectorizer::createVectorVersion(Function& vectorizedFunction,
 					   vectorizedFunction.getLinkage(),
 					   name,
 					   vectorizedFunction.getParent());
+  // Copy all the attributes from the scalar function to its vector version
+  // except for the vector variant attributes.
   wrapperFunc->copyAttributesFrom(&vectorizedFunction);
+  AttrBuilder attrBuilder;
+  for (auto attribute : VectorizerUtils::getVectorVariantAttributes(*wrapperFunc)) {
+    attrBuilder.addAttribute(attribute);
+  }
+  AttributeSet attrsToRemove = AttributeSet::get(wrapperFunc->getContext(),
+                                                 AttributeSet::FunctionIndex,
+                                                 attrBuilder);
+  wrapperFunc->removeAttributes(AttributeSet::FunctionIndex, attrsToRemove);    
+
   wrapperFunc->setCallingConv(CallingConv::Intel_regcall);
   BasicBlock* entryBB = BasicBlock::Create(wrapperFunc->getContext(),
 					   "wrapper.entry",

@@ -59,13 +59,14 @@ public:
   std::string encode() {
     std::stringstream sst;
     sst << kind;
-    if (isLinear())
-      if (stride != NA()) {
-	if (stride >= 0)
-	  sst << stride;
-	else
-	  sst << "n" << -stride;
-      }
+    if (isNonUnitStride()) {
+      if (stride >= 0)
+        sst << stride;
+      else
+        sst << "n" << -stride;
+    }
+    if (isVariableStride())
+        sst << stride;
     if (isAligned())
       sst << 'a' << alignment;
     return sst.str();

@@ -1322,39 +1322,7 @@ bool CanVectorizeImpl::hasIllegalTypes(Function &F) {
 }
 
 bool CanVectorizeImpl::hasNonInlineUnsupportedFunctions(Function &F) {
-  Module *pM = F.getParent();
-  std::set<Function *> unsupportedFunctions;
-  std::set<Function *> roots;
-
-  // Add all kernels to root functions
-  // Kernels assumes to have implicit barrier
-  VectorizerUtils::FunctionVariants kernels;
-  VectorizerUtils::getFunctionsToVectorize(*pM, kernels);
-  for (auto& pair : kernels)
-    roots.insert(pair.first);
-
-  // Add all functions that contains synchronize/get_local_id/get_global_id to root functions
-  CompilationUtils::FunctionSet oclFunction;
-
-  //Get get_global_id built-in if declared in module
-  if ( Function *pF = pM->getFunction(CompilationUtils::mangledGetGID()) ) {
-    oclFunction.insert(pF);
-  }
-
-  for ( CompilationUtils::FunctionSet::iterator fi = oclFunction.begin(), fe = oclFunction.end(); fi != fe; ++fi ) {
-    Function *F = *fi;
-    for (Function::user_iterator ui = F->user_begin(), ue = F->user_end(); ui != ue; ++ui ) {
-      CallInst *CI = dyn_cast<CallInst> (*ui);
-      if (!CI) continue;
-      Function *pCallingFunc = CI->getParent()->getParent();
-      roots.insert(pCallingFunc);
-    }
-  }
-
-  // Fill unsupportedFunctions set with all functions that calls directly or undirectly
-  // functions from the root functions set
-  LoopUtils::fillFuncUsersSet(roots, unsupportedFunctions);
-  return unsupportedFunctions.count(&F);
+  return false;
 }
 
 bool CanVectorizeImpl::hasDirectStreamCalls(Function &F, RuntimeServices* services) {
