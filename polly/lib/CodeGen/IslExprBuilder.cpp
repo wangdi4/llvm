@@ -10,10 +10,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "polly/CodeGen/IslExprBuilder.h"
-
 #include "polly/ScopInfo.h"
 #include "polly/Support/GICHelper.h"
-
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
@@ -117,9 +115,12 @@ Value *IslExprBuilder::createAccessAddress(isl_ast_expr *Expr) {
   assert(Base->getType()->isPointerTy() && "Access base should be a pointer");
   StringRef BaseName = Base->getName();
 
-  if (Base->getType() != SAI->getType())
-    Base = Builder.CreateBitCast(Base, SAI->getType(),
-                                 "polly.access.cast." + BaseName);
+  auto PointerTy = PointerType::get(SAI->getElementType(),
+                                    Base->getType()->getPointerAddressSpace());
+  if (Base->getType() != PointerTy) {
+    Base =
+        Builder.CreateBitCast(Base, PointerTy, "polly.access.cast." + BaseName);
+  }
 
   IndexOp = nullptr;
   for (unsigned u = 1, e = isl_ast_expr_get_op_n_arg(Expr); u < e; u++) {

@@ -90,7 +90,7 @@ public:
   ELFFile(StringRef name, ELFLinkingContext &ctx);
   ELFFile(std::unique_ptr<MemoryBuffer> mb, ELFLinkingContext &ctx);
 
-  static std::error_code isCompatible(const MemoryBuffer &mb,
+  static std::error_code isCompatible(MemoryBufferRef mb,
                                       ELFLinkingContext &ctx);
 
   static bool canParse(file_magic magic) {
@@ -345,10 +345,10 @@ protected:
   /// list of relocations references.  In ELF, if a section named, ".text" has
   /// relocations will also have a section named ".rel.text" or ".rela.text"
   /// which will hold the entries.
-  std::unordered_map<StringRef, range<Elf_Rela_Iter>>
+  std::unordered_map<const Elf_Shdr *, range<Elf_Rela_Iter>>
   _relocationAddendReferences;
   MergedSectionMapT _mergedSectionMap;
-  std::unordered_map<StringRef, range<Elf_Rel_Iter>> _relocationReferences;
+  std::unordered_map<const Elf_Shdr *, range<Elf_Rel_Iter>> _relocationReferences;
   std::vector<ELFReference<ELFT> *> _references;
   llvm::DenseMap<const Elf_Sym *, Atom *> _symbolToAtomMapping;
   llvm::DenseMap<const ELFReference<ELFT> *, const Elf_Sym *>
@@ -398,7 +398,7 @@ public:
       : ELFFile<ELFT>(name, ctx) {}
 
   /// \brief add a global absolute atom
-  virtual void addAbsoluteAtom(StringRef symbolName);
+  virtual void addAbsoluteAtom(StringRef symbolName, bool isHidden = false);
 
   /// \brief add an undefined atom
   virtual void addUndefinedAtom(StringRef symbolName);

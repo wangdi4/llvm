@@ -49,11 +49,12 @@ class IdentifierInfo {
   // Objective-C keyword ('protocol' in '@protocol') or builtin (__builtin_inf).
   // First NUM_OBJC_KEYWORDS values are for Objective-C, the remaining values
   // are for builtins.
-  unsigned ObjCOrBuiltinID    :11;
+  unsigned ObjCOrBuiltinID    :12; // INTEL_CUSTOMIZATION
   bool HasMacro               : 1; // True if there is a #define for this.
   bool HadMacro               : 1; // True if there was a #define for this.
   bool IsExtension            : 1; // True if identifier is a lang extension.
-  bool IsCXX11CompatKeyword   : 1; // True if identifier is a keyword in C++11.
+  bool IsFutureCompatKeyword  : 1; // True if identifier is a keyword in a
+                                   // newer Standard or proposed Standard.
   bool IsPoisoned             : 1; // True if identifier is poisoned.
   bool IsCPPOperatorKeyword   : 1; // True if ident is a C++ operator keyword.
   bool NeedsHandleIdentifier  : 1; // See "RecomputeNeedsHandleIdentifier".
@@ -68,7 +69,7 @@ class IdentifierInfo {
                                    // stored externally.
   bool IsModulesImport        : 1; // True if this is the 'import' contextual
                                    // keyword.
-  // 32-bit word is filled.
+  // 33 bits now - INTEL_CUSTOMIZATION
 
   void *FETokenInfo;               // Managed by the language front-end.
   llvm::StringMapEntry<IdentifierInfo*> *Entry;
@@ -124,6 +125,7 @@ public:
   }
 
   /// \brief Return true if this identifier is \#defined to some other value.
+  /// \note The current definition may be in a module and not currently visible.
   bool hasMacroDefinition() const {
     return HasMacro;
   }
@@ -212,13 +214,14 @@ public:
       RecomputeNeedsHandleIdentifier();
   }
 
-  /// is/setIsCXX11CompatKeyword - Initialize information about whether or not
-  /// this language token is a keyword in C++11. This controls compatibility
-  /// warnings, and is only true when not parsing C++11. Once a compatibility
-  /// problem has been diagnosed with this keyword, the flag will be cleared.
-  bool isCXX11CompatKeyword() const { return IsCXX11CompatKeyword; }
-  void setIsCXX11CompatKeyword(bool Val) {
-    IsCXX11CompatKeyword = Val;
+  /// is/setIsFutureCompatKeyword - Initialize information about whether or not
+  /// this language token is a keyword in a newer or proposed Standard. This
+  /// controls compatibility warnings, and is only true when not parsing the
+  /// corresponding Standard. Once a compatibility problem has been diagnosed
+  /// with this keyword, the flag will be cleared.
+  bool isFutureCompatKeyword() const { return IsFutureCompatKeyword; }
+  void setIsFutureCompatKeyword(bool Val) {
+    IsFutureCompatKeyword = Val;
     if (Val)
       NeedsHandleIdentifier = 1;
     else
@@ -324,7 +327,7 @@ private:
   void RecomputeNeedsHandleIdentifier() {
     NeedsHandleIdentifier =
       (isPoisoned() | hasMacroDefinition() | isCPlusPlusOperatorKeyword() |
-       isExtensionToken() | isCXX11CompatKeyword() || isOutOfDate() ||
+       isExtensionToken() | isFutureCompatKeyword() || isOutOfDate() ||
        isModulesImport());
   }
 };

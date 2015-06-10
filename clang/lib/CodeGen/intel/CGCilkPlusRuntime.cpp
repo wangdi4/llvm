@@ -261,7 +261,7 @@ static void EmitSaveFloatingPointState(CGBuilderTy &B, Value *SF) {
   Value *mxcsrField = GEP(B, SF, StackFrameBuilder::mxcsr);
   Value *fpcsrField = GEP(B, SF, StackFrameBuilder::fpcsr);
 
-  B.CreateCall2(Asm, mxcsrField, fpcsrField);
+  B.CreateCall(Asm, {mxcsrField, fpcsrField});
 }
 
 /// \brief Helper to find a function with the given name, creating it if it
@@ -339,7 +339,8 @@ static CallInst *EmitCilkSetJmp(CGBuilderTy &B, Value *SF,
   B.CreateStore(FrameAddr, FrameSaveSlot);
 
   // Store stack pointer in the 2nd slot
-  Value *StackAddr = B.CreateCall(CGF.CGM.getIntrinsic(Intrinsic::stacksave));
+  Value *StackAddr =
+    B.CreateCall(CGF.CGM.getIntrinsic(Intrinsic::stacksave), {});
 
   Value *StackSaveSlot = GEP(B, Buf, 2);
   B.CreateStore(StackAddr, StackSaveSlot);
@@ -799,7 +800,7 @@ static Function *Get__cilkrts_enter_frame_1(CodeGenFunction &CGF) {
   CallInst *W = 0;
   {
     CGBuilderTy B(Entry);
-    W = B.CreateCall(CILKRTS_FUNC(get_tls_worker, CGF));
+    W = B.CreateCall(CILKRTS_FUNC(get_tls_worker, CGF), {});
     Value *Cond = B.CreateICmpEQ(W, ConstantPointerNull::get(WorkerPtrTy));
     B.CreateCondBr(Cond, SlowPath, FastPath);
   }
@@ -807,7 +808,7 @@ static Function *Get__cilkrts_enter_frame_1(CodeGenFunction &CGF) {
   CallInst *Wslow = 0;
   {
     CGBuilderTy B(SlowPath);
-    Wslow = B.CreateCall(CILKRTS_FUNC(bind_thread_1, CGF));
+    Wslow = B.CreateCall(CILKRTS_FUNC(bind_thread_1, CGF), {});
     llvm::Type *Ty = SFTy->getElementType(StackFrameBuilder::flags);
     StoreField(B,
       ConstantInt::get(Ty, CILK_FRAME_LAST | CILK_FRAME_VERSION),
@@ -871,7 +872,7 @@ static Function *Get__cilkrts_enter_frame_fast_1(CodeGenFunction &CGF) {
   BasicBlock *Entry = BasicBlock::Create(Ctx, "", Fn);
 
   CGBuilderTy B(Entry);
-  Value *W = B.CreateCall(CILKRTS_FUNC(get_tls_worker, CGF));
+  Value *W = B.CreateCall(CILKRTS_FUNC(get_tls_worker, CGF), {});
   StructType *SFTy = StackFrameBuilder::get(Ctx);
   llvm::Type *Ty = SFTy->getElementType(StackFrameBuilder::flags);
 
@@ -1326,7 +1327,7 @@ public:
     if (F.isForEHCleanup()) {
       llvm::Value *ExnSlot = CGF.getExceptionSlot();
       assert(ExnSlot && "null exception handler slot");
-      CGF.Builder.CreateCall2(GetCilkExceptingSyncFn(CGF), SF, ExnSlot);
+      CGF.Builder.CreateCall(GetCilkExceptingSyncFn(CGF), {SF, ExnSlot});
     } else
       CGF.EmitCallOrInvoke(GetCilkSyncFn(CGF), SF);
   }

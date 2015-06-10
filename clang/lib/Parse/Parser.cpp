@@ -38,6 +38,26 @@ public:
     return false;
   }
 };
+
+/// \brief RAIIObject to destroy the contents of a SmallVector of
+/// TemplateIdAnnotation pointers and clear the vector.
+class DestroyTemplateIdAnnotationsRAIIObj {
+  SmallVectorImpl<TemplateIdAnnotation *> &Container;
+
+public:
+  DestroyTemplateIdAnnotationsRAIIObj(
+      SmallVectorImpl<TemplateIdAnnotation *> &Container)
+      : Container(Container) {}
+
+  ~DestroyTemplateIdAnnotationsRAIIObj() {
+    for (SmallVectorImpl<TemplateIdAnnotation *>::iterator I =
+             Container.begin(),
+                                                           E = Container.end();
+         I != E; ++I)
+      (*I)->Destroy();
+    Container.clear();
+  }
+};
 } // end anonymous namespace
 
 IdentifierInfo *Parser::getSEHExceptKeyword() {
@@ -417,6 +437,15 @@ Parser::~Parser() {
 
   PP.clearCodeCompletionHandler();
 
+  if (getLangOpts().DelayedTemplateParsing &&
+      !PP.isIncrementalProcessingEnabled() && !TemplateIds.empty()) {
+    // If an ASTConsumer parsed delay-parsed templates in their
+    // HandleTranslationUnit() method, TemplateIds created there were not
+    // guarded by a DestroyTemplateIdAnnotationsRAIIObj object in
+    // ParseTopLevelDecl(). Destroy them here.
+    DestroyTemplateIdAnnotationsRAIIObj CleanupRAII(TemplateIds);
+  }
+
   assert(TemplateIds.empty() && "Still alive TemplateIdAnnotations around?");
 }
 
@@ -493,26 +522,6 @@ void Parser::Initialize() {
   ConsumeToken();
 }
 
-namespace {
-  /// \brief RAIIObject to destroy the contents of a SmallVector of
-  /// TemplateIdAnnotation pointers and clear the vector.
-  class DestroyTemplateIdAnnotationsRAIIObj {
-    SmallVectorImpl<TemplateIdAnnotation *> &Container;
-  public:
-    DestroyTemplateIdAnnotationsRAIIObj(SmallVectorImpl<TemplateIdAnnotation *>
-                                       &Container)
-      : Container(Container) {}
-
-    ~DestroyTemplateIdAnnotationsRAIIObj() {
-      for (SmallVectorImpl<TemplateIdAnnotation *>::iterator I =
-           Container.begin(), E = Container.end();
-           I != E; ++I)
-        (*I)->Destroy();
-      Container.clear();
-    }
-  };
-}
-
 void Parser::LateTemplateParserCleanupCallback(void *P) {
   // While this RAII helper doesn't bracket any actual work, the destructor will
   // clean up annotations that were created during ActOnEndOfTranslationUnit
@@ -544,8 +553,14 @@ bool Parser::ParseTopLevelDecl(DeclGroupPtrTy &Result) {
     return false;
 
   case tok::annot_module_begin:
+    Actions.ActOnModuleBegin(Tok.getLocation(), reinterpret_cast<Module *>(
+                                                    Tok.getAnnotationValue()));
+    ConsumeToken();
+    return false;
+
   case tok::annot_module_end:
-    // FIXME: Update visibility based on the submodule we're in.
+    Actions.ActOnModuleEnd(Tok.getLocation(), reinterpret_cast<Module *>(
+                                                  Tok.getAnnotationValue()));
     ConsumeToken();
     return false;
 
@@ -751,7 +766,17 @@ Parser::ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
 
     SourceLocation StartLoc = Tok.getLocation();
     SourceLocation EndLoc;
+
     ExprResult Result(ParseSimpleAsm(&EndLoc));
+
+    // Check if GNU-style InlineAsm is disabled.
+    // Empty asm string is allowed because it will not introduce
+    // any assembly code.
+    if (!(getLangOpts().GNUAsm || Result.isInvalid())) {
+      const auto *SL = cast<StringLiteral>(Result.get());
+      if (!SL->getString().trim().empty())
+        Diag(StartLoc, diag::err_gnu_inline_asm_disabled);
+    }
 
     ExpectAndConsume(tok::semi, diag::err_expected_after,
                      "top-level asm block");
