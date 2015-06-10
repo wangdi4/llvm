@@ -189,7 +189,7 @@ struct ForcePassLinking {
     (void)llvm::AreStatisticsEnabled();
     (void)llvm::sys::RunningOnValgrind();
 
-    // Intel HIR Passes - Start
+#if INTEL_CUSTOMIZATION  // HIR passes
     (void)llvm::createRegionIdentificationPass();
     (void)llvm::createSCCFormationPass();
     (void)llvm::createHIRCreationPass();
@@ -202,7 +202,7 @@ struct ForcePassLinking {
     (void)llvm::createSSADeconstructionPass();
     (void)llvm::createHIRCompleteUnrollPass();
     (void)llvm::createHIRCodeGenPass();
-    // Intel HIR Passes - End
+#endif // INTEL_CUSTOMIZATION
   }
 } ForcePassLinking; // Force link by creating a global definition.
 }

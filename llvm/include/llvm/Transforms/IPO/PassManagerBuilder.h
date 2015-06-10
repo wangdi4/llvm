@@ -141,10 +141,11 @@ private:
   void addInitialAliasAnalysisPasses(legacy::PassManagerBase &PM) const;
   void addLTOOptimizationPasses(legacy::PassManagerBase &PM);
   void addLateLTOOptimizationPasses(legacy::PassManagerBase &PM);
-  //***INTEL - loop opt passes.
+
+#if INTEL_CUSTOMIZATION // HIR passes
   void addLoopOptPasses(legacy::PassManagerBase &PM) const;
-  //***INTEL - loop opt cleanup passes.
   void addLoopOptCleanupPasses(legacy::PassManagerBase &PM) const;
+#endif // INTEL_CUSTOMIZATION
 
 public:
   /// populateFunctionPassManager - This fills in the function pass manager,

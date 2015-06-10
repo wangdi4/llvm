@@ -26,7 +26,7 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Vectorize.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Passes.h" //***INTEL
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h" //***INTEL - HIR passes
 
 using namespace llvm;
 
@@ -82,6 +82,7 @@ static cl::opt<bool> EnableLoopInterchange(
     "enable-loopinterchange", cl::init(false), cl::Hidden,
     cl::desc("Enable the new, experimental LoopInterchange Pass"));
 
+//***INTEL - HIR passes
 static cl::opt<bool> RunLoopOpts("loopopt", cl::init(false), cl::Hidden,
                                  cl::desc("Runs loop optimizations passes"));
 
@@ -246,19 +247,14 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3));
   MPM.add(createInstructionCombiningPass());
   MPM.add(createIndVarSimplifyPass()); // Canonicalize indvars
-  //***INTEL this pass converts loops into memcpy/memset so HIR cannot see them.
-  //  MPM.add(createLoopIdiomPass());             // Recognize idioms like
-  //  memset.
+  MPM.add(createLoopIdiomPass());             // Recognize idioms like memset.
   MPM.add(createLoopDeletionPass()); // Delete dead loops
   if (EnableLoopInterchange) {
     MPM.add(createLoopInterchangePass()); // Interchange loops
     MPM.add(createCFGSimplificationPass());
   }
-  //***INTEL This is done in HIR now.
-  /*
-    if (!DisableUnrollLoops)
-      MPM.add(createSimpleLoopUnrollPass());    // Unroll small loops
-  */
+  if (!DisableUnrollLoops)
+    MPM.add(createSimpleLoopUnrollPass());    // Unroll small loops
   addExtensionsToPM(EP_LoopOptimizerEnd, MPM);
 
   if (OptLevel > 1) {
@@ -327,7 +323,7 @@ void PassManagerBuilder::populateModulePassManager(
   // on the rotated form.
   MPM.add(createLoopRotatePass());
 
-  addLoopOptPasses(MPM); //***INTEL
+  addLoopOptPasses(MPM); //***INTEL - HIR passes
 
   MPM.add(createLoopVectorizePass(DisableUnrollLoops, LoopVectorize));
   // FIXME: Because of #pragma vectorize enable, the passes below are always
@@ -524,6 +520,7 @@ void PassManagerBuilder::addLateLTOOptimizationPasses(
     PM.add(createMergeFunctionsPass());
 }
 
+#if INTEL_CUSTOMIZATION // HIR passes
 void PassManagerBuilder::addLoopOptCleanupPasses(
     legacy::PassManagerBase &PM) const {
   PM.add(createCFGSimplificationPass());
@@ -555,6 +552,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
 
   addLoopOptCleanupPasses(PM);
 }
+#endif // INTEL_CUSTOMIZATION
 
 void PassManagerBuilder::populateLTOPassManager(legacy::PassManagerBase &PM) {
   if (LibraryInfo)
