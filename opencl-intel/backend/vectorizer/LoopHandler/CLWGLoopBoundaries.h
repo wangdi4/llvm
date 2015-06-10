@@ -384,7 +384,9 @@ private:
   /// @brief print data collected by the pass on the given module
   /// @param OS stream to print the info regarding the module into
   /// @param M pointer to the Module
-  void print(raw_ostream &OS, const llvm::Module *M = 0) const;
+  /// [LLVM 3.6 UPGRADE] FIXME: this print produces vague compile error
+  /// while trying to call << for raw_ostream and SmallVector<Value*, 4>.
+  /// void print(raw_ostream &OS, const llvm::Module *M = 0) const;
 
   /// @brief sign extends the bound in case a trunc instruction was called
   /// over the result and the comparison is signed
