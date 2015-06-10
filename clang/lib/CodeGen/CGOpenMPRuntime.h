@@ -100,7 +100,7 @@ private:
     // new_task);
     OMPRTL__kmpc_omp_task,
     // Call to void __kmpc_copyprivate(ident_t *loc, kmp_int32 global_tid,
-    // kmp_int32 cpy_size, void *cpy_data, void(*cpy_func)(void *, void *),
+    // size_t cpy_size, void *cpy_data, void(*cpy_func)(void *, void *),
     // kmp_int32 didit);
     OMPRTL__kmpc_copyprivate,
     // Call to kmp_int32 __kmpc_reduce(ident_t *loc, kmp_int32 global_tid,
@@ -128,6 +128,9 @@ private:
     OMPRTL__kmpc_ordered,
     // Call to void __kmpc_end_ordered(ident_t *loc, kmp_int32 global_tid);
     OMPRTL__kmpc_end_ordered,
+    // Call to kmp_int32 __kmpc_omp_taskwait(ident_t *loc, kmp_int32
+    // global_tid);
+    OMPRTL__kmpc_omp_taskwait,
   };
 
   /// \brief Values for bit flags used in the ident_t to describe the fields.
@@ -229,6 +232,16 @@ private:
   /// \brief Type typedef kmp_int32 (* kmp_routine_entry_t)(kmp_int32, void *);
   llvm::Type *KmpRoutineEntryPtrTy;
   QualType KmpRoutineEntryPtrQTy;
+  /// \brief Type typedef struct kmp_task {
+  ///    void *              shareds; /**< pointer to block of pointers to
+  ///    shared vars   */
+  ///    kmp_routine_entry_t routine; /**< pointer to routine to call for
+  ///    executing task */
+  ///    kmp_int32           part_id; /**< part id for the task */
+  ///    kmp_routine_entry_t destructors; /* pointer to function to invoke
+  ///    deconstructors of firstprivate C++ objects */
+  /// } kmp_task_t;
+  QualType KmpTaskTQTy;
 
   /// \brief Build type kmp_routine_entry_t (if not built yet).
   void emitKmpRoutineEntryT(QualType KmpInt32Ty);
@@ -426,6 +439,7 @@ public:
   /// \param SchedKind Schedule kind, specified by the 'schedule' clause.
   /// \param IVSize Size of the iteration variable in bits.
   /// \param IVSigned Sign of the interation variable.
+  /// \param Ordered true if loop is ordered, false otherwise.
   /// \param IL Address of the output variable in which the flag of the
   /// last iteration is returned.
   /// \param LB Address of the output variable in which the lower iteration
@@ -439,8 +453,8 @@ public:
   ///
   virtual void emitForInit(CodeGenFunction &CGF, SourceLocation Loc,
                            OpenMPScheduleClauseKind SchedKind, unsigned IVSize,
-                           bool IVSigned, llvm::Value *IL, llvm::Value *LB,
-                           llvm::Value *UB, llvm::Value *ST,
+                           bool IVSigned, bool Ordered, llvm::Value *IL,
+                           llvm::Value *LB, llvm::Value *UB, llvm::Value *ST,
                            llvm::Value *Chunk = nullptr);
 
   /// \brief Call the appropriate runtime routine to notify that we finished
@@ -451,10 +465,9 @@ public:
   /// \param IVSize Size of the iteration variable in bits.
   /// \param IVSigned Sign of the interation variable.
   ///
-  virtual void emitForOrderedDynamicIterationEnd(CodeGenFunction &CGF,
-                                                 SourceLocation Loc,
-                                                 unsigned IVSize,
-                                                 bool IVSigned);
+  virtual void emitForOrderedIterationEnd(CodeGenFunction &CGF,
+                                          SourceLocation Loc, unsigned IVSize,
+                                          bool IVSigned);
 
   /// \brief Call the appropriate runtime routine to notify that we finished
   /// all the work with current loop.
@@ -521,7 +534,7 @@ public:
                          SourceLocation Loc);
 
   /// \brief Emit task region for the task directive. The task region is
-  /// emmitted in several steps:
+  /// emitted in several steps:
   /// 1. Emit a call to kmp_task_t *__kmpc_omp_task_alloc(ident_t *, kmp_int32
   /// gtid, kmp_int32 flags, size_t sizeof_kmp_task_t, size_t sizeof_shareds,
   /// kmp_routine_entry_t *task_entry). Here task_entry is a pointer to the
@@ -537,6 +550,7 @@ public:
   /// 4. Emit a call to kmp_int32 __kmpc_omp_task(ident_t *, kmp_int32 gtid,
   /// kmp_task_t *new_task), where new_task is a resulting structure from
   /// previous items.
+  /// \param D Current task directive.
   /// \param Tied true if the task is tied (the task is tied to the thread that
   /// can suspend its task region), false - untied (the task is not tied to any
   /// thread).
@@ -550,10 +564,27 @@ public:
   /// TaskFunction.
   /// \param IfCond Not a nullptr if 'if' clause was specified, nullptr
   /// otherwise.
-  virtual void emitTaskCall(CodeGenFunction &CGF, SourceLocation Loc, bool Tied,
+  /// \param PrivateVars List of references to private variables for the task
+  /// directive.
+  /// \param PrivateCopies List of private copies for each private variable in
+  /// \p PrivateVars.
+  /// \param FirstprivateVars List of references to private variables for the
+  /// task directive.
+  /// \param FirstprivateCopies List of private copies for each private variable
+  /// in \p FirstprivateVars.
+  /// \param FirstprivateInits List of references to auto generated variables
+  /// used for initialization of a single array element. Used if firstprivate
+  /// variable is of array type.
+  virtual void emitTaskCall(CodeGenFunction &CGF, SourceLocation Loc,
+                            const OMPExecutableDirective &D, bool Tied,
                             llvm::PointerIntPair<llvm::Value *, 1, bool> Final,
                             llvm::Value *TaskFunction, QualType SharedsTy,
-                            llvm::Value *Shareds, const Expr *IfCond);
+                            llvm::Value *Shareds, const Expr *IfCond,
+                            const ArrayRef<const Expr *> PrivateVars,
+                            const ArrayRef<const Expr *> PrivateCopies,
+                            const ArrayRef<const Expr *> FirstprivateVars,
+                            const ArrayRef<const Expr *> FirstprivateCopies,
+                            const ArrayRef<const Expr *> FirstprivateInits);
 
   /// \brief Emit code for the directive that does not require outlining.
   ///
@@ -602,6 +633,9 @@ public:
                              ArrayRef<const Expr *> RHSExprs,
                              ArrayRef<const Expr *> ReductionOps,
                              bool WithNowait);
+
+  /// \brief Emit code for 'taskwait' directive.
+  virtual void emitTaskwaitCall(CodeGenFunction &CGF, SourceLocation Loc);
 };
 
 } // namespace CodeGen
