@@ -17,11 +17,8 @@ include "LPUInstrFormats.td"
 // LPU Operand Definitions.
 //===----------------------------------------------------------------------===//
 
-//def imm64 : PatLeaf<(imm), [{return true;}]>;
-//def imm64 : Operand<i64>;
-
 // Latency insensitive channels
-
+/*
 class LIC<ValueType t> : Operand<t> {
   let PrintMethod = "printLIC";
   let OperandType = "OPERAND_LIC";
@@ -36,6 +33,7 @@ def LICI64 : LIC<i64>;
 
 def LICF32 : LIC<f32>;
 def LICF64 : LIC<f64>;
+*/
 
 // Operand sets - R - Register, C - Channel, L - Literal
 // These match simulator
@@ -47,6 +45,7 @@ class OpndCL<ValueType t> : Operand<t>;
 class OpndRL<ValueType t> : Operand<t>;
 class OpndCRL<ValueType t> : Operand<t>;
 
+// Immediates of a particular type.
 def immi1        : PatLeaf<(i1 imm)>;
 def immi8        : PatLeaf<(i8 imm)>;
 def immi16       : PatLeaf<(i16 imm)>;
@@ -117,6 +116,14 @@ multiclass SExtOp<string opName, ValueType T, ValueType TSRC> {
     (ins OpndCRL<TSRC>:$op1, OpndCRL<T>:$op2),
     !strconcat("$dst = ", opName, "($op1,$op2);"),
     []>;
+}
+
+multiclass CvtOp<string opName, SDNode opNode, ValueType DT, ValueType ST> {
+  def "" : FMTGEN<
+    (outs OpndCR<DT>:$dst),
+    (ins OpndCRL<ST>:$src),
+    !strconcat("$dst = ", opName, "($src);"),
+    [(set DT:$dst, (opNode ST:$src))]>;
 }
 
 // This uses a multiclass even though it only declares one class because
@@ -215,20 +222,33 @@ defm MOV16 : MovOp<"mov16", i16>;
 defm MOV32 : MovOp<"mov32", i32>;
 defm MOV64 : MovOp<"mov64", i64>;
 
-//Todo: NOT1-64, NEG8-64, ABS32-64, SQRT32-64
+// todo: NOT1-64
+// todo: NEG8-64
+// todo: ABS32-64
+// todo: SQRT32-64
 
-//Todo: int<=>float Conversions
+// todo: int<=>float Conversions
+// first type in convert name is result, second is source type
+defm CVTS32F32 : CvtOp<"cvts32f32", fp_to_sint, i32, f32>;
+defm CVTS32F64 : CvtOp<"cvts32f64", fp_to_sint, i32, f64>;
+defm CVTU32F32 : CvtOp<"cvtu32f32", fp_to_uint, i32, f32>;
+defm CVTU32F64 : CvtOp<"cvtu32f64", fp_to_uint, i32, f64>;
+defm CVTS64F32 : CvtOp<"cvts64f32", fp_to_sint, i64, f32>;
+defm CVTS64F64 : CvtOp<"cvts64f64", fp_to_sint, i64, f64>;
+defm CVTU64F32 : CvtOp<"cvtu64f32", fp_to_uint, i64, f32>;
+defm CVTU64F64 : CvtOp<"cvtu64f64", fp_to_uint, i64, f64>;
 
-// Todo: LDS8, LDS16, LDS32?
-defm LD8   : LdOp<"ld8",  i8>;
-defm LD16  : LdOp<"ld16", i16>;
-defm LD32  : LdOp<"ld32", i32>;
-defm LD64  : LdOp<"ld64", i64>;
+defm CVTF32S32 : CvtOp<"cvtf32s32", sint_to_fp, f32, i32>;
+defm CVTF32S64 : CvtOp<"cvtf32s64", sint_to_fp, f32, i64>;
+defm CVTF32U32 : CvtOp<"cvtf32u32", uint_to_fp, f32, i32>;
+defm CVTF32U64 : CvtOp<"cvtf32u64", uint_to_fp, f32, i64>;
+defm CVTF64S32 : CvtOp<"cvtf64s32", sint_to_fp, f64, i32>;
+defm CVTF64S64 : CvtOp<"cvtf64s64", sint_to_fp, f64, i64>;
+defm CVTF64U32 : CvtOp<"cvtf64u32", uint_to_fp, f64, i32>;
+defm CVTF64U64 : CvtOp<"cvtf64u64", uint_to_fp, f64, i64>;
 
-defm ST8   : StOp<"st8",  i8,  immi8>;
-defm ST16  : StOp<"st16", i16, immi16>;
-defm ST32  : StOp<"st32", i32, immi32>;
-defm ST64  : StOp<"st64", i64, immi64>;
+defm CVTF32F64 : CvtOp<"cvtf32f64", fround,   f32, f64>;
+defm CVTF64F32 : CvtOp<"cvtf64f32", fextend,  f64, f32>;
 
 defm AND1  : BinOp<"and1",  and, i1,  immi1, 1>;
 defm AND8  : BinOp<"and8",  and, i8,  immi8, 1>;
@@ -248,16 +268,16 @@ defm XOR16 : BinOp<"xor16", xor, i16, immi16, 1>;
 defm XOR32 : BinOp<"xor32", xor, i32, immi32, 1>;
 defm XOR64 : BinOp<"xor64", xor, i64, immi64, 1>;
 
-defm SEXT8  : SExtOp<"sext8",  i8, i8>;
-defm SEXT16_8 : SExtOp<"sext16", i16, i8>;
-defm SEXT16 : SExtOp<"sext16", i16, i16>;
-defm SEXT32_8 : SExtOp<"sext32", i32, i8>;
+defm SEXT8     : SExtOp<"sext8",  i8,  i8>;
+defm SEXT16_8  : SExtOp<"sext16", i16, i8>;
+defm SEXT16    : SExtOp<"sext16", i16, i16>;
+defm SEXT32_8  : SExtOp<"sext32", i32, i8>;
 defm SEXT32_16 : SExtOp<"sext32", i32, i16>;
-defm SEXT32 : SExtOp<"sext32", i32, i32>;
-defm SEXT64_8 : SExtOp<"sext64", i64, i8>;
+defm SEXT32    : SExtOp<"sext32", i32, i32>;
+defm SEXT64_8  : SExtOp<"sext64", i64, i8>;
 defm SEXT64_16 : SExtOp<"sext64", i64, i16>;
 defm SEXT64_32 : SExtOp<"sext64", i64, i32>;
-defm SEXT64 : SExtOp<"sext64", i64, i64>;
+defm SEXT64    : SExtOp<"sext64", i64, i64>;
 
 defm SLL8  : BinOp<"sll8",  shl, i8,  immi8, 0>;
 defm SLL16 : BinOp<"sll16", shl, i16, immi16, 0>;
@@ -311,16 +331,6 @@ defm DIVU64 : BinOp<"divu64", udiv, i64, immi64, 0>;
 defm DIVF32 : BinOp<"div32f", fdiv, f32, immf32, 0>;
 defm DIVF64 : BinOp<"divf64", fdiv, f64, immf64, 0>;
 
-defm FMAF32  : FusedOp1<"fmaf32", fmul, fadd, f32>;
-defm FMAF32x : FusedOp2<"fmaf32", fmul, fadd, f32>; // crude handling of comm.
-defm FMSF32  : FusedOp1<"fmsf32", fmul, fsub, f32>;
-defm FMRSF32 : FusedOp2<"fmrsf32", fmul, fsub, f32>;
-
-defm FMAF64  : FusedOp1<"fmaf64", fmul, fadd, f64>;
-defm FMAF64x : FusedOp2<"fmaf64", fmul, fadd, f64>; // crude handling of comm
-defm FMSF64  : FusedOp1<"fmsf64", fmul, fsub, f64>;
-defm FMRSF64 : FusedOp2<"fmrsf64", fmul, fsub, f64>;
-
 defm CMPLTS8  : CmpOp<"cmplts8",  setlt,  i8,  0>;
 defm CMPLTS16 : CmpOp<"cmplts16", setlt,  i16, 0>;
 defm CMPLTS32 : CmpOp<"cmplts32", setlt,  i32, 0>;
@@ -341,10 +351,10 @@ defm CMPLEU16 : CmpOp<"cmpleu16", setule, i16, 0>;
 defm CMPLEU32 : CmpOp<"cmpleu32", setule, i32, 0>;
 defm CMPLEU64 : CmpOp<"cmpleu64", setule, i64, 0>;
 
-defm CMPEQS8  : CmpOp<"cmpeqs8",  seteq,  i8,  1>;
-defm CMPEQS16 : CmpOp<"cmpeqs16", seteq,  i16, 1>;
-defm CMPEQS32 : CmpOp<"cmpeqs32", seteq,  i32, 1>;
-defm CMPEQS64 : CmpOp<"cmpeqs64", seteq,  i64, 1>;
+defm CMPEQ8   : CmpOp<"cmpeq8",   seteq,  i8,  1>;
+defm CMPEQ16  : CmpOp<"cmpeq16",  seteq,  i16, 1>;
+defm CMPEQ32  : CmpOp<"cmpeq32",  seteq,  i32, 1>;
+defm CMPEQ64  : CmpOp<"cmpeq64",  seteq,  i64, 1>;
 
 defm CMPGTS8  : CmpOp<"cmpgts8",  setgt,  i8,  0>;
 defm CMPGTS16 : CmpOp<"cmpgts16", setgt,  i16, 0>;
@@ -366,29 +376,92 @@ defm CMPGEU16 : CmpOp<"cmpgeu16", setuge, i16, 0>;
 defm CMPGEU32 : CmpOp<"cmpgeu32", setuge, i32, 0>;
 defm CMPGEU64 : CmpOp<"cmpgeu64", setuge, i64, 0>;
 
-defm CMPNES8  : CmpOp<"cmpnes8",  setne,  i8,  1>;
-defm CMPNES16 : CmpOp<"cmpnes16", setne,  i16, 1>;
-defm CMPNES32 : CmpOp<"cmpnes32", setne,  i32, 1>;
-defm CMPNES64 : CmpOp<"cmpnes64", setne,  i64, 1>;
+defm CMPNE8   : CmpOp<"cmpne8",   setne,  i8,  1>;
+defm CMPNE16  : CmpOp<"cmpne16",  setne,  i16, 1>;
+defm CMPNE32  : CmpOp<"cmpne32",  setne,  i32, 1>;
+defm CMPNE64  : CmpOp<"cmpne64",  setne,  i64, 1>;
 
-defm CMPLTF32 : FCmpOp<"cmplts32", setolt, setult, i32, 0>;
-defm CMPLTF64 : FCmpOp<"cmplts64", setolt, setult, i64, 0>;
+defm CMPLTF32 : FCmpOp<"cmpltf32", setolt, setult, f32, 0>;
+defm CMPLTF64 : FCmpOp<"cmpltf64", setolt, setult, f64, 0>;
 
-defm CMPLEF32 : FCmpOp<"cmples32", setole, setule, i32, 0>;
-defm CMPLEF64 : FCmpOp<"cmples64", setole, setule, i64, 0>;
+defm CMPLEF32 : FCmpOp<"cmplef32", setole, setule, f32, 0>;
+defm CMPLEF64 : FCmpOp<"cmplef64", setole, setule, f64, 0>;
 
-defm CMPEQF32 : FCmpOp<"cmpeqs32", setoeq, setueq, i32, 1>;
-defm CMPEQF64 : FCmpOp<"cmpeqs64", setoeq, setueq, i64, 1>;
+defm CMPEQF32 : FCmpOp<"cmpeqf32", setoeq, setueq, f32, 1>;
+defm CMPEQF64 : FCmpOp<"cmpeqf64", setoeq, setueq, f64, 1>;
 
-defm CMPGTF32 : FCmpOp<"cmpgts32", setogt, setugt, i32, 0>;
-defm CMPGTF64 : FCmpOp<"cmpgts64", setogt, setugt, i64, 0>;
+defm CMPGTF32 : FCmpOp<"cmpgtf32", setogt, setugt, f32, 0>;
+defm CMPGTF64 : FCmpOp<"cmpgtf64", setogt, setugt, f64, 0>;
 
-defm CMPGEF32 : FCmpOp<"cmpges32", setoge, setuge, i32, 0>;
-defm CMPGEF64 : FCmpOp<"cmpges64", setoge, setuge, i64, 0>;
+defm CMPGEF32 : FCmpOp<"cmpgef32", setoge, setuge, f32, 0>;
+defm CMPGEF64 : FCmpOp<"cmpgef64", setoge, setuge, f64, 0>;
 
-defm CMPNEF32 : FCmpOp<"cmpnes32", setone, setune, i32, 1>;
-defm CMPNEF64 : FCmpOp<"cmpnes64", setone, setune, i64, 1>;
+defm CMPNEF32 : FCmpOp<"cmpnef32", setone, setune, f32, 1>;
+defm CMPNEF64 : FCmpOp<"cmpnef64", setone, setune, f64, 1>;
 
+// todo: def BSEL8-64
+// todo: def LAND1
+
+defm FMAF32  : FusedOp1<"fmaf32", fmul, fadd, f32>;
+defm FMAF32x : FusedOp2<"fmaf32", fmul, fadd, f32>; // crude handling of comm.
+defm FMSF32  : FusedOp1<"fmsf32", fmul, fsub, f32>;
+defm FMRSF32 : FusedOp2<"fmrsf32", fmul, fsub, f32>;
+
+defm FMAF64  : FusedOp1<"fmaf64", fmul, fadd, f64>;
+defm FMAF64x : FusedOp2<"fmaf64", fmul, fadd, f64>; // crude handling of comm
+defm FMSF64  : FusedOp1<"fmsf64", fmul, fsub, f64>;
+defm FMRSF64 : FusedOp2<"fmrsf64", fmul, fsub, f64>;
+
+// todo: LDS8, LDS16, LDS32?
+defm LD8   : LdOp<"ld8",  i8>;
+defm LD16  : LdOp<"ld16", i16>;
+defm LD32  : LdOp<"ld32", i32>;
+defm LD64  : LdOp<"ld64", i64>;
+
+defm ST8   : StOp<"st8",  i8,  immi8>;
+defm ST16  : StOp<"st16", i16, immi16>;
+defm ST32  : StOp<"st32", i32, immi32>;
+defm ST64  : StOp<"st64", i64, immi64>;
+
+// todo: COPY0
+// todo: COPY1
+// todo: COPY8
+// todo: COPY16
+// todo: COPY32
+// todo: COPY64
+// todo: MERGE1
+// todo: MERGE8
+// todo: MERGE16
+// todo: MERGE32
+// todo: MERGE64
+// todo: SWITCH1
+// todo: SWITCH8
+// todo: SWITCH16
+// todo: SWITCH32
+// todo: SWITCH64
+// todo: SWITCHANY1
+// todo: SWITCHANY8
+// todo: SWITCHANY16
+// todo: SWITCHANY32
+// todo: SWITCHANY64
+// todo: PICK1
+// todo: PICK8
+// todo: PICK16
+// todo: PICK32
+// todo: PICK64
+// todo: PICKANY1
+// todo: PICKANY8
+// todo: PICKANY16
+// todo: PICKANY32
+// todo: PICKANY64
+// todo: ANY0
+// todo: ALL0
+// todo: ONCOUNT0
+// todo: SEQC64
+// todo: SEQS64
+// todo: REPEAT64
+// todo: ORDER
+// todo: DISAM
 
 // Arbitrary immediate support
 def: Pat<(i1 imm:$imm),  (MOV1 imm:$imm)>;
