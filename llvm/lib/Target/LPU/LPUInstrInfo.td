@@ -198,7 +198,7 @@ multiclass LdOp<string opName, ValueType T> {
     [(set T:$dst, (load ADDR_R:$addr))]>;
 }
 
-// TODO: Handling store output
+// TODO: How to handle store output flag?
 multiclass StOp<string opName, ValueType T, PatFrag immOpnd> {
   def "" : FMTGEN<
     (outs),  // How to handle output flag??
@@ -220,12 +220,25 @@ defm MOV1  : MovOp<"mov1",  i1>;
 defm MOV8  : MovOp<"mov8",  i8>;
 defm MOV16 : MovOp<"mov16", i16>;
 defm MOV32 : MovOp<"mov32", i32>;
+defm MOV32f: MovOp<"mov32", f32>;
 defm MOV64 : MovOp<"mov64", i64>;
+defm MOV64f: MovOp<"mov64", f64>;
 
-// todo: NOT1-64
-// todo: NEG8-64
-// todo: ABS32-64
-// todo: SQRT32-64
+// todo: NOT1
+// todo: NOT8
+// todo: NOT16
+// todo: NOT32
+// todo: NOT64
+// todo: NEG8
+// todo: NEGS16
+// todo: NEGS32
+// todo: NEGS64
+// todo: NEGF32
+// todo: NEGF64
+// todo: ABSF32
+// todo: ABSF64
+// todo: SQRTF32
+// todo: SQRTF64
 
 // todo: int<=>float Conversions
 // first type in convert name is result, second is source type
@@ -399,7 +412,10 @@ defm CMPGEF64 : FCmpOp<"cmpgef64", setoge, setuge, f64, 0>;
 defm CMPNEF32 : FCmpOp<"cmpnef32", setone, setune, f32, 1>;
 defm CMPNEF64 : FCmpOp<"cmpnef64", setone, setune, f64, 1>;
 
-// todo: def BSEL8-64
+// todo: def BSEL8
+// todo: def BSEL16
+// todo: def BSEL32
+// todo: def BSEL64
 // todo: def LAND1
 
 defm FMAF32  : FusedOp1<"fmaf32", fmul, fadd, f32>;
@@ -412,16 +428,24 @@ defm FMAF64x : FusedOp2<"fmaf64", fmul, fadd, f64>; // crude handling of comm
 defm FMSF64  : FusedOp1<"fmsf64", fmul, fsub, f64>;
 defm FMRSF64 : FusedOp2<"fmrsf64", fmul, fsub, f64>;
 
-// todo: LDS8, LDS16, LDS32?
+// Should we do these, or drop and assume sext-at-consumer?
+// todo: LDS8
+// todo: LDS16
+// todo: LDS32
 defm LD8   : LdOp<"ld8",  i8>;
 defm LD16  : LdOp<"ld16", i16>;
 defm LD32  : LdOp<"ld32", i32>;
+defm LD32f : LdOp<"ld32", f32>;
 defm LD64  : LdOp<"ld64", i64>;
+defm LD64f : LdOp<"ld64", f64>;
 
 defm ST8   : StOp<"st8",  i8,  immi8>;
 defm ST16  : StOp<"st16", i16, immi16>;
 defm ST32  : StOp<"st32", i32, immi32>;
+defm ST32f : StOp<"st32", f32, immf32>;
 defm ST64  : StOp<"st64", i64, immi64>;
+defm ST64f : StOp<"st64", f64, immf64>;
+
 
 // todo: COPY0
 // todo: COPY1
@@ -468,7 +492,9 @@ def: Pat<(i1 imm:$imm),  (MOV1 imm:$imm)>;
 def: Pat<(i8 imm:$imm),  (MOV8 imm:$imm)>;
 def: Pat<(i16 imm:$imm), (MOV16 imm:$imm)>;
 def: Pat<(i32 imm:$imm), (MOV32 imm:$imm)>;
+def: Pat<(f32 immf32:$imm), (MOV32f immf32:$imm)>;
 def: Pat<(i64 imm:$imm), (MOV64 imm:$imm)>;
+def: Pat<(f64 immf64:$imm), (MOV64f immf64:$imm)>;
 
 // sext/zext
 def : Pat<(i64 (sext i32:$op1)),
