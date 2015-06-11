@@ -49,29 +49,38 @@ def RCR : RegisterClass<"LPU", [i1,i8,i16,i32,i64,f32,f64], 64,
 
 // LPU Invocation arguments
 def ARGS : LPUReg<8,  "args">;  // control sequencing arg
-def ARG0 : LPUReg<9,  "arg0">;  // arg 0
-def ARG1 : LPUReg<10, "arg1">;  // arg 1
-def ARG2 : LPUReg<11, "arg2">;  // arg 2
-def ARG3 : LPUReg<12, "arg3">;  // arg 3
-def ARG4 : LPUReg<13, "arg4">;  // arg 4
-def ARG5 : LPUReg<14, "arg5">;  // arg 5
-def ARG6 : LPUReg<15, "arg6">;  // arg 6
-def ARG7 : LPUReg<16, "arg7">;  // arg 7
+def ARG0 : LPUReg<9,  "arg0">;  // arg 0...
+def ARG1 : LPUReg<10, "arg1">;
+def ARG2 : LPUReg<11, "arg2">;
+def ARG3 : LPUReg<12, "arg3">;
+def ARG4 : LPUReg<13, "arg4">;
+def ARG5 : LPUReg<14, "arg5">;
+def ARG6 : LPUReg<15, "arg6">;
+def ARG7 : LPUReg<16, "arg7">;
+def ARG8 : LPUReg<17, "arg8">;
+def ARG9 : LPUReg<18, "arg9">;
+def ARG10 : LPUReg<19, "arg10">;
+def ARG11 : LPUReg<20, "arg11">;
+def ARG12 : LPUReg<21, "arg12">;
+def ARG13 : LPUReg<22, "arg13">;
+def ARG14 : LPUReg<23, "arg14">;
+def ARG15 : LPUReg<24, "arg15">;
 
 // Channel Class for arguments
 def CCARG : RegisterClass<"LPU", [i1,i8,i16,i32,i64,f32,f64], 64,
-    (add ARGS,ARG0,ARG1,ARG2,ARG3,ARG4,ARG5,ARG6,ARG7)>;
+    (add ARGS,ARG0,ARG1,ARG2,ARG3,ARG4,ARG5,ARG6,ARG7,
+              ARG8,ARG9,ARG10,ARG11,ARG12,ARG13,ARG14,ARG15)>;
 
 // LPU Invocation results
-def RESS : LPUReg<17, "ress">;  // control sequence result
-def RES0 : LPUReg<18, "res0">;  // result 0
-def RES1 : LPUReg<19, "res1">;  // result 1
-def RES2 : LPUReg<20, "res2">;  // result 2
-def RES3 : LPUReg<21, "res3">;  // result 3
-def RES4 : LPUReg<22, "res4">;  // result 4
-def RES5 : LPUReg<23, "res5">;  // result 5
-def RES6 : LPUReg<24, "res6">;  // result 6
-def RES7 : LPUReg<25, "res7">;  // result 7
+def RESS : LPUReg<25, "ress">;  // control sequence result
+def RES0 : LPUReg<26, "res0">;  // result 0
+def RES1 : LPUReg<27, "res1">;
+def RES2 : LPUReg<28, "res2">;
+def RES3 : LPUReg<29, "res3">;
+def RES4 : LPUReg<30, "res4">;
+def RES5 : LPUReg<31, "res5">;
+def RES6 : LPUReg<32, "res6">;
+def RES7 : LPUReg<33, "res7">;
 
 // Channel Class for results
 def CCRES : RegisterClass<"LPU", [i1,i8,i16,i32,i64,f32,f64], 64,
@@ -81,18 +90,45 @@ def CCRES : RegisterClass<"LPU", [i1,i8,i16,i32,i64,f32,f64], 64,
 // should be allocated on demand, even if they still "look like" registers
 // in some way.
 
-def C0 : LPUReg<64, "c0">;
-def C1 : LPUReg<65, "c1">;
-def C2 : LPUReg<66, "c2">;
-def C3 : LPUReg<67, "c3">;
-def C4 : LPUReg<68, "c4">;
-def C5 : LPUReg<69, "c5">;
-def C6 : LPUReg<70, "c6">;
-def C7 : LPUReg<71, "c7">;
+def C0  : LPUReg<64, "c0">;
+def C1  : LPUReg<65, "c1">;
+def C2  : LPUReg<66, "c2">;
+def C3  : LPUReg<67, "c3">;
+def C4  : LPUReg<68, "c4">;
+def C5  : LPUReg<69, "c5">;
+def C6  : LPUReg<70, "c6">;
+def C7  : LPUReg<71, "c7">;
+def C8  : LPUReg<72, "c8">;
+def C9  : LPUReg<73, "c9">;
+def C10 : LPUReg<74, "c10">;
+def C11 : LPUReg<75, "c11">;
+def C12 : LPUReg<76, "c12">;
+def C13 : LPUReg<77, "c13">;
+def C14 : LPUReg<78, "c14">;
+def C15 : LPUReg<79, "c15">;
+def C16 : LPUReg<80, "c16">;
+def C17 : LPUReg<81, "c17">;
+def C18 : LPUReg<82, "c18">;
+def C19 : LPUReg<83, "c19">;
+def C20 : LPUReg<84, "c20">;
+def C21 : LPUReg<85, "c21">;
+def C22 : LPUReg<86, "c22">;
+def C23 : LPUReg<87, "c23">;
+def C24 : LPUReg<88, "c24">;
+def C25 : LPUReg<89, "c25">;
+def C26 : LPUReg<90, "c26">;
+def C27 : LPUReg<91, "c27">;
+def C28 : LPUReg<92, "c28">;
+def C29 : LPUReg<93, "c29">;
+def C30 : LPUReg<94, "c30">;
+def C31 : LPUReg<95, "c31">;
 
 // generic channel class
 def CC : RegisterClass<"LPU", [i1,i8,i16,i32,i64,f32,f64], 64,
-   (add C0, C1, C2, C3, C4, C5, C6, C7)>;
+   (add C0, C1, C2, C3, C4, C5, C6, C7,
+        C8, C9, C10, C11, C12, C13, C14, C15,
+        C16, C17, C18, C19, C20, C21, C22, C23,
+        C24, C25, C26, C27, C28, C29, C30, C31)>;
 def CCI1  : RegisterClass<"LPU",  [i1], 64, (add CC)>;
 def CCI8  : RegisterClass<"LPU",  [i8], 64, (add CC)>;
 def CCI16 : RegisterClass<"LPU", [i16], 64, (add CC)>;
