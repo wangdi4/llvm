@@ -7404,6 +7404,12 @@ def err_filter_expression_integral : Error<
 
 def err_non_asm_stmt_in_naked_function : Error<
   "non-ASM statement in naked function is not supported">;
+// CQ#371340
+// if INTEL_CUSTOMIZATION
+def warn_non_asm_stmt_in_naked_function : Warning<
+  "attribute 'naked' ignored on function with non-ASM statements">,
+  InGroup<IgnoredAttributes>;
+// endif INTEL_CUSTOMIZATION
 def err_asm_naked_this_ref : Error<
   "'this' pointer references not allowed in naked functions">;
 def err_asm_naked_parm_ref : Error<
