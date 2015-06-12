@@ -1,8 +1,12 @@
-//===-------- DDTest.h - Provides Data Dependence Analysis-*-- C++ --*-===//
+//===------- DDTest.h - Provides Data Dependence Analysis -*-- C++ --*-----===//
 //
-//                     The LLVM Compiler Infrastructure
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
-// TODO LICENSE
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
 //===----------------------------------------------------------------------===//
 //  This file contains common data structures for DD.
 //  Somewhat misleadingly, it does not contain ddgraph itself, but rather its

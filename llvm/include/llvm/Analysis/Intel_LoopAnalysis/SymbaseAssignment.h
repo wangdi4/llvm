@@ -1,8 +1,12 @@
-//===----------- SymbaseAssignment.h - Creates HIR nodes-------*-- C++ --*-===//
+//===----- SymbaseAssignment.h - Assigns symbase to ddrefs ----*-- C++ --*-===//
 //
-//                     The LLVM Compiler Infrastructure
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
-// TODO LICENSE
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
 //===----------------------------------------------------------------------===//
 // This pass is responsible for initial assignment of symbases to ddrefs
 // DDRefs sharing a symbase may alias with any other ddref with the same
