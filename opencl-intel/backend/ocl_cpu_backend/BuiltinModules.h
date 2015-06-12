@@ -17,12 +17,12 @@ File Name:  BuiltinModules.h
 \*****************************************************************************/
 #pragma once // <--- TODO: Add proper INCLUDE_GUARD
 
-#include "llvm/ADT/OwningPtr.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Errno.h"
-#include "llvm/Support/system_error.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include <assert.h>
 #include <string>
+#include <memory>
 #include "cl_dev_backend_api.h"
 #include "CPUDetect.h"
 #include "IDynamicFunctionsResolver.h"
@@ -30,7 +30,6 @@ File Name:  BuiltinModules.h
 namespace llvm
 {
 class Module;
-class MemoryBuffer;
 class LLVMContext;
 }
 
@@ -56,8 +55,8 @@ public:
     BuiltinLibrary(const Intel::CPUId&);
     virtual ~BuiltinLibrary();
 
-    llvm::MemoryBuffer* GetRtlBuffer() const { return m_pRtlBuffer; }
-    llvm::MemoryBuffer* GetRtlBufferSvmlShared() const { return m_pRtlBufferSvmlShared; }
+    std::unique_ptr<llvm::MemoryBuffer> GetRtlBuffer() const { return std::unique_ptr<llvm::MemoryBuffer>(m_pRtlBuffer); }
+    std::unique_ptr<llvm::MemoryBuffer> GetRtlBufferSvmlShared() const { return std::unique_ptr<llvm::MemoryBuffer>(m_pRtlBufferSvmlShared); }
 
     ECPU GetCPU() const { return m_cpuId.GetCPU();}
 

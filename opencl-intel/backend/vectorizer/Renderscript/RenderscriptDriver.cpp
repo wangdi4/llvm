@@ -156,10 +156,13 @@ bool RenderscriptVectorizer::runOnModule(Module &M)
 
   for (int i = 0, e = m_numOfKernels; i < e; i++) {
     MDNode *FuncInfo = KernelsMD->getOperand(i);
-    Value *field0 = FuncInfo->getOperand(0)->stripPointerCasts();
-    Function *F = dyn_cast<Function>(field0);
-
-    assert(F && "Null function!");
+    Function* F = llvm::mdconst::dyn_extract<llvm::Function>(FuncInfo->getOperand(1));
+    assert(F && "runOnModule : F is NULL");
+    F = dyn_cast<Function>(F->stripPointerCasts());
+    // LLVM 3.6 UPGRADE: FIXME do I need to assert again? Looks odd.
+    // Most likely not, since strip will return original unstripped value,
+    // that was dyn_cast'ed and asserted properly.
+    assert(F && "runOnModule : F is NULL");;
     m_scalarFuncsList.push_back(F);
   }
 

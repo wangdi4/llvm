@@ -1,4 +1,4 @@
-/*********************************************************************************************
+/**********************************************************************************************
  * Copyright ? 2010, Intel Corporation
  * Subject to the terms and conditions of the Master Development License
  * Agreement between Intel and Apple dated August 26, 2005; under the Intel
@@ -105,7 +105,7 @@ public:
 
     // Obtain the module from file.
     SMDiagnostic Err;
-    Module *newM = ParseIRFile(m_newModulePath, Err, M.getContext());
+    std::unique_ptr<Module> newM = parseIRFile(m_newModulePath, Err, M.getContext());
     if (!newM) {
         errs() << "unable to parse IR from module file\n";
         return false;
@@ -172,7 +172,7 @@ private:
     }
   }
 
-  void MapGlobalVars(Module *newM) {
+  void MapGlobalVars(std::unique_ptr<Module> &newM) {
     for (Module::const_global_iterator I = newM->global_begin(),
          E = newM->global_end(); I != E; ++I) {
       GlobalVariable *GV = m_M->getGlobalVariable(I->getName(), true);
@@ -192,7 +192,7 @@ private:
     }
   }
 
-  void MapFuncDecl(Module *newM) {
+  void MapFuncDecl(std::unique_ptr<Module> &newM) {
     // Loop over the functions in the module, making external functions as before
     for (Module::const_iterator I = newM->begin(), E = newM->end();
          I != E; ++I) {
@@ -208,7 +208,7 @@ private:
     }
   }
 
-  void InitializeGlobalVars(Module *newM) {
+  void InitializeGlobalVars(std::unique_ptr<Module> &newM) {
     for (Module::const_global_iterator I = newM->global_begin(),
          E = newM->global_end(); I != E; ++I) {
      GlobalVariable *GV = cast<GlobalVariable>(m_VMap[I]);
@@ -218,7 +218,7 @@ private:
   }
 
 
-  void replaceFuncImpl(Module *newM) {
+  void replaceFuncImpl(std::unique_ptr<Module> &newM) {
     for (Module::iterator F = m_M->begin(), E = m_M->end(); F != E; ++F) {
       Function *newF = getNewFunc(newM, F);
       if (!newF || newF->isDeclaration()) continue;
@@ -249,11 +249,11 @@ private:
       const NamedMDNode &NMD = *I;
       NamedMDNode *NewNMD = m_M->getOrInsertNamedMetadata(NMD.getName());
       for (unsigned i = 0, e = NMD.getNumOperands(); i != e; ++i)
-        NewNMD->addOperand(MapValue(NMD.getOperand(i), m_VMap));
+        NewNMD->addOperand(MapMetadata(NMD.getOperand(i), m_VMap));
     }
   }
 
-  void fixOpaquePtrs(Module *newM) {
+  void fixOpaquePtrs(std::unique_ptr<Module> &newM) {
     for (Module::iterator newF = newM->begin(), E = newM->end(); newF != E; ++newF) {
       Function *F = cast<Function>(m_VMap[newF]);
 
@@ -261,17 +261,17 @@ private:
       for (Function::arg_iterator J = F->arg_begin(), I = newF->arg_begin();
           J != F->arg_end(); ++I, ++J, ++argInd){
         if (I->getType() != J->getType()) {
-          std::vector<User *> argUsers (J->users());
+          auto argUsers = std::vector<User*>(J->user_begin(), J->user_end());
+	  // ToDo:: construct something with size here.
           if (argUsers.size()) {
             Value *cast = new BitCastInst(J, I->getType(), "arg_cast", F->getEntryBlock().begin());
-            for (unsigned i=0; i<argUsers.size(); ++i) {
-              argUsers[i]->replaceUsesOfWith(J, cast);
+            for (User *u : argUsers) {
+              u->replaceUsesOfWith(J, cast);
             }
           }
 
-          std::vector<User *> funcUsers (F->users());
-          for (unsigned i=0; i<funcUsers.size(); ++i) {
-            if (CallInst *CI = dyn_cast<CallInst>(funcUsers[i])) {
+          for (User* funcUser : F->users()) {
+            if (CallInst *CI = dyn_cast<CallInst>(funcUser)) {
               if (CI->getCalledFunction() == F) {
                 Value *cast = new BitCastInst(CI->getArgOperand(argInd), J->getType(), "arg_cast", CI);
                 CI->setArgOperand(argInd, cast);
@@ -283,7 +283,7 @@ private:
     }
   }
 
-  Function *getNewFunc(Module *newM, Function *F) {
+  Function *getNewFunc(std::unique_ptr<Module> &newM, Function *F) {
     FunctionType *FTy = F->getFunctionType();
     Function *newF = newM->getFunction(F->getName());
     if (!newF) return NULL;

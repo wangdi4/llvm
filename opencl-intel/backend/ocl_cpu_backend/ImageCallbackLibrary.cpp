@@ -25,7 +25,6 @@ File Name:  ImageCallbackLibrary.cpp
 #include "ServiceFactory.h"
 
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/OwningPtr.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/Module.h"
@@ -265,20 +264,21 @@ std::string WriteCbkDesc::GetName() const
 void ImageCallbackLibrary::Load()
 {
     // Load built-ins module IR from an rtl file.
-    llvm::MemoryBuffer::getFile(
-      getLibraryRtlName().c_str(), m_pRtlBuffer);
-    if( !m_pRtlBuffer )
+    llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> rtlBufferOrErr =
+        llvm::MemoryBuffer::getFile(getLibraryRtlName().c_str());
+    if( !rtlBufferOrErr )
     {
         throw Exceptions::DeviceBackendExceptionBase(
           std::string("Failed to load the image callback rtl library"));
     }
 
     // read IR into a Module
+    m_pRtlBuffer.reset(rtlBufferOrErr.get().release());
     llvm::Module* M = m_Compiler->ParseModuleIR(m_pRtlBuffer.get());
 
     // create an execution engine (which assumes ownership of M)
     m_Compiler->CreateExecutionEngine(M);
-    llvm::OwningPtr<llvm::ExecutionEngine> EE (
+    std::unique_ptr<llvm::ExecutionEngine> EE (
       static_cast<llvm::ExecutionEngine*>(m_Compiler->GetExecutionEngine()));
 
     // initialize the object cache with the path to the pre-compiled image
@@ -287,7 +287,7 @@ void ImageCallbackLibrary::Load()
     EE->setObjectCache(m_pLoader.get());
 
     // put the module and the execution engine in a container
-    m_pCompiledModule.reset(new CompiledModule(M, EE.take()));
+    m_pCompiledModule.reset(new CompiledModule(M, EE.release()));
 }
 
 void ImageCallbackLibrary::Build()
@@ -345,7 +345,7 @@ ImageCallbackLibrary::~ImageCallbackLibrary()
         delete m_ImageFunctions;
 
     // Module must be freed before compiler.
-    delete m_pCompiledModule.take();
+    delete m_pCompiledModule.release();
     delete m_Compiler;
 }
 

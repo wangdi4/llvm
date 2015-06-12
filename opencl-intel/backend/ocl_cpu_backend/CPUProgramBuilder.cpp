@@ -196,7 +196,7 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
 
     // parse the optimized module
     llvm::StringRef data = llvm::StringRef(optModuleBuffer, optModuleSize);
-    std::auto_ptr<llvm::MemoryBuffer> Buffer(llvm::MemoryBuffer::getMemBufferCopy(data));
+    std::unique_ptr<llvm::MemoryBuffer> Buffer = llvm::MemoryBuffer::getMemBufferCopy(data);
 
     Compiler* pCompiler = GetCompiler();
     llvm::Module* pModule = pCompiler->ParseModuleIR(Buffer.get());
@@ -374,8 +374,8 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Modu
     {
         std::auto_ptr<StaticObjectLoader> pObjectLoader(new StaticObjectLoader());
         // Build the MemoryBuffer object from the supplied options
-        std::auto_ptr<llvm::MemoryBuffer> pInjectedObj(
-            llvm::MemoryBuffer::getMemBuffer( llvm::StringRef(pInjectedObjStart, injectedObjSize)) );
+        std::unique_ptr<llvm::MemoryBuffer> pInjectedObj =
+            llvm::MemoryBuffer::getMemBuffer( llvm::StringRef(pInjectedObjStart, injectedObjSize));
 
         pObjectLoader->addPreCompiled(spModule, pInjectedObj.release());
         // Add the injected object to the execution engine cache

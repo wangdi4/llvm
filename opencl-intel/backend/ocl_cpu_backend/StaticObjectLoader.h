@@ -18,11 +18,11 @@ File Name:  StaticObjectLoader.h
 #pragma once
 
 
-#include "llvm/ADT/OwningPtr.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ExecutionEngine/ObjectCache.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
+
+#include <memory>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -47,9 +47,8 @@ class StaticObjectLoader : public llvm::ObjectCache {
   }
 
   llvm::MemoryBuffer* readObject(llvm::StringRef Location) {
-    llvm::OwningPtr<llvm::MemoryBuffer> MemBuf;
-    llvm::MemoryBuffer::getFile(Location, MemBuf);
-    return MemBuf.take();
+    auto memBuf = llvm::MemoryBuffer::getFile(Location);
+    return memBuf.get().release();
   }
 
 public:
@@ -74,9 +73,9 @@ public:
     Paths[M] = ObjectFilePath;
     if (exists(ObjectFilePath)) {
       // A file exists at ObjectFilePath, so read it now and save it for later retrieval via getObject
-      llvm::OwningPtr<const llvm::MemoryBuffer> StaticObject(
+        std::unique_ptr<const llvm::MemoryBuffer> StaticObject(
         readObject(ObjectFilePath));
-      StaticObjects.insert(std::make_pair(M, StaticObject.take()));
+      StaticObjects.insert(std::make_pair(M, StaticObject.release()));
     }
   }
 
@@ -87,7 +86,7 @@ public:
     StaticObjects.insert(std::make_pair(M, MemBuff));
   }
 
-  virtual void notifyObjectCompiled(const llvm::Module*, const llvm::MemoryBuffer*) {
+  virtual void notifyObjectCompiled(const llvm::Module*, llvm::MemoryBufferRef) {
     // A module has been compiled and the resulting object is in a MemoryBuffer
     assert(0 && "TODO: implement module compiled notification handler");
   }
@@ -95,12 +94,12 @@ public:
   /// getObject - Returns a pointer to a pre-compiled object buffer previously
   /// added to the cache (with addLocation or notifyCompiledObject) or 0 if the
   /// Module pointer M is not associated with a statically compiled object.
-  virtual const llvm::MemoryBuffer* getObject(const llvm::Module* M) {
+  virtual std::unique_ptr<llvm::MemoryBuffer> getObject(const llvm::Module* M) {
     ModuleMemBuffers::iterator i = StaticObjects.find(M);
     if (i == StaticObjects.end()) {
       return 0;
     } else {
-      return i->second;
+      return std::unique_ptr<llvm::MemoryBuffer>(const_cast<llvm::MemoryBuffer*>(i->second));
     }
   }
 };

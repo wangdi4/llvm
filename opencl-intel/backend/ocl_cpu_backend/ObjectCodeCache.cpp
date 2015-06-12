@@ -28,9 +28,9 @@ File Name:  ObjectCodeCache.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-ObjectCodeCache::ObjectCodeCache(llvm::Module* pModule, const char* pObject, size_t ObjectSize): 
+ObjectCodeCache::ObjectCodeCache(llvm::Module* pModule, const char* pObject, size_t ObjectSize):
   m_CachedModuleBuffer(""),
-  m_pObjectBuffer(NULL) { 
+  m_pObjectBuffer(nullptr) {
 
   if(pObject && pModule) {
     llvm::raw_string_ostream stream(m_CachedModuleBuffer);
@@ -38,15 +38,15 @@ ObjectCodeCache::ObjectCodeCache(llvm::Module* pModule, const char* pObject, siz
     stream.flush();
     
     llvm::StringRef data = llvm::StringRef((const char*)pObject, ObjectSize);
-    m_pObjectBuffer.reset(llvm::MemoryBuffer::getMemBufferCopy(data));
+    m_pObjectBuffer.reset(llvm::MemoryBuffer::getMemBufferCopy(data).release());
   }
 }
 
 ObjectCodeCache::~ObjectCodeCache() {
 }
 
-void ObjectCodeCache::notifyObjectCompiled(const llvm::Module* pModule, 
-  const llvm::MemoryBuffer* pBuffer) {
+void ObjectCodeCache::notifyObjectCompiled(const llvm::Module* pModule,
+   llvm::MemoryBufferRef pBuffer) {
 
   // A module has been compiled and the resulting object is in a MemoryBuffer
   m_CachedModuleBuffer = std::string();
@@ -54,10 +54,10 @@ void ObjectCodeCache::notifyObjectCompiled(const llvm::Module* pModule,
   llvm::WriteBitcodeToFile(pModule, stream);
   stream.flush();
   
-  m_pObjectBuffer.reset(llvm::MemoryBuffer::getMemBufferCopy(pBuffer->getBuffer()));
+  m_pObjectBuffer.reset(llvm::MemoryBuffer::getMemBufferCopy(pBuffer.getBuffer()).release());
 }
 
-const llvm::MemoryBuffer* ObjectCodeCache::getObject(const llvm::Module* pModule) {
+std::unique_ptr<llvm::MemoryBuffer> ObjectCodeCache::getObject(const llvm::Module* pModule) {
   std::string moduleBuffer = "";
   llvm::raw_string_ostream stream(moduleBuffer);
   llvm::WriteBitcodeToFile(pModule, stream);
@@ -65,7 +65,7 @@ const llvm::MemoryBuffer* ObjectCodeCache::getObject(const llvm::Module* pModule
 
   if(moduleBuffer == m_CachedModuleBuffer) {
     assert(m_pObjectBuffer.get() && "Mapped Object is null");
-    return m_pObjectBuffer.get();
+    return std::unique_ptr<llvm::MemoryBuffer>(std::move(m_pObjectBuffer));
   }
 
   return NULL;

@@ -56,8 +56,9 @@ extern "C" LLVM_BACKEND_API void __opencl_dbg_declare_local(
     ICLDebuggingService* debuggingService = TheDebuggingService();
     if (debuggingService) {
         if (debuggingService->DebuggedGlobalIdMatch(gid0, gid1, gid2)) {
-          MDNode* metadata_ptr = objptr_from_addr<MDNode>(metadata_addr);
-          debuggingService->DeclareLocal(addr, var_metadata_addr, expr_metadata_addr);
+          MDNode* var_metadata_ptr = objptr_from_addr<MDNode>(var_metadata_addr);
+          MDNode* expr_metadata_ptr = objptr_from_addr<MDNode>(expr_metadata_addr);
+          debuggingService->DeclareLocal(addr, var_metadata_ptr, expr_metadata_ptr);
         }
     }
 }
@@ -69,8 +70,8 @@ extern "C" LLVM_BACKEND_API void __opencl_dbg_declare_global(
     ICLDebuggingService* debuggingService = TheDebuggingService(); 
     if (debuggingService) {
         if (debuggingService->DebuggedGlobalIdMatch(gid0, gid1, gid2)) {
-            MDNode* metadata_ptr = objptr_from_addr<MDNode>(metadata_addr);
-            debuggingService->DeclareGlobal(addr, var_metadata_addr);
+            MDNode* metadata_ptr = objptr_from_addr<MDNode>(var_metadata_addr);
+            debuggingService->DeclareGlobal(addr, metadata_ptr);
         }
     }
 }

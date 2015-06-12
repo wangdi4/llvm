@@ -17,9 +17,10 @@ File Name:  CompiledModule.h
 \*****************************************************************************/
 #pragma once
 
-#include "llvm/ADT/OwningPtr.h"
 #include "llvm/IR/Module.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
+
+#include <memory>
 
 namespace llvm {
   class Function;
@@ -52,7 +53,7 @@ private:
   llvm::Module* m_Mod;
 
   // Freed automatically at destruction
-  llvm::OwningPtr<llvm::ExecutionEngine> m_EE;
+  std::unique_ptr<llvm::ExecutionEngine> m_EE;
 };
 
 }}}

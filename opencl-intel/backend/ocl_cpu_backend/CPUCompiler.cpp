@@ -31,10 +31,9 @@ File Name:  CPUCompiler.cpp
 #include "llvm/ADT/Triple.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "llvm/ExecutionEngine/JIT.h"
 #include "llvm/ExecutionEngine/JITEventListener.h"
-#include "llvm/ExecutionEngine/JITMemoryManager.h"
 #include "llvm/ExecutionEngine/MCJIT.h"
+#include "llvm/ExecutionEngine/SectionMemoryManager.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/DataLayout.h"
@@ -321,7 +320,9 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
     llvm::StringRef MArch = "";
 
     std::string strErr;
-    bool AllocateGVsWithCode = true;
+    // [LLVM 3.6 UPGRADE] See below near the respective 'set' on why this is
+    // commented out.
+    // bool AllocateGVsWithCode = true;
     CodeGenOpt::Level OLevel = llvm::CodeGenOpt::Default;
 
     if (m_debug)
@@ -333,18 +334,25 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
 
     UpdateTargetTriple(pModule);
 
-    llvm::EngineBuilder builder(pModule);
+    std::unique_ptr<llvm::Module> pModuleUniquePtr(pModule);
+    llvm::EngineBuilder builder(std::move(pModuleUniquePtr));
     builder.setEngineKind(llvm::EngineKind::JIT);
-    builder.setUseMCJIT(true);
+    // [LLVM 3.6 UPGRADE] Now there's no opportunity to setUseMCJIT.
+    // Since the old JIT was removed presumably this line is redundant now.
+    // builder.setUseMCJIT(true);
     builder.setErrorStr(&strErr);
     builder.setOptLevel(OLevel);
-    builder.setAllocateGVsWithCode(AllocateGVsWithCode);
+    // [LLVM 3.6 UPGRADE] FIXME: this set was also removed.
+    // builder.setAllocateGVsWithCode(AllocateGVsWithCode);
     builder.setCodeModel(llvm::CodeModel::JITDefault);
     builder.setRelocationModel(llvm::Reloc::Default);
     builder.setMArch(MArch);
     builder.setMCPU(MCPU);
     builder.setMAttrs(cpuFeatures);
-    builder.setJITMemoryManager(JITMemoryManager::CreateDefaultMemManager());
+    // [LLVM 3.6 UPGRADE] FIXME: The old Memory manager was removed.
+    // Not sure whether this is a proper alternative and there is a need for one.
+    builder.setMCJITMemoryManager(std::unique_ptr<RTDyldMemoryManager>(
+        new SectionMemoryManager()));
     llvm::TargetOptions targetOpt;
     if (pModule->getNamedMetadata("opencl.enable.FP_CONTRACT"))
       targetOpt.AllowFPOpFusion = llvm::FPOpFusion::Fast;
@@ -398,10 +406,12 @@ void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) c
         throw Exceptions::CompilerException("Failed to create TargetMachine object");
     }
 
-    llvm::raw_fd_ostream out(filename.c_str(), err, llvm::raw_fd_ostream::F_Binary);
-    if (!err.empty())
+    std::error_code ec;
+    llvm::raw_fd_ostream out(filename.c_str(), ec, llvm::sys::fs::F_RW);
+    if (!ec)
     {
-        throw Exceptions::CompilerException(std::string("Failed to open the target file for dump:") + err);
+        throw Exceptions::CompilerException(
+			std::string("Failed to open the target file for dump: error code:") + ec.message());
     }
 
     // Build up all of the passes that we want to do to the module.

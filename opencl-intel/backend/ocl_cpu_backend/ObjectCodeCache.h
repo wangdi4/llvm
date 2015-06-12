@@ -34,15 +34,14 @@ class ObjectCodeCache : public llvm::ObjectCache {
 private:
   // Pointers on the represented program
   std::string m_CachedModuleBuffer;
-  std::auto_ptr<llvm::MemoryBuffer> m_pObjectBuffer;
+  std::unique_ptr<llvm::MemoryBuffer> m_pObjectBuffer;
 
   ObjectCodeCache( const ObjectCodeCache& rhs );
   ObjectCodeCache& operator=( const ObjectCodeCache& rhs );
 
 public:
   ObjectCodeCache(): 
-    m_CachedModuleBuffer(""),
-    m_pObjectBuffer(NULL)
+    m_CachedModuleBuffer("")
     { }
 
   ObjectCodeCache(llvm::Module* pModule, const char* pObject, size_t ObjectSize);
@@ -50,11 +49,11 @@ public:
   virtual ~ObjectCodeCache();
 
   /// notifyObjectCompiled - will be called once the codegen genrates an object
-  virtual void notifyObjectCompiled(const llvm::Module*, const llvm::MemoryBuffer*);
+  virtual void notifyObjectCompiled(const llvm::Module*, llvm::MemoryBufferRef);
 
   /// getObject - Returns a pointer to a pre-compiled object buffer previously
   /// added to the cache or 0 if the object not found
-  virtual const llvm::MemoryBuffer* getObject(const llvm::Module* M);
+  virtual std::unique_ptr<llvm::MemoryBuffer> getObject(const llvm::Module* M);
 
   /// return pointer to the cached module raw data
   virtual const std::string& getCachedModule();

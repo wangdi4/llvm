@@ -36,7 +36,38 @@ public:
     calculate(DT, DT[this->Roots[0]]);
   }
 
-  const DomSetType &calculate(const DomTreeT &DT, const DomTreeNodeT *Node);
+  const llvm::DominanceFrontier::DomSetType &
+      calculate(const DomTreeT &DT, const llvm::DomTreeNode *Node) {
+    // Loop over CFG successors to calculate DFlocal[Node]
+    llvm::BasicBlock *BB = Node->getBlock();
+    DomSetType &S = this->Frontiers[BB];       // The new set to fill in...
+    if (this->getRoots().empty()) return S;
+
+    if (BB)
+      for (llvm::pred_iterator SI = pred_begin(BB), SE = pred_end(BB);
+          SI != SE; ++SI) {
+        llvm::BasicBlock *P = *SI;
+        // Does Node immediately dominate this predecessor?
+        llvm::DomTreeNode *SINode = DT[P];
+        if (SINode && SINode->getIDom() != Node)
+          S.insert(P);
+      }
+    // At this point, S is DFlocal.  Now we union in DFup's of our children...
+    // Loop through and visit the nodes that Node immediately dominates (Node's
+    // children in the IDomTree)
+    //
+    for (llvm::DomTreeNode::const_iterator
+        NI = Node->begin(), NE = Node->end(); NI != NE; ++NI) {
+      llvm::DomTreeNode *IDominee = *NI;
+      const DomSetType &ChildDF = calculate(DT, IDominee);
+      typename DomSetType::const_iterator CDFI = ChildDF.begin(), CDFE = ChildDF.end();
+      for (; CDFI != CDFE; ++CDFI) {
+        if (!DT.properlyDominates(Node, DT[*CDFI]))
+          S.insert(*CDFI);
+        }
+      }
+    return S;
+  }
 };
 
 class PostDominanceFrontier : public llvm::FunctionPass {

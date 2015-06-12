@@ -681,7 +681,7 @@ void Kernel::Deserialize(IInputStream& ist, SerializationStatus* stats)
 
 }
 
-KernelSet::KernelSet() : m_kernels(NULL), m_blockKernelsCount(0)
+KernelSet::KernelSet() : m_kernels(0), m_blockKernelsCount(0)
 {}
 
 KernelSet::~KernelSet() {
