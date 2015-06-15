@@ -36,6 +36,7 @@ LPUTargetMachine::LPUTargetMachine(const Target &T, StringRef TT,
   // Not sure this is needed
   setRequiresStructuredCFG(true);
   initAsmInfo();
+  //setAsmVerbosityDefault(true);
 }
 
 LPUTargetMachine::~LPUTargetMachine() {}

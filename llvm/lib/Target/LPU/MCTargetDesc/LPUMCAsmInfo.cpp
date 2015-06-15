@@ -20,8 +20,12 @@ void LPUMCAsmInfo::anchor() { }
 LPUMCAsmInfo::LPUMCAsmInfo(StringRef TT) {
   PointerSize = CalleeSaveStackSlotSize = 8;
 
-  CommentString = "//";
+  CommentString = "#";
 
-  AlignmentIsInBytes = false;
   UsesELFSectionDirectiveForBSS = true;
+
+  // For this to work, LPURegisterInfo.td needs dwarf register numbers for
+  // registers.  This enables .loc, but it also enables a lot of other things
+  // that we have no plans to deal with...
+  // SupportsDebugInformation = true;
 }

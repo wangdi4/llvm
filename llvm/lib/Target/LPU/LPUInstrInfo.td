@@ -101,28 +101,28 @@ def RET : FMTGEN<
     "// return",
     [(LPURet)]>;
 
-multiclass MovOp<string opName, ValueType T> {
+multiclass MovOp<string opStr, ValueType T> {
   def "" : FMTGEN<
     (outs OpndCR<T>:$dst),
     (ins OpndCRL<T>:$op1),
-    !strconcat("$dst = ", opName, "($op1);"),
+    !strconcat(opStr, "\t$dst, $op1"),
     []>;
 }
 
 // Binary op, no pattern, not commutable
-multiclass SExtOp<string opName, ValueType T, ValueType TSRC> {
+multiclass SExtOp<string opStr, ValueType T, ValueType TSRC> {
   def "" : FMTGEN<
     (outs OpndCR<T>:$dst),
     (ins OpndCRL<TSRC>:$op1, OpndCRL<T>:$op2),
-    !strconcat("$dst = ", opName, "($op1,$op2);"),
+    !strconcat(opStr, "\t$dst, $op1, $op2"),
     []>;
 }
 
-multiclass CvtOp<string opName, SDNode opNode, ValueType DT, ValueType ST> {
+multiclass CvtOp<string opStr, SDNode opNode, ValueType DT, ValueType ST> {
   def "" : FMTGEN<
     (outs OpndCR<DT>:$dst),
     (ins OpndCRL<ST>:$src),
-    !strconcat("$dst = ", opName, "($src);"),
+    !strconcat(opStr, "\t$dst, $src"),
     [(set DT:$dst, (opNode ST:$src))]>;
 }
 
@@ -130,85 +130,85 @@ multiclass CvtOp<string opName, SDNode opNode, ValueType DT, ValueType ST> {
 // class doesn't allow the Opndxx in the ins/outs list.  (Why?)
 // (Also, nested multiclass would be nice - it would allow declaring 4 defs
 // per operator, rather than enumerating 8/16/32/64, etc.)
-multiclass BinOp<string opName, SDNode opNode, ValueType T,
+multiclass BinOp<string opStr, SDNode opNode, ValueType T,
            PatFrag immOpnd, bit commutable> {
   let isCommutable = commutable in {
     def "" : FMTGEN<
       (outs OpndCR<T>:$dst),
       (ins OpndCRL<T>:$op1, OpndCRL<T>:$op2),
-      !strconcat("$dst = ", opName, "($op1,$op2);"),
+      !strconcat(opStr, "\t$dst, $op1, $op2"),
       [(set T:$dst, (opNode T:$op1, T:$op2))]>;
     def i : FMTGEN<
       (outs OpndCR<T>:$dst),
       (ins OpndCRL<T>:$op1, OpndCRL<T>:$op2),
-      !strconcat("$dst = ", opName, "($op1,$op2);"),
+      !strconcat(opStr, "\t$dst, $op1, $op2"),
       [(set T:$dst, (opNode T:$op1, immOpnd:$op2))]>;
   }
 }
 
-multiclass FusedOp1<string opName, SDNode inner, SDNode outer, ValueType T> {
+multiclass FusedOp1<string opStr, SDNode inner, SDNode outer, ValueType T> {
   def "" : FMTGEN<
     (outs OpndCR<T>:$dst),
     (ins OpndCRL<T>:$op1, OpndCRL<T>:$op2, OpndCRL<T>:$op3),
-    !strconcat("$dst = ", opName, "($op1,$op2,$op3);"),
+    !strconcat(opStr, "\t$dst, $op1, $op2, $op3"),
     [(set T:$dst, (outer (inner T:$op1, T:$op2), T:$op3))]>;
 }
 
-multiclass FusedOp2<string opName, SDNode inner, SDNode outer, ValueType T> {
+multiclass FusedOp2<string opStr, SDNode inner, SDNode outer, ValueType T> {
   def "" : FMTGEN<
     (outs OpndCR<T>:$dst),
     (ins OpndCRL<T>:$op1, OpndCRL<T>:$op2, OpndCRL<T>:$op3),
-    !strconcat("$dst = ", opName, "($op2,$op3,$op1);"),
+    !strconcat(opStr, "\t$dst, $op2, $op3, $op1"),
     [(set T:$dst, (outer T:$op1, (inner T:$op2, T:$op3)))]>;
 }
 
-multiclass CmpOp<string opName, PatFrag opNode, ValueType T, bit commutable> {
+multiclass CmpOp<string opStr, PatFrag opNode, ValueType T, bit commutable> {
   let isCommutable = commutable in {
     def "" : FMTGEN<
       (outs OpndCR<i1>:$dst),
       (ins OpndCRL<T>:$op1, OpndCRL<T>:$op2),
-      !strconcat("$dst = ", opName, "($op1,$op2);"),
+      !strconcat(opStr, "\t$dst, $op1, $op2"),
       [(set i1:$dst, (opNode T:$op1, T:$op2))]>;
   }
 }
 
-multiclass FCmpOp<string opName, PatFrag opNodeOrd, PatFrag opNodeUnord,
+multiclass FCmpOp<string opStr, PatFrag opNodeOrd, PatFrag opNodeUnord,
            ValueType T, bit commutable> {
   let isCommutable = commutable in {
     def "" : FMTGEN<
       (outs OpndCR<i1>:$dst),
       (ins OpndCRL<T>:$op1, OpndCRL<T>:$op2),
-      !strconcat("$dst = ", opName, "($op1,$op2);"),
+      !strconcat(opStr, "\t$dst, $op1, $op2"),
       [(set i1:$dst, (opNodeOrd T:$op1, T:$op2))]>;
     def u : FMTGEN<
       (outs OpndCR<i1>:$dst),
       (ins OpndCRL<T>:$op1, OpndCRL<T>:$op2),
-      !strconcat("$dst = ", opName, "($op1,$op2);"),
+      !strconcat(opStr, "\t$dst, $op1, $op2"),
       [(set i1:$dst, (opNodeUnord T:$op1, T:$op2))]>;
   }
 }
 
 // This provides a full set of result register types.  Some are nonsensical
 // (e.g. LD8_F64 or LD32_I64)
-multiclass LdOp<string opName, ValueType T> {
+multiclass LdOp<string opStr, ValueType T> {
   def "" : FMTGEN<
     (outs OpndCR<T>:$dst),
     (ins OpndCRL<i64>:$addr),
-    !strconcat("$dst = ", opName, "($addr);"),
+    !strconcat(opStr, "\t$dst, $addr"),
     [(set T:$dst, (load ADDR_R:$addr))]>;
 }
 
 // TODO: How to handle store output flag?
-multiclass StOp<string opName, ValueType T, PatFrag immOpnd> {
+multiclass StOp<string opStr, ValueType T, PatFrag immOpnd> {
   def "" : FMTGEN<
     (outs),  // How to handle output flag??
     (ins OpndCRL<i64>:$addr, OpndCRL<T>:$data),
-    !strconcat(opName, "($addr,$data);"),
+    !strconcat(opStr, "\t$addr, $data"),
     [(store T:$data, ADDR_R:$addr)]>;
   def i : FMTGEN<
     (outs),  // How to handle output flag??
     (ins OpndCRL<i64>:$addr, OpndCRL<T>:$data),
-    !strconcat(opName, "($addr,$data);"),
+    !strconcat(opStr, "\t$addr, $data"),
     [(store immOpnd:$data, ADDR_R:$addr)]>;
 }
 
