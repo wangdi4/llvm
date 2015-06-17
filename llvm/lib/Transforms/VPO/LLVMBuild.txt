@@ -6,3 +6,9 @@ type = Group
 name = VPO
 parent = Transforms
 
+[component_1]
+type = Library
+name = VPODriver
+parent = VPO
+library_name = VPODriver
+required_libraries = Analysis Core Scalar Support TransformUtils Vecopt_AvrAnalysis WRegionInfoAnalysis

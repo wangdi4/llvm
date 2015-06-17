@@ -39,6 +39,7 @@
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/Vectorize.h"
 #if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/VPO/VPOPasses.h"
 #include "llvm/Transforms/VPO/Vecopt/VecoptPasses.h"
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/Support/Valgrind.h"
@@ -189,11 +190,12 @@ namespace {
       X.add(nullptr, 0, llvm::AAMDNodes()); // for -print-alias-sets
 
 #if 0
-      (void) llvm::createAVRGeneratePass();
       (void) llvm::createWRegionCollectionPass();
       (void) llvm::createWRegionInfoPass();
 #endif
 #if INTEL_CUSTOMIZATION
+      (void) llvm::createAVRGeneratePass();
+      (void) llvm::createVPODriverPass();
       (void) llvm::createVPOVectorizerPass();
 #endif // INTEL_CUSTOMIZATION
 

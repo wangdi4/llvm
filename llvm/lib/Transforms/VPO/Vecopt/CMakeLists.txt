@@ -94,5 +94,3 @@ add_llvm_library(LLVMVPOVectorizer
 )
 
 add_dependencies(LLVMVPOVectorizer intrinsics_gen)
-
-add_subdirectory(VecDriver)

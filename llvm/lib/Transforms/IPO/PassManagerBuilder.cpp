@@ -28,6 +28,7 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Vectorize.h"
 #if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/VPO/VPOPasses.h"
 #include "llvm/Transforms/VPO/Vecopt/VecoptPasses.h"
 #endif // INTEL_CUSTOMIZATION
 
@@ -87,6 +88,10 @@ EnableMLSM("mlsm", cl::init(true), cl::Hidden,
 static cl::opt<bool> EnableLoopInterchange(
     "enable-loopinterchange", cl::init(false), cl::Hidden,
     cl::desc("Enable the new, experimental LoopInterchange Pass"));
+
+static cl::opt<bool> RunVPODriver("VPO-Driver",
+  cl::init(false), cl::Hidden,
+  cl::desc("Run VPO vectorization driver"));
 
 PassManagerBuilder::PassManagerBuilder() {
     OptLevel = 2;
@@ -191,6 +196,9 @@ void PassManagerBuilder::populateModulePassManager(
 
     addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
 #if INTEL_CUSTOMIZATION
+    if (RunVPODriver) {
+      MPM.add(createVPODriverPass());
+    }
     MPM.add(createVPOVectorizerPass());
 #endif // INTEL_CUSTOMIZATION
     return;
@@ -411,6 +419,9 @@ void PassManagerBuilder::populateModulePassManager(
 
   addExtensionsToPM(EP_OptimizerLast, MPM);
 #if INTEL_CUSTOMIZATION
+  if (RunVPODriver) {
+    MPM.add(createVPODriverPass());
+  }
   MPM.add(createVPOVectorizerPass());
 #endif // INTEL_CUSTOMIZATION
 }

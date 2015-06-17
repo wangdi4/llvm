@@ -21,6 +21,10 @@ class PassRegistry;
 
 #if INTEL_CUSTOMIZATION
 void initializeVPOVectorizer(PassRegistry&);
+
+/// initializeVPODriverPass - Initialize all passes linked into the
+/// VPODriver library
+void initializeVPODriverPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 
 /// initializeCore - Initialize all passes linked into the

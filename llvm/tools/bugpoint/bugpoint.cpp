@@ -138,6 +138,7 @@ int main(int argc, char **argv) {
 
 #if INTEL_CUSTOMIZATION
   initializeVPOVectorizer(Registry);
+  initializeVPODriverPass(Registry);
 #endif // INTEL_CUSTOMIZATION
 
   cl::ParseCommandLineOptions(argc, argv,
