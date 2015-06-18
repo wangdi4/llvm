@@ -151,6 +151,22 @@ std::string Mangler::getFakeInsertName() {
   std::string suffix = toString(serial++);
   return fake_prefix_insert+suffix;
 }
+ 
+std::string Mangler::getScalarTypeName(Type *ElemTy) {
+  if (ElemTy->isIntegerTy(8)) return "i8";
+  if (ElemTy->isIntegerTy(16)) return "i16";
+  if (ElemTy->isIntegerTy(32)) return "i32";
+  if (ElemTy->isIntegerTy(64)) return "i64";
+  if (ElemTy->isFloatTy()) return "f32";
+  if (ElemTy->isDoubleTy()) return "f64";
+  if (ElemTy->isPointerTy()) {
+    PointerType* ptrType = dyn_cast<PointerType>(ElemTy);
+    return std::string("ptr2") + getScalarTypeName(ptrType->getElementType());
+  }
+  if (ElemTy->isStructTy()) return ElemTy->getStructName();
+  assert(false && "Unsupported scalar type");
+  return "unknown";
+}
 
 std::string Mangler::getFakeWideScalarName(Type* scalarType,
 					   Type* wideType,
@@ -165,7 +181,7 @@ std::string Mangler::getFakeWideScalarName(Type* scalarType,
          "expected either a vector or an array type of the scalar type");
   result << "internal.scalar.to."
 	 << (wideType->isVectorTy() ? "vector" : "array") << "."
-	 << getGatherScatterTypeName(scalarType)
+	 << getScalarTypeName(scalarType)
 	 << "x" << width;
   return result.str();
 }

@@ -2174,8 +2174,8 @@ void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
     // Look for instructions used outside of the original UCF including the new entry and exit BBs
     // (namely allOnesBeginBB and allOnesEndBB) and remember the users and the used values
     for (BasicBlock::iterator ii = ucfOrigBB->begin(), ei = ucfOrigBB->end(); ii != ei; ++ii) {
-      for(Value::use_iterator useIt = ii->use_begin(); useIt != ii->use_end(); ++useIt) {
-        Instruction * userInst = dyn_cast<Instruction>(*useIt);
+      for(Value::user_iterator userIt = ii->user_begin(); userIt != ii->user_end(); ++userIt) {
+        Instruction * userInst = dyn_cast<Instruction>(*userIt);
         BasicBlock * userBB = userInst->getParent();
         if(userInst &&
            (userBB == allOnesEndBB  || userBB == allOnesBeginBB || getUCFEntry(userBB) != ucfEntryBB)) {

@@ -669,13 +669,21 @@ Function* Vectorizer::createVectorVersion(Function& vectorizedFunction,
   // except for the vector variant attributes.
   wrapperFunc->copyAttributesFrom(&vectorizedFunction);
   AttrBuilder attrBuilder;
-  for (auto attribute : VectorizerUtils::getVectorVariantAttributes(*wrapperFunc)) {
-    attrBuilder.addAttribute(attribute);
+  for (auto attr : VectorizerUtils::getVectorVariantAttributes(*wrapperFunc)) {
+    attrBuilder.addAttribute(attr);
   }
   AttributeSet attrsToRemove = AttributeSet::get(wrapperFunc->getContext(),
                                                  AttributeSet::FunctionIndex,
                                                  attrBuilder);
-  wrapperFunc->removeAttributes(AttributeSet::FunctionIndex, attrsToRemove);    
+  wrapperFunc->removeAttributes(AttributeSet::FunctionIndex, attrsToRemove);
+  // Remove incompatible argument attributes (applied to the scalar argument,
+  // does not apply to its vector counterpart).
+  Function::arg_iterator copiedArgIt = wrapperFunc->arg_begin();
+  Function::arg_iterator copiedArgEnd = wrapperFunc->arg_end();
+  for (uint64_t index = 1; copiedArgIt != copiedArgEnd; copiedArgIt++, index++) {
+    Type* argType = (*copiedArgIt).getType();
+    (*copiedArgIt).removeAttr(AttributeFuncs::typeIncompatible(argType, index));
+  }
 
   wrapperFunc->setCallingConv(CallingConv::Intel_regcall);
   BasicBlock* entryBB = BasicBlock::Create(wrapperFunc->getContext(),

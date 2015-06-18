@@ -174,6 +174,10 @@ public:
   /// @return True if store
   static bool isFakeInsert(const std::string& name);
 
+  /// @brief Get name for a scalar type (possibly a struct,
+  /// possibly a pointer).
+  /// @return new name
+  static std::string getScalarTypeName(Type *ElemTy);
   /// @brief Get mangled name for a function that produces
   ///  an opaque wide type (vector or array) from a scalar.
   /// @return new name
