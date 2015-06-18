@@ -8,6 +8,8 @@ set(modified_files
   avx512fintrin.h
   avx512vlbwintrin.h
   avx512vlintrin.h
+  avx512dqintrin.h
+  avx512vldqintrin.h
   avxintrin.h
   bmi2intrin.h
   bmiintrin.h

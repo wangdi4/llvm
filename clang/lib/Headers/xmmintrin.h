@@ -989,7 +989,6 @@ do { \
 #define _m_ _mm_
 #define _m_ _mm_
 
-/* Ugly hack for backwards-compatibility (compatible with gcc) */
 #include <emmintrin.h>
 
 #endif /* __XMMINTRIN_H */

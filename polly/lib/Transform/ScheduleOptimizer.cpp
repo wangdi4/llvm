@@ -18,6 +18,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "polly/ScheduleOptimizer.h"
+#include "polly/CodeGen/CodeGeneration.h"
+#include "polly/DependenceInfo.h"
+#include "polly/LinkAllPasses.h"
+#include "polly/Options.h"
+#include "polly/ScopInfo.h"
+#include "polly/Support/GICHelper.h"
+#include "llvm/Support/Debug.h"
 #include "isl/aff.h"
 #include "isl/band.h"
 #include "isl/constraint.h"
@@ -26,13 +33,8 @@
 #include "isl/schedule.h"
 #include "isl/schedule_node.h"
 #include "isl/space.h"
-#include "polly/CodeGen/CodeGeneration.h"
-#include "polly/DependenceInfo.h"
-#include "polly/LinkAllPasses.h"
-#include "polly/Options.h"
-#include "polly/ScopInfo.h"
-#include "polly/Support/GICHelper.h"
-#include "llvm/Support/Debug.h"
+#include "isl/union_map.h"
+#include "isl/union_set.h"
 
 using namespace llvm;
 using namespace polly;
@@ -211,17 +213,12 @@ IslScheduleOptimizer::getPrevectorMap(isl_ctx *ctx, int DimToVectorize,
 
   // Create an identity map for everything except DimToVectorize and map
   // DimToVectorize to the point loop at the innermost dimension.
-  for (int i = 0; i < ScheduleDimensions; i++) {
-    c = isl_equality_alloc(isl_local_space_copy(LocalSpace));
-    c = isl_constraint_set_coefficient_si(c, isl_dim_in, i, -1);
-
+  for (int i = 0; i < ScheduleDimensions; i++)
     if (i == DimToVectorize)
-      c = isl_constraint_set_coefficient_si(c, isl_dim_out, PointDimension, 1);
+      TilingMap =
+          isl_map_equate(TilingMap, isl_dim_in, i, isl_dim_out, PointDimension);
     else
-      c = isl_constraint_set_coefficient_si(c, isl_dim_out, i, 1);
-
-    TilingMap = isl_map_add_constraint(TilingMap, c);
-  }
+      TilingMap = isl_map_equate(TilingMap, isl_dim_in, i, isl_dim_out, i);
 
   // it % 'VectorWidth' = 0
   LocalSpaceRange = isl_local_space_range(isl_local_space_copy(LocalSpace));
@@ -234,10 +231,8 @@ IslScheduleOptimizer::getPrevectorMap(isl_ctx *ctx, int DimToVectorize,
   TilingMap = isl_map_intersect_range(TilingMap, Modulo);
 
   // it <= ip
-  c = isl_inequality_alloc(isl_local_space_copy(LocalSpace));
-  isl_constraint_set_coefficient_si(c, isl_dim_out, TileDimension, -1);
-  isl_constraint_set_coefficient_si(c, isl_dim_out, PointDimension, 1);
-  TilingMap = isl_map_add_constraint(TilingMap, c);
+  TilingMap = isl_map_order_le(TilingMap, isl_dim_out, TileDimension,
+                               isl_dim_out, PointDimension);
 
   // ip <= it + ('VectorWidth' - 1)
   c = isl_inequality_alloc(LocalSpace);
@@ -472,21 +467,21 @@ bool IslScheduleOptimizer::runOnScop(Scop &S) {
 
   S.markAsOptimized();
 
-  for (ScopStmt *Stmt : S) {
+  for (ScopStmt &Stmt : S) {
     isl_map *StmtSchedule;
-    isl_set *Domain = Stmt->getDomain();
+    isl_set *Domain = Stmt.getDomain();
     isl_union_map *StmtBand;
     StmtBand = isl_union_map_intersect_domain(isl_union_map_copy(NewSchedule),
                                               isl_union_set_from_set(Domain));
     if (isl_union_map_is_empty(StmtBand)) {
-      StmtSchedule = isl_map_from_domain(isl_set_empty(Stmt->getDomainSpace()));
+      StmtSchedule = isl_map_from_domain(isl_set_empty(Stmt.getDomainSpace()));
       isl_union_map_free(StmtBand);
     } else {
       assert(isl_union_map_n_map(StmtBand) == 1);
       StmtSchedule = isl_map_from_union_map(StmtBand);
     }
 
-    Stmt->setSchedule(StmtSchedule);
+    Stmt.setSchedule(StmtSchedule);
   }
 
   isl_schedule_free(Schedule);
