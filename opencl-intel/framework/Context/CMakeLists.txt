@@ -11,9 +11,10 @@ FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
 
 include_directories( 
-            ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang 
+            ${LLVM_INCLUDE_DIRS}/cclang/cl_headers
             ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
             ${CMAKE_SOURCE_DIR}/utils/CLElfLib 
+            ${LLVM_INCLUDE_DIRS}/cclang
             )
 
 # add a target named ${TARGET_NAME}

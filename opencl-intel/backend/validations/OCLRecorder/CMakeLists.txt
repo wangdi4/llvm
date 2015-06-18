@@ -52,6 +52,7 @@ endif (WIN32)
 # Add include directories
 include_directories(
   ${LLVM_INCLUDE_DIRS}
+  ${LLVM_INCLUDE_DIRS}/cclang
   ${VALIDATIONS_ROOT}/DataVersion
   ${OCL_RECORDER_IMPORT_DIR}
   ${OCL_RECORDER_EXPORT_DIR}
@@ -61,7 +62,6 @@ include_directories(
   ${OCL_DATAMANAGER_DIR}
   ${OCL_NEAT_DIR}
   ${CMAKE_SOURCE_DIR}/backend/plugin_manager
-  ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang
 )
 
 if(WIN32)
