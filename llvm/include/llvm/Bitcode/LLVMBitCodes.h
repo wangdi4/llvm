@@ -336,7 +336,7 @@ namespace bitc {
 
     FUNC_CODE_DEBUG_LOC        = 35, // DEBUG_LOC:  [Line,Col,ScopeVal, IAVal]
     FUNC_CODE_INST_FENCE       = 36, // FENCE: [ordering, synchscope]
-    FUNC_CODE_INST_CMPXCHG     = 37, // CMPXCHG: [ptrty,ptr,cmp,new, align, vol,
+    FUNC_CODE_INST_CMPXCHG_OLD = 37, // CMPXCHG: [ptrty,ptr,cmp,new, align, vol,
                                      //           ordering, synchscope]
     FUNC_CODE_INST_ATOMICRMW   = 38, // ATOMICRMW: [ptrty,ptr,val, operation,
                                      //             align, vol,
@@ -350,6 +350,8 @@ namespace bitc {
     FUNC_CODE_INST_GEP         = 43, // GEP:  [inbounds, n x operands]
     FUNC_CODE_INST_STORE       = 44, // STORE: [ptrty,ptr,valty,val, align, vol]
     FUNC_CODE_INST_STOREATOMIC = 45, // STORE: [ptrty,ptr,val, align, vol
+    FUNC_CODE_INST_CMPXCHG     = 46, // CMPXCHG: [ptrty,ptr,valty,cmp,new, align,
+                                     //           vol,ordering,synchscope]
   };
 
   enum UseListCodes {
@@ -400,7 +402,8 @@ namespace bitc {
     ATTR_KIND_NON_NULL = 39,
     ATTR_KIND_JUMP_TABLE = 40,
     ATTR_KIND_DEREFERENCEABLE = 41,
-    ATTR_KIND_DEREFERENCEABLE_OR_NULL = 42
+    ATTR_KIND_DEREFERENCEABLE_OR_NULL = 42,
+    ATTR_KIND_CONVERGENT = 43
   };
 
   enum ComdatSelectionKindCodes {

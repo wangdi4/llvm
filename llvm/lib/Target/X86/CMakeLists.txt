@@ -16,6 +16,7 @@ set(sources
   Intel_X86FeatureOutlinePass.cpp
   X86AsmPrinter.cpp
   X86CallFrameOptimization.cpp
+  X86ExpandPseudo.cpp
   X86FastISel.cpp
   X86FloatingPoint.cpp
   X86FrameLowering.cpp
@@ -33,6 +34,7 @@ set(sources
   X86TargetTransformInfo.cpp
   X86VZeroUpper.cpp
   X86FixupLEAs.cpp
+  X86WinEHState.cpp
   )
 
 if( CMAKE_CL_64 )
