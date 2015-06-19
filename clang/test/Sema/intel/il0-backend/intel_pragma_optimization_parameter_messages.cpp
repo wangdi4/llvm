@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -IntelCompat -emit-llvm -verify -o - %s 
+// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -verify -o - %s 
 //***INTEL: pragma intel optimization_parameter target_arch=
 
 #pragma intel optimization_parameter target_arch=ATOM

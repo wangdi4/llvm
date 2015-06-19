@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -IntelCompat -emit-llvm -verify -o - %s | FileCheck %s
+// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -verify -o - %s | FileCheck %s
 //expected-no-diagnostics
 //***INTEL: pragma deprecated test
 
@@ -32,5 +32,5 @@ int main(int argc, char **argv)
 }
 // CHECK: }
 
-// CHECK: = metadata !{metadata !"{{C|c}}lang
-// CHECK-NOT: = metadata !{
+// CHECK: = !{!"{{C|c}}lang
+// CHECK-NOT: = !{

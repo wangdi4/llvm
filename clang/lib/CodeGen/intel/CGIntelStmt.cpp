@@ -343,13 +343,13 @@ void CodeGenFunction::EmitSIMDForHelperCall(llvm::Function *BodyFunc,
     LastIter = llvm::ConstantInt::getFalse(BodyFunc->getContext());
   HelperArgs.push_back(LastIter);
 
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   disableExceptions();
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   EmitCallOrInvoke(BodyFunc, HelperArgs);
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   enableExceptions();
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
 }
 
 void CodeGenFunction::CGPragmaSimd::emitInit(CodeGenFunction &CGF,
@@ -499,13 +499,13 @@ llvm::Function *CodeGenFunction::EmitSimdFunction(CGPragmaSimdWrapper &W) {
                               LoopStack.getCurLoopParallel());
   CodeGenFunction CGF(CGM, true);
   CGF.CapturedStmtInfo = &CSInfo;
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   CGF.disableExceptions();
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   llvm::Function *BodyFunction = CGF.GenerateCapturedStmtFunction(CS);
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   CGF.enableExceptions();
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   // Always inline this function back to the call site.
   BodyFunction->addFnAttr(llvm::Attribute::AlwaysInline);
   return BodyFunction;

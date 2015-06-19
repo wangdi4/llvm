@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -IntelCompat -E %s | grep '#pragma foo bar'
-// RUN: %clang_cc1 -IntelCompat -fsyntax-only -Wunknown-pragmas -verify %s
+// RUN: %clang_cc1 -fintel-compatibility -E %s | grep '#pragma foo bar'
+// RUN: %clang_cc1 -fintel-compatibility -fsyntax-only -Wunknown-pragmas -verify %s
 
 // GCC doesn't expand macro args for unrecognized pragmas.
 #define bar xX
