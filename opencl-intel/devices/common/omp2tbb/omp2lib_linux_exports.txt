@@ -1,4 +1,4 @@
-Base {
+{
     global:
         __omp2tbb_set_thread_max_concurency;
         __kmpc_begin;
