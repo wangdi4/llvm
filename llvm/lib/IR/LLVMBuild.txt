@@ -15,6 +15,9 @@
 ;
 ;===------------------------------------------------------------------------===;
 
+[common]
+subdirectories = Intel_LoopIR 
+
 [component_0]
 type = Library
 name = Core
