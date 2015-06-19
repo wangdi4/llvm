@@ -61,7 +61,7 @@ class C {
   int z;
   void init_capture() {
     [n(0)] () mutable -> int { return ++n; }; // expected-warning{{extension}}
-    [n{0}] { return; }; // expected-error {{<initializer_list>}} expected-warning{{extension}}
+    [n{0}] { return; }; // expected-error {{<initializer_list>}} expected-warning{{extension}} expected-warning{{will change meaning in a future version}}
     [n = 0] { return ++n; }; // expected-error {{captured by copy in a non-mutable}} expected-warning{{extension}}
     [n = {0}] { return; }; // expected-error {{<initializer_list>}} expected-warning{{extension}}
     [a([&b = z]{})](){}; // expected-warning 2{{extension}}
@@ -98,3 +98,13 @@ void PR22122() {
 }
 
 template void PR22122<int>();
+
+struct S {
+  template <typename T>
+  void m (T x =[0); // expected-error{{expected variable name or 'this' in lambda capture list}}
+} s;
+
+struct U {
+  template <typename T>
+  void m_fn1(T x = 0[0); // expected-error{{expected ']'}} expected-note{{to match this '['}}
+} *U;

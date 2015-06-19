@@ -27,8 +27,17 @@ def AMDGPULdExpOp : SDTypeProfile<1, 2,
   [SDTCisSameAs<0, 1>, SDTCisFP<0>, SDTCisInt<2>]
 >;
 
+def AMDGPUFPClassOp : SDTypeProfile<1, 2,
+  [SDTCisInt<0>, SDTCisFP<1>, SDTCisInt<2>]
+>;
+
 def AMDGPUDivScaleOp : SDTypeProfile<2, 3,
   [SDTCisFP<0>, SDTCisInt<1>, SDTCisSameAs<0, 2>, SDTCisSameAs<0, 3>, SDTCisSameAs<0, 4>]
+>;
+
+// float, float, float, vcc
+def AMDGPUFmasOp : SDTypeProfile<1, 4,
+  [SDTCisFP<0>, SDTCisSameAs<0, 1>, SDTCisSameAs<0, 2>, SDTCisSameAs<0, 3>, SDTCisInt<4>]
 >;
 
 //===----------------------------------------------------------------------===//
@@ -58,16 +67,17 @@ def AMDGPUrsq_clamped : SDNode<"AMDGPUISD::RSQ_CLAMPED", SDTFPUnaryOp>;
 
 def AMDGPUldexp : SDNode<"AMDGPUISD::LDEXP", AMDGPULdExpOp>;
 
+def AMDGPUfp_class : SDNode<"AMDGPUISD::FP_CLASS", AMDGPUFPClassOp>;
+
 // out = max(a, b) a and b are floats, where a nan comparison fails.
 // This is not commutative because this gives the second operand:
 //   x < nan ? x : nan -> nan
 //   nan < x ? nan : x -> x
 def AMDGPUfmax_legacy : SDNode<"AMDGPUISD::FMAX_LEGACY", SDTFPBinOp,
-  [SDNPAssociative]
+  []
 >;
 
 def AMDGPUclamp : SDNode<"AMDGPUISD::CLAMP", SDTFPTernaryOp, []>;
-def AMDGPUmad : SDNode<"AMDGPUISD::MAD", SDTFPTernaryOp, []>;
 
 // out = max(a, b) a and b are signed ints
 def AMDGPUsmax : SDNode<"AMDGPUISD::SMAX", SDTIntBinOp,
@@ -81,7 +91,7 @@ def AMDGPUumax : SDNode<"AMDGPUISD::UMAX", SDTIntBinOp,
 
 // out = min(a, b) a and b are floats, where a nan comparison fails.
 def AMDGPUfmin_legacy : SDNode<"AMDGPUISD::FMIN_LEGACY", SDTFPBinOp,
-  [SDNPAssociative]
+  []
 >;
 
 // out = min(a, b) a and b are signed ints
@@ -126,6 +136,13 @@ def AMDGPUumin3 : SDNode<"AMDGPUISD::UMIN3", AMDGPUDTIntTernaryOp,
   [/*SDNPCommutative, SDNPAssociative*/]
 >;
 
+// out = (src0 + src1 > 0xFFFFFFFF) ? 1 : 0
+def AMDGPUcarry : SDNode<"AMDGPUISD::CARRY", SDTIntBinOp, []>;
+
+// out = (src1 > src0) ? 1 : 0
+def AMDGPUborrow : SDNode<"AMDGPUISD::BORROW", SDTIntBinOp, []>;
+
+
 def AMDGPUcvt_f32_ubyte0 : SDNode<"AMDGPUISD::CVT_F32_UBYTE0",
   SDTIntToFPOp, []>;
 def AMDGPUcvt_f32_ubyte1 : SDNode<"AMDGPUISD::CVT_F32_UBYTE1",
@@ -147,7 +164,7 @@ def AMDGPUdiv_scale : SDNode<"AMDGPUISD::DIV_SCALE", AMDGPUDivScaleOp>;
 
 //  Special case divide FMA with scale and flags (src0 = Quotient,
 //  src1 = Denominator, src2 = Numerator).
-def AMDGPUdiv_fmas : SDNode<"AMDGPUISD::DIV_FMAS", SDTFPTernaryOp>;
+def AMDGPUdiv_fmas : SDNode<"AMDGPUISD::DIV_FMAS", AMDGPUFmasOp>;
 
 // Single or double precision division fixup.
 // Special case divide fixup and flags(src0 = Quotient, src1 =
@@ -201,6 +218,22 @@ def AMDGPUmad_u24 : SDNode<"AMDGPUISD::MAD_U24", AMDGPUDTIntTernaryOp,
 def AMDGPUmad_i24 : SDNode<"AMDGPUISD::MAD_I24", AMDGPUDTIntTernaryOp,
   []
 >;
+
+def AMDGPUsendmsg : SDNode<"AMDGPUISD::SENDMSG",
+                    SDTypeProfile<0, 1, [SDTCisInt<0>]>,
+                    [SDNPHasChain, SDNPInGlue]>;
+
+def AMDGPUinterp_mov : SDNode<"AMDGPUISD::INTERP_MOV",
+                        SDTypeProfile<1, 3, [SDTCisFP<0>]>,
+                        [SDNPInGlue]>;
+
+def AMDGPUinterp_p1 : SDNode<"AMDGPUISD::INTERP_P1",
+                      SDTypeProfile<1, 3, [SDTCisFP<0>]>,
+                      [SDNPInGlue, SDNPOutGlue]>;
+
+def AMDGPUinterp_p2 : SDNode<"AMDGPUISD::INTERP_P2",
+                      SDTypeProfile<1, 4, [SDTCisFP<0>]>,
+                      [SDNPInGlue]>;
 
 //===----------------------------------------------------------------------===//
 // Flow Control Profile Types

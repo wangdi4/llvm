@@ -32,11 +32,26 @@ class FileSystem
     static lldb::user_id_t GetFileSize(const FileSpec &file_spec);
     static bool GetFileExists(const FileSpec &file_spec);
 
+    static Error Hardlink(const char *src, const char *dst);
     static Error Symlink(const char *src, const char *dst);
     static Error Readlink(const char *path, char *buf, size_t buf_len);
     static Error Unlink(const char *path);
 
     static bool CalculateMD5(const FileSpec &file_spec, uint64_t &low, uint64_t &high);
+    static bool CalculateMD5(const FileSpec &file_spec,
+                             uint64_t offset,
+                             uint64_t length,
+                             uint64_t &low,
+                             uint64_t &high);
+
+    static bool CalculateMD5AsString(const FileSpec &file_spec, std::string& digest_str);
+    static bool CalculateMD5AsString(const FileSpec &file_spec,
+                                     uint64_t offset,
+                                     uint64_t length,
+                                     std::string& digest_str);
+
+    /// Return \b true if \a spec is on a locally mounted file system, \b false otherwise.
+    static bool IsLocal(const FileSpec &spec);
 };
 }
 

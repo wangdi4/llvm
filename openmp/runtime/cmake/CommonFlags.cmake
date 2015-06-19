@@ -57,7 +57,7 @@ endmacro()
 # Global Assembly flags
 function(append_asm_flags_common input_asm_flags)
     set(local_asm_flags)
-    set(${input_asm_flags} "${${input_asm_flags}}" "${local_asm_flags}" "${USER_ASM_FLAGS}" PARENT_SCOPE)
+    set(${input_asm_flags} "${${input_asm_flags}}" "${local_asm_flags}" "${LIBOMP_ASMFLAGS}" PARENT_SCOPE)
 endfunction()
 
 #########################################################
@@ -65,15 +65,15 @@ endfunction()
 function(append_c_and_cxx_flags_common input_c_flags input_cxx_flags)
     set(local_c_flags)
     set(local_cxx_flags)
-    set(${input_c_flags}   "${${input_c_flags}}"   "${local_c_flags}"   "${USER_C_FLAGS}"   PARENT_SCOPE)
-    set(${input_cxx_flags} "${${input_cxx_flags}}" "${local_cxx_flags}" "${USER_CXX_FLAGS}" PARENT_SCOPE)
+    set(${input_c_flags}   "${${input_c_flags}}"   "${local_c_flags}"   "${LIBOMP_CFLAGS}"   PARENT_SCOPE)
+    set(${input_cxx_flags} "${${input_cxx_flags}}" "${local_cxx_flags}" "${LIBOMP_CXXFLAGS}" PARENT_SCOPE)
 endfunction()
 
 #########################################################
 # Global Fortran Compiler flags (for creating .mod files)
 function(append_fort_flags_common input_fort_flags)
     set(local_fort_flags)
-    set(${input_fort_flags} "${${input_fort_flags}}" "${local_fort_flags}" "${USER_F_FLAGS}" PARENT_SCOPE)
+    set(${input_fort_flags} "${${input_fort_flags}}" "${local_fort_flags}" "${LIBOMP_FFLAGS}" PARENT_SCOPE)
 endfunction()
 
 #########################################################
@@ -82,7 +82,7 @@ function(append_linker_flags_common input_ld_flags input_ld_flags_libs)
     set(local_ld_flags)
     set(local_ld_flags_libs)
 
-    if(${USE_PREDEFINED_LINKER_FLAGS})
+    if(${LIBOMP_USE_PREDEFINED_LINKER_FLAGS})
 
         #################################
         # Windows linker flags
@@ -92,8 +92,8 @@ function(append_linker_flags_common input_ld_flags input_ld_flags_libs)
         # MAC linker flags
         elseif(${MAC})
             append_linker_flags("-single_module")
-            append_linker_flags("-current_version ${version}.0")
-            append_linker_flags("-compatibility_version ${version}.0")
+            append_linker_flags("-current_version ${LIBOMP_VERSION}.0")
+            append_linker_flags("-compatibility_version ${LIBOMP_VERSION}.0")
         #####################################################################################
         # Intel(R) Many Integrated Core Architecture (Intel(R) MIC Architecture) linker flags
         elseif(${MIC})
@@ -103,9 +103,8 @@ function(append_linker_flags_common input_ld_flags input_ld_flags_libs)
             append_linker_flags("-Wl,--version-script=${src_dir}/exports_so.txt") # Use exports_so.txt as version script to create versioned symbols for ELF libraries
             if(NOT ${STUBS_LIBRARY})
                 append_linker_flags_library("-pthread") # link in pthread library
-                append_linker_flags_library("-ldl") # link in libdl (dynamic loader library)
             endif()
-            if(${STATS_GATHERING})
+            if(${LIBOMP_STATS})
                 append_linker_flags_library("-Wl,-lstdc++") # link in standard c++ library (stats-gathering needs it)
             endif()
         #########################
@@ -121,16 +120,13 @@ function(append_linker_flags_common input_ld_flags input_ld_flags_libs)
                                                                          # executable or shared object is unloaded, by setting DT_FINI to the 
                                                                          # address of the function.  By default, the linker uses "_fini" as the function to call.
                 append_linker_flags_library("-pthread") # link pthread library
-                if(NOT ${FREEBSD})
-                    append_linker_flags_library("-Wl,-ldl") # link in libdl (dynamic loader library)
-                endif()
             endif()
         endif() # if(${OPERATING_SYSTEM}) ...
 
-    endif() # USE_PREDEFINED_LINKER_FLAGS
+    endif() # LIBOMP_USE_PREDEFINED_LINKER_FLAGS
 
-    set(${input_ld_flags}      "${${input_ld_flags}}"      "${local_ld_flags}"      "${USER_LD_FLAGS}"     PARENT_SCOPE)
-    set(${input_ld_flags_libs} "${${input_ld_flags_libs}}" "${local_ld_flags_libs}" "${USER_LD_LIB_FLAGS}" PARENT_SCOPE)
+    set(${input_ld_flags}      "${${input_ld_flags}}"      "${local_ld_flags}"      "${LIBOMP_LDFLAGS}"     PARENT_SCOPE)
+    set(${input_ld_flags_libs} "${${input_ld_flags_libs}}" "${local_ld_flags_libs}" "${LIBOMP_LIBFLAGS}" PARENT_SCOPE)
 endfunction()
 
 #########################################################

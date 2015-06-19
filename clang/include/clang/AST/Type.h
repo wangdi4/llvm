@@ -26,11 +26,11 @@
 #include "clang/Basic/Visibility.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/FoldingSet.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/PointerUnion.h"
 #include "llvm/ADT/Twine.h"
+#include "llvm/ADT/iterator_range.h"
 #include "llvm/Support/ErrorHandling.h"
 
 namespace clang {
@@ -456,7 +456,7 @@ public:
   bool operator==(Qualifiers Other) const { return Mask == Other.Mask; }
   bool operator!=(Qualifiers Other) const { return Mask != Other.Mask; }
 
-  LLVM_EXPLICIT operator bool() const { return hasQualifiers(); }
+  explicit operator bool() const { return hasQualifiers(); }
 
   Qualifiers &operator+=(Qualifiers R) {
     addQualifiers(R);
@@ -1179,8 +1179,8 @@ public:
   };
 
 private:
-  Type(const Type &) LLVM_DELETED_FUNCTION;
-  void operator=(const Type &) LLVM_DELETED_FUNCTION;
+  Type(const Type &) = delete;
+  void operator=(const Type &) = delete;
 
   /// Bitfields required by the Type class.
   class TypeBitfields {
@@ -1575,6 +1575,7 @@ public:
   bool isObjCLifetimeType() const;              // (array of)* retainable type
   bool isObjCIndirectLifetimeType() const;      // (pointer to)* lifetime type
   bool isObjCNSObjectType() const;              // __attribute__((NSObject))
+  bool isObjCIndependentClassType() const;      // __attribute__((objc_independent_class))
   // FIXME: change this to 'raw' interface type, so we can used 'interface' type
   // for the common case.
   bool isObjCObjectType() const;                // NSString or typeof(*(id)0)
@@ -3472,7 +3473,6 @@ public:
     attr_thiscall,
     attr_pascal,
     attr_vectorcall,
-    attr_pnaclcall,
     attr_inteloclbicc,
     attr_ms_abi,
     attr_sysv_abi,

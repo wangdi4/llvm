@@ -24,7 +24,6 @@
 #include "lld/Core/Simple.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/Endian.h"
 #include "llvm/Support/Format.h"
 
 #define DEBUG_TYPE "macho-compact-unwind"
@@ -93,7 +92,7 @@ public:
     return DefinedAtom::typeProcessedUnwindInfo;
   }
 
-  Alignment alignment() const override { return Alignment(2); }
+  Alignment alignment() const override { return 4; }
 
   uint64_t size() const override { return _contents.size(); }
 
@@ -273,12 +272,12 @@ private:
 class CompactUnwindPass : public Pass {
 public:
   CompactUnwindPass(const MachOLinkingContext &context)
-      : _context(context), _archHandler(_context.archHandler()),
+      : _ctx(context), _archHandler(_ctx.archHandler()),
         _file("<mach-o Compact Unwind Pass>"),
-        _isBig(MachOLinkingContext::isBigEndian(_context.arch())) {}
+        _isBig(MachOLinkingContext::isBigEndian(_ctx.arch())) {}
 
 private:
-  void perform(std::unique_ptr<MutableFile> &mergedFile) override {
+  void perform(std::unique_ptr<SimpleFile> &mergedFile) override {
     DEBUG(llvm::dbgs() << "MachO Compact Unwind pass\n");
 
     std::map<const Atom *, CompactUnwindEntry> unwindLocs;
@@ -352,7 +351,7 @@ private:
   }
 
   void collectCompactUnwindEntries(
-      std::unique_ptr<MutableFile> &mergedFile,
+      std::unique_ptr<SimpleFile> &mergedFile,
       std::map<const Atom *, CompactUnwindEntry> &unwindLocs,
       std::vector<const Atom *> &personalities, uint32_t &numLSDAs) {
     DEBUG(llvm::dbgs() << "  Collecting __compact_unwind entries\n");
@@ -411,6 +410,9 @@ private:
       }
     }
 
+    if (atom->rawContent().size() < 4 * sizeof(uint32_t))
+      return entry;
+
     using normalized::read32;
     entry.rangeLength =
         read32(atom->rawContent().data() + 2 * sizeof(uint32_t), _isBig);
@@ -420,7 +422,7 @@ private:
   }
 
   void
-  collectDwarfFrameEntries(std::unique_ptr<MutableFile> &mergedFile,
+  collectDwarfFrameEntries(std::unique_ptr<SimpleFile> &mergedFile,
                            std::map<const Atom *, const Atom *> &dwarfFrames) {
     for (const DefinedAtom *ehFrameAtom : mergedFile->defined()) {
       if (ehFrameAtom->contentType() != DefinedAtom::typeCFI)
@@ -440,7 +442,7 @@ private:
   ///   + A synthesised reference to __eh_frame if there's no __compact_unwind
   ///     or too many personality functions to be accommodated.
   std::vector<CompactUnwindEntry> createUnwindInfoEntries(
-      const std::unique_ptr<MutableFile> &mergedFile,
+      const std::unique_ptr<SimpleFile> &mergedFile,
       const std::map<const Atom *, CompactUnwindEntry> &unwindLocs,
       const std::vector<const Atom *> &personalities,
       const std::map<const Atom *, const Atom *> &dwarfFrames) {
@@ -513,7 +515,7 @@ private:
     return entry;
   }
 
-  const MachOLinkingContext &_context;
+  const MachOLinkingContext &_ctx;
   mach_o::ArchHandler &_archHandler;
   MachOFile _file;
   bool _isBig;
@@ -521,7 +523,7 @@ private:
 
 void addCompactUnwindPass(PassManager &pm, const MachOLinkingContext &ctx) {
   assert(ctx.needsCompactUnwindPass());
-  pm.add(std::unique_ptr<Pass>(new CompactUnwindPass(ctx)));
+  pm.add(llvm::make_unique<CompactUnwindPass>(ctx));
 }
 
 } // end namesapce mach_o

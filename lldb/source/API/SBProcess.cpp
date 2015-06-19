@@ -603,6 +603,30 @@ SBProcess::GetStopID(bool include_expression_stops)
     return 0;
 }
 
+SBEvent
+SBProcess::GetStopEventForStopID(uint32_t stop_id)
+{
+    Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_API));
+
+    SBEvent sb_event;
+    EventSP event_sp;
+    ProcessSP process_sp(GetSP());
+    if (process_sp)
+    {
+        Mutex::Locker api_locker (process_sp->GetTarget().GetAPIMutex());
+        event_sp = process_sp->GetStopEventForStopID(stop_id);
+        sb_event.reset(event_sp);
+    }
+
+    if (log)
+        log->Printf ("SBProcess(%p)::GetStopEventForStopID (stop_id=%" PRIu32 ") => SBEvent(%p)",
+                     static_cast<void*>(process_sp.get()),
+                     stop_id,
+                     static_cast<void*>(event_sp.get()));
+
+    return sb_event;
+}
+
 StateType
 SBProcess::GetState ()
 {
@@ -768,7 +792,7 @@ SBProcess::Destroy ()
     if (process_sp)
     {
         Mutex::Locker api_locker (process_sp->GetTarget().GetAPIMutex());
-        sb_error.SetError(process_sp->Destroy());
+        sb_error.SetError(process_sp->Destroy(false));
     }
     else
         sb_error.SetErrorString ("SBProcess is invalid");
@@ -821,7 +845,7 @@ SBProcess::Kill ()
     if (process_sp)
     {
         Mutex::Locker api_locker (process_sp->GetTarget().GetAPIMutex());
-        sb_error.SetError (process_sp->Destroy());
+        sb_error.SetError (process_sp->Destroy(true));
     }
     else
         sb_error.SetErrorString ("SBProcess is invalid");
@@ -918,9 +942,9 @@ SBProcess::GetThreadByID (tid_t tid)
     ProcessSP process_sp(GetSP());
     if (process_sp)
     {
-        Mutex::Locker api_locker (process_sp->GetTarget().GetAPIMutex());
         Process::StopLocker stop_locker;
         const bool can_update = stop_locker.TryLock(&process_sp->GetRunLock());
+        Mutex::Locker api_locker (process_sp->GetTarget().GetAPIMutex());
         thread_sp = process_sp->GetThreadList().FindThreadByID (tid, can_update);
         sb_thread.SetThread (thread_sp);
     }
@@ -942,9 +966,9 @@ SBProcess::GetThreadByIndexID (uint32_t index_id)
     ProcessSP process_sp(GetSP());
     if (process_sp)
     {
-        Mutex::Locker api_locker (process_sp->GetTarget().GetAPIMutex());
         Process::StopLocker stop_locker;
         const bool can_update = stop_locker.TryLock(&process_sp->GetRunLock());
+        Mutex::Locker api_locker (process_sp->GetTarget().GetAPIMutex());
         thread_sp = process_sp->GetThreadList().FindThreadByIndexID (index_id, can_update);
         sb_thread.SetThread (thread_sp);
     }
@@ -999,9 +1023,15 @@ SBProcess::GetProcessFromEvent (const SBEvent &event)
 }
 
 bool
+SBProcess::GetInterruptedFromEvent (const SBEvent &event)
+{
+    return Process::ProcessEventData::GetInterruptedFromEvent(event.get());
+}
+
+bool
 SBProcess::EventIsProcessEvent (const SBEvent &event)
 {
-    return strcmp (event.GetBroadcasterClass(), SBProcess::GetBroadcasterClass()) == 0;
+    return event.GetBroadcasterClass() == SBProcess::GetBroadcasterClass();
 }
 
 SBBroadcaster

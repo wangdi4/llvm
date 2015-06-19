@@ -13,8 +13,6 @@
 // C++ Includes
 // Other libraries and framework includes
 // Project includes
-
-#include "lldb/lldb-private-log.h"
 #include "lldb/Breakpoint/BreakpointLocation.h"
 #include "lldb/Breakpoint/BreakpointSite.h"
 #include "lldb/Core/Disassembler.h"
@@ -382,8 +380,9 @@ ThreadPlanStepRange::SetNextBranchBreakpoint ()
         return false;
     else
     {
+        Target &target = GetThread().GetProcess()->GetTarget();
         uint32_t branch_index;
-        branch_index = instructions->GetIndexOfNextBranchInstruction (pc_index);
+        branch_index = instructions->GetIndexOfNextBranchInstruction (pc_index, target);
         
         Address run_to_address;
         

@@ -55,19 +55,20 @@ function(append_compiler_specific_c_and_cxx_flags input_c_flags input_cxx_flags)
         append_c_and_cxx_flags("-Qoption,cpp,--extended_float_types") # Enabled _Quad type.
         append_c_and_cxx_flags("-fno-exceptions") # Exception handling table generation is disabled.
         append_c_and_cxx_flags("-x c++") # Compile C files as C++ files
+        if(${LINUX})
+            if(NOT ${MIC})
+                append_c_and_cxx_flags("-Werror") # Changes all warnings to errors.
+            endif()
+            append_c_and_cxx_flags("-sox") # Tells the compiler to save the compilation options and version number 
+                                           # in the executable file. It also lets you choose whether to include 
+                                           # lists of certain functions.
         if(${MIC})
             append_c_and_cxx_flags("-mmic") # Build Intel(R) MIC Architecture native code
             append_c_and_cxx_flags("-ftls-model=initial-exec") # Changes the thread local storage (TLS) model. Generates a restrictive, optimized TLS code. 
                                                                # To use this setting, the thread-local variables accessed must be defined in one of the 
                                                                # modules available to the program.
             append_c_and_cxx_flags("-opt-streaming-stores never") # Disables generation of streaming stores for optimization.
-            append_c_and_cxx_flags("-sox") # Tells the compiler to save the compilation options and version number 
-                                           # in the executable file. It also lets you choose whether to include 
-                                           # lists of certain functions.
-        elseif(${LINUX})
-            append_c_and_cxx_flags("-Werror") # Changes all warnings to errors.
-            append_c_and_cxx_flags("-sox") 
-            if(${IA32})
+            elseif(${IA32})
                 append_c_and_cxx_flags("-falign-stack=maintain-16-byte") # Tells the compiler the stack alignment to use on entry to routines.
                 append_c_and_cxx_flags("-mia32")  # Tells the compiler which features it may target (ia32)
             endif()
@@ -103,7 +104,7 @@ function(append_compiler_specific_linker_flags input_ld_flags input_ld_flags_lib
         append_linker_flags("-dll") 
         append_linker_flags("-WX:NO")
         append_linker_flags("-incremental:no")
-        append_linker_flags("-version:${version}.0")
+        append_linker_flags("-version:${LIBOMP_VERSION}.0")
         append_linker_flags("-NXCompat")
         append_linker_flags("-DynamicBase") # This option modifies the header of an executable to indicate 
                                                # whether the application should be randomly rebased at load time.
@@ -137,18 +138,19 @@ function(append_compiler_specific_linker_flags input_ld_flags input_ld_flags_lib
             append_linker_flags_library("-pthread") # link in pthread library
             append_linker_flags_library("-ldl") # link in libdl (dynamic loader library)
         endif()
-        if(${STATS_GATHERING})
+        if(${LIBOMP_STATS})
             append_linker_flags_library("-Wl,-lstdc++") # link in standard c++ library (stats-gathering needs it)
         endif()
-    elseif(${MIC})
-        append_linker_flags("-mmic") # enable MIC linking
-        append_linker_flags("-static-intel") # Causes Intel-provided libraries to be linked in statically. 
-        append_linker_flags("-no-intel-extensions") # Enables or disables all Intel C and Intel C++ language extensions.
     else()
-        append_linker_flags("-static-intel") # Causes Intel-provided libraries to be linked in statically.
-        append_linker_flags("-Werror") # Warnings become errors
-        if(${IA32})
+        if(${MIC})
+        append_linker_flags("-mmic") # enable MIC linking
+        append_linker_flags("-no-intel-extensions") # Enables or disables all Intel C and Intel C++ language extensions.
+        elseif(${IA32})
             append_linker_flags_library("-lirc_pic") # link in libirc_pic
+        endif()
+        append_linker_flags("-static-intel") # Causes Intel-provided libraries to be linked in statically.
+        if(NOT ${MIC})
+        append_linker_flags("-Werror") # Warnings become errors
         endif()
     endif()
 

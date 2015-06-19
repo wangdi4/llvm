@@ -24,7 +24,6 @@
 #include "llvm/CodeGen/SlotIndexes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/DataLayout.h"
-#include "llvm/IR/LeakDetector.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/Support/Debug.h"
@@ -45,7 +44,6 @@ MachineBasicBlock::MachineBasicBlock(MachineFunction &mf, const BasicBlock *bb)
 }
 
 MachineBasicBlock::~MachineBasicBlock() {
-  LeakDetector::removeGarbageObject(this);
 }
 
 /// getSymbol - Return the MCSymbol for this basic block.
@@ -54,10 +52,8 @@ MCSymbol *MachineBasicBlock::getSymbol() const {
   if (!CachedMCSymbol) {
     const MachineFunction *MF = getParent();
     MCContext &Ctx = MF->getContext();
-    const TargetMachine &TM = MF->getTarget();
-    const char *Prefix =
-        TM.getSubtargetImpl()->getDataLayout()->getPrivateGlobalPrefix();
-    CachedMCSymbol = Ctx.GetOrCreateSymbol(Twine(Prefix) + "BB" +
+    const char *Prefix = Ctx.getAsmInfo()->getPrivateLabelPrefix();
+    CachedMCSymbol = Ctx.getOrCreateSymbol(Twine(Prefix) + "BB" +
                                            Twine(MF->getFunctionNumber()) +
                                            "_" + Twine(getNumber()));
   }
@@ -87,14 +83,11 @@ void ilist_traits<MachineBasicBlock>::addNodeToList(MachineBasicBlock *N) {
   for (MachineBasicBlock::instr_iterator
          I = N->instr_begin(), E = N->instr_end(); I != E; ++I)
     I->AddRegOperandsToUseLists(RegInfo);
-
-  LeakDetector::removeGarbageObject(N);
 }
 
 void ilist_traits<MachineBasicBlock>::removeNodeFromList(MachineBasicBlock *N) {
   N->getParent()->removeFromMBBNumbering(N->Number);
   N->Number = -1;
-  LeakDetector::addGarbageObject(N);
 }
 
 
@@ -109,8 +102,6 @@ void ilist_traits<MachineInstr>::addNodeToList(MachineInstr *N) {
   // use/def lists.
   MachineFunction *MF = Parent->getParent();
   N->AddRegOperandsToUseLists(MF->getRegInfo());
-
-  LeakDetector::removeGarbageObject(N);
 }
 
 /// removeNodeFromList (MI) - When we remove an instruction from a basic block
@@ -124,8 +115,6 @@ void ilist_traits<MachineInstr>::removeNodeFromList(MachineInstr *N) {
     N->RemoveRegOperandsFromUseLists(MF->getRegInfo());
 
   N->setParent(nullptr);
-
-  LeakDetector::addGarbageObject(N);
 }
 
 /// transferNodesFromList (MI) - When moving a range of instructions from one
@@ -261,7 +250,7 @@ std::string MachineBasicBlock::getFullName() const {
   if (getBasicBlock())
     Name += getBasicBlock()->getName();
   else
-    Name += (Twine("BB") + Twine(getNumber())).str();
+    Name += ("BB" + Twine(getNumber())).str();
   return Name;
 }
 
@@ -318,7 +307,7 @@ void MachineBasicBlock::print(raw_ostream &OS, SlotIndexes *Indexes) const {
     OS << '\t';
     if (I->isInsideBundle())
       OS << "  * ";
-    I->print(OS, &getParent()->getTarget());
+    I->print(OS);
   }
 
   // Print the successors of this block according to the CFG.
@@ -1140,21 +1129,19 @@ getWeightIterator(MachineBasicBlock::const_succ_iterator I) const {
 /// instructions after (searching just for defs) MI.
 MachineBasicBlock::LivenessQueryResult
 MachineBasicBlock::computeRegisterLiveness(const TargetRegisterInfo *TRI,
-                                           unsigned Reg, MachineInstr *MI,
-                                           unsigned Neighborhood) {
+                                           unsigned Reg, const_iterator Before,
+                                           unsigned Neighborhood) const {
   unsigned N = Neighborhood;
-  MachineBasicBlock *MBB = MI->getParent();
 
-  // Start by searching backwards from MI, looking for kills, reads or defs.
-
-  MachineBasicBlock::iterator I(MI);
+  // Start by searching backwards from Before, looking for kills, reads or defs.
+  const_iterator I(Before);
   // If this is the first insn in the block, don't search backwards.
-  if (I != MBB->begin()) {
+  if (I != begin()) {
     do {
       --I;
 
       MachineOperandIteratorBase::PhysRegInfo Analysis =
-        MIOperands(I).analyzePhysReg(Reg, TRI);
+        ConstMIOperands(I).analyzePhysReg(Reg, TRI);
 
       if (Analysis.Defines)
         // Outputs happen after inputs so they take precedence if both are
@@ -1169,15 +1156,15 @@ MachineBasicBlock::computeRegisterLiveness(const TargetRegisterInfo *TRI,
         // Defined or read without a previous kill - live.
         return Analysis.Reads ? LQR_Live : LQR_OverlappingLive;
 
-    } while (I != MBB->begin() && --N > 0);
+    } while (I != begin() && --N > 0);
   }
 
   // Did we get to the start of the block?
-  if (I == MBB->begin()) {
+  if (I == begin()) {
     // If so, the register's state is definitely defined by the live-in state.
     for (MCRegAliasIterator RAI(Reg, TRI, /*IncludeSelf=*/true);
          RAI.isValid(); ++RAI) {
-      if (MBB->isLiveIn(*RAI))
+      if (isLiveIn(*RAI))
         return (*RAI == Reg) ? LQR_Live : LQR_OverlappingLive;
     }
 
@@ -1186,13 +1173,13 @@ MachineBasicBlock::computeRegisterLiveness(const TargetRegisterInfo *TRI,
 
   N = Neighborhood;
 
-  // Try searching forwards from MI, looking for reads or defs.
-  I = MachineBasicBlock::iterator(MI);
+  // Try searching forwards from Before, looking for reads or defs.
+  I = const_iterator(Before);
   // If this is the last insn in the block, don't search forwards.
-  if (I != MBB->end()) {
-    for (++I; I != MBB->end() && N > 0; ++I, --N) {
+  if (I != end()) {
+    for (++I; I != end() && N > 0; ++I, --N) {
       MachineOperandIteratorBase::PhysRegInfo Analysis =
-        MIOperands(I).analyzePhysReg(Reg, TRI);
+        ConstMIOperands(I).analyzePhysReg(Reg, TRI);
 
       if (Analysis.ReadsOverlap)
         // Used, therefore must have been live.

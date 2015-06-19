@@ -11,7 +11,7 @@ class StopHookMechanismTestCase(TestBase):
 
     mydir = TestBase.compute_mydir(__file__)
 
-    @unittest2.skipUnless(sys.platform.startswith("darwin"), "requires Darwin")
+    @skipUnlessDarwin
     @dsym_test
     def test_with_dsym(self):
         """Test the stop-hook mechanism."""
@@ -20,6 +20,7 @@ class StopHookMechanismTestCase(TestBase):
 
     @skipIfFreeBSD # llvm.org/pr15037
     @expectedFailureLinux('llvm.org/pr15037') # stop-hooks sometimes fail to fire on Linux
+    @expectedFailureWindows("llvm.org/pr22274: need a pexpect replacement for windows")
     @dwarf_test
     def test_with_dwarf(self):
         """Test the stop-hook mechanism."""
@@ -44,7 +45,7 @@ class StopHookMechanismTestCase(TestBase):
         add_prompt1 = "> "
 
         # So that the child gets torn down after the test.
-        self.child = pexpect.spawn('%s %s %s' % (self.lldbHere, self.lldbOption, exe))
+        self.child = pexpect.spawn('%s %s %s' % (lldbtest_config.lldbExec, self.lldbOption, exe))
         child = self.child
         # Turn on logging for what the child sends back.
         if self.TraceOn():

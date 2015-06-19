@@ -7,23 +7,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-//++
-// File:        MIUtilString.h
-//
-// Overview:    CMIUtilString interface.
-//
-// Environment: Compilers:  Visual C++ 12.
-//                          gcc (Ubuntu/Linaro 4.8.1-10ubuntu9) 4.8.1
-//              Libraries:  See MIReadmetxt.
-//
-// Copyright:   None.
-//--
-
 #pragma once
 
 // Third party headers:
 #include <string>
 #include <vector>
+#include <cinttypes>
 
 // In-house headers:
 #include "MIDataTypes.h"
@@ -48,6 +37,9 @@ class CMIUtilString : public std::string
     static CMIUtilString FormatValist(const CMIUtilString &vrFormating, va_list vArgs);
     static bool IsAllValidAlphaAndNumeric(const MIchar &vrText);
     static bool Compare(const CMIUtilString &vrLhs, const CMIUtilString &vrRhs);
+    static CMIUtilString ConvertToPrintableASCII(const char vChar);
+    static CMIUtilString ConvertToPrintableASCII(const char16_t vChar16);
+    static CMIUtilString ConvertToPrintableASCII(const char32_t vChar32);
 
     // Methods:
   public:
@@ -58,14 +50,23 @@ class CMIUtilString : public std::string
     bool ExtractNumber(MIint64 &vwrNumber) const;
     CMIUtilString FindAndReplace(const CMIUtilString &vFind, const CMIUtilString &vReplaceWith) const;
     bool IsNumber(void) const;
+    bool IsHexadecimalNumber(void) const;
     bool IsQuoted(void) const;
     CMIUtilString RemoveRepeatedCharacters(const MIchar vChar);
     MIuint Split(const CMIUtilString &vDelimiter, VecString_t &vwVecSplits) const;
     MIuint SplitConsiderQuotes(const CMIUtilString &vDelimiter, VecString_t &vwVecSplits) const;
+    MIuint SplitLines(VecString_t &vwVecSplits) const;
     CMIUtilString StripCREndOfLine(void) const;
     CMIUtilString StripCRAll(void) const;
     CMIUtilString Trim(void) const;
     CMIUtilString Trim(const MIchar vChar) const;
+    MIuint FindFirst(const CMIUtilString &vrPattern, const MIuint vnPos = 0) const;
+    MIuint FindFirst(const CMIUtilString &vrPattern, const bool vbSkipQuotedText, bool &vrwbNotFoundClosedQuote,
+                     const MIuint vnPos = 0) const;
+    MIuint FindFirstNot(const CMIUtilString &vrPattern, const MIuint vnPos = 0) const;
+    CMIUtilString Escape(const bool vbEscapeQuotes = false) const;
+    CMIUtilString AddSlashes(void) const;
+    CMIUtilString StripSlashes(void) const;
     //
     CMIUtilString &operator=(const MIchar *vpRhs);
     CMIUtilString &operator=(const std::string &vrRhs);
@@ -82,4 +83,5 @@ class CMIUtilString : public std::string
   private:
     bool ExtractNumberFromHexadecimal(MIint64 &vwrNumber) const;
     CMIUtilString RemoveRepeatedCharacters(const MIint vnPos, const MIchar vChar);
+    MIuint FindFirstQuote(const MIuint vnPos) const;
 };

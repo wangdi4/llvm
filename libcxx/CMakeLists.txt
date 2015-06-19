@@ -7,6 +7,10 @@
 project(libcxx CXX C)
 cmake_minimum_required(VERSION 2.8)
 
+if(POLICY CMP0042)
+  cmake_policy(SET CMP0042 NEW) # Set MACOSX_RPATH=YES by default
+endif()
+
 set(PACKAGE_NAME libcxx)
 set(PACKAGE_VERSION trunk-svn)
 set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
@@ -50,6 +54,9 @@ option(LIBCXX_ENABLE_PEDANTIC "Compile with pedantic enabled." ON)
 option(LIBCXX_ENABLE_WERROR "Fail and stop if a warning is triggered." OFF)
 option(LIBCXX_ENABLE_CXX1Y "Enable -std=c++1y and use of c++1y language features if the compiler supports it." OFF)
 option(LIBCXX_ENABLE_SHARED "Build libc++ as a shared library." ON)
+option(LIBCXX_ENABLE_GLOBAL_FILESYSTEM_NAMESPACE "Build libc++ with support for the global filesystem namespace." ON)
+option(LIBCXX_ENABLE_STDIN "Build libc++ with support for stdin/std::cin." ON)
+option(LIBCXX_ENABLE_STDOUT "Build libc++ with support for stdout/std::cout." ON)
 option(LIBCXX_ENABLE_THREADS "Build libc++ with support for threads." ON)
 option(LIBCXX_BUILD_32_BITS "Build 32 bit libc++" OFF)
 option(LIBCXX_ENABLE_MONOTONIC_CLOCK
@@ -57,9 +64,23 @@ option(LIBCXX_ENABLE_MONOTONIC_CLOCK
    This option may only be used when LIBCXX_ENABLE_THREADS=OFF." ON)
 option(LIBCXX_INSTALL_HEADERS "Install the libc++ headers." ON)
 option(LIBCXX_INSTALL_SUPPORT_HEADERS "Install libc++ support headers." ON)
+option(LIBCXX_GENERATE_COVERAGE "Enable generating code coverage." OFF)
+set(LIBCXX_COVERAGE_LIBRARY "" CACHE STRING
+       "The Profile-rt library used to build with code coverage")
+option(LIBCXX_ENABLE_STATIC_ABI_LIBRARY "Statically link the ABI library" OFF)
+set(LIBCXX_SYSROOT "" CACHE STRING "Use alternate sysroot.")
+set(LIBCXX_GCC_TOOLCHAIN "" CACHE STRING "Use alternate GCC toolchain.")
 if (LIBCXX_BUILT_STANDALONE)
   set(LLVM_USE_SANITIZER "" CACHE STRING
       "Define the sanitizer used to build the library and tests")
+endif()
+
+if (LIBCXX_ENABLE_STATIC_ABI_LIBRARY)
+  if (APPLE)
+    message(FATAL_ERROR "LIBCXX_ENABLE_STATIC_ABI_LIBRARY is not supported on OS X")
+  else()
+    message(WARNING "LIBCXX_ENABLE_STATIC_ABI_LIBRARY is an experimental option")
+  endif()
 endif()
 
 set(CXXABIS none libcxxabi libcxxrt libstdc++ libsupc++)
@@ -67,7 +88,7 @@ if (NOT LIBCXX_CXX_ABI)
   if (NOT DEFINED LIBCXX_BUILT_STANDALONE AND
       IS_DIRECTORY "${CMAKE_SOURCE_DIR}/projects/libcxxabi")
     set(LIBCXX_CXX_ABI_LIBNAME "libcxxabi")
-    set(LIBCXX_LIBCXXABI_INCLUDE_PATHS "${CMAKE_SOURCE_DIR}/projects/libcxxabi/include")
+    set(LIBCXX_CXX_ABI_INCLUDE_PATHS "${CMAKE_SOURCE_DIR}/projects/libcxxabi/include")
     set(LIBCXX_CXX_ABI_INTREE 1)
   else ()
     set(LIBCXX_CXX_ABI_LIBNAME "none")
@@ -79,24 +100,34 @@ set(LIBCXX_CXX_ABI "${LIBCXX_CXX_ABI}" CACHE STRING
     "Specify C++ ABI library to use." FORCE)
 set_property(CACHE LIBCXX_CXX_ABI PROPERTY STRINGS ;${CXXABIS})
 
+# Build libc++abi with libunwind. We need this option to determine whether to
+# link with libunwind or libgcc_s while running the test cases.
+option(LIBCXXABI_USE_LLVM_UNWINDER "Build and use the LLVM unwinder." OFF)
+
+# TODO(ericwf): Remove these options by March/25/2015.
+# These CMake options have been removed in favor of a generic option
+# "LIBCXX_CXX_ABI_INCLUDE_PATHS". Issue an explicit error message explaining
+# the change for anybody that still uses them.
+if (DEFINED LIBCXX_LIBCXXABI_INCLUDE_PATHS)
+  message(FATAL_ERROR
+    "The option \"LIBCXX_LIBCXXABI_INCLUDE_PATHS\" has been removed. "
+    "Use \"LIBCXX_CXX_ABI_INCLUDE_PATHS\" instead "
+    "and clean your build directory.")
+elseif(DEFINED LIBCXX_LIBSUPCXX_INCLUDE_PATHS)
+  message(FATAL_ERROR
+    "The option \"LIBCXX_LIBSUPCXX_INCLUDE_PATHS\" has been removed. "
+    "Use \"LIBCXX_CXX_ABI_INCLUDE_PATHS\" instead "
+    "and clean your build directory.")
+elseif(DEFINED LIBCXX_LIBCXXRT_INCLUDE_PATHS)
+  message(FATAL_ERROR
+    "The option \"LIBCXX_LIBCXXRT_INCLUDE_PATHS\" has been removed. "
+    "Use \"LIBCXX_CXX_ABI_INCLUDE_PATHS\" instead "
+    "and clean your build directory.")
+endif()
+
 #===============================================================================
 # Configure System
 #===============================================================================
-
-# Get triples.
-include(GetTriple)
-get_host_triple(LIBCXX_HOST_TRIPLE
-  LIBCXX_HOST_ARCH
-  LIBCXX_HOST_VENDOR
-  LIBCXX_HOST_OS
-  )
-set(LIBCXX_HOST_TRIPLE ${LIBCXX_HOST_TRIPLE} CACHE STRING "Host triple.")
-get_target_triple(LIBCXX_TARGET_TRIPLE
-  LIBCXX_TARGET_ARCH
-  LIBCXX_TARGET_VENDOR
-  LIBCXX_TARGET_OS
-  )
-set(LIBCXX_TARGET_TRIPLE ${LIBCXX_TARGET_TRIPLE} CACHE STRING "Target triple.")
 
 set(LIBCXX_COMPILER    ${CMAKE_CXX_COMPILER})
 set(LIBCXX_SOURCE_DIR  ${CMAKE_CURRENT_SOURCE_DIR})
@@ -116,6 +147,11 @@ set(LIBCXX_LINK_FLAGS "")
 include(config-ix)
 # Configure ABI library
 include(HandleLibCXXABI)
+# Configure coverage options.
+if (LIBCXX_GENERATE_COVERAGE)
+  include(CodeCoverage)
+  set(CMAKE_BUILD_TYPE "COVERAGE" CACHE STRING "" FORCE)
+endif()
 
 #===============================================================================
 # Setup Compiler Flags
@@ -232,6 +268,21 @@ if (MSVC)
   add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 endif()
 
+# LIBCXX_ENABLE_GLOBAL_FILESYSTEM_NAMESPACE configuration
+if (NOT LIBCXX_ENABLE_GLOBAL_FILESYSTEM_NAMESPACE)
+  add_definitions(-D_LIBCPP_HAS_NO_GLOBAL_FILESYSTEM_NAMESPACE)
+endif()
+
+# LIBCXX_ENABLE_STDIN configuration
+if (NOT LIBCXX_ENABLE_STDIN)
+  add_definitions(-D_LIBCPP_HAS_NO_STDIN)
+endif()
+
+# LIBCXX_ENABLE_STDOUT configuration
+if (NOT LIBCXX_ENABLE_STDOUT)
+  add_definitions(-D_LIBCPP_HAS_NO_STDOUT)
+endif()
+
 # LIBCXX_ENABLE_THREADS configuration
 if (NOT LIBCXX_ENABLE_THREADS)
   add_definitions(-D_LIBCPP_HAS_NO_THREADS)
@@ -275,6 +326,17 @@ if (LIBCXX_BUILT_STANDALONE)
   elseif(MSVC)
     message(WARNING "LLVM_USE_SANITIZER is not supported with MSVC")
   endif()
+endif()
+
+append_if(LIBCXX_CXX_FLAGS LIBCXX_TARGET_TRIPLE
+          "-target ${LIBCXX_TARGET_TRIPLE}")
+
+append_if(LIBCXX_CXX_FLAGS LIBCXX_SYSROOT "--sysroot ${LIBCXX_SYSROOT}")
+append_if(LIBCXX_CXX_FLAGS LIBCXX_GCC_TOOLCHAIN
+          "-gcc-toolchain ${LIBCXX_GCC_TOOLCHAIN}")
+
+if (LLVM_USE_SANITIZER AND LIBCXX_GENERATE_COVERAGE)
+  message(FATAL_ERROR "LLVM_USE_SANITIZER cannot be used with LIBCXX_GENERATE_COVERAGE")
 endif()
 
 string(REPLACE ";" " " LIBCXX_CXX_FLAGS "${LIBCXX_CXX_FLAGS}")

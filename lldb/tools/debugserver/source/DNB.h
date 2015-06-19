@@ -151,15 +151,10 @@ nub_bool_t      DNBWatchpointSet                (nub_process_t pid, nub_addr_t a
 nub_bool_t      DNBWatchpointClear              (nub_process_t pid, nub_addr_t addr);
 uint32_t        DNBWatchpointGetNumSupportedHWP (nub_process_t pid); 
 
+uint32_t        DNBGetRegisterCPUType           ();
 const DNBRegisterSetInfo *
                 DNBGetRegisterSetInfo           (nub_size_t *num_reg_sets);
 nub_bool_t      DNBGetRegisterInfoByName        (const char *reg_name, DNBRegisterInfo* info);
-
-//----------------------------------------------------------------------
-// Printf style formatting for printing values in the inferior memory
-// space and registers.
-//----------------------------------------------------------------------
-nub_size_t      DNBPrintf (nub_process_t pid, nub_thread_t tid, nub_addr_t addr, FILE *file, const char *format);
 
 //----------------------------------------------------------------------
 // Other static nub information calls.

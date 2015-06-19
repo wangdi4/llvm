@@ -9,10 +9,13 @@
 
 #include "lldb/Host/windows/PipeWindows.h"
 
+#include "llvm/ADT/SmallString.h"
+#include "llvm/Support/Process.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <fcntl.h>
 #include <io.h>
+#include <rpc.h>
 
 #include <atomic>
 #include <string>
@@ -82,11 +85,38 @@ PipeWindows::CreateNew(llvm::StringRef name, bool child_process_inherit)
     Error result = OpenNamedPipe(name, child_process_inherit, false);
     if (!result.Success())
     {
-        CloseReadEndpoint();
+        CloseReadFileDescriptor();
         return result;
     }
 
     return result;
+}
+
+Error
+PipeWindows::CreateWithUniqueName(llvm::StringRef prefix, bool child_process_inherit, llvm::SmallVectorImpl<char>& name)
+{
+    llvm::SmallString<128> pipe_name;
+    Error error;
+    ::UUID unique_id;
+    RPC_CSTR unique_string;
+    RPC_STATUS status = ::UuidCreate(&unique_id);
+    if (status == RPC_S_OK || status == RPC_S_UUID_LOCAL_ONLY)
+        status = ::UuidToStringA(&unique_id, &unique_string);
+    if (status == RPC_S_OK)
+    {
+        pipe_name = prefix;
+        pipe_name += "-";
+        pipe_name += reinterpret_cast<char *>(unique_string);
+        ::RpcStringFreeA(&unique_string);
+        error = CreateNew(pipe_name, child_process_inherit);
+    }
+    else
+    {
+        error.SetError(status, eErrorTypeWin32);
+    }
+    if (error.Success())
+        name = pipe_name;
+    return error;
 }
 
 Error
@@ -99,7 +129,7 @@ PipeWindows::OpenAsReader(llvm::StringRef name, bool child_process_inherit)
 }
 
 Error
-PipeWindows::OpenAsWriter(llvm::StringRef name, bool child_process_inherit)
+PipeWindows::OpenAsWriterWithTimeout(llvm::StringRef name, bool child_process_inherit, const std::chrono::microseconds &timeout)
 {
     if (CanRead() || CanWrite())
         return Error(ERROR_ALREADY_EXISTS, eErrorTypeWin32);
@@ -185,7 +215,7 @@ PipeWindows::ReleaseWriteFileDescriptor()
 }
 
 void
-PipeWindows::CloseReadEndpoint()
+PipeWindows::CloseReadFileDescriptor()
 {
     if (!CanRead())
         return;
@@ -199,7 +229,7 @@ PipeWindows::CloseReadEndpoint()
 }
 
 void
-PipeWindows::CloseWriteEndpoint()
+PipeWindows::CloseWriteFileDescriptor()
 {
     if (!CanWrite())
         return;
@@ -213,8 +243,14 @@ PipeWindows::CloseWriteEndpoint()
 void
 PipeWindows::Close()
 {
-    CloseReadEndpoint();
-    CloseWriteEndpoint();
+    CloseReadFileDescriptor();
+    CloseWriteFileDescriptor();
+}
+
+Error
+PipeWindows::Delete(llvm::StringRef name)
+{
+    return Error();
 }
 
 bool
@@ -242,13 +278,7 @@ PipeWindows::GetWriteNativeHandle()
 }
 
 Error
-PipeWindows::Read(void *buf, size_t size, size_t &bytes_read)
-{
-    return ReadWithTimeout(buf, size, std::chrono::milliseconds::zero(), bytes_read);
-}
-
-Error
-PipeWindows::ReadWithTimeout(void *buf, size_t size, const std::chrono::milliseconds &duration, size_t &bytes_read)
+PipeWindows::ReadWithTimeout(void *buf, size_t size, const std::chrono::microseconds &duration, size_t &bytes_read)
 {
     if (!CanRead())
         return Error(ERROR_INVALID_HANDLE, eErrorTypeWin32);
@@ -259,7 +289,7 @@ PipeWindows::ReadWithTimeout(void *buf, size_t size, const std::chrono::millisec
     if (!result && GetLastError() != ERROR_IO_PENDING)
         return Error(::GetLastError(), eErrorTypeWin32);
 
-    DWORD timeout = (duration == std::chrono::milliseconds::zero()) ? INFINITE : duration.count();
+    DWORD timeout = (duration == std::chrono::microseconds::zero()) ? INFINITE : duration.count() * 1000;
     DWORD wait_result = ::WaitForSingleObject(m_read_overlapped.hEvent, timeout);
     if (wait_result != WAIT_OBJECT_0)
     {

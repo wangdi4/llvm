@@ -27,21 +27,25 @@
 #include "sanitizer_libc.h"
 #include "sanitizer_mac.h"
 #include "sanitizer_placement_new.h"
+#include "sanitizer_platform_limits_posix.h"
 #include "sanitizer_procmaps.h"
 
 #include <crt_externs.h>  // for _NSGetEnviron
+#include <errno.h>
 #include <fcntl.h>
+#include <libkern/OSAtomic.h>
+#include <mach-o/dyld.h>
+#include <mach/mach.h>
 #include <pthread.h>
 #include <sched.h>
 #include <signal.h>
+#include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/sysctl.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <libkern/OSAtomic.h>
-#include <errno.h>
 
 namespace __sanitizer {
 
@@ -57,6 +61,10 @@ uptr internal_munmap(void *addr, uptr length) {
   return munmap(addr, length);
 }
 
+int internal_mprotect(void *addr, uptr length, int prot) {
+  return mprotect(addr, length, prot);
+}
+
 uptr internal_close(fd_t fd) {
   return close(fd);
 }
@@ -67,11 +75,6 @@ uptr internal_open(const char *filename, int flags) {
 
 uptr internal_open(const char *filename, int flags, u32 mode) {
   return open(filename, flags, mode);
-}
-
-uptr OpenFile(const char *filename, bool write) {
-  return internal_open(filename,
-      write ? O_WRONLY | O_CREAT : O_RDONLY, 0660);
 }
 
 uptr internal_read(fd_t fd, void *buf, uptr count) {
@@ -128,6 +131,13 @@ uptr internal_getpid() {
 int internal_sigaction(int signum, const void *act, void *oldact) {
   return sigaction(signum,
                    (struct sigaction *)act, (struct sigaction *)oldact);
+}
+
+void internal_sigfillset(__sanitizer_sigset_t *set) { sigfillset(set); }
+
+uptr internal_sigprocmask(int how, __sanitizer_sigset_t *set,
+                          __sanitizer_sigset_t *oldset) {
+  return sigprocmask(how, set, oldset);
 }
 
 int internal_fork() {
@@ -204,21 +214,27 @@ const char *GetEnv(const char *name) {
   return 0;
 }
 
+uptr ReadBinaryName(/*out*/char *buf, uptr buf_len) {
+  CHECK_LE(kMaxPathLength, buf_len);
+
+  // On OS X the executable path is saved to the stack by dyld. Reading it
+  // from there is much faster than calling dladdr, especially for large
+  // binaries with symbols.
+  InternalScopedString exe_path(kMaxPathLength);
+  uint32_t size = exe_path.size();
+  if (_NSGetExecutablePath(exe_path.data(), &size) == 0 &&
+      realpath(exe_path.data(), buf) != 0) {
+    return internal_strlen(buf);
+  }
+  return 0;
+}
+
 void ReExec() {
   UNIMPLEMENTED();
 }
 
-void PrepareForSandboxing(__sanitizer_sandbox_arguments *args) {
-  (void)args;
-  // Nothing here for now.
-}
-
 uptr GetPageSize() {
   return sysconf(_SC_PAGESIZE);
-}
-
-BlockingMutex::BlockingMutex(LinkerInitialized) {
-  // We assume that OS_SPINLOCK_INIT is zero
 }
 
 BlockingMutex::BlockingMutex() {
@@ -326,11 +342,32 @@ MacosVersion GetMacosVersion() {
 }
 
 uptr GetRSS() {
-  return 0;
+  struct task_basic_info info;
+  unsigned count = TASK_BASIC_INFO_COUNT;
+  kern_return_t result =
+      task_info(mach_task_self(), TASK_BASIC_INFO, (task_info_t)&info, &count);
+  if (UNLIKELY(result != KERN_SUCCESS)) {
+    Report("Cannot get task info. Error: %d\n", result);
+    Die();
+  }
+  return info.resident_size;
 }
 
 void *internal_start_thread(void (*func)(void *arg), void *arg) { return 0; }
 void internal_join_thread(void *th) { }
+
+void GetPcSpBp(void *context, uptr *pc, uptr *sp, uptr *bp) {
+  ucontext_t *ucontext = (ucontext_t*)context;
+# if SANITIZER_WORDSIZE == 64
+  *pc = ucontext->uc_mcontext->__ss.__rip;
+  *bp = ucontext->uc_mcontext->__ss.__rbp;
+  *sp = ucontext->uc_mcontext->__ss.__rsp;
+# else
+  *pc = ucontext->uc_mcontext->__ss.__eip;
+  *bp = ucontext->uc_mcontext->__ss.__ebp;
+  *sp = ucontext->uc_mcontext->__ss.__esp;
+# endif  // SANITIZER_WORDSIZE
+}
 
 }  // namespace __sanitizer
 

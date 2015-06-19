@@ -27,11 +27,13 @@ add_lldb_library(lldbCore
   FastDemangle.cpp
   FileLineResolver.cpp
   FileSpecList.cpp
+  FormatEntity.cpp
   History.cpp
   IOHandler.cpp
   Language.cpp
   Listener.cpp
   Log.cpp
+  Logging.cpp
   Mangled.cpp
   Module.cpp
   ModuleChild.cpp

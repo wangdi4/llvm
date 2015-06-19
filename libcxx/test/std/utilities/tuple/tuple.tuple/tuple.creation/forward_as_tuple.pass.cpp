@@ -12,7 +12,10 @@
 // template<class... Types>
 //     tuple<Types&&...> forward_as_tuple(Types&&... t);
 
+// UNSUPPORTED: c++98, c++03
+
 #include <tuple>
+#include <type_traits>
 #include <cassert>
 
 template <class Tuple>

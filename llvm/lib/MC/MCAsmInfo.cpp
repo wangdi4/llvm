@@ -39,7 +39,9 @@ MCAsmInfo::MCAsmInfo() {
   CommentString = "#";
   LabelSuffix = ":";
   UseAssignmentForEHBegin = false;
+  NeedsLocalForSize = false;
   PrivateGlobalPrefix = "L";
+  PrivateLabelPrefix = PrivateGlobalPrefix;
   LinkerPrivateGlobalPrefix = "";
   InlineAsmStart = "APP";
   InlineAsmEnd = "NO_APP";
@@ -67,6 +69,7 @@ MCAsmInfo::MCAsmInfo() {
   HasAggressiveSymbolFolding = true;
   COMMDirectiveAlignmentIsInBytes = true;
   LCOMMDirectiveAlignmentType = LCOMM::NoAlignment;
+  HasFunctionAlignment = true;
   HasDotTypeDotSizeDirective = true;
   HasSingleParameterDotFile = true;
   HasIdentDirective = false;
@@ -87,6 +90,7 @@ MCAsmInfo::MCAsmInfo() {
   DwarfRegNumForCFI = false;
   NeedsDwarfSectionOffsetDirective = false;
   UseParensForSymbolVariant = false;
+  UseLogicalShr = true;
 
   // FIXME: Clang's logic should be synced with the logic used to initialize
   //        this member and the two implementations should be merged.
@@ -108,6 +112,10 @@ MCAsmInfo::MCAsmInfo() {
 MCAsmInfo::~MCAsmInfo() {
 }
 
+bool MCAsmInfo::isSectionAtomizableBySymbols(const MCSection &Section) const {
+  return false;
+}
+
 const MCExpr *
 MCAsmInfo::getExprForPersonalitySymbol(const MCSymbol *Sym,
                                        unsigned Encoding,
@@ -124,7 +132,7 @@ MCAsmInfo::getExprForFDESymbol(const MCSymbol *Sym,
 
   MCContext &Context = Streamer.getContext();
   const MCExpr *Res = MCSymbolRefExpr::Create(Sym, Context);
-  MCSymbol *PCSym = Context.CreateTempSymbol();
+  MCSymbol *PCSym = Context.createTempSymbol();
   Streamer.EmitLabel(PCSym);
   const MCExpr *PC = MCSymbolRefExpr::Create(PCSym, Context);
   return MCBinaryExpr::CreateSub(Res, PC, Context);

@@ -153,6 +153,19 @@ TEST_F(FormatTestJava, ClassDeclarations) {
                "}");
 }
 
+TEST_F(FormatTestJava, AnonymousClasses) {
+  verifyFormat("return new A() {\n"
+               "  public String toString() {\n"
+               "    return \"NotReallyA\";\n"
+               "  }\n"
+               "};");
+  verifyFormat("A a = new A() {\n"
+               "  public String toString() {\n"
+               "    return \"NotReallyA\";\n"
+               "  }\n"
+               "};");
+}
+
 TEST_F(FormatTestJava, EnumDeclarations) {
   verifyFormat("enum SomeThing { ABC, CDE }");
   verifyFormat("enum SomeThing {\n"
@@ -242,6 +255,9 @@ TEST_F(FormatTestJava, Annotations) {
   verifyFormat("@Override // comment\n"
                "@Nullable\n"
                "public String getNameIfPresent() {}");
+  verifyFormat("@java.lang.Override // comment\n"
+               "@Nullable\n"
+               "public String getNameIfPresent() {}");
 
   verifyFormat("@SuppressWarnings(value = \"unchecked\")\n"
                "public void doSomething() {}");
@@ -255,6 +271,7 @@ TEST_F(FormatTestJava, Annotations) {
                "});");
 
   verifyFormat("void SomeFunction(@Nullable String something) {}");
+  verifyFormat("void SomeFunction(@org.llvm.Nullable String something) {}");
 
   verifyFormat("@Partial @Mock DataLoader loader;");
   verifyFormat("@SuppressWarnings(value = \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\")\n"
@@ -262,9 +279,32 @@ TEST_F(FormatTestJava, Annotations) {
 
   verifyFormat("@SomeAnnotation(\"With some really looooooooooooooong text\")\n"
                "private static final long something = 0L;");
+  verifyFormat("@org.llvm.Qualified(\"With some really looooooooooong text\")\n"
+               "private static final long something = 0L;");
   verifyFormat("@Mock\n"
                "DataLoader loooooooooooooooooooooooader =\n"
                "    aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa;",
+               getStyleWithColumns(60));
+  verifyFormat("@org.llvm.QualifiedMock\n"
+               "DataLoader loooooooooooooooooooooooader =\n"
+               "    aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa;",
+               getStyleWithColumns(60));
+  verifyFormat("@Test(a)\n"
+               "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa =\n"
+               "    aaaaaaaaaaaaaaaaaaaaaaaaaaaa(aaaaaaaaaaaaaaaaaaaaaaa);");
+  verifyFormat("@SomeAnnotation(\n"
+               "    aaaaaaaaaaaaaaaaa, aaaaaaaaaaaaaaaaaaaa)\n"
+               "int i;",
+               getStyleWithColumns(50));
+  verifyFormat("@Test\n"
+               "ReturnType doSomething(\n"
+               "    String aaaaaaaaaaaaa, String bbbbbbbbbbbbbbb) {}",
+               getStyleWithColumns(60));
+  verifyFormat("{\n"
+               "  boolean someFunction(\n"
+               "      @Param(aaaaaaaaaaaaaaaa) String aaaaa,\n"
+               "      String bbbbbbbbbbbbbbb) {}\n"
+               "}",
                getStyleWithColumns(60));
 }
 
@@ -282,6 +322,7 @@ TEST_F(FormatTestJava, Generics) {
   verifyFormat("protected <R> ArrayList<R> get() {}");
   verifyFormat("private <R> ArrayList<R> get() {}");
   verifyFormat("public static <R> ArrayList<R> get() {}");
+  verifyFormat("public static native <R> ArrayList<R> get();");
   verifyFormat("public final <X> Foo foo() {}");
   verifyFormat("public abstract <X> Foo foo();");
   verifyFormat("<T extends B> T getInstance(Class<T> type);");
@@ -333,6 +374,17 @@ TEST_F(FormatTestJava, TryCatchFinally) {
                "}");
 }
 
+TEST_F(FormatTestJava, TryWithResources) {
+  verifyFormat("try (SomeResource rs = someFunction()) {\n"
+               "  Something();\n"
+               "}");
+  verifyFormat("try (SomeResource rs = someFunction()) {\n"
+               "  Something();\n"
+               "} catch (SomeException e) {\n"
+               "  HandleException(e);\n"
+               "}");
+}
+
 TEST_F(FormatTestJava, SynchronizedKeyword) {
   verifyFormat("synchronized (mData) {\n"
                "  // ...\n"
@@ -346,6 +398,8 @@ TEST_F(FormatTestJava, PackageDeclarations) {
 
 TEST_F(FormatTestJava, ImportDeclarations) {
   verifyFormat("import some.really.loooooooooooooooooooooong.imported.Class;",
+               getStyleWithColumns(50));
+  verifyFormat("import static some.really.looooooooooooooooong.imported.Class;",
                getStyleWithColumns(50));
 }
 
@@ -379,7 +433,7 @@ TEST_F(FormatTestJava, NeverAlignAfterReturn) {
                getStyleWithColumns(40));
   verifyFormat("return aaaaaaaaaaaaaaaaaaa()\n"
                "    .bbbbbbbbbbbbbbbbbbb(\n"
-               "         ccccccccccccccc)\n"
+               "        ccccccccccccccc)\n"
                "    .ccccccccccccccccccc();",
                getStyleWithColumns(40));
 }

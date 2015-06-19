@@ -108,13 +108,13 @@ LLVM_YAML_STRONG_TYPEDEF(uint32_t, SectionAttr)
 /// can support either kind.
 struct Section {
   Section() : type(llvm::MachO::S_REGULAR),
-              attributes(0), alignment(0), address(0) { }
+              attributes(0), alignment(1), address(0) { }
 
   StringRef       segmentName;
   StringRef       sectionName;
   SectionType     type;
   SectionAttr     attributes;
-  uint32_t        alignment;
+  uint16_t        alignment;
   Hex64           address;
   ArrayRef<uint8_t> content;
   Relocations     relocations;
@@ -235,6 +235,7 @@ struct NormalizedFile {
   bool                        hasUUID;
   std::vector<StringRef>      rpaths;
   Hex64                       entryAddress;
+  Hex64                       stackSize;
   MachOLinkingContext::OS     os;
   Hex64                       sourceVersion;
   PackedVersion               minOSverson;
@@ -264,8 +265,8 @@ bool isThinObjectFile(StringRef path, MachOLinkingContext::Arch &arch);
 /// If the buffer is a fat file with the request arch, then this function
 /// returns true with 'offset' and 'size' set to location of the arch slice
 /// within the buffer.  Otherwise returns false;
-bool sliceFromFatFile(const MemoryBuffer &mb, MachOLinkingContext::Arch arch,
-                       uint32_t &offset, uint32_t &size);
+bool sliceFromFatFile(MemoryBufferRef mb, MachOLinkingContext::Arch arch,
+                      uint32_t &offset, uint32_t &size);
 
 /// Reads a mach-o file and produces an in-memory normalized view.
 ErrorOr<std::unique_ptr<NormalizedFile>>

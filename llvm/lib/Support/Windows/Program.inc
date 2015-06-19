@@ -15,8 +15,8 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/WindowsError.h"
+#include "llvm/Support/raw_ostream.h"
 #include <cstdio>
 #include <fcntl.h>
 #include <io.h>
@@ -434,7 +434,8 @@ ProcessInfo sys::Wait(const ProcessInfo &PI, unsigned SecondsToWait,
   DWORD status;
   BOOL rc = GetExitCodeProcess(PI.ProcessHandle, &status);
   DWORD err = GetLastError();
-  CloseHandle(PI.ProcessHandle);
+  if (err != ERROR_INVALID_HANDLE)
+    CloseHandle(PI.ProcessHandle);
 
   if (!rc) {
     SetLastError(err);

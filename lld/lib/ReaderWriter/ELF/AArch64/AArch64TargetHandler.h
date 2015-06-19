@@ -10,10 +10,8 @@
 #ifndef LLD_READER_WRITER_ELF_AARCH64_AARCH64_TARGET_HANDLER_H
 #define LLD_READER_WRITER_ELF_AARCH64_AARCH64_TARGET_HANDLER_H
 
-#include "AArch64ELFFile.h"
-#include "AArch64ELFReader.h"
 #include "AArch64RelocationHandler.h"
-#include "DefaultTargetHandler.h"
+#include "ELFReader.h"
 #include "TargetLayout.h"
 #include "lld/Core/Simple.h"
 
@@ -21,41 +19,41 @@ namespace lld {
 namespace elf {
 class AArch64LinkingContext;
 
-template <class ELFT> class AArch64TargetLayout : public TargetLayout<ELFT> {
+class AArch64TargetLayout final : public TargetLayout<ELF64LE> {
 public:
-  AArch64TargetLayout(AArch64LinkingContext &context)
-      : TargetLayout<ELFT>(context) {}
+  AArch64TargetLayout(ELFLinkingContext &ctx) : TargetLayout(ctx) {}
+
+  uint64_t getAlignedTLSSize() const {
+    return llvm::RoundUpToAlignment(TCB_ALIGNMENT, this->getTLSSize());
+  }
+
+private:
+  // Alignment requirement for TCB.
+  enum { TCB_ALIGNMENT = 0x10 };
 };
 
-class AArch64TargetHandler final : public DefaultTargetHandler<AArch64ELFType> {
+class AArch64TargetHandler final : public TargetHandler {
 public:
-  AArch64TargetHandler(AArch64LinkingContext &context);
+  AArch64TargetHandler(AArch64LinkingContext &ctx);
 
-  AArch64TargetLayout<AArch64ELFType> &getTargetLayout() override {
-    return *(_AArch64TargetLayout.get());
+  const TargetRelocationHandler &getRelocationHandler() const override {
+    return *_relocationHandler;
   }
 
-  void registerRelocationNames(Registry &registry) override;
-
-  const AArch64TargetRelocationHandler &getRelocationHandler() const override {
-    return *(_AArch64RelocationHandler.get());
+  std::unique_ptr<Reader> getObjReader() override {
+    return llvm::make_unique<ELFReader<ELFFile<ELF64LE>>>(_ctx);
   }
 
-  std::unique_ptr<Reader> getObjReader(bool atomizeStrings) override {
-    return std::unique_ptr<Reader>(new AArch64ELFObjectReader(atomizeStrings));
-  }
-
-  std::unique_ptr<Reader> getDSOReader(bool useShlibUndefines) override {
-    return std::unique_ptr<Reader>(new AArch64ELFDSOReader(useShlibUndefines));
+  std::unique_ptr<Reader> getDSOReader() override {
+    return llvm::make_unique<ELFReader<DynamicFile<ELF64LE>>>(_ctx);
   }
 
   std::unique_ptr<Writer> getWriter() override;
 
 private:
-  static const Registry::KindStrings kindStrings[];
-  AArch64LinkingContext &_context;
-  std::unique_ptr<AArch64TargetLayout<AArch64ELFType>> _AArch64TargetLayout;
-  std::unique_ptr<AArch64TargetRelocationHandler> _AArch64RelocationHandler;
+  AArch64LinkingContext &_ctx;
+  std::unique_ptr<AArch64TargetLayout> _targetLayout;
+  std::unique_ptr<AArch64TargetRelocationHandler> _relocationHandler;
 };
 
 } // end namespace elf

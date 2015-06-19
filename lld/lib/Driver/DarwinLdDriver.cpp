@@ -13,15 +13,19 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "lld/Core/File.h"
+#include "lld/Core/ArchiveLibraryFile.h"
+#include "lld/Core/SharedLibraryFile.h"
 #include "lld/Driver/Driver.h"
-#include "lld/Driver/DarwinInputGraph.h"
 #include "lld/ReaderWriter/MachOLinkingContext.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Option/Arg.h"
 #include "llvm/Option/Option.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/Host.h"
@@ -68,6 +72,35 @@ public:
   DarwinLdOptTable() : OptTable(infoTable, llvm::array_lengthof(infoTable)){}
 };
 
+std::vector<std::unique_ptr<File>>
+loadFile(MachOLinkingContext &ctx, StringRef path,
+         raw_ostream &diag, bool wholeArchive, bool upwardDylib) {
+  if (ctx.logInputFiles())
+    diag << path << "\n";
+
+  ErrorOr<std::unique_ptr<MemoryBuffer>> mbOrErr = ctx.getMemoryBuffer(path);
+  if (std::error_code ec = mbOrErr.getError())
+    return makeErrorFile(path, ec);
+  ErrorOr<std::unique_ptr<File>> fileOrErr =
+      ctx.registry().loadFile(std::move(mbOrErr.get()));
+  if (std::error_code ec = fileOrErr.getError())
+    return makeErrorFile(path, ec);
+  std::unique_ptr<File> &file = fileOrErr.get();
+
+  // If file is a dylib, inform LinkingContext about it.
+  if (SharedLibraryFile *shl = dyn_cast<SharedLibraryFile>(file.get())) {
+    if (std::error_code ec = shl->parse())
+      return makeErrorFile(path, ec);
+    ctx.registerDylib(reinterpret_cast<mach_o::MachODylibFile *>(shl),
+                      upwardDylib);
+  }
+  if (wholeArchive)
+    return parseMemberFiles(std::move(file));
+  std::vector<std::unique_ptr<File>> files;
+  files.push_back(std::move(file));
+  return files;
+}
+
 } // anonymous namespace
 
 // Test may be running on Windows. Canonicalize the path
@@ -83,15 +116,13 @@ static std::string canonicalizePath(StringRef path) {
   }
 }
 
-static void addFile(StringRef path, std::unique_ptr<InputGraph> &inputGraph,
-                    MachOLinkingContext &ctx, bool loadWholeArchive,
-                    bool upwardDylib) {
-  auto node = llvm::make_unique<MachOFileNode>(path, ctx);
-  if (loadWholeArchive)
-    node->setLoadWholeArchive();
-  if (upwardDylib)
-    node->setUpwardDylib();
-  inputGraph->addInputElement(std::move(node));
+static void addFile(StringRef path, MachOLinkingContext &ctx,
+                    bool loadWholeArchive,
+                    bool upwardDylib, raw_ostream &diag) {
+  std::vector<std::unique_ptr<File>> files =
+      loadFile(ctx, path, diag, loadWholeArchive, upwardDylib);
+  for (std::unique_ptr<File> &file : files)
+    ctx.getNodes().push_back(llvm::make_unique<FileNode>(std::move(file)));
 }
 
 // Export lists are one symbol per line.  Blank lines are ignored.
@@ -184,10 +215,9 @@ static std::error_code parseOrderFile(StringRef orderFilePath,
 // In this variant, the path is to a text file which contains a partial path
 // per line. The <dir> prefix is prepended to each partial path.
 //
-static std::error_code parseFileList(StringRef fileListPath,
-                                     std::unique_ptr<InputGraph> &inputGraph,
-                                     MachOLinkingContext &ctx, bool forceLoad,
-                                     raw_ostream &diagnostics) {
+static std::error_code loadFileList(StringRef fileListPath,
+                                    MachOLinkingContext &ctx, bool forceLoad,
+                                    raw_ostream &diagnostics) {
   // If there is a comma, split off <dir>.
   std::pair<StringRef, StringRef> opt = fileListPath.split(',');
   StringRef filePath = opt.first;
@@ -222,7 +252,7 @@ static std::error_code parseFileList(StringRef fileListPath,
     if (ctx.testingFileUsage()) {
       diagnostics << "Found filelist entry " << canonicalizePath(path) << '\n';
     }
-    addFile(path, inputGraph, ctx, forceLoad, false);
+    addFile(path, ctx, forceLoad, false, diagnostics);
     buffer = lineAndRest.second;
   }
   return std::error_code();
@@ -244,13 +274,6 @@ bool DarwinLdDriver::linkMachO(int argc, const char *argv[],
     return false;
   if (ctx.doNothing())
     return true;
-
-  // Register possible input file parsers.
-  ctx.registry().addSupportMachOObjects(ctx);
-  ctx.registry().addSupportArchives(ctx.logInputFiles());
-  ctx.registry().addSupportNativeObjects();
-  ctx.registry().addSupportYamlFiles();
-
   return link(ctx, diagnostics);
 }
 
@@ -310,15 +333,15 @@ bool DarwinLdDriver::parse(int argc, const char *argv[],
     }
   }
   // If no -arch specified, scan input files to find first non-fat .o file.
-  if ((arch == MachOLinkingContext::arch_unknown)
-      && !parsedArgs->getLastArg(OPT_test_file_usage)) {
+  if (arch == MachOLinkingContext::arch_unknown) {
     for (auto &inFile: parsedArgs->filtered(OPT_INPUT)) {
       // This is expensive because it opens and maps the file.  But that is
       // ok because no -arch is rare.
       if (MachOLinkingContext::isThinObjectFile(inFile->getValue(), arch))
         break;
     }
-    if (arch == MachOLinkingContext::arch_unknown) {
+    if (arch == MachOLinkingContext::arch_unknown
+        && !parsedArgs->getLastArg(OPT_test_file_usage)) {
       // If no -arch and no options at all, print usage message.
       if (parsedArgs->size() == 0)
         table.PrintHelp(llvm::outs(), argv[0], "LLVM Linker", false);
@@ -389,7 +412,7 @@ bool DarwinLdDriver::parse(int argc, const char *argv[],
       return false;
     } else if (baseAddress % ctx.pageSize()) {
       diagnostics << "error: image_base must be a multiple of page size ("
-                  << llvm::format("0x%" PRIx64, ctx.pageSize()) << ")\n";
+                  << "0x" << llvm::utohexstr(ctx.pageSize()) << ")\n";
       return false;
     }
 
@@ -460,15 +483,15 @@ bool DarwinLdDriver::parse(int argc, const char *argv[],
                   << alignStr << "' not a valid number\n";
       return false;
     }
-    uint8_t align2 = llvm::countTrailingZeros(alignValue);
-    if ( (unsigned long)(1 << align2) != alignValue ) {
+    uint16_t align = 1 << llvm::countTrailingZeros(alignValue);
+    if (!llvm::isPowerOf2_64(alignValue)) {
       diagnostics << "warning: alignment for '-sectalign "
                   << segName << " " << sectName
                   << llvm::format(" 0x%llX", alignValue)
                   << "' is not a power of two, using "
-                  << llvm::format("0x%08X", (1 << align2)) << "\n";
+                  << llvm::format("0x%08X", align) << "\n";
     }
-    ctx.addSectionAlignment(segName, sectName, align2);
+    ctx.addSectionAlignment(segName, sectName, align);
   }
 
   // Handle -mllvm
@@ -521,7 +544,12 @@ bool DarwinLdDriver::parse(int argc, const char *argv[],
     }
   }
 
-  std::unique_ptr<InputGraph> inputGraph(new InputGraph());
+  // Register possible input file parsers.
+  if (!ctx.doNothing()) {
+    ctx.registry().addSupportMachOObjects(ctx);
+    ctx.registry().addSupportArchives(ctx.logInputFiles());
+    ctx.registry().addSupportYamlFiles();
+  }
 
   // Now construct the set of library search directories, following ld64's
   // baroque set of accumulated hacks. Mostly, the algorithm constructs
@@ -693,6 +721,22 @@ bool DarwinLdDriver::parse(int argc, const char *argv[],
     }
   }
 
+  // Handle stack_size
+  if (llvm::opt::Arg *stackSize = parsedArgs->getLastArg(OPT_stack_size)) {
+    uint64_t stackSizeVal;
+    if (parseNumberBase16(stackSize->getValue(), stackSizeVal)) {
+      diagnostics << "error: stack_size expects a hex number\n";
+      return false;
+    }
+    if ((stackSizeVal % ctx.pageSize()) != 0) {
+      diagnostics << "error: stack_size must be a multiple of page size ("
+                  << "0x" << llvm::utohexstr(ctx.pageSize()) << ")\n";
+      return false;
+    }
+
+    ctx.setStackSize(stackSizeVal);
+  }
+
   // Handle debug info handling options: -S
   if (parsedArgs->hasArg(OPT_S))
     ctx.setDebugInfoMode(MachOLinkingContext::DebugInfoMode::noDebugMap);
@@ -745,13 +789,13 @@ bool DarwinLdDriver::parse(int argc, const char *argv[],
     default:
       continue;
     case OPT_INPUT:
-      addFile(arg->getValue(), inputGraph, ctx, globalWholeArchive, false);
+      addFile(arg->getValue(), ctx, globalWholeArchive, false, diagnostics);
       break;
     case OPT_upward_library:
-      addFile(arg->getValue(), inputGraph, ctx, false, true);
+      addFile(arg->getValue(), ctx, false, true, diagnostics);
       break;
     case OPT_force_load:
-      addFile(arg->getValue(), inputGraph, ctx, true, false);
+      addFile(arg->getValue(), ctx, true, false, diagnostics);
       break;
     case OPT_l:
     case OPT_upward_l:
@@ -765,7 +809,7 @@ bool DarwinLdDriver::parse(int argc, const char *argv[],
         diagnostics << "Found " << (upward ? "upward " : " ") << "library "
                    << canonicalizePath(resolvedPath.get()) << '\n';
       }
-      addFile(resolvedPath.get(), inputGraph, ctx, globalWholeArchive, upward);
+      addFile(resolvedPath.get(), ctx, globalWholeArchive, upward, diagnostics);
       break;
     case OPT_framework:
     case OPT_upward_framework:
@@ -779,12 +823,12 @@ bool DarwinLdDriver::parse(int argc, const char *argv[],
         diagnostics << "Found " << (upward ? "upward " : " ") << "framework "
                     << canonicalizePath(resolvedPath.get()) << '\n';
       }
-      addFile(resolvedPath.get(), inputGraph, ctx, globalWholeArchive, upward);
+      addFile(resolvedPath.get(), ctx, globalWholeArchive, upward, diagnostics);
       break;
     case OPT_filelist:
-      if (std::error_code ec = parseFileList(arg->getValue(), inputGraph,
-                                             ctx, globalWholeArchive,
-                                             diagnostics)) {
+      if (std::error_code ec = loadFileList(arg->getValue(),
+                                            ctx, globalWholeArchive,
+                                            diagnostics)) {
         diagnostics << "error: " << ec.message()
                     << ", processing '-filelist " << arg->getValue()
                     << "'\n";
@@ -794,12 +838,10 @@ bool DarwinLdDriver::parse(int argc, const char *argv[],
     }
   }
 
-  if (!inputGraph->size()) {
+  if (ctx.getNodes().empty()) {
     diagnostics << "No input files\n";
     return false;
   }
-
-  ctx.setInputGraph(std::move(inputGraph));
 
   // Validate the combination of options used.
   return ctx.validate(diagnostics);

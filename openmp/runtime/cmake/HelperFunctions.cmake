@@ -22,7 +22,7 @@
 # void say(string message_to_user);
 # - prints out message_to_user
 macro(say message_to_user)
-    message("${message_to_user}")
+    message(STATUS "${message_to_user}")
 endmacro()
 
 # void warning_say(string message_to_user);
@@ -63,12 +63,16 @@ function(set_legal_arch return_arch_string)
         set(${return_arch_string} "Intel(R) 64" PARENT_SCOPE)
     elseif(${MIC})
         set(${return_arch_string} "Intel(R) Many Integrated Core Architecture" PARENT_SCOPE)
-    elseif(${arch} STREQUAL "l1")
+    elseif(${LIBOMP_ARCH} STREQUAL "l1")
         set(${return_arch_string} "L1OM" PARENT_SCOPE)
     elseif(${ARM})
         set(${return_arch_string} "ARM" PARENT_SCOPE)
-	elseif(${PPC64})
-	    set(${return_arch_string} "PPC64" PARENT_SCOPE)
+	elseif(${PPC64BE})
+	    set(${return_arch_string} "PPC64BE" PARENT_SCOPE)
+	elseif(${PPC64LE})
+	    set(${return_arch_string} "PPC64LE" PARENT_SCOPE)
+    elseif(${AARCH64})                                                                                   
+        set(${return_arch_string} "AARCH64" PARENT_SCOPE)
     else()
         warning_say("set_legal_arch(): Warning: Unknown architecture...")
     endif()

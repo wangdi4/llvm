@@ -261,7 +261,9 @@ public:
                      unsigned &TrueOp, unsigned &FalseOp,
                      bool &Optimizable) const override;
 
-  MachineInstr *optimizeSelect(MachineInstr *MI, bool) const override;
+  MachineInstr *optimizeSelect(MachineInstr *MI,
+                               SmallPtrSetImpl<MachineInstr *> &SeenMIs,
+                               bool) const override;
 
   /// FoldImmediate - 'Reg' is known to be defined by a move immediate
   /// instruction, try to fold the immediate into the use instruction.
@@ -437,7 +439,7 @@ static inline bool isPushOpcode(int Opc) {
 /// register by reference.
 ARMCC::CondCodes getInstrPredicate(const MachineInstr *MI, unsigned &PredReg);
 
-int getMatchingCondBranchOpcode(int Opc);
+unsigned getMatchingCondBranchOpcode(unsigned Opc);
 
 /// Determine if MI can be folded into an ARM MOVCC instruction, and return the
 /// opcode of the SSA instruction representing the conditional MI.

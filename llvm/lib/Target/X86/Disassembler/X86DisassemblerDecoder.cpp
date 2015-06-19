@@ -310,11 +310,8 @@ static bool isPrefixAtLocation(struct InternalInstruction* insn,
                                uint8_t prefix,
                                uint64_t location)
 {
-  if (insn->prefixPresent[prefix] == 1 &&
-     insn->prefixLocations[prefix] == location)
-    return true;
-  else
-    return false;
+  return insn->prefixPresent[prefix] == 1 &&
+     insn->prefixLocations[prefix] == location;
 }
 
 /*
@@ -975,27 +972,16 @@ static int getID(struct InternalInstruction* insn, const void *miiArg) {
   if (insn->rexPrefix & 0x08)
     attrMask |= ATTR_REXW;
 
-  if (getIDWithAttrMask(&instructionID, insn, attrMask))
-    return -1;
-
   /*
    * JCXZ/JECXZ need special handling for 16-bit mode because the meaning
    * of the AdSize prefix is inverted w.r.t. 32-bit mode.
    */
-  if (insn->mode == MODE_16BIT && insn->opcode == 0xE3) {
-    const struct InstructionSpecifier *spec;
-    spec = specifierForUID(instructionID);
+  if (insn->mode == MODE_16BIT && insn->opcodeType == ONEBYTE &&
+      insn->opcode == 0xE3)
+    attrMask ^= ATTR_ADSIZE;
 
-    /*
-     * Check for Ii8PCRel instructions. We could alternatively do a
-     * string-compare on the names, but this is probably cheaper.
-     */
-    if (x86OperandSets[spec->operands][0].type == TYPE_REL8) {
-      attrMask ^= ATTR_ADSIZE;
-      if (getIDWithAttrMask(&instructionID, insn, attrMask))
-        return -1;
-    }
-  }
+  if (getIDWithAttrMask(&instructionID, insn, attrMask))
+    return -1;
 
   /* The following clauses compensate for limitations of the tables. */
 
@@ -1028,6 +1014,32 @@ static int getID(struct InternalInstruction* insn, const void *miiArg) {
         return 0;
       }
     }
+  }
+
+  /*
+   * Absolute moves need special handling.
+   * -For 16-bit mode because the meaning of the AdSize and OpSize prefixes are
+   *  inverted w.r.t.
+   * -For 32-bit mode we need to ensure the ADSIZE prefix is observed in
+   *  any position.
+   */
+  if (insn->opcodeType == ONEBYTE && ((insn->opcode & 0xFC) == 0xA0)) {
+    /* Make sure we observed the prefixes in any position. */
+    if (insn->prefixPresent[0x67])
+      attrMask |= ATTR_ADSIZE;
+    if (insn->prefixPresent[0x66])
+      attrMask |= ATTR_OPSIZE;
+
+    /* In 16-bit, invert the attributes. */
+    if (insn->mode == MODE_16BIT)
+      attrMask ^= ATTR_ADSIZE | ATTR_OPSIZE;
+
+    if (getIDWithAttrMask(&instructionID, insn, attrMask))
+      return -1;
+
+    insn->instructionID = instructionID;
+    insn->spec = specifierForUID(instructionID);
+    return 0;
   }
 
   if ((insn->mode == MODE_16BIT || insn->prefixPresent[0x66]) &&
@@ -1354,16 +1366,17 @@ static int readModRM(struct InternalInstruction* insn) {
     switch (mod) {
     case 0x0:
       insn->eaDisplacement = EA_DISP_NONE; /* readSIB may override this */
-      switch (rm) {
-      case 0x14:
-      case 0x4:
-      case 0xc:   /* in case REXW.b is set */
+      // In determining whether RIP-relative mode is used (rm=5),
+      // or whether a SIB byte is present (rm=4),
+      // the extension bits (REX.b and EVEX.x) are ignored.
+      switch (rm & 7) {
+      case 0x4: // SIB byte is present
         insn->eaBase = (insn->addressSize == 4 ?
                         EA_BASE_sib : EA_BASE_sib64);
         if (readSIB(insn) || readDisplacement(insn))
           return -1;
         break;
-      case 0x5:
+      case 0x5: // RIP-relative
         insn->eaBase = EA_BASE_NONE;
         insn->eaDisplacement = EA_DISP_32;
         if (readDisplacement(insn))
@@ -1379,10 +1392,8 @@ static int readModRM(struct InternalInstruction* insn) {
       /* FALLTHROUGH */
     case 0x2:
       insn->eaDisplacement = (mod == 0x1 ? EA_DISP_8 : EA_DISP_32);
-      switch (rm) {
-      case 0x14:
-      case 0x4:
-      case 0xc:   /* in case REXW.b is set */
+      switch (rm & 7) {
+      case 0x4: // SIB byte is present
         insn->eaBase = EA_BASE_sib;
         if (readSIB(insn) || readDisplacement(insn))
           return -1;
@@ -1443,24 +1454,18 @@ static int readModRM(struct InternalInstruction* insn) {
     case TYPE_VK1:                                        \
     case TYPE_VK8:                                        \
     case TYPE_VK16:                                       \
-      return prefix##_K0 + index;                         \
-    case TYPE_MM64:                                       \
-    case TYPE_MM32:                                       \
-    case TYPE_MM:                                         \
       if (index > 7)                                      \
         *valid = 0;                                       \
-      return prefix##_MM0 + index;                        \
+      return prefix##_K0 + index;                         \
+    case TYPE_MM64:                                       \
+      return prefix##_MM0 + (index & 0x7);                \
     case TYPE_SEGMENTREG:                                 \
       if (index > 5)                                      \
         *valid = 0;                                       \
       return prefix##_ES + index;                         \
     case TYPE_DEBUGREG:                                   \
-      if (index > 7)                                      \
-        *valid = 0;                                       \
       return prefix##_DR0 + index;                        \
     case TYPE_CONTROLREG:                                 \
-      if (index > 8)                                      \
-        *valid = 0;                                       \
       return prefix##_CR0 + index;                        \
     }                                                     \
   }
@@ -1736,12 +1741,6 @@ static int readOperands(struct InternalInstruction* insn) {
         break;
       }
       if (readImmediate(insn, 1))
-        return -1;
-      if (Op.type == TYPE_IMM3 &&
-          insn->immediates[insn->numImmediatesConsumed - 1] > 7)
-        return -1;
-      if (Op.type == TYPE_IMM5 &&
-          insn->immediates[insn->numImmediatesConsumed - 1] > 31)
         return -1;
       if (Op.type == TYPE_XMM128 ||
           Op.type == TYPE_XMM256)

@@ -1,6 +1,7 @@
-; RUN: opt %loadPolly -S -polly-prepare < %s | FileCheck %s
-; ModuleID = 'multiple_loops_trivial_phis.ll'
-;
+; RUN: opt %loadPolly -polly-detect-unprofitable -S -polly-prepare -polly-model-phi-nodes=true < %s | FileCheck %s -check-prefix=PHI
+; RUN: opt %loadPolly -polly-detect-unprofitable -S -polly-prepare -polly-model-phi-nodes=false < %s | FileCheck %s
+
+
 ; int f(int * __restrict__ A) {
 ;   int i, j, sum = 0;
 ;   for (i = 0; i < 100; i++) {
@@ -13,7 +14,6 @@
 ; }
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define i32 @f(i32* noalias %A) #0 {
@@ -23,15 +23,14 @@ entry:
 for.body:                                         ; preds = %entry, %for.inc5
   %sum.04 = phi i32 [ 0, %entry ], [ %add4.lcssa, %for.inc5 ]
   %indvars.iv23 = phi i64 [ 0, %entry ], [ %2, %for.inc5 ]
-  %mul = shl nsw i32 %sum.04, 1
-  br label %for.inc
+  %mul = shl nsw i32 %sum.04, 1 br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %for.inc
   %sum.12 = phi i32 [ %mul, %for.body ], [ %add4, %for.inc ]
   %indvars.iv1 = phi i64 [ 0, %for.body ], [ %1, %for.inc ]
   %0 = add i64 %indvars.iv23, %indvars.iv1
-  %arrayidx = getelementptr i32* %A, i64 %0
-  %tmp5 = load i32* %arrayidx, align 4
+  %arrayidx = getelementptr i32, i32* %A, i64 %0
+  %tmp5 = load i32, i32* %arrayidx, align 4
   %add4 = add nsw i32 %tmp5, %sum.12
   %1 = add nuw nsw i64 %indvars.iv1, 1
   %exitcond5 = icmp eq i64 %1, 100
@@ -54,3 +53,5 @@ attributes #0 = { nounwind uwtable "less-precise-fpmad"="false" "no-frame-pointe
 ; CHECK: alloca
 ; CHECK: alloca
 ; CHECK-NOT: alloca
+
+; PHI-NOT: alloca

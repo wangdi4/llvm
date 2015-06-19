@@ -12,10 +12,10 @@
 
 // C Includes
 // C++ Includes
-#include <map>
 #include <vector>
 // Other libraries and framework includes
 // Project includes
+#include "lldb/Core/ThreadSafeSTLMap.h"
 #include "lldb/Core/ValueObject.h"
 
 namespace lldb_private {
@@ -140,9 +140,27 @@ public:
         return (UpdateValueIfNeeded(), m_provides_value == eLazyBoolYes);
     }
     
+    virtual bool
+    GetIsConstant () const
+    {
+        return false;
+    }
+
+    virtual bool
+    SetValueFromCString (const char *value_str, Error& error);
+    
+    virtual void
+    SetFormat (lldb::Format format);
+    
 protected:
     virtual bool
     UpdateValue ();
+    
+    virtual bool
+    CanUpdateWithInvalidExecutionContext ()
+    {
+        return true;
+    }
     
     virtual ClangASTType
     GetClangTypeImpl ();
@@ -154,8 +172,8 @@ protected:
     lldb::SyntheticChildrenSP m_synth_sp;
     std::unique_ptr<SyntheticChildrenFrontEnd> m_synth_filter_ap;
     
-    typedef std::map<uint32_t, ValueObject*> ByIndexMap;
-    typedef std::map<const char*, uint32_t> NameToIndexMap;
+    typedef ThreadSafeSTLMap<uint32_t, ValueObject*> ByIndexMap;
+    typedef ThreadSafeSTLMap<const char*, uint32_t> NameToIndexMap;
     
     typedef ByIndexMap::iterator ByIndexIterator;
     typedef NameToIndexMap::iterator NameToIndexIterator;

@@ -86,7 +86,7 @@ public:
             
             bool has_indexes(false),has_length(false);
             
-            for (auto x = 0;
+            for (size_t x = 0;
                  x < descriptor->GetNumIVars();
                  x++)
             {
@@ -278,7 +278,7 @@ protected:
 	    {
 	        if (m_indexes)
 		{
-		    ValueObjectSP index_sp(m_indexes->GetSyntheticArrayMemberFromPointer(idx, true));
+		    ValueObjectSP index_sp(m_indexes->GetSyntheticArrayMember(idx, true));
 		    return index_sp;
 		}
 		return nullptr;

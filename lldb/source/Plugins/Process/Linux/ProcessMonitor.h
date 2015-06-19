@@ -20,14 +20,20 @@
 #include "lldb/Host/HostThread.h"
 #include "lldb/Host/Mutex.h"
 
-namespace lldb_private
-{
+namespace lldb_private {
+
 class Error;
 class Module;
 class Scalar;
-} // End lldb_private namespace.
+
+namespace process_linux {
 
 class ProcessLinux;
+
+} // namespace process_linux
+
+} // namespace lldb_private
+
 class Operation;
 
 /// @class ProcessMonitor
@@ -75,7 +81,7 @@ public:
     GetPID() const { return m_pid; }
 
     /// Returns the process associated with this ProcessMonitor.
-    ProcessLinux &
+    lldb_private::process_linux::ProcessLinux &
     GetProcess() { return *m_process; }
 
     /// Returns a file descriptor to the controlling terminal of the inferior
@@ -84,7 +90,8 @@ public:
     /// Reads from this file descriptor yield both the standard output and
     /// standard error of this debugee.  Even if stderr and stdout were
     /// redirected on launch it may still happen that data is available on this
-    /// descriptor (if the inferior process opens /dev/tty, for example).
+    /// descriptor (if the inferior process opens /dev/tty, for example). This descriptor is
+    /// closed after a call to StopMonitor().
     ///
     /// If this monitor was attached to an existing process this method returns
     /// -1.
@@ -130,6 +137,18 @@ public:
     /// Reads generic floating point registers into the specified buffer.
     bool
     ReadFPR(lldb::tid_t tid, void *buf, size_t buf_size);
+
+#if defined (__arm64__) || defined (__aarch64__)
+    /// Reads hardware breakpoints and watchpoints capability information.
+    bool
+    ReadHardwareDebugInfo (lldb::tid_t tid, unsigned int &watch_count ,
+                           unsigned int &break_count);
+
+    /// Write hardware breakpoint/watchpoint control and address registers.
+    bool
+    WriteHardwareDebugRegs (lldb::tid_t tid, lldb::addr_t *addr_buf,
+                            uint32_t *cntrl_buf, int type, int count);
+#endif
 
     /// Reads the specified register set into the specified buffer.
     /// For instance, the extended floating-point register set.
@@ -194,7 +213,7 @@ public:
     WaitForInitialTIDStop(lldb::tid_t tid);
 
 private:
-    ProcessLinux *m_process;
+    lldb_private::process_linux::ProcessLinux *m_process;
 
     lldb_private::HostThread m_operation_thread;
     lldb_private::HostThread m_monitor_thread;
@@ -298,18 +317,6 @@ private:
     static ProcessMessage
     MonitorSignal(ProcessMonitor *monitor, 
                   const siginfo_t *info, lldb::pid_t pid);
-
-    static ProcessMessage::CrashReason
-    GetCrashReasonForSIGSEGV(const siginfo_t *info);
-
-    static ProcessMessage::CrashReason
-    GetCrashReasonForSIGILL(const siginfo_t *info);
-
-    static ProcessMessage::CrashReason
-    GetCrashReasonForSIGFPE(const siginfo_t *info);
-
-    static ProcessMessage::CrashReason
-    GetCrashReasonForSIGBUS(const siginfo_t *info);
 
     void
     DoOperation(Operation *op);

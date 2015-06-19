@@ -1,5 +1,5 @@
-; RUN: llc -march=r600 -mcpu=redwood < %s | FileCheck -check-prefix=R600 -check-prefix=FUNC %s
-; RUN: llc -march=r600 -mcpu=SI -verify-machineinstrs < %s | FileCheck -check-prefix=SI -check-prefix=FUNC %s
+; RUN: llc < %s -march=r600 -mcpu=redwood | FileCheck --check-prefix=R600 --check-prefix=FUNC %s
+; RUN: llc < %s -march=amdgcn -mcpu=SI -verify-machineinstrs | FileCheck -check-prefix=SI -check-prefix=FUNC %s
 
 declare i32 @llvm.r600.read.tidig.x() nounwind readnone
 
@@ -21,9 +21,9 @@ define void @setcc_v2i32(<2 x i32> addrspace(1)* %out, <2 x i32> %a, <2 x i32> %
 ; R600-DAG: SETE_INT * T{{[0-9]+\.[XYZW], T[0-9]+\.[XYZW], T[0-9]+\.[XYZW]}}
 
 define void @setcc_v4i32(<4 x i32> addrspace(1)* %out, <4 x i32> addrspace(1)* %in) {
-  %b_ptr = getelementptr <4 x i32> addrspace(1)* %in, i32 1
-  %a = load <4 x i32> addrspace(1) * %in
-  %b = load <4 x i32> addrspace(1) * %b_ptr
+  %b_ptr = getelementptr <4 x i32>, <4 x i32> addrspace(1)* %in, i32 1
+  %a = load <4 x i32>, <4 x i32> addrspace(1) * %in
+  %b = load <4 x i32>, <4 x i32> addrspace(1) * %b_ptr
   %result = icmp eq <4 x i32> %a, %b
   %sext = sext <4 x i1> %result to <4 x i32>
   store <4 x i32> %sext, <4 x i32> addrspace(1)* %out
@@ -97,11 +97,8 @@ entry:
 ; R600-DAG: AND_INT
 ; R600-DAG: SETNE_INT
 
-; SI-DAG: v_cmp_o_f32_e32 vcc
-; SI-DAG: v_cmp_neq_f32_e64 [[CMP1:s\[[0-9]+:[0-9]+\]]]
-; SI: s_and_b64 [[AND:s\[[0-9]+:[0-9]+\]]], [[CMP1]], vcc
-; SI: v_cndmask_b32_e64 [[VRESULT:v[0-9]+]], 0, -1, [[AND]]
-; SI: buffer_store_dword [[VRESULT]]
+; SI: v_cmp_lg_f32_e32 vcc
+; SI-NEXT: v_cndmask_b32_e64 {{v[0-9]+}}, 0, -1, vcc
 define void @f32_one(i32 addrspace(1)* %out, float %a, float %b) {
 entry:
   %0 = fcmp one float %a, %b
@@ -132,11 +129,8 @@ entry:
 ; R600-DAG: OR_INT
 ; R600-DAG: SETNE_INT
 
-; SI-DAG: v_cmp_u_f32_e32 vcc
-; SI-DAG: v_cmp_eq_f32_e64 [[CMP1:s\[[0-9]+:[0-9]+\]]]
-; SI: s_or_b64 [[OR:s\[[0-9]+:[0-9]+\]]], [[CMP1]], vcc
-; SI: v_cndmask_b32_e64 [[VRESULT:v[0-9]+]], 0, -1, [[OR]]
-; SI: buffer_store_dword [[VRESULT]]
+; SI: v_cmp_nlg_f32_e32 vcc
+; SI-NEXT: v_cndmask_b32_e64 {{v[0-9]+}}, 0, -1, vcc
 define void @f32_ueq(i32 addrspace(1)* %out, float %a, float %b) {
 entry:
   %0 = fcmp ueq float %a, %b
@@ -148,10 +142,8 @@ entry:
 ; FUNC-LABEL: {{^}}f32_ugt:
 ; R600: SETGE
 ; R600: SETE_DX10
-; SI: v_cmp_u_f32
-; SI: v_cmp_gt_f32
-; SI: s_or_b64
-; SI: v_cndmask_b32
+; SI: v_cmp_nle_f32_e32 vcc
+; SI-NEXT: v_cndmask_b32_e64 {{v[0-9]+}}, 0, -1, vcc
 define void @f32_ugt(i32 addrspace(1)* %out, float %a, float %b) {
 entry:
   %0 = fcmp ugt float %a, %b
@@ -163,10 +155,9 @@ entry:
 ; FUNC-LABEL: {{^}}f32_uge:
 ; R600: SETGT
 ; R600: SETE_DX10
-; SI: v_cmp_u_f32
-; SI: v_cmp_ge_f32
-; SI: s_or_b64
-; SI: v_cndmask_b32
+
+; SI: v_cmp_nlt_f32_e32 vcc
+; SI-NEXT: v_cndmask_b32_e64 {{v[0-9]+}}, 0, -1, vcc
 define void @f32_uge(i32 addrspace(1)* %out, float %a, float %b) {
 entry:
   %0 = fcmp uge float %a, %b
@@ -178,10 +169,9 @@ entry:
 ; FUNC-LABEL: {{^}}f32_ult:
 ; R600: SETGE
 ; R600: SETE_DX10
-; SI: v_cmp_u_f32
-; SI: v_cmp_lt_f32
-; SI: s_or_b64
-; SI: v_cndmask_b32
+
+; SI: v_cmp_nge_f32_e32 vcc
+; SI-NEXT: v_cndmask_b32_e64 {{v[0-9]+}}, 0, -1, vcc
 define void @f32_ult(i32 addrspace(1)* %out, float %a, float %b) {
 entry:
   %0 = fcmp ult float %a, %b
@@ -193,10 +183,9 @@ entry:
 ; FUNC-LABEL: {{^}}f32_ule:
 ; R600: SETGT
 ; R600: SETE_DX10
-; SI: v_cmp_u_f32
-; SI: v_cmp_le_f32
-; SI: s_or_b64
-; SI: v_cndmask_b32
+
+; SI: v_cmp_ngt_f32_e32 vcc
+; SI-NEXT: v_cndmask_b32_e64 {{v[0-9]+}}, 0, -1, vcc
 define void @f32_ule(i32 addrspace(1)* %out, float %a, float %b) {
 entry:
   %0 = fcmp ule float %a, %b
@@ -355,11 +344,11 @@ entry:
 ; SI: s_endpgm
 define void @v3i32_eq(<3 x i32> addrspace(1)* %out, <3 x i32> addrspace(1)* %ptra, <3 x i32> addrspace(1)* %ptrb) {
   %tid = call i32 @llvm.r600.read.tidig.x() nounwind readnone
-  %gep.a = getelementptr <3 x i32> addrspace(1)* %ptra, i32 %tid
-  %gep.b = getelementptr <3 x i32> addrspace(1)* %ptrb, i32 %tid
-  %gep.out = getelementptr <3 x i32> addrspace(1)* %out, i32 %tid
-  %a = load <3 x i32> addrspace(1)* %gep.a
-  %b = load <3 x i32> addrspace(1)* %gep.b
+  %gep.a = getelementptr <3 x i32>, <3 x i32> addrspace(1)* %ptra, i32 %tid
+  %gep.b = getelementptr <3 x i32>, <3 x i32> addrspace(1)* %ptrb, i32 %tid
+  %gep.out = getelementptr <3 x i32>, <3 x i32> addrspace(1)* %out, i32 %tid
+  %a = load <3 x i32>, <3 x i32> addrspace(1)* %gep.a
+  %b = load <3 x i32>, <3 x i32> addrspace(1)* %gep.b
   %cmp = icmp eq <3 x i32> %a, %b
   %ext = sext <3 x i1> %cmp to <3 x i32>
   store <3 x i32> %ext, <3 x i32> addrspace(1)* %gep.out
@@ -376,11 +365,11 @@ define void @v3i32_eq(<3 x i32> addrspace(1)* %out, <3 x i32> addrspace(1)* %ptr
 ; SI: s_endpgm
 define void @v3i8_eq(<3 x i8> addrspace(1)* %out, <3 x i8> addrspace(1)* %ptra, <3 x i8> addrspace(1)* %ptrb) {
   %tid = call i32 @llvm.r600.read.tidig.x() nounwind readnone
-  %gep.a = getelementptr <3 x i8> addrspace(1)* %ptra, i32 %tid
-  %gep.b = getelementptr <3 x i8> addrspace(1)* %ptrb, i32 %tid
-  %gep.out = getelementptr <3 x i8> addrspace(1)* %out, i32 %tid
-  %a = load <3 x i8> addrspace(1)* %gep.a
-  %b = load <3 x i8> addrspace(1)* %gep.b
+  %gep.a = getelementptr <3 x i8>, <3 x i8> addrspace(1)* %ptra, i32 %tid
+  %gep.b = getelementptr <3 x i8>, <3 x i8> addrspace(1)* %ptrb, i32 %tid
+  %gep.out = getelementptr <3 x i8>, <3 x i8> addrspace(1)* %out, i32 %tid
+  %a = load <3 x i8>, <3 x i8> addrspace(1)* %gep.a
+  %b = load <3 x i8>, <3 x i8> addrspace(1)* %gep.b
   %cmp = icmp eq <3 x i8> %a, %b
   %ext = sext <3 x i1> %cmp to <3 x i8>
   store <3 x i8> %ext, <3 x i8> addrspace(1)* %gep.out

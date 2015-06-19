@@ -252,20 +252,44 @@ void VirtRegRewriter::addMBBLiveIns() {
     unsigned PhysReg = VRM->getPhys(VirtReg);
     assert(PhysReg != VirtRegMap::NO_PHYS_REG && "Unmapped virtual register.");
 
-    // Scan the segments of LI.
-    for (LiveInterval::const_iterator I = LI.begin(), E = LI.end(); I != E;
-         ++I) {
-      if (!Indexes->findLiveInMBBs(I->start, I->end, LiveIn))
-        continue;
-      for (unsigned i = 0, e = LiveIn.size(); i != e; ++i)
-        if (!LiveIn[i]->isLiveIn(PhysReg))
+    if (LI.hasSubRanges()) {
+      for (LiveInterval::SubRange &S : LI.subranges()) {
+        for (const auto &Seg : S.segments) {
+          if (!Indexes->findLiveInMBBs(Seg.start, Seg.end, LiveIn))
+            continue;
+          for (MCSubRegIndexIterator SR(PhysReg, TRI); SR.isValid(); ++SR) {
+            unsigned SubReg = SR.getSubReg();
+            unsigned SubRegIndex = SR.getSubRegIndex();
+            unsigned SubRegLaneMask = TRI->getSubRegIndexLaneMask(SubRegIndex);
+            if ((SubRegLaneMask & S.LaneMask) == 0)
+              continue;
+            for (unsigned i = 0, e = LiveIn.size(); i != e; ++i) {
+              LiveIn[i]->addLiveIn(SubReg);
+            }
+          }
+          LiveIn.clear();
+        }
+      }
+    } else {
+      // Scan the segments of LI.
+      for (const auto &Seg : LI.segments) {
+        if (!Indexes->findLiveInMBBs(Seg.start, Seg.end, LiveIn))
+          continue;
+        for (unsigned i = 0, e = LiveIn.size(); i != e; ++i)
           LiveIn[i]->addLiveIn(PhysReg);
-      LiveIn.clear();
+        LiveIn.clear();
+      }
     }
   }
+
+  // Sort and unique MBB LiveIns as we've not checked if SubReg/PhysReg were in
+  // each MBB's LiveIns set before calling addLiveIn on them.
+  for (MachineBasicBlock &MBB : *MF)
+    MBB.sortUniqueLiveIns();
 }
 
 void VirtRegRewriter::rewrite() {
+  bool NoSubRegLiveness = !MRI->subRegLivenessEnabled();
   SmallVector<unsigned, 8> SuperDeads;
   SmallVector<unsigned, 8> SuperDefs;
   SmallVector<unsigned, 8> SuperKills;
@@ -347,7 +371,8 @@ void VirtRegRewriter::rewrite() {
           // A virtual register kill refers to the whole register, so we may
           // have to add <imp-use,kill> operands for the super-register.  A
           // partial redef always kills and redefines the super-register.
-          if (MO.readsReg() && (MO.isDef() || MO.isKill()))
+          if (NoSubRegLiveness && MO.readsReg()
+              && (MO.isDef() || MO.isKill()))
             SuperKills.push_back(PhysReg);
 
           if (MO.isDef()) {
@@ -358,10 +383,12 @@ void VirtRegRewriter::rewrite() {
             MO.setIsUndef(false);
 
             // Also add implicit defs for the super-register.
-            if (MO.isDead())
-              SuperDeads.push_back(PhysReg);
-            else
-              SuperDefs.push_back(PhysReg);
+            if (NoSubRegLiveness) {
+              if (MO.isDead())
+                SuperDeads.push_back(PhysReg);
+              else
+                SuperDefs.push_back(PhysReg);
+            }
           }
 
           // PhysReg operands cannot have subregister indexes.

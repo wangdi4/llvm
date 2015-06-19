@@ -27,6 +27,7 @@
 #include <pwd.h>
 #endif
 
+#include "lldb/Core/ArchSpec.h"
 #include "lldb/Core/DataBufferHeap.h"
 #include "lldb/Core/DataBufferMemoryMap.h"
 #include "lldb/Core/RegularExpression.h"
@@ -65,7 +66,7 @@ FileSpec::ResolveUsername (llvm::SmallVectorImpl<char> &path)
     if (path.empty() || path[0] != '~')
         return;
     
-    llvm::StringRef path_str(path.data());
+    llvm::StringRef path_str(path.data(), path.size());
     size_t slash_pos = path_str.find_first_of("/", 1);
     if (slash_pos == 1 || path.size() == 1)
     {
@@ -164,7 +165,20 @@ FileSpec::Resolve (llvm::SmallVectorImpl<char> &path)
         ResolveUsername(path);
 #endif // #ifdef LLDB_CONFIG_TILDE_RESOLVES_TO_USER
 
+    // Save a copy of the original path that's passed in
+    llvm::SmallString<PATH_MAX> original_path(path.begin(), path.end());
+
     llvm::sys::fs::make_absolute(path);
+
+    
+    path.push_back(0);  // Be sure we have a nul terminated string
+    path.pop_back();
+    struct stat file_stats;
+    if (::stat (path.data(), &file_stats) != 0)
+    {
+        path.clear();
+        path.append(original_path.begin(), original_path.end());
+    }
 }
 
 FileSpec::FileSpec() : 
@@ -186,6 +200,11 @@ FileSpec::FileSpec(const char *pathname, bool resolve_path, PathSyntax syntax) :
 {
     if (pathname && pathname[0])
         SetFile(pathname, resolve_path, syntax);
+}
+
+FileSpec::FileSpec(const char *pathname, bool resolve_path, ArchSpec arch) :
+    FileSpec(pathname, resolve_path, arch.GetTriple().isOSWindows() ? ePathSyntaxWindows : ePathSyntaxPosix)
+{
 }
 
 //------------------------------------------------------------------
@@ -240,6 +259,12 @@ void FileSpec::Normalize(llvm::SmallVectorImpl<char> &path, PathSyntax syntax)
         return;
 
     std::replace(path.begin(), path.end(), '\\', '/');
+    // Windows path can have \\ slashes which can be changed by replace
+    // call above to //. Here we remove the duplicate.
+    auto iter = std::unique ( path.begin(), path.end(),
+                               []( char &c1, char &c2 ){
+                                  return (c1 == '/' && c2 == '/');});
+    path.erase(iter, path.end());
 }
 
 void FileSpec::DeNormalize(llvm::SmallVectorImpl<char> &path, PathSyntax syntax)
@@ -539,6 +564,8 @@ FileSpec::RemoveBackupDots (const ConstString &input_const_str, ConstString &res
         {
             if (had_dots)
             {
+                while (before_sep.startswith("//"))
+                    before_sep = before_sep.substr(1);
                 if (!before_sep.empty())
                 {
                     result.append(before_sep.data(), before_sep.size());
@@ -582,13 +609,13 @@ FileSpec::RemoveBackupDots (const ConstString &input_const_str, ConstString &res
 // directory delimiter, and the filename.
 //------------------------------------------------------------------
 void
-FileSpec::Dump(Stream *s) const
+FileSpec::Dump(Stream *s, bool trailing_slash) const
 {
-    static ConstString g_slash_only ("/");
     if (s)
     {
         m_directory.Dump(s);
-        if (m_directory && m_directory != g_slash_only)
+        if ((m_filename || trailing_slash) && m_directory &&
+                !m_directory.GetStringRef().endswith("/"))
             s->PutChar('/');
         m_filename.Dump(s);
     }
@@ -774,24 +801,27 @@ FileSpec::GetPath(char *path, size_t path_max_len, bool denormalize) const
         return 0;
 
     std::string result = GetPath(denormalize);
-
-    size_t result_length = std::min(path_max_len-1, result.length());
-    ::strncpy(path, result.c_str(), result_length + 1);
-    return result_length;
+    ::snprintf(path, path_max_len, "%s", result.c_str());
+    return std::min(path_max_len-1, result.length());
 }
 
 std::string
-FileSpec::GetPath (bool denormalize) const
+FileSpec::GetPath(bool denormalize) const
 {
     llvm::SmallString<64> result;
-    if (m_directory)
-        result.append(m_directory.GetCString());
-    if (m_filename)
-        llvm::sys::path::append(result, m_filename.GetCString());
-    if (denormalize && !result.empty())
-        DeNormalize(result, m_syntax);
-
+    GetPath(result, denormalize);
     return std::string(result.begin(), result.end());
+}
+
+void
+FileSpec::GetPath(llvm::SmallVectorImpl<char> &path, bool denormalize) const
+{
+    StreamString stream;
+    Dump(&stream, false);
+    path.append(stream.GetString().begin(), stream.GetString().end());
+    Normalize(path, m_syntax);
+    if (denormalize && !path.empty())
+        DeNormalize(path, m_syntax);
 }
 
 ConstString
@@ -844,6 +874,15 @@ FileSpec::MemoryMapFileContents(off_t file_offset, size_t file_size) const
             data_sp.reset(mmap_data.release());
     }
     return data_sp;
+}
+
+DataBufferSP
+FileSpec::MemoryMapFileContentsIfLocal(off_t file_offset, size_t file_size) const
+{
+    if (FileSystem::IsLocal(*this))
+        return MemoryMapFileContents(file_offset, file_size);
+    else
+        return ReadFileContents(file_offset, file_size, NULL);
 }
 
 
@@ -1330,8 +1369,7 @@ FileSpec::IsSourceImplementationFile () const
     ConstString extension (GetFileNameExtension());
     if (extension)
     {
-        static RegularExpression g_source_file_regex ("^(c|m|mm|cpp|c\\+\\+|cxx|cc|cp|s|asm|f|f77|f90|f95|f03|for|ftn|fpp|ada|adb|ads)$",
-                                                      REG_EXTENDED | REG_ICASE);
+        static RegularExpression g_source_file_regex ("^([cC]|[mM]|[mM][mM]|[cC][pP][pP]|[cC]\\+\\+|[cC][xX][xX]|[cC][cC]|[cC][pP]|[sS]|[aA][sS][mM]|[fF]|[fF]77|[fF]90|[fF]95|[fF]03|[fF][oO][rR]|[fF][tT][nN]|[fF][pP][pP]|[aA][dD][aA]|[aA][dD][bB]|[aA][dD][sS])$");
         return g_source_file_regex.Execute (extension.GetCString());
     }
     return false;

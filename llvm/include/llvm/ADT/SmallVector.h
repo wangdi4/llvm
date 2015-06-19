@@ -24,6 +24,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
+#include <initializer_list>
 #include <iterator>
 #include <memory>
 
@@ -135,11 +136,11 @@ public:
   const_pointer data() const { return const_pointer(begin()); }
 
   reference operator[](size_type idx) {
-    assert(begin() + idx < end());
+    assert(idx < size());
     return begin()[idx];
   }
   const_reference operator[](size_type idx) const {
-    assert(begin() + idx < end());
+    assert(idx < size());
     return begin()[idx];
   }
 
@@ -236,51 +237,6 @@ public:
     this->setEnd(this->end()-1);
     this->end()->~T();
   }
-
-#if LLVM_HAS_VARIADIC_TEMPLATES
-  template <typename... ArgTypes> void emplace_back(ArgTypes &&... Args) {
-    if (LLVM_UNLIKELY(this->EndX >= this->CapacityX))
-      this->grow();
-    ::new ((void *)this->end()) T(std::forward<ArgTypes>(Args)...);
-    this->setEnd(this->end() + 1);
-  }
-#else
-private:
-  template <typename Constructor> void emplace_back_impl(Constructor construct) {
-    if (LLVM_UNLIKELY(this->EndX >= this->CapacityX))
-      this->grow();
-    construct((void *)this->end());
-    this->setEnd(this->end() + 1);
-  }
-
-public:
-  void emplace_back() {
-    emplace_back_impl([](void *Mem) { ::new (Mem) T(); });
-  }
-  template <typename T1> void emplace_back(T1 &&A1) {
-    emplace_back_impl([&](void *Mem) { ::new (Mem) T(std::forward<T1>(A1)); });
-  }
-  template <typename T1, typename T2> void emplace_back(T1 &&A1, T2 &&A2) {
-    emplace_back_impl([&](void *Mem) {
-      ::new (Mem) T(std::forward<T1>(A1), std::forward<T2>(A2));
-    });
-  }
-  template <typename T1, typename T2, typename T3>
-  void emplace_back(T1 &&A1, T2 &&A2, T3 &&A3) {
-    T(std::forward<T1>(A1), std::forward<T2>(A2), std::forward<T3>(A3));
-    emplace_back_impl([&](void *Mem) {
-      ::new (Mem)
-          T(std::forward<T1>(A1), std::forward<T2>(A2), std::forward<T3>(A3));
-    });
-  }
-  template <typename T1, typename T2, typename T3, typename T4>
-  void emplace_back(T1 &&A1, T2 &&A2, T3 &&A3, T4 &&A4) {
-    emplace_back_impl([&](void *Mem) {
-      ::new (Mem) T(std::forward<T1>(A1), std::forward<T2>(A2),
-                    std::forward<T3>(A3), std::forward<T4>(A4));
-    });
-  }
-#endif // LLVM_HAS_VARIADIC_TEMPLATES
 };
 
 // Define this out-of-line to dissuade the C++ compiler from inlining it.
@@ -352,8 +308,11 @@ protected:
 
   /// Copy the range [I, E) onto the uninitialized memory
   /// starting with "Dest", constructing elements into it as needed.
-  template<typename T1, typename T2>
-  static void uninitialized_copy(T1 *I, T1 *E, T2 *Dest) {
+  template <typename T1, typename T2>
+  static void uninitialized_copy(
+      T1 *I, T1 *E, T2 *Dest,
+      typename std::enable_if<std::is_same<typename std::remove_const<T1>::type,
+                                           T2>::value>::type * = nullptr) {
     // Use memcpy for PODs iterated by pointers (which includes SmallVector
     // iterators): std::uninitialized_copy optimizes to memmove, but we can
     // use memcpy here.
@@ -385,7 +344,7 @@ template <typename T>
 class SmallVectorImpl : public SmallVectorTemplateBase<T, isPodLike<T>::value> {
   typedef SmallVectorTemplateBase<T, isPodLike<T>::value > SuperClass;
 
-  SmallVectorImpl(const SmallVectorImpl&) LLVM_DELETED_FUNCTION;
+  SmallVectorImpl(const SmallVectorImpl&) = delete;
 public:
   typedef typename SuperClass::iterator iterator;
   typedef typename SuperClass::size_type size_type;
@@ -412,7 +371,7 @@ public:
     this->EndX = this->BeginX;
   }
 
-  void resize(unsigned N) {
+  void resize(size_type N) {
     if (N < this->size()) {
       this->destroy_range(this->begin()+N, this->end());
       this->setEnd(this->begin()+N);
@@ -425,7 +384,7 @@ public:
     }
   }
 
-  void resize(unsigned N, const T &NV) {
+  void resize(size_type N, const T &NV) {
     if (N < this->size()) {
       this->destroy_range(this->begin()+N, this->end());
       this->setEnd(this->begin()+N);
@@ -437,7 +396,7 @@ public:
     }
   }
 
-  void reserve(unsigned N) {
+  void reserve(size_type N) {
     if (this->capacity() < N)
       this->grow(N);
   }
@@ -459,9 +418,7 @@ public:
       this->grow(this->size()+NumInputs);
 
     // Copy the new elements over.
-    // TODO: NEED To compile time dispatch on whether in_iter is a random access
-    // iterator to use the fast uninitialized_copy.
-    std::uninitialized_copy(in_start, in_end, this->end());
+    this->uninitialized_copy(in_start, in_end, this->end());
     this->setEnd(this->end() + NumInputs);
   }
 
@@ -476,12 +433,21 @@ public:
     this->setEnd(this->end() + NumInputs);
   }
 
-  void assign(unsigned NumElts, const T &Elt) {
+  void append(std::initializer_list<T> IL) {
+    append(IL.begin(), IL.end());
+  }
+
+  void assign(size_type NumElts, const T &Elt) {
     clear();
     if (this->capacity() < NumElts)
       this->grow(NumElts);
     this->setEnd(this->begin()+NumElts);
     std::uninitialized_fill(this->begin(), this->end(), Elt);
+  }
+
+  void assign(std::initializer_list<T> IL) {
+    clear();
+    append(IL);
   }
 
   iterator erase(iterator I) {
@@ -582,7 +548,7 @@ public:
     assert(I <= this->end() && "Inserting past the end of the vector.");
 
     // Ensure there is enough space.
-    reserve(static_cast<unsigned>(this->size() + NumToInsert));
+    reserve(this->size() + NumToInsert);
 
     // Uninvalidate the iterator.
     I = this->begin()+InsertElt;
@@ -636,7 +602,7 @@ public:
     size_t NumToInsert = std::distance(From, To);
 
     // Ensure there is enough space.
-    reserve(static_cast<unsigned>(this->size() + NumToInsert));
+    reserve(this->size() + NumToInsert);
 
     // Uninvalidate the iterator.
     I = this->begin()+InsertElt;
@@ -677,6 +643,17 @@ public:
     return I;
   }
 
+  void insert(iterator I, std::initializer_list<T> IL) {
+    insert(I, IL.begin(), IL.end());
+  }
+
+  template <typename... ArgTypes> void emplace_back(ArgTypes &&... Args) {
+    if (LLVM_UNLIKELY(this->EndX >= this->CapacityX))
+      this->grow();
+    ::new ((void *)this->end()) T(std::forward<ArgTypes>(Args)...);
+    this->setEnd(this->end() + 1);
+  }
+
   SmallVectorImpl &operator=(const SmallVectorImpl &RHS);
 
   SmallVectorImpl &operator=(SmallVectorImpl &&RHS);
@@ -703,7 +680,7 @@ public:
   /// of the buffer when they know that more elements are available, and only
   /// update the size later. This avoids the cost of value initializing elements
   /// which will only be overwritten.
-  void set_size(unsigned N) {
+  void set_size(size_type N) {
     assert(N <= this->capacity());
     this->setEnd(this->begin() + N);
   }
@@ -729,7 +706,7 @@ void SmallVectorImpl<T>::swap(SmallVectorImpl<T> &RHS) {
   // Swap the shared elements.
   size_t NumShared = this->size();
   if (NumShared > RHS.size()) NumShared = RHS.size();
-  for (unsigned i = 0; i != static_cast<unsigned>(NumShared); ++i)
+  for (size_type i = 0; i != NumShared; ++i)
     std::swap((*this)[i], RHS[i]);
 
   // Copy over the extra elts.
@@ -886,7 +863,7 @@ public:
   SmallVector() : SmallVectorImpl<T>(N) {
   }
 
-  explicit SmallVector(unsigned Size, const T &Value = T())
+  explicit SmallVector(size_t Size, const T &Value = T())
     : SmallVectorImpl<T>(N) {
     this->assign(Size, Value);
   }
@@ -900,6 +877,10 @@ public:
   explicit SmallVector(const llvm::iterator_range<RangeTy> R)
       : SmallVectorImpl<T>(N) {
     this->append(R.begin(), R.end());
+  }
+
+  SmallVector(std::initializer_list<T> IL) : SmallVectorImpl<T>(N) {
+    this->assign(IL);
   }
 
   SmallVector(const SmallVector &RHS) : SmallVectorImpl<T>(N) {
@@ -919,6 +900,21 @@ public:
 
   const SmallVector &operator=(SmallVector &&RHS) {
     SmallVectorImpl<T>::operator=(::std::move(RHS));
+    return *this;
+  }
+
+  SmallVector(SmallVectorImpl<T> &&RHS) : SmallVectorImpl<T>(N) {
+    if (!RHS.empty())
+      SmallVectorImpl<T>::operator=(::std::move(RHS));
+  }
+
+  const SmallVector &operator=(SmallVectorImpl<T> &&RHS) {
+    SmallVectorImpl<T>::operator=(::std::move(RHS));
+    return *this;
+  }
+
+  const SmallVector &operator=(std::initializer_list<T> IL) {
+    this->assign(IL);
     return *this;
   }
 };

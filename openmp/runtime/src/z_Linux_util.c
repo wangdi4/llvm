@@ -1,7 +1,5 @@
 /*
  * z_Linux_util.c -- platform specific routines.
- * $Revision: 43473 $
- * $Date: 2014-09-26 15:02:57 -0500 (Fri, 26 Sep 2014) $
  */
 
 
@@ -36,7 +34,7 @@
 
 #if KMP_OS_LINUX && !KMP_OS_CNK
 # include <sys/sysinfo.h>
-# if KMP_OS_LINUX && (KMP_ARCH_X86 || KMP_ARCH_X86_64 || KMP_ARCH_ARM)
+# if KMP_OS_LINUX && (KMP_ARCH_X86 || KMP_ARCH_X86_64 || KMP_ARCH_ARM || KMP_ARCH_AARCH64)
 // We should really include <futex.h>, but that causes compatibility problems on different
 // Linux* OS distributions that either require that you include (or break when you try to include)
 // <pci/types.h>.
@@ -63,7 +61,7 @@
 #include <fcntl.h>
 
 // For non-x86 architecture
-#if KMP_COMPILER_GCC && !(KMP_ARCH_X86 || KMP_ARCH_X86_64 || KMP_ARCH_PPC64)
+#if KMP_COMPILER_GCC && !(KMP_ARCH_X86 || KMP_ARCH_X86_64 || KMP_ARCH_PPC64 || KMP_ARCH_AARCH64)
 # include <stdbool.h>
 # include <ffi.h>
 #endif
@@ -103,7 +101,7 @@ static kmp_mutex_align_t   __kmp_wait_mx;
 static void
 __kmp_print_cond( char *buffer, kmp_cond_align_t *cond )
 {
-    sprintf( buffer, "(cond (lock (%ld, %d)), (descr (%p)))",
+    KMP_SNPRINTF( buffer, 128, "(cond (lock (%ld, %d)), (descr (%p)))",
                       cond->c_cond.__c_lock.__status, cond->c_cond.__c_lock.__spinlock,
                       cond->c_cond.__c_waiting );
 }
@@ -134,6 +132,18 @@ __kmp_print_cond( char *buffer, kmp_cond_align_t *cond )
 #   ifndef __NR_sched_getaffinity
 #    define __NR_sched_getaffinity  242
 #   elif __NR_sched_getaffinity != 242
+#    error Wrong code for getaffinity system call.
+#   endif /* __NR_sched_getaffinity */
+
+#  elif KMP_ARCH_AARCH64
+#   ifndef __NR_sched_setaffinity
+#    define __NR_sched_setaffinity  122
+#   elif __NR_sched_setaffinity != 122
+#    error Wrong code for setaffinity system call.
+#   endif /* __NR_sched_setaffinity */
+#   ifndef __NR_sched_getaffinity
+#    define __NR_sched_getaffinity  123
+#   elif __NR_sched_getaffinity != 123
 #    error Wrong code for getaffinity system call.
 #   endif /* __NR_sched_getaffinity */
 
@@ -217,7 +227,7 @@ __kmp_affinity_bind_thread( int which )
     KMP_ASSERT2(KMP_AFFINITY_CAPABLE(),
       "Illegal set affinity operation when not capable");
 
-    kmp_affin_mask_t *mask = (kmp_affin_mask_t *)alloca(__kmp_affin_mask_size);
+    kmp_affin_mask_t *mask = (kmp_affin_mask_t *)KMP_ALLOCA(__kmp_affin_mask_size);
     KMP_CPU_ZERO(mask);
     KMP_CPU_SET(which, mask);
     __kmp_set_system_affinity(mask, TRUE);
@@ -267,7 +277,7 @@ __kmp_affinity_determine_capable(const char *env_var)
                 __kmp_msg_null
             );
         }
-        __kmp_affin_mask_size = 0;  // should already be 0
+        KMP_AFFINITY_DISABLE();
         KMP_INTERNAL_FREE(buf);
         return;
     }
@@ -295,11 +305,11 @@ __kmp_affinity_determine_capable(const char *env_var)
                         __kmp_msg_null
                     );
                 }
-                __kmp_affin_mask_size = 0;  // should already be 0
+                KMP_AFFINITY_DISABLE();
                 KMP_INTERNAL_FREE(buf);
             }
             if (errno == EFAULT) {
-                __kmp_affin_mask_size = gCode;
+                KMP_AFFINITY_ENABLE(gCode);
                 KA_TRACE(10, ( "__kmp_affinity_determine_capable: "
                   "affinity supported (mask size %d)\n",
                   (int)__kmp_affin_mask_size));
@@ -343,7 +353,7 @@ __kmp_affinity_determine_capable(const char *env_var)
                         __kmp_msg_null
                     );
                 }
-                __kmp_affin_mask_size = 0;  // should already be 0
+                KMP_AFFINITY_DISABLE();
                 KMP_INTERNAL_FREE(buf);
                 return;
             }
@@ -374,12 +384,12 @@ __kmp_affinity_determine_capable(const char *env_var)
                         __kmp_msg_null
                     );
                 }
-                __kmp_affin_mask_size = 0;  // should already be 0
+                KMP_AFFINITY_DISABLE();
                 KMP_INTERNAL_FREE(buf);
                 return;
             }
             if (errno == EFAULT) {
-                __kmp_affin_mask_size = gCode;
+                KMP_AFFINITY_ENABLE(gCode);
                 KA_TRACE(10, ( "__kmp_affinity_determine_capable: "
                   "affinity supported (mask size %d)\n",
                    (int)__kmp_affin_mask_size));
@@ -395,7 +405,7 @@ __kmp_affinity_determine_capable(const char *env_var)
     //
     // Affinity is not supported
     //
-    __kmp_affin_mask_size = 0;
+    KMP_AFFINITY_DISABLE();
     KA_TRACE(10, ( "__kmp_affinity_determine_capable: "
       "cannot determine mask size - affinity not supported\n"));
     if (__kmp_affinity_verbose || (__kmp_affinity_warnings
@@ -406,61 +416,12 @@ __kmp_affinity_determine_capable(const char *env_var)
     }
 }
 
-
-/*
- * Change thread to the affinity mask pointed to by affin_mask argument
- * and return a pointer to the old value in the old_mask argument, if argument
- * is non-NULL.
- */
-
-void
-__kmp_change_thread_affinity_mask( int gtid, kmp_affin_mask_t *new_mask,
-                                   kmp_affin_mask_t *old_mask )
-{
-    KMP_DEBUG_ASSERT( gtid == __kmp_get_gtid() );
-    if ( KMP_AFFINITY_CAPABLE() ) {
-        int status;
-        kmp_info_t  *th = __kmp_threads[ gtid ];
-
-        KMP_DEBUG_ASSERT( new_mask != NULL );
-
-        if ( old_mask != NULL ) {
-            status = __kmp_get_system_affinity( old_mask, TRUE );
-            int error = errno;
-            if ( status != 0 ) {
-                __kmp_msg(
-                    kmp_ms_fatal,
-                    KMP_MSG( ChangeThreadAffMaskError ),
-                    KMP_ERR( error ),
-                    __kmp_msg_null
-                );
-            }
-        }
-
-        __kmp_set_system_affinity( new_mask, TRUE );
-
-        if (__kmp_affinity_verbose) {
-            char old_buf[KMP_AFFIN_MASK_PRINT_LEN];
-            char new_buf[KMP_AFFIN_MASK_PRINT_LEN];
-            __kmp_affinity_print_mask(old_buf, KMP_AFFIN_MASK_PRINT_LEN, old_mask);
-            __kmp_affinity_print_mask(new_buf, KMP_AFFIN_MASK_PRINT_LEN, new_mask);
-            KMP_INFORM( ChangeAffMask, "KMP_AFFINITY (Bind)", gtid, old_buf, new_buf );
-
-        }
-
-        /* Make sure old value is correct in thread data structures */
-        KMP_DEBUG_ASSERT( old_mask != NULL && (memcmp(old_mask,
-          th->th.th_affin_mask, __kmp_affin_mask_size) == 0) );
-        KMP_CPU_COPY( th->th.th_affin_mask, new_mask );
-    }
-}
-
 #endif // KMP_OS_LINUX && KMP_AFFINITY_SUPPORTED
 
 /* ------------------------------------------------------------------------ */
 /* ------------------------------------------------------------------------ */
 
-#if KMP_OS_LINUX && (KMP_ARCH_X86 || KMP_ARCH_X86_64 || KMP_ARCH_ARM) && !KMP_OS_CNK
+#if KMP_OS_LINUX && (KMP_ARCH_X86 || KMP_ARCH_X86_64 || KMP_ARCH_ARM || KMP_ARCH_AARCH64) && !KMP_OS_CNK
 
 int
 __kmp_futex_determine_capable()
@@ -487,6 +448,40 @@ __kmp_futex_determine_capable()
  * Only 32-bit "add-exchange" instruction on IA-32 architecture causes us to
  * use compare_and_store for these routines
  */
+
+kmp_int8
+__kmp_test_then_or8( volatile kmp_int8 *p, kmp_int8 d )
+{
+    kmp_int8 old_value, new_value;
+
+    old_value = TCR_1( *p );
+    new_value = old_value | d;
+
+    while ( ! KMP_COMPARE_AND_STORE_REL8 ( p, old_value, new_value ) )
+    {
+        KMP_CPU_PAUSE();
+        old_value = TCR_1( *p );
+        new_value = old_value | d;
+    }
+    return old_value;
+}
+
+kmp_int8
+__kmp_test_then_and8( volatile kmp_int8 *p, kmp_int8 d )
+{
+    kmp_int8 old_value, new_value;
+
+    old_value = TCR_1( *p );
+    new_value = old_value & d;
+
+    while ( ! KMP_COMPARE_AND_STORE_REL8 ( p, old_value, new_value ) )
+    {
+        KMP_CPU_PAUSE();
+        old_value = TCR_1( *p );
+        new_value = old_value & d;
+    }
+    return old_value;
+}
 
 kmp_int32
 __kmp_test_then_or32( volatile kmp_int32 *p, kmp_int32 d )
@@ -522,7 +517,24 @@ __kmp_test_then_and32( volatile kmp_int32 *p, kmp_int32 d )
     return old_value;
 }
 
-# if KMP_ARCH_X86 || KMP_ARCH_PPC64
+# if KMP_ARCH_X86 || KMP_ARCH_PPC64 || KMP_ARCH_AARCH64
+kmp_int8
+__kmp_test_then_add8( volatile kmp_int8 *p, kmp_int8 d )
+{
+    kmp_int8 old_value, new_value;
+
+    old_value = TCR_1( *p );
+    new_value = old_value + d;
+
+    while ( ! KMP_COMPARE_AND_STORE_REL8 ( p, old_value, new_value ) )
+    {
+        KMP_CPU_PAUSE();
+        old_value = TCR_1( *p );
+        new_value = old_value + d;
+    }
+    return old_value;
+}
+
 kmp_int64
 __kmp_test_then_add64( volatile kmp_int64 *p, kmp_int64 d )
 {
@@ -720,7 +732,7 @@ __kmp_launch_worker( void *thr )
 
 #if KMP_OS_LINUX || KMP_OS_FREEBSD
     if ( __kmp_stkoffset > 0 && gtid > 0 ) {
-        padding = alloca( gtid * __kmp_stkoffset );
+        padding = KMP_ALLOCA( gtid * __kmp_stkoffset );
     }
 #endif
 
@@ -1569,10 +1581,12 @@ __kmp_atfork_child (void)
     __kmp_init_common = FALSE;
 
     TCW_4(__kmp_init_user_locks, FALSE);
+#if ! KMP_USE_DYNAMIC_LOCK
     __kmp_user_lock_table.used = 1;
     __kmp_user_lock_table.allocated = 0;
     __kmp_user_lock_table.table = NULL;
     __kmp_lock_blocks = NULL;
+#endif
 
     __kmp_all_nth = 0;
     TCW_4(__kmp_nth, 0);
@@ -2286,7 +2300,7 @@ __kmp_is_address_mapped( void * addr ) {
             if ( rc == EOF ) {
                 break;
             }; // if
-            KMP_ASSERT( rc == 3 && strlen( perms ) == 4 ); // Make sure all fields are read.
+            KMP_ASSERT( rc == 3 && KMP_STRLEN( perms ) == 4 ); // Make sure all fields are read.
 
             // Ending address is not included in the region, but beginning is.
             if ( ( addr >= beginning ) && ( addr < ending ) ) {
@@ -2461,7 +2475,7 @@ __kmp_get_load_balance( int max )
 
             // Construct task_path.
             task_path.used = task_path_fixed_len;    // Reset task_path to "/proc/".
-            __kmp_str_buf_cat( & task_path, proc_entry->d_name, strlen( proc_entry->d_name ) );
+            __kmp_str_buf_cat( & task_path, proc_entry->d_name, KMP_STRLEN( proc_entry->d_name ) );
             __kmp_str_buf_cat( & task_path, "/task", 5 );
 
             task_dir = opendir( task_path.str );
@@ -2496,7 +2510,7 @@ __kmp_get_load_balance( int max )
                         //  __kmp_str_buf_print( & stat_path, "%s/%s/stat", task_path.str, task_entry->d_name );
                         // but seriae of __kmp_str_buf_cat works a bit faster.
                         stat_path.used = stat_path_fixed_len;    // Reset stat path to its fixed part.
-                        __kmp_str_buf_cat( & stat_path, task_entry->d_name, strlen( task_entry->d_name ) );
+                        __kmp_str_buf_cat( & stat_path, task_entry->d_name, KMP_STRLEN( task_entry->d_name ) );
                         __kmp_str_buf_cat( & stat_path, "/stat", 5 );
 
                         // Note: Low-level API (open/read/close) is used. High-level API
@@ -2600,7 +2614,7 @@ __kmp_get_load_balance( int max )
 #endif // USE_LOAD_BALANCE
 
 
-#if KMP_COMPILER_GCC && !(KMP_ARCH_X86 || KMP_ARCH_X86_64 || KMP_ARCH_PPC64)
+#if KMP_COMPILER_GCC && !(KMP_ARCH_X86 || KMP_ARCH_X86_64 || KMP_ARCH_PPC64 || KMP_ARCH_AARCH64)
 
 int __kmp_invoke_microtask( microtask_t pkfn, int gtid, int tid, int argc,
         void *p_argv[] )
@@ -2636,7 +2650,7 @@ int __kmp_invoke_microtask( microtask_t pkfn, int gtid, int tid, int argc,
 
 #endif // KMP_COMPILER_GCC && !(KMP_ARCH_X86 || KMP_ARCH_X86_64 || KMP_ARCH_PPC64)
 
-#if KMP_ARCH_PPC64
+#if KMP_ARCH_PPC64 || KMP_ARCH_AARCH64
 
 // we really only need the case with 1 argument, because CLANG always build
 // a struct of pointers to shared variables referenced in the outlined function

@@ -20,9 +20,9 @@ import (
 	"os"
 	"strings"
 
-	"llvm.org/llgo/third_party/go.tools/go/ssa"
-	"llvm.org/llgo/third_party/go.tools/go/types"
-	"llvm.org/llgo/third_party/go.tools/go/types/typeutil"
+	"llvm.org/llgo/third_party/gotools/go/ssa"
+	"llvm.org/llgo/third_party/gotools/go/types"
+	"llvm.org/llgo/third_party/gotools/go/types/typeutil"
 
 	"llvm.org/llvm/bindings/go/llvm"
 )
@@ -340,18 +340,26 @@ func (d *DIBuilder) descriptorStruct(t *types.Struct, name string) llvm.Metadata
 }
 
 func (d *DIBuilder) descriptorNamed(t *types.Named) llvm.Metadata {
-	// Create a placeholder for the named type, to terminate cycles.
-	placeholder := llvm.GlobalContext().TemporaryMDNode(nil)
-	d.types.Set(t, placeholder)
 	var diFile llvm.Metadata
 	var line int
 	if file := d.fset.File(t.Obj().Pos()); file != nil {
 		line = file.Line(t.Obj().Pos())
 		diFile = d.getFile(file)
 	}
+
+	// Create a placeholder for the named type, to terminate cycles.
+	name := t.Obj().Name()
+	placeholder := d.builder.CreateReplaceableCompositeType(d.scope(), llvm.DIReplaceableCompositeType{
+		Tag:  dwarf.TagStructType,
+		Name: name,
+		File: diFile,
+		Line: line,
+	})
+	d.types.Set(t, placeholder)
+
 	typedef := d.builder.CreateTypedef(llvm.DITypedef{
 		Type: d.DIType(t.Underlying()),
-		Name: t.Obj().Name(),
+		Name: name,
 		File: diFile,
 		Line: line,
 	})

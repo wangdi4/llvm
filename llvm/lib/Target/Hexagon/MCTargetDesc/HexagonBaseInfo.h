@@ -19,7 +19,6 @@
 
 #include "HexagonMCTargetDesc.h"
 #include "llvm/Support/ErrorHandling.h"
-
 #include <stdint.h>
 
 namespace llvm {
@@ -71,7 +70,7 @@ namespace HexagonII {
     PostInc        = 6   // Post increment addressing mode
   };
 
-  enum MemAccessSize {
+  enum class MemAccessSize {
     NoMemAccess = 0,            // Not a memory acces instruction.
     ByteAccess = 1,             // Byte access instruction (memb).
     HalfWordAccess = 2,         // Half word access instruction (memh).

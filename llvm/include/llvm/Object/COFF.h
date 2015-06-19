@@ -276,12 +276,14 @@ public:
   }
 
   const StringTableOffset &getStringTableOffset() const {
+    assert(isSet() && "COFFSymbolRef points to nothing!");
     return CS16 ? CS16->Name.Offset : CS32->Name.Offset;
   }
 
   uint32_t getValue() const { return CS16 ? CS16->Value : CS32->Value; }
 
   int32_t getSectionNumber() const {
+    assert(isSet() && "COFFSymbolRef points to nothing!");
     if (CS16) {
       // Reserved sections are returned as negative numbers.
       if (CS16->SectionNumber <= COFF::MaxNumberOfSections16)
@@ -291,13 +293,18 @@ public:
     return static_cast<int32_t>(CS32->SectionNumber);
   }
 
-  uint16_t getType() const { return CS16 ? CS16->Type : CS32->Type; }
+  uint16_t getType() const {
+    assert(isSet() && "COFFSymbolRef points to nothing!");
+    return CS16 ? CS16->Type : CS32->Type;
+  }
 
   uint8_t getStorageClass() const {
+    assert(isSet() && "COFFSymbolRef points to nothing!");
     return CS16 ? CS16->StorageClass : CS32->StorageClass;
   }
 
   uint8_t getNumberOfAuxSymbols() const {
+    assert(isSet() && "COFFSymbolRef points to nothing!");
     return CS16 ? CS16->NumberOfAuxSymbols : CS32->NumberOfAuxSymbols;
   }
 
@@ -305,6 +312,10 @@ public:
 
   uint8_t getComplexType() const {
     return (getType() & 0xF0) >> COFF::SCT_COMPLEX_TYPE_SHIFT;
+  }
+
+  bool isAbsolute() const {
+    return getSectionNumber() == -1;
   }
 
   bool isExternal() const {
@@ -343,6 +354,10 @@ public:
     return getStorageClass() == COFF::IMAGE_SYM_CLASS_FILE;
   }
 
+  bool isSection() const {
+    return getStorageClass() == COFF::IMAGE_SYM_CLASS_SECTION;
+  }
+
   bool isSectionDefinition() const {
     // C++/CLI creates external ABS symbols for non-const appdomain globals.
     // These are also followed by an auxiliary section definition.
@@ -360,6 +375,8 @@ public:
   }
 
 private:
+  bool isSet() const { return CS16 || CS32; }
+
   const coff_symbol16 *CS16;
   const coff_symbol32 *CS32;
 };
@@ -430,6 +447,27 @@ struct coff_aux_clr_token {
   uint8_t              AuxType;
   uint8_t              Reserved;
   support::ulittle32_t SymbolTableIndex;
+};
+
+struct coff_import_header {
+  support::ulittle16_t Sig1;
+  support::ulittle16_t Sig2;
+  support::ulittle16_t Version;
+  support::ulittle16_t Machine;
+  support::ulittle32_t TimeDateStamp;
+  support::ulittle32_t SizeOfData;
+  support::ulittle16_t OrdinalHint;
+  support::ulittle16_t TypeInfo;
+  int getType() const { return TypeInfo & 0x3; }
+  int getNameType() const { return (TypeInfo & 0x7) >> 2; }
+};
+
+struct coff_import_directory_table_entry {
+  support::ulittle32_t ImportLookupTableRVA;
+  support::ulittle32_t TimeDateStamp;
+  support::ulittle32_t ForwarderChain;
+  support::ulittle32_t NameRVA;
+  support::ulittle32_t ImportAddressTableRVA;
 };
 
 struct coff_load_configuration32 {
@@ -593,9 +631,6 @@ protected:
   bool isSectionData(DataRefImpl Sec) const override;
   bool isSectionBSS(DataRefImpl Sec) const override;
   bool isSectionVirtual(DataRefImpl Sec) const override;
-  bool isSectionZeroInit(DataRefImpl Sec) const override;
-  bool isSectionReadOnlyData(DataRefImpl Sec) const override;
-  bool isSectionRequiredForExecution(DataRefImpl Sec) const override;
   bool sectionContainsSymbol(DataRefImpl Sec, DataRefImpl Symb) const override;
   relocation_iterator section_rel_begin(DataRefImpl Sec) const override;
   relocation_iterator section_rel_end(DataRefImpl Sec) const override;
@@ -606,6 +641,7 @@ protected:
   std::error_code getRelocationOffset(DataRefImpl Rel,
                                       uint64_t &Res) const override;
   symbol_iterator getRelocationSymbol(DataRefImpl Rel) const override;
+  section_iterator getRelocationSection(DataRefImpl Rel) const override;
   std::error_code getRelocationType(DataRefImpl Rel,
                                     uint64_t &Res) const override;
   std::error_code

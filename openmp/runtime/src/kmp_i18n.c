@@ -1,7 +1,5 @@
 /*
  * kmp_i18n.c
- * $Revision: 43084 $
- * $Date: 2014-04-15 09:15:14 -0500 (Tue, 15 Apr 2014) $
  */
 
 
@@ -144,7 +142,7 @@ __kmp_i18n_do_catopen(
 
     if ( status == KMP_I18N_ABSENT ) {
       if (__kmp_generate_warnings > kmp_warnings_low) { // AC: only issue warning in case explicitly asked to
-        int    error   = errno; // Save errno immediatelly.
+        int    error   = errno; // Save errno immediately.
 	char * nlspath = __kmp_env_get( "NLSPATH" );
         char * lang    = __kmp_env_get( "LANG" );
 
@@ -866,7 +864,7 @@ __kmp_msg_error_code(
     msg.type = kmp_mt_syserr;
     msg.num  = code;
     msg.str  = sys_error( code );
-    msg.len  = strlen( msg.str );
+    msg.len  = KMP_STRLEN( msg.str );
     return msg;
 
 } // __kmp_msg_error_code
@@ -882,7 +880,7 @@ __kmp_msg_error_mesg(
     msg.type = kmp_mt_syserr;
     msg.num  = 0;
     msg.str  = __kmp_str_format( "%s", mesg );
-    msg.len  = strlen( msg.str );
+    msg.len  = KMP_STRLEN( msg.str );
     return msg;
 
 } // __kmp_msg_error_mesg

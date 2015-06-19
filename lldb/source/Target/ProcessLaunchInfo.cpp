@@ -15,6 +15,10 @@
 #include "lldb/Target/FileAction.h"
 #include "lldb/Target/Target.h"
 
+#if !defined(_WIN32)
+#include <limits.h>
+#endif
+
 using namespace lldb;
 using namespace lldb_private;
 
@@ -208,7 +212,15 @@ ProcessLaunchInfo::SetLaunchInSeparateProcessGroup (bool separate)
         m_flags.Set(lldb::eLaunchFlagLaunchInSeparateProcessGroup);
     else
         m_flags.Clear (lldb::eLaunchFlagLaunchInSeparateProcessGroup);
+}
 
+void
+ProcessLaunchInfo::SetShellExpandArguments (bool expand)
+{
+    if (expand)
+        m_flags.Set(lldb::eLaunchFlagShellExpandArguments);
+    else
+        m_flags.Clear(lldb::eLaunchFlagShellExpandArguments);
 }
 
 void
@@ -344,7 +356,14 @@ ProcessLaunchInfo::FinalizeFileActions (Target *target, bool default_to_use_pty)
                     log->Printf ("ProcessLaunchInfo::%s default_to_use_pty is set, and at least one stdin/stderr/stdout is unset, so generating a pty to use for it",
                                  __FUNCTION__);
 
-                if (m_pty->OpenFirstAvailableMaster(O_RDWR| O_NOCTTY, NULL, 0))
+                int open_flags = O_RDWR | O_NOCTTY;
+#if !defined(_MSC_VER)
+                // We really shouldn't be specifying platform specific flags
+                // that are intended for a system call in generic code.  But
+                // this will have to do for now.
+                open_flags |= O_CLOEXEC;
+#endif
+                if (m_pty->OpenFirstAvailableMaster(open_flags, NULL, 0))
                 {
                     const char *slave_path = m_pty->GetSlaveName(NULL, 0);
 

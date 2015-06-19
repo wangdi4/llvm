@@ -11,7 +11,7 @@ class StopHookForMultipleThreadsTestCase(TestBase):
 
     mydir = TestBase.compute_mydir(__file__)
 
-    @unittest2.skipUnless(sys.platform.startswith("darwin"), "requires Darwin")
+    @skipUnlessDarwin
     @dsym_test
     def test_stop_hook_multiple_threads_with_dsym(self):
         """Test that lldb stop-hook works for multiple threads."""
@@ -22,6 +22,7 @@ class StopHookForMultipleThreadsTestCase(TestBase):
     @dwarf_test
     @expectedFailureFreeBSD("llvm.org/pr15037")
     @expectedFailureLinux("llvm.org/pr15037") # stop hooks sometimes fail to fire on Linux
+    @expectedFailureWindows("llvm.org/pr22274: need a pexpect replacement for windows")
     def test_stop_hook_multiple_threads_with_dwarf(self):
         """Test that lldb stop-hook works for multiple threads."""
         self.buildDwarf(dictionary=self.d)
@@ -47,7 +48,7 @@ class StopHookForMultipleThreadsTestCase(TestBase):
         prompt = "(lldb) "
 
         # So that the child gets torn down after the test.
-        self.child = pexpect.spawn('%s %s %s' % (self.lldbHere, self.lldbOption, exe))
+        self.child = pexpect.spawn('%s %s %s' % (lldbtest_config.lldbExec, self.lldbOption, exe))
         child = self.child
         # Turn on logging for what the child sends back.
         if self.TraceOn():
@@ -70,7 +71,7 @@ class StopHookForMultipleThreadsTestCase(TestBase):
 
         # Continue and expect to find the output emitted by the firing of our stop hook.
         child.sendline('continue')
-        child.expect_exact('(uint32_t) g_val = ')
+        child.expect_exact('(uint32_t) ::g_val = ')
 
 
 if __name__ == '__main__':

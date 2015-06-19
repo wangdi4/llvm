@@ -1,7 +1,5 @@
 /*
  * kmp_version.c
- * $Revision: 43435 $
- * $Date: 2014-09-04 15:16:08 -0500 (Thu, 04 Sep 2014) $
  */
 
 
@@ -71,7 +69,7 @@
 #endif // KMP_LIB_TYPE
 
 // Detect link type (static, dynamic).
-#ifdef GUIDEDLL_EXPORTS
+#ifdef KMP_DYNAMIC_LIB
     #define KMP_LINK_TYPE "dynamic"
 #else
     #define KMP_LINK_TYPE "static"

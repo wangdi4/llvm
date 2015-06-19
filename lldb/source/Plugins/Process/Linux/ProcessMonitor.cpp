@@ -16,22 +16,6 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <elf.h>
-#if defined(__ANDROID_NDK__) && defined (__arm__)
-#include <linux/personality.h>
-#include <linux/user.h>
-#else
-#include <sys/personality.h>
-#include <sys/user.h>
-#endif
-#ifndef __ANDROID__
-#include <sys/procfs.h>
-#endif
-#include <sys/ptrace.h>
-#include <sys/uio.h>
-#include <sys/socket.h>
-#include <sys/syscall.h>
-#include <sys/types.h>
-#include <sys/wait.h>
 
 // C++ Includes
 // Other libraries and framework includes
@@ -40,47 +24,37 @@
 #include "lldb/Core/RegisterValue.h"
 #include "lldb/Core/Scalar.h"
 #include "lldb/Host/Host.h"
+#include "lldb/Host/HostNativeThread.h"
 #include "lldb/Host/HostThread.h"
 #include "lldb/Host/ThreadLauncher.h"
 #include "lldb/Target/Thread.h"
 #include "lldb/Target/RegisterContext.h"
+#include "lldb/Target/UnixSignals.h"
 #include "lldb/Utility/PseudoTerminal.h"
 
+#include "Plugins/Process/POSIX/CrashReason.h"
 #include "Plugins/Process/POSIX/POSIXThread.h"
 #include "ProcessLinux.h"
 #include "Plugins/Process/POSIX/ProcessPOSIXLog.h"
 #include "ProcessMonitor.h"
+#include "Procfs.h"
 
-#ifdef __ANDROID__
-#define __ptrace_request int
-#define PT_DETACH PTRACE_DETACH
-#endif
+// System includes - They have to be included after framework includes because they define some
+// macros which collide with variable names in other modules
 
-#define DEBUG_PTRACE_MAXBYTES 20
+#include "lldb/Host/linux/Personality.h"
+#include "lldb/Host/linux/Ptrace.h"
+#include "lldb/Host/linux/Signalfd.h"
+#include "lldb/Host/android/Android.h"
 
-// Support ptrace extensions even when compiled without required kernel support
-#ifndef PTRACE_GETREGSET
-  #define PTRACE_GETREGSET 0x4204
-#endif
-#ifndef PTRACE_SETREGSET
-  #define PTRACE_SETREGSET 0x4205
-#endif
-#ifndef PTRACE_GET_THREAD_AREA
-  #define PTRACE_GET_THREAD_AREA 25
-#endif
-#ifndef PTRACE_ARCH_PRCTL
-  #define PTRACE_ARCH_PRCTL      30
-#endif
-#ifndef ARCH_GET_FS
-  #define ARCH_SET_GS 0x1001
-  #define ARCH_SET_FS 0x1002
-  #define ARCH_GET_FS 0x1003
-  #define ARCH_GET_GS 0x1004
-#endif
+#include <sys/socket.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <sys/user.h>
+#include <sys/wait.h>
 
 #define LLDB_PERSONALITY_GET_CURRENT_SETTINGS  0xffffffff
-
-#define LLDB_PTRACE_NT_ARM_TLS  0x401           // ARM TLS register
 
 // Support hardware breakpoints in case it has not been defined
 #ifndef TRAP_HWBKPT
@@ -89,9 +63,13 @@
 
 // Try to define a macro to encapsulate the tgkill syscall
 // fall back on kill() if tgkill isn't available
-#define tgkill(pid, tid, sig)  syscall(SYS_tgkill, pid, tid, sig)
+#define tgkill(pid, tid, sig) \
+    syscall(SYS_tgkill, static_cast<::pid_t>(pid), static_cast<::pid_t>(tid), sig)
 
 using namespace lldb_private;
+using namespace lldb_private::process_linux;
+
+static Operation* EXIT_OPERATION = nullptr;
 
 // FIXME: this code is host-dependent with respect to types and
 // endianness and needs to be fixed.  For example, lldb::addr_t is
@@ -373,7 +351,7 @@ DoWriteMemory(lldb::pid_t pid,
                  (log->GetMask().Test(POSIX_LOG_MEMORY_DATA_SHORT) &&
                   size <= POSIX_LOG_MEMORY_SHORT_BYTES)))
                  log->Printf ("ProcessMonitor::%s() [%p]:0x%lx (0x%lx)", __FUNCTION__,
-                              (void*)vm_addr, *(unsigned long*)src, *(unsigned long*)buff);
+                              (void*)vm_addr, *(const unsigned long*)src, *(const unsigned long*)buff);
         }
 
         vm_addr += word_size;
@@ -436,7 +414,7 @@ public:
           m_error(error), m_result(result)
         { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::addr_t m_addr;
@@ -466,7 +444,7 @@ public:
           m_error(error), m_result(result)
         { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::addr_t m_addr;
@@ -497,7 +475,7 @@ public:
           m_value(value), m_result(result)
         { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -570,7 +548,96 @@ ReadRegOperation::Execute(ProcessMonitor *monitor)
 #endif
 }
 
-//------------------------------------------------------------------------------
+#if defined (__arm64__) || defined (__aarch64__)
+    //------------------------------------------------------------------------------
+    /// @class ReadDBGROperation
+    /// @brief Implements NativeProcessLinux::ReadDBGR.
+    class ReadDBGROperation : public Operation
+    {
+    public:
+        ReadDBGROperation(lldb::tid_t tid, unsigned int &count_wp, unsigned int &count_bp)
+            : m_tid(tid),
+              m_count_wp(count_wp),
+              m_count_bp(count_bp)
+            { }
+
+        void Execute(ProcessMonitor *monitor) override;
+
+    private:
+        lldb::tid_t m_tid;
+        unsigned int &m_count_wp;
+        unsigned int &m_count_bp;
+    };
+
+    void
+    ReadDBGROperation::Execute(ProcessMonitor *monitor)
+    {
+       int regset = NT_ARM_HW_WATCH;
+       struct iovec ioVec;
+       struct user_hwdebug_state dreg_state;
+
+       ioVec.iov_base = &dreg_state;
+       ioVec.iov_len = sizeof (dreg_state);
+
+       PTRACE(PTRACE_GETREGSET, m_tid, &regset, &ioVec, ioVec.iov_len);
+
+       m_count_wp = dreg_state.dbg_info & 0xff;
+       regset = NT_ARM_HW_BREAK;
+
+       PTRACE(PTRACE_GETREGSET, m_tid, &regset, &ioVec, ioVec.iov_len);
+       m_count_bp = dreg_state.dbg_info & 0xff;
+    }
+#endif
+
+#if defined (__arm64__) || defined (__aarch64__)
+    //------------------------------------------------------------------------------
+    /// @class WriteDBGROperation
+    /// @brief Implements NativeProcessLinux::WriteFPR.
+    class WriteDBGROperation : public Operation
+    {
+    public:
+        WriteDBGROperation(lldb::tid_t tid, lldb::addr_t *addr_buf, uint32_t *cntrl_buf, int type, int count)
+            : m_tid(tid),
+              m_addr_buf(addr_buf),
+              m_cntrl_buf(cntrl_buf),
+              m_type(type),
+              m_count(count)
+            { }
+
+        void Execute(ProcessMonitor *monitor) override;
+
+    private:
+        lldb::tid_t m_tid;
+        lldb::addr_t *m_addr_buf;
+        uint32_t *m_cntrl_buf;
+        int m_type;
+        int m_count;
+    };
+
+    void
+    WriteDBGROperation::Execute(ProcessMonitor *monitor)
+    {
+        struct iovec ioVec;
+        struct user_hwdebug_state dreg_state;
+
+        memset (&dreg_state, 0, sizeof (dreg_state));
+        ioVec.iov_base = &dreg_state;
+        ioVec.iov_len = sizeof(dreg_state);
+
+        if (m_type == 0)
+            m_type = NT_ARM_HW_WATCH;
+        else
+            m_type = NT_ARM_HW_BREAK;
+
+        for (int i = 0; i < m_count; i++)
+        {
+            dreg_state.dbg_regs[i].addr = m_addr_buf[i];
+            dreg_state.dbg_regs[i].ctrl = m_cntrl_buf[i];
+        }
+
+        PTRACE(PTRACE_SETREGSET, m_tid, &m_type, &ioVec, ioVec.iov_len);
+    }
+#endif//------------------------------------------------------------------------------
 /// @class WriteRegOperation
 /// @brief Implements ProcessMonitor::WriteRegisterValue.
 class WriteRegOperation : public Operation
@@ -582,7 +649,7 @@ public:
           m_value(value), m_result(result)
         { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -667,7 +734,7 @@ public:
         : m_tid(tid), m_buf(buf), m_buf_size(buf_size), m_result(result)
         { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -707,7 +774,7 @@ public:
         : m_tid(tid), m_buf(buf), m_buf_size(buf_size), m_result(result)
         { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -747,7 +814,7 @@ public:
         : m_tid(tid), m_buf(buf), m_buf_size(buf_size), m_regset(regset), m_result(result)
         { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -776,7 +843,7 @@ public:
         : m_tid(tid), m_buf(buf), m_buf_size(buf_size), m_result(result)
         { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -816,7 +883,7 @@ public:
         : m_tid(tid), m_buf(buf), m_buf_size(buf_size), m_result(result)
         { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -856,7 +923,7 @@ public:
         : m_tid(tid), m_buf(buf), m_buf_size(buf_size), m_regset(regset), m_result(result)
         { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -885,7 +952,7 @@ public:
         : m_tid(tid), m_addr(addr), m_result(result)
         { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -969,7 +1036,7 @@ public:
     ResumeOperation(lldb::tid_t tid, uint32_t signo, bool &result) :
         m_tid(tid), m_signo(signo), m_result(result) { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -1006,7 +1073,7 @@ public:
     SingleStepOperation(lldb::tid_t tid, uint32_t signo, bool &result)
         : m_tid(tid), m_signo(signo), m_result(result) { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -1037,7 +1104,7 @@ public:
     SiginfoOperation(lldb::tid_t tid, void *info, bool &result, int &ptrace_err)
         : m_tid(tid), m_info(info), m_result(result), m_err(ptrace_err) { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -1066,7 +1133,7 @@ public:
     EventMessageOperation(lldb::tid_t tid, unsigned long *message, bool &result)
         : m_tid(tid), m_message(message), m_result(result) { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -1091,7 +1158,7 @@ class DetachOperation : public Operation
 public:
     DetachOperation(lldb::tid_t tid, Error &result) : m_tid(tid), m_error(result) { }
 
-    void Execute(ProcessMonitor *monitor);
+    void Execute(ProcessMonitor *monitor) override;
 
 private:
     lldb::tid_t m_tid;
@@ -1354,6 +1421,11 @@ ProcessMonitor::Launch(LaunchArgs *args)
         // Trace this process.
         if (PTRACE(PTRACE_TRACEME, 0, NULL, NULL, 0) < 0)
             exit(ePtraceFailed);
+
+        // terminal has already dupped the tty descriptors to stdin/out/err.
+        // This closes original fd from which they were copied (and avoids
+        // leaking descriptors to the debugged process.
+        terminal.CloseSlaveFileDescriptor();
 
         // Do not inherit setgid powers.
         if (setgid(getgid()) != 0)
@@ -1836,27 +1908,14 @@ ProcessMonitor::MonitorSignal(ProcessMonitor *monitor,
     if (log)
         log->Printf ("ProcessMonitor::%s() received signal %s", __FUNCTION__, monitor->m_process->GetUnixSignals().GetSignalAsCString (signo));
 
-    if (signo == SIGSEGV) {
+    switch (signo)
+    {
+    case SIGSEGV:
+    case SIGILL:
+    case SIGFPE:
+    case SIGBUS:
         lldb::addr_t fault_addr = reinterpret_cast<lldb::addr_t>(info->si_addr);
-        ProcessMessage::CrashReason reason = GetCrashReasonForSIGSEGV(info);
-        return ProcessMessage::Crash(pid, reason, signo, fault_addr);
-    }
-
-    if (signo == SIGILL) {
-        lldb::addr_t fault_addr = reinterpret_cast<lldb::addr_t>(info->si_addr);
-        ProcessMessage::CrashReason reason = GetCrashReasonForSIGILL(info);
-        return ProcessMessage::Crash(pid, reason, signo, fault_addr);
-    }
-
-    if (signo == SIGFPE) {
-        lldb::addr_t fault_addr = reinterpret_cast<lldb::addr_t>(info->si_addr);
-        ProcessMessage::CrashReason reason = GetCrashReasonForSIGFPE(info);
-        return ProcessMessage::Crash(pid, reason, signo, fault_addr);
-    }
-
-    if (signo == SIGBUS) {
-        lldb::addr_t fault_addr = reinterpret_cast<lldb::addr_t>(info->si_addr);
-        ProcessMessage::CrashReason reason = GetCrashReasonForSIGBUS(info);
+        const auto reason = GetCrashReason(*info);
         return ProcessMessage::Crash(pid, reason, signo, fault_addr);
     }
 
@@ -2114,147 +2173,6 @@ ProcessMonitor::StopThread(lldb::tid_t tid)
     return false;
 }
 
-ProcessMessage::CrashReason
-ProcessMonitor::GetCrashReasonForSIGSEGV(const siginfo_t *info)
-{
-    ProcessMessage::CrashReason reason;
-    assert(info->si_signo == SIGSEGV);
-
-    reason = ProcessMessage::eInvalidCrashReason;
-
-    switch (info->si_code)
-    {
-    default:
-        assert(false && "unexpected si_code for SIGSEGV");
-        break;
-    case SI_KERNEL:
-        // Linux will occasionally send spurious SI_KERNEL codes.
-        // (this is poorly documented in sigaction)
-        // One way to get this is via unaligned SIMD loads.
-        reason = ProcessMessage::eInvalidAddress; // for lack of anything better
-        break;
-    case SEGV_MAPERR:
-        reason = ProcessMessage::eInvalidAddress;
-        break;
-    case SEGV_ACCERR:
-        reason = ProcessMessage::ePrivilegedAddress;
-        break;
-    }
-
-    return reason;
-}
-
-ProcessMessage::CrashReason
-ProcessMonitor::GetCrashReasonForSIGILL(const siginfo_t *info)
-{
-    ProcessMessage::CrashReason reason;
-    assert(info->si_signo == SIGILL);
-
-    reason = ProcessMessage::eInvalidCrashReason;
-
-    switch (info->si_code)
-    {
-    default:
-        assert(false && "unexpected si_code for SIGILL");
-        break;
-    case ILL_ILLOPC:
-        reason = ProcessMessage::eIllegalOpcode;
-        break;
-    case ILL_ILLOPN:
-        reason = ProcessMessage::eIllegalOperand;
-        break;
-    case ILL_ILLADR:
-        reason = ProcessMessage::eIllegalAddressingMode;
-        break;
-    case ILL_ILLTRP:
-        reason = ProcessMessage::eIllegalTrap;
-        break;
-    case ILL_PRVOPC:
-        reason = ProcessMessage::ePrivilegedOpcode;
-        break;
-    case ILL_PRVREG:
-        reason = ProcessMessage::ePrivilegedRegister;
-        break;
-    case ILL_COPROC:
-        reason = ProcessMessage::eCoprocessorError;
-        break;
-    case ILL_BADSTK:
-        reason = ProcessMessage::eInternalStackError;
-        break;
-    }
-
-    return reason;
-}
-
-ProcessMessage::CrashReason
-ProcessMonitor::GetCrashReasonForSIGFPE(const siginfo_t *info)
-{
-    ProcessMessage::CrashReason reason;
-    assert(info->si_signo == SIGFPE);
-
-    reason = ProcessMessage::eInvalidCrashReason;
-
-    switch (info->si_code)
-    {
-    default:
-        assert(false && "unexpected si_code for SIGFPE");
-        break;
-    case FPE_INTDIV:
-        reason = ProcessMessage::eIntegerDivideByZero;
-        break;
-    case FPE_INTOVF:
-        reason = ProcessMessage::eIntegerOverflow;
-        break;
-    case FPE_FLTDIV:
-        reason = ProcessMessage::eFloatDivideByZero;
-        break;
-    case FPE_FLTOVF:
-        reason = ProcessMessage::eFloatOverflow;
-        break;
-    case FPE_FLTUND:
-        reason = ProcessMessage::eFloatUnderflow;
-        break;
-    case FPE_FLTRES:
-        reason = ProcessMessage::eFloatInexactResult;
-        break;
-    case FPE_FLTINV:
-        reason = ProcessMessage::eFloatInvalidOperation;
-        break;
-    case FPE_FLTSUB:
-        reason = ProcessMessage::eFloatSubscriptRange;
-        break;
-    }
-
-    return reason;
-}
-
-ProcessMessage::CrashReason
-ProcessMonitor::GetCrashReasonForSIGBUS(const siginfo_t *info)
-{
-    ProcessMessage::CrashReason reason;
-    assert(info->si_signo == SIGBUS);
-
-    reason = ProcessMessage::eInvalidCrashReason;
-
-    switch (info->si_code)
-    {
-    default:
-        assert(false && "unexpected si_code for SIGBUS");
-        break;
-    case BUS_ADRALN:
-        reason = ProcessMessage::eIllegalAlignment;
-        break;
-    case BUS_ADRERR:
-        reason = ProcessMessage::eIllegalAddress;
-        break;
-    case BUS_OBJERR:
-        reason = ProcessMessage::eHardwareError;
-        break;
-    }
-
-    return reason;
-}
-
 void
 ProcessMonitor::ServeOperation(OperationArgs *args)
 {
@@ -2330,6 +2248,27 @@ ProcessMonitor::ReadRegisterValue(lldb::tid_t tid, unsigned offset, const char* 
     return result;
 }
 
+#if defined (__arm64__) || defined (__aarch64__)
+
+bool
+ProcessMonitor::ReadHardwareDebugInfo (lldb::tid_t tid, unsigned int &watch_count , unsigned int &break_count)
+{
+    bool result = true;
+    ReadDBGROperation op(tid, watch_count, break_count);
+    DoOperation(&op);
+    return result;
+}
+
+bool
+ProcessMonitor::WriteHardwareDebugRegs (lldb::tid_t tid, lldb::addr_t *addr_buf, uint32_t *cntrl_buf, int type, int count)
+{
+    bool result = true;
+    WriteDBGROperation op(tid, addr_buf, cntrl_buf, type, count);
+    DoOperation(&op);
+    return result;
+}
+
+#endif
 bool
 ProcessMonitor::WriteRegisterValue(lldb::tid_t tid, unsigned offset,
                                    const char* reg_name, const RegisterValue &value)
@@ -2472,7 +2411,10 @@ ProcessMonitor::DupDescriptor(const char *path, int fd, int flags)
     if (target_fd == -1)
         return false;
 
-    return (dup2(target_fd, fd) == -1) ? false : true;
+    if (dup2(target_fd, fd) == -1)
+        return false;
+
+    return (close(target_fd) == -1) ? false : true;
 }
 
 void
@@ -2480,7 +2422,7 @@ ProcessMonitor::StopMonitoringChildProcess()
 {
     if (m_monitor_thread.IsJoinable())
     {
-        m_monitor_thread.Cancel();
+        ::pthread_kill(m_monitor_thread.GetNativeThread().GetSystemHandle(), SIGUSR1);
         m_monitor_thread.Join(nullptr);
     }
 }
@@ -2492,11 +2434,10 @@ ProcessMonitor::StopMonitor()
     StopOpThread();
     sem_destroy(&m_operation_pending);
     sem_destroy(&m_operation_done);
-
-    // Note: ProcessPOSIX passes the m_terminal_fd file descriptor to
-    // Process::SetSTDIOFileDescriptor, which in turn transfers ownership of
-    // the descriptor to a ConnectionFileDescriptor object.  Consequently
-    // even though still has the file descriptor, we shouldn't close it here.
+    if (m_terminal_fd >= 0) {
+        close(m_terminal_fd);
+        m_terminal_fd = -1;
+    }
 }
 
 void
@@ -2505,6 +2446,6 @@ ProcessMonitor::StopOpThread()
     if (!m_operation_thread.IsJoinable())
         return;
 
-    m_operation_thread.Cancel();
+    DoOperation(EXIT_OPERATION);
     m_operation_thread.Join(nullptr);
 }

@@ -210,6 +210,7 @@ RNBRemote::CreatePacketTable  ()
     t.push_back (Packet (set_process_event,             &RNBRemote::HandlePacket_QSetProcessEvent, NULL, "QSetProcessEvent:", "Set a process event, to be passed to the process, can be set before the process is started, or after."));
     t.push_back (Packet (set_detach_on_error,           &RNBRemote::HandlePacket_QSetDetachOnError, NULL, "QSetDetachOnError:", "Set whether debugserver will detach (1) or kill (0) from the process it is controlling if it loses connection to lldb."));
     t.push_back (Packet (speed_test,                    &RNBRemote::HandlePacket_qSpeedTest, NULL, "qSpeedTest:", "Test the maximum speed at which packet can be sent/received."));
+    t.push_back (Packet (query_transfer,                &RNBRemote::HandlePacket_qXfer, NULL, "qXfer:", "Support the qXfer packet."));
 }
 
 
@@ -395,10 +396,10 @@ RNBRemote::GetPacketPayload (std::string &return_packet)
 
         case '$':
         {
-            int packet_checksum = 0;
+            long packet_checksum = 0;
             if (!m_noack_mode)
             {
-                for (int i = return_packet.size() - 2; i < return_packet.size(); ++i)
+                for (size_t i = return_packet.size() - 2; i < return_packet.size(); ++i)
                 {
                     char checksum_char = tolower (return_packet[i]);
                     if (!isxdigit (checksum_char))
@@ -432,7 +433,7 @@ RNBRemote::GetPacketPayload (std::string &return_packet)
                 }
                 else
                 {
-                    DNBLogThreadedIf (LOG_RNB_MEDIUM, "%8u RNBRemote::%s sending ACK for '%s' (error: packet checksum mismatch  (0x%2.2x != 0x%2.2x))",
+                    DNBLogThreadedIf (LOG_RNB_MEDIUM, "%8u RNBRemote::%s sending ACK for '%s' (error: packet checksum mismatch  (0x%2.2lx != 0x%2.2x))",
                                       (uint32_t)m_comm.Timer().ElapsedMicroSeconds(true),
                                       __FUNCTION__,
                                       return_packet.c_str(),
@@ -615,7 +616,7 @@ RNBRemote::CommDataReceived(const std::string& new_data)
         data += new_data;
 
         // Parse up the packets into gdb remote packets
-        uint32_t idx = 0;
+        size_t idx = 0;
         const size_t data_size = data.size();
 
         while (idx < data_size)
@@ -1120,7 +1121,7 @@ RNBRemote::HandlePacket_A (const char *p)
 
     while (*buf != '\0')
     {
-        int arglen, argnum;
+        unsigned long arglen, argnum;
         std::string arg;
         char *c;
 
@@ -1158,7 +1159,7 @@ RNBRemote::HandlePacket_A (const char *p)
             smallbuf[2] = '\0';
 
             errno = 0;
-            int ch = strtoul (smallbuf, NULL, 16);
+            int ch = static_cast<int>(strtoul (smallbuf, NULL, 16));
             if (errno != 0 && ch == 0)
             {
                 return HandlePacket_ILLFORMED (__FILE__, __LINE__, p, "non-hex char in arg on 'A' pkt");
@@ -1424,7 +1425,7 @@ RNBRemote::HandlePacket_qRcmd (const char *p)
     {
         char smallbuf[3] = { c[0], c[1], '\0' };
         errno = 0;
-        int ch = strtoul (smallbuf, NULL, 16);
+        int ch = static_cast<int>(strtoul (smallbuf, NULL, 16));
         if (errno != 0 && ch == 0)
             return HandlePacket_ILLFORMED (__FILE__, __LINE__, p, "non-hex char in payload of qRcmd packet");
         line.push_back(ch);
@@ -1452,7 +1453,7 @@ RNBRemote::HandlePacket_qRcmd (const char *p)
             {
                 char *end;
                 errno = 0;
-                uint32_t logmask = strtoul (value.c_str(), &end, 0);
+                uint32_t logmask = static_cast<uint32_t>(strtoul (value.c_str(), &end, 0));
                 if (errno == 0 && end && *end == '\0')
                 {
                     DNBLogSetLogMask (logmask);
@@ -1461,7 +1462,7 @@ RNBRemote::HandlePacket_qRcmd (const char *p)
                     return SendPacket ("OK");
                 }
                 errno = 0;
-                logmask = strtoul (value.c_str(), &end, 16);
+                logmask = static_cast<uint32_t>(strtoul (value.c_str(), &end, 16));
                 if (errno == 0 && end && *end == '\0')
                 {
                     DNBLogSetLogMask (logmask);
@@ -1522,7 +1523,7 @@ RNBRemote::HandlePacket_qRegisterInfo (const char *p)
 
     nub_size_t num_reg_sets = 0;
     const DNBRegisterSetInfo *reg_set_info = DNBGetRegisterSetInfo (&num_reg_sets);
-    uint32_t reg_num = strtoul(p, 0, 16);
+    uint32_t reg_num = static_cast<uint32_t>(strtoul(p, 0, 16));
 
     if (reg_num < g_num_reg_entries)
     {
@@ -2087,7 +2088,7 @@ RNBRemote::HandlePacket_QSetMaxPayloadSize (const char *p)
      in this size.  */
     p += sizeof ("QSetMaxPayloadSize:") - 1;
     errno = 0;
-    uint32_t size = strtoul (p, NULL, 16);
+    uint32_t size = static_cast<uint32_t>(strtoul (p, NULL, 16));
     if (errno != 0 && size == 0)
     {
         return HandlePacket_ILLFORMED (__FILE__, __LINE__, p, "Invalid length in QSetMaxPayloadSize packet");
@@ -2104,7 +2105,7 @@ RNBRemote::HandlePacket_QSetMaxPacketSize (const char *p)
      QSetMaxPayloadSize is preferred because it is less ambiguous.  */
     p += sizeof ("QSetMaxPacketSize:") - 1;
     errno = 0;
-    uint32_t size = strtoul (p, NULL, 16);
+    uint32_t size = static_cast<uint32_t>(strtoul (p, NULL, 16));
     if (errno != 0 && size == 0)
     {
         return HandlePacket_ILLFORMED (__FILE__, __LINE__, p, "Invalid length in QSetMaxPacketSize packet");
@@ -2165,7 +2166,7 @@ RNBRemote::HandlePacket_QEnvironmentHexEncoded (const char *p)
         smallbuf[1] = *(c + 1);
         smallbuf[2] = '\0';
         errno = 0;
-        int ch = strtoul (smallbuf, NULL, 16);
+        int ch = static_cast<int>(strtoul (smallbuf, NULL, 16));
         if (errno != 0 && ch == 0)
           {
             return HandlePacket_ILLFORMED (__FILE__, __LINE__, p, "non-hex char in arg on 'QEnvironmentHexEncoded' pkt");
@@ -2217,7 +2218,7 @@ append_hex_value (std::ostream& ostrm, const uint8_t* buf, size_t buf_size, bool
     int i;
     if (swap)
     {
-        for (i = buf_size-1; i >= 0; i--)
+        for (i = static_cast<int>(buf_size)-1; i >= 0; i--)
             ostrm << RAWHEX8(buf[i]);
     }
     else
@@ -2330,7 +2331,7 @@ RNBRemote::SendStopReplyPacketForThread (nub_thread_t tid)
             case EXC_SOFTWARE:
                 if (tid_stop_info.details.exception.data_count == 2 &&
                     tid_stop_info.details.exception.data[0] == EXC_SOFT_SIGNAL)
-                    signum = tid_stop_info.details.exception.data[1];
+                    signum = static_cast<int>(tid_stop_info.details.exception.data[1]);
                 else
                     signum = TARGET_EXC_SOFTWARE;
                 break;
@@ -2540,7 +2541,7 @@ RNBRemote::HandlePacket_M (const char *p)
     p += (c - p) + 1;
 
     errno = 0;
-    uint32_t length = strtoul (p, &c, 16);
+    unsigned long length = strtoul (p, &c, 16);
     if (errno != 0 && length == 0)
     {
         return HandlePacket_ILLFORMED (__FILE__, __LINE__, p, "Invalid length in M packet");
@@ -2557,7 +2558,7 @@ RNBRemote::HandlePacket_M (const char *p)
     /* Advance 'p' to the data part of the packet.  */
     p += (c - p) + 1;
 
-    int datalen = strlen (p);
+    size_t datalen = strlen (p);
     if (datalen & 0x1)
     {
         return HandlePacket_ILLFORMED (__FILE__, __LINE__, p, "Uneven # of hex chars for data in M packet");
@@ -2619,7 +2620,7 @@ RNBRemote::HandlePacket_m (const char *p)
     p += (c - p) + 1;
 
     errno = 0;
-    uint32_t length = strtoul (p, NULL, 16);
+    auto length = strtoul (p, NULL, 16);
     if (errno != 0 && length == 0)
     {
         return HandlePacket_ILLFORMED (__FILE__, __LINE__, p, "Invalid length in m packet");
@@ -2634,7 +2635,7 @@ RNBRemote::HandlePacket_m (const char *p)
     {
         return SendPacket ("E78");
     }
-    int bytes_read = DNBProcessMemoryRead (m_ctx.ProcessID(), addr, buf.size(), &buf[0]);
+    nub_size_t bytes_read = DNBProcessMemoryRead (m_ctx.ProcessID(), addr, buf.size(), &buf[0]);
     if (bytes_read == 0)
     {
         return SendPacket ("E08");
@@ -2686,7 +2687,7 @@ RNBRemote::HandlePacket_x (const char *p)
     p += (c - p) + 1;
 
     errno = 0;
-    int length = strtoul (p, NULL, 16);
+    auto length = strtoul (p, NULL, 16);
     if (errno != 0)
     {
         return HandlePacket_ILLFORMED (__FILE__, __LINE__, p, "Invalid length in x packet");
@@ -2704,7 +2705,7 @@ RNBRemote::HandlePacket_x (const char *p)
     {
         return SendPacket ("E79");
     }
-    int bytes_read = DNBProcessMemoryRead (m_ctx.ProcessID(), addr, buf.size(), &buf[0]);
+    nub_size_t bytes_read = DNBProcessMemoryRead (m_ctx.ProcessID(), addr, buf.size(), &buf[0]);
     if (bytes_read == 0)
     {
         return SendPacket ("E80");
@@ -2760,7 +2761,7 @@ RNBRemote::HandlePacket_X (const char *p)
     p += (c - p) + 1;
 
     errno = 0;
-    int length = strtoul (p, NULL, 16);
+    auto length = strtoul (p, NULL, 16);
     if (errno != 0 && length == 0)
     {
         return HandlePacket_ILLFORMED (__FILE__, __LINE__, p, "Invalid length in X packet");
@@ -3067,7 +3068,7 @@ GetProcessNameFrom_vAttach (const char *&p, std::string &attach_name)
         smallbuf[2] = '\0';
 
         errno = 0;
-        int ch = strtoul (smallbuf, NULL, 16);
+        int ch = static_cast<int>(strtoul (smallbuf, NULL, 16));
         if (errno != 0 && ch == 0)
         {
             return_val = false;
@@ -3085,7 +3086,7 @@ RNBRemote::HandlePacket_qSupported (const char *p)
 {
     uint32_t max_packet_size = 128 * 1024;  // 128KBytes is a reasonable max packet size--debugger can always use less
     char buf[64];
-    snprintf (buf, sizeof(buf), "PacketSize=%x", max_packet_size);
+    snprintf (buf, sizeof(buf), "qXfer:features:read+;PacketSize=%x", max_packet_size);
     return SendPacket (buf);
 }
 
@@ -3145,7 +3146,7 @@ RNBRemote::HandlePacket_v (const char *p)
             {
                 case 'C':
                     errno = 0;
-                    thread_action.signal = strtoul (c, &c, 16);
+                    thread_action.signal = static_cast<int>(strtoul (c, &c, 16));
                     if (errno != 0)
                         return HandlePacket_ILLFORMED (__FILE__, __LINE__, p, "Could not parse signal in vCont packet");
                     // Fall through to next case...
@@ -3157,7 +3158,7 @@ RNBRemote::HandlePacket_v (const char *p)
 
                 case 'S':
                     errno = 0;
-                    thread_action.signal = strtoul (c, &c, 16);
+                    thread_action.signal = static_cast<int>(strtoul (c, &c, 16));
                     if (errno != 0)
                         return HandlePacket_ILLFORMED (__FILE__, __LINE__, p, "Could not parse signal in vCont packet");
                     // Fall through to next case...
@@ -3232,7 +3233,7 @@ RNBRemote::HandlePacket_v (const char *p)
         {
             p += strlen("vAttach;");
             char *end = NULL;
-            attach_pid = strtoul (p, &end, 16);    // PID will be in hex, so use base 16 to decode
+            attach_pid = static_cast<int>(strtoul (p, &end, 16));    // PID will be in hex, so use base 16 to decode
             if (p != end && *end == '\0')
             {
                 // Wait at most 30 second for attach
@@ -3331,7 +3332,7 @@ RNBRemote::HandlePacket_z (const char *p)
         return HandlePacket_ILLFORMED (__FILE__, __LINE__, p, "Comma separator missing in z packet");
 
     errno = 0;
-    uint32_t byte_size = strtoul (p, &c, 16);
+    auto byte_size = strtoul (p, &c, 16);
     if (errno != 0 && byte_size == 0)
         return HandlePacket_ILLFORMED (__FILE__, __LINE__, p, "Invalid length in z packet");
 
@@ -3472,7 +3473,7 @@ RNBRemote::HandlePacket_p (const char *p)
     nub_process_t pid = m_ctx.ProcessID();
     errno = 0;
     char *tid_cstr = NULL;
-    uint32_t reg = strtoul (p + 1, &tid_cstr, 16);
+    uint32_t reg = static_cast<uint32_t>(strtoul (p + 1, &tid_cstr, 16));
     if (errno != 0 && reg == 0)
     {
         return HandlePacket_ILLFORMED (__FILE__, __LINE__, p, "Could not parse register number in p packet");
@@ -3822,7 +3823,7 @@ RNBRemote::HandlePacket_C (const char *p)
         action.tid = GetContinueThread();
         char *end = NULL;
         errno = 0;
-        process_signo = strtoul (p + 1, &end, 16);
+        process_signo = static_cast<int>(strtoul (p + 1, &end, 16));
         if (errno != 0)
             return HandlePacket_ILLFORMED (__FILE__, __LINE__, p, "Could not parse signal in C packet");
         else if (*end == ';')
@@ -3944,7 +3945,7 @@ RNBRemote::HandlePacket_S (const char *p)
     {
         char *end = NULL;
         errno = 0;
-        action.signal = strtoul (p + 1, &end, 16);
+        action.signal = static_cast<int>(strtoul (p + 1, &end, 16));
         if (errno != 0)
             return HandlePacket_ILLFORMED (__FILE__, __LINE__, p, "Could not parse signal in S packet");
         else if (*end == ';')
@@ -3979,38 +3980,94 @@ RNBRemote::HandlePacket_S (const char *p)
     return rnb_success;
 }
 
+static const char *
+GetArchName (const uint32_t cputype, const uint32_t cpusubtype)
+{
+    switch (cputype)
+    {
+    case CPU_TYPE_ARM:
+        switch (cpusubtype)
+        {
+        case 5:     return "armv4";
+        case 6:     return "armv6";
+        case 7:     return "armv5t";
+        case 8:     return "xscale";
+        case 9:     return "armv7";
+        case 10:    return "armv7f";
+        case 11:    return "armv7s";
+        case 12:    return "armv7k";
+        case 14:    return "armv6m";
+        case 15:    return "armv7m";
+        case 16:    return "armv7em";
+        default:    return "arm";
+        }
+        break;
+    case CPU_TYPE_ARM64:    return "arm64";
+    case CPU_TYPE_I386:     return "i386";
+    case CPU_TYPE_X86_64:
+        switch (cpusubtype)
+        {
+        default:    return "x86_64";
+        case 8:     return "x86_64h";
+        }
+        break;
+    }
+    return NULL;
+}
+
+static bool
+GetHostCPUType (uint32_t &cputype, uint32_t &cpusubtype, uint32_t &is_64_bit_capable, bool &promoted_to_64)
+{
+    static uint32_t g_host_cputype = 0;
+    static uint32_t g_host_cpusubtype = 0;
+    static uint32_t g_is_64_bit_capable = 0;
+    static bool g_promoted_to_64 = false;
+    
+    if (g_host_cputype == 0)
+    {
+        g_promoted_to_64 = false;
+        size_t len = sizeof(uint32_t);
+        if  (::sysctlbyname("hw.cputype", &g_host_cputype, &len, NULL, 0) == 0)
+        {
+            len = sizeof (uint32_t);
+            if  (::sysctlbyname("hw.cpu64bit_capable", &g_is_64_bit_capable, &len, NULL, 0) == 0)
+            {
+                if (g_is_64_bit_capable && ((g_host_cputype & CPU_ARCH_ABI64) == 0))
+                {
+                    g_promoted_to_64 = true;
+                    g_host_cputype |= CPU_ARCH_ABI64;
+                }
+            }
+        }
+        
+        len = sizeof(uint32_t);
+        if (::sysctlbyname("hw.cpusubtype", &g_host_cpusubtype, &len, NULL, 0) == 0)
+        {
+            if (g_promoted_to_64 &&
+                g_host_cputype == CPU_TYPE_X86_64 && g_host_cpusubtype == CPU_SUBTYPE_486)
+                g_host_cpusubtype = CPU_SUBTYPE_X86_64_ALL;
+        }
+    }
+    
+    cputype = g_host_cputype;
+    cpusubtype = g_host_cpusubtype;
+    is_64_bit_capable = g_is_64_bit_capable;
+    promoted_to_64 = g_promoted_to_64;
+    return g_host_cputype != 0;
+}
+
 rnb_err_t
 RNBRemote::HandlePacket_qHostInfo (const char *p)
 {
     std::ostringstream strm;
 
-    uint32_t cputype, is_64_bit_capable;
-    size_t len = sizeof(cputype);
+    uint32_t cputype = 0;
+    uint32_t cpusubtype = 0;
+    uint32_t is_64_bit_capable = 0;
     bool promoted_to_64 = false;
-    if  (::sysctlbyname("hw.cputype", &cputype, &len, NULL, 0) == 0)
+    if (GetHostCPUType (cputype, cpusubtype, is_64_bit_capable, promoted_to_64))
     {
-        len = sizeof (is_64_bit_capable);
-        if  (::sysctlbyname("hw.cpu64bit_capable", &is_64_bit_capable, &len, NULL, 0) == 0)
-        {
-            if (is_64_bit_capable && ((cputype & CPU_ARCH_ABI64) == 0))
-            {
-                promoted_to_64 = true;
-                cputype |= CPU_ARCH_ABI64;
-            }
-        }
-        
         strm << "cputype:" << std::dec << cputype << ';';
-    }
-
-    uint32_t cpusubtype;
-    len = sizeof(cpusubtype);
-    if (::sysctlbyname("hw.cpusubtype", &cpusubtype, &len, NULL, 0) == 0)
-    {
-        if (promoted_to_64 && 
-            cputype == CPU_TYPE_X86_64 && 
-            cpusubtype == CPU_SUBTYPE_486)
-            cpusubtype = CPU_SUBTYPE_X86_64_ALL;
-
         strm << "cpusubtype:" << std::dec << cpusubtype << ';';
     }
 
@@ -4054,15 +4111,350 @@ RNBRemote::HandlePacket_qHostInfo (const char *p)
     return SendPacket (strm.str());
 }
 
+void
+XMLElementStart (std::ostringstream &s, uint32_t indent, const char *name, bool has_attributes)
+{
+    if (indent)
+        s << INDENT_WITH_SPACES(indent);
+    s << '<' << name;
+    if (!has_attributes)
+        s << '>' << std::endl;
+}
+
+void
+XMLElementStartEndAttributes (std::ostringstream &s, bool empty)
+{
+    if (empty)
+        s << '/';
+    s << '>' << std::endl;
+}
+
+void
+XMLElementEnd (std::ostringstream &s, uint32_t indent, const char *name)
+{
+    if (indent)
+        s << INDENT_WITH_SPACES(indent);
+    s << '<' << '/' << name << '>' << std::endl;
+}
+
+void
+XMLElementWithStringValue (std::ostringstream &s, uint32_t indent, const char *name, const char *value, bool close = true)
+{
+    if (value)
+    {
+        if (indent)
+            s << INDENT_WITH_SPACES(indent);
+        s << '<' << name << '>' << value;
+        if (close)
+            XMLElementEnd(s, 0, name);
+    }
+}
+
+void
+XMLElementWithUnsignedValue (std::ostringstream &s, uint32_t indent, const char *name, uint64_t value, bool close = true)
+{
+    if (indent)
+        s << INDENT_WITH_SPACES(indent);
+
+    s << '<' << name << '>' << DECIMAL << value;
+    if (close)
+        XMLElementEnd(s, 0, name);
+}
+
+void
+XMLAttributeString (std::ostringstream &s, const char *name, const char *value, const char *default_value = NULL)
+{
+    if (value)
+    {
+        if (default_value && strcmp(value, default_value) == 0)
+            return; // No need to emit the attribute because it matches the default value
+        s <<' ' << name << "=\"" << value << "\"";
+    }
+}
+
+void
+XMLAttributeUnsignedDecimal (std::ostringstream &s, const char *name, uint64_t value)
+{
+    s <<' ' << name << "=\"" << DECIMAL << value << "\"";
+}
+
+void
+GenerateTargetXMLRegister (std::ostringstream &s,
+                           const uint32_t reg_num,
+                           nub_size_t num_reg_sets,
+                           const DNBRegisterSetInfo *reg_set_info,
+                           const register_map_entry_t &reg)
+{
+    const char *default_lldb_encoding = "uint";
+    const char *lldb_encoding = default_lldb_encoding;
+    const char *gdb_group = "general";
+    const char *default_gdb_type = "int";
+    const char *gdb_type = default_gdb_type;
+    const char *default_lldb_format = "hex";
+    const char *lldb_format = default_lldb_format;
+    const char *lldb_set = NULL;
+
+    switch (reg.nub_info.type)
+    {
+        case Uint:      lldb_encoding = "uint"; break;
+        case Sint:      lldb_encoding = "sint"; break;
+        case IEEE754:   lldb_encoding = "ieee754";  if (reg.nub_info.set > 0) gdb_group = "float"; break;
+        case Vector:    lldb_encoding = "vector"; if (reg.nub_info.set > 0) gdb_group = "vector"; break;
+    }
+
+    switch (reg.nub_info.format)
+    {
+        case Binary:            lldb_format = "binary"; break;
+        case Decimal:           lldb_format = "decimal"; break;
+        case Hex:               lldb_format = "hex"; break;
+        case Float:             gdb_type = "float"; lldb_format = "float"; break;
+        case VectorOfSInt8:     gdb_type = "float"; lldb_format = "vector-sint8"; break;
+        case VectorOfUInt8:     gdb_type = "float"; lldb_format = "vector-uint8"; break;
+        case VectorOfSInt16:    gdb_type = "float"; lldb_format = "vector-sint16"; break;
+        case VectorOfUInt16:    gdb_type = "float"; lldb_format = "vector-uint16"; break;
+        case VectorOfSInt32:    gdb_type = "float"; lldb_format = "vector-sint32"; break;
+        case VectorOfUInt32:    gdb_type = "float"; lldb_format = "vector-uint32"; break;
+        case VectorOfFloat32:   gdb_type = "float"; lldb_format = "vector-float32"; break;
+        case VectorOfUInt128:   gdb_type = "float"; lldb_format = "vector-uint128"; break;
+    };
+    if (reg_set_info && reg.nub_info.set < num_reg_sets)
+        lldb_set = reg_set_info[reg.nub_info.set].name;
+
+    uint32_t indent = 2;
+
+    XMLElementStart(s, indent, "reg", true);
+    XMLAttributeString(s, "name", reg.nub_info.name);
+    XMLAttributeUnsignedDecimal(s, "regnum", reg_num);
+    XMLAttributeUnsignedDecimal(s, "offset", reg.offset);
+    XMLAttributeUnsignedDecimal(s, "bitsize", reg.nub_info.size * 8);
+    XMLAttributeString(s, "group", gdb_group);
+    XMLAttributeString(s, "type", gdb_type, default_gdb_type);
+    XMLAttributeString (s, "altname", reg.nub_info.alt);
+    XMLAttributeString(s, "encoding", lldb_encoding, default_lldb_encoding);
+    XMLAttributeString(s, "format", lldb_format, default_lldb_format);
+    XMLAttributeUnsignedDecimal(s, "group_id", reg.nub_info.set);
+    if (reg.nub_info.reg_gcc != INVALID_NUB_REGNUM)
+        XMLAttributeUnsignedDecimal(s, "gcc_regnum", reg.nub_info.reg_gcc);
+    if (reg.nub_info.reg_dwarf != INVALID_NUB_REGNUM)
+        XMLAttributeUnsignedDecimal(s, "dwarf_regnum", reg.nub_info.reg_dwarf);
+
+    const char *lldb_generic = NULL;
+    switch (reg.nub_info.reg_generic)
+    {
+        case GENERIC_REGNUM_FP:     lldb_generic = "fp"; break;
+        case GENERIC_REGNUM_PC:     lldb_generic = "pc"; break;
+        case GENERIC_REGNUM_SP:     lldb_generic = "sp"; break;
+        case GENERIC_REGNUM_RA:     lldb_generic = "ra"; break;
+        case GENERIC_REGNUM_FLAGS:  lldb_generic = "flags"; break;
+        case GENERIC_REGNUM_ARG1:   lldb_generic = "arg1"; break;
+        case GENERIC_REGNUM_ARG2:   lldb_generic = "arg2"; break;
+        case GENERIC_REGNUM_ARG3:   lldb_generic = "arg3"; break;
+        case GENERIC_REGNUM_ARG4:   lldb_generic = "arg4"; break;
+        case GENERIC_REGNUM_ARG5:   lldb_generic = "arg5"; break;
+        case GENERIC_REGNUM_ARG6:   lldb_generic = "arg6"; break;
+        case GENERIC_REGNUM_ARG7:   lldb_generic = "arg7"; break;
+        case GENERIC_REGNUM_ARG8:   lldb_generic = "arg8"; break;
+        default: break;
+    }
+    XMLAttributeString(s, "generic", lldb_generic);
+
+
+    bool empty = reg.value_regnums.empty() && reg.invalidate_regnums.empty();
+    if (!empty)
+    {
+        if (!reg.value_regnums.empty())
+        {
+            std::ostringstream regnums;
+            bool first = true;
+            regnums << DECIMAL;
+            for (auto regnum : reg.value_regnums)
+            {
+                if (!first)
+                    regnums << ',';
+                regnums << regnum;
+                first = false;
+            }
+            XMLAttributeString(s, "value_regnums", regnums.str().c_str());
+        }
+
+        if (!reg.invalidate_regnums.empty())
+        {
+            std::ostringstream regnums;
+            bool first = true;
+            regnums << DECIMAL;
+            for (auto regnum : reg.invalidate_regnums)
+            {
+                if (!first)
+                    regnums << ',';
+                regnums << regnum;
+                first = false;
+            }
+            XMLAttributeString(s, "invalidate_regnums", regnums.str().c_str());
+        }
+    }
+    XMLElementStartEndAttributes(s, true);
+}
+
+void
+GenerateTargetXMLRegisters (std::ostringstream &s)
+{
+    nub_size_t num_reg_sets = 0;
+    const DNBRegisterSetInfo *reg_sets = DNBGetRegisterSetInfo (&num_reg_sets);
+
+
+    uint32_t cputype = DNBGetRegisterCPUType();
+    if (cputype)
+    {
+        XMLElementStart(s, 0, "feature", true);
+        std::ostringstream name_strm;
+        name_strm << "com.apple.debugserver." << GetArchName (cputype, 0);
+        XMLAttributeString(s, "name", name_strm.str().c_str());
+        XMLElementStartEndAttributes(s, false);
+        for (uint32_t reg_num = 0; reg_num < g_num_reg_entries; ++reg_num)
+//        for (const auto &reg: g_dynamic_register_map)
+        {
+            GenerateTargetXMLRegister(s, reg_num, num_reg_sets, reg_sets, g_reg_entries[reg_num]);
+        }
+        XMLElementEnd(s, 0, "feature");
+
+        if (num_reg_sets > 0)
+        {
+            XMLElementStart(s, 0, "groups", false);
+            for (uint32_t set=1; set<num_reg_sets; ++set)
+            {
+                XMLElementStart(s, 2, "group", true);
+                XMLAttributeUnsignedDecimal(s, "id", set);
+                XMLAttributeString(s, "name", reg_sets[set].name);
+                XMLElementStartEndAttributes(s, true);
+            }
+            XMLElementEnd(s, 0, "groups");
+        }
+    }
+}
+
+static const char *g_target_xml_header = R"(<?xml version="1.0"?>
+<target version="1.0">)";
+
+static const char *g_target_xml_footer = "</target>";
+
+static std::string g_target_xml;
+
+void
+UpdateTargetXML ()
+{
+    std::ostringstream s;
+    s << g_target_xml_header << std::endl;
+    
+    // Set the architecture
+    //s << "<architecture>" << arch "</architecture>" << std::endl;
+    
+    // Set the OSABI
+    //s << "<osabi>abi-name</osabi>"
+
+    GenerateTargetXMLRegisters(s);
+    
+    s << g_target_xml_footer << std::endl;
+
+    // Save the XML output in case it gets retrieved in chunks
+    g_target_xml = s.str();
+}
+
+rnb_err_t
+RNBRemote::HandlePacket_qXfer (const char *command)
+{
+    const char *p = command;
+    p += strlen ("qXfer:");
+    const char *sep = strchr(p, ':');
+    if (sep)
+    {
+        std::string object(p, sep - p);     // "auxv", "backtrace", "features", etc
+        p = sep + 1;
+        sep = strchr(p, ':');
+        if (sep)
+        {
+            std::string rw(p, sep - p);    // "read" or "write"
+            p = sep + 1;
+            sep = strchr(p, ':');
+            if (sep)
+            {
+                std::string annex(p, sep - p);    // "read" or "write"
+
+                p = sep + 1;
+                sep = strchr(p, ',');
+                if (sep)
+                {
+                    std::string offset_str(p, sep - p); // read the length as a string
+                    p = sep + 1;
+                    std::string length_str(p); // read the offset as a string
+                    char *end = nullptr;
+                    const uint64_t offset = strtoul(offset_str.c_str(), &end, 16); // convert offset_str to a offset
+                    if (*end == '\0')
+                    {
+                        const uint64_t length = strtoul(length_str.c_str(), &end, 16); // convert length_str to a length
+                        if (*end == '\0')
+                        {
+                            if (object == "features"  &&
+                                rw     == "read"      &&
+                                annex  == "target.xml")
+                            {
+                                std::ostringstream xml_out;
+
+                                if (offset == 0)
+                                {
+                                    InitializeRegisters (true);
+
+                                    UpdateTargetXML();
+                                    if (g_target_xml.empty())
+                                        return SendPacket("E83");
+
+                                    if (length > g_target_xml.size())
+                                    {
+                                        xml_out << 'l'; // No more data
+                                        xml_out << binary_encode_string(g_target_xml);
+                                    }
+                                    else
+                                    {
+                                        xml_out << 'm'; // More data needs to be read with a subsequent call
+                                        xml_out << binary_encode_string(std::string(g_target_xml, offset, length));
+                                    }
+                                }
+                                else
+                                {
+                                    // Retrieving target XML in chunks
+                                    if (offset < g_target_xml.size())
+                                    {
+                                        std::string chunk(g_target_xml, offset, length);
+                                        if (chunk.size() < length)
+                                            xml_out << 'l'; // No more data
+                                        else
+                                            xml_out << 'm'; // More data needs to be read with a subsequent call
+                                        xml_out << binary_encode_string(chunk.data());
+                                    }
+                                }
+                                return SendPacket(xml_out.str());
+                            }
+                            // Well formed, put not supported
+                            return HandlePacket_UNIMPLEMENTED (command);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return SendPacket ("E82");
+}
+
+
 rnb_err_t
 RNBRemote::HandlePacket_qGDBServerVersion (const char *p)
 {
     std::ostringstream strm;
     
-    if (DEBUGSERVER_PROGRAM_NAME)
-        strm << "name:" DEBUGSERVER_PROGRAM_NAME ";";
-    else
-        strm << "name:debugserver;";
+#if defined(DEBUGSERVER_PROGRAM_NAME)
+    strm << "name:" DEBUGSERVER_PROGRAM_NAME ";";
+#else
+    strm << "name:debugserver;";
+#endif
     strm << "version:" << DEBUGSERVER_VERSION_STR << ";";
 
     return SendPacket (strm.str());
@@ -4386,13 +4778,11 @@ RNBRemote::HandlePacket_qProcessInfo (const char *p)
         rep << "cputype:" << std::hex << cputype << ";";
     }
 
-    bool host_cpu_is_64bit;
+    bool host_cpu_is_64bit = false;
     uint32_t is64bit_capable;
     size_t is64bit_capable_len = sizeof (is64bit_capable);
     if (sysctlbyname("hw.cpu64bit_capable", &is64bit_capable, &is64bit_capable_len, NULL, 0) == 0)
-        host_cpu_is_64bit = true;
-    else
-        host_cpu_is_64bit = false;
+        host_cpu_is_64bit = is64bit_capable != 0;
 
     uint32_t cpusubtype;
     size_t cpusubtype_len = sizeof(cpusubtype);
@@ -4496,8 +4886,10 @@ RNBRemote::HandlePacket_qProcessInfo (const char *p)
     kern_return_t kr;
     x86_thread_state_t gp_regs;
     mach_msg_type_number_t gp_count = x86_THREAD_STATE_COUNT;
-    kr = thread_get_state (thread, x86_THREAD_STATE,
-                           (thread_state_t) &gp_regs, &gp_count);
+    kr = thread_get_state (static_cast<thread_act_t>(thread),
+                           x86_THREAD_STATE,
+                           (thread_state_t) &gp_regs,
+                           &gp_count);
     if (kr == KERN_SUCCESS)
     {
         if (gp_regs.tsh.flavor == x86_THREAD_STATE64)

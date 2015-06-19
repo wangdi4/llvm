@@ -11,6 +11,8 @@
 #include <errno.h>
 
 // C++ Includes
+#include <mutex>
+
 // Other libraries and framework includes
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/State.h"
@@ -29,6 +31,7 @@
 
 using namespace lldb;
 using namespace lldb_private;
+using namespace lldb_private::process_linux;
 
 namespace
 {
@@ -46,36 +49,26 @@ namespace
 ProcessSP
 ProcessLinux::CreateInstance(Target &target, Listener &listener, const FileSpec *core_file)
 {
-    return ProcessSP(new ProcessLinux(target, listener, (FileSpec *)core_file));
+    return ProcessSP(new ProcessLinux(target, listener, core_file));
 }
 
 void
 ProcessLinux::Initialize()
 {
-    static bool g_initialized = false;
+    static std::once_flag g_once_flag;
 
-    if (!g_initialized)
-    {
-        g_initialized = true;
+    std::call_once(g_once_flag, []() {
         PluginManager::RegisterPlugin(GetPluginNameStatic(),
                                       GetPluginDescriptionStatic(),
                                       CreateInstance);
-
-        Log::Callbacks log_callbacks = {
-            ProcessPOSIXLog::DisableLog,
-            ProcessPOSIXLog::EnableLog,
-            ProcessPOSIXLog::ListLogCategories
-        };
-        
-        Log::RegisterLogChannel (ProcessLinux::GetPluginNameStatic(), log_callbacks);
-        ProcessPOSIXLog::RegisterPluginName(GetPluginNameStatic());
-    }
+        ProcessPOSIXLog::Initialize(GetPluginNameStatic());
+    });
 }
 
 //------------------------------------------------------------------------------
 // Constructors and destructors.
 
-ProcessLinux::ProcessLinux(Target& target, Listener &listener, FileSpec *core_file)
+ProcessLinux::ProcessLinux(Target& target, Listener &listener, const FileSpec *core_file)
     : ProcessPOSIX(target, listener, GetStaticLinuxSignalsSP ()), m_core_file(core_file), m_stopping_threads(false)
 {
 #if 0
@@ -232,7 +225,7 @@ ProcessLinux::CanDebug(Target &target, bool plugin_specified_by_name)
 
     // If we're using llgs for local debugging, we must not say that this process
     // is used for debugging.
-    if (PlatformLinux::UseLlgsForLocalDebugging ())
+    if (platform_linux::PlatformLinux::UseLlgsForLocalDebugging ())
         return false;
 
     return ProcessPOSIX::CanDebug(target, plugin_specified_by_name);

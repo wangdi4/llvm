@@ -29,7 +29,6 @@
 #include "lldb/Interpreter/OptionValueUInt64.h"
 #include "lldb/Interpreter/Options.h"
 #include "lldb/Interpreter/ScriptInterpreter.h"
-#include "lldb/Interpreter/ScriptInterpreterPython.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -85,7 +84,7 @@ protected:
             switch (short_option)
             {
                 case 'c':
-                    error = m_count.SetValueFromCString(option_arg,eVarSetOperationAssign);
+                    error = m_count.SetValueFromString(option_arg,eVarSetOperationAssign);
                     break;
                 case 's':
                     if (option_arg && strcmp("end", option_arg) == 0)
@@ -94,10 +93,10 @@ protected:
                         m_start_idx.SetOptionWasSet();
                     }
                     else
-                        error = m_start_idx.SetValueFromCString(option_arg,eVarSetOperationAssign);
+                        error = m_start_idx.SetValueFromString(option_arg,eVarSetOperationAssign);
                     break;
                 case 'e':
-                    error = m_stop_idx.SetValueFromCString(option_arg,eVarSetOperationAssign);
+                    error = m_stop_idx.SetValueFromString(option_arg,eVarSetOperationAssign);
                     break;
                 case 'C':
                     m_clear.SetCurrentValue(true);
@@ -326,15 +325,15 @@ protected:
             switch (short_option)
             {
                 case 'e':
-                    error = m_stop_on_error.SetValueFromCString(option_arg);
+                    error = m_stop_on_error.SetValueFromString(option_arg);
                     break;
 
                 case 'c':
-                    error = m_stop_on_continue.SetValueFromCString(option_arg);
+                    error = m_stop_on_continue.SetValueFromString(option_arg);
                     break;
 
                 case 's':
-                    error = m_silent_run.SetValueFromCString(option_arg);
+                    error = m_silent_run.SetValueFromString(option_arg);
                     break;
 
                 default:
@@ -828,8 +827,16 @@ protected:
             {
                 if (m_interpreter.CommandExists (command_name))
                 {
-                    result.AppendErrorWithFormat ("'%s' is a permanent debugger command and cannot be removed.\n",
-                                                  command_name);
+                    if (cmd_obj->IsRemovable())
+                    {
+                        result.AppendErrorWithFormat ("'%s' is not an alias, it is a debugger command which can be removed using the 'command delete' command.\n",
+                                                      command_name);
+                    }
+                    else
+                    {
+                        result.AppendErrorWithFormat ("'%s' is a permanent debugger command and cannot be removed.\n",
+                                                      command_name);
+                    }
                     result.SetStatus (eReturnStatusFailed);
                 }
                 else
@@ -859,6 +866,77 @@ protected:
         else
         {
             result.AppendError ("must call 'unalias' with a valid alias");
+            result.SetStatus (eReturnStatusFailed);
+        }
+
+        return result.Succeeded();
+    }
+};
+
+#pragma mark CommandObjectCommandsDelete
+//-------------------------------------------------------------------------
+// CommandObjectCommandsDelete
+//-------------------------------------------------------------------------
+
+class CommandObjectCommandsDelete : public CommandObjectParsed
+{
+public:
+    CommandObjectCommandsDelete (CommandInterpreter &interpreter) :
+    CommandObjectParsed (interpreter,
+                         "command delete",
+                         "Allow the user to delete user-defined regular expression, python or multi-word commands.",
+                         NULL)
+    {
+        CommandArgumentEntry arg;
+        CommandArgumentData alias_arg;
+
+        // Define the first (and only) variant of this arg.
+        alias_arg.arg_type = eArgTypeCommandName;
+        alias_arg.arg_repetition = eArgRepeatPlain;
+
+        // There is only one variant this argument could be; put it into the argument entry.
+        arg.push_back (alias_arg);
+
+        // Push the data for the first argument into the m_arguments vector.
+        m_arguments.push_back (arg);
+    }
+
+    ~CommandObjectCommandsDelete()
+    {
+    }
+
+protected:
+    bool
+    DoExecute (Args& args, CommandReturnObject &result)
+    {
+        CommandObject::CommandMap::iterator pos;
+
+        if (args.GetArgumentCount() != 0)
+        {
+            const char *command_name = args.GetArgumentAtIndex(0);
+            if (m_interpreter.CommandExists (command_name))
+            {
+                if (m_interpreter.RemoveCommand (command_name))
+                {
+                    result.SetStatus (eReturnStatusSuccessFinishNoResult);
+                }
+                else
+                {
+                    result.AppendErrorWithFormat ("'%s' is a permanent debugger command and cannot be removed.\n",
+                                                  command_name);
+                    result.SetStatus (eReturnStatusFailed);
+                }
+            }
+            else
+            {
+                result.AppendErrorWithFormat ("'%s' is not a known command.\nTry 'help' to see a current list of commands.\n",
+                                              command_name);
+                result.SetStatus (eReturnStatusFailed);
+            }
+        }
+        else
+        {
+            result.AppendErrorWithFormat ("must call '%s' with one or more valid user defined regular expression, python or multi-word command names", GetCommandName ());
             result.SetStatus (eReturnStatusFailed);
         }
 
@@ -979,7 +1057,9 @@ protected:
                                                                  name, 
                                                                  m_options.GetHelp (),
                                                                  m_options.GetSyntax (),
-                                                                 10));
+                                                                 10,
+                                                                 0,
+                                                                 true));
 
             if (argc == 1)
             {
@@ -1349,6 +1429,130 @@ protected:
     
 };
 
+class CommandObjectScriptingObject : public CommandObjectRaw
+{
+private:
+    StructuredData::GenericSP m_cmd_obj_sp;
+    ScriptedCommandSynchronicity m_synchro;
+    bool m_fetched_help_short:1;
+    bool m_fetched_help_long:1;
+    
+public:
+    
+    CommandObjectScriptingObject (CommandInterpreter &interpreter,
+                                  std::string name,
+                                  StructuredData::GenericSP cmd_obj_sp,
+                                  ScriptedCommandSynchronicity synch) :
+    CommandObjectRaw (interpreter,
+                      name.c_str(),
+                      NULL,
+                      NULL),
+    m_cmd_obj_sp(cmd_obj_sp),
+    m_synchro(synch),
+    m_fetched_help_short(false),
+    m_fetched_help_long(false)
+    {
+        StreamString stream;
+        stream.Printf("For more information run 'help %s'",name.c_str());
+        SetHelp(stream.GetData());
+        if (ScriptInterpreter* scripter = m_interpreter.GetScriptInterpreter())
+            GetFlags().Set(scripter->GetFlagsForCommandObject(cmd_obj_sp));
+    }
+    
+    virtual
+    ~CommandObjectScriptingObject ()
+    {
+    }
+    
+    virtual bool
+    IsRemovable () const
+    {
+        return true;
+    }
+    
+    StructuredData::GenericSP
+    GetImplementingObject ()
+    {
+        return m_cmd_obj_sp;
+    }
+    
+    ScriptedCommandSynchronicity
+    GetSynchronicity ()
+    {
+        return m_synchro;
+    }
+
+    virtual const char *
+    GetHelp ()
+    {
+        if (!m_fetched_help_short)
+        {
+            ScriptInterpreter* scripter = m_interpreter.GetScriptInterpreter();
+            if (scripter)
+            {
+                std::string docstring;
+                m_fetched_help_short = scripter->GetShortHelpForCommandObject(m_cmd_obj_sp,docstring);
+                if (!docstring.empty())
+                    SetHelp(docstring);
+            }
+        }
+        return CommandObjectRaw::GetHelp();
+    }
+    
+    virtual const char *
+    GetHelpLong ()
+    {
+        if (!m_fetched_help_long)
+        {
+            ScriptInterpreter* scripter = m_interpreter.GetScriptInterpreter();
+            if (scripter)
+            {
+                std::string docstring;
+                m_fetched_help_long = scripter->GetLongHelpForCommandObject(m_cmd_obj_sp,docstring);
+                if (!docstring.empty())
+                    SetHelpLong(docstring);
+            }
+        }
+        return CommandObjectRaw::GetHelpLong();
+    }
+    
+protected:
+    virtual bool
+    DoExecute (const char *raw_command_line, CommandReturnObject &result)
+    {
+        ScriptInterpreter* scripter = m_interpreter.GetScriptInterpreter();
+        
+        Error error;
+        
+        result.SetStatus(eReturnStatusInvalid);
+        
+        if (!scripter || scripter->RunScriptBasedCommand(m_cmd_obj_sp,
+                                                         raw_command_line,
+                                                         m_synchro,
+                                                         result,
+                                                         error,
+                                                         m_exe_ctx) == false)
+        {
+            result.AppendError(error.AsCString());
+            result.SetStatus(eReturnStatusFailed);
+        }
+        else
+        {
+            // Don't change the status if the command already set it...
+            if (result.GetStatus() == eReturnStatusInvalid)
+            {
+                if (result.GetOutputData() == NULL || result.GetOutputData()[0] == '\0')
+                    result.SetStatus(eReturnStatusSuccessFinishNoResult);
+                else
+                    result.SetStatus(eReturnStatusSuccessFinishResult);
+            }
+        }
+        
+        return result.Succeeded();
+    }
+    
+};
+
 //-------------------------------------------------------------------------
 // CommandObjectCommandsScriptImport
 //-------------------------------------------------------------------------
@@ -1571,7 +1775,11 @@ protected:
     public:
         
         CommandOptions (CommandInterpreter &interpreter) :
-            Options (interpreter)
+            Options (interpreter),
+            m_class_name(),
+            m_funct_name(),
+            m_short_help(),
+            m_synchronicity(eScriptedCommandSynchronicitySynchronous)
         {
         }
         
@@ -1589,6 +1797,10 @@ protected:
                 case 'f':
                     if (option_arg)
                         m_funct_name.assign(option_arg);
+                    break;
+                case 'c':
+                    if (option_arg)
+                        m_class_name.assign(option_arg);
                     break;
                 case 'h':
                     if (option_arg)
@@ -1610,6 +1822,7 @@ protected:
         void
         OptionParsingStarting ()
         {
+            m_class_name.clear();
             m_funct_name.clear();
             m_short_help.clear();
             m_synchronicity = eScriptedCommandSynchronicitySynchronous;
@@ -1627,6 +1840,7 @@ protected:
         
         // Instance variables to hold the values for command options.
         
+        std::string m_class_name;
         std::string m_funct_name;
         std::string m_short_help;
         ScriptedCommandSynchronicity m_synchronicity;
@@ -1731,20 +1945,55 @@ protected:
         m_short_help.assign(m_options.m_short_help);
         m_synchronicity = m_options.m_synchronicity;
         
-        if (m_options.m_funct_name.empty())
+        if (m_options.m_class_name.empty())
         {
-            m_interpreter.GetPythonCommandsFromIOHandler ("     ",  // Prompt
-                                                          *this,    // IOHandlerDelegate
-                                                          true,     // Run IOHandler in async mode
-                                                          NULL);    // Baton for the "io_handler" that will be passed back into our IOHandlerDelegate functions
+            if (m_options.m_funct_name.empty())
+            {
+                m_interpreter.GetPythonCommandsFromIOHandler ("     ",  // Prompt
+                                                              *this,    // IOHandlerDelegate
+                                                              true,     // Run IOHandler in async mode
+                                                              NULL);    // Baton for the "io_handler" that will be passed back into our IOHandlerDelegate functions
+            }
+            else
+            {
+                CommandObjectSP new_cmd(new CommandObjectPythonFunction(m_interpreter,
+                                                                        m_cmd_name,
+                                                                        m_options.m_funct_name,
+                                                                        m_options.m_short_help,
+                                                                        m_synchronicity));
+                if (m_interpreter.AddUserCommand(m_cmd_name, new_cmd, true))
+                {
+                    result.SetStatus (eReturnStatusSuccessFinishNoResult);
+                }
+                else
+                {
+                    result.AppendError("cannot add command");
+                    result.SetStatus (eReturnStatusFailed);
+                }
+            }
         }
         else
         {
-            CommandObjectSP new_cmd(new CommandObjectPythonFunction(m_interpreter,
-                                                                    m_cmd_name,
-                                                                    m_options.m_funct_name,
-                                                                    m_options.m_short_help,
-                                                                    m_synchronicity));
+            ScriptInterpreter *interpreter = GetCommandInterpreter().GetScriptInterpreter();
+            if (!interpreter)
+            {
+                result.AppendError("cannot find ScriptInterpreter");
+                result.SetStatus(eReturnStatusFailed);
+                return false;
+            }
+            
+            auto cmd_obj_sp = interpreter->CreateScriptCommandObject(m_options.m_class_name.c_str());
+            if (!cmd_obj_sp)
+            {
+                result.AppendError("cannot create helper object");
+                result.SetStatus(eReturnStatusFailed);
+                return false;
+            }
+            
+            CommandObjectSP new_cmd(new CommandObjectScriptingObject(m_interpreter,
+                                                                     m_cmd_name,
+                                                                     cmd_obj_sp,
+                                                                     m_synchronicity));
             if (m_interpreter.AddUserCommand(m_cmd_name, new_cmd, true))
             {
                 result.SetStatus (eReturnStatusSuccessFinishNoResult);
@@ -1778,8 +2027,9 @@ OptionDefinition
 CommandObjectCommandsScriptAdd::CommandOptions::g_option_table[] =
 {
     { LLDB_OPT_SET_1, false, "function", 'f', OptionParser::eRequiredArgument, NULL, NULL, 0, eArgTypePythonFunction,        "Name of the Python function to bind to this command name."},
+    { LLDB_OPT_SET_2, false, "class", 'c', OptionParser::eRequiredArgument, NULL, NULL, 0, eArgTypePythonClass,        "Name of the Python class to bind to this command name."},
     { LLDB_OPT_SET_1, false, "help"  , 'h', OptionParser::eRequiredArgument, NULL, NULL, 0, eArgTypeHelpText, "The help text to display for this command."},
-    { LLDB_OPT_SET_1, false, "synchronicity", 's', OptionParser::eRequiredArgument, NULL, g_script_synchro_type, 0, eArgTypeScriptedCommandSynchronicity,        "Set the synchronicity of this command's executions with regard to LLDB event system."},
+    { LLDB_OPT_SET_ALL, false, "synchronicity", 's', OptionParser::eRequiredArgument, NULL, g_script_synchro_type, 0, eArgTypeScriptedCommandSynchronicity,        "Set the synchronicity of this command's executions with regard to LLDB event system."},
     { 0, false, NULL, 0, 0, NULL, NULL, 0, eArgTypeNone, NULL }
 };
 
@@ -1931,11 +2181,11 @@ public:
                             "A set of commands for managing or customizing script commands.",
                             "command script <subcommand> [<subcommand-options>]")
     {
-        LoadSubCommand ("add",  CommandObjectSP (new CommandObjectCommandsScriptAdd (interpreter)));
-        LoadSubCommand ("delete",   CommandObjectSP (new CommandObjectCommandsScriptDelete (interpreter)));
-        LoadSubCommand ("clear", CommandObjectSP (new CommandObjectCommandsScriptClear (interpreter)));
+        LoadSubCommand ("add",    CommandObjectSP (new CommandObjectCommandsScriptAdd (interpreter)));
+        LoadSubCommand ("delete", CommandObjectSP (new CommandObjectCommandsScriptDelete (interpreter)));
+        LoadSubCommand ("clear",  CommandObjectSP (new CommandObjectCommandsScriptClear (interpreter)));
         LoadSubCommand ("list",   CommandObjectSP (new CommandObjectCommandsScriptList (interpreter)));
-        LoadSubCommand ("import",   CommandObjectSP (new CommandObjectCommandsScriptImport (interpreter)));
+        LoadSubCommand ("import", CommandObjectSP (new CommandObjectCommandsScriptImport (interpreter)));
     }
 
     ~CommandObjectMultiwordCommandsScript ()
@@ -1960,9 +2210,10 @@ CommandObjectMultiwordCommands::CommandObjectMultiwordCommands (CommandInterpret
     LoadSubCommand ("source",  CommandObjectSP (new CommandObjectCommandsSource (interpreter)));
     LoadSubCommand ("alias",   CommandObjectSP (new CommandObjectCommandsAlias (interpreter)));
     LoadSubCommand ("unalias", CommandObjectSP (new CommandObjectCommandsUnalias (interpreter)));
+    LoadSubCommand ("delete",  CommandObjectSP (new CommandObjectCommandsDelete (interpreter)));
     LoadSubCommand ("regex",   CommandObjectSP (new CommandObjectCommandsAddRegex (interpreter)));
-    LoadSubCommand ("history",   CommandObjectSP (new CommandObjectCommandsHistory (interpreter)));
-    LoadSubCommand ("script",   CommandObjectSP (new CommandObjectMultiwordCommandsScript (interpreter)));
+    LoadSubCommand ("history", CommandObjectSP (new CommandObjectCommandsHistory (interpreter)));
+    LoadSubCommand ("script",  CommandObjectSP (new CommandObjectMultiwordCommandsScript (interpreter)));
 }
 
 CommandObjectMultiwordCommands::~CommandObjectMultiwordCommands ()

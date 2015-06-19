@@ -78,6 +78,8 @@ public:
     //------------------------------------------------------------------
     explicit FileSpec (const char *path, bool resolve_path, PathSyntax syntax = ePathSyntaxHostNative);
 
+    explicit FileSpec (const char *path, bool resolve_path, ArchSpec arch);
+
     //------------------------------------------------------------------
     /// Copy constructor
     ///
@@ -257,9 +259,13 @@ public:
     ///
     /// @param[in] s
     ///     The stream to which to dump the object description.
+    ///
+    /// @param[in] trailing_slash
+    ///     If true and the file is a non root directory, then a trailing slash
+    ///     will be added.
     //------------------------------------------------------------------
     void
-    Dump (Stream *s) const;
+    Dump(Stream *s, bool trailing_slash = true) const;
 
     //------------------------------------------------------------------
     /// Existence test.
@@ -409,6 +415,17 @@ public:
     GetPath (bool denormalize = true) const;
 
     //------------------------------------------------------------------
+    /// Extract the full path to the file.
+    ///
+    /// Extract the directory and path into an llvm::SmallVectorImpl<>
+    ///
+    /// @return
+    ///     Returns a std::string with the directory and filename
+    ///     concatenated.
+    //------------------------------------------------------------------
+    void GetPath(llvm::SmallVectorImpl<char> &path, bool denormalize = true) const;
+
+    //------------------------------------------------------------------
     /// Extract the extension of the file.
     ///
     /// Returns a ConstString that represents the extension of the filename
@@ -529,6 +546,45 @@ public:
     //------------------------------------------------------------------
     lldb::DataBufferSP
     MemoryMapFileContents (off_t offset = 0, size_t length = SIZE_MAX) const;
+
+
+    //------------------------------------------------------------------
+    /// Memory map part of, or the entire contents of, a file only if
+    /// the file is local (not on a network mount).
+    ///
+    /// Returns a shared pointer to a data buffer that contains all or
+    /// part of the contents of a file. The data will be memory mapped
+    /// if the file is local and will lazily page in data from the file
+    /// as memory is accessed. If the data is memory mapped, the data
+    /// that is mapped will start \a offset bytes into the file, and
+    /// \a length bytes will be mapped. If \a length is
+    /// greater than the number of bytes available in the file starting
+    /// at \a offset, the number of bytes will be appropriately
+    /// truncated. The final number of bytes that get mapped can be
+    /// verified using the DataBuffer::GetByteSize() function on the return
+    /// shared data pointer object contents.
+    ///
+    /// If the file is on a network mount the data will be read into a
+    /// heap buffer immediately so that accesses to the data won't later
+    /// cause a crash if we touch a page that isn't paged in and the
+    /// network mount has been disconnected or gone away.
+    ///
+    /// @param[in] offset
+    ///     The offset in bytes from the beginning of the file where
+    ///     memory mapping should begin.
+    ///
+    /// @param[in] length
+    ///     The size in bytes that should be mapped starting \a offset
+    ///     bytes into the file. If \a length is \c SIZE_MAX, map
+    ///     as many bytes as possible.
+    ///
+    /// @return
+    ///     A shared pointer to the memory mapped data. This shared
+    ///     pointer can contain a NULL DataBuffer pointer, so the contained
+    ///     pointer must be checked prior to using it.
+    //------------------------------------------------------------------
+    lldb::DataBufferSP
+    MemoryMapFileContentsIfLocal(off_t file_offset, size_t file_size) const;
 
     //------------------------------------------------------------------
     /// Read part of, or the entire contents of, a file into a heap based data buffer.

@@ -21,14 +21,8 @@
 
 #include "GDBRemoteCommunication.h"
 
-typedef enum 
-{
-    eBreakpointSoftware = 0,
-    eBreakpointHardware,
-    eWatchpointWrite,
-    eWatchpointRead,
-    eWatchpointReadWrite
-} GDBStoppointType;
+namespace lldb_private {
+namespace process_gdb_remote {
 
 class GDBRemoteCommunicationClient : public GDBRemoteCommunication
 {
@@ -36,7 +30,7 @@ public:
     //------------------------------------------------------------------
     // Constructors and Destructors
     //------------------------------------------------------------------
-    GDBRemoteCommunicationClient(bool is_platform);
+    GDBRemoteCommunicationClient();
 
     ~GDBRemoteCommunicationClient();
 
@@ -45,7 +39,7 @@ public:
     // we are communicating with it.
     //------------------------------------------------------------------
     bool
-    HandshakeWithServer (lldb_private::Error *error_ptr);
+    HandshakeWithServer (Error *error_ptr);
 
     PacketResult
     SendPacketAndWaitForResponse (const char *send_payload,
@@ -86,7 +80,7 @@ public:
                                           StringExtractorGDBRemote &response);
 
     bool
-    GetThreadSuffixSupported ();
+    GetThreadSuffixSupported () override;
 
     // This packet is usually sent first and the boolean return value
     // indicates if the packet was send and any response was received
@@ -104,12 +98,12 @@ public:
     SendAsyncSignal (int signo);
 
     bool
-    SendInterrupt (lldb_private::Mutex::Locker &locker, 
+    SendInterrupt (Mutex::Locker &locker, 
                    uint32_t seconds_to_wait_for_stop, 
                    bool &timed_out);
 
     lldb::pid_t
-    GetCurrentProcessID ();
+    GetCurrentProcessID (bool allow_lazy = true);
 
     bool
     GetLaunchSuccess (std::string &error_str);
@@ -135,7 +129,7 @@ public:
     ///     response was received.
     //------------------------------------------------------------------
     int
-    SendArgumentsPacket (const lldb_private::ProcessLaunchInfo &launch_info);
+    SendArgumentsPacket (const ProcessLaunchInfo &launch_info);
 
     //------------------------------------------------------------------
     /// Sends a "QEnvironment:NAME=VALUE" packet that will build up the
@@ -182,6 +176,23 @@ public:
     SendAttach (lldb::pid_t pid, 
                 StringExtractorGDBRemote& response);
 
+
+    //------------------------------------------------------------------
+    /// Sends a GDB remote protocol 'I' packet that delivers stdin
+    /// data to the remote process.
+    ///
+    /// @param[in] data
+    ///     A pointer to stdin data.
+    ///
+    /// @param[in] data_len
+    ///     The number of bytes available at \a data.
+    ///
+    /// @return
+    ///     Zero if the attach was successful, or an error indicating
+    ///     an error code.
+    //------------------------------------------------------------------
+    int
+    SendStdinNotification(const char* data, size_t data_len);
 
     //------------------------------------------------------------------
     /// Sets the path to use for stdin/out/err for a process
@@ -260,29 +271,28 @@ public:
     bool
     DeallocateMemory (lldb::addr_t addr);
 
-    lldb_private::Error
+    Error
     Detach (bool keep_stopped);
 
-    lldb_private::Error
-    GetMemoryRegionInfo (lldb::addr_t addr, 
-                        lldb_private::MemoryRegionInfo &range_info); 
+    Error
+    GetMemoryRegionInfo (lldb::addr_t addr, MemoryRegionInfo &range_info); 
 
-    lldb_private::Error
+    Error
     GetWatchpointSupportInfo (uint32_t &num); 
 
-    lldb_private::Error
+    Error
     GetWatchpointSupportInfo (uint32_t &num, bool& after);
     
-    lldb_private::Error
+    Error
     GetWatchpointsTriggerAfterInstruction (bool &after);
 
-    const lldb_private::ArchSpec &
+    const ArchSpec &
     GetHostArchitecture ();
     
     uint32_t
     GetHostDefaultPacketTimeout();
 
-    const lldb_private::ArchSpec &
+    const ArchSpec &
     GetProcessArchitecture ();
 
     void
@@ -308,6 +318,9 @@ public:
 
     bool
     GetHostInfo (bool force = false);
+
+    bool
+    GetDefaultThreadId (lldb::tid_t &tid);
     
     bool
     GetOSVersion (uint32_t &major, 
@@ -320,7 +333,7 @@ public:
     bool
     GetOSKernelDescription (std::string &s);
 
-    lldb_private::ArchSpec
+    ArchSpec
     GetSystemArchitecture ();
 
     bool
@@ -333,12 +346,11 @@ public:
     GetSupportsThreadSuffix ();
 
     bool
-    GetProcessInfo (lldb::pid_t pid, 
-                    lldb_private::ProcessInstanceInfo &process_info);
+    GetProcessInfo (lldb::pid_t pid, ProcessInstanceInfo &process_info);
 
     uint32_t
-    FindProcesses (const lldb_private::ProcessInstanceInfoMatch &process_match_info,
-                   lldb_private::ProcessInstanceInfoList &process_infos);
+    FindProcesses (const ProcessInstanceInfoMatch &process_match_info,
+                   ProcessInstanceInfoList &process_infos);
 
     bool
     GetUserName (uint32_t uid, std::string &name);
@@ -375,8 +387,8 @@ public:
         case eWatchpointWrite:      return m_supports_z2;
         case eWatchpointRead:       return m_supports_z3;
         case eWatchpointReadWrite:  return m_supports_z4;
+        default:                    return false;
         }
-        return false;
     }
     uint8_t
     SendGDBStoppointTypePacket (GDBStoppointType type,   // Type of breakpoint or watchpoint
@@ -384,8 +396,11 @@ public:
                                 lldb::addr_t addr,        // Address of breakpoint or watchpoint
                                 uint32_t length);         // Byte Size of breakpoint or watchpoint
 
+    bool
+    SetNonStopMode (const bool enable);
+
     void
-    TestPacketSpeed (const uint32_t num_packets);
+    TestPacketSpeed (const uint32_t num_packets, uint32_t max_send, uint32_t max_recv, bool json, Stream &strm);
 
     // This packet is for testing the speed of the interface only. Both
     // the client and server need to support it, but this allows us to
@@ -417,7 +432,10 @@ public:
     bool
     GetAugmentedLibrariesSVR4ReadSupported ();
 
-    lldb_private::LazyBool
+    bool
+    GetQXferFeaturesReadSupported ();
+
+    LazyBool
     SupportsAllocDeallocMemory () // const
     {
         // Uncomment this to have lldb pretend the debug server doesn't respond to alloc/dealloc memory packets.
@@ -436,22 +454,18 @@ public:
     }
     
     lldb::user_id_t
-    OpenFile (const lldb_private::FileSpec& file_spec,
-              uint32_t flags,
-              mode_t mode,
-              lldb_private::Error &error);
+    OpenFile (const FileSpec& file_spec, uint32_t flags, mode_t mode, Error &error);
     
     bool
-    CloseFile (lldb::user_id_t fd,
-               lldb_private::Error &error);
+    CloseFile (lldb::user_id_t fd, Error &error);
     
     lldb::user_id_t
-    GetFileSize (const lldb_private::FileSpec& file_spec);
+    GetFileSize (const FileSpec& file_spec);
     
-    lldb_private::Error
+    Error
     GetFilePermissions(const char *path, uint32_t &file_permissions);
 
-    lldb_private::Error
+    Error
     SetFilePermissions(const char *path, uint32_t file_permissions);
 
     uint64_t
@@ -459,30 +473,29 @@ public:
               uint64_t offset,
               void *dst,
               uint64_t dst_len,
-              lldb_private::Error &error);
+              Error &error);
     
     uint64_t
     WriteFile (lldb::user_id_t fd,
                uint64_t offset,
                const void* src,
                uint64_t src_len,
-               lldb_private::Error &error);
+               Error &error);
     
-    lldb_private::Error
+    Error
     CreateSymlink (const char *src,
                    const char *dst);
     
-    lldb_private::Error
+    Error
     Unlink (const char *path);
 
-    lldb_private::Error
-    MakeDirectory (const char *path,
-                   uint32_t mode);
+    Error
+    MakeDirectory (const char *path, uint32_t mode);
     
     bool
-    GetFileExists (const lldb_private::FileSpec& file_spec);
+    GetFileExists (const FileSpec& file_spec);
     
-    lldb_private::Error
+    Error
     RunShellCommand (const char *command,           // Shouldn't be NULL
                      const char *working_dir,       // Pass NULL to use the current working directory
                      int *status_ptr,               // Pass NULL if you don't want the process exit status
@@ -491,9 +504,7 @@ public:
                      uint32_t timeout_sec);         // Timeout in seconds to wait for shell program to finish
     
     bool
-    CalculateMD5 (const lldb_private::FileSpec& file_spec,
-                  uint64_t &high,
-                  uint64_t &low);
+    CalculateMD5 (const FileSpec& file_spec, uint64_t &high, uint64_t &low);
     
     std::string
     HarmonizeThreadIdsForProfileData (ProcessGDBRemote *process,
@@ -526,6 +537,17 @@ public:
     bool
     GetThreadExtendedInfoSupported();
 
+    bool
+    GetModuleInfo (const FileSpec& module_file_spec,
+                   const ArchSpec& arch_spec,
+                   ModuleSpec &module_spec);
+
+    bool
+    ReadExtFeature (const lldb_private::ConstString object,
+                    const lldb_private::ConstString annex,
+                    std::string & out,
+                    lldb_private::Error & err);
+
 protected:
 
     PacketResult
@@ -534,7 +556,7 @@ protected:
                                         StringExtractorGDBRemote &response);
 
     bool
-    GetCurrentProcessInfo ();
+    GetCurrentProcessInfo (bool allow_lazy_pid = true);
 
     bool
     GetGDBServerVersion();
@@ -542,35 +564,36 @@ protected:
     //------------------------------------------------------------------
     // Classes that inherit from GDBRemoteCommunicationClient can see and modify these
     //------------------------------------------------------------------
-    lldb_private::LazyBool m_supports_not_sending_acks;
-    lldb_private::LazyBool m_supports_thread_suffix;
-    lldb_private::LazyBool m_supports_threads_in_stop_reply;
-    lldb_private::LazyBool m_supports_vCont_all;
-    lldb_private::LazyBool m_supports_vCont_any;
-    lldb_private::LazyBool m_supports_vCont_c;
-    lldb_private::LazyBool m_supports_vCont_C;
-    lldb_private::LazyBool m_supports_vCont_s;
-    lldb_private::LazyBool m_supports_vCont_S;
-    lldb_private::LazyBool m_qHostInfo_is_valid;
-    lldb_private::LazyBool m_curr_pid_is_valid;
-    lldb_private::LazyBool m_qProcessInfo_is_valid;
-    lldb_private::LazyBool m_qGDBServerVersion_is_valid;
-    lldb_private::LazyBool m_supports_alloc_dealloc_memory;
-    lldb_private::LazyBool m_supports_memory_region_info;
-    lldb_private::LazyBool m_supports_watchpoint_support_info;
-    lldb_private::LazyBool m_supports_detach_stay_stopped;
-    lldb_private::LazyBool m_watchpoints_trigger_after_instruction;
-    lldb_private::LazyBool m_attach_or_wait_reply;
-    lldb_private::LazyBool m_prepare_for_reg_writing_reply;
-    lldb_private::LazyBool m_supports_p;
-    lldb_private::LazyBool m_supports_x;
-    lldb_private::LazyBool m_avoid_g_packets;
-    lldb_private::LazyBool m_supports_QSaveRegisterState;
-    lldb_private::LazyBool m_supports_qXfer_auxv_read;
-    lldb_private::LazyBool m_supports_qXfer_libraries_read;
-    lldb_private::LazyBool m_supports_qXfer_libraries_svr4_read;
-    lldb_private::LazyBool m_supports_augmented_libraries_svr4_read;
-    lldb_private::LazyBool m_supports_jThreadExtendedInfo;
+    LazyBool m_supports_not_sending_acks;
+    LazyBool m_supports_thread_suffix;
+    LazyBool m_supports_threads_in_stop_reply;
+    LazyBool m_supports_vCont_all;
+    LazyBool m_supports_vCont_any;
+    LazyBool m_supports_vCont_c;
+    LazyBool m_supports_vCont_C;
+    LazyBool m_supports_vCont_s;
+    LazyBool m_supports_vCont_S;
+    LazyBool m_qHostInfo_is_valid;
+    LazyBool m_curr_pid_is_valid;
+    LazyBool m_qProcessInfo_is_valid;
+    LazyBool m_qGDBServerVersion_is_valid;
+    LazyBool m_supports_alloc_dealloc_memory;
+    LazyBool m_supports_memory_region_info;
+    LazyBool m_supports_watchpoint_support_info;
+    LazyBool m_supports_detach_stay_stopped;
+    LazyBool m_watchpoints_trigger_after_instruction;
+    LazyBool m_attach_or_wait_reply;
+    LazyBool m_prepare_for_reg_writing_reply;
+    LazyBool m_supports_p;
+    LazyBool m_supports_x;
+    LazyBool m_avoid_g_packets;
+    LazyBool m_supports_QSaveRegisterState;
+    LazyBool m_supports_qXfer_auxv_read;
+    LazyBool m_supports_qXfer_libraries_read;
+    LazyBool m_supports_qXfer_libraries_svr4_read;
+    LazyBool m_supports_qXfer_features_read;
+    LazyBool m_supports_augmented_libraries_svr4_read;
+    LazyBool m_supports_jThreadExtendedInfo;
 
     bool
         m_supports_qProcessInfoPID:1,
@@ -595,8 +618,8 @@ protected:
 
     // If we need to send a packet while the target is running, the m_async_XXX
     // member variables take care of making this happen.
-    lldb_private::Mutex m_async_mutex;
-    lldb_private::Predicate<bool> m_async_packet_predicate;
+    Mutex m_async_mutex;
+    Predicate<bool> m_async_packet_predicate;
     std::string m_async_packet;
     PacketResult m_async_result;
     StringExtractorGDBRemote m_async_response;
@@ -605,8 +628,8 @@ protected:
     std::string m_partial_profile_data;
     std::map<uint64_t, uint32_t> m_thread_id_to_used_usec_map;
     
-    lldb_private::ArchSpec m_host_arch;
-    lldb_private::ArchSpec m_process_arch;
+    ArchSpec m_host_arch;
+    ArchSpec m_process_arch;
     uint32_t m_os_version_major;
     uint32_t m_os_version_minor;
     uint32_t m_os_version_update;
@@ -620,12 +643,15 @@ protected:
     
     bool
     DecodeProcessInfoResponse (StringExtractorGDBRemote &response, 
-                               lldb_private::ProcessInstanceInfo &process_info);
+                               ProcessInstanceInfo &process_info);
 private:
     //------------------------------------------------------------------
     // For GDBRemoteCommunicationClient only
     //------------------------------------------------------------------
     DISALLOW_COPY_AND_ASSIGN (GDBRemoteCommunicationClient);
 };
+
+} // namespace process_gdb_remote
+} // namespace lldb_private
 
 #endif  // liblldb_GDBRemoteCommunicationClient_h_
