@@ -6,5 +6,12 @@ set(LLVM_PATH ${LLVM_PATH_FE})
 find_package(LLVM REQUIRED)
 message( STATUS "Frontend LLVM_INCLUDE_DIRS: ${LLVM_INCLUDE_DIRS}")
 
-add_subdirectory( clang_compiler )
+if (NOT USE_COMMON_CLANG)
+    add_subdirectory( common_clang )
+endif()
 
+if (NOT WIN32)
+    add_subdirectory( linux_linker )
+endif()
+
+add_subdirectory( clang_compiler )

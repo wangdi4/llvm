@@ -122,7 +122,7 @@ endif()
 # Include directories
 #
 include_directories( AFTER
-            ${LLVM_INCLUDE_DIRS}/cclang
+            ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang 
             ${CMAKE_SOURCE_DIR}/backend/metadata_api
             ${CMAKE_SOURCE_DIR}/backend/plugin_manager
             ${CMAKE_SOURCE_DIR}/backend/ocl_cpu_backend/export
@@ -161,7 +161,6 @@ install(TARGETS ${TARGET_NAME}
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION bin)
 
-
 target_link_libraries( ${TARGET_NAME}
                         OclPluginManager
                         CacheBinaryHandler
@@ -179,15 +178,9 @@ target_link_libraries( ${TARGET_NAME}
                        ${LLVM_MODULE_LIBS}
 )
 else()
-if(WIN32)
-    target_link_libraries( ${TARGET_NAME}
-        ${LLVM_LIBRARY_DIRS}/common_clang${BUILD_PLATFORM}.lib
-    )
-else(WIN32)
-    target_link_libraries( ${TARGET_NAME}
-            ${LLVM_BINARY_DIR}/libcommon_clang${BUILD_PLATFORM}.so
-    )
-endif(WIN32)
+target_link_libraries( ${TARGET_NAME}
+                        common_clang${BUILD_PLATFORM}
+)
 endif()
 
 if (NOT ANDROID AND NOT WIN32)
@@ -229,14 +222,3 @@ else (WIN32)
     set_target_properties( ${TARGET_NAME} PROPERTIES LINK_FLAGS "-Wl,-Bsymbolic")
 endif(WIN32)
 
-
-if(WIN32)
-    string(REPLACE "${CMAKE_CFG_INTDIR}" "\${BUILD_TYPE}" LLVM_BINARY_DIR_FOR_INSTALL ${LLVM_BINARY_DIR})
-    install( FILES ${LLVM_BINARY_DIR_FOR_INSTALL}/common_clang${BUILD_PLATFORM}.dll DESTINATION bin )
-    if(INSTALL_PDBS)
-        install( FILES ${LLVM_BINARY_DIR_FOR_INSTALL}/common_clang${BUILD_PLATFORM}.pdb DESTINATION bin )
-    endif(INSTALL_PDBS)
-    install( FILES ${LLVM_BINARY_DIR_FOR_INSTALL}/common_clang${BUILD_PLATFORM}_stripped.pdb DESTINATION bin )
-else(WIN32)
-    install( FILES ${LLVM_BINARY_DIR}/libcommon_clang${BUILD_PLATFORM}.so DESTINATION bin )
-endif(WIN32)
