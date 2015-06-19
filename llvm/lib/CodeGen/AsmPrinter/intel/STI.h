@@ -64,19 +64,42 @@ enum STISubsectionIDEnum {
 typedef enum STISubsectionIDEnum STISubsectionID;
 
 //===----------------------------------------------------------------------===//
-// STISignatureID
+// STISymbolsSignatureID
+//
+// Signature ID for the S_OBJNAME symbol emitted within the .debug$S section.
+//
 //===----------------------------------------------------------------------===//
 
-#define STI_SIGNATURE_KINDS                                     \
-    X(STI_SIGNATURE_VS2012,             0x0004)                 \
-    X(STI_SIGNATURE_LATEST,             STI_SIGNATURE_VS2012)   \
+#define STI_SYMBOLS_SIGNATURE_KINDS                                     \
+    X(STI_SYMBOLS_SIGNATURE_VS2012,     0x0000)                         \
+    X(STI_SYMBOLS_SIGNATURE_VS2013,     0x0000)                         \
+    X(STI_SYMBOLS_SIGNATURE_LATEST,     STI_SYMBOLS_SIGNATURE_VS2013)
 
-enum STISignatureIDEnum {
+enum STISymbolsSignatureIDEnum {
 #define X(KIND,VALUE) KIND = VALUE,
-    STI_SIGNATURE_KINDS
+    STI_SYMBOLS_SIGNATURE_KINDS
 #undef  X
 };
-typedef enum STISignatureIDEnum STISignatureID;
+typedef enum STISymbolsSignatureIDEnum STISymbolsSignatureID;
+
+//===----------------------------------------------------------------------===//
+// STITypesSignatureID
+//
+// Signature ID emitted at the beginning of the .debug$T section.
+//
+//===----------------------------------------------------------------------===//
+
+#define STI_TYPES_SIGNATURE_KINDS                                      \
+    X(STI_TYPES_SIGNATURE_VS2012,       0x0004)                        \
+    X(STI_TYPES_SIGNATURE_VS2013,       0x0004)                        \
+    X(STI_TYPES_SIGNATURE_LATEST,       STI_TYPES_SIGNATURE_VS2013)
+
+enum STITypesSignatureIDEnum {
+#define X(KIND,VALUE) KIND = VALUE,
+    STI_TYPES_SIGNATURE_KINDS
+#undef  X
+};
+typedef enum STITypesSignatureIDEnum STITypesSignatureID;
 
 //===----------------------------------------------------------------------===//
 // STISectionSignatureID
@@ -766,7 +789,7 @@ typedef enum STIPointerTypeEnum STIPointerType;
 #define ATTR_PTRMODE_REFERENCE  0x0020  /* (1) Reference */
 #define ATTR_PTRMODE_DATAMB     0x0040  /* (2) Pointer to data member */
 #define ATTR_PTRMODE_METHOD     0x0060  /* (3) Pointer to method */
-#define ATTR_PTRMODE_RVALUE     0x0080; /* rvalue reference (VS2010 only) */
+#define ATTR_PTRMODE_RVALUE     0x0080  /* C++11 R-Value Reference */
 #define ATTR_ISFLAT32           0x0100  /* TRUE if 16:32 pointer */
 #define ATTR_VOLATILE           0x0200  /* TRUE if pointer is volatile */
 #define ATTR_CONST              0x0400  /* TRUE if pointer is const */

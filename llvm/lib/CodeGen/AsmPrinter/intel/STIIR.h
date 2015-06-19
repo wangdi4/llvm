@@ -408,7 +408,7 @@ public:
   typedef std::vector<STISymbolCompileUnit *> CompileUnitList;
 
 private:
-  STISignatureID _signatureID;
+  STISymbolsSignatureID _signatureID;
   std::string _path;
   CompileUnitList _compileUnits;
 
@@ -416,11 +416,11 @@ protected:
   STISymbolModule();
 
 public:
-  static STISymbolModule *create(const Module *module);
+  static STISymbolModule *create();
   ~STISymbolModule();
 
-  STISignatureID getSignatureID() const;
-  void setSignatureID(STISignatureID signatureID);
+  STISymbolsSignatureID getSymbolsSignatureID() const;
+  void setSymbolsSignatureID(STISymbolsSignatureID signatureID);
   StringRef getPath() const;
   void setPath(StringRef path);
   const CompileUnitList *getCompileUnits() const;
@@ -699,9 +699,10 @@ public:
 private:
   STIType *_pointerTo;
   STIType *_containingClass;
-  bool _isReference;
-  PTMType _ptrToMemberType;
-  bool _isConstant;
+  PTMType  _ptrToMemberType;
+  bool     _isLValueReference;
+  bool     _isRValueReference;
+  bool     _isConstant;
 
 protected:
   STITypePointer();
@@ -717,11 +718,14 @@ public:
   STIType *getContainingClass() const;
   void setContainingClass(STIType *classType);
 
-  bool isReference() const;
-  void setIsReference(bool isReference);
-
   PTMType getPtrToMemberType() const;
   void setPtrToMemberType(PTMType ptrToMemberType);
+
+  bool isLValueReference() const;
+  void setIsLValueReference(bool isLValueReference);
+
+  bool isRValueReference() const;
+  void setIsRValueReference(bool isRValueReference);
 
   bool isConstant() const;
   void setIsConstant(bool isConst);

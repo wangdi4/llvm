@@ -400,10 +400,10 @@ STISymbol::~STISymbol() {}
 // STISymbolModule
 //===----------------------------------------------------------------------===//
 
-STISymbolModule *STISymbolModule::create(const Module *module) {
-  STISymbolModule *symbol = new STISymbolModule();
+STISymbolModule *STISymbolModule::create() {
+  STISymbolModule *symbol;
 
-  symbol->setSignatureID(STI_SIGNATURE_LATEST);
+  symbol = new STISymbolModule();
 
   return symbol;
 }
@@ -417,13 +417,15 @@ STISymbolModule::~STISymbolModule() {
   }
 }
 
-STISignatureID STISymbolModule::getSignatureID() const { return _signatureID; }
+STISymbolsSignatureID STISymbolModule::getSymbolsSignatureID() const {
+  return _signatureID;
+}
 
-StringRef STISymbolModule::getPath() const { return _path; }
-
-void STISymbolModule::setSignatureID(STISignatureID signatureID) {
+void STISymbolModule::setSymbolsSignatureID(STISymbolsSignatureID signatureID) {
   _signatureID = signatureID;
 }
+
+StringRef STISymbolModule::getPath() const { return _path; }
 
 void STISymbolModule::setPath(StringRef path) { _path = path; }
 
@@ -748,9 +750,13 @@ void STITypeModifier::setIsUnaligned(bool isUnaligned) {
 //===----------------------------------------------------------------------===//
 
 STITypePointer::STITypePointer()
-    : STIType(STI_OBJECT_KIND_TYPE_POINTER), _pointerTo(nullptr),
-      _containingClass(nullptr), _isReference(false),
-      _ptrToMemberType(STITypePointer::PTM_NONE), _isConstant(false) {}
+    : STIType            (STI_OBJECT_KIND_TYPE_POINTER),
+      _pointerTo         (nullptr),
+      _containingClass   (nullptr),
+      _ptrToMemberType   (STITypePointer::PTM_NONE),
+      _isLValueReference (false),
+      _isRValueReference (false),
+      _isConstant        (false) {}
 
 STITypePointer::~STITypePointer() {}
 
@@ -768,12 +774,6 @@ void STITypePointer::setContainingClass(STIType *classType) {
   _containingClass = classType;
 }
 
-bool STITypePointer::isReference() const { return _isReference; }
-
-void STITypePointer::setIsReference(bool isReference) {
-  _isReference = isReference;
-}
-
 STITypePointer::PTMType STITypePointer::getPtrToMemberType() const {
   return _ptrToMemberType;
 }
@@ -781,6 +781,18 @@ STITypePointer::PTMType STITypePointer::getPtrToMemberType() const {
 void
 STITypePointer::setPtrToMemberType(STITypePointer::PTMType ptrToMemberType) {
   _ptrToMemberType = ptrToMemberType;
+}
+
+bool STITypePointer::isLValueReference() const { return _isLValueReference; }
+
+void STITypePointer::setIsLValueReference(bool isLValueReference) {
+  _isLValueReference = isLValueReference;
+}
+
+bool STITypePointer::isRValueReference() const { return _isRValueReference; }
+
+void STITypePointer::setIsRValueReference(bool isRValueReference) {
+  _isRValueReference = isRValueReference;
 }
 
 bool STITypePointer::isConstant() const { return _isConstant; }

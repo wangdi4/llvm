@@ -1414,16 +1414,15 @@ STIType *STIDebugImpl::createTypePointer(const MDDerivedType *llvmType) {
   STITypePointer *type;
   STIType *classType = nullptr;
   STIType *pointerTo = nullptr;
+  unsigned tag = llvmType->getTag();
   unsigned int sizeInBits = llvmType->getSizeInBits();
-  bool isReference = llvmType->getTag() == dwarf::DW_TAG_reference_type ||
-                     llvmType->getTag() == dwarf::DW_TAG_rvalue_reference_type;
 
   STITypePointer::PTMType ptrToMemberType = STITypePointer::PTM_NONE;
 
   MDType *derivedType = resolve(llvmType->getBaseType());
   pointerTo = createType(derivedType);
 
-  if (llvmType->getTag() == dwarf::DW_TAG_ptr_to_member_type) {
+  if (tag == dwarf::DW_TAG_ptr_to_member_type) {
     classType = createType(resolve(llvmType->getClassType()));
     if (dyn_cast<MDSubroutineType>(resolve(llvmType->getBaseType()))) {
       ptrToMemberType = STITypePointer::PTM_METHOD;
@@ -1441,7 +1440,8 @@ STIType *STIDebugImpl::createTypePointer(const MDDerivedType *llvmType) {
   }
   type->setSizeInBits(sizeInBits);
   type->setContainingClass(classType);
-  type->setIsReference(isReference);
+  type->setIsLValueReference(tag == dwarf::DW_TAG_reference_type);
+  type->setIsRValueReference(tag == dwarf::DW_TAG_rvalue_reference_type);
   type->setPtrToMemberType(ptrToMemberType);
 
   return type;
@@ -2562,8 +2562,12 @@ STIDebugImpl::getOrCreateSymbolProcedure(const MDSubprogram *SP) {
 
   frame->setProcedure(procedure);
 
-  getOrCreateScope(resolve(SP->getScope()))
-      ->add(procedure); // FIXME: inline function!?
+  // In the Microsoft symbols section, all procedure records occur in the
+  // compilation unit scope.  Routines which are nested within other routines,
+  // such as inlined or Fortran contained routines, are represented using a
+  // separate symbol record at the appropriate scoping level.
+  //
+  getCompileUnit()->getScope()->add(procedure);
 
   const_cast<STIDebugImpl *>(this)->getTypeTable()->push_back(
       funcIDType); // FIXME
@@ -2950,7 +2954,8 @@ void STIDebugImpl::collectModuleInfo() {
   STISymbolModule *module;
   std::string OBJPath = getOBJFullPath();
 
-  module = STISymbolModule::create(M);
+  module = STISymbolModule::create();
+  module->setSymbolsSignatureID(STI_SYMBOLS_SIGNATURE_LATEST);
   module->setPath(OBJPath);
 
   getSymbolTable()->setRoot(module);
@@ -3265,7 +3270,7 @@ StringRef STIDebugImpl::getMDStringValue(StringRef MDName) const {
 }
 
 void STIDebugImpl::emitSymbolModule(const STISymbolModule *module) const {
-  STISignatureID signatureID = module->getSignatureID();
+  STISymbolsSignatureID signatureID = module->getSymbolsSignatureID();
   StringRef path = module->getPath();
   const int length = 7 + path.size();
 
@@ -3321,14 +3326,14 @@ void STIDebugImpl::emitSymbolCompileUnit(
   int verQFE;
   StringRef producer;
 
-  verFEMajor = 0x0001;
-  verFEMinor = 0x0002;
-  verFEBuild = 0x0003;
-  verFEQFE = 0x0004;
-  verMajor = 0x0005;
-  verMinor = 0x0006;
-  verBuild = 0x0007;
-  verQFE = 0x0008;
+  verFEMajor = 1;
+  verFEMinor = 0;
+  verFEBuild = 0;
+  verFEQFE   = 0;
+  verMajor   = 1;
+  verMinor   = 0;
+  verBuild   = 0;
+  verQFE     = 0;
 
   producer = compileUnit->getProducer();
 
@@ -3721,8 +3726,6 @@ void STIDebugImpl::emitLineSlice(const STISymbolProcedure *procedure) const {
   Function *function = slice->getFunction();
   MCSymbol *functionLabel = ASM()->getSymbol(function);
 
-  emitSubsection(STI_SUBSECTION_LINES);
-
   emitSecRel32(functionLabel);
   emitSectionIndex(functionLabel);
   emitInt16(0); // FIXME: flags values?
@@ -3736,12 +3739,14 @@ void STIDebugImpl::emitLineSlice(const STISymbolProcedure *procedure) const {
 void STIDebugImpl::walkSymbol(const STISymbol *symbol) const {
   STIObjectKind kind;
 
+  // Symbols are emitted into the symbols subsection.
+  emitSubsection(STI_SUBSECTION_SYMBOLS);
+
   kind = symbol->getKind();
   switch (kind) {
   case STI_OBJECT_KIND_SYMBOL_MODULE: {
     const STISymbolModule *module;
     module = static_cast<const STISymbolModule *>(symbol);
-    emitSubsection(STI_SUBSECTION_SYMBOLS);
     emitSymbolModule(module);
     for (const STISymbolCompileUnit *unit : *module->getCompileUnits()) {
       walkSymbol(unit);
@@ -3751,7 +3756,6 @@ void STIDebugImpl::walkSymbol(const STISymbol *symbol) const {
   case STI_OBJECT_KIND_SYMBOL_COMPILE_UNIT: {
     const STISymbolCompileUnit *compileUnit;
     compileUnit = static_cast<const STISymbolCompileUnit *>(symbol);
-    emitSubsection(STI_SUBSECTION_SYMBOLS);
     emitSymbolCompileUnit(compileUnit);
     for (const auto &object : compileUnit->getScope()->getObjects()) {
       walkSymbol(static_cast<const STISymbol *>(object.second)); // FIXME: cast
@@ -3762,14 +3766,20 @@ void STIDebugImpl::walkSymbol(const STISymbol *symbol) const {
     const STISymbolProcedure *procedure;
 
     procedure = static_cast<const STISymbolProcedure *>(symbol);
-    emitSubsection(STI_SUBSECTION_SYMBOLS);
     emitSymbolProcedure(procedure);
     emitSymbolFrameProc(procedure->getFrame());
     for (const auto &object : procedure->getScope()->getObjects()) {
       walkSymbol(static_cast<const STISymbol *>(object.second));
     }
     emitSymbolProcedureEnd();
+    // This code emits line subsections for each procedure interleaved with
+    // the symbols subsections to make it easier to match them up.  Anything
+    // emitted after this point will NOT be emitted to the symbols subsection.
+    //
+    emitSubsection(STI_SUBSECTION_LINES);
     emitLineSlice(procedure);
+    // The line slice is emitted into the LINES subsection, so you can't emit
+    // anything here and expect it to be emitted into the symbols subsection.
   } break;
 
   case STI_OBJECT_KIND_SYMBOL_BLOCK: {
@@ -3782,7 +3792,6 @@ void STIDebugImpl::walkSymbol(const STISymbol *symbol) const {
         emptyBlock = false;
       }
     }
-    emitSubsection(STI_SUBSECTION_SYMBOLS);
     if (!emptyBlock)
       emitSymbolBlock(block);
     for (const auto &object : block->getScope()->getObjects()) {
@@ -3795,21 +3804,18 @@ void STIDebugImpl::walkSymbol(const STISymbol *symbol) const {
   case STI_OBJECT_KIND_SYMBOL_VARIABLE: {
     const STISymbolVariable *variable;
     variable = static_cast<const STISymbolVariable *>(symbol);
-    emitSubsection(STI_SUBSECTION_SYMBOLS);
     emitSymbolVariable(variable);
   } break;
 
   case STI_OBJECT_KIND_SYMBOL_CONSTANT: {
     const STISymbolConstant *constant;
     constant = static_cast<const STISymbolConstant*>(symbol);
-    emitSubsection(STI_SUBSECTION_SYMBOLS);
     emitSymbolConstant(constant);
   } break;
 
   case STI_OBJECT_KIND_SYMBOL_USER_DEFINED: {
     const STISymbolUserDefined *userDefined;
     userDefined = static_cast<const STISymbolUserDefined *>(symbol);
-    emitSubsection(STI_SUBSECTION_SYMBOLS);
     emitSymbolUserDefined(userDefined);
   } break;
 
@@ -3911,18 +3917,21 @@ public:
       _attributes.field._ptrtype = ATTR_PTRTYPE_NEAR32;
     }
 
-    if (type->isReference()) {
-      _attributes.raw = _attributes.raw | ATTR_PTRMODE_REFERENCE;
+    if (type->isLValueReference()) {
+      _attributes.raw |= ATTR_PTRMODE_REFERENCE;
+    }
+    if (type->isRValueReference()) {
+      _attributes.raw |= ATTR_PTRMODE_RVALUE;
     }
 
     switch (type->getPtrToMemberType()) {
     case STITypePointer::PTM_NONE:
       break;
     case STITypePointer::PTM_DATA:
-      _attributes.raw = _attributes.raw | ATTR_PTRMODE_DATAMB;
+      _attributes.raw |= ATTR_PTRMODE_DATAMB;
       break;
     case STITypePointer::PTM_METHOD:
-      _attributes.raw = _attributes.raw | ATTR_PTRMODE_METHOD;
+      _attributes.raw |= ATTR_PTRMODE_METHOD;
       break;
     }
 
@@ -4394,8 +4403,10 @@ void STIDebugImpl::emitType(const STIType *type) const {
 //===----------------------------------------------------------------------===//
 
 void STIDebugImpl::emitTypesSignature() const {
+  const STITypesSignatureID signatureID = STI_TYPES_SIGNATURE_LATEST;
+
   emitComment("Types Section Signature");
-  emitInt32(STI_SIGNATURE_LATEST);
+  emitInt32(signatureID);
 }
 
 //===----------------------------------------------------------------------===//
