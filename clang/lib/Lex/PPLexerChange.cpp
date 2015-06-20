@@ -309,7 +309,7 @@ bool Preprocessor::HandleEndOfFile(Token &Result, bool isEndOfMacro) {
         }
         if (const IdentifierInfo *DefinedMacro =
               CurPPLexer->MIOpt.GetDefinedMacro()) {
-          if (!ControllingMacro->hasMacroDefinition() &&
+          if (!isMacroDefined(ControllingMacro) &&
               DefinedMacro != ControllingMacro &&
               HeaderInfo.FirstTimeLexingFile(FE)) {
 
@@ -474,7 +474,7 @@ bool Preprocessor::HandleEndOfFile(Token &Result, bool isEndOfMacro) {
       if (!getDiagnostics().isIgnored(diag::warn_uncovered_module_header,
                                       StartLoc)) {
         ModuleMap &ModMap = getHeaderSearchInfo().getModuleMap();
-        const DirectoryEntry *Dir = Mod->getUmbrellaDir();
+        const DirectoryEntry *Dir = Mod->getUmbrellaDir().Entry;
         vfs::FileSystem &FS = *FileMgr.getVirtualFileSystem();
         std::error_code EC;
         for (vfs::recursive_directory_iterator Entry(FS, Dir->getName(), EC), End;
@@ -610,32 +610,90 @@ void Preprocessor::HandleMicrosoftCommentPaste(Token &Tok) {
 }
 
 void Preprocessor::EnterSubmodule(Module *M, SourceLocation ImportLoc) {
-  // Save the current state for future imports.
-  BuildingSubmoduleStack.push_back(BuildingSubmoduleInfo(M, ImportLoc));
+  if (!getLangOpts().ModulesLocalVisibility) {
+    // Just track that we entered this submodule.
+    BuildingSubmoduleStack.push_back(
+        BuildingSubmoduleInfo(M, ImportLoc, CurSubmoduleState));
+    return;
+  }
 
-  auto &Info = BuildingSubmoduleStack.back();
-  // Copy across our macros and start the submodule with the current state.
-  // FIXME: We should start each submodule with just the predefined macros.
-  Info.Macros = Macros;
+  // Resolve as much of the module definition as we can now, before we enter
+  // one of its headers.
+  // FIXME: Can we enable Complain here?
+  // FIXME: Can we do this when local visibility is disabled?
+  ModuleMap &ModMap = getHeaderSearchInfo().getModuleMap();
+  ModMap.resolveExports(M, /*Complain=*/false);
+  ModMap.resolveUses(M, /*Complain=*/false);
+  ModMap.resolveConflicts(M, /*Complain=*/false);
+
+  // If this is the first time we've entered this module, set up its state.
+  auto R = Submodules.insert(std::make_pair(M, SubmoduleState()));
+  auto &State = R.first->second;
+  bool FirstTime = R.second;
+  if (FirstTime) {
+    // Determine the set of starting macros for this submodule; take these
+    // from the "null" module (the predefines buffer).
+    auto &StartingMacros = NullSubmoduleState.Macros;
+
+    // Restore to the starting state.
+    // FIXME: Do this lazily, when each macro name is first referenced.
+    for (auto &Macro : StartingMacros) {
+      MacroState MS(Macro.second.getLatest());
+      MS.setOverriddenMacros(*this, Macro.second.getOverriddenMacros());
+      State.Macros.insert(std::make_pair(Macro.first, std::move(MS)));
+    }
+  }
+
+  // Track that we entered this module.
+  BuildingSubmoduleStack.push_back(
+      BuildingSubmoduleInfo(M, ImportLoc, CurSubmoduleState));
+
+  // Switch to this submodule as the current submodule.
+  CurSubmoduleState = &State;
+
+  // This module is visible to itself.
+  if (FirstTime)
+    makeModuleVisible(M, ImportLoc);
 }
 
 void Preprocessor::LeaveSubmodule() {
   auto &Info = BuildingSubmoduleStack.back();
 
+  Module *LeavingMod = Info.M;
+  SourceLocation ImportLoc = Info.ImportLoc;
+
   // Create ModuleMacros for any macros defined in this submodule.
-  for (auto &Macro : Macros) {
+  for (auto &Macro : CurSubmoduleState->Macros) {
     auto *II = const_cast<IdentifierInfo*>(Macro.first);
-    MacroState State = Info.Macros.lookup(II);
+
+    // Find the starting point for the MacroDirective chain in this submodule.
+    MacroDirective *OldMD = nullptr;
+    if (getLangOpts().ModulesLocalVisibility) {
+      // FIXME: It'd be better to start at the state from when we most recently
+      // entered this submodule, but it doesn't really matter.
+      auto &PredefMacros = NullSubmoduleState.Macros;
+      auto PredefMacroIt = PredefMacros.find(Macro.first);
+      if (PredefMacroIt == PredefMacros.end())
+        OldMD = nullptr;
+      else
+        OldMD = PredefMacroIt->second.getLatest();
+    }
 
     // This module may have exported a new macro. If so, create a ModuleMacro
     // representing that fact.
     bool ExplicitlyPublic = false;
-    for (auto *MD = Macro.second.getLatest(); MD != State.getLatest();
+    for (auto *MD = Macro.second.getLatest(); MD != OldMD;
          MD = MD->getPrevious()) {
-      // Skip macros defined in other submodules we #included along the way.
-      Module *Mod = getModuleContainingLocation(MD->getLocation());
-      if (Mod != Info.M)
-        continue;
+      assert(MD && "broken macro directive chain");
+
+      // Stop on macros defined in other submodules we #included along the way.
+      // There's no point doing this if we're tracking local submodule
+      // visibility, since there can be no such directives in our list.
+      if (!getLangOpts().ModulesLocalVisibility) {
+        Module *Mod = getModuleContainingLocation(MD->getLocation());
+        if (Mod != LeavingMod)
+          break;
+      }
 
       if (auto *VisMD = dyn_cast<VisibilityMacroDirective>(MD)) {
         // The latest visibility directive for a name in a submodule affects
@@ -653,18 +711,23 @@ void Preprocessor::LeaveSubmodule() {
         // FIXME: Issue a warning if multiple headers for the same submodule
         // define a macro, rather than silently ignoring all but the first.
         bool IsNew;
-        addModuleMacro(Info.M, II, Def, Macro.second.getOverriddenMacros(),
-                       IsNew);
+        // Don't bother creating a module macro if it would represent a #undef
+        // that doesn't override anything.
+        if (Def || !Macro.second.getOverriddenMacros().empty())
+          addModuleMacro(LeavingMod, II, Def,
+                         Macro.second.getOverriddenMacros(), IsNew);
         break;
       }
     }
-
-    // Update the macro to refer to the latest directive in the chain.
-    State.setLatest(Macro.second.getLatest());
-
-    // Restore the old macro state.
-    Macro.second = State;
   }
 
+  // Put back the outer module's state, if we're tracking it.
+  if (getLangOpts().ModulesLocalVisibility)
+    CurSubmoduleState = Info.OuterSubmoduleState;
+
   BuildingSubmoduleStack.pop_back();
+
+  // A nested #include makes the included submodule visible.
+  if (!BuildingSubmoduleStack.empty() || !getLangOpts().ModulesLocalVisibility)
+    makeModuleVisible(LeavingMod, ImportLoc);
 }

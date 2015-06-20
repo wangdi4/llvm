@@ -76,6 +76,7 @@ private:
   bool GCN3Encoding;
   bool CIInsts;
   bool FeatureDisable;
+  int LDSBankCount;
 
   AMDGPUFrameLowering FrameLowering;
   std::unique_ptr<AMDGPUTargetLowering> TLInfo;
@@ -185,6 +186,14 @@ public:
     return (getGeneration() >= EVERGREEN);
   }
 
+  bool hasCARRY() const {
+    return (getGeneration() >= EVERGREEN);
+  }
+
+  bool hasBORROW() const {
+    return (getGeneration() >= EVERGREEN);
+  }
+
   bool IsIRStructurizerEnabled() const {
     return EnableIRStructurizer;
   }
@@ -218,6 +227,10 @@ public:
 
   bool hasSGPRInitBug() const {
     return SGPRInitBug;
+  }
+
+  int getLDSBankCount() const {
+    return LDSBankCount;
   }
 
   unsigned getAmdKernelCodeChipID() const;
