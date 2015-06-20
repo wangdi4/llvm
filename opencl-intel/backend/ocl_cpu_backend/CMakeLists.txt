@@ -297,7 +297,6 @@ endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 # Add include directories
 include_directories(
     ${LLVM_INCLUDE_DIRS}
-    ${LLVM_INCLUDE_DIRS}/cclang
     ${BACKEND_ROOT_DIR}
     ${OCL_CPU_BACKEND_DIR}
     ${OCL_CPU_BACKEND_DIR}/export
@@ -313,6 +312,7 @@ include_directories(
     ${BACKEND_ROOT_DIR}/utils
     ${BACKEND_ROOT_DIR}/metadata_api
     ${BACKEND_ROOT_DIR}/../utils/cache_binary_handler
+    ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang
     ${CMAKE_SOURCE_DIR}/utils/CLElfLib 
     ${CMAKE_BINARY_DIR}/include/
     ${OCL_BINARY_DIR}

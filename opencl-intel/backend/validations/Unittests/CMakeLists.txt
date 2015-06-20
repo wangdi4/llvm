@@ -38,7 +38,6 @@ set(TARGET_SOURCE_FILES
 
 include_directories(
     ${LLVM_INCLUDE_DIRS}
-    ${LLVM_INCLUDE_DIRS}/cclang
     ${BACKEND_ROOT_DIR}/../externals/gtest/include
     ${BACKEND_ROOT_DIR}/../cl_api
     ${BACKEND_ROOT_DIR}/external/tinyxml
@@ -61,6 +60,7 @@ include_directories(
     ${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser
     ${CMAKE_CURRENT_SOURCE_DIR}/Common 
     ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
+    ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang
 )
 
 link_directories(
