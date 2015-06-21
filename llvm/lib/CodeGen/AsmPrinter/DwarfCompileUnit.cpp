@@ -138,7 +138,7 @@ DIE *DwarfCompileUnit::getOrCreateGlobalVariableDIE(
 
   if (!GV->isDefinition())
     addFlag(*VariableDIE, dwarf::DW_AT_declaration);
-  else
+  else if (!GV->isLocalToUnit()) //***INTEL
     addGlobalName(GV->getName(), *VariableDIE, DeclContext);
 
   // Add location.
@@ -811,7 +811,8 @@ void DwarfCompileUnit::applySubprogramAttributesToDefinition(
   auto *SPDecl = SP->getDeclaration();
   auto *Context = resolve(SPDecl ? SPDecl->getScope() : SP->getScope());
   applySubprogramAttributes(SP, SPDie, includeMinimalInlineScopes());
-  addGlobalName(SP->getName(), SPDie, Context);
+  if (!SP->isLocalToUnit()) //***INTEL
+    addGlobalName(SP->getName(), SPDie, Context);
 }
 
 bool DwarfCompileUnit::isDwoUnit() const {
